@@ -1,0 +1,20 @@
+{
+  // The page's own project: the DOM library and no Bun or Node types, so a page module reaching for
+  // `Bun.file` or `node:fs` fails to compile rather than failing in a browser. Strictness is the
+  // root's, inherited rather than restated.
+  "extends": "../../../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "types": []
+  },
+  // The three files outside this folder the page imports, named one by one: each imports nothing, and
+  // compiling them here is what proves they stay environment-neutral.
+  "include": [
+    "./**/*.ts",
+    "../../constants/Types.ts",
+    "../../utils/HtmlEscapeUtil.ts",
+    "../../utils/TokenCountUtil.ts"
+  ],
+  // Emptied on purpose: an inherited `exclude` resolves against the root, which excludes this folder.
+  "exclude": []
+}

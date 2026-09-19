@@ -1,0 +1,26 @@
+{
+  "name": "agent-progress",
+  "version": "0.1.0",
+  "description": "Per-repository progress tracker for AI orchestrators: tasks on a Gantt chart, stateful markdown tickets, a log, and a self-contained HTML dashboard regenerated on every command",
+  "type": "module",
+  "bin": {
+    "agent-progress": "agent-progress.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json && tsc -p lib/render/page/tsconfig.json",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "setup": "bash setup.sh",
+    "test": "bun test"
+  },
+  "private": true,
+  "devDependencies": {
+    "@reliquary/eslint-config": "^1.0.1",
+    "@types/bun": "^1.3.14",
+    "eslint": "^9",
+    "typescript": "6.0.3"
+  },
+  "dependencies": {
+    "marked": "^17"
+  }
+}

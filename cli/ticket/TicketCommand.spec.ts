@@ -1,0 +1,359 @@
+/**
+ * The markdown tickets and the Gantt rows they drive: every transition moves the row and stamps the frontmatter, which is what `clear` re-seeds from.
+ */
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join }                        from 'node:path';
+
+import {
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  test
+}                                                                             from 'bun:test';
+import type { ProgressFile }                                                  from '../../lib/constants/Types';
+import { createCapturedCommandContext }                                       from '../../lib/tooling/dev/CapturedCommandContext';
+import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../lib/tooling/dev/ScratchWorkspace';
+import { runCommandLine }                                                     from '../Main';
+
+const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
+
+const FIRST_TICKET_FILE_NAME = '001-double-click-a-role-to-edit-it.md';
+
+let repositoryDirectory = '';
+
+function contextHere(): ReturnType<typeof createCapturedCommandContext> {
+  return createCapturedCommandContext({ currentDirectory: repositoryDirectory, now: () => FROZEN_NOW });
+}
+
+async function run(commandLineArguments: readonly string[]): Promise<ReturnType<typeof createCapturedCommandContext>> {
+  const context  = contextHere();
+  const exitCode = await runCommandLine(commandLineArguments, context);
+  expect(exitCode, `\`agent-progress ${commandLineArguments.join(' ')}\` failed: ${context.errorText()}`).toBe(0);
+  return context;
+}
+
+function storedProgress(): ProgressFile {
+  return JSON.parse(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')) as ProgressFile;
+}
+
+function storedTicketText(fileName = FIRST_TICKET_FILE_NAME): string {
+  return readFileSync(join(repositoryDirectory, '.agent-progress', 'tickets', fileName), 'utf8');
+}
+
+beforeEach(async () => {
+  repositoryDirectory = createScratchGitRepository('ticket-command');
+  await run(['init', '--project', 'Example Agency']);
+});
+
+afterEach(() => {
+  removeScratchDirectory(repositoryDirectory);
+});
+
+describe.skipIf(!gitIsAvailable())('filing a ticket', () => {
+  test('writes the file, files a pending row and logs the line, and prints the path', async () => {
+    const context = await run(['ticket', 'add', 'Double-click a role to edit it', '--type', 'change', '--group', 'role-editor']);
+
+    const ticketText = storedTicketText();
+    expect(ticketText).toContain('id: "001"');
+    expect(ticketText).toContain('status: "open"');
+    expect(ticketText).toContain('group: "role-editor"');
+    expect(ticketText).toContain('# 001 — Double-click a role to edit it');
+    expect(ticketText).toContain('## Acceptance');
+    expect(ticketText).not.toContain('{{');
+
+    const progress = storedProgress();
+    expect(progress.tasks[0]).toMatchObject({ id: 1, status: 'pending', ticket: '001' });
+    expect(progress.log.at(-1)?.text).toBe('Ticket #001 filed: Double-click a role to edit it');
+
+    expect(context.outputText()).toContain('Ticket #001 filed: Double-click a role to edit it');
+    expect(context.outputText()).toContain(FIRST_TICKET_FILE_NAME);
+  });
+
+  test('--body replaces the template and is stored byte for byte', async () => {
+    await run(['ticket', 'add', 'Fix the axis', '--type', 'bug', '--body', '## Report\n\nThe axis is an hour out.\n']);
+
+    const ticketText = storedTicketText('001-fix-the-axis.md');
+    expect(ticketText).toContain('type: "bug"');
+    expect(ticketText.endsWith('## Report\n\nThe axis is an hour out.\n')).toBe(true);
+  });
+
+  test('a type that is not one of the three is refused rather than filed as a change', async () => {
+    const context  = contextHere();
+    const exitCode = await runCommandLine(['ticket', 'add', 'Fix the axis', '--type', 'defect'], context);
+
+    expect(exitCode).toBe(1);
+    expect(context.errorText()).toContain('is not a ticket type');
+  });
+});
+
+describe.skipIf(!gitIsAvailable())('moving a ticket', () => {
+  beforeEach(async () => {
+    await run(['ticket', 'add', 'Double-click a role to edit it']);
+  });
+
+  test('every transition moves the row and stamps the frontmatter it belongs to', async () => {
+    await run(['ticket', 'start', '1', '--branch', 'ticket/role-editor']);
+    expect(storedProgress().tasks[0]?.status).toBe('running');
+    expect(storedTicketText()).toContain('status: "in-progress"');
+    expect(storedTicketText()).toContain('branch: "ticket/role-editor"');
+    expect(storedTicketText()).not.toContain('started: null');
+
+    await run(['ticket', 'review', '1']);
+    expect(storedProgress().tasks[0]?.status).toBe('finished');
+    expect(storedTicketText()).toContain('status: "in-review"');
+    expect(storedTicketText()).not.toContain('finished: null');
+
+    await run(['ticket', 'done', '1', '--commit', 'abc1234']);
+    expect(storedProgress().tasks[0]?.status).toBe('reviewed');
+    expect(storedTicketText()).toContain('commit: "abc1234"');
+
+    await run(['ticket', 'deliver', '1']);
+    expect(storedProgress().tasks[0]?.status).toBe('delivered');
+    expect(storedTicketText()).toContain('status: "delivered"');
+    expect(storedTicketText()).not.toContain('delivered: null');
+  });
+
+  test('reopen clears the stamps and returns the row to pending', async () => {
+    await run(['ticket', 'start', '1']);
+    await run(['ticket', 'done', '1']);
+
+    await run(['ticket', 'reopen', '1']);
+
+    expect(storedProgress().tasks[0]?.status).toBe('pending');
+    const ticketText = storedTicketText();
+    expect(ticketText).toContain('status: "open"');
+    expect(ticketText).toContain('started: null');
+    expect(ticketText).toContain('finished: null');
+  });
+
+  test('abandon needs a reason, and refuses without one rather than inventing a blank', async () => {
+    const refused  = contextHere();
+    const exitCode = await runCommandLine(['ticket', 'abandon', '1'], refused);
+
+    expect(exitCode).toBe(1);
+    expect(refused.errorText()).toContain('--reason');
+    expect(storedTicketText()).toContain('status: "open"');
+
+    await run(['ticket', 'abandon', '1', '--reason', 'superseded by ticket #007']);
+
+    expect(storedProgress().tasks[0]?.status).toBe('abandoned');
+    expect(storedTicketText()).toContain('reason: "superseded by ticket #007"');
+    expect(storedProgress().log.at(-1)?.text).toBe('Ticket #001 abandoned: superseded by ticket #007');
+  });
+
+  test('`ticket status` reaches the same states as the verbs do', async () => {
+    await run(['ticket', 'status', '1', 'in-review']);
+
+    expect(storedTicketText()).toContain('status: "in-review"');
+    expect(storedProgress().tasks[0]?.status).toBe('finished');
+  });
+
+  test('a status that is not one is refused, listing the ones that are', async () => {
+    const context  = contextHere();
+    const exitCode = await runCommandLine(['ticket', 'status', '1', 'finished'], context);
+
+    expect(exitCode).toBe(1);
+    expect(context.errorText()).toContain('is not a ticket status');
+    expect(context.errorText()).toContain('in-review');
+  });
+
+  test('a ticket that does not exist is refused with exit 1', async () => {
+    const context  = contextHere();
+    const exitCode = await runCommandLine(['ticket', 'start', '42'], context);
+
+    expect(exitCode).toBe(1);
+    expect(context.errorText()).toContain('There is no readable ticket 42');
+  });
+});
+
+describe.skipIf(!gitIsAvailable())('reading tickets back', () => {
+  beforeEach(async () => {
+    await run(['ticket', 'add', 'Double-click a role to edit it']);
+    await run(['ticket', 'add', 'Fix the axis', '--type', 'bug']);
+    await run(['ticket', 'start', '2']);
+    await run(['ticket', 'done', '2']);
+  });
+
+  test('show prints the frontmatter summary, the file path and the body', async () => {
+    const context = await run(['ticket', 'show', '1']);
+
+    expect(context.outputText()).toContain('Ticket #001: Double-click a role to edit it');
+    expect(context.outputText()).toContain('status:   open');
+    expect(context.outputText()).toContain(FIRST_TICKET_FILE_NAME);
+    expect(context.outputText()).toContain('## Acceptance');
+  });
+
+  test('show --json carries the path and the body alongside the frontmatter', async () => {
+    const context = await run(['ticket', 'show', '1', '--json']);
+
+    const printed = JSON.parse(context.outputText()) as { id: string; filePath: string; body: string };
+    expect(printed.id).toBe('001');
+    expect(printed.filePath).toContain(FIRST_TICKET_FILE_NAME);
+    expect(printed.body).toContain('## Report');
+  });
+
+  test('list shows every ticket, and --status narrows it to one', async () => {
+    const everything = await run(['ticket', 'list']);
+    expect(everything.outputText()).toContain('#001');
+    expect(everything.outputText()).toContain('#002');
+
+    const narrowed = await run(['ticket', 'list', '--status', 'done']);
+    expect(narrowed.outputText()).toContain('#002');
+    expect(narrowed.outputText()).not.toContain('#001');
+  });
+
+  test('a malformed ticket file is reported on standard error and the rest still list', async () => {
+    writeFileSync(join(repositoryDirectory, '.agent-progress', 'tickets', '003-broken.md'), 'no frontmatter at all\n');
+
+    const context = await run(['ticket', 'list']);
+
+    expect(context.errorText()).toContain('003-broken.md');
+    expect(context.outputText()).toContain('#001');
+    expect(context.outputText()).toContain('#002');
+  });
+});
+
+describe.skipIf(!gitIsAvailable())('linking a ticket to a row', () => {
+  test('link points the ticket at another row and clears the row it left', async () => {
+    await run(['ticket', 'add', 'Double-click a role to edit it']);
+    await run(['task', 'add', 'Role editor rewrite']);
+
+    await run(['ticket', 'link', '1', '2']);
+
+    const progress = storedProgress();
+    expect(progress.tasks[0]?.ticket).toBeNull();
+    expect(progress.tasks[1]?.ticket).toBe('001');
+    expect(storedTicketText()).toContain('task: 2');
+  });
+
+  test('link is refused when the row belongs to another ticket, unless --force', async () => {
+    await run(['ticket', 'add', 'Double-click a role to edit it']);
+    await run(['ticket', 'add', 'Fix the axis', '--type', 'bug']);
+
+    const refused = contextHere();
+    expect(await runCommandLine(['ticket', 'link', '1', '2'], refused)).toBe(1);
+    expect(refused.errorText()).toContain('already belongs to ticket #002');
+
+    await run(['ticket', 'link', '1', '2', '--force']);
+
+    expect(storedProgress().tasks[1]?.ticket).toBe('001');
+    expect(storedTicketText('002-fix-the-axis.md')).toContain('task: null');
+  });
+});
+
+describe.skipIf(!gitIsAvailable())('the transition matrix', () => {
+  beforeEach(async () => {
+    await run(['ticket', 'add', 'Double-click a role to edit it']);
+  });
+
+  test('a verb refuses a ticket that is not in a status it moves from, naming the override', async () => {
+    const context  = contextHere();
+    const exitCode = await runCommandLine(['ticket', 'deliver', '1'], context);
+
+    expect(exitCode).toBe(1);
+    expect(context.errorText()).toContain('Ticket #001 is open');
+    expect(context.errorText()).toContain('moves a ticket that is done');
+    expect(context.errorText()).toContain('agent-progress ticket status 001 delivered');
+  });
+
+  test('a refused move writes no log line and leaves the ticket where it was', async () => {
+    const logBefore = storedProgress().log.length;
+
+    expect(await runCommandLine(['ticket', 'deliver', '1'], contextHere())).toBe(1);
+
+    expect(storedProgress().log).toHaveLength(logBefore);
+    expect(storedTicketText()).toContain('status: "open"');
+  });
+
+  test('moving a ticket to the status it already has is refused, under both spellings', async () => {
+    await run(['ticket', 'start', '1']);
+    const logBefore = storedProgress().log.length;
+
+    const byVerb = contextHere();
+    expect(await runCommandLine(['ticket', 'start', '1'], byVerb)).toBe(1);
+    expect(byVerb.errorText()).toContain('is already in-progress');
+
+    const byStatus = contextHere();
+    expect(await runCommandLine(['ticket', 'status', '1', 'in-progress'], byStatus)).toBe(1);
+    expect(byStatus.errorText()).toContain('is already in-progress');
+
+    expect(storedProgress().log).toHaveLength(logBefore);
+  });
+
+  test('ticket status makes the move the verbs refuse, and stamps the row it left unstarted', async () => {
+    await run(['ticket', 'status', '1', 'done']);
+
+    expect(storedTicketText()).toContain('status: "done"');
+    const row = storedProgress().tasks[0];
+    expect(row?.status).toBe('reviewed');
+    expect(row?.start).not.toBeNull();
+    expect(row?.end).toBe(row?.start ?? '');
+  });
+
+  test('the whole legal pipeline still runs end to end', async () => {
+    await run(['ticket', 'start', '1']);
+    await run(['ticket', 'review', '1']);
+    await run(['ticket', 'done', '1']);
+    await run(['ticket', 'deliver', '1']);
+    expect(storedTicketText()).toContain('status: "delivered"');
+  });
+
+  test('abandon reaches anything but the two end states, and reopen anything but open', async () => {
+    await run(['ticket', 'status', '1', 'delivered']);
+
+    const refused = contextHere();
+    expect(await runCommandLine(['ticket', 'abandon', '1', '--reason', 'superseded'], refused)).toBe(1);
+    expect(refused.errorText()).toContain('moves a ticket that is open');
+
+    await run(['ticket', 'reopen', '1']);
+    await run(['ticket', 'abandon', '1', '--reason', 'superseded by #7']);
+    expect(storedTicketText()).toContain('status: "abandoned"');
+  });
+
+  test('an inherited property of the subcommand table is not a subcommand', async () => {
+    const context  = contextHere();
+    const exitCode = await runCommandLine(['ticket', 'constructor', '1'], context);
+
+    expect(exitCode).toBe(1);
+    expect(context.errorText()).toContain('is not an agent-progress ticket subcommand');
+  });
+});
+
+describe.skipIf(!gitIsAvailable())('token counts on a ticket move', () => {
+  test('--tokens lands on the row the ticket owns', async () => {
+    await run(['ticket', 'add', 'Double-click a role to edit it']);
+    await run(['ticket', 'start', '1']);
+
+    await run(['ticket', 'review', '1', '--tokens', '48k']);
+
+    expect(storedProgress().tasks[0]?.tokens).toBe(48_000);
+  });
+});
+
+describe.skipIf(!gitIsAvailable())('what ticket add refuses and what it falls back to', () => {
+  test('a title that is nothing but whitespace is refused', async () => {
+    const context  = contextHere();
+    const exitCode = await runCommandLine(['ticket', 'add', '  '], context);
+
+    expect(exitCode).toBe(1);
+    expect(context.errorText()).toContain('needs a title');
+  });
+
+  test('an empty --body falls back to the template rather than filing a ticket that says nothing', async () => {
+    await run(['ticket', 'add', 'Double-click a role to edit it', '--body', '   ']);
+
+    expect(storedTicketText()).toContain('## Report');
+  });
+
+  test('ticket list --json carries no bodies, since a listing is about statuses', async () => {
+    await run(['ticket', 'add', 'Double-click a role to edit it']);
+
+    const listed = JSON.parse((await run(['ticket', 'list', '--json'])).outputText()) as Array<Record<string, unknown>>;
+    expect(listed[0]).not.toHaveProperty('body');
+    expect(listed[0]?.['filePath']).toContain('001-double-click-a-role-to-edit-it.md');
+
+    const shown = JSON.parse((await run(['ticket', 'show', '1', '--json'])).outputText()) as Record<string, unknown>;
+    expect(shown['body']).toContain('## Report');
+  });
+});

@@ -1,0 +1,924 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="refresh" content="30">
+<title>agent-progress</title>
+<script>
+/* Resolve the theme before first paint so a reload looks identical: the saved
+   choice wins, otherwise the OS preference. */
+(function () {
+  var choice = null;
+  try { choice = localStorage.getItem("agent-progress:theme"); } catch (e) {}
+  if (choice !== "light" && choice !== "dark") { choice = "auto"; }
+  var dark = choice === "dark" || (choice === "auto" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+  document.documentElement.setAttribute("data-theme-choice", choice);
+})();
+</script>
+
+<!--
+===============================================================================
+ agent-progress — page template
+===============================================================================
+ Replaced by the CLI (literal string replace; each token occurs exactly ONCE in
+ this file, so a global replace is safe — the names are written here without
+ their leading and trailing underscores on purpose):
+   PROGRESS      JSON island   -> <script type="application/json" id="ap-progress-data">
+   TICKETS       JSON island   -> <script type="application/json" id="ap-tickets-data">
+   PAGE_SCRIPT   layout script -> last <script> in <body>
+
+ The template ships with placeholder content inside every container so it can be
+ opened on its own. The page script is expected to replace the contents of each
+ container listed below.
+
+ ---------------------------------------------------------------- containers ---
+ #ap-project              text   project name
+ #ap-summary              html   status line; children are .ap-stat (> .ap-stat-n + label)
+ #ap-generated            text   "generated 21:56" (monospace)
+ #ap-theme                el     buttons data-theme="auto|light|dark", aria-pressed
+ #ap-error                el     [hidden] unless the layout script threw
+ #ap-error-text           text   message shown in the error banner
+ #ap-tabs                 el     buttons carry data-tab="progress|tickets", aria-selected
+ [data-panel="…"]         el     matching panel; [hidden] when not selected
+ #ap-range-presets        el     buttons data-preset="auto|1h|4h|12h|24h|7d|all", aria-pressed
+ #ap-range-from           input  from field (free text: ISO, "start", "now", "-2h")
+ #ap-range-to             input  to field
+ #ap-range-ticks          el     buttons data-tick="auto|5|15|60|360|1440", aria-pressed
+ #ap-range-note           text   resolved range, e.g. "20:30 → 22:15 · 15m ticks"
+ #ap-chart                el     horizontal scroller; owns --timeline-w
+ #ap-ticks                el     tick layer in the header row; children .ap-tick > span
+ #ap-rows                 el     row list; direct children are .ap-row
+ #ap-overlay              el     absolute layer over the track area only
+ #ap-now                  el     the now marker inside #ap-overlay; [hidden] if out of range
+ #ap-chart-empty          el     shown instead of rows when there are none
+ #ap-log                  ul     log entries, newest first; children li > time + span
+ #ap-log-empty            el     shown instead of log entries when there are none
+ #ap-ticket-rows          tbody  ticket table body
+ #ap-ticket-count         text   "6 tickets · 1 in progress" above the ticket table
+ #ap-ticket-cards         el     one .ap-ticket per ticket
+ ---------------------------------------------------------------- row markup ---
+ .ap-row[data-state]      state goes on the ROW; pill and bar inherit its colours
+ .ap-row > .ap-cell-name  > .ap-num, .ap-name[title], a.ap-ticket-badge, .ap-tokens
+ .ap-row > .ap-cell-pill  > .ap-pill (exactly one; label text carries the state)
+ .ap-row > .ap-cell-track > .ap-bar (inline left/width %), .ap-clip-l, .ap-clip-r
+ --------------------------------------------------------------------- states ---
+ data-state = pending | running | paused | finished | reviewing | reviewed | delivered | abandoned
+ pill label =  WIP   |   WIP   | paused | finished | reviewing | reviewed | delivered | abandoned
+ ticket status class on .ap-badge = open | in-progress | in-review | done | delivered | abandoned
+ -------------------------------------------------------------- script hooks ---
+ --timeline-w   on #ap-chart: track column width. "1fr" = fill (no scroll);
+                set to a px value (e.g. 2400px) to make the timeline scroll.
+ --now-x        on #ap-now: left offset as a percentage of the axis box.
+ window.agentProgressTemplate
+                the two pieces of behaviour this template owns, exposed for the page
+                script: selectTab(name) and restoreTicketOpenState(), the latter to
+                be called again after the ticket cards have been replaced.
+ THE AXIS BOX   one box for everything on the time axis: the third grid column,
+                edge to edge, no padding or margin. .ap-cell-track, #ap-ticks and
+                #ap-overlay all span exactly that box, so a percentage means the
+                same x in bars, tick labels, grid lines and the now marker.
+                Percentages are 0 at range.from and 100 at range.to.
+===============================================================================
+ Tokens
+   colour     bg, surface, surface-2, ink, ink-muted, line, line-strong,
+              per state: --s-fill (bars) / --s-tint (pill bg) / --s-ink (pill text)
+              / --s-edge (pill border), set by [data-state]; --now for the marker
+   spacing    4 8 12 16 24 32 (--sp-1 … --sp-6)
+   radius     4 pill-inner / 6 controls / 10 cards / 999 pills
+   type       11 micro · 12 small · 13 body · 15 card title · 20 page title
+              system UI stack for prose, system mono stack for times and numbers
+   density    --row-h 30px, --col-name 336px, --col-pill 112px
+===============================================================================
+-->
+
+<style>
+:root {
+  color-scheme: light dark;
+
+  --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px;
+  --sp-4: 16px; --sp-5: 24px; --sp-6: 32px;
+
+  --r-1: 4px; --r-2: 6px; --r-3: 10px; --r-pill: 999px;
+
+  --fs-micro: 11px; --fs-small: 12px; --fs-body: 13px;
+  --fs-title: 15px; --fs-page: 20px;
+
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --row-h: 30px;
+  --col-name: 336px;
+  --col-pill: 112px;
+
+  --bg:          oklch(0.975 0.004 265);
+  --surface:     oklch(1 0 0);
+  --surface-2:   oklch(0.961 0.006 265);
+  --ink:         oklch(0.24 0.02 265);
+  --ink-muted:   oklch(0.52 0.02 265);
+  --line:        oklch(0.905 0.008 265);
+  --line-strong: oklch(0.82 0.012 265);
+  --link:        oklch(0.48 0.13 255);
+
+  --now:         oklch(0.54 0.19 25);
+  --now-soft:    oklch(0.54 0.19 25 / 0.55);
+
+  --warn-tint:   oklch(0.965 0.045 85);
+  --warn-edge:   oklch(0.80 0.10 80);
+  --warn-ink:    oklch(0.44 0.10 70);
+  --err-tint:    oklch(0.962 0.035 25);
+  --err-edge:    oklch(0.80 0.10 25);
+  --err-ink:     oklch(0.46 0.14 25);
+}
+
+/* One row per state: pills, bars and badges all read these four properties. */
+[data-state="pending"]   { --s-fill: oklch(0.875 0.008 265); --s-tint: oklch(0.965 0.005 265); --s-ink: oklch(0.47 0.015 265); --s-edge: oklch(0.885 0.008 265); }
+[data-state="running"]   { --s-fill: oklch(0.79 0.145 80);   --s-tint: oklch(0.963 0.048 85);  --s-ink: oklch(0.44 0.105 70);  --s-edge: oklch(0.83 0.11 80); }
+[data-state="paused"]    { --s-fill: oklch(0.78 0.045 265);  --s-tint: oklch(0.955 0.014 265); --s-ink: oklch(0.44 0.040 265); --s-edge: oklch(0.83 0.035 265); }
+[data-state="finished"]  { --s-fill: oklch(0.66 0.145 255);  --s-tint: oklch(0.957 0.028 255); --s-ink: oklch(0.44 0.135 255); --s-edge: oklch(0.80 0.085 255); }
+[data-state="reviewing"] { --s-fill: oklch(0.70 0.115 205);  --s-tint: oklch(0.957 0.028 205); --s-ink: oklch(0.43 0.09 205);  --s-edge: oklch(0.80 0.07 205); }
+[data-state="reviewed"]  { --s-fill: oklch(0.70 0.135 155);  --s-tint: oklch(0.957 0.033 155); --s-ink: oklch(0.42 0.095 155); --s-edge: oklch(0.79 0.08 155); }
+[data-state="delivered"] { --s-fill: oklch(0.65 0.145 300);  --s-tint: oklch(0.957 0.030 300); --s-ink: oklch(0.44 0.125 300); --s-edge: oklch(0.80 0.075 300); }
+[data-state="abandoned"] { --s-fill: oklch(0.80 0.006 265);  --s-tint: oklch(0.955 0.004 265); --s-ink: oklch(0.50 0.008 265); --s-edge: oklch(0.885 0.006 265); }
+
+/* Theme is resolved to data-theme="light"|"dark" on <html> by the head script,
+   from the saved choice or the OS preference; the toggle rewrites it. */
+:root[data-theme="dark"] {
+    --bg:          oklch(0.185 0.012 265);
+    --surface:     oklch(0.232 0.014 265);
+    --surface-2:   oklch(0.275 0.014 265);
+    --ink:         oklch(0.94 0.008 265);
+    --ink-muted:   oklch(0.70 0.015 265);
+    --line:        oklch(0.33 0.014 265);
+    --line-strong: oklch(0.42 0.016 265);
+    --link:        oklch(0.78 0.10 255);
+
+    --now:         oklch(0.70 0.17 25);
+    --now-soft:    oklch(0.70 0.17 25 / 0.6);
+
+    --warn-tint:   oklch(0.31 0.055 80);
+    --warn-edge:   oklch(0.50 0.09 80);
+    --warn-ink:    oklch(0.92 0.06 85);
+    --err-tint:    oklch(0.30 0.06 25);
+    --err-edge:    oklch(0.50 0.11 25);
+    --err-ink:     oklch(0.92 0.05 25);
+}
+:root[data-theme="dark"] [data-state="pending"]   { --s-fill: oklch(0.42 0.012 265); --s-tint: oklch(0.29 0.010 265); --s-ink: oklch(0.80 0.012 265); --s-edge: oklch(0.40 0.012 265); }
+:root[data-theme="dark"] [data-state="running"]   { --s-fill: oklch(0.76 0.145 80);  --s-tint: oklch(0.33 0.065 80);  --s-ink: oklch(0.91 0.075 85);  --s-edge: oklch(0.52 0.10 80); }
+:root[data-theme="dark"] [data-state="paused"]    { --s-fill: oklch(0.62 0.045 265); --s-tint: oklch(0.31 0.022 265); --s-ink: oklch(0.85 0.030 265); --s-edge: oklch(0.47 0.030 265); }
+:root[data-theme="dark"] [data-state="finished"]  { --s-fill: oklch(0.66 0.150 255); --s-tint: oklch(0.32 0.060 255); --s-ink: oklch(0.88 0.065 255); --s-edge: oklch(0.50 0.10 255); }
+:root[data-theme="dark"] [data-state="reviewing"] { --s-fill: oklch(0.72 0.115 205); --s-tint: oklch(0.32 0.050 205); --s-ink: oklch(0.89 0.055 205); --s-edge: oklch(0.50 0.075 205); }
+:root[data-theme="dark"] [data-state="reviewed"]  { --s-fill: oklch(0.72 0.135 155); --s-tint: oklch(0.32 0.055 155); --s-ink: oklch(0.89 0.060 155); --s-edge: oklch(0.50 0.080 155); }
+:root[data-theme="dark"] [data-state="delivered"] { --s-fill: oklch(0.68 0.145 300); --s-tint: oklch(0.32 0.060 300); --s-ink: oklch(0.89 0.060 300); --s-edge: oklch(0.51 0.095 300); }
+:root[data-theme="dark"] [data-state="abandoned"] { --s-fill: oklch(0.40 0.008 265); --s-tint: oklch(0.28 0.006 265); --s-ink: oklch(0.72 0.010 265); --s-edge: oklch(0.38 0.008 265); }
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  padding: var(--sp-5) var(--sp-5) var(--sp-6);
+  background: var(--bg);
+  color: var(--ink);
+  font: var(--fs-body)/1.5 var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+}
+.ap-page { max-width: 1680px; margin: 0 auto; }
+a { color: var(--link); text-decoration: none; }
+a:hover { color: var(--ink); text-decoration: underline; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* ---------------------------------------------------------------- banners -- */
+.ap-banner {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: 10px var(--sp-3) 10px var(--sp-3);
+  border: 1px solid var(--warn-edge);
+  border-left-width: 4px;
+  border-radius: var(--r-2);
+  background: var(--warn-tint);
+  color: var(--warn-ink);
+  font-size: var(--fs-small);
+  margin-bottom: var(--sp-4);
+}
+.ap-banner[hidden] { display: none; }
+.ap-banner strong { font-weight: 600; }
+.ap-banner.is-error { border-color: var(--err-edge); background: var(--err-tint); color: var(--err-ink); }
+
+/* ----------------------------------------------------------------- header -- */
+.ap-head {
+  display: flex; align-items: baseline; gap: var(--sp-4);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-4);
+}
+.ap-title { font-size: var(--fs-page); font-weight: 600; letter-spacing: -0.01em; margin: 0; }
+.ap-title .ap-kicker { color: var(--ink-muted); font-weight: 400; }
+#ap-generated { margin-left: auto; color: var(--ink-muted); font-size: var(--fs-small); }
+#ap-theme { align-self: center; }
+#ap-theme button { padding: 5px 8px; font-family: var(--font-ui); }
+
+.ap-summary {
+  display: flex; flex-wrap: wrap; align-items: baseline;
+  gap: 0 var(--sp-3);
+  width: 100%;
+  font-size: var(--fs-body);
+  color: var(--ink-muted);
+  margin-top: 2px;
+}
+.ap-stat { display: inline-flex; align-items: baseline; gap: 5px; }
+.ap-stat + .ap-stat::before { content: ""; }
+.ap-stat-n {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 15px;
+  color: var(--ink);
+  font-weight: 600;
+}
+.ap-summary .ap-sep { color: var(--line-strong); }
+
+/* ------------------------------------------------------------------- tabs -- */
+.ap-tabs { display: flex; gap: 2px; padding: 3px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-2); width: fit-content; margin-bottom: var(--sp-4); }
+.ap-tabs button {
+  font: 600 var(--fs-small)/1 var(--font-ui);
+  padding: 7px 14px;
+  border: 0; border-radius: var(--r-1);
+  background: transparent; color: var(--ink-muted);
+  cursor: pointer;
+}
+.ap-tabs button:hover { color: var(--ink); }
+.ap-tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px oklch(0 0 0 / 0.08); }
+[data-panel][hidden] { display: none; }
+
+/* ------------------------------------------------------------------ cards -- */
+.ap-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-3);
+  margin-bottom: var(--sp-4);
+}
+.ap-card-head {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--line);
+}
+.ap-card-title { font-size: var(--fs-small); font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-muted); }
+.ap-card-note { margin-left: auto; font-size: var(--fs-small); color: var(--ink-muted); }
+.ap-card-body { padding: var(--sp-4); }
+
+/* -------------------------------------------------------------- range bar -- */
+.ap-range { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--line); }
+.ap-range-label { font-size: var(--fs-micro); text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-muted); }
+.ap-seg { display: flex; gap: 2px; padding: 2px; background: var(--surface-2); border-radius: var(--r-2); }
+.ap-seg button {
+  font: 500 var(--fs-small)/1 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  padding: 5px 9px;
+  border: 0; border-radius: var(--r-1);
+  background: transparent; color: var(--ink-muted);
+  cursor: pointer;
+}
+.ap-seg button:hover { color: var(--ink); }
+.ap-seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px oklch(0 0 0 / 0.08); }
+.ap-field { display: flex; align-items: baseline; gap: 6px; }
+.ap-field input {
+  font: var(--fs-small)/1.4 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  width: 128px;
+  padding: 4px 2px;
+  color: var(--ink);
+  background: transparent;
+  border: 0; border-bottom: 1px solid var(--line-strong);
+  border-radius: 0;
+}
+.ap-field input::placeholder { color: var(--ink-muted); opacity: 0.7; }
+.ap-field input:focus { outline: 0; border-bottom-color: var(--ink); }
+.ap-range-divider { width: 1px; align-self: stretch; background: var(--line); }
+#ap-range-note { margin-left: auto; font-size: var(--fs-small); color: var(--ink-muted); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* ------------------------------------------------------------------ chart -- */
+#ap-chart {
+  --timeline-w: 1fr;
+  overflow: auto;
+  max-height: min(62vh, 780px);
+  overscroll-behavior-x: contain;
+}
+.ap-grid-row {
+  display: grid;
+  grid-template-columns: var(--col-name) var(--col-pill) var(--timeline-w);
+  align-items: center;
+  min-height: var(--row-h);
+}
+.ap-chart-head {
+  position: sticky; top: 0; z-index: 3;
+  /* Matches .ap-body: without it the header box stops at the scroller's visible width and its
+     background and bottom rule end mid-axis as soon as the timeline is scrolled. */
+  width: fit-content; min-width: 100%;
+  height: 28px; min-height: 28px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line-strong);
+  font-size: var(--fs-micro);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--ink-muted);
+}
+.ap-chart-head .ap-cell-name,
+.ap-chart-head .ap-cell-pill { background: var(--surface); z-index: 4; height: 100%; display: flex; align-items: center; }
+
+.ap-body { position: relative; width: fit-content; min-width: 100%; }
+.ap-row { border-bottom: 1px solid var(--line); }
+.ap-row:last-child { border-bottom: 0; }
+
+.ap-cell-name {
+  position: sticky; left: 0; z-index: 2;
+  background: var(--surface);
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 var(--sp-3) 0 var(--sp-4);
+  min-width: 0;
+}
+.ap-cell-pill {
+  position: sticky; left: var(--col-name); z-index: 2;
+  background: var(--surface);
+  box-shadow: 1px 0 0 var(--line);
+  display: flex; align-items: center;
+  padding-right: var(--sp-3);
+  height: 100%;
+}
+.ap-cell-track { position: relative; height: var(--row-h); }
+
+.ap-num {
+  flex: 0 0 22px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-micro);
+  color: var(--ink-muted);
+  text-align: right;
+}
+.ap-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ap-row[data-state="abandoned"] .ap-name { text-decoration: line-through; color: var(--ink-muted); }
+.ap-row[data-state="abandoned"] { opacity: 0.72; }
+.ap-ticket-badge {
+  flex: none;
+  font: 500 var(--fs-micro)/1.5 var(--font-mono);
+  padding: 0 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-1);
+  color: var(--ink-muted);
+}
+.ap-ticket-badge:hover { color: var(--ink); border-color: var(--ink-muted); text-decoration: none; }
+.ap-tokens {
+  flex: none; margin-left: auto;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-micro);
+  color: var(--ink-muted);
+}
+
+/* Every pill is the same box: fixed width, centred label, tabular figures, so a
+   state change never shifts the row by a pixel. */
+.ap-pill {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 86px; height: 19px;
+  font: 500 var(--fs-micro)/1 var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+  border: 1px solid var(--s-edge);
+  border-radius: var(--r-pill);
+  background: var(--s-tint);
+  color: var(--s-ink);
+  white-space: nowrap;
+}
+.ap-row[data-state="pending"] .ap-pill { border-style: dashed; }
+
+.ap-bar {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  height: 12px; min-width: 3px;
+  border-radius: var(--r-1);
+  background: var(--s-fill);
+}
+.ap-row[data-state="running"] .ap-bar {
+  background-image: repeating-linear-gradient(45deg, oklch(1 0 0 / 0.38) 0 5px, transparent 5px 10px);
+}
+.ap-row[data-state="paused"] .ap-bar {
+  background-image: repeating-linear-gradient(90deg, oklch(1 0 0 / 0.45) 0 2px, transparent 2px 6px);
+}
+.ap-row[data-state="pending"] .ap-bar { background: transparent; border: 1px dashed var(--s-edge); }
+.ap-row[data-state="abandoned"] .ap-bar {
+  background-image: repeating-linear-gradient(45deg, oklch(1 0 0 / 0.45) 0 5px, transparent 5px 10px);
+}
+.ap-clip-l, .ap-clip-r {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 0; height: 0;
+  border-block: 5px solid transparent;
+}
+.ap-clip-l { left: 1px; border-right: 6px solid var(--now); }
+.ap-clip-r { right: 1px; border-left: 6px solid var(--now); }
+.ap-clip-l[hidden], .ap-clip-r[hidden] { display: none; }
+
+/* Tick layer lives in the header row; grid lines and the now marker live in the
+   overlay so they cross every row. */
+#ap-ticks { position: relative; height: 100%; }
+.ap-tick { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--line); }
+.ap-tick > span { position: absolute; left: 5px; top: 7px; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--fs-micro); letter-spacing: 0; text-transform: none; color: var(--ink-muted); white-space: nowrap; }
+
+#ap-overlay {
+  position: absolute; top: 0; bottom: 0;
+  left: calc(var(--col-name) + var(--col-pill));
+  right: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+.ap-grid-line { position: absolute; top: 0; bottom: 0; border-left: 1px solid var(--line); opacity: 0.6; }
+#ap-now { position: absolute; top: 0; bottom: 0; left: var(--now-x, 50%); border-left: 2px solid var(--now); }
+#ap-now[hidden] { display: none; }
+#ap-now::after {
+  content: "now";
+  position: absolute; top: 0; left: 4px;
+  font: 600 var(--fs-micro)/1 var(--font-ui);
+  color: var(--now);
+  background: var(--surface);
+  padding: 1px 3px;
+  border-radius: 3px;
+}
+
+.ap-empty { padding: var(--sp-5) var(--sp-4); color: var(--ink-muted); font-size: var(--fs-small); }
+.ap-empty[hidden] { display: none; }
+
+/* -------------------------------------------------------------------- log -- */
+#ap-log { margin: 0; padding: 0; list-style: none; }
+#ap-log li { display: flex; gap: var(--sp-3); padding: 5px var(--sp-4); border-bottom: 1px solid var(--line); font-size: var(--fs-small); }
+#ap-log li:last-child { border-bottom: 0; }
+#ap-log time { flex: none; width: 46px; color: var(--ink-muted); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+#ap-log li span { min-width: 0; }
+
+/* ---------------------------------------------------------------- tickets -- */
+.ap-table { width: 100%; border-collapse: collapse; font-size: var(--fs-small); }
+.ap-table th, .ap-table td { text-align: left; padding: 7px var(--sp-3); border-bottom: 1px solid var(--line); vertical-align: middle; }
+.ap-table th { font-size: var(--fs-micro); font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-muted); }
+.ap-table tbody tr:last-child td { border-bottom: 0; }
+.ap-table td.mono, .ap-table th.mono { font-family: var(--font-mono); }
+.ap-table .ap-col-title { width: 34%; }
+
+.ap-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 86px; height: 19px;
+  font: 500 var(--fs-micro)/1 var(--font-ui);
+  padding: 0 8px;
+  border: 1px solid var(--s-edge);
+  border-radius: var(--r-pill);
+  background: var(--s-tint);
+  color: var(--s-ink);
+  white-space: nowrap;
+}
+.ap-badge.open         { --s-tint: var(--surface-2); --s-ink: var(--ink-muted); --s-edge: var(--line-strong); }
+.ap-badge.in-progress  { --s-tint: oklch(0.963 0.048 85);  --s-ink: oklch(0.44 0.105 70);  --s-edge: oklch(0.83 0.11 80); }
+.ap-badge.in-review    { --s-tint: oklch(0.957 0.028 205); --s-ink: oklch(0.43 0.09 205);  --s-edge: oklch(0.80 0.07 205); }
+.ap-badge.done         { --s-tint: oklch(0.957 0.033 155); --s-ink: oklch(0.42 0.095 155); --s-edge: oklch(0.79 0.08 155); }
+.ap-badge.delivered    { --s-tint: oklch(0.957 0.030 300); --s-ink: oklch(0.44 0.125 300); --s-edge: oklch(0.80 0.075 300); }
+.ap-badge.abandoned    { --s-tint: oklch(0.955 0.004 265); --s-ink: oklch(0.50 0.008 265); --s-edge: oklch(0.885 0.006 265); }
+:root[data-theme="dark"] .ap-badge.in-progress { --s-tint: oklch(0.33 0.065 80);  --s-ink: oklch(0.91 0.075 85);  --s-edge: oklch(0.52 0.10 80); }
+:root[data-theme="dark"] .ap-badge.in-review   { --s-tint: oklch(0.32 0.050 205); --s-ink: oklch(0.89 0.055 205); --s-edge: oklch(0.50 0.075 205); }
+:root[data-theme="dark"] .ap-badge.done        { --s-tint: oklch(0.32 0.055 155); --s-ink: oklch(0.89 0.060 155); --s-edge: oklch(0.50 0.080 155); }
+:root[data-theme="dark"] .ap-badge.delivered   { --s-tint: oklch(0.32 0.060 300); --s-ink: oklch(0.89 0.060 300); --s-edge: oklch(0.51 0.095 300); }
+:root[data-theme="dark"] .ap-badge.abandoned   { --s-tint: oklch(0.28 0.006 265); --s-ink: oklch(0.72 0.010 265); --s-edge: oklch(0.38 0.008 265); }
+
+.ap-ticket { border-top: 1px solid var(--line); }
+.ap-ticket:first-child { border-top: 0; }
+.ap-ticket > details > summary,
+.ap-ticket > .ap-ticket-head {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  cursor: pointer;
+  list-style: none;
+}
+.ap-ticket > details > summary::-webkit-details-marker { display: none; }
+.ap-ticket > details > summary::before {
+  content: "";
+  flex: none;
+  width: 0; height: 0;
+  border-block: 4px solid transparent;
+  border-left: 6px solid var(--ink-muted);
+}
+.ap-ticket > details[open] > summary::before { transform: rotate(90deg); }
+.ap-ticket > .ap-ticket-head { cursor: default; padding-left: calc(var(--sp-4) + 6px + var(--sp-3)); }
+.ap-ticket-id { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--fs-small); color: var(--ink-muted); flex: none; }
+.ap-ticket-title { font-size: var(--fs-title); font-weight: 600; margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ap-ticket-dates { margin-left: auto; flex: none; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--fs-micro); color: var(--ink-muted); }
+.ap-ticket-meta {
+  display: flex; flex-wrap: wrap; gap: 2px var(--sp-4);
+  padding: 0 var(--sp-4) var(--sp-3) calc(var(--sp-4) + 6px + var(--sp-3));
+  font-size: var(--fs-micro);
+  color: var(--ink-muted);
+}
+.ap-ticket-meta b { font-weight: 500; color: var(--ink-muted); opacity: 0.75; margin-right: 4px; text-transform: uppercase; letter-spacing: 0.06em; }
+.ap-ticket-meta span { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.ap-ticket-body {
+  padding: var(--sp-3) var(--sp-4) var(--sp-4) calc(var(--sp-4) + 6px + var(--sp-3));
+  border-top: 1px dashed var(--line);
+  margin: 0 var(--sp-4) 0 calc(var(--sp-4) + 6px + var(--sp-3));
+  padding-left: 0; padding-right: 0;
+  max-width: 78ch;
+}
+
+/* Bodies arrive as HTML already rendered from markdown at generation time. */
+.md { font-size: var(--fs-body); }
+.md > :first-child { margin-top: 0; }
+.md > :last-child { margin-bottom: 0; }
+.md h1, .md h2, .md h3, .md h4 { font-size: var(--fs-body); font-weight: 600; margin: var(--sp-4) 0 var(--sp-1); letter-spacing: 0.01em; }
+.md h1 { font-size: var(--fs-title); }
+.md h2 { color: var(--ink); }
+.md p { margin: var(--sp-2) 0; text-wrap: pretty; }
+.md ul, .md ol { margin: var(--sp-2) 0; padding-left: 20px; }
+.md li { margin: 2px 0; }
+.md a { text-decoration: underline; }
+.md code { font-family: var(--font-mono); font-size: var(--fs-small); background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-1); padding: 0 4px; }
+.md pre { background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-2); padding: var(--sp-3); overflow-x: auto; font-size: var(--fs-small); line-height: 1.5; }
+.md pre code { background: none; border: 0; padding: 0; }
+.md blockquote { margin: var(--sp-2) 0; padding: 2px 0 2px var(--sp-3); border-left: 2px solid var(--line-strong); color: var(--ink-muted); }
+.md table { border-collapse: collapse; font-size: var(--fs-small); margin: var(--sp-2) 0; }
+.md th, .md td { border: 1px solid var(--line); padding: 4px 9px; text-align: left; }
+.md th { background: var(--surface-2); font-weight: 600; }
+.md hr { border: 0; border-top: 1px solid var(--line); margin: var(--sp-4) 0; }
+.md img { max-width: 100%; }
+
+@media (max-width: 1180px) {
+  :root { --col-name: 268px; --col-pill: 104px; }
+  body { padding: var(--sp-4) var(--sp-4) var(--sp-5); }
+  .ap-ticket-dates { display: none; }
+}
+@media (max-width: 1024px) {
+  #ap-range-note { margin-left: 0; width: 100%; }
+}
+</style>
+</head>
+
+<body>
+<div class="ap-page">
+
+<div class="ap-banner is-error" id="ap-error" hidden>
+  <strong>Layout failed.</strong>
+  <span id="ap-error-text">The page script could not build the chart; the data island below is intact.</span>
+</div>
+
+<header class="ap-head">
+  <h1 class="ap-title"><span id="ap-project">Example Agency</span> <span class="ap-kicker">progress</span></h1>
+  <div class="mono" id="ap-generated">generated 21:56</div>
+  <div class="ap-seg" id="ap-theme">
+    <button type="button" data-theme="auto" aria-pressed="true">Auto</button>
+    <button type="button" data-theme="light" aria-pressed="false">Light</button>
+    <button type="button" data-theme="dark" aria-pressed="false">Dark</button>
+  </div>
+  <div class="ap-summary" id="ap-summary">
+    <span class="ap-stat"><span class="ap-stat-n">3/8</span> finished</span>
+    <span class="ap-sep">·</span>
+    <span class="ap-stat"><span class="ap-stat-n">2</span> reviewed</span>
+    <span class="ap-sep">·</span>
+    <span class="ap-stat"><span class="ap-stat-n">1</span> delivered</span>
+    <span class="ap-sep">·</span>
+    <span class="ap-stat"><span class="ap-stat-n">62.4k</span> tokens</span>
+  </div>
+</header>
+
+<div class="ap-tabs" id="ap-tabs" role="tablist">
+  <button type="button" role="tab" data-tab="progress" aria-selected="true">Progress</button>
+  <button type="button" role="tab" data-tab="tickets" aria-selected="false">Tickets</button>
+</div>
+
+<section data-panel="progress">
+  <div class="ap-card">
+    <div class="ap-range">
+      <span class="ap-range-label">Range</span>
+      <div class="ap-seg" id="ap-range-presets">
+        <button type="button" data-preset="auto" aria-pressed="true">Auto</button>
+        <button type="button" data-preset="1h" aria-pressed="false">1h</button>
+        <button type="button" data-preset="4h" aria-pressed="false">4h</button>
+        <button type="button" data-preset="12h" aria-pressed="false">12h</button>
+        <button type="button" data-preset="24h" aria-pressed="false">24h</button>
+        <button type="button" data-preset="7d" aria-pressed="false">7d</button>
+        <button type="button" data-preset="all" aria-pressed="false">All</button>
+      </div>
+      <div class="ap-range-divider"></div>
+      <div class="ap-field">
+        <label class="ap-range-label" for="ap-range-from">From</label>
+        <input id="ap-range-from" type="text" value="start" placeholder="start" spellcheck="false" autocomplete="off">
+      </div>
+      <div class="ap-field">
+        <label class="ap-range-label" for="ap-range-to">To</label>
+        <input id="ap-range-to" type="text" value="now" placeholder="now" spellcheck="false" autocomplete="off">
+      </div>
+      <div class="ap-range-divider"></div>
+      <span class="ap-range-label">Ticks</span>
+      <div class="ap-seg" id="ap-range-ticks">
+        <button type="button" data-tick="auto" aria-pressed="true">Auto</button>
+        <button type="button" data-tick="5" aria-pressed="false">5m</button>
+        <button type="button" data-tick="15" aria-pressed="false">15m</button>
+        <button type="button" data-tick="60" aria-pressed="false">1h</button>
+        <button type="button" data-tick="360" aria-pressed="false">6h</button>
+        <button type="button" data-tick="1440" aria-pressed="false">1d</button>
+      </div>
+      <div id="ap-range-note">20:30 → 22:15 · 15m ticks</div>
+    </div>
+
+    <div id="ap-chart">
+      <div class="ap-grid-row ap-chart-head">
+        <div class="ap-cell-name">Task</div>
+        <div class="ap-cell-pill">State</div>
+        <div class="ap-cell-track" style="height:100%"><div id="ap-ticks">
+          <div class="ap-tick" style="left:0%"><span>20:30</span></div>
+          <div class="ap-tick" style="left:14.3%"><span>20:45</span></div>
+          <div class="ap-tick" style="left:28.6%"><span>21:00</span></div>
+          <div class="ap-tick" style="left:42.9%"><span>21:15</span></div>
+          <div class="ap-tick" style="left:57.1%"><span>21:30</span></div>
+          <div class="ap-tick" style="left:71.4%"><span>21:45</span></div>
+          <div class="ap-tick" style="left:85.7%"><span>22:00</span></div>
+        </div></div>
+      </div>
+
+      <div class="ap-body">
+        <div id="ap-overlay">
+          <div class="ap-grid-line" style="left:14.3%"></div>
+          <div class="ap-grid-line" style="left:28.6%"></div>
+          <div class="ap-grid-line" style="left:42.9%"></div>
+          <div class="ap-grid-line" style="left:57.1%"></div>
+          <div class="ap-grid-line" style="left:71.4%"></div>
+          <div class="ap-grid-line" style="left:85.7%"></div>
+          <div id="ap-now" style="--now-x:78.5%"></div>
+        </div>
+
+        <div id="ap-rows">
+          <div class="ap-grid-row ap-row" id="ap-task-1" data-task-id="1" data-state="delivered">
+            <div class="ap-cell-name"><span class="ap-num">1</span><span class="ap-name" title="Double-click a role to edit it">Double-click a role to edit it</span><a class="ap-ticket-badge" href="#ap-ticket-001">#001</a><span class="ap-tokens">18.4k tokens</span></div>
+            <div class="ap-cell-pill"><span class="ap-pill">delivered</span></div>
+            <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:3.2%;width:43.6%"></div><span class="ap-clip-r" hidden></span></div>
+          </div>
+          <div class="ap-grid-row ap-row" id="ap-task-2" data-task-id="2" data-state="reviewed">
+            <div class="ap-cell-name"><span class="ap-num">2</span><span class="ap-name" title="Cache ticket bodies between runs">Cache ticket bodies between runs</span><a class="ap-ticket-badge" href="#ap-ticket-002">#002</a><span class="ap-tokens">9.8k tokens</span></div>
+            <div class="ap-cell-pill"><span class="ap-pill">reviewed</span></div>
+            <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:18.0%;width:31.0%"></div><span class="ap-clip-r" hidden></span></div>
+          </div>
+          <div class="ap-grid-row ap-row" id="ap-task-3" data-task-id="3" data-state="reviewing">
+            <div class="ap-cell-name"><span class="ap-num">3</span><span class="ap-name" title="Split the exporter into two passes so the tick ladder can be reused">Split the exporter into two passes so the tick ladder can be reused</span><a class="ap-ticket-badge" href="#ap-ticket-003">#003</a><span class="ap-tokens">12.3k tokens</span></div>
+            <div class="ap-cell-pill"><span class="ap-pill">reviewing</span></div>
+            <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:31.0%;width:34.0%"></div><span class="ap-clip-r" hidden></span></div>
+          </div>
+          <div class="ap-grid-row ap-row" id="ap-task-4" data-task-id="4" data-state="finished">
+            <div class="ap-cell-name"><span class="ap-num">4</span><span class="ap-name" title="Regenerate the timeline fixtures">Regenerate the timeline fixtures</span><span class="ap-tokens">4.2k tokens</span></div>
+            <div class="ap-cell-pill"><span class="ap-pill">finished</span></div>
+            <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:49.0%;width:14.5%"></div><span class="ap-clip-r" hidden></span></div>
+          </div>
+          <div class="ap-grid-row ap-row" id="ap-task-5" data-task-id="5" data-state="running">
+            <div class="ap-cell-name"><span class="ap-num">5</span><span class="ap-name" title="Brighter colours">Brighter colours</span><a class="ap-ticket-badge" href="#ap-ticket-004">#004</a><span class="ap-tokens">6.1k tokens</span></div>
+            <div class="ap-cell-pill"><span class="ap-pill">WIP</span></div>
+            <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:62.0%;width:16.5%"></div><span class="ap-clip-r" hidden></span></div>
+          </div>
+          <div class="ap-grid-row ap-row" id="ap-task-6" data-task-id="6" data-state="paused">
+            <div class="ap-cell-name"><span class="ap-num">6</span><span class="ap-name" title="Rewrite the range-bar copy">Rewrite the range-bar copy</span><span class="ap-tokens">1.9k tokens</span></div>
+            <div class="ap-cell-pill"><span class="ap-pill">paused</span></div>
+            <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:71.5%;width:7.0%"></div><span class="ap-clip-r" hidden></span></div>
+          </div>
+          <div class="ap-grid-row ap-row" id="ap-task-7" data-task-id="7" data-state="pending">
+            <div class="ap-cell-name"><span class="ap-num">7</span><span class="ap-name" title="Audit the range presets against a real 12-hour session">Audit the range presets against a real 12-hour session</span><a class="ap-ticket-badge" href="#ap-ticket-005">#005</a></div>
+            <div class="ap-cell-pill"><span class="ap-pill">WIP</span></div>
+            <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:78.5%;width:9.0%"></div><span class="ap-clip-r" hidden></span></div>
+          </div>
+          <div class="ap-grid-row ap-row" id="ap-task-8" data-task-id="8" data-state="abandoned">
+            <div class="ap-cell-name"><span class="ap-num">8</span><span class="ap-name" title="Old idea">Old idea</span><a class="ap-ticket-badge" href="#ap-ticket-006">#006</a></div>
+            <div class="ap-cell-pill"><span class="ap-pill">abandoned</span></div>
+            <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:52.0%;width:11.0%"></div><span class="ap-clip-r" hidden></span></div>
+          </div>
+        </div>
+      </div>
+      <div class="ap-empty" id="ap-chart-empty" hidden>No tasks in this range.</div>
+    </div>
+  </div>
+
+  <div class="ap-card">
+    <div class="ap-card-head"><span class="ap-card-title">Log</span><span class="ap-card-note">newest first</span></div>
+    <ul id="ap-log">
+      <li><time>21:56</time><span>#004 Brighter colours — subagent started, branch <code>ticket/brighter-colours</code></span></li>
+      <li><time>21:51</time><span>#001 Double-click a role to edit it — delivered at <span class="mono">abc1234</span></span></li>
+      <li><time>21:38</time><span>#002 Cache ticket bodies between runs — review passed</span></li>
+      <li><time>21:26</time><span>#001 Double-click a role to edit it — finished, 18.4k tokens</span></li>
+      <li><time>21:21</time><span>#006 Old idea — abandoned, superseded by #003</span></li>
+      <li><time>20:36</time><span>Tracker created, 8 tasks queued</span></li>
+    </ul>
+    <div class="ap-empty" id="ap-log-empty" hidden>Nothing logged yet.</div>
+  </div>
+</section>
+
+<section data-panel="tickets" hidden>
+  <div class="ap-card">
+    <div class="ap-card-head"><span class="ap-card-title">Tickets</span><span class="ap-card-note" id="ap-ticket-count">6 total · 1 in progress</span></div>
+    <table class="ap-table">
+      <thead><tr><th class="mono">id</th><th class="ap-col-title">title</th><th>type</th><th>status</th><th>group</th><th class="mono">branch</th><th class="mono">task</th></tr></thead>
+      <tbody id="ap-ticket-rows">
+        <tr><td class="mono"><a href="#ap-ticket-001">#001</a></td><td>Double-click a role to edit it</td><td>change</td><td><span class="ap-badge delivered">delivered</span></td><td>role-editor</td><td class="mono">ticket/role-editor</td><td class="mono"><a href="#ap-task-1">#1</a></td></tr>
+        <tr><td class="mono"><a href="#ap-ticket-002">#002</a></td><td>Cache ticket bodies between runs</td><td>change</td><td><span class="ap-badge done">done</span></td><td>exporter</td><td class="mono">ticket/body-cache</td><td class="mono"><a href="#ap-task-2">#2</a></td></tr>
+        <tr><td class="mono"><a href="#ap-ticket-003">#003</a></td><td>Split the exporter into two passes</td><td>change</td><td><span class="ap-badge in-review">in-review</span></td><td>exporter</td><td class="mono">ticket/exporter-passes</td><td class="mono"><a href="#ap-task-3">#3</a></td></tr>
+        <tr><td class="mono"><a href="#ap-ticket-004">#004</a></td><td>Brighter colours</td><td>feature</td><td><span class="ap-badge in-progress">in-progress</span></td><td></td><td class="mono">ticket/brighter-colours</td><td class="mono"><a href="#ap-task-5">#5</a></td></tr>
+        <tr><td class="mono"><a href="#ap-ticket-005">#005</a></td><td>Audit the range presets</td><td>chore</td><td><span class="ap-badge open">open</span></td><td></td><td class="mono"></td><td class="mono"><a href="#ap-task-7">#7</a></td></tr>
+        <tr><td class="mono"><a href="#ap-ticket-006">#006</a></td><td>Old idea</td><td>bug</td><td><span class="ap-badge abandoned">abandoned</span></td><td></td><td class="mono"></td><td class="mono"><a href="#ap-task-8">#8</a></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="ap-card" id="ap-ticket-cards">
+    <section class="ap-ticket" id="ap-ticket-004">
+      <div class="ap-ticket-head">
+        <span class="ap-ticket-id">#004</span>
+        <h3 class="ap-ticket-title">Brighter colours</h3>
+        <span class="ap-badge in-progress">in-progress</span>
+        <span class="ap-ticket-dates">started 21:06</span>
+      </div>
+      <div class="ap-ticket-meta">
+        <div><b>filed</b><span>2026-09-18 20:56</span></div>
+        <div><b>started</b><span>2026-09-18 21:06</span></div>
+        <div><b>branch</b><span>ticket/brighter-colours</span></div>
+        <div><b>task</b><span><a href="#ap-task-5">#5</a></span></div>
+      </div>
+      <div class="ap-ticket-body md">
+        <h2>Report</h2>
+        <p>The state colours read as one grey mass on the second monitor at 60% brightness. Running and pending are hard to tell apart from two metres away.</p>
+        <h2>Wanted</h2>
+        <ul>
+          <li>Each state distinguishable at a glance, without reading the pill.</li>
+          <li>The same hue for a state in the pill, the bar and the ticket badge.</li>
+        </ul>
+        <pre><code>const brightness = 2;</code></pre>
+      </div>
+    </section>
+
+    <section class="ap-ticket" id="ap-ticket-003">
+      <details>
+        <summary>
+          <span class="ap-ticket-id">#003</span>
+          <h3 class="ap-ticket-title">Split the exporter into two passes</h3>
+          <span class="ap-badge in-review">in-review</span>
+          <span class="ap-ticket-dates">filed 20:44 · finished 21:49</span>
+        </summary>
+        <div class="ap-ticket-meta">
+          <div><b>filed</b><span>2026-09-18 20:44</span></div>
+          <div><b>started</b><span>2026-09-18 21:02</span></div>
+          <div><b>finished</b><span>2026-09-18 21:49</span></div>
+          <div><b>branch</b><span>ticket/exporter-passes</span></div>
+          <div><b>commit</b><span>4f1e9c0</span></div>
+        </div>
+        <div class="ap-ticket-body md">
+          <h2>Report</h2>
+          <p>The exporter computes the tick ladder while it writes rows, so the ladder cannot be reused by the range bar.</p>
+          <h2>Acceptance</h2>
+          <table>
+            <thead><tr><th>case</th><th>ticks</th><th>scrolls</th></tr></thead>
+            <tbody>
+              <tr><td>45m session</td><td>5m</td><td>no</td></tr>
+              <tr><td>9h session</td><td>1h</td><td>yes</td></tr>
+              <tr><td>6d session</td><td>1d</td><td>yes</td></tr>
+            </tbody>
+          </table>
+          <blockquote>Two passes are fine as long as the second one stays pure.</blockquote>
+        </div>
+      </details>
+    </section>
+
+    <section class="ap-ticket" id="ap-ticket-001">
+      <details>
+        <summary>
+          <span class="ap-ticket-id">#001</span>
+          <h3 class="ap-ticket-title">Double-click a role to edit it</h3>
+          <span class="ap-badge delivered">delivered</span>
+          <span class="ap-ticket-dates">delivered 21:51</span>
+        </summary>
+        <div class="ap-ticket-meta">
+          <div><b>filed</b><span>2026-09-18 20:26</span></div>
+          <div><b>started</b><span>2026-09-18 20:36</span></div>
+          <div><b>finished</b><span>2026-09-18 21:26</span></div>
+          <div><b>delivered</b><span>2026-09-18 21:51</span></div>
+          <div><b>branch</b><span>ticket/role-editor</span></div>
+          <div><b>commit</b><span>abc1234</span></div>
+        </div>
+        <div class="ap-ticket-body md">
+          <h2>Report</h2>
+          <p>Editing a role takes three clicks through a menu that is only reachable from the sidebar.</p>
+          <h2>Wanted</h2>
+          <p>A double-click on the role name opens the editor in place, with <code>Esc</code> to cancel.</p>
+        </div>
+      </details>
+    </section>
+
+    <section class="ap-ticket" id="ap-ticket-006">
+      <details>
+        <summary>
+          <span class="ap-ticket-id">#006</span>
+          <h3 class="ap-ticket-title">Old idea</h3>
+          <span class="ap-badge abandoned">abandoned</span>
+          <span class="ap-ticket-dates">abandoned 21:21</span>
+        </summary>
+        <div class="ap-ticket-meta">
+          <div><b>filed</b><span>2026-09-18 21:16</span></div>
+          <div><b>abandoned</b><span>2026-09-18 21:21</span></div>
+          <div><b>reason</b><span>superseded by #003</span></div>
+        </div>
+        <div class="ap-ticket-body md">
+          <h2>Report</h2>
+          <p>Kept for the record; the exporter split covers it.</p>
+        </div>
+      </details>
+    </section>
+  </div>
+</section>
+
+</div>
+
+<script type="application/json" id="ap-progress-data">__PROGRESS__</script>
+<script type="application/json" id="ap-tickets-data">__TICKETS__</script>
+
+<!-- Template-owned behaviour: tab selection and ticket open state, both restored
+     from localStorage before paint so a reload looks identical. Everything
+     data-driven belongs to the page script below. -->
+<script>
+(function () {
+  /* The token below is injected as the last script; define it so a template
+     opened before injection does not throw. Split so the CLI's single literal
+     replace never touches this line. */
+  window["__PAGE" + "_SCRIPT__"] = 0;
+
+  var TAB_KEY = "agent-progress:tab";
+  var OPEN_KEY = "agent-progress:open-tickets";
+  var THEME_KEY = "agent-progress:theme";
+  var root = document.documentElement;
+  var themeBar = document.getElementById("ap-theme");
+  var systemDark = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+
+  function applyTheme(choice) {
+    var dark = choice === "dark" || (choice === "auto" && systemDark && systemDark.matches);
+    root.setAttribute("data-theme", dark ? "dark" : "light");
+    root.setAttribute("data-theme-choice", choice);
+    var buttons = themeBar.querySelectorAll("[data-theme]");
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].setAttribute("aria-pressed", String(buttons[i].dataset.theme === choice));
+    }
+  }
+  applyTheme(root.getAttribute("data-theme-choice") || "auto");
+  themeBar.addEventListener("click", function (event) {
+    var button = event.target.closest("[data-theme]");
+    if (!button) { return; }
+    applyTheme(button.dataset.theme);
+    try { localStorage.setItem(THEME_KEY, button.dataset.theme); } catch (e) {}
+  });
+  if (systemDark && systemDark.addEventListener) {
+    systemDark.addEventListener("change", function () {
+      if ((root.getAttribute("data-theme-choice") || "auto") === "auto") { applyTheme("auto"); }
+    });
+  }
+  var tabs = document.getElementById("ap-tabs");
+
+  function select(name) {
+    var buttons = tabs.querySelectorAll("[data-tab]");
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].setAttribute("aria-selected", String(buttons[i].dataset.tab === name));
+    }
+    var panels = document.querySelectorAll("[data-panel]");
+    for (var j = 0; j < panels.length; j++) {
+      panels[j].hidden = panels[j].dataset.panel !== name;
+    }
+  }
+  try {
+    var saved = localStorage.getItem(TAB_KEY);
+    if (saved) { select(saved); }
+  } catch (e) {}
+  tabs.addEventListener("click", function (event) {
+    var button = event.target.closest("[data-tab]");
+    if (!button) { return; }
+    select(button.dataset.tab);
+    try { localStorage.setItem(TAB_KEY, button.dataset.tab); } catch (e) {}
+  });
+
+  var open = {};
+  try { open = JSON.parse(localStorage.getItem(OPEN_KEY) || "{}") || {}; } catch (e) { open = {}; }
+
+  function restoreTicketOpenState() {
+    var cards = document.querySelectorAll(".ap-ticket > details");
+    for (var k = 0; k < cards.length; k++) {
+      var id = cards[k].parentNode.id;
+      if (open[id]) { cards[k].open = true; }
+    }
+  }
+  restoreTicketOpenState();
+  document.addEventListener("toggle", function (event) {
+    var details = event.target;
+    if (!details.parentNode || !details.parentNode.classList.contains("ap-ticket")) { return; }
+    if (details.open) { open[details.parentNode.id] = 1; } else { delete open[details.parentNode.id]; }
+    try { localStorage.setItem(OPEN_KEY, JSON.stringify(open)); } catch (e) {}
+  }, true);
+
+  /* The two pieces of template-owned behaviour the page script has to reach, and the only ones.
+     The cards above are placeholders: the page script replaces them wholesale, after this runs,
+     so the restore has to be callable a second time — and a "#ap-ticket-003" fragment has to be
+     able to select the Tickets tab without the page script owning a second copy of the tab logic. */
+  window.agentProgressTemplate = { selectTab: select, restoreTicketOpenState: restoreTicketOpenState };
+})();
+</script>
+
+<script>
+__PAGE_SCRIPT__
+</script>
+</body>
+</html>

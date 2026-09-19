@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    // Bun runs the TypeScript directly — tsc is only used as a type checker.
+    "noEmit": true,
+    "target": "ESNext",
+    "lib": ["ESNext"],
+    "module": "Preserve",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "types": ["bun"],
+
+    // Strictness
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "exactOptionalPropertyTypes": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "skipLibCheck": true
+  },
+  "include": ["agent-progress.ts", "cli/**/*.ts", "lib/**/*.ts"],
+  // The page is its own project (lib/render/page/tsconfig.json: DOM types, no Bun or Node types). Excluded
+  // here so nothing placed under that folder is ever compiled with Bun's globals in scope.
+  "exclude": ["lib/render/page/**"]
+}
