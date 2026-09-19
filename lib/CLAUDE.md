@@ -85,6 +85,9 @@ anything that needs "now" is handed it.
   `12.3k`, `1.2m`; a bare decimal and a negative are refused) and `formatTokenCount` for what both
   readers show (`950`, `12.3k`, `1.2M`). One module, so the command surface and the page cannot
   drift on either half.
+- `lib/utils/TicketDependencyUtil.ts` — `unsettledDependenciesOf` (which of a ticket's dependencies
+  are not done or delivered yet) and `dependencyLoopFrom` (the circle a new list would close, or
+  `null`). Shared by `ticket depends` and the page's "waiting on" note.
 
 ## `lib/platform/`
 

@@ -1,6 +1,7 @@
 /** The DOM-free half of the page: the island shapes, the checks that establish them, and the range the geometry is finally given. */
 
 import type { ProgressFile, TicketFrontmatter, ViewRange } from '../../constants/Types.ts';
+import { TicketDependencyUtil }                            from '../../utils/TicketDependencyUtil.ts';
 import type { TimelineLimits }                             from './GanttGeometry.ts';
 import { computeTimeline }                                 from './GanttGeometry.ts';
 
@@ -115,6 +116,20 @@ export function pageTicketsFrom(value: unknown): PageTicket[] {
     && typeof entry['title'] === 'string'
     && typeof entry['status'] === 'string'
     && typeof entry['bodyHtml'] === 'string');
+}
+
+const CLOSED_TICKET_STATUSES: readonly string[] = ['done', 'delivered', 'abandoned'];
+
+/** Only tickets still to be worked on wait; a closed ticket's list is history. */
+export function waitingOnByTicketId(tickets: readonly PageTicket[]): Map<string, string[]> {
+  const statusById = new Map(tickets.map((ticket) => [ticket.id, ticket.status]));
+  const waitingOn  = new Map<string, string[]>();
+  for (const ticket of tickets) {
+    if (CLOSED_TICKET_STATUSES.includes(ticket.status)) continue;
+    const unsettled = TicketDependencyUtil.unsettledDependenciesOf(ticket.dependsOn ?? [], statusById);
+    if (unsettled.length > 0) waitingOn.set(ticket.id, unsettled);
+  }
+  return waitingOn;
 }
 
 /** `file://` is one origin in Chrome, so the tracker id is what keeps two dashboards' ranges apart. */

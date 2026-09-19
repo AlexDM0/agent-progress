@@ -40,6 +40,8 @@ const EXAMPLE_RANGE_LIMITS = {
   hoursAxisLabelLimitMinutes: 1440,
 };
 
+const NO_WAITING = new Map<string, string[]>();
+
 const PLACED_BAR: TimelineBar = {
   taskId:       1,
   leftPercent:  10,
@@ -85,13 +87,20 @@ function exampleTicket(changes: Partial<PageTicket> = {}): PageTicket {
   };
 }
 
-function rowFor(task: Task, ticketStatus: TicketStatus | null = null, bar: TimelineBar = PLACED_BAR): string {
-  return taskRowsMarkup([{ task, ticketStatus, bar }], EXAMPLE_SLICES);
+function rowFor(task: Task, ticketStatus: TicketStatus | null = null, bar: TimelineBar = PLACED_BAR, waitingOn: readonly string[] = []): string {
+  return taskRowsMarkup([{
+    task,
+    ticketStatus,
+    bar,
+    waitingOn,
+  }], EXAMPLE_SLICES);
 }
 
 describe('taskRowsMarkup', () => {
   test('draws the most recently filed task on top', () => {
-    const markup = taskRowsMarkup([1, 2, 3].map((id) => ({ task: exampleTask({ id }), ticketStatus: null, bar: PLACED_BAR })), EXAMPLE_SLICES);
+    const markup = taskRowsMarkup([1, 2, 3].map((id) => ({
+      task: exampleTask({ id }), ticketStatus: null, bar: PLACED_BAR, waitingOn: [] 
+    })), EXAMPLE_SLICES);
 
     expect([...markup.matchAll(/data-task-id="(\d+)"/g)].map((match) => match[1])).toEqual(['3', '2', '1']);
   });
@@ -127,6 +136,16 @@ describe('taskRowsMarkup', () => {
   // Rows written before the stamp existed: delivery of a ticket is only legal from `done`.
   test('marks a delivered ticket row as reviewed even when it carries no stamp', () => {
     expect(rowFor(exampleTask({ status: 'delivered', ticket: '003' }), 'delivered')).toContain('ap-reviewed-mark');
+  });
+
+  test('says which tickets a row is waiting on, each linked to its card', () => {
+    const markup = rowFor(exampleTask({ status: 'pending', ticket: '005' }), 'open', PLACED_BAR, ['003', '004']);
+
+    expect(markup).toContain('<span class="ap-waiting">waiting on <a href="#ap-ticket-003">#003</a>, <a href="#ap-ticket-004">#004</a></span>');
+  });
+
+  test('writes no waiting note on a row that waits on nothing', () => {
+    expect(rowFor(exampleTask())).not.toContain('ap-waiting');
   });
 
   test('gives a reviewing row the reviewing state and label', () => {
@@ -238,7 +257,7 @@ describe('logItemsMarkup', () => {
 
 describe('ticketTableRowsMarkup', () => {
   test('links the id and the task, and badges the status', () => {
-    const markup = ticketTableRowsMarkup([exampleTicket()]);
+    const markup = ticketTableRowsMarkup([exampleTicket()], NO_WAITING);
 
     expect(markup).toContain('<a href="#ap-ticket-003">#003</a>');
     expect(markup).toContain('<a href="#ap-task-3">#3</a>');
@@ -247,11 +266,17 @@ describe('ticketTableRowsMarkup', () => {
   });
 
   test('leaves the task cell empty for a ticket with no row yet', () => {
-    expect(ticketTableRowsMarkup([exampleTicket({ task: null })])).toContain('<td class="mono"></td></tr>');
+    expect(ticketTableRowsMarkup([exampleTicket({ task: null })], NO_WAITING)).toContain('<td class="mono"></td></tr>');
+  });
+
+  test('puts the waiting note beside the title of a ticket that waits', () => {
+    const waiting = new Map([['003', ['001']]]);
+
+    expect(ticketTableRowsMarkup([exampleTicket()], waiting)).toContain('two passes<span class="ap-waiting">waiting on <a href="#ap-ticket-001">#001</a></span></td>');
   });
 
   test('escapes a hostile ticket title', () => {
-    expect(ticketTableRowsMarkup([exampleTicket({ title: '<b>bold</b>' })])).toContain('&lt;b&gt;bold&lt;/b&gt;');
+    expect(ticketTableRowsMarkup([exampleTicket({ title: '<b>bold</b>' })], NO_WAITING)).toContain('&lt;b&gt;bold&lt;/b&gt;');
   });
 });
 
@@ -266,35 +291,42 @@ describe('ticketCountText', () => {
 });
 
 describe('ticketCardsMarkup', () => {
+  test('lists every dependency in the card, and heads a waiting card with what it still waits on', () => {
+    const markup = ticketCardsMarkup([exampleTicket({ dependsOn: ['001', '002'] })], new Map([['003', ['002']]]), EXAMPLE_SLICES);
+
+    expect(markup).toContain('<b>waits on</b><span><a href="#ap-ticket-001">#001</a>, <a href="#ap-ticket-002">#002</a></span>');
+    expect(markup).toContain('<span class="ap-waiting">waiting on <a href="#ap-ticket-002">#002</a></span>');
+  });
+
   test.each<[TicketStatus]>([['open'], ['in-progress'], ['in-review']])('leaves a %s card open, with no disclosure', (status) => {
-    const markup = ticketCardsMarkup([exampleTicket({ status })], EXAMPLE_SLICES);
+    const markup = ticketCardsMarkup([exampleTicket({ status })], NO_WAITING, EXAMPLE_SLICES);
 
     expect(markup).toContain('<div class="ap-ticket-head">');
     expect(markup).not.toContain('<details>');
   });
 
   test.each<[TicketStatus]>([['done'], ['delivered'], ['abandoned']])('collapses a %s card into a disclosure', (status) => {
-    const markup = ticketCardsMarkup([exampleTicket({ status })], EXAMPLE_SLICES);
+    const markup = ticketCardsMarkup([exampleTicket({ status })], NO_WAITING, EXAMPLE_SLICES);
 
     expect(markup).toContain('<details><summary>');
     expect(markup).not.toContain('ap-ticket-head');
   });
 
   test('keeps the id on the outer section either way', () => {
-    expect(ticketCardsMarkup([exampleTicket({ status: 'open' })], EXAMPLE_SLICES)).toContain('<section class="ap-ticket" id="ap-ticket-003">');
-    expect(ticketCardsMarkup([exampleTicket({ status: 'done' })], EXAMPLE_SLICES)).toContain('<section class="ap-ticket" id="ap-ticket-003">');
+    expect(ticketCardsMarkup([exampleTicket({ status: 'open' })], NO_WAITING, EXAMPLE_SLICES)).toContain('<section class="ap-ticket" id="ap-ticket-003">');
+    expect(ticketCardsMarkup([exampleTicket({ status: 'done' })], NO_WAITING, EXAMPLE_SLICES)).toContain('<section class="ap-ticket" id="ap-ticket-003">');
   });
 
   test('shows the latest milestone the ticket reached, not the first', () => {
-    const delivered = ticketCardsMarkup([exampleTicket({ status: 'delivered', delivered: '2026-09-18T21:51:00+02:00' })], EXAMPLE_SLICES);
-    const filedOnly = ticketCardsMarkup([exampleTicket({ started: null, finished: null })], EXAMPLE_SLICES);
+    const delivered = ticketCardsMarkup([exampleTicket({ status: 'delivered', delivered: '2026-09-18T21:51:00+02:00' })], NO_WAITING, EXAMPLE_SLICES);
+    const filedOnly = ticketCardsMarkup([exampleTicket({ started: null, finished: null })], NO_WAITING, EXAMPLE_SLICES);
 
     expect(delivered).toContain('<span class="ap-ticket-dates">delivered 21:51</span>');
     expect(filedOnly).toContain('<span class="ap-ticket-dates">filed 20:44</span>');
   });
 
   test('shortens the timestamps in the meta list and leaves the branch whole', () => {
-    const markup = ticketCardsMarkup([exampleTicket({ commit: '4f1e9c0abcdef' })], EXAMPLE_SLICES);
+    const markup = ticketCardsMarkup([exampleTicket({ commit: '4f1e9c0abcdef' })], NO_WAITING, EXAMPLE_SLICES);
 
     expect(markup).toContain('<div><b>filed</b><span>2026-09-18 20:44</span></div>');
     expect(markup).toContain('<div><b>branch</b><span>ticket/exporter-passes</span></div>');
@@ -302,14 +334,14 @@ describe('ticketCardsMarkup', () => {
   });
 
   test('leaves out the meta entries the ticket never recorded', () => {
-    const markup = ticketCardsMarkup([exampleTicket({ started: null, finished: null })], EXAMPLE_SLICES);
+    const markup = ticketCardsMarkup([exampleTicket({ started: null, finished: null })], NO_WAITING, EXAMPLE_SLICES);
 
     expect(markup).not.toContain('<b>started</b>');
     expect(markup).not.toContain('<b>finished</b>');
   });
 
   test('places the pre-rendered body verbatim inside the markdown container', () => {
-    const markup = ticketCardsMarkup([exampleTicket({ bodyHtml: '<h2>Report</h2><p>one</p>' })], EXAMPLE_SLICES);
+    const markup = ticketCardsMarkup([exampleTicket({ bodyHtml: '<h2>Report</h2><p>one</p>' })], NO_WAITING, EXAMPLE_SLICES);
 
     expect(markup).toContain('<div class="ap-ticket-body md"><h2>Report</h2><p>one</p></div>');
   });

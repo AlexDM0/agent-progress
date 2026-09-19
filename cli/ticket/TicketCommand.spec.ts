@@ -357,3 +357,69 @@ describe.skipIf(!gitIsAvailable())('what ticket add refuses and what it falls ba
     expect(shown['body']).toContain('## Report');
   });
 });
+
+describe.skipIf(!gitIsAvailable())('ticket dependencies', () => {
+  beforeEach(async () => {
+    await run(['ticket', 'add', 'Split the importer']);
+    await run(['ticket', 'add', 'Validate the rows']);
+  });
+
+  async function refusalOf(commandLineArguments: readonly string[]): Promise<string> {
+    const context  = contextHere();
+    const exitCode = await runCommandLine(commandLineArguments, context);
+    expect(exitCode).toBe(1);
+    return context.errorText();
+  }
+
+  test('--depends-on files the ticket already waiting, and list and show say on what', async () => {
+    await run(['ticket', 'add', 'Report the import', '--depends-on', '1,#2']);
+
+    expect(storedTicketText('003-report-the-import.md')).toContain('dependsOn: "001, 002"');
+    expect((await run(['ticket', 'list'])).outputText()).toContain('Report the import  (waiting on #001, #002)');
+    expect((await run(['ticket', 'show', '3'])).outputText()).toContain('waits on: #001 (open), #002 (open)');
+  });
+
+  test('depends replaces the list and logs it, and with no ids clears it', async () => {
+    await run(['ticket', 'depends', '2', '1']);
+    expect(storedTicketText('002-validate-the-rows.md')).toContain('dependsOn: "001"');
+    expect(storedProgress().log.at(-1)?.text).toBe('Ticket #002 waits on #001');
+
+    await run(['ticket', 'depends', '2']);
+    expect(storedTicketText('002-validate-the-rows.md')).not.toContain('dependsOn');
+    expect(storedProgress().log.at(-1)?.text).toBe('Ticket #002 waits on no other ticket');
+  });
+
+  test('a finished dependency no longer holds the ticket back in the listing', async () => {
+    await run(['ticket', 'depends', '2', '1']);
+    await run(['ticket', 'start', '1']);
+    await run(['ticket', 'done', '1']);
+
+    expect((await run(['ticket', 'list'])).outputText()).not.toContain('waiting on');
+  });
+
+  // The order is advice: the move happens, and the agent is told what it skipped ahead of.
+  test('starting a ticket that still waits moves it anyway and warns on standard error', async () => {
+    await run(['ticket', 'depends', '2', '1']);
+    const context = await run(['ticket', 'start', '2']);
+
+    expect(storedTicketText('002-validate-the-rows.md')).toContain('status: "in-progress"');
+    expect(context.errorText()).toContain('Ticket #002 is waiting on #001');
+  });
+
+  test('a dependency on a ticket that does not exist is refused', async () => {
+    expect(await refusalOf(['ticket', 'depends', '2', '9'])).toContain('There is no ticket #009');
+    expect(await refusalOf(['ticket', 'add', 'Report the import', '--depends-on', '9'])).toContain('There is no ticket #009');
+  });
+
+  test('a ticket waiting on itself, or on a ticket that waits on it, is refused and the file is unchanged', async () => {
+    await run(['ticket', 'depends', '2', '1']);
+
+    expect(await refusalOf(['ticket', 'depends', '1', '1'])).toContain('#001 → #001');
+    expect(await refusalOf(['ticket', 'depends', '1', '2'])).toContain('#001 → #002 → #001');
+    expect(storedTicketText('001-split-the-importer.md')).not.toContain('dependsOn');
+  });
+
+  test('something that is not a ticket id is refused before the tracker is touched', async () => {
+    expect(await refusalOf(['ticket', 'depends', '2', 'importer'])).toContain('"importer" is not a ticket id');
+  });
+});

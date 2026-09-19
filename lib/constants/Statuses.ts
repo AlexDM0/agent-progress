@@ -30,6 +30,9 @@ export const TASK_STATUS_FOR_TICKET_STATUS: Record<TicketStatus, TaskStatus> = {
   'abandoned':   'abandoned',
 };
 
+/** Abandoned is left out on purpose: the work a dependent ticket waited for never happened. */
+export const TICKET_STATUSES_THAT_SETTLE_A_DEPENDENCY: readonly TicketStatus[] = ['done', 'delivered'];
+
 export const PROGRESS_FILE_NAME = 'progress.json';
 
 export const HTML_FILE_NAME = 'progress.html';

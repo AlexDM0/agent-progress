@@ -59,6 +59,8 @@ export interface TicketFrontmatter {
   branch?:     string;
   commit?:     string;
   reason?:     string;
+  /** Padded ids of the tickets this one waits on, in the order written; absent when it waits on none. */
+  dependsOn?:  string[];
   task:        number | null;
   /** Every frontmatter line the CLI does not own, in original order, so a status change does not eat it. */
   extra:       Array<[key: string, rawValue: string]>;

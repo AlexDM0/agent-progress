@@ -7,13 +7,15 @@
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": []
   },
-  // The three files outside this folder the page imports, named one by one: each imports nothing, and
-  // compiling them here is what proves they stay environment-neutral.
+  // The files outside this folder the page imports, named one by one: each imports nothing beyond
+  // lib/constants/, and compiling them here is what proves they stay environment-neutral.
   "include": [
     "./**/*.ts",
     "../../constants/Types.ts",
+    "../../constants/Statuses.ts",
     "../../utils/HtmlEscapeUtil.ts",
-    "../../utils/TokenCountUtil.ts"
+    "../../utils/TokenCountUtil.ts",
+    "../../utils/TicketDependencyUtil.ts"
   ],
   // Emptied on purpose: an inherited `exclude` resolves against the root, which excludes this folder.
   "exclude": []

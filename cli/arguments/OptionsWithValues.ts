@@ -15,6 +15,7 @@ export const OPTION_NAMES_WITH_VALUES = new Set<string>([
   'tokens',
   'type',
   'group',
+  'depends-on',
   'body',
   'body-file',
   'branch',

@@ -53,6 +53,7 @@ export interface TaskRow {
   task:         Task;
   ticketStatus: TicketStatus | null;
   bar:          TimelineBar;
+  waitingOn:    readonly string[];
 }
 
 export interface PlacedTick extends TimelineTick {
@@ -106,7 +107,7 @@ function taskRowMarkup(row: TaskRow, slices: TimestampSlices): string {
   return [
     `<div class="ap-grid-row ap-row" ${attribute('id', `ap-task-${task.id}`)} ${attribute('data-task-id', String(task.id))} ${attribute('data-state', state)}>`,
     `<div class="ap-cell-name"><span class="ap-num">${escapeHtml(String(task.id))}</span>`,
-    `<span class="ap-name" ${attribute('title', task.name)}>${escapeHtml(task.name)}</span>${ticketBadge}${tokens}</div>`,
+    `<span class="ap-name" ${attribute('title', task.name)}>${escapeHtml(task.name)}</span>${ticketBadge}${waitingOnMarkup(row.waitingOn)}${tokens}</div>`,
     `<div class="ap-cell-pill"><span class="ap-pill">${escapeHtml(PILL_LABEL_FOR_ROW_STATE[state])}</span>${reviewedMark}</div>`,
     `<div class="ap-cell-track"><span class="ap-clip-l"${bar.visible && bar.clippedLeft ? '' : ' hidden'}></span>`,
     `<div class="ap-bar"${bar.visible ? '' : ' hidden'} style="left:${percent(bar.leftPercent)};width:${percent(bar.widthPercent)}"></div>`,
@@ -169,15 +170,23 @@ export function logItemsMarkup(entries: readonly LogEntry[], slices: TimestampSl
     .join('');
 }
 
+function ticketLinksMarkup(identifiers: readonly string[]): string {
+  return identifiers.map((identifier) => `<a ${attribute('href', `#ap-ticket-${identifier}`)}>#${escapeHtml(identifier)}</a>`).join(', ');
+}
+
+function waitingOnMarkup(identifiers: readonly string[]): string {
+  return identifiers.length === 0 ? '' : `<span class="ap-waiting">waiting on ${ticketLinksMarkup(identifiers)}</span>`;
+}
+
 function taskLinkMarkup(taskId: number | null): string {
   return taskId === null ? '' : `<a ${attribute('href', `#ap-task-${taskId}`)}>#${escapeHtml(String(taskId))}</a>`;
 }
 
-export function ticketTableRowsMarkup(tickets: readonly PageTicket[]): string {
+export function ticketTableRowsMarkup(tickets: readonly PageTicket[], waitingOnById: ReadonlyMap<string, readonly string[]>): string {
   return tickets.map((ticket) => [
     '<tr>',
     `<td class="mono"><a ${attribute('href', `#ap-ticket-${ticket.id}`)}>#${escapeHtml(ticket.id)}</a></td>`,
-    `<td>${escapeHtml(ticket.title)}</td>`,
+    `<td>${escapeHtml(ticket.title)}${waitingOnMarkup(waitingOnById.get(ticket.id) ?? [])}</td>`,
     `<td>${escapeHtml(ticket.type)}</td>`,
     `<td><span class="ap-badge ${escapeHtml(ticket.status)}">${escapeHtml(ticket.status)}</span></td>`,
     `<td>${escapeHtml(ticket.group ?? '')}</td>`,
@@ -215,8 +224,10 @@ function ticketMetaMarkup(ticket: PageTicket, slices: TimestampSlices): string {
       return `<div><b>${escapeHtml(entry.label)}</b><span>${escapeHtml(shownValue)}</span></div>`;
     })
     .join('');
-  const taskEntry = ticket.task === null ? '' : `<div><b>task</b><span>${taskLinkMarkup(ticket.task)}</span></div>`;
-  return `<div class="ap-ticket-meta">${shown}${taskEntry}</div>`;
+  const taskEntry       = ticket.task === null ? '' : `<div><b>task</b><span>${taskLinkMarkup(ticket.task)}</span></div>`;
+  const dependsOn       = ticket.dependsOn ?? [];
+  const dependencyEntry = dependsOn.length === 0 ? '' : `<div><b>waits on</b><span>${ticketLinksMarkup(dependsOn)}</span></div>`;
+  return `<div class="ap-ticket-meta">${shown}${taskEntry}${dependencyEntry}</div>`;
 }
 
 function latestMilestoneText(ticket: PageTicket, slices: TimestampSlices): string {
@@ -235,12 +246,13 @@ function latestMilestoneText(ticket: PageTicket, slices: TimestampSlices): strin
   return '';
 }
 
-function ticketCardMarkup(ticket: PageTicket, slices: TimestampSlices): string {
+function ticketCardMarkup(ticket: PageTicket, waitingOn: readonly string[], slices: TimestampSlices): string {
   const dates = latestMilestoneText(ticket, slices);
   const head  = [
     `<span class="ap-ticket-id">#${escapeHtml(ticket.id)}</span>`,
     `<h3 class="ap-ticket-title">${escapeHtml(ticket.title)}</h3>`,
     `<span class="ap-badge ${escapeHtml(ticket.status)}">${escapeHtml(ticket.status)}</span>`,
+    waitingOnMarkup(waitingOn),
     dates === '' ? '' : `<span class="ap-ticket-dates">${escapeHtml(dates)}</span>`,
   ].join('');
   const body  = `${ticketMetaMarkup(ticket, slices)}<div class="ap-ticket-body md">${ticket.bodyHtml}</div>`;
@@ -250,8 +262,8 @@ function ticketCardMarkup(ticket: PageTicket, slices: TimestampSlices): string {
   return `<section class="ap-ticket" ${attribute('id', `ap-ticket-${ticket.id}`)}>${inner}</section>`;
 }
 
-export function ticketCardsMarkup(tickets: readonly PageTicket[], slices: TimestampSlices): string {
-  return tickets.map((ticket) => ticketCardMarkup(ticket, slices)).join('');
+export function ticketCardsMarkup(tickets: readonly PageTicket[], waitingOnById: ReadonlyMap<string, readonly string[]>, slices: TimestampSlices): string {
+  return tickets.map((ticket) => ticketCardMarkup(ticket, waitingOnById.get(ticket.id) ?? [], slices)).join('');
 }
 
 function padToTwoDigits(value: number): string {

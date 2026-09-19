@@ -88,6 +88,12 @@ beyond a ticket's body.
    a status it makes sense from (see the table below), and moving a ticket to the status it already
    has is refused with exit 1 and logs nothing. `agent-progress ticket status <id> <status>` is the
    documented way to make a move the verbs refuse.
+
+   **When one ticket can only be done after another, record it**: `ticket depends 5 3` (or
+   `--depends-on 3` on `ticket add`). The dashboard then shows "waiting on #003" on #005 until #003
+   is done or delivered. Pick up work in that order: start a ticket only when nothing it waits on
+   is still open — `ticket list` shows what each one is waiting on, and `ticket start` warns when
+   you jump ahead.
 6. **`agent-progress log "<text>"` at each milestone** — a wave finished, a decision taken, a
    direction abandoned. The log is what makes the chart readable a day later.
 7. **Backfill with `--at`.** Every state-changing command and `log` take `--at <when>`, where
@@ -128,12 +134,13 @@ mutating command takes the lock, writes the progress file atomically and regener
 | `agent-progress task update <id> [--name <text>] [--owner <who>] [--note <text>] [--status <status>] [--tokens <n>] [--force]` | Change a row without moving its clock: `--name`, `--owner`, `--note`, `--tokens`, or `--status` for a correction the transitions cannot express. At least one is required, and `--status` on a row a ticket owns is refused unless `--force`. |
 | `agent-progress task remove <id>` | Delete a row. A ticket pointing at it is unlinked rather than deleted. The id is never given to another row. |
 | `agent-progress log "<text>" [--at <when>]` | Append one line to the log shown under the chart. `--at` backfills it. |
-| `agent-progress ticket add "<title>" [--type bug\|change\|feature] [--group <name>] [--body <markdown>] [--body-file <path\|->] [--at <when>]` | File a ticket: a markdown file under `.agent-progress/tickets/` with its own frontmatter, plus a pending Gantt row. The body comes from the template, from `--body`, or from `--body-file` (`-` reads standard input); afterwards it is preserved byte for byte, so an agent may edit everything below the frontmatter freely. |
+| `agent-progress ticket add "<title>" [--type bug\|change\|feature] [--group <name>] [--depends-on <ids>] [--body <markdown>] [--body-file <path\|->] [--at <when>]` | File a ticket: a markdown file under `.agent-progress/tickets/` with its own frontmatter, plus a pending Gantt row. The body comes from the template, from `--body`, or from `--body-file` (`-` reads standard input); afterwards it is preserved byte for byte, so an agent may edit everything below the frontmatter freely. `--depends-on 3,4` files it already waiting on those tickets. |
 | `agent-progress ticket list [--status <s>] [--json]` | The tickets with their type, status, group and row id. `--status` narrows the listing to one status. `--json` carries no bodies; use `ticket show` for one ticket's prose. |
 | `agent-progress ticket show <id> [--json]` | One ticket: its frontmatter, its body, and always its file path — which is what an agent needs in order to edit that body. |
 | `agent-progress ticket start\|review\|done\|deliver\|abandon\|reopen <id> [--branch <b>] [--commit <sha>] [--reason <text>] [--tokens <n>] [--at <when>]` | Move a ticket and its Gantt row together, stamping both, and set the row's token count. Each verb only moves a ticket that is in a status it makes sense from, and a move to the status a ticket already has is refused. `abandon` requires `--reason`; `reopen` clears the stamps and returns the row to pending. `--branch` and `--commit` record where the work landed. |
 | `agent-progress ticket status <id> <status>` | The same move, naming the target status directly: open, in-progress, in-review, done, delivered or abandoned. It takes the same options and is the documented way to make a move the verbs above refuse. |
 | `agent-progress ticket link <ticketId> <taskId> [--force]` | Point a ticket at an existing row instead of the one it filed. Refused when that row already belongs to another ticket, unless `--force`, which unlinks it there first. |
+| `agent-progress ticket depends <id> [<id>...]` | Set the tickets this one waits on, replacing its list; no ids clears it. Refused for a ticket that does not exist and for a list that would make tickets wait on each other in a circle. Until they are all done or delivered, its row, table entry and card read "waiting on #003", `ticket list` says so, and `ticket start` warns but still moves it. |
 | `agent-progress range --from <when> --to <when> [--tick <15m\|1h\|1d>]` | The stored default axis of the chart. A relative bound is stored as written, so `--from -2h` keeps meaning "the last two hours" on every refresh. The page's own range bar overrides this per browser. |
 | `agent-progress range --auto` | Reset the axis to the automatic span. |
 | `agent-progress render` | Regenerate `progress.html` from the progress file and the tickets, changing nothing else. For a page lost to a crash, or after a ticket body was edited by hand. |
@@ -159,6 +166,7 @@ delivered: null
 abandonedAt: null
 group: role-editor
 branch: ticket/role-editor
+dependsOn: "001, 002"
 task: 17
 ---
 # 003 — Double-click a role to edit it
@@ -168,7 +176,9 @@ task: 17
 ```
 
 The keys the CLI owns are `id`, `title`, `type`, `status`, `filed`, `updated`, `started`,
-`finished`, `delivered`, `abandonedAt`, `group`, `branch`, `commit`, `reason` and `task`. `type` is
+`finished`, `delivered`, `abandonedAt`, `group`, `branch`, `commit`, `reason`, `dependsOn` and
+`task`. `dependsOn` is the ticket ids this one waits on, comma-separated; set it with
+`ticket depends` rather than by hand, so a missing id or a circle is refused. `type` is
 one of **bug · change · feature**; `status` is one of **open · in-progress · in-review · done ·
 delivered · abandoned**. Any other line — an unknown key, a comment, a blank line — is kept and
 written back, so a field you add by hand survives every transition. **The CLI's own keys are

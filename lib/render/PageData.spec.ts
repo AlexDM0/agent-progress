@@ -12,6 +12,7 @@ import {
   overrideIsEmpty,
   pagePayloadFrom,
   pageTicketsFrom,
+  waitingOnByTicketId,
   RANGE_PRESET_BOUNDS,
   storageKeyFor,
   storedOverrideFrom,
@@ -153,6 +154,34 @@ describe('pageTicketsFrom', () => {
     ['null', null],
   ])('reads %s as no tickets at all', (_description, value) => {
     expect(pageTicketsFrom(value)).toEqual([]);
+  });
+});
+
+describe('waitingOnByTicketId', () => {
+  function ticketsFrom(entries: Array<{ id: string; status: string; dependsOn?: string[] }>): ReturnType<typeof pageTicketsFrom> {
+    return pageTicketsFrom(entries.map((entry) => ({ title: `Ticket ${entry.id}`, bodyHtml: '', ...entry })));
+  }
+
+  test('maps a ticket to the dependencies that are not done or delivered yet', () => {
+    const tickets = ticketsFrom([
+      { id: '001', status: 'done' },
+      { id: '002', status: 'in-progress' },
+      { id: '003', status: 'open', dependsOn: ['001', '002'] },
+    ]);
+
+    expect(waitingOnByTicketId(tickets)).toEqual(new Map([['003', ['002']]]));
+  });
+
+  // A closed ticket's list is history; showing it as waiting would suggest work that is not coming.
+  test('leaves out tickets that are closed and tickets whose dependencies are all settled', () => {
+    const tickets = ticketsFrom([
+      { id: '001', status: 'open' },
+      { id: '002', status: 'done', dependsOn: ['001'] },
+      { id: '003', status: 'abandoned', dependsOn: ['001'] },
+      { id: '004', status: 'open' },
+    ]);
+
+    expect(waitingOnByTicketId(tickets).size).toBe(0);
   });
 });
 

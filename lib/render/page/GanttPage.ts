@@ -16,6 +16,7 @@ import {
   RANGE_PRESET_BOUNDS,
   storageKeyFor,
   storedOverrideFrom,
+  waitingOnByTicketId,
 } from './PageData.ts';
 import type { PlacedTick, TaskRow } from './PageMarkup.ts';
 import {
@@ -194,7 +195,12 @@ function applyFragment(fragment: string): void {
   element.scrollIntoView();
 }
 
-function taskRowsFor(progress: ProgressFile, timeline: Timeline, ticketStatusById: Map<string, TicketStatus>): TaskRow[] {
+function taskRowsFor(
+  progress: ProgressFile,
+  timeline: Timeline,
+  ticketStatusById: Map<string, TicketStatus>,
+  waitingOnById: ReadonlyMap<string, readonly string[]>,
+): TaskRow[] {
   return progress.tasks.flatMap((task, index) => {
     const bar = timeline.bars[index];
     if (bar === undefined) {
@@ -204,6 +210,7 @@ function taskRowsFor(progress: ProgressFile, timeline: Timeline, ticketStatusByI
       task,
       ticketStatus: task.ticket === null ? null : ticketStatusById.get(task.ticket) ?? null,
       bar,
+      waitingOn:    task.ticket === null ? [] : waitingOnById.get(task.ticket) ?? [],
     }];
   });
 }
@@ -299,6 +306,7 @@ function clearPlaceholderContent(): void {
 function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   const { progress, limits } = payload;
   const ticketStatusById     = new Map(tickets.map((ticket) => [ticket.id, ticket.status]));
+  const waitingOnById        = waitingOnByTicketId(tickets);
   let override               = readStoredOverride(progress.trackerId);
 
   if (payload.pageScriptFailure !== null) {
@@ -324,8 +332,8 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     const visibleTickets       = tickets.filter((ticket) => showsAll || !ticketIsLongDone(ticket, nowEpochMilliseconds, windowMilliseconds));
     visibleProgress = { ...progress, tasks: visibleTasks };
 
-    setMarkup('ap-ticket-rows', ticketTableRowsMarkup(visibleTickets));
-    setMarkup('ap-ticket-cards', ticketCardsMarkup(visibleTickets, limits));
+    setMarkup('ap-ticket-rows', ticketTableRowsMarkup(visibleTickets, waitingOnById));
+    setMarkup('ap-ticket-cards', ticketCardsMarkup(visibleTickets, waitingOnById, limits));
     setText('ap-ticket-count', ticketCountText(tickets));
     templateBehaviour()?.restoreTicketOpenState();
 
@@ -357,7 +365,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     }));
     setMarkup('ap-ticks', tickLayerMarkup(placedTicks));
     setMarkup('ap-overlay', overlayMarkup(timeline.ticks, timeline.nowPercent));
-    setMarkup('ap-rows', taskRowsMarkup(taskRowsFor(visibleProgress, timeline, ticketStatusById), limits));
+    setMarkup('ap-rows', taskRowsMarkup(taskRowsFor(visibleProgress, timeline, ticketStatusById, waitingOnById), limits));
     setHidden('ap-chart-empty', visibleProgress.tasks.length > 0);
 
     setText('ap-range-note', rangeNoteText(timeline.fromEpochMilliseconds, timeline.toEpochMilliseconds, timeline.stepMinutes, limits));

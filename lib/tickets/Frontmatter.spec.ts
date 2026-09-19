@@ -163,6 +163,32 @@ describe('parseTicketDocument', () => {
   });
 });
 
+describe('dependsOn', () => {
+  // An agent editing a ticket by hand writes whatever looks natural; every spelling of the same ids has to read the same.
+  test('reads ids written with commas or spaces, with or without a hash or padding, once each', () => {
+    const handWritten = FULL_TICKET.replace('task: 17', 'dependsOn: #1, 2 002 #4\ntask: 17');
+
+    expect(parsedDocument(handWritten).frontmatter.dependsOn).toEqual(['001', '002', '004']);
+  });
+
+  test('reads a single unquoted number as a list of one', () => {
+    expect(parsedDocument(FULL_TICKET.replace('task: 17', 'dependsOn: 5\ntask: 17')).frontmatter.dependsOn).toEqual(['005']);
+  });
+
+  test('reads an absent, null or empty value as no dependencies', () => {
+    expect(parsedDocument(FULL_TICKET).frontmatter.dependsOn).toBeUndefined();
+    expect(parsedDocument(FULL_TICKET.replace('task: 17', 'dependsOn: null\ntask: 17')).frontmatter.dependsOn).toBeUndefined();
+    expect(parsedDocument(FULL_TICKET.replace('task: 17', 'dependsOn: ""\ntask: 17')).frontmatter.dependsOn).toBeUndefined();
+  });
+
+  test('refuses a value that is not a ticket number, naming its line', () => {
+    const parsed = parseTicketDocument(FULL_TICKET.replace('task: 17', 'dependsOn: 3, the importer\ntask: 17'));
+
+    expect(parsed.verdict).toBe('malformed');
+    expect(parsed.verdict === 'malformed' ? parsed.line : 0).toBe(14);
+  });
+});
+
 describe('serializeTicketDocument', () => {
   test('a full ticket survives a parse and a write unchanged', () => {
     const { frontmatter, body } = parsedDocument(FULL_TICKET);
@@ -218,5 +244,22 @@ describe('serializeTicketDocument', () => {
     delete frontmatter.group;
 
     expect(serializeTicketDocument(frontmatter, body)).not.toContain('group:');
+  });
+
+  test('a dependency list is written padded and comma-separated, after the optional keys and before the row', () => {
+    const { frontmatter, body } = parsedDocument(FULL_TICKET);
+    frontmatter.dependsOn       = ['001', '002'];
+
+    const written = serializeTicketDocument(frontmatter, body);
+
+    expect(written).toContain('branch: "ticket/export-dialog"\ndependsOn: "001, 002"\ntask: 17');
+    expect(parsedDocument(written).frontmatter.dependsOn).toEqual(['001', '002']);
+  });
+
+  test('an empty dependency list is omitted', () => {
+    const { frontmatter, body } = parsedDocument(FULL_TICKET);
+    frontmatter.dependsOn       = [];
+
+    expect(serializeTicketDocument(frontmatter, body)).not.toContain('dependsOn');
   });
 });

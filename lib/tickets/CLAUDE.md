@@ -29,7 +29,9 @@ left to be read out of the parser.
   not have, and makes the file malformed. There are no nested maps, lists, anchors or block scalars.
 - A value is `null`, an integer, a double-quoted JSON string, or an unquoted scalar taken verbatim.
 - The keys the CLI owns are `id`, `title`, `type`, `status`, `filed`, `updated`, `started`,
-  `finished`, `delivered`, `abandonedAt`, `group`, `branch`, `commit`, `reason` and `task`. `id`,
+  `finished`, `delivered`, `abandonedAt`, `group`, `branch`, `commit`, `reason`, `dependsOn` and
+  `task`. `dependsOn` is written `"001, 002"` and read from any mix of commas and spaces, with or
+  without `#` or padding; a part that is not a ticket number makes the file malformed. `id`,
   `title`, `type`, `status`, `filed` and `updated` must be present; `type` and `status` must be
   values the tool knows; `task` is an integer or `null`; a timestamp key that is absent reads as
   `null`, which is how tickets written before `delivered` existed still parse.

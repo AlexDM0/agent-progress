@@ -43,8 +43,12 @@ const KNOWN_KEYS = new Set<string>([
   'delivered',
   'abandonedAt',
   ...OPTIONAL_TEXT_KEYS,
+  'dependsOn',
   'task',
 ]);
+
+const DEPENDENCY_SEPARATOR_PATTERN = /[\s,]+/;
+const DEPENDENCY_LIST_JOINER       = ', ';
 
 class FrontmatterProblem extends Error {
   readonly line: number;
@@ -121,6 +125,10 @@ export function serializeTicketDocument(frontmatter: TicketFrontmatter, body: st
     if (value !== undefined) {
       lines.push(`${key}: ${JSON.stringify(value)}`);
     }
+  }
+
+  if (frontmatter.dependsOn !== undefined && frontmatter.dependsOn.length > 0) {
+    lines.push(`dependsOn: ${JSON.stringify(frontmatter.dependsOn.join(DEPENDENCY_LIST_JOINER))}`);
   }
 
   lines.push(`task: ${frontmatter.task === null ? 'null' : String(frontmatter.task)}`);
@@ -229,6 +237,7 @@ function frontmatterFrom(
     delivered:   nullableText(knownValues, 'delivered'),
     abandonedAt: nullableText(knownValues, 'abandonedAt'),
     ...optionalTextFields(knownValues),
+    ...dependencyField(knownValues),
     task:        nullableInteger(knownValues, 'task'),
     extra,
   };
@@ -254,6 +263,25 @@ function optionalTextFields(knownValues: Map<string, KnownValue>): Pick<TicketFr
     }
   }
   return fields;
+}
+
+/** Written `"003, 004"`; any mix of commas and spaces, with or without `#` or padding, reads the same. */
+function dependencyField(knownValues: Map<string, KnownValue>): Pick<TicketFrontmatter, 'dependsOn'> {
+  const found = knownValues.get('dependsOn');
+  if (found === undefined || found.value === null) {
+    return {};
+  }
+  const dependsOn: string[] = [];
+  for (const reference of String(found.value).split(DEPENDENCY_SEPARATOR_PATTERN).filter((part) => part !== '')) {
+    const identifier = TicketIdUtil.parseTicketReference(reference);
+    if (identifier === null) {
+      throw new FrontmatterProblem(`\`dependsOn\` names something that is not a ticket number: ${reference}`, found.line);
+    }
+    if (!dependsOn.includes(identifier)) {
+      dependsOn.push(identifier);
+    }
+  }
+  return dependsOn.length === 0 ? {} : { dependsOn };
 }
 
 function requiredText(knownValues: Map<string, KnownValue>, key: string, closingFenceLine: number): string {

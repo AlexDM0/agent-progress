@@ -64,10 +64,11 @@ repository to use instead of walking up from the current directory.
   ticket add "<title>"        File a ticket: a markdown file under \`.agent-progress/tickets/\` with
       [--type bug|change|feature]
       [--group <name>]        its own frontmatter, plus a pending Gantt row. The body comes from
-      [--body <markdown>]     the template, from --body, or from --body-file (\`-\` reads standard
-      [--body-file <path|->]  input); an empty body falls back to the template, and afterwards the
-      [--at <when>]           body is preserved byte for byte, so an agent may edit everything
-                              below the frontmatter freely.
+      [--depends-on <ids>]    the template, from --body, or from --body-file (\`-\` reads standard
+      [--body <markdown>]     input); an empty body falls back to the template, and afterwards the
+      [--body-file <path|->]  body is preserved byte for byte, so an agent may edit everything
+      [--at <when>]           below the frontmatter freely. --depends-on files it already waiting
+                              on other tickets (\`3,4\`), as \`ticket depends\` does.
 
   ticket list [--status <s>]  The tickets with their type, status, group and row id. --status
       [--json]                narrows the listing to one status. --json carries no bodies; use
@@ -96,6 +97,14 @@ repository to use instead of walking up from the current directory.
                               Point a ticket at an existing row instead of the one it filed.
                               Refused when that row already belongs to another ticket, unless
                               --force, which unlinks it there first.
+
+  ticket depends <id> [<id>...]
+                              Set the tickets this one waits on, replacing its list; no ids clears
+                              it. Refused for a ticket that does not exist and for a list that
+                              would make tickets wait on each other in a circle. Until every one
+                              of them is done or delivered, the ticket's row, table entry and card
+                              read "waiting on #003", \`ticket list\` says so too, and \`ticket start\`
+                              warns on standard error but still moves it.
 
   range --from <when>         The stored default axis of the chart. A relative bound is stored as
         --to <when>           written, so \`--from -2h\` keeps meaning "the last two hours" on every

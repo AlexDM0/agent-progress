@@ -84,10 +84,11 @@ against `generatedAt`, and `lib/constants/Limits.ts` no longer needs
 `lib/render/page/tsconfig.json` compiles that folder with the DOM library and **no Bun or Node
 types**, so a page module reaching for `Bun.file` or `node:fs` fails to compile rather than failing in
 a browser. The root project excludes the folder for the same reason in reverse. It additionally
-compiles `lib/constants/Types.ts`, `lib/utils/HtmlEscapeUtil.ts` and `lib/utils/TokenCountUtil.ts`,
-named one by one: each imports nothing, and compiling them here is what proves they stay
-environment-neutral. That is also what keeps the page from growing a second escaper and a second
-token formatter.
+compiles `lib/constants/Types.ts`, `lib/constants/Statuses.ts`, `lib/utils/HtmlEscapeUtil.ts`,
+`lib/utils/TokenCountUtil.ts` and `lib/utils/TicketDependencyUtil.ts`, named one by one: none imports
+anything beyond `lib/constants/`, and compiling them here is what proves they stay
+environment-neutral. That is also what keeps the page from growing a second escaper, a second token
+formatter and a second idea of when a ticket stops waiting.
 
 The consequence: **no `*.spec.ts` may sit in `lib/render/page/`** — a spec's `bun:test` import would
 not resolve there. A page module's spec goes one level up and reaches it by a relative import, which

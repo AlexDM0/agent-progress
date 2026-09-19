@@ -63,7 +63,9 @@
  #ap-ticket-cards         el     one .ap-ticket per ticket
  ---------------------------------------------------------------- row markup ---
  .ap-row[data-state]      state goes on the ROW; pill and bar inherit its colours
- .ap-row > .ap-cell-name  > .ap-num, .ap-name[title], a.ap-ticket-badge, .ap-tokens
+ .ap-row > .ap-cell-name  > .ap-num, .ap-name[title], a.ap-ticket-badge, .ap-waiting, .ap-tokens
+ .ap-waiting              "waiting on #003, #004", each id a link to its ticket card; also
+                          after the title in the ticket table and in a waiting card's head
  .ap-row > .ap-cell-pill  > .ap-pill (exactly one; label text carries the state),
                             then .ap-reviewed-mark[data-state="reviewed"] on a delivered row
                             that was reviewed first
@@ -376,6 +378,18 @@ a:hover { color: var(--ink); text-decoration: underline; }
   color: var(--ink-muted);
 }
 .ap-ticket-badge:hover { color: var(--ink); border-color: var(--ink-muted); text-decoration: none; }
+.ap-waiting {
+  flex: none;
+  margin-left: var(--sp-2);
+  font: 500 var(--fs-micro)/1.5 var(--font-ui);
+  padding: 0 6px;
+  border: 1px dashed var(--warn-edge);
+  border-radius: var(--r-1);
+  background: var(--warn-tint);
+  color: var(--warn-ink);
+  white-space: nowrap;
+}
+.ap-waiting a { color: inherit; font-family: var(--font-mono); }
 .ap-tokens {
   flex: none; margin-left: auto;
   font-family: var(--font-mono);
@@ -698,7 +712,7 @@ a:hover { color: var(--ink); text-decoration: underline; }
             <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:71.5%;width:7.0%"></div><span class="ap-clip-r" hidden></span></div>
           </div>
           <div class="ap-grid-row ap-row" id="ap-task-7" data-task-id="7" data-state="pending">
-            <div class="ap-cell-name"><span class="ap-num">7</span><span class="ap-name" title="Audit the range presets against a real 12-hour session">Audit the range presets against a real 12-hour session</span><a class="ap-ticket-badge" href="#ap-ticket-005">#005</a></div>
+            <div class="ap-cell-name"><span class="ap-num">7</span><span class="ap-name" title="Audit the range presets against a real 12-hour session">Audit the range presets against a real 12-hour session</span><a class="ap-ticket-badge" href="#ap-ticket-005">#005</a><span class="ap-waiting">waiting on <a href="#ap-ticket-004">#004</a></span></div>
             <div class="ap-cell-pill"><span class="ap-pill">unstarted</span></div>
             <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:78.5%;width:9.0%"></div><span class="ap-clip-r" hidden></span></div>
           </div>
@@ -737,7 +751,7 @@ a:hover { color: var(--ink); text-decoration: underline; }
         <tr><td class="mono"><a href="#ap-ticket-002">#002</a></td><td>Cache ticket bodies between runs</td><td>change</td><td><span class="ap-badge done">done</span></td><td>exporter</td><td class="mono">ticket/body-cache</td><td class="mono"><a href="#ap-task-2">#2</a></td></tr>
         <tr><td class="mono"><a href="#ap-ticket-003">#003</a></td><td>Split the exporter into two passes</td><td>change</td><td><span class="ap-badge in-review">in-review</span></td><td>exporter</td><td class="mono">ticket/exporter-passes</td><td class="mono"><a href="#ap-task-3">#3</a></td></tr>
         <tr><td class="mono"><a href="#ap-ticket-004">#004</a></td><td>Brighter colours</td><td>feature</td><td><span class="ap-badge in-progress">in-progress</span></td><td></td><td class="mono">ticket/brighter-colours</td><td class="mono"><a href="#ap-task-5">#5</a></td></tr>
-        <tr><td class="mono"><a href="#ap-ticket-005">#005</a></td><td>Audit the range presets</td><td>chore</td><td><span class="ap-badge open">open</span></td><td></td><td class="mono"></td><td class="mono"><a href="#ap-task-7">#7</a></td></tr>
+        <tr><td class="mono"><a href="#ap-ticket-005">#005</a></td><td>Audit the range presets<span class="ap-waiting">waiting on <a href="#ap-ticket-004">#004</a></span></td><td>chore</td><td><span class="ap-badge open">open</span></td><td></td><td class="mono"></td><td class="mono"><a href="#ap-task-7">#7</a></td></tr>
         <tr><td class="mono"><a href="#ap-ticket-006">#006</a></td><td>Old idea</td><td>bug</td><td><span class="ap-badge abandoned">abandoned</span></td><td></td><td class="mono"></td><td class="mono"><a href="#ap-task-8">#8</a></td></tr>
       </tbody>
     </table>

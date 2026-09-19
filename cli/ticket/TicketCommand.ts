@@ -25,6 +25,8 @@ import {
   ensureTaskForTicket,
   ticketMoveIsLegal
 }                                                               from '../../lib/tickets/TicketTransitions';
+import { TicketDependencyUtil }                                   from '../../lib/utils/TicketDependencyUtil';
+import { TicketIdUtil }                                           from '../../lib/utils/TicketIdUtil';
 import { TokenCountUtil }                                         from '../../lib/utils/TokenCountUtil';
 import type { CommandContext }                                    from '../CommandContext';
 import { openTrackerForWriting, printEntity, progressOperations } from '../CommandSupport';
@@ -32,12 +34,13 @@ import type { CommandHandler }                                    from '../Comma
 import type { ArgumentParser }                                    from '../arguments/ArgumentParser';
 
 const USAGE = [
-  'agent-progress ticket add "<title>" [--type bug|change|feature] [--group <name>] [--body <markdown> | --body-file <path|->] [--at <when>]',
+  'agent-progress ticket add "<title>" [--type bug|change|feature] [--group <name>] [--depends-on <ids>] [--body <markdown> | --body-file <path|->] [--at <when>]',
   'agent-progress ticket list [--status <s>] [--json]',
   'agent-progress ticket show <id> [--json]',
   'agent-progress ticket start|review|done|deliver|abandon|reopen <id> [--branch <b>] [--commit <sha>] [--reason <text>] [--tokens <n>] [--at <when>]',
   'agent-progress ticket status <id> <status> [...same options]',
   'agent-progress ticket link <ticketId> <taskId> [--force]',
+  'agent-progress ticket depends <id> [<id>...]',
 ].join('\n         ');
 
 const TRANSITION_SUBCOMMANDS: Record<string, TicketStatus> = {
@@ -49,11 +52,14 @@ const TRANSITION_SUBCOMMANDS: Record<string, TicketStatus> = {
   reopen:  'open',
 };
 
-const ADD_OPTION_NAMES        = ['type', 'group', 'body', 'body-file', 'at', 'json'];
+const ADD_OPTION_NAMES        = ['type', 'group', 'depends-on', 'body', 'body-file', 'at', 'json'];
 const LIST_OPTION_NAMES       = ['status', 'json'];
 const SHOW_OPTION_NAMES       = ['json'];
 const TRANSITION_OPTION_NAMES = ['branch', 'commit', 'reason', 'at', 'tokens', 'json'];
 const LINK_OPTION_NAMES       = ['force', 'json'];
+const DEPENDS_OPTION_NAMES    = ['json'];
+
+const DEPENDENCY_SEPARATOR_PATTERN = /[\s,]+/;
 
 const TRANSITION_WORD_FOR_TICKET_STATUS: Record<TicketStatus, string> = {
   'open':        'reopen',
@@ -65,6 +71,8 @@ const TRANSITION_WORD_FOR_TICKET_STATUS: Record<TicketStatus, string> = {
 };
 
 const DEFAULT_TICKET_TYPE: TicketType = 'change';
+
+const TICKET_STATUSES_THAT_CLOSE_A_TICKET: readonly TicketStatus[] = ['done', 'delivered', 'abandoned'];
 
 
 const STANDARD_INPUT_MARKER = '-';
@@ -121,6 +129,45 @@ function requireTicket(workspace: Workspace, reference: string): Ticket {
   return ticket;
 }
 
+function dependencyListFrom(texts: readonly string[]): string[] {
+  const dependsOn: string[] = [];
+  for (const reference of texts.flatMap((text) => text.split(DEPENDENCY_SEPARATOR_PATTERN)).filter((part) => part !== '')) {
+    const identifier = TicketIdUtil.parseTicketReference(reference);
+    if (identifier === null) {
+      throw new OperationRefusal('refused', `"${reference}" is not a ticket id. Write it as \`3\`, \`003\` or \`#3\`.`);
+    }
+    if (!dependsOn.includes(identifier)) dependsOn.push(identifier);
+  }
+  return dependsOn;
+}
+
+function refuseAnUnworkableDependencyList(ticketId: string, dependsOn: readonly string[], tickets: readonly Ticket[]): void {
+  const known   = new Set(tickets.map((ticket) => ticket.frontmatter.id));
+  const missing = dependsOn.filter((identifier) => !known.has(identifier));
+  if (missing.length > 0) {
+    const named = missing.map((identifier) => `#${identifier}`).join(', ');
+    throw new OperationRefusal('refused', `There is no ticket ${named}. Run \`agent-progress ticket list\` to see what this tracker holds.`);
+  }
+  const dependsOnById = new Map(tickets.map((ticket) => [ticket.frontmatter.id, ticket.frontmatter.dependsOn ?? []]));
+  const loop          = TicketDependencyUtil.dependencyLoopFrom(ticketId, dependsOn, dependsOnById);
+  if (loop !== null) {
+    throw new OperationRefusal('refused', `That would make tickets wait on each other in a circle: ${loop.map((identifier) => `#${identifier}`).join(' → ')}.`);
+  }
+}
+
+function unsettledDependenciesFor(ticket: Ticket, tickets: readonly Ticket[]): string[] {
+  const statusById = new Map(tickets.map((candidate) => [candidate.frontmatter.id, candidate.frontmatter.status]));
+  return TicketDependencyUtil.unsettledDependenciesOf(ticket.frontmatter.dependsOn ?? [], statusById);
+}
+
+function ticketIsStillOpen(ticket: Ticket): boolean {
+  return !TICKET_STATUSES_THAT_CLOSE_A_TICKET.includes(ticket.frontmatter.status);
+}
+
+function waitingOnText(identifiers: readonly string[]): string {
+  return `waiting on ${identifiers.map((identifier) => `#${identifier}`).join(', ')}`;
+}
+
 function ticketAsJson(ticket: Ticket): Record<string, unknown> {
   return { ...ticket.frontmatter, filePath: ticket.filePath, body: ticket.body };
 }
@@ -155,8 +202,9 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
   if (writtenType !== undefined && !ticketTypeIsKnown(writtenType)) {
     throw new OperationRefusal('refused', `"${writtenType}" is not a ticket type. The types are ${TICKET_TYPES.join(', ')}.`);
   }
-  const type  = writtenType !== undefined && ticketTypeIsKnown(writtenType) ? writtenType : DEFAULT_TICKET_TYPE;
-  const group = commandArguments.option('group');
+  const type      = writtenType !== undefined && ticketTypeIsKnown(writtenType) ? writtenType : DEFAULT_TICKET_TYPE;
+  const group     = commandArguments.option('group');
+  const dependsOn = dependencyListFrom([commandArguments.option('depends-on') ?? '']);
 
   // Resolved before the lock: `--body-file -` waits on a pipe the caller may hold open indefinitely.
   const workspace  = requireWorkspace(context.currentDirectory);
@@ -164,6 +212,8 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
   const body       = await bodyForNewTicket(commandArguments, identifier, title);
 
   const ticket = await openTrackerForWriting(commandArguments, context, (change) => {
+    // A ticket that does not exist yet has nobody waiting on it, so only the ids themselves can be wrong.
+    refuseAnUnworkableDependencyList(identifier, dependsOn, listTickets(change.workspace).tickets);
     const filed = createTicket(change.workspace, {
       title,
       type,
@@ -171,6 +221,7 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
       body,
       at: change.at,
     });
+    if (dependsOn.length > 0) filed.frontmatter.dependsOn = dependsOn;
     ensureTaskForTicket({ progress: change.progress, ticket: filed, operations: progressOperations });
     appendLogEntry(change.progress, change.at, `Ticket #${filed.frontmatter.id} filed: ${title}`);
     change.writeTicketAfterwards(filed);
@@ -221,13 +272,17 @@ function listAllTickets(commandArguments: ArgumentParser, context: CommandContex
     padColumn('task', LIST_COLUMN_WIDTHS.task),
     'title',
   ].join('');
-  const rows = shown.map((ticket) => [
-    padColumn(`#${ticket.frontmatter.id}`, LIST_COLUMN_WIDTHS.identifier),
-    padColumn(ticket.frontmatter.status, LIST_COLUMN_WIDTHS.status),
-    padColumn(ticket.frontmatter.type, LIST_COLUMN_WIDTHS.type),
-    padColumn(ticket.frontmatter.task === null ? '-' : `#${ticket.frontmatter.task}`, LIST_COLUMN_WIDTHS.task),
-    ticket.frontmatter.title,
-  ].join(''));
+  const rows = shown.map((ticket) => {
+    const unsettled = unsettledDependenciesFor(ticket, listing.tickets);
+    return [
+      padColumn(`#${ticket.frontmatter.id}`, LIST_COLUMN_WIDTHS.identifier),
+      padColumn(ticket.frontmatter.status, LIST_COLUMN_WIDTHS.status),
+      padColumn(ticket.frontmatter.type, LIST_COLUMN_WIDTHS.type),
+      padColumn(ticket.frontmatter.task === null ? '-' : `#${ticket.frontmatter.task}`, LIST_COLUMN_WIDTHS.task),
+      ticket.frontmatter.title,
+      ticketIsStillOpen(ticket) && unsettled.length > 0 ? `  (${waitingOnText(unsettled)})` : '',
+    ].join('');
+  });
   printEntity(commandArguments, context, shown.map(ticketRowAsJson), [header, ...rows].join('\n'));
 }
 
@@ -243,12 +298,15 @@ function showOneTicket(commandArguments: ArgumentParser, context: CommandContext
   const workspace = requireWorkspace(context.currentDirectory);
   const ticket    = requireTicket(workspace, reference);
   const { frontmatter } = ticket;
+  const statusById      = new Map(listTickets(workspace).tickets.map((candidate) => [candidate.frontmatter.id, candidate.frontmatter.status]));
+  const dependencies    = (frontmatter.dependsOn ?? []).map((identifier) => `#${identifier} (${statusById.get(identifier) ?? 'missing'})`);
   const summary = [
     `Ticket #${frontmatter.id}: ${frontmatter.title}`,
     `  status:   ${frontmatter.status}`,
     `  type:     ${frontmatter.type}`,
     `  group:    ${frontmatter.group ?? '-'}`,
     `  task:     ${frontmatter.task === null ? '-' : `#${frontmatter.task}`}`,
+    `  waits on: ${dependencies.length === 0 ? '-' : dependencies.join(', ')}`,
     `  filed:    ${frontmatter.filed.slice(0, DATE_AND_CLOCK_LENGTH).replace('T', ' ')}`,
     `  updated:  ${frontmatter.updated.slice(0, DATE_AND_CLOCK_LENGTH).replace('T', ' ')}`,
     `  branch:   ${frontmatter.branch ?? '-'}`,
@@ -297,10 +355,20 @@ async function transitionOneTicket(
       setTaskTokens(change.progress, outcome.ticket.frontmatter.task, tokens);
     }
     change.writeTicketAfterwards(outcome.ticket);
-    return { logText: outcome.logText, ticket: outcome.ticket };
+    return {
+      logText:   outcome.logText,
+      ticket:    outcome.ticket,
+      unsettled: unsettledDependenciesFor(outcome.ticket, listTickets(change.workspace).tickets),
+    };
   });
 
   printEntity(commandArguments, context, ticketAsJson(moved.ticket), moved.logText);
+
+  // A warning, not a refusal: the order is advice to whoever picks work up, and the user may know better.
+  if (targetStatus === 'in-progress' && moved.unsettled.length > 0) {
+    const notDoneYet = moved.unsettled.length === 1 ? 'which is not done yet' : 'which are not done yet';
+    context.standardError(`Ticket #${moved.ticket.frontmatter.id} is ${waitingOnText(moved.unsettled)}, ${notDoneYet}.`);
+  }
 }
 
 function refuseAnIllegalMove(ticket: Ticket, targetStatus: TicketStatus, checksTheMatrix: boolean): void {
@@ -373,6 +441,35 @@ async function linkOneTicket(commandArguments: ArgumentParser, context: CommandC
   printEntity(commandArguments, context, ticketAsJson(linked), `Ticket #${linked.frontmatter.id} linked to task #${taskId}`);
 }
 
+async function setTicketDependencies(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
+  commandArguments.rejectUnknownOptions(DEPENDS_OPTION_NAMES, USAGE);
+
+  const [, reference, ...dependencyTexts] = commandArguments.positionals();
+  if (reference === undefined) {
+    throw new OperationRefusal('refused', `agent-progress ticket depends needs a ticket id, then the ids it waits on (none clears the list).\n  Usage: ${USAGE}`);
+  }
+  const dependsOn = dependencyListFrom(dependencyTexts);
+
+  const changed = await openTrackerForWriting(commandArguments, context, (change) => {
+    const ticket = requireTicket(change.workspace, reference);
+    refuseAnUnworkableDependencyList(ticket.frontmatter.id, dependsOn, listTickets(change.workspace).tickets);
+
+    if (dependsOn.length === 0) {
+      delete ticket.frontmatter.dependsOn;
+    } else {
+      ticket.frontmatter.dependsOn = dependsOn;
+    }
+    const logText = dependsOn.length === 0
+      ? `Ticket #${ticket.frontmatter.id} waits on no other ticket`
+      : `Ticket #${ticket.frontmatter.id} waits on ${dependsOn.map((identifier) => `#${identifier}`).join(', ')}`;
+    appendLogEntry(change.progress, change.at, logText);
+    change.writeTicketAfterwards(ticket);
+    return { ticket, logText };
+  });
+
+  printEntity(commandArguments, context, ticketAsJson(changed.ticket), changed.logText);
+}
+
 async function setTicketStatus(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   commandArguments.rejectUnknownOptions(TRANSITION_OPTION_NAMES, USAGE);
   commandArguments.rejectExtraPositionals(3, USAGE);
@@ -392,6 +489,7 @@ export const ticketCommand: CommandHandler = async (commandArguments, context) =
 
   if (subcommand === 'add') return addOneTicket(commandArguments, context);
   if (subcommand === 'link') return linkOneTicket(commandArguments, context);
+  if (subcommand === 'depends') return setTicketDependencies(commandArguments, context);
   if (subcommand === 'status') return setTicketStatus(commandArguments, context);
   if (subcommand === 'list') {
     listAllTickets(commandArguments, context);
