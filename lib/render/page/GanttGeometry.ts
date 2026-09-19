@@ -74,10 +74,22 @@ function parseOffsetMinutes(text: string, limits: TimelineLimits): number | null
   return (sign === '-' ? -magnitude : magnitude) * perUnit;
 }
 
-function resolveEndpoint(text: string, startedAtEpochMilliseconds: number, nowEpochMilliseconds: number, limits: TimelineLimits): number | null {
+function earliestRecordedMoment(progress: ProgressFile, startedAtEpochMilliseconds: number): number {
+  let earliestEpochMilliseconds = startedAtEpochMilliseconds;
+  for (const task of progress.tasks) {
+    const startEpochMilliseconds = parseTimestamp(task.start);
+    if (startEpochMilliseconds !== null && startEpochMilliseconds < earliestEpochMilliseconds) {
+      earliestEpochMilliseconds = startEpochMilliseconds;
+    }
+  }
+  return earliestEpochMilliseconds;
+}
+
+// `start` is the earliest recorded moment, not `startedAt`: rows backfilled with `--at` or re-seeded by `clear` begin earlier.
+function resolveEndpoint(text: string, earliestEpochMilliseconds: number, nowEpochMilliseconds: number, limits: TimelineLimits): number | null {
   const trimmed = text.trim();
   if (trimmed === 'start') {
-    return startedAtEpochMilliseconds;
+    return earliestEpochMilliseconds;
   }
   if (trimmed === 'now') {
     return nowEpochMilliseconds;
@@ -89,9 +101,8 @@ function resolveEndpoint(text: string, startedAtEpochMilliseconds: number, nowEp
   return parseTimestamp(trimmed);
 }
 
-function resolveAutomaticSpan(progress: ProgressFile, startedAtEpochMilliseconds: number, nowEpochMilliseconds: number, limits: TimelineLimits): ResolvedSpan {
+function resolveAutomaticSpan(progress: ProgressFile, earliestEpochMilliseconds: number, nowEpochMilliseconds: number, limits: TimelineLimits): ResolvedSpan {
   let horizonEpochMilliseconds = nowEpochMilliseconds;
-  let earliestEpochMilliseconds = startedAtEpochMilliseconds;
   for (const task of progress.tasks) {
     const startEpochMilliseconds = parseTimestamp(task.start);
     const endEpochMilliseconds   = parseTimestamp(task.end);
@@ -100,9 +111,6 @@ function resolveAutomaticSpan(progress: ProgressFile, startedAtEpochMilliseconds
     }
     if (endEpochMilliseconds !== null && endEpochMilliseconds > horizonEpochMilliseconds) {
       horizonEpochMilliseconds = endEpochMilliseconds;
-    }
-    if (startEpochMilliseconds !== null && startEpochMilliseconds < earliestEpochMilliseconds) {
-      earliestEpochMilliseconds = startEpochMilliseconds;
     }
   }
   const measuredMinutes = (horizonEpochMilliseconds - earliestEpochMilliseconds) / MILLISECONDS_PER_MINUTE;
@@ -115,13 +123,14 @@ function resolveAutomaticSpan(progress: ProgressFile, startedAtEpochMilliseconds
 
 function resolveSpan(progress: ProgressFile, range: ViewRange, nowEpochMilliseconds: number, limits: TimelineLimits): ResolvedSpan {
   const startedAtEpochMilliseconds = parseTimestamp(progress.startedAt) ?? nowEpochMilliseconds;
+  const earliestEpochMilliseconds  = earliestRecordedMoment(progress, startedAtEpochMilliseconds);
   if (range.kind === 'auto') {
-    return resolveAutomaticSpan(progress, startedAtEpochMilliseconds, nowEpochMilliseconds, limits);
+    return resolveAutomaticSpan(progress, earliestEpochMilliseconds, nowEpochMilliseconds, limits);
   }
-  const fromEpochMilliseconds = resolveEndpoint(range.from, startedAtEpochMilliseconds, nowEpochMilliseconds, limits);
-  const toEpochMilliseconds   = resolveEndpoint(range.to, startedAtEpochMilliseconds, nowEpochMilliseconds, limits);
+  const fromEpochMilliseconds = resolveEndpoint(range.from, earliestEpochMilliseconds, nowEpochMilliseconds, limits);
+  const toEpochMilliseconds   = resolveEndpoint(range.to, earliestEpochMilliseconds, nowEpochMilliseconds, limits);
   if (fromEpochMilliseconds === null || toEpochMilliseconds === null) {
-    return resolveAutomaticSpan(progress, startedAtEpochMilliseconds, nowEpochMilliseconds, limits);
+    return resolveAutomaticSpan(progress, earliestEpochMilliseconds, nowEpochMilliseconds, limits);
   }
   if (toEpochMilliseconds <= fromEpochMilliseconds) {
     return {

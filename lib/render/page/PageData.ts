@@ -5,11 +5,12 @@ import type { TimelineLimits }                             from './GanttGeometry
 import { computeTimeline }                                 from './GanttGeometry.ts';
 
 export interface PageLimits extends TimelineLimits {
-  dateAndClockLength:    number;
-  calendarDateLength:    number;
-  monthAndDaySliceStart: number;
-  clockSliceStart:       number;
-  clockSliceEnd:         number;
+  dateAndClockLength:          number;
+  calendarDateLength:          number;
+  monthAndDaySliceStart:       number;
+  clockSliceStart:             number;
+  clockSliceEnd:               number;
+  doneWorkVisibleMilliseconds: number;
 }
 
 export interface PagePayload {
@@ -75,6 +76,7 @@ const REQUIRED_LIMIT_NAMES = [
   'monthAndDaySliceStart',
   'clockSliceStart',
   'clockSliceEnd',
+  'doneWorkVisibleMilliseconds',
 ] as const;
 
 /** Unrecognised properties are accepted: the progress file gains fields over time and a stricter check would blank the chart on that upgrade. */

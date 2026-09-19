@@ -6,6 +6,7 @@
 import { describe, expect, test } from 'bun:test';
 import {
   CLOCK_SLICE_END,
+  DONE_WORK_VISIBLE_MILLISECONDS,
   MAXIMUM_TICKS_PER_AXIS,
   TICK_COUNT_SAFETY_BOUND,
   TICK_STEP_LADDER_MINUTES,
@@ -143,6 +144,7 @@ describe('renderProgressHtml', () => {
     expect(payload.limits['maximumTicksPerAxis']).toBe(MAXIMUM_TICKS_PER_AXIS);
     expect(payload.limits['tickCountSafetyBound']).toBe(TICK_COUNT_SAFETY_BOUND);
     expect(payload.limits['clockSliceEnd']).toBe(CLOCK_SLICE_END);
+    expect(payload.limits['doneWorkVisibleMilliseconds']).toBe(DONE_WORK_VISIBLE_MILLISECONDS);
   });
 
   test('carries every ticket’s frontmatter, its path and its rendered body through the tickets island', () => {

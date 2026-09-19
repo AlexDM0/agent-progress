@@ -23,11 +23,13 @@ the real store functions in. Every mutating command calls it **inside its lock**
 | `lib/render/Rerender.spec.ts` | The three verdicts against a scratch workspace, with the reads supplied as literals. |
 | `lib/render/GanttGeometry.spec.ts` | The geometry's spec — see below for why it is not beside its module. |
 | `lib/render/PageData.spec.ts` | The island checks, the stored range and `effectiveRangeFor`. |
+| `lib/render/WorkVisibility.spec.ts` | Which tasks and tickets count as long done, and what the hidden note says. |
 | `lib/render/PageMarkup.spec.ts` | Every state's pill, the token figure, the log's sort, which ticket cards collapse, and the escaping. |
 | `lib/render/page/template.html` | The designer's template: the styles, the state system, the containers and the bootstrap. Not generated. |
 | `lib/render/page/GanttGeometry.ts` | `computeTimeline(input)`: the axis, the ticks, every bar and the now marker as percentages. Pure, no DOM. |
 | `lib/render/page/PageData.ts` | The island shapes, the checks that establish them, and the stored range. DOM-free. |
 | `lib/render/page/PageMarkup.ts` | Every string of HTML the page emits, as pure functions. DOM-free. |
+| `lib/render/page/WorkVisibility.ts` | Whether a task or ticket has been done for longer than the window, the stored visibility and the hidden note. DOM-free. |
 | `lib/render/page/GanttPage.ts` | The browser entry: DOM wiring only — find the container, call a builder, assign. |
 | `lib/render/page/tsconfig.json` | The page's own project: `lib` `DOM`, `types` `[]`. |
 
@@ -66,6 +68,12 @@ template's convincing placeholder rows standing beside an error banner.
 The page also decides `--timeline-w` on `#ap-chart`, which is the one thing the generator cannot know
 because it depends on the window: `1fr` when the ticks fit, a px width when they need to scroll.
 
+**Long-done work is hidden by default.** A task that is `reviewed`, `delivered` or `abandoned` and
+ended more than `DONE_WORK_VISIBLE_MILLISECONDS` ago, and a ticket that is `done`, `delivered` or
+`abandoned` and was last `updated` that long ago, are left out of the chart, the ticket table and the
+cards until the viewer picks "Show all" (`#ap-visibility`, stored per tracker). The axis is computed
+from the visible rows only. This is the page's one clock comparison, and it only decides what is shown.
+
 **There is no stale banner** — it was cut from the design. Nothing on this side compares a clock
 against `generatedAt`, and `lib/constants/Limits.ts` no longer needs
 `STALE_PAGE_BANNER_MILLISECONDS`, `PAGE_SELF_CHECK_INTERVAL_MILLISECONDS` or `TICK_CHOICES_MINUTES`
@@ -83,9 +91,10 @@ token formatter.
 
 The consequence: **no `*.spec.ts` may sit in `lib/render/page/`** — a spec's `bun:test` import would
 not resolve there. A page module's spec goes one level up and reaches it by a relative import, which
-is how `lib/render/GanttGeometry.spec.ts`, `lib/render/PageData.spec.ts` and
-`lib/render/PageMarkup.spec.ts` are placed. It is also why `lib/render/page/GanttPage.ts` holds no
-logic worth testing: everything that could be was moved into the two DOM-free modules beside it.
+is how `lib/render/GanttGeometry.spec.ts`, `lib/render/PageData.spec.ts`,
+`lib/render/PageMarkup.spec.ts` and `lib/render/WorkVisibility.spec.ts` are placed. It is also why
+`lib/render/page/GanttPage.ts` holds no logic worth testing: everything that could be was moved into
+the DOM-free modules beside it.
 
 ## The limits travel as data
 

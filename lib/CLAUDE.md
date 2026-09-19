@@ -32,10 +32,11 @@ lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/ lib/tick
 - **No work at module load.** Importing a module runs nothing: no working directory is resolved, no
   file opened, no environment read. This is what lets a spec import the real thing instead of
   scraping source text.
-- **A clock decides nothing**, with two stated exceptions, each comparing times the tool itself
+- **A clock decides nothing**, with three stated exceptions, each comparing times the tool itself
   wrote: lock staleness in `lib/platform/Lock.ts` — including its fallback to the lock file's own
-  mtime, which fails closed in both directions — and ordering the log for display, which decides
-  nothing but a print order. Task timestamps are recorded and displayed, never compared.
+  mtime, which fails closed in both directions — ordering the log for display, which decides
+  nothing but a print order, and the page hiding long-done work, which decides nothing but what is
+  shown. Task timestamps are recorded and displayed, never compared.
 - **Every file a reader may hold open goes through `lib/platform/AtomicFile.ts`.** The two deliberate
   exceptions are `.gitignore` and `CLAUDE.md`, edited in place so that a symlinked `CLAUDE.md` stays
   a symlink; each says so in its own docblock.
@@ -57,8 +58,8 @@ or Node.
   `tokens`), `LogEntry`, `ViewRange`, `ProgressFile` (with `nextTaskId`), `TicketFrontmatter`,
   `Ticket`. Types only, no values.
 - `lib/constants/Limits.ts` — the tuning constants, each with its unit in its name: lock staleness and
-  retries, the axis tick ladder and its bounds, ticket id width, the timestamp slice bounds every
-  human-facing reader shares, and the JSON indent.
+  retries, the axis tick ladder and its bounds, ticket id width, how long done work stays visible,
+  the timestamp slice bounds every human-facing reader shares, and the JSON indent.
 - `lib/constants/Statuses.ts` — the task and ticket status tuples and the ticket type tuple with their
   guards, the ticket-status → task-status table, and the on-disk names (`progress.json`,
   `progress.html`, `.agent-progress`, `tickets`, `.lock`) and the two managed-block markers.

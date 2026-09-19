@@ -140,7 +140,7 @@ rather than spreading `undefined` in.
 - Every write of a file a reader may hold open goes through the atomic writer (temp file beside
   the target, fsync, rename). Never truncate-then-write.
 - A clock decides nothing. Identity is a content hash; staleness is a set difference or a version
-  number; timestamps are recorded and displayed, never compared. Two exceptions are stated, and both
+  number; timestamps are recorded and displayed, never compared. Three exceptions are stated, and all
   compare times the tool itself wrote:
   - **lock staleness** in `lib/platform/Lock.ts`. Its one comparison against a time the tool did not
     write is the fallback to the lock file's own mtime, reached only when the payload is missing or
@@ -149,9 +149,9 @@ rather than spreading `undefined` in.
   - **ordering the log for display** in `cli/status/StatusCommand.ts` and in the page, because `--at`
     backfills and the array order is then not the chronological one. It decides nothing but the order
     lines are printed in.
-
-  The page's stale banner was a third exception until 2026-09-19; the design cut the banner, so the
-  page compares no clock at all.
+  - **hiding long-done work on the page** in `lib/render/page/WorkVisibility.ts`: a task or ticket
+    done for more than `DONE_WORK_VISIBLE_MILLISECONDS` is hidden until the viewer picks "Show all".
+    It decides only what is displayed, never what is stored.
 
 ## 4. Comments — the code explains itself
 

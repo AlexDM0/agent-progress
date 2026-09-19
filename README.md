@@ -65,6 +65,9 @@ the managed block.
   accept `start`, `now` and `-2h` as well as timestamps, and a tick-step selector. A viewer's choice
   is kept in their browser and survives the refresh; Auto hands control back to the default stored
   by `agent-progress range`.
+- **Done work older than a day is hidden**: reviewed, delivered and abandoned tasks, and done,
+  delivered and abandoned tickets, leave the chart and the ticket list a day after they closed.
+  **Show all** brings them back; the choice is kept in the browser.
 - An **error banner** when a command wrote the store but could not rebuild the page script.
 
 ## Commands

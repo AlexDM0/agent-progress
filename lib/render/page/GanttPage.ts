@@ -32,6 +32,15 @@ import {
   ticketTableRowsMarkup,
   tickLayerMarkup,
 } from './PageMarkup.ts';
+import type { WorkVisibility }   from './WorkVisibility.ts';
+import {
+  DEFAULT_WORK_VISIBILITY,
+  hiddenWorkNoteText,
+  taskIsLongDone,
+  ticketIsLongDone,
+  workVisibilityFrom,
+  workVisibilityStorageKeyFor,
+} from './WorkVisibility.ts';
 
 const PROGRESS_ISLAND_ELEMENT_ID = 'ap-progress-data';
 const TICKETS_ISLAND_ELEMENT_ID  = 'ap-tickets-data';
@@ -39,7 +48,7 @@ const AUTOMATIC_TICK_CHOICE      = 'auto';
 const AUTOMATIC_RANGE_PRESET     = 'auto';
 
 const OWNED_MARKUP_CONTAINER_IDS = ['ap-summary', 'ap-ticks', 'ap-overlay', 'ap-rows', 'ap-log', 'ap-ticket-rows', 'ap-ticket-cards'];
-const OWNED_TEXT_CONTAINER_IDS   = ['ap-project', 'ap-generated', 'ap-range-note', 'ap-ticket-count'];
+const OWNED_TEXT_CONTAINER_IDS   = ['ap-project', 'ap-generated', 'ap-range-note', 'ap-ticket-count', 'ap-hidden-note'];
 
 interface TemplateBehaviour {
   selectTab:              (name: string) => void;
@@ -119,6 +128,26 @@ function writeStoredOverride(trackerId: string, override: StoredViewOverride): v
       return;
     }
     window.localStorage.setItem(storageKeyFor(trackerId), JSON.stringify(override));
+  } catch {
+    // The page works without persistence.
+  }
+}
+
+function readStoredVisibility(trackerId: string): WorkVisibility {
+  try {
+    return workVisibilityFrom(window.localStorage.getItem(workVisibilityStorageKeyFor(trackerId)));
+  } catch {
+    return DEFAULT_WORK_VISIBILITY;
+  }
+}
+
+function writeStoredVisibility(trackerId: string, visibility: WorkVisibility): void {
+  try {
+    if (visibility === DEFAULT_WORK_VISIBILITY) {
+      window.localStorage.removeItem(workVisibilityStorageKeyFor(trackerId));
+      return;
+    }
+    window.localStorage.setItem(workVisibilityStorageKeyFor(trackerId), visibility);
   } catch {
     // The page works without persistence.
   }
@@ -283,18 +312,32 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   setMarkup('ap-log', logItemsMarkup(progress.log, limits));
   setHidden('ap-log-empty', progress.log.length > 0);
 
-  setMarkup('ap-ticket-rows', ticketTableRowsMarkup(tickets));
-  setMarkup('ap-ticket-cards', ticketCardsMarkup(tickets, limits));
-  setText('ap-ticket-count', ticketCountText(tickets));
-  templateBehaviour()?.restoreTicketOpenState();
+  const chart         = document.getElementById('ap-chart');
+  let visibility      = readStoredVisibility(progress.trackerId);
+  let visibleProgress = progress;
 
-  const chart = document.getElementById('ap-chart');
+  const showVisibleWork = (): void => {
+    const nowEpochMilliseconds = Date.now();
+    const showsAll             = visibility === 'all';
+    const windowMilliseconds   = limits.doneWorkVisibleMilliseconds;
+    const visibleTasks         = progress.tasks.filter((task) => showsAll || !taskIsLongDone(task, nowEpochMilliseconds, windowMilliseconds));
+    const visibleTickets       = tickets.filter((ticket) => showsAll || !ticketIsLongDone(ticket, nowEpochMilliseconds, windowMilliseconds));
+    visibleProgress = { ...progress, tasks: visibleTasks };
+
+    setMarkup('ap-ticket-rows', ticketTableRowsMarkup(visibleTickets));
+    setMarkup('ap-ticket-cards', ticketCardsMarkup(visibleTickets, limits));
+    setText('ap-ticket-count', ticketCountText(tickets));
+    templateBehaviour()?.restoreTicketOpenState();
+
+    setText('ap-hidden-note', hiddenWorkNoteText(progress.tasks.length - visibleTasks.length, tickets.length - visibleTickets.length));
+    reflectSegment('ap-visibility', 'visibility', visibility);
+  };
 
   const layOut = (bringNowIntoView: boolean): void => {
     const nowEpochMilliseconds = Date.now();
-    const range: ViewRange     = effectiveRangeFor(progress, override, nowEpochMilliseconds, limits);
+    const range: ViewRange     = effectiveRangeFor(visibleProgress, override, nowEpochMilliseconds, limits);
     const timeline             = computeTimeline({
-      progress,
+      progress: visibleProgress,
       range,
       nowEpochMilliseconds,
       limits,
@@ -314,8 +357,8 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     }));
     setMarkup('ap-ticks', tickLayerMarkup(placedTicks));
     setMarkup('ap-overlay', overlayMarkup(timeline.ticks, timeline.nowPercent));
-    setMarkup('ap-rows', taskRowsMarkup(taskRowsFor(progress, timeline, ticketStatusById)));
-    setHidden('ap-chart-empty', progress.tasks.length > 0);
+    setMarkup('ap-rows', taskRowsMarkup(taskRowsFor(visibleProgress, timeline, ticketStatusById)));
+    setHidden('ap-chart-empty', visibleProgress.tasks.length > 0);
 
     setText('ap-range-note', rangeNoteText(timeline.fromEpochMilliseconds, timeline.toEpochMilliseconds, timeline.stepMinutes, limits));
     reflectRangeBar(override);
@@ -331,6 +374,17 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     layOut(true);
   });
 
+  document.getElementById('ap-visibility')?.addEventListener('click', (event) => {
+    const button = event.target instanceof Element ? event.target.closest('[data-visibility]') : null;
+    if (!(button instanceof HTMLElement)) {
+      return;
+    }
+    visibility = workVisibilityFrom(button.dataset['visibility']);
+    writeStoredVisibility(progress.trackerId, visibility);
+    showVisibleWork();
+    layOut(true);
+  });
+
   window.addEventListener('resize', () => {
     layOut(false);
   });
@@ -338,6 +392,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     applyFragment(window.location.hash);
   });
 
+  showVisibleWork();
   layOut(true);
   applyFragment(window.location.hash);
 }

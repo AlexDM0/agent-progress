@@ -21,6 +21,9 @@ export const MINIMUM_BAR_WIDTH_PERCENT = 0.6;
 
 export const TICKET_ID_DIGITS = 3;
 
+/** The page hides tasks and tickets that have been done for longer than this, until the viewer asks for all of them. */
+export const DONE_WORK_VISIBLE_MILLISECONDS = 86_400_000;
+
 export const HOUR_MINUTES = 60;
 
 export const DAY_MINUTES = 1440;

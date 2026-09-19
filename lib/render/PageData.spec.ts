@@ -18,21 +18,22 @@ import {
 } from './page/PageData.ts';
 
 const EXAMPLE_LIMITS: PageLimits = {
-  tickStepLadderMinutes:      [5, 10, 15, 30, 60, 120, 180, 360, 720, 1440],
-  maximumTicksPerAxis:        12,
-  axisMinimumSpanMinutes:     60,
-  axisPaddingMinutes:         15,
-  minimumBarWidthPercent:     0.6,
-  hoursAxisLabelLimitMinutes: 1440,
-  weekAxisLabelLimitMinutes:  10_080,
-  hourMinutes:                60,
-  dayMinutes:                 1440,
-  tickCountSafetyBound:       500,
-  dateAndClockLength:         16,
-  calendarDateLength:         10,
-  monthAndDaySliceStart:      5,
-  clockSliceStart:            11,
-  clockSliceEnd:              16,
+  tickStepLadderMinutes:       [5, 10, 15, 30, 60, 120, 180, 360, 720, 1440],
+  maximumTicksPerAxis:         12,
+  axisMinimumSpanMinutes:      60,
+  axisPaddingMinutes:          15,
+  minimumBarWidthPercent:      0.6,
+  hoursAxisLabelLimitMinutes:  1440,
+  weekAxisLabelLimitMinutes:   10_080,
+  hourMinutes:                 60,
+  dayMinutes:                  1440,
+  tickCountSafetyBound:        500,
+  dateAndClockLength:          16,
+  calendarDateLength:          10,
+  monthAndDaySliceStart:       5,
+  clockSliceStart:             11,
+  clockSliceEnd:               16,
+  doneWorkVisibleMilliseconds: 86_400_000,
 };
 
 const EXAMPLE_START_EPOCH_MILLISECONDS = Date.UTC(2026, 8, 18, 18, 0, 0);

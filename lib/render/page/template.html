@@ -42,6 +42,9 @@
  #ap-error-text           text   message shown in the error banner
  #ap-tabs                 el     buttons carry data-tab="progress|tickets", aria-selected
  [data-panel="…"]         el     matching panel; [hidden] when not selected
+ #ap-visibility           el     buttons data-visibility="recent|all", aria-pressed; "recent"
+                                 hides tasks and tickets done for more than a day
+ #ap-hidden-note          text   "3 tasks · 2 tickets hidden", empty when nothing is hidden
  #ap-range-presets        el     buttons data-preset="auto|1h|4h|12h|24h|7d|all", aria-pressed
  #ap-range-from           input  from field (free text: ISO, "start", "now", "-2h")
  #ap-range-to             input  to field
@@ -144,7 +147,10 @@
 
 /* Theme is resolved to data-theme="light"|"dark" on <html> by the head script,
    from the saved choice or the OS preference; the toggle rewrites it. */
+/* The resolved theme, not the OS preference, picks native scrollbars and controls. */
+:root[data-theme="light"] { color-scheme: light; }
 :root[data-theme="dark"] {
+    color-scheme: dark;
     --bg:          oklch(0.185 0.012 265);
     --surface:     oklch(0.232 0.014 265);
     --surface-2:   oklch(0.275 0.014 265);
@@ -247,6 +253,10 @@ a:hover { color: var(--ink); text-decoration: underline; }
 .ap-tabs button:hover { color: var(--ink); }
 .ap-tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px oklch(0 0 0 / 0.08); }
 [data-panel][hidden] { display: none; }
+.ap-tab-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-bottom: var(--sp-4); }
+.ap-tab-bar .ap-tabs { margin-bottom: 0; }
+.ap-visibility { display: flex; align-items: center; gap: var(--sp-3); }
+#ap-hidden-note { font-size: var(--fs-small); color: var(--ink-muted); }
 
 /* ------------------------------------------------------------------ cards -- */
 .ap-card {
@@ -577,9 +587,19 @@ a:hover { color: var(--ink); text-decoration: underline; }
   </div>
 </header>
 
-<div class="ap-tabs" id="ap-tabs" role="tablist">
-  <button type="button" role="tab" data-tab="progress" aria-selected="true">Progress</button>
-  <button type="button" role="tab" data-tab="tickets" aria-selected="false">Tickets</button>
+<div class="ap-tab-bar">
+  <div class="ap-tabs" id="ap-tabs" role="tablist">
+    <button type="button" role="tab" data-tab="progress" aria-selected="true">Progress</button>
+    <button type="button" role="tab" data-tab="tickets" aria-selected="false">Tickets</button>
+  </div>
+  <div class="ap-visibility">
+    <span id="ap-hidden-note">3 tasks · 2 tickets hidden</span>
+    <span class="ap-range-label">Done &gt; 1 day</span>
+    <div class="ap-seg" id="ap-visibility">
+      <button type="button" data-visibility="recent" aria-pressed="true">Hide</button>
+      <button type="button" data-visibility="all" aria-pressed="false">Show all</button>
+    </div>
+  </div>
 </div>
 
 <section data-panel="progress">

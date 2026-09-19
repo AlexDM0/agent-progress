@@ -296,6 +296,21 @@ describe('computeTimeline', () => {
     expect(timeline.nowPercent).toBe(75);
   });
 
+  // The "All" preset is `start` → `now`; backfilled or re-seeded rows begin before the tracker start.
+  test('reads `start` as the earliest row start when a row began before the tracker start', () => {
+    const timeline = timelineFor({
+      tasks: [exampleTask(1, -150, -60)],
+      range: {
+        kind: 'relative', from: 'start', to: 'now', tickMinutes: null
+      },
+      nowOffsetMinutes: 30
+    });
+
+    expect(timeline.fromEpochMilliseconds).toBe(EXAMPLE_START_EPOCH_MILLISECONDS - minutesAsMilliseconds(150));
+    expect(timeline.bars[0]?.leftPercent).toBe(0);
+    expect(timeline.bars[0]?.clippedLeft).toBe(false);
+  });
+
   test('reads an absolute range as the two timestamps it names', () => {
     const timeline = timelineFor({ tasks: [], range: absoluteRange(30, 90), nowOffsetMinutes: 60 });
 
