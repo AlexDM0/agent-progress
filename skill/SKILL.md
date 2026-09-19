@@ -42,10 +42,11 @@ beyond a ticket's body.
 
 ## The session protocol
 
-1. **Open with `agent-progress status --json`.** It prints the progress file itself — version,
-   tracker id, project, every row with its status, stamps and tokens, the whole log — plus every
-   ticket's frontmatter and file path. If it exits 1 saying there is no tracker, this repository has
-   not adopted one — do not create it uninvited.
+1. **Open with `agent-progress status --json`.** It prints the working view — every row and ticket
+   that is not delivered or abandoned, with statuses, stamps, tokens and file paths, the last 10 log
+   entries newest first, and an `omitted` object counting what it left out. Reach for `--full` only
+   when you need a settled row or the whole log. If it exits 1 saying there is no tracker, this
+   repository has not adopted one — do not create it uninvited.
 2. **`agent-progress init` when the user asks you to adopt the tracker**, or when they ask for
    progress tracking in a repository that has none. It creates `.agent-progress/`, adds the
    `.gitignore` entry and writes a managed block into the repository's `CLAUDE.md` so the next
@@ -100,7 +101,9 @@ beyond a ticket's body.
    `<when>` is an ISO 8601 timestamp, `now`, or an offset from now: `-5m`, `-2h`, `-1d`, `+30m`. A
    row you forgot to register at the time is registered now and stamped then.
 8. **Parse with `--json`.** `status`, `ticket list`, `ticket show` and the mutating commands all
-   take it; that is the form to read, never the human output.
+   take it; that is the form to read, never the human output. Run each tracker command on its own
+   line rather than chained into other work, so its output stays short and visible. A subagent
+   reading its ticket needs only the body below the frontmatter.
 9. **`agent-progress open` once per session**, so the user has the dashboard in front of them.
 
 ## The rules
@@ -128,7 +131,7 @@ mutating command takes the lock, writes the progress file atomically and regener
 | command | what it does |
 |---|---|
 | `agent-progress init [--project <name>] [--root <path>] [--no-claude-md]` | Create the tracker here: `.agent-progress/` with an empty progress file and a `tickets/` folder, a `.gitignore` entry for it, and a managed block in the repository's CLAUDE.md telling an agent to track its work through this tool. Refused when an ancestor already holds a tracker; re-running only refreshes the managed block. `--project` names the project shown on the page, `--root` tracks that directory instead of the discovered repository root, and `--no-claude-md` leaves CLAUDE.md alone. |
-| `agent-progress status [--json]` | The project, every task row with its status, stamps and tokens, the tickets by status, and the last log entries newest first. `--json` prints the progress file itself plus every ticket's frontmatter, which is the form an agent reads at the top of a session. |
+| `agent-progress status [--json] [--full]` | The project, the counts, the rows that are not delivered or abandoned, and the last log entries newest first. `--json` prints the same working view — the unsettled rows and tickets, the last 10 log entries, and an `omitted` object counting what was left out — which is the form an agent reads at the top of a session. `--full` lists everything, and with `--json` prints the progress file itself plus every ticket's frontmatter. |
 | `agent-progress task add "<name>" [--owner <who>] [--note <text>] [--ticket <id>] [--start] [--tokens <n>] [--at <when>] [--force]` | Add a Gantt row. `--start` marks it running at `--at` (default now), `--ticket` links it to a ticket that has no row of its own, `--note` is the detail shown beside the bar, and `--tokens` records what the work cost. `--force` moves `--ticket`'s link off the row that holds it. |
 | `agent-progress task start\|pause\|finish\|review\|deliver <id> [--owner <who>] [--note <text>] [--tokens <n>] [--at <when>] [--force]` | Move one row and stamp it: `start` sets its start and resumes a paused row, `pause` records that the work is waiting without closing the bar, `finish` and `review` set its end, `deliver` records that the work reached its destination. A stamp already recorded is kept, so `--at` backfills a row nobody registered at the time. A row a ticket owns is refused, naming the `ticket` verb that moves both; `--force` moves only the row. |
 | `agent-progress task update <id> [--name <text>] [--owner <who>] [--note <text>] [--status <status>] [--tokens <n>] [--force]` | Change a row without moving its clock: `--name`, `--owner`, `--note`, `--tokens`, or `--status` for a correction the transitions cannot express. At least one is required, and `--status` on a row a ticket owns is refused unless `--force`. |

@@ -86,7 +86,7 @@ describe.skipIf(!gitIsAvailable())('a whole session through the binary', () => {
       await run(['ticket', 'done', '1', '--commit', 'abc1234', '--tokens', '12k']);
       await run(['ticket', 'deliver', '1']);
 
-      const document = JSON.parse(await run(['status', '--json'])) as {
+      const document = JSON.parse(await run(['status', '--json', '--full'])) as {
         project:    string;
         version:    number;
         nextTaskId: number;

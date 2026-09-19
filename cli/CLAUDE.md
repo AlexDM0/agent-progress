@@ -69,14 +69,14 @@ context: `lib/platform/Environment.ts` is the one module that reads it.
 | `cli/CommandTable.spec.ts` | every loader resolves to a function, and an inherited property of the literal is refused rather than run |
 | `cli/HelpText.ts` | `helpText()`: the whole command reference, one screen, interpolating nothing |
 | `cli/HelpText.spec.ts` | the help and the table agree in both directions; the entry layout that makes that checkable |
-| `cli/BinarySmoke.spec.ts` | the only suite that spawns the real binary: help, an unknown word, an inherited property, a bare-repository `init` refusal, and one whole session — init through `ticket deliver`, with a pause, a `--tokens 12k` and a matrix refusal — ending on the `status --json` an agent reads |
+| `cli/BinarySmoke.spec.ts` | the only suite that spawns the real binary: help, an unknown word, an inherited property, a bare-repository `init` refusal, and one whole session — init through `ticket deliver`, with a pause, a `--tokens 12k` and a matrix refusal — ending on the `status --json --full` document |
 | `cli/arguments/ArgumentParser.ts` | the closure factory: flags, options in both spellings, positionals, the bare `--`, and the refusals |
 | `cli/arguments/ArgumentParser.spec.ts` | the shapes that fail quietly when the parser is wrong |
 | `cli/arguments/OptionsWithValues.ts` | which option names take the next argument, across every command |
 | `cli/init/InitCommand.ts` | `init`: discover the root, ignore the tracker, create it, render, write the managed CLAUDE.md block. A re-run at the same root refreshes the block; one below an existing tracker, one inside a bare repository, and a `--root` that is not an existing directory are all refused |
 | `cli/init/InitCommand.spec.ts` | the tree and all three side effects, `--no-claude-md`, `--root`, the re-run, the two refusals, and the worktree case that the one-tracker-per-repository promise rests on |
-| `cli/status/StatusCommand.ts` | `status`: the counts, the rows with their tokens, and the log ordered by its stamps for a person; the *whole progress file plus every ticket's frontmatter* for an agent under `--json` |
-| `cli/status/StatusCommand.spec.ts` | the `--json` document's shape, which is the contract with the orchestrating agent, plus the token column and the log's order |
+| `cli/status/StatusCommand.ts` | `status`: the working view — counts, the rows and tickets that are not delivered or abandoned, the recent log ordered by its stamps, and under `--json` an `omitted` count of what was left out. `--full` is the *whole progress file plus every ticket's frontmatter* |
+| `cli/status/StatusCommand.spec.ts` | both `--json` documents' shapes, which are the contract with the orchestrating agent, plus the token column and the log's order |
 | `cli/task/TaskCommand.ts` | `task add\|start\|pause\|finish\|review\|deliver\|update\|remove`: the rows that are not a ticket's. `update` is the one that does not move the row's clock, and a row a ticket owns is refused unless `--force` |
 | `cli/task/TaskCommand.spec.ts` | the lifecycle, that a repeated stamp does not move, pause and resume, `--tokens`, `--at`, `--json`, the ticket-owned refusal, and the link rules on both sides |
 | `cli/log/LogCommand.ts` | `log`: one line, joined from every positional so an unquoted sentence is not truncated to its first word |

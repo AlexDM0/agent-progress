@@ -10,7 +10,9 @@ import type {
   LogEntry,
   ProgressFile,
   Task,
-  Ticket
+  TaskStatus,
+  Ticket,
+  TicketStatus
 }                                            from '../../lib/constants/Types';
 import { OperationRefusal }    from '../../lib/platform/OperationRefusal';
 import { requireWorkspace }    from '../../lib/platform/Workspace';
@@ -21,11 +23,18 @@ import { TokenCountUtil }      from '../../lib/utils/TokenCountUtil';
 import { printEntity }         from '../CommandSupport';
 import type { CommandHandler } from '../CommandTable';
 
-const USAGE = 'agent-progress status [--json]';
+const USAGE = 'agent-progress status [--json] [--full]';
 
-const KNOWN_OPTION_NAMES = ['json'];
+const KNOWN_OPTION_NAMES = ['json', 'full'];
 
 const HUMAN_LOG_ENTRY_COUNT = 5;
+
+const WORKING_VIEW_LOG_ENTRY_COUNT = 10;
+
+/** Settled by status, not by age, so the working view never depends on the clock. */
+const SETTLED_TASK_STATUSES: readonly TaskStatus[] = ['delivered', 'abandoned'];
+
+const SETTLED_TICKET_STATUSES: readonly TicketStatus[] = ['delivered', 'abandoned'];
 
 const TASK_COLUMN_WIDTHS = {
   identifier: 5,
@@ -73,7 +82,42 @@ function totalTokensOf(tasks: readonly Task[]): number | null {
   return reported.reduce((running, task) => running + (task.tokens ?? 0), 0);
 }
 
-function renderHumanStatus(progress: ProgressFile, tickets: readonly Ticket[]): string {
+function taskIsSettled(task: Task): boolean {
+  return SETTLED_TASK_STATUSES.includes(task.status);
+}
+
+function ticketIsSettled(ticket: Ticket): boolean {
+  return SETTLED_TICKET_STATUSES.includes(ticket.frontmatter.status);
+}
+
+function ticketDocumentOf(ticket: Ticket): Ticket['frontmatter'] & { filePath: string } {
+  return { ...ticket.frontmatter, filePath: ticket.filePath };
+}
+
+/** The whole progress file plus every ticket: a document an agent could write back. */
+function fullDocumentOf(progress: ProgressFile, tickets: readonly Ticket[]): object {
+  return { ...progress, tickets: tickets.map(ticketDocumentOf) };
+}
+
+/** What an agent opening a session needs: unsettled rows and tickets, the recent log newest first, and counts of what was left out. */
+function workingDocumentOf(progress: ProgressFile, tickets: readonly Ticket[]): object {
+  const unsettledTasks   = progress.tasks.filter((task) => !taskIsSettled(task));
+  const unsettledTickets = tickets.filter((ticket) => !ticketIsSettled(ticket));
+  const recentLog        = logNewestFirst(progress.log).slice(0, WORKING_VIEW_LOG_ENTRY_COUNT);
+  return {
+    ...progress,
+    tasks:   unsettledTasks,
+    tickets: unsettledTickets.map(ticketDocumentOf),
+    log:     recentLog,
+    omitted: {
+      settledTasks:    progress.tasks.length - unsettledTasks.length,
+      settledTickets:  tickets.length - unsettledTickets.length,
+      olderLogEntries: progress.log.length - recentLog.length,
+    },
+  };
+}
+
+function renderHumanStatus(progress: ProgressFile, tickets: readonly Ticket[], showsEverything: boolean): string {
   const lines = [
     `${progress.project} — started ${progress.startedAt.slice(0, DATE_AND_CLOCK_LENGTH).replace('T', ' ')}`,
     `Tasks:   ${countsByStatus(TASK_STATUSES, progress.tasks.map((task) => task.status))}`,
@@ -86,7 +130,8 @@ function renderHumanStatus(progress: ProgressFile, tickets: readonly Ticket[]): 
     lines.push(`Tokens:  ${TokenCountUtil.formatTokenCount(totalTokens)} reported across ${reportedCount} of ${progress.tasks.length} rows`);
   }
 
-  if (progress.tasks.length > 0) {
+  const listedTasks = showsEverything ? progress.tasks : progress.tasks.filter((task) => !taskIsSettled(task));
+  if (listedTasks.length > 0) {
     lines.push('');
     lines.push([
       padColumn('id', TASK_COLUMN_WIDTHS.identifier),
@@ -96,7 +141,7 @@ function renderHumanStatus(progress: ProgressFile, tickets: readonly Ticket[]): 
       padColumn('tokens', TASK_COLUMN_WIDTHS.tokens),
       'name',
     ].join(''));
-    for (const task of progress.tasks) {
+    for (const task of listedTasks) {
       lines.push([
         padColumn(`#${task.id}`, TASK_COLUMN_WIDTHS.identifier),
         padColumn(task.status, TASK_COLUMN_WIDTHS.status),
@@ -108,11 +153,15 @@ function renderHumanStatus(progress: ProgressFile, tickets: readonly Ticket[]): 
     }
   }
 
-  const recentLog    = logNewestFirst(progress.log).slice(0, HUMAN_LOG_ENTRY_COUNT);
+  const settledTaskCount = progress.tasks.length - listedTasks.length;
+  if (settledTaskCount > 0) lines.push(`(${settledTaskCount} delivered or abandoned rows not shown; --full lists them)`);
+
+  const newestFirst  = logNewestFirst(progress.log);
+  const recentLog    = showsEverything ? newestFirst : newestFirst.slice(0, HUMAN_LOG_ENTRY_COUNT);
   const distinctDays = new Set(progress.log.map((entry) => entry.at.slice(0, CALENDAR_DATE_LENGTH)));
   if (recentLog.length > 0) {
     lines.push('');
-    lines.push(`Log (last ${recentLog.length}):`);
+    lines.push(showsEverything ? `Log (all ${recentLog.length}):` : `Log (last ${recentLog.length}):`);
     for (const entry of recentLog) lines.push(`  ${logStampOf(entry, distinctDays.size > 1)}  ${entry.text}`);
   }
 
@@ -137,10 +186,8 @@ export const statusCommand: CommandHandler = async (commandArguments, context) =
     context.standardError(`Ticket file ignored: ${malformed.filePath}${place}: ${malformed.reason}`);
   }
 
-  const asJson = {
-    ...progress,
-    tickets: listing.tickets.map((ticket) => ({ ...ticket.frontmatter, filePath: ticket.filePath })),
-  };
-  printEntity(commandArguments, context, asJson, renderHumanStatus(progress, listing.tickets));
+  const showsEverything = commandArguments.flag('full');
+  const asJson          = showsEverything ? fullDocumentOf(progress, listing.tickets) : workingDocumentOf(progress, listing.tickets);
+  printEntity(commandArguments, context, asJson, renderHumanStatus(progress, listing.tickets, showsEverything));
   return Promise.resolve();
 };

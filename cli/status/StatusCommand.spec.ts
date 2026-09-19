@@ -1,5 +1,6 @@
 /**
- * What `agent-progress status` tells its two readers; the `--json` document is the whole progress file plus the tickets, and is the agent's contract.
+ * What `agent-progress status` tells its two readers. The `--json` working view leaves settled work and the old log out and counts what it
+ * left out; `--full` is the whole progress file plus the tickets. Both documents are the agent's contract.
  */
 import { writeFileSync } from 'node:fs';
 import { join }          from 'node:path';
@@ -18,7 +19,10 @@ import { runCommandLine }                                                     fr
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
-type StatusDocument = ProgressFile & { tickets: Array<TicketFrontmatter & { filePath: string }> };
+type StatusDocument = ProgressFile & {
+  tickets:  Array<TicketFrontmatter & { filePath: string }>;
+  omitted?: { settledTasks: number; settledTickets: number; olderLogEntries: number };
+};
 
 let repositoryDirectory = '';
 
@@ -47,6 +51,18 @@ afterEach(() => {
 });
 
 describe.skipIf(!gitIsAvailable())('the human listing', () => {
+  test('hides delivered rows behind a count, and --full lists them', async () => {
+    await run(['task', 'deliver', '2']);
+
+    const trimmed = (await run(['status'])).outputText();
+    const full    = (await run(['status', '--full'])).outputText();
+
+    expect(trimmed).not.toContain('Review pass');
+    expect(trimmed).toContain('1 delivered or abandoned rows not shown');
+    expect(full).toContain('Review pass');
+    expect(full).not.toContain('not shown');
+  });
+
   test('names the project, counts both ladders, lists every row and ends with the log', async () => {
     const context = await run(['status']);
     const printed = context.outputText();
@@ -61,9 +77,9 @@ describe.skipIf(!gitIsAvailable())('the human listing', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('the --json document', () => {
+describe.skipIf(!gitIsAvailable())('the --json --full document', () => {
   test('is the progress file itself, so an agent could write the document it read back', async () => {
-    const context  = await run(['status', '--json']);
+    const context  = await run(['status', '--json', '--full']);
     const document = JSON.parse(context.outputText()) as StatusDocument;
 
     expect(document.version).toBe(1);
@@ -72,7 +88,7 @@ describe.skipIf(!gitIsAvailable())('the --json document', () => {
   });
 
   test('carries the project, the view, every row, every ticket\'s frontmatter and the log', async () => {
-    const context  = await run(['status', '--json']);
+    const context  = await run(['status', '--json', '--full']);
     const document = JSON.parse(context.outputText()) as StatusDocument;
 
     expect(document.project).toBe('Example Agency');
@@ -87,6 +103,62 @@ describe.skipIf(!gitIsAvailable())('the --json document', () => {
     expect(document.tickets[0]?.filePath).toContain('001-double-click-a-role-to-edit-it.md');
 
     expect(document.log.map((entry) => entry.text)).toContain('Halfway through the role editor');
+    expect(document.omitted).toBeUndefined();
+  });
+
+  test('keeps delivered work and the whole log', async () => {
+    await run(['task', 'deliver', '2']);
+    for (let i = 0; i < 12; i++) await run(['log', `Milestone ${i}`]);
+
+    const document = JSON.parse((await run(['status', '--json', '--full'])).outputText()) as StatusDocument;
+
+    expect(document.tasks).toHaveLength(2);
+    expect(document.log.length).toBeGreaterThan(12);
+  });
+});
+
+describe.skipIf(!gitIsAvailable())('the --json working view', () => {
+  // The document an agent reads at every session start; it has to stay small however long the project runs.
+  test('leaves delivered and abandoned rows and tickets out, and counts them', async () => {
+    await run(['ticket', 'add', 'Rename the export button']);
+    await run(['ticket', 'abandon', '2', '--reason', 'Out of scope']);
+    await run(['task', 'deliver', '2']);
+
+    const document = JSON.parse((await run(['status', '--json'])).outputText()) as StatusDocument;
+
+    expect(document.tasks.map((task) => task.name)).toEqual(['#001 Double-click a role to edit it']);
+    expect(document.tickets.map((ticket) => ticket.id)).toEqual(['001']);
+    expect(document.omitted).toEqual({ settledTasks: 2, settledTickets: 1, olderLogEntries: 0 });
+  });
+
+  test('keeps finished and reviewed rows, which still wait on the orchestrator', async () => {
+    await run(['task', 'finish', '2']);
+
+    const document = JSON.parse((await run(['status', '--json'])).outputText()) as StatusDocument;
+
+    expect(document.tasks[1]).toMatchObject({ name: 'Review pass', status: 'finished' });
+  });
+
+  test('carries the last 10 log entries newest first by their stamp, and counts the older ones', async () => {
+    for (let i = 0; i < 12; i++) await run(['log', `Milestone ${i}`, '--at', `-${12 - i}m`]);
+    await run(['log', 'Backfilled from a day ago', '--at', '-1d']);
+
+    const document     = JSON.parse((await run(['status', '--json'])).outputText()) as StatusDocument;
+    const fullDocument = JSON.parse((await run(['status', '--json', '--full'])).outputText()) as StatusDocument;
+    const logTexts     = document.log.map((entry) => entry.text);
+
+    expect(logTexts).toHaveLength(10);
+    expect(logTexts[0]).toBe('Halfway through the role editor');
+    expect(logTexts).not.toContain('Backfilled from a day ago');
+    expect(document.omitted?.olderLogEntries).toBe(fullDocument.log.length - 10);
+  });
+
+  test('still carries the header fields an agent keys on', async () => {
+    const document = JSON.parse((await run(['status', '--json'])).outputText()) as StatusDocument;
+
+    expect(document.project).toBe('Example Agency');
+    expect(document.nextTaskId).toBe(3);
+    expect(document.trackerId.length).toBeGreaterThan(0);
   });
 });
 

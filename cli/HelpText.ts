@@ -27,10 +27,12 @@ repository to use instead of walking up from the current directory.
                               page, --root tracks that directory instead of the discovered
                               repository root, and --no-claude-md leaves CLAUDE.md alone.
 
-  status [--json]             The project, every task row with its status, stamps and tokens, the
-                              tickets by status, and the last log entries newest first. --json
-                              prints the progress file itself plus every ticket's frontmatter,
-                              which is the form an agent reads at the top of a session.
+  status [--json] [--full]    The project, the counts, the rows that are not delivered or
+                              abandoned, and the last log entries newest first. --json prints the
+                              same working view for an agent: the unsettled rows and tickets, the
+                              last 10 log entries and counts of what was left out. --full lists
+                              everything, and with --json prints the whole progress file plus
+                              every ticket's frontmatter.
 
   task add "<name>"           Add a Gantt row. --start marks it running at --at (default now),
       [--owner <who>]         --ticket links it to a ticket that has no row of its own, --note is
