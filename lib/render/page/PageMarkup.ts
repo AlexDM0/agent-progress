@@ -103,8 +103,9 @@ function taskRowMarkup(row: TaskRow): string {
   ].join('');
 }
 
+/** Rows arrive in filing order and are drawn newest first. */
 export function taskRowsMarkup(rows: readonly TaskRow[]): string {
-  return rows.map(taskRowMarkup).join('');
+  return rows.toReversed().map(taskRowMarkup).join('');
 }
 
 export function tickLayerMarkup(ticks: readonly PlacedTick[]): string {

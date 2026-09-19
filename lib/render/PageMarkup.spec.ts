@@ -90,6 +90,12 @@ function rowFor(task: Task, ticketStatus: TicketStatus | null = null, bar: Timel
 }
 
 describe('taskRowsMarkup', () => {
+  test('draws the most recently filed task on top', () => {
+    const markup = taskRowsMarkup([1, 2, 3].map((id) => ({ task: exampleTask({ id }), ticketStatus: null, bar: PLACED_BAR })));
+
+    expect([...markup.matchAll(/data-task-id="(\d+)"/g)].map((match) => match[1])).toEqual(['3', '2', '1']);
+  });
+
   test.each<[TaskStatus, string]>([
     ['pending', 'WIP'],
     ['running', 'WIP'],

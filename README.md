@@ -56,7 +56,7 @@ the managed block.
 
 `.agent-progress/progress.html` — one file, no CDN, no server. Open it with `agent-progress open`.
 
-- A **Progress** tab: the Gantt chart, one row per task, with its number, name, ticket badge, token
+- A **Progress** tab: the Gantt chart, one row per task, newest on top, with its number, name, ticket badge, token
   count, status pill and bar, a now-marker, and the log underneath, newest first.
 - A **Tickets** tab: a summary table, then one card per ticket with its body rendered as markdown
   (`done`, `delivered` and `abandoned` collapsed). The chosen tab and the open cards are kept in the
