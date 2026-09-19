@@ -127,6 +127,7 @@ test('every other missing or mistyped field is named too', () => {
     { prefix: 'store-no-next-id', document: { ...progress, nextTaskId: undefined }, named: 'nextTaskId' },
     { prefix: 'store-zero-next-id', document: { ...progress, nextTaskId: 0 }, named: 'nextTaskId' },
     { prefix: 'store-task-tokens', document: { ...progress, tasks: [{ ...progress.tasks[0], tokens: -1 }] }, named: 'tasks[0].tokens' },
+    { prefix: 'store-task-reviewed', document: { ...progress, tasks: [{ ...progress.tasks[0], reviewed: true }] }, named: 'tasks[0].reviewed' },
     { prefix: 'store-fractional-tokens', document: { ...progress, tasks: [{ ...progress.tasks[0], tokens: 1.5 }] }, named: 'tasks[0].tokens' },
   ];
   for (const { prefix, document, named } of cases) {
@@ -318,6 +319,33 @@ test('putting a task back to pending clears both timestamps', () => {
   expect(task.start).toBeNull();
   expect(task.end).toBeNull();
   expect(task.status).toBe('pending');
+});
+
+test('reviewing stamps the review once, and delivery keeps it so the delivered row still says it was reviewed', () => {
+  const progress = emptyProgress();
+  const task     = addTask(progress, {
+    name: 'Review pass', status: 'finished', start: STARTED_AT, end: FINISHED_AT 
+  });
+  transitionTask(progress, task.id, 'reviewed', FINISHED_AT);
+  transitionTask(progress, task.id, 'reviewed', '2026-09-19T09:00:00+02:00');
+  transitionTask(progress, task.id, 'delivered', '2026-09-19T10:00:00+02:00');
+  expect(task.reviewed).toBe(FINISHED_AT);
+});
+
+test('a task delivered straight from finished carries no review stamp', () => {
+  const progress = emptyProgress();
+  const task     = addTask(progress, {
+    name: 'Review pass', status: 'finished', start: STARTED_AT, end: FINISHED_AT 
+  });
+  transitionTask(progress, task.id, 'delivered', FINISHED_AT);
+  expect(task.reviewed).toBeUndefined();
+});
+
+test('putting a reviewed task back to pending drops its review stamp', () => {
+  const progress = emptyProgress();
+  const task     = addTask(progress, { name: 'Review pass', status: 'reviewed', reviewed: FINISHED_AT });
+  transitionTask(progress, task.id, 'pending', '2026-09-19T09:00:00+02:00');
+  expect(task.reviewed).toBeUndefined();
 });
 
 test('a transition on a task that is not there says so instead of throwing', () => {

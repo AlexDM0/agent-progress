@@ -82,12 +82,24 @@ function rowStateFor(task: Task, ticketStatus: TicketStatus | null): RowState {
   return task.status === 'finished' && ticketStatus === 'in-review' ? 'reviewing' : task.status;
 }
 
-function taskRowMarkup(row: TaskRow): string {
+function reviewedTitleFor(task: Task, slices: TimestampSlices): string {
+  return task.reviewed === undefined ? 'Reviewed before delivery' : `Reviewed ${task.reviewed.slice(0, slices.dateAndClockLength).replace('T', ' ')} before delivery`;
+}
+
+// Rows written before the review stamp existed carry none; a delivered ticket had to pass `done`, so its row counts as reviewed.
+function deliveredAfterReview(task: Task, ticketStatus: TicketStatus | null): boolean {
+  return task.status === 'delivered' && (task.reviewed !== undefined || ticketStatus === 'delivered');
+}
+
+function taskRowMarkup(row: TaskRow, slices: TimestampSlices): string {
   const { task, bar } = row;
   const state         = rowStateFor(task, row.ticketStatus);
   const ticketBadge   = task.ticket === null
     ? ''
     : `<a class="ap-ticket-badge" ${attribute('href', `#ap-ticket-${task.ticket}`)}>#${escapeHtml(task.ticket)}</a>`;
+  const reviewedMark = deliveredAfterReview(task, row.ticketStatus)
+    ? `<span class="ap-reviewed-mark" data-state="reviewed" ${attribute('title', reviewedTitleFor(task, slices))} role="img" aria-label="reviewed">✓</span>`
+    : '';
   const tokens = task.tokens === null
     ? ''
     : `<span class="ap-tokens">${escapeHtml(formatTokenCount(task.tokens))} tokens</span>`;
@@ -95,7 +107,7 @@ function taskRowMarkup(row: TaskRow): string {
     `<div class="ap-grid-row ap-row" ${attribute('id', `ap-task-${task.id}`)} ${attribute('data-task-id', String(task.id))} ${attribute('data-state', state)}>`,
     `<div class="ap-cell-name"><span class="ap-num">${escapeHtml(String(task.id))}</span>`,
     `<span class="ap-name" ${attribute('title', task.name)}>${escapeHtml(task.name)}</span>${ticketBadge}${tokens}</div>`,
-    `<div class="ap-cell-pill"><span class="ap-pill">${escapeHtml(PILL_LABEL_FOR_ROW_STATE[state])}</span></div>`,
+    `<div class="ap-cell-pill"><span class="ap-pill">${escapeHtml(PILL_LABEL_FOR_ROW_STATE[state])}</span>${reviewedMark}</div>`,
     `<div class="ap-cell-track"><span class="ap-clip-l"${bar.visible && bar.clippedLeft ? '' : ' hidden'}></span>`,
     `<div class="ap-bar"${bar.visible ? '' : ' hidden'} style="left:${percent(bar.leftPercent)};width:${percent(bar.widthPercent)}"></div>`,
     `<span class="ap-clip-r"${bar.visible && bar.clippedRight ? '' : ' hidden'}></span></div>`,
@@ -104,8 +116,8 @@ function taskRowMarkup(row: TaskRow): string {
 }
 
 /** Rows arrive in filing order and are drawn newest first. */
-export function taskRowsMarkup(rows: readonly TaskRow[]): string {
-  return rows.toReversed().map(taskRowMarkup).join('');
+export function taskRowsMarkup(rows: readonly TaskRow[], slices: TimestampSlices): string {
+  return rows.toReversed().map((row) => taskRowMarkup(row, slices)).join('');
 }
 
 export function tickLayerMarkup(ticks: readonly PlacedTick[]): string {

@@ -107,7 +107,9 @@ five timestamp slice positions travel the same way, so no page module restates t
 
 - **One pill per row, naming the state, no marks.** The only state a task status cannot name on its
   own is a `finished` row whose ticket is `in-review`, which reads `reviewing` — the one reason a row
-  is handed its ticket's status at all.
+  is handed its ticket's status at all. The other is the ✓ beside a `delivered` pill: the row's
+  `reviewed` stamp, or, for rows older than that stamp, a ticket that is `delivered` (only legal from
+  `done`).
 - **Timestamps stored by the CLI are sliced, never re-parsed**; each carries the offset of the machine
   that recorded it. Instants the page computed (the axis, the now marker, the generated stamp) are
   formatted, because they have no written-down wall clock to preserve.

@@ -86,12 +86,12 @@ function exampleTicket(changes: Partial<PageTicket> = {}): PageTicket {
 }
 
 function rowFor(task: Task, ticketStatus: TicketStatus | null = null, bar: TimelineBar = PLACED_BAR): string {
-  return taskRowsMarkup([{ task, ticketStatus, bar }]);
+  return taskRowsMarkup([{ task, ticketStatus, bar }], EXAMPLE_SLICES);
 }
 
 describe('taskRowsMarkup', () => {
   test('draws the most recently filed task on top', () => {
-    const markup = taskRowsMarkup([1, 2, 3].map((id) => ({ task: exampleTask({ id }), ticketStatus: null, bar: PLACED_BAR })));
+    const markup = taskRowsMarkup([1, 2, 3].map((id) => ({ task: exampleTask({ id }), ticketStatus: null, bar: PLACED_BAR })), EXAMPLE_SLICES);
 
     expect([...markup.matchAll(/data-task-id="(\d+)"/g)].map((match) => match[1])).toEqual(['3', '2', '1']);
   });
@@ -110,6 +110,23 @@ describe('taskRowsMarkup', () => {
     expect(markup).toContain(`data-state="${status}"`);
     expect(markup).toContain(`<div class="ap-cell-pill"><span class="ap-pill">${label}</span></div>`);
     expect(markup.match(/ap-pill/g)?.length).toBe(1);
+  });
+
+  test('marks a delivered row that was reviewed, with the review time in its title', () => {
+    const markup = rowFor(exampleTask({ status: 'delivered', reviewed: '2026-09-18T21:10:00+02:00' }));
+
+    expect(markup).toContain('class="ap-reviewed-mark"');
+    expect(markup).toContain('title="Reviewed 2026-09-18 21:10 before delivery"');
+  });
+
+  test('leaves the mark off a row delivered straight from finished, and off a reviewed row that is not delivered yet', () => {
+    expect(rowFor(exampleTask({ status: 'delivered' }))).not.toContain('ap-reviewed-mark');
+    expect(rowFor(exampleTask({ status: 'reviewed', reviewed: '2026-09-18T21:10:00+02:00' }))).not.toContain('ap-reviewed-mark');
+  });
+
+  // Rows written before the stamp existed: delivery of a ticket is only legal from `done`.
+  test('marks a delivered ticket row as reviewed even when it carries no stamp', () => {
+    expect(rowFor(exampleTask({ status: 'delivered', ticket: '003' }), 'delivered')).toContain('ap-reviewed-mark');
   });
 
   test('gives a reviewing row the reviewing state and label', () => {

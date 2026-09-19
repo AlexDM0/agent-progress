@@ -69,6 +69,7 @@ function progressOperations(): ProgressOperations {
         note:   input.note ?? '',
         ticket: input.ticket ?? null,
         tokens: null,
+        ...(input.reviewed === undefined ? {} : { reviewed: input.reviewed }),
       };
       progress.tasks.push(task);
       return task;
@@ -453,6 +454,18 @@ describe('seedTaskFromTicket', () => {
 
     expect(seeded.status).toBe('delivered');
     expect(seeded.end).toBe(DELIVERED_AT);
+  });
+
+  // `clear` re-seeds rows from tickets; a delivered ticket passed `done`, so its row has to come back marked reviewed.
+  test('a done or delivered ticket comes back marked reviewed, and an open one does not', () => {
+    for (const status of ['done', 'delivered'] as const) {
+      const ticket              = ticketFixture();
+      ticket.frontmatter.status = status;
+      ticket.frontmatter.finished = FINISHED_AT;
+
+      expect(seedTaskFromTicket({ progress: progressFixture(), ticket, operations: progressOperations() }).reviewed).toBe(FINISHED_AT);
+    }
+    expect(seedTaskFromTicket({ progress: progressFixture(), ticket: ticketFixture(), operations: progressOperations() }).reviewed).toBeUndefined();
   });
 
   test('an abandoned ticket ends its bar where it was abandoned', () => {

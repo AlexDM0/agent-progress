@@ -357,7 +357,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     }));
     setMarkup('ap-ticks', tickLayerMarkup(placedTicks));
     setMarkup('ap-overlay', overlayMarkup(timeline.ticks, timeline.nowPercent));
-    setMarkup('ap-rows', taskRowsMarkup(taskRowsFor(visibleProgress, timeline, ticketStatusById)));
+    setMarkup('ap-rows', taskRowsMarkup(taskRowsFor(visibleProgress, timeline, ticketStatusById), limits));
     setHidden('ap-chart-empty', visibleProgress.tasks.length > 0);
 
     setText('ap-range-note', rangeNoteText(timeline.fromEpochMilliseconds, timeline.toEpochMilliseconds, timeline.stepMinutes, limits));

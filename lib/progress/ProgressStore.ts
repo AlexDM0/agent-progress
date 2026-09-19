@@ -23,14 +23,15 @@ export type ReadProgressFileResult =
   | { verdict: 'unreadable'; reason: string };
 
 export interface AddTaskInput {
-  name:    string;
-  owner?:  string;
-  note?:   string;
-  ticket?: string | null;
-  status?: TaskStatus;
-  start?:  string | null;
-  end?:    string | null;
-  tokens?: number | null;
+  name:      string;
+  owner?:    string;
+  note?:     string;
+  ticket?:   string | null;
+  status?:   TaskStatus;
+  start?:    string | null;
+  end?:      string | null;
+  tokens?:   number | null;
+  reviewed?: string;
 }
 
 /** `trackerId` comes from the caller: this module has no randomness, and `clear` has to keep the existing id. */
@@ -84,6 +85,7 @@ function taskProblem(value: unknown, index: number): string | null {
   if (!textFieldIsPresent(task, 'note')) return `tasks[${index}].note is not a string`;
   if (!nullableTextIsWellFormed(task['ticket'])) return `tasks[${index}].ticket is neither a ticket id nor null`;
   if (!tokenCountIsWellFormed(task['tokens'])) return `tasks[${index}].tokens is neither a whole number of tokens nor null`;
+  if (task['reviewed'] !== undefined && typeof task['reviewed'] !== 'string') return `tasks[${index}].reviewed is present but not a timestamp`;
   return null;
 }
 
@@ -175,6 +177,7 @@ export function addTask(progress: ProgressFile, input: AddTaskInput): Task {
     note:   input.note ?? '',
     ticket: input.ticket ?? null,
     tokens: input.tokens ?? null,
+    ...(input.reviewed === undefined ? {} : { reviewed: input.reviewed }),
   };
   progress.tasks.push(task);
   return task;
@@ -198,11 +201,13 @@ export function transitionTask(progress: ProgressFile, taskId: number, status: T
   } else if (status === 'finished' || status === 'reviewed' || status === 'delivered') {
     task.start = task.start ?? at;
     task.end = task.end ?? at;
+    if (status === 'reviewed') task.reviewed = task.reviewed ?? at;
   } else if (status === 'abandoned') {
     if (task.start !== null) task.end = task.end ?? at;
   } else {
     task.start = null;
     task.end = null;
+    delete task.reviewed;
   }
 
   task.status = status;

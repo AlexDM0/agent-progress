@@ -68,6 +68,8 @@ the managed block.
 - **Done work older than a day is hidden**: reviewed, delivered and abandoned tasks, and done,
   delivered and abandoned tickets, leave the chart and the ticket list a day after they closed.
   **Show all** brings them back; the choice is kept in the browser.
+- A **✓ beside a delivered pill** when that task was reviewed before it was delivered; hover it for
+  the review time. A delivered task without it went straight from finished to delivered.
 - An **error banner** when a command wrote the store but could not rebuild the page script.
 
 ## Commands
@@ -129,7 +131,8 @@ own (an unreadable progress file, a lock it could not take).
       "owner": "opus",
       "note": "",
       "ticket": "003",                           // or null
-      "tokens": 48000                            // or null: "nobody said", which is not "it used none"
+      "tokens": 48000,                           // or null: "nobody said", which is not "it used none"
+      "reviewed": "2026-09-18T22:10:00+02:00"    // absent until the row is first reviewed; kept through delivery
     }
   ],
   "log": [{ "at": "2026-09-18T21:30:54+02:00", "text": "Wave 1 landed." }]

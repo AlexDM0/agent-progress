@@ -15,13 +15,14 @@ import type {
 } from '../constants/Types.ts';
 
 export interface AddTaskInput {
-  name:    string;
-  owner?:  string;
-  note?:   string;
-  ticket?: string;
-  status?: TaskStatus;
-  start?:  string;
-  end?:    string;
+  name:      string;
+  owner?:    string;
+  note?:     string;
+  ticket?:   string;
+  status?:   TaskStatus;
+  start?:    string;
+  end?:      string;
+  reviewed?: string;
 }
 
 export interface ProgressOperations {
@@ -137,7 +138,10 @@ export function applyTicketTransition(input: ApplyTicketTransitionInput): ApplyT
   return { verdict: 'applied', ticket, logText };
 }
 
-/** The bar ends at `finished` before `delivered`, because delivery is a later fact about finished work rather than more of it. */
+/**
+ * The bar ends at `finished` before `delivered`, because delivery is a later fact about finished work rather than more of it.
+ * A done or delivered ticket was reviewed, since delivery is only legal from `done`.
+ */
 export function seedTaskFromTicket(input: TicketRowInput): Task {
   const { progress, ticket, operations } = input;
   const { frontmatter }                  = ticket;
@@ -149,6 +153,7 @@ export function seedTaskFromTicket(input: TicketRowInput): Task {
     status: TASK_STATUS_FOR_TICKET_STATUS[frontmatter.status],
     ...(frontmatter.started === null ? {} : { start: frontmatter.started }),
     ...(endTimestamp === null ? {} : { end: endTimestamp }),
+    ...(frontmatter.status === 'done' || frontmatter.status === 'delivered' ? { reviewed: frontmatter.finished ?? frontmatter.updated } : {}),
   });
 
   frontmatter.task = seeded.id;

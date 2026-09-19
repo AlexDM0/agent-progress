@@ -64,7 +64,9 @@
  ---------------------------------------------------------------- row markup ---
  .ap-row[data-state]      state goes on the ROW; pill and bar inherit its colours
  .ap-row > .ap-cell-name  > .ap-num, .ap-name[title], a.ap-ticket-badge, .ap-tokens
- .ap-row > .ap-cell-pill  > .ap-pill (exactly one; label text carries the state)
+ .ap-row > .ap-cell-pill  > .ap-pill (exactly one; label text carries the state),
+                            then .ap-reviewed-mark[data-state="reviewed"] on a delivered row
+                            that was reviewed first
  .ap-row > .ap-cell-track > .ap-bar (inline left/width %), .ap-clip-l, .ap-clip-r
  --------------------------------------------------------------------- states ---
  data-state =  pending  | running | paused | finished | reviewing | reviewed | delivered | abandoned
@@ -397,6 +399,7 @@ a:hover { color: var(--ink); text-decoration: underline; }
   white-space: nowrap;
 }
 .ap-row[data-state="pending"] .ap-pill { border-style: dashed; }
+.ap-reviewed-mark { margin-left: var(--sp-1); font: 600 var(--fs-small)/1 var(--font-ui); color: var(--s-fill); cursor: help; }
 
 .ap-bar {
   position: absolute; top: 50%; transform: translateY(-50%);
@@ -666,7 +669,7 @@ a:hover { color: var(--ink); text-decoration: underline; }
         <div id="ap-rows">
           <div class="ap-grid-row ap-row" id="ap-task-1" data-task-id="1" data-state="delivered">
             <div class="ap-cell-name"><span class="ap-num">1</span><span class="ap-name" title="Double-click a role to edit it">Double-click a role to edit it</span><a class="ap-ticket-badge" href="#ap-ticket-001">#001</a><span class="ap-tokens">18.4k tokens</span></div>
-            <div class="ap-cell-pill"><span class="ap-pill">delivered</span></div>
+            <div class="ap-cell-pill"><span class="ap-pill">delivered</span><span class="ap-reviewed-mark" data-state="reviewed" title="Reviewed 09-18 21:10 before delivery" role="img" aria-label="reviewed">✓</span></div>
             <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:3.2%;width:43.6%"></div><span class="ap-clip-r" hidden></span></div>
           </div>
           <div class="ap-grid-row ap-row" id="ap-task-2" data-task-id="2" data-state="reviewed">
