@@ -18,14 +18,17 @@ decimal with a \`k\`/\`m\` suffix: \`12000\`, \`12k\`, \`12.3k\`, \`1.2m\`.
 repository to use instead of walking up from the current directory.
 
   init                        Create the tracker here: \`.agent-progress/\` with an empty progress
-      [--project <name>]      file and a \`tickets/\` folder, a \`.gitignore\` entry for it, and a
-      [--root <path>]         managed block in the repository's CLAUDE.md telling an agent to track
-      [--no-claude-md]        its work through this tool. Refused when an ancestor already holds a
-                              tracker, when --root is not an existing directory, and inside a bare
-                              repository, which has no working tree to track. Re-running only
-                              refreshes the managed block. --project names the project shown on the
-                              page, --root tracks that directory instead of the discovered
-                              repository root, and --no-claude-md leaves CLAUDE.md alone.
+      [--project <name>]      file, a \`tickets/\` folder and \`agent-brief.md\` — the brief to fill in
+      [--root <path>]         before spawning an implementing agent — a \`.gitignore\` entry for it,
+      [--no-claude-md]        and a managed block in the repository's CLAUDE.md telling an agent to
+      [--hooks]               track its work through this tool. Refused when an ancestor already
+                              holds a tracker, when --root is not an existing directory, and inside
+                              a bare repository, which has no working tree to track. Re-running only
+                              refreshes the managed block and the brief. --project names the project
+                              shown on the page, --root tracks that directory instead of the
+                              discovered repository root, --no-claude-md leaves CLAUDE.md alone, and
+                              --hooks writes the SubagentStop hook below into the repository's
+                              \`.claude/settings.json\`, merging into whatever is already there.
 
   status [--json] [--full]    The project, the counts, the rows that are not delivered or
                               abandoned, and the last log entries newest first. --json prints the
@@ -62,6 +65,28 @@ repository to use instead of walking up from the current directory.
                               deleted. The id is never given to another row.
 
   log "<text>" [--at <when>]  Append one line to the log shown under the chart. --at backfills it.
+
+  hook subagent-stop          Record what a finished subagent cost, as one log line: the hook JSON
+                              arrives on standard input, and the agent's transcript is summed per
+                              API call rather than per line. This is the command \`init --hooks\`
+                              wires into \`.claude/settings.json\`; nobody types it. It exits 0
+                              whatever goes wrong — no input, an unreadable transcript, no tracker
+                              at the hook's own working directory — and writes the reason to
+                              standard error. Its exit code prevents nothing, since the agent has
+                              already finished; exiting 0 is what keeps a failure here from becoming
+                              an error the orchestrator must read, or a delay before it is told.
+
+  usage [--since <when>]      What this repository's subagents cost, read out of the transcripts the
+      [--transcripts <folder>] harness wrote for them: one row per agent, oldest first, with its
+      [--json]                start, its API calls, its end context, its input and output, its
+                              browser calls, the characters the harness injected into it and the
+                              first line of its brief; then the cohort summary — median calls and
+                              end context, mean input and output. --since splits the cohort on an
+                              instant and summarises both sides, which is how a change in the way
+                              agents are briefed is measured. --transcripts reads a folder other
+                              than the one this repository's path resolves to. It writes nothing,
+                              takes no lock and regenerates no page, and a repository with no
+                              transcripts is one sentence at exit 0.
 
   ticket add "<title>"        File a ticket: a markdown file under \`.agent-progress/tickets/\` with
       [--type bug|change|feature]

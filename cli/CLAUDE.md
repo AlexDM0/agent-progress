@@ -52,8 +52,8 @@ changed; saying otherwise would make an orchestrator re-run a command that had a
 
 ## A command takes its context, it does not reach for the process
 
-`currentDirectory`, `now()`, both output streams, whether standard input is a terminal and the
-confirmation prompt all arrive in the `CommandContext`. That is what lets every command spec run in
+`currentDirectory`, `now()`, both output streams, whether standard input is a terminal, the read of
+everything piped in and the confirmation prompt all arrive in the `CommandContext`. That is what lets every command spec run in
 the test process against a scratch directory and a frozen clock. The environment is not in the
 context: `lib/platform/Environment.ts` is the one module that reads it.
 
@@ -65,7 +65,7 @@ context: `lib/platform/Environment.ts` is the one module that reads it.
 | `cli/Main.spec.ts` | the four routes and the number each produces, against a captured context |
 | `cli/CommandSupport.ts` | the sequence every mutating command follows, `resolveAtOption`, `printEntity`, `renderDashboard`, and `progressOperations` — the progress store in the shape `lib/tickets/TicketTransitions.ts` asks for |
 | `cli/CommandContext.ts` | the interface every handler is given, and `createProcessContext()` for the real process |
-| `cli/CommandTable.ts` | name → lazy loader for all ten commands; `COMMAND_NAMES`; `commandLoaderFor` guarded by `Object.hasOwn` |
+| `cli/CommandTable.ts` | name → lazy loader for all eleven commands; `COMMAND_NAMES`; `commandLoaderFor` guarded by `Object.hasOwn` |
 | `cli/CommandTable.spec.ts` | every loader resolves to a function, and an inherited property of the literal is refused rather than run |
 | `cli/HelpText.ts` | `helpText()`: the whole command reference, one screen, interpolating nothing |
 | `cli/HelpText.spec.ts` | the help and the table agree in both directions; the entry layout that makes that checkable |
@@ -73,7 +73,7 @@ context: `lib/platform/Environment.ts` is the one module that reads it.
 | `cli/arguments/ArgumentParser.ts` | the closure factory: flags, options in both spellings, positionals, the bare `--`, and the refusals |
 | `cli/arguments/ArgumentParser.spec.ts` | the shapes that fail quietly when the parser is wrong |
 | `cli/arguments/OptionsWithValues.ts` | which option names take the next argument, across every command |
-| `cli/init/InitCommand.ts` | `init`: discover the root, ignore the tracker, create it, render, write the managed CLAUDE.md block. A re-run at the same root refreshes the block; one below an existing tracker, one inside a bare repository, and a `--root` that is not an existing directory are all refused |
+| `cli/init/InitCommand.ts` | `init`: discover the root, ignore the tracker, create it, render, write the managed CLAUDE.md block, and under `--hooks` the `SubagentStop` entry in `.claude/settings.json`. A re-run at the same root refreshes the block; one below an existing tracker, one inside a bare repository, and a `--root` that is not an existing directory are all refused |
 | `cli/init/InitCommand.spec.ts` | the tree and all three side effects, `--no-claude-md`, `--root`, the re-run, the two refusals, and the worktree case that the one-tracker-per-repository promise rests on |
 | `cli/status/StatusCommand.ts` | `status`: the working view — counts, the rows and tickets that are not delivered or abandoned, the recent log ordered by its stamps, and under `--json` an `omitted` count of what was left out. `--full` is the *whole progress file plus every ticket's frontmatter* |
 | `cli/status/StatusCommand.spec.ts` | both `--json` documents' shapes, which are the contract with the orchestrating agent, plus the token column and the log's order |
@@ -81,6 +81,10 @@ context: `lib/platform/Environment.ts` is the one module that reads it.
 | `cli/task/TaskCommand.spec.ts` | the lifecycle, that a repeated stamp does not move, pause and resume, `--tokens`, `--at`, `--json`, the ticket-owned refusal, and the link rules on both sides |
 | `cli/log/LogCommand.ts` | `log`: one line, joined from every positional so an unquoted sentence is not truncated to its first word |
 | `cli/log/LogCommand.spec.ts` | the joining, the backfill, and the refusal of an empty line |
+| `cli/hook/HookCommand.ts` | `hook subagent-stop`: the `SubagentStop` hook, reading the hook JSON from standard input and appending one line saying what the finished subagent cost. The tracker is resolved from the hook input's own `cwd`. **The only command that exits 0 on every failure** — no input, bad JSON, no transcript, no tracker, no calls — because the agent has already finished when this runs, so a non-zero exit prevents nothing and buys only an error the orchestrator has to read and a delay before it is told |
+| `cli/hook/HookCommand.spec.ts` | the line it writes, each of the seven failures — the held lock among them — leaving the tracker untouched at exit 0, the `cwd` the tracker is found from, and the one refusal: a misspelled event |
+| `cli/usage/UsageCommand.ts` | `usage`: what the subagents of this repository cost, profiled from the transcripts under `~/.claude/projects/`. One row per agent oldest first, then the cohort summary; `--since` splits the cohort and summarises both sides, `--transcripts` names a folder instead of deriving one. Read-only — no lock, no write, no render — and finding nothing is one sentence at exit 0 |
+| `cli/usage/UsageCommand.spec.ts` | the rows and the summary against a scratch folder of constructed transcripts, the `--since` split, the `--json` shape, an empty folder, and the refusal of an unreadable `--since` |
 | `cli/ticket/TicketCommand.ts` | `ticket add\|list\|show\|start\|review\|done\|deliver\|abandon\|reopen\|status\|link`: the markdown tickets and the rows they drive. The named verbs enforce the legality matrix and `ticket status` is the override; `show` always prints the file path |
 | `cli/ticket/TicketCommand.spec.ts` | filing, every transition stamping both files, the matrix and the same-status refusal, the abandon refusal, `--tokens`, listing, showing, and linking |
 | `cli/range/RangeCommand.ts` | `range`: the stored axis. A relative bound is stored verbatim; `kind` is `absolute` only when both ends are timestamps |

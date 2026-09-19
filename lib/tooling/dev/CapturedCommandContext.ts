@@ -10,6 +10,7 @@ export interface CapturedCommandContext {
   standardOutput:          (text: string) => void;
   standardError:           (text: string) => void;
   standardInputIsTerminal: boolean;
+  readStandardInput:       () => Promise<string>;
   confirm:                 (question: string) => Promise<boolean>;
   outputText:              () => string;
   errorText:               () => string;
@@ -20,6 +21,8 @@ export interface CapturedCommandContextOptions {
   currentDirectory?:        string;
   now?:                     () => Date;
   standardInputIsTerminal?: boolean;
+  /** What a spec pipes in: a spec that names none gets the empty string, which is the "nothing was piped" case every reader handles anyway. */
+  standardInputText?:       string;
   confirmAnswer?:           boolean;
 }
 
@@ -37,6 +40,7 @@ export function createCapturedCommandContext(options: CapturedCommandContextOpti
     standardOutput:          (text: string) => { outputLines.push(text); },
     standardError:           (text: string) => { errorLines.push(text); },
     standardInputIsTerminal: options.standardInputIsTerminal ?? false,
+    readStandardInput:       () => Promise.resolve(options.standardInputText ?? ''),
     confirm:                 (question: string) => {
       questions.push(question);
       return Promise.resolve(options.confirmAnswer ?? false);

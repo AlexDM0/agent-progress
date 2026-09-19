@@ -242,8 +242,9 @@ lib/                     Everything the commands do, in five layers that import 
 skill/                   The Claude Code skill `setup.sh` links into `~/.claude/skills/`: the
                          command reference an agent works from → `skill/CLAUDE.md`.
 templates/               The markdown this tool writes into somebody else's repository — the managed
-                         CLAUDE.md block and the default ticket body. Kept as files, not string
-                         literals, so a change to the wording is a readable diff.
+                         CLAUDE.md block, the default ticket body, and `templates/AgentBrief.md`, the
+                         brief `init` copies to `.agent-progress/agent-brief.md` on every run. Kept
+                         as files, not string literals, so a change to the wording is a readable diff.
 docs/                    `docs/plan.md` (the design as agreed), `docs/decisions.md` (rejected, with
                          the reason), `docs/backlog.md` (agreed, not started),
                          `docs/review-findings.md` (the final adversarial review), `docs/design/`

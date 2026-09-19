@@ -11,6 +11,8 @@ export interface CommandContext {
   standardOutput:          (text: string) => void;
   standardError:           (text: string) => void;
   standardInputIsTerminal: boolean;
+  /** Everything piped in, read once and to the end; a command a person typed gets the empty string rather than a wait nobody can see. */
+  readStandardInput:       () => Promise<string>;
   confirm:                 (question: string) => Promise<boolean>;
 }
 
@@ -22,8 +24,18 @@ export function createProcessContext(): CommandContext {
     standardOutput:          (text: string) => console.log(text),
     standardError:           (text: string) => console.error(text),
     standardInputIsTerminal: process.stdin.isTTY === true,
+    readStandardInput:       readEverythingOnStandardInput,
     confirm:                 confirmOnStandardInput,
   };
+}
+
+/**
+ * A terminal is answered with the empty string rather than read: `agent-progress hook subagent-stop`
+ * typed by hand would otherwise hang until whoever typed it found `Ctrl-D`.
+ */
+function readEverythingOnStandardInput(): Promise<string> {
+  if (process.stdin.isTTY === true) return Promise.resolve('');
+  return Bun.stdin.text();
 }
 
 /** Fail closed: anything but `y` or `yes` is a no, including an empty line and end of input. */

@@ -85,6 +85,18 @@ anything that needs "now" is handed it.
   `12.3k`, `1.2m`; a bare decimal and a negative are refused) and `formatTokenCount` for what both
   readers show (`950`, `12.3k`, `1.2M`). One module, so the command surface and the page cannot
   drift on either half.
+- `lib/utils/TranscriptUsageUtil.ts` — `summariseTranscriptUsage`, which sums a subagent transcript
+  **per `message.id` and never per line** (one API call is several lines repeating the same input
+  figures), and `composeUsageLine`, the log line `agent-progress hook subagent-stop` writes from it.
+  The one export besides the frozen object is its `TranscriptUsageTotals` type, which the command
+  names in passing the totals from the first function to the second. `profileTranscript` adds what
+  explains those totals — the first timestamp, the model, the browser tool calls, the characters the
+  harness injected as `nested_memory` attachments and the first 80 characters of the brief — as the
+  `TranscriptProfile` type `agent-progress usage` reports one agent by.
+- `lib/utils/TranscriptCohortUtil.ts` — `summariseCohort` and `splitAt` over those profiles.
+  **Calls and end context are medians, the token figures means**: one runaway agent must not move
+  what a typical agent did, and must not be hidden in what the cohort cost. An empty cohort answers
+  zero of everything, and a profile with no readable stamp falls on the `before` side of a split.
 - `lib/utils/TicketDependencyUtil.ts` — `unsettledDependenciesOf` (which of a ticket's dependencies
   are not done or delivered yet) and `dependencyLoopFrom` (the circle a new list would close, or
   `null`). Shared by `ticket depends` and the page's "waiting on" note.
@@ -111,6 +123,17 @@ nothing about tasks or tickets — a caller supplies a path.
 - `lib/platform/ClaudeInstructions.ts` — `writeManagedBlock`: the block `init` owns inside a
   repository's `CLAUDE.md`. Written in place so a symlinked file stays a symlink; a start marker with
   no end marker is refused and the file is left alone.
+- `lib/platform/ClaudeSettings.ts` — `claudeSettingsFilePathFor` and `writeSubagentStopHook`: the
+  `SubagentStop` entry `init --hooks` merges into a repository's `.claude/settings.json`. Every other
+  key is kept, an identical command is never added twice, and a document that will not parse is
+  refused rather than overwritten. The matcher, the command and the timeout come from the caller.
+- `lib/platform/ClaudeTranscripts.ts` — `transcriptFolderFor` and `listSubagentTranscripts`: where the
+  harness keeps a repository's transcripts (`<home>/.claude/projects/` plus the repository root's
+  absolute path with **every character outside `[a-zA-Z0-9]`** turned into `-` — a dot and a space as
+  much as a separator, so `/Users/alex/.claude/x` slugs to `-Users-alex--claude-x` — so every worktree
+  resolves to one folder) and every
+  subagent file under it. The home directory is `node:os`'s `homedir()` as a defaulted parameter,
+  never `HOME`; a missing folder is an empty list, and main-session transcripts are left out.
 
 ## `lib/progress/`
 

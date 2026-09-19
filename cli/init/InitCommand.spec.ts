@@ -39,7 +39,7 @@ afterEach(() => {
 });
 
 describe.skipIf(!gitIsAvailable())('initialising a repository', () => {
-  test('creates the tracker tree, ignores it, writes the CLAUDE.md block and renders a page', async () => {
+  test('creates the tracker tree, ignores it, writes the CLAUDE.md block and the agent brief, and renders a page', async () => {
     const repositoryDirectory = scratchRepository();
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
 
@@ -55,6 +55,7 @@ describe.skipIf(!gitIsAvailable())('initialising a repository', () => {
     expect(claudeInstructions).toContain('agent-progress');
 
     expect(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')).toContain('Example Agency');
+    expect(readFileSync(join(repositoryDirectory, '.agent-progress', 'agent-brief.md'), 'utf8')).toStartWith('# Agent brief');
     expect(context.outputText()).toContain('.gitignore:');
     expect(context.outputText()).toContain('progress.html');
     expect(context.errorText()).toBe('');
@@ -82,6 +83,32 @@ describe.skipIf(!gitIsAvailable())('initialising a repository', () => {
     expect(existsSync(join(repositoryDirectory, '.agent-progress', 'progress.json'))).toBe(true);
   });
 
+  /** Without the flag nothing is written, and the line exists only so that the flag is discoverable at all. */
+  test('leaves .claude/settings.json alone and says the --hooks flag exists', async () => {
+    const repositoryDirectory = scratchRepository();
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+
+    expect(await runCommandLine(['init'], context)).toBe(0);
+
+    expect(existsSync(join(repositoryDirectory, '.claude', 'settings.json'))).toBe(false);
+    expect(context.outputText()).toContain('hooks:       not written — `agent-progress init --hooks`');
+  });
+
+  // The matcher is empty on purpose: every subagent type is recorded, so the log covers the same agents `usage` reports on.
+  test('--hooks writes the SubagentStop entry that records what every subagent cost, whatever its type', async () => {
+    const repositoryDirectory = scratchRepository();
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+
+    expect(await runCommandLine(['init', '--hooks'], context)).toBe(0);
+
+    const settings = JSON.parse(readFileSync(join(repositoryDirectory, '.claude', 'settings.json'), 'utf8')) as Record<string, unknown>;
+    expect((settings['hooks'] as Record<string, unknown>)['SubagentStop']).toEqual([
+      { matcher: '', hooks: [{ type: 'command', command: 'agent-progress hook subagent-stop', timeout: 20 }] },
+    ]);
+    expect(context.outputText()).toContain('hooks:       ');
+    expect(context.errorText()).toBe('');
+  });
+
   test('--root tracks the directory it names rather than the discovered repository root', async () => {
     const repositoryDirectory = scratchRepository();
     const plainDirectory      = createScratchGitRepository('init-command-root');
@@ -105,12 +132,16 @@ describe.skipIf(!gitIsAvailable())('a second init', () => {
 
     const claudeFilePath = join(repositoryDirectory, 'CLAUDE.md');
     writeFileSync(claudeFilePath, `${CLAUDE_MANAGED_START}\n<!-- agent-progress:managed:end -->\n`);
+    const briefFilePath = join(repositoryDirectory, '.agent-progress', 'agent-brief.md');
+    writeFileSync(briefFilePath, 'An older brief nobody refreshed.\n');
 
     const second = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
     expect(await runCommandLine(['init'], second)).toBe(0);
 
     expect(second.outputText()).toContain('already initialised');
+    expect(second.outputText(), 'a re-run says so on both paths, or the flag is invisible to a repository that adopted the tool a month ago').toContain('hooks:       ');
     expect(readFileSync(claudeFilePath, 'utf8')).toContain('agent-progress');
+    expect(readFileSync(briefFilePath, 'utf8'), 'the brief is shipped guidance, so a re-run restores the current wording').toStartWith('# Agent brief');
     // The tracker id is the page's localStorage key, so a re-run that reset it would reset every reader's stored range.
     expect((JSON.parse(readFileSync(progressFilePath, 'utf8')) as { trackerId: string }).trackerId).toBe(trackerIdBefore);
   });

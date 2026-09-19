@@ -24,7 +24,7 @@ describe('the command table', () => {
 
   test('the table holds exactly the commands the plan names', () => {
     expect([...COMMAND_NAMES].sort()).toEqual([
-      'clear', 'help', 'init', 'log', 'open', 'range', 'render', 'status', 'task', 'ticket',
+      'clear', 'help', 'hook', 'init', 'log', 'open', 'range', 'render', 'status', 'task', 'ticket', 'usage',
     ]);
   });
 });
