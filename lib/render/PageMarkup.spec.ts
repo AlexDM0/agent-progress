@@ -97,7 +97,7 @@ describe('taskRowsMarkup', () => {
   });
 
   test.each<[TaskStatus, string]>([
-    ['pending', 'WIP'],
+    ['pending', 'unstarted'],
     ['running', 'WIP'],
     ['paused', 'paused'],
     ['finished', 'finished'],

@@ -67,8 +67,8 @@
  .ap-row > .ap-cell-pill  > .ap-pill (exactly one; label text carries the state)
  .ap-row > .ap-cell-track > .ap-bar (inline left/width %), .ap-clip-l, .ap-clip-r
  --------------------------------------------------------------------- states ---
- data-state = pending | running | paused | finished | reviewing | reviewed | delivered | abandoned
- pill label =  WIP   |   WIP   | paused | finished | reviewing | reviewed | delivered | abandoned
+ data-state =  pending  | running | paused | finished | reviewing | reviewed | delivered | abandoned
+ pill label = unstarted |   WIP   | paused | finished | reviewing | reviewed | delivered | abandoned
  ticket status class on .ap-badge = open | in-progress | in-review | done | delivered | abandoned
  -------------------------------------------------------------- script hooks ---
  --timeline-w   on #ap-chart: track column width. "1fr" = fill (no scroll);
@@ -696,7 +696,7 @@ a:hover { color: var(--ink); text-decoration: underline; }
           </div>
           <div class="ap-grid-row ap-row" id="ap-task-7" data-task-id="7" data-state="pending">
             <div class="ap-cell-name"><span class="ap-num">7</span><span class="ap-name" title="Audit the range presets against a real 12-hour session">Audit the range presets against a real 12-hour session</span><a class="ap-ticket-badge" href="#ap-ticket-005">#005</a></div>
-            <div class="ap-cell-pill"><span class="ap-pill">WIP</span></div>
+            <div class="ap-cell-pill"><span class="ap-pill">unstarted</span></div>
             <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:78.5%;width:9.0%"></div><span class="ap-clip-r" hidden></span></div>
           </div>
           <div class="ap-grid-row ap-row" id="ap-task-8" data-task-id="8" data-state="abandoned">

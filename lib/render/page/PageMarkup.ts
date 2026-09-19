@@ -29,7 +29,7 @@ const TICK_LABEL_GUTTER_PIXELS = 5;
 type RowState = TaskStatus | 'reviewing';
 
 const PILL_LABEL_FOR_ROW_STATE: Record<RowState, string> = {
-  'pending':   'WIP',
+  'pending':   'unstarted',
   'running':   'WIP',
   'paused':    'paused',
   'finished':  'finished',
