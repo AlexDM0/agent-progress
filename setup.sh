@@ -80,15 +80,22 @@ else
   fi
 fi
 
-step "3/3 The agent-progress Claude skill"
-# A symlink, never a copy: `cli/HelpText.spec.ts` holds the bundled skill against the command table in
+step "3/3 The agent-progress Claude skills"
+# A symlink, never a copy: `cli/HelpText.spec.ts` holds the bundled skills against the command table in
 # this checkout, and a copy under ~/.claude would be the one version nothing checks.
 #
 # The one thing this block removes is a symlink; anything else at that path is reported and left where
 # it is, because ~/.claude/skills/ is a directory people keep their own work in.
 SKILLS_DIRECTORY="$HOME/.claude/skills"
-SKILL_TARGET="$SKILLS_DIRECTORY/agent-progress"
-SKILL_SOURCE="$HERE/skill"
+
+# "<folder in this checkout>:<name it takes under ~/.claude/skills>". Two skills because they have two
+# audiences: `skill/` is loaded by every session in a tracked repository, `skill-orchestrate/` only by
+# the one running the board, and an orchestrator's material in the first would be injected into every
+# implementing agent that opens a file.
+BUNDLED_SKILLS=(
+  "skill:agent-progress"
+  "skill-orchestrate:agent-progress-orchestrate"
+)
 
 # Both sides of "is it already linked?" resolve physically: a textual readlink comparison is wrong the
 # moment either path crosses a symlinked component (/tmp against /private/tmp), and the script would
@@ -101,44 +108,55 @@ resolved_directory() {
   fi
 }
 
-if [[ ! -f "$SKILL_SOURCE/SKILL.md" ]]; then
-  warn "No skill bundled at $SKILL_SOURCE — skipping"
-elif [[ -L "$SKILL_TARGET" ]]; then
-  LINKED_AT="$(resolved_directory "$SKILL_TARGET")"
-  SOURCE_AT="$(resolved_directory "$SKILL_SOURCE")"
-  if [[ -n "$LINKED_AT" && "$LINKED_AT" == "$SOURCE_AT" ]]; then
-    ok "Skill already linked: $SKILL_TARGET → $SKILL_SOURCE"
+link_bundled_skill() {
+  local skill_source="$1"
+  local skill_target="$2"
+  if [[ ! -f "$skill_source/SKILL.md" ]]; then
+    warn "No skill bundled at $skill_source — skipping"
+  elif [[ -L "$skill_target" ]]; then
+    local linked_at source_at
+    linked_at="$(resolved_directory "$skill_target")"
+    source_at="$(resolved_directory "$skill_source")"
+    if [[ -n "$linked_at" && "$linked_at" == "$source_at" ]]; then
+      ok "Skill already linked: $skill_target → $skill_source"
+    elif [[ "$INSTRUCT_ONLY" == "1" ]]; then
+      warn "Would relink $skill_target → $skill_source (it currently points at ${linked_at:-nothing})"
+    else
+      rm -f "$skill_target"
+      mkdir -p "$SKILLS_DIRECTORY"
+      ln -s "$skill_source" "$skill_target"
+      ok "Skill relinked: $skill_target → $skill_source"
+    fi
+  elif [[ -e "$skill_target" ]]; then
+    if [[ -d "$skill_target" ]]; then
+      warn "$skill_target is a real directory, not a symlink — left untouched."
+    else
+      warn "$skill_target is a real file, not a symlink — left untouched."
+    fi
+    warn "  Move or delete it yourself, then re-run ./setup.sh to install the link."
   elif [[ "$INSTRUCT_ONLY" == "1" ]]; then
-    warn "Would relink $SKILL_TARGET → $SKILL_SOURCE (it currently points at ${LINKED_AT:-nothing})"
+    warn "Would link $skill_target → $skill_source"
   else
-    rm -f "$SKILL_TARGET"
     mkdir -p "$SKILLS_DIRECTORY"
-    ln -s "$SKILL_SOURCE" "$SKILL_TARGET"
-    ok "Skill relinked: $SKILL_TARGET → $SKILL_SOURCE"
+    ln -s "$skill_source" "$skill_target"
+    ok "Skill linked: $skill_target → $skill_source"
   fi
-elif [[ -e "$SKILL_TARGET" ]]; then
-  if [[ -d "$SKILL_TARGET" ]]; then
-    warn "$SKILL_TARGET is a real directory, not a symlink — left untouched."
-  else
-    warn "$SKILL_TARGET is a real file, not a symlink — left untouched."
-  fi
-  warn "  Move or delete it yourself, then re-run ./setup.sh to install the link."
-elif [[ "$INSTRUCT_ONLY" == "1" ]]; then
-  warn "Would link $SKILL_TARGET → $SKILL_SOURCE"
-else
-  mkdir -p "$SKILLS_DIRECTORY"
-  ln -s "$SKILL_SOURCE" "$SKILL_TARGET"
-  ok "Skill linked: $SKILL_TARGET → $SKILL_SOURCE"
-fi
+}
 
 # The claude-skills repository adopts any skill under ~/.claude/skills/ that its "ignore" list does not
-# name, replacing the link above with a stale copy. Reported and never fixed here: that file is another
+# name, replacing the link with a stale copy. Reported and never fixed here: that file is another
 # repository's tracked source, and editing it would leave an uncommitted change in somebody's tree.
 CLAUDE_REPOSITORY_SKILLS_JSON="$HOME/development/claude/skills.json"
-if [[ -f "$CLAUDE_REPOSITORY_SKILLS_JSON" ]] && ! grep -q '"agent-progress"' "$CLAUDE_REPOSITORY_SKILLS_JSON"; then
-  warn "$CLAUDE_REPOSITORY_SKILLS_JSON does not list \"agent-progress\" under \"ignore\"."
-  warn "  That repository's install.sh would adopt this skill and clobber the symlink above."
-  warn "  Add \"agent-progress\" to the \"ignore\" array there, then commit it."
-fi
+
+for BUNDLED_SKILL in "${BUNDLED_SKILLS[@]}"; do
+  SKILL_FOLDER="${BUNDLED_SKILL%%:*}"
+  SKILL_NAME="${BUNDLED_SKILL##*:}"
+  link_bundled_skill "$HERE/$SKILL_FOLDER" "$SKILLS_DIRECTORY/$SKILL_NAME"
+  if [[ -f "$CLAUDE_REPOSITORY_SKILLS_JSON" ]] && ! grep -q "\"$SKILL_NAME\"" "$CLAUDE_REPOSITORY_SKILLS_JSON"; then
+    warn "$CLAUDE_REPOSITORY_SKILLS_JSON does not list \"$SKILL_NAME\" under \"ignore\"."
+    warn "  That repository's install.sh would adopt this skill and clobber the symlink above."
+    warn "  Add \"$SKILL_NAME\" to the \"ignore\" array there, then commit it."
+  fi
+done
 
 printf "\n\033[1mTooling ready.\033[0m Next:  cd <a repository> && agent-progress init\n"

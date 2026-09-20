@@ -26,7 +26,7 @@ const UNSCANNED_DIRECTORY_NAMES = new Set(['node_modules', '.git']);
 const UNSCANNED_ROOT_RELATIVE_PATH = 'progress';
 
 /** A citation is judged only when it starts at one of these, so prose about `some/path` is left alone. */
-const DOCUMENTED_PREFIXES = ['cli/', 'lib/', 'skill/', 'templates/', 'docs/'];
+const DOCUMENTED_PREFIXES = ['cli/', 'lib/', 'skill/', 'skill-orchestrate/', 'templates/', 'docs/'];
 
 /** More than one dot is allowed, so a citation of `cli/HelpText.spec.ts` is judged like one of `cli/Main.ts`. */
 const FILE_NAME_WITH_AN_EXTENSION = /^[^.\s][^\s]*\.[A-Za-z0-9]+$/;

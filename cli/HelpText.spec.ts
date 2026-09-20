@@ -1,6 +1,7 @@
 /**
- * The help and the bundled `skill/SKILL.md` held against `cli/CommandTable.ts` in both directions: a
- * command the reference omits, and a command the reference offers that the table would refuse.
+ * The help held against `cli/CommandTable.ts` in both directions: a command it omits, and a command it
+ * offers that the table would refuse. Then the bundled skills, whose one job here is to stay out of the
+ * help's way — they point at it, they carry no copy of it, and the one every agent loads has a ceiling.
  */
 import { readFileSync }           from 'node:fs';
 import { join }                   from 'node:path';
@@ -11,7 +12,16 @@ import { helpText }      from './HelpText';
 
 const HELP_TEXT = helpText();
 
-const SKILL_TEXT = readFileSync(join(import.meta.dir, '..', 'skill', 'SKILL.md'), 'utf8');
+const SKILL_TEXT       = readFileSync(join(import.meta.dir, '..', 'skill', 'SKILL.md'), 'utf8');
+const REFERENCE_TEXT   = readFileSync(join(import.meta.dir, '..', 'skill', 'Reference.md'), 'utf8');
+const ORCHESTRATE_TEXT = readFileSync(join(import.meta.dir, '..', 'skill-orchestrate', 'SKILL.md'), 'utf8');
+
+/**
+ * What `skill/SKILL.md` may grow to. Its trigger fires in every session in a tracked repository,
+ * including every implementing subagent, and each of their API calls re-reads it — so orchestrator
+ * material creeping back into it is paid for by all of them. Raise this only with the same argument.
+ */
+const SESSION_SKILL_LIMIT_CHARACTERS = 9_000;
 
 function commandWordsDocumented(): string[] {
   const words = HELP_TEXT.split('\n')
@@ -72,23 +82,67 @@ function ticketSubcommandsDocumented(): string[] {
   return [...new Set(subcommands)].sort();
 }
 
-describe('the reference in the bundled skill', () => {
-  test('the skill was read at all, so the claims below are about its contents', () => {
-    // The floor: an empty file, or a listing that found no subcommands, would not fail the checks below.
-    expect(SKILL_TEXT.length, 'characters read from `skill/SKILL.md`').toBeGreaterThan(2_000);
+/**
+ * Every bundled skill file, so a check below judges all of them rather than the two it was written for.
+ * A copy of the command reference is as wrong in a file added next year as it is in these.
+ */
+const BUNDLED_SKILL_FILES = [
+  { path: 'skill/SKILL.md',              text: SKILL_TEXT },
+  { path: 'skill/Reference.md',          text: REFERENCE_TEXT },
+  { path: 'skill-orchestrate/SKILL.md',  text: ORCHESTRATE_TEXT }
+] as const;
+
+describe('the bundled skills leave the command reference to the tool', () => {
+  test('the skills were read at all, so the claims below are about their contents', () => {
+    // The floor: empty files would pass every "does not contain" check below by containing nothing.
+    for (const { path, text } of BUNDLED_SKILL_FILES) {
+      expect(text.length, `characters read from \`${path}\``).toBeGreaterThan(2_000);
+    }
     expect(SKILL_TEXT).toContain('name: agent-progress');
+    expect(ORCHESTRATE_TEXT).toContain('name: agent-progress-orchestrate');
     expect(ticketSubcommandsDocumented().length, 'ticket subcommands found in the help').toBeGreaterThanOrEqual(8);
-    expect(SKILL_TEXT, 'the skill tells an orchestrator when to report a usage').toContain('--tokens');
   });
 
-  test('every command in the table is written out in the skill as an agent would type it', () => {
-    const missing = COMMAND_NAMES.filter((name) => !SKILL_TEXT.includes(`agent-progress ${name}`));
-    expect(missing, 'the skill is the reference an agent works from; a command absent from it is a command it will not use').toEqual([]);
+  /**
+   * `agent-progress help` is the reference, and a skill that lists the commands itself is a second
+   * copy of it that nothing holds against `cli/CommandTable.ts`. A file naming a handful of commands
+   * in prose is not that; a table of them is, so the table's own header is what this looks for.
+   */
+  test('no skill file carries a command table of its own', () => {
+    const carryingOne = BUNDLED_SKILL_FILES.filter(({ text }) => text.includes('| command | what it does |'));
+    expect(carryingOne.map(({ path }) => path), 'the reference `agent-progress help` prints may not be duplicated into a skill').toEqual([]);
   });
 
-  test('every ticket subcommand the help offers is in the skill too', () => {
-    // The check above only sees `agent-progress ticket`, so it would pass with ten of the eleven subcommands missing.
-    const missing = ticketSubcommandsDocumented().filter((subcommand) => !SKILL_TEXT.includes(`ticket ${subcommand}`));
-    expect(missing, 'these are offered by `agent-progress help` and unknown to the skill').toEqual([]);
+  test('the session skill sends its reader to the help for a flag, since nothing else does', () => {
+    expect(SKILL_TEXT, 'an agent that is not told to run it will guess the flag instead').toContain('`agent-progress help` is the command reference');
+  });
+
+  test('the session skill names the file beside it, since nothing else points at that one either', () => {
+    expect(SKILL_TEXT, 'a reference no skill mentions is a file no agent opens').toContain('Reference.md');
+  });
+
+  test('what the help does not print is in the file that does', () => {
+    // The division of labour between the two: these four are the reason `skill/Reference.md` exists at all.
+    expect(HELP_TEXT, 'the help stays a command reference; the formats live beside the skill').not.toContain('abandonedAt');
+    expect(REFERENCE_TEXT).toContain('abandonedAt');
+    expect(REFERENCE_TEXT).toContain('## Exit codes');
+    expect(REFERENCE_TEXT).toContain('## The time axis');
+    expect(REFERENCE_TEXT).toContain('## What each move does to the Gantt row');
+  });
+});
+
+describe('the two skills stay split by audience', () => {
+  test('the session skill stays under what every agent in a tracked repository can afford', () => {
+    expect(SKILL_TEXT.length, `\`skill/SKILL.md\` is loaded by every session in a tracked repository and may not exceed ${SESSION_SKILL_LIMIT_CHARACTERS} characters`)
+      .toBeLessThanOrEqual(SESSION_SKILL_LIMIT_CHARACTERS);
+  });
+
+  test('the orchestrator skill loads the session one rather than restating it', () => {
+    expect(ORCHESTRATE_TEXT).toContain('`agent-progress` skill');
+  });
+
+  test('the orchestrator skill is the one that tells its reader to record what an agent cost', () => {
+    expect(ORCHESTRATE_TEXT).toContain('--tokens');
+    expect(ORCHESTRATE_TEXT).toContain('subagent_tokens');
   });
 });

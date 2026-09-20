@@ -231,7 +231,7 @@ CLAUDE.md                This file: the conventions, and this map.
 README.md                For a person: install, adopting a repository, the dashboard, the command
                          reference, the file formats, and the three decisions worth knowing.
 setup.sh                 Machine setup in three steps — Bun ≥ 1.2, `bun install` + `bun link`, and
-                         the symlink from `~/.claude/skills/agent-progress` to `skill/`.
+                         a symlink under `~/.claude/skills/` for each bundled skill folder.
 
 cli/                     The command surface: dispatch, the argument parser, the help, one folder
                          per command. Exit codes are decided here and nowhere else → `cli/CLAUDE.md`.
@@ -239,8 +239,13 @@ lib/                     Everything the commands do, in five layers that import 
                          `lib/CLAUDE.md`, and `lib/tickets/CLAUDE.md`. The page is in `lib/render/`
                          — see `lib/render/CLAUDE.md`; its `lib/render/page/template.html` is
                          designer-owned and edited as HTML, not generated.
-skill/                   The Claude Code skill `setup.sh` links into `~/.claude/skills/`: the
-                         command reference an agent works from → `skill/CLAUDE.md`.
+skill/                   The Claude Code skill every session in a tracked repository loads: the
+                         model, what to do in a session, and `skill/Reference.md` beside it holding
+                         what `agent-progress help` does not print → `skill/CLAUDE.md`.
+skill-orchestrate/       The skill for the one session running the board: intake, the two-slot
+                         dispatch loop, review, and what it keeps in context →
+                         `skill-orchestrate/CLAUDE.md`. Split from `skill/` by audience, because
+                         that one is injected into every implementing agent as well.
 templates/               The markdown this tool writes into somebody else's repository — the managed
                          CLAUDE.md block, the default ticket body, and `templates/AgentBrief.md`, the
                          brief `init` copies to `.agent-progress/agent-brief.md` on every run. Kept

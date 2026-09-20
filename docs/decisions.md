@@ -279,6 +279,35 @@ directory, which is also what turns the raw `ENOTDIR` a file at that path used t
 1 the caller fixes in one move. A **bare repository** is refused on the same principle: it has no
 working tree, and `dirname` of its common directory is whatever happened to hold it.
 
+## One skill for both audiences
+
+**Rejected 2026-09-20, when the orchestrator skill was added.** `skill/SKILL.md` already carried the
+session protocol, how to brief a subagent and what one costs, so the orchestration playbook could
+simply have been added to it — one file, one load, and nothing to keep in step between two.
+
+Its trigger fires in **every** session in a repository that holds a `.agent-progress/` directory,
+including every implementing subagent, and each of their API calls re-reads whatever is in context.
+A tool whose own brief is built on that arithmetic cannot inject the orchestrator's material into
+the agents it is telling to stay short. So the split is by audience: `skill/SKILL.md` is what a
+session needs in order to file and move a ticket, and `skill-orchestrate/SKILL.md` is loaded by the
+one session running the board. The command reference — the bulk of the old file — went nowhere at
+all: `agent-progress help` prints it, so the skill points there, and `skill/Reference.md` keeps only
+the ticket file format, the transition matrix, the time axis and the exit codes, which the help does
+not print. `cli/HelpText.spec.ts` holds the split: a ceiling on the file everyone loads, and no
+command table in any of them.
+
+## The orchestrator reviewing the work it dispatched
+
+**Rejected 2026-09-20, with the orchestrator skill.** The orchestrator has the ticket, the brief and
+the Handoff in front of it already, so reviewing the result itself looks free.
+
+It is the worst available reader of that work — it wrote the brief the agent followed, so the gap
+between what was asked and what was meant is the one thing it cannot see — and the review is what
+finally drags the diff into the context the whole skill is built to keep small. A review is
+therefore a fresh agent on the strongest model, with its own row on the chart, reporting a verdict
+in under 150 words and changing no code. It holds a slot like any other agent, which is what keeps
+the two-agent limit honest.
+
 ## Smaller rejected alternatives
 
 One line each, kept because a reader who does not know the reason would reintroduce the choice.
@@ -327,7 +356,7 @@ One line each, kept because a reader who does not know the reason would reintrod
 
 **The suite**
 
-- **Comparing the help's prose against `skill/SKILL.md` word for word** — every improvement to either text would fail the test, so `cli/HelpText.spec.ts` pins the command names and the `ticket` subcommands only.
+- **A copy of the command reference in the skill** — `agent-progress help` prints 10.8k characters of it from `cli/HelpText.ts`, which `cli/HelpText.spec.ts` already holds against `cli/CommandTable.ts`, so a second copy was drift with a guard bolted on; `skill/Reference.md` now carries only what the help does not print, and the spec fails a skill file that grows a command table.
 - **A hand-written list of documented `ticket` subcommands** — a fourth copy of the command surface and the first to go stale; `cli/HelpText.spec.ts` reads them off the help's own lines.
 - **Exercising `--body-file -` in a spec** — it reads the standard input the test runner owns, so the spec would test Bun rather than `cli/ticket/TicketCommand.ts`.
 - **Reaching the `'unrepaired'` exit through a real placeholder command** — every command now does something, so `cli/Main.spec.ts` stubs `cli/render/RenderCommand.ts` for it.

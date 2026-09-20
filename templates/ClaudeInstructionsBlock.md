@@ -5,7 +5,9 @@ This repository tracks its work with the `agent-progress` CLI. The tracker lives
 in separate checkouts all write to the same chart.
 
 - Load the `agent-progress` skill before working here, and run `agent-progress status --json` at the
-  start of a session to find out what was already in flight.
+  start of a session to find out what was already in flight. If this session is running the board —
+  taking ticket requests and dispatching agents for them — load `agent-progress-orchestrate`
+  instead; it loads the other one itself.
 - Register a task before spawning each subagent (`agent-progress task add "<what it will do>"
   --start`) and finish it when the result lands (`agent-progress task finish <id> --tokens <n>`,
   where `<n>` is the `subagent_tokens` figure in the completion notification — `12k`, `1.2m`).

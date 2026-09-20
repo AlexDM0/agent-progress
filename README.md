@@ -18,15 +18,34 @@ cd agent-progress
 
 `setup.sh` does three things and nothing to any repository: it checks for Bun ≥ 1.2 (offering the
 official installer), runs `bun install` and `bun link` so the global `agent-progress` command works
-from any directory, and symlinks `~/.claude/skills/agent-progress` at this checkout's `skill/` so
-Claude Code loads the bundled skill. It is idempotent, it replaces a stale link, and it refuses to
-delete a real directory it did not write — it warns instead. `./setup.sh --instruct-only` changes
-nothing and prints what it would do.
+from any directory, and symlinks the two bundled Claude Code skills into `~/.claude/skills/` —
+`agent-progress` at this checkout's `skill/` and `agent-progress-orchestrate` at its
+`skill-orchestrate/`. It is idempotent, it replaces a stale link, and it refuses to delete a real
+directory it did not write — it warns instead. `./setup.sh --instruct-only` changes nothing and
+prints what it would do.
 
-The skill is a symlink rather than a copy so that an edit reaches every session immediately and a
+They are symlinks rather than copies so that an edit reaches every session immediately and a
 `git pull` needs no install step. If you also use the `claude-skills` repository, its `install.sh`
 adopts every skill it finds under `~/.claude/skills/` unless the name is in its `skills.json`
-ignore list — so `"agent-progress"` belongs there, and `setup.sh` warns when it is missing.
+ignore list — so both names belong there, and `setup.sh` warns when one is missing.
+
+## The two skills
+
+They are split by audience, because the first one's trigger fires in **every** session in a tracked
+repository — including every implementing subagent, each of whose API calls re-reads its whole
+context.
+
+- **`agent-progress`** is what any session needs: the mental model, how to file and move a ticket,
+  what an implementing agent owes its ticket's `## Handoff`, and the rules. It lists no commands —
+  `agent-progress help` is the reference, printed by the tool and so never out of step with it — and
+  `skill/Reference.md` beside it holds what the help does not print: the ticket file format, the
+  transition table, the time axis and the exit codes.
+- **`agent-progress-orchestrate`** is for the one session running the board. Start it with
+  `/agent-progress-orchestrate`: it opens the dashboard, reports what is in flight and then takes
+  ticket requests — grilling each one until the acceptance condition is unambiguous, filing it,
+  dispatching an implementing agent for it (at most two at a time), reviewing the result from the
+  Handoff and delivering it, until every ticket is delivered. It loads the first skill for the
+  commands and repeats none of it.
 
 ## Adopting a repository
 
@@ -232,10 +251,11 @@ bun test            # bun:test, specs beside their modules
 bun run lint        # eslint 9 flat config
 ```
 
-Run all three after any TypeScript change. `skill/SKILL.md` and this file are held against the
-command table by `cli/HelpText.spec.ts`, and every backticked repository path in any markdown file
-or docblock is checked to exist by `lib/DocumentedPaths.spec.ts` — so a rename that leaves a dead
-citation behind fails the build.
+Run all three after any TypeScript change. `cli/HelpText.spec.ts` holds the help against the command
+table in both directions, and holds the bundled skills to their shape: none of them may carry a
+command table of its own, and the one every agent loads has a size ceiling. Every backticked
+repository path in any markdown file or docblock is checked to exist by
+`lib/DocumentedPaths.spec.ts` — so a rename that leaves a dead citation behind fails the build.
 
 The conventions are in `CLAUDE.md`, with per-file detail in each folder's own. Rejected
 alternatives live in `docs/decisions.md`, agreed-and-not-started work in `docs/backlog.md`, and the
