@@ -124,11 +124,13 @@ skeleton per section, so you paste it rather than remember it. Seven things belo
 4. **A bounded browser loop**, for work with a user interface only: about 15 browser calls, the page
    read as text, one batch per interaction sequence, and screenshots kept for final evidence under
    names that say which ticket and which acceptance item they prove.
-5. **Stop conditions.** Stop at the Acceptance block or at about 100 API calls, whichever comes
-   first, then leave green what is green, write the Handoff and report.
+5. **Stop conditions.** Stop at the Acceptance block or at the call budget, whichever comes first —
+   about 100 API calls for a small ticket, about 150 for a medium one — then leave green what is
+   green, write the Handoff and report. A budget too tight costs more than one too loose: every fresh
+   agent pays the fixed context and its own rediscovery again.
 6. **The report.** Under 200 words to you, and a `## Handoff` section appended below the ticket's
    frontmatter: files touched, contracts discovered that the ticket did not state, what is verified
-   and how, and what is not.
+   and how, what is not, and the next concrete step.
 7. **Your own checklist.** `task add --start` before you spawn it, `task finish <id> --tokens <n>`
    when the result lands, and a review read from the Handoff and the screenshots.
 
@@ -251,7 +253,8 @@ never again. The body starts after the closing `---` and is never touched by the
 The body filed from the template carries **Report**, **Wanted**, **Acceptance** and **Handoff**. The
 first three are written when the ticket is filed; the **Handoff** is the last thing the agent that
 implements the ticket writes, in under 15 lines — the files it touched, contracts it discovered that
-the ticket did not state, what is verified and how (naming the screenshot paths), and what is not.
+the ticket did not state, what is verified and how (naming the screenshot paths), what is not, and
+the next concrete step, named so the follow-up agent starts working instead of re-orienting.
 Whoever picks the work up next, including the review pass, reads that section instead of rediscovering
 it from the codebase.
 

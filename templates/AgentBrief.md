@@ -66,10 +66,14 @@ The harness's screenshot-after-every-step workflow does not apply here.
 
 An agent continued with a follow-up message had a median of 149 calls and 367k of end context against
 62 and 229k for a fresh one, because the second instruction pays for everything the first one read. A
-brief that names its own end is therefore cheaper than one that trusts the agent to notice.
+brief that names its own end is therefore cheaper than one that trusts the agent to notice. The budget
+is not a target to undercut: three tickets in one afternoon took 8, 7 and 6 agents each, and every
+fresh agent pays the fixed context and its own rediscovery again, so a budget a little too loose
+costs less than one too tight.
 
 ```
-Stop when the ticket's Acceptance block is satisfied, or at about 100 API calls, whichever is first.
+Stop when the ticket's Acceptance block is satisfied, or at the call budget, whichever is first:
+about 100 API calls for a small ticket, about 150 for a medium one — <the budget for this one>.
 Then leave green whatever is green, write the Handoff, and report.
 You will not be sent a follow-up message: a fresh agent takes whatever is left.
 ```
@@ -82,8 +86,8 @@ this work reads the Handoff instead of re-deriving it from the codebase.
 ```
 Report in under 200 words: files changed, the verification result, and anything you could not do.
 Then append `## Handoff` below the ticket's frontmatter, under 15 lines: files touched, contracts you
-discovered that the ticket did not state, what is verified and how (naming the screenshot paths), and
-what is not.
+discovered that the ticket did not state, what is verified and how (naming the screenshot paths), what
+is not, and the next concrete step — named so the follow-up agent starts working instead of re-orienting.
 ```
 
 ## Orchestrator checklist

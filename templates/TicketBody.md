@@ -20,3 +20,4 @@ Filled in by the agent that implements this ticket, as the last thing it does, i
 - Contracts it discovered that this ticket did not state.
 - What is verified, and how — naming the screenshot paths.
 - What is not.
+- The next concrete step, named so the follow-up agent starts working instead of re-orienting.
