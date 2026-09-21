@@ -63,8 +63,10 @@ find beside their work and report only what they could not responsibly settle, s
 is already the exception. Before you file it: (1) if it is another instance of a mistake a ticket on
 this board already fixed, do not file the instance — file, once, the invariant behind both, with the
 search for its other sites as an acceptance item and a mechanical guard where one is possible; the
-second instance is the signal, not the fifth. (2) If a ticket still open or queued touches the same
-code, add it to that ticket's Acceptance instead. (3) If it is small and its neighbourhood has other
+second instance is the signal, not the fifth. (2) If a ticket that no agent has started yet touches the
+same code, add it to that ticket's Acceptance instead — edit the body below the frontmatter, at the
+path `agent-progress ticket show <id>` prints; never the Acceptance of a ticket in flight, whose
+agent has already read it. (3) If it is small and its neighbourhood has other
 small tickets waiting, file it and bundle it with them. Only what is left is a ticket of its own. A
 board whose ticket count grows faster than the user's requests is reporting on itself.
 
@@ -278,4 +280,4 @@ user's yes after a permission refusal. Grant a review round nobody
 asked for. Re-verify through the browser what an agent already evidenced. Hand one agent two
 large tickets, or file a finding an agent could have fixed. Continue a finished agent, except with a
 release-slot message. Run a third agent because the first two are slow. Edit `.agent-progress/` with
-a file tool.
+a file tool, a ticket's body below its frontmatter excepted.
