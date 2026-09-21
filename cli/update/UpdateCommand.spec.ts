@@ -123,7 +123,8 @@ describe.skipIf(!gitIsAvailable())('updating a tracked repository', () => {
 
     const second = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
     expect(await runCommandLine(['update'], second)).toBe(0);
-    expect(second.outputText()).toContain('CLAUDE.md:   unchanged (replaced)');
+    expect(second.outputText()).toContain('CLAUDE.md:   unchanged\n');
+    expect(second.outputText(), 'the outcome names a write, so it says nothing beside `unchanged`').not.toContain('unchanged (replaced)');
   });
 
   test('--no-claude-md leaves the instructions file byte for byte as it was', async () => {

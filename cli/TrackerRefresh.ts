@@ -152,8 +152,10 @@ function refreshClaudeInstructions(rootDirectory: string, commandName: string, s
       standardError(`${claudeFilePath} holds ${pairCount} agent-progress blocks; only the first was refreshed and the others are now stale.`);
     }
   }
-  const verdict = bytesDiffer(bytesBefore, fileBytesOrNothing(claudeFilePath)) ? 'updated' : 'unchanged';
-  return `${verdict} (${outcome})`;
+  // The outcome names the write that was attempted, which only says something once the bytes moved:
+  // `unchanged (replaced)` contradicted itself.
+  if (!bytesDiffer(bytesBefore, fileBytesOrNothing(claudeFilePath))) return 'unchanged';
+  return `updated (${outcome})`;
 }
 
 /** Touches nothing the tracker holds: not `progress.json`, not a ticket, not the log. */
