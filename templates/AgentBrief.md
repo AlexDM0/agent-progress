@@ -11,9 +11,19 @@ section down to Report for an implementing agent, the Review brief for a reviewe
 
 ## Scope
 
-One ticket, or one half of a ticket that splits cleanly. Agents handed two tickets at once ran 250 to
-297 API calls and ended on 543 to 720 thousand tokens of context, of which 84% was billed above the
-200k window at the long-context rate.
+One large ticket, one half of a ticket that splits by mechanism, or **a bundle of small tickets from
+one neighbourhood of the code**. What an agent costs is dominated by starting it, not by keeping it
+going: priced at what the tokens are billed at — a cache read at a tenth of an input token, a cache
+write at double — 107 agents on one board day processed 715 million raw input tokens that weigh 100
+million, and in runs under 30 calls 56% of that weight was the cache writes of starting up. Each call
+of a short run weighed 21 thousand, each call of a run past 70 calls only 29 thousand. So three small
+tickets in one agent cost one start and one review instead of three of each, and the agent sees the
+three as one picture. What stays forbidden is two LARGE tickets in one agent: those ran 250 to 297
+calls to 543 to 720 thousand tokens of context.
+
+A bundle is two to four tickets the orchestrator expects to fit one budget together, that touch the
+same files or the same mechanism, worked in the order given — dependencies first — with one commit
+and one Handoff per ticket, so each can be judged, reverted and delivered on its own.
 
 The file list is a starting point, not a fence. An orchestrator writes it from outside the code and
 gets it wrong: a list that omits the one file the acceptance actually needs sends back a ticket with
@@ -24,7 +34,8 @@ what it added so the reviewer knows to look there.
 
 ```
 Worktree: <absolute path>   Branch: <branch>
-Task: <the one ticket, or the half of it this agent owns>.
+Task: <the one ticket, the half of it this agent owns, or the bundle: #a, #b, #c in this order>.
+A bundle is worked one ticket at a time: finish, verify and commit each before starting the next.
 Work belongs in: <the files you expect it to touch>.
 If satisfying the Acceptance block genuinely requires a file outside that list, edit it and say so
 in the Handoff, naming the file and why. Do not solve an acceptance item in the wrong place to stay
@@ -94,19 +105,47 @@ The harness's screenshot-after-every-step workflow does not apply here.
 
 An agent continued with a follow-up message had a median of 149 calls and 367k of end context against
 62 and 229k for a fresh one, because the second instruction pays for everything the first one read. A
-brief that names its own end is therefore cheaper than one that trusts the agent to notice. One budget
-of about 100 calls covers every ticket, because the expensive calls are the ones carrying more than
-200 thousand of context: 62% of all tokens were processed in those, and the 18 implementing agents
-that were 85% of 273 million tokens ran a median of 70 calls to 240 thousand of end context, four of
-them past 100. A fresh agent restarts at about 100 thousand, so a ticket too big for one budget is
-split by mechanism into halves joined with `ticket depends` when it is filed. The budget itself is
-not shaved to force that: three tickets in one afternoon took 8, 7 and 6 agents each, and every fresh
-agent pays the fixed context and its own rediscovery again.
+brief that names its own end is therefore cheaper than one that trusts the agent to notice.
+
+One budget of about 150 calls covers every ticket and every bundle. Across 46 runs of 100 calls or
+more, priced as billed, the first 50 calls weighed 1.6 million input tokens, the first 100 weighed
+3.3 and the first 150 weighed 5.8, on a context of 240, 310 and 400 thousand. Calls 101 to 150
+therefore cost about a third more than a fresh agent's first 50 — and a fresh agent spends a good
+part of those 50 finding out what the first one already knew, so up to 150 the longer run is the
+cheaper one and saves a start, a review and the wait for both. Past it the sum turns: calls 151 to
+200 weighed 3.7 million on a context of 570 thousand, more than twice a fresh start. A ticket too
+big for one budget is split by mechanism into halves joined with `ticket depends` when it is filed.
+The budget itself is not shaved to force that: three tickets in one afternoon took 8, 7 and 6 agents
+each, and every fresh agent pays the fixed context and its own rediscovery again.
 
 ```
-Stop when the ticket's Acceptance block is satisfied, or at about 100 API calls, whichever is first.
+Stop when every Acceptance block you were given is satisfied, or at about 150 API calls, whichever
+is first. In a bundle, never start a ticket you cannot finish inside the budget: leave it untouched
+and say so, rather than leaving two half done.
 Then leave green whatever is green, close as "Ready to merge" says, write the Handoff, and report.
 You will not be sent a follow-up message: a fresh agent takes whatever is left.
+```
+
+## Find and fix
+
+An agent that finds a defect beside its ticket used to report it, and the orchestrator filed it: on
+one board day 13 of 25 tickets were filed by the process itself, six of them one mistake — a cell of
+one grid used as a cell of another — found an instance at a time, each with its own builder and its
+own review. The agent that finds a defect already holds the file, the reason and the measurement;
+a ticket makes the next agent buy all three again. So the default is to fix, and a ticket is for
+what this agent cannot responsibly settle. The line is drawn by what the fix needs, not by whether
+the ticket mentioned it.
+
+```
+A defect you find beside your ticket is yours to fix when ALL of these hold: it is in code you have
+already read for this work; you can watch the fix fail and pass; it changes no behaviour a user
+would notice beyond removing the defect; no file it touches is out of bounds; and it fits about 20
+calls. If it is another instance of the mistake your ticket fixes, sweep for the rest and fix those
+too, reporting how many sites you examined. One commit per fix, listed under `Also fixed` in the
+Handoff with how you proved it.
+Report it instead, fixing nothing, when it needs a product or design decision, lives in a part of
+the code you would have to study first, or does not fit the budget. Say what you saw, where, and
+what you would do — one finding, a few lines; the orchestrator decides whether it is a ticket.
 ```
 
 ## Ready to merge
@@ -133,8 +172,9 @@ The report goes to the orchestrator and the Handoff stays with the ticket, becau
 this work reads the Handoff instead of re-deriving it from the codebase.
 
 ```
-Report in under 200 words: files changed, the verification result, and anything you could not do.
-Then append `## Handoff` at the end of the ticket, under 15 lines: files touched, contracts you
+Report in under 200 words, plus 60 per extra ticket in a bundle: files changed, the verification
+result, what you also fixed, what you found and did not fix, and anything you could not do.
+Then append `## Handoff` at the end of each ticket you worked, under 15 lines: files touched, contracts you
 discovered that the ticket did not state, what is verified and how (naming the screenshot paths), what
 is not, what the merge of the main line touched and what you resolved by hand, and the next concrete
 step — named so the follow-up agent starts working instead of re-orienting.
@@ -159,14 +199,16 @@ git command names its checkout.
 
 ```
 Worktree: <absolute path>   Branch: <branch>   Main checkout: <absolute path>   Main line: <name>
-Review ticket <id>, round <N>; `agent-progress ticket show <id>` prints it. Run git as
+Review ticket <id> (or the bundle #a, #b, #c), round <N>; `agent-progress ticket show <id>` prints one. Run git as
 `git -C <worktree>` unless a step names <main checkout>. The work is `git diff <main line>...HEAD`.
 
-1. Set out to show the ticket does NOT hold. The last `## Handoff` says where to look and proves
+1. Set out to show the ticket does NOT hold — each ticket of a bundle on its own commits, and
+   whatever a Handoff lists under `Also fixed`. The last `## Handoff` says where to look and proves
    nothing: re-run the measurement behind each claim with your own probe or count and state your
    numbers; a guard it watched fail, you watch fail. It fails if any is false: <two or three claims>.
 2. Fix every finding yourself with the Edit tool — no heredoc, edit script or `sed -i` — one commit
-   per fix, one plain subject line.
+   per fix, one plain subject line. That includes a defect beside the ticket that is in code you
+   have read, provable, and no product decision; anything else you report, a few lines, unfixed.
 3. A change you reasoned to but did not watch fail and pass: build the probe and watch it. A doubt
    still open at the budget is `does not hold`, never a caveat.
 4. `git merge <main line>`, resolve with git and Edit, run `<full check command> 2>&1 | tail -20`
@@ -191,7 +233,8 @@ Review ticket <id>, round <N>; `agent-progress ticket show <id>` prints it. Run 
      `not released: permission denied` with the three commands as you would have run them. Then `git -C <main checkout> worktree remove <worktree>` (never
      `--force`; refused: say what is untracked) and `git -C <main checkout> branch -d <branch>`.
 
-Do not `cat` any CLAUDE.md. Stop at about 60 API calls, step 3 permitting.
+Do not `cat` any CLAUDE.md. Stop at about 60 API calls, plus 20 per extra ticket in a bundle, step 3
+permitting.
 Report under 150 words, opening with exactly one of: `holds, release requested` /
 `holds, review 2 owed` / `round <N+1> requested, branch holds` /
 `round <N+1> requested, branch does not hold` / `merge unresolved: <why>` /
