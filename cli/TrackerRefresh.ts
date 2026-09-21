@@ -114,12 +114,14 @@ function refreshSubagentStopHookIn(
     return 'refused (the settings file could not be read)';
   }
 
+  // Opting out comes first, or refreshing an entry the shared file already holds would write into a file
+  // colleagues share on behalf of a reader who asked for no settings file to be touched at all.
+  if (!writesTheSubagentStopHook) return 'left alone (--no-hooks)';
+
   const sharedSettingsFilePath = claudeSettingsFilePathFor(rootDirectory);
   const sharedOutcome          = refreshSubagentStopHook(sharedSettingsFilePath, SUBAGENT_STOP_HOOK);
   if (sharedOutcome === 'refused-unreadable') return refusedUnreadableSettings(sharedSettingsFilePath);
   if (sharedOutcome !== 'absent') return `${sharedSettingsFilePath} (${sharedOutcome})`;
-
-  if (!writesTheSubagentStopHook) return 'left alone (--no-hooks)';
 
   const localSettingsFilePath = claudeLocalSettingsFilePathFor(rootDirectory);
   const localOutcome          = refreshSubagentStopHook(localSettingsFilePath, SUBAGENT_STOP_HOOK);

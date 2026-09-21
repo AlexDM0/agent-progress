@@ -213,6 +213,22 @@ describe.skipIf(!gitIsAvailable())('updating a tracked repository', () => {
     expect(context.outputText()).toContain('hooks:       left alone (--no-hooks)');
   });
 
+  /** A repository with nothing in `.claude/` cannot tell a refusal to write from having nothing to write, so the stale entry is really there. */
+  test('--no-hooks leaves a shared settings file that holds a stale entry byte for byte', async () => {
+    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
+    writeSettings(repositoryDirectory, SHARED_SETTINGS, {
+      hooks: { SubagentStop: [{ matcher: '', hooks: [{ type: 'command', command: 'agent-progress hook subagent-stop', timeout: 3 }] }] },
+    });
+    const sharedSettingsBefore = readFileSync(settingsFilePathIn(repositoryDirectory, SHARED_SETTINGS), 'utf8');
+
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['update', '--no-hooks'], context)).toBe(0);
+
+    expect(readFileSync(settingsFilePathIn(repositoryDirectory, SHARED_SETTINGS), 'utf8')).toBe(sharedSettingsBefore);
+    expect(existsSync(settingsFilePathIn(repositoryDirectory, LOCAL_SETTINGS))).toBe(false);
+    expect(context.outputText()).toContain('hooks:       left alone (--no-hooks)');
+  });
+
   /** The flag that used to ask for the hook is now the default; a habit that still types it is answered, not refused. */
   test('--hooks is still accepted and does what the default already does', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
