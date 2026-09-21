@@ -13,10 +13,21 @@ One ticket, or one half of a ticket that splits cleanly. Agents handed two ticke
 297 API calls and ended on 543 to 720 thousand tokens of context, of which 84% was billed above the
 200k window at the long-context rate.
 
+The file list is a starting point, not a fence. An orchestrator writes it from outside the code and
+gets it wrong: a list that omits the one file the acceptance actually needs sends back a ticket with
+a gap in it, and the agent was right to stop rather than bodge the fix somewhere cheaper. Three of
+one board's reopenings came from exactly that, each costing a fresh agent and a fresh review. Name
+where the work belongs, allow the agent past it when the acceptance requires, and make it declare
+what it added so the reviewer knows to look there.
+
 ```
 Worktree: <absolute path>   Branch: <branch>
 Task: <the one ticket, or the half of it this agent owns>.
-You may edit: <the files it may touch>. Nothing else. Do not commit.
+Work belongs in: <the files you expect it to touch>. Do not commit.
+If satisfying the Acceptance block genuinely requires a file outside that list, edit it and say so
+in the Handoff, naming the file and why. Do not solve an acceptance item in the wrong place to stay
+inside the list, and do not leave one unmet because the right file was not named.
+Out of bounds regardless: <the files another agent holds, or that this ticket must not touch>.
 ```
 
 ## Contract, not a reading list
@@ -26,6 +37,15 @@ with their line ranges; a 40-file reading list is what produced those 250-call r
 `CLAUDE.md` outright, because the harness injects a nested one the first time a file in its folder is
 opened — 128 injections and 1.8 million characters in that same build — and a worktree inside the
 repository gets the root file injected a second time.
+
+**Brief the invariant, not the instances you happen to know.** A defect found in one place is usually
+a class, and an agent handed a list fixes the list. One board spent three passes on a geometry ticket
+— a title bar, then padding, then a zoom-dependent gap — because each brief named the offender just
+found; the pass that stated the rule ("every contributor to this offset is a whole number of pitches")
+closed all of them and checked for a fourth. The same board then found the same cross-grid comparison
+in three different code paths, each time believing the previous one was the last. When a ticket fixes
+an instance, state the rule it is an instance of and make the search an acceptance item, with the
+count of sites examined reported — so a search cannot pass by having looked at nothing.
 
 ```
 Facts you do not need to look up:
