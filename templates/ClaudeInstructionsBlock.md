@@ -8,6 +8,9 @@ in separate checkouts all write to the same chart.
   start of a session to find out what was already in flight. If this session is running the board —
   taking ticket requests and dispatching agents for them — load `agent-progress-orchestrate`
   instead; it loads the other one itself.
+- Only the orchestrator runs agents for tickets. Any other session or agent files a ticket when it is
+  asked to and stops there: it never dispatches an agent to handle one, its own or anybody else's.
+  The bullets below on spawning, briefing and reviewing are the orchestrator's.
 - Register a task before spawning each subagent (`agent-progress task add "<what it will do>"
   --start`) and finish it when the result lands (`agent-progress task finish <id> --tokens <n>`,
   where `<n>` is the `input` figure on the line the `SubagentStop` hook logged for that agent —
