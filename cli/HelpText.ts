@@ -81,7 +81,13 @@ repository to use instead of walking up from the current directory.
       [--json]                start, its API calls, its end context, its input and output, its
                               browser calls, the characters the harness injected into it and the
                               first line of its brief; then the cohort summary — median calls and
-                              end context, mean input and output. --since splits the cohort on an
+                              end context, mean input and output, and the mean of each figure
+                              below. Three of the columns are there to catch a brief being
+                              breached: "over 200k" is the share of an agent's input that was sent
+                              at a context past 200,000 tokens, "bash edits" counts the edits it
+                              made through a shell command instead of the editing tools, and
+                              "checks" counts the full test, type-check and lint runs it made per
+                              edit instead of per batch. --since splits the cohort on an
                               instant and summarises both sides, which is how a change in the way
                               agents are briefed is measured. --transcripts reads a folder other
                               than the one this repository's path resolves to. It writes nothing,

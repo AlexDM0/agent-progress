@@ -24,6 +24,9 @@ export interface CohortSummary {
   meanTotalInputTokens:            number;
   meanOutputTokens:                number;
   meanBrowserCallCount:            number;
+  meanOversizedContextShare:       number;
+  meanBashEditScriptCount:         number;
+  meanVerificationRunCount:        number;
   meanNestedInstructionCharacters: number;
 }
 
@@ -34,6 +37,12 @@ export interface CohortSplit {
 
 function totalInputTokensOf(profile: TranscriptProfile): number {
   return profile.inputTokens + profile.cacheReadInputTokens + profile.cacheCreationInputTokens;
+}
+
+/** A fraction of the agent's own input, so one enormous agent does not decide the cohort's share on its own; an agent that sent nothing reads as 0. */
+function oversizedContextShareOf(profile: TranscriptProfile): number {
+  const totalInputTokens = totalInputTokensOf(profile);
+  return totalInputTokens === 0 ? 0 : profile.oversizedContextTokens / totalInputTokens;
 }
 
 /** An even count averages the two middle values, so a cohort of two agents reports a figure between them rather than the later one. */
@@ -53,8 +62,8 @@ function meanOf(values: readonly number[]): number {
 
 /**
  * Token figures are rounded to whole counts because a fraction of a token is not a thing anyone can
- * spend; the mean browser call count is **not** rounded, because a cohort where one agent in ten used
- * the browser has to read as 0.1 rather than as 0. An empty cohort answers zero of everything rather
+ * spend; the mean counts and the mean oversized share are **not** rounded, because a cohort where one
+ * agent in ten used the browser has to read as 0.1 rather than as 0. An empty cohort answers zero of everything rather
  * than `null`, so a caller printing a summary for a side of a split that nothing fell into still has
  * a line to print.
  */
@@ -66,6 +75,9 @@ function summariseCohort(profiles: readonly TranscriptProfile[]): CohortSummary 
     meanTotalInputTokens:            Math.round(meanOf(profiles.map(totalInputTokensOf))),
     meanOutputTokens:                Math.round(meanOf(profiles.map((profile) => profile.outputTokens))),
     meanBrowserCallCount:            meanOf(profiles.map((profile) => profile.browserCallCount)),
+    meanOversizedContextShare:       meanOf(profiles.map(oversizedContextShareOf)),
+    meanBashEditScriptCount:         meanOf(profiles.map((profile) => profile.bashEditScriptCount)),
+    meanVerificationRunCount:        meanOf(profiles.map((profile) => profile.verificationRunCount)),
     meanNestedInstructionCharacters: Math.round(meanOf(profiles.map((profile) => profile.nestedInstructionCharacters))),
   };
 }

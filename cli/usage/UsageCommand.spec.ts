@@ -40,7 +40,10 @@ interface UsageDocument {
     totalInputTokens:            number;
     outputTokens:                number;
     endContextTokens:            number;
+    oversizedContextTokens:      number;
     browserCallCount:            number;
+    bashEditScriptCount:         number;
+    verificationRunCount:        number;
     nestedInstructionCharacters: number;
     briefExcerpt:                string;
   }>;
@@ -236,6 +239,78 @@ describe.skipIf(!gitIsAvailable())('the --json document', () => {
     expect(document.cohorts.before?.transcriptCount).toBe(2);
     expect(document.cohorts.after?.transcriptCount).toBe(1);
     expect(document.cohorts.all.transcriptCount).toBe(3);
+  });
+});
+
+/**
+ * The three figures that say a brief was breached without anyone opening the transcript: work done at
+ * a context the brief capped, files edited by shelling out, and the full checks run per edit. The
+ * transcript is written into a folder of its own so the cohort it is the whole of reads 100%.
+ */
+describe.skipIf(!gitIsAvailable())('the figures a breach of the brief shows up in', () => {
+  const OVERSIZED_CACHE_READ_TOKENS = 400_000;
+
+  let breachFolder = '';
+
+  beforeEach(() => {
+    breachFolder             = join(repositoryDirectory, 'breach-transcripts');
+    const subagentsDirectory = join(breachFolder, 'session-breach', 'subagents');
+    mkdirSync(subagentsDirectory, { recursive: true });
+
+    const lines = [
+      JSON.stringify({ type: 'user', timestamp: '2026-09-19T12:00:00.000Z', message: { content: 'Rewrite the layout module' } }),
+      JSON.stringify({
+        type:    'assistant',
+        message: {
+          id:      'msg_one',
+          model:   'claude-opus-5',
+          content: [
+            { type: 'tool_use', name: 'Bash', input: { command: 'cat <<EOF > lib/Thing.ts\nexport const thing = 1;\nEOF' } },
+            { type: 'tool_use', name: 'Bash', input: { command: 'sed -i \'\' s/one/two/ lib/Thing.ts' } },
+            { type: 'tool_use', name: 'Bash', input: { command: 'bun test && bun run lint' } },
+          ],
+          usage: { input_tokens: 1_000, cache_read_input_tokens: OVERSIZED_CACHE_READ_TOKENS, output_tokens: 10 },
+        },
+      }),
+    ];
+    writeFileSync(join(subagentsDirectory, 'agent-delta.jsonl'), `${lines.join('\n')}\n`);
+  });
+
+  test('the row carries the oversized share as a whole percentage, the bash edit scripts and the verification runs', async () => {
+    const printed = (await run(['usage', '--transcripts', breachFolder])).outputText();
+    const [, row] = printed.split('\n');
+
+    expect(printed).toContain('over 200k');
+    expect(printed).toContain('bash edits');
+    expect(printed).toContain('checks');
+    expect(row).toContain('100%');
+    expect(row?.includes('Rewrite the layout module')).toBe(true);
+  });
+
+  test('the cohort line reports the mean of each figure beside the ones it already had', async () => {
+    const printed = (await run(['usage', '--transcripts', breachFolder])).outputText();
+
+    expect(printed).toContain('mean 100% over 200k context');
+    expect(printed).toContain('mean 2.0 bash edit scripts');
+    expect(printed).toContain('mean 1.0 verification runs');
+  });
+
+  test('--json carries the oversized figure as a raw token count rather than as the share the table shows', async () => {
+    const document  = JSON.parse((await run(['usage', '--transcripts', breachFolder, '--json'])).outputText()) as UsageDocument;
+    const [delta]   = document.agents;
+
+    expect(delta?.oversizedContextTokens).toBe(OVERSIZED_CACHE_READ_TOKENS + 1_000);
+    expect(delta?.bashEditScriptCount).toBe(2);
+    expect(delta?.verificationRunCount).toBe(1);
+  });
+
+  /** An agent that edited through the editing tools and batched its checks reads as clean rather than as unmeasured. */
+  test('an agent that shelled out for nothing reports zero of all three', async () => {
+    const document = JSON.parse((await run(usageArguments('--json'))).outputText()) as UsageDocument;
+
+    expect(document.agents.map((agent) => agent.bashEditScriptCount)).toEqual([0, 0, 0]);
+    expect(document.agents.map((agent) => agent.verificationRunCount)).toEqual([0, 0, 0]);
+    expect(document.agents.map((agent) => agent.oversizedContextTokens)).toEqual([0, 0, 0]);
   });
 });
 

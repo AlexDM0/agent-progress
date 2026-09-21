@@ -19,7 +19,10 @@ interface ConstructedProfile {
   cacheReadInputTokens?:        number;
   outputTokens?:                number;
   endContextTokens?:            number;
+  oversizedContextTokens?:      number;
   browserCallCount?:            number;
+  bashEditScriptCount?:         number;
+  verificationRunCount?:        number;
   nestedInstructionCharacters?: number;
   startedAt?:                   string | null;
 }
@@ -32,9 +35,12 @@ function profile(fields: ConstructedProfile): TranscriptProfile {
     cacheCreationInputTokens:    0,
     outputTokens:                fields.outputTokens ?? 0,
     endContextTokens:            fields.endContextTokens ?? 0,
+    oversizedContextTokens:      fields.oversizedContextTokens ?? 0,
     startedAt:                   fields.startedAt ?? null,
     model:                       'claude-opus-5',
     browserCallCount:            fields.browserCallCount ?? 0,
+    bashEditScriptCount:         fields.bashEditScriptCount ?? 0,
+    verificationRunCount:        fields.verificationRunCount ?? 0,
     nestedInstructionCharacters: fields.nestedInstructionCharacters ?? 0,
     briefExcerpt:                'Do the thing',
   };
@@ -90,6 +96,33 @@ describe('what a cohort of transcripts is summarised as', () => {
     expect(Number.isInteger(summary.meanOutputTokens)).toBe(true);
   });
 
+  /** Each agent's own share, averaged: one agent that sent ten times as much as the rest must not decide the cohort's share on its own. */
+  test('the oversized share is the mean of each agent\'s share of its own input, not of the cohort\'s pooled tokens', () => {
+    const cohort = [
+      profile({ inputTokens: 100, oversizedContextTokens: 100 }),
+      profile({ inputTokens: 100_000, oversizedContextTokens: 0 }),
+    ];
+
+    expect(summariseCohort(cohort).meanOversizedContextShare).toBeCloseTo(0.5);
+  });
+
+  test('an agent that sent nothing counts as a zero share rather than dividing by zero', () => {
+    expect(summariseCohort([profile({})]).meanOversizedContextShare).toBe(0);
+  });
+
+  /** The two figures a breached brief shows up in: editing through Bash, and checking after every edit. */
+  test('the bash edit scripts and the verification runs are averaged, fraction and all', () => {
+    const cohort = [
+      profile({ bashEditScriptCount: 4, verificationRunCount: 9 }),
+      profile({ bashEditScriptCount: 1, verificationRunCount: 0 }),
+    ];
+
+    const summary = summariseCohort(cohort);
+
+    expect(summary.meanBashEditScriptCount).toBeCloseTo(2.5);
+    expect(summary.meanVerificationRunCount).toBeCloseTo(4.5);
+  });
+
   test('the injected characters are averaged too, because that is the part of the length nobody wrote', () => {
     const cohort = [profile({ nestedInstructionCharacters: 1_000 }), profile({ nestedInstructionCharacters: 3_000 })];
 
@@ -105,6 +138,9 @@ describe('what a cohort of transcripts is summarised as', () => {
       meanTotalInputTokens:            0,
       meanOutputTokens:                0,
       meanBrowserCallCount:            0,
+      meanOversizedContextShare:       0,
+      meanBashEditScriptCount:         0,
+      meanVerificationRunCount:        0,
       meanNestedInstructionCharacters: 0,
     });
   });

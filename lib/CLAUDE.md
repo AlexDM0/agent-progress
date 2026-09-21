@@ -59,7 +59,8 @@ or Node.
   `Ticket`. Types only, no values.
 - `lib/constants/Limits.ts` — the tuning constants, each with its unit in its name: lock staleness and
   retries, the axis tick ladder and its bounds, ticket id width, how long done work stays visible,
-  the timestamp slice bounds every human-facing reader shares, and the JSON indent.
+  the timestamp slice bounds every human-facing reader shares, the JSON indent, and
+  `OVERSIZED_CONTEXT_THRESHOLD_TOKENS`, the context above which an API call is counted as oversized.
 - `lib/constants/Statuses.ts` — the task and ticket status tuples and the ticket type tuple with their
   guards, the ticket-status → task-status table, and the on-disk names (`progress.json`,
   `progress.html`, `.agent-progress`, `tickets`, `.lock`) and the two managed-block markers.
@@ -89,13 +90,18 @@ anything that needs "now" is handed it.
   **per `message.id` and never per line** (one API call is several lines repeating the same input
   figures), and `composeUsageLine`, the log line `agent-progress hook subagent-stop` writes from it.
   The one export besides the frozen object is its `TranscriptUsageTotals` type, which the command
-  names in passing the totals from the first function to the second. `profileTranscript` adds what
-  explains those totals — the first timestamp, the model, the browser tool calls, the characters the
+  names in passing the totals from the first function to the second. The totals also carry
+  `oversizedContextTokens`, what was spent on calls made above `OVERSIZED_CONTEXT_THRESHOLD_TOKENS`,
+  deduplicated per call like the rest. `profileTranscript` adds what
+  explains those totals — the first timestamp, the model, the browser tool calls, the `Bash` commands
+  that edited a file through the shell and the ones that ran the tests, the type checker or the linter,
+  the characters the
   harness injected as `nested_memory` attachments and the first 80 characters of the brief — as the
   `TranscriptProfile` type `agent-progress usage` reports one agent by.
 - `lib/utils/TranscriptCohortUtil.ts` — `summariseCohort` and `splitAt` over those profiles.
   **Calls and end context are medians, the token figures means**: one runaway agent must not move
-  what a typical agent did, and must not be hidden in what the cohort cost. An empty cohort answers
+  what a typical agent did, and must not be hidden in what the cohort cost. The oversized share is the
+  mean of each agent's share of its own input, not of the cohort's pooled tokens. An empty cohort answers
   zero of everything, and a profile with no readable stamp falls on the `before` side of a split.
 - `lib/utils/TicketDependencyUtil.ts` — `unsettledDependenciesOf` (which of a ticket's dependencies
   are not done or delivered yet) and `dependencyLoopFrom` (the circle a new list would close, or
