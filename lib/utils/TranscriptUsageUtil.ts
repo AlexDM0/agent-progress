@@ -9,9 +9,14 @@
  * inside the CLI is what lets `agent-progress init --hooks` wire a hook up instead of asking a person
  * to paste a file, and it is why the format of the line is fixed here rather than in a template.
  */
-import { TokenCountUtil } from './TokenCountUtil';
+import { OVERSIZED_CONTEXT_THRESHOLD_TOKENS } from '../constants/Limits';
+import { TokenCountUtil }                     from './TokenCountUtil';
 
-/** `endContextTokens` is the window of the *last* call rather than a sum: it is how full the agent's context was when it stopped. */
+/**
+ * `endContextTokens` is the window of the *last* call rather than a sum: it is how full the agent's
+ * context was when it stopped. `oversizedContextTokens` is a sum over the calls that were made at a
+ * context above `OVERSIZED_CONTEXT_THRESHOLD_TOKENS`, deduplicated per call exactly as the totals are.
+ */
 export interface TranscriptUsageTotals {
   apiCallCount:             number;
   inputTokens:              number;
@@ -19,19 +24,24 @@ export interface TranscriptUsageTotals {
   cacheCreationInputTokens: number;
   outputTokens:             number;
   endContextTokens:         number;
+  oversizedContextTokens:   number;
 }
 
 /**
  * The totals plus what explains them, which is what `cli/usage/UsageCommand.ts` compares agents by.
  * Every added field answers a question the totals alone cannot: when the agent ran, which model it
  * ran on, whether it spent its calls in a screenshot loop (`browserCallCount`), how much of its
- * length the harness injected rather than the brief (`nestedInstructionCharacters`), and what it was
- * asked to do (`briefExcerpt`). A field a transcript does not carry is `null` or zero, never a throw.
+ * length the harness injected rather than the brief (`nestedInstructionCharacters`), whether it edited
+ * files by shelling out instead of by the editing tools (`bashEditScriptCount`) and ran the full
+ * checks after every edit rather than after a batch (`verificationRunCount`), and what it was asked to
+ * do (`briefExcerpt`). A field a transcript does not carry is `null` or zero, never a throw.
  */
 export interface TranscriptProfile extends TranscriptUsageTotals {
   startedAt:                   string | null;
   model:                       string | null;
   browserCallCount:            number;
+  bashEditScriptCount:         number;
+  verificationRunCount:        number;
   nestedInstructionCharacters: number;
   briefExcerpt:                string;
 }
@@ -44,6 +54,27 @@ const BROWSER_TOOL_NAME_FRAGMENT = 'Claude_Browser';
 
 /** The harness's own spelling for a `CLAUDE.md` it injected; observed in the transcripts under `~/.claude/projects/`. */
 const NESTED_ATTACHMENT_TYPE = 'nested_memory';
+
+const BASH_TOOL_NAME = 'Bash';
+
+/** What a shell command that writes a file looks like: a heredoc, an inline interpreter, or an editor working in place. */
+const BASH_EDIT_SCRIPT_FRAGMENTS = ['<<', 'python3 ', 'python ', 'perl -', 'node -e', 'bun -e', 'sed -i'] as const;
+
+/** What a shell command that runs the test suite, the type checker or the linter looks like. One command counts once however many of them it chains. */
+const VERIFICATION_RUN_FRAGMENTS = [
+  'bun test',
+  'bun run test',
+  'bun run typecheck',
+  'bun run lint',
+  'npm test',
+  'npm run test',
+  'npx tsc',
+  'tsc -p',
+  'eslint',
+  'vitest',
+  'jest',
+  'pytest',
+] as const;
 
 const TOOL_USE_BLOCK_TYPE = 'tool_use';
 
@@ -104,6 +135,7 @@ function summariseTranscriptUsage(transcriptText: string): TranscriptUsageTotals
     cacheCreationInputTokens: 0,
     outputTokens:             0,
     endContextTokens:         0,
+    oversizedContextTokens:   0,
   };
   const outputTokensByMessageIdentifier = new Map<string, number>();
 
@@ -128,11 +160,14 @@ function summariseTranscriptUsage(transcriptText: string): TranscriptUsageTotals
     const cacheReadInputTokens     = readTokenCount(usage, 'cache_read_input_tokens');
     const cacheCreationInputTokens = readTokenCount(usage, 'cache_creation_input_tokens');
 
+    const callContextTokens = inputTokens + cacheReadInputTokens + cacheCreationInputTokens;
+
     totals.apiCallCount             += 1;
     totals.inputTokens              += inputTokens;
     totals.cacheReadInputTokens     += cacheReadInputTokens;
     totals.cacheCreationInputTokens += cacheCreationInputTokens;
-    totals.endContextTokens          = inputTokens + cacheReadInputTokens + cacheCreationInputTokens;
+    totals.endContextTokens          = callContextTokens;
+    if (callContextTokens > OVERSIZED_CONTEXT_THRESHOLD_TOKENS) totals.oversizedContextTokens += callContextTokens;
   }
 
   for (const outputTokens of outputTokensByMessageIdentifier.values()) totals.outputTokens += outputTokens;
@@ -154,6 +189,22 @@ function browserToolUseCountIn(message: Record<string, unknown>): number {
     if (typeof toolName === 'string' && toolName.includes(BROWSER_TOOL_NAME_FRAGMENT)) browserCallCount += 1;
   }
   return browserCallCount;
+}
+
+/** Tool-use blocks, unlike the usage figures, are written once rather than repeated across the lines of one call, so these are read per line. */
+function bashCommandsIn(message: Record<string, unknown>): string[] {
+  const commands: string[] = [];
+  for (const block of contentBlocksOf(message)) {
+    const blockRecord = asRecord(block);
+    if (blockRecord === undefined || blockRecord['type'] !== TOOL_USE_BLOCK_TYPE || blockRecord['name'] !== BASH_TOOL_NAME) continue;
+    const command = asRecord(blockRecord['input'])?.['command'];
+    if (typeof command === 'string') commands.push(command);
+  }
+  return commands;
+}
+
+function commandMatchesAny(command: string, fragments: readonly string[]): boolean {
+  return fragments.some((fragment) => command.includes(fragment));
 }
 
 /**
@@ -197,7 +248,7 @@ function briefExcerptOf(message: Record<string, unknown>): string {
 }
 
 /**
- * The totals of `summariseTranscriptUsage` plus the five fields that explain them, in one pass over
+ * The totals of `summariseTranscriptUsage` plus the fields that explain them, in one pass over
  * the same text. `startedAt` is the first `timestamp` any line carries, whatever its type, because
  * the harness stamps the user turn that opened the agent and that is when the agent began; a
  * transcript with no stamp at all answers `null` rather than the epoch, so a cohort split can leave
@@ -213,6 +264,8 @@ function profileTranscript(transcriptText: string): TranscriptProfile {
     startedAt:                   null,
     model:                       null,
     browserCallCount:            0,
+    bashEditScriptCount:         0,
+    verificationRunCount:        0,
     nestedInstructionCharacters: 0,
     briefExcerpt:                '',
   };
@@ -236,6 +289,10 @@ function profileTranscript(transcriptText: string): TranscriptProfile {
       const { model } = message;
       if (profile.model === null && typeof model === 'string' && model.length > 0) profile.model = model;
       profile.browserCallCount += browserToolUseCountIn(message);
+      for (const command of bashCommandsIn(message)) {
+        if (commandMatchesAny(command, BASH_EDIT_SCRIPT_FRAGMENTS)) profile.bashEditScriptCount += 1;
+        if (commandMatchesAny(command, VERIFICATION_RUN_FRAGMENTS)) profile.verificationRunCount += 1;
+      }
     }
 
     if (entry['type'] === 'user' && profile.briefExcerpt.length === 0) profile.briefExcerpt = briefExcerptOf(message);

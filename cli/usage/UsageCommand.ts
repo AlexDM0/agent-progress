@@ -37,17 +37,22 @@ const USAGE = 'agent-progress usage [--since <when>] [--transcripts <folder>] [-
 
 const KNOWN_OPTION_NAMES = ['since', 'transcripts', 'json'];
 
-const MEAN_BROWSER_CALL_DECIMALS = 1;
+const MEAN_CALL_COUNT_DECIMALS = 1;
+
+const PERCENT_OF_A_WHOLE = 100;
 
 /** Each width holds the wider of its header and its figures; the end-context column is the broad one because its header is, not its numbers. */
 const AGENT_COLUMN_WIDTHS = {
-  startedAt:  14,
-  calls:      7,
-  endContext: 12,
-  input:      9,
-  output:     8,
-  browser:    9,
-  nested:     9,
+  startedAt:        14,
+  calls:            7,
+  endContext:       12,
+  input:            9,
+  output:           8,
+  browser:          9,
+  oversizedContext: 11,
+  bashEdits:        11,
+  checks:           8,
+  nested:           9,
 };
 
 /** One agent as the report prints it and as `--json` carries it: the profile, flattened, with the figures a reader adds up by hand made explicit. */
@@ -67,6 +72,12 @@ interface UsageCohorts {
 
 function padColumn(text: string, width: number): string {
   return text.length >= width ? `${text} ` : text.padEnd(width);
+}
+
+/** The table carries the share and not the raw count: agents are compared on how much of their own input was sent at an oversized context. */
+function oversizedContextPercentOf(agent: AgentUsage): string {
+  if (agent.totalInputTokens === 0) return '0%';
+  return `${Math.round((agent.oversizedContextTokens / agent.totalInputTokens) * PERCENT_OF_A_WHOLE)}%`;
 }
 
 /** A transcript that vanished or will not open costs its row, never the report: the folder is the harness's and may be pruned while this runs. */
@@ -122,6 +133,9 @@ function renderAgentRows(agents: readonly AgentUsage[]): string[] {
     padColumn('input', AGENT_COLUMN_WIDTHS.input),
     padColumn('output', AGENT_COLUMN_WIDTHS.output),
     padColumn('browser', AGENT_COLUMN_WIDTHS.browser),
+    padColumn('over 200k', AGENT_COLUMN_WIDTHS.oversizedContext),
+    padColumn('bash edits', AGENT_COLUMN_WIDTHS.bashEdits),
+    padColumn('checks', AGENT_COLUMN_WIDTHS.checks),
     padColumn('nested', AGENT_COLUMN_WIDTHS.nested),
     'brief',
   ].join('')];
@@ -134,6 +148,9 @@ function renderAgentRows(agents: readonly AgentUsage[]): string[] {
       padColumn(formatTokenCount(agent.totalInputTokens), AGENT_COLUMN_WIDTHS.input),
       padColumn(formatTokenCount(agent.outputTokens), AGENT_COLUMN_WIDTHS.output),
       padColumn(String(agent.browserCallCount), AGENT_COLUMN_WIDTHS.browser),
+      padColumn(oversizedContextPercentOf(agent), AGENT_COLUMN_WIDTHS.oversizedContext),
+      padColumn(String(agent.bashEditScriptCount), AGENT_COLUMN_WIDTHS.bashEdits),
+      padColumn(String(agent.verificationRunCount), AGENT_COLUMN_WIDTHS.checks),
       padColumn(formatTokenCount(agent.nestedInstructionCharacters), AGENT_COLUMN_WIDTHS.nested),
       agent.briefExcerpt,
     ].join(''));
@@ -151,7 +168,10 @@ function renderCohortLine(label: string, summary: CohortSummary): string {
     + `median end context ${formatTokenCount(summary.medianEndContextTokens)}, `
     + `mean input ${formatTokenCount(summary.meanTotalInputTokens)}, `
     + `mean output ${formatTokenCount(summary.meanOutputTokens)}, `
-    + `mean ${summary.meanBrowserCallCount.toFixed(MEAN_BROWSER_CALL_DECIMALS)} browser calls, `
+    + `mean ${summary.meanBrowserCallCount.toFixed(MEAN_CALL_COUNT_DECIMALS)} browser calls, `
+    + `mean ${Math.round(summary.meanOversizedContextShare * PERCENT_OF_A_WHOLE)}% over 200k context, `
+    + `mean ${summary.meanBashEditScriptCount.toFixed(MEAN_CALL_COUNT_DECIMALS)} bash edit scripts, `
+    + `mean ${summary.meanVerificationRunCount.toFixed(MEAN_CALL_COUNT_DECIMALS)} verification runs, `
     + `mean ${formatTokenCount(summary.meanNestedInstructionCharacters)} nested characters`;
 }
 

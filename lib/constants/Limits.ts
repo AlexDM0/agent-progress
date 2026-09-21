@@ -47,3 +47,6 @@ export const CLOCK_SLICE_START = 11;
 export const CLOCK_SLICE_END = 16;
 
 export const JSON_INDENT = 2;
+
+/** The context an API call is counted as oversized above: a brief asks an agent to hand its work on rather than let its window grow past this. */
+export const OVERSIZED_CONTEXT_THRESHOLD_TOKENS = 200_000;

@@ -137,7 +137,46 @@ describe('the lines a transcript carries that are not calls', () => {
       cacheCreationInputTokens: 0,
       outputTokens:             0,
       endContextTokens:         0,
+      oversizedContextTokens:   0,
     });
+  });
+});
+
+/**
+ * The share of an agent's bill that was spent on calls made at a context above 200,000 tokens, which
+ * is the figure that shows a brief being breached without anyone reading the transcript. It is summed
+ * per call and not per line, so the dedup of the totals is pinned here a second time from its own side.
+ */
+describe('the tokens spent at an oversized context', () => {
+  test('a call whose context passes 200,000 contributes its whole context, and a smaller one contributes nothing', () => {
+    const transcript = [
+      assistantLine('msg_small', { input_tokens: 1_000, cache_read_input_tokens: 50_000, output_tokens: 10 }),
+      assistantLine('msg_large', { input_tokens: 1_000, cache_read_input_tokens: 200_000, output_tokens: 10 }),
+    ].join('\n');
+
+    expect(summariseTranscriptUsage(transcript).oversizedContextTokens).toBe(201_000);
+  });
+
+  test('a context of exactly 200,000 is not oversized, because the bound is one the call has to pass', () => {
+    const transcript = assistantLine('msg_one', { input_tokens: 100_000, cache_read_input_tokens: 100_000, output_tokens: 10 });
+
+    expect(summariseTranscriptUsage(transcript).oversizedContextTokens).toBe(0);
+  });
+
+  test('the three lines of one oversized call contribute it once, exactly as the totals count it once', () => {
+    const oversizedUsage = {
+      input_tokens:                2_000,
+      cache_read_input_tokens:     300_000,
+      cache_creation_input_tokens: 500,
+      output_tokens:               10,
+    };
+    const transcript = [
+      assistantLine('msg_one', oversizedUsage),
+      assistantLine('msg_one', oversizedUsage),
+      assistantLine('msg_one', oversizedUsage),
+    ].join('\n');
+
+    expect(summariseTranscriptUsage(transcript).oversizedContextTokens).toBe(302_500);
   });
 });
 
@@ -159,6 +198,17 @@ describe('the profile of a whole transcript', () => {
           { type: 'nested_memory', content: { path: 'lib/CLAUDE.md', content: NESTED_INSTRUCTIONS } },
           { type: 'text', text: briefText },
         ],
+      },
+    });
+  }
+
+  function bashLine(commands: readonly string[]): string {
+    return JSON.stringify({
+      type:    'assistant',
+      message: {
+        id:      'msg_one',
+        usage:   {},
+        content: commands.map((command) => ({ type: 'tool_use', name: 'Bash', input: { command } })),
       },
     });
   }
@@ -217,6 +267,48 @@ describe('the profile of a whole transcript', () => {
     });
 
     expect(profileTranscript(transcript).browserCallCount).toBe(2);
+  });
+
+  test('a Bash command that writes through a heredoc, an inline interpreter or an in-place editor is an edit script, and one that reads is not', () => {
+    const transcript = bashLine([
+      'cat <<EOF > lib/Thing.ts\nexport const thing = 1;\nEOF',
+      'python3 -c "open(\'lib/Thing.ts\', \'w\').write(\'x\')"',
+      'sed -i \'\' s/one/two/ lib/Thing.ts',
+      'rg --files lib',
+    ]);
+
+    expect(profileTranscript(transcript).bashEditScriptCount).toBe(3);
+  });
+
+  /** A command can be a heredoc fed to an interpreter, which is one edit and must not be counted as two. */
+  test('a command matching several of the edit-script patterns at once counts once', () => {
+    const transcript = bashLine(['python3 - <<EOF\nopen("lib/Thing.ts", "w").write("x")\nEOF']);
+
+    expect(profileTranscript(transcript).bashEditScriptCount).toBe(1);
+  });
+
+  test('a test suite, a type checker and a linter each count as a verification run, and a chain of all three counts once', () => {
+    const transcript = bashLine([
+      'bun test lib/utils',
+      'bun run typecheck',
+      'npx tsc --noEmit && eslint . && pytest',
+      'git status',
+    ]);
+
+    expect(profileTranscript(transcript).verificationRunCount).toBe(3);
+  });
+
+  /** Only the `Bash` tool's own commands: a file the agent read that happens to contain `bun test` is not a run of it. */
+  test('a tool that is not Bash counts towards neither figure, however its input reads', () => {
+    const transcript = JSON.stringify({
+      type:    'assistant',
+      message: { id: 'msg_one', usage: {}, content: [{ type: 'tool_use', name: 'Read', input: { command: 'bun test && sed -i s/a/b/ x' } }] },
+    });
+
+    const profile = profileTranscript(transcript);
+
+    expect(profile.bashEditScriptCount).toBe(0);
+    expect(profile.verificationRunCount).toBe(0);
   });
 
   test('the injected characters are the attachment\'s text, summed across turns and found however deeply it is nested', () => {
@@ -282,6 +374,9 @@ describe('the profile of a whole transcript', () => {
 
     expect(profile.apiCallCount).toBe(0);
     expect(profile.browserCallCount).toBe(0);
+    expect(profile.bashEditScriptCount).toBe(0);
+    expect(profile.verificationRunCount).toBe(0);
+    expect(profile.oversizedContextTokens).toBe(0);
     expect(profile.nestedInstructionCharacters).toBe(0);
     expect(profile.briefExcerpt).toBe('');
     expect(profile.startedAt).toBeNull();
@@ -298,6 +393,7 @@ describe('the line the log receives', () => {
       cacheCreationInputTokens: 280_000,
       outputTokens:             48_000,
       endContextTokens:         165_000,
+      oversizedContextTokens:   0,
     });
 
     expect(line).toBe('Agent agent_42 (general-purpose) stopped: 32 calls, end context 165k, input 4.8M (cache read 4.5M), output 48k');
@@ -312,6 +408,7 @@ describe('the line the log receives', () => {
       cacheCreationInputTokens: 2000,
       outputTokens:             500,
       endContextTokens:         6000,
+      oversizedContextTokens:   0,
     });
 
     expect(line).toContain('input 12k (cache read 9k)');
