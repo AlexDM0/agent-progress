@@ -48,6 +48,13 @@ two match, whether it replaces or extends existing behaviour, and whether it mus
 already on the board. Ask them together, in one message, and never ask what an agent will discover
 anyway. Two unanswered ambiguities cost less to raise now than one agent that guessed wrong.
 
+**Split at filing, not later.** A request that touches more than one mechanism — say a drop rule, a
+layout change and a migration — is filed as halves, one mechanism each, joined with `ticket depends`.
+Splitting is what keeps an agent inside its call budget, because the expensive calls are the ones
+carrying more than 200 thousand tokens of context and a fresh agent restarts at about 100 thousand.
+Shaving the budget instead does the opposite: it produces six to eight agents on one ticket, each
+paying the fixed context and its own rediscovery again.
+
 Then file it, with the body written from what the user actually said:
 
 ```
@@ -103,9 +110,11 @@ a different grade for it — the orchestrator that dispatched the work is the wo
 having written the brief the agent followed, and reviewing it here drags the diff into the context
 you are trying to keep small.
 
-1. `agent-progress ticket review <id> --tokens <n>` — `<n>` is the `subagent_tokens` figure in the
-   completion notification. A row with no number is a cost nobody can see; leave it off only when
-   the notification carried none.
+1. `agent-progress ticket review <id> --tokens <n>` — `<n>` is the `input` figure on the line the
+   `SubagentStop` hook logged for that agent, which is every token it processed. The completion
+   notification's `subagent_tokens` is roughly the agent's end context and understates that heavily
+   and unevenly, so use it only when the hook is not installed. A row with no number at all is a cost
+   nobody can see; leave it off only when neither figure exists.
 2. Give the review pass its own bar, because it is work:
 
    ```
@@ -117,7 +126,8 @@ you are trying to keep small.
    the instruction to read the ticket's `## Handoff` and the evidence it names rather than the whole
    codebase. It reports a verdict — **holds** or **does not hold, and what is missing** — in under
    150 words, and nothing else. It changes no code.
-4. `agent-progress task finish <reviewRowId> --tokens <n>` when its verdict lands.
+4. `agent-progress task finish <reviewRowId> --tokens <n>` when its verdict lands, `<n>` from the same
+   place: the hook's `input` figure, and `subagent_tokens` only without the hook.
 5. **Holds**: `agent-progress ticket done <id>`, then
    `agent-progress ticket deliver <id> --branch <branch> --commit <sha>` when the work is where it
    was meant to land. You deliver; you do not wait to be told to.
@@ -132,8 +142,10 @@ wait for the next request — do not invent work to keep the loop running.
 
 ## Your own working memory
 
-The harness suggests compacting at around 300k tokens of context, and by then you have already paid
-for everything you are about to lose. Prune as you go instead.
+**Compact at a ticket boundary, not when the harness suggests it.** Its suggestion arrives at around
+300k tokens of context, and every call between here and there has already paid for everything you are
+about to lose. The moment a ticket is delivered and no agent is mid-flight on what you are holding is
+the cheapest point there is, so take it then and prune as you go in between.
 
 **The moment a ticket is delivered, drop it from your head**: the agent's report, the reviewer's
 verdict, the branch, everything the two of them said. All of it is in the ticket file and the log,
@@ -157,7 +169,8 @@ When you do lose the thread — after a compaction, or a long gap — re-anchor 
 
 - Every move goes through the CLI **at the moment it happens**, never batched at the end of a wave.
   A chart caught up afterwards has the wrong bars on it.
-- `--tokens` on every move that ends a row.
+- `--tokens` on every move that ends a row, taken from the hook's `input` figure where the hook is
+  installed and from `subagent_tokens` only where it is not.
 - `--at -5m` backfills what you forgot; a stamp already recorded is kept, so it is safe.
 - One tracker command per call, not chained into other work.
 
