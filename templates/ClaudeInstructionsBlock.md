@@ -19,10 +19,12 @@ in separate checkouts all write to the same chart.
   not installed). A row left without a number is how six sessions of subagent cost stayed invisible,
   so fill it in every time. `agent-progress task pause <id>` records a row that is waiting; `task start <id>`
   resumes it.
-- Spawn each implementing agent from `.agent-progress/agent-brief.md`, filled in: one ticket, or one
-  half of one, per agent. Never continue a finished agent with a follow-up message — a fresh agent
-  for the remainder costs less than the one that already holds the whole transcript. The one
-  exception is the orchestrator's one-line release-slot message to a reviewer.
+- Spawn each implementing agent from `.agent-progress/agent-brief.md`, filled in: one large ticket,
+  one half of one, or a bundle of small tickets from one part of the code, per agent. An agent fixes
+  the defects it finds beside its work when it can prove the fix, and reports only what needs a
+  decision or a study it has not done. Never continue a finished agent with a follow-up message — a
+  fresh agent for the remainder costs less than the one that already holds the whole transcript. The
+  one exception is the orchestrator's one-line release-slot message to a reviewer.
 - An implementing agent ends by committing on its branch, merging the main line into it, and filling
   in its ticket's `## Handoff`: every agent leaves its branch ready to merge.
 - A review is a clean agent spawned from the review brief in that same file. It starts from the

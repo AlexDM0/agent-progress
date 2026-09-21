@@ -51,12 +51,24 @@ two match, whether it replaces or extends existing behaviour, and whether it mus
 already on the board. Ask them together, in one message, and never ask what an agent will discover
 anyway. Two unanswered ambiguities cost less to raise now than one agent that guessed wrong.
 
-**Split at filing, not later.** A request that touches more than one mechanism — say a drop rule, a
-layout change and a migration — is filed as halves, one mechanism each, joined with `ticket depends`.
-Splitting is what keeps an agent inside its call budget, because the expensive calls are the ones
-carrying more than 200 thousand tokens of context and a fresh agent restarts at about 100 thousand.
-Shaving the budget instead does the opposite: it produces six to eight agents on one ticket, each
-paying the fixed context and its own rediscovery again.
+**Split a large request at filing, not later.** A request that touches more than one mechanism — say
+a drop rule, a layout change and a migration — is filed as halves, one mechanism each, joined with
+`ticket depends`. Splitting is what keeps an agent inside its call budget. Shaving the budget instead
+does the opposite: it produces six to eight agents on one ticket, each paying for its own start and
+its own rediscovery again. Splitting is for what is too big for one budget, never a reflex: a small
+request stays one ticket, and small tickets travel together (Dispatch).
+
+**A finding is not a ticket until you have tried three cheaper homes for it.** Agents fix what they
+find beside their work and report only what they could not responsibly settle, so a reported finding
+is already the exception. Before you file it: (1) if it is another instance of a mistake a ticket on
+this board already fixed, do not file the instance — file, once, the invariant behind both, with the
+search for its other sites as an acceptance item and a mechanical guard where one is possible; the
+second instance is the signal, not the fifth. (2) If a ticket that no agent has started yet touches the
+same code, add it to that ticket's Acceptance instead — edit the body below the frontmatter, at the
+path `agent-progress ticket show <id>` prints; never the Acceptance of a ticket in flight, whose
+agent has already read it. (3) If it is small and its neighbourhood has other
+small tickets waiting, file it and bundle it with them. Only what is left is a ticket of its own. A
+board whose ticket count grows faster than the user's requests is reporting on itself.
 
 Then file it, with the body written from what the user actually said:
 
@@ -98,7 +110,9 @@ tickets in the same subject area that edit different files run fine side by side
 one file collide, and resolving that collision costs an agent to merge and another to review the
 merge. `git diff --name-only main...<branch>` on what is already in flight answers it in one call.
 Holding a slot empty out of vague topical caution wastes it; discovering the overlap at merge time
-costs more than the parallelism saved.
+costs more than the parallelism saved. An agent also fixes what it finds beside its ticket, so its
+reach is wider than its ticket: the brief's `Out of bounds` line names the whole area the other agent
+in flight is working in, not only the files you expect it to touch.
 
 Per ticket:
 
@@ -112,11 +126,23 @@ ticket at once. Choose the model for the work — the stronger one where the tic
 about what to change, the cheaper one where the ticket already says exactly what to do — and put it
 in `--owner` so the chart says who did what.
 
-Then spawn the agent with the brief from `.agent-progress/agent-brief.md`, filled in: **one ticket
-per agent**, the worktree and branch, the files it may edit, the three to eight facts it would
-otherwise go and find, the call budget, the "Ready to merge" close, and the report and `## Handoff`
-it owes. Point it at `agent-progress ticket show <id>` for the body and nothing else. When two slots
-are free, spawn both agents in one message so they run at once.
+**Bundle small tickets; never bundle large ones.** Starting an agent and reviewing its branch cost
+more than the calls a small ticket takes, so two to four small tickets from one neighbourhood — the
+same files, or the same mechanism — go to **one** agent on one branch, in dependency order, and come
+back through **one** review. Small means you expect the whole bundle inside one call budget; a
+ticket you would have split is never bundled, and neither are tickets whose files another agent in
+flight holds. Each ticket keeps its own row: `ticket start` every one of them, name the bundle in
+each row's `--note` with the `task update` above — a `ticket` move takes no note — and when the agent
+lands, `ticket review` each with the agent's `--tokens` divided evenly over the bundle, so what the
+chart sums stays what the agent cost. The agent commits and hands off per ticket, so a bundle is
+still judged, delivered and, if it comes to that, reopened one ticket at a time. A ticket the agent
+left untouched for lack of budget goes back with `agent-progress ticket reopen <id>`.
+
+Then spawn the agent with the brief from `.agent-progress/agent-brief.md`, filled in: **one large
+ticket or one bundle per agent**, the worktree and branch, the files it may edit, the three to eight
+facts it would otherwise go and find, the call budget, the "Ready to merge" close, and the report and
+`## Handoff` it owes. Point it at `agent-progress ticket show <id>` for the body and nothing else.
+When two slots are free, spawn both agents in one message so they run at once.
 
 **Never send a finished agent a follow-up message.** A fresh agent for the remainder is cheaper than
 the one already carrying the whole transcript. The one exception is the release slot below.
@@ -131,7 +157,8 @@ is what ships. A Handoff that says the merge was abandoned is not a reason to do
 the reviewer to do its step 4 first, so it does not spend a pass and then meet the same merge.
 
 1. `agent-progress ticket review <id> --tokens <n>`.
-2. Give every review pass its own bar, because it is work — you add them all, whichever round:
+2. Give every review pass its own bar, because it is work — you add them all, whichever round, and
+   a bundle gets one bar and one reviewer for all its tickets, named for every id in it:
 
    ```
    agent-progress task add "Review <N> #<id> — <ticket title>" --owner opus --start
@@ -146,7 +173,10 @@ the reviewer to do its step 4 first, so it does not spend a pass and then meet t
    diff and agrees with it finds nothing.
 
 **Every review verdict, whichever round, comes back here.** First
-`agent-progress task finish <reviewRowId> --tokens <n>`, then act on the words the report opens with:
+`agent-progress task finish <reviewRowId> --tokens <n>`, then act on the words the report opens with.
+A bundle's reviewer gives one verdict for the branch; the tracker moves below are then made for each
+ticket in it, and a `does not hold` names the ticket it is about — the others are released with the
+branch once that one is closed.
 
 - **`holds, release requested`** — the pass was small and the branch is ready. **You own the one
   merge-to-main slot**, because two reviewers merging into one checkout race, and nobody releases
@@ -248,5 +278,6 @@ opinion is the same mistake with extra steps. Merge anything — main into a bra
 and the reviewer's, a branch into main is the reviewer's, on your grant, and yours only on the
 user's yes after a permission refusal. Grant a review round nobody
 asked for. Re-verify through the browser what an agent already evidenced. Hand one agent two
-tickets. Continue a finished agent, except with a release-slot message. Run a third agent because
-the first two are slow. Edit `.agent-progress/` with a file tool.
+large tickets, or file a finding an agent could have fixed. Continue a finished agent, except with a
+release-slot message. Run a third agent because the first two are slow. Edit `.agent-progress/` with
+a file tool, a ticket's body below its frontmatter excepted.
