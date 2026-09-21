@@ -109,11 +109,13 @@ brief that names its own end is therefore cheaper than one that trusts the agent
 
 One budget of about 150 calls covers every ticket and every bundle. Across 46 runs of 100 calls or
 more, priced as billed, the first 50 calls weighed 1.6 million input tokens, the first 100 weighed
-3.3 and the first 150 weighed 5.8, on a context of 240, 310 and 400 thousand. Calls 101 to 150
-therefore cost about a third more than a fresh agent's first 50 — and a fresh agent spends a good
-part of those 50 finding out what the first one already knew, so up to 150 the longer run is the
-cheaper one and saves a start, a review and the wait for both. Past it the sum turns: calls 151 to
-200 weighed 3.7 million on a context of 570 thousand, more than twice a fresh start. A ticket too
+3.3 and the first 150 weighed 5.8, on a context of 240, 310 and 400 thousand. Measured within the
+same runs rather than by subtracting those medians: in the 22 that reached 150 calls, calls 101 to
+150 weighed 2.2 million against 1.6 for their own first 50, about a third more — and a fresh agent
+spends a good part of its first 50 finding out what the first one already knew, so up to 150 the
+longer run is the cheaper one and saves a start, a review and the wait for both. Past it the sum
+turns: in the 5 runs that reached 200, calls 151 to 200 weighed 3.0 million on a context of 570
+thousand, nearly twice their first 50. A ticket too
 big for one budget is split by mechanism into halves joined with `ticket depends` when it is filed.
 The budget itself is not shaved to force that: three tickets in one afternoon took 8, 7 and 6 agents
 each, and every fresh agent pays the fixed context and its own rediscovery again.
@@ -230,8 +232,9 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
      `git -C <main checkout> branch --show-current` prints <main line>,
      `git -C <main checkout> merge --ff-only <branch>`. Refused, or another branch: change nothing
      and report `not released`. Denied by the permission system: do not retry or reword it; report
-     `not released: permission denied` with the three commands as you would have run them. Then `git -C <main checkout> worktree remove <worktree>` (never
-     `--force`; refused: say what is untracked) and `git -C <main checkout> branch -d <branch>`.
+     `not released: permission denied` with the three commands as you would have run them. Then
+     `git -C <main checkout> worktree remove <worktree>` (never `--force`; refused: say what is
+     untracked) and `git -C <main checkout> branch -d <branch>`.
 
 Do not `cat` any CLAUDE.md. Stop at about 60 API calls, plus 20 per extra ticket in a bundle, step 3
 permitting.
