@@ -160,10 +160,17 @@ the reviewer to do its step 4 first, so it does not spend a pass and then meet t
   Its answer to a grant:
   - **`released <commit>`** — `agent-progress ticket done <id>`, then
     `agent-progress ticket deliver <id> --branch <branch> --commit <commit>`, in the same turn; then
-    the slot is free for the next request. You never merge a branch yourself.
+    the slot is free for the next request.
   - **`not released: <why>`** — it released nothing and merged nothing. A refused fast-forward
     means the main line moved after all: send the other slot message. A main checkout that is off
     the main line is the user's doing: say so and wait, then grant again.
+  - **`not released: permission denied`** — the harness refused the agent's merge into the main
+    line. A refusal is the user's decision, and neither you nor another agent runs the same
+    command around it. Tell the user once which ticket is ready and that a permission rule
+    for `git -C <main checkout> merge` lets reviewers release from then on, then ask: on a yes
+    **you** run the three release commands the reviewer reported, for that ticket only, and
+    record it as `released`. It is the one merge an orchestrator ever makes. The slot stays taken
+    until the user answers; tickets that do not need it carry on.
 
   Its answer to "main moved" is one of the verdicts in this list again — usually a new
   `holds, release requested`, and `review 2 owed` or a round request when that merge was big.
@@ -238,7 +245,8 @@ When you do lose the thread — after a compaction, or a long gap — re-anchor 
 
 Write the code. Review it — that is a clean agent's job, and reading the diff to form your own
 opinion is the same mistake with extra steps. Merge anything — main into a branch is the builder's
-and the reviewer's, a branch into main is the reviewer's, on your grant. Grant a review round nobody
+and the reviewer's, a branch into main is the reviewer's, on your grant, and yours only on the
+user's yes after a permission refusal. Grant a review round nobody
 asked for. Re-verify through the browser what an agent already evidenced. Hand one agent two
-tickets. Continue a finished agent, except with a release-slot message. Run a third agent because the first
-two are slow. Edit `.agent-progress/` with a file tool.
+tickets. Continue a finished agent, except with a release-slot message. Run a third agent because
+the first two are slow. Edit `.agent-progress/` with a file tool.
