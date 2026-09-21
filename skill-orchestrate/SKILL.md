@@ -137,9 +137,9 @@ delivered and, if it comes to that, reopened one ticket at a time. A ticket the 
 for lack of budget goes back with `agent-progress ticket reopen <id>`.
 
 Then spawn the agent with the brief from `.agent-progress/agent-brief.md`, filled in: **one large
-ticket or one bundle per agent**, the worktree and branch, the files it may edit, the three to eight facts it would
-otherwise go and find, the call budget, the "Ready to merge" close, and the report and `## Handoff`
-it owes. Point it at `agent-progress ticket show <id>` for the body and nothing else. When two slots
+ticket or one bundle per agent**, the worktree and branch, the files it may edit, the three to eight
+facts it would otherwise go and find, the call budget, the "Ready to merge" close, and the report and
+`## Handoff` it owes. Point it at `agent-progress ticket show <id>` for the body and nothing else. When two slots
 are free, spawn both agents in one message so they run at once.
 
 **Never send a finished agent a follow-up message.** A fresh agent for the remainder is cheaper than
@@ -276,5 +276,6 @@ opinion is the same mistake with extra steps. Merge anything — main into a bra
 and the reviewer's, a branch into main is the reviewer's, on your grant, and yours only on the
 user's yes after a permission refusal. Grant a review round nobody
 asked for. Re-verify through the browser what an agent already evidenced. Hand one agent two
-large tickets, or file a finding an agent could have fixed. Continue a finished agent, except with a release-slot message. Run a third agent because
-the first two are slow. Edit `.agent-progress/` with a file tool.
+large tickets, or file a finding an agent could have fixed. Continue a finished agent, except with a
+release-slot message. Run a third agent because the first two are slow. Edit `.agent-progress/` with
+a file tool.

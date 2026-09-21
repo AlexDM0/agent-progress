@@ -172,10 +172,11 @@ this work reads the Handoff instead of re-deriving it from the codebase.
 ```
 Report in under 200 words, plus 60 per extra ticket in a bundle: files changed, the verification
 result, what you also fixed, what you found and did not fix, and anything you could not do.
-Then append `## Handoff` at the end of each ticket you worked, under 15 lines: files touched, contracts you
-discovered that the ticket did not state, what is verified and how (naming the screenshot paths), what
-is not, what the merge of the main line touched and what you resolved by hand, and the next concrete
-step — named so the follow-up agent starts working instead of re-orienting.
+Then append `## Handoff` at the end of each ticket you worked, under 15 lines: files touched,
+contracts you discovered that the ticket did not state, what is verified and how (naming the
+screenshot paths), what is not, what the merge of the main line touched and what you resolved by
+hand, and the next concrete step — named so the follow-up agent starts working instead of
+re-orienting.
 ```
 
 ## Review brief
@@ -197,8 +198,9 @@ git command names its checkout.
 
 ```
 Worktree: <absolute path>   Branch: <branch>   Main checkout: <absolute path>   Main line: <name>
-Review ticket <id> (or the bundle #a, #b, #c), round <N>; `agent-progress ticket show <id>` prints one. Run git as
-`git -C <worktree>` unless a step names <main checkout>. The work is `git diff <main line>...HEAD`.
+Review ticket <id> (or the bundle #a, #b, #c), round <N>; `agent-progress ticket show <id>` prints
+one. Run git as `git -C <worktree>` unless a step names <main checkout>. The work is
+`git diff <main line>...HEAD`.
 
 1. Set out to show the ticket does NOT hold — each ticket of a bundle on its own commits, and
    whatever a Handoff lists under `Also fixed`. The last `## Handoff` says where to look and proves
