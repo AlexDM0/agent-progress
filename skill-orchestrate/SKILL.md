@@ -74,6 +74,14 @@ The Acceptance block is the agent's stop condition, so write it as things that a
 not as a direction of travel. Record a dependency with `--depends-on` or `ticket depends` rather
 than remembering it, and tell the user the id and whether it starts now or is queued behind what.
 
+**Read the Acceptance block back against itself before you file it.** Two items that cannot both be
+true send an agent to spend a pass discovering it, and the honest ones then report the contradiction
+instead of the work. A change that removes something and an item demanding nothing look different
+afterwards is the common shape: "the dead space is gone" and "it renders identically" are the same
+sentence twice, once forwards and once backwards. If you notice the tension while writing — the tell
+is wanting to explain it to the user — resolve it in the ticket: say which item wins, and what
+bounded deviation the other one tolerates. Noticing it and filing anyway costs a full pass.
+
 ## Dispatch: two agents, never three
 
 Two agents in flight, of any kind — a review pass is an agent and holds a slot like any other. A
@@ -81,6 +89,13 @@ slot frees when a result lands. While a slot is free and a ticket is **ready** �
 ticket it depends on done or delivered — start the next one: the order the user asked for, and
 otherwise the lowest ticket id. Reviews come before new tickets when both are waiting: work in
 flight is finished before more is begun.
+
+**Run two tickets together or apart by the files they touch, not by how related they sound.** Two
+tickets in the same subject area that edit different files run fine side by side; two that rewrite
+one file collide, and resolving that collision costs an agent to merge and another to review the
+merge. `git diff --name-only main...<branch>` on what is already in flight answers it in one call.
+Holding a slot empty out of vague topical caution wastes it; discovering the overlap at merge time
+costs more than the parallelism saved.
 
 Per ticket:
 
@@ -115,27 +130,62 @@ you are trying to keep small.
    notification's `subagent_tokens` is roughly the agent's end context and understates that heavily
    and unevenly, so use it only when the hook is not installed. A row with no number at all is a cost
    nobody can see; leave it off only when neither figure exists.
-2. Give the review pass its own bar, because it is work:
+2. If the branch has been open long enough that the main line moved under it, merge the main line
+   **into the branch now, before the reviewer looks**. What gets judged should be what ships. A
+   merge resolved after a passing review is unreviewed work riding in on a verdict that did not
+   cover it — and a conflict resolution is the easiest place in a repository to lose a line nobody
+   misses, or to loosen an assertion that was holding a defect down. If the resolution is more than
+   mechanical, it is its own agent and its own review.
+
+3. Give the review pass its own bar, because it is work:
 
    ```
    agent-progress task add "Review #<id> — <ticket title>" --owner opus --start
    ```
 
-3. Spawn the reviewer with: the ticket id and the command that prints it, the branch and the files
+4. Spawn the reviewer with: the ticket id and the command that prints it, the branch and the files
    the implementing agent touched, the repository's own verification command to run once itself, and
-   the instruction to read the ticket's `## Handoff` and the evidence it names rather than the whole
-   codebase. It reports a verdict — **holds** or **does not hold, and what is missing** — in under
-   150 words, and nothing else. It changes no code.
-4. `agent-progress task finish <reviewRowId> --tokens <n>` when its verdict lands, `<n>` from the same
+   the instruction to take the ticket's `## Handoff` as a map of where to look rather than as a
+   finding. **The reviewer re-derives the evidence, never the context.** Reading the whole codebase
+   to rebuild what the Handoff already says is waste; re-running the measurement the Handoff rests
+   on is the whole value of the pass, and the thing to ask for by name — its own harness, its own
+   probe, its own count, stated as its own numbers. An agent that says it watched a guard fail is
+   told to watch it fail again; an agent that reports a screenshot as a measurement is asked what
+   was measured. Point the reviewer at the two or three claims the ticket fails on if they are
+   false, and say so in those words. It reports a verdict — **holds** or **does not hold, and what
+   is missing** — in under 150 words, and nothing else. It changes no code.
+
+   Reviews that read a diff and agree with it find nothing. Every defect worth the pass comes from a
+   reviewer who rebuilt the measurement and got a different number.
+
+   **A reviewer closes what it finds.** Having found a defect, it fixes it rather than handing back a
+   recipe for a fresh agent to follow — it already holds the branch, the measurement and the reason,
+   and a new agent pays for all three again to apply instructions it was given verbatim. If the main
+   line moved while it worked, it merges main into the worktree and re-runs the checks before it
+   reports. It reports what it found AND what it changed.
+
+   The limit is certainty. A reviewer that fixes becomes the author of that fix, and nobody has
+   looked at it. So: **anything it was not certain of, it says so and a fresh review is scheduled on
+   its work.** Certainty is about the fix, not the finding — a one-line correction it has watched
+   fail and pass is certain; a change to behaviour, a design decision, or anything it reasoned its
+   way to rather than measured is not. When in doubt it says so, because the cost of an extra review
+   is one agent and the cost of a silent self-approval is the defect shipping with a green tick on
+   it.
+5. `agent-progress task finish <reviewRowId> --tokens <n>` when its verdict lands, `<n>` from the same
    place: the hook's `input` figure, and `subagent_tokens` only without the hook.
-5. **Holds**: `agent-progress ticket done <id>`, then
+6. **The reviewer changed something**: treat its report as the pass it was. If it said it was
+   certain, that is a `holds` with work attached — deliver it. If it flagged anything uncertain,
+   schedule the fresh review it asked for before delivering, scoped to what it changed and told
+   plainly not to re-derive what the review already settled.
+
+7. **Holds**: `agent-progress ticket done <id>`, then
    `agent-progress ticket deliver <id> --branch <branch> --commit <sha>` when the work is where it
    was meant to land. You deliver; you do not wait to be told to.
-6. **Does not hold**: `agent-progress log "<what is missing>"`, `agent-progress ticket start <id>`
+8. **Does not hold**: `agent-progress log "<what is missing>"`, `agent-progress ticket start <id>`
    again, and a **fresh** implementing agent briefed on the gap the verdict names, pointed at the
    Handoff for what is already done. Two failed passes on one ticket is a question for the user,
    not a third agent.
-7. Refill the free slot in the same turn.
+9. Refill the free slot in the same turn.
 
 Stop when every ticket is delivered or abandoned. Say so, summarise what shipped in a few lines, and
 wait for the next request — do not invent work to keep the loop running.
