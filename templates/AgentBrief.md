@@ -15,8 +15,8 @@ One large ticket, one half of a ticket that splits by mechanism, or **a bundle o
 one neighbourhood of the code**. What an agent costs is dominated by starting it, not by keeping it
 going: priced at what the tokens are billed at — a cache read at a tenth of an input token, a cache
 write at double — 107 agents on one board day processed 715 million raw input tokens that weigh 100
-million, and in runs under 30 calls 56% of that weight was the cache writes of starting up. Each call
-of a short run weighed 21 thousand, each call of a run past 70 calls only 29 thousand. So three small
+million, and a run under 30 calls spent 56% of its own weight on the cache writes of starting up. Each
+call of a short run weighed 21 thousand, and a run past 70 calls still only 29 thousand. So three small
 tickets in one agent cost one start and one review instead of three of each, and the agent sees the
 three as one picture. What stays forbidden is two LARGE tickets in one agent: those ran 250 to 297
 calls to 543 to 720 thousand tokens of context.
