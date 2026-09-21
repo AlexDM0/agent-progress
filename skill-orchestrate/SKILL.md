@@ -127,9 +127,10 @@ more than the calls a small ticket takes, so two to four small tickets from one 
 same files, or the same mechanism — go to **one** agent on one branch, in dependency order, and come
 back through **one** review. Small means you expect the whole bundle inside one call budget; a
 ticket you would have split is never bundled, and neither are tickets whose files another agent in
-flight holds. Each ticket keeps its own row: `ticket start` every one of them, and when the agent
-lands, `ticket review` each, dividing the agent's `--tokens` evenly over the bundle with
-`--note "bundle #a #b #c"`. The agent commits and hands off per ticket, so a bundle is still judged,
+flight holds. Each ticket keeps its own row: `ticket start` every one of them, name the bundle in each
+row's `--note` with the `task update` above — a `ticket` move takes no note — and when the agent lands,
+`ticket review` each with the agent's `--tokens` divided evenly over the bundle, so what the chart
+sums stays what the agent cost. The agent commits and hands off per ticket, so a bundle is still judged,
 delivered and, if it comes to that, reopened one ticket at a time. A ticket the agent left untouched
 for lack of budget goes back with `agent-progress ticket reopen <id>`.
 
