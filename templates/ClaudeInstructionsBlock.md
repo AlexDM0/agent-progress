@@ -10,9 +10,11 @@ in separate checkouts all write to the same chart.
   instead; it loads the other one itself.
 - Register a task before spawning each subagent (`agent-progress task add "<what it will do>"
   --start`) and finish it when the result lands (`agent-progress task finish <id> --tokens <n>`,
-  where `<n>` is the `subagent_tokens` figure in the completion notification — `12k`, `1.2m`).
-  A row left without a number is how six sessions of subagent cost stayed invisible, so fill it in
-  every time. `agent-progress task pause <id>` records a row that is waiting; `task start <id>`
+  where `<n>` is the `input` figure on the line the `SubagentStop` hook logged for that agent —
+  `3.8M`, every token it processed. The completion notification's `subagent_tokens` is roughly the
+  agent's end context and understates that heavily and unevenly, so use it only where the hook is
+  not installed). A row left without a number is how six sessions of subagent cost stayed invisible,
+  so fill it in every time. `agent-progress task pause <id>` records a row that is waiting; `task start <id>`
   resumes it.
 - Spawn each implementing agent from `.agent-progress/agent-brief.md`, filled in: one ticket, or one
   half of one, per agent. Never continue a finished agent with a follow-up message — a fresh agent

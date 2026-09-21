@@ -38,15 +38,19 @@ when you first open a file in its folder.
 
 ## Call discipline
 
-Each call is a whole transcript re-read, so a batch of reads costs what a single read costs and four
-separate verification runs cost four transcripts. The 13 implementing agents briefed this way ran a
-median of 32 calls to 165k end context, with a mean input of 4.8 million tokens against 32.1 million
-for the agents briefed the old way.
+Each call is a whole transcript re-read, and so is every command the agent typed into an earlier one.
+In the three costliest transcripts of 41 agents briefed from this template, each ran 39 to 48 Bash
+heredocs and 35 to 39 python or perl edit scripts, about 130 thousand characters of command text that
+every later call read again, and one of them made 114 Bash calls and no Edit call at all. The same
+agents ran `bun test` 21 to 38 times, the type checker 7 to 15 and the linter 5 to 13.
 
 ```
 Open every file named above in ONE message with several Read calls.
-Write new files with the Write tool, never a heredoc.
-Verify once per batch of edits with `<verify command>`.
+Existing files change through the Edit tool only, never through a script run in Bash: no heredoc,
+no python or perl edit script, no `sed -i`. New files through Write.
+While iterating verify with `<the narrow command: the spec file you touched>`.
+Run the full checks exactly once, before you write the Handoff, output piped through `tail`:
+`<full check command> 2>&1 | tail -20`.
 ```
 
 ## Browser loop, bounded
@@ -66,14 +70,17 @@ The harness's screenshot-after-every-step workflow does not apply here.
 
 An agent continued with a follow-up message had a median of 149 calls and 367k of end context against
 62 and 229k for a fresh one, because the second instruction pays for everything the first one read. A
-brief that names its own end is therefore cheaper than one that trusts the agent to notice. The budget
-is not a target to undercut: three tickets in one afternoon took 8, 7 and 6 agents each, and every
-fresh agent pays the fixed context and its own rediscovery again, so a budget a little too loose
-costs less than one too tight.
+brief that names its own end is therefore cheaper than one that trusts the agent to notice. One budget
+of about 100 calls covers every ticket, because the expensive calls are the ones carrying more than
+200 thousand of context: 62% of all tokens were processed in those, and the 18 implementing agents
+that were 85% of 273 million tokens ran a median of 70 calls to 240 thousand of end context, four of
+them past 100. A fresh agent restarts at about 100 thousand, so a ticket too big for one budget is
+split by mechanism into halves joined with `ticket depends` when it is filed. The budget itself is
+not shaved to force that: three tickets in one afternoon took 8, 7 and 6 agents each, and every fresh
+agent pays the fixed context and its own rediscovery again.
 
 ```
-Stop when the ticket's Acceptance block is satisfied, or at the call budget, whichever is first:
-about 100 API calls for a small ticket, about 150 for a medium one — <the budget for this one>.
+Stop when the ticket's Acceptance block is satisfied, or at about 100 API calls, whichever is first.
 Then leave green whatever is green, write the Handoff, and report.
 You will not be sent a follow-up message: a fresh agent takes whatever is left.
 ```
@@ -92,13 +99,17 @@ is not, and the next concrete step — named so the follow-up agent starts worki
 
 ## Orchestrator checklist
 
-Register the row before the agent starts and record what it cost when it ends: the token column read
-0 on every row of the 73-agent build because nobody filled it in, and that is how six sessions of
-cost stayed invisible. Review from the Handoff and the screenshots — a second browser session buys
-evidence that has already been paid for.
+Register the row before the agent starts and record what it cost when it ends. When the `SubagentStop`
+hook is installed, take the number from the line it logs, which ends `input 3.8M (cache read 3.6M)`:
+`input` is every token that agent processed. The harness's own `subagent_tokens` is roughly the end
+context and is the fallback for a repository without the hook, recorded as the understatement it is.
+30 rows filled in from it summed to 4.8 million against 273 million processed, and not by a constant
+factor: a reviewer ending on 90 thousand had processed 0.4 million, an implementer ending on 420
+thousand had processed 35 million. Review from the Handoff and the screenshots — a second browser
+session buys evidence that has already been paid for.
 
 ```
 agent-progress task add "<what the agent will do>" --owner <model> --start
-agent-progress task finish <id> --tokens <n>   # <n> is subagent_tokens from the completion notification
+agent-progress task finish <id> --tokens <n>   # <n> is `input` from the hook's log line; subagent_tokens only without the hook
 agent-progress ticket review <id>              # from the Handoff and the screenshots, never a second browser session
 ```

@@ -91,7 +91,10 @@ the difference between a short session and one that re-reads a repository.
 
 The same thrift is why every row carries a token count. The tool measures nothing; `--tokens` stores
 the figure the orchestrator reports when a subagent's work ends, and the chart shows it beside the
-bar. A row left without one is not a row that cost nothing — it is a row nobody looked at, and a
+bar. With the `SubagentStop` hook installed that figure is the `input` one on the line the hook logs,
+every token the agent processed; without it the harness's own `subagent_tokens` is the fallback, and
+it reports roughly the agent's end context rather than everything the agent read to reach it. A row
+left without one is not a row that cost nothing — it is a row nobody looked at, and a
 chart full of those is how the expensive habits stay invisible.
 
 ## The dashboard
