@@ -138,14 +138,12 @@ the ticket mentioned it.
 
 ```
 A defect you find beside your ticket is yours to fix when ALL of these hold: it is in code you have
-already read for this work; you can watch the fix fail and pass; it changes no behaviour a user
-would notice beyond removing the defect; no file it touches is out of bounds; and it fits about 20
-calls. If it is another instance of the mistake your ticket fixes, sweep for the rest and fix those
-too, reporting how many sites you examined. One commit per fix, listed under `Also fixed` in the
-Handoff with how you proved it.
-Report it instead, fixing nothing, when it needs a product or design decision, lives in a part of
-the code you would have to study first, or does not fit the budget. Say what you saw, where, and
-what you would do — one finding, a few lines; the orchestrator decides whether it is a ticket.
+already read for this work; you can watch the fix fail and pass; the only behaviour it changes is the
+defect itself; it needs no product or design decision; no file it touches is out of bounds; and it
+fits about 20 calls. If it is another instance of the mistake your ticket fixes, sweep for the rest
+and fix every site these conditions allow, reporting how many you examined and any you left. One
+commit per fix, listed under `Also fixed` in the Handoff with how you proved it.
+Anything else you report, fixing nothing: what you saw, where, and what you would do, a few lines.
 ```
 
 ## Ready to merge
