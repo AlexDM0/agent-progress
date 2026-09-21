@@ -121,7 +121,7 @@ each, and every fresh agent pays the fixed context and its own rediscovery again
 ```
 Stop when every Acceptance block you were given is satisfied, or at about 150 API calls, whichever
 is first. In a bundle, never start a ticket you cannot finish inside the budget: leave it untouched
-and say so, rather than leaving two half done.
+and say so.
 Then leave green whatever is green, close as "Ready to merge" says, write the Handoff, and report.
 You will not be sent a follow-up message: a fresh agent takes whatever is left.
 ```
