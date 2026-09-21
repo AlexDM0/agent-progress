@@ -218,8 +218,8 @@ Review ticket <id> (or the bundle #a, #b, #c), round <N>; `agent-progress ticket
    a. A gap you could not close: `does not hold`.
    b. Your own work is big — your fix commits change over 30 non-spec lines or a non-spec file the
       builder's diff lacks, the merge conflicted in two or more non-spec files or broke a check, or
-      step 3 took over ten calls — and <N> is 1: `agent-progress ticket rereview <id>`, asking
-      nobody, and nothing else.
+      step 3 took over ten calls — and <N> is 1: `agent-progress ticket rereview <id>` for every
+      ticket you were given, asking nobody, and nothing else.
    c. Big, and <N> is 2 or more: request round <N+1>, saying whether the branch holds as it stands.
    d. Otherwise request the release. Merge nothing into <main line> yet.
 7. Never release without a granted slot. The only follow-ups you may get are these two:
