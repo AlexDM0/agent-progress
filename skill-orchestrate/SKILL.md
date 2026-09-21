@@ -29,10 +29,12 @@ Run it once, at the top, in this order, then stop and wait.
 
 1. `agent-progress status --json`. Exit 1 saying there is no tracker: ask whether to
    `agent-progress init` here, and do not create one uninvited.
-2. Read `.claude/settings.json` for `agent-progress hook subagent-stop`. If it is absent, say so
-   once and offer `agent-progress init --hooks` — it writes into the user's repository, so it is
-   their call, but it is what puts every agent's call count and end context on the board without
-   you remembering to.
+2. Read `.claude/settings.local.json` and `.claude/settings.json` for
+   `agent-progress hook subagent-stop`. `init` and `update` write it into the local file by default,
+   so it is normally in one of them and there is nothing to say. If it is in neither — the repository
+   was adopted before the hook existed, or somebody ran `--no-hooks` — say so once and offer
+   `agent-progress update`, which is what puts every agent's call count and end context on the board
+   without you remembering to.
 3. Read `.agent-progress/agent-brief.md` once. It is the template every brief you write comes from;
    keep it for the session and do not read it again.
 4. `agent-progress open`, once.

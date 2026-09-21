@@ -65,7 +65,7 @@ context: `lib/platform/Environment.ts` is the one module that reads it.
 | `cli/Main.spec.ts` | the four routes and the number each produces, against a captured context |
 | `cli/CommandSupport.ts` | the sequence every mutating command follows, `resolveAtOption`, `printEntity`, `renderDashboard`, and `progressOperations` — the progress store in the shape `lib/tickets/TicketTransitions.ts` asks for |
 | `cli/CommandContext.ts` | the interface every handler is given, and `createProcessContext()` for the real process |
-| `cli/CommandTable.ts` | name → lazy loader for all eleven commands; `COMMAND_NAMES`; `commandLoaderFor` guarded by `Object.hasOwn` |
+| `cli/CommandTable.ts` | name → lazy loader for every command; `COMMAND_NAMES`; `commandLoaderFor` guarded by `Object.hasOwn` |
 | `cli/CommandTable.spec.ts` | every loader resolves to a function, and an inherited property of the literal is refused rather than run |
 | `cli/HelpText.ts` | `helpText()`: the whole command reference, one screen, interpolating nothing |
 | `cli/HelpText.spec.ts` | the help and the table agree in both directions; the entry layout that makes that checkable |
@@ -73,8 +73,11 @@ context: `lib/platform/Environment.ts` is the one module that reads it.
 | `cli/arguments/ArgumentParser.ts` | the closure factory: flags, options in both spellings, positionals, the bare `--`, and the refusals |
 | `cli/arguments/ArgumentParser.spec.ts` | the shapes that fail quietly when the parser is wrong |
 | `cli/arguments/OptionsWithValues.ts` | which option names take the next argument, across every command |
-| `cli/init/InitCommand.ts` | `init`: discover the root, ignore the tracker, create it, render, write the managed CLAUDE.md block, and under `--hooks` the `SubagentStop` entry in `.claude/settings.json`. A re-run at the same root refreshes the block; one below an existing tracker, one inside a bare repository, and a `--root` that is not an existing directory are all refused |
-| `cli/init/InitCommand.spec.ts` | the tree and all three side effects, `--no-claude-md`, `--root`, the re-run, the two refusals, and the worktree case that the one-tracker-per-repository promise rests on |
+| `cli/TrackerRefresh.ts` | `refreshTrackedRepository`: the managed CLAUDE.md block, the bundled `agent-brief.md` and the `SubagentStop` hook, which `init` and `update` both write through. Each line reports `unchanged` or `updated` from the file's bytes before and after; the hook goes to `.claude/settings.local.json` unless the shared `.claude/settings.json` already holds one, and `--no-hooks` skips it |
+| `cli/init/InitCommand.ts` | `init`: discover the root, ignore the tracker, create it, render, then the shared refresh. A re-run at the same root is that refresh alone and names `update`; one below an existing tracker, one inside a bare repository, and a `--root` that is not an existing directory are all refused |
+| `cli/init/InitCommand.spec.ts` | the tree and all its side effects, `--no-claude-md`, `--no-hooks` and the still-accepted `--hooks`, `--root`, the re-run and the line pointing at `update`, the two refusals, and the worktree case that the one-tracker-per-repository promise rests on |
+| `cli/update/UpdateCommand.ts` | `update`: the shared refresh on its own, at the tracker found the way every command finds it. No tracker is a refusal at exit 1 naming `init`; it writes nothing the tracker holds and takes no `--project` or `--root` |
+| `cli/update/UpdateCommand.spec.ts` | each item's `unchanged`/`updated` verdict against a file that really differs, the hook in the local settings file by default and refreshed in place in the shared one, `--no-claude-md` and `--no-hooks`, the progress file and tickets left byte-identical, the worktree, and the refusals |
 | `cli/status/StatusCommand.ts` | `status`: the working view — counts, the rows and tickets that are not delivered or abandoned, the recent log ordered by its stamps, and under `--json` an `omitted` count of what was left out. `--full` is the *whole progress file plus every ticket's frontmatter* |
 | `cli/status/StatusCommand.spec.ts` | both `--json` documents' shapes, which are the contract with the orchestrating agent, plus the token column and the log's order |
 | `cli/task/TaskCommand.ts` | `task add\|start\|pause\|finish\|review\|rereview\|deliver\|update\|remove`: the rows that are not a ticket's. `update` is the one that does not move the row's clock, `rereview` counts a row's second and later review passes, and a row a ticket owns is refused unless `--force` |

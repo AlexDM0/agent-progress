@@ -129,10 +129,13 @@ nothing about tasks or tickets — a caller supplies a path.
 - `lib/platform/ClaudeInstructions.ts` — `writeManagedBlock`: the block `init` owns inside a
   repository's `CLAUDE.md`. Written in place so a symlinked file stays a symlink; a start marker with
   no end marker is refused and the file is left alone.
-- `lib/platform/ClaudeSettings.ts` — `claudeSettingsFilePathFor` and `writeSubagentStopHook`: the
-  `SubagentStop` entry `init --hooks` merges into a repository's `.claude/settings.json`. Every other
-  key is kept, an identical command is never added twice, and a document that will not parse is
-  refused rather than overwritten. The matcher, the command and the timeout come from the caller.
+- `lib/platform/ClaudeSettings.ts` — `claudeSettingsFilePathFor`, `claudeLocalSettingsFilePathFor`,
+  `writeSubagentStopHook` and `refreshSubagentStopHook`: the `SubagentStop` entry `init` and `update`
+  merge into a repository's `.claude/settings.local.json`, or keep current in `.claude/settings.json`
+  where somebody already shares one. Every other key is kept, an identical command is never added
+  twice, a refresh of an entry that already says what it should writes nothing at all, and a document
+  that will not parse is refused rather than overwritten. Both file paths are just paths: the writer
+  has one code path for the two files. The matcher, the command and the timeout come from the caller.
 - `lib/platform/ClaudeTranscripts.ts` — `transcriptFolderFor` and `listSubagentTranscripts`: where the
   harness keeps a repository's transcripts (`<home>/.claude/projects/` plus the repository root's
   absolute path with **every character outside `[a-zA-Z0-9]`** turned into `-` — a dot and a space as
