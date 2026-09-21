@@ -108,7 +108,9 @@ tickets in the same subject area that edit different files run fine side by side
 one file collide, and resolving that collision costs an agent to merge and another to review the
 merge. `git diff --name-only main...<branch>` on what is already in flight answers it in one call.
 Holding a slot empty out of vague topical caution wastes it; discovering the overlap at merge time
-costs more than the parallelism saved.
+costs more than the parallelism saved. An agent also fixes what it finds beside its ticket, so its
+reach is wider than its ticket: the brief's `Out of bounds` line names the whole area the other agent
+in flight is working in, not only the files you expect it to touch.
 
 Per ticket:
 
