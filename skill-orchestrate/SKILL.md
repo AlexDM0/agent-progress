@@ -154,7 +154,7 @@ the reviewer to do its step 4 first, so it does not spend a pass and then meet t
 
 1. `agent-progress ticket review <id> --tokens <n>`.
 2. Give every review pass its own bar, because it is work — you add them all, whichever round, and
-   a bundle gets one bar and one reviewer for all its tickets:
+   a bundle gets one bar and one reviewer for all its tickets, named for every id in it:
 
    ```
    agent-progress task add "Review <N> #<id> — <ticket title>" --owner opus --start
