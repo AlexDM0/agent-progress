@@ -77,9 +77,10 @@ order to file a ticket, move one, and stay out of the tool's way.
 
 Your ticket's file path comes from `agent-progress ticket show <id>`, which also prints the body —
 that body is the whole brief; you do not need the frontmatter. When you finish, append a `## Handoff`
-section below the frontmatter, under 15 lines: files touched, contracts you discovered that the
+section at the end of the ticket, under 15 lines: files touched, contracts you discovered that the
 ticket did not state, what is verified and how, what is not, and the next concrete step. The review
-pass reads that instead of re-deriving it from the codebase.
+pass reads that instead of re-deriving it from the codebase. Builder or reviewer, leave the branch
+ready to merge: your work committed on it, the main line merged in, the checks green on the result.
 
 ## The rules
 

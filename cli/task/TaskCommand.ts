@@ -16,27 +16,29 @@ import type { ArgumentParser }                from '../arguments/ArgumentParser'
 
 const USAGE = [
   'agent-progress task add "<name>" [--owner <who>] [--note <text>] [--ticket <id>] [--start] [--tokens <n>] [--at <when>]',
-  'agent-progress task start|pause|finish|review|deliver <id> [--owner <who>] [--note <text>] [--tokens <n>] [--at <when>] [--force]',
+  'agent-progress task start|pause|finish|review|rereview|deliver <id> [--owner <who>] [--note <text>] [--tokens <n>] [--at <when>] [--force]',
   'agent-progress task update <id> [--name <text>] [--owner <who>] [--note <text>] [--status <status>] [--tokens <n>] [--force]',
   'agent-progress task remove <id>',
 ].join('\n         ');
 
 const TRANSITION_SUBCOMMANDS: Record<string, { status: TaskStatus; spoken: string }> = {
-  start:   { status: 'running',   spoken: 'started' },
-  pause:   { status: 'paused',    spoken: 'paused' },
-  finish:  { status: 'finished',  spoken: 'finished' },
-  review:  { status: 'reviewed',  spoken: 'reviewed' },
-  deliver: { status: 'delivered', spoken: 'delivered' },
+  start:    { status: 'running',   spoken: 'started' },
+  pause:    { status: 'paused',    spoken: 'paused' },
+  finish:   { status: 'finished',  spoken: 'finished' },
+  review:   { status: 'reviewed',  spoken: 'reviewed' },
+  rereview: { status: 're-review', spoken: 'under review again' },
+  deliver:  { status: 'delivered', spoken: 'delivered' },
 };
 
 /** Written out rather than derived, because a command folder may not import a sibling's (`lib/ImportDirection.spec.ts`). */
 const TICKET_VERB_FOR_TASK_STATUS: Partial<Record<TaskStatus, string>> = {
-  pending:   'ticket reopen',
-  running:   'ticket start',
-  finished:  'ticket review',
-  reviewed:  'ticket done',
-  delivered: 'ticket deliver',
-  abandoned: 'ticket abandon',
+  'pending':   'ticket reopen',
+  'running':   'ticket start',
+  'finished':  'ticket review',
+  're-review': 'ticket rereview',
+  'reviewed':  'ticket done',
+  'delivered': 'ticket deliver',
+  'abandoned': 'ticket abandon',
 };
 
 const ADD_OPTION_NAMES        = ['owner', 'note', 'ticket', 'start', 'at', 'tokens', 'force', 'json'];

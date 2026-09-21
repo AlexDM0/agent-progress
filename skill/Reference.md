@@ -62,12 +62,15 @@ The **from** column is the matrix the named verbs enforce; `ticket status <id> <
 | `ticket add` | — | open | created, `pending` | `filed` | `Ticket #003 filed: <title>` |
 | `ticket start` | open, in-review | in-progress | `running` | `started` if null; the row's end cleared | `Ticket #003 started` |
 | `ticket review` | in-progress | in-review | `finished` | `finished` if null | `Ticket #003 in review` |
+| `ticket rereview` | in-review | in-review, unchanged | `re-review`, one round up from 2 | `updated` only | `Ticket #003 in review, round 2` |
 | `ticket done` | in-progress, in-review | done | `reviewed` | `finished` if null | `Ticket #003 done` |
 | `ticket deliver` | done | delivered | `delivered` | `delivered` if null | `Ticket #003 delivered` |
 | `ticket abandon` | anything but delivered, abandoned | abandoned | `abandoned` | `abandonedAt`; the row's end if it had started | `Ticket #003 abandoned: <reason>` |
 | `ticket reopen` | anything but open | open | `pending` | all of them cleared | `Ticket #003 reopened` |
 
-Moving a ticket to the status it already has is refused with exit 1 and logs nothing. A ticket taken
+Moving a ticket to the status it already has is refused with exit 1 and logs nothing, and
+`ticket rereview` is the one exception: a further reviewer is still review, so the round is
+counted on the row, whose pill reads `review 2`, and the ticket stays in-review. A ticket taken
 straight to a closing status with `ticket status`, having never started, gets a row whose start is
 stamped along with its end — an end without a start would draw from the origin of the chart. There
 is no `paused` ticket status: `task pause <id>` records a waiting row, and the ticket stays where it

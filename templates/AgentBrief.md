@@ -1,11 +1,13 @@
 # Agent brief
 
-The brief an orchestrator fills in before it spawns an implementing agent. Every API call a subagent
+The brief an orchestrator fills in before it spawns an implementing agent, and the review brief for
+the clean agent that judges the result. Every API call a subagent
 makes re-reads its whole transcript, so the length of that transcript, not the size of the change, is
 what the work costs: across 73 subagents building one repository, 1.7 billion cache-read input tokens
 stood against 6.0 million tokens of output. Every section below exists to keep a transcript short.
 
-Fill in the placeholders and paste the fenced blocks, in order, as the agent's whole prompt.
+Fill in the placeholders and paste the fenced blocks, in order, as the agent's whole prompt — every
+section down to Report for an implementing agent, the Review brief for a reviewer.
 
 ## Scope
 
@@ -23,7 +25,7 @@ what it added so the reviewer knows to look there.
 ```
 Worktree: <absolute path>   Branch: <branch>
 Task: <the one ticket, or the half of it this agent owns>.
-Work belongs in: <the files you expect it to touch>. Do not commit.
+Work belongs in: <the files you expect it to touch>.
 If satisfying the Acceptance block genuinely requires a file outside that list, edit it and say so
 in the Handoff, naming the file and why. Do not solve an acceptance item in the wrong place to stay
 inside the list, and do not leave one unmet because the right file was not named.
@@ -69,20 +71,22 @@ Open every file named above in ONE message with several Read calls.
 Existing files change through the Edit tool only, never through a script run in Bash: no heredoc,
 no python or perl edit script, no `sed -i`. New files through Write.
 While iterating verify with `<the narrow command: the spec file you touched>`.
-Run the full checks exactly once, before you write the Handoff, output piped through `tail`:
-`<full check command> 2>&1 | tail -20`.
+Run the full checks only at the close described under "Ready to merge", output piped through
+`tail`: `<full check command> 2>&1 | tail -20`.
 ```
 
 ## Browser loop, bounded
 
 Only for work with a user interface. One agent spent about 40 consecutive calls inside a screenshot
 loop, each of them paying for the transcript again and carrying an image, so the page is read as text
-and screenshots are kept for evidence.
+and screenshots are kept for evidence. The evidence directory is an absolute path outside the
+worktree: an untracked file inside it makes `git worktree remove` refuse at release, and `--force`
+would delete the evidence the Handoff names.
 
 ```
 This work has a user interface. Budget about 15 browser calls in total.
 Read the page as text; send one batch per interaction sequence, not one call per click.
-Take screenshots only as final evidence, named `<ticket>-<acceptance item>.png`.
+Take screenshots only as final evidence, saved as `<evidence directory>/<ticket>-<acceptance item>.png`.
 The harness's screenshot-after-every-step workflow does not apply here.
 ```
 
@@ -101,8 +105,26 @@ agent pays the fixed context and its own rediscovery again.
 
 ```
 Stop when the ticket's Acceptance block is satisfied, or at about 100 API calls, whichever is first.
-Then leave green whatever is green, write the Handoff, and report.
+Then leave green whatever is green, close as "Ready to merge" says, write the Handoff, and report.
 You will not be sent a follow-up message: a fresh agent takes whatever is left.
+```
+
+## Ready to merge
+
+Every agent that touches a branch, builder or reviewer, leaves it ready to merge: committed, level
+with the main line, the full checks green on the merged result. What the reviewer judges is then what
+ships. A merge resolved after a passing review is unreviewed work riding in on a verdict that did not
+cover it, and a conflict resolution is the easiest place in a repository to lose a line nobody
+misses, or to loosen an assertion that was holding a defect down — so the merge comes before the
+review, and whoever resolves it says how much resolving there was.
+
+```
+Close in this order, git as `git -C <worktree>`:
+1. Commit on <branch>: one plain subject line, no attribution trailer.
+2. `git merge <main line>`; resolve with git and the Edit tool.
+3. Full checks until green on the merged result; commit what is uncommitted.
+Merge beyond the budget: `git merge --abort`, keep your commit, say so in the Handoff.
+Never merge <branch> into <main line>.
 ```
 
 ## Report
@@ -112,9 +134,82 @@ this work reads the Handoff instead of re-deriving it from the codebase.
 
 ```
 Report in under 200 words: files changed, the verification result, and anything you could not do.
-Then append `## Handoff` below the ticket's frontmatter, under 15 lines: files touched, contracts you
+Then append `## Handoff` at the end of the ticket, under 15 lines: files touched, contracts you
 discovered that the ticket did not state, what is verified and how (naming the screenshot paths), what
-is not, and the next concrete step — named so the follow-up agent starts working instead of re-orienting.
+is not, what the merge of the main line touched and what you resolved by hand, and the next concrete
+step — named so the follow-up agent starts working instead of re-orienting.
+```
+
+## Review brief
+
+The reviewer is a clean agent: freshly spawned and handed this block, plus the Browser loop block
+when the work has a user interface. It owns the whole pass — an adversarial review, every fix that
+review calls for, the certainty of those fixes, a closing merge of the main line — and, when that
+pass was small, the release, because an orchestrator merging a branch it has not read adds a step and
+no judgement. A reviewer that did a lot is a builder nobody has reviewed: the first reviewer
+schedules the second review on its own judgement, and from the second on a reviewer asks the
+orchestrator, which decides between a further round and a new ticket for what keeps turning up.
+
+The round is the number of `## Review` sections already in the ticket, plus one. From round 2 on,
+say in the first line that the pass is scoped to the commits the previous reviewer authored and that
+what the earlier Reviews settled is not to be re-derived. The thresholds in step 6 are there so that
+two reviewers reach the same verdict; move them for a repository where they fire too often or too
+seldom. Harness subagents get their working directory reset to the main checkout, which is why every
+git command names its checkout.
+
+```
+Worktree: <absolute path>   Branch: <branch>   Main checkout: <absolute path>   Main line: <name>
+Review ticket <id>, round <N>; `agent-progress ticket show <id>` prints it. Run git as
+`git -C <worktree>` unless a step names <main checkout>. The work is `git diff <main line>...HEAD`.
+
+1. Set out to show the ticket does NOT hold. The last `## Handoff` says where to look and proves
+   nothing: re-run the measurement behind each claim with your own probe or count and state your
+   numbers; a guard it watched fail, you watch fail. It fails if any is false: <two or three claims>.
+2. Fix every finding yourself with the Edit tool — no heredoc, edit script or `sed -i` — one commit
+   per fix, one plain subject line.
+3. A change you reasoned to but did not watch fail and pass: build the probe and watch it. A doubt
+   still open at the budget is `does not hold`, never a caveat.
+4. `git merge <main line>`, resolve with git and Edit, run `<full check command> 2>&1 | tail -20`
+   until green, commit what is uncommitted. Step 3 covers hunks you resolved by hand. Beyond the
+   budget: `git merge --abort`, do step 5, report `merge unresolved`.
+5. Append `## Review` at the end of the ticket, under 15 lines: each finding in one line with its
+   file, your commits, what the merge touched and what you resolved by hand.
+6. The first that applies:
+   a. A gap you could not close: `does not hold`.
+   b. Your own work is big — your fix commits change over 30 non-spec lines or a non-spec file the
+      builder's diff lacks, the merge conflicted in two or more non-spec files or broke a check, or
+      step 3 took over ten calls — and <N> is 1: `agent-progress ticket rereview <id>`, asking
+      nobody, and nothing else.
+   c. Big, and <N> is 2 or more: request round <N+1>, saying whether the branch holds as it stands.
+   d. Otherwise request the release. Merge nothing into <main line> yet.
+7. Never release without a granted slot. The only follow-ups you may get are these two:
+   - "main moved": repeat steps 4 to 6 and report again. You hold no slot.
+   - "slot granted": `cd <main checkout>` first, since your worktree is about to go. If
+     `git -C <main checkout> branch --show-current` prints <main line>,
+     `git -C <main checkout> merge --ff-only <branch>`. Refused, or another branch: change nothing
+     and report `not released`. Then `git -C <main checkout> worktree remove <worktree>` (never
+     `--force`; refused: say what is untracked) and `git -C <main checkout> branch -d <branch>`.
+
+Do not `cat` any CLAUDE.md. Stop at about 60 API calls, step 3 permitting.
+Report under 150 words, opening with exactly one of: `holds, release requested` /
+`holds, review 2 owed` / `round <N+1> requested, branch holds` /
+`round <N+1> requested, branch does not hold` / `merge unresolved: <why>` /
+`does not hold: <what is missing>` — then findings, your changes, what the merge took.
+After "slot granted": `released <commit>` or `not released: <why>`.
+```
+
+The two release-slot messages are the only ones a finished agent is ever sent, because two reviewers
+merging into one checkout race and the orchestrator is the only one who knows both exist. A slot is
+granted only against a main line that has not moved since the request; otherwise the reviewer is sent
+back to merge, check and judge again, and asks anew. Each is one line, since step 7 holds the
+instructions:
+
+```
+Slot granted for <branch>: the main line has not moved since you asked. Release now.
+```
+
+```
+Main moved (#<id> was released), no slot: repeat steps 4 to 6 on <branch> and report again.
 ```
 
 ## Orchestrator checklist
@@ -125,11 +220,11 @@ hook is installed, take the number from the line it logs, which ends `input 3.8M
 context and is the fallback for a repository without the hook, recorded as the understatement it is.
 30 rows filled in from it summed to 4.8 million against 273 million processed, and not by a constant
 factor: a reviewer ending on 90 thousand had processed 0.4 million, an implementer ending on 420
-thousand had processed 35 million. Review from the Handoff and the screenshots — a second browser
-session buys evidence that has already been paid for.
+thousand had processed 35 million. The review is a clean agent briefed from the Review brief above,
+never the orchestrator reading the diff.
 
 ```
 agent-progress task add "<what the agent will do>" --owner <model> --start
 agent-progress task finish <id> --tokens <n>   # <n> is `input` from the hook's log line; subagent_tokens only without the hook
-agent-progress ticket review <id>              # from the Handoff and the screenshots, never a second browser session
+agent-progress ticket review <id>              # then a clean reviewer in its own row, from the Review brief
 ```

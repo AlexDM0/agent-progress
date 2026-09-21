@@ -48,5 +48,8 @@ export const CLOCK_SLICE_END = 16;
 
 export const JSON_INDENT = 2;
 
+/** The round a row reaches the first time its ticket is sent back for another review pass; the first pass is round 1 and records no number. */
+export const FIRST_REPEAT_REVIEW_ROUND = 2;
+
 /** The context an API call is counted as oversized above: a brief asks an agent to hand its work on rather than let its window grow past this. */
 export const OVERSIZED_CONTEXT_THRESHOLD_TOKENS = 200_000;

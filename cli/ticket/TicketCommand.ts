@@ -21,6 +21,7 @@ import {
 }                                                from '../../lib/tickets/TicketStore';
 import {
   LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS,
+  applyTicketRereview,
   applyTicketTransition,
   ensureTaskForTicket,
   ticketMoveIsLegal
@@ -38,6 +39,7 @@ const USAGE = [
   'agent-progress ticket list [--status <s>] [--json]',
   'agent-progress ticket show <id> [--json]',
   'agent-progress ticket start|review|done|deliver|abandon|reopen <id> [--branch <b>] [--commit <sha>] [--reason <text>] [--tokens <n>] [--at <when>]',
+  'agent-progress ticket rereview <id> [--at <when>]',
   'agent-progress ticket status <id> <status> [...same options]',
   'agent-progress ticket link <ticketId> <taskId> [--force]',
   'agent-progress ticket depends <id> [<id>...]',
@@ -56,6 +58,7 @@ const ADD_OPTION_NAMES        = ['type', 'group', 'depends-on', 'body', 'body-fi
 const LIST_OPTION_NAMES       = ['status', 'json'];
 const SHOW_OPTION_NAMES       = ['json'];
 const TRANSITION_OPTION_NAMES = ['branch', 'commit', 'reason', 'at', 'tokens', 'json'];
+const REREVIEW_OPTION_NAMES   = ['at', 'json'];
 const LINK_OPTION_NAMES       = ['force', 'json'];
 const DEPENDS_OPTION_NAMES    = ['json'];
 
@@ -371,6 +374,28 @@ async function transitionOneTicket(
   }
 }
 
+/** The one verb that may be run on the status the ticket already has: a further review pass is still review. */
+async function rereviewOneTicket(reference: string, commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
+  const moved = await openTrackerForWriting(commandArguments, context, (change) => {
+    const ticket  = requireTicket(change.workspace, reference);
+    const outcome = applyTicketRereview({
+      progress:   change.progress,
+      ticket,
+      at:         change.at,
+      operations: progressOperations,
+    });
+    if (outcome.verdict === 'refused') {
+      const { id, status } = ticket.frontmatter;
+      const firstReviewAdvice = ticketMoveIsLegal(status, 'in-review') ? ` Run \`agent-progress ticket review ${id}\` to send it to its first reviewer.` : '';
+      throw new OperationRefusal('refused', `Ticket #${id} is ${status}, and ${outcome.reason}.${firstReviewAdvice}`);
+    }
+    change.writeTicketAfterwards(outcome.ticket);
+    return { logText: outcome.logText, ticket: outcome.ticket };
+  });
+
+  printEntity(commandArguments, context, ticketAsJson(moved.ticket), moved.logText);
+}
+
 function refuseAnIllegalMove(ticket: Ticket, targetStatus: TicketStatus, checksTheMatrix: boolean): void {
   const { id, status } = ticket.frontmatter;
 
@@ -491,6 +516,15 @@ export const ticketCommand: CommandHandler = async (commandArguments, context) =
   if (subcommand === 'link') return linkOneTicket(commandArguments, context);
   if (subcommand === 'depends') return setTicketDependencies(commandArguments, context);
   if (subcommand === 'status') return setTicketStatus(commandArguments, context);
+  if (subcommand === 'rereview') {
+    commandArguments.rejectUnknownOptions(REREVIEW_OPTION_NAMES, USAGE);
+    commandArguments.rejectExtraPositionals(2, USAGE);
+    const reference = commandArguments.positionals()[1];
+    if (reference === undefined) {
+      throw new OperationRefusal('refused', `agent-progress ticket rereview needs a ticket id.\n  Usage: ${USAGE}`);
+    }
+    return rereviewOneTicket(reference, commandArguments, context);
+  }
   if (subcommand === 'list') {
     listAllTickets(commandArguments, context);
     return;

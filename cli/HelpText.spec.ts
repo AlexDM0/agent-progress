@@ -52,7 +52,7 @@ describe('the command reference', () => {
   });
 
   test('the delivered state is offered on both the task and the ticket side', () => {
-    expect(HELP_TEXT).toContain('task start|pause|finish|review|deliver <id>');
+    expect(HELP_TEXT).toContain('task start|pause|finish|review|rereview|deliver <id>');
     expect(HELP_TEXT).toContain('ticket start|review|done|deliver|abandon|reopen <id>');
     expect(HELP_TEXT).toContain('in-review, done, delivered or abandoned');
   });
@@ -61,6 +61,13 @@ describe('the command reference', () => {
   test('pause is offered on the task side and nowhere on the ticket side', () => {
     expect(HELP_TEXT).toContain('|pause|');
     expect(HELP_TEXT).not.toContain('ticket pause');
+  });
+
+  /** The one move legal on the status a ticket already holds, which every other verb refuses: a reader is told so here or nowhere. */
+  test('the repeat review is offered on both sides, and the help says it is the exception', () => {
+    expect(HELP_TEXT).toContain('|rereview|');
+    expect(HELP_TEXT).toContain('ticket rereview <id>');
+    expect(HELP_TEXT).toContain('the one verb that may be run on the status the ticket already');
   });
 
   test('--tokens is offered on the task and ticket entries and its spellings are written out', () => {

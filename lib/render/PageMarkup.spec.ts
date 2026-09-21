@@ -110,6 +110,7 @@ describe('taskRowsMarkup', () => {
     ['running', 'WIP'],
     ['paused', 'paused'],
     ['finished', 'finished'],
+    ['re-review', 'review 2'],
     ['reviewed', 'reviewed'],
     ['delivered', 'delivered'],
     ['abandoned', 'abandoned'],
@@ -153,6 +154,18 @@ describe('taskRowsMarkup', () => {
 
     expect(markup).toContain('data-state="reviewing"');
     expect(markup).toContain('<span class="ap-pill">reviewing</span>');
+  });
+
+  test('numbers the pill of a row that is on its third review pass', () => {
+    const markup = rowFor(exampleTask({ status: 're-review', reviewRound: 3 }), 'in-review');
+
+    expect(markup).toContain('data-state="re-review"');
+    expect(markup).toContain('<span class="ap-pill">review 3</span>');
+  });
+
+  // A row moved by hand to the repeat state has no round on it; the state itself says it is at least the second pass.
+  test('reads a repeat review with no round recorded as the second pass', () => {
+    expect(rowFor(exampleTask({ status: 're-review' }))).toContain('<span class="ap-pill">review 2</span>');
   });
 
   test('leaves every other status alone whatever its ticket says', () => {
@@ -213,6 +226,16 @@ describe('summaryStatsMarkup', () => {
     expect(markup).toContain('<span class="ap-stat-n">3/4</span> finished');
     expect(markup).toContain('<span class="ap-stat-n">2</span> reviewed');
     expect(markup).toContain('<span class="ap-stat-n">1</span> delivered');
+  });
+
+  test('counts a row sent round for another review as finished, and not yet as reviewed', () => {
+    const markup = summaryStatsMarkup([
+      exampleTask({ id: 1, status: 're-review', reviewRound: 3 }),
+      exampleTask({ id: 2, status: 'reviewed' }),
+    ]);
+
+    expect(markup).toContain('<span class="ap-stat-n">2/2</span> finished');
+    expect(markup).toContain('<span class="ap-stat-n">1</span> reviewed');
   });
 
   test('sums the reported token counts and omits the figure when none were reported', () => {
