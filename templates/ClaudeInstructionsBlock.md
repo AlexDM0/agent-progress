@@ -20,9 +20,10 @@ in separate checkouts all write to the same chart.
   so fill it in every time. `agent-progress task pause <id>` records a row that is waiting; `task start <id>`
   resumes it.
 - Spawn each implementing agent from `.agent-progress/agent-brief.md`, filled in: one large ticket,
-  one half of one, or a bundle of small tickets from one part of the code, per agent. An agent fixes
-  the defects it finds beside its work when it can prove the fix, and reports only what needs a
-  decision or a study it has not done. Never continue a finished agent with a follow-up message — a
+  one half of one, or a bundle of small tickets from one part of the code, per agent, on a worktree
+  created for that agent off the main line before the spawn — a ticket is never picked up in the main
+  checkout, by a builder or by a reviewer. An agent fixes the defects it finds beside its work when it
+  can prove the fix, and reports only what needs a decision or a study it has not done. Never continue a finished agent with a follow-up message — a
   fresh agent for the remainder costs less than the one that already holds the whole transcript. The
   one exception is the orchestrator's one-line release-slot message to a reviewer.
 - An implementing agent ends by committing on its branch, merging the main line into it, and filling

@@ -6,7 +6,7 @@ One folder, symlinked to `~/.claude/skills/agent-progress-orchestrate` by `setup
 
 | file | what it is |
 |---|---|
-| `skill-orchestrate/SKILL.md` | The skill itself: the opening sequence, how a ticket request is grilled and filed, the two-slot dispatch loop, what happens when a result lands — the clean reviewer that fixes, merges main and releases, and when its work earns an Nth review — what the orchestrator keeps in its own working memory and what it drops, and the board hygiene that keeps the chart true. |
+| `skill-orchestrate/SKILL.md` | The skill itself: the opening sequence, how a ticket request is grilled and filed, the two-slot dispatch loop and the worktree every ticket is picked up on, what happens when a result lands — the clean reviewer that fixes, merges main and releases, and when its work earns an Nth review — what the orchestrator keeps in its own working memory and what it drops, and the board hygiene that keeps the chart true. |
 | `skill-orchestrate/CLAUDE.md` | This file. |
 
 ## The rules that hold here

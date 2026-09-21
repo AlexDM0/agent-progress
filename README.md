@@ -43,8 +43,8 @@ context.
 - **`agent-progress-orchestrate`** is for the one session running the board. Start it with
   `/agent-progress-orchestrate`: it opens the dashboard, reports what is in flight and then takes
   ticket requests — grilling each one until the acceptance condition is unambiguous, filing it,
-  dispatching an implementing agent for it (at most two at a time) that hands over a branch already
-  merged with main, and sending that to a clean reviewing agent. The reviewer reviews adversarially,
+  dispatching an implementing agent for it (at most two at a time) — each on a worktree of its own,
+  never the main checkout — that hands over a branch already merged with main, and sending that to a clean reviewing agent. The reviewer reviews adversarially,
   fixes what it finds and merges main again; it then releases the branch itself, on the orchestrator's
   grant of the one merge-to-main slot, or — when its
   findings or its merge were big — schedules a second review of its own work (`ticket rereview`);

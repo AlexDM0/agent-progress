@@ -32,8 +32,14 @@ one board's reopenings came from exactly that, each costing a fresh agent and a 
 where the work belongs, allow the agent past it when the acceptance requires, and make it declare
 what it added so the reviewer knows to look there.
 
+**The worktree is not optional: a ticket is never picked up in the main checkout.** The orchestrator
+creates one off the main line before it spawns, one per agent, so neither agent in flight can edit the
+tree the other is about to merge into — and so a branch stays reviewable as what it is.
+
 ```
 Worktree: <absolute path>   Branch: <branch>
+Everything you do happens in that worktree: every edit, every command, every commit, git as
+`git -C <worktree>`. Your working directory may be the main checkout; it is not yours to touch.
 Task: <the one ticket, the half of it this agent owns, or the bundle: #a, #b, #c in this order>.
 A bundle is worked one ticket at a time: finish, verify and commit each before starting the next.
 Work belongs in: <the files you expect it to touch>.

@@ -75,6 +75,11 @@ order to file a ticket, move one, and stay out of the tool's way.
 
 ## If you are implementing a ticket
 
+**A ticket is picked up on a worktree, never in the main checkout**: your brief names it and the
+branch, and git runs as `git -C <worktree>`, because your working directory may be the main checkout
+and another agent is working there. Asked to pick a ticket up without one, create the worktree off
+the main line first and work in it.
+
 Your ticket's file path comes from `agent-progress ticket show <id>`, which also prints the body —
 that body is the whole brief; you do not need the frontmatter. When you finish, append a `## Handoff`
 section at the end of the ticket, under 15 lines: files touched, contracts you discovered that the

@@ -114,6 +114,21 @@ costs more than the parallelism saved. An agent also fixes what it finds beside 
 reach is wider than its ticket: the brief's `Out of bounds` line names the whole area the other agent
 in flight is working in, not only the files you expect it to touch.
 
+**Every ticket is picked up on a worktree of its own, and no agent ever works in the main
+checkout.** Two agents in one tree overwrite each other, and the release then merges a branch whose
+files somebody else was editing. Create it off the main line before you spawn, one per agent — the
+tickets of a bundle share that agent's one:
+
+```
+git -C <main checkout> worktree add <worktree path> -b <branch> <main line>
+```
+
+Put it where the repository already keeps them — `.claude/worktrees/<branch>`, or beside the
+checkout — since a worktree the repository does not ignore shows up as untracked in the main
+checkout. A ticket that comes back — reopened, `does not hold`, or a merge of its own — goes to a
+fresh agent on that same worktree and branch, which still hold its commits. The reviewer removes
+both when it releases; an abandoned ticket's worktree is yours to remove.
+
 Per ticket:
 
 ```
@@ -139,7 +154,7 @@ still judged, delivered and, if it comes to that, reopened one ticket at a time.
 left untouched for lack of budget goes back with `agent-progress ticket reopen <id>`.
 
 Then spawn the agent with the brief from `.agent-progress/agent-brief.md`, filled in: **one large
-ticket or one bundle per agent**, the worktree and branch, the files it may edit, the three to eight
+ticket or one bundle per agent**, the worktree you just created and its branch, the files it may edit, the three to eight
 facts it would otherwise go and find, the call budget, the "Ready to merge" close, and the report and
 `## Handoff` it owes. Point it at `agent-progress ticket show <id>` for the body and nothing else.
 When two slots are free, spawn both agents in one message so they run at once.
@@ -276,7 +291,8 @@ When you do lose the thread — after a compaction, or a long gap — re-anchor 
 Write the code. Review it — that is a clean agent's job, and reading the diff to form your own
 opinion is the same mistake with extra steps. Merge anything — main into a branch is the builder's
 and the reviewer's, a branch into main is the reviewer's, on your grant, and yours only on the
-user's yes after a permission refusal. Grant a review round nobody
+user's yes after a permission refusal. Dispatch an agent into the main checkout, or let two of them
+share one worktree. Grant a review round nobody
 asked for. Re-verify through the browser what an agent already evidenced. Hand one agent two
 large tickets, or file a finding an agent could have fixed. Continue a finished agent, except with a
 release-slot message. Run a third agent because the first two are slow. Edit `.agent-progress/` with

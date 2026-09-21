@@ -4,8 +4,7 @@ What this repository deliberately does **not** do. Each entry names the alternat
 lost, and the measurement where there was one — so the next reader does not rebuild it, and so a
 proposal to revisit one starts from the evidence rather than from first principles.
 
-This is not a status page. Work that is agreed and not started is in `docs/backlog.md`; the design
-as a whole is in `docs/plan.md`.
+This is not a status page. Work that is agreed and not started is in `docs/backlog.md`.
 
 ---
 
@@ -97,9 +96,11 @@ The chip row grew from three chips to five when `delivered` and `abandoned` join
 **Measured by screenshot: at both 250px and 300px the abandoned chip wrapped on to a second line**,
 which made that one row taller than every other and pulled its bar out of horizontal alignment with
 the rest of the chart — a chart that reads as misaligned is worse than one that is a little wider.
-360px was measured against the widest chip row the tool can produce. The widths are custom
-properties in `lib/render/Styles` rather than literals, because `lib/render/page/GanttPage.ts`
-has to reach the same numbers to place the now-marker across the whole grid.
+360px was measured against the widest chip row the tool can produce. The design handoff later set
+the pair to 336px and 112px and narrows both below 1180px, so the widths are custom properties
+(`--col-name`, `--col-pill`) in `lib/render/page/template.html`, and `lib/render/page/GanttPage.ts`
+measures the rendered header cells rather than restating numbers it would then have to keep in
+step to place the now-marker across the whole grid.
 
 ## Loading libraries from a CDN at runtime
 
