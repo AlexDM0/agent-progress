@@ -216,9 +216,8 @@ describe.skipIf(!gitIsAvailable())('updating a tracked repository', () => {
   /** A repository with nothing in `.claude/` cannot tell a refusal to write from having nothing to write, so the stale entry is really there. */
   test('--no-hooks leaves a shared settings file that holds a stale entry byte for byte', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-    writeSettings(repositoryDirectory, SHARED_SETTINGS, {
-      hooks: { SubagentStop: [{ matcher: '', hooks: [{ type: 'command', command: 'agent-progress hook subagent-stop', timeout: 3 }] }] },
-    });
+    const staleGroup = { matcher: '', hooks: [{ type: 'command', command: 'agent-progress hook subagent-stop', timeout: 3 }] };
+    writeSettings(repositoryDirectory, SHARED_SETTINGS, { hooks: { SubagentStop: [staleGroup] } });
     const sharedSettingsBefore = readFileSync(settingsFilePathIn(repositoryDirectory, SHARED_SETTINGS), 'utf8');
 
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
