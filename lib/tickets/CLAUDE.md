@@ -8,7 +8,7 @@ that says what each status change writes. It does not own any command, any lock 
 |---|---|
 | `lib/tickets/Frontmatter.ts` | The YAML-shaped subset below: `parseTicketDocument(text)` → a verdict, `serializeTicketDocument(frontmatter, body)` → the file's text. |
 | `lib/tickets/TicketStore.ts` | The tickets directory as a store: `listTickets`, `readTicket`, `writeTicket`, `nextTicketId`, `createTicket`, `deleteAllTickets`. |
-| `lib/tickets/TicketTransitions.ts` | `ensureTaskForTicket`, `applyTicketTransition`, `seedTaskFromTicket` — the ticket → task transition table from `docs/plan.md` — plus `LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS` and `ticketMoveIsLegal`, the matrix the named `ticket` verbs enforce. |
+| `lib/tickets/TicketTransitions.ts` | `ensureTaskForTicket`, `applyTicketTransition`, `applyTicketRereview`, `seedTaskFromTicket` — the ticket → task transition table from `docs/plan.md` — plus `LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS` and `ticketMoveIsLegal`, the matrix the named `ticket` verbs enforce. |
 
 ## The frontmatter subset, in full
 
@@ -56,6 +56,11 @@ to append a second, identical log line.
 The six named verbs in `cli/ticket/TicketCommand.ts` consult it; `ticket status <id> <status>`
 deliberately does not, which is what keeps a strict matrix affordable. `applyTicketTransition` checks
 nothing, so `clear`'s re-seed can rebuild a row in any state.
+
+`applyTicketRereview` is the one move outside that table, and the one exception to the rule above: a
+ticket sent back for a second, third or fourth review pass stays `in-review`, because every pass is
+still review. It stamps `updated` alone, moves the row to `re-review` and counts the round there, and
+it checks its own one legal source rather than being given a matrix row of its own.
 
 ## Why `TicketTransitions` takes its store operations as a parameter
 

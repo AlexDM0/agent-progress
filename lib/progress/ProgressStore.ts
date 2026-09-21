@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from 'fs';
 
-import { JSON_INDENT }                      from '../constants/Limits';
-import { TASK_STATUSES, taskStatusIsKnown } from '../constants/Statuses';
+import { FIRST_REPEAT_REVIEW_ROUND, JSON_INDENT } from '../constants/Limits';
+import { TASK_STATUSES, taskStatusIsKnown }       from '../constants/Statuses';
 import type {
   LogEntry,
   ProgressFile,
@@ -23,15 +23,16 @@ export type ReadProgressFileResult =
   | { verdict: 'unreadable'; reason: string };
 
 export interface AddTaskInput {
-  name:      string;
-  owner?:    string;
-  note?:     string;
-  ticket?:   string | null;
-  status?:   TaskStatus;
-  start?:    string | null;
-  end?:      string | null;
-  tokens?:   number | null;
-  reviewed?: string;
+  name:         string;
+  owner?:       string;
+  note?:        string;
+  ticket?:      string | null;
+  status?:      TaskStatus;
+  start?:       string | null;
+  end?:         string | null;
+  tokens?:      number | null;
+  reviewed?:    string;
+  reviewRound?: number;
 }
 
 /** `trackerId` comes from the caller: this module has no randomness, and `clear` has to keep the existing id. */
@@ -71,6 +72,11 @@ function tokenCountIsWellFormed(value: unknown): value is number | null {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
 }
 
+/** Only a repeat review is counted, so the first round a row can record is the second one. */
+function reviewRoundIsWellFormed(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= FIRST_REPEAT_REVIEW_ROUND;
+}
+
 function taskProblem(value: unknown, index: number): string | null {
   if (typeof value !== 'object' || value === null) return `tasks[${index}] is not an object`;
   const task = value as Record<string, unknown>;
@@ -86,6 +92,9 @@ function taskProblem(value: unknown, index: number): string | null {
   if (!nullableTextIsWellFormed(task['ticket'])) return `tasks[${index}].ticket is neither a ticket id nor null`;
   if (!tokenCountIsWellFormed(task['tokens'])) return `tasks[${index}].tokens is neither a whole number of tokens nor null`;
   if (task['reviewed'] !== undefined && typeof task['reviewed'] !== 'string') return `tasks[${index}].reviewed is present but not a timestamp`;
+  if (task['reviewRound'] !== undefined && !reviewRoundIsWellFormed(task['reviewRound'])) {
+    return `tasks[${index}].reviewRound is present and is not a whole round of at least ${FIRST_REPEAT_REVIEW_ROUND}`;
+  }
   return null;
 }
 
@@ -178,6 +187,7 @@ export function addTask(progress: ProgressFile, input: AddTaskInput): Task {
     ticket: input.ticket ?? null,
     tokens: input.tokens ?? null,
     ...(input.reviewed === undefined ? {} : { reviewed: input.reviewed }),
+    ...(input.reviewRound === undefined ? {} : { reviewRound: input.reviewRound }),
   };
   progress.tasks.push(task);
   return task;
@@ -198,9 +208,10 @@ export function transitionTask(progress: ProgressFile, taskId: number, status: T
   if (status === 'running' || status === 'paused') {
     task.start = task.start ?? at;
     task.end = null;
-  } else if (status === 'finished' || status === 'reviewed' || status === 'delivered') {
+  } else if (status === 'finished' || status === 're-review' || status === 'reviewed' || status === 'delivered') {
     task.start = task.start ?? at;
     task.end = task.end ?? at;
+    if (status === 're-review') task.reviewRound = task.reviewRound === undefined ? FIRST_REPEAT_REVIEW_ROUND : task.reviewRound + 1;
     if (status === 'reviewed') task.reviewed = task.reviewed ?? at;
   } else if (status === 'abandoned') {
     if (task.start !== null) task.end = task.end ?? at;
@@ -208,6 +219,7 @@ export function transitionTask(progress: ProgressFile, taskId: number, status: T
     task.start = null;
     task.end = null;
     delete task.reviewed;
+    delete task.reviewRound;
   }
 
   task.status = status;

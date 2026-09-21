@@ -167,6 +167,78 @@ describe.skipIf(!gitIsAvailable())('moving a ticket', () => {
   });
 });
 
+describe.skipIf(!gitIsAvailable())('a second review pass', () => {
+  beforeEach(async () => {
+    await run(['ticket', 'add', 'Double-click a role to edit it']);
+    await run(['ticket', 'start', '1']);
+    await run(['ticket', 'review', '1']);
+  });
+
+  test('rereview leaves the ticket in review, moves the row into the next round and logs which round that is', async () => {
+    const context = await run(['ticket', 'rereview', '1']);
+
+    expect(storedTicketText()).toContain('status: "in-review"');
+    expect(storedProgress().tasks[0]?.status).toBe('re-review');
+    expect(storedProgress().tasks[0]?.reviewRound).toBe(2);
+    expect(storedProgress().log.at(-1)?.text).toBe('Ticket #001 in review, round 2');
+    expect(context.outputText()).toContain('Ticket #001 in review, round 2');
+
+    await run(['ticket', 'rereview', '1']);
+    expect(storedProgress().tasks[0]?.reviewRound).toBe(3);
+    expect(storedProgress().log.at(-1)?.text).toBe('Ticket #001 in review, round 3');
+  });
+
+  test('done still moves a ticket whose row is in a repeat review', async () => {
+    await run(['ticket', 'rereview', '1']);
+
+    await run(['ticket', 'done', '1']);
+
+    expect(storedTicketText()).toContain('status: "done"');
+    expect(storedProgress().tasks[0]?.status).toBe('reviewed');
+    expect(storedProgress().tasks[0]?.reviewRound, 'the round stays on the row as history').toBe(2);
+  });
+
+  test('start and abandon still move a ticket whose row is in a repeat review', async () => {
+    await run(['ticket', 'rereview', '1']);
+    await run(['ticket', 'start', '1']);
+    expect(storedTicketText()).toContain('status: "in-progress"');
+
+    await run(['ticket', 'abandon', '1', '--reason', 'two passes were enough to see it was wrong']);
+    expect(storedTicketText()).toContain('status: "abandoned"');
+  });
+
+  test('rereview is refused for a ticket that is not in review, and the reason says what it needs', async () => {
+    await run(['ticket', 'add', 'Fix the axis', '--type', 'bug']);
+
+    const context  = contextHere();
+    const exitCode = await runCommandLine(['ticket', 'rereview', '2'], context);
+
+    expect(exitCode).toBe(1);
+    expect(context.errorText()).toContain('Ticket #002 is open');
+    expect(context.errorText()).toContain('needs a ticket that is in-review');
+    expect(context.errorText()).not.toContain('ticket review 002');
+    expect(storedProgress().tasks[1]?.status).toBe('pending');
+  });
+
+  test('a refused rereview names ticket review only where that verb would be accepted', async () => {
+    await run(['ticket', 'add', 'Fix the axis', '--type', 'bug']);
+    await run(['ticket', 'start', '2']);
+
+    const context = contextHere();
+    await runCommandLine(['ticket', 'rereview', '2'], context);
+
+    expect(context.errorText()).toContain('agent-progress ticket review 002');
+  });
+
+  test('rereview takes no --tokens, so the figure on the row stays the builder\'s', async () => {
+    const context  = contextHere();
+    const exitCode = await runCommandLine(['ticket', 'rereview', '1', '--tokens', '48k'], context);
+
+    expect(exitCode).not.toBe(0);
+    expect(storedProgress().tasks[0]?.status).not.toBe('re-review');
+  });
+});
+
 describe.skipIf(!gitIsAvailable())('reading tickets back', () => {
   beforeEach(async () => {
     await run(['ticket', 'add', 'Double-click a role to edit it']);

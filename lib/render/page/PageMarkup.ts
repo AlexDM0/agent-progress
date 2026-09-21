@@ -3,6 +3,7 @@
  * the tracker or a ticket passes `escapeHtml` exactly once here, except a ticket's `bodyHtml`, already escaped by `lib/render/Markdown.ts`.
  */
 
+import { FIRST_REPEAT_REVIEW_ROUND } from '../../constants/Limits.ts';
 import type {
   LogEntry,
   Task,
@@ -28,12 +29,14 @@ const TICK_LABEL_GUTTER_PIXELS = 5;
 
 type RowState = TaskStatus | 'reviewing';
 
+/** A repeat review carries its round number, which `pillLabelFor` appends; the rest are the label as written. */
 const PILL_LABEL_FOR_ROW_STATE: Record<RowState, string> = {
   'pending':   'unstarted',
   'running':   'WIP',
   'paused':    'paused',
   'finished':  'finished',
   'reviewing': 'reviewing',
+  're-review': 'review',
   'reviewed':  'reviewed',
   'delivered': 'delivered',
   'abandoned': 'abandoned',
@@ -83,6 +86,11 @@ function rowStateFor(task: Task, ticketStatus: TicketStatus | null): RowState {
   return task.status === 'finished' && ticketStatus === 'in-review' ? 'reviewing' : task.status;
 }
 
+function pillLabelFor(state: RowState, task: Task): string {
+  const label = PILL_LABEL_FOR_ROW_STATE[state];
+  return state === 're-review' ? `${label} ${task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND}` : label;
+}
+
 function reviewedTitleFor(task: Task, slices: TimestampSlices): string {
   return task.reviewed === undefined ? 'Reviewed before delivery' : `Reviewed ${task.reviewed.slice(0, slices.dateAndClockLength).replace('T', ' ')} before delivery`;
 }
@@ -108,7 +116,7 @@ function taskRowMarkup(row: TaskRow, slices: TimestampSlices): string {
     `<div class="ap-grid-row ap-row" ${attribute('id', `ap-task-${task.id}`)} ${attribute('data-task-id', String(task.id))} ${attribute('data-state', state)}>`,
     `<div class="ap-cell-name"><span class="ap-num">${escapeHtml(String(task.id))}</span>`,
     `<span class="ap-name" ${attribute('title', task.name)}>${escapeHtml(task.name)}</span>${ticketBadge}${waitingOnMarkup(row.waitingOn)}${tokens}</div>`,
-    `<div class="ap-cell-pill"><span class="ap-pill">${escapeHtml(PILL_LABEL_FOR_ROW_STATE[state])}</span>${reviewedMark}</div>`,
+    `<div class="ap-cell-pill"><span class="ap-pill">${escapeHtml(pillLabelFor(state, task))}</span>${reviewedMark}</div>`,
     `<div class="ap-cell-track"><span class="ap-clip-l"${bar.visible && bar.clippedLeft ? '' : ' hidden'}></span>`,
     `<div class="ap-bar"${bar.visible ? '' : ' hidden'} style="left:${percent(bar.leftPercent)};width:${percent(bar.widthPercent)}"></div>`,
     `<span class="ap-clip-r"${bar.visible && bar.clippedRight ? '' : ' hidden'}></span></div>`,
@@ -140,7 +148,7 @@ export function overlayMarkup(ticks: readonly TimelineTick[], nowPercent: number
 
 /** The token figure is left out entirely when no task reports one, because `null` means "nobody said" and `0 tokens` would be a claim. */
 export function summaryStatsMarkup(tasks: readonly Task[]): string {
-  const finishedCount  = tasks.filter((task) => ['finished', 'reviewed', 'delivered'].includes(task.status)).length;
+  const finishedCount  = tasks.filter((task) => ['finished', 're-review', 'reviewed', 'delivered'].includes(task.status)).length;
   const reviewedCount  = tasks.filter((task) => ['reviewed', 'delivered'].includes(task.status)).length;
   const deliveredCount = tasks.filter((task) => task.status === 'delivered').length;
   const reportedTokens = tasks.filter((task) => task.tokens !== null);

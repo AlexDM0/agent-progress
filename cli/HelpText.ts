@@ -44,15 +44,17 @@ repository to use instead of walking up from the current directory.
       [--start] [--tokens <n>]
       [--at <when>] [--force]
 
-  task start|pause|finish|review|deliver <id> [--owner <who>] [--note <text>] [--tokens <n>]
-      [--at <when>] [--force]
+  task start|pause|finish|review|rereview|deliver <id> [--owner <who>] [--note <text>]
+      [--tokens <n>] [--at <when>] [--force]
                               Move one row and stamp it: \`start\` sets its start and resumes a
                               paused row, \`pause\` records that the work is waiting without closing
-                              the bar, \`finish\` and \`review\` set its end, \`deliver\` records that
-                              the work reached its destination. A stamp already recorded is kept,
-                              so --at backfills a row nobody registered at the time. A row a ticket
-                              owns is refused, naming the \`ticket\` verb that moves both; --force
-                              moves only the row.
+                              the bar, \`finish\` and \`review\` set its end, \`rereview\` sends a row
+                              whose review found too much into its next review pass — round 2, then
+                              3 — without reopening the bar, and \`deliver\` records that the work
+                              reached its destination. A stamp already recorded is kept, so --at
+                              backfills a row nobody registered at the time. A row a ticket owns is
+                              refused, naming the \`ticket\` verb that moves both; --force moves only
+                              the row.
 
   task update <id>            Change a row without moving its clock: --name, --owner, --note,
       [--name <text>]         --tokens, or --status for a correction the transitions cannot
@@ -117,10 +119,18 @@ repository to use instead of walking up from the current directory.
                               open or in-review, review from in-progress, done from in-progress or
                               in-review, deliver from done, abandon from anything not already
                               delivered or abandoned, reopen from anything but open. Moving a
-                              ticket to the status it already has is refused and logs nothing.
+                              ticket to the status it already has is refused and logs nothing —
+                              \`ticket rereview\` below is the one exception.
                               \`abandon\` requires --reason; \`reopen\` clears the stamps and returns
                               the row to pending. --branch and --commit record where the work
                               landed, and --tokens what it cost.
+
+  ticket rereview <id>        Send a ticket already in review round again, for a fresh reviewer: the
+      [--at <when>]           ticket stays in-review and only its \`updated\` moves, while its row
+                              goes one review round up, from 2, and the log says which round it is.
+                              It is the one verb that may be run on the status the ticket already
+                              has, and it is refused from every other status. It takes no --tokens:
+                              the row's figure is the builder's, and a review pass has its own row.
 
   ticket status <id> <status> The same move, naming the target status directly: open, in-progress,
                               in-review, done, delivered or abandoned. It takes the same options

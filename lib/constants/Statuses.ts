@@ -1,7 +1,7 @@
 /** The vocabularies as runtime tuples, since nothing can enumerate a type; `lib/constants/Statuses.spec.ts` pins them to `lib/constants/Types.ts`. */
 import type { TaskStatus, TicketStatus, TicketType } from './Types.ts';
 
-export const TASK_STATUSES = ['pending', 'running', 'paused', 'finished', 'reviewed', 'delivered', 'abandoned'] as const;
+export const TASK_STATUSES = ['pending', 'running', 'paused', 'finished', 're-review', 'reviewed', 'delivered', 'abandoned'] as const;
 
 export const TICKET_STATUSES = ['open', 'in-progress', 'in-review', 'done', 'delivered', 'abandoned'] as const;
 

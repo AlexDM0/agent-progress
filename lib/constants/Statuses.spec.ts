@@ -41,6 +41,14 @@ test('the task ladder carries paused between running and finished, and no ticket
   expect(Object.values(TASK_STATUS_FOR_TICKET_STATUS)).not.toContain('paused');
 });
 
+test('the task ladder carries the repeat review between finished and reviewed, and no ticket status reaches it', () => {
+  expect(TASK_STATUSES.indexOf('re-review')).toBe(TASK_STATUSES.indexOf('finished') + 1);
+  expect(TASK_STATUSES.indexOf('reviewed')).toBe(TASK_STATUSES.indexOf('re-review') + 1);
+  expect(taskStatusIsKnown('re-review')).toBe(true);
+  expect((TICKET_STATUSES as readonly string[]).includes('re-review')).toBe(false);
+  expect(Object.values(TASK_STATUS_FOR_TICKET_STATUS)).not.toContain('re-review');
+});
+
 test('both ladders carry the delivered state, between the reviewed end of the ladder and abandoned', () => {
   expect(TASK_STATUSES.indexOf('delivered')).toBe(TASK_STATUSES.indexOf('reviewed') + 1);
   expect(TASK_STATUSES.indexOf('abandoned')).toBe(TASK_STATUSES.indexOf('delivered') + 1);

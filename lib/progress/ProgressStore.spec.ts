@@ -129,6 +129,9 @@ test('every other missing or mistyped field is named too', () => {
     { prefix: 'store-task-tokens', document: { ...progress, tasks: [{ ...progress.tasks[0], tokens: -1 }] }, named: 'tasks[0].tokens' },
     { prefix: 'store-task-reviewed', document: { ...progress, tasks: [{ ...progress.tasks[0], reviewed: true }] }, named: 'tasks[0].reviewed' },
     { prefix: 'store-fractional-tokens', document: { ...progress, tasks: [{ ...progress.tasks[0], tokens: 1.5 }] }, named: 'tasks[0].tokens' },
+    { prefix: 'store-first-review-round', document: { ...progress, tasks: [{ ...progress.tasks[0], reviewRound: 1 }] }, named: 'tasks[0].reviewRound' },
+    { prefix: 'store-fractional-round', document: { ...progress, tasks: [{ ...progress.tasks[0], reviewRound: 2.5 }] }, named: 'tasks[0].reviewRound' },
+    { prefix: 'store-written-round', document: { ...progress, tasks: [{ ...progress.tasks[0], reviewRound: 'second' }] }, named: 'tasks[0].reviewRound' },
   ];
   for (const { prefix, document, named } of cases) {
     const result = readBack(prefix, document);
@@ -330,6 +333,50 @@ test('reviewing stamps the review once, and delivery keeps it so the delivered r
   transitionTask(progress, task.id, 'reviewed', '2026-09-19T09:00:00+02:00');
   transitionTask(progress, task.id, 'delivered', '2026-09-19T10:00:00+02:00');
   expect(task.reviewed).toBe(FINISHED_AT);
+});
+
+test('a round of two or more is read back, because that is a row someone deliberately sent round again', () => {
+  const progress = emptyProgress();
+  addTask(progress, { name: 'Review pass' });
+  const document = { ...progress, tasks: [{ ...progress.tasks[0], reviewRound: 3 }] };
+  expect(readBack('store-third-round', document).verdict).toBe('readable');
+});
+
+test('a repeat review counts from the second round upwards and leaves the bar where the first review closed it', () => {
+  const progress = emptyProgress();
+  const task     = addTask(progress, {
+    name: 'Review pass', status: 'finished', start: STARTED_AT, end: FINISHED_AT
+  });
+  expect(transitionTask(progress, task.id, 're-review', '2026-09-19T09:00:00+02:00')).toBe('applied');
+  expect(task.status).toBe('re-review');
+  expect(task.reviewRound).toBe(2);
+  expect(task.end).toBe(FINISHED_AT);
+
+  transitionTask(progress, task.id, 're-review', '2026-09-19T10:00:00+02:00');
+  expect(task.reviewRound).toBe(3);
+  expect(task.end).toBe(FINISHED_AT);
+});
+
+test('the round is kept as history once the row is reviewed and delivered', () => {
+  const progress = emptyProgress();
+  const task     = addTask(progress, {
+    name: 'Review pass', status: 're-review', start: STARTED_AT, end: FINISHED_AT, reviewRound: 3
+  });
+  transitionTask(progress, task.id, 'reviewed', '2026-09-19T09:00:00+02:00');
+  expect(task.reviewRound).toBe(3);
+
+  transitionTask(progress, task.id, 'delivered', '2026-09-19T10:00:00+02:00');
+  expect(task.reviewRound).toBe(3);
+});
+
+test('putting a row that was on its third pass back to pending drops the round with the review stamp', () => {
+  const progress = emptyProgress();
+  const task     = addTask(progress, {
+    name: 'Review pass', status: 're-review', start: STARTED_AT, end: FINISHED_AT, reviewRound: 3
+  });
+  transitionTask(progress, task.id, 'pending', '2026-09-19T09:00:00+02:00');
+  expect(task.reviewRound).toBeUndefined();
+  expect(task.status).toBe('pending');
 });
 
 test('a task delivered straight from finished carries no review stamp', () => {

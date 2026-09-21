@@ -4,6 +4,7 @@
  * and the named verbs consult `LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS` before transitioning.
  */
 
+import { FIRST_REPEAT_REVIEW_ROUND }     from '../constants/Limits.ts';
 import { TASK_STATUS_FOR_TICKET_STATUS } from '../constants/Statuses.ts';
 import type {
   ProgressFile,
@@ -38,6 +39,13 @@ export interface TicketRowInput {
   operations: ProgressOperations;
 }
 
+export interface ApplyTicketRereviewInput {
+  progress:   ProgressFile;
+  ticket:     Ticket;
+  at:         string;
+  operations: ProgressOperations;
+}
+
 export interface ApplyTicketTransitionInput {
   progress:     ProgressFile;
   ticket:       Ticket;
@@ -65,7 +73,12 @@ const LOG_PHRASE_FOR_TICKET_STATUS: Record<TicketStatus, string> = {
 
 const ABANDON_WITHOUT_REASON_REFUSAL = 'abandon needs --reason';
 
-/** Read as "to reach the key, the ticket has to be in one of these"; no row holds its own key, so a move to the current status is never legal. */
+const REREVIEW_FROM_ELSEWHERE_REFUSAL = 'another review pass needs a ticket that is in-review';
+
+/**
+ * Read as "to reach the key, the ticket has to be in one of these"; no row holds its own key, so a move to the current
+ * status is never legal. `applyTicketRereview` is the one move deliberately outside this table.
+ */
 export const LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS: Record<TicketStatus, readonly TicketStatus[]> = {
   'open':        ['in-progress', 'in-review', 'done', 'delivered', 'abandoned'],
   'in-progress': ['open', 'in-review'],
@@ -133,6 +146,34 @@ export function applyTicketTransition(input: ApplyTicketTransitionInput): ApplyT
   operations.transitionTask(progress, task.id, TASK_STATUS_FOR_TICKET_STATUS[targetStatus], at);
 
   const logText = logTextFor(frontmatter, targetStatus);
+  operations.appendLogEntry(progress, at, logText);
+
+  return { verdict: 'applied', ticket, logText };
+}
+
+/**
+ * The one move that leaves a ticket in the status it already has: a second reviewer is still review,
+ * so only `updated` is stamped and the row counts the round. It is why this is not a matrix entry.
+ */
+export function applyTicketRereview(input: ApplyTicketRereviewInput): ApplyTicketTransitionResult {
+  const {
+    progress,
+    ticket,
+    at,
+    operations,
+  } = input;
+  const { frontmatter } = ticket;
+
+  if (frontmatter.status !== 'in-review') {
+    return { verdict: 'refused', reason: REREVIEW_FROM_ELSEWHERE_REFUSAL };
+  }
+
+  frontmatter.updated = at;
+
+  const task = ensureTaskForTicket({ progress, ticket, operations });
+  operations.transitionTask(progress, task.id, 're-review', at);
+
+  const logText = `Ticket #${frontmatter.id} in review, round ${task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND}`;
   operations.appendLogEntry(progress, at, logText);
 
   return { verdict: 'applied', ticket, logText };

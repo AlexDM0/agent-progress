@@ -72,6 +72,21 @@ describe.skipIf(!gitIsAvailable())('the lifecycle of a row', () => {
     expect(delivered.outputText()).toContain('Task #1 delivered: Review pass');
   });
 
+  test('rereview counts a free-standing row round again, from the second pass upwards', async () => {
+    await run(['task', 'add', 'Review pass', '--start', '--at', '-30m']);
+    await run(['task', 'finish', '1', '--at', '-10m']);
+    const endAfterTheFirstReview = storedProgress().tasks[0]?.end;
+
+    const second = await run(['task', 'rereview', '1']);
+    expect(storedProgress().tasks[0]?.status).toBe('re-review');
+    expect(storedProgress().tasks[0]?.reviewRound).toBe(2);
+    expect(second.outputText()).toContain('Task #1 under review again: Review pass');
+
+    await run(['task', 'rereview', '1']);
+    expect(storedProgress().tasks[0]?.reviewRound).toBe(3);
+    expect(storedProgress().tasks[0]?.end, 'a repeat review does not reopen the bar').toBe(endAfterTheFirstReview ?? null);
+  });
+
   test('a second finish leaves the recorded end exactly where it was', async () => {
     await run(['task', 'add', 'Review pass', '--start', '--at', '-30m']);
     await run(['task', 'finish', '1', '--at', '-10m']);
@@ -243,6 +258,15 @@ describe.skipIf(!gitIsAvailable())('a row a ticket owns', () => {
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('belongs to ticket #001');
     expect(context.errorText()).toContain('agent-progress ticket review 001');
+    expect(storedProgress().tasks[0]?.status).toBe('pending');
+  });
+
+  test('is refused by rereview too, naming the ticket verb that moves both', async () => {
+    const context  = contextHere();
+    const exitCode = await runCommandLine(['task', 'rereview', '1'], context);
+
+    expect(exitCode).toBe(1);
+    expect(context.errorText()).toContain('agent-progress ticket rereview 001');
     expect(storedProgress().tasks[0]?.status).toBe('pending');
   });
 

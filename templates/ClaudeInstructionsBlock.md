@@ -18,9 +18,16 @@ in separate checkouts all write to the same chart.
   resumes it.
 - Spawn each implementing agent from `.agent-progress/agent-brief.md`, filled in: one ticket, or one
   half of one, per agent. Never continue a finished agent with a follow-up message — a fresh agent
-  for the remainder costs less than the one that already holds the whole transcript.
-- An implementing agent ends by filling in its ticket's `## Handoff`.
-- Review from that Handoff, not by redoing the work.
+  for the remainder costs less than the one that already holds the whole transcript. The one
+  exception is the orchestrator's one-line release-slot message to a reviewer.
+- An implementing agent ends by committing on its branch, merging the main line into it, and filling
+  in its ticket's `## Handoff`: every agent leaves its branch ready to merge.
+- A review is a clean agent spawned from the review brief in that same file. It starts from the
+  Handoff rather than redoing the work, fixes what it finds, settles its own doubts, merges the main
+  line in again, and asks the orchestrator for the release slot — one branch merges into main at a
+  time. When its own work was big it runs `agent-progress ticket rereview <id>` instead and a second
+  clean reviewer reads it; a third round is asked of the orchestrator, which grants it or files a new
+  ticket for what keeps turning up.
 - File every bug, change or feature the user reports as a ticket (`agent-progress ticket add
   "<title>" --type bug|change|feature`) and move it with `agent-progress ticket start|review|done|deliver <id>`.
 - Record milestones with `agent-progress log "<what happened>"`; `--at -5m` backfills a stamp nobody

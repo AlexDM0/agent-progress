@@ -43,8 +43,13 @@ context.
 - **`agent-progress-orchestrate`** is for the one session running the board. Start it with
   `/agent-progress-orchestrate`: it opens the dashboard, reports what is in flight and then takes
   ticket requests — grilling each one until the acceptance condition is unambiguous, filing it,
-  dispatching an implementing agent for it (at most two at a time), reviewing the result from the
-  Handoff and delivering it, until every ticket is delivered. It loads the first skill for the
+  dispatching an implementing agent for it (at most two at a time) that hands over a branch already
+  merged with main, and sending that to a clean reviewing agent. The reviewer reviews adversarially,
+  fixes what it finds and merges main again; it then releases the branch itself, on the orchestrator's
+  grant of the one merge-to-main slot, or — when its
+  findings or its merge were big — schedules a second review of its own work (`ticket rereview`);
+  a third round is the orchestrator's call, which grants it or files a new ticket instead,
+  until every ticket is delivered. It loads the first skill for the
   commands and repeats none of it.
 
 ## Adopting a repository
@@ -134,7 +139,7 @@ directory that has none is refused with a message saying the variable is set.
 | `init [--project <name>] [--root <path>] [--no-claude-md] [--hooks]` | Create the tracker here: `.agent-progress/` with an empty progress file and a `tickets/` folder, a `.gitignore` entry for it, and a managed block in the repository's CLAUDE.md. Refused inside a bare repository, and when `--root` is not an existing directory. `--project` names the project shown on the page, `--root` tracks that directory instead of the discovered repository root, `--no-claude-md` leaves CLAUDE.md alone, and `--hooks` writes the SubagentStop hook into `.claude/settings.json`. |
 | `status [--json] [--full]` | The project, the counts, the rows that are not delivered or abandoned, and the last log entries newest first. `--json` prints the same working view — the unsettled rows and tickets, the last 10 log entries, and an `omitted` object counting what was left out — which is the form an agent reads at the top of a session. `--full` lists everything, and with `--json` prints the progress file itself plus every ticket's frontmatter. |
 | `task add "<name>" [--owner <who>] [--note <text>] [--ticket <id>] [--start] [--tokens <n>] [--at <when>] [--force]` | Add a Gantt row. `--start` marks it running at `--at` (default now), `--ticket` links it to a ticket that has no row of its own, `--note` is the detail shown beside the bar, and `--tokens` records what the work cost. `--force` moves `--ticket`'s link off the row that holds it. |
-| `task start\|pause\|finish\|review\|deliver <id> [--owner <who>] [--note <text>] [--tokens <n>] [--at <when>] [--force]` | Move one row and stamp it: `start` sets its start and resumes a paused row, `pause` records that the work is waiting without closing the bar, `finish` and `review` set its end, `deliver` records that the work reached its destination. A stamp already recorded is kept, so `--at` backfills a row nobody registered at the time. A row a ticket owns is refused, naming the `ticket` verb that moves both; `--force` moves only the row. |
+| `task start\|pause\|finish\|review\|rereview\|deliver <id> [--owner <who>] [--note <text>] [--tokens <n>] [--at <when>] [--force]` | Move one row and stamp it: `start` sets its start and resumes a paused row, `pause` records that the work is waiting without closing the bar, `finish` and `review` set its end, `rereview` sends a row whose review found too much into its next review pass — round 2, then 3 — without reopening the bar, and `deliver` records that the work reached its destination. A stamp already recorded is kept, so `--at` backfills a row nobody registered at the time. A row a ticket owns is refused, naming the `ticket` verb that moves both; `--force` moves only the row. |
 | `task update <id> [--name <text>] [--owner <who>] [--note <text>] [--status <status>] [--tokens <n>] [--force]` | Change a row without moving its clock. At least one field is required, and `--status` on a row a ticket owns is refused unless `--force`. |
 | `task remove <id>` | Delete a row. A ticket pointing at it is unlinked rather than deleted. The id is never given to another row. |
 | `log "<text>" [--at <when>]` | Append one line to the log shown under the chart. `--at` backfills it. |
@@ -144,6 +149,7 @@ directory that has none is refused with a message saying the variable is set.
 | `ticket list [--status <s>] [--json]` | The tickets with their type, status, group and row id. `--json` carries no bodies; use `ticket show` for one ticket's prose. |
 | `ticket show <id> [--json]` | One ticket: its frontmatter, its body, and always its file path. |
 | `ticket start\|review\|done\|deliver\|abandon\|reopen <id> [--branch <b>] [--commit <sha>] [--reason <text>] [--tokens <n>] [--at <when>]` | Move a ticket and its Gantt row together, stamping both, and set the row's token count. Each verb only moves a ticket that is in a status it makes sense from (see the table below), and a move to the status a ticket already has is refused. `abandon` requires `--reason`; `reopen` clears the stamps and returns the row to pending. |
+| `ticket rereview <id> [--at <when>]` | Send a ticket already in review round again, for a fresh reviewer: the ticket stays in-review and only its `updated` moves, while its row goes one review round up, from 2, and the log says which round it is. It is the one verb legal on the status the ticket already has, and it is refused from every other status. It takes no `--tokens`: the row's figure is the builder's, and a review pass has its own row. |
 | `ticket status <id> <status>` | The same move, naming the target status directly: open, in-progress, in-review, done, delivered or abandoned. The documented way to make a move the verbs refuse. |
 | `ticket link <ticketId> <taskId> [--force]` | Point a ticket at an existing row instead of the one it filed. Refused when that row already belongs to another ticket, unless `--force`. |
 | `ticket depends <id> [<id>...]` | Set the tickets this one waits on, replacing its list; no ids clears it. A missing ticket or a circle is refused. Until they are all done or delivered, the ticket reads "waiting on #003" on the dashboard and in `ticket list`, and `ticket start` warns but still moves it. |
@@ -173,14 +179,15 @@ own (an unreadable progress file, a lock it could not take).
     {
       "id": 17,
       "name": "Rewrite the importer",
-      "status": "running",                       // pending|running|paused|finished|reviewed|delivered|abandoned
+      "status": "running",                       // pending|running|paused|finished|re-review|reviewed|delivered|abandoned
       "start": "2026-09-18T21:30:54+02:00",
       "end": null,
       "owner": "opus",
       "note": "",
       "ticket": "003",                           // or null
       "tokens": 48000,                           // or null: "nobody said", which is not "it used none"
-      "reviewed": "2026-09-18T22:10:00+02:00"    // absent until the row is first reviewed; kept through delivery
+      "reviewed": "2026-09-18T22:10:00+02:00",   // absent until the row is first reviewed; kept through delivery
+      "reviewRound": 2                           // absent until a second review pass is asked for: 2, then 3, kept as history
     }
   ],
   "log": [{ "at": "2026-09-18T21:30:54+02:00", "text": "Wave 1 landed." }]
@@ -233,12 +240,15 @@ The **from** column is the matrix the named verbs enforce; `ticket status <id> <
 | `ticket add` | — | open | created, `pending` | `filed` | `Ticket #003 filed: <title>` |
 | `ticket start` | open, in-review | in-progress | `running` | `started` if null; the row's end cleared | `Ticket #003 started` |
 | `ticket review` | in-progress | in-review | `finished` | `finished` if null | `Ticket #003 in review` |
+| `ticket rereview` | in-review | in-review, unchanged | `re-review`, one round up from 2 | `updated` only | `Ticket #003 in review, round 2` |
 | `ticket done` | in-progress, in-review | done | `reviewed` | `finished` if null | `Ticket #003 done` |
 | `ticket deliver` | done | delivered | `delivered` | `delivered` if null | `Ticket #003 delivered` |
 | `ticket abandon` | anything but delivered, abandoned | abandoned | `abandoned` | `abandonedAt`; the row's end if it had started | `Ticket #003 abandoned: <reason>` |
 | `ticket reopen` | anything but open | open | `pending` | all of them cleared | `Ticket #003 reopened` |
 
-Moving a ticket to the status it already has is refused and logs nothing. A ticket taken straight to
+Moving a ticket to the status it already has is refused and logs nothing, and `ticket rereview` is
+the one exception: every review pass is still review, so the round is counted on the row rather than
+in a status of its own. A ticket taken straight to
 a closing status with `ticket status`, having never started, gets a row whose start is stamped along
 with its end — an end without a start would draw from the origin of the chart. There is no `paused`
 ticket status: `task pause <id>` records a waiting row and the ticket stays where it was.
