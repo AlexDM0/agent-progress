@@ -187,7 +187,8 @@ Review ticket <id>, round <N>; `agent-progress ticket show <id>` prints it. Run 
    - "slot granted": `cd <main checkout>` first, since your worktree is about to go. If
      `git -C <main checkout> branch --show-current` prints <main line>,
      `git -C <main checkout> merge --ff-only <branch>`. Refused, or another branch: change nothing
-     and report `not released`. Then `git -C <main checkout> worktree remove <worktree>` (never
+     and report `not released`. Denied by the permission system: do not retry or reword it; report
+     `not released: permission denied` with the three commands as you would have run them. Then `git -C <main checkout> worktree remove <worktree>` (never
      `--force`; refused: say what is untracked) and `git -C <main checkout> branch -d <branch>`.
 
 Do not `cat` any CLAUDE.md. Stop at about 60 API calls, step 3 permitting.
