@@ -13,6 +13,7 @@ export type CommandLoader = () => Promise<CommandHandler>;
 
 export const COMMAND_TABLE = {
   init:   async () => (await import('./init/InitCommand')).initCommand,
+  update: async () => (await import('./update/UpdateCommand')).updateCommand,
   status: async () => (await import('./status/StatusCommand')).statusCommand,
   task:   async () => (await import('./task/TaskCommand')).taskCommand,
   log:    async () => (await import('./log/LogCommand')).logCommand,

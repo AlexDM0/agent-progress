@@ -59,6 +59,9 @@ cd <the repository to track>
 agent-progress init
 ```
 
+To pick up a newer brief or CLAUDE.md block later, run `agent-progress update` — never `init` again,
+which reads as destructive and refuses in places `update` does not. It is described below.
+
 `init` writes four things:
 
 - **`.agent-progress/`** at the repository root, holding `progress.json`, a `tickets/` folder, the
@@ -67,7 +70,8 @@ agent-progress init
 - **`.agent-progress/agent-brief.md`** (from `templates/AgentBrief.md`), the brief an orchestrator
   fills in before it spawns an implementing agent: the scope, the facts it needs instead of a reading
   list, how many calls and browser calls it may spend, when to stop, and what to report. It is
-  guidance shipped with the tool rather than a file a project edits, so every `init` rewrites it.
+  guidance shipped with the tool rather than a file a project edits, so every `init` and every
+  `update` rewrites it.
 - **a `.gitignore` entry** for it — but only when the repository does not already ignore it.
   `git check-ignore` decides, so a repository covered by a broader pattern, a parent `.gitignore`
   or `.git/info/exclude` gets no diff at all.
@@ -77,14 +81,24 @@ agent-progress init
   symlinked `CLAUDE.md` stays a symlink; a start marker with no end marker is refused and the file
   is left alone. `--no-claude-md` skips it.
 
-`--hooks` writes a fifth thing: a `SubagentStop` entry in the repository's `.claude/settings.json`
-running `agent-progress hook subagent-stop`, under an empty matcher so every subagent type is
-recorded. It merges into whatever that file already holds, is never added twice, and refuses a
-document it cannot parse rather than replacing it; `init` prints the path and says which of those
-happened. Without the flag nothing is written there and `init` says the flag exists.
+A fifth thing goes in by default: a `SubagentStop` entry running `agent-progress hook subagent-stop`,
+under an empty matcher so every subagent type is recorded. It is written into
+**`.claude/settings.local.json`** — the per-user file Claude Code applies over the shared one and
+keeps out of git — so an accurate token figure needs no flag and lands in nothing colleagues share.
+A repository that already keeps this hook in the shared `.claude/settings.json` has it kept current
+there instead: never moved, never a second copy that would log every agent twice. Either way it
+merges into whatever that file already holds, is never added twice, refuses a document it cannot
+parse rather than replacing it, and writes nothing when the entry already says what it should; the
+command prints the path and one of `installed`, `updated` or `unchanged`. `--no-hooks` opts out on
+both `init` and `update`. `--hooks` is still accepted and does nothing — the hook it used to ask for
+is now the default.
 
-`init` is refused when an ancestor directory already holds a tracker. Re-running it only refreshes
-the managed block and the brief.
+Claude Code adds `**/.claude/settings.local.json` to your global git excludes the first time it
+writes that file itself. If it has not yet, and the file this tool creates shows up in `git status`,
+ignore it the way you ignore any personal file; this tool writes no `.gitignore` entry for it.
+
+`init` is refused when an ancestor directory already holds a tracker. Re-running it at a root that
+already has one does exactly what `agent-progress update` does, and says so.
 
 ## The Handoff and the token column
 
@@ -136,14 +150,15 @@ directory that has none is refused with a message saying the variable is set.
 
 | command | what it does |
 |---|---|
-| `init [--project <name>] [--root <path>] [--no-claude-md] [--hooks]` | Create the tracker here: `.agent-progress/` with an empty progress file and a `tickets/` folder, a `.gitignore` entry for it, and a managed block in the repository's CLAUDE.md. Refused inside a bare repository, and when `--root` is not an existing directory. `--project` names the project shown on the page, `--root` tracks that directory instead of the discovered repository root, `--no-claude-md` leaves CLAUDE.md alone, and `--hooks` writes the SubagentStop hook into `.claude/settings.json`. |
+| `init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks]` | Create the tracker here: `.agent-progress/` with an empty progress file and a `tickets/` folder, a `.gitignore` entry for it, a managed block in the repository's CLAUDE.md, and the SubagentStop hook. Refused inside a bare repository, and when `--root` is not an existing directory. `--project` names the project shown on the page, `--root` tracks that directory instead of the discovered repository root, `--no-claude-md` leaves CLAUDE.md alone, and `--no-hooks` writes no hook. `--hooks` is still accepted and does nothing. Re-running it refreshes exactly what `update` refreshes, and `update` is the command for that. |
+| `update [--no-claude-md] [--no-hooks]` | Refresh what the tool wrote into a repository it already tracks: the managed CLAUDE.md block, `agent-brief.md` and the SubagentStop hook. It creates no tracker and touches neither the progress file, the tickets nor the log, so it takes no `--project` and no `--root`, and where there is no tracker it is refused with exit 1 naming `agent-progress init`. Each line says whether that file changed — `unchanged`, or `updated` with the brief adding "re-read it before your next brief" — so a session that read the brief at its start learns its copy is stale. |
 | `status [--json] [--full]` | The project, the counts, the rows that are not delivered or abandoned, and the last log entries newest first. `--json` prints the same working view — the unsettled rows and tickets, the last 10 log entries, and an `omitted` object counting what was left out — which is the form an agent reads at the top of a session. `--full` lists everything, and with `--json` prints the progress file itself plus every ticket's frontmatter. |
 | `task add "<name>" [--owner <who>] [--note <text>] [--ticket <id>] [--start] [--tokens <n>] [--at <when>] [--force]` | Add a Gantt row. `--start` marks it running at `--at` (default now), `--ticket` links it to a ticket that has no row of its own, `--note` is the detail shown beside the bar, and `--tokens` records what the work cost. `--force` moves `--ticket`'s link off the row that holds it. |
 | `task start\|pause\|finish\|review\|rereview\|deliver <id> [--owner <who>] [--note <text>] [--tokens <n>] [--at <when>] [--force]` | Move one row and stamp it: `start` sets its start and resumes a paused row, `pause` records that the work is waiting without closing the bar, `finish` and `review` set its end, `rereview` sends a row whose review found too much into its next review pass — round 2, then 3 — without reopening the bar, and `deliver` records that the work reached its destination. A stamp already recorded is kept, so `--at` backfills a row nobody registered at the time. A row a ticket owns is refused, naming the `ticket` verb that moves both; `--force` moves only the row. |
 | `task update <id> [--name <text>] [--owner <who>] [--note <text>] [--status <status>] [--tokens <n>] [--force]` | Change a row without moving its clock. At least one field is required, and `--status` on a row a ticket owns is refused unless `--force`. |
 | `task remove <id>` | Delete a row. A ticket pointing at it is unlinked rather than deleted. The id is never given to another row. |
 | `log "<text>" [--at <when>]` | Append one line to the log shown under the chart. `--at` backfills it. |
-| `hook subagent-stop` | Record what a finished subagent cost, as one log line: the hook JSON arrives on standard input, and the agent's transcript is summed per API call rather than per line. This is the command `init --hooks` wires into `.claude/settings.json`; nobody types it. It exits 0 whatever goes wrong — no input, an unreadable transcript, no tracker at the hook's own working directory — and writes the reason to standard error. Its exit code prevents nothing, since the agent has already finished; exiting 0 is what keeps a failure here from becoming an error the orchestrator must read, or a delay before it is told its agent is done. |
+| `hook subagent-stop` | Record what a finished subagent cost, as one log line: the hook JSON arrives on standard input, and the agent's transcript is summed per API call rather than per line. This is the command `init` and `update` wire into `.claude/settings.local.json`; nobody types it. It exits 0 whatever goes wrong — no input, an unreadable transcript, no tracker at the hook's own working directory — and writes the reason to standard error. Its exit code prevents nothing, since the agent has already finished; exiting 0 is what keeps a failure here from becoming an error the orchestrator must read, or a delay before it is told its agent is done. |
 | `usage [--since <when>] [--transcripts <folder>] [--json]` | What this repository's subagents cost, read out of the transcripts the harness wrote for them under `~/.claude/projects/`: one row per agent, oldest first, with its start, its API calls, its end context, its input and output, its browser calls, the characters the harness injected into it and the first line of its brief; then the cohort summary — median calls and end context, mean input and output, and the mean of each figure below. Three of the columns catch a brief being breached without anyone reading a transcript: `over 200k` is the share of the agent's input that was sent at a context past 200,000 tokens, `bash edits` counts the edits it made through a shell command — a heredoc, an inline interpreter or an in-place editor — instead of through the editing tools, and `checks` counts the full test, type-check and lint runs it made per edit instead of per batch. `--json` carries the oversized figure as a raw token count rather than as a share. `--since` splits the cohort on an instant and summarises both sides. `--transcripts` reads a folder other than the one this repository's path resolves to. It writes nothing and takes no lock, and a repository with no transcripts is one sentence at exit 0. |
 | `ticket add "<title>" [--type bug\|change\|feature] [--group <name>] [--depends-on <ids>] [--body <markdown>] [--body-file <path\|->] [--at <when>]` | File a ticket: a markdown file under `.agent-progress/tickets/` with its own frontmatter, plus a pending Gantt row. The body comes from the template, from `--body`, or from `--body-file` (`-` reads standard input); afterwards it is preserved byte for byte. `--depends-on 3,4` files it already waiting on those tickets. |
 | `ticket list [--status <s>] [--json]` | The tickets with their type, status, group and row id. `--json` carries no bodies; use `ticket show` for one ticket's prose. |

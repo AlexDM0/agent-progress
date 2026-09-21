@@ -75,6 +75,14 @@ describe('the command reference', () => {
     expect(HELP_TEXT).toContain('`12.3k`');
   });
 
+  /** `init` reads as destructive, so a reader refreshing a repository that already has a tracker has to be sent to `update` here. */
+  test('refreshing an adopted repository is offered as its own command, and the init entry points at it', () => {
+    expect(HELP_TEXT).toContain('  update ');
+    expect(HELP_TEXT).toContain('`update` is the command to reach for there');
+    expect(HELP_TEXT, 'the one line that says what is refreshed').toContain('managed CLAUDE.md block, `agent-brief.md`');
+    expect(HELP_TEXT, 'the flag that used to ask for the hook still works and the help says why').toContain('--hooks is still accepted and does nothing');
+  });
+
   test('the two ways to reach the tracker from elsewhere are documented', () => {
     expect(HELP_TEXT).toContain('AGENT_PROGRESS_ROOT');
     expect(HELP_TEXT).toContain('`--help` works after a command word');

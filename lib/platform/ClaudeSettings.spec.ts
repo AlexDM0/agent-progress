@@ -13,8 +13,8 @@ import {
   test
 } from 'bun:test';
 
-import { createScratchDirectory, removeScratchDirectory }   from '../tooling/dev/ScratchWorkspace';
-import { claudeSettingsFilePathFor, writeSubagentStopHook } from './ClaudeSettings';
+import { createScratchDirectory, removeScratchDirectory }                            from '../tooling/dev/ScratchWorkspace';
+import { claudeSettingsFilePathFor, refreshSubagentStopHook, writeSubagentStopHook } from './ClaudeSettings';
 
 const THE_HOOK = {
   matcher:        '',
@@ -150,5 +150,68 @@ describe('a settings file this cannot merge into', () => {
 
     expect(writeSubagentStopHook(settingsFilePath, THE_HOOK)).toBe('refused-unreadable');
     expect(readFileSync(settingsFilePath, 'utf8')).toBe('');
+  });
+});
+
+/**
+ * Refreshing an entry that is already there, which `agent-progress update` does with no flag: the
+ * install stays opt-in, so an absent entry is reported and nothing is written.
+ */
+describe('refreshing the hook rather than installing it', () => {
+  test('a repository with no settings file, and one whose settings hold no SubagentStop entry, are both absent and get nothing', () => {
+    const withoutAFile = scratchRoot('claude-settings-refresh-absent');
+    expect(refreshSubagentStopHook(claudeSettingsFilePathFor(withoutAFile), THE_HOOK)).toBe('absent');
+    expect(existsSync(claudeSettingsFilePathFor(withoutAFile)), 'a refresh installs nothing').toBe(false);
+
+    const withOtherHooks   = scratchRoot('claude-settings-refresh-other-hooks');
+    const otherHooksOnly   = `${JSON.stringify({ hooks: { SessionStart: [{ matcher: '', hooks: [{ type: 'command', command: 'echo hello' }] }] } }, null, 2)}\n`;
+    const settingsFilePath = writeSettings(withOtherHooks, otherHooksOnly);
+
+    expect(refreshSubagentStopHook(settingsFilePath, THE_HOOK)).toBe('absent');
+    expect(readFileSync(settingsFilePath, 'utf8')).toBe(otherHooksOnly);
+  });
+
+  test('an entry whose timeout is somebody else\'s is brought up to date, and the hook beside it survives', () => {
+    const rootDirectory = scratchRoot('claude-settings-refresh-updated');
+    const settingsFilePath = writeSettings(rootDirectory, `${JSON.stringify({
+      hooks: {
+        SubagentStop: [{
+          matcher: 'Explore',
+          hooks:   [
+            { type: 'command', command: 'say done' },
+            { type: 'command', command: THE_HOOK.command, timeout: 3 },
+          ],
+        }],
+      },
+    }, null, 2)}\n`);
+
+    expect(refreshSubagentStopHook(settingsFilePath, THE_HOOK)).toBe('updated');
+
+    expect((settingsIn(rootDirectory)['hooks'] as Record<string, unknown>)['SubagentStop']).toEqual([{
+      matcher: 'Explore',
+      hooks:   [
+        { type: 'command', command: 'say done' },
+        { type: 'command', command: THE_HOOK.command, timeout: 20 },
+      ],
+    }]);
+  });
+
+  test('an entry that already says what it should leaves the file byte for byte, so a refresh of a hand-formatted file is no diff', () => {
+    const rootDirectory    = scratchRoot('claude-settings-refresh-unchanged');
+    const theEntry         = `[{"matcher": "", "hooks": [{"type": "command", "command": "${THE_HOOK.command}", "timeout": 20}]}]`;
+    const handFormatted    = `{\n    "hooks": {\n        "SubagentStop": ${theEntry}\n    }\n}\n`;
+    const settingsFilePath = writeSettings(rootDirectory, handFormatted);
+
+    expect(refreshSubagentStopHook(settingsFilePath, THE_HOOK)).toBe('unchanged');
+    expect(readFileSync(settingsFilePath, 'utf8')).toBe(handFormatted);
+  });
+
+  test('a malformed document is refused and survives, exactly as an install refuses it', () => {
+    const rootDirectory    = scratchRoot('claude-settings-refresh-malformed');
+    const malformed        = '{ "hooks": { "SubagentStop": [ ';
+    const settingsFilePath = writeSettings(rootDirectory, malformed);
+
+    expect(refreshSubagentStopHook(settingsFilePath, THE_HOOK)).toBe('refused-unreadable');
+    expect(readFileSync(settingsFilePath, 'utf8')).toBe(malformed);
   });
 });

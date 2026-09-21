@@ -27,6 +27,9 @@ const CLAUDE_DIRECTORY_NAME = '.claude';
 
 const SETTINGS_FILE_NAME = 'settings.json';
 
+/** Claude Code reads this one over the shared file and keeps it out of git: what a subagent cost is the figure of whoever ran the tool. */
+const LOCAL_SETTINGS_FILE_NAME = 'settings.local.json';
+
 /** The harness's own spelling of the event, capitalised as it writes it; a lower-case one is simply never matched. */
 const SUBAGENT_STOP_EVENT_NAME = 'SubagentStop';
 
@@ -35,6 +38,8 @@ const COMMAND_HOOK_TYPE = 'command';
 const HOOKS_KEY = 'hooks';
 
 export type WriteSubagentStopHookOutcome = 'created' | 'added' | 'already-present' | 'refused-unreadable';
+
+export type RefreshSubagentStopHookOutcome = 'absent' | 'unchanged' | 'updated' | 'refused-unreadable';
 
 /** The timeout is in seconds because that is the unit the settings file stores; the name carries it so no caller has to guess. */
 export interface SubagentStopHook {
@@ -46,6 +51,11 @@ export interface SubagentStopHook {
 /** Derived rather than carried on `Workspace`: only `init --hooks` ever names this file, and `Workspace` is the set of paths every command shares. */
 export function claudeSettingsFilePathFor(rootDirectory: string): string {
   return join(rootDirectory, CLAUDE_DIRECTORY_NAME, SETTINGS_FILE_NAME);
+}
+
+/** The same file for the same writer, one name along: everything here takes a path, so neither of them is a second code path. */
+export function claudeLocalSettingsFilePathFor(rootDirectory: string): string {
+  return join(rootDirectory, CLAUDE_DIRECTORY_NAME, LOCAL_SETTINGS_FILE_NAME);
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
@@ -93,10 +103,32 @@ function groupAlreadyRunsTheCommand(group: unknown, command: string): boolean {
   return groupHooks.some((entry) => asRecord(entry)?.['command'] === command);
 }
 
+function commandEntryFor(hook: SubagentStopHook): Record<string, unknown> {
+  return {
+    type:    COMMAND_HOOK_TYPE,
+    command: hook.command,
+    timeout: hook.timeoutSeconds,
+  };
+}
+
 function groupFor(hook: SubagentStopHook): Record<string, unknown> {
   return {
     matcher: hook.matcher,
-    hooks:   [{ type: COMMAND_HOOK_TYPE, command: hook.command, timeout: hook.timeoutSeconds }],
+    hooks:   [commandEntryFor(hook)],
+  };
+}
+
+/** The group with this command's entry brought up to date, its matcher and any hook beside it left as whoever wrote them meant them. */
+function groupWithRefreshedEntry(group: unknown, hook: SubagentStopHook): unknown {
+  const groupRecord = asRecord(group);
+  if (groupRecord === undefined) return group;
+
+  const groupHooks = groupRecord[HOOKS_KEY];
+  if (!Array.isArray(groupHooks)) return group;
+
+  return {
+    ...groupRecord,
+    [HOOKS_KEY]: groupHooks.map((entry) => (asRecord(entry)?.['command'] === hook.command ? commandEntryFor(hook) : entry)),
   };
 }
 
@@ -130,4 +162,36 @@ export function writeSubagentStopHook(settingsFilePath: string, hook: SubagentSt
 
   writeFileAtomically(settingsFilePath, `${JSON.stringify(settings, null, JSON_INDENT)}\n`);
   return settingsFileExisted ? 'added' : 'created';
+}
+
+/**
+ * Brings an entry that is **already there** up to the hook this tool ships, and says whether that
+ * changed anything. An entry nobody installed stays `'absent'` and nothing is written: a first install
+ * into a file the user owns is the caller's decision, not this module's. Nothing is written when the
+ * entry already says what it should either, so refreshing a settings file somebody formatted by hand
+ * leaves no diff. The matcher and every hook beside this command's are left alone — the same tolerance
+ * `writeSubagentStopHook` shows, which recognises this command under any matcher.
+ */
+export function refreshSubagentStopHook(settingsFilePath: string, hook: SubagentStopHook): RefreshSubagentStopHookOutcome {
+  if (!fileExists(settingsFilePath)) return 'absent';
+
+  const settings = parsedSettings(settingsFilePath);
+  if (settings === 'unreadable') return 'refused-unreadable';
+
+  const hooksSection = asRecord(settings[HOOKS_KEY]);
+  if (hooksSection === undefined) return settings[HOOKS_KEY] === undefined ? 'absent' : 'refused-unreadable';
+
+  const eventGroupsValue = hooksSection[SUBAGENT_STOP_EVENT_NAME];
+  if (eventGroupsValue === undefined) return 'absent';
+  if (!Array.isArray(eventGroupsValue)) return 'refused-unreadable';
+
+  if (!eventGroupsValue.some((group) => groupAlreadyRunsTheCommand(group, hook.command))) return 'absent';
+
+  const refreshedGroups = eventGroupsValue.map((group) => (groupAlreadyRunsTheCommand(group, hook.command) ? groupWithRefreshedEntry(group, hook) : group));
+  if (JSON.stringify(refreshedGroups) === JSON.stringify(eventGroupsValue)) return 'unchanged';
+
+  hooksSection[SUBAGENT_STOP_EVENT_NAME] = refreshedGroups;
+  settings[HOOKS_KEY] = hooksSection;
+  writeFileAtomically(settingsFilePath, `${JSON.stringify(settings, null, JSON_INDENT)}\n`);
+  return 'updated';
 }

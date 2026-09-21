@@ -20,15 +20,26 @@ repository to use instead of walking up from the current directory.
   init                        Create the tracker here: \`.agent-progress/\` with an empty progress
       [--project <name>]      file, a \`tickets/\` folder and \`agent-brief.md\` — the brief to fill in
       [--root <path>]         before spawning an implementing agent — a \`.gitignore\` entry for it,
-      [--no-claude-md]        and a managed block in the repository's CLAUDE.md telling an agent to
-      [--hooks]               track its work through this tool. Refused when an ancestor already
-                              holds a tracker, when --root is not an existing directory, and inside
-                              a bare repository, which has no working tree to track. Re-running only
-                              refreshes the managed block and the brief. --project names the project
-                              shown on the page, --root tracks that directory instead of the
+      [--no-claude-md]        a managed block in the repository's CLAUDE.md telling an agent to track
+      [--no-hooks]            its work through this tool, and the SubagentStop hook below. Refused
+                              when an ancestor already holds a tracker, when --root is not an
+                              existing directory, and inside a bare repository, which has no working
+                              tree to track. Re-running only refreshes what \`update\` refreshes, and
+                              \`update\` is the command to reach for there. --project names the
+                              project shown on the page, --root tracks that directory instead of the
                               discovered repository root, --no-claude-md leaves CLAUDE.md alone, and
-                              --hooks writes the SubagentStop hook below into the repository's
-                              \`.claude/settings.json\`, merging into whatever is already there.
+                              --no-hooks writes no hook. --hooks is still accepted and does nothing:
+                              the hook it used to ask for is now written by default.
+
+  update                      Refresh what the tool wrote into a repository it already tracks: the
+      [--no-claude-md]        managed CLAUDE.md block, \`agent-brief.md\` — guidance shipped with the
+      [--no-hooks]            tool rather than a file a project edits — and the SubagentStop hook. It
+                              creates no tracker and touches neither the progress file, the tickets
+                              nor the log, so it takes no --project and no --root, and it is refused
+                              with exit 1 where there is none — \`agent-progress init\` makes one.
+                              Each line says whether that file changed, so a session that read the
+                              brief at its start learns that its copy is now stale. It takes the same
+                              --no-claude-md, --no-hooks and no-op --hooks as \`init\`.
 
   status [--json] [--full]    The project, the counts, the rows that are not delivered or
                               abandoned, and the last log entries newest first. --json prints the
@@ -70,8 +81,9 @@ repository to use instead of walking up from the current directory.
 
   hook subagent-stop          Record what a finished subagent cost, as one log line: the hook JSON
                               arrives on standard input, and the agent's transcript is summed per
-                              API call rather than per line. This is the command \`init --hooks\`
-                              wires into \`.claude/settings.json\`; nobody types it. It exits 0
+                              API call rather than per line. This is the command \`init\` and
+                              \`update\` wire into \`.claude/settings.local.json\`; nobody types it.
+                              It exits 0
                               whatever goes wrong — no input, an unreadable transcript, no tracker
                               at the hook's own working directory — and writes the reason to
                               standard error. Its exit code prevents nothing, since the agent has
