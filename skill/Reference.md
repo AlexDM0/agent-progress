@@ -57,20 +57,32 @@ it from the codebase.
 
 The **from** column is the matrix the named verbs enforce; `ticket status <id> <status>` skips it.
 
-| command | from | ticket status | its row | stamps written | log line |
-|---|---|---|---|---|---|
-| `ticket add` | — | open | created, `pending` | `filed` | `Ticket #003 filed: <title>` |
-| `ticket start` | open, in-review | in-progress | `running` | `started` if null; the row's end cleared | `Ticket #003 started` |
-| `ticket review` | in-progress | in-review | `finished` | `finished` if null | `Ticket #003 in review` |
-| `ticket rereview` | in-review | in-review, unchanged | `re-review`, one round up from 2 | `updated` only | `Ticket #003 in review, round 2` |
-| `ticket done` | in-progress, in-review | done | `reviewed` | `finished` if null | `Ticket #003 done` |
-| `ticket deliver` | done | delivered | `delivered` | `delivered` if null | `Ticket #003 delivered` |
-| `ticket abandon` | anything but delivered, abandoned | abandoned | `abandoned` | `abandonedAt`; the row's end if it had started | `Ticket #003 abandoned: <reason>` |
-| `ticket reopen` | anything but open | open | `pending` | all of them cleared | `Ticket #003 reopened` |
+**its row** is the status stored on the row; **pill** is what that row then reads on the chart.
+
+| command | from | ticket status | its row | pill | stamps written | log line |
+|---|---|---|---|---|---|---|
+| `ticket add` | — | open | created, `pending` | `unstarted` | `filed` | `Ticket #003 filed: <title>` |
+| `ticket start` | open, in-review | in-progress | `running` | `wip` | `started` if null; the row's end cleared | `Ticket #003 started` |
+| `ticket review` | in-progress | in-review | `finished` | `reviewing` | `finished` if null | `Ticket #003 in review` |
+| `ticket rereview` | in-review | in-review, unchanged | `re-review`, one round up from 2 | `reviewing 2` | `updated` only | `Ticket #003 in review, round 2` |
+| `ticket done` | in-progress, in-review | done | `reviewed` | `awaiting merge` | `finished` if null | `Ticket #003 done` |
+| `ticket deliver` | done | delivered | `delivered` | `done` | `delivered` if null | `Ticket #003 delivered` |
+| `ticket abandon` | anything but delivered, abandoned | abandoned | `abandoned` | `abandoned` | `abandonedAt`; the row's end if it had started | `Ticket #003 abandoned: <reason>` |
+| `ticket reopen` | anything but open | open | `pending` | `unstarted` | all of them cleared | `Ticket #003 reopened` |
+
+**`done` on the chart means merged**, which is why the two vocabularies differ: a row stored as
+`finished` is not finished with, it is waiting for a reviewer, and one stored as `reviewed` is
+waiting for its branch to go in. A free-standing row — a review pass, a chore, anything with no
+branch to merge — reaches `done` through `agent-progress task deliver <id>` once its work is
+accepted. A row that never gets there is a row the chart shows as still owed.
+
+Every one of those moves is appended to the row's own phase history, which the dashboard shows when
+a row is double-clicked, with how long the row sat in each phase. `task update --status` is
+deliberately not: it corrects a row rather than moving it.
 
 Moving a ticket to the status it already has is refused with exit 1 and logs nothing, and
 `ticket rereview` is the one exception: a further reviewer is still review, so the round is
-counted on the row, whose pill reads `review 2`, and the ticket stays in-review. A ticket taken
+counted on the row, whose pill reads `reviewing 2`, and the ticket stays in-review. A ticket taken
 straight to a closing status with `ticket status`, having never started, gets a row whose start is
 stamped along with its end — an end without a start would draw from the origin of the chart. There
 is no `paused` ticket status: `task pause <id>` records a waiting row, and the ticket stays where it

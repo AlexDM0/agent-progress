@@ -6,6 +6,7 @@ import type {
   LogEntry,
   ProgressFile,
   Task,
+  TaskPhase,
   TaskStatus,
   ViewRange
 } from '../constants/Types';
@@ -16,6 +17,9 @@ import type { Workspace }      from '../platform/Workspace';
 const SUPPORTED_PROGRESS_VERSION = 1;
 
 const FIRST_TASK_ID = 1;
+
+/** The statuses whose moment is the row's `end` rather than its `start`, which is what a seeded phase is stamped at. */
+const TASK_STATUSES_THAT_CLOSE_THE_BAR: readonly TaskStatus[] = ['finished', 're-review', 'reviewed', 'delivered', 'abandoned'];
 
 export type ReadProgressFileResult =
   | { verdict: 'readable'; progress: ProgressFile }
@@ -33,6 +37,8 @@ export interface AddTaskInput {
   tokens?:      number | null;
   reviewed?:    string;
   reviewRound?: number;
+  /** When the row was filed. It is the stamp a `pending` row's first phase carries, and the only way the queue interval is ever measurable. */
+  filedAt?:     string;
 }
 
 /** `trackerId` comes from the caller: this module has no randomness, and `clear` has to keep the existing id. */
@@ -77,6 +83,17 @@ function reviewRoundIsWellFormed(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= FIRST_REPEAT_REVIEW_ROUND;
 }
 
+function taskPhaseIsWellFormed(value: unknown): value is TaskPhase {
+  if (typeof value !== 'object' || value === null) return false;
+  const phase = value as Record<string, unknown>;
+  if (typeof phase['status'] !== 'string' || !taskStatusIsKnown(phase['status'])) return false;
+  return typeof phase['at'] === 'string';
+}
+
+function taskHistoryIsWellFormed(value: unknown): value is TaskPhase[] {
+  return Array.isArray(value) && value.every(taskPhaseIsWellFormed);
+}
+
 function taskProblem(value: unknown, index: number): string | null {
   if (typeof value !== 'object' || value === null) return `tasks[${index}] is not an object`;
   const task = value as Record<string, unknown>;
@@ -94,6 +111,9 @@ function taskProblem(value: unknown, index: number): string | null {
   if (task['reviewed'] !== undefined && typeof task['reviewed'] !== 'string') return `tasks[${index}].reviewed is present but not a timestamp`;
   if (task['reviewRound'] !== undefined && !reviewRoundIsWellFormed(task['reviewRound'])) {
     return `tasks[${index}].reviewRound is present and is not a whole round of at least ${FIRST_REPEAT_REVIEW_ROUND}`;
+  }
+  if (task['history'] !== undefined && !taskHistoryIsWellFormed(task['history'])) {
+    return `tasks[${index}].history is present and is not a list of phases, each a known status with the timestamp it was reached at`;
   }
   return null;
 }
@@ -175,8 +195,22 @@ export function findTask(progress: ProgressFile, taskId: number): Task | undefin
   return progress.tasks.find((task) => task.id === taskId);
 }
 
+/**
+ * The stamp follows the status: a phase that opens the row's interval is stamped where it opens, a terminal one where it closes, and a
+ * `pending` row is stamped where it was filed. A caller that supplied no stamp at all leaves the row with nothing to record.
+ */
+function seededHistoryFor(input: AddTaskInput): TaskPhase[] | null {
+  const status = input.status ?? 'pending';
+  if (status === 'pending') {
+    return input.filedAt === undefined ? null : [{ status, at: input.filedAt }];
+  }
+  const reachedAt = TASK_STATUSES_THAT_CLOSE_THE_BAR.includes(status) ? input.end ?? input.start : input.start ?? input.end;
+  return reachedAt === undefined || reachedAt === null ? null : [{ status, at: reachedAt }];
+}
+
 export function addTask(progress: ProgressFile, input: AddTaskInput): Task {
-  const task: Task = {
+  const seededHistory = seededHistoryFor(input);
+  const task: Task    = {
     id:     takeNextTaskId(progress),
     name:   input.name,
     status: input.status ?? 'pending',
@@ -188,6 +222,7 @@ export function addTask(progress: ProgressFile, input: AddTaskInput): Task {
     tokens: input.tokens ?? null,
     ...(input.reviewed === undefined ? {} : { reviewed: input.reviewed }),
     ...(input.reviewRound === undefined ? {} : { reviewRound: input.reviewRound }),
+    ...(seededHistory === null ? {} : { history: seededHistory }),
   };
   progress.tasks.push(task);
   return task;
@@ -200,10 +235,21 @@ export function setTaskTokens(progress: ProgressFile, taskId: number, tokens: nu
   return 'applied';
 }
 
-/** An existing timestamp is never overwritten, which is what makes re-running a command safe. */
+function recordPhase(task: Task, status: TaskStatus, at: string): void {
+  const history = task.history ?? [];
+  history.push({ status, at });
+  task.history = history;
+}
+
+/**
+ * An existing timestamp is never overwritten, which is what makes re-running a command safe — and a phase is filed only when the
+ * status really moved, `re-review` excepted, because every review round is an event of its own on a row that does not change status.
+ */
 export function transitionTask(progress: ProgressFile, taskId: number, status: TaskStatus, at: string): 'applied' | 'no-such-task' {
   const task = findTask(progress, taskId);
   if (task === undefined) return 'no-such-task';
+
+  const statusMoved = task.status !== status;
 
   if (status === 'running' || status === 'paused') {
     task.start = task.start ?? at;
@@ -221,6 +267,8 @@ export function transitionTask(progress: ProgressFile, taskId: number, status: T
     delete task.reviewed;
     delete task.reviewRound;
   }
+
+  if (statusMoved || status === 're-review') recordPhase(task, status, at);
 
   task.status = status;
   return 'applied';

@@ -1,6 +1,6 @@
 /**
- * The store's three halves: what it refuses to believe, what it does to a task's timestamps, and
- * that a task id is never handed out twice.
+ * The store's four concerns: what it refuses to believe, what it does to a task's timestamps, which
+ * moves it files as a phase, and that a task id is never handed out twice.
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { afterAll, expect, test }                 from 'bun:test';
@@ -132,6 +132,13 @@ test('every other missing or mistyped field is named too', () => {
     { prefix: 'store-first-review-round', document: { ...progress, tasks: [{ ...progress.tasks[0], reviewRound: 1 }] }, named: 'tasks[0].reviewRound' },
     { prefix: 'store-fractional-round', document: { ...progress, tasks: [{ ...progress.tasks[0], reviewRound: 2.5 }] }, named: 'tasks[0].reviewRound' },
     { prefix: 'store-written-round', document: { ...progress, tasks: [{ ...progress.tasks[0], reviewRound: 'second' }] }, named: 'tasks[0].reviewRound' },
+    { prefix: 'store-history-not-array', document: { ...progress, tasks: [{ ...progress.tasks[0], history: 'running' }] }, named: 'tasks[0].history' },
+    {
+      prefix:   'store-history-unknown-status',
+      document: { ...progress, tasks: [{ ...progress.tasks[0], history: [{ status: 'blocked', at: FILED_AT }] }] },
+      named:    'tasks[0].history',
+    },
+    { prefix: 'store-history-no-stamp', document: { ...progress, tasks: [{ ...progress.tasks[0], history: [{ status: 'running' }] }] }, named: 'tasks[0].history' },
   ];
   for (const { prefix, document, named } of cases) {
     const result = readBack(prefix, document);
@@ -393,6 +400,90 @@ test('putting a reviewed task back to pending drops its review stamp', () => {
   const task     = addTask(progress, { name: 'Review pass', status: 'reviewed', reviewed: FINISHED_AT });
   transitionTask(progress, task.id, 'pending', '2026-09-19T09:00:00+02:00');
   expect(task.reviewed).toBeUndefined();
+});
+
+/**
+ * How long a row sat in the queue before anybody picked it up is the interval an orchestrator most wants, and it is
+ * measurable only if the filing is a phase of its own. Without a stamp to file it at there is still nothing to record.
+ */
+test('a row filed as pending records that it was filed, at the moment it was filed', () => {
+  const progress = emptyProgress();
+
+  expect(addTask(progress, { name: 'Queued', filedAt: FILED_AT }).history).toEqual([{ status: 'pending', at: FILED_AT }]);
+  expect(addTask(progress, { name: 'Queued explicitly', status: 'pending', filedAt: FILED_AT }).history).toEqual([{ status: 'pending', at: FILED_AT }]);
+  expect(addTask(progress, { name: 'Filed by a caller that said nothing' }).history).toBeUndefined();
+});
+
+// A row filed straight into a later status was in that status from the stamp it was filed with; without a stamp there is nothing to record.
+test('a row filed into a status it is already in records that as its first phase, at the stamp that status is kept at', () => {
+  const progress = emptyProgress();
+  const running  = addTask(progress, {
+    name: 'Already going', status: 'running', start: STARTED_AT, end: FINISHED_AT
+  });
+  const closed   = addTask(progress, {
+    name: 'Filed closed', status: 'reviewed', start: STARTED_AT, end: FINISHED_AT
+  });
+
+  expect(running.history, 'a running row opened its interval at its start, whatever end it was handed').toEqual([{ status: 'running', at: STARTED_AT }]);
+  expect(closed.history, 'the row reached that status when it closed, not when it opened').toEqual([{ status: 'reviewed', at: FINISHED_AT }]);
+  expect(addTask(progress, { name: 'No stamp at all', status: 'running' }).history).toBeUndefined();
+});
+
+test('every move a row really makes is appended as a phase, oldest first', () => {
+  const progress = emptyProgress();
+  const task     = addTask(progress, { name: 'Review pass' });
+  transitionTask(progress, task.id, 'running', STARTED_AT);
+  transitionTask(progress, task.id, 'finished', FINISHED_AT);
+  transitionTask(progress, task.id, 'reviewed', '2026-09-19T09:00:00+02:00');
+
+  expect(task.history).toEqual([
+    { status: 'running', at: STARTED_AT },
+    { status: 'finished', at: FINISHED_AT },
+    { status: 'reviewed', at: '2026-09-19T09:00:00+02:00' },
+  ]);
+});
+
+// The re-run that keeps a stamp from moving must not file a second phase either: nothing happened.
+test('repeating a move files no second phase, because the row did not move', () => {
+  const progress = emptyProgress();
+  const task     = addTask(progress, { name: 'Review pass' });
+  transitionTask(progress, task.id, 'finished', FINISHED_AT);
+  transitionTask(progress, task.id, 'finished', '2026-09-19T09:00:00+02:00');
+
+  expect(task.history).toEqual([{ status: 'finished', at: FINISHED_AT }]);
+});
+
+// The one exception: a row stays in `re-review` between rounds, so counting only status changes would lose every round after the second.
+test('a further review round is a phase of its own although the status does not change', () => {
+  const progress = emptyProgress();
+  const task     = addTask(progress, { name: 'Review pass' });
+  transitionTask(progress, task.id, 'finished', FINISHED_AT);
+  transitionTask(progress, task.id, 're-review', '2026-09-19T09:00:00+02:00');
+  transitionTask(progress, task.id, 're-review', '2026-09-19T10:00:00+02:00');
+
+  expect(task.history?.map((phase) => phase.status)).toEqual(['finished', 're-review', 're-review']);
+  expect(task.reviewRound).toBe(3);
+});
+
+// The phases are the record of what happened; a row sent back to pending went back, which is itself something that happened.
+test('sending a row back to pending files that as a phase and keeps the phases that led there', () => {
+  const progress = emptyProgress();
+  const task     = addTask(progress, { name: 'Review pass', filedAt: FILED_AT });
+  transitionTask(progress, task.id, 'running', STARTED_AT);
+  transitionTask(progress, task.id, 'pending', FINISHED_AT);
+
+  expect(task.history).toEqual([
+    { status: 'pending', at: FILED_AT },
+    { status: 'running', at: STARTED_AT },
+    { status: 'pending', at: FINISHED_AT },
+  ]);
+});
+
+test('a history of known statuses with their stamps is read back', () => {
+  const progress = emptyProgress();
+  addTask(progress, { name: 'Review pass' });
+  const document = { ...progress, tasks: [{ ...progress.tasks[0], history: [{ status: 'running', at: STARTED_AT }] }] };
+  expect(readBack('store-history-readable', document).verdict).toBe('readable');
 });
 
 test('a transition on a task that is not there says so instead of throwing', () => {

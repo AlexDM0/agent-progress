@@ -125,6 +125,28 @@ describe.skipIf(!gitIsAvailable())('the lifecycle of a row', () => {
     expect(task?.start).toBe(startBefore ?? null);
     expect(task?.end).toBeNull();
   });
+
+  // The same reason it moves no timestamp: `update` corrects a row rather than moving it, and a correction is not something that happened.
+  test('update files no phase, while the verbs that really move the row file one each', async () => {
+    await run(['task', 'add', 'Review pass', '--start']);
+
+    await run(['task', 'update', '1', '--status', 'finished']);
+    expect(storedProgress().tasks[0]?.history?.map((phase) => phase.status)).toEqual(['pending', 'running']);
+
+    await run(['task', 'review', '1']);
+    expect(storedProgress().tasks[0]?.history?.map((phase) => phase.status)).toEqual(['pending', 'running', 'reviewed']);
+  });
+
+  // The queue interval is what an orchestrator reads the panel for, and it is measurable only if the filing itself is a phase.
+  test('a row is filed as a phase of its own, so the time it waited to be picked up is on the record', async () => {
+    await run(['task', 'add', 'Review pass', '--at', '-2h']);
+    expect(storedProgress().tasks[0]?.history).toEqual([{ status: 'pending', at: expect.any(String) }]);
+
+    await run(['task', 'start', '1']);
+    const history = storedProgress().tasks[0]?.history ?? [];
+    expect(history.map((phase) => phase.status)).toEqual(['pending', 'running']);
+    expect(Date.parse(history[1]?.at ?? '') - Date.parse(history[0]?.at ?? ''), 'two hours in the queue').toBe(2 * 60 * 60 * 1000);
+  });
 });
 
 describe.skipIf(!gitIsAvailable())('refusals a caller can act on', () => {

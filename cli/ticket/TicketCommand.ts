@@ -225,7 +225,12 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
       at: change.at,
     });
     if (dependsOn.length > 0) filed.frontmatter.dependsOn = dependsOn;
-    ensureTaskForTicket({ progress: change.progress, ticket: filed, operations: progressOperations });
+    ensureTaskForTicket({
+      progress:   change.progress,
+      ticket:     filed,
+      operations: progressOperations,
+      at:         change.at,
+    });
     appendLogEntry(change.progress, change.at, `Ticket #${filed.frontmatter.id} filed: ${title}`);
     change.writeTicketAfterwards(filed);
     return filed;

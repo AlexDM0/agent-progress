@@ -105,14 +105,15 @@ describe('taskRowsMarkup', () => {
     expect([...markup.matchAll(/data-task-id="(\d+)"/g)].map((match) => match[1])).toEqual(['3', '2', '1']);
   });
 
+  // The ladder the chart is read by: every label names the state the row is in, and `done` means merged.
   test.each<[TaskStatus, string]>([
     ['pending', 'unstarted'],
-    ['running', 'WIP'],
+    ['running', 'wip'],
     ['paused', 'paused'],
-    ['finished', 'finished'],
-    ['re-review', 'review 2'],
-    ['reviewed', 'reviewed'],
-    ['delivered', 'delivered'],
+    ['finished', 'awaiting review'],
+    ['re-review', 'reviewing 2'],
+    ['reviewed', 'awaiting merge'],
+    ['delivered', 'done'],
     ['abandoned', 'abandoned'],
   ])('gives a %s row exactly one pill reading %s', (status, label) => {
     const markup = rowFor(exampleTask({ status }));
@@ -160,12 +161,12 @@ describe('taskRowsMarkup', () => {
     const markup = rowFor(exampleTask({ status: 're-review', reviewRound: 3 }), 'in-review');
 
     expect(markup).toContain('data-state="re-review"');
-    expect(markup).toContain('<span class="ap-pill">review 3</span>');
+    expect(markup).toContain('<span class="ap-pill">reviewing 3</span>');
   });
 
   // A row moved by hand to the repeat state has no round on it; the state itself says it is at least the second pass.
   test('reads a repeat review with no round recorded as the second pass', () => {
-    expect(rowFor(exampleTask({ status: 're-review' }))).toContain('<span class="ap-pill">review 2</span>');
+    expect(rowFor(exampleTask({ status: 're-review' }))).toContain('<span class="ap-pill">reviewing 2</span>');
   });
 
   test('leaves every other status alone whatever its ticket says', () => {
@@ -215,7 +216,8 @@ describe('taskRowsMarkup', () => {
 });
 
 describe('summaryStatsMarkup', () => {
-  test('counts finished, reviewed and delivered cumulatively', () => {
+  // `done` is the merged rows over the total, and the two figures beside it are what is still owed: a merge, and a review.
+  test('reads in the same ladder as the pills: done out of the total, then what is awaited', () => {
     const markup = summaryStatsMarkup([
       exampleTask({ id: 1, status: 'pending' }),
       exampleTask({ id: 2, status: 'finished' }),
@@ -223,19 +225,22 @@ describe('summaryStatsMarkup', () => {
       exampleTask({ id: 4, status: 'delivered' }),
     ]);
 
-    expect(markup).toContain('<span class="ap-stat-n">3/4</span> finished');
-    expect(markup).toContain('<span class="ap-stat-n">2</span> reviewed');
-    expect(markup).toContain('<span class="ap-stat-n">1</span> delivered');
+    expect(markup).toContain('<span class="ap-stat-n">1/4</span> done');
+    expect(markup).toContain('<span class="ap-stat-n">1</span> awaiting merge');
+    expect(markup).toContain('<span class="ap-stat-n">1</span> in review');
   });
 
-  test('counts a row sent round for another review as finished, and not yet as reviewed', () => {
+  // A delivered row is done and nothing else: it is not still awaiting the merge it already had.
+  test('counts a row sent round for another review as in review, and a delivered row only as done', () => {
     const markup = summaryStatsMarkup([
       exampleTask({ id: 1, status: 're-review', reviewRound: 3 }),
       exampleTask({ id: 2, status: 'reviewed' }),
+      exampleTask({ id: 3, status: 'delivered' }),
     ]);
 
-    expect(markup).toContain('<span class="ap-stat-n">2/2</span> finished');
-    expect(markup).toContain('<span class="ap-stat-n">1</span> reviewed');
+    expect(markup).toContain('<span class="ap-stat-n">1/3</span> done');
+    expect(markup).toContain('<span class="ap-stat-n">1</span> awaiting merge');
+    expect(markup).toContain('<span class="ap-stat-n">1</span> in review');
   });
 
   test('sums the reported token counts and omits the figure when none were reported', () => {
@@ -286,6 +291,11 @@ describe('ticketTableRowsMarkup', () => {
     expect(markup).toContain('<a href="#ap-task-3">#3</a>');
     expect(markup).toContain('<span class="ap-badge in-review">in-review</span>');
     expect(markup).toContain('ticket/exporter-passes');
+  });
+
+  // The only thing on a ticket table row that says which ticket it is without parsing a link: the detail panel resolves it from here.
+  test('names its ticket on the row itself', () => {
+    expect(ticketTableRowsMarkup([exampleTicket()], NO_WAITING)).toContain('<tr data-ticket-id="003">');
   });
 
   test('leaves the task cell empty for a ticket with no row yet', () => {

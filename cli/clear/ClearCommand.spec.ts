@@ -76,6 +76,19 @@ describe.skipIf(!gitIsAvailable())('clearing while keeping the tickets', () => {
     expect(context.outputText()).toContain('re-seeded');
   });
 
+  /**
+   * A re-seeded row did not live through the phases the ticket records, and a list derived from the ticket's stamps
+   * would be indistinguishable from one the tool watched — so the row comes back knowing only the state it came back in.
+   */
+  test('a re-seeded row carries the one phase it was re-seeded into, not a history read off the ticket', async () => {
+    expect(storedProgress().tasks[0]?.history?.map((phase) => phase.status), 'the row before the clear').toEqual(['pending', 'running', 'reviewed']);
+
+    await run(['clear', '--yes']);
+
+    const [seeded] = storedProgress().tasks;
+    expect(seeded?.history).toEqual([{ status: 'reviewed', at: seeded?.end ?? '' }]);
+  });
+
   test('the log restarts with one line saying why it is empty', async () => {
     await run(['clear', '--yes']);
 

@@ -153,6 +153,7 @@ async function addOneTask(commandArguments: ArgumentParser, context: CommandCont
 
     const created = addTask(progress, {
       name,
+      filedAt: at,
       ...(owner === undefined ? {} : { owner }),
       ...(note === undefined ? {} : { note }),
       ...(tokens === undefined ? {} : { tokens }),

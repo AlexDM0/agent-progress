@@ -125,6 +125,30 @@ chart full of those is how the expensive habits stay invisible.
 - A **Tickets** tab: a summary table, then one card per ticket with its body rendered as markdown
   (`done`, `delivered` and `abandoned` collapsed). The chosen tab and the open cards are kept in the
   browser, so the refresh lands where you were.
+- **A pill naming the state the row is actually in, where `done` means merged.** The stored status
+  and the word on the pill are not the same vocabulary, because a row that is `finished` is not
+  finished with — it is waiting for somebody:
+
+  | stored status | pill | what it means |
+  |---|---|---|
+  | `pending` | `unstarted` | filed, nobody on it |
+  | `running` | `wip` | an agent is working |
+  | `paused` | `paused` | the work is waiting on something |
+  | `finished` | `awaiting review` | handed in, no reviewer yet |
+  | `finished`, ticket `in-review` | `reviewing` | a reviewer has it |
+  | `re-review` | `reviewing 2`, `reviewing 3`, … | a further review pass, numbered from the second |
+  | `reviewed` | `awaiting merge` | the review passed, the branch is not in yet |
+  | `delivered` | `done` | merged; nothing more has to happen to this row |
+  | `abandoned` | `abandoned` | called off, kept for the record |
+
+  The summary above the chart reads the same way: `<merged>/<total> done`, then how many are
+  awaiting a merge and how many are in review. A row with nothing to merge — a review pass, a
+  chore — still reaches `done`, through `agent-progress task deliver <id>`; that is the
+  orchestrator's job, and a chart whose rows stop at `awaiting review` is a chart nobody closed.
+- **Double-click any row** — in the chart or in the ticket table — for the whole story of that task
+  in one panel: its facts, every phase it went through with how long it sat in each, the ticket
+  with its body, and the log lines that name either. A row filed before phases were recorded says
+  so and shows what can be derived from its stamps instead. Esc, the backdrop or the × closes it.
 - A **range bar** with the presets Auto · 1h · 4h · 12h · 24h · 7d · All, free-text bounds that
   accept `start`, `now` and `-2h` as well as timestamps, and a tick-step selector. A viewer's choice
   is kept in their browser and survives the refresh; Auto hands control back to the default stored
@@ -202,7 +226,13 @@ own (an unreadable progress file, a lock it could not take).
       "ticket": "003",                           // or null
       "tokens": 48000,                           // or null: "nobody said", which is not "it used none"
       "reviewed": "2026-09-18T22:10:00+02:00",   // absent until the row is first reviewed; kept through delivery
-      "reviewRound": 2                           // absent until a second review pass is asked for: 2, then 3, kept as history
+      "reviewRound": 2,                          // absent until a second review pass is asked for: 2, then 3, kept as history
+      "history": [                               // every status the row really reached, oldest first, starting with the
+        { "status": "pending",                   // moment it was filed — so the panel can say how long it sat in the
+          "at": "2026-09-18T21:12:00+02:00" },   // queue. Absent on a row filed before the field existed, and the
+        { "status": "running",                   // panel says so rather than quietly guessing.
+          "at": "2026-09-18T21:30:54+02:00" }
+      ]
     }
   ],
   "log": [{ "at": "2026-09-18T21:30:54+02:00", "text": "Wave 1 landed." }]
@@ -249,17 +279,24 @@ falls back to the template.
 ### What a ticket move does to its row
 
 The **from** column is the matrix the named verbs enforce; `ticket status <id> <status>` skips it.
+**its row** is the status stored; **pill** is what that row then reads on the chart.
 
-| command | from | ticket status | its row | stamps written | log line |
-|---|---|---|---|---|---|
-| `ticket add` | — | open | created, `pending` | `filed` | `Ticket #003 filed: <title>` |
-| `ticket start` | open, in-review | in-progress | `running` | `started` if null; the row's end cleared | `Ticket #003 started` |
-| `ticket review` | in-progress | in-review | `finished` | `finished` if null | `Ticket #003 in review` |
-| `ticket rereview` | in-review | in-review, unchanged | `re-review`, one round up from 2 | `updated` only | `Ticket #003 in review, round 2` |
-| `ticket done` | in-progress, in-review | done | `reviewed` | `finished` if null | `Ticket #003 done` |
-| `ticket deliver` | done | delivered | `delivered` | `delivered` if null | `Ticket #003 delivered` |
-| `ticket abandon` | anything but delivered, abandoned | abandoned | `abandoned` | `abandonedAt`; the row's end if it had started | `Ticket #003 abandoned: <reason>` |
-| `ticket reopen` | anything but open | open | `pending` | all of them cleared | `Ticket #003 reopened` |
+| command | from | ticket status | its row | pill | stamps written | log line |
+|---|---|---|---|---|---|---|
+| `ticket add` | — | open | created, `pending` | `unstarted` | `filed` | `Ticket #003 filed: <title>` |
+| `ticket start` | open, in-review | in-progress | `running` | `wip` | `started` if null; the row's end cleared | `Ticket #003 started` |
+| `ticket review` | in-progress | in-review | `finished` | `reviewing` | `finished` if null | `Ticket #003 in review` |
+| `ticket rereview` | in-review | in-review, unchanged | `re-review`, one round up from 2 | `reviewing 2` | `updated` only | `Ticket #003 in review, round 2` |
+| `ticket done` | in-progress, in-review | done | `reviewed` | `awaiting merge` | `finished` if null | `Ticket #003 done` |
+| `ticket deliver` | done | delivered | `delivered` | `done` | `delivered` if null | `Ticket #003 delivered` |
+| `ticket abandon` | anything but delivered, abandoned | abandoned | `abandoned` | `abandoned` | `abandonedAt`; the row's end if it had started | `Ticket #003 abandoned: <reason>` |
+| `ticket reopen` | anything but open | open | `pending` | `unstarted` | all of them cleared | `Ticket #003 reopened` |
+
+Filing the row is itself the first entry in its `history`, and each of those moves appends another,
+so the panel a double-click opens can say when the row reached each state and how long it sat there
+— the wait between `unstarted` and `wip` being the queue time. `task update --status` is deliberately
+not appended: it corrects a row rather than moving it, and a correction is not something that
+happened.
 
 Moving a ticket to the status it already has is refused and logs nothing, and `ticket rereview` is
 the one exception: every review pass is still review, so the round is counted on the row rather than

@@ -114,6 +114,28 @@ describe.skipIf(!gitIsAvailable())('moving a ticket', () => {
     expect(storedTicketText()).not.toContain('delivered: null');
   });
 
+  // The row a ticket files starts in the queue, and how long it waited there is only measurable if the filing is a phase.
+  test('the row a ticket files records its filing, and every later move adds one', async () => {
+    expect(storedProgress().tasks[0]?.history?.map((phase) => phase.status)).toEqual(['pending']);
+
+    await run(['ticket', 'start', '1']);
+    await run(['ticket', 'review', '1']);
+    await run(['ticket', 'rereview', '1']);
+    await run(['ticket', 'done', '1']);
+
+    expect(storedProgress().tasks[0]?.history?.map((phase) => phase.status)).toEqual(['pending', 'running', 'finished', 're-review', 'reviewed']);
+  });
+
+  // Reopening is something that happened to the row, and it is what restarts the review rounds the panel counts.
+  test('reopen files a pending phase of its own after the phases that led to it', async () => {
+    await run(['ticket', 'start', '1']);
+    await run(['ticket', 'done', '1']);
+
+    await run(['ticket', 'reopen', '1']);
+
+    expect(storedProgress().tasks[0]?.history?.map((phase) => phase.status)).toEqual(['pending', 'running', 'reviewed', 'pending']);
+  });
+
   test('reopen clears the stamps and returns the row to pending', async () => {
     await run(['ticket', 'start', '1']);
     await run(['ticket', 'done', '1']);

@@ -24,6 +24,7 @@ export interface AddTaskInput {
   start?:    string;
   end?:      string;
   reviewed?: string;
+  filedAt?:  string;
 }
 
 export interface ProgressOperations {
@@ -37,6 +38,11 @@ export interface TicketRowInput {
   progress:   ProgressFile;
   ticket:     Ticket;
   operations: ProgressOperations;
+}
+
+/** `at` is used only when there is no row yet: a row a ticket files is filed at that moment, which is the first phase of its history. */
+export interface EnsureTaskForTicketInput extends TicketRowInput {
+  at: string;
 }
 
 export interface ApplyTicketRereviewInput {
@@ -93,7 +99,7 @@ export function ticketMoveIsLegal(currentStatus: TicketStatus, targetStatus: Tic
 }
 
 /** An existing row comes back untouched, so a row `ticket link --force` deliberately moved is never taken back. */
-export function ensureTaskForTicket(input: TicketRowInput): Task {
+export function ensureTaskForTicket(input: EnsureTaskForTicketInput): Task {
   const { progress, ticket, operations } = input;
   const { frontmatter }                  = ticket;
   const linkedTask                       = frontmatter.task === null ? undefined : operations.findTask(progress, frontmatter.task);
@@ -103,9 +109,10 @@ export function ensureTaskForTicket(input: TicketRowInput): Task {
   }
 
   const created = operations.addTask(progress, {
-    name:   taskNameFor(frontmatter),
-    ticket: frontmatter.id,
-    status: 'pending',
+    name:    taskNameFor(frontmatter),
+    ticket:  frontmatter.id,
+    status:  'pending',
+    filedAt: input.at,
   });
 
   frontmatter.task = created.id;
@@ -141,7 +148,12 @@ export function applyTicketTransition(input: ApplyTicketTransitionInput): ApplyT
     frontmatter.reason = input.reason;
   }
 
-  const task = ensureTaskForTicket({ progress, ticket, operations });
+  const task = ensureTaskForTicket({
+    progress,
+    ticket,
+    operations,
+    at,
+  });
   // The row was just found or created, so `no-such-task` cannot come back.
   operations.transitionTask(progress, task.id, TASK_STATUS_FOR_TICKET_STATUS[targetStatus], at);
 
@@ -170,7 +182,12 @@ export function applyTicketRereview(input: ApplyTicketRereviewInput): ApplyTicke
 
   frontmatter.updated = at;
 
-  const task = ensureTaskForTicket({ progress, ticket, operations });
+  const task = ensureTaskForTicket({
+    progress,
+    ticket,
+    operations,
+    at,
+  });
   operations.transitionTask(progress, task.id, 're-review', at);
 
   const logText = `Ticket #${frontmatter.id} in review, round ${task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND}`;

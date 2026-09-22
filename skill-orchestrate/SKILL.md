@@ -182,13 +182,16 @@ the reviewer to do its step 4 first, so it does not spend a pass and then meet t
 3. Spawn the reviewer from the Review brief in `.agent-progress/agent-brief.md`, filled in, and
    nothing else: that block is the whole pass and this skill does not restate it. What you supply
    is the worktree, branch, main checkout and main line, the verification command, **the round** —
-   the number of `## Review` sections already in the ticket, plus one; the chart's `review N`
+   the number of `## Review` sections already in the ticket, plus one; the chart's `reviewing N`
    counts only `rereview` moves and trails it after a rebuild — and the two or three claims
    the ticket fails on if they are false. Name the measurement behind each: a reviewer that reads a
    diff and agrees with it finds nothing.
 
 **Every review verdict, whichever round, comes back here.** First
-`agent-progress task finish <reviewRowId> --tokens <n>`, then act on the words the report opens with.
+`agent-progress task finish <reviewRowId> --tokens <n>`, then act on the words the report opens with,
+and close the review's own row with `agent-progress task deliver <reviewRowId>` once you have. A
+review pass has no branch to merge, and `deliver` is the only way its row reaches `done`; a review
+bar left reading `awaiting review` is the chart saying a reviewer is still owed.
 A bundle's reviewer gives one verdict for the branch; the tracker moves below are then made for each
 ticket in it, and a `does not hold` names the ticket it is about — the others are released with the
 branch once that one is closed.
@@ -249,8 +252,9 @@ branch once that one is closed.
 
 Then refill the free slot in the same turn.
 
-Stop when every ticket is delivered or abandoned. Say so, summarise what shipped in a few lines, and
-wait for the next request — do not invent work to keep the loop running.
+Stop when every ticket is delivered or abandoned **and every row on the chart reads `done` or
+`abandoned`** — the review bars included. Say so, summarise what shipped in a few lines, and wait
+for the next request — do not invent work to keep the loop running.
 
 ## Your own working memory
 
@@ -279,6 +283,13 @@ When you do lose the thread — after a compaction, or a long gap — re-anchor 
 
 ## Keeping the board honest
 
+- **Every row you own reaches `done`, and `done` means merged.** That is why the pills read
+  `awaiting review`, `awaiting merge` and `done` rather than `finished` and `delivered`: each one
+  names who is still owed something. A ticket's row gets there through `ticket deliver`; a row with
+  nothing to merge — a review pass, a chore, any free-standing `task add` — gets there through
+  `agent-progress task deliver <id>` once its work is accepted. You are the only one who can close
+  a row, because you are the one who decides whether more work follows it, and a chart whose rows
+  stop at `awaiting review` is a chart nobody finished reading.
 - Every move goes through the CLI **at the moment it happens**, never batched at the end of a wave.
   A chart caught up afterwards has the wrong bars on it.
 - `--tokens` on every move that ends a row, taken from the hook's `input` figure where the hook is
