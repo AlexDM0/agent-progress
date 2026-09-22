@@ -285,9 +285,8 @@ command table of its own, and the one every agent loads has a size ceiling. Ever
 repository path in any markdown file or docblock is checked to exist by
 `lib/DocumentedPaths.spec.ts` — so a rename that leaves a dead citation behind fails the build.
 
-The conventions are in `CLAUDE.md`, with per-file detail in each folder's own. Rejected
-alternatives live in `docs/decisions.md`, agreed-and-not-started work in `docs/backlog.md`, and the
-original design in `docs/plan.md`.
+The conventions are in `CLAUDE.md`, with per-file detail in each folder's own, and
+agreed-and-not-started work in `docs/backlog.md`.
 
 ## Three decisions worth knowing
 

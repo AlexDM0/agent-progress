@@ -166,7 +166,6 @@ comments are the exception, not the rule. No comment walls.
   from the code (why this order, why this fallback, what was rejected and why). One sentence.
 - A comment never restates what the next line does, never narrates history, and never carries a
   measurement or an alternative unless a reader would otherwise reintroduce the wrong choice.
-  Rejected alternatives with their reasons belong in `docs/decisions.md`.
 - Name files repo-rooted with backticks when a comment or doc names one (the documented-path guard
   checks every named path exists).
 - No TODOs; agreed-and-not-done work lives in `docs/backlog.md`.
@@ -205,9 +204,8 @@ Enforced by review; the guard specs check paths, not prose.
   per-file one-liners and only the rules that matter there, never a paragraph duplicated from the
   root. **A change that adds, removes or renames a file, moves an entry point or invalidates a
   stated rule updates that folder's CLAUDE.md in the same change.**
-- `docs/decisions.md` holds what was rejected or withdrawn, with the measurement. `docs/backlog.md`
-  holds what is agreed and not started. Neither is a status page; "nothing is in flight" is stated
-  explicitly, with a date and branch when that stops being true.
+- `docs/backlog.md` holds what is agreed and not started. It is not a status page; "nothing is in
+  flight" is stated explicitly, with a date and branch when that stops being true.
 - Commit messages are one plain, human-written subject line. No AI attribution of any kind, no
   `Co-Authored-By` trailer, no generated-with footer.
 
@@ -250,10 +248,8 @@ templates/               The markdown this tool writes into somebody else's repo
                          CLAUDE.md block, the default ticket body, and `templates/AgentBrief.md`, the
                          brief `init` copies to `.agent-progress/agent-brief.md` on every run. Kept
                          as files, not string literals, so a change to the wording is a readable diff.
-docs/                    `docs/plan.md` (the design as agreed), `docs/decisions.md` (rejected, with
-                         the reason), `docs/backlog.md` (agreed, not started),
-                         `docs/review-findings.md` (the final adversarial review), `docs/design/`
-                         (the page brief and the sample the designer worked from).
+docs/                    `docs/backlog.md`: what is agreed and not started, with the reason it is
+                         not done yet. Not a status page.
 node_modules/            Git-ignored dependencies.
 ```
 

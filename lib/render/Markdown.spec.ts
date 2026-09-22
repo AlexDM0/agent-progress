@@ -89,7 +89,7 @@ describe('renderMarkdown', () => {
 
   test.each([
     ['an in-page anchor, which is how a ticket points at its Gantt row', '[the row](#task-17)', '<a href="#task-17">the row</a>'],
-    ['a relative path', '[the plan](./docs/plan.md)', '<a href="./docs/plan.md">the plan</a>'],
+    ['a relative path', '[the backlog](./docs/backlog.md)', '<a href="./docs/backlog.md">the backlog</a>'],
     ['an https link', '[home](https://example.com/x)', '<a href="https://example.com/x">home</a>'],
     ['a mailto link', '[mail](mailto:alex.example@example.com)', '<a href="mailto:alex.example@example.com">mail</a>'],
   ])('keeps %s', (_description, source, expectedAnchor) => {

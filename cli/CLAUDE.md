@@ -28,7 +28,7 @@ screen into a pipe somebody is parsing, is the failure this arrangement exists t
 ## Every mutating command renders under the lock
 
 `init`, `task`, `ticket`, `log`, `range` and `clear` all follow one sequence, and the order of its
-last three steps is the whole of the concurrency design in `docs/plan.md`:
+last three steps is the whole of the concurrency design:
 
 ```
 requireWorkspace → withLock → readProgressFile → mutate → writeProgressFile → write the tickets → rerenderDashboard

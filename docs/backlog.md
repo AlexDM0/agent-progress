@@ -5,9 +5,8 @@ written waiting for someone to come back to it. When that stops being true this 
 the date and the branch.
 
 This file is where a TODO would otherwise go — there are no TODOs in the code. An item here is
-**agreed in principle and deliberately not done**, with the reason it is not done yet. An idea that
-was considered and rejected belongs in `docs/decisions.md` instead, and neither file is a status
-page.
+**agreed in principle and deliberately not done**, with the reason it is not done yet. Something
+nobody has agreed to does not belong here, and this is not a status page.
 
 ---
 
@@ -49,10 +48,11 @@ has felt the need.
 
 ## Pausing a ticket, not only its row
 
-`task pause <id>` records that a row is waiting, and there is deliberately no ticket status for it
-(`docs/decisions.md`). The gap that leaves is a reader of the Tickets tab alone: a ticket sitting in
-`in-progress` for two days looks like work in flight, and only the chart says it has been paused
-since Tuesday.
+`task pause <id>` records that a row is waiting, and there is deliberately no ticket status for it:
+`TASK_STATUS_FOR_TICKET_STATUS` in `lib/constants/Statuses.ts` has no entry that reaches the state,
+because a paused ticket is still in progress. The gap that leaves is a reader of the Tickets tab
+alone: a ticket sitting in `in-progress` for two days looks like work in flight, and only the chart
+says it has been paused since Tuesday.
 
 Agreed in principle: surface the linked row's `paused` state on the ticket card, as a property of the
 row rather than as a ticket status. Not started because it is a render change and the page's template

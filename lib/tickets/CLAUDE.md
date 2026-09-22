@@ -8,7 +8,7 @@ that says what each status change writes. It does not own any command, any lock 
 |---|---|
 | `lib/tickets/Frontmatter.ts` | The YAML-shaped subset below: `parseTicketDocument(text)` → a verdict, `serializeTicketDocument(frontmatter, body)` → the file's text. |
 | `lib/tickets/TicketStore.ts` | The tickets directory as a store: `listTickets`, `readTicket`, `writeTicket`, `nextTicketId`, `createTicket`, `deleteAllTickets`. |
-| `lib/tickets/TicketTransitions.ts` | `ensureTaskForTicket`, `applyTicketTransition`, `applyTicketRereview`, `seedTaskFromTicket` — the ticket → task transition table from `docs/plan.md` — plus `LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS` and `ticketMoveIsLegal`, the matrix the named `ticket` verbs enforce. |
+| `lib/tickets/TicketTransitions.ts` | `ensureTaskForTicket`, `applyTicketTransition`, `applyTicketRereview`, `seedTaskFromTicket` — the ticket → task transition table below — plus `LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS` and `ticketMoveIsLegal`, the matrix the named `ticket` verbs enforce. |
 
 ## The frontmatter subset, in full
 
@@ -40,10 +40,36 @@ left to be read out of the parser.
   that is preserved is the order among those lines, not their position between the CLI's keys; see
   the rule below.
 - The CLI writes every string through `JSON.stringify` and omits an optional key it does not have.
-  Reading accepts both forms, so the unquoted style in `docs/plan.md`'s example parses too.
+  Reading accepts both forms, so a hand-written ticket with unquoted values parses too.
 - **Known keys are rewritten at the top in the fixed order above; everything in `extra` follows in
   its original relative order.** A rewrite therefore moves hand-written lines below the CLI's block
   once, and never again. The CLI owns the order of its own keys; agents own the order of the rest.
+
+## What each status change writes
+
+One row per target status, as `applyTicketTransition` applies it. `ticket add` files a ticket `open`
+with `filed` stamped and a `pending` row; every later move is one of these, whether it arrives
+through a named verb or through `ticket status <id> <status>`.
+
+| target | row status | ticket timestamps | log line |
+|---|---|---|---|
+| `open` | `pending` | `started`, `finished`, `delivered` and `abandonedAt` cleared; `reason` dropped | `Ticket #003 reopened` |
+| `in-progress` | `running` | `started` if still null | `Ticket #003 started` |
+| `in-review` | `finished` | `finished` if still null | `Ticket #003 in review` |
+| `done` | `reviewed` | `finished` if still null | `Ticket #003 done` |
+| `delivered` | `delivered` | `delivered` if still null | `Ticket #003 delivered` |
+| `abandoned` | `abandoned` | `abandonedAt`, always | `Ticket #003 abandoned: <reason>` |
+
+`updated` is stamped on every one of them, and `--branch`, `--commit` and `--reason` are written
+when given. **A closing timestamp is set only when it is still null, while `abandonedAt` is set every
+time**, because re-entering a status is a correction and abandoning twice is deciding twice.
+`abandoned` without a reason is refused. Moving to `open` is the one move that deletes something a
+person may have typed, which is why it is the only place `reason` is dropped.
+
+`applyTicketRereview` is outside the table: it stamps `updated`, moves the row to `re-review` and
+leaves the ticket `in-review` — see below. `seedTaskFromTicket` reads the same timestamps back the
+other way when `clear` rebuilds the rows, ending the bar at `finished` rather than at `delivered`,
+because delivery is a later fact about finished work rather than more of it.
 
 ## Which moves the verbs allow
 
