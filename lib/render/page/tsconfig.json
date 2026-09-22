@@ -7,12 +7,15 @@
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": []
   },
-  // The files outside this folder the page imports, named one by one: each imports nothing beyond
-  // lib/constants/, and compiling them here is what proves they stay environment-neutral.
+  // The files outside this folder the page reaches, named one by one so the surface is written down in
+  // one place. Naming them is not what puts them in the program — a page module's import already does,
+  // and every file the imports reach is checked under the DOM-only options above, which is what proves
+  // they stay environment-neutral.
   "include": [
     "./**/*.ts",
     "../../constants/Types.ts",
     "../../constants/Statuses.ts",
+    "../../constants/Limits.ts",
     "../../utils/HtmlEscapeUtil.ts",
     "../../utils/TokenCountUtil.ts",
     "../../utils/TicketDependencyUtil.ts"

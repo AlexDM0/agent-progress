@@ -85,12 +85,20 @@ against `generatedAt`, and `lib/constants/Limits.ts` no longer needs
 
 `lib/render/page/tsconfig.json` compiles that folder with the DOM library and **no Bun or Node
 types**, so a page module reaching for `Bun.file` or `node:fs` fails to compile rather than failing in
-a browser. The root project excludes the folder for the same reason in reverse. It additionally
-compiles `lib/constants/Types.ts`, `lib/constants/Statuses.ts`, `lib/utils/HtmlEscapeUtil.ts`,
-`lib/utils/TokenCountUtil.ts` and `lib/utils/TicketDependencyUtil.ts`, named one by one: none imports
-anything beyond `lib/constants/`, and compiling them here is what proves they stay
-environment-neutral. That is also what keeps the page from growing a second escaper, a second token
-formatter and a second idea of when a ticket stops waiting.
+a browser. The root project excludes the folder for the same reason in reverse.
+
+**A module a page file imports is compiled under those same options, whether or not the `include` list
+names it.** That is what proves the shared modules stay environment-neutral, and it reaches through an
+import chain: `lib/constants/Statuses.ts` is named, but it would be checked here anyway because
+`lib/utils/TicketDependencyUtil.ts` imports it. The list — `lib/constants/Types.ts`,
+`lib/constants/Statuses.ts`, `lib/constants/Limits.ts`, `lib/utils/HtmlEscapeUtil.ts`,
+`lib/utils/TokenCountUtil.ts` and `lib/utils/TicketDependencyUtil.ts` — is the written-down surface:
+everything outside this folder the page is allowed to reach, each importing nothing beyond
+`lib/constants/`, in one place a reviewer can read instead of collecting the import blocks. Sharing
+them is what keeps the page from growing a second escaper, a second token formatter, a second idea of
+when a ticket stops waiting and a second first repeat review round. **A page module that starts
+importing something new from outside the folder adds it here in the same change**, or the list stops
+being the surface and starts being a subset of it.
 
 The consequence: **no `*.spec.ts` may sit in `lib/render/page/`** — a spec's `bun:test` import would
 not resolve there. A page module's spec goes one level up and reaches it by a relative import, which
@@ -99,12 +107,19 @@ is how `lib/render/GanttGeometry.spec.ts`, `lib/render/PageData.spec.ts`,
 `lib/render/page/GanttPage.ts` holds no logic worth testing: everything that could be was moved into
 the DOM-free modules beside it.
 
-## The limits travel as data
+## The geometry limits travel as data
 
-The page cannot import `lib/constants/Limits.ts`, so `lib/render/Template.ts` builds a `limits` object
-from those constants into the progress island and `computeTimeline` takes it as a parameter.
-`lib/render/Template.spec.ts` asserts that what reaches the browser is the constants themselves. The
-five timestamp slice positions travel the same way, so no page module restates them.
+The page imports `lib/constants/Limits.ts` like any other shared module — `lib/render/page/PageMarkup.ts`
+and `lib/render/page/TaskDetail.ts` both take `FIRST_REPEAT_REVIEW_ROUND` from it, which is what keeps
+the round a pill prints and the round `transitionTask` writes one number.
+
+What travels as data is the axis arithmetic's own bounds. `lib/render/Template.ts` builds a `limits`
+object from those constants into the progress island, and `computeTimeline`, `rangeNoteText` and the
+long-done window take it as a parameter rather than reading the module. **The reason is the spec, not
+the folder boundary**: `lib/render/GanttGeometry.spec.ts` drives the geometry with a constructed tick
+ladder, so the numbers under test are the spec's own and not whatever the constants happen to say
+today. `lib/render/Template.spec.ts` pins the other end, that what reaches the browser is the constants
+themselves. The five timestamp slice positions travel the same way, so no page module restates them.
 
 ## Local rules worth knowing
 
