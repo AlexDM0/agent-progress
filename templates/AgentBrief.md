@@ -156,20 +156,25 @@ Anything else you report, fixing nothing: what you saw, where, and what you woul
 
 ## Ready to merge
 
-Every agent that touches a branch, builder or reviewer, leaves it ready to merge: committed, level
-with the main line, the full checks green on the merged result. What the reviewer judges is then what
-ships. A merge resolved after a passing review is unreviewed work riding in on a verdict that did not
-cover it, and a conflict resolution is the easiest place in a repository to lose a line nobody
-misses, or to loosen an assertion that was holding a defect down — so the merge comes before the
-review, and whoever resolves it says how much resolving there was.
+Every agent that touches a branch, builder or reviewer, leaves it ready to merge: committed, rebased
+onto the main line, the full checks green on the result. The branch is released by a fast-forward, so
+main stays one straight line of ticket commits, and what the reviewer judges is then what ships. A
+conflict resolved after a passing review is unreviewed work riding in on a verdict that did not cover
+it, and a conflict resolution is the easiest place in a repository to lose a line nobody misses, or
+to loosen an assertion that was holding a defect down — so the rebase comes before the review, and
+whoever resolves it says how much resolving there was. The branch is local to one worktree and one
+agent, so rewriting its history touches nobody else.
 
 ```
 Close in this order, git as `git -C <worktree>`:
 1. Commit on <branch>: one plain subject line, no attribution trailer.
-2. `git merge <main line>`; resolve with git and the Edit tool.
-3. Full checks until green on the merged result; commit what is uncommitted.
-Merge beyond the budget: `git merge --abort`, keep your commit, say so in the Handoff.
-Never merge <branch> into <main line>.
+2. `git rebase <main line>`, never `-i`. On a conflict resolve with the Edit tool, `git add`, then
+   `GIT_EDITOR=true git rebase --continue`; the same conflict may return on a later commit.
+3. Full checks until green on the rebased result; commit what is uncommitted.
+The rebase is exempt from the budget: you hold the context a fresh agent would have to buy again, so
+past it, finish the rebase anyway and say in the Handoff how much resolving it took. Never
+`git rebase --abort` to stop.
+Never merge <branch> into <main line>: the release is a reviewer's, on the orchestrator's grant.
 ```
 
 ## Report
@@ -182,7 +187,7 @@ Report in under 200 words, plus 60 per extra ticket in a bundle: files changed, 
 result, what you also fixed, what you found and did not fix, and anything you could not do.
 Then append `## Handoff` at the end of each ticket you worked, under 15 lines: files touched,
 contracts you discovered that the ticket did not state, what is verified and how (naming the
-screenshot paths), what is not, what the merge of the main line touched and what you resolved by
+screenshot paths), what is not, what the rebase onto the main line touched and what you resolved by
 hand, and the next concrete step — named so the follow-up agent starts working instead of
 re-orienting.
 ```
@@ -191,18 +196,20 @@ re-orienting.
 
 The reviewer is a clean agent: freshly spawned and handed this block, plus the Browser loop block
 when the work has a user interface. It owns the whole pass — an adversarial review, every fix that
-review calls for, the certainty of those fixes, a closing merge of the main line — and, when that
-pass was small, the release, because an orchestrator merging a branch it has not read adds a step and
-no judgement. A reviewer that did a lot is a builder nobody has reviewed: the first reviewer
-schedules the second review on its own judgement, and from the second on a reviewer asks the
+review calls for, the certainty of those fixes, a closing rebase onto the main line — and
+the release, because an orchestrator merging a branch it has not read adds a step and no judgement.
+The reviewer fixes everything it finds rather than handing it on, because one thorough review is
+cheaper than four tickets on the same thing; only a finding both far outside the ticket and a lot of
+work goes back to the orchestrator, which files it. A fix it watched fail and pass needs no second
+reader: a second review is for a pass that reworked over 750 lines of code, documentation and comments not counted, and is always asked of the
 orchestrator, which decides between a further round and a new ticket for what keeps turning up.
 
 The round is the number of `## Review` sections already in the ticket, plus one. From round 2 on,
 say in the first line that the pass is scoped to the commits the previous reviewer authored and that
-what the earlier Reviews settled is not to be re-derived. The thresholds in step 6 are there so that
-two reviewers reach the same verdict; move them for a repository where they fire too often or too
-seldom. Harness subagents get their working directory reset to the main checkout, which is why every
-git command names its checkout.
+what the earlier Reviews settled is not to be re-derived. Step 7b is a count, not a judgement, so
+that two reviewers reach the same verdict. Harness subagents
+get their working directory reset to the main checkout, which is why every git command names its
+checkout.
 
 ```
 Worktree: <absolute path>   Branch: <branch>   Main checkout: <absolute path>   Main line: <name>
@@ -210,30 +217,43 @@ Review ticket <id> (or the bundle #a, #b, #c), round <N>; `agent-progress ticket
 one. Run git as `git -C <worktree>` unless a step names <main checkout>. The work is
 `git diff <main line>...HEAD`.
 
+0. Before you change anything, record `git -C <worktree> rev-parse HEAD` as <review start>.
 1. Set out to show the ticket does NOT hold — each ticket of a bundle on its own commits, and
    whatever a Handoff lists under `Also fixed`. The last `## Handoff` says where to look and proves
    nothing: re-run the measurement behind each claim with your own probe or count and state your
    numbers; a guard it watched fail, you watch fail. It fails if any is false: <two or three claims>.
 2. Fix every finding yourself with the Edit tool — no heredoc, edit script or `sed -i` — one commit
-   per fix, one plain subject line. That includes a defect beside the ticket that is in code you
-   have read, provable, and no product decision; anything else you report, a few lines, unfixed.
+   per fix, one plain subject line. That includes every defect you find beside the ticket, however
+   many. Report unfixed, a few lines each with where and what you would do, only a finding that
+   needs a product or design decision, touches a file out of bounds, or lies far outside the ticket
+   AND is a lot of work; the orchestrator files those.
 3. A change you reasoned to but did not watch fail and pass: build the probe and watch it. A doubt
    still open at the budget is `does not hold`, never a caveat.
-4. `git merge <main line>`, resolve with git and Edit, run `<full check command> 2>&1 | tail -20`
-   until green, commit what is uncommitted. Step 3 covers hunks you resolved by hand. Beyond the
-   budget: `git merge --abort`, do step 5, report `merge unresolved`.
-5. Append `## Review` at the end of the ticket, under 15 lines: each finding in one line with its
-   file, your commits, what the merge touched and what you resolved by hand.
-6. The first that applies:
+4. Count your fixes before you rebase, since the rebase rewrites <review start>:
+   `agent-progress rework --since <review start>` in <worktree>. If that is an unknown command, run
+   the fallback below in <worktree> under bash, with <not docs> = `. ':!*.md' ':!*.mdx' ':!*.rst' ':!*.txt' ':!docs/'`
+   and `code() { grep -E '^[+-]' | grep -vE '^(\+\+\+|---) ' | grep -vE '^[+-][[:space:]]*(//|#|/\*|\*|<!--|$)'; }`:
+   `git log -p --no-merges --format= <review start>..HEAD -- <not docs> | code | wc -l`
+5. Record `git -C <worktree> rev-parse HEAD` as <pre-rebase tip>, then `git rebase <main line>`,
+   never `-i`: resolve with Edit, `git add`, `GIT_EDITOR=true git rebase --continue`. Run
+   `<full check command> 2>&1 | tail -20` until green, commit what is uncommitted. Step 3 covers
+   hunks you resolved by hand. Count what the rebase changed:
+   `agent-progress rework --rebased-from <pre-rebase tip>`, or with the step 4 fallback, as one line:
+   `comm -3 <(git diff $(git merge-base <pre-rebase tip> <main line>)..<pre-rebase tip> -- <not docs> | code | sort)
+   <(git diff <main line>..HEAD -- <not docs> | code | sort) | grep -cE '^[[:space:]]*\+'`
+   The rebase is exempt from the budget: past it, finish the rebase anyway, never
+   `git rebase --abort`; a big resolution is what step 7b is for.
+6. Append `## Review` at the end of the ticket, under 15 lines: each finding in one line with its
+   file, your commits, what the rebase touched and what you resolved by hand, and both counts.
+7. The first that applies:
    a. A gap you could not close: `does not hold`.
-   b. Your own work is big — your fix commits change over 30 non-spec lines or a non-spec file the
-      builder's diff lacks, the merge conflicted in two or more non-spec files or broke a check, or
-      step 3 took over ten calls — and <N> is 1: `agent-progress ticket rereview <id>` for every
-      ticket you were given, asking nobody, and nothing else.
-   c. Big, and <N> is 2 or more: request round <N+1>, saying whether the branch holds as it stands.
-   d. Otherwise request the release. Merge nothing into <main line> yet.
-7. Never release without a granted slot. The only follow-ups you may get are these two:
-   - "main moved": repeat steps 4 to 6 and report again. You hold no slot.
+   b. Over 750 lines of code reworked — the two counts together; the tool counts code only, never
+      a comment, a blank line or documentation: request round <N+1>, stating the count and whether
+      the branch holds as it stands. Nothing else is a reason for another review.
+   c. Otherwise request the release. Merge nothing into <main line> yet.
+8. Never release without a granted slot. The only follow-ups you may get are these two:
+   - "main moved": repeat steps 5 to 7, adding the new rebase count to the total, and report
+     again. You hold no slot.
    - "slot granted": `cd <main checkout>` first, since your worktree is about to go. If
      `git -C <main checkout> branch --show-current` prints <main line>,
      `git -C <main checkout> merge --ff-only <branch>`. Refused, or another branch: change nothing
@@ -242,19 +262,20 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
      `git -C <main checkout> worktree remove <worktree>` (never `--force`; refused: say what is
      untracked) and `git -C <main checkout> branch -d <branch>`.
 
-Do not `cat` any CLAUDE.md. Stop at about 60 API calls, plus 20 per extra ticket in a bundle, step 3
-permitting.
-Report under 150 words, opening with exactly one of: `holds, release requested` /
-`holds, review 2 owed` / `round <N+1> requested, branch holds` /
-`round <N+1> requested, branch does not hold` / `merge unresolved: <why>` /
-`does not hold: <what is missing>` — then findings, your changes, what the merge took.
+Do not `cat` any CLAUDE.md. You may use up to about 150 API calls, the same budget as the builder; a
+good review is worth them, and a pass that is done sooner stops sooner. A fix that will not fit is
+reported unfixed, never left half made.
+Report under 150 words plus 40 per finding handed on, opening with exactly one of: `holds, release requested` /
+`round <N+1> requested, branch holds` /
+`round <N+1> requested, branch does not hold` /
+`does not hold: <what is missing>` — then findings, your changes, what the rebase took.
 After "slot granted": `released <commit>` or `not released: <why>`.
 ```
 
 The two release-slot messages are the only ones a finished agent is ever sent, because two reviewers
 merging into one checkout race and the orchestrator is the only one who knows both exist. A slot is
 granted only against a main line that has not moved since the request; otherwise the reviewer is sent
-back to merge, check and judge again, and asks anew. Each is one line, since step 7 holds the
+back to rebase, check and judge again, and asks anew. Each is one line, since step 8 holds the
 instructions:
 
 ```
@@ -262,7 +283,7 @@ Slot granted for <branch>: the main line has not moved since you asked. Release 
 ```
 
 ```
-Main moved (#<id> was released), no slot: repeat steps 4 to 6 on <branch> and report again.
+Main moved (#<id> was released), no slot: repeat steps 5 to 7 on <branch> and report again.
 ```
 
 ## Orchestrator checklist

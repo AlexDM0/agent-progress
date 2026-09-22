@@ -107,8 +107,8 @@ work in flight is finished before more is begun.
 
 **Run two tickets together or apart by the files they touch, not by how related they sound.** Two
 tickets in the same subject area that edit different files run fine side by side; two that rewrite
-one file collide, and resolving that collision costs an agent to merge and another to review the
-merge. `git diff --name-only main...<branch>` on what is already in flight answers it in one call.
+one file collide, and resolving that collision costs an agent to rebase and another to review the
+rebase. `git diff --name-only main...<branch>` on what is already in flight answers it in one call.
 Holding a slot empty out of vague topical caution wastes it; discovering the overlap at merge time
 costs more than the parallelism saved. An agent also fixes what it finds beside its ticket, so its
 reach is wider than its ticket: the brief's `Out of bounds` line names the whole area the other agent
@@ -125,7 +125,7 @@ git -C <main checkout> worktree add <worktree path> -b <branch> <main line>
 
 Put it where the repository already keeps them — `.claude/worktrees/<branch>`, or beside the
 checkout — since a worktree the repository does not ignore shows up as untracked in the main
-checkout. A ticket that comes back — reopened, `does not hold`, or a merge of its own — goes to a
+checkout. A ticket that comes back — reopened, `does not hold`, or a rebase of its own — goes to a
 fresh agent on that same worktree and branch, which still hold its commits. The reviewer removes
 both when it releases; an abandoned ticket's worktree is yours to remove.
 
@@ -167,9 +167,10 @@ the one already carrying the whole transcript. The one exception is the release 
 **You do not review the work yourself.** A review is a **clean** agent on `opus`, unless the user
 names a different grade for it: freshly spawned, never the builder or a previous reviewer continued.
 
-What arrives is a branch the builder committed on and merged the main line into, so what gets judged
-is what ships. A Handoff that says the merge was abandoned is not a reason to do it yourself: tell
-the reviewer to do its step 4 first, so it does not spend a pass and then meet the same merge.
+What arrives is a branch the builder committed on and rebased onto the main line, so what gets judged
+is what ships and its release is a fast-forward. An agent finishes its rebase even past its budget,
+because it already holds the context, so a rebase is never left for you or for another agent; a big
+one shows up as a round request.
 
 1. `agent-progress ticket review <id> --tokens <n>`.
 2. Give every review pass its own bar, because it is work — you add them all, whichever round, and
@@ -196,12 +197,12 @@ A bundle's reviewer gives one verdict for the branch; the tracker moves below ar
 ticket in it, and a `does not hold` names the ticket it is about — the others are released with the
 branch once that one is closed.
 
-- **`holds, release requested`** — the pass was small and the branch is ready. **You own the one
+- **`holds, release requested`** — the reviewer fixed what it found and the branch is ready. **You own the one
   merge-to-main slot**, because two reviewers merging into one checkout race, and nobody releases
   without it. Grant it to one branch at a time: the ticket others depend on first, then the smaller
   branch, then whoever asked first. **A grant is only ever given against a main line that has not
   moved since the request.** If it moved — you granted anybody else in between — send the brief's
-  other slot message instead: the reviewer merges main into its branch again, runs the checks,
+  other slot message instead: the reviewer rebases its branch onto main again, runs the checks,
   judges again whether its work needs a further review, and asks for a new slot. These two slot
   messages are the **only follow-ups a finished agent ever gets**: a release is five calls, and a
   fresh agent would pay a whole context to make them. The agent holds an agent slot while it runs.
@@ -209,7 +210,7 @@ branch once that one is closed.
   - **`released <commit>`** — `agent-progress ticket done <id>`, then
     `agent-progress ticket deliver <id> --branch <branch> --commit <commit>`, in the same turn; then
     the slot is free for the next request.
-  - **`not released: <why>`** — it released nothing and merged nothing. A refused fast-forward
+  - **`not released: <why>`** — it released nothing and changed nothing. A refused fast-forward
     means the main line moved after all: send the other slot message. A main checkout that is off
     the main line is the user's doing: say so and wait, then grant again.
   - **`not released: permission denied`** — the harness refused the agent's merge into the main
@@ -221,18 +222,19 @@ branch once that one is closed.
     until the user answers; tickets that do not need it carry on.
 
   Its answer to "main moved" is one of the verdicts in this list again — usually a new
-  `holds, release requested`, and `review 2 owed` or a round request when that merge was big.
-- **`holds, review 2 owed`** — a first reviewer whose own work was big schedules its second review
-  without anybody's permission, the user's included, and has already run `ticket rereview`. As soon
-  as an agent slot is free: step 2, and a clean reviewer from the same brief, round 2, scoped to
-  the commits the first reviewer authored. A row in `re-review` with no review bar running is a
-  review waiting, and comes before new tickets.
-- **`round <N+1> requested, branch holds`** or **`… branch does not hold`** — from the second
-  review on a reviewer may not schedule the next; it asks you, and you decide without asking the
+  `holds, release requested`.
+- **`round <N+1> requested, branch holds`** or **`… branch does not hold`** — a further review is
+  only ever asked for, never scheduled by a reviewer, and only when the pass reworked over 750
+  lines of code — comments, blank lines and documentation not counted — in its own commits plus what its
+  rebase changed, both counted by `agent-progress rework`. You decide without asking the
   user. Judge from the `## Review` sections — `agent-progress ticket show <id>` — never from the
-  diff. **Converging**: this round has at most half the findings of the one before, none repeats a
-  class an earlier Review names, and none lies in a file no Review lists. Grant it:
-  `agent-progress ticket rereview <id>`, step 2, and spawn as for round 2. **Anything else is not
+  diff. **Round 2** is granted when the Review shows that count; any other reason is refused with
+  the release slot when the branch holds.
+  **From round 3, converging**: this round has at most half the findings of the one before, none
+  repeats a class an earlier Review names, and none lies in a file no Review lists. Grant it:
+  `agent-progress ticket rereview <id>`, step 2, and a clean reviewer from the same brief, scoped to
+  the commits the previous reviewer authored. A row in `re-review` with no review bar running is a
+  review waiting, and comes before new tickets. **Anything else is not
   converging**, and is a sign about the ticket, not the reviewers: file a **new ticket** stating
   the invariant behind what the reviews kept finding, with the search for its other instances as
   an acceptance item. Then, if the branch holds: grant that reviewer the release slot and let the
@@ -240,15 +242,16 @@ branch once that one is closed.
   `agent-progress ticket depends <id> <the ids it already waits on> <newId>` — the list is
   replaced, not added to — and `agent-progress log` why — the ticket waits,
   open, and is dispatched again with its branch and its Reviews when the new one delivers.
-- **`merge unresolved`** — the closing merge was beyond the pass, and is its own agent:
-  `agent-progress ticket start <id>`, a fresh builder briefed on that merge alone on the same
-  branch, and its result lands here like any other.
 - **`does not hold`** — a gap too large for the pass, a decision that is not the reviewer's to
   take, or a doubt it could not settle inside its budget. `agent-progress log "<what is missing>"`,
   `agent-progress ticket start <id>`, and a **fresh** implementing agent briefed on the gap, pointed
   at the last Handoff and Review for what is already done. Its review counts on from the Reviews
   already in the ticket, so a ticket that keeps failing reaches your judgement sooner. Two failed
   passes on one ticket is a question for the user, not a third agent.
+
+A reviewer fixes everything it finds, so the findings it hands on are only those far outside its
+ticket and a lot of work, or a decision that is not its to take: file each under the three cheaper
+homes above, whatever the verdict.
 
 Then refill the free slot in the same turn.
 
@@ -300,7 +303,7 @@ When you do lose the thread — after a compaction, or a long gap — re-anchor 
 ## What an orchestrator does not do
 
 Write the code. Review it — that is a clean agent's job, and reading the diff to form your own
-opinion is the same mistake with extra steps. Merge anything — main into a branch is the builder's
+opinion is the same mistake with extra steps. Merge or rebase anything — a branch onto main is the builder's
 and the reviewer's, a branch into main is the reviewer's, on your grant, and yours only on the
 user's yes after a permission refusal. Dispatch an agent into the main checkout, or let two of them
 share one worktree. Grant a review round nobody

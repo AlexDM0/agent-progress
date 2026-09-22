@@ -26,14 +26,14 @@ in separate checkouts all write to the same chart.
   can prove the fix, and reports only what needs a decision or a study it has not done. Never continue a finished agent with a follow-up message — a
   fresh agent for the remainder costs less than the one that already holds the whole transcript. The
   one exception is the orchestrator's one-line release-slot message to a reviewer.
-- An implementing agent ends by committing on its branch, merging the main line into it, and filling
-  in its ticket's `## Handoff`: every agent leaves its branch ready to merge.
+- An implementing agent ends by committing on its branch, rebasing it onto the main line, and filling
+  in its ticket's `## Handoff`: every agent leaves its branch ready to fast-forward into main.
 - A review is a clean agent spawned from the review brief in that same file. It starts from the
-  Handoff rather than redoing the work, fixes what it finds, settles its own doubts, merges the main
-  line in again, and asks the orchestrator for the release slot — one branch merges into main at a
-  time. When its own work was big it runs `agent-progress ticket rereview <id>` instead and a second
-  clean reviewer reads it; a third round is asked of the orchestrator, which grants it or files a new
-  ticket for what keeps turning up.
+  Handoff rather than redoing the work, fixes everything it finds, settles its own doubts, rebases onto the
+  main line again, and asks the orchestrator for the release slot — one branch merges into main at
+  a time. Only a finding far outside the ticket that is also a lot of work goes back to the orchestrator
+  as a ticket. A second review is only for a pass that reworked over 750 lines of code (comments and documentation not counted) in its fixes and rebase;
+  it is asked of the orchestrator, which grants it or files a new ticket for what keeps turning up.
 - File every bug, change or feature the user reports as a ticket (`agent-progress ticket add
   "<title>" --type bug|change|feature`) and move it with `agent-progress ticket start|review|done|deliver <id>`.
 - Record milestones with `agent-progress log "<what happened>"`; `--at -5m` backfills a stamp nobody
@@ -41,4 +41,4 @@ in separate checkouts all write to the same chart.
 - Never edit `.agent-progress/progress.json` by hand, and edit a ticket only below its frontmatter —
   `agent-progress ticket show <id>` prints the file path to edit.
 - Run `agent-progress open` once per session so the user has the dashboard; it reloads itself every
-  30 seconds as the work moves.
+  5 minutes as the work moves.

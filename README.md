@@ -44,11 +44,11 @@ context.
   `/agent-progress-orchestrate`: it opens the dashboard, reports what is in flight and then takes
   ticket requests — grilling each one until the acceptance condition is unambiguous, filing it,
   dispatching an implementing agent for it (at most two at a time) — each on a worktree of its own,
-  never the main checkout — that hands over a branch already merged with main, and sending that to a clean reviewing agent. The reviewer reviews adversarially,
-  fixes what it finds and merges main again; it then releases the branch itself, on the orchestrator's
-  grant of the one merge-to-main slot, or — when its
-  findings or its merge were big — schedules a second review of its own work (`ticket rereview`);
-  a third round is the orchestrator's call, which grants it or files a new ticket instead,
+  never the main checkout — that hands over a branch already rebased onto main, and sending that to a clean reviewing agent. The reviewer reviews adversarially,
+  fixes everything it finds and rebases onto main again; it then releases the branch itself, on the
+  orchestrator's grant of the one merge-to-main slot; only a finding far outside the ticket that is
+  also a lot of work comes back as a ticket. A second review (`ticket rereview`) happens only when the
+  pass reworked over 750 lines of code, comments and documentation not counted, in its fixes and rebase, and is the orchestrator's call, which grants it or files a new ticket instead,
   until every ticket is delivered. It loads the first skill for the
   commands and repeats none of it.
 

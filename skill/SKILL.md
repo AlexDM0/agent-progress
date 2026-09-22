@@ -85,7 +85,7 @@ that body is the whole brief; you do not need the frontmatter. When you finish, 
 section at the end of the ticket, under 15 lines: files touched, contracts you discovered that the
 ticket did not state, what is verified and how, what is not, and the next concrete step. The review
 pass reads that instead of re-deriving it from the codebase. Builder or reviewer, leave the branch
-ready to merge: your work committed on it, the main line merged in, the checks green on the result.
+ready to merge: your work committed on it, rebased onto the main line, the checks green on the result.
 
 ## The rules
 
