@@ -10,7 +10,7 @@ Usage: agent-progress <command> [options]
 
 The tracker lives in \`.agent-progress/\` at the repository root and is shared by every worktree of
 it. Every mutating command takes the lock, writes the progress file atomically and regenerates
-\`progress.html\`, which reloads itself every 30 seconds. \`<when>\` is an ISO 8601 timestamp, \`now\`,
+\`progress.html\`, which reloads itself every 5 minutes. \`<when>\` is an ISO 8601 timestamp, \`now\`,
 or an offset from now: \`-5m\`, \`-2h\`, \`-1d\`, \`+30m\`. \`<n>\` on --tokens is a whole number or a
 decimal with a \`k\`/\`m\` suffix: \`12000\`, \`12k\`, \`12.3k\`, \`1.2m\`.
 

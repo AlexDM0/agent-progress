@@ -2,7 +2,7 @@
 
 A Bun + TypeScript CLI that tracks an AI orchestrator's work per repository: tasks as rows on a
 Gantt chart, stateful markdown tickets, a log, and a self-contained `progress.html` regenerated on
-every command and reloading itself every 30 seconds.
+every command and reloading itself every 5 minutes.
 
 An orchestrator registers a row before it spawns each subagent and moves it when the result lands;
 it files a ticket for every bug, change or feature the user reports; the person watching keeps one

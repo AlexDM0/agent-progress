@@ -14,8 +14,8 @@ description: >-
 
 `agent-progress` is a globally linked CLI that gives the work a place to be recorded, and gives the
 person watching a page that shows it. It stores a tracker per repository, regenerates a
-self-contained `progress.html` on every mutating command, and that page reloads itself every 30
-seconds — so the user opens it once and then simply watches the work happen.
+self-contained `progress.html` on every mutating command, and that page reloads itself every 5
+minutes — so the user opens it once and then simply watches the work happen.
 
 You drive it entirely through commands. There is no file to edit by hand and no format to remember
 beyond a ticket's body.
