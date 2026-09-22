@@ -64,6 +64,9 @@ or Node.
 - `lib/constants/Statuses.ts` — the task and ticket status tuples and the ticket type tuple with their
   guards, the ticket-status → task-status table, and the on-disk names (`progress.json`,
   `progress.html`, `.agent-progress`, `tickets`, `.lock`) and the two managed-block markers.
+- `lib/constants/CommentSyntaxes.ts` — how each file type writes a comment (line markers, block
+  delimiters, docstrings, strings that could hide a marker, `<script>`/`<style>` inside HTML), keyed by
+  extension and by whole file name, and what counts as documentation. An unlisted type has no entry.
 
 ## `lib/utils/`
 
@@ -106,6 +109,15 @@ anything that needs "now" is handed it.
 - `lib/utils/TicketDependencyUtil.ts` — `unsettledDependenciesOf` (which of a ticket's dependencies
   are not done or delivered yet) and `dependencyLoopFrom` (the circle a new list would close, or
   `null`). Shared by `ticket depends` and the page's "waiting on" note.
+- `lib/utils/ReworkCountUtil.ts` — `readDiff` classifies every changed line of unified diff text as
+  code, comment, blank or documentation, reading hunk lengths from each `@@` header so a removed
+  `-- x` is content rather than a `---` header. **Each side of a hunk keeps its own comment state** (old:
+  context and removed; new: context and added), and a hunk that begins inside a block comment is
+  recognised only when a closing delimiter with no opener appears in it — otherwise its lines count as
+  code. `addedLinesInOnlyOne` is the interdiff `--rebased-from` counts: per file, the multiset of
+  added lines one patch holds and the other does not. Removed lines are left out, because they differ
+  whenever main changed a line the branch replaced — the base moving, not rework. An unknown file type
+  counts every non-blank line.
 
 ## `lib/platform/`
 
@@ -126,6 +138,11 @@ nothing about tasks or tickets — a caller supplies a path.
   of a stale lock by rename so exactly one waiter wins, release in a `finally`.
 - `lib/platform/GitIgnore.ts` — `ensureIgnored`: `git check-ignore` decides, so a repository that
   already covers the tracker gets no diff. Written in place, CRLF-aware.
+- `lib/platform/ReworkDiffs.ts` — the git half of `agent-progress rework`, as verdicts: the working
+  tree's HEAD, the patch of `<since>..HEAD` (refusing a non-ancestor and naming any merge), and the
+  branch's net patch against the main line before and after a rebase. Every diff spells out its
+  options — prefixes, rename detection, algorithm, 25 lines of context — so a reviewer's git
+  configuration cannot change the count.
 - `lib/platform/ClaudeInstructions.ts` — `writeManagedBlock`: the block `init` owns inside a
   repository's `CLAUDE.md`. Written in place so a symlinked file stays a symlink; a start marker with
   no end marker is refused and the file is left alone.

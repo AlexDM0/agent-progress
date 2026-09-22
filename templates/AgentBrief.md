@@ -230,17 +230,12 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
 3. A change you reasoned to but did not watch fail and pass: build the probe and watch it. A doubt
    still open at the budget is `does not hold`, never a caveat.
 4. Count your fixes before you rebase, since the rebase rewrites <review start>:
-   `agent-progress rework --since <review start>` in <worktree>. If that is an unknown command, run
-   the fallback below in <worktree> under bash, with <not docs> = `. ':!*.md' ':!*.mdx' ':!*.rst' ':!*.txt' ':!docs/'`
-   and `code() { grep -E '^[+-]' | grep -vE '^(\+\+\+|---) ' | grep -vE '^[+-][[:space:]]*(//|#|/\*|\*|<!--|$)'; }`:
-   `git log -p --no-merges --format= <review start>..HEAD -- <not docs> | code | wc -l`
+   `agent-progress rework --since <review start> --worktree <worktree>`.
 5. Record `git -C <worktree> rev-parse HEAD` as <pre-rebase tip>, then `git rebase <main line>`,
    never `-i`: resolve with Edit, `git add`, `GIT_EDITOR=true git rebase --continue`. Run
    `<full check command> 2>&1 | tail -20` until green, commit what is uncommitted. Step 3 covers
    hunks you resolved by hand. Count what the rebase changed:
-   `agent-progress rework --rebased-from <pre-rebase tip>`, or with the step 4 fallback, as one line:
-   `comm -3 <(git diff $(git merge-base <pre-rebase tip> <main line>)..<pre-rebase tip> -- <not docs> | code | sort)
-   <(git diff <main line>..HEAD -- <not docs> | code | sort) | grep -cE '^[[:space:]]*\+'`
+   `agent-progress rework --rebased-from <pre-rebase tip> --main <main line> --worktree <worktree>`.
    The rebase is exempt from the budget: past it, finish the rebase anyway, never
    `git rebase --abort`; a big resolution is what step 7b is for.
 6. Append `## Review` at the end of the ticket, under 15 lines: each finding in one line with its

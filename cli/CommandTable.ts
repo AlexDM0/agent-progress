@@ -19,6 +19,7 @@ export const COMMAND_TABLE = {
   log:    async () => (await import('./log/LogCommand')).logCommand,
   hook:   async () => (await import('./hook/HookCommand')).hookCommand,
   usage:  async () => (await import('./usage/UsageCommand')).usageCommand,
+  rework: async () => (await import('./rework/ReworkCommand')).reworkCommand,
   ticket: async () => (await import('./ticket/TicketCommand')).ticketCommand,
   range:  async () => (await import('./range/RangeCommand')).rangeCommand,
   render: async () => (await import('./render/RenderCommand')).renderCommand,

@@ -26,4 +26,7 @@ export const OPTION_NAMES_WITH_VALUES = new Set<string>([
   'tick',
   'since',
   'transcripts',
+  'rebased-from',
+  'main',
+  'worktree',
 ]);

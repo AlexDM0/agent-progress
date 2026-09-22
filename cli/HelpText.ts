@@ -108,6 +108,28 @@ repository to use instead of walking up from the current directory.
                               takes no lock and regenerates no page, and a repository with no
                               transcripts is one sentence at exit 0.
 
+  rework [--since <commit>]   How many lines of code a review reworked on a branch: added plus
+      [--rebased-from <old tip>] removed lines, never blank lines, comments or documentation (*.md,
+      [--main <branch>]       *.mdx, *.rst, *.txt and anything under the repository's docs/). It
+      [--worktree <path>]     counts; no threshold is built in. --since counts every commit in
+      [--files] [--json]      <commit>..HEAD, and is refused when <commit> is not an ancestor of HEAD
+                              or a merge lies in between: work is rebased, not merged. --rebased-from
+                              counts what a rebase changed in the branch's own work — the hand
+                              resolution — as the added lines in which the branch's patch against
+                              --main (default \`main\`) differs before and after, so a line resolved
+                              by hand counts 2 and main's own change none; a rebase without
+                              conflicts counts 0. It is measured up to HEAD, so run it right after the rebase.
+                              A rebase rewrites the commits after <commit>, so either count --since
+                              before rebasing and --rebased-from ORIG_HEAD after it, or rebase first
+                              and take <commit> from the rebased tip: both in one call then measure
+                              the rebase up to <commit> and print one total and the two parts,
+                              counting nothing twice. Comments are read per file
+                              type (// and /* */, #, <!-- -->, docstrings, a <script> or <style> in
+                              HTML); a line of code with a trailing comment is code, and a file type
+                              it does not know counts every non-blank line. --worktree names the
+                              working tree to read instead of the current directory; --files adds
+                              the per-file breakdown. It needs no tracker and writes nothing.
+
   ticket add "<title>"        File a ticket: a markdown file under \`.agent-progress/tickets/\` with
       [--type bug|change|feature]
       [--group <name>]        its own frontmatter, plus a pending Gantt row. The body comes from
