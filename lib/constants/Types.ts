@@ -2,6 +2,12 @@
 
 export type TaskStatus = 'pending' | 'running' | 'paused' | 'finished' | 're-review' | 'reviewed' | 'delivered' | 'abandoned';
 
+/** One status a row actually reached, and when. A correction never files one: a correction is not something that happened. */
+export interface TaskPhase {
+  status: TaskStatus;
+  at:     string;
+}
+
 export interface Task {
   id:           number;
   name:         string;
@@ -18,6 +24,8 @@ export interface Task {
   reviewed?:    string;
   /** Which review pass the row is in, counted from the second; absent while the first pass is the only one there has been. */
   reviewRound?: number;
+  /** The phases this row went through, oldest first; absent on a row filed before the field existed, which the page says rather than guesses. */
+  history?:     TaskPhase[];
 }
 
 export interface LogEntry {

@@ -125,6 +125,17 @@ describe.skipIf(!gitIsAvailable())('the lifecycle of a row', () => {
     expect(task?.start).toBe(startBefore ?? null);
     expect(task?.end).toBeNull();
   });
+
+  // The same reason it moves no timestamp: `update` corrects a row rather than moving it, and a correction is not something that happened.
+  test('update files no phase, while the verbs that really move the row file one each', async () => {
+    await run(['task', 'add', 'Review pass', '--start']);
+
+    await run(['task', 'update', '1', '--status', 'finished']);
+    expect(storedProgress().tasks[0]?.history?.map((phase) => phase.status)).toEqual(['running']);
+
+    await run(['task', 'review', '1']);
+    expect(storedProgress().tasks[0]?.history?.map((phase) => phase.status)).toEqual(['running', 'reviewed']);
+  });
 });
 
 describe.skipIf(!gitIsAvailable())('refusals a caller can act on', () => {

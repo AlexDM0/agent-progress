@@ -55,8 +55,8 @@ Imports nothing; safe to compile alongside the browser page, which is why no val
 or Node.
 
 - `lib/constants/Types.ts` — every shape the tracker stores or renders: `Task` (with its nullable
-  `tokens`), `LogEntry`, `ViewRange`, `ProgressFile` (with `nextTaskId`), `TicketFrontmatter`,
-  `Ticket`. Types only, no values.
+  `tokens` and its optional `history`), `TaskPhase`, `LogEntry`, `ViewRange`, `ProgressFile` (with
+  `nextTaskId`), `TicketFrontmatter`, `Ticket`. Types only, no values.
 - `lib/constants/Limits.ts` — the tuning constants, each with its unit in its name: lock staleness and
   retries, the axis tick ladder and its bounds, ticket id width, how long done work stays visible,
   the timestamp slice bounds every human-facing reader shares, the JSON indent, and
@@ -151,6 +151,14 @@ nothing about tasks or tickets — a caller supplies a path.
   token count or append a log line. The transition rules — which status sets which timestamp — live
   here and nowhere else, as does the task id allocator: `nextTaskId` is stored, never wound back, and
   taken only by the `addTask` that files the row using it.
+
+  **A row's `history` is the record of what happened to it**, and only `transitionTask` writes one:
+  a phase per move that really changed the status, plus one per `re-review` call, because a row stays
+  in `re-review` between rounds and each round is an event of its own. `addTask` seeds the single
+  phase a row filed into a later status was already in, stamped with the `end` or `start` it was
+  filed with — a `pending` row has reached nothing, and a row filed with no stamp at all has nothing
+  to record. The field is optional: every row written before it existed has none, and
+  `lib/render/page/TaskDetail.ts` says so rather than presenting a derivation as the record.
 
 ## `lib/tickets/`
 

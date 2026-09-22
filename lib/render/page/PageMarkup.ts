@@ -27,18 +27,21 @@ const TICK_PIXELS_PER_LABEL_CHARACTER = 9;
 
 const TICK_LABEL_GUTTER_PIXELS = 5;
 
-type RowState = TaskStatus | 'reviewing';
+export type RowState = TaskStatus | 'reviewing';
 
-/** A repeat review carries its round number, which `pillLabelFor` appends; the rest are the label as written. */
+/**
+ * Every label names the state the row is actually in, and `done` means merged: a repeat review carries its round number, which
+ * `pillLabelForRowState` appends, and the rest are the label as written.
+ */
 const PILL_LABEL_FOR_ROW_STATE: Record<RowState, string> = {
   'pending':   'unstarted',
-  'running':   'WIP',
+  'running':   'wip',
   'paused':    'paused',
-  'finished':  'finished',
+  'finished':  'awaiting review',
   'reviewing': 'reviewing',
-  're-review': 'review',
-  'reviewed':  'reviewed',
-  'delivered': 'delivered',
+  're-review': 'reviewing',
+  'reviewed':  'awaiting merge',
+  'delivered': 'done',
   'abandoned': 'abandoned',
 };
 
@@ -82,13 +85,17 @@ export function labelSitsLeftOfItsLine(tick: TimelineTick, axisWidthPixels: numb
   return remainingPixels < tick.label.length * TICK_PIXELS_PER_LABEL_CHARACTER + TICK_LABEL_GUTTER_PIXELS;
 }
 
-function rowStateFor(task: Task, ticketStatus: TicketStatus | null): RowState {
+export function rowStateFor(task: Task, ticketStatus: TicketStatus | null): RowState {
   return task.status === 'finished' && ticketStatus === 'in-review' ? 'reviewing' : task.status;
 }
 
-function pillLabelFor(state: RowState, task: Task): string {
+export function pillLabelForRowState(state: RowState, reviewRound: number): string {
   const label = PILL_LABEL_FOR_ROW_STATE[state];
-  return state === 're-review' ? `${label} ${task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND}` : label;
+  return state === 're-review' ? `${label} ${reviewRound}` : label;
+}
+
+function pillLabelFor(state: RowState, task: Task): string {
+  return pillLabelForRowState(state, task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND);
 }
 
 function reviewedTitleFor(task: Task, slices: TimestampSlices): string {
@@ -148,14 +155,14 @@ export function overlayMarkup(ticks: readonly TimelineTick[], nowPercent: number
 
 /** The token figure is left out entirely when no task reports one, because `null` means "nobody said" and `0 tokens` would be a claim. */
 export function summaryStatsMarkup(tasks: readonly Task[]): string {
-  const finishedCount  = tasks.filter((task) => ['finished', 're-review', 'reviewed', 'delivered'].includes(task.status)).length;
-  const reviewedCount  = tasks.filter((task) => ['reviewed', 'delivered'].includes(task.status)).length;
-  const deliveredCount = tasks.filter((task) => task.status === 'delivered').length;
-  const reportedTokens = tasks.filter((task) => task.tokens !== null);
+  const doneCount          = tasks.filter((task) => task.status === 'delivered').length;
+  const awaitingMergeCount = tasks.filter((task) => task.status === 'reviewed').length;
+  const inReviewCount      = tasks.filter((task) => task.status === 'finished' || task.status === 're-review').length;
+  const reportedTokens     = tasks.filter((task) => task.tokens !== null);
   const stats: Array<[figure: string, label: string]> = [
-    [`${finishedCount}/${tasks.length}`, 'finished'],
-    [String(reviewedCount), 'reviewed'],
-    [String(deliveredCount), 'delivered'],
+    [`${doneCount}/${tasks.length}`, 'done'],
+    [String(awaitingMergeCount), 'awaiting merge'],
+    [String(inReviewCount), 'in review'],
   ];
   if (reportedTokens.length > 0) {
     stats.push([formatTokenCount(reportedTokens.reduce((total, task) => total + (task.tokens ?? 0), 0)), 'tokens']);
@@ -192,7 +199,7 @@ function taskLinkMarkup(taskId: number | null): string {
 
 export function ticketTableRowsMarkup(tickets: readonly PageTicket[], waitingOnById: ReadonlyMap<string, readonly string[]>): string {
   return tickets.map((ticket) => [
-    '<tr>',
+    `<tr ${attribute('data-ticket-id', ticket.id)}>`,
     `<td class="mono"><a ${attribute('href', `#ap-ticket-${ticket.id}`)}>#${escapeHtml(ticket.id)}</a></td>`,
     `<td>${escapeHtml(ticket.title)}${waitingOnMarkup(waitingOnById.get(ticket.id) ?? [])}</td>`,
     `<td>${escapeHtml(ticket.type)}</td>`,

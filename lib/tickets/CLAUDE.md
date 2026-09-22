@@ -62,6 +62,18 @@ ticket sent back for a second, third or fourth review pass stays `in-review`, be
 still review. It stamps `updated` alone, moves the row to `re-review` and counts the round there, and
 it checks its own one legal source rather than being given a matrix row of its own.
 
+## `seedTaskFromTicket` seeds no history, on purpose
+
+A row `clear` rebuilds from a ticket's frontmatter comes back knowing only the status it came back
+in — the one phase `addTask` files for it — and **not** a phase list reconstructed from `filed`,
+`started`, `finished` and `delivered`. The ticket's stamps are the ticket's history, not the row's:
+the row did not live through them, and a reconstruction written into `history` would be
+indistinguishable from one the tool watched happen. It would also be wrong in a way nobody could
+see, since a ticket records no trace of the review rounds its row went through. The ticket's own
+stamps are on the detail panel already, in the Ticket section, where they are labelled as the
+ticket's; a re-seeded row's phases read as unrecorded, which is what they are.
+`cli/clear/ClearCommand.spec.ts` holds this.
+
 ## Why `TicketTransitions` takes its store operations as a parameter
 
 `lib/progress/` is a sibling feature of this one, and the layering rule in the root `CLAUDE.md` is

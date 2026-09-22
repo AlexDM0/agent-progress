@@ -3,10 +3,20 @@
  * selection and ticket open state stay with the template's own bootstrap, reached through `window.agentProgressTemplate`.
  */
 
-import type { ProgressFile, TicketStatus, ViewRange }       from '../../constants/Types.ts';
-import type { Timeline }                                    from './GanttGeometry.ts';
-import { computeTimeline }                                  from './GanttGeometry.ts';
-import type { PagePayload, PageTicket, StoredViewOverride } from './PageData.ts';
+import type {
+  ProgressFile,
+  Task,
+  TicketStatus,
+  ViewRange,
+} from '../../constants/Types.ts';
+import type { Timeline }   from './GanttGeometry.ts';
+import { computeTimeline } from './GanttGeometry.ts';
+import type {
+  PageLimits,
+  PagePayload,
+  PageTicket,
+  StoredViewOverride,
+} from './PageData.ts';
 import {
   EMPTY_VIEW_OVERRIDE,
   effectiveRangeFor,
@@ -33,6 +43,7 @@ import {
   ticketTableRowsMarkup,
   tickLayerMarkup,
 } from './PageMarkup.ts';
+import { taskDetailMarkup }      from './TaskDetail.ts';
 import type { WorkVisibility }   from './WorkVisibility.ts';
 import {
   DEFAULT_WORK_VISIBILITY,
@@ -48,7 +59,11 @@ const TICKETS_ISLAND_ELEMENT_ID  = 'ap-tickets-data';
 const AUTOMATIC_TICK_CHOICE      = 'auto';
 const AUTOMATIC_RANGE_PRESET     = 'auto';
 
-const OWNED_MARKUP_CONTAINER_IDS = ['ap-summary', 'ap-ticks', 'ap-overlay', 'ap-rows', 'ap-log', 'ap-ticket-rows', 'ap-ticket-cards'];
+const DETAIL_DIALOG_ELEMENT_ID = 'ap-detail';
+const DETAIL_BODY_ELEMENT_ID   = 'ap-detail-body';
+const DETAIL_CLOSE_ELEMENT_ID  = 'ap-detail-close';
+
+const OWNED_MARKUP_CONTAINER_IDS = ['ap-summary', 'ap-ticks', 'ap-overlay', 'ap-rows', 'ap-log', 'ap-ticket-rows', 'ap-ticket-cards', 'ap-detail-body'];
 const OWNED_TEXT_CONTAINER_IDS   = ['ap-project', 'ap-generated', 'ap-range-note', 'ap-ticket-count', 'ap-hidden-note'];
 
 interface TemplateBehaviour {
@@ -294,6 +309,68 @@ function wireRangeBar(readOverride: () => StoredViewOverride, applyOverride: (ne
   });
 }
 
+/** A double-click inside a link belongs to the link: a row already carries its ticket badge and its "waiting on" links. */
+function rowDoubleClicked(event: Event, selector: string): HTMLElement | null {
+  if (!(event.target instanceof Element) || event.target.closest('a') !== null) {
+    return null;
+  }
+  const row = event.target.closest(selector);
+  return row instanceof HTMLElement ? row : null;
+}
+
+function wireTaskDetail(progress: ProgressFile, tickets: readonly PageTicket[], limits: PageLimits): void {
+  const dialog = document.getElementById(DETAIL_DIALOG_ELEMENT_ID);
+  if (!(dialog instanceof HTMLDialogElement)) {
+    return;
+  }
+  const ticketById = new Map(tickets.map((ticket) => [ticket.id, ticket]));
+
+  const showDetail = (task: Task | null, ticket: PageTicket | null): void => {
+    const markup = taskDetailMarkup({
+      task,
+      ticket,
+      log:    progress.log,
+      slices: limits,
+    });
+    if (markup === '') {
+      return;
+    }
+    setMarkup(DETAIL_BODY_ELEMENT_ID, markup);
+    dialog.showModal();
+  };
+
+  document.getElementById('ap-rows')?.addEventListener('dblclick', (event) => {
+    const row = rowDoubleClicked(event, '.ap-row');
+    if (row === null) {
+      return;
+    }
+    const task = progress.tasks.find((candidate) => String(candidate.id) === row.dataset['taskId']);
+    if (task !== undefined) {
+      showDetail(task, task.ticket === null ? null : ticketById.get(task.ticket) ?? null);
+    }
+  });
+
+  document.getElementById('ap-ticket-rows')?.addEventListener('dblclick', (event) => {
+    const row = rowDoubleClicked(event, '[data-ticket-id]');
+    if (row === null) {
+      return;
+    }
+    const ticketId = row.dataset['ticketId'] ?? '';
+    showDetail(progress.tasks.find((candidate) => candidate.ticket === ticketId) ?? null, ticketById.get(ticketId) ?? null);
+  });
+
+  document.getElementById(DETAIL_CLOSE_ELEMENT_ID)?.addEventListener('click', () => {
+    dialog.close();
+  });
+  // The backdrop is the dialog's own box outside its content, so a click that lands on the element itself is a click beside the panel.
+  dialog.addEventListener('click', (event) => {
+    const linkClicked = event.target instanceof Element && event.target.closest('a') !== null;
+    if (event.target === dialog || linkClicked) {
+      dialog.close();
+    }
+  });
+}
+
 function clearPlaceholderContent(): void {
   for (const elementId of OWNED_MARKUP_CONTAINER_IDS) {
     setMarkup(elementId, '');
@@ -375,6 +452,8 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
       scrollNowIntoView(chart, timeline.nowPercent, axisWidthPixels, pinnedWidth);
     }
   };
+
+  wireTaskDetail(progress, tickets, limits);
 
   wireRangeBar(() => override, (next) => {
     override = next;
