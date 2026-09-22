@@ -70,7 +70,8 @@ function percent(value: number): string {
   return `${value.toFixed(PERCENT_DECIMAL_PLACES)}%`;
 }
 
-function attribute(name: string, value: string): string {
+/** One escaped attribute, exported because `lib/render/page/TaskDetail.ts` writes the same markup and a second copy would be a second contract. */
+export function attribute(name: string, value: string): string {
   return `${name}="${escapeHtml(value)}"`;
 }
 

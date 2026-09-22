@@ -11,11 +11,16 @@ import type {
   TaskStatus,
   TicketStatus,
 } from '../../constants/Types.ts';
-import { HtmlEscapeUtil }                                    from '../../utils/HtmlEscapeUtil.ts';
-import { TokenCountUtil }                                    from '../../utils/TokenCountUtil.ts';
-import type { PageTicket }                                   from './PageData.ts';
-import type { RowState, TimestampSlices }                    from './PageMarkup.ts';
-import { logItemsMarkup, pillLabelForRowState, rowStateFor } from './PageMarkup.ts';
+import { HtmlEscapeUtil }                 from '../../utils/HtmlEscapeUtil.ts';
+import { TokenCountUtil }                 from '../../utils/TokenCountUtil.ts';
+import type { PageTicket }                from './PageData.ts';
+import type { RowState, TimestampSlices } from './PageMarkup.ts';
+import {
+  attribute,
+  logItemsMarkup,
+  pillLabelForRowState,
+  rowStateFor,
+} from './PageMarkup.ts';
 
 const { escapeHtml }       = HtmlEscapeUtil;
 const { formatTokenCount } = TokenCountUtil;
@@ -29,6 +34,8 @@ const SHORTEST_NAMED_DURATION = 'under a minute';
 const PHASES_WERE_NOT_RECORDED_NOTE = 'The phases of this row were not recorded, so what follows is derived from its own stamps and its ticket’s.';
 
 const NO_PHASES_TO_SHOW_NOTE = 'The phases of this row were not recorded, and its stamps carry nothing to derive them from.';
+
+const NO_LOG_LINES_NOTE = 'No log line names this row or its ticket.';
 
 /** How far up the ladder a status is, so a derived phase a row never reached is left out; `abandoned` sits above everything it could follow. */
 const LADDER_RANK_FOR_TASK_STATUS: Record<TaskStatus, number> = {
@@ -53,10 +60,6 @@ export interface TaskDetailInput {
   ticket: PageTicket | null;
   log:    readonly LogEntry[];
   slices: TimestampSlices;
-}
-
-function attribute(name: string, value: string): string {
-  return `${name}="${escapeHtml(value)}"`;
 }
 
 function stampText(timestamp: string, slices: TimestampSlices): string {
@@ -120,10 +123,14 @@ function taskFactsMarkup(task: Task, slices: TimestampSlices): string {
   return factsMarkup(entries);
 }
 
-/** A round is counted off the list rather than read from the row, because a row stays in `re-review` between rounds and carries only the last. */
+/**
+ * A round is counted off the list rather than read from the row, because a row stays in `re-review` between rounds and carries only the
+ * last. The count restarts at a `pending` phase, which is what `transitionTask` does to `reviewRound` when a row is sent back.
+ */
 function recordedPhaseLines(task: Task): PhaseLine[] {
   let repeatReviews = 0;
   return (task.history ?? []).map((phase) => {
+    if (phase.status === 'pending') repeatReviews = 0;
     if (phase.status === 're-review') repeatReviews += 1;
     return {
       state:       phase.status,
@@ -145,16 +152,21 @@ function readNewestPhaseAsTheChartDoes(lines: readonly PhaseLine[], task: Task, 
   return [...lines.slice(0, -1), { ...newest, state: rowStateFor(task, ticketStatus) }];
 }
 
-/** Ladder order rather than stamp order: the ladder is the sequence, and nothing here compares two clocks to decide anything. */
+/**
+ * Ladder order rather than stamp order: the ladder is the sequence, and nothing here compares two clocks to decide anything.
+ * An abandoned row's `end` is the moment it was called off, so it stands in for the abandonment and never for a finish — only
+ * the ticket's own `finished` stamp is evidence that a row abandoned out of review had ever been handed in.
+ */
 function derivedPhases(task: Task, ticket: PageTicket | null): TaskPhase[] {
-  const reachedRank = LADDER_RANK_FOR_TASK_STATUS[task.status];
+  const reachedRank     = LADDER_RANK_FOR_TASK_STATUS[task.status];
+  const rowWasAbandoned = task.status === 'abandoned';
   const candidates: Array<[status: TaskStatus, at: string | null | undefined]> = [
     ['pending', ticket?.filed],
     ['running', task.start ?? ticket?.started],
-    ['finished', task.end ?? ticket?.finished],
+    ['finished', rowWasAbandoned ? ticket?.finished : task.end ?? ticket?.finished],
     ['reviewed', task.reviewed],
     ['delivered', ticket?.delivered],
-    ['abandoned', task.status === 'abandoned' ? ticket?.abandonedAt ?? task.end : null],
+    ['abandoned', rowWasAbandoned ? ticket?.abandonedAt ?? task.end : null],
   ];
   return candidates.flatMap(([status, at]) => (typeof at === 'string' && at !== '' && LADDER_RANK_FOR_TASK_STATUS[status] <= reachedRank
     ? [{ status, at }]
@@ -253,6 +265,9 @@ function logMarkup(input: TaskDetailInput): string {
   if (input.task !== null) references.push(`#${input.task.id}`);
   if (input.ticket !== null) references.push(`#${input.ticket.id}`);
   const named = input.log.filter((entry) => references.some((reference) => textNamesReference(entry.text, reference)));
+  if (named.length === 0) {
+    return noteMarkup(NO_LOG_LINES_NOTE);
+  }
   return `<ul class="ap-detail-log">${logItemsMarkup(named, input.slices)}</ul>`;
 }
 

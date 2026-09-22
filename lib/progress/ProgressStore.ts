@@ -18,6 +18,9 @@ const SUPPORTED_PROGRESS_VERSION = 1;
 
 const FIRST_TASK_ID = 1;
 
+/** The statuses whose moment is the row's `end` rather than its `start`, which is what a seeded phase is stamped at. */
+const TASK_STATUSES_THAT_CLOSE_THE_BAR: readonly TaskStatus[] = ['finished', 're-review', 'reviewed', 'delivered', 'abandoned'];
+
 export type ReadProgressFileResult =
   | { verdict: 'readable'; progress: ProgressFile }
   | { verdict: 'absent' }
@@ -34,6 +37,8 @@ export interface AddTaskInput {
   tokens?:      number | null;
   reviewed?:    string;
   reviewRound?: number;
+  /** When the row was filed. It is the stamp a `pending` row's first phase carries, and the only way the queue interval is ever measurable. */
+  filedAt?:     string;
 }
 
 /** `trackerId` comes from the caller: this module has no randomness, and `clear` has to keep the existing id. */
@@ -190,12 +195,17 @@ export function findTask(progress: ProgressFile, taskId: number): Task | undefin
   return progress.tasks.find((task) => task.id === taskId);
 }
 
-/** A row filed straight into a later status reached it at the stamp it was filed with; a `pending` row has reached nothing yet. */
+/**
+ * The stamp follows the status: a phase that opens the row's interval is stamped where it opens, a terminal one where it closes, and a
+ * `pending` row is stamped where it was filed. A caller that supplied no stamp at all leaves the row with nothing to record.
+ */
 function seededHistoryFor(input: AddTaskInput): TaskPhase[] | null {
-  const { status } = input;
-  if (status === undefined || status === 'pending') return null;
-  const reachedAt = input.end ?? input.start ?? null;
-  return reachedAt === null ? null : [{ status, at: reachedAt }];
+  const status = input.status ?? 'pending';
+  if (status === 'pending') {
+    return input.filedAt === undefined ? null : [{ status, at: input.filedAt }];
+  }
+  const reachedAt = TASK_STATUSES_THAT_CLOSE_THE_BAR.includes(status) ? input.end ?? input.start : input.start ?? input.end;
+  return reachedAt === undefined || reachedAt === null ? null : [{ status, at: reachedAt }];
 }
 
 export function addTask(progress: ProgressFile, input: AddTaskInput): Task {

@@ -227,8 +227,10 @@ own (an unreadable progress file, a lock it could not take).
       "tokens": 48000,                           // or null: "nobody said", which is not "it used none"
       "reviewed": "2026-09-18T22:10:00+02:00",   // absent until the row is first reviewed; kept through delivery
       "reviewRound": 2,                          // absent until a second review pass is asked for: 2, then 3, kept as history
-      "history": [                               // every status the row really reached, oldest first; absent on a row filed
-        { "status": "running",                   // before the field existed, and the panel says so rather than guessing
+      "history": [                               // every status the row really reached, oldest first, starting with the
+        { "status": "pending",                   // moment it was filed — so the panel can say how long it sat in the
+          "at": "2026-09-18T21:12:00+02:00" },   // queue. Absent on a row filed before the field existed, and the
+        { "status": "running",                   // panel says so rather than quietly guessing.
           "at": "2026-09-18T21:30:54+02:00" }
       ]
     }
@@ -290,9 +292,11 @@ The **from** column is the matrix the named verbs enforce; `ticket status <id> <
 | `ticket abandon` | anything but delivered, abandoned | abandoned | `abandoned` | `abandoned` | `abandonedAt`; the row's end if it had started | `Ticket #003 abandoned: <reason>` |
 | `ticket reopen` | anything but open | open | `pending` | `unstarted` | all of them cleared | `Ticket #003 reopened` |
 
-Each of those moves is appended to the row's `history`, so the panel a double-click opens can say
-when the row reached each state and how long it sat there. `task update --status` is deliberately
-not: it corrects a row rather than moving it, and a correction is not something that happened.
+Filing the row is itself the first entry in its `history`, and each of those moves appends another,
+so the panel a double-click opens can say when the row reached each state and how long it sat there
+— the wait between `unstarted` and `wip` being the queue time. `task update --status` is deliberately
+not appended: it corrects a row rather than moving it, and a correction is not something that
+happened.
 
 Moving a ticket to the status it already has is refused and logs nothing, and `ticket rereview` is
 the one exception: every review pass is still review, so the round is counted on the row rather than

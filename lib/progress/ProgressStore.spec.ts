@@ -402,21 +402,29 @@ test('putting a reviewed task back to pending drops its review stamp', () => {
   expect(task.reviewed).toBeUndefined();
 });
 
-test('a fresh pending row has reached nothing, so it carries no phases at all', () => {
+/**
+ * How long a row sat in the queue before anybody picked it up is the interval an orchestrator most wants, and it is
+ * measurable only if the filing is a phase of its own. Without a stamp to file it at there is still nothing to record.
+ */
+test('a row filed as pending records that it was filed, at the moment it was filed', () => {
   const progress = emptyProgress();
-  expect(addTask(progress, { name: 'Review pass' }).history).toBeUndefined();
-  expect(addTask(progress, { name: 'Explicitly pending', status: 'pending' }).history).toBeUndefined();
+
+  expect(addTask(progress, { name: 'Queued', filedAt: FILED_AT }).history).toEqual([{ status: 'pending', at: FILED_AT }]);
+  expect(addTask(progress, { name: 'Queued explicitly', status: 'pending', filedAt: FILED_AT }).history).toEqual([{ status: 'pending', at: FILED_AT }]);
+  expect(addTask(progress, { name: 'Filed by a caller that said nothing' }).history).toBeUndefined();
 });
 
 // A row filed straight into a later status was in that status from the stamp it was filed with; without a stamp there is nothing to record.
-test('a row filed into a status it is already in records that as its first phase, at the stamp it was filed with', () => {
+test('a row filed into a status it is already in records that as its first phase, at the stamp that status is kept at', () => {
   const progress = emptyProgress();
-  const running  = addTask(progress, { name: 'Already going', status: 'running', start: STARTED_AT });
+  const running  = addTask(progress, {
+    name: 'Already going', status: 'running', start: STARTED_AT, end: FINISHED_AT
+  });
   const closed   = addTask(progress, {
     name: 'Filed closed', status: 'reviewed', start: STARTED_AT, end: FINISHED_AT
   });
 
-  expect(running.history).toEqual([{ status: 'running', at: STARTED_AT }]);
+  expect(running.history, 'a running row opened its interval at its start, whatever end it was handed').toEqual([{ status: 'running', at: STARTED_AT }]);
   expect(closed.history, 'the row reached that status when it closed, not when it opened').toEqual([{ status: 'reviewed', at: FINISHED_AT }]);
   expect(addTask(progress, { name: 'No stamp at all', status: 'running' }).history).toBeUndefined();
 });
@@ -458,13 +466,14 @@ test('a further review round is a phase of its own although the status does not 
 });
 
 // The phases are the record of what happened; a row sent back to pending went back, which is itself something that happened.
-test('sending a row back to pending drops its review stamp and keeps the phases that led there', () => {
+test('sending a row back to pending files that as a phase and keeps the phases that led there', () => {
   const progress = emptyProgress();
-  const task     = addTask(progress, { name: 'Review pass' });
+  const task     = addTask(progress, { name: 'Review pass', filedAt: FILED_AT });
   transitionTask(progress, task.id, 'running', STARTED_AT);
   transitionTask(progress, task.id, 'pending', FINISHED_AT);
 
   expect(task.history).toEqual([
+    { status: 'pending', at: FILED_AT },
     { status: 'running', at: STARTED_AT },
     { status: 'pending', at: FINISHED_AT },
   ]);

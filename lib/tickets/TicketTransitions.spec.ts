@@ -134,7 +134,12 @@ describe('ensureTaskForTicket', () => {
     const ticket     = ticketFixture();
     const operations = progressOperations();
 
-    const task = ensureTaskForTicket({ progress, ticket, operations });
+    const task = ensureTaskForTicket({
+      progress,
+      ticket,
+      operations,
+      at: FILED_AT,
+    });
 
     expect(task.name).toBe(TICKET_NAME);
     expect(task.status).toBe('pending');
@@ -148,8 +153,18 @@ describe('ensureTaskForTicket', () => {
     const ticket     = ticketFixture();
     const operations = progressOperations();
 
-    const first  = ensureTaskForTicket({ progress, ticket, operations });
-    const second = ensureTaskForTicket({ progress, ticket, operations });
+    const first  = ensureTaskForTicket({
+      progress,
+      ticket,
+      operations,
+      at: FILED_AT,
+    });
+    const second = ensureTaskForTicket({
+      progress,
+      ticket,
+      operations,
+      at: FILED_AT,
+    });
 
     expect(second.id).toBe(first.id);
     expect(progress.tasks).toHaveLength(1);

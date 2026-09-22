@@ -144,7 +144,7 @@ describe('the phases', () => {
     expect(markup, 'the first phase follows nothing, so it carries no gap').not.toContain('<time>2026-09-18 20:36</time><span class="ap-detail-gap">');
     expect(markup).toContain('<span class="ap-detail-gap">after 50m</span>');
     expect(markup).toContain('<span class="ap-detail-gap">after 14m</span>');
-    expect(markup).not.toContain('ap-detail-note');
+    expect(markup, 'a recorded history is not announced as a derivation').not.toContain('were not recorded');
   });
 
   // Each round is a phase of its own on a row that never changes status, so the number has to be counted off the list.
@@ -209,10 +209,46 @@ describe('the phases', () => {
     expect(phaseLabelsIn(markup)).toEqual(['unstarted', 'wip']);
   });
 
-  test('derives the closing phase of an abandoned row from whichever of the two stamps it has', () => {
-    const markup = panelFor(exampleTask({ status: 'abandoned', end: FINISHED_AT, ticket: '001' }), exampleTicket({ status: 'abandoned', abandonedAt: DELIVERED_AT }));
+  /**
+   * An abandoned row's `end` is the moment it was abandoned — `transitionTask` stamps it there — so reading it as a
+   * finish would claim a review that never happened, and at the very instant the row was called off.
+   */
+  test('reads an abandoned row’s end as the abandonment and not as a review it never had', () => {
+    const withoutTicket = panelFor(exampleTask({ status: 'abandoned', end: FINISHED_AT }));
+    const withTicket    = panelFor(
+      exampleTask({ status: 'abandoned', end: FINISHED_AT, ticket: '001' }),
+      exampleTicket({ status: 'abandoned', abandonedAt: DELIVERED_AT }),
+    );
+
+    expect(phaseLabelsIn(withoutTicket)).toEqual(['wip', 'abandoned']);
+    expect(phaseLabelsIn(withTicket)).toEqual(['unstarted', 'wip', 'abandoned']);
+  });
+
+  // The ticket's own `finished` stamp is evidence the row really was in review before it was called off; the row's `end` is not.
+  test('derives the review of a row abandoned out of review from the ticket’s finished stamp', () => {
+    const markup = panelFor(
+      exampleTask({ status: 'abandoned', end: DELIVERED_AT, ticket: '001' }),
+      exampleTicket({ status: 'abandoned', finished: FINISHED_AT, abandonedAt: DELIVERED_AT }),
+    );
 
     expect(phaseLabelsIn(markup)).toEqual(['unstarted', 'wip', 'awaiting review', 'abandoned']);
+  });
+
+  // `transitionTask` drops `reviewRound` when a row goes back to pending, so a panel counting every round in the list would outrun the pill.
+  test('restarts the review rounds after the row was sent back to pending', () => {
+    const markup = panelFor(exampleTask({
+      status:  're-review',
+      history: [
+        { status: 'finished', at: FILED_AT },
+        { status: 're-review', at: STARTED_AT },
+        { status: 'pending', at: FINISHED_AT },
+        { status: 'running', at: REVIEWED_AT },
+        { status: 'finished', at: DELIVERED_AT },
+        { status: 're-review', at: '2026-09-18T22:10:00+02:00' },
+      ],
+    }));
+
+    expect(phaseLabelsIn(markup)).toEqual(['awaiting review', 'reviewing 2', 'unstarted', 'wip', 'awaiting review', 'reviewing 2']);
   });
 
   test('says there is nothing to derive rather than showing an empty list', () => {
@@ -272,7 +308,15 @@ describe('the log', () => {
   test('does not let a row claim a line about a row whose number merely starts with its own', () => {
     const markup = panelFor(exampleTask({ id: 1 }), null, [{ at: FINISHED_AT, text: '#13 finished' }]);
 
-    expect(markup).toContain('<ul class="ap-detail-log"></ul>');
+    expect(markup).not.toContain('#13 finished');
+  });
+
+  // Phases says so in words when it has nothing; a labelled empty box beside it would read as a section that failed to load.
+  test('says no line names this row rather than showing an empty box', () => {
+    const markup = panelFor(exampleTask({ id: 1 }), null, [{ at: FINISHED_AT, text: '#13 finished' }]);
+
+    expect(markup).not.toContain('<ul class="ap-detail-log"></ul>');
+    expect(markup).toContain('No log line names this row');
   });
 });
 

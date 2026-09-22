@@ -152,13 +152,17 @@ nothing about tasks or tickets — a caller supplies a path.
   here and nowhere else, as does the task id allocator: `nextTaskId` is stored, never wound back, and
   taken only by the `addTask` that files the row using it.
 
-  **A row's `history` is the record of what happened to it**, and only `transitionTask` writes one:
-  a phase per move that really changed the status, plus one per `re-review` call, because a row stays
-  in `re-review` between rounds and each round is an event of its own. `addTask` seeds the single
-  phase a row filed into a later status was already in, stamped with the `end` or `start` it was
-  filed with — a `pending` row has reached nothing, and a row filed with no stamp at all has nothing
-  to record. The field is optional: every row written before it existed has none, and
-  `lib/render/page/TaskDetail.ts` says so rather than presenting a derivation as the record.
+  **A row's `history` is the record of what happened to it.** `transitionTask` files a phase per move
+  that really changed the status — `pending` included, so `ticket reopen` is on the record — plus one
+  per `re-review` call, because a row stays in `re-review` between rounds and each round is an event of
+  its own. `addTask` files the single phase the row begins on, and **the stamp follows the status**: a
+  phase that opens the row's interval is stamped at `start`, a terminal one at `end`, and a `pending`
+  row at the `filedAt` its caller supplies. That last one is why `filedAt` exists at all — how long a
+  row sat in the queue before anybody picked it up is measurable only if the filing is a phase, so
+  `task add` and `ensureTaskForTicket` both pass the moment they are filing at. A caller that supplies
+  no stamp leaves the row with nothing to record. The field is optional: every row written before it
+  existed has none, and `lib/render/page/TaskDetail.ts` says so rather than presenting a derivation as
+  the record.
 
 ## `lib/tickets/`
 

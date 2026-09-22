@@ -130,8 +130,13 @@ five timestamp slice positions travel the same way, so no page module restates t
   before `history` existed is told so on the panel and given what can be derived from its own stamps
   and its ticket's, in ladder order, rather than being handed a reconstruction that reads like the
   record. The newest phase is read through the ticket like the row itself is; an older one keeps the
-  status it was filed under. Durations between phases are computed and formatted, which is the one
-  thing here that parses a stored stamp at all — a span has no wall clock to preserve.
+  status it was filed under, and the review rounds are counted off the list from the last `pending`
+  phase, which is what `transitionTask` does to `reviewRound` when a row is sent back — counting the
+  whole list would print `reviewing 4` beside a pill that had restarted at `reviewing 2`. A derived
+  phase may never be one the row did not reach: an abandoned row's `end` is the moment it was called
+  off, so only the ticket's own `finished` stamp can put `awaiting review` in that list. Durations
+  between phases are computed and formatted, which is the one thing here that parses a stored stamp at
+  all — a span has no wall clock to preserve.
 - **Timestamps stored by the CLI are sliced, never re-parsed**; each carries the offset of the machine
   that recorded it. Instants the page computed (the axis, the now marker, the generated stamp) are
   formatted, because they have no written-down wall clock to preserve.

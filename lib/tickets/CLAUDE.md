@@ -65,7 +65,9 @@ it checks its own one legal source rather than being given a matrix row of its o
 ## `seedTaskFromTicket` seeds no history, on purpose
 
 A row `clear` rebuilds from a ticket's frontmatter comes back knowing only the status it came back
-in — the one phase `addTask` files for it — and **not** a phase list reconstructed from `filed`,
+in — the one phase `addTask` files for it, and none at all when that status is `pending`, since
+`seedTaskFromTicket` passes no `filedAt`: the ticket's `filed` stamp is not when this row was
+filed — and **not** a phase list reconstructed from `filed`,
 `started`, `finished` and `delivered`. The ticket's stamps are the ticket's history, not the row's:
 the row did not live through them, and a reconstruction written into `history` would be
 indistinguishable from one the tool watched happen. It would also be wrong in a way nobody could
@@ -83,11 +85,15 @@ that features never import sideways. `applyTicketTransition`, `ensureTaskForTick
 real functions in. The four signatures it declares are:
 
 ```ts
-addTask(progress, input: { name; owner?; note?; ticket?; status?; start?; end? }): Task
+addTask(progress, input: { name; owner?; note?; ticket?; status?; start?; end?; reviewed?; filedAt? }): Task
 findTask(progress, taskId): Task | undefined
 transitionTask(progress, taskId, status: TaskStatus, at: string): 'applied' | 'no-such-task'
 appendLogEntry(progress, at, text): void
 ```
+
+`ensureTaskForTicket` takes an `at` of its own on top of `TicketRowInput`, used only when there is
+no row yet: the row a ticket files is filed at that moment, and it passes it on as `filedAt` so the
+row's first phase says when it entered the queue.
 
 A shape two modules must agree on that neither may import from the other is a structurally typed
 parameter, not a shared import.
