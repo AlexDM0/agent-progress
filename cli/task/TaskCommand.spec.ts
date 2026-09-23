@@ -206,6 +206,35 @@ describe.skipIf(!gitIsAvailable())('linking a row to a ticket', () => {
     expect(storedTicketText('001-double-click-a-role-to-edit-it.md')).toContain('task: 2');
   });
 
+  // The page nests a review under its ticket by this field; it is a second relation, so the ticket's own row and its file stay untouched.
+  test('--review-of stores the reviewed ticket on the row, and status --json --full shows it', async () => {
+    await run(['ticket', 'add', 'Double-click a role to edit it']);
+    await run(['ticket', 'add', 'Cache ticket bodies']);
+    await run(['ticket', 'add', 'Split the exporter']);
+    const ticketTextBefore = storedTicketText('003-split-the-exporter.md');
+
+    await run(['task', 'add', 'Review 1 #3 — x', '--review-of', '3', '--start']);
+
+    const review = storedProgress().tasks.find((task) => task.name === 'Review 1 #3 — x');
+    expect(review).toMatchObject({ reviewOf: '003', ticket: null, status: 'running' });
+    expect(storedTicketText('003-split-the-exporter.md')).toBe(ticketTextBefore);
+
+    const status   = await run(['status', '--json', '--full']);
+    const document = JSON.parse(status.outputText()) as ProgressFile;
+    expect(document.tasks.find((task) => task.id === review?.id)?.reviewOf).toBe('003');
+  });
+
+  test('--review-of naming a ticket that does not exist is refused with exit 1, and nothing is written', async () => {
+    await run(['ticket', 'add', 'Double-click a role to edit it']);
+    const progressBefore = readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8');
+
+    const refused = contextHere();
+    expect(await runCommandLine(['task', 'add', 'Review 1 #9 — x', '--review-of', '9', '--start'], refused)).toBe(1);
+
+    expect(refused.errorText()).toContain('--review-of names ticket 9, and there is none');
+    expect(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')).toBe(progressBefore);
+  });
+
   test('remove clears the linked ticket\'s task, so the ticket never names a row that is gone', async () => {
     await run(['ticket', 'add', 'Double-click a role to edit it']);
 

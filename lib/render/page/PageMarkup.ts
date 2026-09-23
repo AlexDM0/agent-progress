@@ -112,8 +112,64 @@ function deliveredAfterReview(task: Task, ticketStatus: TicketStatus | null): bo
   return task.status === 'delivered' && (task.reviewed !== undefined || ticketStatus === 'delivered');
 }
 
-function taskRowMarkup(row: TaskRow, slices: TimestampSlices): string {
-  const { task, bar } = row;
+/** Only the prefix is read, and a bundle's first id is its parent: `Review 1 #13, #5 — …` reviews #13. */
+const REVIEW_NAME_PATTERN = /^Review (\d+) #(\d+)/;
+
+function wholeNumberOrNull(text: string | undefined): number | null {
+  const value = Number(text);
+  return text === undefined || text === '' || !Number.isSafeInteger(value) ? null : value;
+}
+
+/** Compared as a number, so a name's `#3`, a stored `003` and a ticket row's `003` all name one ticket. */
+export function reviewedTicketNumberOf(task: Task): number | null {
+  if (task.reviewOf !== undefined) {
+    return wholeNumberOrNull(task.reviewOf);
+  }
+  return wholeNumberOrNull(REVIEW_NAME_PATTERN.exec(task.name)?.[2]);
+}
+
+function reviewRoundNamedBy(task: Task): number {
+  return wholeNumberOrNull(REVIEW_NAME_PATTERN.exec(task.name)?.[1]) ?? Number.MAX_SAFE_INTEGER;
+}
+
+export interface PlacedTaskRow {
+  row:               TaskRow;
+  /** The ticket id of the row this one is drawn under, or `null` for a row drawn at the top level. */
+  nestedUnderTicket: string | null;
+}
+
+/**
+ * Newest filed first, except that a review row is drawn directly under its ticket's own row, in round order. A review whose ticket has
+ * no row among these — never started, or hidden as long done — stays where its filing puts it, and a ticket's own row is never nested.
+ */
+export function taskRowsInDisplayOrder(rows: readonly TaskRow[]): PlacedTaskRow[] {
+  const ownRowByTicketNumber = new Map<number, TaskRow>();
+  for (const row of rows) {
+    const ticketNumber = wholeNumberOrNull(row.task.ticket ?? undefined);
+    if (ticketNumber !== null) ownRowByTicketNumber.set(ticketNumber, row);
+  }
+
+  const reviewsByParent = new Map<TaskRow, TaskRow[]>();
+  for (const row of rows) {
+    const reviewedNumber = row.task.ticket === null ? reviewedTicketNumberOf(row.task) : null;
+    const parent         = reviewedNumber === null ? undefined : ownRowByTicketNumber.get(reviewedNumber);
+    if (parent !== undefined) reviewsByParent.set(parent, [...reviewsByParent.get(parent) ?? [], row]);
+  }
+  const nestedRows = new Set([...reviewsByParent.values()].flat());
+
+  return rows.toReversed().flatMap((row) => {
+    if (nestedRows.has(row)) return [];
+    const reviews = (reviewsByParent.get(row) ?? []).toSorted((a, b) => reviewRoundNamedBy(a.task) - reviewRoundNamedBy(b.task) || a.task.id - b.task.id);
+    return [
+      { row, nestedUnderTicket: null },
+      ...reviews.map((review) => ({ row: review, nestedUnderTicket: row.task.ticket })),
+    ];
+  });
+}
+
+function taskRowMarkup(placed: PlacedTaskRow, slices: TimestampSlices): string {
+  const { row, nestedUnderTicket } = placed;
+  const { task, bar }              = row;
   const state         = rowStateFor(task, row.ticketStatus);
   const ticketBadge   = task.ticket === null
     ? ''
@@ -124,8 +180,9 @@ function taskRowMarkup(row: TaskRow, slices: TimestampSlices): string {
   const tokens = task.tokens === null
     ? ''
     : `<span class="ap-tokens">${escapeHtml(formatTokenCount(task.tokens))} tokens</span>`;
+  const nesting = nestedUnderTicket === null ? '' : ` ${attribute('data-review-of', nestedUnderTicket)}`;
   return [
-    `<div class="ap-grid-row ap-row" ${attribute('id', `ap-task-${task.id}`)} ${attribute('data-task-id', String(task.id))} ${attribute('data-state', state)}>`,
+    `<div class="ap-grid-row ap-row" ${attribute('id', `ap-task-${task.id}`)} ${attribute('data-task-id', String(task.id))} ${attribute('data-state', state)}${nesting}>`,
     `<div class="ap-cell-name"><span class="ap-num">${escapeHtml(String(task.id))}</span>`,
     `<span class="ap-name" ${attribute('title', task.name)}>${escapeHtml(task.name)}</span>${ticketBadge}${waitingOnMarkup(row.waitingOn)}${tokens}</div>`,
     `<div class="ap-cell-pill"><span class="ap-pill">${escapeHtml(pillLabelFor(state, task))}</span>${reviewedMark}</div>`,
@@ -136,9 +193,9 @@ function taskRowMarkup(row: TaskRow, slices: TimestampSlices): string {
   ].join('');
 }
 
-/** Rows arrive in filing order and are drawn newest first. */
+/** Rows arrive in filing order and are drawn in `taskRowsInDisplayOrder`. */
 export function taskRowsMarkup(rows: readonly TaskRow[], slices: TimestampSlices): string {
-  return rows.toReversed().map((row) => taskRowMarkup(row, slices)).join('');
+  return taskRowsInDisplayOrder(rows).map((placed) => taskRowMarkup(placed, slices)).join('');
 }
 
 export function tickLayerMarkup(ticks: readonly PlacedTick[]): string {

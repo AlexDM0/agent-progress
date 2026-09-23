@@ -69,6 +69,9 @@
  #ap-detail-close         el     the panel's close button
  ---------------------------------------------------------------- row markup ---
  .ap-row[data-state]      state goes on the ROW; pill and bar inherit its colours
+ .ap-row[data-review-of]  a review pass, drawn directly under the row of the ticket it names
+                          (value = that ticket's id), in round order, its name cell indented
+                          one level; a review whose ticket has no row carries no attribute
  .ap-row > .ap-cell-name  > .ap-num, .ap-name[title], a.ap-ticket-badge, .ap-waiting, .ap-tokens
  .ap-waiting              "waiting on #003, #004", each id a link to its ticket card; also
                           after the title in the ticket table and in a waiting card's head
@@ -354,6 +357,8 @@ a:hover { color: var(--ink); text-decoration: underline; }
 .ap-body { position: relative; width: fit-content; min-width: 100%; }
 .ap-row { border-bottom: 1px solid var(--line); }
 .ap-row:last-child { border-bottom: 0; }
+/* A review pass sits one level in under its ticket's row: its number lines up with the ticket row's name. */
+.ap-row[data-review-of] > .ap-cell-name { padding-left: calc(var(--sp-4) + 28px); }
 
 .ap-cell-name {
   position: sticky; left: 0; z-index: 2;
@@ -758,6 +763,11 @@ a:hover { color: var(--ink); text-decoration: underline; }
             <div class="ap-cell-name"><span class="ap-num">3</span><span class="ap-name" title="Split the exporter into two passes so the tick ladder can be reused">Split the exporter into two passes so the tick ladder can be reused</span><a class="ap-ticket-badge" href="#ap-ticket-003">#003</a><span class="ap-tokens">12.3k tokens</span></div>
             <div class="ap-cell-pill"><span class="ap-pill">reviewing</span></div>
             <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:31.0%;width:34.0%"></div><span class="ap-clip-r" hidden></span></div>
+          </div>
+          <div class="ap-grid-row ap-row" id="ap-task-9" data-task-id="9" data-state="running" data-review-of="003">
+            <div class="ap-cell-name"><span class="ap-num">9</span><span class="ap-name" title="Review 1 #003 — Split the exporter into two passes">Review 1 #003 — Split the exporter into two passes</span><span class="ap-tokens">3.1k tokens</span></div>
+            <div class="ap-cell-pill"><span class="ap-pill">wip</span></div>
+            <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:66.0%;width:12.0%"></div><span class="ap-clip-r" hidden></span></div>
           </div>
           <div class="ap-grid-row ap-row" id="ap-task-4" data-task-id="4" data-state="finished">
             <div class="ap-cell-name"><span class="ap-num">4</span><span class="ap-name" title="Regenerate the timeline fixtures">Regenerate the timeline fixtures</span><span class="ap-tokens">4.2k tokens</span></div>

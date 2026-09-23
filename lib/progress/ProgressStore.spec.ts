@@ -171,6 +171,18 @@ test('a row that starts running anew drops its agent key, and a resumed pause ke
   expect(resumed.agent).toBe('003,004');
 });
 
+// Every review row filed before the field existed has none; the page falls back to its name, and a read must not add the field.
+test('a row without reviewOf reads unchanged, and addTask writes the field only when it is given one', () => {
+  const progress = emptyProgress();
+  const plain    = addTask(progress, { name: 'Review 1 #3 — x' });
+  const linked   = addTask(progress, { name: 'Review 2 #3 — x', reviewOf: '003' });
+  expect('reviewOf' in plain).toBe(false);
+  expect(linked.reviewOf).toBe('003');
+
+  const result = readBack('store-review-of', progress);
+  expect(result.verdict === 'readable' ? result.progress : null).toEqual(progress);
+});
+
 test('a task whose status this build does not know makes the whole file unreadable, and the reason names the task and the status', () => {
   const progress = emptyProgress();
   addTask(progress, { name: 'Review pass' });
@@ -217,6 +229,11 @@ test('every other missing or mistyped field is named too', () => {
       prefix:   'store-agent-not-text',
       document: { ...progress, tasks: [{ ...progress.tasks[0], agent: 3 }] },
       named:    'tasks[0].agent',
+    },
+    {
+      prefix:   'store-review-of-not-text',
+      document: { ...progress, tasks: [{ ...progress.tasks[0], reviewOf: 3 }] },
+      named:    'tasks[0].reviewOf',
     },
   ];
   for (const { prefix, document, named } of cases) {

@@ -62,8 +62,11 @@ ready ids, then \`and N more\`. --json output never carries it.
       [--owner <who>]         --ticket links it to a ticket that has no row of its own, --note is
       [--note <text>]         the detail shown beside the bar, and --tokens records what the work
       [--ticket <id>]         cost. --force moves --ticket's link off the row that holds it.
-      [--start] [--tokens <n>]
-      [--at <when>] [--force]
+      [--review-of <id>]      --review-of marks the row as a review pass of that ticket: the page
+      [--start]               draws it indented under the ticket's own row, in round order. A
+      [--tokens <n>]          ticket that does not exist is refused at exit 1. A row without it
+      [--at <when>] [--force] whose name starts "Review <N> #<id>" is nested the same way; for a
+                              bundle, the first id named is the parent.
 
   task start|pause|finish|review|rereview|deliver <id> [--owner <who>] [--note <text>]
       [--tokens <n>] [--at <when>] [--force]

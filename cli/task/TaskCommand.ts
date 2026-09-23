@@ -20,7 +20,7 @@ import type { CommandHandler } from '../CommandTable';
 import type { ArgumentParser } from '../arguments/ArgumentParser';
 
 const USAGE = [
-  'agent-progress task add "<name>" [--owner <who>] [--note <text>] [--ticket <id>] [--start] [--tokens <n>] [--at <when>]',
+  'agent-progress task add "<name>" [--owner <who>] [--note <text>] [--ticket <id>] [--review-of <id>] [--start] [--tokens <n>] [--at <when>]',
   'agent-progress task start|pause|finish|review|rereview|deliver <id> [--owner <who>] [--note <text>] [--tokens <n>] [--at <when>] [--force]',
   'agent-progress task update <id> [--name <text>] [--owner <who>] [--note <text>] [--status <status>] [--tokens <n>] [--force]',
   'agent-progress task remove <id>',
@@ -46,7 +46,7 @@ const TICKET_VERB_FOR_TASK_STATUS: Partial<Record<TaskStatus, string>> = {
   'abandoned': 'ticket abandon',
 };
 
-const ADD_OPTION_NAMES        = ['owner', 'note', 'ticket', 'start', 'at', 'tokens', 'force', 'json'];
+const ADD_OPTION_NAMES        = ['owner', 'note', 'ticket', 'review-of', 'start', 'at', 'tokens', 'force', 'json'];
 const TRANSITION_OPTION_NAMES = ['owner', 'note', 'at', 'tokens', 'force', 'json'];
 const UPDATE_OPTION_NAMES     = ['name', 'owner', 'note', 'status', 'tokens', 'force', 'json'];
 const REMOVE_OPTION_NAMES     = ['json'];
@@ -119,12 +119,13 @@ async function addOneTask(commandArguments: ArgumentParser, context: CommandCont
   if (name === undefined || name.trim() === '') {
     throw new OperationRefusal('refused', `agent-progress task add needs a name.\n  Usage: ${USAGE}`);
   }
-  const ticketReference = commandArguments.option('ticket');
-  const owner           = commandArguments.option('owner');
-  const note            = commandArguments.option('note');
-  const tokens          = tokenCountFrom(commandArguments);
-  const startsNow       = commandArguments.flag('start');
-  const movesTheLink    = commandArguments.flag('force');
+  const ticketReference   = commandArguments.option('ticket');
+  const reviewedReference = commandArguments.option('review-of');
+  const owner             = commandArguments.option('owner');
+  const note              = commandArguments.option('note');
+  const tokens            = tokenCountFrom(commandArguments);
+  const startsNow         = commandArguments.flag('start');
+  const movesTheLink      = commandArguments.flag('force');
 
   const task = await openTrackerForWriting(commandArguments, context, (change) => {
     const {
@@ -139,6 +140,14 @@ async function addOneTask(commandArguments: ArgumentParser, context: CommandCont
       throw new OperationRefusal(
         'refused',
         `There is no ticket ${ticketReference}. Run \`agent-progress ticket list\` to see the tickets this tracker holds.`,
+      );
+    }
+
+    const reviewedTicket = reviewedReference === undefined ? null : readTicket(workspace, reviewedReference);
+    if (reviewedReference !== undefined && reviewedTicket === null) {
+      throw new OperationRefusal(
+        'refused',
+        `--review-of names ticket ${reviewedReference}, and there is none. Run \`agent-progress ticket list\` to see the tickets this tracker holds.`,
       );
     }
 
@@ -163,6 +172,7 @@ async function addOneTask(commandArguments: ArgumentParser, context: CommandCont
       ...(note === undefined ? {} : { note }),
       ...(tokens === undefined ? {} : { tokens }),
       ...(ticket === null ? {} : { ticket: ticket.frontmatter.id }),
+      ...(reviewedTicket === null ? {} : { reviewOf: reviewedTicket.frontmatter.id }),
     });
     if (startsNow) transitionTask(progress, created.id, 'running', at);
 

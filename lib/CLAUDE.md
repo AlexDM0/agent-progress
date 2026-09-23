@@ -58,7 +58,7 @@ Imports nothing; safe to compile alongside the browser page, which is why no val
 or Node.
 
 - `lib/constants/Types.ts` — every shape the tracker stores or renders: `Task` (with its nullable
-  `tokens` and its optional `history` and `agent`), `TaskPhase`, `LogEntry`, `ViewRange`, `ProgressFile` (with
+  `tokens` and its optional `history`, `agent` and `reviewOf`), `TaskPhase`, `LogEntry`, `ViewRange`, `ProgressFile` (with
   `nextTaskId` and the optional `concurrencyLimit`), `TicketFrontmatter` (with the optional `priority`,
   absent meaning normal), `TicketPriority`, `Ticket`. Types only, no values.
 - `lib/constants/Limits.ts` — the tuning constants, each with its unit in its name: lock staleness and
@@ -202,6 +202,10 @@ nothing about tasks or tickets — a caller supplies a path.
   the claimed ids joined) with each group counted once and each keyless running row counted alone,
   and never answers negative free slots. `transitionTask` drops the key when a row starts running from
   anything but a pause, so a restarted row is an agent of its own until a claim keys it again.
+
+  **A review row's `reviewOf` is optional too**: the padded id of the ticket it reviews, written by
+  `task add --review-of`, validated as text when present, and never added by a read — a row filed
+  before it existed is nested by its name on the page instead.
 
   **A row's `history` is the record of what happened to it.** `transitionTask` files a phase per move
   that really changed the status — `pending` included, so `ticket reopen` is on the record — plus one

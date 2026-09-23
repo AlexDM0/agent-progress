@@ -81,6 +81,16 @@ waiting for its branch to go in. A free-standing row — a review pass, a chore,
 branch to merge — reaches `done` through `agent-progress task deliver <id>` once its work is
 accepted. A row that never gets there is a row the chart shows as still owed.
 
+**A review pass is drawn under its ticket.** A row filed with `task add … --review-of <id>` stores
+the ticket it reviews in its `reviewOf` field, which `status --json --full` shows; a ticket that does
+not exist is refused at exit 1 and nothing is written. On the Progress tab each review row sits
+directly under that ticket's own row, indented one level, in round order, with its own bar, pill and
+times. A row without the field whose name starts `Review <N> #<id>` is read the same way, so a board
+filed before the flag nests too; a bundle's review, `Review 1 #13, #5 — …`, sits once, under the first
+ticket it names. A review whose ticket has no row on the chart — a low ticket not started, or one
+hidden as long done — is drawn where its filing puts it. `--review-of` is not `--ticket`: the ticket
+keeps its own row, and the review row moves through the `task` verbs.
+
 Every one of those moves is appended to the row's own phase history, which the dashboard shows when
 a row is double-clicked, with how long the row sat in each phase. `task update --status` is
 deliberately not: it corrects a row rather than moving it.

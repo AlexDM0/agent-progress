@@ -320,4 +320,5 @@ a clean agent briefed from the Review brief above, never the orchestrator readin
 agent-progress task add "<what the agent will do>" --owner <model> --start   # its id goes on the brief's `agent-progress row:` line
 agent-progress task finish <id>                # add `--tokens <subagent_tokens>` only without the hook
 agent-progress ticket review <id>              # then a clean reviewer in its own row, from the Review brief
+agent-progress task add "Review <N> #<id> — <ticket title>" --review-of <id> --owner opus --start   # the review's row, drawn under the ticket's
 ```

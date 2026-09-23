@@ -215,6 +215,80 @@ describe('taskRowsMarkup', () => {
   });
 });
 
+function rowsFiled(tasks: readonly Task[]): Parameters<typeof taskRowsMarkup>[0] {
+  return tasks.map((task) => ({
+    task, ticketStatus: null, bar: PLACED_BAR, waitingOn: []
+  }));
+}
+
+function drawnOrderOf(markup: string): Array<[taskId: string, reviewOf: string | null]> {
+  return [...markup.matchAll(/data-task-id="(\d+)" data-state="[^"]+"(?: data-review-of="(\d+)")?/g)].map((match) => [match[1] ?? '', match[2] ?? null]);
+}
+
+// A review pass belongs to its ticket: it is drawn under the ticket's own row rather than wherever its start time put it.
+describe('review rows nested under their ticket', () => {
+  test('draws both review rows directly under the ticket, indented, round 1 above round 2, whether linked by flag or only by name', () => {
+    const markup = taskRowsMarkup(rowsFiled([
+      exampleTask({ id: 1, name: 'Split the exporter', ticket: '003' }),
+      exampleTask({ id: 2, name: 'Regenerate the fixtures' }),
+      exampleTask({ id: 3, name: 'Review 1 #3 — Split the exporter' }),
+      exampleTask({ id: 4, name: 'Brighter colours', ticket: '004' }),
+      exampleTask({ id: 5, name: 'Review 2 #3 — Split the exporter', reviewOf: '003' }),
+    ]), EXAMPLE_SLICES);
+
+    expect(drawnOrderOf(markup)).toEqual([
+      ['4', null],
+      ['2', null],
+      ['1', null],
+      ['3', '003'],
+      ['5', '003'],
+    ]);
+  });
+
+  test('puts the flag ahead of the name, so a review named for one ticket but filed against another nests under the flagged one', () => {
+    const markup = taskRowsMarkup(rowsFiled([
+      exampleTask({ id: 1, ticket: '003' }),
+      exampleTask({ id: 2, ticket: '004' }),
+      exampleTask({ id: 3, name: 'Review 1 #3 — x', reviewOf: '004' }),
+    ]), EXAMPLE_SLICES);
+
+    expect(drawnOrderOf(markup)).toEqual([['2', null], ['3', '004'], ['1', null]]);
+  });
+
+  test('draws a bundle review once, under the first ticket it names', () => {
+    const markup = taskRowsMarkup(rowsFiled([
+      exampleTask({ id: 1, ticket: '005' }),
+      exampleTask({ id: 2, ticket: '013' }),
+      exampleTask({ id: 3, name: 'Review 1 #13, #5 — the bundle' }),
+    ]), EXAMPLE_SLICES);
+
+    expect(drawnOrderOf(markup)).toEqual([['2', null], ['3', '013'], ['1', null]]);
+    expect(markup.match(/data-task-id="3"/g)?.length).toBe(1);
+  });
+
+  // A ticket not started, or hidden as long done, has no row here; its review must neither vanish nor move.
+  test('leaves a review whose ticket has no row, and a free-standing row, where the filing order puts them, without an indent', () => {
+    const markup = taskRowsMarkup(rowsFiled([
+      exampleTask({ id: 1, name: 'Regenerate the fixtures' }),
+      exampleTask({ id: 2, name: 'Review 1 #7 — a ticket with no row' }),
+      exampleTask({ id: 3, name: 'Review pass of the whole surface' }),
+      exampleTask({ id: 4, name: 'Review 1 #8 — linked by flag', reviewOf: '008' }),
+    ]), EXAMPLE_SLICES);
+
+    expect(drawnOrderOf(markup)).toEqual([['4', null], ['3', null], ['2', null], ['1', null]]);
+    expect(markup).not.toContain('data-review-of');
+  });
+
+  test('never nests a ticket\'s own row, even one whose name reads like a review', () => {
+    const markup = taskRowsMarkup(rowsFiled([
+      exampleTask({ id: 1, ticket: '003' }),
+      exampleTask({ id: 2, name: 'Review 1 #3 — misnamed', ticket: '009' }),
+    ]), EXAMPLE_SLICES);
+
+    expect(drawnOrderOf(markup)).toEqual([['2', null], ['1', null]]);
+  });
+});
+
 describe('summaryStatsMarkup', () => {
   // `done` is the merged rows over the total, and the two figures beside it are what is still owed: a merge, and a review.
   test('reads in the same ladder as the pills: done out of the total, then what is awaited', () => {

@@ -42,6 +42,7 @@ export interface AddTaskInput {
   tokens?:      number | null;
   reviewed?:    string;
   reviewRound?: number;
+  reviewOf?:    string;
   /** When the row was filed. It is the stamp a `pending` row's first phase carries, and the only way the queue interval is ever measurable. */
   filedAt?:     string;
 }
@@ -147,6 +148,7 @@ function taskProblem(value: unknown, index: number): string | null {
     return `tasks[${index}].history is present and is not a list of phases, each a known status with the timestamp it was reached at`;
   }
   if (task['agent'] !== undefined && typeof task['agent'] !== 'string') return `tasks[${index}].agent is present but not the key of the claim that started it`;
+  if (task['reviewOf'] !== undefined && typeof task['reviewOf'] !== 'string') return `tasks[${index}].reviewOf is present but not the id of the ticket it reviews`;
   return null;
 }
 
@@ -258,6 +260,7 @@ export function addTask(progress: ProgressFile, input: AddTaskInput): Task {
     ...(input.reviewed === undefined ? {} : { reviewed: input.reviewed }),
     ...(input.reviewRound === undefined ? {} : { reviewRound: input.reviewRound }),
     ...(seededHistory === null ? {} : { history: seededHistory }),
+    ...(input.reviewOf === undefined ? {} : { reviewOf: input.reviewOf }),
   };
   progress.tasks.push(task);
   return task;

@@ -35,6 +35,11 @@ export interface Task {
    * running rows count as one agent. Absent on a row no claim started, which counts as an agent of its own.
    */
   agent?:       string;
+  /**
+   * The padded id of the ticket this row reviews, written by `task add --review-of`; the page draws the row under that ticket's own row.
+   * Absent on every other row, and on a review row filed before the field existed, whose `Review <N> #<id>` name the page reads instead.
+   */
+  reviewOf?:    string;
 }
 
 export interface LogEntry {

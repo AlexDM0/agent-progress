@@ -10,6 +10,7 @@ export const OPTION_NAMES_WITH_VALUES = new Set<string>([
   'note',
   'name',
   'ticket',
+  'review-of',
   'status',
   'at',
   'tokens',

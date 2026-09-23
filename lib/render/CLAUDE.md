@@ -24,7 +24,7 @@ the real store functions in. Every mutating command calls it **inside its lock**
 | `lib/render/GanttGeometry.spec.ts` | The geometry's spec — see below for why it is not beside its module. |
 | `lib/render/PageData.spec.ts` | The island checks, the stored range and `effectiveRangeFor`. |
 | `lib/render/WorkVisibility.spec.ts` | Which tasks and tickets count as long done, and what the hidden note says. |
-| `lib/render/PageMarkup.spec.ts` | Every state's pill, the summary's figures, the token figure, the log's sort, which ticket cards collapse, the low and high priority marks, and the escaping. |
+| `lib/render/PageMarkup.spec.ts` | Every state's pill, review rows nested under their ticket's row, the summary's figures, the token figure, the log's sort, which ticket cards collapse, the low and high priority marks, and the escaping. |
 | `lib/render/TaskDetail.spec.ts` | The overview panel: a recorded history against a derived one, the review rounds, which log lines a row claims, and the escaping. |
 | `lib/render/page/template.html` | The designer's template: the styles, the state system, the containers and the bootstrap. Not generated. |
 | `lib/render/page/GanttGeometry.ts` | `computeTimeline(input)`: the axis, the ticks, every bar and the now marker as percentages. Pure, no DOM. |
@@ -126,6 +126,12 @@ five timestamp slice positions travel the same way, so no page module restates t
   `span.ap-waiting`, both carrying `data-priority`, after the title in the ticket table and after the
   status badge in a card's head; `normal` — and a ticket file with no priority — carries none. A low
   ticket never started has no row, so it is on the Tickets tab only, with an empty task cell.
+- **A review row is drawn under its ticket's row**, which `taskRowsInDisplayOrder` in
+  `lib/render/page/PageMarkup.ts` decides: the row's `reviewOf`, else the first id of a
+  `Review <N> #<id>` name, matched by number against the visible rows' `ticket`, then round order from
+  the name and filing order after it. A nested row carries `data-review-of` with the ticket's id, and
+  the template's one rule for it is the indent. A review whose ticket has no visible row, and a
+  ticket's own row whatever its name, stay where filing order puts them.
 - **The overview panel is a `<dialog>` the page only fills and opens.** A double-click on a `.ap-row`
   or on a ticket table row (which carries `data-ticket-id` for exactly this) puts
   `taskDetailMarkup`'s output into `#ap-detail-body` and calls `showModal()`; Esc comes free, the

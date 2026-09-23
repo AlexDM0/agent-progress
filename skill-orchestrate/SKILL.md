@@ -196,10 +196,12 @@ one shows up as a round request.
 1. `agent-progress ticket review <id>` — plus `--tokens <n>` from `subagent_tokens` only where the
    hook is not installed; where it is, the hook has already added the agent's cost to the row.
 2. Give every review pass its own bar, because it is work — you add them all, whichever round, and
-   a bundle gets one bar and one reviewer for all its tickets, named for every id in it:
+   a bundle gets one bar and one reviewer for all its tickets, named for every id in it.
+   `--review-of` draws the bar under the ticket's own row on the Progress tab; for a bundle, give
+   it the first id the name lists:
 
    ```
-   agent-progress task add "Review <N> #<id> — <ticket title>" --owner opus --start
+   agent-progress task add "Review <N> #<id> — <ticket title>" --review-of <id> --owner opus --start
    ```
 
 3. Spawn the reviewer from the Review brief in `.agent-progress/agent-brief.md`, filled in, and
