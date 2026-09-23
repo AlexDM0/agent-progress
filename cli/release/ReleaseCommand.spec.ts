@@ -19,7 +19,7 @@ import {
   expect,
   test
 }                                       from 'bun:test';
-import type { ProgressFile, Task }     from '../../lib/constants/Types';
+import type { ProgressFile, Task }      from '../../lib/constants/Types';
 import { createCapturedCommandContext } from '../../lib/tooling/dev/CapturedCommandContext';
 import {
   addWorktree,
@@ -27,7 +27,7 @@ import {
   gitIsAvailable,
   removeScratchDirectory
 }                                       from '../../lib/tooling/dev/ScratchWorkspace';
-import { TimeUtil }                     from '../../lib/utils/TimeUtil';
+import { TimeUtil }       from '../../lib/utils/TimeUtil';
 import { helpText }       from '../HelpText';
 import { runCommandLine } from '../Main';
 
@@ -38,10 +38,10 @@ type CleanupStepDocument =
   | { target: 'branch'; name: string; outcome: 'left'; reason: string };
 
 interface ReleaseSuccessDocument {
-  released: true;
-  tickets:  string[];
-  branch:   string;
-  mainLine: string;
+  released:         true;
+  tickets:          string[];
+  branch:           string;
+  mainLine:         string;
   commit:           string;
   closedReviewRows: number[];
   cleanup:          CleanupStepDocument[];
