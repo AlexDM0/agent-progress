@@ -148,6 +148,10 @@ nothing about tasks or tickets — a caller supplies a path.
   branch's net patch against the main line before and after a rebase. Every diff spells out its
   options — prefixes, rename detection, algorithm, 25 lines of context — so a reviewer's git
   configuration cannot change the count.
+- `lib/platform/BranchRelease.ts` — the git half of `agent-progress release`, as verdicts: the main
+  checkout's current branch, whether a local branch descends from the main line, `merge --ff-only` of
+  the checked commit (confirmed by reading HEAD back), and the two cleanups — `worktree remove`,
+  never forced, naming the untracked and changed files a refused removal leaves, and `branch -d`.
 - `lib/platform/ClaudeInstructions.ts` — `writeManagedBlock`: the block `init` owns inside a
   repository's `CLAUDE.md`. Written in place so a symlinked file stays a symlink; a start marker with
   no end marker is refused and the file is left alone.

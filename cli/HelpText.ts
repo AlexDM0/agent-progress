@@ -135,6 +135,25 @@ repository to use instead of walking up from the current directory.
                               working tree to read instead of the current directory; --files adds
                               the per-file breakdown. It needs no tracker and writes nothing.
 
+  release <id> --branch <b>   Release a reviewed branch: fast-forward the main checkout — the
+      [--worktree <path>]     tracker's root, wherever this runs from — to <b>, then move the
+      [--main <line>]         ticket done and deliver it with --branch <b> and --commit set to the
+      [--json]                merged tip. More ids after <id> release every ticket of a bundle,
+                              which share <b>. All of it happens in one lock hold, so two releases
+                              never race. Refused at exit 1, with nothing changed, when a ticket
+                              is not in-progress or in-review, when the main checkout is not on
+                              --main (default \`main\`), when <b> is not a local branch, when <b>
+                              does not descend from --main — reason \`main-moved\`: rebase <b> onto
+                              it, re-run the checks and release again — and when git will not
+                              fast-forward. Afterwards \`git worktree remove\` on --worktree, never
+                              forced, and \`git branch -d <b>\`; what git declines is named with
+                              its reason, the files a worktree still holds among it, at exit 0.
+                              --json prints {released, reason?, commit?, cleanup}; reason is one
+                              of invalid-request, unknown-ticket, ticket-not-releasable,
+                              unknown-branch, not-on-main-line, main-moved, merge-refused,
+                              git-failed and tracker-failed. Allowing this command is the release
+                              permission: a reviewer never runs \`git merge\` itself.
+
   ticket add "<title>"        File a ticket: a markdown file under \`.agent-progress/tickets/\` with
       [--type bug|change|feature]
       [--group <name>]        its own frontmatter, plus a pending Gantt row. The body comes from

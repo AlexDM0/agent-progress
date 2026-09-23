@@ -43,7 +43,7 @@ describe('the command table', () => {
 
   test('the table holds exactly the commands the plan names', () => {
     expect([...COMMAND_NAMES].sort()).toEqual([
-      'clear', 'concurrency', 'help', 'hook', 'init', 'log', 'open', 'range', 'render', 'rework', 'status', 'task', 'ticket', 'update', 'usage',
+      'clear', 'concurrency', 'help', 'hook', 'init', 'log', 'open', 'range', 'release', 'render', 'rework', 'status', 'task', 'ticket', 'update', 'usage',
     ]);
   });
 });

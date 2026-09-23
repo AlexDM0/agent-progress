@@ -163,7 +163,7 @@ facts it would otherwise go and find, the call budget, the "Ready to merge" clos
 When two slots are free, spawn both agents in one message so they run at once.
 
 **Never send a finished agent a follow-up message.** A fresh agent for the remainder is cheaper than
-the one already carrying the whole transcript. The one exception is the release slot below.
+the one already carrying the whole transcript, and a workflow script cannot send one at all.
 
 ## When an implementing agent lands
 
@@ -202,39 +202,28 @@ A bundle's reviewer gives one verdict for the branch; the tracker moves below ar
 ticket in it, and a `does not hold` names the ticket it is about — the others are released with the
 branch once that one is closed.
 
-- **`holds, release requested`** — the reviewer fixed what it found and the branch is ready. **You own the one
-  merge-to-main slot**, because two reviewers merging into one checkout race, and nobody releases
-  without it. Grant it to one branch at a time: the ticket others depend on first, then the smaller
-  branch, then whoever asked first. **A grant is only ever given against a main line that has not
-  moved since the request.** If it moved — you granted anybody else in between — send the brief's
-  other slot message instead: the reviewer rebases its branch onto main again, runs the checks,
-  judges again whether its work needs a further review, and asks for a new slot. These two slot
-  messages are the **only follow-ups a finished agent ever gets**: a release is five calls, and a
-  fresh agent would pay a whole context to make them. The agent holds an agent slot while it runs.
-  Its answer to a grant:
-  - **`released <commit>`** — `agent-progress ticket done <id>`, then
-    `agent-progress ticket deliver <id> --branch <branch> --commit <commit>`, in the same turn; then
-    the slot is free for the next request.
-  - **`not released: <why>`** — it released nothing and changed nothing. A refused fast-forward
-    means the main line moved after all: send the other slot message. A main checkout that is off
-    the main line is the user's doing: say so and wait, then grant again.
-  - **`not released: permission denied`** — the harness refused the agent's merge into the main
-    line. A refusal is the user's decision, and neither you nor another agent runs the same
-    command around it. Tell the user once which ticket is ready and that a permission rule
-    for `git -C <main checkout> merge` lets reviewers release from then on, then ask: on a yes
-    **you** run the three release commands the reviewer reported, for that ticket only, and
-    record it as `released`. It is the one merge an orchestrator ever makes. The slot stays taken
-    until the user answers; tickets that do not need it carry on.
-
-  Its answer to "main moved" is one of the verdicts in this list again — usually a new
-  `holds, release requested`.
+- **`released <commit>`** — the reviewer fixed what it found and ran `agent-progress release`, which
+  fast-forwarded the main line, moved the ticket done and delivered it with its branch and commit,
+  and removed the worktree and the branch. There is nothing to move for the ticket. Two releases
+  cannot race: the command takes the tracker's lock, and a reviewer whose branch was overtaken reads
+  `main-moved`, rebases, re-checks, counts the rebase and releases again inside its own pass — or,
+  when that pushed its reworked total over 750, comes back with a round request instead. A cleanup
+  the report names as left (a worktree still holding untracked files) is the user's to look at:
+  mention it once.
+- **`holds, not released: <why>`** — the branch holds and nothing was released or changed. A main
+  checkout off the main line, a fast-forward git refused over a local change in the main checkout, or
+  a harness that refused `agent-progress release` is the user's to settle, and neither you nor
+  another agent runs anything around it. Tell the user once which ticket is ready, why it was not
+  released, and the command line the reviewer reported; for a refused permission, that allowing
+  `agent-progress release` is the release permission for every reviewer from then on. The ticket
+  waits in review until `agent-progress ticket show <id>` reads delivered.
 - **`round <N+1> requested, branch holds`** or **`… branch does not hold`** — a further review is
   only ever asked for, never scheduled by a reviewer, and only when the pass reworked over 750
   lines of code — comments, blank lines and documentation not counted — in its own commits plus what its
   rebase changed, both counted by `agent-progress rework`. You decide without asking the
   user. Judge from the `## Review` sections — `agent-progress ticket show <id>` — never from the
-  diff. **Round 2** is granted when the Review shows that count; any other reason is refused with
-  the release slot when the branch holds.
+  diff. **Round 2** is granted when the Review shows that count; any other reason is refused, and a
+  branch that holds is then released as below.
   **From round 3, converging**: this round has at most half the findings of the one before, none
   repeats a class an earlier Review names, and none lies in a file no Review lists. Grant it:
   `agent-progress ticket rereview <id>`, step 2, and a clean reviewer from the same brief, scoped to
@@ -242,8 +231,11 @@ branch once that one is closed.
   review waiting, and comes before new tickets. **Anything else is not
   converging**, and is a sign about the ticket, not the reviewers: file a **new ticket** stating
   the invariant behind what the reviews kept finding, with the search for its other instances as
-  an acceptance item. Then, if the branch holds: grant that reviewer the release slot and let the
-  new ticket carry the investigation. If it does not: `agent-progress ticket reopen <id>`,
+  an acceptance item. Then, if the branch holds: release it and let the new ticket carry the
+  investigation — the one release you run, because the reviewer that judged it asked for a round
+  instead of releasing: `agent-progress release <id> --branch <branch> --worktree <worktree> --main
+  <main line>`. On `main-moved` rebase nothing yourself: `agent-progress ticket rereview <id>` and a
+  clean reviewer from the same brief, scoped to the rebase. If it does not hold: `agent-progress ticket reopen <id>`,
   `agent-progress ticket depends <id> <the ids it already waits on> <newId>` — the list is
   replaced, not added to — and `agent-progress log` why — the ticket waits,
   open, and is dispatched again with its branch and its Reviews when the new one delivers.
@@ -283,7 +275,7 @@ direction abandoned: `agent-progress log "<it>"`, or into the ticket body it bel
 worth remembering that is only in your transcript is one compaction away from gone.
 
 **Never drop**, whatever the context does: the queue and what each queued ticket is for, which
-tickets the in-flight agents own, who holds the merge-to-main slot and who is waiting for it, the
+tickets the in-flight agents own, which held branches are waiting on the user to be released, the
 questions you asked the user and have not had answered, and the preferences the user has stated this session. That is the working memory intake runs on.
 
 When you do lose the thread — after a compaction, or a long gap — re-anchor with
@@ -313,10 +305,11 @@ When you do lose the thread — after a compaction, or a long gap — re-anchor 
 
 Write the code. Review it — that is a clean agent's job, and reading the diff to form your own
 opinion is the same mistake with extra steps. Merge or rebase anything — a branch onto main is the builder's
-and the reviewer's, a branch into main is the reviewer's, on your grant, and yours only on the
-user's yes after a permission refusal. Dispatch an agent into the main checkout, or let two of them
-share one worktree. Grant a review round nobody
-asked for. Re-verify through the browser what an agent already evidenced. Hand one agent two
-large tickets, or file a finding an agent could have fixed. Continue a finished agent, except with a
-release-slot message. Run a third agent because the first two are slow. Edit `.agent-progress/` with
+and the reviewer's, and a branch goes into main only through `agent-progress release`, which is the
+reviewer's; you run it only for a branch that holds whose reviewer asked for a round you did not
+grant, and nobody runs `git merge` into main by hand, after a permission refusal least of all.
+Dispatch an agent into the main checkout, or let two of them share one worktree. Grant a review round
+nobody asked for. Re-verify through the browser what an agent already evidenced. Hand one agent two
+large tickets, or file a finding an agent could have fixed. Continue a finished agent, for any
+reason. Run a third agent because the first two are slow. Edit `.agent-progress/` with
 a file tool, a ticket's body below its frontmatter excepted.

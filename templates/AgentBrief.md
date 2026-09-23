@@ -175,7 +175,7 @@ Close in this order, git as `git -C <worktree>`:
 The rebase is exempt from the budget: you hold the context a fresh agent would have to buy again, so
 past it, finish the rebase anyway and say in the Handoff how much resolving it took. Never
 `git rebase --abort` to stop.
-Never merge <branch> into <main line>: the release is a reviewer's, on the orchestrator's grant.
+Never merge <branch> into <main line>, and never run `agent-progress release`: the release is the reviewer's.
 ```
 
 ## Report
@@ -247,41 +247,36 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
    b. Over 750 lines of code reworked — the two counts together; the tool counts code only, never
       a comment, a blank line or documentation: request round <N+1>, stating the count and whether
       the branch holds as it stands. Nothing else is a reason for another review.
-   c. Otherwise request the release. Merge nothing into <main line> yet.
-8. Never release without a granted slot. The only follow-ups you may get are these two:
-   - "main moved": repeat steps 5 to 7, adding the new rebase count to the total, and report
-     again. You hold no slot.
-   - "slot granted": `cd <main checkout>` first, since your worktree is about to go. If
-     `git -C <main checkout> branch --show-current` prints <main line>,
-     `git -C <main checkout> merge --ff-only <branch>`. Refused, or another branch: change nothing
-     and report `not released`. Denied by the permission system: do not retry or reword it; report
-     `not released: permission denied` with the three commands as you would have run them. Then
-     `git -C <main checkout> worktree remove <worktree>` (never `--force`; refused: say what is
-     untracked) and `git -C <main checkout> branch -d <branch>`.
+   c. Otherwise release: step 8.
+8. Release through the command, never `git merge`: it fast-forwards <main line>, delivers the
+   ticket and cleans up, under the tracker's lock, so it cannot race another release.
+   `cd <main checkout>` first, since your worktree is about to go, then run
+   `agent-progress release <id> --branch <branch> --worktree <worktree> --main <main line> --json`
+   (a bundle: every id in the one call). Act on what it prints:
+   - `"released": true`: done. Name any `cleanup` step that is `left`, and the files it lists.
+   - `"reason": "main-moved"`: another branch went in first. Repeat step 5 — record the tip, rebase,
+     checks, `agent-progress rework --rebased-from` — add that count to your total and to your
+     `## Review`, and apply step 7 again: over 750 now requests the next round; otherwise run
+     this step again.
+   - Any other reason: change nothing and report `holds, not released: <reason>` with its `detail`.
+   - Denied by the permission system: do not retry or reword it, and never merge around it; report
+     `holds, not released: permission denied` with the command line as you would have run it.
 
 Do not `cat` any CLAUDE.md. You may use up to about 150 API calls, the same budget as the builder; a
 good review is worth them, and a pass that is done sooner stops sooner. A fix that will not fit is
 reported unfixed, never left half made.
-Report under 150 words plus 40 per finding handed on, opening with exactly one of: `holds, release requested` /
+Report under 150 words plus 40 per finding handed on, opening with exactly one of: `released <commit>` /
+`holds, not released: <why>` /
 `round <N+1> requested, branch holds` /
 `round <N+1> requested, branch does not hold` /
 `does not hold: <what is missing>` — then findings, your changes, what the rebase took.
-After "slot granted": `released <commit>` or `not released: <why>`.
 ```
 
-The two release-slot messages are the only ones a finished agent is ever sent, because two reviewers
-merging into one checkout race and the orchestrator is the only one who knows both exist. A slot is
-granted only against a main line that has not moved since the request; otherwise the reviewer is sent
-back to rebase, check and judge again, and asks anew. Each is one line, since step 8 holds the
-instructions:
-
-```
-Slot granted for <branch>: the main line has not moved since you asked. Release now.
-```
-
-```
-Main moved (#<id> was released), no slot: repeat steps 5 to 7 on <branch> and report again.
-```
+No message is sent to a finished agent, reviewer or builder. Two releases into one checkout would
+race, and `agent-progress release` serialises them under the tracker's lock instead of through the
+orchestrator: the reviewer whose branch was overtaken reads `main-moved`, rebases, re-checks, counts
+the rebase and releases again inside its own pass, or asks for the next round when the rebase pushed
+its reworked total over 750.
 
 ## Orchestrator checklist
 

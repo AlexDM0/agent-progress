@@ -70,6 +70,7 @@ The **from** column is the matrix the named verbs enforce; `ticket status <id> <
 | `ticket deliver` | done | delivered | `delivered` | `done` | `delivered` if null | `Ticket #003 delivered` |
 | `ticket abandon` | anything but delivered, abandoned | abandoned | `abandoned` | `abandoned` | `abandonedAt`; the row's end if it had started | `Ticket #003 abandoned: <reason>` |
 | `ticket reopen` | anything but open | open | `pending` | `unstarted` | all of them cleared | `Ticket #003 reopened` |
+| `release` | in-progress, in-review | delivered, through done | `delivered` | `done` | as `ticket done`, then `ticket deliver` with `branch` and `commit` | both of theirs |
 
 **`done` on the chart means merged**, which is why the two vocabularies differ: a row stored as
 `finished` is not finished with, it is waiting for a reviewer, and one stored as `reviewed` is
@@ -116,6 +117,28 @@ running is stopped. `status --json` carries `concurrency`: `limit`, `inFlight`, 
 negative) and `readyTicketIds`, the open tickets whose every dependency is done or delivered, lowest
 id first.
 
+## Releasing a branch
+
+`agent-progress release <id> --branch <b> --worktree <path>` is the only way a reviewed branch
+reaches the main line, and allowing it in the harness is the release permission: nobody runs
+`git merge` into main by hand. The main checkout is the tracker's root, found the same way from any
+worktree. Inside one lock hold it checks the ticket, that the main checkout is on the main line and
+that `<b>` descends from it, fast-forwards, and moves the ticket done and delivered with the branch
+and the merged tip; a refusal at any of those steps changes nothing. After the lock it removes the
+worktree (never forced) and deletes the branch (`-d`). A cleanup git declines is reported at exit 0,
+because the release happened: a worktree holding untracked or changed files stays, and names them.
+
+`--json` prints `{released, reason?, detail?, commit?, tickets?, cleanup}`, where `cleanup` lists
+each step as `removed`/`deleted` or `left` with git's reason. The refusal `reason` is one word:
+
+| reason | what to do |
+|---|---|
+| `main-moved` | another branch went in first: rebase `<b>` onto the main line, run the checks, count the rebase with `agent-progress rework --rebased-from`, and release again |
+| `not-on-main-line` | the main checkout is on another branch, or `--main` names no branch: a person's to fix |
+| `merge-refused` | git would not fast-forward, a local change in the main checkout in the way for instance |
+| `ticket-not-releasable`, `unknown-ticket`, `unknown-branch`, `invalid-request` | the command line names the wrong thing |
+| `git-failed`, `tracker-failed` | exit 2: git or the tracker could not be read |
+
 ## The time axis
 
 `agent-progress range` sets the tracker's stored default and every browser sees it. A relative bound
@@ -130,7 +153,7 @@ default. Bars outside the window are clipped and marked, never dropped.
 | code | meaning |
 |---|---|
 | **0** | done, or there was nothing to do |
-| **1** | a refusal you can act on: no tracker here (run `agent-progress init`), no such task or ticket, a missing `--reason`, a claim with no free slot, an unknown command |
+| **1** | a refusal you can act on: no tracker here (run `agent-progress init`), no such task or ticket, a missing `--reason`, a claim with no free slot, a release refused (`main-moved` among them), an unknown command |
 | **2** | a state the tool will not repair on its own: an unreadable or malformed progress file, a lock it could not take |
 
 Check the code rather than the wording. A command that wrote the store but could not rebuild the

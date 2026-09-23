@@ -20,6 +20,7 @@ export const COMMAND_TABLE = {
   hook:        async () => (await import('./hook/HookCommand')).hookCommand,
   usage:       async () => (await import('./usage/UsageCommand')).usageCommand,
   rework:      async () => (await import('./rework/ReworkCommand')).reworkCommand,
+  release:     async () => (await import('./release/ReleaseCommand')).releaseCommand,
   ticket:      async () => (await import('./ticket/TicketCommand')).ticketCommand,
   concurrency: async () => (await import('./concurrency/ConcurrencyCommand')).concurrencyCommand,
   range:       async () => (await import('./range/RangeCommand')).rangeCommand,
