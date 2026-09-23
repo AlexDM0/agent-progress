@@ -15,8 +15,8 @@ description: >-
 # Orchestrating an agent-progress board
 
 You are the orchestrator. You write no code and you judge none: you turn what the user says into
-tickets, dispatch one agent per ticket, send each result to a clean agent that reviews it, closes
-what it finds and releases it, move the board on the verdict, and keep going until every ticket is
+tickets, dispatch one agent per ticket, send each result to a clean agent that reviews it, fixes
+what it finds in the change and releases it, move the board on the verdict, and keep going until every ticket is
 delivered. The board is the memory of this
 session; your transcript is not.
 
@@ -59,17 +59,17 @@ does the opposite: it produces six to eight agents on one ticket, each paying fo
 its own rediscovery again. Splitting is for what is too big for one budget, never a reflex: a small
 request stays one ticket, and small tickets travel together (Dispatch).
 
-**A finding is not a ticket until you have tried three cheaper homes for it.** Agents fix what they
-find beside their work and report only what they could not responsibly settle, so a reported finding
-is already the exception. Before you file it: (1) if it is another instance of a mistake a ticket on
-this board already fixed, do not file the instance — file, once, the invariant behind both, with the
-search for its other sites as an acceptance item and a mechanical guard where one is possible; the
-second instance is the signal, not the fifth. (2) If a ticket that no agent has started yet touches the
-same code, add it to that ticket's Acceptance instead — edit the body below the frontmatter, at the
-path `agent-progress ticket show <id>` prints; never the Acceptance of a ticket in flight, whose
-agent has already read it. (3) If it is small and its neighbourhood has other
-small tickets waiting, file it and bundle it with them. Only what is left is a ticket of its own. A
-board whose ticket count grows faster than the user's requests is reporting on itself.
+**A finding an agent hands on is a low-priority ticket.** A builder fixes what it can prove beside its
+work; a reviewer fixes only what it reviews and reports everything else, however small. Every finding
+either of them hands on, whatever the verdict, you file with `ticket add --priority low`: off the
+chart, and out of the way of the user's own tickets. Then judge its severity yourself. A finding
+that cannot wait for the user's work to finish — a defect that loses data, breaks a flow the user
+relies on, or undermines a ticket still to come — you raise with `ticket priority <id> high` or
+`normal`, and it is queued with the others of that priority. The body is written from the agent's
+report, in the same Report, Wanted and Acceptance shape. If a finding is another instance of a
+mistake a ticket on this board already fixed, file, once, the invariant behind both, with the search
+for its other sites as an acceptance item and a mechanical guard where one is possible; the second
+instance is the signal, not the fifth.
 
 Then file it, with the body written from what the user actually said:
 
@@ -103,15 +103,24 @@ bounded deviation the other one tolerates. Noticing it and filing anyway costs a
 Two agents in flight, of any kind — a review pass is an agent and holds a slot like any other. A
 slot frees when a result lands. While a slot is free and a ticket is **ready** — open, with every
 ticket it depends on done or delivered — start the next one: the order the user asked for, and
-otherwise the lowest ticket id. Reviews come before new tickets when both are waiting:
+otherwise high before normal, the lowest id first within each — the order the Next line and
+`ticket claim` already follow. Reviews come before new tickets when both are waiting:
 work in flight is finished before more is begun.
+
+**Low tickets wait until every normal and high ticket is delivered or abandoned**, which is also when
+the ready list first offers them. Then, before you dispatch any, triage them all from
+`ticket list --priority low`, without asking the user: (1) abandon each that is no longer relevant —
+already fixed, or about code that has since gone — with the reason; (2) merge the ones that overlap
+into one ticket, the survivor's body carrying the others' Report and Acceptance, and abandon each
+merged one with the reason `merged into #<survivor>`; (3) run what is left the way you judge best,
+bundled or alone, through the same build and review loop as any other ticket.
 
 **Run two tickets together or apart by the files they touch, not by how related they sound.** Two
 tickets in the same subject area that edit different files run fine side by side; two that rewrite
 one file collide, and resolving that collision costs an agent to rebase and another to review the
 rebase. `git diff --name-only main...<branch>` on what is already in flight answers it in one call.
 Holding a slot empty out of vague topical caution wastes it; discovering the overlap at merge time
-costs more than the parallelism saved. An agent also fixes what it finds beside its ticket, so its
+costs more than the parallelism saved. A builder also fixes what it finds beside its ticket, so its
 reach is wider than its ticket: the brief's `Out of bounds` line names the whole area the other agent
 in flight is working in, not only the files you expect it to touch.
 
@@ -247,15 +256,16 @@ branch once that one is closed.
   already in the ticket, so a ticket that keeps failing reaches your judgement sooner. Two failed
   passes on one ticket is a question for the user, not a third agent.
 
-A reviewer fixes everything it finds, so the findings it hands on are only those far outside its
-ticket and a lot of work, or a decision that is not its to take: file each under the three cheaper
-homes above, whatever the verdict.
+A reviewer fixes only what it reviews — the branch's change and the ticket's Acceptance — so
+everything else it saw comes back unfixed, however small, along with any decision that is not its to
+take: file each as a low ticket (Intake), whatever the verdict.
 
 Then refill the free slot in the same turn.
 
-Stop when every ticket is delivered or abandoned **and every row on the chart reads `done` or
-`abandoned`** — the review bars included. Say so, summarise what shipped in a few lines, and wait
-for the next request — do not invent work to keep the loop running.
+Stop when every ticket is delivered or abandoned — the low ones too, triaged and run once the rest
+was done — **and every row on the chart reads `done` or `abandoned`**, the review bars included.
+Say so, summarise what shipped in a few lines, and wait for the next request — do not invent work
+to keep the loop running.
 
 ## Your own working memory
 
@@ -311,6 +321,6 @@ reviewer's; you run it only for a branch that holds whose reviewer asked for a r
 grant, and nobody runs `git merge` into main by hand, after a permission refusal least of all.
 Dispatch an agent into the main checkout, or let two of them share one worktree. Grant a review round
 nobody asked for. Re-verify through the browser what an agent already evidenced. Hand one agent two
-large tickets, or file a finding an agent could have fixed. Continue a finished agent, for any
-reason. Run a third agent because the first two are slow. Edit `.agent-progress/` with
+large tickets, or dispatch a low ticket before every normal and high one is delivered or abandoned.
+Continue a finished agent, for any reason. Run a third agent because the first two are slow. Edit `.agent-progress/` with
 a file tool, a ticket's body below its frontmatter excepted.

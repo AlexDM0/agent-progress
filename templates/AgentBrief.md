@@ -199,10 +199,13 @@ The reviewer is a clean agent: freshly spawned and handed this block, plus the B
 when the work has a user interface. It owns the whole pass — an adversarial review, every fix that
 review calls for, the certainty of those fixes, a closing rebase onto the main line — and
 the release, because an orchestrator merging a branch it has not read adds a step and no judgement.
-The reviewer fixes everything it finds rather than handing it on, because one thorough review is
-cheaper than four tickets on the same thing; only a finding both far outside the ticket and a lot of
-work goes back to the orchestrator, which files it. A fix it watched fail and pass needs no second
-reader: a second review is for a pass that reworked over 750 lines of code, documentation and comments not counted, and is always asked of the
+The reviewer finds and fixes bugs in what it reviews — the branch's own change and the ticket's
+Acceptance — and in nothing else. A defect outside that, however small, is reported and not fixed:
+the reviewer is the last reader before the main line, so a fix beside the change ships unreviewed,
+and a pass that follows its findings into the neighbourhood spends its budget there. The orchestrator
+files what it reports as low-priority tickets and runs them once the user's own work is done. A fix
+the reviewer watched fail and pass needs no second reader: a second review is for a pass that
+reworked over 750 lines of code, documentation and comments not counted, and is always asked of the
 orchestrator, which decides between a further round and a new ticket for what keeps turning up.
 
 The round is the number of `## Review` sections already in the ticket, plus one. From round 2 on,
@@ -224,11 +227,11 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
    whatever a Handoff lists under `Also fixed`. The last `## Handoff` says where to look and proves
    nothing: re-run the measurement behind each claim with your own probe or count and state your
    numbers; a guard it watched fail, you watch fail. It fails if any is false: <two or three claims>.
-2. Fix every finding yourself with the Edit tool — no heredoc, edit script or `sed -i` — one commit
-   per fix, one plain subject line. That includes every defect you find beside the ticket, however
-   many. Report unfixed, a few lines each with where and what you would do, only a finding that
-   needs a product or design decision, touches a file out of bounds, or lies far outside the ticket
-   AND is a lot of work; the orchestrator files those.
+2. Fix every finding in what you review — the branch's change and the ticket's Acceptance — yourself,
+   with the Edit tool (no heredoc, edit script or `sed -i`), one commit per fix, one plain subject
+   line. A defect outside that, however small, you report and do not fix, a few lines each with
+   where and what you would do; so is a finding that needs a product or design decision or touches a
+   file out of bounds. The orchestrator files those.
 3. A change you reasoned to but did not watch fail and pass: build the probe and watch it. A doubt
    still open at the budget is `does not hold`, never a caveat.
 4. Count your fixes before you rebase, since the rebase rewrites <review start>:
@@ -262,9 +265,9 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
    - Denied by the permission system: do not retry or reword it, and never merge around it; report
      `holds, not released: permission denied` with the command line as you would have run it.
 
-Do not `cat` any CLAUDE.md. You may use up to about 150 API calls, the same budget as the builder; a
-good review is worth them, and a pass that is done sooner stops sooner. A fix that will not fit is
-reported unfixed, never left half made.
+Do not `cat` any CLAUDE.md. You may use up to about 75 API calls, half the builder's budget, since
+you judge one change rather than build it; a pass that is done sooner stops sooner. A fix that will
+not fit is reported unfixed, never left half made.
 Report under 150 words plus 40 per finding handed on, opening with exactly one of: `released <commit>` /
 `holds, not released: <why>` /
 `round <N+1> requested, branch holds` /

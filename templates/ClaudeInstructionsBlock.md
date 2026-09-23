@@ -22,17 +22,18 @@ in separate checkouts all write to the same chart.
 - Spawn each implementing agent from `.agent-progress/agent-brief.md`, filled in: one large ticket,
   one half of one, or a bundle of small tickets from one part of the code, per agent, on a worktree
   created for that agent off the main line before the spawn — a ticket is never picked up in the main
-  checkout, by a builder or by a reviewer. An agent fixes the defects it finds beside its work when it
+  checkout, by a builder or by a reviewer. A builder fixes the defects it finds beside its work when it
   can prove the fix, and reports only what needs a decision or a study it has not done. Never continue a finished agent with a follow-up message — a
   fresh agent for the remainder costs less than the one that already holds the whole transcript. The
   one exception is the orchestrator's one-line release-slot message to a reviewer.
 - An implementing agent ends by committing on its branch, rebasing it onto the main line, and filling
   in its ticket's `## Handoff`: every agent leaves its branch ready to fast-forward into main.
 - A review is a clean agent spawned from the review brief in that same file. It starts from the
-  Handoff rather than redoing the work, fixes everything it finds, settles its own doubts, rebases onto the
+  Handoff rather than redoing the work, fixes what it finds in the branch's change and the ticket's
+  Acceptance, settles its own doubts, rebases onto the
   main line again, and asks the orchestrator for the release slot — one branch merges into main at
-  a time. Only a finding far outside the ticket that is also a lot of work goes back to the orchestrator
-  as a ticket. A second review is only for a pass that reworked over 750 lines of code (comments and documentation not counted) in its fixes and rebase;
+  a time. Anything outside that, however small, goes back to the orchestrator unfixed, which files it
+  as a low-priority ticket. A second review is only for a pass that reworked over 750 lines of code (comments and documentation not counted) in its fixes and rebase;
   it is asked of the orchestrator, which grants it or files a new ticket for what keeps turning up.
 - File every bug, change or feature the user reports as a ticket (`agent-progress ticket add
   "<title>" --type bug|change|feature`) and move it with `agent-progress ticket start|review|done|deliver <id>`.

@@ -45,10 +45,12 @@ context.
   ticket requests — grilling each one until the acceptance condition is unambiguous, filing it,
   dispatching an implementing agent for it (at most two at a time) — each on a worktree of its own,
   never the main checkout — that hands over a branch already rebased onto main, and sending that to a clean reviewing agent. The reviewer reviews adversarially,
-  fixes everything it finds and rebases onto main again; it then releases the branch itself with
+  fixes what it finds in the branch's change and the ticket's Acceptance, and rebases onto main again; it then releases the branch itself with
   `agent-progress release`, which serialises releases under the tracker's lock, so no slot is asked
-  for and no message is sent to a finished agent; only a finding far outside the ticket that is
-  also a lot of work comes back as a ticket. A second review (`ticket rereview`) happens only when the
+  for and no message is sent to a finished agent. Every finding an agent hands on instead of fixing,
+  however small, is filed as a low-priority ticket, off the chart, and run — after the orchestrator
+  has triaged them for relevance and overlap — only once every normal and high ticket is delivered,
+  unless it raises one's priority. A second review (`ticket rereview`) happens only when the
   pass reworked over 750 lines of code, comments and documentation not counted, in its fixes and rebase, and is the orchestrator's call, which grants it or files a new ticket instead,
   until every ticket is delivered. It loads the first skill for the
   commands and repeats none of it.
