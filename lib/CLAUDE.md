@@ -127,9 +127,10 @@ anything that needs "now" is handed it.
   `ticket depends`, `ticket claim`, `ticket start`'s warnings, `status --json` and the page's
   "waiting on" note.
 - `lib/utils/NextLineUtil.ts` — `composeNextLine`, the `Next: …` line from the limit, the agents in
-  flight, the free slots and the ready ids: `N of L slots free` or `no slot free (N agents in flight)`, then
+  flight, the free slots, the ready ids and which of them are low priority: `N of L slots free` or `no slot free (N agents in flight)`, then
   the ready ids as given (at most five, then `and N more`) or `nothing ready`, then the dispatcher's
-  advice: `; launch the dispatcher` when it is `finished` and something is ready, `; dispatcher stopped:
+  advice: `; launch the dispatcher` when it is `finished` and a normal or high ticket is ready, `; only low
+  priority ready: triage, then launch` when it is `finished` and every ready ticket is low, `; dispatcher stopped:
   wait for the user's go` whenever it is `stopped`, nothing when it is `running`.
 - `lib/utils/ReworkCountUtil.ts` — `readDiff` classifies every changed line of unified diff text as
   code, comment, blank or documentation, reading hunk lengths from each `@@` header so a removed
@@ -250,7 +251,8 @@ JavaScript no spec can sit beside:
 
 - `lib/tooling/dev/DispatchScriptHarness.ts` — `runDispatchScript` compiles the script's body as the
   Workflow tool would and runs it against a fake `agent()` (the kind read from the prompt's token
-  marker) and a fake board whose status block, dispatcher state and running rows included, every agent returns. A builder or
+  marker) and a fake board whose status block, dispatcher state, running rows and low-priority ready ids included, every agent returns;
+  a scenario's `includeLowPriority` reaches the script as that argument. A builder or
   reviewer is on that board only from its first command (`turnsBeforeFirstCommand` turns after the call) until it returns, as a
   real one is from its claim or its `task add --start`; a builder that stops short of review and a reviewer that returns nothing
   leave their row running until a fresh agent's first command takes it over. It records each call, the most own agents running at

@@ -180,13 +180,17 @@ running|finished|stopped` stores it with one log line, so it survives a compacti
 orchestrator's context. A tracker that never set one reads `stopped` — the first start waits for the
 user's go — and the read writes nothing; any other word is refused at exit 1. `status --json` carries
 it as `concurrency.dispatcherState`, and the Next line ends with what it means: `finished` — it ended
-by itself, so it is relaunched — with a ticket ready adds `; launch the dispatcher`; `stopped` —
-never started, or ended by the user — adds `; dispatcher stopped: wait for the user's go`, however
-many tickets are filed meanwhile; `running` adds nothing.
+by itself, so it is relaunched — with a normal or high ticket ready adds `; launch the dispatcher`,
+and with only low tickets ready `; only low priority ready: triage, then launch`, since low tickets
+are triaged before a run is launched for them; `stopped` — never started, or ended by the user —
+adds `; dispatcher stopped: wait for the user's go`, however many tickets are filed meanwhile;
+`running` adds nothing.
 
 The dispatcher itself is the Workflow script `.claude/workflows/agent-progress-dispatch.js`, which
 `init` and `update` write byte for byte from the copy the tool ships — a hand edit is undone on the
-next refresh, and `--no-workflow` skips it on either command.
+next refresh, and `--no-workflow` skips it on either command. It starts no low ticket unless it is
+launched with `includeLowPriority: true`, and returns the low tickets ready in its summary as
+`lowPriorityWaiting`, for the orchestrator to triage before that launch.
 
 ## Releasing a branch
 

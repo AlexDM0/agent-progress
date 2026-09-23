@@ -36,11 +36,12 @@ function kindsAndTickets(run: DispatchRun): string[] {
 }
 
 interface DispatchSummary {
-  delivered:       string[];
-  parked:          { id: string; reason: string }[];
-  findingsFiled:   string[];
-  agentsRun:       number;
-  stoppedByBoard?: boolean;
+  delivered:           string[];
+  parked:              { id: string; reason: string }[];
+  findingsFiled:       string[];
+  agentsRun:           number;
+  stoppedByBoard?:     boolean;
+  lowPriorityWaiting?: string[];
 }
 
 function summaryOf(run: DispatchRun): DispatchSummary {
@@ -316,7 +317,7 @@ const CLAIMS: Claim[] = [
       findingsFiled: ['009'],
       agentsRun:     5,
     }),
-    mutant: { find: ': { delivered, parked, findingsFiled, agentsRun };', replace: ': { delivered, parked, findingsFiled };' },
+    mutant: { find: '    agentsRun,\n    ...(stoppedByBoard', replace: '    ...(stoppedByBoard' },
   },
   {
     name:     'a board stopped mid-run starts no new agent, while the agents in flight finish and a reviewer among them still releases',
@@ -341,7 +342,48 @@ const CLAIMS: Claim[] = [
       agentsRun:      1,
       stoppedByBoard: true,
     }),
-    mutant: { find: 'stoppedByBoard ? { delivered, parked, findingsFiled, agentsRun, stoppedByBoard } : ', replace: '' },
+    mutant: { find: '...(stoppedByBoard ? { stoppedByBoard } : {}),', replace: '' },
+  },
+  {
+    // Low tickets are the orchestrator's to triage first: abandon the stale, merge the overlapping, then relaunch with the flag.
+    name:     'with only low tickets ready and no includeLowPriority, no builder starts and the summary lists them as lowPriorityWaiting',
+    scenario: { limit: 2, readyTicketIds: ['004', '005'], lowPriorityTicketIds: ['004', '005'] },
+    holds:    (run) => kindsAndTickets(run).join(', ') === 'survey' && summaryOf(run).lowPriorityWaiting?.join() === '004,005',
+    mutant:   { find: '&& readyTicketIsAdmitted(ticketId));\n  if (readyTicketId === undefined)', replace: ');\n  if (readyTicketId === undefined)' },
+  },
+  {
+    name:     'with includeLowPriority, the low tickets ready are dispatched and delivered',
+    scenario: {
+      limit:                2,
+      readyTicketIds:       ['004', '005'],
+      lowPriorityTicketIds: ['004', '005'],
+      includeLowPriority:   true,
+    },
+    holds:  (run) => summaryOf(run).delivered.join() === '004,005' && summaryOf(run).lowPriorityWaiting === undefined,
+    mutant: { find: 'includeLowPriority: given.includeLowPriority === true,', replace: 'includeLowPriority: false,' },
+  },
+  {
+    // A reviewer files its findings as low tickets minutes before the normal work runs out; the run must not pick them up untriaged.
+    name:     'a low ticket filed mid-run while normal work remains is not started, and is left for triage',
+    scenario: {
+      limit:          1,
+      readyTicketIds: ['001', '002'],
+      afterAgent:     (call, board) => {
+        if (call.kind !== 'review' || call.ticketId !== '001') return;
+        board.readyTicketIds.push('009');
+        board.lowPriorityTicketIds.push('009');
+      },
+    },
+    holds: (run) => !kindsAndTickets(run).includes('build 009')
+      && summaryOf(run).delivered.join() === '001,002'
+      && summaryOf(run).lowPriorityWaiting?.join() === '009',
+    mutant: { find: 'if (Array.isArray(status.lowPriorityReadyTicketIds))', replace: 'if (agentsRun === 1 && Array.isArray(status.lowPriorityReadyTicketIds))' },
+  },
+  {
+    name:     'a low ticket left for triage is logged as such, never as waiting for a slot other agents hold',
+    scenario: { limit: 2, readyTicketIds: ['004'], lowPriorityTicketIds: ['004'] },
+    holds:    (run) => run.logs.some((message) => message.includes('triage, low priority: #004')) && !run.logs.some((message) => message.includes('No slot free')),
+    mutant:   { find: '!ticketIdsTakenThisRun.has(ticketId) && readyTicketIsAdmitted(ticketId)),\n];', replace: '!ticketIdsTakenThisRun.has(ticketId)),\n];' },
   },
 ];
 
@@ -395,6 +437,15 @@ describe('the dispatcher script', () => {
   ])('a model left out of the script (%s) fails the model check', async (find, replace) => {
     expect(SCRIPT_SOURCE.split(find).length - 1).toBe(1);
     expect(modelsAreExplicit(await runDispatchScript(EVERY_KIND_OF_AGENT, SCRIPT_SOURCE.replace(find, replace)))).toBe(false);
+  });
+
+  // The script tells a low ticket only by what the agents derive, so every prompt must say exactly how, from the one document it already reads.
+  test('every agent is told to derive lowPriorityReadyTicketIds from the priorities in the same status document', async () => {
+    const run = await runDispatchScript(EVERY_KIND_OF_AGENT);
+    expect(run.calls.length).toBeGreaterThan(4);
+    for (const call of run.calls) {
+      expect(call.prompt).toContain('`lowPriorityReadyTicketIds` (each id of `concurrency.readyTicketIds` whose entry in the same document\'s `tickets` list has `priority` `"low"`');
+    }
   });
 
   test('a review waiting when the run starts is started before any ready ticket', async () => {

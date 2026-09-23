@@ -10,7 +10,9 @@ import { NextLineUtil } from './NextLineUtil';
 const { composeNextLine } = NextLineUtil;
 
 /** A running dispatcher adds nothing, so the slot and ready wordings are pinned against it. */
-const WITH_THE_DISPATCHER_RUNNING = { dispatcherState: 'running' } as const;
+const NO_LOW_PRIORITY_READY = { lowPriorityReadyTicketIds: [] } as const;
+
+const WITH_THE_DISPATCHER_RUNNING = { dispatcherState: 'running', ...NO_LOW_PRIORITY_READY } as const;
 
 test('a free slot and ready tickets name how many of the limit are free and each ready id', () => {
   expect(composeNextLine({
@@ -102,6 +104,7 @@ test('a finished dispatcher with a ready ticket reads as launch the dispatcher',
     freeSlots:       2,
     readyTicketIds:  ['003'],
     dispatcherState: 'finished',
+    ...NO_LOW_PRIORITY_READY,
   })).toBe('Next: 2 of 2 slots free; ready: #003; launch the dispatcher');
 });
 
@@ -112,6 +115,7 @@ test('a finished dispatcher with nothing ready needs no launching', () => {
     freeSlots:       2,
     readyTicketIds:  [],
     dispatcherState: 'finished',
+    ...NO_LOW_PRIORITY_READY,
   })).toBe('Next: 2 of 2 slots free; nothing ready');
 });
 
@@ -123,6 +127,7 @@ test('a stopped dispatcher says to wait for the user\'s go even with tickets rea
     freeSlots:       2,
     readyTicketIds:  ['003'],
     dispatcherState: 'stopped',
+    ...NO_LOW_PRIORITY_READY,
   })).toBe('Next: 2 of 2 slots free; ready: #003; dispatcher stopped: wait for the user\'s go');
 });
 
@@ -133,5 +138,40 @@ test('a running dispatcher with tickets ready adds no advice', () => {
     freeSlots:       1,
     readyTicketIds:  ['003'],
     dispatcherState: 'running',
+    ...NO_LOW_PRIORITY_READY,
   })).toBe('Next: 1 of 2 slots free; ready: #003');
+});
+
+// Low tickets are triaged before a run is launched for them, so a finished board with only low work left must not read as "launch".
+test('a finished dispatcher with only low tickets ready advises triage before a launch', () => {
+  expect(composeNextLine({
+    limit:                     2,
+    agentsInFlight:            0,
+    freeSlots:                 2,
+    readyTicketIds:            ['007', '009'],
+    lowPriorityReadyTicketIds: ['007', '009'],
+    dispatcherState:           'finished',
+  })).toBe('Next: 2 of 2 slots free; ready: #007, #009; only low priority ready: triage, then launch');
+});
+
+test('a finished dispatcher with a normal ticket ready beside a low one reads as launch the dispatcher', () => {
+  expect(composeNextLine({
+    limit:                     2,
+    agentsInFlight:            0,
+    freeSlots:                 2,
+    readyTicketIds:            ['003', '009'],
+    lowPriorityReadyTicketIds: ['009'],
+    dispatcherState:           'finished',
+  })).toBe('Next: 2 of 2 slots free; ready: #003, #009; launch the dispatcher');
+});
+
+test('a stopped dispatcher with only low tickets ready still waits for the user\'s go', () => {
+  expect(composeNextLine({
+    limit:                     2,
+    agentsInFlight:            0,
+    freeSlots:                 2,
+    readyTicketIds:            ['009'],
+    lowPriorityReadyTicketIds: ['009'],
+    dispatcherState:           'stopped',
+  })).toBe('Next: 2 of 2 slots free; ready: #009; dispatcher stopped: wait for the user\'s go');
 });

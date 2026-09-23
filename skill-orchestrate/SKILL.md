@@ -133,6 +133,8 @@ Workflow({ name: 'agent-progress-dispatch', args: { mainCheckout, mainLine, chec
 ```
 
 with the arguments settled at the opening, `installCommand` left out where a worktree needs nothing.
+`includeLowPriority: true` is passed only on the launch that follows a triage (Low-priority work,
+below); without it the run starts no low ticket.
 The script sets every agent's model and budget and creates every worktree itself: pass no model, and
 spawn no agent beside it. **At most 10 agents run at the same time**: the board's limit decides how
 many — `agent-progress concurrency` prints it, 2 unless the user set another, and it never goes above
@@ -141,7 +143,8 @@ session's guideline of 10 agents per workflow does not bound this one. Keep taki
 runs; a ticket filed meanwhile is picked up when a slot frees, because every agent hands the script
 the board as it left it.
 
-**When it returns**, its summary is `{ delivered, parked, findingsFiled, agentsRun, stoppedByBoard? }`:
+**When it returns**, its summary is `{ delivered, parked, findingsFiled, agentsRun, stoppedByBoard?, lowPriorityWaiting? }`,
+the last the low tickets ready that it left for your triage:
 
 1. `agent-progress dispatcher finished` — unless the summary carries `stoppedByBoard`: that is the
    user's stop taking effect, and the state stays `stopped`.
@@ -159,8 +162,9 @@ the board as it left it.
 5. `agent-progress status --json`: a row the run left `running` or `awaiting review` with no agent
    behind it is yours to close, `task finish` then `task deliver`.
 6. Relaunch at once when a normal or high ticket is ready and the state is `finished` — the Next line
-   says `launch the dispatcher`. When the only tickets ready are low, the Next line says so too:
-   relaunch nothing, and triage them first (Low-priority work).
+   says `launch the dispatcher`. When the summary carries `lowPriorityWaiting` and nothing else is
+   open, the Next line says `only low priority ready: triage, then launch`: relaunch nothing, and
+   triage them first (Low-priority work).
 
 **Relaunching and stopping.** The state on the board decides, never your memory of it; after a
 compaction the `Next:` line of `agent-progress status` says which.
@@ -175,8 +179,9 @@ compaction the `Next:` line of `agent-progress status` says which.
 relaunching and triage the low tickets: abandon each that is no longer relevant, with the reason;
 merge overlapping ones into one survivor carrying the others' Report and Acceptance, abandoning each
 merged one with the reason `merged into #<survivor>`; and give every survivor its `## Brief`. Only
-then launch a run for them — `agent-progress dispatcher running` and the launch — while the state is
-`finished`; a `stopped` board still waits for the user's go.
+then launch a run for them — `agent-progress dispatcher running` and the launch with
+`includeLowPriority: true` added to its args — while the state is `finished`; a `stopped` board still
+waits for the user's go.
 
 **The user saying stop** is `agent-progress dispatcher stopped`, on the board. The running script
 reads it at its next agent's return, starts nothing new, lets the agents in flight finish and returns

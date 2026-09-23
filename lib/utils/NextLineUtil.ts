@@ -3,18 +3,23 @@ import type { DispatcherState } from '../constants/Types';
 const READY_TICKETS_LISTED_AT_MOST = 5;
 
 interface BoardCapacity {
-  limit:           number;
-  agentsInFlight:  number;
-  freeSlots:       number;
-  readyTicketIds:  readonly string[];
-  dispatcherState: DispatcherState;
+  limit:                     number;
+  agentsInFlight:            number;
+  freeSlots:                 number;
+  readyTicketIds:            readonly string[];
+  lowPriorityReadyTicketIds: readonly string[];
+  dispatcherState:           DispatcherState;
 }
 
-/** A running dispatcher needs no advice, and one that finished by itself needs relaunching only when there is a ticket for it to take. */
+/**
+ * A running dispatcher needs no advice, and one that finished by itself needs relaunching only when a normal or high ticket is there for it to
+ * take: low tickets alone are the orchestrator's to triage before any run is launched for them.
+ */
 function dispatcherAdviceOf(capacity: BoardCapacity): string {
   if (capacity.dispatcherState === 'stopped') return '; dispatcher stopped: wait for the user\'s go';
-  if (capacity.dispatcherState === 'finished' && capacity.readyTicketIds.length > 0) return '; launch the dispatcher';
-  return '';
+  if (capacity.dispatcherState !== 'finished' || capacity.readyTicketIds.length === 0) return '';
+  const normalOrHighTicketIsReady = capacity.readyTicketIds.some((ticketId) => !capacity.lowPriorityReadyTicketIds.includes(ticketId));
+  return normalOrHighTicketIsReady ? '; launch the dispatcher' : '; only low priority ready: triage, then launch';
 }
 
 function slotsTextOf(capacity: BoardCapacity): string {

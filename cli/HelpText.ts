@@ -282,12 +282,14 @@ dispatcher\` or \`; dispatcher stopped: wait for the user's go\`. --json output 
                               Print where the dispatcher was left, or store a new state with one
                               log line, so it survives a compaction of the orchestrator's context.
                               \`running\`: a dispatcher is at work. \`finished\`: it ended by itself,
-                              and the Next line says "launch the dispatcher" while a ticket is
-                              ready. \`stopped\`: never started, or ended by the user, and the Next
-                              line says "dispatcher stopped: wait for the user's go" however many
-                              tickets are filed meanwhile. A tracker that never set one reads
-                              \`stopped\`, and the read writes nothing; any other word is refused
-                              at exit 1 with nothing written. \`status --json\` carries it as \`concurrency.dispatcherState\`.
+                              and the Next line says "launch the dispatcher" while a normal or high
+                              ticket is ready, or "only low priority ready: triage, then launch"
+                              while only low ones are. \`stopped\`: never started, or ended by the
+                              user, and the Next line says "dispatcher stopped: wait for the
+                              user's go" however many tickets are filed meanwhile. A tracker that
+                              never set one reads \`stopped\`, and the read writes nothing; any
+                              other word is refused at exit 1 with nothing written.
+                              \`status --json\` carries it as \`concurrency.dispatcherState\`.
 
   range --from <when>         The stored default axis of the chart. A relative bound is stored as
         --to <when>           written, so \`--from -2h\` keeps meaning "the last two hours" on every

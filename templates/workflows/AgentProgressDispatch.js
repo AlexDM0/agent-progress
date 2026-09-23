@@ -1,7 +1,7 @@
 export const meta = {
   name:        'agent-progress-dispatch',
   description: 'Run the agent-progress board: a builder per ready ticket and a clean reviewer per built one, never past the board limit',
-  whenToUse:   'When the orchestrator hands the board to the dispatcher. args: { mainCheckout, mainLine, checkCommand, installCommand? }',
+  whenToUse:   'When the orchestrator hands the board to the dispatcher. args: { mainCheckout, mainLine, checkCommand, installCommand?, includeLowPriority? }',
   phases:      [
     { title: 'Survey', detail: 'read the concurrency block, the ready tickets and the reviews waiting', model: 'haiku' },
     { title: 'Build', detail: 'one builder per ready ticket, in the ticket worktree', model: 'opus' },
@@ -25,12 +25,13 @@ const STATUS_BLOCK_SCHEMA = {
     limit:           { type: 'integer', minimum: 1 },
     agentsInFlight:  { type: 'integer', minimum: 0 },
     freeSlots:       { type: 'integer', minimum: 0 },
-    readyTicketIds:     { type: 'array', items: { type: 'string' } },
-    dispatcherState:    { type: 'string', enum: ['running', 'stopped', 'finished'] },
-    runningTicketIds:   { type: 'array', items: { type: 'string' } },
-    runningReviewOfIds: { type: 'array', items: { type: 'string' } },
+    readyTicketIds:            { type: 'array', items: { type: 'string' } },
+    lowPriorityReadyTicketIds: { type: 'array', items: { type: 'string' } },
+    dispatcherState:           { type: 'string', enum: ['running', 'stopped', 'finished'] },
+    runningTicketIds:          { type: 'array', items: { type: 'string' } },
+    runningReviewOfIds:        { type: 'array', items: { type: 'string' } },
   },
-  required: ['limit', 'agentsInFlight', 'freeSlots', 'readyTicketIds', 'dispatcherState', 'runningTicketIds', 'runningReviewOfIds'],
+  required: ['limit', 'agentsInFlight', 'freeSlots', 'readyTicketIds', 'lowPriorityReadyTicketIds', 'dispatcherState', 'runningTicketIds', 'runningReviewOfIds'],
 };
 
 const SURVEY_SCHEMA = {
@@ -76,13 +77,17 @@ const REVIEWER_SCHEMA = {
 function settingsFrom(workflowArguments) {
   const given = workflowArguments ?? {};
   for (const name of ['mainCheckout', 'mainLine', 'checkCommand']) {
-    if (typeof given[name] !== 'string' || given[name] === '') throw new Error(`The dispatcher needs args.${name}: args are { mainCheckout, mainLine, checkCommand, installCommand? }.`);
+    if (typeof given[name] !== 'string' || given[name] === '') {
+      throw new Error(`The dispatcher needs args.${name}: args are { mainCheckout, mainLine, checkCommand, installCommand?, includeLowPriority? }.`);
+    }
   }
   return {
-    mainCheckout:   given.mainCheckout,
-    mainLine:       given.mainLine,
-    checkCommand:   given.checkCommand,
-    installCommand: typeof given.installCommand === 'string' ? given.installCommand : '',
+    mainCheckout:       given.mainCheckout,
+    mainLine:           given.mainLine,
+    checkCommand:       given.checkCommand,
+    installCommand:     typeof given.installCommand === 'string' ? given.installCommand : '',
+    // Low tickets are the orchestrator's to triage first; only its relaunch after that triage passes true.
+    includeLowPriority: given.includeLowPriority === true,
   };
 }
 
@@ -97,15 +102,16 @@ function briefPlaceholdersText(ticketId) {
     + `<main checkout> = ${settings.mainCheckout} and <full check command> = \`${settings.checkCommand}\``;
 }
 
-const RUNNING_ROWS_TEXT = 'adding `runningTicketIds` (the `ticket` of every `running` task that has one) and `runningReviewOfIds` (the `reviewOf` of every `running` task that has one)';
+const DERIVED_STATUS_FIELDS_TEXT = 'adding `runningTicketIds` (the `ticket` of every `running` task that has one), `runningReviewOfIds` (the `reviewOf` of every `running` task that has one) '
+  + 'and `lowPriorityReadyTicketIds` (each id of `concurrency.readyTicketIds` whose entry in the same document\'s `tickets` list has `priority` `"low"`, in the ready order)';
 
-const STATUS_RETURN_TEXT = `As your very last act run \`agent-progress status --json\` and return its \`concurrency\` block as \`status\`, ${RUNNING_ROWS_TEXT}, `
+const STATUS_RETURN_TEXT = `As your very last act run \`agent-progress status --json\` and return its \`concurrency\` block as \`status\`, ${DERIVED_STATUS_FIELDS_TEXT}, `
   + 'so the dispatcher acts on the newest board.';
 
 function surveyPrompt() {
   return [
     `Run \`agent-progress status --json\` once, in ${settings.mainCheckout}, and make no other call. Judge nothing; return:`,
-    `- \`status\`: its \`concurrency\` block as printed (limit, agentsInFlight, freeSlots, readyTicketIds, dispatcherState), ${RUNNING_ROWS_TEXT};`,
+    `- \`status\`: its \`concurrency\` block as printed (limit, agentsInFlight, freeSlots, readyTicketIds, dispatcherState), ${DERIVED_STATUS_FIELDS_TEXT};`,
     '- `reviewWaitingTicketIds`: the ids of the tickets whose status is `in-review` and that no `running` task names in its `reviewOf`.',
   ].join('\n');
 }
@@ -191,14 +197,32 @@ let launchCount = 0;
 let board = null;
 let othersInFlightAtBoardReading = 0;
 let stoppedByBoard = false;
+let lowPriorityReadyTicketIds = new Set();
 
 function recordOf(ticketId) {
   if (!ticketRecords.has(ticketId)) ticketRecords.set(ticketId, { failedPasses: 0, mainMovedReleases: 0, nextRound: 1, rounds: [] });
   return ticketRecords.get(ticketId);
 }
 
+function readyTicketIsAdmitted(ticketId) {
+  return settings.includeLowPriority || !lowPriorityReadyTicketIds.has(ticketId);
+}
+
+function lowPriorityWaitingIds() {
+  if (board === null) return [];
+  return board.readyTicketIds.filter((ticketId) => !ticketIdsTakenThisRun.has(ticketId) && !readyTicketIsAdmitted(ticketId));
+}
+
 function summary() {
-  return stoppedByBoard ? { delivered, parked, findingsFiled, agentsRun, stoppedByBoard } : { delivered, parked, findingsFiled, agentsRun };
+  const lowPriorityWaiting = lowPriorityWaitingIds();
+  return {
+    delivered,
+    parked,
+    findingsFiled,
+    agentsRun,
+    ...(stoppedByBoard ? { stoppedByBoard } : {}),
+    ...(lowPriorityWaiting.length > 0 ? { lowPriorityWaiting } : {}),
+  };
 }
 
 async function runAgent(prompt, options) {
@@ -235,6 +259,8 @@ function takeoversOnBoard(status) {
 function adoptBoard(status) {
   if (status === null || typeof status !== 'object' || !Array.isArray(status.readyTicketIds)) return;
   board = status;
+  // A block without the low ids keeps the ones read last, rather than reading every ready ticket as normal.
+  if (Array.isArray(status.lowPriorityReadyTicketIds)) lowPriorityReadyTicketIds = new Set(status.lowPriorityReadyTicketIds);
   const ownAgentsOnBoard = [...inFlight.values()].filter((ownAgent) => ownAgentIsOnBoard(ownAgent.work, status)).length + takeoversOnBoard(status).length;
   othersInFlightAtBoardReading = Math.max(0, status.agentsInFlight - ownAgentsOnBoard);
   // A stop is final for this run: the agents in flight finish and are settled, and nothing new starts until the user's go launches a new run.
@@ -291,7 +317,7 @@ function nextWork() {
   if (review !== undefined) return review;
   const rebuild = rebuildQueue.shift();
   if (rebuild !== undefined) return rebuild;
-  const readyTicketId = board.readyTicketIds.find((ticketId) => !ticketIdsTakenThisRun.has(ticketId));
+  const readyTicketId = board.readyTicketIds.find((ticketId) => !ticketIdsTakenThisRun.has(ticketId) && readyTicketIsAdmitted(ticketId));
   if (readyTicketId === undefined) return null;
   ticketIdsTakenThisRun.add(readyTicketId);
   return { kind: 'build', ticketId: readyTicketId, previousPass: null };
@@ -445,9 +471,11 @@ const leftWaiting = [
   ...[...takeoversWaiting.values()].map((takeover) => takeover.ticketId),
   ...reviewQueue.map((review) => review.ticketId),
   ...rebuildQueue.map((rebuild) => rebuild.ticketId),
-  ...board.readyTicketIds.filter((ticketId) => !ticketIdsTakenThisRun.has(ticketId)),
+  ...board.readyTicketIds.filter((ticketId) => !ticketIdsTakenThisRun.has(ticketId) && readyTicketIsAdmitted(ticketId)),
 ];
 const leftWaitingText = leftWaiting.map((ticketId) => `#${ticketId}`).join(', ');
 if (leftWaiting.length > 0) log(stoppedByBoard ? `Left for the user's go: ${leftWaitingText}.` : `No slot free for ${leftWaitingText}: other agents hold the board's limit.`);
+const lowPriorityWaiting = lowPriorityWaitingIds();
+if (lowPriorityWaiting.length > 0) log(`Left for the orchestrator's triage, low priority: ${lowPriorityWaiting.map((ticketId) => `#${ticketId}`).join(', ')}.`);
 log(`Done: ${delivered.length} delivered, ${parked.length} parked, ${findingsFiled.length} findings filed, ${agentsRun} agents run.`);
 return summary();

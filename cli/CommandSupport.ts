@@ -4,6 +4,7 @@
  * render lands last and the progress file is never behind the tickets.
  */
 import { JSON_INDENT }                                from '../lib/constants/Limits';
+import { ticketPriorityOf }                           from '../lib/constants/Statuses';
 import type { DispatcherState, ProgressFile, Ticket } from '../lib/constants/Types';
 import { withLock }                                   from '../lib/platform/Lock';
 import { OperationRefusal }                           from '../lib/platform/OperationRefusal';
@@ -81,7 +82,12 @@ export function concurrencyDocumentOf(progress: ProgressFile, tickets: readonly 
 }
 
 export function nextLineFor(progress: ProgressFile, tickets: readonly Ticket[]): string {
-  return NextLineUtil.composeNextLine(concurrencyDocumentOf(progress, tickets));
+  const lowPriorityTicketIds = new Set(tickets.filter((ticket) => ticketPriorityOf(ticket.frontmatter) === 'low').map((ticket) => ticket.frontmatter.id));
+  const concurrency          = concurrencyDocumentOf(progress, tickets);
+  return NextLineUtil.composeNextLine({
+    ...concurrency,
+    lowPriorityReadyTicketIds: concurrency.readyTicketIds.filter((ticketId) => lowPriorityTicketIds.has(ticketId)),
+  });
 }
 
 function trackerReads(): { readProgressFile: typeof readProgressFile; listTickets: typeof listTickets } {

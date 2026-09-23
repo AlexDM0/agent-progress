@@ -31,10 +31,12 @@ export interface ReviewerReply {
 export type DispatcherStateOnBoard = 'running' | 'stopped' | 'finished';
 
 export interface FakeBoard {
-  limit:               number;
-  otherAgentsInFlight: number;
-  readyTicketIds:      string[];
-  dispatcherState:     DispatcherStateOnBoard;
+  limit:                number;
+  otherAgentsInFlight:  number;
+  readyTicketIds:       string[];
+  /** Which tickets are low priority, ready or not; the status block names those among the ready ones. */
+  lowPriorityTicketIds: string[];
+  dispatcherState:      DispatcherStateOnBoard;
 }
 
 export interface RecordedAgentCall {
@@ -50,6 +52,9 @@ export interface RecordedAgentCall {
 export interface DispatchScenario {
   limit:                    number;
   readyTicketIds:           string[];
+  lowPriorityTicketIds?:    string[];
+  /** Passed to the script as `args.includeLowPriority`; left out of the arguments when absent. */
+  includeLowPriority?:      boolean;
   otherAgentsInFlight?:     number;
   reviewWaitingTicketIds?:  string[];
   /** Defaults to `running`; `afterAgent` may change it mid-run. */
@@ -162,10 +167,11 @@ function reviewerDocumentOf(reply: ReviewerReply, round: number): Record<string,
 
 export async function runDispatchScript(scenario: DispatchScenario, source: string = readDispatchScript()): Promise<DispatchRun> {
   const board: FakeBoard = {
-    limit:               scenario.limit,
-    otherAgentsInFlight: scenario.otherAgentsInFlight ?? 0,
-    readyTicketIds:      [...scenario.readyTicketIds],
-    dispatcherState:     scenario.dispatcherState ?? 'running',
+    limit:                scenario.limit,
+    otherAgentsInFlight:  scenario.otherAgentsInFlight ?? 0,
+    readyTicketIds:       [...scenario.readyTicketIds],
+    lowPriorityTicketIds: [...scenario.lowPriorityTicketIds ?? []],
+    dispatcherState:      scenario.dispatcherState ?? 'running',
   };
   const calls: RecordedAgentCall[] = [];
   const logs: string[] = [];
@@ -190,11 +196,12 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   const statusBlock = (): Record<string, unknown> => {
     const agentsInFlight = board.otherAgentsInFlight + ownAgentsOnBoard.size + rowsLeftRunning.size;
     const concurrency = {
-      limit:           board.limit,
+      limit:                     board.limit,
       agentsInFlight,
-      freeSlots:       Math.max(0, board.limit - agentsInFlight),
-      readyTicketIds:  [...board.readyTicketIds],
-      dispatcherState: board.dispatcherState,
+      freeSlots:                 Math.max(0, board.limit - agentsInFlight),
+      readyTicketIds:            [...board.readyTicketIds],
+      lowPriorityReadyTicketIds: board.readyTicketIds.filter((readyTicketId) => board.lowPriorityTicketIds.includes(readyTicketId)),
+      dispatcherState:           board.dispatcherState,
     };
     if (scenario.statusOmitsRunningRows === true) return concurrency;
     return { ...concurrency, runningTicketIds: ticketIdsOfRunningRows('build'), runningReviewOfIds: ticketIdsOfRunningRows('review') };
@@ -266,7 +273,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     () => { throw new Error('The harness offers no pipeline(): the dispatcher runs its own pool.'); },
     () => {},
     (message: string) => { logs.push(message); },
-    ARGUMENTS_FOR_SCRIPT,
+    scenario.includeLowPriority === undefined ? ARGUMENTS_FOR_SCRIPT : { ...ARGUMENTS_FOR_SCRIPT, includeLowPriority: scenario.includeLowPriority },
     { total: null, spent: () => 0, remaining: () => Number.POSITIVE_INFINITY },
     () => { throw new Error('The harness offers no workflow().'); },
     guardedDate(),
