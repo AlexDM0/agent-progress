@@ -46,9 +46,12 @@ function specFilesUnder(directory: string): string[] {
   return found;
 }
 
-/** Blanked character for character rather than removed, so what is left is still the file's own code. */
+/** A string literal or a comment, whichever starts first, so a `/*` or `//` inside a string opens no comment. */
+const STRING_OR_COMMENT_PATTERN = /'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"|`(?:\\[\s\S]|[^`\\])*`|\/\*[\s\S]*?\*\/|\/\/[^\n]*/g;
+
+/** Blanked character for character rather than removed, so what is left is still the file's own code; strings are kept, as a child's source is one. */
 function codeWithCommentsBlanked(fileContents: string): string {
-  return fileContents.replace(/\/\*[\s\S]*?\*\/|^[ \t]*\/\/.*$/gm, (comment) => comment.replace(/[^\n]/g, ' '));
+  return fileContents.replace(STRING_OR_COMMENT_PATTERN, (token) => (token.startsWith('/') ? token.replace(/[^\n]/g, ' ') : token));
 }
 
 /** A spec that starts a process and names the binary is judged by the pair, since a spawn of git beside a read of the entry point is harmless. */
@@ -80,6 +83,8 @@ describe('the scan itself', () => {
     expect(isolationBypassesIn(['import { ', PROCESS_CONTEXT_FACTORY, ' } from \'./CommandContext\';'].join(''))).toEqual(['creates-the-process-context']);
     expect(isolationBypassesIn(['const source = \'runCommandLine(argv, ', PROCESS_CONTEXT_FACTORY, '())\';'].join(''))).toEqual(['creates-the-process-context']);
     expect(isolationBypassesIn(['/** Never call ', PROCESS_CONTEXT_FACTORY, ' here. */'].join(''))).toEqual([]);
+    expect(isolationBypassesIn(['readFileSync(path, \'utf8\'); // not ', PROCESS_CONTEXT_FACTORY].join(''))).toEqual([]);
+    expect(isolationBypassesIn(['const address = \'http://example.test\'; ', PROCESS_CONTEXT_FACTORY, '();'].join(''))).toEqual(['creates-the-process-context']);
   });
 
   test('it sees the binary spawned in every spelling, and not a spawn of something else beside a mention of the entry point', () => {
@@ -94,6 +99,8 @@ describe('the scan itself', () => {
     expect(isolationBypassesIn(['Bun', `.spawnSync(['git', 'init']);\nexpect(text).toContain('${BINARY_NAME}');`].join(''))).toEqual([]);
     expect(isolationBypassesIn([`const BINARY_ENTRY_POINT = '${entryPoint}';\nconst match = pattern.exec(line);`].join(''))).toEqual([]);
     expect(isolationBypassesIn(['/** ', 'Bun', `.spawn(['bun', '${entryPoint}']) is what CliProcess does. */`].join(''))).toEqual([]);
+    const spawnAfterAGlob = ['const pattern = \'lib/', '*.ts\';\n', 'Bun', `.spawnSync(['bun', '${entryPoint}']);\n/** A later docblock. */`].join('');
+    expect(isolationBypassesIn(spawnAfterAGlob)).toEqual(['spawns-the-binary-directly']);
   });
 });
 
