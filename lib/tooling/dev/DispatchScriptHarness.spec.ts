@@ -273,9 +273,13 @@ const CLAIMS: Claim[] = [
   {
     // The row left running is subtracted from the others, so work started ahead of its takeover would put the board over the limit.
     name:     'the takeover of a row left running starts before other work, so that row and the agents in flight never exceed the limit',
-    scenario: { limit: 2, readyTicketIds: ticketIdsFrom(1, 3), builderReply: (ticketId, pass) => (ticketId === '001' && pass === 1 ? { outcome: 'failed' } : { outcome: 'in-review' }) },
-    holds:    (run) => run.mostAgentsInFlightAtOnce === 2 && summaryOf(run).delivered.length === 3,
-    mutant:   {
+    scenario: {
+      limit:          2,
+      readyTicketIds: ticketIdsFrom(1, 3),
+      builderReply:   (ticketId, pass) => (ticketId === '001' && pass === 1 ? { outcome: 'failed' } : { outcome: 'in-review' }),
+    },
+    holds:  (run) => run.mostAgentsInFlightAtOnce === 2 && summaryOf(run).delivered.length === 3,
+    mutant: {
       find:    'if (takeover !== undefined) {',
       replace: 'if (takeover !== undefined && reviewQueue.length === 0 && board.readyTicketIds.every((ticketId) => ticketIdsTakenThisRun.has(ticketId))) {',
     },
