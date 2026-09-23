@@ -103,7 +103,7 @@ context: `lib/platform/Environment.ts` is the one module that reads it.
 | `cli/range/RangeCommand.spec.ts` | each stored shape, including the mixed pair, and the refusals — an unreadable bound and a `--from` that is not before its `--to` |
 | `cli/render/RenderCommand.ts` | `render`: regenerate the page under the lock, mutating nothing |
 | `cli/open/OpenCommand.ts` | `open`: render only when the page is missing, then hand the path to the desktop, detached — and print it either way |
-| `cli/clear/ClearCommand.ts` | `clear`: empty the rows and the log, keep `trackerId`, `project` and the task id counter, re-seed a row per surviving ticket from its frontmatter, except a low ticket never started. `--all` deletes the tickets |
+| `cli/clear/ClearCommand.ts` | `clear`: empty the rows and the log, keep `trackerId`, `project` and the task id counter, re-seed a row per surviving ticket from its frontmatter, except a low ticket that has no row. `--all` deletes the tickets |
 | `cli/clear/ClearCommand.spec.ts` | the re-seeded bars and their fresh ids, the kept tracker id, `--all`, and both halves of the confirmation |
 
 Adding a command is one entry in `cli/CommandTable.ts`, one block in `cli/HelpText.ts`, one folder

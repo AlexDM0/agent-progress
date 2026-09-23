@@ -255,7 +255,7 @@ running); ready: #003\` or \`Next: 2 of 2 slots free; nothing ready\` — at mos
 
   clear [--all] [--yes]       Throw away every task row and the log and restart the clock, keeping
                               the tickets: each surviving ticket is given a fresh row seeded from
-                              its own frontmatter, except a low one never started. Row ids are not reused. --all deletes the
+                              its own frontmatter, except a low one with no row. Row ids are not reused. --all deletes the
                               tickets too and restarts their ids at 001. --yes skips the
                               confirmation, and is required when standard input is not a terminal.
 

@@ -1,6 +1,6 @@
 /**
  * Re-seeds one row per surviving ticket from that ticket's own stamps, so a cleared tracker still draws the work that was done — except a low
- * ticket that was never started, which had no row to lose.
+ * ticket that has no row, which had none to lose.
  */
 import { OperationRefusal }                                       from '../../lib/platform/OperationRefusal';
 import { appendLogEntry }                                         from '../../lib/progress/ProgressStore';
@@ -68,9 +68,9 @@ export const clearCommand: CommandHandler = async (commandArguments, context) =>
 
     const surviving = listTickets(workspace).tickets;
     for (const ticket of surviving) {
-      if (ticketStaysOffTheChart(ticket.frontmatter)) {
-        ticket.frontmatter.task = null;
-      } else {
+      // A reopen clears `started`, so the row the ticket held before the clear is what says it was worked.
+      const ticketHadNoRowToLose = ticket.frontmatter.task === null && ticketStaysOffTheChart(ticket.frontmatter);
+      if (!ticketHadNoRowToLose) {
         seedTaskFromTicket({ progress, ticket, operations: progressOperations });
       }
       writeTicketAfterwards(ticket);

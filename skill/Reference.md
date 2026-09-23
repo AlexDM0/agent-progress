@@ -103,8 +103,8 @@ through a reopen too. `ticket abandon` or `ticket reopen` on a low ticket that h
 none. `ticket priority <id> <p>` writes one log line, `Ticket #003 priority normal → low`: lowering
 to low is refused at exit 1 unless the ticket is open, and removes its row; raising a low ticket
 with no row files one at once — `pending` while it is open, seeded from its stamps otherwise.
-Between normal and high only the ticket changes. `clear` re-seeds no row for a low ticket that was
-never started. A high ticket is marked `high` on the Tickets tab.
+Between normal and high only the ticket changes. `clear` re-seeds no row for a low ticket that has
+none, and keeps one for a low ticket that has one. A high ticket is marked `high` on the Tickets tab.
 
 ## A row's tokens
 

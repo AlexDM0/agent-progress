@@ -141,6 +141,18 @@ describe.skipIf(!gitIsAvailable())('filing and moving a low ticket', () => {
     expect(storedProgress().tasks.map((task) => task.ticket)).toEqual(['002']);
     expect(storedTicketText('001')).toContain('task: null');
   });
+
+  // `reopen` clears the `started` stamp, so the row a started low ticket keeps is the only sign left that it was worked.
+  test('clear re-seeds the row a started low ticket kept through a reopen', async () => {
+    await run(['ticket', 'add', 'Reword the empty-log note', '--priority', 'low']);
+    await run(['ticket', 'start', '1']);
+    await run(['ticket', 'reopen', '1']);
+
+    await run(['clear', '--yes']);
+
+    expect(storedProgress().tasks).toHaveLength(1);
+    expect(storedProgress().tasks[0]).toMatchObject({ status: 'pending', ticket: '001' });
+  });
 });
 
 describe.skipIf(!gitIsAvailable())('ticket priority', () => {
