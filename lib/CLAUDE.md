@@ -245,6 +245,23 @@ than importing `cli/CommandContext.ts`, because rule 1 forbids any import of `cl
 `lib/`. Nothing that ships imports this folder, and `lib/ImportDirection.spec.ts` is what keeps that
 true.
 
+The dispatcher's harness lives here too, since `templates/workflows/AgentProgressDispatch.js` is plain
+JavaScript no spec can sit beside:
+
+- `lib/tooling/dev/DispatchScriptHarness.ts` — `runDispatchScript` compiles the script's body as the
+  Workflow tool would and runs it against a fake `agent()` (the kind read from the prompt's token
+  marker) and a fake board whose status block every agent returns, recording each call, the most
+  agents running at once and the logs; `Date` and `Math` are handed in guarded.
+  `lib/tooling/dev/DispatchScriptHarness.spec.ts` pins each decision **and runs it again against a
+  mutant of the script that breaks exactly that decision**, which must fail; a mutant whose text left
+  the script fails loudly. `lib/tooling/dev/DispatchScriptHarness.brief.spec.ts` holds the prompts'
+  call budgets and rework threshold to the numbers `templates/AgentBrief.md` states.
+- `lib/tooling/dev/WorkflowScriptSource.ts` — reads a Workflow script's syntax tree through
+  `typescript`: `nondeterministicCallsIn` (`Date.now`, `Math.random`, argless `new Date()`, `Date()`)
+  and `metaLiteralVerdictOf` (the first statement is an exported `const meta` of literals alone).
+  `lib/tooling/dev/WorkflowScriptSource.spec.ts` constructs each form, plants it in the real script,
+  and only then judges the real script clean.
+
 **No spec reaches a tracker it did not create.** `lib/tooling/dev/TrackerIsolation.ts` refuses a
 directory outside the scratch root (the OS temporary directory, where every scratch directory is made)
 and one from which discovery — walk up, git common directory or `AGENT_PROGRESS_ROOT` — resolves a

@@ -248,6 +248,11 @@ templates/               The markdown this tool writes into somebody else's repo
                          CLAUDE.md block, the default ticket body, and `templates/AgentBrief.md`, the
                          brief `init` copies to `.agent-progress/agent-brief.md` on every run. Kept
                          as files, not string literals, so a change to the wording is a readable diff.
+                         `templates/workflows/AgentProgressDispatch.js` is the dispatcher: a Workflow
+                         script (plain JavaScript, run by the Workflow tool, never by Bun) that runs a
+                         builder per ready ticket and a clean reviewer per built one within the board
+                         limit, and decides rounds and parking in code. Its decisions are pinned by
+                         `lib/tooling/dev/DispatchScriptHarness.spec.ts`.
 docs/                    `docs/backlog.md`: what is agreed and not started, with the reason it is
                          not done yet. Not a status page.
 node_modules/            Git-ignored dependencies.
