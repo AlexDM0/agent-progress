@@ -11,14 +11,18 @@ import { requireWorkspace, type Workspace } from '../lib/platform/Workspace';
 import {
   addTask,
   appendLogEntry,
+  concurrencyOf,
   findTask,
   readProgressFile,
   transitionTask,
-  writeProgressFile
+  writeProgressFile,
+  type Concurrency
 }                                               from '../lib/progress/ProgressStore';
 import { rerenderDashboard, type RerenderOutcome } from '../lib/render/Rerender';
 import { listTickets, writeTicket }                from '../lib/tickets/TicketStore';
 import type { ProgressOperations }                 from '../lib/tickets/TicketTransitions';
+import { NextLineUtil }                            from '../lib/utils/NextLineUtil';
+import { TicketDependencyUtil }                    from '../lib/utils/TicketDependencyUtil';
 import { TimeUtil }                                from '../lib/utils/TimeUtil';
 import type { CommandContext }                     from './CommandContext';
 import type { ArgumentParser }                     from './arguments/ArgumentParser';
@@ -61,6 +65,15 @@ export function printEntity(commandArguments: ArgumentParser, context: CommandCo
   context.standardOutput(humanLine);
 }
 
+/** What a dispatcher needs to start the next agent: the limit, the rows running against it, what is left, and the tickets that could take it. */
+export function concurrencyDocumentOf(progress: ProgressFile, tickets: readonly Ticket[]): Concurrency & { readyTicketIds: string[] } {
+  return { ...concurrencyOf(progress), readyTicketIds: TicketDependencyUtil.readyTicketIdsOf(tickets.map((ticket) => ticket.frontmatter)) };
+}
+
+export function nextLineFor(progress: ProgressFile, tickets: readonly Ticket[]): string {
+  return NextLineUtil.composeNextLine(concurrencyDocumentOf(progress, tickets));
+}
+
 function trackerReads(): { readProgressFile: typeof readProgressFile; listTickets: typeof listTickets } {
   return { listTickets, readProgressFile };
 }
@@ -87,11 +100,12 @@ export async function renderDashboard(context: CommandContext, workspace: Worksp
 }
 
 /** An unreadable progress file here is `'unrepaired'`, not `'refused'`: it was there a moment ago, so it vanished under the command. */
-export async function openTrackerForWriting<MutationResult>(
+async function writeTrackerUnderLock<MutationResult, Reading>(
   commandArguments: ArgumentParser,
   context: CommandContext,
   mutate: (change: TrackerChange) => MutationResult | Promise<MutationResult>,
-): Promise<MutationResult> {
+  readAfterWriting: (workspace: Workspace, progress: ProgressFile) => Reading,
+): Promise<{ result: MutationResult; reading: Reading }> {
   const workspace = requireWorkspace(context.currentDirectory);
   const at        = resolveAtOption(commandArguments, context);
 
@@ -112,7 +126,37 @@ export async function openTrackerForWriting<MutationResult>(
 
     writeProgressFile(workspace, progressRead.progress);
     for (const ticket of ticketsToWrite) writeTicket(ticket);
+    const reading = readAfterWriting(workspace, progressRead.progress);
     await renderDashboard(context, workspace);
-    return result;
+    return { result, reading };
   }, context.now);
+}
+
+export async function openTrackerForWriting<MutationResult>(
+  commandArguments: ArgumentParser,
+  context: CommandContext,
+  mutate: (change: TrackerChange) => MutationResult | Promise<MutationResult>,
+): Promise<MutationResult> {
+  const { result } = await writeTrackerUnderLock(commandArguments, context, mutate, () => undefined);
+  return result;
+}
+
+/** The Next line is read from the files just written, inside the same lock hold, so it can never describe the board before the move. */
+export async function openTrackerForWritingThenReadNextLine<MutationResult>(
+  commandArguments: ArgumentParser,
+  context: CommandContext,
+  mutate: (change: TrackerChange) => MutationResult | Promise<MutationResult>,
+): Promise<{ result: MutationResult; nextLine: string }> {
+  const { result, reading } = await writeTrackerUnderLock(
+    commandArguments,
+    context,
+    mutate,
+    (workspace, progress) => nextLineFor(progress, listTickets(workspace).tickets),
+  );
+  return { result, nextLine: reading };
+}
+
+/** The human line and the Next line under it, or the entity alone under `--json`, which a script parses and must never find a trailing sentence in. */
+export function printEntityThenNextLine(commandArguments: ArgumentParser, context: CommandContext, entity: unknown, humanLine: string, nextLine: string): void {
+  printEntity(commandArguments, context, entity, `${humanLine}\n${nextLine}`);
 }

@@ -7,12 +7,17 @@ import {
   removeTask,
   transitionTask
 }                                             from '../../lib/progress/ProgressStore';
-import { readTicket }                         from '../../lib/tickets/TicketStore';
-import { TokenCountUtil }                     from '../../lib/utils/TokenCountUtil';
-import type { CommandContext }                from '../CommandContext';
-import { openTrackerForWriting, printEntity } from '../CommandSupport';
-import type { CommandHandler }                from '../CommandTable';
-import type { ArgumentParser }                from '../arguments/ArgumentParser';
+import { readTicket }          from '../../lib/tickets/TicketStore';
+import { TokenCountUtil }      from '../../lib/utils/TokenCountUtil';
+import type { CommandContext } from '../CommandContext';
+import {
+  openTrackerForWriting,
+  openTrackerForWritingThenReadNextLine,
+  printEntity,
+  printEntityThenNextLine
+}                                             from '../CommandSupport';
+import type { CommandHandler } from '../CommandTable';
+import type { ArgumentParser } from '../arguments/ArgumentParser';
 
 const USAGE = [
   'agent-progress task add "<name>" [--owner <who>] [--note <text>] [--ticket <id>] [--start] [--tokens <n>] [--at <when>]',
@@ -182,7 +187,7 @@ async function transitionOneTask(subcommand: string, commandArguments: ArgumentP
     throw new OperationRefusal('refused', `"${subcommand}" is not an agent-progress task subcommand.\n  Usage: ${USAGE}`);
   }
 
-  const task = await openTrackerForWriting(commandArguments, context, (change) => {
+  const { result: task, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
     const moved = requireTask(change.progress, taskId);
     refuseATicketOwnedMove(moved, move.status, movesAnyway);
     transitionTask(change.progress, taskId, move.status, change.at);
@@ -190,7 +195,7 @@ async function transitionOneTask(subcommand: string, commandArguments: ArgumentP
     return moved;
   });
 
-  printEntity(commandArguments, context, task, `Task #${task.id} ${move.spoken}: ${task.name}`);
+  printEntityThenNextLine(commandArguments, context, task, `Task #${task.id} ${move.spoken}: ${task.name}`, nextLine);
 }
 
 /** `update` corrects a row and deliberately moves no timestamp, which is what separates it from the transitions. */

@@ -117,6 +117,12 @@ running is stopped. `status --json` carries `concurrency`: `limit`, `inFlight`, 
 negative) and `readyTicketIds`, the open tickets whose every dependency is done or delivered, lowest
 id first.
 
+The same figures close the human output of `status`, `ticket add` and every ticket or task move, as
+one **Next line** read after the change, inside the same lock hold: `Next: 1 of 2 slots free; ready:
+#003, #005`, `Next: no slot free (2 running); ready: #003` or `Next: 2 of 2 slots free; nothing
+ready`. Ready ids are listed lowest first, at most five, then `and N more`. `--json` output never
+carries the line.
+
 ## Releasing a branch
 
 `agent-progress release <id> --branch <b> --worktree <path>` is the only way a reviewed branch

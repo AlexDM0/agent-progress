@@ -31,13 +31,19 @@ import {
   ensureTaskForTicket,
   ticketMoveIsLegal
 }                                                               from '../../lib/tickets/TicketTransitions';
-import { TicketDependencyUtil }                                   from '../../lib/utils/TicketDependencyUtil';
-import { TicketIdUtil }                                           from '../../lib/utils/TicketIdUtil';
-import { TokenCountUtil }                                         from '../../lib/utils/TokenCountUtil';
-import type { CommandContext }                                    from '../CommandContext';
-import { openTrackerForWriting, printEntity, progressOperations } from '../CommandSupport';
-import type { CommandHandler }                                    from '../CommandTable';
-import type { ArgumentParser }                                    from '../arguments/ArgumentParser';
+import { TicketDependencyUtil } from '../../lib/utils/TicketDependencyUtil';
+import { TicketIdUtil }         from '../../lib/utils/TicketIdUtil';
+import { TokenCountUtil }       from '../../lib/utils/TokenCountUtil';
+import type { CommandContext }  from '../CommandContext';
+import {
+  openTrackerForWriting,
+  openTrackerForWritingThenReadNextLine,
+  printEntity,
+  printEntityThenNextLine,
+  progressOperations
+}                                                                 from '../CommandSupport';
+import type { CommandHandler } from '../CommandTable';
+import type { ArgumentParser } from '../arguments/ArgumentParser';
 
 const USAGE = [
   'agent-progress ticket add "<title>" [--type bug|change|feature] [--group <name>] [--depends-on <ids>] [--body <markdown> | --body-file <path|->] [--at <when>]',
@@ -221,7 +227,7 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
   const identifier = nextTicketId(workspace);
   const body       = await bodyForNewTicket(commandArguments, identifier, title);
 
-  const ticket = await openTrackerForWriting(commandArguments, context, (change) => {
+  const { result: ticket, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
     // A ticket that does not exist yet has nobody waiting on it, so only the ids themselves can be wrong.
     refuseAnUnworkableDependencyList(identifier, dependsOn, listTickets(change.workspace).tickets);
     const filed = createTicket(change.workspace, {
@@ -243,11 +249,12 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
     return filed;
   });
 
-  printEntity(
+  printEntityThenNextLine(
     commandArguments,
     context,
     ticketAsJson(ticket),
     `Ticket #${ticket.frontmatter.id} filed: ${ticket.frontmatter.title}\n  ${ticket.filePath}`,
+    nextLine,
   );
 }
 
@@ -344,7 +351,7 @@ async function transitionOneTicket(
   const reason = commandArguments.option('reason');
   const tokens = tokenCountFrom(commandArguments);
 
-  const moved = await openTrackerForWriting(commandArguments, context, (change) => {
+  const { result: moved, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
     const ticket = requireTicket(change.workspace, reference);
     refuseAnIllegalMove(ticket, targetStatus, checksTheMatrix);
 
@@ -377,7 +384,7 @@ async function transitionOneTicket(
     };
   });
 
-  printEntity(commandArguments, context, ticketAsJson(moved.ticket), moved.logText);
+  printEntityThenNextLine(commandArguments, context, ticketAsJson(moved.ticket), moved.logText, nextLine);
 
   // A warning, not a refusal: the order is advice to whoever picks work up, and the user may know better.
   if (targetStatus === 'in-progress' && moved.unsettled.length > 0) {
@@ -388,7 +395,7 @@ async function transitionOneTicket(
 
 /** The one verb that may be run on the status the ticket already has: a further review pass is still review. */
 async function rereviewOneTicket(reference: string, commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
-  const moved = await openTrackerForWriting(commandArguments, context, (change) => {
+  const { result: moved, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
     const ticket  = requireTicket(change.workspace, reference);
     const outcome = applyTicketRereview({
       progress:   change.progress,
@@ -405,7 +412,7 @@ async function rereviewOneTicket(reference: string, commandArguments: ArgumentPa
     return { logText: outcome.logText, ticket: outcome.ticket };
   });
 
-  printEntity(commandArguments, context, ticketAsJson(moved.ticket), moved.logText);
+  printEntityThenNextLine(commandArguments, context, ticketAsJson(moved.ticket), moved.logText, nextLine);
 }
 
 /**
@@ -416,7 +423,7 @@ async function claimOneTicket(reference: string, commandArguments: ArgumentParse
   const owner = commandArguments.option('owner');
   const note  = commandArguments.option('note');
 
-  const claimed = await openTrackerForWriting(commandArguments, context, (change) => {
+  const { result: claimed, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
     const ticket         = requireTicket(change.workspace, reference);
     const { id, status } = ticket.frontmatter;
     if (!ticketMoveIsLegal(status, 'in-progress')) {
@@ -452,7 +459,13 @@ async function claimOneTicket(reference: string, commandArguments: ArgumentParse
   });
 
   const { concurrency, logText, ticket } = claimed;
-  printEntity(commandArguments, context, ticketAsJson(ticket), `${logText}: ${concurrency.inFlight} of ${concurrency.limit} slots are now taken.`);
+  printEntityThenNextLine(
+    commandArguments,
+    context,
+    ticketAsJson(ticket),
+    `${logText}: ${concurrency.inFlight} of ${concurrency.limit} slots are now taken.`,
+    nextLine,
+  );
 }
 
 function refuseAnIllegalMove(ticket: Ticket, targetStatus: TicketStatus, checksTheMatrix: boolean): void {

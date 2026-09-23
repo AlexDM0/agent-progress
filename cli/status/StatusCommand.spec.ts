@@ -211,7 +211,7 @@ describe.skipIf(!gitIsAvailable())('the log listing', () => {
 
     const lines = (await run(['status'])).outputText().split('\n');
     const logStart = lines.findIndex((line) => line.startsWith('Log ('));
-    const logLines = lines.slice(logStart + 1);
+    const logLines = lines.slice(logStart + 1).filter((line) => line.startsWith('  '));
 
     expect(logLines[0]).toContain('Halfway through the role editor');
     expect(logLines.at(-1)).toContain('Backfilled from an hour ago');

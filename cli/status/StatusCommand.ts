@@ -14,15 +14,14 @@ import type {
   Ticket,
   TicketStatus
 }                                            from '../../lib/constants/Types';
-import { OperationRefusal }                                  from '../../lib/platform/OperationRefusal';
-import { requireWorkspace }                                  from '../../lib/platform/Workspace';
-import { concurrencyOf, readProgressFile, type Concurrency } from '../../lib/progress/ProgressStore';
-import { listTickets }                                       from '../../lib/tickets/TicketStore';
-import { TicketDependencyUtil }                              from '../../lib/utils/TicketDependencyUtil';
-import { TimeUtil }                                          from '../../lib/utils/TimeUtil';
-import { TokenCountUtil }                                    from '../../lib/utils/TokenCountUtil';
-import { printEntity }                                       from '../CommandSupport';
-import type { CommandHandler }                               from '../CommandTable';
+import { OperationRefusal }                                            from '../../lib/platform/OperationRefusal';
+import { requireWorkspace }                                            from '../../lib/platform/Workspace';
+import { readProgressFile }                                            from '../../lib/progress/ProgressStore';
+import { listTickets }                                                 from '../../lib/tickets/TicketStore';
+import { TimeUtil }                                                    from '../../lib/utils/TimeUtil';
+import { TokenCountUtil }                                              from '../../lib/utils/TokenCountUtil';
+import { concurrencyDocumentOf, nextLineFor, printEntityThenNextLine } from '../CommandSupport';
+import type { CommandHandler }                                         from '../CommandTable';
 
 const USAGE = 'agent-progress status [--json] [--full]';
 
@@ -93,11 +92,6 @@ function ticketIsSettled(ticket: Ticket): boolean {
 
 function ticketDocumentOf(ticket: Ticket): Ticket['frontmatter'] & { filePath: string } {
   return { ...ticket.frontmatter, filePath: ticket.filePath };
-}
-
-/** What a dispatcher needs to start the next agent: the limit, the rows running against it, what is left, and the tickets that could take it. */
-function concurrencyDocumentOf(progress: ProgressFile, tickets: readonly Ticket[]): Concurrency & { readyTicketIds: string[] } {
-  return { ...concurrencyOf(progress), readyTicketIds: TicketDependencyUtil.readyTicketIdsOf(tickets.map((ticket) => ticket.frontmatter)) };
 }
 
 /** The whole progress file plus every ticket: a document an agent could write back, with the derived `concurrency` beside it. */
@@ -195,6 +189,6 @@ export const statusCommand: CommandHandler = async (commandArguments, context) =
 
   const showsEverything = commandArguments.flag('full');
   const asJson          = showsEverything ? fullDocumentOf(progress, listing.tickets) : workingDocumentOf(progress, listing.tickets);
-  printEntity(commandArguments, context, asJson, renderHumanStatus(progress, listing.tickets, showsEverything));
+  printEntityThenNextLine(commandArguments, context, asJson, renderHumanStatus(progress, listing.tickets, showsEverything), nextLineFor(progress, listing.tickets));
   return Promise.resolve();
 };

@@ -314,6 +314,36 @@ describe.skipIf(!gitIsAvailable())('the figures a breach of the brief shows up i
   });
 });
 
+/** A workflow writes its agents under `subagents/workflows/<runId>/`, beside a journal and each agent's metadata; only the agents are costs. */
+describe.skipIf(!gitIsAvailable())('a folder holding a workflow run beside a plain subagent', () => {
+  test('reports the plain agent and both workflow agents, and nothing from the journal or the metadata', async () => {
+    const mixedFolder = join(repositoryDirectory, 'mixed-transcripts');
+    const runFolder   = join(mixedFolder, 'session-workflow', 'subagents', 'workflows', 'run-example');
+    mkdirSync(runFolder, { recursive: true });
+
+    const agentText = (agent: string): string => transcriptTextFor({
+      session:          'session-workflow',
+      agent,
+      startedAt:        '2026-09-19T08:00:00.000Z',
+      brief:            `Brief for ${agent}`,
+      apiCallCount:     1,
+      inputTokens:      100,
+      outputTokens:     10,
+      browserCallCount: 0,
+    });
+    writeFileSync(join(mixedFolder, 'session-workflow', 'subagents', 'agent-plain.jsonl'), agentText('plain'));
+    writeFileSync(join(runFolder, 'agent-first.jsonl'), agentText('first'));
+    writeFileSync(join(runFolder, 'agent-second.jsonl'), agentText('second'));
+    writeFileSync(join(runFolder, 'agent-first.meta.json'), '{"agentType":"general-purpose"}\n');
+    writeFileSync(join(runFolder, 'journal.jsonl'), agentText('journal'));
+
+    const document = JSON.parse((await run(['usage', '--transcripts', mixedFolder, '--json'])).outputText()) as UsageDocument;
+
+    expect(document.agents.map((agent) => agent.agentIdentifier).sort()).toEqual(['first', 'plain', 'second']);
+    expect(document.cohorts.all.transcriptCount).toBe(3);
+  });
+});
+
 describe.skipIf(!gitIsAvailable())('a folder with no subagent transcripts in it', () => {
   /** A repository that has never delegated anything is not a state the tool should complain about, so this is exit 0 and one sentence. */
   test('is one sentence at exit 0, naming the folder that was read', async () => {

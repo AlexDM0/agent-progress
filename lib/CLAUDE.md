@@ -114,6 +114,9 @@ anything that needs "now" is handed it.
   are not done or delivered yet), `dependencyLoopFrom` (the circle a new list would close, or
   `null`) and `readyTicketIdsOf` (the open tickets with every dependency settled, lowest id first).
   Shared by `ticket depends`, `ticket claim`, `status --json` and the page's "waiting on" note.
+- `lib/utils/NextLineUtil.ts` — `composeNextLine`, the `Next: …` line from the limit, the rows in
+  flight, the free slots and the ready ids: `N of L slots free` or `no slot free (N running)`, then
+  the ready ids as given (at most five, then `and N more`) or `nothing ready`.
 - `lib/utils/ReworkCountUtil.ts` — `readDiff` classifies every changed line of unified diff text as
   code, comment, blank or documentation, reading hunk lengths from each `@@` header so a removed
   `-- x` is content rather than a `---` header. **Each side of a hunk keeps its own comment state** (old:
@@ -167,8 +170,11 @@ nothing about tasks or tickets — a caller supplies a path.
   absolute path with **every character outside `[a-zA-Z0-9]`** turned into `-` — a dot and a space as
   much as a separator, so `/Users/alex/.claude/x` slugs to `-Users-alex--claude-x` — so every worktree
   resolves to one folder) and every
-  subagent file under it. The home directory is `node:os`'s `homedir()` as a defaulted parameter,
-  never `HOME`; a missing folder is an empty list, and main-session transcripts are left out.
+  subagent file under it: `<session>/subagents/agent-*.jsonl`, and a workflow's agents one level
+  deeper at `<session>/subagents/workflows/<run>/agent-*.jsonl`, whose `journal.jsonl` and
+  `agent-*.meta.json` neighbours are never read as transcripts. The home directory is `node:os`'s
+  `homedir()` as a defaulted parameter, never `HOME`; a missing folder is an empty list, and
+  main-session transcripts are left out.
 
 ## `lib/progress/`
 

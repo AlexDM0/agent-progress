@@ -30,6 +30,8 @@ const PROJECTS_DIRECTORY_NAME = 'projects';
 
 const SUBAGENTS_DIRECTORY_NAME = 'subagents';
 
+const WORKFLOWS_DIRECTORY_NAME = 'workflows';
+
 const SUBAGENT_FILE_PREFIX = 'agent-';
 
 const TRANSCRIPT_FILE_SUFFIX = '.jsonl';
@@ -59,11 +61,22 @@ function directoryEntriesOf(directory: string): Dirent<string>[] {
   }
 }
 
+/** A workflow run's journal and each agent's `.meta.json` sit beside its transcripts and fail the prefix or the suffix, so neither is read as one. */
+function agentTranscriptsIn(directory: string, sessionIdentifier: string): SubagentTranscript[] {
+  return directoryEntriesOf(directory)
+    .filter((agentEntry) => agentEntry.isFile() && agentEntry.name.startsWith(SUBAGENT_FILE_PREFIX) && agentEntry.name.endsWith(TRANSCRIPT_FILE_SUFFIX))
+    .map((agentEntry) => ({
+      path:            join(directory, agentEntry.name),
+      sessionIdentifier,
+      agentIdentifier: agentEntry.name.slice(SUBAGENT_FILE_PREFIX.length, -TRANSCRIPT_FILE_SUFFIX.length),
+    }));
+}
+
 /**
- * Every `agent-….jsonl` inside a `subagents/` folder one level down, sorted by path so two runs of
- * the same command report the same order. The main session's own transcripts sit beside those directories
- * and are deliberately left out: a main session is the orchestrator, not a cost anyone delegated, and
- * mixing one into a cohort moves every figure it is in.
+ * Every `agent-….jsonl` inside a session's `subagents/` folder, and inside each run folder of its
+ * `subagents/workflows/`, where a workflow's agents are written; sorted by path so two runs of the
+ * same command report the same order. The main session's own transcripts are deliberately left out:
+ * a main session is the orchestrator, not a cost anyone delegated.
  *
  * An absent folder answers an empty list rather than throwing, because "no transcripts here" is a
  * normal answer the caller prints a sentence for.
@@ -75,15 +88,12 @@ export function listSubagentTranscripts(transcriptFolder: string): SubagentTrans
     if (!sessionEntry.isDirectory()) continue;
 
     const subagentsDirectory = join(transcriptFolder, sessionEntry.name, SUBAGENTS_DIRECTORY_NAME);
-    for (const agentEntry of directoryEntriesOf(subagentsDirectory)) {
-      if (!agentEntry.isFile()) continue;
-      if (!agentEntry.name.startsWith(SUBAGENT_FILE_PREFIX) || !agentEntry.name.endsWith(TRANSCRIPT_FILE_SUFFIX)) continue;
+    transcripts.push(...agentTranscriptsIn(subagentsDirectory, sessionEntry.name));
 
-      transcripts.push({
-        path:              join(subagentsDirectory, agentEntry.name),
-        sessionIdentifier: sessionEntry.name,
-        agentIdentifier:   agentEntry.name.slice(SUBAGENT_FILE_PREFIX.length, -TRANSCRIPT_FILE_SUFFIX.length),
-      });
+    const workflowsDirectory = join(subagentsDirectory, WORKFLOWS_DIRECTORY_NAME);
+    for (const runEntry of directoryEntriesOf(workflowsDirectory)) {
+      if (!runEntry.isDirectory()) continue;
+      transcripts.push(...agentTranscriptsIn(join(workflowsDirectory, runEntry.name), sessionEntry.name));
     }
   }
 

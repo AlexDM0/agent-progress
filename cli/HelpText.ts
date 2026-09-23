@@ -17,6 +17,11 @@ decimal with a \`k\`/\`m\` suffix: \`12000\`, \`12k\`, \`12.3k\`, \`1.2m\`.
 \`--help\` works after a command word as well as on its own, and AGENT_PROGRESS_ROOT names the
 repository to use instead of walking up from the current directory.
 
+\`status\`, \`ticket add\` and every ticket or task move end their output with one line read from the
+board after the change: \`Next: 1 of 2 slots free; ready: #003, #005\`, \`Next: no slot free (2
+running); ready: #003\` or \`Next: 2 of 2 slots free; nothing ready\` — at most five ready ids, then
+\`and N more\`. --json output never carries it.
+
   init                        Create the tracker here: \`.agent-progress/\` with an empty progress
       [--project <name>]      file, a \`tickets/\` folder and \`agent-brief.md\` — the brief to fill in
       [--root <path>]         before spawning an implementing agent — a \`.gitignore\` entry for it,
@@ -96,12 +101,13 @@ repository to use instead of walking up from the current directory.
                               read, or a delay before it is told.
 
   usage [--since <when>]      What this repository's subagents cost, read out of the transcripts the
-      [--transcripts <folder>] harness wrote for them: one row per agent, oldest first, with its
-      [--json]                start, its API calls, its end context, its input and output, its
-                              browser calls, the characters the harness injected into it and the
-                              first line of its brief; then the cohort summary — median calls and
-                              end context, mean input and output, and the mean of each figure
-                              below. Three of the columns are there to catch a brief being
+      [--transcripts <folder>] harness wrote for them, a workflow's agents under
+      [--json]                \`subagents/workflows/<run>/\` included: one row per agent, oldest
+                              first, with its start, its API calls, its end context, its input and
+                              output, its browser calls, the characters the harness injected into
+                              it and the first line of its brief; then the cohort summary — median
+                              calls and end context, mean input and output, and the mean of each
+                              figure below. Three of the columns are there to catch a brief being
                               breached: "over 200k" is the share of an agent's input that was sent
                               at a context past 200,000 tokens, "bash edits" counts the edits it
                               made through a shell command instead of the editing tools, and

@@ -1,7 +1,7 @@
 /**
  * The slug rule, which is the whole reason this module exists and the one thing no caller can check
- * for itself, and the listing's three refusals: a folder that is not there, a file beside the
- * subagents that is not one, and the main session's own transcript sitting in the same tree.
+ * for itself; the workflow layout one level deeper; and the listing's refusals: a folder that is not
+ * there, a file beside the subagents that is not one, and the main session's own transcript.
  *
  * Every transcript here is a constructed empty file in a scratch directory: the claim is about which
  * paths are found, never about what any recorded session contains.
@@ -93,6 +93,22 @@ describe('the subagent transcripts under a folder', () => {
     createTranscript(join('session-one', 'shell-snapshots', 'agent-decoy.jsonl'));
 
     expect(listSubagentTranscripts(scratchDirectory).map((transcript) => transcript.agentIdentifier)).toEqual(['alpha']);
+  });
+
+  // A workflow's agents are written one level deeper than a plain subagent's; missing them left every one of them out of `usage`.
+  test('include a workflow run\'s agents beside the plain ones, and never its journal or an agent\'s metadata', () => {
+    createTranscript(join('session-one', 'subagents', 'agent-alpha.jsonl'));
+    createTranscript(join('session-one', 'subagents', 'workflows', 'run-one', 'agent-beta.jsonl'));
+    createTranscript(join('session-one', 'subagents', 'workflows', 'run-one', 'agent-beta.meta.json'));
+    createTranscript(join('session-one', 'subagents', 'workflows', 'run-one', 'journal.jsonl'));
+    createTranscript(join('session-two', 'subagents', 'workflows', 'run-two', 'agent-gamma.jsonl'));
+    createTranscript(join('session-two', 'subagents', 'workflows', 'agent-stray.jsonl'));
+
+    const found = listSubagentTranscripts(scratchDirectory);
+
+    expect(found.map((transcript) => transcript.agentIdentifier)).toEqual(['alpha', 'beta', 'gamma']);
+    expect(found.map((transcript) => transcript.sessionIdentifier)).toEqual(['session-one', 'session-one', 'session-two']);
+    expect(found[1]?.path).toContain(join('workflows', 'run-one', 'agent-beta.jsonl'));
   });
 
   /** "No transcripts here" is a normal answer the command prints a sentence for, so it must not arrive as a throw. */
