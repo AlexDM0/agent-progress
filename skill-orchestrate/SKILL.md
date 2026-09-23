@@ -233,8 +233,9 @@ branch once that one is closed.
   the invariant behind what the reviews kept finding, with the search for its other instances as
   an acceptance item. Then, if the branch holds: release it and let the new ticket carry the
   investigation — the one release you run, because the reviewer that judged it asked for a round
-  instead of releasing: `agent-progress release <id> --branch <branch> --worktree <worktree> --main
-  <main line>`. On `main-moved` rebase nothing yourself: `agent-progress ticket rereview <id>` and a
+  instead of releasing: `agent-progress release <id> [<id>...] --branch <branch> --worktree <worktree>
+  --main <main line>`, every id of a bundle in the one call, since the first release deletes the
+  branch. On `main-moved` rebase nothing yourself: `agent-progress ticket rereview <id>` and a
   clean reviewer from the same brief, scoped to the rebase. If it does not hold: `agent-progress ticket reopen <id>`,
   `agent-progress ticket depends <id> <the ids it already waits on> <newId>` — the list is
   replaced, not added to — and `agent-progress log` why — the ticket waits,
