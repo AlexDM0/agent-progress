@@ -77,6 +77,9 @@ const GRANT_ROUND_THREE_WITHOUT_CONVERGENCE: Mutant = { find: 'if (requestedRoun
 
 const SUBTRACT_EVERY_OWN_AGENT: Mutant = { find: '.filter((ownAgent) => ownAgentIsOnBoard(ownAgent.work, status)).length', replace: '.length' };
 
+const SETTLE_THEN_ADOPT = 'if (finished.work.kind === \'build\') settleBuild(finished.work, finished.result);\n  else settleReview(finished.work, finished.result);\n'
+  + '  if (finished.result !== null) adoptBoard(finished.result.status);';
+
 const CLAIMS: Claim[] = [
   {
     name:     'the agents running at once never exceed a board limit of 2',
@@ -220,6 +223,62 @@ const CLAIMS: Claim[] = [
     scenario: { limit: 2, readyTicketIds: ['001'], builderReply: (_ticketId, pass) => (pass === 1 ? null : { outcome: 'in-review' }) },
     holds:    (run) => summaryOf(run).delivered.includes('001') && run.logs.some((message) => message.includes('#001: the builder returned no result')),
     mutant:   { find: 'countFailedPass(ticketId, \'the builder returned no result\', rebuild);', replace: 'park(ticketId, \'mutant\');' },
+  },
+  {
+    // A builder that stops short of `ticket review` leaves its claimed row running: read as another agent's, it alone would fill a limit of 1.
+    name:     'with a limit of 1, a builder that failed with its row left running is followed by a fresh builder that takes that row over and delivers',
+    scenario: { limit: 1, readyTicketIds: ['001'], builderReply: (_ticketId, pass) => (pass === 1 ? { outcome: 'failed' } : { outcome: 'in-review' }) },
+    holds:    (run) => kindsAndTickets(run).join(', ') === 'survey, build 001, build 001, review 001'
+      && summaryOf(run).delivered.join() === '001'
+      && run.mostAgentsInFlightAtOnce === 1,
+    mutant: {
+      find:    SETTLE_THEN_ADOPT,
+      replace: 'if (finished.result !== null) adoptBoard(finished.result.status);\n  if (finished.work.kind === \'build\') settleBuild(finished.work, finished.result);\n'
+        + '  else settleReview(finished.work, finished.result);',
+    },
+  },
+  {
+    // A dead reviewer returns no status block, so its bar is seen only in a later agent's: there, with an agent started elsewhere, the bar read as
+    // another's fills the limit of 2 and the fresh reviewer would never start.
+    name:     'a reviewer that returned nothing leaves its bar running, and a fresh reviewer takes it over although that bar and an agent elsewhere fill the limit',
+    scenario: {
+      limit:                  2,
+      readyTicketIds:         [],
+      reviewWaitingTicketIds: ['001', '002', '003'],
+      reviewerReply:          (ticketId, round) => (ticketId === '001' && round === 1 ? null : { verdict: 'released' }),
+      afterAgent:             (call, board) => { if (call.kind === 'review' && call.ticketId === '002') board.otherAgentsInFlight = 1; },
+    },
+    holds: (run) => reviewsOf(run, '001') === 2
+      && summaryOf(run).delivered.length === 3
+      && run.mostAgentsInFlightAtOnce === 2,
+    mutant: {
+      find:    '() => awaitTakeover(reviewWorkFor(ticketId, true, true))',
+      replace: '() => reviewQueue.push(reviewWorkFor(ticketId, true, true))',
+    },
+  },
+  {
+    // Counted as another's, the row left running would hold a slot beside the fresh agent that took it over, and the ticket filed meanwhile would wait.
+    name:     'a row left running for a fresh builder is the dispatcher\'s own, so a ticket filed meanwhile starts beside that fresh builder',
+    scenario: {
+      limit:          2,
+      readyTicketIds: ['001'],
+      builderReply:   (ticketId, pass) => (ticketId === '001' && pass === 1 ? { outcome: 'failed' } : { outcome: 'in-review' }),
+      afterAgent:     (call, board) => { if (call.kind === 'build' && call.ordinal === 1 && call.ticketId === '001') board.readyTicketIds.push('002'); },
+    },
+    holds: (run) => kindsAndTickets(run).slice(0, 4).join(', ') === 'survey, build 001, build 001, build 002'
+      && summaryOf(run).delivered.length === 2
+      && run.mostAgentsInFlightAtOnce === 2,
+    mutant: { find: ' + takeoversOnBoard(status).length', replace: '' },
+  },
+  {
+    // The row left running is subtracted from the others, so work started ahead of its takeover would put the board over the limit.
+    name:     'the takeover of a row left running starts before other work, so that row and the agents in flight never exceed the limit',
+    scenario: { limit: 2, readyTicketIds: ticketIdsFrom(1, 3), builderReply: (ticketId, pass) => (ticketId === '001' && pass === 1 ? { outcome: 'failed' } : { outcome: 'in-review' }) },
+    holds:    (run) => run.mostAgentsInFlightAtOnce === 2 && summaryOf(run).delivered.length === 3,
+    mutant:   {
+      find:    'if (takeover !== undefined) {',
+      replace: 'if (takeover !== undefined && reviewQueue.length === 0 && board.readyTicketIds.every((ticketId) => ticketIdsTakenThisRun.has(ticketId))) {',
+    },
   },
   {
     name:     'a refused claim skips the ticket for this run, logged, while the rest go ahead',
@@ -371,5 +430,13 @@ describe('the dispatcher script', () => {
     expect(reviewers[1]?.prompt).toContain('An earlier reviewer of this run returned nothing');
     expect(reviewers[0]?.prompt).not.toContain('An earlier reviewer of this run returned nothing');
     expect(summaryOf(run).delivered).toEqual(['001']);
+  });
+
+  // At a limit of 1 no status block follows a dead reviewer, so its bar is never read as another's: this pins the case, it decides nothing new.
+  test('with a limit of 1, a reviewer that returned nothing with its bar left running is followed by a fresh reviewer that releases', async () => {
+    const run = await runDispatchScript({ limit: 1, readyTicketIds: ['001'], reviewerReply: (_ticketId, round) => (round === 1 ? null : { verdict: 'released' }) });
+    expect(kindsAndTickets(run)).toEqual(['survey', 'build 001', 'review 001', 'review 001']);
+    expect(summaryOf(run).delivered).toEqual(['001']);
+    expect(run.mostAgentsInFlightAtOnce).toBe(1);
   });
 });

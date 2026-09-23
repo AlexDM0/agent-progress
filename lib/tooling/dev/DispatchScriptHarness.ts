@@ -1,7 +1,8 @@
 /**
  * Runs `templates/workflows/AgentProgressDispatch.js` as the Workflow tool would, against a fake `agent()` and a fake board, so a spec can pin
  * the script's decisions without spawning a model. An agent's kind is read from its prompt's token marker, the way the hook reads it. A builder
- * or reviewer is on the board only from its first command until it finishes, as a real one is from its claim or its `task add --start`.
+ * or reviewer is on the board from its first command, as a real one is from its claim or its `task add --start`, until it finishes — except that
+ * a builder that stops short of review and a reviewer that returns nothing leave their row running, until a fresh agent's first command takes it over.
  */
 import { readFileSync } from 'node:fs';
 import { join }         from 'node:path';
@@ -69,7 +70,8 @@ export interface DispatchRun {
   calls:                    RecordedAgentCall[];
   /** The most of the script's own agents that were running at one moment. */
   mostAgentsAtOnce:         number;
-  /** The most agents in flight at one moment: the board's others plus every one of the script's own, on the board yet or not. */
+  /** The most agents in flight at one moment: the board's others, every one of the script's own on the board yet or not, and every row left running
+   * that no own agent of the same kind and ticket is running to take over. */
   mostAgentsInFlightAtOnce: number;
   logs:                     string[];
   summary:                  unknown;
@@ -141,6 +143,12 @@ async function turnsPass(count: number): Promise<void> {
   for (let i = 0; i < count; i++) await nextTurn();
 }
 
+// A builder's claimed row stays running until `ticket review`, a reviewer's bar until it closes it or a release does.
+function rowIsLeftRunning(kind: AgentKind, reply: Record<string, unknown> | null): boolean {
+  if (kind === 'build') return reply === null || reply['outcome'] === 'failed';
+  return kind === 'review' && reply === null;
+}
+
 function reviewerDocumentOf(reply: ReviewerReply, round: number): Record<string, unknown> {
   return {
     round,
@@ -163,18 +171,24 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   const logs: string[] = [];
   const passesByTicket = new Map<string, number>();
   const ownAgentsOnBoard = new Map<number, { kind: AgentKind; ticketId: string }>();
+  const rowsLeftRunning = new Map<string, { kind: AgentKind; ticketId: string }>();
+  const rowKeysOfOwnAgentsRunning = new Map<number, string>();
   const turnsBeforeFirstCommand = scenario.turnsBeforeFirstCommand ?? DEFAULT_TURNS_BEFORE_FIRST_COMMAND;
-  let running = 0;
   let mostAgentsAtOnce = 0;
   let mostAgentsInFlightAtOnce = 0;
   let ranAway = false;
 
-  const ticketIdsOfOwnAgentsOnBoard = (kind: AgentKind): string[] => [...ownAgentsOnBoard.values()]
-    .filter((agentOnBoard) => agentOnBoard.kind === kind)
-    .map((agentOnBoard) => agentOnBoard.ticketId);
+  const ticketIdsOfRunningRows = (kind: AgentKind): string[] => [...ownAgentsOnBoard.values(), ...rowsLeftRunning.values()]
+    .filter((row) => row.kind === kind)
+    .map((row) => row.ticketId);
+
+  const rowsLeftRunningWithoutTakeover = (): number => {
+    const rowKeysBeingTakenOver = new Set(rowKeysOfOwnAgentsRunning.values());
+    return [...rowsLeftRunning.keys()].filter((rowKey) => !rowKeysBeingTakenOver.has(rowKey)).length;
+  };
 
   const statusBlock = (): Record<string, unknown> => {
-    const agentsInFlight = board.otherAgentsInFlight + ownAgentsOnBoard.size;
+    const agentsInFlight = board.otherAgentsInFlight + ownAgentsOnBoard.size + rowsLeftRunning.size;
     const concurrency = {
       limit:           board.limit,
       agentsInFlight,
@@ -183,7 +197,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       dispatcherState: board.dispatcherState,
     };
     if (scenario.statusOmitsRunningRows === true) return concurrency;
-    return { ...concurrency, runningTicketIds: ticketIdsOfOwnAgentsOnBoard('build'), runningReviewOfIds: ticketIdsOfOwnAgentsOnBoard('review') };
+    return { ...concurrency, runningTicketIds: ticketIdsOfRunningRows('build'), runningReviewOfIds: ticketIdsOfRunningRows('review') };
   };
 
   const replyFor = (call: RecordedAgentCall): Record<string, unknown> | null => {
@@ -223,19 +237,24 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     if (kind === 'build' && ticketId !== null && reply?.['outcome'] !== 'claim-refused') {
       board.readyTicketIds = board.readyTicketIds.filter((readyTicketId) => readyTicketId !== ticketId);
     }
-    running++;
-    mostAgentsAtOnce = Math.max(mostAgentsAtOnce, running);
-    mostAgentsInFlightAtOnce = Math.max(mostAgentsInFlightAtOnce, board.otherAgentsInFlight + running);
+    const callIndex = calls.length - 1;
+    rowKeysOfOwnAgentsRunning.set(callIndex, passKey);
+    mostAgentsAtOnce = Math.max(mostAgentsAtOnce, rowKeysOfOwnAgentsRunning.size);
+    mostAgentsInFlightAtOnce = Math.max(mostAgentsInFlightAtOnce, board.otherAgentsInFlight + rowKeysOfOwnAgentsRunning.size + rowsLeftRunningWithoutTakeover());
     if (kind === 'survey' || ticketId === null) {
       await nextTurn();
     } else {
-      const callIndex = calls.length - 1;
+      const reachesTheBoard = reply?.['outcome'] !== 'claim-refused';
       await turnsPass(turnsBeforeFirstCommand);
-      if (reply?.['outcome'] !== 'claim-refused') ownAgentsOnBoard.set(callIndex, { kind, ticketId });
+      if (reachesTheBoard) {
+        rowsLeftRunning.delete(passKey);
+        ownAgentsOnBoard.set(callIndex, { kind, ticketId });
+      }
       await turnsPass(TURNS_FROM_FIRST_COMMAND_TO_RETURN);
       ownAgentsOnBoard.delete(callIndex);
+      if (reachesTheBoard && rowIsLeftRunning(kind, reply)) rowsLeftRunning.set(passKey, { kind, ticketId });
     }
-    running--;
+    rowKeysOfOwnAgentsRunning.delete(callIndex);
     scenario.afterAgent?.(call, board);
     return reply === null ? null : { ...reply, ...('status' in reply ? { status: statusBlock() } : {}) };
   };

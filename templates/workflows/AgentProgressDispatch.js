@@ -180,6 +180,7 @@ function reviewerPrompt(ticketId, expectedRound, rereviewFirst, earlierReviewerD
 const ticketRecords = new Map();
 const reviewQueue = [];
 const rebuildQueue = [];
+const takeoversWaiting = new Map();
 const ticketIdsTakenThisRun = new Set();
 const inFlight = new Map();
 const delivered = [];
@@ -216,12 +217,25 @@ function ownAgentIsOnBoard(work, status) {
   return Array.isArray(confirmingTicketIds) && confirmingTicketIds.includes(work.ticketId);
 }
 
+function takeoverKeyOf(work) {
+  return `${work.kind} ${work.ticketId}`;
+}
+
+// An agent that stopped short left its row running, and the fresh agent for the same work takes that row over rather than adding one.
+function awaitTakeover(work) {
+  takeoversWaiting.set(takeoverKeyOf(work), work);
+}
+
+function takeoversOnBoard(status) {
+  return [...takeoversWaiting.values()].filter((takeover) => ownAgentIsOnBoard(takeover, status));
+}
+
 // Only an own agent whose row the board shows is subtracted: one that has not run its first command yet is not in `agentsInFlight`, and
-// subtracting it too would read a real other agent's slot as free.
+// subtracting it too would read a real other agent's slot as free. A row left running for a takeover is the dispatcher's own, not another's.
 function adoptBoard(status) {
   if (status === null || typeof status !== 'object' || !Array.isArray(status.readyTicketIds)) return;
   board = status;
-  const ownAgentsOnBoard = [...inFlight.values()].filter((ownAgent) => ownAgentIsOnBoard(ownAgent.work, status)).length;
+  const ownAgentsOnBoard = [...inFlight.values()].filter((ownAgent) => ownAgentIsOnBoard(ownAgent.work, status)).length + takeoversOnBoard(status).length;
   othersInFlightAtBoardReading = Math.max(0, status.agentsInFlight - ownAgentsOnBoard);
   // A stop is final for this run: the agents in flight finish and are settled, and nothing new starts until the user's go launches a new run.
   if (status.dispatcherState === 'stopped' && !stoppedByBoard) {
@@ -240,14 +254,18 @@ function park(ticketId, reason) {
   log(`#${ticketId} parked: ${reason}.`);
 }
 
-function queueReview(ticketId, rereviewFirst, earlierReviewerDied = false) {
-  const record = recordOf(ticketId);
-  reviewQueue.push({
+function reviewWorkFor(ticketId, rereviewFirst, earlierReviewerDied) {
+  return {
+    kind:  'review',
     ticketId,
-    round: record.nextRound,
+    round: recordOf(ticketId).nextRound,
     rereviewFirst,
     earlierReviewerDied,
-  });
+  };
+}
+
+function queueReview(ticketId, rereviewFirst) {
+  reviewQueue.push(reviewWorkFor(ticketId, rereviewFirst, false));
 }
 
 function countFailedPass(ticketId, why, retry) {
@@ -261,12 +279,18 @@ function countFailedPass(ticketId, why, retry) {
   retry();
 }
 
-// Reviews waiting go first: a built ticket holds a worktree and a finished pass, a new ticket holds nothing yet.
+// A takeover goes first: until it starts, its row is on the board and counted as the dispatcher's own, beside every agent it has in flight.
+// Then reviews waiting: a built ticket holds a worktree and a finished pass, a new ticket holds nothing yet.
 function nextWork() {
+  const [takeover] = takeoversWaiting.values();
+  if (takeover !== undefined) {
+    takeoversWaiting.delete(takeoverKeyOf(takeover));
+    return takeover;
+  }
   const review = reviewQueue.shift();
-  if (review !== undefined) return { kind: 'review', ...review };
+  if (review !== undefined) return review;
   const rebuild = rebuildQueue.shift();
-  if (rebuild !== undefined) return { kind: 'build', ...rebuild };
+  if (rebuild !== undefined) return rebuild;
   const readyTicketId = board.readyTicketIds.find((ticketId) => !ticketIdsTakenThisRun.has(ticketId));
   if (readyTicketId === undefined) return null;
   ticketIdsTakenThisRun.add(readyTicketId);
@@ -293,7 +317,8 @@ function launch(work) {
 
 function settleBuild(work, result) {
   const { ticketId } = work;
-  const rebuild = () => rebuildQueue.push({ ticketId, previousPass: 'builder' });
+  // A builder that stopped short of `ticket review` left its claimed row running.
+  const rebuild = () => awaitTakeover({ kind: 'build', ticketId, previousPass: 'builder' });
   if (result === null) {
     countFailedPass(ticketId, 'the builder returned no result', rebuild);
     return;
@@ -340,7 +365,7 @@ function settleReview(work, result) {
   const record = recordOf(ticketId);
   if (result === null) {
     record.nextRound = work.round + 1;
-    countFailedPass(ticketId, 'the reviewer returned no result', () => queueReview(ticketId, true, true));
+    countFailedPass(ticketId, 'the reviewer returned no result', () => awaitTakeover(reviewWorkFor(ticketId, true, true)));
     return;
   }
   findingsFiled.push(...result.filedTicketIds);
@@ -352,7 +377,7 @@ function settleReview(work, result) {
     return;
   }
   if (result.verdict === 'does-not-hold') {
-    countFailedPass(ticketId, 'the review found it does not hold', () => rebuildQueue.push({ ticketId, previousPass: 'review' }));
+    countFailedPass(ticketId, 'the review found it does not hold', () => rebuildQueue.push({ kind: 'build', ticketId, previousPass: 'review' }));
     return;
   }
   if (result.verdict === 'not-released') {
@@ -410,12 +435,14 @@ for (;;) {
   if (inFlight.size === 0) break;
   const finished = await Promise.race([...inFlight.values()].map((ownAgent) => ownAgent.finishing));
   inFlight.delete(finished.key);
-  if (finished.result !== null) adoptBoard(finished.result.status);
+  // Settled first, so a row this agent left running is a takeover by the time its own status block is read.
   if (finished.work.kind === 'build') settleBuild(finished.work, finished.result);
   else settleReview(finished.work, finished.result);
+  if (finished.result !== null) adoptBoard(finished.result.status);
 }
 
 const leftWaiting = [
+  ...[...takeoversWaiting.values()].map((takeover) => takeover.ticketId),
   ...reviewQueue.map((review) => review.ticketId),
   ...rebuildQueue.map((rebuild) => rebuild.ticketId),
   ...board.readyTicketIds.filter((ticketId) => !ticketIdsTakenThisRun.has(ticketId)),

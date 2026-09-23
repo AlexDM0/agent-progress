@@ -252,8 +252,10 @@ JavaScript no spec can sit beside:
   Workflow tool would and runs it against a fake `agent()` (the kind read from the prompt's token
   marker) and a fake board whose status block, dispatcher state and running rows included, every agent returns. A builder or
   reviewer is on that board only from its first command (`turnsBeforeFirstCommand` turns after the call) until it returns, as a
-  real one is from its claim or its `task add --start`. It records each call, the most own agents running at once, the most agents
-  in flight at once (others plus every own one, on the board yet or not) and the logs; `Date` and `Math` are handed in guarded.
+  real one is from its claim or its `task add --start`; a builder that stops short of review and a reviewer that returns nothing
+  leave their row running until a fresh agent's first command takes it over. It records each call, the most own agents running at
+  once, the most agents in flight at once (others, every own one on the board yet or not, and every row left running with no
+  takeover under way) and the logs; `Date` and `Math` are handed in guarded.
   `lib/tooling/dev/DispatchScriptHarness.spec.ts` pins each decision **and runs it again against a
   mutant of the script that breaks exactly that decision**, which must fail; a mutant whose text left
   the script fails loudly. `lib/tooling/dev/DispatchScriptHarness.brief.spec.ts` holds the prompts'
