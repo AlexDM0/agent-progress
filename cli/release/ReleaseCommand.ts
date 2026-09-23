@@ -18,9 +18,14 @@ import { OperationRefusal, refusalIsOperationRefusal, type OperationRefusalStatu
 import { readTicket }                                                                        from '../../lib/tickets/TicketStore';
 import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS, applyTicketTransition, ticketMoveIsLegal } from '../../lib/tickets/TicketTransitions';
 import type { CommandContext }                                                               from '../CommandContext';
-import { openTrackerForWriting, printEntity, progressOperations }                            from '../CommandSupport';
-import type { CommandHandler }                                                               from '../CommandTable';
-import type { ArgumentParser }                                                               from '../arguments/ArgumentParser';
+import {
+  openTrackerForWritingThenReadNextLine,
+  printEntity,
+  printEntityThenNextLine,
+  progressOperations
+}                                                                                              from '../CommandSupport';
+import type { CommandHandler } from '../CommandTable';
+import type { ArgumentParser } from '../arguments/ArgumentParser';
 
 const USAGE = 'agent-progress release <id> [<id>...] --branch <branch> [--worktree <path>] [--main <line>] [--json]';
 
@@ -146,8 +151,12 @@ function branchCommitToRelease(mainCheckout: string, branch: string, mainLine: s
 }
 
 /** Every check comes before the merge, and the merge before the ticket moves: a refusal at any step leaves main and the tracker as they were. */
-async function releaseUnderTheLock(request: ReleaseRequest, commandArguments: ArgumentParser, context: CommandContext): Promise<Release> {
-  return openTrackerForWriting(commandArguments, context, (change) => {
+async function releaseUnderTheLock(
+  request: ReleaseRequest,
+  commandArguments: ArgumentParser,
+  context: CommandContext,
+): Promise<{ release: Release; nextLine: string }> {
+  const { result, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
     const namedTickets = request.references.map((reference) => releasableTicket(readTicket(change.workspace, reference), reference));
     const tickets      = namedTickets.filter((ticket, index) => namedTickets.findIndex(({ frontmatter }) => frontmatter.id === ticket.frontmatter.id) === index);
     const mainCheckout = change.workspace.rootDirectory;
@@ -171,6 +180,7 @@ async function releaseUnderTheLock(request: ReleaseRequest, commandArguments: Ar
     }
     return { tickets, commit: merge.commit, mainCheckout };
   });
+  return { release: result, nextLine };
 }
 
 function worktreeStep(path: string, outcome: WorktreeRemovalOutcome): CleanupStep {
@@ -219,10 +229,11 @@ function reasonOfRefusal(refusal: OperationRefusal): ReleaseRefusalReason {
 
 export const releaseCommand: CommandHandler = async (commandArguments, context) => {
   let release: Release;
+  let nextLine: string;
   let request: ReleaseRequest;
   try {
     request = releaseRequestFrom(commandArguments, context);
-    release = await releaseUnderTheLock(request, commandArguments, context);
+    ({ release, nextLine } = await releaseUnderTheLock(request, commandArguments, context));
   } catch (error) {
     if (refusalIsOperationRefusal(error) && commandArguments.flag('json')) {
       const refusalDocument = {
@@ -252,5 +263,5 @@ export const releaseCommand: CommandHandler = async (commandArguments, context) 
     commit,
     cleanup,
   };
-  printEntity(commandArguments, context, document, [headline, ...cleanup.map(cleanupLine)].join('\n'));
+  printEntityThenNextLine(commandArguments, context, document, [headline, ...cleanup.map(cleanupLine)].join('\n'), nextLine);
 };

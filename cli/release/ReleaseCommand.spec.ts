@@ -253,6 +253,27 @@ describe.skipIf(!gitIsAvailable())('a release that holds', () => {
 
     expect(releaseDocumentOf(outcome).cleanup[0]).toMatchObject({ target: 'worktree', outcome: 'left', untrackedFiles: ['scratch-notes.txt'] });
   });
+
+  // Read inside the same lock hold, after the delivery, so the released ticket's row no longer counts as running.
+  test('the human output ends with the Next line agreeing with status --json after the release, and --json carries none', async () => {
+    const first = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
+
+    const humanOutcome = await agentProgress(['release', first.identifier, '--branch', first.branch, '--worktree', first.worktree]);
+    expect(humanOutcome.exitCode, humanOutcome.error).toBe(0);
+    const humanLines = humanOutcome.output.split('\n');
+    expect(humanLines.at(-1)).toMatch(/^Next: /);
+    expect(humanLines.filter((line) => line.startsWith('Next:'))).toHaveLength(1);
+
+    const statusOutcome = await agentProgressOrFail(['status']);
+    expect(statusOutcome.split('\n').at(-1)).toBe(humanLines.at(-1));
+
+    // Built off main after the first release, so it still descends from main when this second release runs.
+    const second     = await reviewedTicketOnAWorktree('Export the chart', 'export-chart');
+    const jsonOutcome = await agentProgress(['release', second.identifier, '--branch', second.branch, '--worktree', second.worktree, '--json']);
+    expect(jsonOutcome.exitCode, jsonOutcome.error).toBe(0);
+    expect(jsonOutcome.output).not.toContain('Next:');
+    expect(() => releaseDocumentOf(jsonOutcome)).not.toThrow();
+  });
 });
 
 describe.skipIf(!gitIsAvailable())('a release that is refused changes nothing', () => {

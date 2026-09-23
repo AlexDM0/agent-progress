@@ -17,10 +17,10 @@ decimal with a \`k\`/\`m\` suffix: \`12000\`, \`12k\`, \`12.3k\`, \`1.2m\`.
 \`--help\` works after a command word as well as on its own, and AGENT_PROGRESS_ROOT names the
 repository to use instead of walking up from the current directory.
 
-\`status\`, \`ticket add\` and every ticket or task move end their output with one line read from the
-board after the change: \`Next: 1 of 2 slots free; ready: #003, #005\`, \`Next: no slot free (2
-running); ready: #003\` or \`Next: 2 of 2 slots free; nothing ready\` — at most five ready ids, then
-\`and N more\`. --json output never carries it.
+\`status\`, \`ticket add\`, every ticket or task move and \`release\` end their output with one line
+read from the board after the change: \`Next: 1 of 2 slots free; ready: #003, #005\`, \`Next: no slot
+free (2 running); ready: #003\` or \`Next: 2 of 2 slots free; nothing ready\` — at most five ready
+ids, then \`and N more\`. --json output never carries it.
 
   init                        Create the tracker here: \`.agent-progress/\` with an empty progress
       [--project <name>]      file, a \`tickets/\` folder and \`agent-brief.md\` — the brief to fill in

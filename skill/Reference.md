@@ -133,11 +133,11 @@ high ticket is left that is not delivered or abandoned** — a `done` ticket sti
 merge holds them back — and `ticket claim` refuses a low ticket at exit 1 while one is left, where
 `ticket start` only warns.
 
-The same figures close the human output of `status`, `ticket add` and every ticket or task move, as
-one **Next line** read after the change, inside the same lock hold: `Next: 1 of 2 slots free; ready:
-#003, #005`, `Next: no slot free (2 running); ready: #003` or `Next: 2 of 2 slots free; nothing
-ready`. Ready ids are listed lowest first, at most five, then `and N more`. `--json` output never
-carries the line.
+The same figures close the human output of `status`, `ticket add`, every ticket or task move and
+`release`, as one **Next line** read after the change, inside the same lock hold: `Next: 1 of 2
+slots free; ready: #003, #005`, `Next: no slot free (2 running); ready: #003` or `Next: 2 of 2
+slots free; nothing ready`. Ready ids are listed lowest first, at most five, then `and N more`.
+`--json` output never carries the line.
 
 ## Releasing a branch
 
@@ -149,6 +149,8 @@ that `<b>` descends from it, fast-forwards, and moves the ticket done and delive
 and the merged tip; a refusal at any of those steps changes nothing. After the lock it removes the
 worktree (never forced) and deletes the branch (`-d`). A cleanup git declines is reported at exit 0,
 because the release happened: a worktree holding untracked or changed files stays, and names them.
+The human output ends with the Next line described above, read after the delivery inside the same
+lock hold, so it reflects the released ticket's row no longer running.
 
 `--json` prints `{released, reason?, detail?, commit?, tickets?, cleanup}`, where `cleanup` lists
 each step as `removed`/`deleted` or `left` with git's reason. The refusal `reason` is one word:
