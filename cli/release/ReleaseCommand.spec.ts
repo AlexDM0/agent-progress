@@ -29,11 +29,11 @@ import {
 import { helpText }       from '../HelpText';
 import { runCommandLine } from '../Main';
 
-type CleanupStepDocument = {
-  target:          string;
-  outcome:         string;
-  untrackedFiles?: string[];
-};
+type CleanupStepDocument =
+  | { target: 'worktree'; path: string; outcome: 'removed' }
+  | { target: 'worktree'; path: string; outcome: 'left'; reason: string; untrackedFiles: string[]; changedFiles: string[] }
+  | { target: 'branch'; name: string; outcome: 'deleted' }
+  | { target: 'branch'; name: string; outcome: 'left'; reason: string };
 
 interface ReleaseSuccessDocument {
   released: true;
