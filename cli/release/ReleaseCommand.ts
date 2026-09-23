@@ -5,7 +5,7 @@
  */
 import { resolve } from 'node:path';
 
-import type { Ticket }                                                             from '../../lib/constants/Types';
+import type { Task, Ticket }                                                       from '../../lib/constants/Types';
 import type { BranchDeletionOutcome, FilesLeftInWorktree, WorktreeRemovalOutcome } from '../../lib/platform/BranchRelease';
 import {
   deleteMergedBranch,
@@ -15,6 +15,7 @@ import {
   removeWorktree
 }                                                                                            from '../../lib/platform/BranchRelease';
 import { OperationRefusal, refusalIsOperationRefusal, type OperationRefusalStatus }          from '../../lib/platform/OperationRefusal';
+import { runningReviewRowsOf, transitionTask }                                               from '../../lib/progress/ProgressStore';
 import { readTicket }                                                                        from '../../lib/tickets/TicketStore';
 import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS, applyTicketTransition, ticketMoveIsLegal } from '../../lib/tickets/TicketTransitions';
 import type { CommandContext }                                                               from '../CommandContext';
@@ -71,9 +72,10 @@ interface ReleaseRequest {
 }
 
 interface Release {
-  tickets:      Ticket[];
-  commit:       string;
-  mainCheckout: string;
+  tickets:          Ticket[];
+  commit:           string;
+  mainCheckout:     string;
+  closedReviewRows: Task[];
 }
 
 function shortCommit(commit: string): string {
@@ -178,7 +180,19 @@ async function releaseUnderTheLock(
       });
       change.writeTicketAfterwards(ticket);
     }
-    return { tickets, commit: merge.commit, mainCheckout };
+
+    // The reviewer releases as the last step of its pass, so its bar is closed here rather than left running until the orchestrator reads the verdict.
+    const closedReviewRows = runningReviewRowsOf(change.progress, tickets.map(({ frontmatter }) => frontmatter.id));
+    for (const reviewRow of closedReviewRows) {
+      transitionTask(change.progress, reviewRow.id, 'finished', change.at);
+      transitionTask(change.progress, reviewRow.id, 'delivered', change.at);
+    }
+    return {
+      tickets,
+      commit: merge.commit,
+      mainCheckout,
+      closedReviewRows,
+    };
   });
   return { release: result, nextLine };
 }
@@ -247,7 +261,12 @@ export const releaseCommand: CommandHandler = async (commandArguments, context) 
     throw error;
   }
 
-  const { mainCheckout, tickets, commit } = release;
+  const {
+    mainCheckout,
+    tickets,
+    commit,
+    closedReviewRows,
+  } = release;
   const cleanup: CleanupStep[] = [];
   if (request.worktreePath !== undefined) cleanup.push(worktreeStep(request.worktreePath, removeWorktree(mainCheckout, request.worktreePath)));
   cleanup.push(branchStep(request.branch, deleteMergedBranch(mainCheckout, request.branch)));
@@ -255,13 +274,15 @@ export const releaseCommand: CommandHandler = async (commandArguments, context) 
   const ticketIds    = tickets.map(({ frontmatter }) => frontmatter.id);
   const ticketsNamed = ticketIds.length === 1 ? `ticket #${ticketIds.join('')}` : `tickets ${ticketIds.map((identifier) => `#${identifier}`).join(', ')}`;
   const headline     = `Released ${ticketsNamed}: ${request.mainLine} fast-forwarded to ${shortCommit(commit)} from ${request.branch}, and delivered.`;
+  const reviewLines  = closedReviewRows.map(({ id, name }) => `Closed the review row #${id}, delivered: ${name}`);
   const document     = {
-    released: true,
-    tickets:  ticketIds,
-    branch:   request.branch,
-    mainLine: request.mainLine,
+    released:         true,
+    tickets:          ticketIds,
+    branch:           request.branch,
+    mainLine:         request.mainLine,
     commit,
+    closedReviewRows: closedReviewRows.map(({ id }) => id),
     cleanup,
   };
-  printEntityThenNextLine(commandArguments, context, document, [headline, ...cleanup.map(cleanupLine)].join('\n'), nextLine);
+  printEntityThenNextLine(commandArguments, context, document, [headline, ...reviewLines, ...cleanup.map(cleanupLine)].join('\n'), nextLine);
 };

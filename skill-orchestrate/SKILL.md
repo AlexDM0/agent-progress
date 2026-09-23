@@ -213,18 +213,23 @@ one shows up as a round request.
    the ticket fails on if they are false. Name the measurement behind each: a reviewer that reads a
    diff and agrees with it finds nothing.
 
-**Every review verdict, whichever round, comes back here.** First
-`agent-progress task finish <reviewRowId>` (`--tokens <n>` only without the hook), then act on the words the report opens with,
-and close the review's own row with `agent-progress task deliver <reviewRowId>` once you have. A
-review pass has no branch to merge, and `deliver` is the only way its row reaches `done`; a review
-bar left reading `awaiting review` is the chart saying a reviewer is still owed.
+**Every review verdict, whichever round, comes back here.** After `released <commit>` the review's
+own row is already delivered: `agent-progress release` closed every running row whose `--review-of`
+names a ticket it released, at the release time, and the hook still adds the reviewer's tokens to it.
+Run nothing for that row, and a refusal of `task finish` or `task deliver` on it is no error. For
+every other verdict close the bar yourself: `agent-progress task finish <reviewRowId>` (`--tokens <n>`
+only without the hook), then act on the words the report opens with, and
+`agent-progress task deliver <reviewRowId>` once you have. A review pass has no branch to merge, and
+outside a release `deliver` is the only way its row reaches `done`; a review bar left reading
+`awaiting review` is the chart saying a reviewer is still owed.
 A bundle's reviewer gives one verdict for the branch; the tracker moves below are then made for each
 ticket in it, and a `does not hold` names the ticket it is about — the others are released with the
 branch once that one is closed.
 
 - **`released <commit>`** — the reviewer fixed what it found and ran `agent-progress release`, which
   fast-forwarded the main line, moved the ticket done and delivered it with its branch and commit,
-  and removed the worktree and the branch. There is nothing to move for the ticket. Two releases
+  delivered the review bar, and removed the worktree and the branch. There is nothing to move for
+  the ticket or its review row. Two releases
   cannot race: the command takes the tracker's lock, and a reviewer whose branch was overtaken reads
   `main-moved`, rebases, re-checks, counts the rebase and releases again inside its own pass — or,
   when that pushed its reworked total over 750, comes back with a round request instead. A cleanup

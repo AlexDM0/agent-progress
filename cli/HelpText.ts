@@ -154,8 +154,11 @@ ready ids, then \`and N more\`. --json output never carries it.
       [--worktree <path>]     tracker's root, wherever this runs from — to <b>, then move the
       [--main <line>]         ticket done and deliver it with --branch <b> and --commit set to the
       [--json]                merged tip. More ids after <id> release every ticket of a bundle,
-                              which share <b>. All of it happens in one lock hold, so two releases
-                              never race. Refused at exit 1, with nothing changed, when a ticket
+                              which share <b>. Every running review row whose --review-of names a
+                              released ticket is finished and delivered at the release time, and
+                              named; a row linked by its name alone is left. All of it happens in
+                              one lock hold, so two releases never race. Refused at exit 1, with
+                              nothing changed (no review row either), when a ticket
                               is not in-progress or in-review, when the main checkout is not on
                               --main (default \`main\`), when <b> is not a local branch, when <b>
                               does not descend from --main — reason \`main-moved\`: rebase <b> onto
@@ -166,7 +169,8 @@ ready ids, then \`and N more\`. --json output never carries it.
                               never forced, and \`git branch -d <b>\`; what git declines is named
                               with its reason, the files a worktree still holds among it, at exit
                               0. --json prints, on success, {released: true, tickets, branch,
-                              mainLine, commit, cleanup}, and on a refusal {released: false,
+                              mainLine, commit, closedReviewRows, cleanup} — closedReviewRows the
+                              ids of the review rows it delivered — and on a refusal {released: false,
                               reason, detail, cleanup: []}; reason is one of invalid-request,
                               unknown-ticket, ticket-not-releasable, unknown-branch,
                               not-on-main-line, main-moved, merge-refused, git-failed and

@@ -10,7 +10,7 @@ that repository's `skills.json`, and why `setup.sh` warns when it is not.
 | file | what it is |
 |---|---|
 | `skill/SKILL.md` | The skill itself: frontmatter (`name`, the `description` that decides when it loads), the mental model, what to do in a session, what an implementing agent owes its ticket, and the rules. It ends by naming `agent-progress help` and `Reference.md`, which is how either is reached at all. |
-| `skill/Reference.md` | What the help does not print, read only when it is needed: the ticket file format, the transition table, where a review row is drawn, how the hook adds to a row's tokens, the concurrency limit, what `agent-progress release` does and its refusal reasons, the time axis and the exit codes. |
+| `skill/Reference.md` | What the help does not print, read only when it is needed: the ticket file format, the transition table, where a review row is drawn, how the hook adds to a row's tokens, the concurrency limit, what `agent-progress release` does — the running review rows it delivers included — and its refusal reasons, the time axis and the exit codes. |
 | `skill/CLAUDE.md` | This file. |
 
 ## The rules that hold here

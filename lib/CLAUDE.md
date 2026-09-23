@@ -205,7 +205,9 @@ nothing about tasks or tickets — a caller supplies a path.
 
   **A review row's `reviewOf` is optional too**: the padded id of the ticket it reviews, written by
   `task add --review-of`, validated as text when present, and never added by a read — a row filed
-  before it existed is nested by its name on the page instead.
+  before it existed is nested by its name on the page instead. `runningReviewRowsOf` finds the
+  running rows linked to a set of tickets by this field alone, for `release` to deliver; the page's
+  name match is a display fallback and never moves a row.
 
   **A row's `history` is the record of what happened to it.** `transitionTask` files a phase per move
   that really changed the status — `pending` included, so `ticket reopen` is on the record — plus one

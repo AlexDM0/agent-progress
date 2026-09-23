@@ -171,14 +171,18 @@ reaches the main line, and allowing it in the harness is the release permission:
 `git merge` into main by hand. The main checkout is the tracker's root, found the same way from any
 worktree. Inside one lock hold it checks the ticket, that the main checkout is on the main line and
 that `<b>` descends from it, fast-forwards, and moves the ticket done and delivered with the branch
-and the merged tip; a refusal at any of those steps changes nothing. After the lock it removes the
+and the merged tip. In the same hold every `running` review row whose `--review-of` names a released
+ticket is finished and delivered at the release time, since the reviewer releases as the last step
+of its pass; a row that is not running, or is linked to the ticket only by its name, is left alone.
+A refusal at any of those steps changes nothing, the review rows included. After the lock it removes the
 worktree (never forced) and deletes the branch (`-d`). A cleanup git declines is reported at exit 0,
 because the release happened: a worktree holding untracked or changed files stays, and names them.
 The human output ends with the Next line described above, read after the delivery inside the same
-lock hold, so it reflects the released ticket's row no longer running.
+lock hold, so it reflects the released ticket's row and its review bar no longer running.
 
-`--json` prints, on success, `{released: true, tickets, branch, mainLine, commit, cleanup}` —
-`tickets` the ids just delivered, `branch` and `mainLine` the ones the command ran with — and on a
+`--json` prints, on success, `{released: true, tickets, branch, mainLine, commit, closedReviewRows, cleanup}` —
+`tickets` the ids just delivered, `closedReviewRows` the ids of the review rows it delivered with
+them, `branch` and `mainLine` the ones the command ran with — and on a
 refusal, `{released: false, reason, detail, cleanup: []}`, `cleanup` always empty because nothing
 ran. On success `cleanup` lists each step, the worktree's first when `--worktree` was given, as one
 of `{target: worktree, path, outcome: removed}`,

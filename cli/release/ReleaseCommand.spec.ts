@@ -19,6 +19,7 @@ import {
   expect,
   test
 }                                       from 'bun:test';
+import type { ProgressFile, Task }     from '../../lib/constants/Types';
 import { createCapturedCommandContext } from '../../lib/tooling/dev/CapturedCommandContext';
 import {
   addWorktree,
@@ -26,6 +27,7 @@ import {
   gitIsAvailable,
   removeScratchDirectory
 }                                       from '../../lib/tooling/dev/ScratchWorkspace';
+import { TimeUtil }                     from '../../lib/utils/TimeUtil';
 import { helpText }       from '../HelpText';
 import { runCommandLine } from '../Main';
 
@@ -40,8 +42,9 @@ interface ReleaseSuccessDocument {
   tickets:  string[];
   branch:   string;
   mainLine: string;
-  commit:   string;
-  cleanup:  CleanupStepDocument[];
+  commit:           string;
+  closedReviewRows: number[];
+  cleanup:          CleanupStepDocument[];
 }
 
 interface ReleaseRefusalDocument {
@@ -112,6 +115,20 @@ function ticketFileText(identifier: string): string {
   const ticketsDirectory = join(repositoryDirectory, '.agent-progress', 'tickets');
   const fileName         = [...new Bun.Glob(`${identifier}-*.md`).scanSync(ticketsDirectory)][0] ?? '';
   return readFileSync(join(ticketsDirectory, fileName), 'utf8');
+}
+
+function storedProgress(): ProgressFile {
+  return JSON.parse(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')) as ProgressFile;
+}
+
+function storedRow(rowIdentifier: number): Task | undefined {
+  return storedProgress().tasks.find((task) => task.id === rowIdentifier);
+}
+
+/** A review bar as the orchestrate skill adds one, started an hour before the release; linked by `--review-of` unless the name alone is to link it. */
+async function runningReviewRow(identifier: string, linkArguments: readonly string[] = ['--review-of', identifier]): Promise<number> {
+  const addArguments = ['task', 'add', `Review 1 #${identifier} — the work`, ...linkArguments, '--owner', 'opus', '--start', '--at', '-1h', '--json'];
+  return (JSON.parse(await agentProgressOrFail(addArguments)) as Task).id;
 }
 
 /** A ticket in review whose work is one commit on a fresh linked worktree off the current main. */
@@ -331,6 +348,96 @@ describe.skipIf(!gitIsAvailable())('a release that holds', () => {
     expect(jsonOutcome.exitCode, jsonOutcome.error).toBe(0);
     expect(jsonOutcome.output).not.toContain('Next:');
     expect(() => releaseDocumentOf(jsonOutcome)).not.toThrow();
+  });
+});
+
+// The reviewer releases as its last step, so a review bar still running after a release reads as a reviewer owed and holds a slot.
+describe.skipIf(!gitIsAvailable())('a release closes the running review bars of the tickets it delivers', () => {
+  const releaseStamp = TimeUtil.formatLocalIso(FROZEN_NOW);
+
+  test('the one running review row ends delivered, finished and delivered at the release time, and the slot it held is free', async () => {
+    const { identifier, worktree, branch } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
+    const reviewRowId = await runningReviewRow(identifier);
+    const startedAt   = storedRow(reviewRowId)?.start;
+
+    const humanOutcome = await agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree]);
+
+    expect(humanOutcome.exitCode, humanOutcome.error).toBe(0);
+    const reviewRow = storedRow(reviewRowId);
+    expect(reviewRow).toMatchObject({ status: 'delivered', start: startedAt, end: releaseStamp });
+    expect(reviewRow?.history?.slice(-2)).toEqual([{ status: 'finished', at: releaseStamp }, { status: 'delivered', at: releaseStamp }]);
+    expect(humanOutcome.output).toContain(`Closed the review row #${reviewRowId}, delivered: Review 1 #${identifier}`);
+    expect(humanOutcome.output.split('\n').at(-1)).toStartWith('Next: 2 of 2 slots free');
+  });
+
+  test('under --json the closed review rows are listed by id', async () => {
+    const { identifier, worktree, branch } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
+    const reviewRowId = await runningReviewRow(identifier);
+
+    const outcome = await agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree, '--json']);
+
+    expect(releaseDocumentOf(outcome)).toMatchObject({ released: true, closedReviewRows: [reviewRowId] });
+  });
+
+  // An earlier round's bar is already on the record; a name-only row is left because the page's name match is a display fallback, not a link.
+  test('a bundle closes the running review row of each ticket, and leaves an earlier delivered round and a row linked only by name alone', async () => {
+    const {
+      identifier,
+      worktree,
+      branch,
+    } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
+    const bundled = JSON.parse(await agentProgressOrFail(['ticket', 'add', 'Sort the role history', '--json'])) as { id: string };
+    await agentProgressOrFail(['ticket', 'start', bundled.id]);
+    const earlierRoundId = await runningReviewRow(identifier);
+    await agentProgressOrFail(['task', 'finish', String(earlierRoundId), '--at', '-30m']);
+    await agentProgressOrFail(['task', 'deliver', String(earlierRoundId), '--at', '-30m']);
+    const earlierRoundBefore = storedRow(earlierRoundId);
+    const firstReviewId      = await runningReviewRow(identifier);
+    const bundledReviewId    = await runningReviewRow(bundled.id);
+    const nameOnlyReviewId   = await runningReviewRow(identifier, []);
+
+    const outcome = await agentProgress(['release', identifier, bundled.id, '--branch', branch, '--worktree', worktree, '--json']);
+
+    expect(outcome.exitCode, outcome.error).toBe(0);
+    expect(releaseDocumentOf(outcome)).toMatchObject({ closedReviewRows: [firstReviewId, bundledReviewId] });
+    for (const closedId of [firstReviewId, bundledReviewId]) expect(storedRow(closedId)).toMatchObject({ status: 'delivered', end: releaseStamp });
+    expect(storedRow(earlierRoundId)).toEqual(earlierRoundBefore);
+    expect(storedRow(nameOnlyReviewId)).toMatchObject({ status: 'running', end: null });
+  });
+
+  test('a release refused as main-moved leaves the review row running', async () => {
+    const { identifier, worktree, branch } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
+    const reviewRowId = await runningReviewRow(identifier);
+    commitFile(repositoryDirectory, 'main-moves.ts', 'export const mainMoved = true;\n');
+
+    const outcome = await agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree, '--json']);
+
+    expect(releaseRefusalDocumentOf(outcome).reason).toBe('main-moved');
+    expect(storedRow(reviewRowId)).toMatchObject({ status: 'running', end: null });
+  });
+
+  // The reviewer stops after it released, so its SubagentStop hook runs on a row the release already delivered.
+  test('the hook run after the release still adds the reviewer\'s input to the delivered review row', async () => {
+    const { identifier, worktree, branch } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
+    const reviewRowId = await runningReviewRow(identifier, ['--review-of', identifier, '--tokens', '2000']);
+    expect((await agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree])).exitCode).toBe(0);
+    const transcriptPath = join(repositoryDirectory, 'reviewer-transcript.jsonl');
+    const transcriptLines = [
+      { type: 'user', message: { role: 'user', content: [{ type: 'text', text: `Review the branch.\nagent-progress row: ${reviewRowId}` }] } },
+      { type: 'assistant', message: { id: 'msg_only', usage: { input_tokens: 1001, cache_read_input_tokens: 0, output_tokens: 50 } } },
+    ];
+    writeFileSync(transcriptPath, `${transcriptLines.map((line) => JSON.stringify(line)).join('\n')}\n`);
+    const hookInput = JSON.stringify({
+      agent_id:              'agent_reviewer',
+      agent_type:            'general-purpose',
+      agent_transcript_path: transcriptPath,
+      cwd:                   repositoryDirectory,
+    });
+    const hookContext = createCapturedCommandContext({ currentDirectory: repositoryDirectory, now: () => FROZEN_NOW, standardInputText: hookInput });
+
+    expect(await runCommandLine(['hook', 'subagent-stop'], hookContext)).toBe(0);
+
+    expect(storedRow(reviewRowId)).toMatchObject({ status: 'delivered', tokens: 3001 });
   });
 });
 

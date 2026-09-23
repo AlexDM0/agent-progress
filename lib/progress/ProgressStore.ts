@@ -266,6 +266,11 @@ export function addTask(progress: ProgressFile, input: AddTaskInput): Task {
   return task;
 }
 
+/** Linked by `reviewOf` alone: the page's nesting by name is a display fallback for older rows, never a reason to move one. */
+export function runningReviewRowsOf(progress: ProgressFile, ticketIds: readonly string[]): Task[] {
+  return progress.tasks.filter((task) => task.status === 'running' && task.reviewOf !== undefined && ticketIds.includes(task.reviewOf));
+}
+
 export function setTaskTokens(progress: ProgressFile, taskId: number, tokens: number | null): 'applied' | 'no-such-task' {
   const task = findTask(progress, taskId);
   if (task === undefined) return 'no-such-task';

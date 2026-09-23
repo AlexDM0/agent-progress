@@ -269,7 +269,7 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
       the branch holds as it stands. Nothing else is a reason for another review.
    c. Otherwise release: step 8.
 8. Release through the command, never `git merge`: it fast-forwards <main line>, delivers the
-   ticket and cleans up, under the tracker's lock, so it cannot race another release.
+   ticket and your review bar, and cleans up, under the tracker's lock, so it cannot race another release.
    `cd <main checkout>` first, since your worktree is about to go, then run
    `agent-progress release <id> --branch <branch> --worktree <worktree> --main <main line> --json`
    (a bundle: every id in the one call). Act on what it prints:
@@ -321,4 +321,5 @@ agent-progress task add "<what the agent will do>" --owner <model> --start   # i
 agent-progress task finish <id>                # add `--tokens <subagent_tokens>` only without the hook
 agent-progress ticket review <id>              # then a clean reviewer in its own row, from the Review brief
 agent-progress task add "Review <N> #<id> — <ticket title>" --review-of <id> --owner opus --start   # the review's row, drawn under the ticket's
+agent-progress task finish <reviewRowId>       # then `task deliver <reviewRowId>`: for every verdict but `released`, which delivered it
 ```
