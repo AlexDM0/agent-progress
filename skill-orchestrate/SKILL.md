@@ -105,14 +105,12 @@ starts now or is queued behind what.
 
 **A finding is a low-priority ticket, and you judge its severity.** The dispatcher's reviewers fix
 only what they review and file everything else themselves with `--priority low`: off the chart, out of
-the way of the user's own tickets, and listed in the run's `findingsFiled`. Low tickets wait until
-every normal and high one is delivered or abandoned, and the dispatcher then builds them like any
-other, so triage each as it reaches you rather than when it is reached: abandon one that is no longer
-relevant, with the reason; merge overlapping ones into one survivor carrying the others' Report and
-Acceptance, abandoning each merged one with the reason `merged into #<survivor>`; raise one that
-cannot wait for the user's work — a defect that loses data, breaks a flow the user relies on, or
-undermines a ticket still to come — with `ticket priority <id> high` or `normal`; and give every
-survivor its `## Brief`. If a finding is another instance of a mistake a ticket on this board already
+the way of the user's own tickets, and listed in the run's `findingsFiled`. Judge each as it reaches
+you: raise one that cannot wait for the user's work — a defect that loses data, breaks a flow the user
+relies on, or undermines a ticket still to come — with `ticket priority <id> high` or `normal`, and
+give it its `## Brief`. The rest wait until every normal and high ticket is delivered or abandoned,
+and are triaged then, before any run is launched for them (Low-priority work, below). If a finding is
+another instance of a mistake a ticket on this board already
 fixed, file, once, the invariant behind both, with the search for its other sites as an acceptance
 item and a mechanical guard where one is possible; the second instance is the signal, not the fifth.
 
@@ -157,20 +155,28 @@ the board as it left it.
    that did not converge are a sign about the ticket, not the reviewers: file a new ticket stating the
    invariant behind what the reviews kept finding, with the search for its other instances as an
    acceptance item, and tell the user the parked branch waits on it.
-4. Each ticket in `findingsFiled`, triaged and judged for severity as Intake says.
+4. Each ticket in `findingsFiled`, judged for severity as Intake says.
 5. `agent-progress status --json`: a row the run left `running` or `awaiting review` with no agent
    behind it is yours to close, `task finish` then `task deliver`.
-6. Relaunch at once when a ticket is ready and the state is `finished` — the Next line says
-   `launch the dispatcher`.
+6. Relaunch at once when a normal or high ticket is ready and the state is `finished` — the Next line
+   says `launch the dispatcher`. When the only tickets ready are low, the Next line says so too:
+   relaunch nothing, and triage them first (Low-priority work).
 
 **Relaunching and stopping.** The state on the board decides, never your memory of it; after a
 compaction the `Next:` line of `agent-progress status` says which.
 
-- `finished` — it ended by itself: a ticket filed or ready relaunches it without asking,
-  `agent-progress dispatcher running` and the launch.
+- `finished` — it ended by itself: a normal or high ticket filed or ready relaunches it without
+  asking, `agent-progress dispatcher running` and the launch. Low tickets alone relaunch nothing.
 - `stopped` — never started, or the user stopped it: wait for the user's permission, whatever is filed
   meanwhile, and on their go `agent-progress dispatcher running` and the launch.
 - `running` — a run of this session is at work: wait for it to return.
+
+**Low-priority work is triaged before it is run.** When the only work left is low priority, stop
+relaunching and triage the low tickets: abandon each that is no longer relevant, with the reason;
+merge overlapping ones into one survivor carrying the others' Report and Acceptance, abandoning each
+merged one with the reason `merged into #<survivor>`; and give every survivor its `## Brief`. Only
+then launch a run for them — `agent-progress dispatcher running` and the launch — while the state is
+`finished`; a `stopped` board still waits for the user's go.
 
 **The user saying stop** is `agent-progress dispatcher stopped`, on the board. The running script
 reads it at its next agent's return, starts nothing new, lets the agents in flight finish and returns
