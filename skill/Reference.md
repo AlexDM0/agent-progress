@@ -184,6 +184,10 @@ by itself, so it is relaunched — with a ticket ready adds `; launch the dispat
 never started, or ended by the user — adds `; dispatcher stopped: wait for the user's go`, however
 many tickets are filed meanwhile; `running` adds nothing.
 
+The dispatcher itself is the Workflow script `.claude/workflows/agent-progress-dispatch.js`, which
+`init` and `update` write byte for byte from the copy the tool ships — a hand edit is undone on the
+next refresh, and `--no-workflow` skips it on either command.
+
 ## Releasing a branch
 
 `agent-progress release <id> --branch <b> --worktree <path>` is the only way a reviewed branch

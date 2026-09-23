@@ -28,6 +28,8 @@ import { runCommandLine } from '../Main';
 
 const scratchDirectories: string[] = [];
 
+const DISPATCHER_WORKFLOW_TEMPLATE_PATH = join(import.meta.dir, '..', '..', 'templates', 'workflows', 'AgentProgressDispatch.js');
+
 function scratchRepository(): string {
   const repositoryDirectory = createScratchGitRepository('init-command');
   scratchDirectories.push(repositoryDirectory, `${repositoryDirectory}-worktrees`);
@@ -105,13 +107,36 @@ describe.skipIf(!gitIsAvailable())('initialising a repository', () => {
     const optedOut     = createCapturedCommandContext({ currentDirectory: withoutHooks });
     expect(await runCommandLine(['init', '--no-hooks'], optedOut)).toBe(0);
 
-    expect(existsSync(join(withoutHooks, '.claude'))).toBe(false);
+    expect(existsSync(join(withoutHooks, '.claude', 'settings.local.json'))).toBe(false);
+    expect(existsSync(join(withoutHooks, '.claude', 'settings.json'))).toBe(false);
     expect(optedOut.outputText()).toContain('hooks:       left alone (--no-hooks)');
 
     const withTheOldFlag = scratchRepository();
     const asked          = createCapturedCommandContext({ currentDirectory: withTheOldFlag });
     expect(await runCommandLine(['init', '--hooks'], asked)).toBe(0);
     expect(asked.outputText()).toContain('settings.local.json (installed)');
+  });
+
+  // The Workflow tool finds the dispatcher by this file name, so a copy that differs from the template by a byte is a dispatcher nobody tested.
+  test('installs the dispatcher workflow byte-identical to the template', async () => {
+    const repositoryDirectory = scratchRepository();
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+
+    expect(await runCommandLine(['init'], context)).toBe(0);
+
+    const workflowFilePath = join(repositoryDirectory, '.claude', 'workflows', 'agent-progress-dispatch.js');
+    expect(readFileSync(workflowFilePath).equals(readFileSync(DISPATCHER_WORKFLOW_TEMPLATE_PATH))).toBe(true);
+    expect(context.outputText()).toMatch(/workflow: {4}updated \(\S+\/\.claude\/workflows\/agent-progress-dispatch\.js\)/);
+  });
+
+  test('--no-workflow writes nothing under .claude/workflows, and says so', async () => {
+    const repositoryDirectory = scratchRepository();
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+
+    expect(await runCommandLine(['init', '--no-workflow', '--no-hooks'], context)).toBe(0);
+
+    expect(existsSync(join(repositoryDirectory, '.claude')), 'with the hook opted out too, nothing at all lands in .claude/').toBe(false);
+    expect(context.outputText()).toContain('workflow:    left alone (--no-workflow)');
   });
 
   test('--root tracks the directory it names rather than the discovered repository root', async () => {

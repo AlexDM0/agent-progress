@@ -1,6 +1,7 @@
 /**
  * What the tool wrote into a repository and refreshes there: the managed CLAUDE.md block, the bundled
- * agent brief, and — unless `--no-hooks` — the `SubagentStop` entry. `init` and `update` are its two
+ * agent brief, the `SubagentStop` entry unless `--no-hooks`, and the dispatcher workflow script unless
+ * `--no-workflow`. `init` and `update` are its two
  * callers. Each line says whether the file on disk actually changed, because an orchestrator that read
  * the brief at the start of its session has no other way to learn that the copy in its context is stale.
  */
@@ -24,6 +25,11 @@ const AGENT_BRIEF_TEMPLATE_PATH = ['..', 'templates', 'AgentBrief.md'];
 
 const CLAUDE_INSTRUCTIONS_FILE_NAME = 'CLAUDE.md';
 
+const DISPATCHER_WORKFLOW_TEMPLATE_PATH = ['..', 'templates', 'workflows', 'AgentProgressDispatch.js'];
+
+/** The Workflow tool finds a script by the file name under `.claude/workflows/`, so the name is the one `meta.name` gives. */
+const DISPATCHER_WORKFLOW_TARGET_PATH = ['.claude', 'workflows', 'agent-progress-dispatch.js'];
+
 /**
  * The hook the tool installs. **The matcher is empty, so every subagent type is recorded**, and not
  * `general-purpose` alone: `agent-progress usage` reads every transcript the harness wrote, so a
@@ -39,14 +45,16 @@ export const SUBAGENT_STOP_HOOK = {
 
 /**
  * Everything a refresh needs. `commandName` is the word the reader typed, so every line telling them to
- * run something again names it, and `writesTheSubagentStopHook` is off only under `--no-hooks`.
+ * run something again names it; `writesTheSubagentStopHook` is off only under `--no-hooks`, and
+ * `writesTheDispatcherWorkflow` only under `--no-workflow`.
  */
 export interface TrackerRefreshRequest {
-  workspace:                 Workspace;
-  commandName:               string;
-  writesClaudeInstructions:  boolean;
-  writesTheSubagentStopHook: boolean;
-  standardError:             (text: string) => void;
+  workspace:                   Workspace;
+  commandName:                 string;
+  writesClaudeInstructions:    boolean;
+  writesTheSubagentStopHook:   boolean;
+  writesTheDispatcherWorkflow: boolean;
+  standardError:               (text: string) => void;
 }
 
 export interface TrackerRefreshReport {
@@ -54,6 +62,7 @@ export interface TrackerRefreshReport {
   briefFilePath:          string;
   briefLine:              string;
   hookLine:               string;
+  workflowLine:           string;
 }
 
 function fileBytesOrNothing(filePath: string): Buffer | null {
@@ -133,6 +142,18 @@ function refreshSubagentStopHookIn(
   return `${localSettingsFilePath} (installed)`;
 }
 
+/** Rewritten on every refresh like the brief: the script is the tool's, and a hand edit to the installed copy is undone. */
+function refreshDispatcherWorkflow(rootDirectory: string, writesTheDispatcherWorkflow: boolean): string {
+  if (!writesTheDispatcherWorkflow) return 'left alone (--no-workflow)';
+
+  const workflowFilePath = join(rootDirectory, ...DISPATCHER_WORKFLOW_TARGET_PATH);
+  const bytesBefore      = fileBytesOrNothing(workflowFilePath);
+  writeFileAtomically(workflowFilePath, readFileSync(join(import.meta.dir, ...DISPATCHER_WORKFLOW_TEMPLATE_PATH), 'utf8'));
+  return bytesDiffer(bytesBefore, fileBytesOrNothing(workflowFilePath))
+    ? `updated (${workflowFilePath})`
+    : `unchanged (${workflowFilePath})`;
+}
+
 function refreshClaudeInstructions(rootDirectory: string, commandName: string, standardError: (text: string) => void): string {
   const claudeFilePath = join(rootDirectory, CLAUDE_INSTRUCTIONS_FILE_NAME);
   const bytesBefore    = fileBytesOrNothing(claudeFilePath);
@@ -165,6 +186,7 @@ export function refreshTrackedRepository(request: TrackerRefreshRequest): Tracke
     commandName,
     writesClaudeInstructions,
     writesTheSubagentStopHook,
+    writesTheDispatcherWorkflow,
     standardError,
   } = request;
 
@@ -173,11 +195,13 @@ export function refreshTrackedRepository(request: TrackerRefreshRequest): Tracke
     : 'left alone (--no-claude-md)';
   const { briefFilePath, briefLine } = refreshAgentBrief(workspace);
   const hookLine = refreshSubagentStopHookIn(workspace.rootDirectory, commandName, writesTheSubagentStopHook, standardError);
+  const workflowLine = refreshDispatcherWorkflow(workspace.rootDirectory, writesTheDispatcherWorkflow);
 
   return {
     claudeInstructionsLine,
     briefFilePath,
     briefLine,
     hookLine,
+    workflowLine,
   };
 }

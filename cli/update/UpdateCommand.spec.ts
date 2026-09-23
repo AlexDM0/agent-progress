@@ -57,14 +57,25 @@ function subagentStopGroupsIn(repositoryDirectory: string, settingsFileName: str
   return (settings['hooks'] as Record<string, unknown>)['SubagentStop'] as unknown[];
 }
 
+const DISPATCHER_WORKFLOW_TEMPLATE = readFileSync(join(import.meta.dir, '..', '..', 'templates', 'workflows', 'AgentProgressDispatch.js'));
+
+function workflowFilePathIn(repositoryDirectory: string): string {
+  return join(repositoryDirectory, '.claude', 'workflows', 'agent-progress-dispatch.js');
+}
+
+// The printed path is the resolved root, which on macOS carries a `/private` the scratch path does not, so the line is matched by its shape.
+function workflowLineSaying(verdict: 'updated' | 'unchanged'): RegExp {
+  return new RegExp(`workflow: {4}${verdict} \\(\\S+/\\.claude/workflows/agent-progress-dispatch\\.js\\)`);
+}
+
 /**
  * A tracked repository whose managed files have all been left behind by an older version of the tool.
- * It is initialised with `--no-hooks`, which is the state a repository adopted before the hook existed
- * is in, and lets each test below say for itself what its settings files hold.
+ * It is initialised with `--no-hooks` and `--no-workflow`, which is the state a repository adopted before
+ * either existed is in, and lets each test below say for itself what its `.claude/` folder holds.
  */
 async function trackedRepositoryWithStaleFiles(): Promise<string> {
   const repositoryDirectory = scratchRepository();
-  await runCommandLine(['init', '--no-hooks'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }));
+  await runCommandLine(['init', '--no-hooks', '--no-workflow'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }));
   writeFileSync(join(repositoryDirectory, '.agent-progress', 'agent-brief.md'), '# Agent brief\n\nThe wording two releases ago, which nobody refreshed.\n');
   writeFileSync(join(repositoryDirectory, 'CLAUDE.md'), `# Example Agency\n\n${CLAUDE_MANAGED_START}\nAn older managed block.\n<!-- agent-progress:managed:end -->\n`);
   return repositoryDirectory;
@@ -239,6 +250,56 @@ describe.skipIf(!gitIsAvailable())('updating a tracked repository', () => {
     expect(context.outputText()).toContain('settings.local.json (installed)');
   });
 
+  test('the dispatcher workflow is installed byte-identical to the template, and a second run reports it unchanged', async () => {
+    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
+    const workflowFilePath    = workflowFilePathIn(repositoryDirectory);
+
+    const first = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['update'], first)).toBe(0);
+    expect(readFileSync(workflowFilePath).equals(DISPATCHER_WORKFLOW_TEMPLATE)).toBe(true);
+    expect(first.outputText()).toMatch(workflowLineSaying('updated'));
+
+    const second = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['update'], second)).toBe(0);
+    expect(second.outputText()).toMatch(workflowLineSaying('unchanged'));
+  });
+
+  // The script is the tool's, not the project's: a hand edit to the installed copy is a dispatcher the harness never pinned.
+  test('a workflow changed by hand is reported updated and restored to the template', async () => {
+    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
+    const workflowFilePath    = workflowFilePathIn(repositoryDirectory);
+    await runCommandLine(['update'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }));
+    writeFileSync(workflowFilePath, `${DISPATCHER_WORKFLOW_TEMPLATE.toString('utf8')}\n// A local tweak nobody reviewed.\n`);
+
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['update'], context)).toBe(0);
+
+    expect(context.outputText()).toMatch(workflowLineSaying('updated'));
+    expect(readFileSync(workflowFilePath).equals(DISPATCHER_WORKFLOW_TEMPLATE)).toBe(true);
+  });
+
+  test('--no-workflow writes nothing under .claude/workflows, and says so', async () => {
+    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
+
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['update', '--no-workflow'], context)).toBe(0);
+
+    expect(existsSync(join(repositoryDirectory, '.claude', 'workflows'))).toBe(false);
+    expect(context.outputText()).toContain('workflow:    left alone (--no-workflow)');
+  });
+
+  /** A hand-edited copy is the one a refusal to write can be told apart from having nothing to write by. */
+  test('--no-workflow leaves a hand-edited workflow byte for byte', async () => {
+    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
+    const workflowFilePath    = workflowFilePathIn(repositoryDirectory);
+    mkdirSync(join(repositoryDirectory, '.claude', 'workflows'), { recursive: true });
+    writeFileSync(workflowFilePath, '// Example Agency\'s own dispatcher.\n');
+
+    expect(await runCommandLine(['update', '--no-workflow'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }))).toBe(0);
+
+    expect(readFileSync(workflowFilePath, 'utf8')).toBe('// Example Agency\'s own dispatcher.\n');
+  });
+
   test('a local settings file that will not parse is left exactly as it was and reported on standard error', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
     const malformed           = '{ "hooks": { "SubagentStop": [ ';
@@ -313,7 +374,7 @@ describe.skipIf(!gitIsAvailable())('what update refuses', () => {
     for (const refusedArguments of [['update', '--project', 'Example Agency'], ['update', '--root', repositoryDirectory], ['update', '--no-claud-md'], ['update', 'here']]) {
       const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
       expect(await runCommandLine(refusedArguments, context), refusedArguments.join(' ')).toBe(1);
-      expect(context.errorText(), refusedArguments.join(' ')).toContain('agent-progress update [--no-claude-md] [--no-hooks]');
+      expect(context.errorText(), refusedArguments.join(' ')).toContain('agent-progress update [--no-claude-md] [--no-hooks] [--no-workflow]');
     }
     expect(readFileSync(briefFilePath, 'utf8'), 'a refused invocation writes nothing').toBe(briefBefore);
   });
