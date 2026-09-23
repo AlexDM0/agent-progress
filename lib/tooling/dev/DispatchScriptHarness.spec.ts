@@ -115,6 +115,38 @@ const CLAIMS: Claim[] = [
     mutant: SUBTRACT_EVERY_OWN_AGENT,
   },
   {
+    // A reviewer reaches the board through `task add --review-of --start`, which checks no limit, so only the dispatcher's count keeps it inside one.
+    name:     'the limit holds when reviewers reach the board late, each confirmed by its reviewOf row and not before',
+    scenario: {
+      limit:                   4,
+      otherAgentsInFlight:     2,
+      readyTicketIds:          [],
+      reviewWaitingTicketIds:  ticketIdsFrom(1, 6),
+      turnsBeforeFirstCommand: 3,
+    },
+    holds:  (run) => run.mostAgentsInFlightAtOnce === 4 && summaryOf(run).delivered.length === 6,
+    mutant: {
+      find:    'const confirmingTicketIds = work.kind === \'build\' ? status.runningTicketIds : status.runningReviewOfIds;',
+      replace: 'if (work.kind === \'review\') return true; const confirmingTicketIds = status.runningTicketIds;',
+    },
+  },
+  {
+    // A status block without the running rows confirms no own agent, so every agent the board counts is taken as another's: the safe side.
+    name:     'a status block without the running rows subtracts no own agent, and the limit still holds',
+    scenario: {
+      limit:                  3,
+      otherAgentsInFlight:    1,
+      readyTicketIds:         ticketIdsFrom(1, 3),
+      reviewWaitingTicketIds: ticketIdsFrom(7, 3),
+      statusOmitsRunningRows: true,
+    },
+    holds:  (run) => run.mostAgentsInFlightAtOnce <= 3 && summaryOf(run).delivered.length === 6,
+    mutant: {
+      find:    'return Array.isArray(confirmingTicketIds) && confirmingTicketIds.includes(work.ticketId);',
+      replace: 'return !Array.isArray(confirmingTicketIds) || confirmingTicketIds.includes(work.ticketId);',
+    },
+  },
+  {
     name:     'a waiting review starts before a ready ticket',
     scenario: { limit: 1, readyTicketIds: ['001', '002'] },
     holds:    (run) => kindsAndTickets(run).join(', ') === 'survey, build 001, review 001, build 002, review 002',

@@ -61,6 +61,8 @@ export interface DispatchScenario {
   afterAgent?:              (call: RecordedAgentCall, board: FakeBoard) => void;
   /** How many turns a builder or reviewer runs before its first command puts it on the board; defaults to `DEFAULT_TURNS_BEFORE_FIRST_COMMAND`. */
   turnsBeforeFirstCommand?: number;
+  /** Every status block leaves out `runningTicketIds` and `runningReviewOfIds`, as an agent that did not derive them would. */
+  statusOmitsRunningRows?:  boolean;
 }
 
 export interface DispatchRun {
@@ -173,15 +175,15 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
 
   const statusBlock = (): Record<string, unknown> => {
     const agentsInFlight = board.otherAgentsInFlight + ownAgentsOnBoard.size;
-    return {
-      limit:              board.limit,
+    const concurrency = {
+      limit:           board.limit,
       agentsInFlight,
-      freeSlots:          Math.max(0, board.limit - agentsInFlight),
-      readyTicketIds:     [...board.readyTicketIds],
-      dispatcherState:    board.dispatcherState,
-      runningTicketIds:   ticketIdsOfOwnAgentsOnBoard('build'),
-      runningReviewOfIds: ticketIdsOfOwnAgentsOnBoard('review'),
+      freeSlots:       Math.max(0, board.limit - agentsInFlight),
+      readyTicketIds:  [...board.readyTicketIds],
+      dispatcherState: board.dispatcherState,
     };
+    if (scenario.statusOmitsRunningRows === true) return concurrency;
+    return { ...concurrency, runningTicketIds: ticketIdsOfOwnAgentsOnBoard('build'), runningReviewOfIds: ticketIdsOfOwnAgentsOnBoard('review') };
   };
 
   const replyFor = (call: RecordedAgentCall): Record<string, unknown> | null => {
