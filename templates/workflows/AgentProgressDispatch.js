@@ -105,14 +105,20 @@ function surveyPrompt() {
   ].join('\n');
 }
 
-function builderPrompt(ticketId, isRebuild) {
+// `previousPass` is what sent this ticket back to a builder in this run: `builder` (a pass that stopped short of review), `review` (a does-not-hold), or null.
+function builderPrompt(ticketId, previousPass) {
   const worktree = worktreeOf(ticketId);
+  // The earlier builder's claim left the ticket in-progress, and `ticket claim` refuses an in-progress ticket.
+  const claimRefusalText = previousPass === 'builder'
+    ? 'If it exits 1 saying the ticket is in-progress, that is the claim of this run\'s earlier builder: carry on. On any other refusal, stop at once and return outcome '
+      + '`claim-refused` with its message verbatim as `detail`.'
+    : 'If it exits 1, stop at once and return outcome `claim-refused` with its message verbatim as `detail`.';
   const lines = [
     `agent-progress ticket: ${ticketId}`,
     `Worktree: ${worktree}   Branch: ticket-${ticketId}   Main checkout: ${settings.mainCheckout}   Main line: ${settings.mainLine}`,
     `You build ticket #${ticketId} for the agent-progress dispatcher, alone: one ticket, one agent.`,
     `FIRST command, before anything else: \`agent-progress ticket claim ${ticketId} --owner ${WORKER_MODEL} --note "Built by the dispatcher on ticket-${ticketId}"\`. `
-      + 'If it exits 1, stop at once and return outcome `claim-refused` with its message verbatim as `detail`.',
+      + claimRefusalText,
     `Then the worktree: when ${worktree} exists, reuse it as it stands, since it holds an earlier pass's commits; otherwise `
       + `\`git -C ${settings.mainCheckout} worktree add ${worktree} -b ticket-${ticketId} ${settings.mainLine}\`, dropping \`-b\` when the branch already exists.`,
   ];
@@ -122,7 +128,8 @@ function builderPrompt(ticketId, isRebuild) {
     `The task is the ticket: \`agent-progress ticket show ${ticketId}\` prints it. Its \`## Brief\` section, when it has one, is your brief; `
       + 'otherwise Report, Wanted and Acceptance are, and the files they name are where the work belongs.',
   );
-  if (isRebuild) lines.push('A reviewer found that the previous pass does not hold: the last `## Review` in the ticket says why, and your work starts there.');
+  if (previousPass === 'review') lines.push('A reviewer found that the previous pass does not hold: the last `## Review` in the ticket says why, and your work starts there.');
+  if (previousPass === 'builder') lines.push('An earlier builder of this run stopped before review: the worktree holds whatever it committed, and your work continues from there.');
   lines.push(
     `Read \`${settings.mainCheckout}/.agent-progress/agent-brief.md\` once and follow its fenced blocks under Call discipline, Stop conditions, `
       + `Find and fix, Ready to merge and Report, ${briefPlaceholdersText(ticketId)}. The Scope, Contract, Browser loop and Review brief blocks are not yours.`,
@@ -235,18 +242,18 @@ function countFailedPass(ticketId, why, retry) {
 function nextWork() {
   const review = reviewQueue.shift();
   if (review !== undefined) return { kind: 'review', ...review };
-  const rebuildTicketId = rebuildQueue.shift();
-  if (rebuildTicketId !== undefined) return { kind: 'build', ticketId: rebuildTicketId, isRebuild: true };
+  const rebuild = rebuildQueue.shift();
+  if (rebuild !== undefined) return { kind: 'build', ...rebuild };
   const readyTicketId = board.readyTicketIds.find((ticketId) => !ticketIdsTakenThisRun.has(ticketId));
   if (readyTicketId === undefined) return null;
   ticketIdsTakenThisRun.add(readyTicketId);
-  return { kind: 'build', ticketId: readyTicketId, isRebuild: false };
+  return { kind: 'build', ticketId: readyTicketId, previousPass: null };
 }
 
 function launch(work) {
   const key = launchCount++;
   const running = work.kind === 'build'
-    ? runAgent(builderPrompt(work.ticketId, work.isRebuild), {
+    ? runAgent(builderPrompt(work.ticketId, work.previousPass), {
       label:  `build #${work.ticketId}`,
       phase:  'Build',
       schema: BUILDER_SCHEMA,
@@ -263,7 +270,7 @@ function launch(work) {
 
 function settleBuild(work, result) {
   const { ticketId } = work;
-  const rebuild = () => rebuildQueue.push(ticketId);
+  const rebuild = () => rebuildQueue.push({ ticketId, previousPass: 'builder' });
   if (result === null) {
     countFailedPass(ticketId, 'the builder returned no result', rebuild);
     return;
@@ -322,7 +329,7 @@ function settleReview(work, result) {
     return;
   }
   if (result.verdict === 'does-not-hold') {
-    countFailedPass(ticketId, 'the review found it does not hold', () => rebuildQueue.push(ticketId));
+    countFailedPass(ticketId, 'the review found it does not hold', () => rebuildQueue.push({ ticketId, previousPass: 'review' }));
     return;
   }
   if (result.verdict === 'not-released') {
@@ -387,7 +394,7 @@ for (;;) {
 
 const leftWaiting = [
   ...reviewQueue.map((review) => review.ticketId),
-  ...rebuildQueue,
+  ...rebuildQueue.map((rebuild) => rebuild.ticketId),
   ...board.readyTicketIds.filter((ticketId) => !ticketIdsTakenThisRun.has(ticketId)),
 ];
 const leftWaitingText = leftWaiting.map((ticketId) => `#${ticketId}`).join(', ');

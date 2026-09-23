@@ -299,4 +299,15 @@ describe('the dispatcher script', () => {
     expect(builders[1]?.prompt).toContain('does not hold');
     expect(builders[0]?.prompt).not.toContain('does not hold');
   });
+
+  // The first builder's claim left the ticket in-progress, and the real `ticket claim` refuses that: a fresh builder that stopped on it would turn
+  // the retry into a skip. The fake answers whatever the scenario says, so the prompt is where this is pinned.
+  test('a fresh builder after one that stopped short of review carries on past its own run\'s claim, and is not told a reviewer found anything', async () => {
+    const run = await runDispatchScript({ limit: 2, readyTicketIds: ['001'], builderReply: (_ticketId, pass) => (pass === 1 ? { outcome: 'failed' } : { outcome: 'in-review' }) });
+    const builders = run.calls.filter((call) => call.kind === 'build');
+    expect(builders).toHaveLength(2);
+    expect(builders[1]?.prompt).toContain('saying the ticket is in-progress, that is the claim of this run\'s earlier builder: carry on');
+    expect(builders[1]?.prompt).not.toContain('does not hold');
+    expect(builders[0]?.prompt).not.toContain('carry on');
+  });
 });
