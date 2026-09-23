@@ -20,8 +20,8 @@ minutes — so the user opens it once and then simply watches the work happen.
 You drive it entirely through commands. There is no file to edit by hand and no format to remember
 beyond a ticket's body.
 
-**Running the board yourself — taking ticket requests, dispatching agents for them and keeping the
-chart current — is the `agent-progress-orchestrate` skill.** This one is what any session needs in
+**Running the board yourself — taking ticket requests, running the dispatcher workflow that builds
+and reviews them, and keeping the chart current — is the `agent-progress-orchestrate` skill.** This one is what any session needs in
 order to file a ticket, move one, and stay out of the tool's way.
 
 ## The mental model
@@ -83,7 +83,8 @@ and another agent is working there. Asked to pick a ticket up without one, creat
 the main line first and work in it.
 
 Your ticket's file path comes from `agent-progress ticket show <id>`, which also prints the body —
-that body is the whole brief; you do not need the frontmatter. When you finish, append a `## Handoff`
+that body is the whole brief, its `## Brief` section first when it has one; you do not need the
+frontmatter. When you finish, append a `## Handoff`
 section at the end of the ticket, under 15 lines: files touched, contracts you discovered that the
 ticket did not state, what is verified and how, what is not, and the next concrete step. The review
 pass reads that instead of re-deriving it from the codebase. Builder or reviewer, leave the branch

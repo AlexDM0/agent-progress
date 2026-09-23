@@ -6,8 +6,13 @@ makes re-reads its whole transcript, so the length of that transcript, not the s
 what the work costs: across 73 subagents building one repository, 1.7 billion cache-read input tokens
 stood against 6.0 million tokens of output. Every section below exists to keep a transcript short.
 
-Fill in the placeholders and paste the fenced blocks, in order, as the agent's whole prompt — every
-section down to Report for an implementing agent, the Review brief for a reviewer.
+It has two kinds of reader. The dispatcher workflow's agents read this file themselves and follow
+the blocks their prompt names — a builder Call discipline, Stop conditions, Find and fix, Ready to
+merge and Report, a reviewer the Review brief — while the orchestrator writes the Ticket brief block
+into every ticket it files, as its `## Brief`, which the builder reads as its scope and contract. By
+hand, while the dispatcher is stopped, fill in the placeholders and paste the fenced blocks, in order,
+as the agent's whole prompt — every section down to Report for an implementing agent, the Review brief
+for a reviewer.
 
 ## Scope
 
@@ -84,6 +89,30 @@ Facts you do not need to look up:
 Open exactly these, in one message: <path>:<lines>, <path>:<lines>.
 Do not `cat` any CLAUDE.md: the root one is already in your context, and a nested one is injected
 when you first open a file in its folder.
+```
+
+## Ticket brief
+
+The dispatcher writes the worktree, the branch, the claim and the close into its builder's prompt, and
+tells it that the ticket's `## Brief` section is its brief. What only the orchestrator knows goes
+there, at the end of the ticket body when it is filed: the Scope's file list and the Contract's facts
+above, and the claims its reviewer is to test. A ticket without one is built from Report, Wanted and
+Acceptance alone, and its builder pays for the rediscovery. The dispatcher runs other tickets beside
+it, so `Out of bounds` names what this ticket must not touch, and two tickets that rewrite one file
+are ordered with `--depends-on` rather than fenced here.
+
+```
+## Brief
+Work belongs in: <the files you expect it to touch>.
+If satisfying the Acceptance block genuinely requires a file outside that list, edit it and say so
+in the Handoff, naming the file and why.
+Out of bounds regardless: <the files this ticket must not touch>.
+Facts you do not need to look up:
+1. <fact the agent would otherwise search for>
+2. <fact, contract or file location>
+Open exactly these, in one message: <path>:<lines>, <path>:<lines>.
+<only for work with a user interface: the Browser loop block below, with its evidence directory>
+Fails review if false: <two or three claims, each with the measurement behind it>.
 ```
 
 ## Call discipline
@@ -243,7 +272,8 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
 1. Set out to show the ticket does NOT hold — each ticket of a bundle on its own commits, and
    whatever a Handoff lists under `Also fixed`. The last `## Handoff` says where to look and proves
    nothing: re-run the measurement behind each claim with your own probe or count and state your
-   numbers; a guard it watched fail, you watch fail. It fails if any is false: <two or three claims>.
+   numbers; a guard it watched fail, you watch fail. It fails if any is false: <two or three claims;
+   a dispatched review reads them from the ticket's `## Brief`, under `Fails review if false`>.
 2. Fix every finding in what you review — the branch's change and the ticket's Acceptance — yourself,
    with the Edit tool (no heredoc, edit script or `sed -i`), one commit per fix, one plain subject
    line. A defect outside that, however small, you report and do not fix, a few lines each with
@@ -300,7 +330,8 @@ its reworked total over 750.
 
 ## Orchestrator checklist
 
-Register the row before the agent starts and name it in the brief's `agent-progress row: <rowId>`
+For a ticket dispatched by hand only: the dispatcher's prompts carry their own marker lines and its
+agents move their own rows. Register the row before the agent starts and name it in the brief's `agent-progress row: <rowId>`
 line; the `SubagentStop` hook reads that line from the brief alone and adds the agent's `input` —
 every token it processed, the figure its log line ends on, `input 3.8M (cache read 3.6M)` — to the
 row when the agent stops. It adds rather than sets, so a row

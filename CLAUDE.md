@@ -240,8 +240,8 @@ lib/                     Everything the commands do, in five layers that import 
 skill/                   The Claude Code skill every session in a tracked repository loads: the
                          model, what to do in a session, and `skill/Reference.md` beside it holding
                          what `agent-progress help` does not print → `skill/CLAUDE.md`.
-skill-orchestrate/       The skill for the one session running the board: intake, the two-slot
-                         dispatch loop, review, and what it keeps in context →
+skill-orchestrate/       The skill for the one session running the board: intake, starting,
+                         relaunching and stopping the dispatcher, and what it keeps in context →
                          `skill-orchestrate/CLAUDE.md`. Split from `skill/` by audience, because
                          that one is injected into every implementing agent as well.
 templates/               The markdown this tool writes into somebody else's repository — the managed

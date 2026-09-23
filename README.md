@@ -4,9 +4,9 @@ A Bun + TypeScript CLI that tracks an AI orchestrator's work per repository: tas
 Gantt chart, stateful markdown tickets, a log, and a self-contained `progress.html` regenerated on
 every command and reloading itself every 5 minutes.
 
-An orchestrator registers a row before it spawns each subagent and moves it when the result lands;
-it files a ticket for every bug, change or feature the user reports; the person watching keeps one
-browser tab open and sees the work happen. Nothing is edited by hand.
+An orchestrator files a ticket for every bug, change or feature the user reports and, on the user's
+go, hands the board to a dispatcher workflow whose agents move every row as the work moves; the
+person watching keeps one browser tab open and sees the work happen. Nothing is edited by hand.
 
 ## Install
 
@@ -42,18 +42,20 @@ context.
   transition table, the time axis and the exit codes.
 - **`agent-progress-orchestrate`** is for the one session running the board. Start it with
   `/agent-progress-orchestrate`: it opens the dashboard, reports what is in flight and then takes
-  ticket requests — grilling each one until the acceptance condition is unambiguous, filing it,
-  dispatching an implementing agent for it (at most two at a time) — each on a worktree of its own,
-  never the main checkout — that hands over a branch already rebased onto main, and sending that to a clean reviewing agent. The reviewer reviews adversarially,
-  fixes what it finds in the branch's change and the ticket's Acceptance, and rebases onto main again; it then releases the branch itself with
-  `agent-progress release`, which serialises releases under the tracker's lock, so no slot is asked
-  for and no message is sent to a finished agent. Every finding an agent hands on instead of fixing,
-  however small, is filed as a low-priority ticket, off the chart, and run — after the orchestrator
-  has triaged them for relevance and overlap — only once every normal and high ticket is delivered,
-  unless it raises one's priority. A second review (`ticket rereview`) happens only when the
-  pass reworked over 750 lines of code, comments and documentation not counted, in its fixes and rebase, and is the orchestrator's call, which grants it or files a new ticket instead,
-  until every ticket is delivered. It loads the first skill for the
-  commands and repeats none of it.
+  ticket requests — grilling each one until the acceptance condition is unambiguous and filing it
+  with a `## Brief` for its builder. On the user's go it launches the dispatcher workflow, which
+  runs an implementing agent per ready ticket — each on a worktree of its own, never the main
+  checkout — within the board's limit (2 unless the user sets another, never above 10), and sends
+  each rebased branch to a clean reviewing agent. The reviewer reviews adversarially, fixes what it
+  finds in the branch's change and the ticket's Acceptance, rebases onto main again and releases the
+  branch itself with `agent-progress release`, which serialises releases under the tracker's lock.
+  Every finding a reviewer does not fix, however small, it files as a low-priority ticket, off the
+  chart, which the orchestrator triages for relevance, overlap and severity and which runs only once
+  every normal and high ticket is delivered, unless its priority is raised. A second review happens
+  only when a pass reworked over 750 lines of code, comments and documentation not counted, and the
+  dispatcher decides it in code. A dispatcher that finished by itself is relaunched when new work is
+  ready; one the user stopped (`agent-progress dispatcher stopped`) waits for their go. It loads the
+  first skill for the commands and repeats none of it.
 
 ## Adopting a repository
 
@@ -153,8 +155,9 @@ chart full of those is how the expensive habits stay invisible.
 
   The summary above the chart reads the same way: `<merged>/<total> done`, then how many are
   awaiting a merge and how many are in review. A row with nothing to merge — a review pass, a
-  chore — still reaches `done`, through `agent-progress task deliver <id>`; that is the
-  orchestrator's job, and a chart whose rows stop at `awaiting review` is a chart nobody closed.
+  chore — still reaches `done`, through `agent-progress task deliver <id>`; a dispatched reviewer
+  closes its own bar, the orchestrator every row left open, and a chart whose rows stop at
+  `awaiting review` is a chart nobody closed.
 - **Double-click any row** — in the chart or in the ticket table — for the whole story of that task
   in one panel: its facts, every phase it went through with how long it sat in each, the ticket
   with its body, and the log lines that name either. A row filed before phases were recorded says
