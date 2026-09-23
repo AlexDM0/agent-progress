@@ -80,6 +80,9 @@ const TOOL_USE_BLOCK_TYPE = 'tool_use';
 
 const TEXT_BLOCK_TYPE = 'text';
 
+/** A line of its own, ids as digits separated by commas: a placeholder such as `<rowId>` in a brief template never matches. */
+const ROW_MARKER_PATTERN = /^[ \t]*agent-progress row:[ \t]*(\d+(?:[ \t]*,[ \t]*\d+)*)[ \t]*$/m;
+
 function asRecord(value: unknown): Record<string, unknown> | undefined {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
   return value as Record<string, unknown>;
@@ -235,16 +238,64 @@ function nestedInstructionCharactersIn(value: unknown): number {
 }
 
 /** Only `text` blocks, so an attachment the harness stapled to the same turn is never mistaken for what the agent was asked to do. */
-function briefExcerptOf(message: Record<string, unknown>): string {
+function spokenTextOf(message: Record<string, unknown>): string {
   const { content } = message;
-  const spokenText  = typeof content === 'string'
+  return typeof content === 'string'
     ? content
     : contentBlocksOf(message)
       .map((block) => asRecord(block))
       .filter((block) => block?.['type'] === TEXT_BLOCK_TYPE)
       .map((block) => (typeof block?.['text'] === 'string' ? block['text'] : ''))
-      .join(' ');
-  return spokenText.replace(/\s+/g, ' ').trim().slice(0, BRIEF_EXCERPT_CHARACTERS);
+      .join('\n');
+}
+
+function briefExcerptOf(message: Record<string, unknown>): string {
+  return spokenTextOf(message).replace(/\s+/g, ' ').trim().slice(0, BRIEF_EXCERPT_CHARACTERS);
+}
+
+/** The first user turn with spoken text, for the same reason `profileTranscript` takes its excerpt from it; an empty string when there is none. */
+function briefTextOf(transcriptText: string): string {
+  for (const line of transcriptText.split('\n')) {
+    const trimmedLine = line.trim();
+    if (trimmedLine.length === 0) continue;
+
+    const entry = asRecord(parsedJsonLine(trimmedLine));
+    if (entry === undefined || entry['type'] !== 'user') continue;
+
+    const message = asRecord(entry['message']);
+    if (message === undefined) continue;
+
+    const spokenText = spokenTextOf(message);
+    if (spokenText.trim().length > 0) return spokenText;
+  }
+  return '';
+}
+
+/**
+ * The rows named by the `agent-progress row: 4, 7` line of the agent's brief, in the order written and each once; empty when the
+ * brief has no such line. Only the brief is read, so a later message quoting another agent's marker never counts.
+ */
+function rowIdentifiersNamedInBrief(transcriptText: string): number[] {
+  const markerMatch    = ROW_MARKER_PATTERN.exec(briefTextOf(transcriptText));
+  const identifierList = markerMatch?.[1];
+  if (identifierList === undefined) return [];
+  const identifiers = identifierList.split(',').map((identifier) => Number.parseInt(identifier.trim(), 10));
+  return [...new Set(identifiers)];
+}
+
+/** Floor division over the shares, with the remainder on the first, so the shares always sum to the total. */
+function evenSharesOf(totalTokens: number, shareCount: number): number[] {
+  if (shareCount <= 0) return [];
+  const evenShare = Math.floor(totalTokens / shareCount);
+  const remainder = totalTokens - evenShare * shareCount;
+  const shares    = new Array<number>(shareCount).fill(evenShare);
+  shares[0]       = evenShare + remainder;
+  return shares;
+}
+
+/** Every token the agent sent: fresh input plus both cache figures. The log line's `input` and the row's tokens are this one number. */
+function totalInputTokensOf(totals: TranscriptUsageTotals): number {
+  return totals.inputTokens + totals.cacheReadInputTokens + totals.cacheCreationInputTokens;
 }
 
 /**
@@ -309,7 +360,7 @@ function profileTranscript(transcriptText: string): TranscriptProfile {
  */
 function composeUsageLine(agentIdentifier: string, agentType: string, totals: TranscriptUsageTotals): string {
   const { formatTokenCount } = TokenCountUtil;
-  const totalInputTokens = totals.inputTokens + totals.cacheReadInputTokens + totals.cacheCreationInputTokens;
+  const totalInputTokens = totalInputTokensOf(totals);
   return `Agent ${agentIdentifier} (${agentType}) stopped: ${totals.apiCallCount} calls, `
     + `end context ${formatTokenCount(totals.endContextTokens)}, `
     + `input ${formatTokenCount(totalInputTokens)} (cache read ${formatTokenCount(totals.cacheReadInputTokens)}), `
@@ -318,6 +369,9 @@ function composeUsageLine(agentIdentifier: string, agentType: string, totals: Tr
 
 export const TranscriptUsageUtil = {
   composeUsageLine,
+  evenSharesOf,
   profileTranscript,
+  rowIdentifiersNamedInBrief,
   summariseTranscriptUsage,
+  totalInputTokensOf,
 } as const;

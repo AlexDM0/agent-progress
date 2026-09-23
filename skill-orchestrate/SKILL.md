@@ -33,8 +33,9 @@ Run it once, at the top, in this order, then stop and wait.
    `agent-progress hook subagent-stop`. `init` and `update` write it into the local file by default,
    so it is normally in one of them and there is nothing to say. If it is in neither — the repository
    was adopted before the hook existed, or somebody ran `--no-hooks` — say so once and offer
-   `agent-progress update`, which is what puts every agent's call count and end context on the board
-   without you remembering to.
+   `agent-progress update`, which is what puts every agent's call count and end context on the board,
+   and what it processed on its row, without you remembering to. Remember which it is: it decides
+   whether you ever pass `--tokens` (Keeping the board honest).
 3. Read `.agent-progress/agent-brief.md` once. It is the template every brief you write comes from;
    keep it for the session and do not read it again.
 4. `agent-progress open`, once.
@@ -147,14 +148,16 @@ same files, or the same mechanism — go to **one** agent on one branch, in depe
 back through **one** review. Small means you expect the whole bundle inside one call budget; a
 ticket you would have split is never bundled, and neither are tickets whose files another agent in
 flight holds. Each ticket keeps its own row: `ticket start` every one of them, name the bundle in
-each row's `--note` with the `task update` above — a `ticket` move takes no note — and when the agent
-lands, `ticket review` each with the agent's `--tokens` divided evenly over the bundle, so what the
-chart sums stays what the agent cost. The agent commits and hands off per ticket, so a bundle is
-still judged, delivered and, if it comes to that, reopened one ticket at a time. A ticket the agent
+each row's `--note` with the `task update` above — a `ticket` move takes no note — and name every
+row on the brief's one marker line, `agent-progress row: 4, 7`: the hook divides what the agent
+processed evenly over them, so what the chart sums stays what the agent cost. Without the hook,
+`ticket review` each with the agent's `--tokens` divided evenly yourself. The agent commits and
+hands off per ticket, so a bundle is still judged, delivered and, if it comes to that, reopened one ticket at a time. A ticket the agent
 left untouched for lack of budget goes back with `agent-progress ticket reopen <id>`.
 
 Then spawn the agent with the brief from `.agent-progress/agent-brief.md`, filled in: **one large
-ticket or one bundle per agent**, the worktree you just created and its branch, the files it may edit, the three to eight
+ticket or one bundle per agent**, the worktree you just created and its branch, the
+`agent-progress row: <rowId>` line naming its row or rows, the files it may edit, the three to eight
 facts it would otherwise go and find, the call budget, the "Ready to merge" close, and the report and
 `## Handoff` it owes. Point it at `agent-progress ticket show <id>` for the body and nothing else.
 When two slots are free, spawn both agents in one message so they run at once.
@@ -172,7 +175,8 @@ is what ships and its release is a fast-forward. An agent finishes its rebase ev
 because it already holds the context, so a rebase is never left for you or for another agent; a big
 one shows up as a round request.
 
-1. `agent-progress ticket review <id> --tokens <n>`.
+1. `agent-progress ticket review <id>` — plus `--tokens <n>` from `subagent_tokens` only where the
+   hook is not installed; where it is, the hook has already added the agent's cost to the row.
 2. Give every review pass its own bar, because it is work — you add them all, whichever round, and
    a bundle gets one bar and one reviewer for all its tickets, named for every id in it:
 
@@ -182,14 +186,15 @@ one shows up as a round request.
 
 3. Spawn the reviewer from the Review brief in `.agent-progress/agent-brief.md`, filled in, and
    nothing else: that block is the whole pass and this skill does not restate it. What you supply
-   is the worktree, branch, main checkout and main line, the verification command, **the round** —
+   is the worktree, branch, main checkout and main line, the review bar's id on its
+   `agent-progress row: <reviewRowId>` line, the verification command, **the round** —
    the number of `## Review` sections already in the ticket, plus one; the chart's `reviewing N`
    counts only `rereview` moves and trails it after a rebuild — and the two or three claims
    the ticket fails on if they are false. Name the measurement behind each: a reviewer that reads a
    diff and agrees with it finds nothing.
 
 **Every review verdict, whichever round, comes back here.** First
-`agent-progress task finish <reviewRowId> --tokens <n>`, then act on the words the report opens with,
+`agent-progress task finish <reviewRowId>` (`--tokens <n>` only without the hook), then act on the words the report opens with,
 and close the review's own row with `agent-progress task deliver <reviewRowId>` once you have. A
 review pass has no branch to merge, and `deliver` is the only way its row reaches `done`; a review
 bar left reading `awaiting review` is the chart saying a reviewer is still owed.
@@ -295,8 +300,12 @@ When you do lose the thread — after a compaction, or a long gap — re-anchor 
   stop at `awaiting review` is a chart nobody finished reading.
 - Every move goes through the CLI **at the moment it happens**, never batched at the end of a wave.
   A chart caught up afterwards has the wrong bars on it.
-- `--tokens` on every move that ends a row, taken from the hook's `input` figure where the hook is
-  installed and from `subagent_tokens` only where it is not.
+- **Where the hook is installed, no `--tokens` at all.** Every brief names its row on a line of its
+  own, `agent-progress row: <rowId>` — `4, 7` for a bundle, the review bar's id for a reviewer — and
+  the hook adds what the agent processed to that row when it stops. A `--tokens` on a later move
+  would replace that sum, and a workflow script's agents can reach the row no other way. Where the
+  hook is not installed, `--tokens` from `subagent_tokens` on every move that ends a row, recorded as
+  the understatement it is.
 - `--at -5m` backfills what you forgot; a stamp already recorded is kept, so it is safe.
 - One tracker command per call, not chained into other work.
 

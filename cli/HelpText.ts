@@ -81,12 +81,15 @@ repository to use instead of walking up from the current directory.
 
   hook subagent-stop          Record what a finished subagent cost, as one log line: the hook JSON
                               arrives on standard input, and the agent's transcript is summed per
-                              API call rather than per line. This is the command \`init\` and
+                              API call rather than per line. When the agent's first message — its
+                              brief — holds a line \`agent-progress row: <id>\`, or several ids
+                              separated by commas, the log line's \`input\` total is also added to
+                              those rows' tokens, divided evenly. This is the command \`init\` and
                               \`update\` wire into \`.claude/settings.local.json\`; nobody types it.
                               It exits 0
                               whatever goes wrong — no input, an unreadable transcript, no tracker
-                              at the hook's own working directory — and writes the reason to
-                              standard error. Its exit code prevents nothing, since the agent has
+                              at the hook's own working directory, a row that does not exist — and
+                              writes the reason to standard error. Its exit code prevents nothing, since the agent has
                               already finished; exiting 0 is what keeps a failure here from becoming
                               an error the orchestrator must read, or a delay before it is told.
 

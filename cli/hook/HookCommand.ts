@@ -1,6 +1,7 @@
 /**
  * `agent-progress hook subagent-stop`: the `SubagentStop` hook that records what a finished subagent
- * cost, as one line in the tracker's log. It exists because nothing else observes that number — a
+ * cost, as one line in the tracker's log, and adds it to the tokens of each row the agent's brief names
+ * on an `agent-progress row: <ids>` line. It exists because nothing else observes that number — a
  * subagent's usage lives only in its own transcript, and the token column read 0 on every row of a
  * 73-agent build because nobody typed `--tokens`.
  *
@@ -20,14 +21,14 @@
 import { readFileSync } from 'node:fs';
 import { homedir }      from 'node:os';
 
-import { OperationRefusal }           from '../../lib/platform/OperationRefusal';
-import { appendLogEntry }             from '../../lib/progress/ProgressStore';
-import type { TranscriptUsageTotals } from '../../lib/utils/TranscriptUsageUtil';
-import { TranscriptUsageUtil }        from '../../lib/utils/TranscriptUsageUtil';
-import type { CommandContext }        from '../CommandContext';
-import { openTrackerForWriting }      from '../CommandSupport';
-import type { CommandHandler }        from '../CommandTable';
-import type { ArgumentParser }        from '../arguments/ArgumentParser';
+import { OperationRefusal }              from '../../lib/platform/OperationRefusal';
+import { addTaskTokens, appendLogEntry } from '../../lib/progress/ProgressStore';
+import type { TranscriptUsageTotals }    from '../../lib/utils/TranscriptUsageUtil';
+import { TranscriptUsageUtil }           from '../../lib/utils/TranscriptUsageUtil';
+import type { CommandContext }           from '../CommandContext';
+import { openTrackerForWriting }         from '../CommandSupport';
+import type { CommandHandler }           from '../CommandTable';
+import type { ArgumentParser }           from '../arguments/ArgumentParser';
 
 const USAGE = 'agent-progress hook subagent-stop  (the hook JSON arrives on standard input)';
 
@@ -39,6 +40,11 @@ const UNKNOWN_AGENT = 'unknown';
 
 /** The prefix on every sentence this writes, so a line in a harness log says which command produced it. */
 const REPORT_PREFIX = 'agent-progress hook subagent-stop:';
+
+interface RowShare {
+  rowIdentifier: number;
+  tokens:        number;
+}
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
@@ -100,16 +106,38 @@ async function readHookInput(context: CommandContext): Promise<Record<string, un
  * worktree still finds the main checkout's tracker, because `lib/platform/Workspace.ts` asks git for
  * the common directory — so this only has to hand the walk the right place to start.
  */
-async function appendToTheLog(commandArguments: ArgumentParser, context: CommandContext, workingDirectory: string, usageLine: string): Promise<void> {
+async function recordInTheTracker(
+  commandArguments: ArgumentParser,
+  context: CommandContext,
+  workingDirectory: string,
+  usageLine: string,
+  rowShares: readonly RowShare[],
+): Promise<void> {
   const trackerContext: CommandContext = { ...context, currentDirectory: workingDirectory };
+  let missingRowIdentifiers: number[] = [];
   try {
-    await openTrackerForWriting(commandArguments, trackerContext, (change) => {
+    missingRowIdentifiers = await openTrackerForWriting(commandArguments, trackerContext, (change) => {
+      const rowIdentifiersNotHeld = rowShares
+        .filter((share) => addTaskTokens(change.progress, share.rowIdentifier, share.tokens) === 'no-such-task')
+        .map((share) => share.rowIdentifier);
       appendLogEntry(change.progress, change.at, usageLine);
+      return rowIdentifiersNotHeld;
     });
   } catch (failure) {
     const reason = failure instanceof Error ? failure.message : String(failure);
     context.standardError(`${REPORT_PREFIX} the line could not be recorded in ${workingDirectory}: ${reason}`);
   }
+  for (const rowIdentifier of missingRowIdentifiers) {
+    context.standardError(`${REPORT_PREFIX} the brief names row #${rowIdentifier}, which the tracker does not hold, so its share of the tokens was not recorded.`);
+  }
+}
+
+/** The brief's `agent-progress row:` line, if it has one, decides which rows the agent's `input` total is added to, split evenly. */
+function rowSharesFor(transcriptText: string, totals: TranscriptUsageTotals): RowShare[] {
+  const { evenSharesOf, rowIdentifiersNamedInBrief, totalInputTokensOf } = TranscriptUsageUtil;
+  const rowIdentifiers = rowIdentifiersNamedInBrief(transcriptText);
+  const shares         = evenSharesOf(totalInputTokensOf(totals), rowIdentifiers.length);
+  return rowIdentifiers.map((rowIdentifier, i) => ({ rowIdentifier, tokens: shares[i] ?? 0 }));
 }
 
 async function recordSubagentStop(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
@@ -141,7 +169,8 @@ async function recordSubagentStop(commandArguments: ArgumentParser, context: Com
     totals,
   );
 
-  await appendToTheLog(commandArguments, context, readStringField(hookInput, 'cwd') ?? context.currentDirectory, usageLine);
+  const workingDirectory = readStringField(hookInput, 'cwd') ?? context.currentDirectory;
+  await recordInTheTracker(commandArguments, context, workingDirectory, usageLine, rowSharesFor(transcriptText, totals));
 }
 
 /**

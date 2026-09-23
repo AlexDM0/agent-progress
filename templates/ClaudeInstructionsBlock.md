@@ -12,12 +12,12 @@ in separate checkouts all write to the same chart.
   asked to and stops there: it never dispatches an agent to handle one, its own or anybody else's.
   The bullets below on spawning, briefing and reviewing are the orchestrator's.
 - Register a task before spawning each subagent (`agent-progress task add "<what it will do>"
-  --start`) and finish it when the result lands (`agent-progress task finish <id> --tokens <n>`,
-  where `<n>` is the `input` figure on the line the `SubagentStop` hook logged for that agent —
-  `3.8M`, every token it processed. The completion notification's `subagent_tokens` is roughly the
-  agent's end context and understates that heavily and unevenly, so use it only where the hook is
-  not installed). A row left without a number is how six sessions of subagent cost stayed invisible,
-  so fill it in every time. `agent-progress task pause <id>` records a row that is waiting; `task start <id>`
+  --start`), name it in the brief on a line of its own, `agent-progress row: <id>`, and finish it
+  when the result lands (`agent-progress task finish <id>`). The `SubagentStop` hook reads that line
+  and adds every token the agent processed to the row, so where the hook is installed pass no
+  `--tokens`: it would replace the sum. Only where it is not, add `--tokens <n>` from the completion
+  notification's `subagent_tokens`, which is roughly the agent's end context and understates heavily
+  and unevenly. A row left without a number is how six sessions of subagent cost stayed invisible. `agent-progress task pause <id>` records a row that is waiting; `task start <id>`
   resumes it.
 - Spawn each implementing agent from `.agent-progress/agent-brief.md`, filled in: one large ticket,
   one half of one, or a bundle of small tickets from one part of the code, per agent, on a worktree

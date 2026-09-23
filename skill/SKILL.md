@@ -33,7 +33,9 @@ order to file a ticket, move one, and stay out of the tool's way.
   discovery when a command runs from somewhere else entirely.
 - **A task is a row on the Gantt chart** — a name, an owner, a note, a status, two timestamps and an
   optional token count. Row ids are never reused, so a log line naming task #4 means the same work
-  tomorrow.
+  tomorrow. Where the `SubagentStop` hook is installed, a subagent whose brief carries the line
+  `agent-progress row: 4` (or `4, 7` for a bundle) has what it processed **added** to that row when
+  it stops — so a move that ends such a row takes no `--tokens`, which would overwrite the sum.
 - **Every ticket owns a row too.** Filing a ticket creates its row as `pending`; moving the ticket
   moves the row and stamps both. You never keep the two in step yourself.
 - **The log** is the narrative under the chart: one line per milestone, newest first on the page.
@@ -107,4 +109,4 @@ ready to merge: your work committed on it, rebased onto the main line, the check
 tool, so it cannot be out of date. Run it when you need a flag you do not remember.
 
 `Reference.md`, beside this file, is what the tool does not print: the ticket file format, what each
-move does to the Gantt row, the time axis and the exit codes.
+move does to the Gantt row, how a row's tokens are recorded, the time axis and the exit codes.

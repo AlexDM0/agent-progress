@@ -1,12 +1,13 @@
 /**
- * The one line this command writes, and the seven ways it is allowed to write nothing. The failure
+ * The one line this command writes, the rows its brief names that it adds the agent's tokens to, and
+ * the seven ways it is allowed to write nothing. The failure
  * cases carry the weight: each one asserts **exit 0 and an untouched tracker**. The agent has already
  * finished when this runs, so a non-zero exit prevents nothing; what it does produce is an error the
  * orchestrator has to read and a delay before it hears its agent is done, and both cost more than the
  * log line nobody gets.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
-import { join }                        from 'node:path';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join }                                   from 'node:path';
 
 import {
   afterEach,
@@ -66,10 +67,38 @@ function contextWith(standardInputText: string, currentDirectory = repositoryDir
   return createCapturedCommandContext({ currentDirectory, now: () => FROZEN_NOW, standardInputText });
 }
 
-function storedLog(): ProgressFile['log'] {
+function storedProgress(): ProgressFile {
   const progressFilePath = join(repositoryDirectory, '.agent-progress', 'progress.json');
-  return (JSON.parse(readFileSync(progressFilePath, 'utf8')) as ProgressFile).log;
+  return JSON.parse(readFileSync(progressFilePath, 'utf8')) as ProgressFile;
 }
+
+function storedLog(): ProgressFile['log'] {
+  return storedProgress().log;
+}
+
+function storedTokensOf(rowIdentifier: number): number | null | undefined {
+  return storedProgress().tasks.find((task) => task.id === rowIdentifier)?.tokens;
+}
+
+async function addedRow(name: string): Promise<number> {
+  expect(await runCommandLine(['task', 'add', name], contextWith(''))).toBe(0);
+  const rowIdentifier = storedProgress().tasks.at(-1)?.id;
+  if (rowIdentifier === undefined) throw new Error(`task add "${name}" filed no row`);
+  return rowIdentifier;
+}
+
+function userLine(text: string): string {
+  return JSON.stringify({ type: 'user', message: { role: 'user', content: [{ type: 'text', text }] } });
+}
+
+/** The fixture's two calls: 10 + 90,000 and 20 + 140,000, the figure the log line rounds to `input 230k`. */
+const FIXTURE_INPUT_TOKENS = 230_030;
+
+const FIXTURE_CALLS = [
+  assistantLine('msg_one', 10, 90_000, 400),
+  assistantLine('msg_one', 10, 90_000, 1200),
+  assistantLine('msg_two', 20, 140_000, 800),
+];
 
 beforeEach(async () => {
   repositoryDirectory = createScratchGitRepository('hook-command');
@@ -120,6 +149,90 @@ describe.skipIf(!gitIsAvailable())('a subagent that stopped', () => {
     expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
 
     expect(storedLog().at(-1)?.text).toStartWith('Agent unknown (unknown) stopped: 2 calls');
+  });
+});
+
+describe.skipIf(!gitIsAvailable())('the row the brief names', () => {
+  /** Adding rather than setting is the claim: a row an implementer and a second pass both worked on carries what both cost. */
+  test('a brief naming a row takes its tokens from unset to the input total, and the same input again doubles it', async () => {
+    const rowIdentifier = await addedRow('Example work');
+    transcriptPath      = writeTranscript([userLine(`Do the work.\nagent-progress row: ${rowIdentifier}\nStop at 150 calls.`), ...FIXTURE_CALLS]);
+    expect(storedTokensOf(rowIdentifier)).toBeNull();
+
+    expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput()))).toBe(0);
+    expect(storedTokensOf(rowIdentifier)).toBe(FIXTURE_INPUT_TOKENS);
+    expect(storedLog().at(-1)?.text).toContain('input 230k');
+
+    expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput()))).toBe(0);
+    expect(storedTokensOf(rowIdentifier)).toBe(FIXTURE_INPUT_TOKENS * 2);
+  });
+
+  test('a bundle divides the total evenly, and the remainder goes to the first row named', async () => {
+    const firstRow  = await addedRow('Example first');
+    const secondRow = await addedRow('Example second');
+    transcriptPath  = writeTranscript([userLine(`agent-progress row: ${firstRow}, ${secondRow}`), assistantLine('msg_only', 1001, 0, 50)]);
+
+    expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput()))).toBe(0);
+
+    expect(storedTokensOf(firstRow)).toBe(501);
+    expect(storedTokensOf(secondRow)).toBe(500);
+  });
+
+  /** A reviewer's brief can quote the builder's marker further down the conversation; only the agent's own brief may name its row. */
+  test('a marker that appears only in a later message changes no row, and the log line is still written', async () => {
+    const rowIdentifier = await addedRow('Example work');
+    transcriptPath      = writeTranscript([
+      userLine('Review the branch.'),
+      assistantLine('msg_one', 10, 90_000, 400),
+      userLine(`agent-progress row: ${rowIdentifier}`),
+      assistantLine('msg_two', 20, 140_000, 800),
+    ]);
+    const context = contextWith(hookInput());
+
+    expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
+
+    expect(storedTokensOf(rowIdentifier)).toBeNull();
+    expect(storedLog().at(-1)?.text).toContain('Agent agent_42');
+    expect(context.errorText()).toBe('');
+  });
+
+  test('a brief without a marker leaves every row as it was', async () => {
+    const rowIdentifier = await addedRow('Example work');
+    transcriptPath      = writeTranscript([userLine('Do the work.'), ...FIXTURE_CALLS]);
+
+    expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput()))).toBe(0);
+
+    expect(storedTokensOf(rowIdentifier)).toBeNull();
+    expect(storedLog().at(-1)?.text).toContain('input 230k');
+  });
+
+  test('a row the tracker does not hold is named on standard error, the rows it does hold are recorded, and it exits 0', async () => {
+    const rowIdentifier = await addedRow('Example work');
+    const missingRow    = rowIdentifier + 900;
+    transcriptPath      = writeTranscript([userLine(`agent-progress row: ${rowIdentifier}, ${missingRow}`), assistantLine('msg_only', 1001, 0, 50)]);
+    const context       = contextWith(hookInput());
+
+    expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
+
+    expect(storedTokensOf(rowIdentifier)).toBe(501);
+    expect(context.errorText()).toContain(`#${missingRow}`);
+    expect(context.errorText().trim().split('\n'), 'one sentence for the one missing row').toHaveLength(1);
+    expect(storedLog().at(-1)?.text).toContain('Agent agent_42');
+  });
+
+  /** The path and the agent type a workflow agent was observed with; nothing in them may stop the row from being found. */
+  test('a workflow agent\'s transcript under subagents/workflows/<runId>/ is recorded like any other', async () => {
+    const rowIdentifier    = await addedRow('Example workflow step');
+    const workflowFolder   = join(repositoryDirectory, 'session', 'subagents', 'workflows', 'run_example');
+    const workflowPath     = join(workflowFolder, 'agent-example.jsonl');
+    mkdirSync(workflowFolder, { recursive: true });
+    writeFileSync(workflowPath, `${[userLine(`agent-progress row: ${rowIdentifier}`), ...FIXTURE_CALLS].join('\n')}\n`);
+    const context = contextWith(hookInput({ agent_type: 'workflow-subagent', agent_transcript_path: workflowPath }));
+
+    expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
+
+    expect(storedTokensOf(rowIdentifier)).toBe(FIXTURE_INPUT_TOKENS);
+    expect(storedLog().at(-1)?.text).toContain('(workflow-subagent)');
   });
 });
 

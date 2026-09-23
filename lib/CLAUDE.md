@@ -100,7 +100,11 @@ anything that needs "now" is handed it.
   that edited a file through the shell and the ones that ran the tests, the type checker or the linter,
   the characters the
   harness injected as `nested_memory` attachments and the first 80 characters of the brief — as the
-  `TranscriptProfile` type `agent-progress usage` reports one agent by.
+  `TranscriptProfile` type `agent-progress usage` reports one agent by. `rowIdentifiersNamedInBrief`
+  reads the `agent-progress row: 4, 7` line from **the first user turn with spoken text only** — the
+  brief, found as the excerpt is — so a marker quoted later never counts; `evenSharesOf` floors the
+  split and gives the remainder to the first row; `totalInputTokensOf` is the one `input` figure the
+  log line and the row share.
 - `lib/utils/TranscriptCohortUtil.ts` — `summariseCohort` and `splitAt` over those profiles.
   **Calls and end context are medians, the token figures means**: one runaway agent must not move
   what a typical agent did, and must not be hidden in what the cohort cost. The oversized share is the
@@ -165,7 +169,8 @@ nothing about tasks or tickets — a caller supplies a path.
 
 - `lib/progress/ProgressStore.ts` — `progress.json`: read with a verdict and a reason naming the
   field, written atomically, and the mutators that add, find, transition and remove a task, set its
-  token count or append a log line. The transition rules — which status sets which timestamp — live
+  token count or add to it (`addTaskTokens`, the hook's, where unset plus an amount is the amount) or
+  append a log line. The transition rules — which status sets which timestamp — live
   here and nowhere else, as does the task id allocator: `nextTaskId` is stored, never wound back, and
   taken only by the `addTask` that files the row using it.
 

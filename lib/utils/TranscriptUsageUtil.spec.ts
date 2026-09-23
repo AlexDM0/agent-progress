@@ -9,7 +9,14 @@ import { describe, expect, test } from 'bun:test';
 
 import { TranscriptUsageUtil } from './TranscriptUsageUtil';
 
-const { composeUsageLine, profileTranscript, summariseTranscriptUsage } = TranscriptUsageUtil;
+const {
+  composeUsageLine,
+  evenSharesOf,
+  profileTranscript,
+  rowIdentifiersNamedInBrief,
+  summariseTranscriptUsage,
+  totalInputTokensOf,
+} = TranscriptUsageUtil;
 
 interface ConstructedUsage {
   input_tokens?:                number;
@@ -413,5 +420,74 @@ describe('the line the log receives', () => {
 
     expect(line).toContain('input 12k (cache read 9k)');
     expect(line).toContain('output 500');
+  });
+
+  test('the row figure and the log line\'s input are one number: fresh input plus both cache figures', () => {
+    expect(totalInputTokensOf({
+      apiCallCount:             2,
+      inputTokens:              1000,
+      cacheReadInputTokens:     9000,
+      cacheCreationInputTokens: 2000,
+      outputTokens:             500,
+      endContextTokens:         6000,
+      oversizedContextTokens:   0,
+    })).toBe(12_000);
+  });
+});
+
+/**
+ * The marker decides which row an agent's cost lands on, so what matters is what must NOT count: a marker
+ * quoted after the brief, a template placeholder, and an attachment turn standing in front of the brief.
+ */
+describe('the rows a brief names', () => {
+  function userTextLine(text: string): string {
+    return JSON.stringify({ type: 'user', message: { content: [{ type: 'text', text }] } });
+  }
+
+  test('one id, or several separated by commas, are read in the order written', () => {
+    expect(rowIdentifiersNamedInBrief(userTextLine('Do it.\nagent-progress row: 4\nStop.'))).toEqual([4]);
+    expect(rowIdentifiersNamedInBrief(userTextLine('agent-progress row: 4, 7'))).toEqual([4, 7]);
+    expect(rowIdentifiersNamedInBrief(userTextLine('  agent-progress row: 7,4,4  '))).toEqual([7, 4]);
+  });
+
+  /** A reviewer may be shown the builder's brief; the marker it quotes is the builder's row, not its own. */
+  test('a marker in a later user turn is not the brief\'s, so it names nothing', () => {
+    const transcript = [userTextLine('Review the branch.'), userTextLine('agent-progress row: 4')].join('\n');
+
+    expect(rowIdentifiersNamedInBrief(transcript)).toEqual([]);
+  });
+
+  test('an attachment-only opening turn is passed over, as for the excerpt, and the brief after it is read', () => {
+    const transcript = [
+      JSON.stringify({ type: 'user', message: { content: [{ type: 'nested_memory', content: { path: 'lib/CLAUDE.md', content: 'agent-progress row: 9' } }] } }),
+      userTextLine('agent-progress row: 4'),
+    ].join('\n');
+
+    expect(rowIdentifiersNamedInBrief(transcript)).toEqual([4]);
+  });
+
+  test('a placeholder, a marker inside a sentence and a brief without one all name nothing', () => {
+    expect(rowIdentifiersNamedInBrief(userTextLine('agent-progress row: <rowId>'))).toEqual([]);
+    expect(rowIdentifiersNamedInBrief(userTextLine('Write agent-progress row: 4 into the brief.'))).toEqual([]);
+    expect(rowIdentifiersNamedInBrief(userTextLine('Do the work.'))).toEqual([]);
+    expect(rowIdentifiersNamedInBrief('')).toEqual([]);
+  });
+
+  test('a brief split over several text blocks is read line by line, so a marker in the second block counts', () => {
+    const transcript = JSON.stringify({ type: 'user', message: { content: [{ type: 'text', text: 'Do it.' }, { type: 'text', text: 'agent-progress row: 4' }] } });
+
+    expect(rowIdentifiersNamedInBrief(transcript)).toEqual([4]);
+  });
+});
+
+describe('dividing a bundle\'s tokens', () => {
+  test('the shares are floored and the remainder goes to the first, so they always sum to the total', () => {
+    expect(evenSharesOf(1001, 2)).toEqual([501, 500]);
+    expect(evenSharesOf(10, 3)).toEqual([4, 3, 3]);
+    expect(evenSharesOf(1001, 1)).toEqual([1001]);
+  });
+
+  test('no rows means no shares', () => {
+    expect(evenSharesOf(1001, 0)).toEqual([]);
   });
 });

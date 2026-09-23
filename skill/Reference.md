@@ -5,7 +5,7 @@ itself and therefore never out of step with it. Run it when you need a flag you 
 nothing here repeats it.
 
 What is here is what the tool does not print: the ticket file an agent edits, what each move does to
-the Gantt row, the time axis and the exit codes.
+the Gantt row, how a row's tokens are recorded, the time axis and the exit codes.
 
 ## The ticket file
 
@@ -90,6 +90,17 @@ was.
 
 `abandoned` is a state, not a deletion: the row stays as a grey hatched bar with a struck-through
 label, so ids and history are stable and a chart never silently loses a row.
+
+## A row's tokens
+
+`--tokens` **sets** a row's count; the `SubagentStop` hook **adds** to it. The hook reads only the
+agent's first message — its brief — for a line of its own, `agent-progress row: 4` or
+`agent-progress row: 4, 7`, and adds the agent's `input` total (the figure its log line reports) to
+each row named, divided evenly: floored, the remainder to the first. An unset count plus an amount is
+the amount, so a row two agents worked on carries both. A row that does not exist is named on
+standard error and skipped. A brief without the line changes no row. Where the hook is installed,
+pass no `--tokens` on a row a brief named: it would replace the sum. Without the hook, `--tokens`
+from the harness's `subagent_tokens` is the only figure there is.
 
 ## The time axis
 

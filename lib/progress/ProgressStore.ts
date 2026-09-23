@@ -235,6 +235,14 @@ export function setTaskTokens(progress: ProgressFile, taskId: number, tokens: nu
   return 'applied';
 }
 
+/** Accumulates rather than sets, so an agent's tokens reach a row that other agents have already worked on; an unset count counts as 0. */
+export function addTaskTokens(progress: ProgressFile, taskId: number, tokens: number): 'applied' | 'no-such-task' {
+  const task = findTask(progress, taskId);
+  if (task === undefined) return 'no-such-task';
+  task.tokens = (task.tokens ?? 0) + tokens;
+  return 'applied';
+}
+
 function recordPhase(task: Task, status: TaskStatus, at: string): void {
   const history = task.history ?? [];
   history.push({ status, at });
