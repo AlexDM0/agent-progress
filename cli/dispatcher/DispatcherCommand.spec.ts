@@ -1,5 +1,5 @@
 /**
- * Where the user left the dispatcher, which has to outlive the orchestrator's context: a tracker that never set it reads `finished` and
+ * Where the user left the dispatcher, which has to outlive the orchestrator's context: a tracker that never set it reads `stopped` and
  * is not rewritten by the read, each state is read back from the file rather than from anything the process kept, an unknown word
  * leaves the file byte-identical, and the Next line and `status --json` carry what the state means.
  */
@@ -56,15 +56,22 @@ afterEach(() => {
 });
 
 describe.skipIf(!gitIsAvailable())('the dispatcher state', () => {
+  // The first start waits for the user's go: a board nobody started must not read as one to relaunch.
+  test('a fresh tracker holds no state and reads stopped', async () => {
+    expect(storedProgress().dispatcherState).toBeUndefined();
+    expect((await run(['dispatcher'])).outputText()).toBe('stopped');
+  });
+
   // Every tracker written before the field existed lacks it; reading it must neither fail nor add the field.
-  test('a tracker without the field reads finished, and the read leaves the file byte-identical', async () => {
+  test('a tracker without the field reads stopped, and the read leaves the file byte-identical', async () => {
     const progress = storedProgress();
     delete progress.dispatcherState;
     const writtenWithoutState = JSON.stringify(progress);
     writeFileSync(progressFilePath(), writtenWithoutState);
 
-    expect((await run(['dispatcher'])).outputText()).toBe('finished');
-    expect(JSON.parse((await run(['dispatcher', '--json'])).outputText())).toEqual({ dispatcherState: 'finished' });
+    expect((await run(['dispatcher'])).outputText()).toBe('stopped');
+    expect(JSON.parse((await run(['dispatcher', '--json'])).outputText())).toEqual({ dispatcherState: 'stopped' });
+    expect((await run(['status'])).outputText().split('\n').at(-1)).toBe('Next: 2 of 2 slots free; nothing ready; dispatcher stopped: wait for the user\'s go');
     expect(readFileSync(progressFilePath(), 'utf8')).toBe(writtenWithoutState);
   });
 
@@ -101,10 +108,10 @@ describe.skipIf(!gitIsAvailable())('the dispatcher state', () => {
   });
 
   test('status --json carries the state in its concurrency block', async () => {
-    await run(['dispatcher', 'stopped']);
+    await run(['dispatcher', 'finished']);
 
     const document = JSON.parse((await run(['status', '--json'])).outputText()) as { concurrency: { dispatcherState: string } };
-    expect(document.concurrency.dispatcherState).toBe('stopped');
+    expect(document.concurrency.dispatcherState).toBe('finished');
   });
 });
 
@@ -114,13 +121,20 @@ describe.skipIf(!gitIsAvailable())('the advice the Next line gives', () => {
   });
 
   test('a finished dispatcher with a ticket ready is to be launched', async () => {
+    await run(['dispatcher', 'finished']);
+
     expect(await statusNextLine()).toBe('Next: 2 of 2 slots free; ready: #001; launch the dispatcher');
   });
 
-  test('a stopped dispatcher is to be left alone until the user permits it', async () => {
+  test('a board never started waits for the user\'s go however many tickets are ready', async () => {
+    expect(await statusNextLine()).toBe('Next: 2 of 2 slots free; ready: #001; dispatcher stopped: wait for the user\'s go');
+  });
+
+  test('a dispatcher the user stopped waits for the user\'s go', async () => {
+    await run(['dispatcher', 'running']);
     await run(['dispatcher', 'stopped']);
 
-    expect(await statusNextLine()).toBe('Next: 2 of 2 slots free; ready: #001; dispatcher stopped by the user: wait for permission');
+    expect(await statusNextLine()).toBe('Next: 2 of 2 slots free; ready: #001; dispatcher stopped: wait for the user\'s go');
   });
 
   test('a running dispatcher needs no advice', async () => {

@@ -248,7 +248,7 @@ describe.skipIf(!gitIsAvailable())('the concurrency block both --json documents 
       agentsInFlight:  2,
       freeSlots:       0,
       readyTicketIds:  ['002', '004'],
-      dispatcherState: 'finished',
+      dispatcherState: 'stopped',
     };
     expect(working.concurrency).toEqual(expected);
     expect(full.concurrency).toEqual(expected);

@@ -115,15 +115,15 @@ test('a finished dispatcher with nothing ready needs no launching', () => {
   })).toBe('Next: 2 of 2 slots free; nothing ready');
 });
 
-// The user's stop outlives any number of filed tickets: the orchestrator must not relaunch on its own.
-test('a stopped dispatcher says to wait for permission even with tickets ready', () => {
+// A board never started and one the user stopped both wait for the user, however many tickets are filed meanwhile.
+test('a stopped dispatcher says to wait for the user\'s go even with tickets ready', () => {
   expect(composeNextLine({
     limit:           2,
     agentsInFlight:  0,
     freeSlots:       2,
     readyTicketIds:  ['003'],
     dispatcherState: 'stopped',
-  })).toBe('Next: 2 of 2 slots free; ready: #003; dispatcher stopped by the user: wait for permission');
+  })).toBe('Next: 2 of 2 slots free; ready: #003; dispatcher stopped: wait for the user\'s go');
 });
 
 test('a running dispatcher with tickets ready adds no advice', () => {

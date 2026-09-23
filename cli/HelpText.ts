@@ -21,7 +21,7 @@ repository to use instead of walking up from the current directory.
 read from the board after the change: \`Next: 1 of 2 slots free; ready: #003, #005\`, \`Next: no slot
 free (2 agents in flight); ready: #003\` or \`Next: 2 of 2 slots free; nothing ready\` — at most five
 ready ids, then \`and N more\` — followed by the dispatcher's advice where it has any: \`; launch the
-dispatcher\` or \`; dispatcher stopped by the user: wait for permission\`. --json output never carries it.
+dispatcher\` or \`; dispatcher stopped: wait for the user's go\`. --json output never carries it.
 
   init                        Create the tracker here: \`.agent-progress/\` with an empty progress
       [--project <name>]      file, a \`tickets/\` folder and \`agent-brief.md\` — the brief to fill in
@@ -279,11 +279,11 @@ dispatcher\` or \`; dispatcher stopped by the user: wait for permission\`. --jso
                               log line, so it survives a compaction of the orchestrator's context.
                               \`running\`: a dispatcher is at work. \`finished\`: it ended by itself,
                               and the Next line says "launch the dispatcher" while a ticket is
-                              ready. \`stopped\`: the user ended it, and the Next line says
-                              "dispatcher stopped by the user: wait for permission" however many
+                              ready. \`stopped\`: never started, or ended by the user, and the Next
+                              line says "dispatcher stopped: wait for the user's go" however many
                               tickets are filed meanwhile. A tracker that never set one reads
-                              \`finished\`; any other word is refused at exit 1 with nothing
-                              written. \`status --json\` carries it as \`concurrency.dispatcherState\`.
+                              \`stopped\`, and the read writes nothing; any other word is refused
+                              at exit 1 with nothing written. \`status --json\` carries it as \`concurrency.dispatcherState\`.
 
   range --from <when>         The stored default axis of the chart. A relative bound is stored as
         --to <when>           written, so \`--from -2h\` keeps meaning "the last two hours" on every

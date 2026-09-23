@@ -70,8 +70,8 @@ export function concurrencyLimitIsWellFormed(value: unknown): value is number {
 
 export const DISPATCHER_STATES: readonly DispatcherState[] = ['running', 'finished', 'stopped'];
 
-/** What a tracker that never set a dispatcher state reads: nothing stopped it, so it is relaunched when a ticket is ready. */
-const DEFAULT_DISPATCHER_STATE: DispatcherState = 'finished';
+/** What a tracker that never set a dispatcher state reads: the first start waits for the user's go, as a stop by the user does. */
+const DEFAULT_DISPATCHER_STATE: DispatcherState = 'stopped';
 
 export function dispatcherStateIsKnown(value: unknown): value is DispatcherState {
   return typeof value === 'string' && (DISPATCHER_STATES as readonly string[]).includes(value);

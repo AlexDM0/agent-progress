@@ -129,8 +129,8 @@ anything that needs "now" is handed it.
 - `lib/utils/NextLineUtil.ts` — `composeNextLine`, the `Next: …` line from the limit, the agents in
   flight, the free slots and the ready ids: `N of L slots free` or `no slot free (N agents in flight)`, then
   the ready ids as given (at most five, then `and N more`) or `nothing ready`, then the dispatcher's
-  advice: `; launch the dispatcher` when it is `finished` and something is ready, `; dispatcher stopped
-  by the user: wait for permission` whenever it is `stopped`, nothing when it is `running`.
+  advice: `; launch the dispatcher` when it is `finished` and something is ready, `; dispatcher stopped:
+  wait for the user's go` whenever it is `stopped`, nothing when it is `running`.
 - `lib/utils/ReworkCountUtil.ts` — `readDiff` classifies every changed line of unified diff text as
   code, comment, blank or documentation, reading hunk lengths from each `@@` header so a removed
   `-- x` is content rather than a `---` header. **Each side of a hunk keeps its own comment state** (old:
@@ -203,7 +203,7 @@ nothing about tasks or tickets — a caller supplies a path.
   `concurrencyOf` answers `DEFAULT_CONCURRENCY_LIMIT` (2) for it; a present value that is not a whole
   number of at least 1 makes the file unreadable, while one above `CONCURRENCY_LIMIT_CEILING_AGENTS`
   reads as the ceiling and is never rewritten by a read. **The dispatcher state is optional the same way**:
-  `dispatcherStateOf` answers `finished` for a file without `dispatcherState`, and a present value that
+  `dispatcherStateOf` answers `stopped` for a file without `dispatcherState`, and a present value that
   is not one of `DISPATCHER_STATES` makes the file unreadable. **A slot is an agent**: `concurrencyOf` answers
   `agentsInFlight`, the `running` rows grouped by their optional `agent` key (written by `ticket claim`,
   the claimed ids joined) with each group counted once and each keyless running row counted alone,

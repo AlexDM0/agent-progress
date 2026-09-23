@@ -12,7 +12,7 @@ interface BoardCapacity {
 
 /** A running dispatcher needs no advice, and one that finished by itself needs relaunching only when there is a ticket for it to take. */
 function dispatcherAdviceOf(capacity: BoardCapacity): string {
-  if (capacity.dispatcherState === 'stopped') return '; dispatcher stopped by the user: wait for permission';
+  if (capacity.dispatcherState === 'stopped') return '; dispatcher stopped: wait for the user\'s go';
   if (capacity.dispatcherState === 'finished' && capacity.readyTicketIds.length > 0) return '; launch the dispatcher';
   return '';
 }

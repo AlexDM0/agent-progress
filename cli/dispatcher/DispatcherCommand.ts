@@ -16,7 +16,7 @@ const USAGE = `agent-progress dispatcher [${DISPATCHER_STATES.join('|')}] [--jso
 
 const KNOWN_OPTION_NAMES = ['json'];
 
-/** The read takes no lock and writes nothing, so a tracker that never set a state reads `finished` and keeps its file as it was. */
+/** The read takes no lock and writes nothing, so a tracker that never set a state reads `stopped` and keeps its file as it was. */
 function printCurrentState(commandArguments: ArgumentParser, context: CommandContext): void {
   const workspace    = requireWorkspace(context.currentDirectory);
   const progressRead = readProgressFile(workspace);

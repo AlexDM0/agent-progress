@@ -199,7 +199,7 @@ directory that has none is refused with a message saying the variable is set.
 | `ticket link <ticketId> <taskId> [--force]` | Point a ticket at an existing row instead of the one it filed. Refused when that row already belongs to another ticket, unless `--force`. |
 | `ticket depends <id> [<id>...]` | Set the tickets this one waits on, replacing its list; no ids clears it. A missing ticket or a circle is refused. Until they are all done or delivered, the ticket reads "waiting on #003" on the dashboard and in `ticket list`, and `ticket start` warns but still moves it. |
 | `concurrency [<n>] [--json]` | Print how many agents may be in flight at once, or store a new limit for every worktree: a whole number from 1 to 10. A higher one is refused at exit 1 with nothing written, and one an older tracker stored reads as 10. A tracker that never set one reads 2. A slot is an agent: the rows one `ticket claim` started count once. |
-| `dispatcher [running\|finished\|stopped] [--json]` | Print where the dispatcher was left, or store a new state with one log line, so it survives a compaction of the orchestrator's context. A tracker that never set one reads `finished`; any other word is refused at exit 1. `status --json` carries it as `concurrency.dispatcherState`, and the Next line ends with `; launch the dispatcher` when it is `finished` and a ticket is ready, or `; dispatcher stopped by the user: wait for permission` when it is `stopped`. |
+| `dispatcher [running\|finished\|stopped] [--json]` | Print where the dispatcher was left, or store a new state with one log line, so it survives a compaction of the orchestrator's context. A tracker that never set one reads `stopped`, since the first start waits for the user's go, and the read writes nothing; any other word is refused at exit 1. `status --json` carries it as `concurrency.dispatcherState`, and the Next line ends with `; launch the dispatcher` when it is `finished` and a ticket is ready, or `; dispatcher stopped: wait for the user's go` when it is `stopped`. |
 | `range --from <when> --to <when> [--tick <15m\|1h\|1d>]` · `range --auto` | The stored default axis of the chart. A relative bound is stored as written, so `--from -2h` keeps meaning "the last two hours" on every refresh. |
 | `render` | Regenerate `progress.html` from the progress file and the tickets, changing nothing else. |
 | `open` | Open `progress.html` in the default browser. |
@@ -223,7 +223,7 @@ own (an unreadable progress file, a lock it could not take).
   "view": { "kind": "auto" },                    // or absolute/relative bounds with an optional tick
   "nextTaskId": 18,                              // never wound back, so an id is never reused
   "concurrencyLimit": 2,                         // optional: absent reads 2, above 10 reads 10
-  "dispatcherState": "running",                  // optional: running|finished|stopped, absent reads finished
+  "dispatcherState": "running",                  // optional: running|finished|stopped, absent reads stopped
   "tasks": [
     {
       "id": 17,

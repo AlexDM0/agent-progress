@@ -177,11 +177,12 @@ slots free; nothing ready`. Ready ids are listed lowest first, at most five, the
 
 `agent-progress dispatcher` prints where the dispatcher was left, and `agent-progress dispatcher
 running|finished|stopped` stores it with one log line, so it survives a compaction of the
-orchestrator's context. A tracker that never set one reads `finished`, and the read writes nothing;
-any other word is refused at exit 1. `status --json` carries it as `concurrency.dispatcherState`, and
-the Next line ends with what it means: `finished` — it ended by itself — with a ticket ready adds
-`; launch the dispatcher`; `stopped` — the user ended it — adds `; dispatcher stopped by the user:
-wait for permission`, however many tickets are filed meanwhile; `running` adds nothing.
+orchestrator's context. A tracker that never set one reads `stopped` — the first start waits for the
+user's go — and the read writes nothing; any other word is refused at exit 1. `status --json` carries
+it as `concurrency.dispatcherState`, and the Next line ends with what it means: `finished` — it ended
+by itself, so it is relaunched — with a ticket ready adds `; launch the dispatcher`; `stopped` —
+never started, or ended by the user — adds `; dispatcher stopped: wait for the user's go`, however
+many tickets are filed meanwhile; `running` adds nothing.
 
 ## Releasing a branch
 
