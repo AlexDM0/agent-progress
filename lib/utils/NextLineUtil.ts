@@ -2,13 +2,13 @@ const READY_TICKETS_LISTED_AT_MOST = 5;
 
 interface BoardCapacity {
   limit:          number;
-  inFlight:       number;
+  agentsInFlight: number;
   freeSlots:      number;
   readyTicketIds: readonly string[];
 }
 
 function slotsTextOf(capacity: BoardCapacity): string {
-  if (capacity.freeSlots === 0) return `no slot free (${capacity.inFlight} running)`;
+  if (capacity.freeSlots === 0) return `no slot free (${capacity.agentsInFlight} ${capacity.agentsInFlight === 1 ? 'agent' : 'agents'} in flight)`;
   return `${capacity.freeSlots} of ${capacity.limit} slots free`;
 }
 

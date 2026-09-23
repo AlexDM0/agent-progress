@@ -19,8 +19,8 @@ repository to use instead of walking up from the current directory.
 
 \`status\`, \`ticket add\`, every ticket or task move and \`release\` end their output with one line
 read from the board after the change: \`Next: 1 of 2 slots free; ready: #003, #005\`, \`Next: no slot
-free (2 running); ready: #003\` or \`Next: 2 of 2 slots free; nothing ready\` — at most five ready
-ids, then \`and N more\`. --json output never carries it.
+free (2 agents in flight); ready: #003\` or \`Next: 2 of 2 slots free; nothing ready\` — at most five
+ready ids, then \`and N more\`. --json output never carries it.
 
   init                        Create the tracker here: \`.agent-progress/\` with an empty progress
       [--project <name>]      file, a \`tickets/\` folder and \`agent-brief.md\` — the brief to fill in
@@ -52,7 +52,7 @@ ids, then \`and N more\`. --json output never carries it.
                               last 10 log entries and counts of what was left out. --full lists
                               everything, and with --json prints the whole progress file plus
                               every ticket's frontmatter. Both --json documents carry
-                              \`concurrency\`: the limit, the rows in flight, the free slots and
+                              \`concurrency\`: the limit, the agents in flight, the free slots and
                               the ids of the ready tickets — open, every dependency settled —
                               high priority first, then normal, each lowest id first. A low ticket
                               is ready only once no normal or high ticket is left that is not
@@ -213,14 +213,17 @@ ids, then \`and N more\`. --json output never carries it.
                               the row to pending. --branch and --commit record where the work
                               landed, and --tokens what it cost.
 
-  ticket claim <id>           \`ticket start\` and the row's --owner and --note in one write, refused
-      [--owner <who>]         at exit 1 with nothing written when the ticket is not open or
-      [--note <text>]         in-review, when a ticket it waits on is not done or delivered, or when
-      [--at <when>]           the running rows already number the concurrency limit, or when the
-                              ticket is low and a normal or high ticket is not yet delivered or
-                              abandoned — \`ticket start\` only warns about that. The count and
-                              the move share one lock hold, so two claims racing for the last slot
-                              cannot both succeed. The first command an implementing agent runs.
+  ticket claim <id> [<id>...] \`ticket start\` and the row's --owner and --note in one write, for
+      [--owner <who>]         every ticket named, as ONE agent: a bundle's builder claims all its
+      [--note <text>]         tickets in the one call, and their rows share one agent key. Refused
+      [--at <when>]           at exit 1 with nothing written, all or nothing, when any ticket is not
+                              open or in-review, when one waits on a ticket not done or delivered,
+                              when one is low and a normal or high ticket is not yet delivered or
+                              abandoned — \`ticket start\` only warns about that — or when the agents
+                              in flight already number the concurrency limit. The count and the
+                              moves share one lock hold, so two claims racing for the last slot
+                              cannot both succeed. --json prints the ticket, or with several ids
+                              the list of them. The first command an implementing agent runs.
 
   ticket rereview <id>        Send a ticket already in review round again, for a fresh reviewer: the
       [--at <when>]           ticket stays in-review and only its \`updated\` moves, while its row
@@ -246,12 +249,14 @@ ids, then \`and N more\`. --json output never carries it.
                               read "waiting on #003", \`ticket list\` says so too, and \`ticket start\`
                               warns on standard error but still moves it.
 
-  concurrency [<n>] [--json]  Print the concurrency limit: how many rows may be running at once,
-                              a ticket's and a free-standing review bar's alike. With <n>, store a
-                              new one (a whole number, 1 or more) for every worktree. A tracker that
-                              never set one reads 2; a limit below the rows already running is
-                              accepted and simply leaves no free slot. \`status --json\` carries it
-                              beside the rows in flight, the free slots and the ready tickets.
+  concurrency [<n>] [--json]  Print the concurrency limit: how many agents may be in flight at once.
+                              A slot is an agent: the running rows one \`ticket claim\` started count
+                              once, and every other running row, such as a review bar, counts on
+                              its own. With <n>, store a new one (a whole number, 1 or more) for
+                              every worktree. A tracker that never set one reads 2; a limit below
+                              the agents already in flight is accepted and simply leaves no free
+                              slot. \`status --json\` carries it beside \`agentsInFlight\`, the free
+                              slots and the ready tickets.
 
   range --from <when>         The stored default axis of the chart. A relative bound is stored as
         --to <when>           written, so \`--from -2h\` keeps meaning "the last two hours" on every

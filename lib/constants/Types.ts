@@ -30,6 +30,11 @@ export interface Task {
   reviewRound?: number;
   /** The phases this row went through, oldest first; absent on a row filed before the field existed, which the page says rather than guesses. */
   history?:     TaskPhase[];
+  /**
+   * The agent this row belongs to: every row one `ticket claim` started carries the claimed ids joined (`"003,004,005"`), so a bundle's
+   * running rows count as one agent. Absent on a row no claim started, which counts as an agent of its own.
+   */
+  agent?:       string;
 }
 
 export interface LogEntry {
@@ -51,7 +56,7 @@ export interface ProgressFile {
   view:              ViewRange;
   /** Never wound back, not by `task remove` and not by `clear`, so an id is never handed out twice. */
   nextTaskId:        number;
-  /** How many rows may be running at once; absent on a tracker that never set one, which reads as the default. */
+  /** How many agents may be in flight at once; absent on a tracker that never set one, which reads as the default. */
   concurrencyLimit?: number;
   tasks:             Task[];
   log:               LogEntry[];

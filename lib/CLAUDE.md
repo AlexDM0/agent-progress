@@ -58,7 +58,7 @@ Imports nothing; safe to compile alongside the browser page, which is why no val
 or Node.
 
 - `lib/constants/Types.ts` — every shape the tracker stores or renders: `Task` (with its nullable
-  `tokens` and its optional `history`), `TaskPhase`, `LogEntry`, `ViewRange`, `ProgressFile` (with
+  `tokens` and its optional `history` and `agent`), `TaskPhase`, `LogEntry`, `ViewRange`, `ProgressFile` (with
   `nextTaskId` and the optional `concurrencyLimit`), `TicketFrontmatter` (with the optional `priority`,
   absent meaning normal), `TicketPriority`, `Ticket`. Types only, no values.
 - `lib/constants/Limits.ts` — the tuning constants, each with its unit in its name: lock staleness and
@@ -124,8 +124,8 @@ anything that needs "now" is handed it.
   normal, then lowest id first; low tickets only once nothing holds them back). Shared by
   `ticket depends`, `ticket claim`, `ticket start`'s warnings, `status --json` and the page's
   "waiting on" note.
-- `lib/utils/NextLineUtil.ts` — `composeNextLine`, the `Next: …` line from the limit, the rows in
-  flight, the free slots and the ready ids: `N of L slots free` or `no slot free (N running)`, then
+- `lib/utils/NextLineUtil.ts` — `composeNextLine`, the `Next: …` line from the limit, the agents in
+  flight, the free slots and the ready ids: `N of L slots free` or `no slot free (N agents in flight)`, then
   the ready ids as given (at most five, then `and N more`) or `nothing ready`.
 - `lib/utils/ReworkCountUtil.ts` — `readDiff` classifies every changed line of unified diff text as
   code, comment, blank or documentation, reading hunk lengths from each `@@` header so a removed
@@ -197,8 +197,11 @@ nothing about tasks or tickets — a caller supplies a path.
 
   **The concurrency limit is optional on disk.** A progress file without `concurrencyLimit` reads, and
   `concurrencyOf` answers `DEFAULT_CONCURRENCY_LIMIT` (2) for it; a present value that is not a whole
-  number of at least 1 makes the file unreadable. `concurrencyOf` counts every `running` row as in
-  flight, a ticket's or a free-standing one's, and never answers negative free slots.
+  number of at least 1 makes the file unreadable. **A slot is an agent**: `concurrencyOf` answers
+  `agentsInFlight`, the `running` rows grouped by their optional `agent` key (written by `ticket claim`,
+  the claimed ids joined) with each group counted once and each keyless running row counted alone,
+  and never answers negative free slots. `transitionTask` drops the key when a row starts running from
+  anything but a pause, so a restarted row is an agent of its own until a claim keys it again.
 
   **A row's `history` is the record of what happened to it.** `transitionTask` files a phase per move
   that really changed the status — `pending` included, so `ticket reopen` is on the record — plus one

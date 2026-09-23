@@ -23,7 +23,11 @@ calls to 543 to 720 thousand tokens of context.
 
 A bundle is two to four tickets the orchestrator expects to fit one budget together, that touch the
 same files or the same mechanism, worked in the order given — dependencies first — with one commit
-and one Handoff per ticket, so each can be judged, reverted and delivered on its own.
+and one Handoff per ticket, so each can be judged, reverted and delivered on its own. **A bundle is
+one agent and holds one slot**: its builder claims every ticket in one `ticket claim` call, which
+starts them all or none and marks their rows as one agent. Starting them one at a time — a claim or
+a `ticket start` per ticket — counts each as an agent of its own, and a three-ticket bundle on a
+limit of 2 cannot be claimed that way at all.
 
 The file list is a starting point, not a fence. An orchestrator writes it from outside the code and
 gets it wrong: a list that omits the one file the acceptance actually needs sends back a ticket with
@@ -41,8 +45,11 @@ Worktree: <absolute path>   Branch: <branch>
 Everything you do happens in that worktree: every edit, every command, every commit, git as
 `git -C <worktree>`. Your working directory may be the main checkout; it is not yours to touch.
 Task: <the one ticket, the half of it this agent owns, or the bundle: #a, #b, #c in this order>.
-agent-progress row: <the ticket's rowId, or every row of the bundle: 4, 7>
-agent-progress ticket: <instead of the row line when the builder claims the ticket itself: 22, 20>
+agent-progress row: <the ticket's rowId, when you started it yourself>
+agent-progress ticket: <instead of the row line when the builder claims: the same ids as its claim, 22, 20>
+<when the builder claims:> FIRST command, before anything else: `agent-progress ticket claim <the id,
+or every id of the bundle in ONE call: 22 20> --owner <model> --note "<what it will do>"`. If it
+exits 1, stop at once and report its message verbatim.
 A bundle is worked one ticket at a time: finish, verify and commit each before starting the next.
 Work belongs in: <the files you expect it to touch>.
 If satisfying the Acceptance block genuinely requires a file outside that list, edit it and say so
@@ -294,10 +301,11 @@ its reworked total over 750.
 Register the row before the agent starts and name it in the brief's `agent-progress row: <rowId>`
 line; the `SubagentStop` hook reads that line from the brief alone and adds the agent's `input` —
 every token it processed, the figure its log line ends on, `input 3.8M (cache read 3.6M)` — to the
-row when the agent stops, divided evenly over a bundle's rows. It adds rather than sets, so a row
+row when the agent stops. It adds rather than sets, so a row
 several agents worked on carries all of them, and a workflow script's agents reach their row the same
-way. A ticket without a row yet — a low one, whose row the builder's own claim creates — is named
-by ticket instead, `agent-progress ticket: 22, 20`, and the hook looks its row up when the agent
+way. A bundle, and a ticket without a row yet — a low one, whose row the builder's own claim creates —
+is named by ticket instead, `agent-progress ticket: 22, 20`, the same ids as the builder's one
+`ticket claim 22 20`, and the hook divides evenly over their rows, looking each up when the agent
 stops; keep one of the two lines, since a brief with both is read by its row line alone. The review
 brief always names the review bar's own row. **Where the hook is installed, pass no `--tokens`**: it would replace the sum. The harness's own
 `subagent_tokens` is roughly the end context and is the fallback for a repository without the hook,

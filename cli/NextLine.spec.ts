@@ -42,7 +42,7 @@ const NEXT_LINE_CASES: NextLineCase[] = [
   {
     command:          ['ticket', 'claim', '1'],
     setup:            [['task', 'start', '4']],
-    expectedNextLine: 'Next: no slot free (2 running); ready: #002, #003',
+    expectedNextLine: 'Next: no slot free (2 agents in flight); ready: #002, #003',
   },
   {
     command:          ['ticket', 'review', '1'],

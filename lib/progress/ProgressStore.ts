@@ -66,17 +66,24 @@ export function concurrencyLimitIsWellFormed(value: unknown): value is number {
 }
 
 export interface Concurrency {
-  limit:     number;
-  /** Every running row, a ticket's or a free-standing one such as a review bar: each is an agent at work. */
-  inFlight:  number;
-  /** Never negative: a limit lowered below the rows already running leaves no slot, and takes none of them back. */
-  freeSlots: number;
+  limit:          number;
+  /** The running rows grouped by their `agent` key, each group counted once; a running row with no key, such as a review bar, is an agent of its own. */
+  agentsInFlight: number;
+  /** Never negative: a limit lowered below the agents already in flight leaves no slot, and takes none of them back. */
+  freeSlots:      number;
+}
+
+function agentsInFlightOf(tasks: readonly Task[]): number {
+  const runningTasks      = tasks.filter((task) => task.status === 'running');
+  const claimedAgentKeys  = new Set(runningTasks.flatMap((task) => (task.agent === undefined ? [] : [task.agent])));
+  const unclaimedRowCount = runningTasks.filter((task) => task.agent === undefined).length;
+  return claimedAgentKeys.size + unclaimedRowCount;
 }
 
 export function concurrencyOf(progress: ProgressFile): Concurrency {
-  const limit    = progress.concurrencyLimit ?? DEFAULT_CONCURRENCY_LIMIT;
-  const inFlight = progress.tasks.filter((task) => task.status === 'running').length;
-  return { limit, inFlight, freeSlots: Math.max(0, limit - inFlight) };
+  const limit          = progress.concurrencyLimit ?? DEFAULT_CONCURRENCY_LIMIT;
+  const agentsInFlight = agentsInFlightOf(progress.tasks);
+  return { limit, agentsInFlight, freeSlots: Math.max(0, limit - agentsInFlight) };
 }
 
 function textFieldIsPresent(candidate: Record<string, unknown>, field: string): boolean {
@@ -139,6 +146,7 @@ function taskProblem(value: unknown, index: number): string | null {
   if (task['history'] !== undefined && !taskHistoryIsWellFormed(task['history'])) {
     return `tasks[${index}].history is present and is not a list of phases, each a known status with the timestamp it was reached at`;
   }
+  if (task['agent'] !== undefined && typeof task['agent'] !== 'string') return `tasks[${index}].agent is present but not the key of the claim that started it`;
   return null;
 }
 
@@ -285,6 +293,9 @@ export function transitionTask(progress: ProgressFile, taskId: number, status: T
   if (task === undefined) return 'no-such-task';
 
   const statusMoved = task.status !== status;
+
+  // A row that starts running anew is its own agent until a claim keys it again; only a resumed pause is still the same agent.
+  if (status === 'running' && task.status !== 'running' && task.status !== 'paused') delete task.agent;
 
   if (status === 'running' || status === 'paused') {
     task.start = task.start ?? at;

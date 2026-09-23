@@ -66,7 +66,7 @@ The **from** column is the matrix the named verbs enforce; `ticket status <id> <
 |---|---|---|---|---|---|---|
 | `ticket add` | — | open | created, `pending`; none for a low ticket | `unstarted` | `filed` | `Ticket #003 filed: <title>` |
 | `ticket start` | open, in-review | in-progress | `running` | `wip` | `started` if null; the row's end cleared | `Ticket #003 started` |
-| `ticket claim` | open, in-review, dependencies settled, a free slot, and for a low ticket no normal or high one owed | in-progress | `running`, with `--owner` and `--note` | `wip` | as `ticket start` | `Ticket #003 started` |
+| `ticket claim` | open, in-review, dependencies settled, a free slot, and for a low ticket no normal or high one owed — for every id named | in-progress | `running`, with `--owner`, `--note` and the claim's `agent` key | `wip` | as `ticket start` | `Ticket #003 started`, one per ticket |
 | `ticket review` | in-progress | in-review | `finished` | `reviewing` | `finished` if null | `Ticket #003 in review` |
 | `ticket rereview` | in-review | in-review, unchanged | `re-review`, one round up from 2 | `reviewing 2` | `updated` only | `Ticket #003 in review, round 2` |
 | `ticket done` | in-progress, in-review | done | `reviewed` | `awaiting merge` | `finished` if null | `Ticket #003 done` |
@@ -128,12 +128,18 @@ from the harness's `subagent_tokens` is the only figure there is.
 
 The board holds how many agents may be in flight: `agent-progress concurrency` prints it, and
 `agent-progress concurrency <n>` stores it for every worktree. A tracker that never set one reads 2.
-**An agent in flight is every row whose status is `running`** — a ticket in progress and a running
-review bar alike. `ticket claim` refuses at exit 1, writing nothing, when the running rows already
-number the limit; the count and the move share one lock hold, so of two claims racing for the last
+**A slot is an agent, not a row.** `ticket claim 3 4 5` claims a bundle's tickets as one agent, all
+or nothing, and writes the same `agent` key on each of their rows — the claimed ids joined,
+`"003,004,005"`. The agents in flight are the `running` rows grouped by that key, each group counted
+once, plus every running row with no key — a review bar, a `task add --start` row, a ticket started
+by `ticket start` — each an agent of its own. A bundle whose tickets go to review one at a time keeps
+its slot until its last row stops running. A row that starts running again other than from a pause
+loses its key, so a reopened bundle ticket is a new agent. `ticket claim` refuses at exit 1, writing
+nothing, when any ticket named would be refused on its own or when the agents in flight already
+number the limit; the count and the moves share one lock hold, so of two claims racing for the last
 slot exactly one succeeds. `ticket start` is the manual path: it checks no limit and only warns about
-dependencies. A limit lowered below the running count is accepted and leaves no free slot; nothing
-running is stopped. `status --json` carries `concurrency`: `limit`, `inFlight`, `freeSlots` (never
+dependencies. A limit lowered below the agents in flight is accepted and leaves no free slot; nothing
+running is stopped. `status --json` carries `concurrency`: `limit`, `agentsInFlight`, `freeSlots` (never
 negative) and `readyTicketIds`, the open tickets whose every dependency is done or delivered, high
 priority first, then normal, each lowest id first. **Low tickets are ready only once no normal or
 high ticket is left that is not delivered or abandoned** — a `done` ticket still waiting for its
@@ -142,7 +148,7 @@ merge holds them back — and `ticket claim` refuses a low ticket at exit 1 whil
 
 The same figures close the human output of `status`, `ticket add`, every ticket or task move and
 `release`, as one **Next line** read after the change, inside the same lock hold: `Next: 1 of 2
-slots free; ready: #003, #005`, `Next: no slot free (2 running); ready: #003` or `Next: 2 of 2
+slots free; ready: #003, #005`, `Next: no slot free (2 agents in flight); ready: #003` or `Next: 2 of 2
 slots free; nothing ready`. Ready ids are listed lowest first, at most five, then `and N more`.
 `--json` output never carries the line.
 

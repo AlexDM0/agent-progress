@@ -24,7 +24,7 @@ type StatusDocument = ProgressFile & {
   omitted?:    { settledTasks: number; settledTickets: number; olderLogEntries: number };
   concurrency: {
     limit:          number;
-    inFlight:       number;
+    agentsInFlight: number;
     freeSlots:      number;
     readyTicketIds: string[];
   };
@@ -244,7 +244,7 @@ describe.skipIf(!gitIsAvailable())('the concurrency block both --json documents 
 
     const expected = {
       limit:          2,
-      inFlight:       2,
+      agentsInFlight: 2,
       freeSlots:      0,
       readyTicketIds: ['002', '004'],
     };

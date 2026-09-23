@@ -87,7 +87,7 @@ describe.skipIf(!gitIsAvailable())('the concurrency limit', () => {
 
     await run(['concurrency', '1']);
 
-    const document = JSON.parse((await run(['status', '--json'])).outputText()) as { concurrency: { limit: number; inFlight: number; freeSlots: number } };
-    expect(document.concurrency).toMatchObject({ limit: 1, inFlight: 2, freeSlots: 0 });
+    const document = JSON.parse((await run(['status', '--json'])).outputText()) as { concurrency: { limit: number; agentsInFlight: number; freeSlots: number } };
+    expect(document.concurrency).toMatchObject({ limit: 1, agentsInFlight: 2, freeSlots: 0 });
   });
 });

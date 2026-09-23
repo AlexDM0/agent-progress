@@ -60,7 +60,7 @@ const USAGE = [
   'agent-progress ticket list [--status <s>] [--priority <p>] [--json]',
   'agent-progress ticket show <id> [--json]',
   'agent-progress ticket start|review|done|deliver|abandon|reopen <id> [--branch <b>] [--commit <sha>] [--reason <text>] [--tokens <n>] [--at <when>]',
-  'agent-progress ticket claim <id> [--owner <who>] [--note <text>] [--at <when>]',
+  'agent-progress ticket claim <id> [<id>...] [--owner <who>] [--note <text>] [--at <when>]',
   'agent-progress ticket rereview <id> [--at <when>]',
   'agent-progress ticket status <id> <status> [...same options]',
   'agent-progress ticket link <ticketId> <taskId> [--force]',
@@ -463,62 +463,91 @@ async function rereviewOneTicket(reference: string, commandArguments: ArgumentPa
   printEntityThenNextLine(commandArguments, context, ticketAsJson(moved.ticket), moved.logText, nextLine);
 }
 
+function refuseAnUnclaimableTicket(ticket: Ticket, tickets: readonly Ticket[]): void {
+  const { id, status } = ticket.frontmatter;
+  if (!ticketMoveIsLegal(status, 'in-progress')) {
+    const legalSources = LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS['in-progress'].join(' or ');
+    throw new OperationRefusal('refused', `Ticket #${id} is ${status}, and \`agent-progress ticket claim\` takes a ticket that is ${legalSources}. Nothing was written.`);
+  }
+  const unsettled = unsettledDependenciesFor(ticket, tickets);
+  if (unsettled.length > 0) {
+    throw new OperationRefusal('refused', `Ticket #${id} is ${waitingOnText(unsettled)}, which must be done or delivered before it is claimed. Nothing was written.`);
+  }
+  const lowHeldBack = lowTicketHeldBackText(ticket, tickets);
+  if (lowHeldBack !== null) {
+    throw new OperationRefusal('refused', `${lowHeldBack}, so it is not claimed. Nothing was written; \`agent-progress ticket start ${id}\` starts it regardless.`);
+  }
+}
+
+function namedTicketsText(identifiers: readonly string[]): string {
+  const named = identifiers.map((identifier) => `#${identifier}`).join(', ');
+  return identifiers.length === 1 ? `Ticket ${named}` : `Tickets ${named}`;
+}
+
+/** Several references to one ticket (`3`, `003`, `#3`) claim it once. */
+function distinctTicketsOf(references: readonly string[], workspace: Workspace): Ticket[] {
+  const claimedTickets = new Map<string, Ticket>();
+  for (const reference of references) {
+    const ticket = requireTicket(workspace, reference);
+    if (!claimedTickets.has(ticket.frontmatter.id)) claimedTickets.set(ticket.frontmatter.id, ticket);
+  }
+  return [...claimedTickets.values()].sort((a, b) => a.frontmatter.id.localeCompare(b.frontmatter.id));
+}
+
 /**
- * `ticket start` plus the row's owner and note, refused rather than warned: every check and the move share one lock hold, so two claims
- * racing for the last slot cannot both pass the count.
+ * `ticket start` plus the row's owner and note for every ticket named, as one agent, refused rather than warned: every check and every move
+ * share one lock hold, so the claim is all or nothing and two claims racing for the last slot cannot both pass the count.
  */
-async function claimOneTicket(reference: string, commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
+async function claimTickets(references: readonly string[], commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   const owner = commandArguments.option('owner');
   const note  = commandArguments.option('note');
 
   const { result: claimed, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
-    const ticket         = requireTicket(change.workspace, reference);
-    const { id, status } = ticket.frontmatter;
-    if (!ticketMoveIsLegal(status, 'in-progress')) {
-      const legalSources = LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS['in-progress'].join(' or ');
-      throw new OperationRefusal('refused', `Ticket #${id} is ${status}, and \`agent-progress ticket claim\` takes a ticket that is ${legalSources}. Nothing was written.`);
-    }
-    const { tickets } = listTickets(change.workspace);
-    const unsettled   = unsettledDependenciesFor(ticket, tickets);
-    if (unsettled.length > 0) {
-      throw new OperationRefusal('refused', `Ticket #${id} is ${waitingOnText(unsettled)}, which must be done or delivered before it is claimed. Nothing was written.`);
-    }
-    const lowHeldBack = lowTicketHeldBackText(ticket, tickets);
-    if (lowHeldBack !== null) {
-      throw new OperationRefusal('refused', `${lowHeldBack}, so it is not claimed. Nothing was written; \`agent-progress ticket start ${id}\` starts it regardless.`);
-    }
-    const { inFlight, limit } = concurrencyOf(change.progress);
-    if (inFlight >= limit) {
+    const claimedTickets = distinctTicketsOf(references, change.workspace);
+    const identifiers    = claimedTickets.map((ticket) => ticket.frontmatter.id);
+    const { tickets }    = listTickets(change.workspace);
+    for (const ticket of claimedTickets) refuseAnUnclaimableTicket(ticket, tickets);
+
+    const { agentsInFlight, limit } = concurrencyOf(change.progress);
+    if (agentsInFlight >= limit) {
+      const runningRowCount = change.progress.tasks.filter((task) => task.status === 'running').length;
       throw new OperationRefusal(
         'refused',
-        `Ticket #${id} was not claimed: ${inFlight} rows are running and the concurrency limit is ${limit}. `
-        + 'Nothing was written; claim it once a running row has moved on.',
+        `${namedTicketsText(identifiers)} ${identifiers.length === 1 ? 'was' : 'were'} not claimed: ${agentsInFlight} agents are in flight `
+        + `(${runningRowCount} rows are running) and the concurrency limit is ${limit} agents. Nothing was written; claim once an agent has finished.`,
       );
     }
 
-    const outcome = applyTicketTransition({
-      progress:     change.progress,
-      ticket,
-      targetStatus: 'in-progress',
-      at:           change.at,
-      operations:   progressOperations,
-    });
-    if (outcome.verdict === 'refused') throw new OperationRefusal('refused', `Ticket #${id} was not claimed: ${outcome.reason}.`);
-    const row = outcome.ticket.frontmatter.task === null ? undefined : findTask(change.progress, outcome.ticket.frontmatter.task);
-    if (row !== undefined && owner !== undefined) row.owner = owner;
-    if (row !== undefined && note !== undefined) row.note = note;
-    change.writeTicketAfterwards(outcome.ticket);
-    return { logText: outcome.logText, ticket: outcome.ticket, concurrency: concurrencyOf(change.progress) };
+    // Every id, not the lowest alone: a bundle ticket reopened and claimed on its own must not share a key with the rest still running.
+    const agentKey = identifiers.join(',');
+    const moved: Ticket[] = [];
+    for (const ticket of claimedTickets) {
+      const outcome = applyTicketTransition({
+        progress:     change.progress,
+        ticket,
+        targetStatus: 'in-progress',
+        at:           change.at,
+        operations:   progressOperations,
+      });
+      if (outcome.verdict === 'refused') throw new OperationRefusal('refused', `Ticket #${ticket.frontmatter.id} was not claimed: ${outcome.reason}. Nothing was written.`);
+      const row = outcome.ticket.frontmatter.task === null ? undefined : findTask(change.progress, outcome.ticket.frontmatter.task);
+      if (row !== undefined) row.agent = agentKey;
+      if (row !== undefined && owner !== undefined) row.owner = owner;
+      if (row !== undefined && note !== undefined) row.note = note;
+      change.writeTicketAfterwards(outcome.ticket);
+      moved.push(outcome.ticket);
+    }
+    return { identifiers, tickets: moved, concurrency: concurrencyOf(change.progress) };
   });
 
-  const { concurrency, logText, ticket } = claimed;
-  printEntityThenNextLine(
-    commandArguments,
-    context,
-    ticketAsJson(ticket),
-    `${logText}: ${concurrency.inFlight} of ${concurrency.limit} slots are now taken.`,
-    nextLine,
-  );
+  const { concurrency, identifiers, tickets } = claimed;
+  const [onlyTicket] = tickets;
+  const slotsText    = `${concurrency.agentsInFlight} of ${concurrency.limit} slots are now taken.`;
+  if (tickets.length === 1 && onlyTicket !== undefined) {
+    printEntityThenNextLine(commandArguments, context, ticketAsJson(onlyTicket), `${namedTicketsText(identifiers)} started: ${slotsText}`, nextLine);
+    return;
+  }
+  printEntityThenNextLine(commandArguments, context, tickets.map(ticketAsJson), `${namedTicketsText(identifiers)} started as one agent: ${slotsText}`, nextLine);
 }
 
 function refuseAnIllegalMove(ticket: Ticket, targetStatus: TicketStatus, checksTheMatrix: boolean): void {
@@ -674,12 +703,11 @@ export const ticketCommand: CommandHandler = async (commandArguments, context) =
   if (subcommand === 'priority') return setTicketPriority(commandArguments, context);
   if (subcommand === 'claim') {
     commandArguments.rejectUnknownOptions(CLAIM_OPTION_NAMES, USAGE);
-    commandArguments.rejectExtraPositionals(2, USAGE);
-    const reference = commandArguments.positionals()[1];
-    if (reference === undefined) {
-      throw new OperationRefusal('refused', `agent-progress ticket claim needs a ticket id.\n  Usage: ${USAGE}`);
+    const references = commandArguments.positionals().slice(1);
+    if (references.length === 0) {
+      throw new OperationRefusal('refused', `agent-progress ticket claim needs a ticket id, or every id of a bundle.\n  Usage: ${USAGE}`);
     }
-    return claimOneTicket(reference, commandArguments, context);
+    return claimTickets(references, commandArguments, context);
   }
   if (subcommand === 'rereview') {
     commandArguments.rejectUnknownOptions(REREVIEW_OPTION_NAMES, USAGE);

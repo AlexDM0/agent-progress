@@ -105,7 +105,7 @@ test('a document with no concurrency limit reads, and its figures fall back to t
   delete withoutLimit.concurrencyLimit;
   const result = readBack('store-no-limit', withoutLimit);
   expect(result.verdict).toBe('readable');
-  expect(result.verdict === 'readable' ? concurrencyOf(result.progress) : null).toEqual({ limit: 2, inFlight: 0, freeSlots: 2 });
+  expect(result.verdict === 'readable' ? concurrencyOf(result.progress) : null).toEqual({ limit: 2, agentsInFlight: 0, freeSlots: 2 });
 });
 
 test('a concurrency limit that is not a whole number of at least 1 makes the file unreadable, and the reason names the field', () => {
@@ -121,7 +121,54 @@ test('only running rows are in flight, and the free slots never go below zero', 
   addTask(progress, { name: 'Review pass two', status: 'running', start: STARTED_AT });
   addTask(progress, { name: 'Paused chore', status: 'paused', start: STARTED_AT });
   addTask(progress, { name: 'Queued chore' });
-  expect(concurrencyOf(progress)).toEqual({ limit: 1, inFlight: 2, freeSlots: 0 });
+  expect(concurrencyOf(progress)).toEqual({ limit: 1, agentsInFlight: 2, freeSlots: 0 });
+});
+
+// A slot is an agent: three rows one claim started are one agent, and a row with no key beside them is another.
+test('running rows sharing an agent key count once, and a running row with no key counts on its own', () => {
+  const progress = emptyProgress();
+  for (const name of ['Bundle part one', 'Bundle part two', 'Bundle part three']) {
+    addTask(progress, { name, status: 'running', start: STARTED_AT }).agent = '003,004,005';
+  }
+  addTask(progress, { name: 'Review pass', status: 'running', start: STARTED_AT });
+  expect(concurrencyOf(progress)).toEqual({ limit: 2, agentsInFlight: 2, freeSlots: 0 });
+});
+
+// The builder finishes and hands off one ticket at a time, and the slot stays held until its last row stops.
+test('a bundle whose rows finish one at a time counts as one agent until its last row stops running', () => {
+  const progress   = emptyProgress();
+  const bundleRows = ['Bundle part one', 'Bundle part two', 'Bundle part three'].map((name) => {
+    const row = addTask(progress, { name, status: 'running', start: STARTED_AT });
+    row.agent = '003,004,005';
+    return row;
+  });
+
+  const agentsInFlightAfterEachFinish = bundleRows.map((row) => {
+    transitionTask(progress, row.id, 'finished', FINISHED_AT);
+    return concurrencyOf(progress).agentsInFlight;
+  });
+
+  expect(agentsInFlightAfterEachFinish).toEqual([1, 1, 0]);
+});
+
+// A reopened bundle ticket started again by hand must not rejoin the agent its old bundle still runs under.
+test('a row that starts running anew drops its agent key, and a resumed pause keeps it', () => {
+  const progress  = emptyProgress();
+  const restarted = addTask(progress, {
+    name:   'Restarted part',
+    status: 'finished',
+    start:  STARTED_AT,
+    end:    FINISHED_AT,
+  });
+  const resumed   = addTask(progress, { name: 'Resumed part', status: 'paused', start: STARTED_AT });
+  restarted.agent = '003,004';
+  resumed.agent   = '003,004';
+
+  transitionTask(progress, restarted.id, 'running', FINISHED_AT);
+  transitionTask(progress, resumed.id, 'running', FINISHED_AT);
+
+  expect(restarted.agent).toBeUndefined();
+  expect(resumed.agent).toBe('003,004');
 });
 
 test('a task whose status this build does not know makes the whole file unreadable, and the reason names the task and the status', () => {
@@ -166,6 +213,11 @@ test('every other missing or mistyped field is named too', () => {
       named:    'tasks[0].history',
     },
     { prefix: 'store-history-no-stamp', document: { ...progress, tasks: [{ ...progress.tasks[0], history: [{ status: 'running' }] }] }, named: 'tasks[0].history' },
+    {
+      prefix:   'store-agent-not-text',
+      document: { ...progress, tasks: [{ ...progress.tasks[0], agent: 3 }] },
+      named:    'tasks[0].agent',
+    },
   ];
   for (const { prefix, document, named } of cases) {
     const result = readBack(prefix, document);

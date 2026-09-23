@@ -68,7 +68,7 @@ export function printEntity(commandArguments: ArgumentParser, context: CommandCo
 }
 
 /**
- * What a dispatcher needs to start the next agent: the limit, the rows running against it, what is left, and the tickets that could take it —
+ * What a dispatcher needs to start the next agent: the limit, the agents in flight against it, what is left, and the tickets that could take it —
  * in the order to take them, high first, with low tickets held back while normal or high work is still owed.
  */
 export function concurrencyDocumentOf(progress: ProgressFile, tickets: readonly Ticket[]): Concurrency & { readyTicketIds: string[] } {

@@ -60,6 +60,6 @@ export const concurrencyCommand: CommandHandler = async (commandArguments, conte
     commandArguments,
     context,
     concurrency,
-    `Concurrency limit set to ${limit} (was ${previousLimit}): ${concurrency.inFlight} running, ${concurrency.freeSlots} free.`,
+    `Concurrency limit set to ${limit} (was ${previousLimit}): ${concurrency.agentsInFlight} agents in flight, ${concurrency.freeSlots} free.`,
   );
 };

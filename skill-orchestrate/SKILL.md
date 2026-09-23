@@ -100,8 +100,8 @@ bounded deviation the other one tolerates. Noticing it and filing anyway costs a
 
 ## Dispatch: two agents, never three
 
-Two agents in flight, of any kind — a review pass is an agent and holds a slot like any other. A
-slot frees when a result lands. While a slot is free and a ticket is **ready** — open, with every
+Two agents in flight, of any kind — a review pass is an agent and holds a slot like any other, and a
+bundle is one agent however many tickets it holds. A slot frees when a result lands. While a slot is free and a ticket is **ready** — open, with every
 ticket it depends on done or delivered — start the next one: the order the user asked for, and
 otherwise high before normal, the lowest id first within each — the order the Next line lists;
 `ticket claim` does not enforce it, so the choice is yours. Reviews come before new tickets when both are waiting:
@@ -156,21 +156,24 @@ more than the calls a small ticket takes, so two to four small tickets from one 
 same files, or the same mechanism — go to **one** agent on one branch, in dependency order, and come
 back through **one** review. Small means you expect the whole bundle inside one call budget; a
 ticket you would have split is never bundled, and neither are tickets whose files another agent in
-flight holds. Each ticket keeps its own row: `ticket start` every one of them, name the bundle in
-each row's `--note` with the `task update` above — a `ticket` move takes no note — and name every
-row on the brief's one marker line, `agent-progress row: 4, 7`: the hook divides what the agent
-processed evenly over them, so what the chart sums stays what the agent cost. A low ticket has no
-row until its builder claims it, and the claim is the builder's first command, not yours: name it by
-ticket instead, `agent-progress ticket: 22, 20`, and the hook finds each ticket's row when the agent
-stops. Write one marker line or the other, never both — a brief with both is read by its row line. Without the hook,
+flight holds. **A bundle holds one slot, not one per ticket, and its builder claims it**: do not
+`ticket start` its tickets yourself — a row `ticket start` runs is an agent of its own, so three
+started tickets fill three slots. The builder's first command claims every ticket in one call,
+`agent-progress ticket claim 22 20 --owner <model> --note "<the bundle>"`, which starts them all or
+none, keeps a row per ticket and marks those rows as one agent; name the same ids on the brief's one
+marker line, `agent-progress ticket: 22, 20`, and the hook finds each ticket's row when the agent
+stops and divides what it processed evenly over them, so what the chart sums stays what the agent
+cost. A low ticket has no row until its builder claims it, so it is always named this way. Write one
+marker line or the other, never both — a brief with both is read by its row line. Without the hook,
 `ticket review` each with the agent's `--tokens` divided evenly yourself. The agent commits and
 hands off per ticket, so a bundle is still judged, delivered and, if it comes to that, reopened one ticket at a time. A ticket the agent
 left untouched for lack of budget goes back with `agent-progress ticket reopen <id>`.
 
 Then spawn the agent with the brief from `.agent-progress/agent-brief.md`, filled in: **one large
 ticket or one bundle per agent**, the worktree you just created and its branch, the
-`agent-progress row: <rowId>` line naming its row or rows — or `agent-progress ticket: <id>` for a
-ticket the builder will claim itself — the files it may edit, the three to eight
+`agent-progress row: <rowId>` line naming its row — or `agent-progress ticket: <ids>` for the
+tickets the builder claims itself, as a bundle's always does, beside the one `ticket claim` naming
+the same ids as its first command — the files it may edit, the three to eight
 facts it would otherwise go and find, the call budget, the "Ready to merge" close, and the report and
 `## Handoff` it owes. Point it at `agent-progress ticket show <id>` for the body and nothing else.
 When two slots are free, spawn both agents in one message so they run at once.
@@ -308,8 +311,8 @@ When you do lose the thread — after a compaction, or a long gap — re-anchor 
 - Every move goes through the CLI **at the moment it happens**, never batched at the end of a wave.
   A chart caught up afterwards has the wrong bars on it.
 - **Where the hook is installed, no `--tokens` at all.** Every brief names its row on a line of its
-  own, `agent-progress row: <rowId>` — `4, 7` for a bundle, the review bar's id for a reviewer — or
-  its tickets, `agent-progress ticket: 22, 20`, when the builder's own claim creates the row, and
+  own, `agent-progress row: <rowId>` — the review bar's id for a reviewer — or its tickets,
+  `agent-progress ticket: 22, 20`, when the builder claims them itself, as every bundle's does, and
   the hook adds what the agent processed to that row when it stops. A `--tokens` on a later move
   would replace that sum, and a workflow script's agents can reach the row no other way. Where the
   hook is not installed, `--tokens` from `subagent_tokens` on every move that ends a row, recorded as

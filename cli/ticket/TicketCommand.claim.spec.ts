@@ -2,8 +2,8 @@
  * `ticket claim`, the one start that refuses: every refusal must leave both files byte-identical, because an agent that was refused
  * goes on to do nothing, and a half-written claim would hold a slot nobody works in. The race is the case the verb exists for.
  */
-import { readFileSync } from 'node:fs';
-import { join }         from 'node:path';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join }                      from 'node:path';
 
 import {
   afterEach,
@@ -126,5 +126,102 @@ describe.skipIf(!gitIsAvailable())('claiming a ticket', () => {
 
     expect(outcomes.map((outcome) => outcome.exitCode).sort()).toEqual([0, 1]);
     expect(storedProgress().tasks.filter((task) => task.status === 'running')).toHaveLength(2);
+  });
+});
+
+function everyTicketText(): string[] {
+  const ticketsDirectory = join(repositoryDirectory, '.agent-progress', 'tickets');
+  return readdirSync(ticketsDirectory).sort().map((fileName) => readFileSync(join(ticketsDirectory, fileName), 'utf8'));
+}
+
+async function agentsInFlightNow(): Promise<number> {
+  const document = JSON.parse((await run(['status', '--json'])).outputText()) as { concurrency: { agentsInFlight: number } };
+  return document.concurrency.agentsInFlight;
+}
+
+async function expectBundleRefusedWithNothingWritten(commandLineArguments: readonly string[]): Promise<string> {
+  const progressBefore = progressText();
+  const ticketsBefore  = everyTicketText();
+
+  const { context, exitCode } = await runWithExitCode(commandLineArguments);
+
+  expect(exitCode).toBe(1);
+  expect(progressText()).toBe(progressBefore);
+  expect(everyTicketText()).toEqual(ticketsBefore);
+  return context.errorText();
+}
+
+describe.skipIf(!gitIsAvailable())('claiming several tickets as one agent', () => {
+  beforeEach(async () => {
+    for (const title of ['Show the role history', 'Export the roles', 'Import the roles', 'Rename a role']) await run(['ticket', 'add', title]);
+  });
+
+  // The case the bundle form exists for: three tickets on a limit of 2 beside another agent, which three single claims could never fit.
+  test('a bundle beside one other agent is claimed whole, its rows share one agent key, and it counts as one agent', async () => {
+    await run(['task', 'add', 'Review pass', '--start']);
+
+    const context = await run(['ticket', 'claim', '3', '4', '5', '--owner', 'Alex Example', '--note', 'role import and export']);
+
+    const bundleRows = storedProgress().tasks.filter((task) => task.ticket !== null && ['003', '004', '005'].includes(task.ticket));
+    const expectedRow = ['running', '003,004,005', 'Alex Example', 'role import and export'];
+    expect(bundleRows.map((row) => [row.status, row.agent, row.owner, row.note])).toEqual([expectedRow, expectedRow, expectedRow]);
+    expect(everyTicketText().filter((text) => text.includes('status: "in-progress"'))).toHaveLength(3);
+    expect(context.outputText()).toContain('Tickets #003, #004, #005 started as one agent: 2 of 2 slots are now taken.');
+    expect(await agentsInFlightNow()).toBe(2);
+  });
+
+  test('under --json a bundle claim prints every claimed ticket, in id order', async () => {
+    const context = await run(['ticket', 'claim', '5', '3', '--json']);
+
+    const document = JSON.parse(context.outputText()) as Array<{ id: string; status: string }>;
+    expect(document.map((ticket) => [ticket.id, ticket.status])).toEqual([['003', 'in-progress'], ['005', 'in-progress']]);
+  });
+
+  test('a bundle is refused whole, with nothing written, when two agents already fill the limit', async () => {
+    await run(['task', 'add', 'Review pass one', '--start']);
+    await run(['task', 'add', 'Review pass two', '--start']);
+
+    const message = await expectBundleRefusedWithNothingWritten(['ticket', 'claim', '3', '4', '5']);
+
+    expect(message).toContain('2 agents are in flight');
+    expect(message).toContain('the concurrency limit is 2');
+  });
+
+  // All or nothing: the two tickets that could be claimed on their own must not be started when the third cannot.
+  test('a bundle is refused whole, with nothing written, when one of its tickets waits on one that is not done', async () => {
+    await run(['ticket', 'depends', '5', '1']);
+
+    const message = await expectBundleRefusedWithNothingWritten(['ticket', 'claim', '3', '4', '5']);
+
+    expect(message).toContain('waiting on #001');
+  });
+
+  test('a bundle is refused whole, with nothing written, when one of its tickets is already in progress', async () => {
+    await run(['ticket', 'start', '4']);
+
+    const message = await expectBundleRefusedWithNothingWritten(['ticket', 'claim', '3', '4', '5']);
+
+    expect(message).toContain('#004 is in-progress');
+  });
+
+  // The builder hands off one ticket at a time; the slot is freed only by the last of them.
+  test('a bundle whose tickets go to review one at a time holds its one slot until the last row stops running', async () => {
+    await run(['ticket', 'claim', '3', '4', '5']);
+
+    const agentsInFlightAfterEachReview: number[] = [];
+    for (const identifier of ['3', '4', '5']) {
+      await run(['ticket', 'review', identifier]);
+      agentsInFlightAfterEachReview.push(await agentsInFlightNow());
+    }
+
+    expect(agentsInFlightAfterEachReview).toEqual([1, 1, 0]);
+  });
+
+  test('naming one ticket twice claims it once', async () => {
+    await run(['ticket', 'claim', '3', '003', '#3']);
+
+    const progress = storedProgress();
+    expect(progress.tasks.find((task) => task.ticket === '003')?.agent).toBe('003');
+    expect(progress.log.filter((entry) => entry.text === 'Ticket #003 started')).toHaveLength(1);
   });
 });
