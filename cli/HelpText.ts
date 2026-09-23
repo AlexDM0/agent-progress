@@ -104,7 +104,7 @@ dispatcher\` or \`; dispatcher stopped: wait for the user's go\`. --json output 
                               ticket whose review row the reviewer creates itself: the input goes
                               to the most recently added row reviewing that ticket (--review-of,
                               or a "Review <N> #<id>" name), whatever its status. A brief with
-                              several is read by its row line first, then its ticket line.
+                              several is read by one alone: row over ticket over review.
                               This is the command \`init\` and \`update\` wire into
                               \`.claude/settings.local.json\`; nobody types it. It exits 0 whatever
                               goes wrong — no input, an unreadable transcript, no tracker at the
