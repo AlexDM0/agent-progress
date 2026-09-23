@@ -210,10 +210,11 @@ orchestrator, which decides between a further round and a new ticket for what ke
 
 The round is the number of `## Review` sections already in the ticket, plus one. From round 2 on,
 say in the first line that the pass is scoped to the commits the previous reviewer authored and that
-what the earlier Reviews settled is not to be re-derived. Step 7b is a count, not a judgement, so
-that two reviewers reach the same verdict. Harness subagents
-get their working directory reset to the main checkout, which is why every git command names its
-checkout.
+what the earlier Reviews settled is not to be re-derived. Step 0 reads the diff once because
+reviewers that rebuilt the change file by file spent 43% of their input on reads, most of them of a
+file already open, each paid at a context of 150 to 250 thousand tokens. Step 7b is a count, not a
+judgement, so that two reviewers reach the same verdict. Harness subagents get their working
+directory reset to the main checkout, which is why every git command names its checkout.
 
 ```
 Worktree: <absolute path>   Branch: <branch>   Main checkout: <absolute path>   Main line: <name>
@@ -222,7 +223,13 @@ Review ticket <id> (or the bundle #a, #b, #c), round <N>; `agent-progress ticket
 one. Run git as `git -C <worktree>` unless a step names <main checkout>. The work is
 `git diff <main line>...HEAD`.
 
-0. Before you change anything, record `git -C <worktree> rev-parse HEAD` as <review start>.
+0. Before you change anything, record `git -C <worktree> rev-parse HEAD` as <review start>. Then
+   read the change once: the last `## Handoff`, `git -C <worktree> diff --stat <main line>...HEAD`,
+   then the full `git -C <worktree> diff <main line>...HEAD` in one call (a large one split by path
+   into the fewest calls, all in one message). Open a whole file only where the diff's context
+   cannot settle a finding, every such file in one message of Read calls, never `cat` or `sed -n`
+   through Bash. Re-read your own fixes with `git -C <worktree> diff <review start>`, not by
+   re-opening files.
 1. Set out to show the ticket does NOT hold — each ticket of a bundle on its own commits, and
    whatever a Handoff lists under `Also fixed`. The last `## Handoff` says where to look and proves
    nothing: re-run the measurement behind each claim with your own probe or count and state your
