@@ -78,8 +78,18 @@ const GRANT_ROUND_THREE_WITHOUT_CONVERGENCE: Mutant = { find: 'if (requestedRoun
 
 const SUBTRACT_EVERY_OWN_AGENT: Mutant = { find: '.filter((ownAgent) => ownAgentIsOnBoard(ownAgent.work, status)).length', replace: '.length' };
 
-const SETTLE_THEN_ADOPT = 'if (finished.work.kind === \'build\') settleBuild(finished.work, finished.result);\n  else settleReview(finished.work, finished.result);\n'
-  + '  if (finished.result !== null) adoptBoard(finished.result.status);';
+const SETTLE_THEN_ADOPT = 'settle(finished);\n  if (finished.result !== null) adoptBoard(finished.result.status);';
+
+const PARK_WITHOUT_RELEASING_THE_ROWS: Mutant = { find: '  releaseRowsOf(ticketId, `Parked #${ticketId}: ${reason}`);\n', replace: '' };
+
+const LEAVE_TAKEOVERS_UNSTARTED_RUNNING: Mutant = {
+  find:    'for (const takeover of takeoversNeverStarted) releaseRowsOf(',
+  replace: 'for (const takeover of []) releaseRowsOf(',
+};
+
+function releasedEveryRow(run: DispatchRun): boolean {
+  return run.rowsRunningAtEnd.length === 0 && !run.logs.some((message) => message.includes('No slot free'));
+}
 
 const CLAIMS: Claim[] = [
   {
@@ -216,7 +226,7 @@ const CLAIMS: Claim[] = [
   {
     name:     'a first does-not-hold sends a fresh builder, and a second parks the ticket',
     scenario: { limit: 2, readyTicketIds: ['001'], reviewerReply: () => ({ verdict: 'does-not-hold' }) },
-    holds:    (run) => kindsAndTickets(run).join(', ') === 'survey, build 001, review 001, build 001, review 001' && parkedIds(run).includes('001'),
+    holds:    (run) => kindsAndTickets(run).join(', ') === 'survey, build 001, review 001, build 001, review 001, park 001' && parkedIds(run).includes('001'),
     mutant:   { find: 'record.failedPasses >= FAILED_PASSES_BEFORE_PARKING', replace: 'record.failedPasses > FAILED_PASSES_BEFORE_PARKING' },
   },
   {
@@ -234,9 +244,59 @@ const CLAIMS: Claim[] = [
       && run.mostAgentsInFlightAtOnce === 1,
     mutant: {
       find:    SETTLE_THEN_ADOPT,
-      replace: 'if (finished.result !== null) adoptBoard(finished.result.status);\n  if (finished.work.kind === \'build\') settleBuild(finished.work, finished.result);\n'
-        + '  else settleReview(finished.work, finished.result);',
+      replace: 'if (finished.result !== null) adoptBoard(finished.result.status);\n  settle(finished);',
     },
+  },
+  {
+    // Every builder's claim counts the board's running rows, so a parked ticket's row left running would keep the next ticket out for the whole run.
+    name:     'with a limit of 1, a ticket parked after two failed builders has its row paused, and the next ready ticket is delivered',
+    scenario: { limit: 1, readyTicketIds: ['001', '002'], builderReply: (ticketId) => (ticketId === '001' ? { outcome: 'failed' } : { outcome: 'in-review' }) },
+    holds:    (run) => kindsAndTickets(run).join(', ') === 'survey, build 001, build 001, park 001, build 002, review 002'
+      && summaryOf(run).delivered.join() === '002'
+      && parkedIds(run).join() === '001'
+      && run.rowsPaused.join() === 'build 001'
+      && run.mostAgentsInFlightAtOnce === 1
+      && releasedEveryRow(run),
+    mutant: PARK_WITHOUT_RELEASING_THE_ROWS,
+  },
+  {
+    name:     'with a limit of 1, a ticket parked after two dead reviewers has their bar closed, and the next ready ticket is delivered within the limit',
+    scenario: { limit: 1, readyTicketIds: ['001', '002'], reviewerReply: (ticketId) => (ticketId === '001' ? null : { verdict: 'released' }) },
+    holds:    (run) => kindsAndTickets(run).join(', ') === 'survey, build 001, review 001, review 001, park 001, build 002, review 002'
+      && summaryOf(run).delivered.join() === '002'
+      && parkedIds(run).join() === '001'
+      && run.mostAgentsInFlightAtOnce === 1
+      && releasedEveryRow(run),
+    mutant: PARK_WITHOUT_RELEASING_THE_ROWS,
+  },
+  {
+    // A stop keeps the fresh builder from starting, and nothing after the run would pause the row the failed one left.
+    name:     'a board stopped while a failed builder\'s row waits for its takeover ends the run with that row paused, not running',
+    scenario: {
+      limit:          2,
+      readyTicketIds: ['001'],
+      builderReply:   (_ticketId, pass) => (pass === 1 ? { outcome: 'failed' } : { outcome: 'in-review' }),
+      afterAgent:     (call, board) => { if (call.kind === 'build') board.dispatcherState = 'stopped'; },
+    },
+    holds: (run) => kindsAndTickets(run).join(', ') === 'survey, build 001, park 001'
+      && run.rowsPaused.join() === 'build 001'
+      && parkedIds(run).length === 0
+      && run.rowsRunningAtEnd.length === 0
+      && run.logs.some((message) => message.includes('Left for the user\'s go: #001')),
+    mutant: LEAVE_TAKEOVERS_UNSTARTED_RUNNING,
+  },
+  {
+    name:     'a takeover kept out because agents elsewhere took the whole limit ends the run with its row paused, not running',
+    scenario: {
+      limit:          1,
+      readyTicketIds: ['001'],
+      builderReply:   (_ticketId, pass) => (pass === 1 ? { outcome: 'failed' } : { outcome: 'in-review' }),
+      afterAgent:     (call, board) => { if (call.kind === 'build') board.otherAgentsInFlight = 1; },
+    },
+    holds: (run) => kindsAndTickets(run).join(', ') === 'survey, build 001, park 001'
+      && run.rowsPaused.join() === 'build 001'
+      && run.rowsRunningAtEnd.length === 0,
+    mutant: LEAVE_TAKEOVERS_UNSTARTED_RUNNING,
   },
   {
     // A dead reviewer returns no status block, so its bar is seen only in a later agent's: there, with an agent started elsewhere, the bar read as
@@ -315,7 +375,7 @@ const CLAIMS: Claim[] = [
       delivered:     ['001'],
       parked:        [{ id: '002', reason: 'the release was refused: branch-diverged' }],
       findingsFiled: ['009'],
-      agentsRun:     5,
+      agentsRun:     6,
     }),
     mutant: { find: '    agentsRun,\n    ...(stoppedByBoard', replace: '    ...(stoppedByBoard' },
   },
@@ -402,7 +462,7 @@ const CLAIMS: Claim[] = [
 const EVERY_KIND_OF_AGENT: DispatchScenario = { limit: 2, readyTicketIds: ['001', '002'], reviewerReply: () => ({ verdict: 'does-not-hold' }) };
 
 function modelsAreExplicit(run: DispatchRun): boolean {
-  return run.calls.every((call) => call.model === (call.kind === 'survey' ? 'haiku' : 'opus'));
+  return run.calls.every((call) => call.model === (call.kind === 'survey' || call.kind === 'park' ? 'haiku' : 'opus'));
 }
 
 function mutated(mutant: Mutant): string {
@@ -437,14 +497,16 @@ describe('the dispatcher script', () => {
   });
 
   // A model left out inherits the orchestrator's, which is how a fan-out once ran at the most expensive tier by accident.
-  test('every agent is given its model explicitly: haiku for the survey, opus for every builder and reviewer', async () => {
+  test('every agent is given its model explicitly: haiku for the survey and the parking agents, opus for every builder and reviewer', async () => {
     const run = await runDispatchScript(EVERY_KIND_OF_AGENT);
     expect(run.calls.length).toBeGreaterThan(4);
+    expect(run.calls.some((call) => call.kind === 'park')).toBe(true);
     expect(modelsAreExplicit(run)).toBe(true);
   });
 
   test.each([
     ['const SURVEY_MODEL = \'haiku\';', 'const SURVEY_MODEL = undefined;'],
+    ['const PARKING_MODEL = \'haiku\';', 'const PARKING_MODEL = undefined;'],
     ['const WORKER_MODEL = \'opus\';', 'const WORKER_MODEL = undefined;'],
   ])('a model left out of the script (%s) fails the model check', async (find, replace) => {
     expect(SCRIPT_SOURCE.split(find).length - 1).toBe(1);

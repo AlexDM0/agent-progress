@@ -6,6 +6,7 @@ export const meta = {
     { title: 'Survey', detail: 'read the concurrency block, the ready tickets and the reviews waiting', model: 'haiku' },
     { title: 'Build', detail: 'one builder per ready ticket, in the ticket worktree', model: 'opus' },
     { title: 'Review', detail: 'a clean reviewer per built ticket, round by round', model: 'opus' },
+    { title: 'Park', detail: 'pause the row of a ticket the run stops working on, and close its review bar', model: 'haiku' },
   ],
 };
 
@@ -16,7 +17,9 @@ const REVIEWER_CALL_BUDGET = 75;
 const REWORK_ROUND_THRESHOLD_LINES = 750;
 const FAILED_PASSES_BEFORE_PARKING = 2;
 const MAIN_MOVED_RELEASES_BEFORE_PARKING = 2;
+const PARKING_LOG_REASON_LIMIT_CHARACTERS = 200;
 const SURVEY_MODEL = 'haiku';
+const PARKING_MODEL = 'haiku';
 const WORKER_MODEL = 'opus';
 
 const STATUS_BLOCK_SCHEMA = {
@@ -72,6 +75,12 @@ const REVIEWER_SCHEMA = {
     status:         STATUS_BLOCK_SCHEMA,
   },
   required: ['round', 'verdict', 'releaseReason', 'reworkedLines', 'findings', 'filedTicketIds', 'status'],
+};
+
+const PARKING_SCHEMA = {
+  type:       'object',
+  properties: { status: STATUS_BLOCK_SCHEMA },
+  required:   ['status'],
 };
 
 function settingsFrom(workflowArguments) {
@@ -183,6 +192,24 @@ function reviewerPrompt(ticketId, expectedRound, rereviewFirst, earlierReviewerD
   return lines.join('\n');
 }
 
+// The line goes inside a double-quoted shell argument, so nothing in it may end the quotes or expand.
+function boardLogLineText(text) {
+  return text.replace(/\s+/g, ' ').replace(/["`$\\]/g, '\'').slice(0, PARKING_LOG_REASON_LIMIT_CHARACTERS);
+}
+
+function parkingPrompt(ticketId, boardLogLine) {
+  return [
+    `agent-progress park: ${ticketId}`,
+    `You close the rows of ticket #${ticketId} that no agent of the agent-progress dispatcher works on any more, in ${settings.mainCheckout}. Judge nothing and change no file.`,
+    `1. \`agent-progress ticket show ${ticketId} --json\`: its \`task\` field is the ticket's row. When \`agent-progress status --json --full\` shows that row \`running\`, `
+      + 'run `agent-progress task pause <that row>`.',
+    `2. Every \`running\` row of that status whose \`reviewOf\` is ${ticketId} is a review bar nobody works on: close it with \`agent-progress task finish <that row>\`, `
+      + 'then `agent-progress task deliver <that row>`.',
+    `3. \`agent-progress log "${boardLogLineText(boardLogLine)}"\`.`,
+    STATUS_RETURN_TEXT,
+  ].join('\n');
+}
+
 const ticketRecords = new Map();
 const reviewQueue = [];
 const rebuildQueue = [];
@@ -236,7 +263,9 @@ async function runAgent(prompt, options) {
 }
 
 // A builder is on the board from its claim, a reviewer from its `task add --review-of --start`; a status block without the rows confirms nothing.
+// A parking agent never is, so the row it is pausing counts as another's until it returns: the safe side, for the few turns it runs.
 function ownAgentIsOnBoard(work, status) {
+  if (work.kind === 'park') return false;
   const confirmingTicketIds = work.kind === 'build' ? status.runningTicketIds : status.runningReviewOfIds;
   return Array.isArray(confirmingTicketIds) && confirmingTicketIds.includes(work.ticketId);
 }
@@ -275,9 +304,16 @@ function ownSlotLimit() {
   return Math.max(0, Math.min(board.limit, CONCURRENCY_CEILING_AGENTS) - othersInFlightAtBoardReading);
 }
 
+// A row nobody works on would be counted against the limit by every builder's claim, so the parking agent starts at once, slot or no slot: it
+// takes over rows the board already counts and adds none.
+function releaseRowsOf(ticketId, boardLogLine) {
+  launch({ kind: 'park', ticketId, boardLogLine });
+}
+
 function park(ticketId, reason) {
   parked.push({ id: ticketId, reason });
   log(`#${ticketId} parked: ${reason}.`);
+  releaseRowsOf(ticketId, `Parked #${ticketId}: ${reason}`);
 }
 
 function reviewWorkFor(ticketId, rereviewFirst, earlierReviewerDied) {
@@ -323,22 +359,44 @@ function nextWork() {
   return { kind: 'build', ticketId: readyTicketId, previousPass: null };
 }
 
-function launch(work) {
-  const key = launchCount++;
-  const running = work.kind === 'build'
-    ? runAgent(builderPrompt(work.ticketId, work.previousPass), {
+function agentRunFor(work) {
+  if (work.kind === 'build') {
+    return runAgent(builderPrompt(work.ticketId, work.previousPass), {
       label:  `build #${work.ticketId}`,
       phase:  'Build',
       schema: BUILDER_SCHEMA,
       model:  WORKER_MODEL,
-    })
-    : runAgent(reviewerPrompt(work.ticketId, work.round, work.rereviewFirst, work.earlierReviewerDied), {
-      label:  `review ${work.round} #${work.ticketId}`,
-      phase:  'Review',
-      schema: REVIEWER_SCHEMA,
-      model:  WORKER_MODEL,
     });
-  inFlight.set(key, { work, finishing: running.then((result) => ({ key, work, result })) });
+  }
+  if (work.kind === 'park') {
+    return runAgent(parkingPrompt(work.ticketId, work.boardLogLine), {
+      label:  `park #${work.ticketId}`,
+      phase:  'Park',
+      schema: PARKING_SCHEMA,
+      model:  PARKING_MODEL,
+    });
+  }
+  return runAgent(reviewerPrompt(work.ticketId, work.round, work.rereviewFirst, work.earlierReviewerDied), {
+    label:  `review ${work.round} #${work.ticketId}`,
+    phase:  'Review',
+    schema: REVIEWER_SCHEMA,
+    model:  WORKER_MODEL,
+  });
+}
+
+function launch(work) {
+  const key = launchCount++;
+  inFlight.set(key, { work, finishing: agentRunFor(work).then((result) => ({ key, work, result })) });
+}
+
+function settleParking(work, result) {
+  if (result === null) log(`#${work.ticketId}: the parking agent returned nothing, so its row may still be running and count against the limit until it is paused by hand.`);
+}
+
+function settle(finished) {
+  if (finished.work.kind === 'build') settleBuild(finished.work, finished.result);
+  else if (finished.work.kind === 'park') settleParking(finished.work, finished.result);
+  else settleReview(finished.work, finished.result);
 }
 
 function settleBuild(work, result) {
@@ -461,10 +519,19 @@ for (;;) {
   if (inFlight.size === 0) break;
   const finished = await Promise.race([...inFlight.values()].map((ownAgent) => ownAgent.finishing));
   inFlight.delete(finished.key);
-  // Settled first, so a row this agent left running is a takeover by the time its own status block is read.
-  if (finished.work.kind === 'build') settleBuild(finished.work, finished.result);
-  else settleReview(finished.work, finished.result);
+  // Settled first, so a row this agent left running is a takeover or being parked by the time its own status block is read.
+  settle(finished);
   if (finished.result !== null) adoptBoard(finished.result.status);
+}
+
+// A takeover still waiting here never starts in this run, a stop or others holding the limit kept it out, so its row is released like a parked one.
+const takeoversNeverStarted = [...takeoversWaiting.values()];
+if (takeoversNeverStarted.length > 0) {
+  phase('Park');
+  const leftBecause = stoppedByBoard ? 'left for the user\'s go' : 'no slot free for a fresh agent';
+  for (const takeover of takeoversNeverStarted) releaseRowsOf(takeover.ticketId, `Paused the row of #${takeover.ticketId}: ${leftBecause}`);
+  const released = await Promise.all([...inFlight.values()].map((ownAgent) => ownAgent.finishing));
+  for (const finished of released) settle(finished);
 }
 
 const leftWaiting = [
@@ -477,5 +544,6 @@ const leftWaitingText = leftWaiting.map((ticketId) => `#${ticketId}`).join(', ')
 if (leftWaiting.length > 0) log(stoppedByBoard ? `Left for the user's go: ${leftWaitingText}.` : `No slot free for ${leftWaitingText}: other agents hold the board's limit.`);
 const lowPriorityWaiting = lowPriorityWaitingIds();
 if (lowPriorityWaiting.length > 0) log(`Left for the orchestrator's triage, low priority: ${lowPriorityWaiting.map((ticketId) => `#${ticketId}`).join(', ')}.`);
-log(`Done: ${delivered.length} delivered, ${parked.length} parked, ${findingsFiled.length} findings filed, ${agentsRun} agents run.`);
+const parkedText = parked.length > 0 ? ` (${parked.map((parkedTicket) => `#${parkedTicket.id}`).join(', ')})` : '';
+log(`Done: ${delivered.length} delivered, ${parked.length} parked${parkedText}, ${findingsFiled.length} findings filed, ${agentsRun} agents run.`);
 return summary();

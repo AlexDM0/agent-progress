@@ -149,7 +149,9 @@ the last the low tickets ready that it left for your triage:
 1. `agent-progress dispatcher finished` — unless the summary carries `stoppedByBoard`: that is the
    user's stop taking effect, and the state stays `stopped`.
 2. `agent-progress log` one line: delivered, parked, findings filed, agents run.
-3. Each parked ticket, with its reason, logged and handled. **Two failed passes on one ticket is a
+3. Each parked ticket, with its reason, logged and handled. The run has already paused its row and
+   closed any review bar left running, as it does for a ticket it left for the user's go, so a
+   parked row is `paused`, never an agent in flight. **Two failed passes on one ticket is a
    question for the user, not a third agent**: tell them what the last Handoff and Review say is
    missing. A refused release — a main checkout off the main line, a fast-forward git refused over a
    local change, a refused permission — is the user's to settle, and neither you nor an agent runs

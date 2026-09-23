@@ -255,9 +255,11 @@ JavaScript no spec can sit beside:
   a scenario's `includeLowPriority` reaches the script as that argument. A builder or
   reviewer is on that board only from its first command (`turnsBeforeFirstCommand` turns after the call) until it returns, as a
   real one is from its claim or its `task add --start`; a builder that stops short of review and a reviewer that returns nothing
-  leave their row running until a fresh agent's first command takes it over. It records each call, the most own agents running at
-  once, the most agents in flight at once (others, every own one on the board yet or not, and every row left running with no
-  takeover under way) and the logs; `Date` and `Math` are handed in guarded.
+  leave their row running until a fresh agent's first command takes it over, or a parking agent (`agent-progress park:` marker)
+  pauses the ticket's row — a paused row is not running — and closes its review bar. It records each call, the most own builders
+  and reviewers running at once, the most agents in flight at once (others, every own builder and reviewer on the board yet or not,
+  and every row left running with no takeover under way; a parking agent adds none), the rows running and paused at the end, and
+  the logs; `Date` and `Math` are handed in guarded.
   `lib/tooling/dev/DispatchScriptHarness.spec.ts` pins each decision **and runs it again against a
   mutant of the script that breaks exactly that decision**, which must fail; a mutant whose text left
   the script fails loudly. `lib/tooling/dev/DispatchScriptHarness.brief.spec.ts` holds the prompts'

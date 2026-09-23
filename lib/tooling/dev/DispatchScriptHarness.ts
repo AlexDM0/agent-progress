@@ -2,12 +2,13 @@
  * Runs `templates/workflows/AgentProgressDispatch.js` as the Workflow tool would, against a fake `agent()` and a fake board, so a spec can pin
  * the script's decisions without spawning a model. An agent's kind is read from its prompt's token marker, the way the hook reads it. A builder
  * or reviewer is on the board from its first command, as a real one is from its claim or its `task add --start`, until it finishes — except that
- * a builder that stops short of review and a reviewer that returns nothing leave their row running, until a fresh agent's first command takes it over.
+ * a builder that stops short of review and a reviewer that returns nothing leave their row running, until a fresh agent's first command takes it over,
+ * or a parking agent pauses the ticket's row (`task pause`: a paused row is not running) and closes its review bar.
  */
 import { readFileSync } from 'node:fs';
 import { join }         from 'node:path';
 
-export type AgentKind = 'survey' | 'build' | 'review';
+export type AgentKind = 'survey' | 'build' | 'review' | 'park';
 
 export interface ReviewFinding {
   class:   string;
@@ -42,7 +43,7 @@ export interface FakeBoard {
 export interface RecordedAgentCall {
   kind:     AgentKind;
   ticketId: string | null;
-  /** The builder's pass or the reviewer's round for this ticket, counted by the harness from 1; `null` for the survey. */
+  /** The builder's pass, the reviewer's round or the parking agent's call for this ticket, counted by the harness from 1; `null` for the survey. */
   ordinal:  number | null;
   model:    unknown;
   label:    unknown;
@@ -75,11 +76,15 @@ export interface DispatchScenario {
 
 export interface DispatchRun {
   calls:                    RecordedAgentCall[];
-  /** The most of the script's own agents that were running at one moment. */
+  /** The most of the script's own builders and reviewers that were running at one moment. */
   mostAgentsAtOnce:         number;
-  /** The most agents in flight at one moment: the board's others, every one of the script's own on the board yet or not, and every row left running
-   * that no own agent of the same kind and ticket is running to take over. */
+  /** The most agents in flight at one moment: the board's others, every builder and reviewer of the script's own on the board yet or not, and every
+   * row left running that no own agent of the same kind and ticket is running to take over. A parking agent adds none. */
   mostAgentsInFlightAtOnce: number;
+  /** The rows left running when the script returned, as `build <ticket>` or `review <ticket>`; a paused row is not among them. */
+  rowsRunningAtEnd:         string[];
+  /** The rows a parking agent paused, as `build <ticket>`. */
+  rowsPaused:               string[];
   logs:                     string[];
   summary:                  unknown;
   /** Whether the script passed `MOST_AGENT_CALLS_PER_RUN`, after which every agent answered `null` so the run could end. */
@@ -142,6 +147,16 @@ function markerIdentifierIn(prompt: string, marker: string): string | null {
   return match?.[1] ?? null;
 }
 
+function kindOf(builtTicketId: string | null, reviewedTicketId: string | null, parkedTicketId: string | null): AgentKind {
+  if (builtTicketId !== null) return 'build';
+  if (reviewedTicketId !== null) return 'review';
+  return parkedTicketId !== null ? 'park' : 'survey';
+}
+
+function rowNameOf(rowKey: string): string {
+  return rowKey.replace(':', ' ');
+}
+
 async function nextTurn(): Promise<void> {
   await new Promise((resolve) => { setImmediate(resolve); });
 }
@@ -181,6 +196,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   const ownAgentsOnBoard = new Map<number, { kind: AgentKind; ticketId: string }>();
   const rowsLeftRunning = new Map<string, { kind: AgentKind; ticketId: string }>();
   const rowKeysOfOwnAgentsRunning = new Map<number, string>();
+  const pausedRowKeys = new Set<string>();
   const turnsBeforeFirstCommand = scenario.turnsBeforeFirstCommand ?? DEFAULT_TURNS_BEFORE_FIRST_COMMAND;
   let mostAgentsAtOnce = 0;
   let mostAgentsInFlightAtOnce = 0;
@@ -212,6 +228,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
 
   const replyFor = (call: RecordedAgentCall): Record<string, unknown> | null => {
     if (call.kind === 'survey') return { status: statusBlock(), reviewWaitingTicketIds: scenario.reviewWaitingTicketIds ?? [] };
+    if (call.kind === 'park') return { status: statusBlock() };
     const ticketId = call.ticketId ?? '';
     const ordinal  = call.ordinal ?? 1;
     if (call.kind === 'build') {
@@ -225,8 +242,9 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   const fakeAgent = async (prompt: string, options: Record<string, unknown> = {}): Promise<unknown> => {
     const builtTicketId    = markerIdentifierIn(prompt, 'ticket');
     const reviewedTicketId = markerIdentifierIn(prompt, 'review');
-    const kind: AgentKind  = builtTicketId !== null ? 'build' : reviewedTicketId !== null ? 'review' : 'survey';
-    const ticketId         = builtTicketId ?? reviewedTicketId;
+    const parkedTicketId   = markerIdentifierIn(prompt, 'park');
+    const kind             = kindOf(builtTicketId, reviewedTicketId, parkedTicketId);
+    const ticketId         = builtTicketId ?? reviewedTicketId ?? parkedTicketId;
     const passKey          = `${kind}:${ticketId ?? ''}`;
     const ordinal          = kind === 'survey' ? null : (passesByTicket.get(passKey) ?? 0) + 1;
     passesByTicket.set(passKey, ordinal ?? 0);
@@ -247,6 +265,15 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     if (kind === 'build' && ticketId !== null && reply?.['outcome'] !== 'claim-refused') {
       board.readyTicketIds = board.readyTicketIds.filter((readyTicketId) => readyTicketId !== ticketId);
     }
+    if (kind === 'park' && ticketId !== null) {
+      await turnsPass(turnsBeforeFirstCommand);
+      const ticketRowKey = `build:${ticketId}`;
+      if (rowsLeftRunning.delete(ticketRowKey)) pausedRowKeys.add(ticketRowKey);
+      rowsLeftRunning.delete(`review:${ticketId}`);
+      await turnsPass(TURNS_FROM_FIRST_COMMAND_TO_RETURN);
+      scenario.afterAgent?.(call, board);
+      return reply === null ? null : { ...reply, status: statusBlock() };
+    }
     const callIndex = calls.length - 1;
     rowKeysOfOwnAgentsRunning.set(callIndex, passKey);
     mostAgentsAtOnce = Math.max(mostAgentsAtOnce, rowKeysOfOwnAgentsRunning.size);
@@ -258,6 +285,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       await turnsPass(turnsBeforeFirstCommand);
       if (reachesTheBoard) {
         rowsLeftRunning.delete(passKey);
+        pausedRowKeys.delete(passKey);
         ownAgentsOnBoard.set(callIndex, { kind, ticketId });
       }
       await turnsPass(TURNS_FROM_FIRST_COMMAND_TO_RETURN);
@@ -286,6 +314,8 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     calls,
     mostAgentsAtOnce,
     mostAgentsInFlightAtOnce,
+    rowsRunningAtEnd: [...rowsLeftRunning.keys()].map(rowNameOf),
+    rowsPaused:       [...pausedRowKeys].map(rowNameOf),
     logs,
     summary,
     ranAway,
