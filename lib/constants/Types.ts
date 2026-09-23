@@ -18,7 +18,11 @@ export interface Task {
   note:         string;
   /** The padded id (`"003"`) of the ticket this row belongs to, or `null` for a free-standing task. */
   ticket:       string | null;
-  /** Reported through `--tokens`, never measured here; `null` ("nobody said") and `0` are different answers. */
+  /**
+   * The SubagentStop hook adds each agent's processed input to the rows its brief names via
+   * `agent-progress row:` or `agent-progress ticket:`; `--tokens` on a move replaces the figure.
+   * `null` ("nobody said") and `0` are different answers.
+   */
   tokens:       number | null;
   /** When the row first reached `reviewed`; kept through delivery, so a delivered row says whether it was reviewed. */
   reviewed?:    string;
