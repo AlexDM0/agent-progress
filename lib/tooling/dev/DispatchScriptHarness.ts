@@ -1,6 +1,7 @@
 /**
  * Runs `templates/workflows/AgentProgressDispatch.js` as the Workflow tool would, against a fake `agent()` and a fake board, so a spec can pin
- * the script's decisions without spawning a model. An agent's kind is read from its prompt's token marker, the way the hook reads it.
+ * the script's decisions without spawning a model. An agent's kind is read from its prompt's token marker, the way the hook reads it. A builder
+ * or reviewer is on the board only from its first command until it finishes, as a real one is from its claim or its `task add --start`.
  */
 import { readFileSync } from 'node:fs';
 import { join }         from 'node:path';
@@ -46,32 +47,38 @@ export interface RecordedAgentCall {
 }
 
 export interface DispatchScenario {
-  limit:                   number;
-  readyTicketIds:          string[];
-  otherAgentsInFlight?:    number;
-  reviewWaitingTicketIds?: string[];
+  limit:                    number;
+  readyTicketIds:           string[];
+  otherAgentsInFlight?:     number;
+  reviewWaitingTicketIds?:  string[];
   /** Defaults to `running`; `afterAgent` may change it mid-run. */
-  dispatcherState?:        DispatcherStateOnBoard;
+  dispatcherState?:         DispatcherStateOnBoard;
   /** Defaults to `in-review`; `null` is an agent that died. */
-  builderReply?:           (ticketId: string, pass: number) => BuilderReply | null;
+  builderReply?:            (ticketId: string, pass: number) => BuilderReply | null;
   /** Defaults to `released`; `null` is an agent that died. */
-  reviewerReply?:          (ticketId: string, round: number) => ReviewerReply | null;
+  reviewerReply?:           (ticketId: string, round: number) => ReviewerReply | null;
   /** Runs as an agent finishes and before its status block is taken, so a scenario can file a ticket mid-run. */
-  afterAgent?:             (call: RecordedAgentCall, board: FakeBoard) => void;
+  afterAgent?:              (call: RecordedAgentCall, board: FakeBoard) => void;
+  /** How many turns a builder or reviewer runs before its first command puts it on the board; defaults to `DEFAULT_TURNS_BEFORE_FIRST_COMMAND`. */
+  turnsBeforeFirstCommand?: number;
 }
 
 export interface DispatchRun {
-  calls:            RecordedAgentCall[];
+  calls:                    RecordedAgentCall[];
   /** The most of the script's own agents that were running at one moment. */
-  mostAgentsAtOnce: number;
-  logs:             string[];
-  summary:          unknown;
+  mostAgentsAtOnce:         number;
+  /** The most agents in flight at one moment: the board's others plus every one of the script's own, on the board yet or not. */
+  mostAgentsInFlightAtOnce: number;
+  logs:                     string[];
+  summary:                  unknown;
   /** Whether the script passed `MOST_AGENT_CALLS_PER_RUN`, after which every agent answered `null` so the run could end. */
-  ranAway:          boolean;
+  ranAway:                  boolean;
 }
 
-const MOST_AGENT_CALLS_PER_RUN = 200;
-const ARGUMENTS_FOR_SCRIPT     = {
+const MOST_AGENT_CALLS_PER_RUN           = 200;
+const DEFAULT_TURNS_BEFORE_FIRST_COMMAND = 1;
+const TURNS_FROM_FIRST_COMMAND_TO_RETURN = 1;
+const ARGUMENTS_FOR_SCRIPT               = {
   mainCheckout: '/scratch/example-repository',
   mainLine:     'main',
   checkCommand: 'example-check',
@@ -128,6 +135,10 @@ async function nextTurn(): Promise<void> {
   await new Promise((resolve) => { setImmediate(resolve); });
 }
 
+async function turnsPass(count: number): Promise<void> {
+  for (let i = 0; i < count; i++) await nextTurn();
+}
+
 function reviewerDocumentOf(reply: ReviewerReply, round: number): Record<string, unknown> {
   return {
     round,
@@ -149,18 +160,27 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   const calls: RecordedAgentCall[] = [];
   const logs: string[] = [];
   const passesByTicket = new Map<string, number>();
+  const ownAgentsOnBoard = new Map<number, { kind: AgentKind; ticketId: string }>();
+  const turnsBeforeFirstCommand = scenario.turnsBeforeFirstCommand ?? DEFAULT_TURNS_BEFORE_FIRST_COMMAND;
   let running = 0;
   let mostAgentsAtOnce = 0;
+  let mostAgentsInFlightAtOnce = 0;
   let ranAway = false;
 
+  const ticketIdsOfOwnAgentsOnBoard = (kind: AgentKind): string[] => [...ownAgentsOnBoard.values()]
+    .filter((agentOnBoard) => agentOnBoard.kind === kind)
+    .map((agentOnBoard) => agentOnBoard.ticketId);
+
   const statusBlock = (): Record<string, unknown> => {
-    const agentsInFlight = board.otherAgentsInFlight + running;
+    const agentsInFlight = board.otherAgentsInFlight + ownAgentsOnBoard.size;
     return {
-      limit:           board.limit,
+      limit:              board.limit,
       agentsInFlight,
-      freeSlots:       Math.max(0, board.limit - agentsInFlight),
-      readyTicketIds:  [...board.readyTicketIds],
-      dispatcherState: board.dispatcherState,
+      freeSlots:          Math.max(0, board.limit - agentsInFlight),
+      readyTicketIds:     [...board.readyTicketIds],
+      dispatcherState:    board.dispatcherState,
+      runningTicketIds:   ticketIdsOfOwnAgentsOnBoard('build'),
+      runningReviewOfIds: ticketIdsOfOwnAgentsOnBoard('review'),
     };
   };
 
@@ -203,7 +223,16 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     }
     running++;
     mostAgentsAtOnce = Math.max(mostAgentsAtOnce, running);
-    await nextTurn();
+    mostAgentsInFlightAtOnce = Math.max(mostAgentsInFlightAtOnce, board.otherAgentsInFlight + running);
+    if (kind === 'survey' || ticketId === null) {
+      await nextTurn();
+    } else {
+      const callIndex = calls.length - 1;
+      await turnsPass(turnsBeforeFirstCommand);
+      if (reply?.['outcome'] !== 'claim-refused') ownAgentsOnBoard.set(callIndex, { kind, ticketId });
+      await turnsPass(TURNS_FROM_FIRST_COMMAND_TO_RETURN);
+      ownAgentsOnBoard.delete(callIndex);
+    }
     running--;
     scenario.afterAgent?.(call, board);
     return reply === null ? null : { ...reply, ...('status' in reply ? { status: statusBlock() } : {}) };
@@ -225,6 +254,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   return {
     calls,
     mostAgentsAtOnce,
+    mostAgentsInFlightAtOnce,
     logs,
     summary,
     ranAway,

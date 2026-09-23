@@ -75,6 +75,8 @@ function roundThreeScenario(roundTwoFindings: ReviewFinding[]): DispatchScenario
 
 const GRANT_ROUND_THREE_WITHOUT_CONVERGENCE: Mutant = { find: 'if (requestedRound === 2) return { granted: true };', replace: 'return { granted: true };' };
 
+const SUBTRACT_EVERY_OWN_AGENT: Mutant = { find: '.filter((ownAgent) => ownAgentIsOnBoard(ownAgent.work, status)).length', replace: '.length' };
+
 const CLAIMS: Claim[] = [
   {
     name:     'the agents running at once never exceed a board limit of 2',
@@ -92,7 +94,25 @@ const CLAIMS: Claim[] = [
     name:     'agents in flight elsewhere take their share of the board limit',
     scenario: { limit: 3, otherAgentsInFlight: 1, readyTicketIds: ticketIdsFrom(1, 5) },
     holds:    (run) => run.mostAgentsAtOnce === 2,
-    mutant:   { find: 'board.agentsInFlight - ownAgentsInFlightAtBoardReading', replace: '0' },
+    mutant:   { find: 'Math.max(0, status.agentsInFlight - ownAgentsOnBoard)', replace: '0' },
+  },
+  {
+    // An own agent launched a moment before a status block was taken has not claimed yet: subtracting it too would read a real other agent as free.
+    name:     'agents in flight elsewhere plus every own agent, on the board yet or not, never exceed the board limit',
+    scenario: { limit: 3, otherAgentsInFlight: 1, readyTicketIds: ticketIdsFrom(1, 5) },
+    holds:    (run) => run.mostAgentsInFlightAtOnce === 3 && summaryOf(run).delivered.length === 5,
+    mutant:   SUBTRACT_EVERY_OWN_AGENT,
+  },
+  {
+    name:     'the limit holds when own agents take several turns to reach the board, with two agents in flight elsewhere',
+    scenario: {
+      limit:                   4,
+      otherAgentsInFlight:     2,
+      readyTicketIds:          ticketIdsFrom(1, 6),
+      turnsBeforeFirstCommand: 3,
+    },
+    holds:  (run) => run.mostAgentsInFlightAtOnce === 4 && summaryOf(run).delivered.length === 6,
+    mutant: SUBTRACT_EVERY_OWN_AGENT,
   },
   {
     name:     'a waiting review starts before a ready ticket',
@@ -111,7 +131,7 @@ const CLAIMS: Claim[] = [
       afterAgent:     (call, board) => { if (call.kind === 'build' && call.ticketId === '001') board.readyTicketIds.push('002'); },
     },
     holds:  (run) => kindsAndTickets(run).includes('build 002') && summaryOf(run).delivered.includes('002'),
-    mutant: { find: 'if (finished.result !== null) adoptBoard(finished.result.status, inFlight.size);', replace: '' },
+    mutant: { find: 'if (finished.result !== null) adoptBoard(finished.result.status);', replace: '' },
   },
   {
     name:     'round 2 is granted at 751 reworked lines',

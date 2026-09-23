@@ -25,10 +25,12 @@ const STATUS_BLOCK_SCHEMA = {
     limit:           { type: 'integer', minimum: 1 },
     agentsInFlight:  { type: 'integer', minimum: 0 },
     freeSlots:       { type: 'integer', minimum: 0 },
-    readyTicketIds:  { type: 'array', items: { type: 'string' } },
-    dispatcherState: { type: 'string', enum: ['running', 'stopped', 'finished'] },
+    readyTicketIds:     { type: 'array', items: { type: 'string' } },
+    dispatcherState:    { type: 'string', enum: ['running', 'stopped', 'finished'] },
+    runningTicketIds:   { type: 'array', items: { type: 'string' } },
+    runningReviewOfIds: { type: 'array', items: { type: 'string' } },
   },
-  required: ['limit', 'agentsInFlight', 'freeSlots', 'readyTicketIds', 'dispatcherState'],
+  required: ['limit', 'agentsInFlight', 'freeSlots', 'readyTicketIds', 'dispatcherState', 'runningTicketIds', 'runningReviewOfIds'],
 };
 
 const SURVEY_SCHEMA = {
@@ -95,12 +97,15 @@ function briefPlaceholdersText(ticketId) {
     + `<main checkout> = ${settings.mainCheckout} and <full check command> = \`${settings.checkCommand}\``;
 }
 
-const STATUS_RETURN_TEXT = 'As your very last act run `agent-progress status --json` and return its `concurrency` block as `status`, so the dispatcher acts on the newest board.';
+const RUNNING_ROWS_TEXT = 'adding `runningTicketIds` (the `ticket` of every `running` task that has one) and `runningReviewOfIds` (the `reviewOf` of every `running` task that has one)';
+
+const STATUS_RETURN_TEXT = `As your very last act run \`agent-progress status --json\` and return its \`concurrency\` block as \`status\`, ${RUNNING_ROWS_TEXT}, `
+  + 'so the dispatcher acts on the newest board.';
 
 function surveyPrompt() {
   return [
     `Run \`agent-progress status --json\` once, in ${settings.mainCheckout}, and make no other call. Judge nothing; return:`,
-    '- `status`: its `concurrency` block as printed (limit, agentsInFlight, freeSlots, readyTicketIds, dispatcherState);',
+    `- \`status\`: its \`concurrency\` block as printed (limit, agentsInFlight, freeSlots, readyTicketIds, dispatcherState), ${RUNNING_ROWS_TEXT};`,
     '- `reviewWaitingTicketIds`: the ids of the tickets whose status is `in-review` and that no `running` task names in its `reviewOf`.',
   ].join('\n');
 }
@@ -183,7 +188,7 @@ const findingsFiled = [];
 let agentsRun = 0;
 let launchCount = 0;
 let board = null;
-let ownAgentsInFlightAtBoardReading = 0;
+let othersInFlightAtBoardReading = 0;
 let stoppedByBoard = false;
 
 function recordOf(ticketId) {
@@ -205,21 +210,29 @@ async function runAgent(prompt, options) {
   }
 }
 
-function adoptBoard(status, ownAgentsInFlight) {
+// A builder is on the board from its claim, a reviewer from its `task add --review-of --start`; a status block without the rows confirms nothing.
+function ownAgentIsOnBoard(work, status) {
+  const confirmingTicketIds = work.kind === 'build' ? status.runningTicketIds : status.runningReviewOfIds;
+  return Array.isArray(confirmingTicketIds) && confirmingTicketIds.includes(work.ticketId);
+}
+
+// Only an own agent whose row the board shows is subtracted: one that has not run its first command yet is not in `agentsInFlight`, and
+// subtracting it too would read a real other agent's slot as free.
+function adoptBoard(status) {
   if (status === null || typeof status !== 'object' || !Array.isArray(status.readyTicketIds)) return;
   board = status;
-  ownAgentsInFlightAtBoardReading = ownAgentsInFlight;
+  const ownAgentsOnBoard = [...inFlight.values()].filter((ownAgent) => ownAgentIsOnBoard(ownAgent.work, status)).length;
+  othersInFlightAtBoardReading = Math.max(0, status.agentsInFlight - ownAgentsOnBoard);
   // A stop is final for this run: the agents in flight finish and are settled, and nothing new starts until the user's go launches a new run.
   if (status.dispatcherState === 'stopped' && !stoppedByBoard) {
     stoppedByBoard = true;
-    log(`The board is stopped: no new agent starts, and the ${ownAgentsInFlight} in flight finish.`);
+    log(`The board is stopped: no new agent starts, and the ${inFlight.size} in flight finish.`);
   }
 }
 
-// "Other" agents are the board's minus this run's own; the ceiling holds whatever limit the board states.
+// Every own agent counts against the slots, on the board yet or not; the ceiling holds whatever limit the board states.
 function ownSlotLimit() {
-  const othersInFlight = Math.max(0, board.agentsInFlight - ownAgentsInFlightAtBoardReading);
-  return Math.max(0, Math.min(board.limit, CONCURRENCY_CEILING_AGENTS) - othersInFlight);
+  return Math.max(0, Math.min(board.limit, CONCURRENCY_CEILING_AGENTS) - othersInFlightAtBoardReading);
 }
 
 function park(ticketId, reason) {
@@ -275,7 +288,7 @@ function launch(work) {
       schema: REVIEWER_SCHEMA,
       model:  WORKER_MODEL,
     });
-  inFlight.set(key, running.then((result) => ({ key, work, result })));
+  inFlight.set(key, { work, finishing: running.then((result) => ({ key, work, result })) });
 }
 
 function settleBuild(work, result) {
@@ -376,7 +389,7 @@ if (survey === null) {
   log('The survey returned no board, so nothing was dispatched.');
   return summary();
 }
-adoptBoard(survey.status, 0);
+adoptBoard(survey.status);
 if (board === null) {
   log('The survey returned no readable concurrency block, so nothing was dispatched.');
   return summary();
@@ -395,9 +408,9 @@ for (;;) {
     launch(work);
   }
   if (inFlight.size === 0) break;
-  const finished = await Promise.race(inFlight.values());
+  const finished = await Promise.race([...inFlight.values()].map((ownAgent) => ownAgent.finishing));
   inFlight.delete(finished.key);
-  if (finished.result !== null) adoptBoard(finished.result.status, inFlight.size);
+  if (finished.result !== null) adoptBoard(finished.result.status);
   if (finished.work.kind === 'build') settleBuild(finished.work, finished.result);
   else settleReview(finished.work, finished.result);
 }
