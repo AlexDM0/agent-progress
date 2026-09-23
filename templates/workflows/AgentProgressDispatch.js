@@ -259,8 +259,8 @@ function takeoversOnBoard(status) {
 function adoptBoard(status) {
   if (status === null || typeof status !== 'object' || !Array.isArray(status.readyTicketIds)) return;
   board = status;
-  // A block without the low ids keeps the ones read last, rather than reading every ready ticket as normal.
-  if (Array.isArray(status.lowPriorityReadyTicketIds)) lowPriorityReadyTicketIds = new Set(status.lowPriorityReadyTicketIds);
+  // A block without the low ids reads every ready ticket as low: holding back normal work is undone by a relaunch, starting untriaged low work is not.
+  lowPriorityReadyTicketIds = new Set(Array.isArray(status.lowPriorityReadyTicketIds) ? status.lowPriorityReadyTicketIds : status.readyTicketIds);
   const ownAgentsOnBoard = [...inFlight.values()].filter((ownAgent) => ownAgentIsOnBoard(ownAgent.work, status)).length + takeoversOnBoard(status).length;
   othersInFlightAtBoardReading = Math.max(0, status.agentsInFlight - ownAgentsOnBoard);
   // A stop is final for this run: the agents in flight finish and are settled, and nothing new starts until the user's go launches a new run.

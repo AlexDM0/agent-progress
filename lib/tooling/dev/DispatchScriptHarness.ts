@@ -69,6 +69,8 @@ export interface DispatchScenario {
   turnsBeforeFirstCommand?: number;
   /** Every status block leaves out `runningTicketIds` and `runningReviewOfIds`, as an agent that did not derive them would. */
   statusOmitsRunningRows?:  boolean;
+  /** Every status block leaves out `lowPriorityReadyTicketIds`, as an agent that did not derive them would. */
+  statusOmitsLowPriority?:  boolean;
 }
 
 export interface DispatchRun {
@@ -195,13 +197,14 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
 
   const statusBlock = (): Record<string, unknown> => {
     const agentsInFlight = board.otherAgentsInFlight + ownAgentsOnBoard.size + rowsLeftRunning.size;
+    const lowPriorityReadyTicketIds = board.readyTicketIds.filter((readyTicketId) => board.lowPriorityTicketIds.includes(readyTicketId));
     const concurrency = {
-      limit:                     board.limit,
+      limit:           board.limit,
       agentsInFlight,
-      freeSlots:                 Math.max(0, board.limit - agentsInFlight),
-      readyTicketIds:            [...board.readyTicketIds],
-      lowPriorityReadyTicketIds: board.readyTicketIds.filter((readyTicketId) => board.lowPriorityTicketIds.includes(readyTicketId)),
-      dispatcherState:           board.dispatcherState,
+      freeSlots:       Math.max(0, board.limit - agentsInFlight),
+      readyTicketIds:  [...board.readyTicketIds],
+      ...(scenario.statusOmitsLowPriority === true ? {} : { lowPriorityReadyTicketIds }),
+      dispatcherState: board.dispatcherState,
     };
     if (scenario.statusOmitsRunningRows === true) return concurrency;
     return { ...concurrency, runningTicketIds: ticketIdsOfRunningRows('build'), runningReviewOfIds: ticketIdsOfRunningRows('review') };

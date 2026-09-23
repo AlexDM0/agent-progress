@@ -377,7 +377,19 @@ const CLAIMS: Claim[] = [
     holds: (run) => !kindsAndTickets(run).includes('build 009')
       && summaryOf(run).delivered.join() === '001,002'
       && summaryOf(run).lowPriorityWaiting?.join() === '009',
-    mutant: { find: 'if (Array.isArray(status.lowPriorityReadyTicketIds))', replace: 'if (agentsRun === 1 && Array.isArray(status.lowPriorityReadyTicketIds))' },
+    mutant: { find: '  lowPriorityReadyTicketIds = new Set(Array.isArray', replace: '  if (agentsRun === 1) lowPriorityReadyTicketIds = new Set(Array.isArray' },
+  },
+  {
+    // Starting untriaged low work cannot be undone and holding back normal work can, so a block that states no priorities errs on the low side.
+    name:     'a ready ticket whose priority the status block does not state is not started, and is left for triage',
+    scenario: {
+      limit:                  2,
+      readyTicketIds:         ['004'],
+      lowPriorityTicketIds:   ['004'],
+      statusOmitsLowPriority: true,
+    },
+    holds:  (run) => kindsAndTickets(run).join(', ') === 'survey' && summaryOf(run).lowPriorityWaiting?.join() === '004',
+    mutant: { find: ': status.readyTicketIds);', replace: ': []);' },
   },
   {
     name:     'a low ticket left for triage is logged as such, never as waiting for a slot other agents hold',
