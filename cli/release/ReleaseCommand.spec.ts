@@ -179,6 +179,22 @@ describe.skipIf(!gitIsAvailable())('a release that holds', () => {
     expect(await readTicketDocument(bundled.id)).toMatchObject({ status: 'delivered', commit: tip, branch });
   });
 
+  // `2` and `002` are the same ticket; moving it twice would log it done and delivered twice.
+  test('one ticket named twice under two spellings is moved once', async () => {
+    const {
+      identifier,
+      worktree,
+      branch,
+    } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
+
+    const outcome = await agentProgress(['release', identifier, String(Number(identifier)), '--branch', branch, '--worktree', worktree]);
+
+    expect(outcome.exitCode, outcome.error).toBe(0);
+    expect(outcome.output).toContain(`Released ticket #${identifier}:`);
+    const progressText = readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8');
+    expect(progressText.split(`"Ticket #${identifier} delivered"`).length - 1).toBe(1);
+  });
+
   test('a bundle with one ticket that is not releasable releases none of them', async () => {
     const { identifier, worktree, branch } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
     const notStarted = JSON.parse(await agentProgressOrFail(['ticket', 'add', 'Not started', '--json'])) as { id: string };

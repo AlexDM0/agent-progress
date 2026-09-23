@@ -148,7 +148,8 @@ function branchCommitToRelease(mainCheckout: string, branch: string, mainLine: s
 /** Every check comes before the merge, and the merge before the ticket moves: a refusal at any step leaves main and the tracker as they were. */
 async function releaseUnderTheLock(request: ReleaseRequest, commandArguments: ArgumentParser, context: CommandContext): Promise<Release> {
   return openTrackerForWriting(commandArguments, context, (change) => {
-    const tickets      = request.references.map((reference) => releasableTicket(readTicket(change.workspace, reference), reference));
+    const namedTickets = request.references.map((reference) => releasableTicket(readTicket(change.workspace, reference), reference));
+    const tickets      = namedTickets.filter((ticket, index) => namedTickets.findIndex(({ frontmatter }) => frontmatter.id === ticket.frontmatter.id) === index);
     const mainCheckout = change.workspace.rootDirectory;
     requireMainCheckoutOnMainLine(mainCheckout, request.mainLine);
     const branchCommit = branchCommitToRelease(mainCheckout, request.branch, request.mainLine);
