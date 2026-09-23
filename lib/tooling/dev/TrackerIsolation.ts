@@ -2,9 +2,16 @@
  * The guard that keeps a spec away from a tracker it did not create: every directory a spec hands a command must lie inside the scratch root, and
  * so must any tracker discovery resolves from it — the walk up, the git common directory and `AGENT_PROGRESS_ROOT` alike.
  */
-import { realpathSync }                  from 'node:fs';
-import { tmpdir }                        from 'node:os';
-import { isAbsolute, relative, resolve } from 'node:path';
+import { realpathSync } from 'node:fs';
+import { tmpdir }       from 'node:os';
+import {
+  basename,
+  dirname,
+  isAbsolute,
+  join,
+  relative,
+  resolve
+}                       from 'node:path';
 
 import { findWorkspace } from '../../platform/Workspace';
 
@@ -15,11 +22,14 @@ export function scratchRootDirectory(): string {
   return canonicalPathOf(tmpdir());
 }
 
+/** A path that does not exist yet is canonicalised through its nearest existing ancestor, since the scratch root itself sits behind a symlink on macOS. */
 function canonicalPathOf(path: string): string {
+  const absolutePath = resolve(path);
   try {
-    return realpathSync(path);
+    return realpathSync(absolutePath);
   } catch {
-    return resolve(path);
+    const parentDirectory = dirname(absolutePath);
+    return parentDirectory === absolutePath ? absolutePath : join(canonicalPathOf(parentDirectory), basename(absolutePath));
   }
 }
 

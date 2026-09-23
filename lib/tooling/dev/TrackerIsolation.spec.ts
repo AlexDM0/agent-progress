@@ -70,6 +70,13 @@ describe('the verdict on one directory', () => {
     expect(trackerIsolationVerdictFor(join(trackedScratchDirectory, 'not-created-yet'))).toBe('isolated');
   });
 
+  // A scratch directory is handed out uncanonical (`/var` rather than `/private/var` on macOS), and a spec may name a folder below it before making it.
+  test('a directory not created yet below a scratch directory as it was handed out is isolated', () => {
+    const uncanonicalScratchDirectory = createScratchDirectory('isolation-uncanonical');
+    scratchDirectories.push(uncanonicalScratchDirectory);
+    expect(trackerIsolationVerdictFor(join(uncanonicalScratchDirectory, 'not-created-yet', 'nested'))).toBe('isolated');
+  });
+
   // The shape that leaked: a context defaulting to the test runner's directory, which is the repository itself.
   test('the repository under test is outside the scratch root, whether or not it holds a tracker', () => {
     expect(trackerIsolationVerdictFor(REPOSITORY_DIRECTORY)).toBe('directory-outside-the-scratch-root');
