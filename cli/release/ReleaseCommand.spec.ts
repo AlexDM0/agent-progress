@@ -277,6 +277,21 @@ describe.skipIf(!gitIsAvailable())('a release that is refused changes nothing', 
     expect(gitIn(repositoryDirectory, ['symbolic-ref', '--short', 'HEAD'])).toBe('side-line');
   });
 
+  // The branch descends from main, so only git itself stands between the check and a ticket delivered without its merge.
+  test('a fast-forward git refuses over a local change in the main checkout exits 1 with reason merge-refused', async () => {
+    const { identifier, worktree, branch } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
+    writeFileSync(join(repositoryDirectory, 'role-history.ts'), 'uncommitted in the main checkout\n');
+    gitIn(repositoryDirectory, ['add', 'role-history.ts']);
+    const worktreeHeadBefore = gitIn(worktree, ['rev-parse', 'HEAD']);
+
+    const outcome = await expectNothingChanged(identifier, worktree, () => agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree, '--json']));
+
+    expect(releaseDocumentOf(outcome).reason).toBe('merge-refused');
+    expect(gitIn(worktree, ['rev-parse', 'HEAD'])).toBe(worktreeHeadBefore);
+    expect(branchExists(branch)).toBe(true);
+    expect(readFileSync(join(repositoryDirectory, 'role-history.ts'), 'utf8')).toBe('uncommitted in the main checkout\n');
+  });
+
   test('a ticket that is still open exits 1 before git is asked anything', async () => {
     const added    = JSON.parse(await agentProgressOrFail(['ticket', 'add', 'Not started', '--json'])) as { id: string };
     const worktree = addWorktree(repositoryDirectory, 'not-started');
