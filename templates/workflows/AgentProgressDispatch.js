@@ -304,12 +304,12 @@ function ownSlotLimit() {
   return Math.max(0, Math.min(board.limit, CONCURRENCY_CEILING_AGENTS) - othersInFlightAtBoardReading);
 }
 
-// A row nobody works on would be counted against the limit by every builder's claim, so the parking agent starts at once, slot or no slot: it
-// takes over rows the board already counts and adds none.
 function releaseRowsOf(ticketId, boardLogLine) {
   launch({ kind: 'park', ticketId, boardLogLine });
 }
 
+// A row nobody works on would be counted against the limit by every builder's claim, so the parking agent starts at once, in the slot of the agent
+// that just finished: the dispatcher's agents alive stay as many as a moment before.
 function park(ticketId, reason) {
   parked.push({ id: ticketId, reason });
   log(`#${ticketId} parked: ${reason}.`);
@@ -491,6 +491,14 @@ function settleReview(work, result) {
   queueReview(ticketId, true);
 }
 
+async function settleNextFinished() {
+  const finished = await Promise.race([...inFlight.values()].map((ownAgent) => ownAgent.finishing));
+  inFlight.delete(finished.key);
+  // Settled first, so a row this agent left running is a takeover or being parked by the time its own status block is read.
+  settle(finished);
+  if (finished.result !== null) adoptBoard(finished.result.status);
+}
+
 phase('Survey');
 const survey = await runAgent(surveyPrompt(), {
   label:  'survey',
@@ -521,21 +529,25 @@ for (;;) {
     launch(work);
   }
   if (inFlight.size === 0) break;
-  const finished = await Promise.race([...inFlight.values()].map((ownAgent) => ownAgent.finishing));
-  inFlight.delete(finished.key);
-  // Settled first, so a row this agent left running is a takeover or being parked by the time its own status block is read.
-  settle(finished);
-  if (finished.result !== null) adoptBoard(finished.result.status);
+  await settleNextFinished();
 }
 
 // A takeover still waiting here never starts in this run, a stop or others holding the limit kept it out, so its row is released like a parked one.
-const takeoversNeverStarted = [...takeoversWaiting.values()];
-if (takeoversNeverStarted.length > 0) {
+// No agent just finished for this parking agent to replace, so it starts only within a free slot: it is an agent, and the limit counts it. Without
+// a stop there is none, since a free slot would have started the takeover itself.
+const rowsToRelease = [...takeoversWaiting.values()];
+if (rowsToRelease.length > 0) {
   phase('Park');
-  const leftBecause = stoppedByBoard ? 'left for the user\'s go' : 'no slot free for a fresh agent';
-  for (const takeover of takeoversNeverStarted) releaseRowsOf(takeover.ticketId, `Paused the row of #${takeover.ticketId}: ${leftBecause}`);
-  const released = await Promise.all([...inFlight.values()].map((ownAgent) => ownAgent.finishing));
-  for (const finished of released) settle(finished);
+  for (;;) {
+    while (rowsToRelease.length > 0 && inFlight.size < ownSlotLimit()) {
+      const { ticketId } = rowsToRelease.shift();
+      releaseRowsOf(ticketId, `Paused the row of #${ticketId}: left for the user's go`);
+    }
+    if (inFlight.size === 0) break;
+    await settleNextFinished();
+  }
+  const rowsLeftRunningText = rowsToRelease.map((takeover) => `#${takeover.ticketId}`).join(', ');
+  if (rowsToRelease.length > 0) log(`No slot free for an agent to pause the row of ${rowsLeftRunningText}: pause it with \`agent-progress task pause\`.`);
 }
 
 const leftWaiting = [

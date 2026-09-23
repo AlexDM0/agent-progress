@@ -82,10 +82,7 @@ const SETTLE_THEN_ADOPT = 'settle(finished);\n  if (finished.result !== null) ad
 
 const PARK_WITHOUT_RELEASING_THE_ROWS: Mutant = { find: '  releaseRowsOf(ticketId, `Parked #${ticketId}: ${reason}`);\n', replace: '' };
 
-const LEAVE_TAKEOVERS_UNSTARTED_RUNNING: Mutant = {
-  find:    'for (const takeover of takeoversNeverStarted) releaseRowsOf(',
-  replace: 'for (const takeover of []) releaseRowsOf(',
-};
+const LEAVE_TAKEOVERS_UNSTARTED_RUNNING: Mutant = { find: 'const rowsToRelease = [...takeoversWaiting.values()];', replace: 'const rowsToRelease = [];' };
 
 function releasedEveryRow(run: DispatchRun): boolean {
   return run.rowsRunningAtEnd.length === 0 && !run.logs.some((message) => message.includes('No slot free'));
@@ -256,6 +253,7 @@ const CLAIMS: Claim[] = [
       && parkedIds(run).join() === '001'
       && run.rowsPaused.join() === 'build 001'
       && run.mostAgentsInFlightAtOnce === 1
+      && run.mostLiveAgentsAtOnce === 1
       && releasedEveryRow(run),
     mutant: PARK_WITHOUT_RELEASING_THE_ROWS,
   },
@@ -274,6 +272,7 @@ const CLAIMS: Claim[] = [
       && summaryOf(run).delivered.join() === '002'
       && parkedIds(run).join() === '001'
       && run.mostAgentsInFlightAtOnce === 1
+      && run.mostLiveAgentsAtOnce === 1
       && releasedEveryRow(run),
     mutant: PARK_WITHOUT_RELEASING_THE_ROWS,
   },
@@ -290,21 +289,24 @@ const CLAIMS: Claim[] = [
       && run.rowsPaused.join() === 'build 001'
       && parkedIds(run).length === 0
       && run.rowsRunningAtEnd.length === 0
+      && run.mostLiveAgentsAtOnce === 1
       && run.logs.some((message) => message.includes('Left for the user\'s go: #001')),
     mutant: LEAVE_TAKEOVERS_UNSTARTED_RUNNING,
   },
   {
-    name:     'a takeover kept out because agents elsewhere took the whole limit ends the run with its row paused, not running',
+    // The limit bounds agents alive, and a parking agent is one: with no agent just finished for it to replace, it would be one over the limit.
+    name:     'a takeover kept out because agents elsewhere hold the whole limit starts no parking agent over it, and the log hands its row on by name',
     scenario: {
       limit:          1,
       readyTicketIds: ['001'],
       builderReply:   (_ticketId, pass) => (pass === 1 ? { outcome: 'failed' } : { outcome: 'in-review' }),
       afterAgent:     (call, board) => { if (call.kind === 'build') board.otherAgentsInFlight = 1; },
     },
-    holds: (run) => kindsAndTickets(run).join(', ') === 'survey, build 001, park 001'
-      && run.rowsPaused.join() === 'build 001'
-      && run.rowsRunningAtEnd.length === 0,
-    mutant: LEAVE_TAKEOVERS_UNSTARTED_RUNNING,
+    holds: (run) => kindsAndTickets(run).join(', ') === 'survey, build 001'
+      && run.mostLiveAgentsAtOnce === 1
+      && run.rowsRunningAtEnd.join() === 'build 001'
+      && run.logs.some((message) => message.includes('No slot free for an agent to pause the row of #001')),
+    mutant: { find: 'while (rowsToRelease.length > 0 && inFlight.size < ownSlotLimit())', replace: 'while (rowsToRelease.length > 0)' },
   },
   {
     // A dead reviewer returns no status block, so its bar is seen only in a later agent's: there, with an agent started elsewhere, the bar read as

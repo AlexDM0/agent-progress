@@ -151,7 +151,9 @@ the last the low tickets ready that it left for your triage:
 2. `agent-progress log` one line: delivered, parked, findings filed, agents run.
 3. Each parked ticket, with its reason, logged and handled. The run has already paused its row and
    closed any review bar left running, as it does for a ticket it left for the user's go, so a
-   parked row is `paused`, never an agent in flight. **Two failed passes on one ticket is a
+   parked row is `paused`, never an agent in flight. A row its log names under `No slot free for an
+   agent to pause` had no slot for that agent within the limit: pause it yourself with
+   `agent-progress task pause`. **Two failed passes on one ticket is a
    question for the user, not a third agent**: tell them what the last Handoff and Review say is
    missing. A refused release — a main checkout off the main line, a fast-forward git refused over a
    local change, a refused permission — is the user's to settle, and neither you nor an agent runs

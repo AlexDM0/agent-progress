@@ -81,6 +81,9 @@ export interface DispatchRun {
   /** The most agents in flight at one moment: the board's others, every builder and reviewer of the script's own on the board yet or not, and every
    * row left running that no own agent of the same kind and ticket is running to take over. A parking agent adds none. */
   mostAgentsInFlightAtOnce: number;
+  /** The most agents alive at one moment, which is what the limit bounds: the board's others and every own agent of any kind, the survey and each
+   * parking agent included; a row left running is no agent. */
+  mostLiveAgentsAtOnce:     number;
   /** The rows left running when the script returned, as `build <ticket>` or `review <ticket>`; a paused row is not among them. */
   rowsRunningAtEnd:         string[];
   /** The rows a parking agent paused, as `build <ticket>`. */
@@ -200,6 +203,8 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   const turnsBeforeFirstCommand = scenario.turnsBeforeFirstCommand ?? DEFAULT_TURNS_BEFORE_FIRST_COMMAND;
   let mostAgentsAtOnce = 0;
   let mostAgentsInFlightAtOnce = 0;
+  let liveOwnAgents = 0;
+  let mostLiveAgentsAtOnce = 0;
   let ranAway = false;
 
   const ticketIdsOfRunningRows = (kind: AgentKind): string[] => [...ownAgentsOnBoard.values(), ...rowsLeftRunning.values()]
@@ -265,12 +270,15 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     if (kind === 'build' && ticketId !== null && reply?.['outcome'] !== 'claim-refused') {
       board.readyTicketIds = board.readyTicketIds.filter((readyTicketId) => readyTicketId !== ticketId);
     }
+    liveOwnAgents++;
+    mostLiveAgentsAtOnce = Math.max(mostLiveAgentsAtOnce, board.otherAgentsInFlight + liveOwnAgents);
     if (kind === 'park' && ticketId !== null) {
       await turnsPass(turnsBeforeFirstCommand);
       const ticketRowKey = `build:${ticketId}`;
       if (rowsLeftRunning.delete(ticketRowKey)) pausedRowKeys.add(ticketRowKey);
       rowsLeftRunning.delete(`review:${ticketId}`);
       await turnsPass(TURNS_FROM_FIRST_COMMAND_TO_RETURN);
+      liveOwnAgents--;
       scenario.afterAgent?.(call, board);
       return reply === null ? null : { ...reply, status: statusBlock() };
     }
@@ -293,6 +301,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       if (reachesTheBoard && rowIsLeftRunning(kind, reply)) rowsLeftRunning.set(passKey, { kind, ticketId });
     }
     rowKeysOfOwnAgentsRunning.delete(callIndex);
+    liveOwnAgents--;
     scenario.afterAgent?.(call, board);
     return reply === null ? null : { ...reply, ...('status' in reply ? { status: statusBlock() } : {}) };
   };
@@ -314,6 +323,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     calls,
     mostAgentsAtOnce,
     mostAgentsInFlightAtOnce,
+    mostLiveAgentsAtOnce,
     rowsRunningAtEnd: [...rowsLeftRunning.keys()].map(rowNameOf),
     rowsPaused:       [...pausedRowKeys].map(rowNameOf),
     logs,
