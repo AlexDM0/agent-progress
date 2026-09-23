@@ -4,8 +4,13 @@
  * as they were; a cleanup git declines is reported at exit 0 because the release happened; and two releases racing for one main line
  * never both fast-forward it.
  */
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { join }                                    from 'node:path';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync
+}                from 'node:fs';
+import { join } from 'node:path';
 
 import {
   afterEach,
@@ -308,6 +313,25 @@ describe.skipIf(!gitIsAvailable())('two releases at once', () => {
     expect(refused === undefined ? undefined : releaseDocumentOf(refused).reason).toBe('main-moved');
     expect([first.tip, second.tip]).toContain(mainTip());
     expect(gitIn(repositoryDirectory, ['rev-list', '--count', `${mainBefore}..main`])).toBe('1');
+  });
+
+  // The race tests pass with the merge outside the lock too, since a waiter rarely wakes inside the gap; git's own hook sees the lock file.
+  test('the fast-forward runs while the tracker lock is held', async () => {
+    const { identifier, worktree, branch } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
+    const hooksDirectory  = join(repositoryDirectory, 'probe-hooks');
+    const lockObservation = join(repositoryDirectory, 'lock-during-merge.txt');
+    mkdirSync(hooksDirectory);
+    writeFileSync(
+      join(hooksDirectory, 'post-merge'),
+      `#!/bin/sh\nif [ -e .agent-progress/.lock ]; then echo held > '${lockObservation}'; else echo free > '${lockObservation}'; fi\n`,
+      { mode: 0o755 },
+    );
+    gitIn(repositoryDirectory, ['config', 'core.hooksPath', hooksDirectory]);
+
+    const outcome = await agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree]);
+
+    expect(outcome.exitCode, outcome.error).toBe(0);
+    expect(readFileSync(lockObservation, 'utf8').trim()).toBe('held');
   });
 
   test('a branch built on top of another\'s released tip fast-forwards on top of it', async () => {
