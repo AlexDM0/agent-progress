@@ -241,8 +241,9 @@ the release, because an orchestrator merging a branch it has not read adds a ste
 The reviewer finds and fixes bugs in what it reviews — the branch's own change and the ticket's
 Acceptance — and in nothing else. A defect outside that, however small, is reported and not fixed:
 the reviewer is the last reader before the main line, so a fix beside the change ships unreviewed,
-and a pass that follows its findings into the neighbourhood spends its budget there. The orchestrator
-files what it reports as low-priority tickets and runs them once the user's own work is done. A fix
+and a pass that follows its findings into the neighbourhood spends its budget there. A dispatched
+reviewer files each as a low-priority ticket itself, and by hand the orchestrator files what it
+reports; either way the orchestrator triages them and runs them once the user's own work is done. A fix
 the reviewer watched fail and pass needs no second reader: a second review is for a pass that
 reworked over 750 lines of code, documentation and comments not counted, and is always asked of the
 orchestrator, which decides between a further round and a new ticket for what keeps turning up.
