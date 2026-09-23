@@ -26,6 +26,7 @@ import {
   gitIsAvailable,
   removeScratchDirectory
 }                                       from '../../lib/tooling/dev/ScratchWorkspace';
+import { helpText }       from '../HelpText';
 import { runCommandLine } from '../Main';
 
 interface ReleaseDocument {
@@ -44,6 +45,12 @@ interface CommandOutcome {
 const COMMIT_IDENTITY = ['-c', 'user.name=Alex Example', '-c', 'user.email=alex.example@example.com', '-c', 'commit.gpgsign=false'];
 
 const FROZEN_NOW = new Date('2026-09-23T10:00:00Z');
+
+const RELEASE_HELP_ENTRY = /\n {2}release <id>[\s\S]*?\n\n/.exec(helpText())?.[0] ?? '';
+
+const RELEASE_REFERENCE_SECTION = /## Releasing a branch[\s\S]*?\n## /.exec(readFileSync(join(import.meta.dir, '..', '..', 'skill', 'Reference.md'), 'utf8'))?.[0] ?? '';
+
+const RELEASE_DOCUMENTATION = [['cli/HelpText.ts', RELEASE_HELP_ENTRY], ['skill/Reference.md', RELEASE_REFERENCE_SECTION]] as const;
 
 let repositoryDirectory = '';
 
@@ -104,6 +111,13 @@ async function reviewedTicketOnAWorktree(title: string, worktreeName: string): P
     branch: `worktree/${worktreeName}`,
     tip,
   };
+}
+
+/** The keys of the `{…}` shape that follows `outcomePhrase` ("on success" or "on a refusal"), read through wrapped lines and backticks. */
+function documentedKeysOf(documentation: string, outcomePhrase: string): string[] {
+  const flattenedDocumentation = documentation.replaceAll(/\s+/g, ' ');
+  const shape                  = new RegExp(`${outcomePhrase},? \`?\\{([^}]*)\\}`).exec(flattenedDocumentation)?.[1] ?? '';
+  return shape.split(',').map((field) => field.split(':')[0]?.trim() ?? '').filter((key) => key !== '').sort();
 }
 
 function releaseDocumentOf(outcome: CommandOutcome): ReleaseDocument {
@@ -352,25 +366,29 @@ describe.skipIf(!gitIsAvailable())('a release that is refused changes nothing', 
   });
 });
 
-// A key the command starts printing and nobody documents is how #024 was found; pinning the set makes a new one fail here first.
-describe.skipIf(!gitIsAvailable())('the --json document pins its exact key set', () => {
-  test('a release that succeeds prints exactly released, tickets, branch, mainLine, commit and cleanup', async () => {
+// An undocumented key the command prints is how #024 was found; reading the set from the documents fails a new one until they name it.
+describe.skipIf(!gitIsAvailable())('the --json document prints exactly the keys the help and the Reference name', () => {
+  test('a release that succeeds prints exactly the keys both documents give its success shape', async () => {
     const { identifier, worktree, branch } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
 
     const outcome = await agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree, '--json']);
 
     expect(outcome.exitCode, outcome.error).toBe(0);
-    expect(Object.keys(JSON.parse(outcome.output)).sort()).toEqual(['branch', 'cleanup', 'commit', 'mainLine', 'released', 'tickets']);
+    const printedKeys = Object.keys(JSON.parse(outcome.output)).sort();
+    expect(printedKeys).toContain('released');
+    for (const [documentPath, documentation] of RELEASE_DOCUMENTATION) expect(documentedKeysOf(documentation, 'on success'), documentPath).toEqual(printedKeys);
   });
 
-  test('a release refused as main-moved prints exactly released, reason, detail and cleanup', async () => {
+  test('a release refused as main-moved prints exactly the keys both documents give its refusal shape', async () => {
     const { identifier, worktree, branch } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
     commitFile(repositoryDirectory, 'main-moves.ts', 'export const mainMoved = true;\n');
 
     const outcome = await agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree, '--json']);
 
     expect(outcome.exitCode).toBe(1);
-    expect(Object.keys(JSON.parse(outcome.output)).sort()).toEqual(['cleanup', 'detail', 'reason', 'released']);
+    const printedKeys = Object.keys(JSON.parse(outcome.output)).sort();
+    expect(printedKeys).toContain('released');
+    for (const [documentPath, documentation] of RELEASE_DOCUMENTATION) expect(documentedKeysOf(documentation, 'on a refusal'), documentPath).toEqual(printedKeys);
   });
 });
 
