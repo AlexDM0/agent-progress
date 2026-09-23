@@ -46,6 +46,9 @@ lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/ lib/tick
 - `lib/ImportDirection.spec.ts` — imports run up the tree, no `lib` → `cli`, no shipped code into the
   test-only folder, no barrels.
 - `lib/EnvironmentReads.spec.ts` — the environment is read in one module.
+- `lib/TrackerIsolationBypasses.spec.ts` — no spec creates the real process context, and none
+  spawns the binary except through `lib/tooling/dev/CliProcess.ts`: a spec that starts a process
+  and names the entry point or the linked bin is judged by the pair.
 - `lib/DocumentedPaths.spec.ts` — every backticked repository path in a `*.md` or a docblock exists.
   A module that no longer exists is named **without** its extension, deliberately.
 
