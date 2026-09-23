@@ -64,9 +64,10 @@ const NEXT_LINE_CASES: NextLineCase[] = [
     setup:            [['task', 'start', '4'], ['ticket', 'claim', '3']],
     expectedNextLine: 'Next: 1 of 2 slots free; ready: #001, #002',
   },
+  // Delivered straight from running, so the move frees a slot and a line read before it would differ.
   {
     command:          ['task', 'deliver', '4'],
-    setup:            [['task', 'start', '4'], ['task', 'finish', '4']],
+    setup:            [['task', 'start', '4']],
     expectedNextLine: 'Next: 2 of 2 slots free; ready: #001, #002, #003',
   },
 ];
