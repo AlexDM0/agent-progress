@@ -315,9 +315,9 @@ When you do lose the thread — after a compaction, or a long gap — re-anchor 
   `awaiting review`, `awaiting merge` and `done` rather than `finished` and `delivered`: each one
   names who is still owed something. A ticket's row gets there through `ticket deliver`; a row with
   nothing to merge — a review pass, a chore, any free-standing `task add` — gets there through
-  `agent-progress task deliver <id>` once its work is accepted. You are the only one who can close
-  a row, because you are the one who decides whether more work follows it, and a chart whose rows
-  stop at `awaiting review` is a chart nobody finished reading.
+  `agent-progress task deliver <id>` once its work is accepted. Apart from the review bar a release
+  delivers, you are the only one who closes a row, because you are the one who decides whether more
+  work follows it, and a chart whose rows stop at `awaiting review` is a chart nobody finished reading.
 - Every move goes through the CLI **at the moment it happens**, never batched at the end of a wave.
   A chart caught up afterwards has the wrong bars on it.
 - **Where the hook is installed, no `--tokens` at all.** Every brief names its row on a line of its
