@@ -208,3 +208,11 @@ every command spec drives `runCommandLine` with. That last one declares the cont
 than importing `cli/CommandContext.ts`, because rule 1 forbids any import of `cli/` from under
 `lib/`. Nothing that ships imports this folder, and `lib/ImportDirection.spec.ts` is what keeps that
 true.
+
+**No spec reaches a tracker it did not create.** `lib/tooling/dev/TrackerIsolation.ts` refuses a
+directory outside the scratch root (the OS temporary directory, where every scratch directory is made)
+and one from which discovery — walk up, git common directory or `AGENT_PROGRESS_ROOT` — resolves a
+tracker outside it. The captured context (which takes `currentDirectory` as required, with no
+default), the `cwd` of a hook input piped into it, and `lib/tooling/dev/CliProcess.ts` all check before
+a command runs, because a throw inside a command becomes an exit code a spec may not assert.
+`lib/tooling/dev/TrackerIsolation.spec.ts` constructs each way out and checks the refusal.

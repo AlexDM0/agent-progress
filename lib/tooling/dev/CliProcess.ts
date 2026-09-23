@@ -5,6 +5,8 @@
 import { existsSync } from 'node:fs';
 import { join }       from 'node:path';
 
+import { requireTrackerIsolation } from './TrackerIsolation';
+
 export interface AgentProgressResult {
   exitCode:       number;
   standardOutput: string;
@@ -26,6 +28,7 @@ function agentProgressEntryPoint(): string {
 
 /** Both streams are read to completion before the exit code is awaited, since a pipe that fills while nobody drains it is a hang, not a failure. */
 export async function runAgentProgress(commandLineArguments: readonly string[], options: RunAgentProgressOptions): Promise<AgentProgressResult> {
+  requireTrackerIsolation(options.currentDirectory);
   const spawned = Bun.spawn(['bun', agentProgressEntryPoint(), ...commandLineArguments], {
     cwd:    options.currentDirectory,
     stdin:  'ignore',

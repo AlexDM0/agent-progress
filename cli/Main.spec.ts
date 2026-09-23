@@ -2,18 +2,33 @@
  * What a command line does to the exit code: 0 for the reference, 1 for an unknown command or an actionable refusal, 2 for anything else.
  */
 import {
+  afterAll,
+  beforeAll,
   describe,
   expect,
   mock,
   test
-}                                       from 'bun:test';
-import { OperationRefusal }             from '../lib/platform/OperationRefusal';
-import { createCapturedCommandContext } from '../lib/tooling/dev/CapturedCommandContext';
-import { runCommandLine }               from './Main';
+}                                                         from 'bun:test';
+import { OperationRefusal }                               from '../lib/platform/OperationRefusal';
+import { createCapturedCommandContext }                   from '../lib/tooling/dev/CapturedCommandContext';
+import { createScratchDirectory, removeScratchDirectory } from '../lib/tooling/dev/ScratchWorkspace';
+import { runCommandLine }                                 from './Main';
 
 let errorThrownByTheStubbedCommand: unknown = null;
+// Holds no tracker, so a route that does reach a command is refused there instead of writing into the repository's own.
+let untrackedDirectory = '';
 
-const capturingContext = createCapturedCommandContext;
+beforeAll(() => {
+  untrackedDirectory = createScratchDirectory('main');
+});
+
+afterAll(() => {
+  removeScratchDirectory(untrackedDirectory);
+});
+
+function capturingContext(): ReturnType<typeof createCapturedCommandContext> {
+  return createCapturedCommandContext({ currentDirectory: untrackedDirectory });
+}
 
 describe('asking for the reference', () => {
   test('no command at all prints the help on standard output and exits 0', async () => {
@@ -43,8 +58,9 @@ describe('asking for the reference', () => {
 
   test('a help alias after a bare -- is a positional, not a request for the reference', async () => {
     const context = capturingContext();
-    await runCommandLine(['ticket', 'add', '--', '--help'], context);
+    expect(await runCommandLine(['ticket', 'add', '--', '--help'], context)).toBe(1);
     expect(context.outputText()).not.toContain('Usage: agent-progress <command>');
+    expect(context.errorText(), 'the command itself ran, and found no tracker to file `--help` into').toContain('No agent-progress tracker was found');
   });
 });
 

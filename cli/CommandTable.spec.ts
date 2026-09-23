@@ -2,12 +2,31 @@
  * The top-level dispatch: every command in `cli/CommandTable.ts` reaches a handler, and a word that
  * is not a command — including a property an object literal inherits — is refused rather than run.
  */
-import { describe, expect, test }       from 'bun:test';
-import { createCapturedCommandContext } from '../lib/tooling/dev/CapturedCommandContext';
-import { COMMAND_NAMES, COMMAND_TABLE } from './CommandTable';
-import { runCommandLine }               from './Main';
+import {
+  afterAll,
+  beforeAll,
+  describe,
+  expect,
+  test
+}                                                         from 'bun:test';
+import { createCapturedCommandContext }                   from '../lib/tooling/dev/CapturedCommandContext';
+import { createScratchDirectory, removeScratchDirectory } from '../lib/tooling/dev/ScratchWorkspace';
+import { COMMAND_NAMES, COMMAND_TABLE }                   from './CommandTable';
+import { runCommandLine }                                 from './Main';
 
-const capturingContext = createCapturedCommandContext;
+let untrackedDirectory = '';
+
+beforeAll(() => {
+  untrackedDirectory = createScratchDirectory('command-table');
+});
+
+afterAll(() => {
+  removeScratchDirectory(untrackedDirectory);
+});
+
+function capturingContext(): ReturnType<typeof createCapturedCommandContext> {
+  return createCapturedCommandContext({ currentDirectory: untrackedDirectory });
+}
 
 describe('the command table', () => {
   test('every command in the table resolves to a handler', async () => {
