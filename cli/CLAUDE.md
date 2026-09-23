@@ -62,7 +62,7 @@ context: `lib/platform/Environment.ts` is the one module that reads it.
 | file | what it is |
 |---|---|
 | `cli/Main.ts` | `runCommandLine(commandLineArguments, context)`: rewrites a missing command word and a `--help`/`-h` anywhere before a bare `--` to `help`, dispatches through the table, maps a refusal to an exit code |
-| `cli/Main.spec.ts` | the four routes and the number each produces, against a captured context |
+| `cli/Main.spec.ts` | the four routes and the number each produces, against a captured context. The throwing command is a `mock.module` stub of `render`, mocked back to the real exports after its cases because Bun keeps a module mock for the whole run and `mock.restore()` does not lift it; a last case renders for real to prove it |
 | `cli/CommandSupport.ts` | the sequence every mutating command follows, `resolveAtOption`, `printEntity`, `renderDashboard`, and `progressOperations` — the progress store in the shape `lib/tickets/TicketTransitions.ts` asks for. Also `concurrencyDocumentOf` (the one place readiness is computed, for `status --json` and the Next line), `nextLineFor`, `openTrackerForWritingThenReadNextLine` — the same sequence, reading the Next line from the files just written, inside the lock — and `printEntityThenNextLine`, which drops the line under `--json` |
 | `cli/NextLine.spec.ts` | the Next line ending the human output of `status`, `ticket add\|claim\|review\|deliver\|abandon` and `task finish\|deliver`, table-driven, each describing the board after the move; and none of their `--json` documents carrying it |
 | `cli/CommandContext.ts` | the interface every handler is given, and `createProcessContext()` for the real process |

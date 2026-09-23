@@ -13,6 +13,7 @@ import { OperationRefusal }                               from '../lib/platform/
 import { createCapturedCommandContext }                   from '../lib/tooling/dev/CapturedCommandContext';
 import { createScratchDirectory, removeScratchDirectory } from '../lib/tooling/dev/ScratchWorkspace';
 import { runCommandLine }                                 from './Main';
+import * as realRenderCommandModule                       from './render/RenderCommand';
 
 let errorThrownByTheStubbedCommand: unknown = null;
 // Holds no tracker, so a route that does reach a command is refused there instead of writing into the repository's own.
@@ -76,7 +77,18 @@ describe('a command that does not exist', () => {
 
 describe('a command that throws', () => {
   /** Stubbing `cli/render/RenderCommand.ts` reaches all three shapes with the real dispatch, catch and status-to-code mapping. */
-  mock.module('./render/RenderCommand', () => ({ renderCommand: () => Promise.reject(errorThrownByTheStubbedCommand), }));
+  let realRenderCommandExports: Record<string, unknown> = {};
+
+  // Bun keeps a module mock for the rest of the process and `mock.restore()` leaves it standing, so the real exports are copied before the stub
+  // goes in and mocked back afterwards; the copy has to precede the stub, because Bun patches the live namespace in place.
+  beforeAll(() => {
+    realRenderCommandExports = { ...realRenderCommandModule };
+    mock.module('./render/RenderCommand', () => ({ renderCommand: () => Promise.reject(errorThrownByTheStubbedCommand), }));
+  });
+
+  afterAll(() => {
+    mock.module('./render/RenderCommand', () => realRenderCommandExports);
+  });
 
   test('an unrepaired refusal exits 2 with its own message and no stack trace', async () => {
     errorThrownByTheStubbedCommand = new OperationRefusal('unrepaired', 'Another agent-progress command is holding the lock');
@@ -106,5 +118,21 @@ describe('a command that throws', () => {
     const context = capturingContext();
     expect(await runCommandLine(['render'], context)).toBe(2);
     expect(context.errorText()).toContain('a bare string');
+  });
+});
+
+describe('after the stubbed cases', () => {
+  /** Bun keeps a module mock for the rest of the process, so every later spec file that runs `render` would get the stub instead. */
+  test('the real render command is back, and renders a tracker at exit 0', async () => {
+    const trackedDirectory = createScratchDirectory('main-render');
+    try {
+      const initialisingContext = createCapturedCommandContext({ currentDirectory: trackedDirectory });
+      expect(await runCommandLine(['init', '--project', 'Example Agency', '--no-claude-md', '--no-hooks'], initialisingContext)).toBe(0);
+      const renderingContext = createCapturedCommandContext({ currentDirectory: trackedDirectory });
+      expect(await runCommandLine(['render'], renderingContext), renderingContext.errorText()).toBe(0);
+      expect(renderingContext.errorText()).toBe('');
+    } finally {
+      removeScratchDirectory(trackedDirectory);
+    }
   });
 });
