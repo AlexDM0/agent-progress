@@ -352,6 +352,28 @@ describe.skipIf(!gitIsAvailable())('a release that is refused changes nothing', 
   });
 });
 
+// A key the command starts printing and nobody documents is how #024 was found; pinning the set makes a new one fail here first.
+describe.skipIf(!gitIsAvailable())('the --json document pins its exact key set', () => {
+  test('a release that succeeds prints exactly released, tickets, branch, mainLine, commit and cleanup', async () => {
+    const { identifier, worktree, branch } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
+
+    const outcome = await agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree, '--json']);
+
+    expect(outcome.exitCode, outcome.error).toBe(0);
+    expect(Object.keys(JSON.parse(outcome.output)).sort()).toEqual(['branch', 'cleanup', 'commit', 'mainLine', 'released', 'tickets']);
+  });
+
+  test('a release refused as main-moved prints exactly released, reason, detail and cleanup', async () => {
+    const { identifier, worktree, branch } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
+    commitFile(repositoryDirectory, 'main-moves.ts', 'export const mainMoved = true;\n');
+
+    const outcome = await agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree, '--json']);
+
+    expect(outcome.exitCode).toBe(1);
+    expect(Object.keys(JSON.parse(outcome.output)).sort()).toEqual(['cleanup', 'detail', 'reason', 'released']);
+  });
+});
+
 describe.skipIf(!gitIsAvailable())('two releases at once', () => {
   // The lock is what serialises them: the second must see the main line the first one moved, never merge over it.
   test('two branches off the same main never both merge: one fast-forwards and the other is refused with main-moved', async () => {

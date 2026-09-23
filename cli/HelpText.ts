@@ -160,11 +160,13 @@ ids, then \`and N more\`. --json output never carries it.
                               fast-forward. Afterwards \`git worktree remove\` on --worktree, never
                               forced, and \`git branch -d <b>\`; what git declines is named with
                               its reason, the files a worktree still holds among it, at exit 0.
-                              --json prints {released, reason?, commit?, cleanup}; reason is one
-                              of invalid-request, unknown-ticket, ticket-not-releasable,
-                              unknown-branch, not-on-main-line, main-moved, merge-refused,
-                              git-failed and tracker-failed. Allowing this command is the release
-                              permission: a reviewer never runs \`git merge\` itself.
+                              --json prints, on success, {released: true, tickets, branch,
+                              mainLine, commit, cleanup}, and on a refusal {released: false,
+                              reason, detail, cleanup: []}; reason is one of invalid-request,
+                              unknown-ticket, ticket-not-releasable, unknown-branch,
+                              not-on-main-line, main-moved, merge-refused, git-failed and
+                              tracker-failed. Allowing this command is the release permission: a
+                              reviewer never runs \`git merge\` itself.
 
   ticket add "<title>"        File a ticket: a markdown file under \`.agent-progress/tickets/\` with
       [--type bug|change|feature]

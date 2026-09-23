@@ -159,8 +159,11 @@ because the release happened: a worktree holding untracked or changed files stay
 The human output ends with the Next line described above, read after the delivery inside the same
 lock hold, so it reflects the released ticket's row no longer running.
 
-`--json` prints `{released, reason?, detail?, commit?, tickets?, cleanup}`, where `cleanup` lists
-each step as `removed`/`deleted` or `left` with git's reason. The refusal `reason` is one word:
+`--json` prints, on success, `{released: true, tickets, branch, mainLine, commit, cleanup}` —
+`tickets` the ids just delivered, `branch` and `mainLine` the ones the command ran with — and on a
+refusal, `{released: false, reason, detail, cleanup: []}`, `cleanup` always empty because nothing
+ran. On success `cleanup` lists each step as `removed`/`deleted` or `left` with git's reason. The
+refusal `reason` is one word:
 
 | reason | what to do |
 |---|---|
