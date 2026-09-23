@@ -142,7 +142,7 @@ function builderPrompt(ticketId, previousPass) {
   return lines.join('\n');
 }
 
-function reviewerPrompt(ticketId, expectedRound, rereviewFirst) {
+function reviewerPrompt(ticketId, expectedRound, rereviewFirst, earlierReviewerDied) {
   const lines = [
     `agent-progress review: ${ticketId}`,
     `Worktree: ${worktreeOf(ticketId)}   Branch: ticket-${ticketId}   Main checkout: ${settings.mainCheckout}   Main line: ${settings.mainLine}`,
@@ -150,6 +150,11 @@ function reviewerPrompt(ticketId, expectedRound, rereviewFirst) {
       + 'Your round is the number of `## Review` sections already in the ticket plus one; return it as `round`.',
   ];
   if (rereviewFirst) lines.push(`FIRST command, before anything else: \`agent-progress ticket rereview ${ticketId}\`.`);
+  // A dead reviewer's bar would stay running and hold one of the board's slots for the rest of the run.
+  if (earlierReviewerDied) {
+    lines.push(`An earlier reviewer of this run returned nothing. When \`agent-progress status --json\` shows a \`running\` row whose \`reviewOf\` is ${ticketId}, that bar is `
+      + 'its: close it with `agent-progress task finish <that row>`, then `agent-progress task deliver <that row>`, before you add your own.');
+  }
   lines.push(
     `Then add your own bar: \`agent-progress task add "Review <round> #${ticketId} — <ticket title>" --review-of ${ticketId} --owner ${WORKER_MODEL} --start\`, `
       + `the title from \`agent-progress ticket show ${ticketId}\`. Your bar takes the place of the brief's \`agent-progress row:\` line; the review line above carries your tokens to it.`,
@@ -222,9 +227,14 @@ function park(ticketId, reason) {
   log(`#${ticketId} parked: ${reason}.`);
 }
 
-function queueReview(ticketId, rereviewFirst) {
+function queueReview(ticketId, rereviewFirst, earlierReviewerDied = false) {
   const record = recordOf(ticketId);
-  reviewQueue.push({ ticketId, round: record.nextRound, rereviewFirst });
+  reviewQueue.push({
+    ticketId,
+    round: record.nextRound,
+    rereviewFirst,
+    earlierReviewerDied,
+  });
 }
 
 function countFailedPass(ticketId, why, retry) {
@@ -259,7 +269,7 @@ function launch(work) {
       schema: BUILDER_SCHEMA,
       model:  WORKER_MODEL,
     })
-    : runAgent(reviewerPrompt(work.ticketId, work.round, work.rereviewFirst), {
+    : runAgent(reviewerPrompt(work.ticketId, work.round, work.rereviewFirst, work.earlierReviewerDied), {
       label:  `review ${work.round} #${work.ticketId}`,
       phase:  'Review',
       schema: REVIEWER_SCHEMA,
@@ -317,7 +327,7 @@ function settleReview(work, result) {
   const record = recordOf(ticketId);
   if (result === null) {
     record.nextRound = work.round + 1;
-    countFailedPass(ticketId, 'the reviewer returned no result', () => queueReview(ticketId, true));
+    countFailedPass(ticketId, 'the reviewer returned no result', () => queueReview(ticketId, true, true));
     return;
   }
   findingsFiled.push(...result.filedTicketIds);

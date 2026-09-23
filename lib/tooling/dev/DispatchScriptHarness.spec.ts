@@ -310,4 +310,14 @@ describe('the dispatcher script', () => {
     expect(builders[1]?.prompt).not.toContain('does not hold');
     expect(builders[0]?.prompt).not.toContain('carry on');
   });
+
+  // A reviewer that died left its bar running, and every status block after would count it as an agent in flight elsewhere.
+  test('a fresh reviewer after one that returned nothing is told to close the bar the dead one left running', async () => {
+    const run = await runDispatchScript({ limit: 2, readyTicketIds: ['001'], reviewerReply: (_ticketId, round) => (round === 1 ? null : { verdict: 'released' }) });
+    const reviewers = run.calls.filter((call) => call.kind === 'review');
+    expect(reviewers).toHaveLength(2);
+    expect(reviewers[1]?.prompt).toContain('An earlier reviewer of this run returned nothing');
+    expect(reviewers[0]?.prompt).not.toContain('An earlier reviewer of this run returned nothing');
+    expect(summaryOf(run).delivered).toEqual(['001']);
+  });
 });
