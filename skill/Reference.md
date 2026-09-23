@@ -162,8 +162,11 @@ lock hold, so it reflects the released ticket's row no longer running.
 `--json` prints, on success, `{released: true, tickets, branch, mainLine, commit, cleanup}` —
 `tickets` the ids just delivered, `branch` and `mainLine` the ones the command ran with — and on a
 refusal, `{released: false, reason, detail, cleanup: []}`, `cleanup` always empty because nothing
-ran. On success `cleanup` lists each step as `removed`/`deleted` or `left` with git's reason. The
-refusal `reason` is one word:
+ran. On success `cleanup` lists each step, the worktree's first when `--worktree` was given, as one
+of `{target: worktree, path, outcome: removed}`,
+`{target: worktree, path, outcome: left, reason, untrackedFiles, changedFiles}`,
+`{target: branch, name, outcome: deleted}` and `{target: branch, name, outcome: left, reason}`,
+`reason` being git's. The refusal `reason` is one word:
 
 | reason | what to do |
 |---|---|

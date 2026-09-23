@@ -165,8 +165,12 @@ ids, then \`and N more\`. --json output never carries it.
                               reason, detail, cleanup: []}; reason is one of invalid-request,
                               unknown-ticket, ticket-not-releasable, unknown-branch,
                               not-on-main-line, main-moved, merge-refused, git-failed and
-                              tracker-failed. Allowing this command is the release permission: a
-                              reviewer never runs \`git merge\` itself.
+                              tracker-failed. A cleanup step is one of {target: worktree, path,
+                              outcome: removed}, {target: worktree, path, outcome: left, reason,
+                              untrackedFiles, changedFiles}, {target: branch, name, outcome:
+                              deleted} and {target: branch, name, outcome: left, reason}.
+                              Allowing this command is the release permission: a reviewer never
+                              runs \`git merge\` itself.
 
   ticket add "<title>"        File a ticket: a markdown file under \`.agent-progress/tickets/\` with
       [--type bug|change|feature]

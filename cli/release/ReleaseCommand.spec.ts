@@ -113,11 +113,28 @@ async function reviewedTicketOnAWorktree(title: string, worktreeName: string): P
   };
 }
 
+/** A documented shape's `key` and `key: value` fields, the value empty where the document gives none. */
+function documentedFieldsOf(shape: string): Record<string, string> {
+  return Object.fromEntries(shape.split(',').map((field) => {
+    const [key = '', value = ''] = field.split(':').map((part) => part.trim());
+    return [key, value];
+  }).filter(([key]) => key !== ''));
+}
+
 /** The keys of the `{…}` shape that follows `outcomePhrase` ("on success" or "on a refusal"), read through wrapped lines and backticks. */
 function documentedKeysOf(documentation: string, outcomePhrase: string): string[] {
   const flattenedDocumentation = documentation.replaceAll(/\s+/g, ' ');
   const shape                  = new RegExp(`${outcomePhrase},? \`?\\{([^}]*)\\}`).exec(flattenedDocumentation)?.[1] ?? '';
-  return shape.split(',').map((field) => field.split(':')[0]?.trim() ?? '').filter((key) => key !== '').sort();
+  return Object.keys(documentedFieldsOf(shape)).sort();
+}
+
+function cleanupStepSignatureOf(step: Record<string, unknown>): string {
+  return `${String(step['target'])} ${String(step['outcome'])}: ${Object.keys(step).sort().join(', ')}`;
+}
+
+function documentedCleanupStepsOf(documentation: string): string[] {
+  const flattenedDocumentation = documentation.replaceAll(/\s+/g, ' ');
+  return [...flattenedDocumentation.matchAll(/\{(target: [^}]*)\}/g)].map((match) => cleanupStepSignatureOf(documentedFieldsOf(match[1] ?? ''))).sort();
 }
 
 function releaseDocumentOf(outcome: CommandOutcome): ReleaseDocument {
@@ -389,6 +406,19 @@ describe.skipIf(!gitIsAvailable())('the --json document prints exactly the keys 
     const printedKeys = Object.keys(JSON.parse(outcome.output)).sort();
     expect(printedKeys).toContain('released');
     for (const [documentPath, documentation] of RELEASE_DOCUMENTATION) expect(documentedKeysOf(documentation, 'on a refusal'), documentPath).toEqual(printedKeys);
+  });
+
+  // A reviewer names a left step's files from `untrackedFiles` and `changedFiles`, so each step shape is held to the documents too.
+  test('a clean release and one git partly declines print exactly the four cleanup step shapes both documents give', async () => {
+    const clean       = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
+    const cleanOutcome = await agentProgress(['release', clean.identifier, '--branch', clean.branch, '--worktree', clean.worktree, '--json']);
+    const declined    = await reviewedTicketOnAWorktree('Rename a role', 'rename-role');
+    writeFileSync(join(declined.worktree, 'notes.txt'), 'kept\n');
+    const declinedOutcome = await agentProgress(['release', declined.identifier, '--branch', declined.branch, '--worktree', declined.worktree, '--json']);
+
+    const printedSteps = [cleanOutcome, declinedOutcome].flatMap((outcome) => releaseDocumentOf(outcome).cleanup.map(cleanupStepSignatureOf)).sort();
+    expect(new Set(printedSteps).size).toBe(4);
+    for (const [documentPath, documentation] of RELEASE_DOCUMENTATION) expect(documentedCleanupStepsOf(documentation), documentPath).toEqual(printedSteps);
   });
 });
 
