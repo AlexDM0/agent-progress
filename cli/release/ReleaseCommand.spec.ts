@@ -29,12 +29,29 @@ import {
 import { helpText }       from '../HelpText';
 import { runCommandLine } from '../Main';
 
-interface ReleaseDocument {
-  released: boolean;
-  reason?:  string;
-  commit?:  string;
-  cleanup:  Array<{ target: string; outcome: string; untrackedFiles?: string[] }>;
+type CleanupStepDocument = {
+  target:          string;
+  outcome:         string;
+  untrackedFiles?: string[];
+};
+
+interface ReleaseSuccessDocument {
+  released: true;
+  tickets:  string[];
+  branch:   string;
+  mainLine: string;
+  commit:   string;
+  cleanup:  CleanupStepDocument[];
 }
+
+interface ReleaseRefusalDocument {
+  released: false;
+  reason:   string;
+  detail:   string;
+  cleanup:  never[];
+}
+
+type ReleaseDocument = ReleaseSuccessDocument | ReleaseRefusalDocument;
 
 interface CommandOutcome {
   exitCode: number;
@@ -139,6 +156,12 @@ function documentedCleanupStepsOf(documentation: string): string[] {
 
 function releaseDocumentOf(outcome: CommandOutcome): ReleaseDocument {
   return JSON.parse(outcome.output) as ReleaseDocument;
+}
+
+function releaseRefusalDocumentOf(outcome: CommandOutcome): ReleaseRefusalDocument {
+  const document = releaseDocumentOf(outcome);
+  if (document.released) throw new Error(`Expected a refusal document, got a released one: ${outcome.output}`);
+  return document;
 }
 
 beforeEach(async () => {
@@ -345,7 +368,7 @@ describe.skipIf(!gitIsAvailable())('a release that is refused changes nothing', 
 
     const outcome = await expectNothingChanged(identifier, worktree, () => agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree, '--json']));
 
-    expect(releaseDocumentOf(outcome).reason).toBe('not-on-main-line');
+    expect(releaseRefusalDocumentOf(outcome).reason).toBe('not-on-main-line');
     expect(gitIn(repositoryDirectory, ['symbolic-ref', '--short', 'HEAD'])).toBe('side-line');
   });
 
@@ -358,7 +381,7 @@ describe.skipIf(!gitIsAvailable())('a release that is refused changes nothing', 
 
     const outcome = await expectNothingChanged(identifier, worktree, () => agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree, '--json']));
 
-    expect(releaseDocumentOf(outcome).reason).toBe('merge-refused');
+    expect(releaseRefusalDocumentOf(outcome).reason).toBe('merge-refused');
     expect(gitIn(worktree, ['rev-parse', 'HEAD'])).toBe(worktreeHeadBefore);
     expect(branchExists(branch)).toBe(true);
     expect(readFileSync(join(repositoryDirectory, 'role-history.ts'), 'utf8')).toBe('uncommitted in the main checkout\n');
@@ -371,7 +394,7 @@ describe.skipIf(!gitIsAvailable())('a release that is refused changes nothing', 
 
     const outcome = await expectNothingChanged(added.id, worktree, () => agentProgress(['release', added.id, '--branch', 'worktree/not-started', '--json']));
 
-    expect(releaseDocumentOf(outcome).reason).toBe('ticket-not-releasable');
+    expect(releaseRefusalDocumentOf(outcome).reason).toBe('ticket-not-releasable');
   });
 
   test('a branch that does not exist exits 1 with reason unknown-branch', async () => {
@@ -379,7 +402,7 @@ describe.skipIf(!gitIsAvailable())('a release that is refused changes nothing', 
 
     const outcome = await expectNothingChanged(identifier, worktree, () => agentProgress(['release', identifier, '--branch', 'no-such-branch', '--json']));
 
-    expect(releaseDocumentOf(outcome).reason).toBe('unknown-branch');
+    expect(releaseRefusalDocumentOf(outcome).reason).toBe('unknown-branch');
   });
 });
 
@@ -436,7 +459,7 @@ describe.skipIf(!gitIsAvailable())('two releases at once', () => {
 
     expect(outcomes.map(({ exitCode }) => exitCode).sort()).toEqual([0, 1]);
     const refused = outcomes.find(({ exitCode }) => exitCode === 1);
-    expect(refused === undefined ? undefined : releaseDocumentOf(refused).reason).toBe('main-moved');
+    expect(refused === undefined ? undefined : releaseRefusalDocumentOf(refused).reason).toBe('main-moved');
     expect([first.tip, second.tip]).toContain(mainTip());
     expect(gitIn(repositoryDirectory, ['rev-list', '--count', `${mainBefore}..main`])).toBe('1');
   });
@@ -477,6 +500,6 @@ describe.skipIf(!gitIsAvailable())('two releases at once', () => {
     // In either order main ends on the stacked tip; the first branch is fast-forwarded before it or, released after it, refused as main-moved.
     expect(stackedOutcome.exitCode, stackedOutcome.error).toBe(0);
     expect(mainTip()).toBe(stackedTip);
-    if (firstOutcome.exitCode !== 0) expect(releaseDocumentOf(firstOutcome).reason).toBe('main-moved');
+    if (firstOutcome.exitCode !== 0) expect(releaseRefusalDocumentOf(firstOutcome).reason).toBe('main-moved');
   });
 });

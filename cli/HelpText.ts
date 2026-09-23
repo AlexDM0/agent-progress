@@ -157,10 +157,12 @@ ids, then \`and N more\`. --json output never carries it.
                               --main (default \`main\`), when <b> is not a local branch, when <b>
                               does not descend from --main — reason \`main-moved\`: rebase <b> onto
                               it, re-run the checks and release again — and when git will not
-                              fast-forward. Afterwards \`git worktree remove\` on --worktree, never
-                              forced, and \`git branch -d <b>\`; what git declines is named with
-                              its reason, the files a worktree still holds among it, at exit 0.
-                              --json prints, on success, {released: true, tickets, branch,
+                              fast-forward. Refused at exit 2, also with nothing changed, when git
+                              or the tracker could not be read — reason \`git-failed\` or
+                              \`tracker-failed\`. Afterwards \`git worktree remove\` on --worktree,
+                              never forced, and \`git branch -d <b>\`; what git declines is named
+                              with its reason, the files a worktree still holds among it, at exit
+                              0. --json prints, on success, {released: true, tickets, branch,
                               mainLine, commit, cleanup}, and on a refusal {released: false,
                               reason, detail, cleanup: []}; reason is one of invalid-request,
                               unknown-ticket, ticket-not-releasable, unknown-branch,
