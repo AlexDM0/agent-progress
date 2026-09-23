@@ -217,13 +217,15 @@ ready ids, then \`and N more\`. --json output never carries it.
       [--owner <who>]         every ticket named, as ONE agent: a bundle's builder claims all its
       [--note <text>]         tickets in the one call, and their rows share one agent key. Refused
       [--at <when>]           at exit 1 with nothing written, all or nothing, when any ticket is not
-                              open or in-review, when one waits on a ticket not done or delivered,
-                              when one is low and a normal or high ticket is not yet delivered or
-                              abandoned — \`ticket start\` only warns about that — or when the agents
-                              in flight already number the concurrency limit. The count and the
-                              moves share one lock hold, so two claims racing for the last slot
-                              cannot both succeed. --json prints the ticket, or with several ids
-                              the list of them. The first command an implementing agent runs.
+                              open or in-review, when one waits on a ticket outside the claim that
+                              is not done or delivered (one inside it is settled: the bundle is
+                              worked in dependency order), when one is low and a normal or high
+                              ticket is not yet delivered or abandoned — \`ticket start\` only warns
+                              about that — or when the agents in flight already number the
+                              concurrency limit. The count and the moves share one lock hold, so
+                              two claims racing for the last slot cannot both succeed. --json
+                              prints the ticket, or with several ids the list of them. The first
+                              command an implementing agent runs.
 
   ticket rereview <id>        Send a ticket already in review round again, for a fresh reviewer: the
       [--at <when>]           ticket stays in-review and only its \`updated\` moves, while its row

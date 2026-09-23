@@ -160,7 +160,9 @@ flight holds. **A bundle holds one slot, not one per ticket, and its builder cla
 `ticket start` its tickets yourself — a row `ticket start` runs is an agent of its own, so three
 started tickets fill three slots. The builder's first command claims every ticket in one call,
 `agent-progress ticket claim 22 20 --owner <model> --note "<the bundle>"`, which starts them all or
-none, keeps a row per ticket and marks those rows as one agent; name the same ids on the brief's one
+none, keeps a row per ticket and marks those rows as one agent. A dependency between tickets of the
+same claim counts as settled, so a bundle in dependency order is claimed whole; one on a ticket
+outside it that is not done or delivered refuses the whole claim; name the same ids on the brief's one
 marker line, `agent-progress ticket: 22, 20`, and the hook finds each ticket's row when the agent
 stops and divides what it processed evenly over them, so what the chart sums stays what the agent
 cost. A low ticket has no row until its builder claims it, so it is always named this way. Write one

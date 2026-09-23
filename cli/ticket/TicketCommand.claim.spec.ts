@@ -196,6 +196,25 @@ describe.skipIf(!gitIsAvailable())('claiming several tickets as one agent', () =
     expect(message).toContain('waiting on #001');
   });
 
+  // One agent works a bundle in dependency order, so a dependency on a fellow member is settled by the claim itself.
+  test('a ticket waiting on another ticket in the same claim is claimed with it', async () => {
+    await run(['ticket', 'depends', '5', '4']);
+
+    const { exitCode } = await runWithExitCode(['ticket', 'claim', '3', '4', '5']);
+
+    expect(exitCode).toBe(0);
+    expect(everyTicketText().filter((text) => text.includes('status: "in-progress"'))).toHaveLength(3);
+  });
+
+  test('a dependency outside the claim still refuses the whole bundle, naming only the ticket outside it', async () => {
+    await run(['ticket', 'depends', '5', '4', '1']);
+
+    const message = await expectBundleRefusedWithNothingWritten(['ticket', 'claim', '3', '4', '5']);
+
+    expect(message).toContain('waiting on #001,');
+    expect(message).not.toContain('#004');
+  });
+
   test('a bundle is refused whole, with nothing written, when one of its tickets is already in progress', async () => {
     await run(['ticket', 'start', '4']);
 

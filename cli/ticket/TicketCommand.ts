@@ -463,13 +463,14 @@ async function rereviewOneTicket(reference: string, commandArguments: ArgumentPa
   printEntityThenNextLine(commandArguments, context, ticketAsJson(moved.ticket), moved.logText, nextLine);
 }
 
-function refuseAnUnclaimableTicket(ticket: Ticket, tickets: readonly Ticket[]): void {
+/** A dependency on another ticket in the same claim is settled: one agent works a bundle in dependency order. */
+function refuseAnUnclaimableTicket(ticket: Ticket, tickets: readonly Ticket[], claimedIdentifiers: readonly string[]): void {
   const { id, status } = ticket.frontmatter;
   if (!ticketMoveIsLegal(status, 'in-progress')) {
     const legalSources = LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS['in-progress'].join(' or ');
     throw new OperationRefusal('refused', `Ticket #${id} is ${status}, and \`agent-progress ticket claim\` takes a ticket that is ${legalSources}. Nothing was written.`);
   }
-  const unsettled = unsettledDependenciesFor(ticket, tickets);
+  const unsettled = unsettledDependenciesFor(ticket, tickets).filter((dependency) => !claimedIdentifiers.includes(dependency));
   if (unsettled.length > 0) {
     throw new OperationRefusal('refused', `Ticket #${id} is ${waitingOnText(unsettled)}, which must be done or delivered before it is claimed. Nothing was written.`);
   }
@@ -506,7 +507,7 @@ async function claimTickets(references: readonly string[], commandArguments: Arg
     const claimedTickets = distinctTicketsOf(references, change.workspace);
     const identifiers    = claimedTickets.map((ticket) => ticket.frontmatter.id);
     const { tickets }    = listTickets(change.workspace);
-    for (const ticket of claimedTickets) refuseAnUnclaimableTicket(ticket, tickets);
+    for (const ticket of claimedTickets) refuseAnUnclaimableTicket(ticket, tickets, identifiers);
 
     const { agentsInFlight, limit } = concurrencyOf(change.progress);
     if (agentsInFlight >= limit) {

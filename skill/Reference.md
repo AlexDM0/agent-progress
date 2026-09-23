@@ -66,7 +66,7 @@ The **from** column is the matrix the named verbs enforce; `ticket status <id> <
 |---|---|---|---|---|---|---|
 | `ticket add` | — | open | created, `pending`; none for a low ticket | `unstarted` | `filed` | `Ticket #003 filed: <title>` |
 | `ticket start` | open, in-review | in-progress | `running` | `wip` | `started` if null; the row's end cleared | `Ticket #003 started` |
-| `ticket claim` | open, in-review, dependencies settled, a free slot, and for a low ticket no normal or high one owed — for every id named | in-progress | `running`, with `--owner`, `--note` and the claim's `agent` key | `wip` | as `ticket start` | `Ticket #003 started`, one per ticket |
+| `ticket claim` | open, in-review, dependencies settled (one on a ticket in the same claim is), a free slot, and for a low ticket no normal or high one owed — for every id named | in-progress | `running`, with `--owner`, `--note` and the claim's `agent` key | `wip` | as `ticket start` | `Ticket #003 started`, one per ticket |
 | `ticket review` | in-progress | in-review | `finished` | `reviewing` | `finished` if null | `Ticket #003 in review` |
 | `ticket rereview` | in-review | in-review, unchanged | `re-review`, one round up from 2 | `reviewing 2` | `updated` only | `Ticket #003 in review, round 2` |
 | `ticket done` | in-progress, in-review | done | `reviewed` | `awaiting merge` | `finished` if null | `Ticket #003 done` |
@@ -136,7 +136,9 @@ by `ticket start` — each an agent of its own. A bundle whose tickets go to rev
 its slot until its last row stops running. A row that starts running again other than from a pause
 loses its key, so a reopened bundle ticket is a new agent. `ticket claim` refuses at exit 1, writing
 nothing, when any ticket named would be refused on its own or when the agents in flight already
-number the limit; the count and the moves share one lock hold, so of two claims racing for the last
+number the limit — except that a dependency on another ticket in the same claim counts as settled,
+since one agent works the bundle in dependency order; one outside the claim that is not done or
+delivered still refuses the whole claim; the count and the moves share one lock hold, so of two claims racing for the last
 slot exactly one succeeds. `ticket start` is the manual path: it checks no limit and only warns about
 dependencies. A limit lowered below the agents in flight is accepted and leaves no free slot; nothing
 running is stopped. `status --json` carries `concurrency`: `limit`, `agentsInFlight`, `freeSlots` (never

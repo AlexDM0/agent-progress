@@ -25,7 +25,9 @@ A bundle is two to four tickets the orchestrator expects to fit one budget toget
 same files or the same mechanism, worked in the order given — dependencies first — with one commit
 and one Handoff per ticket, so each can be judged, reverted and delivered on its own. **A bundle is
 one agent and holds one slot**: its builder claims every ticket in one `ticket claim` call, which
-starts them all or none and marks their rows as one agent. Starting them one at a time — a claim or
+starts them all or none and marks their rows as one agent. A dependency on another ticket in the
+same claim counts as settled; one on a ticket outside it that is not done or delivered refuses the
+whole claim. Starting them one at a time — a claim or
 a `ticket start` per ticket — counts each as an agent of its own, and a three-ticket bundle on a
 limit of 2 cannot be claimed that way at all.
 
