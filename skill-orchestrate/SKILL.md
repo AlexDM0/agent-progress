@@ -103,8 +103,8 @@ bounded deviation the other one tolerates. Noticing it and filing anyway costs a
 Two agents in flight, of any kind — a review pass is an agent and holds a slot like any other. A
 slot frees when a result lands. While a slot is free and a ticket is **ready** — open, with every
 ticket it depends on done or delivered — start the next one: the order the user asked for, and
-otherwise high before normal, the lowest id first within each — the order the Next line and
-`ticket claim` already follow. Reviews come before new tickets when both are waiting:
+otherwise high before normal, the lowest id first within each — the order the Next line lists;
+`ticket claim` does not enforce it, so the choice is yours. Reviews come before new tickets when both are waiting:
 work in flight is finished before more is begun.
 
 **Low tickets wait until every normal and high ticket is delivered or abandoned**, which is also when
