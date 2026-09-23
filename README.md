@@ -56,8 +56,9 @@ context.
   dispatcher decides it in code. The dispatcher starts no low ticket unless it is launched with
   `includeLowPriority: true`; it returns the low ones ready as `lowPriorityWaiting`, and the
   orchestrator passes the flag only on the launch after its triage. A dispatcher that finished by
-  itself is relaunched when a normal or high ticket is ready; one the user stopped (`agent-progress dispatcher stopped`) waits for their go. It loads the
-  first skill for the commands and repeats none of it.
+  itself is relaunched when a normal or high ticket is ready; one the user stopped
+  (`agent-progress dispatcher stopped`) waits for their go. It loads the first skill for the commands
+  and repeats none of it.
 
 ## Adopting a repository
 
