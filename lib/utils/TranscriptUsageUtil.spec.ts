@@ -15,6 +15,7 @@ const {
   profileTranscript,
   rowIdentifiersNamedInBrief,
   summariseTranscriptUsage,
+  ticketIdentifiersNamedInBrief,
   totalInputTokensOf,
 } = TranscriptUsageUtil;
 
@@ -477,6 +478,43 @@ describe('the rows a brief names', () => {
     const transcript = JSON.stringify({ type: 'user', message: { content: [{ type: 'text', text: 'Do it.' }, { type: 'text', text: 'agent-progress row: 4' }] } });
 
     expect(rowIdentifiersNamedInBrief(transcript)).toEqual([4]);
+  });
+});
+
+/**
+ * The ticket form exists for a low ticket whose row the builder's own claim creates, so the ids are only
+ * read here and resolved later. What callers rely on: padded, unpadded and `#` spellings all come back as
+ * the stored padded id, and the brief-only rule is the row form's.
+ */
+describe('the tickets a brief names', () => {
+  function userTextLine(text: string): string {
+    return JSON.stringify({ type: 'user', message: { content: [{ type: 'text', text }] } });
+  }
+
+  test('padded, unpadded and hash-prefixed ids all read as the padded id, in the order written and each once', () => {
+    expect(ticketIdentifiersNamedInBrief(userTextLine('Do it.\nagent-progress ticket: 22\nStop.'))).toEqual(['022']);
+    expect(ticketIdentifiersNamedInBrief(userTextLine('agent-progress ticket: 022, 20'))).toEqual(['022', '020']);
+    expect(ticketIdentifiersNamedInBrief(userTextLine('  agent-progress ticket: #20,22,022  '))).toEqual(['020', '022']);
+  });
+
+  test('a marker in a later user turn is not the brief\'s, so it names nothing', () => {
+    const transcript = [userTextLine('Review the branch.'), userTextLine('agent-progress ticket: 22')].join('\n');
+
+    expect(ticketIdentifiersNamedInBrief(transcript)).toEqual([]);
+  });
+
+  test('a placeholder, a marker inside a sentence, ticket zero and the row form all name no ticket', () => {
+    expect(ticketIdentifiersNamedInBrief(userTextLine('agent-progress ticket: <id>'))).toEqual([]);
+    expect(ticketIdentifiersNamedInBrief(userTextLine('Write agent-progress ticket: 22 into the brief.'))).toEqual([]);
+    expect(ticketIdentifiersNamedInBrief(userTextLine('agent-progress ticket: 0'))).toEqual([]);
+    expect(ticketIdentifiersNamedInBrief(userTextLine('agent-progress row: 22'))).toEqual([]);
+  });
+
+  test('a brief carrying both lines answers each reader with its own', () => {
+    const transcript = userTextLine('agent-progress row: 4\nagent-progress ticket: 22');
+
+    expect(rowIdentifiersNamedInBrief(transcript)).toEqual([4]);
+    expect(ticketIdentifiersNamedInBrief(transcript)).toEqual(['022']);
   });
 });
 

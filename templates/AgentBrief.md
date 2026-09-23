@@ -42,6 +42,7 @@ Everything you do happens in that worktree: every edit, every command, every com
 `git -C <worktree>`. Your working directory may be the main checkout; it is not yours to touch.
 Task: <the one ticket, the half of it this agent owns, or the bundle: #a, #b, #c in this order>.
 agent-progress row: <the ticket's rowId, or every row of the bundle: 4, 7>
+agent-progress ticket: <instead of the row line when the builder claims the ticket itself: 22, 20>
 A bundle is worked one ticket at a time: finish, verify and commit each before starting the next.
 Work belongs in: <the files you expect it to touch>.
 If satisfying the Acceptance block genuinely requires a file outside that list, edit it and say so
@@ -295,7 +296,10 @@ line; the `SubagentStop` hook reads that line from the brief alone and adds the 
 every token it processed, the figure its log line ends on, `input 3.8M (cache read 3.6M)` — to the
 row when the agent stops, divided evenly over a bundle's rows. It adds rather than sets, so a row
 several agents worked on carries all of them, and a workflow script's agents reach their row the same
-way. **Where the hook is installed, pass no `--tokens`**: it would replace the sum. The harness's own
+way. A ticket without a row yet — a low one, whose row the builder's own claim creates — is named
+by ticket instead, `agent-progress ticket: 22, 20`, and the hook looks its row up when the agent
+stops; keep one of the two lines, since a brief with both is read by its row line alone. The review
+brief always names the review bar's own row. **Where the hook is installed, pass no `--tokens`**: it would replace the sum. The harness's own
 `subagent_tokens` is roughly the end context and is the fallback for a repository without the hook,
 recorded with `--tokens` as the understatement it is. 30 rows filled in from it summed to 4.8 million
 against 273 million processed, and not by a constant factor: a reviewer ending on 90 thousand had

@@ -94,10 +94,13 @@ ids, then \`and N more\`. --json output never carries it.
                               API call rather than per line. When the agent's first message — its
                               brief — holds a line \`agent-progress row: <id>\`, or several ids
                               separated by commas, the log line's \`input\` total is also added to
-                              those rows' tokens, divided evenly. This is the command \`init\` and
-                              \`update\` wire into \`.claude/settings.local.json\`; nobody types it.
-                              It exits 0 whatever goes wrong — no input, an unreadable transcript,
-                              no tracker at the hook's own working directory, a row that does not
+                              those rows' tokens, divided evenly. A line \`agent-progress ticket:
+                              <id>\` names tickets instead, each resolved to the row it holds when
+                              the hook runs; a brief with both is read by its row line alone.
+                              This is the command \`init\` and \`update\` wire into
+                              \`.claude/settings.local.json\`; nobody types it. It exits 0 whatever
+                              goes wrong — no input, an unreadable transcript, no tracker at the
+                              hook's own working directory, a row or a ticket's row that does not
                               exist — and writes the reason to standard error. Its exit code
                               prevents nothing, since the agent has already finished; exiting 0 is
                               what keeps a failure here from becoming an error the orchestrator must

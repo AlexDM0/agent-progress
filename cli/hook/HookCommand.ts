@@ -1,9 +1,9 @@
 /**
  * `agent-progress hook subagent-stop`: the `SubagentStop` hook that records what a finished subagent
  * cost, as one line in the tracker's log, and adds it to the tokens of each row the agent's brief names
- * on an `agent-progress row: <ids>` line. It exists because nothing else observes that number — a
- * subagent's usage lives only in its own transcript, and the token column read 0 on every row of a
- * 73-agent build because nobody typed `--tokens`.
+ * on an `agent-progress row: <ids>` line, or of each ticket's row on an `agent-progress ticket: <ids>`
+ * line. It exists because nothing else observes that number — a subagent's usage lives only in its own
+ * transcript, and the token column read 0 on every row of a 73-agent build because nobody typed `--tokens`.
  *
  * It replaces a `record-subagent-tokens.ts` script each repository copied into `.claude/hooks/`. A
  * command inside the CLI can be wired up by `agent-progress init --hooks` and tested in process,
@@ -21,8 +21,11 @@
 import { readFileSync } from 'node:fs';
 import { homedir }      from 'node:os';
 
+import type { ProgressFile }             from '../../lib/constants/Types';
 import { OperationRefusal }              from '../../lib/platform/OperationRefusal';
+import type { Workspace }                from '../../lib/platform/Workspace';
 import { addTaskTokens, appendLogEntry } from '../../lib/progress/ProgressStore';
+import { readTicket }                    from '../../lib/tickets/TicketStore';
 import type { TranscriptUsageTotals }    from '../../lib/utils/TranscriptUsageUtil';
 import { TranscriptUsageUtil }           from '../../lib/utils/TranscriptUsageUtil';
 import type { CommandContext }           from '../CommandContext';
@@ -41,10 +44,10 @@ const UNKNOWN_AGENT = 'unknown';
 /** The prefix on every sentence this writes, so a line in a harness log says which command produced it. */
 const REPORT_PREFIX = 'agent-progress hook subagent-stop:';
 
-interface RowShare {
-  rowIdentifier: number;
-  tokens:        number;
-}
+/** A share of the agent's input and what the brief named it against: a row directly, or a ticket whose row is looked up when the hook runs. */
+type BriefShare =
+  | { target: 'row'; rowIdentifier: number; tokens: number }
+  | { target: 'ticket'; ticketIdentifier: string; tokens: number };
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
@@ -111,33 +114,65 @@ async function recordInTheTracker(
   context: CommandContext,
   workingDirectory: string,
   usageLine: string,
-  rowShares: readonly RowShare[],
+  briefShares: readonly BriefShare[],
 ): Promise<void> {
   const trackerContext: CommandContext = { ...context, currentDirectory: workingDirectory };
-  let missingRowIdentifiers: number[] = [];
+  let unrecordedShareSentences: string[] = [];
   try {
-    missingRowIdentifiers = await openTrackerForWriting(commandArguments, trackerContext, (change) => {
-      const rowIdentifiersNotHeld = rowShares
-        .filter((share) => addTaskTokens(change.progress, share.rowIdentifier, share.tokens) === 'no-such-task')
-        .map((share) => share.rowIdentifier);
+    unrecordedShareSentences = await openTrackerForWriting(commandArguments, trackerContext, (change) => {
+      const sentences = briefShares
+        .map((share) => addShareToItsRow(change.workspace, change.progress, share))
+        .filter((sentence): sentence is string => sentence !== undefined);
       appendLogEntry(change.progress, change.at, usageLine);
-      return rowIdentifiersNotHeld;
+      return sentences;
     });
   } catch (failure) {
     const reason = failure instanceof Error ? failure.message : String(failure);
     context.standardError(`${REPORT_PREFIX} the line could not be recorded in ${workingDirectory}: ${reason}`);
   }
-  for (const rowIdentifier of missingRowIdentifiers) {
-    context.standardError(`${REPORT_PREFIX} the brief names row #${rowIdentifier}, which the tracker does not hold, so its share of the tokens was not recorded.`);
-  }
+  for (const sentence of unrecordedShareSentences) context.standardError(`${REPORT_PREFIX} ${sentence}`);
 }
 
-/** The brief's `agent-progress row:` line, if it has one, decides which rows the agent's `input` total is added to, split evenly. */
-function rowSharesFor(transcriptText: string, totals: TranscriptUsageTotals): RowShare[] {
-  const { evenSharesOf, rowIdentifiersNamedInBrief, totalInputTokensOf } = TranscriptUsageUtil;
+/** Adds the share and answers nothing, or answers the sentence saying why it was not recorded. A ticket is resolved to its row here, under the lock. */
+function addShareToItsRow(workspace: Workspace, progress: ProgressFile, share: BriefShare): string | undefined {
+  const notRecorded = 'so its share of the tokens was not recorded.';
+  if (share.target === 'row') {
+    if (addTaskTokens(progress, share.rowIdentifier, share.tokens) === 'applied') return undefined;
+    return `the brief names row #${share.rowIdentifier}, which the tracker does not hold, ${notRecorded}`;
+  }
+
+  const ticket = readTicket(workspace, share.ticketIdentifier);
+  if (ticket === null) return `the brief names ticket #${share.ticketIdentifier}, which the tracker does not hold, ${notRecorded}`;
+
+  const rowIdentifier = ticket.frontmatter.task;
+  if (rowIdentifier === null) return `the brief names ticket #${share.ticketIdentifier}, which has no row yet, ${notRecorded}`;
+
+  if (addTaskTokens(progress, rowIdentifier, share.tokens) === 'applied') return undefined;
+  return `the brief names ticket #${share.ticketIdentifier}, whose row #${rowIdentifier} the tracker does not hold, ${notRecorded}`;
+}
+
+/**
+ * The brief's marker decides which rows the agent's `input` total is added to, split evenly over what it names. A brief carrying
+ * both lines is read by its `agent-progress row:` line alone: it names the bars directly, and adding both would count the agent twice.
+ */
+function briefSharesFor(transcriptText: string, totals: TranscriptUsageTotals): BriefShare[] {
+  const {
+    evenSharesOf,
+    rowIdentifiersNamedInBrief,
+    ticketIdentifiersNamedInBrief,
+    totalInputTokensOf,
+  } = TranscriptUsageUtil;
+  const totalInputTokens = totalInputTokensOf(totals);
+
   const rowIdentifiers = rowIdentifiersNamedInBrief(transcriptText);
-  const shares         = evenSharesOf(totalInputTokensOf(totals), rowIdentifiers.length);
-  return rowIdentifiers.map((rowIdentifier, i) => ({ rowIdentifier, tokens: shares[i] ?? 0 }));
+  if (rowIdentifiers.length > 0) {
+    const shares = evenSharesOf(totalInputTokens, rowIdentifiers.length);
+    return rowIdentifiers.map((rowIdentifier, i) => ({ target: 'row', rowIdentifier, tokens: shares[i] ?? 0 }));
+  }
+
+  const ticketIdentifiers = ticketIdentifiersNamedInBrief(transcriptText);
+  const shares            = evenSharesOf(totalInputTokens, ticketIdentifiers.length);
+  return ticketIdentifiers.map((ticketIdentifier, i) => ({ target: 'ticket', ticketIdentifier, tokens: shares[i] ?? 0 }));
 }
 
 async function recordSubagentStop(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
@@ -170,7 +205,7 @@ async function recordSubagentStop(commandArguments: ArgumentParser, context: Com
   );
 
   const workingDirectory = readStringField(hookInput, 'cwd') ?? context.currentDirectory;
-  await recordInTheTracker(commandArguments, context, workingDirectory, usageLine, rowSharesFor(transcriptText, totals));
+  await recordInTheTracker(commandArguments, context, workingDirectory, usageLine, briefSharesFor(transcriptText, totals));
 }
 
 /**

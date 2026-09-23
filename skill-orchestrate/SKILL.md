@@ -159,14 +159,18 @@ ticket you would have split is never bundled, and neither are tickets whose file
 flight holds. Each ticket keeps its own row: `ticket start` every one of them, name the bundle in
 each row's `--note` with the `task update` above — a `ticket` move takes no note — and name every
 row on the brief's one marker line, `agent-progress row: 4, 7`: the hook divides what the agent
-processed evenly over them, so what the chart sums stays what the agent cost. Without the hook,
+processed evenly over them, so what the chart sums stays what the agent cost. A low ticket has no
+row until its builder claims it, and the claim is the builder's first command, not yours: name it by
+ticket instead, `agent-progress ticket: 22, 20`, and the hook finds each ticket's row when the agent
+stops. Write one marker line or the other, never both — a brief with both is read by its row line. Without the hook,
 `ticket review` each with the agent's `--tokens` divided evenly yourself. The agent commits and
 hands off per ticket, so a bundle is still judged, delivered and, if it comes to that, reopened one ticket at a time. A ticket the agent
 left untouched for lack of budget goes back with `agent-progress ticket reopen <id>`.
 
 Then spawn the agent with the brief from `.agent-progress/agent-brief.md`, filled in: **one large
 ticket or one bundle per agent**, the worktree you just created and its branch, the
-`agent-progress row: <rowId>` line naming its row or rows, the files it may edit, the three to eight
+`agent-progress row: <rowId>` line naming its row or rows — or `agent-progress ticket: <id>` for a
+ticket the builder will claim itself — the files it may edit, the three to eight
 facts it would otherwise go and find, the call budget, the "Ready to merge" close, and the report and
 `## Handoff` it owes. Point it at `agent-progress ticket show <id>` for the body and nothing else.
 When two slots are free, spawn both agents in one message so they run at once.
@@ -304,7 +308,8 @@ When you do lose the thread — after a compaction, or a long gap — re-anchor 
 - Every move goes through the CLI **at the moment it happens**, never batched at the end of a wave.
   A chart caught up afterwards has the wrong bars on it.
 - **Where the hook is installed, no `--tokens` at all.** Every brief names its row on a line of its
-  own, `agent-progress row: <rowId>` — `4, 7` for a bundle, the review bar's id for a reviewer — and
+  own, `agent-progress row: <rowId>` — `4, 7` for a bundle, the review bar's id for a reviewer — or
+  its tickets, `agent-progress ticket: 22, 20`, when the builder's own claim creates the row, and
   the hook adds what the agent processed to that row when it stops. A `--tokens` on a later move
   would replace that sum, and a workflow script's agents can reach the row no other way. Where the
   hook is not installed, `--tokens` from `subagent_tokens` on every move that ends a row, recorded as

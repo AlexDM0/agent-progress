@@ -107,7 +107,9 @@ anything that needs "now" is handed it.
   harness injected as `nested_memory` attachments and the first 80 characters of the brief — as the
   `TranscriptProfile` type `agent-progress usage` reports one agent by. `rowIdentifiersNamedInBrief`
   reads the `agent-progress row: 4, 7` line from **the first user turn with spoken text only** — the
-  brief, found as the excerpt is — so a marker quoted later never counts; `evenSharesOf` floors the
+  brief, found as the excerpt is — so a marker quoted later never counts; `ticketIdentifiersNamedInBrief`
+  reads the `agent-progress ticket: 22, 20` line the same way and answers padded ids, leaving the
+  lookup of each ticket's row to the hook; `evenSharesOf` floors the
   split and gives the remainder to the first row; `totalInputTokensOf` is the one `input` figure the
   log line and the row share.
 - `lib/utils/TranscriptCohortUtil.ts` — `summariseCohort` and `splitAt` over those profiles.

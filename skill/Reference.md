@@ -113,7 +113,14 @@ agent's first message — its brief — for a line of its own, `agent-progress r
 `agent-progress row: 4, 7`, and adds the agent's `input` total (the figure its log line reports) to
 each row named, divided evenly: floored, the remainder to the first. An unset count plus an amount is
 the amount, so a row two agents worked on carries both. A row that does not exist is named on
-standard error and skipped. A brief without the line changes no row. Where the hook is installed,
+standard error and skipped. A brief without the line changes no row.
+
+`agent-progress ticket: 22` or `agent-progress ticket: 22, 20` names tickets instead, padded or not,
+for a ticket whose row does not exist yet when the brief is written — a low ticket gets its row only
+when its builder claims it. The hook looks each ticket's row up when it runs, under the same lock, and
+divides the same way over the tickets named; a ticket with no row by then, or none at all, is named on
+standard error and its share skipped. A brief carrying both lines is read by its `row:` line alone,
+so the agent is never counted twice. Where the hook is installed,
 pass no `--tokens` on a row a brief named: it would replace the sum. Without the hook, `--tokens`
 from the harness's `subagent_tokens` is the only figure there is.
 

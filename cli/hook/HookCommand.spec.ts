@@ -236,6 +236,94 @@ describe.skipIf(!gitIsAvailable())('the row the brief names', () => {
   });
 });
 
+/**
+ * The ticket form exists because a low ticket has no row until its builder claims it, after the brief
+ * is written. So every case files the ticket, writes the brief, and only then creates the row — the
+ * claim is resolved when the hook runs, never when the brief was written.
+ */
+describe.skipIf(!gitIsAvailable())('the tickets the brief names', () => {
+  async function filedLowTicket(title: string): Promise<void> {
+    expect(await runCommandLine(['ticket', 'add', title, '--priority', 'low'], contextWith(''))).toBe(0);
+  }
+
+  async function startedTicket(reference: string): Promise<void> {
+    expect(await runCommandLine(['ticket', 'start', reference], contextWith(''))).toBe(0);
+  }
+
+  function storedTokensOfTicketRow(ticketIdentifier: string): number | null | undefined {
+    return storedProgress().tasks.find((task) => task.ticket === ticketIdentifier)?.tokens;
+  }
+
+  test('a ticket given no row until after the brief was written takes the input total on the row it has when the hook runs', async () => {
+    await filedLowTicket('Example low work');
+    transcriptPath = writeTranscript([userLine('Claim it first.\nagent-progress ticket: 1'), ...FIXTURE_CALLS]);
+    expect(storedTokensOfTicketRow('001')).toBeUndefined();
+    await startedTicket('1');
+
+    const context = contextWith(hookInput());
+    expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
+
+    expect(storedTokensOfTicketRow('001')).toBe(FIXTURE_INPUT_TOKENS);
+    expect(storedLog().at(-1)?.text).toContain('input 230k');
+    expect(context.errorText()).toBe('');
+  });
+
+  test('a bundle named by padded and unpadded ids divides the total as the row form does, remainder to the first named', async () => {
+    await filedLowTicket('Example first');
+    await filedLowTicket('Example second');
+    await startedTicket('1');
+    await startedTicket('2');
+    transcriptPath = writeTranscript([userLine('agent-progress ticket: 002, 1'), assistantLine('msg_only', 1001, 0, 50)]);
+
+    expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput()))).toBe(0);
+
+    expect(storedTokensOfTicketRow('002')).toBe(501);
+    expect(storedTokensOfTicketRow('001')).toBe(500);
+  });
+
+  /** An unclaimed ticket's share is lost rather than moved onto its neighbour, exactly as a missing row's is in the row form. */
+  test('a named ticket with no row at hook time is skipped in one sentence on standard error, and it exits 0', async () => {
+    await filedLowTicket('Example claimed');
+    await filedLowTicket('Example never claimed');
+    await startedTicket('1');
+    transcriptPath = writeTranscript([userLine('agent-progress ticket: 1, 2'), assistantLine('msg_only', 1001, 0, 50)]);
+    const context  = contextWith(hookInput());
+
+    expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
+
+    expect(storedTokensOfTicketRow('001')).toBe(501);
+    expect(storedTokensOfTicketRow('002')).toBeUndefined();
+    expect(context.errorText()).toContain('ticket #002, which has no row yet');
+    expect(context.errorText().trim().split('\n'), 'one sentence for the one ticket without a row').toHaveLength(1);
+    expect(storedLog().at(-1)?.text).toContain('Agent agent_42');
+  });
+
+  test('a named ticket the tracker does not hold is skipped in one sentence, and it exits 0', async () => {
+    transcriptPath = writeTranscript([userLine('agent-progress ticket: 42'), ...FIXTURE_CALLS]);
+    const context  = contextWith(hookInput());
+
+    expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
+
+    expect(context.errorText().trim()).toBe(
+      'agent-progress hook subagent-stop: the brief names ticket #042, which the tracker does not hold, so its share of the tokens was not recorded.',
+    );
+    expect(storedLog().at(-1)?.text).toContain('Agent agent_42');
+  });
+
+  /** Adding both would count the agent twice when the orchestrator named a ticket and its row; the row line names the bar directly, so it wins. */
+  test('a brief carrying both lines is read by its row line alone, and the ticket\'s row is left as it was', async () => {
+    const freeRow = await addedRow('Example review');
+    await filedLowTicket('Example low work');
+    await startedTicket('1');
+    transcriptPath = writeTranscript([userLine(`agent-progress ticket: 1\nagent-progress row: ${freeRow}`), ...FIXTURE_CALLS]);
+
+    expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput()))).toBe(0);
+
+    expect(storedTokensOf(freeRow)).toBe(FIXTURE_INPUT_TOKENS);
+    expect(storedTokensOfTicketRow('001')).toBeNull();
+  });
+});
+
 describe.skipIf(!gitIsAvailable())('every way it can fail', () => {
   /** The table is the whole claim: each of these leaves the tracker as it was and still answers 0. */
   test('nothing piped in, input that is not JSON, input that is not an object, and no transcript path all exit 0 and record nothing', async () => {

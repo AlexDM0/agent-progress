@@ -10,6 +10,7 @@
  * to paste a file, and it is why the format of the line is fixed here rather than in a template.
  */
 import { OVERSIZED_CONTEXT_THRESHOLD_TOKENS } from '../constants/Limits';
+import { TicketIdUtil }                       from './TicketIdUtil';
 import { TokenCountUtil }                     from './TokenCountUtil';
 
 /**
@@ -82,6 +83,9 @@ const TEXT_BLOCK_TYPE = 'text';
 
 /** A line of its own, ids as digits separated by commas: a placeholder such as `<rowId>` in a brief template never matches. */
 const ROW_MARKER_PATTERN = /^[ \t]*agent-progress row:[ \t]*(\d+(?:[ \t]*,[ \t]*\d+)*)[ \t]*$/m;
+
+/** The same shape naming tickets, each id padded or not and with an optional `#`, as `ticket show` accepts them. */
+const TICKET_MARKER_PATTERN = /^[ \t]*agent-progress ticket:[ \t]*(#?\d+(?:[ \t]*,[ \t]*#?\d+)*)[ \t]*$/m;
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
@@ -276,11 +280,22 @@ function briefTextOf(transcriptText: string): string {
  * brief has no such line. Only the brief is read, so a later message quoting another agent's marker never counts.
  */
 function rowIdentifiersNamedInBrief(transcriptText: string): number[] {
-  const markerMatch    = ROW_MARKER_PATTERN.exec(briefTextOf(transcriptText));
-  const identifierList = markerMatch?.[1];
-  if (identifierList === undefined) return [];
-  const identifiers = identifierList.split(',').map((identifier) => Number.parseInt(identifier.trim(), 10));
+  const identifiers = identifiersListedInBrief(transcriptText, ROW_MARKER_PATTERN).map((identifier) => Number.parseInt(identifier, 10));
   return [...new Set(identifiers)];
+}
+
+/** The padded ids (`"022"`) named by the brief's `agent-progress ticket: 22, 20` line, read exactly as the row line is; an id of zero is dropped. */
+function ticketIdentifiersNamedInBrief(transcriptText: string): string[] {
+  const identifiers = identifiersListedInBrief(transcriptText, TICKET_MARKER_PATTERN)
+    .map((identifier) => TicketIdUtil.parseTicketReference(identifier))
+    .filter((identifier): identifier is string => identifier !== null);
+  return [...new Set(identifiers)];
+}
+
+function identifiersListedInBrief(transcriptText: string, markerPattern: RegExp): string[] {
+  const identifierList = markerPattern.exec(briefTextOf(transcriptText))?.[1];
+  if (identifierList === undefined) return [];
+  return identifierList.split(',').map((identifier) => identifier.trim());
 }
 
 /** Floor division over the shares, with the remainder on the first, so the shares always sum to the total. */
@@ -373,5 +388,6 @@ export const TranscriptUsageUtil = {
   profileTranscript,
   rowIdentifiersNamedInBrief,
   summariseTranscriptUsage,
+  ticketIdentifiersNamedInBrief,
   totalInputTokensOf,
 } as const;
