@@ -26,9 +26,9 @@ const STATUS_BLOCK_SCHEMA = {
     agentsInFlight:  { type: 'integer', minimum: 0 },
     freeSlots:       { type: 'integer', minimum: 0 },
     readyTicketIds:  { type: 'array', items: { type: 'string' } },
-    dispatcherState: { type: 'string' },
+    dispatcherState: { type: 'string', enum: ['running', 'stopped', 'finished'] },
   },
-  required: ['limit', 'agentsInFlight', 'freeSlots', 'readyTicketIds'],
+  required: ['limit', 'agentsInFlight', 'freeSlots', 'readyTicketIds', 'dispatcherState'],
 };
 
 const SURVEY_SCHEMA = {
@@ -172,6 +172,7 @@ let agentsRun = 0;
 let launchCount = 0;
 let board = null;
 let ownAgentsInFlightAtBoardReading = 0;
+let stoppedByBoard = false;
 
 function recordOf(ticketId) {
   if (!ticketRecords.has(ticketId)) ticketRecords.set(ticketId, { failedPasses: 0, mainMovedReleases: 0, nextRound: 1, rounds: [] });
@@ -179,7 +180,7 @@ function recordOf(ticketId) {
 }
 
 function summary() {
-  return { delivered, parked, findingsFiled, agentsRun };
+  return stoppedByBoard ? { delivered, parked, findingsFiled, agentsRun, stoppedByBoard } : { delivered, parked, findingsFiled, agentsRun };
 }
 
 async function runAgent(prompt, options) {
@@ -196,6 +197,11 @@ function adoptBoard(status, ownAgentsInFlight) {
   if (status === null || typeof status !== 'object' || !Array.isArray(status.readyTicketIds)) return;
   board = status;
   ownAgentsInFlightAtBoardReading = ownAgentsInFlight;
+  // A stop is final for this run: the agents in flight finish and are settled, and nothing new starts until the user's go launches a new run.
+  if (status.dispatcherState === 'stopped' && !stoppedByBoard) {
+    stoppedByBoard = true;
+    log(`The board is stopped: no new agent starts, and the ${ownAgentsInFlight} in flight finish.`);
+  }
 }
 
 // "Other" agents are the board's minus this run's own; the ceiling holds whatever limit the board states.
@@ -366,7 +372,7 @@ for (const ticketId of survey.reviewWaitingTicketIds) {
 phase('Build');
 for (;;) {
   const slotLimit = ownSlotLimit();
-  while (inFlight.size < slotLimit) {
+  while (!stoppedByBoard && inFlight.size < slotLimit) {
     const work = nextWork();
     if (work === null) break;
     launch(work);
@@ -384,6 +390,7 @@ const leftWaiting = [
   ...rebuildQueue,
   ...board.readyTicketIds.filter((ticketId) => !ticketIdsTakenThisRun.has(ticketId)),
 ];
-if (leftWaiting.length > 0) log(`No slot free for ${leftWaiting.map((ticketId) => `#${ticketId}`).join(', ')}: other agents hold the board's limit.`);
+const leftWaitingText = leftWaiting.map((ticketId) => `#${ticketId}`).join(', ');
+if (leftWaiting.length > 0) log(stoppedByBoard ? `Left for the user's go: ${leftWaitingText}.` : `No slot free for ${leftWaitingText}: other agents hold the board's limit.`);
 log(`Done: ${delivered.length} delivered, ${parked.length} parked, ${findingsFiled.length} findings filed, ${agentsRun} agents run.`);
 return summary();

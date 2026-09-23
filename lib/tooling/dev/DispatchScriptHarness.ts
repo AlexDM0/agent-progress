@@ -26,10 +26,13 @@ export interface ReviewerReply {
   filedTicketIds?: string[];
 }
 
+export type DispatcherStateOnBoard = 'running' | 'stopped' | 'finished';
+
 export interface FakeBoard {
   limit:               number;
   otherAgentsInFlight: number;
   readyTicketIds:      string[];
+  dispatcherState:     DispatcherStateOnBoard;
 }
 
 export interface RecordedAgentCall {
@@ -47,6 +50,8 @@ export interface DispatchScenario {
   readyTicketIds:          string[];
   otherAgentsInFlight?:    number;
   reviewWaitingTicketIds?: string[];
+  /** Defaults to `running`; `afterAgent` may change it mid-run. */
+  dispatcherState?:        DispatcherStateOnBoard;
   /** Defaults to `in-review`; `null` is an agent that died. */
   builderReply?:           (ticketId: string, pass: number) => BuilderReply | null;
   /** Defaults to `released`; `null` is an agent that died. */
@@ -139,6 +144,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     limit:               scenario.limit,
     otherAgentsInFlight: scenario.otherAgentsInFlight ?? 0,
     readyTicketIds:      [...scenario.readyTicketIds],
+    dispatcherState:     scenario.dispatcherState ?? 'running',
   };
   const calls: RecordedAgentCall[] = [];
   const logs: string[] = [];
@@ -154,7 +160,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       agentsInFlight,
       freeSlots:       Math.max(0, board.limit - agentsInFlight),
       readyTicketIds:  [...board.readyTicketIds],
-      dispatcherState: 'running',
+      dispatcherState: board.dispatcherState,
     };
   };
 

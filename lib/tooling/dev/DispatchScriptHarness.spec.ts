@@ -35,8 +35,16 @@ function kindsAndTickets(run: DispatchRun): string[] {
   return run.calls.map((call) => (call.ticketId === null ? call.kind : `${call.kind} ${call.ticketId}`));
 }
 
-function summaryOf(run: DispatchRun): { delivered: string[]; parked: { id: string; reason: string }[]; findingsFiled: string[]; agentsRun: number } {
-  return run.summary as { delivered: string[]; parked: { id: string; reason: string }[]; findingsFiled: string[]; agentsRun: number };
+interface DispatchSummary {
+  delivered:       string[];
+  parked:          { id: string; reason: string }[];
+  findingsFiled:   string[];
+  agentsRun:       number;
+  stoppedByBoard?: boolean;
+}
+
+function summaryOf(run: DispatchRun): DispatchSummary {
+  return run.summary as DispatchSummary;
 }
 
 function parkedIds(run: DispatchRun): string[] {
@@ -193,7 +201,32 @@ const CLAIMS: Claim[] = [
       findingsFiled: ['009'],
       agentsRun:     5,
     }),
-    mutant: { find: 'return { delivered, parked, findingsFiled, agentsRun };', replace: 'return { delivered, parked, findingsFiled };' },
+    mutant: { find: ': { delivered, parked, findingsFiled, agentsRun };', replace: ': { delivered, parked, findingsFiled };' },
+  },
+  {
+    name:     'a board stopped mid-run starts no new agent, while the agents in flight finish and a reviewer among them still releases',
+    scenario: {
+      limit:                  2,
+      reviewWaitingTicketIds: ['001'],
+      readyTicketIds:         ['002', '003'],
+      afterAgent:             (call, board) => { if (call.kind === 'review' && call.ticketId === '001') board.dispatcherState = 'stopped'; },
+    },
+    holds: (run) => kindsAndTickets(run).join(', ') === 'survey, review 001, build 002'
+      && summaryOf(run).delivered.join() === '001'
+      && summaryOf(run).stoppedByBoard === true,
+    mutant: { find: 'while (!stoppedByBoard && inFlight.size < slotLimit)', replace: 'while (inFlight.size < slotLimit)' },
+  },
+  {
+    name:     'a board stopped when the run starts dispatches nothing, and the summary says the board stopped it',
+    scenario: { limit: 2, readyTicketIds: ['001'], dispatcherState: 'stopped' },
+    holds:    (run) => kindsAndTickets(run).join(', ') === 'survey' && JSON.stringify(run.summary) === JSON.stringify({
+      delivered:      [],
+      parked:         [],
+      findingsFiled:  [],
+      agentsRun:      1,
+      stoppedByBoard: true,
+    }),
+    mutant: { find: 'stoppedByBoard ? { delivered, parked, findingsFiled, agentsRun, stoppedByBoard } : ', replace: '' },
   },
 ];
 
