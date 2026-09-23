@@ -444,7 +444,8 @@ describe('the dispatcher script', () => {
     const run = await runDispatchScript(EVERY_KIND_OF_AGENT);
     expect(run.calls.length).toBeGreaterThan(4);
     for (const call of run.calls) {
-      expect(call.prompt).toContain('`lowPriorityReadyTicketIds` (each id of `concurrency.readyTicketIds` whose entry in the same document\'s `tickets` list has `priority` `"low"`');
+      expect(call.prompt).toContain('`lowPriorityReadyTicketIds` (each id of `concurrency.readyTicketIds` '
+        + 'whose entry in the same document\'s `tickets` list has `priority` `"low"`');
     }
   });
 
