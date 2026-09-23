@@ -52,12 +52,14 @@ describe.skipIf(!gitIsAvailable())('the concurrency limit', () => {
   });
 
   // Every tracker written before the field existed lacks it, and an unreadable progress file would stop every command in that repository.
-  test('a tracker whose progress file has no limit at all still reads, as 2', async () => {
+  test('a tracker whose progress file has no limit at all still reads, as 2, and the read leaves the file byte-identical', async () => {
     const progress = JSON.parse(readFileSync(progressFilePath(), 'utf8')) as ProgressFile;
     delete progress.concurrencyLimit;
-    writeFileSync(progressFilePath(), JSON.stringify(progress));
+    const writtenWithoutLimit = JSON.stringify(progress);
+    writeFileSync(progressFilePath(), writtenWithoutLimit);
 
     expect((await run(['concurrency'])).outputText()).toBe('2');
+    expect(readFileSync(progressFilePath(), 'utf8')).toBe(writtenWithoutLimit);
   });
 
   test('a stored limit is what a later command reads, and setting it logs one line', async () => {
