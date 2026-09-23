@@ -86,12 +86,12 @@ repository to use instead of walking up from the current directory.
                               separated by commas, the log line's \`input\` total is also added to
                               those rows' tokens, divided evenly. This is the command \`init\` and
                               \`update\` wire into \`.claude/settings.local.json\`; nobody types it.
-                              It exits 0
-                              whatever goes wrong — no input, an unreadable transcript, no tracker
-                              at the hook's own working directory, a row that does not exist — and
-                              writes the reason to standard error. Its exit code prevents nothing, since the agent has
-                              already finished; exiting 0 is what keeps a failure here from becoming
-                              an error the orchestrator must read, or a delay before it is told.
+                              It exits 0 whatever goes wrong — no input, an unreadable transcript,
+                              no tracker at the hook's own working directory, a row that does not
+                              exist — and writes the reason to standard error. Its exit code
+                              prevents nothing, since the agent has already finished; exiting 0 is
+                              what keeps a failure here from becoming an error the orchestrator must
+                              read, or a delay before it is told.
 
   usage [--since <when>]      What this repository's subagents cost, read out of the transcripts the
       [--transcripts <folder>] harness wrote for them: one row per agent, oldest first, with its
