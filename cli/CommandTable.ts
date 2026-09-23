@@ -23,6 +23,7 @@ export const COMMAND_TABLE = {
   release:     async () => (await import('./release/ReleaseCommand')).releaseCommand,
   ticket:      async () => (await import('./ticket/TicketCommand')).ticketCommand,
   concurrency: async () => (await import('./concurrency/ConcurrencyCommand')).concurrencyCommand,
+  dispatcher:  async () => (await import('./dispatcher/DispatcherCommand')).dispatcherCommand,
   range:       async () => (await import('./range/RangeCommand')).rangeCommand,
   render:      async () => (await import('./render/RenderCommand')).renderCommand,
   open:        async () => (await import('./open/OpenCommand')).openCommand,

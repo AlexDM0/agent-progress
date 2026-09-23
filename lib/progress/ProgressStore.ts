@@ -1,8 +1,9 @@
 import { existsSync, readFileSync } from 'fs';
 
-import { FIRST_REPEAT_REVIEW_ROUND, JSON_INDENT } from '../constants/Limits';
-import { TASK_STATUSES, taskStatusIsKnown }       from '../constants/Statuses';
+import { CONCURRENCY_LIMIT_CEILING_AGENTS, FIRST_REPEAT_REVIEW_ROUND, JSON_INDENT } from '../constants/Limits';
+import { TASK_STATUSES, taskStatusIsKnown }                                         from '../constants/Statuses';
 import type {
+  DispatcherState,
   LogEntry,
   ProgressFile,
   Task,
@@ -62,8 +63,22 @@ export function createEmptyProgressFile(input: { project: string; startedAt: str
   };
 }
 
+/** Well-formed on disk, which a limit above the ceiling still is: an older tracker holding one reads it as the ceiling rather than failing. */
 export function concurrencyLimitIsWellFormed(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= LOWEST_CONCURRENCY_LIMIT;
+}
+
+export const DISPATCHER_STATES: readonly DispatcherState[] = ['running', 'finished', 'stopped'];
+
+/** What a tracker that never set a dispatcher state reads: nothing stopped it, so it is relaunched when a ticket is ready. */
+const DEFAULT_DISPATCHER_STATE: DispatcherState = 'finished';
+
+export function dispatcherStateIsKnown(value: unknown): value is DispatcherState {
+  return typeof value === 'string' && (DISPATCHER_STATES as readonly string[]).includes(value);
+}
+
+export function dispatcherStateOf(progress: ProgressFile): DispatcherState {
+  return progress.dispatcherState ?? DEFAULT_DISPATCHER_STATE;
 }
 
 export interface Concurrency {
@@ -82,7 +97,7 @@ function agentsInFlightOf(tasks: readonly Task[]): number {
 }
 
 export function concurrencyOf(progress: ProgressFile): Concurrency {
-  const limit          = progress.concurrencyLimit ?? DEFAULT_CONCURRENCY_LIMIT;
+  const limit          = Math.min(progress.concurrencyLimit ?? DEFAULT_CONCURRENCY_LIMIT, CONCURRENCY_LIMIT_CEILING_AGENTS);
   const agentsInFlight = agentsInFlightOf(progress.tasks);
   return { limit, agentsInFlight, freeSlots: Math.max(0, limit - agentsInFlight) };
 }
@@ -175,6 +190,9 @@ function progressFileProblem(parsed: unknown): string | null {
   }
   if (candidate['concurrencyLimit'] !== undefined && !concurrencyLimitIsWellFormed(candidate['concurrencyLimit'])) {
     return `concurrencyLimit is ${JSON.stringify(candidate['concurrencyLimit'])}, and when present it has to be a whole number of at least ${LOWEST_CONCURRENCY_LIMIT}`;
+  }
+  if (candidate['dispatcherState'] !== undefined && !dispatcherStateIsKnown(candidate['dispatcherState'])) {
+    return `dispatcherState is ${JSON.stringify(candidate['dispatcherState'])}, and when present it has to be one of ${DISPATCHER_STATES.join(', ')}`;
   }
   if (!Array.isArray(candidate['tasks'])) return 'tasks is not an array';
   if (!Array.isArray(candidate['log'])) return 'log is not an array';

@@ -59,12 +59,13 @@ or Node.
 
 - `lib/constants/Types.ts` — every shape the tracker stores or renders: `Task` (with its nullable
   `tokens` and its optional `history`, `agent` and `reviewOf`), `TaskPhase`, `LogEntry`, `ViewRange`, `ProgressFile` (with
-  `nextTaskId` and the optional `concurrencyLimit`), `TicketFrontmatter` (with the optional `priority`,
+  `nextTaskId` and the optional `concurrencyLimit` and `dispatcherState`), `DispatcherState`, `TicketFrontmatter` (with the optional `priority`,
   absent meaning normal), `TicketPriority`, `Ticket`. Types only, no values.
 - `lib/constants/Limits.ts` — the tuning constants, each with its unit in its name: lock staleness and
   retries, the axis tick ladder and its bounds, ticket id width, how long done work stays visible,
   the timestamp slice bounds every human-facing reader shares, the JSON indent, and
-  `OVERSIZED_CONTEXT_THRESHOLD_TOKENS`, the context above which an API call is counted as oversized.
+  `OVERSIZED_CONTEXT_THRESHOLD_TOKENS`, the context above which an API call is counted as oversized, and
+  `CONCURRENCY_LIMIT_CEILING_AGENTS`, the most agents a stored limit allows in flight.
 - `lib/constants/Statuses.ts` — the task and ticket status tuples and the ticket type and priority
   tuples with their guards, `ticketPriorityOf` (the one place an absent priority becomes `normal`),
   the ticket-status → task-status table, and the on-disk names (`progress.json`,
@@ -109,7 +110,8 @@ anything that needs "now" is handed it.
   reads the `agent-progress row: 4, 7` line from **the first user turn with spoken text only** — the
   brief, found as the excerpt is — so a marker quoted later never counts; `ticketIdentifiersNamedInBrief`
   reads the `agent-progress ticket: 22, 20` line the same way and answers padded ids, leaving the
-  lookup of each ticket's row to the hook; `evenSharesOf` floors the
+  lookup of each ticket's row to the hook; `reviewedTicketIdentifierNamedInBrief` reads the single-id
+  `agent-progress review: 7` line the same way, a list naming nothing; `evenSharesOf` floors the
   split and gives the remainder to the first row; `totalInputTokensOf` is the one `input` figure the
   log line and the row share.
 - `lib/utils/TranscriptCohortUtil.ts` — `summariseCohort` and `splitAt` over those profiles.
@@ -126,7 +128,9 @@ anything that needs "now" is handed it.
   "waiting on" note.
 - `lib/utils/NextLineUtil.ts` — `composeNextLine`, the `Next: …` line from the limit, the agents in
   flight, the free slots and the ready ids: `N of L slots free` or `no slot free (N agents in flight)`, then
-  the ready ids as given (at most five, then `and N more`) or `nothing ready`.
+  the ready ids as given (at most five, then `and N more`) or `nothing ready`, then the dispatcher's
+  advice: `; launch the dispatcher` when it is `finished` and something is ready, `; dispatcher stopped
+  by the user: wait for permission` whenever it is `stopped`, nothing when it is `running`.
 - `lib/utils/ReworkCountUtil.ts` — `readDiff` classifies every changed line of unified diff text as
   code, comment, blank or documentation, reading hunk lengths from each `@@` header so a removed
   `-- x` is content rather than a `---` header. **Each side of a hunk keeps its own comment state** (old:
@@ -197,7 +201,10 @@ nothing about tasks or tickets — a caller supplies a path.
 
   **The concurrency limit is optional on disk.** A progress file without `concurrencyLimit` reads, and
   `concurrencyOf` answers `DEFAULT_CONCURRENCY_LIMIT` (2) for it; a present value that is not a whole
-  number of at least 1 makes the file unreadable. **A slot is an agent**: `concurrencyOf` answers
+  number of at least 1 makes the file unreadable, while one above `CONCURRENCY_LIMIT_CEILING_AGENTS`
+  reads as the ceiling and is never rewritten by a read. **The dispatcher state is optional the same way**:
+  `dispatcherStateOf` answers `finished` for a file without `dispatcherState`, and a present value that
+  is not one of `DISPATCHER_STATES` makes the file unreadable. **A slot is an agent**: `concurrencyOf` answers
   `agentsInFlight`, the `running` rows grouped by their optional `agent` key (written by `ticket claim`,
   the claimed ids joined) with each group counted once and each keyless running row counted alone,
   and never answers negative free slots. `transitionTask` drops the key when a row starts running from

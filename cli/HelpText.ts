@@ -20,7 +20,8 @@ repository to use instead of walking up from the current directory.
 \`status\`, \`ticket add\`, every ticket or task move and \`release\` end their output with one line
 read from the board after the change: \`Next: 1 of 2 slots free; ready: #003, #005\`, \`Next: no slot
 free (2 agents in flight); ready: #003\` or \`Next: 2 of 2 slots free; nothing ready\` — at most five
-ready ids, then \`and N more\`. --json output never carries it.
+ready ids, then \`and N more\` — followed by the dispatcher's advice where it has any: \`; launch the
+dispatcher\` or \`; dispatcher stopped by the user: wait for permission\`. --json output never carries it.
 
   init                        Create the tracker here: \`.agent-progress/\` with an empty progress
       [--project <name>]      file, a \`tickets/\` folder and \`agent-brief.md\` — the brief to fill in
@@ -99,7 +100,11 @@ ready ids, then \`and N more\`. --json output never carries it.
                               separated by commas, the log line's \`input\` total is also added to
                               those rows' tokens, divided evenly. A line \`agent-progress ticket:
                               <id>\` names tickets instead, each resolved to the row it holds when
-                              the hook runs; a brief with both is read by its row line alone.
+                              the hook runs. A line \`agent-progress review: <id>\` names one
+                              ticket whose review row the reviewer creates itself: the input goes
+                              to the most recently added row reviewing that ticket (--review-of,
+                              or a "Review <N> #<id>" name), whatever its status. A brief with
+                              several is read by its row line first, then its ticket line.
                               This is the command \`init\` and \`update\` wire into
                               \`.claude/settings.local.json\`; nobody types it. It exits 0 whatever
                               goes wrong — no input, an unreadable transcript, no tracker at the
@@ -262,10 +267,23 @@ ready ids, then \`and N more\`. --json output never carries it.
                               A slot is an agent: the running rows one \`ticket claim\` started count
                               once, and every other running row, such as a review bar, counts on
                               its own. With <n>, store a new one (a whole number, 1 or more) for
-                              every worktree. A tracker that never set one reads 2; a limit below
-                              the agents already in flight is accepted and simply leaves no free
-                              slot. \`status --json\` carries it beside \`agentsInFlight\`, the free
-                              slots and the ready tickets.
+                              every worktree, from 1 to 10: a higher one is refused at exit 1 with
+                              nothing written, and one an older tracker stored reads as 10. A
+                              tracker that never set one reads 2; a limit below the agents already
+                              in flight is accepted and simply leaves no free slot. \`status --json\`
+                              carries it beside \`agentsInFlight\`, the free slots and the ready
+                              tickets.
+
+  dispatcher [running|finished|stopped] [--json]
+                              Print where the dispatcher was left, or store a new state with one
+                              log line, so it survives a compaction of the orchestrator's context.
+                              \`running\`: a dispatcher is at work. \`finished\`: it ended by itself,
+                              and the Next line says "launch the dispatcher" while a ticket is
+                              ready. \`stopped\`: the user ended it, and the Next line says
+                              "dispatcher stopped by the user: wait for permission" however many
+                              tickets are filed meanwhile. A tracker that never set one reads
+                              \`finished\`; any other word is refused at exit 1 with nothing
+                              written. \`status --json\` carries it as \`concurrency.dispatcherState\`.
 
   range --from <when>         The stored default axis of the chart. A relative bound is stored as
         --to <when>           written, so \`--from -2h\` keeps meaning "the last two hours" on every

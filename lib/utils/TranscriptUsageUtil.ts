@@ -87,6 +87,9 @@ const ROW_MARKER_PATTERN = /^[ \t]*agent-progress row:[ \t]*(\d+(?:[ \t]*,[ \t]*
 /** The same shape naming tickets, each id padded or not and with an optional `#`, as `ticket show` accepts them. */
 const TICKET_MARKER_PATTERN = /^[ \t]*agent-progress ticket:[ \t]*(#?\d+(?:[ \t]*,[ \t]*#?\d+)*)[ \t]*$/m;
 
+/** One ticket only: a reviewer's brief is written before its review row exists, and names the ticket whose newest review row it will be. */
+const REVIEW_MARKER_PATTERN = /^[ \t]*agent-progress review:[ \t]*(#?\d+)[ \t]*$/m;
+
 function asRecord(value: unknown): Record<string, unknown> | undefined {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
   return value as Record<string, unknown>;
@@ -292,6 +295,12 @@ function ticketIdentifiersNamedInBrief(transcriptText: string): string[] {
   return [...new Set(identifiers)];
 }
 
+/** The padded id (`"007"`) named by the brief's `agent-progress review: 7` line, read exactly as the other two are; `null` when there is none. */
+function reviewedTicketIdentifierNamedInBrief(transcriptText: string): string | null {
+  const [identifier] = identifiersListedInBrief(transcriptText, REVIEW_MARKER_PATTERN);
+  return identifier === undefined ? null : TicketIdUtil.parseTicketReference(identifier);
+}
+
 function identifiersListedInBrief(transcriptText: string, markerPattern: RegExp): string[] {
   const identifierList = markerPattern.exec(briefTextOf(transcriptText))?.[1];
   if (identifierList === undefined) return [];
@@ -386,6 +395,7 @@ export const TranscriptUsageUtil = {
   composeUsageLine,
   evenSharesOf,
   profileTranscript,
+  reviewedTicketIdentifierNamedInBrief,
   rowIdentifiersNamedInBrief,
   summariseTranscriptUsage,
   ticketIdentifiersNamedInBrief,

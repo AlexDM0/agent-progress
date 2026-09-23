@@ -3,15 +3,16 @@
  * progress file, write the queued tickets, render through `lib/render/Rerender.ts` — all inside the lock, in that order, so no older
  * render lands last and the progress file is never behind the tickets.
  */
-import { JSON_INDENT }                      from '../lib/constants/Limits';
-import type { ProgressFile, Ticket }        from '../lib/constants/Types';
-import { withLock }                         from '../lib/platform/Lock';
-import { OperationRefusal }                 from '../lib/platform/OperationRefusal';
-import { requireWorkspace, type Workspace } from '../lib/platform/Workspace';
+import { JSON_INDENT }                                from '../lib/constants/Limits';
+import type { DispatcherState, ProgressFile, Ticket } from '../lib/constants/Types';
+import { withLock }                                   from '../lib/platform/Lock';
+import { OperationRefusal }                           from '../lib/platform/OperationRefusal';
+import { requireWorkspace, type Workspace }           from '../lib/platform/Workspace';
 import {
   addTask,
   appendLogEntry,
   concurrencyOf,
+  dispatcherStateOf,
   findTask,
   readProgressFile,
   removeTask,
@@ -69,10 +70,14 @@ export function printEntity(commandArguments: ArgumentParser, context: CommandCo
 
 /**
  * What a dispatcher needs to start the next agent: the limit, the agents in flight against it, what is left, and the tickets that could take it —
- * in the order to take them, high first, with low tickets held back while normal or high work is still owed.
+ * in the order to take them, high first, with low tickets held back while normal or high work is still owed — and where the user left the dispatcher.
  */
-export function concurrencyDocumentOf(progress: ProgressFile, tickets: readonly Ticket[]): Concurrency & { readyTicketIds: string[] } {
-  return { ...concurrencyOf(progress), readyTicketIds: TicketDependencyUtil.readyTicketIdsOf(tickets.map((ticket) => ticket.frontmatter)) };
+export function concurrencyDocumentOf(progress: ProgressFile, tickets: readonly Ticket[]): Concurrency & { readyTicketIds: string[]; dispatcherState: DispatcherState } {
+  return {
+    ...concurrencyOf(progress),
+    readyTicketIds:  TicketDependencyUtil.readyTicketIdsOf(tickets.map((ticket) => ticket.frontmatter)),
+    dispatcherState: dispatcherStateOf(progress),
+  };
 }
 
 export function nextLineFor(progress: ProgressFile, tickets: readonly Ticket[]): string {

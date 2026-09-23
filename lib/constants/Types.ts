@@ -53,6 +53,9 @@ export type ViewRange =
   | { kind: 'absolute'; from: string; to: string; tickMinutes: number | null }
   | { kind: 'relative'; from: string; to: string; tickMinutes: number | null };
 
+/** `finished` ended by itself and is relaunched when a ticket is ready; `stopped` was ended by the user and waits for permission. */
+export type DispatcherState = 'running' | 'finished' | 'stopped';
+
 export interface ProgressFile {
   version:           1;
   trackerId:         string;
@@ -63,6 +66,8 @@ export interface ProgressFile {
   nextTaskId:        number;
   /** How many agents may be in flight at once; absent on a tracker that never set one, which reads as the default. */
   concurrencyLimit?: number;
+  /** Where the user left the dispatcher; absent on a tracker that never set one, which reads as `finished`. */
+  dispatcherState?:  DispatcherState;
   tasks:             Task[];
   log:               LogEntry[];
 }

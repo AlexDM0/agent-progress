@@ -53,3 +53,6 @@ export const FIRST_REPEAT_REVIEW_ROUND = 2;
 
 /** The context an API call is counted as oversized above: a brief asks an agent to hand its work on rather than let its window grow past this. */
 export const OVERSIZED_CONTEXT_THRESHOLD_TOKENS = 200_000;
+
+/** The most agents the user allows in flight at once: `concurrency` refuses a higher limit, and a higher stored one reads as this. */
+export const CONCURRENCY_LIMIT_CEILING_AGENTS = 10;

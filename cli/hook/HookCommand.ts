@@ -1,8 +1,9 @@
 /**
  * `agent-progress hook subagent-stop`: the `SubagentStop` hook that records what a finished subagent
  * cost, as one line in the tracker's log, and adds it to the tokens of each row the agent's brief names
- * on an `agent-progress row: <ids>` line, or of each ticket's row on an `agent-progress ticket: <ids>`
- * line. It exists because nothing else observes that number — a subagent's usage lives only in its own
+ * on an `agent-progress row: <ids>` line, of each ticket's row on an `agent-progress ticket: <ids>`
+ * line, or of the ticket's newest review row on an `agent-progress review: <id>` line. It exists
+ * because nothing else observes that number — a subagent's usage lives only in its own
  * transcript, and the token column read 0 on every row of a 73-agent build because nobody typed `--tokens`.
  *
  * It replaces a `record-subagent-tokens.ts` script each repository copied into `.claude/hooks/`. A
@@ -21,10 +22,11 @@
 import { readFileSync } from 'node:fs';
 import { homedir }      from 'node:os';
 
-import type { ProgressFile }             from '../../lib/constants/Types';
+import type { ProgressFile, Task }       from '../../lib/constants/Types';
 import { OperationRefusal }              from '../../lib/platform/OperationRefusal';
 import type { Workspace }                from '../../lib/platform/Workspace';
 import { addTaskTokens, appendLogEntry } from '../../lib/progress/ProgressStore';
+import { reviewedTicketNumberOf }        from '../../lib/render/page/PageMarkup';
 import { readTicket }                    from '../../lib/tickets/TicketStore';
 import type { TranscriptUsageTotals }    from '../../lib/utils/TranscriptUsageUtil';
 import { TranscriptUsageUtil }           from '../../lib/utils/TranscriptUsageUtil';
@@ -44,10 +46,14 @@ const UNKNOWN_AGENT = 'unknown';
 /** The prefix on every sentence this writes, so a line in a harness log says which command produced it. */
 const REPORT_PREFIX = 'agent-progress hook subagent-stop:';
 
-/** A share of the agent's input and what the brief named it against: a row directly, or a ticket whose row is looked up when the hook runs. */
+/**
+ * A share of the agent's input and what the brief named it against: a row directly, a ticket whose row is looked up when the hook runs,
+ * or a ticket whose newest review row is, since a reviewer files its own row after its brief was written.
+ */
 type BriefShare =
   | { target: 'row'; rowIdentifier: number; tokens: number }
-  | { target: 'ticket'; ticketIdentifier: string; tokens: number };
+  | { target: 'ticket'; ticketIdentifier: string; tokens: number }
+  | { target: 'review'; ticketIdentifier: string; tokens: number };
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
@@ -133,12 +139,30 @@ async function recordInTheTracker(
   for (const sentence of unrecordedShareSentences) context.standardError(`${REPORT_PREFIX} ${sentence}`);
 }
 
+/**
+ * Row ids only ever grow, so the highest one is the review filed last. Its status is not consulted: `release` has already delivered the
+ * bar by the time its reviewer stops. Linked by `reviewOf` or by the name the page nests by, through the page's own reader of both.
+ */
+function newestReviewRowOf(progress: ProgressFile, ticketIdentifier: string): Task | undefined {
+  const reviewedNumber = Number(ticketIdentifier);
+  return progress.tasks
+    .filter((task) => task.ticket === null && reviewedTicketNumberOf(task) === reviewedNumber)
+    .reduce<Task | undefined>((newest, task) => (newest === undefined || task.id > newest.id ? task : newest), undefined);
+}
+
 /** Adds the share and answers nothing, or answers the sentence saying why it was not recorded. A ticket is resolved to its row here, under the lock. */
 function addShareToItsRow(workspace: Workspace, progress: ProgressFile, share: BriefShare): string | undefined {
   const notRecorded = 'so its share of the tokens was not recorded.';
   if (share.target === 'row') {
     if (addTaskTokens(progress, share.rowIdentifier, share.tokens) === 'applied') return undefined;
     return `the brief names row #${share.rowIdentifier}, which the tracker does not hold, ${notRecorded}`;
+  }
+
+  if (share.target === 'review') {
+    const reviewRow = newestReviewRowOf(progress, share.ticketIdentifier);
+    if (reviewRow === undefined) return `the brief names the review of ticket #${share.ticketIdentifier}, which has no review row, ${notRecorded}`;
+    addTaskTokens(progress, reviewRow.id, share.tokens);
+    return undefined;
   }
 
   const ticket = readTicket(workspace, share.ticketIdentifier);
@@ -153,11 +177,12 @@ function addShareToItsRow(workspace: Workspace, progress: ProgressFile, share: B
 
 /**
  * The brief's marker decides which rows the agent's `input` total is added to, split evenly over what it names. A brief carrying
- * both lines is read by its `agent-progress row:` line alone: it names the bars directly, and adding both would count the agent twice.
+ * several is read by one alone, `row:` over `ticket:` over `review:`, the most direct first: adding more would count the agent twice.
  */
 function briefSharesFor(transcriptText: string, totals: TranscriptUsageTotals): BriefShare[] {
   const {
     evenSharesOf,
+    reviewedTicketIdentifierNamedInBrief,
     rowIdentifiersNamedInBrief,
     ticketIdentifiersNamedInBrief,
     totalInputTokensOf,
@@ -171,8 +196,14 @@ function briefSharesFor(transcriptText: string, totals: TranscriptUsageTotals): 
   }
 
   const ticketIdentifiers = ticketIdentifiersNamedInBrief(transcriptText);
-  const shares            = evenSharesOf(totalInputTokens, ticketIdentifiers.length);
-  return ticketIdentifiers.map((ticketIdentifier, i) => ({ target: 'ticket', ticketIdentifier, tokens: shares[i] ?? 0 }));
+  if (ticketIdentifiers.length > 0) {
+    const shares = evenSharesOf(totalInputTokens, ticketIdentifiers.length);
+    return ticketIdentifiers.map((ticketIdentifier, i) => ({ target: 'ticket', ticketIdentifier, tokens: shares[i] ?? 0 }));
+  }
+
+  const reviewedTicketIdentifier = reviewedTicketIdentifierNamedInBrief(transcriptText);
+  if (reviewedTicketIdentifier === null) return [];
+  return [{ target: 'review', ticketIdentifier: reviewedTicketIdentifier, tokens: totalInputTokens }];
 }
 
 async function recordSubagentStop(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {

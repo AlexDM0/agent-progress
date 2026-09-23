@@ -129,8 +129,15 @@ standard error and skipped. A brief without the line changes no row.
 for a ticket whose row does not exist yet when the brief is written — a low ticket gets its row only
 when its builder claims it. The hook looks each ticket's row up when it runs, under the same lock, and
 divides the same way over the tickets named; a ticket with no row by then, or none at all, is named on
-standard error and its share skipped. A brief carrying both lines is read by its `row:` line alone,
-so the agent is never counted twice. Where the hook is installed,
+standard error and its share skipped.
+
+`agent-progress review: 7` names one ticket whose review row the reviewer files itself, after its
+brief is written — a reviewer inside a workflow cannot be told that row's id in advance. When the
+hook runs it adds the whole `input` total to the most recently added row reviewing that ticket —
+linked by `task add --review-of`, or named `Review <N> #<id>` — whatever its status, since `release`
+has already delivered that bar when the reviewer stops. No such row is named on standard error. A
+brief carrying several lines is read by one alone, `row:` over `ticket:` over `review:`, so the agent
+is never counted twice. Where the hook is installed,
 pass no `--tokens` on a row a brief named: it would replace the sum. Without the hook, `--tokens`
 from the harness's `subagent_tokens` is the only figure there is.
 
@@ -138,6 +145,8 @@ from the harness's `subagent_tokens` is the only figure there is.
 
 The board holds how many agents may be in flight: `agent-progress concurrency` prints it, and
 `agent-progress concurrency <n>` stores it for every worktree. A tracker that never set one reads 2.
+**The ceiling is 10**: a higher `<n>` is refused at exit 1 with nothing written, and a higher limit an
+older tracker stored reads as 10.
 **A slot is an agent, not a row.** `ticket claim 3 4 5` claims a bundle's tickets as one agent, all
 or nothing, and writes the same `agent` key on each of their rows — the claimed ids joined,
 `"003,004,005"`. The agents in flight are the `running` rows grouped by that key, each group counted
@@ -163,6 +172,16 @@ The same figures close the human output of `status`, `ticket add`, every ticket 
 slots free; ready: #003, #005`, `Next: no slot free (2 agents in flight); ready: #003` or `Next: 2 of 2
 slots free; nothing ready`. Ready ids are listed lowest first, at most five, then `and N more`.
 `--json` output never carries the line.
+
+## The dispatcher state
+
+`agent-progress dispatcher` prints where the dispatcher was left, and `agent-progress dispatcher
+running|finished|stopped` stores it with one log line, so it survives a compaction of the
+orchestrator's context. A tracker that never set one reads `finished`, and the read writes nothing;
+any other word is refused at exit 1. `status --json` carries it as `concurrency.dispatcherState`, and
+the Next line ends with what it means: `finished` — it ended by itself — with a ticket ready adds
+`; launch the dispatcher`; `stopped` — the user ended it — adds `; dispatcher stopped by the user:
+wait for permission`, however many tickets are filed meanwhile; `running` adds nothing.
 
 ## Releasing a branch
 

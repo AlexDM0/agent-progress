@@ -23,10 +23,11 @@ type StatusDocument = ProgressFile & {
   tickets:     Array<TicketFrontmatter & { filePath: string }>;
   omitted?:    { settledTasks: number; settledTickets: number; olderLogEntries: number };
   concurrency: {
-    limit:          number;
-    agentsInFlight: number;
-    freeSlots:      number;
-    readyTicketIds: string[];
+    limit:           number;
+    agentsInFlight:  number;
+    freeSlots:       number;
+    readyTicketIds:  string[];
+    dispatcherState: string;
   };
 };
 
@@ -243,10 +244,11 @@ describe.skipIf(!gitIsAvailable())('the concurrency block both --json documents 
     const full    = JSON.parse((await run(['status', '--json', '--full'])).outputText()) as StatusDocument;
 
     const expected = {
-      limit:          2,
-      agentsInFlight: 2,
-      freeSlots:      0,
-      readyTicketIds: ['002', '004'],
+      limit:           2,
+      agentsInFlight:  2,
+      freeSlots:       0,
+      readyTicketIds:  ['002', '004'],
+      dispatcherState: 'finished',
     };
     expect(working.concurrency).toEqual(expected);
     expect(full.concurrency).toEqual(expected);

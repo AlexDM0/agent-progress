@@ -13,6 +13,7 @@ const {
   composeUsageLine,
   evenSharesOf,
   profileTranscript,
+  reviewedTicketIdentifierNamedInBrief,
   rowIdentifiersNamedInBrief,
   summariseTranscriptUsage,
   ticketIdentifiersNamedInBrief,
@@ -515,6 +516,34 @@ describe('the tickets a brief names', () => {
 
     expect(rowIdentifiersNamedInBrief(transcript)).toEqual([4]);
     expect(ticketIdentifiersNamedInBrief(transcript)).toEqual(['022']);
+  });
+});
+
+/**
+ * The review form names one ticket whose review row the reviewer files itself after its brief was written; the hook resolves the row.
+ * What callers rely on: the padded id in every spelling, the brief-only rule, and a list or a placeholder naming nothing rather than a guess.
+ */
+describe('the ticket a reviewer\'s brief names', () => {
+  function userTextLine(text: string): string {
+    return JSON.stringify({ type: 'user', message: { content: [{ type: 'text', text }] } });
+  }
+
+  test('padded, unpadded and hash-prefixed ids all read as the padded id', () => {
+    expect(reviewedTicketIdentifierNamedInBrief(userTextLine('Review it.\nagent-progress review: 7\nStop.'))).toBe('007');
+    expect(reviewedTicketIdentifierNamedInBrief(userTextLine('  agent-progress review: #007  '))).toBe('007');
+  });
+
+  test('a marker in a later user turn is not the brief\'s, so it names nothing', () => {
+    const transcript = [userTextLine('Review the branch.'), userTextLine('agent-progress review: 7')].join('\n');
+
+    expect(reviewedTicketIdentifierNamedInBrief(transcript)).toBeNull();
+  });
+
+  test('a placeholder, a list, ticket zero and the other two forms all name no ticket', () => {
+    expect(reviewedTicketIdentifierNamedInBrief(userTextLine('agent-progress review: <ticketId>'))).toBeNull();
+    expect(reviewedTicketIdentifierNamedInBrief(userTextLine('agent-progress review: 7, 8'))).toBeNull();
+    expect(reviewedTicketIdentifierNamedInBrief(userTextLine('agent-progress review: 0'))).toBeNull();
+    expect(reviewedTicketIdentifierNamedInBrief(userTextLine('agent-progress ticket: 7\nagent-progress row: 7'))).toBeNull();
   });
 });
 

@@ -328,6 +328,7 @@ describe.skipIf(!gitIsAvailable())('a release that holds', () => {
   // The released ticket runs and another waits on it, so a line read before the delivery shows one slot and one ready id fewer.
   test('the human output ends with the Next line agreeing with status --json after the release, and --json carries none', async () => {
     const first = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
+    await agentProgressOrFail(['dispatcher', 'running']);
     await agentProgressOrFail(['ticket', 'start', first.identifier]);
     await agentProgressOrFail(['ticket', 'add', 'Chart the role history', '--depends-on', first.identifier]);
     await agentProgressOrFail(['ticket', 'add', 'Rename the legend']);

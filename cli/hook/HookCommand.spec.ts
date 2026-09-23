@@ -324,6 +324,87 @@ describe.skipIf(!gitIsAvailable())('the tickets the brief names', () => {
   });
 });
 
+/**
+ * The review form exists because a reviewer inside a workflow files its own review row, after its brief was written, so the brief can
+ * name only the ticket. Every case writes the brief first and files the row after; the row is found when the hook runs, whatever its
+ * status, because `release` has already delivered it by the time the reviewer stops.
+ */
+describe.skipIf(!gitIsAvailable())('the ticket a reviewer\'s brief names', () => {
+  const REVIEWED_TICKET_NUMBER = 7;
+
+  beforeEach(async () => {
+    for (let i = 1; i <= REVIEWED_TICKET_NUMBER; i++) {
+      expect(await runCommandLine(['ticket', 'add', `Example work ${i}`], contextWith(''))).toBe(0);
+    }
+  });
+
+  async function reviewRowFiled(commandArguments: readonly string[]): Promise<number> {
+    expect(await runCommandLine(['task', 'add', ...commandArguments], contextWith(''))).toBe(0);
+    const rowIdentifier = storedProgress().tasks.at(-1)?.id;
+    if (rowIdentifier === undefined) throw new Error('task add filed no row');
+    return rowIdentifier;
+  }
+
+  test('the review row created after the brief takes the input total, delivered or not', async () => {
+    transcriptPath = writeTranscript([userLine('Review the branch.\nagent-progress review: 7'), ...FIXTURE_CALLS]);
+    const reviewRow = await reviewRowFiled(['Review 1 #007 — Example work 7', '--review-of', '7', '--start']);
+    expect(await runCommandLine(['task', 'deliver', String(reviewRow)], contextWith(''))).toBe(0);
+    const context = contextWith(hookInput());
+
+    expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
+
+    expect(storedTokensOf(reviewRow)).toBe(FIXTURE_INPUT_TOKENS);
+    expect(context.errorText()).toBe('');
+  });
+
+  // A second round files a second row; the reviewer that stops is the one whose row was filed last, linked by field or by name alone.
+  test('with two review rows for the ticket, the later one gets it and the earlier is left as it was', async () => {
+    const firstRound  = await reviewRowFiled(['Review 1 #007 — Example work 7', '--review-of', '7']);
+    transcriptPath    = writeTranscript([userLine('agent-progress review: #007'), ...FIXTURE_CALLS]);
+    const secondRound = await reviewRowFiled(['Review 2 #7 — Example work 7']);
+
+    expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput()))).toBe(0);
+
+    expect(storedTokensOf(secondRound)).toBe(FIXTURE_INPUT_TOKENS);
+    expect(storedTokensOf(firstRound)).toBeNull();
+  });
+
+  test('a ticket with no review row is skipped in one sentence on standard error, and it exits 0 with the log line written', async () => {
+    transcriptPath = writeTranscript([userLine('agent-progress review: 7'), ...FIXTURE_CALLS]);
+    const context  = contextWith(hookInput());
+
+    expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
+
+    expect(context.errorText().trim()).toBe(
+      'agent-progress hook subagent-stop: the brief names the review of ticket #007, which has no review row, so its share of the tokens was not recorded.',
+    );
+    expect(storedLog().at(-1)?.text).toContain('Agent agent_42');
+  });
+
+  /** The ticket line names the builder's bar; a brief carrying both belongs to the builder, and counting it on the review too would count it twice. */
+  test('a brief carrying the ticket line and the review line is read by its ticket line alone', async () => {
+    expect(await runCommandLine(['ticket', 'start', '7'], contextWith(''))).toBe(0);
+    const reviewRow = await reviewRowFiled(['Review 1 #007 — Example work 7', '--review-of', '7']);
+    transcriptPath  = writeTranscript([userLine('agent-progress review: 7\nagent-progress ticket: 7'), ...FIXTURE_CALLS]);
+
+    expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput()))).toBe(0);
+
+    expect(storedProgress().tasks.find((task) => task.ticket === '007')?.tokens).toBe(FIXTURE_INPUT_TOKENS);
+    expect(storedTokensOf(reviewRow)).toBeNull();
+  });
+
+  test('a brief carrying the row line and the review line is read by its row line alone', async () => {
+    const freeRow   = await addedRow('Example free row');
+    const reviewRow = await reviewRowFiled(['Review 1 #007 — Example work 7', '--review-of', '7']);
+    transcriptPath  = writeTranscript([userLine(`agent-progress review: 7\nagent-progress row: ${freeRow}`), ...FIXTURE_CALLS]);
+
+    expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput()))).toBe(0);
+
+    expect(storedTokensOf(freeRow)).toBe(FIXTURE_INPUT_TOKENS);
+    expect(storedTokensOf(reviewRow)).toBeNull();
+  });
+});
+
 describe.skipIf(!gitIsAvailable())('every way it can fail', () => {
   /** The table is the whole claim: each of these leaves the tracker as it was and still answers 0. */
   test('nothing piped in, input that is not JSON, input that is not an object, and no transcript path all exit 0 and record nothing', async () => {

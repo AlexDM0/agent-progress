@@ -26,7 +26,7 @@ interface NextLineCase {
 
 /**
  * Each case starts from three open tickets (rows #1 to #3) and a free-standing row #4 under the default
- * limit of 2. The expected line is written out from that state by hand, never taken from a run.
+ * limit of 2, with the dispatcher running. The expected line is written out from that state by hand, never taken from a run.
  */
 const NEXT_LINE_CASES: NextLineCase[] = [
   {
@@ -92,6 +92,8 @@ beforeEach(async () => {
   await run(['ticket', 'add', 'Show the role history']);
   await run(['ticket', 'add', 'Export the roles']);
   await run(['task', 'add', 'Review pass']);
+  // A running dispatcher adds no advice, so these lines pin slots and queue alone; `cli/dispatcher/DispatcherCommand.spec.ts` pins the advice.
+  await run(['dispatcher', 'running']);
 });
 
 afterEach(() => {

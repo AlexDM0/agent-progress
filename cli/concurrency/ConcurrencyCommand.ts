@@ -1,5 +1,6 @@
-import { OperationRefusal } from '../../lib/platform/OperationRefusal';
-import { requireWorkspace } from '../../lib/platform/Workspace';
+import { CONCURRENCY_LIMIT_CEILING_AGENTS } from '../../lib/constants/Limits';
+import { OperationRefusal }                 from '../../lib/platform/OperationRefusal';
+import { requireWorkspace }                 from '../../lib/platform/Workspace';
 import {
   appendLogEntry,
   concurrencyLimitIsWellFormed,
@@ -19,8 +20,11 @@ const WHOLE_NUMBER_PATTERN = /^\d+$/;
 
 function limitFrom(written: string): number {
   const limit = WHOLE_NUMBER_PATTERN.test(written) ? Number(written) : Number.NaN;
-  if (!concurrencyLimitIsWellFormed(limit)) {
-    throw new OperationRefusal('refused', `"${written}" is not a concurrency limit. Write a whole number of agents, 1 or more.\n  Usage: ${USAGE}`);
+  if (!concurrencyLimitIsWellFormed(limit) || limit > CONCURRENCY_LIMIT_CEILING_AGENTS) {
+    throw new OperationRefusal(
+      'refused',
+      `"${written}" is not a concurrency limit. Write a whole number of agents from 1 to ${CONCURRENCY_LIMIT_CEILING_AGENTS}.\n  Usage: ${USAGE}`,
+    );
   }
   return limit;
 }

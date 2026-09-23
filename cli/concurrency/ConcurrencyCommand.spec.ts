@@ -71,13 +71,33 @@ describe.skipIf(!gitIsAvailable())('the concurrency limit', () => {
     expect(progress.log.at(-1)?.text).toBe('Concurrency limit set to 3');
   });
 
-  test.each([['0'], ['-1'], ['x'], ['2.5']])('"%s" is refused at exit 1 and the progress file is left byte-identical', async (written) => {
+  test.each([['0'], ['-1'], ['x'], ['2.5'], ['11']])('"%s" is refused at exit 1 and the progress file is left byte-identical', async (written) => {
     const before = readFileSync(progressFilePath(), 'utf8');
 
     const { exitCode } = await runWithExitCode(['concurrency', written]);
 
     expect(exitCode).toBe(1);
     expect(readFileSync(progressFilePath(), 'utf8')).toBe(before);
+  });
+
+  // The ceiling itself is a limit the user may set; one more is not.
+  test('10 is accepted as the ceiling and read back', async () => {
+    await run(['concurrency', '10']);
+
+    expect((await run(['concurrency'])).outputText()).toBe('10');
+  });
+
+  // A tracker written before the ceiling existed may hold more; it must still read, and must never let more than 10 agents start.
+  test('a hand-built tracker holding 12 reports 10, in the command and in status, and the read leaves the file byte-identical', async () => {
+    const progress = JSON.parse(readFileSync(progressFilePath(), 'utf8')) as ProgressFile;
+    progress.concurrencyLimit = 12;
+    const writtenAboveTheCeiling = JSON.stringify(progress);
+    writeFileSync(progressFilePath(), writtenAboveTheCeiling);
+
+    expect((await run(['concurrency'])).outputText()).toBe('10');
+    const document = JSON.parse((await run(['status', '--json'])).outputText()) as { concurrency: { limit: number; freeSlots: number } };
+    expect(document.concurrency).toMatchObject({ limit: 10, freeSlots: 10 });
+    expect(readFileSync(progressFilePath(), 'utf8')).toBe(writtenAboveTheCeiling);
   });
 
   // The user lowers the limit when the session is running out; the agents already at work are not stopped, only no new one may start.
