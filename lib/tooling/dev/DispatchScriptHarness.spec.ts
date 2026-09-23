@@ -260,6 +260,14 @@ const CLAIMS: Claim[] = [
     mutant: PARK_WITHOUT_RELEASING_THE_ROWS,
   },
   {
+    // The reason reaches the board's log through the parking agent, where `review ()` reads as a detail that was lost.
+    name:     'a builder that failed with no detail is parked on a reason without empty brackets',
+    scenario: { limit: 1, readyTicketIds: ['001'], builderReply: () => ({ outcome: 'failed' }) },
+    holds:    (run) => summaryOf(run).parked[0]?.reason === 'the builder did not reach review, the second failed pass'
+      && run.calls.some((call) => call.kind === 'park' && call.prompt.includes('"Parked #001: the builder did not reach review, the second failed pass"')),
+    mutant: { find: 'review${parentheticalOf(result.detail)}`', replace: 'review (${result.detail})`' },
+  },
+  {
     name:     'with a limit of 1, a ticket parked after two dead reviewers has their bar closed, and the next ready ticket is delivered within the limit',
     scenario: { limit: 1, readyTicketIds: ['001', '002'], reviewerReply: (ticketId) => (ticketId === '001' ? null : { verdict: 'released' }) },
     holds:    (run) => kindsAndTickets(run).join(', ') === 'survey, build 001, review 001, review 001, park 001, build 002, review 002'

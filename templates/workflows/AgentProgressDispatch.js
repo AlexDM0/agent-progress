@@ -399,6 +399,10 @@ function settle(finished) {
   else settleReview(finished.work, finished.result);
 }
 
+function parentheticalOf(detail) {
+  return typeof detail === 'string' && detail.trim() !== '' ? ` (${detail.trim()})` : '';
+}
+
 function settleBuild(work, result) {
   const { ticketId } = work;
   // A builder that stopped short of `ticket review` left its claimed row running.
@@ -412,7 +416,7 @@ function settleBuild(work, result) {
     return;
   }
   if (result.outcome === 'failed') {
-    countFailedPass(ticketId, `the builder did not reach review (${result.detail})`, rebuild);
+    countFailedPass(ticketId, `the builder did not reach review${parentheticalOf(result.detail)}`, rebuild);
     return;
   }
   queueReview(ticketId, false);
