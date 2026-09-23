@@ -216,7 +216,8 @@ one shows up as a round request.
 **Every review verdict, whichever round, comes back here.** After `released <commit>` the review's
 own row is already delivered: `agent-progress release` closed every running row whose `--review-of`
 names a ticket it released, at the release time, and the hook still adds the reviewer's tokens to it.
-Run nothing for that row, and a refusal of `task finish` or `task deliver` on it is no error. For
+Run nothing for that row but, only without the hook, `agent-progress task update <reviewRowId> --tokens <n>`;
+a refusal of `task finish` or `task deliver` on it is no error. For
 every other verdict close the bar yourself: `agent-progress task finish <reviewRowId>` (`--tokens <n>`
 only without the hook), then act on the words the report opens with, and
 `agent-progress task deliver <reviewRowId>` once you have. A review pass has no branch to merge, and
