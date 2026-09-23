@@ -1,13 +1,13 @@
 /**
- * The two questions about ticket dependencies: which ones still hold a ticket back, and whether a new list would make tickets wait on each
- * other in a circle. A loop has to be caught before it is written, because no order of work could ever settle it.
+ * The questions about ticket dependencies: which ones still hold a ticket back, which tickets are ready to claim, and whether a new list
+ * would make tickets wait on each other in a circle. A loop has to be caught before it is written, because no order of work could ever settle it.
  */
 import { expect, test } from 'bun:test';
 
 import type { TicketStatus }    from '../constants/Types';
 import { TicketDependencyUtil } from './TicketDependencyUtil';
 
-const { dependencyLoopFrom, unsettledDependenciesOf } = TicketDependencyUtil;
+const { dependencyLoopFrom, readyTicketIdsOf, unsettledDependenciesOf } = TicketDependencyUtil;
 
 const STATUS_BY_ID = new Map<string, TicketStatus>([
   ['001', 'done'],
@@ -49,4 +49,18 @@ test('the ticket being changed is judged by its new list, not by the one it has 
   const dependsOnById = new Map([['001', ['002']], ['002', []]]);
 
   expect(dependencyLoopFrom('002', ['001'], dependsOnById)).toEqual(['002', '001', '002']);
+});
+
+// What `status --json` hands a dispatcher as claimable: in-progress work and work waiting on anything unfinished must not appear.
+test('only an open ticket whose every dependency is done or delivered is ready, and the ids come back lowest first', () => {
+  const tickets = [
+    { id: '010', status: 'open' as const },
+    { id: '002', status: 'delivered' as const },
+    { id: '003', status: 'open' as const, dependsOn: ['002'] },
+    { id: '004', status: 'open' as const, dependsOn: ['005'] },
+    { id: '005', status: 'in-progress' as const },
+    { id: '006', status: 'open' as const, dependsOn: ['009'] },
+  ];
+
+  expect(readyTicketIdsOf(tickets)).toEqual(['003', '010']);
 });

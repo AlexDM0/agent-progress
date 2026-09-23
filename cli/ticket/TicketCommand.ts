@@ -9,10 +9,15 @@ import {
   ticketStatusIsKnown,
   ticketTypeIsKnown
 }                                                from '../../lib/constants/Statuses';
-import type { Ticket, TicketStatus, TicketType }   from '../../lib/constants/Types';
-import { OperationRefusal }                        from '../../lib/platform/OperationRefusal';
-import { requireWorkspace, type Workspace }        from '../../lib/platform/Workspace';
-import { appendLogEntry, findTask, setTaskTokens } from '../../lib/progress/ProgressStore';
+import type { Ticket, TicketStatus, TicketType } from '../../lib/constants/Types';
+import { OperationRefusal }                      from '../../lib/platform/OperationRefusal';
+import { requireWorkspace, type Workspace }      from '../../lib/platform/Workspace';
+import {
+  appendLogEntry,
+  concurrencyOf,
+  findTask,
+  setTaskTokens
+}                                                from '../../lib/progress/ProgressStore';
 import {
   createTicket,
   listTickets,
@@ -39,6 +44,7 @@ const USAGE = [
   'agent-progress ticket list [--status <s>] [--json]',
   'agent-progress ticket show <id> [--json]',
   'agent-progress ticket start|review|done|deliver|abandon|reopen <id> [--branch <b>] [--commit <sha>] [--reason <text>] [--tokens <n>] [--at <when>]',
+  'agent-progress ticket claim <id> [--owner <who>] [--note <text>] [--at <when>]',
   'agent-progress ticket rereview <id> [--at <when>]',
   'agent-progress ticket status <id> <status> [...same options]',
   'agent-progress ticket link <ticketId> <taskId> [--force]',
@@ -58,6 +64,7 @@ const ADD_OPTION_NAMES        = ['type', 'group', 'depends-on', 'body', 'body-fi
 const LIST_OPTION_NAMES       = ['status', 'json'];
 const SHOW_OPTION_NAMES       = ['json'];
 const TRANSITION_OPTION_NAMES = ['branch', 'commit', 'reason', 'at', 'tokens', 'json'];
+const CLAIM_OPTION_NAMES      = ['owner', 'note', 'at', 'json'];
 const REREVIEW_OPTION_NAMES   = ['at', 'json'];
 const LINK_OPTION_NAMES       = ['force', 'json'];
 const DEPENDS_OPTION_NAMES    = ['json'];
@@ -401,6 +408,53 @@ async function rereviewOneTicket(reference: string, commandArguments: ArgumentPa
   printEntity(commandArguments, context, ticketAsJson(moved.ticket), moved.logText);
 }
 
+/**
+ * `ticket start` plus the row's owner and note, refused rather than warned: every check and the move share one lock hold, so two claims
+ * racing for the last slot cannot both pass the count.
+ */
+async function claimOneTicket(reference: string, commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
+  const owner = commandArguments.option('owner');
+  const note  = commandArguments.option('note');
+
+  const claimed = await openTrackerForWriting(commandArguments, context, (change) => {
+    const ticket         = requireTicket(change.workspace, reference);
+    const { id, status } = ticket.frontmatter;
+    if (!ticketMoveIsLegal(status, 'in-progress')) {
+      const legalSources = LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS['in-progress'].join(' or ');
+      throw new OperationRefusal('refused', `Ticket #${id} is ${status}, and \`agent-progress ticket claim\` takes a ticket that is ${legalSources}. Nothing was written.`);
+    }
+    const unsettled = unsettledDependenciesFor(ticket, listTickets(change.workspace).tickets);
+    if (unsettled.length > 0) {
+      throw new OperationRefusal('refused', `Ticket #${id} is ${waitingOnText(unsettled)}, which must be done or delivered before it is claimed. Nothing was written.`);
+    }
+    const { inFlight, limit } = concurrencyOf(change.progress);
+    if (inFlight >= limit) {
+      throw new OperationRefusal(
+        'refused',
+        `Ticket #${id} was not claimed: ${inFlight} rows are running and the concurrency limit is ${limit}. `
+        + 'Nothing was written; claim it once a running row has moved on.',
+      );
+    }
+
+    const outcome = applyTicketTransition({
+      progress:     change.progress,
+      ticket,
+      targetStatus: 'in-progress',
+      at:           change.at,
+      operations:   progressOperations,
+    });
+    if (outcome.verdict === 'refused') throw new OperationRefusal('refused', `Ticket #${id} was not claimed: ${outcome.reason}.`);
+    const row = outcome.ticket.frontmatter.task === null ? undefined : findTask(change.progress, outcome.ticket.frontmatter.task);
+    if (row !== undefined && owner !== undefined) row.owner = owner;
+    if (row !== undefined && note !== undefined) row.note = note;
+    change.writeTicketAfterwards(outcome.ticket);
+    return { logText: outcome.logText, ticket: outcome.ticket, concurrency: concurrencyOf(change.progress) };
+  });
+
+  const { concurrency, logText, ticket } = claimed;
+  printEntity(commandArguments, context, ticketAsJson(ticket), `${logText}: ${concurrency.inFlight} of ${concurrency.limit} slots are now taken.`);
+}
+
 function refuseAnIllegalMove(ticket: Ticket, targetStatus: TicketStatus, checksTheMatrix: boolean): void {
   const { id, status } = ticket.frontmatter;
 
@@ -521,6 +575,15 @@ export const ticketCommand: CommandHandler = async (commandArguments, context) =
   if (subcommand === 'link') return linkOneTicket(commandArguments, context);
   if (subcommand === 'depends') return setTicketDependencies(commandArguments, context);
   if (subcommand === 'status') return setTicketStatus(commandArguments, context);
+  if (subcommand === 'claim') {
+    commandArguments.rejectUnknownOptions(CLAIM_OPTION_NAMES, USAGE);
+    commandArguments.rejectExtraPositionals(2, USAGE);
+    const reference = commandArguments.positionals()[1];
+    if (reference === undefined) {
+      throw new OperationRefusal('refused', `agent-progress ticket claim needs a ticket id.\n  Usage: ${USAGE}`);
+    }
+    return claimOneTicket(reference, commandArguments, context);
+  }
   if (subcommand === 'rereview') {
     commandArguments.rejectUnknownOptions(REREVIEW_OPTION_NAMES, USAGE);
     commandArguments.rejectExtraPositionals(2, USAGE);

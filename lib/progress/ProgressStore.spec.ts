@@ -12,6 +12,7 @@ import { createScratchDirectory, removeScratchDirectory } from '../tooling/dev/S
 import {
   addTask,
   appendLogEntry,
+  concurrencyOf,
   createEmptyProgressFile,
   findTask,
   readProgressFile,
@@ -57,6 +58,7 @@ test('a new tracker starts at version 1, with the caller\'s id, an automatic vie
   expect(progress.startedAt).toBe(FILED_AT);
   expect(progress.view).toEqual({ kind: 'auto' });
   expect(progress.nextTaskId).toBe(1);
+  expect(progress.concurrencyLimit).toBe(2);
   expect(progress.tasks).toEqual([]);
   expect(progress.log).toEqual([]);
 });
@@ -95,6 +97,31 @@ test('a document from a future format version is refused rather than half-read',
   const result = readBack('store-future-version', { ...emptyProgress(), version: 2 });
   expect(result.verdict).toBe('unreadable');
   expect(result.verdict === 'unreadable' ? result.reason : '').toContain('version');
+});
+
+// Every tracker filed before the limit existed has no such field, and must go on reading rather than stop every command in its repository.
+test('a document with no concurrency limit reads, and its figures fall back to the default of 2', () => {
+  const withoutLimit = emptyProgress();
+  delete withoutLimit.concurrencyLimit;
+  const result = readBack('store-no-limit', withoutLimit);
+  expect(result.verdict).toBe('readable');
+  expect(result.verdict === 'readable' ? concurrencyOf(result.progress) : null).toEqual({ limit: 2, inFlight: 0, freeSlots: 2 });
+});
+
+test('a concurrency limit that is not a whole number of at least 1 makes the file unreadable, and the reason names the field', () => {
+  for (const malformedLimit of [0, -1, 2.5, '3', null]) {
+    const result = readBack('store-malformed-limit', { ...emptyProgress(), concurrencyLimit: malformedLimit });
+    expect(result.verdict === 'unreadable' ? result.reason : '', JSON.stringify(malformedLimit)).toContain('concurrencyLimit');
+  }
+});
+
+test('only running rows are in flight, and the free slots never go below zero', () => {
+  const progress = { ...emptyProgress(), concurrencyLimit: 1 };
+  addTask(progress, { name: 'Review pass one', status: 'running', start: STARTED_AT });
+  addTask(progress, { name: 'Review pass two', status: 'running', start: STARTED_AT });
+  addTask(progress, { name: 'Paused chore', status: 'paused', start: STARTED_AT });
+  addTask(progress, { name: 'Queued chore' });
+  expect(concurrencyOf(progress)).toEqual({ limit: 1, inFlight: 2, freeSlots: 0 });
 });
 
 test('a task whose status this build does not know makes the whole file unreadable, and the reason names the task and the status', () => {

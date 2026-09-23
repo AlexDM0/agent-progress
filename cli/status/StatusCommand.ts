@@ -14,14 +14,15 @@ import type {
   Ticket,
   TicketStatus
 }                                            from '../../lib/constants/Types';
-import { OperationRefusal }    from '../../lib/platform/OperationRefusal';
-import { requireWorkspace }    from '../../lib/platform/Workspace';
-import { readProgressFile }    from '../../lib/progress/ProgressStore';
-import { listTickets }         from '../../lib/tickets/TicketStore';
-import { TimeUtil }            from '../../lib/utils/TimeUtil';
-import { TokenCountUtil }      from '../../lib/utils/TokenCountUtil';
-import { printEntity }         from '../CommandSupport';
-import type { CommandHandler } from '../CommandTable';
+import { OperationRefusal }                                  from '../../lib/platform/OperationRefusal';
+import { requireWorkspace }                                  from '../../lib/platform/Workspace';
+import { concurrencyOf, readProgressFile, type Concurrency } from '../../lib/progress/ProgressStore';
+import { listTickets }                                       from '../../lib/tickets/TicketStore';
+import { TicketDependencyUtil }                              from '../../lib/utils/TicketDependencyUtil';
+import { TimeUtil }                                          from '../../lib/utils/TimeUtil';
+import { TokenCountUtil }                                    from '../../lib/utils/TokenCountUtil';
+import { printEntity }                                       from '../CommandSupport';
+import type { CommandHandler }                               from '../CommandTable';
 
 const USAGE = 'agent-progress status [--json] [--full]';
 
@@ -94,9 +95,14 @@ function ticketDocumentOf(ticket: Ticket): Ticket['frontmatter'] & { filePath: s
   return { ...ticket.frontmatter, filePath: ticket.filePath };
 }
 
-/** The whole progress file plus every ticket: a document an agent could write back. */
+/** What a dispatcher needs to start the next agent: the limit, the rows running against it, what is left, and the tickets that could take it. */
+function concurrencyDocumentOf(progress: ProgressFile, tickets: readonly Ticket[]): Concurrency & { readyTicketIds: string[] } {
+  return { ...concurrencyOf(progress), readyTicketIds: TicketDependencyUtil.readyTicketIdsOf(tickets.map((ticket) => ticket.frontmatter)) };
+}
+
+/** The whole progress file plus every ticket: a document an agent could write back, with the derived `concurrency` beside it. */
 function fullDocumentOf(progress: ProgressFile, tickets: readonly Ticket[]): object {
-  return { ...progress, tickets: tickets.map(ticketDocumentOf) };
+  return { ...progress, tickets: tickets.map(ticketDocumentOf), concurrency: concurrencyDocumentOf(progress, tickets) };
 }
 
 /** What an agent opening a session needs: unsettled rows and tickets, the recent log newest first, and counts of what was left out. */
@@ -106,10 +112,11 @@ function workingDocumentOf(progress: ProgressFile, tickets: readonly Ticket[]): 
   const recentLog        = logNewestFirst(progress.log).slice(0, WORKING_VIEW_LOG_ENTRY_COUNT);
   return {
     ...progress,
-    tasks:   unsettledTasks,
-    tickets: unsettledTickets.map(ticketDocumentOf),
-    log:     recentLog,
-    omitted: {
+    tasks:       unsettledTasks,
+    tickets:     unsettledTickets.map(ticketDocumentOf),
+    log:         recentLog,
+    concurrency: concurrencyDocumentOf(progress, tickets),
+    omitted:     {
       settledTasks:    progress.tasks.length - unsettledTasks.length,
       settledTickets:  tickets.length - unsettledTickets.length,
       olderLogEntries: progress.log.length - recentLog.length,

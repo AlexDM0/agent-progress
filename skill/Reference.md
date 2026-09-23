@@ -63,6 +63,7 @@ The **from** column is the matrix the named verbs enforce; `ticket status <id> <
 |---|---|---|---|---|---|---|
 | `ticket add` | — | open | created, `pending` | `unstarted` | `filed` | `Ticket #003 filed: <title>` |
 | `ticket start` | open, in-review | in-progress | `running` | `wip` | `started` if null; the row's end cleared | `Ticket #003 started` |
+| `ticket claim` | open, in-review, dependencies settled, a free slot | in-progress | `running`, with `--owner` and `--note` | `wip` | as `ticket start` | `Ticket #003 started` |
 | `ticket review` | in-progress | in-review | `finished` | `reviewing` | `finished` if null | `Ticket #003 in review` |
 | `ticket rereview` | in-review | in-review, unchanged | `re-review`, one round up from 2 | `reviewing 2` | `updated` only | `Ticket #003 in review, round 2` |
 | `ticket done` | in-progress, in-review | done | `reviewed` | `awaiting merge` | `finished` if null | `Ticket #003 done` |
@@ -102,6 +103,19 @@ standard error and skipped. A brief without the line changes no row. Where the h
 pass no `--tokens` on a row a brief named: it would replace the sum. Without the hook, `--tokens`
 from the harness's `subagent_tokens` is the only figure there is.
 
+## The concurrency limit
+
+The board holds how many agents may be in flight: `agent-progress concurrency` prints it, and
+`agent-progress concurrency <n>` stores it for every worktree. A tracker that never set one reads 2.
+**An agent in flight is every row whose status is `running`** — a ticket in progress and a running
+review bar alike. `ticket claim` refuses at exit 1, writing nothing, when the running rows already
+number the limit; the count and the move share one lock hold, so of two claims racing for the last
+slot exactly one succeeds. `ticket start` is the manual path: it checks no limit and only warns about
+dependencies. A limit lowered below the running count is accepted and leaves no free slot; nothing
+running is stopped. `status --json` carries `concurrency`: `limit`, `inFlight`, `freeSlots` (never
+negative) and `readyTicketIds`, the open tickets whose every dependency is done or delivered, lowest
+id first.
+
 ## The time axis
 
 `agent-progress range` sets the tracker's stored default and every browser sees it. A relative bound
@@ -116,7 +130,7 @@ default. Bars outside the window are clipped and marked, never dropped.
 | code | meaning |
 |---|---|
 | **0** | done, or there was nothing to do |
-| **1** | a refusal you can act on: no tracker here (run `agent-progress init`), no such task or ticket, a missing `--reason`, an unknown command |
+| **1** | a refusal you can act on: no tracker here (run `agent-progress init`), no such task or ticket, a missing `--reason`, a claim with no free slot, an unknown command |
 | **2** | a state the tool will not repair on its own: an unreadable or malformed progress file, a lock it could not take |
 
 Check the code rather than the wording. A command that wrote the store but could not rebuild the

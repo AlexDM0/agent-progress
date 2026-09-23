@@ -32,7 +32,17 @@ function dependencyLoopFrom(ticketId: string, dependsOn: readonly string[], depe
   return null;
 }
 
+/** The open tickets whose every dependency is done or delivered, lowest id first: what an agent could claim next. */
+function readyTicketIdsOf(tickets: readonly { id: string; status: TicketStatus; dependsOn?: readonly string[] }[]): string[] {
+  const statusById = new Map(tickets.map((ticket) => [ticket.id, ticket.status]));
+  return tickets
+    .filter((ticket) => ticket.status === 'open' && unsettledDependenciesOf(ticket.dependsOn ?? [], statusById).length === 0)
+    .map((ticket) => ticket.id)
+    .sort((a, b) => Number(a) - Number(b));
+}
+
 export const TicketDependencyUtil = {
   unsettledDependenciesOf,
   dependencyLoopFrom,
+  readyTicketIdsOf,
 } as const;

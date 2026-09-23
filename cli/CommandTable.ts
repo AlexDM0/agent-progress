@@ -12,20 +12,21 @@ export type CommandHandler = (commandArguments: ArgumentParser, context: Command
 export type CommandLoader = () => Promise<CommandHandler>;
 
 export const COMMAND_TABLE = {
-  init:   async () => (await import('./init/InitCommand')).initCommand,
-  update: async () => (await import('./update/UpdateCommand')).updateCommand,
-  status: async () => (await import('./status/StatusCommand')).statusCommand,
-  task:   async () => (await import('./task/TaskCommand')).taskCommand,
-  log:    async () => (await import('./log/LogCommand')).logCommand,
-  hook:   async () => (await import('./hook/HookCommand')).hookCommand,
-  usage:  async () => (await import('./usage/UsageCommand')).usageCommand,
-  rework: async () => (await import('./rework/ReworkCommand')).reworkCommand,
-  ticket: async () => (await import('./ticket/TicketCommand')).ticketCommand,
-  range:  async () => (await import('./range/RangeCommand')).rangeCommand,
-  render: async () => (await import('./render/RenderCommand')).renderCommand,
-  open:   async () => (await import('./open/OpenCommand')).openCommand,
-  clear:  async () => (await import('./clear/ClearCommand')).clearCommand,
-  help:   async () => {
+  init:        async () => (await import('./init/InitCommand')).initCommand,
+  update:      async () => (await import('./update/UpdateCommand')).updateCommand,
+  status:      async () => (await import('./status/StatusCommand')).statusCommand,
+  task:        async () => (await import('./task/TaskCommand')).taskCommand,
+  log:         async () => (await import('./log/LogCommand')).logCommand,
+  hook:        async () => (await import('./hook/HookCommand')).hookCommand,
+  usage:       async () => (await import('./usage/UsageCommand')).usageCommand,
+  rework:      async () => (await import('./rework/ReworkCommand')).reworkCommand,
+  ticket:      async () => (await import('./ticket/TicketCommand')).ticketCommand,
+  concurrency: async () => (await import('./concurrency/ConcurrencyCommand')).concurrencyCommand,
+  range:       async () => (await import('./range/RangeCommand')).rangeCommand,
+  render:      async () => (await import('./render/RenderCommand')).renderCommand,
+  open:        async () => (await import('./open/OpenCommand')).openCommand,
+  clear:       async () => (await import('./clear/ClearCommand')).clearCommand,
+  help:        async () => {
     const { helpText } = await import('./HelpText');
     return (_commandArguments: ArgumentParser, context: CommandContext) => {
       context.standardOutput(helpText());

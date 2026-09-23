@@ -56,7 +56,7 @@ or Node.
 
 - `lib/constants/Types.ts` — every shape the tracker stores or renders: `Task` (with its nullable
   `tokens` and its optional `history`), `TaskPhase`, `LogEntry`, `ViewRange`, `ProgressFile` (with
-  `nextTaskId`), `TicketFrontmatter`, `Ticket`. Types only, no values.
+  `nextTaskId` and the optional `concurrencyLimit`), `TicketFrontmatter`, `Ticket`. Types only, no values.
 - `lib/constants/Limits.ts` — the tuning constants, each with its unit in its name: lock staleness and
   retries, the axis tick ladder and its bounds, ticket id width, how long done work stays visible,
   the timestamp slice bounds every human-facing reader shares, the JSON indent, and
@@ -111,8 +111,9 @@ anything that needs "now" is handed it.
   mean of each agent's share of its own input, not of the cohort's pooled tokens. An empty cohort answers
   zero of everything, and a profile with no readable stamp falls on the `before` side of a split.
 - `lib/utils/TicketDependencyUtil.ts` — `unsettledDependenciesOf` (which of a ticket's dependencies
-  are not done or delivered yet) and `dependencyLoopFrom` (the circle a new list would close, or
-  `null`). Shared by `ticket depends` and the page's "waiting on" note.
+  are not done or delivered yet), `dependencyLoopFrom` (the circle a new list would close, or
+  `null`) and `readyTicketIdsOf` (the open tickets with every dependency settled, lowest id first).
+  Shared by `ticket depends`, `ticket claim`, `status --json` and the page's "waiting on" note.
 - `lib/utils/ReworkCountUtil.ts` — `readDiff` classifies every changed line of unified diff text as
   code, comment, blank or documentation, reading hunk lengths from each `@@` header so a removed
   `-- x` is content rather than a `---` header. **Each side of a hunk keeps its own comment state** (old:
@@ -173,6 +174,11 @@ nothing about tasks or tickets — a caller supplies a path.
   append a log line. The transition rules — which status sets which timestamp — live
   here and nowhere else, as does the task id allocator: `nextTaskId` is stored, never wound back, and
   taken only by the `addTask` that files the row using it.
+
+  **The concurrency limit is optional on disk.** A progress file without `concurrencyLimit` reads, and
+  `concurrencyOf` answers `DEFAULT_CONCURRENCY_LIMIT` (2) for it; a present value that is not a whole
+  number of at least 1 makes the file unreadable. `concurrencyOf` counts every `running` row as in
+  flight, a ticket's or a free-standing one's, and never answers negative free slots.
 
   **A row's `history` is the record of what happened to it.** `transitionTask` files a phase per move
   that really changed the status — `pending` included, so `ticket reopen` is on the record — plus one

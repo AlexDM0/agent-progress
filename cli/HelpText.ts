@@ -46,7 +46,9 @@ repository to use instead of walking up from the current directory.
                               same working view for an agent: the unsettled rows and tickets, the
                               last 10 log entries and counts of what was left out. --full lists
                               everything, and with --json prints the whole progress file plus
-                              every ticket's frontmatter.
+                              every ticket's frontmatter. Both --json documents carry
+                              \`concurrency\`: the limit, the rows in flight, the free slots and
+                              the ids of the ready tickets — open, every dependency settled.
 
   task add "<name>"           Add a Gantt row. --start marks it running at --at (default now),
       [--owner <who>]         --ticket links it to a ticket that has no row of its own, --note is
@@ -162,6 +164,13 @@ repository to use instead of walking up from the current directory.
                               the row to pending. --branch and --commit record where the work
                               landed, and --tokens what it cost.
 
+  ticket claim <id>           \`ticket start\` and the row's --owner and --note in one write, refused
+      [--owner <who>]         at exit 1 with nothing written when the ticket is not open or
+      [--note <text>]         in-review, when a ticket it waits on is not done or delivered, or when
+      [--at <when>]           the running rows already number the concurrency limit. The count and
+                              the move share one lock hold, so two claims racing for the last slot
+                              cannot both succeed. The first command an implementing agent runs.
+
   ticket rereview <id>        Send a ticket already in review round again, for a fresh reviewer: the
       [--at <when>]           ticket stays in-review and only its \`updated\` moves, while its row
                               goes one review round up, from 2, and the log says which round it is.
@@ -185,6 +194,13 @@ repository to use instead of walking up from the current directory.
                               of them is done or delivered, the ticket's row, table entry and card
                               read "waiting on #003", \`ticket list\` says so too, and \`ticket start\`
                               warns on standard error but still moves it.
+
+  concurrency [<n>] [--json]  Print the concurrency limit: how many rows may be running at once,
+                              a ticket's and a free-standing review bar's alike. With <n>, store a
+                              new one (a whole number, 1 or more) for every worktree. A tracker that
+                              never set one reads 2; a limit below the rows already running is
+                              accepted and simply leaves no free slot. \`status --json\` carries it
+                              beside the rows in flight, the free slots and the ready tickets.
 
   range --from <when>         The stored default axis of the chart. A relative bound is stored as
         --to <when>           written, so \`--from -2h\` keeps meaning "the last two hours" on every

@@ -40,15 +40,17 @@ export type ViewRange =
   | { kind: 'relative'; from: string; to: string; tickMinutes: number | null };
 
 export interface ProgressFile {
-  version:    1;
-  trackerId:  string;
-  project:    string;
-  startedAt:  string;
-  view:       ViewRange;
+  version:           1;
+  trackerId:         string;
+  project:           string;
+  startedAt:         string;
+  view:              ViewRange;
   /** Never wound back, not by `task remove` and not by `clear`, so an id is never handed out twice. */
-  nextTaskId: number;
-  tasks:      Task[];
-  log:        LogEntry[];
+  nextTaskId:        number;
+  /** How many rows may be running at once; absent on a tracker that never set one, which reads as the default. */
+  concurrencyLimit?: number;
+  tasks:             Task[];
+  log:               LogEntry[];
 }
 
 export type TicketType   = 'bug' | 'change' | 'feature';

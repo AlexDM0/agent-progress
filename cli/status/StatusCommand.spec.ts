@@ -1,6 +1,6 @@
 /**
  * What `agent-progress status` tells its two readers. The `--json` working view leaves settled work and the old log out and counts what it
- * left out; `--full` is the whole progress file plus the tickets. Both documents are the agent's contract.
+ * left out; `--full` is the whole progress file plus the tickets. Both documents are the agent's contract, and both carry the concurrency block.
  */
 import { writeFileSync } from 'node:fs';
 import { join }          from 'node:path';
@@ -20,8 +20,14 @@ import { runCommandLine }                                                     fr
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
 type StatusDocument = ProgressFile & {
-  tickets:  Array<TicketFrontmatter & { filePath: string }>;
-  omitted?: { settledTasks: number; settledTickets: number; olderLogEntries: number };
+  tickets:     Array<TicketFrontmatter & { filePath: string }>;
+  omitted?:    { settledTasks: number; settledTickets: number; olderLogEntries: number };
+  concurrency: {
+    limit:          number;
+    inFlight:       number;
+    freeSlots:      number;
+    readyTicketIds: string[];
+  };
 };
 
 let repositoryDirectory = '';
@@ -223,5 +229,26 @@ describe.skipIf(!gitIsAvailable())('the log listing', () => {
     const printed = (await run(['status'])).outputText();
 
     expect(printed).toMatch(/\n {2}\d{2}:\d{2} {2}Halfway through the role editor/);
+  });
+});
+
+describe.skipIf(!gitIsAvailable())('the concurrency block both --json documents carry', () => {
+  // A dispatcher reads this to decide whether to start an agent and on what: the review bar counts, and a ticket waiting on unfinished work is not ready.
+  test('counts every running row against the limit and lists the ready tickets lowest first', async () => {
+    await run(['ticket', 'add', 'Show the role history']);
+    await run(['ticket', 'add', 'Export the roles', '--depends-on', '1']);
+    await run(['ticket', 'add', 'Import the roles']);
+
+    const working = JSON.parse((await run(['status', '--json'])).outputText()) as StatusDocument;
+    const full    = JSON.parse((await run(['status', '--json', '--full'])).outputText()) as StatusDocument;
+
+    const expected = {
+      limit:          2,
+      inFlight:       2,
+      freeSlots:      0,
+      readyTicketIds: ['002', '004'],
+    };
+    expect(working.concurrency).toEqual(expected);
+    expect(full.concurrency).toEqual(expected);
   });
 });

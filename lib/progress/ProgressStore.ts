@@ -18,6 +18,11 @@ const SUPPORTED_PROGRESS_VERSION = 1;
 
 const FIRST_TASK_ID = 1;
 
+/** What a tracker that never set a limit reads: the two-slot dispatch the orchestrate skill was written around. */
+export const DEFAULT_CONCURRENCY_LIMIT = 2;
+
+const LOWEST_CONCURRENCY_LIMIT = 1;
+
 /** The statuses whose moment is the row's `end` rather than its `start`, which is what a seeded phase is stamped at. */
 const TASK_STATUSES_THAT_CLOSE_THE_BAR: readonly TaskStatus[] = ['finished', 're-review', 'reviewed', 'delivered', 'abandoned'];
 
@@ -44,15 +49,34 @@ export interface AddTaskInput {
 /** `trackerId` comes from the caller: this module has no randomness, and `clear` has to keep the existing id. */
 export function createEmptyProgressFile(input: { project: string; startedAt: string; trackerId: string }): ProgressFile {
   return {
-    version:    SUPPORTED_PROGRESS_VERSION,
-    trackerId:  input.trackerId,
-    project:    input.project,
-    startedAt:  input.startedAt,
-    view:       { kind: 'auto' },
-    nextTaskId: FIRST_TASK_ID,
-    tasks:      [],
-    log:        [],
+    version:          SUPPORTED_PROGRESS_VERSION,
+    trackerId:        input.trackerId,
+    project:          input.project,
+    startedAt:        input.startedAt,
+    view:             { kind: 'auto' },
+    nextTaskId:       FIRST_TASK_ID,
+    concurrencyLimit: DEFAULT_CONCURRENCY_LIMIT,
+    tasks:            [],
+    log:              [],
   };
+}
+
+export function concurrencyLimitIsWellFormed(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= LOWEST_CONCURRENCY_LIMIT;
+}
+
+export interface Concurrency {
+  limit:     number;
+  /** Every running row, a ticket's or a free-standing one such as a review bar: each is an agent at work. */
+  inFlight:  number;
+  /** Never negative: a limit lowered below the rows already running leaves no slot, and takes none of them back. */
+  freeSlots: number;
+}
+
+export function concurrencyOf(progress: ProgressFile): Concurrency {
+  const limit    = progress.concurrencyLimit ?? DEFAULT_CONCURRENCY_LIMIT;
+  const inFlight = progress.tasks.filter((task) => task.status === 'running').length;
+  return { limit, inFlight, freeSlots: Math.max(0, limit - inFlight) };
 }
 
 function textFieldIsPresent(candidate: Record<string, unknown>, field: string): boolean {
@@ -138,6 +162,9 @@ function progressFileProblem(parsed: unknown): string | null {
   if (!viewRangeIsWellFormed(candidate['view'])) return 'view is not one of the stored range shapes';
   if (typeof candidate['nextTaskId'] !== 'number' || !Number.isSafeInteger(candidate['nextTaskId']) || candidate['nextTaskId'] < FIRST_TASK_ID) {
     return `nextTaskId is ${JSON.stringify(candidate['nextTaskId'])}, and it has to be a whole number of at least ${FIRST_TASK_ID}`;
+  }
+  if (candidate['concurrencyLimit'] !== undefined && !concurrencyLimitIsWellFormed(candidate['concurrencyLimit'])) {
+    return `concurrencyLimit is ${JSON.stringify(candidate['concurrencyLimit'])}, and when present it has to be a whole number of at least ${LOWEST_CONCURRENCY_LIMIT}`;
   }
   if (!Array.isArray(candidate['tasks'])) return 'tasks is not an array';
   if (!Array.isArray(candidate['log'])) return 'log is not an array';
