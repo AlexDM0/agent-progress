@@ -56,13 +56,15 @@ or Node.
 
 - `lib/constants/Types.ts` — every shape the tracker stores or renders: `Task` (with its nullable
   `tokens` and its optional `history`), `TaskPhase`, `LogEntry`, `ViewRange`, `ProgressFile` (with
-  `nextTaskId` and the optional `concurrencyLimit`), `TicketFrontmatter`, `Ticket`. Types only, no values.
+  `nextTaskId` and the optional `concurrencyLimit`), `TicketFrontmatter` (with the optional `priority`,
+  absent meaning normal), `TicketPriority`, `Ticket`. Types only, no values.
 - `lib/constants/Limits.ts` — the tuning constants, each with its unit in its name: lock staleness and
   retries, the axis tick ladder and its bounds, ticket id width, how long done work stays visible,
   the timestamp slice bounds every human-facing reader shares, the JSON indent, and
   `OVERSIZED_CONTEXT_THRESHOLD_TOKENS`, the context above which an API call is counted as oversized.
-- `lib/constants/Statuses.ts` — the task and ticket status tuples and the ticket type tuple with their
-  guards, the ticket-status → task-status table, and the on-disk names (`progress.json`,
+- `lib/constants/Statuses.ts` — the task and ticket status tuples and the ticket type and priority
+  tuples with their guards, `ticketPriorityOf` (the one place an absent priority becomes `normal`),
+  the ticket-status → task-status table, and the on-disk names (`progress.json`,
   `progress.html`, `.agent-progress`, `tickets`, `.lock`) and the two managed-block markers.
 - `lib/constants/CommentSyntaxes.ts` — how each file type writes a comment (line markers, block
   delimiters, docstrings, strings that could hide a marker, `<script>`/`<style>` inside HTML), keyed by
@@ -112,8 +114,11 @@ anything that needs "now" is handed it.
   zero of everything, and a profile with no readable stamp falls on the `before` side of a split.
 - `lib/utils/TicketDependencyUtil.ts` — `unsettledDependenciesOf` (which of a ticket's dependencies
   are not done or delivered yet), `dependencyLoopFrom` (the circle a new list would close, or
-  `null`) and `readyTicketIdsOf` (the open tickets with every dependency settled, lowest id first).
-  Shared by `ticket depends`, `ticket claim`, `status --json` and the page's "waiting on" note.
+  `null`), `ticketsHoldingBackLowPriorityWork` (the normal and high tickets neither delivered nor
+  abandoned) and `readyTicketIdsOf` (the open tickets with every dependency settled, high before
+  normal, then lowest id first; low tickets only once nothing holds them back). Shared by
+  `ticket depends`, `ticket claim`, `ticket start`'s warnings, `status --json` and the page's
+  "waiting on" note.
 - `lib/utils/NextLineUtil.ts` — `composeNextLine`, the `Next: …` line from the limit, the rows in
   flight, the free slots and the ready ids: `N of L slots free` or `no slot free (N running)`, then
   the ready ids as given (at most five, then `and N more`) or `nothing ready`.

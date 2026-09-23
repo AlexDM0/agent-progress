@@ -72,6 +72,10 @@
  .ap-row > .ap-cell-name  > .ap-num, .ap-name[title], a.ap-ticket-badge, .ap-waiting, .ap-tokens
  .ap-waiting              "waiting on #003, #004", each id a link to its ticket card; also
                           after the title in the ticket table and in a waiting card's head
+ ticket priority          after the title in the ticket table and after the status badge in
+                          a card's head, [data-priority]: low = span.ap-ticket-badge "low",
+                          high = span.ap-waiting "high"; normal carries no mark. A low ticket
+                          that was never started has no .ap-row and an empty task cell
  .ap-row > .ap-cell-pill  > .ap-pill (exactly one; label text carries the state),
                             then .ap-reviewed-mark[data-state="reviewed"] on a delivered row
                             that was reviewed first
@@ -809,9 +813,10 @@ a:hover { color: var(--ink); text-decoration: underline; }
         <tr data-ticket-id="001"><td class="mono"><a href="#ap-ticket-001">#001</a></td><td>Double-click a role to edit it</td><td>change</td><td><span class="ap-badge delivered">delivered</span></td><td>role-editor</td><td class="mono">ticket/role-editor</td><td class="mono"><a href="#ap-task-1">#1</a></td></tr>
         <tr data-ticket-id="002"><td class="mono"><a href="#ap-ticket-002">#002</a></td><td>Cache ticket bodies between runs</td><td>change</td><td><span class="ap-badge done">done</span></td><td>exporter</td><td class="mono">ticket/body-cache</td><td class="mono"><a href="#ap-task-2">#2</a></td></tr>
         <tr data-ticket-id="003"><td class="mono"><a href="#ap-ticket-003">#003</a></td><td>Split the exporter into two passes</td><td>change</td><td><span class="ap-badge in-review">in-review</span></td><td>exporter</td><td class="mono">ticket/exporter-passes</td><td class="mono"><a href="#ap-task-3">#3</a></td></tr>
-        <tr data-ticket-id="004"><td class="mono"><a href="#ap-ticket-004">#004</a></td><td>Brighter colours</td><td>feature</td><td><span class="ap-badge in-progress">in-progress</span></td><td></td><td class="mono">ticket/brighter-colours</td><td class="mono"><a href="#ap-task-5">#5</a></td></tr>
+        <tr data-ticket-id="004"><td class="mono"><a href="#ap-ticket-004">#004</a></td><td>Brighter colours<span class="ap-waiting" data-priority="high" title="High priority: dispatched before every normal ticket">high</span></td><td>feature</td><td><span class="ap-badge in-progress">in-progress</span></td><td></td><td class="mono">ticket/brighter-colours</td><td class="mono"><a href="#ap-task-5">#5</a></td></tr>
         <tr data-ticket-id="005"><td class="mono"><a href="#ap-ticket-005">#005</a></td><td>Audit the range presets<span class="ap-waiting">waiting on <a href="#ap-ticket-004">#004</a></span></td><td>chore</td><td><span class="ap-badge open">open</span></td><td></td><td class="mono"></td><td class="mono"><a href="#ap-task-7">#7</a></td></tr>
         <tr data-ticket-id="006"><td class="mono"><a href="#ap-ticket-006">#006</a></td><td>Old idea</td><td>bug</td><td><span class="ap-badge abandoned">abandoned</span></td><td></td><td class="mono"></td><td class="mono"><a href="#ap-task-8">#8</a></td></tr>
+        <tr data-ticket-id="007"><td class="mono"><a href="#ap-ticket-007">#007</a></td><td>Reword the empty-log note <span class="ap-ticket-badge" data-priority="low" title="Low priority: no row on the chart until it is started, and worked once no normal or high ticket is left undelivered">low</span></td><td>change</td><td><span class="ap-badge open">open</span></td><td></td><td class="mono"></td><td class="mono"></td></tr>
       </tbody>
     </table>
   </div>
@@ -822,6 +827,7 @@ a:hover { color: var(--ink); text-decoration: underline; }
         <span class="ap-ticket-id">#004</span>
         <h3 class="ap-ticket-title">Brighter colours</h3>
         <span class="ap-badge in-progress">in-progress</span>
+        <span class="ap-waiting" data-priority="high" title="High priority: dispatched before every normal ticket">high</span>
         <span class="ap-ticket-dates">started 21:06</span>
       </div>
       <div class="ap-ticket-meta">

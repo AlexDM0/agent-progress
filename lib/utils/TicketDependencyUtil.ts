@@ -1,6 +1,6 @@
 /** Which tickets another ticket still waits on, and whether a new dependency list would close a loop. Shared by the command surface and the page. */
-import { TICKET_STATUSES_THAT_SETTLE_A_DEPENDENCY } from '../constants/Statuses.ts';
-import type { TicketStatus }                        from '../constants/Types.ts';
+import { TICKET_STATUSES_THAT_SETTLE_A_DEPENDENCY, ticketPriorityOf } from '../constants/Statuses.ts';
+import type { TicketPriority, TicketStatus }                          from '../constants/Types.ts';
 
 /** A dependency that is missing from `statusById` still counts as unsettled: a ticket nobody can see is not finished work. */
 function unsettledDependenciesOf(dependsOn: readonly string[], statusById: ReadonlyMap<string, TicketStatus>): string[] {
@@ -32,17 +32,43 @@ function dependencyLoopFrom(ticketId: string, dependsOn: readonly string[], depe
   return null;
 }
 
-/** The open tickets whose every dependency is done or delivered, lowest id first: what an agent could claim next. */
-function readyTicketIdsOf(tickets: readonly { id: string; status: TicketStatus; dependsOn?: readonly string[] }[]): string[] {
-  const statusById = new Map(tickets.map((ticket) => [ticket.id, ticket.status]));
+interface ReadinessTicket {
+  id:         string;
+  status:     TicketStatus;
+  priority?:  TicketPriority;
+  dependsOn?: readonly string[];
+}
+
+/** Low work waits for these, and only these: a ticket that is done is still owed a merge, so it holds the low queue back too. */
+const TICKET_STATUSES_THAT_RELEASE_LOW_PRIORITY_WORK: readonly TicketStatus[] = ['delivered', 'abandoned'];
+
+const PRIORITY_RANK: Record<TicketPriority, number> = { high: 0, normal: 1, low: 2 };
+
+/** The normal and high tickets that are neither delivered nor abandoned, lowest id first; while any is left, no low ticket is ready. */
+function ticketsHoldingBackLowPriorityWork(tickets: readonly ReadinessTicket[]): string[] {
   return tickets
-    .filter((ticket) => ticket.status === 'open' && unsettledDependenciesOf(ticket.dependsOn ?? [], statusById).length === 0)
+    .filter((ticket) => ticketPriorityOf(ticket) !== 'low' && !TICKET_STATUSES_THAT_RELEASE_LOW_PRIORITY_WORK.includes(ticket.status))
     .map((ticket) => ticket.id)
     .sort((a, b) => Number(a) - Number(b));
+}
+
+/**
+ * The open tickets whose every dependency is done or delivered — high before normal, then lowest id first — that an agent could claim next.
+ * Low tickets are among them only once `ticketsHoldingBackLowPriorityWork` is empty.
+ */
+function readyTicketIdsOf(tickets: readonly ReadinessTicket[]): string[] {
+  const statusById        = new Map(tickets.map((ticket) => [ticket.id, ticket.status]));
+  const lowPriorityIsHeld = ticketsHoldingBackLowPriorityWork(tickets).length > 0;
+  return tickets
+    .filter((ticket) => ticket.status === 'open' && unsettledDependenciesOf(ticket.dependsOn ?? [], statusById).length === 0)
+    .filter((ticket) => !lowPriorityIsHeld || ticketPriorityOf(ticket) !== 'low')
+    .sort((a, b) => PRIORITY_RANK[ticketPriorityOf(a)] - PRIORITY_RANK[ticketPriorityOf(b)] || Number(a.id) - Number(b.id))
+    .map((ticket) => ticket.id);
 }
 
 export const TicketDependencyUtil = {
   unsettledDependenciesOf,
   dependencyLoopFrom,
+  ticketsHoldingBackLowPriorityWork,
   readyTicketIdsOf,
 } as const;

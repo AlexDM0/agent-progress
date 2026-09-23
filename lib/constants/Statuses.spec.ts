@@ -7,20 +7,29 @@ import { expect, test } from 'bun:test';
 import {
   CLAUDE_MANAGED_END,
   CLAUDE_MANAGED_START,
+  DEFAULT_TICKET_PRIORITY,
   HTML_FILE_NAME,
   LOCK_FILE_NAME,
   PROGRESS_FILE_NAME,
   TASK_STATUSES,
   TASK_STATUS_FOR_TICKET_STATUS,
   TICKETS_DIRECTORY_NAME,
+  TICKET_PRIORITIES,
   TICKET_STATUSES,
   TICKET_TYPES,
   TRACKER_DIRECTORY_NAME,
   taskStatusIsKnown,
+  ticketPriorityIsKnown,
+  ticketPriorityOf,
   ticketStatusIsKnown,
   ticketTypeIsKnown
 } from './Statuses';
-import type { TaskStatus, TicketStatus, TicketType } from './Types';
+import type {
+  TaskStatus,
+  TicketPriority,
+  TicketStatus,
+  TicketType
+} from './Types';
 
 /** A tuple member the union has never heard of fails `bun run typecheck` rather than a test. */
 const TASK_STATUS_TUPLE_MATCHES_THE_UNION = TASK_STATUSES satisfies readonly TaskStatus[];
@@ -98,6 +107,19 @@ test('the mapping has an entry for every ticket status and every entry names a k
   const mappedTicketStatuses = Object.keys(TASK_STATUS_FOR_TICKET_STATUS).sort();
   expect(mappedTicketStatuses).toEqual([...TICKET_STATUSES].sort());
   expect(Object.values(TASK_STATUS_FOR_TICKET_STATUS).filter((status) => !taskStatusIsKnown(status))).toEqual([]);
+});
+
+// A ticket file written before priorities existed carries no key, and must read as the middle priority rather than as the lowest.
+test('the priority guard accepts exactly the three priorities, and an absent priority reads as normal', () => {
+  const priorityTupleMatchesTheUnion = TICKET_PRIORITIES satisfies readonly TicketPriority[];
+  expect(priorityTupleMatchesTheUnion).toEqual(['low', 'normal', 'high']);
+  expect(TICKET_PRIORITIES.filter((priority) => !ticketPriorityIsKnown(priority))).toEqual([]);
+  for (const nearMiss of ['', 'Low', 'medium', 'urgent', 'constructor', 'normal ']) {
+    expect(ticketPriorityIsKnown(nearMiss), `priority "${nearMiss}"`).toBe(false);
+  }
+  expect(DEFAULT_TICKET_PRIORITY).toBe('normal');
+  expect(ticketPriorityOf({})).toBe('normal');
+  expect(ticketPriorityOf({ priority: 'low' })).toBe('low');
 });
 
 test('every path constant is a bare name, so joining one onto a directory cannot escape it', () => {

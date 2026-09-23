@@ -1,8 +1,11 @@
-/** Re-seeds one row per surviving ticket from that ticket's own stamps, so a cleared tracker still draws the work that was done. */
+/**
+ * Re-seeds one row per surviving ticket from that ticket's own stamps, so a cleared tracker still draws the work that was done — except a low
+ * ticket that was never started, which had no row to lose.
+ */
 import { OperationRefusal }                                       from '../../lib/platform/OperationRefusal';
 import { appendLogEntry }                                         from '../../lib/progress/ProgressStore';
 import { deleteAllTickets, listTickets }                          from '../../lib/tickets/TicketStore';
-import { seedTaskFromTicket }                                     from '../../lib/tickets/TicketTransitions';
+import { seedTaskFromTicket, ticketStaysOffTheChart }             from '../../lib/tickets/TicketTransitions';
 import { openTrackerForWriting, printEntity, progressOperations } from '../CommandSupport';
 import type { CommandHandler }                                    from '../CommandTable';
 
@@ -65,7 +68,11 @@ export const clearCommand: CommandHandler = async (commandArguments, context) =>
 
     const surviving = listTickets(workspace).tickets;
     for (const ticket of surviving) {
-      seedTaskFromTicket({ progress, ticket, operations: progressOperations });
+      if (ticketStaysOffTheChart(ticket.frontmatter)) {
+        ticket.frontmatter.task = null;
+      } else {
+        seedTaskFromTicket({ progress, ticket, operations: progressOperations });
+      }
       writeTicketAfterwards(ticket);
     }
     return {

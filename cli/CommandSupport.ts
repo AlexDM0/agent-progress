@@ -14,23 +14,25 @@ import {
   concurrencyOf,
   findTask,
   readProgressFile,
+  removeTask,
   transitionTask,
   writeProgressFile,
   type Concurrency
 }                                               from '../lib/progress/ProgressStore';
 import { rerenderDashboard, type RerenderOutcome } from '../lib/render/Rerender';
 import { listTickets, writeTicket }                from '../lib/tickets/TicketStore';
-import type { ProgressOperations }                 from '../lib/tickets/TicketTransitions';
+import type { PriorityOperations }                 from '../lib/tickets/TicketTransitions';
 import { NextLineUtil }                            from '../lib/utils/NextLineUtil';
 import { TicketDependencyUtil }                    from '../lib/utils/TicketDependencyUtil';
 import { TimeUtil }                                from '../lib/utils/TimeUtil';
 import type { CommandContext }                     from './CommandContext';
 import type { ArgumentParser }                     from './arguments/ArgumentParser';
 
-export const progressOperations: ProgressOperations = {
+export const progressOperations: PriorityOperations = {
   addTask,
   appendLogEntry,
   findTask,
+  removeTask,
   transitionTask,
 };
 
@@ -65,7 +67,10 @@ export function printEntity(commandArguments: ArgumentParser, context: CommandCo
   context.standardOutput(humanLine);
 }
 
-/** What a dispatcher needs to start the next agent: the limit, the rows running against it, what is left, and the tickets that could take it. */
+/**
+ * What a dispatcher needs to start the next agent: the limit, the rows running against it, what is left, and the tickets that could take it —
+ * in the order to take them, high first, with low tickets held back while normal or high work is still owed.
+ */
 export function concurrencyDocumentOf(progress: ProgressFile, tickets: readonly Ticket[]): Concurrency & { readyTicketIds: string[] } {
   return { ...concurrencyOf(progress), readyTicketIds: TicketDependencyUtil.readyTicketIdsOf(tickets.map((ticket) => ticket.frontmatter)) };
 }

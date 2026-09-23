@@ -12,7 +12,7 @@ function slotsTextOf(capacity: BoardCapacity): string {
   return `${capacity.freeSlots} of ${capacity.limit} slots free`;
 }
 
-/** The ids are printed as given, lowest first as `readyTicketIdsOf` already sorts them; only the first five are named. */
+/** The ids are printed as given, in the dispatch order `readyTicketIdsOf` already sorts them into; only the first five are named. */
 function readyTextOf(readyTicketIds: readonly string[]): string {
   if (readyTicketIds.length === 0) return 'nothing ready';
 

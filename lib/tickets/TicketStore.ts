@@ -9,8 +9,13 @@ import {
   readFileSync,
   unlinkSync,
 } from 'node:fs';
-import { join }                                         from 'node:path';
-import type { Ticket, TicketFrontmatter, TicketType }   from '../constants/Types.ts';
+import { join } from 'node:path';
+import type {
+  Ticket,
+  TicketFrontmatter,
+  TicketPriority,
+  TicketType
+}                                                       from '../constants/Types.ts';
 import { writeFileAtomically }                          from '../platform/AtomicFile.ts';
 import type { Workspace }                               from '../platform/Workspace.ts';
 import { SlugUtil }                                     from '../utils/SlugUtil.ts';
@@ -30,12 +35,14 @@ export interface TicketListing {
 }
 
 export interface CreateTicketInput {
-  title:  string;
-  type:   TicketType;
-  group?: string;
-  body:   string;
+  title:     string;
+  type:      TicketType;
+  /** Written only when given, so a ticket filed without one reads as normal exactly like a ticket filed before priorities existed. */
+  priority?: TicketPriority;
+  group?:    string;
+  body:      string;
   /** The timestamp the ticket records as both `filed` and `updated`; the caller owns the clock. */
-  at:     string;
+  at:        string;
 }
 
 const TICKET_FILE_EXTENSION   = '.md';
@@ -104,6 +111,7 @@ export function createTicket(workspace: Workspace, input: CreateTicketInput): Ti
     id:          identifier,
     title:       input.title,
     type:        input.type,
+    ...(input.priority === undefined ? {} : { priority: input.priority }),
     status:      'open',
     filed:       input.at,
     updated:     input.at,

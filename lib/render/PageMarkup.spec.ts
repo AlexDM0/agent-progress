@@ -380,6 +380,38 @@ describe('ticketCardsMarkup', () => {
   });
 });
 
+// The template is designer-owned, so a priority borrows two marks it already styles; a new class here would render unstyled.
+describe('the priority marks on the Tickets tab', () => {
+  const LOW_MARK_OPENING  = '<span class="ap-ticket-badge" data-priority="low"';
+  const HIGH_MARK_OPENING = '<span class="ap-waiting" data-priority="high"';
+
+  test('marks a low ticket low, beside its title in the table and after its status in the card, with an empty task cell while it has no row', () => {
+    const lowTicket = exampleTicket({ priority: 'low', status: 'open', task: null });
+    const tableRow  = ticketTableRowsMarkup([lowTicket], NO_WAITING);
+    const card      = ticketCardsMarkup([lowTicket], NO_WAITING, EXAMPLE_SLICES);
+
+    expect(tableRow).toMatch(/two passes <span class="ap-ticket-badge" data-priority="low" title="[^"]+">low<\/span><\/td>/);
+    expect(tableRow).toContain('<td class="mono"></td></tr>');
+    expect(card).toMatch(/<span class="ap-badge open">open<\/span> <span class="ap-ticket-badge" data-priority="low" title="[^"]+">low<\/span>/);
+    expect(card).not.toContain('<b>task</b>');
+  });
+
+  test('marks a high ticket high, in the table and in the card', () => {
+    const highTicket = exampleTicket({ priority: 'high' });
+
+    expect(ticketTableRowsMarkup([highTicket], NO_WAITING)).toMatch(/two passes<span class="ap-waiting" data-priority="high" title="[^"]+">high<\/span><\/td>/);
+    expect(ticketCardsMarkup([highTicket], NO_WAITING, EXAMPLE_SLICES)).toContain(HIGH_MARK_OPENING);
+  });
+
+  test('leaves a normal ticket, and one whose file carries no priority, unmarked', () => {
+    for (const ticket of [exampleTicket({ priority: 'normal' }), exampleTicket()]) {
+      const markup = ticketTableRowsMarkup([ticket], NO_WAITING) + ticketCardsMarkup([ticket], NO_WAITING, EXAMPLE_SLICES);
+      expect(markup).not.toContain('data-priority');
+    }
+    expect(ticketTableRowsMarkup([exampleTicket({ priority: 'low' })], NO_WAITING)).toContain(LOW_MARK_OPENING);
+  });
+});
+
 describe('the axis layer', () => {
   const ticks = [
     { leftPercent: 0, label: '20:30', labelSitsLeftOfItsLine: false },

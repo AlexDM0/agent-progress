@@ -1,11 +1,20 @@
 /** The vocabularies as runtime tuples, since nothing can enumerate a type; `lib/constants/Statuses.spec.ts` pins them to `lib/constants/Types.ts`. */
-import type { TaskStatus, TicketStatus, TicketType } from './Types.ts';
+import type {
+  TaskStatus,
+  TicketPriority,
+  TicketStatus,
+  TicketType
+} from './Types.ts';
 
 export const TASK_STATUSES = ['pending', 'running', 'paused', 'finished', 're-review', 'reviewed', 'delivered', 'abandoned'] as const;
 
 export const TICKET_STATUSES = ['open', 'in-progress', 'in-review', 'done', 'delivered', 'abandoned'] as const;
 
 export const TICKET_TYPES = ['bug', 'change', 'feature'] as const;
+
+export const TICKET_PRIORITIES = ['low', 'normal', 'high'] as const;
+
+export const DEFAULT_TICKET_PRIORITY: TicketPriority = 'normal';
 
 /** A membership test, not a record lookup: `constructor` is a truthy, callable property of every object and argv can spell it. */
 export function taskStatusIsKnown(text: string): text is TaskStatus {
@@ -18,6 +27,14 @@ export function ticketStatusIsKnown(text: string): text is TicketStatus {
 
 export function ticketTypeIsKnown(text: string): text is TicketType {
   return (TICKET_TYPES as readonly string[]).includes(text);
+}
+
+export function ticketPriorityIsKnown(text: string): text is TicketPriority {
+  return (TICKET_PRIORITIES as readonly string[]).includes(text);
+}
+
+export function ticketPriorityOf(ticket: { priority?: TicketPriority }): TicketPriority {
+  return ticket.priority ?? DEFAULT_TICKET_PRIORITY;
 }
 
 /** `in-review` → `finished` and `done` → `reviewed` read backwards until you notice the two ladders are named from opposite ends. */

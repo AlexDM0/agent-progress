@@ -1,5 +1,6 @@
 /**
- * The questions about ticket dependencies: which ones still hold a ticket back, which tickets are ready to claim, and whether a new list
+ * The questions about ticket dependencies: which ones still hold a ticket back, which tickets are ready to claim and in what priority order
+ * (low work held back while any normal or high ticket is owed something), and whether a new list
  * would make tickets wait on each other in a circle. A loop has to be caught before it is written, because no order of work could ever settle it.
  */
 import { expect, test } from 'bun:test';
@@ -7,7 +8,12 @@ import { expect, test } from 'bun:test';
 import type { TicketStatus }    from '../constants/Types';
 import { TicketDependencyUtil } from './TicketDependencyUtil';
 
-const { dependencyLoopFrom, readyTicketIdsOf, unsettledDependenciesOf } = TicketDependencyUtil;
+const {
+  dependencyLoopFrom,
+  readyTicketIdsOf,
+  ticketsHoldingBackLowPriorityWork,
+  unsettledDependenciesOf,
+} = TicketDependencyUtil;
 
 const STATUS_BY_ID = new Map<string, TicketStatus>([
   ['001', 'done'],
@@ -63,4 +69,37 @@ test('only an open ticket whose every dependency is done or delivered is ready, 
   ];
 
   expect(readyTicketIdsOf(tickets)).toEqual(['003', '010']);
+});
+
+// A dispatcher takes the first ready id, so the order is the priority: high work filed late still goes first.
+test('a high ticket is listed before every normal one, and each priority is lowest id first within itself', () => {
+  const tickets = [
+    { id: '001', status: 'open' as const },
+    { id: '002', status: 'open' as const, priority: 'high' as const },
+    { id: '003', status: 'open' as const, priority: 'normal' as const },
+    { id: '004', status: 'open' as const, priority: 'high' as const },
+  ];
+
+  expect(readyTicketIdsOf(tickets)).toEqual(['002', '004', '001', '003']);
+});
+
+// Low tickets are the reviewers' side findings: they wait until everything the user asked for is merged or dropped, not merely unblocked.
+test('a low ticket is ready only once no normal or high ticket is left that is not delivered or abandoned', () => {
+  const lowTicket = { id: '001', status: 'open' as const, priority: 'low' as const };
+
+  expect(readyTicketIdsOf([lowTicket, { id: '002', status: 'open' as const }])).toEqual(['002']);
+  expect(readyTicketIdsOf([lowTicket, { id: '002', status: 'done' as const }])).toEqual([]);
+  expect(readyTicketIdsOf([lowTicket, { id: '002', status: 'delivered' as const }, { id: '003', status: 'abandoned' as const }])).toEqual(['001']);
+  expect(readyTicketIdsOf([lowTicket, { id: '002', status: 'open' as const, priority: 'low' as const }])).toEqual(['001', '002']);
+});
+
+test('the tickets holding low work back are the normal and high ones still owed something, lowest id first', () => {
+  const tickets = [
+    { id: '005', status: 'in-review' as const, priority: 'high' as const },
+    { id: '002', status: 'done' as const },
+    { id: '003', status: 'delivered' as const },
+    { id: '004', status: 'open' as const, priority: 'low' as const },
+  ];
+
+  expect(ticketsHoldingBackLowPriorityWork(tickets)).toEqual(['002', '005']);
 });

@@ -53,7 +53,10 @@ running); ready: #003\` or \`Next: 2 of 2 slots free; nothing ready\` — at mos
                               everything, and with --json prints the whole progress file plus
                               every ticket's frontmatter. Both --json documents carry
                               \`concurrency\`: the limit, the rows in flight, the free slots and
-                              the ids of the ready tickets — open, every dependency settled.
+                              the ids of the ready tickets — open, every dependency settled —
+                              high priority first, then normal, each lowest id first. A low ticket
+                              is ready only once no normal or high ticket is left that is not
+                              delivered or abandoned.
 
   task add "<name>"           Add a Gantt row. --start marks it running at --at (default now),
       [--owner <who>]         --ticket links it to a ticket that has no row of its own, --note is
@@ -162,19 +165,29 @@ running); ready: #003\` or \`Next: 2 of 2 slots free; nothing ready\` — at mos
 
   ticket add "<title>"        File a ticket: a markdown file under \`.agent-progress/tickets/\` with
       [--type bug|change|feature]
+      [--priority low|normal|high]
       [--group <name>]        its own frontmatter, plus a pending Gantt row. The body comes from
       [--depends-on <ids>]    the template, from --body, or from --body-file (\`-\` reads standard
       [--body <markdown>]     input); an empty body falls back to the template, and afterwards the
       [--body-file <path|->]  body is preserved byte for byte, so an agent may edit everything
       [--at <when>]           below the frontmatter freely. --depends-on files it already waiting
-                              on other tickets (\`3,4\`), as \`ticket depends\` does.
+                              on other tickets (\`3,4\`), as \`ticket depends\` does. --priority
+                              defaults to normal; a low ticket is filed with no row and takes no
+                              task id until it is started.
 
-  ticket list [--status <s>]  The tickets with their type, status, group and row id. --status
-      [--json]                narrows the listing to one status. --json carries no bodies; use
-                              \`ticket show\` for one ticket's prose.
+  ticket list [--status <s>]  The tickets with their status, priority, type and row id. --status
+      [--priority <p>]        and --priority narrow the listing. --json carries no bodies; use
+      [--json]                \`ticket show\` for one ticket's prose.
 
-  ticket show <id> [--json]   One ticket: its frontmatter, its body, and always its file path —
-                              which is what an agent needs in order to edit that body.
+  ticket show <id> [--json]   One ticket: its frontmatter, its priority, its body, and always its
+                              file path — which is what an agent needs in order to edit that body.
+
+  ticket priority <id> low|normal|high [--at <when>]
+                              Change a ticket's priority, with one log line. Lowering to low is
+                              refused unless the ticket is open, and removes its row; raising a
+                              low ticket that has no row gives it one at once. A low ticket gets
+                              its row when \`ticket start\` or \`ticket claim\` starts it, and keeps
+                              it; abandoning a low ticket that has none creates none.
 
   ticket start|review|done|deliver|abandon|reopen <id> [--branch <b>] [--commit <sha>]
       [--reason <text>] [--tokens <n>] [--at <when>]
@@ -192,7 +205,9 @@ running); ready: #003\` or \`Next: 2 of 2 slots free; nothing ready\` — at mos
   ticket claim <id>           \`ticket start\` and the row's --owner and --note in one write, refused
       [--owner <who>]         at exit 1 with nothing written when the ticket is not open or
       [--note <text>]         in-review, when a ticket it waits on is not done or delivered, or when
-      [--at <when>]           the running rows already number the concurrency limit. The count and
+      [--at <when>]           the running rows already number the concurrency limit, or when the
+                              ticket is low and a normal or high ticket is not yet delivered or
+                              abandoned — \`ticket start\` only warns about that. The count and
                               the move share one lock hold, so two claims racing for the last slot
                               cannot both succeed. The first command an implementing agent runs.
 
@@ -240,7 +255,7 @@ running); ready: #003\` or \`Next: 2 of 2 slots free; nothing ready\` — at mos
 
   clear [--all] [--yes]       Throw away every task row and the log and restart the clock, keeping
                               the tickets: each surviving ticket is given a fresh row seeded from
-                              its own frontmatter. Row ids are not reused. --all deletes the
+                              its own frontmatter, except a low one never started. Row ids are not reused. --all deletes the
                               tickets too and restarts their ids at 001. --yes skips the
                               confirmation, and is required when standard input is not a terminal.
 

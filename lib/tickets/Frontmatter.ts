@@ -4,9 +4,9 @@
  * half-applied. The subset it accepts is stated in `lib/tickets/CLAUDE.md`.
  */
 
-import { ticketStatusIsKnown, ticketTypeIsKnown } from '../constants/Statuses.ts';
-import type { TicketFrontmatter }                 from '../constants/Types.ts';
-import { TicketIdUtil }                           from '../utils/TicketIdUtil.ts';
+import { ticketPriorityIsKnown, ticketStatusIsKnown, ticketTypeIsKnown } from '../constants/Statuses.ts';
+import type { TicketFrontmatter }                                        from '../constants/Types.ts';
+import { TicketIdUtil }                                                  from '../utils/TicketIdUtil.ts';
 
 export type ParsedTicketDocument =
   | { verdict: 'parsed'; frontmatter: TicketFrontmatter; body: string }
@@ -35,6 +35,7 @@ const KNOWN_KEYS = new Set<string>([
   'id',
   'title',
   'type',
+  'priority',
   'status',
   'filed',
   'updated',
@@ -111,6 +112,7 @@ export function serializeTicketDocument(frontmatter: TicketFrontmatter, body: st
     `id: ${JSON.stringify(frontmatter.id)}`,
     `title: ${JSON.stringify(frontmatter.title)}`,
     `type: ${JSON.stringify(frontmatter.type)}`,
+    ...(frontmatter.priority === undefined ? [] : [`priority: ${JSON.stringify(frontmatter.priority)}`]),
     `status: ${JSON.stringify(frontmatter.status)}`,
     `filed: ${JSON.stringify(frontmatter.filed)}`,
     `updated: ${JSON.stringify(frontmatter.updated)}`,
@@ -229,6 +231,7 @@ function frontmatterFrom(
     id:          identifierFrom(knownValues, closingFenceLine),
     title:       requiredText(knownValues, 'title', closingFenceLine),
     type:        typeText,
+    ...priorityField(knownValues),
     status:      statusText,
     filed:       requiredText(knownValues, 'filed', closingFenceLine),
     updated:     requiredText(knownValues, 'updated', closingFenceLine),
@@ -263,6 +266,19 @@ function optionalTextFields(knownValues: Map<string, KnownValue>): Pick<TicketFr
     }
   }
   return fields;
+}
+
+/** An absent or `null` priority stays absent, so a ticket filed before priorities existed is not rewritten with one just for being read. */
+function priorityField(knownValues: Map<string, KnownValue>): Pick<TicketFrontmatter, 'priority'> {
+  const found = knownValues.get('priority');
+  if (found === undefined || found.value === null) {
+    return {};
+  }
+  const priorityText = textOf(found, 'priority');
+  if (!ticketPriorityIsKnown(priorityText)) {
+    throw new FrontmatterProblem(`\`priority\` is not a known ticket priority: ${priorityText}`, found.line);
+  }
+  return { priority: priorityText };
 }
 
 /** Written `"003, 004"`; any mix of commas and spaces, with or without `#` or padding, reads the same. */

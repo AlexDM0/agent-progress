@@ -16,6 +16,7 @@ the Gantt row, how a row's tokens are recorded, the time axis and the exit codes
 id: "003"
 title: "Double-click a role to edit it"
 type: change
+priority: high
 status: in-progress
 filed: 2026-09-18T20:11:03+02:00
 updated: 2026-09-18T20:40:00+02:00
@@ -34,11 +35,13 @@ task: 17
 …
 ```
 
-The keys the CLI owns are `id`, `title`, `type`, `status`, `filed`, `updated`, `started`,
+The keys the CLI owns are `id`, `title`, `type`, `priority`, `status`, `filed`, `updated`, `started`,
 `finished`, `delivered`, `abandonedAt`, `group`, `branch`, `commit`, `reason`, `dependsOn` and
 `task`. `dependsOn` is the ticket ids this one waits on, comma-separated; set it with
 `ticket depends` rather than by hand, so a missing id or a circle is refused. `type` is
-one of **bug · change · feature**; `status` is one of **open · in-progress · in-review · done ·
+one of **bug · change · feature**; `priority` is one of **low · normal · high**, and a ticket
+without the key is normal — the CLI writes it only when one is given, so an older ticket is never
+rewritten to gain it; `status` is one of **open · in-progress · in-review · done ·
 delivered · abandoned**. Any other line — an unknown key, a comment, a blank line — is kept and
 written back, so a field you add by hand survives every transition. **The CLI's own keys are
 rewritten at the top in the order above and your lines follow them, keeping their order among
@@ -61,9 +64,9 @@ The **from** column is the matrix the named verbs enforce; `ticket status <id> <
 
 | command | from | ticket status | its row | pill | stamps written | log line |
 |---|---|---|---|---|---|---|
-| `ticket add` | — | open | created, `pending` | `unstarted` | `filed` | `Ticket #003 filed: <title>` |
+| `ticket add` | — | open | created, `pending`; none for a low ticket | `unstarted` | `filed` | `Ticket #003 filed: <title>` |
 | `ticket start` | open, in-review | in-progress | `running` | `wip` | `started` if null; the row's end cleared | `Ticket #003 started` |
-| `ticket claim` | open, in-review, dependencies settled, a free slot | in-progress | `running`, with `--owner` and `--note` | `wip` | as `ticket start` | `Ticket #003 started` |
+| `ticket claim` | open, in-review, dependencies settled, a free slot, and for a low ticket no normal or high one owed | in-progress | `running`, with `--owner` and `--note` | `wip` | as `ticket start` | `Ticket #003 started` |
 | `ticket review` | in-progress | in-review | `finished` | `reviewing` | `finished` if null | `Ticket #003 in review` |
 | `ticket rereview` | in-review | in-review, unchanged | `re-review`, one round up from 2 | `reviewing 2` | `updated` only | `Ticket #003 in review, round 2` |
 | `ticket done` | in-progress, in-review | done | `reviewed` | `awaiting merge` | `finished` if null | `Ticket #003 done` |
@@ -93,6 +96,16 @@ was.
 `abandoned` is a state, not a deletion: the row stays as a grey hatched bar with a struck-through
 label, so ids and history are stable and a chart never silently loses a row.
 
+**A low ticket has no row until it is started.** `ticket add --priority low` files it with no row
+and takes no task id; it shows on the dashboard's Tickets tab marked `low` and nowhere on the
+Progress tab. `ticket start` or `ticket claim` creates its row, `running`, and the row then stays,
+through a reopen too. `ticket abandon` or `ticket reopen` on a low ticket that has no row creates
+none. `ticket priority <id> <p>` writes one log line, `Ticket #003 priority normal → low`: lowering
+to low is refused at exit 1 unless the ticket is open, and removes its row; raising a low ticket
+with no row files one at once — `pending` while it is open, seeded from its stamps otherwise.
+Between normal and high only the ticket changes. `clear` re-seeds no row for a low ticket that was
+never started. A high ticket is marked `high` on the Tickets tab.
+
 ## A row's tokens
 
 `--tokens` **sets** a row's count; the `SubagentStop` hook **adds** to it. The hook reads only the
@@ -114,8 +127,11 @@ number the limit; the count and the move share one lock hold, so of two claims r
 slot exactly one succeeds. `ticket start` is the manual path: it checks no limit and only warns about
 dependencies. A limit lowered below the running count is accepted and leaves no free slot; nothing
 running is stopped. `status --json` carries `concurrency`: `limit`, `inFlight`, `freeSlots` (never
-negative) and `readyTicketIds`, the open tickets whose every dependency is done or delivered, lowest
-id first.
+negative) and `readyTicketIds`, the open tickets whose every dependency is done or delivered, high
+priority first, then normal, each lowest id first. **Low tickets are ready only once no normal or
+high ticket is left that is not delivered or abandoned** — a `done` ticket still waiting for its
+merge holds them back — and `ticket claim` refuses a low ticket at exit 1 while one is left, where
+`ticket start` only warns.
 
 The same figures close the human output of `status`, `ticket add` and every ticket or task move, as
 one **Next line** read after the change, inside the same lock hold: `Next: 1 of 2 slots free; ready:
@@ -159,7 +175,7 @@ default. Bars outside the window are clipped and marked, never dropped.
 | code | meaning |
 |---|---|
 | **0** | done, or there was nothing to do |
-| **1** | a refusal you can act on: no tracker here (run `agent-progress init`), no such task or ticket, a missing `--reason`, a claim with no free slot, a release refused (`main-moved` among them), an unknown command |
+| **1** | a refusal you can act on: no tracker here (run `agent-progress init`), no such task or ticket, a missing `--reason`, a claim with no free slot or on a low ticket still held back, lowering a ticket that is not open, a release refused (`main-moved` among them), an unknown command |
 | **2** | a state the tool will not repair on its own: an unreadable or malformed progress file, a lock it could not take |
 
 Check the code rather than the wording. A command that wrote the store but could not rebuild the

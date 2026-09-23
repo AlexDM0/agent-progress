@@ -53,13 +53,16 @@ export interface ProgressFile {
   log:               LogEntry[];
 }
 
-export type TicketType   = 'bug' | 'change' | 'feature';
-export type TicketStatus = 'open' | 'in-progress' | 'in-review' | 'done' | 'delivered' | 'abandoned';
+export type TicketType     = 'bug' | 'change' | 'feature';
+export type TicketStatus   = 'open' | 'in-progress' | 'in-review' | 'done' | 'delivered' | 'abandoned';
+export type TicketPriority = 'low' | 'normal' | 'high';
 
 export interface TicketFrontmatter {
   id:          string;
   title:       string;
   type:        TicketType;
+  /** Absent on every ticket filed before priorities existed, and on one filed without `--priority`; absent reads as `normal`. */
+  priority?:   TicketPriority;
   status:      TicketStatus;
   filed:       string;
   updated:     string;

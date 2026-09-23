@@ -4,14 +4,15 @@
  * and the named verbs consult `LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS` before transitioning.
  */
 
-import { FIRST_REPEAT_REVIEW_ROUND }     from '../constants/Limits.ts';
-import { TASK_STATUS_FOR_TICKET_STATUS } from '../constants/Statuses.ts';
+import { FIRST_REPEAT_REVIEW_ROUND }                       from '../constants/Limits.ts';
+import { TASK_STATUS_FOR_TICKET_STATUS, ticketPriorityOf } from '../constants/Statuses.ts';
 import type {
   ProgressFile,
   Task,
   TaskStatus,
   Ticket,
   TicketFrontmatter,
+  TicketPriority,
   TicketStatus,
 } from '../constants/Types.ts';
 
@@ -32,6 +33,11 @@ export interface ProgressOperations {
   findTask:       (progress: ProgressFile, taskId: number) => Task | undefined;
   transitionTask: (progress: ProgressFile, taskId: number, status: TaskStatus, at: string) => 'applied' | 'no-such-task';
   appendLogEntry: (progress: ProgressFile, at: string, text: string) => void;
+}
+
+/** Only a priority change removes a row, so only it asks for the one extra operation. */
+export interface PriorityOperations extends ProgressOperations {
+  removeTask: (progress: ProgressFile, taskId: number) => Task | undefined;
 }
 
 export interface TicketRowInput {
@@ -63,6 +69,14 @@ export interface ApplyTicketTransitionInput {
   reason?:      string;
 }
 
+export interface ApplyTicketPriorityInput {
+  progress:   ProgressFile;
+  ticket:     Ticket;
+  priority:   TicketPriority;
+  at:         string;
+  operations: PriorityOperations;
+}
+
 export type ApplyTicketTransitionResult =
   | { verdict: 'applied'; ticket: Ticket; logText: string }
   | { verdict: 'refused'; reason: string };
@@ -80,6 +94,11 @@ const LOG_PHRASE_FOR_TICKET_STATUS: Record<TicketStatus, string> = {
 const ABANDON_WITHOUT_REASON_REFUSAL = 'abandon needs --reason';
 
 const REREVIEW_FROM_ELSEWHERE_REFUSAL = 'another review pass needs a ticket that is in-review';
+
+/** A low ticket that was never started lives off the chart; once started it keeps the row it was given. */
+const TICKET_STATUSES_A_LOW_TICKET_WAITS_OFF_THE_CHART_IN: readonly TicketStatus[] = ['open', 'abandoned'];
+
+const LOWERING_A_TICKET_THAT_IS_NOT_OPEN_REFUSAL = 'only an open ticket can be lowered to low, since a low ticket has no row until it is started';
 
 /**
  * Read as "to reach the key, the ticket has to be in one of these"; no row holds its own key, so a move to the current
@@ -119,7 +138,72 @@ export function ensureTaskForTicket(input: EnsureTaskForTicketInput): Task {
   return created;
 }
 
-/** `started`, `finished` and `delivered` are set only when still null, while `abandonedAt` is always set: abandoning twice is deciding twice. */
+export function ticketStaysOffTheChart(frontmatter: TicketFrontmatter): boolean {
+  return ticketPriorityOf(frontmatter) === 'low'
+    && frontmatter.started === null
+    && TICKET_STATUSES_A_LOW_TICKET_WAITS_OFF_THE_CHART_IN.includes(frontmatter.status);
+}
+
+/** `ensureTaskForTicket`, except that a row-less ticket staying off the chart is given no row and `null` comes back. */
+export function ensureTaskForTicketOnTheChart(input: EnsureTaskForTicketInput): Task | null {
+  const { progress, ticket, operations } = input;
+  const { frontmatter }                  = ticket;
+  const linkedTask                       = frontmatter.task === null ? undefined : operations.findTask(progress, frontmatter.task);
+
+  if (linkedTask === undefined && ticketStaysOffTheChart(frontmatter)) {
+    return null;
+  }
+  return ensureTaskForTicket(input);
+}
+
+/**
+ * Lowering to low is refused unless the ticket is open, and removes its row; raising a low ticket gives it a row at once — seeded from its
+ * stamps when it is no longer open, the way `clear` would, so an abandoned ticket does not come back as a pending bar.
+ */
+export function applyTicketPriority(input: ApplyTicketPriorityInput): ApplyTicketTransitionResult {
+  const {
+    progress,
+    ticket,
+    priority,
+    at,
+    operations,
+  } = input;
+  const { frontmatter } = ticket;
+  const current         = ticketPriorityOf(frontmatter);
+
+  if (current === priority) {
+    return { verdict: 'refused', reason: `it is already ${priority} priority` };
+  }
+  if (priority === 'low' && frontmatter.status !== 'open') {
+    return { verdict: 'refused', reason: LOWERING_A_TICKET_THAT_IS_NOT_OPEN_REFUSAL };
+  }
+
+  frontmatter.priority = priority;
+  const linkedTask     = frontmatter.task === null ? undefined : operations.findTask(progress, frontmatter.task);
+
+  if (priority === 'low') {
+    if (linkedTask !== undefined) operations.removeTask(progress, linkedTask.id);
+    frontmatter.task = null;
+  } else if (linkedTask === undefined && frontmatter.status === 'open') {
+    ensureTaskForTicket({
+      progress,
+      ticket,
+      operations,
+      at,
+    });
+  } else if (linkedTask === undefined) {
+    seedTaskFromTicket({ progress, ticket, operations });
+  }
+
+  const logText = `Ticket #${frontmatter.id} priority ${current} → ${priority}`;
+  operations.appendLogEntry(progress, at, logText);
+  return { verdict: 'applied', ticket, logText };
+}
+
+/**
+ * `started`, `finished` and `delivered` are set only when still null, while `abandonedAt` is always set: abandoning twice is deciding twice.
+ * A low ticket without a row that is reopened or abandoned before it was ever started stays without one.
+ */
 export function applyTicketTransition(input: ApplyTicketTransitionInput): ApplyTicketTransitionResult {
   const {
     progress,
@@ -148,14 +232,14 @@ export function applyTicketTransition(input: ApplyTicketTransitionInput): ApplyT
     frontmatter.reason = input.reason;
   }
 
-  const task = ensureTaskForTicket({
+  const task = ensureTaskForTicketOnTheChart({
     progress,
     ticket,
     operations,
     at,
   });
   // The row was just found or created, so `no-such-task` cannot come back.
-  operations.transitionTask(progress, task.id, TASK_STATUS_FOR_TICKET_STATUS[targetStatus], at);
+  if (task !== null) operations.transitionTask(progress, task.id, TASK_STATUS_FOR_TICKET_STATUS[targetStatus], at);
 
   const logText = logTextFor(frontmatter, targetStatus);
   operations.appendLogEntry(progress, at, logText);

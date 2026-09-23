@@ -8,7 +8,7 @@ that says what each status change writes. It does not own any command, any lock 
 |---|---|
 | `lib/tickets/Frontmatter.ts` | The YAML-shaped subset below: `parseTicketDocument(text)` → a verdict, `serializeTicketDocument(frontmatter, body)` → the file's text. |
 | `lib/tickets/TicketStore.ts` | The tickets directory as a store: `listTickets`, `readTicket`, `writeTicket`, `nextTicketId`, `createTicket`, `deleteAllTickets`. |
-| `lib/tickets/TicketTransitions.ts` | `ensureTaskForTicket`, `applyTicketTransition`, `applyTicketRereview`, `seedTaskFromTicket` — the ticket → task transition table below — plus `LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS` and `ticketMoveIsLegal`, the matrix the named `ticket` verbs enforce. |
+| `lib/tickets/TicketTransitions.ts` | `ensureTaskForTicket`, `applyTicketTransition`, `applyTicketRereview`, `seedTaskFromTicket` — the ticket → task transition table below — plus `LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS` and `ticketMoveIsLegal`, the matrix the named `ticket` verbs enforce; and the low-priority rule: `ticketStaysOffTheChart`, `ensureTaskForTicketOnTheChart` and `applyTicketPriority`. |
 
 ## The frontmatter subset, in full
 
@@ -28,9 +28,12 @@ left to be read out of the parser.
   Anything else — an indented line, a list item, a bare word — is a nested structure this subset does
   not have, and makes the file malformed. There are no nested maps, lists, anchors or block scalars.
 - A value is `null`, an integer, a double-quoted JSON string, or an unquoted scalar taken verbatim.
-- The keys the CLI owns are `id`, `title`, `type`, `status`, `filed`, `updated`, `started`,
+- The keys the CLI owns are `id`, `title`, `type`, `priority`, `status`, `filed`, `updated`, `started`,
   `finished`, `delivered`, `abandonedAt`, `group`, `branch`, `commit`, `reason`, `dependsOn` and
-  `task`. `dependsOn` is written `"001, 002"` and read from any mix of commas and spaces, with or
+  `task`. `priority` is `low`, `normal` or `high`, any other value makes the file malformed, and an
+  absent or `null` one stays absent in the frontmatter and reads as `normal` through
+  `ticketPriorityOf`: it is written only once somebody names one, so no older ticket gains the key
+  from a rewrite. `dependsOn` is written `"001, 002"` and read from any mix of commas and spaces, with or
   without `#` or padding; a part that is not a ticket number makes the file malformed. `id`,
   `title`, `type`, `status`, `filed` and `updated` must be present; `type` and `status` must be
   values the tool knows; `task` is an integer or `null`; a timestamp key that is absent reads as
@@ -48,7 +51,7 @@ left to be read out of the parser.
 ## What each status change writes
 
 One row per target status, as `applyTicketTransition` applies it. `ticket add` files a ticket `open`
-with `filed` stamped and a `pending` row; every later move is one of these, whether it arrives
+with `filed` stamped and a `pending` row — no row for a low ticket, see below; every later move is one of these, whether it arrives
 through a named verb or through `ticket status <id> <status>`.
 
 | target | row status | ticket timestamps | log line |
@@ -87,6 +90,17 @@ nothing, so `clear`'s re-seed can rebuild a row in any state.
 ticket sent back for a second, third or fourth review pass stays `in-review`, because every pass is
 still review. It stamps `updated` alone, moves the row to `re-review` and counts the round there, and
 it checks its own one legal source rather than being given a matrix row of its own.
+
+## A low ticket lives off the chart until it is started
+
+`ticketStaysOffTheChart` is the one definition: low, never started, and open or abandoned. Such a
+ticket without a row is given none — `ticket add` and `applyTicketTransition` go through
+`ensureTaskForTicketOnTheChart`, which returns `null` for it, and `clear` skips it — so filing one
+takes no task id. A row it already has is always kept, which is why a started low ticket that is
+reopened keeps its bar. `applyTicketPriority` is the other way a row appears or goes: lowering to
+low is refused unless the ticket is open and removes the row, and raising a row-less ticket files a
+`pending` row while it is open or seeds one from its stamps otherwise. It is the one caller of
+`removeTask`, so it alone takes `PriorityOperations`, the four operations below plus that one.
 
 ## `seedTaskFromTicket` seeds no history, on purpose
 

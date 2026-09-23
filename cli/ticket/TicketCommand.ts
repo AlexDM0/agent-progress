@@ -4,14 +4,22 @@ import { join }         from 'node:path';
 
 import { DATE_AND_CLOCK_LENGTH } from '../../lib/constants/Limits';
 import {
+  TICKET_PRIORITIES,
   TICKET_STATUSES,
   TICKET_TYPES,
+  ticketPriorityIsKnown,
+  ticketPriorityOf,
   ticketStatusIsKnown,
   ticketTypeIsKnown
 }                                                from '../../lib/constants/Statuses';
-import type { Ticket, TicketStatus, TicketType } from '../../lib/constants/Types';
-import { OperationRefusal }                      from '../../lib/platform/OperationRefusal';
-import { requireWorkspace, type Workspace }      from '../../lib/platform/Workspace';
+import type {
+  Ticket,
+  TicketPriority,
+  TicketStatus,
+  TicketType
+}                                                from '../../lib/constants/Types';
+import { OperationRefusal }                 from '../../lib/platform/OperationRefusal';
+import { requireWorkspace, type Workspace } from '../../lib/platform/Workspace';
 import {
   appendLogEntry,
   concurrencyOf,
@@ -26,9 +34,10 @@ import {
 }                                                from '../../lib/tickets/TicketStore';
 import {
   LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS,
+  applyTicketPriority,
   applyTicketRereview,
   applyTicketTransition,
-  ensureTaskForTicket,
+  ensureTaskForTicketOnTheChart,
   ticketMoveIsLegal
 }                                                               from '../../lib/tickets/TicketTransitions';
 import { TicketDependencyUtil } from '../../lib/utils/TicketDependencyUtil';
@@ -46,8 +55,9 @@ import type { CommandHandler } from '../CommandTable';
 import type { ArgumentParser } from '../arguments/ArgumentParser';
 
 const USAGE = [
-  'agent-progress ticket add "<title>" [--type bug|change|feature] [--group <name>] [--depends-on <ids>] [--body <markdown> | --body-file <path|->] [--at <when>]',
-  'agent-progress ticket list [--status <s>] [--json]',
+  'agent-progress ticket add "<title>" [--type bug|change|feature] [--priority low|normal|high] [--group <name>] [--depends-on <ids>] '
+  + '[--body <markdown> | --body-file <path|->] [--at <when>]',
+  'agent-progress ticket list [--status <s>] [--priority <p>] [--json]',
   'agent-progress ticket show <id> [--json]',
   'agent-progress ticket start|review|done|deliver|abandon|reopen <id> [--branch <b>] [--commit <sha>] [--reason <text>] [--tokens <n>] [--at <when>]',
   'agent-progress ticket claim <id> [--owner <who>] [--note <text>] [--at <when>]',
@@ -55,6 +65,7 @@ const USAGE = [
   'agent-progress ticket status <id> <status> [...same options]',
   'agent-progress ticket link <ticketId> <taskId> [--force]',
   'agent-progress ticket depends <id> [<id>...]',
+  'agent-progress ticket priority <id> low|normal|high [--at <when>]',
 ].join('\n         ');
 
 const TRANSITION_SUBCOMMANDS: Record<string, TicketStatus> = {
@@ -66,8 +77,9 @@ const TRANSITION_SUBCOMMANDS: Record<string, TicketStatus> = {
   reopen:  'open',
 };
 
-const ADD_OPTION_NAMES        = ['type', 'group', 'depends-on', 'body', 'body-file', 'at', 'json'];
-const LIST_OPTION_NAMES       = ['status', 'json'];
+const ADD_OPTION_NAMES        = ['type', 'priority', 'group', 'depends-on', 'body', 'body-file', 'at', 'json'];
+const LIST_OPTION_NAMES       = ['status', 'priority', 'json'];
+const PRIORITY_OPTION_NAMES   = ['at', 'json'];
 const SHOW_OPTION_NAMES       = ['json'];
 const TRANSITION_OPTION_NAMES = ['branch', 'commit', 'reason', 'at', 'tokens', 'json'];
 const CLAIM_OPTION_NAMES      = ['owner', 'note', 'at', 'json'];
@@ -101,6 +113,7 @@ const TICKET_TEMPLATE_PLACEHOLDERS = { id: '{{id}}', title: '{{title}}' } as con
 const LIST_COLUMN_WIDTHS = {
   identifier: 6,
   status:     12,
+  priority:   8,
   type:       8,
   task:       6,
 };
@@ -184,12 +197,32 @@ function waitingOnText(identifiers: readonly string[]): string {
   return `waiting on ${identifiers.map((identifier) => `#${identifier}`).join(', ')}`;
 }
 
+/** The priority is always spelled out, so a script never has to know that an absent key means normal. */
 function ticketAsJson(ticket: Ticket): Record<string, unknown> {
-  return { ...ticket.frontmatter, filePath: ticket.filePath, body: ticket.body };
+  return { ...ticketRowAsJson(ticket), body: ticket.body };
 }
 
 function ticketRowAsJson(ticket: Ticket): Record<string, unknown> {
-  return { ...ticket.frontmatter, filePath: ticket.filePath };
+  return { ...ticket.frontmatter, priority: ticketPriorityOf(ticket.frontmatter), filePath: ticket.filePath };
+}
+
+function requirePriority(writtenPriority: string): TicketPriority {
+  if (!ticketPriorityIsKnown(writtenPriority)) {
+    throw new OperationRefusal('refused', `"${writtenPriority}" is not a ticket priority. The priorities are ${TICKET_PRIORITIES.join(', ')}.`);
+  }
+  return writtenPriority;
+}
+
+function priorityFrom(writtenPriority: string | undefined): TicketPriority | undefined {
+  return writtenPriority === undefined ? undefined : requirePriority(writtenPriority);
+}
+
+function lowTicketHeldBackText(ticket: Ticket, tickets: readonly Ticket[]): string | null {
+  if (ticketPriorityOf(ticket.frontmatter) !== 'low') return null;
+  const holdingBack = TicketDependencyUtil.ticketsHoldingBackLowPriorityWork(tickets.map((candidate) => candidate.frontmatter));
+  if (holdingBack.length === 0) return null;
+  return `Ticket #${ticket.frontmatter.id} is low priority, and ${holdingBack.map((identifier) => `#${identifier}`).join(', ')} `
+    + `${holdingBack.length === 1 ? 'is' : 'are'} normal or high and not delivered or abandoned yet`;
 }
 
 function tokenCountFrom(commandArguments: ArgumentParser): number | undefined {
@@ -219,6 +252,7 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
     throw new OperationRefusal('refused', `"${writtenType}" is not a ticket type. The types are ${TICKET_TYPES.join(', ')}.`);
   }
   const type      = writtenType !== undefined && ticketTypeIsKnown(writtenType) ? writtenType : DEFAULT_TICKET_TYPE;
+  const priority  = priorityFrom(commandArguments.option('priority'));
   const group     = commandArguments.option('group');
   const dependsOn = dependencyListFrom([commandArguments.option('depends-on') ?? '']);
 
@@ -233,12 +267,13 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
     const filed = createTicket(change.workspace, {
       title,
       type,
+      ...(priority === undefined ? {} : { priority }),
       ...(group === undefined ? {} : { group }),
       body,
       at: change.at,
     });
     if (dependsOn.length > 0) filed.frontmatter.dependsOn = dependsOn;
-    ensureTaskForTicket({
+    ensureTaskForTicketOnTheChart({
       progress:   change.progress,
       ticket:     filed,
       operations: progressOperations,
@@ -253,7 +288,7 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
     commandArguments,
     context,
     ticketAsJson(ticket),
-    `Ticket #${ticket.frontmatter.id} filed: ${ticket.frontmatter.title}\n  ${ticket.filePath}`,
+    `Ticket #${ticket.frontmatter.id} filed: ${ticket.frontmatter.title}${priority === 'low' ? ' (low priority: no row until it is started)' : ''}\n  ${ticket.filePath}`,
     nextLine,
   );
 }
@@ -267,9 +302,13 @@ function listAllTickets(commandArguments: ArgumentParser, context: CommandContex
     throw new OperationRefusal('refused', `"${writtenStatus}" is not a ticket status. The statuses are ${TICKET_STATUSES.join(', ')}.`);
   }
 
+  const writtenPriority = priorityFrom(commandArguments.option('priority'));
+
   const workspace = requireWorkspace(context.currentDirectory);
   const listing   = listTickets(workspace);
-  const shown     = writtenStatus === undefined ? listing.tickets : listing.tickets.filter((ticket) => ticket.frontmatter.status === writtenStatus);
+  const shown     = listing.tickets
+    .filter((ticket) => writtenStatus === undefined || ticket.frontmatter.status === writtenStatus)
+    .filter((ticket) => writtenPriority === undefined || ticketPriorityOf(ticket.frontmatter) === writtenPriority);
 
   // Before the listing, so a reader piping the table still sees what was left out of it.
   for (const malformed of listing.malformed) {
@@ -278,11 +317,12 @@ function listAllTickets(commandArguments: ArgumentParser, context: CommandContex
   }
 
   if (shown.length === 0) {
+    const narrowing = [writtenStatus, writtenPriority === undefined ? undefined : `${writtenPriority} priority`].filter((part) => part !== undefined);
     printEntity(
       commandArguments,
       context,
       [],
-      writtenStatus === undefined ? 'No tickets have been filed yet.' : `No tickets are ${writtenStatus}.`,
+      narrowing.length === 0 ? 'No tickets have been filed yet.' : `No tickets are ${narrowing.join(' and ')}.`,
     );
     return;
   }
@@ -290,6 +330,7 @@ function listAllTickets(commandArguments: ArgumentParser, context: CommandContex
   const header = [
     padColumn('id', LIST_COLUMN_WIDTHS.identifier),
     padColumn('status', LIST_COLUMN_WIDTHS.status),
+    padColumn('priority', LIST_COLUMN_WIDTHS.priority),
     padColumn('type', LIST_COLUMN_WIDTHS.type),
     padColumn('task', LIST_COLUMN_WIDTHS.task),
     'title',
@@ -299,6 +340,7 @@ function listAllTickets(commandArguments: ArgumentParser, context: CommandContex
     return [
       padColumn(`#${ticket.frontmatter.id}`, LIST_COLUMN_WIDTHS.identifier),
       padColumn(ticket.frontmatter.status, LIST_COLUMN_WIDTHS.status),
+      padColumn(ticketPriorityOf(ticket.frontmatter), LIST_COLUMN_WIDTHS.priority),
       padColumn(ticket.frontmatter.type, LIST_COLUMN_WIDTHS.type),
       padColumn(ticket.frontmatter.task === null ? '-' : `#${ticket.frontmatter.task}`, LIST_COLUMN_WIDTHS.task),
       ticket.frontmatter.title,
@@ -325,6 +367,7 @@ function showOneTicket(commandArguments: ArgumentParser, context: CommandContext
   const summary = [
     `Ticket #${frontmatter.id}: ${frontmatter.title}`,
     `  status:   ${frontmatter.status}`,
+    `  priority: ${ticketPriorityOf(frontmatter)}`,
     `  type:     ${frontmatter.type}`,
     `  group:    ${frontmatter.group ?? '-'}`,
     `  task:     ${frontmatter.task === null ? '-' : `#${frontmatter.task}`}`,
@@ -377,10 +420,12 @@ async function transitionOneTicket(
       setTaskTokens(change.progress, outcome.ticket.frontmatter.task, tokens);
     }
     change.writeTicketAfterwards(outcome.ticket);
+    const { tickets } = listTickets(change.workspace);
     return {
-      logText:   outcome.logText,
-      ticket:    outcome.ticket,
-      unsettled: unsettledDependenciesFor(outcome.ticket, listTickets(change.workspace).tickets),
+      logText:     outcome.logText,
+      ticket:      outcome.ticket,
+      unsettled:   unsettledDependenciesFor(outcome.ticket, tickets),
+      lowHeldBack: lowTicketHeldBackText(outcome.ticket, tickets),
     };
   });
 
@@ -390,6 +435,9 @@ async function transitionOneTicket(
   if (targetStatus === 'in-progress' && moved.unsettled.length > 0) {
     const notDoneYet = moved.unsettled.length === 1 ? 'which is not done yet' : 'which are not done yet';
     context.standardError(`Ticket #${moved.ticket.frontmatter.id} is ${waitingOnText(moved.unsettled)}, ${notDoneYet}.`);
+  }
+  if (targetStatus === 'in-progress' && moved.lowHeldBack !== null) {
+    context.standardError(`${moved.lowHeldBack}; it was started anyway.`);
   }
 }
 
@@ -430,9 +478,14 @@ async function claimOneTicket(reference: string, commandArguments: ArgumentParse
       const legalSources = LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS['in-progress'].join(' or ');
       throw new OperationRefusal('refused', `Ticket #${id} is ${status}, and \`agent-progress ticket claim\` takes a ticket that is ${legalSources}. Nothing was written.`);
     }
-    const unsettled = unsettledDependenciesFor(ticket, listTickets(change.workspace).tickets);
+    const { tickets } = listTickets(change.workspace);
+    const unsettled   = unsettledDependenciesFor(ticket, tickets);
     if (unsettled.length > 0) {
       throw new OperationRefusal('refused', `Ticket #${id} is ${waitingOnText(unsettled)}, which must be done or delivered before it is claimed. Nothing was written.`);
+    }
+    const lowHeldBack = lowTicketHeldBackText(ticket, tickets);
+    if (lowHeldBack !== null) {
+      throw new OperationRefusal('refused', `${lowHeldBack}, so it is not claimed. Nothing was written; \`agent-progress ticket start ${id}\` starts it regardless.`);
     }
     const { inFlight, limit } = concurrencyOf(change.progress);
     if (inFlight >= limit) {
@@ -567,6 +620,36 @@ async function setTicketDependencies(commandArguments: ArgumentParser, context: 
   printEntity(commandArguments, context, ticketAsJson(changed.ticket), changed.logText);
 }
 
+async function setTicketPriority(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
+  commandArguments.rejectUnknownOptions(PRIORITY_OPTION_NAMES, USAGE);
+  commandArguments.rejectExtraPositionals(3, USAGE);
+
+  const [, reference, writtenPriority] = commandArguments.positionals();
+  if (reference === undefined || writtenPriority === undefined) {
+    throw new OperationRefusal('refused', `agent-progress ticket priority needs a ticket id and a priority.\n  Usage: ${USAGE}`);
+  }
+  const priority = requirePriority(writtenPriority);
+
+  const { result: changed, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
+    const ticket  = requireTicket(change.workspace, reference);
+    const outcome = applyTicketPriority({
+      progress:   change.progress,
+      ticket,
+      priority,
+      at:         change.at,
+      operations: progressOperations,
+    });
+    if (outcome.verdict === 'refused') {
+      const { id, status } = ticket.frontmatter;
+      throw new OperationRefusal('refused', `Ticket #${id} is ${status}, and its priority was not changed: ${outcome.reason}. Nothing was written.`);
+    }
+    change.writeTicketAfterwards(outcome.ticket);
+    return { logText: outcome.logText, ticket: outcome.ticket };
+  });
+
+  printEntityThenNextLine(commandArguments, context, ticketAsJson(changed.ticket), changed.logText, nextLine);
+}
+
 async function setTicketStatus(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   commandArguments.rejectUnknownOptions(TRANSITION_OPTION_NAMES, USAGE);
   commandArguments.rejectExtraPositionals(3, USAGE);
@@ -588,6 +671,7 @@ export const ticketCommand: CommandHandler = async (commandArguments, context) =
   if (subcommand === 'link') return linkOneTicket(commandArguments, context);
   if (subcommand === 'depends') return setTicketDependencies(commandArguments, context);
   if (subcommand === 'status') return setTicketStatus(commandArguments, context);
+  if (subcommand === 'priority') return setTicketPriority(commandArguments, context);
   if (subcommand === 'claim') {
     commandArguments.rejectUnknownOptions(CLAIM_OPTION_NAMES, USAGE);
     commandArguments.rejectExtraPositionals(2, USAGE);

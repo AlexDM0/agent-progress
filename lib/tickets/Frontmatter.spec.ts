@@ -189,6 +189,31 @@ describe('dependsOn', () => {
   });
 });
 
+// Every ticket written before priorities existed has no key, and a rewrite for a move must not add one it was never given.
+describe('priority', () => {
+  test('an absent or null priority stays absent, and the full ticket without one writes back byte for byte', () => {
+    const { frontmatter, body } = parsedDocument(FULL_TICKET);
+
+    expect(frontmatter.priority).toBeUndefined();
+    expect(parsedDocument(FULL_TICKET.replace('type: "bug"\n', 'type: "bug"\npriority: null\n')).frontmatter.priority).toBeUndefined();
+    expect(serializeTicketDocument(frontmatter, body)).toBe(FULL_TICKET);
+  });
+
+  test('a priority written quoted or bare reads back, and is written just after the type', () => {
+    const withPriority = FULL_TICKET.replace('type: "bug"\n', 'type: "bug"\npriority: low\n');
+    const { frontmatter, body } = parsedDocument(withPriority);
+
+    expect(frontmatter.priority).toBe('low');
+    expect(serializeTicketDocument(frontmatter, body)).toBe(withPriority.replace('priority: low', 'priority: "low"'));
+  });
+
+  test('a priority that is not low, normal or high is malformed and names its line', () => {
+    const parsed = parseTicketDocument(FULL_TICKET.replace('type: "bug"\n', 'type: "bug"\npriority: "urgent"\n'));
+
+    expect(parsed).toEqual({ verdict: 'malformed', reason: '`priority` is not a known ticket priority: urgent', line: 5 });
+  });
+});
+
 describe('serializeTicketDocument', () => {
   test('a full ticket survives a parse and a write unchanged', () => {
     const { frontmatter, body } = parsedDocument(FULL_TICKET);

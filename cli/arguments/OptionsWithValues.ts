@@ -14,6 +14,7 @@ export const OPTION_NAMES_WITH_VALUES = new Set<string>([
   'at',
   'tokens',
   'type',
+  'priority',
   'group',
   'depends-on',
   'body',

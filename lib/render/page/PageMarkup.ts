@@ -4,6 +4,7 @@
  */
 
 import { FIRST_REPEAT_REVIEW_ROUND } from '../../constants/Limits.ts';
+import { ticketPriorityOf }          from '../../constants/Statuses.ts';
 import type {
   LogEntry,
   Task,
@@ -46,6 +47,9 @@ const PILL_LABEL_FOR_ROW_STATE: Record<RowState, string> = {
 };
 
 const COLLAPSED_TICKET_STATUSES: readonly string[] = ['done', 'delivered', 'abandoned'];
+
+const LOW_PRIORITY_TITLE  = 'Low priority: no row on the chart until it is started, and worked once no normal or high ticket is left undelivered';
+const HIGH_PRIORITY_TITLE = 'High priority: dispatched before every normal ticket';
 
 export interface TimestampSlices {
   dateAndClockLength:    number;
@@ -194,6 +198,18 @@ function waitingOnMarkup(identifiers: readonly string[]): string {
   return identifiers.length === 0 ? '' : `<span class="ap-waiting">waiting on ${ticketLinksMarkup(identifiers)}</span>`;
 }
 
+/** Normal is unmarked. Low borrows the row's quiet ticket badge and high the amber "waiting on" note: the template has no priority style of its own. */
+function priorityMarkMarkup(ticket: PageTicket): string {
+  const priority = ticketPriorityOf(ticket);
+  if (priority === 'low') {
+    return ` <span class="ap-ticket-badge" data-priority="low" ${attribute('title', LOW_PRIORITY_TITLE)}>low</span>`;
+  }
+  if (priority === 'high') {
+    return `<span class="ap-waiting" data-priority="high" ${attribute('title', HIGH_PRIORITY_TITLE)}>high</span>`;
+  }
+  return '';
+}
+
 function taskLinkMarkup(taskId: number | null): string {
   return taskId === null ? '' : `<a ${attribute('href', `#ap-task-${taskId}`)}>#${escapeHtml(String(taskId))}</a>`;
 }
@@ -202,7 +218,7 @@ export function ticketTableRowsMarkup(tickets: readonly PageTicket[], waitingOnB
   return tickets.map((ticket) => [
     `<tr ${attribute('data-ticket-id', ticket.id)}>`,
     `<td class="mono"><a ${attribute('href', `#ap-ticket-${ticket.id}`)}>#${escapeHtml(ticket.id)}</a></td>`,
-    `<td>${escapeHtml(ticket.title)}${waitingOnMarkup(waitingOnById.get(ticket.id) ?? [])}</td>`,
+    `<td>${escapeHtml(ticket.title)}${priorityMarkMarkup(ticket)}${waitingOnMarkup(waitingOnById.get(ticket.id) ?? [])}</td>`,
     `<td>${escapeHtml(ticket.type)}</td>`,
     `<td><span class="ap-badge ${escapeHtml(ticket.status)}">${escapeHtml(ticket.status)}</span></td>`,
     `<td>${escapeHtml(ticket.group ?? '')}</td>`,
@@ -268,6 +284,7 @@ function ticketCardMarkup(ticket: PageTicket, waitingOn: readonly string[], slic
     `<span class="ap-ticket-id">#${escapeHtml(ticket.id)}</span>`,
     `<h3 class="ap-ticket-title">${escapeHtml(ticket.title)}</h3>`,
     `<span class="ap-badge ${escapeHtml(ticket.status)}">${escapeHtml(ticket.status)}</span>`,
+    priorityMarkMarkup(ticket),
     waitingOnMarkup(waitingOn),
     dates === '' ? '' : `<span class="ap-ticket-dates">${escapeHtml(dates)}</span>`,
   ].join('');

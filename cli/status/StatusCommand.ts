@@ -5,13 +5,14 @@ import {
   DATE_AND_CLOCK_LENGTH,
   MONTH_AND_DAY_SLICE_START
 }                                            from '../../lib/constants/Limits';
-import { TASK_STATUSES, TICKET_STATUSES } from '../../lib/constants/Statuses';
+import { TASK_STATUSES, TICKET_STATUSES, ticketPriorityOf } from '../../lib/constants/Statuses';
 import type {
   LogEntry,
   ProgressFile,
   Task,
   TaskStatus,
   Ticket,
+  TicketPriority,
   TicketStatus
 }                                            from '../../lib/constants/Types';
 import { OperationRefusal }                                            from '../../lib/platform/OperationRefusal';
@@ -90,8 +91,9 @@ function ticketIsSettled(ticket: Ticket): boolean {
   return SETTLED_TICKET_STATUSES.includes(ticket.frontmatter.status);
 }
 
-function ticketDocumentOf(ticket: Ticket): Ticket['frontmatter'] & { filePath: string } {
-  return { ...ticket.frontmatter, filePath: ticket.filePath };
+/** The priority is spelled out even where the file leaves it to the default, so a dispatcher never has to know what an absent key means. */
+function ticketDocumentOf(ticket: Ticket): Ticket['frontmatter'] & { priority: TicketPriority; filePath: string } {
+  return { ...ticket.frontmatter, priority: ticketPriorityOf(ticket.frontmatter), filePath: ticket.filePath };
 }
 
 /** The whole progress file plus every ticket: a document an agent could write back, with the derived `concurrency` beside it. */
