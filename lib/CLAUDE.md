@@ -35,7 +35,7 @@ lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/ lib/tick
   file opened, no environment read. This is what lets a spec import the real thing instead of
   scraping source text.
 - **A clock decides nothing**, with four stated exceptions: lock staleness in `lib/platform/Lock.ts`
-  — including its fallback to the lock file's own mtime, which fails closed in both directions —
+  — including its fallback to the generation record's own mtime, which fails closed in both directions —
   ordering the log for display, which decides nothing but a print order, the page hiding long-done
   work, which decides nothing but what is shown, and the `usage --since` cohort split in
   `lib/utils/TranscriptCohortUtil.ts`, which compares harness-written transcript stamps and decides
@@ -265,12 +265,17 @@ The generated page, pure from data; see `lib/render/CLAUDE.md`.
 
 ## `lib/tooling/dev/`
 
-Test-only helpers — scratch directories, scratch git repositories, the spawnable entry point, and
-`lib/tooling/dev/CapturedCommandContext.ts`, the `CommandContext` whose two streams are arrays that
-every command spec drives `runCommandLine` with. That last one declares the context's shape rather
-than importing `cli/CommandContext.ts`, because rule 1 forbids any import of `cli/` from under
-`lib/`. Nothing that ships imports this folder, and `lib/ImportDirection.spec.ts` is what keeps that
-true.
+Test-only helpers. Nothing that ships imports this folder, and `lib/ImportDirection.spec.ts` is what
+keeps that true.
+
+- `lib/tooling/dev/ScratchWorkspace.ts` — scratch directories under the OS temporary directory, scratch
+  git repositories with one empty commit, worktrees beside them, and `gitIsAvailable`, the guard a spec
+  needing git skips through. Nothing here calls `process.chdir`.
+- `lib/tooling/dev/CliProcess.ts` — `runAgentProgress` spawns the real `agent-progress.ts`, for the one
+  claim an in-process `runCommandLine` cannot make: shebang, executable bit and exit code included.
+- `lib/tooling/dev/CapturedCommandContext.ts` — the `CommandContext` whose two streams are arrays that
+  every command spec drives `runCommandLine` with. It declares the context's shape rather than
+  importing `cli/CommandContext.ts`, because rule 1 forbids any import of `cli/` from under `lib/`.
 
 The dispatcher's harness lives here too, since `templates/workflows/AgentProgressDispatch.js` is plain
 JavaScript no spec can sit beside:

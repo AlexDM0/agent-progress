@@ -84,8 +84,8 @@ because delivery is a later fact about finished work rather than more of it.
 `LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS` says which statuses each target may be reached from: start
 from open or in-review, review from in-progress, done from in-progress or in-review, deliver from
 done, abandon from anything but delivered or abandoned, reopen from anything but open. No row
-contains its own key, so moving a ticket to the status it already has is never legal — that move used
-to append a second, identical log line.
+contains its own key, so moving a ticket to the status it already has is never legal, and never appends
+a second, identical log line.
 
 The six named verbs in `cli/ticket/TicketCommand.ts` consult it; `ticket status <id> <status>`
 deliberately does not, which is what keeps a strict matrix affordable. `applyTicketTransition` checks

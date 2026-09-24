@@ -143,9 +143,10 @@ rather than spreading `undefined` in.
   number; timestamps are recorded and displayed, never compared. Four exceptions are stated; the first
   three compare times the tool itself wrote, the fourth times the harness wrote:
   - **lock staleness** in `lib/platform/Lock.ts`. Its one comparison against a time the tool did not
-    write is the fallback to the lock file's own mtime, reached only when the payload is missing or
-    unparseable — and it fails closed in both directions: an unreadable lock is not stale on that
-    ground alone, and a `stat` that errors reads as "not stale", so the waiter waits.
+    write is the fallback to the generation record's own mtime, reached only when that record is
+    missing, unparseable or holds an unparseable time — and it fails closed in both directions: an
+    unreadable record is not free on that ground alone, and a `stat` that errors reads as "not
+    stale", so the waiter waits.
   - **ordering the log for display** in `cli/status/StatusCommand.ts` and in the page, because `--at`
     backfills and the array order is then not the chronological one. It decides nothing but the order
     lines are printed in.
@@ -227,7 +228,7 @@ tsconfig.json            The strict Bun project. Excludes `lib/render/page/`, wh
 eslint.config.js         ESLint 9 flat config: the shared rules, plus the devDependency exemption
                          for the test-only helpers.
 bun.lock                 The lockfile. Committed, as a tool installed by `git clone` needs it.
-.gitignore               `node_modules/`, `.agent-progress/`, the design handoff bundle.
+.gitignore               `node_modules/`, `.agent-progress/`, `.DS_Store`.
 CLAUDE.md                This file: the conventions, and this map.
 README.md                For a person: install, adopting a repository, the dashboard, the command
                          reference, the file formats, and the three decisions worth knowing.
