@@ -21,16 +21,33 @@ const NAMED_ENTITY_REPLACEMENTS: ReadonlyArray<readonly [entity: string, charact
 
 const HREF_DECODE_PASSES = 3;
 
-const LEADING_SCHEME_PATTERN = /^[a-z][a-z0-9+.-]*:/;
+const HEXADECIMAL_RADIX = 16;
 
+const DECIMAL_RADIX = 10;
+
+const LAST_UNICODE_CODE_POINT = 0x10ffff;
+
+const REPLACEMENT_CHARACTER = '�';
+
+/** Everything before the first path, query or fragment delimiter, which is the only place a scheme can be. */
+const SCHEME_REGION_PATTERN = /^[^/?#]*/;
+
+function characterForCodePoint(codePoint: number): string {
+  if (codePoint === 0 || codePoint > LAST_UNICODE_CODE_POINT) {
+    return REPLACEMENT_CHARACTER;
+  }
+  return String.fromCodePoint(codePoint);
+}
+
+/** A browser decodes a numeric reference with or without its `;`, so the semicolon is optional here too. */
 function decodeHrefEntitiesOnce(href: string): string {
   const withNamed = NAMED_ENTITY_REPLACEMENTS.reduce(
     (text, [entity, character]) => text.replaceAll(entity, character),
     href.toLowerCase(),
   );
   return withNamed
-    .replace(/&#x([0-9a-f]+);/g, (_match, digits: string) => String.fromCodePoint(Number.parseInt(digits, 16)))
-    .replace(/&#(\d+);/g, (_match, digits: string) => String.fromCodePoint(Number.parseInt(digits, 10)));
+    .replace(/&#x([0-9a-f]+);?/g, (_match, digits: string) => characterForCodePoint(Number.parseInt(digits, HEXADECIMAL_RADIX)))
+    .replace(/&#(\d+);?/g, (_match, digits: string) => characterForCodePoint(Number.parseInt(digits, DECIMAL_RADIX)));
 }
 
 function normaliseHrefForJudgement(href: string): string {
@@ -45,16 +62,20 @@ function normaliseHrefForJudgement(href: string): string {
   return normalised.replace(/[\u0000-\u0020]+/g, '');
 }
 
-/** An href with no scheme is allowed and one with an unlisted scheme is not: a denylist would have to enumerate every scheme an attacker reaches for. */
+/**
+ * An href with no colon before its first `/`, `?` or `#` is allowed and one with an unlisted scheme is not: a denylist would have to enumerate every
+ * scheme an attacker reaches for. A reference still undecoded in that region leaves the scheme unjudgeable, so the href is dropped.
+ */
 function hrefIsAllowed(href: string): boolean {
   const normalised = normaliseHrefForJudgement(href);
-  if (normalised.startsWith('#')) {
+  const schemeRegion = SCHEME_REGION_PATTERN.exec(normalised)?.[0] ?? '';
+  if (schemeRegion.includes('&')) {
+    return false;
+  }
+  if (!schemeRegion.includes(':')) {
     return true;
   }
-  if (ALLOWED_HREF_SCHEMES.some((scheme) => normalised.startsWith(scheme))) {
-    return true;
-  }
-  return !LEADING_SCHEME_PATTERN.test(normalised);
+  return ALLOWED_HREF_SCHEMES.some((scheme) => schemeRegion.startsWith(scheme));
 }
 
 const PAGE_RENDERER: RendererObject = {

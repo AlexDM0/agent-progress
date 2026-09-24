@@ -61,11 +61,34 @@ describe('renderMarkdown', () => {
     ['the vbscript scheme', '[x](vbscript:msgbox(1))'],
     ['the file scheme', '[x](file:///etc/passwd)'],
     ['the data scheme', '[x](data:text/html;base64,PHNjcmlwdD4=)'],
+    ['a decimal entity for the colon with no semicolon', '[x](javascript&#58alert(document.title))'],
+    ['a zero-padded decimal entity with no semicolon', '[x](&#0000106avascript:alert(7))'],
+    ['hex entities with no semicolon', '[x](&#x6A&#x61vascript:alert(1))'],
+    ['an upper-case hex entity with no semicolon', '[x](jav&#X61script:alert(1))'],
+    ['a hex entity for the colon with no semicolon', '[x](javascript&#x3A/alert(1))'],
+    ['a named tab inside the scheme', '[x](java&Tab;script:alert(1))'],
+    ['a named newline inside the scheme', '[x](java&NewLine;script:alert(1))'],
+    ['a decimal tab with no semicolon inside the scheme', '[x](java&#9script:alert(1))'],
+    ['leading whitespace and control characters', '[x](&#1;&#32;javascript:alert(1))'],
+    ['an upper-case scheme', '[x](JAVASCRIPT:alert(1))'],
+    ['an upper-case vbscript scheme', '[x](VBSCRIPT:msgbox(1))'],
+    ['an upper-case data scheme', '[x](DATA:text/html,x)'],
+    ['a named reference no decoder here knows', '[x](javascript&lpar;:alert(1))'],
+    ['a reference still encoded after every decoding pass', '[x](&amp;amp;amp;amp;#106;avascript:alert(1))'],
   ])('renders no anchor for a link hiding its scheme behind %s', (_description, source) => {
     const html = renderMarkdown(source);
 
     expect(html).not.toContain('<a ');
     expect(html).toContain('x');
+  });
+
+  // A reference past the last code point used to throw out of the render, taking the whole page with it.
+  test('drops a link whose reference names no code point instead of throwing', () => {
+    const html = renderMarkdown('[x](&#99999999;avascript:alert(1)) and [y](&#x110000javascript:alert(1))');
+
+    expect(html).not.toContain('<a ');
+    expect(html).toContain('x');
+    expect(html).toContain('y');
   });
 
   test.each([
@@ -92,6 +115,8 @@ describe('renderMarkdown', () => {
     ['a relative path', '[the backlog](./docs/backlog.md)', '<a href="./docs/backlog.md">the backlog</a>'],
     ['an https link', '[home](https://example.com/x)', '<a href="https://example.com/x">home</a>'],
     ['a mailto link', '[mail](mailto:alex.example@example.com)', '<a href="mailto:alex.example@example.com">mail</a>'],
+    ['an https link whose query carries an ampersand', '[search](https://example.com/?a=1&b=2)', '<a href="https://example.com/?a=1&b=2">search</a>'],
+    ['an allowed scheme spelled with a reference', '[home](https&#58//example.com/)', '<a href="https&#58//example.com/">home</a>'],
   ])('keeps %s', (_description, source, expectedAnchor) => {
     expect(renderMarkdown(source)).toContain(expectedAnchor);
   });
