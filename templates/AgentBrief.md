@@ -364,7 +364,7 @@ a clean agent briefed from the Review brief above, never the orchestrator readin
 ```
 agent-progress ticket claim <id> --owner <model> --note "<what the agent will do>"   # starts the ticket's own row
 agent-progress ticket show <id>                # its `task:` is the rowId on the brief's `agent-progress row:` line
-agent-progress ticket review <id>              # finishes that row; then a clean reviewer in its own row, from the Review brief
+agent-progress ticket review <id>              # finishes that row, `--tokens <subagent_tokens>` only without the hook; then a clean reviewer in its own row
 agent-progress task add "Review <N> #<id> — <ticket title>" --review-of <id> --owner opus --start   # the review's row, drawn above the ticket's
 agent-progress task finish <reviewRowId>       # then `task deliver <reviewRowId>`: for every verdict but `released`, which delivered it
 ```
