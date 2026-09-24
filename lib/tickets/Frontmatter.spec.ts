@@ -248,13 +248,11 @@ describe('parseTicketDocument', () => {
 
   // An indented heading used to pass as a comment, so a deleted fence above an indented `## Report` went unnoticed.
   test('a deleted fence is refused at an indented heading as it is at one in column 0', () => {
-    const fenceDeleted = FULL_TICKET.replace('task: 17\n---\n', 'task: 17\n').replace('## Report', '  ## Report').concat('---\n\n## Acceptance\n');
+    const fenceDeleted   = FULL_TICKET.replace('task: 17\n---\n', 'task: 17\n').replace('## Report', '  ## Report').concat('---\n\n## Acceptance\n');
+    const expectedReason = 'line 17 is the markdown heading `  ## Report`, and a frontmatter holds no heading (a comment has one `#`); '
+      + 'if the closing `---` fence was deleted, restore it above line 17';
 
-    expect(parseTicketDocument(fenceDeleted)).toEqual({
-      verdict: 'malformed',
-      reason:  'line 17 is the markdown heading `  ## Report`, and a frontmatter holds no heading (a comment has one `#`); if the closing `---` fence was deleted, restore it above line 17',
-      line:    17,
-    });
+    expect(parseTicketDocument(fenceDeleted)).toEqual({ verdict: 'malformed', reason: expectedReason, line: 17 });
   });
 
   // A single indented hash is not a heading, and must not slip through as a comment either.
