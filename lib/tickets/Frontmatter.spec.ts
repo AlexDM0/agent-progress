@@ -31,7 +31,7 @@ const FULL_TICKET = [
   '',
 ].join('\n');
 
-function parsedDocument(text: string): { frontmatter: TicketFrontmatter; body: string } {
+function parsedDocument(text: string): { frontmatter: TicketFrontmatter; body: string; lineEnding: '\n' | '\r\n' } {
   const parsed = parseTicketDocument(text);
   if (parsed.verdict !== 'parsed') {
     throw new Error(`expected a parsed ticket document, got "${parsed.reason}" at line ${parsed.line}`);
@@ -147,6 +147,34 @@ describe('parseTicketDocument', () => {
     const parsed       = parseTicketDocument(unterminated);
 
     expect(parsed).toEqual({ verdict: 'malformed', reason: 'the frontmatter has no closing `---` fence', line: 3 });
+  });
+
+  // Without this, the body's first rule closes the frontmatter and every heading above it is silently kept as a comment.
+  test('a document whose closing fence was deleted is refused at the first heading, naming the rule it would have taken as the fence', () => {
+    const fenceDeleted = FULL_TICKET.replace('task: 17\n---\n', 'task: 17\n').concat('---\n\n## Acceptance\n');
+    const parsed       = parseTicketDocument(fenceDeleted);
+
+    expect(parsed).toEqual({
+      verdict: 'malformed',
+      reason:  'the frontmatter has no closing `---` fence: line 17 is the heading `## Report`, so the `---` on line 20 is a rule in the body',
+      line:    17,
+    });
+  });
+
+  test('an id of zero or past the safe integers is refused rather than padded', () => {
+    expect(parseTicketDocument(FULL_TICKET.replace('id: "003"', 'id: 0'))).toEqual({ verdict: 'malformed', reason: '`id` is not a ticket number: 0', line: 2 });
+    expect(parseTicketDocument(FULL_TICKET.replace('id: "003"', 'id: 99999999999999999999')))
+      .toEqual({ verdict: 'malformed', reason: '`id` is not a ticket number: 99999999999999999999', line: 2 });
+  });
+
+  test('a task past the safe integers is refused rather than rounded', () => {
+    expect(parseTicketDocument(FULL_TICKET.replace('task: 17', 'task: 99999999999999999999')))
+      .toEqual({ verdict: 'malformed', reason: '`task` is not a safe whole number: 99999999999999999999', line: 14 });
+  });
+
+  test('a quoted task is refused with a reason saying it is quoted', () => {
+    expect(parseTicketDocument(FULL_TICKET.replace('task: 17', 'task: "5"')))
+      .toEqual({ verdict: 'malformed', reason: '`task` is quoted, but a task is a whole number written without quotes: "5"', line: 14 });
   });
 
   test('a document that does not open with a fence is malformed at line 1', () => {
@@ -292,10 +320,26 @@ describe('serializeTicketDocument', () => {
 
   test('a CRLF document is written back with CRLF', () => {
     const windowsTicket = FULL_TICKET.replaceAll('\n', '\r\n');
-    const { frontmatter, body } = parsedDocument(windowsTicket);
+    const { frontmatter, body, lineEnding } = parsedDocument(windowsTicket);
 
     expect(body.includes('\r\n')).toBe(true);
-    expect(serializeTicketDocument(frontmatter, body)).toBe(windowsTicket);
+    expect(serializeTicketDocument(frontmatter, body, lineEnding)).toBe(windowsTicket);
+  });
+
+  // The body used to be where the line ending was read from, so an empty one lost CRLF on the first rewrite.
+  test('a CRLF document with an empty body keeps CRLF, because the line ending is the frontmatter\'s', () => {
+    const windowsTicketWithoutBody = `${FULL_TICKET.slice(0, FULL_TICKET.indexOf('# 003'))}`.replaceAll('\n', '\r\n');
+    const { frontmatter, body, lineEnding } = parsedDocument(windowsTicketWithoutBody);
+
+    expect(body).toBe('');
+    expect(serializeTicketDocument(frontmatter, body, lineEnding)).toBe(windowsTicketWithoutBody);
+  });
+
+  test('an LF frontmatter over a body holding a pasted CRLF line is written back with LF', () => {
+    const mixedTicket = `${FULL_TICKET}pasted\r\n`;
+    const { frontmatter, body, lineEnding } = parsedDocument(mixedTicket);
+
+    expect(serializeTicketDocument(frontmatter, body, lineEnding)).toBe(mixedTicket);
   });
 
   test('a title holding a colon, a quote and a leading hash is written as JSON and read back identically', () => {

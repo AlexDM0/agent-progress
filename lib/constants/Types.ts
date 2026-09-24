@@ -115,4 +115,6 @@ export interface Ticket {
   frontmatter: TicketFrontmatter;
   body:        string;
   filePath:    string;
+  /** The frontmatter's line ending as read, which a rewrite keeps; absent for a ticket not read from a file, which is written with `\n`. */
+  lineEnding?: '\n' | '\r\n';
 }

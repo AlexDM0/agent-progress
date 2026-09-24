@@ -67,7 +67,7 @@ or Node.
   `nextTaskId` and the optional `concurrencyLimit`, `dispatcherState` and `dispatcherRunId`), `DispatcherState`, `TicketFrontmatter` (with the optional `priority`,
   absent meaning normal, the optional `model` and `effort`, absent meaning the default pair, and the optional `hold`, the reason of a
   `ticket hold`, absent meaning not held), `TicketPriority`, `AgentModel`,
-  `AgentEffort`, `Ticket`. Types only, no values.
+  `AgentEffort`, `Ticket` (with the optional `lineEnding` its frontmatter was read with). Types only, no values.
 - `lib/constants/AgentSettings.ts` — what a ticket's building and reviewing agents run on: the `AGENT_MODELS` and `AGENT_EFFORTS`
   tuples with their guards, the one default pair `DEFAULT_AGENT_MODEL` (`opus`) and `DEFAULT_AGENT_EFFORT` (`medium`), and
   `agentModelOf` / `agentEffortOf`, the one place an absent key becomes the default. `lib/constants/AgentSettings.spec.ts` pins

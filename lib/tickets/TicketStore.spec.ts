@@ -4,8 +4,11 @@
  */
 
 import {
+  copyFileSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
+  renameSync,
   rmSync,
   unlinkSync,
   writeFileSync,
@@ -211,7 +214,97 @@ describe('nextTicketId', () => {
   });
 });
 
+// A person renames ticket files by hand; the id the frontmatter holds is the ticket's identity, never the name it was given.
+describe('a ticket file renamed by hand', () => {
+  test('a file renamed without its number still spends its id, so the next ticket is not issued it again', () => {
+    const workspace = scratchWorkspace();
+    const first     = fileTicket(workspace, 'Fix the export dialog', 'bug');
+    renameSync(first.filePath, join(workspace.ticketsDirectory, 'renamed-by-hand.md'));
+
+    expect(nextTicketId(workspace)).toBe('002');
+    expect(readTicket(workspace, '1')?.frontmatter.title).toBe('Fix the export dialog');
+  });
+
+  test('a file renamed to another number answers for neither number, and is listed as malformed naming both', () => {
+    const workspace   = scratchWorkspace();
+    const first       = fileTicket(workspace, 'Fix the export dialog', 'bug');
+    const renamedPath = join(workspace.ticketsDirectory, '012-renamed.md');
+    renameSync(first.filePath, renamedPath);
+
+    expect(readTicket(workspace, '12')).toBeNull();
+    expect(readTicket(workspace, '1')).toBeNull();
+    expect(listTickets(workspace)).toEqual({
+      verdict:   'listed',
+      tickets:   [],
+      malformed: [{ filePath: renamedPath, reason: 'the file name says #012 but its `id` is 001', line: 2 }],
+    });
+    expect(nextTicketId(workspace)).toBe('013');
+  });
+
+  test('two files holding one id are both listed as malformed, and neither answers for it', () => {
+    const workspace = scratchWorkspace();
+    const first     = fileTicket(workspace, 'Fix the export dialog', 'bug');
+    const copyPath  = join(workspace.ticketsDirectory, 'copy-of-the-first.md');
+    copyFileSync(first.filePath, copyPath);
+
+    expect(readTicket(workspace, '1')).toBeNull();
+    expect(listTickets(workspace)).toEqual({
+      verdict:   'listed',
+      tickets:   [],
+      malformed: [
+        { filePath: first.filePath, reason: 'ticket #001 is also held by copy-of-the-first.md', line: 2 },
+        { filePath: copyPath, reason: 'ticket #001 is also held by 001-fix-the-export-dialog.md', line: 2 },
+      ],
+    });
+  });
+
+  // `ticket add` writes the progress file before the ticket file; a crash between the two leaves a row naming an id no file holds.
+  test('an id a task row names spends its number although no ticket file holds it', () => {
+    const workspace = scratchWorkspace();
+    fileTicket(workspace, 'Fix the export dialog', 'bug');
+    writeFileSync(workspace.progressFilePath, JSON.stringify({ tasks: [{ id: 1, ticket: '001' }, { id: 2, ticket: '005' }, { id: 3 }] }));
+
+    expect(nextTicketId(workspace)).toBe('006');
+  });
+
+  test('a progress file that does not parse leaves the ids to the ticket files', () => {
+    const workspace = scratchWorkspace();
+    fileTicket(workspace, 'Fix the export dialog', 'bug');
+    writeFileSync(workspace.progressFilePath, '{ not json');
+
+    expect(nextTicketId(workspace)).toBe('002');
+  });
+});
+
 describe('writeTicket and deleteAllTickets', () => {
+  test('a CRLF ticket with an empty body is written back with CRLF', () => {
+    const workspace  = scratchWorkspace();
+    const ticketPath = join(workspace.ticketsDirectory, '001-windows.md');
+    const windowsTicket = [
+      '---',
+      'id: "001"',
+      'title: "Windows"',
+      'type: "bug"',
+      'status: "open"',
+      'filed: "2026-09-18T09:00:00+02:00"',
+      'updated: "2026-09-18T09:00:00+02:00"',
+      'started: null',
+      'finished: null',
+      'delivered: null',
+      'abandonedAt: null',
+      'task: null',
+      '---',
+      '',
+    ].join('\r\n');
+    writeFileSync(ticketPath, windowsTicket);
+
+    const ticket = readTicket(workspace, '1');
+    if (ticket === null) throw new Error('expected the CRLF ticket to parse');
+    writeTicket(ticket);
+
+    expect(readFileSync(ticketPath, 'utf8')).toBe(windowsTicket);
+  });
+
   test('writes exactly the ticket it is given, leaving updated for the transition that owns it', () => {
     const workspace = scratchWorkspace();
     const filed     = fileTicket(workspace, 'Fix the export dialog', 'bug');

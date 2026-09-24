@@ -9,8 +9,10 @@ import { ticketPriorityIsKnown, ticketStatusIsKnown, ticketTypeIsKnown } from '.
 import type { TicketFrontmatter }                                        from '../constants/Types.ts';
 import { TicketIdUtil }                                                  from '../utils/TicketIdUtil.ts';
 
+export type LineEnding = '\n' | '\r\n';
+
 export type ParsedTicketDocument =
-  | { verdict: 'parsed'; frontmatter: TicketFrontmatter; body: string }
+  | { verdict: 'parsed'; frontmatter: TicketFrontmatter; body: string; lineEnding: LineEnding }
   | { verdict: 'malformed'; reason: string; line: number };
 
 type FrontmatterValue = string | number | null;
@@ -26,6 +28,10 @@ const BYTE_ORDER_MARK   = '\uFEFF';
 const KEY_PATTERN       = /^[A-Za-z][A-Za-z0-9_-]*$/;
 const INTEGER_PATTERN   = /^-?\d+$/;
 const DIGITS_PATTERN    = /^\d+$/;
+const CARRIAGE_RETURN   = '\r';
+
+// A comment is written `# text`; a line opening on two or more hashes is a markdown heading the frontmatter ran into.
+const MARKDOWN_HEADING_PATTERN = /^#{2,6}(\s|$)/;
 
 // The one key read as a number; every other unquoted value is kept verbatim, leading zeros included.
 const INTEGER_KEY = 'task';
@@ -86,6 +92,12 @@ export function parseTicketDocument(text: string): ParsedTicketDocument {
         extra.push([BLANK_LINE_KEY, '']);
         continue;
       }
+      if (MARKDOWN_HEADING_PATTERN.test(line)) {
+        throw new FrontmatterProblem(
+          `the frontmatter has no closing \`---\` fence: line ${lineNumber} is the heading \`${line}\`, so the \`---\` on line ${closingFenceIndex + 1} is a rule in the body`,
+          lineNumber,
+        );
+      }
       if (line.trim().startsWith(COMMENT_KEY)) {
         extra.push([COMMENT_KEY, line.trim().slice(1).trim()]);
         continue;
@@ -104,6 +116,7 @@ export function parseTicketDocument(text: string): ParsedTicketDocument {
       verdict:     'parsed',
       frontmatter: frontmatterFrom(knownValues, extra, closingFenceIndex + 1),
       body:        bodyAfter(withoutByteOrderMark, lines, closingFenceIndex),
+      lineEnding:  (lines[0] ?? '').endsWith(CARRIAGE_RETURN) ? '\r\n' : '\n',
     };
   } catch (problem) {
     if (problem instanceof FrontmatterProblem) {
@@ -113,8 +126,11 @@ export function parseTicketDocument(text: string): ParsedTicketDocument {
   }
 }
 
-/** An unknown line is copied back with its raw value untouched, and an absent optional key is omitted rather than written as `null`. */
-export function serializeTicketDocument(frontmatter: TicketFrontmatter, body: string): string {
+/**
+ * An unknown line is copied back with its raw value untouched, and an absent optional key is omitted rather than written as `null`.
+ * The line ending is the one the frontmatter was read with; the body is kept byte for byte whatever it holds.
+ */
+export function serializeTicketDocument(frontmatter: TicketFrontmatter, body: string, lineEnding: LineEnding = '\n'): string {
   const lines: string[] = [
     `id: ${JSON.stringify(frontmatter.id)}`,
     `title: ${JSON.stringify(frontmatter.title)}`,
@@ -148,9 +164,6 @@ export function serializeTicketDocument(frontmatter: TicketFrontmatter, body: st
   for (const [key, rawValue] of frontmatter.extra) {
     lines.push(extraLineOf(key, rawValue));
   }
-
-  // A CRLF ticket keeps CRLF: the body is preserved byte for byte, so the line ending is read back from it.
-  const lineEnding = body.includes('\r\n') ? '\r\n' : '\n';
 
   return `${[FRONTMATTER_FENCE, ...lines, FRONTMATTER_FENCE].join(lineEnding)}${lineEnding}${body}`;
 }
@@ -201,7 +214,13 @@ function scalarOf(rawValue: string, key: string, lineNumber: number): Frontmatte
     return null;
   }
   if (key === INTEGER_KEY && INTEGER_PATTERN.test(rawValue)) {
+    if (!Number.isSafeInteger(Number(rawValue))) {
+      throw new FrontmatterProblem(`\`${key}\` is not a safe whole number: ${rawValue}`, lineNumber);
+    }
     return Number(rawValue);
+  }
+  if (key === INTEGER_KEY && rawValue.startsWith('"')) {
+    throw new FrontmatterProblem(`\`${key}\` is quoted, but a task is a whole number written without quotes: ${rawValue}`, lineNumber);
   }
   if (rawValue.startsWith('"')) {
     return jsonStringOf(rawValue, key, lineNumber);
@@ -260,11 +279,13 @@ function frontmatterFrom(
 
 /** The id is stored padded however it was written, so `id: 003`, `id: "003"` and `id: 3` name the same ticket. */
 function identifierFrom(knownValues: Map<string, KnownValue>, closingFenceLine: number): string {
-  const text = requiredText(knownValues, 'id', closingFenceLine);
-  if (!DIGITS_PATTERN.test(text)) {
+  const text       = requiredText(knownValues, 'id', closingFenceLine);
+  // Digits only first: the reference parser also takes `#3`, which is a way to name a ticket, not to write its id.
+  const identifier = DIGITS_PATTERN.test(text) ? TicketIdUtil.parseTicketReference(text) : null;
+  if (identifier === null) {
     throw new FrontmatterProblem(`\`id\` is not a ticket number: ${text}`, lineOf(knownValues, 'id', closingFenceLine));
   }
-  return TicketIdUtil.padTicketId(Number(text));
+  return identifier;
 }
 
 function optionalTextFields(knownValues: Map<string, KnownValue>): Pick<TicketFrontmatter, 'group' | 'branch' | 'commit' | 'reason'> {

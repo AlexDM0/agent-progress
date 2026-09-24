@@ -46,12 +46,17 @@ export interface CreateTicketInput {
   at:        string;
 }
 
-const TICKET_FILE_EXTENSION   = '.md';
-const IDENTIFIER_PREFIX_MATCH = /^(\d+)-/;
+const TICKET_FILE_EXTENSION      = '.md';
+const IDENTIFIER_PREFIX_MATCH    = /^(\d+)-/;
+const FILE_NAME_IDENTIFIER_MATCH = /^(\d+)(?:-|\.md$)/;
+const IDENTIFIER_LINE_MATCH      = /^id:/;
 
-/** Ordered by id numerically rather than lexicographically, so the order still holds once ids outgrow the padding width. */
+/**
+ * A ticket is known by its frontmatter `id`. A file whose name carries another number, and every file holding an id another
+ * also holds, is listed as malformed with its reason, since which of them is the ticket cannot be judged. Ordered by id numerically.
+ */
 export function listTickets(workspace: Workspace): TicketListing {
-  const tickets: Ticket[] = [];
+  const parsedFiles: ParsedTicketFile[]  = [];
   const malformed: MalformedTicketFile[] = [];
 
   for (const fileName of ticketFileNamesIn(workspace)) {
@@ -59,47 +64,75 @@ export function listTickets(workspace: Workspace): TicketListing {
     const ticket   = ticketAt(filePath);
 
     if (ticket.verdict === 'parsed') {
-      tickets.push(ticket.ticket);
+      parsedFiles.push({ fileName, ticket: ticket.ticket, identifierLine: ticket.identifierLine });
     } else {
       malformed.push({ filePath, reason: ticket.reason, line: ticket.line });
     }
   }
 
+  const namedConsistently: ParsedTicketFile[] = [];
+  for (const parsedFile of parsedFiles) {
+    const identifierInName = identifierInFileName(parsedFile.fileName);
+    const { id }           = parsedFile.ticket.frontmatter;
+
+    if (identifierInName !== null && identifierInName !== id) {
+      malformed.push(malformedEntryOf(parsedFile, `the file name says #${identifierInName} but its \`id\` is ${id}`));
+    } else {
+      namedConsistently.push(parsedFile);
+    }
+  }
+
+  const tickets: Ticket[] = [];
+  for (const parsedFile of namedConsistently) {
+    const otherHolders = namedConsistently.filter((other) => other !== parsedFile && other.ticket.frontmatter.id === parsedFile.ticket.frontmatter.id);
+
+    if (otherHolders.length > 0) {
+      const otherFileNames = otherHolders.map((other) => other.fileName).join(', ');
+      malformed.push(malformedEntryOf(parsedFile, `ticket #${parsedFile.ticket.frontmatter.id} is also held by ${otherFileNames}`));
+    } else {
+      tickets.push(parsedFile.ticket);
+    }
+  }
+
   tickets.sort((a, b) => Number(a.frontmatter.id) - Number(b.frontmatter.id));
+  malformed.sort((a, b) => (a.filePath < b.filePath ? -1 : Number(a.filePath > b.filePath)));
   return { verdict: 'listed', tickets, malformed };
 }
 
+/** Looked up by frontmatter `id`, never by file name; a ticket `listTickets` reports as malformed answers for no id. */
 export function readTicket(workspace: Workspace, reference: string): Ticket | null {
   const identifier = TicketIdUtil.parseTicketReference(reference);
   if (identifier === null) {
     return null;
   }
-
-  const fileName = ticketFileNamesIn(workspace).find((name) => name.startsWith(`${identifier}-`) || name === `${identifier}${TICKET_FILE_EXTENSION}`);
-  if (fileName === undefined) {
-    return null;
-  }
-
-  const ticket = ticketAt(join(workspace.ticketsDirectory, fileName));
-  return ticket.verdict === 'parsed' ? ticket.ticket : null;
+  return listTickets(workspace).tickets.find((ticket) => ticket.frontmatter.id === identifier) ?? null;
 }
 
 /** Writes through `lib/platform/AtomicFile.ts` and never touches `updated`; only `lib/tickets/TicketTransitions.ts` knows that a ticket changed. */
 export function writeTicket(ticket: Ticket): void {
   // The directory is recreated rather than assumed: `clear --all` may have removed it.
   mkdirSync(dirname(ticket.filePath), { recursive: true });
-  writeFileAtomically(ticket.filePath, serializeTicketDocument(ticket.frontmatter, ticket.body));
+  writeFileAtomically(ticket.filePath, serializeTicketDocument(ticket.frontmatter, ticket.body, ticket.lineEnding));
 }
 
-/** The highest id in a file name plus one, so a malformed file still owns its number; gaps are tolerated and never filled. */
+/**
+ * One past the highest of every file name's number, every parsed frontmatter `id` and every `ticket` a row in the progress file
+ * names, so neither a malformed file, a file renamed by hand nor a row whose ticket file was never written has its id issued again.
+ * Gaps are tolerated and never filled.
+ */
 export function nextTicketId(workspace: Workspace): string {
   let highest = 0;
+  const spend = (identifier: string | null): void => {
+    if (identifier !== null) highest = Math.max(highest, Number(identifier));
+  };
 
   for (const fileName of ticketFileNamesIn(workspace)) {
-    const found = IDENTIFIER_PREFIX_MATCH.exec(fileName);
-    if (found !== null) {
-      highest = Math.max(highest, Number(found[1] ?? '0'));
-    }
+    spend(identifierInFileName(fileName));
+    const ticket = ticketAt(join(workspace.ticketsDirectory, fileName));
+    if (ticket.verdict === 'parsed') spend(ticket.ticket.frontmatter.id);
+  }
+  for (const identifier of ticketIdsNamedByTaskRows(workspace)) {
+    spend(identifier);
   }
   return TicketIdUtil.padTicketId(highest + 1);
 }
@@ -138,8 +171,14 @@ export function deleteAllTickets(workspace: Workspace): number {
 }
 
 type TicketAtPath =
-  | { verdict: 'parsed'; ticket: Ticket }
+  | { verdict: 'parsed'; ticket: Ticket; identifierLine: number }
   | { verdict: 'malformed'; reason: string; line: number };
+
+interface ParsedTicketFile {
+  fileName:       string;
+  ticket:         Ticket;
+  identifierLine: number;
+}
 
 function ticketAt(filePath: string): TicketAtPath {
   let text: string;
@@ -153,7 +192,48 @@ function ticketAt(filePath: string): TicketAtPath {
   if (parsed.verdict === 'malformed') {
     return parsed;
   }
-  return { verdict: 'parsed', ticket: { frontmatter: parsed.frontmatter, body: parsed.body, filePath } };
+  const ticket: Ticket = {
+    frontmatter: parsed.frontmatter,
+    body:        parsed.body,
+    filePath,
+    lineEnding:  parsed.lineEnding,
+  };
+  return { verdict: 'parsed', ticket, identifierLine: text.split('\n').findIndex((line) => IDENTIFIER_LINE_MATCH.test(line)) + 1 };
+}
+
+function malformedEntryOf(parsedFile: ParsedTicketFile, reason: string): MalformedTicketFile {
+  return { filePath: parsedFile.ticket.filePath, reason, line: parsedFile.identifierLine };
+}
+
+/** `012-slug.md` and `012.md` carry a number; any other name carries none, and a number no ticket could have counts as none. */
+function identifierInFileName(fileName: string): string | null {
+  const found = FILE_NAME_IDENTIFIER_MATCH.exec(fileName);
+  return found === null ? null : TicketIdUtil.parseTicketReference(found[1] ?? '');
+}
+
+/**
+ * Read as raw JSON rather than through the progress store, which is a sibling feature. A file that is absent or will not parse
+ * names nothing: every command that files a ticket has already refused an unreadable progress file before it gets here.
+ */
+function ticketIdsNamedByTaskRows(workspace: Workspace): string[] {
+  let document: unknown;
+  try {
+    document = JSON.parse(readFileSync(workspace.progressFilePath, 'utf8'));
+  } catch {
+    return [];
+  }
+  if (typeof document !== 'object' || document === null || !('tasks' in document) || !Array.isArray(document.tasks)) {
+    return [];
+  }
+
+  const identifiers: string[] = [];
+  for (const task of document.tasks as unknown[]) {
+    if (typeof task === 'object' && task !== null && 'ticket' in task && typeof task.ticket === 'string') {
+      const identifier = TicketIdUtil.parseTicketReference(task.ticket);
+      if (identifier !== null) identifiers.push(identifier);
+    }
+  }
+  return identifiers;
 }
 
 /** A missing tickets directory reads as "no tickets" rather than as a failure. */

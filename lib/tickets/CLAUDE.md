@@ -16,10 +16,13 @@ This is the contract an agent editing a ticket by hand relies on, so it is state
 left to be read out of the parser.
 
 - The file opens on line 1 with `---`. **The closing fence is the first later line equal to `---`**,
-  because bodies contain horizontal rules.
+  because bodies contain horizontal rules. A line opening on two to six `#` and a space before that
+  fence is a markdown heading, and makes the file malformed with a reason naming the heading and the
+  rule it would have taken as the fence: the closing fence was deleted. A `#` comment has one hash.
 - A leading byte order mark is dropped, and CRLF is accepted. The body is kept byte for byte from the
   character after the closing fence's newline, so a hand-written body never changes under a CLI
-  command. The line ending used when writing is recovered from that body.
+  command. The line ending used when writing is the opening fence's, carried on the `Ticket` as
+  `lineEnding`; a ticket not read from a file is written with `\n`.
 - Inside the fences every line is one of:
   - `key: value`, split at the **first** `': '` — so `title: Fix: the thing` keeps its second colon;
   - `key:` alone, which is an empty value;
@@ -41,7 +44,9 @@ left to be read out of the parser.
   a bare `hold:` included, is held. `dependsOn` is written `"001, 002"` and read from any mix of commas and spaces, with or
   without `#` or padding; a part that is not a ticket number makes the file malformed. `id`,
   `title`, `type`, `status`, `filed` and `updated` must be present; `type` and `status` must be
-  values the tool knows; `task` is an integer or `null`; a timestamp key that is absent reads as
+  values the tool knows; `id` is digits naming 1 up to the safe integers, as
+  `TicketIdUtil.parseTicketReference` reads them; `task` is an unquoted safe integer or `null`, and a
+  quoted one is refused as quoted; a timestamp key that is absent reads as
   `null`, which is how tickets written before `delivered` existed still parse.
 - **Every other line — an unknown key, a comment, a blank line — is kept in `extra` in order and
   written back.** Add `owner: Alex Example` to a ticket and it survives every transition. The order
@@ -151,5 +156,11 @@ parameter, not a shared import.
 - Nothing throws because a ticket file is bad. A malformed file is a listing entry and a `null`, so
   one broken file cannot take down `status` or `render`.
 - `writeTicket` never touches `updated`. Only a transition knows that a ticket changed and when.
-- Ticket ids come from file names, not from parsed frontmatter, so a file nobody can parse still owns
-  its number. Gaps are tolerated and never filled.
+- A ticket is known by its frontmatter `id`, never its file name: `readTicket` looks it up in
+  `listTickets`, which lists as malformed a file whose name carries a different number (`012-x.md`
+  holding `id: "001"`) and every file holding an id another file also holds, since which is the
+  ticket cannot be judged. A name without a number (`renamed-by-hand.md`) is no mismatch.
+- `nextTicketId` is one past the highest of every file name's number, every parsed `id` and every
+  `ticket` a row in `progress.json` names — read as raw JSON, since `lib/progress/` is a sibling — so
+  a malformed file, a file renamed by hand and a row whose ticket file a crash never wrote all keep
+  their number. Gaps are tolerated and never filled.
