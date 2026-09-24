@@ -581,7 +581,7 @@ describe.skipIf(!gitIsAvailable())('two releases at once', () => {
     writeFileSync(
       join(hooksDirectory, 'post-merge'),
       // The lock directory outlives every hold, so the probe reads whether its newest generation record is a held one.
-      `#!/bin/sh\nnewest=$(ls .agent-progress/.lock | grep '^generation-' | sort -t- -k2 -n | tail -1)\n`
+      '#!/bin/sh\nnewest=$(ls .agent-progress/.lock | grep \'^generation-\' | sort -t- -k2 -n | tail -1)\n'
         + `if grep -q '"state":"held"' ".agent-progress/.lock/$newest"; then echo held > '${lockObservation}'; else echo free > '${lockObservation}'; fi\n`,
       { mode: 0o755 },
     );
