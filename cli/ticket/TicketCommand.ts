@@ -673,7 +673,7 @@ async function setTicketDependencies(commandArguments: ArgumentParser, context: 
   }
   const dependsOn = dependencyListFrom(dependencyTexts);
 
-  const { result: changed, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
+  const { result: changed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
     const ticket = requireTicket(change.workspace, reference);
     refuseAnUnworkableDependencyList(ticket.frontmatter.id, dependsOn, listTickets(change.workspace).tickets);
 
@@ -690,7 +690,7 @@ async function setTicketDependencies(commandArguments: ArgumentParser, context: 
     return { ticket, logText };
   });
 
-  printEntity(commandArguments, context, ticketAsJson(changed.ticket), NextLineUtil.endWithRunningDispatcherNotice(changed.logText, dispatcherState));
+  printEntityThenNextLine(commandArguments, context, ticketAsJson(changed.ticket), changed.logText, NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState));
 }
 
 async function setTicketPriority(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {

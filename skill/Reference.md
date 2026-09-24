@@ -185,10 +185,11 @@ merge holds them back — and `ticket claim` refuses a low ticket at exit 1 whil
 order as `{ id, priority, model, effort }` with the defaults resolved, so a dispatcher never derives
 a priority or a model itself.
 
-The same figures close the human output of `status`, `ticket add`, every ticket or task move and
-`release`, as one **Next line** read after the change, inside the same lock hold: `Next: 1 of 2
-slots free; ready: #003, #005`, `Next: no slot free (2 agents in flight); ready: #003` or `Next: 2 of 2
-slots free; nothing ready`. Ready ids are listed lowest first, at most five, then `and N more`.
+The same figures close the human output of `status`, `ticket add`, `ticket depends`, `task add
+--start`, every ticket or task move and `release`, as one **Next line** read after the change, inside
+the same lock hold: `Next: 1 of 2 slots free; ready: #003, #005`, `Next: no slot free (2 agents in
+flight); ready: #003` or `Next: 2 of 2 slots free; nothing ready`. Ready ids are listed in dispatch
+order: high first, then by id — normal before low, each lowest id first — at most five, then `and N more`.
 `--json` output never carries the line.
 
 ## The dispatcher state

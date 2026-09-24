@@ -127,7 +127,7 @@ async function addOneTask(commandArguments: ArgumentParser, context: CommandCont
   const startsNow         = commandArguments.flag('start');
   const movesTheLink      = commandArguments.flag('force');
 
-  const task = await openTrackerForWriting(commandArguments, context, (change) => {
+  const { result: task, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
     const {
       progress,
       workspace,
@@ -183,7 +183,13 @@ async function addOneTask(commandArguments: ArgumentParser, context: CommandCont
     return created;
   });
 
-  printEntity(commandArguments, context, task, `Task #${task.id} added: ${task.name}`);
+  const humanLine = `Task #${task.id} added: ${task.name}`;
+  // Only a row started as it is added takes a slot; a pending one moves nothing the Next line reads.
+  if (startsNow) {
+    printEntityThenNextLine(commandArguments, context, task, humanLine, nextLine);
+  } else {
+    printEntity(commandArguments, context, task, humanLine);
+  }
 }
 
 async function transitionOneTask(subcommand: string, commandArguments: ArgumentParser, context: CommandContext): Promise<void> {

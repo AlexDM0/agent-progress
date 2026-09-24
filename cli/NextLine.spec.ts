@@ -1,5 +1,5 @@
 /**
- * The Next line each of the eight commands an orchestrator runs between dispatches ends its human output
+ * The Next line each of the ten commands an orchestrator runs between dispatches ends its human output
  * with, driven in process against one scratch tracker per case. What matters is that the line describes the
  * board after the move rather than before it — a claim that fills the last slot says so — and that no
  * `--json` document carries it, since a script parses that output whole. The wordings themselves are
@@ -70,6 +70,18 @@ const NEXT_LINE_CASES: NextLineCase[] = [
     setup:            [['task', 'start', '4']],
     expectedNextLine: 'Next: 2 of 2 slots free; ready: #001, #002, #003',
   },
+  // A row started as it is added takes a slot, so the line must count it.
+  {
+    command:          ['task', 'add', 'Hotfix the export', '--start'],
+    setup:            [],
+    expectedNextLine: 'Next: 1 of 2 slots free; ready: #001, #002, #003',
+  },
+  // A new dependency takes #001 off the ready list without moving any row.
+  {
+    command:          ['ticket', 'depends', '1', '2'],
+    setup:            [],
+    expectedNextLine: 'Next: 2 of 2 slots free; ready: #002, #003',
+  },
 ];
 
 let repositoryDirectory = '';
@@ -101,8 +113,8 @@ afterEach(() => {
 });
 
 describe.skipIf(!gitIsAvailable())('the line the human output ends with', () => {
-  test('every case names a different command, so the table covers all eight', () => {
-    expect(new Set(NEXT_LINE_CASES.map((nextLineCase) => nextLineCase.command.slice(0, 2).join(' '))).size).toBe(8);
+  test('every case names a different command, so the table covers all ten', () => {
+    expect(new Set(NEXT_LINE_CASES.map((nextLineCase) => nextLineCase.command.slice(0, 2).join(' '))).size).toBe(10);
   });
 
   for (const nextLineCase of NEXT_LINE_CASES) {
