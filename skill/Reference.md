@@ -147,8 +147,9 @@ the ticket in progress. A whole-board run's survey returns every in-progress tic
 worktree exists, and resumes each that is not held ahead of new tickets: its builder resumes the row
 with `task start` and carries on in the ticket's worktree, keeping its uncommitted edits, without a new
 claim. A paused row with any other note is a person's pause, left alone. `ticket unhold` on a ticket in
-progress with a paused row ends its human output (never its `--json`) with a line naming a
-single-ticket dispatcher run for it, which takes the build over the same way.
+progress with a paused row ends its human output (never its `--json`) with a line saying the next
+whole-board run resumes it, and naming a single-ticket dispatcher run for it as the fast lane when no
+whole-board run is going or about to be launched, which takes the build over the same way.
 
 **A ticket may name its agents.** `ticket add --model sonnet --effort high` stores both;
 `ticket agent <id> [--model <m>] [--effort <e>]` changes either later with one log line,

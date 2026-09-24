@@ -144,18 +144,19 @@ describe.skipIf(!gitIsAvailable())('holding a ticket', () => {
 });
 
 const RESUME_BUILD_HINT = 'launch a single-ticket dispatcher run for #001';
+const WHOLE_BOARD_RESUME_HINT = 'the next whole-board dispatcher run resumes it; when none is going or about to be launched, launch a single-ticket';
 
 async function unholdOutput(extraArguments: readonly string[] = []): Promise<string> {
   return (await run(['ticket', 'unhold', '1', ...extraArguments])).outputText();
 }
 
-// No later run's survey picks up an in-progress ticket, so the unhold is the one moment the orchestrator can be told to resume a paused build.
+// A whole-board run's survey resumes a paused build, so the hint names the single-ticket run only as the lane for when no such run is coming.
 describe.skipIf(!gitIsAvailable())('unholding a ticket whose build a dispatcher run left paused', () => {
   beforeEach(async () => {
     await run(['ticket', 'add', 'Show the role history']);
   });
 
-  test('ends its human output with the step that resumes the build, after the Next line', async () => {
+  test('ends its human output with the whole-board run that resumes the build and the single-ticket fast lane, after the Next line', async () => {
     await run(['ticket', 'claim', '1', '--note', 'Built by the whole-board dispatcher run on ticket-001']);
     await run(['task', 'pause', '1']);
     await run(['ticket', 'hold', '1']);
@@ -164,6 +165,7 @@ describe.skipIf(!gitIsAvailable())('unholding a ticket whose build a dispatcher 
 
     expect(lines.at(-2)).toStartWith('Next: ');
     expect(lines.at(-1)).toContain(RESUME_BUILD_HINT);
+    expect(lines.at(-1)).toContain(WHOLE_BOARD_RESUME_HINT);
   });
 
   test('prints no hint under --json, whose document parses whole', async () => {

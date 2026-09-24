@@ -856,9 +856,10 @@ async function setTicketAgent(commandArguments: ArgumentParser, context: Command
   printEntityThenNextLine(commandArguments, context, ticketAsJson(changed.ticket), changed.logText, NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState));
 }
 
-// A dispatcher run pauses the row of a build the hold stopped, and no later run's survey picks up an in-progress ticket, so the step is named here.
+// A whole-board run's survey resumes a paused build by itself, so the single-ticket run is named as the fast lane for when no such run is coming.
 function resumeBuildHintFor(ticketId: string): string {
-  return `Its build was left paused: launch a single-ticket dispatcher run for #${ticketId} (ticketIds: ["${ticketId}"]) to resume it.`;
+  return 'Its build was left paused: the next whole-board dispatcher run resumes it; when none is going or about to be launched, '
+    + `launch a single-ticket dispatcher run for #${ticketId} (ticketIds: ["${ticketId}"]) to resume it now.`;
 }
 
 function buildIsLeftPaused(progress: ProgressFile, ticket: Ticket): boolean {
