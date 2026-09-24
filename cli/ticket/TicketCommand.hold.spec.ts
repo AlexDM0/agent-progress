@@ -143,6 +143,58 @@ describe.skipIf(!gitIsAvailable())('holding a ticket', () => {
   });
 });
 
+const RESUME_BUILD_HINT = 'launch a single-ticket dispatcher run for #001';
+
+async function unholdOutput(extraArguments: readonly string[] = []): Promise<string> {
+  return (await run(['ticket', 'unhold', '1', ...extraArguments])).outputText();
+}
+
+// No later run's survey picks up an in-progress ticket, so the unhold is the one moment the orchestrator can be told to resume a paused build.
+describe.skipIf(!gitIsAvailable())('unholding a ticket whose build a dispatcher run left paused', () => {
+  beforeEach(async () => {
+    await run(['ticket', 'add', 'Show the role history']);
+  });
+
+  test('ends its human output with the step that resumes the build, after the Next line', async () => {
+    await run(['ticket', 'claim', '1', '--note', 'Built by the whole-board dispatcher run on ticket-001']);
+    await run(['task', 'pause', '1']);
+    await run(['ticket', 'hold', '1']);
+
+    const lines = (await unholdOutput()).trimEnd().split('\n');
+
+    expect(lines.at(-2)).toStartWith('Next: ');
+    expect(lines.at(-1)).toContain(RESUME_BUILD_HINT);
+  });
+
+  test('prints no hint under --json, whose document parses whole', async () => {
+    await run(['ticket', 'claim', '1']);
+    await run(['task', 'pause', '1']);
+    await run(['ticket', 'hold', '1']);
+
+    const output = await unholdOutput(['--json']);
+
+    expect(output).not.toContain(RESUME_BUILD_HINT);
+    expect((JSON.parse(output) as { id: string }).id).toBe('001');
+  });
+
+  test('prints no hint for an open ticket, a running build, a ticket in review, or on a hold', async () => {
+    await run(['ticket', 'hold', '1']);
+    expect(await unholdOutput()).not.toContain(RESUME_BUILD_HINT);
+
+    await run(['ticket', 'claim', '1']);
+    await run(['ticket', 'hold', '1']);
+    expect(await unholdOutput()).not.toContain(RESUME_BUILD_HINT);
+
+    await run(['task', 'pause', '1']);
+    expect((await run(['ticket', 'hold', '1'])).outputText()).not.toContain(RESUME_BUILD_HINT);
+
+    await run(['task', 'start', '1']);
+    await run(['ticket', 'review', '1']);
+    await run(['task', 'pause', '1']);
+    expect(await unholdOutput()).not.toContain(RESUME_BUILD_HINT);
+  });
+});
+
 describe.skipIf(!gitIsAvailable())('refusals leave the whole tracker byte-identical', () => {
   // Each refusal is checked against the whole tracker's bytes, so a half-applied write cannot pass as a refusal.
   test('a delivered or abandoned ticket, a second hold, an unhold of a ticket not held and a missing id are all refused at exit 1', async () => {

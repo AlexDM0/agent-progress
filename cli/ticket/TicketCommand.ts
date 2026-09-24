@@ -856,6 +856,16 @@ async function setTicketAgent(commandArguments: ArgumentParser, context: Command
   printEntityThenNextLine(commandArguments, context, ticketAsJson(changed.ticket), changed.logText, NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState));
 }
 
+// A dispatcher run pauses the row of a build the hold stopped, and no later run's survey picks up an in-progress ticket, so the step is named here.
+function resumeBuildHintFor(ticketId: string): string {
+  return `Its build was left paused: launch a single-ticket dispatcher run for #${ticketId} (ticketIds: ["${ticketId}"]) to resume it.`;
+}
+
+function buildIsLeftPaused(progress: ProgressFile, ticket: Ticket): boolean {
+  const { status, task } = ticket.frontmatter;
+  return status === 'in-progress' && task !== null && findTask(progress, task)?.status === 'paused';
+}
+
 /** A hold stops the dispatcher starting the ticket's next builder or reviewer; an agent already running is never interrupted by it. */
 async function holdOrUnholdTicket(holds: boolean, commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   const verb = holds ? 'hold' : 'unhold';
@@ -883,10 +893,12 @@ async function holdOrUnholdTicket(holds: boolean, commandArguments: ArgumentPars
     const logText = holds ? `Ticket #${id} held${reason === '' ? '' : `: ${reason}`}` : `Ticket #${id} unheld`;
     appendLogEntry(change.progress, change.at, logText);
     change.writeTicketAfterwards(ticket);
-    return { logText, ticket };
+    return { logText, ticket, resumeBuildHint: !holds && buildIsLeftPaused(change.progress, ticket) ? resumeBuildHintFor(id) : null };
   });
 
-  printEntityThenNextLine(commandArguments, context, ticketAsJson(changed.ticket), changed.logText, NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState));
+  const endedNextLine = NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState);
+  const closingLines  = changed.resumeBuildHint === null ? endedNextLine : `${endedNextLine}\n${changed.resumeBuildHint}`;
+  printEntityThenNextLine(commandArguments, context, ticketAsJson(changed.ticket), changed.logText, closingLines);
 }
 
 async function setTicketStatus(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {

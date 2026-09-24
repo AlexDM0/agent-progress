@@ -138,6 +138,39 @@ describe.skipIf(!gitIsAvailable())('a whole session through the binary', () => {
   });
 });
 
+// The orchestrator reads this hint from the command's printed output, so it is pinned where a process prints it, and so is its absence from the JSON.
+describe.skipIf(!gitIsAvailable())('unholding a ticket whose build was left paused, through the binary', () => {
+  test('names the single-ticket dispatcher run in the human output only in that state, and never under --json', async () => {
+    const repositoryDirectory = createScratchGitRepository('binary-smoke-unhold');
+    const resumeBuildHint = 'launch a single-ticket dispatcher run for #001';
+
+    try {
+      const run = async (commandLineArguments: readonly string[]): Promise<string> => {
+        const result = await runAgentProgress(commandLineArguments, { currentDirectory: repositoryDirectory });
+        expect(result.exitCode, `\`agent-progress ${commandLineArguments.join(' ')}\` failed: ${result.standardError}`).toBe(0);
+        return result.standardOutput;
+      };
+
+      await run(['init', '--project', 'Example Agency']);
+      await run(['ticket', 'add', 'Show the role history']);
+      await run(['ticket', 'claim', '1']);
+      await run(['ticket', 'hold', '1']);
+      expect(await run(['ticket', 'unhold', '1'])).not.toContain(resumeBuildHint);
+
+      await run(['task', 'pause', '1']);
+      await run(['ticket', 'hold', '1']);
+      const jsonOutput = await run(['ticket', 'unhold', '1', '--json']);
+      expect(jsonOutput).not.toContain(resumeBuildHint);
+      expect((JSON.parse(jsonOutput) as { status: string }).status).toBe('in-progress');
+
+      await run(['ticket', 'hold', '1']);
+      expect((await run(['ticket', 'unhold', '1'])).trimEnd().split('\n').at(-1)).toContain(resumeBuildHint);
+    } finally {
+      removeScratchDirectory(repositoryDirectory);
+    }
+  });
+});
+
 describe.skipIf(!gitIsAvailable())('a bare repository, through the binary', () => {
   test('init refuses it and writes nothing into the directory that holds it', async () => {
     const parentDirectory = createScratchDirectory('binary-smoke-bare');
