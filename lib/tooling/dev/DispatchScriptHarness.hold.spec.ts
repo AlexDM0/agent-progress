@@ -96,7 +96,7 @@ const HELD_AFTER_ITS_BUILDER_STOPPED_SHORT: DispatchScenario = {
   },
 };
 
-const RESUME_THE_PAUSED_ROW_SENTENCE = '    + pausedRowResumptionText(ticketId, previousPass, takeoverText)\n';
+const PAUSED_ROW_RESUMPTION_SOURCE_LINE = '    + pausedRowResumptionText(ticketId, previousPass, takeoverText)\n';
 
 function lastBlockBeforeShowsHeld(run: DispatchRun, call: RecordedAgentCall, ticketId: string): boolean {
   return run.heldTicketIdsReturned[call.statusBlocksReturnedBefore - 1]?.includes(ticketId) ?? false;
@@ -206,7 +206,7 @@ const CLAIMS: Claim[] = [
     name:     'the same takeover resumes the paused row, so the build holds its slot while it runs',
     scenario: PAUSED_BUILD_RESUMED_ALONE,
     holds:    (run) => summaryOf(run).delivered.join() === HELD_TICKET_ID && run.buildersOnBoard.join() === `main build ${HELD_TICKET_ID}`,
-    mutant:   { find: RESUME_THE_PAUSED_ROW_SENTENCE, replace: '' },
+    mutant:   { find: PAUSED_ROW_RESUMPTION_SOURCE_LINE, replace: '' },
   },
   {
     // Within one run the same resume applies: the held takeover's row was paused by a parking agent, and the rebuild after the unhold carries on past it.
@@ -216,7 +216,7 @@ const CLAIMS: Claim[] = [
       && callsOf(run, 'build', HELD_TICKET_ID).length === 2
       && callsOf(run, 'park', HELD_TICKET_ID).length === 1
       && run.rowsRunningAtEnd.length === 0,
-    mutant: { find: RESUME_THE_PAUSED_ROW_SENTENCE, replace: '' },
+    mutant: { find: PAUSED_ROW_RESUMPTION_SOURCE_LINE, replace: '' },
   },
 ];
 
