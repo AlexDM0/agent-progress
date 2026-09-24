@@ -60,12 +60,14 @@ function scratchWorkspace(): Workspace {
 }
 
 function fileTicket(workspace: Workspace, title: string, type: TicketType): Ticket {
-  return createTicket(workspace, {
+  const ticket = createTicket(workspace, {
     title,
     type,
-    body: TICKET_BODY,
-    at:   FILED_AT,
+    bodyFor: () => TICKET_BODY,
+    at:      FILED_AT,
   });
+  writeTicket(ticket);
+  return ticket;
 }
 
 afterEach(() => {
@@ -97,11 +99,11 @@ describe('createTicket and listTickets', () => {
   test('a new ticket opens with no timeline and no task row of its own', () => {
     const workspace = scratchWorkspace();
     const ticket    = createTicket(workspace, {
-      title: 'Fix the export dialog',
-      type:  'bug',
-      group: 'export-dialog',
-      body:  TICKET_BODY,
-      at:    FILED_AT,
+      title:   'Fix the export dialog',
+      type:    'bug',
+      group:   'export-dialog',
+      bodyFor: () => TICKET_BODY,
+      at:      FILED_AT,
     });
 
     expect(ticket.frontmatter.status).toBe('open');
@@ -112,6 +114,22 @@ describe('createTicket and listTickets', () => {
     expect(ticket.frontmatter.group).toBe('export-dialog');
     expect(ticket.frontmatter.task).toBeNull();
     expect(ticket.body).toBe(TICKET_BODY);
+  });
+
+  // The command layer writes a new ticket after the progress file; a write in here would come first, and a second time.
+  test('writes no file, and composes the body from the id it assigns', () => {
+    const workspace = scratchWorkspace();
+    fileTicket(workspace, 'Fix the export dialog', 'bug');
+
+    const ticket = createTicket(workspace, {
+      title:   'Add a keyboard shortcut',
+      type:    'feature',
+      bodyFor: (ticketId) => `# ${ticketId} — Add a keyboard shortcut\n`,
+      at:      FILED_AT,
+    });
+
+    expect(ticket.body).toBe('# 002 — Add a keyboard shortcut\n');
+    expect(listTickets(workspace).tickets.map((listed) => listed.frontmatter.id)).toEqual(['001']);
   });
 
   test('a repeated title takes a suffixed slug, so the file names stay tellable apart without their ids', () => {
@@ -207,6 +225,15 @@ describe('writeTicket and deleteAllTickets', () => {
     expect(reread?.frontmatter.branch).toBe('ticket/export-dialog');
     expect(reread?.frontmatter.updated).toBe(FILED_AT);
     expect(reread?.body).toBe(filed.body);
+  });
+
+  test('recreates a tickets directory that `clear --all` removed', () => {
+    const workspace = scratchWorkspace();
+    rmSync(workspace.ticketsDirectory, { recursive: true, force: true });
+
+    fileTicket(workspace, 'Fix the export dialog', 'bug');
+
+    expect(readTicket(workspace, '1')?.frontmatter.title).toBe('Fix the export dialog');
   });
 
   test('deletes every ticket file and answers how many there were', () => {

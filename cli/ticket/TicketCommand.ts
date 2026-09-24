@@ -36,12 +36,7 @@ import {
   findTask,
   setTaskTokens
 }                                                from '../../lib/progress/ProgressStore';
-import {
-  createTicket,
-  listTickets,
-  nextTicketId,
-  readTicket
-}                                                from '../../lib/tickets/TicketStore';
+import { createTicket, listTickets, readTicket } from '../../lib/tickets/TicketStore';
 import {
   LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS,
   applyTicketPriority,
@@ -137,12 +132,11 @@ function padColumn(text: string, width: number): string {
   return text.length >= width ? `${text} ` : text.padEnd(width);
 }
 
-async function bodyForNewTicket(commandArguments: ArgumentParser, identifier: string, title: string): Promise<string> {
-  const supplied = await suppliedBodyFor(commandArguments);
-  if (supplied !== undefined && supplied.trim() !== '') return supplied;
+function bodyForNewTicket(suppliedBody: string | undefined, ticketId: string, title: string): string {
+  if (suppliedBody !== undefined && suppliedBody.trim() !== '') return suppliedBody;
 
   return readFileSync(join(import.meta.dir, ...TICKET_BODY_TEMPLATE_PATH), 'utf8')
-    .split(TICKET_TEMPLATE_PLACEHOLDERS.id).join(identifier)
+    .split(TICKET_TEMPLATE_PLACEHOLDERS.id).join(ticketId)
     .split(TICKET_TEMPLATE_PLACEHOLDERS.title).join(title);
 }
 
@@ -299,22 +293,21 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
   const group     = commandArguments.option('group');
   const dependsOn = dependencyListFrom([commandArguments.option('depends-on') ?? '']);
 
-  // Resolved before the lock: `--body-file -` waits on a pipe the caller may hold open indefinitely.
-  const workspace  = requireWorkspace(context.currentDirectory);
-  const identifier = nextTicketId(workspace);
-  const body       = await bodyForNewTicket(commandArguments, identifier, title);
+  // Read before the lock: `--body-file -` waits on a pipe the caller may hold open indefinitely. The id is not: only the lock hold makes it this ticket's.
+  requireWorkspace(context.currentDirectory);
+  const suppliedBody = await suppliedBodyFor(commandArguments);
 
   const { result: ticket, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
-    // A ticket that does not exist yet has nobody waiting on it, so only the ids themselves can be wrong.
-    refuseAnUnworkableDependencyList(identifier, dependsOn, listTickets(change.workspace).tickets);
     const filed = createTicket(change.workspace, {
       title,
       type,
       ...(priority === undefined ? {} : { priority }),
       ...(group === undefined ? {} : { group }),
-      body,
-      at: change.at,
+      bodyFor: (ticketId) => bodyForNewTicket(suppliedBody, ticketId, title),
+      at:      change.at,
     });
+    // A ticket that does not exist yet has nobody waiting on it, so only the ids themselves can be wrong.
+    refuseAnUnworkableDependencyList(filed.frontmatter.id, dependsOn, listTickets(change.workspace).tickets);
     if (dependsOn.length > 0) filed.frontmatter.dependsOn = dependsOn;
     if (model !== undefined) filed.frontmatter.model = model;
     if (effort !== undefined) filed.frontmatter.effort = effort;

@@ -9,7 +9,7 @@ import {
   readFileSync,
   unlinkSync,
 } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import type {
   Ticket,
   TicketFrontmatter,
@@ -40,7 +40,8 @@ export interface CreateTicketInput {
   /** Written only when given, so a ticket filed without one reads as normal exactly like a ticket filed before priorities existed. */
   priority?: TicketPriority;
   group?:    string;
-  body:      string;
+  /** Given the id this store assigns, so a body that names its own ticket cannot name another. */
+  bodyFor:   (ticketId: string) => string;
   /** The timestamp the ticket records as both `filed` and `updated`; the caller owns the clock. */
   at:        string;
 }
@@ -85,6 +86,8 @@ export function readTicket(workspace: Workspace, reference: string): Ticket | nu
 
 /** Writes through `lib/platform/AtomicFile.ts` and never touches `updated`; only `lib/tickets/TicketTransitions.ts` knows that a ticket changed. */
 export function writeTicket(ticket: Ticket): void {
+  // The directory is recreated rather than assumed: `clear --all` may have removed it.
+  mkdirSync(dirname(ticket.filePath), { recursive: true });
   writeFileAtomically(ticket.filePath, serializeTicketDocument(ticket.frontmatter, ticket.body));
 }
 
@@ -101,10 +104,8 @@ export function nextTicketId(workspace: Workspace): string {
   return TicketIdUtil.padTicketId(highest + 1);
 }
 
+/** Writes nothing: the caller holds the lock and writes the ticket after the progress file, so the id it assigns is only safe to use inside that hold. */
 export function createTicket(workspace: Workspace, input: CreateTicketInput): Ticket {
-  // The directory is recreated rather than assumed: `clear --all` may have removed it.
-  mkdirSync(workspace.ticketsDirectory, { recursive: true });
-
   const identifier  = nextTicketId(workspace);
   const fileName    = `${identifier}-${unusedSlugFor(workspace, SlugUtil.slugFromTitle(input.title))}${TICKET_FILE_EXTENSION}`;
   const frontmatter: TicketFrontmatter = {
@@ -123,10 +124,7 @@ export function createTicket(workspace: Workspace, input: CreateTicketInput): Ti
     task:        null,
     extra:       [],
   };
-  const ticket: Ticket = { frontmatter, body: input.body, filePath: join(workspace.ticketsDirectory, fileName) };
-
-  writeTicket(ticket);
-  return ticket;
+  return { frontmatter, body: input.bodyFor(identifier), filePath: join(workspace.ticketsDirectory, fileName) };
 }
 
 export function deleteAllTickets(workspace: Workspace): number {

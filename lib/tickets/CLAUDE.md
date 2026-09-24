@@ -7,7 +7,7 @@ that says what each status change writes. It does not own any command, any lock 
 | file | what it is |
 |---|---|
 | `lib/tickets/Frontmatter.ts` | The YAML-shaped subset below: `parseTicketDocument(text)` → a verdict, `serializeTicketDocument(frontmatter, body)` → the file's text. |
-| `lib/tickets/TicketStore.ts` | The tickets directory as a store: `listTickets`, `readTicket`, `writeTicket`, `nextTicketId`, `createTicket`, `deleteAllTickets`. |
+| `lib/tickets/TicketStore.ts` | The tickets directory as a store: `listTickets`, `readTicket`, `writeTicket`, `nextTicketId`, `createTicket` (which assigns the id and composes the body from it, and writes nothing: the command writes the ticket after the progress file), `deleteAllTickets`. |
 | `lib/tickets/TicketTransitions.ts` | `ensureTaskForTicket`, `applyTicketTransition`, `applyTicketRereview`, `seedTaskFromTicket` — the ticket → task transition table below — plus `LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS` and `ticketMoveIsLegal`, the matrix the named `ticket` verbs enforce; and the low-priority rule: `ticketStaysOffTheChart`, `ensureTaskForTicketOnTheChart` and `applyTicketPriority`. |
 
 ## The frontmatter subset, in full

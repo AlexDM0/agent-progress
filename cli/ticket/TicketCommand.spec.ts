@@ -1,22 +1,34 @@
 /**
  * The markdown tickets and the Gantt rows they drive: every transition moves the row and stamps the frontmatter, which is what `clear` re-seeds from.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
-import { join }                        from 'node:path';
+import {
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  writeFileSync
+} from 'node:fs';
+import { join } from 'node:path';
 
 import {
   afterEach,
   beforeEach,
   describe,
   expect,
+  spyOn,
   test
 }                                                                             from 'bun:test';
+import { LOCK_RETRY_INTERVAL_MILLISECONDS }                                   from '../../lib/constants/Limits';
 import type { ProgressFile }                                                  from '../../lib/constants/Types';
+import * as AtomicFile                                                        from '../../lib/platform/AtomicFile';
+import { withLock }                                                           from '../../lib/platform/Lock';
+import { workspacePathsFor }                                                  from '../../lib/platform/Workspace';
 import { createCapturedCommandContext }                                       from '../../lib/tooling/dev/CapturedCommandContext';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../lib/tooling/dev/ScratchWorkspace';
 import { runCommandLine }                                                     from '../Main';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
+
+const LOCK_HELD_WHILE_ADDS_QUEUE_MILLISECONDS = LOCK_RETRY_INTERVAL_MILLISECONDS * 4;
 
 const FIRST_TICKET_FILE_NAME = '001-double-click-a-role-to-edit-it.md';
 
@@ -84,6 +96,51 @@ describe.skipIf(!gitIsAvailable())('filing a ticket', () => {
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('is not a ticket type');
+  });
+
+  // Two adds queued behind one lock hold is how two agents filing at once meet; a heading with another ticket's number misleads its reader.
+  test('two adds queued behind a held lock each carry their own id in their heading', async () => {
+    let queuedAdds: Promise<number>[] = [];
+
+    await withLock(workspacePathsFor(repositoryDirectory), async () => {
+      queuedAdds = [
+        runCommandLine(['ticket', 'add', 'Held A'], contextHere()),
+        runCommandLine(['ticket', 'add', 'Held B'], contextHere()),
+      ];
+      await Bun.sleep(LOCK_HELD_WHILE_ADDS_QUEUE_MILLISECONDS);
+    }, () => new Date());
+
+    expect(await Promise.all(queuedAdds)).toEqual([0, 0]);
+    const ticketFileNames = readdirSync(join(repositoryDirectory, '.agent-progress', 'tickets')).sort();
+    expect(ticketFileNames).toHaveLength(2);
+    for (const fileName of ticketFileNames) {
+      const ticketId = fileName.slice(0, fileName.indexOf('-'));
+      expect(storedTicketText(fileName)).toContain(`\n# ${ticketId} — Held `);
+    }
+  });
+
+  // The progress file is never behind a ticket file, and a first write without `dependsOn` is a ticket a concurrent reader sees as ready.
+  test('the new ticket file is written once, after the progress file, with its dependencies on that one write', async () => {
+    await run(['ticket', 'add', 'Double-click a role to edit it']);
+    // The command writes through the resolved root, and the scratch directory's own path may pass through a symlink such as `/var`.
+    const trackerDirectory = join(realpathSync(repositoryDirectory), '.agent-progress');
+    const progressFilePath = join(trackerDirectory, 'progress.json');
+    const ticketsDirectory = join(trackerDirectory, 'tickets');
+    const atomicWrites     = spyOn(AtomicFile, 'writeFileAtomically');
+    let recordedWrites: Array<[string, string]> = [];
+
+    try {
+      await run(['ticket', 'add', 'Show the role history', '--depends-on', '1']);
+      recordedWrites = [...atomicWrites.mock.calls];
+    } finally {
+      atomicWrites.mockRestore();
+    }
+
+    const trackerWrites = recordedWrites
+      .filter(([targetPath]) => targetPath === progressFilePath || targetPath.startsWith(ticketsDirectory))
+      .map(([targetPath, contents]) => ({ targetPath, contents }));
+    expect(trackerWrites.map((write) => write.targetPath)).toEqual([progressFilePath, join(ticketsDirectory, '002-show-the-role-history.md')]);
+    expect(trackerWrites[1]?.contents).toContain('dependsOn: "001"');
   });
 });
 
