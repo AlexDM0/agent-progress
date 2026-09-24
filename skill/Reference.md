@@ -146,12 +146,8 @@ read that shows the hold lifted — or is returned under `held: [{ id, waitingFo
 first. A running agent is never interrupted: a hold set after a builder's final status read is too
 late for the reviewer that follows it. `ticket claim` refuses a held ticket. A run that ends while a
 ticket it claimed is held, or is stopped before a build finished, leaves that build's row `paused` and
-the ticket in progress. A whole-board run's survey returns every in-progress ticket whose own row is
-`paused` under a dispatcher run's claim note (`Built by the … dispatcher run on ticket-<id>`) and whose
-worktree exists, and resumes each that is not held ahead of new tickets: its builder resumes the row
-with `task start` and carries on in the ticket's worktree, keeping its uncommitted edits, without a new
-claim. A paused row with any other note is a person's pause, left alone. `ticket unhold` on a ticket in
-progress with a paused row ends its human output (never its `--json`) with a line saying how the
+the ticket in progress; how a later run resumes it is under "The dispatcher state". `ticket unhold` on
+a ticket in progress with a paused row ends its human output (never its `--json`) with a line saying how the
 build resumes. Under a dispatcher claim note it says the next whole-board run resumes it, and a
 single-ticket dispatcher run for it is the fast lane when no whole-board run is going or about to be
 launched. Under any other note it names `task start <row>`, or settling the row by hand: no
@@ -274,10 +270,16 @@ or reviewer starts. Whichever the run, two agents in a row that return nothing, 
 it the way a board stop does, and it returns `stoppedByFailures: true`: those deaths count as no
 failed pass and park nothing. A run that ended with builds left paused and not held names them in its
 summary as `pausedBuilds: [<ids>]`, absent when there are none, and the reviews it left waiting as
-`reviewsLeft: [<ids>]`, absent the same way; the next whole-board run resumes both. It resumes a
-paused build like a ready ticket of the same priority, just before one: after any ready ticket of a
-higher priority, and a low one only with `includeLowPriority: true` — until then it is named in
-`lowPriorityWaiting` as well. A paused build whose worktree is gone is never resumed. Two runs may then want one ticket, and the atomic `ticket claim` gives it to one: each
+`reviewsLeft: [<ids>]`, absent the same way; the next whole-board run resumes both.
+
+**Resuming a paused build** is stated here once. A whole-board run's survey returns every in-progress
+ticket whose own row is `paused` under a dispatcher run's claim note (`Built by the … dispatcher run on
+ticket-<id>`) and whose worktree exists, and resumes each that is not held: its builder resumes the row
+with `task start` and carries on in the ticket's worktree, keeping its uncommitted edits, without a new
+claim. It is ordered like a ready ticket of the same priority, just before one: after any ready ticket
+of a higher priority, and a low one only with `includeLowPriority: true` — until then it is named in
+`lowPriorityWaiting` as well. A paused row with any other note is a person's pause, left alone, and a
+paused build whose worktree is gone is never resumed. Two runs may then want one ticket, and the atomic `ticket claim` gives it to one: each
 builder's claim note names its run, so a builder refused as in-progress carries on only past its own
 run's claim and otherwise returns, and its run moves on. Every builder ends with
 `ticket review <id> --start-review`, and its reviewer takes that bar over, so the ticket's slot is held
@@ -322,7 +324,7 @@ of `{target: worktree, path, outcome: removed}`,
 `agent-progress range` sets the tracker's stored default and every browser sees it. A relative bound
 is stored as you wrote it and resolved on each refresh, so `--from -2h --to now` always means the
 last two hours. The page itself carries a range bar with the presets **Auto · 1h · 4h · 12h · 24h ·
-7d · All**, `datetime-local` inputs for an exact window and a tick-step selector; a viewer's choice
+7d · All**, From and To text inputs for an exact window and a tick-step selector; a viewer's choice
 is kept in their browser and survives the refresh, and **Auto** hands control back to the stored
 default. Bars outside the window are clipped and marked, never dropped.
 

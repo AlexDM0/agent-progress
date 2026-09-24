@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # setup.sh — install the agent-progress tooling on this machine: Bun, `bun install` + `bun link`, and
-# a symlink from ~/.claude/skills/agent-progress to this repository's skill/.
+# symlinks from ~/.claude/skills/agent-progress to this repository's skill/ and from
+# ~/.claude/skills/agent-progress-orchestrate to its skill-orchestrate/.
 #
 # It edits nothing outside $HOME/.claude and, on the offer, one shell rc file, and it deletes nothing
 # that is not a symlink it wrote. Per-repository setup is `agent-progress init`'s job, not this one's.

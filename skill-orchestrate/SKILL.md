@@ -209,19 +209,9 @@ builder or reviewer for it while it is held and keeps the other tickets flowing.
 lets the held step start at the run's next board read. A builder or reviewer already running is never
 interrupted, so tell the user when the hold came too late for the step under way.
 
-**A build a hold or a stop left paused is resumed by the next run.** When a run ends while a ticket
-it had claimed is held, or is stopped before that build finished, its row is `paused` and the ticket
-stays in progress. A whole-board run's survey finds every such build that is not held — an
-in-progress ticket whose own row is `paused` under a dispatcher run's claim note, with its worktree
-in place — and resumes it ahead of new tickets, its builder carrying on in that worktree without a
-new claim. A paused row with any other note is a person's pause and is left alone. So after a stop,
-the relaunch on the user's go resumes the paused builds by itself. For a held one, once the hold is
-lifted: whenever `ticket unhold <id>` ends its output with the line naming a single-ticket dispatcher
-run for that ticket and no whole-board run is going or about to be launched, launch the dispatcher
-with `ticketIds: ["<id>"]` (no `readyTickets` entry, as an in-progress ticket has none); a
-whole-board run takes it over just the same. A run given no entry for its ticket reads the ticket's
-model and effort with `ticket show --json` before it starts anyone, so pass no model yourself. The
-same holds for a `held` entry waiting for its `build` whose ticket `ticket show` reports in progress.
+**A build a hold or a stop left paused is resumed by the next run**, as `skill/Reference.md` states
+under "The dispatcher state"; yours is only to launch `ticketIds: ["<id>"]`, with no `readyTickets`
+entry, when `ticket unhold <id>` names a single-ticket run and no whole-board run is going or due.
 
 **When it returns with `stoppedByFailures`**, its agents died back to back — a session limit or a lost
 connection, not the tickets failing — so it started nothing new, let the agents in flight finish,
@@ -280,8 +270,9 @@ compaction the `Next:` line of `agent-progress status` says which.
   behind it, or a task notification saying the run was stopped or died, recover it as below.
 
 **Recovering a run that died or was killed: resume it, never launch fresh.** Its agents in flight left
-their tickets claimed, their bars running and partial work in their worktrees; a fresh run reads those
-rows as other agents' and never takes an in-progress ticket up again. Resume it instead, with the run
+their tickets claimed, their bars running and partial work in their worktrees; a fresh run reads a
+`running` row as an agent still at work and takes up only the builds it finds paused, so those tickets
+would wait on agents that are gone. Resume it instead, with the run
 id the board stored and the same args as its launch, so the journal answers every agent that finished
 and only the ones in flight run again:
 
@@ -291,8 +282,10 @@ Workflow({ scriptPath: '<mainCheckout>/.claude/workflows/agent-progress-dispatch
 
 then `agent-progress dispatcher running --run <the new runId>`. A builder run again carries on in
 its own claim and worktree, and a reviewer takes its own bar over; the script tells them so. Only
-when there is no stored id or the resume is refused: `agent-progress task pause` every `running` row
-no agent is behind, then `agent-progress dispatcher running` and a fresh launch.
+when there is no stored id or the resume is refused: for every `running` row no agent is behind,
+`agent-progress task pause` a build row, which the fresh run resumes, and `task finish` then
+`task deliver` a review bar (a row with `reviewOf`), whose ticket the fresh run then reviews anew;
+then `agent-progress dispatcher running` and a fresh launch.
 
 **Low-priority work is triaged before it is run.** When the only work left is low priority, stop
 relaunching and triage the low tickets: abandon each that is no longer relevant, with the reason;
