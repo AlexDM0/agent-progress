@@ -133,13 +133,13 @@ function reviewRoundNamedBy(task: Task): number {
 }
 
 export interface PlacedTaskRow {
-  row:               TaskRow;
-  /** The ticket id of the row this one is drawn under, or `null` for a row drawn at the top level. */
-  nestedUnderTicket: string | null;
+  row:              TaskRow;
+  /** The ticket id of the row this one is nested with, drawn directly above it, or `null` for a row drawn at the top level. */
+  nestedWithTicket: string | null;
 }
 
 /**
- * Newest filed first, except that a review row is drawn directly under its ticket's own row, in round order. A review whose ticket has
+ * Newest filed first, except that a review row is drawn directly above its ticket's own row, latest round first. A review whose ticket has
  * no row among these — never started, or hidden as long done — stays where its filing puts it, and a ticket's own row is never nested.
  */
 export function taskRowsInDisplayOrder(rows: readonly TaskRow[]): PlacedTaskRow[] {
@@ -159,16 +159,16 @@ export function taskRowsInDisplayOrder(rows: readonly TaskRow[]): PlacedTaskRow[
 
   return rows.toReversed().flatMap((row) => {
     if (nestedRows.has(row)) return [];
-    const reviews = (reviewsByParent.get(row) ?? []).toSorted((a, b) => reviewRoundNamedBy(a.task) - reviewRoundNamedBy(b.task) || a.task.id - b.task.id);
+    const reviews = (reviewsByParent.get(row) ?? []).toSorted((a, b) => reviewRoundNamedBy(b.task) - reviewRoundNamedBy(a.task) || b.task.id - a.task.id);
     return [
-      { row, nestedUnderTicket: null },
-      ...reviews.map((review) => ({ row: review, nestedUnderTicket: row.task.ticket })),
+      ...reviews.map((review) => ({ row: review, nestedWithTicket: row.task.ticket })),
+      { row, nestedWithTicket: null },
     ];
   });
 }
 
 function taskRowMarkup(placed: PlacedTaskRow, slices: TimestampSlices): string {
-  const { row, nestedUnderTicket } = placed;
+  const { row, nestedWithTicket } = placed;
   const { task, bar }              = row;
   const state         = rowStateFor(task, row.ticketStatus);
   const ticketBadge   = task.ticket === null
@@ -180,7 +180,7 @@ function taskRowMarkup(placed: PlacedTaskRow, slices: TimestampSlices): string {
   const tokens = task.tokens === null
     ? ''
     : `<span class="ap-tokens">${escapeHtml(formatTokenCount(task.tokens))} tokens</span>`;
-  const nesting = nestedUnderTicket === null ? '' : ` ${attribute('data-review-of', nestedUnderTicket)}`;
+  const nesting = nestedWithTicket === null ? '' : ` ${attribute('data-review-of', nestedWithTicket)}`;
   return [
     `<div class="ap-grid-row ap-row" ${attribute('id', `ap-task-${task.id}`)} ${attribute('data-task-id', String(task.id))} ${attribute('data-state', state)}${nesting}>`,
     `<div class="ap-cell-name"><span class="ap-num">${escapeHtml(String(task.id))}</span>`,

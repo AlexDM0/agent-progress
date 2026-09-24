@@ -225,40 +225,42 @@ function drawnOrderOf(markup: string): Array<[taskId: string, reviewOf: string |
   return [...markup.matchAll(/data-task-id="(\d+)" data-state="[^"]+"(?: data-review-of="(\d+)")?/g)].map((match) => [match[1] ?? '', match[2] ?? null]);
 }
 
-// A review pass belongs to its ticket: it is drawn under the ticket's own row rather than wherever its start time put it.
-describe('review rows nested under their ticket', () => {
-  test('draws both review rows directly under the ticket, indented, round 1 above round 2, whether linked by flag or only by name', () => {
+// A review pass belongs to its ticket: it is drawn above the ticket's own row rather than wherever its start time put it.
+describe('review rows nested above their ticket', () => {
+  test('draws the review rows directly above the ticket, indented, latest round first, whether linked by flag or only by name', () => {
     const markup = taskRowsMarkup(rowsFiled([
       exampleTask({ id: 1, name: 'Split the exporter', ticket: '003' }),
       exampleTask({ id: 2, name: 'Regenerate the fixtures' }),
       exampleTask({ id: 3, name: 'Review 1 #3 — Split the exporter' }),
       exampleTask({ id: 4, name: 'Brighter colours', ticket: '004' }),
       exampleTask({ id: 5, name: 'Review 2 #3 — Split the exporter', reviewOf: '003' }),
+      exampleTask({ id: 6, name: 'Review 3 #3 — Split the exporter', reviewOf: '003' }),
     ]), EXAMPLE_SLICES);
 
     expect(drawnOrderOf(markup)).toEqual([
       ['4', null],
       ['2', null],
-      ['1', null],
-      ['3', '003'],
+      ['6', '003'],
       ['5', '003'],
+      ['3', '003'],
+      ['1', null],
     ]);
   });
 
-  test('puts the flag ahead of the name, so a review named for one ticket but filed against another nests under the flagged one', () => {
+  test('puts the flag ahead of the name, so a review named for one ticket but filed against another nests above the flagged one', () => {
     const markup = taskRowsMarkup(rowsFiled([
       exampleTask({ id: 1, ticket: '003' }),
       exampleTask({ id: 2, ticket: '004' }),
       exampleTask({ id: 3, name: 'Review 1 #3 — x', reviewOf: '004' }),
     ]), EXAMPLE_SLICES);
 
-    expect(drawnOrderOf(markup)).toEqual([['2', null], ['3', '004'], ['1', null]]);
+    expect(drawnOrderOf(markup)).toEqual([['3', '004'], ['2', null], ['1', null]]);
   });
 
-  test('draws a bundle review once, under the first ticket it names', () => {
+  test('draws a bundle review once, above the first ticket it names', () => {
     const markup = taskRowsMarkup(rowsFiled([
-      exampleTask({ id: 1, ticket: '005' }),
-      exampleTask({ id: 2, ticket: '013' }),
+      exampleTask({ id: 1, ticket: '013' }),
+      exampleTask({ id: 2, ticket: '005' }),
       exampleTask({ id: 3, name: 'Review 1 #13, #5 — the bundle' }),
     ]), EXAMPLE_SLICES);
 
