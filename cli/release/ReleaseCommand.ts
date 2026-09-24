@@ -15,11 +15,11 @@ import {
   removeWorktree
 }                                                                                            from '../../lib/platform/BranchRelease';
 import { OperationRefusal, refusalIsOperationRefusal, type OperationRefusalStatus }          from '../../lib/platform/OperationRefusal';
-import { runningReviewRowsOf, transitionTask }                                               from '../../lib/progress/ProgressStore';
 import { readTicket }                                                                        from '../../lib/tickets/TicketStore';
 import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS, applyTicketTransition, ticketMoveIsLegal } from '../../lib/tickets/TicketTransitions';
 import type { CommandContext }                                                               from '../CommandContext';
 import {
+  closeRunningReviewRows,
   openTrackerForWritingThenReadNextLine,
   printEntity,
   printEntityThenNextLine,
@@ -182,11 +182,7 @@ async function releaseUnderTheLock(
     }
 
     // The reviewer releases as the last step of its pass, so its bar is closed here rather than left running until the orchestrator reads the verdict.
-    const closedReviewRows = runningReviewRowsOf(change.progress, tickets.map(({ frontmatter }) => frontmatter.id));
-    for (const reviewRow of closedReviewRows) {
-      transitionTask(change.progress, reviewRow.id, 'finished', change.at);
-      transitionTask(change.progress, reviewRow.id, 'delivered', change.at);
-    }
+    const closedReviewRows = closeRunningReviewRows(change.progress, tickets.map(({ frontmatter }) => frontmatter.id), change.at);
     return {
       tickets,
       commit: merge.commit,

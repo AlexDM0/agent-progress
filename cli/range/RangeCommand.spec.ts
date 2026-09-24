@@ -1,8 +1,8 @@
 /**
  * The stored default axis: a relative bound is kept verbatim, so `--from -2h` still means the last two hours on the next refresh.
  */
-import { readFileSync } from 'node:fs';
-import { join }         from 'node:path';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join }                        from 'node:path';
 
 import {
   afterEach,
@@ -174,6 +174,21 @@ describe.skipIf(!gitIsAvailable())('the two bounds a range cannot have', () => {
     await run(['range', '--from', 'now', '--to', 'start']);
     await run(['range', '--from', '2026-09-19T09:00', '--to', 'now']);
     expect(storedView()).toMatchObject({ kind: 'relative', to: 'now' });
+  });
+});
+
+describe.skipIf(!gitIsAvailable())('an unreadable progress file', () => {
+  /** A script matching the reason should not need to know whether the command it ran takes the lock. */
+  test('a settings write reports it in the same words as status, at exit 2', async () => {
+    writeFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), '{ not json');
+    const reasons: string[] = [];
+    for (const commandLine of [['range', '--auto'], ['status']]) {
+      const context = contextHere();
+      expect(await runCommandLine(commandLine, context), commandLine.join(' ')).toBe(2);
+      reasons.push(context.errorText());
+    }
+    expect(reasons[0]).toContain('progress.json cannot be read: ');
+    expect(reasons[0]).toBe(reasons[1] ?? '');
   });
 });
 

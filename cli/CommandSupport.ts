@@ -11,6 +11,7 @@ import type {
   AgentModel,
   DispatcherState,
   ProgressFile,
+  Task,
   Ticket,
   TicketPriority,
   TicketStatus
@@ -26,6 +27,7 @@ import {
   findTask,
   readProgressFile,
   removeTask,
+  runningReviewRowsOf,
   transitionTask,
   writeProgressFile,
   type Concurrency
@@ -52,10 +54,12 @@ export const progressOperations: PriorityOperations = {
 };
 
 export interface TrackerChange {
-  progress:              ProgressFile;
-  workspace:             Workspace;
-  at:                    string;
-  writeTicketAfterwards: (ticket: Ticket) => void;
+  progress:                ProgressFile;
+  workspace:               Workspace;
+  at:                      string;
+  writeTicketAfterwards:   (ticket: Ticket) => void;
+  /** For a change to the tickets directory other than a write, run after the progress file and the queued tickets and before the render. */
+  changeTicketsAfterwards: (step: () => void) => void;
 }
 
 /** An unreadable `--at` is refused rather than defaulted to now, which would stamp a bar nobody can explain. */
@@ -97,7 +101,10 @@ export function ticketDocumentOf(ticket: Ticket): Ticket['frontmatter'] & { prio
   return { ...ticket.frontmatter, priority: ticketPriorityOf(ticket.frontmatter), filePath: ticket.filePath };
 }
 
-/** For the read-only commands, which take no lock: the progress file is written atomically, so this reads either the old one or the new one. */
+/**
+ * Without the lock, for the read-only commands, this reads either the old file or the new one, since it is written atomically. Unreadable is
+ * `'unrepaired'`: under the lock the file was there a moment ago, so it vanished or broke under the command.
+ */
 export function requireProgressFile(workspace: Workspace): ProgressFile {
   const progressRead = readProgressFile(workspace);
   if (progressRead.verdict !== 'readable') {
@@ -105,6 +112,26 @@ export function requireProgressFile(workspace: Workspace): ProgressFile {
     throw new OperationRefusal('unrepaired', `${workspace.progressFilePath} cannot be read: ${reason}`);
   }
   return progressRead.progress;
+}
+
+export function ignoredTicketFileText(malformed: { filePath: string; line: number; reason: string }): string {
+  const place = malformed.line > 0 ? ` (line ${malformed.line})` : '';
+  return `Ticket file ignored: ${malformed.filePath}${place}: ${malformed.reason}`;
+}
+
+export function reportIgnoredTicketFiles(context: CommandContext, malformedTickets: readonly { filePath: string; line: number; reason: string }[]): void {
+  for (const malformed of malformedTickets) context.standardError(ignoredTicketFileText(malformed));
+}
+
+/** Finishes and delivers every running review row of the tickets, with one log line each, for every move that ends their review. */
+export function closeRunningReviewRows(progress: ProgressFile, ticketIds: readonly string[], at: string): Task[] {
+  const closedRows = runningReviewRowsOf(progress, ticketIds);
+  for (const runningRow of closedRows) {
+    transitionTask(progress, runningRow.id, 'finished', at);
+    transitionTask(progress, runningRow.id, 'delivered', at);
+    appendLogEntry(progress, at, `Closed the review row #${runningRow.id}, delivered: ${runningRow.name}`);
+  }
+  return closedRows;
 }
 
 export function printEntity(commandArguments: ArgumentParser, context: CommandContext, entity: unknown, humanLine: string): void {
@@ -185,10 +212,7 @@ function reportRenderProblems(context: CommandContext, outcome: RerenderOutcome)
   if (outcome.verdict === 'rendered-without-page-script') {
     context.standardError(`The dashboard was written without its page script, so the chart is not interactive: ${outcome.reason}`);
   }
-  for (const malformed of outcome.malformedTickets) {
-    const place = malformed.line > 0 ? ` (line ${malformed.line})` : '';
-    context.standardError(`Ticket file ignored: ${malformed.filePath}${place}: ${malformed.reason}`);
-  }
+  reportIgnoredTicketFiles(context, outcome.malformedTickets);
 }
 
 export async function renderDashboard(context: CommandContext, workspace: Workspace): Promise<RerenderOutcome> {
@@ -206,7 +230,6 @@ export async function renderDashboardOrRefuse(context: CommandContext, workspace
   reportRenderProblems(context, outcome);
 }
 
-/** An unreadable progress file here is `'unrepaired'`, not `'refused'`: it was there a moment ago, so it vanished under the command. */
 async function writeTrackerUnderLock<MutationResult, Reading>(
   commandArguments: ArgumentParser,
   context: CommandContext,
@@ -217,23 +240,22 @@ async function writeTrackerUnderLock<MutationResult, Reading>(
   const at        = resolveAtOption(commandArguments, context);
 
   return withLock(workspace, async () => {
-    const progressRead = readProgressFile(workspace);
-    if (progressRead.verdict !== 'readable') {
-      const reason = progressRead.verdict === 'absent' ? 'it is not there' : progressRead.reason;
-      throw new OperationRefusal('unrepaired', `${workspace.progressFilePath} cannot be used: ${reason}`);
-    }
+    const progress = requireProgressFile(workspace);
 
     const ticketsToWrite: Ticket[] = [];
+    const ticketStepsToRun: (() => void)[] = [];
     const result = await mutate({
       at,
-      progress:              progressRead.progress,
+      progress,
       workspace,
-      writeTicketAfterwards: (ticket: Ticket) => { ticketsToWrite.push(ticket); },
+      writeTicketAfterwards:   (ticket: Ticket) => { ticketsToWrite.push(ticket); },
+      changeTicketsAfterwards: (step: () => void) => { ticketStepsToRun.push(step); },
     });
 
-    writeProgressFile(workspace, progressRead.progress);
+    writeProgressFile(workspace, progress);
     for (const ticket of ticketsToWrite) writeTicket(ticket);
-    const reading = readAfterWriting(workspace, progressRead.progress);
+    for (const ticketStep of ticketStepsToRun) ticketStep();
+    const reading = readAfterWriting(workspace, progress);
     await renderDashboard(context, workspace);
     return { result, reading };
   }, context.now);

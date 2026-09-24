@@ -612,3 +612,20 @@ describe.skipIf(!gitIsAvailable())('ticket dependencies', () => {
     expect(await refusalOf(['ticket', 'depends', '2', 'importer'])).toContain('"importer" is not a ticket id');
   });
 });
+
+describe.skipIf(!gitIsAvailable())('a ticket file that will not parse', () => {
+  /** A broken hand edit is a state the tool will not repair, so it is exit 2; exit 1 would tell a script the id was its own mistake. */
+  test('show and claim exit 2 naming the file and why, while an id with no file at all stays exit 1', async () => {
+    await run(['ticket', 'add', 'Double-click a role to edit it']);
+    writeFileSync(join(repositoryDirectory, '.agent-progress', 'tickets', FIRST_TICKET_FILE_NAME), 'no frontmatter here\n');
+
+    for (const commandLine of [['ticket', 'show', '1'], ['ticket', 'claim', '1', '--owner', 'opus']]) {
+      const context = contextHere();
+      expect(await runCommandLine(commandLine, context), commandLine.join(' ')).toBe(2);
+      expect(context.errorText(), commandLine.join(' ')).toMatch(new RegExp(`^Ticket file ignored: .*${FIRST_TICKET_FILE_NAME}`));
+    }
+    const missingContext = contextHere();
+    expect(await runCommandLine(['ticket', 'show', '2'], missingContext)).toBe(1);
+    expect(missingContext.errorText()).toContain('There is no readable ticket 2');
+  });
+});

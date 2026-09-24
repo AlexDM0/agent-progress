@@ -27,6 +27,7 @@ import {
   padColumn,
   printEntityThenNextLine,
   readyTicketsOf,
+  reportIgnoredTicketFiles,
   requireProgressFile,
   ticketDocumentOf,
   type ReadyTicket
@@ -186,10 +187,7 @@ export const statusCommand: CommandHandler = async (commandArguments, context) =
   const progress  = requireProgressFile(workspace);
   const listing   = listTickets(workspace);
 
-  for (const malformed of listing.malformed) {
-    const place = malformed.line > 0 ? ` (line ${malformed.line})` : '';
-    context.standardError(`Ticket file ignored: ${malformed.filePath}${place}: ${malformed.reason}`);
-  }
+  reportIgnoredTicketFiles(context, listing.malformed);
 
   const showsEverything = commandArguments.flag('full');
   const asJson          = showsEverything ? fullDocumentOf(progress, listing.tickets) : workingDocumentOf(progress, listing.tickets);

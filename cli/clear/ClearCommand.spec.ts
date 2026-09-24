@@ -1,8 +1,8 @@
 /**
  * Starting a new session in an existing tracker: the rows are re-seeded from each surviving ticket's own frontmatter and ids are never wound back.
  */
-import { readFileSync, readdirSync } from 'node:fs';
-import { join }                      from 'node:path';
+import { chmodSync, readFileSync, readdirSync } from 'node:fs';
+import { join }                                 from 'node:path';
 
 import {
   afterEach,
@@ -19,6 +19,9 @@ import { runCommandLine }                                                     fr
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
 const TICKETS_DIRECTORY = ['.agent-progress', 'tickets'];
+
+const READ_AND_ENTER_ONLY_MODE = 0o555;
+const OWNER_FULL_ACCESS_MODE   = 0o755;
 
 let repositoryDirectory = '';
 
@@ -105,6 +108,26 @@ describe.skipIf(!gitIsAvailable())('clearing everything', () => {
 
     await run(['ticket', 'add', 'Fix the axis', '--type', 'bug']);
     expect(ticketFileNames()).toEqual(['001-fix-the-axis.md']);
+  });
+
+  /** The progress file is written before any ticket file changes, so a write that fails cannot leave rows naming tickets that are gone. */
+  test('--all whose progress file cannot be written deletes no ticket', async () => {
+    const trackerDirectory = join(repositoryDirectory, '.agent-progress');
+    const progressBefore   = readFileSync(join(trackerDirectory, 'progress.json'), 'utf8');
+    chmodSync(trackerDirectory, READ_AND_ENTER_ONLY_MODE);
+    try {
+      const context = contextHere();
+      expect(await runCommandLine(['clear', '--all', '--yes'], context)).toBe(2);
+    } finally {
+      chmodSync(trackerDirectory, OWNER_FULL_ACCESS_MODE);
+    }
+    expect(ticketFileNames()).toEqual(['001-double-click-a-role-to-edit-it.md']);
+    expect(readFileSync(join(trackerDirectory, 'progress.json'), 'utf8')).toBe(progressBefore);
+  });
+
+  test('--json still counts the tickets --all deleted', async () => {
+    const context = await run(['clear', '--all', '--yes', '--json']);
+    expect(JSON.parse(context.outputText())).toMatchObject({ deletedTicketCount: 1, reseededTicketCount: 0 });
   });
 });
 

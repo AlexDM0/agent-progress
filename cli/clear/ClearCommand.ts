@@ -39,12 +39,14 @@ export const clearCommand: CommandHandler = async (commandArguments, context) =>
     }
   }
 
+  let deletedTicketCount = 0;
   const summary = await openTrackerForWriting(commandArguments, context, (change) => {
     const {
       progress,
       workspace,
       at,
       writeTicketAfterwards,
+      changeTicketsAfterwards,
     } = change;
 
     const removedTaskCount = progress.tasks.length;
@@ -58,10 +60,11 @@ export const clearCommand: CommandHandler = async (commandArguments, context) =>
     appendLogEntry(progress, at, CLEARED_LOG_TEXT);
 
     if (deletesTickets) {
+      // After the progress file, like every ticket write, so a failed write leaves the tickets and the file that names them together.
+      changeTicketsAfterwards(() => { deletedTicketCount = deleteAllTickets(workspace); });
       return {
         removedTaskCount,
         removedLogCount,
-        deletedTicketCount:  deleteAllTickets(workspace),
         reseededTicketCount: 0,
       };
     }
@@ -78,18 +81,22 @@ export const clearCommand: CommandHandler = async (commandArguments, context) =>
     return {
       removedTaskCount,
       removedLogCount,
-      deletedTicketCount:  0,
       reseededTicketCount: surviving.length,
     };
   });
 
   const ticketLine = deletesTickets
-    ? `${summary.deletedTicketCount} ticket(s) deleted`
+    ? `${deletedTicketCount} ticket(s) deleted`
     : `${summary.reseededTicketCount} ticket(s) re-seeded`;
   printEntity(
     commandArguments,
     context,
-    summary,
+    {
+      removedTaskCount:    summary.removedTaskCount,
+      removedLogCount:     summary.removedLogCount,
+      deletedTicketCount,
+      reseededTicketCount: summary.reseededTicketCount,
+    },
     `Tracker cleared: ${summary.removedTaskCount} task row(s) and ${summary.removedLogCount} log entr(ies) removed, ${ticketLine}.`,
   );
 };

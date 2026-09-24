@@ -1,6 +1,6 @@
 /** The named verbs enforce the legality matrix of `lib/tickets/TicketTransitions.ts`; `ticket status` is the documented override that skips it. */
-import { readFileSync }  from 'node:fs';
-import { join, resolve } from 'node:path';
+import { readFileSync }            from 'node:fs';
+import { basename, join, resolve } from 'node:path';
 
 import {
   AGENT_EFFORTS,
@@ -41,7 +41,12 @@ import {
   setTaskTokens,
   transitionTask
 }                                                from '../../lib/progress/ProgressStore';
-import { createTicket, listTickets, readTicket } from '../../lib/tickets/TicketStore';
+import {
+  createTicket,
+  listTickets,
+  readTicket,
+  type MalformedTicketFile
+}                                                from '../../lib/tickets/TicketStore';
 import {
   LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS,
   applyTicketPriority,
@@ -56,12 +61,15 @@ import { TicketIdUtil }         from '../../lib/utils/TicketIdUtil';
 import type { CommandContext }  from '../CommandContext';
 import {
   TICKET_STATUSES_NO_AGENT_WORKS_AGAIN,
+  closeRunningReviewRows,
+  ignoredTicketFileText,
   openTrackerForWriting,
   openTrackerForWritingThenReadNextLine,
   padColumn,
   printEntity,
   printEntityThenNextLine,
   progressOperations,
+  reportIgnoredTicketFiles,
   ticketDocumentOf,
   tokenCountFrom
 }                                                              from '../CommandSupport';
@@ -164,9 +172,21 @@ async function suppliedBodyFor(commandArguments: ArgumentParser, context: Comman
   }
 }
 
+function malformedFileOfTicket(workspace: Workspace, reference: string): MalformedTicketFile | undefined {
+  const identifier = TicketIdUtil.parseTicketReference(reference);
+  if (identifier === null) return undefined;
+  return listTickets(workspace).malformed.find(({ filePath }) => {
+    const fileName = basename(filePath);
+    return fileName.startsWith(`${identifier}-`) || fileName === `${identifier}.md`;
+  });
+}
+
+/** A ticket file that is there and will not parse is exit 2: the tool will not repair a hand edit, and a missing ticket is the caller's to fix. */
 function requireTicket(workspace: Workspace, reference: string): Ticket {
   const ticket = readTicket(workspace, reference);
   if (ticket === null) {
+    const malformed = malformedFileOfTicket(workspace, reference);
+    if (malformed !== undefined) throw new OperationRefusal('unrepaired', ignoredTicketFileText(malformed));
     throw new OperationRefusal(
       'refused',
       `There is no readable ticket ${reference}. Run \`agent-progress ticket list\` to see what this tracker holds; `
@@ -321,14 +341,7 @@ function startReviewBar(progress: ProgressFile, ticket: Ticket, request: ReviewB
 }
 
 function closeRunningReviewBars(progress: ProgressFile, ticketId: string, at: string): number[] {
-  const closedBarIds: number[] = [];
-  for (const runningBar of runningReviewRowsOf(progress, [ticketId])) {
-    transitionTask(progress, runningBar.id, 'finished', at);
-    transitionTask(progress, runningBar.id, 'delivered', at);
-    appendLogEntry(progress, at, `Closed the review row #${runningBar.id}, delivered: ${runningBar.name}`);
-    closedBarIds.push(runningBar.id);
-  }
-  return closedBarIds;
+  return closeRunningReviewRows(progress, [ticketId], at).map((closedBar) => closedBar.id);
 }
 
 /** A bundle is one agent, so its reviewer takes no second slot while the builder still holds the claim's slot for the bundle's other tickets. */
@@ -429,10 +442,7 @@ function listAllTickets(commandArguments: ArgumentParser, context: CommandContex
     .filter((ticket) => writtenPriority === undefined || ticketPriorityOf(ticket.frontmatter) === writtenPriority);
 
   // Before the listing, so a reader piping the table still sees what was left out of it.
-  for (const malformed of listing.malformed) {
-    const place = malformed.line > 0 ? ` (line ${malformed.line})` : '';
-    context.standardError(`Ticket file ignored: ${malformed.filePath}${place}: ${malformed.reason}`);
-  }
+  reportIgnoredTicketFiles(context, listing.malformed);
 
   if (shown.length === 0) {
     const narrowing = [writtenStatus, writtenPriority === undefined ? undefined : `${writtenPriority} priority`].filter((part) => part !== undefined);

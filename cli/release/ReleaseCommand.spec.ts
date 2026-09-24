@@ -371,6 +371,17 @@ describe.skipIf(!gitIsAvailable())('a release closes the running review bars of 
     expect(humanOutcome.output.split('\n').at(-1)).toStartWith('Next: 2 of 2 slots free');
   });
 
+  // Every other move that closes a review bar logs it, so the log would otherwise be the one place a released review never ended.
+  test('each review row it closes gets the same log line every other closing move writes', async () => {
+    const { identifier, worktree, branch } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
+    const reviewRowId = await runningReviewRow(identifier);
+
+    const outcome = await agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree]);
+
+    expect(outcome.exitCode, outcome.error).toBe(0);
+    expect(storedProgress().log).toContainEqual({ at: releaseStamp, text: `Closed the review row #${reviewRowId}, delivered: Review 1 #${identifier} — the work` });
+  });
+
   test('under --json the closed review rows are listed by id', async () => {
     const { identifier, worktree, branch } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
     const reviewRowId = await runningReviewRow(identifier);
