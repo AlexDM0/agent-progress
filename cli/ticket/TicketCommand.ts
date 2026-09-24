@@ -856,15 +856,22 @@ async function setTicketAgent(commandArguments: ArgumentParser, context: Command
   printEntityThenNextLine(commandArguments, context, ticketAsJson(changed.ticket), changed.logText, NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState));
 }
 
-// A whole-board run's survey resumes a paused build by itself, so the single-ticket run is named as the fast lane for when no such run is coming.
-function resumeBuildHintFor(ticketId: string): string {
-  return 'Its build was left paused: the next whole-board dispatcher run resumes it; when none is going or about to be launched, '
-    + `launch a single-ticket dispatcher run for #${ticketId} (ticketIds: ["${ticketId}"]) to resume it now.`;
+// A whole-board run's survey resumes only a row paused under a dispatcher run's claim note, so only then is the single-ticket run the fast lane.
+function resumeBuildHintFor(ticketId: string, pausedRowNote: string): string {
+  const singleTicketRun = `launch a single-ticket dispatcher run for #${ticketId} (ticketIds: ["${ticketId}"]) to resume it`;
+  if (!noteIsADispatcherClaimOn(pausedRowNote, ticketId)) return `Its build was left paused: ${singleTicketRun}.`;
+  return `Its build was left paused: the next whole-board dispatcher run resumes it; when none is going or about to be launched, ${singleTicketRun} now.`;
 }
 
-function buildIsLeftPaused(progress: ProgressFile, ticket: Ticket): boolean {
+function noteIsADispatcherClaimOn(note: string, ticketId: string): boolean {
+  return note.startsWith('Built by the ') && note.endsWith(` dispatcher run on ticket-${ticketId}`);
+}
+
+function pausedBuildRowNoteOf(progress: ProgressFile, ticket: Ticket): string | null {
   const { status, task } = ticket.frontmatter;
-  return status === 'in-progress' && task !== null && findTask(progress, task)?.status === 'paused';
+  if (status !== 'in-progress' || task === null) return null;
+  const row = findTask(progress, task);
+  return row?.status === 'paused' ? row.note : null;
 }
 
 /** A hold stops the dispatcher starting the ticket's next builder or reviewer; an agent already running is never interrupted by it. */
@@ -894,7 +901,8 @@ async function holdOrUnholdTicket(holds: boolean, commandArguments: ArgumentPars
     const logText = holds ? `Ticket #${id} held${reason === '' ? '' : `: ${reason}`}` : `Ticket #${id} unheld`;
     appendLogEntry(change.progress, change.at, logText);
     change.writeTicketAfterwards(ticket);
-    return { logText, ticket, resumeBuildHint: !holds && buildIsLeftPaused(change.progress, ticket) ? resumeBuildHintFor(id) : null };
+    const pausedRowNote = holds ? null : pausedBuildRowNoteOf(change.progress, ticket);
+    return { logText, ticket, resumeBuildHint: pausedRowNote === null ? null : resumeBuildHintFor(id, pausedRowNote) };
   });
 
   const endedNextLine = NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState);

@@ -168,6 +168,18 @@ describe.skipIf(!gitIsAvailable())('unholding a ticket whose build a dispatcher 
     expect(lines.at(-1)).toContain(WHOLE_BOARD_RESUME_HINT);
   });
 
+  // A whole-board survey leaves a person's pause alone, so the hint must not promise that run for one.
+  test('names only the single-ticket run when the paused row carries a note other than a dispatcher claim', async () => {
+    await run(['ticket', 'claim', '1', '--note', 'Paused by Alex Example']);
+    await run(['task', 'pause', '1']);
+    await run(['ticket', 'hold', '1']);
+
+    const lastLine = (await unholdOutput()).trimEnd().split('\n').at(-1);
+
+    expect(lastLine).toContain(RESUME_BUILD_HINT);
+    expect(lastLine).not.toContain('whole-board');
+  });
+
   test('prints no hint under --json, whose document parses whole', async () => {
     await run(['ticket', 'claim', '1']);
     await run(['task', 'pause', '1']);
