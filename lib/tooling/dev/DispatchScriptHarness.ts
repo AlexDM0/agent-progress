@@ -170,7 +170,7 @@ export interface DispatchRun {
 /** The sentence a builder's prompt carries on past a claim refused as in-progress by, and the one a reviewer's takes a bar left running by. */
 export const BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM = 'the claim is this run\'s own';
 
-/** The sentence a builder resumes a paused row it carries on past by, and the one a single-ticket run's builder takes over another run's paused build by. */
+/** The sentence a builder resumes a paused row it carries on past by, and the one a single-ticket run takes over another run's paused build by. */
 export const BUILDER_RESUMES_A_PAUSED_ROW                 = 'resume it first with `agent-progress task start <that row>`';
 export const BUILDER_TAKES_OVER_A_PAUSED_DISPATCHER_BUILD = 'a hold or a stop left that build paused';
 export const REVIEWER_TAKES_OVER_A_RUNNING_BAR     = 'take it as your bar and add none';
