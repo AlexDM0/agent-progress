@@ -226,7 +226,8 @@ function pausedBuildTakeoverText(ticketId) {
     + 'and it is this run\'s to take over in the same way. ';
 }
 
-// `previousPass` is what sent this ticket back to a builder in this run: `builder` (a pass that stopped short of review), `review` (a does-not-hold), or null.
+// `previousPass` is what sent this ticket back to a builder in this run: `builder` (a pass that stopped short of review), `review` (a does-not-hold),
+// `paused` (a build an earlier run left paused, found by the survey), or null.
 function builderPrompt(ticketId, previousPass, owner) {
   const worktree = worktreeOf(ticketId);
   // The runtime restarts an agent whose model call hangs with the same prompt, and a resume re-runs one that was in flight: either way the first
