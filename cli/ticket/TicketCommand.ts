@@ -23,6 +23,8 @@ import {
 import type {
   AgentEffort,
   AgentModel,
+  ProgressFile,
+  Task,
   Ticket,
   TicketPriority,
   TicketStatus,
@@ -31,10 +33,13 @@ import type {
 import { OperationRefusal }                 from '../../lib/platform/OperationRefusal';
 import { requireWorkspace, type Workspace } from '../../lib/platform/Workspace';
 import {
+  addTask,
   appendLogEntry,
   concurrencyOf,
   findTask,
-  setTaskTokens
+  runningReviewRowsOf,
+  setTaskTokens,
+  transitionTask
 }                                                from '../../lib/progress/ProgressStore';
 import { createTicket, listTickets, readTicket } from '../../lib/tickets/TicketStore';
 import {
@@ -66,6 +71,7 @@ const USAGE = [
   'agent-progress ticket list [--status <s>] [--priority <p>] [--json]',
   'agent-progress ticket show <id> [--json]',
   'agent-progress ticket start|review|done|deliver|abandon|reopen <id> [--branch <b>] [--commit <sha>] [--reason <text>] [--tokens <n>] [--at <when>]',
+  'agent-progress ticket review|rereview <id> --start-review [--owner <who>] [--note <text>] [--at <when>]',
   'agent-progress ticket claim <id> [<id>...] [--owner <who>] [--note <text>] [--at <when>]',
   'agent-progress ticket rereview <id> [--at <when>]',
   'agent-progress ticket status <id> <status> [...same options]',
@@ -91,7 +97,9 @@ const AGENT_OPTION_NAMES      = ['model', 'effort', 'at', 'json'];
 const SHOW_OPTION_NAMES       = ['json'];
 const TRANSITION_OPTION_NAMES = ['branch', 'commit', 'reason', 'at', 'tokens', 'json'];
 const CLAIM_OPTION_NAMES      = ['owner', 'note', 'at', 'json'];
-const REREVIEW_OPTION_NAMES   = ['at', 'json'];
+const REVIEW_BAR_OPTION_NAMES = ['start-review', 'owner', 'note'];
+const REVIEW_OPTION_NAMES     = [...TRANSITION_OPTION_NAMES, ...REVIEW_BAR_OPTION_NAMES];
+const REREVIEW_OPTION_NAMES   = ['at', 'json', ...REVIEW_BAR_OPTION_NAMES];
 const LINK_OPTION_NAMES       = ['force', 'json'];
 const DEPENDS_OPTION_NAMES    = ['json'];
 
@@ -274,6 +282,73 @@ function tokenCountFrom(commandArguments: ArgumentParser): number | undefined {
   return count;
 }
 
+interface ReviewBarRequest {
+  owner?: string;
+  note?:  string;
+}
+
+interface StartedReviewBar {
+  bar:          Task;
+  closedBarIds: number[];
+}
+
+const REVIEW_SECTION_HEADING_PATTERN = /^## Review[ \t]*$/gm;
+
+function reviewBarRequestFrom(commandArguments: ArgumentParser, subcommand: string): ReviewBarRequest | null {
+  const owner = commandArguments.option('owner');
+  const note  = commandArguments.option('note');
+  if (!commandArguments.flag('start-review')) {
+    if (owner !== undefined || note !== undefined) {
+      throw new OperationRefusal('refused', `--owner and --note name the review bar, so \`agent-progress ticket ${subcommand}\` takes them only with --start-review.\n  Usage: ${USAGE}`);
+    }
+    return null;
+  }
+  return {
+    ...(owner === undefined ? {} : { owner }),
+    ...(note === undefined ? {} : { note }),
+  };
+}
+
+/** The round a reviewer states for itself: the `## Review` sections already in the ticket, plus one. */
+function reviewRoundOf(ticket: Ticket): number {
+  return (ticket.body.match(REVIEW_SECTION_HEADING_PATTERN)?.length ?? 0) + 1;
+}
+
+/**
+ * Closes the ticket's running review bars and starts the next one, inside the caller's lock hold, so the ticket's slot is never free between two
+ * agents: a builder's `ticket review` hands it to its reviewer, a reviewer's round to the next.
+ */
+function startReviewBar(progress: ProgressFile, ticket: Ticket, request: ReviewBarRequest, at: string): StartedReviewBar {
+  const { id, title } = ticket.frontmatter;
+  const closedBarIds  = [];
+  for (const earlierBar of runningReviewRowsOf(progress, [id])) {
+    transitionTask(progress, earlierBar.id, 'finished', at);
+    transitionTask(progress, earlierBar.id, 'delivered', at);
+    appendLogEntry(progress, at, `Closed the review row #${earlierBar.id}, delivered: ${earlierBar.name}`);
+    closedBarIds.push(earlierBar.id);
+  }
+  const bar = addTask(progress, {
+    name:     `Review ${reviewRoundOf(ticket)} #${id} — ${title}`,
+    filedAt:  at,
+    reviewOf: id,
+    ...request,
+  });
+  transitionTask(progress, bar.id, 'running', at);
+  appendLogEntry(progress, at, `Review row #${bar.id} started: ${bar.name}`);
+  return { bar, closedBarIds };
+}
+
+function reviewBarText(started: StartedReviewBar | null): string {
+  if (started === null) return '';
+  const closedText = started.closedBarIds.map((barId) => `\nClosed the review row #${barId}, delivered`).join('');
+  return `${closedText}\nReview row #${started.bar.id} started: ${started.bar.name}`;
+}
+
+function ticketWithReviewBarAsJson(ticket: Ticket, started: StartedReviewBar | null): Record<string, unknown> {
+  if (started === null) return ticketAsJson(ticket);
+  return { ...ticketAsJson(ticket), reviewRow: started.bar, closedReviewRows: started.closedBarIds };
+}
+
 async function addOneTicket(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   commandArguments.rejectUnknownOptions(ADD_OPTION_NAMES, USAGE);
   commandArguments.rejectExtraPositionals(2, USAGE);
@@ -429,6 +504,7 @@ async function transitionOneTicket(
   commandArguments: ArgumentParser,
   context: CommandContext,
   checksTheMatrix: boolean,
+  reviewBarRequest: ReviewBarRequest | null = null,
 ): Promise<void> {
   const branch = commandArguments.option('branch');
   const commit = commandArguments.option('commit');
@@ -460,11 +536,13 @@ async function transitionOneTicket(
     if (tokens !== undefined && outcome.ticket.frontmatter.task !== null) {
       setTaskTokens(change.progress, outcome.ticket.frontmatter.task, tokens);
     }
+    const startedReviewBar = reviewBarRequest === null ? null : startReviewBar(change.progress, outcome.ticket, reviewBarRequest, change.at);
     change.writeTicketAfterwards(outcome.ticket);
     const { tickets } = listTickets(change.workspace);
     return {
       logText:     outcome.logText,
       ticket:      outcome.ticket,
+      startedReviewBar,
       unsettled:   unsettledDependenciesFor(outcome.ticket, tickets),
       lowHeldBack: lowTicketHeldBackText(outcome.ticket, tickets),
     };
@@ -472,7 +550,8 @@ async function transitionOneTicket(
 
   // A reopened ticket goes back into the queue a running dispatcher takes from, so it is intake like `ticket add`.
   const closingLines = targetStatus === 'open' ? NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState) : nextLine;
-  printEntityThenNextLine(commandArguments, context, ticketAsJson(moved.ticket), moved.logText, closingLines);
+  const humanText    = `${moved.logText}${reviewBarText(moved.startedReviewBar)}`;
+  printEntityThenNextLine(commandArguments, context, ticketWithReviewBarAsJson(moved.ticket, moved.startedReviewBar), humanText, closingLines);
 
   // A warning, not a refusal: the order is advice to whoever picks work up, and the user may know better.
   if (targetStatus === 'in-progress' && moved.unsettled.length > 0) {
@@ -485,7 +564,12 @@ async function transitionOneTicket(
 }
 
 /** The one verb that may be run on the status the ticket already has: a further review pass is still review. */
-async function rereviewOneTicket(reference: string, commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
+async function rereviewOneTicket(
+  reference: string,
+  commandArguments: ArgumentParser,
+  context: CommandContext,
+  reviewBarRequest: ReviewBarRequest | null,
+): Promise<void> {
   const { result: moved, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
     const ticket  = requireTicket(change.workspace, reference);
     const outcome = applyTicketRereview({
@@ -499,11 +583,13 @@ async function rereviewOneTicket(reference: string, commandArguments: ArgumentPa
       const firstReviewAdvice = ticketMoveIsLegal(status, 'in-review') ? ` Run \`agent-progress ticket review ${id}\` to send it to its first reviewer.` : '';
       throw new OperationRefusal('refused', `Ticket #${id} is ${status}, and ${outcome.reason}.${firstReviewAdvice}`);
     }
+    const startedReviewBar = reviewBarRequest === null ? null : startReviewBar(change.progress, outcome.ticket, reviewBarRequest, change.at);
     change.writeTicketAfterwards(outcome.ticket);
-    return { logText: outcome.logText, ticket: outcome.ticket };
+    return { logText: outcome.logText, ticket: outcome.ticket, startedReviewBar };
   });
 
-  printEntityThenNextLine(commandArguments, context, ticketAsJson(moved.ticket), moved.logText, nextLine);
+  const humanText = `${moved.logText}${reviewBarText(moved.startedReviewBar)}`;
+  printEntityThenNextLine(commandArguments, context, ticketWithReviewBarAsJson(moved.ticket, moved.startedReviewBar), humanText, nextLine);
 }
 
 /** A dependency on another ticket in the same claim is settled: one agent works a bundle in dependency order. */
@@ -804,7 +890,7 @@ export const ticketCommand: CommandHandler = async (commandArguments, context) =
     if (reference === undefined) {
       throw new OperationRefusal('refused', `agent-progress ticket rereview needs a ticket id.\n  Usage: ${USAGE}`);
     }
-    return rereviewOneTicket(reference, commandArguments, context);
+    return rereviewOneTicket(reference, commandArguments, context, reviewBarRequestFrom(commandArguments, subcommand));
   }
   if (subcommand === 'list') {
     listAllTickets(commandArguments, context);
@@ -820,13 +906,15 @@ export const ticketCommand: CommandHandler = async (commandArguments, context) =
     ? TRANSITION_SUBCOMMANDS[subcommand]
     : undefined;
   if (targetStatus !== undefined) {
-    commandArguments.rejectUnknownOptions(TRANSITION_OPTION_NAMES, USAGE);
+    const sendsToReview = targetStatus === 'in-review';
+    commandArguments.rejectUnknownOptions(sendsToReview ? REVIEW_OPTION_NAMES : TRANSITION_OPTION_NAMES, USAGE);
     commandArguments.rejectExtraPositionals(2, USAGE);
     const reference = commandArguments.positionals()[1];
     if (reference === undefined) {
       throw new OperationRefusal('refused', `agent-progress ticket ${subcommand} needs a ticket id.\n  Usage: ${USAGE}`);
     }
-    return transitionOneTicket(targetStatus, reference, commandArguments, context, true);
+    const reviewBarRequest = sendsToReview ? reviewBarRequestFrom(commandArguments, subcommand) : null;
+    return transitionOneTicket(targetStatus, reference, commandArguments, context, true, reviewBarRequest);
   }
 
   throw new OperationRefusal(
