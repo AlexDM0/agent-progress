@@ -137,6 +137,20 @@ const CLAIMS: Claim[] = [
     mutant: { find: '    ...(held.length > 0 ? { held } : {}),\n', replace: '' },
   },
   {
+    // A queued step, not a takeover: the survey's in-review ticket and a rebuild after a review that did not hold reach the queue this way.
+    name:     'a held ticket the survey found waiting for review gets no reviewer, and the run returns it as held for a review',
+    scenario: {
+      limit:                  2,
+      readyTicketIds:         ['002'],
+      reviewWaitingTicketIds: [HELD_TICKET_ID],
+      heldTicketIds:          [HELD_TICKET_ID],
+    },
+    holds: (run) => callsOf(run, 'review', HELD_TICKET_ID).length === 0
+      && summaryOf(run).delivered.join() === '002'
+      && JSON.stringify(summaryOf(run).held) === JSON.stringify([{ id: HELD_TICKET_ID, waitingFor: 'review' }]),
+    mutant: { find: '    if (!ticketIsHeld(queued.ticketId)) return queued;\n    holdBack(queued);\n', replace: '    return queued;\n' },
+  },
+  {
     // A bar left running for a held ticket would count against the limit for as long as the hold lasts.
     name:     'the review bar a builder handed on to a held ticket\'s reviewer is released, not left holding a slot',
     scenario: HELD_AND_NEVER_UNHELD,
