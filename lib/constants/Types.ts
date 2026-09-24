@@ -36,7 +36,7 @@ export interface Task {
    */
   agent?:       string;
   /**
-   * The padded id of the ticket this row reviews, written by `task add --review-of`; the page draws the row under that ticket's own row.
+   * The padded id of the ticket this row reviews, written by `task add --review-of`; the page draws the row directly above that ticket's own row.
    * Absent on every other row, and on a review row filed before the field existed, whose `Review <N> #<id>` name the page reads instead.
    */
   reviewOf?:    string;

@@ -145,8 +145,9 @@ themselves. The five timestamp slice positions travel the same way, so no page m
 - **A review row is drawn directly above its ticket's row**, which `taskRowsInDisplayOrder` in
   `lib/render/page/PageMarkup.ts` decides: the row's `reviewOf`, else the first id of a
   `Review <N> #<id>` name, matched by number against the visible rows' `ticket`, then the latest round
-  from the name first and the latest filed after it, so round 1 sits immediately above the ticket. A nested row carries `data-review-of` with the ticket's id, and
-  the template's one rule for it is the indent. A review whose ticket has no visible row, and a
+  from the name first and the latest filed after it, so round 1 sits immediately above the ticket. A
+  nested row carries `data-review-of` with the ticket's id, and the template's one rule for it is the
+  indent. A review whose ticket has no visible row, and a
   ticket's own row whatever its name, stay where filing order puts them.
 - **The overview panel is a `<dialog>` the page only fills and opens.** A double-click on a `.ap-row`
   or on a ticket table row (which carries `data-ticket-id` for exactly this) puts
