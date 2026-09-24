@@ -273,6 +273,29 @@ test('a holder taken over as stale releases nothing, and its successor keeps the
   expect(attemptedAcquire(lockDirectoryPath, payloadOf(3), RACE_MOMENT_MILLISECONDS).verdict).toBe('held');
 });
 
+// A generation past the largest safe integer is invisible to every listing, so claiming one would let a second acquirer start again at 1.
+test('a free record at the largest safe generation is never moved past, so at most one acquirer holds', async () => {
+  const { lockDirectoryPath } = scratchWorkspace('lock-largest-generation');
+  writeGeneration(lockDirectoryPath, Number.MAX_SAFE_INTEGER, deadHolderRecord(await processIdOfAnExitedProcess()));
+
+  const verdicts = [payloadOf(1), payloadOf(2)].map((payload) => attemptedAcquire(lockDirectoryPath, payload, RACE_MOMENT_MILLISECONDS).verdict);
+
+  expect(verdicts.filter((verdict) => verdict === 'acquired').length, 'holders after two acquirers').toBeLessThanOrEqual(1);
+  expect(verdicts).toEqual(['held', 'held']);
+  expect(generationsIn(lockDirectoryPath)).toEqual([Number.MAX_SAFE_INTEGER]);
+});
+
+test('a holder at the largest safe generation releases nothing it could not list, and its record stays the newest', () => {
+  const { lockDirectoryPath } = scratchWorkspace('lock-largest-generation-release');
+  const holder = payloadOf(1);
+  writeGeneration(lockDirectoryPath, Number.MAX_SAFE_INTEGER, JSON.stringify({ ...holder, state: 'held' }));
+
+  released(lockDirectoryPath, Number.MAX_SAFE_INTEGER, payloadOf(2));
+
+  expect(readdirSync(lockDirectoryPath)).toEqual([`generation-${Number.MAX_SAFE_INTEGER}`]);
+  expect(attemptedAcquire(lockDirectoryPath, payloadOf(3), RACE_MOMENT_MILLISECONDS).verdict).toBe('held');
+});
+
 test('a released lock is taken by the next acquirer, whose record is complete the moment it exists', () => {
   const { lockDirectoryPath } = scratchWorkspace('lock-complete-record');
   const holder = payloadOf(1);

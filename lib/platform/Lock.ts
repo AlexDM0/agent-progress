@@ -76,6 +76,12 @@ function generationNumberOf(fileName: string): number | null {
   return Number.isSafeInteger(generation) ? generation : null;
 }
 
+/** `null` past the largest safe integer, whose successor no listing could see: the caller then fails closed. */
+function generationAfter(generation: number): number | null {
+  const successor = generation + 1;
+  return Number.isSafeInteger(successor) ? successor : null;
+}
+
 function generationPathFor(lockDirectoryPath: string, generation: number): string {
   return join(lockDirectoryPath, `${GENERATION_FILE_PREFIX}${generation}`);
 }
@@ -189,7 +195,8 @@ function attemptedAcquire(
   const newest = generations.at(-1);
   if (newest !== undefined && !generationIsFree(generationPathFor(lockDirectoryPath, newest), nowMilliseconds)) return { verdict: 'held' };
   afterStep('newest-judged-free');
-  const claimed = (newest ?? 0) + 1;
+  const claimed = generationAfter(newest ?? 0);
+  if (claimed === null) return { verdict: 'held' };
   if (!createdGeneration(lockDirectoryPath, claimed, { ...payload, state: 'held' })) return { verdict: 'contended' };
   afterStep('generation-created');
   if (newerGenerationExists(lockDirectoryPath, claimed)) return { verdict: 'contended' };
@@ -199,7 +206,8 @@ function attemptedAcquire(
 
 /** A holder that was taken over as stale finds its successor generation taken, and so changes nothing. */
 function released(lockDirectoryPath: string, heldGeneration: number, payload: LockPayload): void {
-  const releaseGeneration = heldGeneration + 1;
+  const releaseGeneration = generationAfter(heldGeneration);
+  if (releaseGeneration === null) return;
   try {
     if (createdGeneration(lockDirectoryPath, releaseGeneration, { ...payload, state: 'released' })) removeGenerationsBelow(lockDirectoryPath, releaseGeneration);
   } catch {
@@ -217,9 +225,9 @@ export const LockGenerationSteps = {
 } as const;
 
 /**
- * Run `action` with this tracker's lock held, releasing it however `action` ends. Throws
- * `OperationRefusal('unrepaired')` — exit 2, not 1 — when the retry budget runs out, because
- * taking a lock a live process id still appears to hold is a decision for a person.
+ * Run `action` with this tracker's lock held, releasing it however `action` ends. A held record is taken over once its
+ * process is gone or its stamp is more than `LOCK_STALE_MILLISECONDS` old, live holder or not; one stamped in the future
+ * by a live holder never goes stale. Throws `OperationRefusal('unrepaired')` — exit 2 — when the retry budget runs out.
  */
 export async function withLock<ActionResult>(
   workspace: Workspace,

@@ -6,6 +6,7 @@
 import { randomUUID } from 'crypto';
 import {
   closeSync,
+  fchmodSync,
   fsyncSync,
   mkdirSync,
   openSync,
@@ -46,6 +47,8 @@ export function writeFileAtomically(targetPath: string, contents: string): void 
   try {
     const temporaryFileDescriptor = openSync(temporaryPath, 'w', existingMode ?? undefined);
     try {
+      // The mode handed to `open` is masked by the umask; only an explicit `fchmod` carries every bit over.
+      if (existingMode !== null) fchmodSync(temporaryFileDescriptor, existingMode);
       writeSync(temporaryFileDescriptor, contents);
       fsyncSync(temporaryFileDescriptor);
     } finally {

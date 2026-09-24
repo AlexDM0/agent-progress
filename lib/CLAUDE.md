@@ -184,8 +184,8 @@ nothing about tasks or tickets — a caller supplies a path.
   rewritten. Acquiring creates the generation after the newest once that one is released, its process is
   gone or it is stale, and holds only if no newer generation exists afterwards; releasing creates the
   next as `released`, so a holder taken over as stale changes nothing. **No step removes or renames the
-  newest record**, only generations below one the caller created. A path that is not a directory, or an
-  unreadable fresh record, waits and then refuses. `LockGenerationSteps` exposes the steps and a step
+  newest record**, only generations below one the caller created. A path that is not a directory, an
+  unreadable fresh record, or a newest generation whose successor is not a safe integer waits and then refuses. `LockGenerationSteps` exposes the steps and a step
   callback for the race specs.
 - `lib/platform/GitIgnore.ts` — `ensureIgnored`: `git check-ignore` decides, so a repository that
   already covers the tracker gets no diff. Written in place, CRLF-aware.

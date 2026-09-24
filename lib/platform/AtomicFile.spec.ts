@@ -4,6 +4,7 @@
  * write leaves the previous file untouched.
  */
 import {
+  chmodSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -105,6 +106,21 @@ test.skipIf(RUNNING_AS_ROOT)('a restricted file comes back with the same permiss
   writeFileSync(filePath, '{"version":1}', { mode: 0o600 });
   writeFileAtomically(filePath, '{"version":1,"project":"Example Agency"}');
   expect(statSync(filePath).mode & 0o777).toBe(0o600);
+});
+
+// The mode handed to `open` is masked by the umask, so a group- or world-writable file would lose those bits without an explicit `fchmod`.
+test('a file with bits the umask would mask comes back with the same permission bits', async () => {
+  const directory = await createScratchDirectory();
+  const filePath = join(directory, 'progress.json');
+  writeFileSync(filePath, '{"version":1}');
+  chmodSync(filePath, 0o666);
+  const previousUmask = process.umask(0o022);
+  try {
+    writeFileAtomically(filePath, '{"version":1,"project":"Example Agency"}');
+  } finally {
+    process.umask(previousUmask);
+  }
+  expect(statSync(filePath).mode & 0o777).toBe(0o666);
 });
 
 test.skipIf(RUNNING_AS_ROOT)('a write that cannot be performed leaves the previous file exactly as it was', async () => {
