@@ -8,6 +8,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join }                      from 'node:path';
 import { describe, expect, test }    from 'bun:test';
+import { codeWithCommentsBlanked }   from './tooling/dev/SourceComments';
 
 const REPOSITORY_ROOT = join(import.meta.dir, '..');
 const SPEC_SUFFIX     = '.spec.ts';
@@ -44,14 +45,6 @@ function specFilesUnder(directory: string): string[] {
     else if (entry.name.endsWith(SPEC_SUFFIX)) found.push(entryPath);
   }
   return found;
-}
-
-/** A string literal or a comment, whichever starts first, so a `/*` or `//` inside a string opens no comment. */
-const STRING_OR_COMMENT_PATTERN = /'(?:\\.|[^'\\\n])*'|"(?:\\.|[^"\\\n])*"|`(?:\\[\s\S]|[^`\\])*`|\/\*[\s\S]*?\*\/|\/\/[^\n]*/g;
-
-/** Blanked character for character rather than removed, so what is left is still the file's own code; strings are kept, as a child's source is one. */
-function codeWithCommentsBlanked(fileContents: string): string {
-  return fileContents.replace(STRING_OR_COMMENT_PATTERN, (token) => (token.startsWith('/') ? token.replace(/[^\n]/g, ' ') : token));
 }
 
 /** A spec that starts a process and names the binary is judged by the pair, since a spawn of git beside a read of the entry point is harmless. */

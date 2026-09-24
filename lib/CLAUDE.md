@@ -54,8 +54,11 @@ lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/ lib/tick
 - `lib/TrackerIsolationBypasses.spec.ts` — no spec creates the real process context, and none
   spawns the binary except through `lib/tooling/dev/CliProcess.ts`: a spec that starts a process
   and names the entry point or the linked bin is judged by the pair.
-- `lib/DocumentedPaths.spec.ts` — every backticked repository path in a `*.md` or a docblock exists.
-  A module that no longer exists is named **without** its extension, deliberately.
+- `lib/DocumentedPaths.spec.ts` — every backticked repository path in a `*.md` or a source comment
+  (line, block or docblock) exists. A module that no longer exists is named **without** its extension, deliberately.
+
+The three text scans find comments through `lib/tooling/dev/SourceComments.ts`, never a pattern of their own, so a `/*` inside a
+string, a template or a regular expression literal hides no code from them.
 
 ## `lib/constants/`
 
@@ -276,6 +279,8 @@ keeps that true.
 - `lib/tooling/dev/CapturedCommandContext.ts` — the `CommandContext` whose two streams are arrays that
   every command spec drives `runCommandLine` with. It declares the context's shape rather than
   importing `cli/CommandContext.ts`, because rule 1 forbids any import of `cli/` from under `lib/`.
+- `lib/tooling/dev/SourceComments.ts` — `codeWithCommentsBlanked` (character for character, newlines and strings kept) and
+  `commentsIn`, both from the TypeScript scanner's comment trivia rather than a pattern, for the guard specs at `lib/`'s root.
 
 The dispatcher's harness lives here too, since `templates/workflows/AgentProgressDispatch.js` is plain
 JavaScript no spec can sit beside:

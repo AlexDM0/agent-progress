@@ -46,6 +46,11 @@ type LayeringVerdict =
   | 'binary-imports-beyond-the-command-surface'
   | null;
 
+/** `from` after a space, a `}` or a `*`, so `import{a}from'./x'` is read and a `'from'` inside an array of strings is not. */
+const FROM_CLAUSE = String.raw`(?<=[\s}*])from\s*['"]([^'"]+)['"]`;
+const STATIC_IMPORT_OR_EXPORT_PATTERN = new RegExp(String.raw`(?:^|\n)\s*(?:import|export)(?![\w$])[^;]*?` + FROM_CLAUSE, 'g');
+const RE_EXPORT_PATTERN               = new RegExp(String.raw`(?:^|\n)\s*export(?![\w$])[^;]*?` + FROM_CLAUSE, 'g');
+
 function typeScriptFilesUnder(directory: string): string[] {
   const found: string[] = [];
   for (const entry of readdirSync(join(REPOSITORY_ROOT, directory), { withFileTypes: true })) {
@@ -65,7 +70,7 @@ function typeScriptFilesUnder(directory: string): string[] {
 function moduleReferencesOf(fileContents: string, file: string): ModuleReference[] {
   const references: ModuleReference[] = [];
   const patterns = [
-    /(?:^|\n)\s*(?:import|export)\s[^;]*?\sfrom\s*['"]([^'"]+)['"]/g,
+    STATIC_IMPORT_OR_EXPORT_PATTERN,
     /(?:^|\n)\s*import\s*['"]([^'"]+)['"]/g,
     /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
     /\brequire\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
@@ -77,6 +82,10 @@ function moduleReferencesOf(fileContents: string, file: string): ModuleReference
     }
   }
   return references;
+}
+
+function reExportsIn(fileContents: string): string[] {
+  return [...fileContents.matchAll(RE_EXPORT_PATTERN)].map((match) => match[1]!);
 }
 
 function resolveLocalSpecifier(file: string, specifier: string): string | null {
@@ -209,6 +218,30 @@ describe('the scan itself', () => {
     expect(seen.map((reference) => reference.specifier)).toEqual(['../progress/ProgressStore']);
   });
 
+  /** One constructed case per pattern, each also written without spaces, since `import{a}from'./x'` is valid and as likely as the spaced form. */
+  test('it sees every import form, spaced and spaceless', () => {
+    const specifiersSeenIn = (source: string): string[] => moduleReferencesOf(source, 'lib/render/Html.ts').map((reference) => reference.specifier);
+    expect(specifiersSeenIn(['import', ' { a } from \'./Static\';'].join(''))).toEqual(['./Static']);
+    expect(specifiersSeenIn(['import', '{a}from\'./Static\';'].join(''))).toEqual(['./Static']);
+    expect(specifiersSeenIn(['import', ' Default from "./Static";'].join(''))).toEqual(['./Static']);
+    expect(specifiersSeenIn(['export', ' { a } from \'./Exported\';'].join(''))).toEqual(['./Exported']);
+    expect(specifiersSeenIn(['export', '{a}from\'./Exported\';'].join(''))).toEqual(['./Exported']);
+    expect(specifiersSeenIn(['export', '*from\'./Exported\';'].join(''))).toEqual(['./Exported']);
+    expect(specifiersSeenIn(['import', ' \'./SideEffect\';'].join(''))).toEqual(['./SideEffect']);
+    expect(specifiersSeenIn(['import', '\'./SideEffect\';'].join(''))).toEqual(['./SideEffect']);
+    expect(specifiersSeenIn(['const loaded = await ', 'import', '(\'./Dynamic\');'].join(''))).toEqual(['./Dynamic']);
+    expect(specifiersSeenIn(['const loaded=[', 'import', '(\'./Dynamic\')];'].join(''))).toEqual(['./Dynamic']);
+    expect(specifiersSeenIn(['const loaded = ', 'require', '( \'./Required\' );'].join(''))).toEqual(['./Required']);
+    expect(specifiersSeenIn(['const loaded=', 'require', '(\'./Required\');'].join(''))).toEqual(['./Required']);
+  });
+
+  test('rule 8 sees a re-export written without spaces', () => {
+    expect(reExportsIn(['export', '{a}from\'./Exported\';'].join(''))).toEqual(['./Exported']);
+    expect(reExportsIn(['export', ' * from \'./Exported\';'].join(''))).toEqual(['./Exported']);
+    expect(reExportsIn(['export', ' const fromValue = 1;'].join(''))).toEqual([]);
+    expect(reExportsIn(['export', ' const OPTIONS = [\n  \'from\',\n  \'to\',\n];'].join(''))).toEqual([]);
+  });
+
   /** Until a new folder is placed in a layer, every edge out of it falls through the classifier to `null`. */
   test('every folder under lib/ is classified, so a new one fails until it is placed in a layer', () => {
     const foldersOnDisk = readdirSync(join(REPOSITORY_ROOT, 'lib'), { withFileTypes: true })
@@ -291,13 +324,7 @@ describe('the import direction', () => {
 describe('the shape of a module', () => {
   /** A barrel makes one specifier stand for an unknown set of modules, so no import block could be read as a dependency list. */
   test('rule 8: no file re-exports another, because there are no barrels', () => {
-    const reExports: string[] = [];
-    for (const file of SCANNED_FILES) {
-      const contents = readFileSync(join(REPOSITORY_ROOT, file), 'utf8');
-      for (const match of contents.matchAll(/(?:^|\n)\s*export\s[^;]*?\sfrom\s*['"]([^'"]+)['"]/g)) {
-        reExports.push(`${file} re-exports ${match[1]!}`);
-      }
-    }
+    const reExports = SCANNED_FILES.flatMap((file) => reExportsIn(readFileSync(join(REPOSITORY_ROOT, file), 'utf8')).map((specifier) => `${file} re-exports ${specifier}`));
     expect(reExports).toEqual([]);
   });
 });

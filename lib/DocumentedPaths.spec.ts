@@ -1,6 +1,6 @@
 /**
- * That every backticked repository path the documentation names exists: every `*.md`, every docblock
- * under `cli/` and `lib/` and in `agent-progress.ts`, and the whole of `setup.sh`.
+ * That every backticked repository path the documentation names exists: every `*.md`, every comment
+ * under `cli/` and `lib/` and in `agent-progress.ts` (line, block and docblock), and the whole of `setup.sh`.
  *
  * The convention has a deliberate escape hatch — a module that no longer exists is named **without**
  * its extension — so a citation carrying no extension is judged only when it ends in `/` and is
@@ -14,6 +14,7 @@ import {
 } from 'node:fs';
 import { join }                   from 'node:path';
 import { describe, expect, test } from 'bun:test';
+import { commentsIn }             from './tooling/dev/SourceComments';
 
 const REPOSITORY_ROOT = join(import.meta.dir, '..');
 
@@ -74,10 +75,6 @@ function citationsIn(text: string, citedIn: string): Citation[] {
   return citations;
 }
 
-function docblocksIn(fileContents: string): string[] {
-  return [...fileContents.matchAll(/\/\*\*[\s\S]*?\*\//g)].map((match) => match[0]);
-}
-
 /** A citation ending in `/` has to be a directory and not a file of that name; the two are different promises. */
 function citedPathExists(citation: Citation): boolean {
   const absolutePath = join(REPOSITORY_ROOT, citation.path);
@@ -93,7 +90,7 @@ function allCitations(): Citation[] {
   const typeScriptFiles = ['cli', 'lib'].flatMap((tree) => filesUnder(tree, (fileName) => fileName.endsWith('.ts')));
   for (const sourceFile of [...typeScriptFiles, ...SINGLE_FILES_SCANNED_AS_DOCBLOCKS]) {
     const contents = readFileSync(join(REPOSITORY_ROOT, sourceFile), 'utf8');
-    for (const docblock of docblocksIn(contents)) citations.push(...citationsIn(docblock, sourceFile));
+    for (const comment of commentsIn(contents)) citations.push(...citationsIn(comment, sourceFile));
   }
   for (const scriptFile of SINGLE_FILES_SCANNED_WHOLE) {
     citations.push(...citationsIn(readFileSync(join(REPOSITORY_ROOT, scriptFile), 'utf8'), scriptFile));
@@ -127,6 +124,17 @@ describe('the paths the documentation names', () => {
     expect(citationsIn('run `bun test` first', 'a constructed line')).toEqual([]);
     expect(citationsIn('the exemption covers `lib/tooling/dev/**/*.ts`', 'a constructed line')).toEqual([]);
     expect(citationsIn('a file under `cli/<name>/` may not reach a sibling', 'a constructed line')).toEqual([]);
+  });
+
+  test('it reads a path named in a line comment and in a plain block comment, and not one in a string', () => {
+    const source = [
+      ['// see `lib/', 'LineComment.ts`\n'].join(''),
+      ['const value = 1; /* and `lib/', 'BlockComment.ts` */\n'].join(''),
+      ['/** the `lib/', 'Docblock.ts` */\n'].join(''),
+      ['const text = \'`lib/', 'InAString.ts`\';\n'].join(''),
+    ].join('');
+    const cited = commentsIn(source).flatMap((comment) => citationsIn(comment, 'a constructed source')).map((citation) => citation.path);
+    expect(cited).toEqual(['lib/LineComment.ts', 'lib/BlockComment.ts', 'lib/Docblock.ts']);
   });
 
   test('a directory citation is kept only when the path is a directory', () => {

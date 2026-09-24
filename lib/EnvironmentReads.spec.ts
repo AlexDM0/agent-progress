@@ -10,6 +10,7 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join }                      from 'node:path';
 import { describe, expect, test }    from 'bun:test';
+import { codeWithCommentsBlanked }   from './tooling/dev/SourceComments';
 
 const REPOSITORY_ROOT = join(import.meta.dir, '..');
 const SCANNED_TREES   = ['cli', 'lib'];
@@ -73,11 +74,6 @@ function typeScriptFilesUnder(directory: string): string[] {
 }
 
 const SCANNED_FILES = [...SCANNED_TREES.flatMap((tree) => typeScriptFilesUnder(tree)), BINARY_ENTRY_POINT];
-
-/** Blanked character for character rather than removed, so a match's line number is still its own. */
-function codeWithCommentsBlanked(fileContents: string): string {
-  return fileContents.replace(/\/\*[\s\S]*?\*\/|^[ \t]*\/\/.*$/gm, (comment) => comment.replace(/[^\n]/g, ' '));
-}
 
 function environmentAccessSites(): string[] {
   const sites: string[] = [];
@@ -199,5 +195,11 @@ describe('reading the environment', () => {
     expect(ENVIRONMENT_ACCESS_PATTERNS.some((pattern) => new RegExp(pattern.source).test(codeWithCommentsBlanked(commented)))).toBe(false);
     const code = ['const root = process', '.env[\'AGENT_PROGRESS_ROOT\'];'].join('');
     expect(ENVIRONMENT_ACCESS_PATTERNS.some((pattern) => new RegExp(pattern.source).test(codeWithCommentsBlanked(code)))).toBe(true);
+  });
+
+  /** A glob in a string holds `/*`, which must open no comment that hides the read after it; `cli/rework/ReworkCommand.spec.ts` has such a string. */
+  test('a read after a string holding a glob is still seen', () => {
+    const afterAGlob = ['const pattern = \'lib/', '*.spec.ts\';\nconst root = process', '.env[\'X\'];\n/** A later docblock. */'].join('');
+    expect(ENVIRONMENT_ACCESS_PATTERNS.some((pattern) => new RegExp(pattern.source).test(codeWithCommentsBlanked(afterAGlob)))).toBe(true);
   });
 });
