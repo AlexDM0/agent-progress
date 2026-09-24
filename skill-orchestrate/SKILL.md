@@ -222,9 +222,11 @@ looks like, then close the dead rows it left: `agent-progress task pause` a buil
 user's go, `agent-progress dispatcher running` and the launch, whose survey resumes every build the
 stop left paused. The rest of its summary is handled as below.
 
-**When it returns**, its summary is `{ delivered, parked, findingsFiled, agentsRun, stoppedByBoard?, stoppedByFailures?, lowPriorityWaiting?, held?, pausedBuilds? }`,
+**When it returns**, its summary is `{ delivered, parked, findingsFiled, agentsRun, stoppedByBoard?, stoppedByFailures?, lowPriorityWaiting?, held?, pausedBuilds?, reviewsLeft? }`,
 `lowPriorityWaiting` the low tickets ready that it left for your triage, `pausedBuilds` the builds a
-stop left paused, which the next whole-board run resumes, and `held` the tickets a hold kept waiting,
+stop left paused, which the next whole-board run resumes — a paused low build is named in
+`lowPriorityWaiting` as well, and is resumed only by a relaunch with `includeLowPriority: true` —
+`reviewsLeft` the reviews it left waiting, which the next whole-board run takes up, and `held` the tickets a hold kept waiting,
 each `{ id, waitingFor: 'build' | 'review' }`: the next run picks each up once unheld, so list them to
 the user and relaunch for them only after an unhold:
 
