@@ -55,7 +55,7 @@ changed; saying otherwise would make an orchestrator re-run a command that had a
 ## A command takes its context, it does not reach for the process
 
 `currentDirectory`, `now()`, both output streams, whether standard input is a terminal, the read of
-everything piped in and the confirmation prompt all arrive in the `CommandContext`. That is what lets every command spec run in
+everything piped in, the confirmation prompt and the platform all arrive in the `CommandContext`. That is what lets every command spec run in
 the test process against a scratch directory and a frozen clock. The environment is not in the
 context: `lib/platform/Environment.ts` is the one module that reads it.
 
@@ -111,8 +111,8 @@ context: `lib/platform/Environment.ts` is the one module that reads it.
 | `cli/range/RangeCommand.spec.ts` | each stored shape, including the mixed pair, the log line, and the refusals — an unreadable bound, a `--from` that is not before its `--to` as timestamps or relative to now, and an unreadable progress file worded as `status` words it |
 | `cli/render/RenderCommand.ts` | `render`: regenerate the page under the lock, mutating nothing; an unreadable tracker is exit 2 through `renderDashboardOrRefuse`, reported once |
 | `cli/render/RenderCommand.spec.ts` | an unreadable progress file at exit 2 with its reason on one line of standard error and no path printed |
-| `cli/open/OpenCommand.ts` | `open`: render only when the page is missing, then hand the path to the desktop, detached — and print it either way; a missing page that cannot be rendered is exit 2, as for `render` |
-| `cli/open/OpenCommand.spec.ts` | no page and an unreadable progress file: exit 2, reported once, no path printed and no page written. The happy path is not driven, since it launches a browser |
+| `cli/open/OpenCommand.ts` | `open`: render only when the page is missing, then hand the path to the desktop, detached, through the launcher `openerForPlatform` picks from the context's `platform` — and print it either way; a missing page that cannot be rendered is exit 2, as for `render` |
+| `cli/open/OpenCommand.spec.ts` | no page and an unreadable progress file: exit 2, reported once, no path printed and no page written; `openerForPlatform` choosing `open` on `darwin` and `xdg-open` elsewhere. The happy path is not driven, since it launches a browser |
 | `cli/clear/ClearCommand.ts` | `clear`: empty the rows and the log, keep `trackerId`, `project` and the task id counter, re-seed a row per surviving ticket from its frontmatter, except a low ticket that has no row. `--all` deletes the tickets, after the progress file is written |
 | `cli/clear/ClearCommand.spec.ts` | the re-seeded bars and their fresh ids, the kept tracker id, `--all` and its count under `--json`, no ticket deleted when the progress file cannot be written, and both halves of the confirmation |
 

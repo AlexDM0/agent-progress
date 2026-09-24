@@ -1,6 +1,6 @@
 /**
  * `open` with no page and a progress file it cannot render from: it fails at exit 2 like `render` does, rather than handing the desktop a path that
- * does not exist and exiting 0. The happy path is not driven here, since it launches a browser.
+ * does not exist and exiting 0. The happy path is not driven here, since it launches a browser; the launcher it would pick is checked per platform.
  */
 import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import { join }                              from 'node:path';
@@ -15,6 +15,7 @@ import {
 import { createCapturedCommandContext }                                       from '../../lib/tooling/dev/CapturedCommandContext';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../lib/tooling/dev/ScratchWorkspace';
 import { runCommandLine }                                                     from '../Main';
+import { openerForPlatform }                                                  from './OpenCommand';
 
 const UNREADABLE_PROGRESS_TEXT = '{ not json';
 
@@ -42,5 +43,17 @@ describe.skipIf(!gitIsAvailable())('no page and an unreadable progress file', ()
     expect(errorLines, context.errorText()).toHaveLength(1);
     expect(context.outputText()).toBe('');
     expect(existsSync(pagePath)).toBe(false);
+  });
+});
+
+// The launcher is chosen from the context's platform, never the test runner's, so both branches are pinned on any machine.
+describe('the launcher for each platform', () => {
+  test('macOS opens the page with `open`', () => {
+    expect(openerForPlatform('darwin')).toBe('open');
+  });
+
+  test('every other platform opens the page with `xdg-open`', () => {
+    expect(openerForPlatform('linux')).toBe('xdg-open');
+    expect(openerForPlatform('freebsd')).toBe('xdg-open');
   });
 });

@@ -14,6 +14,8 @@ export interface CommandContext {
   /** Everything piped in, read once and to the end; a command a person typed gets the empty string rather than a wait nobody can see. */
   readStandardInput:       () => Promise<string>;
   confirm:                 (question: string) => Promise<boolean>;
+  /** `process.platform`, carried here so a spec can choose the operating system a command believes it runs on. */
+  platform:                string;
 }
 
 /** A function, never a module constant: a constant would read `process.cwd()` at import time and hand every spec the test runner's directory. */
@@ -26,6 +28,7 @@ export function createProcessContext(): CommandContext {
     standardInputIsTerminal: process.stdin.isTTY === true,
     readStandardInput:       readEverythingOnStandardInput,
     confirm:                 confirmOnStandardInput,
+    platform:                process.platform,
   };
 }
 

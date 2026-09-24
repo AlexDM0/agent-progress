@@ -14,6 +14,10 @@ const OTHER_OPENER = 'xdg-open';
 
 const MACOS_PLATFORM = 'darwin';
 
+export function openerForPlatform(platform: string): string {
+  return platform === MACOS_PLATFORM ? MACOS_OPENER : OTHER_OPENER;
+}
+
 export const openCommand: CommandHandler = async (commandArguments, context) => {
   commandArguments.rejectUnknownOptions(KNOWN_OPTION_NAMES, USAGE);
   commandArguments.rejectExtraPositionals(0, USAGE);
@@ -23,7 +27,7 @@ export const openCommand: CommandHandler = async (commandArguments, context) => 
     await withLock(workspace, () => renderDashboardOrRefuse(context, workspace), context.now);
   }
 
-  const opener = process.platform === MACOS_PLATFORM ? MACOS_OPENER : OTHER_OPENER;
+  const opener = openerForPlatform(context.platform);
   try {
     // Detached with its streams dropped: a browser launched cold would otherwise inherit the pipes and keep this process alive.
     const spawned = Bun.spawn([opener, workspace.htmlFilePath], {

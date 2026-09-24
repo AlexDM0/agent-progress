@@ -13,6 +13,7 @@ export interface CapturedCommandContext {
   standardInputIsTerminal: boolean;
   readStandardInput:       () => Promise<string>;
   confirm:                 (question: string) => Promise<boolean>;
+  platform:                string;
   outputText:              () => string;
   errorText:               () => string;
   questionsAsked:          () => string[];
@@ -26,9 +27,13 @@ export interface CapturedCommandContextOptions {
   /** What a spec pipes in: a spec that names none gets the empty string, which is the "nothing was piped" case every reader handles anyway. */
   standardInputText?:       string;
   confirmAnswer?:           boolean;
+  platform?:                string;
 }
 
 const DEFAULT_SPEC_CLOCK_READING = '2026-09-18T20:11:03Z';
+
+/** Fixed rather than the test runner's own, so a spec behaves the same on every machine unless it names a platform. */
+const DEFAULT_SPEC_PLATFORM = 'linux';
 
 /** The `cwd` a piped hook input names, since `agent-progress hook subagent-stop` resolves its tracker from that rather than from the context. */
 function directoryNamedByPipedHookInput(standardInputText: string | undefined): string | null {
@@ -64,6 +69,7 @@ export function createCapturedCommandContext(options: CapturedCommandContextOpti
       questions.push(question);
       return Promise.resolve(options.confirmAnswer ?? false);
     },
+    platform:       options.platform ?? DEFAULT_SPEC_PLATFORM,
     outputText:     () => outputLines.join('\n'),
     errorText:      () => errorLines.join('\n'),
     questionsAsked: () => [...questions],
