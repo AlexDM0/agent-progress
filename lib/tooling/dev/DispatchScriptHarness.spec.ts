@@ -47,6 +47,7 @@ interface DispatchSummary {
   findingsFiled:       string[];
   agentsRun:           number;
   stoppedByBoard?:     boolean;
+  stoppedByFailures?:  boolean;
   lowPriorityWaiting?: string[];
 }
 
@@ -316,9 +317,17 @@ const CLAIMS: Claim[] = [
     mutant: { find: 'review${parentheticalOf(result.detail)}`', replace: 'review (${result.detail})`' },
   },
   {
-    name:     'with a limit of 1, a ticket parked after two dead reviewers has their bar closed, and the next ready ticket is delivered within the limit',
-    scenario: { limit: 1, readyTicketIds: ['001', '002'], reviewerReply: (ticketId) => (ticketId === '001' ? null : { verdict: 'released' }) },
-    holds:    (run) => kindsAndTickets(run).join(', ') === 'survey, build 001, review 001, review 001, park 001, build 002, review 002'
+    // Two dead reviewers back to back would read as an outage and stop the run, so a does-not-hold and a rebuild come between the failed passes.
+    name:     'with a limit of 1, a ticket parked on a dead reviewer has its bar closed, and the next ready ticket is delivered within the limit',
+    scenario: {
+      limit:          1,
+      readyTicketIds: ['001', '002'],
+      reviewerReply:  (ticketId, round) => {
+        if (ticketId !== '001') return { verdict: 'released' };
+        return round === 1 ? { verdict: 'does-not-hold' } : null;
+      },
+    },
+    holds: (run) => kindsAndTickets(run).join(', ') === 'survey, build 001, review 001, build 001, review 001, park 001, build 002, review 002'
       && summaryOf(run).delivered.join() === '002'
       && parkedIds(run).join() === '001'
       && run.mostAgentsInFlightAtOnce === 1
@@ -550,7 +559,7 @@ const CLAIMS: Claim[] = [
     holds: (run) => kindsAndTickets(run).join(', ') === 'survey, review 001, build 002, park 002'
       && summaryOf(run).delivered.join() === '001'
       && summaryOf(run).stoppedByBoard === true,
-    mutant: { find: 'while (!stoppedByBoard && inFlight.size < slotLimit)', replace: 'while (inFlight.size < slotLimit)' },
+    mutant: { find: '  return stoppedByBoard || stoppedByFailures;', replace: '  return stoppedByFailures;' },
   },
   {
     name:     'a board stopped when the run starts dispatches nothing, and the summary says the board stopped it',
@@ -775,13 +784,63 @@ const CLAIMS: Claim[] = [
       && run.mostAgentsOnBoardAtOnce <= 2,
     mutant: ONE_NOTE_FOR_EVERY_RUN,
   },
+  {
+    // At a session limit every agent dies on its first call: read as failed passes, two minutes of it parked eight tickets and filled every slot.
+    name:     'every builder returning nothing stops the run after two in a row across two tickets, with stoppedByFailures, nothing parked and no row left running',
+    scenario: { limit: 2, readyTicketIds: ['001', '002', '003'], builderReply: () => null },
+    holds:    (run) => summaryOf(run).stoppedByFailures === true
+      && summaryOf(run).parked.length === 0
+      && !kindsAndTickets(run).includes('build 003')
+      && run.rowsRunningAtEnd.length === 0,
+    mutant: { find: '  if (consecutiveDeadAgents < CONSECUTIVE_DEAD_AGENTS_BEFORE_STOPPING || stoppedByFailures) return;', replace: '  return;' },
+  },
+  {
+    name:     'every reviewer returning nothing stops the run the same way, and parks nothing',
+    scenario: { limit: 2, readyTicketIds: ['001', '002'], reviewerReply: () => null },
+    holds:    (run) => summaryOf(run).stoppedByFailures === true && summaryOf(run).parked.length === 0 && run.rowsRunningAtEnd.length === 0,
+    mutant:   { find: '  if (consecutiveDeadAgents < CONSECUTIVE_DEAD_AGENTS_BEFORE_STOPPING || stoppedByFailures) return;', replace: '  return;' },
+  },
+  {
+    // #001's first death was counted as a failed pass before the second death showed an outage; its fresh builder, in flight, then fails for real.
+    name:     'a failed pass counted for a death that turned out to be the first of an outage is taken back, so a later real failure does not park the ticket',
+    scenario: { limit: 2, readyTicketIds: ['001', '002'], builderReply: (ticketId, pass) => (ticketId === '001' && pass === 2 ? { outcome: 'failed' } : null) },
+    holds:    (run) => summaryOf(run).stoppedByFailures === true
+      && summaryOf(run).parked.length === 0
+      && kindsAndTickets(run).filter((call) => call === 'build 001').length === 2,
+    mutant: { find: '  for (const ticketId of failedPassesOfConsecutiveDeaths) recordOf(ticketId).failedPasses--;\n', replace: '' },
+  },
+  {
+    name:     'an agent that returns something resets the count, so two deaths with a success between them stop nothing',
+    scenario: { limit: 1, readyTicketIds: ['001', '002'], builderReply: (_ticketId, pass) => (pass === 1 ? null : { outcome: 'in-review' }) },
+    holds:    (run) => summaryOf(run).stoppedByFailures === undefined && summaryOf(run).delivered.join() === '001,002' && summaryOf(run).parked.length === 0,
+    mutant:   { find: '    consecutiveDeadAgents = 0;\n    failedPassesOfConsecutiveDeaths = [];\n    return;', replace: '    return;' },
+  },
+  {
+    // A paused build resumed after an unhold is in progress, so it has no readyTickets entry for the orchestrator to copy.
+    name:     'a single-ticket run with no readyTickets entry for its ticket looks up the ticket\'s stored model and effort, and runs its builder and reviewer on them',
+    scenario: {
+      limit:                      2,
+      readyTicketIds:             [],
+      ticketIds:                  ['001'],
+      pausedBuildNotesByTicketId: { '001': 'Built by the whole-board dispatcher run on ticket-001' },
+      agentSettingsByTicketId:    { '001': { model: 'sonnet', effort: 'high' } },
+    },
+    holds: (run) => kindsAndTickets(run).join(', ') === 'settings 001, build 001, review 001'
+      && run.calls[0]?.model === 'haiku'
+      && workersRunOn(run, 'sonnet', 'high')
+      && run.calls.filter((call) => call.kind === 'build').every((call) => call.prompt.includes('--owner sonnet')),
+    mutant: {
+      find:    'if (lookup !== null && Array.isArray(lookup.tickets)) lookedUpTicketSettings = lookup.tickets;',
+      replace: 'if (false) lookedUpTicketSettings = lookup.tickets;',
+    },
+  },
 ];
 
 const EVERY_KIND_OF_AGENT: DispatchScenario = { limit: 2, readyTicketIds: ['001', '002'], reviewerReply: () => ({ verdict: 'does-not-hold' }) };
 
 function modelsAndEffortsAreExplicit(run: DispatchRun): boolean {
   return run.calls.every((call) => {
-    const helper = call.kind === 'survey' || call.kind === 'park';
+    const helper = call.kind === 'survey' || call.kind === 'settings' || call.kind === 'park';
     return call.model === (helper ? 'haiku' : DEFAULT_AGENT_MODEL) && call.effort === (helper ? 'low' : DEFAULT_AGENT_EFFORT);
   });
 }

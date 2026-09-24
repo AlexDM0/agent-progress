@@ -17,6 +17,8 @@ const REVIEWER_CALL_BUDGET = 75;
 const REWORK_ROUND_THRESHOLD_LINES = 750;
 const SINGLE_TICKET_RUN_AGENTS = 1;
 const FAILED_PASSES_BEFORE_PARKING = 2;
+// Agents that died back to back, across tickets, are a session limit or an outage rather than tickets failing: the run stops instead of parking.
+const CONSECUTIVE_DEAD_AGENTS_BEFORE_STOPPING = 2;
 const MAIN_MOVED_RELEASES_BEFORE_PARKING = 2;
 const PARKING_LOG_REASON_LIMIT_CHARACTERS = 200;
 const SURVEY_MODEL = 'haiku';
@@ -55,20 +57,25 @@ const STATUS_BLOCK_SCHEMA = {
   required: ['limit', 'agentsInFlight', 'freeSlots', 'readyTicketIds', 'readyTickets', 'dispatcherState', 'runningTicketIds', 'runningReviewOfIds', 'heldTicketIds'],
 };
 
+const TICKET_AGENT_SETTINGS_SCHEMA = {
+  type:       'object',
+  properties: { id: { type: 'string' }, model: { type: 'string' }, effort: { type: 'string' } },
+  required:   ['id'],
+};
+
 const SURVEY_SCHEMA = {
   type:       'object',
   properties: {
     status:               STATUS_BLOCK_SCHEMA,
-    reviewWaitingTickets: {
-      type:  'array',
-      items: {
-        type:       'object',
-        properties: { id: { type: 'string' }, model: { type: 'string' }, effort: { type: 'string' } },
-        required:   ['id'],
-      },
-    },
+    reviewWaitingTickets: { type: 'array', items: TICKET_AGENT_SETTINGS_SCHEMA },
   },
   required: ['status', 'reviewWaitingTickets'],
+};
+
+const TICKET_SETTINGS_LOOKUP_SCHEMA = {
+  type:       'object',
+  properties: { tickets: { type: 'array', items: TICKET_AGENT_SETTINGS_SCHEMA } },
+  required:   ['tickets'],
 };
 
 const BUILDER_SCHEMA = {
@@ -178,6 +185,14 @@ function surveyPrompt() {
     `- \`status\`: its \`concurrency\` block as printed (limit, agentsInFlight, freeSlots, readyTicketIds, dispatcherState, heldTicketIds), ${DERIVED_STATUS_FIELDS_TEXT};`,
     '- `reviewWaitingTickets`: every ticket whose status is `in-review` and that no `running` task names in its `reviewOf`, as `{ id, model, effort }` '
       + 'with `model` and `effort` copied from its entry in `tickets` and left out where that entry has none.',
+  ].join('\n');
+}
+
+function ticketSettingsLookupPrompt(ticketIds) {
+  return [
+    `agent-progress settings: ${ticketIds.join(',')}`,
+    `For each of the tickets ${ticketIds.join(', ')}, run \`agent-progress ticket show <id> --json\` once, in ${settings.mainCheckout}, and make no other call. `
+      + 'Judge nothing; return `tickets`: one `{ id, model, effort }` per ticket, with `model` and `effort` copied from its document and left out where it has none.',
   ].join('\n');
 }
 
@@ -305,6 +320,12 @@ let launchCount = 0;
 let board = null;
 let othersInFlightAtBoardReading = 0;
 let stoppedByBoard = false;
+let stoppedByFailures = false;
+let consecutiveDeadAgents = 0;
+// The tickets whose failed pass a dead agent of the current run of deaths counted, taken back once that run turns out to be an outage.
+let failedPassesOfConsecutiveDeaths = [];
+// What `ticket show --json` said of a single-ticket run's tickets its arguments carried no `readyTickets` entry for.
+let lookedUpTicketSettings = [];
 let lowPriorityReadyTicketIds = new Set();
 // A single-ticket run reads no board before its builder starts, so its arguments' entries seed the set.
 let heldTicketIds = new Set(settings.readyTickets.filter((entry) => entry !== null && typeof entry === 'object' && entry.held === true).map((entry) => entry.id));
@@ -365,6 +386,7 @@ function summary() {
     findingsFiled,
     agentsRun,
     ...(stoppedByBoard ? { stoppedByBoard } : {}),
+    ...(stoppedByFailures ? { stoppedByFailures } : {}),
     ...(lowPriorityWaiting.length > 0 ? { lowPriorityWaiting } : {}),
     ...(held.length > 0 ? { held } : {}),
   };
@@ -468,7 +490,11 @@ function heldEntries() {
 
 // A single-ticket run was never surveyed: what the board said of its tickets came in with its arguments.
 function readyTicketsStatement() {
-  return settings.ticketIds === null ? board : { readyTickets: settings.readyTickets };
+  return settings.ticketIds === null ? board : { readyTickets: [...settings.readyTickets, ...lookedUpTicketSettings] };
+}
+
+function runIsStopped() {
+  return stoppedByBoard || stoppedByFailures;
 }
 
 function releaseRowsOf(ticketId, boardLogLine) {
@@ -594,6 +620,7 @@ function settleBuild(work, result) {
   const rebuild = () => awaitTakeover({ kind: 'build', ticketId, previousPass: 'builder' });
   if (result === null) {
     countFailedPass(ticketId, 'the builder returned no result', rebuild);
+    failedPassesOfConsecutiveDeaths.push(ticketId);
     return;
   }
   // A row carrying this run's claim note is this run's own claim, made by an attempt the runtime restarted: skipped, that row would be read as another
@@ -646,6 +673,7 @@ function settleReview(work, result) {
   if (result === null) {
     record.nextRound = work.round + 1;
     countFailedPass(ticketId, 'the reviewer returned no result', () => awaitTakeover(reviewWorkFor(ticketId, true, true)));
+    failedPassesOfConsecutiveDeaths.push(ticketId);
     return;
   }
   findingsFiled.push(...result.filedTicketIds);
@@ -683,23 +711,68 @@ function settleReview(work, result) {
   takeOverTheBarLeftForTheNextRound(ticketId);
 }
 
+function noteWhetherTheAgentDied(result) {
+  if (result !== null) {
+    consecutiveDeadAgents = 0;
+    failedPassesOfConsecutiveDeaths = [];
+    return;
+  }
+  consecutiveDeadAgents++;
+  if (consecutiveDeadAgents < CONSECUTIVE_DEAD_AGENTS_BEFORE_STOPPING || stoppedByFailures) return;
+  stoppedByFailures = true;
+  for (const ticketId of failedPassesOfConsecutiveDeaths) recordOf(ticketId).failedPasses--;
+  failedPassesOfConsecutiveDeaths = [];
+  log(`${consecutiveDeadAgents} agents in a row returned nothing, a session limit or a lost connection: no new agent starts, and the ${inFlight.size} in flight finish.`);
+}
+
+// Not a failed pass: its row is left for the release at the end of the run, like a takeover a stop kept from starting.
+function settleDeadAgentOfAStoppedRun(work) {
+  if (work.kind === 'park') {
+    settleParking(work, null);
+    return;
+  }
+  if (work.kind === 'build') {
+    awaitTakeover({ kind: 'build', ticketId: work.ticketId, previousPass: 'builder' });
+    return;
+  }
+  recordOf(work.ticketId).nextRound = work.round + 1;
+  awaitTakeover(reviewWorkFor(work.ticketId, true, true));
+}
+
 async function settleNextFinished() {
   const finished = await Promise.race([...inFlight.values()].map((ownAgent) => ownAgent.finishing));
   inFlight.delete(finished.key);
+  noteWhetherTheAgentDied(finished.result);
   // Settled first, so a row this agent left running is a takeover or being parked by the time its own status block is read.
-  settle(finished);
+  if (finished.result === null && stoppedByFailures) settleDeadAgentOfAStoppedRun(finished.work);
+  else settle(finished);
   if (finished.result !== null) adoptBoard(finished.result.status);
+}
+
+function runSurveyAgent(prompt, label, schema) {
+  return runAgent(prompt, {
+    label,
+    phase:  'Survey',
+    schema,
+    model:  SURVEY_MODEL,
+    effort: SURVEY_EFFORT,
+  });
+}
+
+// An in-progress ticket, a paused build resumed after an unhold, has no `readyTickets` entry to copy, and running it on the defaults drops its pair.
+const ticketIdsWithoutStatedSettings = settings.ticketIds === null
+  ? []
+  : settings.ticketIds.filter((ticketId) => readyTicketEntryOf({ readyTickets: settings.readyTickets }, ticketId) === undefined);
+if (ticketIdsWithoutStatedSettings.length > 0) {
+  phase('Survey');
+  const lookup = await runSurveyAgent(ticketSettingsLookupPrompt(ticketIdsWithoutStatedSettings), 'ticket settings', TICKET_SETTINGS_LOOKUP_SCHEMA);
+  if (lookup !== null && Array.isArray(lookup.tickets)) lookedUpTicketSettings = lookup.tickets;
+  else log(`The ticket settings came back unread, so ${ticketIdsWithoutStatedSettings.map((ticketId) => `#${ticketId}`).join(', ')} run on the default model and effort.`);
 }
 
 if (settings.ticketIds === null) {
   phase('Survey');
-  const survey = await runAgent(surveyPrompt(), {
-    label:  'survey',
-    phase:  'Survey',
-    schema: SURVEY_SCHEMA,
-    model:  SURVEY_MODEL,
-    effort: SURVEY_EFFORT,
-  });
+  const survey = await runSurveyAgent(surveyPrompt(), 'survey', SURVEY_SCHEMA);
   if (survey === null) {
     log('The survey returned no board, so nothing was dispatched.');
     return summary();
@@ -719,7 +792,7 @@ if (settings.ticketIds === null) {
 phase('Build');
 for (;;) {
   const slotLimit = ownSlotLimit();
-  while (!stoppedByBoard && inFlight.size < slotLimit) {
+  while (!runIsStopped() && inFlight.size < slotLimit) {
     const work = nextWork();
     if (work === null) break;
     launch(work);
@@ -754,7 +827,7 @@ const leftWaiting = [
 ];
 const leftWaitingUnheld = leftWaiting.filter((ticketId) => !ticketIsHeld(ticketId));
 const leftWaitingText = leftWaitingUnheld.map((ticketId) => `#${ticketId}`).join(', ');
-if (leftWaitingUnheld.length > 0) log(stoppedByBoard ? `Left for the user's go: ${leftWaitingText}.` : `No slot free for ${leftWaitingText}: other agents hold the board's limit.`);
+if (leftWaitingUnheld.length > 0) log(runIsStopped() ? `Left for the user's go: ${leftWaitingText}.` : `No slot free for ${leftWaitingText}: other agents hold the board's limit.`);
 const lowPriorityWaiting = lowPriorityWaitingIds();
 if (lowPriorityWaiting.length > 0) log(`Left for the orchestrator's triage, low priority: ${lowPriorityWaiting.map((ticketId) => `#${ticketId}`).join(', ')}.`);
 const heldAtEnd = heldEntries();

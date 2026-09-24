@@ -89,10 +89,19 @@ request stays one ticket, and small requests that edit the same files are filed 
 the dispatcher gives every ticket an agent of its own and starting one costs more than a small
 ticket's work.
 
+**Tickets that share a blast radius are merged into one.** At filing and at every triage, look for
+open tickets no agent has started that touch the same files or the same mechanism as each other or as
+the one you are filing, and merge them into one ticket: the survivor carries each merged ticket's
+Report and Acceptance, and each merged one is abandoned with the reason `merged into #<survivor>`.
+One agent then sees the whole picture and pays one start and one review instead of several. Only
+when the merged work would clearly exceed one builder's budget do they stay apart, ordered with
+`--depends-on`: ordering is the fallback, not the default.
+
 **Two tickets that edit one file wait on each other.** The dispatcher starts every ready ticket a
 slot allows and knows nothing about files, so two that rewrite one file collide at release and cost a
-rebase and a second review. Record the order at filing with `--depends-on`; tickets in one area that
-edit different files run side by side, and holding them apart out of topical caution wastes a slot.
+rebase and a second review. When the rule above leaves two such tickets apart, record the order at
+filing with `--depends-on`; tickets in one area that edit different files run side by side, and
+holding them apart out of topical caution wastes a slot.
 
 Then file it, with the body written from what the user actually said:
 
@@ -204,17 +213,28 @@ had claimed is still held, its row is `paused` and the ticket stays in progress,
 survey finds it. Whenever `ticket unhold <id>` ends its output with the line naming a single-ticket
 dispatcher run for that ticket, launch the dispatcher with `ticketIds: ["<id>"]` (and the ticket's
 `readyTickets` entry, none for an in-progress ticket) once the unhold is in; its builder takes the
-paused build over in the ticket's worktree. The same holds for a `held` entry waiting for its
+paused build over in the ticket's worktree. A run given no entry for its ticket reads the ticket's
+model and effort with `ticket show --json` before it starts anyone, so pass no model yourself. The same holds for a `held` entry waiting for its
 `build` whose ticket `ticket show` reports in progress: launch that run once the ticket is unheld.
 
-**When it returns**, its summary is `{ delivered, parked, findingsFiled, agentsRun, stoppedByBoard?, lowPriorityWaiting?, held? }`,
+**When it returns with `stoppedByFailures`**, its agents died back to back — a session limit or a lost
+connection, not the tickets failing — so it started nothing new, let the agents in flight finish,
+counted none of those deaths as a failed pass and parked nothing for them. Tell the user which it
+looks like, then close the dead rows it left: `agent-progress task pause` a builder's row still
+`running`, and `task finish` then `task deliver` a review bar still running. The board goes to
+`stopped` (step 1 below), and you ask with AskUserQuestion (Intake) whether to relaunch; on the
+user's go, `agent-progress dispatcher running` and the launch. The rest of its summary is handled as
+below.
+
+**When it returns**, its summary is `{ delivered, parked, findingsFiled, agentsRun, stoppedByBoard?, stoppedByFailures?, lowPriorityWaiting?, held? }`,
 `lowPriorityWaiting` the low tickets ready that it left for your triage, and `held` the tickets a hold
 kept waiting, each `{ id, waitingFor: 'build' | 'review' }`: the next run picks each up once unheld,
 except a build whose ticket is in progress, which a single-ticket run resumes as said above, so list
 them to the user and relaunch for them only after an unhold:
 
 1. `agent-progress dispatcher finished` — unless the summary carries `stoppedByBoard`: that is the
-   user's stop taking effect, and the state stays `stopped`.
+   user's stop taking effect, and the state stays `stopped`. With `stoppedByFailures`, run
+   `agent-progress dispatcher stopped` instead, so nothing relaunches before the user's go.
 2. `agent-progress log` one line: delivered, parked, findings filed, agents run.
 3. Each parked ticket, with its reason, logged and handled. The run has already paused its row and
    closed any review bar left running, as it does for a ticket it left for the user's go, so a

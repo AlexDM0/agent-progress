@@ -14,7 +14,8 @@ import { join }         from 'node:path';
 
 import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../constants/AgentSettings.ts';
 
-export type AgentKind = 'survey' | 'build' | 'review' | 'park';
+/** `settings` is a single-ticket run's lookup of the model and effort its arguments did not state; its `ticketId` is the ids it names, comma-joined. */
+export type AgentKind = 'survey' | 'settings' | 'build' | 'review' | 'park';
 
 export interface ReviewFinding {
   class:   string;
@@ -259,9 +260,10 @@ function markerIdentifierIn(prompt: string, marker: string): string | null {
   return match?.[1] ?? null;
 }
 
-function kindOf(builtTicketId: string | null, reviewedTicketId: string | null, parkedTicketId: string | null): AgentKind {
+function kindOf(builtTicketId: string | null, reviewedTicketId: string | null, parkedTicketId: string | null, lookedUpTicketIds: string | null): AgentKind {
   if (builtTicketId !== null) return 'build';
   if (reviewedTicketId !== null) return 'review';
+  if (lookedUpTicketIds !== null) return 'settings';
   return parkedTicketId !== null ? 'park' : 'survey';
 }
 
@@ -503,6 +505,10 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
 
   const replyFor = (call: RecordedAgentCall): Record<string, unknown> | null => {
     if (call.kind === 'survey') return { status: statusBlock(), reviewWaitingTickets: reviewWaitingTicketsOnBoard() };
+    // As `ticket show --json` states a ticket: its model and effort only where it names them.
+    if (call.kind === 'settings') {
+      return { tickets: (call.ticketId ?? '').split(',').map((lookedUpTicketId) => ({ id: lookedUpTicketId, ...statedAgentSettingsOf(lookedUpTicketId) })) };
+    }
     if (call.kind === 'park') return { status: statusBlock() };
     const ticketId = call.ticketId ?? '';
     const ordinal  = call.ordinal ?? 1;
@@ -520,14 +526,15 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   };
 
   const fakeAgent = async (prompt: string, options: Record<string, unknown>, run: DispatchRunName): Promise<unknown> => {
-    const callGeneration   = generation;
-    const builtTicketId    = markerIdentifierIn(prompt, 'ticket');
-    const reviewedTicketId = markerIdentifierIn(prompt, 'review');
-    const parkedTicketId   = markerIdentifierIn(prompt, 'park');
-    const kind             = kindOf(builtTicketId, reviewedTicketId, parkedTicketId);
-    const ticketId         = builtTicketId ?? reviewedTicketId ?? parkedTicketId;
-    const passKey          = `${kind}:${ticketId ?? ''}`;
-    const ordinal          = kind === 'survey' ? null : (passesByTicket.get(`${run} ${passKey}`) ?? 0) + 1;
+    const callGeneration    = generation;
+    const builtTicketId     = markerIdentifierIn(prompt, 'ticket');
+    const reviewedTicketId  = markerIdentifierIn(prompt, 'review');
+    const parkedTicketId    = markerIdentifierIn(prompt, 'park');
+    const lookedUpTicketIds = markerIdentifierIn(prompt, 'settings');
+    const kind              = kindOf(builtTicketId, reviewedTicketId, parkedTicketId, lookedUpTicketIds);
+    const ticketId          = builtTicketId ?? reviewedTicketId ?? parkedTicketId ?? lookedUpTicketIds;
+    const passKey           = `${kind}:${ticketId ?? ''}`;
+    const ordinal           = kind === 'survey' ? null : (passesByTicket.get(`${run} ${passKey}`) ?? 0) + 1;
     passesByTicket.set(`${run} ${passKey}`, ordinal ?? 0);
     const call: RecordedAgentCall = {
       run,
@@ -570,7 +577,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     rowKeysOfOwnAgentsRunning.set(callIndex, passKey);
     mostAgentsAtOnce = Math.max(mostAgentsAtOnce, rowKeysOfOwnAgentsRunning.size);
     mostAgentsInFlightAtOnce = Math.max(mostAgentsInFlightAtOnce, board.otherAgentsInFlight + rowKeysOfOwnAgentsRunning.size + rowsLeftRunningWithoutTakeover());
-    if (kind === 'survey' || ticketId === null) {
+    if (kind === 'survey' || kind === 'settings' || ticketId === null) {
       await nextTurn();
       if (generation !== callGeneration) return NEVER_SETTLES;
     } else {

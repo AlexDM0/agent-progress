@@ -256,7 +256,11 @@ launched with `includeLowPriority: true`, and returns the low tickets ready in i
 Launched with `ticketIds: ['<id>']` and `readyTickets` (those tickets' entries copied from
 `status --json`), it is a **single-ticket run**: no survey, one agent at a time, exactly those
 tickets through build, review rounds and release or parking, and the same summary; it never starts
-another ticket. Two runs may then want one ticket, and the atomic `ticket claim` gives it to one: each
+another ticket. A ticket it was given no `readyTickets` entry for — one in progress, whose paused
+build it resumes — has its model and effort read with `ticket show <id> --json` before any builder
+or reviewer starts. Whichever the run, two agents in a row that return nothing, across tickets, stop
+it the way a board stop does, and it returns `stoppedByFailures: true`: those deaths count as no
+failed pass and park nothing. Two runs may then want one ticket, and the atomic `ticket claim` gives it to one: each
 builder's claim note names its run, so a builder refused as in-progress carries on only past its own
 run's claim and otherwise returns, and its run moves on. Every builder ends with
 `ticket review <id> --start-review`, and its reviewer takes that bar over, so the ticket's slot is held
