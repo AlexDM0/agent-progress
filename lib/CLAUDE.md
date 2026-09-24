@@ -280,6 +280,10 @@ JavaScript no spec can sit beside:
   `agent()` call after its first attempt claimed or added its bar, as the runtime does to a hung model call; `killedAtFirstCommandOf`
   kills the run at that agent's first command, leaves every own agent's row running, and resumes the script from the journal of
   completed calls, the longest prefix with unchanged prompts answered from it.
+  A scenario's `ticketIds` launches a single-ticket run (with `readyTickets` copied from the board, as the orchestrator does);
+  `racingTicketIds` starts such a run beside the main one on the same board after `racingRunStartsAfterTurns` turns, each call
+  recorded with its `run`, so a race for one ticket is judged by whose claim won; `elsewhereClaimsAFreedSlot` has an agent
+  elsewhere take any slot a builder leaves free before its reviewer starts, and `slotGaps` records each such moment.
   `lib/tooling/dev/DispatchScriptHarness.spec.ts` pins each decision **and runs it again against a
   mutant of the script that breaks exactly that decision**, which must fail; a mutant whose text left
   the script fails loudly. `lib/tooling/dev/DispatchScriptHarness.brief.spec.ts` holds the prompts'

@@ -61,8 +61,13 @@ context.
   itself is relaunched when a normal or high ticket is ready; one the user stopped
   (`agent-progress dispatcher stopped`) waits for their go. It stores each launch's run id with
   `agent-progress dispatcher running --run <runId>`, and a run that died or was killed is resumed by
-  that id with the same args rather than launched fresh. It loads the first skill for the commands
-  and repeats none of it.
+  that id with the same args rather than launched fresh. The whole-board run is the default; a
+  high-priority ticket filed while one runs gets a single-ticket run of its own
+  (`ticketIds: ['<id>']`) at once, but only when the Next line after filing shows a free slot —
+  otherwise the running run takes it first at its next free slot, and no agent is interrupted. The
+  atomic `ticket claim` lets only one of the two runs build it, and every builder hands its slot
+  straight to its reviewer with `ticket review --start-review`. It loads the first skill for the
+  commands and repeats none of it.
 
 ## Adopting a repository
 

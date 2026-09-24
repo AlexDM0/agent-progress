@@ -161,6 +161,21 @@ commands says so while the board reads `running`. Stopping the run for intake lo
 flight. Only the user stops a run, and then through `agent-progress dispatcher stopped` (The user
 saying stop, below).
 
+**The whole-board run is the default; a high ticket has a fast lane.** A **high-priority** ticket filed
+while a whole-board run is going gets a single-ticket run of its own at once, **only when the Next line
+after filing shows a free slot**:
+
+```
+Workflow({ scriptPath: '<mainCheckout>/.claude/workflows/agent-progress-dispatch.js', args: { mainCheckout, mainLine, checkCommand, installCommand, ticketIds: ['<id>'], readyTickets: [<its entry from status --json readyTickets>] } })
+```
+
+Its entry carries the ticket's model and effort. With no slot free, launch nothing: the running
+whole-board run takes high tickets first at its next free slot, and no running agent is ever
+interrupted. The atomic `ticket claim` lets only one of the two runs build the ticket; the other moves
+on or returns. The user may also ask for a single-ticket run by hand, on the same terms. A single-ticket
+run is not the board's dispatcher: record no `dispatcher` state or run id for it, and when it returns
+skip step 1 below and handle the rest.
+
 **When it returns**, its summary is `{ delivered, parked, findingsFiled, agentsRun, stoppedByBoard?, lowPriorityWaiting? }`,
 the last the low tickets ready that it left for your triage:
 
@@ -291,7 +306,8 @@ Write the code. Review it — that is a clean agent's job, and reading the diff 
 opinion is the same mistake with extra steps. Merge or rebase anything — a branch goes into main only
 through `agent-progress release`, which is the reviewer's, and nobody runs `git merge` into main by
 hand, after a permission refusal least of all. Launch the dispatcher while the board says `stopped`
-without the user's go, run two at once, or pass its agents a model. Stop, kill or relaunch a running
+without the user's go, run two whole-board runs at once or a single-ticket run beside one with no
+slot free, or pass its agents a model. Stop, kill or relaunch a running
 dispatcher to add, reorder, reprioritise or change tickets — file them and the run picks them up at
 its next agent's return; only the user stops a run, through `agent-progress dispatcher stopped`, and
 the workflow task is killed outright only on the user's explicit instruction. Spawn a builder or a reviewer

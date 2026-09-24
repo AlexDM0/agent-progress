@@ -69,7 +69,7 @@ The **from** column is the matrix the named verbs enforce; `ticket status <id> <
 |---|---|---|---|---|---|---|
 | `ticket add` | — | open | created, `pending`; none for a low ticket | `unstarted` | `filed` | `Ticket #003 filed: <title>` |
 | `ticket start` | open, in-review | in-progress | `running` | `wip` | `started` if null; the row's end cleared | `Ticket #003 started` |
-| `ticket claim` | open, in-review, dependencies settled (one on a ticket in the same claim is), a free slot, and for a low ticket no normal or high one owed — for every id named | in-progress | `running`, with `--owner`, `--note` and the claim's `agent` key | `wip` | as `ticket start` | `Ticket #003 started`, one per ticket |
+| `ticket claim` | open, in-review with no review bar running, dependencies settled (one on a ticket in the same claim is), a free slot, and for a low ticket no normal or high one owed — for every id named | in-progress | `running`, with `--owner`, `--note` and the claim's `agent` key | `wip` | as `ticket start` | `Ticket #003 started`, one per ticket |
 | `ticket review` | in-progress | in-review | `finished` | `reviewing` | `finished` if null | `Ticket #003 in review` |
 | `ticket rereview` | in-review | in-review, unchanged | `re-review`, one round up from 2 | `reviewing 2` | `updated` only | `Ticket #003 in review, round 2` |
 | `ticket done` | in-progress, in-review | done | `reviewed` | `awaiting merge` | `finished` if null | `Ticket #003 done` |
@@ -93,6 +93,15 @@ filed before the flag nests too; a bundle's review, `Review 1 #13, #5 — …`, 
 ticket it names. A review whose ticket has no row on the chart — a low ticket not started, or one
 hidden as long done — is drawn where its filing puts it. `--review-of` is not `--ticket`: the ticket
 keeps its own row, and the review row moves through the `task` verbs.
+
+**`--start-review` hands the slot on.** `ticket review <id> --start-review` moves the ticket to review
+and adds its running bar, `Review <N> #<id> — <title>` with `reviewOf` set and N the ticket's
+`## Review` sections plus one, in one lock hold; `ticket rereview <id> --start-review` does the same
+for the next round, finishing and delivering the round's running bar first. `--owner` and `--note`
+name the bar and are refused without the flag. Between a plain `ticket review` and the reviewer's own
+`task add --start` the builder's slot shows free, and a claim in that moment puts the board one agent
+over, since a bar checks no limit; with the flag `status --json` counts the same agents before and
+after. A running bar also refuses `ticket claim` on its ticket: a reviewer is at work on it.
 
 Every one of those moves is appended to the row's own phase history, which the dashboard shows when
 a row is double-clicked, with how long the row sat in each phase. `task update --status` is
@@ -223,6 +232,15 @@ which works whenever the file exists; launching it by `name` should work only in
 after the file was installed. It starts no low ticket unless it is
 launched with `includeLowPriority: true`, and returns the low tickets ready in its summary as
 `lowPriorityWaiting`, for the orchestrator to triage before that launch.
+
+Launched with `ticketIds: ['<id>']` and `readyTickets` (those tickets' entries copied from
+`status --json`), it is a **single-ticket run**: no survey, one agent at a time, exactly those
+tickets through build, review rounds and release or parking, and the same summary; it never starts
+another ticket. Two runs may then want one ticket, and the atomic `ticket claim` gives it to one: each
+builder's claim note names its run, so a builder refused as in-progress carries on only past its own
+run's claim and otherwise returns, and its run moves on. Every builder ends with
+`ticket review <id> --start-review`, and its reviewer takes that bar over, so the ticket's slot is held
+from claim to release.
 
 ## Releasing a branch
 

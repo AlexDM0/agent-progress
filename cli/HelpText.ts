@@ -253,6 +253,14 @@ output never carries either.
                               the row to pending. --branch and --commit record where the work
                               landed, and --tokens what it cost.
 
+  ticket review|rereview <id> --start-review [--owner <who>] [--note <text>] [--at <when>]
+                              The move to review, or the next round, and the reviewer's running bar
+                              (\`Review <N> #<id> — <title>\`, its \`reviewOf\` the ticket, N the
+                              \`## Review\` sections plus one) in one lock hold, closing any bar of
+                              the round before: the builder's slot passes to its reviewer, and one
+                              round's to the next, without \`status --json\` ever showing it free.
+                              --owner and --note name the bar, and are refused without the flag.
+
   ticket claim <id> [<id>...] \`ticket start\` and the row's --owner and --note in one write, for
       [--owner <who>]         every ticket named, as ONE agent: a bundle's builder claims all its
       [--note <text>]         tickets in the one call, and their rows share one agent key. Refused
@@ -261,8 +269,9 @@ output never carries either.
                               is not done or delivered (one inside it is settled: the bundle is
                               worked in dependency order), when one is low and a normal or high
                               ticket is not yet delivered or abandoned — \`ticket start\` only warns
-                              about that — or when the agents in flight already number the
-                              concurrency limit. The count and the moves share one lock hold, so
+                              about that — when a review bar of one is running, or when the agents
+                              in flight already number the concurrency limit. The count and the
+                              moves share one lock hold, so
                               two claims racing for the last slot cannot both succeed. --json
                               prints the ticket, or with several ids the list of them. The first
                               command an implementing agent runs.

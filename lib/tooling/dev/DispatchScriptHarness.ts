@@ -42,9 +42,9 @@ export interface TicketAgentSettings {
 }
 
 export interface FakeBoard {
-  limit:                number;
-  otherAgentsInFlight:  number;
-  readyTicketIds:       string[];
+  limit:                 number;
+  otherAgentsInFlight:   number;
+  readyTicketIds:        string[];
   /** Which tickets are low priority, ready or not; the status block names those among the ready ones. */
   lowPriorityTicketIds:  string[];
   highPriorityTicketIds: string[];
@@ -360,7 +360,9 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     if (reply['outcome'] === 'claim-refused') return { ...reply, claimNote: earlierRow?.note ?? '' };
     if (earlierRow !== undefined) {
       if (prompt.includes(BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM) && earlierRow.note === claimNoteIn(prompt)) return reply;
-      return { ...reply, outcome: 'claim-refused', detail: `#${ticketId} is in-progress`, claimNote: earlierRow.note };
+      return {
+        ...reply, outcome: 'claim-refused', detail: `#${ticketId} is in-progress`, claimNote: earlierRow.note 
+      };
     }
     if (runningRowOf(`review:${ticketId}`) !== undefined) return { ...reply, outcome: 'claim-refused', detail: `#${ticketId} is under review` };
     if (deliveredTicketIds.has(ticketId)) return { ...reply, outcome: 'claim-refused', detail: `#${ticketId} is delivered` };

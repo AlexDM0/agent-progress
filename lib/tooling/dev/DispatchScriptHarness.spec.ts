@@ -657,7 +657,10 @@ const CLAIMS: Claim[] = [
       && run.mostAgentsOnBoardAtOnce === 2
       && summaryOf(run).delivered.length === 3
       && run.reviewBarsAdded.join(', ') === 'review 001, review 002, review 003',
-    mutant: { find: '`Close as Ready to merge says, append the \\`## Handoff\\`, then run \\`${startReviewCommandOf(\'review\', ticketId, owner)}\\`. `', replace: '`Close as Ready to merge says, append the \\`## Handoff\\`, then run \\`agent-progress ticket review ${ticketId}\\`. `' },
+    mutant: {
+      find:    '`Close as Ready to merge says, append the \\`## Handoff\\`, then run \\`${startReviewCommandOf(\'review\', ticketId, owner)}\\`. `',
+      replace: '`Close as Ready to merge says, append the \\`## Handoff\\`, then run \\`agent-progress ticket review ${ticketId}\\`. `',
+    },
   },
   {
     // Read as another agent's, the bar the builder left would fill a limit of 1, and the reviewer it was started for would never run.
@@ -694,7 +697,9 @@ const CLAIMS: Claim[] = [
     scenario: SINGLE_TICKET_RUN_AMONG_OTHERS,
     holds:    (run) => kindsAndTickets(run).join(', ') === 'build 007, review 007'
       && run.calls.every((call) => call.ticketId === '007')
-      && JSON.stringify(run.summary) === JSON.stringify({ delivered: ['007'], parked: [], findingsFiled: [], agentsRun: 2 }),
+      && JSON.stringify(run.summary) === JSON.stringify({
+        delivered: ['007'], parked: [], findingsFiled: [], agentsRun: 2 
+      }),
     mutant: {
       find:    'if (settings.ticketIds !== null) return settings.ticketIds.filter(',
       replace: 'if (settings.ticketIds !== null && board === null) return settings.ticketIds.filter(',
@@ -854,7 +859,8 @@ describe('the dispatcher script', () => {
     const builders = run.calls.filter((call) => call.kind === 'build');
     expect(builders).toHaveLength(2);
     for (const builder of builders) {
-      expect(builder.prompt).toContain(`"Built by the whole-board dispatcher run on ticket-001" and /scratch/example-repository/.claude/worktrees/ticket-001 exists, ${BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM}`);
+      const ownClaimClause = '"Built by the whole-board dispatcher run on ticket-001" and /scratch/example-repository/.claude/worktrees/ticket-001 exists';
+      expect(builder.prompt).toContain(`${ownClaimClause}, ${BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM}`);
       expect(builder.prompt).toContain('keeping every uncommitted edit it holds');
     }
     expect(builders[1]?.prompt).toContain('An earlier builder of this run stopped before review');
