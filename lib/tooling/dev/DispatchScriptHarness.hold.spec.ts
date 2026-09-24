@@ -96,8 +96,7 @@ const HELD_AFTER_ITS_BUILDER_STOPPED_SHORT: DispatchScenario = {
   },
 };
 
-const RESUME_THE_PAUSED_ROW_SENTENCE = 'When the row you carry on past is `paused` rather than `running`, resume it first with `agent-progress task start <that row>`, '
-  + 'so your build holds its slot. ';
+const RESUME_THE_PAUSED_ROW_SENTENCE = '    + pausedRowResumptionText(ticketId, previousPass, takeoverText)\n';
 
 function lastBlockBeforeShowsHeld(run: DispatchRun, call: RecordedAgentCall, ticketId: string): boolean {
   return run.heldTicketIdsReturned[call.statusBlocksReturnedBefore - 1]?.includes(ticketId) ?? false;
@@ -141,7 +140,7 @@ const CLAIMS: Claim[] = [
       && run.mostLiveAgentsAtOnce <= 2
       && run.mostAgentsInFlightAtOnce <= 2,
     // The mutant keeps the held step at the head of the queue, so everything behind it waits with it.
-    mutant: { find: '      holdBack(takeover);\n', replace: '      takeoversWaiting.set(takeoverKeyOf(takeover), takeover);\n      return null;\n' },
+    mutant: { find: '      holdBack(takeover, true);\n', replace: '      takeoversWaiting.set(takeoverKeyOf(takeover), takeover);\n      return null;\n' },
   },
   {
     name:     'a held ready ticket is not built, and the run returns it as held for a build',
@@ -170,7 +169,7 @@ const CLAIMS: Claim[] = [
     holds: (run) => callsOf(run, 'review', HELD_TICKET_ID).length === 0
       && summaryOf(run).delivered.join() === '002'
       && JSON.stringify(summaryOf(run).held) === JSON.stringify([{ id: HELD_TICKET_ID, waitingFor: 'review' }]),
-    mutant: { find: '    if (!ticketIsHeld(queued.ticketId)) return queued;\n    holdBack(queued);\n', replace: '    return queued;\n' },
+    mutant: { find: '    if (!ticketIsHeld(queued.ticketId)) return queued;\n    holdBack(queued, false);\n', replace: '    return queued;\n' },
   },
   {
     // A bar left running for a held ticket would count against the limit for as long as the hold lasts.
@@ -201,7 +200,7 @@ const CLAIMS: Claim[] = [
       && run.mostAgentsOnBoardAtOnce <= 1
       && run.rowsPaused.length === 0
       && run.rowsRunningAtEnd.length === 0,
-    mutant: { find: '    + pausedBuildTakeoverText(ticketId)\n', replace: '    + \'\'\n' },
+    mutant: { find: '  const takeoverText = pausedBuildTakeoverText(ticketId);\n', replace: '  const takeoverText = \'\';\n' },
   },
   {
     name:     'the same takeover resumes the paused row, so the build holds its slot while it runs',

@@ -272,9 +272,12 @@ another ticket. A ticket it was given no `readyTickets` entry for — one in pro
 build it resumes — has its model and effort read with `ticket show <id> --json` before any builder
 or reviewer starts. Whichever the run, two agents in a row that return nothing, across tickets, stop
 it the way a board stop does, and it returns `stoppedByFailures: true`: those deaths count as no
-failed pass and park nothing. A run that a stop, the board's or the failures', ended with builds left
-paused names them in its summary as `pausedBuilds: [<ids>]`, absent when there are none; the next
-whole-board run resumes them. Two runs may then want one ticket, and the atomic `ticket claim` gives it to one: each
+failed pass and park nothing. A run that ended with builds left paused and not held names them in its
+summary as `pausedBuilds: [<ids>]`, absent when there are none, and the reviews it left waiting as
+`reviewsLeft: [<ids>]`, absent the same way; the next whole-board run resumes both. It resumes a
+paused build like a ready ticket of the same priority, just before one: after any ready ticket of a
+higher priority, and a low one only with `includeLowPriority: true` — until then it is named in
+`lowPriorityWaiting` as well. A paused build whose worktree is gone is never resumed. Two runs may then want one ticket, and the atomic `ticket claim` gives it to one: each
 builder's claim note names its run, so a builder refused as in-progress carries on only past its own
 run's claim and otherwise returns, and its run moves on. Every builder ends with
 `ticket review <id> --start-review`, and its reviewer takes that bar over, so the ticket's slot is held
