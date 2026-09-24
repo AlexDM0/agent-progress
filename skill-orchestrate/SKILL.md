@@ -32,37 +32,53 @@ board is the memory of this session; your transcript is not.
 Run it once, at the top, in this order, then stop and wait.
 
 1. `agent-progress status --json`. Exit 1 saying there is no tracker: ask whether to
-   `agent-progress init` here, and do not create one uninvited.
+   `agent-progress init` here, through AskUserQuestion as Intake says, and do not create one
+   uninvited.
 2. Read `.claude/settings.local.json` and `.claude/settings.json` for
    `agent-progress hook subagent-stop`. `init` and `update` write it into the local file by default,
    so it is normally in one of them and there is nothing to say. If it is in neither — the repository
    was adopted before the hook existed, or somebody ran `--no-hooks` — say so once and offer
-   `agent-progress update`, which is what puts every agent's cost on its row; without it a workflow's
-   agents reach no row at all.
+   `agent-progress update` as an AskUserQuestion question (Intake): it is what puts every agent's cost
+   on its row; without it a workflow's agents reach no row at all.
 3. Check `.claude/workflows/agent-progress-dispatch.js` exists. If not — adopted before the
-   dispatcher, or `--no-workflow` — say so once and offer `agent-progress update`; until then only the
-   manual path (By hand) is open.
+   dispatcher, or `--no-workflow` — say so once and offer `agent-progress update` the same way; until
+   then only the manual path (By hand) is open. Steps 1 to 3 and 5 put what they need into one call.
 4. Read `.agent-progress/agent-brief.md` once: its `Ticket brief` block is the `## Brief` every ticket
    you file carries. Keep it for the session and do not read it again.
 5. Settle the launch arguments once and keep them for the session: `mainCheckout`, the tracker's root;
    `mainLine`, the branch it is on; `checkCommand`, the repository's full check line, from its
    `CLAUDE.md` or its scripts; `installCommand`, what a fresh worktree needs before that runs (a
-   `bun install`), or none. Ask the user only for what the repository does not say.
+   `bun install`), or none. Ask the user, through AskUserQuestion, only for what the repository
+   does not say.
 6. `agent-progress open`, once.
 7. Report the board in at most five lines — in flight, ready to start, blocked and on what, the
    dispatcher's state — and say you are ready for ticket requests. Then act on that state as
    Relaunching and stopping says; a `running` state with no workflow of this session behind it is a
-   run an earlier session never recorded the end of, and waits for the user's go like `stopped`.
+   run an earlier session never recorded the end of, and waits for the user's go like `stopped`. When
+   work is ready and the board waits for a go, ask for it with AskUserQuestion (Intake).
 
 ## Intake: what to do with what the user says
 
 A question is a question; answer it and file nothing. A bug, a change or a feature becomes a ticket.
 
+**Every question for the user is asked with the AskUserQuestion tool, never left as prose.** Grilling
+a ticket, a parked ticket, a design choice, whether to file something, permission to launch or
+relaunch after a stop, an offer to run a command: each is a question in an AskUserQuestion call — up
+to four per call, each with two to four concrete options, the recommended one first with
+"(Recommended)" in its label. A question printed at the end of a message is easy to miss, and the
+board then waits on an answer nobody knows is owed. A status message may say a question is pending,
+never instead of asking it. **Give each question its context first**: in the message text just before
+the call, a short block per question — what it is about, what each option would change, your
+recommendation and why, and any board state the answer depends on (a ticket's id and status, what
+waits on it). The dialog's option descriptions stay short; the context block carries the rest. Every
+passage below that hands the user a decision asks this way.
+
 **Grill before filing.** Ask only what changes the ticket and only what the repository cannot answer:
 the acceptance condition when "better" or "fix" is all you have, which surface or flow is meant when
 two match, whether it replaces or extends existing behaviour, and whether it must wait on a ticket
-already on the board. Ask them together, in one message, and never ask what an agent will discover
-anyway. Two unanswered ambiguities cost less to raise now than one agent that guessed wrong.
+already on the board. Ask them together, in one AskUserQuestion call, as the rule above says, and
+never ask what an agent will discover anyway. Two unanswered ambiguities cost less to raise now than
+one agent that guessed wrong.
 
 **Split a large request at filing, not later.** A request that touches more than one mechanism — say
 a drop rule, a layout change and a migration — is filed as halves, one mechanism each, joined with
@@ -132,7 +148,8 @@ bounded deviation the other one tolerates. Noticing it and filing anyway costs a
 ## Running the dispatcher
 
 **Starting — only on the user's go.** A tracker that never set a state reads `stopped`, and a stopped
-dispatcher waits for the user however many tickets are filed. On their go, each on its own call:
+dispatcher waits for the user however many tickets are filed; ask for the go with AskUserQuestion
+(Intake) once work is ready. On their go, each on its own call:
 
 ```
 agent-progress dispatcher running
@@ -186,15 +203,17 @@ the last the low tickets ready that it left for your triage:
    closed any review bar left running, as it does for a ticket it left for the user's go, so a
    parked row is `paused`, never an agent in flight. A row its log names under `No slot free for an
    agent to pause` had no slot for that agent within the limit: pause it yourself with
-   `agent-progress task pause`. **Two failed passes on one ticket is a
-   question for the user, not a third agent**: tell them what the last Handoff and Review say is
-   missing. A refused release — a main checkout off the main line, a fast-forward git refused over a
+   `agent-progress task pause`. Every parked ticket that needs the user's decision is asked with
+   AskUserQuestion (Intake), one question per ticket, its context block naming the reason.
+   **Two failed passes on one ticket is a question for the user, not a third agent**: its context
+   block says what the last Handoff and Review say is missing, and the options are what to do next.
+   A refused release — a main checkout off the main line, a fast-forward git refused over a
    local change, a refused permission — is the user's to settle, and neither you nor an agent runs
-   anything around it: name the ticket, the reason and, for a permission, that allowing
-   `agent-progress release` is the release permission for every reviewer from then on. Review rounds
-   that did not converge are a sign about the ticket, not the reviewers: file a new ticket stating the
-   invariant behind what the reviews kept finding, with the search for its other instances as an
-   acceptance item, and tell the user the parked branch waits on it.
+   anything around it: ask how to settle it, the context block naming the ticket, the reason and, for
+   a permission, that allowing `agent-progress release` is the release permission for every reviewer
+   from then on. Review rounds that did not converge are a sign about the ticket, not the reviewers:
+   file a new ticket stating the invariant behind what the reviews kept finding, with the search for
+   its other instances as an acceptance item, and tell the user the parked branch waits on it.
 4. Each ticket in `findingsFiled`, judged for severity as Intake says.
 5. `agent-progress status --json`: a row the run left `running` or `awaiting review` with no agent
    behind it is yours to close, `task finish` then `task deliver`.
@@ -209,7 +228,8 @@ compaction the `Next:` line of `agent-progress status` says which.
 - `finished` — it ended by itself: a normal or high ticket filed or ready relaunches it without
   asking, `agent-progress dispatcher running` and the launch. Low tickets alone relaunch nothing.
 - `stopped` — never started, or the user stopped it: wait for the user's permission, whatever is filed
-  meanwhile, and on their go `agent-progress dispatcher running` and the launch.
+  meanwhile, and on their go `agent-progress dispatcher running` and the launch. When work is ready,
+  ask for that permission with AskUserQuestion (Intake) rather than mentioning it in a status line.
 - `running` — a run of this session is at work: wait for it to return. With no run of this session
   behind it, or a task notification saying the run was stopped or died, recover it as below.
 
@@ -234,7 +254,8 @@ merge overlapping ones into one survivor carrying the others' Report and Accepta
 merged one with the reason `merged into #<survivor>`; and give every survivor its `## Brief`. Only
 then launch a run for them — `agent-progress dispatcher running` and the launch with
 `includeLowPriority: true` added to its args — while the state is `finished`; a `stopped` board still
-waits for the user's go.
+waits for the user's go, asked for as Intake says. A triage call you cannot make from the tickets
+alone — whether one is still relevant, which of two survives — is an AskUserQuestion question too.
 
 **The user saying stop** is `agent-progress dispatcher stopped`, on the board. The running script
 reads it at its next agent's return, starts nothing new, lets the agents in flight finish and returns
@@ -275,8 +296,9 @@ direction abandoned: `agent-progress log "<it>"`, or into the ticket body it bel
 worth remembering that is only in your transcript is one compaction away from gone.
 
 **Never drop**, whatever the context does: the queue and what each queued ticket is for, the launch
-arguments, the parked tickets and held branches waiting on the user, the questions you asked the user
-and have not had answered, and the preferences the user has stated this session. That is the working
+arguments, the parked tickets and held branches waiting on the user, the AskUserQuestion questions you
+asked and have not had answered — asked again after a compaction rather than left in a summary — and
+the preferences the user has stated this session. That is the working
 memory intake runs on.
 
 When you do lose the thread — after a compaction, or a long gap — re-anchor with
