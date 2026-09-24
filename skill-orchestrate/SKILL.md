@@ -226,9 +226,9 @@ stop left paused. The rest of its summary is handled as below.
 `lowPriorityWaiting` the low tickets ready that it left for your triage, `pausedBuilds` the builds a
 stop left paused, which the next whole-board run resumes — a paused low build is named in
 `lowPriorityWaiting` as well, and is resumed only by a relaunch with `includeLowPriority: true` —
-`reviewsLeft` the reviews it left waiting, which the next whole-board run takes up, and `held` the tickets a hold kept waiting,
-each `{ id, waitingFor: 'build' | 'review' }`: the next run picks each up once unheld, so list them to
-the user and relaunch for them only after an unhold:
+`reviewsLeft` the reviews it left waiting, which the next whole-board run takes up, and `held` the
+tickets a hold kept waiting, each `{ id, waitingFor: 'build' | 'review' }`: the next run picks each
+up once unheld, so list them to the user and relaunch for them only after an unhold:
 
 1. `agent-progress dispatcher finished` — unless the summary carries `stoppedByBoard`: that is the
    user's stop taking effect, and the state stays `stopped`. With `stoppedByFailures`, run
