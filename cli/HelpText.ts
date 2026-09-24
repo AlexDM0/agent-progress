@@ -14,8 +14,10 @@ it. Every mutating command takes the lock, writes the progress file atomically a
 or an offset from now: \`-5m\`, \`-2h\`, \`-1d\`, \`+30m\`. \`<n>\` on --tokens is a whole number or a
 decimal with a \`k\`/\`m\` suffix: \`12000\`, \`12k\`, \`12.3k\`, \`1.2m\`.
 
-\`--help\` works after a command word as well as on its own, and AGENT_PROGRESS_ROOT names the
-repository to use instead of walking up from the current directory.
+\`--help\` works after a command word as well as on its own, and \`-h\` on its own or straight after
+the command word; a \`-h\` further on is refused at exit 1, since it may be text (put text behind a
+bare \`--\`). An option taking a value, given twice, is refused at exit 1. AGENT_PROGRESS_ROOT names
+the repository to use instead of walking up from the current directory.
 
 \`status\`, \`ticket add\`, every ticket or task move and \`release\` end their output with one line
 read from the board after the change: \`Next: 1 of 2 slots free; ready: #003, #005\`, \`Next: no slot
@@ -355,7 +357,10 @@ output never carries either.
 
   range --from <when>         The stored default axis of the chart. A relative bound is stored as
         --to <when>           written, so \`--from -2h\` keeps meaning "the last two hours" on every
-        [--tick <15m|1h|1d>]  refresh. The page's own range bar overrides this per browser.
+        [--tick <15m|1h|1d>]  refresh. A pair that is not in order is refused at exit 1 when both
+                              are timestamps or both are relative to now; a pair naming \`start\`
+                              or mixing the two is not judged. One log line per stored range.
+                              The page's own range bar overrides this per browser.
   range --auto                Reset the axis to the automatic span; it takes no --from, --to or
                               --tick, and any of them beside it is refused at exit 1.
 
