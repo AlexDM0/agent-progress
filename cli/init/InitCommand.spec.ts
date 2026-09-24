@@ -213,7 +213,21 @@ describe.skipIf(!gitIsAvailable())('a second init', () => {
     expect(await runCommandLine(['init', '--root', nestedDirectory], context)).toBe(1);
 
     expect(context.errorText()).toContain(repositoryDirectory);
+    expect(context.errorText(), 'the refresh at the tracker\'s root is `update`, and it refreshes more than the block').toContain('agent-progress update');
+    expect(context.errorText()).not.toContain('only refreshes the CLAUDE.md block');
     expect(existsSync(join(nestedDirectory, '.agent-progress'))).toBe(false);
+  });
+
+  test('a re-run with --no-claude-md does not claim the block was refreshed', async () => {
+    const repositoryDirectory = scratchRepository();
+    await runCommandLine(['init'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }));
+
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['init', '--no-claude-md'], context)).toBe(0);
+
+    expect(context.outputText()).toContain('already initialised');
+    expect(context.outputText()).not.toContain('CLAUDE.md block refreshed');
+    expect(context.outputText()).toContain('left alone');
   });
 });
 

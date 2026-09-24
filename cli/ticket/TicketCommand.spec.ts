@@ -2,6 +2,7 @@
  * The markdown tickets and the Gantt rows they drive: every transition moves the row and stamps the frontmatter, which is what `clear` re-seeds from.
  */
 import {
+  mkdirSync,
   readdirSync,
   readFileSync,
   realpathSync,
@@ -479,6 +480,43 @@ describe.skipIf(!gitIsAvailable())('token counts on a ticket move', () => {
     await run(['ticket', 'review', '1', '--tokens', '48k']);
 
     expect(storedProgress().tasks[0]?.tokens).toBe(48_000);
+  });
+
+  // A low ticket that was never started has no row, so the figure would otherwise vanish at exit 0.
+  test('--tokens on a ticket with no row is refused with nothing written', async () => {
+    await run(['ticket', 'add', 'Double-click a role to edit it', '--priority', 'low']);
+    const progressBefore = readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8');
+    const ticketBefore   = storedTicketText();
+
+    const context  = contextHere();
+    const exitCode = await runCommandLine(['ticket', 'abandon', '1', '--reason', 'superseded', '--tokens', '12k'], context);
+
+    expect(exitCode).toBe(1);
+    expect(context.errorText()).toContain('has no row');
+    expect(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')).toBe(progressBefore);
+    expect(storedTicketText()).toBe(ticketBefore);
+  });
+});
+
+describe.skipIf(!gitIsAvailable())('where --body-file reads from', () => {
+  test('`-` reads what the context pipes in, not the process\'s own standard input', async () => {
+    const context = createCapturedCommandContext({
+      currentDirectory:  repositoryDirectory,
+      now:               () => FROZEN_NOW,
+      standardInputText: '## Report\nPiped by Alex Example.\n',
+    });
+    expect(await runCommandLine(['ticket', 'add', 'Double-click a role to edit it', '--body-file', '-'], context)).toBe(0);
+
+    expect(storedTicketText()).toContain('Piped by Alex Example.');
+  });
+
+  test('a relative path resolves against the command\'s directory, not the process\'s', async () => {
+    mkdirSync(join(repositoryDirectory, 'notes'));
+    writeFileSync(join(repositoryDirectory, 'notes', 'body.md'), '## Report\nWritten by Alex Example.\n');
+
+    await run(['ticket', 'add', 'Double-click a role to edit it', '--body-file', 'notes/body.md']);
+
+    expect(storedTicketText()).toContain('Written by Alex Example.');
   });
 });
 

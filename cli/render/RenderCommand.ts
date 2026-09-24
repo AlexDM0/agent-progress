@@ -1,9 +1,8 @@
 /** Renders under the lock without writing the progress file, so a concurrent write cannot leave the older picture on disk. */
-import { withLock }            from '../../lib/platform/Lock';
-import { OperationRefusal }    from '../../lib/platform/OperationRefusal';
-import { requireWorkspace }    from '../../lib/platform/Workspace';
-import { renderDashboard }     from '../CommandSupport';
-import type { CommandHandler } from '../CommandTable';
+import { withLock }                from '../../lib/platform/Lock';
+import { requireWorkspace }        from '../../lib/platform/Workspace';
+import { renderDashboardOrRefuse } from '../CommandSupport';
+import type { CommandHandler }     from '../CommandTable';
 
 const USAGE = 'agent-progress render';
 
@@ -14,10 +13,6 @@ export const renderCommand: CommandHandler = async (commandArguments, context) =
   commandArguments.rejectExtraPositionals(0, USAGE);
 
   const workspace = requireWorkspace(context.currentDirectory);
-  const outcome   = await withLock(workspace, () => renderDashboard(context, workspace), context.now);
-
-  if (outcome.verdict === 'unreadable') {
-    throw new OperationRefusal('unrepaired', `The dashboard could not be regenerated: ${outcome.reason}`);
-  }
+  await withLock(workspace, () => renderDashboardOrRefuse(context, workspace), context.now);
   context.standardOutput(workspace.htmlFilePath);
 };

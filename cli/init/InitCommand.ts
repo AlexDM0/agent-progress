@@ -84,7 +84,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
       throw new OperationRefusal(
         'refused',
         `A tracker already governs this directory: ${existingWorkspace.trackerDirectory}. `
-        + `Run \`agent-progress init\` in ${existingWorkspace.rootDirectory} instead — there it only refreshes the CLAUDE.md block.`,
+        + `Run \`agent-progress update\` in ${existingWorkspace.rootDirectory} instead to refresh what the tracker writes into the repository.`,
       );
     }
     const refresh = refreshTrackedRepository({
@@ -96,7 +96,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
       writesTheAgentDefinition,
       standardError: context.standardError,
     });
-    context.standardOutput(`agent-progress is already initialised in ${rootDirectory}; CLAUDE.md block refreshed.`);
+    context.standardOutput(`agent-progress is already initialised in ${rootDirectory}.`);
     context.standardOutput(`  CLAUDE.md:   ${refresh.claudeInstructionsLine}`);
     context.standardOutput(`  brief:       ${refresh.briefLine}`);
     context.standardOutput(`  hooks:       ${refresh.hookLine}`);

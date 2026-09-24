@@ -87,9 +87,10 @@ export const rangeCommand: CommandHandler = async (commandArguments, context) =>
   const resetsToAutomatic = commandArguments.flag('auto');
   const writtenFrom       = commandArguments.option('from');
   const writtenTo         = commandArguments.option('to');
+  const writtenTick       = commandArguments.option('tick');
 
-  if (resetsToAutomatic && (writtenFrom !== undefined || writtenTo !== undefined)) {
-    throw new OperationRefusal('refused', `--auto sets the axis on its own; drop --from and --to.\n  Usage: ${USAGE}`);
+  if (resetsToAutomatic && (writtenFrom !== undefined || writtenTo !== undefined || writtenTick !== undefined)) {
+    throw new OperationRefusal('refused', `--auto sets the axis on its own, tick included; drop --from, --to and --tick.\n  Usage: ${USAGE}`);
   }
   if (!resetsToAutomatic && (writtenFrom === undefined || writtenTo === undefined)) {
     throw new OperationRefusal('refused', `agent-progress range needs either --auto or both --from and --to.\n  Usage: ${USAGE}`);
@@ -97,7 +98,7 @@ export const rangeCommand: CommandHandler = async (commandArguments, context) =>
 
   const view: ViewRange = resetsToAutomatic || writtenFrom === undefined || writtenTo === undefined
     ? { kind: 'auto' }
-    : viewRangeFrom(writtenFrom, writtenTo, commandArguments.option('tick'));
+    : viewRangeFrom(writtenFrom, writtenTo, writtenTick);
 
   const stored = await openTrackerForWriting(commandArguments, context, (change) => {
     change.progress.view = view;

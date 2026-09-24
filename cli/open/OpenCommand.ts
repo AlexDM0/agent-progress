@@ -1,9 +1,9 @@
 import { existsSync } from 'node:fs';
 
-import { withLock }            from '../../lib/platform/Lock';
-import { requireWorkspace }    from '../../lib/platform/Workspace';
-import { renderDashboard }     from '../CommandSupport';
-import type { CommandHandler } from '../CommandTable';
+import { withLock }                from '../../lib/platform/Lock';
+import { requireWorkspace }        from '../../lib/platform/Workspace';
+import { renderDashboardOrRefuse } from '../CommandSupport';
+import type { CommandHandler }     from '../CommandTable';
 
 const USAGE = 'agent-progress open';
 
@@ -20,7 +20,7 @@ export const openCommand: CommandHandler = async (commandArguments, context) => 
 
   const workspace = requireWorkspace(context.currentDirectory);
   if (!existsSync(workspace.htmlFilePath)) {
-    await withLock(workspace, () => renderDashboard(context, workspace), context.now);
+    await withLock(workspace, () => renderDashboardOrRefuse(context, workspace), context.now);
   }
 
   const opener = process.platform === MACOS_PLATFORM ? MACOS_OPENER : OTHER_OPENER;

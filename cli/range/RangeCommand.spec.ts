@@ -119,6 +119,16 @@ describe.skipIf(!gitIsAvailable())('refusals', () => {
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('--auto sets the axis on its own');
   });
+
+  test('--auto together with --tick is refused, because the automatic axis picks its own tick', async () => {
+    await run(['range', '--from', '-2h', '--to', 'now']);
+    const context  = contextHere();
+    const exitCode = await runCommandLine(['range', '--auto', '--tick', '1h'], context);
+
+    expect(exitCode).toBe(1);
+    expect(context.errorText()).toContain('drop --from, --to and --tick');
+    expect(storedView().kind).toBe('relative');
+  });
 });
 
 describe.skipIf(!gitIsAvailable())('the two bounds a range cannot have', () => {

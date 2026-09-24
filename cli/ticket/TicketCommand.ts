@@ -1,6 +1,6 @@
 /** The named verbs enforce the legality matrix of `lib/tickets/TicketTransitions.ts`; `ticket status` is the documented override that skips it. */
-import { readFileSync } from 'node:fs';
-import { join }         from 'node:path';
+import { readFileSync }  from 'node:fs';
+import { join, resolve } from 'node:path';
 
 import {
   AGENT_EFFORTS,
@@ -152,15 +152,15 @@ function bodyForNewTicket(suppliedBody: string | undefined, ticketId: string, ti
 }
 
 
-async function suppliedBodyFor(commandArguments: ArgumentParser): Promise<string | undefined> {
+async function suppliedBodyFor(commandArguments: ArgumentParser, context: CommandContext): Promise<string | undefined> {
   const written = commandArguments.option('body');
   if (written !== undefined) return written;
 
   const bodyFile = commandArguments.option('body-file');
-  if (bodyFile === STANDARD_INPUT_MARKER) return Bun.stdin.text();
+  if (bodyFile === STANDARD_INPUT_MARKER) return context.readStandardInput();
   if (bodyFile === undefined) return undefined;
   try {
-    return readFileSync(bodyFile, 'utf8');
+    return readFileSync(resolve(context.currentDirectory, bodyFile), 'utf8');
   } catch (problem) {
     throw new OperationRefusal('refused', `--body-file ${bodyFile} could not be read: ${problem instanceof Error ? problem.message : String(problem)}`);
   }
@@ -376,7 +376,7 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
 
   // Read before the lock: `--body-file -` waits on a pipe the caller may hold open indefinitely. The id is not: only the lock hold makes it this ticket's.
   requireWorkspace(context.currentDirectory);
-  const suppliedBody = await suppliedBodyFor(commandArguments);
+  const suppliedBody = await suppliedBodyFor(commandArguments, context);
 
   const { result: ticket, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
     const filed = createTicket(change.workspace, {
@@ -539,8 +539,14 @@ async function transitionOneTicket(
         + 'Say why the work was dropped, for example `agent-progress ticket abandon 3 --reason "superseded by #7"`.',
       );
     }
-    // After the transition, which is what guarantees the ticket has a row to write to at all.
-    if (tokens !== undefined && outcome.ticket.frontmatter.task !== null) {
+    // After the transition, which files a low ticket's row when it starts; a move that leaves it row-less throws before anything is written.
+    if (tokens !== undefined) {
+      if (outcome.ticket.frontmatter.task === null) {
+        throw new OperationRefusal(
+          'refused',
+          `Ticket #${ticket.frontmatter.id} has no row, so --tokens has nowhere to be recorded: a low-priority ticket gets its row when it is started. Drop --tokens.`,
+        );
+      }
       setTaskTokens(change.progress, outcome.ticket.frontmatter.task, tokens);
     }
     const startedReviewBar = reviewBarRequest === null ? null : startReviewBar(change.progress, outcome.ticket, reviewBarRequest, change.at);

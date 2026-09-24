@@ -163,6 +163,15 @@ export async function renderDashboard(context: CommandContext, workspace: Worksp
   return outcome;
 }
 
+/** For `render` and `open`, whose whole job is the page: an unreadable tracker is their failure, reported once, by the refusal alone. */
+export async function renderDashboardOrRefuse(context: CommandContext, workspace: Workspace): Promise<void> {
+  const outcome = await rerenderDashboard({ workspace, generatedAt: context.now(), reads: trackerReads() });
+  if (outcome.verdict === 'unreadable') {
+    throw new OperationRefusal('unrepaired', `The dashboard could not be regenerated: ${outcome.reason}`);
+  }
+  reportRenderProblems(context, outcome);
+}
+
 /** An unreadable progress file here is `'unrepaired'`, not `'refused'`: it was there a moment ago, so it vanished under the command. */
 async function writeTrackerUnderLock<MutationResult, Reading>(
   commandArguments: ArgumentParser,

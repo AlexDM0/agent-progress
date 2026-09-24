@@ -265,7 +265,8 @@ output never carries either.
                               \`ticket rereview\` below is the one exception.
                               \`abandon\` requires --reason; \`reopen\` clears the stamps and returns
                               the row to pending. --branch and --commit record where the work
-                              landed, and --tokens what it cost.
+                              landed, and --tokens what it cost; --tokens on a ticket with no
+                              row (a low one never started) is refused at exit 1.
 
   ticket review|rereview <id> --start-review [--owner <who>] [--note <text>] [--at <when>]
                               The move to review, or the next round, and the reviewer's running bar
@@ -345,13 +346,16 @@ output never carries either.
   range --from <when>         The stored default axis of the chart. A relative bound is stored as
         --to <when>           written, so \`--from -2h\` keeps meaning "the last two hours" on every
         [--tick <15m|1h|1d>]  refresh. The page's own range bar overrides this per browser.
-  range --auto                Reset the axis to the automatic span.
+  range --auto                Reset the axis to the automatic span; it takes no --from, --to or
+                              --tick, and any of them beside it is refused at exit 1.
 
   render                      Regenerate \`progress.html\` from the progress file and the tickets,
                               changing nothing else. For a page lost to a crash, or after a ticket
                               body was edited by hand.
 
-  open                        Open \`progress.html\` in the default browser.
+  open                        Open \`progress.html\` in the default browser, rendering it first when
+                              it is missing; a page that cannot be rendered is exit 2, as for
+                              \`render\`.
 
   clear [--all] [--yes]       Throw away every task row and the log and restart the clock, keeping
                               the tickets: each surviving ticket is given a fresh row seeded from
