@@ -39,6 +39,7 @@ const KNOWN_KEYS = new Set<string>([
   'priority',
   'model',
   'effort',
+  'hold',
   'status',
   'filed',
   'updated',
@@ -118,6 +119,7 @@ export function serializeTicketDocument(frontmatter: TicketFrontmatter, body: st
     ...(frontmatter.priority === undefined ? [] : [`priority: ${JSON.stringify(frontmatter.priority)}`]),
     ...(frontmatter.model === undefined ? [] : [`model: ${JSON.stringify(frontmatter.model)}`]),
     ...(frontmatter.effort === undefined ? [] : [`effort: ${JSON.stringify(frontmatter.effort)}`]),
+    ...(frontmatter.hold === undefined ? [] : [`hold: ${JSON.stringify(frontmatter.hold)}`]),
     `status: ${JSON.stringify(frontmatter.status)}`,
     `filed: ${JSON.stringify(frontmatter.filed)}`,
     `updated: ${JSON.stringify(frontmatter.updated)}`,
@@ -238,6 +240,7 @@ function frontmatterFrom(
     type:        typeText,
     ...priorityField(knownValues),
     ...agentFields(knownValues),
+    ...holdField(knownValues),
     status:      statusText,
     filed:       requiredText(knownValues, 'filed', closingFenceLine),
     updated:     requiredText(knownValues, 'updated', closingFenceLine),
@@ -304,6 +307,15 @@ function agentFields(knownValues: Map<string, KnownValue>): Pick<TicketFrontmatt
     fields.effort = effortText;
   }
   return fields;
+}
+
+/** Absent or `null` is not held; any other value is held, a bare `hold:` included, and is the hold's reason. */
+function holdField(knownValues: Map<string, KnownValue>): Pick<TicketFrontmatter, 'hold'> {
+  const found = knownValues.get('hold');
+  if (found === undefined || found.value === null) {
+    return {};
+  }
+  return { hold: textOf(found, 'hold') };
 }
 
 /** Written `"003, 004"`; any mix of commas and spaces, with or without `#` or padding, reads the same. */

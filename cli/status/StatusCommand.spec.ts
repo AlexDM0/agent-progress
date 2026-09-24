@@ -251,6 +251,7 @@ describe.skipIf(!gitIsAvailable())('the concurrency block both --json documents 
       freeSlots:       0,
       readyTicketIds:  ['002', '004'],
       dispatcherState: 'stopped',
+      heldTicketIds:   [],
     };
     expect(working.concurrency).toEqual(expected);
     expect(full.concurrency).toEqual(expected);

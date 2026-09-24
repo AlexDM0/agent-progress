@@ -128,6 +128,18 @@ with no row files one at once — `pending` while it is open, seeded from its st
 Between normal and high only the ticket changes. `clear` re-seeds no row for a low ticket that has
 none, and keeps one for a low ticket that has one. A high ticket is marked `high` on the Tickets tab.
 
+**A ticket may be held.** `ticket hold <id> [--reason <text>]` sets the frontmatter's `hold` key
+(the reason, empty without one) with one log line, `Ticket #003 held: <reason>`, and `ticket unhold
+<id>` removes it with `Ticket #003 unheld`; both are refused at exit 1, writing nothing, on a
+delivered or abandoned ticket and when the ticket already is, or is not, held. `status --json` lists
+every held ticket that is not delivered or abandoned in `concurrency.heldTicketIds`, in progress and
+in review included, and marks a held ready ticket's `readyTickets` entry `held: true`. The dispatcher
+reads the list before it starts a ticket's builder and before each of its reviewers: a held ticket's
+step waits, a row the run left running for it is released, and the step starts at the first board
+read that shows the hold lifted — or is returned under `held: [{ id, waitingFor }]` when the run ends
+first. A running agent is never interrupted: a hold set after a builder's final status read is too
+late for the reviewer that follows it. `ticket claim` refuses a held ticket.
+
 **A ticket may name its agents.** `ticket add --model sonnet --effort high` stores both;
 `ticket agent <id> [--model <m>] [--effort <e>]` changes either later with one log line,
 `Ticket #003 agents opus/medium → sonnet/medium`. It is refused at exit 1, writing nothing, on a

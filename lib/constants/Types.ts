@@ -91,6 +91,8 @@ export interface TicketFrontmatter {
   /** Absent unless somebody named one; absent reads as the tool's default for builders and reviewers. */
   model?:      AgentModel;
   effort?:     AgentEffort;
+  /** Present while `ticket hold` holds the ticket, holding its reason, empty when none was given; absent means not held. */
+  hold?:       string;
   status:      TicketStatus;
   filed:       string;
   updated:     string;

@@ -12,7 +12,8 @@ import type {
   DispatcherState,
   ProgressFile,
   Ticket,
-  TicketPriority
+  TicketPriority,
+  TicketStatus
 }                                                     from '../lib/constants/Types';
 import { withLock }                         from '../lib/platform/Lock';
 import { OperationRefusal }                 from '../lib/platform/OperationRefusal';
@@ -37,6 +38,9 @@ import { TicketDependencyUtil }                    from '../lib/utils/TicketDepe
 import { TimeUtil }                                from '../lib/utils/TimeUtil';
 import type { CommandContext }                     from './CommandContext';
 import type { ArgumentParser }                     from './arguments/ArgumentParser';
+
+/** A ticket in one of these is never built or reviewed again, so neither its agents nor a hold on it can be changed. */
+export const TICKET_STATUSES_NO_AGENT_WORKS_AGAIN: readonly TicketStatus[] = ['delivered', 'abandoned'];
 
 export const progressOperations: PriorityOperations = {
   addTask,
@@ -81,12 +85,23 @@ export function printEntity(commandArguments: ArgumentParser, context: CommandCo
  * What a dispatcher needs to start the next agent: the limit, the agents in flight against it, what is left, and the tickets that could take it —
  * in the order to take them, high first, with low tickets held back while normal or high work is still owed — and where the user left the dispatcher.
  */
-export function concurrencyDocumentOf(progress: ProgressFile, tickets: readonly Ticket[]): Concurrency & { readyTicketIds: string[]; dispatcherState: DispatcherState } {
+export function concurrencyDocumentOf(
+  progress: ProgressFile,
+  tickets: readonly Ticket[],
+): Concurrency & { readyTicketIds: string[]; dispatcherState: DispatcherState; heldTicketIds: string[] } {
   return {
     ...concurrencyOf(progress),
     readyTicketIds:  TicketDependencyUtil.readyTicketIdsOf(tickets.map((ticket) => ticket.frontmatter)),
     dispatcherState: dispatcherStateOf(progress),
+    heldTicketIds:   heldTicketIdsOf(tickets),
   };
+}
+
+/** Every held ticket a dispatcher could still start a step of, in progress or in review as much as ready. */
+function heldTicketIdsOf(tickets: readonly Ticket[]): string[] {
+  return tickets
+    .filter((ticket) => ticket.frontmatter.hold !== undefined && !TICKET_STATUSES_NO_AGENT_WORKS_AGAIN.includes(ticket.frontmatter.status))
+    .map((ticket) => ticket.frontmatter.id);
 }
 
 export interface ReadyTicket {
@@ -94,6 +109,8 @@ export interface ReadyTicket {
   priority: TicketPriority;
   model:    AgentModel;
   effort:   AgentEffort;
+  /** Present, and true, only on a held ticket. */
+  held?:    true;
 }
 
 /** Built from `readyTicketIds` and never recomputed, so the two lists cannot disagree on a member or the order; the defaults are resolved here. */
@@ -107,6 +124,7 @@ export function readyTicketsOf(readyTicketIds: readonly string[], tickets: reado
       priority: ticketPriorityOf(frontmatter),
       model:    agentModelOf(frontmatter),
       effort:   agentEffortOf(frontmatter),
+      ...(frontmatter.hold === undefined ? {} : { held: true as const }),
     }];
   });
 }

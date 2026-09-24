@@ -28,13 +28,15 @@ left to be read out of the parser.
   Anything else — an indented line, a list item, a bare word — is a nested structure this subset does
   not have, and makes the file malformed. There are no nested maps, lists, anchors or block scalars.
 - A value is `null`, an integer, a double-quoted JSON string, or an unquoted scalar taken verbatim.
-- The keys the CLI owns are `id`, `title`, `type`, `priority`, `model`, `effort`, `status`, `filed`,
+- The keys the CLI owns are `id`, `title`, `type`, `priority`, `model`, `effort`, `hold`, `status`, `filed`,
   `updated`, `started`, `finished`, `delivered`, `abandonedAt`, `group`, `branch`, `commit`, `reason`,
   `dependsOn` and `task`. `priority` is `low`, `normal` or `high`, any other value makes the file malformed, and an
   absent or `null` one stays absent in the frontmatter and reads as `normal` through
   `ticketPriorityOf`: it is written only once somebody names one, so no older ticket gains the key
   from a rewrite. `model` and `effort` follow the same rule against the vocabularies of
-  `lib/constants/AgentSettings.ts`, an absent one resolving through `agentModelOf` and `agentEffortOf`. `dependsOn` is written `"001, 002"` and read from any mix of commas and spaces, with or
+  `lib/constants/AgentSettings.ts`, an absent one resolving through `agentModelOf` and `agentEffortOf`. `hold` is written only while
+  `ticket hold` holds the ticket, holding its reason (empty without one); absent or `null` is not held, and any other value,
+  a bare `hold:` included, is held. `dependsOn` is written `"001, 002"` and read from any mix of commas and spaces, with or
   without `#` or padding; a part that is not a ticket number makes the file malformed. `id`,
   `title`, `type`, `status`, `filed` and `updated` must be present; `type` and `status` must be
   values the tool knows; `task` is an integer or `null`; a timestamp key that is absent reads as

@@ -60,7 +60,8 @@ or Node.
 - `lib/constants/Types.ts` — every shape the tracker stores or renders: `Task` (with its nullable
   `tokens` and its optional `history`, `agent` and `reviewOf`), `TaskPhase`, `LogEntry`, `ViewRange`, `ProgressFile` (with
   `nextTaskId` and the optional `concurrencyLimit`, `dispatcherState` and `dispatcherRunId`), `DispatcherState`, `TicketFrontmatter` (with the optional `priority`,
-  absent meaning normal, and the optional `model` and `effort`, absent meaning the default pair), `TicketPriority`, `AgentModel`,
+  absent meaning normal, the optional `model` and `effort`, absent meaning the default pair, and the optional `hold`, the reason of a
+  `ticket hold`, absent meaning not held), `TicketPriority`, `AgentModel`,
   `AgentEffort`, `Ticket`. Types only, no values.
 - `lib/constants/AgentSettings.ts` — what a ticket's building and reviewing agents run on: the `AGENT_MODELS` and `AGENT_EFFORTS`
   tuples with their guards, the one default pair `DEFAULT_AGENT_MODEL` (`opus`) and `DEFAULT_AGENT_EFFORT` (`medium`), and
@@ -286,7 +287,11 @@ JavaScript no spec can sit beside:
   elsewhere take any slot a builder leaves free before its reviewer starts, and `slotGaps` records each such moment.
   `lib/tooling/dev/DispatchScriptHarness.spec.ts` pins each decision **and runs it again against a
   mutant of the script that breaks exactly that decision**, which must fail; a mutant whose text left
-  the script fails loudly. `lib/tooling/dev/DispatchScriptHarness.brief.spec.ts` holds the prompts'
+  the script fails loudly. `lib/tooling/dev/DispatchScriptHarness.hold.spec.ts` does the same for `ticket hold`: the board's
+  `heldTicketIds` (a scenario's `heldTicketIds`, changed mid-run through `afterAgent`) reaches every status block and a held ready
+  ticket's `readyTickets` entry, a held ticket's claim is refused, and each call records how many status blocks the run had been
+  handed (`statusBlocksReturnedBefore`, indexing the run's `heldTicketIdsReturned`), so a claim can say which block a step started after.
+  `lib/tooling/dev/DispatchScriptHarness.brief.spec.ts` holds the prompts'
   call budgets and rework threshold to the numbers `templates/AgentBrief.md` states.
 - `lib/tooling/dev/WorkflowScriptSource.ts` — reads a Workflow script's syntax tree through
   `typescript`: `nondeterministicCallsIn` (`Date.now`, `Math.random`, argless `new Date()`, `Date()`)

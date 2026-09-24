@@ -193,8 +193,16 @@ on or returns. The user may also ask for a single-ticket run by hand, on the sam
 run is not the board's dispatcher: record no `dispatcher` state or run id for it, and when it returns
 skip step 1 below and handle the rest.
 
-**When it returns**, its summary is `{ delivered, parked, findingsFiled, agentsRun, stoppedByBoard?, lowPriorityWaiting? }`,
-the last the low tickets ready that it left for your triage:
+**The user asking to pause one ticket** — "pause this ticket", "hold #7 before review" — is
+`agent-progress ticket hold <id> --reason "<why>"`, never a stop of the run: the run starts no
+builder or reviewer for it while it is held and keeps the other tickets flowing. `ticket unhold <id>`
+lets the held step start at the run's next board read. A builder or reviewer already running is never
+interrupted, so tell the user when the hold came too late for the step under way.
+
+**When it returns**, its summary is `{ delivered, parked, findingsFiled, agentsRun, stoppedByBoard?, lowPriorityWaiting?, held? }`,
+`lowPriorityWaiting` the low tickets ready that it left for your triage, and `held` the tickets a hold
+kept waiting, each `{ id, waitingFor: 'build' | 'review' }`: the next run picks each up once unheld,
+so list them to the user and relaunch for them only after an unhold:
 
 1. `agent-progress dispatcher finished` — unless the summary carries `stoppedByBoard`: that is the
    user's stop taking effect, and the state stays `stopped`.

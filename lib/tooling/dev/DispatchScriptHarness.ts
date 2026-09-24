@@ -49,21 +49,25 @@ export interface FakeBoard {
   lowPriorityTicketIds:  string[];
   highPriorityTicketIds: string[];
   dispatcherState:       DispatcherStateOnBoard;
+  /** The tickets `ticket hold` holds; `afterAgent` may hold or unhold one mid-run. */
+  heldTicketIds:         string[];
 }
 
 /** `main` is the scenario's run of the script; `racing` the single-ticket run started beside it on the same board. */
 export type DispatchRunName = 'main' | 'racing';
 
 export interface RecordedAgentCall {
-  run:      DispatchRunName;
-  kind:     AgentKind;
-  ticketId: string | null;
+  run:                        DispatchRunName;
+  kind:                       AgentKind;
+  ticketId:                   string | null;
   /** The builder's pass, the reviewer's round or the parking agent's call for this ticket, counted by the harness from 1; `null` for the survey. */
-  ordinal:  number | null;
-  model:    unknown;
-  effort:   unknown;
-  label:    unknown;
-  prompt:   string;
+  ordinal:                    number | null;
+  model:                      unknown;
+  effort:                     unknown;
+  label:                      unknown;
+  prompt:                     string;
+  /** How many status blocks this run had been handed when the call was made: an index into `heldTicketIdsReturned`. */
+  statusBlocksReturnedBefore: number;
 }
 
 export interface DispatchScenario {
@@ -84,6 +88,8 @@ export interface DispatchScenario {
   includeLowPriority?:         boolean;
   otherAgentsInFlight?:        number;
   reviewWaitingTicketIds?:     string[];
+  /** Held from the start, as `status --json` lists them in `heldTicketIds`. */
+  heldTicketIds?:              string[];
   /** Defaults to `running`; `afterAgent` may change it mid-run. */
   dispatcherState?:            DispatcherStateOnBoard;
   /** Defaults to `in-review`; `null` is an agent that died. */
@@ -139,6 +145,8 @@ export interface DispatchRun {
   /** Every review bar added, as `review <ticket>`, a restarted or killed attempt's included; a bar taken over is not added again. */
   reviewBarsAdded:          string[];
   logs:                     string[];
+  /** The `heldTicketIds` of every status block the main run was handed, in order. */
+  heldTicketIdsReturned:    string[][];
   summary:                  unknown;
   /** Whether the script passed `MOST_AGENT_CALLS_PER_RUN`, after which every agent answered `null` so the run could end. */
   ranAway:                  boolean;
@@ -281,10 +289,12 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     lowPriorityTicketIds:  [...scenario.lowPriorityTicketIds ?? []],
     highPriorityTicketIds: [...scenario.highPriorityTicketIds ?? []],
     dispatcherState:       scenario.dispatcherState ?? 'running',
+    heldTicketIds:         [...scenario.heldTicketIds ?? []],
   };
   const calls: RecordedAgentCall[] = [];
   const logs: string[] = [];
   const racingLogs: string[] = [];
+  const heldTicketIdsReturned: string[][] = [];
   const passesByTicket = new Map<string, number>();
   const ownAgentsOnBoard = new Map<number, RunningRow>();
   const rowsLeftRunning = new Map<string, RunningRow>();
@@ -347,11 +357,12 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   };
 
   // As `status --json` resolves them: every ready ticket with its priority, and its model and effort, the defaults filled in.
-  const readyTicketsOnBoard = (): Record<string, string>[] => board.readyTicketIds.map((readyTicketId) => ({
+  const readyTicketsOnBoard = (): Record<string, unknown>[] => board.readyTicketIds.map((readyTicketId) => ({
     id:       readyTicketId,
     priority: priorityOf(readyTicketId),
     model:    statedAgentSettingsOf(readyTicketId)?.model ?? DEFAULT_AGENT_MODEL,
     effort:   statedAgentSettingsOf(readyTicketId)?.effort ?? DEFAULT_AGENT_EFFORT,
+    ...(board.heldTicketIds.includes(readyTicketId) ? { held: true } : {}),
   }));
 
   const agentsOnBoard = (): number => board.otherAgentsInFlight + ownAgentsOnBoard.size + rowsLeftRunning.size;
@@ -375,6 +386,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     }
     if (runningRowOf(`review:${ticketId}`) !== undefined) return { ...reply, outcome: 'claim-refused', detail: `#${ticketId} is under review` };
     if (deliveredTicketIds.has(ticketId)) return { ...reply, outcome: 'claim-refused', detail: `#${ticketId} is delivered` };
+    if (board.heldTicketIds.includes(ticketId)) return { ...reply, outcome: 'claim-refused', detail: `#${ticketId} is held` };
     if (agentsOnBoard() >= board.limit) return { ...reply, outcome: 'claim-refused', detail: `no slot free: ${agentsOnBoard()} of ${board.limit} agents in flight` };
     return reply;
   };
@@ -409,9 +421,15 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       readyTicketIds:  [...board.readyTicketIds],
       ...(scenario.statusOmitsReadyTickets === true ? {} : { readyTickets: readyTicketsOnBoard() }),
       dispatcherState: board.dispatcherState,
+      heldTicketIds:   [...board.heldTicketIds],
     };
     if (scenario.statusOmitsRunningRows === true) return concurrency;
     return { ...concurrency, runningTicketIds: ticketIdsOfRunningRows('build'), runningReviewOfIds: ticketIdsOfRunningRows('review') };
+  };
+
+  const returnedStatusBlock = (run: DispatchRunName): Record<string, unknown> => {
+    if (run === 'main') heldTicketIdsReturned.push([...board.heldTicketIds]);
+    return statusBlock();
   };
 
   const replyFor = (call: RecordedAgentCall): Record<string, unknown> | null => {
@@ -447,10 +465,11 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       kind,
       ticketId,
       ordinal,
-      model:  options['model'],
-      effort: options['effort'],
-      label:  options['label'],
+      model:                      options['model'],
+      effort:                     options['effort'],
+      label:                      options['label'],
       prompt,
+      statusBlocksReturnedBefore: heldTicketIdsReturned.length,
     };
     calls.push(call);
     if (calls.length > MOST_AGENT_CALLS_PER_RUN) {
@@ -472,7 +491,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       if (generation !== callGeneration) return NEVER_SETTLES;
       liveOwnAgents--;
       scenario.afterAgent?.(call, board);
-      return reply === null ? null : { ...reply, status: statusBlock() };
+      return reply === null ? null : { ...reply, status: returnedStatusBlock(run) };
     }
     const callIndex = calls.length - 1;
     rowKeysOfOwnAgentsRunning.set(callIndex, passKey);
@@ -525,7 +544,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     rowKeysOfOwnAgentsRunning.delete(callIndex);
     liveOwnAgents--;
     scenario.afterAgent?.(call, board);
-    return reply === null ? null : { ...reply, ...('status' in reply ? { status: statusBlock() } : {}) };
+    return reply === null ? null : { ...reply, ...('status' in reply ? { status: returnedStatusBlock(run) } : {}) };
   };
 
   const journaledAgent: FakeAgent = async (prompt, options = {}) => {
@@ -555,7 +574,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   const argumentsFor = (ticketIds: string[] | undefined): Record<string, unknown> => {
     const withPriority = scenario.includeLowPriority === undefined ? ARGUMENTS_FOR_SCRIPT : { ...ARGUMENTS_FOR_SCRIPT, includeLowPriority: scenario.includeLowPriority };
     if (ticketIds === undefined) return withPriority;
-    return { ...withPriority, ticketIds, readyTickets: readyTicketsOnBoard().filter((entry) => ticketIds.includes(entry['id'] ?? '')) };
+    return { ...withPriority, ticketIds, readyTickets: readyTicketsOnBoard().filter((entry) => ticketIds.includes(String(entry['id']))) };
   };
 
   const scriptBody = compileScript(source);
@@ -595,6 +614,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     rowsPaused:       [...pausedRowKeys].map(rowNameOf),
     reviewBarsAdded,
     logs,
+    heldTicketIdsReturned,
     summary,
     ranAway,
     resumed,

@@ -56,6 +56,7 @@ import { TicketIdUtil }         from '../../lib/utils/TicketIdUtil';
 import { TokenCountUtil }       from '../../lib/utils/TokenCountUtil';
 import type { CommandContext }  from '../CommandContext';
 import {
+  TICKET_STATUSES_NO_AGENT_WORKS_AGAIN,
   openTrackerForWriting,
   openTrackerForWritingThenReadNextLine,
   printEntity,
@@ -79,6 +80,8 @@ const USAGE = [
   'agent-progress ticket depends <id> [<id>...]',
   'agent-progress ticket priority <id> low|normal|high [--at <when>]',
   'agent-progress ticket agent <id> [--model <m>] [--effort <e>] [--at <when>]',
+  'agent-progress ticket hold <id> [--reason <text>] [--at <when>]',
+  'agent-progress ticket unhold <id> [--at <when>]',
 ].join('\n         ');
 
 const TRANSITION_SUBCOMMANDS: Record<string, TicketStatus> = {
@@ -94,6 +97,8 @@ const ADD_OPTION_NAMES        = ['type', 'priority', 'model', 'effort', 'group',
 const LIST_OPTION_NAMES       = ['status', 'priority', 'json'];
 const PRIORITY_OPTION_NAMES   = ['at', 'json'];
 const AGENT_OPTION_NAMES      = ['model', 'effort', 'at', 'json'];
+const HOLD_OPTION_NAMES       = ['reason', 'at', 'json'];
+const UNHOLD_OPTION_NAMES     = ['at', 'json'];
 const SHOW_OPTION_NAMES       = ['json'];
 const TRANSITION_OPTION_NAMES = ['branch', 'commit', 'reason', 'at', 'tokens', 'json'];
 const CLAIM_OPTION_NAMES      = ['owner', 'note', 'at', 'json'];
@@ -117,8 +122,6 @@ const TRANSITION_WORD_FOR_TICKET_STATUS: Record<TicketStatus, string> = {
 const DEFAULT_TICKET_TYPE: TicketType = 'change';
 
 const TICKET_STATUSES_THAT_CLOSE_A_TICKET: readonly TicketStatus[] = ['done', 'delivered', 'abandoned'];
-
-const TICKET_STATUSES_THAT_SETTLE_ITS_AGENTS: readonly TicketStatus[] = ['delivered', 'abandoned'];
 
 
 const STANDARD_INPUT_MARKER = '-';
@@ -487,6 +490,7 @@ function showOneTicket(commandArguments: ArgumentParser, context: CommandContext
     `  priority: ${ticketPriorityOf(frontmatter)}`,
     ...(frontmatter.model === undefined ? [] : [`  model:    ${frontmatter.model}`]),
     ...(frontmatter.effort === undefined ? [] : [`  effort:   ${frontmatter.effort}`]),
+    ...(frontmatter.hold === undefined ? [] : [`  held:     ${frontmatter.hold === '' ? 'yes' : frontmatter.hold}`]),
     `  type:     ${frontmatter.type}`,
     `  group:    ${frontmatter.group ?? '-'}`,
     `  task:     ${frontmatter.task === null ? '-' : `#${frontmatter.task}`}`,
@@ -605,6 +609,9 @@ function refuseAnUnclaimableTicket(ticket: Ticket, tickets: readonly Ticket[], c
   const unsettled = unsettledDependenciesFor(ticket, tickets).filter((dependency) => !claimedIdentifiers.includes(dependency));
   if (unsettled.length > 0) {
     throw new OperationRefusal('refused', `Ticket #${id} is ${waitingOnText(unsettled)}, which must be done or delivered before it is claimed. Nothing was written.`);
+  }
+  if (ticket.frontmatter.hold !== undefined) {
+    throw new OperationRefusal('refused', `Ticket #${id} is held, so it is not claimed. Nothing was written; \`agent-progress ticket unhold ${id}\` lets it be claimed.`);
   }
   const lowHeldBack = lowTicketHeldBackText(ticket, tickets);
   if (lowHeldBack !== null) {
@@ -839,7 +846,7 @@ async function setTicketAgent(commandArguments: ArgumentParser, context: Command
     const ticket = requireTicket(change.workspace, reference);
     const { frontmatter } = ticket;
     const { id, status }  = frontmatter;
-    if (TICKET_STATUSES_THAT_SETTLE_ITS_AGENTS.includes(status)) {
+    if (TICKET_STATUSES_NO_AGENT_WORKS_AGAIN.includes(status)) {
       throw new OperationRefusal('refused', `Ticket #${id} is ${status}, and its agents were not changed: no agent will work it again. Nothing was written.`);
     }
     const before = agentPairText(frontmatter);
@@ -855,6 +862,39 @@ async function setTicketAgent(commandArguments: ArgumentParser, context: Command
     if (model !== undefined) frontmatter.model = model;
     if (effort !== undefined) frontmatter.effort = effort;
     const logText = `Ticket #${id} agents ${before} → ${after}`;
+    appendLogEntry(change.progress, change.at, logText);
+    change.writeTicketAfterwards(ticket);
+    return { logText, ticket };
+  });
+
+  printEntityThenNextLine(commandArguments, context, ticketAsJson(changed.ticket), changed.logText, NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState));
+}
+
+/** A hold stops the dispatcher starting the ticket's next builder or reviewer; an agent already running is never interrupted by it. */
+async function holdOrUnholdTicket(holds: boolean, commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
+  const verb = holds ? 'hold' : 'unhold';
+  commandArguments.rejectUnknownOptions(holds ? HOLD_OPTION_NAMES : UNHOLD_OPTION_NAMES, USAGE);
+  commandArguments.rejectExtraPositionals(2, USAGE);
+
+  const reference = commandArguments.positionals()[1];
+  if (reference === undefined) {
+    throw new OperationRefusal('refused', `agent-progress ticket ${verb} needs a ticket id.\n  Usage: ${USAGE}`);
+  }
+  const reason = commandArguments.option('reason') ?? '';
+
+  const { result: changed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
+    const ticket = requireTicket(change.workspace, reference);
+    const { frontmatter } = ticket;
+    const { id, status }  = frontmatter;
+    if (TICKET_STATUSES_NO_AGENT_WORKS_AGAIN.includes(status)) {
+      throw new OperationRefusal('refused', `Ticket #${id} is ${status}, and no agent will work it again, so there is nothing to ${verb}. Nothing was written.`);
+    }
+    if (holds === (frontmatter.hold !== undefined)) {
+      throw new OperationRefusal('refused', `Ticket #${id} is ${holds ? 'already held' : 'not held'}. Nothing was written.`);
+    }
+    if (holds) frontmatter.hold = reason;
+    else delete frontmatter.hold;
+    const logText = holds ? `Ticket #${id} held${reason === '' ? '' : `: ${reason}`}` : `Ticket #${id} unheld`;
     appendLogEntry(change.progress, change.at, logText);
     change.writeTicketAfterwards(ticket);
     return { logText, ticket };
@@ -886,6 +926,8 @@ export const ticketCommand: CommandHandler = async (commandArguments, context) =
   if (subcommand === 'status') return setTicketStatus(commandArguments, context);
   if (subcommand === 'priority') return setTicketPriority(commandArguments, context);
   if (subcommand === 'agent') return setTicketAgent(commandArguments, context);
+  if (subcommand === 'hold') return holdOrUnholdTicket(true, commandArguments, context);
+  if (subcommand === 'unhold') return holdOrUnholdTicket(false, commandArguments, context);
   if (subcommand === 'claim') {
     commandArguments.rejectUnknownOptions(CLAIM_OPTION_NAMES, USAGE);
     const references = commandArguments.positionals().slice(1);

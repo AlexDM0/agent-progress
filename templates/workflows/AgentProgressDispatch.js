@@ -34,6 +34,7 @@ const READY_TICKET_SCHEMA = {
     priority: { type: 'string' },
     model:    { type: 'string' },
     effort:   { type: 'string' },
+    held:     { type: 'boolean' },
   },
   required: ['id', 'priority', 'model', 'effort'],
 };
@@ -49,8 +50,9 @@ const STATUS_BLOCK_SCHEMA = {
     dispatcherState:    { type: 'string', enum: ['running', 'stopped', 'finished'] },
     runningTicketIds:   { type: 'array', items: { type: 'string' } },
     runningReviewOfIds: { type: 'array', items: { type: 'string' } },
+    heldTicketIds:      { type: 'array', items: { type: 'string' } },
   },
-  required: ['limit', 'agentsInFlight', 'freeSlots', 'readyTicketIds', 'readyTickets', 'dispatcherState', 'runningTicketIds', 'runningReviewOfIds'],
+  required: ['limit', 'agentsInFlight', 'freeSlots', 'readyTicketIds', 'readyTickets', 'dispatcherState', 'runningTicketIds', 'runningReviewOfIds', 'heldTicketIds'],
 };
 
 const SURVEY_SCHEMA = {
@@ -173,7 +175,7 @@ const STATUS_RETURN_TEXT = `As your very last act run \`agent-progress status --
 function surveyPrompt() {
   return [
     `Run \`agent-progress status --json\` once, in ${settings.mainCheckout}, and make no other call. Judge nothing; return:`,
-    `- \`status\`: its \`concurrency\` block as printed (limit, agentsInFlight, freeSlots, readyTicketIds, dispatcherState), ${DERIVED_STATUS_FIELDS_TEXT};`,
+    `- \`status\`: its \`concurrency\` block as printed (limit, agentsInFlight, freeSlots, readyTicketIds, dispatcherState, heldTicketIds), ${DERIVED_STATUS_FIELDS_TEXT};`,
     '- `reviewWaitingTickets`: every ticket whose status is `in-review` and that no `running` task names in its `reviewOf`, as `{ id, model, effort }` '
       + 'with `model` and `effort` copied from its entry in `tickets` and left out where that entry has none.',
   ].join('\n');
@@ -285,6 +287,13 @@ let board = null;
 let othersInFlightAtBoardReading = 0;
 let stoppedByBoard = false;
 let lowPriorityReadyTicketIds = new Set();
+// A single-ticket run reads no board before its builder starts, so its arguments' entries seed the set.
+let heldTicketIds = new Set(settings.readyTickets.filter((entry) => entry !== null && typeof entry === 'object' && entry.held === true).map((entry) => entry.id));
+const heldWork = new Map();
+
+function ticketIsHeld(ticketId) {
+  return heldTicketIds.has(ticketId);
+}
 
 function agentSettingsFrom(entry) {
   const stated = entry !== null && typeof entry === 'object' ? entry : {};
@@ -330,6 +339,7 @@ function lowPriorityWaitingIds() {
 
 function summary() {
   const lowPriorityWaiting = lowPriorityWaitingIds();
+  const held = heldEntries();
   return {
     delivered,
     parked,
@@ -337,6 +347,7 @@ function summary() {
     agentsRun,
     ...(stoppedByBoard ? { stoppedByBoard } : {}),
     ...(lowPriorityWaiting.length > 0 ? { lowPriorityWaiting } : {}),
+    ...(held.length > 0 ? { held } : {}),
   };
 }
 
@@ -379,6 +390,9 @@ function adoptBoard(status) {
   if (status === null || typeof status !== 'object' || !Array.isArray(status.readyTicketIds)) return;
   board = status;
   lowPriorityReadyTicketIds = lowPriorityReadyTicketIdsOf(status);
+  // A block without the list keeps the last held set read: a lifted hold is acted on only once a block shows it lifted.
+  if (Array.isArray(status.heldTicketIds)) heldTicketIds = new Set(status.heldTicketIds);
+  resumeUnheldWork();
   const ownAgentsOnBoard = [...inFlight.values()].filter((ownAgent) => ownAgentIsOnBoard(ownAgent.work, status)).length + takeoversOnBoard(status).length;
   othersInFlightAtBoardReading = Math.max(0, status.agentsInFlight - ownAgentsOnBoard);
   // A stop is final for this run: the agents in flight finish and are settled, and nothing new starts until the user's go launches a new run.
@@ -396,8 +410,41 @@ function ownSlotLimit() {
 }
 
 function untakenTicketIds() {
-  if (settings.ticketIds !== null) return settings.ticketIds.filter((ticketId) => !ticketIdsTakenThisRun.has(ticketId));
-  return board.readyTicketIds.filter((ticketId) => !ticketIdsTakenThisRun.has(ticketId) && readyTicketIsAdmitted(ticketId));
+  if (settings.ticketIds !== null) return settings.ticketIds.filter((ticketId) => !ticketIdsTakenThisRun.has(ticketId) && !ticketIsHeld(ticketId));
+  return board.readyTicketIds.filter((ticketId) => !ticketIsHeld(ticketId) && !ticketIdsTakenThisRun.has(ticketId) && readyTicketIsAdmitted(ticketId));
+}
+
+function heldUntakenTicketIds() {
+  const candidates = settings.ticketIds ?? (board === null ? [] : board.readyTicketIds);
+  return candidates.filter((ticketId) => !ticketIdsTakenThisRun.has(ticketId) && ticketIsHeld(ticketId));
+}
+
+function holdBack(work) {
+  const waiting = { ...work };
+  // A held takeover's row is released while it waits, so the step that resumes it has no bar handed on to find.
+  delete waiting.barIsHandedOn;
+  heldWork.set(work.ticketId, waiting);
+  log(`#${work.ticketId} is held: its ${work.kind} waits for \`agent-progress ticket unhold ${work.ticketId}\`.`);
+}
+
+// Front of the queue, as a takeover would have gone first: the step was due when the hold stopped it.
+function resumeUnheldWork() {
+  for (const [ticketId, work] of heldWork) {
+    if (ticketIsHeld(ticketId)) continue;
+    heldWork.delete(ticketId);
+    log(`#${ticketId} is no longer held: its ${work.kind} starts.`);
+    if (work.kind === 'review') reviewQueue.unshift(work);
+    else rebuildQueue.unshift(work);
+  }
+}
+
+// A step still queued when the run ends is listed too: a stop can end the run before the step's turn came round to find the hold.
+function heldEntries() {
+  const heldSteps = [...heldWork.values(), ...takeoversWaiting.values(), ...reviewQueue, ...rebuildQueue].filter((work) => ticketIsHeld(work.ticketId));
+  return [
+    ...heldSteps.map((work) => ({ id: work.ticketId, waitingFor: work.kind })),
+    ...heldUntakenTicketIds().map((ticketId) => ({ id: ticketId, waitingFor: 'build' })),
+  ];
 }
 
 // A single-ticket run was never surveyed: what the board said of its tickets came in with its arguments.
@@ -449,16 +496,23 @@ function countFailedPass(ticketId, why, retry) {
 
 // A takeover goes first: until it starts, its row is on the board and counted as the dispatcher's own, beside every agent it has in flight.
 // Then reviews waiting: a built ticket holds a worktree and a finished pass, a new ticket holds nothing yet.
+// A held ticket's pending step waits in `heldWork` instead, and the queue moves on to the next ticket's.
 function nextWork() {
-  const [takeover] = takeoversWaiting.values();
-  if (takeover !== undefined) {
-    takeoversWaiting.delete(takeoverKeyOf(takeover));
-    return takeover;
+  for (;;) {
+    const [takeover] = takeoversWaiting.values();
+    if (takeover !== undefined) {
+      takeoversWaiting.delete(takeoverKeyOf(takeover));
+      if (!ticketIsHeld(takeover.ticketId)) return takeover;
+      holdBack(takeover);
+      // Its row is left running and would hold a slot for as long as the hold lasts, so a parking agent releases it in the slot the takeover would have taken.
+      return { kind: 'park', ticketId: takeover.ticketId, boardLogLine: `Paused the rows of #${takeover.ticketId}: held` };
+    }
+    const review = reviewQueue.shift();
+    const queued = review ?? rebuildQueue.shift();
+    if (queued === undefined) break;
+    if (!ticketIsHeld(queued.ticketId)) return queued;
+    holdBack(queued);
   }
-  const review = reviewQueue.shift();
-  if (review !== undefined) return review;
-  const rebuild = rebuildQueue.shift();
-  if (rebuild !== undefined) return rebuild;
   const [readyTicketId] = untakenTicketIds();
   if (readyTicketId === undefined) return null;
   ticketIdsTakenThisRun.add(readyTicketId);
@@ -679,10 +733,13 @@ const leftWaiting = [
   ...rebuildQueue.map((rebuild) => rebuild.ticketId),
   ...untakenTicketIds(),
 ];
-const leftWaitingText = leftWaiting.map((ticketId) => `#${ticketId}`).join(', ');
-if (leftWaiting.length > 0) log(stoppedByBoard ? `Left for the user's go: ${leftWaitingText}.` : `No slot free for ${leftWaitingText}: other agents hold the board's limit.`);
+const leftWaitingUnheld = leftWaiting.filter((ticketId) => !ticketIsHeld(ticketId));
+const leftWaitingText = leftWaitingUnheld.map((ticketId) => `#${ticketId}`).join(', ');
+if (leftWaitingUnheld.length > 0) log(stoppedByBoard ? `Left for the user's go: ${leftWaitingText}.` : `No slot free for ${leftWaitingText}: other agents hold the board's limit.`);
 const lowPriorityWaiting = lowPriorityWaitingIds();
 if (lowPriorityWaiting.length > 0) log(`Left for the orchestrator's triage, low priority: ${lowPriorityWaiting.map((ticketId) => `#${ticketId}`).join(', ')}.`);
+const heldAtEnd = heldEntries();
+if (heldAtEnd.length > 0) log(`Held, for the next run once unheld: ${heldAtEnd.map((entry) => `#${entry.id} (${entry.waitingFor})`).join(', ')}.`);
 const parkedText = parked.length > 0 ? ` (${parked.map((parkedTicket) => `#${parkedTicket.id}`).join(', ')})` : '';
 log(`Done: ${delivered.length} delivered, ${parked.length} parked${parkedText}, ${findingsFiled.length} findings filed, ${agentsRun} agents run.`);
 return summary();

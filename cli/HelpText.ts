@@ -233,6 +233,20 @@ output never carries either.
                               ticket, with neither option, with a value outside the lists under
                               \`ticket add\`, and when nothing would change.
 
+  ticket hold <id> [--reason <text>] [--at <when>]
+                              Pause a ticket between steps without stopping the run: the
+                              dispatcher starts no builder or reviewer for it while it is held, and
+                              \`ticket claim\` refuses it. One log line; \`status --json\` lists it in
+                              \`heldTicketIds\`. An agent already running is never interrupted, so
+                              a hold set after a builder's final status read is too late for the
+                              reviewer it starts. Refused at exit 1 on a delivered or abandoned
+                              ticket and on one already held.
+
+  ticket unhold <id> [--at <when>]
+                              Lift the hold, with one log line: the step it held starts at the
+                              dispatcher's next board read. Refused at exit 1 on a delivered or
+                              abandoned ticket and on one not held.
+
   ticket priority <id> low|normal|high [--at <when>]
                               Change a ticket's priority, with one log line. Lowering to low is
                               refused unless the ticket is open, and removes its row; raising a
