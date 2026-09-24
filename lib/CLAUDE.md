@@ -60,7 +60,12 @@ or Node.
 - `lib/constants/Types.ts` — every shape the tracker stores or renders: `Task` (with its nullable
   `tokens` and its optional `history`, `agent` and `reviewOf`), `TaskPhase`, `LogEntry`, `ViewRange`, `ProgressFile` (with
   `nextTaskId` and the optional `concurrencyLimit`, `dispatcherState` and `dispatcherRunId`), `DispatcherState`, `TicketFrontmatter` (with the optional `priority`,
-  absent meaning normal), `TicketPriority`, `Ticket`. Types only, no values.
+  absent meaning normal, and the optional `model` and `effort`, absent meaning the default pair), `TicketPriority`, `AgentModel`,
+  `AgentEffort`, `Ticket`. Types only, no values.
+- `lib/constants/AgentSettings.ts` — what a ticket's building and reviewing agents run on: the `AGENT_MODELS` and `AGENT_EFFORTS`
+  tuples with their guards, the one default pair `DEFAULT_AGENT_MODEL` (`opus`) and `DEFAULT_AGENT_EFFORT` (`medium`), and
+  `agentModelOf` / `agentEffortOf`, the one place an absent key becomes the default. `lib/constants/AgentSettings.spec.ts` pins
+  the tuples to the unions.
 - `lib/constants/Limits.ts` — the tuning constants, each with its unit in its name: lock staleness and
   retries, the axis tick ladder and its bounds, ticket id width, how long done work stays visible,
   the timestamp slice bounds every human-facing reader shares, the JSON indent, and

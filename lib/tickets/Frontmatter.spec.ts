@@ -214,6 +214,36 @@ describe('priority', () => {
   });
 });
 
+// The same rule as priority: a ticket filed before agents were named must never gain `model` or `effort` from a rewrite.
+describe('model and effort', () => {
+  test('absent or null keys stay absent, and the full ticket without them writes back byte for byte', () => {
+    const { frontmatter, body } = parsedDocument(FULL_TICKET);
+    const withNulls             = parsedDocument(FULL_TICKET.replace('type: "bug"\n', 'type: "bug"\nmodel: null\neffort: null\n')).frontmatter;
+
+    expect(frontmatter.model).toBeUndefined();
+    expect(frontmatter.effort).toBeUndefined();
+    expect(withNulls.model).toBeUndefined();
+    expect(withNulls.effort).toBeUndefined();
+    expect(serializeTicketDocument(frontmatter, body)).toBe(FULL_TICKET);
+  });
+
+  test('both read back quoted or bare, and are written after the priority and before the status', () => {
+    const withAgent = FULL_TICKET.replace('type: "bug"\n', 'type: "bug"\npriority: "high"\nmodel: sonnet\neffort: "xhigh"\n');
+    const { frontmatter, body } = parsedDocument(withAgent);
+
+    expect(frontmatter.model).toBe('sonnet');
+    expect(frontmatter.effort).toBe('xhigh');
+    expect(serializeTicketDocument(frontmatter, body)).toBe(withAgent.replace('model: sonnet', 'model: "sonnet"'));
+  });
+
+  test('a model or an effort the tool does not know is malformed and names its line', () => {
+    expect(parseTicketDocument(FULL_TICKET.replace('type: "bug"\n', 'type: "bug"\nmodel: "claude-opus-5-5"\n')))
+      .toEqual({ verdict: 'malformed', reason: '`model` is not a known agent model: claude-opus-5-5', line: 5 });
+    expect(parseTicketDocument(FULL_TICKET.replace('type: "bug"\n', 'type: "bug"\neffort: "extreme"\n')))
+      .toEqual({ verdict: 'malformed', reason: '`effort` is not a known agent effort: extreme', line: 5 });
+  });
+});
+
 describe('serializeTicketDocument', () => {
   test('a full ticket survives a parse and a write unchanged', () => {
     const { frontmatter, body } = parsedDocument(FULL_TICKET);

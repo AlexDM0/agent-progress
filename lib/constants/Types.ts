@@ -78,12 +78,19 @@ export type TicketType     = 'bug' | 'change' | 'feature';
 export type TicketStatus   = 'open' | 'in-progress' | 'in-review' | 'done' | 'delivered' | 'abandoned';
 export type TicketPriority = 'low' | 'normal' | 'high';
 
+/** The model aliases a Claude Code agent definition's `model` key accepts, as an agent working a ticket runs on. */
+export type AgentModel  = 'haiku' | 'sonnet' | 'opus' | 'fable';
+export type AgentEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+
 export interface TicketFrontmatter {
   id:          string;
   title:       string;
   type:        TicketType;
   /** Absent on every ticket filed before priorities existed, and on one filed without `--priority`; absent reads as `normal`. */
   priority?:   TicketPriority;
+  /** Absent unless somebody named one; absent reads as the tool's default for builders and reviewers. */
+  model?:      AgentModel;
+  effort?:     AgentEffort;
   status:      TicketStatus;
   filed:       string;
   updated:     string;

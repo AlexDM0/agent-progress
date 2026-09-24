@@ -30,6 +30,7 @@ type StatusDocument = ProgressFile & {
     dispatcherState:  string;
     dispatcherRunId?: string;
   };
+  readyTickets: Array<{ id: string; priority: string; model: string; effort: string }>;
 };
 
 let repositoryDirectory = '';
@@ -269,5 +270,41 @@ describe.skipIf(!gitIsAvailable())('the concurrency block both --json documents 
     await run(['dispatcher', 'finished']);
 
     expect(Object.keys((JSON.parse((await run(['status', '--json'])).outputText()) as StatusDocument).concurrency)).not.toContain('dispatcherRunId');
+  });
+
+  // A dispatcher starts each ready ticket's agents on what this list says, so it must name the same tickets in the same order as `readyTicketIds`.
+  test('readyTickets resolves each ready ticket to its priority, model and effort, in the ready order', async () => {
+    await run(['ticket', 'add', 'Show the role history', '--model', 'sonnet', '--effort', 'high']);
+    await run(['ticket', 'add', 'Export the roles', '--depends-on', '1']);
+    await run(['ticket', 'add', 'Import the roles', '--priority', 'high', '--effort', 'low']);
+    await run(['ticket', 'add', 'Rename the roles', '--priority', 'low']);
+
+    const working = JSON.parse((await run(['status', '--json'])).outputText()) as StatusDocument;
+    const full    = JSON.parse((await run(['status', '--json', '--full'])).outputText()) as StatusDocument;
+
+    const expected = [
+      {
+        id:       '004',
+        priority: 'high',
+        model:    'opus',
+        effort:   'low',
+      },
+      {
+        id:       '002',
+        priority: 'normal',
+        model:    'sonnet',
+        effort:   'high',
+      },
+    ];
+    expect(working.readyTickets).toEqual(expected);
+    expect(full.readyTickets).toEqual(expected);
+    expect(working.readyTickets.map((ready) => ready.id)).toEqual(working.concurrency.readyTicketIds);
+  });
+
+  test('readyTickets is empty exactly when nothing is ready', async () => {
+    const working = JSON.parse((await run(['status', '--json'])).outputText()) as StatusDocument;
+
+    expect(working.concurrency.readyTicketIds).toEqual([]);
+    expect(working.readyTickets).toEqual([]);
   });
 });

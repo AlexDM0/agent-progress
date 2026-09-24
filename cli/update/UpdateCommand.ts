@@ -7,10 +7,10 @@ import { requireWorkspace }         from '../../lib/platform/Workspace';
 import type { CommandHandler }      from '../CommandTable';
 import { refreshTrackedRepository } from '../TrackerRefresh';
 
-const USAGE = 'agent-progress update [--no-claude-md] [--no-hooks] [--no-workflow]';
+const USAGE = 'agent-progress update [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';
 
 // `--hooks` is kept, and does nothing: the hook it used to ask for is now written by default, and a habit that still types it should not be refused.
-const KNOWN_OPTION_NAMES = ['no-claude-md', 'hooks', 'no-hooks', 'no-workflow'];
+const KNOWN_OPTION_NAMES = ['no-claude-md', 'hooks', 'no-hooks', 'no-workflow', 'no-agent-definition'];
 
 export const updateCommand: CommandHandler = (commandArguments, context) => {
   commandArguments.rejectUnknownOptions(KNOWN_OPTION_NAMES, USAGE);
@@ -23,6 +23,7 @@ export const updateCommand: CommandHandler = (commandArguments, context) => {
     writesClaudeInstructions:    !commandArguments.flag('no-claude-md'),
     writesTheSubagentStopHook:   !commandArguments.flag('no-hooks'),
     writesTheDispatcherWorkflow: !commandArguments.flag('no-workflow'),
+    writesTheAgentDefinition:    !commandArguments.flag('no-agent-definition'),
     standardError:               context.standardError,
   });
 
@@ -31,6 +32,7 @@ export const updateCommand: CommandHandler = (commandArguments, context) => {
   context.standardOutput(`  brief:       ${report.briefLine}`);
   context.standardOutput(`  hooks:       ${report.hookLine}`);
   context.standardOutput(`  workflow:    ${report.workflowLine}`);
+  context.standardOutput(`  agent:       ${report.agentDefinitionLine}`);
   context.standardOutput(`  dashboard:   ${workspace.htmlFilePath}`);
   return Promise.resolve();
 };

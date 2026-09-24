@@ -4,6 +4,7 @@
  * half-applied. The subset it accepts is stated in `lib/tickets/CLAUDE.md`.
  */
 
+import { agentEffortIsKnown, agentModelIsKnown }                         from '../constants/AgentSettings.ts';
 import { ticketPriorityIsKnown, ticketStatusIsKnown, ticketTypeIsKnown } from '../constants/Statuses.ts';
 import type { TicketFrontmatter }                                        from '../constants/Types.ts';
 import { TicketIdUtil }                                                  from '../utils/TicketIdUtil.ts';
@@ -36,6 +37,8 @@ const KNOWN_KEYS = new Set<string>([
   'title',
   'type',
   'priority',
+  'model',
+  'effort',
   'status',
   'filed',
   'updated',
@@ -113,6 +116,8 @@ export function serializeTicketDocument(frontmatter: TicketFrontmatter, body: st
     `title: ${JSON.stringify(frontmatter.title)}`,
     `type: ${JSON.stringify(frontmatter.type)}`,
     ...(frontmatter.priority === undefined ? [] : [`priority: ${JSON.stringify(frontmatter.priority)}`]),
+    ...(frontmatter.model === undefined ? [] : [`model: ${JSON.stringify(frontmatter.model)}`]),
+    ...(frontmatter.effort === undefined ? [] : [`effort: ${JSON.stringify(frontmatter.effort)}`]),
     `status: ${JSON.stringify(frontmatter.status)}`,
     `filed: ${JSON.stringify(frontmatter.filed)}`,
     `updated: ${JSON.stringify(frontmatter.updated)}`,
@@ -232,6 +237,7 @@ function frontmatterFrom(
     title:       requiredText(knownValues, 'title', closingFenceLine),
     type:        typeText,
     ...priorityField(knownValues),
+    ...agentFields(knownValues),
     status:      statusText,
     filed:       requiredText(knownValues, 'filed', closingFenceLine),
     updated:     requiredText(knownValues, 'updated', closingFenceLine),
@@ -279,6 +285,25 @@ function priorityField(knownValues: Map<string, KnownValue>): Pick<TicketFrontma
     throw new FrontmatterProblem(`\`priority\` is not a known ticket priority: ${priorityText}`, found.line);
   }
   return { priority: priorityText };
+}
+
+/** Absent or `null` stays absent like `priority`, so a ticket filed before agents were named is never rewritten with the default. */
+function agentFields(knownValues: Map<string, KnownValue>): Pick<TicketFrontmatter, 'model' | 'effort'> {
+  const fields: Pick<TicketFrontmatter, 'model' | 'effort'> = {};
+  const model  = knownValues.get('model');
+  const effort = knownValues.get('effort');
+
+  if (model !== undefined && model.value !== null) {
+    const modelText = textOf(model, 'model');
+    if (!agentModelIsKnown(modelText)) throw new FrontmatterProblem(`\`model\` is not a known agent model: ${modelText}`, model.line);
+    fields.model = modelText;
+  }
+  if (effort !== undefined && effort.value !== null) {
+    const effortText = textOf(effort, 'effort');
+    if (!agentEffortIsKnown(effortText)) throw new FrontmatterProblem(`\`effort\` is not a known agent effort: ${effortText}`, effort.line);
+    fields.effort = effortText;
+  }
+  return fields;
 }
 
 /** Written `"003, 004"`; any mix of commas and spaces, with or without `#` or padding, reads the same. */

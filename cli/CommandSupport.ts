@@ -3,12 +3,20 @@
  * progress file, write the queued tickets, render through `lib/render/Rerender.ts` — all inside the lock, in that order, so no older
  * render lands last and the progress file is never behind the tickets.
  */
-import { JSON_INDENT }                                from '../lib/constants/Limits';
-import { ticketPriorityOf }                           from '../lib/constants/Statuses';
-import type { DispatcherState, ProgressFile, Ticket } from '../lib/constants/Types';
-import { withLock }                                   from '../lib/platform/Lock';
-import { OperationRefusal }                           from '../lib/platform/OperationRefusal';
-import { requireWorkspace, type Workspace }           from '../lib/platform/Workspace';
+import { agentEffortOf, agentModelOf } from '../lib/constants/AgentSettings';
+import { JSON_INDENT }                 from '../lib/constants/Limits';
+import { ticketPriorityOf }            from '../lib/constants/Statuses';
+import type {
+  AgentEffort,
+  AgentModel,
+  DispatcherState,
+  ProgressFile,
+  Ticket,
+  TicketPriority
+}                                                     from '../lib/constants/Types';
+import { withLock }                         from '../lib/platform/Lock';
+import { OperationRefusal }                 from '../lib/platform/OperationRefusal';
+import { requireWorkspace, type Workspace } from '../lib/platform/Workspace';
 import {
   addTask,
   appendLogEntry,
@@ -79,6 +87,28 @@ export function concurrencyDocumentOf(progress: ProgressFile, tickets: readonly 
     readyTicketIds:  TicketDependencyUtil.readyTicketIdsOf(tickets.map((ticket) => ticket.frontmatter)),
     dispatcherState: dispatcherStateOf(progress),
   };
+}
+
+export interface ReadyTicket {
+  id:       string;
+  priority: TicketPriority;
+  model:    AgentModel;
+  effort:   AgentEffort;
+}
+
+/** Built from `readyTicketIds` and never recomputed, so the two lists cannot disagree on a member or the order; the defaults are resolved here. */
+export function readyTicketsOf(readyTicketIds: readonly string[], tickets: readonly Ticket[]): ReadyTicket[] {
+  const frontmatterById = new Map(tickets.map((ticket) => [ticket.frontmatter.id, ticket.frontmatter]));
+  return readyTicketIds.flatMap((ticketId) => {
+    const frontmatter = frontmatterById.get(ticketId);
+    if (frontmatter === undefined) return [];
+    return [{
+      id:       ticketId,
+      priority: ticketPriorityOf(frontmatter),
+      model:    agentModelOf(frontmatter),
+      effort:   agentEffortOf(frontmatter),
+    }];
+  });
 }
 
 export function nextLineFor(progress: ProgressFile, tickets: readonly Ticket[]): string {

@@ -29,27 +29,33 @@ dispatcher\` or \`; dispatcher stopped: wait for the user's go\`. --json output 
       [--no-claude-md]        a managed block in the repository's CLAUDE.md telling an agent to track
       [--no-hooks]            its work through this tool, the SubagentStop hook below, and the
       [--no-workflow]         dispatcher workflow at \`.claude/workflows/agent-progress-dispatch.js\`,
-                              byte for byte the script this tool ships. Refused when an ancestor
+      [--no-agent-definition] byte for byte the script this tool ships, and the Claude Code agent
+                              definition \`.claude/agents/agent-progress-worker.md\`, whose
+                              frontmatter sets the default model and effort for builders and
+                              reviewers (opus, medium). Refused when an ancestor
                               already holds a tracker, when --root is not an existing directory,
                               and inside a bare repository, which has no working tree to track.
                               Re-running only refreshes what \`update\` refreshes, and
                               \`update\` is the command to reach for there. --project names the
                               project shown on the page, --root tracks that directory instead of the
                               discovered repository root, --no-claude-md leaves CLAUDE.md alone,
-                              --no-hooks writes no hook and --no-workflow no workflow.
+                              --no-hooks writes no hook, --no-workflow no workflow and
+                              --no-agent-definition no agent definition.
                               --hooks is still accepted and does nothing: the hook it used to ask
                               for is now written by default.
 
   update                      Refresh what the tool wrote into a repository it already tracks: the
       [--no-claude-md]        managed CLAUDE.md block, \`agent-brief.md\` — guidance shipped with the
       [--no-hooks]            tool rather than a file a project edits — the SubagentStop hook and the
-      [--no-workflow]         dispatcher workflow, a hand edit to which is undone. It
-                              creates no tracker and touches neither the progress file, the tickets
-                              nor the log, so it takes no --project and no --root, and it is refused
+      [--no-workflow]         dispatcher workflow and the agent definition, a hand edit to either
+      [--no-agent-definition] of which is undone. It creates no tracker and touches neither the
+                              progress file, the tickets nor the log, so it takes no --project
+                              and no --root, and it is refused
                               with exit 1 where there is none — \`agent-progress init\` makes one.
                               Each line says whether that file changed, so a session that read the
                               brief at its start learns that its copy is now stale. It takes the same
-                              --no-claude-md, --no-hooks, --no-workflow and no-op --hooks as \`init\`.
+                              --no-claude-md, --no-hooks, --no-workflow, --no-agent-definition and
+                              no-op --hooks as \`init\`.
 
   status [--json] [--full]    The project, the counts, the rows that are not delivered or
                               abandoned, and the last log entries newest first. --json prints the
@@ -61,7 +67,9 @@ dispatcher\` or \`; dispatcher stopped: wait for the user's go\`. --json output 
                               the ids of the ready tickets — open, every dependency settled —
                               high priority first, then normal, each lowest id first. A low ticket
                               is ready only once no normal or high ticket is left that is not
-                              delivered or abandoned.
+                              delivered or abandoned. Beside it, \`readyTickets\` lists the same
+                              tickets in the same order as {id, priority, model, effort}, the
+                              defaults resolved, so a dispatcher derives none of them itself.
 
   task add "<name>"           Add a Gantt row. --start marks it running at --at (default now),
       [--owner <who>]         --ticket links it to a ticket that has no row of its own, --note is
@@ -193,6 +201,8 @@ dispatcher\` or \`; dispatcher stopped: wait for the user's go\`. --json output 
   ticket add "<title>"        File a ticket: a markdown file under \`.agent-progress/tickets/\` with
       [--type bug|change|feature]
       [--priority low|normal|high]
+      [--model <m>]
+      [--effort <e>]
       [--group <name>]        its own frontmatter, plus a pending Gantt row. The body comes from
       [--depends-on <ids>]    the template, from --body, or from --body-file (\`-\` reads standard
       [--body <markdown>]     input); an empty body falls back to the template, and afterwards the
@@ -200,14 +210,25 @@ dispatcher\` or \`; dispatcher stopped: wait for the user's go\`. --json output 
       [--at <when>]           below the frontmatter freely. --depends-on files it already waiting
                               on other tickets (\`3,4\`), as \`ticket depends\` does. --priority
                               defaults to normal; a low ticket is filed with no row and takes no
-                              task id until it is started.
+                              task id until it is started. --model (haiku, sonnet, opus, fable)
+                              and --effort (low, medium, high, xhigh, max) name what the agents
+                              building and reviewing it run on; left off, they are opus and
+                              medium. Anything else is refused at exit 1.
 
-  ticket list [--status <s>]  The tickets with their status, priority, type and row id. --status
+  ticket list [--status <s>]  The tickets with their status, priority, type and row id, and the
+                              model and effort after the title where the ticket names them. --status
       [--priority <p>]        and --priority narrow the listing. --json carries no bodies; use
       [--json]                \`ticket show\` for one ticket's prose.
 
-  ticket show <id> [--json]   One ticket: its frontmatter, its priority, its body, and always its
-                              file path — which is what an agent needs in order to edit that body.
+  ticket show <id> [--json]   One ticket: its frontmatter, its priority, its model and effort
+                              where it names them, its body, and always its file path — which is
+                              what an agent needs in order to edit that body.
+
+  ticket agent <id> [--model <m>] [--effort <e>] [--at <when>]
+                              Change the model or the effort a ticket's agents run on, or both,
+                              with one log line. Refused at exit 1 on a delivered or abandoned
+                              ticket, with neither option, with a value outside the lists under
+                              \`ticket add\`, and when nothing would change.
 
   ticket priority <id> low|normal|high [--at <when>]
                               Change a ticket's priority, with one log line. Lowering to low is

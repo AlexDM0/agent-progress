@@ -14,10 +14,10 @@ import { renderDashboard }                            from '../CommandSupport';
 import type { CommandHandler }                        from '../CommandTable';
 import { refreshTrackedRepository }                   from '../TrackerRefresh';
 
-const USAGE = 'agent-progress init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow]';
+const USAGE = 'agent-progress init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';
 
 // `--hooks` is kept, and does nothing: the hook it used to ask for is now written by default, and a habit that still types it should not be refused.
-const KNOWN_OPTION_NAMES = ['project', 'root', 'no-claude-md', 'hooks', 'no-hooks', 'no-workflow'];
+const KNOWN_OPTION_NAMES = ['project', 'root', 'no-claude-md', 'hooks', 'no-hooks', 'no-workflow', 'no-agent-definition'];
 
 const IGNORE_OUTCOME_WORDS: Record<string, string> = {
   'already-ignored':      'already ignored, so nothing was added',
@@ -76,6 +76,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
   const writesClaudeInstructions = !commandArguments.flag('no-claude-md');
   const writesTheSubagentStopHook = !commandArguments.flag('no-hooks');
   const writesTheDispatcherWorkflow = !commandArguments.flag('no-workflow');
+  const writesTheAgentDefinition = !commandArguments.flag('no-agent-definition');
 
   const existingWorkspace = findWorkspace(rootDirectory);
   if (existingWorkspace !== null) {
@@ -92,6 +93,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
       writesClaudeInstructions,
       writesTheSubagentStopHook,
       writesTheDispatcherWorkflow,
+      writesTheAgentDefinition,
       standardError: context.standardError,
     });
     context.standardOutput(`agent-progress is already initialised in ${rootDirectory}; CLAUDE.md block refreshed.`);
@@ -99,6 +101,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
     context.standardOutput(`  brief:       ${refresh.briefLine}`);
     context.standardOutput(`  hooks:       ${refresh.hookLine}`);
     context.standardOutput(`  workflow:    ${refresh.workflowLine}`);
+    context.standardOutput(`  agent:       ${refresh.agentDefinitionLine}`);
     context.standardOutput(`  dashboard:   ${workspace.htmlFilePath}`);
     context.standardOutput('  `agent-progress update` is the command for this refresh; `init` only creates a tracker.');
     return;
@@ -126,6 +129,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
     writesClaudeInstructions,
     writesTheSubagentStopHook,
     writesTheDispatcherWorkflow,
+    writesTheAgentDefinition,
     standardError: context.standardError,
   });
 
@@ -137,4 +141,5 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
   context.standardOutput(`  CLAUDE.md:   ${refresh.claudeInstructionsLine}`);
   context.standardOutput(`  hooks:       ${refresh.hookLine}`);
   context.standardOutput(`  workflow:    ${refresh.workflowLine}`);
+  context.standardOutput(`  agent:       ${refresh.agentDefinitionLine}`);
 };

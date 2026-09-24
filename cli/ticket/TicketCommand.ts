@@ -2,6 +2,14 @@
 import { readFileSync } from 'node:fs';
 import { join }         from 'node:path';
 
+import {
+  AGENT_EFFORTS,
+  AGENT_MODELS,
+  agentEffortIsKnown,
+  agentEffortOf,
+  agentModelIsKnown,
+  agentModelOf
+}                                from '../../lib/constants/AgentSettings';
 import { DATE_AND_CLOCK_LENGTH } from '../../lib/constants/Limits';
 import {
   TICKET_PRIORITIES,
@@ -13,6 +21,8 @@ import {
   ticketTypeIsKnown
 }                                                from '../../lib/constants/Statuses';
 import type {
+  AgentEffort,
+  AgentModel,
   Ticket,
   TicketPriority,
   TicketStatus,
@@ -55,8 +65,8 @@ import type { CommandHandler } from '../CommandTable';
 import type { ArgumentParser } from '../arguments/ArgumentParser';
 
 const USAGE = [
-  'agent-progress ticket add "<title>" [--type bug|change|feature] [--priority low|normal|high] [--group <name>] [--depends-on <ids>] '
-  + '[--body <markdown> | --body-file <path|->] [--at <when>]',
+  'agent-progress ticket add "<title>" [--type bug|change|feature] [--priority low|normal|high] [--model <m>] [--effort <e>] [--group <name>] '
+  + '[--depends-on <ids>] [--body <markdown> | --body-file <path|->] [--at <when>]',
   'agent-progress ticket list [--status <s>] [--priority <p>] [--json]',
   'agent-progress ticket show <id> [--json]',
   'agent-progress ticket start|review|done|deliver|abandon|reopen <id> [--branch <b>] [--commit <sha>] [--reason <text>] [--tokens <n>] [--at <when>]',
@@ -66,6 +76,7 @@ const USAGE = [
   'agent-progress ticket link <ticketId> <taskId> [--force]',
   'agent-progress ticket depends <id> [<id>...]',
   'agent-progress ticket priority <id> low|normal|high [--at <when>]',
+  'agent-progress ticket agent <id> [--model <m>] [--effort <e>] [--at <when>]',
 ].join('\n         ');
 
 const TRANSITION_SUBCOMMANDS: Record<string, TicketStatus> = {
@@ -77,9 +88,10 @@ const TRANSITION_SUBCOMMANDS: Record<string, TicketStatus> = {
   reopen:  'open',
 };
 
-const ADD_OPTION_NAMES        = ['type', 'priority', 'group', 'depends-on', 'body', 'body-file', 'at', 'json'];
+const ADD_OPTION_NAMES        = ['type', 'priority', 'model', 'effort', 'group', 'depends-on', 'body', 'body-file', 'at', 'json'];
 const LIST_OPTION_NAMES       = ['status', 'priority', 'json'];
 const PRIORITY_OPTION_NAMES   = ['at', 'json'];
+const AGENT_OPTION_NAMES      = ['model', 'effort', 'at', 'json'];
 const SHOW_OPTION_NAMES       = ['json'];
 const TRANSITION_OPTION_NAMES = ['branch', 'commit', 'reason', 'at', 'tokens', 'json'];
 const CLAIM_OPTION_NAMES      = ['owner', 'note', 'at', 'json'];
@@ -101,6 +113,8 @@ const TRANSITION_WORD_FOR_TICKET_STATUS: Record<TicketStatus, string> = {
 const DEFAULT_TICKET_TYPE: TicketType = 'change';
 
 const TICKET_STATUSES_THAT_CLOSE_A_TICKET: readonly TicketStatus[] = ['done', 'delivered', 'abandoned'];
+
+const TICKET_STATUSES_THAT_SETTLE_ITS_AGENTS: readonly TicketStatus[] = ['delivered', 'abandoned'];
 
 
 const STANDARD_INPUT_MARKER = '-';
@@ -217,6 +231,32 @@ function priorityFrom(writtenPriority: string | undefined): TicketPriority | und
   return writtenPriority === undefined ? undefined : requirePriority(writtenPriority);
 }
 
+function agentModelFrom(writtenModel: string | undefined): AgentModel | undefined {
+  if (writtenModel === undefined) return undefined;
+  if (!agentModelIsKnown(writtenModel)) {
+    throw new OperationRefusal('refused', `"${writtenModel}" is not an agent model. The models are ${AGENT_MODELS.join(', ')}.`);
+  }
+  return writtenModel;
+}
+
+function agentEffortFrom(writtenEffort: string | undefined): AgentEffort | undefined {
+  if (writtenEffort === undefined) return undefined;
+  if (!agentEffortIsKnown(writtenEffort)) {
+    throw new OperationRefusal('refused', `"${writtenEffort}" is not an agent effort. The efforts are ${AGENT_EFFORTS.join(', ')}.`);
+  }
+  return writtenEffort;
+}
+
+function agentPairText(ticket: { model?: AgentModel; effort?: AgentEffort }): string {
+  return `${agentModelOf(ticket)}/${agentEffortOf(ticket)}`;
+}
+
+/** Only what the file names: a ticket left to the defaults prints nothing extra, so a listing of old tickets looks as it did. */
+function namedAgentText(ticket: { model?: AgentModel; effort?: AgentEffort }): string {
+  const named = [ticket.model, ticket.effort === undefined ? undefined : `${ticket.effort} effort`].filter((part) => part !== undefined);
+  return named.length === 0 ? '' : `  [${named.join(', ')}]`;
+}
+
 function lowTicketHeldBackText(ticket: Ticket, tickets: readonly Ticket[]): string | null {
   if (ticketPriorityOf(ticket.frontmatter) !== 'low') return null;
   const holdingBack = TicketDependencyUtil.ticketsHoldingBackLowPriorityWork(tickets.map((candidate) => candidate.frontmatter));
@@ -253,6 +293,8 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
   }
   const type      = writtenType !== undefined && ticketTypeIsKnown(writtenType) ? writtenType : DEFAULT_TICKET_TYPE;
   const priority  = priorityFrom(commandArguments.option('priority'));
+  const model     = agentModelFrom(commandArguments.option('model'));
+  const effort    = agentEffortFrom(commandArguments.option('effort'));
   const group     = commandArguments.option('group');
   const dependsOn = dependencyListFrom([commandArguments.option('depends-on') ?? '']);
 
@@ -273,6 +315,8 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
       at: change.at,
     });
     if (dependsOn.length > 0) filed.frontmatter.dependsOn = dependsOn;
+    if (model !== undefined) filed.frontmatter.model = model;
+    if (effort !== undefined) filed.frontmatter.effort = effort;
     ensureTaskForTicketOnTheChart({
       progress:   change.progress,
       ticket:     filed,
@@ -344,6 +388,7 @@ function listAllTickets(commandArguments: ArgumentParser, context: CommandContex
       padColumn(ticket.frontmatter.type, LIST_COLUMN_WIDTHS.type),
       padColumn(ticket.frontmatter.task === null ? '-' : `#${ticket.frontmatter.task}`, LIST_COLUMN_WIDTHS.task),
       ticket.frontmatter.title,
+      namedAgentText(ticket.frontmatter),
       ticketIsStillOpen(ticket) && unsettled.length > 0 ? `  (${waitingOnText(unsettled)})` : '',
     ].join('');
   });
@@ -368,6 +413,8 @@ function showOneTicket(commandArguments: ArgumentParser, context: CommandContext
     `Ticket #${frontmatter.id}: ${frontmatter.title}`,
     `  status:   ${frontmatter.status}`,
     `  priority: ${ticketPriorityOf(frontmatter)}`,
+    ...(frontmatter.model === undefined ? [] : [`  model:    ${frontmatter.model}`]),
+    ...(frontmatter.effort === undefined ? [] : [`  effort:   ${frontmatter.effort}`]),
     `  type:     ${frontmatter.type}`,
     `  group:    ${frontmatter.group ?? '-'}`,
     `  task:     ${frontmatter.task === null ? '-' : `#${frontmatter.task}`}`,
@@ -680,6 +727,49 @@ async function setTicketPriority(commandArguments: ArgumentParser, context: Comm
   printEntityThenNextLine(commandArguments, context, ticketAsJson(changed.ticket), changed.logText, nextLine);
 }
 
+/** A changed pair is judged on the resolved values, so naming the default a ticket already runs on is refused as no change. */
+async function setTicketAgent(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
+  commandArguments.rejectUnknownOptions(AGENT_OPTION_NAMES, USAGE);
+  commandArguments.rejectExtraPositionals(2, USAGE);
+
+  const reference = commandArguments.positionals()[1];
+  if (reference === undefined) {
+    throw new OperationRefusal('refused', `agent-progress ticket agent needs a ticket id.\n  Usage: ${USAGE}`);
+  }
+  const model  = agentModelFrom(commandArguments.option('model'));
+  const effort = agentEffortFrom(commandArguments.option('effort'));
+  if (model === undefined && effort === undefined) {
+    throw new OperationRefusal('refused', `agent-progress ticket agent needs --model, --effort or both.\n  Usage: ${USAGE}`);
+  }
+
+  const { result: changed, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
+    const ticket = requireTicket(change.workspace, reference);
+    const { frontmatter } = ticket;
+    const { id, status }  = frontmatter;
+    if (TICKET_STATUSES_THAT_SETTLE_ITS_AGENTS.includes(status)) {
+      throw new OperationRefusal('refused', `Ticket #${id} is ${status}, and its agents were not changed: no agent will work it again. Nothing was written.`);
+    }
+    const before = agentPairText(frontmatter);
+    const after  = agentPairText({
+      ...(frontmatter.model === undefined ? {} : { model: frontmatter.model }),
+      ...(frontmatter.effort === undefined ? {} : { effort: frontmatter.effort }),
+      ...(model === undefined ? {} : { model }),
+      ...(effort === undefined ? {} : { effort }),
+    });
+    if (before === after) {
+      throw new OperationRefusal('refused', `Ticket #${id} is ${status}, and its agents were not changed: they already run on ${before}. Nothing was written.`);
+    }
+    if (model !== undefined) frontmatter.model = model;
+    if (effort !== undefined) frontmatter.effort = effort;
+    const logText = `Ticket #${id} agents ${before} → ${after}`;
+    appendLogEntry(change.progress, change.at, logText);
+    change.writeTicketAfterwards(ticket);
+    return { logText, ticket };
+  });
+
+  printEntityThenNextLine(commandArguments, context, ticketAsJson(changed.ticket), changed.logText, nextLine);
+}
+
 async function setTicketStatus(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   commandArguments.rejectUnknownOptions(TRANSITION_OPTION_NAMES, USAGE);
   commandArguments.rejectExtraPositionals(3, USAGE);
@@ -702,6 +792,7 @@ export const ticketCommand: CommandHandler = async (commandArguments, context) =
   if (subcommand === 'depends') return setTicketDependencies(commandArguments, context);
   if (subcommand === 'status') return setTicketStatus(commandArguments, context);
   if (subcommand === 'priority') return setTicketPriority(commandArguments, context);
+  if (subcommand === 'agent') return setTicketAgent(commandArguments, context);
   if (subcommand === 'claim') {
     commandArguments.rejectUnknownOptions(CLAIM_OPTION_NAMES, USAGE);
     const references = commandArguments.positionals().slice(1);

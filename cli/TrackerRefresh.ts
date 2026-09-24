@@ -1,13 +1,14 @@
 /**
  * What the tool wrote into a repository and refreshes there: the managed CLAUDE.md block, the bundled
- * agent brief, the `SubagentStop` entry unless `--no-hooks`, and the dispatcher workflow script unless
- * `--no-workflow`. `init` and `update` are its two
+ * agent brief, the `SubagentStop` entry unless `--no-hooks`, the dispatcher workflow script unless
+ * `--no-workflow`, and the worker agent definition unless `--no-agent-definition`. `init` and `update` are its two
  * callers. Each line says whether the file on disk actually changed, because an orchestrator that read
  * the brief at the start of its session has no other way to learn that the copy in its context is stale.
  */
 import { readFileSync } from 'node:fs';
 import { join }         from 'node:path';
 
+import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL }   from '../lib/constants/AgentSettings';
 import { AGENT_BRIEF_FILE_NAME, CLAUDE_MANAGED_START } from '../lib/constants/Statuses';
 import { writeFileAtomically }                         from '../lib/platform/AtomicFile';
 import { writeManagedBlock }                           from '../lib/platform/ClaudeInstructions';
@@ -30,6 +31,13 @@ const DISPATCHER_WORKFLOW_TEMPLATE_PATH = ['..', 'templates', 'workflows', 'Agen
 /** The Workflow tool finds a script by the file name under `.claude/workflows/`, so the name is the one `meta.name` gives. */
 const DISPATCHER_WORKFLOW_TARGET_PATH = ['.claude', 'workflows', 'agent-progress-dispatch.js'];
 
+const AGENT_DEFINITION_TEMPLATE_PATH = ['..', 'templates', 'AgentProgressWorker.md'];
+
+/** Claude Code reads a project's subagent definitions from `.claude/agents/`; the file name matches the definition's `name`. */
+const AGENT_DEFINITION_TARGET_PATH = ['.claude', 'agents', 'agent-progress-worker.md'];
+
+const AGENT_DEFINITION_PLACEHOLDERS = { model: '{{model}}', effort: '{{effort}}' } as const;
+
 /**
  * The hook the tool installs. **The matcher is empty, so every subagent type is recorded**, and not
  * `general-purpose` alone: `agent-progress usage` reads every transcript the harness wrote, so a
@@ -45,8 +53,8 @@ export const SUBAGENT_STOP_HOOK = {
 
 /**
  * Everything a refresh needs. `commandName` is the word the reader typed, so every line telling them to
- * run something again names it; `writesTheSubagentStopHook` is off only under `--no-hooks`, and
- * `writesTheDispatcherWorkflow` only under `--no-workflow`.
+ * run something again names it; `writesTheSubagentStopHook` is off only under `--no-hooks`,
+ * `writesTheDispatcherWorkflow` only under `--no-workflow`, and `writesTheAgentDefinition` only under `--no-agent-definition`.
  */
 export interface TrackerRefreshRequest {
   workspace:                   Workspace;
@@ -54,6 +62,7 @@ export interface TrackerRefreshRequest {
   writesClaudeInstructions:    boolean;
   writesTheSubagentStopHook:   boolean;
   writesTheDispatcherWorkflow: boolean;
+  writesTheAgentDefinition:    boolean;
   standardError:               (text: string) => void;
 }
 
@@ -63,6 +72,7 @@ export interface TrackerRefreshReport {
   briefLine:              string;
   hookLine:               string;
   workflowLine:           string;
+  agentDefinitionLine:    string;
 }
 
 function fileBytesOrNothing(filePath: string): Buffer | null {
@@ -142,6 +152,25 @@ function refreshSubagentStopHookIn(
   return `${localSettingsFilePath} (installed)`;
 }
 
+/** The template names its model and effort as placeholders, so the installed definition and the tool's default pair cannot drift apart. */
+function agentDefinitionText(): string {
+  return readFileSync(join(import.meta.dir, ...AGENT_DEFINITION_TEMPLATE_PATH), 'utf8')
+    .split(AGENT_DEFINITION_PLACEHOLDERS.model).join(DEFAULT_AGENT_MODEL)
+    .split(AGENT_DEFINITION_PLACEHOLDERS.effort).join(DEFAULT_AGENT_EFFORT);
+}
+
+/** Rewritten on every refresh like the workflow: a hand edit is undone, and a project that wants its own keeps it under another name. */
+function refreshAgentDefinition(rootDirectory: string, writesTheAgentDefinition: boolean): string {
+  if (!writesTheAgentDefinition) return 'left alone (--no-agent-definition)';
+
+  const agentDefinitionFilePath = join(rootDirectory, ...AGENT_DEFINITION_TARGET_PATH);
+  const bytesBefore             = fileBytesOrNothing(agentDefinitionFilePath);
+  writeFileAtomically(agentDefinitionFilePath, agentDefinitionText());
+  return bytesDiffer(bytesBefore, fileBytesOrNothing(agentDefinitionFilePath))
+    ? `updated (${agentDefinitionFilePath})`
+    : `unchanged (${agentDefinitionFilePath})`;
+}
+
 /** Rewritten on every refresh like the brief: the script is the tool's, and a hand edit to the installed copy is undone. */
 function refreshDispatcherWorkflow(rootDirectory: string, writesTheDispatcherWorkflow: boolean): string {
   if (!writesTheDispatcherWorkflow) return 'left alone (--no-workflow)';
@@ -187,6 +216,7 @@ export function refreshTrackedRepository(request: TrackerRefreshRequest): Tracke
     writesClaudeInstructions,
     writesTheSubagentStopHook,
     writesTheDispatcherWorkflow,
+    writesTheAgentDefinition,
     standardError,
   } = request;
 
@@ -196,6 +226,7 @@ export function refreshTrackedRepository(request: TrackerRefreshRequest): Tracke
   const { briefFilePath, briefLine } = refreshAgentBrief(workspace);
   const hookLine = refreshSubagentStopHookIn(workspace.rootDirectory, commandName, writesTheSubagentStopHook, standardError);
   const workflowLine = refreshDispatcherWorkflow(workspace.rootDirectory, writesTheDispatcherWorkflow);
+  const agentDefinitionLine = refreshAgentDefinition(workspace.rootDirectory, writesTheAgentDefinition);
 
   return {
     claudeInstructionsLine,
@@ -203,5 +234,6 @@ export function refreshTrackedRepository(request: TrackerRefreshRequest): Tracke
     briefLine,
     hookLine,
     workflowLine,
+    agentDefinitionLine,
   };
 }

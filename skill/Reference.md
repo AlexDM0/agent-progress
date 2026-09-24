@@ -35,13 +35,16 @@ task: 17
 …
 ```
 
-The keys the CLI owns are `id`, `title`, `type`, `priority`, `status`, `filed`, `updated`, `started`,
-`finished`, `delivered`, `abandonedAt`, `group`, `branch`, `commit`, `reason`, `dependsOn` and
-`task`. `dependsOn` is the ticket ids this one waits on, comma-separated; set it with
+The keys the CLI owns are `id`, `title`, `type`, `priority`, `model`, `effort`, `status`, `filed`,
+`updated`, `started`, `finished`, `delivered`, `abandonedAt`, `group`, `branch`, `commit`, `reason`,
+`dependsOn` and `task`. `dependsOn` is the ticket ids this one waits on, comma-separated; set it with
 `ticket depends` rather than by hand, so a missing id or a circle is refused. `type` is
 one of **bug · change · feature**; `priority` is one of **low · normal · high**, and a ticket
 without the key is normal — the CLI writes it only when one is given, so an older ticket is never
-rewritten to gain it; `status` is one of **open · in-progress · in-review · done ·
+rewritten to gain it; `model` (**haiku · sonnet · opus · fable**) and `effort` (**low · medium ·
+high · xhigh · max**) are what the agents building and reviewing the ticket run on, written the same
+way — only once named, a ticket without them running on the default pair, **opus at medium effort**;
+`status` is one of **open · in-progress · in-review · done ·
 delivered · abandoned**. Any other line — an unknown key, a comment, a blank line — is kept and
 written back, so a field you add by hand survives every transition. **The CLI's own keys are
 rewritten at the top in the order above and your lines follow them, keeping their order among
@@ -116,6 +119,16 @@ with no row files one at once — `pending` while it is open, seeded from its st
 Between normal and high only the ticket changes. `clear` re-seeds no row for a low ticket that has
 none, and keeps one for a low ticket that has one. A high ticket is marked `high` on the Tickets tab.
 
+**A ticket may name its agents.** `ticket add --model sonnet --effort high` stores both;
+`ticket agent <id> [--model <m>] [--effort <e>]` changes either later with one log line,
+`Ticket #003 agents opus/medium → sonnet/medium`. It is refused at exit 1, writing nothing, on a
+delivered or abandoned ticket, with neither option, with a value outside the two lists, and when the
+resolved pair would not change. `ticket show` and `ticket list` print the two only where the file
+names them. `init` and `update` install `.claude/agents/agent-progress-worker.md`, a Claude Code
+subagent definition whose `model` and `effort` frontmatter keys hold the default pair, so an agent
+spawned by hand as `agent-progress-worker` runs on it; a hand edit is undone on the next refresh, and
+`--no-agent-definition` skips it on either command.
+
 ## A row's tokens
 
 `--tokens` **sets** a row's count; the `SubagentStop` hook **adds** to it. The hook reads only the
@@ -168,7 +181,9 @@ negative) and `readyTicketIds`, the open tickets whose every dependency is done 
 priority first, then normal, each lowest id first. **Low tickets are ready only once no normal or
 high ticket is left that is not delivered or abandoned** — a `done` ticket still waiting for its
 merge holds them back — and `ticket claim` refuses a low ticket at exit 1 while one is left, where
-`ticket start` only warns.
+`ticket start` only warns. Beside `concurrency`, `readyTickets` lists the same tickets in the same
+order as `{ id, priority, model, effort }` with the defaults resolved, so a dispatcher never derives
+a priority or a model itself.
 
 The same figures close the human output of `status`, `ticket add`, every ticket or task move and
 `release`, as one **Next line** read after the change, inside the same lock hold: `Next: 1 of 2

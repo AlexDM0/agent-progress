@@ -59,8 +59,10 @@ function storedTicketText(identifier: string): string {
   return readFileSync(ticketFilePath(identifier), 'utf8');
 }
 
+/** Every ready order this suite pins is also held against `readyTickets`, which must list the same tickets in the same order. */
 async function readyTicketIds(): Promise<string[]> {
-  const document = JSON.parse((await run(['status', '--json'])).outputText()) as { concurrency: { readyTicketIds: string[] } };
+  const document = JSON.parse((await run(['status', '--json'])).outputText()) as { concurrency: { readyTicketIds: string[] }; readyTickets: Array<{ id: string }> };
+  expect(document.readyTickets.map((ready) => ready.id)).toEqual(document.concurrency.readyTicketIds);
   return document.concurrency.readyTicketIds;
 }
 

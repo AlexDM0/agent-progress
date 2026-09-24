@@ -68,14 +68,27 @@ function workflowLineSaying(verdict: 'updated' | 'unchanged'): RegExp {
   return new RegExp(`workflow: {4}${verdict} \\(\\S+/\\.claude/workflows/agent-progress-dispatch\\.js\\)`);
 }
 
+// The template with its two placeholders filled by the default pair, which is what `update` must write byte for byte.
+const INSTALLED_AGENT_DEFINITION = readFileSync(join(import.meta.dir, '..', '..', 'templates', 'AgentProgressWorker.md'), 'utf8')
+  .replace('{{model}}', 'opus')
+  .replace('{{effort}}', 'medium');
+
+function agentDefinitionFilePathIn(repositoryDirectory: string): string {
+  return join(repositoryDirectory, '.claude', 'agents', 'agent-progress-worker.md');
+}
+
+function agentDefinitionLineSaying(verdict: 'updated' | 'unchanged'): RegExp {
+  return new RegExp(`agent: {7}${verdict} \\(\\S+/\\.claude/agents/agent-progress-worker\\.md\\)`);
+}
+
 /**
  * A tracked repository whose managed files have all been left behind by an older version of the tool.
- * It is initialised with `--no-hooks` and `--no-workflow`, which is the state a repository adopted before
- * either existed is in, and lets each test below say for itself what its `.claude/` folder holds.
+ * It is initialised with `--no-hooks`, `--no-workflow` and `--no-agent-definition`, which is the state a repository adopted before
+ * any of them existed is in, and lets each test below say for itself what its `.claude/` folder holds.
  */
 async function trackedRepositoryWithStaleFiles(): Promise<string> {
   const repositoryDirectory = scratchRepository();
-  await runCommandLine(['init', '--no-hooks', '--no-workflow'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }));
+  await runCommandLine(['init', '--no-hooks', '--no-workflow', '--no-agent-definition'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }));
   writeFileSync(join(repositoryDirectory, '.agent-progress', 'agent-brief.md'), '# Agent brief\n\nThe wording two releases ago, which nobody refreshed.\n');
   writeFileSync(join(repositoryDirectory, 'CLAUDE.md'), `# Example Agency\n\n${CLAUDE_MANAGED_START}\nAn older managed block.\n<!-- agent-progress:managed:end -->\n`);
   return repositoryDirectory;
@@ -298,6 +311,47 @@ describe.skipIf(!gitIsAvailable())('updating a tracked repository', () => {
     expect(await runCommandLine(['update', '--no-workflow'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }))).toBe(0);
 
     expect(readFileSync(workflowFilePath, 'utf8')).toBe('// Example Agency\'s own dispatcher.\n');
+  });
+
+  test('the worker agent definition is installed with the default pair, and a second run reports it unchanged', async () => {
+    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
+    const definitionFilePath  = agentDefinitionFilePathIn(repositoryDirectory);
+
+    const first = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['update'], first)).toBe(0);
+    expect(readFileSync(definitionFilePath, 'utf8')).toBe(INSTALLED_AGENT_DEFINITION);
+    expect(first.outputText()).toMatch(agentDefinitionLineSaying('updated'));
+
+    const second = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['update'], second)).toBe(0);
+    expect(second.outputText()).toMatch(agentDefinitionLineSaying('unchanged'));
+  });
+
+  test('an agent definition changed by hand is reported updated and restored', async () => {
+    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
+    const definitionFilePath  = agentDefinitionFilePathIn(repositoryDirectory);
+    await runCommandLine(['update'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }));
+    writeFileSync(definitionFilePath, INSTALLED_AGENT_DEFINITION.replace('effort: medium', 'effort: max'));
+
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['update'], context)).toBe(0);
+
+    expect(context.outputText()).toMatch(agentDefinitionLineSaying('updated'));
+    expect(readFileSync(definitionFilePath, 'utf8')).toBe(INSTALLED_AGENT_DEFINITION);
+  });
+
+  test('--no-agent-definition writes nothing under .claude/agents and leaves a hand-edited one byte for byte', async () => {
+    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
+
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['update', '--no-agent-definition'], context)).toBe(0);
+    expect(existsSync(join(repositoryDirectory, '.claude', 'agents'))).toBe(false);
+    expect(context.outputText()).toContain('agent:       left alone (--no-agent-definition)');
+
+    mkdirSync(join(repositoryDirectory, '.claude', 'agents'), { recursive: true });
+    writeFileSync(agentDefinitionFilePathIn(repositoryDirectory), '---\nname: agent-progress-worker\n---\nExample Agency\'s own.\n');
+    expect(await runCommandLine(['update', '--no-agent-definition'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }))).toBe(0);
+    expect(readFileSync(agentDefinitionFilePathIn(repositoryDirectory), 'utf8')).toBe('---\nname: agent-progress-worker\n---\nExample Agency\'s own.\n');
   });
 
   test('a local settings file that will not parse is left exactly as it was and reported on standard error', async () => {

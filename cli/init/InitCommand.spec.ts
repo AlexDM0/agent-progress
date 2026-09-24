@@ -133,10 +133,36 @@ describe.skipIf(!gitIsAvailable())('initialising a repository', () => {
     const repositoryDirectory = scratchRepository();
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
 
-    expect(await runCommandLine(['init', '--no-workflow', '--no-hooks'], context)).toBe(0);
+    expect(await runCommandLine(['init', '--no-workflow', '--no-hooks', '--no-agent-definition'], context)).toBe(0);
 
-    expect(existsSync(join(repositoryDirectory, '.claude')), 'with the hook opted out too, nothing at all lands in .claude/').toBe(false);
+    expect(existsSync(join(repositoryDirectory, '.claude')), 'with the hook and the agent opted out too, nothing at all lands in .claude/').toBe(false);
     expect(context.outputText()).toContain('workflow:    left alone (--no-workflow)');
+  });
+
+  // The Agent tool takes a subagent's effort from its definition alone, so this file is the only way a hand-spawned agent runs on the default pair.
+  test('installs the worker agent definition with the default model and effort in its frontmatter', async () => {
+    const repositoryDirectory = scratchRepository();
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+
+    expect(await runCommandLine(['init'], context)).toBe(0);
+
+    const definitionText = readFileSync(join(repositoryDirectory, '.claude', 'agents', 'agent-progress-worker.md'), 'utf8');
+    const frontmatter    = definitionText.split('---\n')[1] ?? '';
+    expect(frontmatter).toContain('name: agent-progress-worker\n');
+    expect(frontmatter).toContain('model: opus\n');
+    expect(frontmatter).toContain('effort: medium\n');
+    expect(definitionText).not.toContain('{{');
+    expect(context.outputText()).toMatch(/agent: {7}updated \(\S+\/\.claude\/agents\/agent-progress-worker\.md\)/);
+  });
+
+  test('--no-agent-definition writes nothing under .claude/agents, and says so', async () => {
+    const repositoryDirectory = scratchRepository();
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+
+    expect(await runCommandLine(['init', '--no-agent-definition'], context)).toBe(0);
+
+    expect(existsSync(join(repositoryDirectory, '.claude', 'agents'))).toBe(false);
+    expect(context.outputText()).toContain('agent:       left alone (--no-agent-definition)');
   });
 
   test('--root tracks the directory it names rather than the discovered repository root', async () => {

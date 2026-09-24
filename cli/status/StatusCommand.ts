@@ -15,14 +15,20 @@ import type {
   TicketPriority,
   TicketStatus
 }                                            from '../../lib/constants/Types';
-import { OperationRefusal }                                            from '../../lib/platform/OperationRefusal';
-import { requireWorkspace }                                            from '../../lib/platform/Workspace';
-import { readProgressFile }                                            from '../../lib/progress/ProgressStore';
-import { listTickets }                                                 from '../../lib/tickets/TicketStore';
-import { TimeUtil }                                                    from '../../lib/utils/TimeUtil';
-import { TokenCountUtil }                                              from '../../lib/utils/TokenCountUtil';
-import { concurrencyDocumentOf, nextLineFor, printEntityThenNextLine } from '../CommandSupport';
-import type { CommandHandler }                                         from '../CommandTable';
+import { OperationRefusal } from '../../lib/platform/OperationRefusal';
+import { requireWorkspace } from '../../lib/platform/Workspace';
+import { readProgressFile } from '../../lib/progress/ProgressStore';
+import { listTickets }      from '../../lib/tickets/TicketStore';
+import { TimeUtil }         from '../../lib/utils/TimeUtil';
+import { TokenCountUtil }   from '../../lib/utils/TokenCountUtil';
+import {
+  concurrencyDocumentOf,
+  nextLineFor,
+  printEntityThenNextLine,
+  readyTicketsOf,
+  type ReadyTicket
+}                                                                      from '../CommandSupport';
+import type { CommandHandler } from '../CommandTable';
 
 const USAGE = 'agent-progress status [--json] [--full]';
 
@@ -96,15 +102,21 @@ function ticketDocumentOf(ticket: Ticket): Ticket['frontmatter'] & { priority: T
   return { ...ticket.frontmatter, priority: ticketPriorityOf(ticket.frontmatter), filePath: ticket.filePath };
 }
 
-/** The stored run id rides beside the state it belongs to, so the orchestrator finds the run to resume where it reads the state. */
-function statusConcurrencyOf(progress: ProgressFile, tickets: readonly Ticket[]): object {
+/**
+ * The stored run id rides in `concurrency` beside the state it belongs to, so the orchestrator finds the run to resume where it reads the
+ * state; `readyTickets` is built from the same `readyTicketIds`.
+ */
+function derivedDocumentOf(progress: ProgressFile, tickets: readonly Ticket[]): { concurrency: object; readyTickets: ReadyTicket[] } {
   const concurrency = concurrencyDocumentOf(progress, tickets);
-  return progress.dispatcherRunId === undefined ? concurrency : { ...concurrency, dispatcherRunId: progress.dispatcherRunId };
+  return {
+    concurrency:  progress.dispatcherRunId === undefined ? concurrency : { ...concurrency, dispatcherRunId: progress.dispatcherRunId },
+    readyTickets: readyTicketsOf(concurrency.readyTicketIds, tickets),
+  };
 }
 
-/** The whole progress file plus every ticket: a document an agent could write back, with the derived `concurrency` beside it. */
+/** The whole progress file plus every ticket: a document an agent could write back, with the derived `concurrency` and `readyTickets` beside it. */
 function fullDocumentOf(progress: ProgressFile, tickets: readonly Ticket[]): object {
-  return { ...progress, tickets: tickets.map(ticketDocumentOf), concurrency: statusConcurrencyOf(progress, tickets) };
+  return { ...progress, tickets: tickets.map(ticketDocumentOf), ...derivedDocumentOf(progress, tickets) };
 }
 
 /** What an agent opening a session needs: unsettled rows and tickets, the recent log newest first, and counts of what was left out. */
@@ -114,11 +126,11 @@ function workingDocumentOf(progress: ProgressFile, tickets: readonly Ticket[]): 
   const recentLog        = logNewestFirst(progress.log).slice(0, WORKING_VIEW_LOG_ENTRY_COUNT);
   return {
     ...progress,
-    tasks:       unsettledTasks,
-    tickets:     unsettledTickets.map(ticketDocumentOf),
-    log:         recentLog,
-    concurrency: statusConcurrencyOf(progress, tickets),
-    omitted:     {
+    tasks:   unsettledTasks,
+    tickets: unsettledTickets.map(ticketDocumentOf),
+    log:     recentLog,
+    ...derivedDocumentOf(progress, tickets),
+    omitted: {
       settledTasks:    progress.tasks.length - unsettledTasks.length,
       settledTickets:  tickets.length - unsettledTickets.length,
       olderLogEntries: progress.log.length - recentLog.length,
