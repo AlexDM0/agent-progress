@@ -342,6 +342,38 @@ describe.skipIf(!gitIsAvailable())('a folder holding a workflow run beside a pla
     expect(document.agents.map((agent) => agent.agentIdentifier).sort()).toEqual(['first', 'plain', 'second']);
     expect(document.cohorts.all.transcriptCount).toBe(3);
   });
+
+  /** A workflow agent's first turn is the harness relaying the session user's words; the row must name the script's prompt instead. */
+  test('a workflow agent\'s excerpt begins with the script\'s prompt, while a plain agent\'s is its brief as before', async () => {
+    const workflowFolder = join(repositoryDirectory, 'workflow-transcripts');
+    const runFolder      = join(workflowFolder, 'session-workflow', 'subagents', 'workflows', 'run-example');
+    mkdirSync(runFolder, { recursive: true });
+
+    const plainUserLine = (text: string): string => JSON.stringify({ type: 'user', timestamp: '2026-09-19T08:00:00.000Z', message: { role: 'user', content: text } });
+    const workflowAgentText = [
+      plainUserLine('[Workflow harness — user request] The harness relays, verbatim and indented below, the user request.\n  Yes'),
+      plainUserLine('[Workflow harness — computed task] The task text below was computed at runtime. The computed task text follows:\n'
+        + '  agent-progress ticket: 042\n  Worktree: /tmp/example   Branch: ticket-042\n  You build ticket #042 for the agent-progress dispatcher, alone.'),
+      JSON.stringify({ type: 'assistant', message: { id: 'msg_0', model: 'claude-opus-5', content: [], usage: { input_tokens: 100, output_tokens: 10 } } }),
+    ].join('\n');
+    writeFileSync(join(runFolder, 'agent-builder.jsonl'), `${workflowAgentText}\n`);
+    writeFileSync(join(workflowFolder, 'session-workflow', 'subagents', 'agent-plain.jsonl'), transcriptTextFor({
+      session:          'session-workflow',
+      agent:            'plain',
+      startedAt:        '2026-09-19T09:00:00.000Z',
+      brief:            'Rename the export button',
+      apiCallCount:     1,
+      inputTokens:      100,
+      outputTokens:     10,
+      browserCallCount: 0,
+    }));
+
+    const document     = JSON.parse((await run(['usage', '--transcripts', workflowFolder, '--json'])).outputText()) as UsageDocument;
+    const excerptsById = Object.fromEntries(document.agents.map((agent) => [agent.agentIdentifier, agent.briefExcerpt]));
+
+    expect(excerptsById['builder']).toBe('agent-progress ticket: 042 Worktree: /tmp/example Branch: ticket-042 You build t');
+    expect(excerptsById['plain']).toBe('Rename the export button');
+  });
 });
 
 describe.skipIf(!gitIsAvailable())('a folder with no subagent transcripts in it', () => {

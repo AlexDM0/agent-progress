@@ -261,8 +261,18 @@ function spokenTextOf(message: Record<string, unknown>): string {
       .join('\n');
 }
 
-function briefExcerptOf(message: Record<string, unknown>): string {
-  return spokenTextOf(message).replace(/\s+/g, ' ').trim().slice(0, BRIEF_EXCERPT_CHARACTERS);
+/** The harness indents every line of the computed text, so its own preamble is the column-zero lines before the first blank or indented one. */
+function scriptPromptOf(computedTask: string): string {
+  const lines            = computedTask.trimStart().split('\n');
+  const promptStartIndex = lines.findIndex((line, index) => index > 0 && (line.trim().length === 0 || /^\s/.test(line)));
+  return promptStartIndex === -1 ? '' : lines.slice(promptStartIndex).join('\n');
+}
+
+/** A workflow run started without a user request opens on the computed task itself, so the preamble is removed whether or not a relay came first. */
+function briefExcerptOf(transcriptText: string): string {
+  const briefText     = briefTextOf(transcriptText);
+  const excerptSource = briefText.trimStart().startsWith(WORKFLOW_COMPUTED_TASK_PREFIX) ? scriptPromptOf(briefText) : briefText;
+  return excerptSource.replace(/\s+/g, ' ').trim().slice(0, BRIEF_EXCERPT_CHARACTERS);
 }
 
 function* spokenUserTurnsOf(transcriptText: string): Generator<string> {
@@ -282,7 +292,7 @@ function* spokenUserTurnsOf(transcriptText: string): Generator<string> {
 }
 
 /**
- * The first user turn with spoken text, for the same reason `profileTranscript` takes its excerpt from it; an empty string when there is none.
+ * The first user turn with spoken text, which `profileTranscript` excerpts too; an empty string when there is none.
  * A workflow agent's first turn is the harness relaying the session user's request, and its brief is the computed task that must follow it
  * at once; a relay followed by anything else has no brief, so a marker the relay quotes or a later message carries never counts.
  */
@@ -348,9 +358,10 @@ function totalInputTokensOf(totals: TranscriptUsageTotals): number {
  * transcript with no stamp at all answers `null` rather than the epoch, so a cohort split can leave
  * it out of the side it cannot prove it belongs to.
  *
- * **The excerpt is taken from the first user turn that has spoken text, not from the first user
- * line**: the opening line of a subagent transcript is routinely nothing but injected attachments,
- * and an excerpt read off it would name a `CLAUDE.md` in every row instead of the brief.
+ * **The excerpt is taken from the brief, the first user turn that has spoken text, not from the first
+ * user line**: the opening line of a subagent transcript is routinely nothing but injected attachments,
+ * and an excerpt read off it would name a `CLAUDE.md` in every row instead of the brief. A workflow
+ * agent's brief is its computed task, excerpted from the script's prompt after the harness's preamble.
  */
 function profileTranscript(transcriptText: string): TranscriptProfile {
   const profile: TranscriptProfile = {
@@ -361,7 +372,7 @@ function profileTranscript(transcriptText: string): TranscriptProfile {
     bashEditScriptCount:         0,
     verificationRunCount:        0,
     nestedInstructionCharacters: 0,
-    briefExcerpt:                '',
+    briefExcerpt:                briefExcerptOf(transcriptText),
   };
 
   for (const line of transcriptText.split('\n')) {
@@ -388,8 +399,6 @@ function profileTranscript(transcriptText: string): TranscriptProfile {
         if (commandMatchesAny(command, VERIFICATION_RUN_FRAGMENTS)) profile.verificationRunCount += 1;
       }
     }
-
-    if (entry['type'] === 'user' && profile.briefExcerpt.length === 0) profile.briefExcerpt = briefExcerptOf(message);
   }
 
   return profile;

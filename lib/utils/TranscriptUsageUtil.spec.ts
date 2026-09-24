@@ -596,6 +596,39 @@ describe('a workflow agent\'s brief', () => {
 
     expect(ticketIdentifiersNamedInBrief(transcript)).toEqual(['003']);
   });
+
+  /** The real shape: the harness's preamble is one column-zero line, and the indented script prompt follows on the next line with no blank line between. */
+  test('the excerpt is the script\'s prompt, not the relay and not the harness\'s preamble to it', () => {
+    const transcript = [plainUserLine(RELAY_TURN), plainUserLine(computedTaskTurn('  agent-progress ticket: 42\n  Worktree: /tmp/example   Branch: ticket-042'))].join('\n');
+
+    expect(profileTranscript(transcript).briefExcerpt).toBe('agent-progress ticket: 42 Worktree: /tmp/example Branch: ticket-042');
+  });
+
+  test('a preamble spanning several lines is removed up to its first blank line', () => {
+    const preamble   = '[Workflow harness — computed task] The task text below\nwas computed at runtime.';
+    const transcript = [plainUserLine(RELAY_TURN), plainUserLine(`${preamble}\n\n  Build the ticket.`)].join('\n');
+
+    expect(profileTranscript(transcript).briefExcerpt).toBe('Build the ticket.');
+  });
+
+  test('a relay with no computed task after it has no brief, so its excerpt is empty rather than the relay', () => {
+    const transcript = [plainUserLine(RELAY_TURN), plainUserLine('Hello.')].join('\n');
+
+    expect(profileTranscript(transcript).briefExcerpt).toBe('');
+  });
+
+  /** A workflow run launched with no user request has no relay: its agents open on the computed task, and their rows must name the prompt all the same. */
+  test('a computed task with no relay before it is excerpted from the script\'s prompt too', () => {
+    const transcript = plainUserLine(computedTaskTurn('  Build the ticket.'));
+
+    expect(profileTranscript(transcript).briefExcerpt).toBe('Build the ticket.');
+  });
+
+  test('an ordinary brief that merely mentions the harness keeps its whole excerpt', () => {
+    const transcript = plainUserLine('Explain what [Workflow harness — computed task] means.\n  In short.');
+
+    expect(profileTranscript(transcript).briefExcerpt).toBe('Explain what [Workflow harness — computed task] means. In short.');
+  });
 });
 
 describe('dividing a bundle\'s tokens', () => {
