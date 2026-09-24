@@ -140,8 +140,8 @@ rather than spreading `undefined` in.
 - Every write of a file a reader may hold open goes through the atomic writer (temp file beside
   the target, fsync, rename). Never truncate-then-write.
 - A clock decides nothing. Identity is a content hash; staleness is a set difference or a version
-  number; timestamps are recorded and displayed, never compared. Three exceptions are stated, and all
-  compare times the tool itself wrote:
+  number; timestamps are recorded and displayed, never compared. Four exceptions are stated; the first
+  three compare times the tool itself wrote, the fourth times the harness wrote:
   - **lock staleness** in `lib/platform/Lock.ts`. Its one comparison against a time the tool did not
     write is the fallback to the lock file's own mtime, reached only when the payload is missing or
     unparseable — and it fails closed in both directions: an unreadable lock is not stale on that
@@ -152,6 +152,9 @@ rather than spreading `undefined` in.
   - **hiding long-done work on the page** in `lib/render/page/WorkVisibility.ts`: a task or ticket
     done for more than `DONE_WORK_VISIBLE_MILLISECONDS` is hidden until the viewer picks "Show all".
     It decides only what is displayed, never what is stored.
+  - **the `usage --since` cohort split** in `lib/utils/TranscriptCohortUtil.ts` (`splitAt`), which
+    compares each transcript's first harness-written timestamp to the given instant. It decides only
+    which cohort a transcript is summarised in, never what is stored.
 
 ## 4. Comments — the code explains itself
 

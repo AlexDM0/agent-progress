@@ -33,11 +33,13 @@ lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/ lib/tick
 - **No work at module load.** Importing a module runs nothing: no working directory is resolved, no
   file opened, no environment read. This is what lets a spec import the real thing instead of
   scraping source text.
-- **A clock decides nothing**, with three stated exceptions, each comparing times the tool itself
-  wrote: lock staleness in `lib/platform/Lock.ts` — including its fallback to the lock file's own
-  mtime, which fails closed in both directions — ordering the log for display, which decides
-  nothing but a print order, and the page hiding long-done work, which decides nothing but what is
-  shown. Task timestamps are recorded and displayed, never compared.
+- **A clock decides nothing**, with four stated exceptions: lock staleness in `lib/platform/Lock.ts`
+  — including its fallback to the lock file's own mtime, which fails closed in both directions —
+  ordering the log for display, which decides nothing but a print order, the page hiding long-done
+  work, which decides nothing but what is shown, and the `usage --since` cohort split in
+  `lib/utils/TranscriptCohortUtil.ts`, which compares harness-written transcript stamps and decides
+  nothing but which cohort a transcript is summarised in. Task timestamps are recorded and displayed,
+  never compared.
 - **Every file a reader may hold open goes through `lib/platform/AtomicFile.ts`.** The two deliberate
   exceptions are `.gitignore` and `CLAUDE.md`, edited in place so that a symlinked `CLAUDE.md` stays
   a symlink; each says so in its own docblock.

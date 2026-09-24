@@ -1,17 +1,7 @@
 /**
- * What a group of subagent transcripts cost, as one row of figures, and the split that makes two
- * groups comparable across a change in how agents are briefed. It lives beside
- * `lib/utils/TranscriptUsageUtil.ts` rather than inside `cli/usage/UsageCommand.ts` because the
- * arithmetic is a pure function of the profiles: the command finds the files, this decides what the
- * numbers mean, and the claim is unit-tested against constructed arrays rather than through a folder
- * of recorded sessions nobody can reproduce.
- *
- * **Calls and end context are medians; the token figures are means, and the difference is
- * deliberate.** A call count is bounded and one runaway agent — a screenshot loop cost a single
- * agent about 40 consecutive calls — would drag a mean somewhere no agent actually was, so the
- * median answers "what did a typical agent do". Input and output are what the bill is, and a bill is
- * a sum: taking the median there would hide exactly the agent that spent 32.1 million tokens, which
- * is the one worth finding.
+ * What a group of subagent transcripts cost, as one row of figures, and the split that makes two groups comparable across a briefing change.
+ * **Calls and end context are medians; the token figures are means, deliberately.** One runaway agent must
+ * not move what a typical agent did, and must not be hidden in what the cohort cost, since a bill is a sum.
  */
 import { TimeUtil }               from './TimeUtil';
 import type { TranscriptProfile } from './TranscriptUsageUtil';

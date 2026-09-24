@@ -1,23 +1,8 @@
 /**
- * Where the harness keeps one repository's transcripts, and which of them belong to subagents. It is
- * in `lib/platform/` because it is entirely a fact about this machine — a home directory and a naming
- * rule nobody here chose — and keeping it out of `cli/usage/UsageCommand.ts` is what lets the command
- * be driven against a scratch folder instead of against whatever the developer's own home happens to
- * hold.
- *
- * **The folder name is the repository root's absolute path with every character that is not a letter
- * or a digit replaced by `-`**, under `<home>/.claude/projects/`, and the separator is only the most
- * common of those characters. `/Users/alex/development/example` becomes
- * `-Users-alex-development-example`, leading separator and all; a dot goes the same way, so
- * `/Users/alex/.claude/ad-hoc-tooling` becomes `-Users-alex--claude-ad-hoc-tooling`, two dashes where
- * `/.` was; and a path with spaces in it, `…/BtC Ignite - Documents`, ends `…-BtC-Ignite---Documents`.
- * All three observed directly in that directory on 2026-09-19 — **replacing only `/` produced a folder
- * name no harness ever wrote**, and the command reported an empty cohort rather than a mistake.
- * A session run inside a worktree of the repository lands in the same folder, which is
- * why a tracker shared by several worktrees still reports one cohort rather than one per checkout.
- *
- * The home directory comes from `node:os`'s `homedir()` and never from `HOME`: `lib/platform/Environment.ts`
- * is the only module allowed to read `process.env`, and a guard spec fails the build on a read anywhere else.
+ * Where the harness keeps one repository's transcripts, and which of them belong to subagents.
+ * **The folder is `<home>/.claude/projects/` plus the repository root's absolute path with every character
+ * outside `[a-zA-Z0-9]` replaced by `-`**, a dot or a space as much as a separator, so every worktree resolves to one folder.
+ * The home directory is `node:os`'s `homedir()`, never `HOME`, since only `lib/platform/Environment.ts` reads `process.env`.
  */
 import type { Dirent }   from 'node:fs';
 import { readdirSync }   from 'node:fs';

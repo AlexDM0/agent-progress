@@ -1,21 +1,8 @@
 /**
- * The `SubagentStop` entry `agent-progress init --hooks` puts into a repository's
- * `.claude/settings.json`. The file belongs to the harness and to whoever else has written into it,
- * so this merges rather than writes: the document is parsed, the entry is added only when no
- * identical command is already there, and everything else — every other key, every other hook event,
- * every other matcher — is handed back unchanged.
- *
- * A file that will not parse is **refused, never overwritten**. Replacing it would be the one failure
- * a person cannot undo from here, and the tool has no way to tell a corrupted document from one whose
- * format it does not know yet; the caller reports the refusal and the rest of `init` still runs.
- *
- * Written through `lib/platform/AtomicFile.ts` rather than in place, unlike `.gitignore` and
- * `CLAUDE.md`: the harness reads this file at moments nobody controls, and a half-written settings
- * document is a session that starts without its hooks.
- *
- * It knows nothing about tasks or about what the hook does — the matcher, the command and the timeout
- * are the caller's, which is what keeps this module a settings writer rather than a second place that
- * decides how the tracker is invoked.
+ * Merges the `SubagentStop` hook entry into a repository's Claude settings file, adding it only when no
+ * identical command is there and handing every other key back unchanged.
+ * A file that will not parse is **refused, never overwritten**, since the tool cannot tell a corrupted document from an unknown format.
+ * Written through `lib/platform/AtomicFile.ts`, unlike `.gitignore` and `CLAUDE.md`, because the harness reads it at moments nobody controls.
  */
 import { readFileSync, statSync } from 'node:fs';
 import { join }                   from 'node:path';
