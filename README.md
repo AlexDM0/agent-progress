@@ -171,8 +171,9 @@ chart full of those is how the expensive habits stay invisible.
   | `delivered` | `done` | merged; nothing more has to happen to this row |
   | `abandoned` | `abandoned` | called off, kept for the record |
 
-  The summary above the chart reads the same way: `<merged>/<total> done`, then how many are
-  awaiting a merge and how many are in review. A row with nothing to merge — a review pass, a
+  The summary above the chart reads `Work completed: <settled> / <total>`, a row counting once it
+  is delivered or abandoned, so a board with nothing left to do reads its total over its total;
+  then how many are awaiting a merge and how many are in review. A row with nothing to merge — a review pass, a
   chore — still reaches `done`, through `agent-progress task deliver <id>`; a dispatched reviewer
   closes its own bar, the orchestrator every row left open, and a chart whose rows stop at
   `awaiting review` is a chart nobody closed.

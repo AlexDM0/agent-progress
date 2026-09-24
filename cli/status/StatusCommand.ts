@@ -5,15 +5,19 @@ import {
   DATE_AND_CLOCK_LENGTH,
   MONTH_AND_DAY_SLICE_START
 }                                            from '../../lib/constants/Limits';
-import { TASK_STATUSES, TICKET_STATUSES, ticketPriorityOf } from '../../lib/constants/Statuses';
+import {
+  SETTLED_TASK_STATUSES,
+  SETTLED_TICKET_STATUSES,
+  TASK_STATUSES,
+  TICKET_STATUSES,
+  ticketPriorityOf
+}                                            from '../../lib/constants/Statuses';
 import type {
   LogEntry,
   ProgressFile,
   Task,
-  TaskStatus,
   Ticket,
-  TicketPriority,
-  TicketStatus
+  TicketPriority
 }                                            from '../../lib/constants/Types';
 import { OperationRefusal } from '../../lib/platform/OperationRefusal';
 import { requireWorkspace } from '../../lib/platform/Workspace';
@@ -37,11 +41,6 @@ const KNOWN_OPTION_NAMES = ['json', 'full'];
 const HUMAN_LOG_ENTRY_COUNT = 5;
 
 const WORKING_VIEW_LOG_ENTRY_COUNT = 10;
-
-/** Settled by status, not by age, so the working view never depends on the clock. */
-const SETTLED_TASK_STATUSES: readonly TaskStatus[] = ['delivered', 'abandoned'];
-
-const SETTLED_TICKET_STATUSES: readonly TicketStatus[] = ['delivered', 'abandoned'];
 
 const TASK_COLUMN_WIDTHS = {
   identifier: 5,

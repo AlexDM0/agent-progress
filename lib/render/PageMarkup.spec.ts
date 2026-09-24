@@ -290,8 +290,8 @@ describe('review rows nested under their ticket', () => {
 });
 
 describe('summaryStatsMarkup', () => {
-  // `done` is the merged rows over the total, and the two figures beside it are what is still owed: a merge, and a review.
-  test('reads in the same ladder as the pills: done out of the total, then what is awaited', () => {
+  // Work completed is the settled rows over the total, and the two figures beside it are what is still owed: a merge, and a review.
+  test('reads in the same ladder as the pills: work completed out of the total, then what is awaited', () => {
     const markup = summaryStatsMarkup([
       exampleTask({ id: 1, status: 'pending' }),
       exampleTask({ id: 2, status: 'finished' }),
@@ -299,20 +299,38 @@ describe('summaryStatsMarkup', () => {
       exampleTask({ id: 4, status: 'delivered' }),
     ]);
 
-    expect(markup).toContain('<span class="ap-stat-n">1/4</span> done');
+    expect(markup).toContain('Work completed: <span class="ap-stat-n">1 / 4</span>');
     expect(markup).toContain('<span class="ap-stat-n">1</span> awaiting merge');
     expect(markup).toContain('<span class="ap-stat-n">1</span> in review');
   });
 
-  // A delivered row is done and nothing else: it is not still awaiting the merge it already had.
-  test('counts a row sent round for another review as in review, and a delivered row only as done', () => {
+  // An abandoned row has nothing left to do, so a board of only delivered and abandoned rows must not read as unfinished.
+  test('counts an abandoned row as completed, so a settled board reads its total over its total', () => {
+    const inFlight = summaryStatsMarkup([
+      exampleTask({ id: 1, status: 'delivered' }),
+      exampleTask({ id: 2, status: 'delivered' }),
+      exampleTask({ id: 3, status: 'abandoned' }),
+      exampleTask({ id: 4, status: 'running' }),
+    ]);
+    const settled = summaryStatsMarkup([
+      exampleTask({ id: 1, status: 'delivered' }),
+      exampleTask({ id: 2, status: 'abandoned' }),
+      exampleTask({ id: 3, status: 'abandoned' }),
+    ]);
+
+    expect(inFlight).toContain('<span class="ap-stat">Work completed: <span class="ap-stat-n">3 / 4</span></span>');
+    expect(settled).toContain('Work completed: <span class="ap-stat-n">3 / 3</span>');
+  });
+
+  // A delivered row is completed and nothing else: it is not still awaiting the merge it already had.
+  test('counts a row sent round for another review as in review, and a delivered row only as completed', () => {
     const markup = summaryStatsMarkup([
       exampleTask({ id: 1, status: 're-review', reviewRound: 3 }),
       exampleTask({ id: 2, status: 'reviewed' }),
       exampleTask({ id: 3, status: 'delivered' }),
     ]);
 
-    expect(markup).toContain('<span class="ap-stat-n">1/3</span> done');
+    expect(markup).toContain('Work completed: <span class="ap-stat-n">1 / 3</span>');
     expect(markup).toContain('<span class="ap-stat-n">1</span> awaiting merge');
     expect(markup).toContain('<span class="ap-stat-n">1</span> in review');
   });

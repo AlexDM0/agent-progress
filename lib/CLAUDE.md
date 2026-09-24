@@ -73,7 +73,8 @@ or Node.
   `CONCURRENCY_LIMIT_CEILING_AGENTS`, the most agents a stored limit allows in flight.
 - `lib/constants/Statuses.ts` — the task and ticket status tuples and the ticket type and priority
   tuples with their guards, `ticketPriorityOf` (the one place an absent priority becomes `normal`),
-  the ticket-status → task-status table, and the on-disk names (`progress.json`,
+  the ticket-status → task-status table, the settled task and ticket statuses (delivered, abandoned)
+  that the page counts as completed and `status` hides, and the on-disk names (`progress.json`,
   `progress.html`, `.agent-progress`, `tickets`, `.lock`) and the two managed-block markers.
 - `lib/constants/CommentSyntaxes.ts` — how each file type writes a comment (line markers, block
   delimiters, docstrings, strings that could hide a marker, `<script>`/`<style>` inside HTML), keyed by

@@ -47,6 +47,11 @@ export const TASK_STATUS_FOR_TICKET_STATUS: Record<TicketStatus, TaskStatus> = {
   'abandoned':   'abandoned',
 };
 
+/** Nothing more will happen to a row or ticket in one of these: the page counts them as work completed, and `status` hides them. */
+export const SETTLED_TASK_STATUSES: readonly TaskStatus[] = ['delivered', 'abandoned'];
+
+export const SETTLED_TICKET_STATUSES: readonly TicketStatus[] = ['delivered', 'abandoned'];
+
 /** Abandoned is left out on purpose: the work a dependent ticket waited for never happened. */
 export const TICKET_STATUSES_THAT_SETTLE_A_DEPENDENCY: readonly TicketStatus[] = ['done', 'delivered'];
 

@@ -3,8 +3,8 @@
  * the tracker or a ticket passes `escapeHtml` exactly once here, except a ticket's `bodyHtml`, already escaped by `lib/render/Markdown.ts`.
  */
 
-import { FIRST_REPEAT_REVIEW_ROUND } from '../../constants/Limits.ts';
-import { ticketPriorityOf }          from '../../constants/Statuses.ts';
+import { FIRST_REPEAT_REVIEW_ROUND }               from '../../constants/Limits.ts';
+import { SETTLED_TASK_STATUSES, ticketPriorityOf } from '../../constants/Statuses.ts';
 import type {
   LogEntry,
   Task,
@@ -217,20 +217,21 @@ export function overlayMarkup(ticks: readonly TimelineTick[], nowPercent: number
 
 /** The token figure is left out entirely when no task reports one, because `null` means "nobody said" and `0 tokens` would be a claim. */
 export function summaryStatsMarkup(tasks: readonly Task[]): string {
-  const doneCount          = tasks.filter((task) => task.status === 'delivered').length;
+  const completedCount     = tasks.filter((task) => SETTLED_TASK_STATUSES.includes(task.status)).length;
   const awaitingMergeCount = tasks.filter((task) => task.status === 'reviewed').length;
   const inReviewCount      = tasks.filter((task) => task.status === 'finished' || task.status === 're-review').length;
   const reportedTokens     = tasks.filter((task) => task.tokens !== null);
-  const stats: Array<[figure: string, label: string]> = [
-    [`${doneCount}/${tasks.length}`, 'done'],
-    [String(awaitingMergeCount), 'awaiting merge'],
-    [String(inReviewCount), 'in review'],
+  const figureMarkup = (figure: string): string => `<span class="ap-stat-n">${escapeHtml(figure)}</span>`;
+  const stats = [
+    `Work completed: ${figureMarkup(`${completedCount} / ${tasks.length}`)}`,
+    `${figureMarkup(String(awaitingMergeCount))} awaiting merge`,
+    `${figureMarkup(String(inReviewCount))} in review`,
   ];
   if (reportedTokens.length > 0) {
-    stats.push([formatTokenCount(reportedTokens.reduce((total, task) => total + (task.tokens ?? 0), 0)), 'tokens']);
+    stats.push(`${figureMarkup(formatTokenCount(reportedTokens.reduce((total, task) => total + (task.tokens ?? 0), 0)))} tokens`);
   }
   return stats
-    .map(([figure, label]) => `<span class="ap-stat"><span class="ap-stat-n">${escapeHtml(figure)}</span> ${escapeHtml(label)}</span>`)
+    .map((statMarkup) => `<span class="ap-stat">${statMarkup}</span>`)
     .join('<span class="ap-sep">&middot;</span>');
 }
 

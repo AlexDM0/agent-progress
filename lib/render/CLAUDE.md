@@ -128,7 +128,7 @@ themselves. The five timestamp slice positions travel the same way, so no page m
   finished with, it is `awaiting review`, and a `reviewed` one is `awaiting merge`. `PILL_LABEL_FOR_ROW_STATE`
   in `lib/render/page/PageMarkup.ts` is the whole mapping, and `data-state` stays the stored status,
   so every bar, pill and ✓ keeps its colour. `summaryStatsMarkup` reads in the same ladder —
-  `<delivered>/<total> done`, then what is awaiting a merge and what is in review.
+  `Work completed: <delivered or abandoned> / <total>` (`SETTLED_TASK_STATUSES`), then what is awaiting a merge and what is in review.
   The only state a task status cannot name on its
   own is a `finished` row whose ticket is `in-review`, which reads `reviewing` — the one reason a row
   is handed its ticket's status at all. A `re-review` row is the one pill carrying a number —

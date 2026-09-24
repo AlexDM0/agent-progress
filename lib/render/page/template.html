@@ -35,7 +35,7 @@
 
  ---------------------------------------------------------------- containers ---
  #ap-project              text   project name
- #ap-summary              html   status line; children are .ap-stat (> .ap-stat-n + label)
+ #ap-summary              html   status line; children are .ap-stat (> .ap-stat-n and its label, on either side)
  #ap-generated            text   "generated 21:56" (monospace)
  #ap-theme                el     buttons data-theme="auto|light|dark", aria-pressed
  #ap-error                el     [hidden] unless the layout script threw
@@ -662,7 +662,7 @@ a:hover { color: var(--ink); text-decoration: underline; }
     <button type="button" data-theme="dark" aria-pressed="false">Dark</button>
   </div>
   <div class="ap-summary" id="ap-summary">
-    <span class="ap-stat"><span class="ap-stat-n">1/8</span> done</span>
+    <span class="ap-stat">Work completed: <span class="ap-stat-n">1 / 8</span></span>
     <span class="ap-sep">·</span>
     <span class="ap-stat"><span class="ap-stat-n">1</span> awaiting merge</span>
     <span class="ap-sep">·</span>
