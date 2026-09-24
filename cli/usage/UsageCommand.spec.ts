@@ -349,12 +349,24 @@ describe.skipIf(!gitIsAvailable())('a folder holding a workflow run beside a pla
     const runFolder      = join(workflowFolder, 'session-workflow', 'subagents', 'workflows', 'run-example');
     mkdirSync(runFolder, { recursive: true });
 
-    const plainUserLine = (text: string): string => JSON.stringify({ type: 'user', timestamp: '2026-09-19T08:00:00.000Z', message: { role: 'user', content: text } });
+    const plainUserLine = (text: string): string => JSON.stringify({
+      type:      'user',
+      timestamp: '2026-09-19T08:00:00.000Z',
+      message:   { role: 'user', content: text },
+    });
     const workflowAgentText = [
       plainUserLine('[Workflow harness — user request] The harness relays, verbatim and indented below, the user request.\n  Yes'),
       plainUserLine('[Workflow harness — computed task] The task text below was computed at runtime. The computed task text follows:\n'
         + '  agent-progress ticket: 042\n  Worktree: /tmp/example   Branch: ticket-042\n  You build ticket #042 for the agent-progress dispatcher, alone.'),
-      JSON.stringify({ type: 'assistant', message: { id: 'msg_0', model: 'claude-opus-5', content: [], usage: { input_tokens: 100, output_tokens: 10 } } }),
+      JSON.stringify({
+        type:    'assistant',
+        message: {
+          id:      'msg_0',
+          model:   'claude-opus-5',
+          content: [],
+          usage:   { input_tokens: 100, output_tokens: 10 },
+        },
+      }),
     ].join('\n');
     writeFileSync(join(runFolder, 'agent-builder.jsonl'), `${workflowAgentText}\n`);
     writeFileSync(join(workflowFolder, 'session-workflow', 'subagents', 'agent-plain.jsonl'), transcriptTextFor({

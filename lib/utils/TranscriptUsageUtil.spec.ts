@@ -597,7 +597,7 @@ describe('a workflow agent\'s brief', () => {
     expect(ticketIdentifiersNamedInBrief(transcript)).toEqual(['003']);
   });
 
-  /** The real shape: the harness's preamble is one column-zero line, and the indented script prompt follows on the next line with no blank line between. */
+  /** The real shape: the harness's preamble is one column-zero line, and the indented script prompt follows it with no blank line between. */
   test('the excerpt is the script\'s prompt, not the relay and not the harness\'s preamble to it', () => {
     const transcript = [plainUserLine(RELAY_TURN), plainUserLine(computedTaskTurn('  agent-progress ticket: 42\n  Worktree: /tmp/example   Branch: ticket-042'))].join('\n');
 
@@ -617,7 +617,7 @@ describe('a workflow agent\'s brief', () => {
     expect(profileTranscript(transcript).briefExcerpt).toBe('');
   });
 
-  /** A workflow run launched with no user request has no relay: its agents open on the computed task, and their rows must name the prompt all the same. */
+  /** A workflow run launched with no user request has no relay: its agents open on the computed task, and their rows name the prompt all the same. */
   test('a computed task with no relay before it is excerpted from the script\'s prompt too', () => {
     const transcript = plainUserLine(computedTaskTurn('  Build the ticket.'));
 
