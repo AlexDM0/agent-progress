@@ -25,7 +25,7 @@ the real store functions in. Every mutating command calls it **inside its lock**
 | `lib/render/PageData.spec.ts` | The island checks, the stored range and `effectiveRangeFor`. |
 | `lib/render/WorkVisibility.spec.ts` | Which tasks and tickets count as long done, and what the hidden note says. |
 | `lib/render/PageMarkup.spec.ts` | Every state's pill, review rows nested above their ticket's row, the summary's figures, the token figure, the log's sort, which ticket cards collapse, the low and high priority marks, and the escaping. |
-| `lib/render/TaskDetail.spec.ts` | The overview panel: a recorded history against a derived one, the review rounds, which log lines a row claims, and the escaping. |
+| `lib/render/TaskDetail.spec.ts` | The overview panel: a recorded history against a derived one, the review rounds, which log lines a row and a ticket claim, a span that runs backwards, the note, and the escaping. |
 | `lib/render/page/template.html` | The designer's template: the styles, the state system, the containers and the bootstrap. Not generated. |
 | `lib/render/page/GanttGeometry.ts` | `computeTimeline(input)`: the axis, the ticks, every bar and the now marker as percentages. Pure, no DOM. |
 | `lib/render/page/PageData.ts` | The island shapes, the checks that establish them, and the stored range. DOM-free. |
@@ -166,7 +166,11 @@ themselves. The five timestamp slice positions travel the same way, so no page m
   phase may never be one the row did not reach: an abandoned row's `end` is the moment it was called
   off, so only the ticket's own `finished` stamp can put `awaiting review` in that list. Durations
   between phases are computed and formatted, which is the one thing here that parses a stored stamp at
-  all — a span has no wall clock to preserve.
+  all — a span has no wall clock to preserve; one that runs backwards is shown as nothing. **A row
+  claims a log line only in the forms written for rows** — `Task #N`, `Review row #N`, `the review row
+  #N` — and never one beginning `Ticket #`, because from ticket #100 up a ticket's id is spelled as a
+  row's; a ticket claims its `#NNN` anywhere but in those row forms. The row's `note`, where the
+  dispatcher's claim note lives, is shown among the task facts.
 - **Timestamps stored by the CLI are sliced, never re-parsed**; each carries the offset of the machine
   that recorded it. Instants the page computed (the axis, the now marker, the generated stamp) are
   formatted, because they have no written-down wall clock to preserve.

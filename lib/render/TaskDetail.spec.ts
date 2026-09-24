@@ -125,6 +125,23 @@ describe('the task facts', () => {
   test('carries the review round a repeat review left on the row', () => {
     expect(panelFor(exampleTask({ status: 're-review', reviewRound: 3 }))).toContain('<div><b>review round</b><span>3</span></div>');
   });
+
+  // A dispatcher's claim note is on the row and nowhere else on the page, so the panel is where a reader finds it.
+  test('shows the row’s note as a fact, escaped', () => {
+    const markup = panelFor(exampleTask({ note: 'Built by <b>the</b> dispatcher & co' }));
+
+    expect(markup).toContain('<div><b>note</b><span>Built by &lt;b&gt;the&lt;/b&gt; dispatcher &amp; co</span></div>');
+    expect(panelFor(exampleTask({ note: '' }))).not.toContain('<b>note</b>');
+  });
+
+  // A row whose end was backfilled before its start has no elapsed time, and "under a minute" would read as a real one.
+  test('shows no elapsed time for a row whose end is before its start', () => {
+    const markup = panelFor(exampleTask({ start: FINISHED_AT, end: STARTED_AT }));
+
+    expect(markup).toContain('<b>end</b>');
+    expect(markup).not.toContain('<b>elapsed</b>');
+    expect(markup).not.toContain('under a minute');
+  });
 });
 
 describe('the phases', () => {
@@ -251,6 +268,16 @@ describe('the phases', () => {
     expect(phaseLabelsIn(markup)).toEqual(['awaiting review', 'reviewing 2', 'unstarted', 'wip', 'awaiting review', 'reviewing 2']);
   });
 
+  test('gives no gap to a phase stamped before the one it follows', () => {
+    const markup = panelFor(exampleTask({
+      status:  'finished',
+      history: [{ status: 'running', at: FINISHED_AT }, { status: 'finished', at: STARTED_AT }],
+    }));
+
+    expect(phaseLabelsIn(markup)).toEqual(['wip', 'awaiting review']);
+    expect(markup).not.toContain('ap-detail-gap');
+  });
+
   test('says there is nothing to derive rather than showing an empty list', () => {
     const markup = panelFor(exampleTask({ status: 'pending', start: null }));
 
@@ -294,21 +321,61 @@ describe('the log', () => {
   const log: LogEntry[] = [
     { at: FILED_AT, text: 'Ticket #001 filed: Double-click a role to edit it' },
     { at: STARTED_AT, text: 'Ticket #002 started' },
-    { at: FINISHED_AT, text: '#1 finished, 18.4k tokens' },
+    { at: FINISHED_AT, text: 'Review row #1 started: Review 1 #001 — Double-click a role to edit it' },
     { at: DELIVERED_AT, text: 'Ticket #001 delivered' },
   ];
 
-  test('keeps the lines that name this row or its ticket, newest first', () => {
-    const lines = [...panelFor(exampleTask({ id: 1, ticket: '001' }), exampleTicket(), log).matchAll(/<span>([^<]*)<\/span><\/li>/g)].map((match) => match[1]);
+  function logLinesIn(markup: string): Array<string | undefined> {
+    return [...markup.matchAll(/<span>([^<]*)<\/span><\/li>/g)].map((match) => match[1]);
+  }
 
-    expect(lines).toEqual(['Ticket #001 delivered', '#1 finished, 18.4k tokens', 'Ticket #001 filed: Double-click a role to edit it']);
+  test('keeps the lines that name this row or its ticket, newest first', () => {
+    const lines = logLinesIn(panelFor(exampleTask({ id: 1, ticket: '001' }), exampleTicket(), log));
+
+    expect(lines).toEqual([
+      'Ticket #001 delivered',
+      'Review row #1 started: Review 1 #001 — Double-click a role to edit it',
+      'Ticket #001 filed: Double-click a role to edit it',
+    ]);
   });
 
   // The reason the match is bounded: `#1` is a prefix of `#13`, and task 1 would otherwise claim task 13's whole history.
   test('does not let a row claim a line about a row whose number merely starts with its own', () => {
-    const markup = panelFor(exampleTask({ id: 1 }), null, [{ at: FINISHED_AT, text: '#13 finished' }]);
+    const markup = panelFor(exampleTask({ id: 1 }), null, [{ at: FINISHED_AT, text: 'Task #13 finished' }]);
 
-    expect(markup).not.toContain('#13 finished');
+    expect(markup).not.toContain('Task #13 finished');
+  });
+
+  /**
+   * Ticket ids are padded to three digits, so from ticket #100 up a ticket's `#120` is spelled exactly as task 120's: a row is
+   * matched only in the forms written for rows, and a line that begins as a ticket's names no row.
+   */
+  test('never lets a row claim a ticket’s line from ticket #100 up, while it keeps the lines written for rows', () => {
+    const lines = logLinesIn(panelFor(exampleTask({ id: 120 }), null, [
+      { at: FILED_AT, text: 'Ticket #120 started' },
+      { at: STARTED_AT, text: 'Ticket #121 filed: Show task #120 in the panel' },
+      { at: FINISHED_AT, text: 'Task #120 finished' },
+      { at: REVIEWED_AT, text: 'Review row #120 started: Review 1 #007 — Example' },
+      { at: DELIVERED_AT, text: 'Closed the review row #120, delivered: Review 1 #007 — Example' },
+    ]));
+
+    expect(lines).toEqual([
+      'Closed the review row #120, delivered: Review 1 #007 — Example',
+      'Review row #120 started: Review 1 #007 — Example',
+      'Task #120 finished',
+    ]);
+  });
+
+  // The same collision the other way round: ticket 120's panel may not claim the lines written about row 120.
+  test('never lets a ticket claim the lines written for a row of the same number', () => {
+    const lines = logLinesIn(panelFor(null, exampleTicket({ id: '120', task: 7 }), [
+      { at: FILED_AT, text: 'Ticket #120 filed: Example' },
+      { at: STARTED_AT, text: 'Task #120 finished' },
+      { at: FINISHED_AT, text: 'Review row #120 started: Review 1 #007 — Example' },
+      { at: REVIEWED_AT, text: 'Review row #9 started: Review 1 #120 — Example' },
+    ]));
+
+    expect(lines).toEqual(['Review row #9 started: Review 1 #120 — Example', 'Ticket #120 filed: Example']);
   });
 
   // Phases says so in words when it has nothing; a labelled empty box beside it would read as a section that failed to load.
@@ -334,8 +401,9 @@ describe('formatDuration', () => {
     expect(formatDuration(milliseconds)).toBe(expected);
   });
 
-  // A backfilled `--at` can put a later phase earlier; a negative span reads as the shortest one rather than as "-3m".
-  test('names a span that runs backwards as the shortest one there is', () => {
-    expect(formatDuration(-180_000)).toBe('under a minute');
+  // A backfilled `--at` can put a later phase earlier; a negative span is no duration at all, neither "-3m" nor "under a minute".
+  test('names no duration for a span that runs backwards', () => {
+    expect(formatDuration(-180_000)).toBeNull();
+    expect(formatDuration(-1)).toBeNull();
   });
 });

@@ -37,6 +37,8 @@ const NO_PHASES_TO_SHOW_NOTE = 'The phases of this row were not recorded, and it
 
 const NO_LOG_LINES_NOTE = 'No log line names this row or its ticket.';
 
+const TICKET_LINE_START = /^Ticket #/;
+
 /** How far up the ladder a status is, so a derived phase a row never reached is left out; `abandoned` sits above everything it could follow. */
 const LADDER_RANK_FOR_TASK_STATUS: Record<TaskStatus, number> = {
   'pending':   0,
@@ -75,7 +77,11 @@ function epochMillisecondsOf(timestamp: string | null | undefined): number | nul
   return Number.isNaN(parsed) ? null : parsed;
 }
 
-export function formatDuration(milliseconds: number): string {
+/** Null for a span that runs backwards, which a backfilled `--at` can write: it is no duration, not a short one. */
+export function formatDuration(milliseconds: number): string | null {
+  if (milliseconds < 0) {
+    return null;
+  }
   const totalMinutes = Math.floor(milliseconds / MILLISECONDS_PER_MINUTE);
   if (totalMinutes < 1) {
     return SHORTEST_NAMED_DURATION;
@@ -105,17 +111,21 @@ function factsMarkup(entries: ReadonlyArray<[label: string, valueMarkup: string]
   return `<div class="ap-ticket-meta">${rows}</div>`;
 }
 
+function durationBetween(fromTimestamp: string | null | undefined, toTimestamp: string | null | undefined): string | null {
+  const fromEpochMilliseconds = epochMillisecondsOf(fromTimestamp);
+  const toEpochMilliseconds   = epochMillisecondsOf(toTimestamp);
+  return fromEpochMilliseconds === null || toEpochMilliseconds === null ? null : formatDuration(toEpochMilliseconds - fromEpochMilliseconds);
+}
+
 function taskFactsMarkup(task: Task, slices: TimestampSlices): string {
-  const startEpochMilliseconds = epochMillisecondsOf(task.start);
-  const endEpochMilliseconds   = epochMillisecondsOf(task.end);
+  const elapsed = durationBetween(task.start, task.end);
   const entries: Array<[label: string, valueMarkup: string]> = [];
 
   if (task.owner !== '') entries.push(['owner', escapeHtml(task.owner)]);
+  if (task.note !== '') entries.push(['note', escapeHtml(task.note)]);
   if (task.start !== null) entries.push(['start', escapeHtml(stampText(task.start, slices))]);
   if (task.end !== null) entries.push(['end', escapeHtml(stampText(task.end, slices))]);
-  if (startEpochMilliseconds !== null && endEpochMilliseconds !== null) {
-    entries.push(['elapsed', escapeHtml(formatDuration(endEpochMilliseconds - startEpochMilliseconds))]);
-  }
+  if (elapsed !== null) entries.push(['elapsed', escapeHtml(elapsed)]);
   if (task.tokens !== null) entries.push(['tokens', escapeHtml(formatTokenCount(task.tokens))]);
   if (task.reviewRound !== undefined) entries.push(['review round', escapeHtml(String(task.reviewRound))]);
   if (task.ticket !== null) entries.push(['ticket', ticketLinkMarkup(task.ticket)]);
@@ -183,12 +193,8 @@ function derivedPhaseLines(task: Task, ticket: PageTicket | null): PhaseLine[] {
 
 function phaseListMarkup(lines: readonly PhaseLine[], slices: TimestampSlices): string {
   const items = lines.map((line, index) => {
-    const previous              = lines[index - 1];
-    const previousMilliseconds  = previous === undefined ? null : epochMillisecondsOf(previous.at);
-    const thisMilliseconds      = epochMillisecondsOf(line.at);
-    const gap                   = previousMilliseconds === null || thisMilliseconds === null
-      ? ''
-      : `<span class="ap-detail-gap">after ${escapeHtml(formatDuration(thisMilliseconds - previousMilliseconds))}</span>`;
+    const gapDuration = durationBetween(lines[index - 1]?.at, line.at);
+    const gap         = gapDuration === null ? '' : `<span class="ap-detail-gap">after ${escapeHtml(gapDuration)}</span>`;
     return [
       `<li ${attribute('data-state', line.state)}>`,
       `<span class="ap-pill">${escapeHtml(pillLabelForRowState(line.state, line.reviewRound))}</span>`,
@@ -255,16 +261,24 @@ function ticketMarkup(ticket: PageTicket, slices: TimestampSlices): string {
   return `${head}${ticketFactsMarkup(ticket, slices)}<div class="ap-ticket-body md">${ticket.bodyHtml}</div>`;
 }
 
-/** A reference is `#7` or `#003` exactly: the lookahead is what keeps task 1 from claiming every line that mentions task 13. */
-function textNamesReference(text: string, reference: string): boolean {
-  return new RegExp(`${reference}(?![0-9])`).test(text);
+/**
+ * From ticket #100 up a ticket's `#120` is spelled as task 120's, so a row is named only as `Task #N` or `row #N` — `Review row #N`
+ * and `the review row #N`, the forms the CLI writes for rows — and a line beginning `Ticket #` names no row. The lookahead keeps
+ * task 1 from claiming task 13.
+ */
+function textNamesTask(text: string, taskId: number): boolean {
+  return !TICKET_LINE_START.test(text) && new RegExp(`\\b(?:task|row) #${taskId}(?![0-9])`, 'i').test(text);
+}
+
+/** A ticket is `#003` anywhere except in the row forms above, which from #100 up could be a row of the same number. */
+function textNamesTicket(text: string, ticketId: string): boolean {
+  return new RegExp(`(?<!\\b(?:task|row) )#${ticketId}(?![0-9])`, 'i').test(text);
 }
 
 function logMarkup(input: TaskDetailInput): string {
-  const references: string[] = [];
-  if (input.task !== null) references.push(`#${input.task.id}`);
-  if (input.ticket !== null) references.push(`#${input.ticket.id}`);
-  const named = input.log.filter((entry) => references.some((reference) => textNamesReference(entry.text, reference)));
+  const { task, ticket } = input;
+  const named = input.log.filter((entry) => (task !== null && textNamesTask(entry.text, task.id))
+    || (ticket !== null && textNamesTicket(entry.text, ticket.id)));
   if (named.length === 0) {
     return noteMarkup(NO_LOG_LINES_NOTE);
   }
