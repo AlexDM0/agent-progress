@@ -1,10 +1,12 @@
 /**
- * The three things `withLock` promises: serialisation, takeover of a lock whose holder is gone, and
- * the fail-closed direction — a fresh unreadable lock is waited for and refused, never assumed free.
+ * The things `withLock` promises: serialisation, takeover of a lock whose holder is gone, exactly one
+ * winner when two waiters race for the same stale lock, and the fail-closed direction — a fresh
+ * unreadable lock is waited for and refused, never assumed free.
  */
 import {
   existsSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   utimesSync,
   writeFileSync
@@ -13,7 +15,7 @@ import { afterAll, expect, test } from 'bun:test';
 
 import { LOCK_RETRY_COUNT, LOCK_RETRY_INTERVAL_MILLISECONDS } from '../constants/Limits';
 import { createScratchDirectory, removeScratchDirectory }     from '../tooling/dev/ScratchWorkspace';
-import { withLock }                                           from './Lock';
+import { LockTakeoverSteps, withLock }                        from './Lock';
 import { refusalIsOperationRefusal }                          from './OperationRefusal';
 import { workspacePathsFor }                                  from './Workspace';
 import type { Workspace }                                     from './Workspace';
@@ -156,6 +158,30 @@ test('a lock whose payload carries an impossible process id is never signalled w
   writeFileSync(workspace.lockFilePath, JSON.stringify({ acquiredAt: '2026-09-18T20:11:03+02:00', processId: 0 }));
   const longAfterwards = (): Date => new Date(Date.parse('2026-09-18T21:11:03+02:00'));
   expect(await withLock(workspace, () => 'taken over', longAfterwards)).toBe('taken over');
+});
+
+test('of two waiters that both judged one lock stale, the later taker restores the earlier one\'s fresh lock and does not acquire', async () => {
+  // Replays the race step by step: B judges the dead holder's lock stale, A takes it over and acquires, and only then does B rename.
+  const { acquired, lockIsStale, tookOverStaleLock } = LockTakeoverSteps;
+  const workspace = scratchWorkspace('lock-takeover-race');
+  const { lockFilePath } = workspace;
+  writeFileSync(lockFilePath, JSON.stringify({ acquiredAt: new Date().toISOString(), processId: await processIdOfAnExitedProcess() }));
+  const firstWaiterPayload = { acquiredAt: '2026-09-24T15:00:00+02:00', processId: process.pid };
+  const secondWaiterPayload = { acquiredAt: '2026-09-24T15:00:01+02:00', processId: process.pid };
+  const nowMilliseconds = Date.parse('2026-09-24T15:00:02+02:00');
+
+  expect(lockIsStale(lockFilePath, nowMilliseconds), 'the second waiter judges the dead holder\'s lock stale').toBe(true);
+  expect(lockIsStale(lockFilePath, nowMilliseconds)).toBe(true);
+  expect(tookOverStaleLock(lockFilePath, nowMilliseconds)).toBe(true);
+  expect(acquired(lockFilePath, firstWaiterPayload), 'the first waiter holds the lock').toBe(true);
+
+  const secondWaiterTookOver = tookOverStaleLock(lockFilePath, nowMilliseconds);
+  const secondWaiterAcquired = secondWaiterTookOver && acquired(lockFilePath, secondWaiterPayload);
+
+  expect(secondWaiterTookOver, 'the first waiter\'s fresh lock is not stale').toBe(false);
+  expect(secondWaiterAcquired).toBe(false);
+  expect(JSON.parse(readFileSync(lockFilePath, 'utf8'))).toEqual(firstWaiterPayload);
+  expect(readdirSync(workspace.trackerDirectory).filter((name) => name.includes('.stale.')), 'the restored lock leaves no copy aside').toEqual([]);
 });
 
 test('the action\'s return value is handed back, including when it is not a promise', async () => {

@@ -10,6 +10,7 @@
 import { randomUUID } from 'crypto';
 import {
   closeSync,
+  linkSync,
   openSync,
   readFileSync,
   renameSync,
@@ -89,15 +90,20 @@ function fileIsOlderThanTheStaleThreshold(lockFilePath: string, nowMilliseconds:
 }
 
 /**
- * A stale lock is taken over by renaming it, never by unlinking it: a rename consumes the path
- * atomically, so of two waiters that judge the same lock stale exactly one wins and the loser's
- * rename fails with `ENOENT`.
+ * A stale lock is taken over by renaming it, never by unlinking it, and what the rename moved is judged
+ * again: a waiter that saw the stale lock may rename only after another waiter already replaced it with
+ * a fresh one, and that fresh lock is linked back into place (`link` fails rather than overwrite) and not
+ * taken.
  */
-function tookOverStaleLock(lockFilePath: string): boolean {
+function tookOverStaleLock(lockFilePath: string, nowMilliseconds: number): boolean {
   const takeoverPath = `${lockFilePath}.stale.${randomUUID().slice(0, TAKEOVER_NAME_RANDOM_LENGTH)}`;
   try {
     renameSync(lockFilePath, takeoverPath);
   } catch {
+    return false;
+  }
+  if (!lockIsStale(takeoverPath, nowMilliseconds)) {
+    restoreLockMovedAside(takeoverPath, lockFilePath);
     return false;
   }
   try {
@@ -106,6 +112,20 @@ function tookOverStaleLock(lockFilePath: string): boolean {
     // The takeover already succeeded; a leftover file in a git-ignored directory is harmless.
   }
   return true;
+}
+
+function restoreLockMovedAside(takeoverPath: string, lockFilePath: string): void {
+  try {
+    linkSync(takeoverPath, lockFilePath);
+  } catch {
+    // A third lock already occupies the path; the moved one is left beside it rather than destroyed.
+    return;
+  }
+  try {
+    unlinkSync(takeoverPath);
+  } catch {
+    // The lock is back in place; a leftover second link in a git-ignored directory is harmless.
+  }
 }
 
 function acquired(lockFilePath: string, payload: LockPayload): boolean {
@@ -139,6 +159,9 @@ function releaseIfStillOurs(lockFilePath: string, payload: LockPayload): void {
   }
 }
 
+/** The steps `withLock` interleaves between processes, exposed so a spec can replay a race step by step. */
+export const LockTakeoverSteps = { acquired, lockIsStale, tookOverStaleLock } as const;
+
 /**
  * Run `action` with this tracker's lock held, releasing it however `action` ends. Throws
  * `OperationRefusal('unrepaired')` — exit 2, not 1 — when the retry budget runs out, because
@@ -159,7 +182,8 @@ export async function withLock<ActionResult>(
       break;
     }
     // A takeover retries immediately rather than sleeping: the lock is free at this instant.
-    if (lockIsStale(lockFilePath, now().getTime()) && tookOverStaleLock(lockFilePath)) continue;
+    const nowMilliseconds = now().getTime();
+    if (lockIsStale(lockFilePath, nowMilliseconds) && tookOverStaleLock(lockFilePath, nowMilliseconds)) continue;
     await Bun.sleep(LOCK_RETRY_INTERVAL_MILLISECONDS);
   }
 
