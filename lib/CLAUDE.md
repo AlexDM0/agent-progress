@@ -298,6 +298,9 @@ JavaScript no spec can sit beside:
   `heldTicketIds` (a scenario's `heldTicketIds`, changed mid-run through `afterAgent`) reaches every status block and a held ready
   ticket's `readyTickets` entry, a held ticket's claim is refused, and each call records how many status blocks the run had been
   handed (`statusBlocksReturnedBefore`, indexing the run's `heldTicketIdsReturned`), so a claim can say which block a step started after.
+  A scenario's `pausedBuildNotesByTicketId` starts tickets in progress with a paused build row bearing that claim note; a paused
+  row refuses a builder's claim unless its prompt carries `BUILDER_RESUMES_A_PAUSED_ROW` and the note is its run's own or, with
+  `BUILDER_TAKES_OVER_A_PAUSED_DISPATCHER_BUILD`, any dispatcher run's, which is how a single-ticket run resumes a held build.
   `lib/tooling/dev/DispatchScriptHarness.brief.spec.ts` holds the prompts'
   call budgets and rework threshold to the numbers `templates/AgentBrief.md` states.
 - `lib/tooling/dev/WorkflowScriptSource.ts` — reads a Workflow script's syntax tree through

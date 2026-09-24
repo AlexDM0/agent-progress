@@ -6,6 +6,7 @@
  * or a parking agent pauses the ticket's row (`task pause`: a paused row is not running) and closes its review bar. The fake agents follow their
  * prompt where a real one's first command depends on it: a builder whose ticket an earlier attempt claimed is refused as in-progress unless its
  * prompt says that claim is its run's own, and a reviewer finding an earlier attempt's bar adds a second unless its prompt says to take that one.
+ * A paused build row refuses the claim too, unless the prompt resumes it and the note is the run's own or, in a run named for the ticket, any run's.
  * A reviewer whose prompt runs `ticket rereview` counts a round each time, unless the prompt skips it and the bar of the ticket's round already runs.
  */
 import { readFileSync } from 'node:fs';
@@ -121,6 +122,11 @@ export interface DispatchScenario {
    * running, and the script is resumed from the journal, the longest prefix of completed calls with unchanged prompts answered from it.
    */
   killedAtFirstCommandOf?:     string;
+  /**
+   * Tickets in progress whose build row is paused from the start, each with its claim's note, as an earlier dispatcher run's parking agent leaves
+   * one a hold or a stop kept from its next builder; their worktree exists. They are not ready, so only a run named for them builds them.
+   */
+  pausedBuildNotesByTicketId?: Record<string, string>;
 }
 
 export interface DispatchRun {
@@ -163,6 +169,10 @@ export interface DispatchRun {
 
 /** The sentence a builder's prompt carries on past a claim refused as in-progress by, and the one a reviewer's takes a bar left running by. */
 export const BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM = 'the claim is this run\'s own';
+
+/** The sentence a builder resumes a paused row it carries on past by, and the one a single-ticket run's builder takes over another run's paused build by. */
+export const BUILDER_RESUMES_A_PAUSED_ROW                 = 'resume it first with `agent-progress task start <that row>`';
+export const BUILDER_TAKES_OVER_A_PAUSED_DISPATCHER_BUILD = 'a hold or a stop left that build paused';
 export const REVIEWER_TAKES_OVER_A_RUNNING_BAR     = 'take it as your bar and add none';
 
 /** The sentence a reviewer's prompt leaves its bar running for the next round by, when it asks for one. */
@@ -311,7 +321,12 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   const ownAgentsOnBoard = new Map<number, RunningRow>();
   const rowsLeftRunning = new Map<string, RunningRow>();
   const rowKeysOfOwnAgentsRunning = new Map<number, string>();
-  const pausedRowKeys = new Set<string>();
+  const pausedRows = new Map<string, RunningRow>(Object.entries(scenario.pausedBuildNotesByTicketId ?? {}).map(([ticketId, note]) => [`build:${ticketId}`, {
+    kind:        'build',
+    ticketId,
+    note,
+    reviewRound: null,
+  }]));
   const turnsBeforeFirstCommand = scenario.turnsBeforeFirstCommand ?? DEFAULT_TURNS_BEFORE_FIRST_COMMAND;
   let mostAgentsAtOnce = 0;
   let mostAgentsInFlightAtOnce = 0;
@@ -410,8 +425,23 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
 
   // As `ticket claim` answers: a running row of the ticket refuses it unless the prompt carries on past a claim bearing its own note, and a full board
   // refuses a new agent. A builder refused as in-progress returns that row's note, as its prompt asks.
-  const claimOutcomeFor = (ticketId: string, prompt: string, earlierRow: RunningRow | undefined, reply: Record<string, unknown>): Record<string, unknown> => {
-    if (reply['outcome'] === 'claim-refused') return { ...reply, claimNote: earlierRow?.note ?? '' };
+  const claimOutcomeFor = (
+    ticketId: string,
+    prompt: string,
+    earlierRow: RunningRow | undefined,
+    pausedRow: RunningRow | undefined,
+    reply: Record<string, unknown>,
+  ): Record<string, unknown> => {
+    if (reply['outcome'] === 'claim-refused') return { ...reply, claimNote: earlierRow?.note ?? pausedRow?.note ?? '' };
+    if (earlierRow === undefined && pausedRow !== undefined) {
+      const noteIsOwn = prompt.includes(BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM) && pausedRow.note === claimNoteIn(prompt);
+      const noteIsAnotherDispatcherRuns = prompt.includes(BUILDER_TAKES_OVER_A_PAUSED_DISPATCHER_BUILD)
+        && new RegExp(`^Built by the .+ dispatcher run on ticket-${ticketId}$`).test(pausedRow.note);
+      if (prompt.includes(BUILDER_RESUMES_A_PAUSED_ROW) && (noteIsOwn || noteIsAnotherDispatcherRuns)) return reply;
+      return {
+        ...reply, outcome: 'claim-refused', detail: `#${ticketId} is in-progress`, claimNote: pausedRow.note,
+      };
+    }
     if (earlierRow !== undefined) {
       if (prompt.includes(BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM) && earlierRow.note === claimNoteIn(prompt)) return reply;
       return {
@@ -523,7 +553,11 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       await turnsPass(turnsBeforeFirstCommand);
       if (generation !== callGeneration) return NEVER_SETTLES;
       const ticketRowKey = `build:${ticketId}`;
-      if (rowsLeftRunning.delete(ticketRowKey)) pausedRowKeys.add(ticketRowKey);
+      const rowToPause = rowsLeftRunning.get(ticketRowKey);
+      if (rowToPause !== undefined) {
+        rowsLeftRunning.delete(ticketRowKey);
+        pausedRows.set(ticketRowKey, rowToPause);
+      }
       rowsLeftRunning.delete(`review:${ticketId}`);
       noteTheBoard();
       await turnsPass(TURNS_FROM_FIRST_COMMAND_TO_RETURN);
@@ -544,7 +578,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       if (generation !== callGeneration) return NEVER_SETTLES;
       const earlierRow = runningRowOf(passKey);
       const earlierRowIsRunning = earlierRow !== undefined;
-      if (kind === 'build' && reply !== null) reply = claimOutcomeFor(ticketId, prompt, earlierRow, reply);
+      if (kind === 'build' && reply !== null) reply = claimOutcomeFor(ticketId, prompt, earlierRow, pausedRows.get(passKey), reply);
       const reachesTheBoard = reply?.['outcome'] !== 'claim-refused';
       const rereviewRan = kind === 'review' && reviewerRunsItsRereview(ticketId, prompt, earlierRow);
       const takesTheEarlierRowOver = kind === 'build' || (earlierRowIsRunning && prompt.includes(REVIEWER_TAKES_OVER_A_RUNNING_BAR));
@@ -558,7 +592,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       if (reachesTheBoard) {
         if (takesTheEarlierRowOver) {
           rowsLeftRunning.delete(passKey);
-          pausedRowKeys.delete(passKey);
+          pausedRows.delete(passKey);
         } else {
           reviewBarsAdded.push(rowNameOf(passKey));
         }
@@ -658,7 +692,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     racingSummary,
     racingLogs,
     rowsRunningAtEnd: [...rowsLeftRunning.keys()].map(rowNameOf),
-    rowsPaused:       [...pausedRowKeys].map(rowNameOf),
+    rowsPaused:       [...pausedRows.keys()].map(rowNameOf),
     reviewBarsAdded,
     rereviewsRun,
     logs,

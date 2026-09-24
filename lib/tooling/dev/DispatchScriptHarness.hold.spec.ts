@@ -77,6 +77,28 @@ const HELD_AND_NEVER_UNHELD: DispatchScenario = {
   },
 };
 
+/** #001's build was left paused by an earlier whole-board run's hold; the orchestrator launches a run for it alone once it is unheld. */
+const PAUSED_BUILD_RESUMED_ALONE: DispatchScenario = {
+  limit:                      2,
+  readyTicketIds:             [],
+  ticketIds:                  [HELD_TICKET_ID],
+  pausedBuildNotesByTicketId: { [HELD_TICKET_ID]: `Built by the whole-board dispatcher run on ticket-${HELD_TICKET_ID}` },
+};
+
+/** #001's first builder stops short and the ticket is held as it returns, so its row is paused; the hold lifts while #002 is reviewed. */
+const HELD_AFTER_ITS_BUILDER_STOPPED_SHORT: DispatchScenario = {
+  limit:          2,
+  readyTicketIds: ['001', '002'],
+  builderReply:   (ticketId, pass) => (ticketId === HELD_TICKET_ID && pass === 1 ? { outcome: 'failed' } : { outcome: 'in-review' }),
+  afterAgent:     (call, board) => {
+    if (call.kind === 'build' && call.ticketId === HELD_TICKET_ID && call.ordinal === 1) board.heldTicketIds.push(HELD_TICKET_ID);
+    if (call.kind === 'review' && call.ticketId === '002') removeHold(board, HELD_TICKET_ID);
+  },
+};
+
+const RESUME_THE_PAUSED_ROW_SENTENCE = 'When the row you carry on past is `paused` rather than `running`, resume it first with `agent-progress task start <that row>`, '
+  + 'so your build holds its slot. ';
+
 function lastBlockBeforeShowsHeld(run: DispatchRun, call: RecordedAgentCall, ticketId: string): boolean {
   return run.heldTicketIdsReturned[call.statusBlocksReturnedBefore - 1]?.includes(ticketId) ?? false;
 }
@@ -168,6 +190,34 @@ const CLAIMS: Claim[] = [
     },
     holds:  (run) => run.calls.length === 0 && JSON.stringify(summaryOf(run).held) === JSON.stringify([{ id: HELD_TICKET_ID, waitingFor: 'build' }]),
     mutant: { find: 'let heldTicketIds = new Set(settings.readyTickets', replace: 'let heldTicketIds = new Set([] ?? settings.readyTickets' },
+  },
+  {
+    // The fail-review claim: an in-progress ticket is on no ready list, so a run named for it is the only way its paused build is ever finished.
+    name:     'a single-ticket run for an in-progress ticket whose build another run left paused takes it over and delivers it, one agent in flight at most',
+    scenario: PAUSED_BUILD_RESUMED_ALONE,
+    holds:    (run) => summaryOf(run).delivered.join() === HELD_TICKET_ID
+      && callsOf(run, 'build', HELD_TICKET_ID).length === 1
+      && run.mostAgentsInFlightAtOnce <= 1
+      && run.mostAgentsOnBoardAtOnce <= 1
+      && run.rowsPaused.length === 0
+      && run.rowsRunningAtEnd.length === 0,
+    mutant: { find: '    + singleTicketTakeoverText(ticketId)\n', replace: '    + \'\'\n' },
+  },
+  {
+    name:     'the same takeover resumes the paused row, so the build holds its slot while it runs',
+    scenario: PAUSED_BUILD_RESUMED_ALONE,
+    holds:    (run) => summaryOf(run).delivered.join() === HELD_TICKET_ID && run.buildersOnBoard.join() === `main build ${HELD_TICKET_ID}`,
+    mutant:   { find: RESUME_THE_PAUSED_ROW_SENTENCE, replace: '' },
+  },
+  {
+    // Within one run the same resume applies: the held takeover's row was paused by a parking agent, and the rebuild after the unhold carries on past it.
+    name:     'a builder resumed after an unhold in the same run carries on past its own paused row and the ticket is delivered',
+    scenario: HELD_AFTER_ITS_BUILDER_STOPPED_SHORT,
+    holds:    (run) => ['001', '002'].every((ticketId) => summaryOf(run).delivered.includes(ticketId))
+      && callsOf(run, 'build', HELD_TICKET_ID).length === 2
+      && callsOf(run, 'park', HELD_TICKET_ID).length === 1
+      && run.rowsRunningAtEnd.length === 0,
+    mutant: { find: RESUME_THE_PAUSED_ROW_SENTENCE, replace: '' },
   },
 ];
 

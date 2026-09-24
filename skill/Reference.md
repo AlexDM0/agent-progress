@@ -139,7 +139,11 @@ reads the list before it starts a ticket's builder and before each of its review
 step waits, a row the run left running for it is released, and the step starts at the first board
 read that shows the hold lifted — or is returned under `held: [{ id, waitingFor }]` when the run ends
 first. A running agent is never interrupted: a hold set after a builder's final status read is too
-late for the reviewer that follows it. `ticket claim` refuses a held ticket.
+late for the reviewer that follows it. `ticket claim` refuses a held ticket. A run that ends while a
+ticket it claimed is held leaves that build's row `paused` and the ticket in progress, which no later
+survey picks up: `ticket unhold` on a ticket in progress with a paused row ends its human output (never
+its `--json`) with a line naming a single-ticket dispatcher run for it, and that run's builder resumes
+the row with `task start` and carries on in the ticket's worktree.
 
 **A ticket may name its agents.** `ticket add --model sonnet --effort high` stores both;
 `ticket agent <id> [--model <m>] [--effort <e>]` changes either later with one log line,

@@ -199,10 +199,19 @@ builder or reviewer for it while it is held and keeps the other tickets flowing.
 lets the held step start at the run's next board read. A builder or reviewer already running is never
 interrupted, so tell the user when the hold came too late for the step under way.
 
+**A build a hold left paused is resumed by a single-ticket run.** When a run ends while a ticket it
+had claimed is still held, its row is `paused` and the ticket stays in progress, so no later run's
+survey finds it. Whenever `ticket unhold <id>` ends its output with the line naming a single-ticket
+dispatcher run for that ticket, launch the dispatcher with `ticketIds: ["<id>"]` (and the ticket's
+`readyTickets` entry, none for an in-progress ticket) once the unhold is in; its builder takes the
+paused build over in the ticket's worktree. The same holds for a `held` entry waiting for its
+`build` whose ticket `ticket show` reports in progress: launch that run once the ticket is unheld.
+
 **When it returns**, its summary is `{ delivered, parked, findingsFiled, agentsRun, stoppedByBoard?, lowPriorityWaiting?, held? }`,
 `lowPriorityWaiting` the low tickets ready that it left for your triage, and `held` the tickets a hold
 kept waiting, each `{ id, waitingFor: 'build' | 'review' }`: the next run picks each up once unheld,
-so list them to the user and relaunch for them only after an unhold:
+except a build whose ticket is in progress, which a single-ticket run resumes as said above, so list
+them to the user and relaunch for them only after an unhold:
 
 1. `agent-progress dispatcher finished` — unless the summary carries `stoppedByBoard`: that is the
    user's stop taking effect, and the state stays `stopped`.

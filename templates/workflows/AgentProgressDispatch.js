@@ -181,6 +181,14 @@ function surveyPrompt() {
   ].join('\n');
 }
 
+// A build a hold or a stop left paused is in progress, so no survey finds it again: the orchestrator resumes it with a run for that ticket alone.
+function singleTicketTakeoverText(ticketId) {
+  if (settings.ticketIds === null) return '';
+  return `This run was launched for this ticket alone: when the note is instead another dispatcher run's claim, beginning "Built by the " and ending `
+    + `" dispatcher run on ticket-${ticketId}", the row is \`paused\` and ${worktreeOf(ticketId)} exists, a hold or a stop left that build paused, `
+    + 'and it is this run\'s to take over in the same way. ';
+}
+
 // `previousPass` is what sent this ticket back to a builder in this run: `builder` (a pass that stopped short of review), `review` (a does-not-hold), or null.
 function builderPrompt(ticketId, previousPass, owner) {
   const worktree = worktreeOf(ticketId);
@@ -189,7 +197,10 @@ function builderPrompt(ticketId, previousPass, owner) {
   const claimRefusalText = `If it exits 1 saying the ticket is in-progress, read the \`note\` of the ticket's row (the \`task\` of \`agent-progress ticket show ${ticketId} --json\`, `
     + `in \`agent-progress status --json --full\`). When that note is exactly "${claimNoteOf(ticketId)}" and ${worktree} exists, `
     + `the claim is this run's own: an earlier attempt at this ticket made it, a builder of this run that stopped short, or this very builder before the runtime `
-    + 'restarted or resumed it. Carry on in that worktree, keeping every uncommitted edit it holds. On any other refusal, stop at once and return outcome '
+    + 'restarted or resumed it. Carry on in that worktree, keeping every uncommitted edit it holds. '
+    + singleTicketTakeoverText(ticketId)
+    + 'When the row you carry on past is `paused` rather than `running`, resume it first with `agent-progress task start <that row>`, so your build holds its slot. '
+    + 'On any other refusal, stop at once and return outcome '
     + '`claim-refused` with its message verbatim as `detail` and, when it was refused as in-progress, that row\'s note as `claimNote`.';
   const lines = [
     `agent-progress ticket: ${ticketId}`,
