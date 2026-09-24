@@ -26,16 +26,18 @@ const FILES_ALLOWED_TO_READ_THE_ENVIRONMENT = ['lib/platform/Environment.ts', 'l
 const PROCESS_OBJECT        = 'process';
 const BUN_OBJECT            = 'Bun';
 const ENVIRONMENT_PROPERTY  = 'env';
-/** A dot with any whitespace on either side, so a line-broken access is one pattern rather than two. */
-const DOT_WITH_ANY_SPACING  = '\\s*\\.\\s*';
+/** A dot or an optional chain with any whitespace on either side, so a line-broken access is one pattern rather than two. */
+const DOT_WITH_ANY_SPACING  = '\\s*\\??\\.\\s*';
+/** An opening bracket, or the optional chain `?.[` that reaches the same member. */
+const BRACKET_WITH_ANY_SPACING = '\\s*(?:\\?\\.\\s*)?\\[\\s*';
 
 /** `process`, `node:process` and `bun`: the modules whose named `env` export is the same door as the global. */
 const MODULE_EXPORTING_THE_ENVIRONMENT = `(?:(?:node:)?${PROCESS_OBJECT}|${BUN_OBJECT.toLowerCase()})`;
 const QUOTED_MODULE_EXPORTING_THE_ENVIRONMENT = `['"]${MODULE_EXPORTING_THE_ENVIRONMENT}['"]`;
 const IDENTIFIER = '[A-Za-z_$][\\w$]*';
-const ENVIRONMENT_MEMBER_ACCESS = `(?:\\s*\\.\\s*${ENVIRONMENT_PROPERTY}\\b|\\s*\\[\\s*['"]${ENVIRONMENT_PROPERTY}['"]\\s*\\])`;
+const ENVIRONMENT_MEMBER_ACCESS = `(?:${DOT_WITH_ANY_SPACING}${ENVIRONMENT_PROPERTY}\\b|${BRACKET_WITH_ANY_SPACING}['"]${ENVIRONMENT_PROPERTY}['"]\\s*\\])`;
 const DESTRUCTURED_ENVIRONMENT = `\\{[^{}]*\\b${ENVIRONMENT_PROPERTY}\\b[^{}]*\\}\\s*=\\s*`;
-const MODULE_LOADED_AT_RUNTIME = `\\b(?:require|import)\\s*\\(\\s*${QUOTED_MODULE_EXPORTING_THE_ENVIRONMENT}\\s*\\)`;
+const MODULE_LOADED_AT_RUNTIME = `\\b(?:require|import)\\s*(?:\\?\\.\\s*)?\\(\\s*${QUOTED_MODULE_EXPORTING_THE_ENVIRONMENT}\\s*\\)`;
 /** What a binding of the whole module is later read through; a match starts at the binding, so its line is the import's. */
 const READ_THROUGH_THE_BINDING = `[\\s\\S]*?(?:(?<![\\w$])\\1${ENVIRONMENT_MEMBER_ACCESS}|${DESTRUCTURED_ENVIRONMENT}\\1(?![\\w$]))`;
 
@@ -46,9 +48,9 @@ const READ_THROUGH_THE_BINDING = `[\\s\\S]*?(?:(?<![\\w$])\\1${ENVIRONMENT_MEMBE
 const ENVIRONMENT_ACCESS_PATTERNS = [
   new RegExp(`\\b${[PROCESS_OBJECT, ENVIRONMENT_PROPERTY].join(DOT_WITH_ANY_SPACING)}`, 'g'),
   new RegExp(`\\b${[BUN_OBJECT, ENVIRONMENT_PROPERTY].join(DOT_WITH_ANY_SPACING)}`, 'g'),
-  new RegExp(`\\b${PROCESS_OBJECT}\\s*\\[\\s*['"]${ENVIRONMENT_PROPERTY}['"]\\s*\\]`, 'g'),
+  new RegExp(`\\b(?:${PROCESS_OBJECT}|${BUN_OBJECT})${BRACKET_WITH_ANY_SPACING}['"]${ENVIRONMENT_PROPERTY}['"]\\s*\\]`, 'g'),
   new RegExp(`\\{[^{}]*\\b${ENVIRONMENT_PROPERTY}\\b[^{}]*\\}\\s*=\\s*(?:${PROCESS_OBJECT}|${BUN_OBJECT})\\b`, 'g'),
-  new RegExp(`\\b${['import', 'meta', ENVIRONMENT_PROPERTY].join(DOT_WITH_ANY_SPACING)}`, 'g'),
+  new RegExp(`\\b${['import', 'meta'].join(DOT_WITH_ANY_SPACING)}${ENVIRONMENT_MEMBER_ACCESS}`, 'g'),
   new RegExp(`\\bimport\\s[^;]*?\\{[^{}]*\\b${ENVIRONMENT_PROPERTY}\\b[^{}]*\\}\\s*from\\s*['"]${MODULE_EXPORTING_THE_ENVIRONMENT}['"]`, 'g'),
   new RegExp(`\\bimport\\s+(?:type\\s+)?(?:\\*\\s*as\\s+)?(${IDENTIFIER})\\s*(?:,\\s*\\{[^{}]*\\}\\s*)?from\\s*${QUOTED_MODULE_EXPORTING_THE_ENVIRONMENT}`
     + READ_THROUGH_THE_BINDING, 'g'),
@@ -153,6 +155,30 @@ describe('reading the environment', () => {
     expect(readsTheEnvironment(['export { argv } from \'node:', 'process\';'].join(''))).toBe(false);
     expect(readsTheEnvironment(['export { ', 'env', ' } from \'./', 'Environment\';'].join(''))).toBe(false);
     expect(readsTheEnvironment(['export * from \'./', 'Environment\';'].join(''))).toBe(false);
+  });
+
+  /** `?.` reaches the same member as `.`, so every door above has an optional-chaining spelling of its own. */
+  test('it sees each of those reads spelled through optional chaining, and no other member reached that way', () => {
+    const readsTheEnvironment = (source: string): boolean => ENVIRONMENT_ACCESS_PATTERNS.some((pattern) => new RegExp(pattern.source).test(source));
+    const namespaceImport = ['import * as processModule from \'node:', 'process\';\n'].join('');
+    expect(readsTheEnvironment(['const root = process', '?.env?.[\'AGENT_PROGRESS_ROOT\'];'].join(''))).toBe(true);
+    expect(readsTheEnvironment(['const root = Bun', '?.env;'].join(''))).toBe(true);
+    expect(readsTheEnvironment(['const root = process', '?.[\'env\'];'].join(''))).toBe(true);
+    expect(readsTheEnvironment(['const root = Bun', '[\'env\'];'].join(''))).toBe(true);
+    expect(readsTheEnvironment(['const root = process', '\n  ?.env;'].join(''))).toBe(true);
+    expect(readsTheEnvironment(['const root = import', '.meta', '?.env;'].join(''))).toBe(true);
+    expect(readsTheEnvironment(['const root = import', '.meta', '[\'env\'];'].join(''))).toBe(true);
+    expect(readsTheEnvironment([namespaceImport, 'const root = processModule', '?.env;'].join(''))).toBe(true);
+    expect(readsTheEnvironment([namespaceImport, 'const root = processModule', '?.[\'env\'];'].join(''))).toBe(true);
+    expect(readsTheEnvironment(['const processModule = require', '(\'node:process\');\nprocessModule', '?.env;'].join(''))).toBe(true);
+    expect(readsTheEnvironment(['const root = require', '(\'node:process\')', '?.env;'].join(''))).toBe(true);
+    expect(readsTheEnvironment(['const root = require', '(\'node:process\')', '?.[\'env\'];'].join(''))).toBe(true);
+    expect(readsTheEnvironment(['const root = require', '?.(\'node:process\')', '.env;'].join(''))).toBe(true);
+    expect(readsTheEnvironment(['const root = (await import', '(\'process\'))', '?.env;'].join(''))).toBe(true);
+    expect(readsTheEnvironment(['const code = process', '?.exitCode;'].join(''))).toBe(false);
+    expect(readsTheEnvironment([namespaceImport, 'const code = processModule', '?.argv;'].join(''))).toBe(false);
+    expect(readsTheEnvironment(['const argv = require', '?.(\'node:process\')', '?.argv;'].join(''))).toBe(false);
+    expect(readsTheEnvironment(['const half = process', ' ? .5 : 0;'].join(''))).toBe(false);
   });
 
   test('no file outside the two allowed ones touches the environment', () => {
