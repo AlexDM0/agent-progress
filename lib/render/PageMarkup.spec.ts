@@ -275,6 +275,17 @@ describe('review rows nested above their ticket', () => {
     expect(drawnOrderOf(markup)).toEqual([['2', '003'], ['3', '003'], ['1', null]]);
   });
 
+  // Two rows of one round leave only the id to decide, so this is the case that pins the latest-filed-first tie-break.
+  test('draws the later-filed of two review rows of the same round first', () => {
+    const markup = taskRowsMarkup(rowsFiled([
+      exampleTask({ id: 1, ticket: '003' }),
+      exampleTask({ id: 2, name: 'Review 1 #3 — Split the exporter', reviewOf: '003' }),
+      exampleTask({ id: 3, name: 'Review 1 #3 — Split the exporter', reviewOf: '003' }),
+    ]), EXAMPLE_SLICES);
+
+    expect(drawnOrderOf(markup)).toEqual([['3', '003'], ['2', '003'], ['1', null]]);
+  });
+
   test('puts the flag ahead of the name, so a review named for one ticket but filed against another nests above the flagged one', () => {
     const markup = taskRowsMarkup(rowsFiled([
       exampleTask({ id: 1, ticket: '003' }),

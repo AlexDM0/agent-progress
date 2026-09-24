@@ -178,6 +178,16 @@ describe('computeTimeline', () => {
     expect(rightBar?.widthPercent.toFixed(2)).toBe('16.67');
   });
 
+  // The edge itself is not an overrun, and a start less than one percent of the axis before it already is.
+  test('clips a bar starting half a minute before the left edge, and not one starting exactly on it', () => {
+    const timeline = timelineFor({ tasks: [exampleTask(1, 0, 10), exampleTask(2, -0.5, 10)], range: absoluteRange(0, 60), nowOffsetMinutes: 30 });
+    const [barOnTheEdge, barJustBeforeIt] = timeline.bars;
+
+    expect(barOnTheEdge?.clippedLeft).toBe(false);
+    expect(barJustBeforeIt?.clippedLeft).toBe(true);
+    expect(barJustBeforeIt?.leftPercent).toBe(0);
+  });
+
   test('pins a bar that lies entirely outside the range against the edge it fell off, still clipped', () => {
     const timeline = timelineFor({ tasks: [exampleTask(1, 120, 130)], range: absoluteRange(0, 60), nowOffsetMinutes: 30 });
     const [bar]    = timeline.bars;

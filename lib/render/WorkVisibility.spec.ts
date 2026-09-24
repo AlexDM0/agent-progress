@@ -76,6 +76,15 @@ describe('taskIsLongDone', () => {
     expect(taskIsLongDone(task, NOW_EPOCH_MILLISECONDS, DAY_MILLISECONDS)).toBe(false);
   });
 
+  // The window is exclusive: work done exactly one day ago is still shown, a millisecond more and it is hidden.
+  test('keeps a task that ended exactly one day ago and hides one that ended a millisecond earlier', () => {
+    const exactlyOneDayAgo = new Date(NOW_EPOCH_MILLISECONDS - DAY_MILLISECONDS).toISOString();
+    const justPastOneDay   = new Date(NOW_EPOCH_MILLISECONDS - DAY_MILLISECONDS - 1).toISOString();
+
+    expect(taskIsLongDone(exampleTask({ end: exactlyOneDayAgo }), NOW_EPOCH_MILLISECONDS, DAY_MILLISECONDS)).toBe(false);
+    expect(taskIsLongDone(exampleTask({ end: justPastOneDay }), NOW_EPOCH_MILLISECONDS, DAY_MILLISECONDS)).toBe(true);
+  });
+
   test('falls back to the start when a done task has no end, and keeps it when it has neither', () => {
     expect(taskIsLongDone(exampleTask({ end: null }), NOW_EPOCH_MILLISECONDS, DAY_MILLISECONDS)).toBe(true);
     expect(taskIsLongDone(exampleTask({ start: null, end: null }), NOW_EPOCH_MILLISECONDS, DAY_MILLISECONDS)).toBe(false);
