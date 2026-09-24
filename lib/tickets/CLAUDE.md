@@ -20,7 +20,8 @@ left to be read out of the parser.
   fence is a markdown heading, and makes the file malformed with a reason naming the heading and
   saying to restore the closing fence above it if it was deleted; the reason holds for a correctly
   fenced file too. A `#` comment has one hash; a `# text` line followed by blank lines and then a
-  line that is not `key: value` is a heading as well. A body of `# text` lines, blanks and
+  line that is not `key: value` is refused at itself, the reason naming both readings: a heading
+  above a deleted fence, or a comment above a stray line. A body of `# text` lines, blanks and
   `key: value` lines before a rule cannot be told from comments and keys, and still parses.
 - A leading byte order mark is dropped, and CRLF is accepted. The body is kept byte for byte from the
   character after the closing fence's newline, so a hand-written body never changes under a CLI

@@ -156,7 +156,7 @@ describe('parseTicketDocument', () => {
 
     expect(parsed).toEqual({
       verdict: 'malformed',
-      reason:  'line 17 is the markdown heading `## Report`, and a frontmatter holds no heading (a comment is one `#` with no prose after it); '
+      reason:  'line 17 is the markdown heading `## Report`, and a frontmatter holds no heading (a comment has one `#`); '
         + 'if the closing `---` fence was deleted, restore it above line 17',
       line: 17,
     });
@@ -171,12 +171,24 @@ describe('parseTicketDocument', () => {
   });
 
   // A body opening on `# Title`, a blank and prose used to be refused at the prose as a bad key, hiding that the fence went missing.
-  test('a single-hash line followed by a blank and prose is refused as a heading when the closing fence was deleted', () => {
+  test('a single-hash line followed by a blank and prose is refused at itself when the closing fence was deleted, saying to restore the fence above it', () => {
     const fenceDeleted = FULL_TICKET.replace('task: 17\n---\n', 'task: 17\n').replace('## Report', 'The dialog forgets the folder.').concat('---\n');
-    const parsed       = parseTicketDocument(fenceDeleted);
 
-    expect(parsed.verdict === 'malformed' ? parsed.line : 0).toBe(15);
-    expect(parsed.verdict === 'malformed' ? parsed.reason : '').toStartWith('line 15 is the markdown heading `# 003 — Fix: the export dialog forgets the folder`');
+    expect(parseTicketDocument(fenceDeleted)).toEqual({
+      verdict: 'malformed',
+      reason:  'line 15 `# 003 — Fix: the export dialog forgets the folder` is followed after blank lines by line 17, which is not a `key: value` line: '
+        + 'if line 15 is a markdown heading, the closing `---` fence was deleted and belongs above it; if it is a comment, line 17 does not belong in the frontmatter',
+      line: 15,
+    });
+  });
+
+  // In a correctly fenced file the same shape is a comment above a stray line, so the reason must not state that line 15 is a heading.
+  test('a single-hash comment followed by a blank and prose inside a fenced frontmatter is refused naming the stray line as well', () => {
+    const parsed = parseTicketDocument(FULL_TICKET.replace('task: 17\n', 'task: 17\n# owners\n\n- Alex Example\n'));
+    const reason = parsed.verdict === 'malformed' ? parsed.reason : '';
+
+    expect(reason).toContain('line 17 does not belong in the frontmatter');
+    expect(reason).not.toContain('is the markdown heading');
   });
 
   test('a single-hash comment followed by a blank and a key stays a comment', () => {

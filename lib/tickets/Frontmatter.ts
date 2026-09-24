@@ -32,7 +32,7 @@ const CARRIAGE_RETURN   = '\r';
 
 // A comment is written `# text`; a line opening on two or more hashes is a markdown heading the frontmatter ran into.
 const MARKDOWN_HEADING_PATTERN = /^#{2,6}(\s|$)/;
-// A `# text` line is a heading instead of a comment only when blank lines and then prose follow it, prose being no `key: value` line.
+// A `# text` followed by blank lines and then prose, no `key: value` line, may be a heading or a comment, and its refusal names both readings.
 const SINGLE_HASH_HEADING_PATTERN = /^# \S/;
 
 // The one key read as a number; every other unquoted value is kept verbatim, leading zeros included.
@@ -94,10 +94,20 @@ export function parseTicketDocument(text: string): ParsedTicketDocument {
         extra.push([BLANK_LINE_KEY, '']);
         continue;
       }
-      if (MARKDOWN_HEADING_PATTERN.test(line) || singleHashHeadingStartsAt(lines, index, closingFenceIndex)) {
+      if (MARKDOWN_HEADING_PATTERN.test(line)) {
         throw new FrontmatterProblem(
-          `line ${lineNumber} is the markdown heading \`${line}\`, and a frontmatter holds no heading (a comment is one \`#\` with no prose after it); `
+          `line ${lineNumber} is the markdown heading \`${line}\`, and a frontmatter holds no heading (a comment has one \`#\`); `
           + `if the closing \`---\` fence was deleted, restore it above line ${lineNumber}`,
+          lineNumber,
+        );
+      }
+      const proseLineIndex = proseLineIndexAfterSingleHashLine(lines, index, closingFenceIndex);
+      if (proseLineIndex !== null) {
+        const proseLineNumber = proseLineIndex + 1;
+        throw new FrontmatterProblem(
+          `line ${lineNumber} \`${line}\` is followed after blank lines by line ${proseLineNumber}, which is not a \`key: value\` line: `
+          + `if line ${lineNumber} is a markdown heading, the closing \`---\` fence was deleted and belongs above it; `
+          + `if it is a comment, line ${proseLineNumber} does not belong in the frontmatter`,
           lineNumber,
         );
       }
@@ -197,19 +207,20 @@ function withoutCarriageReturn(line: string): string {
   return line.endsWith('\r') ? line.slice(0, -1) : line;
 }
 
-function singleHashHeadingStartsAt(lines: readonly string[], index: number, closingFenceIndex: number): boolean {
+function proseLineIndexAfterSingleHashLine(lines: readonly string[], index: number, closingFenceIndex: number): number | null {
   if (!SINGLE_HASH_HEADING_PATTERN.test(withoutCarriageReturn(lines[index] ?? ''))) {
-    return false;
+    return null;
   }
   let followingIndex = index + 1;
   while (followingIndex < closingFenceIndex && withoutCarriageReturn(lines[followingIndex] ?? '').trim() === '') {
     followingIndex++;
   }
   if (followingIndex === index + 1 || followingIndex >= closingFenceIndex) {
-    return false;
+    return null;
   }
   const followingLine = withoutCarriageReturn(lines[followingIndex] ?? '');
-  return !followingLine.trim().startsWith(COMMENT_KEY) && typeof keyValueReadingOf(followingLine) === 'string';
+  const followingLineIsProse = !followingLine.trim().startsWith(COMMENT_KEY) && typeof keyValueReadingOf(followingLine) === 'string';
+  return followingLineIsProse ? followingIndex : null;
 }
 
 /** Splits at the first `': '`, so `title: Fix: the thing` keeps its second colon; anything that is not a `key: value` line is refused. */
