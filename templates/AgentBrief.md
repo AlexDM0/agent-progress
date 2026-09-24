@@ -127,6 +127,9 @@ agents ran `bun test` 21 to 38 times, the type checker 7 to 15 and the linter 5 
 Open every file named above in ONE message with several Read calls.
 Existing files change through the Edit tool only, never through a script run in Bash: no heredoc,
 no python or perl edit script, no `sed -i`. New files through Write.
+Every probe that touches a scratch repository names it absolutely (`git -C <scratch>`,
+`--root <scratch>`, `cd <scratch> && …` joined with `&&`, never `;`); never write into any `.git`
+directory by hand.
 While iterating verify with `<the narrow command: the spec file you touched>`.
 Run the full checks only at the close described under "Ready to merge", output piped through
 `tail`: `<full check command> 2>&1 | tail -20`.
@@ -282,6 +285,9 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
    file out of bounds. The orchestrator files those.
 3. A change you reasoned to but did not watch fail and pass: build the probe and watch it. A doubt
    still open at the budget is `does not hold`, never a caveat.
+   Every probe that touches a scratch repository names it absolutely (`git -C <scratch>`,
+   `--root <scratch>`, `cd <scratch> && …` joined with `&&`, never `;`); never write into any
+   `.git` directory by hand.
 4. Count your fixes before you rebase, since the rebase rewrites <review start>:
    `agent-progress rework --since <review start> --worktree <worktree>`.
 5. Record `git -C <worktree> rev-parse HEAD` as <pre-rebase tip>, then `git rebase <main line>`,
