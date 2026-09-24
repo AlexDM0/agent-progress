@@ -314,7 +314,8 @@ task: 17
 ```
 
 Frontmatter is a deliberately small YAML subset: one `key: value` per line split at the first
-`': '`, values being `null`, an integer, a double-quoted JSON string or an unquoted scalar. There
+`': '`, values being `null`, a double-quoted JSON string or an unquoted scalar kept as text; only
+`task` reads an unquoted integer as a number, so any other value keeps its leading zeros. There
 are no nested maps, lists or block scalars. The closing fence is the *first later* line equal to
 `---`, so a body may contain horizontal rules. **Unknown keys, comments and blank lines are kept and
 written back**, so a field you add by hand survives every transition — the CLI's own keys are

@@ -27,7 +27,9 @@ left to be read out of the parser.
   - a blank line.
   Anything else — an indented line, a list item, a bare word — is a nested structure this subset does
   not have, and makes the file malformed. There are no nested maps, lists, anchors or block scalars.
-- A value is `null`, an integer, a double-quoted JSON string, or an unquoted scalar taken verbatim.
+- A value is `null`, a double-quoted JSON string, or an unquoted scalar taken verbatim as text. Only
+  `task` reads an unquoted integer as a number; under every other key an unquoted value is text,
+  leading zeros included, so `id: 007` stays `"007"`.
 - The keys the CLI owns are `id`, `title`, `type`, `priority`, `model`, `effort`, `hold`, `status`, `filed`,
   `updated`, `started`, `finished`, `delivered`, `abandonedAt`, `group`, `branch`, `commit`, `reason`,
   `dependsOn` and `task`. `priority` is `low`, `normal` or `high`, any other value makes the file malformed, and an
