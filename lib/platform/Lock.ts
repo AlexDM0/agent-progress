@@ -3,9 +3,9 @@
  * tracker, so the writers are separate processes and the lock is `openSync(path, 'wx')` — create-or-fail
  * in one atomic operation, which a check-then-create cannot be.
  *
- * This is one of the two places in `agent-progress` where a clock decides anything, and the time it
- * compares is one the tool itself wrote into the lock payload; the fallback to the lock file's own
- * mtime is reached only when that payload cannot be read, and fails closed in both directions.
+ * This is one of the stated exceptions where a clock decides anything, and the time it compares is
+ * one the tool itself wrote into the lock payload; the fallback to the lock file's own mtime is
+ * reached only when that payload cannot be read, and fails closed in both directions.
  */
 import { randomUUID } from 'crypto';
 import {
@@ -30,6 +30,7 @@ interface LockPayload {
 }
 
 const TAKEOVER_NAME_RANDOM_LENGTH = 8;
+const TAKEOVER_MARKER_SUFFIX     = '.takeover';
 const FILE_ALREADY_EXISTS_CODE   = 'EEXIST';
 const NO_SUCH_PROCESS_CODE       = 'ESRCH';
 
@@ -89,42 +90,74 @@ function fileIsOlderThanTheStaleThreshold(lockFilePath: string, nowMilliseconds:
   }
 }
 
+const TAKEOVER_STEPS = ['marker-claimed', 'lock-judged-stale', 'lock-moved-aside'] as const;
+type TakeoverStep = typeof TAKEOVER_STEPS[number];
+
+function takeoverMarkerPathFor(lockFilePath: string): string {
+  return `${lockFilePath}${TAKEOVER_MARKER_SUFFIX}`;
+}
+
 /**
- * A stale lock is taken over by renaming it, never by unlinking it, and what the rename moved is judged
- * again: a waiter that saw the stale lock may rename only after another waiter already replaced it with
- * a fresh one, and that fresh lock is linked back into place (`link` fails rather than overwrite) and not
- * taken.
+ * A stale file is removed by renaming it aside and judging what the rename moved, never by a blind
+ * unlink: a file replaced between the judgement and the rename is linked back (`link` fails rather
+ * than overwrite) and not taken.
  */
-function tookOverStaleLock(lockFilePath: string, nowMilliseconds: number): boolean {
-  const takeoverPath = `${lockFilePath}.stale.${randomUUID().slice(0, TAKEOVER_NAME_RANDOM_LENGTH)}`;
+function removedStaleFile(filePath: string, nowMilliseconds: number, afterMovedAside: () => void = () => {}): boolean {
+  const asidePath = `${filePath}.stale.${randomUUID().slice(0, TAKEOVER_NAME_RANDOM_LENGTH)}`;
   try {
-    renameSync(lockFilePath, takeoverPath);
+    renameSync(filePath, asidePath);
   } catch {
     return false;
   }
-  if (!lockIsStale(takeoverPath, nowMilliseconds)) {
-    restoreLockMovedAside(takeoverPath, lockFilePath);
+  afterMovedAside();
+  if (!lockIsStale(asidePath, nowMilliseconds)) {
+    restoreFileMovedAside(asidePath, filePath);
     return false;
   }
   try {
-    unlinkSync(takeoverPath);
+    unlinkSync(asidePath);
   } catch {
-    // The takeover already succeeded; a leftover file in a git-ignored directory is harmless.
+    // The removal already succeeded; a leftover file in a git-ignored directory is harmless.
   }
   return true;
 }
 
-function restoreLockMovedAside(takeoverPath: string, lockFilePath: string): void {
+function restoreFileMovedAside(asidePath: string, filePath: string): void {
   try {
-    linkSync(takeoverPath, lockFilePath);
+    linkSync(asidePath, filePath);
   } catch {
-    // A third lock already occupies the path; the moved one is left beside it rather than destroyed.
+    // Another file already occupies the path; the moved one is left beside it rather than destroyed.
     return;
   }
   try {
-    unlinkSync(takeoverPath);
+    unlinkSync(asidePath);
   } catch {
-    // The lock is back in place; a leftover second link in a git-ignored directory is harmless.
+    // The file is back in place; a leftover second link in a git-ignored directory is harmless.
+  }
+}
+
+/** A marker left by a taker that died or overran the stale threshold is judged exactly as a lock is, and so fails closed the same way. */
+function claimedTakeoverMarker(markerPath: string, markerPayload: LockPayload, nowMilliseconds: number): boolean {
+  if (acquired(markerPath, markerPayload)) return true;
+  return lockIsStale(markerPath, nowMilliseconds) && removedStaleFile(markerPath, nowMilliseconds) && acquired(markerPath, markerPayload);
+}
+
+/**
+ * Takers are serialised by an exclusive marker beside the lock, and the lock is judged again only once
+ * the marker is held, so a lock another taker already replaced with a fresh one is never moved aside
+ * and a plain acquirer never finds the path empty because of it. `afterStep` lets a spec interleave.
+ */
+function tookOverStaleLock(lockFilePath: string, nowMilliseconds: number, afterStep: (step: TakeoverStep) => void = () => {}): boolean {
+  const markerPath = takeoverMarkerPathFor(lockFilePath);
+  const markerPayload: LockPayload = { acquiredAt: TimeUtil.formatLocalIso(new Date(nowMilliseconds)), processId: process.pid };
+  if (!claimedTakeoverMarker(markerPath, markerPayload, nowMilliseconds)) return false;
+  try {
+    afterStep('marker-claimed');
+    if (!lockIsStale(lockFilePath, nowMilliseconds)) return false;
+    afterStep('lock-judged-stale');
+    return removedStaleFile(lockFilePath, nowMilliseconds, () => afterStep('lock-moved-aside'));
+  } finally {
+    releaseIfStillOurs(markerPath, markerPayload);
   }
 }
 
@@ -160,7 +193,14 @@ function releaseIfStillOurs(lockFilePath: string, payload: LockPayload): void {
 }
 
 /** The steps `withLock` interleaves between processes, exposed so a spec can replay a race step by step. */
-export const LockTakeoverSteps = { acquired, lockIsStale, tookOverStaleLock } as const;
+export const LockTakeoverSteps = {
+  acquired,
+  lockIsStale,
+  releaseIfStillOurs,
+  takeoverMarkerPathFor,
+  takeoverSteps: TAKEOVER_STEPS,
+  tookOverStaleLock,
+} as const;
 
 /**
  * Run `action` with this tracker's lock held, releasing it however `action` ends. Throws

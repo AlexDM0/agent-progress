@@ -175,9 +175,11 @@ nothing about tasks or tickets — a caller supplies a path.
   plain directory last.
 - `lib/platform/Workspace.ts` — the six paths a tracker owns, the walk up that finds one, and
   `requireWorkspace`, which is the single place the "run `agent-progress init`" refusal is written.
-- `lib/platform/Lock.ts` — `withLock`: `openSync(…, 'wx')`, a `{ processId, acquiredAt }` payload, takeover
-  of a stale lock by rename, then a re-check of what the rename moved (a fresh lock is linked back) so
-  exactly one waiter wins, release in a `finally`; `LockTakeoverSteps` exposes the steps for the race spec.
+- `lib/platform/Lock.ts` — `withLock`: `openSync(…, 'wx')`, a `{ processId, acquiredAt }` payload, release
+  in a `finally`. A stale lock is taken over only by the holder of an exclusive `.lock.takeover` marker
+  (same payload; a dead or overrun taker's marker is removed by the next one, an unreadable one waits),
+  which judges the lock again, renames it aside and re-checks what the rename moved (a fresh lock is
+  linked back); `LockTakeoverSteps` exposes the steps and a step callback for the race specs.
 - `lib/platform/GitIgnore.ts` — `ensureIgnored`: `git check-ignore` decides, so a repository that
   already covers the tracker gets no diff. Written in place, CRLF-aware.
 - `lib/platform/ReworkDiffs.ts` — the git half of `agent-progress rework`, as verdicts: the working

@@ -1,7 +1,7 @@
 /**
- * The things `withLock` promises: serialisation, takeover of a lock whose holder is gone, exactly one
- * winner when two waiters race for the same stale lock, and the fail-closed direction — a fresh
- * unreadable lock is waited for and refused, never assumed free.
+ * The things `withLock` promises: serialisation, takeover of a lock whose holder is gone, at most one
+ * holder when waiters race a takeover at any of its steps, a dead taker's marker cleared, and the
+ * fail-closed direction — a fresh unreadable lock or marker is waited for, never assumed free.
  */
 import {
   existsSync,
@@ -182,6 +182,92 @@ test('of two waiters that both judged one lock stale, the later taker restores t
   expect(secondWaiterAcquired).toBe(false);
   expect(JSON.parse(readFileSync(lockFilePath, 'utf8'))).toEqual(firstWaiterPayload);
   expect(readdirSync(workspace.trackerDirectory).filter((name) => name.includes('.stale.')), 'the restored lock leaves no copy aside').toEqual([]);
+});
+
+interface ThreeWaiterRace {
+  lockFilePath:        string;
+  firstWaiterPayload:  { acquiredAt: string; processId: number };
+  secondWaiterPayload: { acquiredAt: string; processId: number };
+  nowMilliseconds:     number;
+}
+
+// The first waiter has taken over a dead holder's lock and acquired it; the second judged that dead lock stale before it did.
+async function raceWhereTheFirstWaiterHoldsTheLock(prefix: string): Promise<ThreeWaiterRace> {
+  const { acquired, lockIsStale, tookOverStaleLock } = LockTakeoverSteps;
+  const { lockFilePath } = scratchWorkspace(prefix);
+  writeFileSync(lockFilePath, JSON.stringify({ acquiredAt: new Date().toISOString(), processId: await processIdOfAnExitedProcess() }));
+  const race = {
+    firstWaiterPayload:  { acquiredAt: '2026-09-24T15:00:00+02:00', processId: process.pid },
+    lockFilePath,
+    nowMilliseconds:     Date.parse('2026-09-24T15:00:02+02:00'),
+    secondWaiterPayload: { acquiredAt: '2026-09-24T15:00:01+02:00', processId: process.pid },
+  };
+  expect(lockIsStale(lockFilePath, race.nowMilliseconds), 'the second waiter judges the dead holder\'s lock stale').toBe(true);
+  expect(tookOverStaleLock(lockFilePath, race.nowMilliseconds)).toBe(true);
+  expect(acquired(lockFilePath, race.firstWaiterPayload), 'the first waiter holds the lock').toBe(true);
+  return race;
+}
+
+// The interleaving is driven by the takeover's own step callback: a third waiter's acquire runs at one step boundary per case, every boundary covered.
+test('while the second waiter takes over, a third waiter acquiring at any step never makes two holders', async () => {
+  const { acquired, takeoverSteps, tookOverStaleLock } = LockTakeoverSteps;
+  expect(takeoverSteps.length).toBeGreaterThan(0);
+  for (const intrusionStep of takeoverSteps) {
+    const race = await raceWhereTheFirstWaiterHoldsTheLock('lock-three-waiters');
+    const thirdWaiterPayload = { acquiredAt: '2026-09-24T15:00:01+02:00', processId: process.pid + 1 };
+    let thirdWaiterAcquired = false;
+    const secondWaiterTookOver = tookOverStaleLock(race.lockFilePath, race.nowMilliseconds, (step) => {
+      if (step === intrusionStep) thirdWaiterAcquired = acquired(race.lockFilePath, thirdWaiterPayload);
+    });
+    const secondWaiterAcquired = secondWaiterTookOver && acquired(race.lockFilePath, race.secondWaiterPayload);
+
+    const waitersHoldingTheLock = [true, thirdWaiterAcquired, secondWaiterAcquired].filter(Boolean).length;
+    expect(waitersHoldingTheLock, `waiters holding the lock with the third acquiring at ${intrusionStep}`).toBe(1);
+    expect(JSON.parse(readFileSync(race.lockFilePath, 'utf8'))).toEqual(race.firstWaiterPayload);
+  }
+});
+
+test('a lock its holder released during the second waiter\'s takeover is never put back', async () => {
+  const { releaseIfStillOurs, takeoverSteps, tookOverStaleLock } = LockTakeoverSteps;
+  let releasesMade = 0;
+  for (const releaseStep of takeoverSteps) {
+    const race = await raceWhereTheFirstWaiterHoldsTheLock('lock-released-aside');
+    let firstWaiterReleased = false;
+    tookOverStaleLock(race.lockFilePath, race.nowMilliseconds, (step) => {
+      if (step !== releaseStep) return;
+      releaseIfStillOurs(race.lockFilePath, race.firstWaiterPayload);
+      firstWaiterReleased = true;
+    });
+    if (firstWaiterReleased) releasesMade++;
+    const firstWaiterLockIsInPlace = existsSync(race.lockFilePath) && Bun.deepEquals(JSON.parse(readFileSync(race.lockFilePath, 'utf8')), race.firstWaiterPayload);
+    expect(firstWaiterLockIsInPlace, `the first waiter's lock with its release at ${releaseStep}`).toBe(!firstWaiterReleased);
+  }
+  expect(releasesMade, 'a step boundary the takeover reaches ran the release').toBeGreaterThan(0);
+});
+
+test('a takeover marker left by a taker that died is removed, and the stale lock is then taken', async () => {
+  const { takeoverMarkerPathFor } = LockTakeoverSteps;
+  const workspace = scratchWorkspace('lock-dead-taker');
+  const markerPath = takeoverMarkerPathFor(workspace.lockFilePath);
+  writeFileSync(workspace.lockFilePath, JSON.stringify({ acquiredAt: new Date().toISOString(), processId: await processIdOfAnExitedProcess() }));
+  writeFileSync(markerPath, JSON.stringify({ acquiredAt: new Date().toISOString(), processId: await processIdOfAnExitedProcess() }));
+
+  expect(await withLock(workspace, () => 'taken over', realClock)).toBe('taken over');
+  expect(existsSync(markerPath), 'the dead taker\'s marker is gone').toBe(false);
+  expect(readdirSync(workspace.trackerDirectory).filter((name) => name.includes('.stale.'))).toEqual([]);
+});
+
+// Fail closed: an empty marker is also what a marker being written at this instant looks like.
+test('a freshly written unreadable takeover marker blocks the takeover and is left in place', async () => {
+  const { takeoverMarkerPathFor, tookOverStaleLock } = LockTakeoverSteps;
+  const { lockFilePath } = scratchWorkspace('lock-unreadable-marker');
+  const markerPath = takeoverMarkerPathFor(lockFilePath);
+  writeFileSync(lockFilePath, JSON.stringify({ acquiredAt: new Date().toISOString(), processId: await processIdOfAnExitedProcess() }));
+  writeFileSync(markerPath, '');
+
+  expect(tookOverStaleLock(lockFilePath, Date.now())).toBe(false);
+  expect(readFileSync(markerPath, 'utf8')).toBe('');
+  expect(existsSync(lockFilePath), 'the stale lock waits for the marker\'s holder').toBe(true);
 });
 
 test('the action\'s return value is handed back, including when it is not a promise', async () => {
