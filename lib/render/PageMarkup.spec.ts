@@ -259,6 +259,17 @@ describe('review rows nested above their ticket', () => {
     ]);
   });
 
+  // With rounds filed in increasing id order an id-only sort draws the same thing, so only a later round filed earlier pins the round sort.
+  test('orders review rows by the round their name gives, not by id, when a higher round was filed first', () => {
+    const markup = taskRowsMarkup(rowsFiled([
+      exampleTask({ id: 1, ticket: '003' }),
+      exampleTask({ id: 2, name: 'Review 2 #3 — Split the exporter', reviewOf: '003' }),
+      exampleTask({ id: 3, name: 'Review 1 #3 — Split the exporter', reviewOf: '003' }),
+    ]), EXAMPLE_SLICES);
+
+    expect(drawnOrderOf(markup)).toEqual([['2', '003'], ['3', '003'], ['1', null]]);
+  });
+
   test('puts the flag ahead of the name, so a review named for one ticket but filed against another nests above the flagged one', () => {
     const markup = taskRowsMarkup(rowsFiled([
       exampleTask({ id: 1, ticket: '003' }),
