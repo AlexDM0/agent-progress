@@ -32,6 +32,17 @@ describe('an option and its value', () => {
   test('an option nobody wrote is undefined rather than an empty string', () => {
     expect(createArgumentParser(['add', 'Review pass']).option('owner')).toBeUndefined();
   });
+
+  // Keeping either value silently stores what the caller did not mean: `claim 1 --owner first --owner second` once stored "first".
+  test('refuses a single-value option given twice, in either spelling', () => {
+    const refusal = refusalFrom(() => createArgumentParser(['claim', '1', '--owner', 'first', '--owner=second']).option('owner'));
+    expect(refusal.status).toBe('refused');
+    expect(refusal.message).toContain('--owner was given 2 times');
+  });
+
+  test('reads every value of an option that may be repeated, in order', () => {
+    expect(createArgumentParser(['--note', 'first', '--note=second']).optionValues('note')).toEqual(['first', 'second']);
+  });
 });
 
 describe('an option with nothing behind it', () => {
