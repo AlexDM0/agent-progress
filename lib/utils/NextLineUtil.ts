@@ -41,4 +41,11 @@ function composeNextLine(capacity: BoardCapacity): string {
   return `Next: ${slotsTextOf(capacity)}; ${readyTextOf(capacity.readyTicketIds)}${dispatcherAdviceOf(capacity)}`;
 }
 
-export const NextLineUtil = { composeNextLine } as const;
+const RUNNING_DISPATCHER_NOTICE = 'Dispatcher running: it picks this change up at its next agent\'s return. Never stop or relaunch it for this.';
+
+/** For the moves that change what a dispatcher picks up: an orchestrator that stopped a run to add work lost the agents in flight. */
+function endWithRunningDispatcherNotice(humanText: string, dispatcherState: DispatcherState): string {
+  return dispatcherState === 'running' ? `${humanText}\n${RUNNING_DISPATCHER_NOTICE}` : humanText;
+}
+
+export const NextLineUtil = { composeNextLine, endWithRunningDispatcherNotice } as const;

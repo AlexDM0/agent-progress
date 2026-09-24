@@ -50,6 +50,7 @@ import {
   ensureTaskForTicketOnTheChart,
   ticketMoveIsLegal
 }                                                               from '../../lib/tickets/TicketTransitions';
+import { NextLineUtil }         from '../../lib/utils/NextLineUtil';
 import { TicketDependencyUtil } from '../../lib/utils/TicketDependencyUtil';
 import { TicketIdUtil }         from '../../lib/utils/TicketIdUtil';
 import { TokenCountUtil }       from '../../lib/utils/TokenCountUtil';
@@ -303,7 +304,7 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
   const identifier = nextTicketId(workspace);
   const body       = await bodyForNewTicket(commandArguments, identifier, title);
 
-  const { result: ticket, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
+  const { result: ticket, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
     // A ticket that does not exist yet has nobody waiting on it, so only the ids themselves can be wrong.
     refuseAnUnworkableDependencyList(identifier, dependsOn, listTickets(change.workspace).tickets);
     const filed = createTicket(change.workspace, {
@@ -333,7 +334,7 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
     context,
     ticketAsJson(ticket),
     `Ticket #${ticket.frontmatter.id} filed: ${ticket.frontmatter.title}${priority === 'low' ? ' (low priority: no row until it is started)' : ''}\n  ${ticket.filePath}`,
-    nextLine,
+    NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState),
   );
 }
 
@@ -441,7 +442,7 @@ async function transitionOneTicket(
   const reason = commandArguments.option('reason');
   const tokens = tokenCountFrom(commandArguments);
 
-  const { result: moved, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
+  const { result: moved, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
     const ticket = requireTicket(change.workspace, reference);
     refuseAnIllegalMove(ticket, targetStatus, checksTheMatrix);
 
@@ -476,7 +477,9 @@ async function transitionOneTicket(
     };
   });
 
-  printEntityThenNextLine(commandArguments, context, ticketAsJson(moved.ticket), moved.logText, nextLine);
+  // A reopened ticket goes back into the queue a running dispatcher takes from, so it is intake like `ticket add`.
+  const closingLines = targetStatus === 'open' ? NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState) : nextLine;
+  printEntityThenNextLine(commandArguments, context, ticketAsJson(moved.ticket), moved.logText, closingLines);
 
   // A warning, not a refusal: the order is advice to whoever picks work up, and the user may know better.
   if (targetStatus === 'in-progress' && moved.unsettled.length > 0) {
@@ -677,7 +680,7 @@ async function setTicketDependencies(commandArguments: ArgumentParser, context: 
   }
   const dependsOn = dependencyListFrom(dependencyTexts);
 
-  const changed = await openTrackerForWriting(commandArguments, context, (change) => {
+  const { result: changed, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
     const ticket = requireTicket(change.workspace, reference);
     refuseAnUnworkableDependencyList(ticket.frontmatter.id, dependsOn, listTickets(change.workspace).tickets);
 
@@ -694,7 +697,7 @@ async function setTicketDependencies(commandArguments: ArgumentParser, context: 
     return { ticket, logText };
   });
 
-  printEntity(commandArguments, context, ticketAsJson(changed.ticket), changed.logText);
+  printEntity(commandArguments, context, ticketAsJson(changed.ticket), NextLineUtil.endWithRunningDispatcherNotice(changed.logText, dispatcherState));
 }
 
 async function setTicketPriority(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
@@ -707,7 +710,7 @@ async function setTicketPriority(commandArguments: ArgumentParser, context: Comm
   }
   const priority = requirePriority(writtenPriority);
 
-  const { result: changed, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
+  const { result: changed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
     const ticket  = requireTicket(change.workspace, reference);
     const outcome = applyTicketPriority({
       progress:   change.progress,
@@ -724,7 +727,7 @@ async function setTicketPriority(commandArguments: ArgumentParser, context: Comm
     return { logText: outcome.logText, ticket: outcome.ticket };
   });
 
-  printEntityThenNextLine(commandArguments, context, ticketAsJson(changed.ticket), changed.logText, nextLine);
+  printEntityThenNextLine(commandArguments, context, ticketAsJson(changed.ticket), changed.logText, NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState));
 }
 
 /** A changed pair is judged on the resolved values, so naming the default a ticket already runs on is refused as no change. */
@@ -742,7 +745,7 @@ async function setTicketAgent(commandArguments: ArgumentParser, context: Command
     throw new OperationRefusal('refused', `agent-progress ticket agent needs --model, --effort or both.\n  Usage: ${USAGE}`);
   }
 
-  const { result: changed, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
+  const { result: changed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
     const ticket = requireTicket(change.workspace, reference);
     const { frontmatter } = ticket;
     const { id, status }  = frontmatter;
@@ -767,7 +770,7 @@ async function setTicketAgent(commandArguments: ArgumentParser, context: Command
     return { logText, ticket };
   });
 
-  printEntityThenNextLine(commandArguments, context, ticketAsJson(changed.ticket), changed.logText, nextLine);
+  printEntityThenNextLine(commandArguments, context, ticketAsJson(changed.ticket), changed.logText, NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState));
 }
 
 async function setTicketStatus(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {

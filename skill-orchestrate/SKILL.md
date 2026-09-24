@@ -154,7 +154,12 @@ many — `agent-progress concurrency` prints it, 2 unless the user set another, 
 10. Over its length a run may start many more than that: the user has approved long runs, so the
 session's guideline of 10 agents per workflow does not bound this one. Keep taking requests while it
 runs; a ticket filed meanwhile is picked up when a slot frees, because every agent hands the script
-the board as it left it.
+the board as it left it. **Never stop, kill or relaunch a running dispatcher to add, reorder,
+reprioritise or change tickets**: file them, set `ticket priority`, `ticket agent` or `ticket depends`,
+`ticket reopen`, and the run takes the change at its next agent's return — the human output of those
+commands says so while the board reads `running`. Stopping the run for intake loses the agents in
+flight. Only the user stops a run, and then through `agent-progress dispatcher stopped` (The user
+saying stop, below).
 
 **When it returns**, its summary is `{ delivered, parked, findingsFiled, agentsRun, stoppedByBoard?, lowPriorityWaiting? }`,
 the last the low tickets ready that it left for your triage:
@@ -218,8 +223,9 @@ waits for the user's go.
 
 **The user saying stop** is `agent-progress dispatcher stopped`, on the board. The running script
 reads it at its next agent's return, starts nothing new, lets the agents in flight finish and returns
-with `stoppedByBoard`. Stopping the workflow task outright is for an emergency only: it abandons agents
-mid-work, with their claims, bars and worktrees, and the run is then resumed as Recovering says.
+with `stoppedByBoard`. Stopping or killing the workflow task outright happens only on the user's
+explicit instruction to do exactly that: it abandons agents mid-work, with their claims, bars and
+worktrees, and the run is then resumed as Recovering says.
 
 **By hand.** Only while the dispatcher is stopped and the user asks for one ticket by hand: create its
 worktree off the main line (`git -C <main checkout> worktree add <path> -b <branch> <main line>`), spawn
@@ -285,7 +291,10 @@ Write the code. Review it — that is a clean agent's job, and reading the diff 
 opinion is the same mistake with extra steps. Merge or rebase anything — a branch goes into main only
 through `agent-progress release`, which is the reviewer's, and nobody runs `git merge` into main by
 hand, after a permission refusal least of all. Launch the dispatcher while the board says `stopped`
-without the user's go, run two at once, or pass its agents a model. Spawn a builder or a reviewer
+without the user's go, run two at once, or pass its agents a model. Stop, kill or relaunch a running
+dispatcher to add, reorder, reprioritise or change tickets — file them and the run picks them up at
+its next agent's return; only the user stops a run, through `agent-progress dispatcher stopped`, and
+the workflow task is killed outright only on the user's explicit instruction. Spawn a builder or a reviewer
 yourself, except by hand while the dispatcher is stopped and the user asked for it. Dispatch an agent
 into the main checkout. Re-verify through the browser what an agent already evidenced. Continue a
 finished agent, for any reason: a fresh one for the remainder is cheaper. Edit `.agent-progress/` with

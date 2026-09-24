@@ -7,7 +7,7 @@ import { expect, test } from 'bun:test';
 
 import { NextLineUtil } from './NextLineUtil';
 
-const { composeNextLine } = NextLineUtil;
+const { composeNextLine, endWithRunningDispatcherNotice } = NextLineUtil;
 
 /** A running dispatcher adds nothing, so the slot and ready wordings are pinned against it. */
 const NO_LOW_PRIORITY_READY = { lowPriorityReadyTicketIds: [] } as const;
@@ -174,4 +174,16 @@ test('a stopped dispatcher with only low tickets ready still waits for the user\
     lowPriorityReadyTicketIds: ['009'],
     dispatcherState:           'stopped',
   })).toBe('Next: 2 of 2 slots free; ready: #009; dispatcher stopped: wait for the user\'s go');
+});
+
+// The moment an orchestrator adds work mid-run is the moment it is tempted to stop the run, which loses the agents in flight.
+test('a running dispatcher adds one line after the text telling an orchestrator not to stop it for the change', () => {
+  expect(endWithRunningDispatcherNotice('Next: 2 of 2 slots free; ready: #003', 'running')).toBe(
+    'Next: 2 of 2 slots free; ready: #003\nDispatcher running: it picks this change up at its next agent\'s return. Never stop or relaunch it for this.',
+  );
+});
+
+test('a finished or stopped dispatcher leaves the text as it was', () => {
+  expect(endWithRunningDispatcherNotice('Next: nothing ready', 'finished')).toBe('Next: nothing ready');
+  expect(endWithRunningDispatcherNotice('Next: nothing ready', 'stopped')).toBe('Next: nothing ready');
 });

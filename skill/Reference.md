@@ -202,7 +202,10 @@ by itself, so it is relaunched — with a normal or high ticket ready adds `; la
 and with only low tickets ready `; only low priority ready: triage, then launch`, since low tickets
 are triaged before a run is launched for them; `stopped` — never started, or ended by the user —
 adds `; dispatcher stopped: wait for the user's go`, however many tickets are filed meanwhile;
-`running` adds nothing.
+`running` adds nothing to it. Instead, while the state is `running`, `ticket add`, `ticket priority`,
+`ticket agent`, `ticket depends` and `ticket reopen` end their human output with one more line after
+it, `Dispatcher running: it picks this change up at its next agent's return. Never stop or relaunch
+it for this.` — a run stopped to take new work loses the agents in flight. `--json` never carries it.
 
 `agent-progress dispatcher running --run <runId>` stores the Workflow run beside the state, and
 `dispatcher` and `status --json` (as `concurrency.dispatcherRunId`) print it: after a compaction it is

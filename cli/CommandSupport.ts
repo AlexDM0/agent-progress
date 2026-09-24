@@ -187,19 +187,19 @@ export async function openTrackerForWriting<MutationResult>(
   return result;
 }
 
-/** The Next line is read from the files just written, inside the same lock hold, so it can never describe the board before the move. */
+/** The Next line and the dispatcher state are read from the files just written, inside the same lock hold, so neither predates the move. */
 export async function openTrackerForWritingThenReadNextLine<MutationResult>(
   commandArguments: ArgumentParser,
   context: CommandContext,
   mutate: (change: TrackerChange) => MutationResult | Promise<MutationResult>,
-): Promise<{ result: MutationResult; nextLine: string }> {
+): Promise<{ result: MutationResult; nextLine: string; dispatcherState: DispatcherState }> {
   const { result, reading } = await writeTrackerUnderLock(
     commandArguments,
     context,
     mutate,
-    (workspace, progress) => nextLineFor(progress, listTickets(workspace).tickets),
+    (workspace, progress) => ({ nextLine: nextLineFor(progress, listTickets(workspace).tickets), dispatcherState: dispatcherStateOf(progress) }),
   );
-  return { result, nextLine: reading };
+  return { result, ...reading };
 }
 
 /** The human line and the Next line under it, or the entity alone under `--json`, which a script parses and must never find a trailing sentence in. */
