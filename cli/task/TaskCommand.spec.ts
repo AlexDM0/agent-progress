@@ -206,7 +206,7 @@ describe.skipIf(!gitIsAvailable())('linking a row to a ticket', () => {
     expect(storedTicketText('001-double-click-a-role-to-edit-it.md')).toContain('task: 2');
   });
 
-  // The page nests a review under its ticket by this field; it is a second relation, so the ticket's own row and its file stay untouched.
+  // The page nests a review above its ticket by this field; it is a second relation, so the ticket's own row and its file stay untouched.
   test('--review-of stores the reviewed ticket on the row, and status --json --full shows it', async () => {
     await run(['ticket', 'add', 'Double-click a role to edit it']);
     await run(['ticket', 'add', 'Cache ticket bodies']);

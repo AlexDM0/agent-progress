@@ -80,7 +80,7 @@ output never carries either.
       [--note <text>]         the detail shown beside the bar, and --tokens records what the work
       [--ticket <id>]         cost. --force moves --ticket's link off the row that holds it.
       [--review-of <id>]      --review-of marks the row as a review pass of that ticket: the page
-      [--start]               draws it indented under the ticket's own row, in round order. A
+      [--start]               draws it directly above the ticket's own row, latest round first. A
       [--tokens <n>]          ticket that does not exist is refused at exit 1. A row without it
       [--at <when>] [--force] whose name starts "Review <N> #<id>" is nested the same way; for a
                               bundle, the first id named is the parent.
