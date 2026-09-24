@@ -324,6 +324,7 @@ let stoppedByFailures = false;
 let consecutiveDeadAgents = 0;
 // The tickets whose failed pass a dead agent of the current run of deaths counted, taken back once that run turns out to be an outage.
 let failedPassesOfConsecutiveDeaths = [];
+let parksAwaitingTheNextAgent = [];
 // What `ticket show --json` said of a single-ticket run's tickets its arguments carried no `readyTickets` entry for.
 let lookedUpTicketSettings = [];
 let lowPriorityReadyTicketIds = new Set();
@@ -528,11 +529,15 @@ function takeOverTheBarLeftForTheNextRound(ticketId) {
   awaitTakeover({ ...reviewWorkFor(ticketId, true, false), barIsHandedOn: true });
 }
 
-function countFailedPass(ticketId, why, retry) {
+// A death may be the first of an outage, so a park it causes waits, holding the dead agent's slot, for the next of the agents in flight to settle.
+// With none in flight nothing would settle to show it, and at a limit of 1 the held slot would stop the run.
+function countFailedPass(ticketId, why, retry, deadAgentWork = null) {
   const record = recordOf(ticketId);
   record.failedPasses++;
   if (record.failedPasses >= FAILED_PASSES_BEFORE_PARKING) {
-    park(ticketId, `${why}, the second failed pass`);
+    const reason = `${why}, the second failed pass`;
+    if (deadAgentWork === null || inFlight.size === 0) park(ticketId, reason);
+    else parksAwaitingTheNextAgent.push({ work: deadAgentWork, reason });
     return;
   }
   log(`#${ticketId}: ${why}; a fresh agent takes it.`);
@@ -619,7 +624,7 @@ function settleBuild(work, result) {
   // A builder that stopped short of `ticket review` left its claimed row running.
   const rebuild = () => awaitTakeover({ kind: 'build', ticketId, previousPass: 'builder' });
   if (result === null) {
-    countFailedPass(ticketId, 'the builder returned no result', rebuild);
+    countFailedPass(ticketId, 'the builder returned no result', rebuild, work);
     failedPassesOfConsecutiveDeaths.push(ticketId);
     return;
   }
@@ -672,7 +677,7 @@ function settleReview(work, result) {
   const record = recordOf(ticketId);
   if (result === null) {
     record.nextRound = work.round + 1;
-    countFailedPass(ticketId, 'the reviewer returned no result', () => awaitTakeover(reviewWorkFor(ticketId, true, true)));
+    countFailedPass(ticketId, 'the reviewer returned no result', () => awaitTakeover(reviewWorkFor(ticketId, true, true)), work);
     failedPassesOfConsecutiveDeaths.push(ticketId);
     return;
   }
@@ -711,10 +716,17 @@ function settleReview(work, result) {
   takeOverTheBarLeftForTheNextRound(ticketId);
 }
 
+function carryOutParksAwaitingTheNextAgent() {
+  const awaiting = parksAwaitingTheNextAgent;
+  parksAwaitingTheNextAgent = [];
+  for (const { work, reason } of awaiting) park(work.ticketId, reason);
+}
+
 function noteWhetherTheAgentDied(result) {
   if (result !== null) {
     consecutiveDeadAgents = 0;
     failedPassesOfConsecutiveDeaths = [];
+    carryOutParksAwaitingTheNextAgent();
     return;
   }
   consecutiveDeadAgents++;
@@ -722,6 +734,9 @@ function noteWhetherTheAgentDied(result) {
   stoppedByFailures = true;
   for (const ticketId of failedPassesOfConsecutiveDeaths) recordOf(ticketId).failedPasses--;
   failedPassesOfConsecutiveDeaths = [];
+  const cancelledParks = parksAwaitingTheNextAgent;
+  parksAwaitingTheNextAgent = [];
+  for (const { work } of cancelledParks) settleDeadAgentOfAStoppedRun(work);
   log(`${consecutiveDeadAgents} agents in a row returned nothing, a session limit or a lost connection: no new agent starts, and the ${inFlight.size} in flight finish.`);
 }
 
@@ -792,7 +807,7 @@ if (settings.ticketIds === null) {
 phase('Build');
 for (;;) {
   const slotLimit = ownSlotLimit();
-  while (!runIsStopped() && inFlight.size < slotLimit) {
+  while (!runIsStopped() && inFlight.size + parksAwaitingTheNextAgent.length < slotLimit) {
     const work = nextWork();
     if (work === null) break;
     launch(work);
@@ -804,8 +819,10 @@ for (;;) {
 // A takeover still waiting here never starts in this run, a stop or others holding the limit kept it out, so its row is released like a parked one.
 // No agent just finished for this parking agent to replace, so it starts only within a free slot: it is an agent, and the limit counts it. Without
 // a stop there is none, since a free slot would have started the takeover itself.
+// With no agent left to settle, nothing can show a park waiting for one to have been an outage's.
+carryOutParksAwaitingTheNextAgent();
 const rowsToRelease = [...takeoversWaiting.values()];
-if (rowsToRelease.length > 0) {
+if (rowsToRelease.length > 0 || inFlight.size > 0) {
   phase('Park');
   for (;;) {
     while (rowsToRelease.length > 0 && inFlight.size < ownSlotLimit()) {

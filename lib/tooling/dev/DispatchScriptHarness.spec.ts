@@ -281,7 +281,7 @@ const CLAIMS: Claim[] = [
     name:     'a builder that returns nothing is a failed pass, and a fresh builder takes the ticket',
     scenario: { limit: 2, readyTicketIds: ['001'], builderReply: (_ticketId, pass) => (pass === 1 ? null : { outcome: 'in-review' }) },
     holds:    (run) => summaryOf(run).delivered.includes('001') && run.logs.some((message) => message.includes('#001: the builder returned no result')),
-    mutant:   { find: 'countFailedPass(ticketId, \'the builder returned no result\', rebuild);', replace: 'park(ticketId, \'mutant\');' },
+    mutant:   { find: 'countFailedPass(ticketId, \'the builder returned no result\', rebuild, work);', replace: 'park(ticketId, \'mutant\');' },
   },
   {
     // A builder that stops short of `ticket review` leaves its claimed row running: read as another agent's, it alone would fill a limit of 1.
@@ -810,10 +810,45 @@ const CLAIMS: Claim[] = [
     mutant: { find: '  for (const ticketId of failedPassesOfConsecutiveDeaths) recordOf(ticketId).failedPasses--;\n', replace: '' },
   },
   {
+    // #001's second pass is the outage's first death, so it would be the second failed pass: the park waits for #002's reviewer, a death too.
+    name:     'builder 001 failing and every agent after #002\'s build returning nothing parks nothing: the second pass\'s death is the first of an outage',
+    scenario: {
+      limit:          2,
+      readyTicketIds: ['001', '002'],
+      builderReply:   (ticketId, pass) => {
+        if (ticketId !== '001') return { outcome: 'in-review' };
+        return pass === 1 ? { outcome: 'failed' } : null;
+      },
+      reviewerReply: () => null,
+    },
+    holds: (run) => summaryOf(run).stoppedByFailures === true
+      && summaryOf(run).parked.length === 0
+      && run.rowsRunningAtEnd.length === 0,
+    mutant: { find: '    else parksAwaitingTheNextAgent.push({ work: deadAgentWork, reason });\n', replace: '    else park(ticketId, reason);\n' },
+  },
+  {
+    // A lone death after a real failure is still the second failed pass: an agent returning something shows it was no outage.
+    name:     'a second pass whose death is followed by an agent returning something parks the ticket then, and the held slot goes on to the next ticket',
+    scenario: {
+      limit:          2,
+      readyTicketIds: ['001', '002', '003'],
+      builderReply:   (ticketId, pass) => {
+        if (ticketId !== '001') return { outcome: 'in-review' };
+        return pass === 1 ? { outcome: 'failed' } : null;
+      },
+    },
+    holds: (run) => summaryOf(run).stoppedByFailures === undefined
+      && parkedIds(run).join() === '001'
+      && summaryOf(run).delivered.join() === '002,003'
+      && run.rowsRunningAtEnd.length === 0
+      && run.mostAgentsInFlightAtOnce <= 2,
+    mutant: { find: '    carryOutParksAwaitingTheNextAgent();\n    return;', replace: '    return;' },
+  },
+  {
     name:     'an agent that returns something resets the count, so two deaths with a success between them stop nothing',
     scenario: { limit: 1, readyTicketIds: ['001', '002'], builderReply: (_ticketId, pass) => (pass === 1 ? null : { outcome: 'in-review' }) },
     holds:    (run) => summaryOf(run).stoppedByFailures === undefined && summaryOf(run).delivered.join() === '001,002' && summaryOf(run).parked.length === 0,
-    mutant:   { find: '    consecutiveDeadAgents = 0;\n    failedPassesOfConsecutiveDeaths = [];\n    return;', replace: '    return;' },
+    mutant:   { find: '    consecutiveDeadAgents = 0;\n    failedPassesOfConsecutiveDeaths = [];\n', replace: '' },
   },
   {
     // A paused build resumed after an unhold is in progress, so it has no readyTickets entry for the orchestrator to copy.
