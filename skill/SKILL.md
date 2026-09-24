@@ -38,7 +38,8 @@ order to file a ticket, move one, and stay out of the tool's way.
   `agent-progress row: 4` (or `4, 7` for a bundle) has what it processed **added** to that row when
   it stops — so a move that ends such a row takes no `--tokens`, which would overwrite the sum.
 - **Every ticket owns a row too.** Filing a ticket creates its row as `pending`, except a low one,
-  which gets its row when it is started or claimed; moving the ticket moves the row and stamps both. You never keep the two in step yourself.
+  which gets its row when it is started or claimed; moving the ticket moves the row and stamps both.
+  You never keep the two in step yourself.
 - **The log** is the narrative under the chart: one line per milestone, newest first on the page.
 - **The dashboard** is `.agent-progress/progress.html`, written fresh by every command that changes
   anything, with a **Progress** tab and a **Tickets** tab. One file, no network dependency.
