@@ -23,7 +23,8 @@ free (2 agents in flight); ready: #003\` or \`Next: 2 of 2 slots free; nothing r
 ready ids, then \`and N more\`; a held ready ticket is left out and named apart, \`; held: #002\` —
 followed by the dispatcher's advice where it has any: \`; launch the
 dispatcher\` or \`; dispatcher stopped: wait for the user's go\`. While the dispatcher is \`running\`,
-\`ticket add\`, \`priority\`, \`agent\`, \`depends\` and \`reopen\` add one more line after it: the run
+\`ticket add\`, \`priority\`, \`agent\`, \`depends\`, \`hold\`, \`unhold\`, \`reopen\` and \`status <id> open\` add
+one more line after it: the run
 picks the change up at its next agent's return and is never stopped or relaunched for it. --json
 output never carries either.
 
@@ -94,13 +95,13 @@ output never carries either.
                               3 — without reopening the bar, and \`deliver\` records that the work
                               reached its destination. A stamp already recorded is kept, so --at
                               backfills a row nobody registered at the time. A row a ticket owns is
-                              refused, naming the \`ticket\` verb that moves both; --force moves only
-                              the row.
+                              refused, except a pause and its resume, naming the \`ticket\` verb that
+                              moves both; --force moves only the row.
 
   task update <id>            Change a row without moving its clock: --name, --owner, --note,
       [--name <text>]         --tokens, or --status for a correction the transitions cannot
       [--owner <who>]         express. At least one of them is required, and --status on a row a
-      [--note <text>]         ticket owns is refused unless --force.
+      [--note <text>]         ticket owns is refused unless --force, except a pause and its resume.
       [--status <status>]
       [--tokens <n>] [--force]
 
