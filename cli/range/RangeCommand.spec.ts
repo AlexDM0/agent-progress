@@ -152,8 +152,40 @@ describe.skipIf(!gitIsAvailable())('the two bounds a range cannot have', () => {
     expect(storedView()).toEqual({ kind: 'auto' });
   });
 
-  test('a relative pair is never judged that way, since its written forms are not comparable', async () => {
+  // Both ends move with the clock together, so their order is the same at every refresh and a backwards pair is backwards for good.
+  test('a pair of bounds relative to now is resolved and refused the same way', async () => {
+    for (const [from, to] of [['now', 'now'], ['now', '-1d'], ['+2h', '+30m']]) {
+      const context  = contextHere();
+      const exitCode = await runCommandLine(['range', '--from', from ?? '', '--to', to ?? ''], context);
+
+      expect(exitCode, `${from} → ${to}`).toBe(1);
+      expect(context.errorText(), `${from} → ${to}`).toContain('is not before --to');
+    }
+    expect(storedView()).toEqual({ kind: 'auto' });
+  });
+
+  test('a relative pair in order is stored as written', async () => {
     await run(['range', '--from', '-2h', '--to', 'now']);
     expect(storedView()).toMatchObject({ kind: 'relative', from: '-2h', to: 'now' });
+  });
+
+  /** `start` is the earliest visible row, which only the page knows, and a mixed pair's order would be decided by the clock. */
+  test('a pair naming start, or mixing a timestamp with a relative bound, is not judged', async () => {
+    await run(['range', '--from', 'now', '--to', 'start']);
+    await run(['range', '--from', '2026-09-19T09:00', '--to', 'now']);
+    expect(storedView()).toMatchObject({ kind: 'relative', to: 'now' });
+  });
+});
+
+describe.skipIf(!gitIsAvailable())('the log', () => {
+  /** Every other settings write, `concurrency` and `dispatcher`, leaves a line, so a changed axis should not be the one that is invisible. */
+  test('each stored range writes one log line naming it, --auto included', async () => {
+    await run(['range', '--from', '-2h', '--to', 'now', '--tick', '15m']);
+    await run(['range', '--auto']);
+
+    const { log } = JSON.parse(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')) as ProgressFile;
+    const messages = log.map((entry) => entry.text);
+    expect(messages).toContain('Chart range: -2h → now (tick 15m)');
+    expect(messages).toContain('Chart range: automatic');
   });
 });

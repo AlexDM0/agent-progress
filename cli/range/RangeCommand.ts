@@ -4,6 +4,7 @@
  */
 import type { ViewRange }                     from '../../lib/constants/Types';
 import { OperationRefusal }                   from '../../lib/platform/OperationRefusal';
+import { appendLogEntry }                     from '../../lib/progress/ProgressStore';
 import { TimeUtil }                           from '../../lib/utils/TimeUtil';
 import { openTrackerForWriting, printEntity } from '../CommandSupport';
 import type { CommandHandler }                from '../CommandTable';
@@ -15,7 +16,9 @@ const USAGE = [
 
 const KNOWN_OPTION_NAMES = ['from', 'to', 'tick', 'auto', 'json'];
 
-const RELATIVE_BOUND_WORDS = ['start', 'now'];
+const START_OF_WORK_BOUND_WORD = 'start';
+
+const RELATIVE_BOUND_WORDS = [START_OF_WORK_BOUND_WORD, 'now'];
 
 const RELATIVE_OFFSET_PATTERN = /^[+-]\d+[mhd]$/i;
 
@@ -29,11 +32,19 @@ function storedBound(text: string): string | null {
   return parsed === null ? null : TimeUtil.formatLocalIso(parsed);
 }
 
-/** Only a pair of timestamps can be judged, and a backwards axis draws nothing with no error anywhere. */
-function refuseABackwardsRange(writtenFrom: string, writtenTo: string): void {
-  if (boundIsRelative(writtenFrom) || boundIsRelative(writtenTo)) return;
-  const from = TimeUtil.parseIso(writtenFrom);
-  const to   = TimeUtil.parseIso(writtenTo);
+function boundIsStartOfWork(text: string): boolean {
+  return text.trim().toLowerCase() === START_OF_WORK_BOUND_WORD;
+}
+
+/**
+ * A backwards axis draws nothing with no error anywhere. Two timestamps are judged, and so are two bounds relative to now, whose order
+ * no clock can change; a mixed pair would be judged by the clock, and `start` is the earliest visible row, known only when the page is drawn.
+ */
+function refuseABackwardsRange(writtenFrom: string, writtenTo: string, now: Date): void {
+  if (boundIsStartOfWork(writtenFrom) || boundIsStartOfWork(writtenTo)) return;
+  if (boundIsRelative(writtenFrom) !== boundIsRelative(writtenTo)) return;
+  const from = TimeUtil.resolveWhen(writtenFrom, now);
+  const to   = TimeUtil.resolveWhen(writtenTo, now);
   if (from === null || to === null || from.getTime() < to.getTime()) return;
 
   throw new OperationRefusal(
@@ -42,7 +53,7 @@ function refuseABackwardsRange(writtenFrom: string, writtenTo: string): void {
   );
 }
 
-function viewRangeFrom(writtenFrom: string, writtenTo: string, writtenTick: string | undefined): ViewRange {
+function viewRangeFrom(writtenFrom: string, writtenTo: string, writtenTick: string | undefined, now: Date): ViewRange {
   const from = storedBound(writtenFrom);
   const to   = storedBound(writtenTo);
   for (const [optionName, written, stored] of [['from', writtenFrom, from], ['to', writtenTo, to]] as const) {
@@ -54,7 +65,7 @@ function viewRangeFrom(writtenFrom: string, writtenTo: string, writtenTick: stri
       );
     }
   }
-  refuseABackwardsRange(writtenFrom, writtenTo);
+  refuseABackwardsRange(writtenFrom, writtenTo, now);
 
   let tickMinutes: number | null = null;
   if (writtenTick !== undefined) {
@@ -98,10 +109,11 @@ export const rangeCommand: CommandHandler = async (commandArguments, context) =>
 
   const view: ViewRange = resetsToAutomatic || writtenFrom === undefined || writtenTo === undefined
     ? { kind: 'auto' }
-    : viewRangeFrom(writtenFrom, writtenTo, writtenTick);
+    : viewRangeFrom(writtenFrom, writtenTo, writtenTick, context.now());
 
   const stored = await openTrackerForWriting(commandArguments, context, (change) => {
     change.progress.view = view;
+    appendLogEntry(change.progress, change.at, describeRange(view));
     return view;
   });
 
