@@ -24,7 +24,8 @@ lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/ lib/tick
 - **`process.env` is read in `lib/platform/Environment.ts` and nowhere else**, through getters rather
   than constants captured at import, so a spec can redirect a value in-process.
   `lib/EnvironmentReads.spec.ts` scans for every spelling of the accessor, a named `env` import from
-  `process`, `node:process` or `bun` included. Its scan covers specs too,
+  `process`, `node:process` or `bun` included, and so is a whole-module binding read for `env`, a
+  `require` or dynamic `import` of one, and a re-export of `env` from one. Its scan covers specs too,
   which is why `lib/platform/Workspace.spec.ts` drives the override through a child process instead
   of setting it. The allowlist holds two names: the module itself, and
   `lib/platform/Environment.spec.ts`, which makes the repository's one in-process assignment —
