@@ -313,6 +313,10 @@ JavaScript no spec can sit beside:
   A scenario's `pausedBuildNotesByTicketId` starts tickets in progress with a paused build row bearing that claim note; a paused
   row refuses a builder's claim unless its prompt carries `BUILDER_RESUMES_A_PAUSED_ROW` and the note is its run's own or, with
   `BUILDER_TAKES_OVER_A_PAUSED_DISPATCHER_BUILD`, any dispatcher run's, which is how a single-ticket run resumes a held build.
+  The survey returns every paused build row as `pausedBuilds` with its note and its worktree in place, and `relaunchedAfterTheRun`
+  starts a fresh whole-board run (calls recorded as `relaunch`) on the board the first one left, the dispatcher set `running`, its
+  summary and logs returned as `relaunchSummary` and `relaunchLogs`. `lib/tooling/dev/DispatchScriptHarness.resume.spec.ts` pins
+  the whole-board resumption of a paused build that way: after a stop, never a held ticket's or a person's pause, within the limit.
   `lib/tooling/dev/DispatchScriptHarness.brief.spec.ts` holds the prompts'
   call budgets and rework threshold to the numbers `templates/AgentBrief.md` states.
 - `lib/tooling/dev/WorkflowScriptSource.ts` — reads a Workflow script's syntax tree through

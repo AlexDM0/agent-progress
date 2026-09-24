@@ -182,8 +182,9 @@ session's guideline of 10 agents per workflow does not bound this one. Keep taki
 runs; a ticket filed meanwhile is picked up when a slot frees, because every agent hands the script
 the board as it left it. **Never stop, kill or relaunch a running dispatcher to add, reorder,
 reprioritise or change tickets**: file them, set `ticket priority`, `ticket agent` or `ticket depends`,
-`ticket reopen`, and the run takes the change at its next agent's return — the human output of those
-commands says so while the board reads `running`. Stopping the run for intake loses the agents in
+`ticket reopen` or `ticket status <id> open`, `ticket hold` or `ticket unhold`, and the run takes the
+change at its next agent's return — the human output of those commands, and of `ticket add`, says so
+while the board reads `running`. Stopping the run for intake loses the agents in
 flight. Only the user stops a run, and then through `agent-progress dispatcher stopped` (The user
 saying stop, below).
 
@@ -208,14 +209,19 @@ builder or reviewer for it while it is held and keeps the other tickets flowing.
 lets the held step start at the run's next board read. A builder or reviewer already running is never
 interrupted, so tell the user when the hold came too late for the step under way.
 
-**A build a hold left paused is resumed by a single-ticket run.** When a run ends while a ticket it
-had claimed is still held, its row is `paused` and the ticket stays in progress, so no later run's
-survey finds it. Whenever `ticket unhold <id>` ends its output with the line naming a single-ticket
-dispatcher run for that ticket, launch the dispatcher with `ticketIds: ["<id>"]` (and the ticket's
-`readyTickets` entry, none for an in-progress ticket) once the unhold is in; its builder takes the
-paused build over in the ticket's worktree. A run given no entry for its ticket reads the ticket's
-model and effort with `ticket show --json` before it starts anyone, so pass no model yourself. The same holds for a `held` entry waiting for its
-`build` whose ticket `ticket show` reports in progress: launch that run once the ticket is unheld.
+**A build a hold or a stop left paused is resumed by the next run.** When a run ends while a ticket
+it had claimed is held, or is stopped before that build finished, its row is `paused` and the ticket
+stays in progress. A whole-board run's survey finds every such build that is not held — an
+in-progress ticket whose own row is `paused` under a dispatcher run's claim note, with its worktree
+in place — and resumes it ahead of new tickets, its builder carrying on in that worktree without a
+new claim. A paused row with any other note is a person's pause and is left alone. So after a stop,
+the relaunch on the user's go resumes the paused builds by itself. For a held one, once the hold is
+lifted: whenever `ticket unhold <id>` ends its output with the line naming a single-ticket dispatcher
+run for that ticket and no whole-board run is going or about to be launched, launch the dispatcher
+with `ticketIds: ["<id>"]` (no `readyTickets` entry, as an in-progress ticket has none); a
+whole-board run takes it over just the same. A run given no entry for its ticket reads the ticket's
+model and effort with `ticket show --json` before it starts anyone, so pass no model yourself. The
+same holds for a `held` entry waiting for its `build` whose ticket `ticket show` reports in progress.
 
 **When it returns with `stoppedByFailures`**, its agents died back to back — a session limit or a lost
 connection, not the tickets failing — so it started nothing new, let the agents in flight finish,
@@ -223,14 +229,14 @@ counted none of those deaths as a failed pass and parked nothing for them. Tell 
 looks like, then close the dead rows it left: `agent-progress task pause` a builder's row still
 `running`, and `task finish` then `task deliver` a review bar still running. The board goes to
 `stopped` (step 1 below), and you ask with AskUserQuestion (Intake) whether to relaunch; on the
-user's go, `agent-progress dispatcher running` and the launch. The rest of its summary is handled as
-below.
+user's go, `agent-progress dispatcher running` and the launch, whose survey resumes every build the
+stop left paused. The rest of its summary is handled as below.
 
-**When it returns**, its summary is `{ delivered, parked, findingsFiled, agentsRun, stoppedByBoard?, stoppedByFailures?, lowPriorityWaiting?, held? }`,
-`lowPriorityWaiting` the low tickets ready that it left for your triage, and `held` the tickets a hold
-kept waiting, each `{ id, waitingFor: 'build' | 'review' }`: the next run picks each up once unheld,
-except a build whose ticket is in progress, which a single-ticket run resumes as said above, so list
-them to the user and relaunch for them only after an unhold:
+**When it returns**, its summary is `{ delivered, parked, findingsFiled, agentsRun, stoppedByBoard?, stoppedByFailures?, lowPriorityWaiting?, held?, pausedBuilds? }`,
+`lowPriorityWaiting` the low tickets ready that it left for your triage, `pausedBuilds` the builds a
+stop left paused, which the next whole-board run resumes, and `held` the tickets a hold kept waiting,
+each `{ id, waitingFor: 'build' | 'review' }`: the next run picks each up once unheld, so list them to
+the user and relaunch for them only after an unhold:
 
 1. `agent-progress dispatcher finished` — unless the summary carries `stoppedByBoard`: that is the
    user's stop taking effect, and the state stays `stopped`. With `stoppedByFailures`, run
@@ -253,7 +259,10 @@ them to the user and relaunch for them only after an unhold:
    its other instances as an acceptance item, and tell the user the parked branch waits on it.
 4. Each ticket in `findingsFiled`, judged for severity as Intake says.
 5. `agent-progress status --json`: a row the run left `running` or `awaiting review` with no agent
-   behind it is yours to close, `task finish` then `task deliver`.
+   behind it is yours to close. A ticket's own row moves only through the `ticket` verbs, which
+   refuse `task finish` and `task deliver` on it: `task pause` a build row left running, so the next
+   run resumes it, and `ticket status <id> <status>` to settle it otherwise. A review bar (a row
+   with `reviewOf`) is closed with `task finish` then `task deliver`.
 6. Relaunch at once when a normal or high ticket is ready and the state is `finished` — the Next line
    says `launch the dispatcher`. When the summary carries `lowPriorityWaiting` and nothing else is
    open, the Next line says `only low priority ready: triage, then launch`: relaunch nothing, and
@@ -296,7 +305,8 @@ alone — whether one is still relevant, which of two survives — is an AskUser
 
 **The user saying stop** is `agent-progress dispatcher stopped`, on the board. The running script
 reads it at its next agent's return, starts nothing new, lets the agents in flight finish and returns
-with `stoppedByBoard`. Stopping or killing the workflow task outright happens only on the user's
+with `stoppedByBoard`, the builds it could not finish paused and named in `pausedBuilds`; the relaunch
+on the user's go resumes them by itself. Stopping or killing the workflow task outright happens only on the user's
 explicit instruction to do exactly that: it abandons agents mid-work, with their claims, bars and
 worktrees, and the run is then resumed as Recovering says.
 

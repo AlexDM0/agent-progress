@@ -37,7 +37,8 @@ task: 17
 
 The keys the CLI owns are `id`, `title`, `type`, `priority`, `model`, `effort`, `status`, `filed`,
 `updated`, `started`, `finished`, `delivered`, `abandonedAt`, `group`, `branch`, `commit`, `reason`,
-`dependsOn` and `task`. `dependsOn` is the ticket ids this one waits on, comma-separated; set it with
+`dependsOn`, `hold` and `task`. `hold` holds the ticket whatever its value: set it with `ticket hold`
+and remove it with `ticket unhold`, never by hand. `dependsOn` is the ticket ids this one waits on, comma-separated; set it with
 `ticket depends` rather than by hand, so a missing id or a circle is refused. `type` is
 one of **bug · change · feature**; `priority` is one of **low · normal · high**, and a ticket
 without the key is normal — the CLI writes it only when one is given, so an older ticket is never
@@ -140,10 +141,14 @@ step waits, a row the run left running for it is released, and the step starts a
 read that shows the hold lifted — or is returned under `held: [{ id, waitingFor }]` when the run ends
 first. A running agent is never interrupted: a hold set after a builder's final status read is too
 late for the reviewer that follows it. `ticket claim` refuses a held ticket. A run that ends while a
-ticket it claimed is held leaves that build's row `paused` and the ticket in progress, which no later
-survey picks up: `ticket unhold` on a ticket in progress with a paused row ends its human output (never
-its `--json`) with a line naming a single-ticket dispatcher run for it, and that run's builder resumes
-the row with `task start` and carries on in the ticket's worktree.
+ticket it claimed is held, or is stopped before a build finished, leaves that build's row `paused` and
+the ticket in progress. A whole-board run's survey returns every in-progress ticket whose own row is
+`paused` under a dispatcher run's claim note (`Built by the … dispatcher run on ticket-<id>`) and whose
+worktree exists, and resumes each that is not held ahead of new tickets: its builder resumes the row
+with `task start` and carries on in the ticket's worktree, keeping its uncommitted edits, without a new
+claim. A paused row with any other note is a person's pause, left alone. `ticket unhold` on a ticket in
+progress with a paused row ends its human output (never its `--json`) with a line naming a
+single-ticket dispatcher run for it, which takes the build over the same way.
 
 **A ticket may name its agents.** `ticket add --model sonnet --effort high` stores both;
 `ticket agent <id> [--model <m>] [--effort <e>]` changes either later with one log line,
@@ -233,8 +238,8 @@ and with only low tickets ready `; only low priority ready: triage, then launch`
 are triaged before a run is launched for them; `stopped` — never started, or ended by the user —
 adds `; dispatcher stopped: wait for the user's go`, however many tickets are filed meanwhile;
 `running` adds nothing to it. Instead, while the state is `running`, `ticket add`, `ticket priority`,
-`ticket agent`, `ticket depends` and `ticket reopen` end their human output with one more line after
-it, `Dispatcher running: it picks this change up at its next agent's return. Never stop or relaunch
+`ticket agent`, `ticket depends`, `ticket reopen`, `ticket status <id> open`, `ticket hold` and
+`ticket unhold` end their human output with one more line after it, `Dispatcher running: it picks this change up at its next agent's return. Never stop or relaunch
 it for this.` — a run stopped to take new work loses the agents in flight. `--json` never carries it.
 
 `agent-progress dispatcher running --run <runId>` stores the Workflow run beside the state, and
@@ -260,7 +265,9 @@ another ticket. A ticket it was given no `readyTickets` entry for — one in pro
 build it resumes — has its model and effort read with `ticket show <id> --json` before any builder
 or reviewer starts. Whichever the run, two agents in a row that return nothing, across tickets, stop
 it the way a board stop does, and it returns `stoppedByFailures: true`: those deaths count as no
-failed pass and park nothing. Two runs may then want one ticket, and the atomic `ticket claim` gives it to one: each
+failed pass and park nothing. A run that a stop, the board's or the failures', ended with builds left
+paused names them in its summary as `pausedBuilds: [<ids>]`, absent when there are none; the next
+whole-board run resumes them. Two runs may then want one ticket, and the atomic `ticket claim` gives it to one: each
 builder's claim note names its run, so a builder refused as in-progress carries on only past its own
 run's claim and otherwise returns, and its run moves on. Every builder ends with
 `ticket review <id> --start-review`, and its reviewer takes that bar over, so the ticket's slot is held

@@ -63,13 +63,26 @@ const TICKET_AGENT_SETTINGS_SCHEMA = {
   required:   ['id'],
 };
 
+const PAUSED_BUILD_SCHEMA = {
+  type:       'object',
+  properties: {
+    id:             { type: 'string' },
+    note:           { type: 'string' },
+    worktreeExists: { type: 'boolean' },
+    model:          { type: 'string' },
+    effort:         { type: 'string' },
+  },
+  required: ['id', 'note', 'worktreeExists'],
+};
+
 const SURVEY_SCHEMA = {
   type:       'object',
   properties: {
     status:               STATUS_BLOCK_SCHEMA,
     reviewWaitingTickets: { type: 'array', items: TICKET_AGENT_SETTINGS_SCHEMA },
+    pausedBuilds:         { type: 'array', items: PAUSED_BUILD_SCHEMA },
   },
-  required: ['status', 'reviewWaitingTickets'],
+  required: ['status', 'reviewWaitingTickets', 'pausedBuilds'],
 };
 
 const TICKET_SETTINGS_LOOKUP_SCHEMA = {
@@ -156,6 +169,11 @@ function claimNoteOf(ticketId) {
   return `Built by the ${settings.runLabel} dispatcher run on ticket-${ticketId}`;
 }
 
+// Any dispatcher run's claim, whichever run label it carries; a paused row with another note is a person's pause and stays theirs.
+function noteIsADispatcherClaimOn(note, ticketId) {
+  return typeof note === 'string' && note.startsWith('Built by the ') && note.endsWith(` dispatcher run on ticket-${ticketId}`);
+}
+
 function reviewNoteOf(ticketId) {
   return `Reviewed by the ${settings.runLabel} dispatcher run on ticket-${ticketId}`;
 }
@@ -181,10 +199,13 @@ const STATUS_RETURN_TEXT = `As your very last act run \`agent-progress status --
 
 function surveyPrompt() {
   return [
-    `Run \`agent-progress status --json\` once, in ${settings.mainCheckout}, and make no other call. Judge nothing; return:`,
+    `Run \`agent-progress status --json\` once, in ${settings.mainCheckout}, then \`test -d\` once per paused build below, and make no other call. Judge nothing; return:`,
     `- \`status\`: its \`concurrency\` block as printed (limit, agentsInFlight, freeSlots, readyTicketIds, dispatcherState, heldTicketIds), ${DERIVED_STATUS_FIELDS_TEXT};`,
     '- `reviewWaitingTickets`: every ticket whose status is `in-review` and that no `running` task names in its `reviewOf`, as `{ id, model, effort }` '
-      + 'with `model` and `effort` copied from its entry in `tickets` and left out where that entry has none.',
+      + 'with `model` and `effort` copied from its entry in `tickets` and left out where that entry has none;',
+    '- `pausedBuilds`: every ticket whose status is `in-progress` and whose own row (the task its `task` field names) is `paused`, as '
+      + '`{ id, note, worktreeExists, model, effort }`: `note` that row\'s note verbatim (empty when it has none), `worktreeExists` whether '
+      + `\`test -d ${settings.mainCheckout}/.claude/worktrees/ticket-<id>\` succeeds, and \`model\` and \`effort\` as above.`,
   ].join('\n');
 }
 
@@ -196,10 +217,11 @@ function ticketSettingsLookupPrompt(ticketIds) {
   ].join('\n');
 }
 
-// A build a hold or a stop left paused is in progress, so no survey finds it again: the orchestrator resumes it with a run for that ticket alone.
-function singleTicketTakeoverText(ticketId) {
-  if (settings.ticketIds === null) return '';
-  return `This run was launched for this ticket alone: when the note is instead another dispatcher run's claim, beginning "Built by the " and ending `
+// A build a hold or a stop left paused is taken over by a whole-board run whose survey found it, or by a run launched for that ticket alone.
+function pausedBuildTakeoverText(ticketId) {
+  if (settings.ticketIds === null && !pausedBuildTicketIds.has(ticketId)) return '';
+  const whyThisRunTakesItOver = settings.ticketIds === null ? 'This run found this ticket\'s build paused' : 'This run was launched for this ticket alone';
+  return `${whyThisRunTakesItOver}: when the note is instead another dispatcher run's claim, beginning "Built by the " and ending `
     + `" dispatcher run on ticket-${ticketId}", the row is \`paused\` and ${worktreeOf(ticketId)} exists, a hold or a stop left that build paused, `
     + 'and it is this run\'s to take over in the same way. ';
 }
@@ -213,7 +235,7 @@ function builderPrompt(ticketId, previousPass, owner) {
     + `in \`agent-progress status --json --full\`). When that note is exactly "${claimNoteOf(ticketId)}" and ${worktree} exists, `
     + `the claim is this run's own: an earlier attempt at this ticket made it, a builder of this run that stopped short, or this very builder before the runtime `
     + 'restarted or resumed it. Carry on in that worktree, keeping every uncommitted edit it holds. '
-    + singleTicketTakeoverText(ticketId)
+    + pausedBuildTakeoverText(ticketId)
     + 'When the row you carry on past is `paused` rather than `running`, resume it first with `agent-progress task start <that row>`, so your build holds its slot. '
     + 'On any other refusal, stop at once and return outcome '
     + '`claim-refused` with its message verbatim as `detail` and, when it was refused as in-progress, that row\'s note as `claimNote`.';
@@ -234,6 +256,9 @@ function builderPrompt(ticketId, previousPass, owner) {
   );
   if (previousPass === 'review') lines.push('A reviewer found that the previous pass does not hold: the last `## Review` in the ticket says why, and your work starts there.');
   if (previousPass === 'builder') lines.push('An earlier builder of this run stopped before review: the worktree holds whatever it committed, and your work continues from there.');
+  if (previousPass === 'paused') {
+    lines.push('An earlier dispatcher run left this build paused: the worktree holds whatever its builder committed or left uncommitted, and your work continues from there.');
+  }
   lines.push(
     `Read \`${settings.mainCheckout}/.agent-progress/agent-brief.md\` once and follow its fenced blocks under Call discipline, Stop conditions, `
       + `Find and fix, Ready to merge and Report, ${briefPlaceholdersText(ticketId)}. The Scope, Contract, Browser loop and Review brief blocks are not yours.`,
@@ -331,6 +356,10 @@ let lowPriorityReadyTicketIds = new Set();
 // A single-ticket run reads no board before its builder starts, so its arguments' entries seed the set.
 let heldTicketIds = new Set(settings.readyTickets.filter((entry) => entry !== null && typeof entry === 'object' && entry.held === true).map((entry) => entry.id));
 const heldWork = new Map();
+// In-progress tickets whose build an earlier dispatcher run left paused, found by the survey, resumed ahead of new tickets.
+const resumablePausedBuildIds = [];
+const pausedBuildTicketIds = new Set();
+const pausedBuildsLeft = [];
 
 function ticketIsHeld(ticketId) {
   return heldTicketIds.has(ticketId);
@@ -390,6 +419,7 @@ function summary() {
     ...(stoppedByFailures ? { stoppedByFailures } : {}),
     ...(lowPriorityWaiting.length > 0 ? { lowPriorityWaiting } : {}),
     ...(held.length > 0 ? { held } : {}),
+    ...(pausedBuildsLeft.length > 0 ? { pausedBuilds: pausedBuildsLeft } : {}),
   };
 }
 
@@ -457,8 +487,12 @@ function untakenTicketIds() {
 }
 
 function heldUntakenTicketIds() {
-  const candidates = settings.ticketIds ?? (board === null ? [] : board.readyTicketIds);
+  const candidates = settings.ticketIds ?? (board === null ? [] : [...resumablePausedBuildIds, ...board.readyTicketIds]);
   return candidates.filter((ticketId) => !ticketIdsTakenThisRun.has(ticketId) && ticketIsHeld(ticketId));
+}
+
+function untakenPausedBuildIds() {
+  return resumablePausedBuildIds.filter((ticketId) => !ticketIdsTakenThisRun.has(ticketId) && !ticketIsHeld(ticketId));
 }
 
 function holdBack(work) {
@@ -562,6 +596,12 @@ function nextWork() {
     if (queued === undefined) break;
     if (!ticketIsHeld(queued.ticketId)) return queued;
     holdBack(queued);
+  }
+  // A paused build already holds a worktree and a pass's work, so it goes before a ticket that holds nothing yet.
+  const [pausedBuildId] = untakenPausedBuildIds();
+  if (pausedBuildId !== undefined) {
+    ticketIdsTakenThisRun.add(pausedBuildId);
+    return { kind: 'build', ticketId: pausedBuildId, previousPass: 'paused' };
   }
   const [readyTicketId] = untakenTicketIds();
   if (readyTicketId === undefined) return null;
@@ -802,6 +842,14 @@ if (settings.ticketIds === null) {
     recordOf(reviewWaitingTicket.id).agentSettings = agentSettingsFrom(reviewWaitingTicket);
     queueReview(reviewWaitingTicket.id, false);
   }
+  const pausedBuilds = Array.isArray(survey.pausedBuilds) ? survey.pausedBuilds : [];
+  for (const pausedBuild of pausedBuilds) {
+    if (pausedBuild === null || typeof pausedBuild !== 'object' || pausedBuild.worktreeExists !== true) continue;
+    if (!noteIsADispatcherClaimOn(pausedBuild.note, pausedBuild.id)) continue;
+    resumablePausedBuildIds.push(pausedBuild.id);
+    pausedBuildTicketIds.add(pausedBuild.id);
+    recordOf(pausedBuild.id).agentSettings = agentSettingsFrom(pausedBuild);
+  }
 }
 
 phase('Build');
@@ -826,7 +874,8 @@ if (rowsToRelease.length > 0 || inFlight.size > 0) {
   phase('Park');
   for (;;) {
     while (rowsToRelease.length > 0 && inFlight.size < ownSlotLimit()) {
-      const { ticketId } = rowsToRelease.shift();
+      const { kind, ticketId } = rowsToRelease.shift();
+      if (kind === 'build') pausedBuildsLeft.push(ticketId);
       releaseRowsOf(ticketId, `Paused the row of #${ticketId}: left for the user's go`);
     }
     if (inFlight.size === 0) break;
@@ -840,8 +889,11 @@ const leftWaiting = [
   ...[...takeoversWaiting.values()].map((takeover) => takeover.ticketId),
   ...reviewQueue.map((review) => review.ticketId),
   ...rebuildQueue.map((rebuild) => rebuild.ticketId),
+  ...untakenPausedBuildIds(),
   ...untakenTicketIds(),
 ];
+// A paused build this run found and never started stays paused, for the next run's survey like the ones it paused itself.
+pausedBuildsLeft.push(...untakenPausedBuildIds().filter((ticketId) => !pausedBuildsLeft.includes(ticketId)));
 const leftWaitingUnheld = leftWaiting.filter((ticketId) => !ticketIsHeld(ticketId));
 const leftWaitingText = leftWaitingUnheld.map((ticketId) => `#${ticketId}`).join(', ');
 if (leftWaitingUnheld.length > 0) log(runIsStopped() ? `Left for the user's go: ${leftWaitingText}.` : `No slot free for ${leftWaitingText}: other agents hold the board's limit.`);

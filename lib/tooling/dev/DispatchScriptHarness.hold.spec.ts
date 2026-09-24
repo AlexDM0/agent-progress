@@ -201,7 +201,7 @@ const CLAIMS: Claim[] = [
       && run.mostAgentsOnBoardAtOnce <= 1
       && run.rowsPaused.length === 0
       && run.rowsRunningAtEnd.length === 0,
-    mutant: { find: '    + singleTicketTakeoverText(ticketId)\n', replace: '    + \'\'\n' },
+    mutant: { find: '    + pausedBuildTakeoverText(ticketId)\n', replace: '    + \'\'\n' },
   },
   {
     name:     'the same takeover resumes the paused row, so the build holds its slot while it runs',

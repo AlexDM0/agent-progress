@@ -56,8 +56,8 @@ export interface FakeBoard {
   heldTicketIds:         string[];
 }
 
-/** `main` is the scenario's run of the script; `racing` the single-ticket run started beside it on the same board. */
-export type DispatchRunName = 'main' | 'racing';
+/** `main` is the scenario's run of the script; `racing` the single-ticket run started beside it on the same board; `relaunch` the run after it. */
+export type DispatchRunName = 'main' | 'racing' | 'relaunch';
 
 export interface RecordedAgentCall {
   run:                        DispatchRunName;
@@ -125,9 +125,11 @@ export interface DispatchScenario {
   killedAtFirstCommandOf?:     string;
   /**
    * Tickets in progress whose build row is paused from the start, each with its claim's note, as an earlier dispatcher run's parking agent leaves
-   * one a hold or a stop kept from its next builder; their worktree exists. They are not ready, so only a run named for them builds them.
+   * one a hold or a stop kept from its next builder; their worktree exists. They are not ready: a whole-board survey returns them as `pausedBuilds`.
    */
   pausedBuildNotesByTicketId?: Record<string, string>;
+  /** Once the run returns, the user's go sets the board running and a fresh whole-board run starts on the board it left; its calls are `relaunch`. */
+  relaunchedAfterTheRun?:      boolean;
 }
 
 export interface DispatchRun {
@@ -150,6 +152,9 @@ export interface DispatchRun {
   /** The summary the racing run returned, `null` without one, and what it logged. */
   racingSummary:            unknown;
   racingLogs:               string[];
+  /** The summary the whole-board relaunch returned, `null` without one, and what it logged. */
+  relaunchSummary:          unknown;
+  relaunchLogs:             string[];
   /** The rows left running when the script returned, as `build <ticket>` or `review <ticket>`; a paused row is not among them. */
   rowsRunningAtEnd:         string[];
   /** The rows a parking agent paused, as `build <ticket>`. */
@@ -483,6 +488,14 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     ...statedAgentSettingsOf(reviewWaitingTicketId),
   }));
 
+  // Every paused build row is an in-progress ticket's own, and its worktree exists, as a parking agent leaves one.
+  const pausedBuildsOnBoard = (): Record<string, unknown>[] => [...pausedRows.values()].filter((row) => row.kind === 'build').map((row) => ({
+    id:             row.ticketId,
+    note:           row.note,
+    worktreeExists: true,
+    ...statedAgentSettingsOf(row.ticketId),
+  }));
+
   const statusBlock = (): Record<string, unknown> => {
     const agentsInFlight = agentsOnBoard();
     const concurrency = {
@@ -504,7 +517,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   };
 
   const replyFor = (call: RecordedAgentCall): Record<string, unknown> | null => {
-    if (call.kind === 'survey') return { status: statusBlock(), reviewWaitingTickets: reviewWaitingTicketsOnBoard() };
+    if (call.kind === 'survey') return { status: statusBlock(), reviewWaitingTickets: reviewWaitingTicketsOnBoard(), pausedBuilds: pausedBuildsOnBoard() };
     // As `ticket show --json` states a ticket: its model and effort only where it names them.
     if (call.kind === 'settings') {
       return { tickets: (call.ticketId ?? '').split(',').map((lookedUpTicketId) => ({ id: lookedUpTicketId, ...statedAgentSettingsOf(lookedUpTicketId) })) };
@@ -646,6 +659,8 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
 
   const racingAgent: FakeAgent = async (prompt, options = {}) => fakeAgent(prompt, options, 'racing');
 
+  const relaunchAgent: FakeAgent = async (prompt, options = {}) => fakeAgent(prompt, options, 'relaunch');
+
   let resumedCallCount = 0;
   let replayIsOver = false;
   const replayingAgent: FakeAgent = async (prompt, options = {}) => {
@@ -688,6 +703,12 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   const resumed         = firstRunOutcome === KILLED;
   const summary         = resumed ? await runScript(replayingAgent, generation, mainArguments, logs) : firstRunOutcome;
   const racingSummary   = await racingRun;
+  const relaunchLogs: string[] = [];
+  let relaunchSummary: unknown = null;
+  if (scenario.relaunchedAfterTheRun === true) {
+    board.dispatcherState = 'running';
+    relaunchSummary = await runScript(relaunchAgent, generation, argumentsFor(undefined), relaunchLogs);
+  }
   return {
     calls,
     mostAgentsAtOnce,
@@ -698,6 +719,8 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     slotGaps,
     racingSummary,
     racingLogs,
+    relaunchSummary,
+    relaunchLogs,
     rowsRunningAtEnd: [...rowsLeftRunning.keys()].map(rowNameOf),
     rowsPaused:       [...pausedRows.keys()].map(rowNameOf),
     reviewBarsAdded,
