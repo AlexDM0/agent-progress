@@ -29,15 +29,16 @@ order to file a ticket, move one, and stay out of the tool's way.
 - **One tracker per repository, shared by every worktree of it.** The root is found with
   `git rev-parse --git-common-dir`, so a subagent running in `.claude/worktrees/some-branch` writes
   into the *main* checkout's `.agent-progress/`. Outside a git repository the current directory is
-  the root; `--root <path>` and the `AGENT_PROGRESS_ROOT` environment variable override the
-  discovery when a command runs from somewhere else entirely.
+  the root; the `AGENT_PROGRESS_ROOT` environment variable overrides the discovery for any command
+  run from somewhere else entirely, a scratch tracker included. `--root <path>` is `init`'s own flag,
+  naming the directory to adopt, and every other command refuses it.
 - **A task is a row on the Gantt chart** — a name, an owner, a note, a status, two timestamps and an
   optional token count. Row ids are never reused, so a log line naming task #4 means the same work
   tomorrow. Where the `SubagentStop` hook is installed, a subagent whose brief carries the line
   `agent-progress row: 4` (or `4, 7` for a bundle) has what it processed **added** to that row when
   it stops — so a move that ends such a row takes no `--tokens`, which would overwrite the sum.
-- **Every ticket owns a row too.** Filing a ticket creates its row as `pending`; moving the ticket
-  moves the row and stamps both. You never keep the two in step yourself.
+- **Every ticket owns a row too.** Filing a ticket creates its row as `pending`, except a low one,
+  which gets its row when it is started or claimed; moving the ticket moves the row and stamps both. You never keep the two in step yourself.
 - **The log** is the narrative under the chart: one line per milestone, newest first on the page.
 - **The dashboard** is `.agent-progress/progress.html`, written fresh by every command that changes
   anything, with a **Progress** tab and a **Tickets** tab. One file, no network dependency.

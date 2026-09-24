@@ -130,8 +130,9 @@ Open every file named above in ONE message with several Read calls.
 Existing files change through the Edit tool only, never through a script run in Bash: no heredoc,
 no python or perl edit script, no `sed -i`. New files through Write.
 Every probe that touches a scratch repository names it absolutely (`git -C <scratch>`,
-`--root <scratch>`, `cd <scratch> && …` joined with `&&`, never `;`); never write into any `.git`
-directory by hand.
+`AGENT_PROGRESS_ROOT=<scratch>` before every agent-progress command in it, `cd <scratch> && …`
+joined with `&&`, never `;`); `--root` is `init`'s alone, and any other command refuses it. Never
+write into any `.git` directory by hand.
 While iterating verify with `<the narrow command: the spec file you touched>`.
 Run the full checks only at the close described under "Ready to merge", output piped through
 `tail`: `<full check command> 2>&1 | tail -20`.
@@ -284,12 +285,15 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
    with the Edit tool (no heredoc, edit script or `sed -i`), one commit per fix, one plain subject
    line. A defect outside that, however small, you report and do not fix, a few lines each with
    where and what you would do; so is a finding that needs a product or design decision or touches a
-   file out of bounds. The orchestrator files those.
+   file out of bounds. A dispatched reviewer files each itself,
+   `agent-progress ticket add "<what and where>" --priority low --body "<what you saw>"`; by hand
+   the orchestrator files what you report.
 3. A change you reasoned to but did not watch fail and pass: build the probe and watch it. A doubt
    still open at the budget is `does not hold`, never a caveat.
    Every probe that touches a scratch repository names it absolutely (`git -C <scratch>`,
-   `--root <scratch>`, `cd <scratch> && …` joined with `&&`, never `;`); never write into any
-   `.git` directory by hand.
+   `AGENT_PROGRESS_ROOT=<scratch>` before every agent-progress command in it, `cd <scratch> && …`
+   joined with `&&`, never `;`); `--root` is `init`'s alone, and any other command refuses it.
+   Never write into any `.git` directory by hand.
 4. Count your fixes before you rebase, since the rebase rewrites <review start>:
    `agent-progress rework --since <review start> --worktree <worktree>`.
 5. Record `git -C <worktree> rev-parse HEAD` as <pre-rebase tip>, then `git rebase <main line>`,
@@ -340,7 +344,8 @@ its reworked total over 750.
 ## Orchestrator checklist
 
 For a ticket dispatched by hand only: the dispatcher's prompts carry their own marker lines and its
-agents move their own rows. Register the row before the agent starts and name it in the brief's `agent-progress row: <rowId>`
+agents move their own rows. Claim the ticket before the agent starts, which starts the ticket's own
+row rather than a second one beside it, and name that row in the brief's `agent-progress row: <rowId>`
 line; the `SubagentStop` hook reads that line from the brief alone and adds the agent's `input` —
 every token it processed, the figure its log line ends on, `input 3.8M (cache read 3.6M)` — to the
 row when the agent stops. It adds rather than sets, so a row
@@ -357,9 +362,9 @@ processed 0.4 million, an implementer ending on 420 thousand had processed 35 mi
 a clean agent briefed from the Review brief above, never the orchestrator reading the diff.
 
 ```
-agent-progress task add "<what the agent will do>" --owner <model> --start   # its id goes on the brief's `agent-progress row:` line
-agent-progress task finish <id>                # add `--tokens <subagent_tokens>` only without the hook
-agent-progress ticket review <id>              # then a clean reviewer in its own row, from the Review brief
+agent-progress ticket claim <id> --owner <model> --note "<what the agent will do>"   # starts the ticket's own row
+agent-progress ticket show <id>                # its `task:` is the rowId on the brief's `agent-progress row:` line
+agent-progress ticket review <id>              # finishes that row; then a clean reviewer in its own row, from the Review brief
 agent-progress task add "Review <N> #<id> — <ticket title>" --review-of <id> --owner opus --start   # the review's row, drawn above the ticket's
 agent-progress task finish <reviewRowId>       # then `task deliver <reviewRowId>`: for every verdict but `released`, which delivered it
 ```
