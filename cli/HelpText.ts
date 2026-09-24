@@ -20,7 +20,8 @@ repository to use instead of walking up from the current directory.
 \`status\`, \`ticket add\`, every ticket or task move and \`release\` end their output with one line
 read from the board after the change: \`Next: 1 of 2 slots free; ready: #003, #005\`, \`Next: no slot
 free (2 agents in flight); ready: #003\` or \`Next: 2 of 2 slots free; nothing ready\` — at most five
-ready ids, then \`and N more\` — followed by the dispatcher's advice where it has any: \`; launch the
+ready ids, then \`and N more\`; a held ready ticket is left out and named apart, \`; held: #002\` —
+followed by the dispatcher's advice where it has any: \`; launch the
 dispatcher\` or \`; dispatcher stopped: wait for the user's go\`. While the dispatcher is \`running\`,
 \`ticket add\`, \`priority\`, \`agent\`, \`depends\` and \`reopen\` add one more line after it: the run
 picks the change up at its next agent's return and is never stopped or relaunched for it. --json

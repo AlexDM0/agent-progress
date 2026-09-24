@@ -212,6 +212,9 @@ The same figures close the human output of `status`, `ticket add`, `ticket depen
 the same lock hold: `Next: 1 of 2 slots free; ready: #003, #005`, `Next: no slot free (2 agents in
 flight); ready: #003` or `Next: 2 of 2 slots free; nothing ready`. Ready ids are listed in dispatch
 order: high first, then by id — normal before low, each lowest id first — at most five, then `and N more`.
+A held ready ticket is never listed under `ready:`: it is named apart after it, `Next: 2 of 2 slots
+free; ready: #001, #003; held: #002`, or `nothing ready; held: #002` when it was the only one, and it
+never counts toward the dispatcher's advice. A held ticket in progress or in review is not named.
 `--json` output never carries the line.
 
 ## The dispatcher state

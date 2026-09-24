@@ -10,9 +10,9 @@ import { NextLineUtil } from './NextLineUtil';
 const { composeNextLine, endWithRunningDispatcherNotice } = NextLineUtil;
 
 /** A running dispatcher adds nothing, so the slot and ready wordings are pinned against it. */
-const NO_LOW_PRIORITY_READY = { lowPriorityReadyTicketIds: [] } as const;
+const NOTHING_LOW_PRIORITY_OR_HELD = { lowPriorityReadyTicketIds: [], heldTicketIds: [] } as const;
 
-const WITH_THE_DISPATCHER_RUNNING = { dispatcherState: 'running', ...NO_LOW_PRIORITY_READY } as const;
+const WITH_THE_DISPATCHER_RUNNING = { dispatcherState: 'running', ...NOTHING_LOW_PRIORITY_OR_HELD } as const;
 
 test('a free slot and ready tickets name how many of the limit are free and each ready id', () => {
   expect(composeNextLine({
@@ -104,7 +104,7 @@ test('a finished dispatcher with a ready ticket reads as launch the dispatcher',
     freeSlots:       2,
     readyTicketIds:  ['003'],
     dispatcherState: 'finished',
-    ...NO_LOW_PRIORITY_READY,
+    ...NOTHING_LOW_PRIORITY_OR_HELD,
   })).toBe('Next: 2 of 2 slots free; ready: #003; launch the dispatcher');
 });
 
@@ -115,7 +115,7 @@ test('a finished dispatcher with nothing ready needs no launching', () => {
     freeSlots:       2,
     readyTicketIds:  [],
     dispatcherState: 'finished',
-    ...NO_LOW_PRIORITY_READY,
+    ...NOTHING_LOW_PRIORITY_OR_HELD,
   })).toBe('Next: 2 of 2 slots free; nothing ready');
 });
 
@@ -127,7 +127,7 @@ test('a stopped dispatcher says to wait for the user\'s go even with tickets rea
     freeSlots:       2,
     readyTicketIds:  ['003'],
     dispatcherState: 'stopped',
-    ...NO_LOW_PRIORITY_READY,
+    ...NOTHING_LOW_PRIORITY_OR_HELD,
   })).toBe('Next: 2 of 2 slots free; ready: #003; dispatcher stopped: wait for the user\'s go');
 });
 
@@ -138,7 +138,7 @@ test('a running dispatcher with tickets ready adds no advice', () => {
     freeSlots:       1,
     readyTicketIds:  ['003'],
     dispatcherState: 'running',
-    ...NO_LOW_PRIORITY_READY,
+    ...NOTHING_LOW_PRIORITY_OR_HELD,
   })).toBe('Next: 1 of 2 slots free; ready: #003');
 });
 
@@ -150,6 +150,7 @@ test('a finished dispatcher with only low tickets ready advises triage before a 
     freeSlots:                 2,
     readyTicketIds:            ['007', '009'],
     lowPriorityReadyTicketIds: ['007', '009'],
+    heldTicketIds:             [],
     dispatcherState:           'finished',
   })).toBe('Next: 2 of 2 slots free; ready: #007, #009; only low priority ready: triage, then launch');
 });
@@ -161,6 +162,7 @@ test('a finished dispatcher with a normal ticket ready beside a low one reads as
     freeSlots:                 2,
     readyTicketIds:            ['003', '009'],
     lowPriorityReadyTicketIds: ['009'],
+    heldTicketIds:             [],
     dispatcherState:           'finished',
   })).toBe('Next: 2 of 2 slots free; ready: #003, #009; launch the dispatcher');
 });
@@ -172,8 +174,79 @@ test('a stopped dispatcher with only low tickets ready still waits for the user\
     freeSlots:                 2,
     readyTicketIds:            ['009'],
     lowPriorityReadyTicketIds: ['009'],
+    heldTicketIds:             [],
     dispatcherState:           'stopped',
   })).toBe('Next: 2 of 2 slots free; ready: #009; dispatcher stopped: wait for the user\'s go');
+});
+
+// An orchestrator reading `ready:` starts what it names, so a held ticket must never stand in that list.
+test('a held ready ticket is left out of ready and named apart as held', () => {
+  expect(composeNextLine({
+    ...WITH_THE_DISPATCHER_RUNNING,
+    limit:          2,
+    agentsInFlight: 0,
+    freeSlots:      2,
+    readyTicketIds: ['001', '002', '003'],
+    heldTicketIds:  ['002'],
+  })).toBe('Next: 2 of 2 slots free; ready: #001, #003; held: #002');
+});
+
+test('a held ticket that is not ready is not named, since the line speaks of what could be started', () => {
+  expect(composeNextLine({
+    ...WITH_THE_DISPATCHER_RUNNING,
+    limit:          2,
+    agentsInFlight: 1,
+    freeSlots:      1,
+    readyTicketIds: ['003'],
+    heldTicketIds:  ['001'],
+  })).toBe('Next: 1 of 2 slots free; ready: #003');
+});
+
+test('a board whose only ready ticket is held reads as nothing ready and names the held one', () => {
+  expect(composeNextLine({
+    ...WITH_THE_DISPATCHER_RUNNING,
+    limit:          2,
+    agentsInFlight: 0,
+    freeSlots:      2,
+    readyTicketIds: ['001'],
+    heldTicketIds:  ['001'],
+  })).toBe('Next: 2 of 2 slots free; nothing ready; held: #001');
+});
+
+// A finished dispatcher relaunched onto a board of held tickets would start nothing, so no launch is advised.
+test('a finished dispatcher whose every ready ticket is held advises no launch', () => {
+  expect(composeNextLine({
+    limit:                     2,
+    agentsInFlight:            0,
+    freeSlots:                 2,
+    readyTicketIds:            ['001'],
+    lowPriorityReadyTicketIds: [],
+    heldTicketIds:             ['001'],
+    dispatcherState:           'finished',
+  })).toBe('Next: 2 of 2 slots free; nothing ready; held: #001');
+});
+
+test('a finished dispatcher whose only unheld ready ticket is low advises triage, not a launch', () => {
+  expect(composeNextLine({
+    limit:                     2,
+    agentsInFlight:            0,
+    freeSlots:                 2,
+    readyTicketIds:            ['001', '009'],
+    lowPriorityReadyTicketIds: ['009'],
+    heldTicketIds:             ['001'],
+    dispatcherState:           'finished',
+  })).toBe('Next: 2 of 2 slots free; ready: #009; held: #001; only low priority ready: triage, then launch');
+});
+
+test('more than five held ready tickets name the first five and count the rest', () => {
+  expect(composeNextLine({
+    ...WITH_THE_DISPATCHER_RUNNING,
+    limit:          2,
+    agentsInFlight: 0,
+    freeSlots:      2,
+    readyTicketIds: ['1', '2', '3', '4', '5', '6'],
+    heldTicketIds:  ['1', '2', '3', '4', '5', '6'],
+  })).toBe('Next: 2 of 2 slots free; nothing ready; held: #1, #2, #3, #4, #5 and 1 more');
 });
 
 // The moment an orchestrator adds work mid-run is the moment it is tempted to stop the run, which loses the agents in flight.

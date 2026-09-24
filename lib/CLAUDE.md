@@ -139,8 +139,9 @@ anything that needs "now" is handed it.
   "waiting on" note.
 - `lib/utils/NextLineUtil.ts` — `composeNextLine`, the `Next: …` line from the limit, the agents in
   flight, the free slots, the ready ids and which of them are low priority: `N of L slots free` or `no slot free (N agents in flight)`, then
-  the ready ids as given (at most five, then `and N more`) or `nothing ready`, then the dispatcher's
-  advice: `; launch the dispatcher` when it is `finished` and a normal or high ticket is ready, `; only low
+  the ready ids as given (at most five, then `and N more`) or `nothing ready`, **held ready ids left out of
+  that list and named after it as `; held: #…`** (a held ticket that is not ready is not named), then the dispatcher's
+  advice, judged on the unheld ready ids alone: `; launch the dispatcher` when it is `finished` and a normal or high ticket is ready, `; only low
   priority ready: triage, then launch` when it is `finished` and every ready ticket is low, `; dispatcher stopped:
   wait for the user's go` whenever it is `stopped`, nothing when it is `running`. `endWithRunningDispatcherNotice`
   appends the one line the intake moves end on while the dispatcher is `running` — the run picks the change up at its

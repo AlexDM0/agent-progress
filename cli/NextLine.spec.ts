@@ -130,6 +130,29 @@ describe.skipIf(!gitIsAvailable())('the line the human output ends with', () => 
   }
 });
 
+// `ticket hold` and `unhold` print the line too; an orchestrator reading `ready:` starts what it names, so a held ticket must leave it at once.
+describe.skipIf(!gitIsAvailable())('a held ticket on the line', () => {
+  async function nextLineAfter(commandLineArguments: readonly string[]): Promise<string | undefined> {
+    return (await run(commandLineArguments)).outputText().split('\n').filter((line) => line.startsWith('Next:')).at(-1);
+  }
+
+  test('`ticket hold` takes the ticket out of ready and names it held, and `ticket unhold` puts it back', async () => {
+    expect(await nextLineAfter(['ticket', 'hold', '2'])).toBe('Next: 2 of 2 slots free; ready: #001, #003; held: #002');
+    expect(await nextLineAfter(['status'])).toBe('Next: 2 of 2 slots free; ready: #001, #003; held: #002');
+    expect(await nextLineAfter(['ticket', 'unhold', '2'])).toBe('Next: 2 of 2 slots free; ready: #001, #002, #003');
+  });
+
+  // A finished dispatcher relaunched onto held work would start nothing, so the line must not advise it.
+  test('a finished board whose only ready ticket is held advises no launch', async () => {
+    await run(['ticket', 'abandon', '1', '--reason', 'superseded by #3']);
+    await run(['ticket', 'abandon', '3', '--reason', 'superseded by #2']);
+    await run(['dispatcher', 'finished']);
+
+    expect(await nextLineAfter(['ticket', 'hold', '2'])).toBe('Next: 2 of 2 slots free; nothing ready; held: #002');
+    expect(await nextLineAfter(['status'])).toBe('Next: 2 of 2 slots free; nothing ready; held: #002');
+  });
+});
+
 describe.skipIf(!gitIsAvailable())('the --json output', () => {
   for (const nextLineCase of NEXT_LINE_CASES) {
     test(`\`${nextLineCase.command.join(' ')} --json\` is one parseable document with no Next line in it`, async () => {
