@@ -57,7 +57,9 @@ context.
   `includeLowPriority: true`; it returns the low ones ready as `lowPriorityWaiting`, and the
   orchestrator passes the flag only on the launch after its triage. A dispatcher that finished by
   itself is relaunched when a normal or high ticket is ready; one the user stopped
-  (`agent-progress dispatcher stopped`) waits for their go. It loads the first skill for the commands
+  (`agent-progress dispatcher stopped`) waits for their go. It stores each launch's run id with
+  `agent-progress dispatcher running --run <runId>`, and a run that died or was killed is resumed by
+  that id with the same args rather than launched fresh. It loads the first skill for the commands
   and repeats none of it.
 
 ## Adopting a repository
@@ -213,7 +215,7 @@ directory that has none is refused with a message saying the variable is set.
 | `ticket link <ticketId> <taskId> [--force]` | Point a ticket at an existing row instead of the one it filed. Refused when that row already belongs to another ticket, unless `--force`. |
 | `ticket depends <id> [<id>...]` | Set the tickets this one waits on, replacing its list; no ids clears it. A missing ticket or a circle is refused. Until they are all done or delivered, the ticket reads "waiting on #003" on the dashboard and in `ticket list`, and `ticket start` warns but still moves it. |
 | `concurrency [<n>] [--json]` | Print how many agents may be in flight at once, or store a new limit for every worktree: a whole number from 1 to 10. A higher one is refused at exit 1 with nothing written, and one an older tracker stored reads as 10. A tracker that never set one reads 2. A slot is an agent: the rows one `ticket claim` started count once. |
-| `dispatcher [running\|finished\|stopped] [--json]` | Print where the dispatcher was left, or store a new state with one log line, so it survives a compaction of the orchestrator's context. A tracker that never set one reads `stopped`, since the first start waits for the user's go, and the read writes nothing; any other word is refused at exit 1. `status --json` carries it as `concurrency.dispatcherState`, and the Next line ends with `; launch the dispatcher` when it is `finished` and a normal or high ticket is ready, `; only low priority ready: triage, then launch` when it is `finished` and only low tickets are ready, or `; dispatcher stopped: wait for the user's go` when it is `stopped`. |
+| `dispatcher [running\|finished\|stopped] [--run <runId>] [--json]` | Print where the dispatcher was left, or store a new state with one log line, so it survives a compaction of the orchestrator's context. A tracker that never set one reads `stopped`, since the first start waits for the user's go, and the read writes nothing; any other word is refused at exit 1. `running --run <runId>` stores the Workflow run beside the state, the one a killed run is resumed by; the read and `status --json` (`concurrency.dispatcherRunId`) print it, and every write without `--run` clears it. `--run` beside another state or none, or an empty id, is refused at exit 1. `status --json` carries it as `concurrency.dispatcherState`, and the Next line ends with `; launch the dispatcher` when it is `finished` and a normal or high ticket is ready, `; only low priority ready: triage, then launch` when it is `finished` and only low tickets are ready, or `; dispatcher stopped: wait for the user's go` when it is `stopped`. |
 | `range --from <when> --to <when> [--tick <15m\|1h\|1d>]` · `range --auto` | The stored default axis of the chart. A relative bound is stored as written, so `--from -2h` keeps meaning "the last two hours" on every refresh. |
 | `render` | Regenerate `progress.html` from the progress file and the tickets, changing nothing else. |
 | `open` | Open `progress.html` in the default browser. |
@@ -238,6 +240,7 @@ own (an unreadable progress file, a lock it could not take).
   "nextTaskId": 18,                              // never wound back, so an id is never reused
   "concurrencyLimit": 2,                         // optional: absent reads 2, above 10 reads 10
   "dispatcherState": "running",                  // optional: running|finished|stopped, absent reads stopped
+  "dispatcherRunId": "wf_example-run-1",         // optional: the Workflow run to resume, only beside running
   "tasks": [
     {
       "id": 17,
