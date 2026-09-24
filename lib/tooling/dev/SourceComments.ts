@@ -16,7 +16,9 @@ function commentSpansIn(fileContents: string): CommentSpan[] {
     for (const range of ranges ?? []) spansByStart.set(range.pos, { start: range.pos, end: range.end });
   };
   // Every comment is trivia before or after some token, and getChildren reaches every token, the end-of-file one included.
+  // A docblock's own parsed children sit inside the comment, where a `//` in its prose would read as a comment nested in it.
   const visit = (node: ts.Node): void => {
+    if (ts.isJSDoc(node)) return;
     record(ts.getLeadingCommentRanges(fileContents, node.pos));
     record(ts.getTrailingCommentRanges(fileContents, node.end));
     for (const child of node.getChildren(sourceFile)) visit(child);

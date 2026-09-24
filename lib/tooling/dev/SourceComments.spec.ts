@@ -36,6 +36,18 @@ describe('the comments of a source', () => {
     expect(blanked).toBe('const value = 1;       \n        const other = 2;\n');
   });
 
+  /** The parser reads a docblock's tags as nodes of their own, and a `//` in a tag's prose must not become a second comment inside the first. */
+  test('a line marker inside a docblock is part of the docblock, and the blanking keeps the length', () => {
+    const source = [
+      '/**\n * A tag. // not a line comment\n * @param value the // value\n * @returns {string} // x\n */\n',
+      'export function echo(value: string): string { return value; }\n',
+    ].join('');
+    const blanked = codeWithCommentsBlanked(source);
+    expect(commentsIn(source)).toHaveLength(1);
+    expect(blanked.length).toBe(source.length);
+    expect(blanked).not.toContain('*/');
+  });
+
   test('a comment inside a template expression and one at the end of the file are found', () => {
     const source = 'const text = `${/* inside */ 1}`;\n// last line, no newline after it';
     expect(commentsIn(source)).toEqual(['/* inside */', '// last line, no newline after it']);
