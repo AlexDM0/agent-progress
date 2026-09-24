@@ -191,7 +191,10 @@ adds `; dispatcher stopped: wait for the user's go`, however many tickets are fi
 
 The dispatcher itself is the Workflow script `.claude/workflows/agent-progress-dispatch.js`, which
 `init` and `update` write byte for byte from the copy the tool ships — a hand edit is undone on the
-next refresh, and `--no-workflow` skips it on either command. It starts no low ticket unless it is
+next refresh, and `--no-workflow` skips it on either command. It is launched by its path,
+`Workflow({ scriptPath: '<mainCheckout>/.claude/workflows/agent-progress-dispatch.js', args: { mainCheckout, mainLine, checkCommand, installCommand, includeLowPriority } })`,
+which works whenever the file exists; launching it by `name` should work only in a session started
+after the file was installed. It starts no low ticket unless it is
 launched with `includeLowPriority: true`, and returns the low tickets ready in its summary as
 `lowPriorityWaiting`, for the orchestrator to triage before that launch.
 

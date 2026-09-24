@@ -102,8 +102,10 @@ both `init` and `update`. `--hooks` is still accepted and does nothing — the h
 is now the default.
 
 A sixth goes in by default too: the dispatcher, **`.claude/workflows/agent-progress-dispatch.js`**,
-copied byte for byte from `templates/workflows/AgentProgressDispatch.js` so the Workflow tool finds it
-by the name `agent-progress-dispatch`. It is the tool's script rather than the project's, so every
+copied byte for byte from `templates/workflows/AgentProgressDispatch.js`. The orchestrator launches it
+by its path, `Workflow({ scriptPath: '<mainCheckout>/.claude/workflows/agent-progress-dispatch.js', args: { mainCheckout, mainLine, checkCommand, installCommand, includeLowPriority } })`,
+which works whenever the file exists; the name `agent-progress-dispatch` should work too, but only in
+a session started after the file was installed. It is the tool's script rather than the project's, so every
 `init` and `update` rewrites it through the atomic writer — a hand edit is undone — and reports
 `updated` or `unchanged` from the file's bytes. `--no-workflow` opts out on both commands.
 

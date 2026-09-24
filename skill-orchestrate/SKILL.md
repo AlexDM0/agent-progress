@@ -129,12 +129,14 @@ dispatcher waits for the user however many tickets are filed. On their go, each 
 
 ```
 agent-progress dispatcher running
-Workflow({ name: 'agent-progress-dispatch', args: { mainCheckout, mainLine, checkCommand, installCommand } })
+Workflow({ scriptPath: '<mainCheckout>/.claude/workflows/agent-progress-dispatch.js', args: { mainCheckout, mainLine, checkCommand, installCommand, includeLowPriority } })
 ```
 
 with the arguments settled at the opening, `installCommand` left out where a worktree needs nothing.
+The `scriptPath` form works whenever the file exists; `name: 'agent-progress-dispatch'` should work
+too, but only in a session started after the file was installed, so launch by the path.
 `includeLowPriority: true` is passed only on the launch that follows a triage (Low-priority work,
-below); without it the run starts no low ticket.
+below); left out or false, the run starts no low ticket.
 The script sets every agent's model and budget and creates every worktree itself: pass no model, and
 spawn no agent beside it. **At most 10 agents run at the same time**: the board's limit decides how
 many — `agent-progress concurrency` prints it, 2 unless the user set another, and it never goes above
