@@ -189,6 +189,13 @@ are triaged before a run is launched for them; `stopped` — never started, or e
 adds `; dispatcher stopped: wait for the user's go`, however many tickets are filed meanwhile;
 `running` adds nothing.
 
+`agent-progress dispatcher running --run <runId>` stores the Workflow run beside the state, and
+`dispatcher` and `status --json` (as `concurrency.dispatcherRunId`) print it: after a compaction it is
+the run to resume when the one launched died or was killed, `Workflow({ scriptPath, resumeFromRunId,
+args })` with the launch's args. `--run` goes with `running` alone, and every write without it —
+`finished`, `stopped`, a bare `running` — clears the stored id, so an old run is never resumed by
+mistake. A tracker without the field reads as it did.
+
 The dispatcher itself is the Workflow script `.claude/workflows/agent-progress-dispatch.js`, which
 `init` and `update` write byte for byte from the copy the tool ships — a hand edit is undone on the
 next refresh, and `--no-workflow` skips it on either command. It is launched by its path,

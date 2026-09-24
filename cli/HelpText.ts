@@ -278,9 +278,13 @@ dispatcher\` or \`; dispatcher stopped: wait for the user's go\`. --json output 
                               carries it beside \`agentsInFlight\`, the free slots and the ready
                               tickets.
 
-  dispatcher [running|finished|stopped] [--json]
+  dispatcher [running|finished|stopped] [--run <runId>] [--json]
                               Print where the dispatcher was left, or store a new state with one
                               log line, so it survives a compaction of the orchestrator's context.
+                              \`running --run <runId>\` stores the Workflow run beside it, the one a
+                              killed run is resumed by; \`--run\` goes with \`running\` alone, and
+                              every write without it clears the stored id. The read and
+                              \`status --json\` (\`concurrency.dispatcherRunId\`) print it.
                               \`running\`: a dispatcher is at work. \`finished\`: it ended by itself,
                               and the Next line says "launch the dispatcher" while a normal or high
                               ticket is ready, or "only low priority ready: triage, then launch"

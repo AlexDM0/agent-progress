@@ -59,7 +59,7 @@ or Node.
 
 - `lib/constants/Types.ts` — every shape the tracker stores or renders: `Task` (with its nullable
   `tokens` and its optional `history`, `agent` and `reviewOf`), `TaskPhase`, `LogEntry`, `ViewRange`, `ProgressFile` (with
-  `nextTaskId` and the optional `concurrencyLimit` and `dispatcherState`), `DispatcherState`, `TicketFrontmatter` (with the optional `priority`,
+  `nextTaskId` and the optional `concurrencyLimit`, `dispatcherState` and `dispatcherRunId`), `DispatcherState`, `TicketFrontmatter` (with the optional `priority`,
   absent meaning normal), `TicketPriority`, `Ticket`. Types only, no values.
 - `lib/constants/Limits.ts` — the tuning constants, each with its unit in its name: lock staleness and
   retries, the axis tick ladder and its bounds, ticket id width, how long done work stays visible,
@@ -207,7 +207,8 @@ nothing about tasks or tickets — a caller supplies a path.
   number of at least 1 makes the file unreadable, while one above `CONCURRENCY_LIMIT_CEILING_AGENTS`
   reads as the ceiling and is never rewritten by a read. **The dispatcher state is optional the same way**:
   `dispatcherStateOf` answers `stopped` for a file without `dispatcherState`, and a present value that
-  is not one of `DISPATCHER_STATES` makes the file unreadable. **A slot is an agent**: `concurrencyOf` answers
+  is not one of `DISPATCHER_STATES` makes the file unreadable; so does a `dispatcherRunId` that is not
+  non-empty text (`dispatcherRunIdIsWellFormed`), a field no read ever adds. **A slot is an agent**: `concurrencyOf` answers
   `agentsInFlight`, the `running` rows grouped by their optional `agent` key (written by `ticket claim`,
   the claimed ids joined) with each group counted once and each keyless running row counted alone,
   and never answers negative free slots. `transitionTask` drops the key when a row starts running from
@@ -262,7 +263,13 @@ JavaScript no spec can sit beside:
   and reviewers running at once, the most agents in flight at once (others, every own builder and reviewer on the board yet or not,
   and every row left running with no takeover under way; a parking agent adds none), the most agents alive at once (others and
   every own agent of any kind, parking agents included, which is what the limit bounds), the rows running and paused at the end,
-  and the logs; `Date` and `Math` are handed in guarded.
+  every review bar added, and the logs; `Date` and `Math` are handed in guarded. A fake agent follows its prompt where a real one's
+  first command depends on it: a builder finding its ticket's row left running is refused as in-progress unless its prompt carries
+  `BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM`, and a reviewer finding a bar left running adds a second unless its prompt carries
+  `REVIEWER_TAKES_OVER_A_RUNNING_BAR`. `restartedBuilderTicketIds` and `restartedReviewerTicketIds` restart an agent within its
+  `agent()` call after its first attempt claimed or added its bar, as the runtime does to a hung model call; `killedAtFirstCommandOf`
+  kills the run at that agent's first command, leaves every own agent's row running, and resumes the script from the journal of
+  completed calls, the longest prefix with unchanged prompts answered from it.
   `lib/tooling/dev/DispatchScriptHarness.spec.ts` pins each decision **and runs it again against a
   mutant of the script that breaks exactly that decision**, which must fail; a mutant whose text left
   the script fails loudly. `lib/tooling/dev/DispatchScriptHarness.brief.spec.ts` holds the prompts'

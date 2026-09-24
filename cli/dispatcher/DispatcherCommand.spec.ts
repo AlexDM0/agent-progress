@@ -149,12 +149,12 @@ describe.skipIf(!gitIsAvailable())('the stored run id', () => {
     expect((await statusConcurrency()).dispatcherRunId).toBeUndefined();
   });
 
-  test.each([
-    ['finished', '--run', EXAMPLE_RUN_ID],
-    ['stopped', '--run', EXAMPLE_RUN_ID],
-    ['--run', EXAMPLE_RUN_ID],
-    ['running', '--run', ' '],
-  ])('dispatcher %s %s %s is refused at exit 1 and the progress file is left byte-identical', async (...commandArguments) => {
+  test.each<[string[]]>([
+    [['finished', '--run', EXAMPLE_RUN_ID]],
+    [['stopped', '--run', EXAMPLE_RUN_ID]],
+    [['--run', EXAMPLE_RUN_ID]],
+    [['running', '--run', ' ']],
+  ])('dispatcher %p is refused at exit 1 and the progress file is left byte-identical', async (commandArguments) => {
     await run(['dispatcher', 'running', '--run', EXAMPLE_RUN_ID]);
     const before = readFileSync(progressFilePath(), 'utf8');
 

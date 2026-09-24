@@ -3,7 +3,9 @@
  * the script's decisions without spawning a model. An agent's kind is read from its prompt's token marker, the way the hook reads it. A builder
  * or reviewer is on the board from its first command, as a real one is from its claim or its `task add --start`, until it finishes — except that
  * a builder that stops short of review and a reviewer that returns nothing leave their row running, until a fresh agent's first command takes it over,
- * or a parking agent pauses the ticket's row (`task pause`: a paused row is not running) and closes its review bar.
+ * or a parking agent pauses the ticket's row (`task pause`: a paused row is not running) and closes its review bar. The fake agents follow their
+ * prompt where a real one's first command depends on it: a builder whose ticket an earlier attempt claimed is refused as in-progress unless its
+ * prompt says that claim is its run's own, and a reviewer finding an earlier attempt's bar adds a second unless its prompt says to take that one.
  */
 import { readFileSync } from 'node:fs';
 import { join }         from 'node:path';
@@ -51,27 +53,39 @@ export interface RecordedAgentCall {
 }
 
 export interface DispatchScenario {
-  limit:                    number;
-  readyTicketIds:           string[];
-  lowPriorityTicketIds?:    string[];
+  limit:                       number;
+  readyTicketIds:              string[];
+  lowPriorityTicketIds?:       string[];
   /** Passed to the script as `args.includeLowPriority`; left out of the arguments when absent. */
-  includeLowPriority?:      boolean;
-  otherAgentsInFlight?:     number;
-  reviewWaitingTicketIds?:  string[];
+  includeLowPriority?:         boolean;
+  otherAgentsInFlight?:        number;
+  reviewWaitingTicketIds?:     string[];
   /** Defaults to `running`; `afterAgent` may change it mid-run. */
-  dispatcherState?:         DispatcherStateOnBoard;
+  dispatcherState?:            DispatcherStateOnBoard;
   /** Defaults to `in-review`; `null` is an agent that died. */
-  builderReply?:            (ticketId: string, pass: number) => BuilderReply | null;
+  builderReply?:               (ticketId: string, pass: number) => BuilderReply | null;
   /** Defaults to `released`; `null` is an agent that died. */
-  reviewerReply?:           (ticketId: string, round: number) => ReviewerReply | null;
+  reviewerReply?:              (ticketId: string, round: number) => ReviewerReply | null;
   /** Runs as an agent finishes and before its status block is taken, so a scenario can file a ticket mid-run. */
-  afterAgent?:              (call: RecordedAgentCall, board: FakeBoard) => void;
+  afterAgent?:                 (call: RecordedAgentCall, board: FakeBoard) => void;
   /** How many turns a builder or reviewer runs before its first command puts it on the board; defaults to `DEFAULT_TURNS_BEFORE_FIRST_COMMAND`. */
-  turnsBeforeFirstCommand?: number;
+  turnsBeforeFirstCommand?:    number;
   /** Every status block leaves out `runningTicketIds` and `runningReviewOfIds`, as an agent that did not derive them would. */
-  statusOmitsRunningRows?:  boolean;
+  statusOmitsRunningRows?:     boolean;
   /** Every status block leaves out `lowPriorityReadyTicketIds`, as an agent that did not derive them would. */
-  statusOmitsLowPriority?:  boolean;
+  statusOmitsLowPriority?:     boolean;
+  /**
+   * The runtime restarts the first builder of each of these tickets with the same prompt, inside the same `agent()` call: its first attempt
+   * claimed the ticket and made its worktree, and its claimed row stays running for the restarted attempt to carry on in.
+   */
+  restartedBuilderTicketIds?:  string[];
+  /** The same for the first reviewer of each of these tickets: its first attempt added its bar, which stays running. */
+  restartedReviewerTicketIds?: string[];
+  /**
+   * The run is killed the moment this agent (`build 001`, `review 001`) has put its row on the board: every own agent dies with its row left
+   * running, and the script is resumed from the journal, the longest prefix of completed calls with unchanged prompts answered from it.
+   */
+  killedAtFirstCommandOf?:     string;
 }
 
 export interface DispatchRun {
@@ -88,10 +102,24 @@ export interface DispatchRun {
   rowsRunningAtEnd:         string[];
   /** The rows a parking agent paused, as `build <ticket>`. */
   rowsPaused:               string[];
+  /** Every review bar added, as `review <ticket>`, a restarted or killed attempt's included; a bar taken over is not added again. */
+  reviewBarsAdded:          string[];
   logs:                     string[];
   summary:                  unknown;
   /** Whether the script passed `MOST_AGENT_CALLS_PER_RUN`, after which every agent answered `null` so the run could end. */
   ranAway:                  boolean;
+  /** Whether `killedAtFirstCommandOf` was reached, so that `summary` is the resumed run's. */
+  resumed:                  boolean;
+}
+
+/** The sentence a builder's prompt carries on past a claim refused as in-progress by, and the one a reviewer's takes a bar left running by. */
+export const BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM = 'the claim is this run\'s own';
+export const REVIEWER_TAKES_OVER_A_RUNNING_BAR     = 'take it as your bar and add none';
+
+interface JournalEntry {
+  prompt:    string;
+  reply:     unknown;
+  completed: boolean;
 }
 
 const MOST_AGENT_CALLS_PER_RUN           = 200;
@@ -104,6 +132,13 @@ const ARGUMENTS_FOR_SCRIPT               = {
 };
 
 type ScriptBody = (...values: unknown[]) => Promise<unknown>;
+
+type FakeAgent = (prompt: string, options?: Record<string, unknown>) => Promise<unknown>;
+
+/** What an agent of a killed run answers: nothing, ever, as the killed process never returns. */
+const NEVER_SETTLES = new Promise<never>(() => {});
+
+const KILLED = Symbol('killed');
 
 const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor as new (...parameterNames: string[]) => ScriptBody;
 
@@ -206,6 +241,32 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   let liveOwnAgents = 0;
   let mostLiveAgentsAtOnce = 0;
   let ranAway = false;
+  const reviewBarsAdded: string[] = [];
+  const journal: JournalEntry[] = [];
+  let generation = 1;
+  let announceKill: () => void = () => {};
+  const runIsKilled = new Promise<void>((resolve) => { announceKill = resolve; });
+
+  const killTheRun = (): void => {
+    generation++;
+    for (const row of ownAgentsOnBoard.values()) rowsLeftRunning.set(`${row.kind}:${row.ticketId}`, row);
+    ownAgentsOnBoard.clear();
+    rowKeysOfOwnAgentsRunning.clear();
+    liveOwnAgents = 0;
+    announceKill();
+  };
+
+  // The first attempt's first command, before the runtime restarted it: its claim takes the ticket off the ready list, or its bar is added.
+  const restartedAttemptActs = (kind: AgentKind, ticketId: string, rowKey: string): void => {
+    rowsLeftRunning.set(rowKey, { kind, ticketId });
+    board.readyTicketIds = board.readyTicketIds.filter((readyTicketId) => readyTicketId !== ticketId);
+    if (kind === 'review') reviewBarsAdded.push(rowNameOf(rowKey));
+  };
+
+  const restartedTicketIdsOf = (kind: AgentKind): string[] => {
+    if (kind === 'build') return scenario.restartedBuilderTicketIds ?? [];
+    return kind === 'review' ? scenario.restartedReviewerTicketIds ?? [] : [];
+  };
 
   const ticketIdsOfRunningRows = (kind: AgentKind): string[] => [...ownAgentsOnBoard.values(), ...rowsLeftRunning.values()]
     .filter((row) => row.kind === kind)
@@ -244,7 +305,8 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     return reply === null ? null : { ...reviewerDocumentOf(reply, ordinal), status: statusBlock() };
   };
 
-  const fakeAgent = async (prompt: string, options: Record<string, unknown> = {}): Promise<unknown> => {
+  const fakeAgent: FakeAgent = async (prompt, options = {}) => {
+    const callGeneration   = generation;
     const builtTicketId    = markerIdentifierIn(prompt, 'ticket');
     const reviewedTicketId = markerIdentifierIn(prompt, 'review');
     const parkedTicketId   = markerIdentifierIn(prompt, 'park');
@@ -266,18 +328,21 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       ranAway = true;
       return null;
     }
-    const reply = replyFor(call);
+    let reply = replyFor(call);
     if (kind === 'build' && ticketId !== null && reply?.['outcome'] !== 'claim-refused') {
       board.readyTicketIds = board.readyTicketIds.filter((readyTicketId) => readyTicketId !== ticketId);
     }
+    if (ticketId !== null && ordinal === 1 && restartedTicketIdsOf(kind).includes(ticketId)) restartedAttemptActs(kind, ticketId, passKey);
     liveOwnAgents++;
     mostLiveAgentsAtOnce = Math.max(mostLiveAgentsAtOnce, board.otherAgentsInFlight + liveOwnAgents);
     if (kind === 'park' && ticketId !== null) {
       await turnsPass(turnsBeforeFirstCommand);
+      if (generation !== callGeneration) return NEVER_SETTLES;
       const ticketRowKey = `build:${ticketId}`;
       if (rowsLeftRunning.delete(ticketRowKey)) pausedRowKeys.add(ticketRowKey);
       rowsLeftRunning.delete(`review:${ticketId}`);
       await turnsPass(TURNS_FROM_FIRST_COMMAND_TO_RETURN);
+      if (generation !== callGeneration) return NEVER_SETTLES;
       liveOwnAgents--;
       scenario.afterAgent?.(call, board);
       return reply === null ? null : { ...reply, status: statusBlock() };
@@ -288,17 +353,35 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     mostAgentsInFlightAtOnce = Math.max(mostAgentsInFlightAtOnce, board.otherAgentsInFlight + rowKeysOfOwnAgentsRunning.size + rowsLeftRunningWithoutTakeover());
     if (kind === 'survey' || ticketId === null) {
       await nextTurn();
+      if (generation !== callGeneration) return NEVER_SETTLES;
     } else {
-      const reachesTheBoard = reply?.['outcome'] !== 'claim-refused';
       await turnsPass(turnsBeforeFirstCommand);
+      if (generation !== callGeneration) return NEVER_SETTLES;
+      const earlierRowIsRunning = rowsLeftRunning.has(passKey);
+      if (kind === 'build' && earlierRowIsRunning && reply !== null && !prompt.includes(BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM)) {
+        reply = { outcome: 'claim-refused', detail: `#${ticketId} is in-progress`, status: statusBlock() };
+      }
+      const reachesTheBoard = reply?.['outcome'] !== 'claim-refused';
       if (reachesTheBoard) {
-        rowsLeftRunning.delete(passKey);
-        pausedRowKeys.delete(passKey);
+        const takesTheEarlierRowOver = kind === 'build' || (earlierRowIsRunning && prompt.includes(REVIEWER_TAKES_OVER_A_RUNNING_BAR));
+        if (takesTheEarlierRowOver) {
+          rowsLeftRunning.delete(passKey);
+          pausedRowKeys.delete(passKey);
+        } else {
+          reviewBarsAdded.push(rowNameOf(passKey));
+        }
         ownAgentsOnBoard.set(callIndex, { kind, ticketId });
+        if (generation === 1 && scenario.killedAtFirstCommandOf === rowNameOf(passKey)) {
+          killTheRun();
+          return NEVER_SETTLES;
+        }
       }
       await turnsPass(TURNS_FROM_FIRST_COMMAND_TO_RETURN);
+      if (generation !== callGeneration) return NEVER_SETTLES;
       ownAgentsOnBoard.delete(callIndex);
       if (reachesTheBoard && rowIsLeftRunning(kind, reply)) rowsLeftRunning.set(passKey, { kind, ticketId });
+      // A release delivers every running bar that reviews the ticket, a second one included.
+      if (kind === 'review' && reply?.['verdict'] === 'released') rowsLeftRunning.delete(passKey);
     }
     rowKeysOfOwnAgentsRunning.delete(callIndex);
     liveOwnAgents--;
@@ -306,19 +389,43 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     return reply === null ? null : { ...reply, ...('status' in reply ? { status: statusBlock() } : {}) };
   };
 
+  const journaledAgent: FakeAgent = async (prompt, options = {}) => {
+    if (generation !== 1) return NEVER_SETTLES;
+    const entry: JournalEntry = { prompt, reply: null, completed: false };
+    journal.push(entry);
+    entry.reply = await fakeAgent(prompt, options);
+    entry.completed = true;
+    return entry.reply;
+  };
+
+  let resumedCallCount = 0;
+  let replayIsOver = false;
+  const replayingAgent: FakeAgent = async (prompt, options = {}) => {
+    const entry = journal[resumedCallCount++];
+    if (!replayIsOver && entry?.completed === true && entry.prompt === prompt) {
+      await nextTurn();
+      return entry.reply;
+    }
+    replayIsOver = true;
+    return fakeAgent(prompt, options);
+  };
+
   const scriptBody = compileScript(source);
-  const summary = await scriptBody(
-    fakeAgent,
+  const runScript = async (agentOfThisRun: FakeAgent, runGeneration: number): Promise<unknown> => scriptBody(
+    agentOfThisRun,
     async (thunks: (() => Promise<unknown>)[]) => Promise.all(thunks.map(async (thunk) => thunk().catch(() => null))),
     () => { throw new Error('The harness offers no pipeline(): the dispatcher runs its own pool.'); },
     () => {},
-    (message: string) => { logs.push(message); },
+    (message: string) => { if (generation === runGeneration) logs.push(message); },
     scenario.includeLowPriority === undefined ? ARGUMENTS_FOR_SCRIPT : { ...ARGUMENTS_FOR_SCRIPT, includeLowPriority: scenario.includeLowPriority },
     { total: null, spent: () => 0, remaining: () => Number.POSITIVE_INFINITY },
     () => { throw new Error('The harness offers no workflow().'); },
     guardedDate(),
     guardedMath(),
   );
+  const firstRunOutcome = await Promise.race([runScript(journaledAgent, 1), runIsKilled.then(() => KILLED)]);
+  const resumed         = firstRunOutcome === KILLED;
+  const summary         = resumed ? await runScript(replayingAgent, generation) : firstRunOutcome;
   return {
     calls,
     mostAgentsAtOnce,
@@ -326,8 +433,10 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     mostLiveAgentsAtOnce,
     rowsRunningAtEnd: [...rowsLeftRunning.keys()].map(rowNameOf),
     rowsPaused:       [...pausedRowKeys].map(rowNameOf),
+    reviewBarsAdded,
     logs,
     summary,
     ranAway,
+    resumed,
   };
 }

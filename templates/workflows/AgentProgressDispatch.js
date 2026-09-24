@@ -128,18 +128,18 @@ function surveyPrompt() {
 // `previousPass` is what sent this ticket back to a builder in this run: `builder` (a pass that stopped short of review), `review` (a does-not-hold), or null.
 function builderPrompt(ticketId, previousPass) {
   const worktree = worktreeOf(ticketId);
-  // The earlier builder's claim left the ticket in-progress, and `ticket claim` refuses an in-progress ticket.
-  const claimRefusalText = previousPass === 'builder'
-    ? 'If it exits 1 saying the ticket is in-progress, that is the claim of this run\'s earlier builder: carry on. On any other refusal, stop at once and return outcome '
-      + '`claim-refused` with its message verbatim as `detail`.'
-    : 'If it exits 1, stop at once and return outcome `claim-refused` with its message verbatim as `detail`.';
+  // The runtime restarts an agent whose model call hangs with the same prompt, and a resume re-runs one that was in flight: either way the first
+  // attempt's claim left the ticket in-progress, which `ticket claim` refuses, so every builder is told that refusal is its own.
+  const claimRefusalText = `If it exits 1 saying the ticket is in-progress while ${worktree} exists, the claim is this run's own: an earlier attempt at this ticket made it, `
+    + 'a builder of this run that stopped short, or this very builder before the runtime restarted or resumed it. Carry on in that worktree, keeping every '
+    + 'uncommitted edit it holds. On any other refusal, stop at once and return outcome `claim-refused` with its message verbatim as `detail`.';
   const lines = [
     `agent-progress ticket: ${ticketId}`,
     `Worktree: ${worktree}   Branch: ticket-${ticketId}   Main checkout: ${settings.mainCheckout}   Main line: ${settings.mainLine}`,
     `You build ticket #${ticketId} for the agent-progress dispatcher, alone: one ticket, one agent.`,
     `FIRST command, before anything else: \`agent-progress ticket claim ${ticketId} --owner ${WORKER_MODEL} --note "Built by the dispatcher on ticket-${ticketId}"\`. `
       + claimRefusalText,
-    `Then the worktree: when ${worktree} exists, reuse it as it stands, since it holds an earlier pass's commits; otherwise `
+    `Then the worktree: when ${worktree} exists, reuse it as it stands, since it holds an earlier pass's commits and edits; start from \`git -C ${worktree} status\`. Otherwise `
       + `\`git -C ${settings.mainCheckout} worktree add ${worktree} -b ticket-${ticketId} ${settings.mainLine}\`, dropping \`-b\` when the branch already exists.`,
   ];
   if (settings.installCommand !== '') lines.push(`In a worktree you just created, run \`${settings.installCommand}\` in it once before anything else there.`);
@@ -170,13 +170,13 @@ function reviewerPrompt(ticketId, expectedRound, rereviewFirst, earlierReviewerD
       + 'Your round is the number of `## Review` sections already in the ticket plus one; return it as `round`.',
   ];
   if (rereviewFirst) lines.push(`FIRST command, before anything else: \`agent-progress ticket rereview ${ticketId}\`.`);
-  // A dead reviewer's bar would stay running and hold one of the board's slots for the rest of the run.
-  if (earlierReviewerDied) {
-    lines.push(`An earlier reviewer of this run returned nothing. When \`agent-progress status --json\` shows a \`running\` row whose \`reviewOf\` is ${ticketId}, that bar is `
-      + 'its: close it with `agent-progress task finish <that row>`, then `agent-progress task deliver <that row>`, before you add your own.');
-  }
+  if (earlierReviewerDied) lines.push('An earlier reviewer of this run returned nothing, and its bar may still be running.');
+  // A second bar would leave the first running, holding one of the board's slots for the rest of the run; the runtime restarts a hung agent with
+  // the same prompt, and a resume re-runs one in flight, so any reviewer may find its own first attempt's bar.
   lines.push(
-    `Then add your own bar: \`agent-progress task add "Review <round> #${ticketId} — <ticket title>" --review-of ${ticketId} --owner ${WORKER_MODEL} --start\`, `
+    `Then your bar. When \`agent-progress status --json\` shows a \`running\` row whose \`reviewOf\` is ${ticketId}, it is this review's own, left by an earlier reviewer `
+      + `of this run or by this very reviewer before the runtime restarted or resumed it: take it as your bar and add none. Otherwise add your own: `
+      + `\`agent-progress task add "Review <round> #${ticketId} — <ticket title>" --review-of ${ticketId} --owner ${WORKER_MODEL} --start\`, `
       + `the title from \`agent-progress ticket show ${ticketId}\`. Your bar takes the place of the brief's \`agent-progress row:\` line; the review line above carries your tokens to it.`,
     `Read \`${settings.mainCheckout}/.agent-progress/agent-brief.md\` once and follow the fenced block under \`## Review brief\` as your whole procedure, `
       + `steps 0 to 8, ${briefPlaceholdersText(ticketId)}. Step 0 reads the diff first; you fix only what you review.`,
@@ -409,6 +409,12 @@ function settleBuild(work, result) {
   const rebuild = () => awaitTakeover({ kind: 'build', ticketId, previousPass: 'builder' });
   if (result === null) {
     countFailedPass(ticketId, 'the builder returned no result', rebuild);
+    return;
+  }
+  // The survey saw the ticket ready and only this run starts builders on it, so its row running now is this run's own claim, made by an attempt the
+  // runtime restarted: skipped, that row would be read as another agent's and hold a slot for the rest of the run.
+  if (result.outcome === 'claim-refused' && ownAgentIsOnBoard(work, result.status ?? {})) {
+    countFailedPass(ticketId, `the claim was refused while this run's own claim holds the ticket${parentheticalOf(result.detail)}`, rebuild);
     return;
   }
   if (result.outcome === 'claim-refused') {

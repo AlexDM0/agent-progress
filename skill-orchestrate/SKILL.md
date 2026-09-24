@@ -133,6 +133,10 @@ Workflow({ scriptPath: '<mainCheckout>/.claude/workflows/agent-progress-dispatch
 ```
 
 with the arguments settled at the opening, `installCommand` left out where a worktree needs nothing.
+**Record the run the moment the launch returns**: `agent-progress dispatcher running --run <runId>`,
+with the `runId` the Workflow result names. The board keeps it through a compaction — `dispatcher`
+and `status --json` (`concurrency.dispatcherRunId`) print it — and it is what Recovering, below,
+resumes; every other `dispatcher` write clears it.
 The `scriptPath` form works whenever the file exists; `name: 'agent-progress-dispatch'` should work
 too, but only in a session started after the file was installed, so launch by the path.
 `includeLowPriority: true` is passed only on the launch that follows a triage (Low-priority work,
@@ -179,7 +183,23 @@ compaction the `Next:` line of `agent-progress status` says which.
   asking, `agent-progress dispatcher running` and the launch. Low tickets alone relaunch nothing.
 - `stopped` — never started, or the user stopped it: wait for the user's permission, whatever is filed
   meanwhile, and on their go `agent-progress dispatcher running` and the launch.
-- `running` — a run of this session is at work: wait for it to return.
+- `running` — a run of this session is at work: wait for it to return. With no run of this session
+  behind it, or a task notification saying the run was stopped or died, recover it as below.
+
+**Recovering a run that died or was killed: resume it, never launch fresh.** Its agents in flight left
+their tickets claimed, their bars running and partial work in their worktrees; a fresh run reads those
+rows as other agents' and never takes an in-progress ticket up again. Resume it instead, with the run
+id the board stored and the same args as its launch, so the journal answers every agent that finished
+and only the ones in flight run again:
+
+```
+Workflow({ scriptPath: '<mainCheckout>/.claude/workflows/agent-progress-dispatch.js', resumeFromRunId: '<concurrency.dispatcherRunId>', args: <the launch's args> })
+```
+
+then `agent-progress dispatcher running --run <the new runId>`. A builder run again carries on in
+its own claim and worktree, and a reviewer takes its own bar over; the script tells them so. Only
+when there is no stored id or the resume is refused: `agent-progress task pause` every `running` row
+no agent is behind, then `agent-progress dispatcher running` and a fresh launch.
 
 **Low-priority work is triaged before it is run.** When the only work left is low priority, stop
 relaunching and triage the low tickets: abandon each that is no longer relevant, with the reason;
@@ -192,7 +212,7 @@ waits for the user's go.
 **The user saying stop** is `agent-progress dispatcher stopped`, on the board. The running script
 reads it at its next agent's return, starts nothing new, lets the agents in flight finish and returns
 with `stoppedByBoard`. Stopping the workflow task outright is for an emergency only: it abandons agents
-mid-work, and their claims, bars and worktrees are then yours to clean up.
+mid-work, with their claims, bars and worktrees, and the run is then resumed as Recovering says.
 
 **By hand.** Only while the dispatcher is stopped and the user asks for one ticket by hand: create its
 worktree off the main line (`git -C <main checkout> worktree add <path> -b <branch> <main line>`), spawn

@@ -6,7 +6,9 @@
 import { describe, expect, test } from 'bun:test';
 
 import {
+  BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM,
   readDispatchScript,
+  REVIEWER_TAKES_OVER_A_RUNNING_BAR,
   runDispatchScript,
   type DispatchRun,
   type DispatchScenario,
@@ -75,6 +77,15 @@ function roundThreeScenario(roundTwoFindings: ReviewFinding[]): DispatchScenario
 }
 
 const GRANT_ROUND_THREE_WITHOUT_CONVERGENCE: Mutant = { find: 'if (requestedRound === 2) return { granted: true };', replace: 'return { granted: true };' };
+
+const CARRY_ON_PAST_NO_CLAIM: Mutant = { find: 'the claim is this run\'s own: an earlier attempt', replace: 'the claim is another agent\'s: an earlier attempt' };
+
+const SKIP_A_CLAIM_REFUSED_BY_THE_RUN_ITSELF: Mutant = {
+  find:    'if (result.outcome === \'claim-refused\' && ownAgentIsOnBoard(work, result.status ?? {})) {',
+  replace: 'if (result.outcome === \'claim-refused\' && false) {',
+};
+
+const ADD_A_SECOND_BAR: Mutant = { find: 'take it as your bar and add none', replace: 'add your own beside it' };
 
 const SUBTRACT_EVERY_OWN_AGENT: Mutant = { find: '.filter((ownAgent) => ownAgentIsOnBoard(ownAgent.work, status)).length', replace: '.length' };
 
@@ -369,6 +380,90 @@ const CLAIMS: Claim[] = [
     mutant: { find: 'log(`#${ticketId} skipped for this run: the claim was refused (${result.detail}).`);', replace: 'rebuildQueue.push(ticketId);' },
   },
   {
+    // A killed run is resumed from its journal, and the builder that was in flight runs again with the same prompt: its first attempt's claim
+    // refuses the second, and a builder that stopped there would leave the ticket stalled and its row holding the only slot.
+    name:     'a builder resumed after its run was killed finds its ticket claimed and its worktree present, carries on in it, and delivers',
+    scenario: { limit: 1, readyTicketIds: ['001', '002'], killedAtFirstCommandOf: 'build 001' },
+    holds:    (run) => run.resumed
+      && kindsAndTickets(run).join(', ') === 'survey, build 001, build 001, review 001, build 002, review 002'
+      && summaryOf(run).delivered.join() === '001,002'
+      && run.rowsRunningAtEnd.length === 0
+      && run.mostAgentsInFlightAtOnce === 1,
+    mutant: CARRY_ON_PAST_NO_CLAIM,
+  },
+  {
+    // Observed: a model call that hangs is interrupted and the agent started again with the same prompt, inside the one `agent()` call.
+    name:     'a builder the runtime restarts within one run carries on past its first attempt\'s claim, and the next ticket is delivered within the limit',
+    scenario: { limit: 1, readyTicketIds: ['001', '002'], restartedBuilderTicketIds: ['001'] },
+    holds:    (run) => kindsAndTickets(run).join(', ') === 'survey, build 001, review 001, build 002, review 002'
+      && summaryOf(run).delivered.join() === '001,002'
+      && run.rowsRunningAtEnd.length === 0
+      && run.mostAgentsInFlightAtOnce === 1,
+    mutant: CARRY_ON_PAST_NO_CLAIM,
+  },
+  {
+    // A restarted builder that returns `claim-refused` anyway leaves the run's own row running; skipped, that row would read as another agent's.
+    name:     'a claim refused while the run\'s own claim holds the ticket is taken over by a fresh builder, never skipped with that row holding a slot',
+    scenario: {
+      limit:                     1,
+      readyTicketIds:            ['001', '002'],
+      restartedBuilderTicketIds: ['001'],
+      builderReply:              (ticketId, pass) => (ticketId === '001' && pass === 1 ? { outcome: 'claim-refused', detail: '#001 is in-progress' } : { outcome: 'in-review' }),
+    },
+    holds: (run) => kindsAndTickets(run).join(', ') === 'survey, build 001, build 001, review 001, build 002, review 002'
+      && summaryOf(run).delivered.join() === '001,002'
+      && run.rowsRunningAtEnd.length === 0
+      && run.mostAgentsInFlightAtOnce === 1,
+    mutant: SKIP_A_CLAIM_REFUSED_BY_THE_RUN_ITSELF,
+  },
+  {
+    name:     'a ticket whose own claim is refused on both passes is parked with its row paused, and the next ready ticket is delivered within the limit',
+    scenario: {
+      limit:                     1,
+      readyTicketIds:            ['001', '002'],
+      restartedBuilderTicketIds: ['001'],
+      builderReply:              (ticketId) => (ticketId === '001' ? { outcome: 'claim-refused', detail: '#001 is in-progress' } : { outcome: 'in-review' }),
+    },
+    holds: (run) => parkedIds(run).join() === '001'
+      && run.rowsPaused.join() === 'build 001'
+      && summaryOf(run).delivered.join() === '002'
+      && run.rowsRunningAtEnd.length === 0
+      && run.mostLiveAgentsAtOnce === 1,
+    mutant: SKIP_A_CLAIM_REFUSED_BY_THE_RUN_ITSELF,
+  },
+  {
+    // The reviewer in flight when the run was killed had added its bar; a second bar would leave the first running for the rest of the run.
+    name:     'a reviewer resumed after its run was killed takes its first attempt\'s bar over and adds no second',
+    scenario: {
+      limit:                  1,
+      readyTicketIds:         [],
+      reviewWaitingTicketIds: ['001'],
+      killedAtFirstCommandOf: 'review 001',
+    },
+    holds: (run) => run.resumed
+      && reviewsOf(run, '001') === 2
+      && run.reviewBarsAdded.join() === 'review 001'
+      && summaryOf(run).delivered.join() === '001'
+      && run.rowsRunningAtEnd.length === 0,
+    mutant: ADD_A_SECOND_BAR,
+  },
+  {
+    // A second bar left running is read as another agent's, and at a limit of 1 it keeps the rebuild the review asked for from ever starting.
+    name:     'a reviewer the runtime restarts within one run takes its first attempt\'s bar over, so the rebuild it asks for starts within the limit',
+    scenario: {
+      limit:                      1,
+      readyTicketIds:             [],
+      reviewWaitingTicketIds:     ['001'],
+      restartedReviewerTicketIds: ['001'],
+      reviewerReply:              (_ticketId, round) => (round === 1 ? { verdict: 'does-not-hold' } : { verdict: 'released' }),
+    },
+    holds: (run) => kindsAndTickets(run).join(', ') === 'survey, review 001, build 001, review 001'
+      && summaryOf(run).delivered.join() === '001'
+      && run.reviewBarsAdded.join(', ') === 'review 001, review 001'
+      && run.rowsRunningAtEnd.length === 0,
+    mutant: ADD_A_SECOND_BAR,
+  },
+  {
     name:     'a release refused for a reason other than main-moved parks the ticket',
     scenario: { limit: 2, readyTicketIds: ['001'], reviewerReply: () => ({ verdict: 'not-released', releaseReason: 'main-checkout-dirty' }) },
     holds:    (run) => reviewsOf(run, '001') === 1 && summaryOf(run).parked.some((parkedTicket) => parkedTicket.reason.includes('main-checkout-dirty')),
@@ -551,19 +646,32 @@ describe('the dispatcher script', () => {
     expect(builders[0]?.prompt).not.toContain('does not hold');
   });
 
-  // The first builder's claim left the ticket in-progress, and the real `ticket claim` refuses that: a fresh builder that stopped on it would turn
-  // the retry into a skip. The fake answers whatever the scenario says, so the prompt is where this is pinned.
-  test('a fresh builder after one that stopped short of review carries on past its own run\'s claim, and is not told a reviewer found anything', async () => {
+  // An earlier attempt's claim leaves the ticket in-progress, and the real `ticket claim` refuses that. Any builder may be a restarted or resumed
+  // one, so every prompt carries the rule; only one that follows a builder of this run that stopped short is told so.
+  test('every builder carries on past a claim refused while its worktree exists, and only a fresh one is told an earlier builder stopped short', async () => {
     const run = await runDispatchScript({ limit: 2, readyTicketIds: ['001'], builderReply: (_ticketId, pass) => (pass === 1 ? { outcome: 'failed' } : { outcome: 'in-review' }) });
     const builders = run.calls.filter((call) => call.kind === 'build');
     expect(builders).toHaveLength(2);
-    expect(builders[1]?.prompt).toContain('saying the ticket is in-progress, that is the claim of this run\'s earlier builder: carry on');
+    for (const builder of builders) {
+      expect(builder.prompt).toContain(`in-progress while /scratch/example-repository/.claude/worktrees/ticket-001 exists, ${BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM}`);
+      expect(builder.prompt).toContain('keeping every uncommitted edit it holds');
+    }
+    expect(builders[1]?.prompt).toContain('An earlier builder of this run stopped before review');
+    expect(builders[0]?.prompt).not.toContain('An earlier builder of this run');
     expect(builders[1]?.prompt).not.toContain('does not hold');
-    expect(builders[0]?.prompt).not.toContain('carry on');
+  });
+
+  test('every reviewer takes a running bar that reviews its ticket as its own rather than adding a second', async () => {
+    const run = await runDispatchScript({ limit: 2, readyTicketIds: ['001'], reviewerReply: (_ticketId, round) => (round === 1 ? null : { verdict: 'released' }) });
+    const reviewers = run.calls.filter((call) => call.kind === 'review');
+    expect(reviewers).toHaveLength(2);
+    for (const reviewer of reviewers) expect(reviewer.prompt).toContain('`reviewOf` is 001, it is this review\'s own');
+    for (const reviewer of reviewers) expect(reviewer.prompt).toContain(REVIEWER_TAKES_OVER_A_RUNNING_BAR);
+    expect(run.reviewBarsAdded).toEqual(['review 001']);
   });
 
   // A reviewer that died left its bar running, and every status block after would count it as an agent in flight elsewhere.
-  test('a fresh reviewer after one that returned nothing is told to close the bar the dead one left running', async () => {
+  test('a fresh reviewer after one that returned nothing is told the dead one\'s bar may still be running', async () => {
     const run = await runDispatchScript({ limit: 2, readyTicketIds: ['001'], reviewerReply: (_ticketId, round) => (round === 1 ? null : { verdict: 'released' }) });
     const reviewers = run.calls.filter((call) => call.kind === 'review');
     expect(reviewers).toHaveLength(2);
