@@ -1,23 +1,24 @@
 /**
- * One writer at a time in a tracker, across processes: every worktree of a repository shares one
- * tracker, so the writers are separate processes and the lock is `openSync(path, 'wx')` — create-or-fail
- * in one atomic operation, which a check-then-create cannot be.
+ * One writer at a time in a tracker, across processes. The lock is a directory of numbered generation
+ * records, each created exclusively and never rewritten: taking the lock is creating the generation after
+ * the newest once that one is released or stale, and releasing is creating the next as a released record,
+ * so no step ever removes or replaces a record another process may have just written.
  *
  * This is one of the stated exceptions where a clock decides anything, and the time it compares is
- * one the tool itself wrote into the lock payload; the fallback to the lock file's own mtime is
- * reached only when that payload cannot be read, and fails closed in both directions.
+ * one the tool itself wrote into the record; the fallback to the record file's own mtime is reached
+ * only when that record cannot be read, and fails closed in both directions.
  */
 import { randomUUID } from 'crypto';
 import {
-  closeSync,
   linkSync,
-  openSync,
+  mkdirSync,
+  readdirSync,
   readFileSync,
-  renameSync,
   statSync,
   unlinkSync,
-  writeSync
+  writeFileSync
 } from 'fs';
+import { join } from 'path';
 
 import { LOCK_RETRY_COUNT, LOCK_RETRY_INTERVAL_MILLISECONDS, LOCK_STALE_MILLISECONDS } from '../constants/Limits';
 import { TimeUtil }                                                                    from '../utils/TimeUtil';
@@ -29,8 +30,22 @@ interface LockPayload {
   acquiredAt: string;
 }
 
-const TAKEOVER_NAME_RANDOM_LENGTH = 8;
-const TAKEOVER_MARKER_SUFFIX     = '.takeover';
+const GENERATION_STATES = ['held', 'released'] as const;
+type GenerationState = typeof GENERATION_STATES[number];
+
+interface GenerationRecord extends LockPayload {
+  state: GenerationState;
+}
+
+type AcquireAttempt = { verdict: 'acquired'; generation: number } | { verdict: 'held' } | { verdict: 'contended' };
+
+const ACQUIRE_STEPS = ['newest-judged-free', 'generation-created'] as const;
+type AcquireStep = typeof ACQUIRE_STEPS[number];
+
+const GENERATION_FILE_PREFIX     = 'generation-';
+const GENERATION_DIGITS_PATTERN  = /^[1-9]\d*$/;
+const PENDING_FILE_PREFIX        = '.pending-';
+const PENDING_NAME_RANDOM_LENGTH = 8;
 const FILE_ALREADY_EXISTS_CODE   = 'EEXIST';
 const NO_SUCH_PROCESS_CODE       = 'ESRCH';
 
@@ -53,190 +68,189 @@ function processIsGone(processId: number): boolean {
   }
 }
 
-function readLockPayload(lockFilePath: string): LockPayload | null {
+function generationNumberOf(fileName: string): number | null {
+  if (!fileName.startsWith(GENERATION_FILE_PREFIX)) return null;
+  const digits = fileName.slice(GENERATION_FILE_PREFIX.length);
+  if (!GENERATION_DIGITS_PATTERN.test(digits)) return null;
+  const generation = Number(digits);
+  return Number.isSafeInteger(generation) ? generation : null;
+}
+
+function generationPathFor(lockDirectoryPath: string, generation: number): string {
+  return join(lockDirectoryPath, `${GENERATION_FILE_PREFIX}${generation}`);
+}
+
+/** Ascending; `null` when the directory cannot be listed, which every caller reads as held. */
+function generationsIn(lockDirectoryPath: string): number[] | null {
   try {
-    const parsed: unknown = JSON.parse(readFileSync(lockFilePath, 'utf8'));
+    return readdirSync(lockDirectoryPath)
+      .map(generationNumberOf)
+      .filter((generation): generation is number => generation !== null)
+      .sort((a, b) => a - b);
+  } catch {
+    return null;
+  }
+}
+
+function readGenerationRecord(generationPath: string): GenerationRecord | null {
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(generationPath, 'utf8'));
     if (typeof parsed !== 'object' || parsed === null) return null;
-    const { processId, acquiredAt } = parsed as { processId?: unknown; acquiredAt?: unknown };
+    const { processId, acquiredAt, state } = parsed as { processId?: unknown; acquiredAt?: unknown; state?: unknown };
     if (typeof processId !== 'number' || typeof acquiredAt !== 'string') return null;
-    return { acquiredAt, processId };
+    const knownState = GENERATION_STATES.find((candidate) => candidate === state);
+    if (knownState === undefined) return null;
+    return { acquiredAt, processId, state: knownState };
   } catch {
     return null;
   }
 }
 
 /**
- * An unreadable lock file is not stale on that ground alone: it is also what a lock being written at
- * this instant looks like, so it is judged on the age of its own mtime and waits when that cannot
- * decide either.
+ * An unreadable record is not free on that ground alone: the tool never writes one, so it is judged on
+ * the age of its own mtime and waits when that cannot decide either.
  */
-function lockIsStale(lockFilePath: string, nowMilliseconds: number): boolean {
-  const payload = readLockPayload(lockFilePath);
-  if (payload !== null) {
-    if (processIsGone(payload.processId)) return true;
-    const acquiredAtMilliseconds = Date.parse(payload.acquiredAt);
-    if (Number.isNaN(acquiredAtMilliseconds)) return fileIsOlderThanTheStaleThreshold(lockFilePath, nowMilliseconds);
-    return nowMilliseconds - acquiredAtMilliseconds > LOCK_STALE_MILLISECONDS;
-  }
-  return fileIsOlderThanTheStaleThreshold(lockFilePath, nowMilliseconds);
+function generationIsFree(generationPath: string, nowMilliseconds: number): boolean {
+  const record = readGenerationRecord(generationPath);
+  if (record === null) return fileIsOlderThanTheStaleThreshold(generationPath, nowMilliseconds);
+  if (record.state === 'released' || processIsGone(record.processId)) return true;
+  const acquiredAtMilliseconds = Date.parse(record.acquiredAt);
+  if (Number.isNaN(acquiredAtMilliseconds)) return fileIsOlderThanTheStaleThreshold(generationPath, nowMilliseconds);
+  return nowMilliseconds - acquiredAtMilliseconds > LOCK_STALE_MILLISECONDS;
 }
 
-function fileIsOlderThanTheStaleThreshold(lockFilePath: string, nowMilliseconds: number): boolean {
+function fileIsOlderThanTheStaleThreshold(filePath: string, nowMilliseconds: number): boolean {
   try {
-    return nowMilliseconds - statSync(lockFilePath).mtimeMs > LOCK_STALE_MILLISECONDS;
+    return nowMilliseconds - statSync(filePath).mtimeMs > LOCK_STALE_MILLISECONDS;
   } catch {
     // Fail closed: a `stat` that errors is not an argument for taking someone else's lock.
     return false;
   }
 }
 
-const TAKEOVER_STEPS = ['marker-claimed', 'lock-judged-stale', 'lock-moved-aside'] as const;
-type TakeoverStep = typeof TAKEOVER_STEPS[number];
-
-function takeoverMarkerPathFor(lockFilePath: string): string {
-  return `${lockFilePath}${TAKEOVER_MARKER_SUFFIX}`;
-}
-
-/**
- * A stale file is removed by renaming it aside and judging what the rename moved, never by a blind
- * unlink: a file replaced between the judgement and the rename is linked back (`link` fails rather
- * than overwrite) and not taken.
- */
-function removedStaleFile(filePath: string, nowMilliseconds: number, afterMovedAside: () => void = () => {}): boolean {
-  const asidePath = `${filePath}.stale.${randomUUID().slice(0, TAKEOVER_NAME_RANDOM_LENGTH)}`;
+/** Written beside the target and linked into place, so a record is complete the instant it exists and `link` refuses an existing one. */
+function createdGeneration(lockDirectoryPath: string, generation: number, record: GenerationRecord): boolean {
+  const pendingPath = join(lockDirectoryPath, `${PENDING_FILE_PREFIX}${randomUUID().slice(0, PENDING_NAME_RANDOM_LENGTH)}`);
+  writeFileSync(pendingPath, JSON.stringify(record), { flag: 'wx' });
   try {
-    renameSync(filePath, asidePath);
-  } catch {
-    return false;
-  }
-  afterMovedAside();
-  if (!lockIsStale(asidePath, nowMilliseconds)) {
-    restoreFileMovedAside(asidePath, filePath);
-    return false;
-  }
-  try {
-    unlinkSync(asidePath);
-  } catch {
-    // The removal already succeeded; a leftover file in a git-ignored directory is harmless.
-  }
-  return true;
-}
-
-function restoreFileMovedAside(asidePath: string, filePath: string): void {
-  try {
-    linkSync(asidePath, filePath);
-  } catch {
-    // Another file already occupies the path; the moved one is left beside it rather than destroyed.
-    return;
-  }
-  try {
-    unlinkSync(asidePath);
-  } catch {
-    // The file is back in place; a leftover second link in a git-ignored directory is harmless.
-  }
-}
-
-/** A marker left by a taker that died or overran the stale threshold is judged exactly as a lock is, and so fails closed the same way. */
-function claimedTakeoverMarker(markerPath: string, markerPayload: LockPayload, nowMilliseconds: number): boolean {
-  if (acquired(markerPath, markerPayload)) return true;
-  return lockIsStale(markerPath, nowMilliseconds) && removedStaleFile(markerPath, nowMilliseconds) && acquired(markerPath, markerPayload);
-}
-
-/**
- * Takers are serialised by an exclusive marker beside the lock, and the lock is judged again only once
- * the marker is held, so a lock another taker already replaced with a fresh one is never moved aside
- * and a plain acquirer never finds the path empty because of it. `afterStep` lets a spec interleave.
- */
-function tookOverStaleLock(lockFilePath: string, nowMilliseconds: number, afterStep: (step: TakeoverStep) => void = () => {}): boolean {
-  const markerPath = takeoverMarkerPathFor(lockFilePath);
-  const markerPayload: LockPayload = { acquiredAt: TimeUtil.formatLocalIso(new Date(nowMilliseconds)), processId: process.pid };
-  if (!claimedTakeoverMarker(markerPath, markerPayload, nowMilliseconds)) return false;
-  try {
-    afterStep('marker-claimed');
-    if (!lockIsStale(lockFilePath, nowMilliseconds)) return false;
-    afterStep('lock-judged-stale');
-    return removedStaleFile(lockFilePath, nowMilliseconds, () => afterStep('lock-moved-aside'));
-  } finally {
-    releaseIfStillOurs(markerPath, markerPayload);
-  }
-}
-
-function acquired(lockFilePath: string, payload: LockPayload): boolean {
-  let lockFileDescriptor: number;
-  try {
-    lockFileDescriptor = openSync(lockFilePath, 'wx');
+    linkSync(pendingPath, generationPathFor(lockDirectoryPath, generation));
+    return true;
   } catch (error) {
     if (errorCodeOf(error) === FILE_ALREADY_EXISTS_CODE) return false;
     throw error;
-  }
-  try {
-    writeSync(lockFileDescriptor, JSON.stringify(payload));
   } finally {
-    closeSync(lockFileDescriptor);
+    removePendingFile(pendingPath);
   }
-  return true;
+}
+
+function removePendingFile(pendingPath: string): void {
+  try {
+    unlinkSync(pendingPath);
+  } catch {
+    // A leftover pending file is never read as a generation, so it only costs a name in a git-ignored directory.
+  }
+}
+
+function newerGenerationExists(lockDirectoryPath: string, generation: number): boolean {
+  const generations = generationsIn(lockDirectoryPath);
+  return generations === null || generations.some((existing) => existing > generation);
+}
+
+/** Only ever below a generation this process created, which is never the newest another process could be judging. */
+function removeGenerationsBelow(lockDirectoryPath: string, generation: number): void {
+  for (const existing of generationsIn(lockDirectoryPath) ?? []) {
+    if (existing >= generation) continue;
+    try {
+      unlinkSync(generationPathFor(lockDirectoryPath, existing));
+    } catch {
+      // Another holder removed it first, which is the state this loop was reaching for.
+    }
+  }
 }
 
 /**
- * A lock held past the stale threshold may have been taken over meanwhile, and unlinking blindly
- * would delete the new holder's lock; both payload fields are compared, because a process id alone
- * is unique on one machine and a tracker can be on a share mounted by two.
+ * The generation after the newest is created only once the newest is judged free, and whoever creates it
+ * holds the lock unless a newer one already exists: that newer one means the generation it took had been
+ * removed after a holder moved past it. `afterStep` lets a spec interleave.
  */
-function releaseIfStillOurs(lockFilePath: string, payload: LockPayload): void {
-  const current = readLockPayload(lockFilePath);
-  if (current === null || current.processId !== payload.processId || current.acquiredAt !== payload.acquiredAt) return;
+function attemptedAcquire(
+  lockDirectoryPath: string,
+  payload: LockPayload,
+  nowMilliseconds: number,
+  afterStep: (step: AcquireStep) => void = () => {},
+): AcquireAttempt {
   try {
-    unlinkSync(lockFilePath);
+    mkdirSync(lockDirectoryPath, { recursive: true });
   } catch {
-    // Already removed, which is the state this function was trying to reach.
+    // A path that cannot become the directory is judged by the listing below, which reads it as held.
+  }
+  const generations = generationsIn(lockDirectoryPath);
+  if (generations === null) return { verdict: 'held' };
+  const newest = generations.at(-1);
+  if (newest !== undefined && !generationIsFree(generationPathFor(lockDirectoryPath, newest), nowMilliseconds)) return { verdict: 'held' };
+  afterStep('newest-judged-free');
+  const claimed = (newest ?? 0) + 1;
+  if (!createdGeneration(lockDirectoryPath, claimed, { ...payload, state: 'held' })) return { verdict: 'contended' };
+  afterStep('generation-created');
+  if (newerGenerationExists(lockDirectoryPath, claimed)) return { verdict: 'contended' };
+  removeGenerationsBelow(lockDirectoryPath, claimed);
+  return { generation: claimed, verdict: 'acquired' };
+}
+
+/** A holder that was taken over as stale finds its successor generation taken, and so changes nothing. */
+function released(lockDirectoryPath: string, heldGeneration: number, payload: LockPayload): void {
+  const releaseGeneration = heldGeneration + 1;
+  try {
+    if (createdGeneration(lockDirectoryPath, releaseGeneration, { ...payload, state: 'released' })) removeGenerationsBelow(lockDirectoryPath, releaseGeneration);
+  } catch {
+    // The lock directory went away under us; there is nothing left to release.
   }
 }
 
 /** The steps `withLock` interleaves between processes, exposed so a spec can replay a race step by step. */
-export const LockTakeoverSteps = {
-  acquired,
-  lockIsStale,
-  releaseIfStillOurs,
-  takeoverMarkerPathFor,
-  takeoverSteps: TAKEOVER_STEPS,
-  tookOverStaleLock,
+export const LockGenerationSteps = {
+  acquireSteps: ACQUIRE_STEPS,
+  attemptedAcquire,
+  generationPathFor,
+  generationsIn,
+  released,
 } as const;
 
 /**
  * Run `action` with this tracker's lock held, releasing it however `action` ends. Throws
  * `OperationRefusal('unrepaired')` — exit 2, not 1 — when the retry budget runs out, because
- * removing a lock a live process id still appears to own is a decision for a person.
+ * taking a lock a live process id still appears to hold is a decision for a person.
  */
 export async function withLock<ActionResult>(
   workspace: Workspace,
   action: () => Promise<ActionResult> | ActionResult,
   now: () => Date,
 ): Promise<ActionResult> {
-  const { lockFilePath } = workspace;
+  const { lockDirectoryPath } = workspace;
   const payload: LockPayload = { acquiredAt: TimeUtil.formatLocalIso(now()), processId: process.pid };
 
-  let held = false;
+  let heldGeneration: number | null = null;
   for (let attempt = 0; attempt < LOCK_RETRY_COUNT; attempt++) {
-    if (acquired(lockFilePath, payload)) {
-      held = true;
+    const attemptResult = attemptedAcquire(lockDirectoryPath, payload, now().getTime());
+    if (attemptResult.verdict === 'acquired') {
+      heldGeneration = attemptResult.generation;
       break;
     }
-    // A takeover retries immediately rather than sleeping: the lock is free at this instant.
-    const nowMilliseconds = now().getTime();
-    if (lockIsStale(lockFilePath, nowMilliseconds) && tookOverStaleLock(lockFilePath, nowMilliseconds)) continue;
+    // Contention retries immediately rather than sleeping: another process just moved the lock, and its newest record decides.
+    if (attemptResult.verdict === 'contended') continue;
     await Bun.sleep(LOCK_RETRY_INTERVAL_MILLISECONDS);
   }
 
-  if (!held) {
+  if (heldGeneration === null) {
     throw new OperationRefusal(
       'unrepaired',
-      `Another agent-progress command is holding ${lockFilePath} and did not release it. If nothing else is running, remove that path and try again.`,
+      `Another agent-progress command is holding ${lockDirectoryPath} and did not release it. If nothing else is running, remove that path and try again.`,
     );
   }
 
   try {
     return await action();
   } finally {
-    releaseIfStillOurs(lockFilePath, payload);
+    released(lockDirectoryPath, heldGeneration, { acquiredAt: TimeUtil.formatLocalIso(now()), processId: process.pid });
   }
 }

@@ -10,7 +10,7 @@ import {
   DEFAULT_TICKET_PRIORITY,
   DISPATCHER_STATES,
   HTML_FILE_NAME,
-  LOCK_FILE_NAME,
+  LOCK_DIRECTORY_NAME,
   PROGRESS_FILE_NAME,
   TASK_STATUSES,
   TASK_STATUS_FOR_TICKET_STATUS,
@@ -148,7 +148,7 @@ test('the priority guard accepts exactly the three priorities, and an absent pri
 });
 
 test('every path constant is a bare name, so joining one onto a directory cannot escape it', () => {
-  for (const name of [PROGRESS_FILE_NAME, HTML_FILE_NAME, TRACKER_DIRECTORY_NAME, TICKETS_DIRECTORY_NAME, LOCK_FILE_NAME]) {
+  for (const name of [PROGRESS_FILE_NAME, HTML_FILE_NAME, TRACKER_DIRECTORY_NAME, TICKETS_DIRECTORY_NAME, LOCK_DIRECTORY_NAME]) {
     expect(name.length, 'a path constant is never empty').toBeGreaterThan(0);
     expect(name).not.toContain('/');
     expect(name).not.toContain('\\');

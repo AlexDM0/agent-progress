@@ -6,8 +6,13 @@
  * orchestrator has to read and a delay before it hears its agent is done, and both cost more than the
  * log line nobody gets.
  */
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join }                                   from 'node:path';
+import {
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync
+} from 'node:fs';
+import { join } from 'node:path';
 
 import {
   afterEach,
@@ -516,12 +521,13 @@ describe.skipIf(!gitIsAvailable())('every way it can fail', () => {
 
   /**
    * The only failure that reaches this command as a throw from inside the tracker, and the one a
-   * fan-out actually produces: a sibling command is mid-write when the agent stops. An empty `.lock`
-   * is a lock nobody finished writing, which `lib/platform/Lock.ts` waits out and then refuses rather
-   * than assuming free — so the line is lost, and nothing else is.
+   * fan-out actually produces: a sibling command holds the lock when the agent stops. A `.lock` that
+   * is a plain file rather than the lock directory is one `lib/platform/Lock.ts` cannot judge, so it
+   * waits it out and then refuses rather than assuming free — so the line is lost, and nothing else is.
    */
   test('a lock the tracker will not give up costs the line only, leaving the log and the lock as they were', async () => {
     const lockFilePath = join(repositoryDirectory, '.agent-progress', '.lock');
+    rmSync(lockFilePath, { force: true, recursive: true });
     writeFileSync(lockFilePath, '');
     const context = contextWith(hookInput());
 

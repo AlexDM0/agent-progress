@@ -83,7 +83,7 @@ test('every path a tracker owns is derived from one root and lands inside it', (
   expect(workspace.progressFilePath).toBe('/example/repository/.agent-progress/progress.json');
   expect(workspace.htmlFilePath).toBe('/example/repository/.agent-progress/progress.html');
   expect(workspace.ticketsDirectory).toBe('/example/repository/.agent-progress/tickets');
-  expect(workspace.lockFilePath).toBe('/example/repository/.agent-progress/.lock');
+  expect(workspace.lockDirectoryPath).toBe('/example/repository/.agent-progress/.lock');
 });
 
 test('the paths are produced for a tracker that does not exist yet, because init needs them before it creates one', () => {

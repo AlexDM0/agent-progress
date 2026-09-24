@@ -69,7 +69,7 @@ export const TICKETS_DIRECTORY_NAME = 'tickets';
 /** Beside the tickets rather than in the repository's own tree: it is guidance for agents, not source, and the tracker is git-ignored. */
 export const AGENT_BRIEF_FILE_NAME = 'agent-brief.md';
 
-export const LOCK_FILE_NAME = '.lock';
+export const LOCK_DIRECTORY_NAME = '.lock';
 
 export const CLAUDE_MANAGED_START = '<!-- agent-progress:managed:start -->';
 

@@ -20,7 +20,7 @@ import {
 } from 'bun:test';
 import {
   HTML_FILE_NAME,
-  LOCK_FILE_NAME,
+  LOCK_DIRECTORY_NAME,
   PROGRESS_FILE_NAME,
   TICKETS_DIRECTORY_NAME,
   TRACKER_DIRECTORY_NAME,
@@ -53,9 +53,9 @@ function scratchWorkspace(): Workspace {
     rootDirectory,
     trackerDirectory,
     ticketsDirectory,
-    progressFilePath: join(trackerDirectory, PROGRESS_FILE_NAME),
-    htmlFilePath:     join(trackerDirectory, HTML_FILE_NAME),
-    lockFilePath:     join(trackerDirectory, LOCK_FILE_NAME),
+    progressFilePath:  join(trackerDirectory, PROGRESS_FILE_NAME),
+    htmlFilePath:      join(trackerDirectory, HTML_FILE_NAME),
+    lockDirectoryPath: join(trackerDirectory, LOCK_DIRECTORY_NAME),
   };
 }
 

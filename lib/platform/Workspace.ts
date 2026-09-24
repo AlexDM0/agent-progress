@@ -8,7 +8,7 @@ import { dirname, join, resolve }             from 'path';
 
 import {
   HTML_FILE_NAME,
-  LOCK_FILE_NAME,
+  LOCK_DIRECTORY_NAME,
   PROGRESS_FILE_NAME,
   TICKETS_DIRECTORY_NAME,
   TRACKER_DIRECTORY_NAME
@@ -19,12 +19,12 @@ import { discoverRepositoryRoot }    from './RepositoryRoot';
 
 /** Every path one tracker owns, all absolute: a relative one would resolve against a subagent's working directory. */
 export interface Workspace {
-  rootDirectory:    string;
-  trackerDirectory: string;
-  progressFilePath: string;
-  htmlFilePath:     string;
-  ticketsDirectory: string;
-  lockFilePath:     string;
+  rootDirectory:     string;
+  trackerDirectory:  string;
+  progressFilePath:  string;
+  htmlFilePath:      string;
+  ticketsDirectory:  string;
+  lockDirectoryPath: string;
 }
 
 /** The paths a tracker would have whether or not it exists; touches no filesystem, because `init` needs the paths of one it is creating. */
@@ -32,12 +32,12 @@ export function workspacePathsFor(rootDirectory: string): Workspace {
   const absoluteRoot = resolve(rootDirectory);
   const trackerDirectory = join(absoluteRoot, TRACKER_DIRECTORY_NAME);
   return {
-    rootDirectory:    absoluteRoot,
+    rootDirectory:     absoluteRoot,
     trackerDirectory,
-    progressFilePath: join(trackerDirectory, PROGRESS_FILE_NAME),
-    htmlFilePath:     join(trackerDirectory, HTML_FILE_NAME),
-    ticketsDirectory: join(trackerDirectory, TICKETS_DIRECTORY_NAME),
-    lockFilePath:     join(trackerDirectory, LOCK_FILE_NAME),
+    progressFilePath:  join(trackerDirectory, PROGRESS_FILE_NAME),
+    htmlFilePath:      join(trackerDirectory, HTML_FILE_NAME),
+    ticketsDirectory:  join(trackerDirectory, TICKETS_DIRECTORY_NAME),
+    lockDirectoryPath: join(trackerDirectory, LOCK_DIRECTORY_NAME),
   };
 }
 
