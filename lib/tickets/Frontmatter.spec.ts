@@ -150,15 +150,45 @@ describe('parseTicketDocument', () => {
   });
 
   // Without this, the body's first rule closes the frontmatter and every heading above it is silently kept as a comment.
-  test('a document whose closing fence was deleted is refused at the first heading, naming the rule it would have taken as the fence', () => {
+  test('a document whose closing fence was deleted is refused at the first heading, saying to restore the fence above it', () => {
     const fenceDeleted = FULL_TICKET.replace('task: 17\n---\n', 'task: 17\n').concat('---\n\n## Acceptance\n');
     const parsed       = parseTicketDocument(fenceDeleted);
 
     expect(parsed).toEqual({
       verdict: 'malformed',
-      reason:  'the frontmatter has no closing `---` fence: line 17 is the heading `## Report`, so the `---` on line 20 is a rule in the body',
-      line:    17,
+      reason:  'line 17 is the markdown heading `## Report`, and a frontmatter holds no heading (a comment is one `#` with no prose after it); '
+        + 'if the closing `---` fence was deleted, restore it above line 17',
+      line: 17,
     });
+  });
+
+  // The same refusal meets a correctly fenced file, so its reason must not call the real fence a rule in the body.
+  test('a two-hash comment inside a correctly fenced frontmatter is refused without claiming the fence is missing', () => {
+    const parsed = parseTicketDocument(FULL_TICKET.replace('task: 17\n', 'task: 17\n## note from Alex Example\n'));
+
+    expect(parsed.verdict === 'malformed' ? parsed.reason : '').toStartWith('line 15 is the markdown heading `## note from Alex Example`');
+    expect(parsed.verdict === 'malformed' ? parsed.reason : '').not.toContain('no closing');
+  });
+
+  // A body opening on `# Title`, a blank and prose used to be refused at the prose as a bad key, hiding that the fence went missing.
+  test('a single-hash line followed by a blank and prose is refused as a heading when the closing fence was deleted', () => {
+    const fenceDeleted = FULL_TICKET.replace('task: 17\n---\n', 'task: 17\n').replace('## Report', 'The dialog forgets the folder.').concat('---\n');
+    const parsed       = parseTicketDocument(fenceDeleted);
+
+    expect(parsed.verdict === 'malformed' ? parsed.line : 0).toBe(15);
+    expect(parsed.verdict === 'malformed' ? parsed.reason : '').toStartWith('line 15 is the markdown heading `# 003 — Fix: the export dialog forgets the folder`');
+  });
+
+  test('a single-hash comment followed by a blank and a key stays a comment', () => {
+    const commented = FULL_TICKET.replace('task: 17\n', '# pairing notes\n\ntask: 17\n');
+
+    expect(parsedDocument(commented).frontmatter.extra).toEqual([['#', 'pairing notes'], ['', '']]);
+  });
+
+  test('a single-hash comment followed directly by prose is refused at the prose, not as a heading', () => {
+    const parsed = parseTicketDocument(FULL_TICKET.replace('task: 17\n', 'task: 17\n# pairing notes\nnot a key\n'));
+
+    expect(parsed).toEqual({ verdict: 'malformed', reason: '`not a key` is not a `key: value` line', line: 16 });
   });
 
   test('an id of zero or past the safe integers is refused rather than padded', () => {

@@ -17,8 +17,11 @@ left to be read out of the parser.
 
 - The file opens on line 1 with `---`. **The closing fence is the first later line equal to `---`**,
   because bodies contain horizontal rules. A line opening on two to six `#` and a space before that
-  fence is a markdown heading, and makes the file malformed with a reason naming the heading and the
-  rule it would have taken as the fence: the closing fence was deleted. A `#` comment has one hash.
+  fence is a markdown heading, and makes the file malformed with a reason naming the heading and
+  saying to restore the closing fence above it if it was deleted; the reason holds for a correctly
+  fenced file too. A `#` comment has one hash; a `# text` line followed by blank lines and then a
+  line that is not `key: value` is a heading as well. A body of `# text` lines, blanks and
+  `key: value` lines before a rule cannot be told from comments and keys, and still parses.
 - A leading byte order mark is dropped, and CRLF is accepted. The body is kept byte for byte from the
   character after the closing fence's newline, so a hand-written body never changes under a CLI
   command. The line ending used when writing is the opening fence's, carried on the `Ticket` as
