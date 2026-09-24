@@ -23,7 +23,8 @@ lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/ lib/tick
   import block is a readable dependency list.
 - **`process.env` is read in `lib/platform/Environment.ts` and nowhere else**, through getters rather
   than constants captured at import, so a spec can redirect a value in-process.
-  `lib/EnvironmentReads.spec.ts` scans for both spellings of the accessor. Its scan covers specs too,
+  `lib/EnvironmentReads.spec.ts` scans for every spelling of the accessor, a named `env` import from
+  `process`, `node:process` or `bun` included. Its scan covers specs too,
   which is why `lib/platform/Workspace.spec.ts` drives the override through a child process instead
   of setting it. The allowlist holds two names: the module itself, and
   `lib/platform/Environment.spec.ts`, which makes the repository's one in-process assignment —
@@ -44,7 +45,8 @@ lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/ lib/tick
 ## Guards at this level
 
 - `lib/ImportDirection.spec.ts` — imports run up the tree, no `lib` → `cli`, no shipped code into the
-  test-only folder, no barrels.
+  test-only folder, no barrels, and no package or builtin import under `lib/constants/` or `lib/utils/`
+  (a spec there may import `bun:test`).
 - `lib/EnvironmentReads.spec.ts` — the environment is read in one module.
 - `lib/TrackerIsolationBypasses.spec.ts` — no spec creates the real process context, and none
   spawns the binary except through `lib/tooling/dev/CliProcess.ts`: a spec that starts a process

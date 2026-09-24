@@ -3,7 +3,7 @@
  * override this tool honours is documented in one place and a second reader cannot make the same
  * variable decide two things.
  *
- * It is a scan for the text rather than the behaviour, in five spellings of the same door; every
+ * It is a scan for the text rather than the behaviour, in six spellings of the same door; every
  * needle is assembled from parts, because this file is inside the tree it scans. Comments are blanked
  * out first, so a docblock may name the object while explaining the rule.
  */
@@ -29,16 +29,20 @@ const ENVIRONMENT_PROPERTY  = 'env';
 /** A dot with any whitespace on either side, so a line-broken access is one pattern rather than two. */
 const DOT_WITH_ANY_SPACING  = '\\s*\\.\\s*';
 
+/** `process`, `node:process` and `bun`: the modules whose named `env` export is the same door as the global. */
+const MODULE_EXPORTING_THE_ENVIRONMENT = `(?:(?:node:)?${PROCESS_OBJECT}|${BUN_OBJECT.toLowerCase()})`;
+
 /**
- * Three of the five are forms nothing here uses, which is the argument for having them: a read that
- * breaks this rule is likeliest to be written in whichever form the guard was not looking for.
+ * Most are forms nothing here uses, which is the argument for having them: a read that breaks this
+ * rule is likeliest to be written in whichever form the guard was not looking for.
  */
 const ENVIRONMENT_ACCESS_PATTERNS = [
   new RegExp(`\\b${[PROCESS_OBJECT, ENVIRONMENT_PROPERTY].join(DOT_WITH_ANY_SPACING)}`, 'g'),
   new RegExp(`\\b${[BUN_OBJECT, ENVIRONMENT_PROPERTY].join(DOT_WITH_ANY_SPACING)}`, 'g'),
   new RegExp(`\\b${PROCESS_OBJECT}\\s*\\[\\s*['"]${ENVIRONMENT_PROPERTY}['"]\\s*\\]`, 'g'),
-  new RegExp(`\\{[^{}]*\\b${ENVIRONMENT_PROPERTY}\\b[^{}]*\\}\\s*=\\s*${PROCESS_OBJECT}\\b`, 'g'),
+  new RegExp(`\\{[^{}]*\\b${ENVIRONMENT_PROPERTY}\\b[^{}]*\\}\\s*=\\s*(?:${PROCESS_OBJECT}|${BUN_OBJECT})\\b`, 'g'),
   new RegExp(`\\b${['import', 'meta', ENVIRONMENT_PROPERTY].join(DOT_WITH_ANY_SPACING)}`, 'g'),
+  new RegExp(`\\bimport\\s[^;]*?\\{[^{}]*\\b${ENVIRONMENT_PROPERTY}\\b[^{}]*\\}\\s*from\\s*['"]${MODULE_EXPORTING_THE_ENVIRONMENT}['"]`, 'g'),
 ];
 
 function typeScriptFilesUnder(directory: string): string[] {
@@ -95,6 +99,21 @@ describe('reading the environment', () => {
     expect(readsTheEnvironment(['const code = process', '.exitCode;'].join(''))).toBe(false);
     expect(readsTheEnvironment(['const here = import', '.meta', '.dir;'].join(''))).toBe(false);
     expect(readsTheEnvironment(['const { ', 'cwd', ' } = ', 'process', ';'].join(''))).toBe(false);
+  });
+
+  /** The module forms of the global: `import { env }` from a module leaves no `process.` in front of the read. */
+  test('it sees a named environment import from process, node:process or bun, and no other named import', () => {
+    const readsTheEnvironment = (line: string): boolean => ENVIRONMENT_ACCESS_PATTERNS.some((pattern) => new RegExp(pattern.source).test(line));
+    expect(readsTheEnvironment(['import { ', 'env', ' } from \'node:', 'process\';'].join(''))).toBe(true);
+    expect(readsTheEnvironment(['import { ', 'env', ' } from "', 'process";'].join(''))).toBe(true);
+    expect(readsTheEnvironment(['import { ', 'env', ' } from \'', 'bun\';'].join(''))).toBe(true);
+    expect(readsTheEnvironment(['import { argv, ', 'env', ' as environment } from \'node:', 'process\';'].join(''))).toBe(true);
+    expect(readsTheEnvironment(['import {\n  cwd,\n  ', 'env', ',\n} from \'node:', 'process\';'].join(''))).toBe(true);
+    expect(readsTheEnvironment(['import type { ', 'env', ' } from \'node:', 'process\';'].join(''))).toBe(true);
+    expect(readsTheEnvironment(['const { ', 'env', ' } = ', 'Bun', ';'].join(''))).toBe(true);
+    expect(readsTheEnvironment(['import { argv } from \'node:', 'process\';'].join(''))).toBe(false);
+    expect(readsTheEnvironment(['import { ', 'env', ' } from \'./', 'Environment\';'].join(''))).toBe(false);
+    expect(readsTheEnvironment(['import { environmentOf } from \'', 'bun\';'].join(''))).toBe(false);
   });
 
   test('no file outside the two allowed ones touches the environment', () => {

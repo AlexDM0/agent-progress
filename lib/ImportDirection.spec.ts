@@ -27,6 +27,8 @@ const CLASSIFIED_LIB_FOLDERS = [...FEATURE_FOLDERS, ...SUPPORT_FOLDERS_FOR_A_FEA
 /** `cli/arguments/` is the shared parser: support that happens to live one level down, not a command. */
 const SHARED_COMMAND_SUPPORT_FOLDER = 'cli/arguments';
 
+const TEST_RUNNER_SPECIFIER = 'bun:test';
+
 interface ModuleReference {
   /** Repository-relative, forward slashes, e.g. `cli/Main.ts`. */
   file:      string;
@@ -87,6 +89,17 @@ function isInside(path: string, folder: string): boolean {
 }
 
 /**
+ * A package or builtin (`node:fs`, `bun`, `marked`) resolves nowhere in this repository, so the folder rules cannot judge it;
+ * the two lowest layers import none, bar the test runner a spec beside them needs.
+ */
+function bareSpecifierVerdictFor(fromFile: string, specifier: string): LayeringVerdict {
+  if (fromFile.endsWith('.spec.ts') && specifier === TEST_RUNNER_SPECIFIER) return null;
+  if (isInside(fromFile, 'lib/constants')) return 'constants-imports-something';
+  if (isInside(fromFile, 'lib/utils')) return 'utils-imports-beyond-constants';
+  return null;
+}
+
+/**
  * `null` for the flat level of `cli/` and for `cli/arguments/`, load-bearing in opposite directions:
  * the flat level as a source so the dispatch may name every command, `cli/arguments/` as a target so
  * every command may reach the shared parser.
@@ -141,12 +154,16 @@ const LOCAL_REFERENCES = ALL_REFERENCES.flatMap((reference) => {
   const target = resolveLocalSpecifier(reference.file, reference.specifier);
   return target === null ? [] : [{ ...reference, target }];
 });
+const BARE_REFERENCES = ALL_REFERENCES.filter((reference) => resolveLocalSpecifier(reference.file, reference.specifier) === null);
 
 function complaintsFor(verdict: LayeringVerdict): string[] {
-  return LOCAL_REFERENCES
+  const localComplaints = LOCAL_REFERENCES
     .filter((reference) => layeringVerdictFor(reference.file, reference.target) === verdict)
-    .map((reference) => `${reference.file}:${reference.line} imports ${reference.target}`)
-    .sort();
+    .map((reference) => `${reference.file}:${reference.line} imports ${reference.target}`);
+  const bareComplaints = BARE_REFERENCES
+    .filter((reference) => bareSpecifierVerdictFor(reference.file, reference.specifier) === verdict)
+    .map((reference) => `${reference.file}:${reference.line} imports ${reference.specifier}`);
+  return [...localComplaints, ...bareComplaints].sort();
 }
 
 describe('the scan itself', () => {
@@ -158,6 +175,26 @@ describe('the scan itself', () => {
     expect(SCANNED_FILES.some((file) => file.startsWith('cli/')), 'the walk reached cli/').toBe(true);
     // Named rather than left to the count: one file cannot move a floor.
     expect(LOCAL_REFERENCES.filter((reference) => reference.file === BINARY_ENTRY_POINT).length, 'imports found in agent-progress.ts').toBeGreaterThanOrEqual(2);
+  });
+
+  /** The specs beside the two lowest layers import the test runner, so a scan that dropped bare specifiers there finds none. */
+  test('it sees package and builtin imports too, including in the two lowest layers', () => {
+    expect(BARE_REFERENCES.length, 'imports of a package or builtin').toBeGreaterThanOrEqual(20);
+    expect(BARE_REFERENCES.some((reference) => isInside(reference.file, 'lib/utils')), 'a bare import under lib/utils/').toBe(true);
+    expect(BARE_REFERENCES.some((reference) => isInside(reference.file, 'lib/constants')), 'a bare import under lib/constants/').toBe(true);
+  });
+
+  test('the classifier judges a package or builtin import by the layer it is made from', () => {
+    expect(bareSpecifierVerdictFor('lib/utils/ExampleUtil.ts', 'node:fs')).toBe('utils-imports-beyond-constants');
+    expect(bareSpecifierVerdictFor('lib/utils/ExampleUtil.ts', 'marked')).toBe('utils-imports-beyond-constants');
+    expect(bareSpecifierVerdictFor('lib/utils/ExampleUtil.ts', TEST_RUNNER_SPECIFIER)).toBe('utils-imports-beyond-constants');
+    expect(bareSpecifierVerdictFor('lib/utils/ExampleUtil.spec.ts', 'node:fs')).toBe('utils-imports-beyond-constants');
+    expect(bareSpecifierVerdictFor('lib/utils/ExampleUtil.spec.ts', TEST_RUNNER_SPECIFIER)).toBe(null);
+    expect(bareSpecifierVerdictFor('lib/constants/Example.ts', 'bun')).toBe('constants-imports-something');
+    expect(bareSpecifierVerdictFor('lib/constants/Example.ts', 'node:path')).toBe('constants-imports-something');
+    expect(bareSpecifierVerdictFor('lib/constants/Example.spec.ts', TEST_RUNNER_SPECIFIER)).toBe(null);
+    expect(bareSpecifierVerdictFor('lib/platform/Example.ts', 'node:fs')).toBe(null);
+    expect(bareSpecifierVerdictFor('lib/render/Example.ts', 'marked')).toBe(null);
   });
 
   test('it sees the dynamic imports the command table is written as, not only the static ones', () => {
