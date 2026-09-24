@@ -243,7 +243,35 @@ describe('parseTicketDocument', () => {
   test('an indented line is a nested structure this subset does not have, and is refused', () => {
     const nested = FULL_TICKET.replace('group: "export-dialog"', '  nested: true');
 
-    expect(parseTicketDocument(nested).verdict).toBe('malformed');
+    expect(parseTicketDocument(nested)).toEqual({ verdict: 'malformed', reason: '`  nested: true` is indented, and this frontmatter has no nested structure', line: 12 });
+  });
+
+  // An indented heading used to pass as a comment, so a deleted fence above an indented `## Report` went unnoticed.
+  test('a deleted fence is refused at an indented heading as it is at one in column 0', () => {
+    const fenceDeleted = FULL_TICKET.replace('task: 17\n---\n', 'task: 17\n').replace('## Report', '  ## Report').concat('---\n\n## Acceptance\n');
+
+    expect(parseTicketDocument(fenceDeleted)).toEqual({
+      verdict: 'malformed',
+      reason:  'line 17 is the markdown heading `  ## Report`, and a frontmatter holds no heading (a comment has one `#`); if the closing `---` fence was deleted, restore it above line 17',
+      line:    17,
+    });
+  });
+
+  // A single indented hash is not a heading, and must not slip through as a comment either.
+  test('an indented single-hash line is refused as indented rather than kept as a comment', () => {
+    const indentedHash = FULL_TICKET.replace('group: "export-dialog"', '  # filed while pairing');
+
+    expect(parseTicketDocument(indentedHash)).toEqual({
+      verdict: 'malformed',
+      reason:  '`  # filed while pairing` is indented, and this frontmatter has no nested structure',
+      line:    12,
+    });
+  });
+
+  test('a comment in column 0 is still kept, its text trimmed', () => {
+    const commented = FULL_TICKET.replace('group: "export-dialog"', '#   filed while pairing  ');
+
+    expect(parsedDocument(commented).frontmatter.extra).toEqual([['#', 'filed while pairing']]);
   });
 });
 

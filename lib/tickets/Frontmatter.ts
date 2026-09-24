@@ -35,6 +35,9 @@ const MARKDOWN_HEADING_PATTERN = /^#{2,6}(\s|$)/;
 // A `# text` followed by blank lines and then prose, no `key: value` line, may be a heading or a comment, and its refusal names both readings.
 const SINGLE_HASH_HEADING_PATTERN = /^# \S/;
 
+// A comment starts at column 0: an indented `#` line is neither a comment nor a key, so it is refused like any other indented line.
+const LEADING_WHITESPACE_PATTERN = /^\s/;
+
 // The one key read as a number; every other unquoted value is kept verbatim, leading zeros included.
 const INTEGER_KEY = 'task';
 
@@ -94,7 +97,8 @@ export function parseTicketDocument(text: string): ParsedTicketDocument {
         extra.push([BLANK_LINE_KEY, '']);
         continue;
       }
-      if (MARKDOWN_HEADING_PATTERN.test(line)) {
+      // Checked before the indentation refusal, so an indented heading still names the deleted fence.
+      if (MARKDOWN_HEADING_PATTERN.test(line.trimStart())) {
         throw new FrontmatterProblem(
           `line ${lineNumber} is the markdown heading \`${line}\`, and a frontmatter holds no heading (a comment has one \`#\`); `
           + `if the closing \`---\` fence was deleted, restore it above line ${lineNumber}`,
@@ -111,8 +115,11 @@ export function parseTicketDocument(text: string): ParsedTicketDocument {
           lineNumber,
         );
       }
-      if (line.trim().startsWith(COMMENT_KEY)) {
-        extra.push([COMMENT_KEY, line.trim().slice(1).trim()]);
+      if (LEADING_WHITESPACE_PATTERN.test(line)) {
+        throw new FrontmatterProblem(`\`${line}\` is indented, and this frontmatter has no nested structure`, lineNumber);
+      }
+      if (line.startsWith(COMMENT_KEY)) {
+        extra.push([COMMENT_KEY, line.slice(COMMENT_KEY.length).trim()]);
         continue;
       }
 

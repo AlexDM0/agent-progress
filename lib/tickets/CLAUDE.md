@@ -17,9 +17,10 @@ left to be read out of the parser.
 
 - The file opens on line 1 with `---`. **The closing fence is the first later line equal to `---`**,
   because bodies contain horizontal rules. A line opening on two to six `#` and a space before that
-  fence is a markdown heading, and makes the file malformed with a reason naming the heading and
-  saying to restore the closing fence above it if it was deleted; the reason holds for a correctly
-  fenced file too. A `#` comment has one hash; a `# text` line followed by blank lines and then a
+  fence is a markdown heading, indented or not, and makes the file malformed with a reason naming the
+  heading and saying to restore the closing fence above it if it was deleted; the reason holds for a
+  correctly fenced file too. A `#` comment has one hash and starts in column 0; an indented `#` line
+  is refused like any indented line. A `# text` line followed by blank lines and then a
   line that is not `key: value` is refused at itself, the reason naming both readings: a heading
   above a deleted fence, or a comment above a stray line. A body of `# text` lines, blanks and
   `key: value` lines before a rule cannot be told from comments and keys, and still parses.
