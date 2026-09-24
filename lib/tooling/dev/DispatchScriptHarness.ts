@@ -6,6 +6,7 @@
  * or a parking agent pauses the ticket's row (`task pause`: a paused row is not running) and closes its review bar. The fake agents follow their
  * prompt where a real one's first command depends on it: a builder whose ticket an earlier attempt claimed is refused as in-progress unless its
  * prompt says that claim is its run's own, and a reviewer finding an earlier attempt's bar adds a second unless its prompt says to take that one.
+ * A reviewer whose prompt runs `ticket rereview` counts a round each time, unless the prompt skips it and the bar of the ticket's round already runs.
  */
 import { readFileSync } from 'node:fs';
 import { join }         from 'node:path';
@@ -109,8 +110,12 @@ export interface DispatchScenario {
    * claimed the ticket and made its worktree, and its claimed row stays running for the restarted attempt to carry on in.
    */
   restartedBuilderTicketIds?:  string[];
-  /** The same for the first reviewer of each of these tickets: its first attempt added its bar, which stays running. */
+  /**
+   * The same for the reviewer of each of these tickets on `restartedReviewerRound` (the first by default): its first attempt ran its prompt's
+   * `ticket rereview`, if any, and added or took its bar, which stays running.
+   */
   restartedReviewerTicketIds?: string[];
+  restartedReviewerRound?:     number;
   /**
    * The run is killed the moment this agent (`build 001`, `review 001`) has put its row on the board: every own agent dies with its row left
    * running, and the script is resumed from the journal, the longest prefix of completed calls with unchanged prompts answered from it.
@@ -144,6 +149,8 @@ export interface DispatchRun {
   rowsPaused:               string[];
   /** Every review bar added, as `review <ticket>`, a restarted or killed attempt's included; a bar taken over is not added again. */
   reviewBarsAdded:          string[];
+  /** Every `ticket rereview` run, a restarted attempt's included, as `rereview <ticket> round <the ticket's round>`: each counts a round on the row. */
+  rereviewsRun:             string[];
   logs:                     string[];
   /** The `heldTicketIds` of every status block the main run was handed, in order. */
   heldTicketIdsReturned:    string[][];
@@ -161,11 +168,16 @@ export const REVIEWER_TAKES_OVER_A_RUNNING_BAR     = 'take it as your bar and ad
 /** The sentence a reviewer's prompt leaves its bar running for the next round by, when it asks for one. */
 export const REVIEWER_LEAVES_ITS_BAR_FOR_THE_NEXT_ROUND = 'leave your bar running';
 
+/** The sentence a round-2+ reviewer's prompt skips its `ticket rereview` by when the bar of its round is already running. */
+export const REVIEWER_SKIPS_A_REREVIEW_ALREADY_RUN = 'skip the rereview and take that row as your bar';
+
 interface RunningRow {
-  kind:     AgentKind;
-  ticketId: string;
+  kind:        AgentKind;
+  ticketId:    string;
   /** A builder's claim note, which is what tells one run's claim on a ticket from another's; empty on a review bar. */
-  note:     string;
+  note:        string;
+  /** The round a review bar is named for, the ticket's `## Review` count plus one when it was opened; `null` on a builder's row. */
+  reviewRound: number | null;
 }
 
 interface JournalEntry {
@@ -308,6 +320,8 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   let mostAgentsOnBoardAtOnce = 0;
   let ranAway = false;
   const reviewBarsAdded: string[] = [];
+  const rereviewsRun: string[] = [];
+  const reviewsWrittenByTicket = new Map<string, number>();
   const buildersOnBoard: string[] = [];
   const slotGaps: string[] = [];
   const deliveredTicketIds = new Set<string>();
@@ -325,9 +339,30 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     announceKill();
   };
 
+  // Every reviewer that returned wrote its `## Review`, so the ticket's round is their count plus one, as `ticket rereview` names its bar.
+  const ticketRoundOf = (ticketId: string): number => (reviewsWrittenByTicket.get(ticketId) ?? 0) + 1;
+
+  // As a real reviewer follows its prompt: the rereview runs unless the prompt skips it and the bar of the ticket's round already runs.
+  const reviewerRunsItsRereview = (ticketId: string, prompt: string, earlierRow: RunningRow | undefined): boolean => {
+    if (!prompt.includes(`ticket rereview ${ticketId}`)) return false;
+    const barOfThisRoundRuns = earlierRow?.reviewRound === ticketRoundOf(ticketId);
+    const ranIt = !(barOfThisRoundRuns && prompt.includes(REVIEWER_SKIPS_A_REREVIEW_ALREADY_RUN));
+    if (ranIt) rereviewsRun.push(`rereview ${ticketId} round ${ticketRoundOf(ticketId)}`);
+    return ranIt;
+  };
+
+  const runningRowOf = (rowKey: string): RunningRow | undefined => [...ownAgentsOnBoard.values(), ...rowsLeftRunning.values()]
+    .find((row) => `${row.kind}:${row.ticketId}` === rowKey);
+
   // The first attempt's first command, before the runtime restarted it: its claim takes the ticket off the ready list, or its bar is added.
   const restartedAttemptActs = (kind: AgentKind, ticketId: string, rowKey: string, prompt: string): void => {
-    rowsLeftRunning.set(rowKey, { kind, ticketId, note: kind === 'build' ? claimNoteIn(prompt) : '' });
+    if (kind === 'review') reviewerRunsItsRereview(ticketId, prompt, runningRowOf(rowKey));
+    rowsLeftRunning.set(rowKey, {
+      kind,
+      ticketId,
+      note:        kind === 'build' ? claimNoteIn(prompt) : '',
+      reviewRound: kind === 'review' ? ticketRoundOf(ticketId) : null,
+    });
     board.readyTicketIds = board.readyTicketIds.filter((readyTicketId) => readyTicketId !== ticketId);
     if (kind === 'review') reviewBarsAdded.push(rowNameOf(rowKey));
   };
@@ -336,6 +371,8 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     if (kind === 'build') return scenario.restartedBuilderTicketIds ?? [];
     return kind === 'review' ? scenario.restartedReviewerTicketIds ?? [] : [];
   };
+
+  const restartedOrdinalOf = (kind: AgentKind): number => (kind === 'review' ? scenario.restartedReviewerRound ?? 1 : 1);
 
   const ticketIdsOfRunningRows = (kind: AgentKind): string[] => [...ownAgentsOnBoard.values(), ...rowsLeftRunning.values()]
     .filter((row) => row.kind === kind)
@@ -371,9 +408,6 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     mostAgentsOnBoardAtOnce = Math.max(mostAgentsOnBoardAtOnce, agentsOnBoard());
   };
 
-  const runningRowOf = (rowKey: string): RunningRow | undefined => [...ownAgentsOnBoard.values(), ...rowsLeftRunning.values()]
-    .find((row) => `${row.kind}:${row.ticketId}` === rowKey);
-
   // As `ticket claim` answers: a running row of the ticket refuses it unless the prompt carries on past a claim bearing its own note, and a full board
   // refuses a new agent. A builder refused as in-progress returns that row's note, as its prompt asks.
   const claimOutcomeFor = (ticketId: string, prompt: string, earlierRow: RunningRow | undefined, reply: Record<string, unknown>): Record<string, unknown> => {
@@ -399,7 +433,12 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   // A builder's `--start-review` leaves its reviewer's bar running in the same lock hold; a plain `ticket review` frees the slot for a moment.
   const builderHandsItsSlotOn = (ticketId: string, prompt: string): void => {
     if (prompt.includes(`ticket review ${ticketId} --start-review`)) {
-      rowsLeftRunning.set(`review:${ticketId}`, { kind: 'review', ticketId, note: '' });
+      rowsLeftRunning.set(`review:${ticketId}`, {
+        kind:        'review',
+        ticketId,
+        note:        '',
+        reviewRound: ticketRoundOf(ticketId),
+      });
       reviewBarsAdded.push(`review ${ticketId}`);
       return;
     }
@@ -477,7 +516,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       return null;
     }
     let reply = replyFor(call);
-    if (ticketId !== null && ordinal === 1 && restartedTicketIdsOf(kind).includes(ticketId)) restartedAttemptActs(kind, ticketId, passKey, prompt);
+    if (ticketId !== null && ordinal === restartedOrdinalOf(kind) && restartedTicketIdsOf(kind).includes(ticketId)) restartedAttemptActs(kind, ticketId, passKey, prompt);
     liveOwnAgents++;
     mostLiveAgentsAtOnce = Math.max(mostLiveAgentsAtOnce, board.otherAgentsInFlight + liveOwnAgents);
     if (kind === 'park' && ticketId !== null) {
@@ -507,9 +546,16 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       const earlierRowIsRunning = earlierRow !== undefined;
       if (kind === 'build' && reply !== null) reply = claimOutcomeFor(ticketId, prompt, earlierRow, reply);
       const reachesTheBoard = reply?.['outcome'] !== 'claim-refused';
-      const ownRow: RunningRow = { kind, ticketId, note: kind === 'build' ? claimNoteIn(prompt) : '' };
+      const rereviewRan = kind === 'review' && reviewerRunsItsRereview(ticketId, prompt, earlierRow);
+      const takesTheEarlierRowOver = kind === 'build' || (earlierRowIsRunning && prompt.includes(REVIEWER_TAKES_OVER_A_RUNNING_BAR));
+      const barKeepsItsRound = !rereviewRan && takesTheEarlierRowOver && earlierRow !== undefined;
+      const ownRow: RunningRow = {
+        kind,
+        ticketId,
+        note:        kind === 'build' ? claimNoteIn(prompt) : '',
+        reviewRound: kind === 'build' ? null : (barKeepsItsRound ? earlierRow.reviewRound : ticketRoundOf(ticketId)),
+      };
       if (reachesTheBoard) {
-        const takesTheEarlierRowOver = kind === 'build' || (earlierRowIsRunning && prompt.includes(REVIEWER_TAKES_OVER_A_RUNNING_BAR));
         if (takesTheEarlierRowOver) {
           rowsLeftRunning.delete(passKey);
           pausedRowKeys.delete(passKey);
@@ -530,6 +576,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       await turnsPass(TURNS_FROM_FIRST_COMMAND_TO_RETURN);
       if (generation !== callGeneration) return NEVER_SETTLES;
       ownAgentsOnBoard.delete(callIndex);
+      if (kind === 'review' && reply !== null) reviewsWrittenByTicket.set(ticketId, ticketRoundOf(ticketId));
       const rowStaysRunning = reachesTheBoard && rowIsLeftRunning(kind, reply, prompt);
       if (rowStaysRunning) rowsLeftRunning.set(passKey, ownRow);
       if (kind === 'build' && reply?.['outcome'] === 'in-review') builderHandsItsSlotOn(ticketId, prompt);
@@ -613,6 +660,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     rowsRunningAtEnd: [...rowsLeftRunning.keys()].map(rowNameOf),
     rowsPaused:       [...pausedRowKeys].map(rowNameOf),
     reviewBarsAdded,
+    rereviewsRun,
     logs,
     heldTicketIdsReturned,
     summary,

@@ -278,7 +278,10 @@ JavaScript no spec can sit beside:
   first command depends on it: a builder finding its ticket's row left running is refused as in-progress unless its prompt carries
   `BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM`, and a reviewer finding a bar left running adds a second unless its prompt carries
   `REVIEWER_TAKES_OVER_A_RUNNING_BAR`. `restartedBuilderTicketIds` and `restartedReviewerTicketIds` restart an agent within its
-  `agent()` call after its first attempt claimed or added its bar, as the runtime does to a hung model call; `killedAtFirstCommandOf`
+  `agent()` call after its first attempt claimed or added its bar, as the runtime does to a hung model call (a reviewer on
+  `restartedReviewerRound`, the first by default); `rereviewsRun` records each `ticket rereview` a reviewer ran, which it skips only
+  when its prompt carries `REVIEWER_SKIPS_A_REREVIEW_ALREADY_RUN` and the bar of the ticket's round (its written reviews plus one)
+  already runs; `killedAtFirstCommandOf`
   kills the run at that agent's first command, leaves every own agent's row running, and resumes the script from the journal of
   completed calls, the longest prefix with unchanged prompts answered from it.
   A scenario's `ticketIds` launches a single-ticket run (with `readyTickets` copied from the board, as the orchestrator does);

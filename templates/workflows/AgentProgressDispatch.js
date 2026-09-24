@@ -229,7 +229,15 @@ function reviewerPrompt(ticketId, expectedRound, rereviewFirst, earlierReviewerD
     `You are a clean reviewer of ticket #${ticketId} for the agent-progress dispatcher, round ${expectedRound} as the dispatcher counts it. `
       + 'Your round is the number of `## Review` sections already in the ticket plus one; return it as `round`.',
   ];
-  if (rereviewFirst) lines.push(`FIRST command, before anything else: \`${startReviewCommandOf('rereview', ticketId, owner)}\`; it starts your bar.`);
+  // `rereview` counts a round each time it runs, and a restarted or resumed reviewer repeats its prompt; the bar it opened for this round is its trace.
+  if (rereviewFirst) {
+    lines.push(
+      `FIRST, before anything else: read your round from \`agent-progress ticket show ${ticketId}\`, and the running rows from \`agent-progress status --json\`. `
+        + `When a \`running\` row whose \`reviewOf\` is ${ticketId} is named \`Review <your round> #${ticketId} — …\`, the rereview of your round already ran: `
+        + 'skip the rereview and take that row as your bar. '
+        + `Otherwise run \`${startReviewCommandOf('rereview', ticketId, owner)}\` as your next command; it starts your bar.`,
+    );
+  }
   if (earlierReviewerDied) lines.push('An earlier reviewer of this run returned nothing, and its bar may still be running.');
   // A second bar would leave the first running, holding one of the board's slots for the rest of the run; the runtime restarts a hung agent with
   // the same prompt, and a resume re-runs one in flight, so any reviewer may find its own first attempt's bar.

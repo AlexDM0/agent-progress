@@ -9,6 +9,7 @@ import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../constants/Agent
 import {
   BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM,
   readDispatchScript,
+  REVIEWER_SKIPS_A_REREVIEW_ALREADY_RUN,
   REVIEWER_TAKES_OVER_A_RUNNING_BAR,
   runDispatchScript,
   type DispatchRun,
@@ -501,6 +502,22 @@ const CLAIMS: Claim[] = [
     mutant: ADD_A_SECOND_BAR,
   },
   {
+    // `ticket rereview` is not idempotent: run again by the restarted attempt, it leaves the ticket and its row a round ahead of the review done.
+    name:     'a round-2 reviewer the runtime restarts within one run finds the bar of its round running and runs ticket rereview once',
+    scenario: {
+      limit:                      2,
+      readyTicketIds:             ['001'],
+      restartedReviewerTicketIds: ['001'],
+      restartedReviewerRound:     2,
+      reviewerReply:              (_ticketId, round) => (round === 1 ? { verdict: 'round-requested', reworkedLines: 900 } : { verdict: 'released' }),
+    },
+    holds: (run) => reviewsOf(run, '001') === 2
+      && run.rereviewsRun.join(', ') === 'rereview 001 round 2'
+      && summaryOf(run).delivered.join() === '001'
+      && run.rowsRunningAtEnd.length === 0,
+    mutant: { find: 'skip the rereview and take that row as your bar. ', replace: 'run the rereview regardless. ' },
+  },
+  {
     name:     'a release refused for a reason other than main-moved parks the ticket',
     scenario: { limit: 2, readyTicketIds: ['001'], reviewerReply: () => ({ verdict: 'not-released', releaseReason: 'main-checkout-dirty' }) },
     holds:    (run) => reviewsOf(run, '001') === 1 && summaryOf(run).parked.some((parkedTicket) => parkedTicket.reason.includes('main-checkout-dirty')),
@@ -890,6 +907,20 @@ describe('the dispatcher script', () => {
     for (const reviewer of reviewers) expect(reviewer.prompt).toContain('`reviewOf` is 001, it is this review\'s own');
     for (const reviewer of reviewers) expect(reviewer.prompt).toContain(REVIEWER_TAKES_OVER_A_RUNNING_BAR);
     expect(run.reviewBarsAdded).toEqual(['review 001']);
+  });
+
+  test('only a round-2 reviewer runs ticket rereview, and its prompt skips it when the bar named for its round already runs', async () => {
+    const run = await runDispatchScript({
+      limit:          2,
+      readyTicketIds: ['001'],
+      reviewerReply:  (_ticketId, round) => (round === 1 ? { verdict: 'round-requested', reworkedLines: 900 } : { verdict: 'released' }),
+    });
+    const reviewers = run.calls.filter((call) => call.kind === 'review');
+    expect(reviewers).toHaveLength(2);
+    expect(reviewers[0]?.prompt).not.toContain('ticket rereview 001');
+    expect(reviewers[1]?.prompt).toContain('is named `Review <your round> #001 — …`');
+    expect(reviewers[1]?.prompt).toContain(REVIEWER_SKIPS_A_REREVIEW_ALREADY_RUN);
+    expect(run.rereviewsRun).toEqual(['rereview 001 round 2']);
   });
 
   // A reviewer that died left its bar running, and every status block after would count it as an agent in flight elsewhere.
