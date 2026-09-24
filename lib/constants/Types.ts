@@ -68,6 +68,8 @@ export interface ProgressFile {
   concurrencyLimit?: number;
   /** Where the user left the dispatcher; absent on a tracker that never set one, which reads as `stopped`. */
   dispatcherState?:  DispatcherState;
+  /** The Workflow run a `running` dispatcher is, stored so a killed run can be resumed after a compaction; absent in every other state. */
+  dispatcherRunId?:  string;
   tasks:             Task[];
   log:               LogEntry[];
 }

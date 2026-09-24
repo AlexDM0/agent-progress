@@ -115,6 +115,65 @@ describe.skipIf(!gitIsAvailable())('the dispatcher state', () => {
   });
 });
 
+describe.skipIf(!gitIsAvailable())('the stored run id', () => {
+  const EXAMPLE_RUN_ID = 'wf_example-run-1';
+
+  interface StatusDocumentWithRun {
+    concurrency: { dispatcherState: string; dispatcherRunId?: string };
+  }
+
+  async function statusConcurrency(extraArguments: readonly string[] = []): Promise<StatusDocumentWithRun['concurrency']> {
+    return (JSON.parse((await run(['status', '--json', ...extraArguments])).outputText()) as StatusDocumentWithRun).concurrency;
+  }
+
+  // The id is what the orchestrator resumes a killed run by after a compaction, so it is read back from the file, never from the process.
+  test('running with --run stores the id beside the state, and the read, the log line and status --json carry it', async () => {
+    expect((await run(['dispatcher', 'running', '--run', EXAMPLE_RUN_ID])).outputText()).toBe(`Dispatcher set to running (run ${EXAMPLE_RUN_ID}) (was stopped).`);
+
+    expect(storedProgress().dispatcherRunId).toBe(EXAMPLE_RUN_ID);
+    expect(storedProgress().log.at(-1)?.text).toBe(`Dispatcher set to running (run ${EXAMPLE_RUN_ID})`);
+    expect((await run(['dispatcher'])).outputText()).toBe(`running (run ${EXAMPLE_RUN_ID})`);
+    expect(JSON.parse((await run(['dispatcher', '--json'])).outputText())).toEqual({ dispatcherState: 'running', dispatcherRunId: EXAMPLE_RUN_ID });
+    expect((await statusConcurrency()).dispatcherRunId).toBe(EXAMPLE_RUN_ID);
+    expect((await statusConcurrency(['--full'])).dispatcherRunId).toBe(EXAMPLE_RUN_ID);
+  });
+
+  // A stale id left beside a later state would be resumed by mistake: a finished run has nothing left to resume, a stopped one was the user's stop.
+  test.each<[DispatcherState]>([['finished'], ['stopped'], ['running']])('writing "%s" without --run clears the stored id', async (state) => {
+    await run(['dispatcher', 'running', '--run', EXAMPLE_RUN_ID]);
+
+    await run(['dispatcher', state]);
+
+    expect(storedProgress().dispatcherRunId).toBeUndefined();
+    expect((await run(['dispatcher'])).outputText()).toBe(state);
+    expect((await statusConcurrency()).dispatcherRunId).toBeUndefined();
+  });
+
+  test.each([
+    ['finished', '--run', EXAMPLE_RUN_ID],
+    ['stopped', '--run', EXAMPLE_RUN_ID],
+    ['--run', EXAMPLE_RUN_ID],
+    ['running', '--run', ' '],
+  ])('dispatcher %s %s %s is refused at exit 1 and the progress file is left byte-identical', async (...commandArguments) => {
+    await run(['dispatcher', 'running', '--run', EXAMPLE_RUN_ID]);
+    const before = readFileSync(progressFilePath(), 'utf8');
+
+    const { exitCode } = await runWithExitCode(['dispatcher', ...commandArguments]);
+
+    expect(exitCode).toBe(1);
+    expect(readFileSync(progressFilePath(), 'utf8')).toBe(before);
+  });
+
+  test('a stored run id that is not text makes the progress file unreadable rather than guessed at', async () => {
+    writeFileSync(progressFilePath(), JSON.stringify({ ...storedProgress(), dispatcherState: 'running', dispatcherRunId: 42 }));
+
+    const { exitCode, context } = await runWithExitCode(['dispatcher']);
+
+    expect(exitCode).toBe(2);
+    expect(context.errorText()).toContain('dispatcherRunId');
+  });
+});
+
 describe.skipIf(!gitIsAvailable())('the advice the Next line gives', () => {
   beforeEach(async () => {
     await run(['ticket', 'add', 'Double-click a role to edit it']);

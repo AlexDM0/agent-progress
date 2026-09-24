@@ -96,9 +96,15 @@ function ticketDocumentOf(ticket: Ticket): Ticket['frontmatter'] & { priority: T
   return { ...ticket.frontmatter, priority: ticketPriorityOf(ticket.frontmatter), filePath: ticket.filePath };
 }
 
+/** The stored run id rides beside the state it belongs to, so the orchestrator finds the run to resume where it reads the state. */
+function statusConcurrencyOf(progress: ProgressFile, tickets: readonly Ticket[]): object {
+  const concurrency = concurrencyDocumentOf(progress, tickets);
+  return progress.dispatcherRunId === undefined ? concurrency : { ...concurrency, dispatcherRunId: progress.dispatcherRunId };
+}
+
 /** The whole progress file plus every ticket: a document an agent could write back, with the derived `concurrency` beside it. */
 function fullDocumentOf(progress: ProgressFile, tickets: readonly Ticket[]): object {
-  return { ...progress, tickets: tickets.map(ticketDocumentOf), concurrency: concurrencyDocumentOf(progress, tickets) };
+  return { ...progress, tickets: tickets.map(ticketDocumentOf), concurrency: statusConcurrencyOf(progress, tickets) };
 }
 
 /** What an agent opening a session needs: unsettled rows and tickets, the recent log newest first, and counts of what was left out. */
@@ -111,7 +117,7 @@ function workingDocumentOf(progress: ProgressFile, tickets: readonly Ticket[]): 
     tasks:       unsettledTasks,
     tickets:     unsettledTickets.map(ticketDocumentOf),
     log:         recentLog,
-    concurrency: concurrencyDocumentOf(progress, tickets),
+    concurrency: statusConcurrencyOf(progress, tickets),
     omitted:     {
       settledTasks:    progress.tasks.length - unsettledTasks.length,
       settledTickets:  tickets.length - unsettledTickets.length,

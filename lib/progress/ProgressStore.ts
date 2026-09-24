@@ -81,6 +81,10 @@ export function dispatcherStateOf(progress: ProgressFile): DispatcherState {
   return progress.dispatcherState ?? DEFAULT_DISPATCHER_STATE;
 }
 
+export function dispatcherRunIdIsWellFormed(value: unknown): value is string {
+  return typeof value === 'string' && value.trim() !== '';
+}
+
 export interface Concurrency {
   limit:          number;
   /** The running rows grouped by their `agent` key, each group counted once; a running row with no key, such as a review bar, is an agent of its own. */
@@ -193,6 +197,9 @@ function progressFileProblem(parsed: unknown): string | null {
   }
   if (candidate['dispatcherState'] !== undefined && !dispatcherStateIsKnown(candidate['dispatcherState'])) {
     return `dispatcherState is ${JSON.stringify(candidate['dispatcherState'])}, and when present it has to be one of ${DISPATCHER_STATES.join(', ')}`;
+  }
+  if (candidate['dispatcherRunId'] !== undefined && !dispatcherRunIdIsWellFormed(candidate['dispatcherRunId'])) {
+    return `dispatcherRunId is ${JSON.stringify(candidate['dispatcherRunId'])}, and when present it has to be a Workflow run id`;
   }
   if (!Array.isArray(candidate['tasks'])) return 'tasks is not an array';
   if (!Array.isArray(candidate['log'])) return 'log is not an array';

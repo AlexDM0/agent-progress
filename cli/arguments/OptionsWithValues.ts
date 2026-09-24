@@ -31,4 +31,5 @@ export const OPTION_NAMES_WITH_VALUES = new Set<string>([
   'rebased-from',
   'main',
   'worktree',
+  'run',
 ]);

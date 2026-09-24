@@ -23,11 +23,12 @@ type StatusDocument = ProgressFile & {
   tickets:     Array<TicketFrontmatter & { filePath: string }>;
   omitted?:    { settledTasks: number; settledTickets: number; olderLogEntries: number };
   concurrency: {
-    limit:           number;
-    agentsInFlight:  number;
-    freeSlots:       number;
-    readyTicketIds:  string[];
-    dispatcherState: string;
+    limit:            number;
+    agentsInFlight:   number;
+    freeSlots:        number;
+    readyTicketIds:   string[];
+    dispatcherState:  string;
+    dispatcherRunId?: string;
   };
 };
 
@@ -252,5 +253,21 @@ describe.skipIf(!gitIsAvailable())('the concurrency block both --json documents 
     };
     expect(working.concurrency).toEqual(expected);
     expect(full.concurrency).toEqual(expected);
+  });
+
+  // The orchestrator reads the state here, so the run to resume rides beside it; absent, the block keeps the shape every older reader knows.
+  test('carries the stored run id beside the dispatcher state only while one is stored', async () => {
+    await run(['dispatcher', 'running', '--run', 'wf_example-run-2']);
+
+    const working = JSON.parse((await run(['status', '--json'])).outputText()) as StatusDocument;
+    const full    = JSON.parse((await run(['status', '--json', '--full'])).outputText()) as StatusDocument;
+
+    expect(working.concurrency).toMatchObject({ dispatcherState: 'running', dispatcherRunId: 'wf_example-run-2' });
+    expect(full.concurrency).toMatchObject({ dispatcherState: 'running', dispatcherRunId: 'wf_example-run-2' });
+    expect(full.dispatcherRunId).toBe('wf_example-run-2');
+
+    await run(['dispatcher', 'finished']);
+
+    expect(Object.keys((JSON.parse((await run(['status', '--json'])).outputText()) as StatusDocument).concurrency)).not.toContain('dispatcherRunId');
   });
 });
