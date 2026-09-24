@@ -32,7 +32,7 @@ export async function runCommandLine(commandLineArguments: readonly string[], co
   if (helpRequest === 'ambiguous') {
     context.standardError(
       `"${HELP_SHORT_ALIAS}" after other arguments may be meant as text, so nothing was done.\n`
-      + `  For the reference use --help; for "${HELP_SHORT_ALIAS}" as text put it behind a bare --.\n`,
+      + `  For the reference use --help; for "${HELP_SHORT_ALIAS}" as text put it behind a bare --.`,
     );
     return 1;
   }
