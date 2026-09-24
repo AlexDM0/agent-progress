@@ -9,6 +9,7 @@ export interface ArgumentParser {
   flag(name: string): boolean;
   option(name: string): string | undefined;
   optionValues(name: string): string[];
+  positionalsBeforeSeparator(): string[];
   positionals(): string[];
   positional(): string | undefined;
   joinedPositionalsFrom(index: number): string | undefined;
@@ -33,25 +34,17 @@ export function createArgumentParser(remainingArguments: readonly string[]): Arg
     return argumentsBeforeSeparator.includes(`--${name}`);
   }
 
-  /** Both `--owner x` and `--owner=x` are read, and every caller depends on that; a value that looks like a flag needs the `=` form. */
+  /**
+   * Both `--owner x` and `--owner=x` are read, and every caller depends on that; a value that looks like a flag needs the `=` form.
+   * Given twice it is refused, since keeping either value silently stores what the caller did not mean.
+   */
   function option(name: string): string | undefined {
-    const optionToken = `--${name}`;
-    for (let argumentIndex = 0; argumentIndex < argumentsBeforeSeparator.length; argumentIndex++) {
-      const argument = argumentsBeforeSeparator[argumentIndex] ?? '';
-      if (argument.startsWith(`${optionToken}=`)) {
-        const inlineValue = argument.slice(optionToken.length + 1);
-        if (inlineValue) return inlineValue;
-        refuseValuelessOption(name);
-      }
-      if (argument !== optionToken) continue;
-      const nextArgument = argumentsBeforeSeparator[argumentIndex + 1];
-      if (nextArgument !== undefined && !nextArgument.startsWith('--') && nextArgument) return nextArgument;
-      refuseValuelessOption(name);
-    }
-    return undefined;
+    const values = optionValues(name);
+    if (values.length > 1) throw new OperationRefusal('refused', `--${name} was given ${values.length} times; it takes one value.`);
+    return values[0];
   }
 
-  /** Every occurrence of a repeated option, in order, where `option()` reads only the first. */
+  /** Every occurrence of a repeated option, in order, for the options that may be given more than once. */
   function optionValues(name: string): string[] {
     const optionToken = `--${name}`;
     const values: string[] = [];
@@ -72,7 +65,7 @@ export function createArgumentParser(remainingArguments: readonly string[]): Arg
   }
 
   /** Only an option in `OPTION_NAMES_WITH_VALUES` consumes the argument behind it, so a bare `--start` cannot swallow a positional. */
-  function positionals(): string[] {
+  function positionalsBeforeSeparator(): string[] {
     const values: string[] = [];
     let nextArgumentIsAnOptionValue = false;
     for (const argument of argumentsBeforeSeparator) {
@@ -87,8 +80,11 @@ export function createArgumentParser(remainingArguments: readonly string[]): Arg
       }
       values.push(argument);
     }
-    values.push(...argumentsAfterSeparator);
     return values;
+  }
+
+  function positionals(): string[] {
+    return [...positionalsBeforeSeparator(), ...argumentsAfterSeparator];
   }
 
   function positional(): string | undefined {
@@ -127,6 +123,7 @@ export function createArgumentParser(remainingArguments: readonly string[]): Arg
     flag,
     option,
     optionValues,
+    positionalsBeforeSeparator,
     positionals,
     positional,
     joinedPositionalsFrom,

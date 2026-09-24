@@ -49,7 +49,7 @@ describe('asking for the reference', () => {
   });
 
   test('--help after a command word prints the reference and exits 0, without reaching the command', async () => {
-    for (const line of [['ticket', '--help'], ['task', 'add', '-h'], ['status', '--help']]) {
+    for (const line of [['ticket', '--help'], ['task', '-h'], ['task', 'add', '--help'], ['status', '-h'], ['log', 'remember', '--help']]) {
       const context = capturingContext();
       expect(await runCommandLine(line, context), line.join(' ')).toBe(0);
       expect(context.outputText(), line.join(' ')).toContain('Usage: agent-progress <command>');
@@ -62,6 +62,53 @@ describe('asking for the reference', () => {
     expect(await runCommandLine(['ticket', 'add', '--', '--help'], context)).toBe(1);
     expect(context.outputText()).not.toContain('Usage: agent-progress <command>');
     expect(context.errorText(), 'the command itself ran, and found no tracker to file `--help` into').toContain('No agent-progress tracker was found');
+  });
+});
+
+describe('-h that is not a request for the reference', () => {
+  /** Help printed here would exit 0 having done nothing, which reads to a calling script as the step having run. */
+  let trackedDirectory = '';
+
+  beforeAll(async () => {
+    trackedDirectory = createScratchDirectory('main-short-help');
+    const initialisingContext = createCapturedCommandContext({ currentDirectory: trackedDirectory });
+    expect(await runCommandLine(['init', '--project', 'Example Agency', '--no-claude-md', '--no-hooks'], initialisingContext)).toBe(0);
+    expect(await runCommandLine(['ticket', 'add', 'Example ticket'], createCapturedCommandContext({ currentDirectory: trackedDirectory }))).toBe(0);
+  });
+
+  afterAll(() => {
+    removeScratchDirectory(trackedDirectory);
+  });
+
+  function trackedContext(): ReturnType<typeof createCapturedCommandContext> {
+    return createCapturedCommandContext({ currentDirectory: trackedDirectory });
+  }
+
+  test('-h as an option\'s value is that value: ticket abandon --reason -h abandons the ticket', async () => {
+    const abandoningContext = trackedContext();
+    expect(await runCommandLine(['ticket', 'abandon', '1', '--reason', '-h'], abandoningContext), abandoningContext.errorText()).toBe(0);
+    expect(abandoningContext.outputText()).not.toContain('Usage: agent-progress <command>');
+    const showingContext = trackedContext();
+    expect(await runCommandLine(['ticket', 'show', '1', '--json'], showingContext)).toBe(0);
+    expect(JSON.parse(showingContext.outputText())).toMatchObject({ status: 'abandoned', reason: '-h' });
+  });
+
+  test('-h after free text is refused at exit 1 and logs nothing, rather than printing the help at exit 0', async () => {
+    const loggingContext = trackedContext();
+    expect(await runCommandLine(['log', 'remember', '-h'], loggingContext)).toBe(1);
+    expect(loggingContext.outputText()).toBe('');
+    expect(loggingContext.errorText()).toContain('nothing was done');
+    const statusContext = trackedContext();
+    expect(await runCommandLine(['status', '--json', '--full'], statusContext)).toBe(0);
+    expect(statusContext.outputText()).not.toContain('remember');
+  });
+
+  test('-h behind a bare -- is text: log -- remember -h logs the line', async () => {
+    const loggingContext = trackedContext();
+    expect(await runCommandLine(['log', '--', 'remember', '-h'], loggingContext), loggingContext.errorText()).toBe(0);
+    const statusContext = trackedContext();
+    expect(await runCommandLine(['status', '--json', '--full'], statusContext)).toBe(0);
+    expect(statusContext.outputText()).toContain('remember -h');
   });
 });
 
