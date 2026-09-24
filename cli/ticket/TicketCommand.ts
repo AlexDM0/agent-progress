@@ -299,7 +299,10 @@ function reviewBarRequestFrom(commandArguments: ArgumentParser, subcommand: stri
   const note  = commandArguments.option('note');
   if (!commandArguments.flag('start-review')) {
     if (owner !== undefined || note !== undefined) {
-      throw new OperationRefusal('refused', `--owner and --note name the review bar, so \`agent-progress ticket ${subcommand}\` takes them only with --start-review.\n  Usage: ${USAGE}`);
+      throw new OperationRefusal(
+        'refused',
+        `--owner and --note name the review bar, so \`agent-progress ticket ${subcommand}\` takes them only with --start-review.\n  Usage: ${USAGE}`,
+      );
     }
     return null;
   }
@@ -890,7 +893,7 @@ export const ticketCommand: CommandHandler = async (commandArguments, context) =
     if (reference === undefined) {
       throw new OperationRefusal('refused', `agent-progress ticket rereview needs a ticket id.\n  Usage: ${USAGE}`);
     }
-    return rereviewOneTicket(reference, commandArguments, context, reviewBarRequestFrom(commandArguments, subcommand));
+    return rereviewOneTicket(reference, commandArguments, context, reviewBarRequestFrom(commandArguments, 'rereview'));
   }
   if (subcommand === 'list') {
     listAllTickets(commandArguments, context);
@@ -913,7 +916,7 @@ export const ticketCommand: CommandHandler = async (commandArguments, context) =
     if (reference === undefined) {
       throw new OperationRefusal('refused', `agent-progress ticket ${subcommand} needs a ticket id.\n  Usage: ${USAGE}`);
     }
-    const reviewBarRequest = sendsToReview ? reviewBarRequestFrom(commandArguments, subcommand) : null;
+    const reviewBarRequest = sendsToReview ? reviewBarRequestFrom(commandArguments, 'review') : null;
     return transitionOneTicket(targetStatus, reference, commandArguments, context, true, reviewBarRequest);
   }
 
