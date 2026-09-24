@@ -612,6 +612,13 @@ function refuseAnUnclaimableTicket(ticket: Ticket, tickets: readonly Ticket[], c
   }
 }
 
+// A running bar is a reviewer at work, so a builder claiming the ticket, a second dispatcher run's among them, would rebuild it under review.
+function refuseATicketUnderReview(progress: ProgressFile, ticketId: string): void {
+  const [runningBar] = runningReviewRowsOf(progress, [ticketId]);
+  if (runningBar === undefined) return;
+  throw new OperationRefusal('refused', `Ticket #${ticketId} is under review: its review row #${runningBar.id} is running. Nothing was written.`);
+}
+
 function namedTicketsText(identifiers: readonly string[]): string {
   const named = identifiers.map((identifier) => `#${identifier}`).join(', ');
   return identifiers.length === 1 ? `Ticket ${named}` : `Tickets ${named}`;
@@ -640,6 +647,7 @@ async function claimTickets(references: readonly string[], commandArguments: Arg
     const identifiers    = claimedTickets.map((ticket) => ticket.frontmatter.id);
     const { tickets }    = listTickets(change.workspace);
     for (const ticket of claimedTickets) refuseAnUnclaimableTicket(ticket, tickets, identifiers);
+    for (const identifier of identifiers) refuseATicketUnderReview(change.progress, identifier);
 
     const { agentsInFlight, limit } = concurrencyOf(change.progress);
     if (agentsInFlight >= limit) {

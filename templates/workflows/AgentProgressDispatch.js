@@ -1,7 +1,7 @@
 export const meta = {
   name:        'agent-progress-dispatch',
   description: 'Run the agent-progress board: a builder per ready ticket and a clean reviewer per built one, never past the board limit',
-  whenToUse:   'When the orchestrator hands the board to the dispatcher. args: { mainCheckout, mainLine, checkCommand, installCommand?, includeLowPriority? }',
+  whenToUse:   'When the orchestrator hands the board, or with ticketIds one ticket, to the dispatcher. args: { mainCheckout, mainLine, checkCommand, installCommand?, includeLowPriority?, ticketIds?, readyTickets? }',
   phases:      [
     { title: 'Survey', detail: 'read the concurrency block, the ready tickets and the reviews waiting', model: 'haiku' },
     { title: 'Build', detail: 'one builder per ready ticket, in the ticket worktree, at the ticket\'s model and effort' },
@@ -15,6 +15,7 @@ const CONCURRENCY_CEILING_AGENTS = 10;
 const BUILDER_CALL_BUDGET = 150;
 const REVIEWER_CALL_BUDGET = 75;
 const REWORK_ROUND_THRESHOLD_LINES = 750;
+const SINGLE_TICKET_RUN_AGENTS = 1;
 const FAILED_PASSES_BEFORE_PARKING = 2;
 const MAIN_MOVED_RELEASES_BEFORE_PARKING = 2;
 const PARKING_LOG_REASON_LIMIT_CHARACTERS = 200;
@@ -71,11 +72,12 @@ const SURVEY_SCHEMA = {
 const BUILDER_SCHEMA = {
   type:       'object',
   properties: {
-    outcome: { type: 'string', enum: ['in-review', 'claim-refused', 'failed'] },
-    detail:  { type: 'string' },
-    status:  STATUS_BLOCK_SCHEMA,
+    outcome:   { type: 'string', enum: ['in-review', 'claim-refused', 'failed'] },
+    detail:    { type: 'string' },
+    claimNote: { type: 'string' },
+    status:    STATUS_BLOCK_SCHEMA,
   },
-  required: ['outcome', 'detail', 'status'],
+  required: ['outcome', 'detail', 'claimNote', 'status'],
 };
 
 const REVIEWER_SCHEMA = {
@@ -105,13 +107,25 @@ const PARKING_SCHEMA = {
   required:   ['status'],
 };
 
+const ARGUMENTS_TEXT = '{ mainCheckout, mainLine, checkCommand, installCommand?, includeLowPriority?, ticketIds?, readyTickets? }';
+
+// Absent, the run takes the whole board; given, exactly these tickets, one agent at a time, as `status --json` spells their ids.
+function ticketIdsFrom(given) {
+  if (given === undefined) return null;
+  if (!Array.isArray(given) || given.length === 0 || !given.every((ticketId) => typeof ticketId === 'string' && ticketId !== '')) {
+    throw new Error(`The dispatcher's args.ticketIds is a non-empty list of ticket ids when given: args are ${ARGUMENTS_TEXT}.`);
+  }
+  return [...new Set(given)];
+}
+
 function settingsFrom(workflowArguments) {
   const given = workflowArguments ?? {};
   for (const name of ['mainCheckout', 'mainLine', 'checkCommand']) {
     if (typeof given[name] !== 'string' || given[name] === '') {
-      throw new Error(`The dispatcher needs args.${name}: args are { mainCheckout, mainLine, checkCommand, installCommand?, includeLowPriority? }.`);
+      throw new Error(`The dispatcher needs args.${name}: args are ${ARGUMENTS_TEXT}.`);
     }
   }
+  const ticketIds = ticketIdsFrom(given.ticketIds);
   return {
     mainCheckout:       given.mainCheckout,
     mainLine:           given.mainLine,
@@ -119,10 +133,27 @@ function settingsFrom(workflowArguments) {
     installCommand:     typeof given.installCommand === 'string' ? given.installCommand : '',
     // Low tickets are the orchestrator's to triage first; only its relaunch after that triage passes true.
     includeLowPriority: given.includeLowPriority === true,
+    ticketIds,
+    // The `readyTickets` entries of the named tickets, copied from `status --json`, so a run without a survey knows their model and effort.
+    readyTickets:       Array.isArray(given.readyTickets) ? given.readyTickets : [],
+    runLabel:           ticketIds === null ? 'whole-board' : `ticket-${ticketIds.join('+')}`,
   };
 }
 
 const settings = settingsFrom(args);
+
+// A claim's note names the run, so a builder refused as in-progress can tell its own run's claim from another run's on the same ticket.
+function claimNoteOf(ticketId) {
+  return `Built by the ${settings.runLabel} dispatcher run on ticket-${ticketId}`;
+}
+
+function reviewNoteOf(ticketId) {
+  return `Reviewed by the ${settings.runLabel} dispatcher run on ticket-${ticketId}`;
+}
+
+function startReviewCommandOf(verb, ticketId, owner) {
+  return `agent-progress ticket ${verb} ${ticketId} --start-review --owner ${owner} --note "${reviewNoteOf(ticketId)}"`;
+}
 
 function worktreeOf(ticketId) {
   return `${settings.mainCheckout}/.claude/worktrees/ticket-${ticketId}`;
@@ -152,15 +183,17 @@ function surveyPrompt() {
 function builderPrompt(ticketId, previousPass, owner) {
   const worktree = worktreeOf(ticketId);
   // The runtime restarts an agent whose model call hangs with the same prompt, and a resume re-runs one that was in flight: either way the first
-  // attempt's claim left the ticket in-progress, which `ticket claim` refuses, so every builder is told that refusal is its own.
-  const claimRefusalText = `If it exits 1 saying the ticket is in-progress while ${worktree} exists, the claim is this run's own: an earlier attempt at this ticket made it, `
-    + 'a builder of this run that stopped short, or this very builder before the runtime restarted or resumed it. Carry on in that worktree, keeping every '
-    + 'uncommitted edit it holds. On any other refusal, stop at once and return outcome `claim-refused` with its message verbatim as `detail`.';
+  // attempt's claim left the ticket in-progress, which `ticket claim` refuses. Another dispatcher run may hold the ticket too, so the row's note decides.
+  const claimRefusalText = `If it exits 1 saying the ticket is in-progress, read the \`note\` of the ticket's row (the \`task\` of \`agent-progress ticket show ${ticketId} --json\`, `
+    + `in \`agent-progress status --json --full\`). When that note is exactly "${claimNoteOf(ticketId)}" and ${worktree} exists, `
+    + `the claim is this run's own: an earlier attempt at this ticket made it, a builder of this run that stopped short, or this very builder before the runtime `
+    + 'restarted or resumed it. Carry on in that worktree, keeping every uncommitted edit it holds. On any other refusal, stop at once and return outcome '
+    + '`claim-refused` with its message verbatim as `detail` and, when it was refused as in-progress, that row\'s note as `claimNote`.';
   const lines = [
     `agent-progress ticket: ${ticketId}`,
     `Worktree: ${worktree}   Branch: ticket-${ticketId}   Main checkout: ${settings.mainCheckout}   Main line: ${settings.mainLine}`,
     `You build ticket #${ticketId} for the agent-progress dispatcher, alone: one ticket, one agent.`,
-    `FIRST command, before anything else: \`agent-progress ticket claim ${ticketId} --owner ${owner} --note "Built by the dispatcher on ticket-${ticketId}"\`. `
+    `FIRST command, before anything else: \`agent-progress ticket claim ${ticketId} --owner ${owner} --note "${claimNoteOf(ticketId)}"\`. `
       + claimRefusalText,
     `Then the worktree: when ${worktree} exists, reuse it as it stands, since it holds an earlier pass's commits and edits; start from \`git -C ${worktree} status\`. Otherwise `
       + `\`git -C ${settings.mainCheckout} worktree add ${worktree} -b ticket-${ticketId} ${settings.mainLine}\`, dropping \`-b\` when the branch already exists.`,
@@ -178,9 +211,11 @@ function builderPrompt(ticketId, previousPass, owner) {
       + `Find and fix, Ready to merge and Report, ${briefPlaceholdersText(ticketId)}. The Scope, Contract, Browser loop and Review brief blocks are not yours.`,
     'Do not `cat` any CLAUDE.md.',
     `Stop when the Acceptance block is satisfied, or at about ${BUILDER_CALL_BUDGET} API calls, whichever is first.`,
-    `Close as Ready to merge says, append the \`## Handoff\`, then run \`agent-progress ticket review ${ticketId}\`. `
+    // One lock hold moves the ticket to review and starts its reviewer's bar, so no status block between this builder and its reviewer shows the slot free.
+    `Close as Ready to merge says, append the \`## Handoff\`, then run \`${startReviewCommandOf('review', ticketId, owner)}\`. `
       + `Never merge ticket-${ticketId} into ${settings.mainLine} and never run \`agent-progress release\`: the release is the reviewer's.`,
-    `Return outcome \`in-review\` when \`ticket review\` succeeded and \`failed\` otherwise, with your report as \`detail\`. ${STATUS_RETURN_TEXT}`,
+    `Return outcome \`in-review\` when \`ticket review\` succeeded and \`failed\` otherwise, with your report as \`detail\` and \`claimNote\` empty unless your claim `
+      + `was refused as in-progress. ${STATUS_RETURN_TEXT}`,
   );
   return lines.join('\n');
 }
@@ -192,14 +227,14 @@ function reviewerPrompt(ticketId, expectedRound, rereviewFirst, earlierReviewerD
     `You are a clean reviewer of ticket #${ticketId} for the agent-progress dispatcher, round ${expectedRound} as the dispatcher counts it. `
       + 'Your round is the number of `## Review` sections already in the ticket plus one; return it as `round`.',
   ];
-  if (rereviewFirst) lines.push(`FIRST command, before anything else: \`agent-progress ticket rereview ${ticketId}\`.`);
+  if (rereviewFirst) lines.push(`FIRST command, before anything else: \`${startReviewCommandOf('rereview', ticketId, owner)}\`; it starts your bar.`);
   if (earlierReviewerDied) lines.push('An earlier reviewer of this run returned nothing, and its bar may still be running.');
   // A second bar would leave the first running, holding one of the board's slots for the rest of the run; the runtime restarts a hung agent with
   // the same prompt, and a resume re-runs one in flight, so any reviewer may find its own first attempt's bar.
   lines.push(
     `Then your bar. When \`agent-progress status --json\` shows a \`running\` row whose \`reviewOf\` is ${ticketId}, it is this review's own, left by an earlier reviewer `
-      + `of this run or by this very reviewer before the runtime restarted or resumed it: take it as your bar and add none. Otherwise add your own: `
-      + `\`agent-progress task add "Review <round> #${ticketId} — <ticket title>" --review-of ${ticketId} --owner ${owner} --start\`, `
+      + `of this run, by the builder's \`--start-review\` or by this very reviewer before the runtime restarted or resumed it: take it as your bar and add none. `
+      + `Otherwise add your own: \`agent-progress task add "Review <round> #${ticketId} — <ticket title>" --review-of ${ticketId} --owner ${owner} --note "${reviewNoteOf(ticketId)}" --start\`, `
       + `the title from \`agent-progress ticket show ${ticketId}\`. Your bar takes the place of the brief's \`agent-progress row:\` line; the review line above carries your tokens to it.`,
     `Read \`${settings.mainCheckout}/.agent-progress/agent-brief.md\` once and follow the fenced block under \`## Review brief\` as your whole procedure, `
       + `steps 0 to 8, ${briefPlaceholdersText(ticketId)}. Step 0 reads the diff first; you fix only what you review.`,
@@ -287,7 +322,7 @@ function readyTicketIsAdmitted(ticketId) {
 }
 
 function lowPriorityWaitingIds() {
-  if (board === null) return [];
+  if (board === null || settings.ticketIds !== null) return [];
   return board.readyTicketIds.filter((ticketId) => !ticketIdsTakenThisRun.has(ticketId) && !readyTicketIsAdmitted(ticketId));
 }
 
@@ -313,12 +348,14 @@ async function runAgent(prompt, options) {
   }
 }
 
-// A builder is on the board from its claim, a reviewer from its `task add --review-of --start`; a status block without the rows confirms nothing.
-// A parking agent never is, so the row it is pausing counts as another's until it returns: the safe side, for the few turns it runs.
+// A builder is on the board from its claim, a reviewer from its bar; a status block without the rows confirms nothing, except the bar a builder's
+// `in-review` reply says its `--start-review` left running, which only a block listing the rows can contradict. A parking agent never is on the
+// board, so the row it is pausing counts as another's until it returns: the safe side, for the few turns it runs.
 function ownAgentIsOnBoard(work, status) {
   if (work.kind === 'park') return false;
   const confirmingTicketIds = work.kind === 'build' ? status.runningTicketIds : status.runningReviewOfIds;
-  return Array.isArray(confirmingTicketIds) && confirmingTicketIds.includes(work.ticketId);
+  if (!Array.isArray(confirmingTicketIds)) return work.barStartedByBuilder === true;
+  return confirmingTicketIds.includes(work.ticketId);
 }
 
 function takeoverKeyOf(work) {
@@ -349,9 +386,21 @@ function adoptBoard(status) {
   }
 }
 
-// Every own agent counts against the slots, on the board yet or not; the ceiling holds whatever limit the board states.
+// Every own agent counts against the slots, on the board yet or not; the ceiling holds whatever limit the board states. A single-ticket run is
+// one agent's work, and its builder's claim is what the board's limit refuses.
 function ownSlotLimit() {
+  if (settings.ticketIds !== null) return SINGLE_TICKET_RUN_AGENTS;
   return Math.max(0, Math.min(board.limit, CONCURRENCY_CEILING_AGENTS) - othersInFlightAtBoardReading);
+}
+
+function untakenTicketIds() {
+  if (settings.ticketIds !== null) return settings.ticketIds.filter((ticketId) => !ticketIdsTakenThisRun.has(ticketId));
+  return board.readyTicketIds.filter((ticketId) => !ticketIdsTakenThisRun.has(ticketId) && readyTicketIsAdmitted(ticketId));
+}
+
+// A single-ticket run was never surveyed: what the board said of its tickets came in with its arguments.
+function readyTicketsStatement() {
+  return settings.ticketIds === null ? board : { readyTickets: settings.readyTickets };
 }
 
 function releaseRowsOf(ticketId, boardLogLine) {
@@ -403,11 +452,11 @@ function nextWork() {
   if (review !== undefined) return review;
   const rebuild = rebuildQueue.shift();
   if (rebuild !== undefined) return rebuild;
-  const readyTicketId = board.readyTicketIds.find((ticketId) => !ticketIdsTakenThisRun.has(ticketId) && readyTicketIsAdmitted(ticketId));
+  const [readyTicketId] = untakenTicketIds();
   if (readyTicketId === undefined) return null;
   ticketIdsTakenThisRun.add(readyTicketId);
   // Taken, the ticket leaves the ready list, so every later pass and round runs on what the board stated for it now.
-  recordOf(readyTicketId).agentSettings = agentSettingsFrom(readyTicketEntryOf(board, readyTicketId));
+  recordOf(readyTicketId).agentSettings = agentSettingsFrom(readyTicketEntryOf(readyTicketsStatement(), readyTicketId));
   return { kind: 'build', ticketId: readyTicketId, previousPass: null };
 }
 
@@ -467,9 +516,9 @@ function settleBuild(work, result) {
     countFailedPass(ticketId, 'the builder returned no result', rebuild);
     return;
   }
-  // The survey saw the ticket ready and only this run starts builders on it, so its row running now is this run's own claim, made by an attempt the
-  // runtime restarted: skipped, that row would be read as another agent's and hold a slot for the rest of the run.
-  if (result.outcome === 'claim-refused' && ownAgentIsOnBoard(work, result.status ?? {})) {
+  // A row carrying this run's claim note is this run's own claim, made by an attempt the runtime restarted: skipped, that row would be read as another
+  // agent's and hold a slot for the rest of the run. Another run's claim on the ticket carries that run's note, and is skipped like any refusal.
+  if (result.outcome === 'claim-refused' && result.claimNote === claimNoteOf(ticketId)) {
     countFailedPass(ticketId, `the claim was refused while this run's own claim holds the ticket${parentheticalOf(result.detail)}`, rebuild);
     return;
   }
@@ -481,7 +530,8 @@ function settleBuild(work, result) {
     countFailedPass(ticketId, `the builder did not reach review${parentheticalOf(result.detail)}`, rebuild);
     return;
   }
-  queueReview(ticketId, false);
+  // The builder's `--start-review` left the reviewer's bar running, so the reviewer takes it over like any row this run left running.
+  awaitTakeover({ ...reviewWorkFor(ticketId, false, false), barStartedByBuilder: true });
 }
 
 function findingsOfRoundsBefore(record, round) {
@@ -561,27 +611,29 @@ async function settleNextFinished() {
   if (finished.result !== null) adoptBoard(finished.result.status);
 }
 
-phase('Survey');
-const survey = await runAgent(surveyPrompt(), {
-  label:  'survey',
-  phase:  'Survey',
-  schema: SURVEY_SCHEMA,
-  model:  SURVEY_MODEL,
-  effort: SURVEY_EFFORT,
-});
-if (survey === null) {
-  log('The survey returned no board, so nothing was dispatched.');
-  return summary();
-}
-adoptBoard(survey.status);
-if (board === null) {
-  log('The survey returned no readable concurrency block, so nothing was dispatched.');
-  return summary();
-}
-for (const reviewWaitingTicket of survey.reviewWaitingTickets) {
-  ticketIdsTakenThisRun.add(reviewWaitingTicket.id);
-  recordOf(reviewWaitingTicket.id).agentSettings = agentSettingsFrom(reviewWaitingTicket);
-  queueReview(reviewWaitingTicket.id, false);
+if (settings.ticketIds === null) {
+  phase('Survey');
+  const survey = await runAgent(surveyPrompt(), {
+    label:  'survey',
+    phase:  'Survey',
+    schema: SURVEY_SCHEMA,
+    model:  SURVEY_MODEL,
+    effort: SURVEY_EFFORT,
+  });
+  if (survey === null) {
+    log('The survey returned no board, so nothing was dispatched.');
+    return summary();
+  }
+  adoptBoard(survey.status);
+  if (board === null) {
+    log('The survey returned no readable concurrency block, so nothing was dispatched.');
+    return summary();
+  }
+  for (const reviewWaitingTicket of survey.reviewWaitingTickets) {
+    ticketIdsTakenThisRun.add(reviewWaitingTicket.id);
+    recordOf(reviewWaitingTicket.id).agentSettings = agentSettingsFrom(reviewWaitingTicket);
+    queueReview(reviewWaitingTicket.id, false);
+  }
 }
 
 phase('Build');
@@ -618,7 +670,7 @@ const leftWaiting = [
   ...[...takeoversWaiting.values()].map((takeover) => takeover.ticketId),
   ...reviewQueue.map((review) => review.ticketId),
   ...rebuildQueue.map((rebuild) => rebuild.ticketId),
-  ...board.readyTicketIds.filter((ticketId) => !ticketIdsTakenThisRun.has(ticketId) && readyTicketIsAdmitted(ticketId)),
+  ...untakenTicketIds(),
 ];
 const leftWaitingText = leftWaiting.map((ticketId) => `#${ticketId}`).join(', ');
 if (leftWaiting.length > 0) log(stoppedByBoard ? `Left for the user's go: ${leftWaitingText}.` : `No slot free for ${leftWaitingText}: other agents hold the board's limit.`);

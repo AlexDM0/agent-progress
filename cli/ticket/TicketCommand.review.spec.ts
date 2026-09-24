@@ -132,6 +132,23 @@ describe.skipIf(!gitIsAvailable())('starting the review bar with the move to rev
     expect(await agentsInFlightNow()).toBe(agentsBefore);
   });
 
+  // A single-ticket dispatcher run launched late would otherwise claim the in-review ticket its whole-board twin is reviewing, and rebuild it.
+  test('a claim of a ticket whose review bar runs is refused, and one after the bar is closed takes it for the rebuild', async () => {
+    await run(['ticket', 'review', '1', '--start-review']);
+    await run(['concurrency', '2']);
+    const [bar] = runningBarsReviewing('001');
+
+    const refused = await runWithExitCode(['ticket', 'claim', '1']);
+    expect(refused.exitCode).toBe(1);
+    expect(refused.context.errorText()).toContain(`Ticket #001 is under review: its review row #${bar?.id} is running`);
+    expect(JSON.parse((await run(['ticket', 'show', '1', '--json'])).outputText())).toMatchObject({ status: 'in-review' });
+
+    await run(['task', 'finish', String(bar?.id)]);
+    await run(['task', 'deliver', String(bar?.id)]);
+    await run(['ticket', 'claim', '1']);
+    expect(JSON.parse((await run(['ticket', 'show', '1', '--json'])).outputText())).toMatchObject({ status: 'in-progress' });
+  });
+
   test('--owner or --note without --start-review is refused, and nothing moves', async () => {
     const { exitCode, context } = await runWithExitCode(['ticket', 'review', '1', '--owner', 'opus']);
 

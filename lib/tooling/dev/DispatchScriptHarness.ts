@@ -21,8 +21,9 @@ export interface ReviewFinding {
 }
 
 export interface BuilderReply {
-  outcome: 'in-review' | 'claim-refused' | 'failed';
-  detail?: string;
+  outcome:    'in-review' | 'claim-refused' | 'failed';
+  detail?:    string;
+  claimNote?: string;
 }
 
 export interface ReviewerReply {
@@ -45,11 +46,16 @@ export interface FakeBoard {
   otherAgentsInFlight:  number;
   readyTicketIds:       string[];
   /** Which tickets are low priority, ready or not; the status block names those among the ready ones. */
-  lowPriorityTicketIds: string[];
-  dispatcherState:      DispatcherStateOnBoard;
+  lowPriorityTicketIds:  string[];
+  highPriorityTicketIds: string[];
+  dispatcherState:       DispatcherStateOnBoard;
 }
 
+/** `main` is the scenario's run of the script; `racing` the single-ticket run started beside it on the same board. */
+export type DispatchRunName = 'main' | 'racing';
+
 export interface RecordedAgentCall {
+  run:      DispatchRunName;
   kind:     AgentKind;
   ticketId: string | null;
   /** The builder's pass, the reviewer's round or the parking agent's call for this ticket, counted by the harness from 1; `null` for the survey. */
@@ -64,6 +70,14 @@ export interface DispatchScenario {
   limit:                       number;
   readyTicketIds:              string[];
   lowPriorityTicketIds?:       string[];
+  highPriorityTicketIds?:      string[];
+  /** Passed to the script as `args.ticketIds`, with `args.readyTickets` copied from the board's entries for them, as the orchestrator launches one. */
+  ticketIds?:                  string[];
+  /** A single-ticket run of the script for these tickets, started `racingRunStartsAfterTurns` turns after the main run, against the same board. */
+  racingTicketIds?:            string[];
+  racingRunStartsAfterTurns?:  number;
+  /** A claim from elsewhere takes a free slot the moment a builder of the script's returns, after its status block was taken. */
+  elsewhereClaimsAFreedSlot?:  boolean;
   /** The tickets that name their own model and effort; every other ticket runs on the tool's default pair. */
   agentSettingsByTicketId?:    Record<string, TicketAgentSettings>;
   /** Passed to the script as `args.includeLowPriority`; left out of the arguments when absent. */
@@ -108,6 +122,15 @@ export interface DispatchRun {
   /** The most agents alive at one moment, which is what the limit bounds: the board's others and every own agent of any kind, the survey and each
    * parking agent included; a row left running is no agent. */
   mostLiveAgentsAtOnce:     number;
+  /** The most agents `status --json` counted at one moment: the board's others and every running row, whichever run's. */
+  mostAgentsOnBoardAtOnce:  number;
+  /** Every builder that reached the board, by its claim or by carrying on past its own, as `<run> build <ticket>`. */
+  buildersOnBoard:          string[];
+  /** Every builder that returned `in-review` without leaving its reviewer's bar running, as `build <ticket>`: a moment its ticket held no slot. */
+  slotGaps:                 string[];
+  /** The summary the racing run returned, `null` without one, and what it logged. */
+  racingSummary:            unknown;
+  racingLogs:               string[];
   /** The rows left running when the script returned, as `build <ticket>` or `review <ticket>`; a paused row is not among them. */
   rowsRunningAtEnd:         string[];
   /** The rows a parking agent paused, as `build <ticket>`. */
@@ -125,6 +148,13 @@ export interface DispatchRun {
 /** The sentence a builder's prompt carries on past a claim refused as in-progress by, and the one a reviewer's takes a bar left running by. */
 export const BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM = 'the claim is this run\'s own';
 export const REVIEWER_TAKES_OVER_A_RUNNING_BAR     = 'take it as your bar and add none';
+
+interface RunningRow {
+  kind:     AgentKind;
+  ticketId: string;
+  /** A builder's claim note, which is what tells one run's claim on a ticket from another's; empty on a review bar. */
+  note:     string;
+}
 
 interface JournalEntry {
   prompt:    string;
@@ -205,6 +235,10 @@ function rowNameOf(rowKey: string): string {
   return rowKey.replace(':', ' ');
 }
 
+function claimNoteIn(prompt: string): string {
+  return /ticket claim \S+ --owner \S+ --note "([^"]*)"/.exec(prompt)?.[1] ?? '';
+}
+
 async function nextTurn(): Promise<void> {
   await new Promise((resolve) => { setImmediate(resolve); });
 }
@@ -232,17 +266,19 @@ function reviewerDocumentOf(reply: ReviewerReply, round: number): Record<string,
 
 export async function runDispatchScript(scenario: DispatchScenario, source: string = readDispatchScript()): Promise<DispatchRun> {
   const board: FakeBoard = {
-    limit:                scenario.limit,
-    otherAgentsInFlight:  scenario.otherAgentsInFlight ?? 0,
-    readyTicketIds:       [...scenario.readyTicketIds],
-    lowPriorityTicketIds: [...scenario.lowPriorityTicketIds ?? []],
-    dispatcherState:      scenario.dispatcherState ?? 'running',
+    limit:                 scenario.limit,
+    otherAgentsInFlight:   scenario.otherAgentsInFlight ?? 0,
+    readyTicketIds:        [...scenario.readyTicketIds],
+    lowPriorityTicketIds:  [...scenario.lowPriorityTicketIds ?? []],
+    highPriorityTicketIds: [...scenario.highPriorityTicketIds ?? []],
+    dispatcherState:       scenario.dispatcherState ?? 'running',
   };
   const calls: RecordedAgentCall[] = [];
   const logs: string[] = [];
+  const racingLogs: string[] = [];
   const passesByTicket = new Map<string, number>();
-  const ownAgentsOnBoard = new Map<number, { kind: AgentKind; ticketId: string }>();
-  const rowsLeftRunning = new Map<string, { kind: AgentKind; ticketId: string }>();
+  const ownAgentsOnBoard = new Map<number, RunningRow>();
+  const rowsLeftRunning = new Map<string, RunningRow>();
   const rowKeysOfOwnAgentsRunning = new Map<number, string>();
   const pausedRowKeys = new Set<string>();
   const turnsBeforeFirstCommand = scenario.turnsBeforeFirstCommand ?? DEFAULT_TURNS_BEFORE_FIRST_COMMAND;
@@ -250,8 +286,12 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   let mostAgentsInFlightAtOnce = 0;
   let liveOwnAgents = 0;
   let mostLiveAgentsAtOnce = 0;
+  let mostAgentsOnBoardAtOnce = 0;
   let ranAway = false;
   const reviewBarsAdded: string[] = [];
+  const buildersOnBoard: string[] = [];
+  const slotGaps: string[] = [];
+  const deliveredTicketIds = new Set<string>();
   const journal: JournalEntry[] = [];
   let generation = 1;
   let announceKill: () => void = () => {};
@@ -267,8 +307,8 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   };
 
   // The first attempt's first command, before the runtime restarted it: its claim takes the ticket off the ready list, or its bar is added.
-  const restartedAttemptActs = (kind: AgentKind, ticketId: string, rowKey: string): void => {
-    rowsLeftRunning.set(rowKey, { kind, ticketId });
+  const restartedAttemptActs = (kind: AgentKind, ticketId: string, rowKey: string, prompt: string): void => {
+    rowsLeftRunning.set(rowKey, { kind, ticketId, note: kind === 'build' ? claimNoteIn(prompt) : '' });
     board.readyTicketIds = board.readyTicketIds.filter((readyTicketId) => readyTicketId !== ticketId);
     if (kind === 'review') reviewBarsAdded.push(rowNameOf(rowKey));
   };
@@ -292,13 +332,52 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     return Object.hasOwn(settingsByTicketId, ticketId) ? settingsByTicketId[ticketId] ?? null : null;
   };
 
+  const priorityOf = (ticketId: string): string => {
+    if (board.lowPriorityTicketIds.includes(ticketId)) return 'low';
+    return board.highPriorityTicketIds.includes(ticketId) ? 'high' : 'normal';
+  };
+
   // As `status --json` resolves them: every ready ticket with its priority, and its model and effort, the defaults filled in.
   const readyTicketsOnBoard = (): Record<string, string>[] => board.readyTicketIds.map((readyTicketId) => ({
     id:       readyTicketId,
-    priority: board.lowPriorityTicketIds.includes(readyTicketId) ? 'low' : 'normal',
+    priority: priorityOf(readyTicketId),
     model:    statedAgentSettingsOf(readyTicketId)?.model ?? DEFAULT_AGENT_MODEL,
     effort:   statedAgentSettingsOf(readyTicketId)?.effort ?? DEFAULT_AGENT_EFFORT,
   }));
+
+  const agentsOnBoard = (): number => board.otherAgentsInFlight + ownAgentsOnBoard.size + rowsLeftRunning.size;
+
+  const noteTheBoard = (): void => {
+    mostAgentsOnBoardAtOnce = Math.max(mostAgentsOnBoardAtOnce, agentsOnBoard());
+  };
+
+  const runningRowOf = (rowKey: string): RunningRow | undefined => [...ownAgentsOnBoard.values(), ...rowsLeftRunning.values()]
+    .find((row) => `${row.kind}:${row.ticketId}` === rowKey);
+
+  // As `ticket claim` answers: a running row of the ticket refuses it unless the prompt carries on past a claim bearing its own note, and a full board
+  // refuses a new agent. A builder refused as in-progress returns that row's note, as its prompt asks.
+  const claimOutcomeFor = (ticketId: string, prompt: string, earlierRow: RunningRow | undefined, reply: Record<string, unknown>): Record<string, unknown> => {
+    if (reply['outcome'] === 'claim-refused') return { ...reply, claimNote: earlierRow?.note ?? '' };
+    if (earlierRow !== undefined) {
+      if (prompt.includes(BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM) && earlierRow.note === claimNoteIn(prompt)) return reply;
+      return { ...reply, outcome: 'claim-refused', detail: `#${ticketId} is in-progress`, claimNote: earlierRow.note };
+    }
+    if (runningRowOf(`review:${ticketId}`) !== undefined) return { ...reply, outcome: 'claim-refused', detail: `#${ticketId} is under review` };
+    if (deliveredTicketIds.has(ticketId)) return { ...reply, outcome: 'claim-refused', detail: `#${ticketId} is delivered` };
+    if (agentsOnBoard() >= board.limit) return { ...reply, outcome: 'claim-refused', detail: `no slot free: ${agentsOnBoard()} of ${board.limit} agents in flight` };
+    return reply;
+  };
+
+  // A builder's `--start-review` leaves its reviewer's bar running in the same lock hold; a plain `ticket review` frees the slot for a moment.
+  const builderHandsItsSlotOn = (ticketId: string, prompt: string): void => {
+    if (prompt.includes(`ticket review ${ticketId} --start-review`)) {
+      rowsLeftRunning.set(`review:${ticketId}`, { kind: 'review', ticketId, note: '' });
+      reviewBarsAdded.push(`review ${ticketId}`);
+      return;
+    }
+    slotGaps.push(`build ${ticketId}`);
+    if (scenario.elsewhereClaimsAFreedSlot === true && agentsOnBoard() < board.limit) board.otherAgentsInFlight++;
+  };
 
   // As the `tickets` list states them: a ticket's model and effort only where it names them.
   const reviewWaitingTicketsOnBoard = (): Record<string, string>[] => (scenario.reviewWaitingTicketIds ?? []).map((reviewWaitingTicketId) => ({
@@ -307,7 +386,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   }));
 
   const statusBlock = (): Record<string, unknown> => {
-    const agentsInFlight = board.otherAgentsInFlight + ownAgentsOnBoard.size + rowsLeftRunning.size;
+    const agentsInFlight = agentsOnBoard();
     const concurrency = {
       limit:           board.limit,
       agentsInFlight,
@@ -327,13 +406,18 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     const ordinal  = call.ordinal ?? 1;
     if (call.kind === 'build') {
       const reply = scenario.builderReply === undefined ? { outcome: 'in-review' as const } : scenario.builderReply(ticketId, ordinal);
-      return reply === null ? null : { outcome: reply.outcome, detail: reply.detail ?? '', status: statusBlock() };
+      return reply === null ? null : {
+        outcome:   reply.outcome,
+        detail:    reply.detail ?? '',
+        claimNote: reply.claimNote ?? '',
+        status:    statusBlock(),
+      };
     }
     const reply = scenario.reviewerReply === undefined ? { verdict: 'released' as const } : scenario.reviewerReply(ticketId, ordinal);
     return reply === null ? null : { ...reviewerDocumentOf(reply, ordinal), status: statusBlock() };
   };
 
-  const fakeAgent: FakeAgent = async (prompt, options = {}) => {
+  const fakeAgent = async (prompt: string, options: Record<string, unknown>, run: DispatchRunName): Promise<unknown> => {
     const callGeneration   = generation;
     const builtTicketId    = markerIdentifierIn(prompt, 'ticket');
     const reviewedTicketId = markerIdentifierIn(prompt, 'review');
@@ -341,9 +425,10 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     const kind             = kindOf(builtTicketId, reviewedTicketId, parkedTicketId);
     const ticketId         = builtTicketId ?? reviewedTicketId ?? parkedTicketId;
     const passKey          = `${kind}:${ticketId ?? ''}`;
-    const ordinal          = kind === 'survey' ? null : (passesByTicket.get(passKey) ?? 0) + 1;
-    passesByTicket.set(passKey, ordinal ?? 0);
+    const ordinal          = kind === 'survey' ? null : (passesByTicket.get(`${run} ${passKey}`) ?? 0) + 1;
+    passesByTicket.set(`${run} ${passKey}`, ordinal ?? 0);
     const call: RecordedAgentCall = {
+      run,
       kind,
       ticketId,
       ordinal,
@@ -358,10 +443,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       return null;
     }
     let reply = replyFor(call);
-    if (kind === 'build' && ticketId !== null && reply?.['outcome'] !== 'claim-refused') {
-      board.readyTicketIds = board.readyTicketIds.filter((readyTicketId) => readyTicketId !== ticketId);
-    }
-    if (ticketId !== null && ordinal === 1 && restartedTicketIdsOf(kind).includes(ticketId)) restartedAttemptActs(kind, ticketId, passKey);
+    if (ticketId !== null && ordinal === 1 && restartedTicketIdsOf(kind).includes(ticketId)) restartedAttemptActs(kind, ticketId, passKey, prompt);
     liveOwnAgents++;
     mostLiveAgentsAtOnce = Math.max(mostLiveAgentsAtOnce, board.otherAgentsInFlight + liveOwnAgents);
     if (kind === 'park' && ticketId !== null) {
@@ -370,6 +452,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       const ticketRowKey = `build:${ticketId}`;
       if (rowsLeftRunning.delete(ticketRowKey)) pausedRowKeys.add(ticketRowKey);
       rowsLeftRunning.delete(`review:${ticketId}`);
+      noteTheBoard();
       await turnsPass(TURNS_FROM_FIRST_COMMAND_TO_RETURN);
       if (generation !== callGeneration) return NEVER_SETTLES;
       liveOwnAgents--;
@@ -386,11 +469,11 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     } else {
       await turnsPass(turnsBeforeFirstCommand);
       if (generation !== callGeneration) return NEVER_SETTLES;
-      const earlierRowIsRunning = rowsLeftRunning.has(passKey);
-      if (kind === 'build' && earlierRowIsRunning && reply !== null && !prompt.includes(BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM)) {
-        reply = { outcome: 'claim-refused', detail: `#${ticketId} is in-progress`, status: statusBlock() };
-      }
+      const earlierRow = runningRowOf(passKey);
+      const earlierRowIsRunning = earlierRow !== undefined;
+      if (kind === 'build' && reply !== null) reply = claimOutcomeFor(ticketId, prompt, earlierRow, reply);
       const reachesTheBoard = reply?.['outcome'] !== 'claim-refused';
+      const ownRow: RunningRow = { kind, ticketId, note: kind === 'build' ? claimNoteIn(prompt) : '' };
       if (reachesTheBoard) {
         const takesTheEarlierRowOver = kind === 'build' || (earlierRowIsRunning && prompt.includes(REVIEWER_TAKES_OVER_A_RUNNING_BAR));
         if (takesTheEarlierRowOver) {
@@ -399,7 +482,12 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
         } else {
           reviewBarsAdded.push(rowNameOf(passKey));
         }
-        ownAgentsOnBoard.set(callIndex, { kind, ticketId });
+        if (kind === 'build') {
+          board.readyTicketIds = board.readyTicketIds.filter((readyTicketId) => readyTicketId !== ticketId);
+          buildersOnBoard.push(`${run} build ${ticketId}`);
+        }
+        ownAgentsOnBoard.set(callIndex, ownRow);
+        noteTheBoard();
         if (generation === 1 && scenario.killedAtFirstCommandOf === rowNameOf(passKey)) {
           killTheRun();
           return NEVER_SETTLES;
@@ -408,9 +496,14 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       await turnsPass(TURNS_FROM_FIRST_COMMAND_TO_RETURN);
       if (generation !== callGeneration) return NEVER_SETTLES;
       ownAgentsOnBoard.delete(callIndex);
-      if (reachesTheBoard && rowIsLeftRunning(kind, reply)) rowsLeftRunning.set(passKey, { kind, ticketId });
+      if (reachesTheBoard && rowIsLeftRunning(kind, reply)) rowsLeftRunning.set(passKey, ownRow);
+      if (kind === 'build' && reply?.['outcome'] === 'in-review') builderHandsItsSlotOn(ticketId, prompt);
       // A release delivers every running bar that reviews the ticket, a second one included.
-      if (kind === 'review' && reply?.['verdict'] === 'released') rowsLeftRunning.delete(passKey);
+      if (kind === 'review' && reply?.['verdict'] === 'released') {
+        rowsLeftRunning.delete(passKey);
+        deliveredTicketIds.add(ticketId);
+      }
+      noteTheBoard();
     }
     rowKeysOfOwnAgentsRunning.delete(callIndex);
     liveOwnAgents--;
@@ -422,10 +515,12 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     if (generation !== 1) return NEVER_SETTLES;
     const entry: JournalEntry = { prompt, reply: null, completed: false };
     journal.push(entry);
-    entry.reply = await fakeAgent(prompt, options);
+    entry.reply = await fakeAgent(prompt, options, 'main');
     entry.completed = true;
     return entry.reply;
   };
+
+  const racingAgent: FakeAgent = async (prompt, options = {}) => fakeAgent(prompt, options, 'racing');
 
   let resumedCallCount = 0;
   let replayIsOver = false;
@@ -436,30 +531,49 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       return entry.reply;
     }
     replayIsOver = true;
-    return fakeAgent(prompt, options);
+    return fakeAgent(prompt, options, 'main');
+  };
+
+  // As the orchestrator launches a single-ticket run: the ids, and their `readyTickets` entries copied from the status document of that moment.
+  const argumentsFor = (ticketIds: string[] | undefined): Record<string, unknown> => {
+    const withPriority = scenario.includeLowPriority === undefined ? ARGUMENTS_FOR_SCRIPT : { ...ARGUMENTS_FOR_SCRIPT, includeLowPriority: scenario.includeLowPriority };
+    if (ticketIds === undefined) return withPriority;
+    return { ...withPriority, ticketIds, readyTickets: readyTicketsOnBoard().filter((entry) => ticketIds.includes(entry['id'] ?? '')) };
   };
 
   const scriptBody = compileScript(source);
-  const runScript = async (agentOfThisRun: FakeAgent, runGeneration: number): Promise<unknown> => scriptBody(
+  const runScript = async (agentOfThisRun: FakeAgent, runGeneration: number, scriptArguments: Record<string, unknown>, logsOfThisRun: string[]): Promise<unknown> => scriptBody(
     agentOfThisRun,
     async (thunks: (() => Promise<unknown>)[]) => Promise.all(thunks.map(async (thunk) => thunk().catch(() => null))),
     () => { throw new Error('The harness offers no pipeline(): the dispatcher runs its own pool.'); },
     () => {},
-    (message: string) => { if (generation === runGeneration) logs.push(message); },
-    scenario.includeLowPriority === undefined ? ARGUMENTS_FOR_SCRIPT : { ...ARGUMENTS_FOR_SCRIPT, includeLowPriority: scenario.includeLowPriority },
+    (message: string) => { if (generation === runGeneration) logsOfThisRun.push(message); },
+    scriptArguments,
     { total: null, spent: () => 0, remaining: () => Number.POSITIVE_INFINITY },
     () => { throw new Error('The harness offers no workflow().'); },
     guardedDate(),
     guardedMath(),
   );
-  const firstRunOutcome = await Promise.race([runScript(journaledAgent, 1), runIsKilled.then(() => KILLED)]);
+  const mainArguments   = argumentsFor(scenario.ticketIds);
+  const racingRun       = (async () => {
+    if (scenario.racingTicketIds === undefined) return null;
+    await turnsPass(scenario.racingRunStartsAfterTurns ?? 0);
+    return runScript(racingAgent, 1, argumentsFor(scenario.racingTicketIds), racingLogs);
+  })();
+  const firstRunOutcome = await Promise.race([runScript(journaledAgent, 1, mainArguments, logs), runIsKilled.then(() => KILLED)]);
   const resumed         = firstRunOutcome === KILLED;
-  const summary         = resumed ? await runScript(replayingAgent, generation) : firstRunOutcome;
+  const summary         = resumed ? await runScript(replayingAgent, generation, mainArguments, logs) : firstRunOutcome;
+  const racingSummary   = await racingRun;
   return {
     calls,
     mostAgentsAtOnce,
     mostAgentsInFlightAtOnce,
     mostLiveAgentsAtOnce,
+    mostAgentsOnBoardAtOnce,
+    buildersOnBoard,
+    slotGaps,
+    racingSummary,
+    racingLogs,
     rowsRunningAtEnd: [...rowsLeftRunning.keys()].map(rowNameOf),
     rowsPaused:       [...pausedRowKeys].map(rowNameOf),
     reviewBarsAdded,

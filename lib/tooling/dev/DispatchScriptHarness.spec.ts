@@ -12,6 +12,7 @@ import {
   REVIEWER_TAKES_OVER_A_RUNNING_BAR,
   runDispatchScript,
   type DispatchRun,
+  type DispatchRunName,
   type DispatchScenario,
   type ReviewFinding
 } from './DispatchScriptHarness';
@@ -82,7 +83,7 @@ const GRANT_ROUND_THREE_WITHOUT_CONVERGENCE: Mutant = { find: 'if (requestedRoun
 const CARRY_ON_PAST_NO_CLAIM: Mutant = { find: 'the claim is this run\'s own: an earlier attempt', replace: 'the claim is another agent\'s: an earlier attempt' };
 
 const SKIP_A_CLAIM_REFUSED_BY_THE_RUN_ITSELF: Mutant = {
-  find:    'if (result.outcome === \'claim-refused\' && ownAgentIsOnBoard(work, result.status ?? {})) {',
+  find:    'if (result.outcome === \'claim-refused\' && result.claimNote === claimNoteOf(ticketId)) {',
   replace: 'if (result.outcome === \'claim-refused\' && false) {',
 };
 
@@ -104,6 +105,36 @@ function workersRunOn(run: DispatchRun, model: string, effort: string): boolean 
 function releasedEveryRow(run: DispatchRun): boolean {
   return run.rowsRunningAtEnd.length === 0 && !run.logs.some((message) => message.includes('No slot free'));
 }
+
+function kindsAndTicketsOf(run: DispatchRun, runName: DispatchRunName): string {
+  return run.calls.filter((call) => call.run === runName).map((call) => (call.ticketId === null ? call.kind : `${call.kind} ${call.ticketId}`)).join(', ');
+}
+
+function racingSummaryOf(run: DispatchRun): DispatchSummary | null {
+  return run.racingSummary as DispatchSummary | null;
+}
+
+function buildersOnBoardOf(run: DispatchRun, ticketId: string): string {
+  return run.buildersOnBoard.filter((builder) => builder.endsWith(`build ${ticketId}`)).join(', ');
+}
+
+const SINGLE_TICKET_RUN_AMONG_OTHERS: DispatchScenario = { limit: 3, readyTicketIds: ['001', '007', '009'], ticketIds: ['007'] };
+
+/** A whole-board run and a single-ticket run for the high ticket #009, launched while the board has room, as the orchestrator's fast lane does. */
+function raceForTheHighTicket(racingRunStartsAfterTurns: number): DispatchScenario {
+  return {
+    limit:                 2,
+    readyTicketIds:        ['009', '001', '002'],
+    highPriorityTicketIds: ['009'],
+    racingTicketIds:       ['009'],
+    racingRunStartsAfterTurns,
+  };
+}
+
+const ONE_NOTE_FOR_EVERY_RUN: Mutant = {
+  find:    'runLabel:           ticketIds === null ? \'whole-board\' : `ticket-${ticketIds.join(\'+\')}`,',
+  replace: 'runLabel:           \'whole-board\',',
+};
 
 const CLAIMS: Claim[] = [
   {
@@ -170,14 +201,14 @@ const CLAIMS: Claim[] = [
     },
     holds:  (run) => run.mostAgentsInFlightAtOnce <= 3 && summaryOf(run).delivered.length === 6,
     mutant: {
-      find:    'return Array.isArray(confirmingTicketIds) && confirmingTicketIds.includes(work.ticketId);',
-      replace: 'return !Array.isArray(confirmingTicketIds) || confirmingTicketIds.includes(work.ticketId);',
+      find:    'if (!Array.isArray(confirmingTicketIds)) return work.barStartedByBuilder === true;',
+      replace: 'if (!Array.isArray(confirmingTicketIds)) return true;',
     },
   },
   {
     name:     'a waiting review starts before a ready ticket',
-    scenario: { limit: 1, readyTicketIds: ['001', '002'] },
-    holds:    (run) => kindsAndTickets(run).join(', ') === 'survey, build 001, review 001, build 002, review 002',
+    scenario: { limit: 1, reviewWaitingTicketIds: ['001'], readyTicketIds: ['002', '003'] },
+    holds:    (run) => kindsAndTickets(run).join(', ') === 'survey, review 001, build 002, review 002, build 003, review 003',
     mutant:   {
       find:    'const review = reviewQueue.shift();',
       replace: 'const review = board.readyTicketIds.some((ticketId) => !ticketIdsTakenThisRun.has(ticketId)) ? undefined : reviewQueue.shift();',
@@ -498,7 +529,7 @@ const CLAIMS: Claim[] = [
       readyTicketIds:         ['002', '003'],
       afterAgent:             (call, board) => { if (call.kind === 'review' && call.ticketId === '001') board.dispatcherState = 'stopped'; },
     },
-    holds: (run) => kindsAndTickets(run).join(', ') === 'survey, review 001, build 002'
+    holds: (run) => kindsAndTickets(run).join(', ') === 'survey, review 001, build 002, park 002'
       && summaryOf(run).delivered.join() === '001'
       && summaryOf(run).stoppedByBoard === true,
     mutant: { find: 'while (!stoppedByBoard && inFlight.size < slotLimit)', replace: 'while (inFlight.size < slotLimit)' },
@@ -520,7 +551,7 @@ const CLAIMS: Claim[] = [
     name:     'with only low tickets ready and no includeLowPriority, no builder starts and the summary lists them as lowPriorityWaiting',
     scenario: { limit: 2, readyTicketIds: ['004', '005'], lowPriorityTicketIds: ['004', '005'] },
     holds:    (run) => kindsAndTickets(run).join(', ') === 'survey' && summaryOf(run).lowPriorityWaiting?.join() === '004,005',
-    mutant:   { find: '&& readyTicketIsAdmitted(ticketId));\n  if (readyTicketId === undefined)', replace: ');\n  if (readyTicketId === undefined)' },
+    mutant:   { find: '!ticketIdsTakenThisRun.has(ticketId) && readyTicketIsAdmitted(ticketId));\n}', replace: '!ticketIdsTakenThisRun.has(ticketId));\n}' },
   },
   {
     name:     'with includeLowPriority, the low tickets ready are dispatched and delivered',
@@ -586,7 +617,7 @@ const CLAIMS: Claim[] = [
     holds: (run) => kindsAndTickets(run).join(', ') === 'survey, build 001, review 001, build 001, review 001'
       && workersRunOn(run, 'sonnet', 'high')
       && run.calls.filter((call) => call.kind !== 'survey').every((call) => call.prompt.includes('--owner sonnet')),
-    mutant: { find: '  recordOf(readyTicketId).agentSettings = agentSettingsFrom(readyTicketEntryOf(board, readyTicketId));\n', replace: '' },
+    mutant: { find: '  recordOf(readyTicketId).agentSettings = agentSettingsFrom(readyTicketEntryOf(readyTicketsStatement(), readyTicketId));\n', replace: '' },
   },
   {
     name:     'a review waiting when the run starts runs on the model and effort its ticket names',
@@ -616,7 +647,95 @@ const CLAIMS: Claim[] = [
     name:     'a low ticket left for triage is logged as such, never as waiting for a slot other agents hold',
     scenario: { limit: 2, readyTicketIds: ['004'], lowPriorityTicketIds: ['004'] },
     holds:    (run) => run.logs.some((message) => message.includes('triage, low priority: #004')) && !run.logs.some((message) => message.includes('No slot free')),
-    mutant:   { find: '!ticketIdsTakenThisRun.has(ticketId) && readyTicketIsAdmitted(ticketId)),\n];', replace: '!ticketIdsTakenThisRun.has(ticketId)),\n];' },
+    mutant:   { find: '  ...untakenTicketIds(),\n];', replace: '  ...board.readyTicketIds.filter((ticketId) => !ticketIdsTakenThisRun.has(ticketId)),\n];' },
+  },
+  {
+    // A plain `ticket review` frees the slot until the reviewer's `task add --start`, which checks no limit: a claim in between puts the board one over.
+    name:     'every builder moves its ticket to review with --start-review, so no claim from elsewhere finds its slot free before the reviewer starts',
+    scenario: { limit: 2, readyTicketIds: ticketIdsFrom(1, 3), elsewhereClaimsAFreedSlot: true },
+    holds:    (run) => run.slotGaps.length === 0
+      && run.mostAgentsOnBoardAtOnce === 2
+      && summaryOf(run).delivered.length === 3
+      && run.reviewBarsAdded.join(', ') === 'review 001, review 002, review 003',
+    mutant: { find: '`Close as Ready to merge says, append the \\`## Handoff\\`, then run \\`${startReviewCommandOf(\'review\', ticketId, owner)}\\`. `', replace: '`Close as Ready to merge says, append the \\`## Handoff\\`, then run \\`agent-progress ticket review ${ticketId}\\`. `' },
+  },
+  {
+    // Read as another agent's, the bar the builder left would fill a limit of 1, and the reviewer it was started for would never run.
+    name:     'the reviewer takes over the bar its builder\'s --start-review left running, so at a limit of 1 it starts at once and adds no second bar',
+    scenario: { limit: 1, readyTicketIds: ['001', '002'] },
+    holds:    (run) => kindsAndTickets(run).join(', ') === 'survey, build 001, review 001, build 002, review 002'
+      && run.reviewBarsAdded.join(', ') === 'review 001, review 002'
+      && run.mostAgentsOnBoardAtOnce === 1
+      && run.rowsRunningAtEnd.length === 0,
+    mutant: { find: 'awaitTakeover({ ...reviewWorkFor(ticketId, false, false), barStartedByBuilder: true });', replace: 'queueReview(ticketId, false);' },
+  },
+  {
+    // The builder's `in-review` reply is word that its bar runs; without it, a block lacking the rows would leave every built ticket's bar unstarted.
+    name:     'a status block without the running rows still counts the bar a builder handed on as the run\'s own, so every ticket is reviewed and delivered',
+    scenario: {
+      limit:                  3,
+      otherAgentsInFlight:    1,
+      readyTicketIds:         ticketIdsFrom(1, 3),
+      reviewWaitingTicketIds: ticketIdsFrom(7, 3),
+      statusOmitsRunningRows: true,
+    },
+    holds:  (run) => run.mostAgentsOnBoardAtOnce <= 3 && summaryOf(run).delivered.length === 6,
+    mutant: { find: 'if (!Array.isArray(confirmingTicketIds)) return work.barStartedByBuilder === true;', replace: 'if (!Array.isArray(confirmingTicketIds)) return false;' },
+  },
+  {
+    name:     'with ticketIds, no survey agent runs',
+    scenario: SINGLE_TICKET_RUN_AMONG_OTHERS,
+    holds:    (run) => run.calls.length > 0 && run.calls.every((call) => call.kind !== 'survey'),
+    mutant:   { find: 'if (settings.ticketIds === null) {\n  phase(\'Survey\');', replace: 'if (true) {\n  phase(\'Survey\');' },
+  },
+  {
+    // The single-ticket run is one agent's work: an agent() call for any other ticket would be a second agent the orchestrator never launched.
+    name:     'with ticketIds [007] and other tickets ready, only #007 is built, reviewed and released, and no agent() call names another ticket',
+    scenario: SINGLE_TICKET_RUN_AMONG_OTHERS,
+    holds:    (run) => kindsAndTickets(run).join(', ') === 'build 007, review 007'
+      && run.calls.every((call) => call.ticketId === '007')
+      && JSON.stringify(run.summary) === JSON.stringify({ delivered: ['007'], parked: [], findingsFiled: [], agentsRun: 2 }),
+    mutant: {
+      find:    'if (settings.ticketIds !== null) return settings.ticketIds.filter(',
+      replace: 'if (settings.ticketIds !== null && board === null) return settings.ticketIds.filter(',
+    },
+  },
+  {
+    name:     'with ticketIds, a ticket whose builders fail twice returns as parked, its row paused, and no other ticket is started',
+    scenario: {
+      limit:          2,
+      readyTicketIds: ['001', '007'],
+      ticketIds:      ['007'],
+      builderReply:   (ticketId) => (ticketId === '007' ? { outcome: 'failed' } : { outcome: 'in-review' }),
+    },
+    holds: (run) => kindsAndTickets(run).join(', ') === 'build 007, build 007, park 007'
+      && parkedIds(run).join() === '007'
+      && summaryOf(run).delivered.length === 0
+      && run.rowsPaused.join() === 'build 007'
+      && run.rowsRunningAtEnd.length === 0,
+    mutant: PARK_WITHOUT_RELEASING_THE_ROWS,
+  },
+  {
+    // The atomic claim decides the race; the note tells a run its own claim from the other's, so the loser moves on instead of carrying on beside it.
+    name:     'a single-ticket run that claims the high ticket first builds it alone: the whole-board run\'s claim is refused and it moves on, within the limit',
+    scenario: raceForTheHighTicket(0),
+    holds:    (run) => buildersOnBoardOf(run, '009') === 'racing build 009'
+      && racingSummaryOf(run)?.delivered.join() === '009'
+      && summaryOf(run).delivered.join() === '001,002'
+      && run.logs.some((message) => message.includes('#009 skipped for this run'))
+      && run.mostAgentsOnBoardAtOnce <= 2,
+    mutant: ONE_NOTE_FOR_EVERY_RUN,
+  },
+  {
+    name:     'a whole-board run that claims the high ticket first builds it alone: the single-ticket run\'s claim is refused and it returns, within the limit',
+    scenario: raceForTheHighTicket(2),
+    holds:    (run) => buildersOnBoardOf(run, '009') === 'main build 009'
+      && kindsAndTicketsOf(run, 'racing') === 'build 009'
+      && racingSummaryOf(run)?.delivered.length === 0
+      && run.racingLogs.some((message) => message.includes('#009 skipped for this run'))
+      && summaryOf(run).delivered.join() === '009,001,002'
+      && run.mostAgentsOnBoardAtOnce <= 2,
+    mutant: ONE_NOTE_FOR_EVERY_RUN,
   },
 ];
 
@@ -631,8 +750,8 @@ function modelsAndEffortsAreExplicit(run: DispatchRun): boolean {
 
 /** Each site that starts an agent, with its model or its effort taken out: four sites, eight forms. */
 const AGENT_OPTIONS_LEFT_OUT: [string, string][] = [
-  ['  model:  SURVEY_MODEL,\n  effort: SURVEY_EFFORT,', '  effort: SURVEY_EFFORT,'],
-  ['  model:  SURVEY_MODEL,\n  effort: SURVEY_EFFORT,', '  model:  SURVEY_MODEL,'],
+  ['    model:  SURVEY_MODEL,\n    effort: SURVEY_EFFORT,', '    effort: SURVEY_EFFORT,'],
+  ['    model:  SURVEY_MODEL,\n    effort: SURVEY_EFFORT,', '    model:  SURVEY_MODEL,'],
   ['      model:  PARKING_MODEL,\n      effort: PARKING_EFFORT,', '      effort: PARKING_EFFORT,'],
   ['      model:  PARKING_MODEL,\n      effort: PARKING_EFFORT,', '      model:  PARKING_MODEL,'],
   ['schema: BUILDER_SCHEMA,\n      model,\n      effort,', 'schema: BUILDER_SCHEMA,\n      effort,'],
@@ -735,7 +854,7 @@ describe('the dispatcher script', () => {
     const builders = run.calls.filter((call) => call.kind === 'build');
     expect(builders).toHaveLength(2);
     for (const builder of builders) {
-      expect(builder.prompt).toContain(`in-progress while /scratch/example-repository/.claude/worktrees/ticket-001 exists, ${BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM}`);
+      expect(builder.prompt).toContain(`"Built by the whole-board dispatcher run on ticket-001" and /scratch/example-repository/.claude/worktrees/ticket-001 exists, ${BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM}`);
       expect(builder.prompt).toContain('keeping every uncommitted edit it holds');
     }
     expect(builders[1]?.prompt).toContain('An earlier builder of this run stopped before review');
