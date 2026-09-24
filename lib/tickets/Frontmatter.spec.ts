@@ -124,6 +124,20 @@ describe('parseTicketDocument', () => {
     expect(parsedDocument(`\uFEFF${FULL_TICKET}`).frontmatter.id).toBe('003');
   });
 
+  // Unquoted values are taken verbatim: a hand-written leading zero read as a number would be lost on the next rewrite.
+  test('an unquoted all-digit value keeps its text, leading zeros included, and only the task is read as a number', () => {
+    const handEdited = FULL_TICKET
+      .replace('title: "Fix: the export dialog forgets the folder"', 'title: 0042')
+      .replace('branch: "ticket/export-dialog"', 'branch: "ticket/export-dialog"\ncommit: 0123456')
+      .replace('task: 17', 'task: 7');
+    const { frontmatter, body } = parsedDocument(handEdited);
+
+    expect(frontmatter.title).toBe('0042');
+    expect(frontmatter.commit).toBe('0123456');
+    expect(frontmatter.task).toBe(7);
+    expect(serializeTicketDocument(frontmatter, body)).toBe(handEdited.replace('title: 0042', 'title: "0042"').replace('commit: 0123456', 'commit: "0123456"'));
+  });
+
   test('an id written unquoted or unpadded still names ticket 003', () => {
     expect(parsedDocument(FULL_TICKET.replace('id: "003"', 'id: 3')).frontmatter.id).toBe('003');
   });

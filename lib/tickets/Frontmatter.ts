@@ -27,6 +27,9 @@ const KEY_PATTERN       = /^[A-Za-z][A-Za-z0-9_-]*$/;
 const INTEGER_PATTERN   = /^-?\d+$/;
 const DIGITS_PATTERN    = /^\d+$/;
 
+// The one key read as a number; every other unquoted value is kept verbatim, leading zeros included.
+const INTEGER_KEY = 'task';
+
 const COMMENT_KEY    = '#';
 const BLANK_LINE_KEY = '';
 
@@ -197,7 +200,7 @@ function scalarOf(rawValue: string, key: string, lineNumber: number): Frontmatte
   if (rawValue === 'null') {
     return null;
   }
-  if (INTEGER_PATTERN.test(rawValue)) {
+  if (key === INTEGER_KEY && INTEGER_PATTERN.test(rawValue)) {
     return Number(rawValue);
   }
   if (rawValue.startsWith('"')) {
