@@ -125,7 +125,8 @@ export interface DispatchScenario {
   killedAtFirstCommandOf?:        string;
   /**
    * Tickets in progress whose build row is paused from the start, each with its claim's note, as an earlier dispatcher run's parking agent leaves
-   * one a hold or a stop kept from its next builder; their worktree exists unless `pausedBuildIdsWithoutWorktree` names them. They are not ready: a whole-board survey returns them as `pausedBuilds`.
+   * one a hold or a stop kept from its next builder; their worktree exists unless `pausedBuildIdsWithoutWorktree` names them. They are not
+   * ready: a whole-board survey returns them as `pausedBuilds`.
    */
   pausedBuildNotesByTicketId?:    Record<string, string>;
   /** Paused builds among those whose worktree is gone, as the survey's `test -d` finds it. */
