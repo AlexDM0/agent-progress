@@ -6,13 +6,12 @@ import {
   DISPATCHER_STATES,
   dispatcherRunIdIsWellFormed,
   dispatcherStateIsKnown,
-  dispatcherStateOf,
-  readProgressFile
-}                                             from '../../lib/progress/ProgressStore';
-import type { CommandContext }                from '../CommandContext';
-import { openTrackerForWriting, printEntity } from '../CommandSupport';
-import type { CommandHandler }                from '../CommandTable';
-import type { ArgumentParser }                from '../arguments/ArgumentParser';
+  dispatcherStateOf
+}                                                                  from '../../lib/progress/ProgressStore';
+import type { CommandContext }                                     from '../CommandContext';
+import { openTrackerForWriting, printEntity, requireProgressFile } from '../CommandSupport';
+import type { CommandHandler }                                     from '../CommandTable';
+import type { ArgumentParser }                                     from '../arguments/ArgumentParser';
 
 const USAGE = `agent-progress dispatcher [${DISPATCHER_STATES.join('|')}] [--run <runId>] [--json]`;
 
@@ -27,14 +26,9 @@ function stateTextOf(dispatcherState: DispatcherState, dispatcherRunId: string |
 
 /** The read takes no lock and writes nothing, so a tracker that never set a state reads `stopped` and keeps its file as it was. */
 function printCurrentState(commandArguments: ArgumentParser, context: CommandContext): void {
-  const workspace    = requireWorkspace(context.currentDirectory);
-  const progressRead = readProgressFile(workspace);
-  if (progressRead.verdict !== 'readable') {
-    const reason = progressRead.verdict === 'absent' ? 'it is not there' : progressRead.reason;
-    throw new OperationRefusal('unrepaired', `${workspace.progressFilePath} cannot be read: ${reason}`);
-  }
-  const dispatcherState     = dispatcherStateOf(progressRead.progress);
-  const { dispatcherRunId } = progressRead.progress;
+  const progress            = requireProgressFile(requireWorkspace(context.currentDirectory));
+  const dispatcherState     = dispatcherStateOf(progress);
+  const { dispatcherRunId } = progress;
   const entity              = dispatcherRunId === undefined ? { dispatcherState } : { dispatcherState, dispatcherRunId };
   printEntity(commandArguments, context, entity, stateTextOf(dispatcherState, dispatcherRunId));
 }

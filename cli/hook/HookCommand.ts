@@ -1,23 +1,6 @@
 /**
- * `agent-progress hook subagent-stop`: the `SubagentStop` hook that records what a finished subagent
- * cost, as one line in the tracker's log, and adds it to the tokens of each row the agent's brief names
- * on an `agent-progress row: <ids>` line, of each ticket's row on an `agent-progress ticket: <ids>`
- * line, or of the ticket's newest review row on an `agent-progress review: <id>` line. It exists
- * because nothing else observes that number — a subagent's usage lives only in its own
- * transcript, and the token column read 0 on every row of a 73-agent build because nobody typed `--tokens`.
- *
- * It replaces a `record-subagent-tokens.ts` script each repository copied into `.claude/hooks/`. A
- * command inside the CLI can be wired up by `agent-progress init --hooks` and tested in process,
- * which a copied script can be neither.
- *
- * **Every failure here writes one sentence to standard error and returns normally, so the exit code
- * is 0**: no input, input that is not JSON, no transcript path, a transcript it cannot read, no
- * tracker at the hook's `cwd`, a transcript with no calls in it. **A `SubagentStop` hook's exit code
- * prevents nothing** — the agent has already finished by the time the harness runs this — so the rule
- * is not about letting the agent stop. It is that a non-zero exit is an error the orchestrator then
- * has to read and account for, and a delay before it is told its agent is done, both of which cost
- * more than the log line is worth — which is why this is the one command that never throws
- * `OperationRefusal` once it has its arguments.
+ * The `SubagentStop` hook: logs what a finished subagent cost and adds it to the rows its brief names. Every failure is one sentence on
+ * standard error at exit 0, since the agent has already stopped and a non-zero exit would prevent nothing.
  */
 import { readFileSync } from 'node:fs';
 import { homedir }      from 'node:os';

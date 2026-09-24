@@ -9,27 +9,26 @@ import {
   SETTLED_TASK_STATUSES,
   SETTLED_TICKET_STATUSES,
   TASK_STATUSES,
-  TICKET_STATUSES,
-  ticketPriorityOf
-}                                            from '../../lib/constants/Statuses';
+  TICKET_STATUSES
+}                                          from '../../lib/constants/Statuses';
 import type {
   LogEntry,
   ProgressFile,
   Task,
-  Ticket,
-  TicketPriority
+  Ticket
 }                                            from '../../lib/constants/Types';
-import { OperationRefusal } from '../../lib/platform/OperationRefusal';
 import { requireWorkspace } from '../../lib/platform/Workspace';
-import { readProgressFile } from '../../lib/progress/ProgressStore';
 import { listTickets }      from '../../lib/tickets/TicketStore';
 import { TimeUtil }         from '../../lib/utils/TimeUtil';
 import { TokenCountUtil }   from '../../lib/utils/TokenCountUtil';
 import {
   concurrencyDocumentOf,
   nextLineFor,
+  padColumn,
   printEntityThenNextLine,
   readyTicketsOf,
+  requireProgressFile,
+  ticketDocumentOf,
   type ReadyTicket
 }                                                                      from '../CommandSupport';
 import type { CommandHandler } from '../CommandTable';
@@ -49,10 +48,6 @@ const TASK_COLUMN_WIDTHS = {
   ticket:     7,
   tokens:     8,
 };
-
-function padColumn(text: string, width: number): string {
-  return text.length >= width ? `${text} ` : text.padEnd(width);
-}
 
 function countsByStatus(statuses: readonly string[], statusOfEach: readonly string[]): string {
   const present = statuses
@@ -94,11 +89,6 @@ function taskIsSettled(task: Task): boolean {
 
 function ticketIsSettled(ticket: Ticket): boolean {
   return SETTLED_TICKET_STATUSES.includes(ticket.frontmatter.status);
-}
-
-/** The priority is spelled out even where the file leaves it to the default, so a dispatcher never has to know what an absent key means. */
-function ticketDocumentOf(ticket: Ticket): Ticket['frontmatter'] & { priority: TicketPriority; filePath: string } {
-  return { ...ticket.frontmatter, priority: ticketPriorityOf(ticket.frontmatter), filePath: ticket.filePath };
 }
 
 /**
@@ -192,14 +182,9 @@ export const statusCommand: CommandHandler = async (commandArguments, context) =
   commandArguments.rejectUnknownOptions(KNOWN_OPTION_NAMES, USAGE);
   commandArguments.rejectExtraPositionals(0, USAGE);
 
-  const workspace    = requireWorkspace(context.currentDirectory);
-  const progressRead = readProgressFile(workspace);
-  if (progressRead.verdict !== 'readable') {
-    const reason = progressRead.verdict === 'absent' ? 'it is not there' : progressRead.reason;
-    throw new OperationRefusal('unrepaired', `${workspace.progressFilePath} cannot be read: ${reason}`);
-  }
-  const { progress } = progressRead;
-  const listing      = listTickets(workspace);
+  const workspace = requireWorkspace(context.currentDirectory);
+  const progress  = requireProgressFile(workspace);
+  const listing   = listTickets(workspace);
 
   for (const malformed of listing.malformed) {
     const place = malformed.line > 0 ? ` (line ${malformed.line})` : '';

@@ -8,25 +8,30 @@ import {
   transitionTask
 }                                             from '../../lib/progress/ProgressStore';
 import { readTicket }          from '../../lib/tickets/TicketStore';
-import { TokenCountUtil }      from '../../lib/utils/TokenCountUtil';
 import type { CommandContext } from '../CommandContext';
 import {
   openTrackerForWriting,
   openTrackerForWritingThenReadNextLine,
   printEntity,
-  printEntityThenNextLine
+  printEntityThenNextLine,
+  tokenCountFrom
 }                                             from '../CommandSupport';
 import type { CommandHandler } from '../CommandTable';
 import type { ArgumentParser } from '../arguments/ArgumentParser';
 
 const USAGE = [
-  'agent-progress task add "<name>" [--owner <who>] [--note <text>] [--ticket <id>] [--review-of <id>] [--start] [--tokens <n>] [--at <when>]',
+  'agent-progress task add "<name>" [--owner <who>] [--note <text>] [--ticket <id>] [--review-of <id>] [--start] [--tokens <n>] [--at <when>] [--force]',
   'agent-progress task start|pause|finish|review|rereview|deliver <id> [--owner <who>] [--note <text>] [--tokens <n>] [--at <when>] [--force]',
   'agent-progress task update <id> [--name <text>] [--owner <who>] [--note <text>] [--status <status>] [--tokens <n>] [--force]',
   'agent-progress task remove <id>',
 ].join('\n         ');
 
-const TRANSITION_SUBCOMMANDS: Record<string, { status: TaskStatus; spoken: string }> = {
+interface TaskTransition {
+  status: TaskStatus;
+  spoken: string;
+}
+
+const TRANSITION_SUBCOMMANDS: Record<string, TaskTransition> = {
   start:    { status: 'running',   spoken: 'started' },
   pause:    { status: 'paused',    spoken: 'paused' },
   finish:   { status: 'finished',  spoken: 'finished' },
@@ -64,20 +69,6 @@ function taskIdFrom(written: string | undefined, subcommand: string): number {
     );
   }
   return identifier;
-}
-
-function tokenCountFrom(commandArguments: ArgumentParser): number | undefined {
-  const written = commandArguments.option('tokens');
-  if (written === undefined) return undefined;
-
-  const count = TokenCountUtil.parseTokenCount(written);
-  if (count === null) {
-    throw new OperationRefusal(
-      'refused',
-      `--tokens "${written}" is not a token count. Write a whole number, or a decimal with a \`k\` or \`m\` suffix: \`12000\`, \`12k\`, \`12.3k\`, \`1.2m\`.`,
-    );
-  }
-  return count;
 }
 
 function requireTask(progress: ProgressFile, taskId: number): Task {
@@ -192,16 +183,17 @@ async function addOneTask(commandArguments: ArgumentParser, context: CommandCont
   }
 }
 
-async function transitionOneTask(subcommand: string, commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
+async function transitionOneTask(
+  subcommand: string,
+  move: TaskTransition,
+  commandArguments: ArgumentParser,
+  context: CommandContext,
+): Promise<void> {
   commandArguments.rejectUnknownOptions(TRANSITION_OPTION_NAMES, USAGE);
   commandArguments.rejectExtraPositionals(2, USAGE);
 
-  const move        = TRANSITION_SUBCOMMANDS[subcommand];
   const taskId      = taskIdFrom(commandArguments.positionals()[1], subcommand);
   const movesAnyway = commandArguments.flag('force');
-  if (move === undefined) {
-    throw new OperationRefusal('refused', `"${subcommand}" is not an agent-progress task subcommand.\n  Usage: ${USAGE}`);
-  }
 
   const { result: task, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
     const moved = requireTask(change.progress, taskId);
@@ -260,11 +252,8 @@ async function removeOneTask(commandArguments: ArgumentParser, context: CommandC
       workspace,
       writeTicketAfterwards,
     } = change;
-    requireTask(progress, taskId);
-    const removed = removeTask(progress, taskId);
-    if (removed === undefined) {
-      throw new OperationRefusal('refused', `There is no task #${taskId}.`);
-    }
+    const removed = requireTask(progress, taskId);
+    removeTask(progress, taskId);
 
     // Unlinked here so the two files agree at every moment both are on disk, rather than at the next transition.
     if (removed.ticket !== null) {
@@ -284,9 +273,8 @@ export const taskCommand: CommandHandler = async (commandArguments, context) => 
   const subcommand = commandArguments.positionals()[0];
 
   if (subcommand === 'add') return addOneTask(commandArguments, context);
-  if (subcommand !== undefined && Object.hasOwn(TRANSITION_SUBCOMMANDS, subcommand)) {
-    return transitionOneTask(subcommand, commandArguments, context);
-  }
+  const move = subcommand !== undefined && Object.hasOwn(TRANSITION_SUBCOMMANDS, subcommand) ? TRANSITION_SUBCOMMANDS[subcommand] : undefined;
+  if (subcommand !== undefined && move !== undefined) return transitionOneTask(subcommand, move, commandArguments, context);
   if (subcommand === 'update') return updateOneTask(commandArguments, context);
   if (subcommand === 'remove') return removeOneTask(commandArguments, context);
 

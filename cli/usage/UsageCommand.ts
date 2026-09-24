@@ -1,19 +1,6 @@
 /**
- * `agent-progress usage`: what this project's subagents actually cost, read back out of the
- * transcripts the harness wrote for them. It exists because the tracker's own token column is only
- * ever as good as what an orchestrator remembered to type — the column read 0 on every row of a
- * 73-agent build — while the transcripts held the figures the whole time.
- *
- * It is the measuring half of `cli/hook/HookCommand.ts`, and deliberately not the same thing: the
- * hook records one agent as it stops and can only ever see that one, this reads every agent a
- * repository has ever run and compares them. `--since` is what makes the comparison worth having —
- * it splits the cohort on the instant a way of briefing agents changed, so the two summaries answer
- * whether the change moved anything.
- *
- * It takes no lock, writes nothing and renders nothing: there is no tracker state to protect,
- * and a read-only report that regenerated the dashboard would be a surprise. Finding no transcripts
- * is a normal answer at exit 0 with one sentence, not a refusal — a repository that has never
- * delegated anything is not in a state the tool should complain about.
+ * What every subagent of this repository cost, read from the harness's transcripts; `cli/hook/HookCommand.ts` records one agent as it
+ * stops, this compares them all. Read-only, and finding no transcripts is one sentence at exit 0, not a refusal.
  */
 import { readFileSync } from 'node:fs';
 
@@ -29,7 +16,7 @@ import { TranscriptCohortUtil }                         from '../../lib/utils/Tr
 import type { TranscriptProfile }                       from '../../lib/utils/TranscriptUsageUtil';
 import { TranscriptUsageUtil }                          from '../../lib/utils/TranscriptUsageUtil';
 import type { CommandContext }                          from '../CommandContext';
-import { printEntity }                                  from '../CommandSupport';
+import { padColumn, printEntity }                       from '../CommandSupport';
 import type { CommandHandler }                          from '../CommandTable';
 import type { ArgumentParser }                          from '../arguments/ArgumentParser';
 
@@ -68,10 +55,6 @@ interface UsageCohorts {
   all:     CohortSummary;
   before?: CohortSummary;
   after?:  CohortSummary;
-}
-
-function padColumn(text: string, width: number): string {
-  return text.length >= width ? `${text} ` : text.padEnd(width);
 }
 
 /** The table carries the share and not the raw count: agents are compared on how much of their own input was sent at an oversized context. */

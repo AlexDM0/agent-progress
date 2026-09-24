@@ -36,6 +36,7 @@ import type { PriorityOperations }                 from '../lib/tickets/TicketTr
 import { NextLineUtil }                            from '../lib/utils/NextLineUtil';
 import { TicketDependencyUtil }                    from '../lib/utils/TicketDependencyUtil';
 import { TimeUtil }                                from '../lib/utils/TimeUtil';
+import { TokenCountUtil }                          from '../lib/utils/TokenCountUtil';
 import type { CommandContext }                     from './CommandContext';
 import type { ArgumentParser }                     from './arguments/ArgumentParser';
 
@@ -71,6 +72,39 @@ export function resolveAtOption(commandArguments: ArgumentParser, context: Comma
     );
   }
   return TimeUtil.formatLocalIso(resolved);
+}
+
+export function tokenCountFrom(commandArguments: ArgumentParser): number | undefined {
+  const written = commandArguments.option('tokens');
+  if (written === undefined) return undefined;
+
+  const count = TokenCountUtil.parseTokenCount(written);
+  if (count === null) {
+    throw new OperationRefusal(
+      'refused',
+      `--tokens "${written}" is not a token count. Write a whole number, or a decimal with a \`k\` or \`m\` suffix: \`12000\`, \`12k\`, \`12.3k\`, \`1.2m\`.`,
+    );
+  }
+  return count;
+}
+
+export function padColumn(text: string, width: number): string {
+  return text.length >= width ? `${text} ` : text.padEnd(width);
+}
+
+/** The priority is spelled out even where the file leaves it to the default, so a script never has to know what an absent key means. */
+export function ticketDocumentOf(ticket: Ticket): Ticket['frontmatter'] & { priority: TicketPriority; filePath: string } {
+  return { ...ticket.frontmatter, priority: ticketPriorityOf(ticket.frontmatter), filePath: ticket.filePath };
+}
+
+/** For the read-only commands, which take no lock: the progress file is written atomically, so this reads either the old one or the new one. */
+export function requireProgressFile(workspace: Workspace): ProgressFile {
+  const progressRead = readProgressFile(workspace);
+  if (progressRead.verdict !== 'readable') {
+    const reason = progressRead.verdict === 'absent' ? 'it is not there' : progressRead.reason;
+    throw new OperationRefusal('unrepaired', `${workspace.progressFilePath} cannot be read: ${reason}`);
+  }
+  return progressRead.progress;
 }
 
 export function printEntity(commandArguments: ArgumentParser, context: CommandContext, entity: unknown, humanLine: string): void {

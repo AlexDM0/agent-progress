@@ -1,16 +1,11 @@
-import { CONCURRENCY_LIMIT_CEILING_AGENTS } from '../../lib/constants/Limits';
-import { OperationRefusal }                 from '../../lib/platform/OperationRefusal';
-import { requireWorkspace }                 from '../../lib/platform/Workspace';
-import {
-  appendLogEntry,
-  concurrencyLimitIsWellFormed,
-  concurrencyOf,
-  readProgressFile
-}                                             from '../../lib/progress/ProgressStore';
-import type { CommandContext }                from '../CommandContext';
-import { openTrackerForWriting, printEntity } from '../CommandSupport';
-import type { CommandHandler }                from '../CommandTable';
-import type { ArgumentParser }                from '../arguments/ArgumentParser';
+import { CONCURRENCY_LIMIT_CEILING_AGENTS }                            from '../../lib/constants/Limits';
+import { OperationRefusal }                                            from '../../lib/platform/OperationRefusal';
+import { requireWorkspace }                                            from '../../lib/platform/Workspace';
+import { appendLogEntry, concurrencyLimitIsWellFormed, concurrencyOf } from '../../lib/progress/ProgressStore';
+import type { CommandContext }                                         from '../CommandContext';
+import { openTrackerForWriting, printEntity, requireProgressFile }     from '../CommandSupport';
+import type { CommandHandler }                                         from '../CommandTable';
+import type { ArgumentParser }                                         from '../arguments/ArgumentParser';
 
 const USAGE = 'agent-progress concurrency [<n>] [--json]';
 
@@ -29,15 +24,8 @@ function limitFrom(written: string): number {
   return limit;
 }
 
-/** The read takes no lock, as `status` takes none: the progress file is written atomically, so it is either the old one or the new one. */
 function printCurrentLimit(commandArguments: ArgumentParser, context: CommandContext): void {
-  const workspace    = requireWorkspace(context.currentDirectory);
-  const progressRead = readProgressFile(workspace);
-  if (progressRead.verdict !== 'readable') {
-    const reason = progressRead.verdict === 'absent' ? 'it is not there' : progressRead.reason;
-    throw new OperationRefusal('unrepaired', `${workspace.progressFilePath} cannot be read: ${reason}`);
-  }
-  const concurrency = concurrencyOf(progressRead.progress);
+  const concurrency = concurrencyOf(requireProgressFile(requireWorkspace(context.currentDirectory)));
   printEntity(commandArguments, context, concurrency, String(concurrency.limit));
 }
 

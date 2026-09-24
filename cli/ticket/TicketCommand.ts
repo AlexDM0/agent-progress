@@ -53,16 +53,18 @@ import {
 import { NextLineUtil }         from '../../lib/utils/NextLineUtil';
 import { TicketDependencyUtil } from '../../lib/utils/TicketDependencyUtil';
 import { TicketIdUtil }         from '../../lib/utils/TicketIdUtil';
-import { TokenCountUtil }       from '../../lib/utils/TokenCountUtil';
 import type { CommandContext }  from '../CommandContext';
 import {
   TICKET_STATUSES_NO_AGENT_WORKS_AGAIN,
   openTrackerForWriting,
   openTrackerForWritingThenReadNextLine,
+  padColumn,
   printEntity,
   printEntityThenNextLine,
-  progressOperations
-}                                                                 from '../CommandSupport';
+  progressOperations,
+  ticketDocumentOf,
+  tokenCountFrom
+}                                                              from '../CommandSupport';
 import type { CommandHandler } from '../CommandTable';
 import type { ArgumentParser } from '../arguments/ArgumentParser';
 
@@ -138,10 +140,6 @@ const LIST_COLUMN_WIDTHS = {
   type:       8,
   task:       6,
 };
-
-function padColumn(text: string, width: number): string {
-  return text.length >= width ? `${text} ` : text.padEnd(width);
-}
 
 function bodyForNewTicket(suppliedBody: string | undefined, ticketId: string, title: string): string {
   if (suppliedBody !== undefined && suppliedBody.trim() !== '') return suppliedBody;
@@ -219,11 +217,7 @@ function waitingOnText(identifiers: readonly string[]): string {
 
 /** The priority is always spelled out, so a script never has to know that an absent key means normal. */
 function ticketAsJson(ticket: Ticket): Record<string, unknown> {
-  return { ...ticketRowAsJson(ticket), body: ticket.body };
-}
-
-function ticketRowAsJson(ticket: Ticket): Record<string, unknown> {
-  return { ...ticket.frontmatter, priority: ticketPriorityOf(ticket.frontmatter), filePath: ticket.filePath };
+  return { ...ticketDocumentOf(ticket), body: ticket.body };
 }
 
 function requirePriority(writtenPriority: string): TicketPriority {
@@ -269,20 +263,6 @@ function lowTicketHeldBackText(ticket: Ticket, tickets: readonly Ticket[]): stri
   if (holdingBack.length === 0) return null;
   return `Ticket #${ticket.frontmatter.id} is low priority, and ${holdingBack.map((identifier) => `#${identifier}`).join(', ')} `
     + `${holdingBack.length === 1 ? 'is' : 'are'} normal or high and not delivered or abandoned yet`;
-}
-
-function tokenCountFrom(commandArguments: ArgumentParser): number | undefined {
-  const written = commandArguments.option('tokens');
-  if (written === undefined) return undefined;
-
-  const count = TokenCountUtil.parseTokenCount(written);
-  if (count === null) {
-    throw new OperationRefusal(
-      'refused',
-      `--tokens "${written}" is not a token count. Write a whole number, or a decimal with a \`k\` or \`m\` suffix: \`12000\`, \`12k\`, \`12.3k\`, \`1.2m\`.`,
-    );
-  }
-  return count;
 }
 
 interface ReviewBarRequest {
@@ -467,7 +447,7 @@ function listAllTickets(commandArguments: ArgumentParser, context: CommandContex
       ticketIsStillOpen(ticket) && unsettled.length > 0 ? `  (${waitingOnText(unsettled)})` : '',
     ].join('');
   });
-  printEntity(commandArguments, context, shown.map(ticketRowAsJson), [header, ...rows].join('\n'));
+  printEntity(commandArguments, context, shown.map(ticketDocumentOf), [header, ...rows].join('\n'));
 }
 
 function showOneTicket(commandArguments: ArgumentParser, context: CommandContext): void {
