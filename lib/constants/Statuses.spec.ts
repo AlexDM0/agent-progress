@@ -8,6 +8,7 @@ import {
   CLAUDE_MANAGED_END,
   CLAUDE_MANAGED_START,
   DEFAULT_TICKET_PRIORITY,
+  DISPATCHER_STATES,
   HTML_FILE_NAME,
   LOCK_FILE_NAME,
   PROGRESS_FILE_NAME,
@@ -25,6 +26,7 @@ import {
   ticketTypeIsKnown
 } from './Statuses';
 import type {
+  DispatcherState,
   TaskStatus,
   TicketPriority,
   TicketStatus,
@@ -35,11 +37,34 @@ import type {
 const TASK_STATUS_TUPLE_MATCHES_THE_UNION = TASK_STATUSES satisfies readonly TaskStatus[];
 const TICKET_STATUS_TUPLE_MATCHES_THE_UNION = TICKET_STATUSES satisfies readonly TicketStatus[];
 const TICKET_TYPE_TUPLE_MATCHES_THE_UNION = TICKET_TYPES satisfies readonly TicketType[];
+const DISPATCHER_STATE_TUPLE_MATCHES_THE_UNION = DISPATCHER_STATES satisfies readonly DispatcherState[];
+
+/** The other direction: a union member the tuple lacks leaves a remainder that is not `never`, and `true` then fails `bun run typecheck`. */
+type TupleCoversTheUnion<Union, Tuple extends readonly unknown[]> = [Exclude<Union, Tuple[number]>] extends [never] ? true : false;
+
+const TASK_STATUS_TUPLE_COVERS_THE_UNION: TupleCoversTheUnion<TaskStatus, typeof TASK_STATUSES> = true;
+const TICKET_STATUS_TUPLE_COVERS_THE_UNION: TupleCoversTheUnion<TicketStatus, typeof TICKET_STATUSES> = true;
+const TICKET_TYPE_TUPLE_COVERS_THE_UNION: TupleCoversTheUnion<TicketType, typeof TICKET_TYPES> = true;
+const TICKET_PRIORITY_TUPLE_COVERS_THE_UNION: TupleCoversTheUnion<TicketPriority, typeof TICKET_PRIORITIES> = true;
+const DISPATCHER_STATE_TUPLE_COVERS_THE_UNION: TupleCoversTheUnion<DispatcherState, typeof DISPATCHER_STATES> = true;
 
 test('every member of each tuple is a name the matching union also carries', () => {
   expect(TASK_STATUS_TUPLE_MATCHES_THE_UNION.length).toBeGreaterThanOrEqual(7);
   expect(TICKET_STATUS_TUPLE_MATCHES_THE_UNION.length).toBeGreaterThanOrEqual(6);
   expect(TICKET_TYPE_TUPLE_MATCHES_THE_UNION.length).toBe(3);
+  expect(DISPATCHER_STATE_TUPLE_MATCHES_THE_UNION.length).toBe(3);
+});
+
+// A stored dispatcher state the tuple lacks makes the whole progress file unreadable, so a union member added without it must not pass.
+test('every member of each union is a name the matching tuple also carries', () => {
+  expect([
+    TASK_STATUS_TUPLE_COVERS_THE_UNION,
+    TICKET_STATUS_TUPLE_COVERS_THE_UNION,
+    TICKET_TYPE_TUPLE_COVERS_THE_UNION,
+    TICKET_PRIORITY_TUPLE_COVERS_THE_UNION,
+    DISPATCHER_STATE_TUPLE_COVERS_THE_UNION,
+  ]).toEqual([true, true, true, true, true]);
+  expect(new Set(DISPATCHER_STATES).size).toBe(DISPATCHER_STATES.length);
 });
 
 test('the task ladder carries paused between running and finished, and no ticket status reaches it', () => {

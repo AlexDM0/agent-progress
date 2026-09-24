@@ -1,7 +1,12 @@
 import { existsSync, readFileSync } from 'fs';
 
-import { CONCURRENCY_LIMIT_CEILING_AGENTS, FIRST_REPEAT_REVIEW_ROUND, JSON_INDENT } from '../constants/Limits';
-import { TASK_STATUSES, taskStatusIsKnown }                                         from '../constants/Statuses';
+import {
+  CONCURRENCY_LIMIT_CEILING_AGENTS,
+  DEFAULT_CONCURRENCY_LIMIT,
+  FIRST_REPEAT_REVIEW_ROUND,
+  JSON_INDENT
+} from '../constants/Limits';
+import { DISPATCHER_STATES, TASK_STATUSES, taskStatusIsKnown } from '../constants/Statuses';
 import type {
   DispatcherState,
   LogEntry,
@@ -18,9 +23,6 @@ import type { Workspace }      from '../platform/Workspace';
 const SUPPORTED_PROGRESS_VERSION = 1;
 
 const FIRST_TASK_ID = 1;
-
-/** What a tracker that never set a limit reads: the two-slot dispatch the orchestrate skill was written around. */
-export const DEFAULT_CONCURRENCY_LIMIT = 2;
 
 const LOWEST_CONCURRENCY_LIMIT = 1;
 
@@ -67,8 +69,6 @@ export function createEmptyProgressFile(input: { project: string; startedAt: str
 export function concurrencyLimitIsWellFormed(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= LOWEST_CONCURRENCY_LIMIT;
 }
-
-export const DISPATCHER_STATES: readonly DispatcherState[] = ['running', 'finished', 'stopped'];
 
 /** What a tracker that never set a dispatcher state reads: the first start waits for the user's go, as a stop by the user does. */
 const DEFAULT_DISPATCHER_STATE: DispatcherState = 'stopped';

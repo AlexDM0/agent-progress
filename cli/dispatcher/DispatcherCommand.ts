@@ -1,9 +1,9 @@
+import { DISPATCHER_STATES }    from '../../lib/constants/Statuses';
 import type { DispatcherState } from '../../lib/constants/Types';
 import { OperationRefusal }     from '../../lib/platform/OperationRefusal';
 import { requireWorkspace }     from '../../lib/platform/Workspace';
 import {
   appendLogEntry,
-  DISPATCHER_STATES,
   dispatcherRunIdIsWellFormed,
   dispatcherStateIsKnown,
   dispatcherStateOf

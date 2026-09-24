@@ -75,9 +75,11 @@ or Node.
   retries, the axis tick ladder and its bounds, ticket id width, how long done work stays visible,
   the timestamp slice bounds every human-facing reader shares, the JSON indent, and
   `OVERSIZED_CONTEXT_THRESHOLD_TOKENS`, the context above which an API call is counted as oversized, and
+  `DEFAULT_CONCURRENCY_LIMIT`, what a tracker that never set a limit reads, and
   `CONCURRENCY_LIMIT_CEILING_AGENTS`, the most agents a stored limit allows in flight.
 - `lib/constants/Statuses.ts` — the task and ticket status tuples and the ticket type and priority
-  tuples with their guards, `ticketPriorityOf` (the one place an absent priority becomes `normal`),
+  tuples with their guards, `DISPATCHER_STATES` (each tuple pinned to its union in both directions by
+  `lib/constants/Statuses.spec.ts`), `ticketPriorityOf` (the one place an absent priority becomes `normal`),
   the ticket-status → task-status table, the settled task and ticket statuses (delivered, abandoned)
   that the page counts as completed and `status` hides, and the on-disk names (`progress.json`,
   `progress.html`, `.agent-progress`, `tickets`, `.lock`) and the two managed-block markers.

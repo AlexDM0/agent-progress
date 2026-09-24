@@ -176,7 +176,7 @@ export const BUILDER_TAKES_OVER_A_PAUSED_DISPATCHER_BUILD = 'a hold or a stop le
 export const REVIEWER_TAKES_OVER_A_RUNNING_BAR     = 'take it as your bar and add none';
 
 /** The sentence a reviewer's prompt leaves its bar running for the next round by, when it asks for one. */
-export const REVIEWER_LEAVES_ITS_BAR_FOR_THE_NEXT_ROUND = 'leave your bar running';
+const REVIEWER_LEAVES_ITS_BAR_FOR_THE_NEXT_ROUND = 'leave your bar running';
 
 /** The sentence a round-2+ reviewer's prompt skips its `ticket rereview` by when the bar of its round is already running. */
 export const REVIEWER_SKIPS_A_REREVIEW_ALREADY_RUN = 'skip the rereview and take that row as your bar';

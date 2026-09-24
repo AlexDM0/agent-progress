@@ -1,5 +1,6 @@
 /** The vocabularies as runtime tuples, since nothing can enumerate a type; `lib/constants/Statuses.spec.ts` pins them to `lib/constants/Types.ts`. */
 import type {
+  DispatcherState,
   TaskStatus,
   TicketPriority,
   TicketStatus,
@@ -13,6 +14,8 @@ export const TICKET_STATUSES = ['open', 'in-progress', 'in-review', 'done', 'del
 export const TICKET_TYPES = ['bug', 'change', 'feature'] as const;
 
 export const TICKET_PRIORITIES = ['low', 'normal', 'high'] as const;
+
+export const DISPATCHER_STATES = ['running', 'finished', 'stopped'] as const satisfies readonly DispatcherState[];
 
 export const DEFAULT_TICKET_PRIORITY: TicketPriority = 'normal';
 
