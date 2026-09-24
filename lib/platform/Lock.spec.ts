@@ -208,7 +208,8 @@ async function raceWhereTheFirstWaiterHoldsTheLock(prefix: string): Promise<Thre
   return race;
 }
 
-// The interleaving is driven by the takeover's own step callback: a third waiter's acquire runs at one step boundary per case, every boundary covered.
+// The interleaving is driven by the takeover's own step callback: a third waiter's acquire runs at one step boundary per case.
+// The first waiter's lock is fresh, so only `marker-claimed` is reached; the dead-holder case below reaches the rest.
 test('while the second waiter takes over, a third waiter acquiring at any step never makes two holders', async () => {
   const { acquired, takeoverSteps, tookOverStaleLock } = LockTakeoverSteps;
   expect(takeoverSteps.length).toBeGreaterThan(0);
@@ -225,6 +226,26 @@ test('while the second waiter takes over, a third waiter acquiring at any step n
     expect(waitersHoldingTheLock, `waiters holding the lock with the third acquiring at ${intrusionStep}`).toBe(1);
     expect(JSON.parse(readFileSync(race.lockFilePath, 'utf8'))).toEqual(race.firstWaiterPayload);
   }
+});
+
+test('while a waiter takes over a dead holder\'s lock, another acquiring at any step leaves exactly one holder', async () => {
+  const { acquired, takeoverSteps, tookOverStaleLock } = LockTakeoverSteps;
+  const stepsReached = new Set<string>();
+  for (const intrusionStep of takeoverSteps) {
+    const { lockFilePath } = scratchWorkspace('lock-dead-holder-intrusion');
+    writeFileSync(lockFilePath, JSON.stringify({ acquiredAt: new Date().toISOString(), processId: await processIdOfAnExitedProcess() }));
+    const takerPayload = { acquiredAt: '2026-09-24T15:00:01+02:00', processId: process.pid };
+    const intruderPayload = { acquiredAt: '2026-09-24T15:00:01+02:00', processId: process.pid + 1 };
+    let intruderAcquired = false;
+    const takerTookOver = tookOverStaleLock(lockFilePath, Date.now(), (step) => {
+      stepsReached.add(step);
+      if (step === intrusionStep) intruderAcquired = acquired(lockFilePath, intruderPayload);
+    });
+    const takerAcquired = takerTookOver && acquired(lockFilePath, takerPayload);
+
+    expect([intruderAcquired, takerAcquired].filter(Boolean).length, `holders with the intruder acquiring at ${intrusionStep}`).toBe(1);
+  }
+  expect([...stepsReached].sort(), 'every step boundary ran its intrusion').toEqual([...takeoverSteps].sort());
 });
 
 test('a lock its holder released during the second waiter\'s takeover is never put back', async () => {
