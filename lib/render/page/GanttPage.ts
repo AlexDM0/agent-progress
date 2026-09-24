@@ -318,6 +318,31 @@ function rowDoubleClicked(event: Event, selector: string): HTMLElement | null {
   return row instanceof HTMLElement ? row : null;
 }
 
+/** Enter counts only on the focused row itself, so Enter on a link inside it still follows the link. */
+function rowActivatedByKey(event: KeyboardEvent, selector: string): HTMLElement | null {
+  if (event.key !== 'Enter' || !(event.target instanceof HTMLElement) || !event.target.matches(selector)) {
+    return null;
+  }
+  return event.target;
+}
+
+function wireRowOverview(containerId: string, rowSelector: string, showRowDetail: (row: HTMLElement) => void): void {
+  const container = document.getElementById(containerId);
+  container?.addEventListener('dblclick', (event) => {
+    const row = rowDoubleClicked(event, rowSelector);
+    if (row !== null) {
+      showRowDetail(row);
+    }
+  });
+  container?.addEventListener('keydown', (event) => {
+    const row = rowActivatedByKey(event, rowSelector);
+    if (row !== null) {
+      event.preventDefault();
+      showRowDetail(row);
+    }
+  });
+}
+
 function wireTaskDetail(progress: ProgressFile, tickets: readonly PageTicket[], limits: PageLimits): void {
   const dialog = document.getElementById(DETAIL_DIALOG_ELEMENT_ID);
   if (!(dialog instanceof HTMLDialogElement)) {
@@ -339,25 +364,19 @@ function wireTaskDetail(progress: ProgressFile, tickets: readonly PageTicket[], 
     dialog.showModal();
   };
 
-  document.getElementById('ap-rows')?.addEventListener('dblclick', (event) => {
-    const row = rowDoubleClicked(event, '.ap-row');
-    if (row === null) {
-      return;
-    }
+  const showTaskRowDetail = (row: HTMLElement): void => {
     const task = progress.tasks.find((candidate) => String(candidate.id) === row.dataset['taskId']);
     if (task !== undefined) {
       showDetail(task, task.ticket === null ? null : ticketById.get(task.ticket) ?? null);
     }
-  });
-
-  document.getElementById('ap-ticket-rows')?.addEventListener('dblclick', (event) => {
-    const row = rowDoubleClicked(event, '[data-ticket-id]');
-    if (row === null) {
-      return;
-    }
+  };
+  const showTicketRowDetail = (row: HTMLElement): void => {
     const ticketId = row.dataset['ticketId'] ?? '';
     showDetail(progress.tasks.find((candidate) => candidate.ticket === ticketId) ?? null, ticketById.get(ticketId) ?? null);
-  });
+  };
+
+  wireRowOverview('ap-rows', '.ap-row', showTaskRowDetail);
+  wireRowOverview('ap-ticket-rows', '[data-ticket-id]', showTicketRowDetail);
 
   document.getElementById(DETAIL_CLOSE_ELEMENT_ID)?.addEventListener('click', () => {
     dialog.close();

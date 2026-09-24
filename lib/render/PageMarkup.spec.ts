@@ -194,6 +194,11 @@ describe('taskRowsMarkup', () => {
     expect(markup).toContain('<a class="ap-ticket-badge" href="#ap-ticket-003">#003</a>');
   });
 
+  // Enter on a focused row is the keyboard's only way to the overview panel, and a row the Tab key skips cannot be focused.
+  test('lets the keyboard focus the row', () => {
+    expect(rowFor(exampleTask())).toContain('<div class="ap-grid-row ap-row" tabindex="0" id="ap-task-1"');
+  });
+
   test('leaves out the ticket badge for a free-standing task', () => {
     expect(rowFor(exampleTask())).not.toContain('ap-ticket-badge');
   });
@@ -411,8 +416,9 @@ describe('ticketTableRowsMarkup', () => {
   });
 
   // The only thing on a ticket table row that says which ticket it is without parsing a link: the detail panel resolves it from here.
-  test('names its ticket on the row itself', () => {
-    expect(ticketTableRowsMarkup([exampleTicket()], NO_WAITING)).toContain('<tr data-ticket-id="003">');
+  // The tabindex is what lets Enter open the same panel for a keyboard user.
+  test('names its ticket on the row itself, and lets the keyboard focus it', () => {
+    expect(ticketTableRowsMarkup([exampleTicket()], NO_WAITING)).toContain('<tr data-ticket-id="003" tabindex="0">');
   });
 
   test('leaves the task cell empty for a ticket with no row yet', () => {

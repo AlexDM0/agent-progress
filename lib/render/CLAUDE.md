@@ -151,7 +151,8 @@ themselves. The five timestamp slice positions travel the same way, so no page m
   indent. A review whose ticket has no visible row, and a
   ticket's own row whatever its name, stay where filing order puts them.
 - **The overview panel is a `<dialog>` the page only fills and opens.** A double-click on a `.ap-row`
-  or on a ticket table row (which carries `data-ticket-id` for exactly this) puts
+  or on a ticket table row (which carries `data-ticket-id` for exactly this), or Enter on either
+  while it has focus (both carry `tabindex="0"`; Enter on a link inside the row stays the link's), puts
   `taskDetailMarkup`'s output into `#ap-detail-body` and calls `showModal()`; Esc comes free, the
   backdrop and `#ap-detail-close` are two lines in `lib/render/page/GanttPage.ts`, and a double-click
   whose target sits inside an `<a>` is the link's, since a row already carries its ticket badge and

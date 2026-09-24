@@ -42,8 +42,10 @@
  #ap-theme                el     buttons data-theme="auto|light|dark", aria-pressed
  #ap-error                el     [hidden] unless the layout script threw
  #ap-error-text           text   message shown in the error banner
- #ap-tabs                 el     buttons carry data-tab="progress|tickets", aria-selected
- [data-panel="…"]         el     matching panel; [hidden] when not selected
+ #ap-tabs                 el     buttons carry data-tab="progress|tickets", aria-selected, and
+                                 id="ap-tab-…" with aria-controls naming the panel
+ [data-panel="…"]         el     matching panel, role="tabpanel", id="ap-panel-…" and
+                                 aria-labelledby naming its tab; [hidden] when not selected
  #ap-visibility           el     buttons data-visibility="recent|all", aria-pressed; "recent"
                                  hides tasks and tickets done for more than a day
  #ap-hidden-note          text   "3 tasks · 2 tickets hidden", empty when nothing is hidden
@@ -64,7 +66,8 @@
  #ap-ticket-count         text   "6 tickets · 1 in progress" above the ticket table
  #ap-ticket-cards         el     one .ap-ticket per ticket
  #ap-detail               dialog the overview panel, opened with showModal() by a double-click
-                                 on a .ap-row or on a ticket table row; Esc, the backdrop, a link
+                                 on a .ap-row or on a ticket table row, or by Enter on one that has
+                                 focus (both carry tabindex="0"); Esc, the backdrop, a link
                                  inside it and #ap-detail-close all close it
  #ap-detail-body          html   the panel's contents: .ap-detail-head then one
                                  .ap-detail-section per part (Task, Phases, Ticket, Log)
@@ -676,8 +679,8 @@ a:hover { color: var(--ink); text-decoration: underline; }
 
 <div class="ap-tab-bar">
   <div class="ap-tabs" id="ap-tabs" role="tablist">
-    <button type="button" role="tab" data-tab="progress" aria-selected="true">Progress</button>
-    <button type="button" role="tab" data-tab="tickets" aria-selected="false">Tickets</button>
+    <button type="button" role="tab" id="ap-tab-progress" aria-controls="ap-panel-progress" data-tab="progress" aria-selected="true">Progress</button>
+    <button type="button" role="tab" id="ap-tab-tickets" aria-controls="ap-panel-tickets" data-tab="tickets" aria-selected="false">Tickets</button>
   </div>
   <div class="ap-visibility">
     <span id="ap-hidden-note">3 tasks · 2 tickets hidden</span>
@@ -689,7 +692,7 @@ a:hover { color: var(--ink); text-decoration: underline; }
   </div>
 </div>
 
-<section data-panel="progress">
+<section data-panel="progress" role="tabpanel" id="ap-panel-progress" aria-labelledby="ap-tab-progress">
   <div class="ap-card">
     <div class="ap-range">
       <span class="ap-range-label">Range</span>
@@ -751,47 +754,47 @@ a:hover { color: var(--ink); text-decoration: underline; }
         </div>
 
         <div id="ap-rows">
-          <div class="ap-grid-row ap-row" id="ap-task-8" data-task-id="8" data-state="abandoned">
+          <div class="ap-grid-row ap-row" tabindex="0" id="ap-task-8" data-task-id="8" data-state="abandoned">
             <div class="ap-cell-name"><span class="ap-num">8</span><span class="ap-name" title="Old idea">Old idea</span><a class="ap-ticket-badge" href="#ap-ticket-006">#006</a></div>
             <div class="ap-cell-pill"><span class="ap-pill">abandoned</span></div>
             <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:52.0%;width:11.0%"></div><span class="ap-clip-r" hidden></span></div>
           </div>
-          <div class="ap-grid-row ap-row" id="ap-task-7" data-task-id="7" data-state="pending">
+          <div class="ap-grid-row ap-row" tabindex="0" id="ap-task-7" data-task-id="7" data-state="pending">
             <div class="ap-cell-name"><span class="ap-num">7</span><span class="ap-name" title="Audit the range presets against a real 12-hour session">Audit the range presets against a real 12-hour session</span><a class="ap-ticket-badge" href="#ap-ticket-005">#005</a><span class="ap-waiting">waiting on <a href="#ap-ticket-004">#004</a></span></div>
             <div class="ap-cell-pill"><span class="ap-pill">unstarted</span></div>
             <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:78.5%;width:9.0%"></div><span class="ap-clip-r" hidden></span></div>
           </div>
-          <div class="ap-grid-row ap-row" id="ap-task-6" data-task-id="6" data-state="paused">
+          <div class="ap-grid-row ap-row" tabindex="0" id="ap-task-6" data-task-id="6" data-state="paused">
             <div class="ap-cell-name"><span class="ap-num">6</span><span class="ap-name" title="Rewrite the range-bar copy">Rewrite the range-bar copy</span><span class="ap-tokens">1.9k tokens</span></div>
             <div class="ap-cell-pill"><span class="ap-pill">paused</span></div>
             <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:71.5%;width:7.0%"></div><span class="ap-clip-r" hidden></span></div>
           </div>
-          <div class="ap-grid-row ap-row" id="ap-task-5" data-task-id="5" data-state="running">
+          <div class="ap-grid-row ap-row" tabindex="0" id="ap-task-5" data-task-id="5" data-state="running">
             <div class="ap-cell-name"><span class="ap-num">5</span><span class="ap-name" title="Brighter colours">Brighter colours</span><a class="ap-ticket-badge" href="#ap-ticket-004">#004</a><span class="ap-tokens">6.1k tokens</span></div>
             <div class="ap-cell-pill"><span class="ap-pill">wip</span></div>
             <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:62.0%;width:16.5%"></div><span class="ap-clip-r" hidden></span></div>
           </div>
-          <div class="ap-grid-row ap-row" id="ap-task-4" data-task-id="4" data-state="finished">
+          <div class="ap-grid-row ap-row" tabindex="0" id="ap-task-4" data-task-id="4" data-state="finished">
             <div class="ap-cell-name"><span class="ap-num">4</span><span class="ap-name" title="Regenerate the timeline fixtures">Regenerate the timeline fixtures</span><span class="ap-tokens">4.2k tokens</span></div>
             <div class="ap-cell-pill"><span class="ap-pill">awaiting review</span></div>
             <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:49.0%;width:14.5%"></div><span class="ap-clip-r" hidden></span></div>
           </div>
-          <div class="ap-grid-row ap-row" id="ap-task-9" data-task-id="9" data-state="running" data-review-of="003">
+          <div class="ap-grid-row ap-row" tabindex="0" id="ap-task-9" data-task-id="9" data-state="running" data-review-of="003">
             <div class="ap-cell-name"><span class="ap-num">9</span><span class="ap-name" title="Review 1 #003 — Split the exporter into two passes">Review 1 #003 — Split the exporter into two passes</span><span class="ap-tokens">3.1k tokens</span></div>
             <div class="ap-cell-pill"><span class="ap-pill">wip</span></div>
             <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:66.0%;width:12.0%"></div><span class="ap-clip-r" hidden></span></div>
           </div>
-          <div class="ap-grid-row ap-row" id="ap-task-3" data-task-id="3" data-state="reviewing">
+          <div class="ap-grid-row ap-row" tabindex="0" id="ap-task-3" data-task-id="3" data-state="reviewing">
             <div class="ap-cell-name"><span class="ap-num">3</span><span class="ap-name" title="Split the exporter into two passes so the tick ladder can be reused">Split the exporter into two passes so the tick ladder can be reused</span><a class="ap-ticket-badge" href="#ap-ticket-003">#003</a><span class="ap-tokens">12.3k tokens</span></div>
             <div class="ap-cell-pill"><span class="ap-pill">reviewing</span></div>
             <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:31.0%;width:34.0%"></div><span class="ap-clip-r" hidden></span></div>
           </div>
-          <div class="ap-grid-row ap-row" id="ap-task-2" data-task-id="2" data-state="reviewed">
+          <div class="ap-grid-row ap-row" tabindex="0" id="ap-task-2" data-task-id="2" data-state="reviewed">
             <div class="ap-cell-name"><span class="ap-num">2</span><span class="ap-name" title="Cache ticket bodies between runs">Cache ticket bodies between runs</span><a class="ap-ticket-badge" href="#ap-ticket-002">#002</a><span class="ap-tokens">9.8k tokens</span></div>
             <div class="ap-cell-pill"><span class="ap-pill">awaiting merge</span></div>
             <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:18.0%;width:31.0%"></div><span class="ap-clip-r" hidden></span></div>
           </div>
-          <div class="ap-grid-row ap-row" id="ap-task-1" data-task-id="1" data-state="delivered">
+          <div class="ap-grid-row ap-row" tabindex="0" id="ap-task-1" data-task-id="1" data-state="delivered">
             <div class="ap-cell-name"><span class="ap-num">1</span><span class="ap-name" title="Double-click a role to edit it">Double-click a role to edit it</span><a class="ap-ticket-badge" href="#ap-ticket-001">#001</a><span class="ap-tokens">18.4k tokens</span></div>
             <div class="ap-cell-pill"><span class="ap-pill">done</span><span class="ap-reviewed-mark" data-state="reviewed" title="Reviewed 09-18 21:10 before delivery" role="img" aria-label="reviewed">✓</span></div>
             <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:3.2%;width:43.6%"></div><span class="ap-clip-r" hidden></span></div>
@@ -816,19 +819,19 @@ a:hover { color: var(--ink); text-decoration: underline; }
   </div>
 </section>
 
-<section data-panel="tickets" hidden>
+<section data-panel="tickets" role="tabpanel" id="ap-panel-tickets" aria-labelledby="ap-tab-tickets" hidden>
   <div class="ap-card">
     <div class="ap-card-head"><span class="ap-card-title">Tickets</span><span class="ap-card-note" id="ap-ticket-count">6 total · 1 in progress</span></div>
     <table class="ap-table">
       <thead><tr><th class="mono">id</th><th class="ap-col-title">title</th><th>type</th><th>status</th><th>group</th><th class="mono">branch</th><th class="mono">task</th></tr></thead>
       <tbody id="ap-ticket-rows">
-        <tr data-ticket-id="001"><td class="mono"><a href="#ap-ticket-001">#001</a></td><td>Double-click a role to edit it</td><td>change</td><td><span class="ap-badge delivered">delivered</span></td><td>role-editor</td><td class="mono">ticket/role-editor</td><td class="mono"><a href="#ap-task-1">#1</a></td></tr>
-        <tr data-ticket-id="002"><td class="mono"><a href="#ap-ticket-002">#002</a></td><td>Cache ticket bodies between runs</td><td>change</td><td><span class="ap-badge done">done</span></td><td>exporter</td><td class="mono">ticket/body-cache</td><td class="mono"><a href="#ap-task-2">#2</a></td></tr>
-        <tr data-ticket-id="003"><td class="mono"><a href="#ap-ticket-003">#003</a></td><td>Split the exporter into two passes</td><td>change</td><td><span class="ap-badge in-review">in-review</span></td><td>exporter</td><td class="mono">ticket/exporter-passes</td><td class="mono"><a href="#ap-task-3">#3</a></td></tr>
-        <tr data-ticket-id="004"><td class="mono"><a href="#ap-ticket-004">#004</a></td><td>Brighter colours<span class="ap-waiting" data-priority="high" title="High priority: dispatched before every normal ticket">high</span></td><td>feature</td><td><span class="ap-badge in-progress">in-progress</span></td><td></td><td class="mono">ticket/brighter-colours</td><td class="mono"><a href="#ap-task-5">#5</a></td></tr>
-        <tr data-ticket-id="005"><td class="mono"><a href="#ap-ticket-005">#005</a></td><td>Audit the range presets<span class="ap-waiting">waiting on <a href="#ap-ticket-004">#004</a></span></td><td>chore</td><td><span class="ap-badge open">open</span></td><td></td><td class="mono"></td><td class="mono"><a href="#ap-task-7">#7</a></td></tr>
-        <tr data-ticket-id="006"><td class="mono"><a href="#ap-ticket-006">#006</a></td><td>Old idea</td><td>bug</td><td><span class="ap-badge abandoned">abandoned</span></td><td></td><td class="mono"></td><td class="mono"><a href="#ap-task-8">#8</a></td></tr>
-        <tr data-ticket-id="007"><td class="mono"><a href="#ap-ticket-007">#007</a></td><td>Reword the empty-log note <span class="ap-ticket-badge" data-priority="low" title="Low priority: no row on the chart until it is started, and worked once no normal or high ticket is left undelivered">low</span></td><td>change</td><td><span class="ap-badge open">open</span></td><td></td><td class="mono"></td><td class="mono"></td></tr>
+        <tr data-ticket-id="001" tabindex="0"><td class="mono"><a href="#ap-ticket-001">#001</a></td><td>Double-click a role to edit it</td><td>change</td><td><span class="ap-badge delivered">delivered</span></td><td>role-editor</td><td class="mono">ticket/role-editor</td><td class="mono"><a href="#ap-task-1">#1</a></td></tr>
+        <tr data-ticket-id="002" tabindex="0"><td class="mono"><a href="#ap-ticket-002">#002</a></td><td>Cache ticket bodies between runs</td><td>change</td><td><span class="ap-badge done">done</span></td><td>exporter</td><td class="mono">ticket/body-cache</td><td class="mono"><a href="#ap-task-2">#2</a></td></tr>
+        <tr data-ticket-id="003" tabindex="0"><td class="mono"><a href="#ap-ticket-003">#003</a></td><td>Split the exporter into two passes</td><td>change</td><td><span class="ap-badge in-review">in-review</span></td><td>exporter</td><td class="mono">ticket/exporter-passes</td><td class="mono"><a href="#ap-task-3">#3</a></td></tr>
+        <tr data-ticket-id="004" tabindex="0"><td class="mono"><a href="#ap-ticket-004">#004</a></td><td>Brighter colours<span class="ap-waiting" data-priority="high" title="High priority: dispatched before every normal ticket">high</span></td><td>feature</td><td><span class="ap-badge in-progress">in-progress</span></td><td></td><td class="mono">ticket/brighter-colours</td><td class="mono"><a href="#ap-task-5">#5</a></td></tr>
+        <tr data-ticket-id="005" tabindex="0"><td class="mono"><a href="#ap-ticket-005">#005</a></td><td>Audit the range presets<span class="ap-waiting">waiting on <a href="#ap-ticket-004">#004</a></span></td><td>chore</td><td><span class="ap-badge open">open</span></td><td></td><td class="mono"></td><td class="mono"><a href="#ap-task-7">#7</a></td></tr>
+        <tr data-ticket-id="006" tabindex="0"><td class="mono"><a href="#ap-ticket-006">#006</a></td><td>Old idea</td><td>bug</td><td><span class="ap-badge abandoned">abandoned</span></td><td></td><td class="mono"></td><td class="mono"><a href="#ap-task-8">#8</a></td></tr>
+        <tr data-ticket-id="007" tabindex="0"><td class="mono"><a href="#ap-ticket-007">#007</a></td><td>Reword the empty-log note <span class="ap-ticket-badge" data-priority="low" title="Low priority: no row on the chart until it is started, and worked once no normal or high ticket is left undelivered">low</span></td><td>change</td><td><span class="ap-badge open">open</span></td><td></td><td class="mono"></td><td class="mono"></td></tr>
       </tbody>
     </table>
   </div>

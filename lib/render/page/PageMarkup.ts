@@ -181,9 +181,10 @@ function taskRowMarkup(placed: PlacedTaskRow, slices: TimestampSlices): string {
   const tokens = task.tokens === null
     ? ''
     : `<span class="ap-tokens">${escapeHtml(formatTokenCount(task.tokens))} tokens</span>`;
-  const nesting = nestedWithTicket === null ? '' : ` ${attribute('data-review-of', nestedWithTicket)}`;
+  const nesting    = nestedWithTicket === null ? '' : ` ${attribute('data-review-of', nestedWithTicket)}`;
+  const identities = `${attribute('id', `ap-task-${task.id}`)} ${attribute('data-task-id', String(task.id))}`;
   return [
-    `<div class="ap-grid-row ap-row" ${attribute('id', `ap-task-${task.id}`)} ${attribute('data-task-id', String(task.id))} ${attribute('data-state', state)}${nesting}>`,
+    `<div class="ap-grid-row ap-row" tabindex="0" ${identities} ${attribute('data-state', state)}${nesting}>`,
     `<div class="ap-cell-name"><span class="ap-num">${escapeHtml(String(task.id))}</span>`,
     `<span class="ap-name" ${attribute('title', task.name)}>${escapeHtml(task.name)}</span>${ticketBadge}${waitingOnMarkup(row.waitingOn)}${tokens}</div>`,
     `<div class="ap-cell-pill"><span class="ap-pill">${escapeHtml(pillLabelFor(state, task))}</span>${reviewedMark}</div>`,
@@ -275,7 +276,7 @@ function taskLinkMarkup(taskId: number | null): string {
 
 export function ticketTableRowsMarkup(tickets: readonly PageTicket[], waitingOnById: ReadonlyMap<string, readonly string[]>): string {
   return tickets.map((ticket) => [
-    `<tr ${attribute('data-ticket-id', ticket.id)}>`,
+    `<tr ${attribute('data-ticket-id', ticket.id)} tabindex="0">`,
     `<td class="mono"><a ${attribute('href', `#ap-ticket-${ticket.id}`)}>#${escapeHtml(ticket.id)}</a></td>`,
     `<td>${escapeHtml(ticket.title)}${priorityMarkMarkup(ticket)}${waitingOnMarkup(waitingOnById.get(ticket.id) ?? [])}</td>`,
     `<td>${escapeHtml(ticket.type)}</td>`,

@@ -113,6 +113,18 @@ describe('renderProgressHtml', () => {
     expect(document.split('window.exampleMarker').length - 1).toBe(1);
   });
 
+  // A screen reader pairs a tab with its panel only through these ids; the bootstrap selects panels by data-panel, so nothing else would notice a typo.
+  test.each([
+    ['progress', ''],
+    ['tickets', ' hidden'],
+  ])('ties the %s tab and its panel to each other by id', (panelName, hiddenAttribute) => {
+    const document = render();
+
+    expect(document).toContain('role="tablist"');
+    expect(document).toContain(`role="tab" id="ap-tab-${panelName}" aria-controls="ap-panel-${panelName}" data-tab="${panelName}"`);
+    expect(document).toContain(`<section data-panel="${panelName}" role="tabpanel" id="ap-panel-${panelName}" aria-labelledby="ap-tab-${panelName}"${hiddenAttribute}>`);
+  });
+
   test('titles the document after the project', () => {
     expect(render()).toContain('<title>Example Agency progress</title>');
     expect(render()).not.toContain('<title>agent-progress</title>');
