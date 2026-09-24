@@ -76,9 +76,9 @@ passage below that hands the user a decision asks this way.
 **Grill before filing.** Ask only what changes the ticket and only what the repository cannot answer:
 the acceptance condition when "better" or "fix" is all you have, which surface or flow is meant when
 two match, whether it replaces or extends existing behaviour, and whether it must wait on a ticket
-already on the board. Ask them together, in one AskUserQuestion call, as the rule above says, and
-never ask what an agent will discover anyway. Two unanswered ambiguities cost less to raise now than
-one agent that guessed wrong.
+already on the board. Ask them together, in one AskUserQuestion call (the fewest calls past four),
+as the rule above says, and never ask what an agent will discover anyway. Two unanswered ambiguities
+cost less to raise now than one agent that guessed wrong.
 
 **Split a large request at filing, not later.** A request that touches more than one mechanism — say
 a drop rule, a layout change and a migration — is filed as halves, one mechanism each, joined with
