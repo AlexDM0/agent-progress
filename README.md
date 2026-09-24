@@ -190,8 +190,9 @@ chart full of those is how the expensive habits stay invisible.
   accept `start`, `now` and `-2h` as well as timestamps, and a tick-step selector. A viewer's choice
   is kept in their browser and survives the refresh; Auto hands control back to the default stored
   by `agent-progress range`.
-- **Done work older than a day is hidden**: reviewed, delivered and abandoned tasks, and done,
-  delivered and abandoned tickets, leave the chart and the ticket list a day after they closed.
+- **Done work older than a day is hidden**: delivered and abandoned tasks and tickets leave the
+  chart and the ticket list a day after they closed. Work awaiting merge — a reviewed task, a done
+  ticket — stays, since done means merged.
   **Show all** brings them back; the choice is kept in the browser.
 - A **✓ beside a delivered pill** when that task was reviewed before it was delivered; hover it for
   the review time. A delivered task without it went straight from finished to delivered.

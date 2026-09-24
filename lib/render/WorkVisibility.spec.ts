@@ -20,7 +20,7 @@ function exampleTask(changes: Partial<Task> = {}): Task {
   return {
     id:     1,
     name:   'Split the exporter into two passes',
-    status: 'reviewed',
+    status: 'delivered',
     start:  '2026-09-17T09:00:00+02:00',
     end:    '2026-09-17T10:00:00+02:00',
     owner:  'Alex Example',
@@ -36,7 +36,7 @@ function exampleTicket(changes: Partial<PageTicket> = {}): PageTicket {
     id:          '003',
     title:       'Split the exporter into two passes',
     type:        'change',
-    status:      'done',
+    status:      'delivered',
     filed:       '2026-09-16T09:00:00+02:00',
     updated:     '2026-09-17T10:00:00+02:00',
     started:     '2026-09-16T10:00:00+02:00',
@@ -52,10 +52,15 @@ function exampleTicket(changes: Partial<PageTicket> = {}): PageTicket {
 }
 
 describe('taskIsLongDone', () => {
-  test('hides a reviewed, delivered or abandoned task that ended more than a day ago', () => {
-    for (const status of ['reviewed', 'delivered', 'abandoned'] as const) {
+  test('hides a delivered or abandoned task that ended more than a day ago', () => {
+    for (const status of ['delivered', 'abandoned'] as const) {
       expect(taskIsLongDone(exampleTask({ status }), NOW_EPOCH_MILLISECONDS, DAY_MILLISECONDS)).toBe(true);
     }
+  });
+
+  // Done means merged: a `reviewed` row is awaiting merge and is still counted under that heading in the summary.
+  test('keeps a reviewed task that ended more than a day ago, because it still awaits a merge', () => {
+    expect(taskIsLongDone(exampleTask({ status: 'reviewed' }), NOW_EPOCH_MILLISECONDS, DAY_MILLISECONDS)).toBe(false);
   });
 
   // `finished` and `re-review` both mean awaiting a reviewer, so neither is done yet.
@@ -78,14 +83,15 @@ describe('taskIsLongDone', () => {
 });
 
 describe('ticketIsLongDone', () => {
-  test('hides a done, delivered or abandoned ticket last moved more than a day ago', () => {
-    for (const status of ['done', 'delivered', 'abandoned'] as const) {
+  test('hides a delivered or abandoned ticket last moved more than a day ago', () => {
+    for (const status of ['delivered', 'abandoned'] as const) {
       expect(ticketIsLongDone(exampleTicket({ status }), NOW_EPOCH_MILLISECONDS, DAY_MILLISECONDS)).toBe(true);
     }
   });
 
-  test('never hides an open, in-progress or in-review ticket', () => {
-    for (const status of ['open', 'in-progress', 'in-review'] as const) {
+  // A `done` ticket's row is `reviewed`, awaiting merge, so the two are hidden or kept together.
+  test('never hides an open, in-progress, in-review or done ticket', () => {
+    for (const status of ['open', 'in-progress', 'in-review', 'done'] as const) {
       expect(ticketIsLongDone(exampleTicket({ status }), NOW_EPOCH_MILLISECONDS, DAY_MILLISECONDS)).toBe(false);
     }
   });

@@ -70,11 +70,12 @@ failure cannot leave the template's convincing placeholder rows standing beside 
 The page also decides `--timeline-w` on `#ap-chart`, which is the one thing the generator cannot know
 because it depends on the window: `1fr` when the ticks fit, a px width when they need to scroll.
 
-**Long-done work is hidden by default.** A task that is `reviewed`, `delivered` or `abandoned` and
-ended more than `DONE_WORK_VISIBLE_MILLISECONDS` ago, and a ticket that is `done`, `delivered` or
-`abandoned` and was last `updated` that long ago, are left out of the chart, the ticket table and the
+**Long-done work is hidden by default.** A task that is `delivered` or `abandoned` and ended
+more than `DONE_WORK_VISIBLE_MILLISECONDS` ago, and a ticket that is `delivered` or `abandoned` and
+was last `updated` that long ago, are left out of the chart, the ticket table and the
 cards until the viewer picks "Show all" (`#ap-visibility`, stored per tracker). The axis is computed
-from the visible rows only. This is the page's one clock comparison, and it only decides what is shown.
+from the visible rows only. Done means merged: a `reviewed` row and a `done` ticket await a merge and
+stay visible. This is the page's one clock comparison, and it only decides what is shown.
 
 **There is no stale banner** — it was cut from the design. Nothing on this side compares a clock
 against `generatedAt`, and `lib/constants/Limits.ts` no longer needs
