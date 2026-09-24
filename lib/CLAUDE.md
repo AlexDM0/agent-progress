@@ -108,7 +108,9 @@ anything that needs "now" is handed it.
   harness injected as `nested_memory` attachments and the first 80 characters of the brief — as the
   `TranscriptProfile` type `agent-progress usage` reports one agent by. `rowIdentifiersNamedInBrief`
   reads the `agent-progress row: 4, 7` line from **the first user turn with spoken text only** — the
-  brief, found as the excerpt is — so a marker quoted later never counts; `ticketIdentifiersNamedInBrief`
+  brief, found as the excerpt is — so a marker quoted later never counts, except that a workflow
+  agent's opening relay of the user's request hands the brief to the computed task right after it,
+  and a relay followed by anything else has none; `ticketIdentifiersNamedInBrief`
   reads the `agent-progress ticket: 22, 20` line the same way and answers padded ids, leaving the
   lookup of each ticket's row to the hook; `reviewedTicketIdentifierNamedInBrief` reads the single-id
   `agent-progress review: 7` line the same way, a list naming nothing; `evenSharesOf` floors the

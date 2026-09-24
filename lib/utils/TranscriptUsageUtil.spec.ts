@@ -547,6 +547,57 @@ describe('the ticket a reviewer\'s brief names', () => {
   });
 });
 
+/**
+ * A workflow agent's transcript opens with the harness relaying the session user's request and only then the script's prompt, both as plain
+ * strings rather than content arrays. What callers rely on: the computed task is read as the brief, and nothing else after a relay ever is.
+ */
+describe('a workflow agent\'s brief', () => {
+  const RELAY_TURN = '[Workflow harness — user request] The harness relays the request below.\n  Run the board.';
+
+  function plainUserLine(text: string): string {
+    return JSON.stringify({ type: 'user', message: { role: 'user', content: text } });
+  }
+
+  function computedTaskTurn(indentedTask: string): string {
+    return `[Workflow harness — computed task] The task text below was computed at runtime.\n${indentedTask}`;
+  }
+
+  test('the computed task right after the relay is the brief, its indented marker lines read in all three forms', () => {
+    const transcript = [plainUserLine(RELAY_TURN), plainUserLine(computedTaskTurn('  agent-progress ticket: 7\n  agent-progress row: 4\n  agent-progress review: 9'))].join('\n');
+
+    expect(ticketIdentifiersNamedInBrief(transcript)).toEqual(['007']);
+    expect(rowIdentifiersNamedInBrief(transcript)).toEqual([4]);
+    expect(reviewedTicketIdentifierNamedInBrief(transcript)).toBe('009');
+  });
+
+  test('a computed task without a marker names nothing', () => {
+    const transcript = [plainUserLine(RELAY_TURN), plainUserLine(computedTaskTurn('  Build the ticket.'))].join('\n');
+
+    expect(ticketIdentifiersNamedInBrief(transcript)).toEqual([]);
+  });
+
+  /** Only the computed task may stand in for the brief; an ordinary later message quoting a marker is what the brief-only rule exists to ignore. */
+  test('a relay followed by an ordinary message carrying a marker names nothing', () => {
+    const transcript = [plainUserLine(RELAY_TURN), plainUserLine('agent-progress ticket: 7')].join('\n');
+
+    expect(ticketIdentifiersNamedInBrief(transcript)).toEqual([]);
+  });
+
+  test('a computed task after an ordinary message is not the brief, and neither is a marker the relay itself quotes', () => {
+    const lateComputedTask = [plainUserLine(RELAY_TURN), plainUserLine('Hello.'), plainUserLine(computedTaskTurn('  agent-progress ticket: 7'))].join('\n');
+    const relayAlone       = plainUserLine(`${RELAY_TURN}\n  agent-progress ticket: 7`);
+
+    expect(ticketIdentifiersNamedInBrief(lateComputedTask)).toEqual([]);
+    expect(ticketIdentifiersNamedInBrief(relayAlone)).toEqual([]);
+  });
+
+  test('a first turn that is not a relay is the brief as before, even when a computed task follows it', () => {
+    const transcript = [plainUserLine('agent-progress ticket: 3'), plainUserLine(computedTaskTurn('  agent-progress ticket: 7'))].join('\n');
+
+    expect(ticketIdentifiersNamedInBrief(transcript)).toEqual(['003']);
+  });
+});
+
 describe('dividing a bundle\'s tokens', () => {
   test('the shares are floored and the remainder goes to the first, so they always sum to the total', () => {
     expect(evenSharesOf(1001, 2)).toEqual([501, 500]);

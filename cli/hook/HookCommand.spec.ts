@@ -325,6 +325,72 @@ describe.skipIf(!gitIsAvailable())('the tickets the brief names', () => {
 });
 
 /**
+ * Shaped like a dispatcher agent's transcript: plain-string user turns, the harness's relay of the session user's request first and the
+ * script's computed task, whose lines the harness indents, second. The brief is the computed task, and nothing after a relay stands in for it.
+ */
+describe.skipIf(!gitIsAvailable())('a workflow agent\'s brief after the harness\'s relay', () => {
+  const BUILT_TICKET_NUMBER = 7;
+
+  const RELAY_TURN = '[Workflow harness — user request] The harness relays, verbatim and indented below, the user request.\n  Run the board.';
+
+  function plainUserLine(text: string): string {
+    return JSON.stringify({ type: 'user', message: { role: 'user', content: text } });
+  }
+
+  function computedTaskLine(indentedTask: string): string {
+    return plainUserLine(`[Workflow harness — computed task] The task text below was computed at runtime by a workflow script.\n${indentedTask}`);
+  }
+
+  function storedTokensOfBuiltTicketRow(): number | null | undefined {
+    return storedProgress().tasks.find((task) => task.ticket === '007')?.tokens;
+  }
+
+  beforeEach(async () => {
+    for (let i = 1; i <= BUILT_TICKET_NUMBER; i++) {
+      expect(await runCommandLine(['ticket', 'add', `Example work ${i}`], contextWith(''))).toBe(0);
+    }
+    expect(storedTokensOfBuiltTicketRow()).toBeNull();
+  });
+
+  test('the computed task\'s ticket line adds the input total to that ticket\'s row', async () => {
+    transcriptPath = writeTranscript([
+      plainUserLine(RELAY_TURN),
+      computedTaskLine(`  agent-progress ticket: ${BUILT_TICKET_NUMBER}\n  You build ticket #007.`),
+      ...FIXTURE_CALLS,
+    ]);
+    const context = contextWith(hookInput({ agent_type: 'workflow-subagent' }));
+
+    expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
+
+    expect(storedTokensOfBuiltTicketRow()).toBe(FIXTURE_INPUT_TOKENS);
+    expect(context.errorText()).toBe('');
+  });
+
+  test('a computed task without a marker records nothing on any row', async () => {
+    transcriptPath = writeTranscript([plainUserLine(RELAY_TURN), computedTaskLine('  Build the ticket.'), ...FIXTURE_CALLS]);
+
+    expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput()))).toBe(0);
+
+    expect(storedProgress().tasks.every((task) => task.tokens === null)).toBe(true);
+    expect(storedLog().at(-1)?.text).toContain('input 230k');
+  });
+
+  test('a relay whose later ordinary user message carries a marker records nothing on any row', async () => {
+    transcriptPath = writeTranscript([
+      plainUserLine(RELAY_TURN),
+      assistantLine('msg_one', 10, 90_000, 400),
+      plainUserLine(`agent-progress ticket: ${BUILT_TICKET_NUMBER}`),
+      assistantLine('msg_two', 20, 140_000, 800),
+    ]);
+
+    expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput()))).toBe(0);
+
+    expect(storedProgress().tasks.every((task) => task.tokens === null)).toBe(true);
+    expect(storedLog().at(-1)?.text).toContain('Agent agent_42');
+  });
+});
+
+/**
  * The review form exists because a reviewer inside a workflow files its own review row, after its brief was written, so the brief can
  * name only the ticket. Every case writes the brief first and files the row after; the row is found when the hook runs, whatever its
  * status, because `release` has already delivered it by the time the reviewer stops.

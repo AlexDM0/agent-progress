@@ -123,7 +123,10 @@ agent's first message — its brief — for a line of its own, `agent-progress r
 `agent-progress row: 4, 7`, and adds the agent's `input` total (the figure its log line reports) to
 each row named, divided evenly: floored, the remainder to the first. An unset count plus an amount is
 the amount, so a row two agents worked on carries both. A row that does not exist is named on
-standard error and skipped. A brief without the line changes no row.
+standard error and skipped. A brief without the line changes no row. A workflow agent's first message
+is the harness relaying the session user's request, beginning `[Workflow harness — user request]`;
+its brief is then the message right after it, the one beginning `[Workflow harness — computed task]`,
+and a relay followed by anything else has no brief at all.
 
 `agent-progress ticket: 22` or `agent-progress ticket: 22, 20` names tickets instead, padded or not,
 for a ticket whose row does not exist yet when the brief is written — a low ticket gets its row only

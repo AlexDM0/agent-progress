@@ -81,6 +81,11 @@ const TOOL_USE_BLOCK_TYPE = 'tool_use';
 
 const TEXT_BLOCK_TYPE = 'text';
 
+/** The harness's opening words for the two turns a workflow agent's transcript starts with; observed in the transcripts under `~/.claude/projects/`. */
+const WORKFLOW_USER_REQUEST_RELAY_PREFIX = '[Workflow harness — user request]';
+
+const WORKFLOW_COMPUTED_TASK_PREFIX = '[Workflow harness — computed task]';
+
 /** A line of its own, ids as digits separated by commas: a placeholder such as `<rowId>` in a brief template never matches. */
 const ROW_MARKER_PATTERN = /^[ \t]*agent-progress row:[ \t]*(\d+(?:[ \t]*,[ \t]*\d+)*)[ \t]*$/m;
 
@@ -260,8 +265,7 @@ function briefExcerptOf(message: Record<string, unknown>): string {
   return spokenTextOf(message).replace(/\s+/g, ' ').trim().slice(0, BRIEF_EXCERPT_CHARACTERS);
 }
 
-/** The first user turn with spoken text, for the same reason `profileTranscript` takes its excerpt from it; an empty string when there is none. */
-function briefTextOf(transcriptText: string): string {
+function* spokenUserTurnsOf(transcriptText: string): Generator<string> {
   for (const line of transcriptText.split('\n')) {
     const trimmedLine = line.trim();
     if (trimmedLine.length === 0) continue;
@@ -273,9 +277,24 @@ function briefTextOf(transcriptText: string): string {
     if (message === undefined) continue;
 
     const spokenText = spokenTextOf(message);
-    if (spokenText.trim().length > 0) return spokenText;
+    if (spokenText.trim().length > 0) yield spokenText;
   }
-  return '';
+}
+
+/**
+ * The first user turn with spoken text, for the same reason `profileTranscript` takes its excerpt from it; an empty string when there is none.
+ * A workflow agent's first turn is the harness relaying the session user's request, and its brief is the computed task that must follow it
+ * at once; a relay followed by anything else has no brief, so a marker the relay quotes or a later message carries never counts.
+ */
+function briefTextOf(transcriptText: string): string {
+  const spokenUserTurns = spokenUserTurnsOf(transcriptText);
+  const firstTurn       = spokenUserTurns.next();
+  if (firstTurn.done === true) return '';
+  if (!firstTurn.value.trimStart().startsWith(WORKFLOW_USER_REQUEST_RELAY_PREFIX)) return firstTurn.value;
+
+  const secondTurn = spokenUserTurns.next();
+  if (secondTurn.done === true || !secondTurn.value.trimStart().startsWith(WORKFLOW_COMPUTED_TASK_PREFIX)) return '';
+  return secondTurn.value;
 }
 
 /**
