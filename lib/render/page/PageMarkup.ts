@@ -14,6 +14,7 @@ import type {
 import { HtmlEscapeUtil }                 from '../../utils/HtmlEscapeUtil.ts';
 import { TokenCountUtil }                 from '../../utils/TokenCountUtil.ts';
 import type { TimelineBar, TimelineTick } from './GanttGeometry.ts';
+import { spanFitsClockOnlyLabels }        from './GanttGeometry.ts';
 import type { PageTicket }                from './PageData.ts';
 
 const { escapeHtml }       = HtmlEscapeUtil;
@@ -386,7 +387,7 @@ export function rangeNoteText(fromEpochMilliseconds: number, toEpochMilliseconds
   const spanMinutes = (toEpochMilliseconds - fromEpochMilliseconds) / MILLISECONDS_PER_MINUTE;
   const moment      = (epochMilliseconds: number): string => {
     const clock = clockLabelFor(epochMilliseconds);
-    if (spanMinutes < limits.hoursAxisLabelLimitMinutes) {
+    if (spanFitsClockOnlyLabels(spanMinutes, limits.hoursAxisLabelLimitMinutes)) {
       return clock;
     }
     const day = new Date(epochMilliseconds);

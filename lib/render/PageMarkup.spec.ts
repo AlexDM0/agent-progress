@@ -9,9 +9,10 @@ import type {
   TaskStatus,
   TicketStatus,
 } from '../constants/Types.ts';
-import type { TimelineBar }     from './page/GanttGeometry.ts';
-import type { PageTicket }      from './page/PageData.ts';
-import type { TimestampSlices } from './page/PageMarkup.ts';
+import type { TimelineBar, TimelineLimits } from './page/GanttGeometry.ts';
+import { computeTimeline }                  from './page/GanttGeometry.ts';
+import type { PageTicket }                  from './page/PageData.ts';
+import type { TimestampSlices }             from './page/PageMarkup.ts';
 import {
   axisPixelsNeededFor,
   labelSitsLeftOfItsLine,
@@ -38,6 +39,17 @@ const EXAMPLE_RANGE_LIMITS = {
   hourMinutes:                60,
   dayMinutes:                 1440,
   hoursAxisLabelLimitMinutes: 1440,
+};
+
+const EXAMPLE_TIMELINE_LIMITS: TimelineLimits = {
+  ...EXAMPLE_RANGE_LIMITS,
+  tickStepLadderMinutes:     [5, 10, 15, 30, 60, 120, 180, 360, 720, 1440],
+  maximumTicksPerAxis:       12,
+  axisMinimumSpanMinutes:    60,
+  axisPaddingMinutes:        15,
+  minimumBarWidthPercent:    0.6,
+  weekAxisLabelLimitMinutes: 10_080,
+  tickCountSafetyBound:      500,
 };
 
 const NO_WAITING = new Map<string, string[]>();
@@ -553,5 +565,39 @@ describe('the axis layer', () => {
     expect(rangeNoteText(from, from + 105 * 60_000, 15, EXAMPLE_RANGE_LIMITS)).not.toMatch(/\d\d-\d\d /);
     expect(rangeNoteText(from, from + 1440 * 60_000, 60, EXAMPLE_RANGE_LIMITS)).toMatch(/\d\d-\d\d \d\d:\d\d → \d\d-\d\d \d\d:\d\d/);
     expect(rangeNoteText(from, from + 7 * 1440 * 60_000, 1440, EXAMPLE_RANGE_LIMITS)).toMatch(/\d\d-\d\d \d\d:\d\d → \d\d-\d\d \d\d:\d\d/);
+  });
+
+  // The 24h preset spans exactly the label limit; the axis and the note once disagreed on which side of it that falls.
+  test.each([
+    [1439, false],
+    [1440, true],
+  ])('names the day on the ticks and in the range note alike for a %i-minute span', (spanMinutes, dayIsNamed) => {
+    const from     = Date.UTC(2026, 8, 18, 18, 30, 0);
+    const to       = from + spanMinutes * 60_000;
+    const timeline = computeTimeline({
+      progress: {
+        version:    1,
+        trackerId:  'example-tracker',
+        project:    'Example Agency',
+        startedAt:  new Date(from).toISOString(),
+        nextTaskId: 1,
+        view:       { kind: 'auto' },
+        tasks:      [],
+        log:        [],
+      },
+      range: {
+        kind:        'absolute',
+        from:        new Date(from).toISOString(),
+        to:          new Date(to).toISOString(),
+        tickMinutes: null,
+      },
+      nowEpochMilliseconds: from,
+      limits:               EXAMPLE_TIMELINE_LIMITS,
+    });
+    const clockOnly = /^\d\d:\d\d$/;
+
+    expect(timeline.ticks.length).toBeGreaterThan(0);
+    expect(timeline.ticks.every((tick) => !clockOnly.test(tick.label))).toBe(dayIsNamed);
+    expect(/\d\d-\d\d \d\d:\d\d → \d\d-\d\d \d\d:\d\d/.test(rangeNoteText(from, to, timeline.stepMinutes, EXAMPLE_RANGE_LIMITS))).toBe(dayIsNamed);
   });
 });

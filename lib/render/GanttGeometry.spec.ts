@@ -95,7 +95,7 @@ function tickEpochMillisecondsOf(timeline: ReturnType<typeof computeTimeline>, l
 describe('computeTimeline', () => {
   // The frozen example from the Python predecessor's renderer; retake it by re-deriving the fractions by hand.
   test('places a task running from ten to twenty minutes one sixth into a sixty-minute axis, one sixth wide', () => {
-    const timeline = timelineFor({ tasks: [exampleTask(1, 10, 20)], nowOffsetMinutes: 20 });
+    const timeline = timelineFor({ tasks: [exampleTask(1, 10, 20), exampleTask(2, 0, 5)], nowOffsetMinutes: 20 });
     const [bar]    = timeline.bars;
 
     expect(timeline.toEpochMilliseconds - timeline.fromEpochMilliseconds).toBe(minutesAsMilliseconds(60));
@@ -125,14 +125,32 @@ describe('computeTimeline', () => {
     expect(bar?.widthPercent).toBeGreaterThan(EXAMPLE_LIMITS.minimumBarWidthPercent);
   });
 
-  test('keeps startedAt as the near end when every task starts after it', () => {
+  test('starts the automatic axis at the earliest task even when every task starts after startedAt', () => {
     const timeline = timelineFor({ tasks: [exampleTask(1, 20, 40)], nowOffsetMinutes: 40 });
+
+    expect(timeline.fromEpochMilliseconds).toBe(EXAMPLE_START_EPOCH_MILLISECONDS + minutesAsMilliseconds(20));
+  });
+
+  // The page hands in only the visible rows; a startedAt ten days back must not stretch the axis once the old work is hidden.
+  test('starts a ten-day-old tracker at its earliest visible row, not at startedAt', () => {
+    const tenDaysMinutes = 10 * 1440;
+    const timeline       = timelineFor({
+      tasks:            [exampleTask(1, tenDaysMinutes - 180, tenDaysMinutes - 120), exampleTask(2, tenDaysMinutes - 60, null, 'running')],
+      nowOffsetMinutes: tenDaysMinutes,
+    });
+
+    expect(timeline.fromEpochMilliseconds).toBe(EXAMPLE_START_EPOCH_MILLISECONDS + minutesAsMilliseconds(tenDaysMinutes - 180));
+    expect(timeline.stepMinutes).toBe(30);
+  });
+
+  test('falls back to startedAt when no visible row has started', () => {
+    const timeline = timelineFor({ tasks: [exampleTask(1, null, null, 'pending')], nowOffsetMinutes: 40 });
 
     expect(timeline.fromEpochMilliseconds).toBe(EXAMPLE_START_EPOCH_MILLISECONDS);
   });
 
   test('counts a task start beyond every recorded end towards the automatic horizon', () => {
-    const timeline = timelineFor({ tasks: [exampleTask(1, 200, null, 'running')], nowOffsetMinutes: 5 });
+    const timeline = timelineFor({ tasks: [exampleTask(1, 0, 5), exampleTask(2, 200, null, 'running')], nowOffsetMinutes: 5 });
 
     expect(timeline.toEpochMilliseconds - timeline.fromEpochMilliseconds).toBe(minutesAsMilliseconds(215));
   });
@@ -258,6 +276,7 @@ describe('computeTimeline', () => {
 
   test.each([
     [360, /^\d{2}:\d{2}$/],
+    [1440, /^(Sun|Mon|Tue|Wed|Thu|Fri|Sat) \d{2}:\d{2}$/],
     [3 * 1440, /^(Sun|Mon|Tue|Wed|Thu|Fri|Sat) \d{2}:\d{2}$/],
     [30 * 1440, /^\d{2}-\d{2}$/],
   ])('labels a %i-minute axis in the format its span calls for', (spanMinutes, expectedShape) => {

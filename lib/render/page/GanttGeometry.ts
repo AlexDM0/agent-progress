@@ -75,18 +75,23 @@ function parseOffsetMinutes(text: string, limits: TimelineLimits): number | null
   return (sign === '-' ? -magnitude : magnitude) * perUnit;
 }
 
+/** The page hands in only the visible rows, so `startedAt` is the answer only when none of them has started. */
 function earliestRecordedMoment(progress: ProgressFile, startedAtEpochMilliseconds: number): number {
-  let earliestEpochMilliseconds = startedAtEpochMilliseconds;
+  let earliestEpochMilliseconds: number | null = null;
   for (const task of progress.tasks) {
     const startEpochMilliseconds = parseTimestamp(task.start);
-    if (startEpochMilliseconds !== null && startEpochMilliseconds < earliestEpochMilliseconds) {
+    if (startEpochMilliseconds !== null && (earliestEpochMilliseconds === null || startEpochMilliseconds < earliestEpochMilliseconds)) {
       earliestEpochMilliseconds = startEpochMilliseconds;
     }
   }
-  return earliestEpochMilliseconds;
+  return earliestEpochMilliseconds ?? startedAtEpochMilliseconds;
 }
 
-// `start` is the earliest recorded moment, not `startedAt`: rows backfilled with `--at` or re-seeded by `clear` begin earlier.
+export function spanFitsClockOnlyLabels(spanMinutes: number, hoursAxisLabelLimitMinutes: number): boolean {
+  return spanMinutes < hoursAxisLabelLimitMinutes;
+}
+
+// `start` is the earliest visible row start, not `startedAt`: hidden work must not stretch the axis, and backfilled rows begin earlier.
 function resolveEndpoint(text: string, earliestEpochMilliseconds: number, nowEpochMilliseconds: number, limits: TimelineLimits): number | null {
   const trimmed = text.trim();
   if (trimmed === 'start') {
@@ -168,7 +173,7 @@ function padToTwoDigits(value: number): string {
 function formatTickLabel(epochMilliseconds: number, spanMinutes: number, limits: TimelineLimits): string {
   const moment     = new Date(epochMilliseconds);
   const clockLabel = `${padToTwoDigits(moment.getHours())}:${padToTwoDigits(moment.getMinutes())}`;
-  if (spanMinutes <= limits.hoursAxisLabelLimitMinutes) {
+  if (spanFitsClockOnlyLabels(spanMinutes, limits.hoursAxisLabelLimitMinutes)) {
     return clockLabel;
   }
   if (spanMinutes <= limits.weekAxisLabelLimitMinutes) {
