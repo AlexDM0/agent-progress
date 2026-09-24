@@ -70,7 +70,7 @@ describe.skipIf(!gitIsAvailable())('the running dispatcher notice', () => {
   for (const intakeCase of INTAKE_CASES) {
     const commandText = intakeCase.command.join(' ');
 
-    test(`\`${commandText}\` ends with the notice, once, after the Next line while the dispatcher is running`, async () => {
+    test(`\`${commandText}\` ends with the notice, once, while the dispatcher is running`, async () => {
       const lines = (await runCaseWithTheDispatcher(intakeCase, 'running')).split('\n');
 
       expect(lines.at(-1)).toBe(RUNNING_DISPATCHER_NOTICE);
