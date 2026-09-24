@@ -201,7 +201,7 @@ const CLAIMS: Claim[] = [
     },
     holds:  (run) => run.mostAgentsInFlightAtOnce <= 3 && summaryOf(run).delivered.length === 6,
     mutant: {
-      find:    'if (!Array.isArray(confirmingTicketIds)) return work.barStartedByBuilder === true;',
+      find:    'if (!Array.isArray(confirmingTicketIds)) return work.barIsHandedOn === true;',
       replace: 'if (!Array.isArray(confirmingTicketIds)) return true;',
     },
   },
@@ -663,6 +663,21 @@ const CLAIMS: Claim[] = [
     },
   },
   {
+    // A reviewer closing its bar on round-requested would free the slot until the next round's `rereview --start-review`, and a claim in between takes it.
+    name:     'a reviewer asking for another round leaves its bar running for the next round, so no claim from elsewhere finds the ticket\'s slot free',
+    scenario: {
+      limit:                     2,
+      readyTicketIds:            ticketIdsFrom(1, 2),
+      elsewhereClaimsAFreedSlot: true,
+      reviewerReply:             (_ticketId, round) => (round === 1 ? { verdict: 'round-requested', reworkedLines: 900 } : { verdict: 'released' }),
+    },
+    holds: (run) => run.slotGaps.length === 0
+      && run.mostAgentsOnBoardAtOnce <= 2
+      && summaryOf(run).delivered.length === 2
+      && run.rowsRunningAtEnd.length === 0,
+    mutant: { find: 'leave your bar running: ', replace: 'close it and leave nothing running: ' },
+  },
+  {
     // Read as another agent's, the bar the builder left would fill a limit of 1, and the reviewer it was started for would never run.
     name:     'the reviewer takes over the bar its builder\'s --start-review left running, so at a limit of 1 it starts at once and adds no second bar',
     scenario: { limit: 1, readyTicketIds: ['001', '002'] },
@@ -670,7 +685,7 @@ const CLAIMS: Claim[] = [
       && run.reviewBarsAdded.join(', ') === 'review 001, review 002'
       && run.mostAgentsOnBoardAtOnce === 1
       && run.rowsRunningAtEnd.length === 0,
-    mutant: { find: 'awaitTakeover({ ...reviewWorkFor(ticketId, false, false), barStartedByBuilder: true });', replace: 'queueReview(ticketId, false);' },
+    mutant: { find: 'awaitTakeover({ ...reviewWorkFor(ticketId, false, false), barIsHandedOn: true });', replace: 'queueReview(ticketId, false);' },
   },
   {
     // The builder's `in-review` reply is word that its bar runs; without it, a block lacking the rows would leave every built ticket's bar unstarted.
@@ -683,7 +698,7 @@ const CLAIMS: Claim[] = [
       statusOmitsRunningRows: true,
     },
     holds:  (run) => run.mostAgentsOnBoardAtOnce <= 3 && summaryOf(run).delivered.length === 6,
-    mutant: { find: 'if (!Array.isArray(confirmingTicketIds)) return work.barStartedByBuilder === true;', replace: 'if (!Array.isArray(confirmingTicketIds)) return false;' },
+    mutant: { find: 'if (!Array.isArray(confirmingTicketIds)) return work.barIsHandedOn === true;', replace: 'if (!Array.isArray(confirmingTicketIds)) return false;' },
   },
   {
     name:     'with ticketIds, no survey agent runs',

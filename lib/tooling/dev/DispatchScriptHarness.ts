@@ -126,7 +126,8 @@ export interface DispatchRun {
   mostAgentsOnBoardAtOnce:  number;
   /** Every builder that reached the board, by its claim or by carrying on past its own, as `<run> build <ticket>`. */
   buildersOnBoard:          string[];
-  /** Every builder that returned `in-review` without leaving its reviewer's bar running, as `build <ticket>`: a moment its ticket held no slot. */
+  /** Every builder that returned `in-review`, or reviewer that asked for another round, without leaving the next reviewer's bar running, as
+   * `build <ticket>` or `review <ticket>`: a moment its ticket held no slot. */
   slotGaps:                 string[];
   /** The summary the racing run returned, `null` without one, and what it logged. */
   racingSummary:            unknown;
@@ -148,6 +149,9 @@ export interface DispatchRun {
 /** The sentence a builder's prompt carries on past a claim refused as in-progress by, and the one a reviewer's takes a bar left running by. */
 export const BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM = 'the claim is this run\'s own';
 export const REVIEWER_TAKES_OVER_A_RUNNING_BAR     = 'take it as your bar and add none';
+
+/** The sentence a reviewer's prompt leaves its bar running for the next round by, when it asks for one. */
+export const REVIEWER_LEAVES_ITS_BAR_FOR_THE_NEXT_ROUND = 'leave your bar running';
 
 interface RunningRow {
   kind:     AgentKind;
@@ -247,10 +251,15 @@ async function turnsPass(count: number): Promise<void> {
   for (let i = 0; i < count; i++) await nextTurn();
 }
 
-// A builder's claimed row stays running until `ticket review`, a reviewer's bar until it closes it or a release does.
-function rowIsLeftRunning(kind: AgentKind, reply: Record<string, unknown> | null): boolean {
+function reviewAsksForAnotherRound(reply: Record<string, unknown> | null): boolean {
+  return reply?.['verdict'] === 'round-requested' || (reply?.['verdict'] === 'not-released' && reply['releaseReason'] === 'main-moved');
+}
+
+// A builder's claimed row stays running until `ticket review`, a reviewer's bar until it closes it, the next round's `rereview` does, or a release.
+function rowIsLeftRunning(kind: AgentKind, reply: Record<string, unknown> | null, prompt: string): boolean {
   if (kind === 'build') return reply === null || reply['outcome'] === 'failed';
-  return kind === 'review' && reply === null;
+  if (kind !== 'review') return false;
+  return reply === null || (reviewAsksForAnotherRound(reply) && prompt.includes(REVIEWER_LEAVES_ITS_BAR_FOR_THE_NEXT_ROUND));
 }
 
 function reviewerDocumentOf(reply: ReviewerReply, round: number): Record<string, unknown> {
@@ -370,6 +379,11 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     return reply;
   };
 
+  const slotIsFreedFor = (agentName: string): void => {
+    slotGaps.push(agentName);
+    if (scenario.elsewhereClaimsAFreedSlot === true && agentsOnBoard() < board.limit) board.otherAgentsInFlight++;
+  };
+
   // A builder's `--start-review` leaves its reviewer's bar running in the same lock hold; a plain `ticket review` frees the slot for a moment.
   const builderHandsItsSlotOn = (ticketId: string, prompt: string): void => {
     if (prompt.includes(`ticket review ${ticketId} --start-review`)) {
@@ -377,8 +391,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       reviewBarsAdded.push(`review ${ticketId}`);
       return;
     }
-    slotGaps.push(`build ${ticketId}`);
-    if (scenario.elsewhereClaimsAFreedSlot === true && agentsOnBoard() < board.limit) board.otherAgentsInFlight++;
+    slotIsFreedFor(`build ${ticketId}`);
   };
 
   // As the `tickets` list states them: a ticket's model and effort only where it names them.
@@ -498,8 +511,10 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       await turnsPass(TURNS_FROM_FIRST_COMMAND_TO_RETURN);
       if (generation !== callGeneration) return NEVER_SETTLES;
       ownAgentsOnBoard.delete(callIndex);
-      if (reachesTheBoard && rowIsLeftRunning(kind, reply)) rowsLeftRunning.set(passKey, ownRow);
+      const rowStaysRunning = reachesTheBoard && rowIsLeftRunning(kind, reply, prompt);
+      if (rowStaysRunning) rowsLeftRunning.set(passKey, ownRow);
       if (kind === 'build' && reply?.['outcome'] === 'in-review') builderHandsItsSlotOn(ticketId, prompt);
+      if (kind === 'review' && reviewAsksForAnotherRound(reply) && !rowStaysRunning) slotIsFreedFor(`review ${ticketId}`);
       // A release delivers every running bar that reviews the ticket, a second one included.
       if (kind === 'review' && reply?.['verdict'] === 'released') {
         rowsLeftRunning.delete(passKey);

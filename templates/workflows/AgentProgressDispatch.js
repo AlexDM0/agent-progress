@@ -242,7 +242,9 @@ function reviewerPrompt(ticketId, expectedRound, rereviewFirst, earlierReviewerD
     'Every finding you would hand on instead of fixing, you file yourself: `agent-progress ticket add "<what and where>" --priority low --body "<what you saw and what you would do>"`; '
       + 'return the ids it printed as `filedTicketIds`.',
     `Step 7b is a count: request the next round only when over ${REWORK_ROUND_THRESHOLD_LINES} lines of code were reworked. Whether that round runs is the dispatcher's decision.`,
-    'A release refused with `main-moved` is yours to handle, as step 8 says. On every verdict other than released, close your own bar: `agent-progress task finish <bar>`, then `agent-progress task deliver <bar>`.',
+    'A release refused with `main-moved` is yours to handle, as step 8 says. On `round-requested`, and on `not-released` for `main-moved`, leave your bar running: '
+      + 'the next round\'s `ticket rereview --start-review` closes it, so the ticket\'s slot stays held. On every other verdict than released, close your own bar: '
+      + '`agent-progress task finish <bar>`, then `agent-progress task deliver <bar>`.',
     'Return `verdict` (released, round-requested, does-not-hold or not-released), `releaseReason` (the release\'s reason when not-released, empty otherwise), '
       + '`reworkedLines` (both rework counts together), `findings` (every finding of this round, each with a one-word `class`, its `file` and a one-line `summary`), '
       + `and \`filedTicketIds\`. ${STATUS_RETURN_TEXT}`,
@@ -348,13 +350,13 @@ async function runAgent(prompt, options) {
   }
 }
 
-// A builder is on the board from its claim, a reviewer from its bar; a status block without the rows confirms nothing, except the bar a builder's
-// `in-review` reply says its `--start-review` left running, which only a block listing the rows can contradict. A parking agent never is on the
-// board, so the row it is pausing counts as another's until it returns: the safe side, for the few turns it runs.
+// A builder is on the board from its claim, a reviewer from its bar; a status block without the rows confirms nothing, except a bar handed on: the
+// one a builder's `in-review` or a reviewer's call for another round says was left running, which only a block listing the rows can contradict.
+// A parking agent never is on the board, so the row it is pausing counts as another's until it returns: the safe side, for the few turns it runs.
 function ownAgentIsOnBoard(work, status) {
   if (work.kind === 'park') return false;
   const confirmingTicketIds = work.kind === 'build' ? status.runningTicketIds : status.runningReviewOfIds;
-  if (!Array.isArray(confirmingTicketIds)) return work.barStartedByBuilder === true;
+  if (!Array.isArray(confirmingTicketIds)) return work.barIsHandedOn === true;
   return confirmingTicketIds.includes(work.ticketId);
 }
 
@@ -427,6 +429,11 @@ function reviewWorkFor(ticketId, rereviewFirst, earlierReviewerDied) {
 
 function queueReview(ticketId, rereviewFirst) {
   reviewQueue.push(reviewWorkFor(ticketId, rereviewFirst, false));
+}
+
+// A reviewer asking for another round leaves its bar running for the next one's `rereview --start-review`, so the slot never shows free between them.
+function takeOverTheBarLeftForTheNextRound(ticketId) {
+  awaitTakeover({ ...reviewWorkFor(ticketId, true, false), barIsHandedOn: true });
 }
 
 function countFailedPass(ticketId, why, retry) {
@@ -531,7 +538,7 @@ function settleBuild(work, result) {
     return;
   }
   // The builder's `--start-review` left the reviewer's bar running, so the reviewer takes it over like any row this run left running.
-  awaitTakeover({ ...reviewWorkFor(ticketId, false, false), barStartedByBuilder: true });
+  awaitTakeover({ ...reviewWorkFor(ticketId, false, false), barIsHandedOn: true });
 }
 
 function findingsOfRoundsBefore(record, round) {
@@ -591,7 +598,7 @@ function settleReview(work, result) {
       return;
     }
     log(`#${ticketId}: the main line moved and the reviewer did not finish the release; round ${record.nextRound} takes it.`);
-    queueReview(ticketId, true);
+    takeOverTheBarLeftForTheNextRound(ticketId);
     return;
   }
   const verdict = nextRoundVerdict(record, { ...result, round });
@@ -600,7 +607,7 @@ function settleReview(work, result) {
     return;
   }
   log(`#${ticketId}: round ${record.nextRound} granted at ${result.reworkedLines} reworked lines.`);
-  queueReview(ticketId, true);
+  takeOverTheBarLeftForTheNextRound(ticketId);
 }
 
 async function settleNextFinished() {
