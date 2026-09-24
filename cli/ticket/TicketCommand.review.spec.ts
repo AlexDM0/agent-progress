@@ -149,6 +149,58 @@ describe.skipIf(!gitIsAvailable())('starting the review bar with the move to rev
     expect(JSON.parse((await run(['ticket', 'show', '1', '--json'])).outputText())).toMatchObject({ status: 'in-progress' });
   });
 
+  // Only `release` used to close the bar, so a ticket abandoned, reopened or finished by hand kept its reviewer's slot taken and refused its own claim.
+  test('every move out of review closes the ticket\'s running bar with one log line, freeing its slot', async () => {
+    const movesOutOfReview: string[][] = [
+      ['ticket', 'abandon', '1', '--reason', 'superseded by #2'],
+      ['ticket', 'reopen', '1'],
+      ['ticket', 'start', '1'],
+      ['ticket', 'done', '1'],
+      ['ticket', 'status', '1', 'open'],
+    ];
+    for (const moveOutOfReview of movesOutOfReview) {
+      await run(['ticket', 'status', '1', 'in-review']);
+      await run(['ticket', 'rereview', '1', '--start-review']);
+      const [bar] = runningBarsReviewing('001');
+
+      const output = (await run(moveOutOfReview)).outputText();
+
+      expect(runningBarsReviewing('001'), moveOutOfReview.join(' ')).toHaveLength(0);
+      expect(storedProgress().tasks.find((task) => task.id === bar?.id)?.status).toBe('delivered');
+      expect(output).toContain(`Closed the review row #${bar?.id}, delivered`);
+      expect(storedProgress().log.filter((entry) => entry.text.startsWith(`Closed the review row #${bar?.id}`))).toHaveLength(1);
+    }
+  });
+
+  test('at a limit of 1, a claim after abandoning a ticket whose review bar ran takes the freed slot', async () => {
+    await run(['ticket', 'review', '1', '--start-review']);
+    await run(['ticket', 'abandon', '1', '--reason', 'superseded by #2']);
+
+    expect(await agentsInFlightNow()).toBe(0);
+    await run(['ticket', 'claim', '2']);
+  });
+
+  test('a reopened ticket whose review bar ran can be claimed again', async () => {
+    await run(['ticket', 'review', '1', '--start-review']);
+    await run(['ticket', 'reopen', '1']);
+
+    await run(['ticket', 'claim', '1']);
+  });
+
+  // A bundle is one agent: its first ticket's reviewer shares the slot the builder still holds for the rest.
+  test('a bundle\'s review bar shares the claim\'s slot while the bundle\'s other rows still run, so the agents in flight stay one', async () => {
+    await run(['ticket', 'reopen', '1']);
+    await run(['ticket', 'claim', '1', '2']);
+    expect(await agentsInFlightNow()).toBe(1);
+
+    await run(['ticket', 'review', '1', '--start-review']);
+    expect(await agentsInFlightNow()).toBe(1);
+    expect(runningBarsReviewing('001')[0]?.agent).toBe('001,002');
+
+    await run(['ticket', 'review', '2', '--start-review']);
+    expect(await agentsInFlightNow()).toBe(1);
+  });
+
   test('--owner or --note without --start-review is refused, and nothing moves', async () => {
     const { exitCode, context } = await runWithExitCode(['ticket', 'review', '1', '--owner', 'opus']);
 

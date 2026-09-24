@@ -246,8 +246,11 @@ output never carries either.
 
   ticket unhold <id> [--at <when>]
                               Lift the hold, with one log line: the step it held starts at the
-                              dispatcher's next board read. Refused at exit 1 on a delivered or
-                              abandoned ticket and on one not held.
+                              dispatcher's next board read. On a ticket in progress whose row is
+                              paused, a last line says how the build resumes: by a dispatcher run
+                              under a dispatcher claim note, by \`task start <row>\` under any
+                              other. Refused at exit 1 on a delivered or abandoned ticket and on
+                              one not held.
 
   ticket priority <id> low|normal|high [--at <when>]
                               Change a ticket's priority, with one log line. Lowering to low is
@@ -264,7 +267,10 @@ output never carries either.
                               in-review, deliver from done, abandon from anything not already
                               delivered or abandoned, reopen from anything but open. Moving a
                               ticket to the status it already has is refused and logs nothing —
-                              \`ticket rereview\` below is the one exception.
+                              \`ticket rereview\` below is the one exception. Every move out of
+                              in-review finishes and delivers the ticket's running review bar,
+                              with one log line each. \`start\` warns on standard error, and still
+                              moves it, when the ticket is held.
                               \`abandon\` requires --reason; \`reopen\` clears the stamps and returns
                               the row to pending. --branch and --commit record where the work
                               landed, and --tokens what it cost; --tokens on a ticket with no
@@ -276,6 +282,8 @@ output never carries either.
                               \`## Review\` sections plus one) in one lock hold, closing any bar of
                               the round before: the builder's slot passes to its reviewer, and one
                               round's to the next, without \`status --json\` ever showing it free.
+                              A bundle's bar carries its claim's agent key while other rows of the
+                              bundle still run, so it takes no second slot.
                               --owner and --note name the bar, and are refused without the flag.
 
   ticket claim <id> [<id>...] \`ticket start\` and the row's --owner and --note in one write, for

@@ -141,6 +141,23 @@ describe.skipIf(!gitIsAvailable())('holding a ticket', () => {
     await run(['ticket', 'unhold', '1']);
     await run(['ticket', 'claim', '1']);
   });
+
+  // `start` is the override beside `claim`, so it moves a held ticket, but says so the way it does for an unsettled dependency.
+  test('ticket start moves a held ticket and warns on standard error that it is held', async () => {
+    await run(['ticket', 'add', 'Show the role history']);
+    await run(['ticket', 'hold', '1', '--reason', 'the user reads it first']);
+
+    const context = await run(['ticket', 'start', '1']);
+
+    expect(context.errorText()).toContain('Ticket #001 is held; it was started anyway');
+    expect((await run(['ticket', 'show', '1', '--json'])).outputText()).toContain('"status": "in-progress"');
+  });
+
+  test('ticket start warns about no hold on a ticket that is not held', async () => {
+    await run(['ticket', 'add', 'Show the role history']);
+
+    expect((await run(['ticket', 'start', '1'])).errorText()).not.toContain('held');
+  });
 });
 
 const RESUME_BUILD_HINT = 'launch a single-ticket dispatcher run for #001';
@@ -168,16 +185,38 @@ describe.skipIf(!gitIsAvailable())('unholding a ticket whose build a dispatcher 
     expect(lines.at(-1)).toContain(WHOLE_BOARD_RESUME_HINT);
   });
 
-  // A whole-board survey leaves a person's pause alone, so the hint must not promise that run for one.
-  test('names only the single-ticket run when the paused row carries a note other than a dispatcher claim', async () => {
+  // Every dispatcher run's builder takes over only a dispatcher claim, so a person's pause is resumed or settled by hand.
+  test('names resuming the row by hand, and no dispatcher run, when the paused row carries a note other than a dispatcher claim', async () => {
     await run(['ticket', 'claim', '1', '--note', 'Paused by Alex Example']);
     await run(['task', 'pause', '1']);
     await run(['ticket', 'hold', '1']);
+    const buildRowId = storedProgress().tasks[0]?.id;
 
     const lastLine = (await unholdOutput()).trimEnd().split('\n').at(-1);
 
-    expect(lastLine).toContain(RESUME_BUILD_HINT);
-    expect(lastLine).not.toContain('whole-board');
+    expect(lastLine).toContain(`\`agent-progress task start ${buildRowId}\``);
+    expect(lastLine).not.toContain('dispatcher run');
+  });
+
+  // The script writes the claim note and the CLI recognises it; this reads the script's own `claimNoteOf`, so the two cannot drift apart.
+  test('a claim note in the form the dispatcher script writes, for either kind of run, is recognised as a dispatcher claim', async () => {
+    const scriptText    = readFileSync(join(import.meta.dir, '..', '..', 'templates', 'workflows', 'AgentProgressDispatch.js'), 'utf8');
+    const noteTemplate  = /function claimNoteOf\(ticketId\) \{\s*return `([^`]+)`;/.exec(scriptText)?.[1];
+    const runLabelMatch = /runLabel:\s*ticketIds === null \? '([^']+)' : `([^`]+)`,/.exec(scriptText);
+    expect(noteTemplate, 'claimNoteOf is no longer one template literal; update this reading of it').toBeDefined();
+    expect(runLabelMatch, 'runLabel is no longer one conditional; update this reading of it').not.toBeNull();
+    const runLabels = [runLabelMatch?.[1] ?? '', (runLabelMatch?.[2] ?? '').replace('${ticketIds.join(\'+\')}', '001')];
+
+    for (const runLabel of runLabels) {
+      const claimNote = (noteTemplate ?? '').replace('${settings.runLabel}', runLabel).replace('${ticketId}', '001');
+      expect(claimNote).not.toContain('${');
+      await run(['ticket', 'claim', '1', '--note', claimNote]);
+      await run(['task', 'pause', '1']);
+      await run(['ticket', 'hold', '1']);
+
+      expect((await unholdOutput()).trimEnd().split('\n').at(-1), claimNote).toContain(WHOLE_BOARD_RESUME_HINT);
+      await run(['ticket', 'reopen', '1']);
+    }
   });
 
   test('prints no hint under --json, whose document parses whole', async () => {

@@ -306,13 +306,7 @@ function reviewRoundOf(ticket: Ticket): number {
  */
 function startReviewBar(progress: ProgressFile, ticket: Ticket, request: ReviewBarRequest, at: string): StartedReviewBar {
   const { id, title } = ticket.frontmatter;
-  const closedBarIds  = [];
-  for (const earlierBar of runningReviewRowsOf(progress, [id])) {
-    transitionTask(progress, earlierBar.id, 'finished', at);
-    transitionTask(progress, earlierBar.id, 'delivered', at);
-    appendLogEntry(progress, at, `Closed the review row #${earlierBar.id}, delivered: ${earlierBar.name}`);
-    closedBarIds.push(earlierBar.id);
-  }
+  const closedBarIds  = closeRunningReviewBars(progress, id, at);
   const bar = addTask(progress, {
     name:     `Review ${reviewRoundOf(ticket)} #${id} — ${title}`,
     filedAt:  at,
@@ -320,19 +314,44 @@ function startReviewBar(progress: ProgressFile, ticket: Ticket, request: ReviewB
     ...request,
   });
   transitionTask(progress, bar.id, 'running', at);
+  const bundleAgentKey = agentKeyOfABundleStillRunning(progress, ticket);
+  if (bundleAgentKey !== null) bar.agent = bundleAgentKey;
   appendLogEntry(progress, at, `Review row #${bar.id} started: ${bar.name}`);
   return { bar, closedBarIds };
 }
 
-function reviewBarText(started: StartedReviewBar | null): string {
-  if (started === null) return '';
-  const closedText = started.closedBarIds.map((barId) => `\nClosed the review row #${barId}, delivered`).join('');
-  return `${closedText}\nReview row #${started.bar.id} started: ${started.bar.name}`;
+function closeRunningReviewBars(progress: ProgressFile, ticketId: string, at: string): number[] {
+  const closedBarIds: number[] = [];
+  for (const runningBar of runningReviewRowsOf(progress, [ticketId])) {
+    transitionTask(progress, runningBar.id, 'finished', at);
+    transitionTask(progress, runningBar.id, 'delivered', at);
+    appendLogEntry(progress, at, `Closed the review row #${runningBar.id}, delivered: ${runningBar.name}`);
+    closedBarIds.push(runningBar.id);
+  }
+  return closedBarIds;
 }
 
-function ticketWithReviewBarAsJson(ticket: Ticket, started: StartedReviewBar | null): Record<string, unknown> {
-  if (started === null) return ticketAsJson(ticket);
-  return { ...ticketAsJson(ticket), reviewRow: started.bar, closedReviewRows: started.closedBarIds };
+/** A bundle is one agent, so its reviewer takes no second slot while the builder still holds the claim's slot for the bundle's other tickets. */
+function agentKeyOfABundleStillRunning(progress: ProgressFile, ticket: Ticket): string | null {
+  const { task } = ticket.frontmatter;
+  const claimAgentKey = task === null ? undefined : findTask(progress, task)?.agent;
+  if (claimAgentKey === undefined) return null;
+  return progress.tasks.some((row) => row.status === 'running' && row.agent === claimAgentKey) ? claimAgentKey : null;
+}
+
+function closedReviewBarsText(closedBarIds: readonly number[]): string {
+  return closedBarIds.map((barId) => `\nClosed the review row #${barId}, delivered`).join('');
+}
+
+function reviewBarText(started: StartedReviewBar | null): string {
+  if (started === null) return '';
+  return `${closedReviewBarsText(started.closedBarIds)}\nReview row #${started.bar.id} started: ${started.bar.name}`;
+}
+
+function ticketWithReviewBarAsJson(ticket: Ticket, started: StartedReviewBar | null, closedBarIds: readonly number[] = []): Record<string, unknown> {
+  if (started !== null) return { ...ticketAsJson(ticket), reviewRow: started.bar, closedReviewRows: started.closedBarIds };
+  if (closedBarIds.length > 0) return { ...ticketAsJson(ticket), closedReviewRows: closedBarIds };
+  return ticketAsJson(ticket);
 }
 
 async function addOneTicket(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
@@ -529,12 +548,15 @@ async function transitionOneTicket(
       }
       setTaskTokens(change.progress, outcome.ticket.frontmatter.task, tokens);
     }
-    const startedReviewBar = reviewBarRequest === null ? null : startReviewBar(change.progress, outcome.ticket, reviewBarRequest, change.at);
+    // A reviewer is at work only while the ticket is in review, so every move out of it ends the bar, as `release` does.
+    const closedReviewBarIds = targetStatus === 'in-review' ? [] : closeRunningReviewBars(change.progress, outcome.ticket.frontmatter.id, change.at);
+    const startedReviewBar   = reviewBarRequest === null ? null : startReviewBar(change.progress, outcome.ticket, reviewBarRequest, change.at);
     change.writeTicketAfterwards(outcome.ticket);
     const { tickets } = listTickets(change.workspace);
     return {
       logText:     outcome.logText,
       ticket:      outcome.ticket,
+      closedReviewBarIds,
       startedReviewBar,
       unsettled:   unsettledDependenciesFor(outcome.ticket, tickets),
       lowHeldBack: lowTicketHeldBackText(outcome.ticket, tickets),
@@ -543,13 +565,18 @@ async function transitionOneTicket(
 
   // A reopened ticket goes back into the queue a running dispatcher takes from, so it is intake like `ticket add`.
   const closingLines = targetStatus === 'open' ? NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState) : nextLine;
-  const humanText    = `${moved.logText}${reviewBarText(moved.startedReviewBar)}`;
-  printEntityThenNextLine(commandArguments, context, ticketWithReviewBarAsJson(moved.ticket, moved.startedReviewBar), humanText, closingLines);
+  const humanText    = `${moved.logText}${closedReviewBarsText(moved.closedReviewBarIds)}${reviewBarText(moved.startedReviewBar)}`;
+  const document     = ticketWithReviewBarAsJson(moved.ticket, moved.startedReviewBar, moved.closedReviewBarIds);
+  printEntityThenNextLine(commandArguments, context, document, humanText, closingLines);
 
   // A warning, not a refusal: the order is advice to whoever picks work up, and the user may know better.
   if (targetStatus === 'in-progress' && moved.unsettled.length > 0) {
     const notDoneYet = moved.unsettled.length === 1 ? 'which is not done yet' : 'which are not done yet';
     context.standardError(`Ticket #${moved.ticket.frontmatter.id} is ${waitingOnText(moved.unsettled)}, ${notDoneYet}.`);
+  }
+  if (targetStatus === 'in-progress' && moved.ticket.frontmatter.hold !== undefined) {
+    const { id } = moved.ticket.frontmatter;
+    context.standardError(`Ticket #${id} is held; it was started anyway, and \`agent-progress ticket unhold ${id}\` lifts the hold.`);
   }
   if (targetStatus === 'in-progress' && moved.lowHeldBack !== null) {
     context.standardError(`${moved.lowHeldBack}; it was started anyway.`);
@@ -612,6 +639,11 @@ function refuseATicketUnderReview(progress: ProgressFile, ticketId: string): voi
   throw new OperationRefusal('refused', `Ticket #${ticketId} is under review: its review row #${runningBar.id} is running. Nothing was written.`);
 }
 
+/** `1 agent is`, `2 agents are`: the count, its noun and the verb agreeing with it. */
+function countedText(count: number, singularNoun: string): string {
+  return count === 1 ? `1 ${singularNoun} is` : `${count} ${singularNoun}s are`;
+}
+
 function namedTicketsText(identifiers: readonly string[]): string {
   const named = identifiers.map((identifier) => `#${identifier}`).join(', ');
   return identifiers.length === 1 ? `Ticket ${named}` : `Tickets ${named}`;
@@ -647,8 +679,9 @@ async function claimTickets(references: readonly string[], commandArguments: Arg
       const runningRowCount = change.progress.tasks.filter((task) => task.status === 'running').length;
       throw new OperationRefusal(
         'refused',
-        `${namedTicketsText(identifiers)} ${identifiers.length === 1 ? 'was' : 'were'} not claimed: ${agentsInFlight} agents are in flight `
-        + `(${runningRowCount} rows are running) and the concurrency limit is ${limit} agents. Nothing was written; claim once an agent has finished.`,
+        `${namedTicketsText(identifiers)} ${identifiers.length === 1 ? 'was' : 'were'} not claimed: ${countedText(agentsInFlight, 'agent')} in flight `
+        + `(${countedText(runningRowCount, 'row')} running) and the concurrency limit is ${limit} ${limit === 1 ? 'agent' : 'agents'}. `
+        + 'Nothing was written; claim once an agent has finished.',
       );
     }
 
@@ -856,10 +889,13 @@ async function setTicketAgent(commandArguments: ArgumentParser, context: Command
   printEntityThenNextLine(commandArguments, context, ticketAsJson(changed.ticket), changed.logText, NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState));
 }
 
-// A whole-board run's survey resumes only a row paused under a dispatcher run's claim note, so only then is the single-ticket run the fast lane.
-function resumeBuildHintFor(ticketId: string, pausedRowNote: string): string {
+// Every dispatcher run's builder takes over only a row paused under a dispatcher claim note; any other pause is a person's, resumed by hand.
+function resumeBuildHintFor(ticketId: string, pausedRow: Task): string {
+  if (!noteIsADispatcherClaimOn(pausedRow.note, ticketId)) {
+    return `Its build row #${pausedRow.id} was left paused under a person's note, which the dispatcher never takes over: `
+      + `resume it with \`agent-progress task start ${pausedRow.id}\`, or settle the row by hand.`;
+  }
   const singleTicketRun = `launch a single-ticket dispatcher run for #${ticketId} (ticketIds: ["${ticketId}"]) to resume it`;
-  if (!noteIsADispatcherClaimOn(pausedRowNote, ticketId)) return `Its build was left paused: ${singleTicketRun}.`;
   return `Its build was left paused: the next whole-board dispatcher run resumes it; when none is going or about to be launched, ${singleTicketRun} now.`;
 }
 
@@ -867,11 +903,11 @@ function noteIsADispatcherClaimOn(note: string, ticketId: string): boolean {
   return note.startsWith('Built by the ') && note.endsWith(` dispatcher run on ticket-${ticketId}`);
 }
 
-function pausedBuildRowNoteOf(progress: ProgressFile, ticket: Ticket): string | null {
+function pausedBuildRowOf(progress: ProgressFile, ticket: Ticket): Task | null {
   const { status, task } = ticket.frontmatter;
   if (status !== 'in-progress' || task === null) return null;
   const row = findTask(progress, task);
-  return row?.status === 'paused' ? row.note : null;
+  return row?.status === 'paused' ? row : null;
 }
 
 /** A hold stops the dispatcher starting the ticket's next builder or reviewer; an agent already running is never interrupted by it. */
@@ -901,8 +937,8 @@ async function holdOrUnholdTicket(holds: boolean, commandArguments: ArgumentPars
     const logText = holds ? `Ticket #${id} held${reason === '' ? '' : `: ${reason}`}` : `Ticket #${id} unheld`;
     appendLogEntry(change.progress, change.at, logText);
     change.writeTicketAfterwards(ticket);
-    const pausedRowNote = holds ? null : pausedBuildRowNoteOf(change.progress, ticket);
-    return { logText, ticket, resumeBuildHint: pausedRowNote === null ? null : resumeBuildHintFor(id, pausedRowNote) };
+    const pausedRow = holds ? null : pausedBuildRowOf(change.progress, ticket);
+    return { logText, ticket, resumeBuildHint: pausedRow === null ? null : resumeBuildHintFor(id, pausedRow) };
   });
 
   const endedNextLine = NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState);

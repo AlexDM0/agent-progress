@@ -153,7 +153,7 @@ describe.skipIf(!gitIsAvailable())('unholding a ticket whose build was left paus
 
       await run(['init', '--project', 'Example Agency']);
       await run(['ticket', 'add', 'Show the role history']);
-      await run(['ticket', 'claim', '1']);
+      await run(['ticket', 'claim', '1', '--note', 'Built by the whole-board dispatcher run on ticket-001']);
       await run(['ticket', 'hold', '1']);
       expect(await run(['ticket', 'unhold', '1'])).not.toContain(resumeBuildHint);
 

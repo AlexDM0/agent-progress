@@ -97,6 +97,15 @@ describe.skipIf(!gitIsAvailable())('claiming a ticket', () => {
     expect(message).toContain('the concurrency limit is 2');
   });
 
+  test('the refusal at a limit of 1 speaks of one agent and one row in the singular', async () => {
+    await run(['concurrency', '1']);
+    await run(['task', 'add', 'Review pass one', '--start']);
+
+    const message = await expectRefusedWithNothingWritten(['ticket', 'claim', '1']);
+
+    expect(message).toContain('1 agent is in flight (1 row is running) and the concurrency limit is 1 agent.');
+  });
+
   test('a ticket waiting on one that is not done yet is refused with nothing written', async () => {
     await run(['ticket', 'add', 'Show the role history']);
     await run(['ticket', 'depends', '1', '2']);

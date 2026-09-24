@@ -103,7 +103,11 @@ for the next round, finishing and delivering the round's running bar first. `--o
 name the bar and are refused without the flag. Between a plain `ticket review` and the reviewer's own
 `task add --start` the builder's slot shows free, and a claim in that moment puts the board one agent
 over, since a bar checks no limit; with the flag `status --json` counts the same agents before and
-after. A running bar also refuses `ticket claim` on its ticket: a reviewer is at work on it.
+after — a bundle's bar carries its claim's `agent` key while the bundle's other rows still run, so it
+shares their slot. A running bar also refuses `ticket claim` on its ticket: a reviewer is at work on
+it. Every move out of in-review finishes and delivers the ticket's running bars: `release`, and each
+of `ticket start`, `done`, `abandon`, `reopen` and `status` with one log line per bar,
+`Closed the review row #<n>, delivered: <name>`.
 
 Every one of those moves is appended to the row's own phase history, which the dashboard shows when
 a row is double-clicked, with how long the row sat in each phase. `task update --status` is
@@ -147,10 +151,11 @@ the ticket in progress. A whole-board run's survey returns every in-progress tic
 worktree exists, and resumes each that is not held ahead of new tickets: its builder resumes the row
 with `task start` and carries on in the ticket's worktree, keeping its uncommitted edits, without a new
 claim. A paused row with any other note is a person's pause, left alone. `ticket unhold` on a ticket in
-progress with a paused row ends its human output (never its `--json`) with a line naming a
-single-ticket dispatcher run for it, which takes the build over the same way; under a dispatcher
-claim note the line also says the next whole-board run resumes it, the single-ticket run being the
-fast lane when no whole-board run is going or about to be launched.
+progress with a paused row ends its human output (never its `--json`) with a line saying how the
+build resumes. Under a dispatcher claim note it says the next whole-board run resumes it, and a
+single-ticket dispatcher run for it is the fast lane when no whole-board run is going or about to be
+launched. Under any other note it names `task start <row>`, or settling the row by hand: no
+dispatcher run takes over a person's pause.
 
 **A ticket may name its agents.** `ticket add --model sonnet --effort high` stores both;
 `ticket agent <id> [--model <m>] [--effort <e>]` changes either later with one log line,
@@ -199,8 +204,8 @@ older tracker stored reads as 10.
 **A slot is an agent, not a row.** `ticket claim 3 4 5` claims a bundle's tickets as one agent, all
 or nothing, and writes the same `agent` key on each of their rows — the claimed ids joined,
 `"003,004,005"`. The agents in flight are the `running` rows grouped by that key, each group counted
-once, plus every running row with no key — a review bar, a `task add --start` row, a ticket started
-by `ticket start` — each an agent of its own. A bundle whose tickets go to review one at a time keeps
+once, plus every running row with no key — a review bar started while none of its claim's rows still
+runs, a `task add --start` row, a ticket started by `ticket start` — each an agent of its own. A bundle whose tickets go to review one at a time keeps
 its slot until its last row stops running. A row that starts running again other than from a pause
 loses its key, so a reopened bundle ticket is a new agent. `ticket claim` refuses at exit 1, writing
 nothing, when any ticket named would be refused on its own or when the agents in flight already
