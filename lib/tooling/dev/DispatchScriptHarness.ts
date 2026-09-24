@@ -10,6 +10,8 @@
 import { readFileSync } from 'node:fs';
 import { join }         from 'node:path';
 
+import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../constants/AgentSettings.ts';
+
 export type AgentKind = 'survey' | 'build' | 'review' | 'park';
 
 export interface ReviewFinding {
@@ -33,6 +35,11 @@ export interface ReviewerReply {
 
 export type DispatcherStateOnBoard = 'running' | 'stopped' | 'finished';
 
+export interface TicketAgentSettings {
+  model:  string;
+  effort: string;
+}
+
 export interface FakeBoard {
   limit:                number;
   otherAgentsInFlight:  number;
@@ -48,6 +55,7 @@ export interface RecordedAgentCall {
   /** The builder's pass, the reviewer's round or the parking agent's call for this ticket, counted by the harness from 1; `null` for the survey. */
   ordinal:  number | null;
   model:    unknown;
+  effort:   unknown;
   label:    unknown;
   prompt:   string;
 }
@@ -56,6 +64,8 @@ export interface DispatchScenario {
   limit:                       number;
   readyTicketIds:              string[];
   lowPriorityTicketIds?:       string[];
+  /** The tickets that name their own model and effort; every other ticket runs on the tool's default pair. */
+  agentSettingsByTicketId?:    Record<string, TicketAgentSettings>;
   /** Passed to the script as `args.includeLowPriority`; left out of the arguments when absent. */
   includeLowPriority?:         boolean;
   otherAgentsInFlight?:        number;
@@ -72,8 +82,8 @@ export interface DispatchScenario {
   turnsBeforeFirstCommand?:    number;
   /** Every status block leaves out `runningTicketIds` and `runningReviewOfIds`, as an agent that did not derive them would. */
   statusOmitsRunningRows?:     boolean;
-  /** Every status block leaves out `lowPriorityReadyTicketIds`, as an agent that did not derive them would. */
-  statusOmitsLowPriority?:     boolean;
+  /** Every status block leaves out `readyTickets`, as an agent that did not copy it would. */
+  statusOmitsReadyTickets?:    boolean;
   /**
    * The runtime restarts the first builder of each of these tickets with the same prompt, inside the same `agent()` call: its first attempt
    * claimed the ticket and made its worktree, and its claimed row stays running for the restarted attempt to carry on in.
@@ -277,15 +287,33 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     return [...rowsLeftRunning.keys()].filter((rowKey) => !rowKeysBeingTakenOver.has(rowKey)).length;
   };
 
+  const statedAgentSettingsOf = (ticketId: string): TicketAgentSettings | null => {
+    const settingsByTicketId = scenario.agentSettingsByTicketId ?? {};
+    return Object.hasOwn(settingsByTicketId, ticketId) ? settingsByTicketId[ticketId] ?? null : null;
+  };
+
+  // As `status --json` resolves them: every ready ticket with its priority, and its model and effort, the defaults filled in.
+  const readyTicketsOnBoard = (): Record<string, string>[] => board.readyTicketIds.map((readyTicketId) => ({
+    id:       readyTicketId,
+    priority: board.lowPriorityTicketIds.includes(readyTicketId) ? 'low' : 'normal',
+    model:    statedAgentSettingsOf(readyTicketId)?.model ?? DEFAULT_AGENT_MODEL,
+    effort:   statedAgentSettingsOf(readyTicketId)?.effort ?? DEFAULT_AGENT_EFFORT,
+  }));
+
+  // As the `tickets` list states them: a ticket's model and effort only where it names them.
+  const reviewWaitingTicketsOnBoard = (): Record<string, string>[] => (scenario.reviewWaitingTicketIds ?? []).map((reviewWaitingTicketId) => ({
+    id: reviewWaitingTicketId,
+    ...statedAgentSettingsOf(reviewWaitingTicketId),
+  }));
+
   const statusBlock = (): Record<string, unknown> => {
     const agentsInFlight = board.otherAgentsInFlight + ownAgentsOnBoard.size + rowsLeftRunning.size;
-    const lowPriorityReadyTicketIds = board.readyTicketIds.filter((readyTicketId) => board.lowPriorityTicketIds.includes(readyTicketId));
     const concurrency = {
       limit:           board.limit,
       agentsInFlight,
       freeSlots:       Math.max(0, board.limit - agentsInFlight),
       readyTicketIds:  [...board.readyTicketIds],
-      ...(scenario.statusOmitsLowPriority === true ? {} : { lowPriorityReadyTicketIds }),
+      ...(scenario.statusOmitsReadyTickets === true ? {} : { readyTickets: readyTicketsOnBoard() }),
       dispatcherState: board.dispatcherState,
     };
     if (scenario.statusOmitsRunningRows === true) return concurrency;
@@ -293,7 +321,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   };
 
   const replyFor = (call: RecordedAgentCall): Record<string, unknown> | null => {
-    if (call.kind === 'survey') return { status: statusBlock(), reviewWaitingTicketIds: scenario.reviewWaitingTicketIds ?? [] };
+    if (call.kind === 'survey') return { status: statusBlock(), reviewWaitingTickets: reviewWaitingTicketsOnBoard() };
     if (call.kind === 'park') return { status: statusBlock() };
     const ticketId = call.ticketId ?? '';
     const ordinal  = call.ordinal ?? 1;
@@ -319,8 +347,9 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       kind,
       ticketId,
       ordinal,
-      model: options['model'],
-      label: options['label'],
+      model:  options['model'],
+      effort: options['effort'],
+      label:  options['label'],
       prompt,
     };
     calls.push(call);

@@ -12,7 +12,9 @@ merge and Report, a reviewer the Review brief — while the orchestrator writes 
 into every ticket it files, as its `## Brief`, which the builder reads as its scope and contract. By
 hand, while the dispatcher is stopped, fill in the placeholders and paste the fenced blocks, in order,
 as the agent's whole prompt — every section down to Report for an implementing agent, the Review brief
-for a reviewer.
+for a reviewer. Both run on Opus at medium effort unless their ticket names another model or effort:
+the dispatcher passes each agent its ticket's pair, and by hand the `agent-progress-worker` agent
+definition carries the defaults, so a ticket that overrides them goes through the dispatcher.
 
 ## Scope
 

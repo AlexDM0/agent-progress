@@ -20,7 +20,8 @@ the user says into tickets, each carrying the brief its builder reads, start the
 user says go, and act on what it hands back. The dispatcher is the Workflow script
 `.claude/workflows/agent-progress-dispatch.js`, which `agent-progress init` and `update` install: it
 runs a builder per ready ticket and a clean reviewer per built one, never more at once than the
-board's limit, decides review rounds and parking in code, and sets every agent's model itself. The
+board's limit, decides review rounds and parking in code, and runs every builder and reviewer on the
+model and effort its ticket names — Opus at medium effort unless the ticket says otherwise. The
 board is the memory of this session; your transcript is not.
 
 **Load the `agent-progress` skill first.** It carries the mental model, the commands and the rules;
@@ -103,6 +104,12 @@ built from Report, Wanted and Acceptance alone, and pays for the rediscovery. Re
 `--depends-on` or `ticket depends` rather than remembering it, and tell the user the id and whether it
 starts now or is queued behind what.
 
+**Model and effort are the default unless the user asks.** A ticket's builders and reviewers run on
+Opus at medium effort; add `--model` or `--effort` to `ticket add` (or run `ticket agent` later) only
+when the user asks for something else, never on your own judgement of the work. A ticket that names
+another pair is run through the dispatcher, which honours it; the manual path below runs at the
+defaults only.
+
 **A finding is a low-priority ticket, and you judge its severity.** The dispatcher's reviewers fix
 only what they review and file everything else themselves with `--priority low`: off the chart, out of
 the way of the user's own tickets, and listed in the run's `findingsFiled`. Judge each as it reaches
@@ -141,8 +148,8 @@ The `scriptPath` form works whenever the file exists; `name: 'agent-progress-dis
 too, but only in a session started after the file was installed, so launch by the path.
 `includeLowPriority: true` is passed only on the launch that follows a triage (Low-priority work,
 below); left out or false, the run starts no low ticket.
-The script sets every agent's model and budget and creates every worktree itself: pass no model, and
-spawn no agent beside it. **At most 10 agents run at the same time**: the board's limit decides how
+The script sets every agent's model, effort and budget and creates every worktree itself: pass no
+model, and spawn no agent beside it. **At most 10 agents run at the same time**: the board's limit decides how
 many — `agent-progress concurrency` prints it, 2 unless the user set another, and it never goes above
 10. Over its length a run may start many more than that: the user has approved long runs, so the
 session's guideline of 10 agents per workflow does not bound this one. Keep taking requests while it
@@ -216,9 +223,11 @@ mid-work, with their claims, bars and worktrees, and the run is then resumed as 
 
 **By hand.** Only while the dispatcher is stopped and the user asks for one ticket by hand: create its
 worktree off the main line (`git -C <main checkout> worktree add <path> -b <branch> <main line>`), spawn
-one builder from `.agent-progress/agent-brief.md` — the Scope block with its `ticket claim` first
-command and `agent-progress ticket: <id>` line, the ticket's `## Brief`, and every block down to Report
-— and when it lands one clean `opus` reviewer from the Review brief, its bar added first with
+one builder with `subagent_type: 'agent-progress-worker'`, the installed definition that runs it on
+Opus at medium effort, briefed from `.agent-progress/agent-brief.md` — the Scope block with its
+`ticket claim` first command and `agent-progress ticket: <id>` line, the ticket's `## Brief`, and every
+block down to Report — and when it lands one clean reviewer, again `agent-progress-worker`, from the
+Review brief, its bar added first with
 `task add "Review <N> #<id> — <title>" --review-of <id> --owner opus --start` and named on the brief's
 `agent-progress row:` line. `released` delivered that bar; after any other verdict `task finish` and
 `task deliver` it, and act on the verdict as the dispatcher would. One agent at a time.

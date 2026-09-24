@@ -46,7 +46,9 @@ context.
   with a `## Brief` for its builder. On the user's go it launches the dispatcher workflow, which
   runs an implementing agent per ready ticket — each on a worktree of its own, never the main
   checkout — within the board's limit (2 unless the user sets another, never above 10), and sends
-  each rebased branch to a clean reviewing agent. The reviewer reviews adversarially, fixes what it
+  each rebased branch to a clean reviewing agent. Both run on Opus at medium effort unless their
+  ticket names another model or effort, which the dispatcher honours; its survey and parking agents
+  run on Haiku at low effort. The reviewer reviews adversarially, fixes what it
   finds in the branch's change and the ticket's Acceptance, rebases onto main again and releases the
   branch itself with `agent-progress release`, which serialises releases under the tracker's lock.
   Every finding a reviewer does not fix, however small, it files as a low-priority ticket, off the
@@ -115,7 +117,8 @@ A seventh is the worker agent definition, **`.claude/agents/agent-progress-worke
 subagent whose frontmatter sets `model: opus` and `effort: medium` — the tool's default for every
 agent that builds or reviews a ticket. The Agent tool takes a subagent's effort from its definition
 alone, so spawning `agent-progress-worker` is how an orchestrator working by hand gets the default
-pair. A ticket names another with `ticket add --model <m> --effort <e>` or `ticket agent`. It is
+pair. A ticket names another with `ticket add --model <m> --effort <e>` or `ticket agent`, and is then
+run through the dispatcher, which passes each agent the pair from `readyTickets`. The definition is
 refreshed like the workflow — a hand edit is undone, `updated` or `unchanged` is reported — and
 `--no-agent-definition` opts out on both commands.
 

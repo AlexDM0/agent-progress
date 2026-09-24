@@ -5,6 +5,7 @@
  */
 import { describe, expect, test } from 'bun:test';
 
+import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../constants/AgentSettings.ts';
 import {
   BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM,
   readDispatchScript,
@@ -94,6 +95,11 @@ const SETTLE_THEN_ADOPT = 'settle(finished);\n  if (finished.result !== null) ad
 const PARK_WITHOUT_RELEASING_THE_ROWS: Mutant = { find: '  releaseRowsOf(ticketId, `Parked #${ticketId}: ${reason}`);\n', replace: '' };
 
 const LEAVE_TAKEOVERS_UNSTARTED_RUNNING: Mutant = { find: 'const rowsToRelease = [...takeoversWaiting.values()];', replace: 'const rowsToRelease = [];' };
+
+function workersRunOn(run: DispatchRun, model: string, effort: string): boolean {
+  const workers = run.calls.filter((call) => call.kind === 'build' || call.kind === 'review');
+  return workers.length > 0 && workers.every((call) => call.model === model && call.effort === effort);
+}
 
 function releasedEveryRow(run: DispatchRun): boolean {
   return run.rowsRunningAtEnd.length === 0 && !run.logs.some((message) => message.includes('No slot free'));
@@ -542,19 +548,69 @@ const CLAIMS: Claim[] = [
     holds: (run) => !kindsAndTickets(run).includes('build 009')
       && summaryOf(run).delivered.join() === '001,002'
       && summaryOf(run).lowPriorityWaiting?.join() === '009',
-    mutant: { find: '  lowPriorityReadyTicketIds = new Set(Array.isArray', replace: '  if (agentsRun === 1) lowPriorityReadyTicketIds = new Set(Array.isArray' },
+    mutant: {
+      find:    '  lowPriorityReadyTicketIds = lowPriorityReadyTicketIdsOf(status);',
+      replace: '  if (agentsRun === 1) lowPriorityReadyTicketIds = lowPriorityReadyTicketIdsOf(status);',
+    },
   },
   {
     // Starting untriaged low work cannot be undone and holding back normal work can, so a block that states no priorities errs on the low side.
     name:     'a ready ticket whose priority the status block does not state is not started, and is left for triage',
     scenario: {
-      limit:                  2,
-      readyTicketIds:         ['004'],
-      lowPriorityTicketIds:   ['004'],
-      statusOmitsLowPriority: true,
+      limit:                   2,
+      readyTicketIds:          ['004'],
+      statusOmitsReadyTickets: true,
     },
     holds:  (run) => kindsAndTickets(run).join(', ') === 'survey' && summaryOf(run).lowPriorityWaiting?.join() === '004',
-    mutant: { find: ': status.readyTicketIds);', replace: ': []);' },
+    mutant: {
+      find:    '!PRIORITIES_ADMITTED_WITHOUT_TRIAGE.includes(readyTicketEntryOf(status, ticketId)?.priority)',
+      replace: 'readyTicketEntryOf(status, ticketId)?.priority === \'low\'',
+    },
+  },
+  {
+    // The Workflow tool gives an agent without an effort the orchestrator's, which is how a fan-out runs at a tier nobody chose.
+    name:     'a ticket naming no model or effort runs its builder and its reviewer on opus at medium effort',
+    scenario: { limit: 1, readyTicketIds: ['001'] },
+    holds:    (run) => kindsAndTickets(run).join(', ') === 'survey, build 001, review 001' && workersRunOn(run, 'opus', 'medium'),
+    mutant:   { find: 'schema: BUILDER_SCHEMA,\n      model,\n      effort,', replace: 'schema: BUILDER_SCHEMA,\n      model,' },
+  },
+  {
+    // A taken ticket leaves the ready list, so the rebuild and the second review can only run on what was recorded when it was taken.
+    name:     'a ticket naming sonnet at high effort runs every builder and reviewer on those, a rebuild after does-not-hold included, each owning its row as sonnet',
+    scenario: {
+      limit:                   1,
+      readyTicketIds:          ['001'],
+      agentSettingsByTicketId: { '001': { model: 'sonnet', effort: 'high' } },
+      reviewerReply:           (_ticketId, round) => (round === 1 ? { verdict: 'does-not-hold' } : { verdict: 'released' }),
+    },
+    holds: (run) => kindsAndTickets(run).join(', ') === 'survey, build 001, review 001, build 001, review 001'
+      && workersRunOn(run, 'sonnet', 'high')
+      && run.calls.filter((call) => call.kind !== 'survey').every((call) => call.prompt.includes('--owner sonnet')),
+    mutant: { find: '  recordOf(readyTicketId).agentSettings = agentSettingsFrom(readyTicketEntryOf(board, readyTicketId));\n', replace: '' },
+  },
+  {
+    name:     'a review waiting when the run starts runs on the model and effort its ticket names',
+    scenario: {
+      limit:                   1,
+      readyTicketIds:          [],
+      reviewWaitingTicketIds:  ['001'],
+      agentSettingsByTicketId: { '001': { model: 'sonnet', effort: 'high' } },
+    },
+    holds:  (run) => kindsAndTickets(run).join(', ') === 'survey, review 001' && workersRunOn(run, 'sonnet', 'high'),
+    mutant: { find: '  recordOf(reviewWaitingTicket.id).agentSettings = agentSettingsFrom(reviewWaitingTicket);\n', replace: '' },
+  },
+  {
+    // A block that lost `readyTickets` cannot say what the ticket names, and the tool's defaults are the one pair nobody has to have chosen.
+    name:     'a status block without readyTickets runs a ticket that names sonnet at high on opus at medium, once admitted as low',
+    scenario: {
+      limit:                   1,
+      readyTicketIds:          ['001'],
+      agentSettingsByTicketId: { '001': { model: 'sonnet', effort: 'high' } },
+      statusOmitsReadyTickets: true,
+      includeLowPriority:      true,
+    },
+    holds:  (run) => kindsAndTickets(run).join(', ') === 'survey, build 001, review 001' && workersRunOn(run, 'opus', 'medium'),
+    mutant: { find: 'stated.effort : DEFAULT_WORKER_EFFORT,', replace: 'stated.effort : undefined,' },
   },
   {
     name:     'a low ticket left for triage is logged as such, never as waiting for a slot other agents hold',
@@ -566,8 +622,27 @@ const CLAIMS: Claim[] = [
 
 const EVERY_KIND_OF_AGENT: DispatchScenario = { limit: 2, readyTicketIds: ['001', '002'], reviewerReply: () => ({ verdict: 'does-not-hold' }) };
 
-function modelsAreExplicit(run: DispatchRun): boolean {
-  return run.calls.every((call) => call.model === (call.kind === 'survey' || call.kind === 'park' ? 'haiku' : 'opus'));
+function modelsAndEffortsAreExplicit(run: DispatchRun): boolean {
+  return run.calls.every((call) => {
+    const helper = call.kind === 'survey' || call.kind === 'park';
+    return call.model === (helper ? 'haiku' : DEFAULT_AGENT_MODEL) && call.effort === (helper ? 'low' : DEFAULT_AGENT_EFFORT);
+  });
+}
+
+/** Each site that starts an agent, with its model or its effort taken out: four sites, eight forms. */
+const AGENT_OPTIONS_LEFT_OUT: [string, string][] = [
+  ['  model:  SURVEY_MODEL,\n  effort: SURVEY_EFFORT,', '  effort: SURVEY_EFFORT,'],
+  ['  model:  SURVEY_MODEL,\n  effort: SURVEY_EFFORT,', '  model:  SURVEY_MODEL,'],
+  ['      model:  PARKING_MODEL,\n      effort: PARKING_EFFORT,', '      effort: PARKING_EFFORT,'],
+  ['      model:  PARKING_MODEL,\n      effort: PARKING_EFFORT,', '      model:  PARKING_MODEL,'],
+  ['schema: BUILDER_SCHEMA,\n      model,\n      effort,', 'schema: BUILDER_SCHEMA,\n      effort,'],
+  ['schema: BUILDER_SCHEMA,\n      model,\n      effort,', 'schema: BUILDER_SCHEMA,\n      model,'],
+  ['schema: REVIEWER_SCHEMA,\n    model,\n    effort,', 'schema: REVIEWER_SCHEMA,\n    effort,'],
+  ['schema: REVIEWER_SCHEMA,\n    model,\n    effort,', 'schema: REVIEWER_SCHEMA,\n    model,'],
+];
+
+function scriptConstantOf(name: string): string | null {
+  return new RegExp(`^const ${name} = '(\\w+)';$`, 'm').exec(SCRIPT_SOURCE)?.[1] ?? null;
 }
 
 function mutated(mutant: Mutant): string {
@@ -601,31 +676,38 @@ describe('the dispatcher script', () => {
     });
   });
 
-  // A model left out inherits the orchestrator's, which is how a fan-out once ran at the most expensive tier by accident.
-  test('every agent is given its model explicitly: haiku for the survey and the parking agents, opus for every builder and reviewer', async () => {
+  // A model or effort left out inherits the orchestrator's, which is how a fan-out once ran at the most expensive tier by accident.
+  test('every agent is given its model and effort explicitly: haiku at low for the survey and the parking agents, the defaults for every builder and reviewer', async () => {
     const run = await runDispatchScript(EVERY_KIND_OF_AGENT);
     expect(run.calls.length).toBeGreaterThan(4);
-    expect(run.calls.some((call) => call.kind === 'park')).toBe(true);
-    expect(modelsAreExplicit(run)).toBe(true);
+    expect(new Set(run.calls.map((call) => call.kind))).toEqual(new Set(['survey', 'build', 'review', 'park']));
+    expect(modelsAndEffortsAreExplicit(run)).toBe(true);
   });
 
-  test.each([
-    ['const SURVEY_MODEL = \'haiku\';', 'const SURVEY_MODEL = undefined;'],
-    ['const PARKING_MODEL = \'haiku\';', 'const PARKING_MODEL = undefined;'],
-    ['const WORKER_MODEL = \'opus\';', 'const WORKER_MODEL = undefined;'],
-  ])('a model left out of the script (%s) fails the model check', async (find, replace) => {
+  test.each(AGENT_OPTIONS_LEFT_OUT)('an agent started without its model or effort (%s → %s) fails the check', async (find, replace) => {
     expect(SCRIPT_SOURCE.split(find).length - 1).toBe(1);
-    expect(modelsAreExplicit(await runDispatchScript(EVERY_KIND_OF_AGENT, SCRIPT_SOURCE.replace(find, replace)))).toBe(false);
+    expect(modelsAndEffortsAreExplicit(await runDispatchScript(EVERY_KIND_OF_AGENT, SCRIPT_SOURCE.replace(find, replace)))).toBe(false);
   });
 
-  // The script tells a low ticket only by what the agents derive, so every prompt must say exactly how, from the one document it already reads.
-  test('every agent is told to derive lowPriorityReadyTicketIds from the priorities in the same status document', async () => {
+  test('the four sites above are every agent the script starts: one agent() call, reached through runAgent from four places', () => {
+    expect(SCRIPT_SOURCE.split(/\bagent\(/).length - 1).toBe(1);
+    expect(SCRIPT_SOURCE.split('await agent(prompt, options)').length - 1).toBe(1);
+    expect(SCRIPT_SOURCE.split('runAgent(').length - 1).toBe(1 + AGENT_OPTIONS_LEFT_OUT.length / 2);
+  });
+
+  // The script is plain JavaScript in another repository and cannot import the tool's defaults, so it states its own and they must not drift.
+  test('the script falls back to the same default model and effort as the tool, and runs the survey and parking agents on haiku at low', () => {
+    expect(scriptConstantOf('DEFAULT_WORKER_MODEL')).toBe(DEFAULT_AGENT_MODEL);
+    expect(scriptConstantOf('DEFAULT_WORKER_EFFORT')).toBe(DEFAULT_AGENT_EFFORT);
+    expect([scriptConstantOf('SURVEY_MODEL'), scriptConstantOf('SURVEY_EFFORT')]).toEqual(['haiku', 'low']);
+    expect([scriptConstantOf('PARKING_MODEL'), scriptConstantOf('PARKING_EFFORT')]).toEqual(['haiku', 'low']);
+  });
+
+  // The script reads a ticket's priority, model and effort only from what the agents copy, so every prompt names the one list to copy.
+  test('every agent is told to return the status document\'s readyTickets verbatim', async () => {
     const run = await runDispatchScript(EVERY_KIND_OF_AGENT);
     expect(run.calls.length).toBeGreaterThan(4);
-    for (const call of run.calls) {
-      expect(call.prompt).toContain('`lowPriorityReadyTicketIds` (each id of `concurrency.readyTicketIds` '
-        + 'whose entry in the same document\'s `tickets` list has `priority` `"low"`');
-    }
+    for (const call of run.calls) expect(call.prompt).toContain('`readyTickets` (the same document\'s top-level `readyTickets` list, verbatim)');
   });
 
   test('a review waiting when the run starts is started before any ready ticket', async () => {

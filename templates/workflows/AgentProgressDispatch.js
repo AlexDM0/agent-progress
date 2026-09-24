@@ -4,8 +4,8 @@ export const meta = {
   whenToUse:   'When the orchestrator hands the board to the dispatcher. args: { mainCheckout, mainLine, checkCommand, installCommand?, includeLowPriority? }',
   phases:      [
     { title: 'Survey', detail: 'read the concurrency block, the ready tickets and the reviews waiting', model: 'haiku' },
-    { title: 'Build', detail: 'one builder per ready ticket, in the ticket worktree', model: 'opus' },
-    { title: 'Review', detail: 'a clean reviewer per built ticket, round by round', model: 'opus' },
+    { title: 'Build', detail: 'one builder per ready ticket, in the ticket worktree, at the ticket\'s model and effort' },
+    { title: 'Review', detail: 'a clean reviewer per built ticket, round by round, at the ticket\'s model and effort' },
     { title: 'Park', detail: 'pause the row of a ticket the run stops working on, and close its review bar', model: 'haiku' },
   ],
 };
@@ -19,31 +19,53 @@ const FAILED_PASSES_BEFORE_PARKING = 2;
 const MAIN_MOVED_RELEASES_BEFORE_PARKING = 2;
 const PARKING_LOG_REASON_LIMIT_CHARACTERS = 200;
 const SURVEY_MODEL = 'haiku';
+const SURVEY_EFFORT = 'low';
 const PARKING_MODEL = 'haiku';
-const WORKER_MODEL = 'opus';
+const PARKING_EFFORT = 'low';
+// The tool's own defaults for a ticket's builders and reviewers, used where a status block does not state the ticket's; a spec pins them to the tool's.
+const DEFAULT_WORKER_MODEL = 'opus';
+const DEFAULT_WORKER_EFFORT = 'medium';
+
+const READY_TICKET_SCHEMA = {
+  type:       'object',
+  properties: {
+    id:       { type: 'string' },
+    priority: { type: 'string' },
+    model:    { type: 'string' },
+    effort:   { type: 'string' },
+  },
+  required: ['id', 'priority', 'model', 'effort'],
+};
 
 const STATUS_BLOCK_SCHEMA = {
   type:       'object',
   properties: {
-    limit:           { type: 'integer', minimum: 1 },
-    agentsInFlight:  { type: 'integer', minimum: 0 },
-    freeSlots:       { type: 'integer', minimum: 0 },
-    readyTicketIds:            { type: 'array', items: { type: 'string' } },
-    lowPriorityReadyTicketIds: { type: 'array', items: { type: 'string' } },
-    dispatcherState:           { type: 'string', enum: ['running', 'stopped', 'finished'] },
-    runningTicketIds:          { type: 'array', items: { type: 'string' } },
-    runningReviewOfIds:        { type: 'array', items: { type: 'string' } },
+    limit:              { type: 'integer', minimum: 1 },
+    agentsInFlight:     { type: 'integer', minimum: 0 },
+    freeSlots:          { type: 'integer', minimum: 0 },
+    readyTicketIds:     { type: 'array', items: { type: 'string' } },
+    readyTickets:       { type: 'array', items: READY_TICKET_SCHEMA },
+    dispatcherState:    { type: 'string', enum: ['running', 'stopped', 'finished'] },
+    runningTicketIds:   { type: 'array', items: { type: 'string' } },
+    runningReviewOfIds: { type: 'array', items: { type: 'string' } },
   },
-  required: ['limit', 'agentsInFlight', 'freeSlots', 'readyTicketIds', 'lowPriorityReadyTicketIds', 'dispatcherState', 'runningTicketIds', 'runningReviewOfIds'],
+  required: ['limit', 'agentsInFlight', 'freeSlots', 'readyTicketIds', 'readyTickets', 'dispatcherState', 'runningTicketIds', 'runningReviewOfIds'],
 };
 
 const SURVEY_SCHEMA = {
   type:       'object',
   properties: {
-    status:                 STATUS_BLOCK_SCHEMA,
-    reviewWaitingTicketIds: { type: 'array', items: { type: 'string' } },
+    status:               STATUS_BLOCK_SCHEMA,
+    reviewWaitingTickets: {
+      type:  'array',
+      items: {
+        type:       'object',
+        properties: { id: { type: 'string' }, model: { type: 'string' }, effort: { type: 'string' } },
+        required:   ['id'],
+      },
+    },
   },
-  required: ['status', 'reviewWaitingTicketIds'],
+  required: ['status', 'reviewWaitingTickets'],
 };
 
 const BUILDER_SCHEMA = {
@@ -112,7 +134,7 @@ function briefPlaceholdersText(ticketId) {
 }
 
 const DERIVED_STATUS_FIELDS_TEXT = 'adding `runningTicketIds` (the `ticket` of every `running` task that has one), `runningReviewOfIds` (the `reviewOf` of every `running` task that has one) '
-  + 'and `lowPriorityReadyTicketIds` (each id of `concurrency.readyTicketIds` whose entry in the same document\'s `tickets` list has `priority` `"low"`, in the ready order)';
+  + 'and `readyTickets` (the same document\'s top-level `readyTickets` list, verbatim)';
 
 const STATUS_RETURN_TEXT = `As your very last act run \`agent-progress status --json\` and return its \`concurrency\` block as \`status\`, ${DERIVED_STATUS_FIELDS_TEXT}, `
   + 'so the dispatcher acts on the newest board.';
@@ -121,12 +143,13 @@ function surveyPrompt() {
   return [
     `Run \`agent-progress status --json\` once, in ${settings.mainCheckout}, and make no other call. Judge nothing; return:`,
     `- \`status\`: its \`concurrency\` block as printed (limit, agentsInFlight, freeSlots, readyTicketIds, dispatcherState), ${DERIVED_STATUS_FIELDS_TEXT};`,
-    '- `reviewWaitingTicketIds`: the ids of the tickets whose status is `in-review` and that no `running` task names in its `reviewOf`.',
+    '- `reviewWaitingTickets`: every ticket whose status is `in-review` and that no `running` task names in its `reviewOf`, as `{ id, model, effort }` '
+      + 'with `model` and `effort` copied from its entry in `tickets` and left out where that entry has none.',
   ].join('\n');
 }
 
 // `previousPass` is what sent this ticket back to a builder in this run: `builder` (a pass that stopped short of review), `review` (a does-not-hold), or null.
-function builderPrompt(ticketId, previousPass) {
+function builderPrompt(ticketId, previousPass, owner) {
   const worktree = worktreeOf(ticketId);
   // The runtime restarts an agent whose model call hangs with the same prompt, and a resume re-runs one that was in flight: either way the first
   // attempt's claim left the ticket in-progress, which `ticket claim` refuses, so every builder is told that refusal is its own.
@@ -137,7 +160,7 @@ function builderPrompt(ticketId, previousPass) {
     `agent-progress ticket: ${ticketId}`,
     `Worktree: ${worktree}   Branch: ticket-${ticketId}   Main checkout: ${settings.mainCheckout}   Main line: ${settings.mainLine}`,
     `You build ticket #${ticketId} for the agent-progress dispatcher, alone: one ticket, one agent.`,
-    `FIRST command, before anything else: \`agent-progress ticket claim ${ticketId} --owner ${WORKER_MODEL} --note "Built by the dispatcher on ticket-${ticketId}"\`. `
+    `FIRST command, before anything else: \`agent-progress ticket claim ${ticketId} --owner ${owner} --note "Built by the dispatcher on ticket-${ticketId}"\`. `
       + claimRefusalText,
     `Then the worktree: when ${worktree} exists, reuse it as it stands, since it holds an earlier pass's commits and edits; start from \`git -C ${worktree} status\`. Otherwise `
       + `\`git -C ${settings.mainCheckout} worktree add ${worktree} -b ticket-${ticketId} ${settings.mainLine}\`, dropping \`-b\` when the branch already exists.`,
@@ -162,7 +185,7 @@ function builderPrompt(ticketId, previousPass) {
   return lines.join('\n');
 }
 
-function reviewerPrompt(ticketId, expectedRound, rereviewFirst, earlierReviewerDied) {
+function reviewerPrompt(ticketId, expectedRound, rereviewFirst, earlierReviewerDied, owner) {
   const lines = [
     `agent-progress review: ${ticketId}`,
     `Worktree: ${worktreeOf(ticketId)}   Branch: ticket-${ticketId}   Main checkout: ${settings.mainCheckout}   Main line: ${settings.mainLine}`,
@@ -176,7 +199,7 @@ function reviewerPrompt(ticketId, expectedRound, rereviewFirst, earlierReviewerD
   lines.push(
     `Then your bar. When \`agent-progress status --json\` shows a \`running\` row whose \`reviewOf\` is ${ticketId}, it is this review's own, left by an earlier reviewer `
       + `of this run or by this very reviewer before the runtime restarted or resumed it: take it as your bar and add none. Otherwise add your own: `
-      + `\`agent-progress task add "Review <round> #${ticketId} — <ticket title>" --review-of ${ticketId} --owner ${WORKER_MODEL} --start\`, `
+      + `\`agent-progress task add "Review <round> #${ticketId} — <ticket title>" --review-of ${ticketId} --owner ${owner} --start\`, `
       + `the title from \`agent-progress ticket show ${ticketId}\`. Your bar takes the place of the brief's \`agent-progress row:\` line; the review line above carries your tokens to it.`,
     `Read \`${settings.mainCheckout}/.agent-progress/agent-brief.md\` once and follow the fenced block under \`## Review brief\` as your whole procedure, `
       + `steps 0 to 8, ${briefPlaceholdersText(ticketId)}. Step 0 reads the diff first; you fix only what you review.`,
@@ -226,8 +249,36 @@ let othersInFlightAtBoardReading = 0;
 let stoppedByBoard = false;
 let lowPriorityReadyTicketIds = new Set();
 
+function agentSettingsFrom(entry) {
+  const stated = entry !== null && typeof entry === 'object' ? entry : {};
+  return {
+    model:  typeof stated.model === 'string' && stated.model !== '' ? stated.model : DEFAULT_WORKER_MODEL,
+    effort: typeof stated.effort === 'string' && stated.effort !== '' ? stated.effort : DEFAULT_WORKER_EFFORT,
+  };
+}
+
+function readyTicketEntryOf(status, ticketId) {
+  if (!Array.isArray(status.readyTickets)) return undefined;
+  return status.readyTickets.find((entry) => entry !== null && typeof entry === 'object' && entry.id === ticketId);
+}
+
+const PRIORITIES_ADMITTED_WITHOUT_TRIAGE = ['normal', 'high'];
+
+// A block without a ready ticket's entry reads it as low: holding back normal work is undone by a relaunch, starting untriaged low work is not.
+function lowPriorityReadyTicketIdsOf(status) {
+  return new Set(status.readyTicketIds.filter((ticketId) => !PRIORITIES_ADMITTED_WITHOUT_TRIAGE.includes(readyTicketEntryOf(status, ticketId)?.priority)));
+}
+
 function recordOf(ticketId) {
-  if (!ticketRecords.has(ticketId)) ticketRecords.set(ticketId, { failedPasses: 0, mainMovedReleases: 0, nextRound: 1, rounds: [] });
+  if (!ticketRecords.has(ticketId)) {
+    ticketRecords.set(ticketId, {
+      failedPasses:      0,
+      mainMovedReleases: 0,
+      nextRound:         1,
+      rounds:            [],
+      agentSettings:     agentSettingsFrom(null),
+    });
+  }
   return ticketRecords.get(ticketId);
 }
 
@@ -288,8 +339,7 @@ function takeoversOnBoard(status) {
 function adoptBoard(status) {
   if (status === null || typeof status !== 'object' || !Array.isArray(status.readyTicketIds)) return;
   board = status;
-  // A block without the low ids reads every ready ticket as low: holding back normal work is undone by a relaunch, starting untriaged low work is not.
-  lowPriorityReadyTicketIds = new Set(Array.isArray(status.lowPriorityReadyTicketIds) ? status.lowPriorityReadyTicketIds : status.readyTicketIds);
+  lowPriorityReadyTicketIds = lowPriorityReadyTicketIdsOf(status);
   const ownAgentsOnBoard = [...inFlight.values()].filter((ownAgent) => ownAgentIsOnBoard(ownAgent.work, status)).length + takeoversOnBoard(status).length;
   othersInFlightAtBoardReading = Math.max(0, status.agentsInFlight - ownAgentsOnBoard);
   // A stop is final for this run: the agents in flight finish and are settled, and nothing new starts until the user's go launches a new run.
@@ -356,31 +406,37 @@ function nextWork() {
   const readyTicketId = board.readyTicketIds.find((ticketId) => !ticketIdsTakenThisRun.has(ticketId) && readyTicketIsAdmitted(ticketId));
   if (readyTicketId === undefined) return null;
   ticketIdsTakenThisRun.add(readyTicketId);
+  // Taken, the ticket leaves the ready list, so every later pass and round runs on what the board stated for it now.
+  recordOf(readyTicketId).agentSettings = agentSettingsFrom(readyTicketEntryOf(board, readyTicketId));
   return { kind: 'build', ticketId: readyTicketId, previousPass: null };
 }
 
 function agentRunFor(work) {
-  if (work.kind === 'build') {
-    return runAgent(builderPrompt(work.ticketId, work.previousPass), {
-      label:  `build #${work.ticketId}`,
-      phase:  'Build',
-      schema: BUILDER_SCHEMA,
-      model:  WORKER_MODEL,
-    });
-  }
   if (work.kind === 'park') {
     return runAgent(parkingPrompt(work.ticketId, work.boardLogLine), {
       label:  `park #${work.ticketId}`,
       phase:  'Park',
       schema: PARKING_SCHEMA,
       model:  PARKING_MODEL,
+      effort: PARKING_EFFORT,
     });
   }
-  return runAgent(reviewerPrompt(work.ticketId, work.round, work.rereviewFirst, work.earlierReviewerDied), {
+  const { model, effort } = recordOf(work.ticketId).agentSettings;
+  if (work.kind === 'build') {
+    return runAgent(builderPrompt(work.ticketId, work.previousPass, model), {
+      label:  `build #${work.ticketId}`,
+      phase:  'Build',
+      schema: BUILDER_SCHEMA,
+      model,
+      effort,
+    });
+  }
+  return runAgent(reviewerPrompt(work.ticketId, work.round, work.rereviewFirst, work.earlierReviewerDied, model), {
     label:  `review ${work.round} #${work.ticketId}`,
     phase:  'Review',
     schema: REVIEWER_SCHEMA,
-    model:  WORKER_MODEL,
+    model,
+    effort,
   });
 }
 
@@ -511,6 +567,7 @@ const survey = await runAgent(surveyPrompt(), {
   phase:  'Survey',
   schema: SURVEY_SCHEMA,
   model:  SURVEY_MODEL,
+  effort: SURVEY_EFFORT,
 });
 if (survey === null) {
   log('The survey returned no board, so nothing was dispatched.');
@@ -521,9 +578,10 @@ if (board === null) {
   log('The survey returned no readable concurrency block, so nothing was dispatched.');
   return summary();
 }
-for (const ticketId of survey.reviewWaitingTicketIds) {
-  ticketIdsTakenThisRun.add(ticketId);
-  queueReview(ticketId, false);
+for (const reviewWaitingTicket of survey.reviewWaitingTickets) {
+  ticketIdsTakenThisRun.add(reviewWaitingTicket.id);
+  recordOf(reviewWaitingTicket.id).agentSettings = agentSettingsFrom(reviewWaitingTicket);
+  queueReview(reviewWaitingTicket.id, false);
 }
 
 phase('Build');

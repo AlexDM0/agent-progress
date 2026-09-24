@@ -259,8 +259,10 @@ JavaScript no spec can sit beside:
 
 - `lib/tooling/dev/DispatchScriptHarness.ts` — `runDispatchScript` compiles the script's body as the
   Workflow tool would and runs it against a fake `agent()` (the kind read from the prompt's token
-  marker) and a fake board whose status block, dispatcher state, running rows and low-priority ready ids included, every agent returns;
-  a scenario's `includeLowPriority` reaches the script as that argument. A builder or
+  marker) and a fake board whose status block, dispatcher state, running rows and `readyTickets` included, every agent returns;
+  `readyTickets` resolves each ready ticket's priority and its model and effort (the scenario's `agentSettingsByTicketId`, else the
+  defaults of `lib/constants/AgentSettings.ts`), and the survey's review-waiting tickets carry a pair only where the ticket names one.
+  Each call is recorded with its model and effort. A scenario's `includeLowPriority` reaches the script as that argument. A builder or
   reviewer is on that board only from its first command (`turnsBeforeFirstCommand` turns after the call) until it returns, as a
   real one is from its claim or its `task add --start`; a builder that stops short of review and a reviewer that returns nothing
   leave their row running until a fresh agent's first command takes it over, or a parking agent (`agent-progress park:` marker)
