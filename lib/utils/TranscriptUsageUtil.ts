@@ -16,7 +16,7 @@ import { TokenCountUtil } from './TokenCountUtil';
 /**
  * `endContextTokens` is the window of the *last* call rather than a sum: it is how full the agent's
  * context was when it stopped. `oversizedContextTokens` is a sum over the calls that were made at a
- * context above `OVERSIZED_CONTEXT_THRESHOLD_TOKENS`, deduplicated per call exactly as the totals are.
+ * context above `LIMITS.OVERSIZED_CONTEXT_THRESHOLD_TOKENS`, deduplicated per call exactly as the totals are.
  */
 export interface TranscriptUsageTotals {
   apiCallCount:             number;

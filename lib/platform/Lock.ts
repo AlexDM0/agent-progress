@@ -4,8 +4,9 @@
  * the newest once that one is released or stale, and releasing is creating the next as a released record,
  * so no step ever removes or replaces a record another process may have just written.
  *
- * A stated exception to "a clock decides nothing": it decides only lock staleness, against a time the tool itself wrote. The fallback to the
- * record's own mtime is reached only when the record is missing, unparseable or holds an unparseable time, and fails closed both ways.
+ * A stated exception to "a clock decides nothing": it decides only lock staleness, against a time the tool
+ * itself wrote; the fallback to the record's own mtime, reached only when the record is missing,
+ * unparseable or holds an unparseable time, fails closed both ways.
  */
 import { randomUUID } from 'crypto';
 import {
@@ -225,7 +226,7 @@ export const LockGenerationSteps = {
 
 /**
  * Run `action` with this tracker's lock held, releasing it however `action` ends. A held record is taken over once its
- * process is gone or its stamp is more than `LOCK_STALE_MILLISECONDS` old, live holder or not; one stamped in the future
+ * process is gone or its stamp is more than `LIMITS.LOCK_STALE_MILLISECONDS` old, live holder or not; one stamped in the future
  * by a live holder never goes stale. Throws `OperationRefusal('unrepaired')` — exit 2 — when the retry budget runs out.
  */
 export async function withLock<ActionResult>(

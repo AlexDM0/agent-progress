@@ -1,6 +1,7 @@
 /**
  * The one formatter every stamp on the page goes through: a stamp from the viewer's day shows only its clock, one from another day of the
- * same year gains its month and day, and one from another year is shown in full. Nothing here reads the clock; "today" is handed in.
+ * same year gains its month and day, and one from another year is shown in full. Nothing here reads the clock; "today" is handed in, and
+ * comparing a stamp or instant with the viewer's day is a stated clock exception that decides only the text printed.
  */
 
 const TWO_DIGITS = 10;
@@ -41,10 +42,7 @@ export function fullStampText(stamp: string, slices: StampTextSlices): string {
   return stamp.slice(0, slices.dateAndClockLength).replace('T', ' ');
 }
 
-/**
- * Sliced, never parsed: the stamp keeps the wall clock and the offset of the machine that recorded it, so its date is compared as written.
- * Comparing with the viewer's day is a stated clock exception that decides only the text printed.
- */
+/** Sliced, never parsed: the stamp keeps the wall clock and the offset of the machine that recorded it, so its date is compared as written. */
 export function shortStampText(stamp: string, todayCalendarDate: string, slices: StampTextSlices): string {
   if (stamp.slice(0, slices.calendarDateLength) === todayCalendarDate) {
     return stamp.slice(slices.clockSliceStart, slices.clockSliceEnd);
