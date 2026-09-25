@@ -10,7 +10,7 @@ import {
   logControlText,
   logEntryLimitFor,
   logNoteText,
-} from './LogVisibility.ts';
+} from './LogCap.ts';
 
 describe('the cap', () => {
   test('is ten entries', () => {

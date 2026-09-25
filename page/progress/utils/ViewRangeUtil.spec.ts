@@ -1,15 +1,17 @@
 /**
- * The page's pure helpers, imported from `page/PageData.ts` rather than the page entry,
- * which touches `document` at load and so cannot be imported by a spec.
+ * The range the geometry is given once the viewer's override is laid over the tracker's own. The cases that matter: typed bounds are kept
+ * verbatim, a single bound is ignored, and a tick chosen on Auto materialises the automatic axis against the now it is given.
  */
 
-import { describe, expect, test }                 from 'bun:test';
-import type { ProgressFile }                      from '../src/lib/tracker-model/@types/ProgressFile.ts';
-import type { Task }                              from '../src/lib/tracker-model/@types/Task.ts';
-import type { PageLimits }                        from '../src/shared/@types/PagePayload.ts';
-import { effectiveRangeFor, RANGE_PRESET_BOUNDS } from './PageData.ts';
-import type { StoredViewOverride }                from './preferences/ViewerPreferences.ts';
-import { EMPTY_VIEW_OVERRIDE }                    from './preferences/ViewerPreferences.ts';
+import { describe, expect, test }  from 'bun:test';
+import type { ProgressFile }       from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Task }               from '../../../src/lib/tracker-model/@types/Task.ts';
+import type { PageLimits }         from '../../../src/shared/@types/PagePayload.ts';
+import type { StoredViewOverride } from '../../preferences/ViewerPreferences.ts';
+import { EMPTY_VIEW_OVERRIDE }     from '../../preferences/ViewerPreferences.ts';
+import { ViewRangeUtil }           from './ViewRangeUtil.ts';
+
+const { effectiveRangeFor } = ViewRangeUtil;
 
 const EXAMPLE_LIMITS: PageLimits = {
   tickStepLadderMinutes:       [5, 10, 15, 30, 60, 120, 180, 360, 720, 1440],
@@ -62,15 +64,6 @@ function exampleProgress(): ProgressFile {
 function overrideWith(changes: Partial<StoredViewOverride>): StoredViewOverride {
   return { ...EMPTY_VIEW_OVERRIDE, ...changes };
 }
-
-describe('RANGE_PRESET_BOUNDS', () => {
-  test('answers each data-preset the template offers, and only with relative text', () => {
-    expect(Object.keys(RANGE_PRESET_BOUNDS).sort()).toEqual(['12h', '1h', '24h', '4h', '7d', 'all', 'auto']);
-    expect(RANGE_PRESET_BOUNDS['auto']).toEqual({ fromText: null, toText: null });
-    expect(RANGE_PRESET_BOUNDS['4h']).toEqual({ fromText: '-4h', toText: 'now' });
-    expect(RANGE_PRESET_BOUNDS['all']).toEqual({ fromText: 'start', toText: 'now' });
-  });
-});
 
 describe('effectiveRangeFor', () => {
   test('falls back to the range stored in the progress file when nothing is overridden', () => {

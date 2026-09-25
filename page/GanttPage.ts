@@ -15,35 +15,18 @@ import {
   overflowDirectionsOf,
   shownCountAfterMore,
 } from './KanbanBoard.ts';
-import { kanbanBoardMarkup } from './KanbanMarkup.ts';
+import { kanbanBoardMarkup }                        from './KanbanMarkup.ts';
+import { taskDetailMarkup }                         from './TaskDetail.ts';
+import { ticketDetailMarkup }                       from './TicketDetail.ts';
+import type { ClosedKanbanLane }                    from './constants/KanbanLane.ts';
+import { CAPPED_LANE_FIRST_PAGE }                   from './constants/KanbanLane.ts';
+import { KANBAN_BOARD_ELEMENT_ID, KANBAN_TAB_NAME } from './constants/TemplateIds.ts';
 import {
   logControlIsNeeded,
   logControlText,
   logEntryLimitFor,
   logNoteText,
-} from './LogVisibility.ts';
-import { NAME_COLUMN_WIDTH_ATTRIBUTE }            from './NameColumnWidth.ts';
-import { effectiveRangeFor, RANGE_PRESET_BOUNDS } from './PageData.ts';
-import type { PlacedTick, TaskRow }               from './PageMarkup.ts';
-import {
-  axisPixelsNeededFor,
-  generatedStampText,
-  labelSitsLeftOfItsLine,
-  overlayMarkup,
-  rangeNoteText,
-  summaryStatsMarkup,
-  taskRowsMarkup,
-  ticketCardsMarkup,
-  ticketCountText,
-  ticketTableRowsMarkup,
-  tickLayerMarkup,
-} from './PageMarkup.ts';
-import { taskDetailMarkup }                         from './TaskDetail.ts';
-import { ticketDetailMarkup }                       from './TicketDetail.ts';
-import { hiddenWorkNoteText }                       from './WorkVisibility.ts';
-import type { ClosedKanbanLane }                    from './constants/KanbanLane.ts';
-import { CAPPED_LANE_FIRST_PAGE }                   from './constants/KanbanLane.ts';
-import { KANBAN_BOARD_ELEMENT_ID, KANBAN_TAB_NAME } from './constants/TemplateIds.ts';
+} from './log/LogCap.ts';
 import type {
   LogVisibility,
   NameColumnWidth,
@@ -56,19 +39,37 @@ import {
   toggledNameColumnWidth,
   workVisibilityFrom,
 } from './preferences/ViewerPreferences.ts';
-import type { Timeline }      from './utils/GeometryUtil.ts';
-import { GeometryUtil }       from './utils/GeometryUtil.ts';
-import { IslandUtil }         from './utils/IslandUtil.ts';
-import { LogMarkupUtil }      from './utils/LogMarkupUtil.ts';
-import type { ShortenedText } from './utils/MarkupUtil.ts';
-import { TimeUtil }           from './utils/TimeUtil.ts';
-import { VisibilityUtil }     from './utils/VisibilityUtil.ts';
-import { WaitingOnUtil }      from './utils/WaitingOnUtil.ts';
+import type { PlacedTick, TaskRow } from './progress/ProgressMarkup.ts';
+import {
+  axisPixelsNeededFor,
+  generatedStampText,
+  hiddenWorkNoteText,
+  labelSitsLeftOfItsLine,
+  overlayMarkup,
+  rangeNoteText,
+  summaryStatsMarkup,
+  taskRowsMarkup,
+  tickLayerMarkup,
+} from './progress/ProgressMarkup.ts';
+import {
+  AUTOMATIC_RANGE_PRESET,
+  AUTOMATIC_TICK_CHOICE,
+  NAME_COLUMN_WIDTH_ATTRIBUTE,
+  RANGE_PRESET_BOUNDS,
+} from './progress/constants/ProgressChart.ts';
+import { ViewRangeUtil }                                             from './progress/utils/ViewRangeUtil.ts';
+import { ticketCardsMarkup, ticketCountText, ticketTableRowsMarkup } from './tickets/TicketsMarkup.ts';
+import type { Timeline }                                             from './utils/GeometryUtil.ts';
+import { GeometryUtil }                                              from './utils/GeometryUtil.ts';
+import { IslandUtil }                                                from './utils/IslandUtil.ts';
+import { LogMarkupUtil }                                             from './utils/LogMarkupUtil.ts';
+import type { ShortenedText }                                        from './utils/MarkupUtil.ts';
+import { TimeUtil }                                                  from './utils/TimeUtil.ts';
+import { VisibilityUtil }                                            from './utils/VisibilityUtil.ts';
+import { WaitingOnUtil }                                             from './utils/WaitingOnUtil.ts';
 
 const PROGRESS_ISLAND_ELEMENT_ID = 'ap-progress-data';
 const TICKETS_ISLAND_ELEMENT_ID  = 'ap-tickets-data';
-const AUTOMATIC_TICK_CHOICE      = 'auto';
-const AUTOMATIC_RANGE_PRESET     = 'auto';
 
 const DETAIL_DIALOG_ELEMENT_ID = 'ap-detail';
 const DETAIL_BODY_ELEMENT_ID   = 'ap-detail-body';
@@ -141,7 +142,7 @@ function setShortenedText(elementId: string, shortened: ShortenedText): void {
   }
 }
 
-/** `innerHTML` is safe here because `page/PageMarkup.ts` escaped every value once and ticket bodies arrive sanitised. */
+/** `innerHTML` is safe here because the markup modules escaped every value once and ticket bodies arrive sanitised. */
 function setMarkup(elementId: string, markup: string): void {
   const element = document.getElementById(elementId);
   if (element !== null) {
@@ -601,7 +602,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
 
   const layOut = (bringNowIntoView: boolean): void => {
     const nowEpochMilliseconds = Date.now();
-    const range: ViewRange     = effectiveRangeFor(visibleProgress, override, nowEpochMilliseconds, limits);
+    const range: ViewRange     = ViewRangeUtil.effectiveRangeFor(visibleProgress, override, nowEpochMilliseconds, limits);
     const timeline             = GeometryUtil.computeTimeline({
       progress: visibleProgress,
       range,

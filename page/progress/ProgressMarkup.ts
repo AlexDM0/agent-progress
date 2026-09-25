@@ -1,27 +1,24 @@
 /**
- * Every string of HTML the page emits, as pure functions shaped by the placeholder content of `resources/template.html`. Everything from
- * the tracker or a ticket passes `escapeHtml` exactly once here, except a ticket's `bodyHtml`, already escaped by `lib/render/Markdown.ts`.
+ * The Progress tab's markup: the task rows, the axis layer, the summary and the notes, shaped by the placeholder content of
+ * `resources/template.html`. Every tracker value passes `escapeHtml` exactly once here.
  */
 
-import type { Task }                      from '../src/lib/tracker-model/@types/Task.ts';
-import type { TicketStatus }              from '../src/lib/tracker-model/@types/Ticket.ts';
-import { SETTLED_TASK_STATUSES }          from '../src/lib/tracker-model/constants/Statuses.ts';
-import { TicketDefaultsUtil }             from '../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
-import { HtmlEscapeUtil }                 from '../src/lib/utils/HtmlEscapeUtil.ts';
-import { TokenCountUtil }                 from '../src/lib/utils/TokenCountUtil.ts';
-import type { PageTicket }                from '../src/shared/@types/PagePayload.ts';
-import { LIMITS }                         from '../src/shared/constants/Limits.ts';
-import { TicketNumberUtil }               from '../src/shared/utils/TicketNumberUtil.ts';
-import type { RowState }                  from './constants/RowState.ts';
-import { CLOSED_TICKET_STATUSES }         from './constants/TicketStatusGroups.ts';
-import { PERCENT_OF_A_WHOLE }             from './constants/Units.ts';
-import { BoardRulesUtil }                 from './utils/BoardRulesUtil.ts';
-import type { TimelineBar, TimelineTick } from './utils/GeometryUtil.ts';
-import type { ShortenedText }             from './utils/MarkupUtil.ts';
-import { MarkupUtil }                     from './utils/MarkupUtil.ts';
-import type { TimestampSlices }           from './utils/TimeUtil.ts';
-import { TimeUtil }                       from './utils/TimeUtil.ts';
-import { WorkItemMarkupUtil }             from './utils/WorkItemMarkupUtil.ts';
+import type { Task }                      from '../../src/lib/tracker-model/@types/Task.ts';
+import type { TicketStatus }              from '../../src/lib/tracker-model/@types/Ticket.ts';
+import { SETTLED_TASK_STATUSES }          from '../../src/lib/tracker-model/constants/Statuses.ts';
+import { HtmlEscapeUtil }                 from '../../src/lib/utils/HtmlEscapeUtil.ts';
+import { TokenCountUtil }                 from '../../src/lib/utils/TokenCountUtil.ts';
+import { LIMITS }                         from '../../src/shared/constants/Limits.ts';
+import { TicketNumberUtil }               from '../../src/shared/utils/TicketNumberUtil.ts';
+import type { RowState }                  from '../constants/RowState.ts';
+import { PERCENT_OF_A_WHOLE }             from '../constants/Units.ts';
+import { BoardRulesUtil }                 from '../utils/BoardRulesUtil.ts';
+import type { TimelineBar, TimelineTick } from '../utils/GeometryUtil.ts';
+import type { ShortenedText }             from '../utils/MarkupUtil.ts';
+import { MarkupUtil }                     from '../utils/MarkupUtil.ts';
+import type { TimestampSlices }           from '../utils/TimeUtil.ts';
+import { TimeUtil }                       from '../utils/TimeUtil.ts';
+import { WorkItemMarkupUtil }             from '../utils/WorkItemMarkupUtil.ts';
 
 const { escapeHtml }       = HtmlEscapeUtil;
 const { formatTokenCount } = TokenCountUtil;
@@ -57,7 +54,7 @@ function pillLabelFor(state: RowState, task: Task): string {
   return WorkItemMarkupUtil.pillLabelForRowState(state, task.reviewRound ?? LIMITS.FIRST_REPEAT_REVIEW_ROUND);
 }
 
-export interface PlacedTaskRow {
+interface PlacedTaskRow {
   row:              TaskRow;
   /** The ticket id of the row this one is nested with, drawn directly above it, or `null` for a row drawn at the top level. */
   nestedWithTicket: string | null;
@@ -67,7 +64,7 @@ export interface PlacedTaskRow {
  * Newest filed first, except that a review row is drawn directly above its ticket's own row, latest round first. A review whose ticket has
  * no row among these — never started, or hidden as long done — stays where its filing puts it, and a ticket's own row is never nested.
  */
-export function taskRowsInDisplayOrder(rows: readonly TaskRow[]): PlacedTaskRow[] {
+function taskRowsInDisplayOrder(rows: readonly TaskRow[]): PlacedTaskRow[] {
   const ownRowByTicketNumber = new Map<number, TaskRow>();
   for (const row of rows) {
     const ticketNumber = TicketNumberUtil.ticketNumberOf(row.task.ticket ?? undefined);
@@ -160,85 +157,6 @@ export function summaryStatsMarkup(tasks: readonly Task[], concurrency: { limit:
     .join('<span class="ap-sep">&middot;</span>');
 }
 
-/** The Tickets tab sets the quiet low badge one space off the title or status badge before it; the amber high mark carries its own margin. */
-function ticketsTabPriorityMarkMarkup(ticket: PageTicket): string {
-  const mark = WorkItemMarkupUtil.priorityMarkMarkup(ticket);
-  return TicketDefaultsUtil.ticketPriorityOf(ticket) === 'low' ? ` ${mark}` : mark;
-}
-
-export function ticketTableRowsMarkup(tickets: readonly PageTicket[], waitingOnById: ReadonlyMap<string, readonly string[]>): string {
-  return tickets.map((ticket) => [
-    `<tr ${MarkupUtil.attribute('data-ticket-id', ticket.id)} tabindex="0">`,
-    `<td class="mono"><a ${MarkupUtil.attribute('href', `#ap-ticket-${ticket.id}`)}>#${escapeHtml(ticket.id)}</a></td>`,
-    `<td>${escapeHtml(ticket.title)}${ticketsTabPriorityMarkMarkup(ticket)}${WorkItemMarkupUtil.waitingOnMarkup(waitingOnById.get(ticket.id) ?? [])}</td>`,
-    `<td>${escapeHtml(ticket.type)}</td>`,
-    `<td>${WorkItemMarkupUtil.ticketStatusBadgeMarkup(ticket.status)}</td>`,
-    `<td>${escapeHtml(ticket.group ?? '')}</td>`,
-    `<td class="mono">${escapeHtml(ticket.branch ?? '')}</td>`,
-    `<td class="mono">${WorkItemMarkupUtil.taskLinkMarkup(ticket.task)}</td>`,
-    '</tr>',
-  ].join('')).join('');
-}
-
-export function ticketCountText(tickets: readonly PageTicket[]): string {
-  if (tickets.length === 0) {
-    return 'no tickets';
-  }
-  const inProgressCount = tickets.filter((ticket) => ticket.status === 'in-progress').length;
-  const total           = `${tickets.length} ticket${tickets.length === 1 ? '' : 's'}`;
-  return inProgressCount === 0 ? total : `${total} · ${inProgressCount} in progress`;
-}
-
-function ticketMetaMarkup(ticket: PageTicket, slices: TimestampSlices, todayCalendarDate: string): string {
-  const entries: Array<{ label: string; value: string | null | undefined; isTimestamp: boolean }> = [
-    { label: 'filed', value: ticket.filed, isTimestamp: true },
-    { label: 'started', value: ticket.started, isTimestamp: true },
-    { label: 'finished', value: ticket.finished, isTimestamp: true },
-    { label: 'delivered', value: ticket.delivered, isTimestamp: true },
-    { label: 'abandoned', value: ticket.abandonedAt, isTimestamp: true },
-    { label: 'branch', value: ticket.branch, isTimestamp: false },
-    { label: 'commit', value: ticket.commit, isTimestamp: false },
-    { label: 'reason', value: ticket.reason, isTimestamp: false },
-  ];
-  const shown = entries
-    .filter((entry) => typeof entry.value === 'string' && entry.value !== '')
-    .map((entry) => {
-      const value       = entry.value ?? '';
-      const valueMarkup = entry.isTimestamp ? MarkupUtil.stampMarkup('span', value, todayCalendarDate, slices) : `<span>${escapeHtml(value)}</span>`;
-      return `<div><b>${escapeHtml(entry.label)}</b>${valueMarkup}</div>`;
-    })
-    .join('');
-  const taskEntry       = ticket.task === null ? '' : `<div><b>task</b><span>${WorkItemMarkupUtil.taskLinkMarkup(ticket.task)}</span></div>`;
-  const dependsOn       = ticket.dependsOn ?? [];
-  const dependencyEntry = dependsOn.length === 0 ? '' : `<div><b>waits on</b><span>${WorkItemMarkupUtil.ticketLinksMarkup(dependsOn)}</span></div>`;
-  return `<div class="ap-ticket-meta">${shown}${taskEntry}${dependencyEntry}</div>`;
-}
-
-function ticketCardMarkup(ticket: PageTicket, waitingOn: readonly string[], slices: TimestampSlices, todayCalendarDate: string): string {
-  const head = [
-    `<span class="ap-ticket-id">#${escapeHtml(ticket.id)}</span>`,
-    `<h3 class="ap-ticket-title">${escapeHtml(ticket.title)}</h3>`,
-    WorkItemMarkupUtil.ticketStatusBadgeMarkup(ticket.status),
-    ticketsTabPriorityMarkMarkup(ticket),
-    WorkItemMarkupUtil.waitingOnMarkup(waitingOn),
-    WorkItemMarkupUtil.latestMilestoneMarkup(ticket, slices, todayCalendarDate),
-  ].join('');
-  const body  = `${ticketMetaMarkup(ticket, slices, todayCalendarDate)}<div class="ap-ticket-body md">${ticket.bodyHtml}</div>`;
-  const inner = CLOSED_TICKET_STATUSES.includes(ticket.status)
-    ? `<details><summary>${head}</summary>${body}</details>`
-    : `<div class="ap-ticket-head">${head}</div>${body}`;
-  return `<section class="ap-ticket" ${MarkupUtil.attribute('id', `ap-ticket-${ticket.id}`)}>${inner}</section>`;
-}
-
-export function ticketCardsMarkup(
-  tickets: readonly PageTicket[],
-  waitingOnById: ReadonlyMap<string, readonly string[]>,
-  slices: TimestampSlices,
-  todayCalendarDate: string,
-): string {
-  return tickets.map((ticket) => ticketCardMarkup(ticket, waitingOnById.get(ticket.id) ?? [], slices, todayCalendarDate)).join('');
-}
-
 export function generatedStampText(generatedAtEpochMilliseconds: number, todayCalendarDate: string): ShortenedText {
   return MarkupUtil.shortenedText(
     `generated ${TimeUtil.shortInstantText(generatedAtEpochMilliseconds, todayCalendarDate)}`,
@@ -273,4 +191,15 @@ export function rangeNoteText(
   const shortEnds = `${TimeUtil.shortInstantText(fromEpochMilliseconds, todayCalendarDate)} \u2192 ${TimeUtil.shortInstantText(toEpochMilliseconds, todayCalendarDate)}`;
   const fullEnds  = `${TimeUtil.fullInstantText(fromEpochMilliseconds)} \u2192 ${TimeUtil.fullInstantText(toEpochMilliseconds)}`;
   return MarkupUtil.shortenedText(`${shortEnds} \u00b7 ${step}`, `${fullEnds} \u00b7 ${step}`);
+}
+
+export function hiddenWorkNoteText(hiddenTaskCount: number, hiddenTicketCount: number): string {
+  const parts: string[] = [];
+  if (hiddenTaskCount > 0) {
+    parts.push(`${hiddenTaskCount} task${hiddenTaskCount === 1 ? '' : 's'}`);
+  }
+  if (hiddenTicketCount > 0) {
+    parts.push(`${hiddenTicketCount} ticket${hiddenTicketCount === 1 ? '' : 's'}`);
+  }
+  return parts.length === 0 ? '' : `${parts.join(' · ')} hidden`;
 }

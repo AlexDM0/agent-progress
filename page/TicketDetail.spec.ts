@@ -10,10 +10,10 @@ import type { PageTicket }        from '../src/shared/@types/PagePayload.ts';
 import type { KanbanCard }        from './@types/KanbanCard.ts';
 import { kanbanCardsFor }         from './KanbanBoard.ts';
 import { kanbanBoardMarkup }      from './KanbanMarkup.ts';
-import { taskRowsMarkup }         from './PageMarkup.ts';
 import { taskDetailMarkup }       from './TaskDetail.ts';
 import type { TicketDetailInput } from './TicketDetail.ts';
 import { ticketDetailMarkup }     from './TicketDetail.ts';
+import { taskRowsMarkup }         from './progress/ProgressMarkup.ts';
 
 const EXAMPLE_TODAY = '2026-09-25';
 const EXAMPLE_NOW   = Date.parse('2026-09-25T13:36:00+02:00');
