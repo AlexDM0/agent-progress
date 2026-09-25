@@ -9,8 +9,24 @@ import type {
   TicketStatus,
   ViewRange,
 } from '../../constants/Types.ts';
-import type { Timeline }      from './GanttGeometry.ts';
-import { computeTimeline }    from './GanttGeometry.ts';
+import type { Timeline }                     from './GanttGeometry.ts';
+import { computeTimeline }                   from './GanttGeometry.ts';
+import type { ClosedKanbanLane, KanbanCard } from './KanbanBoard.ts';
+import {
+  abandonedLaneChoiceFor,
+  abandonedLaneIsOpenFrom,
+  abandonedLaneStorageKeyFor,
+  CAPPED_LANE_FIRST_PAGE,
+  cappedLaneShownCount,
+  cappedLaneStorageKeyFor,
+  cardsInLane,
+  DEFAULT_ABANDONED_LANE_CHOICE,
+  kanbanCardsFor,
+  overflowDirectionsOf,
+  shownCountAfterMore,
+  shownCountFrom,
+} from './KanbanBoard.ts';
+import { kanbanBoardMarkup }  from './KanbanMarkup.ts';
 import type { LogVisibility } from './LogVisibility.ts';
 import {
   DEFAULT_LOG_VISIBILITY,
@@ -83,7 +99,13 @@ const DETAIL_DIALOG_ELEMENT_ID = 'ap-detail';
 const DETAIL_BODY_ELEMENT_ID   = 'ap-detail-body';
 const DETAIL_CLOSE_ELEMENT_ID  = 'ap-detail-close';
 
-const OWNED_MARKUP_CONTAINER_IDS = ['ap-summary', 'ap-ticks', 'ap-overlay', 'ap-rows', 'ap-log', 'ap-ticket-rows', 'ap-ticket-cards', 'ap-detail-body'];
+const KANBAN_BOARD_ELEMENT_ID = 'ap-kanban';
+const KANBAN_FRAME_ELEMENT_ID = 'ap-kanban-frame';
+const KANBAN_TAB_NAME         = 'kanban';
+
+const TAB_NAMES = ['progress', KANBAN_TAB_NAME, 'tickets'];
+
+const OWNED_MARKUP_CONTAINER_IDS = ['ap-summary', 'ap-ticks', 'ap-overlay', 'ap-rows', 'ap-log', 'ap-ticket-rows', 'ap-ticket-cards', 'ap-detail-body', KANBAN_BOARD_ELEMENT_ID];
 const OWNED_TEXT_CONTAINER_IDS   = ['ap-project', 'ap-generated', 'ap-range-note', 'ap-ticket-count', 'ap-hidden-note', 'ap-log-note'];
 
 interface TemplateBehaviour {
@@ -253,7 +275,7 @@ function applyFragment(fragment: string): void {
     return;
   }
   const behaviour = templateBehaviour();
-  if (target === 'progress' || target === 'tickets') {
+  if (TAB_NAMES.includes(target)) {
     behaviour?.selectTab(target);
     return;
   }
@@ -454,6 +476,80 @@ function wireTaskDetail(progress: ProgressFile, tickets: readonly PageTicket[], 
   });
 }
 
+function updateKanbanOverflow(): void {
+  const board = document.getElementById(KANBAN_BOARD_ELEMENT_ID);
+  const frame = document.getElementById(KANBAN_FRAME_ELEMENT_ID);
+  if (board === null || frame === null) {
+    return;
+  }
+  const directions = overflowDirectionsOf(board.scrollLeft, board.scrollWidth, board.clientWidth);
+  if (directions === null) {
+    frame.removeAttribute('data-overflow');
+  } else {
+    frame.setAttribute('data-overflow', directions);
+  }
+}
+
+function closedLaneNamedBy(value: string | undefined): ClosedKanbanLane | null {
+  return value === 'done' || value === 'abandoned' ? value : null;
+}
+
+interface KanbanControls {
+  readShownCount:      (lane: ClosedKanbanLane) => number;
+  writeShownCount:     (lane: ClosedKanbanLane, shownCount: number) => void;
+  readVisibleCards:    () => readonly KanbanCard[];
+  toggleAbandonedLane: (laneIsOpen?: boolean) => void;
+  showKanban:          () => void;
+}
+
+/** Shows the Kanban tab and brings the dependency's card into view with focus; a card the board does not hold is left alone. */
+function followKanbanLink(ticketId: string, controls: KanbanControls): void {
+  templateBehaviour()?.selectTab(KANBAN_TAB_NAME);
+  const cardId = `ap-kanban-${ticketId}`;
+  if ((document.getElementById(cardId)?.closest('[data-collapsed]') ?? null) !== null) {
+    controls.toggleAbandonedLane(true);
+  }
+  updateKanbanOverflow();
+  const card = document.getElementById(cardId);
+  if (card !== null) {
+    card.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    card.focus();
+  }
+}
+
+function wireKanban(controls: KanbanControls): void {
+  const board = document.getElementById(KANBAN_BOARD_ELEMENT_ID);
+  board?.addEventListener('scroll', updateKanbanOverflow, { passive: true });
+  // The template's own tab listener was added first, so the panel is already shown when this measures it.
+  document.getElementById('ap-tabs')?.addEventListener('click', updateKanbanOverflow);
+  board?.addEventListener('click', (event) => {
+    const control = event.target instanceof Element ? event.target.closest('[data-lane-more], [data-lane-reset], .ap-lane-toggle, [data-ticket-link]') : null;
+    if (!(control instanceof HTMLElement)) {
+      return;
+    }
+    const linkedTicketId = control.dataset['ticketLink'];
+    if (linkedTicketId !== undefined) {
+      event.preventDefault();
+      followKanbanLink(linkedTicketId, controls);
+      return;
+    }
+    if (control.classList.contains('ap-lane-toggle')) {
+      controls.toggleAbandonedLane();
+      document.querySelector<HTMLElement>(`#${KANBAN_BOARD_ELEMENT_ID} .ap-lane-toggle`)?.focus();
+      return;
+    }
+    const moreLane = closedLaneNamedBy(control.dataset['laneMore']);
+    const lane     = moreLane ?? closedLaneNamedBy(control.dataset['laneReset']);
+    if (lane === null) {
+      return;
+    }
+    const laneCount    = cardsInLane(controls.readVisibleCards(), lane).length;
+    const currentCount = cappedLaneShownCount(controls.readShownCount(lane), laneCount);
+    controls.writeShownCount(lane, moreLane === null ? CAPPED_LANE_FIRST_PAGE : shownCountAfterMore(currentCount, laneCount));
+    controls.showKanban();
+  });
+}
+
 function clearPlaceholderContent(): void {
   for (const elementId of OWNED_MARKUP_CONTAINER_IDS) {
     setMarkup(elementId, '');
@@ -488,6 +584,28 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   let visibility      = readStoredVisibility(progress.trackerId);
   let visibleProgress = progress;
 
+  let visibleKanbanCards: KanbanCard[] = [];
+  let abandonedLaneIsOpen              = abandonedLaneIsOpenFrom(readStoredChoice(abandonedLaneStorageKeyFor(progress.trackerId)));
+  const readShownCount = (lane: ClosedKanbanLane): number => shownCountFrom(readStoredChoice(cappedLaneStorageKeyFor(progress.trackerId, lane)));
+  const showKanban     = (): void => {
+    setMarkup(KANBAN_BOARD_ELEMENT_ID, kanbanBoardMarkup({
+      cards:                  visibleKanbanCards,
+      tasks:                  progress.tasks,
+      nowEpochMilliseconds:   Date.now(),
+      todayCalendarDate,
+      slices:                 limits,
+      showsAllWork:           visibility === 'all',
+      shownCountByClosedLane: { done: readShownCount('done'), abandoned: readShownCount('abandoned') },
+      abandonedLaneIsOpen,
+    }));
+    updateKanbanOverflow();
+  };
+  const toggleAbandonedLane = (laneIsOpen = !abandonedLaneIsOpen): void => {
+    abandonedLaneIsOpen = laneIsOpen;
+    writeStoredChoice(abandonedLaneStorageKeyFor(progress.trackerId), abandonedLaneChoiceFor(laneIsOpen), DEFAULT_ABANDONED_LANE_CHOICE);
+    showKanban();
+  };
+
   const showVisibleWork = (): void => {
     const nowEpochMilliseconds = Date.now();
     const showsAll             = visibility === 'all';
@@ -503,6 +621,8 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     setMarkup('ap-ticket-cards', ticketCardsMarkup(visibleTickets, waitingOnById, limits, todayCalendarDate));
     setText('ap-ticket-count', ticketCountText(tickets));
     templateBehaviour()?.restoreTicketOpenState();
+    visibleKanbanCards = kanbanCardsFor(visibleTickets, progress.tasks, waitingOnById);
+    showKanban();
 
     setText('ap-hidden-note', hiddenWorkNoteText(progress.tasks.length - visibleTasks.length, tickets.length - visibleTickets.length));
     reflectSegment('ap-visibility', 'visibility', visibility);
@@ -576,16 +696,29 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     layOut(false);
   });
 
+  wireKanban({
+    readShownCount,
+    writeShownCount: (lane, shownCount) => {
+      writeStoredChoice(cappedLaneStorageKeyFor(progress.trackerId, lane), String(shownCount), String(CAPPED_LANE_FIRST_PAGE));
+    },
+    readVisibleCards: () => visibleKanbanCards,
+    toggleAbandonedLane,
+    showKanban,
+  });
+
   window.addEventListener('resize', () => {
     layOut(false);
+    updateKanbanOverflow();
   });
   window.addEventListener('hashchange', () => {
     applyFragment(window.location.hash);
+    updateKanbanOverflow();
   });
 
   showVisibleWork();
   layOut(true);
   applyFragment(window.location.hash);
+  updateKanbanOverflow();
 }
 
 function startGanttPage(): void {

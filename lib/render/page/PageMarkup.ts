@@ -116,7 +116,7 @@ export function labelSitsLeftOfItsLine(tick: TimelineTick, axisWidthPixels: numb
   return remainingPixels < tick.label.length * TICK_PIXELS_PER_LABEL_CHARACTER + TICK_LABEL_GUTTER_PIXELS;
 }
 
-export function rowStateFor(task: Task, ticketStatus: TicketStatus | null): RowState {
+export function rowStateFor(task: Pick<Task, 'status'>, ticketStatus: TicketStatus | null): RowState {
   return task.status === 'finished' && ticketStatus === 'in-review' ? 'reviewing' : task.status;
 }
 
@@ -134,8 +134,12 @@ function reviewedTitleFor(task: Task, slices: TimestampSlices): string {
 }
 
 // Rows written before the review stamp existed carry none; a delivered ticket had to pass `done`, so its row counts as reviewed.
-function deliveredAfterReview(task: Task, ticketStatus: TicketStatus | null): boolean {
+export function deliveredAfterReview(task: Task, ticketStatus: TicketStatus | null): boolean {
   return task.status === 'delivered' && (task.reviewed !== undefined || ticketStatus === 'delivered');
+}
+
+export function reviewedMarkMarkup(task: Task, slices: TimestampSlices): string {
+  return `<span class="ap-reviewed-mark" data-state="reviewed" ${attribute('title', reviewedTitleFor(task, slices))} role="img" aria-label="reviewed">✓</span>`;
 }
 
 /** Only the prefix is read, and a bundle's first id is its parent: `Review 1 #13, #5 — …` reviews #13. */
@@ -200,9 +204,7 @@ function taskRowMarkup(placed: PlacedTaskRow, slices: TimestampSlices): string {
   const ticketBadge   = task.ticket === null
     ? ''
     : `<a class="ap-ticket-badge" ${attribute('href', `#ap-ticket-${task.ticket}`)}>#${escapeHtml(task.ticket)}</a>`;
-  const reviewedMark = deliveredAfterReview(task, row.ticketStatus)
-    ? `<span class="ap-reviewed-mark" data-state="reviewed" ${attribute('title', reviewedTitleFor(task, slices))} role="img" aria-label="reviewed">✓</span>`
-    : '';
+  const reviewedMark = deliveredAfterReview(task, row.ticketStatus) ? reviewedMarkMarkup(task, slices) : '';
   const tokens = task.tokens === null
     ? ''
     : `<span class="ap-tokens">${escapeHtml(formatTokenCount(task.tokens))} tokens</span>`;
@@ -274,24 +276,40 @@ export function logItemsMarkup(entries: readonly LogEntry[], slices: TimestampSl
     .join('');
 }
 
-function ticketLinksMarkup(identifiers: readonly string[]): string {
-  return identifiers.map((identifier) => `<a ${attribute('href', `#ap-ticket-${identifier}`)}>#${escapeHtml(identifier)}</a>`).join(', ');
+/** Where a ticket link leads: the ticket's card on the Tickets tab, or its card on the Kanban board, which the page script follows itself. */
+export type TicketLinkTarget = 'ticket-card' | 'kanban-card';
+
+function ticketLinkMarkup(identifier: string, target: TicketLinkTarget): string {
+  const destination = target === 'kanban-card'
+    ? `${attribute('href', `#ap-kanban-${identifier}`)} ${attribute('data-ticket-link', identifier)}`
+    : attribute('href', `#ap-ticket-${identifier}`);
+  return `<a ${destination}>#${escapeHtml(identifier)}</a>`;
 }
 
-function waitingOnMarkup(identifiers: readonly string[]): string {
-  return identifiers.length === 0 ? '' : `<span class="ap-waiting">waiting on ${ticketLinksMarkup(identifiers)}</span>`;
+function ticketLinksMarkup(identifiers: readonly string[], target: TicketLinkTarget = 'ticket-card'): string {
+  return identifiers.map((identifier) => ticketLinkMarkup(identifier, target)).join(', ');
+}
+
+export function waitingOnMarkup(identifiers: readonly string[], target: TicketLinkTarget = 'ticket-card'): string {
+  return identifiers.length === 0 ? '' : `<span class="ap-waiting">waiting on ${ticketLinksMarkup(identifiers, target)}</span>`;
 }
 
 /** Normal is unmarked. Low borrows the row's quiet ticket badge and high the amber "waiting on" note: the template has no priority style of its own. */
-function priorityMarkMarkup(ticket: PageTicket): string {
+export function priorityMarkMarkup(ticket: PageTicket): string {
   const priority = ticketPriorityOf(ticket);
   if (priority === 'low') {
-    return ` <span class="ap-ticket-badge" data-priority="low" ${attribute('title', LOW_PRIORITY_TITLE)}>low</span>`;
+    return `<span class="ap-ticket-badge" data-priority="low" ${attribute('title', LOW_PRIORITY_TITLE)}>low</span>`;
   }
   if (priority === 'high') {
     return `<span class="ap-waiting" data-priority="high" ${attribute('title', HIGH_PRIORITY_TITLE)}>high</span>`;
   }
   return '';
+}
+
+/** The Tickets tab sets the quiet low badge one space off the title or status badge before it; the amber high mark carries its own margin. */
+function ticketsTabPriorityMarkMarkup(ticket: PageTicket): string {
+  const mark = priorityMarkMarkup(ticket);
+  return ticketPriorityOf(ticket) === 'low' ? ` ${mark}` : mark;
 }
 
 function taskLinkMarkup(taskId: number | null): string {
@@ -302,7 +320,7 @@ export function ticketTableRowsMarkup(tickets: readonly PageTicket[], waitingOnB
   return tickets.map((ticket) => [
     `<tr ${attribute('data-ticket-id', ticket.id)} tabindex="0">`,
     `<td class="mono"><a ${attribute('href', `#ap-ticket-${ticket.id}`)}>#${escapeHtml(ticket.id)}</a></td>`,
-    `<td>${escapeHtml(ticket.title)}${priorityMarkMarkup(ticket)}${waitingOnMarkup(waitingOnById.get(ticket.id) ?? [])}</td>`,
+    `<td>${escapeHtml(ticket.title)}${ticketsTabPriorityMarkMarkup(ticket)}${waitingOnMarkup(waitingOnById.get(ticket.id) ?? [])}</td>`,
     `<td>${escapeHtml(ticket.type)}</td>`,
     `<td><span class="ap-badge ${escapeHtml(ticket.status)}">${escapeHtml(ticket.status)}</span></td>`,
     `<td>${escapeHtml(ticket.group ?? '')}</td>`,
@@ -346,7 +364,8 @@ function ticketMetaMarkup(ticket: PageTicket, slices: TimestampSlices, todayCale
   return `<div class="ap-ticket-meta">${shown}${taskEntry}${dependencyEntry}</div>`;
 }
 
-function latestMilestoneMarkup(ticket: PageTicket, slices: TimestampSlices, todayCalendarDate: string): string {
+/** The newest of the ticket's closing, finishing, starting and filing stamps, labelled; the Kanban card sets it under its own class. */
+export function latestMilestoneMarkup(ticket: PageTicket, slices: TimestampSlices, todayCalendarDate: string, className = 'ap-ticket-dates'): string {
   const milestones: Array<[label: string, value: string | null | undefined]> = [
     ['delivered', ticket.delivered],
     ['abandoned', ticket.abandonedAt],
@@ -356,7 +375,7 @@ function latestMilestoneMarkup(ticket: PageTicket, slices: TimestampSlices, toda
   ];
   for (const [label, value] of milestones) {
     if (typeof value === 'string' && value !== '') {
-      return shortenedTextMarkup('span', `${label} ${shortStampText(value, todayCalendarDate, slices)}`, `${label} ${fullStampText(value, slices)}`, 'ap-ticket-dates');
+      return shortenedTextMarkup('span', `${label} ${shortStampText(value, todayCalendarDate, slices)}`, `${label} ${fullStampText(value, slices)}`, className);
     }
   }
   return '';
@@ -367,7 +386,7 @@ function ticketCardMarkup(ticket: PageTicket, waitingOn: readonly string[], slic
     `<span class="ap-ticket-id">#${escapeHtml(ticket.id)}</span>`,
     `<h3 class="ap-ticket-title">${escapeHtml(ticket.title)}</h3>`,
     `<span class="ap-badge ${escapeHtml(ticket.status)}">${escapeHtml(ticket.status)}</span>`,
-    priorityMarkMarkup(ticket),
+    ticketsTabPriorityMarkMarkup(ticket),
     waitingOnMarkup(waitingOn),
     latestMilestoneMarkup(ticket, slices, todayCalendarDate),
   ].join('');

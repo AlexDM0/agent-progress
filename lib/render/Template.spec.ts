@@ -117,6 +117,7 @@ describe('renderProgressHtml', () => {
   // A screen reader pairs a tab with its panel only through these ids; the bootstrap selects panels by data-panel, so nothing else would notice a typo.
   test.each([
     ['progress', ''],
+    ['kanban', ' hidden'],
     ['tickets', ' hidden'],
   ])('ties the %s tab and its panel to each other by id', (panelName, hiddenAttribute) => {
     const document = render();
@@ -124,6 +125,16 @@ describe('renderProgressHtml', () => {
     expect(document).toContain('role="tablist"');
     expect(document).toContain(`role="tab" id="ap-tab-${panelName}" aria-controls="ap-panel-${panelName}" data-tab="${panelName}"`);
     expect(document).toContain(`<section data-panel="${panelName}" role="tabpanel" id="ap-panel-${panelName}" aria-labelledby="ap-tab-${panelName}"${hiddenAttribute}>`);
+  });
+
+  // A fresh viewer lands on Progress: its tab is the one selected and every other panel ships hidden.
+  test('runs the tabs Progress, Kanban, Tickets, with only Progress selected', () => {
+    const document = render();
+    const tabs     = [...document.matchAll(/role="tab" id="ap-tab-(\w+)"[^>]*aria-selected="(\w+)"/g)].map((match) => `${match[1]}:${match[2]}`);
+
+    expect(tabs).toEqual(['progress:true', 'kanban:false', 'tickets:false']);
+    expect(document.indexOf('data-panel="progress"')).toBeLessThan(document.indexOf('data-panel="kanban"'));
+    expect(document.indexOf('data-panel="kanban"')).toBeLessThan(document.indexOf('data-panel="tickets"'));
   });
 
   test('titles the document after the project', () => {

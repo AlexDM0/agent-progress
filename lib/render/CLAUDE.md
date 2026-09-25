@@ -29,11 +29,15 @@ the real store functions in. Every mutating command calls it **inside its lock**
 | `lib/render/PageMarkup.spec.ts` | Every state's pill, review rows nested above their ticket's row, the summary's figures, the token figure, the log's sort, which ticket cards collapse, the low and high priority marks, and the escaping. |
 | `lib/render/TaskDetail.spec.ts` | The overview panel: a recorded history against a derived one, the review rounds, which log lines a row and a ticket claim, a span that runs backwards, the note, the stamps against the viewer's day, and the escaping. |
 | `lib/render/StampText.spec.ts` | The three forms a stored stamp takes against the viewer's day, a stamp read as written whatever its offset, and the instant forms in local time. |
+| `lib/render/KanbanBoard.spec.ts` | Each row state's and each rowless status's lane, the order within a lane, every sub-state note and where it is left out, the lane head counts, the cap arithmetic and its clamp, the storage keys, the overflow directions. |
+| `lib/render/KanbanMarkup.spec.ts` | The placeholder board rebuilt: the To do lane, cards `#061`, `#059`, `#055`, the Done footer and the Abandoned lane matched to the template's text; the cap's buttons, the empty lanes, the toggle and the escaping. |
 | `lib/render/page/template.html` | The designer's template: the styles, the state system, the containers and the bootstrap. Not generated. |
 | `lib/render/page/GanttGeometry.ts` | `computeTimeline(input)`: the axis, the ticks, every bar and the now marker as percentages. Pure, no DOM. |
 | `lib/render/page/PageData.ts` | The island shapes, the checks that establish them, and the stored range. DOM-free. |
 | `lib/render/page/PageMarkup.ts` | Every string of HTML the page emits, as pure functions. DOM-free. |
 | `lib/render/page/StampText.ts` | The one stamp formatter: `calendarDateOf`, `shortStampText` and `fullStampText` for stored stamps, `shortInstantText` and `fullInstantText` for instants the page computed. DOM-free, and reads no clock. |
+| `lib/render/page/KanbanBoard.ts` | The Kanban tab's rules: a card's lane, the order within a lane, the lane head counts, the sub-state notes, the capped lanes' arithmetic and storage keys, and the frame's overflow directions. DOM-free, and reads no clock. |
+| `lib/render/page/KanbanMarkup.ts` | The Kanban board's markup — lanes, heads, dividers, cards, the capped lanes' footer — as pure functions. DOM-free. |
 | `lib/render/page/TaskDetail.ts` | The overview panel's markup — header, task facts, phases, ticket, log — as pure functions. DOM-free. |
 | `lib/render/page/WorkVisibility.ts` | Whether a task or ticket has been done for longer than the window, the stored visibility and the hidden note. DOM-free. |
 | `lib/render/page/LogVisibility.ts` | The log card's cap (`LOG_ENTRIES_SHOWN_BY_DEFAULT`, 10), the stored newest/all choice and the control's and note's text. DOM-free. |
@@ -69,8 +73,8 @@ things `lib/render/page/GanttPage.ts` may reach, and it calls the second one aft
 ticket cards the bootstrap had already applied the open set to.
 
 Everything data-driven belongs to the page: the project name, the summary, the generated stamp, the
-range bar's state, the ticks, the rows, the overlay, the log, the ticket table, the ticket cards and
-the overview panel's body. It clears every one of those containers before parsing the islands, so a
+range bar's state, the ticks, the rows, the overlay, the log, the ticket table, the ticket cards, the
+Kanban board (`#ap-kanban`, and `data-overflow` on `#ap-kanban-frame`) and the overview panel's body. It clears every one of those containers before parsing the islands, so a
 failure cannot leave the template's convincing placeholder rows standing beside an error banner.
 
 The page also decides `--timeline-w` on `#ap-chart`, which is the one thing the generator cannot know
@@ -78,8 +82,8 @@ because it depends on the window: `1fr` when the ticks fit, a px width when they
 
 **Long-done work is hidden by default.** A task that is `delivered` or `abandoned` and ended
 more than `DONE_WORK_VISIBLE_MILLISECONDS` ago, and a ticket that is `delivered` or `abandoned` and
-was last `updated` that long ago, are left out of the chart, the ticket table and the
-cards until the viewer picks "Show all" (`#ap-visibility`, stored per tracker). The axis is computed
+was last `updated` that long ago, are left out of the chart, the ticket table, the
+cards and the Kanban's Done and Abandoned lanes until the viewer picks "Show all" (`#ap-visibility`, stored per tracker). The axis is computed
 from the visible rows only. Done means merged: a `reviewed` row and a `done` ticket await a merge and
 stay visible. This is one of the page's two clock comparisons, and it only decides what is shown; the
 other is `lib/render/page/StampText.ts` shortening a stamp from the viewer's day, which decides only
@@ -120,7 +124,8 @@ being the surface and starts being a subset of it.
 The consequence: **no `*.spec.ts` may sit in `lib/render/page/`** — a spec's `bun:test` import would
 not resolve there. A page module's spec goes one level up and reaches it by a relative import, which
 is how `lib/render/GanttGeometry.spec.ts`, `lib/render/PageData.spec.ts`,
-`lib/render/PageMarkup.spec.ts`, `lib/render/TaskDetail.spec.ts`, `lib/render/StampText.spec.ts` and `lib/render/WorkVisibility.spec.ts` are placed. It is also why
+`lib/render/PageMarkup.spec.ts`, `lib/render/TaskDetail.spec.ts`, `lib/render/StampText.spec.ts`, `lib/render/WorkVisibility.spec.ts`,
+`lib/render/KanbanBoard.spec.ts` and `lib/render/KanbanMarkup.spec.ts` are placed. It is also why
 `lib/render/page/GanttPage.ts` holds no logic worth testing: everything that could be was moved into
 the DOM-free modules beside it.
 
@@ -158,7 +163,18 @@ themselves. The five timestamp slice positions travel the same way, so no page m
   design and a new class would render unstyled: `low` is a `span.ap-ticket-badge`, `high` a
   `span.ap-waiting`, both carrying `data-priority`, after the title in the ticket table and after the
   status badge in a card's head; `normal` — and a ticket file with no priority — carries none. A low
-  ticket never started has no row, so it is on the Tickets tab only, with an empty task cell.
+  ticket never started has no row, so it is not on the chart: the Tickets tab shows it with an empty task
+  cell, and the Kanban's To do lane with `no row yet`.
+- **A Kanban card's lane is the pill its ticket's own row shows on the Progress tab** — the row whose
+  `ticket` is the ticket's id, read through `rowStateFor`, or for a ticket without one its status's
+  `TASK_STATUS_FOR_TICKET_STATUS` — so the board and the chart never disagree. The board holds the
+  tickets the Tickets tab shows, while rows are looked up in the whole progress file. The open lanes sort
+  by priority then id as a number; Done and Abandoned newest first by their closing stamp, which is the
+  page's display-ordering use of a clock beside the log's, and show the newest 15 until the viewer asks
+  for 25 more. The count is stored per tracker as `agent-progress:<tracker>:kanban-done-shown` and
+  `…:kanban-abandoned-shown`, removed at 15 and clamped to 15 … the lane's count when read; the
+  Abandoned lane is a collapsed strip unless `…:kanban-abandoned` holds `open`. A waiting-on link on a
+  card carries `data-ticket-link`, and the page follows it itself: Kanban tab, scroll, focus.
 - **A review row is drawn directly above its ticket's row**, which `taskRowsInDisplayOrder` in
   `lib/render/page/PageMarkup.ts` decides: the row's `reviewOf`, else the first id of a
   `Review <N> #<id>` name, matched by number against the visible rows' `ticket`, then the latest round

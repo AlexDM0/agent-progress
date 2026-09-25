@@ -149,8 +149,9 @@ rather than spreading `undefined` in.
     unreadable record is not free on that ground alone, and a `stat` that errors reads as "not
     stale", so the waiter waits.
   - **ordering the log for display** in `cli/status/StatusCommand.ts` and in the page, because `--at`
-    backfills and the array order is then not the chronological one. It decides nothing but the order
-    lines are printed in.
+    backfills and the array order is then not the chronological one, and the page's Kanban Done and
+    Abandoned lanes by their closing stamp in `lib/render/page/KanbanBoard.ts`. It decides nothing but
+    the order lines and cards are shown in.
   - **hiding long-done work on the page** in `lib/render/page/WorkVisibility.ts`: a task or ticket
     done for more than `DONE_WORK_VISIBLE_MILLISECONDS` is hidden until the viewer picks "Show all".
     It decides only what is displayed, never what is stored.

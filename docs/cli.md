@@ -315,6 +315,13 @@ mutating command and reloading itself every 5 minutes. Open it with `agent-progr
 - **Progress tab**: the Gantt chart, one row per task, newest on top, each with its number, name,
   ticket badge, token count, status pill and bar; a now-marker; and the log underneath, newest first.
   Review rows are drawn indented directly above the ticket they review, latest round first.
+- **Kanban tab**, between the two: one card per ticket in six lanes — To do, In progress, Review,
+  Awaiting merge, Done and Abandoned — each card in the lane its row's Progress pill names. The open
+  lanes run high → normal → low, then by id, with a divider per priority; a card shows its priority
+  mark, tokens, waiting-on links, `held`, `no row yet` for a low ticket never started, and what it is
+  waiting for (`paused since 11:45 · 1h 51m`, `no reviewer yet · 16m`, `reviewer since 13:05`). Done and
+  Abandoned run newest first and show the latest 15, then 25 more at a time; Abandoned is collapsed
+  until clicked. "Show all" governs both closed lanes as it governs the Tickets tab.
 - **Tickets tab**: a summary table, then one card per ticket with its body rendered as markdown
   (`done`, `delivered` and `abandoned` collapsed). The chosen tab and the open cards are kept in the
   browser, so the refresh lands where you were.

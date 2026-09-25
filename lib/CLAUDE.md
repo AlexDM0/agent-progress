@@ -36,7 +36,7 @@ lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/ lib/tick
   scraping source text.
 - **A clock decides nothing**, with five stated exceptions: lock staleness in `lib/platform/Lock.ts`
   — including its fallback to the generation record's own mtime, which fails closed in both directions —
-  ordering the log for display, which decides nothing but a print order, the page hiding long-done
+  ordering the log and the Kanban's closed lanes for display, which decides nothing but a print order, the page hiding long-done
   work, which decides nothing but what is shown, and the `usage --since` cohort split in
   `lib/utils/TranscriptCohortUtil.ts`, which compares harness-written transcript stamps and decides
   nothing but which cohort a transcript is summarised in, and the page shortening a stamp from the
