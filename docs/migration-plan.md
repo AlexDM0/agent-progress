@@ -1,6 +1,6 @@
 # Migration plan: the conventions refactor
 
-**Status (2026-09-25): in flight on `migration/conventions`; steps 0 to 3 are done, step 4 is next.**
+**Status (2026-09-25): in flight on `migration/conventions`; steps 0 to 3 and 4a are done, 4b is next.**
 The kanban-board feature has landed on main (9654720 through 5c6b0ad) and is mapped into this plan.
 This file is the single source for the plan; `agent-progress-architecture.html` (untracked, repo
 root) is the evidence it was built from: the file map, the diagnosis and the measurements, taken at
@@ -195,7 +195,8 @@ Each step is one or more commits on the branch; each commit is green.
    `Logger` interface. Store the review bar's round on the bar instead of parsing it from the bar's
    name. Add the queries the page and the hook need: a ticket's own row, a ticket's review bars
    (by `reviewOf`), a row's and a ticket's display state, and whether a delivered row counts as
-   reviewed. Every rule gets a spec beside the Board.
+   reviewed. Every rule gets a spec beside the Board. It runs as 4a (types, constants, status words and
+   verbs), 4b (the Board) and 4c (the page and hook queries, the stored review round).
 5. **Adapters.** Ingestion classes and writers for progress.json, ticket markdown and log.jsonl,
    including the migrations: old status words, old log sentences to notes, legacy review bars given
    their `reviewOf` and round, delivered rows without a review stamp. The CLI wording and HTML label
