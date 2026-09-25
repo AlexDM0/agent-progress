@@ -1,7 +1,7 @@
 /**
  * The guard between the suite and a tracker it did not create. Each way out of the scratch root is constructed here rather than found, because the
  * repository under test may or may not hold a real tracker: a directory outside the root, a walk up that reaches a tracker above the root, and an
- * `AGENT_PROGRESS_ROOT` naming one — the last in a child process, since `lib/EnvironmentReads.spec.ts` forbids this file the accessor. The two
+ * `AGENT_PROGRESS_ROOT` naming one — the last in a child process, since only `lib/platform/Environment.ts` reads the environment. The two
  * helpers every spec drives a command through must refuse before the command runs, or a refusal would be swallowed into an exit code.
  */
 import { mkdirSync, realpathSync, writeFileSync } from 'node:fs';

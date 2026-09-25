@@ -27,8 +27,7 @@ export default [
   ...base,
   { ignores: ['**/*.js', 'node_modules/**', '.claude/**'] },
   {
-    // Test-only helpers may import devDependencies; a guard spec asserts nothing shipped imports
-    // this folder, which is what keeps the exemption honest.
+    // Test-only helpers may import devDependencies; nothing that ships may import this folder.
     files: ['lib/tooling/dev/**/*.ts'],
     rules: { 'import/no-extraneous-dependencies': ['error', { devDependencies: true }] },
   },
@@ -119,8 +118,7 @@ rather than spreading `undefined` in.
   `argv` or opens a file at import time. Importing a module runs nothing; this is what lets a spec
   import the real command table instead of scraping source text.
 - **`process.env` is read in exactly one module**, through getters (never a snapshot, so a test can
-  redirect a value in-process), each with a docblock saying what it overrides and why. A guard spec
-  fails on a read anywhere else.
+  redirect a value in-process), each with a docblock saying what it overrides and why.
 - **Prefer a factory of closures over a class.** A class cannot be destructured, and a module
   singleton with `initialize()` is temporal coupling the type checker cannot see. A class is for
   state carried across a sequence of calls, and then its constructor does no work.
@@ -175,11 +173,10 @@ comments are the exception, not the rule. No comment walls.
   from the code (why this order, why this fallback, what was rejected and why). One sentence.
 - A comment never restates what the next line does, never narrates history, and never carries a
   measurement or an alternative unless a reader would otherwise reintroduce the wrong choice.
-- Name files repo-rooted with backticks when a comment or doc names one (the documented-path guard
-  checks every named path exists).
+- Name files repo-rooted with backticks when a comment or doc names one.
 - No TODOs; agreed-and-not-done work lives in `docs/backlog.md`.
 
-Enforced by review; the guard specs check paths, not prose.
+Enforced by review.
 
 ## 5. Tests
 

@@ -1,7 +1,7 @@
 /**
  * What `AGENT_PROGRESS_ROOT` means at each value it arrives with. The value cases run in a child
- * process because `lib/EnvironmentReads.spec.ts` allows an in-process read in only two files, and the
- * one assignment below is what shows the getter reads afresh rather than capturing at import.
+ * process so that the one assignment below stays the repository's only in-process write to the
+ * environment, and that assignment is what shows the getter reads afresh rather than capturing at import.
  */
 import { join }         from 'node:path';
 import { expect, test } from 'bun:test';

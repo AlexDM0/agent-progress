@@ -1,7 +1,7 @@
 /**
  * Where a command finds the tracker that governs it: the paths a root owns, the walk up, the nearest
  * tracker winning, and `requireWorkspace`'s refusal. The `AGENT_PROGRESS_ROOT` cases run in a child
- * process because `lib/EnvironmentReads.spec.ts` does not allow this file to read the accessor.
+ * process because only `lib/platform/Environment.ts` reads the environment.
  */
 import {
   mkdirSync,

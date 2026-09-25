@@ -131,10 +131,7 @@ those DOM-only options too, which is what proves `lib/constants/Types.ts`,
 
 `cli/HelpText.spec.ts` holds the help against the command table in both directions, and holds the
 bundled skills to their shape: none of them may carry a command table of its own, and the one every
-agent loads has a size ceiling. Every backticked path under `cli/`, `lib/`, `skill/`,
-`skill-orchestrate/`, `templates/` or `docs/` in any markdown file, in a comment under `cli/` or `lib/`
-or in `agent-progress.ts`, or anywhere in `setup.sh` is checked to exist by
-`lib/DocumentedPaths.spec.ts`, so a rename that leaves a dead citation behind fails the build.
+agent loads has a size ceiling.
 
 ## Repository layout
 
@@ -205,7 +202,6 @@ The test-only helpers live in `lib/tooling/dev/`, the one folder allowed to impo
 | `lib/tooling/dev/CapturedCommandContext.ts` | A command context whose two output streams are arrays, so a spec drives `runCommandLine` in-process and reads back what a user would have seen. |
 | `lib/tooling/dev/CliProcess.ts` | The one sanctioned way to spawn the real binary. |
 | `lib/tooling/dev/TrackerIsolation.ts` | The guard that keeps a spec away from any tracker it did not create. |
-| `lib/tooling/dev/SourceComments.ts` | Finds comments in a source correctly, for the guards that scan text. |
 | `lib/tooling/dev/DispatchScriptHarness.ts` | Runs the dispatcher script against a fake board. |
 | `lib/tooling/dev/WorkflowScriptSource.ts` | Reads the dispatcher script's syntax tree for a clock, randomness or an impure `meta`. |
 
@@ -214,22 +210,17 @@ directory inside it (the walk up, the git common directory, or `AGENT_PROGRESS_R
 to a tracker outside it. It runs in the captured command context, on a hook input's `cwd`, and in
 `CliProcess.ts`, and it runs before the command does, because a throw inside a command becomes an exit
 code a spec cannot tell apart from the command's own. Its own spec, `lib/tooling/dev/TrackerIsolation.spec.ts`,
-tries every escape; `lib/TrackerIsolationBypasses.spec.ts` checks from the other end that no spec
-builds the real process context or spawns the binary another way.
+tries every escape. No spec builds the real process context, and none spawns the binary except
+through `lib/tooling/dev/CliProcess.ts`.
 
 ## The guard specs
 
-Each fails the build on the violation it names. The ones that scan the tree also assert a floor on
-what they scanned, so a walk of the wrong directory cannot pass by finding nothing.
+Each fails the build on the violation it names. Import direction and the one environment reader are
+held by review, not by a spec.
 
 | spec | what it pins |
 |---|---|
-| `lib/ImportDirection.spec.ts` | Imports run up the five layers; no `lib/` → `cli/`; nothing shipped imports `lib/tooling/dev/`; no barrels; no package or builtin import under `lib/constants/` or `lib/utils/`. |
-| `lib/EnvironmentReads.spec.ts` | `process.env` is read only in `lib/platform/Environment.ts` (plus the one in-process override in its own spec), in every spelling of the access, specs included. |
-| `lib/DocumentedPaths.spec.ts` | Every backticked path starting at one of the six documented folders, in a markdown file, a comment under `cli/` or `lib/`, `agent-progress.ts` or `setup.sh`, exists. A module that no longer exists is named without its extension. |
-| `lib/TrackerIsolationBypasses.spec.ts` | No spec creates the real process context, and none spawns the binary except through `lib/tooling/dev/CliProcess.ts`. |
 | `lib/tooling/dev/TrackerIsolation.spec.ts` | Every way a spec could reach a tracker outside the scratch root is refused. |
-| `lib/tooling/dev/SourceComments.spec.ts` | A comment opener inside a string, template or regular expression opens nothing, and a real comment after one is still found; the text guards rely on both. |
 | `cli/CommandTable.spec.ts` | Every command in `cli/CommandTable.ts` reaches a handler, and a word that is not a command, an inherited property included, is refused. |
 | `cli/HelpText.spec.ts` | `cli/HelpText.ts` and the command table agree in both directions; no bundled skill carries its own command table; the skill every agent loads stays under its size ceiling. |
 | `cli/BinarySmoke.spec.ts` | The real `agent-progress.ts` spawned end to end: the shebang, the argument slice and the exit status reaching the process. |

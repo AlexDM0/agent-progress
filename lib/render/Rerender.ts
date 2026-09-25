@@ -13,7 +13,7 @@ export interface MalformedTicketFile {
   line:     number;
 }
 
-/** Declared structurally rather than imported: `lib/progress/` and `lib/tickets/` are sibling features `lib/ImportDirection.spec.ts` rule 5 forbids. */
+/** Declared structurally rather than imported: `lib/progress/` and `lib/tickets/` are sibling features, which may not import each other. */
 export interface TrackerReads {
   readProgressFile: (workspace: Workspace) => (
     | { verdict: 'readable'; progress: ProgressFile }

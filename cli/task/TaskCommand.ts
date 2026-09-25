@@ -40,7 +40,7 @@ const TRANSITION_SUBCOMMANDS: Record<string, TaskTransition> = {
   deliver:  { status: 'delivered', spoken: 'delivered' },
 };
 
-/** Written out rather than derived, because a command folder may not import a sibling's (`lib/ImportDirection.spec.ts`). */
+/** Written out rather than derived, because a command folder may not import a sibling's. */
 const TICKET_VERB_FOR_TASK_STATUS: Partial<Record<TaskStatus, string>> = {
   'pending':   'ticket reopen',
   'running':   'ticket start',

@@ -1,5 +1,5 @@
 /**
- * The one module that reads `process.env`; a guard spec fails the build on a read anywhere else.
+ * The one module that reads `process.env`; nothing else may.
  * Every read is a getter rather than a value captured at import, and nothing is memoised, so a spec
  * can redirect a variable in-process.
  */

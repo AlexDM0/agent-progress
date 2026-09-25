@@ -22,7 +22,7 @@ export interface RunAgentProgressOptions {
 
 const ROOT_OVERRIDE_VARIABLE = 'AGENT_PROGRESS_ROOT';
 
-/** Built rather than inherited, because `lib/EnvironmentReads.spec.ts` forbids reading this process's environment here. */
+/** Built rather than inherited, because only `lib/platform/Environment.ts` reads this process's environment. */
 function childEnvironmentOf(environment: Record<string, string>): Record<string, string> {
   const gitExecutable = Bun.which('git');
   const searchPath    = [dirname(process.execPath), ...(gitExecutable === null ? [] : [dirname(gitExecutable)])].join(delimiter);

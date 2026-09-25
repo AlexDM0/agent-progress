@@ -1,7 +1,7 @@
 /**
  * Real directories for the specs that decide from what is on disk; nothing here calls `process.chdir`, because the suite is one process and a
  * changed working directory would be a cross-test dependency invisible from either file. Test-only: nothing that ships may import
- * `lib/tooling/dev/`, and `lib/ImportDirection.spec.ts` fails the build on any non-spec import of it.
+ * `lib/tooling/dev/`.
  */
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir }              from 'node:os';
