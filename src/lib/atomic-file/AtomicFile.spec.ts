@@ -33,6 +33,7 @@ import { createFileAtomically, writeFileAtomically, writeFileAtomicallyThroughLi
 const RUNNING_AS_ROOT = typeof process.getuid === 'function' && process.getuid() === 0;
 
 const LARGE_CONTENT_REPEATS = 200_000;
+const TARGET_FILE_NAME      = 'document.json';
 
 const scratchDirectories: string[] = [];
 
@@ -55,7 +56,7 @@ async function unexpectedLeftovers(directory: string, expectedNames: string[]): 
 
 test('a reader holding the file across the write sees the whole old content or the whole new one, never a prefix', async () => {
   const directory = await createScratchDirectory();
-  const filePath = join(directory, 'progress.json');
+  const filePath = join(directory, TARGET_FILE_NAME);
   const oldContent = 'old'.repeat(LARGE_CONTENT_REPEATS);
   const newContent = 'new'.repeat(LARGE_CONTENT_REPEATS);
   writeFileSync(filePath, oldContent);
@@ -73,11 +74,11 @@ test('a reader holding the file across the write sees the whole old content or t
 
 test('a successful write leaves no temporary file beside the target', async () => {
   const directory = await createScratchDirectory();
-  const filePath = join(directory, 'progress.json');
+  const filePath = join(directory, TARGET_FILE_NAME);
   writeFileAtomically(filePath, '{"version":1}');
   writeFileAtomically(filePath, '{"version":1,"project":"Example Agency"}');
   expect(readFileSync(filePath, 'utf8')).toBe('{"version":1,"project":"Example Agency"}');
-  expect(await unexpectedLeftovers(directory, ['progress.json'])).toEqual([]);
+  expect(await unexpectedLeftovers(directory, [TARGET_FILE_NAME])).toEqual([]);
 });
 
 test('the parent directory is created when it is not there yet', async () => {
@@ -91,8 +92,8 @@ test('a symlinked target stays a symlink and its content lands on the file it po
   const directory = await createScratchDirectory();
   const realDirectory = join(directory, 'real');
   mkdirSync(realDirectory);
-  const realPath = join(realDirectory, 'progress.json');
-  const linkPath = join(directory, 'progress.json');
+  const realPath = join(realDirectory, TARGET_FILE_NAME);
+  const linkPath = join(directory, TARGET_FILE_NAME);
   writeFileSync(realPath, '{"version":1}');
   symlinkSync(realPath, linkPath);
 
@@ -100,12 +101,12 @@ test('a symlinked target stays a symlink and its content lands on the file it po
 
   expect(lstatSync(linkPath).isSymbolicLink(), 'the link is still a link').toBe(true);
   expect(readFileSync(realPath, 'utf8')).toBe('{"version":1,"project":"Example Agency"}');
-  expect(await unexpectedLeftovers(realDirectory, ['progress.json'])).toEqual([]);
+  expect(await unexpectedLeftovers(realDirectory, [TARGET_FILE_NAME])).toEqual([]);
 });
 
 test.skipIf(RUNNING_AS_ROOT)('a restricted file comes back with the same permission bits', async () => {
   const directory = await createScratchDirectory();
-  const filePath = join(directory, 'progress.json');
+  const filePath = join(directory, TARGET_FILE_NAME);
   writeFileSync(filePath, '{"version":1}', { mode: 0o600 });
   writeFileAtomically(filePath, '{"version":1,"project":"Example Agency"}');
   expect(statSync(filePath).mode & 0o777).toBe(0o600);
@@ -114,7 +115,7 @@ test.skipIf(RUNNING_AS_ROOT)('a restricted file comes back with the same permiss
 // The mode handed to `open` is masked by the umask, so a group- or world-writable file would lose those bits without an explicit `fchmod`.
 test('a file with bits the umask would mask comes back with the same permission bits', async () => {
   const directory = await createScratchDirectory();
-  const filePath = join(directory, 'progress.json');
+  const filePath = join(directory, TARGET_FILE_NAME);
   writeFileSync(filePath, '{"version":1}');
   chmodSync(filePath, 0o666);
   const previousUmask = process.umask(0o022);
@@ -128,7 +129,7 @@ test('a file with bits the umask would mask comes back with the same permission 
 
 test.skipIf(RUNNING_AS_ROOT)('a write that cannot be performed leaves the previous file exactly as it was', async () => {
   const directory = await createScratchDirectory();
-  const filePath = join(directory, 'progress.json');
+  const filePath = join(directory, TARGET_FILE_NAME);
   writeFileSync(filePath, '{"version":1}');
   await chmod(directory, 0o500);
 
@@ -136,7 +137,7 @@ test.skipIf(RUNNING_AS_ROOT)('a write that cannot be performed leaves the previo
 
   await chmod(directory, 0o700);
   expect(readFileSync(filePath, 'utf8')).toBe('{"version":1}');
-  expect(await unexpectedLeftovers(directory, ['progress.json'])).toEqual([]);
+  expect(await unexpectedLeftovers(directory, [TARGET_FILE_NAME])).toEqual([]);
 });
 
 test('an empty string is a legitimate content, not a no-op', async () => {
@@ -150,24 +151,24 @@ test('an empty string is a legitimate content, not a no-op', async () => {
 
 test('the create-exclusive write creates a missing file whole and leaves no temporary file beside it', async () => {
   const directory = await createScratchDirectory();
-  const filePath = join(directory, 'progress.json');
+  const filePath = join(directory, TARGET_FILE_NAME);
 
   expect(createFileAtomically(filePath, 'created')).toBe('created');
 
   expect(readFileSync(filePath, 'utf8')).toBe('created');
-  expect(await unexpectedLeftovers(directory, ['progress.json'])).toEqual([]);
+  expect(await unexpectedLeftovers(directory, [TARGET_FILE_NAME])).toEqual([]);
 });
 
 // The guarantee a first write rests on: no path through it can truncate a file that already exists.
 test('the create-exclusive write refuses an existing file, leaving its bytes and no temporary file behind', async () => {
   const directory = await createScratchDirectory();
-  const filePath = join(directory, 'progress.json');
+  const filePath = join(directory, TARGET_FILE_NAME);
   writeFileSync(filePath, 'existing content');
 
   expect(createFileAtomically(filePath, 'new content')).toBe('already-exists');
 
   expect(readFileSync(filePath, 'utf8')).toBe('existing content');
-  expect(await unexpectedLeftovers(directory, ['progress.json'])).toEqual([]);
+  expect(await unexpectedLeftovers(directory, [TARGET_FILE_NAME])).toEqual([]);
 });
 
 /** `temporary/dotfiles` is a symlinked folder, and the link inside it climbs out with `..`: spelled, that lands on `temporary/shared`. */
