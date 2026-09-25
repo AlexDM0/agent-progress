@@ -6,17 +6,12 @@
 import type { ProgressFile, ViewRange }                                        from '../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { TicketStatus }                                                   from '../src/lib/tracker-model/@types/Ticket.ts';
 import type { PagePayload, PageTicket }                                        from '../src/shared/@types/PagePayload.ts';
-import type { KanbanCard }                                                     from './@types/KanbanCard.ts';
-import type { ClosedKanbanLane }                                               from './constants/KanbanLane.ts';
-import { CAPPED_LANE_FIRST_PAGE }                                              from './constants/KanbanLane.ts';
 import { KANBAN_BOARD_ELEMENT_ID, KANBAN_TAB_NAME }                            from './constants/TemplateIds.ts';
 import { createDetailDialogController }                                        from './detail-dialog/DetailDialogController.ts';
-import { cardsInLane, kanbanCardsFor }                                         from './kanban/KanbanLanes.ts';
-import { kanbanBoardMarkup }                                                   from './kanban/KanbanMarkup.ts';
-import { KanbanOverflowUtil }                                                  from './kanban/utils/KanbanOverflowUtil.ts';
-import { LanePagingUtil }                                                      from './kanban/utils/LanePagingUtil.ts';
+import { createKanbanController }                                              from './kanban/KanbanController.ts';
+import { kanbanCardsFor }                                                      from './kanban/KanbanLanes.ts';
 import { createLogController }                                                 from './log/LogController.ts';
-import type { NameColumnWidth, StoredViewOverride, ViewerPreferences }         from './preferences/ViewerPreferences.ts';
+import type { NameColumnWidth, StoredViewOverride }                            from './preferences/ViewerPreferences.ts';
 import { createViewerPreferences, toggledNameColumnWidth, workVisibilityFrom } from './preferences/ViewerPreferences.ts';
 import type { PlacedTick, TaskRow }                                            from './progress/ProgressMarkup.ts';
 import {
@@ -48,8 +43,6 @@ import { WaitingOnUtil }           from './utils/WaitingOnUtil.ts';
 
 const PROGRESS_ISLAND_ELEMENT_ID = 'ap-progress-data';
 const TICKETS_ISLAND_ELEMENT_ID  = 'ap-tickets-data';
-
-const KANBAN_FRAME_ELEMENT_ID = 'ap-kanban-frame';
 
 const TAB_NAMES = ['progress', KANBAN_TAB_NAME, 'tickets'];
 
@@ -215,79 +208,6 @@ function wireRangeBar(readOverride: () => StoredViewOverride, applyOverride: (ne
   });
 }
 
-function updateKanbanOverflow(): void {
-  const board = document.getElementById(KANBAN_BOARD_ELEMENT_ID);
-  const frame = document.getElementById(KANBAN_FRAME_ELEMENT_ID);
-  if (board === null || frame === null) {
-    return;
-  }
-  const directions = KanbanOverflowUtil.overflowDirectionsOf(board.scrollLeft, board.scrollWidth, board.clientWidth);
-  if (directions === null) {
-    frame.removeAttribute('data-overflow');
-  } else {
-    frame.setAttribute('data-overflow', directions);
-  }
-}
-
-function closedLaneNamedBy(value: string | undefined): ClosedKanbanLane | null {
-  return value === 'done' || value === 'abandoned' ? value : null;
-}
-
-interface KanbanControls {
-  preferences:         ViewerPreferences;
-  readVisibleCards:    () => readonly KanbanCard[];
-  toggleAbandonedLane: (laneIsOpen?: boolean) => void;
-  showKanban:          () => void;
-}
-
-/** Shows the Kanban tab and brings the dependency's card into view with focus; a card the board does not hold is left alone. */
-function followKanbanLink(ticketId: string, controls: KanbanControls): void {
-  DomUtil.templateBehaviour()?.selectTab(KANBAN_TAB_NAME);
-  const cardId = `ap-kanban-${ticketId}`;
-  if ((document.getElementById(cardId)?.closest('[data-collapsed]') ?? null) !== null) {
-    controls.toggleAbandonedLane(true);
-  }
-  updateKanbanOverflow();
-  const card = document.getElementById(cardId);
-  if (card !== null) {
-    card.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-    card.focus();
-  }
-}
-
-function wireKanban(controls: KanbanControls): void {
-  const board = document.getElementById(KANBAN_BOARD_ELEMENT_ID);
-  board?.addEventListener('scroll', updateKanbanOverflow, { passive: true });
-  // The template's own tab listener was added first, so the panel is already shown when this measures it.
-  document.getElementById('ap-tabs')?.addEventListener('click', updateKanbanOverflow);
-  board?.addEventListener('click', (event) => {
-    const control = event.target instanceof Element ? event.target.closest('[data-lane-more], [data-lane-reset], .ap-lane-toggle, [data-ticket-link]') : null;
-    if (!(control instanceof HTMLElement)) {
-      return;
-    }
-    const linkedTicketId = control.dataset['ticketLink'];
-    if (linkedTicketId !== undefined) {
-      event.preventDefault();
-      followKanbanLink(linkedTicketId, controls);
-      return;
-    }
-    if (control.classList.contains('ap-lane-toggle')) {
-      controls.toggleAbandonedLane();
-      document.querySelector<HTMLElement>(`#${KANBAN_BOARD_ELEMENT_ID} .ap-lane-toggle`)?.focus();
-      return;
-    }
-    const moreLane = closedLaneNamedBy(control.dataset['laneMore']);
-    const lane     = moreLane ?? closedLaneNamedBy(control.dataset['laneReset']);
-    if (lane === null) {
-      return;
-    }
-    const laneCount    = cardsInLane(controls.readVisibleCards(), lane).length;
-    const currentCount = LanePagingUtil.cappedLaneShownCount(controls.preferences.readCappedLaneShownCount(lane), laneCount);
-    controls.preferences.writeCappedLaneShownCount(lane, moreLane === null ? CAPPED_LANE_FIRST_PAGE : LanePagingUtil.shownCountAfterMore(currentCount, laneCount));
-    controls.showKanban();
-  });
-}
-
 function clearPlaceholderContent(): void {
   for (const elementId of OWNED_MARKUP_CONTAINER_IDS) {
     DomUtil.setMarkup(elementId, '');
@@ -328,26 +248,13 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   let visibility      = preferences.readWorkVisibility();
   let visibleProgress = progress;
 
-  let visibleKanbanCards: KanbanCard[] = [];
-  let abandonedLaneIsOpen              = preferences.readAbandonedLaneIsOpen();
-  const showKanban                     = (): void => {
-    DomUtil.setMarkup(KANBAN_BOARD_ELEMENT_ID, kanbanBoardMarkup({
-      cards:                  visibleKanbanCards,
-      tasks:                  progress.tasks,
-      nowEpochMilliseconds:   Date.now(),
-      todayCalendarDate,
-      slices:                 limits,
-      showsAllWork:           visibility === 'all',
-      shownCountByClosedLane: { done: preferences.readCappedLaneShownCount('done'), abandoned: preferences.readCappedLaneShownCount('abandoned') },
-      abandonedLaneIsOpen,
-    }));
-    updateKanbanOverflow();
-  };
-  const toggleAbandonedLane = (laneIsOpen = !abandonedLaneIsOpen): void => {
-    abandonedLaneIsOpen = laneIsOpen;
-    preferences.writeAbandonedLaneIsOpen(laneIsOpen);
-    showKanban();
-  };
+  const kanbanController = createKanbanController({
+    tasks:                 progress.tasks,
+    slices:                limits,
+    preferences,
+    readTodayCalendarDate: () => todayCalendarDate,
+    readShowsAllWork:      () => visibility === 'all',
+  });
 
   const ticketsController = createTicketsController({ allTickets: tickets, waitingOnById, slices: limits });
   const detailDialogController = createDetailDialogController({
@@ -355,7 +262,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     tickets,
     limits,
     readTodayCalendarDate: () => todayCalendarDate,
-    readKanbanCards:       () => visibleKanbanCards,
+    readKanbanCards:       () => kanbanController.readVisibleCards(),
   });
 
   const showVisibleWork = (): void => {
@@ -370,8 +277,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     DomUtil.setShortenedText('ap-generated', generatedStampText(payload.generatedAtEpochMilliseconds, todayCalendarDate));
     logController.show();
     ticketsController.show(visibleTickets, todayCalendarDate);
-    visibleKanbanCards = kanbanCardsFor(visibleTickets, progress.tasks, waitingOnById);
-    showKanban();
+    kanbanController.showCards(kanbanCardsFor(visibleTickets, progress.tasks, waitingOnById));
 
     DomUtil.setText('ap-hidden-note', hiddenWorkNoteText(progress.tasks.length - visibleTasks.length, tickets.length - visibleTickets.length));
     DomUtil.reflectSegment('ap-visibility', 'visibility', visibility);
@@ -441,26 +347,21 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     layOut(false);
   });
 
-  wireKanban({
-    preferences,
-    readVisibleCards: () => visibleKanbanCards,
-    toggleAbandonedLane,
-    showKanban,
-  });
+  kanbanController.wire();
 
   window.addEventListener('resize', () => {
     layOut(false);
-    updateKanbanOverflow();
+    kanbanController.updateOverflow();
   });
   window.addEventListener('hashchange', () => {
     applyFragment(window.location.hash);
-    updateKanbanOverflow();
+    kanbanController.updateOverflow();
   });
 
   showVisibleWork();
   layOut(true);
   applyFragment(window.location.hash);
-  updateKanbanOverflow();
+  kanbanController.updateOverflow();
 }
 
 function startGanttPage(): void {
