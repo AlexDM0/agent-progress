@@ -42,7 +42,7 @@ describe('the folder a repository\'s transcripts live in', () => {
       .toBe('/Users/alex/.claude/projects/-Users-alex-development-example');
   });
 
-  /** A relative root would otherwise produce a slug no harness ever wrote, and the command would report an empty cohort rather than a mistake. */
+  /** A relative root would otherwise produce a slug no harness ever wrote, and a caller would find no transcripts rather than a mistake. */
   test('a relative root is resolved first, so the slug is never built from a partial path', () => {
     const projectsFolder = '/home/example/.claude/projects/';
     const folder         = transcriptFolderFor('.', '/home/example');
@@ -53,7 +53,7 @@ describe('the folder a repository\'s transcripts live in', () => {
 
   /**
    * The case a slug that replaced only `/` got wrong: a dotted directory is where a tool's own
-   * checkout routinely sits, and the folder the harness wrote was never the one the command looked in.
+   * checkout routinely sits, and the folder the harness wrote was never the one a caller looked in.
    */
   test('a dot is replaced too, so `/.claude/` leaves two dashes rather than a dot between them', () => {
     expect(transcriptFolderFor('/Users/alex/.claude/ad-hoc-tooling', '/Users/alex'))
@@ -111,7 +111,7 @@ describe('the subagent transcripts under a folder', () => {
     expect(found[1]?.path).toContain(join('workflows', 'run-one', 'agent-beta.jsonl'));
   });
 
-  /** "No transcripts here" is a normal answer the command prints a sentence for, so it must not arrive as a throw. */
+  /** "No transcripts here" is a normal answer a caller acts on, so it must not arrive as a throw. */
   test('a folder that is not there is an empty list rather than an error', () => {
     expect(listSubagentTranscripts(join(scratchDirectory, 'never-created'))).toEqual([]);
   });

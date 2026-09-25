@@ -1,5 +1,5 @@
 /**
- * The four cases that decide whether this is safe to run against a file the tool does not own: a
+ * The four cases that decide whether this is safe to run against a settings file the caller does not own: a
  * repository with no settings at all, one whose settings hold other people's keys, a second
  * write of the same hook that must leave no diff, and a malformed document that must survive untouched.
  */
@@ -107,7 +107,7 @@ describe('a second write of the same hook', () => {
     expect(readFileSync(settingsFilePath, 'utf8')).toBe(afterTheFirstRun);
   });
 
-  test('the same command under a different matcher still counts as already there, so the log never gains a second line per agent', () => {
+  test('the same command under a different matcher still counts as already there, so the command never runs twice for one agent', () => {
     const rootDirectory = scratchRoot('claude-settings-other-matcher');
     const sameCommandElsewhere = [{ matcher: '*', hooks: [{ type: 'command', command: 'example-tool hook stop', timeout: 20 }] }];
     writeSettings(rootDirectory, JSON.stringify({ hooks: { SubagentStop: sameCommandElsewhere } }, null, 2));

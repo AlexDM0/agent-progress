@@ -1,6 +1,6 @@
 /**
  * The root each shape of working directory resolves to: repository, subdirectory, linked worktree,
- * submodule, bare repository and none. Every subagent worktree must reach the main checkout.
+ * submodule, bare repository and none. Every linked worktree resolves to the main checkout.
  */
 import { mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { join, sep }                              from 'node:path';
