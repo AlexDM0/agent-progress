@@ -5,8 +5,7 @@
  */
 import { resolve } from 'node:path';
 
-import { readTicket }                                                              from '../../lib/tickets/TicketStore';
-import { applyTicketTransition }                                                   from '../../lib/tickets/TicketTransitions';
+import { LogUtil }                                                                 from '../../src/adapters/utils/LogUtil';
 import type { BranchDeletionOutcome, FilesLeftInWorktree, WorktreeRemovalOutcome } from '../../src/lib/git/BranchIntegration';
 import {
   deleteMergedBranch,
@@ -15,20 +14,16 @@ import {
   readCurrentBranch,
   removeWorktree
 }                                                                                            from '../../src/lib/git/BranchIntegration';
-import type { Task }                                                                from '../../src/lib/tracker-model/@types/Task';
-import type { Ticket }                                                              from '../../src/lib/tracker-model/@types/Ticket';
-import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS, ticketMoveIsLegal }               from '../../src/lib/tracker-model/constants/TicketMoveLegality';
-import { OperationRefusal, refusalIsOperationRefusal, type OperationRefusalStatus } from '../../src/shared/OperationRefusal';
-import type { CommandContext }                                                      from '../CommandContext';
-import {
-  closeInProgressReviewRows,
-  openTrackerForWritingThenReadNextLine,
-  printEntity,
-  printEntityThenNextLine,
-  progressOperations
-} from '../CommandSupport';
-import type { CommandHandler } from '../CommandTable';
-import type { ArgumentParser } from '../arguments/ArgumentParser';
+import type { LogRecord }                                                              from '../../src/lib/tracker-model/@types/LogRecord';
+import type { Task }                                                                   from '../../src/lib/tracker-model/@types/Task';
+import type { Ticket }                                                                 from '../../src/lib/tracker-model/@types/Ticket';
+import type { Board }                                                                  from '../../src/lib/tracker-model/Board';
+import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS }                                     from '../../src/lib/tracker-model/constants/TicketMoveLegality';
+import { OperationRefusal, refusalIsOperationRefusal, type OperationRefusalStatus }    from '../../src/shared/OperationRefusal';
+import type { CommandContext }                                                         from '../CommandContext';
+import { openTrackerForWritingThenReadNextLine, printEntity, printEntityThenNextLine } from '../CommandSupport';
+import type { CommandHandler }                                                         from '../CommandTable';
+import type { ArgumentParser }                                                         from '../arguments/ArgumentParser';
 
 const USAGE = 'agent-progress release <id> [<id>...] --branch <branch> [--worktree <path>] [--main <line>] [--json]';
 
@@ -74,10 +69,11 @@ interface ReleaseRequest {
 }
 
 interface Release {
-  tickets:          Ticket[];
+  tickets:          readonly Readonly<Ticket>[];
   commit:           string;
   mainCheckout:     string;
-  closedReviewRows: Task[];
+  closedReviewRows: readonly Readonly<Task>[];
+  logged:           readonly LogRecord[];
 }
 
 function shortCommit(commit: string): string {
@@ -114,12 +110,13 @@ function releaseRequestFrom(commandArguments: ArgumentParser, context: CommandCo
   };
 }
 
-function releasableTicket(ticket: Ticket | null, reference: string): Ticket {
-  if (ticket === null) {
+function releasableTicket(board: Board, reference: string): Readonly<Ticket> {
+  const ticket = board.ticketByReference(reference);
+  if (ticket === undefined) {
     refuse('unknown-ticket', `There is no readable ticket ${reference}. Run \`agent-progress ticket list\` to see what this tracker holds.`);
   }
   const { id, status } = ticket.frontmatter;
-  if (!ticketMoveIsLegal(status, 'reviewed')) {
+  if (!board.ticketIsReleasable(ticket)) {
     refuse('ticket-not-releasable', `Ticket #${id} is ${status}, and a release takes a ticket that is ${LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS.reviewed.join(' or ')}.`);
   }
   return ticket;
@@ -161,7 +158,7 @@ async function releaseUnderTheLock(
   context: CommandContext,
 ): Promise<{ release: Release; nextLine: string }> {
   const { result, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
-    const namedTickets = request.references.map((reference) => releasableTicket(readTicket(change.workspace, reference), reference));
+    const namedTickets = request.references.map((reference) => releasableTicket(change.board, reference));
     const tickets      = namedTickets.filter((ticket, index) => namedTickets.findIndex(({ frontmatter }) => frontmatter.id === ticket.frontmatter.id) === index);
     const mainCheckout = change.workspace.rootDirectory;
     requireMainCheckoutOnMainLine(mainCheckout, request.mainLine);
@@ -170,26 +167,13 @@ async function releaseUnderTheLock(
     const merge = fastForwardTo(mainCheckout, branchCommit);
     if (merge.verdict === 'refused') refuse('merge-refused', `git would not fast-forward ${request.mainLine} to ${request.branch}: ${merge.reason}`);
 
-    const common = { progress: change.progress, at: change.at, operations: progressOperations };
-    for (const ticket of tickets) {
-      applyTicketTransition({ ...common, ticket, targetStatus: 'reviewed' });
-      applyTicketTransition({
-        ...common,
-        ticket,
-        targetStatus: 'delivered',
-        branch:       request.branch,
-        commit:       merge.commit,
-      });
-      change.writeTicketAfterwards(ticket);
-    }
-
-    // The reviewer releases as the last step of its pass, so its bar is closed here rather than left running until the orchestrator reads the verdict.
-    const closedReviewRows = closeInProgressReviewRows(change.progress, tickets.map(({ frontmatter }) => frontmatter.id), change.at);
+    const released = change.board.releaseTickets(tickets.map(({ frontmatter }) => frontmatter.id), { branch: request.branch, commit: merge.commit }, change.at);
     return {
-      tickets,
-      commit: merge.commit,
+      tickets:          released.tickets,
+      commit:           merge.commit,
       mainCheckout,
-      closedReviewRows,
+      closedReviewRows: released.closedReviewBars,
+      logged:           released.logged,
     };
   });
   return { release: result, nextLine };
@@ -264,6 +248,7 @@ export const releaseCommand: CommandHandler = async (commandArguments, context) 
     tickets,
     commit,
     closedReviewRows,
+    logged,
   } = release;
   const cleanup: CleanupStep[] = [];
   if (request.worktreePath !== undefined) cleanup.push(worktreeStep(request.worktreePath, removeWorktree(mainCheckout, request.worktreePath)));
@@ -272,7 +257,7 @@ export const releaseCommand: CommandHandler = async (commandArguments, context) 
   const ticketIds    = tickets.map(({ frontmatter }) => frontmatter.id);
   const ticketsNamed = ticketIds.length === 1 ? `ticket #${ticketIds.join('')}` : `tickets ${ticketIds.map((identifier) => `#${identifier}`).join(', ')}`;
   const headline     = `Released ${ticketsNamed}: ${request.mainLine} fast-forwarded to ${shortCommit(commit)} from ${request.branch}, and delivered.`;
-  const reviewLines  = closedReviewRows.map(({ id, name }) => `Closed the review row #${id}, delivered: ${name}`);
+  const reviewLines  = logged.filter((record) => record.kind === 'review-bar-closed').map(LogUtil.sentenceOf);
   const document     = {
     released:         true,
     tickets:          ticketIds,

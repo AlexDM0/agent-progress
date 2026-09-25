@@ -67,6 +67,8 @@ const CALLS_THAT_CHANGE_NO_TICKET: readonly (readonly [string, (board: Board) =>
     outputTokens:         10,
   }, [{ target: 'row', taskId: 1, tokens: 1_000 }, { target: 'ticket', ticketId: '001', tokens: 1_000 }], CHANGED_AT)],
   ['startReviewBar', (board) => board.startReviewBar('001', { round: 1, owner: 'Alex Example' }, CHANGED_AT)],
+  ['clearTracker without the tickets', (board) => board.clearTracker({ ticketsSurvive: false }, CHANGED_AT)],
+  ['ticketIsReleasable', (board) => board.tickets().map((ticket) => board.ticketIsReleasable(ticket))],
   ['unsettledDependenciesOf', (board) => board.unsettledDependenciesOf('001')],
   ['lowPriorityWorkHoldingBack', (board) => board.lowPriorityWorkHoldingBack('002')],
   ['tasks', (board) => board.tasks()],
@@ -97,6 +99,20 @@ const CALLS_THAT_CHANGE_A_TICKET: readonly (readonly [string, (board: Board) => 
     return board.rereviewTicket('001', CHANGED_AT);
   }, ['001']],
   ['setTicketDependencies', (board) => board.setTicketDependencies('002', ['001'], CHANGED_AT), ['002']],
+  ['claimTickets', (board) => {
+    // Unheld by hand rather than by a change, so the only change that can mark the ticket is the claim itself.
+    const ticket = board.ticketByReference('002');
+    if (ticket !== undefined) delete ticket.frontmatter.hold;
+    return board.claimTickets(['002'], { owner: 'Alex Example' }, CHANGED_AT);
+  }, ['002']],
+  ['releaseTickets', (board) => {
+    // Put in review by hand, so that each ticket is marked by the release alone.
+    const ticket = board.ticketByReference('002');
+    if (ticket !== undefined) ticket.frontmatter.status = 'in-review';
+    return board.releaseTickets(['001', '002'], { branch: 'ticket/example-checkout', commit: 'a1b2c3d4' }, CHANGED_AT);
+  }, ['001', '002']],
+  ['setTicketPriority', (board) => board.setTicketPriority('002', 'high', CHANGED_AT), ['002']],
+  ['clearTracker with the tickets', (board) => board.clearTracker({ ticketsSurvive: true }, CHANGED_AT), ['001', '002']],
 ];
 
 describe('the tickets a method marks changed', () => {

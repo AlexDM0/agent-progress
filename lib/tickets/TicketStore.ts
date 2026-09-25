@@ -108,7 +108,7 @@ export function readTicket(workspace: Workspace, reference: string): Ticket | nu
   return listTickets(workspace).tickets.find((ticket) => ticket.frontmatter.id === identifier) ?? null;
 }
 
-/** Writes through `src/lib/atomic-file/AtomicFile.ts` and never touches `updated`; only `lib/tickets/TicketTransitions.ts` knows that a ticket changed. */
+/** Writes through `src/lib/atomic-file/AtomicFile.ts` and never touches `updated`; only `src/lib/tracker-model/Board.ts` knows that a ticket changed. */
 export function writeTicket(ticket: Ticket): void {
   // The directory is recreated rather than assumed: `clear --all` may have removed it.
   mkdirSync(dirname(ticket.filePath), { recursive: true });

@@ -1,15 +1,6 @@
-/**
- * Re-seeds one row per surviving ticket from that ticket's own stamps, so a cleared tracker still draws the work that was done — except a low
- * ticket that has no row, which had none to lose.
- */
-import { appendLogEntry }                                         from '../../lib/progress/ProgressStore';
-import { deleteAllTickets, listTickets }                          from '../../lib/tickets/TicketStore';
-import { seedTaskFromTicket }                                     from '../../lib/tickets/TicketTransitions';
-import { LogUtil }                                                from '../../src/adapters/utils/LogUtil';
-import { TicketChartUtil }                                        from '../../src/lib/tracker-model/utils/TicketChartUtil';
-import { OperationRefusal }                                       from '../../src/shared/OperationRefusal';
-import { openTrackerForWriting, printEntity, progressOperations } from '../CommandSupport';
-import type { CommandHandler }                                    from '../CommandTable';
+import { OperationRefusal }                   from '../../src/shared/OperationRefusal';
+import { openTrackerForWriting, printEntity } from '../CommandSupport';
+import type { CommandHandler }                from '../CommandTable';
 
 const USAGE = 'agent-progress clear [--all] [--yes]';
 
@@ -41,47 +32,13 @@ export const clearCommand: CommandHandler = async (commandArguments, context) =>
 
   let deletedTicketCount = 0;
   const summary = await openTrackerForWriting(commandArguments, context, (change) => {
-    const {
-      progress,
-      workspace,
-      at,
-      writeTicketAfterwards,
-      changeTicketsAfterwards,
-    } = change;
-
-    const removedTaskCount = progress.tasks.length;
-    const removedLogCount  = progress.log.length;
-
-    // Emptied in place, never replaced: `trackerId` namespaces the page's stored range, and a fresh one would reset every reader's view.
-    progress.startedAt  = at;
-    progress.view       = { kind: 'auto' };
-    progress.tasks.length = 0;
-    progress.log.length   = 0;
-    appendLogEntry(progress, at, LogUtil.sentenceOf({ kind: 'tracker-cleared', fields: {} }));
-
-    if (deletesTickets) {
-      // After the progress file, like every ticket write, so a failed write leaves the tickets and the file that names them together.
-      changeTicketsAfterwards(() => { deletedTicketCount = deleteAllTickets(workspace); });
-      return {
-        removedTaskCount,
-        removedLogCount,
-        reseededTicketCount: 0,
-      };
-    }
-
-    const surviving = listTickets(workspace).tickets;
-    for (const ticket of surviving) {
-      // A reopen clears `started`, so the row the ticket held before the clear is what says it was worked.
-      const ticketHadNoRowToLose = ticket.frontmatter.task === null && TicketChartUtil.ticketStaysOffTheChart(ticket.frontmatter);
-      if (!ticketHadNoRowToLose) {
-        seedTaskFromTicket({ progress, ticket, operations: progressOperations });
-      }
-      writeTicketAfterwards(ticket);
-    }
+    const cleared = change.board.clearTracker({ ticketsSurvive: !deletesTickets }, change.at);
+    // After the progress file, like every ticket write, so a failed write leaves the tickets and the file that names them together.
+    if (deletesTickets) change.deleteAllTicketFilesAfterwards((deletedFileCount) => { deletedTicketCount = deletedFileCount; });
     return {
-      removedTaskCount,
-      removedLogCount,
-      reseededTicketCount: surviving.length,
+      removedTaskCount:    cleared.removedTaskCount,
+      removedLogCount:     change.storedLogEntryCount,
+      reseededTicketCount: cleared.survivingTicketCount,
     };
   });
 

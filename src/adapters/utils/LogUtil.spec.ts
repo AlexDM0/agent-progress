@@ -13,8 +13,8 @@ const { dispatcherStateTextOf, sentenceOf } = LogUtil;
 /**
  * Taken from the binary before the records existed: to retake it, run the step 4b byte-identity scenario at bc42604 (the last commit
  * before step 4b) and copy the `log` texts out of the scenario's `progress.json` files. The rows the scenario never logs (a hold
- * without a reason, an abandon without one, two dependencies at once) are copied from that commit's `lib/tickets/TicketTransitions.ts`
- * and `cli/ticket/TicketCommand.ts`.
+ * without a reason, an abandon without one, two dependencies at once) are copied from that commit's ticket transition module and
+ * `cli/ticket/TicketCommand.ts`.
  */
 const SENTENCE_FOR_RECORD: readonly (readonly [LogRecordContent, string])[] = [
   [{ kind: 'note', fields: { text: 'Example note from the orchestrator' } }, 'Example note from the orchestrator'],

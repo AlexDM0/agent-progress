@@ -8,13 +8,11 @@ import type {
   ProgressFile,
   ViewRange
 } from '../../src/lib/tracker-model/@types/ProgressFile';
-import type { Task, TaskPhase, TaskStatus }            from '../../src/lib/tracker-model/@types/Task';
+import type { Task, TaskPhase }                        from '../../src/lib/tracker-model/@types/Task';
 import { DEFAULT_CONCURRENCY_LIMIT }                   from '../../src/lib/tracker-model/constants/ConcurrencyLimits';
 import { DEFAULT_DISPATCHER_STATE, DISPATCHER_STATES } from '../../src/lib/tracker-model/constants/DispatcherStates';
 import { FIRST_REPEAT_REVIEW_ROUND }                   from '../../src/lib/tracker-model/constants/ReviewRounds';
 import { TASK_STATUSES }                               from '../../src/lib/tracker-model/constants/Statuses';
-import { TaskFilingUtil, type TaskFiling }             from '../../src/lib/tracker-model/utils/TaskFilingUtil';
-import { TaskTransitionUtil }                          from '../../src/lib/tracker-model/utils/TaskTransitionUtil';
 import { VocabularyUtil }                              from '../../src/lib/tracker-model/utils/VocabularyUtil';
 import { LIMITS }                                      from '../../src/shared/constants/Limits';
 import type { Workspace }                              from '../platform/Workspace';
@@ -227,53 +225,12 @@ export function createProgressFile(workspace: Workspace, progress: ProgressFile)
   return createFileAtomically(workspace.progressFilePath, `${JSON.stringify(progress, null, LIMITS.JSON_INDENT)}\n`);
 }
 
-/** The counter is stored and never wound back, so `task remove` and `clear` cannot hand a live row's id to a new one. */
-function takeNextTaskId(progress: ProgressFile): number {
-  const highestExistingId = progress.tasks.reduce((highest, task) => Math.max(highest, task.id), 0);
-  const allocated         = Math.max(progress.nextTaskId, highestExistingId + 1);
-  progress.nextTaskId     = allocated + 1;
-  return allocated;
-}
-
 export function findTask(progress: ProgressFile, taskId: number): Task | undefined {
   return progress.tasks.find((task) => task.id === taskId);
-}
-
-export function addTask(progress: ProgressFile, filing: TaskFiling): Task {
-  const task = TaskFilingUtil.filedTaskOf(takeNextTaskId(progress), filing);
-  progress.tasks.push(task);
-  return task;
-}
-
-/** Linked by `reviewOf` alone: the page's nesting by name is a display fallback for older rows, never a reason to move one. */
-export function inProgressReviewRowsOf(progress: ProgressFile, ticketIds: readonly string[]): Task[] {
-  return progress.tasks.filter((task) => task.status === 'in-progress' && task.reviewOf !== undefined && ticketIds.includes(task.reviewOf));
-}
-
-/** Callers hold the record across a move, so the moved row is written into the same object; a key it keeps stays where the file stores it. */
-function replaceFieldsInPlace(task: Task, replacement: Task): void {
-  for (const key of Object.keys(task)) {
-    if (!Object.hasOwn(replacement, key)) Reflect.deleteProperty(task, key);
-  }
-  Object.assign(task, replacement);
-}
-
-export function transitionTask(progress: ProgressFile, taskId: number, status: TaskStatus, at: string): 'applied' | 'no-such-task' {
-  const task = findTask(progress, taskId);
-  if (task === undefined) return 'no-such-task';
-  replaceFieldsInPlace(task, TaskTransitionUtil.transitionedTaskOf(task, status, at));
-  return 'applied';
 }
 
 /** Stored oldest-first; readers sort by `at` for display, since `--at` backfills out of order. */
 export function appendLogEntry(progress: ProgressFile, at: string, text: string): void {
   const entry: LogEntry = { at, text };
   progress.log.push(entry);
-}
-
-export function removeTask(progress: ProgressFile, taskId: number): Task | undefined {
-  const index = progress.tasks.findIndex((task) => task.id === taskId);
-  if (index < 0) return undefined;
-  const [removed] = progress.tasks.splice(index, 1);
-  return removed;
 }

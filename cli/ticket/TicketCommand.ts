@@ -5,24 +5,23 @@
 import { readFileSync }            from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 
-import { requireWorkspace, type Workspace }                 from '../../lib/platform/Workspace';
-import { appendLogEntry, findTask, inProgressReviewRowsOf } from '../../lib/progress/ProgressStore';
+import { requireWorkspace, type Workspace } from '../../lib/platform/Workspace';
+import { appendLogEntry, findTask }         from '../../lib/progress/ProgressStore';
 import {
   createTicket,
   listTickets,
   readTicket,
   type MalformedTicketFile
-}                                                           from '../../lib/tickets/TicketStore';
-import { applyTicketPriority, applyTicketTransition } from '../../lib/tickets/TicketTransitions';
-import { NextLineUtil }                               from '../../lib/utils/NextLineUtil';
-import { LegacyStatusUtil }                           from '../../src/adapters/utils/LegacyStatusUtil';
-import { LogUtil }                                    from '../../src/adapters/utils/LogUtil';
-import { TicketBodyUtil }                             from '../../src/adapters/utils/TicketBodyUtil';
-import { TicketPhraseUtil }                           from '../../src/adapters/utils/TicketPhraseUtil';
-import type { AgentAssignment, ReviewBarStarted }     from '../../src/lib/tracker-model/@types/BoardChanges';
-import type { LogRecord }                             from '../../src/lib/tracker-model/@types/LogRecord';
-import type { ProgressFile }                          from '../../src/lib/tracker-model/@types/ProgressFile';
-import type { Task }                                  from '../../src/lib/tracker-model/@types/Task';
+}                                                     from '../../lib/tickets/TicketStore';
+import { NextLineUtil }                           from '../../lib/utils/NextLineUtil';
+import { LegacyStatusUtil }                       from '../../src/adapters/utils/LegacyStatusUtil';
+import { LogUtil }                                from '../../src/adapters/utils/LogUtil';
+import { TicketBodyUtil }                         from '../../src/adapters/utils/TicketBodyUtil';
+import { TicketPhraseUtil }                       from '../../src/adapters/utils/TicketPhraseUtil';
+import type { AgentAssignment, ReviewBarStarted } from '../../src/lib/tracker-model/@types/BoardChanges';
+import type { LogRecord }                         from '../../src/lib/tracker-model/@types/LogRecord';
+import type { ProgressFile }                      from '../../src/lib/tracker-model/@types/ProgressFile';
+import type { Task }                              from '../../src/lib/tracker-model/@types/Task';
 import type {
   AgentEffort,
   AgentModel,
@@ -32,19 +31,17 @@ import type {
   TicketStatus,
   TicketType
 } from '../../src/lib/tracker-model/@types/Ticket';
-import { AGENT_EFFORTS, AGENT_MODELS }                                from '../../src/lib/tracker-model/constants/AgentSettings';
-import { TICKET_STATUSES, TICKET_STATUSES_NO_AGENT_WORKS_AGAIN }      from '../../src/lib/tracker-model/constants/Statuses';
-import { TICKET_PRIORITIES, TICKET_TYPES }                            from '../../src/lib/tracker-model/constants/TicketFields';
-import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS, ticketMoveIsLegal } from '../../src/lib/tracker-model/constants/TicketMoveLegality';
-import { ConcurrencyUtil }                                            from '../../src/lib/tracker-model/utils/ConcurrencyUtil';
-import { TicketDefaultsUtil }                                         from '../../src/lib/tracker-model/utils/TicketDefaultsUtil';
-import { TicketDependencyUtil }                                       from '../../src/lib/tracker-model/utils/TicketDependencyUtil';
-import { TicketIdUtil }                                               from '../../src/lib/tracker-model/utils/TicketIdUtil';
-import { VocabularyUtil }                                             from '../../src/lib/tracker-model/utils/VocabularyUtil';
-import { OperationRefusal }                                           from '../../src/shared/OperationRefusal';
-import { LIMITS }                                                     from '../../src/shared/constants/Limits';
-import { VERB_FOR_STATUS }                                            from '../../src/shared/constants/StatusVerbs';
-import type { CommandContext }                                        from '../CommandContext';
+import { AGENT_EFFORTS, AGENT_MODELS }                           from '../../src/lib/tracker-model/constants/AgentSettings';
+import { TICKET_STATUSES, TICKET_STATUSES_NO_AGENT_WORKS_AGAIN } from '../../src/lib/tracker-model/constants/Statuses';
+import { TICKET_PRIORITIES, TICKET_TYPES }                       from '../../src/lib/tracker-model/constants/TicketFields';
+import { TicketDefaultsUtil }                                    from '../../src/lib/tracker-model/utils/TicketDefaultsUtil';
+import { TicketDependencyUtil }                                  from '../../src/lib/tracker-model/utils/TicketDependencyUtil';
+import { TicketIdUtil }                                          from '../../src/lib/tracker-model/utils/TicketIdUtil';
+import { VocabularyUtil }                                        from '../../src/lib/tracker-model/utils/VocabularyUtil';
+import { OperationRefusal }                                      from '../../src/shared/OperationRefusal';
+import { LIMITS }                                                from '../../src/shared/constants/Limits';
+import { VERB_FOR_STATUS }                                       from '../../src/shared/constants/StatusVerbs';
+import type { CommandContext }                                   from '../CommandContext';
 import {
   ignoredTicketFileText,
   openTrackerForWriting,
@@ -52,7 +49,6 @@ import {
   padColumn,
   printEntity,
   printEntityThenNextLine,
-  progressOperations,
   reportIgnoredTicketFiles,
   ticketDocumentOf,
   tokenCountFrom,
@@ -244,13 +240,6 @@ function resolvedAgentPairOf(ticket: { model?: AgentModel; effort?: AgentEffort 
 function namedAgentText(ticket: { model?: AgentModel; effort?: AgentEffort }): string {
   const named = [ticket.model, ticket.effort === undefined ? undefined : `${ticket.effort} effort`].filter((part) => part !== undefined);
   return named.length === 0 ? '' : `  [${named.join(', ')}]`;
-}
-
-function lowTicketHeldBackText(ticket: Ticket, tickets: readonly Ticket[]): string | null {
-  if (TicketDefaultsUtil.ticketPriorityOf(ticket.frontmatter) !== 'low') return null;
-  const holdingBack = TicketDependencyUtil.ticketsHoldingBackLowPriorityWork(tickets.map((candidate) => candidate.frontmatter));
-  if (holdingBack.length === 0) return null;
-  return TicketPhraseUtil.lowPriorityHeldBackText(ticket.frontmatter.id, holdingBack);
 }
 
 function reviewBarRequestFrom(commandArguments: ArgumentParser, subcommand: string): AgentAssignment | null {
@@ -524,100 +513,21 @@ async function rereviewOneTicket(
   printEntityThenNextLine(commandArguments, context, ticketWithReviewBarAsJson(rereview.ticket, startedReviewBar), humanText, nextLine);
 }
 
-/** A dependency on another ticket in the same claim is settled: one agent works a bundle in dependency order. */
-function refuseAnUnclaimableTicket(ticket: Ticket, tickets: readonly Ticket[], claimedIdentifiers: readonly string[]): void {
-  const { id, status } = ticket.frontmatter;
-  if (!ticketMoveIsLegal(status, 'in-progress')) {
-    const legalSources = LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS['in-progress'].join(' or ');
-    throw new OperationRefusal('refused', `Ticket #${id} is ${status}, and \`agent-progress ticket claim\` takes a ticket that is ${legalSources}. Nothing was written.`);
-  }
-  const unsettled = unsettledDependenciesFor(ticket, tickets).filter((dependency) => !claimedIdentifiers.includes(dependency));
-  if (unsettled.length > 0) {
-    throw new OperationRefusal(
-      'refused',
-      `Ticket #${id} is ${TicketPhraseUtil.waitingOnText(unsettled)}, which must be reviewed or delivered before it is claimed. Nothing was written.`,
-    );
-  }
-  if (ticket.frontmatter.hold !== undefined) {
-    throw new OperationRefusal('refused', `Ticket #${id} is held, so it is not claimed. Nothing was written; \`agent-progress ticket unhold ${id}\` lets it be claimed.`);
-  }
-  const lowHeldBack = lowTicketHeldBackText(ticket, tickets);
-  if (lowHeldBack !== null) {
-    throw new OperationRefusal('refused', `${lowHeldBack}, so it is not claimed. Nothing was written; \`agent-progress ticket start ${id}\` starts it regardless.`);
-  }
-}
-
-// An in-progress review bar is a reviewer at work, so a builder claiming the ticket, a second dispatcher run's among them, would rebuild it under review.
-function refuseATicketUnderReview(progress: ProgressFile, ticketId: string): void {
-  const [inProgressBar] = inProgressReviewRowsOf(progress, [ticketId]);
-  if (inProgressBar === undefined) return;
-  throw new OperationRefusal('refused', `Ticket #${ticketId} is under review: its review row #${inProgressBar.id} is in progress. Nothing was written.`);
-}
-
-/** `1 agent is`, `2 agents are`: the count, its noun and the verb agreeing with it. */
-function countedText(count: number, singularNoun: string): string {
-  return count === 1 ? `1 ${singularNoun} is` : `${count} ${singularNoun}s are`;
-}
-
-/** Several references to one ticket (`3`, `003`, `#3`) claim it once. */
-function distinctTicketsOf(references: readonly string[], change: TrackerChange): Ticket[] {
-  const claimedTickets = new Map<string, Ticket>();
-  for (const reference of references) {
-    const ticket = requireTicket(change, reference);
-    if (!claimedTickets.has(ticket.frontmatter.id)) claimedTickets.set(ticket.frontmatter.id, ticket);
-  }
-  return [...claimedTickets.values()].sort((a, b) => a.frontmatter.id.localeCompare(b.frontmatter.id));
-}
-
-/**
- * `ticket start` plus the row's owner and note for every ticket named, as one agent, refused rather than warned: every check and every move
- * share one lock hold, so the claim is all or nothing and two claims racing for the last slot cannot both pass the count.
- */
+/** Every reference is resolved before the claim is judged, so the first naming no ticket is refused; `3`, `003` and `#3` claim one ticket once. */
 async function claimTickets(references: readonly string[], commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   const owner = commandArguments.option('owner');
   const note  = commandArguments.option('note');
 
   const { result: claimed, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
-    const claimedTickets = distinctTicketsOf(references, change);
-    const identifiers    = claimedTickets.map((ticket) => ticket.frontmatter.id);
-    const { tickets }    = listTickets(change.workspace);
-    for (const ticket of claimedTickets) refuseAnUnclaimableTicket(ticket, tickets, identifiers);
-    for (const identifier of identifiers) refuseATicketUnderReview(change.progress, identifier);
-
-    const { agentsInFlight, limit } = ConcurrencyUtil.concurrencyOf(change.progress.tasks, change.progress.concurrencyLimit);
-    if (agentsInFlight >= limit) {
-      const inProgressRowCount = change.progress.tasks.filter((task) => task.status === 'in-progress').length;
-      throw new OperationRefusal(
-        'refused',
-        `${TicketPhraseUtil.namedTicketsText(identifiers)} ${identifiers.length === 1 ? 'was' : 'were'} not claimed: ${countedText(agentsInFlight, 'agent')} in flight `
-        + `(${countedText(inProgressRowCount, 'row')} in progress) and the concurrency limit is ${limit} ${limit === 1 ? 'agent' : 'agents'}. `
-        + 'Nothing was written; claim once an agent has finished.',
-      );
-    }
-
-    // Every id, not the lowest alone: a bundle ticket reopened and claimed on its own must not share a key with the rest still running.
-    const agentKey = identifiers.join(',');
-    const moved: Ticket[] = [];
-    for (const ticket of claimedTickets) {
-      const outcome = applyTicketTransition({
-        progress:     change.progress,
-        ticket,
-        targetStatus: 'in-progress',
-        at:           change.at,
-        operations:   progressOperations,
-      });
-      if (outcome.verdict === 'refused') throw new OperationRefusal('refused', `Ticket #${ticket.frontmatter.id} was not claimed: ${outcome.reason}. Nothing was written.`);
-      const row = outcome.ticket.frontmatter.task === null ? undefined : findTask(change.progress, outcome.ticket.frontmatter.task);
-      if (row !== undefined) row.agent = agentKey;
-      if (row !== undefined && owner !== undefined) row.owner = owner;
-      if (row !== undefined && note !== undefined) row.note = note;
-      change.writeTicketAfterwards(outcome.ticket);
-      moved.push(outcome.ticket);
-    }
-    return { identifiers, tickets: moved, concurrency: ConcurrencyUtil.concurrencyOf(change.progress.tasks, change.progress.concurrencyLimit) };
+    const ticketIds = references.map((reference) => requireTicket(change, reference).frontmatter.id);
+    return change.board.claimTickets(ticketIds, {
+      ...(owner === undefined ? {} : { owner }),
+      ...(note === undefined ? {} : { note }),
+    }, change.at);
   });
 
-  const { concurrency, identifiers, tickets } = claimed;
+  const { concurrency, tickets } = claimed;
+  const identifiers  = tickets.map((ticket) => ticket.frontmatter.id);
   const [onlyTicket] = tickets;
   const slotsText    = `${concurrency.agentsInFlight} of ${concurrency.limit} slots are now taken.`;
   if (tickets.length === 1 && onlyTicket !== undefined) {
@@ -710,24 +620,14 @@ async function setTicketPriority(commandArguments: ArgumentParser, context: Comm
   }
   const priority = requirePriority(writtenPriority);
 
-  const { result: changed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
-    const ticket  = requireTicket(change, reference);
-    const outcome = applyTicketPriority({
-      progress:   change.progress,
-      ticket,
-      priority,
-      at:         change.at,
-      operations: progressOperations,
-    });
-    if (outcome.verdict === 'refused') {
-      const { id, status } = ticket.frontmatter;
-      throw new OperationRefusal('refused', `Ticket #${id} is ${status}, and its priority was not changed: ${outcome.reason}. Nothing was written.`);
-    }
-    change.writeTicketAfterwards(outcome.ticket);
-    return { logText: outcome.logText, ticket: outcome.ticket };
-  });
+  const { result: changed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(
+    commandArguments,
+    context,
+    (change) => change.board.setTicketPriority(requireTicket(change, reference).frontmatter.id, priority, change.at),
+  );
 
-  printEntityThenNextLine(commandArguments, context, ticketAsJson(changed.ticket), changed.logText, NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState));
+  const closingLines = NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState);
+  printEntityThenNextLine(commandArguments, context, ticketAsJson(changed.ticket), sentencesOf(changed.logged), closingLines);
 }
 
 /** A changed pair is judged on the resolved values, so naming the default a ticket already runs on is refused as no change. */

@@ -1,23 +1,22 @@
 /**
- * The store's concerns: what it refuses to believe, that a task id is never handed out twice, and that a move lands in the record
- * a caller holds. What a move and a filing do to a row is pinned against the tracker model's own utils.
+ * The store's concerns: what it refuses to believe, and that what it writes reads back as it was written. What a move and a filing do
+ * to a row, and that a task id is never handed out twice, are pinned against the tracker model's utils and the Board.
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { afterAll, expect, test }                 from 'bun:test';
 
 import type { ProgressFile }                              from '../../src/lib/tracker-model/@types/ProgressFile';
+import type { Task }                                      from '../../src/lib/tracker-model/@types/Task';
 import { ConcurrencyUtil }                                from '../../src/lib/tracker-model/utils/ConcurrencyUtil';
+import { TaskFilingUtil, type TaskFiling }                from '../../src/lib/tracker-model/utils/TaskFilingUtil';
 import { createScratchDirectory, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
 import { workspacePathsFor }                              from '../platform/Workspace';
 import type { Workspace }                                 from '../platform/Workspace';
 import {
-  addTask,
   appendLogEntry,
   createEmptyProgressFile,
   findTask,
   readProgressFile,
-  removeTask,
-  transitionTask,
   writeProgressFile
 } from './ProgressStore';
 
@@ -41,6 +40,14 @@ function scratchWorkspace(prefix: string): Workspace {
 
 function emptyProgress(): ProgressFile {
   return createEmptyProgressFile({ project: 'Example Agency', startedAt: FILED_AT, trackerId: 'example-tracker-id' });
+}
+
+/** Files a row the way the Board does, so a document read back holds exactly what a command would have written. */
+function fileRow(progress: ProgressFile, filing: TaskFiling): Task {
+  const task          = TaskFilingUtil.filedTaskOf(progress.nextTaskId, filing);
+  progress.nextTaskId = task.id + 1;
+  progress.tasks.push(task);
+  return task;
 }
 
 function readBack(prefix: string, document: unknown): ReturnType<typeof readProgressFile> {
@@ -69,7 +76,7 @@ test('a tracker that has never been initialised is absent, not unreadable', () =
 test('a written tracker reads back exactly as it was written', () => {
   const workspace = scratchWorkspace('store-round-trip');
   const progress = emptyProgress();
-  addTask(progress, { name: 'Review pass', owner: 'Alex Example', note: 'second reading' });
+  fileRow(progress, { name: 'Review pass', owner: 'Alex Example', note: 'second reading' });
   appendLogEntry(progress, FILED_AT, 'Session started');
   writeProgressFile(workspace, progress);
 
@@ -116,10 +123,10 @@ test('a concurrency limit that is not a whole number of at least 1 makes the fil
 });
 
 // Every review row filed before the field existed has none; the page falls back to its name, and a read must not add the field.
-test('a row without reviewOf reads unchanged, and addTask writes the field only when it is given one', () => {
+test('a row without reviewOf reads unchanged, and filedTaskOf writes the field only when it is given one', () => {
   const progress = emptyProgress();
-  const plain    = addTask(progress, { name: 'Review 1 #3 — x' });
-  const linked   = addTask(progress, { name: 'Review 2 #3 — x', reviewOf: '003' });
+  const plain    = fileRow(progress, { name: 'Review 1 #3 — x' });
+  const linked   = fileRow(progress, { name: 'Review 2 #3 — x', reviewOf: '003' });
   expect('reviewOf' in plain).toBe(false);
   expect(linked.reviewOf).toBe('003');
 
@@ -129,7 +136,7 @@ test('a row without reviewOf reads unchanged, and addTask writes the field only 
 
 test('a task whose status this build does not know makes the whole file unreadable, and the reason names the task and the status', () => {
   const progress = emptyProgress();
-  addTask(progress, { name: 'Review pass' });
+  fileRow(progress, { name: 'Review pass' });
   const document = { ...progress, tasks: [{ ...progress.tasks[0], status: 'blocked' }] };
   const result = readBack('store-unknown-status', document);
   expect(result.verdict).toBe('unreadable');
@@ -141,7 +148,7 @@ test('a task whose status this build does not know makes the whole file unreadab
 
 test('every other missing or mistyped field is named too', () => {
   const progress = emptyProgress();
-  addTask(progress, { name: 'Review pass' });
+  fileRow(progress, { name: 'Review pass' });
   const cases: Array<{ prefix: string; document: unknown; named: string }> = [
     { prefix: 'store-not-an-object', document: [1, 2, 3], named: 'JSON object' },
     { prefix: 'store-no-tracker-id', document: { ...progress, trackerId: 17 }, named: 'trackerId' },
@@ -204,53 +211,23 @@ test('an absolute view range with its fields intact is accepted, because that is
   expect(readBack('store-relative-view', relative).verdict).toBe('readable');
 });
 
-test('ids start at one and the counter moves past every id it hands out', () => {
-  const progress = emptyProgress();
-  expect(addTask(progress, { name: 'Plan the work' }).id).toBe(1);
-  expect(addTask(progress, { name: 'Review pass' }).id).toBe(2);
-  expect(progress.nextTaskId).toBe(3);
-});
-
-test('an id is never reused after the row that had it is removed', () => {
-  const progress = emptyProgress();
-  addTask(progress, { name: 'Plan the work' });
-  const second = addTask(progress, { name: 'Review pass' });
-  removeTask(progress, second.id);
-  expect(addTask(progress, { name: 'A third thing' }).id).toBe(3);
-});
-
-test('an id is never reused after the rows are thrown away, which is what clear does', () => {
-  const progress = emptyProgress();
-  addTask(progress, { name: 'Plan the work' });
-  addTask(progress, { name: 'Review pass' });
-  progress.tasks.length = 0;
-  expect(addTask(progress, { name: 'Re-seeded from a ticket' }).id).toBe(3);
-});
-
-test('a hand-renumbered row cannot be handed its own id by the next allocation', () => {
-  const progress = emptyProgress();
-  const onlyRow = addTask(progress, { name: 'Plan the work' });
-  onlyRow.id = 40;
-  expect(addTask(progress, { name: 'Review pass' }).id).toBe(41);
-});
-
 test('a task is found by id, and a missing one is undefined rather than an exception', () => {
   const progress = emptyProgress();
-  addTask(progress, { name: 'Review pass' });
+  fileRow(progress, { name: 'Review pass' });
   expect(findTask(progress, 1)?.name).toBe('Review pass');
   expect(findTask(progress, 99)).toBeUndefined();
 });
 
 test('a round of two or more is read back, because that is a row someone deliberately sent round again', () => {
   const progress = emptyProgress();
-  addTask(progress, { name: 'Review pass' });
+  fileRow(progress, { name: 'Review pass' });
   const document = { ...progress, tasks: [{ ...progress.tasks[0], reviewRound: 3 }] };
   expect(readBack('store-third-round', document).verdict).toBe('readable');
 });
 
 test('a history of known statuses with their stamps is read back', () => {
   const progress = emptyProgress();
-  addTask(progress, { name: 'Review pass' });
+  fileRow(progress, { name: 'Review pass' });
   const document = { ...progress, tasks: [{ ...progress.tasks[0], history: [{ status: 'in-progress', at: STARTED_AT }] }] };
   expect(readBack('store-history-readable', document).verdict).toBe('readable');
 });
@@ -258,8 +235,8 @@ test('a history of known statuses with their stamps is read back', () => {
 /** A file written before the task statuses were renamed: these inputs keep the retired words on purpose. */
 function documentInRetiredWords(): ProgressFile {
   const progress = emptyProgress();
-  addTask(progress, { name: 'Example build' });
-  addTask(progress, { name: 'Example review' });
+  fileRow(progress, { name: 'Example build' });
+  fileRow(progress, { name: 'Example review' });
   const [building, reviewing] = progress.tasks;
   return {
     ...progress,
@@ -303,7 +280,7 @@ test('the next write of a file read in the retired words stores the new ones', (
 // Only the two retired task words map: a ticket's retired word on a row is as unknown as any other, in the row and in its history.
 test('a status that is neither current nor a retired task word still makes the file unreadable, naming the field', () => {
   const progress = emptyProgress();
-  addTask(progress, { name: 'Review pass' });
+  fileRow(progress, { name: 'Review pass' });
   const unknownRowStatus = readBack('store-retired-ticket-word', { ...progress, tasks: [{ ...progress.tasks[0], status: 'open' }] });
   expect(unknownRowStatus.verdict).toBe('unreadable');
   expect(unknownRowStatus.verdict === 'unreadable' ? unknownRowStatus.reason : '').toContain('tasks[0].status');
@@ -311,26 +288,6 @@ test('a status that is neither current nor a retired task word still makes the f
   const unknownPhase = readBack('store-retired-ticket-word-phase', { ...progress, tasks: [{ ...progress.tasks[0], history: [{ status: 'done', at: STARTED_AT }] }] });
   expect(unknownPhase.verdict).toBe('unreadable');
   expect(unknownPhase.verdict === 'unreadable' ? unknownPhase.reason : '').toContain('tasks[0].history');
-});
-
-// Callers hold the row across a move and read or annotate it afterwards, so the move must land in that same record, its keys where they were.
-test('a transition moves the row the caller holds, keeping its keys where the file stores them', () => {
-  const progress = emptyProgress();
-  const held     = addTask(progress, { name: 'Bundle part', filedAt: FILED_AT });
-  held.agent     = '003,004';
-
-  expect(transitionTask(progress, held.id, 'in-review', FINISHED_AT)).toBe('applied');
-  expect(progress.tasks[0]).toBe(held);
-  expect(held.status).toBe('in-review');
-  expect(Object.keys(held)).toEqual(['id', 'name', 'status', 'start', 'end', 'owner', 'note', 'ticket', 'tokens', 'history', 'agent']);
-
-  transitionTask(progress, held.id, 'in-progress', STARTED_AT);
-  expect(held.agent, 'a restart drops the key from the held record itself').toBeUndefined();
-  expect('agent' in held).toBe(false);
-});
-
-test('a transition on a task that is not there says so instead of throwing', () => {
-  expect(transitionTask(emptyProgress(), 99, 'in-progress', STARTED_AT)).toBe('no-such-task');
 });
 
 test('log entries are appended in order, oldest first', () => {
@@ -342,17 +299,4 @@ test('log entries are appended in order, oldest first', () => {
     'Ticket #003 started',
   ]);
   expect(progress.log[0]?.at).toBe(FILED_AT);
-});
-
-test('removing a task hands the row back, so the caller can find the ticket that owned it', () => {
-  const progress = emptyProgress();
-  addTask(progress, { name: 'Plan the work' });
-  const linked = addTask(progress, { name: 'Double-click a role to edit it', ticket: '003' });
-  const removed = removeTask(progress, linked.id);
-  expect(removed?.ticket).toBe('003');
-  expect(progress.tasks.map((task) => task.name)).toEqual(['Plan the work']);
-});
-
-test('removing a task that is not there is undefined rather than an exception', () => {
-  expect(removeTask(emptyProgress(), 99)).toBeUndefined();
 });

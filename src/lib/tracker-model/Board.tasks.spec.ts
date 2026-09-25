@@ -56,6 +56,36 @@ describe('task ids', () => {
     expect(board.addTask({ name: 'Example next task', startsNow: false, movesTheLink: false }, FILED_AT).id).toBe(10);
     expect(progress.nextTaskId).toBe(11);
   });
+
+  test('ids start at one and the counter moves past every id it hands out', () => {
+    const { board, progress } = boardFixture();
+    expect(board.addTask({ name: 'Plan the work', startsNow: false, movesTheLink: false }, FILED_AT).id).toBe(1);
+    expect(board.addTask({ name: 'Review pass', startsNow: false, movesTheLink: false }, FILED_AT).id).toBe(2);
+    expect(progress.nextTaskId).toBe(3);
+  });
+
+  test('an id is never reused after the row that had it is removed', () => {
+    const { board } = boardFixture();
+    board.addTask({ name: 'Plan the work', startsNow: false, movesTheLink: false }, FILED_AT);
+    const second = board.addTask({ name: 'Review pass', startsNow: false, movesTheLink: false }, FILED_AT);
+    board.removeTask(second.id);
+    expect(board.addTask({ name: 'A third thing', startsNow: false, movesTheLink: false }, FILED_AT).id).toBe(3);
+  });
+
+  test('an id is never reused after the rows are thrown away, which is what clear does', () => {
+    const { board } = boardFixture();
+    board.addTask({ name: 'Plan the work', startsNow: false, movesTheLink: false }, FILED_AT);
+    board.addTask({ name: 'Review pass', startsNow: false, movesTheLink: false }, FILED_AT);
+    board.clearTracker({ ticketsSurvive: true }, MOVED_AT);
+    expect(board.addTask({ name: 'Re-seeded from a ticket', startsNow: false, movesTheLink: false }, MOVED_AT).id).toBe(3);
+  });
+
+  test('a hand-renumbered row cannot be handed its own id by the next allocation', () => {
+    const { board, progress } = boardFixture();
+    board.addTask({ name: 'Plan the work', startsNow: false, movesTheLink: false }, FILED_AT);
+    for (const onlyRow of progress.tasks) onlyRow.id = 40;
+    expect(board.addTask({ name: 'Review pass', startsNow: false, movesTheLink: false }, FILED_AT).id).toBe(41);
+  });
 });
 
 describe('addTask', () => {
@@ -203,6 +233,26 @@ describe('moveTask and correctTask', () => {
     expect(held).toBe(moved);
     expect(moved.start).toBe(MOVED_AT);
     expect(moved.history).toEqual([{ status: 'in-progress', at: MOVED_AT }]);
+  });
+
+  // Callers hold the row across a move and read or annotate it afterwards, so the move must land in that same record, its keys where they were.
+  test('a transition moves the row the caller holds, keeping its keys where the file stores them', () => {
+    const held = taskFixture({
+      id:      1,
+      name:    'Bundle part',
+      history: [{ status: 'pending', at: FILED_AT }],
+      agent:   '003,004',
+    });
+    const { board, progress } = boardFixture({ tasks: [held] });
+
+    board.moveTask(1, 'in-review', { movesAnyway: false }, MOVED_AT);
+    expect(progress.tasks[0]).toBe(held);
+    expect(held.status).toBe('in-review');
+    expect(Object.keys(held)).toEqual(['id', 'name', 'status', 'start', 'end', 'owner', 'note', 'ticket', 'tokens', 'history', 'agent']);
+
+    board.moveTask(1, 'in-progress', { movesAnyway: false }, MOVED_AT);
+    expect(held.agent, 'a restart drops the key from the held record itself').toBeUndefined();
+    expect('agent' in held).toBe(false);
   });
 
   test('a correction sets the name and the bare status, and moves no stamp and files no phase', () => {

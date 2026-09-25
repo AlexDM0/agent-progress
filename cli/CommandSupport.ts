@@ -3,28 +3,21 @@
  * tickets into a Board, mutate, write the progress file, write the queued tickets and the tickets the Board changed, render through
  * `lib/render/Rerender.ts` — all inside the lock, in that order, so no older render lands last and the progress file is never behind the tickets.
  */
-import { withLock }                         from '../lib/platform/Lock';
-import { requireWorkspace, type Workspace } from '../lib/platform/Workspace';
+import { withLock }                                               from '../lib/platform/Lock';
+import { requireWorkspace, type Workspace }                       from '../lib/platform/Workspace';
+import { dispatcherStateOf, readProgressFile, writeProgressFile } from '../lib/progress/ProgressStore';
+import { rerenderDashboard, type RerenderOutcome }                from '../lib/render/Rerender';
 import {
-  addTask,
-  appendLogEntry,
-  dispatcherStateOf,
-  findTask,
-  inProgressReviewRowsOf,
-  readProgressFile,
-  removeTask,
-  transitionTask,
-  writeProgressFile
-}                                               from '../lib/progress/ProgressStore';
-import { rerenderDashboard, type RerenderOutcome }            from '../lib/render/Rerender';
-import { listTickets, writeTicket, type MalformedTicketFile } from '../lib/tickets/TicketStore';
-import type { PriorityOperations }                            from '../lib/tickets/TicketTransitions';
-import { NextLineUtil }                                       from '../lib/utils/NextLineUtil';
-import { createProgressLogSink }                              from '../src/adapters/ProgressLogSink';
-import { BoardRefusalWordingUtil }                            from '../src/adapters/utils/BoardRefusalWordingUtil';
-import type { Concurrency }                                   from '../src/lib/tracker-model/@types/Concurrency';
-import type { DispatcherState, ProgressFile }                 from '../src/lib/tracker-model/@types/ProgressFile';
-import type { Task }                                          from '../src/lib/tracker-model/@types/Task';
+  deleteAllTickets,
+  listTickets,
+  writeTicket,
+  type MalformedTicketFile
+}                                             from '../lib/tickets/TicketStore';
+import { NextLineUtil }                       from '../lib/utils/NextLineUtil';
+import { createProgressLogSink }              from '../src/adapters/ProgressLogSink';
+import { BoardRefusalWordingUtil }            from '../src/adapters/utils/BoardRefusalWordingUtil';
+import type { Concurrency }                   from '../src/lib/tracker-model/@types/Concurrency';
+import type { DispatcherState, ProgressFile } from '../src/lib/tracker-model/@types/ProgressFile';
 import type {
   AgentEffort,
   AgentModel,
@@ -45,25 +38,17 @@ import { LIMITS }                               from '../src/shared/constants/Li
 import type { CommandContext }                  from './CommandContext';
 import type { ArgumentParser }                  from './arguments/ArgumentParser';
 
-export const progressOperations: PriorityOperations = {
-  addTask,
-  appendLogEntry,
-  findTask,
-  removeTask,
-  transitionTask,
-};
-
 export interface TrackerChange {
-  board:                   Board;
-  progress:                ProgressFile;
-  workspace:               Workspace;
-  at:                      string;
-  malformedTickets:        readonly MalformedTicketFile[];
+  board:                          Board;
+  progress:                       ProgressFile;
+  workspace:                      Workspace;
+  at:                             string;
+  malformedTickets:               readonly MalformedTicketFile[];
   /** How many entries the log held when it was read, before anything this invocation logged. */
-  storedLogEntryCount:     number;
-  writeTicketAfterwards:   (ticket: Ticket) => void;
-  /** For a change to the tickets directory other than a write, run after the progress file and the queued tickets and before the render. */
-  changeTicketsAfterwards: (step: () => void) => void;
+  storedLogEntryCount:            number;
+  writeTicketAfterwards:          (ticket: Ticket) => void;
+  /** `clear --all`: after the progress file and the changed tickets, before the render; the callback gets the deleted file count. */
+  deleteAllTicketFilesAfterwards: (onDeleted: (deletedTicketCount: number) => void) => void;
 }
 
 /** An unreadable `--at` is refused rather than defaulted to now, which would stamp a bar nobody can explain. */
@@ -125,17 +110,6 @@ export function ignoredTicketFileText(malformed: { filePath: string; line: numbe
 
 export function reportIgnoredTicketFiles(context: CommandContext, malformedTickets: readonly { filePath: string; line: number; reason: string }[]): void {
   for (const malformed of malformedTickets) context.standardError(ignoredTicketFileText(malformed));
-}
-
-/** Finishes and delivers every in-progress review row of the tickets, with one log line each, for every move that ends their review. */
-export function closeInProgressReviewRows(progress: ProgressFile, ticketIds: readonly string[], at: string): Task[] {
-  const closedRows = inProgressReviewRowsOf(progress, ticketIds);
-  for (const inProgressRow of closedRows) {
-    transitionTask(progress, inProgressRow.id, 'in-review', at);
-    transitionTask(progress, inProgressRow.id, 'delivered', at);
-    appendLogEntry(progress, at, `Closed the review row #${inProgressRow.id}, delivered: ${inProgressRow.name}`);
-  }
-  return closedRows;
 }
 
 export function printEntity(commandArguments: ArgumentParser, context: CommandContext, entity: unknown, humanLine: string): void {
@@ -267,16 +241,16 @@ async function writeTrackerUnderLock<MutationResult, Reading>(
     const board               = new Board({ progress, tickets: listing.tickets, logger: createLogger(createProgressLogSink(progress.log)) });
 
     const ticketsToWrite: Ticket[] = [];
-    const ticketStepsToRun: (() => void)[] = [];
+    const deletionCallbacks: ((deletedTicketCount: number) => void)[] = [];
     const result = await mutateRefusingInWords(mutate, {
       at,
       board,
       progress,
       workspace,
-      malformedTickets:        listing.malformed,
+      malformedTickets:               listing.malformed,
       storedLogEntryCount,
-      writeTicketAfterwards:   (ticket: Ticket) => { ticketsToWrite.push(ticket); },
-      changeTicketsAfterwards: (step: () => void) => { ticketStepsToRun.push(step); },
+      writeTicketAfterwards:          (ticket: Ticket) => { ticketsToWrite.push(ticket); },
+      deleteAllTicketFilesAfterwards: (onDeleted) => { deletionCallbacks.push(onDeleted); },
     });
 
     writeProgressFile(workspace, progress);
@@ -285,7 +259,7 @@ async function writeTrackerUnderLock<MutationResult, Reading>(
     for (const ticket of board.changedTickets()) {
       if (!queuedTicketFilePaths.has(ticket.filePath)) writeTicket(ticket);
     }
-    for (const ticketStep of ticketStepsToRun) ticketStep();
+    for (const onDeleted of deletionCallbacks) onDeleted(deleteAllTickets(workspace));
     const reading = readAfterWriting(workspace, progress);
     await renderDashboard(context, workspace);
     return { result, reading };
