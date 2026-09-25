@@ -8,14 +8,16 @@ import type {
   ProgressFile,
   ViewRange
 } from '../../src/lib/tracker-model/@types/ProgressFile';
-import type { Task, TaskPhase, TaskStatus }                            from '../../src/lib/tracker-model/@types/Task';
-import { CONCURRENCY_LIMIT_CEILING_AGENTS, DEFAULT_CONCURRENCY_LIMIT } from '../../src/lib/tracker-model/constants/ConcurrencyLimits';
-import { DEFAULT_DISPATCHER_STATE, DISPATCHER_STATES }                 from '../../src/lib/tracker-model/constants/DispatcherStates';
-import { FIRST_REPEAT_REVIEW_ROUND }                                   from '../../src/lib/tracker-model/constants/ReviewRounds';
-import { TASK_STATUSES }                                               from '../../src/lib/tracker-model/constants/Statuses';
-import { VocabularyUtil }                                              from '../../src/lib/tracker-model/utils/VocabularyUtil';
-import { LIMITS }                                                      from '../../src/shared/constants/Limits';
-import type { Workspace }                                              from '../platform/Workspace';
+import type { Task, TaskPhase, TaskStatus }            from '../../src/lib/tracker-model/@types/Task';
+import { DEFAULT_CONCURRENCY_LIMIT }                   from '../../src/lib/tracker-model/constants/ConcurrencyLimits';
+import { DEFAULT_DISPATCHER_STATE, DISPATCHER_STATES } from '../../src/lib/tracker-model/constants/DispatcherStates';
+import { FIRST_REPEAT_REVIEW_ROUND }                   from '../../src/lib/tracker-model/constants/ReviewRounds';
+import { TASK_STATUSES }                               from '../../src/lib/tracker-model/constants/Statuses';
+import { TaskFilingUtil, type TaskFiling }             from '../../src/lib/tracker-model/utils/TaskFilingUtil';
+import { TaskTransitionUtil }                          from '../../src/lib/tracker-model/utils/TaskTransitionUtil';
+import { VocabularyUtil }                              from '../../src/lib/tracker-model/utils/VocabularyUtil';
+import { LIMITS }                                      from '../../src/shared/constants/Limits';
+import type { Workspace }                              from '../platform/Workspace';
 
 /** Checked by equality: a future format is refused rather than half-read. */
 const SUPPORTED_PROGRESS_VERSION = 1;
@@ -24,29 +26,10 @@ const FIRST_TASK_ID = 1;
 
 const LOWEST_CONCURRENCY_LIMIT = 1;
 
-/** The statuses whose moment is the row's `end` rather than its `start`, which is what a seeded phase is stamped at. */
-const TASK_STATUSES_THAT_CLOSE_THE_BAR: readonly TaskStatus[] = ['in-review', 're-review', 'reviewed', 'delivered', 'abandoned'];
-
 export type ReadProgressFileResult =
   | { verdict: 'readable'; progress: ProgressFile }
   | { verdict: 'absent' }
   | { verdict: 'unreadable'; reason: string };
-
-export interface AddTaskInput {
-  name:         string;
-  owner?:       string;
-  note?:        string;
-  ticket?:      string | null;
-  status?:      TaskStatus;
-  start?:       string | null;
-  end?:         string | null;
-  tokens?:      number | null;
-  reviewed?:    string;
-  reviewRound?: number;
-  reviewOf?:    string;
-  /** When the row was filed. It is the stamp a `pending` row's first phase carries, and the only way the queue interval is ever measurable. */
-  filedAt?:     string;
-}
 
 /** `trackerId` comes from the caller: this module has no randomness, and `clear` has to keep the existing id. */
 export function createEmptyProgressFile(input: { project: string; startedAt: string; trackerId: string }): ProgressFile {
@@ -78,27 +61,6 @@ export function dispatcherStateOf(progress: ProgressFile): DispatcherState {
 
 export function dispatcherRunIdIsWellFormed(value: unknown): value is string {
   return typeof value === 'string' && value.trim() !== '';
-}
-
-export interface Concurrency {
-  limit:          number;
-  /** The in-progress rows grouped by their `agent` key, each group counted once; one with no key, such as a review bar, is an agent of its own. */
-  agentsInFlight: number;
-  /** Never negative: a limit lowered below the agents already in flight leaves no slot, and takes none of them back. */
-  freeSlots:      number;
-}
-
-function agentsInFlightOf(tasks: readonly Task[]): number {
-  const inProgressTasks   = tasks.filter((task) => task.status === 'in-progress');
-  const claimedAgentKeys  = new Set(inProgressTasks.flatMap((task) => (task.agent === undefined ? [] : [task.agent])));
-  const unclaimedRowCount = inProgressTasks.filter((task) => task.agent === undefined).length;
-  return claimedAgentKeys.size + unclaimedRowCount;
-}
-
-export function concurrencyOf(progress: ProgressFile): Concurrency {
-  const limit          = Math.min(progress.concurrencyLimit ?? DEFAULT_CONCURRENCY_LIMIT, CONCURRENCY_LIMIT_CEILING_AGENTS);
-  const agentsInFlight = agentsInFlightOf(progress.tasks);
-  return { limit, agentsInFlight, freeSlots: Math.max(0, limit - agentsInFlight) };
 }
 
 function textFieldIsPresent(candidate: Record<string, unknown>, field: string): boolean {
@@ -277,36 +239,8 @@ export function findTask(progress: ProgressFile, taskId: number): Task | undefin
   return progress.tasks.find((task) => task.id === taskId);
 }
 
-/**
- * The stamp follows the status: a phase that opens the row's interval is stamped where it opens, a terminal one where it closes, and a
- * `pending` row is stamped where it was filed. A caller that supplied no stamp at all leaves the row with nothing to record.
- */
-function seededHistoryFor(input: AddTaskInput): TaskPhase[] | null {
-  const status = input.status ?? 'pending';
-  if (status === 'pending') {
-    return input.filedAt === undefined ? null : [{ status, at: input.filedAt }];
-  }
-  const reachedAt = TASK_STATUSES_THAT_CLOSE_THE_BAR.includes(status) ? input.end ?? input.start : input.start ?? input.end;
-  return reachedAt === undefined || reachedAt === null ? null : [{ status, at: reachedAt }];
-}
-
-export function addTask(progress: ProgressFile, input: AddTaskInput): Task {
-  const seededHistory = seededHistoryFor(input);
-  const task: Task    = {
-    id:     takeNextTaskId(progress),
-    name:   input.name,
-    status: input.status ?? 'pending',
-    start:  input.start ?? null,
-    end:    input.end ?? null,
-    owner:  input.owner ?? '',
-    note:   input.note ?? '',
-    ticket: input.ticket ?? null,
-    tokens: input.tokens ?? null,
-    ...(input.reviewed === undefined ? {} : { reviewed: input.reviewed }),
-    ...(input.reviewRound === undefined ? {} : { reviewRound: input.reviewRound }),
-    ...(seededHistory === null ? {} : { history: seededHistory }),
-    ...(input.reviewOf === undefined ? {} : { reviewOf: input.reviewOf }),
-  };
+export function addTask(progress: ProgressFile, filing: TaskFiling): Task {
+  const task = TaskFilingUtil.filedTaskOf(takeNextTaskId(progress), filing);
   progress.tasks.push(task);
   return task;
 }
@@ -331,45 +265,18 @@ export function addTaskTokens(progress: ProgressFile, taskId: number, tokens: nu
   return 'applied';
 }
 
-function recordPhase(task: Task, status: TaskStatus, at: string): void {
-  const history = task.history ?? [];
-  history.push({ status, at });
-  task.history = history;
+/** Callers hold the record across a move, so the moved row is written into the same object; a key it keeps stays where the file stores it. */
+function replaceFieldsInPlace(task: Task, replacement: Task): void {
+  for (const key of Object.keys(task)) {
+    if (!Object.hasOwn(replacement, key)) Reflect.deleteProperty(task, key);
+  }
+  Object.assign(task, replacement);
 }
 
-/**
- * An existing timestamp is never overwritten, which is what makes re-running a command safe — and a phase is filed only when the
- * status really moved, `re-review` excepted, because every review round is an event of its own on a row that does not change status.
- */
 export function transitionTask(progress: ProgressFile, taskId: number, status: TaskStatus, at: string): 'applied' | 'no-such-task' {
   const task = findTask(progress, taskId);
   if (task === undefined) return 'no-such-task';
-
-  const statusMoved = task.status !== status;
-
-  // A row that starts work anew is its own agent until a claim keys it again; only a resumed pause is still the same agent.
-  if (status === 'in-progress' && task.status !== 'in-progress' && task.status !== 'paused') delete task.agent;
-
-  if (status === 'in-progress' || status === 'paused') {
-    task.start = task.start ?? at;
-    task.end = null;
-  } else if (status === 'in-review' || status === 're-review' || status === 'reviewed' || status === 'delivered') {
-    task.start = task.start ?? at;
-    task.end = task.end ?? at;
-    if (status === 're-review') task.reviewRound = task.reviewRound === undefined ? FIRST_REPEAT_REVIEW_ROUND : task.reviewRound + 1;
-    if (status === 'reviewed') task.reviewed = task.reviewed ?? at;
-  } else if (status === 'abandoned') {
-    if (task.start !== null) task.end = task.end ?? at;
-  } else {
-    task.start = null;
-    task.end = null;
-    delete task.reviewed;
-    delete task.reviewRound;
-  }
-
-  if (statusMoved || status === 're-review') recordPhase(task, status, at);
-
-  task.status = status;
+  replaceFieldsInPlace(task, TaskTransitionUtil.transitionedTaskOf(task, status, at));
   return 'applied';
 }
 

@@ -12,6 +12,7 @@
   // DOM-only options above, which is what proves it stays environment-neutral.
   "include": [
     "./**/*.ts",
+    "../../../src/lib/tracker-model/@types/Concurrency.ts",
     "../../../src/lib/tracker-model/@types/ProgressFile.ts",
     "../../../src/lib/tracker-model/@types/Task.ts",
     "../../../src/lib/tracker-model/@types/Ticket.ts",
@@ -23,9 +24,14 @@
     "../../../src/lib/tracker-model/constants/Statuses.ts",
     "../../../src/lib/tracker-model/constants/TicketFields.ts",
     "../../../src/lib/tracker-model/constants/TicketMoveLegality.ts",
+    "../../../src/lib/tracker-model/utils/ConcurrencyUtil.ts",
+    "../../../src/lib/tracker-model/utils/TaskFilingUtil.ts",
+    "../../../src/lib/tracker-model/utils/TaskTransitionUtil.ts",
+    "../../../src/lib/tracker-model/utils/TicketChartUtil.ts",
     "../../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts",
     "../../../src/lib/tracker-model/utils/TicketDependencyUtil.ts",
     "../../../src/lib/tracker-model/utils/TicketIdUtil.ts",
+    "../../../src/lib/tracker-model/utils/TicketStampUtil.ts",
     "../../../src/lib/tracker-model/utils/VocabularyUtil.ts",
     "../../../src/shared/constants/Limits.ts",
     "../../../src/lib/utils/HtmlEscapeUtil.ts",

@@ -1,18 +1,18 @@
 /**
- * The store's four concerns: what it refuses to believe, what it does to a task's timestamps, which
- * moves it files as a phase, and that a task id is never handed out twice.
+ * The store's concerns: what it refuses to believe, that a task id is never handed out twice, and that a move lands in the record
+ * a caller holds. What a move and a filing do to a row is pinned against the tracker model's own utils.
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { afterAll, expect, test }                 from 'bun:test';
 
 import type { ProgressFile }                              from '../../src/lib/tracker-model/@types/ProgressFile';
+import { ConcurrencyUtil }                                from '../../src/lib/tracker-model/utils/ConcurrencyUtil';
 import { createScratchDirectory, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
 import { workspacePathsFor }                              from '../platform/Workspace';
 import type { Workspace }                                 from '../platform/Workspace';
 import {
   addTask,
   appendLogEntry,
-  concurrencyOf,
   createEmptyProgressFile,
   findTask,
   readProgressFile,
@@ -105,7 +105,8 @@ test('a document with no concurrency limit reads, and its figures fall back to t
   delete withoutLimit.concurrencyLimit;
   const result = readBack('store-no-limit', withoutLimit);
   expect(result.verdict).toBe('readable');
-  expect(result.verdict === 'readable' ? concurrencyOf(result.progress) : null).toEqual({ limit: 2, agentsInFlight: 0, freeSlots: 2 });
+  const concurrency = result.verdict === 'readable' ? ConcurrencyUtil.concurrencyOf(result.progress.tasks, result.progress.concurrencyLimit) : null;
+  expect(concurrency).toEqual({ limit: 2, agentsInFlight: 0, freeSlots: 2 });
 });
 
 test('a concurrency limit that is not a whole number of at least 1 makes the file unreadable, and the reason names the field', () => {
@@ -113,62 +114,6 @@ test('a concurrency limit that is not a whole number of at least 1 makes the fil
     const result = readBack('store-malformed-limit', { ...emptyProgress(), concurrencyLimit: malformedLimit });
     expect(result.verdict === 'unreadable' ? result.reason : '', JSON.stringify(malformedLimit)).toContain('concurrencyLimit');
   }
-});
-
-test('only in-progress rows are in flight, and the free slots never go below zero', () => {
-  const progress = { ...emptyProgress(), concurrencyLimit: 1 };
-  addTask(progress, { name: 'Review pass one', status: 'in-progress', start: STARTED_AT });
-  addTask(progress, { name: 'Review pass two', status: 'in-progress', start: STARTED_AT });
-  addTask(progress, { name: 'Paused chore', status: 'paused', start: STARTED_AT });
-  addTask(progress, { name: 'Queued chore' });
-  expect(concurrencyOf(progress)).toEqual({ limit: 1, agentsInFlight: 2, freeSlots: 0 });
-});
-
-// A slot is an agent: three rows one claim started are one agent, and a row with no key beside them is another.
-test('in-progress rows sharing an agent key count once, and an in-progress row with no key counts on its own', () => {
-  const progress = emptyProgress();
-  for (const name of ['Bundle part one', 'Bundle part two', 'Bundle part three']) {
-    addTask(progress, { name, status: 'in-progress', start: STARTED_AT }).agent = '003,004,005';
-  }
-  addTask(progress, { name: 'Review pass', status: 'in-progress', start: STARTED_AT });
-  expect(concurrencyOf(progress)).toEqual({ limit: 2, agentsInFlight: 2, freeSlots: 0 });
-});
-
-// The builder finishes and hands off one ticket at a time, and the slot stays held until its last row stops.
-test('a bundle whose rows finish one at a time counts as one agent until its last row stops running', () => {
-  const progress   = emptyProgress();
-  const bundleRows = ['Bundle part one', 'Bundle part two', 'Bundle part three'].map((name) => {
-    const row = addTask(progress, { name, status: 'in-progress', start: STARTED_AT });
-    row.agent = '003,004,005';
-    return row;
-  });
-
-  const agentsInFlightAfterEachFinish = bundleRows.map((row) => {
-    transitionTask(progress, row.id, 'in-review', FINISHED_AT);
-    return concurrencyOf(progress).agentsInFlight;
-  });
-
-  expect(agentsInFlightAfterEachFinish).toEqual([1, 1, 0]);
-});
-
-// A reopened bundle ticket started again by hand must not rejoin the agent its old bundle still runs under.
-test('a row that starts running anew drops its agent key, and a resumed pause keeps it', () => {
-  const progress  = emptyProgress();
-  const restarted = addTask(progress, {
-    name:   'Restarted part',
-    status: 'in-review',
-    start:  STARTED_AT,
-    end:    FINISHED_AT,
-  });
-  const resumed   = addTask(progress, { name: 'Resumed part', status: 'paused', start: STARTED_AT });
-  restarted.agent = '003,004';
-  resumed.agent   = '003,004';
-
-  transitionTask(progress, restarted.id, 'in-progress', FINISHED_AT);
-  transitionTask(progress, resumed.id, 'in-progress', FINISHED_AT);
-
-  expect(restarted.agent).toBeUndefined();
-  expect(resumed.agent).toBe('003,004');
 });
 
 // Every review row filed before the field existed has none; the page falls back to its name, and a read must not add the field.
@@ -290,21 +235,6 @@ test('a hand-renumbered row cannot be handed its own id by the next allocation',
   expect(addTask(progress, { name: 'Review pass' }).id).toBe(41);
 });
 
-test('a task filed with nothing but a name gets the defaults a fresh row has', () => {
-  const task = addTask(emptyProgress(), { name: 'Review pass' });
-  expect(task).toEqual({
-    id:     1,
-    name:   'Review pass',
-    status: 'pending',
-    start:  null,
-    end:    null,
-    owner:  '',
-    note:   '',
-    ticket: null,
-    tokens: null,
-  });
-});
-
 test('a token count is recorded, replaced by a later report, and kept apart from zero', () => {
   const progress = emptyProgress();
   const task = addTask(progress, { name: 'Rewrite the importer', tokens: 12_000 });
@@ -316,21 +246,6 @@ test('a token count is recorded, replaced by a later report, and kept apart from
   expect(setTaskTokens(progress, 99, 100)).toBe('no-such-task');
 });
 
-test('a task filed with everything keeps everything', () => {
-  const task = addTask(emptyProgress(), {
-    name:   'Double-click a role to edit it',
-    owner:  'Alex Example',
-    note:   'driven by ticket 003',
-    ticket: '003',
-    status: 'in-progress',
-    start:  STARTED_AT,
-    end:    null,
-  });
-  expect(task.ticket).toBe('003');
-  expect(task.status).toBe('in-progress');
-  expect(task.start).toBe(STARTED_AT);
-});
-
 test('a task is found by id, and a missing one is undefined rather than an exception', () => {
   const progress = emptyProgress();
   addTask(progress, { name: 'Review pass' });
@@ -338,241 +253,11 @@ test('a task is found by id, and a missing one is undefined rather than an excep
   expect(findTask(progress, 99)).toBeUndefined();
 });
 
-test('starting a task sets its start and clears any end it had', () => {
-  const progress = emptyProgress();
-  const task = addTask(progress, {
-    name: 'Review pass', status: 'in-review', start: STARTED_AT, end: FINISHED_AT 
-  });
-  expect(transitionTask(progress, task.id, 'in-progress', '2026-09-18T21:30:00+02:00')).toBe('applied');
-  expect(task.start).toBe(STARTED_AT);
-  expect(task.end).toBeNull();
-  expect(task.status).toBe('in-progress');
-});
-
-test('pausing keeps the start and clears the end, and starting again resumes the same bar', () => {
-  const progress = emptyProgress();
-  const task = addTask(progress, { name: 'Waiting on the user', status: 'in-progress', start: STARTED_AT });
-  expect(transitionTask(progress, task.id, 'paused', FINISHED_AT)).toBe('applied');
-  expect(task.status).toBe('paused');
-  expect(task.start).toBe(STARTED_AT);
-  expect(task.end).toBeNull();
-
-  transitionTask(progress, task.id, 'in-progress', '2026-09-18T21:30:00+02:00');
-  expect(task.start).toBe(STARTED_AT);
-  expect(task.end).toBeNull();
-});
-
-test('pausing a task that never ran stamps its start, so the bar is drawn from the pause', () => {
-  const progress = emptyProgress();
-  const task = addTask(progress, { name: 'Blocked before it began' });
-  transitionTask(progress, task.id, 'paused', STARTED_AT);
-  expect(task.start).toBe(STARTED_AT);
-  expect(task.end).toBeNull();
-});
-
-test('starting a task that has never run sets its start to the moment given', () => {
-  const progress = emptyProgress();
-  const task = addTask(progress, { name: 'Review pass' });
-  transitionTask(progress, task.id, 'in-progress', STARTED_AT);
-  expect(task.start).toBe(STARTED_AT);
-  expect(task.end).toBeNull();
-});
-
-test('finishing, reviewing and delivering all close the bar and back-fill a missing start', () => {
-  for (const status of ['in-review', 'reviewed', 'delivered'] as const) {
-    const progress = emptyProgress();
-    const task = addTask(progress, { name: `Row taken straight to ${status}` });
-    expect(transitionTask(progress, task.id, status, FINISHED_AT)).toBe('applied');
-    expect(task.status, status).toBe(status);
-    expect(task.start, status).toBe(FINISHED_AT);
-    expect(task.end, status).toBe(FINISHED_AT);
-  }
-});
-
-test('a second finish does not quietly extend the bar to now', () => {
-  const progress = emptyProgress();
-  const task = addTask(progress, { name: 'Review pass', status: 'in-progress', start: STARTED_AT });
-  transitionTask(progress, task.id, 'in-review', FINISHED_AT);
-  transitionTask(progress, task.id, 'in-review', '2026-09-19T09:00:00+02:00');
-  expect(task.start).toBe(STARTED_AT);
-  expect(task.end).toBe(FINISHED_AT);
-});
-
-test('abandoning a task that had started closes its bar', () => {
-  const progress = emptyProgress();
-  const task = addTask(progress, { name: 'Review pass', status: 'in-progress', start: STARTED_AT });
-  transitionTask(progress, task.id, 'abandoned', FINISHED_AT);
-  expect(task.start).toBe(STARTED_AT);
-  expect(task.end).toBe(FINISHED_AT);
-  expect(task.status).toBe('abandoned');
-});
-
-test('abandoning a task that never started leaves it with no timestamps at all', () => {
-  const progress = emptyProgress();
-  const task = addTask(progress, { name: 'Called off before it began' });
-  transitionTask(progress, task.id, 'abandoned', FINISHED_AT);
-  expect(task.start).toBeNull();
-  expect(task.end).toBeNull();
-  expect(task.status).toBe('abandoned');
-});
-
-test('putting a task back to pending clears both timestamps', () => {
-  const progress = emptyProgress();
-  const task = addTask(progress, {
-    name: 'Review pass', status: 'in-review', start: STARTED_AT, end: FINISHED_AT 
-  });
-  transitionTask(progress, task.id, 'pending', '2026-09-19T09:00:00+02:00');
-  expect(task.start).toBeNull();
-  expect(task.end).toBeNull();
-  expect(task.status).toBe('pending');
-});
-
-test('reviewing stamps the review once, and delivery keeps it so the delivered row still says it was reviewed', () => {
-  const progress = emptyProgress();
-  const task     = addTask(progress, {
-    name: 'Review pass', status: 'in-review', start: STARTED_AT, end: FINISHED_AT 
-  });
-  transitionTask(progress, task.id, 'reviewed', FINISHED_AT);
-  transitionTask(progress, task.id, 'reviewed', '2026-09-19T09:00:00+02:00');
-  transitionTask(progress, task.id, 'delivered', '2026-09-19T10:00:00+02:00');
-  expect(task.reviewed).toBe(FINISHED_AT);
-});
-
 test('a round of two or more is read back, because that is a row someone deliberately sent round again', () => {
   const progress = emptyProgress();
   addTask(progress, { name: 'Review pass' });
   const document = { ...progress, tasks: [{ ...progress.tasks[0], reviewRound: 3 }] };
   expect(readBack('store-third-round', document).verdict).toBe('readable');
-});
-
-test('a repeat review counts from the second round upwards and leaves the bar where the first review closed it', () => {
-  const progress = emptyProgress();
-  const task     = addTask(progress, {
-    name: 'Review pass', status: 'in-review', start: STARTED_AT, end: FINISHED_AT
-  });
-  expect(transitionTask(progress, task.id, 're-review', '2026-09-19T09:00:00+02:00')).toBe('applied');
-  expect(task.status).toBe('re-review');
-  expect(task.reviewRound).toBe(2);
-  expect(task.end).toBe(FINISHED_AT);
-
-  transitionTask(progress, task.id, 're-review', '2026-09-19T10:00:00+02:00');
-  expect(task.reviewRound).toBe(3);
-  expect(task.end).toBe(FINISHED_AT);
-});
-
-test('the round is kept as history once the row is reviewed and delivered', () => {
-  const progress = emptyProgress();
-  const task     = addTask(progress, {
-    name: 'Review pass', status: 're-review', start: STARTED_AT, end: FINISHED_AT, reviewRound: 3
-  });
-  transitionTask(progress, task.id, 'reviewed', '2026-09-19T09:00:00+02:00');
-  expect(task.reviewRound).toBe(3);
-
-  transitionTask(progress, task.id, 'delivered', '2026-09-19T10:00:00+02:00');
-  expect(task.reviewRound).toBe(3);
-});
-
-test('putting a row that was on its third pass back to pending drops the round with the review stamp', () => {
-  const progress = emptyProgress();
-  const task     = addTask(progress, {
-    name: 'Review pass', status: 're-review', start: STARTED_AT, end: FINISHED_AT, reviewRound: 3
-  });
-  transitionTask(progress, task.id, 'pending', '2026-09-19T09:00:00+02:00');
-  expect(task.reviewRound).toBeUndefined();
-  expect(task.status).toBe('pending');
-});
-
-test('a task delivered straight from in-review carries no review stamp', () => {
-  const progress = emptyProgress();
-  const task     = addTask(progress, {
-    name: 'Review pass', status: 'in-review', start: STARTED_AT, end: FINISHED_AT 
-  });
-  transitionTask(progress, task.id, 'delivered', FINISHED_AT);
-  expect(task.reviewed).toBeUndefined();
-});
-
-test('putting a reviewed task back to pending drops its review stamp', () => {
-  const progress = emptyProgress();
-  const task     = addTask(progress, { name: 'Review pass', status: 'reviewed', reviewed: FINISHED_AT });
-  transitionTask(progress, task.id, 'pending', '2026-09-19T09:00:00+02:00');
-  expect(task.reviewed).toBeUndefined();
-});
-
-/**
- * How long a row sat in the queue before anybody picked it up is the interval an orchestrator most wants, and it is
- * measurable only if the filing is a phase of its own. Without a stamp to file it at there is still nothing to record.
- */
-test('a row filed as pending records that it was filed, at the moment it was filed', () => {
-  const progress = emptyProgress();
-
-  expect(addTask(progress, { name: 'Queued', filedAt: FILED_AT }).history).toEqual([{ status: 'pending', at: FILED_AT }]);
-  expect(addTask(progress, { name: 'Queued explicitly', status: 'pending', filedAt: FILED_AT }).history).toEqual([{ status: 'pending', at: FILED_AT }]);
-  expect(addTask(progress, { name: 'Filed by a caller that said nothing' }).history).toBeUndefined();
-});
-
-// A row filed straight into a later status was in that status from the stamp it was filed with; without a stamp there is nothing to record.
-test('a row filed into a status it is already in records that as its first phase, at the stamp that status is kept at', () => {
-  const progress = emptyProgress();
-  const running  = addTask(progress, {
-    name: 'Already going', status: 'in-progress', start: STARTED_AT, end: FINISHED_AT
-  });
-  const closed   = addTask(progress, {
-    name: 'Filed closed', status: 'reviewed', start: STARTED_AT, end: FINISHED_AT
-  });
-
-  expect(running.history, 'an in-progress row opened its interval at its start, whatever end it was handed').toEqual([{ status: 'in-progress', at: STARTED_AT }]);
-  expect(closed.history, 'the row reached that status when it closed, not when it opened').toEqual([{ status: 'reviewed', at: FINISHED_AT }]);
-  expect(addTask(progress, { name: 'No stamp at all', status: 'in-progress' }).history).toBeUndefined();
-});
-
-test('every move a row really makes is appended as a phase, oldest first', () => {
-  const progress = emptyProgress();
-  const task     = addTask(progress, { name: 'Review pass' });
-  transitionTask(progress, task.id, 'in-progress', STARTED_AT);
-  transitionTask(progress, task.id, 'in-review', FINISHED_AT);
-  transitionTask(progress, task.id, 'reviewed', '2026-09-19T09:00:00+02:00');
-
-  expect(task.history).toEqual([
-    { status: 'in-progress', at: STARTED_AT },
-    { status: 'in-review', at: FINISHED_AT },
-    { status: 'reviewed', at: '2026-09-19T09:00:00+02:00' },
-  ]);
-});
-
-// The re-run that keeps a stamp from moving must not file a second phase either: nothing happened.
-test('repeating a move files no second phase, because the row did not move', () => {
-  const progress = emptyProgress();
-  const task     = addTask(progress, { name: 'Review pass' });
-  transitionTask(progress, task.id, 'in-review', FINISHED_AT);
-  transitionTask(progress, task.id, 'in-review', '2026-09-19T09:00:00+02:00');
-
-  expect(task.history).toEqual([{ status: 'in-review', at: FINISHED_AT }]);
-});
-
-// The one exception: a row stays in `re-review` between rounds, so counting only status changes would lose every round after the second.
-test('a further review round is a phase of its own although the status does not change', () => {
-  const progress = emptyProgress();
-  const task     = addTask(progress, { name: 'Review pass' });
-  transitionTask(progress, task.id, 'in-review', FINISHED_AT);
-  transitionTask(progress, task.id, 're-review', '2026-09-19T09:00:00+02:00');
-  transitionTask(progress, task.id, 're-review', '2026-09-19T10:00:00+02:00');
-
-  expect(task.history?.map((phase) => phase.status)).toEqual(['in-review', 're-review', 're-review']);
-  expect(task.reviewRound).toBe(3);
-});
-
-// The phases are the record of what happened; a row sent back to pending went back, which is itself something that happened.
-test('sending a row back to pending files that as a phase and keeps the phases that led there', () => {
-  const progress = emptyProgress();
-  const task     = addTask(progress, { name: 'Review pass', filedAt: FILED_AT });
-  transitionTask(progress, task.id, 'in-progress', STARTED_AT);
-  transitionTask(progress, task.id, 'pending', FINISHED_AT);
-
-  expect(task.history).toEqual([
-    { status: 'pending', at: FILED_AT },
-    { status: 'in-progress', at: STARTED_AT },
-    { status: 'pending', at: FINISHED_AT },
-  ]);
 });
 
 test('a history of known statuses with their stamps is read back', () => {
@@ -638,6 +323,22 @@ test('a status that is neither current nor a retired task word still makes the f
   const unknownPhase = readBack('store-retired-ticket-word-phase', { ...progress, tasks: [{ ...progress.tasks[0], history: [{ status: 'done', at: STARTED_AT }] }] });
   expect(unknownPhase.verdict).toBe('unreadable');
   expect(unknownPhase.verdict === 'unreadable' ? unknownPhase.reason : '').toContain('tasks[0].history');
+});
+
+// Callers hold the row across a move and read or annotate it afterwards, so the move must land in that same record, its keys where they were.
+test('a transition moves the row the caller holds, keeping its keys where the file stores them', () => {
+  const progress = emptyProgress();
+  const held     = addTask(progress, { name: 'Bundle part', filedAt: FILED_AT });
+  held.agent     = '003,004';
+
+  expect(transitionTask(progress, held.id, 'in-review', FINISHED_AT)).toBe('applied');
+  expect(progress.tasks[0]).toBe(held);
+  expect(held.status).toBe('in-review');
+  expect(Object.keys(held)).toEqual(['id', 'name', 'status', 'start', 'end', 'owner', 'note', 'ticket', 'tokens', 'history', 'agent']);
+
+  transitionTask(progress, held.id, 'in-progress', STARTED_AT);
+  expect(held.agent, 'a restart drops the key from the held record itself').toBeUndefined();
+  expect('agent' in held).toBe(false);
 });
 
 test('a transition on a task that is not there says so instead of throwing', () => {

@@ -9,7 +9,6 @@ import { requireWorkspace, type Workspace } from '../../lib/platform/Workspace';
 import {
   addTask,
   appendLogEntry,
-  concurrencyOf,
   findTask,
   inProgressReviewRowsOf,
   setTaskTokens,
@@ -43,6 +42,8 @@ import { AGENT_EFFORTS, AGENT_MODELS }                                from '../.
 import { TICKET_STATUSES, TICKET_STATUSES_NO_AGENT_WORKS_AGAIN }      from '../../src/lib/tracker-model/constants/Statuses';
 import { TICKET_PRIORITIES, TICKET_TYPES }                            from '../../src/lib/tracker-model/constants/TicketFields';
 import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS, ticketMoveIsLegal } from '../../src/lib/tracker-model/constants/TicketMoveLegality';
+import { ConcurrencyUtil }                                            from '../../src/lib/tracker-model/utils/ConcurrencyUtil';
+import { TicketChartUtil }                                            from '../../src/lib/tracker-model/utils/TicketChartUtil';
 import { TicketDefaultsUtil }                                         from '../../src/lib/tracker-model/utils/TicketDefaultsUtil';
 import { TicketDependencyUtil }                                       from '../../src/lib/tracker-model/utils/TicketDependencyUtil';
 import { TicketIdUtil }                                               from '../../src/lib/tracker-model/utils/TicketIdUtil';
@@ -321,10 +322,10 @@ function reviewRoundOf(ticket: Ticket): number {
  * agents: a builder's `ticket finish` hands it to its reviewer, a reviewer's round to the next.
  */
 function startReviewBar(progress: ProgressFile, ticket: Ticket, request: ReviewBarRequest, at: string): StartedReviewBar {
-  const { id, title } = ticket.frontmatter;
-  const closedBarIds  = closeInProgressReviewBars(progress, id, at);
+  const { id }      = ticket.frontmatter;
+  const closedBarIds = closeInProgressReviewBars(progress, id, at);
   const bar = addTask(progress, {
-    name:     `Review ${reviewRoundOf(ticket)} #${id} — ${title}`,
+    name:     TicketChartUtil.reviewBarNameOf(reviewRoundOf(ticket), ticket.frontmatter),
     filedAt:  at,
     reviewOf: id,
     ...request,
@@ -689,7 +690,7 @@ async function claimTickets(references: readonly string[], commandArguments: Arg
     for (const ticket of claimedTickets) refuseAnUnclaimableTicket(ticket, tickets, identifiers);
     for (const identifier of identifiers) refuseATicketUnderReview(change.progress, identifier);
 
-    const { agentsInFlight, limit } = concurrencyOf(change.progress);
+    const { agentsInFlight, limit } = ConcurrencyUtil.concurrencyOf(change.progress.tasks, change.progress.concurrencyLimit);
     if (agentsInFlight >= limit) {
       const inProgressRowCount = change.progress.tasks.filter((task) => task.status === 'in-progress').length;
       throw new OperationRefusal(
@@ -719,7 +720,7 @@ async function claimTickets(references: readonly string[], commandArguments: Arg
       change.writeTicketAfterwards(outcome.ticket);
       moved.push(outcome.ticket);
     }
-    return { identifiers, tickets: moved, concurrency: concurrencyOf(change.progress) };
+    return { identifiers, tickets: moved, concurrency: ConcurrencyUtil.concurrencyOf(change.progress.tasks, change.progress.concurrencyLimit) };
   });
 
   const { concurrency, identifiers, tickets } = claimed;

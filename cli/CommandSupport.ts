@@ -8,20 +8,19 @@ import { requireWorkspace, type Workspace } from '../lib/platform/Workspace';
 import {
   addTask,
   appendLogEntry,
-  concurrencyOf,
   dispatcherStateOf,
   findTask,
   inProgressReviewRowsOf,
   readProgressFile,
   removeTask,
   transitionTask,
-  writeProgressFile,
-  type Concurrency
+  writeProgressFile
 }                                               from '../lib/progress/ProgressStore';
 import { rerenderDashboard, type RerenderOutcome } from '../lib/render/Rerender';
 import { listTickets, writeTicket }                from '../lib/tickets/TicketStore';
 import type { PriorityOperations }                 from '../lib/tickets/TicketTransitions';
 import { NextLineUtil }                            from '../lib/utils/NextLineUtil';
+import type { Concurrency }                        from '../src/lib/tracker-model/@types/Concurrency';
 import type { DispatcherState, ProgressFile }      from '../src/lib/tracker-model/@types/ProgressFile';
 import type { Task }                               from '../src/lib/tracker-model/@types/Task';
 import type {
@@ -31,6 +30,7 @@ import type {
   TicketPriority
 } from '../src/lib/tracker-model/@types/Ticket';
 import { TICKET_STATUSES_NO_AGENT_WORKS_AGAIN } from '../src/lib/tracker-model/constants/Statuses';
+import { ConcurrencyUtil }                      from '../src/lib/tracker-model/utils/ConcurrencyUtil';
 import { TicketDefaultsUtil }                   from '../src/lib/tracker-model/utils/TicketDefaultsUtil';
 import { TicketDependencyUtil }                 from '../src/lib/tracker-model/utils/TicketDependencyUtil';
 import { TimeUtil }                             from '../src/lib/utils/TimeUtil';
@@ -146,7 +146,7 @@ export function concurrencyDocumentOf(
   tickets: readonly Ticket[],
 ): Concurrency & { readyTicketIds: string[]; dispatcherState: DispatcherState; heldTicketIds: string[] } {
   return {
-    ...concurrencyOf(progress),
+    ...ConcurrencyUtil.concurrencyOf(progress.tasks, progress.concurrencyLimit),
     readyTicketIds:  TicketDependencyUtil.readyTicketIdsOf(tickets.map((ticket) => ticket.frontmatter)),
     dispatcherState: dispatcherStateOf(progress),
     heldTicketIds:   heldTicketIdsOf(tickets),
@@ -194,8 +194,12 @@ export function nextLineFor(progress: ProgressFile, tickets: readonly Ticket[]):
   });
 }
 
-function trackerReads(): { readProgressFile: typeof readProgressFile; listTickets: typeof listTickets; concurrencyOf: typeof concurrencyOf } {
-  return { listTickets, readProgressFile, concurrencyOf };
+function trackerReads(): { readProgressFile: typeof readProgressFile; listTickets: typeof listTickets; concurrencyOf: (progress: ProgressFile) => Concurrency } {
+  return {
+    listTickets,
+    readProgressFile,
+    concurrencyOf: (progress) => ConcurrencyUtil.concurrencyOf(progress.tasks, progress.concurrencyLimit),
+  };
 }
 
 /** The store is already written by the time this runs, so none of these fail the command: exit 0, reason on standard error. */

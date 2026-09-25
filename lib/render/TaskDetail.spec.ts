@@ -232,7 +232,7 @@ describe('the phases', () => {
   });
 
   /**
-   * An abandoned row's `end` is the moment it was abandoned — `transitionTask` stamps it there — so reading it as a
+   * An abandoned row's `end` is the moment it was abandoned — `TaskTransitionUtil` stamps it there — so reading it as a
    * finish would claim a review that never happened, and at the very instant the row was called off.
    */
   test('reads an abandoned row’s end as the abandonment and not as a review it never had', () => {
@@ -256,7 +256,7 @@ describe('the phases', () => {
     expect(phaseLabelsIn(markup)).toEqual(['unstarted', 'wip', 'awaiting review', 'abandoned']);
   });
 
-  // `transitionTask` drops `reviewRound` when a row goes back to pending, so a panel counting every round in the list would outrun the pill.
+  // `TaskTransitionUtil` drops `reviewRound` when a row goes back to pending, so a panel counting every round in the list would outrun the pill.
   test('restarts the review rounds after the row was sent back to pending', () => {
     const markup = panelFor(exampleTask({
       status:  're-review',

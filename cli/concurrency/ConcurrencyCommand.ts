@@ -1,11 +1,12 @@
-import { requireWorkspace }                                            from '../../lib/platform/Workspace';
-import { appendLogEntry, concurrencyLimitIsWellFormed, concurrencyOf } from '../../lib/progress/ProgressStore';
-import { CONCURRENCY_LIMIT_CEILING_AGENTS }                            from '../../src/lib/tracker-model/constants/ConcurrencyLimits';
-import { OperationRefusal }                                            from '../../src/shared/OperationRefusal';
-import type { CommandContext }                                         from '../CommandContext';
-import { openTrackerForWriting, printEntity, requireProgressFile }     from '../CommandSupport';
-import type { CommandHandler }                                         from '../CommandTable';
-import type { ArgumentParser }                                         from '../arguments/ArgumentParser';
+import { requireWorkspace }                                        from '../../lib/platform/Workspace';
+import { appendLogEntry, concurrencyLimitIsWellFormed }            from '../../lib/progress/ProgressStore';
+import { CONCURRENCY_LIMIT_CEILING_AGENTS }                        from '../../src/lib/tracker-model/constants/ConcurrencyLimits';
+import { ConcurrencyUtil }                                         from '../../src/lib/tracker-model/utils/ConcurrencyUtil';
+import { OperationRefusal }                                        from '../../src/shared/OperationRefusal';
+import type { CommandContext }                                     from '../CommandContext';
+import { openTrackerForWriting, printEntity, requireProgressFile } from '../CommandSupport';
+import type { CommandHandler }                                     from '../CommandTable';
+import type { ArgumentParser }                                     from '../arguments/ArgumentParser';
 
 const USAGE = 'agent-progress concurrency [<n>] [--json]';
 
@@ -25,7 +26,8 @@ function limitFrom(written: string): number {
 }
 
 function printCurrentLimit(commandArguments: ArgumentParser, context: CommandContext): void {
-  const concurrency = concurrencyOf(requireProgressFile(requireWorkspace(context.currentDirectory)));
+  const progress    = requireProgressFile(requireWorkspace(context.currentDirectory));
+  const concurrency = ConcurrencyUtil.concurrencyOf(progress.tasks, progress.concurrencyLimit);
   printEntity(commandArguments, context, concurrency, String(concurrency.limit));
 }
 
@@ -41,10 +43,10 @@ export const concurrencyCommand: CommandHandler = async (commandArguments, conte
   const limit = limitFrom(written);
 
   const changed = await openTrackerForWriting(commandArguments, context, (change) => {
-    const previousLimit             = concurrencyOf(change.progress).limit;
+    const previousLimit             = ConcurrencyUtil.concurrencyOf(change.progress.tasks, change.progress.concurrencyLimit).limit;
     change.progress.concurrencyLimit = limit;
     appendLogEntry(change.progress, change.at, `Concurrency limit set to ${limit}`);
-    return { previousLimit, concurrency: concurrencyOf(change.progress) };
+    return { previousLimit, concurrency: ConcurrencyUtil.concurrencyOf(change.progress.tasks, change.progress.concurrencyLimit) };
   });
 
   const { concurrency, previousLimit } = changed;

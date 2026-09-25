@@ -3,18 +3,13 @@
  * are a recording double because `lib/tickets/` may not import `lib/progress/`.
  */
 
-import { describe, expect, test } from 'bun:test';
-import type { ProgressFile }      from '../../src/lib/tracker-model/@types/ProgressFile.ts';
-import type { Task }              from '../../src/lib/tracker-model/@types/Task.ts';
-import type { Ticket }            from '../../src/lib/tracker-model/@types/Ticket.ts';
-import { TICKET_STATUSES }        from '../../src/lib/tracker-model/constants/Statuses.ts';
-import {
-  applyTicketRereview,
-  applyTicketTransition,
-  ensureTaskForTicket,
-  seedTaskFromTicket
-}                                                               from './TicketTransitions.ts';
-import type { ApplyTicketTransitionResult, ProgressOperations } from './TicketTransitions.ts';
+import { describe, expect, test }                                          from 'bun:test';
+import type { ProgressFile }                                               from '../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Task }                                                       from '../../src/lib/tracker-model/@types/Task.ts';
+import type { Ticket }                                                     from '../../src/lib/tracker-model/@types/Ticket.ts';
+import { TICKET_STATUSES }                                                 from '../../src/lib/tracker-model/constants/Statuses.ts';
+import { applyTicketRereview, applyTicketTransition, ensureTaskForTicket } from './TicketTransitions.ts';
+import type { ApplyTicketTransitionResult, ProgressOperations }            from './TicketTransitions.ts';
 
 const FILED_AT            = '2026-09-18T09:00:00+02:00';
 const STARTED_AT          = '2026-09-18T10:00:00+02:00';
@@ -61,18 +56,18 @@ function ticketFixture(): Ticket {
 
 function progressOperations(): ProgressOperations {
   return {
-    addTask: (progress, input) => {
+    addTask: (progress, filing) => {
       const task: Task = {
         id:     progress.nextTaskId++,
-        name:   input.name,
-        status: input.status ?? 'pending',
-        start:  input.start ?? null,
-        end:    input.end ?? null,
-        owner:  input.owner ?? '',
-        note:   input.note ?? '',
-        ticket: input.ticket ?? null,
-        tokens: null,
-        ...(input.reviewed === undefined ? {} : { reviewed: input.reviewed }),
+        name:   filing.name,
+        status: filing.status ?? 'pending',
+        start:  filing.start ?? null,
+        end:    filing.end ?? null,
+        owner:  filing.owner ?? '',
+        note:   filing.note ?? '',
+        ticket: filing.ticket ?? null,
+        tokens: filing.tokens ?? null,
+        ...(filing.reviewed === undefined ? {} : { reviewed: filing.reviewed }),
       };
       progress.tasks.push(task);
       return task;
@@ -549,77 +544,5 @@ describe('applyTicketRereview', () => {
     expect(progress.tasks).toHaveLength(1);
     expect(progress.tasks[0]?.reviewRound).toBe(2);
     expect(result.logText).toBe('Ticket #003 in review, round 2');
-  });
-});
-
-describe('seedTaskFromTicket', () => {
-  test('a reviewed ticket comes back as a reviewed bar carrying both of its timestamps', () => {
-    const progress                = progressFixture();
-    const ticket                  = ticketFixture();
-    const operations              = progressOperations();
-    ticket.frontmatter.status     = 'reviewed';
-    ticket.frontmatter.started    = STARTED_AT;
-    ticket.frontmatter.finished   = FINISHED_AT;
-
-    const seeded = seedTaskFromTicket({ progress, ticket, operations });
-
-    expect(seeded.status).toBe('reviewed');
-    expect(seeded.start).toBe(STARTED_AT);
-    expect(seeded.end).toBe(FINISHED_AT);
-    expect(seeded.name).toBe(TICKET_NAME);
-    expect(seeded.ticket).toBe('003');
-    expect(ticket.frontmatter.task).toBe(seeded.id);
-  });
-
-  test('a ticket delivered without ever being marked finished ends its bar at the delivery', () => {
-    const progress               = progressFixture();
-    const ticket                 = ticketFixture();
-    const operations             = progressOperations();
-    ticket.frontmatter.status    = 'delivered';
-    ticket.frontmatter.started   = STARTED_AT;
-    ticket.frontmatter.delivered = DELIVERED_AT;
-
-    const seeded = seedTaskFromTicket({ progress, ticket, operations });
-
-    expect(seeded.status).toBe('delivered');
-    expect(seeded.end).toBe(DELIVERED_AT);
-  });
-
-  // `clear` re-seeds rows from tickets; a delivered ticket passed `reviewed`, so its row has to come back marked reviewed.
-  test('a reviewed or delivered ticket comes back marked reviewed, and a pending one does not', () => {
-    for (const status of ['reviewed', 'delivered'] as const) {
-      const ticket              = ticketFixture();
-      ticket.frontmatter.status = status;
-      ticket.frontmatter.finished = FINISHED_AT;
-
-      expect(seedTaskFromTicket({ progress: progressFixture(), ticket, operations: progressOperations() }).reviewed).toBe(FINISHED_AT);
-    }
-    expect(seedTaskFromTicket({ progress: progressFixture(), ticket: ticketFixture(), operations: progressOperations() }).reviewed).toBeUndefined();
-  });
-
-  test('an abandoned ticket ends its bar where it was abandoned', () => {
-    const progress                 = progressFixture();
-    const ticket                   = ticketFixture();
-    const operations               = progressOperations();
-    ticket.frontmatter.status      = 'abandoned';
-    ticket.frontmatter.started     = STARTED_AT;
-    ticket.frontmatter.abandonedAt = FINISHED_AT;
-
-    const seeded = seedTaskFromTicket({ progress, ticket, operations });
-
-    expect(seeded.status).toBe('abandoned');
-    expect(seeded.end).toBe(FINISHED_AT);
-  });
-
-  test('a pending ticket comes back as a pending row with no bar at all', () => {
-    const progress   = progressFixture();
-    const ticket     = ticketFixture();
-    const operations = progressOperations();
-
-    const seeded = seedTaskFromTicket({ progress, ticket, operations });
-
-    expect(seeded.status).toBe('pending');
-    expect(seeded.start).toBeNull();
-    expect(seeded.end).toBeNull();
   });
 });

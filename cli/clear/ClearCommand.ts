@@ -4,7 +4,8 @@
  */
 import { appendLogEntry }                                         from '../../lib/progress/ProgressStore';
 import { deleteAllTickets, listTickets }                          from '../../lib/tickets/TicketStore';
-import { seedTaskFromTicket, ticketStaysOffTheChart }             from '../../lib/tickets/TicketTransitions';
+import { seedTaskFromTicket }                                     from '../../lib/tickets/TicketTransitions';
+import { TicketChartUtil }                                        from '../../src/lib/tracker-model/utils/TicketChartUtil';
 import { OperationRefusal }                                       from '../../src/shared/OperationRefusal';
 import { openTrackerForWriting, printEntity, progressOperations } from '../CommandSupport';
 import type { CommandHandler }                                    from '../CommandTable';
@@ -72,7 +73,7 @@ export const clearCommand: CommandHandler = async (commandArguments, context) =>
     const surviving = listTickets(workspace).tickets;
     for (const ticket of surviving) {
       // A reopen clears `started`, so the row the ticket held before the clear is what says it was worked.
-      const ticketHadNoRowToLose = ticket.frontmatter.task === null && ticketStaysOffTheChart(ticket.frontmatter);
+      const ticketHadNoRowToLose = ticket.frontmatter.task === null && TicketChartUtil.ticketStaysOffTheChart(ticket.frontmatter);
       if (!ticketHadNoRowToLose) {
         seedTaskFromTicket({ progress, ticket, operations: progressOperations });
       }
