@@ -5,15 +5,15 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import type { Task }              from '../../src/lib/tracker-model/@types/Task.ts';
-import type { PageTicket }        from '../../src/shared/@types/PagePayload.ts';
-import { kanbanCardsFor }         from './page/KanbanBoard.ts';
-import type { KanbanCard }        from './page/KanbanBoard.ts';
-import { kanbanBoardMarkup }      from './page/KanbanMarkup.ts';
-import { taskRowsMarkup }         from './page/PageMarkup.ts';
-import { taskDetailMarkup }       from './page/TaskDetail.ts';
-import type { TicketDetailInput } from './page/TicketDetail.ts';
-import { ticketDetailMarkup }     from './page/TicketDetail.ts';
+import type { Task }              from '../src/lib/tracker-model/@types/Task.ts';
+import type { PageTicket }        from '../src/shared/@types/PagePayload.ts';
+import { kanbanCardsFor }         from './KanbanBoard.ts';
+import type { KanbanCard }        from './KanbanBoard.ts';
+import { kanbanBoardMarkup }      from './KanbanMarkup.ts';
+import { taskRowsMarkup }         from './PageMarkup.ts';
+import { taskDetailMarkup }       from './TaskDetail.ts';
+import type { TicketDetailInput } from './TicketDetail.ts';
+import { ticketDetailMarkup }     from './TicketDetail.ts';
 
 const EXAMPLE_TODAY = '2026-09-25';
 const EXAMPLE_NOW   = Date.parse('2026-09-25T13:36:00+02:00');

@@ -1,7 +1,7 @@
 /** Which tasks and tickets the page shows: work that has been done for longer than the window is hidden unless the viewer asked for all of it. */
 
-import type { Task, TaskStatus }                from '../../../src/lib/tracker-model/@types/Task.ts';
-import type { TicketFrontmatter, TicketStatus } from '../../../src/lib/tracker-model/@types/Ticket.ts';
+import type { Task, TaskStatus }                from '../src/lib/tracker-model/@types/Task.ts';
+import type { TicketFrontmatter, TicketStatus } from '../src/lib/tracker-model/@types/Ticket.ts';
 
 export type WorkVisibility = 'recent' | 'all';
 

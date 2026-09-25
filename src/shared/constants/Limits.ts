@@ -1,6 +1,6 @@
 /**
  * The app-wide numbers: tuning bounds, plus the time units and stamp-format offsets the page shares.
- * It imports nothing, so the page's project (`lib/render/page/tsconfig.json`) compiles it too.
+ * It imports nothing, so the page's project (`page/tsconfig.json`) compiles it too.
  */
 export const LIMITS = {
   LOCK_STALE_MILLISECONDS:            30_000,

@@ -1,12 +1,12 @@
 /**
  * The Gantt axis and bar geometry as pure arithmetic over epoch milliseconds: no DOM, no clock. Its bounds arrive as a parameter instead of
- * from `src/shared/constants/Limits.ts`, so `lib/render/GanttGeometry.spec.ts` drives it with a constructed tick ladder; the page passes what
+ * from `src/shared/constants/Limits.ts`, so `page/GanttGeometry.spec.ts` drives it with a constructed tick ladder; the page passes what
  * `lib/render/Template.ts` put in the progress island.
  */
 
-import type { ProgressFile, ViewRange } from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
-import type { Task }                    from '../../../src/lib/tracker-model/@types/Task.ts';
-import type { PageLimits }              from '../../../src/shared/@types/PagePayload.ts';
+import type { ProgressFile, ViewRange } from '../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Task }                    from '../src/lib/tracker-model/@types/Task.ts';
+import type { PageLimits }              from '../src/shared/@types/PagePayload.ts';
 
 const MILLISECONDS_PER_MINUTE = 60_000;
 const PERCENT_OF_A_WHOLE      = 100;

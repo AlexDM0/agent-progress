@@ -4,14 +4,14 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import type { Task }              from '../../src/lib/tracker-model/@types/Task.ts';
-import type { PageTicket }        from '../../src/shared/@types/PagePayload.ts';
+import type { Task }              from '../src/lib/tracker-model/@types/Task.ts';
+import type { PageTicket }        from '../src/shared/@types/PagePayload.ts';
 import {
   hiddenWorkNoteText,
   taskIsLongDone,
   ticketIsLongDone,
   workVisibilityFrom,
-} from './page/WorkVisibility.ts';
+} from './WorkVisibility.ts';
 
 const DAY_MILLISECONDS     = 86_400_000;
 const NOW_EPOCH_MILLISECONDS = Date.parse('2026-09-19T12:00:00+02:00');

@@ -3,12 +3,12 @@
  * carries and how far the Done and Abandoned lanes are opened. DOM-free, and reads no clock: the page's now is handed in.
  */
 
-import type { Task }                         from '../../../src/lib/tracker-model/@types/Task.ts';
-import type { TicketPriority }               from '../../../src/lib/tracker-model/@types/Ticket.ts';
-import { TicketDefaultsUtil }                from '../../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
-import type { PageTicket }                   from '../../../src/shared/@types/PagePayload.ts';
-import { LIMITS }                            from '../../../src/shared/constants/Limits.ts';
-import { TicketNumberUtil }                  from '../../../src/shared/utils/TicketNumberUtil.ts';
+import type { Task }                         from '../src/lib/tracker-model/@types/Task.ts';
+import type { TicketPriority }               from '../src/lib/tracker-model/@types/Ticket.ts';
+import { TicketDefaultsUtil }                from '../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
+import type { PageTicket }                   from '../src/shared/@types/PagePayload.ts';
+import { LIMITS }                            from '../src/shared/constants/Limits.ts';
+import { TicketNumberUtil }                  from '../src/shared/utils/TicketNumberUtil.ts';
 import type { RowState, TimestampSlices }    from './PageMarkup.ts';
 import { deliveredAfterReview, rowStateFor } from './PageMarkup.ts';
 import { shortStampText }                    from './StampText.ts';

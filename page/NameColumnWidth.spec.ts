@@ -10,7 +10,7 @@ import {
   nameColumnWidthFrom,
   nameColumnWidthStorageKeyFor,
   toggledNameColumnWidth,
-} from './page/NameColumnWidth.ts';
+} from './NameColumnWidth.ts';
 
 describe('nameColumnWidthFrom', () => {
   test.each([
@@ -42,7 +42,7 @@ describe('nameColumnWidthStorageKeyFor', () => {
 
 // The template's CSS override is keyed on this attribute; a rename on one side alone would leave the button doing nothing.
 test('names the attribute the template keys its widened column on', async () => {
-  const templateText = await Bun.file(`${import.meta.dir}/page/template.html`).text();
+  const templateText = await Bun.file(`${import.meta.dir}/../resources/template.html`).text();
 
   expect(templateText).toContain(`:root[${NAME_COLUMN_WIDTH_ATTRIBUTE}="wide"] { --col-name: var(--col-name-wide); }`);
 });

@@ -1,8 +1,8 @@
 /** The DOM-free half of the page: the checks that establish the island shapes, and the range the geometry is finally given. */
 
-import type { ProgressFile, ViewRange }             from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
-import { TicketDependencyUtil }                     from '../../../src/lib/tracker-model/utils/TicketDependencyUtil.ts';
-import type { PageLimits, PagePayload, PageTicket } from '../../../src/shared/@types/PagePayload.ts';
+import type { ProgressFile, ViewRange }             from '../src/lib/tracker-model/@types/ProgressFile.ts';
+import { TicketDependencyUtil }                     from '../src/lib/tracker-model/utils/TicketDependencyUtil.ts';
+import type { PageLimits, PagePayload, PageTicket } from '../src/shared/@types/PagePayload.ts';
 import { computeTimeline }                          from './GanttGeometry.ts';
 
 export interface StoredViewOverride {

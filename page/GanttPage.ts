@@ -1,12 +1,12 @@
 /**
- * The browser entry: it fills the containers of `lib/render/page/template.html` from the two JSON islands and does nothing else. Theme, tab
+ * The browser entry: it fills the containers of `resources/template.html` from the two JSON islands and does nothing else. Theme, tab
  * selection and ticket open state stay with the template's own bootstrap, reached through `window.agentProgressTemplate`.
  */
 
-import type { ProgressFile, ViewRange }             from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
-import type { Task }                                from '../../../src/lib/tracker-model/@types/Task.ts';
-import type { TicketStatus }                        from '../../../src/lib/tracker-model/@types/Ticket.ts';
-import type { PageLimits, PagePayload, PageTicket } from '../../../src/shared/@types/PagePayload.ts';
+import type { ProgressFile, ViewRange }             from '../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Task }                                from '../src/lib/tracker-model/@types/Task.ts';
+import type { TicketStatus }                        from '../src/lib/tracker-model/@types/Ticket.ts';
+import type { PageLimits, PagePayload, PageTicket } from '../src/shared/@types/PagePayload.ts';
 import type { Timeline }                            from './GanttGeometry.ts';
 import { computeTimeline }                          from './GanttGeometry.ts';
 import type { ClosedKanbanLane, KanbanCard }        from './KanbanBoard.ts';
@@ -163,7 +163,7 @@ function setShortenedText(elementId: string, shortened: ShortenedText): void {
   }
 }
 
-/** `innerHTML` is safe here because `lib/render/page/PageMarkup.ts` escaped every value once and ticket bodies arrive sanitised. */
+/** `innerHTML` is safe here because `page/PageMarkup.ts` escaped every value once and ticket bodies arrive sanitised. */
 function setMarkup(elementId: string, markup: string): void {
   const element = document.getElementById(elementId);
   if (element !== null) {

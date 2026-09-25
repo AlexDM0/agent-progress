@@ -1,5 +1,5 @@
 /**
- * Fills `lib/render/page/template.html` — two islands, the page script and the title — from one progress file and its tickets. Both islands go
+ * Fills `resources/template.html` — two islands, the page script and the title — from one progress file and its tickets. Both islands go
  * through `escapeJsonForScriptTag` of `src/lib/utils/HtmlEscapeUtil.ts`, so none can close its script tag; `generatedAt` is a parameter, not a clock.
  */
 
@@ -82,7 +82,7 @@ export function substituteTemplateTokens(template: string, values: Readonly<Reco
     if (occurrences !== 1) {
       throw new OperationRefusal(
         'unrepaired',
-        `the page template lib/render/page/${TEMPLATE_FILE_NAME} holds ${occurrences} occurrences of ${token}, not exactly one`,
+        `the page template resources/${TEMPLATE_FILE_NAME} holds ${occurrences} occurrences of ${token}, not exactly one`,
       );
     }
   }
@@ -99,7 +99,7 @@ export function renderProgressHtml(input: RenderProgressHtmlInput): string {
     concurrency,
   } = input;
   // Read per call, never at module load, and from the installed package rather than the caller's working directory.
-  const template = readFileSync(join(import.meta.dir, 'page', TEMPLATE_FILE_NAME), 'utf8');
+  const template = readFileSync(join(import.meta.dir, '..', '..', 'resources', TEMPLATE_FILE_NAME), 'utf8');
 
   const payload: PagePayload = {
     progress,

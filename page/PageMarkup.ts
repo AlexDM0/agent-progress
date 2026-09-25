@@ -1,18 +1,18 @@
 /**
- * Every string of HTML the page emits, as pure functions shaped by the placeholder content of `lib/render/page/template.html`. Everything from
+ * Every string of HTML the page emits, as pure functions shaped by the placeholder content of `resources/template.html`. Everything from
  * the tracker or a ticket passes `escapeHtml` exactly once here, except a ticket's `bodyHtml`, already escaped by `lib/render/Markdown.ts`.
  */
 
-import type { LogEntry }                  from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
-import type { Task, TaskStatus }          from '../../../src/lib/tracker-model/@types/Task.ts';
-import type { TicketStatus }              from '../../../src/lib/tracker-model/@types/Ticket.ts';
-import { SETTLED_TASK_STATUSES }          from '../../../src/lib/tracker-model/constants/Statuses.ts';
-import { TicketDefaultsUtil }             from '../../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
-import { HtmlEscapeUtil }                 from '../../../src/lib/utils/HtmlEscapeUtil.ts';
-import { TokenCountUtil }                 from '../../../src/lib/utils/TokenCountUtil.ts';
-import type { PageTicket }                from '../../../src/shared/@types/PagePayload.ts';
-import { LIMITS }                         from '../../../src/shared/constants/Limits.ts';
-import { TicketNumberUtil }               from '../../../src/shared/utils/TicketNumberUtil.ts';
+import type { LogEntry }                  from '../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Task, TaskStatus }          from '../src/lib/tracker-model/@types/Task.ts';
+import type { TicketStatus }              from '../src/lib/tracker-model/@types/Ticket.ts';
+import { SETTLED_TASK_STATUSES }          from '../src/lib/tracker-model/constants/Statuses.ts';
+import { TicketDefaultsUtil }             from '../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
+import { HtmlEscapeUtil }                 from '../src/lib/utils/HtmlEscapeUtil.ts';
+import { TokenCountUtil }                 from '../src/lib/utils/TokenCountUtil.ts';
+import type { PageTicket }                from '../src/shared/@types/PagePayload.ts';
+import { LIMITS }                         from '../src/shared/constants/Limits.ts';
+import { TicketNumberUtil }               from '../src/shared/utils/TicketNumberUtil.ts';
 import type { TimelineBar, TimelineTick } from './GanttGeometry.ts';
 import {
   fullInstantText,
@@ -78,7 +78,7 @@ function percent(value: number): string {
   return `${value.toFixed(PERCENT_DECIMAL_PLACES)}%`;
 }
 
-/** One escaped attribute, exported because `lib/render/page/TaskDetail.ts` writes the same markup and a second copy would be a second contract. */
+/** One escaped attribute, exported because `page/TaskDetail.ts` writes the same markup and a second copy would be a second contract. */
 export function attribute(name: string, value: string): string {
   return `${name}="${escapeHtml(value)}"`;
 }

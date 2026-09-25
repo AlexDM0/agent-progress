@@ -1,13 +1,13 @@
 /**
- * The page's pure helpers, imported from `lib/render/page/PageData.ts` rather than the page entry,
- * which touches `document` and so cannot be compiled by this project.
+ * The page's pure helpers, imported from `page/PageData.ts` rather than the page entry,
+ * which touches `document` at load and so cannot be imported by a spec.
  */
 
 import { describe, expect, test }  from 'bun:test';
-import type { ProgressFile }       from '../../src/lib/tracker-model/@types/ProgressFile.ts';
-import type { Task }               from '../../src/lib/tracker-model/@types/Task.ts';
-import type { PageLimits }         from '../../src/shared/@types/PagePayload.ts';
-import type { StoredViewOverride } from './page/PageData.ts';
+import type { ProgressFile }       from '../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Task }               from '../src/lib/tracker-model/@types/Task.ts';
+import type { PageLimits }         from '../src/shared/@types/PagePayload.ts';
+import type { StoredViewOverride } from './PageData.ts';
 import {
   EMPTY_VIEW_OVERRIDE,
   effectiveRangeFor,
@@ -18,7 +18,7 @@ import {
   RANGE_PRESET_BOUNDS,
   storageKeyFor,
   storedOverrideFrom,
-} from './page/PageData.ts';
+} from './PageData.ts';
 
 const EXAMPLE_LIMITS: PageLimits = {
   tickStepLadderMinutes:       [5, 10, 15, 30, 60, 120, 180, 360, 720, 1440],

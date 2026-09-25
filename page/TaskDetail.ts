@@ -3,13 +3,13 @@
  * Every value passes `escapeHtml` exactly once here, except a ticket's `bodyHtml`, already escaped by `lib/render/Markdown.ts`.
  */
 
-import type { LogEntry }                    from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
-import type { Task, TaskPhase, TaskStatus } from '../../../src/lib/tracker-model/@types/Task.ts';
-import type { TicketStatus }                from '../../../src/lib/tracker-model/@types/Ticket.ts';
-import { HtmlEscapeUtil }                   from '../../../src/lib/utils/HtmlEscapeUtil.ts';
-import { TokenCountUtil }                   from '../../../src/lib/utils/TokenCountUtil.ts';
-import type { PageTicket }                  from '../../../src/shared/@types/PagePayload.ts';
-import { LIMITS }                           from '../../../src/shared/constants/Limits.ts';
+import type { LogEntry }                    from '../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Task, TaskPhase, TaskStatus } from '../src/lib/tracker-model/@types/Task.ts';
+import type { TicketStatus }                from '../src/lib/tracker-model/@types/Ticket.ts';
+import { HtmlEscapeUtil }                   from '../src/lib/utils/HtmlEscapeUtil.ts';
+import { TokenCountUtil }                   from '../src/lib/utils/TokenCountUtil.ts';
+import type { PageTicket }                  from '../src/shared/@types/PagePayload.ts';
+import { LIMITS }                           from '../src/shared/constants/Limits.ts';
 import type { RowState, TimestampSlices }   from './PageMarkup.ts';
 import {
   attribute,

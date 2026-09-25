@@ -1,0 +1,6 @@
+{
+  // The page program plus Bun types, so the specs beside the modules compile; the DOM-only program above stays the proof.
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "types": ["bun"] },
+  "exclude": []
+}

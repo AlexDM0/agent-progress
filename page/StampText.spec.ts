@@ -6,14 +6,14 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import type { StampTextSlices } from './page/StampText.ts';
+import type { StampTextSlices } from './StampText.ts';
 import {
   calendarDateOf,
   fullInstantText,
   fullStampText,
   shortInstantText,
   shortStampText,
-} from './page/StampText.ts';
+} from './StampText.ts';
 
 const EXAMPLE_SLICES: StampTextSlices = {
   dateAndClockLength:    16,

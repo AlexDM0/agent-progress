@@ -13,8 +13,8 @@ the plan is specific it wins; these rules decide the rest.
 ## Verify
 
 `bun run typecheck && bun test && bun run lint`: all three after any TypeScript change, before calling it done.
-`typecheck` covers both projects, the Bun one and the DOM-only page. Never ad-hoc `tsc` flags; never edit
-`package.json` to make a check pass.
+`typecheck` covers the Bun program, the DOM-only page program and the page's spec program. Never ad-hoc `tsc`
+flags; never edit `package.json` to make a check pass.
 
 ## Rules
 
@@ -89,8 +89,7 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
 - `process.env` is read only in `src/shared/Environment.ts`, through getters, each with a docblock saying what it
   overrides and why. The one in-process assignment is in `src/shared/Environment.spec.ts`; other specs set the
   environment in a child process.
-- No work at module load. The one exception is the last statement of `lib/render/page/GanttPage.ts`, which starts
-  the page.
+- No work at module load. The one exception is the last statement of `page/GanttPage.ts`, which starts the page.
 - Factories of closures over classes, except for state carried across calls, domain classes and ingestion classes.
   A constructor does no work.
 - A record keyed by outside text is indexed through `Object.hasOwn`, never a bare lookup.
@@ -122,10 +121,11 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
   `noUnusedLocals`, `noUnusedParameters`, `forceConsistentCasingInFileNames`, `skipLibCheck`.
 - Write for their consequences: `process.env['NAME']`, a written fallback instead of `!`, objects built
   conditionally instead of spreading `undefined`, `import type` for type-only imports.
-- The page is its own DOM-only project, `lib/render/page/tsconfig.json` (DOM lib, no Bun or Node types), and the
-  root project excludes it. Its `include` list is the written-down surface of shared files the page reaches: a page
+- The page is its own DOM-only project, `page/tsconfig.json` (DOM lib, no Bun or Node types), which the root
+  project does not reach. Its `include` list is the written-down surface of shared files the page reaches: a page
   module that imports a new file from outside the folder adds it there in the same change, and every file the page
-  project reaches, in `src/` too, stays DOM-safe. No spec sits in `lib/render/page/`; page specs sit in `lib/render/`.
+  project reaches, in `src/` too, stays DOM-safe. The page's specs sit beside their modules and are checked by
+  `page/tsconfig.spec.json`, the same program plus Bun types.
 - ESLint 9 flat config through `@reliquary/eslint-config`: 2-space indent, single quotes, semicolons; line length
   180 for code, 155 for comments; aligned object values; aligned `from`; imports builtin → external → internal,
   alphabetised; builtins through the `node:` protocol (`import/enforce-node-protocol-usage`, turned on in
@@ -186,7 +186,7 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
 
 ### The page
 
-- `lib/render/page/template.html` is designer-owned, edited as HTML and never generated. Its placeholder markup is
+- `resources/template.html` is designer-owned, edited as HTML and never generated. Its placeholder markup is
   the contract with what the page modules emit: a change on one side only is a bug, and a new mark reuses a class
   the template already styles. Its header comment lists the tokens, the containers and the axis box, and stays in
   step with it.
@@ -197,8 +197,7 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
 - Board facts such as the agents in flight arrive in the payload, computed by what `status --json` uses; the page
   never recounts them.
 - Every value passes `escapeHtml` once; a ticket's `bodyHtml`, already escaped by `lib/render/Markdown.ts`, is the
-  one unescaped string. Stored stamps are sliced, never re-parsed, and shortened only through
-  `lib/render/page/StampText.ts`.
+  one unescaped string. Stored stamps are sliced, never re-parsed, and shortened only through `page/StampText.ts`.
 - A visual change leaves the README screenshots stale: once it lands, run `.readme-graphics/regenerate.sh` in the
   main checkout.
 
@@ -221,7 +220,7 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
 ```
 agent-progress.ts           the bin shim: runs the command line and exits with its number
 package.json                the bin entry, the scripts and the one runtime dependency, marked
-tsconfig.json               the strict Bun project; excludes lib/render/page/
+tsconfig.json               the strict Bun project
 eslint.config.js            the shared ESLint config, the node: protocol rule, and the devDependency exemption for the three
                             test-only folders: src/testing/, cli/testing/ and lib/tooling/dev/
 bun.lock                    the lockfile, committed
@@ -235,13 +234,16 @@ README-day-on-the-board.md  the same page told as one day on a board, kept for c
 setup.sh                    machine setup: Bun, bun install and bun link, and the skill symlinks
 cli/                        the command surface: dispatch, arguments, help, one folder per command; cli/testing/ is test-only
 lib/                        everything the commands do, in the layers above; lib/tooling/dev/ holds the dispatcher's test harness
+page/                       the browser page: its sets, its own DOM-only tsconfig and spec tsconfig
+resources/                  files read at runtime: the page's HTML template
 src/                        the target layout's code, filled step by step as the migration plan moves it
   src/lib/                  package-grade building blocks, one folder each, the package's description in its main module's header:
                             atomic-file (AtomicFile.ts), git (GitProcess.ts), claude-code (ClaudeTranscripts.ts),
                             tracker-model (@types/Task.ts), utils
   src/adapters/             the boundary to stored files: reading and mapping what the tracker stores
   src/services/             app-wide services, one folder each
-  src/shared/               app-specific code several parts use: the environment reader, the refusal, LIMITS
+  src/shared/               app-specific code several parts use: the environment reader, the refusal, LIMITS, the page payload
+                            types, ticket numbers
   src/testing/              test-only helpers several parts use: the scratch workspace and the tracker isolation check
 skill/                      the skill every session in a tracked repository loads
 skill-orchestrate/          the skill for the one session running the board

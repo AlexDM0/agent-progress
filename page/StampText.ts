@@ -8,7 +8,7 @@ const TWO_DIGITS = 10;
 
 const FIRST_MONTH_NUMBER = 1;
 
-/** The slice bounds of a stored stamp this module reads, declared here because `lib/render/page/PageMarkup.ts` imports this module. */
+/** The slice bounds of a stored stamp this module reads, declared here because `page/PageMarkup.ts` imports this module. */
 export interface StampTextSlices {
   dateAndClockLength:    number;
   calendarDateLength:    number;

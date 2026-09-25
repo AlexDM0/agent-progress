@@ -14,7 +14,7 @@ import {
   logVisibilityFrom,
   logVisibilityStorageKeyFor,
   toggledLogVisibility,
-} from './page/LogVisibility.ts';
+} from './LogVisibility.ts';
 
 describe('logVisibilityFrom', () => {
   // A cleared or tampered key must not show the whole log by accident; only the one stored word does.
