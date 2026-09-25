@@ -208,8 +208,8 @@ package.json                the bin entry, the scripts and the one runtime depen
 tsconfig.json               the strict Bun project; excludes lib/render/page/
 eslint.config.js            the shared ESLint config, plus the devDependency exemption for lib/tooling/dev/
 bun.lock                    the lockfile, committed
-.gitignore                  node_modules/, .agent-progress/, .DS_Store, .readme-graphics/
-.idea/                      tracked IDE settings; untracked in plan step 2
+.gitignore                  node_modules/, .agent-progress/, .DS_Store, .readme-graphics/, .idea/
+.idea/                      git-ignored IDE settings
 .readme-graphics/           git-ignored, owner's checkout only: the demo board that redraws docs/images/
 CLAUDE.md                   this file
 README.md                   the GitHub landing page
