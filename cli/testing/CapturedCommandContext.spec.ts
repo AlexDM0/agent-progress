@@ -33,7 +33,7 @@ describe('the refusal before a command runs', () => {
   });
 
   // The hook resolves its tracker from the `cwd` in the JSON piped to it, not from the context, so that directory is a second way out.
-  test('refuse a piped hook input whose cwd is the repository under test', () => {
+  test('refuses a piped hook input whose cwd is the repository under test', () => {
     const scratchWorkingDirectory = scratchDirectory('isolation-hook');
     const standardInputText = JSON.stringify({ agent_id: 'agent_example', cwd: REPOSITORY_DIRECTORY });
     expect(() => createCapturedCommandContext({ currentDirectory: scratchWorkingDirectory, standardInputText })).toThrow('which is not isolated');

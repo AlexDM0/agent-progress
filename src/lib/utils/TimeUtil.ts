@@ -105,7 +105,7 @@ function resolveWhen(text: string, now: Date): Date | null {
   return parseIso(trimmed);
 }
 
-/** Reads `15m`, `1h`, `1d` or a bare number of minutes; zero is refused, because a tick step of zero lays out gridlines forever. */
+/** Reads `15m`, `1h`, `1d` or a bare number of minutes; zero is refused, so a returned duration is always a positive step. */
 function parseDurationMinutes(text: string): number | null {
   const match = DURATION_PATTERN.exec(text.trim());
   if (match === null) return null;

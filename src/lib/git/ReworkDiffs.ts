@@ -1,6 +1,6 @@
 /**
- * Which commits a review made, and what a rebase changed in a branch's own work, as diff text for a caller to count. Every diff is asked
- * for with its options spelled out, so a reviewer's own git configuration cannot make two reviewers count differently.
+ * Which commits were made on a worktree since a given commit, and what a rebase changed in a branch's own work, as diff text for a caller
+ * to count. Every diff is asked for with its options spelled out, so the user's git configuration cannot change the diff text.
  */
 import { GitProcess } from './GitProcess';
 

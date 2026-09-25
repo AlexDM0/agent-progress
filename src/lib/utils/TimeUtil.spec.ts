@@ -130,7 +130,7 @@ test('parseDurationMinutes reads a unit or a bare number of minutes', () => {
   expect(parseDurationMinutes('90M')).toBe(90);
 });
 
-test('parseDurationMinutes refuses zero, because a tick step of zero minutes lays out gridlines forever', () => {
+test('parseDurationMinutes refuses zero, so every duration it returns is a positive step', () => {
   expect(parseDurationMinutes('0')).toBeNull();
   expect(parseDurationMinutes('0m')).toBeNull();
   expect(parseDurationMinutes('-15m')).toBeNull();
