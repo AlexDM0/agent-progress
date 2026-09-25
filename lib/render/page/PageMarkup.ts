@@ -286,7 +286,7 @@ function ticketLinkMarkup(identifier: string, target: TicketLinkTarget): string 
   return `<a ${destination}>#${escapeHtml(identifier)}</a>`;
 }
 
-function ticketLinksMarkup(identifiers: readonly string[], target: TicketLinkTarget = 'ticket-card'): string {
+export function ticketLinksMarkup(identifiers: readonly string[], target: TicketLinkTarget = 'ticket-card'): string {
   return identifiers.map((identifier) => ticketLinkMarkup(identifier, target)).join(', ');
 }
 

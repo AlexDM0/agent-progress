@@ -80,6 +80,8 @@ import {
 } from './PageMarkup.ts';
 import { calendarDateOf }        from './StampText.ts';
 import { taskDetailMarkup }      from './TaskDetail.ts';
+import { ticketDetailMarkup }    from './TicketDetail.ts';
+import { tickLabelIsCovered }    from './TicketTimeline.ts';
 import type { WorkVisibility }   from './WorkVisibility.ts';
 import {
   DEFAULT_WORK_VISIBILITY,
@@ -428,7 +430,34 @@ function wireRowOverview(containerId: string, rowSelector: string, showRowDetail
   });
 }
 
-function wireTaskDetail(progress: ProgressFile, tickets: readonly PageTicket[], limits: PageLimits, readTodayCalendarDate: () => string): void {
+function markCoveredTickLabels(): void {
+  const body     = document.getElementById(DETAIL_BODY_ELEMENT_ID);
+  const endLabel = body?.querySelector('.ap-ticket-gantt-end-label') ?? null;
+  if (body === null || endLabel === null) {
+    return;
+  }
+  const endBox = endLabel.getBoundingClientRect();
+  for (const tick of body.querySelectorAll('.ap-ticket-gantt-ticks .ap-tick')) {
+    const label = tick.firstElementChild;
+    tick.toggleAttribute('data-covered', label !== null && tickLabelIsCovered(label.getBoundingClientRect(), endBox));
+  }
+}
+
+interface DetailSources {
+  progress:              ProgressFile;
+  tickets:               readonly PageTicket[];
+  limits:                PageLimits;
+  readTodayCalendarDate: () => string;
+  readKanbanCards:       () => readonly KanbanCard[];
+}
+
+function wireTaskDetail(sources: DetailSources): void {
+  const {
+    progress,
+    tickets,
+    limits,
+    readTodayCalendarDate,
+  } = sources;
   const dialog = document.getElementById(DETAIL_DIALOG_ELEMENT_ID);
   if (!(dialog instanceof HTMLDialogElement)) {
     return;
@@ -461,8 +490,30 @@ function wireTaskDetail(progress: ProgressFile, tickets: readonly PageTicket[], 
     showDetail(progress.tasks.find((candidate) => candidate.ticket === ticketId) ?? null, ticketById.get(ticketId) ?? null);
   };
 
+  const showKanbanCardDetail = (cardElement: HTMLElement): void => {
+    const card = sources.readKanbanCards().find((candidate) => candidate.ticket.id === cardElement.dataset['ticketId']);
+    if (card === undefined) {
+      return;
+    }
+    setMarkup(DETAIL_BODY_ELEMENT_ID, ticketDetailMarkup({
+      card,
+      tasks:                progress.tasks,
+      nowEpochMilliseconds: Date.now(),
+      todayCalendarDate:    readTodayCalendarDate(),
+      limits,
+    }));
+    dialog.showModal();
+    markCoveredTickLabels();
+  };
+
   wireRowOverview('ap-rows', '.ap-row', showTaskRowDetail);
   wireRowOverview('ap-ticket-rows', '[data-ticket-id]', showTicketRowDetail);
+  wireRowOverview(KANBAN_BOARD_ELEMENT_ID, '.ap-kanban-card', showKanbanCardDetail);
+  window.addEventListener('resize', () => {
+    if (dialog.open) {
+      markCoveredTickLabels();
+    }
+  });
 
   document.getElementById(DETAIL_CLOSE_ELEMENT_ID)?.addEventListener('click', () => {
     dialog.close();
@@ -664,7 +715,13 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     }
   };
 
-  wireTaskDetail(progress, tickets, limits, () => todayCalendarDate);
+  wireTaskDetail({
+    progress,
+    tickets,
+    limits,
+    readTodayCalendarDate: () => todayCalendarDate,
+    readKanbanCards:       () => visibleKanbanCards,
+  });
 
   wireRangeBar(() => override, (next) => {
     override = next;

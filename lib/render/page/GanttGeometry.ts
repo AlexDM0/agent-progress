@@ -48,7 +48,7 @@ export interface Timeline {
   nowPercent:            number | null;
 }
 
-interface ResolvedSpan {
+export interface ResolvedSpan {
   fromEpochMilliseconds: number;
   toEpochMilliseconds:   number;
 }
@@ -147,7 +147,7 @@ function resolveSpan(progress: ProgressFile, range: ViewRange, nowEpochMilliseco
   return { fromEpochMilliseconds, toEpochMilliseconds };
 }
 
-function chooseStepMinutes(spanMinutes: number, tickMinutes: number | null, limits: TimelineLimits): number {
+export function chooseStepMinutes(spanMinutes: number, tickMinutes: number | null, limits: TimelineLimits): number {
   if (tickMinutes !== null && tickMinutes > 0) {
     return Math.max(MINIMUM_STEP_MINUTES, tickMinutes);
   }
@@ -182,7 +182,7 @@ function formatTickLabel(epochMilliseconds: number, spanMinutes: number, limits:
   return `${padToTwoDigits(moment.getMonth() + 1)}-${padToTwoDigits(moment.getDate())}`;
 }
 
-function buildTicks(span: ResolvedSpan, stepMinutes: number, spanMinutes: number, limits: TimelineLimits): TimelineTick[] {
+export function buildTicks(span: ResolvedSpan, stepMinutes: number, spanMinutes: number, limits: TimelineLimits): TimelineTick[] {
   const stepMilliseconds       = stepMinutes * MILLISECONDS_PER_MINUTE;
   const spanMilliseconds       = span.toEpochMilliseconds - span.fromEpochMilliseconds;
   const fromWallClockMinutes   = localWallClockMinutes(span.fromEpochMilliseconds);

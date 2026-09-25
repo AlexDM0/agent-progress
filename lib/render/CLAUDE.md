@@ -31,14 +31,18 @@ the real store functions in. Every mutating command calls it **inside its lock**
 | `lib/render/StampText.spec.ts` | The three forms a stored stamp takes against the viewer's day, a stamp read as written whatever its offset, and the instant forms in local time. |
 | `lib/render/KanbanBoard.spec.ts` | Each row state's and each rowless status's lane, the order within a lane, every sub-state note and where it is left out, the lane head counts, the cap arithmetic and its clamp, the storage keys, the overflow directions. |
 | `lib/render/KanbanMarkup.spec.ts` | The placeholder board rebuilt: the To do lane, cards `#061`, `#059`, `#055`, the Done footer and the Abandoned lane matched to the template's text; the cap's buttons, the empty lanes, the toggle and the escaping. |
+| `lib/render/TicketTimeline.spec.ts` | The design's three examples (#059 in its second review, #055 delivered, #067 never started) at its now, a row re-seeded without history, a delivered ticket missing its stamp, the notes, and which tick labels the end label covers. |
+| `lib/render/TicketDetail.spec.ts` | The ticket body's order and facts, the Kanban links, the ✓, the escaping, and that no filed bar is drawn outside the dialog. |
 | `lib/render/page/template.html` | The designer's template: the styles, the state system, the containers and the bootstrap. Not generated. |
-| `lib/render/page/GanttGeometry.ts` | `computeTimeline(input)`: the axis, the ticks, every bar and the now marker as percentages. Pure, no DOM. |
+| `lib/render/page/GanttGeometry.ts` | `computeTimeline(input)`: the axis, the ticks, every bar and the now marker as percentages, and the step choice and tick builder the ticket Timeline reuses. Pure, no DOM. |
 | `lib/render/page/PageData.ts` | The island shapes, the checks that establish them, and the stored range. DOM-free. |
 | `lib/render/page/PageMarkup.ts` | Every string of HTML the page emits, as pure functions. DOM-free. |
 | `lib/render/page/StampText.ts` | The one stamp formatter: `calendarDateOf`, `shortStampText` and `fullStampText` for stored stamps, `shortInstantText` and `fullInstantText` for instants the page computed. DOM-free, and reads no clock. |
 | `lib/render/page/KanbanBoard.ts` | The Kanban tab's rules: a card's lane, the order within a lane, the lane head counts, the sub-state notes, the capped lanes' arithmetic and storage keys, and the frame's overflow directions. DOM-free, and reads no clock. |
 | `lib/render/page/KanbanMarkup.ts` | The Kanban board's markup — lanes, heads, dividers, cards, the capped lanes' footer — as pure functions. DOM-free. |
 | `lib/render/page/TaskDetail.ts` | The overview panel's markup — header, task facts, phases, ticket, log — as pure functions. DOM-free. |
+| `lib/render/page/TicketTimeline.ts` | A ticket's Timeline: the axis, ticks, the Filed, Build, Review N and After build rows, the legend, the end marker and the note, as data and as markup, and the covered-tick test. DOM-free, and reads no clock. |
+| `lib/render/page/TicketDetail.ts` | The ticket body a Kanban card opens — head, facts, Timeline, Description — as pure functions. DOM-free. |
 | `lib/render/page/WorkVisibility.ts` | Whether a task or ticket has been done for longer than the window, the stored visibility and the hidden note. DOM-free. |
 | `lib/render/page/LogVisibility.ts` | The log card's cap (`LOG_ENTRIES_SHOWN_BY_DEFAULT`, 10), the stored newest/all choice and the control's and note's text. DOM-free. |
 | `lib/render/page/NameColumnWidth.ts` | The chart's task column at its normal or widened width, stored per tracker; the widths are the template's `--col-name` and `--col-name-wide`. DOM-free. |
@@ -125,7 +129,8 @@ The consequence: **no `*.spec.ts` may sit in `lib/render/page/`** — a spec's `
 not resolve there. A page module's spec goes one level up and reaches it by a relative import, which
 is how `lib/render/GanttGeometry.spec.ts`, `lib/render/PageData.spec.ts`,
 `lib/render/PageMarkup.spec.ts`, `lib/render/TaskDetail.spec.ts`, `lib/render/StampText.spec.ts`, `lib/render/WorkVisibility.spec.ts`,
-`lib/render/KanbanBoard.spec.ts` and `lib/render/KanbanMarkup.spec.ts` are placed. It is also why
+`lib/render/KanbanBoard.spec.ts`, `lib/render/KanbanMarkup.spec.ts`, `lib/render/TicketTimeline.spec.ts` and
+`lib/render/TicketDetail.spec.ts` are placed. It is also why
 `lib/render/page/GanttPage.ts` holds no logic worth testing: everything that could be was moved into
 the DOM-free modules beside it.
 
@@ -202,7 +207,21 @@ themselves. The five timestamp slice positions travel the same way, so no page m
   claims a log line only in the forms written for rows** — `Task #N`, `Review row #N`, `the review row
   #N` — and never one beginning `Ticket #`, because from ticket #100 up a ticket's id is spelled as a
   row's; a ticket claims its `#NNN` anywhere but in those row forms. The row's `note`, where the
-  dispatcher's claim note lives, is shown among the task facts.
+  dispatcher's claim note lives, is shown among the task facts. **A Kanban card opens the same dialog
+  with the ticket body instead** (`ticketDetailMarkup` in `lib/render/page/TicketDetail.ts`): a
+  double-click or Enter on a `.ap-kanban-card`, a double-click inside one of its links staying the
+  link's, and the head, the facts, the Timeline and the Description in that order.
+- **A ticket's Timeline is the Progress chart's grid at a smaller scale**, decided in
+  `lib/render/page/TicketTimeline.ts`. Its axis runs from `filed` to the last moment — `delivered`,
+  else `abandonedAt`, else now; a closed ticket missing that stamp ends at `updated`, never at now —
+  widened by 2.5% each side and never narrower than the tick ladder's smallest step, with at most 9
+  ticks from `GanttGeometry.ts`'s own step choice and labels. The Filed bar (`.ap-ticket-gantt-filed`)
+  runs from filing to the build's first start and is drawn **only here, never on the Progress chart**.
+  The Build segments are the own row's recorded `running` and `paused` phases, each to the next phase;
+  a row without them gets one segment from its `start`. The Review rows are the ticket's review rows
+  in filing order, and the After build waits are derived from their starts and the own row's
+  `reviewed`. The legend sums the time per label in first-seen order. After `showModal()` and on
+  resize the page marks every tick label within 6px of the end label `data-covered`, by measurement.
 - **Timestamps stored by the CLI are sliced, never re-parsed**; each carries the offset of the machine
   that recorded it. Instants the page computed (the axis, the now marker, the generated stamp) are
   formatted, because they have no written-down wall clock to preserve. **Every stamp is then shortened

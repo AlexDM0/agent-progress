@@ -125,8 +125,9 @@ was.
 label, so ids and history are stable and a chart never silently loses a row.
 
 **A low ticket has no row until it is started.** `ticket add --priority low` files it with no row
-and takes no task id; it shows on the dashboard's Tickets tab marked `low` and nowhere on the
-Progress tab. `ticket start` or `ticket claim` creates its row, `running`, and the row then stays,
+and takes no task id; of the dashboard's tabs, Progress · Kanban · Tickets, it shows on the Tickets
+tab marked `low` and in the Kanban's To do lane as `no row yet` — the Kanban board sits beside the
+Tickets tab, not in place of it — and nowhere on the Progress tab. `ticket start` or `ticket claim` creates its row, `running`, and the row then stays,
 through a reopen too. `ticket abandon` or `ticket reopen` on a low ticket that has no row creates
 none. `ticket priority <id> <p>` writes one log line, `Ticket #003 priority normal → low`: lowering
 to low is refused at exit 1 unless the ticket is open, and removes its row; raising a low ticket

@@ -331,7 +331,12 @@ mutating command and reloading itself every 5 minutes. Open it with `agent-progr
 - **Double-click any row**, in the chart or the ticket table, for the whole story of that task: its
   facts, every phase it went through with how long it sat in each, the ticket with its body, and the
   log lines that name either. A row filed before phases were recorded says so and shows what can be
-  derived from its stamps instead. Esc, the backdrop or × closes it.
+  derived from its stamps instead. **Double-click a Kanban card**, or press Enter on it, for the
+  ticket instead: its facts, a Timeline of that ticket alone — a quiet Filed bar from filing to the
+  build's start, the build's wip and paused segments, one row per review pass, the waits after the
+  build, and a marker at now or at its delivery or abandonment — with the time spent in each state
+  under it, then its description. The Filed bar is drawn only there, never on the Progress chart. Esc,
+  the backdrop, × or a link inside it closes either.
 - **Range bar**: the presets Auto · 1h · 4h · 12h · 24h · 7d · All, free-text bounds that accept
   `start`, `now` and `-2h` as well as timestamps, and a tick-step selector. A viewer's choice is kept
   in their browser; Auto hands control back to the default stored by `agent-progress range`. Bars

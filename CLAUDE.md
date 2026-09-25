@@ -275,8 +275,6 @@ docs/                    `docs/backlog.md`: what is agreed and not started, with
                          code and file format. `docs/development.md`: working on this repository.
                          `docs/images/`: the READMEs' screenshots, panels and diagrams, all of a
                          synthetic "Example Storefront" board; diagram sources kept as SVG beside them.
-                         `docs/design/kanban/`: the approved Kanban tab mockup and its notes, the
-                         design the Kanban tickets port into the template; the last of them deletes it.
 node_modules/            Git-ignored dependencies.
 ```
 

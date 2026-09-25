@@ -81,16 +81,20 @@
  #ap-ticket-count         text   "6 tickets · 1 in progress" above the ticket table
  #ap-ticket-cards         el     one .ap-ticket per ticket
  #ap-detail               dialog the overview panel, opened with showModal() by a double-click
-                                 on a .ap-row or on a ticket table row, or by Enter on one that has
-                                 focus (both carry tabindex="0"); Esc, the backdrop, a link
-                                 inside it and #ap-detail-close all close it
+                                 on a .ap-row, a ticket table row or a .ap-kanban-card, or by Enter
+                                 on one that has focus (all carry tabindex="0"); Esc, the backdrop,
+                                 a link inside it and #ap-detail-close all close it
  #ap-detail-body          html   the panel's contents: .ap-detail-head then one
-                                 .ap-detail-section per part (Task, Phases, Ticket, Log)
+                                 .ap-detail-section per part (Task, Phases, Ticket, Log), or for a
+                                 card the ticket body (see "ticket body markup")
  #ap-detail-close         el     the panel's close button
  #ap-kanban-frame         el     wraps the board; data-overflow="start|end" (space-separated) while
                                  the board can scroll that way, which shows an edge fade
  #ap-kanban               el     the board, a horizontal scroller; direct children are six
                                  section.ap-lane, To do → Abandoned (see "kanban markup")
+ .ap-kanban-card          el     double-click or Enter opens #ap-detail with the ticket body:
+                                 .ap-detail-head, .ap-ticket-meta, then the Timeline section
+                                 (.ap-ticket-gantt) and the Description section
  ---------------------------------------------------------------- row markup ---
  .ap-row[data-state]      state goes on the ROW; pill and bar inherit its colours
  .ap-row[data-review-of]  a review pass, drawn directly above the row of the ticket it names
@@ -120,7 +124,31 @@
                           .ap-kanban-marks?, .ap-kanban-note?, .ap-kanban-state, .ap-kanban-stamp
  .ap-kanban-state         .ap-pill only in the lanes that mix states (In progress, Review);
                           .ap-reviewed-mark + "reviewed" on a Done card reviewed first
+ .ap-ticket-gantt         the detail panel's Timeline: the chart grid (.ap-grid-row, .ap-row,
+                          .ap-cell-*) with rows Filed, Build, Review N, After build; ticks in
+                          .ap-ticket-gantt-ticks, lines in .ap-ticket-gantt-overlay, then
+                          .ap-ticket-gantt-legend with the time spent in each state
  placeholder board        its own synthetic board, relative to 2026-09-25 13:36
+ -------------------------------------------------------- ticket body markup ---
+ .ap-detail-head[data-state]  the card's state; .ap-detail-id, h2.ap-detail-title, .ap-pill (always),
+                          the ✓ where the card has it, the priority mark, .ap-detail-type
+ .ap-ticket-meta          the facts present, in order: filed, started, finished, reviewed (the own
+                          row's), delivered, abandoned, reason, held, waiting on (links to Kanban
+                          cards), branch, task (#ap-task-N); each stamp shortened, full on hover
+ Timeline section         .ap-ticket-gantt: .ap-chart-head (Row, Time, the track holding
+                          .ap-ticket-gantt-ticks > .ap-tick > span, then
+                          .ap-ticket-gantt-end-label[data-state?]), then .ap-body holding
+                          .ap-ticket-gantt-overlay (.ap-grid-line…, .ap-ticket-gantt-end[data-state?])
+                          and the rows: Filed (.ap-bar.ap-ticket-gantt-filed, drawn only here),
+                          Build (.ap-bar.ap-bar-segment[data-state=running|paused][data-live?] per
+                          phase), Review N (.ap-bar[data-state=reviewing|re-review][data-live?]),
+                          After build (.ap-bar.ap-lifecycle-segment[data-state], labelled when
+                          wide enough); then ul.ap-ticket-gantt-legend > li > .ap-ticket-gantt-swatch,
+                          b, time; then p.ap-ticket-gantt-note for a ticket never started. The end
+                          label reads "now 13:36" while open, "delivered 13:28" / "abandoned 09:40"
+                          in that state once closed; a tick label it covers gets data-covered
+                          after showModal() and on resize
+ Description section      .ap-ticket-body.md holding the ticket's rendered body
  --------------------------------------------------------------------- states ---
  data-state =  pending  | running | paused |    finished    | reviewing | re-review  |    reviewed    | delivered | abandoned
  pill label = unstarted |   wip   | paused | awaiting review| reviewing | reviewing N| awaiting merge |   done    | abandoned
