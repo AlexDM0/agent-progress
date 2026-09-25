@@ -103,8 +103,10 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
 ### Generated and installed files
 
 - Generated files do not live in the repository, and everything installed elsewhere is to carry one install
-  version. Until plan step 8, nothing is stamped or refused on a mismatch, and the dispatcher is committed under
-  `templates/workflows/`.
+  version. Until plan step 8, nothing is stamped or refused on a mismatch, and `init` and `update` still install the
+  committed `templates/workflows/AgentProgressDispatch.js`. Its policy is ported to `dispatcher/` in TypeScript, held to
+  that script's behaviour by the frozen table `dispatcher/testing/FrozenDispatchTraces.json`, until step 8 generates
+  the installed script from the port and deletes the old one.
 
 ### Comments
 
@@ -126,6 +128,10 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
   root project excludes it. Its `include` list is the written-down surface of shared files the page reaches: a page
   module that imports a new file from outside the folder adds it there in the same change, and every file the page
   project reaches, in `src/` too, stays DOM-safe. No spec sits in `lib/render/page/`; page specs sit in `lib/render/`.
+- `dispatcher/` is the Workflow-runtime project `dispatcher/tsconfig.json` (no Bun, Node or DOM types), with
+  `dispatcher/tsconfig.spec.json` for its specs and `dispatcher/testing/`. Its `include` list is the `src/` files the
+  dispatcher reaches, and a dispatcher module that imports a new `src/` file adds it there in the same change. Only
+  `dispatcher/DispatchScript.ts` names the Workflow globals; specs build it by path and never import it.
 - ESLint 9 flat config through `@reliquary/eslint-config`: 2-space indent, single quotes, semicolons; line length
   180 for code, 155 for comments; aligned object values; aligned `from`; imports builtin → external → internal,
   alphabetised; builtins through the `node:` protocol (`import/enforce-node-protocol-usage`, turned on in
@@ -237,8 +243,8 @@ README-keynote.md           the same page in a keynote layout, kept for comparis
 README-day-on-the-board.md  the same page told as one day on a board, kept for comparison
 setup.sh                    machine setup: Bun, bun install and bun link, and the skill symlinks
 cli/                        the command surface: dispatch, arguments, help, one folder per command; cli/testing/ is test-only
-dispatcher/                 the dispatcher feature, ported to TypeScript in plan step 7; dispatcher/testing/ is test-only:
-                            the harness that runs the dispatcher script against a fake board
+dispatcher/                 the dispatcher policy in TypeScript, bundled into a Workflow script; dispatcher/testing/ is
+                            test-only: the harness, the bundle builder, the frozen table
 lib/                        everything the commands do, in the layers above
 src/                        the target layout's code, filled step by step as the migration plan moves it
   src/lib/                  package-grade building blocks, one folder each, the package's description in its main module's header:

@@ -14,7 +14,7 @@ import {
   dispatchTraceCatalogue,
   type CatalogueEntry,
 } from './DispatchTraceCatalogue';
-import { metaLiteralVerdictOf } from './WorkflowScriptSource';
+import { metaLiteralValueOf, metaLiteralVerdictOf } from './WorkflowScriptSource';
 
 export interface FrozenDispatchTraces {
   takenFrom:   { scriptPath: string; commit: string; scriptDigest: string };
@@ -37,14 +37,10 @@ function retakeCommandFor(commit: string): string {
     + ` && bun dispatcher/testing/DispatchTraceCapture.ts <scratch>/AgentProgressDispatch.js ${commit} > ${FROZEN_TABLE_PATH}`;
 }
 
-// Evaluated only once the purity walk has found nothing but literals in it, so no code of the script runs.
 function metaValueOf(scriptSource: string): unknown {
-  const verdict = metaLiteralVerdictOf(scriptSource);
-  if (verdict.verdict !== 'pure') throw new Error(`The script's meta is not a pure literal: ${JSON.stringify(verdict)}.`);
-  const literalText = /^export const meta = (\{[\s\S]*?\n\});\n/.exec(scriptSource)?.[1];
-  if (literalText === undefined) throw new Error('The script\'s meta literal was not found where the purity walk found it.');
-  const metaValue: unknown = new Function(`return ${literalText};`)();
-  return metaValue;
+  const metaRead = metaLiteralValueOf(scriptSource);
+  if (metaRead.verdict !== 'value') throw new Error(`The script's meta is not a pure literal: ${JSON.stringify(metaLiteralVerdictOf(scriptSource))}.`);
+  return metaRead.value;
 }
 
 function scenarioWithoutMisbehaviour(scenario: DispatchScenario): DispatchScenario {

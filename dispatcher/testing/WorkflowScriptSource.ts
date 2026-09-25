@@ -1,6 +1,6 @@
 /**
- * What the Workflow tool refuses in a script, read from its syntax tree: a clock or randomness, which would break a resumed run, and a `meta`
- * that is anything but a pure literal, which the tool reads without running the script.
+ * What the Workflow tool refuses in a script, read from its syntax tree: a clock or randomness, which would break a resumed run, a `meta`
+ * that is anything but a pure literal, which the tool reads without running the script, and a top-level binding that shadows a Workflow global.
  */
 import ts from 'typescript';
 
@@ -8,6 +8,8 @@ export type MetaLiteralVerdict =
   | { verdict: 'pure'; literalNodeCount: number }
   | { verdict: 'impure'; offenders: string[] }
   | { verdict: 'absent' };
+
+export type MetaLiteralValue = { verdict: 'value'; value: unknown } | { verdict: 'impure' | 'absent' };
 
 const NONDETERMINISTIC_MEMBERS: Record<string, string> = { Date: 'now', Math: 'random' };
 
@@ -78,18 +80,73 @@ function impureNodesIn(node: ts.Node, sourceFile: ts.SourceFile, offenders: stri
   return 0;
 }
 
+function metaStatementOf(sourceFile: ts.SourceFile): { statement: ts.VariableStatement; declaration: ts.VariableDeclaration } | null {
+  const [firstStatement] = sourceFile.statements;
+  if (firstStatement === undefined || !ts.isVariableStatement(firstStatement)) return null;
+  const declaration = firstStatement.declarationList.declarations[0];
+  const isExported = firstStatement.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword) ?? false;
+  if (declaration === undefined || !isIdentifierNamed(declaration.name, 'meta') || !isExported) return null;
+  return { statement: firstStatement, declaration };
+}
+
 /** `meta` must be the first statement, an exported `const`, and built of literals alone: no identifier, call, spread, computed key or template hole. */
 export function metaLiteralVerdictOf(source: string): MetaLiteralVerdict {
   const sourceFile = parsedScript(source);
-  const [firstStatement] = sourceFile.statements;
-  if (firstStatement === undefined || !ts.isVariableStatement(firstStatement)) return { verdict: 'absent' };
-  const declaration = firstStatement.declarationList.declarations[0];
-  const isExported = firstStatement.modifiers?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword) ?? false;
-  if (declaration === undefined || !isIdentifierNamed(declaration.name, 'meta') || !isExported) return { verdict: 'absent' };
+  const metaStatement = metaStatementOf(sourceFile);
+  if (metaStatement === null) return { verdict: 'absent' };
+  const { statement, declaration } = metaStatement;
   const offenders: string[] = [];
-  if ((firstStatement.declarationList.flags & ts.NodeFlags.Const) === 0) offenders.push('meta is not declared with const');
-  if (firstStatement.declarationList.declarations.length !== 1) offenders.push('meta shares its statement with another declaration');
+  if ((statement.declarationList.flags & ts.NodeFlags.Const) === 0) offenders.push('meta is not declared with const');
+  if (statement.declarationList.declarations.length !== 1) offenders.push('meta shares its statement with another declaration');
   if (declaration.initializer === undefined) return { verdict: 'impure', offenders: [...offenders, 'meta has no value'] };
   const literalNodeCount = impureNodesIn(declaration.initializer, sourceFile, offenders);
   return offenders.length === 0 ? { verdict: 'pure', literalNodeCount } : { verdict: 'impure', offenders };
+}
+
+function propertyKeyOf(name: ts.PropertyName): string {
+  if (ts.isNumericLiteral(name)) return String(Number(name.text));
+  return ts.isIdentifier(name) || ts.isStringLiteral(name) ? name.text : name.getText();
+}
+
+// Reached only through a meta the purity walk passed, so every node is one of the literal kinds it accepts.
+function literalValueOf(node: ts.Expression): unknown {
+  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text;
+  if (ts.isNumericLiteral(node)) return Number(node.text);
+  if (ts.isPrefixUnaryExpression(node) && ts.isNumericLiteral(node.operand)) return -Number(node.operand.text);
+  if (ts.isArrayLiteralExpression(node)) return node.elements.map((element) => literalValueOf(element));
+  if (ts.isObjectLiteralExpression(node)) {
+    return Object.fromEntries(node.properties.filter(ts.isPropertyAssignment).map((property) => [propertyKeyOf(property.name), literalValueOf(property.initializer)]));
+  }
+  if (node.kind === ts.SyntaxKind.TrueKeyword) return true;
+  if (node.kind === ts.SyntaxKind.FalseKeyword) return false;
+  return null;
+}
+
+/** The value of a pure `meta`, built from its literals without running any of the script. */
+export function metaLiteralValueOf(source: string): MetaLiteralValue {
+  const verdict = metaLiteralVerdictOf(source);
+  if (verdict.verdict !== 'pure') return { verdict: verdict.verdict };
+  const initializer = metaStatementOf(parsedScript(source))?.declaration.initializer;
+  return initializer === undefined ? { verdict: 'absent' } : { verdict: 'value', value: literalValueOf(initializer) };
+}
+
+function boundIdentifiersOf(name: ts.BindingName): ts.Identifier[] {
+  if (ts.isIdentifier(name)) return [name];
+  return name.elements.flatMap((element) => (ts.isOmittedExpression(element) ? [] : boundIdentifiersOf(element.name)));
+}
+
+function topLevelIdentifiersDeclaredBy(statement: ts.Statement): ts.Identifier[] {
+  if (ts.isVariableStatement(statement)) return statement.declarationList.declarations.flatMap((declaration) => boundIdentifiersOf(declaration.name));
+  if ((ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement)) && statement.name !== undefined) return [statement.name];
+  return [];
+}
+
+/** Every top-level `var`, `let`, `const` (destructured too), `function` and `class` after the meta statement whose name is one of `names`. */
+export function topLevelBindingsNamed(source: string, names: readonly string[]): string[] {
+  const sourceFile = parsedScript(source);
+  const statementsAfterMeta = sourceFile.statements.slice(metaStatementOf(sourceFile) === null ? 0 : 1);
+  return statementsAfterMeta
+    .flatMap((statement) => topLevelIdentifiersDeclaredBy(statement))
+    .filter((identifier) => names.includes(identifier.text))
+    .map((identifier) => `${identifier.text} at line ${lineOf(identifier, sourceFile)}`);
 }
