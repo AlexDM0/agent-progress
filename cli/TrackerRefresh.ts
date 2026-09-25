@@ -8,17 +8,18 @@
 import { readFileSync } from 'node:fs';
 import { join }         from 'node:path';
 
-import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL }                       from '../lib/constants/AgentSettings';
-import { AGENT_BRIEF_FILE_NAME, CLAUDE_MANAGED_END, CLAUDE_MANAGED_START } from '../lib/constants/Statuses';
-import type { Workspace }                                                  from '../lib/platform/Workspace';
-import { writeFileAtomically }                                             from '../src/lib/atomic-file/AtomicFile';
-import { writeManagedBlock }                                               from '../src/lib/claude-code/ClaudeInstructions';
+import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../lib/constants/AgentSettings';
+import type { Workspace }                            from '../lib/platform/Workspace';
+import { writeFileAtomically }                       from '../src/lib/atomic-file/AtomicFile';
+import { writeManagedBlock }                         from '../src/lib/claude-code/ClaudeInstructions';
+import type { ManagedBlockMarkers }                  from '../src/lib/claude-code/ClaudeInstructions';
 import {
   claudeLocalSettingsFilePathFor,
   claudeSettingsFilePathFor,
   refreshSubagentStopHook,
   writeSubagentStopHook
-}                                                                          from '../src/lib/claude-code/ClaudeSettings';
+}                                                    from '../src/lib/claude-code/ClaudeSettings';
+import { TRACKER_FILES } from '../src/services/tracker/constants/TrackerFiles';
 
 const CLAUDE_BLOCK_TEMPLATE_PATH = ['..', 'templates', 'ClaudeInstructionsBlock.md'];
 
@@ -49,6 +50,12 @@ export const SUBAGENT_STOP_HOOK = {
   matcher:        '',
   command:        'agent-progress hook subagent-stop',
   timeoutSeconds: 20,
+};
+
+/** Neither marker may contain the other: `src/lib/claude-code/ClaudeInstructions.ts` finds the end by searching forward from the start. */
+export const CLAUDE_MANAGED_BLOCK_MARKERS: ManagedBlockMarkers = {
+  start: '<!-- agent-progress:managed:start -->',
+  end:   '<!-- agent-progress:managed:end -->',
 };
 
 /**
@@ -101,7 +108,7 @@ function claudeInstructionsBlockBody(): string {
  * `Workspace` is the set of paths every command shares.
  */
 function refreshAgentBrief(workspace: Workspace): { briefFilePath: string; briefLine: string } {
-  const briefFilePath = join(workspace.trackerDirectory, AGENT_BRIEF_FILE_NAME);
+  const briefFilePath = join(workspace.trackerDirectory, TRACKER_FILES.AGENT_BRIEF_FILE_NAME);
   const bytesBefore   = fileBytesOrNothing(briefFilePath);
   writeFileAtomically(briefFilePath, readFileSync(join(import.meta.dir, ...AGENT_BRIEF_TEMPLATE_PATH), 'utf8'));
   const briefLine = bytesDiffer(bytesBefore, fileBytesOrNothing(briefFilePath))
@@ -186,18 +193,18 @@ function refreshDispatcherWorkflow(rootDirectory: string, writesTheDispatcherWor
 function refreshClaudeInstructions(rootDirectory: string, commandName: string, standardError: (text: string) => void): string {
   const claudeFilePath = join(rootDirectory, CLAUDE_INSTRUCTIONS_FILE_NAME);
   const bytesBefore    = fileBytesOrNothing(claudeFilePath);
-  const outcome        = writeManagedBlock(claudeFilePath, claudeInstructionsBlockBody(), { start: CLAUDE_MANAGED_START, end: CLAUDE_MANAGED_END });
+  const outcome        = writeManagedBlock(claudeFilePath, claudeInstructionsBlockBody(), CLAUDE_MANAGED_BLOCK_MARKERS);
 
   if (outcome === 'refused-start-without-end') {
     standardError(
-      `${claudeFilePath} has an \`${CLAUDE_MANAGED_START}\` marker with no matching end marker, so the block was left alone. `
+      `${claudeFilePath} has an \`${CLAUDE_MANAGED_BLOCK_MARKERS.start}\` marker with no matching end marker, so the block was left alone. `
       + `Close or remove that marker and run \`agent-progress ${commandName}\` again.`,
     );
     return 'refused (start marker without an end marker)';
   }
 
   if (outcome === 'replaced') {
-    const pairCount = readFileSync(claudeFilePath, 'utf8').split(CLAUDE_MANAGED_START).length - 1;
+    const pairCount = readFileSync(claudeFilePath, 'utf8').split(CLAUDE_MANAGED_BLOCK_MARKERS.start).length - 1;
     if (pairCount > 1) {
       standardError(`${claudeFilePath} holds ${pairCount} agent-progress blocks; only the first was refreshed and the others are now stale.`);
     }

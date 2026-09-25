@@ -17,7 +17,6 @@ import {
   expect,
   test
 }                                                              from 'bun:test';
-import { CLAUDE_MANAGED_START } from '../../lib/constants/Statuses';
 import {
   addWorktree,
   createScratchDirectory,
@@ -26,6 +25,7 @@ import {
   removeScratchDirectory
 }                                                              from '../../src/testing/ScratchWorkspace';
 import { runCommandLine }               from '../Main';
+import { CLAUDE_MANAGED_BLOCK_MARKERS } from '../TrackerRefresh';
 import { createCapturedCommandContext } from '../testing/CapturedCommandContext';
 
 const scratchDirectories: string[] = [];
@@ -55,7 +55,7 @@ describe.skipIf(!gitIsAvailable())('initialising a repository', () => {
     expect(readFileSync(join(repositoryDirectory, '.gitignore'), 'utf8')).toContain('.agent-progress/');
 
     const claudeInstructions = readFileSync(join(repositoryDirectory, 'CLAUDE.md'), 'utf8');
-    expect(claudeInstructions).toContain(CLAUDE_MANAGED_START);
+    expect(claudeInstructions).toContain(CLAUDE_MANAGED_BLOCK_MARKERS.start);
     expect(claudeInstructions).toContain('agent-progress');
 
     expect(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')).toContain('Example Agency');
@@ -189,7 +189,7 @@ describe.skipIf(!gitIsAvailable())('a second init', () => {
     const trackerIdBefore  = (JSON.parse(readFileSync(progressFilePath, 'utf8')) as { trackerId: string }).trackerId;
 
     const claudeFilePath = join(repositoryDirectory, 'CLAUDE.md');
-    writeFileSync(claudeFilePath, `${CLAUDE_MANAGED_START}\n<!-- agent-progress:managed:end -->\n`);
+    writeFileSync(claudeFilePath, `${CLAUDE_MANAGED_BLOCK_MARKERS.start}\n<!-- agent-progress:managed:end -->\n`);
     const briefFilePath = join(repositoryDirectory, '.agent-progress', 'agent-brief.md');
     writeFileSync(briefFilePath, 'An older brief nobody refreshed.\n');
 

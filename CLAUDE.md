@@ -53,6 +53,8 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
   it, so it stays DOM-safe. The `lib/` layers import it like any `src/lib/` package.
 - `src/testing/` may import `lib/platform/Workspace.ts` until plan step 6 moves it; `cli/testing/` is imported only by
   `cli/` specs.
+- A `src/services/` folder imports only `src/lib/`, `src/shared/` and `src/adapters/`. What remains in `lib/` and
+  `cli/` may import `src/services/` until plan step 6 moves it there.
 - `src/shared/` holds app-specific code several parts use and imports only `src/lib/` and itself; what remains in
   `lib/` may import `src/shared/`; `src/` never imports `lib/` or `cli/` (the one exception is the `src/testing/` one
   above).
@@ -235,6 +237,7 @@ src/                        the target layout's code, filled step by step as the
   src/lib/                  package-grade building blocks, one folder each, the package's description in its main module's header:
                             atomic-file (AtomicFile.ts), git (GitProcess.ts), claude-code (ClaudeTranscripts.ts),
                             tracker-model (@types/Task.ts), utils
+  src/services/             app-wide services; so far tracker/constants: the tracker's file names (the service itself arrives in plan step 6)
   src/shared/               app-specific code several parts use: the environment reader, the refusal, LIMITS
   src/testing/              test-only helpers several parts use: the scratch workspace and the tracker isolation check
 skill/                      the skill every session in a tracked repository loads

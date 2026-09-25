@@ -56,21 +56,3 @@ export const SETTLED_TICKET_STATUSES: readonly TicketStatus[] = ['delivered', 'a
 
 /** Abandoned is left out on purpose: the work a dependent ticket waited for never happened. */
 export const TICKET_STATUSES_THAT_SETTLE_A_DEPENDENCY: readonly TicketStatus[] = ['done', 'delivered'];
-
-export const PROGRESS_FILE_NAME = 'progress.json';
-
-export const HTML_FILE_NAME = 'progress.html';
-
-export const TRACKER_DIRECTORY_NAME = '.agent-progress';
-
-export const TICKETS_DIRECTORY_NAME = 'tickets';
-
-/** Beside the tickets rather than in the repository's own tree: it is guidance for agents, not source, and the tracker is git-ignored. */
-export const AGENT_BRIEF_FILE_NAME = 'agent-brief.md';
-
-export const LOCK_DIRECTORY_NAME = '.lock';
-
-export const CLAUDE_MANAGED_START = '<!-- agent-progress:managed:start -->';
-
-/** Neither marker may contain the other: `src/lib/claude-code/ClaudeInstructions.ts` finds the end by searching forward from the start. */
-export const CLAUDE_MANAGED_END = '<!-- agent-progress:managed:end -->';

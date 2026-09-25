@@ -133,7 +133,7 @@ do not exist yet.
 | command folders | grouped into sets: cli/tracking (task, log, status, range, clear, render, open), cli/tickets (ticket), cli/dispatch (dispatcher, concurrency, release), cli/adoption (init, update), cli/measurement (usage, rework, hook). Each command parses, calls the tracker service or the Board, and prints through src/adapters |
 | `cli/ticket/TicketCommand.ts` | split by subcommand group inside cli/tickets; its rules move to the Board |
 | `lib/constants/Types.ts` | src/lib/tracker-model/@types (Task, Ticket, ProgressFile, log entry) |
-| `lib/constants/Statuses.ts` | status unions and subsets → src/lib/tracker-model/constants; tracker file names → src/services/tracker/constants; CLAUDE.md markers → src/lib/claude-code |
+| `lib/constants/Statuses.ts` | status unions and subsets → src/lib/tracker-model/constants; tracker file names → src/services/tracker/constants; CLAUDE.md markers → beside their only consumer, cli/TrackerRefresh.ts (since step 3 src/lib/claude-code takes them as parameters) |
 | `lib/constants/AgentSettings.ts` | src/lib/tracker-model (model and effort are ticket fields) |
 | `lib/constants/Limits.ts` | src/shared/constants/Limits.ts exporting LIMITS |
 | `lib/constants/CommentSyntaxes.ts`, `lib/utils/ReworkCountUtil.ts` | cli/measurement/utils (only rework uses them) |

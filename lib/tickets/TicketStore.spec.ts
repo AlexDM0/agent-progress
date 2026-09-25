@@ -22,14 +22,8 @@ import {
   test,
 } from 'bun:test';
 import type { Ticket, TicketType } from '../../src/lib/tracker-model/@types/Ticket.ts';
-import {
-  HTML_FILE_NAME,
-  LOCK_DIRECTORY_NAME,
-  PROGRESS_FILE_NAME,
-  TICKETS_DIRECTORY_NAME,
-  TRACKER_DIRECTORY_NAME,
-} from '../constants/Statuses.ts';
-import type { Workspace } from '../platform/Workspace.ts';
+import { TRACKER_FILES }           from '../../src/services/tracker/constants/TrackerFiles.ts';
+import type { Workspace }          from '../platform/Workspace.ts';
 import {
   createTicket,
   deleteAllTickets,
@@ -46,8 +40,8 @@ const scratchRootDirectories: string[] = [];
 
 function scratchWorkspace(): Workspace {
   const rootDirectory    = mkdtempSync(join(tmpdir(), 'agent-progress-tickets-'));
-  const trackerDirectory = join(rootDirectory, TRACKER_DIRECTORY_NAME);
-  const ticketsDirectory = join(trackerDirectory, TICKETS_DIRECTORY_NAME);
+  const trackerDirectory = join(rootDirectory, TRACKER_FILES.TRACKER_DIRECTORY_NAME);
+  const ticketsDirectory = join(trackerDirectory, TRACKER_FILES.TICKETS_DIRECTORY_NAME);
 
   mkdirSync(ticketsDirectory, { recursive: true });
   scratchRootDirectories.push(rootDirectory);
@@ -56,9 +50,9 @@ function scratchWorkspace(): Workspace {
     rootDirectory,
     trackerDirectory,
     ticketsDirectory,
-    progressFilePath:  join(trackerDirectory, PROGRESS_FILE_NAME),
-    htmlFilePath:      join(trackerDirectory, HTML_FILE_NAME),
-    lockDirectoryPath: join(trackerDirectory, LOCK_DIRECTORY_NAME),
+    progressFilePath:  join(trackerDirectory, TRACKER_FILES.PROGRESS_FILE_NAME),
+    htmlFilePath:      join(trackerDirectory, TRACKER_FILES.HTML_FILE_NAME),
+    lockDirectoryPath: join(trackerDirectory, TRACKER_FILES.LOCK_DIRECTORY_NAME),
   };
 }
 

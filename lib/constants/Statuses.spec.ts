@@ -8,20 +8,13 @@ import type { DispatcherState }                          from '../../src/lib/tra
 import type { TaskStatus }                               from '../../src/lib/tracker-model/@types/Task';
 import type { TicketPriority, TicketStatus, TicketType } from '../../src/lib/tracker-model/@types/Ticket';
 import {
-  CLAUDE_MANAGED_END,
-  CLAUDE_MANAGED_START,
   DEFAULT_TICKET_PRIORITY,
   DISPATCHER_STATES,
-  HTML_FILE_NAME,
-  LOCK_DIRECTORY_NAME,
-  PROGRESS_FILE_NAME,
   TASK_STATUSES,
   TASK_STATUS_FOR_TICKET_STATUS,
-  TICKETS_DIRECTORY_NAME,
   TICKET_PRIORITIES,
   TICKET_STATUSES,
   TICKET_TYPES,
-  TRACKER_DIRECTORY_NAME,
   taskStatusIsKnown,
   ticketPriorityIsKnown,
   ticketPriorityOf,
@@ -141,27 +134,4 @@ test('the priority guard accepts exactly the three priorities, and an absent pri
   expect(DEFAULT_TICKET_PRIORITY).toBe('normal');
   expect(ticketPriorityOf({})).toBe('normal');
   expect(ticketPriorityOf({ priority: 'low' })).toBe('low');
-});
-
-test('every path constant is a bare name, so joining one onto a directory cannot escape it', () => {
-  for (const name of [PROGRESS_FILE_NAME, HTML_FILE_NAME, TRACKER_DIRECTORY_NAME, TICKETS_DIRECTORY_NAME, LOCK_DIRECTORY_NAME]) {
-    expect(name.length, 'a path constant is never empty').toBeGreaterThan(0);
-    expect(name).not.toContain('/');
-    expect(name).not.toContain('\\');
-    expect(name.includes('..'), `"${name}" has no parent-directory segment`).toBe(false);
-  }
-});
-
-test('neither managed marker contains the other, so the search for the end marker cannot match the start marker', () => {
-  expect(CLAUDE_MANAGED_START).not.toBe(CLAUDE_MANAGED_END);
-  expect(CLAUDE_MANAGED_START).not.toContain(CLAUDE_MANAGED_END);
-  expect(CLAUDE_MANAGED_END).not.toContain(CLAUDE_MANAGED_START);
-});
-
-test('both markers are HTML comments on a single line, so they stay invisible in a rendered CLAUDE.md', () => {
-  for (const marker of [CLAUDE_MANAGED_START, CLAUDE_MANAGED_END]) {
-    expect(marker.startsWith('<!--'), marker).toBe(true);
-    expect(marker.endsWith('-->'), marker).toBe(true);
-    expect(marker).not.toContain('\n');
-  }
 });

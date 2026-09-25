@@ -18,7 +18,6 @@ import {
   expect,
   test
 }                                        from 'bun:test';
-import { CLAUDE_MANAGED_START } from '../../lib/constants/Statuses';
 import {
   addWorktree,
   createScratchDirectory,
@@ -27,6 +26,7 @@ import {
   removeScratchDirectory
 }                                        from '../../src/testing/ScratchWorkspace';
 import { runCommandLine }               from '../Main';
+import { CLAUDE_MANAGED_BLOCK_MARKERS } from '../TrackerRefresh';
 import { createCapturedCommandContext } from '../testing/CapturedCommandContext';
 
 const scratchDirectories: string[] = [];
@@ -90,7 +90,8 @@ async function trackedRepositoryWithStaleFiles(): Promise<string> {
   const repositoryDirectory = scratchRepository();
   await runCommandLine(['init', '--no-hooks', '--no-workflow', '--no-agent-definition'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }));
   writeFileSync(join(repositoryDirectory, '.agent-progress', 'agent-brief.md'), '# Agent brief\n\nThe wording two releases ago, which nobody refreshed.\n');
-  writeFileSync(join(repositoryDirectory, 'CLAUDE.md'), `# Example Agency\n\n${CLAUDE_MANAGED_START}\nAn older managed block.\n<!-- agent-progress:managed:end -->\n`);
+  const olderClaudeInstructions = `# Example Agency\n\n${CLAUDE_MANAGED_BLOCK_MARKERS.start}\nAn older managed block.\n<!-- agent-progress:managed:end -->\n`;
+  writeFileSync(join(repositoryDirectory, 'CLAUDE.md'), olderClaudeInstructions);
   return repositoryDirectory;
 }
 

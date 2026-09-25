@@ -3,13 +3,13 @@ import { randomUUID }                        from 'node:crypto';
 import { mkdirSync, realpathSync, statSync } from 'node:fs';
 import { basename, resolve }                 from 'node:path';
 
-import { TRACKER_DIRECTORY_NAME }                      from '../../lib/constants/Statuses';
 import { withLock }                                    from '../../lib/platform/Lock';
 import { findWorkspace, workspacePathsFor }            from '../../lib/platform/Workspace';
 import { createEmptyProgressFile, createProgressFile } from '../../lib/progress/ProgressStore';
 import { ensureIgnored }                               from '../../src/lib/git/GitIgnore';
 import { discoverRepositoryRoot }                      from '../../src/lib/git/RepositoryRoot';
 import { TimeUtil }                                    from '../../src/lib/utils/TimeUtil';
+import { TRACKER_FILES }                               from '../../src/services/tracker/constants/TrackerFiles';
 import { agentProgressRootOverride }                   from '../../src/shared/Environment';
 import { OperationRefusal }                            from '../../src/shared/OperationRefusal';
 import { renderDashboard }                             from '../CommandSupport';
@@ -130,7 +130,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
     return;
   }
 
-  const ignoreOutcome = ensureIgnored(rootDirectory, TRACKER_DIRECTORY_NAME);
+  const ignoreOutcome = ensureIgnored(rootDirectory, TRACKER_FILES.TRACKER_DIRECTORY_NAME);
   mkdirSync(workspace.ticketsDirectory, { recursive: true });
 
   const progress = createEmptyProgressFile({
