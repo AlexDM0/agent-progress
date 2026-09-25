@@ -29,7 +29,12 @@ board is the memory of this session; your transcript is not.
 
 ## Opening sequence
 
-Run it once, at the top, in this order, then stop and wait.
+Run it once, at the top, then stop and wait. The checks of steps 1 to 5 are independent, so send
+them as separate tool calls in one message: `agent-progress status --json` as a Bash call of its own,
+the two settings files and `.agent-progress/agent-brief.md` as Read calls, the workflow file check and
+the branch lookup each as a call of their own. Never join them into one shell line with `cd`, `;`,
+`&&` or a pipe: the permission check refuses a compound line, and the calls beside it are cancelled
+with it. Then act on the answers in this order.
 
 1. `agent-progress status --json`. Exit 1 saying there is no tracker: ask whether to
    `agent-progress init` here, through AskUserQuestion as Intake says, and do not create one
@@ -42,7 +47,7 @@ Run it once, at the top, in this order, then stop and wait.
    on its row; without it a workflow's agents reach no row at all.
 3. Check `.claude/workflows/agent-progress-dispatch.js` exists. If not — adopted before the
    dispatcher, or `--no-workflow` — say so once and offer `agent-progress update` the same way; until
-   then only the manual path (By hand) is open. Steps 1 to 3 and 5 put what they need into one call.
+   then only the manual path (By hand) is open.
 4. Read `.agent-progress/agent-brief.md` once: its `Ticket brief` block is the `## Brief` every ticket
    you file carries. Keep it for the session and do not read it again.
 5. Settle the launch arguments once and keep them for the session: `mainCheckout`, the tracker's root;
