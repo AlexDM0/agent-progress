@@ -121,12 +121,12 @@ TypeScript directly, so a type error is not a build failure; it is a runtime sur
 nobody exercised. Never substitute an ad-hoc `tsc` invocation with hand-picked flags.
 
 `typecheck` is two passes, `tsc -p tsconfig.json && tsc -p lib/render/page/tsconfig.json`. The root
-project is the Bun program (`agent-progress.ts`, `cli/`, `lib/`) and excludes `lib/render/page/`. The
+project is the Bun program (`agent-progress.ts`, `cli/`, `lib/`, `src/`) and excludes `lib/render/page/`. The
 page project, `lib/render/page/tsconfig.json`, extends the root's strictness but compiles with the DOM
 library and no Bun or Node types, so a page module reaching for `Bun.file` or `node:fs` fails to
 compile instead of failing in a browser. Every shared file a page module imports is checked under
 those DOM-only options too, which is what proves `lib/constants/Types.ts`,
-`lib/utils/HtmlEscapeUtil.ts` and the other shared modules the page reaches stay environment-neutral.
+`src/lib/utils/HtmlEscapeUtil.ts` and the other shared modules the page reaches stay environment-neutral.
 
 `cli/HelpText.spec.ts` holds the help against the command table in both directions, and holds the
 bundled skills to their shape: none of them may carry a command table of its own, and the one every
@@ -138,6 +138,7 @@ agent loads has a size ceiling.
 agent-progress.ts    the bin shim; the only file that calls process.exit
 cli/                 the command surface: dispatch, arguments, help, one folder per command
 lib/                 everything the commands do, in five layers
+src/                 the target layout's code, filled step by step as the migration plan moves it
 skill/               the skill every session in a tracked repository loads
 skill-orchestrate/   the skill for the one session running the board
 templates/           what the tool writes into other repositories, and the dispatcher script
@@ -147,13 +148,13 @@ docs/                this page, the CLI reference, the backlog and the README im
 Inside `lib/`, imports run up the tree only:
 
 ```
-lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/ lib/tickets/ lib/render/  →  cli/
+src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/ lib/tickets/ lib/render/  →  cli/
 ```
 
 A feature folder (`lib/progress/`, `lib/tickets/`, `lib/render/`) never imports a sibling; what two
 features need is promoted to the level above both, or passed as a structurally typed parameter.
 Nothing under `lib/` imports `cli/`, and nothing that ships imports the test-only
-`lib/tooling/dev/`. Exit codes are decided in `cli/` and nowhere else; a `lib/` module returns a
+`src/testing/`, `cli/testing/` and `lib/tooling/dev/`. Exit codes are decided in `cli/` and nowhere else; a `lib/` module returns a
 verdict or throws `OperationRefusal`.
 
 The rules are in the root `CLAUDE.md`; there are no folder `CLAUDE.md` files.
@@ -172,14 +173,14 @@ A spec is `<Module>.spec.ts` beside its module (a second suite on the same modul
 holds no specs because a `bun:test` import would not resolve in the DOM-only project; its specs sit one
 level up in `lib/render/` and import the page modules by relative path.
 
-The test-only helpers live in `lib/tooling/dev/`, the one folder allowed to import devDependencies:
+The test-only helpers live in `src/testing/`, `cli/testing/` and `lib/tooling/dev/`, the only folders allowed to import devDependencies:
 
 | helper | use |
 |---|---|
-| `lib/tooling/dev/ScratchWorkspace.ts` | Scratch directories, git repositories and worktrees under the OS temp directory. |
-| `lib/tooling/dev/CapturedCommandContext.ts` | A command context whose two output streams are arrays, so a spec drives `runCommandLine` in-process and reads back what a user would have seen. |
-| `lib/tooling/dev/CliProcess.ts` | The one sanctioned way to spawn the real binary. |
-| `lib/tooling/dev/TrackerIsolation.ts` | The guard that keeps a spec away from any tracker it did not create. |
+| `src/testing/ScratchWorkspace.ts` | Scratch directories, git repositories and worktrees under the OS temp directory. |
+| `cli/testing/CapturedCommandContext.ts` | A command context whose two output streams are arrays, so a spec drives `runCommandLine` in-process and reads back what a user would have seen. |
+| `cli/testing/CliProcess.ts` | The one sanctioned way to spawn the real binary. |
+| `src/testing/TrackerIsolation.ts` | The guard that keeps a spec away from any tracker it did not create. |
 | `lib/tooling/dev/DispatchScriptHarness.ts` | Runs the dispatcher script against a fake board. |
 | `lib/tooling/dev/WorkflowScriptSource.ts` | Reads the dispatcher script's syntax tree for a clock, randomness or an impure `meta`. |
 
@@ -187,9 +188,9 @@ The test-only helpers live in `lib/tooling/dev/`, the one folder allowed to impo
 directory inside it (the walk up, the git common directory, or `AGENT_PROGRESS_ROOT`) would resolve
 to a tracker outside it. It runs in the captured command context, on a hook input's `cwd`, and in
 `CliProcess.ts`, and it runs before the command does, because a throw inside a command becomes an exit
-code a spec cannot tell apart from the command's own. Its own spec, `lib/tooling/dev/TrackerIsolation.spec.ts`,
+code a spec cannot tell apart from the command's own. Its own spec, `src/testing/TrackerIsolation.spec.ts`,
 tries every escape. No spec builds the real process context, and none spawns the binary except
-through `lib/tooling/dev/CliProcess.ts`.
+through `cli/testing/CliProcess.ts`.
 
 ## The guard specs
 
@@ -198,7 +199,7 @@ held by review, not by a spec.
 
 | spec | what it pins |
 |---|---|
-| `lib/tooling/dev/TrackerIsolation.spec.ts` | Every way a spec could reach a tracker outside the scratch root is refused. |
+| `src/testing/TrackerIsolation.spec.ts` | Every way a spec could reach a tracker outside the scratch root is refused. |
 | `cli/CommandTable.spec.ts` | Every command in `cli/CommandTable.ts` reaches a handler, and a word that is not a command, an inherited property included, is refused. |
 | `cli/HelpText.spec.ts` | `cli/HelpText.ts` and the command table agree in both directions; no bundled skill carries its own command table; the skill every agent loads stays under its size ceiling. |
 | `cli/BinarySmoke.spec.ts` | The real `agent-progress.ts` spawned end to end: the shebang, the argument slice and the exit status reaching the process. |
@@ -278,8 +279,8 @@ progress file in a JSON island and `lib/render/page/GanttGeometry.ts` computes e
 marker from it, which is what lets the in-page range presets re-lay-out without a regeneration, and
 means there is exactly one implementation of the geometry rather than a server copy and a client
 copy that disagree. The geometry's bounds are put into the island by `lib/render/Template.ts` and taken
-as a parameter rather than read from `lib/constants/Limits.ts`, so `lib/render/GanttGeometry.spec.ts`
-can drive it with a constructed tick ladder; other page modules import `lib/constants/Limits.ts`
+as a parameter rather than read from `src/shared/constants/Limits.ts`, so `lib/render/GanttGeometry.spec.ts`
+can drive it with a constructed tick ladder; other page modules import `src/shared/constants/Limits.ts`
 directly.
 
 ## Backlog
