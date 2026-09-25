@@ -134,9 +134,16 @@ describe.skipIf(!gitIsAvailable())('resolving a revision to a commit', () => {
     expect(resolvedCommitOf(repositoryDirectory, 'no-such-branch')).toBeNull();
   });
 
-  // A revision can come from text a person or an agent wrote, so one shaped like an option must never reach git as an option.
-  test('an option-shaped revision is looked up, not obeyed: it resolves to null and writes no file', () => {
+  // A revision can come from text a person or an agent wrote; only `--end-of-options` lets one shaped like an option be looked up as a ref.
+  test('an option-shaped revision is looked up as a revision: a ref of that name resolves to its commit, and no file is written', () => {
     const repositoryDirectory = scratchGitRepository('git-process-option-shaped');
+    expect(run(repositoryDirectory, ['update-ref', 'refs/heads/--output=x', 'HEAD'])?.exitCode).toBe(0);
+    expect(resolvedCommitOf(repositoryDirectory, '--output=x')).toBe(resolvedCommitOf(repositoryDirectory, 'HEAD'));
+    expect(existsSync(join(repositoryDirectory, 'x'))).toBe(false);
+  });
+
+  test('an option-shaped revision with no such ref resolves to null and writes no file', () => {
+    const repositoryDirectory = scratchGitRepository('git-process-option-shaped-missing');
     expect(resolvedCommitOf(repositoryDirectory, '--output=x')).toBeNull();
     expect(existsSync(join(repositoryDirectory, 'x'))).toBe(false);
   });

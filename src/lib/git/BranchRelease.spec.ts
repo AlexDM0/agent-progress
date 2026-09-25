@@ -1,8 +1,8 @@
 /**
  * The verdicts a release acts on, against real git in scratch repositories: which branch the main checkout is on, whether a branch
  * descends from the main line, the fast-forward, and the two cleanups. What matters is that every refusal git gives comes back as a
- * verdict with git's own reason, that a worktree holding work is left standing with that work named, and that a branch name shaped like an
- * option is looked up rather than obeyed.
+ * verdict with git's own reason, that a worktree holding work is left standing with that work named, and that an option-shaped branch name
+ * is read as a ref under refs/heads/.
  */
 import { existsSync, writeFileSync } from 'node:fs';
 import { join }                      from 'node:path';
@@ -103,10 +103,20 @@ describe.skipIf(!gitIsAvailable())('whether a branch descends from the main line
     expect(readBranchDescent(repositoryDirectory, 'feature', 'no-such-main-line')).toEqual({ verdict: 'unknown-main-line' });
   });
 
-  // A branch name comes from a ticket a person or an agent wrote, so an option-shaped one must never reach git as an option.
-  test('a branch named like an option is looked up, reads unknown-branch, and writes no file', () => {
+  // A branch name comes from a caller; it is read under refs/heads/, so an option-shaped one is only ever a ref name.
+  test('a branch named like an option that does not exist reads unknown-branch and writes no file', () => {
     const repositoryDirectory = scratchGitRepository('branch-release-option-branch');
     expect(readBranchDescent(repositoryDirectory, '--output=x', currentBranchOf(repositoryDirectory))).toEqual({ verdict: 'unknown-branch' });
+    expect(existsSync(join(repositoryDirectory, 'x'))).toBe(false);
+  });
+
+  test('a branch named like an option that does exist is read as that branch', () => {
+    const repositoryDirectory = scratchGitRepository('branch-release-option-branch-present');
+    const mainLine            = currentBranchOf(repositoryDirectory);
+    const mainLineCommit      = gitOutputIn(repositoryDirectory, ['rev-parse', 'HEAD']);
+    gitOutputIn(repositoryDirectory, ['update-ref', 'refs/heads/--output=x', mainLineCommit]);
+
+    expect(readBranchDescent(repositoryDirectory, '--output=x', mainLine)).toEqual({ verdict: 'descendant', branchCommit: mainLineCommit, mainLineCommit });
     expect(existsSync(join(repositoryDirectory, 'x'))).toBe(false);
   });
 });
