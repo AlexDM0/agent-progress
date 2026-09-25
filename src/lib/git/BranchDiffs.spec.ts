@@ -143,7 +143,7 @@ describe.skipIf(!gitIsAvailable())('the commits made since a commit', () => {
 });
 
 describe.skipIf(!gitIsAvailable())('what a rebase changed in a branch\'s own work', () => {
-  // Each patch is taken against its own merge base, and the rebased tip is the caller's commit, not HEAD.
+  // A commit after the rebase belongs to the review that --since counts, so reading up to HEAD would count that work twice.
   test('takes each net patch against its own merge base and stops at the rebased tip the caller gave, not HEAD', () => {
     const repositoryDirectory = scratchGitRepository('branch-diffs-rebase');
     const mainLine            = currentBranchOf(repositoryDirectory);
