@@ -298,7 +298,7 @@ function reviewAsksForAnotherRound(reply: Record<string, unknown> | null): boole
   return reply?.['verdict'] === 'round-requested' || (reply?.['verdict'] === 'not-released' && reply['releaseReason'] === 'main-moved');
 }
 
-// A builder's claimed row stays running until `ticket review`, a reviewer's bar until it closes it, the next round's `rereview` does, or a release.
+// A builder's claimed row stays running until `ticket finish`, a reviewer's bar until it closes it, the next round's `rereview` does, or a release.
 function rowIsLeftRunning(kind: AgentKind, reply: Record<string, unknown> | null, prompt: string): boolean {
   if (kind === 'build') return reply === null || reply['outcome'] === 'failed';
   if (kind !== 'review') return false;
@@ -480,9 +480,9 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     if (scenario.elsewhereClaimsAFreedSlot === true && agentsOnBoard() < board.limit) board.otherAgentsInFlight++;
   };
 
-  // A builder's `--start-review` leaves its reviewer's bar running in the same lock hold; a plain `ticket review` frees the slot for a moment.
+  // A builder's `--start-review` leaves its reviewer's bar running in the same lock hold; a plain `ticket finish` frees the slot for a moment.
   const builderHandsItsSlotOn = (ticketId: string, prompt: string): void => {
-    if (prompt.includes(`ticket review ${ticketId} --start-review`)) {
+    if (prompt.includes(`ticket finish ${ticketId} --start-review`)) {
       rowsLeftRunning.set(`review:${ticketId}`, {
         kind:        'review',
         ticketId,

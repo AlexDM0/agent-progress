@@ -192,8 +192,8 @@ function briefPlaceholdersText(ticketId) {
     + `<main checkout> = ${settings.mainCheckout} and <full check command> = \`${settings.checkCommand}\``;
 }
 
-const DERIVED_STATUS_FIELDS_TEXT = 'adding `runningTicketIds` (the `ticket` of every `running` task that has one), `runningReviewOfIds` (the `reviewOf` of every `running` task that has one) '
-  + 'and `readyTickets` (the same document\'s top-level `readyTickets` list, verbatim)';
+const DERIVED_STATUS_FIELDS_TEXT = 'adding `runningTicketIds` (the `ticket` of every `in-progress` task that has one), '
+  + '`runningReviewOfIds` (the `reviewOf` of every `in-progress` task that has one) and `readyTickets` (the same document\'s top-level `readyTickets` list, verbatim)';
 
 const STATUS_RETURN_TEXT = `As your very last act run \`agent-progress status --json\` and return its \`concurrency\` block as \`status\`, ${DERIVED_STATUS_FIELDS_TEXT}, `
   + 'so the dispatcher acts on the newest board.';
@@ -202,7 +202,7 @@ function surveyPrompt() {
   return [
     `Run \`agent-progress status --json\` once, in ${settings.mainCheckout}, then \`test -d\` once per paused build below, and make no other call. Judge nothing; return:`,
     `- \`status\`: its \`concurrency\` block as printed (limit, agentsInFlight, freeSlots, readyTicketIds, dispatcherState, heldTicketIds), ${DERIVED_STATUS_FIELDS_TEXT};`,
-    '- `reviewWaitingTickets`: every ticket whose status is `in-review` and that no `running` task names in its `reviewOf`, as `{ id, model, effort }` '
+    '- `reviewWaitingTickets`: every ticket whose status is `in-review` and that no `in-progress` task names in its `reviewOf`, as `{ id, model, effort }` '
       + 'with `model` and `effort` copied from its entry in `tickets` and left out where that entry has none;',
     '- `pausedBuilds`: every ticket whose status is `in-progress` and whose own row (the task its `task` field names) is `paused`, as '
       + '`{ id, note, worktreeExists, priority, model, effort }`: `note` that row\'s note verbatim (empty when it has none), `worktreeExists` whether '
@@ -234,8 +234,8 @@ function pausedBuildTakeoverText(ticketId) {
 // later builder of this run read the row as that run's and leave it running.
 function pausedRowResumptionText(ticketId, previousPass, takeoverText) {
   if (previousPass === null && takeoverText === '') return '';
-  return `When the row you carry on past is \`paused\` rather than \`running\`, resume it first with \`agent-progress task start <that row> --note "${claimNoteOf(ticketId)}"\`, `
-    + 'so your build holds its slot under this run\'s claim. ';
+  return `When the row you carry on past is \`paused\` rather than \`in-progress\`, `
+    + `resume it first with \`agent-progress task start <that row> --note "${claimNoteOf(ticketId)}"\`, so your build holds its slot under this run's claim. `;
 }
 
 function builderPrompt(ticketId, previousPass, owner) {
@@ -277,9 +277,9 @@ function builderPrompt(ticketId, previousPass, owner) {
     'Do not `cat` any CLAUDE.md.',
     `Stop when the Acceptance block is satisfied, or at about ${BUILDER_CALL_BUDGET} API calls, whichever is first.`,
     // One lock hold moves the ticket to review and starts its reviewer's bar, so no status block between this builder and its reviewer shows the slot free.
-    `Close as Ready to merge says, append the \`## Handoff\`, then run \`${startReviewCommandOf('review', ticketId, owner)}\`. `
+    `Close as Ready to merge says, append the \`## Handoff\`, then run \`${startReviewCommandOf('finish', ticketId, owner)}\`. `
       + `Never merge ticket-${ticketId} into ${settings.mainLine} and never run \`agent-progress release\`: the release is the reviewer's.`,
-    `Return outcome \`in-review\` when \`ticket review\` succeeded and \`failed\` otherwise, with your report as \`detail\` and \`claimNote\` empty unless your claim `
+    `Return outcome \`in-review\` when \`ticket finish\` succeeded and \`failed\` otherwise, with your report as \`detail\` and \`claimNote\` empty unless your claim `
       + `was refused as in-progress. ${STATUS_RETURN_TEXT}`,
   );
   return lines.join('\n');
@@ -295,8 +295,8 @@ function reviewerPrompt(ticketId, expectedRound, rereviewFirst, earlierReviewerD
   // `rereview` counts a round each time it runs, and a restarted or resumed reviewer repeats its prompt; the bar it opened for this round is its trace.
   if (rereviewFirst) {
     lines.push(
-      `FIRST, before anything else: read your round from \`agent-progress ticket show ${ticketId}\`, and the running rows from \`agent-progress status --json\`. `
-        + `When a \`running\` row whose \`reviewOf\` is ${ticketId} is named \`Review <your round> #${ticketId} — …\`, the rereview of your round already ran: `
+      `FIRST, before anything else: read your round from \`agent-progress ticket show ${ticketId}\`, and the in-progress rows from \`agent-progress status --json\`. `
+        + `When an \`in-progress\` row whose \`reviewOf\` is ${ticketId} is named \`Review <your round> #${ticketId} — …\`, the rereview of your round already ran: `
         + 'skip the rereview and take that row as your bar. '
         + `Otherwise run \`${startReviewCommandOf('rereview', ticketId, owner)}\` as your next command; it starts your bar.`,
     );
@@ -305,7 +305,7 @@ function reviewerPrompt(ticketId, expectedRound, rereviewFirst, earlierReviewerD
   // A second bar would leave the first running, holding one of the board's slots for the rest of the run; the runtime restarts a hung agent with
   // the same prompt, and a resume re-runs one in flight, so any reviewer may find its own first attempt's bar.
   lines.push(
-    `Then your bar. When \`agent-progress status --json\` shows a \`running\` row whose \`reviewOf\` is ${ticketId}, it is this review's own, left by an earlier reviewer `
+    `Then your bar. When \`agent-progress status --json\` shows an \`in-progress\` row whose \`reviewOf\` is ${ticketId}, it is this review's own, left by an earlier reviewer `
       + `of this run, by the builder's \`--start-review\` or by this very reviewer before the runtime restarted or resumed it: take it as your bar and add none. `
       + `Otherwise add your own: \`agent-progress task add "Review <round> #${ticketId} — <ticket title>" --review-of ${ticketId} --owner ${owner} --note "${reviewNoteOf(ticketId)}" --start\`, `
       + `the title from \`agent-progress ticket show ${ticketId}\`. Your bar takes the place of the brief's \`agent-progress row:\` line; the review line above carries your tokens to it.`,
@@ -334,9 +334,9 @@ function parkingPrompt(ticketId, boardLogLine) {
   return [
     `agent-progress park: ${ticketId}`,
     `You close the rows of ticket #${ticketId} that no agent of the agent-progress dispatcher works on any more, in ${settings.mainCheckout}. Judge nothing and change no file.`,
-    `1. \`agent-progress ticket show ${ticketId} --json\`: its \`task\` field is the ticket's row. When \`agent-progress status --json --full\` shows that row \`running\`, `
+    `1. \`agent-progress ticket show ${ticketId} --json\`: its \`task\` field is the ticket's row. When \`agent-progress status --json --full\` shows that row \`in-progress\`, `
       + 'run `agent-progress task pause <that row>`.',
-    `2. Every \`running\` row of that status whose \`reviewOf\` is ${ticketId} is a review bar nobody works on: close it with \`agent-progress task finish <that row>\`, `
+    `2. Every \`in-progress\` row of that status whose \`reviewOf\` is ${ticketId} is a review bar nobody works on: close it with \`agent-progress task finish <that row>\`, `
       + 'then `agent-progress task deliver <that row>`.',
     `3. \`agent-progress log "${boardLogLineText(boardLogLine)}"\`.`,
     STATUS_RETURN_TEXT,
@@ -706,7 +706,7 @@ function parentheticalOf(detail) {
 
 function settleBuild(work, result) {
   const { ticketId } = work;
-  // A builder that stopped short of `ticket review` left its claimed row running.
+  // A builder that stopped short of `ticket finish` left its claimed row running.
   const rebuild = () => awaitTakeover({ kind: 'build', ticketId, previousPass: 'builder' });
   if (result === null) {
     countFailedPass(ticketId, 'the builder returned no result', rebuild, work);

@@ -284,7 +284,7 @@ const CLAIMS: Claim[] = [
     mutant:   { find: 'countFailedPass(ticketId, \'the builder returned no result\', rebuild, work);', replace: 'park(ticketId, \'mutant\');' },
   },
   {
-    // A builder that stops short of `ticket review` leaves its claimed row running: read as another agent's, it alone would fill a limit of 1.
+    // A builder that stops short of `ticket finish` leaves its claimed row running: read as another agent's, it alone would fill a limit of 1.
     name:     'with a limit of 1, a builder that failed with its row left running is followed by a fresh builder that takes that row over and delivers',
     scenario: { limit: 1, readyTicketIds: ['001'], builderReply: (_ticketId, pass) => (pass === 1 ? { outcome: 'failed' } : { outcome: 'in-review' }) },
     holds:    (run) => kindsAndTickets(run).join(', ') === 'survey, build 001, build 001, review 001'
@@ -677,7 +677,7 @@ const CLAIMS: Claim[] = [
     mutant:   { find: '  ...untakenTicketIds(),\n];', replace: '  ...board.readyTicketIds.filter((ticketId) => !ticketIdsTakenThisRun.has(ticketId)),\n];' },
   },
   {
-    // A plain `ticket review` frees the slot until the reviewer's `task add --start`, which checks no limit: a claim in between puts the board one over.
+    // A plain `ticket finish` frees the slot until the reviewer's `task add --start`, which checks no limit: a claim in between puts the board one over.
     name:     'every builder moves its ticket to review with --start-review, so no claim from elsewhere finds its slot free before the reviewer starts',
     scenario: { limit: 2, readyTicketIds: ticketIdsFrom(1, 3), elsewhereClaimsAFreedSlot: true },
     holds:    (run) => run.slotGaps.length === 0
@@ -685,8 +685,8 @@ const CLAIMS: Claim[] = [
       && summaryOf(run).delivered.length === 3
       && run.reviewBarsAdded.join(', ') === 'review 001, review 002, review 003',
     mutant: {
-      find:    '`Close as Ready to merge says, append the \\`## Handoff\\`, then run \\`${startReviewCommandOf(\'review\', ticketId, owner)}\\`. `',
-      replace: '`Close as Ready to merge says, append the \\`## Handoff\\`, then run \\`agent-progress ticket review ${ticketId}\\`. `',
+      find:    '`Close as Ready to merge says, append the \\`## Handoff\\`, then run \\`${startReviewCommandOf(\'finish\', ticketId, owner)}\\`. `',
+      replace: '`Close as Ready to merge says, append the \\`## Handoff\\`, then run \\`agent-progress ticket finish ${ticketId}\\`. `',
     },
   },
   {
