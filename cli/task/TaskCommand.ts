@@ -37,7 +37,7 @@ interface TaskTransition {
 const TRANSITION_SUBCOMMANDS: Record<string, TaskTransition> = {
   start:    { status: 'in-progress', spoken: 'started' },
   pause:    { status: 'paused',    spoken: 'paused' },
-  finish:   { status: 'in-review', spoken: 'finished' },
+  finish:   { status: 'in-review', spoken: 'in review' },
   approve:  { status: 'reviewed',  spoken: 'reviewed' },
   rereview: { status: 're-review', spoken: 'under review again' },
   deliver:  { status: 'delivered', spoken: 'delivered' },

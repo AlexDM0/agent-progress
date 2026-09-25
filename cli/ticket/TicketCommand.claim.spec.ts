@@ -106,7 +106,7 @@ describe.skipIf(!gitIsAvailable())('claiming a ticket', () => {
     expect(message).toContain('1 agent is in flight (1 row is in progress) and the concurrency limit is 1 agent.');
   });
 
-  test('a ticket waiting on one that is not done yet is refused with nothing written', async () => {
+  test('a ticket waiting on one that is not reviewed or delivered yet is refused with nothing written', async () => {
     await run(['ticket', 'add', 'Show the role history']);
     await run(['ticket', 'depends', '1', '2']);
 

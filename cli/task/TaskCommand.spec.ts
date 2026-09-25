@@ -60,9 +60,10 @@ describe.skipIf(!gitIsAvailable())('the lifecycle of a row', () => {
     expect(storedProgress().tasks[0]?.status).toBe('in-progress');
     expect(storedProgress().tasks[0]?.start).not.toBeNull();
 
-    await run(['task', 'finish', '1']);
+    const finished = await run(['task', 'finish', '1']);
     expect(storedProgress().tasks[0]?.status).toBe('in-review');
     expect(storedProgress().tasks[0]?.end).not.toBeNull();
+    expect(finished.outputText()).toContain('Task #1 in review: Review pass');
 
     await run(['task', 'approve', '1']);
     expect(storedProgress().tasks[0]?.status).toBe('reviewed');

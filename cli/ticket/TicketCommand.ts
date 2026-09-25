@@ -586,8 +586,8 @@ async function transitionOneTicket(
 
   // A warning, not a refusal: the order is advice to whoever picks work up, and the user may know better.
   if (targetStatus === 'in-progress' && moved.unsettled.length > 0) {
-    const notDoneYet = moved.unsettled.length === 1 ? 'which is not done yet' : 'which are not done yet';
-    context.standardError(`Ticket #${moved.ticket.frontmatter.id} is ${waitingOnText(moved.unsettled)}, ${notDoneYet}.`);
+    const notSettledYetText = moved.unsettled.length === 1 ? 'which is not reviewed or delivered yet' : 'which are not reviewed or delivered yet';
+    context.standardError(`Ticket #${moved.ticket.frontmatter.id} is ${waitingOnText(moved.unsettled)}, ${notSettledYetText}.`);
   }
   if (targetStatus === 'in-progress' && moved.ticket.frontmatter.hold !== undefined) {
     const { id } = moved.ticket.frontmatter;
@@ -647,7 +647,7 @@ function refuseAnUnclaimableTicket(ticket: Ticket, tickets: readonly Ticket[], c
   }
 }
 
-// A running bar is a reviewer at work, so a builder claiming the ticket, a second dispatcher run's among them, would rebuild it under review.
+// An in-progress review bar is a reviewer at work, so a builder claiming the ticket, a second dispatcher run's among them, would rebuild it under review.
 function refuseATicketUnderReview(progress: ProgressFile, ticketId: string): void {
   const [inProgressBar] = inProgressReviewRowsOf(progress, [ticketId]);
   if (inProgressBar === undefined) return;
