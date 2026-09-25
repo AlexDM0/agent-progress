@@ -8,6 +8,7 @@ import type { TaskStatus }                from '../@types/Task';
 import type { TicketStatus }              from '../@types/Ticket';
 import { VocabularyUtil }                 from '../utils/VocabularyUtil';
 import { TASK_STATUSES, TICKET_STATUSES } from './Statuses';
+import type { TupleCoversTheUnion }       from './TupleCoversTheUnion';
 
 const { taskStatusIsKnown } = VocabularyUtil;
 
@@ -15,9 +16,6 @@ const { taskStatusIsKnown } = VocabularyUtil;
 const TASK_STATUS_TUPLE_MATCHES_THE_UNION = TASK_STATUSES satisfies readonly TaskStatus[];
 const TICKET_STATUS_TUPLE_MATCHES_THE_UNION = TICKET_STATUSES satisfies readonly TicketStatus[];
 const TICKET_STATUS_TUPLE_FITS_THE_TASK_LADDER = TICKET_STATUSES satisfies readonly TaskStatus[];
-
-/** The other direction: a union member the tuple lacks leaves a remainder that is not `never`, and `true` then fails `bun run typecheck`. */
-type TupleCoversTheUnion<Union, Tuple extends readonly unknown[]> = [Exclude<Union, Tuple[number]>] extends [never] ? true : false;
 
 const TASK_STATUS_TUPLE_COVERS_THE_UNION: TupleCoversTheUnion<TaskStatus, typeof TASK_STATUSES> = true;
 const TICKET_STATUS_TUPLE_COVERS_THE_UNION: TupleCoversTheUnion<TicketStatus, typeof TICKET_STATUSES> = true;

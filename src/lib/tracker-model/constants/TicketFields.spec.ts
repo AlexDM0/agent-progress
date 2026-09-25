@@ -11,12 +11,10 @@ import {
   TICKET_PRIORITIES,
   TICKET_TYPES
 }                                          from './TicketFields';
+import type { TupleCoversTheUnion } from './TupleCoversTheUnion';
 
 /** A tuple member the union has never heard of fails `bun run typecheck` rather than a test. */
 const TICKET_TYPE_TUPLE_MATCHES_THE_UNION = TICKET_TYPES satisfies readonly TicketType[];
-
-/** The other direction: a union member the tuple lacks leaves a remainder that is not `never`, and `true` then fails `bun run typecheck`. */
-type TupleCoversTheUnion<Union, Tuple extends readonly unknown[]> = [Exclude<Union, Tuple[number]>] extends [never] ? true : false;
 
 const TICKET_TYPE_TUPLE_COVERS_THE_UNION: TupleCoversTheUnion<TicketType, typeof TICKET_TYPES> = true;
 const TICKET_PRIORITY_TUPLE_COVERS_THE_UNION: TupleCoversTheUnion<TicketPriority, typeof TICKET_PRIORITIES> = true;

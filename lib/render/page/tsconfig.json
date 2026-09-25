@@ -20,6 +20,7 @@
     "../../../src/lib/tracker-model/constants/Statuses.ts",
     "../../../src/lib/tracker-model/constants/TicketFields.ts",
     "../../../src/lib/tracker-model/constants/TicketMoveLegality.ts",
+    "../../../src/lib/tracker-model/constants/TupleCoversTheUnion.ts",
     "../../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts",
     "../../../src/lib/tracker-model/utils/TicketDependencyUtil.ts",
     "../../../src/lib/tracker-model/utils/TicketIdUtil.ts",
