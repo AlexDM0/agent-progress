@@ -12,7 +12,8 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import type { ProgressFile, TicketFrontmatter }                               from '../../lib/constants/Types';
+import type { ProgressFile }                                                  from '../../src/lib/tracker-model/@types/ProgressFile';
+import type { TicketFrontmatter }                                             from '../../src/lib/tracker-model/@types/Ticket';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
 import { runCommandLine }                                                     from '../Main';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';

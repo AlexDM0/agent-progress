@@ -4,7 +4,8 @@
  * `lib/render/Template.ts` put in the progress island.
  */
 
-import type { ProgressFile, Task, ViewRange } from '../../constants/Types.ts';
+import type { ProgressFile, ViewRange } from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Task }                    from '../../../src/lib/tracker-model/@types/Task.ts';
 
 const MILLISECONDS_PER_MINUTE = 60_000;
 const PERCENT_OF_A_WHOLE      = 100;

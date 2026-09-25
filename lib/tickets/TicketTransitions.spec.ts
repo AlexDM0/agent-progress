@@ -3,9 +3,11 @@
  * are a recording double because `lib/tickets/` may not import `lib/progress/`.
  */
 
-import { describe, expect, test }          from 'bun:test';
-import { TICKET_STATUSES }                 from '../constants/Statuses.ts';
-import type { ProgressFile, Task, Ticket } from '../constants/Types.ts';
+import { describe, expect, test } from 'bun:test';
+import type { ProgressFile }      from '../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Task }              from '../../src/lib/tracker-model/@types/Task.ts';
+import type { Ticket }            from '../../src/lib/tracker-model/@types/Ticket.ts';
+import { TICKET_STATUSES }        from '../constants/Statuses.ts';
 import {
   LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS,
   applyTicketRereview,

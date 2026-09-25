@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, test }                       from 'bun:test';
-import type { TicketFrontmatter }                       from '../constants/Types.ts';
+import type { TicketFrontmatter }                       from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { parseTicketDocument, serializeTicketDocument } from './Frontmatter.ts';
 
 const FULL_TICKET = [

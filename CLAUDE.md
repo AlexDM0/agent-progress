@@ -41,14 +41,16 @@ the plan is specific it wins; these rules decide the rest.
 src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/, lib/tickets/, lib/render/  →  cli/
 ```
 
-- Imports run up only, with no cycles. `lib/constants/` imports nothing outside itself; `lib/utils/` imports only
-  itself, `lib/constants/`, `src/lib/utils/` and `src/shared/constants/`; neither imports a package or a builtin (a
-  spec beside them may import `bun:test`). Nothing under `lib/` imports `cli/`, nothing that ships imports
+- Imports run up only, with no cycles. `lib/constants/` imports nothing outside itself but `src/lib/tracker-model/`;
+  `lib/utils/` imports only itself, `lib/constants/`, `src/lib/tracker-model/`, `src/lib/utils/` and
+  `src/shared/constants/`; neither imports a package or a builtin (a spec beside them may import `bun:test`). Nothing under `lib/` imports `cli/`, nothing that ships imports
   `src/testing/`, `cli/testing/` or `lib/tooling/dev/`, and `agent-progress.ts` imports only `cli/`.
 - A `src/lib/` package imports only the other `src/lib/` packages its main module's header names, node builtins and
   external dependencies. It never imports `src/shared/`, `lib/` or `cli/`, and knows nothing about its callers: no
   agent-progress names, tracker file names, user-facing wording or exit codes. App values arrive as parameters; a
   refusal leaves as a verdict the caller turns into `OperationRefusal`. A `src/lib/` spec may import `src/testing/`.
+- `src/lib/tracker-model/` imports nothing outside its own folder and no builtin: the page's DOM-only project compiles
+  it, so it stays DOM-safe. The `lib/` layers import it like any `src/lib/` package.
 - `src/testing/` may import `lib/platform/Workspace.ts` until plan step 6 moves it; `cli/testing/` is imported only by
   `cli/` specs.
 - `src/shared/` holds app-specific code several parts use and imports only `src/lib/` and itself; what remains in
@@ -56,7 +58,7 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
   above).
 - A feature folder never imports a sibling: hoist what both need, or pass a structurally typed parameter.
 - `lib/platform/` touches the machine and knows nothing about tasks or tickets: a caller hands it paths and values,
-  never a task or a ticket, even though the layer order would let it import their types from `lib/constants/`.
+  never a task or a ticket, even though the layer order would let it import their types from `src/lib/tracker-model/`.
 - The target layout's import rules are in section 2 of `docs/migration-plan.md`.
 
 ### Model and boundaries
@@ -231,7 +233,8 @@ cli/                        the command surface: dispatch, arguments, help, one 
 lib/                        everything the commands do, in the layers above; lib/tooling/dev/ holds the dispatcher's test harness
 src/                        the target layout's code, filled step by step as the migration plan moves it
   src/lib/                  package-grade building blocks, one folder each, the package's description in its main module's header:
-                            atomic-file (AtomicFile.ts), git (GitProcess.ts), claude-code (ClaudeTranscripts.ts), utils
+                            atomic-file (AtomicFile.ts), git (GitProcess.ts), claude-code (ClaudeTranscripts.ts),
+                            tracker-model (@types/Task.ts), utils
   src/shared/               app-specific code several parts use: the environment reader, the refusal, LIMITS
   src/testing/              test-only helpers several parts use: the scratch workspace and the tracker isolation check
 skill/                      the skill every session in a tracked repository loads

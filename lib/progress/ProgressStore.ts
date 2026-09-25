@@ -1,18 +1,16 @@
 import { existsSync, readFileSync } from 'node:fs';
 
-import { createFileAtomically, writeFileAtomically }           from '../../src/lib/atomic-file/AtomicFile';
-import { LIMITS }                                              from '../../src/shared/constants/Limits';
-import { DISPATCHER_STATES, TASK_STATUSES, taskStatusIsKnown } from '../constants/Statuses';
+import { createFileAtomically, writeFileAtomically } from '../../src/lib/atomic-file/AtomicFile';
 import type {
   DispatcherState,
   LogEntry,
   ProgressFile,
-  Task,
-  TaskPhase,
-  TaskStatus,
   ViewRange
-} from '../constants/Types';
-import type { Workspace } from '../platform/Workspace';
+} from '../../src/lib/tracker-model/@types/ProgressFile';
+import type { Task, TaskPhase, TaskStatus }                    from '../../src/lib/tracker-model/@types/Task';
+import { LIMITS }                                              from '../../src/shared/constants/Limits';
+import { DISPATCHER_STATES, TASK_STATUSES, taskStatusIsKnown } from '../constants/Statuses';
+import type { Workspace }                                      from '../platform/Workspace';
 
 /** Checked by equality: a future format is refused rather than half-read. */
 const SUPPORTED_PROGRESS_VERSION = 1;

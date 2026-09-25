@@ -19,8 +19,9 @@ import {
   expect,
   test
 }                                       from 'bun:test';
-import type { ProgressFile, Task } from '../../lib/constants/Types';
-import { TimeUtil }                from '../../src/lib/utils/TimeUtil';
+import type { ProgressFile } from '../../src/lib/tracker-model/@types/ProgressFile';
+import type { Task }         from '../../src/lib/tracker-model/@types/Task';
+import { TimeUtil }          from '../../src/lib/utils/TimeUtil';
 import {
   addWorktree,
   createScratchGitRepository,

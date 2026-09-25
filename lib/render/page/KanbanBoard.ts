@@ -3,9 +3,10 @@
  * carries and how far the Done and Abandoned lanes are opened. DOM-free, and reads no clock: the page's now is handed in.
  */
 
+import type { Task }                                                 from '../../../src/lib/tracker-model/@types/Task.ts';
+import type { TicketPriority }                                       from '../../../src/lib/tracker-model/@types/Ticket.ts';
 import { LIMITS }                                                    from '../../../src/shared/constants/Limits.ts';
 import { TASK_STATUS_FOR_TICKET_STATUS, ticketPriorityOf }           from '../../constants/Statuses.ts';
-import type { Task, TicketPriority }                                 from '../../constants/Types.ts';
 import type { PageTicket }                                           from './PageData.ts';
 import type { RowState, TimestampSlices }                            from './PageMarkup.ts';
 import { deliveredAfterReview, reviewedTicketNumberOf, rowStateFor } from './PageMarkup.ts';

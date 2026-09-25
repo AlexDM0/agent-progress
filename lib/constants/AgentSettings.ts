@@ -1,5 +1,5 @@
 /** What the agents building and reviewing a ticket run on: the two vocabularies, and the one default pair a ticket overrides. */
-import type { AgentEffort, AgentModel } from './Types.ts';
+import type { AgentEffort, AgentModel } from '../../src/lib/tracker-model/@types/Ticket.ts';
 
 export const AGENT_MODELS = ['haiku', 'sonnet', 'opus', 'fable'] as const;
 

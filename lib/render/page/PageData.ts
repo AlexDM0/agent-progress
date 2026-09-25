@@ -1,9 +1,10 @@
 /** The DOM-free half of the page: the island shapes, the checks that establish them, and the range the geometry is finally given. */
 
-import type { ProgressFile, TicketFrontmatter, ViewRange } from '../../constants/Types.ts';
-import { TicketDependencyUtil }                            from '../../utils/TicketDependencyUtil.ts';
-import type { TimelineLimits }                             from './GanttGeometry.ts';
-import { computeTimeline }                                 from './GanttGeometry.ts';
+import type { ProgressFile, ViewRange } from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { TicketFrontmatter }       from '../../../src/lib/tracker-model/@types/Ticket.ts';
+import { TicketDependencyUtil }         from '../../utils/TicketDependencyUtil.ts';
+import type { TimelineLimits }          from './GanttGeometry.ts';
+import { computeTimeline }              from './GanttGeometry.ts';
 
 export interface PageLimits extends TimelineLimits {
   dateAndClockLength:          number;

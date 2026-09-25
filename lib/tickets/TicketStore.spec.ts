@@ -21,6 +21,7 @@ import {
   expect,
   test,
 } from 'bun:test';
+import type { Ticket, TicketType } from '../../src/lib/tracker-model/@types/Ticket.ts';
 import {
   HTML_FILE_NAME,
   LOCK_DIRECTORY_NAME,
@@ -28,8 +29,7 @@ import {
   TICKETS_DIRECTORY_NAME,
   TRACKER_DIRECTORY_NAME,
 } from '../constants/Statuses.ts';
-import type { Ticket, TicketType } from '../constants/Types.ts';
-import type { Workspace }          from '../platform/Workspace.ts';
+import type { Workspace } from '../platform/Workspace.ts';
 import {
   createTicket,
   deleteAllTickets,

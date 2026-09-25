@@ -3,18 +3,15 @@
  * the tracker or a ticket passes `escapeHtml` exactly once here, except a ticket's `bodyHtml`, already escaped by `lib/render/Markdown.ts`.
  */
 
+import type { LogEntry }                           from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Task, TaskStatus }                   from '../../../src/lib/tracker-model/@types/Task.ts';
+import type { TicketStatus }                       from '../../../src/lib/tracker-model/@types/Ticket.ts';
 import { HtmlEscapeUtil }                          from '../../../src/lib/utils/HtmlEscapeUtil.ts';
 import { TokenCountUtil }                          from '../../../src/lib/utils/TokenCountUtil.ts';
 import { LIMITS }                                  from '../../../src/shared/constants/Limits.ts';
 import { SETTLED_TASK_STATUSES, ticketPriorityOf } from '../../constants/Statuses.ts';
-import type {
-  LogEntry,
-  Task,
-  TaskStatus,
-  TicketStatus,
-} from '../../constants/Types.ts';
-import type { TimelineBar, TimelineTick } from './GanttGeometry.ts';
-import type { PageTicket }                from './PageData.ts';
+import type { TimelineBar, TimelineTick }          from './GanttGeometry.ts';
+import type { PageTicket }                         from './PageData.ts';
 import {
   fullInstantText,
   fullStampText,

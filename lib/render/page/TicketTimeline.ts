@@ -3,11 +3,11 @@
  * phases and its review rows. DOM-free, and reads no clock: the page's now is handed in.
  */
 
+import type { Task, TaskPhase }                                    from '../../../src/lib/tracker-model/@types/Task.ts';
 import { HtmlEscapeUtil }                                          from '../../../src/lib/utils/HtmlEscapeUtil.ts';
 import { TokenCountUtil }                                          from '../../../src/lib/utils/TokenCountUtil.ts';
 import { LIMITS }                                                  from '../../../src/shared/constants/Limits.ts';
 import { ticketPriorityOf }                                        from '../../constants/Statuses.ts';
-import type { Task, TaskPhase }                                    from '../../constants/Types.ts';
 import type { TimelineLimits, TimelineTick }                       from './GanttGeometry.ts';
 import { buildTicks, chooseStepMinutes }                           from './GanttGeometry.ts';
 import { ownRowOf }                                                from './KanbanBoard.ts';

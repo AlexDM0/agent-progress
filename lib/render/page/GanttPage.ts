@@ -3,12 +3,9 @@
  * selection and ticket open state stay with the template's own bootstrap, reached through `window.agentProgressTemplate`.
  */
 
-import type {
-  ProgressFile,
-  Task,
-  TicketStatus,
-  ViewRange,
-} from '../../constants/Types.ts';
+import type { ProgressFile, ViewRange }      from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Task }                         from '../../../src/lib/tracker-model/@types/Task.ts';
+import type { TicketStatus }                 from '../../../src/lib/tracker-model/@types/Ticket.ts';
 import type { Timeline }                     from './GanttGeometry.ts';
 import { computeTimeline }                   from './GanttGeometry.ts';
 import type { ClosedKanbanLane, KanbanCard } from './KanbanBoard.ts';

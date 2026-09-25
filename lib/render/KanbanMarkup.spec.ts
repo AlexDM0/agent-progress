@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, test }                                    from 'bun:test';
-import type { Task }                                                 from '../constants/Types.ts';
+import type { Task }                                                 from '../../src/lib/tracker-model/@types/Task.ts';
 import { cappedLaneShownCount, kanbanCardsFor, shownCountAfterMore } from './page/KanbanBoard.ts';
 import type { KanbanBoardInput }                                     from './page/KanbanMarkup.ts';
 import {

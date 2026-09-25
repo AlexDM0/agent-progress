@@ -4,17 +4,14 @@ import {
   TASK_STATUSES,
   TICKET_STATUSES
 }                                          from '../../lib/constants/Statuses';
-import type {
-  LogEntry,
-  ProgressFile,
-  Task,
-  Ticket
-}                                            from '../../lib/constants/Types';
-import { requireWorkspace } from '../../lib/platform/Workspace';
-import { listTickets }      from '../../lib/tickets/TicketStore';
-import { TimeUtil }         from '../../src/lib/utils/TimeUtil';
-import { TokenCountUtil }   from '../../src/lib/utils/TokenCountUtil';
-import { LIMITS }           from '../../src/shared/constants/Limits';
+import { requireWorkspace }            from '../../lib/platform/Workspace';
+import { listTickets }                 from '../../lib/tickets/TicketStore';
+import type { LogEntry, ProgressFile } from '../../src/lib/tracker-model/@types/ProgressFile';
+import type { Task }                   from '../../src/lib/tracker-model/@types/Task';
+import type { Ticket }                 from '../../src/lib/tracker-model/@types/Ticket';
+import { TimeUtil }                    from '../../src/lib/utils/TimeUtil';
+import { TokenCountUtil }              from '../../src/lib/utils/TokenCountUtil';
+import { LIMITS }                      from '../../src/shared/constants/Limits';
 import {
   concurrencyDocumentOf,
   nextLineFor,

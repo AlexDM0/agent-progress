@@ -1,11 +1,10 @@
-/** The vocabularies as runtime tuples, since nothing can enumerate a type; `lib/constants/Statuses.spec.ts` pins them to `lib/constants/Types.ts`. */
-import type {
-  DispatcherState,
-  TaskStatus,
-  TicketPriority,
-  TicketStatus,
-  TicketType
-} from './Types.ts';
+/**
+ * The vocabularies as runtime tuples, since nothing can enumerate a type; `lib/constants/Statuses.spec.ts` pins them to the unions in
+ * `src/lib/tracker-model/@types/`.
+ */
+import type { DispatcherState }                          from '../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { TaskStatus }                               from '../../src/lib/tracker-model/@types/Task.ts';
+import type { TicketPriority, TicketStatus, TicketType } from '../../src/lib/tracker-model/@types/Ticket.ts';
 
 export const TASK_STATUSES = ['pending', 'running', 'paused', 'finished', 're-review', 'reviewed', 'delivered', 'abandoned'] as const;
 

@@ -4,13 +4,9 @@
  * 15, then 25 at a time, clamped whatever storage says.
  */
 
-import { describe, expect, test } from 'bun:test';
-import type {
-  Task,
-  TaskStatus,
-  TicketPriority,
-  TicketStatus,
-} from '../constants/Types.ts';
+import { describe, expect, test }                  from 'bun:test';
+import type { Task, TaskStatus }                   from '../../src/lib/tracker-model/@types/Task.ts';
+import type { TicketPriority, TicketStatus }       from '../../src/lib/tracker-model/@types/Ticket.ts';
 import type { KanbanCard, KanbanLane, NoteFormat } from './page/KanbanBoard.ts';
 import {
   abandonedLaneChoiceFor,

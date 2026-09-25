@@ -3,15 +3,11 @@
  * page; it sits above `lib/render/page/` because a spec inside it could not import `bun:test`.
  */
 
-import { describe, expect, test } from 'bun:test';
-import type {
-  ProgressFile,
-  Task,
-  TaskStatus,
-  ViewRange,
-} from '../constants/Types.ts';
-import type { TimelineLimits } from './page/GanttGeometry.ts';
-import { computeTimeline }     from './page/GanttGeometry.ts';
+import { describe, expect, test }       from 'bun:test';
+import type { ProgressFile, ViewRange } from '../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Task, TaskStatus }        from '../../src/lib/tracker-model/@types/Task.ts';
+import type { TimelineLimits }          from './page/GanttGeometry.ts';
+import { computeTimeline }              from './page/GanttGeometry.ts';
 
 const MILLISECONDS_PER_MINUTE = 60_000;
 

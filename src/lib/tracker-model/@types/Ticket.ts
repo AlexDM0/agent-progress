@@ -1,0 +1,44 @@
+export type TicketType     = 'bug' | 'change' | 'feature';
+export type TicketStatus   = 'open' | 'in-progress' | 'in-review' | 'done' | 'delivered' | 'abandoned';
+export type TicketPriority = 'low' | 'normal' | 'high';
+
+/** The model aliases a Claude Code agent definition's `model` key accepts, as an agent working a ticket runs on. */
+export type AgentModel  = 'haiku' | 'sonnet' | 'opus' | 'fable';
+export type AgentEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+
+export interface TicketFrontmatter {
+  id:          string;
+  title:       string;
+  type:        TicketType;
+  /** Absent on every ticket filed before priorities existed, and on one filed without `--priority`; absent reads as `normal`. */
+  priority?:   TicketPriority;
+  /** Absent unless somebody named one; absent reads as the tool's default for builders and reviewers. */
+  model?:      AgentModel;
+  effort?:     AgentEffort;
+  /** Present while `ticket hold` holds the ticket, holding its reason, empty when none was given; absent means not held. */
+  hold?:       string;
+  status:      TicketStatus;
+  filed:       string;
+  updated:     string;
+  started:     string | null;
+  finished:    string | null;
+  delivered:   string | null;
+  abandonedAt: string | null;
+  group?:      string;
+  branch?:     string;
+  commit?:     string;
+  reason?:     string;
+  /** Padded ids of the tickets this one waits on, in the order written; absent when it waits on none. */
+  dependsOn?:  string[];
+  task:        number | null;
+  /** Every frontmatter line the CLI does not own, in original order, so a status change does not eat it. */
+  extra:       Array<[key: string, rawValue: string]>;
+}
+
+export interface Ticket {
+  frontmatter: TicketFrontmatter;
+  body:        string;
+  filePath:    string;
+  /** The frontmatter's line ending as read, which a rewrite keeps; absent for a ticket not read from a file, which is written with `\n`. */
+  lineEnding?: '\n' | '\r\n';
+}

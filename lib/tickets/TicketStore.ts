@@ -16,7 +16,7 @@ import type {
   TicketFrontmatter,
   TicketPriority,
   TicketType
-}                                                       from '../constants/Types.ts';
+} from '../../src/lib/tracker-model/@types/Ticket.ts';
 import type { Workspace }                               from '../platform/Workspace.ts';
 import { SlugUtil }                                     from '../utils/SlugUtil.ts';
 import { TicketIdUtil }                                 from '../utils/TicketIdUtil.ts';

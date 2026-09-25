@@ -13,7 +13,9 @@
   // they stay environment-neutral.
   "include": [
     "./**/*.ts",
-    "../../constants/Types.ts",
+    "../../../src/lib/tracker-model/@types/ProgressFile.ts",
+    "../../../src/lib/tracker-model/@types/Task.ts",
+    "../../../src/lib/tracker-model/@types/Ticket.ts",
     "../../constants/Statuses.ts",
     "../../../src/shared/constants/Limits.ts",
     "../../../src/lib/utils/HtmlEscapeUtil.ts",

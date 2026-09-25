@@ -1,6 +1,6 @@
 /** Which tickets another ticket still waits on, and whether a new dependency list would close a loop. Shared by the command surface and the page. */
+import type { TicketPriority, TicketStatus }                          from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { TICKET_STATUSES_THAT_SETTLE_A_DEPENDENCY, ticketPriorityOf } from '../constants/Statuses.ts';
-import type { TicketPriority, TicketStatus }                          from '../constants/Types.ts';
 
 /** A dependency that is missing from `statusById` still counts as unsettled: a ticket nobody can see is not finished work. */
 function unsettledDependenciesOf(dependsOn: readonly string[], statusById: ReadonlyMap<string, TicketStatus>): string[] {

@@ -1,9 +1,12 @@
 /**
- * That the runtime tuples and the unions in `lib/constants/Types.ts` still describe the same
+ * That the runtime tuples and the unions in `src/lib/tracker-model/@types/` still describe the same
  * vocabulary, and that the guards accept exactly the tuple and nothing that merely looks like it.
  */
 import { expect, test } from 'bun:test';
 
+import type { DispatcherState }                          from '../../src/lib/tracker-model/@types/ProgressFile';
+import type { TaskStatus }                               from '../../src/lib/tracker-model/@types/Task';
+import type { TicketPriority, TicketStatus, TicketType } from '../../src/lib/tracker-model/@types/Ticket';
 import {
   CLAUDE_MANAGED_END,
   CLAUDE_MANAGED_START,
@@ -25,13 +28,6 @@ import {
   ticketStatusIsKnown,
   ticketTypeIsKnown
 } from './Statuses';
-import type {
-  DispatcherState,
-  TaskStatus,
-  TicketPriority,
-  TicketStatus,
-  TicketType
-} from './Types';
 
 /** A tuple member the union has never heard of fails `bun run typecheck` rather than a test. */
 const TASK_STATUS_TUPLE_MATCHES_THE_UNION = TASK_STATUSES satisfies readonly TaskStatus[];

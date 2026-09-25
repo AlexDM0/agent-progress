@@ -10,8 +10,9 @@ import {
   expect,
   test
 }                                                              from 'bun:test';
+import type { ProgressFile }                              from '../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Ticket }                                    from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
-import type { ProgressFile, Ticket }                      from '../constants/Types.ts';
 import { workspacePathsFor }                              from '../platform/Workspace.ts';
 import type { Workspace }                                 from '../platform/Workspace.ts';
 import { rerenderDashboard }                              from './Rerender.ts';

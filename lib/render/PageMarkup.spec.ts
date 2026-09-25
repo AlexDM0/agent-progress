@@ -2,13 +2,10 @@
  * The markup the page emits into `lib/render/page/template.html`, with every tracker value escaped exactly once.
  */
 
-import { describe, expect, test } from 'bun:test';
-import type {
-  LogEntry,
-  Task,
-  TaskStatus,
-  TicketStatus,
-} from '../constants/Types.ts';
+import { describe, expect, test }           from 'bun:test';
+import type { LogEntry }                    from '../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Task, TaskStatus }            from '../../src/lib/tracker-model/@types/Task.ts';
+import type { TicketStatus }                from '../../src/lib/tracker-model/@types/Ticket.ts';
 import type { TimelineBar, TimelineLimits } from './page/GanttGeometry.ts';
 import { computeTimeline }                  from './page/GanttGeometry.ts';
 import type { PageTicket }                  from './page/PageData.ts';

@@ -1,4 +1,4 @@
-import type { DispatcherState } from '../constants/Types';
+import type { DispatcherState } from '../../src/lib/tracker-model/@types/ProgressFile';
 
 const READY_TICKETS_LISTED_AT_MOST = 5;
 

@@ -5,7 +5,7 @@
  */
 import { expect, test } from 'bun:test';
 
-import type { TicketStatus }    from '../constants/Types';
+import type { TicketStatus }    from '../../src/lib/tracker-model/@types/Ticket';
 import { TicketDependencyUtil } from './TicketDependencyUtil';
 
 const {

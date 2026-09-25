@@ -4,9 +4,9 @@
  * half-applied. The subset it accepts is stated in `docs/cli.md`.
  */
 
+import type { TicketFrontmatter }                                        from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { agentEffortIsKnown, agentModelIsKnown }                         from '../constants/AgentSettings.ts';
 import { ticketPriorityIsKnown, ticketStatusIsKnown, ticketTypeIsKnown } from '../constants/Statuses.ts';
-import type { TicketFrontmatter }                                        from '../constants/Types.ts';
 import { TicketIdUtil }                                                  from '../utils/TicketIdUtil.ts';
 
 export type LineEnding = '\n' | '\r\n';

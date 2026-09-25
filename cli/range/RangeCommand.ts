@@ -2,8 +2,8 @@
  * A relative bound is stored as written and resolved at layout time, so `--from -2h` keeps meaning "the
  * last two hours"; `lib/render/page/GanttGeometry.ts` resolves each end, which is what makes a mixed pair legal.
  */
-import type { ViewRange }                     from '../../lib/constants/Types';
 import { appendLogEntry }                     from '../../lib/progress/ProgressStore';
+import type { ViewRange }                     from '../../src/lib/tracker-model/@types/ProgressFile';
 import { TimeUtil }                           from '../../src/lib/utils/TimeUtil';
 import { OperationRefusal }                   from '../../src/shared/OperationRefusal';
 import { openTrackerForWriting, printEntity } from '../CommandSupport';

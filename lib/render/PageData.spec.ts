@@ -4,7 +4,8 @@
  */
 
 import { describe, expect, test }              from 'bun:test';
-import type { ProgressFile, Task }             from '../constants/Types.ts';
+import type { ProgressFile }                   from '../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Task }                           from '../../src/lib/tracker-model/@types/Task.ts';
 import type { PageLimits, StoredViewOverride } from './page/PageData.ts';
 import {
   EMPTY_VIEW_OVERRIDE,

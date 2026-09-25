@@ -3,18 +3,8 @@
  * progress file, write the queued tickets, render through `lib/render/Rerender.ts` — all inside the lock, in that order, so no older
  * render lands last and the progress file is never behind the tickets.
  */
-import { agentEffortOf, agentModelOf } from '../lib/constants/AgentSettings';
-import { ticketPriorityOf }            from '../lib/constants/Statuses';
-import type {
-  AgentEffort,
-  AgentModel,
-  DispatcherState,
-  ProgressFile,
-  Task,
-  Ticket,
-  TicketPriority,
-  TicketStatus
-}                                                     from '../lib/constants/Types';
+import { agentEffortOf, agentModelOf }      from '../lib/constants/AgentSettings';
+import { ticketPriorityOf }                 from '../lib/constants/Statuses';
 import { withLock }                         from '../lib/platform/Lock';
 import { requireWorkspace, type Workspace } from '../lib/platform/Workspace';
 import {
@@ -35,12 +25,21 @@ import { listTickets, writeTicket }                from '../lib/tickets/TicketSt
 import type { PriorityOperations }                 from '../lib/tickets/TicketTransitions';
 import { NextLineUtil }                            from '../lib/utils/NextLineUtil';
 import { TicketDependencyUtil }                    from '../lib/utils/TicketDependencyUtil';
-import { TimeUtil }                                from '../src/lib/utils/TimeUtil';
-import { TokenCountUtil }                          from '../src/lib/utils/TokenCountUtil';
-import { OperationRefusal }                        from '../src/shared/OperationRefusal';
-import { LIMITS }                                  from '../src/shared/constants/Limits';
-import type { CommandContext }                     from './CommandContext';
-import type { ArgumentParser }                     from './arguments/ArgumentParser';
+import type { DispatcherState, ProgressFile }      from '../src/lib/tracker-model/@types/ProgressFile';
+import type { Task }                               from '../src/lib/tracker-model/@types/Task';
+import type {
+  AgentEffort,
+  AgentModel,
+  Ticket,
+  TicketPriority,
+  TicketStatus
+} from '../src/lib/tracker-model/@types/Ticket';
+import { TimeUtil }            from '../src/lib/utils/TimeUtil';
+import { TokenCountUtil }      from '../src/lib/utils/TokenCountUtil';
+import { OperationRefusal }    from '../src/shared/OperationRefusal';
+import { LIMITS }              from '../src/shared/constants/Limits';
+import type { CommandContext } from './CommandContext';
+import type { ArgumentParser } from './arguments/ArgumentParser';
 
 /** A ticket in one of these is never built or reviewed again, so neither its agents nor a hold on it can be changed. */
 export const TICKET_STATUSES_NO_AGENT_WORKS_AGAIN: readonly TicketStatus[] = ['delivered', 'abandoned'];

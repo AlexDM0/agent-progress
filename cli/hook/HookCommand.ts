@@ -5,13 +5,14 @@
 import { readFileSync } from 'node:fs';
 import { homedir }      from 'node:os';
 
-import type { ProgressFile, Task }       from '../../lib/constants/Types';
 import type { Workspace }                from '../../lib/platform/Workspace';
 import { addTaskTokens, appendLogEntry } from '../../lib/progress/ProgressStore';
 import { reviewedTicketNumberOf }        from '../../lib/render/page/PageMarkup';
 import { readTicket }                    from '../../lib/tickets/TicketStore';
 import type { TranscriptUsageTotals }    from '../../src/lib/claude-code/utils/TranscriptUsageUtil';
 import { TranscriptUsageUtil }           from '../../src/lib/claude-code/utils/TranscriptUsageUtil';
+import type { ProgressFile }             from '../../src/lib/tracker-model/@types/ProgressFile';
+import type { Task }                     from '../../src/lib/tracker-model/@types/Task';
 import { OperationRefusal }              from '../../src/shared/OperationRefusal';
 import { LIMITS }                        from '../../src/shared/constants/Limits';
 import type { CommandContext }           from '../CommandContext';

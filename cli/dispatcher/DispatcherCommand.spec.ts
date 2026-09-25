@@ -13,7 +13,7 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import type { DispatcherState, ProgressFile }                                 from '../../lib/constants/Types';
+import type { DispatcherState, ProgressFile }                                 from '../../src/lib/tracker-model/@types/ProgressFile';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
 import { runCommandLine }                                                     from '../Main';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';

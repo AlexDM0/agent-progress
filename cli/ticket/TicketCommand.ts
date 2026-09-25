@@ -19,16 +19,6 @@ import {
   ticketStatusIsKnown,
   ticketTypeIsKnown
 }                                                from '../../lib/constants/Statuses';
-import type {
-  AgentEffort,
-  AgentModel,
-  ProgressFile,
-  Task,
-  Ticket,
-  TicketPriority,
-  TicketStatus,
-  TicketType
-}                                                from '../../lib/constants/Types';
 import { requireWorkspace, type Workspace } from '../../lib/platform/Workspace';
 import {
   addTask,
@@ -56,9 +46,19 @@ import {
 import { NextLineUtil }         from '../../lib/utils/NextLineUtil';
 import { TicketDependencyUtil } from '../../lib/utils/TicketDependencyUtil';
 import { TicketIdUtil }         from '../../lib/utils/TicketIdUtil';
-import { OperationRefusal }     from '../../src/shared/OperationRefusal';
-import { LIMITS }               from '../../src/shared/constants/Limits';
-import type { CommandContext }  from '../CommandContext';
+import type { ProgressFile }    from '../../src/lib/tracker-model/@types/ProgressFile';
+import type { Task }            from '../../src/lib/tracker-model/@types/Task';
+import type {
+  AgentEffort,
+  AgentModel,
+  Ticket,
+  TicketPriority,
+  TicketStatus,
+  TicketType
+} from '../../src/lib/tracker-model/@types/Ticket';
+import { OperationRefusal }    from '../../src/shared/OperationRefusal';
+import { LIMITS }              from '../../src/shared/constants/Limits';
+import type { CommandContext } from '../CommandContext';
 import {
   TICKET_STATUSES_NO_AGENT_WORKS_AGAIN,
   closeRunningReviewRows,

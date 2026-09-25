@@ -1,10 +1,10 @@
 /** The Kanban tab's markup, shaped by the placeholder board in `lib/render/page/template.html`; the rules it follows are `KanbanBoard.ts`'s. */
 
+import type { TicketPriority } from '../../../src/lib/tracker-model/@types/Ticket.ts';
 import { HtmlEscapeUtil }      from '../../../src/lib/utils/HtmlEscapeUtil.ts';
 import { TokenCountUtil }      from '../../../src/lib/utils/TokenCountUtil.ts';
 import { LIMITS }              from '../../../src/shared/constants/Limits.ts';
 import { ticketPriorityOf }    from '../../constants/Statuses.ts';
-import type { TicketPriority } from '../../constants/Types.ts';
 import type {
   ClosedKanbanLane,
   KanbanCard,

@@ -1,9 +1,10 @@
 /**
- * The agent vocabularies and their defaults. What callers rely on: the tuples match the unions in `lib/constants/Types.ts`, the guards
+ * The agent vocabularies and their defaults. What callers rely on: the tuples match the unions in `src/lib/tracker-model/@types/Ticket.ts`, the guards
  * accept exactly the tuple, and an absent key resolves to the one default pair rather than to something each reader decides.
  */
 import { expect, test } from 'bun:test';
 
+import type { AgentEffort, AgentModel } from '../../src/lib/tracker-model/@types/Ticket';
 import {
   AGENT_EFFORTS,
   AGENT_MODELS,
@@ -14,7 +15,6 @@ import {
   agentModelIsKnown,
   agentModelOf
 }                                       from './AgentSettings';
-import type { AgentEffort, AgentModel } from './Types';
 
 const MODEL_TUPLE_MATCHES_THE_UNION  = AGENT_MODELS satisfies readonly AgentModel[];
 const EFFORT_TUPLE_MATCHES_THE_UNION = AGENT_EFFORTS satisfies readonly AgentEffort[];

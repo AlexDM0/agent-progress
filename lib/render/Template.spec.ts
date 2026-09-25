@@ -4,9 +4,11 @@
  */
 
 import { describe, expect, test }                       from 'bun:test';
+import type { ProgressFile }                            from '../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Task }                                    from '../../src/lib/tracker-model/@types/Task.ts';
+import type { Ticket }                                  from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { refusalIsOperationRefusal }                    from '../../src/shared/OperationRefusal.ts';
 import { LIMITS }                                       from '../../src/shared/constants/Limits.ts';
-import type { ProgressFile, Task, Ticket }              from '../constants/Types.ts';
 import { renderProgressHtml, substituteTemplateTokens } from './Template.ts';
 
 const GENERATED_AT = new Date('2026-09-18T20:11:03Z');

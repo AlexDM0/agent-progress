@@ -13,9 +13,10 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import type { ProgressFile, Task }                                            from '../../lib/constants/Types';
 import { withLock }                                                           from '../../lib/platform/Lock';
 import { workspacePathsFor }                                                  from '../../lib/platform/Workspace';
+import type { ProgressFile }                                                  from '../../src/lib/tracker-model/@types/ProgressFile';
+import type { Task }                                                          from '../../src/lib/tracker-model/@types/Task';
 import { LIMITS }                                                             from '../../src/shared/constants/Limits';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
 import { runCommandLine }                                                     from '../Main';
