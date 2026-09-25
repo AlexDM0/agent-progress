@@ -49,6 +49,7 @@ import { TicketIdUtil }                                               from '../.
 import { VocabularyUtil }                                             from '../../src/lib/tracker-model/utils/VocabularyUtil';
 import { OperationRefusal }                                           from '../../src/shared/OperationRefusal';
 import { LIMITS }                                                     from '../../src/shared/constants/Limits';
+import { DispatcherClaimNoteUtil }                                    from '../../src/shared/utils/DispatcherClaimNoteUtil';
 import type { CommandContext }                                        from '../CommandContext';
 import {
   closeInProgressReviewRows,
@@ -906,16 +907,12 @@ async function setTicketAgent(commandArguments: ArgumentParser, context: Command
 
 // Every dispatcher run's builder takes over only a row paused under a dispatcher claim note; any other pause is a person's, resumed by hand.
 function resumeBuildHintFor(ticketId: string, pausedRow: Task): string {
-  if (!noteIsADispatcherClaimOn(pausedRow.note, ticketId)) {
+  if (!DispatcherClaimNoteUtil.noteIsADispatcherClaimOn(pausedRow.note, ticketId)) {
     return `Its build row #${pausedRow.id} was left paused under a person's note, which the dispatcher never takes over: `
       + `resume it with \`agent-progress task start ${pausedRow.id}\`, or settle the row by hand.`;
   }
   const singleTicketRun = `launch a single-ticket dispatcher run for #${ticketId} (ticketIds: ["${ticketId}"]) to resume it`;
   return `Its build was left paused: the next whole-board dispatcher run resumes it; when none is going or about to be launched, ${singleTicketRun} now.`;
-}
-
-function noteIsADispatcherClaimOn(note: string, ticketId: string): boolean {
-  return note.startsWith('Built by the ') && note.endsWith(` dispatcher run on ticket-${ticketId}`);
 }
 
 function pausedBuildRowOf(progress: ProgressFile, ticket: Ticket): Task | null {
