@@ -46,6 +46,8 @@ lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/, lib/tic
   Nothing under `lib/` imports `cli/`, nothing that ships imports
   `lib/tooling/dev/`, and `agent-progress.ts` imports only `cli/`.
 - A feature folder never imports a sibling: hoist what both need, or pass a structurally typed parameter.
+- `lib/platform/` touches the machine and knows nothing about tasks or tickets: a caller hands it paths and values,
+  never a task or a ticket, even though the layer order would let it import their types from `lib/constants/`.
 - The target layout's import rules are in section 2 of `docs/migration-plan.md`.
 
 ### Model and boundaries
@@ -62,8 +64,9 @@ lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/, lib/tic
 - Exit codes are decided only in `cli/Main.ts`: 0 done or nothing to do; 1 a refusal the caller can act on
   (`refused`, or an unknown command); 2 a state the tool will not repair (`unrepaired`, or any other throw).
   `agent-progress.ts` is the only `process.exit`.
-- Two deliberate exit-0 cases: `hook subagent-stop` on every failure, because the agent has already finished; and a
-  store write that succeeded while the render failed, reported on standard error.
+- Three deliberate exit-0 cases: `hook subagent-stop` on every failure, because the agent has already finished; a
+  store write that succeeded while the render failed, reported on standard error; and a `release` whose worktree
+  removal or `branch -d` git declined after the merge, reported and never failed, because the release happened.
 
 ### Runtime
 
@@ -147,9 +150,9 @@ lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/, lib/tic
 ### Command surface
 
 - Never run `agent-progress` in this checkout: it has a live tracker. Exercise it in a scratch repository.
-- Help is one screen, with no per-command help. `--help` anywhere before a bare `--`, and `-h` as or straight after
-  the command word, print it; an option's value is never a help request, and a later `-h` is refused at 1. Help goes
-  to standard output when asked for, and to standard error after an unknown command.
+- Help is one screen, with no per-command help: a second help surface is a second thing to keep in step with the
+  command table. It goes to standard output when asked for and to standard error after an unknown command, so a typo
+  never exits 0 or prints help into a parsed pipe.
 - Adding a command is an entry in `cli/CommandTable.ts`, a block in `cli/HelpText.ts` and a folder;
   `cli/CommandTable.spec.ts` and `cli/HelpText.spec.ts` fail until all three exist.
 - Every mutating command writes through `openTrackerForWriting` in `cli/CommandSupport.ts`, and none repeats it:
