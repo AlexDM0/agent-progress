@@ -1,284 +1,218 @@
 # agent-progress
 
-A Bun + TypeScript CLI that tracks an AI orchestrator's work per repository: tasks on a Gantt chart,
-stateful markdown tickets, a log, and a self-contained `progress.html` regenerated on every command.
-The repo map lives in the "Repository map" section at the end of this file; each substantial folder
-has its own `CLAUDE.md` with per-file one-liners.
+A Bun + TypeScript CLI that tracks an AI orchestrator's work per repository (Gantt rows, stateful markdown tickets,
+a log, and a self-contained `progress.html` regenerated on every command), and installs the skills, brief and
+dispatcher its sessions run on.
 
-# Coding conventions for this project (adopted from the `vkb` repository)
+## In flight
 
-Apply these to every file you write or edit here. They are not preferences to weigh against
-others; where a rule has a linter or a spec behind it, the build fails, and where it does not, it
-is written down here so that it can be checked in review rather than argued about.
+The conventions migration is under way on branch `migration/conventions` per `docs/migration-plan.md`. The tree is
+mid-move, so code may still sit where the plan moves it from, and the map below describes the tree as it is. Where
+the plan is specific it wins; these rules decide the rest.
 
-## 1. Linter and type checker — the mechanical part
+## Verify
 
-Bun runs the TypeScript directly; `tsc` is a type checker only. ESLint 9 flat config through
-`@reliquary/eslint-config` (plus `@reliquary/eslint-config-react` only when there is a React
-surface). Verify with `bun run typecheck`, `bun run lint`, `bun test`, and run all three after any
-TypeScript change; never invent ad-hoc `tsc` flags.
+`bun run typecheck && bun test && bun run lint`: all three after any TypeScript change, before calling it done.
+`typecheck` covers both projects, the Bun one and the DOM-only page. Never ad-hoc `tsc` flags; never edit
+`package.json` to make a check pass.
 
-`eslint.config.js`:
+## Rules
 
-```js
-import base from '@reliquary/eslint-config';
+### Files and naming
 
-export default [
-  ...base,
-  { ignores: ['**/*.js', 'node_modules/**', '.claude/**'] },
-  {
-    // Test-only helpers may import devDependencies; nothing that ships may import this folder.
-    files: ['lib/tooling/dev/**/*.ts'],
-    rules: { 'import/no-extraneous-dependencies': ['error', { devDependencies: true }] },
-  },
-];
-```
+- One purpose per file, explainable in two or three lines from its path and export; usually one export plus a few
+  types. A file is `PascalCase.ts`, named after its export; folders are lower case. No barrel files.
+- A util is pure and stateless, one frozen object per file (`TimeUtil.formatLocalIso(…)`), tested against its own
+  contract, not through a caller. An app-wide list is one global object: `LIMITS` in `lib/constants/Limits.ts`.
+- Code starts beside its only consumer and moves on a second consumer, generalised first; never in anticipation.
+- Full, descriptive names, no abbreviations. Only a loop `i` and a comparator `(a, b)` are one letter; callbacks,
+  destructured bindings and throwaway scripts are not exempt. Never a name that shadows a global.
+- A function that answers a question is the question (`sourceIsReachable`); a producer is named for its product
+  (`fullTextOf`); a boolean is a predicate phrase (`cleanupHandlersAreInstalled`).
+- Design constants are `SCREAMING_CASE`, named for what they bound, with the unit. No magic number inline.
+- Everything is English: identifiers, flags, messages, file names, comments. Example data is obviously synthetic:
+  `Alex Example`, `Example Agency`.
 
-`tsconfig.json` compiler options, all of them: `noEmit`, `target` and `lib` `ESNext`,
-`module: "Preserve"`, `moduleResolution: "bundler"`, `moduleDetection: "force"`,
-`allowImportingTsExtensions`, `verbatimModuleSyntax`, `types: ["bun"]`, `strict`,
-`noUncheckedIndexedAccess`, `noImplicitOverride`, `noFallthroughCasesInSwitch`,
-`noPropertyAccessFromIndexSignature`, `exactOptionalPropertyTypes`, `noUnusedLocals`,
-`noUnusedParameters`, `forceConsistentCasingInFileNames`, `skipLibCheck`.
-
-What the shared config enforces, so you write it that way the first time rather than after
-`lint:fix`:
-
-- 2-space indent, single quotes, semicolons always, Unix line endings, max 2 blank lines and none
-  at end of file.
-- Line length 180 for code, 155 for comments.
-- **Value-aligned object keys** (`key-spacing` strict, `align: 'value'`): in a multi-line object
-  literal the values start in one column.
-- **Aligned imports** (`align-import`): the `from` keywords of consecutive import lines line up in
-  one column. Imports are ordered builtin → external → internal and alphabetised within a group.
-  An import with more than 3 named bindings breaks one per line (`import-newlines`, items 3).
-  Unused imports are an error. `import type { X }` for type-only imports (`verbatimModuleSyntax`).
-- Object literals and destructuring patterns with 4 or more properties go multi-line, one property
-  per line; fewer may stay on one line. Object shorthand always. Arrow functions always take
-  parentheses around their parameters. A blank line before every `function` declaration.
-- `prefer-destructuring` for objects (not arrays). `no-explicit-any` is an error. Up to 5 classes
-  per file, though see §4 on when a class is the right shape at all.
-- The `off` list is deliberate and you may rely on it: `no-plusplus`, `no-continue`,
-  `no-await-in-loop`, `no-param-reassign`, `consistent-return`, `no-restricted-syntax`,
-  `guard-for-in`, `class-methods-use-this`, `no-use-before-define`. A `for … of` with `continue`
-  and an awaited call inside is normal here.
-
-Consequences of the strict flags that show up in every file: an environment variable is read as
-`process.env['NAME']` (bracket access, index signature); an indexed lookup yields `T | undefined`,
-so write the fallback (`variables[key] ?? …`) rather than a `!`; an optional property is either
-present with its type or absent, never explicitly `undefined`, so build objects conditionally
-rather than spreading `undefined` in.
-
-## 2. Naming
-
-- **Every identifier gets a full, descriptive name. No abbreviations, ever.** `temporaryPath` not
-  `tmp`, `statistics` not `stats`, `remainingArguments` not `args`, `commandArguments` not
-  `cmdArgs`. The only one-letter names are loop iterators (`i`) and sort-comparator pairs
-  (`(a, b)`). Callback parameters, destructured bindings and throwaway scripts are not exempt.
-- Identifiers, CLI flags, messages, file names and comments are English, even in a project whose
-  domain content is in another language.
-- Name a thing for **what it is or does**, not for what it was or which layer it sits in:
-  `CorpusMap.ts` rather than `Map.ts` (which shadows a global), `Template.ts` rather than
-  `Render.ts` when another module is already the renderer. A function that answers a question is
-  named as the question: `sourceIsReachable`, `cardHoldsAuthoredProse`, `deletedContentStillInTheWorkingCopy`.
-  A function that produces something is named for the product: `extractionFolderFor`,
-  `fullTextOf`, `createArgumentParser`.
-- A boolean is a predicate phrase (`cleanupHandlersAreInstalled`, `reliabilityIsInUse`), never a
-  bare noun or an `is`-prefixed noun where a sentence reads better.
-- Constants that are design decisions are `SCREAMING_CASE` and named for what they bound, with the
-  unit in the name where one applies: `STARTING_CLAIM_BOUND_MILLISECONDS`,
-  `EMBEDDED_PACKET_LIMIT_BYTES`, `PICTURE_CROP_MIN_WIDTH`. A magic number never appears inline.
-- Files are `PascalCase.ts` named after the one thing they export or govern; folders are lower
-  case, kebab-case only when two words are unavoidable. A test is `<Module>.spec.ts` beside its
-  module; a second suite on the same module is `<Module>.<aspect>.spec.ts`. `.test.ts` is never
-  used, because the env-bridge guard recognises a test by `.spec`.
-- Example data in code, tests, templates and docs is obviously synthetic: `Alex Example`,
-  `Example Agency` (`EXA`). Never invent a plausible-looking real name.
-
-## 3. Module shape
-
-- **No barrel files.** A caller imports the one thing it wants from the file named after it, so
-  the import block is the dependency list.
-- **Imports run up the folder tree only.** A feature reaches its layer's flat level, the layers
-  below it, `lib/constants/` and `lib/utils/`. Sideways only into the feature's own `util/` leaf;
-  never into a sibling feature. What two features need is promoted to the level above both, never
-  imported across. `lib/constants/` imports nothing; `lib/utils/` imports `lib/constants/` or
-  nothing. Nothing under `lib/` imports `cli/`; nothing that ships imports the test-only folder.
-- **A `util/` module is pure and stateless, exports one frozen object named after the file, and is
-  unit-tested beside itself against its own contract**, not through a caller:
-
-  ```ts
-  function substituteTemplate(template: string, variables: Record<string, string>): string { … }
-
-  export const TemplateUtil = { substituteTemplate } as const;
-  ```
-
-  Callers write `TemplateUtil.substituteTemplate(…)` so a util is greppable as one name.
-- **No work at module load.** Nothing resolves a working directory, reads the environment, reads
-  `argv` or opens a file at import time. Importing a module runs nothing; this is what lets a spec
-  import the real command table instead of scraping source text.
-- **`process.env` is read in exactly one module**, through getters (never a snapshot, so a test can
-  redirect a value in-process), each with a docblock saying what it overrides and why.
-- **Prefer a factory of closures over a class.** A class cannot be destructured, and a module
-  singleton with `initialize()` is temporal coupling the type checker cannot see. A class is for
-  state carried across a sequence of calls, and then its constructor does no work.
-- A shape two modules must agree on that neither may import from the other is a **structurally
-  typed parameter**, not a shared import.
-- Index a `Record<string, …>` by text that came from outside through `Object.hasOwn`, never a
-  bare lookup: a plain index walks the prototype chain, and `constructor` is truthy and callable.
-- A function that decides for a caller **returns a verdict, not a throw**: `'readable' | 'absent'
-  | 'unreadable'`, `'identity' | 'nothing' | 'unreadable'`, `failed` with the reason on the result.
-  Throwing is for the caller who cannot continue. Library code never calls `process.exit`; a
-  refusal is a typed error (`OperationRefusal` with a status) the command surface turns into an
-  exit code, so the same function can answer a route.
-- Exit codes mean one thing each and are stated on the command: 0 done or nothing to do, 1 a
-  refusal the caller can act on, 2 a state the tool will not repair on its own.
-- Fail closed. An answer the machine cannot give (a `stat` that errors) reads as the safe verdict,
-  uniformly, never as the lexical fallback that let the destructive path run.
-- Every write of a file a reader may hold open goes through the atomic writer (temp file beside
-  the target, fsync, rename). Never truncate-then-write.
-- A clock decides nothing. Identity is a content hash; staleness is a set difference or a version
-  number; timestamps are recorded and displayed, never compared. Five exceptions are stated; the first
-  three compare times the tool itself wrote, the fourth times the harness wrote, and the fifth compares
-  a stored stamp's date with the viewer's day:
-  - **lock staleness** in `lib/platform/Lock.ts`. Its one comparison against a time the tool did not
-    write is the fallback to the generation record's own mtime, reached only when that record is
-    missing, unparseable or holds an unparseable time — and it fails closed in both directions: an
-    unreadable record is not free on that ground alone, and a `stat` that errors reads as "not
-    stale", so the waiter waits.
-  - **ordering the log for display** in `cli/status/StatusCommand.ts` and in the page, because `--at`
-    backfills and the array order is then not the chronological one, and the page's Kanban Done and
-    Abandoned lanes by their closing stamp in `lib/render/page/KanbanBoard.ts`. It decides nothing but
-    the order lines and cards are shown in.
-  - **hiding long-done work on the page** in `lib/render/page/WorkVisibility.ts`: a task or ticket
-    done for more than `DONE_WORK_VISIBLE_MILLISECONDS` is hidden until the viewer picks "Show all".
-    It decides only what is displayed, never what is stored.
-  - **the `usage --since` cohort split** in `lib/utils/TranscriptCohortUtil.ts` (`splitAt`), which
-    compares each transcript's first harness-written timestamp to the given instant. It decides only
-    which cohort a transcript is summarised in, never what is stored.
-  - **shortening a stamp on the page** in `lib/render/page/StampText.ts`: a stamp from the viewer's day
-    shows only its clock, one from another day its month and day too. It decides nothing but the text
-    printed.
-
-## 4. Comments — the code explains itself
-
-Code is self-explanatory: logically named functions, classes and variables carry the meaning, and
-comments are the exception, not the rule. No comment walls.
-
-- A module has at most a short header (one to three sentences) when its place or purpose is not
-  obvious from its name and folder. Most modules need none.
-- An exported function has no docblock unless its contract has a non-obvious edge (a load-bearing
-  direction, a stated limit, a deliberate refusal). Then one or two sentences, not a paragraph.
-- An inline comment appears only where the code is genuinely complex or a decision cannot be seen
-  from the code (why this order, why this fallback, what was rejected and why). One sentence.
-- A comment never restates what the next line does, never narrates history, and never carries a
-  measurement or an alternative unless a reader would otherwise reintroduce the wrong choice.
-- Name files repo-rooted with backticks when a comment or doc names one.
-- No TODOs; agreed-and-not-done work lives in `docs/backlog.md`.
-
-Enforced by review.
-
-## 5. Tests
-
-- A spec sits beside its module, imports `describe`, `expect`, `test` from `bun:test`, opens with
-  a docblock saying which cases matter and why (the ones callers rely on, not the happy path), and
-  destructures the util object once at the top.
-- **Test names are claims, written as sentences**: `'leaves an unknown variable standing verbatim'`,
-  `'rule 3 has no members left, so the classifier is checked directly instead'`. A comment above a
-  test states why that case is load-bearing.
-- **A guard proves its scan found something before it judges anything**: assert a floor on files
-  opened or edges seen, so a guard walking the wrong directory cannot pass by finding nothing. An
-  empty category cannot prove itself by counting offences, so hand the classifier a constructed
-  case of each shape and check the verdicts.
-- **A guard does not count until you have introduced the specific violation it claims to catch
-  and watched it fail, per form.** Do that before reporting the guard done.
-- An allowlist of tolerated exceptions is exact in both directions: a listed exception that no
-  longer exists fails as loudly as a new offence.
-- A frozen table of expected outputs is taken from the *previous* implementation, never from the
-  current run, and its comment says how to retake it.
-- A test that needs a tool the machine may lack **skips** through one shared guard and says what
-  is missing; an environment variable can turn that skip into a failure on a machine that has the
-  tool. A skip is never silent in the summary — assert the skip count after a run.
-- Pure functions are tested against their own contract; a stateful mechanism the outside cannot
-  hold still (a live temporary path) exports its bookkeeping as an object so the spec can drive it.
-- Anything that spawns the real binary is a cross-cutting suite at the layer root, named for what
-  it pins, not for a module.
-
-## 6. Documentation beside the code
-
-- The root `CLAUDE.md` is the map and the rules; each substantial subfolder has its own carrying
-  per-file one-liners and only the rules that matter there, never a paragraph duplicated from the
-  root. **A change that adds, removes or renames a file, moves an entry point or invalidates a
-  stated rule updates that folder's CLAUDE.md in the same change.**
-- `docs/backlog.md` holds what is agreed and not started. It is not a status page; "nothing is in
-  flight" is stated explicitly, with a date and branch when that stops being true.
-- Commit messages are one plain, human-written subject line. No AI attribution of any kind, no
-  `Co-Authored-By` trailer, no generated-with footer.
-
-# Repository map
-
-Every top-level entry, one line each. Per-file detail lives in the folder's own `CLAUDE.md`, which
-is the file to read before changing anything inside it — and the file to update in the same change
-that adds, removes or renames something there.
+### Imports (today's tree, held by review)
 
 ```
-agent-progress.ts        The bin shim, and the only file in the repository that calls process.exit:
-                         it exits with the number `runCommandLine` returned.
-package.json             Name, the `agent-progress` bin entry, the scripts (typecheck, test, lint,
-                         lint:fix, setup) and the one runtime dependency, `marked`.
-tsconfig.json            The strict Bun project. Excludes `lib/render/page/`, which has its own.
-eslint.config.js         ESLint 9 flat config: the shared rules, plus the devDependency exemption
-                         for the test-only helpers.
-bun.lock                 The lockfile. Committed, as a tool installed by `git clone` needs it.
-.gitignore               `node_modules/`, `.agent-progress/`, `.DS_Store`, `.readme-graphics/`.
-.readme-graphics/        Git-ignored, in the owner's checkout only: the synthetic demo board and the
-                         scripts that regenerate `docs/images/` after a UI change
-                         (`.readme-graphics/regenerate.sh`); its own README says what each file does.
-CLAUDE.md                This file: the conventions, and this map.
-README.md                The GitHub landing page, in the "product page" layout: what the tool does,
-                         screenshots of a synthetic board, how it works with agents, setup.sh, init.
-README-keynote.md        The same page in a "keynote" layout, kept beside README.md for comparison.
-README-day-on-the-board.md  The same page told as one day on a synthetic board, also for comparison.
-setup.sh                 Machine setup in three steps — Bun ≥ 1.2, `bun install` + `bun link`, and
-                         a symlink under `~/.claude/skills/` for each bundled skill folder.
-
-cli/                     The command surface: dispatch, the argument parser, the help, one folder
-                         per command. Exit codes are decided here and nowhere else → `cli/CLAUDE.md`.
-lib/                     Everything the commands do, in five layers that import upwards only →
-                         `lib/CLAUDE.md`, and `lib/tickets/CLAUDE.md`. The page is in `lib/render/`
-                         — see `lib/render/CLAUDE.md`; its `lib/render/page/template.html` is
-                         designer-owned and edited as HTML, not generated.
-skill/                   The Claude Code skill every session in a tracked repository loads: the
-                         model, what to do in a session, and `skill/Reference.md` beside it holding
-                         what `agent-progress help` does not print → `skill/CLAUDE.md`.
-skill-orchestrate/       The skill for the one session running the board: intake, starting,
-                         relaunching and stopping the dispatcher, and what it keeps in context →
-                         `skill-orchestrate/CLAUDE.md`. Split from `skill/` by audience, because
-                         that one is injected into every implementing agent as well.
-templates/               The markdown this tool writes into somebody else's repository — the managed
-                         CLAUDE.md block, the default ticket body, and `templates/AgentBrief.md`, the
-                         brief `init` copies to `.agent-progress/agent-brief.md` on every run. Kept
-                         as files, not string literals, so a change to the wording is a readable diff.
-                         `templates/AgentProgressWorker.md` is the Claude Code agent definition
-                         `init` and `update` install as `.claude/agents/agent-progress-worker.md`,
-                         its `{{model}}` and `{{effort}}` filled with the default pair.
-                         `templates/workflows/AgentProgressDispatch.js` is the dispatcher: a Workflow
-                         script (plain JavaScript, run by the Workflow tool, never by Bun) that runs a
-                         builder per ready ticket and a clean reviewer per built one within the board
-                         limit, and decides rounds and parking in code. Its decisions are pinned by
-                         `lib/tooling/dev/DispatchScriptHarness.spec.ts`.
-docs/                    `docs/backlog.md`: what is agreed and not started, with the reason it is
-                         not done yet. Not a status page. `docs/cli.md`: every command, flag, exit
-                         code and file format. `docs/development.md`: working on this repository.
-                         `docs/images/`: the READMEs' screenshots, panels and diagrams, all of a
-                         synthetic "Example Storefront" board; diagram sources kept as SVG beside them.
-node_modules/            Git-ignored dependencies.
+lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/, lib/tickets/, lib/render/  →  cli/
 ```
 
-## One rule that lives at the root
+- Imports run up only, with no cycles. `lib/constants/` imports nothing; `lib/utils/` imports only `lib/constants/`;
+  neither imports a package or a builtin. Nothing under `lib/` imports `cli/`, nothing that ships imports
+  `lib/tooling/dev/`, and `agent-progress.ts` imports only `cli/`.
+- A feature folder never imports a sibling: hoist what both need, or pass a structurally typed parameter.
+- The target layout's import rules are in section 2 of `docs/migration-plan.md`.
 
-- **Run `bun run typecheck && bun test && bun run lint` after any TypeScript change**, all three,
-  before reporting the change done. Bun executes the TypeScript directly, so a type error is not a
-  build failure — it is a runtime surprise on a path nobody exercised. `typecheck` covers both
-  projects (the Bun one and the DOM-only page one); never substitute an ad-hoc `tsc` invocation
-  with hand-picked flags for either.
+### Model and boundaries
+
+- Internal values are string-literal unions, never display text; wording is mapped in and out at the edge.
+- An optional stored key is written only once somebody sets it, and a read never adds or rewrites one, so an older
+  file stays byte-identical.
+- A malformed stored file is a verdict and a report, never a throw that takes down `status` or `render`.
+
+### Errors and exit codes
+
+- A decider returns a verdict, and fails closed: an answer the machine cannot give reads as the safe verdict. Library
+  code throws `OperationRefusal` (`refused` or `unrepaired`), never writes to the terminal and never exits.
+- Exit codes are decided only in `cli/Main.ts`: 0 done or nothing to do; 1 a refusal the caller can act on
+  (`refused`, or an unknown command); 2 a state the tool will not repair (`unrepaired`, or any other throw).
+  `agent-progress.ts` is the only `process.exit`.
+- Two deliberate exit-0 cases: `hook subagent-stop` on every failure, because the agent has already finished; and a
+  store write that succeeded while the render failed, reported on standard error.
+
+### Runtime
+
+- `process.env` is read only in `lib/platform/Environment.ts`, through getters, each with a docblock saying what it
+  overrides and why. The one in-process assignment is in `lib/platform/Environment.spec.ts`; other specs set the
+  environment in a child process.
+- No work at module load. The one exception is the last statement of `lib/render/page/GanttPage.ts`, which starts
+  the page.
+- Factories of closures over classes, except for state carried across calls, domain classes and ingestion classes.
+  A constructor does no work.
+- A record keyed by outside text is indexed through `Object.hasOwn`, never a bare lookup.
+- A command takes everything from its `CommandContext` (directory, now, streams, standard input, prompt, platform),
+  never from the process.
+- Every write of a file a reader may hold open goes through `lib/platform/AtomicFile.ts`. Today's two in-place
+  exceptions, `.gitignore` and `CLAUDE.md`, say so at their site.
+- A clock decides nothing: identity is a content hash, staleness a set difference or a version number, and
+  timestamps are recorded and displayed. Each exception is stated in a comment at its site.
+
+### Generated and installed files
+
+- Generated files do not live in the repository, and everything installed elsewhere carries one install version.
+  The committed dispatcher under `templates/workflows/` is the exception until plan step 8.
+
+### Comments
+
+- The code explains itself; no comment walls. A file header (one to three sentences) only when path and export do
+  not explain the file; a docblock only for a non-obvious contract edge; an inline comment only for a why.
+- Never restate the code, narrate history or carry a measurement: those go in the commit message.
+- Name files repo-rooted in backticks. No TODOs: agreed-and-not-done work lives in `docs/backlog.md`.
+
+### TypeScript and lint
+
+- Bun runs the TypeScript; `tsc` only type-checks. `tsconfig.json`: `noEmit`, `target` and `lib` `ESNext`,
+  `module` `Preserve`, `moduleResolution` `bundler`, `moduleDetection` `force`, `allowImportingTsExtensions`,
+  `verbatimModuleSyntax`, `types: ["bun"]`, `strict`, `noUncheckedIndexedAccess`, `noImplicitOverride`,
+  `noFallthroughCasesInSwitch`, `noPropertyAccessFromIndexSignature`, `exactOptionalPropertyTypes`,
+  `noUnusedLocals`, `noUnusedParameters`, `forceConsistentCasingInFileNames`, `skipLibCheck`.
+- Write for their consequences: `process.env['NAME']`, a written fallback instead of `!`, objects built
+  conditionally instead of spreading `undefined`, `import type` for type-only imports.
+- The page is its own DOM-only project, `lib/render/page/tsconfig.json` (DOM lib, no Bun or Node types), and the
+  root project excludes it. Its `include` list is the written-down surface of shared files the page reaches: a page
+  module that imports a new file from outside the folder adds it there in the same change. No spec sits in
+  `lib/render/page/`; page specs sit in `lib/render/`.
+- ESLint 9 flat config through `@reliquary/eslint-config`: 2-space indent, single quotes, semicolons; line length
+  180 for code, 155 for comments; aligned object values; aligned `from`; imports builtin → external → internal,
+  alphabetised; more than 3 named imports or 4+ properties one per line; arrow parameters parenthesised; no `any`; a
+  blank line before a function declaration. `lib/tooling/dev/` may import devDependencies. Deliberately off:
+  `no-plusplus`, `no-continue`, `no-await-in-loop`, `no-param-reassign`, `consistent-return`, `no-restricted-syntax`,
+  `guard-for-in`, `class-methods-use-this`, `no-use-before-define`.
+
+### Tests
+
+- A spec sits beside its module as `<Module>.spec.ts`, a second suite as `<Module>.<aspect>.spec.ts`, never
+  `.test.ts`. It opens with a docblock of which cases matter and why; test names are claims written as sentences. A
+  frozen table of expected outputs comes from the previous implementation and says how to retake it.
+- A test that needs a tool the machine may lack skips through one shared guard (`gitIsAvailable`) and says what is
+  missing; skips are counted, never silent. End-to-end suites that spawn the real binary sit at the layer root,
+  named for what they pin.
+- A guard proves its scan found something, and is watched failing on each form it claims to catch. An allowlist is
+  exact in both directions.
+- Tests never touch live data. Every spec works under the scratch root, and `lib/tooling/dev/TrackerIsolation.ts`
+  is checked by the captured context, on a hook input's `cwd` and by `lib/tooling/dev/CliProcess.ts` before a
+  command runs. A spec never creates the real process context, spawns the binary only through
+  `lib/tooling/dev/CliProcess.ts`, and never calls `process.chdir`.
+- Each dispatcher decision pinned by the `lib/tooling/dev/DispatchScriptHarness.spec.ts` suites also runs against a
+  mutant of the script that breaks exactly that decision, which must fail.
+
+### Documentation and commits
+
+- One CLAUDE.md, this one, holding only rules, boundaries and decisions; a change that invalidates a rule updates it
+  in the same change.
+- `docs/backlog.md` is what is agreed and not started, with the reason it waits; it is not a status page.
+  `docs/cli.md` is the one reference for commands, flags, exit codes and file formats: one reference per fact.
+- A commit is one plain, human-written subject line. No AI attribution, no `Co-Authored-By`, no generated-with
+  footer.
+
+## Local rules
+
+### Command surface
+
+- Never run `agent-progress` in this checkout: it has a live tracker. Exercise it in a scratch repository.
+- Help is one screen, with no per-command help. `--help` anywhere before a bare `--`, and `-h` as or straight after
+  the command word, print it; an option's value is never a help request, and a later `-h` is refused at 1. Help goes
+  to standard output when asked for, and to standard error after an unknown command.
+- Adding a command is an entry in `cli/CommandTable.ts`, a block in `cli/HelpText.ts` and a folder;
+  `cli/CommandTable.spec.ts` and `cli/HelpText.spec.ts` fail until all three exist.
+- Every mutating command writes through `openTrackerForWriting` in `cli/CommandSupport.ts`, and none repeats it:
+  lock, read, mutate, write the progress file, then the tickets, then render from disk, all under the lock. Ticket
+  files follow the progress file so it is never behind them. `status` takes no lock and renders nothing.
+
+### Tickets
+
+- Tickets are edited by hand between runs. The frontmatter is a deliberate subset, stated in `docs/cli.md`; every
+  line the CLI does not own is kept and written back.
+- A ticket is its frontmatter `id`, never its file name. Ticket and task ids are never reused; gaps are never filled.
+- Only a transition stamps `updated`. The named verbs enforce the legality matrix; `ticket status` skips it on purpose.
+- A row's `history` holds only what the tool watched; nothing reconstructs phases. A review row belongs to its
+  ticket by `reviewOf`; the page's match on its name is a display fallback that never moves a row.
+
+### The page
+
+- `lib/render/page/template.html` is designer-owned, edited as HTML and never generated. Its placeholder markup is
+  the contract with what the page modules emit: a change on one side only is a bug, and a new mark reuses a class
+  the template already styles. Its header comment lists the tokens, the containers and the axis box, and stays in
+  step with it.
+- The page script clears every container it owns before filling it, so a failure never leaves placeholder rows
+  beside the error banner. A failed page bundle renders an error banner instead of refusing.
+- The template's bootstrap owns theme, tab selection and ticket open state; the page reaches them only through
+  `window.agentProgressTemplate`.
+- Board facts such as the agents in flight arrive in the payload, computed by what `status --json` uses; the page
+  never recounts them.
+- Every value passes `escapeHtml` once; a ticket's `bodyHtml`, already escaped by `lib/render/Markdown.ts`, is the
+  one unescaped string. Stored stamps are sliced, never re-parsed, and shortened only through
+  `lib/render/page/StampText.ts`.
+- A visual change leaves the README screenshots stale: once it lands, run `.readme-graphics/regenerate.sh` in the
+  main checkout.
+
+### Skills
+
+- `skill/` loads in every session in a tracked repository, implementing agents included, so orchestrator-only
+  material goes in `skill-orchestrate/`, which one session loads.
+- No skill file lists commands: `agent-progress help` is the reference, and `cli/HelpText.spec.ts` holds it.
+  `skill/SKILL.md` names both the help and `skill/Reference.md`; the reference holds only what the help does not
+  print.
+- A `SKILL.md` `description` is its trigger, so it names the words a user says. Skill files cite only commands, paths
+  inside a tracked repository, or files beside them; never a file of this repository.
+- `skill-orchestrate/` repeats nothing from `skill/`, writes rules as instructions, and never restates what the
+  dispatcher decides in code. The call-budget numbers stay in `templates/AgentBrief.md`.
+- `setup.sh` symlinks both into `~/.claude/skills/`, and `~/development/claude/skills.json` must list them under
+  `ignore`.
+
+## Repository map
+
+```
+agent-progress.ts           the bin shim: runs the command line and exits with its number
+package.json                the bin entry, the scripts and the one runtime dependency, marked
+tsconfig.json               the strict Bun project; excludes lib/render/page/
+eslint.config.js            the shared ESLint config, plus the devDependency exemption for lib/tooling/dev/
+bun.lock                    the lockfile, committed
+.gitignore                  node_modules/, .agent-progress/, .DS_Store, .readme-graphics/
+.idea/                      tracked IDE settings; untracked in plan step 2
+.readme-graphics/           git-ignored, owner's checkout only: the demo board that redraws docs/images/
+CLAUDE.md                   this file
+README.md                   the GitHub landing page
+README-keynote.md           the same page in a keynote layout, kept for comparison
+README-day-on-the-board.md  the same page told as one day on a board, kept for comparison
+setup.sh                    machine setup: Bun, bun install and bun link, and the skill symlinks
+cli/                        the command surface: dispatch, arguments, help, one folder per command
+lib/                        everything the commands do, in the layers above; lib/tooling/dev/ is test-only
+skill/                      the skill every session in a tracked repository loads
+skill-orchestrate/          the skill for the one session running the board
+templates/                  what init and update install into a tracked repository, the dispatcher included
+docs/                       the CLI reference, development notes, the backlog, the migration plan, README images
+node_modules/               git-ignored dependencies
+```

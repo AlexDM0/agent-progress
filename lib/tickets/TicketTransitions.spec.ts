@@ -1,5 +1,5 @@
 /**
- * A claim per row of the transition table in `lib/tickets/CLAUDE.md`; the store operations
+ * A claim per row of the transition table in `docs/cli.md`; the store operations
  * are a recording double because `lib/tickets/` may not import `lib/progress/`.
  */
 

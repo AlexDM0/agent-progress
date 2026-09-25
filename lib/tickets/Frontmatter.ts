@@ -1,7 +1,7 @@
 /**
  * Deliberately not a YAML parser: a ticket is edited by hand between CLI runs, so a rewrite keeps
  * every line the CLI does not own and a file the CLI cannot understand is reported rather than
- * half-applied. The subset it accepts is stated in `lib/tickets/CLAUDE.md`.
+ * half-applied. The subset it accepts is stated in `docs/cli.md`.
  */
 
 import { agentEffortIsKnown, agentModelIsKnown }                         from '../constants/AgentSettings.ts';

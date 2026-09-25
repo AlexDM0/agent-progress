@@ -5,8 +5,7 @@ TypeScript change must pass, where things live and which way imports may point, 
 away from real trackers, the guard specs that fail the build on a structural mistake, the page and
 the dispatcher script, and the decisions that shape all of it. Using the tool is covered in the
 [README](../README.md); every command and file format is in the [CLI reference](cli.md). The rules
-themselves live in the root `CLAUDE.md` and each folder's own `CLAUDE.md`; this page points into them
-rather than restating them.
+themselves live in the root `CLAUDE.md`; this page points into it rather than restating it.
 
 - [Getting the code running](#getting-the-code-running)
 - [Checks](#checks)
@@ -157,35 +156,14 @@ Nothing under `lib/` imports `cli/`, and nothing that ships imports the test-onl
 `lib/tooling/dev/`. Exit codes are decided in `cli/` and nowhere else; a `lib/` module returns a
 verdict or throws `OperationRefusal`.
 
-Read the folder's own `CLAUDE.md` before changing anything in it, and update it in the same change
-that adds, removes or renames a file there:
-
-| folder | its map |
-|---|---|
-| `cli/` | `cli/CLAUDE.md` |
-| `lib/` | `lib/CLAUDE.md` |
-| `lib/tickets/` | `lib/tickets/CLAUDE.md` |
-| `lib/render/` | `lib/render/CLAUDE.md` |
-| `skill/` | `skill/CLAUDE.md` |
-| `skill-orchestrate/` | `skill-orchestrate/CLAUDE.md` |
+The rules are in the root `CLAUDE.md`; there are no folder `CLAUDE.md` files.
 
 ## Conventions
 
-All of them are in the root `CLAUDE.md`; the sections to know by heart:
-
-- **§1 Linter and type checker** — the strict `tsconfig.json` flags and what the shared ESLint config
-  enforces (aligned values and imports, import order, multi-line objects), so code is written that way
-  the first time.
-- **§2 Naming** — full, descriptive names with no abbreviations; booleans as predicate phrases;
-  design-decision constants in `SCREAMING_CASE` with the unit; synthetic example data.
-- **§3 Module shape** — no barrels, imports up the tree, `util/` modules as one frozen object, no work
-  at module load, `process.env` in one module, verdicts rather than throws, atomic writes, and the four
-  stated places a clock may decide anything.
-- **§4 Comments** — the code explains itself; comments only for a non-obvious why.
-- **§5 Tests** — spec beside module, test names as claims, guards that prove their scan found
-  something.
-- **§6 Documentation beside the code** — folder `CLAUDE.md` files and `docs/backlog.md`; commit
-  messages are one plain subject line.
+All of them are in the root `CLAUDE.md`: its Rules section holds the conventions (files and naming,
+imports, the model and its boundaries, errors and exit codes, runtime, comments, TypeScript and lint,
+tests, documentation and commits), and its Local rules section holds what this repository adds for
+the command surface, tickets, the page and the skills.
 
 ## Tests and isolation
 
@@ -236,10 +214,9 @@ watched it fail.
 `progress.html` is built from `lib/render/page/template.html`, which is the designer's file: edited as
 HTML, carried over rather than generated. Its placeholder content is the contract, so a change to what
 `lib/render/page/PageMarkup.ts` emits that is not also made in the template is a bug, in whichever
-direction it was made. `lib/render/Template.ts` replaces four tokens in it, which
-`lib/render/CLAUDE.md` names along with the one layout invariant to protect (the axis box that keeps
-bars, ticks and the now-marker aligned). The ids and classes the template exposes are listed in the
-comment block at the top of the template itself.
+direction it was made. `lib/render/Template.ts` replaces four tokens in it. The comment block at the top of the template
+names those tokens, the ids and classes the template exposes, and the one layout invariant to protect
+(the axis box that keeps bars, ticks and the now-marker aligned).
 
 The TypeScript under `lib/render/page/` runs in the browser and is compiled by its own DOM-only
 project (see [Checks](#checks)). It is bundled into the page by `lib/render/PageBundle.ts`.
