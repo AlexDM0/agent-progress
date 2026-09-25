@@ -11,6 +11,7 @@ import type { Task, TaskStatus } from '../../src/lib/tracker-model/@types/Task';
 import { TASK_STATUSES }         from '../../src/lib/tracker-model/constants/Statuses';
 import { VocabularyUtil }        from '../../src/lib/tracker-model/utils/VocabularyUtil';
 import { OperationRefusal }      from '../../src/shared/OperationRefusal';
+import { VERB_FOR_STATUS }       from '../../src/shared/constants/StatusVerbs';
 import type { CommandContext }   from '../CommandContext';
 import {
   openTrackerForWriting,
@@ -35,23 +36,12 @@ interface TaskTransition {
 }
 
 const TRANSITION_SUBCOMMANDS: Record<string, TaskTransition> = {
-  start:    { status: 'in-progress', spoken: 'started' },
-  pause:    { status: 'paused',    spoken: 'paused' },
-  finish:   { status: 'in-review', spoken: 'in review' },
-  approve:  { status: 'reviewed',  spoken: 'reviewed' },
-  rereview: { status: 're-review', spoken: 'under review again' },
-  deliver:  { status: 'delivered', spoken: 'delivered' },
-};
-
-/** Written out rather than derived, because a command folder may not import a sibling's. */
-const TICKET_VERB_FOR_TASK_STATUS: Partial<Record<TaskStatus, string>> = {
-  'pending':     'ticket reopen',
-  'in-progress': 'ticket start',
-  'in-review':   'ticket finish',
-  're-review':   'ticket rereview',
-  'reviewed':    'ticket approve',
-  'delivered':   'ticket deliver',
-  'abandoned':   'ticket abandon',
+  [VERB_FOR_STATUS['in-progress']]: { status: 'in-progress', spoken: 'started' },
+  [VERB_FOR_STATUS['paused']]:      { status: 'paused', spoken: 'paused' },
+  [VERB_FOR_STATUS['in-review']]:   { status: 'in-review', spoken: 'in review' },
+  [VERB_FOR_STATUS['reviewed']]:    { status: 'reviewed', spoken: 'reviewed' },
+  [VERB_FOR_STATUS['re-review']]:   { status: 're-review', spoken: 'under review again' },
+  [VERB_FOR_STATUS['delivered']]:   { status: 'delivered', spoken: 'delivered' },
 };
 
 /** A verb that was renamed is refused naming its replacement, rather than read as an unknown word. */
@@ -91,11 +81,10 @@ function refuseATicketOwnedMove(task: Task, targetStatus: TaskStatus, movesAnywa
   if (targetStatus === 'paused') return;
   if (targetStatus === 'in-progress' && task.status === 'paused') return;
 
-  const ticketVerb = TICKET_VERB_FOR_TASK_STATUS[targetStatus] ?? 'ticket status';
   throw new OperationRefusal(
     'refused',
     `Task #${task.id} belongs to ticket #${task.ticket}, so moving it here would leave the row and the ticket disagreeing. `
-    + `Run \`agent-progress ${ticketVerb} ${task.ticket}\` instead, which moves both, or pass --force to move only the row.`,
+    + `Run \`agent-progress ticket ${VERB_FOR_STATUS[targetStatus]} ${task.ticket}\` instead, which moves both, or pass --force to move only the row.`,
   );
 }
 

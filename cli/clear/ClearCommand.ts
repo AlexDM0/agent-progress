@@ -5,6 +5,7 @@
 import { appendLogEntry }                                         from '../../lib/progress/ProgressStore';
 import { deleteAllTickets, listTickets }                          from '../../lib/tickets/TicketStore';
 import { seedTaskFromTicket }                                     from '../../lib/tickets/TicketTransitions';
+import { LogUtil }                                                from '../../src/adapters/utils/LogUtil';
 import { TicketChartUtil }                                        from '../../src/lib/tracker-model/utils/TicketChartUtil';
 import { OperationRefusal }                                       from '../../src/shared/OperationRefusal';
 import { openTrackerForWriting, printEntity, progressOperations } from '../CommandSupport';
@@ -13,8 +14,6 @@ import type { CommandHandler }                                    from '../Comma
 const USAGE = 'agent-progress clear [--all] [--yes]';
 
 const KNOWN_OPTION_NAMES = ['all', 'yes', 'json'];
-
-const CLEARED_LOG_TEXT = 'Tracker cleared';
 
 export const clearCommand: CommandHandler = async (commandArguments, context) => {
   commandArguments.rejectUnknownOptions(KNOWN_OPTION_NAMES, USAGE);
@@ -58,7 +57,7 @@ export const clearCommand: CommandHandler = async (commandArguments, context) =>
     progress.view       = { kind: 'auto' };
     progress.tasks.length = 0;
     progress.log.length   = 0;
-    appendLogEntry(progress, at, CLEARED_LOG_TEXT);
+    appendLogEntry(progress, at, LogUtil.sentenceOf({ kind: 'tracker-cleared', fields: {} }));
 
     if (deletesTickets) {
       // After the progress file, like every ticket write, so a failed write leaves the tickets and the file that names them together.

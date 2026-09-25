@@ -3,6 +3,7 @@
  * last two hours"; `lib/render/page/GanttGeometry.ts` resolves each end, which is what makes a mixed pair legal.
  */
 import { appendLogEntry }                     from '../../lib/progress/ProgressStore';
+import { LogUtil }                            from '../../src/adapters/utils/LogUtil';
 import type { ViewRange }                     from '../../src/lib/tracker-model/@types/ProgressFile';
 import { TimeUtil }                           from '../../src/lib/utils/TimeUtil';
 import { OperationRefusal }                   from '../../src/shared/OperationRefusal';
@@ -84,11 +85,8 @@ function viewRangeFrom(writtenFrom: string, writtenTo: string, writtenTick: stri
   };
 }
 
-
-function describeRange(view: ViewRange): string {
-  if (view.kind === 'auto') return 'Chart range: automatic';
-  const tick = view.tickMinutes === null ? '' : ` (tick ${view.tickMinutes}m)`;
-  return `Chart range: ${view.from} → ${view.to}${tick}`;
+function rangeSentenceOf(view: ViewRange): string {
+  return LogUtil.sentenceOf({ kind: 'chart-range-set', fields: { view } });
 }
 
 export const rangeCommand: CommandHandler = async (commandArguments, context) => {
@@ -113,9 +111,9 @@ export const rangeCommand: CommandHandler = async (commandArguments, context) =>
 
   const stored = await openTrackerForWriting(commandArguments, context, (change) => {
     change.progress.view = view;
-    appendLogEntry(change.progress, change.at, describeRange(view));
+    appendLogEntry(change.progress, change.at, rangeSentenceOf(view));
     return view;
   });
 
-  printEntity(commandArguments, context, stored, describeRange(stored));
+  printEntity(commandArguments, context, stored, rangeSentenceOf(stored));
 };

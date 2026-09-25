@@ -9,8 +9,10 @@ import type { Workspace }                from '../../lib/platform/Workspace';
 import { addTaskTokens, appendLogEntry } from '../../lib/progress/ProgressStore';
 import { reviewedTicketNumberOf }        from '../../lib/render/page/PageMarkup';
 import { readTicket }                    from '../../lib/tickets/TicketStore';
+import { LogUtil }                       from '../../src/adapters/utils/LogUtil';
 import type { TranscriptUsageTotals }    from '../../src/lib/claude-code/utils/TranscriptUsageUtil';
 import { TranscriptUsageUtil }           from '../../src/lib/claude-code/utils/TranscriptUsageUtil';
+import type { AgentUsage }               from '../../src/lib/tracker-model/@types/LogRecord';
 import type { ProgressFile }             from '../../src/lib/tracker-model/@types/ProgressFile';
 import type { Task }                     from '../../src/lib/tracker-model/@types/Task';
 import { OperationRefusal }              from '../../src/shared/OperationRefusal';
@@ -192,6 +194,18 @@ function briefSharesFor(transcriptText: string, totals: TranscriptUsageTotals): 
   return [{ target: 'review', ticketIdentifier: reviewedTicketIdentifier, tokens: totalInputTokens }];
 }
 
+function agentUsageOf(hookInput: Record<string, unknown>, totals: TranscriptUsageTotals): AgentUsage {
+  return {
+    agentId:              readStringField(hookInput, 'agent_id') ?? UNKNOWN_AGENT,
+    agentType:            readStringField(hookInput, 'agent_type') ?? UNKNOWN_AGENT,
+    apiCallCount:         totals.apiCallCount,
+    endContextTokens:     totals.endContextTokens,
+    totalInputTokens:     TranscriptUsageUtil.totalInputTokensOf(totals),
+    cacheReadInputTokens: totals.cacheReadInputTokens,
+    outputTokens:         totals.outputTokens,
+  };
+}
+
 async function recordSubagentStop(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   const hookInput = await readHookInput(context);
   if (hookInput === undefined) return;
@@ -215,11 +229,7 @@ async function recordSubagentStop(commandArguments: ArgumentParser, context: Com
     return;
   }
 
-  const usageLine = SubagentStopUtil.composeUsageLine(
-    readStringField(hookInput, 'agent_id')   ?? UNKNOWN_AGENT,
-    readStringField(hookInput, 'agent_type') ?? UNKNOWN_AGENT,
-    totals,
-  );
+  const usageLine = LogUtil.sentenceOf({ kind: 'agent-stopped', fields: agentUsageOf(hookInput, totals) });
 
   const workingDirectory = readStringField(hookInput, 'cwd') ?? context.currentDirectory;
   await recordInTheTracker(commandArguments, context, workingDirectory, usageLine, briefSharesFor(transcriptText, totals));

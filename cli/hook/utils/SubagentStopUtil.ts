@@ -1,8 +1,6 @@
-/** What the `SubagentStop` hook reads out of a finished agent's transcript for the board: the rows and tickets its brief names, and the log line. */
-import type { TranscriptUsageTotals } from '../../../src/lib/claude-code/utils/TranscriptUsageUtil';
-import { TranscriptUsageUtil }        from '../../../src/lib/claude-code/utils/TranscriptUsageUtil';
-import { TicketIdUtil }               from '../../../src/lib/tracker-model/utils/TicketIdUtil';
-import { TokenCountUtil }             from '../../../src/lib/utils/TokenCountUtil';
+/** What the `SubagentStop` hook reads out of a finished agent's transcript for the board: the rows and tickets its brief names, and their shares. */
+import { TranscriptUsageUtil } from '../../../src/lib/claude-code/utils/TranscriptUsageUtil';
+import { TicketIdUtil }        from '../../../src/lib/tracker-model/utils/TicketIdUtil';
 
 /** A line of its own, ids as digits separated by commas: a placeholder such as `<rowId>` in a brief template never matches. */
 const ROW_MARKER_PATTERN = /^[ \t]*agent-progress row:[ \t]*(\d+(?:[ \t]*,[ \t]*\d+)*)[ \t]*$/m;
@@ -52,23 +50,7 @@ function evenSharesOf(totalTokens: number, shareCount: number): number[] {
   return shares;
 }
 
-/**
- * The log line a stopped subagent leaves behind, formatted through `src/lib/utils/TokenCountUtil.ts` so
- * the log and the chart's token column read in the same units. The input figure is the whole of what
- * was sent — fresh input plus both cache figures — with the cache-read share named separately,
- * because that share is the number that explains a long session and is invisible in a plain total.
- */
-function composeUsageLine(agentIdentifier: string, agentType: string, totals: TranscriptUsageTotals): string {
-  const { formatTokenCount } = TokenCountUtil;
-  const totalInputTokens = TranscriptUsageUtil.totalInputTokensOf(totals);
-  return `Agent ${agentIdentifier} (${agentType}) stopped: ${totals.apiCallCount} calls, `
-    + `end context ${formatTokenCount(totals.endContextTokens)}, `
-    + `input ${formatTokenCount(totalInputTokens)} (cache read ${formatTokenCount(totals.cacheReadInputTokens)}), `
-    + `output ${formatTokenCount(totals.outputTokens)}`;
-}
-
 export const SubagentStopUtil = {
-  composeUsageLine,
   evenSharesOf,
   reviewedTicketIdentifierNamedInBrief,
   rowIdentifiersNamedInBrief,

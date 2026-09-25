@@ -1,51 +1,17 @@
 /**
- * The brief's marker decides which rows and tickets a finished agent's cost lands on, and the log line is what a person reads back. What
- * callers rely on: a marker counts only in the brief and only on a line of its own, each id form reads as the stored id, the shares of a
- * bundle always sum to its total, and the line reads in the chart's units.
+ * The brief's marker decides which rows and tickets a finished agent's cost lands on. What callers rely on: a marker counts only in the
+ * brief and only on a line of its own, each id form reads as the stored id, and the shares of a bundle always sum to its total.
  */
 import { describe, expect, test } from 'bun:test';
 
 import { SubagentStopUtil } from './SubagentStopUtil';
 
 const {
-  composeUsageLine,
   evenSharesOf,
   reviewedTicketIdentifierNamedInBrief,
   rowIdentifiersNamedInBrief,
   ticketIdentifiersNamedInBrief,
 } = SubagentStopUtil;
-
-describe('the line the log receives', () => {
-  test('it names the agent, the call count and the three figures, in the units the chart uses', () => {
-    const line = composeUsageLine('agent_42', 'general-purpose', {
-      apiCallCount:             32,
-      inputTokens:              20_000,
-      cacheReadInputTokens:     4_500_000,
-      cacheCreationInputTokens: 280_000,
-      outputTokens:             48_000,
-      endContextTokens:         165_000,
-      oversizedContextTokens:   0,
-    });
-
-    expect(line).toBe('Agent agent_42 (general-purpose) stopped: 32 calls, end context 165k, input 4.8M (cache read 4.5M), output 48k');
-  });
-
-  /** The cache-read share is what explains a long session; a plain input total hides it, which is why it is named separately. */
-  test('the input figure is the whole of what was sent, so it is never smaller than the cache-read share beside it', () => {
-    const line = composeUsageLine('agent_1', 'Explore', {
-      apiCallCount:             2,
-      inputTokens:              1000,
-      cacheReadInputTokens:     9000,
-      cacheCreationInputTokens: 2000,
-      outputTokens:             500,
-      endContextTokens:         6000,
-      oversizedContextTokens:   0,
-    });
-
-    expect(line).toContain('input 12k (cache read 9k)');
-    expect(line).toContain('output 500');
-  });
-});
 
 /**
  * The marker decides which row an agent's cost lands on, so what matters is what must NOT count: a marker

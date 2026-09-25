@@ -5,6 +5,7 @@ import {
   dispatcherStateIsKnown,
   dispatcherStateOf
 }                                                                  from '../../lib/progress/ProgressStore';
+import { LogUtil }                                                 from '../../src/adapters/utils/LogUtil';
 import type { DispatcherState }                                    from '../../src/lib/tracker-model/@types/ProgressFile';
 import { DISPATCHER_STATES }                                       from '../../src/lib/tracker-model/constants/DispatcherStates';
 import { OperationRefusal }                                        from '../../src/shared/OperationRefusal';
@@ -20,17 +21,13 @@ const KNOWN_OPTION_NAMES = ['json', 'run'];
 /** Only a running dispatcher is a Workflow run that can be resumed. */
 const STATE_THAT_HOLDS_A_RUN: DispatcherState = 'running';
 
-function stateTextOf(dispatcherState: DispatcherState, dispatcherRunId: string | undefined): string {
-  return dispatcherRunId === undefined ? dispatcherState : `${dispatcherState} (run ${dispatcherRunId})`;
-}
-
 /** The read takes no lock and writes nothing, so a tracker that never set a state reads `stopped` and keeps its file as it was. */
 function printCurrentState(commandArguments: ArgumentParser, context: CommandContext): void {
   const progress            = requireProgressFile(requireWorkspace(context.currentDirectory));
   const dispatcherState     = dispatcherStateOf(progress);
   const { dispatcherRunId } = progress;
   const entity              = dispatcherRunId === undefined ? { dispatcherState } : { dispatcherState, dispatcherRunId };
-  printEntity(commandArguments, context, entity, stateTextOf(dispatcherState, dispatcherRunId));
+  printEntity(commandArguments, context, entity, LogUtil.dispatcherStateTextOf(dispatcherState, dispatcherRunId ?? null));
 }
 
 /** Every write replaces the stored run id: a `running` without `--run` is a launch whose id is not known yet, and an older id would be resumed wrongly. */
@@ -55,16 +52,16 @@ export const dispatcherCommand: CommandHandler = async (commandArguments, contex
   }
   if (runId !== undefined && !dispatcherRunIdIsWellFormed(runId)) throw new OperationRefusal('refused', `--run needs a Workflow run id.\n  Usage: ${USAGE}`);
 
-  const writtenText   = stateTextOf(written, runId);
-  const previousState = await openTrackerForWriting(commandArguments, context, (change) => {
+  const writtenSentence = LogUtil.sentenceOf({ kind: 'dispatcher-set', fields: { state: written, runId: runId ?? null } });
+  const previousState   = await openTrackerForWriting(commandArguments, context, (change) => {
     const stateBefore                = dispatcherStateOf(change.progress);
     change.progress.dispatcherState = written;
     if (runId === undefined) delete change.progress.dispatcherRunId;
     else change.progress.dispatcherRunId = runId;
-    appendLogEntry(change.progress, change.at, `Dispatcher set to ${writtenText}`);
+    appendLogEntry(change.progress, change.at, writtenSentence);
     return stateBefore;
   });
 
   const entity = runId === undefined ? { dispatcherState: written, previousState } : { dispatcherState: written, dispatcherRunId: runId, previousState };
-  printEntity(commandArguments, context, entity, `Dispatcher set to ${writtenText} (was ${previousState}).`);
+  printEntity(commandArguments, context, entity, `${writtenSentence} (was ${previousState}).`);
 };

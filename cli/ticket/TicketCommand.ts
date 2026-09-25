@@ -28,11 +28,13 @@ import {
 } from '../../lib/tickets/TicketTransitions';
 import { NextLineUtil }      from '../../lib/utils/NextLineUtil';
 import { LegacyStatusUtil }  from '../../src/adapters/utils/LegacyStatusUtil';
+import { TicketPhraseUtil }  from '../../src/adapters/utils/TicketPhraseUtil';
 import type { ProgressFile } from '../../src/lib/tracker-model/@types/ProgressFile';
 import type { Task }         from '../../src/lib/tracker-model/@types/Task';
 import type {
   AgentEffort,
   AgentModel,
+  AgentPair,
   Ticket,
   TicketPriority,
   TicketStatus,
@@ -50,6 +52,7 @@ import { TicketIdUtil }                                               from '../.
 import { VocabularyUtil }                                             from '../../src/lib/tracker-model/utils/VocabularyUtil';
 import { OperationRefusal }                                           from '../../src/shared/OperationRefusal';
 import { LIMITS }                                                     from '../../src/shared/constants/Limits';
+import { VERB_FOR_STATUS }                                            from '../../src/shared/constants/StatusVerbs';
 import type { CommandContext }                                        from '../CommandContext';
 import {
   closeInProgressReviewRows,
@@ -86,12 +89,12 @@ const USAGE = [
 ].join('\n         ');
 
 const TRANSITION_SUBCOMMANDS: Record<string, TicketStatus> = {
-  start:   'in-progress',
-  finish:  'in-review',
-  approve: 'reviewed',
-  deliver: 'delivered',
-  abandon: 'abandoned',
-  reopen:  'pending',
+  [VERB_FOR_STATUS['in-progress']]: 'in-progress',
+  [VERB_FOR_STATUS['in-review']]:   'in-review',
+  [VERB_FOR_STATUS['reviewed']]:    'reviewed',
+  [VERB_FOR_STATUS['delivered']]:   'delivered',
+  [VERB_FOR_STATUS['abandoned']]:   'abandoned',
+  [VERB_FOR_STATUS['pending']]:     'pending',
 };
 
 /** A verb that was renamed is refused naming its replacement, rather than read as an unknown word. */
@@ -116,15 +119,6 @@ const LINK_OPTION_NAMES       = ['force', 'json'];
 const DEPENDS_OPTION_NAMES    = ['json'];
 
 const DEPENDENCY_SEPARATOR_PATTERN = /[\s,]+/;
-
-const TRANSITION_WORD_FOR_TICKET_STATUS: Record<TicketStatus, string> = {
-  'pending':     'reopen',
-  'in-progress': 'start',
-  'in-review':   'finish',
-  'reviewed':    'approve',
-  'delivered':   'deliver',
-  'abandoned':   'abandon',
-};
 
 const DEFAULT_TICKET_TYPE: TicketType = 'change';
 
@@ -228,10 +222,6 @@ function ticketIsStillOpen(ticket: Ticket): boolean {
   return !TICKET_STATUSES_THAT_CLOSE_A_TICKET.includes(ticket.frontmatter.status);
 }
 
-function waitingOnText(identifiers: readonly string[]): string {
-  return `waiting on ${identifiers.map((identifier) => `#${identifier}`).join(', ')}`;
-}
-
 /** The priority is always spelled out, so a script never has to know that an absent key means normal. */
 function ticketAsJson(ticket: Ticket): Record<string, unknown> {
   return { ...ticketDocumentOf(ticket), body: ticket.body };
@@ -264,8 +254,8 @@ function agentEffortFrom(writtenEffort: string | undefined): AgentEffort | undef
   return writtenEffort;
 }
 
-function agentPairText(ticket: { model?: AgentModel; effort?: AgentEffort }): string {
-  return `${TicketDefaultsUtil.agentModelOf(ticket)}/${TicketDefaultsUtil.agentEffortOf(ticket)}`;
+function resolvedAgentPairOf(ticket: { model?: AgentModel; effort?: AgentEffort }): AgentPair {
+  return { model: TicketDefaultsUtil.agentModelOf(ticket), effort: TicketDefaultsUtil.agentEffortOf(ticket) };
 }
 
 /** Only what the file names: a ticket left to the defaults prints nothing extra, so a listing of old tickets looks as it did. */
@@ -278,8 +268,7 @@ function lowTicketHeldBackText(ticket: Ticket, tickets: readonly Ticket[]): stri
   if (TicketDefaultsUtil.ticketPriorityOf(ticket.frontmatter) !== 'low') return null;
   const holdingBack = TicketDependencyUtil.ticketsHoldingBackLowPriorityWork(tickets.map((candidate) => candidate.frontmatter));
   if (holdingBack.length === 0) return null;
-  return `Ticket #${ticket.frontmatter.id} is low priority, and ${holdingBack.map((identifier) => `#${identifier}`).join(', ')} `
-    + `${holdingBack.length === 1 ? 'is' : 'are'} normal or high and not delivered or abandoned yet`;
+  return TicketPhraseUtil.lowPriorityHeldBackText(ticket.frontmatter.id, holdingBack);
 }
 
 interface ReviewBarRequest {
@@ -479,7 +468,7 @@ function listAllTickets(commandArguments: ArgumentParser, context: CommandContex
       padColumn(ticket.frontmatter.task === null ? '-' : `#${ticket.frontmatter.task}`, LIST_COLUMN_WIDTHS.task),
       ticket.frontmatter.title,
       namedAgentText(ticket.frontmatter),
-      ticketIsStillOpen(ticket) && unsettled.length > 0 ? `  (${waitingOnText(unsettled)})` : '',
+      ticketIsStillOpen(ticket) && unsettled.length > 0 ? `  (${TicketPhraseUtil.waitingOnText(unsettled)})` : '',
     ].join('');
   });
   printEntity(commandArguments, context, shown.map(ticketDocumentOf), [header, ...rows].join('\n'));
@@ -588,7 +577,7 @@ async function transitionOneTicket(
   // A warning, not a refusal: the order is advice to whoever picks work up, and the user may know better.
   if (targetStatus === 'in-progress' && moved.unsettled.length > 0) {
     const notSettledYetText = moved.unsettled.length === 1 ? 'which is not reviewed or delivered yet' : 'which are not reviewed or delivered yet';
-    context.standardError(`Ticket #${moved.ticket.frontmatter.id} is ${waitingOnText(moved.unsettled)}, ${notSettledYetText}.`);
+    context.standardError(`Ticket #${moved.ticket.frontmatter.id} is ${TicketPhraseUtil.waitingOnText(moved.unsettled)}, ${notSettledYetText}.`);
   }
   if (targetStatus === 'in-progress' && moved.ticket.frontmatter.hold !== undefined) {
     const { id } = moved.ticket.frontmatter;
@@ -637,7 +626,10 @@ function refuseAnUnclaimableTicket(ticket: Ticket, tickets: readonly Ticket[], c
   }
   const unsettled = unsettledDependenciesFor(ticket, tickets).filter((dependency) => !claimedIdentifiers.includes(dependency));
   if (unsettled.length > 0) {
-    throw new OperationRefusal('refused', `Ticket #${id} is ${waitingOnText(unsettled)}, which must be reviewed or delivered before it is claimed. Nothing was written.`);
+    throw new OperationRefusal(
+      'refused',
+      `Ticket #${id} is ${TicketPhraseUtil.waitingOnText(unsettled)}, which must be reviewed or delivered before it is claimed. Nothing was written.`,
+    );
   }
   if (ticket.frontmatter.hold !== undefined) {
     throw new OperationRefusal('refused', `Ticket #${id} is held, so it is not claimed. Nothing was written; \`agent-progress ticket unhold ${id}\` lets it be claimed.`);
@@ -658,11 +650,6 @@ function refuseATicketUnderReview(progress: ProgressFile, ticketId: string): voi
 /** `1 agent is`, `2 agents are`: the count, its noun and the verb agreeing with it. */
 function countedText(count: number, singularNoun: string): string {
   return count === 1 ? `1 ${singularNoun} is` : `${count} ${singularNoun}s are`;
-}
-
-function namedTicketsText(identifiers: readonly string[]): string {
-  const named = identifiers.map((identifier) => `#${identifier}`).join(', ');
-  return identifiers.length === 1 ? `Ticket ${named}` : `Tickets ${named}`;
 }
 
 /** Several references to one ticket (`3`, `003`, `#3`) claim it once. */
@@ -695,7 +682,7 @@ async function claimTickets(references: readonly string[], commandArguments: Arg
       const inProgressRowCount = change.progress.tasks.filter((task) => task.status === 'in-progress').length;
       throw new OperationRefusal(
         'refused',
-        `${namedTicketsText(identifiers)} ${identifiers.length === 1 ? 'was' : 'were'} not claimed: ${countedText(agentsInFlight, 'agent')} in flight `
+        `${TicketPhraseUtil.namedTicketsText(identifiers)} ${identifiers.length === 1 ? 'was' : 'were'} not claimed: ${countedText(agentsInFlight, 'agent')} in flight `
         + `(${countedText(inProgressRowCount, 'row')} in progress) and the concurrency limit is ${limit} ${limit === 1 ? 'agent' : 'agents'}. `
         + 'Nothing was written; claim once an agent has finished.',
       );
@@ -727,10 +714,10 @@ async function claimTickets(references: readonly string[], commandArguments: Arg
   const [onlyTicket] = tickets;
   const slotsText    = `${concurrency.agentsInFlight} of ${concurrency.limit} slots are now taken.`;
   if (tickets.length === 1 && onlyTicket !== undefined) {
-    printEntityThenNextLine(commandArguments, context, ticketAsJson(onlyTicket), `${namedTicketsText(identifiers)} started: ${slotsText}`, nextLine);
+    printEntityThenNextLine(commandArguments, context, ticketAsJson(onlyTicket), `${TicketPhraseUtil.namedTicketsText(identifiers)} started: ${slotsText}`, nextLine);
     return;
   }
-  printEntityThenNextLine(commandArguments, context, tickets.map(ticketAsJson), `${namedTicketsText(identifiers)} started as one agent: ${slotsText}`, nextLine);
+  printEntityThenNextLine(commandArguments, context, tickets.map(ticketAsJson), `${TicketPhraseUtil.namedTicketsText(identifiers)} started as one agent: ${slotsText}`, nextLine);
 }
 
 function refuseAnIllegalMove(ticket: Ticket, targetStatus: TicketStatus, checksTheMatrix: boolean): void {
@@ -744,7 +731,7 @@ function refuseAnIllegalMove(ticket: Ticket, targetStatus: TicketStatus, checksT
   const legalSources = LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS[targetStatus].join(' or ');
   throw new OperationRefusal(
     'refused',
-    `Ticket #${id} is ${status}, and \`agent-progress ticket ${TRANSITION_WORD_FOR_TICKET_STATUS[targetStatus]}\` moves a ticket that is ${legalSources}. `
+    `Ticket #${id} is ${status}, and \`agent-progress ticket ${VERB_FOR_STATUS[targetStatus]}\` moves a ticket that is ${legalSources}. `
     + `Run \`agent-progress ticket status ${id} ${targetStatus}\` if you mean to set it directly.`,
   );
 }
@@ -884,13 +871,13 @@ async function setTicketAgent(commandArguments: ArgumentParser, context: Command
     if (TICKET_STATUSES_NO_AGENT_WORKS_AGAIN.includes(status)) {
       throw new OperationRefusal('refused', `Ticket #${id} is ${status}, and its agents were not changed: no agent will work it again. Nothing was written.`);
     }
-    const before = agentPairText(frontmatter);
-    const after  = agentPairText({
+    const before = TicketPhraseUtil.agentPairText(resolvedAgentPairOf(frontmatter));
+    const after  = TicketPhraseUtil.agentPairText(resolvedAgentPairOf({
       ...(frontmatter.model === undefined ? {} : { model: frontmatter.model }),
       ...(frontmatter.effort === undefined ? {} : { effort: frontmatter.effort }),
       ...(model === undefined ? {} : { model }),
       ...(effort === undefined ? {} : { effort }),
-    });
+    }));
     if (before === after) {
       throw new OperationRefusal('refused', `Ticket #${id} is ${status}, and its agents were not changed: they already run on ${before}. Nothing was written.`);
     }
