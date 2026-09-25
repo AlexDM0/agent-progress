@@ -3,7 +3,7 @@
  * the tracker or a ticket passes `escapeHtml` exactly once here, except a ticket's `bodyHtml`, already escaped by `lib/render/Markdown.ts`.
  */
 
-import { FIRST_REPEAT_REVIEW_ROUND }               from '../../constants/Limits.ts';
+import { LIMITS }                                  from '../../constants/Limits.ts';
 import { SETTLED_TASK_STATUSES, ticketPriorityOf } from '../../constants/Statuses.ts';
 import type {
   LogEntry,
@@ -126,7 +126,7 @@ export function pillLabelForRowState(state: RowState, reviewRound: number): stri
 }
 
 function pillLabelFor(state: RowState, task: Task): string {
-  return pillLabelForRowState(state, task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND);
+  return pillLabelForRowState(state, task.reviewRound ?? LIMITS.FIRST_REPEAT_REVIEW_ROUND);
 }
 
 function reviewedTitleFor(task: Task, slices: TimestampSlices): string {

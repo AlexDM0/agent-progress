@@ -1,11 +1,6 @@
 import { existsSync, readFileSync } from 'fs';
 
-import {
-  CONCURRENCY_LIMIT_CEILING_AGENTS,
-  DEFAULT_CONCURRENCY_LIMIT,
-  FIRST_REPEAT_REVIEW_ROUND,
-  JSON_INDENT
-} from '../constants/Limits';
+import { LIMITS }                                              from '../constants/Limits';
 import { DISPATCHER_STATES, TASK_STATUSES, taskStatusIsKnown } from '../constants/Statuses';
 import type {
   DispatcherState,
@@ -59,7 +54,7 @@ export function createEmptyProgressFile(input: { project: string; startedAt: str
     startedAt:        input.startedAt,
     view:             { kind: 'auto' },
     nextTaskId:       FIRST_TASK_ID,
-    concurrencyLimit: DEFAULT_CONCURRENCY_LIMIT,
+    concurrencyLimit: LIMITS.DEFAULT_CONCURRENCY_LIMIT,
     tasks:            [],
     log:              [],
   };
@@ -101,7 +96,7 @@ function agentsInFlightOf(tasks: readonly Task[]): number {
 }
 
 export function concurrencyOf(progress: ProgressFile): Concurrency {
-  const limit          = Math.min(progress.concurrencyLimit ?? DEFAULT_CONCURRENCY_LIMIT, CONCURRENCY_LIMIT_CEILING_AGENTS);
+  const limit          = Math.min(progress.concurrencyLimit ?? LIMITS.DEFAULT_CONCURRENCY_LIMIT, LIMITS.CONCURRENCY_LIMIT_CEILING_AGENTS);
   const agentsInFlight = agentsInFlightOf(progress.tasks);
   return { limit, agentsInFlight, freeSlots: Math.max(0, limit - agentsInFlight) };
 }
@@ -131,7 +126,7 @@ function tokenCountIsWellFormed(value: unknown): value is number | null {
 
 /** Only a repeat review is counted, so the first round a row can record is the second one. */
 function reviewRoundIsWellFormed(value: unknown): value is number {
-  return typeof value === 'number' && Number.isSafeInteger(value) && value >= FIRST_REPEAT_REVIEW_ROUND;
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= LIMITS.FIRST_REPEAT_REVIEW_ROUND;
 }
 
 function taskPhaseIsWellFormed(value: unknown): value is TaskPhase {
@@ -161,7 +156,7 @@ function taskProblem(value: unknown, index: number): string | null {
   if (!tokenCountIsWellFormed(task['tokens'])) return `tasks[${index}].tokens is neither a whole number of tokens nor null`;
   if (task['reviewed'] !== undefined && typeof task['reviewed'] !== 'string') return `tasks[${index}].reviewed is present but not a timestamp`;
   if (task['reviewRound'] !== undefined && !reviewRoundIsWellFormed(task['reviewRound'])) {
-    return `tasks[${index}].reviewRound is present and is not a whole round of at least ${FIRST_REPEAT_REVIEW_ROUND}`;
+    return `tasks[${index}].reviewRound is present and is not a whole round of at least ${LIMITS.FIRST_REPEAT_REVIEW_ROUND}`;
   }
   if (task['history'] !== undefined && !taskHistoryIsWellFormed(task['history'])) {
     return `tasks[${index}].history is present and is not a list of phases, each a known status with the timestamp it was reached at`;
@@ -242,12 +237,12 @@ export function readProgressFile(workspace: Workspace): ReadProgressFileResult {
 
 /** Through `lib/platform/AtomicFile.ts`, because a subagent in another worktree may be reading this exact file right now. */
 export function writeProgressFile(workspace: Workspace, progress: ProgressFile): void {
-  writeFileAtomically(workspace.progressFilePath, `${JSON.stringify(progress, null, JSON_INDENT)}\n`);
+  writeFileAtomically(workspace.progressFilePath, `${JSON.stringify(progress, null, LIMITS.JSON_INDENT)}\n`);
 }
 
 /** `init`'s write: it never replaces a progress file, whatever path led to it, and says so instead. */
 export function createProgressFile(workspace: Workspace, progress: ProgressFile): 'created' | 'already-exists' {
-  return createFileAtomically(workspace.progressFilePath, `${JSON.stringify(progress, null, JSON_INDENT)}\n`);
+  return createFileAtomically(workspace.progressFilePath, `${JSON.stringify(progress, null, LIMITS.JSON_INDENT)}\n`);
 }
 
 /** The counter is stored and never wound back, so `task remove` and `clear` cannot hand a live row's id to a new one. */
@@ -341,7 +336,7 @@ export function transitionTask(progress: ProgressFile, taskId: number, status: T
   } else if (status === 'finished' || status === 're-review' || status === 'reviewed' || status === 'delivered') {
     task.start = task.start ?? at;
     task.end = task.end ?? at;
-    if (status === 're-review') task.reviewRound = task.reviewRound === undefined ? FIRST_REPEAT_REVIEW_ROUND : task.reviewRound + 1;
+    if (status === 're-review') task.reviewRound = task.reviewRound === undefined ? LIMITS.FIRST_REPEAT_REVIEW_ROUND : task.reviewRound + 1;
     if (status === 'reviewed') task.reviewed = task.reviewed ?? at;
   } else if (status === 'abandoned') {
     if (task.start !== null) task.end = task.end ?? at;

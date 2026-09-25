@@ -1,10 +1,4 @@
-import {
-  CALENDAR_DATE_LENGTH,
-  CLOCK_SLICE_END,
-  CLOCK_SLICE_START,
-  DATE_AND_CLOCK_LENGTH,
-  MONTH_AND_DAY_SLICE_START
-}                                            from '../../lib/constants/Limits';
+import { LIMITS }   from '../../lib/constants/Limits';
 import {
   SETTLED_TASK_STATUSES,
   SETTLED_TICKET_STATUSES,
@@ -73,8 +67,8 @@ function logNewestFirst(log: readonly LogEntry[]): LogEntry[] {
 }
 
 function logStampOf(entry: LogEntry, showsTheDate: boolean): string {
-  const start = showsTheDate ? MONTH_AND_DAY_SLICE_START : CLOCK_SLICE_START;
-  return entry.at.slice(start, CLOCK_SLICE_END).replace('T', ' ');
+  const start = showsTheDate ? LIMITS.MONTH_AND_DAY_SLICE_START : LIMITS.CLOCK_SLICE_START;
+  return entry.at.slice(start, LIMITS.CLOCK_SLICE_END).replace('T', ' ');
 }
 
 /** `null` when no row reported a usage, which is a different answer from `0`. */
@@ -130,7 +124,7 @@ function workingDocumentOf(progress: ProgressFile, tickets: readonly Ticket[]): 
 
 function renderHumanStatus(progress: ProgressFile, tickets: readonly Ticket[], showsEverything: boolean): string {
   const lines = [
-    `${progress.project} — started ${progress.startedAt.slice(0, DATE_AND_CLOCK_LENGTH).replace('T', ' ')}`,
+    `${progress.project} — started ${progress.startedAt.slice(0, LIMITS.DATE_AND_CLOCK_LENGTH).replace('T', ' ')}`,
     `Tasks:   ${countsByStatus(TASK_STATUSES, progress.tasks.map((task) => task.status))}`,
     `Tickets: ${countsByStatus(TICKET_STATUSES, tickets.map((ticket) => ticket.frontmatter.status))}`,
   ];
@@ -169,7 +163,7 @@ function renderHumanStatus(progress: ProgressFile, tickets: readonly Ticket[], s
 
   const newestFirst  = logNewestFirst(progress.log);
   const recentLog    = showsEverything ? newestFirst : newestFirst.slice(0, HUMAN_LOG_ENTRY_COUNT);
-  const distinctDays = new Set(progress.log.map((entry) => entry.at.slice(0, CALENDAR_DATE_LENGTH)));
+  const distinctDays = new Set(progress.log.map((entry) => entry.at.slice(0, LIMITS.CALENDAR_DATE_LENGTH)));
   if (recentLog.length > 0) {
     lines.push('');
     lines.push(showsEverything ? `Log (all ${recentLog.length}):` : `Log (last ${recentLog.length}):`);

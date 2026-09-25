@@ -10,7 +10,7 @@ import {
   agentModelIsKnown,
   agentModelOf
 }                                from '../../lib/constants/AgentSettings';
-import { DATE_AND_CLOCK_LENGTH } from '../../lib/constants/Limits';
+import { LIMITS }     from '../../lib/constants/Limits';
 import {
   TICKET_PRIORITIES,
   TICKET_STATUSES,
@@ -504,8 +504,8 @@ function showOneTicket(commandArguments: ArgumentParser, context: CommandContext
     `  group:    ${frontmatter.group ?? '-'}`,
     `  task:     ${frontmatter.task === null ? '-' : `#${frontmatter.task}`}`,
     `  waits on: ${dependencies.length === 0 ? '-' : dependencies.join(', ')}`,
-    `  filed:    ${frontmatter.filed.slice(0, DATE_AND_CLOCK_LENGTH).replace('T', ' ')}`,
-    `  updated:  ${frontmatter.updated.slice(0, DATE_AND_CLOCK_LENGTH).replace('T', ' ')}`,
+    `  filed:    ${frontmatter.filed.slice(0, LIMITS.DATE_AND_CLOCK_LENGTH).replace('T', ' ')}`,
+    `  updated:  ${frontmatter.updated.slice(0, LIMITS.DATE_AND_CLOCK_LENGTH).replace('T', ' ')}`,
     `  branch:   ${frontmatter.branch ?? '-'}`,
     `  commit:   ${frontmatter.commit ?? '-'}`,
     `  reason:   ${frontmatter.reason ?? '-'}`,

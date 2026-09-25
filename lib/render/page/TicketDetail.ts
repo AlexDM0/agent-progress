@@ -3,11 +3,11 @@
  * except the ticket's `bodyHtml`, already escaped by `lib/render/Markdown.ts`.
  */
 
-import { FIRST_REPEAT_REVIEW_ROUND } from '../../constants/Limits.ts';
-import type { Task }                 from '../../constants/Types.ts';
-import { HtmlEscapeUtil }            from '../../utils/HtmlEscapeUtil.ts';
-import type { KanbanCard }           from './KanbanBoard.ts';
-import { cardCarriesReviewedMark }   from './KanbanBoard.ts';
+import { LIMITS }                  from '../../constants/Limits.ts';
+import type { Task }               from '../../constants/Types.ts';
+import { HtmlEscapeUtil }          from '../../utils/HtmlEscapeUtil.ts';
+import type { KanbanCard }         from './KanbanBoard.ts';
+import { cardCarriesReviewedMark } from './KanbanBoard.ts';
 import {
   attribute,
   pillLabelForRowState,
@@ -40,7 +40,7 @@ function headMarkup(input: TicketDetailInput): string {
     `<div class="ap-detail-head" ${attribute('data-state', card.state)}>`,
     `<span class="ap-detail-id">#${escapeHtml(ticket.id)}</span>`,
     `<h2 class="ap-detail-title">${escapeHtml(ticket.title)}</h2>`,
-    `<span class="ap-pill">${escapeHtml(pillLabelForRowState(card.state, ownRow?.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND))}</span>`,
+    `<span class="ap-pill">${escapeHtml(pillLabelForRowState(card.state, ownRow?.reviewRound ?? LIMITS.FIRST_REPEAT_REVIEW_ROUND))}</span>`,
     reviewedMark,
     priorityMarkMarkup(ticket),
     `<span class="ap-detail-type">${escapeHtml(ticket.type)}</span>`,

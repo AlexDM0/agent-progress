@@ -3,7 +3,7 @@
  * carries and how far the Done and Abandoned lanes are opened. DOM-free, and reads no clock: the page's now is handed in.
  */
 
-import { FIRST_REPEAT_REVIEW_ROUND }                                 from '../../constants/Limits.ts';
+import { LIMITS }                                                    from '../../constants/Limits.ts';
 import { TASK_STATUS_FOR_TICKET_STATUS, ticketPriorityOf }           from '../../constants/Statuses.ts';
 import type { Task, TicketPriority }                                 from '../../constants/Types.ts';
 import type { PageTicket }                                           from './PageData.ts';
@@ -202,7 +202,7 @@ function runningReviewerNote(card: KanbanCard, format: NoteFormat): string | nul
   if (reviewRow === null || reviewRow.end !== null) {
     return null;
   }
-  const round = card.state === 're-review' ? `round ${card.ownRow?.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND} reviewer since` : 'reviewer since';
+  const round = card.state === 're-review' ? `round ${card.ownRow?.reviewRound ?? LIMITS.FIRST_REPEAT_REVIEW_ROUND} reviewer since` : 'reviewer since';
   return stampNote(round, reviewRow.start, format);
 }
 

@@ -4,7 +4,7 @@
  */
 import { readFileSync } from 'node:fs';
 
-import { CLOCK_SLICE_END, MONTH_AND_DAY_SLICE_START }   from '../../lib/constants/Limits';
+import { LIMITS }                                       from '../../lib/constants/Limits';
 import type { SubagentTranscript }                      from '../../lib/platform/ClaudeTranscripts';
 import { listSubagentTranscripts, transcriptFolderFor } from '../../lib/platform/ClaudeTranscripts';
 import { OperationRefusal }                             from '../../lib/platform/OperationRefusal';
@@ -104,7 +104,7 @@ function localStampOf(startedAt: string | null): string {
   if (startedAt === null) return '-';
   const instant = TimeUtil.parseIso(startedAt);
   if (instant === null) return '-';
-  return TimeUtil.formatLocalIso(instant).slice(MONTH_AND_DAY_SLICE_START, CLOCK_SLICE_END).replace('T', ' ');
+  return TimeUtil.formatLocalIso(instant).slice(LIMITS.MONTH_AND_DAY_SLICE_START, LIMITS.CLOCK_SLICE_END).replace('T', ' ');
 }
 
 function renderAgentRows(agents: readonly AgentUsage[]): string[] {

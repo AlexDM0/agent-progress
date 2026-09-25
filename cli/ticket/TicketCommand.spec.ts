@@ -18,7 +18,7 @@ import {
   spyOn,
   test
 }                                                                             from 'bun:test';
-import { LOCK_RETRY_INTERVAL_MILLISECONDS }                                   from '../../lib/constants/Limits';
+import { LIMITS }                                                             from '../../lib/constants/Limits';
 import type { ProgressFile }                                                  from '../../lib/constants/Types';
 import * as AtomicFile                                                        from '../../lib/platform/AtomicFile';
 import { withLock }                                                           from '../../lib/platform/Lock';
@@ -29,7 +29,7 @@ import { runCommandLine }                                                     fr
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
-const LOCK_HELD_WHILE_ADDS_QUEUE_MILLISECONDS = LOCK_RETRY_INTERVAL_MILLISECONDS * 4;
+const LOCK_HELD_WHILE_ADDS_QUEUE_MILLISECONDS = LIMITS.LOCK_RETRY_INTERVAL_MILLISECONDS * 4;
 
 const FIRST_TICKET_FILE_NAME = '001-double-click-a-role-to-edit-it.md';
 

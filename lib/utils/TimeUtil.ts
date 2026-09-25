@@ -1,5 +1,5 @@
 /** Every timestamp `agent-progress` writes or reads back is local-offset ISO 8601, never UTC, and that is the whole reason this module exists. */
-import { DAY_MINUTES } from '../constants/Limits';
+import { LIMITS } from '../constants/Limits';
 
 const MILLISECONDS_PER_MINUTE = 60_000;
 const MINUTES_PER_HOUR        = 60;
@@ -26,7 +26,7 @@ function minutesPerUnit(unit: string): number | null {
   switch (unit.toLowerCase()) {
     case 'm': return 1;
     case 'h': return MINUTES_PER_HOUR;
-    case 'd': return DAY_MINUTES;
+    case 'd': return LIMITS.DAY_MINUTES;
     default:  return null;
   }
 }

@@ -21,9 +21,9 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import { LOCK_RETRY_COUNT, LOCK_RETRY_INTERVAL_MILLISECONDS } from '../../lib/constants/Limits';
-import type { ProgressFile }                                  from '../../lib/constants/Types';
-import { createCapturedCommandContext }                       from '../../lib/tooling/dev/CapturedCommandContext';
+import { LIMITS }                       from '../../lib/constants/Limits';
+import type { ProgressFile }            from '../../lib/constants/Types';
+import { createCapturedCommandContext } from '../../lib/tooling/dev/CapturedCommandContext';
 import {
   createScratchDirectory,
   createScratchGitRepository,
@@ -37,7 +37,7 @@ const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 const TRANSCRIPT_FILE_NAME = 'agent-example.jsonl';
 
 /** The held-lock case waits out the whole retry budget before it is refused, exactly as `lib/platform/Lock.spec.ts` does. */
-const HELD_LOCK_TIMEOUT_MILLISECONDS = LOCK_RETRY_COUNT * LOCK_RETRY_INTERVAL_MILLISECONDS * 3;
+const HELD_LOCK_TIMEOUT_MILLISECONDS = LIMITS.LOCK_RETRY_COUNT * LIMITS.LOCK_RETRY_INTERVAL_MILLISECONDS * 3;
 
 let repositoryDirectory = '';
 let transcriptPath      = '';

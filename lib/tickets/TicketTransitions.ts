@@ -4,7 +4,7 @@
  * and the named verbs consult `LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS` before transitioning.
  */
 
-import { FIRST_REPEAT_REVIEW_ROUND }                       from '../constants/Limits.ts';
+import { LIMITS }                                          from '../constants/Limits.ts';
 import { TASK_STATUS_FOR_TICKET_STATUS, ticketPriorityOf } from '../constants/Statuses.ts';
 import type {
   ProgressFile,
@@ -274,7 +274,7 @@ export function applyTicketRereview(input: ApplyTicketRereviewInput): ApplyTicke
   });
   operations.transitionTask(progress, task.id, 're-review', at);
 
-  const logText = `Ticket #${frontmatter.id} in review, round ${task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND}`;
+  const logText = `Ticket #${frontmatter.id} in review, round ${task.reviewRound ?? LIMITS.FIRST_REPEAT_REVIEW_ROUND}`;
   operations.appendLogEntry(progress, at, logText);
 
   return { verdict: 'applied', ticket, logText };

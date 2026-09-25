@@ -9,9 +9,9 @@
  * inside the CLI is what lets `agent-progress init --hooks` wire a hook up instead of asking a person
  * to paste a file, and it is why the format of the line is fixed here rather than in a template.
  */
-import { OVERSIZED_CONTEXT_THRESHOLD_TOKENS } from '../constants/Limits';
-import { TicketIdUtil }                       from './TicketIdUtil';
-import { TokenCountUtil }                     from './TokenCountUtil';
+import { LIMITS }         from '../constants/Limits';
+import { TicketIdUtil }   from './TicketIdUtil';
+import { TokenCountUtil } from './TokenCountUtil';
 
 /**
  * `endContextTokens` is the window of the *last* call rather than a sum: it is how full the agent's
@@ -182,7 +182,7 @@ function summariseTranscriptUsage(transcriptText: string): TranscriptUsageTotals
     totals.cacheReadInputTokens     += cacheReadInputTokens;
     totals.cacheCreationInputTokens += cacheCreationInputTokens;
     totals.endContextTokens          = callContextTokens;
-    if (callContextTokens > OVERSIZED_CONTEXT_THRESHOLD_TOKENS) totals.oversizedContextTokens += callContextTokens;
+    if (callContextTokens > LIMITS.OVERSIZED_CONTEXT_THRESHOLD_TOKENS) totals.oversizedContextTokens += callContextTokens;
   }
 
   for (const outputTokens of outputTokensByMessageIdentifier.values()) totals.outputTokens += outputTokens;

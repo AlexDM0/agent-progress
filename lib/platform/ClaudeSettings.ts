@@ -7,7 +7,7 @@
 import { readFileSync, statSync } from 'node:fs';
 import { join }                   from 'node:path';
 
-import { JSON_INDENT }         from '../constants/Limits';
+import { LIMITS }              from '../constants/Limits';
 import { writeFileAtomically } from './AtomicFile';
 
 const CLAUDE_DIRECTORY_NAME = '.claude';
@@ -147,7 +147,7 @@ export function writeSubagentStopHook(settingsFilePath: string, hook: SubagentSt
   hooksSection[SUBAGENT_STOP_EVENT_NAME] = eventGroups;
   settings[HOOKS_KEY] = hooksSection;
 
-  writeFileAtomically(settingsFilePath, `${JSON.stringify(settings, null, JSON_INDENT)}\n`);
+  writeFileAtomically(settingsFilePath, `${JSON.stringify(settings, null, LIMITS.JSON_INDENT)}\n`);
   return settingsFileExisted ? 'added' : 'created';
 }
 
@@ -179,6 +179,6 @@ export function refreshSubagentStopHook(settingsFilePath: string, hook: Subagent
 
   hooksSection[SUBAGENT_STOP_EVENT_NAME] = refreshedGroups;
   settings[HOOKS_KEY] = hooksSection;
-  writeFileAtomically(settingsFilePath, `${JSON.stringify(settings, null, JSON_INDENT)}\n`);
+  writeFileAtomically(settingsFilePath, `${JSON.stringify(settings, null, LIMITS.JSON_INDENT)}\n`);
   return 'updated';
 }

@@ -3,26 +3,9 @@
  * through `escapeJsonForScriptTag` of `lib/utils/HtmlEscapeUtil.ts`, so none can close its script tag; `generatedAt` is a parameter, not a clock.
  */
 
-import { readFileSync }            from 'node:fs';
-import { join }                    from 'node:path';
-import {
-  AXIS_MINIMUM_SPAN_MINUTES,
-  AXIS_PADDING_MINUTES,
-  CALENDAR_DATE_LENGTH,
-  CLOCK_SLICE_END,
-  CLOCK_SLICE_START,
-  DATE_AND_CLOCK_LENGTH,
-  DAY_MINUTES,
-  DONE_WORK_VISIBLE_MILLISECONDS,
-  HOUR_MINUTES,
-  HOURS_AXIS_LABEL_LIMIT_MINUTES,
-  MAXIMUM_TICKS_PER_AXIS,
-  MINIMUM_BAR_WIDTH_PERCENT,
-  MONTH_AND_DAY_SLICE_START,
-  TICK_COUNT_SAFETY_BOUND,
-  TICK_STEP_LADDER_MINUTES,
-  WEEK_AXIS_LABEL_LIMIT_MINUTES,
-} from '../constants/Limits.ts';
+import { readFileSync }                                  from 'node:fs';
+import { join }                                          from 'node:path';
+import { LIMITS }                                        from '../constants/Limits.ts';
 import type { ProgressFile, Ticket }                     from '../constants/Types.ts';
 import { OperationRefusal }                              from '../platform/OperationRefusal.ts';
 import { HtmlEscapeUtil }                                from '../utils/HtmlEscapeUtil.ts';
@@ -52,22 +35,22 @@ interface RenderProgressHtmlInput {
 
 function pageLimits(): PagePayload['limits'] {
   return {
-    tickStepLadderMinutes:       TICK_STEP_LADDER_MINUTES,
-    maximumTicksPerAxis:         MAXIMUM_TICKS_PER_AXIS,
-    axisMinimumSpanMinutes:      AXIS_MINIMUM_SPAN_MINUTES,
-    axisPaddingMinutes:          AXIS_PADDING_MINUTES,
-    minimumBarWidthPercent:      MINIMUM_BAR_WIDTH_PERCENT,
-    hoursAxisLabelLimitMinutes:  HOURS_AXIS_LABEL_LIMIT_MINUTES,
-    weekAxisLabelLimitMinutes:   WEEK_AXIS_LABEL_LIMIT_MINUTES,
-    hourMinutes:                 HOUR_MINUTES,
-    dayMinutes:                  DAY_MINUTES,
-    tickCountSafetyBound:        TICK_COUNT_SAFETY_BOUND,
-    dateAndClockLength:          DATE_AND_CLOCK_LENGTH,
-    calendarDateLength:          CALENDAR_DATE_LENGTH,
-    monthAndDaySliceStart:       MONTH_AND_DAY_SLICE_START,
-    clockSliceStart:             CLOCK_SLICE_START,
-    clockSliceEnd:               CLOCK_SLICE_END,
-    doneWorkVisibleMilliseconds: DONE_WORK_VISIBLE_MILLISECONDS,
+    tickStepLadderMinutes:       LIMITS.TICK_STEP_LADDER_MINUTES,
+    maximumTicksPerAxis:         LIMITS.MAXIMUM_TICKS_PER_AXIS,
+    axisMinimumSpanMinutes:      LIMITS.AXIS_MINIMUM_SPAN_MINUTES,
+    axisPaddingMinutes:          LIMITS.AXIS_PADDING_MINUTES,
+    minimumBarWidthPercent:      LIMITS.MINIMUM_BAR_WIDTH_PERCENT,
+    hoursAxisLabelLimitMinutes:  LIMITS.HOURS_AXIS_LABEL_LIMIT_MINUTES,
+    weekAxisLabelLimitMinutes:   LIMITS.WEEK_AXIS_LABEL_LIMIT_MINUTES,
+    hourMinutes:                 LIMITS.HOUR_MINUTES,
+    dayMinutes:                  LIMITS.DAY_MINUTES,
+    tickCountSafetyBound:        LIMITS.TICK_COUNT_SAFETY_BOUND,
+    dateAndClockLength:          LIMITS.DATE_AND_CLOCK_LENGTH,
+    calendarDateLength:          LIMITS.CALENDAR_DATE_LENGTH,
+    monthAndDaySliceStart:       LIMITS.MONTH_AND_DAY_SLICE_START,
+    clockSliceStart:             LIMITS.CLOCK_SLICE_START,
+    clockSliceEnd:               LIMITS.CLOCK_SLICE_END,
+    doneWorkVisibleMilliseconds: LIMITS.DONE_WORK_VISIBLE_MILLISECONDS,
   };
 }
 

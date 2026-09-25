@@ -13,7 +13,7 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import { LOCK_RETRY_INTERVAL_MILLISECONDS }                                   from '../../lib/constants/Limits';
+import { LIMITS }                                                             from '../../lib/constants/Limits';
 import type { ProgressFile, Task }                                            from '../../lib/constants/Types';
 import { withLock }                                                           from '../../lib/platform/Lock';
 import { workspacePathsFor }                                                  from '../../lib/platform/Workspace';
@@ -23,7 +23,7 @@ import { runCommandLine }                                                     fr
 
 const FROZEN_NOW = new Date('2026-09-24T12:00:00Z');
 
-const LOCK_HELD_WHILE_COMMANDS_QUEUE_MILLISECONDS = LOCK_RETRY_INTERVAL_MILLISECONDS * 4;
+const LOCK_HELD_WHILE_COMMANDS_QUEUE_MILLISECONDS = LIMITS.LOCK_RETRY_INTERVAL_MILLISECONDS * 4;
 
 const REVIEWED_TICKET_TITLE = 'Double-click a role to edit it';
 

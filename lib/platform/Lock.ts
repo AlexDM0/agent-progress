@@ -20,10 +20,10 @@ import {
 } from 'fs';
 import { join } from 'path';
 
-import { LOCK_RETRY_COUNT, LOCK_RETRY_INTERVAL_MILLISECONDS, LOCK_STALE_MILLISECONDS } from '../constants/Limits';
-import { TimeUtil }                                                                    from '../utils/TimeUtil';
-import { OperationRefusal }                                                            from './OperationRefusal';
-import type { Workspace }                                                              from './Workspace';
+import { LIMITS }           from '../constants/Limits';
+import { TimeUtil }         from '../utils/TimeUtil';
+import { OperationRefusal } from './OperationRefusal';
+import type { Workspace }   from './Workspace';
 
 interface LockPayload {
   processId:  number;
@@ -122,12 +122,12 @@ function generationIsFree(generationPath: string, nowMilliseconds: number): bool
   if (record.state === 'released' || processIsGone(record.processId)) return true;
   const acquiredAtMilliseconds = Date.parse(record.acquiredAt);
   if (Number.isNaN(acquiredAtMilliseconds)) return fileIsOlderThanTheStaleThreshold(generationPath, nowMilliseconds);
-  return nowMilliseconds - acquiredAtMilliseconds > LOCK_STALE_MILLISECONDS;
+  return nowMilliseconds - acquiredAtMilliseconds > LIMITS.LOCK_STALE_MILLISECONDS;
 }
 
 function fileIsOlderThanTheStaleThreshold(filePath: string, nowMilliseconds: number): boolean {
   try {
-    return nowMilliseconds - statSync(filePath).mtimeMs > LOCK_STALE_MILLISECONDS;
+    return nowMilliseconds - statSync(filePath).mtimeMs > LIMITS.LOCK_STALE_MILLISECONDS;
   } catch {
     // Fail closed: a `stat` that errors is not an argument for taking someone else's lock.
     return false;
@@ -238,7 +238,7 @@ export async function withLock<ActionResult>(
   const payload: LockPayload = { acquiredAt: TimeUtil.formatLocalIso(now()), processId: process.pid };
 
   let heldGeneration: number | null = null;
-  for (let attempt = 0; attempt < LOCK_RETRY_COUNT; attempt++) {
+  for (let attempt = 0; attempt < LIMITS.LOCK_RETRY_COUNT; attempt++) {
     const attemptResult = attemptedAcquire(lockDirectoryPath, payload, now().getTime());
     if (attemptResult.verdict === 'acquired') {
       heldGeneration = attemptResult.generation;
@@ -246,7 +246,7 @@ export async function withLock<ActionResult>(
     }
     // Contention retries immediately rather than sleeping: another process just moved the lock, and its newest record decides.
     if (attemptResult.verdict === 'contended') continue;
-    await Bun.sleep(LOCK_RETRY_INTERVAL_MILLISECONDS);
+    await Bun.sleep(LIMITS.LOCK_RETRY_INTERVAL_MILLISECONDS);
   }
 
   if (heldGeneration === null) {

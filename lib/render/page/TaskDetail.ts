@@ -3,7 +3,7 @@
  * Every value passes `escapeHtml` exactly once here, except a ticket's `bodyHtml`, already escaped by `lib/render/Markdown.ts`.
  */
 
-import { FIRST_REPEAT_REVIEW_ROUND } from '../../constants/Limits.ts';
+import { LIMITS } from '../../constants/Limits.ts';
 import type {
   LogEntry,
   Task,
@@ -157,7 +157,7 @@ function recordedPhaseLines(task: Task): PhaseLine[] {
     if (phase.status === 're-review') repeatReviews += 1;
     return {
       state:       phase.status,
-      reviewRound: FIRST_REPEAT_REVIEW_ROUND + Math.max(0, repeatReviews - 1),
+      reviewRound: LIMITS.FIRST_REPEAT_REVIEW_ROUND + Math.max(0, repeatReviews - 1),
       at:          phase.at,
     };
   });
@@ -199,7 +199,7 @@ function derivedPhases(task: Task, ticket: PageTicket | null): TaskPhase[] {
 function derivedPhaseLines(task: Task, ticket: PageTicket | null): PhaseLine[] {
   return derivedPhases(task, ticket).map((phase) => ({
     state:       phase.status,
-    reviewRound: task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND,
+    reviewRound: task.reviewRound ?? LIMITS.FIRST_REPEAT_REVIEW_ROUND,
     at:          phase.at,
   }));
 }
@@ -315,7 +315,7 @@ function headMarkup(task: Task | null, ticket: PageTicket | null): string {
     `<div class="ap-detail-head" ${attribute('data-state', state)}>`,
     `<span class="ap-detail-id">#${escapeHtml(String(task.id))}</span>`,
     `<h2 class="ap-detail-title">${escapeHtml(task.name)}</h2>`,
-    `<span class="ap-pill">${escapeHtml(pillLabelForRowState(state, task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND))}</span>`,
+    `<span class="ap-pill">${escapeHtml(pillLabelForRowState(state, task.reviewRound ?? LIMITS.FIRST_REPEAT_REVIEW_ROUND))}</span>`,
     ticketBadge,
     '</div>',
   ].join('');

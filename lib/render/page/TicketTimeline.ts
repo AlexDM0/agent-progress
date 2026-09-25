@@ -3,7 +3,7 @@
  * phases and its review rows. DOM-free, and reads no clock: the page's now is handed in.
  */
 
-import { FIRST_REPEAT_REVIEW_ROUND }                               from '../../constants/Limits.ts';
+import { LIMITS }                                                  from '../../constants/Limits.ts';
 import { ticketPriorityOf }                                        from '../../constants/Statuses.ts';
 import type { Task, TaskPhase }                                    from '../../constants/Types.ts';
 import { HtmlEscapeUtil }                                          from '../../utils/HtmlEscapeUtil.ts';
@@ -182,7 +182,7 @@ function timelineSpan(state: RowState, label: string, startEpochMilliseconds: nu
 
 /** A state's pill label; only `re-review` carries a round, and every caller of this passes another state. */
 function stateLabelOf(state: RowState): string {
-  return pillLabelForRowState(state, FIRST_REPEAT_REVIEW_ROUND);
+  return pillLabelForRowState(state, LIMITS.FIRST_REPEAT_REVIEW_ROUND);
 }
 
 function buildSpan(state: 'running' | 'paused', startEpochMilliseconds: number, endEpochMilliseconds: number, isLive: boolean): TimelineSpan {

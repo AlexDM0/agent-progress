@@ -4,7 +4,7 @@
  * render lands last and the progress file is never behind the tickets.
  */
 import { agentEffortOf, agentModelOf } from '../lib/constants/AgentSettings';
-import { JSON_INDENT }                 from '../lib/constants/Limits';
+import { LIMITS }                      from '../lib/constants/Limits';
 import { ticketPriorityOf }            from '../lib/constants/Statuses';
 import type {
   AgentEffort,
@@ -136,7 +136,7 @@ export function closeRunningReviewRows(progress: ProgressFile, ticketIds: readon
 
 export function printEntity(commandArguments: ArgumentParser, context: CommandContext, entity: unknown, humanLine: string): void {
   if (commandArguments.flag('json')) {
-    context.standardOutput(JSON.stringify(entity, null, JSON_INDENT));
+    context.standardOutput(JSON.stringify(entity, null, LIMITS.JSON_INDENT));
     return;
   }
   context.standardOutput(humanLine);

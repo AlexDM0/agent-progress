@@ -1,10 +1,10 @@
 /** The Kanban tab's markup, shaped by the placeholder board in `lib/render/page/template.html`; the rules it follows are `KanbanBoard.ts`'s. */
 
-import { FIRST_REPEAT_REVIEW_ROUND } from '../../constants/Limits.ts';
-import { ticketPriorityOf }          from '../../constants/Statuses.ts';
-import type { TicketPriority }       from '../../constants/Types.ts';
-import { HtmlEscapeUtil }            from '../../utils/HtmlEscapeUtil.ts';
-import { TokenCountUtil }            from '../../utils/TokenCountUtil.ts';
+import { LIMITS }              from '../../constants/Limits.ts';
+import { ticketPriorityOf }    from '../../constants/Statuses.ts';
+import type { TicketPriority } from '../../constants/Types.ts';
+import { HtmlEscapeUtil }      from '../../utils/HtmlEscapeUtil.ts';
+import { TokenCountUtil }      from '../../utils/TokenCountUtil.ts';
 import type {
   ClosedKanbanLane,
   KanbanCard,
@@ -81,7 +81,7 @@ export interface KanbanBoardInput extends NoteFormat {
 }
 
 function pillLabelOf(card: KanbanCard): string {
-  return pillLabelForRowState(card.state, card.ownRow?.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND);
+  return pillLabelForRowState(card.state, card.ownRow?.reviewRound ?? LIMITS.FIRST_REPEAT_REVIEW_ROUND);
 }
 
 function marksMarkup(card: KanbanCard, lane: KanbanLane): string {

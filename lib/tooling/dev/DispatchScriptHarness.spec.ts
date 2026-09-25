@@ -6,7 +6,7 @@
 import { describe, expect, test } from 'bun:test';
 
 import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../constants/AgentSettings.ts';
-import { CONCURRENCY_LIMIT_CEILING_AGENTS }          from '../../constants/Limits.ts';
+import { LIMITS }                                    from '../../constants/Limits.ts';
 import {
   BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM,
   readDispatchScript,
@@ -957,7 +957,7 @@ describe('the dispatcher script', () => {
   // The same drift for the limit: a script ceiling above the tool's would run more agents than `concurrency` ever lets the user store.
   test('the script caps the board limit at the same ceiling as the tool', () => {
     const statedCeiling = /^const CONCURRENCY_CEILING_AGENTS = (\d+);$/m.exec(SCRIPT_SOURCE)?.[1] ?? null;
-    expect(statedCeiling).toBe(String(CONCURRENCY_LIMIT_CEILING_AGENTS));
+    expect(statedCeiling).toBe(String(LIMITS.CONCURRENCY_LIMIT_CEILING_AGENTS));
   });
 
   // The script reads a ticket's priority, model and effort only from what the agents copy, so every prompt names the one list to copy.

@@ -14,12 +14,12 @@ import {
 } from 'node:fs';
 import { afterAll, expect, test } from 'bun:test';
 
-import { LOCK_RETRY_COUNT, LOCK_RETRY_INTERVAL_MILLISECONDS } from '../constants/Limits';
-import { createScratchDirectory, removeScratchDirectory }     from '../tooling/dev/ScratchWorkspace';
-import { LockGenerationSteps, withLock }                      from './Lock';
-import { refusalIsOperationRefusal }                          from './OperationRefusal';
-import { workspacePathsFor }                                  from './Workspace';
-import type { Workspace }                                     from './Workspace';
+import { LIMITS }                                         from '../constants/Limits';
+import { createScratchDirectory, removeScratchDirectory } from '../tooling/dev/ScratchWorkspace';
+import { LockGenerationSteps, withLock }                  from './Lock';
+import { refusalIsOperationRefusal }                      from './OperationRefusal';
+import { workspacePathsFor }                              from './Workspace';
+import type { Workspace }                                 from './Workspace';
 
 const {
   acquireSteps,
@@ -29,9 +29,9 @@ const {
   released
 } = LockGenerationSteps;
 
-const REFUSAL_TEST_TIMEOUT_MILLISECONDS = LOCK_RETRY_COUNT * LOCK_RETRY_INTERVAL_MILLISECONDS * 3;
+const REFUSAL_TEST_TIMEOUT_MILLISECONDS = LIMITS.LOCK_RETRY_COUNT * LIMITS.LOCK_RETRY_INTERVAL_MILLISECONDS * 3;
 
-const HELD_ACTION_MILLISECONDS = LOCK_RETRY_INTERVAL_MILLISECONDS * 4;
+const HELD_ACTION_MILLISECONDS = LIMITS.LOCK_RETRY_INTERVAL_MILLISECONDS * 4;
 
 const OVERRUN_HOLDER_ACQUIRED_AT = '2026-09-18T20:11:03+02:00';
 
@@ -138,7 +138,7 @@ test('a lock left behind by a process that no longer exists is taken over at onc
 
   const startedAt = Date.now();
   expect(await withLock(workspace, () => 'taken over', realClock)).toBe('taken over');
-  expect(Date.now() - startedAt, 'the takeover did not wait out the retry budget').toBeLessThan(LOCK_RETRY_COUNT * LOCK_RETRY_INTERVAL_MILLISECONDS);
+  expect(Date.now() - startedAt, 'the takeover did not wait out the retry budget').toBeLessThan(LIMITS.LOCK_RETRY_COUNT * LIMITS.LOCK_RETRY_INTERVAL_MILLISECONDS);
   expect(newestRecordIn(workspace.lockDirectoryPath)).toMatchObject({ processId: process.pid, state: 'released' });
 });
 
