@@ -3,43 +3,20 @@
  * selection and ticket open state stay with the template's own bootstrap, reached through `window.agentProgressTemplate`.
  */
 
-import type { ProgressFile, ViewRange }                                        from '../src/lib/tracker-model/@types/ProgressFile.ts';
-import type { TicketStatus }                                                   from '../src/lib/tracker-model/@types/Ticket.ts';
-import type { PagePayload, PageTicket }                                        from '../src/shared/@types/PagePayload.ts';
-import { KANBAN_BOARD_ELEMENT_ID, KANBAN_TAB_NAME }                            from './constants/TemplateIds.ts';
-import { createDetailDialogController }                                        from './detail-dialog/DetailDialogController.ts';
-import { createKanbanController }                                              from './kanban/KanbanController.ts';
-import { kanbanCardsFor }                                                      from './kanban/KanbanLanes.ts';
-import { createLogController }                                                 from './log/LogController.ts';
-import type { NameColumnWidth, StoredViewOverride }                            from './preferences/ViewerPreferences.ts';
-import { createViewerPreferences, toggledNameColumnWidth, workVisibilityFrom } from './preferences/ViewerPreferences.ts';
-import type { PlacedTick, TaskRow }                                            from './progress/ProgressMarkup.ts';
-import {
-  axisPixelsNeededFor,
-  generatedStampText,
-  hiddenWorkNoteText,
-  labelSitsLeftOfItsLine,
-  overlayMarkup,
-  rangeNoteText,
-  summaryStatsMarkup,
-  taskRowsMarkup,
-  tickLayerMarkup,
-} from './progress/ProgressMarkup.ts';
-import {
-  AUTOMATIC_RANGE_PRESET,
-  AUTOMATIC_TICK_CHOICE,
-  NAME_COLUMN_WIDTH_ATTRIBUTE,
-  RANGE_PRESET_BOUNDS,
-} from './progress/constants/ProgressChart.ts';
-import { ViewRangeUtil }           from './progress/utils/ViewRangeUtil.ts';
-import { createTicketsController } from './tickets/TicketsController.ts';
-import { DomUtil }                 from './utils/DomUtil.ts';
-import type { Timeline }           from './utils/GeometryUtil.ts';
-import { GeometryUtil }            from './utils/GeometryUtil.ts';
-import { IslandUtil }              from './utils/IslandUtil.ts';
-import { TimeUtil }                from './utils/TimeUtil.ts';
-import { VisibilityUtil }          from './utils/VisibilityUtil.ts';
-import { WaitingOnUtil }           from './utils/WaitingOnUtil.ts';
+import type { PagePayload, PageTicket }                from '../src/shared/@types/PagePayload.ts';
+import { KANBAN_BOARD_ELEMENT_ID, KANBAN_TAB_NAME }    from './constants/TemplateIds.ts';
+import { createDetailDialogController }                from './detail-dialog/DetailDialogController.ts';
+import { createKanbanController }                      from './kanban/KanbanController.ts';
+import { kanbanCardsFor }                              from './kanban/KanbanLanes.ts';
+import { createLogController }                         from './log/LogController.ts';
+import { createViewerPreferences, workVisibilityFrom } from './preferences/ViewerPreferences.ts';
+import { createProgressController }                    from './progress/ProgressController.ts';
+import { createTicketsController }                     from './tickets/TicketsController.ts';
+import { DomUtil }                                     from './utils/DomUtil.ts';
+import { IslandUtil }                                  from './utils/IslandUtil.ts';
+import { TimeUtil }                                    from './utils/TimeUtil.ts';
+import { VisibilityUtil }                              from './utils/VisibilityUtil.ts';
+import { WaitingOnUtil }                               from './utils/WaitingOnUtil.ts';
 
 const PROGRESS_ISLAND_ELEMENT_ID = 'ap-progress-data';
 const TICKETS_ISLAND_ELEMENT_ID  = 'ap-tickets-data';
@@ -72,29 +49,6 @@ function islandContentsOf(elementId: string): unknown {
   }
 }
 
-function applyNameColumnWidth(width: NameColumnWidth): void {
-  document.documentElement.setAttribute(NAME_COLUMN_WIDTH_ATTRIBUTE, width);
-  const control = document.getElementById('ap-name-column');
-  if (control !== null) {
-    control.setAttribute('aria-pressed', String(width === 'wide'));
-  }
-}
-
-function pinnedColumnsWidth(): number {
-  const headerName = document.querySelector('.ap-chart-head > .ap-cell-name');
-  const headerPill = document.querySelector('.ap-chart-head > .ap-cell-pill');
-  return (headerName instanceof HTMLElement ? headerName.getBoundingClientRect().width : 0)
-    + (headerPill instanceof HTMLElement ? headerPill.getBoundingClientRect().width : 0);
-}
-
-function scrollNowIntoView(chart: HTMLElement, nowPercent: number, axisWidthPixels: number, pinnedWidth: number): void {
-  const visibleAxisWidth   = Math.max(1, chart.clientWidth - pinnedWidth);
-  const markerAxisOffset   = axisWidthPixels * nowPercent / 100;
-  const furthestScrollLeft = Math.max(0, chart.scrollWidth - chart.clientWidth);
-  const desiredScrollLeft  = markerAxisOffset - visibleAxisWidth / 2;
-  chart.scrollLeft = Math.max(0, Math.min(desiredScrollLeft, furthestScrollLeft));
-}
-
 function applyFragment(fragment: string): void {
   const target = fragment.replace(/^#/, '');
   if (target === '') {
@@ -121,93 +75,6 @@ function applyFragment(fragment: string): void {
   element.scrollIntoView();
 }
 
-function taskRowsFor(
-  progress: ProgressFile,
-  timeline: Timeline,
-  ticketStatusById: Map<string, TicketStatus>,
-  waitingOnById: ReadonlyMap<string, readonly string[]>,
-): TaskRow[] {
-  return progress.tasks.flatMap((task, index) => {
-    const bar = timeline.bars[index];
-    if (bar === undefined) {
-      return [];
-    }
-    return [{
-      task,
-      ticketStatus: task.ticket === null ? null : ticketStatusById.get(task.ticket) ?? null,
-      bar,
-      waitingOn:    task.ticket === null ? [] : waitingOnById.get(task.ticket) ?? [],
-    }];
-  });
-}
-
-function reflectRangeBar(override: StoredViewOverride): void {
-  const boundsAreUnset = override.fromText === null && override.toText === null;
-  DomUtil.reflectSegment('ap-range-presets', 'preset', override.presetKey ?? (boundsAreUnset ? AUTOMATIC_RANGE_PRESET : ''));
-  DomUtil.reflectSegment('ap-range-ticks', 'tick', override.tickMinutes === null ? AUTOMATIC_TICK_CHOICE : String(override.tickMinutes));
-  const fromInput = document.getElementById('ap-range-from');
-  const toInput   = document.getElementById('ap-range-to');
-  if (fromInput instanceof HTMLInputElement && document.activeElement !== fromInput) {
-    fromInput.value = override.fromText ?? '';
-  }
-  if (toInput instanceof HTMLInputElement && document.activeElement !== toInput) {
-    toInput.value = override.toText ?? '';
-  }
-}
-
-function wireRangeBar(readOverride: () => StoredViewOverride, applyOverride: (next: StoredViewOverride) => void): void {
-  document.getElementById('ap-range-presets')?.addEventListener('click', (event) => {
-    const button = event.target instanceof Element ? event.target.closest('[data-preset]') : null;
-    if (!(button instanceof HTMLElement)) {
-      return;
-    }
-    const key = button.dataset['preset'] ?? AUTOMATIC_RANGE_PRESET;
-    if (!Object.hasOwn(RANGE_PRESET_BOUNDS, key)) {
-      return;
-    }
-    const bounds = RANGE_PRESET_BOUNDS[key] ?? { fromText: null, toText: null };
-    applyOverride({
-      presetKey:   key,
-      fromText:    bounds.fromText,
-      toText:      bounds.toText,
-      tickMinutes: readOverride().tickMinutes,
-    });
-  });
-
-  const readBound = (elementId: string): string | null => {
-    const input = document.getElementById(elementId);
-    const text  = input instanceof HTMLInputElement ? input.value.trim() : '';
-    return text === '' ? null : text;
-  };
-  const applyTypedBounds = (): void => {
-    applyOverride({
-      presetKey:   null,
-      fromText:    readBound('ap-range-from'),
-      toText:      readBound('ap-range-to'),
-      tickMinutes: readOverride().tickMinutes,
-    });
-  };
-  for (const elementId of ['ap-range-from', 'ap-range-to']) {
-    document.getElementById(elementId)?.addEventListener('change', applyTypedBounds);
-  }
-
-  document.getElementById('ap-range-ticks')?.addEventListener('click', (event) => {
-    const button = event.target instanceof Element ? event.target.closest('[data-tick]') : null;
-    if (!(button instanceof HTMLElement)) {
-      return;
-    }
-    const choice  = button.dataset['tick'] ?? AUTOMATIC_TICK_CHOICE;
-    const minutes = choice === AUTOMATIC_TICK_CHOICE ? Number.NaN : Number(choice);
-    const current = readOverride();
-    applyOverride({
-      presetKey:   current.presetKey,
-      fromText:    current.fromText,
-      toText:      current.toText,
-      tickMinutes: Number.isFinite(minutes) && minutes > 0 ? minutes : null,
-    });
-  });
-}
-
 function clearPlaceholderContent(): void {
   for (const elementId of OWNED_MARKUP_CONTAINER_IDS) {
     DomUtil.setMarkup(elementId, '');
@@ -222,14 +89,19 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   const ticketStatusById     = new Map(tickets.map((ticket) => [ticket.id, ticket.status]));
   const waitingOnById        = WaitingOnUtil.waitingOnByTicketId(tickets);
   const preferences          = createViewerPreferences(progress.trackerId, () => window.localStorage);
-  let override               = preferences.readRangeOverride();
+  const progressController   = createProgressController({
+    payload,
+    ticketStatusById,
+    waitingOnById,
+    preferences,
+  });
 
   if (payload.pageScriptFailure !== null) {
     showLayoutFailure(payload.pageScriptFailure);
   }
 
   DomUtil.setText('ap-project', progress.project);
-  DomUtil.setMarkup('ap-summary', summaryStatsMarkup(progress.tasks, payload.concurrency));
+  progressController.showSummary();
 
   const logController = createLogController({
     entries:               progress.log,
@@ -241,13 +113,9 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   let todayCalendarDate = '';
 
   // Applied before the first layout, which measures the pinned columns this width sets.
-  let nameColumnWidth = preferences.readNameColumnWidth();
-  applyNameColumnWidth(nameColumnWidth);
+  progressController.applyNameColumnWidth();
 
-  const chart         = document.getElementById('ap-chart');
-  let visibility      = preferences.readWorkVisibility();
-  let visibleProgress = progress;
-
+  let visibility         = preferences.readWorkVisibility();
   const kanbanController = createKanbanController({
     tasks:                 progress.tasks,
     slices:                limits,
@@ -255,8 +123,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     readTodayCalendarDate: () => todayCalendarDate,
     readShowsAllWork:      () => visibility === 'all',
   });
-
-  const ticketsController = createTicketsController({ allTickets: tickets, waitingOnById, slices: limits });
+  const ticketsController      = createTicketsController({ allTickets: tickets, waitingOnById, slices: limits });
   const detailDialogController = createDetailDialogController({
     progress,
     tickets,
@@ -271,61 +138,20 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     const windowMilliseconds   = limits.doneWorkVisibleMilliseconds;
     const visibleTasks         = progress.tasks.filter((task) => showsAll || !VisibilityUtil.taskIsLongDone(task, nowEpochMilliseconds, windowMilliseconds));
     const visibleTickets       = tickets.filter((ticket) => showsAll || !VisibilityUtil.ticketIsLongDone(ticket, nowEpochMilliseconds, windowMilliseconds));
-    visibleProgress = { ...progress, tasks: visibleTasks };
+    progressController.showVisibleTasks(visibleTasks);
     todayCalendarDate = TimeUtil.calendarDateOf(nowEpochMilliseconds);
 
-    DomUtil.setShortenedText('ap-generated', generatedStampText(payload.generatedAtEpochMilliseconds, todayCalendarDate));
+    progressController.showGeneratedStamp(todayCalendarDate);
     logController.show();
     ticketsController.show(visibleTickets, todayCalendarDate);
     kanbanController.showCards(kanbanCardsFor(visibleTickets, progress.tasks, waitingOnById));
 
-    DomUtil.setText('ap-hidden-note', hiddenWorkNoteText(progress.tasks.length - visibleTasks.length, tickets.length - visibleTickets.length));
+    progressController.showHiddenNote(progress.tasks.length - visibleTasks.length, tickets.length - visibleTickets.length);
     DomUtil.reflectSegment('ap-visibility', 'visibility', visibility);
   };
 
-  const layOut = (bringNowIntoView: boolean): void => {
-    const nowEpochMilliseconds = Date.now();
-    const range: ViewRange     = ViewRangeUtil.effectiveRangeFor(visibleProgress, override, nowEpochMilliseconds, limits);
-    const timeline             = GeometryUtil.computeTimeline({
-      progress: visibleProgress,
-      range,
-      nowEpochMilliseconds,
-      limits,
-    });
-
-    const pinnedWidth     = pinnedColumnsWidth();
-    const availablePixels = chart === null ? 0 : Math.max(0, chart.clientWidth - pinnedWidth);
-    const neededPixels    = axisPixelsNeededFor(timeline.ticks);
-    const axisScrolls     = neededPixels > availablePixels;
-    const axisWidthPixels = axisScrolls ? neededPixels : availablePixels;
-    // Written first: every bar, tick, grid line and the marker is a percentage of this column.
-    chart?.style.setProperty('--timeline-w', axisScrolls ? `${Math.round(neededPixels)}px` : '1fr');
-
-    const placedTicks: PlacedTick[] = timeline.ticks.map((tick) => ({
-      ...tick,
-      labelSitsLeftOfItsLine: labelSitsLeftOfItsLine(tick, axisWidthPixels),
-    }));
-    DomUtil.setMarkup('ap-ticks', tickLayerMarkup(placedTicks));
-    DomUtil.setMarkup('ap-overlay', overlayMarkup(timeline.ticks, timeline.nowPercent));
-    DomUtil.setMarkup('ap-rows', taskRowsMarkup(taskRowsFor(visibleProgress, timeline, ticketStatusById, waitingOnById), limits));
-    DomUtil.setHidden('ap-chart-empty', visibleProgress.tasks.length > 0);
-
-    const rangeNote = rangeNoteText(timeline.fromEpochMilliseconds, timeline.toEpochMilliseconds, timeline.stepMinutes, TimeUtil.calendarDateOf(nowEpochMilliseconds), limits);
-    DomUtil.setShortenedText('ap-range-note', rangeNote);
-    reflectRangeBar(override);
-
-    if (bringNowIntoView && chart !== null && timeline.nowPercent !== null) {
-      scrollNowIntoView(chart, timeline.nowPercent, axisWidthPixels, pinnedWidth);
-    }
-  };
-
   detailDialogController.wire();
-
-  wireRangeBar(() => override, (next) => {
-    override = next;
-    preferences.writeRangeOverride(next);
-    layOut(true);
-  });
+  progressController.wireRangeBar();
 
   document.getElementById('ap-visibility')?.addEventListener('click', (event) => {
     const button = event.target instanceof Element ? event.target.closest('[data-visibility]') : null;
@@ -335,22 +161,15 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     visibility = workVisibilityFrom(button.dataset['visibility']);
     preferences.writeWorkVisibility(visibility);
     showVisibleWork();
-    layOut(true);
+    progressController.layOut(true);
   });
 
   logController.wire();
-
-  document.getElementById('ap-name-column')?.addEventListener('click', () => {
-    nameColumnWidth = toggledNameColumnWidth(nameColumnWidth);
-    preferences.writeNameColumnWidth(nameColumnWidth);
-    applyNameColumnWidth(nameColumnWidth);
-    layOut(false);
-  });
-
+  progressController.wireNameColumn();
   kanbanController.wire();
 
   window.addEventListener('resize', () => {
-    layOut(false);
+    progressController.layOut(false);
     kanbanController.updateOverflow();
   });
   window.addEventListener('hashchange', () => {
@@ -359,7 +178,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   });
 
   showVisibleWork();
-  layOut(true);
+  progressController.layOut(true);
   applyFragment(window.location.hash);
   kanbanController.updateOverflow();
 }
