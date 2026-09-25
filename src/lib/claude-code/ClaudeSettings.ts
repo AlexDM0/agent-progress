@@ -12,7 +12,7 @@ const CLAUDE_DIRECTORY_NAME = '.claude';
 
 const SETTINGS_FILE_NAME = 'settings.json';
 
-const SETTINGS_FILE_JSON_INDENT = 2;
+const SETTINGS_FILE_JSON_INDENT_SPACES = 2;
 
 /** Claude Code reads this one over the shared file and keeps it out of git, for a setting that belongs to one person rather than the repository. */
 const LOCAL_SETTINGS_FILE_NAME = 'settings.local.json';
@@ -147,7 +147,7 @@ export function writeSubagentStopHook(settingsFilePath: string, hook: SubagentSt
   hooksSection[SUBAGENT_STOP_EVENT_NAME] = eventGroups;
   settings[HOOKS_KEY] = hooksSection;
 
-  writeFileAtomically(settingsFilePath, `${JSON.stringify(settings, null, SETTINGS_FILE_JSON_INDENT)}\n`);
+  writeFileAtomically(settingsFilePath, `${JSON.stringify(settings, null, SETTINGS_FILE_JSON_INDENT_SPACES)}\n`);
   return settingsFileExisted ? 'added' : 'created';
 }
 
@@ -179,6 +179,6 @@ export function refreshSubagentStopHook(settingsFilePath: string, hook: Subagent
 
   hooksSection[SUBAGENT_STOP_EVENT_NAME] = refreshedGroups;
   settings[HOOKS_KEY] = hooksSection;
-  writeFileAtomically(settingsFilePath, `${JSON.stringify(settings, null, SETTINGS_FILE_JSON_INDENT)}\n`);
+  writeFileAtomically(settingsFilePath, `${JSON.stringify(settings, null, SETTINGS_FILE_JSON_INDENT_SPACES)}\n`);
   return 'updated';
 }
