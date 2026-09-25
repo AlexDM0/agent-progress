@@ -59,6 +59,12 @@ async function buildDispatchScript(mutant: SourceMutant | undefined): Promise<Di
   return { verdict: 'built', scriptText: `export const meta = ${JSON.stringify(DISPATCH_META, null, META_INDENT_SPACES)};\n${body}return await ${runnerLocalName}();\n` };
 }
 
+/** For a spec: the text of a bundle that built, while a failed one throws its reason so the test fails on it. */
+export function builtScriptTextOf(bundle: DispatchScriptBundle): string {
+  if (bundle.verdict === 'failed') throw new Error(bundle.reason);
+  return bundle.scriptText;
+}
+
 /** The unmutated bundle is built once per process; a mutant's is built each time. A failure is returned, never thrown. */
 export function bundleDispatchScript(mutant?: SourceMutant): Promise<DispatchScriptBundle> {
   if (mutant !== undefined) return buildDispatchScript(mutant);

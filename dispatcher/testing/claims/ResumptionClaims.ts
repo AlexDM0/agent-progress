@@ -3,7 +3,14 @@
  * after it, and the mutant that breaks exactly that decision.
  */
 import type { DispatchRun, DispatchScenario, RecordedAgentCall } from '../DispatchScriptHarness';
-import type { DispatchClaim }                                    from './DispatchClaim';
+import { DISPATCHER_MODULE_PATHS, type DispatchClaim }           from './DispatchClaim';
+
+const {
+  DISPATCH_RUN,
+  WORKFLOW_INPUT_UTIL,
+  AGENT_PROMPT_UTIL,
+  DISPATCH_WORDING_UTIL,
+} = DISPATCHER_MODULE_PATHS;
 
 interface ResumeSummary {
   delivered:           string[];
@@ -85,14 +92,14 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
         && run.rowsPaused.length === 0
         && run.rowsRunningAtEnd.length === 0;
     },
-    mutant: { find: '    resumablePausedBuildIds.push(pausedBuild.id);\n', replace: '' },
+    mutant: { modulePath: DISPATCH_RUN, find: '      this.resumablePausedBuildIds.push(pausedBuild.id);\n', replace: '' },
   },
   {
     name:        'the stopped run names the build it left paused in its summary',
     scenarioFor: stoppedMidBuildThenRelaunched,
     holds:       (run) => JSON.stringify(summaryOf(run.summary).pausedBuilds) === JSON.stringify([PAUSED_TICKET_ID])
       && summaryOf(run.relaunchSummary).pausedBuilds === undefined,
-    mutant: { find: '    ...(pausedBuildsLeft.length > 0 ? { pausedBuilds: pausedBuildsLeft } : {}),\n', replace: '' },
+    mutant: { modulePath: DISPATCH_RUN, find: 'pausedBuilds:       this.pausedBuildsLeft,', replace: 'pausedBuilds:       [],' },
   },
   {
     // Another run's label, a single-ticket run's here, is a claim the builder's own note does not match, so only the takeover sentence carries it on.
@@ -102,8 +109,9 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
       && callsOf(run, 'main', 'build', PAUSED_TICKET_ID).length === 1
       && run.rowsPaused.length === 0,
     mutant: {
-      find:    'if (settings.ticketIds === null && !pausedBuildTicketIds.has(ticketId)) return \'\';',
-      replace: 'if (settings.ticketIds === null) return \'\';',
+      modulePath: AGENT_PROMPT_UTIL,
+      find:       'if (settings.ticketIds === null && !pausedBuildWasFoundBySurvey) return \'\';',
+      replace:    'if (settings.ticketIds === null) return \'\';',
     },
   },
   {
@@ -114,8 +122,9 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
       && summaryOf(run.summary).delivered.join() === '002'
       && JSON.stringify(summaryOf(run.summary).held) === JSON.stringify([{ id: PAUSED_TICKET_ID, waitingFor: 'build' }]),
     mutant: {
-      find:    'resumablePausedBuildIds.filter((ticketId) => !ticketIdsTakenThisRun.has(ticketId) && !ticketIsHeld(ticketId));',
-      replace: 'resumablePausedBuildIds.filter((ticketId) => !ticketIdsTakenThisRun.has(ticketId));',
+      modulePath: DISPATCH_RUN,
+      find:       'resumablePausedBuildIds.filter((ticketId) => !this.ticketIdsTakenThisRun.has(ticketId) && !this.ticketIsHeld(ticketId));',
+      replace:    'resumablePausedBuildIds.filter((ticketId) => !this.ticketIdsTakenThisRun.has(ticketId));',
     },
   },
   {
@@ -125,7 +134,11 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
     holds:       (run) => callsOf(run, 'main', 'build', PAUSED_TICKET_ID).length === 0
       && run.rowsPaused.join() === `build ${PAUSED_TICKET_ID}`
       && summaryOf(run.summary).delivered.join() === '002',
-    mutant: { find: '    if (!noteIsADispatcherClaimOn(pausedBuild.note, pausedBuild.id)) continue;\n', replace: '' },
+    mutant: {
+      modulePath: DISPATCH_RUN,
+      find:       '      if (!DispatcherClaimNoteUtil.noteIsADispatcherClaimOn(pausedBuild.note, pausedBuild.id)) continue;\n',
+      replace:    '',
+    },
   },
   {
     name:        'resumed builders count against the limit like any other: three paused builds and a ready ticket never run past a limit of 2',
@@ -138,7 +151,7 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
       && run.mostLiveAgentsAtOnce <= 2
       && run.mostAgentsInFlightAtOnce <= 2
       && run.mostAgentsOnBoardAtOnce <= 2,
-    mutant: { find: 'Math.min(board.limit, CONCURRENCY_CEILING_AGENTS)', replace: 'CONCURRENCY_CEILING_AGENTS' },
+    mutant: { modulePath: DISPATCH_RUN, find: 'Math.min(statedLimit, LIMITS.CONCURRENCY_LIMIT_CEILING_AGENTS)', replace: 'LIMITS.CONCURRENCY_LIMIT_CEILING_AGENTS' },
   },
   {
     // The fail-review claim: `task start` keeps the other run's note unless given one, and the rebuild's claim check then reads the running row as
@@ -151,7 +164,7 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
     holds: (run) => summaryOf(run.summary).delivered.includes(PAUSED_TICKET_ID)
       && callsOf(run, 'main', 'build', PAUSED_TICKET_ID).length === 2
       && run.rowsRunningAtEnd.length === 0,
-    mutant: { find: '<that row> --note "${claimNoteOf(ticketId)}"', replace: '<that row>' },
+    mutant: { modulePath: AGENT_PROMPT_UTIL, find: '<that row> --note "${claimNote}"', replace: '<that row>' },
   },
   {
     name:        'the single-ticket fast lane resuming a whole-board pause does the same when its builder dies once',
@@ -163,14 +176,18 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
       builderReply:               takingOverBuilderDiesOnce,
     }),
     holds:  (run) => summaryOf(run.summary).delivered.join() === PAUSED_TICKET_ID && run.rowsRunningAtEnd.length === 0,
-    mutant: { find: '<that row> --note "${claimNoteOf(ticketId)}"', replace: '<that row>' },
+    mutant: { modulePath: AGENT_PROMPT_UTIL, find: '<that row> --note "${claimNote}"', replace: '<that row>' },
   },
   {
     name:        'at a limit of 1 a ready high ticket is built before a paused low build',
     scenarioFor: lowPausedBuildBesideHighReadyTicket(true),
     holds:       (run) => run.calls.filter((call) => call.kind === 'build').map((call) => call.ticketId).join() === `002,${PAUSED_TICKET_ID}`
       && summaryOf(run.summary).delivered.join() === `002,${PAUSED_TICKET_ID}`,
-    mutant: { find: 'priorityRankOf(pausedBuildPriorities.get(pausedBuildId)) <= priorityRankOf(readyTicketPriority)', replace: 'true' },
+    mutant: {
+      modulePath: DISPATCH_RUN,
+      find:       'this.priorityRankOf(this.pausedBuildPriorities.get(pausedBuildId)) <= this.priorityRankOf(readyTicketPriority)',
+      replace:    'true',
+    },
   },
   {
     // Low work waits for the orchestrator's triage whether it is new or paused; the summary is what tells it the relaunch needs includeLowPriority.
@@ -181,7 +198,7 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
       && summaryOf(run.summary).delivered.join() === '002'
       && JSON.stringify(summaryOf(run.summary).pausedBuilds) === JSON.stringify([PAUSED_TICKET_ID])
       && JSON.stringify(summaryOf(run.summary).lowPriorityWaiting) === JSON.stringify([PAUSED_TICKET_ID]),
-    mutant: { find: '    .filter((ticketId) => pausedBuildIsAdmitted(ticketId))\n', replace: '' },
+    mutant: { modulePath: DISPATCH_RUN, find: '      .filter((ticketId) => this.pausedBuildIsAdmitted(ticketId))\n', replace: '' },
   },
   {
     // The hold paused the takeover's row, and the board read that lifted it also showed the stop, so the build is paused but neither held nor started.
@@ -201,7 +218,7 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
     holds: (run) => JSON.stringify(summaryOf(run.summary).pausedBuilds) === JSON.stringify([PAUSED_TICKET_ID])
       && summaryOf(run.summary).held === undefined
       && run.rowsPaused.join() === `build ${PAUSED_TICKET_ID}`,
-    mutant: { find: '[...unheldBuildsWithPausedRows, ...untakenPausedBuildIds()]', replace: '[...untakenPausedBuildIds()]' },
+    mutant: { modulePath: DISPATCH_RUN, find: '[...unheldBuildsWithPausedRows, ...this.untakenPausedBuildIds()]', replace: '[...this.untakenPausedBuildIds()]' },
   },
   {
     // One review's bar was released for the next round's reviewer the stop kept out, the other review never started: both wait for the next survey.
@@ -218,7 +235,7 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
     holds: (run) => JSON.stringify(summaryOf(run.summary).reviewsLeft) === JSON.stringify([PAUSED_TICKET_ID, '002'])
       && callsOf(run, 'main', 'review', '002').length === 0
       && run.rowsRunningAtEnd.length === 0,
-    mutant: { find: '    ...(reviewsLeft.length > 0 ? { reviewsLeft } : {}),\n', replace: '' },
+    mutant: { modulePath: DISPATCH_WORDING_UTIL, find: '  if (outcome.reviewsLeft.length > 0) summary.reviewsLeft = outcome.reviewsLeft;\n', replace: '' },
   },
   {
     // A worktree gone means the build's commits and edits are gone with it, and a builder "carrying on" would start from nothing under an old claim.
@@ -227,7 +244,7 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
     holds:       (run) => callsOf(run, 'main', 'build', PAUSED_TICKET_ID).length === 0
       && run.rowsPaused.join() === `build ${PAUSED_TICKET_ID}`
       && summaryOf(run.summary).delivered.join() === '002',
-    mutant: { find: ' || pausedBuild.worktreeExists !== true', replace: '' },
+    mutant: { modulePath: WORKFLOW_INPUT_UTIL, find: ' || pausedBuild[\'worktreeExists\'] !== true', replace: '' },
   },
   {
     // A restart or a resume of a first pass finds its own claim running, never a paused row, so the resumption clause only lengthens its prompt.
@@ -242,6 +259,6 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
       return firstPass !== undefined && !firstPass.prompt.includes('task start <that row>')
         && rebuild !== undefined && rebuild.prompt.includes('task start <that row>');
     },
-    mutant: { find: '  if (previousPass === null && takeoverText === \'\') return \'\';\n', replace: '' },
+    mutant: { modulePath: AGENT_PROMPT_UTIL, find: '  if (previousPass === null && takeoverText === \'\') return \'\';\n', replace: '' },
   },
 ];

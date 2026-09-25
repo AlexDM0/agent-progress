@@ -149,8 +149,9 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
   checked by the captured context (`cli/testing/CapturedCommandContext.ts`), on a hook input's `cwd` and by
   `cli/testing/CliProcess.ts` before a command runs. A spec never creates the real process context, spawns the binary
   only through `cli/testing/CliProcess.ts`, and never calls `process.chdir`.
-- Each dispatcher decision pinned by the `dispatcher/testing/DispatchScriptHarness.spec.ts` suites also runs against a
-  mutant of the script that breaks exactly that decision, which must fail.
+- Each dispatcher decision pinned by the `dispatcher/Dispatcher.*.spec.ts` claim suites runs against the built bundle of
+  the TypeScript port, where it must hold, and against a SourceMutant of the module that holds that decision, which
+  must fail. A mutant whose text is not in its module exactly once fails the build.
 
 ### Documentation and commits
 
