@@ -1,18 +1,11 @@
-import {
-  addTask,
-  findTask,
-  removeTask,
-  transitionTask
-}                                             from '../../lib/progress/ProgressStore';
-import { readTicket }            from '../../lib/tickets/TicketStore';
-import { LegacyStatusUtil }      from '../../src/adapters/utils/LegacyStatusUtil';
-import type { ProgressFile }     from '../../src/lib/tracker-model/@types/ProgressFile';
-import type { Task, TaskStatus } from '../../src/lib/tracker-model/@types/Task';
-import { TASK_STATUSES }         from '../../src/lib/tracker-model/constants/Statuses';
-import { VocabularyUtil }        from '../../src/lib/tracker-model/utils/VocabularyUtil';
-import { OperationRefusal }      from '../../src/shared/OperationRefusal';
-import { VERB_FOR_STATUS }       from '../../src/shared/constants/StatusVerbs';
-import type { CommandContext }   from '../CommandContext';
+import { LegacyStatusUtil }    from '../../src/adapters/utils/LegacyStatusUtil';
+import type { TaskAnnotation } from '../../src/lib/tracker-model/@types/BoardChanges';
+import type { TaskStatus }     from '../../src/lib/tracker-model/@types/Task';
+import { TASK_STATUSES }       from '../../src/lib/tracker-model/constants/Statuses';
+import { VocabularyUtil }      from '../../src/lib/tracker-model/utils/VocabularyUtil';
+import { OperationRefusal }    from '../../src/shared/OperationRefusal';
+import { VERB_FOR_STATUS }     from '../../src/shared/constants/StatusVerbs';
+import type { CommandContext } from '../CommandContext';
 import {
   openTrackerForWriting,
   openTrackerForWritingThenReadNextLine,
@@ -67,34 +60,15 @@ function taskIdFrom(written: string | undefined, subcommand: string): number {
   return identifier;
 }
 
-function requireTask(progress: ProgressFile, taskId: number): Task {
-  const task = findTask(progress, taskId);
-  if (task === undefined) {
-    throw new OperationRefusal('refused', `There is no task #${taskId}. Run \`agent-progress status\` to see the rows this tracker holds.`);
-  }
-  return task;
-}
-
-/** A row a ticket owns moves through the `ticket` verbs so the two files cannot disagree; a pause and its resume are exempt. */
-function refuseATicketOwnedMove(task: Task, targetStatus: TaskStatus, movesAnyway: boolean): void {
-  if (task.ticket === null || movesAnyway) return;
-  if (targetStatus === 'paused') return;
-  if (targetStatus === 'in-progress' && task.status === 'paused') return;
-
-  throw new OperationRefusal(
-    'refused',
-    `Task #${task.id} belongs to ticket #${task.ticket}, so moving it here would leave the row and the ticket disagreeing. `
-    + `Run \`agent-progress ticket ${VERB_FOR_STATUS[targetStatus]} ${task.ticket}\` instead, which moves both, or pass --force to move only the row.`,
-  );
-}
-
-function applyOwnerNoteAndTokens(commandArguments: ArgumentParser, task: Task): void {
+function annotationFrom(commandArguments: ArgumentParser): TaskAnnotation {
   const owner  = commandArguments.option('owner');
   const note   = commandArguments.option('note');
   const tokens = tokenCountFrom(commandArguments);
-  if (owner !== undefined) task.owner = owner;
-  if (note !== undefined) task.note = note;
-  if (tokens !== undefined) task.tokens = tokens;
+  return {
+    ...(owner === undefined ? {} : { owner }),
+    ...(note === undefined ? {} : { note }),
+    ...(tokens === undefined ? {} : { tokens }),
+  };
 }
 
 async function addOneTask(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
@@ -113,60 +87,33 @@ async function addOneTask(commandArguments: ArgumentParser, context: CommandCont
   const startsNow         = commandArguments.flag('start');
   const movesTheLink      = commandArguments.flag('force');
 
-  const { result: task, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
-    const {
-      progress,
-      workspace,
-      at,
-      writeTicketAfterwards,
-    } = change;
-
-    const ticket = ticketReference === undefined ? null : readTicket(workspace, ticketReference);
-    if (ticketReference !== undefined && ticket === null) {
+  const { result: task, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, ({ board, at }) => {
+    const ticket = ticketReference === undefined ? undefined : board.ticketByReference(ticketReference);
+    if (ticketReference !== undefined && ticket === undefined) {
       throw new OperationRefusal(
         'refused',
         `There is no ticket ${ticketReference}. Run \`agent-progress ticket list\` to see the tickets this tracker holds.`,
       );
     }
 
-    const reviewedTicket = reviewedReference === undefined ? null : readTicket(workspace, reviewedReference);
-    if (reviewedReference !== undefined && reviewedTicket === null) {
+    const reviewedTicket = reviewedReference === undefined ? undefined : board.ticketByReference(reviewedReference);
+    if (reviewedReference !== undefined && reviewedTicket === undefined) {
       throw new OperationRefusal(
         'refused',
         `--review-of names ticket ${reviewedReference}, and there is none. Run \`agent-progress ticket list\` to see the tickets this tracker holds.`,
       );
     }
 
-    if (ticket !== null && ticket.frontmatter.task !== null) {
-      const alreadyLinked = findTask(progress, ticket.frontmatter.task);
-      if (alreadyLinked !== undefined) {
-        if (!movesTheLink) {
-          throw new OperationRefusal(
-            'refused',
-            `Ticket #${ticket.frontmatter.id} already has task #${alreadyLinked.id} ("${alreadyLinked.name}"). `
-            + 'Pass --force to move the ticket on to the new row, or leave --ticket off.',
-          );
-        }
-        alreadyLinked.ticket = null;
-      }
-    }
-
-    const created = addTask(progress, {
+    return board.addTask({
       name,
-      filedAt: at,
+      startsNow,
+      movesTheLink,
       ...(owner === undefined ? {} : { owner }),
       ...(note === undefined ? {} : { note }),
       ...(tokens === undefined ? {} : { tokens }),
-      ...(ticket === null ? {} : { ticket: ticket.frontmatter.id }),
-      ...(reviewedTicket === null ? {} : { reviewOf: reviewedTicket.frontmatter.id }),
-    });
-    if (startsNow) transitionTask(progress, created.id, 'in-progress', at);
-
-    if (ticket !== null) {
-      ticket.frontmatter.task = created.id;
-      writeTicketAfterwards(ticket);
-    }
-    return created;
+      ...(ticket === undefined ? {} : { ticketId: ticket.frontmatter.id }),
+      ...(reviewedTicket === undefined ? {} : { reviewOf: reviewedTicket.frontmatter.id }),
+    }, at);
   });
 
   const humanLine = `Task #${task.id} added: ${task.name}`;
@@ -190,12 +137,9 @@ async function transitionOneTask(
   const taskId      = taskIdFrom(commandArguments.positionals()[1], subcommand);
   const movesAnyway = commandArguments.flag('force');
 
-  const { result: task, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
-    const moved = requireTask(change.progress, taskId);
-    refuseATicketOwnedMove(moved, move.status, movesAnyway);
-    transitionTask(change.progress, taskId, move.status, change.at);
-    applyOwnerNoteAndTokens(commandArguments, moved);
-    return moved;
+  const { result: task, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, ({ board, at }) => {
+    board.moveTask(taskId, move.status, { movesAnyway }, at);
+    return board.annotateTask(taskId, annotationFrom(commandArguments));
   });
 
   printEntityThenNextLine(commandArguments, context, task, `Task #${task.id} ${move.spoken}: ${task.name}`, nextLine);
@@ -226,14 +170,13 @@ async function updateOneTask(commandArguments: ArgumentParser, context: CommandC
     );
   }
 
-  const task = await openTrackerForWriting(commandArguments, context, (change) => {
-    const updated = requireTask(change.progress, taskId);
-    if (status !== undefined) refuseATicketOwnedMove(updated, status, movesAnyway);
-    const name = commandArguments.option('name');
-    if (name !== undefined) updated.name = name;
-    applyOwnerNoteAndTokens(commandArguments, updated);
-    if (status !== undefined) updated.status = status;
-    return updated;
+  const name = commandArguments.option('name');
+  const task = await openTrackerForWriting(commandArguments, context, ({ board }) => {
+    board.correctTask(taskId, {
+      ...(name === undefined ? {} : { name }),
+      ...(status === undefined ? {} : { status }),
+    }, { movesAnyway });
+    return board.annotateTask(taskId, annotationFrom(commandArguments));
   });
 
   printEntity(commandArguments, context, task, `Task #${task.id} updated: ${task.name}`);
@@ -255,25 +198,7 @@ async function removeOneTask(commandArguments: ArgumentParser, context: CommandC
 
   const taskId = taskIdFrom(commandArguments.positionals()[1], 'remove');
 
-  const task = await openTrackerForWriting(commandArguments, context, (change) => {
-    const {
-      progress,
-      workspace,
-      writeTicketAfterwards,
-    } = change;
-    const removed = requireTask(progress, taskId);
-    removeTask(progress, taskId);
-
-    // Unlinked here so the two files agree at every moment both are on disk, rather than at the next transition.
-    if (removed.ticket !== null) {
-      const ticket = readTicket(workspace, removed.ticket);
-      if (ticket !== null && ticket.frontmatter.task === taskId) {
-        ticket.frontmatter.task = null;
-        writeTicketAfterwards(ticket);
-      }
-    }
-    return removed;
-  });
+  const task = await openTrackerForWriting(commandArguments, context, ({ board }) => board.removeTask(taskId));
 
   printEntity(commandArguments, context, task, `Task #${task.id} removed: ${task.name}`);
 }

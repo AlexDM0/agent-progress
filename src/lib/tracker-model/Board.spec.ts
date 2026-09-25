@@ -52,6 +52,11 @@ const CALLS_THAT_CHANGE_NO_TICKET: readonly (readonly [string, (board: Board) =>
   ['setConcurrencyLimit', (board) => board.setConcurrencyLimit(4, CHANGED_AT)],
   ['setDispatcherState', (board) => board.setDispatcherState('running', 'example-run', CHANGED_AT)],
   ['recordNote', (board) => board.recordNote('Example note from the orchestrator', CHANGED_AT)],
+  ['moveTask', (board) => board.moveTask(1, 'paused', { movesAnyway: false }, CHANGED_AT)],
+  ['correctTask', (board) => board.correctTask(1, { name: 'Example renamed row', status: 'in-review' }, { movesAnyway: true })],
+  ['annotateTask', (board) => board.annotateTask(1, { note: 'Example note', tokens: 0 })],
+  ['addTask without a ticket', (board) => board.addTask({ name: 'Example free-standing row', startsNow: true, movesTheLink: false }, CHANGED_AT)],
+  ['removeTask of a row no ticket names', (board) => board.removeTask(2)],
   ['tasks', (board) => board.tasks()],
   ['tickets', (board) => board.tickets()],
   ['taskById', (board) => board.taskById(1)],
@@ -62,6 +67,13 @@ const CALLS_THAT_CHANGE_NO_TICKET: readonly (readonly [string, (board: Board) =>
   ['changedTickets', (board) => board.changedTickets()],
 ];
 
+const CALLS_THAT_CHANGE_A_TICKET: readonly (readonly [string, (board: Board) => unknown, readonly string[]])[] = [
+  ['addTask for a ticket', (board) => board.addTask({
+    name: 'Example basket badge row', ticketId: '002', startsNow: false, movesTheLink: false 
+  }, CHANGED_AT), ['002']],
+  ['removeTask of the row a ticket names', (board) => board.removeTask(1), ['001']],
+];
+
 describe('the tickets a method marks changed', () => {
   for (const [methodName, call] of CALLS_THAT_CHANGE_NO_TICKET) {
     // Marking one of these would rewrite a ticket file that nothing changed, which a person editing it by hand would lose.
@@ -69,6 +81,15 @@ describe('the tickets a method marks changed', () => {
       const { board } = populatedBoardFixture();
       call(board);
       expect(board.changedTickets()).toEqual([]);
+    });
+  }
+
+  for (const [methodName, call, changedTicketIds] of CALLS_THAT_CHANGE_A_TICKET) {
+    // A ticket the Board changed and did not mark would never reach its file, and the row and the ticket would disagree on disk.
+    test(`${methodName} marks ${changedTicketIds.map((ticketId) => `#${ticketId}`).join(', ')} changed`, () => {
+      const { board } = populatedBoardFixture();
+      call(board);
+      expect(board.changedTickets().map((ticket) => ticket.frontmatter.id)).toEqual([...changedTicketIds]);
     });
   }
 });
