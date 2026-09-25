@@ -18,15 +18,7 @@ export interface TranscriptUsageTotals {
   oversizedContextTokens:   number;
 }
 
-/**
- * The totals plus what explains them, which is what a caller compares agents by.
- * Every added field answers a question the totals alone cannot: when the agent ran, which model it
- * ran on, whether it spent its calls in a screenshot loop (`browserCallCount`), how much of its
- * length the harness injected rather than the brief (`nestedInstructionCharacters`), whether it edited
- * files by shelling out instead of by the editing tools (`bashEditScriptCount`) and ran the full
- * checks after every edit rather than after a batch (`verificationRunCount`), and what it was asked to
- * do (`briefExcerpt`). A field a transcript does not carry is `null` or zero, never a throw.
- */
+/** The totals plus what explains them, for comparing agents. A field a transcript does not carry is `null` or zero, never a throw. */
 export interface TranscriptProfile extends TranscriptUsageTotals {
   startedAt:                   string | null;
   model:                       string | null;
@@ -111,17 +103,8 @@ function assistantUsageIn(line: string): { messageIdentifier: string | undefined
 }
 
 /**
- * Sums usage per API call, never per line, and **every caller depends on that direction**. One call is
- * stored as several assistant lines sharing a `message.id` — one per content block — each repeating
- * the same input figures, with the last carrying the final output count. So the input figures are
- * taken once per id and the output is the largest value seen for that id. Measured on a 466-line
- * transcript: 297 calls, where summing every line overstated input by about half.
- *
- * A line that is not JSON, is not an assistant entry, or carries no `message.usage` is skipped rather
- * than treated as an error: a transcript also records the user turns, the tool results and a final
- * line that may still be half-written. A message with no id is counted as a call of its own, because
- * the alternative — folding every idless line into one bucket — would lose calls rather than merge
- * them. An empty transcript answers zero calls, which is what the caller reports instead of a line.
+ * Sums per API call (`message.id`), never per line: one call spans several lines that repeat its input, so input counts once per id and
+ * output is the largest seen. Lines that are not assistant usage are skipped, and a message with no id counts as a call of its own.
  */
 function summariseTranscriptUsage(transcriptText: string, oversizedContextThresholdTokens: number): TranscriptUsageTotals {
   const totals: TranscriptUsageTotals = {
@@ -203,16 +186,7 @@ function commandMatchesAny(command: string, fragments: readonly string[]): boole
   return fragments.some((fragment) => command.includes(fragment));
 }
 
-/**
- * Walks the whole parsed line rather than a known field, and is run over **every** line rather than
- * over the user turns. Measured on 207 subagent transcripts of the `company-builder` build on
- * 2026-09-19: all 404 real attachments sat on lines of their own, of type `attachment`, carrying the
- * object as `entry.attachment`. The 16 further hits on `user` and `assistant` lines were agents
- * writing the word in prose, and none of them held an attachment object — which is why the match is
- * on the object's shape and never on the text of the line.
- *
- * Only the injected text is counted; the `path` beside it is bookkeeping, not context the agent paid for.
- */
+/** Matches the attachment object's shape anywhere in the entry, never the line's text, and counts only the injected text, not its `path`. */
 function nestedInstructionCharactersIn(value: unknown): number {
   if (Array.isArray(value)) {
     return (value as unknown[]).reduce((running: number, item: unknown) => running + nestedInstructionCharactersIn(item), 0);
@@ -294,16 +268,8 @@ function totalInputTokensOf(totals: TranscriptUsageTotals): number {
 }
 
 /**
- * The totals of `summariseTranscriptUsage` plus the fields that explain them, in one pass over
- * the same text. `startedAt` is the first `timestamp` any line carries, whatever its type, because
- * the harness stamps the user turn that opened the agent and that is when the agent began; a
- * transcript with no stamp at all answers `null` rather than the epoch, so a cohort split can leave
- * it out of the side it cannot prove it belongs to.
- *
- * **The excerpt is taken from the brief, the first user turn that has spoken text, not from the first
- * user line**: the opening line of a subagent transcript is routinely nothing but injected attachments,
- * and an excerpt read off it would name a `CLAUDE.md` in every row instead of the brief. A workflow
- * agent's brief is its computed task, excerpted from the script's prompt after the harness's preamble.
+ * `startedAt` is the first `timestamp` on any line, or `null` rather than the epoch. The excerpt comes from the first user turn with spoken
+ * text, because a subagent's opening line is often only injected attachments.
  */
 function profileTranscript(transcriptText: string, oversizedContextThresholdTokens: number): TranscriptProfile {
   const profile: TranscriptProfile = {
