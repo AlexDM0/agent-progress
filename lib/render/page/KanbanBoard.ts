@@ -107,6 +107,7 @@ function idNumberOf(card: KanbanCard): number {
 export function cardsInLane(cards: readonly KanbanCard[], lane: KanbanLane): KanbanCard[] {
   const members = cards.filter((card) => laneOfState(card.state) === lane);
   if (laneIsClosed(lane)) {
+    // Sorting by closing stamp is a stated clock exception that decides only the order the cards are shown in.
     return members.toSorted((a, b) => {
       const newerFirst = epochMillisecondsOrOldest(closingStampOf(b.ticket, lane)) - epochMillisecondsOrOldest(closingStampOf(a.ticket, lane));
       return (Number.isNaN(newerFirst) ? 0 : newerFirst) || idNumberOf(b) - idNumberOf(a);

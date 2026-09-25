@@ -4,9 +4,8 @@
  * the newest once that one is released or stale, and releasing is creating the next as a released record,
  * so no step ever removes or replaces a record another process may have just written.
  *
- * This is one of the stated exceptions where a clock decides anything, and the time it compares is
- * one the tool itself wrote into the record; the fallback to the record file's own mtime is reached
- * only when that record cannot be read, and fails closed in both directions.
+ * A stated exception to "a clock decides nothing": it decides only lock staleness, against a time the tool itself wrote. The fallback to the
+ * record's own mtime is reached only when the record is missing, unparseable or holds an unparseable time, and fails closed both ways.
  */
 import { randomUUID } from 'crypto';
 import {

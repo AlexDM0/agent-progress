@@ -41,7 +41,10 @@ export function fullStampText(stamp: string, slices: StampTextSlices): string {
   return stamp.slice(0, slices.dateAndClockLength).replace('T', ' ');
 }
 
-/** Sliced, never parsed: the stamp keeps the wall clock and the offset of the machine that recorded it, so its date is compared as written. */
+/**
+ * Sliced, never parsed: the stamp keeps the wall clock and the offset of the machine that recorded it, so its date is compared as written.
+ * Comparing with the viewer's day is a stated clock exception that decides only the text printed.
+ */
 export function shortStampText(stamp: string, todayCalendarDate: string, slices: StampTextSlices): string {
   if (stamp.slice(0, slices.calendarDateLength) === todayCalendarDate) {
     return stamp.slice(slices.clockSliceStart, slices.clockSliceEnd);

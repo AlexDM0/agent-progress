@@ -23,6 +23,7 @@ function epochMillisecondsOf(text: string | null): number | null {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
+// Comparing with now is a stated clock exception that decides only what the page shows, never what is stored.
 function doneLongerThan(doneAt: string | null, nowEpochMilliseconds: number, windowMilliseconds: number): boolean {
   const doneEpochMilliseconds = epochMillisecondsOf(doneAt);
   return doneEpochMilliseconds !== null && nowEpochMilliseconds - doneEpochMilliseconds > windowMilliseconds;

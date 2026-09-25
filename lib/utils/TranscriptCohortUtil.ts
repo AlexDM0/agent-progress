@@ -73,10 +73,10 @@ function summariseCohort(profiles: readonly TranscriptProfile[]): CohortSummary 
 }
 
 /**
- * Splits a cohort on an instant: `before` is everything that started strictly earlier, `after`
- * everything that started at the instant or later. **A profile whose transcript carries no readable
- * stamp goes into `before`**, which is the closed answer: an agent that cannot be shown to have run
- * after the change must not be counted as evidence that the change helped.
+ * Splits a cohort on an instant: `before` started strictly earlier, `after` at the instant or later. Comparing each transcript's first
+ * harness-written stamp with the instant is a stated clock exception that decides only which cohort a transcript is summarised in.
+ * **A profile whose transcript carries no readable stamp goes into `before`**, which is the closed answer: an agent that cannot be shown
+ * to have run after the change must not be counted as evidence that the change helped.
  */
 function splitAt(profiles: readonly TranscriptProfile[], instant: Date): CohortSplit {
   const split: CohortSplit = { before: [], after: [] };
