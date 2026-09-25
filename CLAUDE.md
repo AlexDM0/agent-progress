@@ -26,7 +26,9 @@ the plan is specific it wins; these rules decide the rest.
   contract, not through a caller. An app-wide list is one global object: `LIMITS` in `lib/constants/Limits.ts`.
 - Code starts beside its only consumer and moves on a second consumer, generalised first; never in anticipation.
 - Full, descriptive names, no abbreviations. Only a loop `i` and a comparator `(a, b)` are one letter; callbacks,
-  destructured bindings and throwaway scripts are not exempt. Never a name that shadows a global.
+  destructured bindings and throwaway scripts are not exempt.
+- Name a thing for what it is or does, never for its layer or its history, and never with a name that shadows a
+  global (`CorpusMap.ts`, not `Map.ts`).
 - A function that answers a question is the question (`sourceIsReachable`); a producer is named for its product
   (`fullTextOf`); a boolean is a predicate phrase (`cleanupHandlersAreInstalled`).
 - Design constants are `SCREAMING_CASE`, named for what they bound, with the unit. No magic number inline.
@@ -39,8 +41,9 @@ the plan is specific it wins; these rules decide the rest.
 lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/, lib/tickets/, lib/render/  →  cli/
 ```
 
-- Imports run up only, with no cycles. `lib/constants/` imports nothing; `lib/utils/` imports only `lib/constants/`;
-  neither imports a package or a builtin. Nothing under `lib/` imports `cli/`, nothing that ships imports
+- Imports run up only, with no cycles. `lib/constants/` imports nothing outside itself; `lib/utils/` imports only
+  itself and `lib/constants/`; neither imports a package or a builtin (a spec beside them may import `bun:test`).
+  Nothing under `lib/` imports `cli/`, nothing that ships imports
   `lib/tooling/dev/`, and `agent-progress.ts` imports only `cli/`.
 - A feature folder never imports a sibling: hoist what both need, or pass a structurally typed parameter.
 - The target layout's import rules are in section 2 of `docs/migration-plan.md`.
@@ -81,8 +84,9 @@ lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/, lib/tic
 
 ### Generated and installed files
 
-- Generated files do not live in the repository, and everything installed elsewhere carries one install version.
-  The committed dispatcher under `templates/workflows/` is the exception until plan step 8.
+- Generated files do not live in the repository, and everything installed elsewhere is to carry one install
+  version. Until plan step 8, nothing is stamped or refused on a mismatch, and the dispatcher is committed under
+  `templates/workflows/`.
 
 ### Comments
 
