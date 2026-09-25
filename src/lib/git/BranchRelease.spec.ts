@@ -15,9 +15,12 @@ import {
 
 import {
   addWorktree,
+  commitFile,
   createScratchDirectory,
   createScratchGitRepository,
+  currentBranchOf,
   gitIsAvailable,
+  gitOutputIn,
   removeScratchDirectory
 } from '../../testing/ScratchWorkspace';
 import {
@@ -27,8 +30,6 @@ import {
   readCurrentBranch,
   removeWorktree
 } from './BranchRelease';
-
-const COMMIT_IDENTITY_ARGUMENTS = ['-c', 'user.name=Alex Example', '-c', 'user.email=alex.example@example.com', '-c', 'commit.gpgsign=false'];
 
 const scratchDirectories: string[] = [];
 
@@ -44,25 +45,6 @@ function scratchDirectory(prefix: string): string {
   return directory;
 }
 
-function runGit(workingDirectory: string, gitArguments: readonly string[]): string {
-  const finished = Bun.spawnSync(['git', ...gitArguments], { cwd: workingDirectory, stdout: 'pipe', stderr: 'pipe' });
-  if (finished.exitCode !== 0) {
-    throw new Error(`git ${gitArguments.join(' ')} failed in ${workingDirectory}: ${new TextDecoder().decode(finished.stderr).trim()}`);
-  }
-  return new TextDecoder().decode(finished.stdout).trim();
-}
-
-function commitFile(repositoryDirectory: string, fileName: string, content: string): string {
-  writeFileSync(join(repositoryDirectory, fileName), content);
-  runGit(repositoryDirectory, ['add', '--', fileName]);
-  runGit(repositoryDirectory, [...COMMIT_IDENTITY_ARGUMENTS, 'commit', '-q', '-m', `Change ${fileName}`]);
-  return runGit(repositoryDirectory, ['rev-parse', 'HEAD']);
-}
-
-function mainLineOf(repositoryDirectory: string): string {
-  return runGit(repositoryDirectory, ['symbolic-ref', '--short', 'HEAD']);
-}
-
 afterAll(() => {
   for (const directory of scratchDirectories) removeScratchDirectory(directory);
 });
@@ -70,12 +52,12 @@ afterAll(() => {
 describe.skipIf(!gitIsAvailable())('the branch the main checkout is on', () => {
   test('a checkout on a branch reads on-branch with that branch\'s name', () => {
     const repositoryDirectory = scratchGitRepository('branch-release-on-branch');
-    expect(readCurrentBranch(repositoryDirectory)).toEqual({ verdict: 'on-branch', branch: mainLineOf(repositoryDirectory) });
+    expect(readCurrentBranch(repositoryDirectory)).toEqual({ verdict: 'on-branch', branch: currentBranchOf(repositoryDirectory) });
   });
 
   test('a detached HEAD reads detached, not as a git failure', () => {
     const repositoryDirectory = scratchGitRepository('branch-release-detached');
-    runGit(repositoryDirectory, ['checkout', '-q', '--detach']);
+    gitOutputIn(repositoryDirectory, ['checkout', '-q', '--detach']);
     expect(readCurrentBranch(repositoryDirectory)).toEqual({ verdict: 'detached' });
   });
 
@@ -91,9 +73,9 @@ describe.skipIf(!gitIsAvailable())('the branch the main checkout is on', () => {
 describe.skipIf(!gitIsAvailable())('whether a branch descends from the main line', () => {
   test('a branch built on the main line\'s tip is a descendant, with both commits named', () => {
     const repositoryDirectory = scratchGitRepository('branch-release-descendant');
-    const mainLine            = mainLineOf(repositoryDirectory);
-    const mainLineCommit      = runGit(repositoryDirectory, ['rev-parse', 'HEAD']);
-    runGit(repositoryDirectory, ['checkout', '-q', '-b', 'feature']);
+    const mainLine            = currentBranchOf(repositoryDirectory);
+    const mainLineCommit      = gitOutputIn(repositoryDirectory, ['rev-parse', 'HEAD']);
+    gitOutputIn(repositoryDirectory, ['checkout', '-q', '-b', 'feature']);
     const branchCommit = commitFile(repositoryDirectory, 'feature.txt', 'feature\n');
 
     expect(readBranchDescent(repositoryDirectory, 'feature', mainLine)).toEqual({ verdict: 'descendant', branchCommit, mainLineCommit });
@@ -101,10 +83,10 @@ describe.skipIf(!gitIsAvailable())('whether a branch descends from the main line
 
   test('a branch missing a commit the main line gained is not a descendant', () => {
     const repositoryDirectory = scratchGitRepository('branch-release-not-descendant');
-    const mainLine            = mainLineOf(repositoryDirectory);
-    runGit(repositoryDirectory, ['checkout', '-q', '-b', 'feature']);
+    const mainLine            = currentBranchOf(repositoryDirectory);
+    gitOutputIn(repositoryDirectory, ['checkout', '-q', '-b', 'feature']);
     const branchCommit = commitFile(repositoryDirectory, 'feature.txt', 'feature\n');
-    runGit(repositoryDirectory, ['checkout', '-q', mainLine]);
+    gitOutputIn(repositoryDirectory, ['checkout', '-q', mainLine]);
     const mainLineCommit = commitFile(repositoryDirectory, 'main.txt', 'main\n');
 
     expect(readBranchDescent(repositoryDirectory, 'feature', mainLine)).toEqual({ verdict: 'not-a-descendant', branchCommit, mainLineCommit });
@@ -112,19 +94,19 @@ describe.skipIf(!gitIsAvailable())('whether a branch descends from the main line
 
   test('a branch that does not exist reads unknown-branch', () => {
     const repositoryDirectory = scratchGitRepository('branch-release-unknown-branch');
-    expect(readBranchDescent(repositoryDirectory, 'no-such-branch', mainLineOf(repositoryDirectory))).toEqual({ verdict: 'unknown-branch' });
+    expect(readBranchDescent(repositoryDirectory, 'no-such-branch', currentBranchOf(repositoryDirectory))).toEqual({ verdict: 'unknown-branch' });
   });
 
   test('a main line that does not exist reads unknown-main-line', () => {
     const repositoryDirectory = scratchGitRepository('branch-release-unknown-main-line');
-    runGit(repositoryDirectory, ['branch', 'feature']);
+    gitOutputIn(repositoryDirectory, ['branch', 'feature']);
     expect(readBranchDescent(repositoryDirectory, 'feature', 'no-such-main-line')).toEqual({ verdict: 'unknown-main-line' });
   });
 
   // A branch name comes from a ticket a person or an agent wrote, so an option-shaped one must never reach git as an option.
   test('a branch named like an option is looked up, reads unknown-branch, and writes no file', () => {
     const repositoryDirectory = scratchGitRepository('branch-release-option-branch');
-    expect(readBranchDescent(repositoryDirectory, '--output=x', mainLineOf(repositoryDirectory))).toEqual({ verdict: 'unknown-branch' });
+    expect(readBranchDescent(repositoryDirectory, '--output=x', currentBranchOf(repositoryDirectory))).toEqual({ verdict: 'unknown-branch' });
     expect(existsSync(join(repositoryDirectory, 'x'))).toBe(false);
   });
 });
@@ -132,28 +114,28 @@ describe.skipIf(!gitIsAvailable())('whether a branch descends from the main line
 describe.skipIf(!gitIsAvailable())('the fast-forward', () => {
   test('a commit ahead of the main line is fast-forwarded to and left at HEAD', () => {
     const repositoryDirectory = scratchGitRepository('branch-release-fast-forward');
-    const mainLine            = mainLineOf(repositoryDirectory);
-    runGit(repositoryDirectory, ['checkout', '-q', '-b', 'feature']);
+    const mainLine            = currentBranchOf(repositoryDirectory);
+    gitOutputIn(repositoryDirectory, ['checkout', '-q', '-b', 'feature']);
     const branchCommit = commitFile(repositoryDirectory, 'feature.txt', 'feature\n');
-    runGit(repositoryDirectory, ['checkout', '-q', mainLine]);
+    gitOutputIn(repositoryDirectory, ['checkout', '-q', mainLine]);
 
     expect(fastForwardTo(repositoryDirectory, branchCommit)).toEqual({ verdict: 'fast-forwarded', commit: branchCommit });
-    expect(runGit(repositoryDirectory, ['rev-parse', 'HEAD'])).toBe(branchCommit);
+    expect(gitOutputIn(repositoryDirectory, ['rev-parse', 'HEAD'])).toBe(branchCommit);
   });
 
   test('a main line that has diverged is refused with git\'s reason, and HEAD stays where it was', () => {
     const repositoryDirectory = scratchGitRepository('branch-release-diverged');
-    const mainLine            = mainLineOf(repositoryDirectory);
-    runGit(repositoryDirectory, ['checkout', '-q', '-b', 'feature']);
+    const mainLine            = currentBranchOf(repositoryDirectory);
+    gitOutputIn(repositoryDirectory, ['checkout', '-q', '-b', 'feature']);
     const branchCommit = commitFile(repositoryDirectory, 'feature.txt', 'feature\n');
-    runGit(repositoryDirectory, ['checkout', '-q', mainLine]);
+    gitOutputIn(repositoryDirectory, ['checkout', '-q', mainLine]);
     const mainLineCommit = commitFile(repositoryDirectory, 'main.txt', 'main\n');
 
     const outcome = fastForwardTo(repositoryDirectory, branchCommit);
     expect(outcome.verdict).toBe('refused');
     if (outcome.verdict !== 'refused') return;
     expect(outcome.reason.startsWith(`git merge --ff-only --quiet ${branchCommit} exited with`)).toBe(true);
-    expect(runGit(repositoryDirectory, ['rev-parse', 'HEAD'])).toBe(mainLineCommit);
+    expect(gitOutputIn(repositoryDirectory, ['rev-parse', 'HEAD'])).toBe(mainLineCommit);
   });
 });
 
@@ -186,23 +168,23 @@ describe.skipIf(!gitIsAvailable())('removing the worktree', () => {
 describe.skipIf(!gitIsAvailable())('deleting the released branch', () => {
   test('a branch the main checkout\'s HEAD holds is deleted', () => {
     const repositoryDirectory = scratchGitRepository('branch-release-merged-branch');
-    runGit(repositoryDirectory, ['branch', 'merged-work']);
+    gitOutputIn(repositoryDirectory, ['branch', 'merged-work']);
 
     expect(deleteMergedBranch(repositoryDirectory, 'merged-work')).toEqual({ verdict: 'deleted' });
-    expect(runGit(repositoryDirectory, ['branch', '--list', 'merged-work'])).toBe('');
+    expect(gitOutputIn(repositoryDirectory, ['branch', '--list', 'merged-work'])).toBe('');
   });
 
   test('a branch holding unmerged work is left, with git\'s reason', () => {
     const repositoryDirectory = scratchGitRepository('branch-release-unmerged-branch');
-    const mainLine            = mainLineOf(repositoryDirectory);
-    runGit(repositoryDirectory, ['checkout', '-q', '-b', 'unmerged-work']);
+    const mainLine            = currentBranchOf(repositoryDirectory);
+    gitOutputIn(repositoryDirectory, ['checkout', '-q', '-b', 'unmerged-work']);
     commitFile(repositoryDirectory, 'feature.txt', 'feature\n');
-    runGit(repositoryDirectory, ['checkout', '-q', mainLine]);
+    gitOutputIn(repositoryDirectory, ['checkout', '-q', mainLine]);
 
     const outcome = deleteMergedBranch(repositoryDirectory, 'unmerged-work');
     expect(outcome.verdict).toBe('left');
     if (outcome.verdict !== 'left') return;
     expect(outcome.reason.startsWith('git branch -d')).toBe(true);
-    expect(runGit(repositoryDirectory, ['branch', '--list', 'unmerged-work'])).not.toBe('');
+    expect(gitOutputIn(repositoryDirectory, ['branch', '--list', 'unmerged-work'])).not.toBe('');
   });
 });
