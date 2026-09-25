@@ -175,7 +175,7 @@ function logEntryProblem(value: unknown, index: number): string | null {
   return null;
 }
 
-function replaceRetiredStatusWord(record: unknown): void {
+function replaceRetiredTaskStatusWord(record: unknown): void {
   if (typeof record !== 'object' || record === null) return;
   const candidate = record as Record<string, unknown>;
   if (typeof candidate['status'] !== 'string') return;
@@ -188,9 +188,9 @@ function replaceRetiredTaskStatusWords(parsed: unknown): void {
   const { tasks } = parsed as Record<string, unknown>;
   if (!Array.isArray(tasks)) return;
   for (const task of tasks) {
-    replaceRetiredStatusWord(task);
+    replaceRetiredTaskStatusWord(task);
     const history = typeof task === 'object' && task !== null ? (task as Record<string, unknown>)['history'] : undefined;
-    if (Array.isArray(history)) history.forEach(replaceRetiredStatusWord);
+    if (Array.isArray(history)) history.forEach(replaceRetiredTaskStatusWord);
   }
 }
 
