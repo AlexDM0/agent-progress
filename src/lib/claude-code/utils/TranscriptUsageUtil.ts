@@ -29,9 +29,6 @@ export interface TranscriptProfile extends TranscriptUsageTotals {
   briefExcerpt:                string;
 }
 
-/** Long enough to tell two briefs apart on one terminal row and short enough that the row still fits beside the figures. */
-const BRIEF_EXCERPT_CHARACTERS = 80;
-
 /** Matched as a fragment because the harness spells the browser tools `mcp__Claude_Browser__computer`, `…__navigate` and a dozen more. */
 const BROWSER_TOOL_NAME_FRAGMENT = 'Claude_Browser';
 
@@ -224,10 +221,10 @@ function scriptPromptOf(computedTask: string): string {
 }
 
 /** A workflow run started without a user request opens on the computed task itself, so the preamble is removed whether or not a relay came first. */
-function briefExcerptOf(transcriptText: string): string {
+function briefExcerptOf(transcriptText: string, briefExcerptCharacters: number): string {
   const briefText     = briefTextOf(transcriptText);
   const excerptSource = briefText.trimStart().startsWith(WORKFLOW_COMPUTED_TASK_PREFIX) ? scriptPromptOf(briefText) : briefText;
-  return excerptSource.replace(/\s+/g, ' ').trim().slice(0, BRIEF_EXCERPT_CHARACTERS);
+  return excerptSource.replace(/\s+/g, ' ').trim().slice(0, briefExcerptCharacters);
 }
 
 function* spokenUserTurnsOf(transcriptText: string): Generator<string> {
@@ -269,9 +266,9 @@ function totalInputTokensOf(totals: TranscriptUsageTotals): number {
 
 /**
  * `startedAt` is the first `timestamp` on any line, or `null` rather than the epoch. The excerpt comes from the first user turn with spoken
- * text, because a subagent's opening line is often only injected attachments.
+ * text, because a subagent's opening line is often only injected attachments, and is one line cut to the caller's length.
  */
-function profileTranscript(transcriptText: string, oversizedContextThresholdTokens: number): TranscriptProfile {
+function profileTranscript(transcriptText: string, oversizedContextThresholdTokens: number, briefExcerptCharacters: number): TranscriptProfile {
   const profile: TranscriptProfile = {
     ...summariseTranscriptUsage(transcriptText, oversizedContextThresholdTokens),
     startedAt:                   null,
@@ -280,7 +277,7 @@ function profileTranscript(transcriptText: string, oversizedContextThresholdToke
     bashEditScriptCount:         0,
     verificationRunCount:        0,
     nestedInstructionCharacters: 0,
-    briefExcerpt:                briefExcerptOf(transcriptText),
+    briefExcerpt:                briefExcerptOf(transcriptText, briefExcerptCharacters),
   };
 
   for (const line of transcriptText.split('\n')) {

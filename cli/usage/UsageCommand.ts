@@ -26,6 +26,9 @@ const KNOWN_OPTION_NAMES = ['since', 'transcripts', 'json'];
 
 const MEAN_CALL_COUNT_DECIMALS = 1;
 
+/** Long enough to tell two briefs apart on one terminal row and short enough that the row still fits beside the figures. */
+const BRIEF_EXCERPT_CHARACTERS = 80;
+
 const PERCENT_OF_A_WHOLE = 100;
 
 /** Each width holds the wider of its header and its figures; the end-context column is the broad one because its header is, not its numbers. */
@@ -73,7 +76,7 @@ function transcriptTextAt(transcriptPath: string): string | undefined {
 }
 
 function agentUsageFor(transcript: SubagentTranscript, transcriptText: string): AgentUsage {
-  const profile = TranscriptUsageUtil.profileTranscript(transcriptText, LIMITS.OVERSIZED_CONTEXT_THRESHOLD_TOKENS);
+  const profile = TranscriptUsageUtil.profileTranscript(transcriptText, LIMITS.OVERSIZED_CONTEXT_THRESHOLD_TOKENS, BRIEF_EXCERPT_CHARACTERS);
   return {
     ...profile,
     sessionIdentifier: transcript.sessionIdentifier,
