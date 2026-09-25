@@ -7,10 +7,12 @@ import type {
   ProgressFile,
   ViewRange
 } from '../../src/lib/tracker-model/@types/ProgressFile';
-import type { Task, TaskPhase, TaskStatus }                    from '../../src/lib/tracker-model/@types/Task';
-import { LIMITS }                                              from '../../src/shared/constants/Limits';
-import { DISPATCHER_STATES, TASK_STATUSES, taskStatusIsKnown } from '../constants/Statuses';
-import type { Workspace }                                      from '../platform/Workspace';
+import type { Task, TaskPhase, TaskStatus } from '../../src/lib/tracker-model/@types/Task';
+import { DISPATCHER_STATES }                from '../../src/lib/tracker-model/constants/DispatcherStates';
+import { TASK_STATUSES }                    from '../../src/lib/tracker-model/constants/Statuses';
+import { VocabularyUtil }                   from '../../src/lib/tracker-model/utils/VocabularyUtil';
+import { LIMITS }                           from '../../src/shared/constants/Limits';
+import type { Workspace }                   from '../platform/Workspace';
 
 /** Checked by equality: a future format is refused rather than half-read. */
 const SUPPORTED_PROGRESS_VERSION = 1;
@@ -130,7 +132,7 @@ function reviewRoundIsWellFormed(value: unknown): value is number {
 function taskPhaseIsWellFormed(value: unknown): value is TaskPhase {
   if (typeof value !== 'object' || value === null) return false;
   const phase = value as Record<string, unknown>;
-  if (typeof phase['status'] !== 'string' || !taskStatusIsKnown(phase['status'])) return false;
+  if (typeof phase['status'] !== 'string' || !VocabularyUtil.taskStatusIsKnown(phase['status'])) return false;
   return typeof phase['at'] === 'string';
 }
 
@@ -143,7 +145,7 @@ function taskProblem(value: unknown, index: number): string | null {
   const task = value as Record<string, unknown>;
   if (typeof task['id'] !== 'number' || !Number.isSafeInteger(task['id'])) return `tasks[${index}].id is not a whole number`;
   if (!textFieldIsPresent(task, 'name')) return `tasks[${index}].name is not a string`;
-  if (typeof task['status'] !== 'string' || !taskStatusIsKnown(task['status'])) {
+  if (typeof task['status'] !== 'string' || !VocabularyUtil.taskStatusIsKnown(task['status'])) {
     return `tasks[${index}].status is ${JSON.stringify(task['status'])}, which is not one of ${TASK_STATUSES.join(', ')}`;
   }
   if (!nullableTextIsWellFormed(task['start'])) return `tasks[${index}].start is neither a timestamp nor null`;

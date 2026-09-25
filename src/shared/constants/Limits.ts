@@ -11,7 +11,6 @@ export const LIMITS = {
   AXIS_MINIMUM_SPAN_MINUTES:          60,
   AXIS_PADDING_MINUTES:               15,
   MINIMUM_BAR_WIDTH_PERCENT:          0.6,
-  TICKET_ID_DIGITS:                   3,
   DONE_WORK_VISIBLE_MILLISECONDS:     86_400_000,
   HOUR_MINUTES:                       60,
   DAY_MINUTES:                        1440,

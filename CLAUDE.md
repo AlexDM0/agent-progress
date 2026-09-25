@@ -41,10 +41,11 @@ the plan is specific it wins; these rules decide the rest.
 src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/, lib/tickets/, lib/render/  →  cli/
 ```
 
-- Imports run up only, with no cycles. `lib/constants/` imports nothing outside itself but `src/lib/tracker-model/`;
-  `lib/utils/` imports only itself, `lib/constants/`, `src/lib/tracker-model/`, `src/lib/utils/` and
-  `src/shared/constants/`; neither imports a package or a builtin (a spec beside them may import `bun:test`). Nothing under `lib/` imports `cli/`, nothing that ships imports
-  `src/testing/`, `cli/testing/` or `lib/tooling/dev/`, and `agent-progress.ts` imports only `cli/`.
+- Imports run up only, with no cycles. `lib/constants/` (the comment syntaxes) imports nothing outside itself;
+  `lib/utils/` (NextLineUtil, ReworkCountUtil, SlugUtil) imports only itself, `lib/constants/` and
+  `src/lib/tracker-model/`; neither imports a package or a builtin (a spec beside them may import `bun:test`). Nothing
+  under `lib/` imports `cli/`, nothing that ships imports `src/testing/`, `cli/testing/` or `lib/tooling/dev/`, and
+  `agent-progress.ts` imports only `cli/`.
 - A `src/lib/` package imports only the other `src/lib/` packages its main module's header names, node builtins and
   external dependencies. It never imports `src/shared/`, `lib/` or `cli/`, and knows nothing about its callers: no
   agent-progress names, tracker file names, user-facing wording or exit codes. App values arrive as parameters; a
@@ -236,7 +237,7 @@ lib/                        everything the commands do, in the layers above; lib
 src/                        the target layout's code, filled step by step as the migration plan moves it
   src/lib/                  package-grade building blocks, one folder each, the package's description in its main module's header:
                             atomic-file (AtomicFile.ts), git (GitProcess.ts), claude-code (ClaudeTranscripts.ts),
-                            tracker-model (@types/Task.ts), utils
+                            tracker-model (@types/Task.ts; its vocabularies and move table in constants/, its pure rules in utils/), utils
   src/services/             app-wide services; so far tracker/constants: the tracker's file names (the service itself arrives in plan step 6)
   src/shared/               app-specific code several parts use: the environment reader, the refusal, LIMITS
   src/testing/              test-only helpers several parts use: the scratch workspace and the tracker isolation check

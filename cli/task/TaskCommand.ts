@@ -1,4 +1,3 @@
-import { TASK_STATUSES, taskStatusIsKnown } from '../../lib/constants/Statuses';
 import {
   addTask,
   findTask,
@@ -8,6 +7,8 @@ import {
 import { readTicket }            from '../../lib/tickets/TicketStore';
 import type { ProgressFile }     from '../../src/lib/tracker-model/@types/ProgressFile';
 import type { Task, TaskStatus } from '../../src/lib/tracker-model/@types/Task';
+import { TASK_STATUSES }         from '../../src/lib/tracker-model/constants/Statuses';
+import { VocabularyUtil }        from '../../src/lib/tracker-model/utils/VocabularyUtil';
 import { OperationRefusal }      from '../../src/shared/OperationRefusal';
 import type { CommandContext }   from '../CommandContext';
 import {
@@ -16,7 +17,7 @@ import {
   printEntity,
   printEntityThenNextLine,
   tokenCountFrom
-}                                             from '../CommandSupport';
+} from '../CommandSupport';
 import type { CommandHandler } from '../CommandTable';
 import type { ArgumentParser } from '../arguments/ArgumentParser';
 
@@ -214,10 +215,10 @@ async function updateOneTask(commandArguments: ArgumentParser, context: CommandC
 
   const taskId        = taskIdFrom(commandArguments.positionals()[1], 'update');
   const writtenStatus = commandArguments.option('status');
-  if (writtenStatus !== undefined && !taskStatusIsKnown(writtenStatus)) {
+  if (writtenStatus !== undefined && !VocabularyUtil.taskStatusIsKnown(writtenStatus)) {
     throw new OperationRefusal('refused', `"${writtenStatus}" is not a task status. The statuses are ${TASK_STATUSES.join(', ')}.`);
   }
-  const status: TaskStatus | undefined = writtenStatus !== undefined && taskStatusIsKnown(writtenStatus) ? writtenStatus : undefined;
+  const status: TaskStatus | undefined = writtenStatus !== undefined && VocabularyUtil.taskStatusIsKnown(writtenStatus) ? writtenStatus : undefined;
   const movesAnyway = commandArguments.flag('force');
 
   const changesSomething = UPDATABLE_OPTION_NAMES.some((name) => commandArguments.option(name) !== undefined);

@@ -3,15 +3,16 @@
  * the tracker or a ticket passes `escapeHtml` exactly once here, except a ticket's `bodyHtml`, already escaped by `lib/render/Markdown.ts`.
  */
 
-import type { LogEntry }                           from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
-import type { Task, TaskStatus }                   from '../../../src/lib/tracker-model/@types/Task.ts';
-import type { TicketStatus }                       from '../../../src/lib/tracker-model/@types/Ticket.ts';
-import { HtmlEscapeUtil }                          from '../../../src/lib/utils/HtmlEscapeUtil.ts';
-import { TokenCountUtil }                          from '../../../src/lib/utils/TokenCountUtil.ts';
-import { LIMITS }                                  from '../../../src/shared/constants/Limits.ts';
-import { SETTLED_TASK_STATUSES, ticketPriorityOf } from '../../constants/Statuses.ts';
-import type { TimelineBar, TimelineTick }          from './GanttGeometry.ts';
-import type { PageTicket }                         from './PageData.ts';
+import type { LogEntry }                  from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Task, TaskStatus }          from '../../../src/lib/tracker-model/@types/Task.ts';
+import type { TicketStatus }              from '../../../src/lib/tracker-model/@types/Ticket.ts';
+import { SETTLED_TASK_STATUSES }          from '../../../src/lib/tracker-model/constants/Statuses.ts';
+import { TicketDefaultsUtil }             from '../../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
+import { HtmlEscapeUtil }                 from '../../../src/lib/utils/HtmlEscapeUtil.ts';
+import { TokenCountUtil }                 from '../../../src/lib/utils/TokenCountUtil.ts';
+import { LIMITS }                         from '../../../src/shared/constants/Limits.ts';
+import type { TimelineBar, TimelineTick } from './GanttGeometry.ts';
+import type { PageTicket }                from './PageData.ts';
 import {
   fullInstantText,
   fullStampText,
@@ -294,7 +295,7 @@ export function waitingOnMarkup(identifiers: readonly string[], target: TicketLi
 
 /** Normal is unmarked. Low borrows the row's quiet ticket badge and high the amber "waiting on" note: the template has no priority style of its own. */
 export function priorityMarkMarkup(ticket: PageTicket): string {
-  const priority = ticketPriorityOf(ticket);
+  const priority = TicketDefaultsUtil.ticketPriorityOf(ticket);
   if (priority === 'low') {
     return `<span class="ap-ticket-badge" data-priority="low" ${attribute('title', LOW_PRIORITY_TITLE)}>low</span>`;
   }
@@ -307,7 +308,7 @@ export function priorityMarkMarkup(ticket: PageTicket): string {
 /** The Tickets tab sets the quiet low badge one space off the title or status badge before it; the amber high mark carries its own margin. */
 function ticketsTabPriorityMarkMarkup(ticket: PageTicket): string {
   const mark = priorityMarkMarkup(ticket);
-  return ticketPriorityOf(ticket) === 'low' ? ` ${mark}` : mark;
+  return TicketDefaultsUtil.ticketPriorityOf(ticket) === 'low' ? ` ${mark}` : mark;
 }
 
 function taskLinkMarkup(taskId: number | null): string {

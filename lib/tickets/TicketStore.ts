@@ -17,9 +17,9 @@ import type {
   TicketPriority,
   TicketType
 } from '../../src/lib/tracker-model/@types/Ticket.ts';
+import { TicketIdUtil }                                 from '../../src/lib/tracker-model/utils/TicketIdUtil.ts';
 import type { Workspace }                               from '../platform/Workspace.ts';
 import { SlugUtil }                                     from '../utils/SlugUtil.ts';
-import { TicketIdUtil }                                 from '../utils/TicketIdUtil.ts';
 import { parseTicketDocument, serializeTicketDocument } from './Frontmatter.ts';
 
 export interface MalformedTicketFile {

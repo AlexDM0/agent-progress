@@ -1,24 +1,10 @@
-/** The named verbs enforce the legality matrix of `lib/tickets/TicketTransitions.ts`; `ticket status` is the documented override that skips it. */
+/**
+ * The named verbs enforce the legality matrix of `src/lib/tracker-model/constants/TicketMoveLegality.ts`; `ticket status` is the
+ * documented override that skips it.
+ */
 import { readFileSync }            from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 
-import {
-  AGENT_EFFORTS,
-  AGENT_MODELS,
-  agentEffortIsKnown,
-  agentEffortOf,
-  agentModelIsKnown,
-  agentModelOf
-}                                from '../../lib/constants/AgentSettings';
-import {
-  TICKET_PRIORITIES,
-  TICKET_STATUSES,
-  TICKET_TYPES,
-  ticketPriorityIsKnown,
-  ticketPriorityOf,
-  ticketStatusIsKnown,
-  ticketTypeIsKnown
-}                                                from '../../lib/constants/Statuses';
 import { requireWorkspace, type Workspace } from '../../lib/platform/Workspace';
 import {
   addTask,
@@ -36,18 +22,14 @@ import {
   type MalformedTicketFile
 }                                                from '../../lib/tickets/TicketStore';
 import {
-  LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS,
   applyTicketPriority,
   applyTicketRereview,
   applyTicketTransition,
-  ensureTaskForTicketOnTheChart,
-  ticketMoveIsLegal
-}                                                               from '../../lib/tickets/TicketTransitions';
-import { NextLineUtil }         from '../../lib/utils/NextLineUtil';
-import { TicketDependencyUtil } from '../../lib/utils/TicketDependencyUtil';
-import { TicketIdUtil }         from '../../lib/utils/TicketIdUtil';
-import type { ProgressFile }    from '../../src/lib/tracker-model/@types/ProgressFile';
-import type { Task }            from '../../src/lib/tracker-model/@types/Task';
+  ensureTaskForTicketOnTheChart
+} from '../../lib/tickets/TicketTransitions';
+import { NextLineUtil }      from '../../lib/utils/NextLineUtil';
+import type { ProgressFile } from '../../src/lib/tracker-model/@types/ProgressFile';
+import type { Task }         from '../../src/lib/tracker-model/@types/Task';
 import type {
   AgentEffort,
   AgentModel,
@@ -56,11 +38,18 @@ import type {
   TicketStatus,
   TicketType
 } from '../../src/lib/tracker-model/@types/Ticket';
-import { OperationRefusal }    from '../../src/shared/OperationRefusal';
-import { LIMITS }              from '../../src/shared/constants/Limits';
-import type { CommandContext } from '../CommandContext';
+import { AGENT_EFFORTS, AGENT_MODELS }                                from '../../src/lib/tracker-model/constants/AgentSettings';
+import { TICKET_STATUSES, TICKET_STATUSES_NO_AGENT_WORKS_AGAIN }      from '../../src/lib/tracker-model/constants/Statuses';
+import { TICKET_PRIORITIES, TICKET_TYPES }                            from '../../src/lib/tracker-model/constants/TicketFields';
+import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS, ticketMoveIsLegal } from '../../src/lib/tracker-model/constants/TicketMoveLegality';
+import { TicketDefaultsUtil }                                         from '../../src/lib/tracker-model/utils/TicketDefaultsUtil';
+import { TicketDependencyUtil }                                       from '../../src/lib/tracker-model/utils/TicketDependencyUtil';
+import { TicketIdUtil }                                               from '../../src/lib/tracker-model/utils/TicketIdUtil';
+import { VocabularyUtil }                                             from '../../src/lib/tracker-model/utils/VocabularyUtil';
+import { OperationRefusal }                                           from '../../src/shared/OperationRefusal';
+import { LIMITS }                                                     from '../../src/shared/constants/Limits';
+import type { CommandContext }                                        from '../CommandContext';
 import {
-  TICKET_STATUSES_NO_AGENT_WORKS_AGAIN,
   closeRunningReviewRows,
   ignoredTicketFileText,
   openTrackerForWriting,
@@ -72,7 +61,7 @@ import {
   reportIgnoredTicketFiles,
   ticketDocumentOf,
   tokenCountFrom
-}                                                              from '../CommandSupport';
+} from '../CommandSupport';
 import type { CommandHandler } from '../CommandTable';
 import type { ArgumentParser } from '../arguments/ArgumentParser';
 
@@ -241,7 +230,7 @@ function ticketAsJson(ticket: Ticket): Record<string, unknown> {
 }
 
 function requirePriority(writtenPriority: string): TicketPriority {
-  if (!ticketPriorityIsKnown(writtenPriority)) {
+  if (!VocabularyUtil.ticketPriorityIsKnown(writtenPriority)) {
     throw new OperationRefusal('refused', `"${writtenPriority}" is not a ticket priority. The priorities are ${TICKET_PRIORITIES.join(', ')}.`);
   }
   return writtenPriority;
@@ -253,7 +242,7 @@ function priorityFrom(writtenPriority: string | undefined): TicketPriority | und
 
 function agentModelFrom(writtenModel: string | undefined): AgentModel | undefined {
   if (writtenModel === undefined) return undefined;
-  if (!agentModelIsKnown(writtenModel)) {
+  if (!VocabularyUtil.agentModelIsKnown(writtenModel)) {
     throw new OperationRefusal('refused', `"${writtenModel}" is not an agent model. The models are ${AGENT_MODELS.join(', ')}.`);
   }
   return writtenModel;
@@ -261,14 +250,14 @@ function agentModelFrom(writtenModel: string | undefined): AgentModel | undefine
 
 function agentEffortFrom(writtenEffort: string | undefined): AgentEffort | undefined {
   if (writtenEffort === undefined) return undefined;
-  if (!agentEffortIsKnown(writtenEffort)) {
+  if (!VocabularyUtil.agentEffortIsKnown(writtenEffort)) {
     throw new OperationRefusal('refused', `"${writtenEffort}" is not an agent effort. The efforts are ${AGENT_EFFORTS.join(', ')}.`);
   }
   return writtenEffort;
 }
 
 function agentPairText(ticket: { model?: AgentModel; effort?: AgentEffort }): string {
-  return `${agentModelOf(ticket)}/${agentEffortOf(ticket)}`;
+  return `${TicketDefaultsUtil.agentModelOf(ticket)}/${TicketDefaultsUtil.agentEffortOf(ticket)}`;
 }
 
 /** Only what the file names: a ticket left to the defaults prints nothing extra, so a listing of old tickets looks as it did. */
@@ -278,7 +267,7 @@ function namedAgentText(ticket: { model?: AgentModel; effort?: AgentEffort }): s
 }
 
 function lowTicketHeldBackText(ticket: Ticket, tickets: readonly Ticket[]): string | null {
-  if (ticketPriorityOf(ticket.frontmatter) !== 'low') return null;
+  if (TicketDefaultsUtil.ticketPriorityOf(ticket.frontmatter) !== 'low') return null;
   const holdingBack = TicketDependencyUtil.ticketsHoldingBackLowPriorityWork(tickets.map((candidate) => candidate.frontmatter));
   if (holdingBack.length === 0) return null;
   return `Ticket #${ticket.frontmatter.id} is low priority, and ${holdingBack.map((identifier) => `#${identifier}`).join(', ')} `
@@ -376,10 +365,10 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
     throw new OperationRefusal('refused', `agent-progress ticket add needs a title.\n  Usage: ${USAGE}`);
   }
   const writtenType = commandArguments.option('type');
-  if (writtenType !== undefined && !ticketTypeIsKnown(writtenType)) {
+  if (writtenType !== undefined && !VocabularyUtil.ticketTypeIsKnown(writtenType)) {
     throw new OperationRefusal('refused', `"${writtenType}" is not a ticket type. The types are ${TICKET_TYPES.join(', ')}.`);
   }
-  const type      = writtenType !== undefined && ticketTypeIsKnown(writtenType) ? writtenType : DEFAULT_TICKET_TYPE;
+  const type      = writtenType !== undefined && VocabularyUtil.ticketTypeIsKnown(writtenType) ? writtenType : DEFAULT_TICKET_TYPE;
   const priority  = priorityFrom(commandArguments.option('priority'));
   const model     = agentModelFrom(commandArguments.option('model'));
   const effort    = agentEffortFrom(commandArguments.option('effort'));
@@ -429,7 +418,7 @@ function listAllTickets(commandArguments: ArgumentParser, context: CommandContex
   commandArguments.rejectExtraPositionals(1, USAGE);
 
   const writtenStatus = commandArguments.option('status');
-  if (writtenStatus !== undefined && !ticketStatusIsKnown(writtenStatus)) {
+  if (writtenStatus !== undefined && !VocabularyUtil.ticketStatusIsKnown(writtenStatus)) {
     throw new OperationRefusal('refused', `"${writtenStatus}" is not a ticket status. The statuses are ${TICKET_STATUSES.join(', ')}.`);
   }
 
@@ -439,7 +428,7 @@ function listAllTickets(commandArguments: ArgumentParser, context: CommandContex
   const listing   = listTickets(workspace);
   const shown     = listing.tickets
     .filter((ticket) => writtenStatus === undefined || ticket.frontmatter.status === writtenStatus)
-    .filter((ticket) => writtenPriority === undefined || ticketPriorityOf(ticket.frontmatter) === writtenPriority);
+    .filter((ticket) => writtenPriority === undefined || TicketDefaultsUtil.ticketPriorityOf(ticket.frontmatter) === writtenPriority);
 
   // Before the listing, so a reader piping the table still sees what was left out of it.
   reportIgnoredTicketFiles(context, listing.malformed);
@@ -468,7 +457,7 @@ function listAllTickets(commandArguments: ArgumentParser, context: CommandContex
     return [
       padColumn(`#${ticket.frontmatter.id}`, LIST_COLUMN_WIDTHS.identifier),
       padColumn(ticket.frontmatter.status, LIST_COLUMN_WIDTHS.status),
-      padColumn(ticketPriorityOf(ticket.frontmatter), LIST_COLUMN_WIDTHS.priority),
+      padColumn(TicketDefaultsUtil.ticketPriorityOf(ticket.frontmatter), LIST_COLUMN_WIDTHS.priority),
       padColumn(ticket.frontmatter.type, LIST_COLUMN_WIDTHS.type),
       padColumn(ticket.frontmatter.task === null ? '-' : `#${ticket.frontmatter.task}`, LIST_COLUMN_WIDTHS.task),
       ticket.frontmatter.title,
@@ -496,7 +485,7 @@ function showOneTicket(commandArguments: ArgumentParser, context: CommandContext
   const summary = [
     `Ticket #${frontmatter.id}: ${frontmatter.title}`,
     `  status:   ${frontmatter.status}`,
-    `  priority: ${ticketPriorityOf(frontmatter)}`,
+    `  priority: ${TicketDefaultsUtil.ticketPriorityOf(frontmatter)}`,
     ...(frontmatter.model === undefined ? [] : [`  model:    ${frontmatter.model}`]),
     ...(frontmatter.effort === undefined ? [] : [`  effort:   ${frontmatter.effort}`]),
     ...(frontmatter.hold === undefined ? [] : [`  held:     ${frontmatter.hold === '' ? 'yes' : frontmatter.hold}`]),
@@ -964,7 +953,7 @@ async function setTicketStatus(commandArguments: ArgumentParser, context: Comman
   if (reference === undefined || writtenStatus === undefined) {
     throw new OperationRefusal('refused', `agent-progress ticket status needs a ticket id and a status.\n  Usage: ${USAGE}`);
   }
-  if (!ticketStatusIsKnown(writtenStatus)) {
+  if (!VocabularyUtil.ticketStatusIsKnown(writtenStatus)) {
     throw new OperationRefusal('refused', `"${writtenStatus}" is not a ticket status. The statuses are ${TICKET_STATUSES.join(', ')}.`);
   }
   return transitionOneTicket(writtenStatus, reference, commandArguments, context, false);

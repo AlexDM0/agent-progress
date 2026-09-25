@@ -1,5 +1,4 @@
-import { DISPATCHER_STATES } from '../../lib/constants/Statuses';
-import { requireWorkspace }  from '../../lib/platform/Workspace';
+import { requireWorkspace } from '../../lib/platform/Workspace';
 import {
   appendLogEntry,
   dispatcherRunIdIsWellFormed,
@@ -7,6 +6,7 @@ import {
   dispatcherStateOf
 }                                                                  from '../../lib/progress/ProgressStore';
 import type { DispatcherState }                                    from '../../src/lib/tracker-model/@types/ProgressFile';
+import { DISPATCHER_STATES }                                       from '../../src/lib/tracker-model/constants/DispatcherStates';
 import { OperationRefusal }                                        from '../../src/shared/OperationRefusal';
 import type { CommandContext }                                     from '../CommandContext';
 import { openTrackerForWriting, printEntity, requireProgressFile } from '../CommandSupport';

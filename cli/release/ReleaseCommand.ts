@@ -5,9 +5,9 @@
  */
 import { resolve } from 'node:path';
 
-import { readTicket }                                                                        from '../../lib/tickets/TicketStore';
-import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS, applyTicketTransition, ticketMoveIsLegal } from '../../lib/tickets/TicketTransitions';
-import type { BranchDeletionOutcome, FilesLeftInWorktree, WorktreeRemovalOutcome }           from '../../src/lib/git/BranchIntegration';
+import { readTicket }                                                              from '../../lib/tickets/TicketStore';
+import { applyTicketTransition }                                                   from '../../lib/tickets/TicketTransitions';
+import type { BranchDeletionOutcome, FilesLeftInWorktree, WorktreeRemovalOutcome } from '../../src/lib/git/BranchIntegration';
 import {
   deleteMergedBranch,
   fastForwardTo,
@@ -17,6 +17,7 @@ import {
 }                                                                                            from '../../src/lib/git/BranchIntegration';
 import type { Task }                                                                from '../../src/lib/tracker-model/@types/Task';
 import type { Ticket }                                                              from '../../src/lib/tracker-model/@types/Ticket';
+import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS, ticketMoveIsLegal }               from '../../src/lib/tracker-model/constants/TicketMoveLegality';
 import { OperationRefusal, refusalIsOperationRefusal, type OperationRefusalStatus } from '../../src/shared/OperationRefusal';
 import type { CommandContext }                                                      from '../CommandContext';
 import {
@@ -25,7 +26,7 @@ import {
   printEntity,
   printEntityThenNextLine,
   progressOperations
-}                                                                                              from '../CommandSupport';
+} from '../CommandSupport';
 import type { CommandHandler } from '../CommandTable';
 import type { ArgumentParser } from '../arguments/ArgumentParser';
 

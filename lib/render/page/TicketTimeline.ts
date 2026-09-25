@@ -4,10 +4,10 @@
  */
 
 import type { Task, TaskPhase }                                    from '../../../src/lib/tracker-model/@types/Task.ts';
+import { TicketDefaultsUtil }                                      from '../../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
 import { HtmlEscapeUtil }                                          from '../../../src/lib/utils/HtmlEscapeUtil.ts';
 import { TokenCountUtil }                                          from '../../../src/lib/utils/TokenCountUtil.ts';
 import { LIMITS }                                                  from '../../../src/shared/constants/Limits.ts';
-import { ticketPriorityOf }                                        from '../../constants/Statuses.ts';
 import type { TimelineLimits, TimelineTick }                       from './GanttGeometry.ts';
 import { buildTicks, chooseStepMinutes }                           from './GanttGeometry.ts';
 import { ownRowOf }                                                from './KanbanBoard.ts';
@@ -347,7 +347,7 @@ function noteOf(input: NoteInput): string | null {
   if (closedState !== null) {
     return null;
   }
-  if (ownRow === null && ticketPriorityOf(ticket) === 'low') {
+  if (ownRow === null && TicketDefaultsUtil.ticketPriorityOf(ticket) === 'low') {
     return LOW_PRIORITY_WITHOUT_ROW_NOTE;
   }
   const queued = formatDuration(input.queuedMilliseconds);

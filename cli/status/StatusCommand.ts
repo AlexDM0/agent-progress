@@ -1,17 +1,17 @@
-import {
-  SETTLED_TASK_STATUSES,
-  SETTLED_TICKET_STATUSES,
-  TASK_STATUSES,
-  TICKET_STATUSES
-}                                          from '../../lib/constants/Statuses';
 import { requireWorkspace }            from '../../lib/platform/Workspace';
 import { listTickets }                 from '../../lib/tickets/TicketStore';
 import type { LogEntry, ProgressFile } from '../../src/lib/tracker-model/@types/ProgressFile';
 import type { Task }                   from '../../src/lib/tracker-model/@types/Task';
 import type { Ticket }                 from '../../src/lib/tracker-model/@types/Ticket';
-import { TimeUtil }                    from '../../src/lib/utils/TimeUtil';
-import { TokenCountUtil }              from '../../src/lib/utils/TokenCountUtil';
-import { LIMITS }                      from '../../src/shared/constants/Limits';
+import {
+  SETTLED_TASK_STATUSES,
+  SETTLED_TICKET_STATUSES,
+  TASK_STATUSES,
+  TICKET_STATUSES
+} from '../../src/lib/tracker-model/constants/Statuses';
+import { TimeUtil }       from '../../src/lib/utils/TimeUtil';
+import { TokenCountUtil } from '../../src/lib/utils/TokenCountUtil';
+import { LIMITS }         from '../../src/shared/constants/Limits';
 import {
   concurrencyDocumentOf,
   nextLineFor,
@@ -22,7 +22,7 @@ import {
   requireProgressFile,
   ticketDocumentOf,
   type ReadyTicket
-}                                                                      from '../CommandSupport';
+} from '../CommandSupport';
 import type { CommandHandler } from '../CommandTable';
 
 const USAGE = 'agent-progress status [--json] [--full]';

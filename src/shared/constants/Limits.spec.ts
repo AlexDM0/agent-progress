@@ -50,7 +50,3 @@ test('the axis draws enough ticks to read and few enough to fit', () => {
   expect(LIMITS.MAXIMUM_TICKS_PER_AXIS).toBeGreaterThanOrEqual(4);
   expect(LIMITS.MAXIMUM_TICKS_PER_AXIS).toBeLessThanOrEqual(24);
 });
-
-test('a ticket id is padded to at least two digits, so a listing of the first ten tickets still sorts in filing order', () => {
-  expect(LIMITS.TICKET_ID_DIGITS).toBeGreaterThanOrEqual(2);
-});

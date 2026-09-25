@@ -48,7 +48,7 @@ has felt the need.
 ## Pausing a ticket, not only its row
 
 `task pause <id>` records that a row is waiting, and there is deliberately no ticket status for it:
-`TASK_STATUS_FOR_TICKET_STATUS` in `lib/constants/Statuses.ts` has no entry that reaches the state,
+`TASK_STATUS_FOR_TICKET_STATUS` in `src/lib/tracker-model/constants/Statuses.ts` has no entry that reaches the state,
 because a paused ticket is still in progress. The gap that leaves is a reader of the Tickets tab
 alone: a ticket sitting in `in-progress` for two days looks like work in flight, and only the chart
 says it has been paused since Tuesday.

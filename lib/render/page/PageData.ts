@@ -2,7 +2,7 @@
 
 import type { ProgressFile, ViewRange } from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { TicketFrontmatter }       from '../../../src/lib/tracker-model/@types/Ticket.ts';
-import { TicketDependencyUtil }         from '../../utils/TicketDependencyUtil.ts';
+import { TicketDependencyUtil }         from '../../../src/lib/tracker-model/utils/TicketDependencyUtil.ts';
 import type { TimelineLimits }          from './GanttGeometry.ts';
 import { computeTimeline }              from './GanttGeometry.ts';
 

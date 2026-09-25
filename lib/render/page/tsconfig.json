@@ -16,11 +16,14 @@
     "../../../src/lib/tracker-model/@types/ProgressFile.ts",
     "../../../src/lib/tracker-model/@types/Task.ts",
     "../../../src/lib/tracker-model/@types/Ticket.ts",
-    "../../constants/Statuses.ts",
+    "../../../src/lib/tracker-model/constants/AgentSettings.ts",
+    "../../../src/lib/tracker-model/constants/Statuses.ts",
+    "../../../src/lib/tracker-model/constants/TicketFields.ts",
+    "../../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts",
+    "../../../src/lib/tracker-model/utils/TicketDependencyUtil.ts",
     "../../../src/shared/constants/Limits.ts",
     "../../../src/lib/utils/HtmlEscapeUtil.ts",
-    "../../../src/lib/utils/TokenCountUtil.ts",
-    "../../utils/TicketDependencyUtil.ts"
+    "../../../src/lib/utils/TokenCountUtil.ts"
   ],
   // Emptied on purpose: an inherited `exclude` resolves against the root, which excludes this folder.
   "exclude": []

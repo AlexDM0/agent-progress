@@ -1,10 +1,10 @@
 /** The Kanban tab's markup, shaped by the placeholder board in `lib/render/page/template.html`; the rules it follows are `KanbanBoard.ts`'s. */
 
 import type { TicketPriority } from '../../../src/lib/tracker-model/@types/Ticket.ts';
+import { TicketDefaultsUtil }  from '../../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
 import { HtmlEscapeUtil }      from '../../../src/lib/utils/HtmlEscapeUtil.ts';
 import { TokenCountUtil }      from '../../../src/lib/utils/TokenCountUtil.ts';
 import { LIMITS }              from '../../../src/shared/constants/Limits.ts';
-import { ticketPriorityOf }    from '../../constants/Statuses.ts';
 import type {
   ClosedKanbanLane,
   KanbanCard,
@@ -104,7 +104,7 @@ function stateMarkup(card: KanbanCard, lane: KanbanLane, format: NoteFormat): st
 
 export function kanbanCardMarkup(card: KanbanCard, lane: KanbanLane, format: NoteFormat): string {
   const { ticket, ownRow } = card;
-  const label              = `#${ticket.id} ${ticket.title}, ${pillLabelOf(card)}, ${ticketPriorityOf(ticket)} priority`;
+  const label              = `#${ticket.id} ${ticket.title}, ${pillLabelOf(card)}, ${TicketDefaultsUtil.ticketPriorityOf(ticket)} priority`;
   const identities         = `${attribute('id', `ap-kanban-${ticket.id}`)} ${attribute('data-ticket-id', ticket.id)} ${attribute('data-state', card.state)}`;
   const tokens             = ownRow === null || ownRow.tokens === null ? '' : `<span class="ap-tokens">${escapeHtml(formatTokenCount(ownRow.tokens))} tokens</span>`;
   const note               = subStateNoteOf(card, format);
@@ -140,9 +140,9 @@ function laneCardsMarkup(lane: KanbanLane, members: readonly KanbanCard[], shown
   }
   const dividesByPriority = laneIsDividedByPriority(lane, members);
   return shown.map((card, index) => {
-    const priority    = ticketPriorityOf(card.ticket);
-    const startsGroup = dividesByPriority && (index === 0 || ticketPriorityOf(shown[index - 1]?.ticket ?? card.ticket) !== priority);
-    const groupSize   = shown.filter((other) => ticketPriorityOf(other.ticket) === priority).length;
+    const priority    = TicketDefaultsUtil.ticketPriorityOf(card.ticket);
+    const startsGroup = dividesByPriority && (index === 0 || TicketDefaultsUtil.ticketPriorityOf(shown[index - 1]?.ticket ?? card.ticket) !== priority);
+    const groupSize   = shown.filter((other) => TicketDefaultsUtil.ticketPriorityOf(other.ticket) === priority).length;
     const divider     = startsGroup
       ? `<div class="ap-lane-group" ${attribute('data-priority', priority)}>${PRIORITY_TITLE[priority]} <span class="ap-lane-group-count">${groupSize}</span></div>`
       : '';

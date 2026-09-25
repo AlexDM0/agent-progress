@@ -3,8 +3,6 @@
  * progress file, write the queued tickets, render through `lib/render/Rerender.ts` — all inside the lock, in that order, so no older
  * render lands last and the progress file is never behind the tickets.
  */
-import { agentEffortOf, agentModelOf }      from '../lib/constants/AgentSettings';
-import { ticketPriorityOf }                 from '../lib/constants/Statuses';
 import { withLock }                         from '../lib/platform/Lock';
 import { requireWorkspace, type Workspace } from '../lib/platform/Workspace';
 import {
@@ -24,25 +22,23 @@ import { rerenderDashboard, type RerenderOutcome } from '../lib/render/Rerender'
 import { listTickets, writeTicket }                from '../lib/tickets/TicketStore';
 import type { PriorityOperations }                 from '../lib/tickets/TicketTransitions';
 import { NextLineUtil }                            from '../lib/utils/NextLineUtil';
-import { TicketDependencyUtil }                    from '../lib/utils/TicketDependencyUtil';
 import type { DispatcherState, ProgressFile }      from '../src/lib/tracker-model/@types/ProgressFile';
 import type { Task }                               from '../src/lib/tracker-model/@types/Task';
 import type {
   AgentEffort,
   AgentModel,
   Ticket,
-  TicketPriority,
-  TicketStatus
+  TicketPriority
 } from '../src/lib/tracker-model/@types/Ticket';
-import { TimeUtil }            from '../src/lib/utils/TimeUtil';
-import { TokenCountUtil }      from '../src/lib/utils/TokenCountUtil';
-import { OperationRefusal }    from '../src/shared/OperationRefusal';
-import { LIMITS }              from '../src/shared/constants/Limits';
-import type { CommandContext } from './CommandContext';
-import type { ArgumentParser } from './arguments/ArgumentParser';
-
-/** A ticket in one of these is never built or reviewed again, so neither its agents nor a hold on it can be changed. */
-export const TICKET_STATUSES_NO_AGENT_WORKS_AGAIN: readonly TicketStatus[] = ['delivered', 'abandoned'];
+import { TICKET_STATUSES_NO_AGENT_WORKS_AGAIN } from '../src/lib/tracker-model/constants/Statuses';
+import { TicketDefaultsUtil }                   from '../src/lib/tracker-model/utils/TicketDefaultsUtil';
+import { TicketDependencyUtil }                 from '../src/lib/tracker-model/utils/TicketDependencyUtil';
+import { TimeUtil }                             from '../src/lib/utils/TimeUtil';
+import { TokenCountUtil }                       from '../src/lib/utils/TokenCountUtil';
+import { OperationRefusal }                     from '../src/shared/OperationRefusal';
+import { LIMITS }                               from '../src/shared/constants/Limits';
+import type { CommandContext }                  from './CommandContext';
+import type { ArgumentParser }                  from './arguments/ArgumentParser';
 
 export const progressOperations: PriorityOperations = {
   addTask,
@@ -97,7 +93,7 @@ export function padColumn(text: string, width: number): string {
 
 /** The priority is spelled out even where the file leaves it to the default, so a script never has to know what an absent key means. */
 export function ticketDocumentOf(ticket: Ticket): Ticket['frontmatter'] & { priority: TicketPriority; filePath: string } {
-  return { ...ticket.frontmatter, priority: ticketPriorityOf(ticket.frontmatter), filePath: ticket.filePath };
+  return { ...ticket.frontmatter, priority: TicketDefaultsUtil.ticketPriorityOf(ticket.frontmatter), filePath: ticket.filePath };
 }
 
 /**
@@ -181,16 +177,16 @@ export function readyTicketsOf(readyTicketIds: readonly string[], tickets: reado
     if (frontmatter === undefined) return [];
     return [{
       id:       ticketId,
-      priority: ticketPriorityOf(frontmatter),
-      model:    agentModelOf(frontmatter),
-      effort:   agentEffortOf(frontmatter),
+      priority: TicketDefaultsUtil.ticketPriorityOf(frontmatter),
+      model:    TicketDefaultsUtil.agentModelOf(frontmatter),
+      effort:   TicketDefaultsUtil.agentEffortOf(frontmatter),
       ...(frontmatter.hold === undefined ? {} : { held: true as const }),
     }];
   });
 }
 
 export function nextLineFor(progress: ProgressFile, tickets: readonly Ticket[]): string {
-  const lowPriorityTicketIds = new Set(tickets.filter((ticket) => ticketPriorityOf(ticket.frontmatter) === 'low').map((ticket) => ticket.frontmatter.id));
+  const lowPriorityTicketIds = new Set(tickets.filter((ticket) => TicketDefaultsUtil.ticketPriorityOf(ticket.frontmatter) === 'low').map((ticket) => ticket.frontmatter.id));
   const concurrency          = concurrencyDocumentOf(progress, tickets);
   return NextLineUtil.composeNextLine({
     ...concurrency,

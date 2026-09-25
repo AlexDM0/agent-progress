@@ -125,7 +125,7 @@ project is the Bun program (`agent-progress.ts`, `cli/`, `lib/`, `src/`) and exc
 page project, `lib/render/page/tsconfig.json`, extends the root's strictness but compiles with the DOM
 library and no Bun or Node types, so a page module reaching for `Bun.file` or `node:fs` fails to
 compile instead of failing in a browser. Every shared file a page module imports is checked under
-those DOM-only options too, which is what proves `src/lib/tracker-model/@types/`,
+those DOM-only options too, which is what proves `src/lib/tracker-model/`,
 `src/lib/utils/HtmlEscapeUtil.ts` and the other shared modules the page reaches stay environment-neutral.
 
 `cli/HelpText.spec.ts` holds the help against the command table in both directions, and holds the

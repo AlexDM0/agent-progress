@@ -5,8 +5,9 @@
 
 import type { Task }                                                 from '../../../src/lib/tracker-model/@types/Task.ts';
 import type { TicketPriority }                                       from '../../../src/lib/tracker-model/@types/Ticket.ts';
+import { TASK_STATUS_FOR_TICKET_STATUS }                             from '../../../src/lib/tracker-model/constants/Statuses.ts';
+import { TicketDefaultsUtil }                                        from '../../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
 import { LIMITS }                                                    from '../../../src/shared/constants/Limits.ts';
-import { TASK_STATUS_FOR_TICKET_STATUS, ticketPriorityOf }           from '../../constants/Statuses.ts';
 import type { PageTicket }                                           from './PageData.ts';
 import type { RowState, TimestampSlices }                            from './PageMarkup.ts';
 import { deliveredAfterReview, reviewedTicketNumberOf, rowStateFor } from './PageMarkup.ts';
@@ -114,11 +115,14 @@ export function cardsInLane(cards: readonly KanbanCard[], lane: KanbanLane): Kan
       return (Number.isNaN(newerFirst) ? 0 : newerFirst) || idNumberOf(b) - idNumberOf(a);
     });
   }
-  return members.toSorted((a, b) => PRIORITY_ORDER[ticketPriorityOf(a.ticket)] - PRIORITY_ORDER[ticketPriorityOf(b.ticket)] || idNumberOf(a) - idNumberOf(b));
+  return members.toSorted((a, b) => {
+    const priorityDifference = PRIORITY_ORDER[TicketDefaultsUtil.ticketPriorityOf(a.ticket)] - PRIORITY_ORDER[TicketDefaultsUtil.ticketPriorityOf(b.ticket)];
+    return priorityDifference || idNumberOf(a) - idNumberOf(b);
+  });
 }
 
 export function laneIsDividedByPriority(lane: KanbanLane, members: readonly KanbanCard[]): boolean {
-  return !laneIsClosed(lane) && new Set(members.map((card) => ticketPriorityOf(card.ticket))).size > 1;
+  return !laneIsClosed(lane) && new Set(members.map((card) => TicketDefaultsUtil.ticketPriorityOf(card.ticket))).size > 1;
 }
 
 export function cardCarriesReviewedMark(card: KanbanCard): boolean {

@@ -1,7 +1,8 @@
 /**
  * What a ticket's status change means: which timestamp it writes and which status its Gantt row
- * takes. Nothing here writes a file, takes a lock or checks legality — the caller holds the lock,
- * and the named verbs consult `LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS` before transitioning.
+ * takes. Nothing here writes a file, takes a lock or checks legality — the caller holds the lock, and the
+ * named verbs consult `src/lib/tracker-model/constants/TicketMoveLegality.ts` before transitioning; `applyTicketRereview`
+ * is the one move deliberately outside that table.
  */
 
 import type { ProgressFile }     from '../../src/lib/tracker-model/@types/ProgressFile.ts';
@@ -12,8 +13,9 @@ import type {
   TicketPriority,
   TicketStatus
 } from '../../src/lib/tracker-model/@types/Ticket.ts';
-import { LIMITS }                                          from '../../src/shared/constants/Limits.ts';
-import { TASK_STATUS_FOR_TICKET_STATUS, ticketPriorityOf } from '../constants/Statuses.ts';
+import { TASK_STATUS_FOR_TICKET_STATUS } from '../../src/lib/tracker-model/constants/Statuses.ts';
+import { TicketDefaultsUtil }            from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
+import { LIMITS }                        from '../../src/shared/constants/Limits.ts';
 
 export interface AddTaskInput {
   name:      string;
@@ -99,23 +101,6 @@ const TICKET_STATUSES_A_LOW_TICKET_WAITS_OFF_THE_CHART_IN: readonly TicketStatus
 
 const LOWERING_A_TICKET_THAT_IS_NOT_OPEN_REFUSAL = 'only an open ticket can be lowered to low, since a low ticket has no row until it is started';
 
-/**
- * Read as "to reach the key, the ticket has to be in one of these"; no row holds its own key, so a move to the current
- * status is never legal. `applyTicketRereview` is the one move deliberately outside this table.
- */
-export const LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS: Record<TicketStatus, readonly TicketStatus[]> = {
-  'open':        ['in-progress', 'in-review', 'done', 'delivered', 'abandoned'],
-  'in-progress': ['open', 'in-review'],
-  'in-review':   ['in-progress'],
-  'done':        ['in-progress', 'in-review'],
-  'delivered':   ['done'],
-  'abandoned':   ['open', 'in-progress', 'in-review', 'done'],
-};
-
-export function ticketMoveIsLegal(currentStatus: TicketStatus, targetStatus: TicketStatus): boolean {
-  return LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS[targetStatus].includes(currentStatus);
-}
-
 /** An existing row comes back untouched, so a row `ticket link --force` deliberately moved is never taken back. */
 export function ensureTaskForTicket(input: EnsureTaskForTicketInput): Task {
   const { progress, ticket, operations } = input;
@@ -138,7 +123,7 @@ export function ensureTaskForTicket(input: EnsureTaskForTicketInput): Task {
 }
 
 export function ticketStaysOffTheChart(frontmatter: TicketFrontmatter): boolean {
-  return ticketPriorityOf(frontmatter) === 'low'
+  return TicketDefaultsUtil.ticketPriorityOf(frontmatter) === 'low'
     && frontmatter.started === null
     && TICKET_STATUSES_A_LOW_TICKET_WAITS_OFF_THE_CHART_IN.includes(frontmatter.status);
 }
@@ -168,7 +153,7 @@ export function applyTicketPriority(input: ApplyTicketPriorityInput): ApplyTicke
     operations,
   } = input;
   const { frontmatter } = ticket;
-  const current         = ticketPriorityOf(frontmatter);
+  const current         = TicketDefaultsUtil.ticketPriorityOf(frontmatter);
 
   if (current === priority) {
     return { verdict: 'refused', reason: `it is already ${priority} priority` };

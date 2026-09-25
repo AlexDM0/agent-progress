@@ -1,6 +1,7 @@
-/** Which tickets another ticket still waits on, and whether a new dependency list would close a loop. Shared by the command surface and the page. */
-import type { TicketPriority, TicketStatus }                          from '../../src/lib/tracker-model/@types/Ticket.ts';
-import { TICKET_STATUSES_THAT_SETTLE_A_DEPENDENCY, ticketPriorityOf } from '../constants/Statuses.ts';
+/** Which tickets another ticket still waits on, which are ready to claim, and whether a new dependency list would close a loop. */
+import type { TicketPriority, TicketStatus }        from '../@types/Ticket.ts';
+import { TICKET_STATUSES_THAT_SETTLE_A_DEPENDENCY } from '../constants/Statuses.ts';
+import { TicketDefaultsUtil }                       from './TicketDefaultsUtil.ts';
 
 /** A dependency that is missing from `statusById` still counts as unsettled: a ticket nobody can see is not finished work. */
 function unsettledDependenciesOf(dependsOn: readonly string[], statusById: ReadonlyMap<string, TicketStatus>): string[] {
@@ -47,7 +48,7 @@ const PRIORITY_RANK: Record<TicketPriority, number> = { high: 0, normal: 1, low:
 /** The normal and high tickets that are neither delivered nor abandoned, lowest id first; while any is left, no low ticket is ready. */
 function ticketsHoldingBackLowPriorityWork(tickets: readonly ReadinessTicket[]): string[] {
   return tickets
-    .filter((ticket) => ticketPriorityOf(ticket) !== 'low' && !TICKET_STATUSES_THAT_RELEASE_LOW_PRIORITY_WORK.includes(ticket.status))
+    .filter((ticket) => TicketDefaultsUtil.ticketPriorityOf(ticket) !== 'low' && !TICKET_STATUSES_THAT_RELEASE_LOW_PRIORITY_WORK.includes(ticket.status))
     .map((ticket) => ticket.id)
     .sort((a, b) => Number(a) - Number(b));
 }
@@ -61,8 +62,8 @@ function readyTicketIdsOf(tickets: readonly ReadinessTicket[]): string[] {
   const lowPriorityIsHeld = ticketsHoldingBackLowPriorityWork(tickets).length > 0;
   return tickets
     .filter((ticket) => ticket.status === 'open' && unsettledDependenciesOf(ticket.dependsOn ?? [], statusById).length === 0)
-    .filter((ticket) => !lowPriorityIsHeld || ticketPriorityOf(ticket) !== 'low')
-    .sort((a, b) => PRIORITY_RANK[ticketPriorityOf(a)] - PRIORITY_RANK[ticketPriorityOf(b)] || Number(a.id) - Number(b.id))
+    .filter((ticket) => !lowPriorityIsHeld || TicketDefaultsUtil.ticketPriorityOf(ticket) !== 'low')
+    .sort((a, b) => PRIORITY_RANK[TicketDefaultsUtil.ticketPriorityOf(a)] - PRIORITY_RANK[TicketDefaultsUtil.ticketPriorityOf(b)] || Number(a.id) - Number(b.id))
     .map((ticket) => ticket.id);
 }
 

@@ -4,10 +4,9 @@
  * half-applied. The subset it accepts is stated in `docs/cli.md`.
  */
 
-import type { TicketFrontmatter }                                        from '../../src/lib/tracker-model/@types/Ticket.ts';
-import { agentEffortIsKnown, agentModelIsKnown }                         from '../constants/AgentSettings.ts';
-import { ticketPriorityIsKnown, ticketStatusIsKnown, ticketTypeIsKnown } from '../constants/Statuses.ts';
-import { TicketIdUtil }                                                  from '../utils/TicketIdUtil.ts';
+import type { TicketFrontmatter } from '../../src/lib/tracker-model/@types/Ticket.ts';
+import { TicketIdUtil }           from '../../src/lib/tracker-model/utils/TicketIdUtil.ts';
+import { VocabularyUtil }         from '../../src/lib/tracker-model/utils/VocabularyUtil.ts';
 
 export type LineEnding = '\n' | '\r\n';
 
@@ -294,10 +293,10 @@ function frontmatterFrom(
   const typeText   = requiredText(knownValues, 'type', closingFenceLine);
   const statusText = requiredText(knownValues, 'status', closingFenceLine);
 
-  if (!ticketTypeIsKnown(typeText)) {
+  if (!VocabularyUtil.ticketTypeIsKnown(typeText)) {
     throw new FrontmatterProblem(`\`type\` is not a known ticket type: ${typeText}`, lineOf(knownValues, 'type', closingFenceLine));
   }
-  if (!ticketStatusIsKnown(statusText)) {
+  if (!VocabularyUtil.ticketStatusIsKnown(statusText)) {
     throw new FrontmatterProblem(`\`status\` is not a known ticket status: ${statusText}`, lineOf(knownValues, 'status', closingFenceLine));
   }
 
@@ -353,7 +352,7 @@ function priorityField(knownValues: Map<string, KnownValue>): Pick<TicketFrontma
     return {};
   }
   const priorityText = textOf(found, 'priority');
-  if (!ticketPriorityIsKnown(priorityText)) {
+  if (!VocabularyUtil.ticketPriorityIsKnown(priorityText)) {
     throw new FrontmatterProblem(`\`priority\` is not a known ticket priority: ${priorityText}`, found.line);
   }
   return { priority: priorityText };
@@ -367,12 +366,12 @@ function agentFields(knownValues: Map<string, KnownValue>): Pick<TicketFrontmatt
 
   if (model !== undefined && model.value !== null) {
     const modelText = textOf(model, 'model');
-    if (!agentModelIsKnown(modelText)) throw new FrontmatterProblem(`\`model\` is not a known agent model: ${modelText}`, model.line);
+    if (!VocabularyUtil.agentModelIsKnown(modelText)) throw new FrontmatterProblem(`\`model\` is not a known agent model: ${modelText}`, model.line);
     fields.model = modelText;
   }
   if (effort !== undefined && effort.value !== null) {
     const effortText = textOf(effort, 'effort');
-    if (!agentEffortIsKnown(effortText)) throw new FrontmatterProblem(`\`effort\` is not a known agent effort: ${effortText}`, effort.line);
+    if (!VocabularyUtil.agentEffortIsKnown(effortText)) throw new FrontmatterProblem(`\`effort\` is not a known agent effort: ${effortText}`, effort.line);
     fields.effort = effortText;
   }
   return fields;

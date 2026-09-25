@@ -1,7 +1,7 @@
 /** What the `SubagentStop` hook reads out of a finished agent's transcript for the board: the rows and tickets its brief names, and the log line. */
-import { TicketIdUtil }               from '../../../lib/utils/TicketIdUtil';
 import type { TranscriptUsageTotals } from '../../../src/lib/claude-code/utils/TranscriptUsageUtil';
 import { TranscriptUsageUtil }        from '../../../src/lib/claude-code/utils/TranscriptUsageUtil';
+import { TicketIdUtil }               from '../../../src/lib/tracker-model/utils/TicketIdUtil';
 import { TokenCountUtil }             from '../../../src/lib/utils/TokenCountUtil';
 
 /** A line of its own, ids as digits separated by commas: a placeholder such as `<rowId>` in a brief template never matches. */

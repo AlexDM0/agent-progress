@@ -9,10 +9,10 @@
  * A paused build row refuses the claim too, unless the prompt resumes it and the note is the run's own or, in a run named for the ticket, any run's.
  * A reviewer whose prompt runs `ticket rereview` counts a round each time, unless the prompt skips it and the bar of the ticket's round already runs.
  */
-import { readFileSync } from 'node:fs';
-import { join }         from 'node:path';
+import { readFileSync }                              from 'node:fs';
+import { join }                                      from 'node:path';
+import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../../src/lib/tracker-model/constants/AgentSettings.ts';
 
-import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../constants/AgentSettings.ts';
 
 /** `settings` is a single-ticket run's lookup of the model and effort its arguments did not state; its `ticketId` is the ids it names, comma-joined. */
 export type AgentKind = 'survey' | 'settings' | 'build' | 'review' | 'park';
