@@ -2,11 +2,7 @@
  * The git steps of releasing a branch into the main checkout, as verdicts: which branch the main checkout is on, whether a branch descends
  * from the main line, the fast-forward itself, and the two cleanups. Nothing here forces anything: a refusal git gives is handed back with its reason.
  */
-import { existsSync, statSync } from 'node:fs';
-
 import { GitProcess } from './GitProcess';
-
-const GIT_SUCCESS_EXIT_CODE = 0;
 
 const NOT_AN_ANCESTOR_EXIT_CODE = 1;
 
@@ -45,20 +41,11 @@ export type BranchDeletionOutcome =
   | { verdict: 'deleted' }
   | { verdict: 'left'; reason: string };
 
-/** Fail closed: a `stat` that errors reads as "not a directory", which git is never started in. */
-function directoryExists(path: string): boolean {
-  try {
-    return existsSync(path) && statSync(path).isDirectory();
-  } catch {
-    return false;
-  }
-}
-
 export function readCurrentBranch(directory: string): CurrentBranchReading {
   const branchArguments = ['symbolic-ref', '--quiet', '--short', 'HEAD'];
   const run             = GitProcess.run(directory, branchArguments);
   if (run !== null && run.exitCode === DETACHED_HEAD_EXIT_CODE && run.standardError === '') return { verdict: 'detached' };
-  if (run === null || run.exitCode !== GIT_SUCCESS_EXIT_CODE) return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(run, branchArguments) };
+  if (!GitProcess.succeeded(run)) return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(run, branchArguments) };
   return { verdict: 'on-branch', branch: run.standardOutput.trim() };
 }
 
@@ -71,7 +58,7 @@ export function readBranchDescent(directory: string, branch: string, mainLine: s
 
   const ancestryArguments = ['merge-base', '--is-ancestor', mainLineCommit, branchCommit];
   const ancestry          = GitProcess.run(directory, ancestryArguments);
-  if (ancestry !== null && ancestry.exitCode === GIT_SUCCESS_EXIT_CODE) return { verdict: 'descendant', branchCommit, mainLineCommit };
+  if (GitProcess.succeeded(ancestry)) return { verdict: 'descendant', branchCommit, mainLineCommit };
   if (ancestry !== null && ancestry.exitCode === NOT_AN_ANCESTOR_EXIT_CODE) return { verdict: 'not-a-descendant', branchCommit, mainLineCommit };
   return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(ancestry, ancestryArguments) };
 }
@@ -80,7 +67,7 @@ export function readBranchDescent(directory: string, branch: string, mainLine: s
 export function fastForwardTo(directory: string, commit: string): FastForwardOutcome {
   const mergeArguments = ['merge', '--ff-only', '--quiet', commit];
   const run            = GitProcess.run(directory, mergeArguments);
-  if (run === null || run.exitCode !== GIT_SUCCESS_EXIT_CODE) return { verdict: 'refused', reason: GitProcess.failureReasonOf(run, mergeArguments) };
+  if (!GitProcess.succeeded(run)) return { verdict: 'refused', reason: GitProcess.failureReasonOf(run, mergeArguments) };
   const headCommit = GitProcess.resolvedCommitOf(directory, 'HEAD');
   if (headCommit !== commit) return { verdict: 'refused', reason: `git merge --ff-only ${commit} exited 0, yet HEAD is ${headCommit ?? 'unreadable'}.` };
   return { verdict: 'fast-forwarded', commit };
@@ -88,9 +75,9 @@ export function fastForwardTo(directory: string, commit: string): FastForwardOut
 
 function filesLeftIn(worktreePath: string): FilesLeftInWorktree {
   const filesLeft: FilesLeftInWorktree = { untrackedFiles: [], changedFiles: [] };
-  if (!directoryExists(worktreePath)) return filesLeft;
+  if (!GitProcess.directoryExists(worktreePath)) return filesLeft;
   const run = GitProcess.run(worktreePath, ['status', '--porcelain=v1', '--untracked-files=all']);
-  if (run === null || run.exitCode !== GIT_SUCCESS_EXIT_CODE) return filesLeft;
+  if (!GitProcess.succeeded(run)) return filesLeft;
   for (const line of run.standardOutput.split('\n')) {
     if (line.length <= PORCELAIN_STATUS_WIDTH) continue;
     const path = line.slice(PORCELAIN_STATUS_WIDTH);
@@ -104,7 +91,7 @@ function filesLeftIn(worktreePath: string): FilesLeftInWorktree {
 export function removeWorktree(mainCheckoutDirectory: string, worktreePath: string): WorktreeRemovalOutcome {
   const removalArguments = ['worktree', 'remove', worktreePath];
   const run              = GitProcess.run(mainCheckoutDirectory, removalArguments);
-  if (run !== null && run.exitCode === GIT_SUCCESS_EXIT_CODE) return { verdict: 'removed' };
+  if (GitProcess.succeeded(run)) return { verdict: 'removed' };
   return { verdict: 'left', reason: GitProcess.failureReasonOf(run, removalArguments), filesLeft: filesLeftIn(worktreePath) };
 }
 
@@ -112,6 +99,6 @@ export function removeWorktree(mainCheckoutDirectory: string, worktreePath: stri
 export function deleteMergedBranch(mainCheckoutDirectory: string, branch: string): BranchDeletionOutcome {
   const deletionArguments = ['branch', '-d', branch];
   const run               = GitProcess.run(mainCheckoutDirectory, deletionArguments);
-  if (run !== null && run.exitCode === GIT_SUCCESS_EXIT_CODE) return { verdict: 'deleted' };
+  if (GitProcess.succeeded(run)) return { verdict: 'deleted' };
   return { verdict: 'left', reason: GitProcess.failureReasonOf(run, deletionArguments) };
 }

@@ -2,11 +2,7 @@
  * Which commits a review made, and what a rebase changed in a branch's own work, as diff text for a caller to count. Every diff is asked
  * for with its options spelled out, so a reviewer's own git configuration cannot make two reviewers count differently.
  */
-import { existsSync, statSync } from 'node:fs';
-
 import { GitProcess } from './GitProcess';
-
-const GIT_SUCCESS_EXIT_CODE = 0;
 
 const MERGE_BASE_NOT_FOUND_EXIT_CODE = 1;
 
@@ -53,20 +49,11 @@ function linesOf(output: string): string[] {
   return output.split('\n').map((line) => line.trim()).filter((line) => line.length > 0);
 }
 
-/** Fail closed: a `stat` that errors reads as "not a directory", which is refused rather than handed to git as a working directory. */
-function directoryExists(path: string): boolean {
-  try {
-    return existsSync(path) && statSync(path).isDirectory();
-  } catch {
-    return false;
-  }
-}
-
 export function readWorktreeHead(directory: string): WorktreeHeadReading {
-  if (!directoryExists(directory)) return { verdict: 'not-a-repository' };
+  if (!GitProcess.directoryExists(directory)) return { verdict: 'not-a-repository' };
   const insideWorkTree = GitProcess.run(directory, ['rev-parse', '--is-inside-work-tree']);
   if (insideWorkTree === null) return { verdict: 'git-unavailable' };
-  if (insideWorkTree.exitCode !== GIT_SUCCESS_EXIT_CODE || insideWorkTree.standardOutput.trim() !== 'true') return { verdict: 'not-a-repository' };
+  if (!GitProcess.succeeded(insideWorkTree) || insideWorkTree.standardOutput.trim() !== 'true') return { verdict: 'not-a-repository' };
   const headCommit = GitProcess.resolvedCommitOf(directory, 'HEAD');
   return headCommit === null ? { verdict: 'no-commits' } : { verdict: 'read', headCommit };
 }
@@ -78,7 +65,7 @@ export function readCommitsDiff(directory: string, since: string): CommitsDiffRe
 
   const ancestryArguments = ['merge-base', '--is-ancestor', sinceCommit, 'HEAD'];
   const ancestry          = GitProcess.run(directory, ancestryArguments);
-  if (ancestry === null || (ancestry.exitCode !== GIT_SUCCESS_EXIT_CODE && ancestry.exitCode !== MERGE_BASE_NOT_FOUND_EXIT_CODE)) {
+  if (ancestry === null || (!GitProcess.succeeded(ancestry) && ancestry.exitCode !== MERGE_BASE_NOT_FOUND_EXIT_CODE)) {
     return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(ancestry, ancestryArguments) };
   }
   if (ancestry.exitCode === MERGE_BASE_NOT_FOUND_EXIT_CODE) return { verdict: 'not-an-ancestor', sinceCommit };
@@ -86,17 +73,17 @@ export function readCommitsDiff(directory: string, since: string): CommitsDiffRe
   const range           = `${sinceCommit}..HEAD`;
   const mergesArguments = ['rev-list', '--merges', range];
   const merges          = GitProcess.run(directory, mergesArguments);
-  if (merges === null || merges.exitCode !== GIT_SUCCESS_EXIT_CODE) return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(merges, mergesArguments) };
+  if (!GitProcess.succeeded(merges)) return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(merges, mergesArguments) };
   const mergeCommits = linesOf(merges.standardOutput);
   if (mergeCommits.length > 0) return { verdict: 'merge-found', mergeCommits };
 
   const commitsArguments = ['rev-list', '--reverse', range];
   const commits          = GitProcess.run(directory, commitsArguments);
-  if (commits === null || commits.exitCode !== GIT_SUCCESS_EXIT_CODE) return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(commits, commitsArguments) };
+  if (!GitProcess.succeeded(commits)) return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(commits, commitsArguments) };
 
   const logArguments = ['log', '--patch', '--format=', '--no-show-signature', ...DIFF_OPTIONS, range];
   const log          = GitProcess.run(directory, logArguments);
-  if (log === null || log.exitCode !== GIT_SUCCESS_EXIT_CODE) return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(log, logArguments) };
+  if (!GitProcess.succeeded(log)) return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(log, logArguments) };
 
   return {
     verdict:  'read',
@@ -112,14 +99,14 @@ function mergeBaseOf(directory: string, commit: string, mainLineCommit: string):
   const mergeBaseArguments = ['merge-base', commit, mainLineCommit];
   const run                = GitProcess.run(directory, mergeBaseArguments);
   if (run !== null && run.exitCode === MERGE_BASE_NOT_FOUND_EXIT_CODE && run.standardError === '') return { verdict: 'none' };
-  if (run === null || run.exitCode !== GIT_SUCCESS_EXIT_CODE) return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(run, mergeBaseArguments) };
+  if (!GitProcess.succeeded(run)) return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(run, mergeBaseArguments) };
   return { verdict: 'found', base: run.standardOutput.trim() };
 }
 
 function diffBetween(directory: string, fromCommit: string, toCommit: string): { verdict: 'read'; diffText: string } | { verdict: 'git-failed'; reason: string } {
   const diffArguments = ['diff', ...DIFF_OPTIONS, fromCommit, toCommit];
   const run           = GitProcess.run(directory, diffArguments);
-  if (run === null || run.exitCode !== GIT_SUCCESS_EXIT_CODE) return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(run, diffArguments) };
+  if (!GitProcess.succeeded(run)) return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(run, diffArguments) };
   return { verdict: 'read', diffText: run.standardOutput };
 }
 

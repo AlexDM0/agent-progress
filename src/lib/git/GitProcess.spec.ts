@@ -20,7 +20,13 @@ import {
 } from '../../testing/ScratchWorkspace';
 import { GitProcess } from './GitProcess';
 
-const { failureReasonOf, resolvedCommitOf, run } = GitProcess;
+const {
+  directoryExists,
+  failureReasonOf,
+  resolvedCommitOf,
+  run,
+  succeeded,
+} = GitProcess;
 
 const FULL_COMMIT_PATTERN = /^[0-9a-f]{40}$/;
 
@@ -78,6 +84,42 @@ describe('the reason a failed run gives', () => {
   test('a run that failed names the command, its exit code and its standard error', () => {
     const finishedRun = { exitCode: 128, standardOutput: '', standardError: 'fatal: Needed a single revision' };
     expect(failureReasonOf(finishedRun, ['rev-parse', 'HEAD'])).toBe('git rev-parse HEAD exited with 128: fatal: Needed a single revision');
+  });
+});
+
+describe('whether a run succeeded', () => {
+  test('a run that could not be started did not succeed', () => {
+    expect(succeeded(null)).toBe(false);
+  });
+
+  test('a run that exited non-zero did not succeed', () => {
+    expect(succeeded({ exitCode: 1, standardOutput: '', standardError: '' })).toBe(false);
+  });
+
+  test('a run that exited 0 succeeded', () => {
+    expect(succeeded({ exitCode: 0, standardOutput: 'true\n', standardError: '' })).toBe(true);
+  });
+});
+
+describe('whether a directory exists to run git in', () => {
+  test('a scratch directory exists', () => {
+    const directory = createScratchDirectory('git-process-directory');
+    scratchDirectories.push(directory);
+    expect(directoryExists(directory)).toBe(true);
+  });
+
+  test('a file is not a directory', () => {
+    const directory = createScratchDirectory('git-process-file');
+    scratchDirectories.push(directory);
+    const filePath = join(directory, 'example.txt');
+    writeFileSync(filePath, 'content\n');
+    expect(directoryExists(filePath)).toBe(false);
+  });
+
+  test('a missing path is not a directory', () => {
+    const directory = createScratchDirectory('git-process-missing-path');
+    scratchDirectories.push(directory);
+    expect(directoryExists(join(directory, 'missing'))).toBe(false);
   });
 });
 

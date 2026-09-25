@@ -22,8 +22,6 @@ const WORKTREE_GIT_DIRECTORY_SEGMENT = '/.git/worktrees/';
 
 const GIT_ENTRY_NAME = '.git';
 
-const GIT_SUCCESS_EXIT_CODE = 0;
-
 const BARE_REPOSITORY_ANSWER = 'true';
 
 /** `git` found a checkout, `bare-repository` found a repository with no working tree, and `directory` found nothing and hands the start back. */
@@ -46,7 +44,7 @@ function resolvedRealPath(path: string): string {
  */
 function gitAnswer(directory: string, gitArguments: readonly string[]): string | null {
   const run = GitProcess.run(directory, gitArguments);
-  if (run === null || run.exitCode !== GIT_SUCCESS_EXIT_CODE) return null;
+  if (!GitProcess.succeeded(run)) return null;
   const answer = run.standardOutput.trim();
   return answer.length > 0 ? answer : null;
 }
