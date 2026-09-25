@@ -1,5 +1,5 @@
 /**
- * The real binary, spawned — the one suite here that does, so the shebang, the `Bun.argv` slice and
+ * The real binary, spawned end to end, so the shebang, the `Bun.argv` slice and
  * the exit status reaching the process are covered, in a scratch directory no tracker above the checkout can reach.
  */
 import { existsSync, readFileSync } from 'node:fs';

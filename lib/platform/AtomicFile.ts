@@ -8,6 +8,7 @@ import {
   closeSync,
   fchmodSync,
   fsyncSync,
+  linkSync,
   mkdirSync,
   openSync,
   realpathSync,
@@ -62,5 +63,31 @@ export function writeFileAtomically(targetPath: string, contents: string): void 
       // The rename may already have consumed the path, and cleaning up must not replace the original error.
     }
     throw error;
+  }
+}
+
+/** The create-exclusive twin: the complete temporary file is hard-linked into place, which fails rather than replaces when the target exists. */
+export function createFileAtomically(targetPath: string, contents: string): 'created' | 'already-exists' {
+  mkdirSync(dirname(targetPath), { recursive: true });
+  const temporaryPath = `${targetPath}.${process.pid}.${randomUUID().slice(0, TEMPORARY_NAME_RANDOM_LENGTH)}.tmp`;
+  try {
+    const temporaryFileDescriptor = openSync(temporaryPath, 'wx');
+    try {
+      writeSync(temporaryFileDescriptor, contents);
+      fsyncSync(temporaryFileDescriptor);
+    } finally {
+      closeSync(temporaryFileDescriptor);
+    }
+    linkSync(temporaryPath, targetPath);
+    return 'created';
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'EEXIST') return 'already-exists';
+    throw error;
+  } finally {
+    try {
+      unlinkSync(temporaryPath);
+    } catch {
+      // A temporary file that was never opened has nothing to remove.
+    }
   }
 }

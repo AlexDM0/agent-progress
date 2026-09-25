@@ -25,7 +25,7 @@ releasing. The overview is in the [README](../README.md); working on this reposi
 | `<when>` | An ISO 8601 timestamp, `now`, or an offset from now: `-5m`, `-2h`, `-1d`, `+30m`. `--at <when>` backfills: a stamp already recorded is kept, so a row nobody registered at the time can be dated afterwards. |
 | `<n>` | The figure on `--tokens`: a whole number or a decimal with a `k`/`m` suffix — `12000`, `12k`, `12.3k`, `1.2m`. A bare decimal and a negative are refused. It is a figure the orchestrator reports, never one this tool measures, and it replaces the row's figure rather than adding to it. |
 | `<id>` | A task id is a number (`17`); a ticket id is its padded number (`003`), and `3` or `#3` name the same ticket. |
-| `AGENT_PROGRESS_ROOT` | Names the repository to use instead of walking up from the current directory, for a command run from somewhere else entirely. It does not create a tracker: a value naming a directory that has none is refused with a message saying the variable is set. |
+| `AGENT_PROGRESS_ROOT` | Names the repository to use instead of walking up from the current directory, for a command run from somewhere else entirely. It does not create a tracker: a value naming a directory that has none is refused with a message saying the variable is set. `init` does not choose its directory by it, and refuses at exit 1 when it names a directory other than the one `init` targets. |
 
 **One tracker per repository.** The tracker lives in `.agent-progress/` at the repository root, found
 with `git rev-parse --git-common-dir`, so every worktree of a repository shares one tracker and one
@@ -124,8 +124,10 @@ stale. A first `init` prints the brief's path instead.
 
 **Re-running.** To pick up a newer brief, block, hook, workflow or agent definition, run
 `agent-progress update`, never `init` again. `init` at a root that already has a tracker does exactly
-what `update` does and says so; `init` below an existing tracker, inside a bare repository, or with a
-`--root` that is not an existing directory is refused.
+what `update` does and says so; `init` below an existing tracker, inside a bare repository, with a
+`--root` that is not an existing directory, or with `AGENT_PROGRESS_ROOT` naming a directory other
+than the one it would create the tracker in is refused. `init` never replaces an existing
+`progress.json`: it creates the store with an exclusive create, under the lock.
 
 Claude Code adds `**/.claude/settings.local.json` to your global git excludes the first time it
 writes that file itself. If it has not yet, and the file this tool creates shows up in `git status`,
@@ -160,7 +162,7 @@ Options in `[brackets]` are optional; `a|b` is a choice of one.
 
 | command | what it does |
 |---|---|
-| `init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]` | Create the tracker here and write the seven items in [Adopting a repository](#adopting-a-repository). `--project` names the project shown on the page (default: the root directory's name); `--root` tracks that directory instead of the discovered repository root. Refused when an ancestor already holds a tracker, when `--root` is not an existing directory, and inside a bare repository. A re-run refreshes only what `update` refreshes. `--hooks` is accepted and does nothing. |
+| `init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]` | Create the tracker here and write the seven items in [Adopting a repository](#adopting-a-repository). `--project` names the project shown on the page (default: the root directory's name); `--root` tracks that directory instead of the discovered repository root. Refused when an ancestor already holds a tracker, when `--root` is not an existing directory, inside a bare repository, and when `AGENT_PROGRESS_ROOT` is set to a directory other than the one it would create the tracker in (the message names both, and nothing is written). A re-run refreshes only what `update` refreshes. `--hooks` is accepted and does nothing. |
 | `update [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]` | Refresh what the tool wrote into a repository it already tracks: the managed block, `agent-brief.md`, the hook, the workflow and the agent definition, undoing a hand edit to either of the last two. It creates no tracker and touches neither the progress file, the tickets nor the log, so it takes no `--project` and no `--root`. With no tracker it is refused at exit 1, naming `agent-progress init`. |
 | `help` | The command reference. |
 

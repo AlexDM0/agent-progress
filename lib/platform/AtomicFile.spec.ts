@@ -1,7 +1,7 @@
 /**
  * `writeFileAtomically` against its own contract: a reader holding the file across the write sees the
  * whole old or the whole new content and never a prefix, a symlink and its mode survive, and a failed
- * write leaves the previous file untouched.
+ * write leaves the previous file untouched. `createFileAtomically` refuses an existing file with its bytes intact.
  */
 import {
   chmodSync,
@@ -24,7 +24,7 @@ import { tmpdir }                 from 'os';
 import { join }                   from 'path';
 import { afterAll, expect, test } from 'bun:test';
 
-import { writeFileAtomically } from './AtomicFile';
+import { createFileAtomically, writeFileAtomically } from './AtomicFile';
 
 /** Root can write into a directory it has no permission on, so the failure case cannot be staged there. */
 const RUNNING_AS_ROOT = typeof process.getuid === 'function' && process.getuid() === 0;
@@ -143,4 +143,26 @@ test('an empty string is a legitimate content, not a no-op', async () => {
   writeFileAtomically(filePath, '');
   expect(readFileSync(filePath, 'utf8')).toBe('');
   expect(existsSync(filePath)).toBe(true);
+});
+
+test('the create-exclusive write creates a missing file whole and leaves no temporary file beside it', async () => {
+  const directory = await createScratchDirectory();
+  const filePath = join(directory, 'progress.json');
+
+  expect(createFileAtomically(filePath, 'created')).toBe('created');
+
+  expect(readFileSync(filePath, 'utf8')).toBe('created');
+  expect(await unexpectedLeftovers(directory, ['progress.json'])).toEqual([]);
+});
+
+// The guarantee `init` rests on: no path through it can truncate a tracker that already exists.
+test('the create-exclusive write refuses an existing file, leaving its bytes and no temporary file behind', async () => {
+  const directory = await createScratchDirectory();
+  const filePath = join(directory, 'progress.json');
+  writeFileSync(filePath, 'existing tracker');
+
+  expect(createFileAtomically(filePath, 'empty tracker')).toBe('already-exists');
+
+  expect(readFileSync(filePath, 'utf8')).toBe('existing tracker');
+  expect(await unexpectedLeftovers(directory, ['progress.json'])).toEqual([]);
 });

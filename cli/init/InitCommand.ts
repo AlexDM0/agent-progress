@@ -3,16 +3,17 @@ import { randomUUID }                        from 'node:crypto';
 import { mkdirSync, realpathSync, statSync } from 'node:fs';
 import { basename, resolve }                 from 'node:path';
 
-import { ensureIgnored }                              from '../../lib/platform/GitIgnore';
-import { withLock }                                   from '../../lib/platform/Lock';
-import { OperationRefusal }                           from '../../lib/platform/OperationRefusal';
-import { discoverRepositoryRoot }                     from '../../lib/platform/RepositoryRoot';
-import { findWorkspace, workspacePathsFor }           from '../../lib/platform/Workspace';
-import { createEmptyProgressFile, writeProgressFile } from '../../lib/progress/ProgressStore';
-import { TimeUtil }                                   from '../../lib/utils/TimeUtil';
-import { renderDashboard }                            from '../CommandSupport';
-import type { CommandHandler }                        from '../CommandTable';
-import { refreshTrackedRepository }                   from '../TrackerRefresh';
+import { agentProgressRootOverride }                   from '../../lib/platform/Environment';
+import { ensureIgnored }                               from '../../lib/platform/GitIgnore';
+import { withLock }                                    from '../../lib/platform/Lock';
+import { OperationRefusal }                            from '../../lib/platform/OperationRefusal';
+import { discoverRepositoryRoot }                      from '../../lib/platform/RepositoryRoot';
+import { findWorkspace, workspacePathsFor }            from '../../lib/platform/Workspace';
+import { createEmptyProgressFile, createProgressFile } from '../../lib/progress/ProgressStore';
+import { TimeUtil }                                    from '../../lib/utils/TimeUtil';
+import { renderDashboard }                             from '../CommandSupport';
+import type { CommandHandler }                         from '../CommandTable';
+import { refreshTrackedRepository }                    from '../TrackerRefresh';
 
 const USAGE = 'agent-progress init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';
 
@@ -64,6 +65,19 @@ function requiredExistingDirectory(candidatePath: string, asWritten: string): st
   return candidatePath;
 }
 
+/** `AGENT_PROGRESS_ROOT` does not choose where `init` writes, so one naming another directory is refused rather than half-obeyed. */
+function refuseAnOverrideNamingAnotherDirectory(currentDirectory: string, rootDirectory: string): void {
+  const overrideRoot = agentProgressRootOverride();
+  if (overrideRoot === undefined) return;
+  const overriddenDirectory = resolvedRealPath(resolve(currentDirectory, overrideRoot));
+  if (overriddenDirectory === resolvedRealPath(rootDirectory)) return;
+  throw new OperationRefusal(
+    'refused',
+    `AGENT_PROGRESS_ROOT names ${overriddenDirectory}, but \`init\` would create the tracker in ${rootDirectory}; nothing was written. `
+    + 'Unset AGENT_PROGRESS_ROOT, or set it to the directory you are initialising, or pass that directory as --root.',
+  );
+}
+
 export const initCommand: CommandHandler = async (commandArguments, context) => {
   commandArguments.rejectUnknownOptions(KNOWN_OPTION_NAMES, USAGE);
   commandArguments.rejectExtraPositionals(0, USAGE);
@@ -78,6 +92,30 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
   const writesTheDispatcherWorkflow = !commandArguments.flag('no-workflow');
   const writesTheAgentDefinition = !commandArguments.flag('no-agent-definition');
 
+  refuseAnOverrideNamingAnotherDirectory(context.currentDirectory, rootDirectory);
+
+  // The brief, the block and the hook are written by the same refresh a second `init` and `update` run, so a fresh tracker and an adopted one never drift.
+  const refreshTheRepository = () => refreshTrackedRepository({
+    workspace,
+    commandName:   'init',
+    writesClaudeInstructions,
+    writesTheSubagentStopHook,
+    writesTheDispatcherWorkflow,
+    writesTheAgentDefinition,
+    standardError: context.standardError,
+  });
+  const reportTheRefreshOfAnExistingTracker = () => {
+    const refresh = refreshTheRepository();
+    context.standardOutput(`agent-progress is already initialised in ${rootDirectory}.`);
+    context.standardOutput(`  CLAUDE.md:   ${refresh.claudeInstructionsLine}`);
+    context.standardOutput(`  brief:       ${refresh.briefLine}`);
+    context.standardOutput(`  hooks:       ${refresh.hookLine}`);
+    context.standardOutput(`  workflow:    ${refresh.workflowLine}`);
+    context.standardOutput(`  agent:       ${refresh.agentDefinitionLine}`);
+    context.standardOutput(`  dashboard:   ${workspace.htmlFilePath}`);
+    context.standardOutput('  `agent-progress update` is the command for this refresh; `init` only creates a tracker.');
+  };
+
   const existingWorkspace = findWorkspace(rootDirectory);
   if (existingWorkspace !== null) {
     if (existingWorkspace.rootDirectory !== workspace.rootDirectory) {
@@ -87,23 +125,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
         + `Run \`agent-progress update\` in ${existingWorkspace.rootDirectory} instead to refresh what the tracker writes into the repository.`,
       );
     }
-    const refresh = refreshTrackedRepository({
-      workspace,
-      commandName:   'init',
-      writesClaudeInstructions,
-      writesTheSubagentStopHook,
-      writesTheDispatcherWorkflow,
-      writesTheAgentDefinition,
-      standardError: context.standardError,
-    });
-    context.standardOutput(`agent-progress is already initialised in ${rootDirectory}.`);
-    context.standardOutput(`  CLAUDE.md:   ${refresh.claudeInstructionsLine}`);
-    context.standardOutput(`  brief:       ${refresh.briefLine}`);
-    context.standardOutput(`  hooks:       ${refresh.hookLine}`);
-    context.standardOutput(`  workflow:    ${refresh.workflowLine}`);
-    context.standardOutput(`  agent:       ${refresh.agentDefinitionLine}`);
-    context.standardOutput(`  dashboard:   ${workspace.htmlFilePath}`);
-    context.standardOutput('  `agent-progress update` is the command for this refresh; `init` only creates a tracker.');
+    reportTheRefreshOfAnExistingTracker();
     return;
   }
 
@@ -117,21 +139,17 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
     trackerId: randomUUID(),
   });
 
-  await withLock(workspace, async () => {
-    writeProgressFile(workspace, progress);
-    await renderDashboard(context, workspace);
+  const creation = await withLock(workspace, async () => {
+    const verdict = createProgressFile(workspace, progress);
+    if (verdict === 'created') await renderDashboard(context, workspace);
+    return verdict;
   }, context.now);
+  if (creation === 'already-exists') {
+    reportTheRefreshOfAnExistingTracker();
+    return;
+  }
 
-  // The brief, the block and the hook are written by the same refresh a second `init` and `update` run, so a fresh tracker and an adopted one never drift.
-  const refresh = refreshTrackedRepository({
-    workspace,
-    commandName:   'init',
-    writesClaudeInstructions,
-    writesTheSubagentStopHook,
-    writesTheDispatcherWorkflow,
-    writesTheAgentDefinition,
-    standardError: context.standardError,
-  });
+  const refresh = refreshTheRepository();
 
   context.standardOutput(`Initialised agent-progress for "${progress.project}" in ${rootDirectory}`);
   context.standardOutput(`  tracker:     ${workspace.trackerDirectory}`);

@@ -16,8 +16,8 @@ import type {
   TaskStatus,
   ViewRange
 } from '../constants/Types';
-import { writeFileAtomically } from '../platform/AtomicFile';
-import type { Workspace }      from '../platform/Workspace';
+import { createFileAtomically, writeFileAtomically } from '../platform/AtomicFile';
+import type { Workspace }                            from '../platform/Workspace';
 
 /** Checked by equality: a future format is refused rather than half-read. */
 const SUPPORTED_PROGRESS_VERSION = 1;
@@ -243,6 +243,11 @@ export function readProgressFile(workspace: Workspace): ReadProgressFileResult {
 /** Through `lib/platform/AtomicFile.ts`, because a subagent in another worktree may be reading this exact file right now. */
 export function writeProgressFile(workspace: Workspace, progress: ProgressFile): void {
   writeFileAtomically(workspace.progressFilePath, `${JSON.stringify(progress, null, JSON_INDENT)}\n`);
+}
+
+/** `init`'s write: it never replaces a progress file, whatever path led to it, and says so instead. */
+export function createProgressFile(workspace: Workspace, progress: ProgressFile): 'created' | 'already-exists' {
+  return createFileAtomically(workspace.progressFilePath, `${JSON.stringify(progress, null, JSON_INDENT)}\n`);
 }
 
 /** The counter is stored and never wound back, so `task remove` and `clear` cannot hand a live row's id to a new one. */

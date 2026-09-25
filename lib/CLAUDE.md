@@ -173,6 +173,8 @@ nothing about tasks or tickets — a caller supplies a path.
 - `lib/platform/OperationRefusal.ts` — the typed refusal library code throws instead of exiting.
   `refused` → exit 1 (the caller can act on it), `unrepaired` → exit 2 (the tool will not repair it).
 - `lib/platform/AtomicFile.ts` — `writeFileAtomically`: temp file beside the target, `fsync`, rename.
+  `createFileAtomically` is its create-exclusive twin, a hard link in place of the rename, answering
+  `already-exists` rather than replacing a file; `init`'s store is written through it.
   Synchronous, symlink- and mode-preserving, and it sweeps no old temporary files.
 - `lib/platform/RepositoryRoot.ts` — `discoverRepositoryRoot`: one tracker per repository, shared by
   every worktree, via `git rev-parse --git-common-dir`, with a hand-parsed `.git` fallback and the
@@ -275,7 +277,8 @@ keeps that true.
   git repositories with one empty commit, worktrees beside them, and `gitIsAvailable`, the guard a spec
   needing git skips through. Nothing here calls `process.chdir`.
 - `lib/tooling/dev/CliProcess.ts` — `runAgentProgress` spawns the real `agent-progress.ts`, for the one
-  claim an in-process `runCommandLine` cannot make: shebang, executable bit and exit code included.
+  claims an in-process `runCommandLine` cannot make: shebang, executable bit and exit code included, and
+  a child environment of the spec's choosing (a built `PATH` reaching Bun and git, never this process's own).
 - `lib/tooling/dev/CapturedCommandContext.ts` — the `CommandContext` whose two streams are arrays that
   every command spec drives `runCommandLine` with. It declares the context's shape rather than
   importing `cli/CommandContext.ts`, because rule 1 forbids any import of `cli/` from under `lib/`.

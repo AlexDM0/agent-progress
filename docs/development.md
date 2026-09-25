@@ -75,10 +75,11 @@ repository instead. There are two ways to point the tool at one:
 
 - **`AGENT_PROGRESS_ROOT`** names the repository to use instead of walking up from the current
   directory. It wins outright, and it is refused when the directory holds no tracker. `init` does
-  not choose its directory by it, since it creates a tracker rather than finding one; it only
-  consults it when checking whether a tracker already governs that directory. So keep it unset when
-  you run `init`: pointed at a folder without a tracker, it makes `init` re-create the tracker of the
-  repository it is run in, rows and log included.
+  not choose its directory by it, since it creates a tracker rather than finding one: set to a
+  directory other than the one `init` targets (the discovered repository, or `--root`), `init` is
+  refused at exit 1 with a message naming both and writes nothing. And `init` never replaces an
+  existing `progress.json`: the store is created with an exclusive create, so a tracker already
+  there is refreshed as `update` refreshes it instead.
 - **`init --root <path>`** tracks that directory instead of the discovered repository root, and writes
   its `CLAUDE.md` block, hook, workflow and agent definition there. It is refused when the path is not
   an existing directory.
@@ -231,7 +232,8 @@ what they scanned, so a walk of the wrong directory cannot pass by finding nothi
 | `lib/tooling/dev/SourceComments.spec.ts` | A comment opener inside a string, template or regular expression opens nothing, and a real comment after one is still found; the text guards rely on both. |
 | `cli/CommandTable.spec.ts` | Every command in `cli/CommandTable.ts` reaches a handler, and a word that is not a command, an inherited property included, is refused. |
 | `cli/HelpText.spec.ts` | `cli/HelpText.ts` and the command table agree in both directions; no bundled skill carries its own command table; the skill every agent loads stays under its size ceiling. |
-| `cli/BinarySmoke.spec.ts` | The real `agent-progress.ts` spawned end to end: the shebang, the argument slice and the exit status reaching the process. The only suite that spawns the binary. |
+| `cli/BinarySmoke.spec.ts` | The real `agent-progress.ts` spawned end to end: the shebang, the argument slice and the exit status reaching the process. |
+| `cli/InitRootOverride.spec.ts` | `init` beside `AGENT_PROGRESS_ROOT`, spawned because no spec may set the environment in-process: an override naming another directory refused with both progress files byte-identical, an agreeing one refreshing like `update`. |
 | `lib/tooling/dev/WorkflowScriptSource.spec.ts` | The dispatcher script calls no clock and no randomness, and opens with a literal `meta` the Workflow tool can read without running it. |
 | `lib/tooling/dev/DispatchScriptHarness.spec.ts` and its `.hold`, `.resume` and `.brief` suites | The dispatcher's decisions; see below. |
 
