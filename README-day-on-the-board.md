@@ -48,7 +48,7 @@ You say go. The orchestrator launches the dispatcher workflow, which reads the b
 
 ### 10:22 — A builder hands in, and a fresh reviewer tries to prove it wrong
 
-The gift-card builder commits, rebases onto `main`, gets the checks green and writes a Handoff of at most fifteen lines. `ticket review --start-review` moves the ticket to review and opens the reviewer's bar in the same lock hold, so the slot passes from builder to reviewer without ever reading free. The reviewer is a new agent that has not seen the build. Its brief says to show that the ticket does **not** hold and to re-run every claim itself.
+The gift-card builder commits, rebases onto `main`, gets the checks green and writes a Handoff of at most fifteen lines. `ticket finish --start-review` moves the ticket to in-review and opens the reviewer's bar in the same lock hold, so the slot passes from builder to reviewer without ever reading free. The reviewer is a new agent that has not seen the build. Its brief says to show that the ticket does **not** hold and to re-run every claim itself.
 
 <p align="center">
   <img src="docs/images/story-1025.png" width="830" alt="Gantt chart at 10:25: #001 reviewing with 2.4M tokens beside it and a nested Review 1 #001 row just started above it, #002 and #003 still in wip">

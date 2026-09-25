@@ -194,7 +194,7 @@ describe('applyTicketTransition', () => {
     expect(progress.log).toEqual([{ at: STARTED_AT, text: 'Ticket #003 started' }]);
   });
 
-  test('review stamps finished and sets the row in-review', () => {
+  test('a move to in-review stamps finished and sets the row in-review', () => {
     const progress   = progressFixture();
     const ticket     = ticketFixture();
     const operations = progressOperations();

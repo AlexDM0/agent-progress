@@ -281,8 +281,9 @@ output never carries either.
                               verbs are refused at exit 1 with nothing written, naming the one
                               that replaced them: \`ticket review\` names \`finish\`, \`ticket done\`
                               and \`task review\` name \`approve\`. So is an old status word given
-                              to \`ticket status\`, \`ticket list --status\` or \`task update
-                              --status\` (open, done, running, finished), naming its new word.
+                              as a value, naming its new word: \`open\` or \`done\` to \`ticket
+                              status\` or \`ticket list --status\`, \`running\` or \`finished\` to
+                              \`task update --status\`.
 
   ticket finish|rereview <id> --start-review [--owner <who>] [--note <text>] [--at <when>]
                               The move to review, or the next round, and the reviewer's in-progress bar

@@ -265,7 +265,7 @@ export function applyTicketRereview(input: ApplyTicketRereviewInput): ApplyTicke
 
 /**
  * The bar ends at `finished` before `delivered`, because delivery is a later fact about finished work rather than more of it.
- * A reviewed or delivered ticket was reviewed, since delivery is only legal from `reviewed`.
+ * A delivered ticket was reviewed too, since delivery is only legal from `reviewed`.
  */
 export function seedTaskFromTicket(input: TicketRowInput): Task {
   const { progress, ticket, operations } = input;
