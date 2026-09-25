@@ -1,10 +1,10 @@
 # Migration plan: the conventions refactor
 
-**Status (2026-09-25): agreed, not started.** The kanban-board feature has landed on main (9654720
-through 5c6b0ad) and is mapped into this plan; nothing blocks step 0. This file is the single source
-for the plan; `agent-progress-architecture.html` (untracked, repo root) is the evidence it was built
-from: the file map, the diagnosis and the measurements, taken at c5bbc30, before the kanban. Its
-two-option proposal is superseded by this plan.
+**Status (2026-09-25): in flight on `migration/conventions`; steps 0 and 1 are done, step 2 is next.**
+The kanban-board feature has landed on main (9654720 through 5c6b0ad) and is mapped into this plan.
+This file is the single source for the plan; `agent-progress-architecture.html` (untracked, repo
+root) is the evidence it was built from: the file map, the diagnosis and the measurements, taken at
+c5bbc30, before the kanban. Its two-option proposal is superseded by this plan.
 
 The target conventions are the owner's generalized ones in `~/coding-conventions.md`. This plan
 applies them to this repository.
