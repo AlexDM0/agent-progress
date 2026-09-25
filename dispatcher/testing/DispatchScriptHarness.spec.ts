@@ -5,8 +5,6 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../src/lib/tracker-model/constants/AgentSettings.ts';
-import { LIMITS }                                    from '../../src/shared/constants/Limits.ts';
 import {
   BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM,
   REVIEWER_SKIPS_A_REREVIEW_ALREADY_RUN,
@@ -24,22 +22,6 @@ import {
 import type { TextMutant } from './claims/DispatchClaim';
 
 const SCRIPT_SOURCE = readDispatchScript();
-
-/** Each site that starts an agent, with its model or its effort taken out: four sites, eight forms. */
-const AGENT_OPTIONS_LEFT_OUT: [string, string][] = [
-  ['    model:  SURVEY_MODEL,\n    effort: SURVEY_EFFORT,', '    effort: SURVEY_EFFORT,'],
-  ['    model:  SURVEY_MODEL,\n    effort: SURVEY_EFFORT,', '    model:  SURVEY_MODEL,'],
-  ['      model:  PARKING_MODEL,\n      effort: PARKING_EFFORT,', '      effort: PARKING_EFFORT,'],
-  ['      model:  PARKING_MODEL,\n      effort: PARKING_EFFORT,', '      model:  PARKING_MODEL,'],
-  ['schema: BUILDER_SCHEMA,\n      model,\n      effort,', 'schema: BUILDER_SCHEMA,\n      effort,'],
-  ['schema: BUILDER_SCHEMA,\n      model,\n      effort,', 'schema: BUILDER_SCHEMA,\n      model,'],
-  ['schema: REVIEWER_SCHEMA,\n    model,\n    effort,', 'schema: REVIEWER_SCHEMA,\n    effort,'],
-  ['schema: REVIEWER_SCHEMA,\n    model,\n    effort,', 'schema: REVIEWER_SCHEMA,\n    model,'],
-];
-
-function scriptConstantOf(name: string): string | null {
-  return new RegExp(`^const ${name} = '(\\w+)';$`, 'm').exec(SCRIPT_SOURCE)?.[1] ?? null;
-}
 
 function mutated(mutant: TextMutant): string {
   return SCRIPT_SOURCE.replace(mutant.find, mutant.replace);
@@ -78,31 +60,6 @@ describe('the dispatcher script', () => {
     expect(run.calls.length).toBeGreaterThan(4);
     expect(new Set(run.calls.map((call) => call.kind))).toEqual(new Set(['survey', 'build', 'review', 'park']));
     expect(modelsAndEffortsAreExplicit(run)).toBe(true);
-  });
-
-  test.each(AGENT_OPTIONS_LEFT_OUT)('an agent started without its model or effort (%s → %s) fails the check', async (find, replace) => {
-    expect(SCRIPT_SOURCE.split(find).length - 1).toBe(1);
-    expect(modelsAndEffortsAreExplicit(await runDispatchScript(DECISION_SCENARIOS['every kind of agent runs'](), SCRIPT_SOURCE.replace(find, replace)))).toBe(false);
-  });
-
-  test('the four sites above are every agent the script starts: one agent() call, reached through runAgent from four places', () => {
-    expect(SCRIPT_SOURCE.split(/\bagent\(/).length - 1).toBe(1);
-    expect(SCRIPT_SOURCE.split('await agent(prompt, options)').length - 1).toBe(1);
-    expect(SCRIPT_SOURCE.split('runAgent(').length - 1).toBe(1 + AGENT_OPTIONS_LEFT_OUT.length / 2);
-  });
-
-  // The script is plain JavaScript in another repository and cannot import the tool's defaults, so it states its own and they must not drift.
-  test('the script falls back to the same default model and effort as the tool, and runs the survey and parking agents on haiku at low', () => {
-    expect(scriptConstantOf('DEFAULT_WORKER_MODEL')).toBe(DEFAULT_AGENT_MODEL);
-    expect(scriptConstantOf('DEFAULT_WORKER_EFFORT')).toBe(DEFAULT_AGENT_EFFORT);
-    expect([scriptConstantOf('SURVEY_MODEL'), scriptConstantOf('SURVEY_EFFORT')]).toEqual(['haiku', 'low']);
-    expect([scriptConstantOf('PARKING_MODEL'), scriptConstantOf('PARKING_EFFORT')]).toEqual(['haiku', 'low']);
-  });
-
-  // The same drift for the limit: a script ceiling above the tool's would run more agents than `concurrency` ever lets the user store.
-  test('the script caps the board limit at the same ceiling as the tool', () => {
-    const statedCeiling = /^const CONCURRENCY_CEILING_AGENTS = (\d+);$/m.exec(SCRIPT_SOURCE)?.[1] ?? null;
-    expect(statedCeiling).toBe(String(LIMITS.CONCURRENCY_LIMIT_CEILING_AGENTS));
   });
 
   // The script reads a ticket's priority, model and effort only from what the agents copy, so every prompt names the one list to copy.

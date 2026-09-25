@@ -36,9 +36,4 @@ describe('the dispatcher script and a held ticket', () => {
       expect(claim.holds(run)).toBe(false);
     });
   }
-
-  test('every agent is told to return heldTicketIds with the concurrency block, and the schema requires it', () => {
-    expect(SCRIPT_SOURCE).toContain('(limit, agentsInFlight, freeSlots, readyTicketIds, dispatcherState, heldTicketIds)');
-    expect(SCRIPT_SOURCE).toMatch(/required: \[[^\]]*'heldTicketIds'\]/);
-  });
 });

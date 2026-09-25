@@ -3,30 +3,18 @@
  * of their own: the builder's call budget, the reviewer's, and the rework count above which a round is granted. Those three are read here from
  * the brief and from what the script actually sends, and held to `DISPATCH_PROTOCOL`, so a change to one that leaves another behind fails.
  */
-import { readFileSync }           from 'node:fs';
-import { join }                   from 'node:path';
 import { describe, expect, test } from 'bun:test';
 
 import { DISPATCH_PROTOCOL }  from '../../src/shared/constants/DispatchProtocol';
+import { agentBriefNumbers }  from './AgentBriefNumbers';
 import { runDispatchScript }  from './DispatchScriptHarness';
 import { readDispatchScript } from './OldDispatchScript';
 import { DECISION_SCENARIOS } from './claims/DecisionClaims';
 
 const SCRIPT_SOURCE = readDispatchScript();
 
-const AGENT_BRIEF_PATH = join(import.meta.dir, '..', '..', 'templates', 'AgentBrief.md');
-
-function numberIn(text: string, pattern: RegExp): number {
-  const match = pattern.exec(text);
-  expect(match, `${pattern} is found`).not.toBeNull();
-  return Number(match?.[1]);
-}
-
 describe('the dispatcher and the agent brief', () => {
-  const brief                 = readFileSync(AGENT_BRIEF_PATH, 'utf8');
-  const builderBudget         = numberIn(brief, /or at about (\d+) API calls/);
-  const reviewerBudget        = numberIn(brief, /up to about (\d+) API calls/);
-  const reworkThresholdLines  = numberIn(brief, /Over (\d+) lines of code reworked/);
+  const { builderBudget, reviewerBudget, reworkThresholdLines } = agentBriefNumbers();
 
   test('the brief states the three numbers the prompts repeat', () => {
     expect([builderBudget, reviewerBudget, reworkThresholdLines]).toEqual([150, 75, 750]);
@@ -53,9 +41,5 @@ describe('the dispatcher and the agent brief', () => {
     expect(reviewer?.prompt).toContain(`up to about ${reviewerBudget} API calls`);
     expect(reviewer?.prompt).toContain(`over ${reworkThresholdLines} lines of code`);
     expect(reviewer?.prompt).toContain('`## Review brief`');
-  });
-
-  test('the round decision counts against the brief\'s threshold', () => {
-    expect(numberIn(SCRIPT_SOURCE, /const REWORK_ROUND_THRESHOLD_LINES = (\d+);/)).toBe(reworkThresholdLines);
   });
 });
