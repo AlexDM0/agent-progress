@@ -73,5 +73,5 @@ export const LOCK_DIRECTORY_NAME = '.lock';
 
 export const CLAUDE_MANAGED_START = '<!-- agent-progress:managed:start -->';
 
-/** Neither marker may contain the other: `lib/platform/ClaudeInstructions.ts` finds the end by searching forward from the start. */
+/** Neither marker may contain the other: `src/lib/claude-code/ClaudeInstructions.ts` finds the end by searching forward from the start. */
 export const CLAUDE_MANAGED_END = '<!-- agent-progress:managed:end -->';

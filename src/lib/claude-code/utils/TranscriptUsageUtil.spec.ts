@@ -10,15 +10,13 @@ import { describe, expect, test } from 'bun:test';
 import { TranscriptUsageUtil } from './TranscriptUsageUtil';
 
 const {
-  composeUsageLine,
-  evenSharesOf,
+  briefTextOf,
   profileTranscript,
-  reviewedTicketIdentifierNamedInBrief,
-  rowIdentifiersNamedInBrief,
   summariseTranscriptUsage,
-  ticketIdentifiersNamedInBrief,
   totalInputTokensOf,
 } = TranscriptUsageUtil;
+
+const OVERSIZED_CONTEXT_THRESHOLD_TOKENS = 200_000;
 
 interface ConstructedUsage {
   input_tokens?:                number;
@@ -47,7 +45,7 @@ describe('one API call spread over several lines', () => {
       }),
     ].join('\n');
 
-    const totals = summariseTranscriptUsage(transcript);
+    const totals = summariseTranscriptUsage(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS);
 
     expect(totals.apiCallCount).toBe(1);
     expect(totals.inputTokens).toBe(12);
@@ -62,7 +60,7 @@ describe('one API call spread over several lines', () => {
       assistantLine('msg_two', { input_tokens: 30, cache_read_input_tokens: 500, output_tokens: 40 }),
     ].join('\n');
 
-    const totals = summariseTranscriptUsage(transcript);
+    const totals = summariseTranscriptUsage(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS);
 
     expect(totals.apiCallCount).toBe(2);
     expect(totals.inputTokens).toBe(40);
@@ -81,7 +79,7 @@ describe('one API call spread over several lines', () => {
       assistantLine('msg_two', { input_tokens: 30, cache_read_input_tokens: 500, output_tokens: 40 }),
     ].join('\n');
 
-    const totals = summariseTranscriptUsage(transcript);
+    const totals = summariseTranscriptUsage(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS);
 
     expect(totals.apiCallCount).toBe(2);
     expect(totals.inputTokens, 'each id\'s input is taken once, however often its lines repeat it').toBe(40);
@@ -96,7 +94,7 @@ describe('one API call spread over several lines', () => {
       assistantLine('msg_two', { input_tokens: 20, cache_read_input_tokens: 900, cache_creation_input_tokens: 7 }),
     ].join('\n');
 
-    expect(summariseTranscriptUsage(transcript).endContextTokens).toBe(927);
+    expect(summariseTranscriptUsage(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS).endContextTokens).toBe(927);
   });
 });
 
@@ -104,7 +102,7 @@ describe('the lines a transcript carries that are not calls', () => {
   test('a message with no id is still one call, rather than being dropped or folded into another', () => {
     const transcript = assistantLine(null, { input_tokens: 15, output_tokens: 25 });
 
-    const totals = summariseTranscriptUsage(transcript);
+    const totals = summariseTranscriptUsage(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS);
 
     expect(totals.apiCallCount).toBe(1);
     expect(totals.inputTokens).toBe(15);
@@ -121,7 +119,7 @@ describe('the lines a transcript carries that are not calls', () => {
       '{"type":"assistant","message":{"id":"msg_half_wri',
     ].join('\n');
 
-    const totals = summariseTranscriptUsage(transcript);
+    const totals = summariseTranscriptUsage(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS);
 
     expect(totals.apiCallCount).toBe(1);
     expect(totals.inputTokens).toBe(7);
@@ -130,7 +128,7 @@ describe('the lines a transcript carries that are not calls', () => {
   test('a usage field that is missing or not a number reads as zero rather than as a broken transcript', () => {
     const transcript = JSON.stringify({ type: 'assistant', message: { id: 'msg_one', usage: { input_tokens: 'lots', output_tokens: 9 } } });
 
-    const totals = summariseTranscriptUsage(transcript);
+    const totals = summariseTranscriptUsage(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS);
 
     expect(totals.apiCallCount).toBe(1);
     expect(totals.inputTokens).toBe(0);
@@ -139,7 +137,7 @@ describe('the lines a transcript carries that are not calls', () => {
 
   /** Zero calls is the verdict the hook reports instead of logging a line of noughts, so it has to come back as zero and not as a throw. */
   test('an empty transcript answers zero calls and zero of everything', () => {
-    expect(summariseTranscriptUsage('')).toEqual({
+    expect(summariseTranscriptUsage('', OVERSIZED_CONTEXT_THRESHOLD_TOKENS)).toEqual({
       apiCallCount:             0,
       inputTokens:              0,
       cacheReadInputTokens:     0,
@@ -163,13 +161,13 @@ describe('the tokens spent at an oversized context', () => {
       assistantLine('msg_large', { input_tokens: 1_000, cache_read_input_tokens: 200_000, output_tokens: 10 }),
     ].join('\n');
 
-    expect(summariseTranscriptUsage(transcript).oversizedContextTokens).toBe(201_000);
+    expect(summariseTranscriptUsage(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS).oversizedContextTokens).toBe(201_000);
   });
 
   test('a context of exactly 200,000 is not oversized, because the bound is one the call has to pass', () => {
     const transcript = assistantLine('msg_one', { input_tokens: 100_000, cache_read_input_tokens: 100_000, output_tokens: 10 });
 
-    expect(summariseTranscriptUsage(transcript).oversizedContextTokens).toBe(0);
+    expect(summariseTranscriptUsage(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS).oversizedContextTokens).toBe(0);
   });
 
   test('the three lines of one oversized call contribute it once, exactly as the totals count it once', () => {
@@ -185,12 +183,12 @@ describe('the tokens spent at an oversized context', () => {
       assistantLine('msg_one', oversizedUsage),
     ].join('\n');
 
-    expect(summariseTranscriptUsage(transcript).oversizedContextTokens).toBe(302_500);
+    expect(summariseTranscriptUsage(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS).oversizedContextTokens).toBe(302_500);
   });
 });
 
 /**
- * The profile is what `cli/usage/UsageCommand.ts` compares agents by, so each field is pinned on its
+ * The profile is what a caller compares agents by, so each field is pinned on its
  * own against a constructed transcript, including the two that are easy to read off the wrong place:
  * the excerpt, which must come from the brief and not from an attachment stapled to the same turn,
  * and the injected characters, which must be counted wherever the attachment happens to be nested.
@@ -225,7 +223,7 @@ describe('the profile of a whole transcript', () => {
   test('it carries the totals, so a caller never has to sum a transcript twice', () => {
     const transcript = assistantLine('msg_one', { input_tokens: 11, cache_read_input_tokens: 900, output_tokens: 42 });
 
-    const profile = profileTranscript(transcript);
+    const profile = profileTranscript(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS);
 
     expect(profile.apiCallCount).toBe(1);
     expect(profile.inputTokens).toBe(11);
@@ -240,11 +238,11 @@ describe('the profile of a whole transcript', () => {
       JSON.stringify({ type: 'assistant', timestamp: '2026-09-19T09:30:00.000Z', message: { id: 'msg_one', model: 'claude-opus-5', usage: {} } }),
     ].join('\n');
 
-    expect(profileTranscript(transcript).startedAt).toBe('2026-09-19T08:55:00.000Z');
+    expect(profileTranscript(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS).startedAt).toBe('2026-09-19T08:55:00.000Z');
   });
 
   test('a transcript with no timestamp and no assistant turn answers null for both, rather than the epoch or a guess', () => {
-    const profile = profileTranscript(JSON.stringify({ type: 'user', message: { content: 'Do the thing' } }));
+    const profile = profileTranscript(JSON.stringify({ type: 'user', message: { content: 'Do the thing' } }), OVERSIZED_CONTEXT_THRESHOLD_TOKENS);
 
     expect(profile.startedAt).toBeNull();
     expect(profile.model).toBeNull();
@@ -256,7 +254,7 @@ describe('the profile of a whole transcript', () => {
       JSON.stringify({ type: 'assistant', message: { id: 'msg_two', model: 'claude-haiku-4', usage: {} } }),
     ].join('\n');
 
-    expect(profileTranscript(transcript).model).toBe('claude-opus-5');
+    expect(profileTranscript(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS).model).toBe('claude-opus-5');
   });
 
   // A screenshot loop is the shape that costs an agent 40 consecutive calls, and the tool names are the only trace of it.
@@ -275,7 +273,7 @@ describe('the profile of a whole transcript', () => {
       },
     });
 
-    expect(profileTranscript(transcript).browserCallCount).toBe(2);
+    expect(profileTranscript(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS).browserCallCount).toBe(2);
   });
 
   test('a Bash command that writes through a heredoc, an inline interpreter or an in-place editor is an edit script, and one that reads is not', () => {
@@ -286,14 +284,14 @@ describe('the profile of a whole transcript', () => {
       'rg --files lib',
     ]);
 
-    expect(profileTranscript(transcript).bashEditScriptCount).toBe(3);
+    expect(profileTranscript(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS).bashEditScriptCount).toBe(3);
   });
 
   /** A command can be a heredoc fed to an interpreter, which is one edit and must not be counted as two. */
   test('a command matching several of the edit-script patterns at once counts once', () => {
     const transcript = bashLine(['python3 - <<EOF\nopen("lib/Thing.ts", "w").write("x")\nEOF']);
 
-    expect(profileTranscript(transcript).bashEditScriptCount).toBe(1);
+    expect(profileTranscript(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS).bashEditScriptCount).toBe(1);
   });
 
   test('a test suite, a type checker and a linter each count as a verification run, and a chain of all three counts once', () => {
@@ -304,7 +302,7 @@ describe('the profile of a whole transcript', () => {
       'git status',
     ]);
 
-    expect(profileTranscript(transcript).verificationRunCount).toBe(3);
+    expect(profileTranscript(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS).verificationRunCount).toBe(3);
   });
 
   /** Only the `Bash` tool's own commands: a file the agent read that happens to contain `bun test` is not a run of it. */
@@ -314,7 +312,7 @@ describe('the profile of a whole transcript', () => {
       message: { id: 'msg_one', usage: {}, content: [{ type: 'tool_use', name: 'Read', input: { command: 'bun test && sed -i s/a/b/ x' } }] },
     });
 
-    const profile = profileTranscript(transcript);
+    const profile = profileTranscript(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS);
 
     expect(profile.bashEditScriptCount).toBe(0);
     expect(profile.verificationRunCount).toBe(0);
@@ -323,7 +321,7 @@ describe('the profile of a whole transcript', () => {
   test('the injected characters are the attachment\'s text, summed across turns and found however deeply it is nested', () => {
     const transcript = [userLineWithAttachment('Do the thing'), userLineWithAttachment('And the other thing')].join('\n');
 
-    expect(profileTranscript(transcript).nestedInstructionCharacters).toBe(NESTED_INSTRUCTIONS.length * 2);
+    expect(profileTranscript(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS).nestedInstructionCharacters).toBe(NESTED_INSTRUCTIONS.length * 2);
   });
 
   /** The shape every real attachment was found in: a line of its own, of type `attachment`, with the object beside the message rather than inside one. */
@@ -334,7 +332,7 @@ describe('the profile of a whole transcript', () => {
       attachment: { type: 'nested_memory', path: 'lib/CLAUDE.md', content: { path: 'lib/CLAUDE.md', content: NESTED_INSTRUCTIONS } },
     });
 
-    expect(profileTranscript(transcript).nestedInstructionCharacters).toBe(NESTED_INSTRUCTIONS.length);
+    expect(profileTranscript(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS).nestedInstructionCharacters).toBe(NESTED_INSTRUCTIONS.length);
   });
 
   /** An agent that writes the word `nested_memory` in its own prose must not be read as having been handed one. */
@@ -344,25 +342,25 @@ describe('the profile of a whole transcript', () => {
       message: { id: 'msg_one', usage: {}, content: [{ type: 'text', text: 'The harness marks them "type":"nested_memory" and I counted 4000 characters.' }] },
     });
 
-    expect(profileTranscript(transcript).nestedInstructionCharacters).toBe(0);
+    expect(profileTranscript(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS).nestedInstructionCharacters).toBe(0);
   });
 
   test('a transcript with no attachments counts zero injected characters rather than the whole user turn', () => {
     const transcript = JSON.stringify({ type: 'user', message: { content: 'Do the thing' } });
 
-    expect(profileTranscript(transcript).nestedInstructionCharacters).toBe(0);
+    expect(profileTranscript(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS).nestedInstructionCharacters).toBe(0);
   });
 
   /** The load-bearing direction: the opening line of a real subagent transcript is routinely attachments plus the brief, in that order. */
   test('the excerpt is the brief and never the CLAUDE.md the harness stapled to the same turn', () => {
-    expect(profileTranscript(userLineWithAttachment('Do the thing')).briefExcerpt).toBe('Do the thing');
+    expect(profileTranscript(userLineWithAttachment('Do the thing'), OVERSIZED_CONTEXT_THRESHOLD_TOKENS).briefExcerpt).toBe('Do the thing');
   });
 
   test('the excerpt is one line of at most 80 characters, so a row stays a row', () => {
     const brief      = `Read ${'the file and then '.repeat(12)}stop`;
     const transcript = JSON.stringify({ type: 'user', message: { content: `Read\n\n   ${brief.slice(5)}` } });
 
-    const { briefExcerpt } = profileTranscript(transcript);
+    const { briefExcerpt } = profileTranscript(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS);
 
     expect(briefExcerpt.length).toBe(80);
     expect(briefExcerpt).not.toContain('\n');
@@ -375,11 +373,11 @@ describe('the profile of a whole transcript', () => {
       JSON.stringify({ type: 'user', message: { content: 'Do the thing' } }),
     ].join('\n');
 
-    expect(profileTranscript(transcript).briefExcerpt).toBe('Do the thing');
+    expect(profileTranscript(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS).briefExcerpt).toBe('Do the thing');
   });
 
   test('an empty transcript profiles as zero everywhere and null where there is nothing to name', () => {
-    const profile = profileTranscript('');
+    const profile = profileTranscript('', OVERSIZED_CONTEXT_THRESHOLD_TOKENS);
 
     expect(profile.apiCallCount).toBe(0);
     expect(profile.browserCallCount).toBe(0);
@@ -393,37 +391,7 @@ describe('the profile of a whole transcript', () => {
   });
 });
 
-describe('the line the log receives', () => {
-  test('it names the agent, the call count and the three figures, in the units the chart uses', () => {
-    const line = composeUsageLine('agent_42', 'general-purpose', {
-      apiCallCount:             32,
-      inputTokens:              20_000,
-      cacheReadInputTokens:     4_500_000,
-      cacheCreationInputTokens: 280_000,
-      outputTokens:             48_000,
-      endContextTokens:         165_000,
-      oversizedContextTokens:   0,
-    });
-
-    expect(line).toBe('Agent agent_42 (general-purpose) stopped: 32 calls, end context 165k, input 4.8M (cache read 4.5M), output 48k');
-  });
-
-  /** The cache-read share is what explains a long session; a plain input total hides it, which is why it is named separately. */
-  test('the input figure is the whole of what was sent, so it is never smaller than the cache-read share beside it', () => {
-    const line = composeUsageLine('agent_1', 'Explore', {
-      apiCallCount:             2,
-      inputTokens:              1000,
-      cacheReadInputTokens:     9000,
-      cacheCreationInputTokens: 2000,
-      outputTokens:             500,
-      endContextTokens:         6000,
-      oversizedContextTokens:   0,
-    });
-
-    expect(line).toContain('input 12k (cache read 9k)');
-    expect(line).toContain('output 500');
-  });
-
+describe('the total input of a call', () => {
   test('the row figure and the log line\'s input are one number: fresh input plus both cache figures', () => {
     expect(totalInputTokensOf({
       apiCallCount:             2,
@@ -434,116 +402,6 @@ describe('the line the log receives', () => {
       endContextTokens:         6000,
       oversizedContextTokens:   0,
     })).toBe(12_000);
-  });
-});
-
-/**
- * The marker decides which row an agent's cost lands on, so what matters is what must NOT count: a marker
- * quoted after the brief, a template placeholder, and an attachment turn standing in front of the brief.
- */
-describe('the rows a brief names', () => {
-  function userTextLine(text: string): string {
-    return JSON.stringify({ type: 'user', message: { content: [{ type: 'text', text }] } });
-  }
-
-  test('one id, or several separated by commas, are read in the order written', () => {
-    expect(rowIdentifiersNamedInBrief(userTextLine('Do it.\nagent-progress row: 4\nStop.'))).toEqual([4]);
-    expect(rowIdentifiersNamedInBrief(userTextLine('agent-progress row: 4, 7'))).toEqual([4, 7]);
-    expect(rowIdentifiersNamedInBrief(userTextLine('  agent-progress row: 7,4,4  '))).toEqual([7, 4]);
-  });
-
-  /** A reviewer may be shown the builder's brief; the marker it quotes is the builder's row, not its own. */
-  test('a marker in a later user turn is not the brief\'s, so it names nothing', () => {
-    const transcript = [userTextLine('Review the branch.'), userTextLine('agent-progress row: 4')].join('\n');
-
-    expect(rowIdentifiersNamedInBrief(transcript)).toEqual([]);
-  });
-
-  test('an attachment-only opening turn is passed over, as for the excerpt, and the brief after it is read', () => {
-    const transcript = [
-      JSON.stringify({ type: 'user', message: { content: [{ type: 'nested_memory', content: { path: 'lib/CLAUDE.md', content: 'agent-progress row: 9' } }] } }),
-      userTextLine('agent-progress row: 4'),
-    ].join('\n');
-
-    expect(rowIdentifiersNamedInBrief(transcript)).toEqual([4]);
-  });
-
-  test('a placeholder, a marker inside a sentence and a brief without one all name nothing', () => {
-    expect(rowIdentifiersNamedInBrief(userTextLine('agent-progress row: <rowId>'))).toEqual([]);
-    expect(rowIdentifiersNamedInBrief(userTextLine('Write agent-progress row: 4 into the brief.'))).toEqual([]);
-    expect(rowIdentifiersNamedInBrief(userTextLine('Do the work.'))).toEqual([]);
-    expect(rowIdentifiersNamedInBrief('')).toEqual([]);
-  });
-
-  test('a brief split over several text blocks is read line by line, so a marker in the second block counts', () => {
-    const transcript = JSON.stringify({ type: 'user', message: { content: [{ type: 'text', text: 'Do it.' }, { type: 'text', text: 'agent-progress row: 4' }] } });
-
-    expect(rowIdentifiersNamedInBrief(transcript)).toEqual([4]);
-  });
-});
-
-/**
- * The ticket form exists for a low ticket whose row the builder's own claim creates, so the ids are only
- * read here and resolved later. What callers rely on: padded, unpadded and `#` spellings all come back as
- * the stored padded id, and the brief-only rule is the row form's.
- */
-describe('the tickets a brief names', () => {
-  function userTextLine(text: string): string {
-    return JSON.stringify({ type: 'user', message: { content: [{ type: 'text', text }] } });
-  }
-
-  test('padded, unpadded and hash-prefixed ids all read as the padded id, in the order written and each once', () => {
-    expect(ticketIdentifiersNamedInBrief(userTextLine('Do it.\nagent-progress ticket: 22\nStop.'))).toEqual(['022']);
-    expect(ticketIdentifiersNamedInBrief(userTextLine('agent-progress ticket: 022, 20'))).toEqual(['022', '020']);
-    expect(ticketIdentifiersNamedInBrief(userTextLine('  agent-progress ticket: #20,22,022  '))).toEqual(['020', '022']);
-  });
-
-  test('a marker in a later user turn is not the brief\'s, so it names nothing', () => {
-    const transcript = [userTextLine('Review the branch.'), userTextLine('agent-progress ticket: 22')].join('\n');
-
-    expect(ticketIdentifiersNamedInBrief(transcript)).toEqual([]);
-  });
-
-  test('a placeholder, a marker inside a sentence, ticket zero and the row form all name no ticket', () => {
-    expect(ticketIdentifiersNamedInBrief(userTextLine('agent-progress ticket: <id>'))).toEqual([]);
-    expect(ticketIdentifiersNamedInBrief(userTextLine('Write agent-progress ticket: 22 into the brief.'))).toEqual([]);
-    expect(ticketIdentifiersNamedInBrief(userTextLine('agent-progress ticket: 0'))).toEqual([]);
-    expect(ticketIdentifiersNamedInBrief(userTextLine('agent-progress row: 22'))).toEqual([]);
-  });
-
-  test('a brief carrying both lines answers each reader with its own', () => {
-    const transcript = userTextLine('agent-progress row: 4\nagent-progress ticket: 22');
-
-    expect(rowIdentifiersNamedInBrief(transcript)).toEqual([4]);
-    expect(ticketIdentifiersNamedInBrief(transcript)).toEqual(['022']);
-  });
-});
-
-/**
- * The review form names one ticket whose review row the reviewer files itself after its brief was written; the hook resolves the row.
- * What callers rely on: the padded id in every spelling, the brief-only rule, and a list or a placeholder naming nothing rather than a guess.
- */
-describe('the ticket a reviewer\'s brief names', () => {
-  function userTextLine(text: string): string {
-    return JSON.stringify({ type: 'user', message: { content: [{ type: 'text', text }] } });
-  }
-
-  test('padded, unpadded and hash-prefixed ids all read as the padded id', () => {
-    expect(reviewedTicketIdentifierNamedInBrief(userTextLine('Review it.\nagent-progress review: 7\nStop.'))).toBe('007');
-    expect(reviewedTicketIdentifierNamedInBrief(userTextLine('  agent-progress review: #007  '))).toBe('007');
-  });
-
-  test('a marker in a later user turn is not the brief\'s, so it names nothing', () => {
-    const transcript = [userTextLine('Review the branch.'), userTextLine('agent-progress review: 7')].join('\n');
-
-    expect(reviewedTicketIdentifierNamedInBrief(transcript)).toBeNull();
-  });
-
-  test('a placeholder, a list, ticket zero and the other two forms all name no ticket', () => {
-    expect(reviewedTicketIdentifierNamedInBrief(userTextLine('agent-progress review: <ticketId>'))).toBeNull();
-    expect(reviewedTicketIdentifierNamedInBrief(userTextLine('agent-progress review: 7, 8'))).toBeNull();
-    expect(reviewedTicketIdentifierNamedInBrief(userTextLine('agent-progress review: 0'))).toBeNull();
-    expect(reviewedTicketIdentifierNamedInBrief(userTextLine('agent-progress ticket: 7\nagent-progress row: 7'))).toBeNull();
   });
 });
 
@@ -562,83 +420,81 @@ describe('a workflow agent\'s brief', () => {
     return `[Workflow harness — computed task] The task text below was computed at runtime.\n${indentedTask}`;
   }
 
-  test('the computed task right after the relay is the brief, its indented marker lines read in all three forms', () => {
-    const transcript = [plainUserLine(RELAY_TURN), plainUserLine(computedTaskTurn('  agent-progress ticket: 7\n  agent-progress row: 4\n  agent-progress review: 9'))].join('\n');
-
-    expect(ticketIdentifiersNamedInBrief(transcript)).toEqual(['007']);
-    expect(rowIdentifiersNamedInBrief(transcript)).toEqual([4]);
-    expect(reviewedTicketIdentifierNamedInBrief(transcript)).toBe('009');
-  });
-
-  test('a computed task without a marker names nothing', () => {
-    const transcript = [plainUserLine(RELAY_TURN), plainUserLine(computedTaskTurn('  Build the ticket.'))].join('\n');
-
-    expect(ticketIdentifiersNamedInBrief(transcript)).toEqual([]);
-  });
-
-  /** Only the computed task may stand in for the brief; an ordinary later message quoting a marker is what the brief-only rule exists to ignore. */
-  test('a relay followed by an ordinary message carrying a marker names nothing', () => {
-    const transcript = [plainUserLine(RELAY_TURN), plainUserLine('agent-progress ticket: 7')].join('\n');
-
-    expect(ticketIdentifiersNamedInBrief(transcript)).toEqual([]);
-  });
-
-  test('a computed task after an ordinary message is not the brief, and neither is a marker the relay itself quotes', () => {
-    const lateComputedTask = [plainUserLine(RELAY_TURN), plainUserLine('Hello.'), plainUserLine(computedTaskTurn('  agent-progress ticket: 7'))].join('\n');
-    const relayAlone       = plainUserLine(`${RELAY_TURN}\n  agent-progress ticket: 7`);
-
-    expect(ticketIdentifiersNamedInBrief(lateComputedTask)).toEqual([]);
-    expect(ticketIdentifiersNamedInBrief(relayAlone)).toEqual([]);
-  });
-
-  test('a first turn that is not a relay is the brief as before, even when a computed task follows it', () => {
-    const transcript = [plainUserLine('agent-progress ticket: 3'), plainUserLine(computedTaskTurn('  agent-progress ticket: 7'))].join('\n');
-
-    expect(ticketIdentifiersNamedInBrief(transcript)).toEqual(['003']);
-  });
-
   /** The real shape: the harness's preamble is one column-zero line, and the indented script prompt follows it with no blank line between. */
   test('the excerpt is the script\'s prompt, not the relay and not the harness\'s preamble to it', () => {
     const transcript = [plainUserLine(RELAY_TURN), plainUserLine(computedTaskTurn('  agent-progress ticket: 42\n  Worktree: /tmp/example   Branch: ticket-042'))].join('\n');
 
-    expect(profileTranscript(transcript).briefExcerpt).toBe('agent-progress ticket: 42 Worktree: /tmp/example Branch: ticket-042');
+    expect(profileTranscript(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS).briefExcerpt).toBe('agent-progress ticket: 42 Worktree: /tmp/example Branch: ticket-042');
   });
 
   test('a preamble spanning several lines is removed up to its first blank line', () => {
     const preamble   = '[Workflow harness — computed task] The task text below\nwas computed at runtime.';
     const transcript = [plainUserLine(RELAY_TURN), plainUserLine(`${preamble}\n\n  Build the ticket.`)].join('\n');
 
-    expect(profileTranscript(transcript).briefExcerpt).toBe('Build the ticket.');
+    expect(profileTranscript(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS).briefExcerpt).toBe('Build the ticket.');
   });
 
   test('a relay with no computed task after it has no brief, so its excerpt is empty rather than the relay', () => {
     const transcript = [plainUserLine(RELAY_TURN), plainUserLine('Hello.')].join('\n');
 
-    expect(profileTranscript(transcript).briefExcerpt).toBe('');
+    expect(profileTranscript(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS).briefExcerpt).toBe('');
   });
 
   /** A workflow run launched with no user request has no relay: its agents open on the computed task, and their rows name the prompt all the same. */
   test('a computed task with no relay before it is excerpted from the script\'s prompt too', () => {
     const transcript = plainUserLine(computedTaskTurn('  Build the ticket.'));
 
-    expect(profileTranscript(transcript).briefExcerpt).toBe('Build the ticket.');
+    expect(profileTranscript(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS).briefExcerpt).toBe('Build the ticket.');
   });
 
   test('an ordinary brief that merely mentions the harness keeps its whole excerpt', () => {
     const transcript = plainUserLine('Explain what [Workflow harness — computed task] means.\n  In short.');
 
-    expect(profileTranscript(transcript).briefExcerpt).toBe('Explain what [Workflow harness — computed task] means. In short.');
+    expect(profileTranscript(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS).briefExcerpt).toBe('Explain what [Workflow harness — computed task] means. In short.');
   });
 });
 
-describe('dividing a bundle\'s tokens', () => {
-  test('the shares are floored and the remainder goes to the first, so they always sum to the total', () => {
-    expect(evenSharesOf(1001, 2)).toEqual([501, 500]);
-    expect(evenSharesOf(10, 3)).toEqual([4, 3, 3]);
-    expect(evenSharesOf(1001, 1)).toEqual([1001]);
+/**
+ * The brief is what a caller reads a marker or an excerpt from, so what matters is which turn it is: never an attachment-only turn,
+ * the computed task after a workflow relay, and nothing at all after a relay that is followed by anything else.
+ */
+describe('the brief a transcript opens with', () => {
+  const RELAY_TURN = '[Workflow harness — user request] The harness relays the request below.\n  Run the board.';
+
+  const COMPUTED_TASK_TURN = '[Workflow harness — computed task] The task text below was computed at runtime.\n  Build the ticket.';
+
+  function plainUserLine(text: string): string {
+    return JSON.stringify({ type: 'user', message: { role: 'user', content: text } });
+  }
+
+  test('a plain first turn is the brief', () => {
+    const transcript = [plainUserLine('Do the thing.'), plainUserLine('And then the other thing.')].join('\n');
+
+    expect(briefTextOf(transcript)).toBe('Do the thing.');
   });
 
-  test('no rows means no shares', () => {
-    expect(evenSharesOf(1001, 0)).toEqual([]);
+  test('an attachment-only turn is passed over, and the turn after it is the brief', () => {
+    const transcript = [
+      JSON.stringify({ type: 'user', message: { content: [{ type: 'nested_memory', content: { path: 'lib/CLAUDE.md', content: '# CLAUDE.md' } }] } }),
+      plainUserLine('Do the thing.'),
+    ].join('\n');
+
+    expect(briefTextOf(transcript)).toBe('Do the thing.');
+  });
+
+  test('a relay followed by a computed task gives the computed task', () => {
+    const transcript = [plainUserLine(RELAY_TURN), plainUserLine(COMPUTED_TASK_TURN)].join('\n');
+
+    expect(briefTextOf(transcript)).toBe(COMPUTED_TASK_TURN);
+  });
+
+  test('a relay followed by an ordinary message gives no brief at all', () => {
+    const transcript = [plainUserLine(RELAY_TURN), plainUserLine('Do the thing.')].join('\n');
+
+    expect(briefTextOf(transcript)).toBe('');
+  });
+
+  test('an empty transcript gives no brief at all', () => {
+    expect(briefTextOf('')).toBe('');
   });
 });

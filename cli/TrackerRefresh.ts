@@ -8,17 +8,17 @@
 import { readFileSync } from 'node:fs';
 import { join }         from 'node:path';
 
-import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL }   from '../lib/constants/AgentSettings';
-import { AGENT_BRIEF_FILE_NAME, CLAUDE_MANAGED_START } from '../lib/constants/Statuses';
-import { writeManagedBlock }                           from '../lib/platform/ClaudeInstructions';
+import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL }                       from '../lib/constants/AgentSettings';
+import { AGENT_BRIEF_FILE_NAME, CLAUDE_MANAGED_END, CLAUDE_MANAGED_START } from '../lib/constants/Statuses';
+import type { Workspace }                                                  from '../lib/platform/Workspace';
+import { writeFileAtomically }                                             from '../src/lib/atomic-file/AtomicFile';
+import { writeManagedBlock }                                               from '../src/lib/claude-code/ClaudeInstructions';
 import {
   claudeLocalSettingsFilePathFor,
   claudeSettingsFilePathFor,
   refreshSubagentStopHook,
   writeSubagentStopHook
-}                                                      from '../lib/platform/ClaudeSettings';
-import type { Workspace }      from '../lib/platform/Workspace';
-import { writeFileAtomically } from '../src/lib/atomic-file/AtomicFile';
+}                                                                          from '../src/lib/claude-code/ClaudeSettings';
 
 const CLAUDE_BLOCK_TEMPLATE_PATH = ['..', 'templates', 'ClaudeInstructionsBlock.md'];
 
@@ -186,7 +186,7 @@ function refreshDispatcherWorkflow(rootDirectory: string, writesTheDispatcherWor
 function refreshClaudeInstructions(rootDirectory: string, commandName: string, standardError: (text: string) => void): string {
   const claudeFilePath = join(rootDirectory, CLAUDE_INSTRUCTIONS_FILE_NAME);
   const bytesBefore    = fileBytesOrNothing(claudeFilePath);
-  const outcome        = writeManagedBlock(claudeFilePath, claudeInstructionsBlockBody());
+  const outcome        = writeManagedBlock(claudeFilePath, claudeInstructionsBlockBody(), { start: CLAUDE_MANAGED_START, end: CLAUDE_MANAGED_END });
 
   if (outcome === 'refused-start-without-end') {
     standardError(

@@ -1,8 +1,7 @@
 /**
- * Where the harness keeps one repository's transcripts, and which of them belong to subagents.
- * **The folder is `<home>/.claude/projects/` plus the repository root's absolute path with every character
- * outside `[a-zA-Z0-9]` replaced by `-`**, a dot or a space as much as a separator, so every worktree resolves to one folder.
- * The home directory is `node:os`'s `homedir()`, never `HOME`, since only `src/shared/Environment.ts` reads `process.env`.
+ * The Claude Code building block: it reads and writes Claude Code's own files — the `SubagentStop` hook in its settings, a
+ * marker-delimited block in a `CLAUDE.md`, and the subagent transcripts under its home folder with what they cost.
+ * It depends on `src/lib/atomic-file` and `src/lib/utils`.
  */
 import type { Dirent }   from 'node:fs';
 import { readdirSync }   from 'node:fs';
@@ -31,7 +30,10 @@ export interface SubagentTranscript {
   agentIdentifier:   string;
 }
 
-/** The home directory is a defaulted parameter rather than a read inside, so a spec can point the whole lookup at a scratch tree. */
+/**
+ * `<home>/.claude/projects/` plus the repository root's absolute path with every character outside `[a-zA-Z0-9]` replaced by `-`, so every
+ * worktree resolves to one folder. The home defaults to `homedir()`, never `HOME`, because the package reads no environment; a spec passes a scratch tree.
+ */
 export function transcriptFolderFor(repositoryRoot: string, homeDirectory: string = homedir()): string {
   const slug = resolve(repositoryRoot).replace(CHARACTER_THE_SLUG_REPLACES, '-');
   return join(homeDirectory, CLAUDE_DIRECTORY_NAME, PROJECTS_DIRECTORY_NAME, slug);

@@ -4,13 +4,13 @@
  */
 import { readFileSync } from 'node:fs';
 
-import type { SubagentTranscript }                      from '../../lib/platform/ClaudeTranscripts';
-import { listSubagentTranscripts, transcriptFolderFor } from '../../lib/platform/ClaudeTranscripts';
 import { requireWorkspace }                             from '../../lib/platform/Workspace';
-import type { CohortSummary }                           from '../../lib/utils/TranscriptCohortUtil';
-import { TranscriptCohortUtil }                         from '../../lib/utils/TranscriptCohortUtil';
-import type { TranscriptProfile }                       from '../../lib/utils/TranscriptUsageUtil';
-import { TranscriptUsageUtil }                          from '../../lib/utils/TranscriptUsageUtil';
+import type { SubagentTranscript }                      from '../../src/lib/claude-code/ClaudeTranscripts';
+import { listSubagentTranscripts, transcriptFolderFor } from '../../src/lib/claude-code/ClaudeTranscripts';
+import type { CohortSummary }                           from '../../src/lib/claude-code/utils/TranscriptCohortUtil';
+import { TranscriptCohortUtil }                         from '../../src/lib/claude-code/utils/TranscriptCohortUtil';
+import type { TranscriptProfile }                       from '../../src/lib/claude-code/utils/TranscriptUsageUtil';
+import { TranscriptUsageUtil }                          from '../../src/lib/claude-code/utils/TranscriptUsageUtil';
 import { TimeUtil }                                     from '../../src/lib/utils/TimeUtil';
 import { TokenCountUtil }                               from '../../src/lib/utils/TokenCountUtil';
 import { OperationRefusal }                             from '../../src/shared/OperationRefusal';
@@ -73,7 +73,7 @@ function transcriptTextAt(transcriptPath: string): string | undefined {
 }
 
 function agentUsageFor(transcript: SubagentTranscript, transcriptText: string): AgentUsage {
-  const profile = TranscriptUsageUtil.profileTranscript(transcriptText);
+  const profile = TranscriptUsageUtil.profileTranscript(transcriptText, LIMITS.OVERSIZED_CONTEXT_THRESHOLD_TOKENS);
   return {
     ...profile,
     sessionIdentifier: transcript.sessionIdentifier,

@@ -1,19 +1,20 @@
 /**
  * Merges the `SubagentStop` hook entry into a repository's Claude settings file, adding it only when no
  * identical command is there and handing every other key back unchanged.
- * A file that will not parse is **refused, never overwritten**, since the tool cannot tell a corrupted document from an unknown format.
+ * A file that will not parse is **refused, never overwritten**, since nothing here can tell a corrupted document from an unknown format.
  */
 import { readFileSync, statSync } from 'node:fs';
 import { join }                   from 'node:path';
 
-import { writeFileAtomically } from '../../src/lib/atomic-file/AtomicFile';
-import { LIMITS }              from '../../src/shared/constants/Limits';
+import { writeFileAtomically } from '../atomic-file/AtomicFile';
 
 const CLAUDE_DIRECTORY_NAME = '.claude';
 
 const SETTINGS_FILE_NAME = 'settings.json';
 
-/** Claude Code reads this one over the shared file and keeps it out of git: what a subagent cost is the figure of whoever ran the tool. */
+const SETTINGS_FILE_JSON_INDENT = 2;
+
+/** Claude Code reads this one over the shared file and keeps it out of git, for a setting that belongs to one person rather than the repository. */
 const LOCAL_SETTINGS_FILE_NAME = 'settings.local.json';
 
 /** The harness's own spelling of the event, capitalised as it writes it; a lower-case one is simply never matched. */
@@ -34,7 +35,7 @@ export interface SubagentStopHook {
   timeoutSeconds: number;
 }
 
-/** Derived rather than carried on `Workspace`: only `init --hooks` ever names this file, and `Workspace` is the set of paths every command shares. */
+/** Derived from the root on demand, because only a caller installing the hook ever names this file. */
 export function claudeSettingsFilePathFor(rootDirectory: string): string {
   return join(rootDirectory, CLAUDE_DIRECTORY_NAME, SETTINGS_FILE_NAME);
 }
@@ -78,7 +79,7 @@ function parsedSettings(settingsFilePath: string): Record<string, unknown> | 'un
   return asRecord(parsed) ?? 'unreadable';
 }
 
-/** Compared on the command alone: the same command under a second matcher would be a second log line per agent. */
+/** Compared on the command alone: the same command under a second matcher would run twice for one agent. */
 function groupAlreadyRunsTheCommand(group: unknown, command: string): boolean {
   const groupRecord = asRecord(group);
   if (groupRecord === undefined) return false;
@@ -120,11 +121,11 @@ function groupWithRefreshedEntry(group: unknown, hook: SubagentStopHook): unknow
 
 /**
  * Adds the hook and says what it did. `'already-present'` is returned for a file that already runs
- * this command under any matcher and nothing is written at all, so re-running `init --hooks` leaves
- * no diff. `'refused-unreadable'` covers a document that will not parse, one that is not a JSON
- * object, and one whose `hooks` section or `SubagentStop` list is of a shape this cannot merge into —
- * **in every one of those cases the existing file is left exactly as it was**, and the caller says so
- * rather than the tool deciding it knows better.
+ * this command under any matcher and nothing is written at all, so running it again leaves no diff.
+ * `'refused-unreadable'` covers a document that will not parse, one that is not a JSON object, and one
+ * whose `hooks` section or `SubagentStop` list is of a shape this cannot merge into — **in every one of
+ * those cases the existing file is left exactly as it was**, and the caller says so rather than this
+ * module deciding it knows better.
  */
 export function writeSubagentStopHook(settingsFilePath: string, hook: SubagentStopHook): WriteSubagentStopHookOutcome {
   const settingsFileExisted = fileExists(settingsFilePath);
@@ -146,12 +147,12 @@ export function writeSubagentStopHook(settingsFilePath: string, hook: SubagentSt
   hooksSection[SUBAGENT_STOP_EVENT_NAME] = eventGroups;
   settings[HOOKS_KEY] = hooksSection;
 
-  writeFileAtomically(settingsFilePath, `${JSON.stringify(settings, null, LIMITS.JSON_INDENT)}\n`);
+  writeFileAtomically(settingsFilePath, `${JSON.stringify(settings, null, SETTINGS_FILE_JSON_INDENT)}\n`);
   return settingsFileExisted ? 'added' : 'created';
 }
 
 /**
- * Brings an entry that is **already there** up to the hook this tool ships, and says whether that
+ * Brings an entry that is **already there** up to the given hook, and says whether that
  * changed anything. An entry nobody installed stays `'absent'` and nothing is written: a first install
  * into a file the user owns is the caller's decision, not this module's. Nothing is written when the
  * entry already says what it should either, so refreshing a settings file somebody formatted by hand
@@ -178,6 +179,6 @@ export function refreshSubagentStopHook(settingsFilePath: string, hook: Subagent
 
   hooksSection[SUBAGENT_STOP_EVENT_NAME] = refreshedGroups;
   settings[HOOKS_KEY] = hooksSection;
-  writeFileAtomically(settingsFilePath, `${JSON.stringify(settings, null, LIMITS.JSON_INDENT)}\n`);
+  writeFileAtomically(settingsFilePath, `${JSON.stringify(settings, null, SETTINGS_FILE_JSON_INDENT)}\n`);
   return 'updated';
 }

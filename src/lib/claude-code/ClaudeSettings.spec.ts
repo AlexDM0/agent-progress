@@ -13,7 +13,7 @@ import {
   test
 } from 'bun:test';
 
-import { createScratchDirectory, removeScratchDirectory }                            from '../../src/testing/ScratchWorkspace';
+import { createScratchDirectory, removeScratchDirectory }                            from '../../testing/ScratchWorkspace';
 import { claudeSettingsFilePathFor, refreshSubagentStopHook, writeSubagentStopHook } from './ClaudeSettings';
 
 const THE_HOOK = {

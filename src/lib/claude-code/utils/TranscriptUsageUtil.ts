@@ -1,22 +1,12 @@
 /**
- * What one finished subagent cost, read out of the transcript the harness wrote for it, and the one
- * line that says so. It lives here rather than inside the hook command because the numbers are a pure
- * function of the transcript text: the command supplies the bytes and appends the answer to the log,
- * and this module is unit-tested against its own contract rather than through a `SubagentStop`
- * invocation nobody can reproduce on demand.
- *
- * It replaces a standalone hook script each repository copied for itself. Shipping the arithmetic
- * inside the CLI is what lets `agent-progress init --hooks` wire a hook up instead of asking a person
- * to paste a file, and it is why the format of the line is fixed here rather than in a template.
+ * What one finished subagent cost and did, read out of the transcript the harness wrote for it. The figures are a pure function of the
+ * transcript text, so they are tested against constructed transcripts rather than through a live `SubagentStop`.
  */
-import { TokenCountUtil } from '../../src/lib/utils/TokenCountUtil';
-import { LIMITS }         from '../../src/shared/constants/Limits';
-import { TicketIdUtil }   from './TicketIdUtil';
 
 /**
  * `endContextTokens` is the window of the *last* call rather than a sum: it is how full the agent's
  * context was when it stopped. `oversizedContextTokens` is a sum over the calls that were made at a
- * context above `LIMITS.OVERSIZED_CONTEXT_THRESHOLD_TOKENS`, deduplicated per call exactly as the totals are.
+ * context above the caller's threshold, deduplicated per call exactly as the totals are.
  */
 export interface TranscriptUsageTotals {
   apiCallCount:             number;
@@ -29,7 +19,7 @@ export interface TranscriptUsageTotals {
 }
 
 /**
- * The totals plus what explains them, which is what `cli/usage/UsageCommand.ts` compares agents by.
+ * The totals plus what explains them, which is what a caller compares agents by.
  * Every added field answers a question the totals alone cannot: when the agent ran, which model it
  * ran on, whether it spent its calls in a screenshot loop (`browserCallCount`), how much of its
  * length the harness injected rather than the brief (`nestedInstructionCharacters`), whether it edited
@@ -86,15 +76,6 @@ const WORKFLOW_USER_REQUEST_RELAY_PREFIX = '[Workflow harness — user request]'
 
 const WORKFLOW_COMPUTED_TASK_PREFIX = '[Workflow harness — computed task]';
 
-/** A line of its own, ids as digits separated by commas: a placeholder such as `<rowId>` in a brief template never matches. */
-const ROW_MARKER_PATTERN = /^[ \t]*agent-progress row:[ \t]*(\d+(?:[ \t]*,[ \t]*\d+)*)[ \t]*$/m;
-
-/** The same shape naming tickets, each id padded or not and with an optional `#`, as `ticket show` accepts them. */
-const TICKET_MARKER_PATTERN = /^[ \t]*agent-progress ticket:[ \t]*(#?\d+(?:[ \t]*,[ \t]*#?\d+)*)[ \t]*$/m;
-
-/** One ticket only: a reviewer's brief is written before its review row exists, and names the ticket whose newest review row it will be. */
-const REVIEW_MARKER_PATTERN = /^[ \t]*agent-progress review:[ \t]*(#?\d+)[ \t]*$/m;
-
 function asRecord(value: unknown): Record<string, unknown> | undefined {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
   return value as Record<string, unknown>;
@@ -142,7 +123,7 @@ function assistantUsageIn(line: string): { messageIdentifier: string | undefined
  * the alternative — folding every idless line into one bucket — would lose calls rather than merge
  * them. An empty transcript answers zero calls, which is what the caller reports instead of a line.
  */
-function summariseTranscriptUsage(transcriptText: string): TranscriptUsageTotals {
+function summariseTranscriptUsage(transcriptText: string, oversizedContextThresholdTokens: number): TranscriptUsageTotals {
   const totals: TranscriptUsageTotals = {
     apiCallCount:             0,
     inputTokens:              0,
@@ -182,7 +163,7 @@ function summariseTranscriptUsage(transcriptText: string): TranscriptUsageTotals
     totals.cacheReadInputTokens     += cacheReadInputTokens;
     totals.cacheCreationInputTokens += cacheCreationInputTokens;
     totals.endContextTokens          = callContextTokens;
-    if (callContextTokens > LIMITS.OVERSIZED_CONTEXT_THRESHOLD_TOKENS) totals.oversizedContextTokens += callContextTokens;
+    if (callContextTokens > oversizedContextThresholdTokens) totals.oversizedContextTokens += callContextTokens;
   }
 
   for (const outputTokens of outputTokensByMessageIdentifier.values()) totals.outputTokens += outputTokens;
@@ -307,46 +288,7 @@ function briefTextOf(transcriptText: string): string {
   return secondTurn.value;
 }
 
-/**
- * The rows named by the `agent-progress row: 4, 7` line of the agent's brief, in the order written and each once; empty when the
- * brief has no such line. Only the brief is read, so a later message quoting another agent's marker never counts.
- */
-function rowIdentifiersNamedInBrief(transcriptText: string): number[] {
-  const identifiers = identifiersListedInBrief(transcriptText, ROW_MARKER_PATTERN).map((identifier) => Number.parseInt(identifier, 10));
-  return [...new Set(identifiers)];
-}
-
-/** The padded ids (`"022"`) named by the brief's `agent-progress ticket: 22, 20` line, read exactly as the row line is; an id of zero is dropped. */
-function ticketIdentifiersNamedInBrief(transcriptText: string): string[] {
-  const identifiers = identifiersListedInBrief(transcriptText, TICKET_MARKER_PATTERN)
-    .map((identifier) => TicketIdUtil.parseTicketReference(identifier))
-    .filter((identifier): identifier is string => identifier !== null);
-  return [...new Set(identifiers)];
-}
-
-/** The padded id (`"007"`) named by the brief's `agent-progress review: 7` line, read exactly as the other two are; `null` when there is none. */
-function reviewedTicketIdentifierNamedInBrief(transcriptText: string): string | null {
-  const [identifier] = identifiersListedInBrief(transcriptText, REVIEW_MARKER_PATTERN);
-  return identifier === undefined ? null : TicketIdUtil.parseTicketReference(identifier);
-}
-
-function identifiersListedInBrief(transcriptText: string, markerPattern: RegExp): string[] {
-  const identifierList = markerPattern.exec(briefTextOf(transcriptText))?.[1];
-  if (identifierList === undefined) return [];
-  return identifierList.split(',').map((identifier) => identifier.trim());
-}
-
-/** Floor division over the shares, with the remainder on the first, so the shares always sum to the total. */
-function evenSharesOf(totalTokens: number, shareCount: number): number[] {
-  if (shareCount <= 0) return [];
-  const evenShare = Math.floor(totalTokens / shareCount);
-  const remainder = totalTokens - evenShare * shareCount;
-  const shares    = new Array<number>(shareCount).fill(evenShare);
-  shares[0]       = evenShare + remainder;
-  return shares;
-}
-
-/** Every token the agent sent: fresh input plus both cache figures. The log line's `input` and the row's tokens are this one number. */
+/** Every token the agent sent: fresh input plus both cache figures, as one number so every caller reports the same total. */
 function totalInputTokensOf(totals: TranscriptUsageTotals): number {
   return totals.inputTokens + totals.cacheReadInputTokens + totals.cacheCreationInputTokens;
 }
@@ -363,9 +305,9 @@ function totalInputTokensOf(totals: TranscriptUsageTotals): number {
  * and an excerpt read off it would name a `CLAUDE.md` in every row instead of the brief. A workflow
  * agent's brief is its computed task, excerpted from the script's prompt after the harness's preamble.
  */
-function profileTranscript(transcriptText: string): TranscriptProfile {
+function profileTranscript(transcriptText: string, oversizedContextThresholdTokens: number): TranscriptProfile {
   const profile: TranscriptProfile = {
-    ...summariseTranscriptUsage(transcriptText),
+    ...summariseTranscriptUsage(transcriptText, oversizedContextThresholdTokens),
     startedAt:                   null,
     model:                       null,
     browserCallCount:            0,
@@ -404,28 +346,9 @@ function profileTranscript(transcriptText: string): TranscriptProfile {
   return profile;
 }
 
-/**
- * The log line a stopped subagent leaves behind, formatted through `src/lib/utils/TokenCountUtil.ts` so
- * the log and the chart's token column read in the same units. The input figure is the whole of what
- * was sent — fresh input plus both cache figures — with the cache-read share named separately,
- * because that share is the number that explains a long session and is invisible in a plain total.
- */
-function composeUsageLine(agentIdentifier: string, agentType: string, totals: TranscriptUsageTotals): string {
-  const { formatTokenCount } = TokenCountUtil;
-  const totalInputTokens = totalInputTokensOf(totals);
-  return `Agent ${agentIdentifier} (${agentType}) stopped: ${totals.apiCallCount} calls, `
-    + `end context ${formatTokenCount(totals.endContextTokens)}, `
-    + `input ${formatTokenCount(totalInputTokens)} (cache read ${formatTokenCount(totals.cacheReadInputTokens)}), `
-    + `output ${formatTokenCount(totals.outputTokens)}`;
-}
-
 export const TranscriptUsageUtil = {
-  composeUsageLine,
-  evenSharesOf,
+  briefTextOf,
   profileTranscript,
-  reviewedTicketIdentifierNamedInBrief,
-  rowIdentifiersNamedInBrief,
   summariseTranscriptUsage,
-  ticketIdentifiersNamedInBrief,
   totalInputTokensOf,
 } as const;

@@ -18,7 +18,7 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import type { CohortSummary }                                                 from '../../lib/utils/TranscriptCohortUtil';
+import type { CohortSummary }                                                 from '../../src/lib/claude-code/utils/TranscriptCohortUtil';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
 import { runCommandLine }                                                     from '../Main';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';

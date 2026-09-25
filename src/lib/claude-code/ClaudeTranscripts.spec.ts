@@ -17,7 +17,7 @@ import {
   test
 } from 'bun:test';
 
-import { createScratchDirectory, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
+import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace';
 import { listSubagentTranscripts, transcriptFolderFor }   from './ClaudeTranscripts';
 
 let scratchDirectory = '';

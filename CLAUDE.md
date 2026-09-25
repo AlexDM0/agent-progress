@@ -230,7 +230,7 @@ setup.sh                    machine setup: Bun, bun install and bun link, and th
 cli/                        the command surface: dispatch, arguments, help, one folder per command; cli/testing/ is test-only
 lib/                        everything the commands do, in the layers above; lib/tooling/dev/ holds the dispatcher's test harness
 src/                        the target layout's code, filled step by step as the migration plan moves it
-  src/lib/                  package-grade building blocks, one folder each: atomic-file, git, utils
+  src/lib/                  package-grade building blocks, one folder each: atomic-file, git, claude-code, utils
   src/shared/               app-specific code several parts use: the environment reader, the refusal, LIMITS
   src/testing/              test-only helpers several parts use: the scratch workspace and the tracker isolation check
 skill/                      the skill every session in a tracked repository loads

@@ -10,13 +10,15 @@ import type { Workspace }                from '../../lib/platform/Workspace';
 import { addTaskTokens, appendLogEntry } from '../../lib/progress/ProgressStore';
 import { reviewedTicketNumberOf }        from '../../lib/render/page/PageMarkup';
 import { readTicket }                    from '../../lib/tickets/TicketStore';
-import type { TranscriptUsageTotals }    from '../../lib/utils/TranscriptUsageUtil';
-import { TranscriptUsageUtil }           from '../../lib/utils/TranscriptUsageUtil';
+import type { TranscriptUsageTotals }    from '../../src/lib/claude-code/utils/TranscriptUsageUtil';
+import { TranscriptUsageUtil }           from '../../src/lib/claude-code/utils/TranscriptUsageUtil';
 import { OperationRefusal }              from '../../src/shared/OperationRefusal';
+import { LIMITS }                        from '../../src/shared/constants/Limits';
 import type { CommandContext }           from '../CommandContext';
 import { openTrackerForWriting }         from '../CommandSupport';
 import type { CommandHandler }           from '../CommandTable';
 import type { ArgumentParser }           from '../arguments/ArgumentParser';
+import { SubagentStopUtil }              from './utils/SubagentStopUtil';
 
 const USAGE = 'agent-progress hook subagent-stop  (the hook JSON arrives on standard input)';
 
@@ -168,8 +170,8 @@ function briefSharesFor(transcriptText: string, totals: TranscriptUsageTotals): 
     reviewedTicketIdentifierNamedInBrief,
     rowIdentifiersNamedInBrief,
     ticketIdentifiersNamedInBrief,
-    totalInputTokensOf,
-  } = TranscriptUsageUtil;
+  } = SubagentStopUtil;
+  const { totalInputTokensOf } = TranscriptUsageUtil;
   const totalInputTokens = totalInputTokensOf(totals);
 
   const rowIdentifiers = rowIdentifiersNamedInBrief(transcriptText);
@@ -206,13 +208,13 @@ async function recordSubagentStop(commandArguments: ArgumentParser, context: Com
     return;
   }
 
-  const totals: TranscriptUsageTotals = TranscriptUsageUtil.summariseTranscriptUsage(transcriptText);
+  const totals: TranscriptUsageTotals = TranscriptUsageUtil.summariseTranscriptUsage(transcriptText, LIMITS.OVERSIZED_CONTEXT_THRESHOLD_TOKENS);
   if (totals.apiCallCount === 0) {
     context.standardError(`${REPORT_PREFIX} the transcript at ${expandedTranscriptPath} holds no API calls, so nothing was recorded.`);
     return;
   }
 
-  const usageLine = TranscriptUsageUtil.composeUsageLine(
+  const usageLine = SubagentStopUtil.composeUsageLine(
     readStringField(hookInput, 'agent_id')   ?? UNKNOWN_AGENT,
     readStringField(hookInput, 'agent_type') ?? UNKNOWN_AGENT,
     totals,
