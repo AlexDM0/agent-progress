@@ -245,6 +245,15 @@ parts are dropped.
   different vocabulary and keep their words. The page's display vocabularies (the row state
   `reviewing` and the Kanban lanes) are checked against the new words in step 7 and dropped where
   they have become redundant.
+- **The CLI verbs are aligned with the words** (decided when step 4 began): one verb per target
+  status, the same for tasks and tickets where both have it. `start` → `in-progress`, `pause` →
+  `paused` (tasks), `finish` → `in-review`, `rereview` → `re-review`, `approve` → `reviewed`,
+  `deliver` → `delivered`, `abandon` → `abandoned` (tickets), `reopen` → `pending` (tickets).
+  `ticket review|rereview --start-review` becomes `ticket finish|rereview --start-review`. No verb
+  keeps its spelling with a new meaning, so the verb `review` goes: `task review` and `ticket done`
+  are refused naming `approve`, `ticket review` is refused naming `finish`, and an old status word
+  given as a value is refused naming its new word. The skills, the brief, the dispatcher, the help
+  and `docs/cli.md` change in the same step.
 - **Test-only helpers** go beside their only consumer, like any other code: the dispatcher harness
   beside dispatcher/, the captured command context and CLI process runner beside cli/ if only cli/
   uses them. Helpers used by several parts (the scratch workspace, the tracker isolation check) go
