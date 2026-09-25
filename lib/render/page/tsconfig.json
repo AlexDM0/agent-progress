@@ -12,11 +12,15 @@
   // DOM-only options above, which is what proves it stays environment-neutral.
   "include": [
     "./**/*.ts",
+    "../../../src/lib/tracker-model/@types/BoardChanges.ts",
     "../../../src/lib/tracker-model/@types/Concurrency.ts",
+    "../../../src/lib/tracker-model/@types/LogRecord.ts",
     "../../../src/lib/tracker-model/@types/ProgressFile.ts",
     "../../../src/lib/tracker-model/@types/Task.ts",
     "../../../src/lib/tracker-model/@types/Ticket.ts",
     "../../../src/lib/tracker-model/@types/TupleCoversTheUnion.ts",
+    "../../../src/lib/tracker-model/BoardRefusal.ts",
+    "../../../src/lib/tracker-model/Logger.ts",
     "../../../src/lib/tracker-model/constants/AgentSettings.ts",
     "../../../src/lib/tracker-model/constants/ConcurrencyLimits.ts",
     "../../../src/lib/tracker-model/constants/DispatcherStates.ts",

@@ -9,6 +9,12 @@ export type TicketPriority = 'low' | 'normal' | 'high';
 export type AgentModel  = 'haiku' | 'sonnet' | 'opus' | 'fable';
 export type AgentEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
+/** A ticket's agents with the defaults resolved, as they actually run. */
+export interface AgentPair {
+  model:  AgentModel;
+  effort: AgentEffort;
+}
+
 export interface TicketFrontmatter {
   id:          string;
   title:       string;

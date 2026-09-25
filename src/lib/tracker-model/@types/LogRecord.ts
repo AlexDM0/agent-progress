@@ -1,0 +1,41 @@
+/** What the Board tells the log, as ids and values with no wording; `src/adapters/utils/LogUtil.ts` words it. */
+import type { DispatcherState, ViewRange } from './ProgressFile.ts';
+import type { AgentPair, TicketPriority }  from './Ticket.ts';
+
+/** A review bar's `name` is carried because the sentence prints the row's stored name, which an edit may have made anything. */
+export interface ReviewBarReference {
+  taskId:   number;
+  ticketId: string;
+  name:     string;
+}
+
+export interface AgentUsage {
+  agentId:              string;
+  agentType:            string;
+  apiCallCount:         number;
+  endContextTokens:     number;
+  /** Fresh input plus cache read plus cache creation, as `TranscriptUsageUtil.totalInputTokensOf` counts it. */
+  totalInputTokens:     number;
+  cacheReadInputTokens: number;
+  outputTokens:         number;
+}
+
+export type LogRecordContent =
+  | { kind: 'note'; fields: { text: string } }
+  | { kind: 'ticket-filed'; ticketId: string; fields: { title: string } }
+  | { kind: 'ticket-reopened' | 'ticket-started' | 'ticket-finished' | 'ticket-approved' | 'ticket-delivered'; ticketId: string; fields: Record<string, never> }
+  | { kind: 'ticket-abandoned'; ticketId: string; fields: { reason: string } }
+  | { kind: 'ticket-rereviewed'; ticketId: string; fields: { round: number } }
+  | { kind: 'ticket-priority-changed'; ticketId: string; fields: { from: TicketPriority; to: TicketPriority } }
+  | { kind: 'ticket-dependencies-set'; ticketId: string; fields: { dependsOn: readonly string[] } }
+  | { kind: 'ticket-agents-changed'; ticketId: string; fields: { from: AgentPair; to: AgentPair } }
+  | { kind: 'ticket-held'; ticketId: string; fields: { reason: string } }
+  | { kind: 'ticket-unheld'; ticketId: string; fields: Record<string, never> }
+  | { kind: 'review-bar-started' | 'review-bar-closed'; taskId: number; ticketId: string; fields: { name: string } }
+  | { kind: 'chart-range-set'; fields: { view: ViewRange } }
+  | { kind: 'concurrency-limit-set'; fields: { limit: number } }
+  | { kind: 'dispatcher-set'; fields: { state: DispatcherState; runId: string | null } }
+  | { kind: 'tracker-cleared'; fields: Record<string, never> }
+  | { kind: 'agent-stopped'; fields: AgentUsage };
+
+export type LogRecord = LogRecordContent & { at: string };
