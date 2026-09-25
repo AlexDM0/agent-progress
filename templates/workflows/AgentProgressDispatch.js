@@ -44,17 +44,17 @@ const READY_TICKET_SCHEMA = {
 const STATUS_BLOCK_SCHEMA = {
   type:       'object',
   properties: {
-    limit:              { type: 'integer', minimum: 1 },
-    agentsInFlight:     { type: 'integer', minimum: 0 },
-    freeSlots:          { type: 'integer', minimum: 0 },
-    readyTicketIds:     { type: 'array', items: { type: 'string' } },
-    readyTickets:       { type: 'array', items: READY_TICKET_SCHEMA },
-    dispatcherState:    { type: 'string', enum: ['running', 'stopped', 'finished'] },
-    runningTicketIds:   { type: 'array', items: { type: 'string' } },
-    runningReviewOfIds: { type: 'array', items: { type: 'string' } },
-    heldTicketIds:      { type: 'array', items: { type: 'string' } },
+    limit:                 { type: 'integer', minimum: 1 },
+    agentsInFlight:        { type: 'integer', minimum: 0 },
+    freeSlots:             { type: 'integer', minimum: 0 },
+    readyTicketIds:        { type: 'array', items: { type: 'string' } },
+    readyTickets:          { type: 'array', items: READY_TICKET_SCHEMA },
+    dispatcherState:       { type: 'string', enum: ['running', 'stopped', 'finished'] },
+    inProgressTicketIds:   { type: 'array', items: { type: 'string' } },
+    inProgressReviewOfIds: { type: 'array', items: { type: 'string' } },
+    heldTicketIds:         { type: 'array', items: { type: 'string' } },
   },
-  required: ['limit', 'agentsInFlight', 'freeSlots', 'readyTicketIds', 'readyTickets', 'dispatcherState', 'runningTicketIds', 'runningReviewOfIds', 'heldTicketIds'],
+  required: ['limit', 'agentsInFlight', 'freeSlots', 'readyTicketIds', 'readyTickets', 'dispatcherState', 'inProgressTicketIds', 'inProgressReviewOfIds', 'heldTicketIds'],
 };
 
 const TICKET_AGENT_SETTINGS_SCHEMA = {
@@ -192,8 +192,8 @@ function briefPlaceholdersText(ticketId) {
     + `<main checkout> = ${settings.mainCheckout} and <full check command> = \`${settings.checkCommand}\``;
 }
 
-const DERIVED_STATUS_FIELDS_TEXT = 'adding `runningTicketIds` (the `ticket` of every `in-progress` task that has one), '
-  + '`runningReviewOfIds` (the `reviewOf` of every `in-progress` task that has one) and `readyTickets` (the same document\'s top-level `readyTickets` list, verbatim)';
+const DERIVED_STATUS_FIELDS_TEXT = 'adding `inProgressTicketIds` (the `ticket` of every `in-progress` task that has one), '
+  + '`inProgressReviewOfIds` (the `reviewOf` of every `in-progress` task that has one) and `readyTickets` (the same document\'s top-level `readyTickets` list, verbatim)';
 
 const STATUS_RETURN_TEXT = `As your very last act run \`agent-progress status --json\` and return its \`concurrency\` block as \`status\`, ${DERIVED_STATUS_FIELDS_TEXT}, `
   + 'so the dispatcher acts on the newest board.';
@@ -474,7 +474,7 @@ async function runAgent(prompt, options) {
 // A parking agent never is on the board, so the row it is pausing counts as another's until it returns: the safe side, for the few turns it runs.
 function ownAgentIsOnBoard(work, status) {
   if (work.kind === 'park') return false;
-  const confirmingTicketIds = work.kind === 'build' ? status.runningTicketIds : status.runningReviewOfIds;
+  const confirmingTicketIds = work.kind === 'build' ? status.inProgressTicketIds : status.inProgressReviewOfIds;
   if (!Array.isArray(confirmingTicketIds)) return work.barIsHandedOn === true;
   return confirmingTicketIds.includes(work.ticketId);
 }

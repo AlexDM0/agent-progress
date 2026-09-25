@@ -188,19 +188,19 @@ const CLAIMS: Claim[] = [
     },
     holds:  (run) => run.mostAgentsInFlightAtOnce === 4 && summaryOf(run).delivered.length === 6,
     mutant: {
-      find:    'const confirmingTicketIds = work.kind === \'build\' ? status.runningTicketIds : status.runningReviewOfIds;',
-      replace: 'if (work.kind === \'review\') return true; const confirmingTicketIds = status.runningTicketIds;',
+      find:    'const confirmingTicketIds = work.kind === \'build\' ? status.inProgressTicketIds : status.inProgressReviewOfIds;',
+      replace: 'if (work.kind === \'review\') return true; const confirmingTicketIds = status.inProgressTicketIds;',
     },
   },
   {
     // A status block without the running rows confirms no own agent, so every agent the board counts is taken as another's: the safe side.
     name:     'a status block without the running rows subtracts no own agent, and the limit still holds',
     scenario: {
-      limit:                  3,
-      otherAgentsInFlight:    1,
-      readyTicketIds:         ticketIdsFrom(1, 3),
-      reviewWaitingTicketIds: ticketIdsFrom(7, 3),
-      statusOmitsRunningRows: true,
+      limit:                     3,
+      otherAgentsInFlight:       1,
+      readyTicketIds:            ticketIdsFrom(1, 3),
+      reviewWaitingTicketIds:    ticketIdsFrom(7, 3),
+      statusOmitsInProgressRows: true,
     },
     holds:  (run) => run.mostAgentsInFlightAtOnce <= 3 && summaryOf(run).delivered.length === 6,
     mutant: {
@@ -718,11 +718,11 @@ const CLAIMS: Claim[] = [
     // The builder's `in-review` reply is word that its bar runs; without it, a block lacking the rows would leave every built ticket's bar unstarted.
     name:     'a status block without the running rows still counts the bar a builder handed on as the run\'s own, so every ticket is reviewed and delivered',
     scenario: {
-      limit:                  3,
-      otherAgentsInFlight:    1,
-      readyTicketIds:         ticketIdsFrom(1, 3),
-      reviewWaitingTicketIds: ticketIdsFrom(7, 3),
-      statusOmitsRunningRows: true,
+      limit:                     3,
+      otherAgentsInFlight:       1,
+      readyTicketIds:            ticketIdsFrom(1, 3),
+      reviewWaitingTicketIds:    ticketIdsFrom(7, 3),
+      statusOmitsInProgressRows: true,
     },
     holds:  (run) => run.mostAgentsOnBoardAtOnce <= 3 && summaryOf(run).delivered.length === 6,
     mutant: { find: 'if (!Array.isArray(confirmingTicketIds)) return work.barIsHandedOn === true;', replace: 'if (!Array.isArray(confirmingTicketIds)) return false;' },

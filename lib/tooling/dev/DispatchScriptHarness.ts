@@ -103,8 +103,8 @@ export interface DispatchScenario {
   afterAgent?:                    (call: RecordedAgentCall, board: FakeBoard) => void;
   /** How many turns a builder or reviewer runs before its first command puts it on the board; defaults to `DEFAULT_TURNS_BEFORE_FIRST_COMMAND`. */
   turnsBeforeFirstCommand?:       number;
-  /** Every status block leaves out `runningTicketIds` and `runningReviewOfIds`, as an agent that did not derive them would. */
-  statusOmitsRunningRows?:        boolean;
+  /** Every status block leaves out `inProgressTicketIds` and `inProgressReviewOfIds`, as an agent that did not derive them would. */
+  statusOmitsInProgressRows?:     boolean;
   /** Every status block leaves out `readyTickets`, as an agent that did not copy it would. */
   statusOmitsReadyTickets?:       boolean;
   /**
@@ -409,7 +409,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
 
   const restartedOrdinalOf = (kind: AgentKind): number => (kind === 'review' ? scenario.restartedReviewerRound ?? 1 : 1);
 
-  const ticketIdsOfRunningRows = (kind: AgentKind): string[] => [...ownAgentsOnBoard.values(), ...rowsLeftRunning.values()]
+  const ticketIdsOfInProgressRows = (kind: AgentKind): string[] => [...ownAgentsOnBoard.values(), ...rowsLeftRunning.values()]
     .filter((row) => row.kind === kind)
     .map((row) => row.ticketId);
 
@@ -521,8 +521,8 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       dispatcherState: board.dispatcherState,
       heldTicketIds:   [...board.heldTicketIds],
     };
-    if (scenario.statusOmitsRunningRows === true) return concurrency;
-    return { ...concurrency, runningTicketIds: ticketIdsOfRunningRows('build'), runningReviewOfIds: ticketIdsOfRunningRows('review') };
+    if (scenario.statusOmitsInProgressRows === true) return concurrency;
+    return { ...concurrency, inProgressTicketIds: ticketIdsOfInProgressRows('build'), inProgressReviewOfIds: ticketIdsOfInProgressRows('review') };
   };
 
   const returnedStatusBlock = (run: DispatchRunName): Record<string, unknown> => {
