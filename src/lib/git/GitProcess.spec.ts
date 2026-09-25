@@ -16,6 +16,7 @@ import {
   createScratchDirectory,
   createScratchGitRepository,
   gitIsAvailable,
+  gitOutputIn,
   removeScratchDirectory
 } from '../../testing/ScratchWorkspace';
 import { GitProcess } from './GitProcess';
@@ -61,9 +62,11 @@ describe.skipIf(!gitIsAvailable())('a git run', () => {
     });
   });
 
-  // BranchIntegration names the files a worktree still holds from this output, so a quoted, octal-escaped name would name no file at all.
+  // BranchIntegration names the files a worktree still holds from this output, so a quoted, octal-escaped name would name no file at all;
+  // the repository asks for quoting, so only the runner's own override can unquote it.
   test('a non-ASCII file name is printed unquoted, whatever the user\'s own configuration says', () => {
     const repositoryDirectory = scratchGitRepository('git-process-unquoted');
+    gitOutputIn(repositoryDirectory, ['config', 'core.quotePath', 'true']);
     writeFileSync(join(repositoryDirectory, 'café.txt'), 'content\n');
     const finishedRun = run(repositoryDirectory, ['status', '--porcelain=v1', '--untracked-files=all']);
     expect(finishedRun?.standardOutput).toBe('?? café.txt\n');

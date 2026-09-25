@@ -161,6 +161,7 @@ describe.skipIf(!gitIsAvailable())('removing the worktree', () => {
   // Never forced: the files git would lose are named, unquoted, so a person can decide what to keep.
   test('a worktree holding an untracked file and a changed one is left standing, with both named', () => {
     const repositoryDirectory = scratchGitRepository('branch-integration-dirty-worktree');
+    gitOutputIn(repositoryDirectory, ['config', 'core.quotePath', 'true']);
     commitFile(repositoryDirectory, 'tracked.txt', 'original\n');
     const worktreeDirectory = addWorktree(repositoryDirectory, 'subagent');
     writeFileSync(join(worktreeDirectory, 'tracked.txt'), 'changed\n');
