@@ -4,8 +4,8 @@ export default [
   ...base,
   { ignores: ['**/*.js', 'node_modules/**', '.claude/**'] },
   {
-    // Test-only helpers may import devDependencies; nothing that ships may import this folder.
-    files: ['lib/tooling/dev/**/*.ts'],
+    // Test-only helpers may import devDependencies; nothing that ships may import these folders.
+    files: ['src/testing/**/*.ts', 'cli/testing/**/*.ts', 'lib/tooling/dev/**/*.ts'],
     rules: { 'import/no-extraneous-dependencies': ['error', { devDependencies: true }] },
   },
   { files: ['**/*.ts'], rules: { 'import/enforce-node-protocol-usage': ['error', 'always'] } },

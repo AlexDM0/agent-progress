@@ -43,8 +43,10 @@ lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/, lib/tic
 
 - Imports run up only, with no cycles. `lib/constants/` imports nothing outside itself; `lib/utils/` imports only
   itself and `lib/constants/`; neither imports a package or a builtin (a spec beside them may import `bun:test`).
-  Nothing under `lib/` imports `cli/`, nothing that ships imports
-  `lib/tooling/dev/`, and `agent-progress.ts` imports only `cli/`.
+  Nothing under `lib/` imports `cli/`, nothing that ships imports `src/testing/`, `cli/testing/` or `lib/tooling/dev/`,
+  and `agent-progress.ts` imports only `cli/`.
+- `src/testing/` may import `lib/platform/Workspace.ts` until plan step 6 moves it; `cli/testing/` is imported only by
+  `cli/` specs.
 - A feature folder never imports a sibling: hoist what both need, or pass a structurally typed parameter.
 - `lib/platform/` touches the machine and knows nothing about tasks or tickets: a caller hands it paths and values,
   never a task or a ticket, even though the layer order would let it import their types from `lib/constants/`.
@@ -114,25 +116,25 @@ lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/, lib/tic
   180 for code, 155 for comments; aligned object values; aligned `from`; imports builtin → external → internal,
   alphabetised; builtins through the `node:` protocol (`import/enforce-node-protocol-usage`, turned on in
   `eslint.config.js`); more than 3 named imports or 4+ properties one per line; arrow parameters parenthesised; no
-  `any`; a blank line before a function declaration. `lib/tooling/dev/` may import devDependencies. Deliberately off:
-  `no-plusplus`, `no-continue`, `no-await-in-loop`, `no-param-reassign`, `consistent-return`, `no-restricted-syntax`,
-  `guard-for-in`, `class-methods-use-this`, `no-use-before-define`.
+  `any`; a blank line before a function declaration. `src/testing/`, `cli/testing/` and `lib/tooling/dev/` may import
+  devDependencies. Deliberately off: `no-plusplus`, `no-continue`, `no-await-in-loop`, `no-param-reassign`,
+  `consistent-return`, `no-restricted-syntax`, `guard-for-in`, `class-methods-use-this`, `no-use-before-define`.
 
 ### Tests
 
 - A spec sits beside its module as `<Module>.spec.ts`, a second suite as `<Module>.<aspect>.spec.ts`, never
   `.test.ts`. It opens with a docblock of which cases matter and why; test names are claims written as sentences. A
   frozen table of expected outputs comes from the previous implementation and says how to retake it.
-- A test that needs a tool the machine may lack skips through one shared guard (`gitIsAvailable`) and says what is
-  missing; skips are counted, never silent. An environment variable is meant to turn that skip into a failure on a
-  machine that has the tool; it is not built yet (`docs/backlog.md`). End-to-end suites that spawn the real binary
-  sit at the layer root, named for what they pin.
+- A test that needs a tool the machine may lack skips through one shared guard (`gitIsAvailable` in
+  `src/testing/ScratchWorkspace.ts`) and says what is missing; skips are counted, never silent. An environment
+  variable is meant to turn that skip into a failure on a machine that has the tool; it is not built yet
+  (`docs/backlog.md`). End-to-end suites that spawn the real binary sit at the layer root, named for what they pin.
 - A guard proves its scan found something, and is watched failing on each form it claims to catch. An allowlist is
   exact in both directions.
-- Tests never touch live data. Every spec works under the scratch root, and `lib/tooling/dev/TrackerIsolation.ts`
-  is checked by the captured context, on a hook input's `cwd` and by `lib/tooling/dev/CliProcess.ts` before a
-  command runs. A spec never creates the real process context, spawns the binary only through
-  `lib/tooling/dev/CliProcess.ts`, and never calls `process.chdir`.
+- Tests never touch live data. Every spec works under the scratch root, and `src/testing/TrackerIsolation.ts` is
+  checked by the captured context (`cli/testing/CapturedCommandContext.ts`), on a hook input's `cwd` and by
+  `cli/testing/CliProcess.ts` before a command runs. A spec never creates the real process context, spawns the binary
+  only through `cli/testing/CliProcess.ts`, and never calls `process.chdir`.
 - Each dispatcher decision pinned by the `lib/tooling/dev/DispatchScriptHarness.spec.ts` suites also runs against a
   mutant of the script that breaks exactly that decision, which must fail.
 
@@ -206,7 +208,8 @@ lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/, lib/tic
 agent-progress.ts           the bin shim: runs the command line and exits with its number
 package.json                the bin entry, the scripts and the one runtime dependency, marked
 tsconfig.json               the strict Bun project; excludes lib/render/page/
-eslint.config.js            the shared ESLint config, the node: protocol rule, and the devDependency exemption for lib/tooling/dev/
+eslint.config.js            the shared ESLint config, the node: protocol rule, and the devDependency exemption for the three
+                            test-only folders: src/testing/, cli/testing/ and lib/tooling/dev/
 bun.lock                    the lockfile, committed
 .gitignore                  node_modules/, .agent-progress/, .DS_Store, .readme-graphics/, .idea/
 .idea/                      git-ignored IDE settings
@@ -216,8 +219,10 @@ README.md                   the GitHub landing page
 README-keynote.md           the same page in a keynote layout, kept for comparison
 README-day-on-the-board.md  the same page told as one day on a board, kept for comparison
 setup.sh                    machine setup: Bun, bun install and bun link, and the skill symlinks
-cli/                        the command surface: dispatch, arguments, help, one folder per command
-lib/                        everything the commands do, in the layers above; lib/tooling/dev/ is test-only
+cli/                        the command surface: dispatch, arguments, help, one folder per command; cli/testing/ is test-only
+lib/                        everything the commands do, in the layers above; lib/tooling/dev/ holds the dispatcher's test harness
+src/                        the target layout's code, filled step by step as the migration plan moves it
+  src/testing/              test-only helpers several parts use: the scratch workspace and the tracker isolation check
 skill/                      the skill every session in a tracked repository loads
 skill-orchestrate/          the skill for the one session running the board
 templates/                  what init and update install into a tracked repository, the dispatcher included

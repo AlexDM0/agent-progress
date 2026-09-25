@@ -24,7 +24,7 @@
 
     "skipLibCheck": true
   },
-  "include": ["agent-progress.ts", "cli/**/*.ts", "lib/**/*.ts"],
+  "include": ["agent-progress.ts", "cli/**/*.ts", "lib/**/*.ts", "src/**/*.ts"],
   // The page is its own project (lib/render/page/tsconfig.json: DOM types, no Bun or Node types). Excluded
   // here so nothing placed under that folder is ever compiled with Bun's globals in scope.
   "exclude": ["lib/render/page/**"]

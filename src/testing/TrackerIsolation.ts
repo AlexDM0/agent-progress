@@ -13,11 +13,11 @@ import {
   resolve
 }                       from 'node:path';
 
-import { findWorkspace } from '../../platform/Workspace';
+import { findWorkspace } from '../../lib/platform/Workspace';
 
 export type TrackerIsolationVerdict = 'isolated' | 'directory-outside-the-scratch-root' | 'resolves-a-tracker-outside-the-scratch-root';
 
-/** Where `lib/tooling/dev/ScratchWorkspace.ts` creates every scratch directory, with its symlinks resolved. */
+/** Where `src/testing/ScratchWorkspace.ts` creates every scratch directory, with its symlinks resolved. */
 export function scratchRootDirectory(): string {
   return canonicalPathOf(tmpdir());
 }
@@ -54,6 +54,6 @@ export function requireTrackerIsolation(startDirectory: string, scratchRoot: str
   if (verdict === 'isolated') return;
   throw new Error(
     `A spec pointed a command at ${startDirectory}, which is not isolated (${verdict}): a command run from there could write into a real tracker. `
-    + 'Give it a directory from lib/tooling/dev/ScratchWorkspace.ts instead.',
+    + 'Give it a directory from src/testing/ScratchWorkspace.ts instead.',
   );
 }

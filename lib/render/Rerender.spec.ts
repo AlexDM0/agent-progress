@@ -10,10 +10,10 @@ import {
   expect,
   test
 }                                                              from 'bun:test';
+import { createScratchDirectory, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
 import type { ProgressFile, Ticket }                      from '../constants/Types.ts';
 import { workspacePathsFor }                              from '../platform/Workspace.ts';
 import type { Workspace }                                 from '../platform/Workspace.ts';
-import { createScratchDirectory, removeScratchDirectory } from '../tooling/dev/ScratchWorkspace.ts';
 import { rerenderDashboard }                              from './Rerender.ts';
 import type { MalformedTicketFile, TrackerReads }         from './Rerender.ts';
 

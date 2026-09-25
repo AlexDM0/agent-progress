@@ -19,17 +19,17 @@ import {
   expect,
   test
 }                                       from 'bun:test';
-import type { ProgressFile, Task }      from '../../lib/constants/Types';
-import { createCapturedCommandContext } from '../../lib/tooling/dev/CapturedCommandContext';
+import type { ProgressFile, Task } from '../../lib/constants/Types';
+import { TimeUtil }                from '../../lib/utils/TimeUtil';
 import {
   addWorktree,
   createScratchGitRepository,
   gitIsAvailable,
   removeScratchDirectory
-}                                       from '../../lib/tooling/dev/ScratchWorkspace';
-import { TimeUtil }       from '../../lib/utils/TimeUtil';
-import { helpText }       from '../HelpText';
-import { runCommandLine } from '../Main';
+}                                       from '../../src/testing/ScratchWorkspace';
+import { helpText }                     from '../HelpText';
+import { runCommandLine }               from '../Main';
+import { createCapturedCommandContext } from '../testing/CapturedCommandContext';
 
 type CleanupStepDocument =
   | { target: 'worktree'; path: string; outcome: 'removed' }

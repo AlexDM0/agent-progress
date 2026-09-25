@@ -1,22 +1,14 @@
 /**
  * A `CommandContext` whose two output streams are arrays, so a command spec can drive `runCommandLine` in-process and read back what a user would
- * have seen. The interface is declared here structurally rather than imported from `cli/CommandContext.ts`, because nothing under `lib/` may import
- * `cli/`; TypeScript still checks the two against each other at every call site that passes one of these to a command.
+ * have seen.
  */
-import { requireTrackerIsolation } from './TrackerIsolation';
+import { requireTrackerIsolation } from '../../src/testing/TrackerIsolation';
+import type { CommandContext }     from '../CommandContext';
 
-export interface CapturedCommandContext {
-  currentDirectory:        string;
-  now:                     () => Date;
-  standardOutput:          (text: string) => void;
-  standardError:           (text: string) => void;
-  standardInputIsTerminal: boolean;
-  readStandardInput:       () => Promise<string>;
-  confirm:                 (question: string) => Promise<boolean>;
-  platform:                string;
-  outputText:              () => string;
-  errorText:               () => string;
-  questionsAsked:          () => string[];
+export interface CapturedCommandContext extends CommandContext {
+  outputText:     () => string;
+  errorText:      () => string;
+  questionsAsked: () => string[];
 }
 
 export interface CapturedCommandContextOptions {

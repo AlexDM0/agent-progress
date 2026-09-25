@@ -2,7 +2,7 @@
  * The guard between the suite and a tracker it did not create. Each way out of the scratch root is constructed here rather than found, because the
  * repository under test may or may not hold a real tracker: a directory outside the root, a walk up that reaches a tracker above the root, and an
  * `AGENT_PROGRESS_ROOT` naming one — the last in a child process, since only `lib/platform/Environment.spec.ts` assigns the environment in-process.
- * The two helpers every spec drives a command through must refuse before the command runs, or a refusal would be swallowed into an exit code.
+ * The two helpers every spec drives a command through are pinned in their own specs under `cli/testing/`.
  */
 import { mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { join }                                   from 'node:path';
@@ -13,14 +13,12 @@ import {
   test
 }                                                 from 'bun:test';
 
-import { workspacePathsFor }                                   from '../../platform/Workspace';
-import { createCapturedCommandContext }                        from './CapturedCommandContext';
-import { runAgentProgress }                                    from './CliProcess';
+import { workspacePathsFor }                                   from '../../lib/platform/Workspace';
 import { createScratchDirectory, removeScratchDirectory }      from './ScratchWorkspace';
 import { requireTrackerIsolation, trackerIsolationVerdictFor } from './TrackerIsolation';
 
 const TRACKER_ISOLATION_MODULE_PATH = join(import.meta.dir, 'TrackerIsolation.ts');
-const REPOSITORY_DIRECTORY          = join(import.meta.dir, '..', '..', '..');
+const REPOSITORY_DIRECTORY          = join(import.meta.dir, '..', '..');
 const scratchDirectories: string[] = [];
 
 afterAll(() => {
@@ -105,18 +103,8 @@ describe('the verdict on one directory', () => {
   });
 });
 
-describe('the helpers a spec runs a command through', () => {
-  test('refuse the repository under test before any command can run', async () => {
+describe('the refusal a spec helper throws', () => {
+  test('refuses the repository under test before any command can run', () => {
     expect(() => requireTrackerIsolation(REPOSITORY_DIRECTORY)).toThrow('which is not isolated (directory-outside-the-scratch-root)');
-    expect(() => createCapturedCommandContext({ currentDirectory: REPOSITORY_DIRECTORY })).toThrow('which is not isolated');
-    await expect(runAgentProgress(['ticket', 'add', 'Isolation probe'], { currentDirectory: REPOSITORY_DIRECTORY })).rejects.toThrow('which is not isolated');
-  });
-
-  // The hook resolves its tracker from the `cwd` in the JSON piped to it, not from the context, so that directory is a second way out.
-  test('refuse a piped hook input whose cwd is the repository under test', () => {
-    const scratchWorkingDirectory = scratchDirectory('isolation-hook');
-    const standardInputText = JSON.stringify({ agent_id: 'agent_example', cwd: REPOSITORY_DIRECTORY });
-    expect(() => createCapturedCommandContext({ currentDirectory: scratchWorkingDirectory, standardInputText })).toThrow('which is not isolated');
-    expect(() => createCapturedCommandContext({ currentDirectory: scratchWorkingDirectory, standardInputText: 'not json' })).not.toThrow();
   });
 });

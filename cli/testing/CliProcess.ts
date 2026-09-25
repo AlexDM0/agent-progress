@@ -6,7 +6,7 @@
 import { existsSync }               from 'node:fs';
 import { delimiter, dirname, join } from 'node:path';
 
-import { requireTrackerIsolation } from './TrackerIsolation';
+import { requireTrackerIsolation } from '../../src/testing/TrackerIsolation';
 
 export interface AgentProgressResult {
   exitCode:       number;
@@ -31,9 +31,9 @@ function childEnvironmentOf(environment: Record<string, string>): Record<string,
 
 /** The existence check is the point: a wrong number of `..` segments still resolves, and the spawn would then fail as a Bun entry-point error. */
 function agentProgressEntryPoint(): string {
-  const entryPoint = join(import.meta.dir, '..', '..', '..', 'agent-progress.ts');
+  const entryPoint = join(import.meta.dir, '..', '..', 'agent-progress.ts');
   if (!existsSync(entryPoint)) {
-    throw new Error(`The CLI entry point is not at ${entryPoint}; lib/tooling/dev/CliProcess.ts has to be told where it moved to.`);
+    throw new Error(`The CLI entry point is not at ${entryPoint}; cli/testing/CliProcess.ts has to be told where it moved to.`);
   }
   return entryPoint;
 }

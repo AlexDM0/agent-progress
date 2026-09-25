@@ -18,7 +18,7 @@ import {
   createScratchGitRepository,
   gitIsAvailable,
   removeScratchDirectory
-} from '../tooling/dev/ScratchWorkspace';
+} from '../../src/testing/ScratchWorkspace';
 import { refusalIsOperationRefusal }                          from './OperationRefusal';
 import { findWorkspace, requireWorkspace, workspacePathsFor } from './Workspace';
 

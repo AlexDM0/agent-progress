@@ -19,8 +19,8 @@ import {
 import { dirname, join }          from 'node:path';
 import { afterAll, expect, test } from 'bun:test';
 
+import { createScratchDirectory, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
 import { CLAUDE_MANAGED_END, CLAUDE_MANAGED_START }       from '../constants/Statuses';
-import { createScratchDirectory, removeScratchDirectory } from '../tooling/dev/ScratchWorkspace';
 import { writeManagedBlock }                              from './ClaudeInstructions';
 
 const BLOCK_BODY = 'This repository tracks work with `agent-progress`. Load the agent-progress skill.';

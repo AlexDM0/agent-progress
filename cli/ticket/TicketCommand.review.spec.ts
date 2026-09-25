@@ -17,9 +17,9 @@ import { LIMITS }                                                             fr
 import type { ProgressFile, Task }                                            from '../../lib/constants/Types';
 import { withLock }                                                           from '../../lib/platform/Lock';
 import { workspacePathsFor }                                                  from '../../lib/platform/Workspace';
-import { createCapturedCommandContext }                                       from '../../lib/tooling/dev/CapturedCommandContext';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../lib/tooling/dev/ScratchWorkspace';
+import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
 import { runCommandLine }                                                     from '../Main';
+import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';
 
 const FROZEN_NOW = new Date('2026-09-24T12:00:00Z');
 

@@ -12,9 +12,9 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import { createCapturedCommandContext }                                       from '../lib/tooling/dev/CapturedCommandContext';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../lib/tooling/dev/ScratchWorkspace';
+import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../src/testing/ScratchWorkspace';
 import { runCommandLine }                                                     from './Main';
+import { createCapturedCommandContext }                                       from './testing/CapturedCommandContext';
 
 const FROZEN_NOW = new Date('2026-09-23T10:00:00Z');
 

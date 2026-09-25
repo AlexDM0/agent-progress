@@ -14,8 +14,8 @@ import {
 } from 'node:fs';
 import { afterAll, expect, test } from 'bun:test';
 
+import { createScratchDirectory, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
 import { LIMITS }                                         from '../constants/Limits';
-import { createScratchDirectory, removeScratchDirectory } from '../tooling/dev/ScratchWorkspace';
 import { LockGenerationSteps, withLock }                  from './Lock';
 import { refusalIsOperationRefusal }                      from './OperationRefusal';
 import { workspacePathsFor }                              from './Workspace';

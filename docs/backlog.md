@@ -60,7 +60,7 @@ is designer-owned, so it wants a design answer before a code one.
 ## A variable that turns the git skip into a failure
 
 The conventions say an environment variable can turn a skipped spec into a failure on a machine that
-has the tool. `gitIsAvailable` in `lib/tooling/dev/ScratchWorkspace.ts` only checks `Bun.which('git')`,
+has the tool. `gitIsAvailable` in `src/testing/ScratchWorkspace.ts` only checks `Bun.which('git')`,
 and no such variable exists. When it is built, it is read through a getter in
 `lib/platform/Environment.ts`, like every environment read.
 

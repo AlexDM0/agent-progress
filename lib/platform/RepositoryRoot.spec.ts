@@ -17,7 +17,7 @@ import {
   createScratchGitRepository,
   gitIsAvailable,
   removeScratchDirectory
-} from '../tooling/dev/ScratchWorkspace';
+} from '../../src/testing/ScratchWorkspace';
 import { discoverRepositoryRoot } from './RepositoryRoot';
 
 const scratchDirectories: string[] = [];

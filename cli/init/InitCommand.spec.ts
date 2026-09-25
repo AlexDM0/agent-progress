@@ -17,16 +17,16 @@ import {
   expect,
   test
 }                                                              from 'bun:test';
-import { CLAUDE_MANAGED_START }         from '../../lib/constants/Statuses';
-import { createCapturedCommandContext } from '../../lib/tooling/dev/CapturedCommandContext';
+import { CLAUDE_MANAGED_START } from '../../lib/constants/Statuses';
 import {
   addWorktree,
   createScratchDirectory,
   createScratchGitRepository,
   gitIsAvailable,
   removeScratchDirectory
-}                                                              from '../../lib/tooling/dev/ScratchWorkspace';
-import { runCommandLine } from '../Main';
+}                                                              from '../../src/testing/ScratchWorkspace';
+import { runCommandLine }               from '../Main';
+import { createCapturedCommandContext } from '../testing/CapturedCommandContext';
 
 const scratchDirectories: string[] = [];
 

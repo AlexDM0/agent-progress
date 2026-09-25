@@ -15,14 +15,14 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import { createCapturedCommandContext } from '../../lib/tooling/dev/CapturedCommandContext';
 import {
   createScratchDirectory,
   createScratchGitRepository,
   gitIsAvailable,
   removeScratchDirectory
-}                                                                             from '../../lib/tooling/dev/ScratchWorkspace';
-import { runCommandLine } from '../Main';
+}                                                                             from '../../src/testing/ScratchWorkspace';
+import { runCommandLine }               from '../Main';
+import { createCapturedCommandContext } from '../testing/CapturedCommandContext';
 
 interface ReworkPartDocument {
   reworkedCodeLines: number;

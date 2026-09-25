@@ -29,7 +29,7 @@ import {
   createScratchGitRepository,
   gitIsAvailable,
   removeScratchDirectory
-} from '../tooling/dev/ScratchWorkspace';
+} from '../../src/testing/ScratchWorkspace';
 import { ensureIgnored } from './GitIgnore';
 
 const OWNER_READ_WRITE_GROUP_READ_MODE = 0o640;

@@ -10,10 +10,10 @@ import {
   test
 }                                                         from 'bun:test';
 import { OperationRefusal }                               from '../lib/platform/OperationRefusal';
-import { createCapturedCommandContext }                   from '../lib/tooling/dev/CapturedCommandContext';
-import { createScratchDirectory, removeScratchDirectory } from '../lib/tooling/dev/ScratchWorkspace';
+import { createScratchDirectory, removeScratchDirectory } from '../src/testing/ScratchWorkspace';
 import { runCommandLine }                                 from './Main';
 import * as realRenderCommandModule                       from './render/RenderCommand';
+import { createCapturedCommandContext }                   from './testing/CapturedCommandContext';
 
 let errorThrownByTheStubbedCommand: unknown = null;
 // Holds no tracker, so a route that does reach a command is refused there instead of writing into the repository's own.

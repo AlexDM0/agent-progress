@@ -9,10 +9,10 @@ import {
   expect,
   test
 }                                                         from 'bun:test';
-import { createCapturedCommandContext }                   from '../lib/tooling/dev/CapturedCommandContext';
-import { createScratchDirectory, removeScratchDirectory } from '../lib/tooling/dev/ScratchWorkspace';
+import { createScratchDirectory, removeScratchDirectory } from '../src/testing/ScratchWorkspace';
 import { COMMAND_NAMES, COMMAND_TABLE }                   from './CommandTable';
 import { runCommandLine }                                 from './Main';
+import { createCapturedCommandContext }                   from './testing/CapturedCommandContext';
 
 let untrackedDirectory = '';
 

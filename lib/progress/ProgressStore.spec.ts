@@ -5,10 +5,10 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { afterAll, expect, test }                 from 'bun:test';
 
+import { createScratchDirectory, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
 import type { ProgressFile }                              from '../constants/Types';
 import { workspacePathsFor }                              from '../platform/Workspace';
 import type { Workspace }                                 from '../platform/Workspace';
-import { createScratchDirectory, removeScratchDirectory } from '../tooling/dev/ScratchWorkspace';
 import {
   addTask,
   appendLogEntry,
