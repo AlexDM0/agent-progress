@@ -5,6 +5,8 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  readlinkSync,
+  symlinkSync,
   writeFileSync
 } from 'node:fs';
 import { join } from 'node:path';
@@ -228,6 +230,22 @@ describe.skipIf(!gitIsAvailable())('a second init', () => {
     expect(context.outputText()).toContain('already initialised');
     expect(context.outputText()).not.toContain('CLAUDE.md block refreshed');
     expect(context.outputText()).toContain('left alone');
+  });
+
+  // The tracker walk misses a progress file that is not a readable regular file, so only the create-exclusive store write keeps it.
+  test('a progress file the tracker walk does not recognise is refreshed around, never replaced', async () => {
+    const repositoryDirectory = scratchRepository();
+    const progressFilePath    = join(repositoryDirectory, '.agent-progress', 'progress.json');
+    const missingTargetPath   = join(repositoryDirectory, 'missing-progress-target.json');
+    mkdirSync(join(repositoryDirectory, '.agent-progress'), { recursive: true });
+    symlinkSync(missingTargetPath, progressFilePath);
+
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['init'], context)).toBe(0);
+
+    expect(context.outputText()).toContain('already initialised');
+    expect(readlinkSync(progressFilePath)).toBe(missingTargetPath);
+    expect(existsSync(missingTargetPath)).toBe(false);
   });
 });
 
