@@ -95,7 +95,7 @@ the dispatcher gives every ticket an agent of its own and starting one costs mor
 ticket's work.
 
 **Tickets that share a blast radius are merged into one.** At filing and at every triage, look for
-open tickets no agent has started that touch the same files or the same mechanism as each other or as
+pending tickets no agent has started that touch the same files or the same mechanism as each other or as
 the one you are filing, and merge them into one ticket: the survivor carries each merged ticket's
 Report and Acceptance, and each merged one is abandoned with the reason `merged into #<survivor>`.
 One agent then sees the whole picture and pays one start and one review instead of several. Only
@@ -187,7 +187,7 @@ session's guideline of 10 agents per workflow does not bound this one. Keep taki
 runs; a ticket filed meanwhile is picked up when a slot frees, because every agent hands the script
 the board as it left it. **Never stop, kill or relaunch a running dispatcher to add, reorder,
 reprioritise or change tickets**: file them, set `ticket priority`, `ticket agent` or `ticket depends`,
-`ticket reopen` or `ticket status <id> open`, `ticket hold` or `ticket unhold`, and the run takes the
+`ticket reopen` or `ticket status <id> pending`, `ticket hold` or `ticket unhold`, and the run takes the
 change at its next agent's return — the human output of those commands, and of `ticket add`, says so
 while the board reads `running`. Stopping the run for intake loses the agents in
 flight. Only the user stops a run, and then through `agent-progress dispatcher stopped` (The user
@@ -222,7 +222,7 @@ entry, when `ticket unhold <id>` names a single-ticket run and no whole-board ru
 connection, not the tickets failing — so it started nothing new, let the agents in flight finish,
 counted none of those deaths as a failed pass and parked nothing for them. Tell the user which it
 looks like, then close the dead rows it left: `agent-progress task pause` a builder's row still
-`running`, and `task finish` then `task deliver` a review bar still running. The board goes to
+`in-progress`, and `task finish` then `task deliver` a review bar still in progress. The board goes to
 `stopped` (step 1 below), and you ask with AskUserQuestion (Intake) whether to relaunch; on the
 user's go, `agent-progress dispatcher running` and the launch, whose survey resumes every build the
 stop left paused. The rest of its summary is handled as below.
@@ -255,7 +255,7 @@ up once unheld, so list them to the user and relaunch for them only after an unh
    file a new ticket stating the invariant behind what the reviews kept finding, with the search for
    its other instances as an acceptance item, and tell the user the parked branch waits on it.
 4. Each ticket in `findingsFiled`, judged for severity as Intake says.
-5. `agent-progress status --json`: a row the run left `running` or `awaiting review` with no agent
+5. `agent-progress status --json`: a row the run left `in-progress` or `awaiting review` with no agent
    behind it is yours to close. A ticket's own row moves only through the `ticket` verbs, which
    refuse `task finish` and `task deliver` on it: `task pause` a build row left running, so the next
    run resumes it, and `ticket status <id> <status>` to settle it otherwise. A review bar (a row
@@ -277,8 +277,8 @@ compaction the `Next:` line of `agent-progress status` says which.
   behind it, or a task notification saying the run was stopped or died, recover it as below.
 
 **Recovering a run that died or was killed: resume it, never launch fresh.** Its agents in flight left
-their tickets claimed, their bars running and partial work in their worktrees; a fresh run reads a
-`running` row as an agent still at work and takes up only the builds it finds paused, so those tickets
+their tickets claimed, their bars running and partial work in their worktrees; a fresh run reads an
+`in-progress` row as an agent still at work and takes up only the builds it finds paused, so those tickets
 would wait on agents that are gone. Resume it instead, with the run
 id the board stored and the same args as its launch, so the journal answers every agent that finished
 and only the ones in flight run again:
@@ -289,7 +289,7 @@ Workflow({ scriptPath: '<mainCheckout>/.claude/workflows/agent-progress-dispatch
 
 then `agent-progress dispatcher running --run <the new runId>`. A builder run again carries on in
 its own claim and worktree, and a reviewer takes its own bar over; the script tells them so. Only
-when there is no stored id or the resume is refused: for every `running` row no agent is behind,
+when there is no stored id or the resume is refused: for every `in-progress` row no agent is behind,
 `agent-progress task pause` a build row, which the fresh run resumes, and `task finish` then
 `task deliver` a review bar (a row with `reviewOf`), whose ticket the fresh run then reviews anew;
 then `agent-progress dispatcher running` and a fresh launch.
@@ -354,8 +354,8 @@ When you do lose the thread — after a compaction, or a long gap — re-anchor 
 ## Keeping the board honest
 
 - **Every row reaches `done`, and `done` means merged.** That is why the pills read
-  `awaiting review`, `awaiting merge` and `done` rather than `finished` and `delivered`: each one
-  names who is still owed something. The dispatcher's agents move their own rows — a builder its
+  `awaiting review`, `awaiting merge` and `done` rather than `in-review`, `reviewed` and `delivered`:
+  each one names who is still owed something. The dispatcher's agents move their own rows — a builder its
   ticket to review, a reviewer its bar, or `agent-progress release` both — and a row one of them left
   open is yours to close (When it returns), because a chart whose rows stop at `awaiting review` is a
   chart nobody finished reading.

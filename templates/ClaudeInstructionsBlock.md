@@ -29,7 +29,7 @@ in separate checkouts all write to the same chart.
   a pass that reworked over 750 lines of code (comments and documentation not counted) in its fixes
   and rebase, and is asked for, never scheduled by the reviewer.
 - File every bug, change or feature the user reports as a ticket (`agent-progress ticket add
-  "<title>" --type bug|change|feature`) and move it with `agent-progress ticket start|review|done|deliver <id>`.
+  "<title>" --type bug|change|feature`) and move it with `agent-progress ticket start|finish|approve|deliver <id>`.
 - Record milestones with `agent-progress log "<what happened>"`; `--at -5m` backfills a stamp nobody
   registered at the time.
 - Never edit `.agent-progress/progress.json` by hand, and edit a ticket only below its frontmatter —

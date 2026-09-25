@@ -10,7 +10,7 @@ What should happen instead, concretely enough to tell whether it did.
 
 ## Acceptance
 
-How this ticket is checked before it moves to done.
+How this ticket is checked before it is approved.
 
 ## Handoff
 

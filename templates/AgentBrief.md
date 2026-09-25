@@ -33,7 +33,7 @@ same files or the same mechanism, worked in the order given — dependencies fir
 and one Handoff per ticket, so each can be judged, reverted and delivered on its own. **A bundle is
 one agent and holds one slot**: its builder claims every ticket in one `ticket claim` call, which
 starts them all or none and marks their rows as one agent. A dependency on another ticket in the
-same claim counts as settled; one on a ticket outside it that is not done or delivered refuses the
+same claim counts as settled; one on a ticket outside it that is not reviewed or delivered refuses the
 whole claim. Starting them one at a time — a claim or
 a `ticket start` per ticket — counts each as an agent of its own, and a three-ticket bundle on a
 limit of 2 cannot be claimed that way at all.
@@ -364,7 +364,7 @@ a clean agent briefed from the Review brief above, never the orchestrator readin
 ```
 agent-progress ticket claim <id> --owner <model> --note "<what the agent will do>"   # starts the ticket's own row
 agent-progress ticket show <id>                # its `task:` is the rowId on the brief's `agent-progress row:` line
-agent-progress ticket review <id>              # finishes that row, `--tokens <subagent_tokens>` only without the hook; then a clean reviewer in its own row
+agent-progress ticket finish <id>              # moves that row to in-review, `--tokens <subagent_tokens>` only without the hook; then a clean reviewer in its own row
 agent-progress task add "Review <N> #<id> — <ticket title>" --review-of <id> --owner opus --start   # the review's row, drawn above the ticket's
 agent-progress task finish <reviewRowId>       # then `task deliver <reviewRowId>`: for every verdict but `released`, which delivered it
 ```

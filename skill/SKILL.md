@@ -67,8 +67,9 @@ order to file a ticket, move one, and stay out of the tool's way.
    BODY
    ```
 
-3. **Move it as the work moves**: `ticket start`, `ticket review`, `ticket done`, `ticket deliver`,
-   `ticket abandon --reason "<why>"`. Each verb only moves a ticket that is in a status it makes
+3. **Move it as the work moves**: `ticket start`, `ticket finish`, `ticket approve`, `ticket deliver`,
+   `ticket abandon --reason "<why>"`. Each verb is named for the status it moves to (in-progress,
+   in-review, reviewed, delivered, abandoned), only moves a ticket that is in a status it makes
    sense from, and a move to the status it already has is refused with exit 1. When one ticket can
    only be done after another, record it: `ticket depends 5 3`.
 4. **`agent-progress log "<text>"` at each milestone** — a decision taken, a direction abandoned.
