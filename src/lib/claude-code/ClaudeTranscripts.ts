@@ -1,7 +1,7 @@
 /**
- * The Claude Code building block: it reads and writes Claude Code's own files — the `SubagentStop` hook in its settings, a
- * marker-delimited block in a `CLAUDE.md`, and the subagent transcripts under its home folder with what they cost.
- * It depends on `src/lib/atomic-file` and `src/lib/utils`.
+ * Where Claude Code keeps one repository's transcripts, and which of them belong to subagents. As the claude-code building block's
+ * main module it also stands for its siblings, which merge the `SubagentStop` hook into the settings and write a marker-delimited block in a `CLAUDE.md`.
+ * The package depends on `src/lib/atomic-file` and `src/lib/utils`.
  */
 import type { Dirent }   from 'node:fs';
 import { readdirSync }   from 'node:fs';
@@ -62,8 +62,8 @@ function agentTranscriptsIn(directory: string, sessionIdentifier: string): Subag
 /**
  * Every `agent-….jsonl` inside a session's `subagents/` folder, and inside each run folder of its
  * `subagents/workflows/`, where a workflow's agents are written; sorted by path so two runs of the
- * same command report the same order. The main session's own transcripts are deliberately left out:
- * a main session is the orchestrator, not a cost anyone delegated.
+ * same command report the same order. The main session's own transcript, which sits beside its
+ * session folder rather than under `subagents/`, is left out: only subagent transcripts are listed.
  *
  * An absent folder answers an empty list rather than throwing, because "no transcripts here" is a
  * normal answer the caller prints a sentence for.

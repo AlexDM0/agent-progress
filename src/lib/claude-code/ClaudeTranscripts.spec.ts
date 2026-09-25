@@ -84,7 +84,7 @@ describe('the subagent transcripts under a folder', () => {
     expect(found[0]?.path).toContain(join('session-one', 'subagents', 'agent-alpha.jsonl'));
   });
 
-  // The main session's transcript sits beside the session directory and is the orchestrator, not a delegated cost.
+  // The main session's transcript sits beside the session directory, not under subagents/, so it is not a subagent transcript.
   test('leave the main session\'s own transcript and any other stray file out', () => {
     createTranscript('session-one.jsonl');
     createTranscript(join('session-one', 'subagents', 'agent-alpha.jsonl'));
