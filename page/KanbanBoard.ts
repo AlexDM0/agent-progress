@@ -22,10 +22,6 @@ export const CAPPED_LANE_PAGE_STEP = 25;
 
 export const OVERFLOW_TOLERANCE_PIXELS = 1;
 
-const ABANDONED_LANE_OPEN_CHOICE = 'open';
-
-export const DEFAULT_ABANDONED_LANE_CHOICE = 'closed';
-
 /** A card's lane is the pill its ticket's own row shows on the Progress tab. */
 const LANE_FOR_ROW_STATE: Record<RowState, KanbanLane> = {
   'pending':     'todo',
@@ -206,31 +202,10 @@ export function subStateNoteOf(card: KanbanCard, format: NoteFormat): string | n
   }
 }
 
-export function cappedLaneStorageKeyFor(trackerId: string, lane: ClosedKanbanLane): string {
-  return `agent-progress:${trackerId}:kanban-${lane}-shown`;
-}
-
-export function abandonedLaneStorageKeyFor(trackerId: string): string {
-  return `agent-progress:${trackerId}:kanban-abandoned`;
-}
-
-export function abandonedLaneIsOpenFrom(stored: string | null): boolean {
-  return stored === ABANDONED_LANE_OPEN_CHOICE;
-}
-
-/** The closed choice is the default, which the page stores by removing the key. */
-export function abandonedLaneChoiceFor(laneIsOpen: boolean): string {
-  return laneIsOpen ? ABANDONED_LANE_OPEN_CHOICE : DEFAULT_ABANDONED_LANE_CHOICE;
-}
-
 /** A stored count is clamped to the first page … the lane's count, so a lane that shrank under Hide never shows an empty page. */
 export function cappedLaneShownCount(requested: number, laneCount: number): number {
   const wholeRequest = Number.isSafeInteger(requested) ? requested : CAPPED_LANE_FIRST_PAGE;
   return Math.max(CAPPED_LANE_FIRST_PAGE, Math.min(wholeRequest, laneCount));
-}
-
-export function shownCountFrom(stored: string | null): number {
-  return stored === null ? CAPPED_LANE_FIRST_PAGE : Number(stored);
 }
 
 export function nextPageSizeFor(shownCount: number, laneCount: number): number {

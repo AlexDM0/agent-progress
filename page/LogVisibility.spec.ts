@@ -1,48 +1,16 @@
 /**
- * How much of the log the card shows. The cases that matter: a log of at most the cap needs no control and is never cut, the stored
- * choice falls back to the newest entries for anything it does not recognise, and the key is scoped to one tracker.
+ * How much of the log the card shows. The cases that matter: a log of at most the cap needs no control and is never cut, and the control
+ * and the note say how many entries the cap hides.
  */
 
 import { describe, expect, test } from 'bun:test';
 import {
-  DEFAULT_LOG_VISIBILITY,
   LOG_ENTRIES_SHOWN_BY_DEFAULT,
   logControlIsNeeded,
   logControlText,
   logEntryLimitFor,
   logNoteText,
-  logVisibilityFrom,
-  logVisibilityStorageKeyFor,
-  toggledLogVisibility,
 } from './LogVisibility.ts';
-
-describe('logVisibilityFrom', () => {
-  // A cleared or tampered key must not show the whole log by accident; only the one stored word does.
-  test.each([
-    ['nothing stored', null],
-    ['an unknown word', 'everything'],
-    ['the default spelled out', 'newest'],
-  ])('reads %s as the newest entries', (_description, stored) => {
-    expect(logVisibilityFrom(stored)).toBe(DEFAULT_LOG_VISIBILITY);
-  });
-
-  test('reads the stored word for the whole log as the whole log', () => {
-    expect(logVisibilityFrom('all')).toBe('all');
-  });
-
-  test('toggles between the two choices and back', () => {
-    expect(toggledLogVisibility(toggledLogVisibility(DEFAULT_LOG_VISIBILITY))).toBe(DEFAULT_LOG_VISIBILITY);
-    expect(toggledLogVisibility(DEFAULT_LOG_VISIBILITY)).toBe('all');
-  });
-});
-
-describe('logVisibilityStorageKeyFor', () => {
-  // `file://` is one origin, so two dashboards would share one choice without the tracker id in the key.
-  test('scopes the key to the tracker, beside the work-visibility key', () => {
-    expect(logVisibilityStorageKeyFor('tracker-a')).toBe('agent-progress:tracker-a:log');
-    expect(logVisibilityStorageKeyFor('tracker-a')).not.toBe(logVisibilityStorageKeyFor('tracker-b'));
-  });
-});
 
 describe('the cap', () => {
   test('is ten entries', () => {

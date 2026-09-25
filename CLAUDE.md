@@ -194,6 +194,8 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
   beside the error banner. A failed page bundle renders an error banner instead of refusing.
 - The template's bootstrap owns theme, tab selection and ticket open state; the page reaches them only through
   `window.agentProgressTemplate`.
+- The page script reads and writes browser storage only in `page/preferences/ViewerPreferences.ts`, and a key
+  string never changes.
 - Board facts such as the agents in flight arrive in the payload, computed by what `status --json` uses; the page
   never recounts them.
 - Every value passes `escapeHtml` once; a ticket's `bodyHtml`, already escaped by `lib/render/Markdown.ts`, is the

@@ -11,13 +11,8 @@ import type { PageTicket }                   from '../src/shared/@types/PagePayl
 import type { KanbanCard }                   from './@types/KanbanCard.ts';
 import type { NoteFormat }                   from './KanbanBoard.ts';
 import {
-  abandonedLaneChoiceFor,
-  abandonedLaneIsOpenFrom,
-  abandonedLaneStorageKeyFor,
   cappedLaneShownCount,
-  cappedLaneStorageKeyFor,
   cardsInLane,
-  DEFAULT_ABANDONED_LANE_CHOICE,
   kanbanCardsFor,
   laneIsDividedByPriority,
   laneOfState,
@@ -25,11 +20,11 @@ import {
   nextPageSizeFor,
   overflowDirectionsOf,
   shownCountAfterMore,
-  shownCountFrom,
   subStateNoteOf,
 } from './KanbanBoard.ts';
 import type { KanbanLane } from './constants/KanbanLane.ts';
 import type { RowState }   from './constants/RowState.ts';
+import { shownCountFrom }  from './preferences/ViewerPreferences.ts';
 
 const EXAMPLE_TODAY = '2026-09-25';
 const EXAMPLE_NOW   = Date.parse('2026-09-25T13:36:00+02:00');
@@ -324,16 +319,6 @@ describe('the capped lanes', () => {
     ['a fraction', '20.5', 15],
   ])('clamps %s to the first page … the lane’s count', (_description, stored, expected) => {
     expect(cappedLaneShownCount(shownCountFrom(stored), LANE_COUNT)).toBe(expected);
-  });
-
-  test('keeps a key per tracker and lane, and the Abandoned lane closed unless storage says open', () => {
-    expect(cappedLaneStorageKeyFor('tracker-a', 'done')).toBe('agent-progress:tracker-a:kanban-done-shown');
-    expect(cappedLaneStorageKeyFor('tracker-a', 'abandoned')).toBe('agent-progress:tracker-a:kanban-abandoned-shown');
-    expect(abandonedLaneStorageKeyFor('tracker-a')).toBe('agent-progress:tracker-a:kanban-abandoned');
-    expect(abandonedLaneIsOpenFrom(null)).toBe(false);
-    expect(abandonedLaneIsOpenFrom('open')).toBe(true);
-    expect(abandonedLaneChoiceFor(false)).toBe(DEFAULT_ABANDONED_LANE_CHOICE);
-    expect(abandonedLaneChoiceFor(true)).toBe('open');
   });
 });
 

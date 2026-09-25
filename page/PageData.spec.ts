@@ -3,19 +3,13 @@
  * which touches `document` at load and so cannot be imported by a spec.
  */
 
-import { describe, expect, test }  from 'bun:test';
-import type { ProgressFile }       from '../src/lib/tracker-model/@types/ProgressFile.ts';
-import type { Task }               from '../src/lib/tracker-model/@types/Task.ts';
-import type { PageLimits }         from '../src/shared/@types/PagePayload.ts';
-import type { StoredViewOverride } from './PageData.ts';
-import {
-  EMPTY_VIEW_OVERRIDE,
-  effectiveRangeFor,
-  overrideIsEmpty,
-  RANGE_PRESET_BOUNDS,
-  storageKeyFor,
-  storedOverrideFrom,
-} from './PageData.ts';
+import { describe, expect, test }                 from 'bun:test';
+import type { ProgressFile }                      from '../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Task }                              from '../src/lib/tracker-model/@types/Task.ts';
+import type { PageLimits }                        from '../src/shared/@types/PagePayload.ts';
+import { effectiveRangeFor, RANGE_PRESET_BOUNDS } from './PageData.ts';
+import type { StoredViewOverride }                from './preferences/ViewerPreferences.ts';
+import { EMPTY_VIEW_OVERRIDE }                    from './preferences/ViewerPreferences.ts';
 
 const EXAMPLE_LIMITS: PageLimits = {
   tickStepLadderMinutes:       [5, 10, 15, 30, 60, 120, 180, 360, 720, 1440],
@@ -69,61 +63,12 @@ function overrideWith(changes: Partial<StoredViewOverride>): StoredViewOverride 
   return { ...EMPTY_VIEW_OVERRIDE, ...changes };
 }
 
-describe('storageKeyFor', () => {
-  test('namespaces the stored range by tracker id', () => {
-    expect(storageKeyFor('example-tracker-8f21')).toBe('agent-progress:example-tracker-8f21');
-    expect(storageKeyFor('another')).not.toBe(storageKeyFor('example-tracker-8f21'));
-  });
-});
-
 describe('RANGE_PRESET_BOUNDS', () => {
   test('answers each data-preset the template offers, and only with relative text', () => {
     expect(Object.keys(RANGE_PRESET_BOUNDS).sort()).toEqual(['12h', '1h', '24h', '4h', '7d', 'all', 'auto']);
     expect(RANGE_PRESET_BOUNDS['auto']).toEqual({ fromText: null, toText: null });
     expect(RANGE_PRESET_BOUNDS['4h']).toEqual({ fromText: '-4h', toText: 'now' });
     expect(RANGE_PRESET_BOUNDS['all']).toEqual({ fromText: 'start', toText: 'now' });
-  });
-});
-
-describe('storedOverrideFrom', () => {
-  test('reads back everything the range bar wrote', () => {
-    const stored = {
-      presetKey:   '1h',
-      fromText:    '-1h',
-      toText:      'now',
-      tickMinutes: 15,
-    };
-
-    expect(storedOverrideFrom(stored)).toEqual(overrideWith(stored));
-  });
-
-  test('keeps the readable settings when one of them is not', () => {
-    const override = storedOverrideFrom({
-      presetKey:   42,
-      fromText:    '-1h',
-      toText:      'now',
-      tickMinutes: 'fifteen',
-    });
-
-    expect(override.presetKey).toBeNull();
-    expect(override.fromText).toBe('-1h');
-    expect(override.tickMinutes).toBeNull();
-  });
-
-  test.each([
-    ['null', null],
-    ['a string', 'x'],
-  ])('reads %s as no override at all', (_description, value) => {
-    expect(storedOverrideFrom(value)).toEqual(EMPTY_VIEW_OVERRIDE);
-  });
-});
-
-describe('overrideIsEmpty', () => {
-  test('is true only when neither a bound nor a tick step is set', () => {
-    expect(overrideIsEmpty(EMPTY_VIEW_OVERRIDE)).toBe(true);
-    expect(overrideIsEmpty(overrideWith({ presetKey: 'auto' }))).toBe(true);
-    expect(overrideIsEmpty(overrideWith({ tickMinutes: 15 }))).toBe(false);
-    expect(overrideIsEmpty(overrideWith({ fromText: '-1h', toText: 'now' }))).toBe(false);
   });
 });
 

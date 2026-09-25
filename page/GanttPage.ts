@@ -9,48 +9,22 @@ import type { TicketStatus }                        from '../src/lib/tracker-mod
 import type { PageLimits, PagePayload, PageTicket } from '../src/shared/@types/PagePayload.ts';
 import type { KanbanCard }                          from './@types/KanbanCard.ts';
 import {
-  abandonedLaneChoiceFor,
-  abandonedLaneIsOpenFrom,
-  abandonedLaneStorageKeyFor,
   cappedLaneShownCount,
-  cappedLaneStorageKeyFor,
   cardsInLane,
-  DEFAULT_ABANDONED_LANE_CHOICE,
   kanbanCardsFor,
   overflowDirectionsOf,
   shownCountAfterMore,
-  shownCountFrom,
 } from './KanbanBoard.ts';
-import { kanbanBoardMarkup }  from './KanbanMarkup.ts';
-import type { LogVisibility } from './LogVisibility.ts';
+import { kanbanBoardMarkup } from './KanbanMarkup.ts';
 import {
-  DEFAULT_LOG_VISIBILITY,
   logControlIsNeeded,
   logControlText,
   logEntryLimitFor,
   logNoteText,
-  logVisibilityFrom,
-  logVisibilityStorageKeyFor,
-  toggledLogVisibility,
 } from './LogVisibility.ts';
-import type { NameColumnWidth } from './NameColumnWidth.ts';
-import {
-  DEFAULT_NAME_COLUMN_WIDTH,
-  NAME_COLUMN_WIDTH_ATTRIBUTE,
-  nameColumnWidthFrom,
-  nameColumnWidthStorageKeyFor,
-  toggledNameColumnWidth,
-} from './NameColumnWidth.ts';
-import type { StoredViewOverride } from './PageData.ts';
-import {
-  EMPTY_VIEW_OVERRIDE,
-  effectiveRangeFor,
-  overrideIsEmpty,
-  RANGE_PRESET_BOUNDS,
-  storageKeyFor,
-  storedOverrideFrom,
-} from './PageData.ts';
-import type { PlacedTick, TaskRow } from './PageMarkup.ts';
+import { NAME_COLUMN_WIDTH_ATTRIBUTE }            from './NameColumnWidth.ts';
+import { effectiveRangeFor, RANGE_PRESET_BOUNDS } from './PageData.ts';
+import type { PlacedTick, TaskRow }               from './PageMarkup.ts';
 import {
   axisPixelsNeededFor,
   generatedStampText,
@@ -64,26 +38,32 @@ import {
   ticketTableRowsMarkup,
   tickLayerMarkup,
 } from './PageMarkup.ts';
-import { taskDetailMarkup }      from './TaskDetail.ts';
-import { ticketDetailMarkup }    from './TicketDetail.ts';
-import type { WorkVisibility }   from './WorkVisibility.ts';
-import {
-  DEFAULT_WORK_VISIBILITY,
-  hiddenWorkNoteText,
-  workVisibilityFrom,
-  workVisibilityStorageKeyFor,
-} from './WorkVisibility.ts';
+import { taskDetailMarkup }                         from './TaskDetail.ts';
+import { ticketDetailMarkup }                       from './TicketDetail.ts';
+import { hiddenWorkNoteText }                       from './WorkVisibility.ts';
 import type { ClosedKanbanLane }                    from './constants/KanbanLane.ts';
 import { CAPPED_LANE_FIRST_PAGE }                   from './constants/KanbanLane.ts';
 import { KANBAN_BOARD_ELEMENT_ID, KANBAN_TAB_NAME } from './constants/TemplateIds.ts';
-import type { Timeline }                            from './utils/GeometryUtil.ts';
-import { GeometryUtil }                             from './utils/GeometryUtil.ts';
-import { IslandUtil }                               from './utils/IslandUtil.ts';
-import { LogMarkupUtil }                            from './utils/LogMarkupUtil.ts';
-import type { ShortenedText }                       from './utils/MarkupUtil.ts';
-import { TimeUtil }                                 from './utils/TimeUtil.ts';
-import { VisibilityUtil }                           from './utils/VisibilityUtil.ts';
-import { WaitingOnUtil }                            from './utils/WaitingOnUtil.ts';
+import type {
+  LogVisibility,
+  NameColumnWidth,
+  StoredViewOverride,
+  ViewerPreferences,
+} from './preferences/ViewerPreferences.ts';
+import {
+  createViewerPreferences,
+  toggledLogVisibility,
+  toggledNameColumnWidth,
+  workVisibilityFrom,
+} from './preferences/ViewerPreferences.ts';
+import type { Timeline }      from './utils/GeometryUtil.ts';
+import { GeometryUtil }       from './utils/GeometryUtil.ts';
+import { IslandUtil }         from './utils/IslandUtil.ts';
+import { LogMarkupUtil }      from './utils/LogMarkupUtil.ts';
+import type { ShortenedText } from './utils/MarkupUtil.ts';
+import { TimeUtil }           from './utils/TimeUtil.ts';
+import { VisibilityUtil }     from './utils/VisibilityUtil.ts';
+import { WaitingOnUtil }      from './utils/WaitingOnUtil.ts';
 
 const PROGRESS_ISLAND_ELEMENT_ID = 'ap-progress-data';
 const TICKETS_ISLAND_ELEMENT_ID  = 'ap-tickets-data';
@@ -174,56 +154,6 @@ function setHidden(elementId: string, hidden: boolean): void {
   if (element !== null) {
     element.hidden = hidden;
   }
-}
-
-function readStoredOverride(trackerId: string): StoredViewOverride {
-  try {
-    const stored = window.localStorage.getItem(storageKeyFor(trackerId));
-    return stored === null ? EMPTY_VIEW_OVERRIDE : storedOverrideFrom(JSON.parse(stored));
-  } catch {
-    return EMPTY_VIEW_OVERRIDE;
-  }
-}
-
-function writeStoredOverride(trackerId: string, override: StoredViewOverride): void {
-  try {
-    if (overrideIsEmpty(override)) {
-      window.localStorage.removeItem(storageKeyFor(trackerId));
-      return;
-    }
-    window.localStorage.setItem(storageKeyFor(trackerId), JSON.stringify(override));
-  } catch {
-    // The page works without persistence.
-  }
-}
-
-function readStoredChoice(storageKey: string): string | null {
-  try {
-    return window.localStorage.getItem(storageKey);
-  } catch {
-    return null;
-  }
-}
-
-/** The key is removed at the default, so a viewer who never departs from it leaves nothing behind. */
-function writeStoredChoice(storageKey: string, choice: string, defaultChoice: string): void {
-  try {
-    if (choice === defaultChoice) {
-      window.localStorage.removeItem(storageKey);
-      return;
-    }
-    window.localStorage.setItem(storageKey, choice);
-  } catch {
-    // The page works without persistence.
-  }
-}
-
-function readStoredVisibility(trackerId: string): WorkVisibility {
-  return workVisibilityFrom(readStoredChoice(workVisibilityStorageKeyFor(trackerId)));
-}
-
-function writeStoredVisibility(trackerId: string, visibility: WorkVisibility): void {
-  writeStoredChoice(workVisibilityStorageKeyFor(trackerId), visibility, DEFAULT_WORK_VISIBILITY);
 }
 
 function applyNameColumnWidth(width: NameColumnWidth): void {
@@ -537,8 +467,7 @@ function closedLaneNamedBy(value: string | undefined): ClosedKanbanLane | null {
 }
 
 interface KanbanControls {
-  readShownCount:      (lane: ClosedKanbanLane) => number;
-  writeShownCount:     (lane: ClosedKanbanLane, shownCount: number) => void;
+  preferences:         ViewerPreferences;
   readVisibleCards:    () => readonly KanbanCard[];
   toggleAbandonedLane: (laneIsOpen?: boolean) => void;
   showKanban:          () => void;
@@ -586,8 +515,8 @@ function wireKanban(controls: KanbanControls): void {
       return;
     }
     const laneCount    = cardsInLane(controls.readVisibleCards(), lane).length;
-    const currentCount = cappedLaneShownCount(controls.readShownCount(lane), laneCount);
-    controls.writeShownCount(lane, moreLane === null ? CAPPED_LANE_FIRST_PAGE : shownCountAfterMore(currentCount, laneCount));
+    const currentCount = cappedLaneShownCount(controls.preferences.readCappedLaneShownCount(lane), laneCount);
+    controls.preferences.writeCappedLaneShownCount(lane, moreLane === null ? CAPPED_LANE_FIRST_PAGE : shownCountAfterMore(currentCount, laneCount));
     controls.showKanban();
   });
 }
@@ -605,7 +534,8 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   const { progress, limits } = payload;
   const ticketStatusById     = new Map(tickets.map((ticket) => [ticket.id, ticket.status]));
   const waitingOnById        = WaitingOnUtil.waitingOnByTicketId(tickets);
-  let override               = readStoredOverride(progress.trackerId);
+  const preferences          = createViewerPreferences(progress.trackerId, () => window.localStorage);
+  let override               = preferences.readRangeOverride();
 
   if (payload.pageScriptFailure !== null) {
     showLayoutFailure(payload.pageScriptFailure);
@@ -614,22 +544,21 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   setText('ap-project', progress.project);
   setMarkup('ap-summary', summaryStatsMarkup(progress.tasks, payload.concurrency));
 
-  let logVisibility = logVisibilityFrom(readStoredChoice(logVisibilityStorageKeyFor(progress.trackerId)));
+  let logVisibility = preferences.readLogVisibility();
   // Set from the visibility filter's now before anything prints a stamp; the page reloads every few minutes, so the day is never stale for long.
   let todayCalendarDate = '';
 
   // Applied before the first layout, which measures the pinned columns this width sets.
-  let nameColumnWidth = nameColumnWidthFrom(readStoredChoice(nameColumnWidthStorageKeyFor(progress.trackerId)));
+  let nameColumnWidth = preferences.readNameColumnWidth();
   applyNameColumnWidth(nameColumnWidth);
 
   const chart         = document.getElementById('ap-chart');
-  let visibility      = readStoredVisibility(progress.trackerId);
+  let visibility      = preferences.readWorkVisibility();
   let visibleProgress = progress;
 
   let visibleKanbanCards: KanbanCard[] = [];
-  let abandonedLaneIsOpen              = abandonedLaneIsOpenFrom(readStoredChoice(abandonedLaneStorageKeyFor(progress.trackerId)));
-  const readShownCount = (lane: ClosedKanbanLane): number => shownCountFrom(readStoredChoice(cappedLaneStorageKeyFor(progress.trackerId, lane)));
-  const showKanban     = (): void => {
+  let abandonedLaneIsOpen              = preferences.readAbandonedLaneIsOpen();
+  const showKanban                     = (): void => {
     setMarkup(KANBAN_BOARD_ELEMENT_ID, kanbanBoardMarkup({
       cards:                  visibleKanbanCards,
       tasks:                  progress.tasks,
@@ -637,14 +566,14 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
       todayCalendarDate,
       slices:                 limits,
       showsAllWork:           visibility === 'all',
-      shownCountByClosedLane: { done: readShownCount('done'), abandoned: readShownCount('abandoned') },
+      shownCountByClosedLane: { done: preferences.readCappedLaneShownCount('done'), abandoned: preferences.readCappedLaneShownCount('abandoned') },
       abandonedLaneIsOpen,
     }));
     updateKanbanOverflow();
   };
   const toggleAbandonedLane = (laneIsOpen = !abandonedLaneIsOpen): void => {
     abandonedLaneIsOpen = laneIsOpen;
-    writeStoredChoice(abandonedLaneStorageKeyFor(progress.trackerId), abandonedLaneChoiceFor(laneIsOpen), DEFAULT_ABANDONED_LANE_CHOICE);
+    preferences.writeAbandonedLaneIsOpen(laneIsOpen);
     showKanban();
   };
 
@@ -716,7 +645,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
 
   wireRangeBar(() => override, (next) => {
     override = next;
-    writeStoredOverride(progress.trackerId, next);
+    preferences.writeRangeOverride(next);
     layOut(true);
   });
 
@@ -726,29 +655,26 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
       return;
     }
     visibility = workVisibilityFrom(button.dataset['visibility']);
-    writeStoredVisibility(progress.trackerId, visibility);
+    preferences.writeWorkVisibility(visibility);
     showVisibleWork();
     layOut(true);
   });
 
   document.getElementById('ap-log-toggle')?.addEventListener('click', () => {
     logVisibility = toggledLogVisibility(logVisibility);
-    writeStoredChoice(logVisibilityStorageKeyFor(progress.trackerId), logVisibility, DEFAULT_LOG_VISIBILITY);
+    preferences.writeLogVisibility(logVisibility);
     showLog(progress.log, limits, todayCalendarDate, logVisibility);
   });
 
   document.getElementById('ap-name-column')?.addEventListener('click', () => {
     nameColumnWidth = toggledNameColumnWidth(nameColumnWidth);
-    writeStoredChoice(nameColumnWidthStorageKeyFor(progress.trackerId), nameColumnWidth, DEFAULT_NAME_COLUMN_WIDTH);
+    preferences.writeNameColumnWidth(nameColumnWidth);
     applyNameColumnWidth(nameColumnWidth);
     layOut(false);
   });
 
   wireKanban({
-    readShownCount,
-    writeShownCount: (lane, shownCount) => {
-      writeStoredChoice(cappedLaneStorageKeyFor(progress.trackerId, lane), String(shownCount), String(CAPPED_LANE_FIRST_PAGE));
-    },
+    preferences,
     readVisibleCards: () => visibleKanbanCards,
     toggleAbandonedLane,
     showKanban,
