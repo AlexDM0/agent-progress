@@ -49,7 +49,7 @@ function exampleTicket(id: string, changes: Partial<PageTicket> = {}): PageTicke
     id,
     title:       `Example ticket ${id}`,
     type:        'feature',
-    status:      'open',
+    status:      'pending',
     filed:       at('08:00'),
     updated:     at('08:00'),
     started:     null,
@@ -99,13 +99,13 @@ function noteFormat(tasks: readonly Task[]): NoteFormat {
 describe('which lane a card sits in', () => {
   // Every row state the Progress tab can show, so a card can never land in a lane whose pill disagrees with the chart.
   test.each([
-    ['pending', 'open', 'todo'],
+    ['pending', 'pending', 'todo'],
     ['running', 'in-progress', 'progress'],
     ['paused', 'in-progress', 'progress'],
-    ['finished', 'open', 'review'],
+    ['finished', 'pending', 'review'],
     ['finished', 'in-review', 'review'],
     ['re-review', 'in-review', 'review'],
-    ['reviewed', 'done', 'merge'],
+    ['reviewed', 'reviewed', 'merge'],
     ['delivered', 'delivered', 'done'],
     ['abandoned', 'abandoned', 'abandoned'],
   ] as Array<[TaskStatus, TicketStatus, KanbanLane]>)('puts a %s row of a %s ticket in %s', (rowStatus, ticketStatus, lane) => {
@@ -120,10 +120,10 @@ describe('which lane a card sits in', () => {
 
   // A low ticket never started has no row; its status alone decides the lane.
   test.each([
-    ['open', 'pending', 'todo'],
+    ['pending', 'pending', 'todo'],
     ['in-progress', 'running', 'progress'],
     ['in-review', 'reviewing', 'review'],
-    ['done', 'reviewed', 'merge'],
+    ['reviewed', 'reviewed', 'merge'],
     ['delivered', 'delivered', 'done'],
     ['abandoned', 'abandoned', 'abandoned'],
   ] as Array<[TicketStatus, RowState, KanbanLane]>)('puts a %s ticket with no row in state %s and lane %s', (ticketStatus, state, lane) => {
@@ -215,7 +215,7 @@ describe('the sub-state note', () => {
   ] as Array<[string, Partial<Task>, Partial<PageTicket>, string]>)('counts the wait for a reviewer from %s', (_source, rowChanges, ticketChanges, expected) => {
     const row = exampleRow(1, { status: 'finished', ticket: '062', ...rowChanges });
 
-    expect(subStateNoteOf(cardOf(exampleTicket('062', { status: 'open', ...ticketChanges }), [row]), noteFormat([row]))).toBe(expected);
+    expect(subStateNoteOf(cardOf(exampleTicket('062', { status: 'pending', ...ticketChanges }), [row]), noteFormat([row]))).toBe(expected);
   });
 
   test('names the running reviewer’s start on a reviewing card', () => {
@@ -259,8 +259,8 @@ describe('the sub-state note', () => {
     const reviewed   = exampleRow(1, { status: 'reviewed', ticket: '056', reviewed: at('12:10') });
     const unrecorded = exampleRow(2, { status: 'reviewed', ticket: '057' });
 
-    expect(subStateNoteOf(cardOf(exampleTicket('056', { status: 'done' }), [reviewed]), noteFormat([reviewed]))).toBe('reviewed 12:10');
-    expect(subStateNoteOf(cardOf(exampleTicket('057', { status: 'done' }), [unrecorded]), noteFormat([unrecorded]))).toBeNull();
+    expect(subStateNoteOf(cardOf(exampleTicket('056', { status: 'reviewed' }), [reviewed]), noteFormat([reviewed]))).toBe('reviewed 12:10');
+    expect(subStateNoteOf(cardOf(exampleTicket('057', { status: 'reviewed' }), [unrecorded]), noteFormat([unrecorded]))).toBeNull();
   });
 
   test('gives an abandoned card its reason, and no note without one', () => {

@@ -5,12 +5,12 @@ import type { TicketStatus } from '../@types/Ticket.ts';
  * status is never legal. A repeat review pass is the one move deliberately outside this table.
  */
 export const LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS: Record<TicketStatus, readonly TicketStatus[]> = {
-  'open':        ['in-progress', 'in-review', 'done', 'delivered', 'abandoned'],
-  'in-progress': ['open', 'in-review'],
+  'pending':     ['in-progress', 'in-review', 'reviewed', 'delivered', 'abandoned'],
+  'in-progress': ['pending', 'in-review'],
   'in-review':   ['in-progress'],
-  'done':        ['in-progress', 'in-review'],
-  'delivered':   ['done'],
-  'abandoned':   ['open', 'in-progress', 'in-review', 'done'],
+  'reviewed':    ['in-progress', 'in-review'],
+  'delivered':   ['reviewed'],
+  'abandoned':   ['pending', 'in-progress', 'in-review', 'reviewed'],
 };
 
 export function ticketMoveIsLegal(currentStatus: TicketStatus, targetStatus: TicketStatus): boolean {

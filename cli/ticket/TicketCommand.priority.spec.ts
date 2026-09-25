@@ -158,7 +158,7 @@ describe.skipIf(!gitIsAvailable())('filing and moving a low ticket', () => {
 });
 
 describe.skipIf(!gitIsAvailable())('ticket priority', () => {
-  test('lowering an open normal ticket removes its row, and raising it again files a new one, each with one log line', async () => {
+  test('lowering a pending normal ticket removes its row, and raising it again files a new one, each with one log line', async () => {
     await run(['ticket', 'add', 'Fix the axis']);
     expect(storedProgress().tasks).toHaveLength(1);
 
@@ -196,7 +196,7 @@ describe.skipIf(!gitIsAvailable())('ticket priority', () => {
     expect(logLinesAbout('001')).toEqual(['Ticket #001 priority normal → high']);
   });
 
-  test('lowering a ticket that is not open is refused at exit 1 with both files unchanged', async () => {
+  test('lowering a ticket that is not pending is refused at exit 1 with both files unchanged', async () => {
     await run(['ticket', 'add', 'Fix the axis']);
     await run(['ticket', 'start', '1']);
     const progressBefore = readFileSync(progressFilePath(), 'utf8');
@@ -204,7 +204,7 @@ describe.skipIf(!gitIsAvailable())('ticket priority', () => {
 
     const context = await runExpectingRefusal(['ticket', 'priority', '1', 'low']);
 
-    expect(context.errorText()).toContain('only an open ticket can be lowered to low');
+    expect(context.errorText()).toContain('only a pending ticket can be lowered to low');
     expect(readFileSync(progressFilePath(), 'utf8')).toBe(progressBefore);
     expect(storedTicketText('001')).toBe(ticketBefore);
   });
@@ -226,7 +226,7 @@ describe.skipIf(!gitIsAvailable())('readiness and claiming', () => {
     expect(await readyTicketIds()).toEqual(['001']);
     const refusal = await runExpectingRefusal(['ticket', 'claim', '2']);
     expect(refusal.errorText()).toContain('#001');
-    expect(storedTicketText('002')).toContain('status: "open"');
+    expect(storedTicketText('002')).toContain('status: "pending"');
 
     await run(['ticket', 'start', '1']);
     await run(['ticket', 'done', '1']);
@@ -281,7 +281,7 @@ describe.skipIf(!gitIsAvailable())('reading priorities', () => {
     expect((await run(['ticket', 'show', '2'])).outputText()).toContain('priority: low');
     const everything = (await run(['ticket', 'list'])).outputText();
     expect(everything).toContain('priority');
-    expect(everything).toMatch(/#002 +open +low /);
+    expect(everything).toMatch(/#002 +pending +low /);
 
     const narrowed = (await run(['ticket', 'list', '--priority', 'low'])).outputText();
     expect(narrowed).toContain('#002');

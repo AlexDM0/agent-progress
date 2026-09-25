@@ -45,7 +45,7 @@ function exampleTicket(id: string, changes: Partial<PageTicket> = {}): PageTicke
     id,
     title:       `Example ticket ${id}`,
     type:        'bug',
-    status:      'open',
+    status:      'pending',
     filed:       at('08:40'),
     updated:     at('08:40'),
     started:     null,

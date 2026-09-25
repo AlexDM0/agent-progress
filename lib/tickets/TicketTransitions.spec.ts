@@ -44,7 +44,7 @@ function ticketFixture(): Ticket {
       id:          '003',
       title:       'Fix the export dialog',
       type:        'bug',
-      status:      'open',
+      status:      'pending',
       filed:       FILED_AT,
       updated:     FILED_AT,
       started:     null,
@@ -221,7 +221,7 @@ describe('applyTicketTransition', () => {
     expect(result.logText).toBe('Ticket #003 in review');
   });
 
-  test('done sets the row reviewed and stamps finished when the ticket never went through review', () => {
+  test('a move to reviewed sets the row reviewed and stamps finished when the ticket never went through review', () => {
     const progress   = progressFixture();
     const ticket     = ticketFixture();
     const operations = progressOperations();
@@ -230,13 +230,13 @@ describe('applyTicketTransition', () => {
       progress,
       ticket,
       operations,
-      targetStatus: 'done',
+      targetStatus: 'reviewed',
       at:           FINISHED_AT,
     }));
 
     expect(ticket.frontmatter.finished).toBe(FINISHED_AT);
     expect(progress.tasks[0]?.status).toBe('reviewed');
-    expect(result.logText).toBe('Ticket #003 done');
+    expect(result.logText).toBe('Ticket #003 reviewed');
   });
 
   test('deliver stamps delivered, sets the row delivered, and leaves an earlier finish alone', () => {
@@ -248,7 +248,7 @@ describe('applyTicketTransition', () => {
       progress,
       ticket,
       operations,
-      targetStatus: 'done',
+      targetStatus: 'reviewed',
       at:           FINISHED_AT,
     });
     const result = applied(applyTicketTransition({
@@ -309,7 +309,7 @@ describe('applyTicketTransition', () => {
     });
 
     expect(result).toEqual({ verdict: 'refused', reason: 'abandon needs --reason' });
-    expect(ticket.frontmatter.status).toBe('open');
+    expect(ticket.frontmatter.status).toBe('pending');
     expect(ticket.frontmatter.abandonedAt).toBeNull();
     expect(ticket.frontmatter.updated).toBe(FILED_AT);
     expect(progress.tasks).toEqual([]);
@@ -340,11 +340,11 @@ describe('applyTicketTransition', () => {
       progress,
       ticket,
       operations,
-      targetStatus: 'open',
+      targetStatus: 'pending',
       at:           DELIVERED_AT,
     }));
 
-    expect(ticket.frontmatter.status).toBe('open');
+    expect(ticket.frontmatter.status).toBe('pending');
     expect(ticket.frontmatter.started).toBeNull();
     expect(ticket.frontmatter.finished).toBeNull();
     expect(ticket.frontmatter.delivered).toBeNull();
@@ -435,7 +435,7 @@ describe('applyTicketTransition', () => {
       progress,
       ticket,
       operations,
-      targetStatus: 'done',
+      targetStatus: 'reviewed',
       at:           FINISHED_AT,
       branch:       'ticket/export-dialog',
       commit:       'a1b2c3d',
@@ -553,11 +553,11 @@ describe('applyTicketRereview', () => {
 });
 
 describe('seedTaskFromTicket', () => {
-  test('a done ticket comes back as a reviewed bar carrying both of its timestamps', () => {
+  test('a reviewed ticket comes back as a reviewed bar carrying both of its timestamps', () => {
     const progress                = progressFixture();
     const ticket                  = ticketFixture();
     const operations              = progressOperations();
-    ticket.frontmatter.status     = 'done';
+    ticket.frontmatter.status     = 'reviewed';
     ticket.frontmatter.started    = STARTED_AT;
     ticket.frontmatter.finished   = FINISHED_AT;
 
@@ -585,9 +585,9 @@ describe('seedTaskFromTicket', () => {
     expect(seeded.end).toBe(DELIVERED_AT);
   });
 
-  // `clear` re-seeds rows from tickets; a delivered ticket passed `done`, so its row has to come back marked reviewed.
-  test('a done or delivered ticket comes back marked reviewed, and an open one does not', () => {
-    for (const status of ['done', 'delivered'] as const) {
+  // `clear` re-seeds rows from tickets; a delivered ticket passed `reviewed`, so its row has to come back marked reviewed.
+  test('a reviewed or delivered ticket comes back marked reviewed, and a pending one does not', () => {
+    for (const status of ['reviewed', 'delivered'] as const) {
       const ticket              = ticketFixture();
       ticket.frontmatter.status = status;
       ticket.frontmatter.finished = FINISHED_AT;
@@ -611,7 +611,7 @@ describe('seedTaskFromTicket', () => {
     expect(seeded.end).toBe(FINISHED_AT);
   });
 
-  test('an open ticket comes back as a pending row with no bar at all', () => {
+  test('a pending ticket comes back as a pending row with no bar at all', () => {
     const progress   = progressFixture();
     const ticket     = ticketFixture();
     const operations = progressOperations();

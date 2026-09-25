@@ -1,0 +1,33 @@
+/**
+ * The mapping from retired stored status words to the words that replaced them. What readers rely on is that only a retired word
+ * maps: a current word, a word from the other ladder and a name every object inherits all come back `null`.
+ */
+import { expect, test } from 'bun:test';
+
+import { LegacyStatusUtil } from './LegacyStatusUtil';
+
+const { currentTicketStatusFor } = LegacyStatusUtil;
+
+test('each retired ticket word maps to the word that replaced it', () => {
+  expect(currentTicketStatusFor('open')).toBe('pending');
+  expect(currentTicketStatusFor('done')).toBe('reviewed');
+});
+
+// A current word must not be remapped, or a file already written in the new words would read as something else.
+test('a current ticket status is not a retired word', () => {
+  for (const currentWord of ['pending', 'in-progress', 'in-review', 'reviewed', 'delivered', 'abandoned']) {
+    expect(currentTicketStatusFor(currentWord), currentWord).toBeNull();
+  }
+});
+
+test('an old task word is not a retired ticket word', () => {
+  expect(currentTicketStatusFor('running')).toBeNull();
+  expect(currentTicketStatusFor('finished')).toBeNull();
+});
+
+// A stored file is text from outside: a name on the object prototype must not read as a mapping.
+test('a name every object inherits maps to nothing', () => {
+  for (const inheritedName of ['constructor', '__proto__', 'toString']) {
+    expect(currentTicketStatusFor(inheritedName), inheritedName).toBeNull();
+  }
+});

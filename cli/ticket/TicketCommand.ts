@@ -86,10 +86,10 @@ const USAGE = [
 const TRANSITION_SUBCOMMANDS: Record<string, TicketStatus> = {
   start:   'in-progress',
   review:  'in-review',
-  done:    'done',
+  done:    'reviewed',
   deliver: 'delivered',
   abandon: 'abandoned',
-  reopen:  'open',
+  reopen:  'pending',
 };
 
 const ADD_OPTION_NAMES        = ['type', 'priority', 'model', 'effort', 'group', 'depends-on', 'body', 'body-file', 'at', 'json'];
@@ -110,17 +110,17 @@ const DEPENDS_OPTION_NAMES    = ['json'];
 const DEPENDENCY_SEPARATOR_PATTERN = /[\s,]+/;
 
 const TRANSITION_WORD_FOR_TICKET_STATUS: Record<TicketStatus, string> = {
-  'open':        'reopen',
+  'pending':     'reopen',
   'in-progress': 'start',
   'in-review':   'review',
-  'done':        'done',
+  'reviewed':    'done',
   'delivered':   'deliver',
   'abandoned':   'abandon',
 };
 
 const DEFAULT_TICKET_TYPE: TicketType = 'change';
 
-const TICKET_STATUSES_THAT_CLOSE_A_TICKET: readonly TicketStatus[] = ['done', 'delivered', 'abandoned'];
+const TICKET_STATUSES_THAT_CLOSE_A_TICKET: readonly TicketStatus[] = ['reviewed', 'delivered', 'abandoned'];
 
 
 const STANDARD_INPUT_MARKER = '-';
@@ -563,7 +563,7 @@ async function transitionOneTicket(
   });
 
   // A reopened ticket goes back into the queue a running dispatcher takes from, so it is intake like `ticket add`.
-  const closingLines = targetStatus === 'open' ? NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState) : nextLine;
+  const closingLines = targetStatus === 'pending' ? NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState) : nextLine;
   const humanText    = `${moved.logText}${closedReviewBarsText(moved.closedReviewBarIds)}${reviewBarText(moved.startedReviewBar)}`;
   const document     = ticketWithReviewBarAsJson(moved.ticket, moved.startedReviewBar, moved.closedReviewBarIds);
   printEntityThenNextLine(commandArguments, context, document, humanText, closingLines);
@@ -620,7 +620,7 @@ function refuseAnUnclaimableTicket(ticket: Ticket, tickets: readonly Ticket[], c
   }
   const unsettled = unsettledDependenciesFor(ticket, tickets).filter((dependency) => !claimedIdentifiers.includes(dependency));
   if (unsettled.length > 0) {
-    throw new OperationRefusal('refused', `Ticket #${id} is ${waitingOnText(unsettled)}, which must be done or delivered before it is claimed. Nothing was written.`);
+    throw new OperationRefusal('refused', `Ticket #${id} is ${waitingOnText(unsettled)}, which must be reviewed or delivered before it is claimed. Nothing was written.`);
   }
   if (ticket.frontmatter.hold !== undefined) {
     throw new OperationRefusal('refused', `Ticket #${id} is held, so it is not claimed. Nothing was written; \`agent-progress ticket unhold ${id}\` lets it be claimed.`);

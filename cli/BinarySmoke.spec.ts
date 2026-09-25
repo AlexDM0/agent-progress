@@ -125,7 +125,7 @@ describe.skipIf(!gitIsAvailable())('a whole session through the binary', () => {
         'Ticket #001 started',
         'Halfway through the role editor',
         'Ticket #001 in review',
-        'Ticket #001 done',
+        'Ticket #001 reviewed',
         'Ticket #001 delivered',
       ]);
 

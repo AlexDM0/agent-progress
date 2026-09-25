@@ -119,8 +119,8 @@ function releasableTicket(ticket: Ticket | null, reference: string): Ticket {
     refuse('unknown-ticket', `There is no readable ticket ${reference}. Run \`agent-progress ticket list\` to see what this tracker holds.`);
   }
   const { id, status } = ticket.frontmatter;
-  if (!ticketMoveIsLegal(status, 'done')) {
-    refuse('ticket-not-releasable', `Ticket #${id} is ${status}, and a release takes a ticket that is ${LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS.done.join(' or ')}.`);
+  if (!ticketMoveIsLegal(status, 'reviewed')) {
+    refuse('ticket-not-releasable', `Ticket #${id} is ${status}, and a release takes a ticket that is ${LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS.reviewed.join(' or ')}.`);
   }
   return ticket;
 }
@@ -172,7 +172,7 @@ async function releaseUnderTheLock(
 
     const common = { progress: change.progress, at: change.at, operations: progressOperations };
     for (const ticket of tickets) {
-      applyTicketTransition({ ...common, ticket, targetStatus: 'done' });
+      applyTicketTransition({ ...common, ticket, targetStatus: 'reviewed' });
       applyTicketTransition({
         ...common,
         ticket,

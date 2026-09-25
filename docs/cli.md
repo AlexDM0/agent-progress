@@ -59,7 +59,7 @@ At most five ready ids are named, then `and N more`; a held ready ticket is left
 is `finished` and a normal or high ticket is ready, `; only low priority ready: triage, then launch`
 when it is `finished` and only low tickets are ready, `; dispatcher stopped: wait for the user's go`
 when it is `stopped`. While the dispatcher is `running`, `ticket add`, `priority`, `agent`,
-`depends`, `hold`, `unhold`, `reopen` and `status <id> open` add one more line: the run picks the
+`depends`, `hold`, `unhold`, `reopen` and `status <id> pending` add one more line: the run picks the
 change up at its next agent's return and is never stopped or relaunched for it. `--json` output
 carries neither line.
 
@@ -174,7 +174,7 @@ Options in `[brackets]` are optional; `a|b` is a choice of one.
 | `ticket list [--status <s>] [--priority <p>] [--json]` | The tickets with their status, priority, type and row id, the model and effort after the title where the ticket names them, and "waiting on #003" where a dependency is unsettled. `--status` and `--priority` narrow the listing. `--json` carries no bodies. |
 | `ticket show <id> [--json]` | One ticket: its frontmatter, its priority, its model and effort where it names them, its body, and always its file path — which is what an agent needs in order to edit that body. |
 
-**Ready tickets.** A ticket is ready when it is open and every ticket it depends on is done or
+**Ready tickets.** A ticket is ready when it is pending and every ticket it depends on is reviewed or
 delivered. `readyTicketIds` orders them high priority first, then normal, each lowest id first. A low
 ticket is ready only once no normal or high ticket is left that is not delivered or abandoned.
 `readyTickets` lists the same tickets in the same order as `{ id, priority, model, effort }` with the
@@ -206,18 +206,18 @@ ticket's agents run on opus at medium effort.
 
 | command | what it does |
 |---|---|
-| `ticket add "<title>" [--type bug\|change\|feature] [--priority low\|normal\|high] [--model <m>] [--effort <e>] [--group <name>] [--depends-on <ids>] [--body <markdown>] [--body-file <path\|->] [--at <when>]` | File a ticket, `open`, plus a `pending` row — none for a low ticket, which takes no task id until it is started. The body comes from `templates/TicketBody.md`, from `--body`, or from `--body-file` (`-` reads standard input); an empty body falls back to the template, and afterwards the body is preserved byte for byte, so an agent may edit everything below the frontmatter freely. `--depends-on 3,4` files it already waiting on those tickets. A model or effort outside the lists is refused at exit 1. |
+| `ticket add "<title>" [--type bug\|change\|feature] [--priority low\|normal\|high] [--model <m>] [--effort <e>] [--group <name>] [--depends-on <ids>] [--body <markdown>] [--body-file <path\|->] [--at <when>]` | File a ticket, `pending`, plus a `pending` row — none for a low ticket, which takes no task id until it is started. The body comes from `templates/TicketBody.md`, from `--body`, or from `--body-file` (`-` reads standard input); an empty body falls back to the template, and afterwards the body is preserved byte for byte, so an agent may edit everything below the frontmatter freely. `--depends-on 3,4` files it already waiting on those tickets. A model or effort outside the lists is refused at exit 1. |
 | `ticket agent <id> [--model <m>] [--effort <e>] [--at <when>]` | Change the model or effort a ticket's agents run on, or both, with one log line such as `Ticket #003 agents opus/medium → sonnet/medium`. Refused at exit 1, writing nothing, on a delivered or abandoned ticket, with neither option, with a value outside the lists, and when the resolved pair would not change. |
-| `ticket priority <id> low\|normal\|high [--at <when>]` | Change a ticket's priority, with one log line. Lowering to low is refused unless the ticket is open, and removes its row; raising a low ticket that has no row gives it one at once. A low ticket gets its row when `ticket start` or `ticket claim` starts it, and keeps it; abandoning a low ticket that has none creates none. |
+| `ticket priority <id> low\|normal\|high [--at <when>]` | Change a ticket's priority, with one log line. Lowering to low is refused unless the ticket is pending, and removes its row; raising a low ticket that has no row gives it one at once. A low ticket gets its row when `ticket start` or `ticket claim` starts it, and keeps it; abandoning a low ticket that has none creates none. |
 | `ticket hold <id> [--reason <text>] [--at <when>]` | Pause a ticket between build and review, or between review rounds, without stopping the dispatcher. While the frontmatter's `hold` key is set (to the reason, empty without one) the run starts no builder or reviewer for it and parks a row it left running for it, `ticket claim` refuses it, and `status --json` lists it in `concurrency.heldTicketIds` and marks its `readyTickets` entry `held: true`. An agent already running is never interrupted: a hold set after a builder's final status read is too late for the reviewer it starts. One log line; refused at exit 1 on a delivered or abandoned ticket and on one already held. |
 | `ticket unhold <id> [--at <when>]` | Lift the hold, with one log line; the step it held starts at the dispatcher's next board read, and a run that ends first returns it under `held`. On a ticket in progress whose row is paused, a last line says how the build resumes: by a dispatcher run under a dispatcher claim note, by `task start <row>` under any other. Refused at exit 1 on a delivered or abandoned ticket and on one not held. |
-| `ticket depends <id> [<id>...]` | Set the tickets this one waits on, replacing its list; no ids clears it. A ticket that does not exist, or a list that would make tickets wait on each other in a circle, is refused. Until every one is done or delivered, the ticket's row, table entry and card read "waiting on #003", `ticket list` says so too, and `ticket start` warns on standard error but still moves it. An abandoned dependency does not settle it. |
+| `ticket depends <id> [<id>...]` | Set the tickets this one waits on, replacing its list; no ids clears it. A ticket that does not exist, or a list that would make tickets wait on each other in a circle, is refused. Until every one is reviewed or delivered, the ticket's row, table entry and card read "waiting on #003", `ticket list` says so too, and `ticket start` warns on standard error but still moves it. An abandoned dependency does not settle it. |
 | `ticket link <ticketId> <taskId> [--force]` | Point a ticket at an existing row instead of the one it filed. Refused when that row already belongs to another ticket, unless `--force`, which unlinks it there first. |
 | `ticket start\|review\|done\|deliver\|abandon\|reopen <id> [--branch <b>] [--commit <sha>] [--reason <text>] [--tokens <n>] [--at <when>]` | Move a ticket and its row together, stamping both — see [Ticket moves and their rows](#ticket-moves-and-their-rows) for which status each verb moves from. A move to the status the ticket already has is refused and logs nothing. Every move out of in-review finishes and delivers the ticket's running review bar, with one log line each. `start` warns on standard error, and still moves it, when the ticket is held or waiting on a dependency. `abandon` requires `--reason`; `reopen` clears the stamps and returns the row to pending. `--branch` and `--commit` record where the work landed; `--tokens` replaces the row's figure, and on a ticket with no row (a low one never started) is refused at exit 1. |
-| `ticket claim <id> [<id>...] [--owner <who>] [--note <text>] [--at <when>] [--json]` | `ticket start` and the row's `--owner` and `--note` in one write, for every ticket named, as one agent: a bundle's builder claims all its tickets in one call, and their rows share one agent key. The first command an implementing agent runs. Refused at exit 1, all or nothing, when any ticket is not open or in-review, is held, waits on a ticket outside the claim that is not done or delivered (one inside it counts as settled: the bundle is worked in dependency order), is low while a normal or high ticket is neither delivered nor abandoned (`ticket start` only warns about that), has a review bar running, or when the agents in flight already number the concurrency limit. The count and the moves share one lock hold, so two claims racing for the last slot cannot both succeed. `--json` prints the ticket, or with several ids the list. |
+| `ticket claim <id> [<id>...] [--owner <who>] [--note <text>] [--at <when>] [--json]` | `ticket start` and the row's `--owner` and `--note` in one write, for every ticket named, as one agent: a bundle's builder claims all its tickets in one call, and their rows share one agent key. The first command an implementing agent runs. Refused at exit 1, all or nothing, when any ticket is not pending or in-review, is held, waits on a ticket outside the claim that is not reviewed or delivered (one inside it counts as settled: the bundle is worked in dependency order), is low while a normal or high ticket is neither delivered nor abandoned (`ticket start` only warns about that), has a review bar running, or when the agents in flight already number the concurrency limit. The count and the moves share one lock hold, so two claims racing for the last slot cannot both succeed. `--json` prints the ticket, or with several ids the list. |
 | `ticket review\|rereview <id> --start-review [--owner <who>] [--note <text>] [--at <when>]` | The move to review, or to the next round, and the reviewer's running bar (`Review <N> #<id> — <title>`, its `reviewOf` the ticket, N the `## Review` sections plus one) in one lock hold, closing any bar of the round before: the builder's slot passes to its reviewer, and one round's to the next, without `status --json` ever showing it free. A bundle's bar carries its claim's agent key while other rows of the bundle still run, so it takes no second slot. `--owner` and `--note` name the bar, and are refused without the flag. |
 | `ticket rereview <id> [--at <when>]` | Send a ticket already in review round again, for a fresh reviewer: the ticket stays in-review and only its `updated` moves, while its row goes one review round up, from 2, and the log says which round. The one verb legal on the status the ticket already has, and refused from every other. It takes no `--tokens`: the row's figure is the builder's, and a review pass has its own row. |
-| `ticket status <id> <status> [...same options]` | The same move, naming the target status directly — open, in-progress, in-review, done, delivered or abandoned — with the same options. The documented way to make a move the verbs refuse: it skips the matrix. |
+| `ticket status <id> <status> [...same options]` | The same move, naming the target status directly — pending, in-progress, in-review, reviewed, delivered or abandoned — with the same options. The documented way to make a move the verbs refuse: it skips the matrix. |
 
 ### The dispatcher and concurrency
 
@@ -233,7 +233,7 @@ stored in the tracker. `skill/Reference.md` is the fuller source on both.
 
 | command | what it does |
 |---|---|
-| `release <id> [<id>...] --branch <b> [--worktree <path>] [--main <line>] [--json]` | Release a reviewed branch, and the only way one reaches the main line: allowing this command in the harness is the release permission, and a reviewer never runs `git merge` itself. In one lock hold, so two releases never race, it checks that each ticket is in-progress or in-review, that the main checkout — the tracker's root, wherever this runs from — is on `--main` (default `main`), and that `<b>` is a local branch descending from it; fast-forwards; and moves each ticket done and delivered with `--branch <b>` and `--commit` set to the merged tip. In the same hold every `running` review row whose `reviewOf` names a released ticket is finished and delivered at the release time and named; a row linked by its name alone is left. Several ids are the tickets of one bundle on one branch. Every refusal changes nothing, the review rows included. Afterwards it runs `git worktree remove` on `--worktree`, never forced, and `git branch -d <b>`; what git declines — a worktree holding untracked files, say — is named with its files at exit 0, since the release happened. |
+| `release <id> [<id>...] --branch <b> [--worktree <path>] [--main <line>] [--json]` | Release a reviewed branch, and the only way one reaches the main line: allowing this command in the harness is the release permission, and a reviewer never runs `git merge` itself. In one lock hold, so two releases never race, it checks that each ticket is in-progress or in-review, that the main checkout — the tracker's root, wherever this runs from — is on `--main` (default `main`), and that `<b>` is a local branch descending from it; fast-forwards; and moves each ticket to reviewed and delivered with `--branch <b>` and `--commit` set to the merged tip. In the same hold every `running` review row whose `reviewOf` names a released ticket is finished and delivered at the release time and named; a row linked by its name alone is left. Several ids are the tickets of one bundle on one branch. Every refusal changes nothing, the review rows included. Afterwards it runs `git worktree remove` on `--worktree`, never forced, and `git branch -d <b>`; what git declines — a worktree holding untracked files, say — is named with its files at exit 0, since the release happened. |
 | `rework [--since <commit>] [--rebased-from <old tip>] [--main <branch>] [--worktree <path>] [--files] [--json]` | How many lines of code a review reworked on a branch — added plus removed lines, never blank lines, comments or documentation (`*.md`, `*.mdx`, `*.rst`, `*.txt` and anything under the repository's `docs/`) — so that a threshold on it gives every reviewer the same verdict; no threshold is built in. `--since` counts every commit in `<commit>..HEAD`, and is refused at exit 1 when `<commit>` is not an ancestor of HEAD or a merge lies in between: work is rebased, not merged. `--rebased-from` counts what a rebase changed in the branch's own work — the hand resolution of its conflicts — as the added lines in which the branch's patch against `--main` (default `main`) differs before and after, so a line resolved by hand counts 2, main's own change none, and a rebase without conflicts 0; it is measured up to HEAD, so run it right after the rebase. See below for combining the two. `--worktree` reads that working tree instead of the current directory; `--files` adds a per-file breakdown. It needs no tracker, takes no lock and writes nothing. |
 
 **Release refusals.** `--json` prints `{released: false, reason, detail, cleanup: []}`:
@@ -323,7 +323,7 @@ mutating command and reloading itself every 5 minutes. Open it with `agent-progr
   Abandoned run newest first and show the latest 15, then 25 more at a time; Abandoned is collapsed
   until clicked. "Show all" governs both closed lanes as it governs the Tickets tab.
 - **Tickets tab**: a summary table, then one card per ticket with its body rendered as markdown
-  (`done`, `delivered` and `abandoned` collapsed). The chosen tab and the open cards are kept in the
+  (`reviewed`, `delivered` and `abandoned` collapsed). The chosen tab and the open cards are kept in the
   browser, so the refresh lands where you were.
 - **Summary** above the chart: `Work completed: <settled> / <total>`, a row counting once it is
   delivered or abandoned, then how many rows are awaiting merge and how many are in review, and, when
@@ -342,7 +342,7 @@ mutating command and reloading itself every 5 minutes. Open it with `agent-progr
   in their browser; Auto hands control back to the default stored by `agent-progress range`. Bars
   outside the window are clipped and marked, never dropped.
 - **Done work older than a day is hidden**: delivered and abandoned tasks and tickets leave the chart
-  and the ticket list a day after they closed. Work awaiting merge — a reviewed task, a done ticket —
+  and the ticket list a day after they closed. Work awaiting merge — a reviewed task, a reviewed ticket —
   stays. **Show all** brings them back; the choice is kept in the browser.
 - **Stamps are as short as the day allows**: one from today shows only its clock (`21:56`), one from
   another day of the year its month and day too (`09-17 23:48`), one from another year the full date;
@@ -478,7 +478,7 @@ owner: Alex Example
 
 | key | written | value |
 |---|---|---|
-| `id`, `title`, `type`, `status`, `filed`, `updated` | always; required | `type`: bug, change, feature. `status`: open, in-progress, in-review, done, delivered, abandoned. `updated` is stamped on every move. |
+| `id`, `title`, `type`, `status`, `filed`, `updated` | always; required | `type`: bug, change, feature. `status`: pending, in-progress, in-review, reviewed, delivered, abandoned. `updated` is stamped on every move. |
 | `priority`, `model`, `effort` | only once named | the vocabularies above; absent reads as normal, and as opus and medium, so an older ticket is never rewritten to gain them |
 | `hold` | only while held | the hold's reason, empty without one; any value but `null`, a bare `hold:` included, is held. Set and remove it with `ticket hold` and `unhold`. |
 | `started`, `finished`, `delivered`, `abandonedAt` | always | a timestamp or `null`; an absent one reads as `null` |
@@ -495,6 +495,9 @@ or not, is a markdown heading and makes the file malformed, as does any other in
 item or a bare word. There are no nested maps,
 lists or block scalars. The closing fence is the *first later* line equal to `---`, so a body may
 contain horizontal rules. A leading byte order mark is dropped and CRLF is kept.
+
+A ticket stored with the retired status `open` or `done` reads as `pending` or `reviewed`; reading
+never rewrites the file, and the next write stores the new word.
 
 **Unknown keys, comments and blank lines are kept and written back**, so a field you add by hand —
 `owner: Alex Example` above — survives every transition. The CLI's own keys are rewritten at the top
@@ -514,19 +517,19 @@ The **from** column is the matrix the named verbs enforce; `ticket status <id> <
 
 | command | from | ticket status | its row | pill | stamps written | log line |
 |---|---|---|---|---|---|---|
-| `ticket add` | — | open | created `pending`; none when low | `unstarted` | `filed` | `Ticket #003 filed: <title>` |
-| `ticket start` | open, in-review | in-progress | `running`; created for a low ticket | `wip` | `started` if null; the row's end cleared | `Ticket #003 started` |
-| `ticket claim` | open, in-review | in-progress | `running`, with owner, note and agent key | `wip` | as `start` | `Ticket #003 started` |
+| `ticket add` | — | pending | created `pending`; none when low | `unstarted` | `filed` | `Ticket #003 filed: <title>` |
+| `ticket start` | pending, in-review | in-progress | `running`; created for a low ticket | `wip` | `started` if null; the row's end cleared | `Ticket #003 started` |
+| `ticket claim` | pending, in-review | in-progress | `running`, with owner, note and agent key | `wip` | as `start` | `Ticket #003 started` |
 | `ticket review` | in-progress | in-review | `finished` | `reviewing` | `finished` if null | `Ticket #003 in review` |
 | `ticket review --start-review` | in-progress | in-review | `finished`, plus a running review row | `reviewing` | as `review` | as `review`, and `Review row #18 started: <name>` |
 | `ticket rereview` | in-review | in-review, unchanged | `re-review`, one round up from 2 | `reviewing 2` | `updated` only | `Ticket #003 in review, round 2` |
-| `ticket done` | in-progress, in-review | done | `reviewed` | `awaiting merge` | `finished` if null | `Ticket #003 done` |
-| `ticket deliver` | done | delivered | `delivered` | `done` | `delivered` if null | `Ticket #003 delivered` |
-| `release` | in-progress, in-review | done, then delivered | `delivered`; running review rows delivered | `done` | `finished` and `delivered` if null; `branch`, `commit` | the done and delivered lines, and one per review row closed |
+| `ticket done` | in-progress, in-review | reviewed | `reviewed` | `awaiting merge` | `finished` if null | `Ticket #003 reviewed` |
+| `ticket deliver` | reviewed | delivered | `delivered` | `done` | `delivered` if null | `Ticket #003 delivered` |
+| `release` | in-progress, in-review | reviewed, then delivered | `delivered`; running review rows delivered | `done` | `finished` and `delivered` if null; `branch`, `commit` | the reviewed and delivered lines, and one per review row closed |
 | `ticket abandon` | anything but delivered, abandoned | abandoned | `abandoned`; none created for a low ticket without one | `abandoned` | `abandonedAt`, always; the row's end if it had started | `Ticket #003 abandoned: <reason>` |
-| `ticket reopen` | anything but open | open | `pending` | `unstarted` | all four cleared; `reason` dropped | `Ticket #003 reopened` |
-| `ticket priority … low` | open | open | removed | — | — | one line |
-| `ticket priority` from low | any | unchanged | created when it has none: `pending` while open, else seeded from its stamps | per status | — | one line |
+| `ticket reopen` | anything but pending | pending | `pending` | `unstarted` | all four cleared; `reason` dropped | `Ticket #003 reopened` |
+| `ticket priority … low` | pending | pending | removed | — | — | one line |
+| `ticket priority` from low | any | unchanged | created when it has none: `pending` while the ticket is pending, else seeded from its stamps | per status | — | one line |
 
 A closing stamp is written only while it is still null, while `abandonedAt` is written every time:
 re-entering a status is a correction, abandoning twice is deciding twice. Every move to a status other
@@ -540,7 +543,7 @@ corrects a row rather than moving it.
 
 Moving a ticket to the status it already has is refused and logs nothing; `ticket rereview` is the one
 exception, since every review pass is still review and the round is counted on the row. A ticket
-taken straight to in-review, done or delivered with `ticket status`, having never started, gets a row
+taken straight to in-review, reviewed or delivered with `ticket status`, having never started, gets a row
 whose start is stamped along with its end — an end without a start would draw from the origin of the chart. There
 is no `paused` ticket status: `task pause <id>` records a waiting row and the ticket stays where it
 was.

@@ -103,7 +103,7 @@ describe('createTicket and listTickets', () => {
       at:      FILED_AT,
     });
 
-    expect(ticket.frontmatter.status).toBe('open');
+    expect(ticket.frontmatter.status).toBe('pending');
     expect(ticket.frontmatter.filed).toBe(FILED_AT);
     expect(ticket.frontmatter.updated).toBe(FILED_AT);
     expect(ticket.frontmatter.started).toBeNull();
@@ -186,6 +186,19 @@ describe('readTicket', () => {
     writeFileSync(join(workspace.ticketsDirectory, '001-broken.md'), 'not a ticket at all\n');
 
     expect(readTicket(workspace, '1')).toBeNull();
+  });
+
+  // Keeps the retired word as input on purpose: only the next write may move a stored ticket to the new word, never a read.
+  test('listing or reading a ticket stored as open reads it as pending and leaves the file byte for byte', () => {
+    const workspace  = scratchWorkspace();
+    const ticketPath = fileTicket(workspace, 'Fix the export dialog', 'bug').filePath;
+    writeFileSync(ticketPath, readFileSync(ticketPath, 'utf8').replace('status: "pending"', 'status: open'));
+    const storedBytes = readFileSync(ticketPath, 'utf8');
+
+    expect(listTickets(workspace).tickets.map((listed) => listed.frontmatter.status)).toEqual(['pending']);
+    expect(readTicket(workspace, '1')?.frontmatter.status).toBe('pending');
+    expect(readFileSync(ticketPath, 'utf8')).toBe(storedBytes);
+    expect(storedBytes).toContain('status: open');
   });
 });
 
@@ -279,7 +292,7 @@ describe('writeTicket and deleteAllTickets', () => {
       'id: "001"',
       'title: "Windows"',
       'type: "bug"',
-      'status: "open"',
+      'status: "pending"',
       'filed: "2026-09-18T09:00:00+02:00"',
       'updated: "2026-09-18T09:00:00+02:00"',
       'started: null',

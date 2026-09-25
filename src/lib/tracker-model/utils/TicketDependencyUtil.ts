@@ -40,7 +40,7 @@ interface ReadinessTicket {
   dependsOn?: readonly string[];
 }
 
-/** Low work waits for these, and only these: a ticket that is done is still owed a merge, so it holds the low queue back too. */
+/** Low work waits for these, and only these: a ticket that is reviewed is still owed a merge, so it holds the low queue back too. */
 const TICKET_STATUSES_THAT_RELEASE_LOW_PRIORITY_WORK: readonly TicketStatus[] = ['delivered', 'abandoned'];
 
 const PRIORITY_RANK: Record<TicketPriority, number> = { high: 0, normal: 1, low: 2 };
@@ -54,14 +54,14 @@ function ticketsHoldingBackLowPriorityWork(tickets: readonly ReadinessTicket[]):
 }
 
 /**
- * The open tickets whose every dependency is done or delivered — high before normal, then lowest id first — that an agent could claim next.
+ * The pending tickets whose every dependency is reviewed or delivered — high before normal, then lowest id first — that an agent could claim next.
  * Low tickets are among them only once `ticketsHoldingBackLowPriorityWork` is empty.
  */
 function readyTicketIdsOf(tickets: readonly ReadinessTicket[]): string[] {
   const statusById        = new Map(tickets.map((ticket) => [ticket.id, ticket.status]));
   const lowPriorityIsHeld = ticketsHoldingBackLowPriorityWork(tickets).length > 0;
   return tickets
-    .filter((ticket) => ticket.status === 'open' && unsettledDependenciesOf(ticket.dependsOn ?? [], statusById).length === 0)
+    .filter((ticket) => ticket.status === 'pending' && unsettledDependenciesOf(ticket.dependsOn ?? [], statusById).length === 0)
     .filter((ticket) => !lowPriorityIsHeld || TicketDefaultsUtil.ticketPriorityOf(ticket) !== 'low')
     .sort((a, b) => PRIORITY_RANK[TicketDefaultsUtil.ticketPriorityOf(a)] - PRIORITY_RANK[TicketDefaultsUtil.ticketPriorityOf(b)] || Number(a.id) - Number(b.id))
     .map((ticket) => ticket.id);

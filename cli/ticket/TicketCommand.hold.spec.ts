@@ -230,7 +230,7 @@ describe.skipIf(!gitIsAvailable())('unholding a ticket whose build a dispatcher 
     expect((JSON.parse(output) as { id: string }).id).toBe('001');
   });
 
-  test('prints no hint for an open ticket, a running build, a ticket in review, or on a hold', async () => {
+  test('prints no hint for a pending ticket, a running build, a ticket in review, or on a hold', async () => {
     await run(['ticket', 'hold', '1']);
     expect(await unholdOutput()).not.toContain(RESUME_BUILD_HINT);
 

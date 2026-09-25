@@ -169,11 +169,11 @@ describe('waitingOnByTicketId', () => {
     return pageTicketsFrom(entries.map((entry) => ({ title: `Ticket ${entry.id}`, bodyHtml: '', ...entry })));
   }
 
-  test('maps a ticket to the dependencies that are not done or delivered yet', () => {
+  test('maps a ticket to the dependencies that are not reviewed or delivered yet', () => {
     const tickets = ticketsFrom([
-      { id: '001', status: 'done' },
+      { id: '001', status: 'reviewed' },
       { id: '002', status: 'in-progress' },
-      { id: '003', status: 'open', dependsOn: ['001', '002'] },
+      { id: '003', status: 'pending', dependsOn: ['001', '002'] },
     ]);
 
     expect(waitingOnByTicketId(tickets)).toEqual(new Map([['003', ['002']]]));
@@ -182,10 +182,10 @@ describe('waitingOnByTicketId', () => {
   // A closed ticket's list is history; showing it as waiting would suggest work that is not coming.
   test('leaves out tickets that are closed and tickets whose dependencies are all settled', () => {
     const tickets = ticketsFrom([
-      { id: '001', status: 'open' },
-      { id: '002', status: 'done', dependsOn: ['001'] },
+      { id: '001', status: 'pending' },
+      { id: '002', status: 'reviewed', dependsOn: ['001'] },
       { id: '003', status: 'abandoned', dependsOn: ['001'] },
-      { id: '004', status: 'open' },
+      { id: '004', status: 'pending' },
     ]);
 
     expect(waitingOnByTicketId(tickets).size).toBe(0);

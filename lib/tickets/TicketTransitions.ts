@@ -82,12 +82,12 @@ export type ApplyTicketTransitionResult =
   | { verdict: 'applied'; ticket: Ticket; logText: string }
   | { verdict: 'refused'; reason: string };
 
-/** `open` reads as `reopened`: the first `open` is logged by `ticket add` instead. */
+/** `pending` reads as `reopened`: the first `pending` is logged by `ticket add` instead. */
 const LOG_PHRASE_FOR_TICKET_STATUS: Record<TicketStatus, string> = {
-  open:          'reopened',
+  pending:       'reopened',
   'in-progress': 'started',
   'in-review':   'in review',
-  done:          'done',
+  reviewed:      'reviewed',
   delivered:     'delivered',
   abandoned:     'abandoned',
 };
@@ -97,9 +97,9 @@ const ABANDON_WITHOUT_REASON_REFUSAL = 'abandon needs --reason';
 const REREVIEW_FROM_ELSEWHERE_REFUSAL = 'another review pass needs a ticket that is in-review';
 
 /** A low ticket that was never started lives off the chart; once started it keeps the row it was given. */
-const TICKET_STATUSES_A_LOW_TICKET_WAITS_OFF_THE_CHART_IN: readonly TicketStatus[] = ['open', 'abandoned'];
+const TICKET_STATUSES_A_LOW_TICKET_WAITS_OFF_THE_CHART_IN: readonly TicketStatus[] = ['pending', 'abandoned'];
 
-const LOWERING_A_TICKET_THAT_IS_NOT_OPEN_REFUSAL = 'only an open ticket can be lowered to low, since a low ticket has no row until it is started';
+const LOWERING_A_TICKET_THAT_IS_NOT_PENDING_REFUSAL = 'only a pending ticket can be lowered to low, since a low ticket has no row until it is started';
 
 /** An existing row comes back untouched, so a row `ticket link --force` deliberately moved is never taken back. */
 export function ensureTaskForTicket(input: EnsureTaskForTicketInput): Task {
@@ -141,8 +141,8 @@ export function ensureTaskForTicketOnTheChart(input: EnsureTaskForTicketInput): 
 }
 
 /**
- * Lowering to low is refused unless the ticket is open, and removes its row; raising a low ticket gives it a row at once — seeded from its
- * stamps when it is no longer open, the way `clear` would, so an abandoned ticket does not come back as a pending bar.
+ * Lowering to low is refused unless the ticket is pending, and removes its row; raising a low ticket gives it a row at once — seeded from its
+ * stamps when it is no longer pending, the way `clear` would, so an abandoned ticket does not come back as a pending bar.
  */
 export function applyTicketPriority(input: ApplyTicketPriorityInput): ApplyTicketTransitionResult {
   const {
@@ -158,8 +158,8 @@ export function applyTicketPriority(input: ApplyTicketPriorityInput): ApplyTicke
   if (current === priority) {
     return { verdict: 'refused', reason: `it is already ${priority} priority` };
   }
-  if (priority === 'low' && frontmatter.status !== 'open') {
-    return { verdict: 'refused', reason: LOWERING_A_TICKET_THAT_IS_NOT_OPEN_REFUSAL };
+  if (priority === 'low' && frontmatter.status !== 'pending') {
+    return { verdict: 'refused', reason: LOWERING_A_TICKET_THAT_IS_NOT_PENDING_REFUSAL };
   }
 
   frontmatter.priority = priority;
@@ -168,7 +168,7 @@ export function applyTicketPriority(input: ApplyTicketPriorityInput): ApplyTicke
   if (priority === 'low') {
     if (linkedTask !== undefined) operations.removeTask(progress, linkedTask.id);
     frontmatter.task = null;
-  } else if (linkedTask === undefined && frontmatter.status === 'open') {
+  } else if (linkedTask === undefined && frontmatter.status === 'pending') {
     ensureTaskForTicket({
       progress,
       ticket,
@@ -266,7 +266,7 @@ export function applyTicketRereview(input: ApplyTicketRereviewInput): ApplyTicke
 
 /**
  * The bar ends at `finished` before `delivered`, because delivery is a later fact about finished work rather than more of it.
- * A done or delivered ticket was reviewed, since delivery is only legal from `done`.
+ * A reviewed or delivered ticket was reviewed, since delivery is only legal from `reviewed`.
  */
 export function seedTaskFromTicket(input: TicketRowInput): Task {
   const { progress, ticket, operations } = input;
@@ -279,7 +279,7 @@ export function seedTaskFromTicket(input: TicketRowInput): Task {
     status: TASK_STATUS_FOR_TICKET_STATUS[frontmatter.status],
     ...(frontmatter.started === null ? {} : { start: frontmatter.started }),
     ...(endTimestamp === null ? {} : { end: endTimestamp }),
-    ...(frontmatter.status === 'done' || frontmatter.status === 'delivered' ? { reviewed: frontmatter.finished ?? frontmatter.updated } : {}),
+    ...(frontmatter.status === 'reviewed' || frontmatter.status === 'delivered' ? { reviewed: frontmatter.finished ?? frontmatter.updated } : {}),
   });
 
   frontmatter.task = seeded.id;
@@ -288,7 +288,7 @@ export function seedTaskFromTicket(input: TicketRowInput): Task {
 
 function applyTimestampsFor(frontmatter: TicketFrontmatter, targetStatus: TicketStatus, at: string): void {
   switch (targetStatus) {
-    case 'open':
+    case 'pending':
       frontmatter.started     = null;
       frontmatter.finished    = null;
       frontmatter.delivered   = null;
@@ -299,7 +299,7 @@ function applyTimestampsFor(frontmatter: TicketFrontmatter, targetStatus: Ticket
       frontmatter.started ??= at;
       break;
     case 'in-review':
-    case 'done':
+    case 'reviewed':
       frontmatter.finished ??= at;
       break;
     case 'delivered':

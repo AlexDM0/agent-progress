@@ -27,7 +27,7 @@ interface IntakeCase {
   setup:   string[][];
 }
 
-/** Each case starts from two open tickets, #001 and #002. */
+/** Each case starts from two pending tickets, #001 and #002. */
 const INTAKE_CASES: IntakeCase[] = [
   { command: ['ticket', 'add', 'Import the roles'], setup: [] },
   { command: ['ticket', 'priority', '1', 'high'], setup: [] },

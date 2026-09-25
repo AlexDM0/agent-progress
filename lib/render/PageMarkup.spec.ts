@@ -153,13 +153,13 @@ describe('taskRowsMarkup', () => {
     expect(rowFor(exampleTask({ status: 'reviewed', reviewed: '2026-09-18T21:10:00+02:00' }))).not.toContain('ap-reviewed-mark');
   });
 
-  // Rows written before the stamp existed: delivery of a ticket is only legal from `done`.
+  // Rows written before the stamp existed: delivery of a ticket is only legal from `reviewed`.
   test('marks a delivered ticket row as reviewed even when it carries no stamp', () => {
     expect(rowFor(exampleTask({ status: 'delivered', ticket: '003' }), 'delivered')).toContain('ap-reviewed-mark');
   });
 
   test('says which tickets a row is waiting on, each linked to its card', () => {
-    const markup = rowFor(exampleTask({ status: 'pending', ticket: '005' }), 'open', PLACED_BAR, ['003', '004']);
+    const markup = rowFor(exampleTask({ status: 'pending', ticket: '005' }), 'pending', PLACED_BAR, ['003', '004']);
 
     expect(markup).toContain('<span class="ap-waiting">waiting on <a href="#ap-ticket-003">#003</a>, <a href="#ap-ticket-004">#004</a></span>');
   });
@@ -189,7 +189,7 @@ describe('taskRowsMarkup', () => {
 
   test('leaves every other status alone whatever its ticket says', () => {
     expect(rowFor(exampleTask({ status: 'running' }), 'in-review')).toContain('data-state="running"');
-    expect(rowFor(exampleTask({ status: 'finished' }), 'done')).toContain('data-state="finished"');
+    expect(rowFor(exampleTask({ status: 'finished' }), 'reviewed')).toContain('data-state="finished"');
   });
 
   test('carries the ids the ticket table and the fragment contract link to', () => {
@@ -512,8 +512,8 @@ describe('ticketTableRowsMarkup', () => {
 describe('ticketCountText', () => {
   test.each([
     ['no tickets', []],
-    ['1 ticket', [exampleTicket({ status: 'open' })]],
-    ['2 tickets · 1 in progress', [exampleTicket({ status: 'open' }), exampleTicket({ id: '004', status: 'in-progress' })]],
+    ['1 ticket', [exampleTicket({ status: 'pending' })]],
+    ['2 tickets · 1 in progress', [exampleTicket({ status: 'pending' }), exampleTicket({ id: '004', status: 'in-progress' })]],
   ])('reads %s', (expected, tickets) => {
     expect(ticketCountText(tickets as PageTicket[])).toBe(expected);
   });
@@ -527,14 +527,14 @@ describe('ticketCardsMarkup', () => {
     expect(markup).toContain('<span class="ap-waiting">waiting on <a href="#ap-ticket-002">#002</a></span>');
   });
 
-  test.each<[TicketStatus]>([['open'], ['in-progress'], ['in-review']])('leaves a %s card open, with no disclosure', (status) => {
+  test.each<[TicketStatus]>([['pending'], ['in-progress'], ['in-review']])('leaves a %s card open, with no disclosure', (status) => {
     const markup = ticketCardsMarkup([exampleTicket({ status })], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY);
 
     expect(markup).toContain('<div class="ap-ticket-head">');
     expect(markup).not.toContain('<details>');
   });
 
-  test.each<[TicketStatus]>([['done'], ['delivered'], ['abandoned']])('collapses a %s card into a disclosure', (status) => {
+  test.each<[TicketStatus]>([['reviewed'], ['delivered'], ['abandoned']])('collapses a %s card into a disclosure', (status) => {
     const markup = ticketCardsMarkup([exampleTicket({ status })], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY);
 
     expect(markup).toContain('<details><summary>');
@@ -542,8 +542,8 @@ describe('ticketCardsMarkup', () => {
   });
 
   test('keeps the id on the outer section either way', () => {
-    expect(ticketCardsMarkup([exampleTicket({ status: 'open' })], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY)).toContain('<section class="ap-ticket" id="ap-ticket-003">');
-    expect(ticketCardsMarkup([exampleTicket({ status: 'done' })], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY)).toContain('<section class="ap-ticket" id="ap-ticket-003">');
+    expect(ticketCardsMarkup([exampleTicket({ status: 'pending' })], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY)).toContain('<section class="ap-ticket" id="ap-ticket-003">');
+    expect(ticketCardsMarkup([exampleTicket({ status: 'reviewed' })], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY)).toContain('<section class="ap-ticket" id="ap-ticket-003">');
   });
 
   test('shows the latest milestone the ticket reached, not the first', () => {
@@ -592,13 +592,13 @@ describe('the priority marks on the Tickets tab', () => {
   const HIGH_MARK_OPENING = '<span class="ap-waiting" data-priority="high"';
 
   test('marks a low ticket low, beside its title in the table and after its status in the card, with an empty task cell while it has no row', () => {
-    const lowTicket = exampleTicket({ priority: 'low', status: 'open', task: null });
+    const lowTicket = exampleTicket({ priority: 'low', status: 'pending', task: null });
     const tableRow  = ticketTableRowsMarkup([lowTicket], NO_WAITING);
     const card      = ticketCardsMarkup([lowTicket], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY);
 
     expect(tableRow).toMatch(/two passes <span class="ap-ticket-badge" data-priority="low" title="[^"]+">low<\/span><\/td>/);
     expect(tableRow).toContain('<td class="mono"></td></tr>');
-    expect(card).toMatch(/<span class="ap-badge open">open<\/span> <span class="ap-ticket-badge" data-priority="low" title="[^"]+">low<\/span>/);
+    expect(card).toMatch(/<span class="ap-badge pending">pending<\/span> <span class="ap-ticket-badge" data-priority="low" title="[^"]+">low<\/span>/);
     expect(card).not.toContain('<b>task</b>');
   });
 

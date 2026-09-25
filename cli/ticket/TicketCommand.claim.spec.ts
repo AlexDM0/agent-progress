@@ -70,7 +70,7 @@ afterEach(() => {
 });
 
 describe.skipIf(!gitIsAvailable())('claiming a ticket', () => {
-  test('a ready open ticket with a slot free is started, its row running with the owner and note, and one line logged', async () => {
+  test('a ready pending ticket with a slot free is started, its row running with the owner and note, and one line logged', async () => {
     await run(['task', 'add', 'Review pass', '--start']);
     const logLengthBefore = storedProgress().log.length;
 

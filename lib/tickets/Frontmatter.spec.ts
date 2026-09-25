@@ -72,7 +72,7 @@ describe('parseTicketDocument', () => {
       '# filed while pairing with Alex Example',
       'title: "Tidy the seed data"',
       'type: "change"',
-      'status: "open"',
+      'status: "pending"',
       'filed: "2026-09-18T09:00:00+02:00"',
       'updated: "2026-09-18T09:00:00+02:00"',
       '',
@@ -97,7 +97,7 @@ describe('parseTicketDocument', () => {
       'id: "004"',
       'title: "Split the settings page"',
       'type: "feature"',
-      'status: "open"',
+      'status: "pending"',
       'filed: "2026-09-18T09:00:00+02:00"',
       'updated: "2026-09-18T09:00:00+02:00"',
       '---',
@@ -354,6 +354,30 @@ describe('model and effort', () => {
   });
 });
 
+// These keep the retired words as input on purpose: a ticket file written before the rename must still read, and move on when written.
+describe('retired status words', () => {
+  test('a ticket stored as open or done reads as pending or reviewed, quoted or bare', () => {
+    expect(parsedDocument(FULL_TICKET.replace('status: "in-progress"', 'status: open')).frontmatter.status).toBe('pending');
+    expect(parsedDocument(FULL_TICKET.replace('status: "in-progress"', 'status: "done"')).frontmatter.status).toBe('reviewed');
+  });
+
+  test('writing a ticket read with a retired word stores the word that replaced it', () => {
+    const { frontmatter, body } = parsedDocument(FULL_TICKET.replace('status: "in-progress"', 'status: "open"'));
+
+    const written = serializeTicketDocument(frontmatter, body);
+
+    expect(written).toContain('status: "pending"');
+    expect(written).not.toContain('status: "open"');
+  });
+
+  test('a word that was never a ticket status is still malformed at its line', () => {
+    const parsed = parseTicketDocument(FULL_TICKET.replace('status: "in-progress"', 'status: "closed"'));
+
+    expect(parsed.verdict === 'malformed' ? parsed.reason : '').toBe('`status` is not a known ticket status: closed');
+    expect(parsed.verdict === 'malformed' ? parsed.line : 0).toBe(5);
+  });
+});
+
 describe('serializeTicketDocument', () => {
   test('a full ticket survives a parse and a write unchanged', () => {
     const { frontmatter, body } = parsedDocument(FULL_TICKET);
@@ -367,7 +391,7 @@ describe('serializeTicketDocument', () => {
       'id: "007"',
       'title: "Tidy the seed data"',
       'type: "change"',
-      'status: "open"',
+      'status: "pending"',
       'filed: "2026-09-18T09:00:00+02:00"',
       'updated: "2026-09-18T09:00:00+02:00"',
       'started: null',

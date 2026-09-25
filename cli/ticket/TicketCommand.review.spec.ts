@@ -157,7 +157,7 @@ describe.skipIf(!gitIsAvailable())('starting the review bar with the move to rev
       ['ticket', 'reopen', '1'],
       ['ticket', 'start', '1'],
       ['ticket', 'done', '1'],
-      ['ticket', 'status', '1', 'open'],
+      ['ticket', 'status', '1', 'pending'],
     ];
     for (const moveOutOfReview of movesOutOfReview) {
       await run(['ticket', 'status', '1', 'in-review']);

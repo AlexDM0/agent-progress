@@ -50,7 +50,7 @@ test('the task ladder carries the repeat review between finished and reviewed, a
 test('both ladders carry the delivered state, between the reviewed end of the ladder and abandoned', () => {
   expect(TASK_STATUSES.indexOf('delivered')).toBe(TASK_STATUSES.indexOf('reviewed') + 1);
   expect(TASK_STATUSES.indexOf('abandoned')).toBe(TASK_STATUSES.indexOf('delivered') + 1);
-  expect(TICKET_STATUSES.indexOf('delivered')).toBe(TICKET_STATUSES.indexOf('done') + 1);
+  expect(TICKET_STATUSES.indexOf('delivered')).toBe(TICKET_STATUSES.indexOf('reviewed') + 1);
   expect(TICKET_STATUSES.indexOf('abandoned')).toBe(TICKET_STATUSES.indexOf('delivered') + 1);
 });
 
@@ -59,12 +59,13 @@ test('no name appears twice in a ladder, so an index into it identifies one stat
   expect(new Set(TICKET_STATUSES).size).toBe(TICKET_STATUSES.length);
 });
 
-test('a ticket status crossing into the task ladder keeps its own meaning: in-review becomes finished and done becomes reviewed', () => {
+test('a ticket status crossing into the task ladder keeps its own meaning: in-review becomes finished', () => {
   expect(TASK_STATUS_FOR_TICKET_STATUS['in-review']).toBe('finished');
-  expect(TASK_STATUS_FOR_TICKET_STATUS['done']).toBe('reviewed');
 });
 
-test('delivered and abandoned are the two states that keep their name across the ladders', () => {
+test('pending, reviewed, delivered and abandoned keep their name across the ladders', () => {
+  expect(TASK_STATUS_FOR_TICKET_STATUS['pending']).toBe('pending');
+  expect(TASK_STATUS_FOR_TICKET_STATUS['reviewed']).toBe('reviewed');
   expect(TASK_STATUS_FOR_TICKET_STATUS['delivered']).toBe('delivered');
   expect(TASK_STATUS_FOR_TICKET_STATUS['abandoned']).toBe('abandoned');
 });

@@ -219,7 +219,7 @@ describe.skipIf(!gitIsAvailable())('a release that holds', () => {
     expect(branchExists(branch)).toBe(false);
   });
 
-  test('a ticket still in progress is released too, through done to delivered', async () => {
+  test('a ticket still in progress is released too, through reviewed to delivered', async () => {
     const added = JSON.parse(await agentProgressOrFail(['ticket', 'add', 'Rename a role', '--json'])) as { id: string };
     await agentProgressOrFail(['ticket', 'start', added.id]);
     const worktree = addWorktree(repositoryDirectory, 'rename-role');
@@ -251,7 +251,7 @@ describe.skipIf(!gitIsAvailable())('a release that holds', () => {
     expect(await readTicketDocument(bundled.id)).toMatchObject({ status: 'delivered', commit: tip, branch });
   });
 
-  // `2` and `002` are the same ticket; moving it twice would log it done and delivered twice.
+  // `2` and `002` are the same ticket; moving it twice would log it reviewed and delivered twice.
   test('one ticket named twice under two spellings is moved once', async () => {
     const {
       identifier,
@@ -507,7 +507,7 @@ describe.skipIf(!gitIsAvailable())('a release that is refused changes nothing', 
     expect(readFileSync(join(repositoryDirectory, 'role-history.ts'), 'utf8')).toBe('uncommitted in the main checkout\n');
   });
 
-  test('a ticket that is still open exits 1 before git is asked anything', async () => {
+  test('a ticket that is still pending exits 1 before git is asked anything', async () => {
     const added    = JSON.parse(await agentProgressOrFail(['ticket', 'add', 'Not started', '--json'])) as { id: string };
     const worktree = addWorktree(repositoryDirectory, 'not-started');
     commitFile(worktree, 'early.ts', 'export const early = true;\n');

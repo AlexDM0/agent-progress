@@ -7,7 +7,7 @@ export type WorkVisibility = 'recent' | 'all';
 
 export const DEFAULT_WORK_VISIBILITY: WorkVisibility = 'recent';
 
-// Done means merged: a `reviewed` row and a `done` ticket are awaiting merge, so they stay visible.
+// Done means merged: a `reviewed` row and a `reviewed` ticket are awaiting merge, so they stay visible.
 const DONE_TASK_STATUSES: readonly TaskStatus[]     = ['delivered', 'abandoned'];
 const DONE_TICKET_STATUSES: readonly TicketStatus[] = ['delivered', 'abandoned'];
 

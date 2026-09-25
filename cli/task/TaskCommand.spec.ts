@@ -327,7 +327,7 @@ describe.skipIf(!gitIsAvailable())('a row a ticket owns', () => {
 
     await run(['task', 'update', '1', '--status', 'finished', '--force']);
     expect(storedProgress().tasks[0]?.status).toBe('finished');
-    expect(storedTicketText('001-double-click-a-role-to-edit-it.md')).toContain('status: "open"');
+    expect(storedTicketText('001-double-click-a-role-to-edit-it.md')).toContain('status: "pending"');
   });
 
   test('may still be paused and resumed, because no ticket status can say either', async () => {

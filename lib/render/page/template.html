@@ -154,7 +154,7 @@
  pill label = unstarted |   wip   | paused | awaiting review| reviewing | reviewing N| awaiting merge |   done    | abandoned
                                                                          N counts the review pass, from 2 up
                                   done means merged: a row is done when nothing more has to happen to it
- ticket status class on .ap-badge = open | in-progress | in-review | done | delivered | abandoned
+ ticket status class on .ap-badge = pending | in-progress | in-review | reviewed | delivered | abandoned
  -------------------------------------------------------------- script hooks ---
  --timeline-w   on #ap-chart: track column width. "1fr" = fill (no scroll);
                 set to a px value (e.g. 2400px) to make the timeline scroll.
@@ -585,15 +585,15 @@ a:hover { color: var(--ink); text-decoration: underline; }
   color: var(--s-ink);
   white-space: nowrap;
 }
-.ap-badge.open         { --s-tint: var(--surface-2); --s-ink: var(--ink-muted); --s-edge: var(--line-strong); }
+.ap-badge.pending      { --s-tint: var(--surface-2); --s-ink: var(--ink-muted); --s-edge: var(--line-strong); }
 .ap-badge.in-progress  { --s-tint: oklch(0.963 0.048 85);  --s-ink: oklch(0.44 0.105 70);  --s-edge: oklch(0.83 0.11 80); }
 .ap-badge.in-review    { --s-tint: oklch(0.957 0.028 205); --s-ink: oklch(0.43 0.09 205);  --s-edge: oklch(0.80 0.07 205); }
-.ap-badge.done         { --s-tint: oklch(0.957 0.033 155); --s-ink: oklch(0.42 0.095 155); --s-edge: oklch(0.79 0.08 155); }
+.ap-badge.reviewed     { --s-tint: oklch(0.957 0.033 155); --s-ink: oklch(0.42 0.095 155); --s-edge: oklch(0.79 0.08 155); }
 .ap-badge.delivered    { --s-tint: oklch(0.957 0.030 300); --s-ink: oklch(0.44 0.125 300); --s-edge: oklch(0.80 0.075 300); }
 .ap-badge.abandoned    { --s-tint: oklch(0.955 0.004 265); --s-ink: oklch(0.50 0.008 265); --s-edge: oklch(0.885 0.006 265); }
 :root[data-theme="dark"] .ap-badge.in-progress { --s-tint: oklch(0.33 0.065 80);  --s-ink: oklch(0.91 0.075 85);  --s-edge: oklch(0.52 0.10 80); }
 :root[data-theme="dark"] .ap-badge.in-review   { --s-tint: oklch(0.32 0.050 205); --s-ink: oklch(0.89 0.055 205); --s-edge: oklch(0.50 0.075 205); }
-:root[data-theme="dark"] .ap-badge.done        { --s-tint: oklch(0.32 0.055 155); --s-ink: oklch(0.89 0.060 155); --s-edge: oklch(0.50 0.080 155); }
+:root[data-theme="dark"] .ap-badge.reviewed    { --s-tint: oklch(0.32 0.055 155); --s-ink: oklch(0.89 0.060 155); --s-edge: oklch(0.50 0.080 155); }
 :root[data-theme="dark"] .ap-badge.delivered   { --s-tint: oklch(0.32 0.060 300); --s-ink: oklch(0.89 0.060 300); --s-edge: oklch(0.51 0.095 300); }
 :root[data-theme="dark"] .ap-badge.abandoned   { --s-tint: oklch(0.28 0.006 265); --s-ink: oklch(0.72 0.010 265); --s-edge: oklch(0.38 0.008 265); }
 
@@ -1040,12 +1040,12 @@ a:hover { color: var(--ink); text-decoration: underline; }
       <thead><tr><th class="mono">id</th><th class="ap-col-title">title</th><th>type</th><th>status</th><th>group</th><th class="mono">branch</th><th class="mono">task</th></tr></thead>
       <tbody id="ap-ticket-rows">
         <tr data-ticket-id="001" tabindex="0"><td class="mono"><a href="#ap-ticket-001">#001</a></td><td>Double-click a role to edit it</td><td>change</td><td><span class="ap-badge delivered">delivered</span></td><td>role-editor</td><td class="mono">ticket/role-editor</td><td class="mono"><a href="#ap-task-1">#1</a></td></tr>
-        <tr data-ticket-id="002" tabindex="0"><td class="mono"><a href="#ap-ticket-002">#002</a></td><td>Cache ticket bodies between runs</td><td>change</td><td><span class="ap-badge done">done</span></td><td>exporter</td><td class="mono">ticket/body-cache</td><td class="mono"><a href="#ap-task-2">#2</a></td></tr>
+        <tr data-ticket-id="002" tabindex="0"><td class="mono"><a href="#ap-ticket-002">#002</a></td><td>Cache ticket bodies between runs</td><td>change</td><td><span class="ap-badge reviewed">reviewed</span></td><td>exporter</td><td class="mono">ticket/body-cache</td><td class="mono"><a href="#ap-task-2">#2</a></td></tr>
         <tr data-ticket-id="003" tabindex="0"><td class="mono"><a href="#ap-ticket-003">#003</a></td><td>Split the exporter into two passes</td><td>change</td><td><span class="ap-badge in-review">in-review</span></td><td>exporter</td><td class="mono">ticket/exporter-passes</td><td class="mono"><a href="#ap-task-3">#3</a></td></tr>
         <tr data-ticket-id="004" tabindex="0"><td class="mono"><a href="#ap-ticket-004">#004</a></td><td>Brighter colours<span class="ap-waiting" data-priority="high" title="High priority: dispatched before every normal ticket">high</span></td><td>feature</td><td><span class="ap-badge in-progress">in-progress</span></td><td></td><td class="mono">ticket/brighter-colours</td><td class="mono"><a href="#ap-task-5">#5</a></td></tr>
-        <tr data-ticket-id="005" tabindex="0"><td class="mono"><a href="#ap-ticket-005">#005</a></td><td>Audit the range presets<span class="ap-waiting">waiting on <a href="#ap-ticket-004">#004</a></span></td><td>chore</td><td><span class="ap-badge open">open</span></td><td></td><td class="mono"></td><td class="mono"><a href="#ap-task-7">#7</a></td></tr>
+        <tr data-ticket-id="005" tabindex="0"><td class="mono"><a href="#ap-ticket-005">#005</a></td><td>Audit the range presets<span class="ap-waiting">waiting on <a href="#ap-ticket-004">#004</a></span></td><td>chore</td><td><span class="ap-badge pending">pending</span></td><td></td><td class="mono"></td><td class="mono"><a href="#ap-task-7">#7</a></td></tr>
         <tr data-ticket-id="006" tabindex="0"><td class="mono"><a href="#ap-ticket-006">#006</a></td><td>Old idea</td><td>bug</td><td><span class="ap-badge abandoned">abandoned</span></td><td></td><td class="mono"></td><td class="mono"><a href="#ap-task-8">#8</a></td></tr>
-        <tr data-ticket-id="007" tabindex="0"><td class="mono"><a href="#ap-ticket-007">#007</a></td><td>Reword the empty-log note <span class="ap-ticket-badge" data-priority="low" title="Low priority: no row on the chart until it is started, and worked once no normal or high ticket is left undelivered">low</span></td><td>change</td><td><span class="ap-badge open">open</span></td><td></td><td class="mono"></td><td class="mono"></td></tr>
+        <tr data-ticket-id="007" tabindex="0"><td class="mono"><a href="#ap-ticket-007">#007</a></td><td>Reword the empty-log note <span class="ap-ticket-badge" data-priority="low" title="Low priority: no row on the chart until it is started, and worked once no normal or high ticket is left undelivered">low</span></td><td>change</td><td><span class="ap-badge pending">pending</span></td><td></td><td class="mono"></td><td class="mono"></td></tr>
       </tbody>
     </table>
   </div>

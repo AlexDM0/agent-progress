@@ -129,7 +129,7 @@ export function pageTicketsFrom(value: unknown): PageTicket[] {
     && typeof entry['bodyHtml'] === 'string');
 }
 
-const CLOSED_TICKET_STATUSES: readonly string[] = ['done', 'delivered', 'abandoned'];
+const CLOSED_TICKET_STATUSES: readonly string[] = ['reviewed', 'delivered', 'abandoned'];
 
 /** Only tickets still to be worked on wait; a closed ticket's list is history. */
 export function waitingOnByTicketId(tickets: readonly PageTicket[]): Map<string, string[]> {

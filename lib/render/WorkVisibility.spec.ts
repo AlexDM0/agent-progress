@@ -1,5 +1,5 @@
 /**
- * What "done for longer than the window" means for a task and for a ticket. The cases that matter: an open item is never hidden however
+ * What "done for longer than the window" means for a task and for a ticket. The cases that matter: an unsettled item is never hidden however
  * old, a done item without a usable timestamp stays visible, and a ticket is judged by its last transition rather than by `finished`.
  */
 
@@ -98,9 +98,9 @@ describe('ticketIsLongDone', () => {
     }
   });
 
-  // A `done` ticket's row is `reviewed`, awaiting merge, so the two are hidden or kept together.
-  test('never hides an open, in-progress, in-review or done ticket', () => {
-    for (const status of ['open', 'in-progress', 'in-review', 'done'] as const) {
+  // A `reviewed` ticket's row is `reviewed`, awaiting merge, so the two are hidden or kept together.
+  test('never hides a pending, in-progress, in-review or reviewed ticket', () => {
+    for (const status of ['pending', 'in-progress', 'in-review', 'reviewed'] as const) {
       expect(ticketIsLongDone(exampleTicket({ status }), NOW_EPOCH_MILLISECONDS, DAY_MILLISECONDS)).toBe(false);
     }
   });

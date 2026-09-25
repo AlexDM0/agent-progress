@@ -54,6 +54,8 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
   it, so it stays DOM-safe. The `lib/` layers import it like any `src/lib/` package.
 - `src/testing/` may import `lib/platform/Workspace.ts` until plan step 6 moves it; `cli/testing/` is imported only by
   `cli/` specs.
+- `src/adapters/` imports only `src/lib/` and `src/shared/`. What remains in `lib/` and `cli/` may import
+  `src/adapters/` until plan step 5 moves the readers there.
 - A `src/services/` folder imports only `src/lib/`, `src/shared/` and `src/adapters/`. What remains in `lib/` and
   `cli/` may import `src/services/` until plan step 6 moves it there.
 - `src/shared/` holds app-specific code several parts use and imports only `src/lib/` and itself; what remains in
@@ -238,6 +240,7 @@ src/                        the target layout's code, filled step by step as the
   src/lib/                  package-grade building blocks, one folder each, the package's description in its main module's header:
                             atomic-file (AtomicFile.ts), git (GitProcess.ts), claude-code (ClaudeTranscripts.ts),
                             tracker-model (@types/Task.ts; its vocabularies and move table in constants/, its pure rules in utils/), utils
+  src/adapters/             the boundary to stored files; so far utils/LegacyStatusUtil: the stored status words that were renamed
   src/services/             app-wide services; so far tracker/constants: the tracker's file names (the service itself arrives in plan step 6)
   src/shared/               app-specific code several parts use: the environment reader, the refusal, LIMITS
   src/testing/              test-only helpers several parts use: the scratch workspace and the tracker isolation check

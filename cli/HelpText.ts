@@ -25,7 +25,7 @@ free (2 agents in flight); ready: #003\` or \`Next: 2 of 2 slots free; nothing r
 ready ids, then \`and N more\`; a held ready ticket is left out and named apart, \`; held: #002\` —
 followed by the dispatcher's advice where it has any: \`; launch the
 dispatcher\` or \`; dispatcher stopped: wait for the user's go\`. While the dispatcher is \`running\`,
-\`ticket add\`, \`priority\`, \`agent\`, \`depends\`, \`hold\`, \`unhold\`, \`reopen\` and \`status <id> open\` add
+\`ticket add\`, \`priority\`, \`agent\`, \`depends\`, \`hold\`, \`unhold\`, \`reopen\` and \`status <id> pending\` add
 one more line after it: the run
 picks the change up at its next agent's return and is never stopped or relaunched for it. --json
 output never carries either.
@@ -71,7 +71,7 @@ output never carries either.
                               everything, and with --json prints the whole progress file plus
                               every ticket's frontmatter. Both --json documents carry
                               \`concurrency\`: the limit, the agents in flight, the free slots and
-                              the ids of the ready tickets — open, every dependency settled —
+                              the ids of the ready tickets — pending, every dependency settled —
                               high priority first, then normal, each lowest id first. A low ticket
                               is ready only once no normal or high ticket is left that is not
                               delivered or abandoned. Beside it, \`readyTickets\` lists the same
@@ -176,11 +176,11 @@ output never carries either.
 
   release <id> --branch <b>   Release a reviewed branch: fast-forward the main checkout — the
       [--worktree <path>]     tracker's root, wherever this runs from — to <b>, then move the
-      [--main <line>]         ticket done and deliver it with --branch <b> and --commit set to the
-      [--json]                merged tip. More ids after <id> release every ticket of a bundle,
-                              which share <b>. Every running review row whose --review-of names a
-                              released ticket is finished and delivered at the release time, and
-                              named; a row linked by its name alone is left. All of it happens in
+      [--main <line>]         ticket to reviewed and deliver it with --branch <b> and --commit set
+      [--json]                to the merged tip. More ids after <id> release every ticket of a
+                              bundle, which share <b>. Every running review row whose --review-of
+                              names a released ticket is finished and delivered at the release
+                              time, and named; a row linked by its name alone is left. All of it happens in
                               one lock hold, so two releases never race. Refused at exit 1, with
                               nothing changed (no review row either), when a ticket
                               is not in-progress or in-review, when the main checkout is not on
@@ -256,7 +256,7 @@ output never carries either.
 
   ticket priority <id> low|normal|high [--at <when>]
                               Change a ticket's priority, with one log line. Lowering to low is
-                              refused unless the ticket is open, and removes its row; raising a
+                              refused unless the ticket is pending, and removes its row; raising a
                               low ticket that has no row gives it one at once. A low ticket gets
                               its row when \`ticket start\` or \`ticket claim\` starts it, and keeps
                               it; abandoning a low ticket that has none creates none.
@@ -265,13 +265,13 @@ output never carries either.
       [--reason <text>] [--tokens <n>] [--at <when>]
                               Move a ticket and its Gantt row together, stamping both. Each verb
                               moves a ticket that is in a status it makes sense from: start from
-                              open or in-review, review from in-progress, done from in-progress or
-                              in-review, deliver from done, abandon from anything not already
-                              delivered or abandoned, reopen from anything but open. Moving a
-                              ticket to the status it already has is refused and logs nothing —
-                              \`ticket rereview\` below is the one exception. Every move out of
-                              in-review finishes and delivers the ticket's running review bar,
-                              with one log line each. \`start\` warns on standard error, and still
+                              pending or in-review, review from in-progress, done from in-progress
+                              or in-review, deliver from reviewed, abandon from anything not
+                              already delivered or abandoned, reopen from anything but pending.
+                              Moving a ticket to the status it already has is refused and logs
+                              nothing — \`ticket rereview\` below is the one exception. Every
+                              move out of in-review finishes and delivers the ticket's running
+                              review bar, with one log line each. \`start\` warns on standard error, and still
                               moves it, when the ticket is held.
                               \`abandon\` requires --reason; \`reopen\` clears the stamps and returns
                               the row to pending. --branch and --commit record where the work
@@ -292,10 +292,10 @@ output never carries either.
       [--owner <who>]         every ticket named, as ONE agent: a bundle's builder claims all its
       [--note <text>]         tickets in the one call, and their rows share one agent key. Refused
       [--at <when>]           at exit 1 with nothing written, all or nothing, when any ticket is not
-                              open or in-review, when one waits on a ticket outside the claim that
-                              is not done or delivered (one inside it is settled: the bundle is
-                              worked in dependency order), when one is low and a normal or high
-                              ticket is not yet delivered or abandoned — \`ticket start\` only warns
+                              pending or in-review, when one waits on a ticket outside the claim
+                              that is not reviewed or delivered (one inside it is settled: the
+                              bundle is worked in dependency order), when one is low and a normal
+                              or high ticket is not yet delivered or abandoned — \`ticket start\` only warns
                               about that — when a review bar of one is running, or when the agents
                               in flight already number the concurrency limit. The count and the
                               moves share one lock hold, so
@@ -310,9 +310,9 @@ output never carries either.
                               has, and it is refused from every other status. It takes no --tokens:
                               the row's figure is the builder's, and a review pass has its own row.
 
-  ticket status <id> <status> The same move, naming the target status directly: open, in-progress,
-                              in-review, done, delivered or abandoned. It takes the same options
-                              and is the documented way to make a move the verbs above refuse.
+  ticket status <id> <status> The same move, naming the target status directly: pending,
+                              in-progress, in-review, reviewed, delivered or abandoned. It takes
+                              the same options and is the documented way to make a move the verbs above refuse.
 
   ticket link <ticketId> <taskId> [--force]
                               Point a ticket at an existing row instead of the one it filed.
@@ -323,8 +323,8 @@ output never carries either.
                               Set the tickets this one waits on, replacing its list; no ids clears
                               it. Refused for a ticket that does not exist and for a list that
                               would make tickets wait on each other in a circle. Until every one
-                              of them is done or delivered, the ticket's row, table entry and card
-                              read "waiting on #003", \`ticket list\` says so too, and \`ticket start\`
+                              of them is reviewed or delivered, the ticket's row, table entry and
+                              card read "waiting on #003", \`ticket list\` says so too, and \`ticket start\`
                               warns on standard error but still moves it.
 
   concurrency [<n>] [--json]  Print the concurrency limit: how many agents may be in flight at once.

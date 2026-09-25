@@ -49,7 +49,7 @@ const PILL_LABEL_FOR_ROW_STATE: Record<RowState, string> = {
   'abandoned': 'abandoned',
 };
 
-const COLLAPSED_TICKET_STATUSES: readonly string[] = ['done', 'delivered', 'abandoned'];
+const COLLAPSED_TICKET_STATUSES: readonly string[] = ['reviewed', 'delivered', 'abandoned'];
 
 const LOW_PRIORITY_TITLE  = 'Low priority: no row on the chart until it is started, and worked once no normal or high ticket is left undelivered';
 const HIGH_PRIORITY_TITLE = 'High priority: dispatched before every normal ticket';
@@ -131,7 +131,7 @@ function reviewedTitleFor(task: Task, slices: TimestampSlices): string {
   return task.reviewed === undefined ? 'Reviewed before delivery' : `Reviewed ${fullStampText(task.reviewed, slices)} before delivery`;
 }
 
-// Rows written before the review stamp existed carry none; a delivered ticket had to pass `done`, so its row counts as reviewed.
+// Rows written before the review stamp existed carry none; a delivered ticket had to pass `reviewed`, so its row counts as reviewed.
 export function deliveredAfterReview(task: Task, ticketStatus: TicketStatus | null): boolean {
   return task.status === 'delivered' && (task.reviewed !== undefined || ticketStatus === 'delivered');
 }

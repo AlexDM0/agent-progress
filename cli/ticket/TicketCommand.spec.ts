@@ -69,7 +69,7 @@ describe.skipIf(!gitIsAvailable())('filing a ticket', () => {
 
     const ticketText = storedTicketText();
     expect(ticketText).toContain('id: "001"');
-    expect(ticketText).toContain('status: "open"');
+    expect(ticketText).toContain('status: "pending"');
     expect(ticketText).toContain('group: "role-editor"');
     expect(ticketText).toContain('# 001 — Double-click a role to edit it');
     expect(ticketText).toContain('## Acceptance');
@@ -202,7 +202,7 @@ describe.skipIf(!gitIsAvailable())('moving a ticket', () => {
 
     expect(storedProgress().tasks[0]?.status).toBe('pending');
     const ticketText = storedTicketText();
-    expect(ticketText).toContain('status: "open"');
+    expect(ticketText).toContain('status: "pending"');
     expect(ticketText).toContain('started: null');
     expect(ticketText).toContain('finished: null');
   });
@@ -213,7 +213,7 @@ describe.skipIf(!gitIsAvailable())('moving a ticket', () => {
 
     expect(exitCode).toBe(1);
     expect(refused.errorText()).toContain('--reason');
-    expect(storedTicketText()).toContain('status: "open"');
+    expect(storedTicketText()).toContain('status: "pending"');
 
     await run(['ticket', 'abandon', '1', '--reason', 'superseded by ticket #007']);
 
@@ -273,7 +273,7 @@ describe.skipIf(!gitIsAvailable())('a second review pass', () => {
 
     await run(['ticket', 'done', '1']);
 
-    expect(storedTicketText()).toContain('status: "done"');
+    expect(storedTicketText()).toContain('status: "reviewed"');
     expect(storedProgress().tasks[0]?.status).toBe('reviewed');
     expect(storedProgress().tasks[0]?.reviewRound, 'the round stays on the row as history').toBe(2);
   });
@@ -294,7 +294,7 @@ describe.skipIf(!gitIsAvailable())('a second review pass', () => {
     const exitCode = await runCommandLine(['ticket', 'rereview', '2'], context);
 
     expect(exitCode).toBe(1);
-    expect(context.errorText()).toContain('Ticket #002 is open');
+    expect(context.errorText()).toContain('Ticket #002 is pending');
     expect(context.errorText()).toContain('needs a ticket that is in-review');
     expect(context.errorText()).not.toContain('ticket review 002');
     expect(storedProgress().tasks[1]?.status).toBe('pending');
@@ -331,7 +331,7 @@ describe.skipIf(!gitIsAvailable())('reading tickets back', () => {
     const context = await run(['ticket', 'show', '1']);
 
     expect(context.outputText()).toContain('Ticket #001: Double-click a role to edit it');
-    expect(context.outputText()).toContain('status:   open');
+    expect(context.outputText()).toContain('status:   pending');
     expect(context.outputText()).toContain(FIRST_TICKET_FILE_NAME);
     expect(context.outputText()).toContain('## Acceptance');
   });
@@ -350,7 +350,7 @@ describe.skipIf(!gitIsAvailable())('reading tickets back', () => {
     expect(everything.outputText()).toContain('#001');
     expect(everything.outputText()).toContain('#002');
 
-    const narrowed = await run(['ticket', 'list', '--status', 'done']);
+    const narrowed = await run(['ticket', 'list', '--status', 'reviewed']);
     expect(narrowed.outputText()).toContain('#002');
     expect(narrowed.outputText()).not.toContain('#001');
   });
@@ -404,8 +404,8 @@ describe.skipIf(!gitIsAvailable())('the transition matrix', () => {
     const exitCode = await runCommandLine(['ticket', 'deliver', '1'], context);
 
     expect(exitCode).toBe(1);
-    expect(context.errorText()).toContain('Ticket #001 is open');
-    expect(context.errorText()).toContain('moves a ticket that is done');
+    expect(context.errorText()).toContain('Ticket #001 is pending');
+    expect(context.errorText()).toContain('moves a ticket that is reviewed');
     expect(context.errorText()).toContain('agent-progress ticket status 001 delivered');
   });
 
@@ -415,7 +415,7 @@ describe.skipIf(!gitIsAvailable())('the transition matrix', () => {
     expect(await runCommandLine(['ticket', 'deliver', '1'], contextHere())).toBe(1);
 
     expect(storedProgress().log).toHaveLength(logBefore);
-    expect(storedTicketText()).toContain('status: "open"');
+    expect(storedTicketText()).toContain('status: "pending"');
   });
 
   test('moving a ticket to the status it already has is refused, under both spellings', async () => {
@@ -434,9 +434,9 @@ describe.skipIf(!gitIsAvailable())('the transition matrix', () => {
   });
 
   test('ticket status makes the move the verbs refuse, and stamps the row it left unstarted', async () => {
-    await run(['ticket', 'status', '1', 'done']);
+    await run(['ticket', 'status', '1', 'reviewed']);
 
-    expect(storedTicketText()).toContain('status: "done"');
+    expect(storedTicketText()).toContain('status: "reviewed"');
     const row = storedProgress().tasks[0];
     expect(row?.status).toBe('reviewed');
     expect(row?.start).not.toBeNull();
@@ -451,12 +451,12 @@ describe.skipIf(!gitIsAvailable())('the transition matrix', () => {
     expect(storedTicketText()).toContain('status: "delivered"');
   });
 
-  test('abandon reaches anything but the two end states, and reopen anything but open', async () => {
+  test('abandon reaches anything but the two end states, and reopen anything but pending', async () => {
     await run(['ticket', 'status', '1', 'delivered']);
 
     const refused = contextHere();
     expect(await runCommandLine(['ticket', 'abandon', '1', '--reason', 'superseded'], refused)).toBe(1);
-    expect(refused.errorText()).toContain('moves a ticket that is open');
+    expect(refused.errorText()).toContain('moves a ticket that is pending');
 
     await run(['ticket', 'reopen', '1']);
     await run(['ticket', 'abandon', '1', '--reason', 'superseded by #7']);
@@ -565,7 +565,7 @@ describe.skipIf(!gitIsAvailable())('ticket dependencies', () => {
 
     expect(storedTicketText('003-report-the-import.md')).toContain('dependsOn: "001, 002"');
     expect((await run(['ticket', 'list'])).outputText()).toContain('Report the import  (waiting on #001, #002)');
-    expect((await run(['ticket', 'show', '3'])).outputText()).toContain('waits on: #001 (open), #002 (open)');
+    expect((await run(['ticket', 'show', '3'])).outputText()).toContain('waits on: #001 (pending), #002 (pending)');
   });
 
   test('depends replaces the list and logs it, and with no ids clears it', async () => {

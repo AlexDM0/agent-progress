@@ -1,5 +1,5 @@
 export type TicketType     = 'bug' | 'change' | 'feature';
-export type TicketStatus   = 'open' | 'in-progress' | 'in-review' | 'done' | 'delivered' | 'abandoned';
+export type TicketStatus   = 'pending' | 'in-progress' | 'in-review' | 'reviewed' | 'delivered' | 'abandoned';
 export type TicketPriority = 'low' | 'normal' | 'high';
 
 /** The model aliases a Claude Code agent definition's `model` key accepts, as an agent working a ticket runs on. */

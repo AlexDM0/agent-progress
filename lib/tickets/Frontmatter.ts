@@ -4,6 +4,7 @@
  * half-applied. The subset it accepts is stated in `docs/cli.md`.
  */
 
+import { LegacyStatusUtil }       from '../../src/adapters/utils/LegacyStatusUtil.ts';
 import type { TicketFrontmatter } from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { TicketIdUtil }           from '../../src/lib/tracker-model/utils/TicketIdUtil.ts';
 import { VocabularyUtil }         from '../../src/lib/tracker-model/utils/VocabularyUtil.ts';
@@ -290,8 +291,9 @@ function frontmatterFrom(
   extra: Array<[key: string, rawValue: string]>,
   closingFenceLine: number,
 ): TicketFrontmatter {
-  const typeText   = requiredText(knownValues, 'type', closingFenceLine);
-  const statusText = requiredText(knownValues, 'status', closingFenceLine);
+  const typeText         = requiredText(knownValues, 'type', closingFenceLine);
+  const storedStatusText = requiredText(knownValues, 'status', closingFenceLine);
+  const statusText       = LegacyStatusUtil.currentTicketStatusFor(storedStatusText) ?? storedStatusText;
 
   if (!VocabularyUtil.ticketTypeIsKnown(typeText)) {
     throw new FrontmatterProblem(`\`type\` is not a known ticket type: ${typeText}`, lineOf(knownValues, 'type', closingFenceLine));

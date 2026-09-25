@@ -40,7 +40,7 @@ function exampleTicket(id: string, changes: Partial<PageTicket> = {}): PageTicke
     id,
     title:       `Example ticket ${id}`,
     type:        'feature',
-    status:      'open',
+    status:      'pending',
     filed:       at('08:00'),
     updated:     at('08:00'),
     started:     null,
