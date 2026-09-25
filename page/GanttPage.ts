@@ -7,8 +7,6 @@ import type { ProgressFile, ViewRange }             from '../src/lib/tracker-mod
 import type { Task }                                from '../src/lib/tracker-model/@types/Task.ts';
 import type { TicketStatus }                        from '../src/lib/tracker-model/@types/Ticket.ts';
 import type { PageLimits, PagePayload, PageTicket } from '../src/shared/@types/PagePayload.ts';
-import type { Timeline }                            from './GanttGeometry.ts';
-import { computeTimeline }                          from './GanttGeometry.ts';
 import type { ClosedKanbanLane, KanbanCard }        from './KanbanBoard.ts';
 import {
   abandonedLaneChoiceFor,
@@ -71,10 +69,8 @@ import {
   ticketTableRowsMarkup,
   tickLayerMarkup,
 } from './PageMarkup.ts';
-import { calendarDateOf }        from './StampText.ts';
 import { taskDetailMarkup }      from './TaskDetail.ts';
 import { ticketDetailMarkup }    from './TicketDetail.ts';
-import { tickLabelIsCovered }    from './TicketTimeline.ts';
 import type { WorkVisibility }   from './WorkVisibility.ts';
 import {
   DEFAULT_WORK_VISIBILITY,
@@ -84,6 +80,9 @@ import {
   workVisibilityFrom,
   workVisibilityStorageKeyFor,
 } from './WorkVisibility.ts';
+import type { Timeline } from './utils/GeometryUtil.ts';
+import { GeometryUtil }  from './utils/GeometryUtil.ts';
+import { TimeUtil }      from './utils/TimeUtil.ts';
 
 const PROGRESS_ISLAND_ELEMENT_ID = 'ap-progress-data';
 const TICKETS_ISLAND_ELEMENT_ID  = 'ap-tickets-data';
@@ -432,7 +431,7 @@ function markCoveredTickLabels(): void {
   const endBox = endLabel.getBoundingClientRect();
   for (const tick of body.querySelectorAll('.ap-ticket-gantt-ticks .ap-tick')) {
     const label = tick.firstElementChild;
-    tick.toggleAttribute('data-covered', label !== null && tickLabelIsCovered(label.getBoundingClientRect(), endBox));
+    tick.toggleAttribute('data-covered', label !== null && GeometryUtil.tickLabelIsCovered(label.getBoundingClientRect(), endBox));
   }
 }
 
@@ -657,7 +656,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     const visibleTasks         = progress.tasks.filter((task) => showsAll || !taskIsLongDone(task, nowEpochMilliseconds, windowMilliseconds));
     const visibleTickets       = tickets.filter((ticket) => showsAll || !ticketIsLongDone(ticket, nowEpochMilliseconds, windowMilliseconds));
     visibleProgress = { ...progress, tasks: visibleTasks };
-    todayCalendarDate = calendarDateOf(nowEpochMilliseconds);
+    todayCalendarDate = TimeUtil.calendarDateOf(nowEpochMilliseconds);
 
     setShortenedText('ap-generated', generatedStampText(payload.generatedAtEpochMilliseconds, todayCalendarDate));
     showLog(progress.log, limits, todayCalendarDate, logVisibility);
@@ -675,7 +674,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   const layOut = (bringNowIntoView: boolean): void => {
     const nowEpochMilliseconds = Date.now();
     const range: ViewRange     = effectiveRangeFor(visibleProgress, override, nowEpochMilliseconds, limits);
-    const timeline             = computeTimeline({
+    const timeline             = GeometryUtil.computeTimeline({
       progress: visibleProgress,
       range,
       nowEpochMilliseconds,
@@ -699,7 +698,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     setMarkup('ap-rows', taskRowsMarkup(taskRowsFor(visibleProgress, timeline, ticketStatusById, waitingOnById), limits));
     setHidden('ap-chart-empty', visibleProgress.tasks.length > 0);
 
-    const rangeNote = rangeNoteText(timeline.fromEpochMilliseconds, timeline.toEpochMilliseconds, timeline.stepMinutes, calendarDateOf(nowEpochMilliseconds), limits);
+    const rangeNote = rangeNoteText(timeline.fromEpochMilliseconds, timeline.toEpochMilliseconds, timeline.stepMinutes, TimeUtil.calendarDateOf(nowEpochMilliseconds), limits);
     setShortenedText('ap-range-note', rangeNote);
     reflectRangeBar(override);
 

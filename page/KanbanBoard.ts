@@ -9,10 +9,10 @@ import { TicketDefaultsUtil }                from '../src/lib/tracker-model/util
 import type { PageTicket }                   from '../src/shared/@types/PagePayload.ts';
 import { LIMITS }                            from '../src/shared/constants/Limits.ts';
 import { TicketNumberUtil }                  from '../src/shared/utils/TicketNumberUtil.ts';
-import type { RowState, TimestampSlices }    from './PageMarkup.ts';
+import type { RowState }                     from './PageMarkup.ts';
 import { deliveredAfterReview, rowStateFor } from './PageMarkup.ts';
-import { shortStampText }                    from './StampText.ts';
-import { formatDuration }                    from './TaskDetail.ts';
+import type { TimestampSlices }              from './utils/TimeUtil.ts';
+import { TimeUtil }                          from './utils/TimeUtil.ts';
 
 export type KanbanLane = 'todo' | 'progress' | 'review' | 'merge' | 'done' | 'abandoned';
 
@@ -182,13 +182,13 @@ function newestReviewRowOf(ticketId: string, tasks: readonly Task[]): Task | nul
 }
 
 function stampNote(prefix: string, stamp: string | null | undefined, format: NoteFormat): string | null {
-  return stamp === null || stamp === undefined || stamp === '' ? null : `${prefix} ${shortStampText(stamp, format.todayCalendarDate, format.slices)}`;
+  return stamp === null || stamp === undefined || stamp === '' ? null : `${prefix} ${TimeUtil.shortStampText(stamp, format.todayCalendarDate, format.slices)}`;
 }
 
 /** `null` for a stamp missing, unreadable or later than now, which a backfilled `--at` can write. */
 function durationSince(stamp: string | null | undefined, format: NoteFormat): string | null {
   const epochMilliseconds = stamp === null || stamp === undefined ? Number.NaN : Date.parse(stamp);
-  return Number.isNaN(epochMilliseconds) ? null : formatDuration(format.nowEpochMilliseconds - epochMilliseconds);
+  return Number.isNaN(epochMilliseconds) ? null : TimeUtil.formatDuration(format.nowEpochMilliseconds - epochMilliseconds);
 }
 
 function pausedNote(card: KanbanCard, format: NoteFormat): string | null {

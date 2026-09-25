@@ -1,16 +1,18 @@
 /**
  * The Gantt axis and bar geometry as pure arithmetic over epoch milliseconds: no DOM, no clock. Its bounds arrive as a parameter instead of
- * from `src/shared/constants/Limits.ts`, so `page/GanttGeometry.spec.ts` drives it with a constructed tick ladder; the page passes what
+ * from `src/shared/constants/Limits.ts`, so `page/utils/GeometryUtil.spec.ts` drives it with a constructed tick ladder; the page passes what
  * `lib/render/Template.ts` put in the progress island.
  */
 
-import type { ProgressFile, ViewRange } from '../src/lib/tracker-model/@types/ProgressFile.ts';
-import type { Task }                    from '../src/lib/tracker-model/@types/Task.ts';
-import type { PageLimits }              from '../src/shared/@types/PagePayload.ts';
+import type { ProgressFile, ViewRange }                from '../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Task }                                   from '../../src/lib/tracker-model/@types/Task.ts';
+import type { PageLimits }                             from '../../src/shared/@types/PagePayload.ts';
+import { MILLISECONDS_PER_MINUTE, PERCENT_OF_A_WHOLE } from '../constants/Units.ts';
+import { TimeUtil }                                    from './TimeUtil.ts';
 
-const MILLISECONDS_PER_MINUTE = 60_000;
-const PERCENT_OF_A_WHOLE      = 100;
-const MINIMUM_STEP_MINUTES    = 1;
+const MINIMUM_STEP_MINUTES = 1;
+
+const TICK_LABEL_CLEARANCE_PIXELS = 6;
 
 const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 
@@ -45,12 +47,16 @@ export interface ResolvedSpan {
   toEpochMilliseconds:   number;
 }
 
-function parseTimestamp(text: string | null): number | null {
-  if (text === null || text === '') {
-    return null;
-  }
-  const parsed = Date.parse(text);
-  return Number.isNaN(parsed) ? null : parsed;
+export interface TimelineInput {
+  progress:             ProgressFile;
+  range:                ViewRange;
+  nowEpochMilliseconds: number;
+  limits:               TimelineLimits;
+}
+
+export interface HorizontalExtent {
+  left:  number;
+  right: number;
 }
 
 function parseOffsetMinutes(text: string, limits: TimelineLimits): number | null {
@@ -71,7 +77,7 @@ function parseOffsetMinutes(text: string, limits: TimelineLimits): number | null
 function earliestRecordedMoment(progress: ProgressFile, startedAtEpochMilliseconds: number): number {
   let earliestEpochMilliseconds: number | null = null;
   for (const task of progress.tasks) {
-    const startEpochMilliseconds = parseTimestamp(task.start);
+    const startEpochMilliseconds = TimeUtil.epochMillisecondsOf(task.start);
     if (startEpochMilliseconds !== null && (earliestEpochMilliseconds === null || startEpochMilliseconds < earliestEpochMilliseconds)) {
       earliestEpochMilliseconds = startEpochMilliseconds;
     }
@@ -79,7 +85,7 @@ function earliestRecordedMoment(progress: ProgressFile, startedAtEpochMillisecon
   return earliestEpochMilliseconds ?? startedAtEpochMilliseconds;
 }
 
-export function spanFitsClockOnlyLabels(spanMinutes: number, hoursAxisLabelLimitMinutes: number): boolean {
+function spanFitsClockOnlyLabels(spanMinutes: number, hoursAxisLabelLimitMinutes: number): boolean {
   return spanMinutes < hoursAxisLabelLimitMinutes;
 }
 
@@ -96,14 +102,14 @@ function resolveEndpoint(text: string, earliestEpochMilliseconds: number, nowEpo
   if (offsetMinutes !== null) {
     return nowEpochMilliseconds + offsetMinutes * MILLISECONDS_PER_MINUTE;
   }
-  return parseTimestamp(trimmed);
+  return TimeUtil.epochMillisecondsOf(trimmed);
 }
 
 function resolveAutomaticSpan(progress: ProgressFile, earliestEpochMilliseconds: number, nowEpochMilliseconds: number, limits: TimelineLimits): ResolvedSpan {
   let horizonEpochMilliseconds = nowEpochMilliseconds;
   for (const task of progress.tasks) {
-    const startEpochMilliseconds = parseTimestamp(task.start);
-    const endEpochMilliseconds   = parseTimestamp(task.end);
+    const startEpochMilliseconds = TimeUtil.epochMillisecondsOf(task.start);
+    const endEpochMilliseconds   = TimeUtil.epochMillisecondsOf(task.end);
     if (startEpochMilliseconds !== null && startEpochMilliseconds > horizonEpochMilliseconds) {
       horizonEpochMilliseconds = startEpochMilliseconds;
     }
@@ -120,7 +126,7 @@ function resolveAutomaticSpan(progress: ProgressFile, earliestEpochMilliseconds:
 }
 
 function resolveSpan(progress: ProgressFile, range: ViewRange, nowEpochMilliseconds: number, limits: TimelineLimits): ResolvedSpan {
-  const startedAtEpochMilliseconds = parseTimestamp(progress.startedAt) ?? nowEpochMilliseconds;
+  const startedAtEpochMilliseconds = TimeUtil.epochMillisecondsOf(progress.startedAt) ?? nowEpochMilliseconds;
   const earliestEpochMilliseconds  = earliestRecordedMoment(progress, startedAtEpochMilliseconds);
   if (range.kind === 'auto') {
     return resolveAutomaticSpan(progress, earliestEpochMilliseconds, nowEpochMilliseconds, limits);
@@ -139,7 +145,7 @@ function resolveSpan(progress: ProgressFile, range: ViewRange, nowEpochMilliseco
   return { fromEpochMilliseconds, toEpochMilliseconds };
 }
 
-export function chooseStepMinutes(spanMinutes: number, tickMinutes: number | null, limits: TimelineLimits): number {
+function chooseStepMinutes(spanMinutes: number, tickMinutes: number | null, limits: TimelineLimits): number {
   if (tickMinutes !== null && tickMinutes > 0) {
     return Math.max(MINIMUM_STEP_MINUTES, tickMinutes);
   }
@@ -158,23 +164,19 @@ function localWallClockMinutes(epochMilliseconds: number): number {
   return Math.floor(epochMilliseconds / MILLISECONDS_PER_MINUTE) - moment.getTimezoneOffset();
 }
 
-function padToTwoDigits(value: number): string {
-  return value < 10 ? `0${value}` : String(value);
-}
-
 function formatTickLabel(epochMilliseconds: number, spanMinutes: number, limits: TimelineLimits): string {
   const moment     = new Date(epochMilliseconds);
-  const clockLabel = `${padToTwoDigits(moment.getHours())}:${padToTwoDigits(moment.getMinutes())}`;
+  const clockLabel = `${TimeUtil.padToTwoDigits(moment.getHours())}:${TimeUtil.padToTwoDigits(moment.getMinutes())}`;
   if (spanFitsClockOnlyLabels(spanMinutes, limits.hoursAxisLabelLimitMinutes)) {
     return clockLabel;
   }
   if (spanMinutes <= limits.weekAxisLabelLimitMinutes) {
     return `${WEEKDAY_NAMES[moment.getDay()] ?? ''} ${clockLabel}`;
   }
-  return `${padToTwoDigits(moment.getMonth() + 1)}-${padToTwoDigits(moment.getDate())}`;
+  return `${TimeUtil.padToTwoDigits(moment.getMonth() + 1)}-${TimeUtil.padToTwoDigits(moment.getDate())}`;
 }
 
-export function buildTicks(span: ResolvedSpan, stepMinutes: number, spanMinutes: number, limits: TimelineLimits): TimelineTick[] {
+function buildTicks(span: ResolvedSpan, stepMinutes: number, spanMinutes: number, limits: TimelineLimits): TimelineTick[] {
   const stepMilliseconds       = stepMinutes * MILLISECONDS_PER_MINUTE;
   const spanMilliseconds       = span.toEpochMilliseconds - span.fromEpochMilliseconds;
   const fromWallClockMinutes   = localWallClockMinutes(span.fromEpochMilliseconds);
@@ -204,7 +206,7 @@ function clampPercent(value: number): number {
 
 /** Every bar is a percentage of the axis box and never narrower than `minimumBarWidthPercent`, so a zero-length task is still visible. */
 function barForTask(task: Task, span: ResolvedSpan, nowEpochMilliseconds: number, limits: TimelineLimits): TimelineBar {
-  const startEpochMilliseconds = parseTimestamp(task.start);
+  const startEpochMilliseconds = TimeUtil.epochMillisecondsOf(task.start);
   if (startEpochMilliseconds === null) {
     return {
       taskId:       task.id,
@@ -215,7 +217,7 @@ function barForTask(task: Task, span: ResolvedSpan, nowEpochMilliseconds: number
       visible:      false,
     };
   }
-  const endEpochMilliseconds = Math.max(startEpochMilliseconds, parseTimestamp(task.end) ?? nowEpochMilliseconds);
+  const endEpochMilliseconds = Math.max(startEpochMilliseconds, TimeUtil.epochMillisecondsOf(task.end) ?? nowEpochMilliseconds);
   const spanMilliseconds     = span.toEpochMilliseconds - span.fromEpochMilliseconds;
   const rawLeftPercent       = (startEpochMilliseconds - span.fromEpochMilliseconds) / spanMilliseconds * PERCENT_OF_A_WHOLE;
   const rawRightPercent      = (endEpochMilliseconds - span.fromEpochMilliseconds) / spanMilliseconds * PERCENT_OF_A_WHOLE;
@@ -232,12 +234,7 @@ function barForTask(task: Task, span: ResolvedSpan, nowEpochMilliseconds: number
 }
 
 /** `nowPercent` is `null` whenever the present moment falls outside the range, and every caller depends on that to hide the marker. */
-export function computeTimeline(input: {
-  progress:             ProgressFile;
-  range:                ViewRange;
-  nowEpochMilliseconds: number;
-  limits:               TimelineLimits;
-}): Timeline {
+function computeTimeline(input: TimelineInput): Timeline {
   const {
     progress,
     range,
@@ -259,3 +256,16 @@ export function computeTimeline(input: {
     nowPercent:            nowIsInRange ? (nowEpochMilliseconds - span.fromEpochMilliseconds) / spanMilliseconds * PERCENT_OF_A_WHOLE : null,
   };
 }
+
+/** A tick label within the clearance of the end label on either side is covered by it; the page hides those after measuring both. */
+function tickLabelIsCovered(tickLabel: HorizontalExtent, endLabel: HorizontalExtent): boolean {
+  return tickLabel.right + TICK_LABEL_CLEARANCE_PIXELS > endLabel.left && tickLabel.left - TICK_LABEL_CLEARANCE_PIXELS < endLabel.right;
+}
+
+export const GeometryUtil = {
+  spanFitsClockOnlyLabels,
+  chooseStepMinutes,
+  buildTicks,
+  computeTimeline,
+  tickLabelIsCovered,
+} as const;

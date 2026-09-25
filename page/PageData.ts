@@ -3,7 +3,7 @@
 import type { ProgressFile, ViewRange }             from '../src/lib/tracker-model/@types/ProgressFile.ts';
 import { TicketDependencyUtil }                     from '../src/lib/tracker-model/utils/TicketDependencyUtil.ts';
 import type { PageLimits, PagePayload, PageTicket } from '../src/shared/@types/PagePayload.ts';
-import { computeTimeline }                          from './GanttGeometry.ts';
+import { GeometryUtil }                             from './utils/GeometryUtil.ts';
 
 export interface StoredViewOverride {
   presetKey:   string | null;
@@ -156,7 +156,7 @@ export function effectiveRangeFor(progress: ProgressFile, override: StoredViewOv
       tickMinutes: override.tickMinutes,
     };
   }
-  const automatic = computeTimeline({
+  const automatic = GeometryUtil.computeTimeline({
     progress,
     range: base,
     nowEpochMilliseconds,

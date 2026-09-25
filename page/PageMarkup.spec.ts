@@ -2,14 +2,11 @@
  * The markup the page emits into `resources/template.html`, with every tracker value escaped exactly once.
  */
 
-import { describe, expect, test }           from 'bun:test';
-import type { LogEntry }                    from '../src/lib/tracker-model/@types/ProgressFile.ts';
-import type { Task, TaskStatus }            from '../src/lib/tracker-model/@types/Task.ts';
-import type { TicketStatus }                from '../src/lib/tracker-model/@types/Ticket.ts';
-import type { PageTicket }                  from '../src/shared/@types/PagePayload.ts';
-import type { TimelineBar, TimelineLimits } from './GanttGeometry.ts';
-import { computeTimeline }                  from './GanttGeometry.ts';
-import type { TimestampSlices }             from './PageMarkup.ts';
+import { describe, expect, test } from 'bun:test';
+import type { LogEntry }          from '../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Task, TaskStatus }  from '../src/lib/tracker-model/@types/Task.ts';
+import type { TicketStatus }      from '../src/lib/tracker-model/@types/Ticket.ts';
+import type { PageTicket }        from '../src/shared/@types/PagePayload.ts';
 import {
   axisPixelsNeededFor,
   generatedStampText,
@@ -24,7 +21,13 @@ import {
   ticketTableRowsMarkup,
   tickLayerMarkup,
 } from './PageMarkup.ts';
-import { calendarDateOf, fullInstantText } from './StampText.ts';
+import type { TimelineBar, TimelineLimits } from './utils/GeometryUtil.ts';
+import { GeometryUtil }                     from './utils/GeometryUtil.ts';
+import type { TimestampSlices }             from './utils/TimeUtil.ts';
+import { TimeUtil }                         from './utils/TimeUtil.ts';
+
+const { computeTimeline }                 = GeometryUtil;
+const { calendarDateOf, fullInstantText } = TimeUtil;
 
 /** The example board's own day: its stamps from the 18th print as a clock, the rest dated. */
 const EXAMPLE_TODAY = '2026-09-18';

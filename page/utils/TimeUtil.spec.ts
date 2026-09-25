@@ -1,21 +1,24 @@
 /**
  * The one stamp formatter. The cases that matter are the three forms a stored stamp takes against the viewer's day, a stamp whose offset
  * puts it on another day in the viewer's zone (it is compared as written, never parsed), and the instant forms, which are local time and so
- * are checked against the instant's own local date rather than a literal clock.
+ * are checked against the instant's own local date rather than a literal clock. A duration matters at its unit boundaries and when it runs backwards.
  */
 
 import { describe, expect, test } from 'bun:test';
 
-import type { StampTextSlices } from './StampText.ts';
-import {
+import type { TimestampSlices } from './TimeUtil.ts';
+import { TimeUtil }             from './TimeUtil.ts';
+
+const {
   calendarDateOf,
+  formatDuration,
   fullInstantText,
   fullStampText,
   shortInstantText,
   shortStampText,
-} from './StampText.ts';
+} = TimeUtil;
 
-const EXAMPLE_SLICES: StampTextSlices = {
+const EXAMPLE_SLICES: TimestampSlices = {
   dateAndClockLength:    16,
   calendarDateLength:    10,
   monthAndDaySliceStart: 5,
@@ -84,5 +87,26 @@ describe('the instant forms', () => {
 
     expect(shortInstantText(lastYear, today)).toBe(fullInstantText(lastYear));
     expect(fullInstantText(lastYear)).toMatch(/^2025-\d\d-\d\d \d\d:\d\d$/);
+  });
+});
+
+describe('formatDuration', () => {
+  test.each<[number, string]>([
+    [0, 'under a minute'],
+    [30_000, 'under a minute'],
+    [60_000, '1m'],
+    [45 * 60_000, '45m'],
+    [60 * 60_000, '1h'],
+    [135 * 60_000, '2h 15m'],
+    [26 * 60 * 60_000, '1d 2h'],
+    [48 * 60 * 60_000, '2d'],
+  ])('reads %i milliseconds as %s', (milliseconds, expected) => {
+    expect(formatDuration(milliseconds)).toBe(expected);
+  });
+
+  // A backfilled `--at` can put a later phase earlier; a negative span is no duration at all, neither "-3m" nor "under a minute".
+  test('names no duration for a span that runs backwards', () => {
+    expect(formatDuration(-180_000)).toBeNull();
+    expect(formatDuration(-1)).toBeNull();
   });
 });

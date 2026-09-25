@@ -6,11 +6,11 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import type { LogEntry }                    from '../src/lib/tracker-model/@types/ProgressFile.ts';
-import type { Task }                        from '../src/lib/tracker-model/@types/Task.ts';
-import type { PageTicket }                  from '../src/shared/@types/PagePayload.ts';
-import type { TimestampSlices }             from './PageMarkup.ts';
-import { formatDuration, taskDetailMarkup } from './TaskDetail.ts';
+import type { LogEntry }        from '../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Task }            from '../src/lib/tracker-model/@types/Task.ts';
+import type { PageTicket }      from '../src/shared/@types/PagePayload.ts';
+import { taskDetailMarkup }     from './TaskDetail.ts';
+import type { TimestampSlices } from './utils/TimeUtil.ts';
 
 const EXAMPLE_SLICES: TimestampSlices = {
   dateAndClockLength:    16,
@@ -412,26 +412,5 @@ describe('the log', () => {
 
     expect(markup).not.toContain('<ul class="ap-detail-log"></ul>');
     expect(markup).toContain('No log line names this row');
-  });
-});
-
-describe('formatDuration', () => {
-  test.each<[number, string]>([
-    [0, 'under a minute'],
-    [30_000, 'under a minute'],
-    [60_000, '1m'],
-    [45 * 60_000, '45m'],
-    [60 * 60_000, '1h'],
-    [135 * 60_000, '2h 15m'],
-    [26 * 60 * 60_000, '1d 2h'],
-    [48 * 60 * 60_000, '2d'],
-  ])('reads %i milliseconds as %s', (milliseconds, expected) => {
-    expect(formatDuration(milliseconds)).toBe(expected);
-  });
-
-  // A backfilled `--at` can put a later phase earlier; a negative span is no duration at all, neither "-3m" nor "under a minute".
-  test('names no duration for a span that runs backwards', () => {
-    expect(formatDuration(-180_000)).toBeNull();
-    expect(formatDuration(-1)).toBeNull();
   });
 });

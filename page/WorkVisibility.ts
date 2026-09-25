@@ -2,6 +2,7 @@
 
 import type { Task, TaskStatus }                from '../src/lib/tracker-model/@types/Task.ts';
 import type { TicketFrontmatter, TicketStatus } from '../src/lib/tracker-model/@types/Ticket.ts';
+import { TimeUtil }                             from './utils/TimeUtil.ts';
 
 export type WorkVisibility = 'recent' | 'all';
 
@@ -11,17 +12,9 @@ export const DEFAULT_WORK_VISIBILITY: WorkVisibility = 'recent';
 const DONE_TASK_STATUSES: readonly TaskStatus[]     = ['delivered', 'abandoned'];
 const DONE_TICKET_STATUSES: readonly TicketStatus[] = ['delivered', 'abandoned'];
 
-function epochMillisecondsOf(text: string | null): number | null {
-  if (text === null || text === '') {
-    return null;
-  }
-  const parsed = Date.parse(text);
-  return Number.isNaN(parsed) ? null : parsed;
-}
-
 // Comparing with now is a stated clock exception that decides only what the page shows, never what is stored.
 function doneLongerThan(doneAt: string | null, nowEpochMilliseconds: number, windowMilliseconds: number): boolean {
-  const doneEpochMilliseconds = epochMillisecondsOf(doneAt);
+  const doneEpochMilliseconds = TimeUtil.epochMillisecondsOf(doneAt);
   return doneEpochMilliseconds !== null && nowEpochMilliseconds - doneEpochMilliseconds > windowMilliseconds;
 }
 

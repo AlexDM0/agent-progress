@@ -3,37 +3,30 @@
  * phases and its review rows. DOM-free, and reads no clock: the page's now is handed in.
  */
 
-import type { Task, TaskPhase }              from '../src/lib/tracker-model/@types/Task.ts';
-import { TicketDefaultsUtil }                from '../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
-import { HtmlEscapeUtil }                    from '../src/lib/utils/HtmlEscapeUtil.ts';
-import { TokenCountUtil }                    from '../src/lib/utils/TokenCountUtil.ts';
-import type { PageTicket }                   from '../src/shared/@types/PagePayload.ts';
-import { LIMITS }                            from '../src/shared/constants/Limits.ts';
-import { TicketNumberUtil }                  from '../src/shared/utils/TicketNumberUtil.ts';
-import type { TimelineLimits, TimelineTick } from './GanttGeometry.ts';
-import { buildTicks, chooseStepMinutes }     from './GanttGeometry.ts';
-import { ownRowOf }                          from './KanbanBoard.ts';
-import type { RowState, TimestampSlices }    from './PageMarkup.ts';
-import { attribute, pillLabelForRowState }   from './PageMarkup.ts';
-import {
-  calendarDateOf,
-  fullStampText,
-  shortInstantText,
-  shortStampText,
-} from './StampText.ts';
-import { formatDuration } from './TaskDetail.ts';
+import type { Task, TaskPhase }                        from '../src/lib/tracker-model/@types/Task.ts';
+import { TicketDefaultsUtil }                          from '../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
+import { HtmlEscapeUtil }                              from '../src/lib/utils/HtmlEscapeUtil.ts';
+import { TokenCountUtil }                              from '../src/lib/utils/TokenCountUtil.ts';
+import type { PageTicket }                             from '../src/shared/@types/PagePayload.ts';
+import { LIMITS }                                      from '../src/shared/constants/Limits.ts';
+import { TicketNumberUtil }                            from '../src/shared/utils/TicketNumberUtil.ts';
+import { ownRowOf }                                    from './KanbanBoard.ts';
+import type { RowState }                               from './PageMarkup.ts';
+import { attribute, pillLabelForRowState }             from './PageMarkup.ts';
+import { MILLISECONDS_PER_MINUTE, PERCENT_OF_A_WHOLE } from './constants/Units.ts';
+import type { TimelineLimits, TimelineTick }           from './utils/GeometryUtil.ts';
+import { GeometryUtil }                                from './utils/GeometryUtil.ts';
+import type { TimestampSlices }                        from './utils/TimeUtil.ts';
+import { TimeUtil }                                    from './utils/TimeUtil.ts';
 
 const { escapeHtml }       = HtmlEscapeUtil;
 const { formatTokenCount } = TokenCountUtil;
 
-const MILLISECONDS_PER_MINUTE = 60_000;
-const PERCENT_OF_A_WHOLE      = 100;
-const PERCENT_DECIMAL_PLACES  = 2;
+const PERCENT_DECIMAL_PLACES = 2;
 
 export const AXIS_PADDING_FRACTION_PER_SIDE = 0.025;
 export const TICKET_TIMELINE_MAXIMUM_TICKS  = 9;
 export const SEGMENT_LABEL_MINIMUM_PERCENT  = 9;
-export const TICK_LABEL_CLEARANCE_PIXELS    = 6;
 
 const LOW_PRIORITY_WITHOUT_ROW_NOTE = 'Not started. Low priority: it gets a build row once it is started, after every normal and high ticket is delivered.';
 const ABANDONED_WITHOUT_ROW_NOTE    = 'Abandoned before it was started; it never had a build row.';
@@ -103,26 +96,8 @@ export interface TicketTimeline {
   note:          string | null;
 }
 
-export interface HorizontalExtent {
-  left:  number;
-  right: number;
-}
-
-function epochOf(stamp: string | null | undefined): number | null {
-  if (stamp === null || stamp === undefined || stamp === '') {
-    return null;
-  }
-  const parsed = Date.parse(stamp);
-  return Number.isNaN(parsed) ? null : parsed;
-}
-
 export function clockLabelFor(epochMilliseconds: number): string {
-  return shortInstantText(epochMilliseconds, calendarDateOf(epochMilliseconds));
-}
-
-/** A tick label within the clearance of the end label on either side is covered by it; the page hides those after measuring both. */
-export function tickLabelIsCovered(tickLabel: HorizontalExtent, endLabel: HorizontalExtent): boolean {
-  return tickLabel.right + TICK_LABEL_CLEARANCE_PIXELS > endLabel.left && tickLabel.left - TICK_LABEL_CLEARANCE_PIXELS < endLabel.right;
+  return TimeUtil.shortInstantText(epochMilliseconds, TimeUtil.calendarDateOf(epochMilliseconds));
 }
 
 function closedStateOf(ticket: PageTicket): ClosedTicketState | null {
@@ -163,8 +138,8 @@ function axisFor(filedEpochMilliseconds: number, lastMomentEpochMilliseconds: nu
 
 function ticksFor(axis: TicketTimelineAxis, limits: TimelineLimits): TimelineTick[] {
   const spanMinutes = (axis.toEpochMilliseconds - axis.fromEpochMilliseconds) / MILLISECONDS_PER_MINUTE;
-  const stepMinutes = chooseStepMinutes(spanMinutes, null, { ...limits, maximumTicksPerAxis: TICKET_TIMELINE_MAXIMUM_TICKS });
-  return buildTicks(axis, stepMinutes, spanMinutes, limits);
+  const stepMinutes = GeometryUtil.chooseStepMinutes(spanMinutes, null, { ...limits, maximumTicksPerAxis: TICKET_TIMELINE_MAXIMUM_TICKS });
+  return GeometryUtil.buildTicks(axis, stepMinutes, spanMinutes, limits);
 }
 
 function percentAlong(axis: TicketTimelineAxis, epochMilliseconds: number): number {
@@ -196,21 +171,21 @@ function buildSegmentsOf(ownRow: Task | null, lastMomentEpochMilliseconds: numbe
     return [];
   }
   const history           = ownRow.history ?? [];
-  const rowEndMilliseconds = epochOf(ownRow.end);
+  const rowEndMilliseconds = TimeUtil.epochMillisecondsOf(ownRow.end);
   const recorded = history.flatMap((phase, index) => {
-    const startEpochMilliseconds = epochOf(phase.at);
+    const startEpochMilliseconds = TimeUtil.epochMillisecondsOf(phase.at);
     if ((phase.status !== 'in-progress' && phase.status !== 'paused') || startEpochMilliseconds === null) {
       return [];
     }
     const nextPhase = history[index + 1];
     const isLast    = nextPhase === undefined;
-    const end       = epochOf(nextPhase?.at) ?? rowEndMilliseconds ?? lastMomentEpochMilliseconds;
+    const end       = TimeUtil.epochMillisecondsOf(nextPhase?.at) ?? rowEndMilliseconds ?? lastMomentEpochMilliseconds;
     return [buildSpan(phase.status, startEpochMilliseconds, end, isLast && rowEndMilliseconds === null && !ticketIsClosed)];
   });
   if (recorded.length > 0) {
     return recorded;
   }
-  const startEpochMilliseconds = epochOf(ownRow.start);
+  const startEpochMilliseconds = TimeUtil.epochMillisecondsOf(ownRow.start);
   if (startEpochMilliseconds === null) {
     return [];
   }
@@ -227,8 +202,8 @@ function latestBuildFinishedPhaseOf(ownRow: Task | null): TaskPhase | undefined 
 
 function buildEndOf(ticket: PageTicket, ownRow: Task | null): number | null {
   const finishedPhase = latestBuildFinishedPhaseOf(ownRow);
-  const rowEnd        = ownRow !== null && ROW_STATUSES_PAST_THE_BUILD.includes(ownRow.status) ? epochOf(ownRow.end) : null;
-  return epochOf(ticket.finished) ?? epochOf(finishedPhase?.at) ?? rowEnd;
+  const rowEnd        = ownRow !== null && ROW_STATUSES_PAST_THE_BUILD.includes(ownRow.status) ? TimeUtil.epochMillisecondsOf(ownRow.end) : null;
+  return TimeUtil.epochMillisecondsOf(ticket.finished) ?? TimeUtil.epochMillisecondsOf(finishedPhase?.at) ?? rowEnd;
 }
 
 /** Oldest first by filing order, which is the row id: nothing here compares two clocks to decide an order. */
@@ -241,12 +216,12 @@ function reviewRowsOf(ticket: PageTicket, tasks: readonly Task[]): Task[] {
 
 function reviewSpansOf(reviewRows: readonly Task[], lastMomentEpochMilliseconds: number, ticketIsClosed: boolean): ReviewSpan[] {
   const started = reviewRows.flatMap((row) => {
-    const startEpochMilliseconds = epochOf(row.start);
+    const startEpochMilliseconds = TimeUtil.epochMillisecondsOf(row.start);
     return startEpochMilliseconds === null ? [] : [{ row, startEpochMilliseconds }];
   });
   return started.map(({ row, startEpochMilliseconds }, index) => {
     const round = index + 1;
-    const end   = epochOf(row.end);
+    const end   = TimeUtil.epochMillisecondsOf(row.end);
     return {
       ...timelineSpan(round === 1 ? 'reviewing' : 're-review', `Review ${round}`, startEpochMilliseconds, end ?? lastMomentEpochMilliseconds, end === null && !ticketIsClosed),
       round,
@@ -316,7 +291,7 @@ function legendOf(spans: readonly TimelineSpan[]): LegendEntry[] {
     }
   }
   return totals.flatMap((total) => {
-    const durationText = total.milliseconds > 0 ? formatDuration(total.milliseconds) : null;
+    const durationText = total.milliseconds > 0 ? TimeUtil.formatDuration(total.milliseconds) : null;
     return durationText === null ? [] : [{ state: total.state, label: total.label, durationText }];
   });
 }
@@ -351,27 +326,27 @@ function noteOf(input: NoteInput): string | null {
   if (ownRow === null && TicketDefaultsUtil.ticketPriorityOf(ticket) === 'low') {
     return LOW_PRIORITY_WITHOUT_ROW_NOTE;
   }
-  const queued = formatDuration(input.queuedMilliseconds);
+  const queued = TimeUtil.formatDuration(input.queuedMilliseconds);
   return queued === null ? null : `Not started: in the queue for ${queued}.${waitReasonOf(ticket, input.waitingOn)}`;
 }
 
 function endOf(axis: TicketTimelineAxis, closedState: ClosedTicketState | null, closingStamp: string | null, input: TicketTimelineInput): TimelineEnd {
   const label = closedState === null || closingStamp === null
     ? `now ${clockLabelFor(input.nowEpochMilliseconds)}`
-    : `${closedState} ${shortStampText(closingStamp, input.todayCalendarDate, input.limits)}`;
+    : `${closedState} ${TimeUtil.shortStampText(closingStamp, input.todayCalendarDate, input.limits)}`;
   return { closedState, label, leftPercent: percentAlong(axis, axis.lastMomentEpochMilliseconds) };
 }
 
 function durationTextOf(milliseconds: number): string {
-  return formatDuration(milliseconds) ?? '';
+  return TimeUtil.formatDuration(milliseconds) ?? '';
 }
 
 export function ticketTimelineOf(input: TicketTimelineInput): TicketTimeline {
   const { ticket, tasks, limits } = input;
   const closedState               = closedStateOf(ticket);
   const closingStamp              = closingStampOf(ticket, closedState);
-  const filedEpochMilliseconds    = epochOf(ticket.filed) ?? input.nowEpochMilliseconds;
-  const lastMoment                = Math.max(filedEpochMilliseconds, epochOf(closingStamp) ?? input.nowEpochMilliseconds);
+  const filedEpochMilliseconds    = TimeUtil.epochMillisecondsOf(ticket.filed) ?? input.nowEpochMilliseconds;
+  const lastMoment                = Math.max(filedEpochMilliseconds, TimeUtil.epochMillisecondsOf(closingStamp) ?? input.nowEpochMilliseconds);
   const axis                      = axisFor(filedEpochMilliseconds, lastMoment, limits);
   const ownRow                    = ownRowOf(ticket.id, tasks);
   const buildSegments             = buildSegmentsOf(ownRow, lastMoment, closedState !== null);
@@ -384,7 +359,7 @@ export function ticketTimelineOf(input: TicketTimelineInput): TicketTimeline {
   const afterBuild                = afterBuildSpansOf({
     buildEndEpochMilliseconds:   buildEndOf(ticket, ownRow),
     reviews,
-    reviewedEpochMilliseconds:   epochOf(ownRow?.reviewed),
+    reviewedEpochMilliseconds:   TimeUtil.epochMillisecondsOf(ownRow?.reviewed),
     closedState,
     lastMomentEpochMilliseconds: lastMoment,
   });
@@ -430,9 +405,9 @@ function barStyle(axis: TicketTimelineAxis, span: TimelineSpan, limits: Timeline
 }
 
 function spanTitle(span: TimelineSpan, label: string, todayCalendarDate: string): string {
-  const startText = shortInstantText(span.startEpochMilliseconds, todayCalendarDate);
-  const endText   = span.isLive ? ' → now' : `–${shortInstantText(span.endEpochMilliseconds, todayCalendarDate)}`;
-  const duration  = formatDuration(span.endEpochMilliseconds - span.startEpochMilliseconds);
+  const startText = TimeUtil.shortInstantText(span.startEpochMilliseconds, todayCalendarDate);
+  const endText   = span.isLive ? ' → now' : `–${TimeUtil.shortInstantText(span.endEpochMilliseconds, todayCalendarDate)}`;
+  const duration  = TimeUtil.formatDuration(span.endEpochMilliseconds - span.startEpochMilliseconds);
   return `${label} ${startText}${endText}${duration === null ? '' : ` · ${duration}`}`;
 }
 
@@ -451,15 +426,15 @@ function ganttRowMarkup(nameMarkup: string, timeText: string, trackMarkup: strin
 function filedNameMarkup(ticket: PageTicket, input: TicketTimelineInput): string {
   const { limits, todayCalendarDate } = input;
   if (ticket.filed.slice(0, limits.calendarDateLength) === todayCalendarDate) {
-    return `<span class="ap-name">Filed <span class="mono">${escapeHtml(shortStampText(ticket.filed, todayCalendarDate, limits))}</span></span>`;
+    return `<span class="ap-name">Filed <span class="mono">${escapeHtml(TimeUtil.shortStampText(ticket.filed, todayCalendarDate, limits))}</span></span>`;
   }
-  return `<span class="ap-name" ${attribute('title', `filed ${fullStampText(ticket.filed, limits)}`)}>Filed</span>`;
+  return `<span class="ap-name" ${attribute('title', `filed ${TimeUtil.fullStampText(ticket.filed, limits)}`)}>Filed</span>`;
 }
 
 function filedRowMarkup(timeline: TicketTimeline, input: TicketTimelineInput): string {
   const { queue, axis } = timeline;
   const queued          = durationTextOf(queue.endEpochMilliseconds - queue.startEpochMilliseconds);
-  const title           = `filed ${fullStampText(input.ticket.filed, input.limits)} · in the queue ${queued}${queue.isLive ? ' so far' : ''}`;
+  const title           = `filed ${TimeUtil.fullStampText(input.ticket.filed, input.limits)} · in the queue ${queued}${queue.isLive ? ' so far' : ''}`;
   const bar             = `<div class="ap-bar ap-ticket-gantt-filed" style="${barStyle(axis, queue, input.limits)}" ${attribute('title', title)}></div>`;
   return ganttRowMarkup(filedNameMarkup(input.ticket, input), timeline.queueTimeText, bar);
 }

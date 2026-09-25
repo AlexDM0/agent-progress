@@ -13,19 +13,15 @@ import { TokenCountUtil }                 from '../src/lib/utils/TokenCountUtil.
 import type { PageTicket }                from '../src/shared/@types/PagePayload.ts';
 import { LIMITS }                         from '../src/shared/constants/Limits.ts';
 import { TicketNumberUtil }               from '../src/shared/utils/TicketNumberUtil.ts';
-import type { TimelineBar, TimelineTick } from './GanttGeometry.ts';
-import {
-  fullInstantText,
-  fullStampText,
-  shortInstantText,
-  shortStampText,
-} from './StampText.ts';
+import { PERCENT_OF_A_WHOLE }             from './constants/Units.ts';
+import type { TimelineBar, TimelineTick } from './utils/GeometryUtil.ts';
+import type { TimestampSlices }           from './utils/TimeUtil.ts';
+import { TimeUtil }                       from './utils/TimeUtil.ts';
 
 const { escapeHtml }       = HtmlEscapeUtil;
 const { formatTokenCount } = TokenCountUtil;
 
-const PERCENT_DECIMAL_PLACES  = 2;
-const PERCENT_OF_A_WHOLE     = 100;
+const PERCENT_DECIMAL_PLACES = 2;
 
 const TICK_MINIMUM_PIXELS             = 60;
 const TICK_PIXELS_PER_LABEL_CHARACTER = 9;
@@ -54,14 +50,6 @@ const COLLAPSED_TICKET_STATUSES: readonly string[] = ['reviewed', 'delivered', '
 
 const LOW_PRIORITY_TITLE  = 'Low priority: no row on the chart until it is started, and worked once no normal or high ticket is left undelivered';
 const HIGH_PRIORITY_TITLE = 'High priority: dispatched before every normal ticket';
-
-export interface TimestampSlices {
-  dateAndClockLength:    number;
-  calendarDateLength:    number;
-  monthAndDaySliceStart: number;
-  clockSliceStart:       number;
-  clockSliceEnd:         number;
-}
 
 export interface TaskRow {
   task:         Task;
@@ -101,7 +89,7 @@ export function shortenedTextMarkup(tagName: string, text: string, fullText: str
 }
 
 export function stampMarkup(tagName: string, stamp: string, todayCalendarDate: string, slices: TimestampSlices): string {
-  return shortenedTextMarkup(tagName, shortStampText(stamp, todayCalendarDate, slices), fullStampText(stamp, slices));
+  return shortenedTextMarkup(tagName, TimeUtil.shortStampText(stamp, todayCalendarDate, slices), TimeUtil.fullStampText(stamp, slices));
 }
 
 export function axisPixelsNeededFor(ticks: readonly TimelineTick[]): number {
@@ -129,7 +117,7 @@ function pillLabelFor(state: RowState, task: Task): string {
 }
 
 function reviewedTitleFor(task: Task, slices: TimestampSlices): string {
-  return task.reviewed === undefined ? 'Reviewed before delivery' : `Reviewed ${fullStampText(task.reviewed, slices)} before delivery`;
+  return task.reviewed === undefined ? 'Reviewed before delivery' : `Reviewed ${TimeUtil.fullStampText(task.reviewed, slices)} before delivery`;
 }
 
 // Rows written before the review stamp existed carry none; a delivered ticket had to pass `reviewed`, so its row counts as reviewed.
@@ -356,7 +344,7 @@ export function latestMilestoneMarkup(ticket: PageTicket, slices: TimestampSlice
   ];
   for (const [label, value] of milestones) {
     if (typeof value === 'string' && value !== '') {
-      return shortenedTextMarkup('span', `${label} ${shortStampText(value, todayCalendarDate, slices)}`, `${label} ${fullStampText(value, slices)}`, className);
+      return shortenedTextMarkup('span', `${label} ${TimeUtil.shortStampText(value, todayCalendarDate, slices)}`, `${label} ${TimeUtil.fullStampText(value, slices)}`, className);
     }
   }
   return '';
@@ -388,7 +376,10 @@ export function ticketCardsMarkup(
 }
 
 export function generatedStampText(generatedAtEpochMilliseconds: number, todayCalendarDate: string): ShortenedText {
-  return shortenedText(`generated ${shortInstantText(generatedAtEpochMilliseconds, todayCalendarDate)}`, `generated ${fullInstantText(generatedAtEpochMilliseconds)}`);
+  return shortenedText(
+    `generated ${TimeUtil.shortInstantText(generatedAtEpochMilliseconds, todayCalendarDate)}`,
+    `generated ${TimeUtil.fullInstantText(generatedAtEpochMilliseconds)}`,
+  );
 }
 
 function tickStepLabel(stepMinutes: number, hourMinutes: number, dayMinutes: number): string {
@@ -415,7 +406,7 @@ export function rangeNoteText(
   limits: RangeNoteLimits,
 ): ShortenedText {
   const step      = `${tickStepLabel(stepMinutes, limits.hourMinutes, limits.dayMinutes)} ticks`;
-  const shortEnds = `${shortInstantText(fromEpochMilliseconds, todayCalendarDate)} \u2192 ${shortInstantText(toEpochMilliseconds, todayCalendarDate)}`;
-  const fullEnds  = `${fullInstantText(fromEpochMilliseconds)} \u2192 ${fullInstantText(toEpochMilliseconds)}`;
+  const shortEnds = `${TimeUtil.shortInstantText(fromEpochMilliseconds, todayCalendarDate)} \u2192 ${TimeUtil.shortInstantText(toEpochMilliseconds, todayCalendarDate)}`;
+  const fullEnds  = `${TimeUtil.fullInstantText(fromEpochMilliseconds)} \u2192 ${TimeUtil.fullInstantText(toEpochMilliseconds)}`;
   return shortenedText(`${shortEnds} \u00b7 ${step}`, `${fullEnds} \u00b7 ${step}`);
 }

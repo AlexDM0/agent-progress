@@ -10,7 +10,7 @@ import { HtmlEscapeUtil }                   from '../src/lib/utils/HtmlEscapeUti
 import { TokenCountUtil }                   from '../src/lib/utils/TokenCountUtil.ts';
 import type { PageTicket }                  from '../src/shared/@types/PagePayload.ts';
 import { LIMITS }                           from '../src/shared/constants/Limits.ts';
-import type { RowState, TimestampSlices }   from './PageMarkup.ts';
+import type { RowState }                    from './PageMarkup.ts';
 import {
   attribute,
   logItemsMarkup,
@@ -18,15 +18,11 @@ import {
   rowStateFor,
   stampMarkup,
 } from './PageMarkup.ts';
+import type { TimestampSlices } from './utils/TimeUtil.ts';
+import { TimeUtil }             from './utils/TimeUtil.ts';
 
 const { escapeHtml }       = HtmlEscapeUtil;
 const { formatTokenCount } = TokenCountUtil;
-
-const MILLISECONDS_PER_MINUTE = 60_000;
-const MINUTES_PER_HOUR        = 60;
-const HOURS_PER_DAY           = 24;
-
-const SHORTEST_NAMED_DURATION = 'under a minute';
 
 const PHASES_WERE_NOT_RECORDED_NOTE = 'The phases of this row were not recorded, so what follows is derived from its own stamps and its ticket’s.';
 
@@ -74,36 +70,6 @@ function stampFact(label: string, stamp: string, format: StampFormat): Fact {
   return [label, stampMarkup('span', stamp, format.todayCalendarDate, format.slices), true];
 }
 
-/** Instants the tool wrote are sliced for display; a span between two of them has no wall clock to preserve, so it is parsed and formatted. */
-function epochMillisecondsOf(timestamp: string | null | undefined): number | null {
-  if (timestamp === null || timestamp === undefined || timestamp === '') {
-    return null;
-  }
-  const parsed = Date.parse(timestamp);
-  return Number.isNaN(parsed) ? null : parsed;
-}
-
-/** Null for a span that runs backwards, which a backfilled `--at` can write: it is no duration, not a short one. */
-export function formatDuration(milliseconds: number): string | null {
-  if (milliseconds < 0) {
-    return null;
-  }
-  const totalMinutes = Math.floor(milliseconds / MILLISECONDS_PER_MINUTE);
-  if (totalMinutes < 1) {
-    return SHORTEST_NAMED_DURATION;
-  }
-  const days    = Math.floor(totalMinutes / (MINUTES_PER_HOUR * HOURS_PER_DAY));
-  const hours   = Math.floor(totalMinutes / MINUTES_PER_HOUR) % HOURS_PER_DAY;
-  const minutes = totalMinutes % MINUTES_PER_HOUR;
-  if (days > 0) {
-    return hours === 0 ? `${days}d` : `${days}d ${hours}h`;
-  }
-  if (hours > 0) {
-    return minutes === 0 ? `${hours}h` : `${hours}h ${minutes}m`;
-  }
-  return `${minutes}m`;
-}
-
 function ticketLinkMarkup(ticketId: string): string {
   return `<a ${attribute('href', `#ap-ticket-${ticketId}`)}>#${escapeHtml(ticketId)}</a>`;
 }
@@ -121,9 +87,9 @@ function factsMarkup(entries: readonly Fact[]): string {
 }
 
 function durationBetween(fromTimestamp: string | null | undefined, toTimestamp: string | null | undefined): string | null {
-  const fromEpochMilliseconds = epochMillisecondsOf(fromTimestamp);
-  const toEpochMilliseconds   = epochMillisecondsOf(toTimestamp);
-  return fromEpochMilliseconds === null || toEpochMilliseconds === null ? null : formatDuration(toEpochMilliseconds - fromEpochMilliseconds);
+  const fromEpochMilliseconds = TimeUtil.epochMillisecondsOf(fromTimestamp);
+  const toEpochMilliseconds   = TimeUtil.epochMillisecondsOf(toTimestamp);
+  return fromEpochMilliseconds === null || toEpochMilliseconds === null ? null : TimeUtil.formatDuration(toEpochMilliseconds - fromEpochMilliseconds);
 }
 
 function taskFactsMarkup(task: Task, format: StampFormat): string {

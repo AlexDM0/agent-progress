@@ -1,12 +1,14 @@
 /**
- * The contract of `page/GanttGeometry.ts`, tested against the numbers rather than through the page.
+ * The contract of `page/utils/GeometryUtil.ts`, tested against the numbers rather than through the page.
  */
 
 import { describe, expect, test }       from 'bun:test';
-import type { ProgressFile, ViewRange } from '../src/lib/tracker-model/@types/ProgressFile.ts';
-import type { Task, TaskStatus }        from '../src/lib/tracker-model/@types/Task.ts';
-import type { TimelineLimits }          from './GanttGeometry.ts';
-import { computeTimeline }              from './GanttGeometry.ts';
+import type { ProgressFile, ViewRange } from '../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Task, TaskStatus }        from '../../src/lib/tracker-model/@types/Task.ts';
+import type { TimelineLimits }          from './GeometryUtil.ts';
+import { GeometryUtil }                 from './GeometryUtil.ts';
+
+const { computeTimeline, tickLabelIsCovered } = GeometryUtil;
 
 const MILLISECONDS_PER_MINUTE = 60_000;
 
@@ -383,5 +385,20 @@ describe('computeTimeline', () => {
 
     expect(beforeRange.nowPercent).toBeNull();
     expect(afterRange.nowPercent).toBeNull();
+  });
+});
+
+describe('which tick labels the end label covers', () => {
+  const endLabel = { left: 500, right: 560 };
+
+  test('a label that overlaps the end label or comes within six pixels of it is covered', () => {
+    expect(tickLabelIsCovered({ left: 470, right: 505 }, endLabel)).toBe(true);
+    expect(tickLabelIsCovered({ left: 460, right: 495 }, endLabel)).toBe(true);
+    expect(tickLabelIsCovered({ left: 565, right: 600 }, endLabel)).toBe(true);
+  });
+
+  test('a label six pixels clear or further is not', () => {
+    expect(tickLabelIsCovered({ left: 450, right: 494 }, endLabel)).toBe(false);
+    expect(tickLabelIsCovered({ left: 566, right: 600 }, endLabel)).toBe(false);
   });
 });
