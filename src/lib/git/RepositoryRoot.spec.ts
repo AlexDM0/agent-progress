@@ -67,7 +67,7 @@ describe.skipIf(!gitIsAvailable())('with git on the machine', () => {
     expect(discovered.source).toBe('git');
   });
 
-  test('a linked worktree resolves to the main repository, which is what lets every subagent share one tracker', () => {
+  test('a linked worktree resolves to the main repository, so every worktree shares one root', () => {
     const repositoryDirectory = scratchGitRepository('repository-root-worktree');
     const worktreeDirectory = addWorktree(repositoryDirectory, 'subagent');
     const discovered = discoverRepositoryRoot(worktreeDirectory);
@@ -131,7 +131,7 @@ test('a directory in no repository is its own root, and says so', () => {
   expect(discovered.source).toBe('directory');
 });
 
-test('a worktree pointer file is read by hand, so a machine with no git still shares one tracker', () => {
+test('a worktree pointer file is read by hand, so a machine with no git still resolves one root', () => {
   const mainCheckout = scratchDirectory('repository-root-pointer-main');
   mkdirSync(join(mainCheckout, '.git', 'worktrees', 'subagent'), { recursive: true });
   const worktreeDirectory = scratchDirectory('repository-root-pointer-worktree');

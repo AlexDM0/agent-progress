@@ -37,7 +37,7 @@ const LARGE_CONTENT_REPEATS = 200_000;
 const scratchDirectories: string[] = [];
 
 async function createScratchDirectory(): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), 'agent-progress-atomic-file-'));
+  const directory = await mkdtemp(join(tmpdir(), 'atomic-file-'));
   scratchDirectories.push(directory);
   return directory;
 }
@@ -82,9 +82,9 @@ test('a successful write leaves no temporary file beside the target', async () =
 
 test('the parent directory is created when it is not there yet', async () => {
   const directory = await createScratchDirectory();
-  const filePath = join(directory, '.agent-progress', 'tickets', '001-example-ticket.md');
-  writeFileAtomically(filePath, '# 001 — Example ticket\n');
-  expect(readFileSync(filePath, 'utf8')).toBe('# 001 — Example ticket\n');
+  const filePath = join(directory, 'example-folder', 'nested', '001-example.md');
+  writeFileAtomically(filePath, '# 001 — Example\n');
+  expect(readFileSync(filePath, 'utf8')).toBe('# 001 — Example\n');
 });
 
 test('a symlinked target stays a symlink and its content lands on the file it points at', async () => {
@@ -158,15 +158,15 @@ test('the create-exclusive write creates a missing file whole and leaves no temp
   expect(await unexpectedLeftovers(directory, ['progress.json'])).toEqual([]);
 });
 
-// The guarantee `init` rests on: no path through it can truncate a tracker that already exists.
+// The guarantee a first write rests on: no path through it can truncate a file that already exists.
 test('the create-exclusive write refuses an existing file, leaving its bytes and no temporary file behind', async () => {
   const directory = await createScratchDirectory();
   const filePath = join(directory, 'progress.json');
-  writeFileSync(filePath, 'existing tracker');
+  writeFileSync(filePath, 'existing content');
 
-  expect(createFileAtomically(filePath, 'empty tracker')).toBe('already-exists');
+  expect(createFileAtomically(filePath, 'new content')).toBe('already-exists');
 
-  expect(readFileSync(filePath, 'utf8')).toBe('existing tracker');
+  expect(readFileSync(filePath, 'utf8')).toBe('existing content');
   expect(await unexpectedLeftovers(directory, ['progress.json'])).toEqual([]);
 });
 

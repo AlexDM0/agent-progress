@@ -1,7 +1,7 @@
 /**
  * The four cases that decide whether this is safe to run against a file the tool does not own: a
  * repository with no settings at all, one whose settings hold other people's keys, a second
- * `init --hooks` that must leave no diff, and a malformed document that must survive untouched.
+ * write of the same hook that must leave no diff, and a malformed document that must survive untouched.
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { mkdirSync }                               from 'node:fs';
@@ -18,7 +18,7 @@ import { claudeSettingsFilePathFor, refreshSubagentStopHook, writeSubagentStopHo
 
 const THE_HOOK = {
   matcher:        '',
-  command:        'agent-progress hook subagent-stop',
+  command:        'example-tool hook stop',
   timeoutSeconds: 20,
 };
 
@@ -55,7 +55,7 @@ describe('a repository with no settings file', () => {
     expect(settingsIn(rootDirectory)).toEqual({
       hooks: {
         SubagentStop: [
-          { matcher: '', hooks: [{ type: 'command', command: 'agent-progress hook subagent-stop', timeout: 20 }] },
+          { matcher: '', hooks: [{ type: 'command', command: 'example-tool hook stop', timeout: 20 }] },
         ],
       },
     });
@@ -94,8 +94,8 @@ describe('a settings file that already says things', () => {
   });
 });
 
-describe('a second init --hooks', () => {
-  /** Re-running `init` is the documented way to refresh a repository, so the second run has to leave the file byte for byte as the first did. */
+describe('a second write of the same hook', () => {
+  /** A caller re-running the install is how a repository is refreshed, so the second write has to leave the file byte for byte as the first did. */
   test('finds the command already there, adds nothing and leaves the file unchanged', () => {
     const rootDirectory    = scratchRoot('claude-settings-idempotent');
     const settingsFilePath = claudeSettingsFilePathFor(rootDirectory);
@@ -109,7 +109,7 @@ describe('a second init --hooks', () => {
 
   test('the same command under a different matcher still counts as already there, so the log never gains a second line per agent', () => {
     const rootDirectory = scratchRoot('claude-settings-other-matcher');
-    const sameCommandElsewhere = [{ matcher: '*', hooks: [{ type: 'command', command: 'agent-progress hook subagent-stop', timeout: 20 }] }];
+    const sameCommandElsewhere = [{ matcher: '*', hooks: [{ type: 'command', command: 'example-tool hook stop', timeout: 20 }] }];
     writeSettings(rootDirectory, JSON.stringify({ hooks: { SubagentStop: sameCommandElsewhere } }, null, 2));
 
     expect(writeSubagentStopHook(claudeSettingsFilePathFor(rootDirectory), THE_HOOK)).toBe('already-present');
@@ -154,7 +154,7 @@ describe('a settings file this cannot merge into', () => {
 });
 
 /**
- * Refreshing an entry that is already there, which `agent-progress update` does with no flag: the
+ * Refreshing an entry that is already there, which a caller does when it refreshes without installing: the
  * install stays opt-in, so an absent entry is reported and nothing is written.
  */
 describe('refreshing the hook rather than installing it', () => {

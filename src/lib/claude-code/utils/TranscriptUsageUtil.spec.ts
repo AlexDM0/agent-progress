@@ -135,7 +135,7 @@ describe('the lines a transcript carries that are not calls', () => {
     expect(totals.outputTokens).toBe(9);
   });
 
-  /** Zero calls is the verdict the hook reports instead of logging a line of noughts, so it has to come back as zero and not as a throw. */
+  /** Zero calls is a verdict a caller acts on, so it has to come back as zero and not as a throw. */
   test('an empty transcript answers zero calls and zero of everything', () => {
     expect(summariseTranscriptUsage('', OVERSIZED_CONTEXT_THRESHOLD_TOKENS)).toEqual({
       apiCallCount:             0,
@@ -392,7 +392,7 @@ describe('the profile of a whole transcript', () => {
 });
 
 describe('the total input of a call', () => {
-  test('the row figure and the log line\'s input are one number: fresh input plus both cache figures', () => {
+  test('the row figure and the reported input are one number: fresh input plus both cache figures', () => {
     expect(totalInputTokensOf({
       apiCallCount:             2,
       inputTokens:              1000,
@@ -422,9 +422,9 @@ describe('a workflow agent\'s brief', () => {
 
   /** The real shape: the harness's preamble is one column-zero line, and the indented script prompt follows it with no blank line between. */
   test('the excerpt is the script\'s prompt, not the relay and not the harness\'s preamble to it', () => {
-    const transcript = [plainUserLine(RELAY_TURN), plainUserLine(computedTaskTurn('  agent-progress ticket: 42\n  Worktree: /tmp/example   Branch: ticket-042'))].join('\n');
+    const transcript = [plainUserLine(RELAY_TURN), plainUserLine(computedTaskTurn('  Example task: 42\n  Worktree: /tmp/example   Branch: example-042'))].join('\n');
 
-    expect(profileTranscript(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS).briefExcerpt).toBe('agent-progress ticket: 42 Worktree: /tmp/example Branch: ticket-042');
+    expect(profileTranscript(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS).briefExcerpt).toBe('Example task: 42 Worktree: /tmp/example Branch: example-042');
   });
 
   test('a preamble spanning several lines is removed up to its first blank line', () => {

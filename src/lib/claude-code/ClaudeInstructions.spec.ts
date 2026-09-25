@@ -22,9 +22,9 @@ import { afterAll, expect, test } from 'bun:test';
 import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace';
 import { writeManagedBlock }                              from './ClaudeInstructions';
 
-const MANAGED_BLOCK_MARKERS = { start: '<!-- agent-progress:managed:start -->', end: '<!-- agent-progress:managed:end -->' };
+const MANAGED_BLOCK_MARKERS = { start: '<!-- example-tool:managed:start -->', end: '<!-- example-tool:managed:end -->' };
 
-const BLOCK_BODY = 'This repository tracks work with `agent-progress`. Load the agent-progress skill.';
+const BLOCK_BODY = 'This repository is managed by example-tool.';
 const EXPECTED_BLOCK = `${MANAGED_BLOCK_MARKERS.start}\n${BLOCK_BODY}\n${MANAGED_BLOCK_MARKERS.end}`;
 
 const OWNER_READ_WRITE_GROUP_READ_MODE = 0o640;
@@ -126,7 +126,7 @@ test('a symlinked CLAUDE.md stays a symlink and the content lands on the file it
 });
 
 test('a multi-line body is written between the markers exactly as given', () => {
-  const multiLineBody = '## Progress tracking\n\n- Run `agent-progress status --json` at session start.\n- File a ticket for every bug.';
+  const multiLineBody = '## Example section\n\n- Run `example-tool check` at session start.\n- Keep this list short.';
   const claudeFilePath = claudeFileWith('claude-multiline-body', null);
   expect(writeManagedBlock(claudeFilePath, multiLineBody, MANAGED_BLOCK_MARKERS)).toBe('created');
   expect(readFileSync(claudeFilePath, 'utf8')).toBe(`${MANAGED_BLOCK_MARKERS.start}\n${multiLineBody}\n${MANAGED_BLOCK_MARKERS.end}\n`);

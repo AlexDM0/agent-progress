@@ -1,5 +1,5 @@
 /**
- * Whether a ticket title can attack `progress.html`: `&` is escaped first so an escape is never
+ * Whether text someone else wrote can attack the page it is inserted into: `&` is escaped first so an escape is never
  * escaped again, and every `<` is escaped so no island can close its script tag or open a comment.
  */
 import { expect, test } from 'bun:test';

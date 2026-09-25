@@ -95,7 +95,7 @@ describe('the subagent transcripts under a folder', () => {
     expect(listSubagentTranscripts(scratchDirectory).map((transcript) => transcript.agentIdentifier)).toEqual(['alpha']);
   });
 
-  // A workflow's agents are written one level deeper than a plain subagent's; missing them left every one of them out of `usage`.
+  // A workflow's agents are written one level deeper than a plain subagent's; missing them left every one of them out of the listing.
   test('include a workflow run\'s agents beside the plain ones, and never its journal or an agent\'s metadata', () => {
     createTranscript(join('session-one', 'subagents', 'agent-alpha.jsonl'));
     createTranscript(join('session-one', 'subagents', 'workflows', 'run-one', 'agent-beta.jsonl'));

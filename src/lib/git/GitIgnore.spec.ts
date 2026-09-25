@@ -1,6 +1,6 @@
 /**
- * What `init` does to a repository's `.gitignore` and, mostly, when it does nothing: any pattern that
- * already covers the tracker must produce no diff, and a plain directory gains no file nobody asked for.
+ * When `ensureIgnored` changes a repository's `.gitignore` and, mostly, when it changes nothing: any pattern that
+ * already covers the ignored directory must produce no diff, and a plain directory gains no file nobody asked for.
  * A symlinked (even dangling) or permission-restricted `.gitignore` survives the append as it was, replaced whole rather than rewritten in place;
  * a link chain resolves as the kernel resolves it, and a link cycle or a dangling link into a missing folder is refused as a plain write was.
  */
@@ -32,7 +32,7 @@ import {
 } from '../../testing/ScratchWorkspace';
 import { ensureIgnored } from './GitIgnore';
 
-const IGNORED_DIRECTORY_NAME = '.agent-progress';
+const IGNORED_DIRECTORY_NAME = '.example-cache';
 
 const OWNER_READ_WRITE_GROUP_READ_MODE = 0o640;
 
@@ -59,20 +59,20 @@ function scratchDirectory(prefix: string): string {
 const gitIgnoreIn = (directory: string): string => readFileSync(join(directory, '.gitignore'), 'utf8');
 
 describe.skipIf(!gitIsAvailable())('in a git repository', () => {
-  test('a repository with no .gitignore gets one holding exactly the tracker directory', () => {
+  test('a repository with no .gitignore gets one holding exactly the ignored directory', () => {
     const repositoryDirectory = scratchRepository('gitignore-created');
     expect(ensureIgnored(repositoryDirectory, IGNORED_DIRECTORY_NAME)).toBe('appended');
-    expect(gitIgnoreIn(repositoryDirectory)).toBe('.agent-progress/\n');
+    expect(gitIgnoreIn(repositoryDirectory)).toBe('.example-cache/\n');
   });
 
-  test('running init twice does not add the line twice', () => {
+  test('asking twice does not add the line twice', () => {
     const repositoryDirectory = scratchRepository('gitignore-idempotent');
     expect(ensureIgnored(repositoryDirectory, IGNORED_DIRECTORY_NAME)).toBe('appended');
     expect(ensureIgnored(repositoryDirectory, IGNORED_DIRECTORY_NAME)).toBe('already-ignored');
-    expect(gitIgnoreIn(repositoryDirectory)).toBe('.agent-progress/\n');
+    expect(gitIgnoreIn(repositoryDirectory)).toBe('.example-cache/\n');
   });
 
-  test('a broader pattern that already covers the tracker produces no diff at all', () => {
+  test('a broader pattern that already covers the ignored directory produces no diff at all', () => {
     const repositoryDirectory = scratchRepository('gitignore-broad-pattern');
     writeFileSync(join(repositoryDirectory, '.gitignore'), '.*\n!.gitignore\n');
     expect(ensureIgnored(repositoryDirectory, IGNORED_DIRECTORY_NAME)).toBe('already-ignored');
@@ -81,16 +81,16 @@ describe.skipIf(!gitIsAvailable())('in a git repository', () => {
 
   test('a rule inherited from .git/info/exclude counts as ignored too', () => {
     const repositoryDirectory = scratchRepository('gitignore-info-exclude');
-    writeFileSync(join(repositoryDirectory, '.git', 'info', 'exclude'), '.agent-progress/\n');
+    writeFileSync(join(repositoryDirectory, '.git', 'info', 'exclude'), '.example-cache/\n');
     expect(ensureIgnored(repositoryDirectory, IGNORED_DIRECTORY_NAME)).toBe('already-ignored');
     expect(existsSync(join(repositoryDirectory, '.gitignore'))).toBe(false);
   });
 
-  test('a directory-form rule is recognised before the tracker directory exists, which is when init asks', () => {
-    // `git check-ignore` answers "not ignored" for a `.agent-progress/` rule unless the probe carries the trailing slash.
+  test('a directory-form rule is recognised before the ignored directory exists, which is when a caller asks', () => {
+    // `git check-ignore` answers "not ignored" for a directory-form rule unless the probe carries the trailing slash.
     const repositoryDirectory = scratchRepository('gitignore-directory-form-rule');
-    writeFileSync(join(repositoryDirectory, '.git', 'info', 'exclude'), '.agent-progress/\n');
-    expect(existsSync(join(repositoryDirectory, '.agent-progress')), 'nothing has been created yet').toBe(false);
+    writeFileSync(join(repositoryDirectory, '.git', 'info', 'exclude'), '.example-cache/\n');
+    expect(existsSync(join(repositoryDirectory, '.example-cache')), 'nothing has been created yet').toBe(false);
     expect(ensureIgnored(repositoryDirectory, IGNORED_DIRECTORY_NAME)).toBe('already-ignored');
   });
 
@@ -98,24 +98,24 @@ describe.skipIf(!gitIsAvailable())('in a git repository', () => {
     const repositoryDirectory = scratchRepository('gitignore-appended');
     writeFileSync(join(repositoryDirectory, '.gitignore'), 'node_modules/\ndist/\n');
     expect(ensureIgnored(repositoryDirectory, IGNORED_DIRECTORY_NAME)).toBe('appended');
-    expect(gitIgnoreIn(repositoryDirectory)).toBe('node_modules/\ndist/\n.agent-progress/\n');
+    expect(gitIgnoreIn(repositoryDirectory)).toBe('node_modules/\ndist/\n.example-cache/\n');
   });
 
   test('a file that does not end in a newline gets one before the new line, not after the last rule', () => {
     const repositoryDirectory = scratchRepository('gitignore-no-final-newline');
     writeFileSync(join(repositoryDirectory, '.gitignore'), 'node_modules/');
     expect(ensureIgnored(repositoryDirectory, IGNORED_DIRECTORY_NAME)).toBe('appended');
-    expect(gitIgnoreIn(repositoryDirectory)).toBe('node_modules/\n.agent-progress/\n');
+    expect(gitIgnoreIn(repositoryDirectory)).toBe('node_modules/\n.example-cache/\n');
   });
 
   test('a file written with CRLF keeps CRLF', () => {
     const repositoryDirectory = scratchRepository('gitignore-crlf');
     writeFileSync(join(repositoryDirectory, '.gitignore'), 'node_modules/\r\ndist/\r\n');
     expect(ensureIgnored(repositoryDirectory, IGNORED_DIRECTORY_NAME)).toBe('appended');
-    expect(gitIgnoreIn(repositoryDirectory)).toBe('node_modules/\r\ndist/\r\n.agent-progress/\r\n');
+    expect(gitIgnoreIn(repositoryDirectory)).toBe('node_modules/\r\ndist/\r\n.example-cache/\r\n');
   });
 
-  test('a dangling .gitignore link stays a link and its missing target is created holding the tracker line', () => {
+  test('a dangling .gitignore link stays a link and its missing target is created holding the ignore line', () => {
     const repositoryDirectory = scratchRepository('gitignore-dangling-symlink');
     const linkPath = join(repositoryDirectory, '.gitignore');
     symlinkSync('shared-gitignore', linkPath);
@@ -124,7 +124,7 @@ describe.skipIf(!gitIsAvailable())('in a git repository', () => {
 
     expect(lstatSync(linkPath).isSymbolicLink(), 'the link is still a link').toBe(true);
     expect(readlinkSync(linkPath)).toBe('shared-gitignore');
-    expect(readFileSync(join(repositoryDirectory, 'shared-gitignore'), 'utf8')).toBe('.agent-progress/\n');
+    expect(readFileSync(join(repositoryDirectory, 'shared-gitignore'), 'utf8')).toBe('.example-cache/\n');
   });
 
   test('a .gitignore link chain whose relative hop climbs out of a symlinked folder is written where the kernel resolves it', () => {
@@ -142,7 +142,7 @@ describe.skipIf(!gitIsAvailable())('in a git repository', () => {
     expect(ensureIgnored(repositoryDirectory, IGNORED_DIRECTORY_NAME)).toBe('appended');
     expect(ensureIgnored(repositoryDirectory, IGNORED_DIRECTORY_NAME)).toBe('already-ignored');
 
-    expect(readFileSync(realPath, 'utf8')).toBe('node_modules/\n.agent-progress/\n');
+    expect(readFileSync(realPath, 'utf8')).toBe('node_modules/\n.example-cache/\n');
     expect(lstatSync(linkPath).isSymbolicLink()).toBe(true);
     expect(lstatSync(join(outsideDirectory, 'Dropbox', 'dotfiles', 'gitignore')).isSymbolicLink()).toBe(true);
     expect(existsSync(join(outsideDirectory, 'shared')), 'no stray folder at the spelled path').toBe(false);
@@ -175,21 +175,21 @@ describe.skipIf(!gitIsAvailable())('in a git repository', () => {
 
 test('the exact line without a trailing slash is recognised, because that is what a person writes by hand', () => {
   const plainDirectory = scratchDirectory('gitignore-no-slash');
-  writeFileSync(join(plainDirectory, '.gitignore'), '.agent-progress\n');
+  writeFileSync(join(plainDirectory, '.gitignore'), '.example-cache\n');
   expect(ensureIgnored(plainDirectory, IGNORED_DIRECTORY_NAME)).toBe('already-ignored');
 });
 
 test('a line with surrounding whitespace is still that line', () => {
   const plainDirectory = scratchDirectory('gitignore-whitespace');
-  writeFileSync(join(plainDirectory, '.gitignore'), 'node_modules/\n  .agent-progress/  \n');
+  writeFileSync(join(plainDirectory, '.gitignore'), 'node_modules/\n  .example-cache/  \n');
   expect(ensureIgnored(plainDirectory, IGNORED_DIRECTORY_NAME)).toBe('already-ignored');
 });
 
 test('a negation is not mistaken for the rule it negates', () => {
   const plainDirectory = scratchDirectory('gitignore-negation');
-  writeFileSync(join(plainDirectory, '.gitignore'), '!.agent-progress\n');
+  writeFileSync(join(plainDirectory, '.gitignore'), '!.example-cache\n');
   expect(ensureIgnored(plainDirectory, IGNORED_DIRECTORY_NAME)).toBe('appended');
-  expect(gitIgnoreIn(plainDirectory)).toBe('!.agent-progress\n.agent-progress/\n');
+  expect(gitIgnoreIn(plainDirectory)).toBe('!.example-cache\n.example-cache/\n');
 });
 
 test('a directory that is no repository and has no .gitignore is left entirely alone', () => {
@@ -202,7 +202,7 @@ test('a directory that is no repository but already has a .gitignore still gains
   const plainDirectory = scratchDirectory('gitignore-not-a-repository-with-file');
   writeFileSync(join(plainDirectory, '.gitignore'), 'node_modules/\n');
   expect(ensureIgnored(plainDirectory, IGNORED_DIRECTORY_NAME)).toBe('appended');
-  expect(gitIgnoreIn(plainDirectory)).toBe('node_modules/\n.agent-progress/\n');
+  expect(gitIgnoreIn(plainDirectory)).toBe('node_modules/\n.example-cache/\n');
 });
 
 test('a symlinked .gitignore stays a symlink and the line lands on the file it points at', () => {
@@ -217,7 +217,7 @@ test('a symlinked .gitignore stays a symlink and the line lands on the file it p
   expect(ensureIgnored(plainDirectory, IGNORED_DIRECTORY_NAME)).toBe('appended');
 
   expect(lstatSync(linkPath).isSymbolicLink(), 'the link is still a link').toBe(true);
-  expect(readFileSync(realPath, 'utf8')).toBe('node_modules/\n.agent-progress/\n');
+  expect(readFileSync(realPath, 'utf8')).toBe('node_modules/\n.example-cache/\n');
 });
 
 test('an existing .gitignore keeps its permission bits', () => {
