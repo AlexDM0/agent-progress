@@ -10,7 +10,7 @@ const MERGE_BASE_NOT_FOUND_EXIT_CODE = 1;
  * More context than git's default three lines, so a hunk that begins inside a long comment usually carries
  * the comment's delimiter with it. Context never changes which lines are added or removed, only how they are read.
  */
-const REWORK_DIFF_CONTEXT_LINES = 25;
+const DIFF_CONTEXT_LINES = 25;
 
 const DIFF_OPTIONS = [
   '--no-color',
@@ -23,7 +23,7 @@ const DIFF_OPTIONS = [
   '--find-renames',
   '--diff-algorithm=myers',
   '--indent-heuristic',
-  `--unified=${REWORK_DIFF_CONTEXT_LINES}`,
+  `--unified=${DIFF_CONTEXT_LINES}`,
 ];
 
 export type WorktreeHeadReading =

@@ -1,8 +1,8 @@
 /**
- * The readings a rework count is built from, against real git in scratch repositories. What matters is that every diff carries its own
- * options (a/ and b/ prefixes and 25 lines of context whatever the user's configuration says), that a range holding a merge or a commit off
- * the branch is a verdict rather than a count, and that each unknown revision names its role. 'git-unavailable' is not tested: it needs a
- * PATH without git, which one process cannot set for its own spawns without changing it for every spec.
+ * What a worktree's commits and a rebase changed, as diff text read from real git in scratch repositories. What matters is that every diff
+ * carries its own options (a/ and b/ prefixes and 25 lines of context whatever the user's configuration says), that a range holding a merge
+ * or a commit off the branch is a verdict rather than a diff, and that each unknown revision names its role. 'git-unavailable' is not tested:
+ * it needs a PATH without git, which one process cannot set for its own spawns without changing it for every spec.
  */
 import { join } from 'node:path';
 import {
@@ -22,7 +22,7 @@ import {
   removeScratchDirectory,
   SCRATCH_COMMIT_IDENTITY_ARGUMENTS
 } from '../../testing/ScratchWorkspace';
-import { readCommitsDiff, readRebaseDiffs, readWorktreeHead } from './ReworkDiffs';
+import { readCommitsDiff, readRebaseDiffs, readWorktreeHead } from './BranchDiffs';
 
 const CONTEXT_FILE_LINE_COUNT = 60;
 
@@ -58,21 +58,21 @@ afterAll(() => {
 
 describe.skipIf(!gitIsAvailable())('the commit a worktree is at', () => {
   test('a worktree with commits reads its HEAD commit', () => {
-    const repositoryDirectory = scratchGitRepository('rework-diffs-head');
+    const repositoryDirectory = scratchGitRepository('branch-diffs-head');
     expect(readWorktreeHead(repositoryDirectory)).toEqual({ verdict: 'read', headCommit: headCommitOf(repositoryDirectory) });
   });
 
   test('a directory that does not exist is not a repository, and git is never started in it', () => {
-    const plainDirectory = scratchDirectory('rework-diffs-missing');
+    const plainDirectory = scratchDirectory('branch-diffs-missing');
     expect(readWorktreeHead(join(plainDirectory, 'missing'))).toEqual({ verdict: 'not-a-repository' });
   });
 
   test('a directory outside any repository is not a repository', () => {
-    expect(readWorktreeHead(scratchDirectory('rework-diffs-plain'))).toEqual({ verdict: 'not-a-repository' });
+    expect(readWorktreeHead(scratchDirectory('branch-diffs-plain'))).toEqual({ verdict: 'not-a-repository' });
   });
 
   test('a repository with no commit yet reads no-commits', () => {
-    const emptyRepository = scratchDirectory('rework-diffs-no-commits');
+    const emptyRepository = scratchDirectory('branch-diffs-no-commits');
     gitOutputIn(emptyRepository, ['init', '-q']);
     expect(readWorktreeHead(emptyRepository)).toEqual({ verdict: 'no-commits' });
   });
@@ -81,7 +81,7 @@ describe.skipIf(!gitIsAvailable())('the commit a worktree is at', () => {
 describe.skipIf(!gitIsAvailable())('the commits made since a commit', () => {
   // `diff.noprefix` is the user's configuration a count must not follow: without the prefixes spelled out, every header would change shape.
   test('reads the commits in order and their diff under a/ and b/ prefixes, whatever diff.noprefix says', () => {
-    const repositoryDirectory = scratchGitRepository('rework-diffs-read');
+    const repositoryDirectory = scratchGitRepository('branch-diffs-read');
     gitOutputIn(repositoryDirectory, ['config', 'diff.noprefix', 'true']);
     const sinceCommit  = headCommitOf(repositoryDirectory);
     const firstCommit  = commitFile(repositoryDirectory, 'notes.txt', 'first added line\n');
@@ -98,7 +98,7 @@ describe.skipIf(!gitIsAvailable())('the commits made since a commit', () => {
   });
 
   test('shows 25 lines of context around a change, not git\'s default 3', () => {
-    const repositoryDirectory = scratchGitRepository('rework-diffs-context');
+    const repositoryDirectory = scratchGitRepository('branch-diffs-context');
     const sinceCommit         = commitFile(repositoryDirectory, 'numbers.txt', numberedLines(null));
     commitFile(repositoryDirectory, 'numbers.txt', numberedLines(CONTEXT_FILE_CHANGED_LINE));
 
@@ -112,12 +112,12 @@ describe.skipIf(!gitIsAvailable())('the commits made since a commit', () => {
   });
 
   test('a revision that names no commit reads unknown-commit', () => {
-    const repositoryDirectory = scratchGitRepository('rework-diffs-unknown');
+    const repositoryDirectory = scratchGitRepository('branch-diffs-unknown');
     expect(readCommitsDiff(repositoryDirectory, 'no-such-revision')).toEqual({ verdict: 'unknown-commit' });
   });
 
   test('a commit on another branch is not an ancestor of HEAD, and says which commit it resolved to', () => {
-    const repositoryDirectory = scratchGitRepository('rework-diffs-not-ancestor');
+    const repositoryDirectory = scratchGitRepository('branch-diffs-not-ancestor');
     const mainLine            = currentBranchOf(repositoryDirectory);
     gitOutputIn(repositoryDirectory, ['checkout', '-q', '-b', 'side']);
     const sideCommit = commitFile(repositoryDirectory, 'side.txt', 'side\n');
@@ -127,9 +127,9 @@ describe.skipIf(!gitIsAvailable())('the commits made since a commit', () => {
     expect(readCommitsDiff(repositoryDirectory, sideCommit)).toEqual({ verdict: 'not-an-ancestor', sinceCommit: sideCommit });
   });
 
-  // A merge would count the main line's commits as the review's own, so the range is refused rather than counted.
+  // A merge in the range would count the main line's commits as the branch's own, so the range is refused rather than read.
   test('a range holding a merge commit reads merge-found with that merge', () => {
-    const repositoryDirectory = scratchGitRepository('rework-diffs-merge');
+    const repositoryDirectory = scratchGitRepository('branch-diffs-merge');
     const mainLine            = currentBranchOf(repositoryDirectory);
     const sinceCommit         = headCommitOf(repositoryDirectory);
     gitOutputIn(repositoryDirectory, ['checkout', '-q', '-b', 'side']);
@@ -144,7 +144,7 @@ describe.skipIf(!gitIsAvailable())('the commits made since a commit', () => {
 
 describe.skipIf(!gitIsAvailable())('what a rebase changed in a branch\'s own work', () => {
   test('reads the old and new bases and both net patches after a real rebase', () => {
-    const repositoryDirectory = scratchGitRepository('rework-diffs-rebase');
+    const repositoryDirectory = scratchGitRepository('branch-diffs-rebase');
     const mainLine            = currentBranchOf(repositoryDirectory);
     const oldBaseCommit       = headCommitOf(repositoryDirectory);
     gitOutputIn(repositoryDirectory, ['checkout', '-q', '-b', 'feature']);
@@ -166,20 +166,20 @@ describe.skipIf(!gitIsAvailable())('what a rebase changed in a branch\'s own wor
   });
 
   test('an old tip that names no commit reads unknown-commit in the old-tip role', () => {
-    const repositoryDirectory = scratchGitRepository('rework-diffs-unknown-old-tip');
+    const repositoryDirectory = scratchGitRepository('branch-diffs-unknown-old-tip');
     const headCommit          = headCommitOf(repositoryDirectory);
     expect(readRebaseDiffs(repositoryDirectory, 'no-such-revision', currentBranchOf(repositoryDirectory), headCommit))
       .toEqual({ verdict: 'unknown-commit', role: 'old-tip' });
   });
 
   test('a main line that names no commit reads unknown-commit in the main-line role', () => {
-    const repositoryDirectory = scratchGitRepository('rework-diffs-unknown-main-line');
+    const repositoryDirectory = scratchGitRepository('branch-diffs-unknown-main-line');
     const headCommit          = headCommitOf(repositoryDirectory);
     expect(readRebaseDiffs(repositoryDirectory, headCommit, 'no-such-main-line', headCommit)).toEqual({ verdict: 'unknown-commit', role: 'main-line' });
   });
 
   test('an old tip sharing no history with the main line reads no-common-base in the old-tip role', () => {
-    const repositoryDirectory = scratchGitRepository('rework-diffs-orphan');
+    const repositoryDirectory = scratchGitRepository('branch-diffs-orphan');
     const mainLine            = currentBranchOf(repositoryDirectory);
     const mainLineCommit      = headCommitOf(repositoryDirectory);
     gitOutputIn(repositoryDirectory, ['checkout', '-q', '--orphan', 'orphan']);

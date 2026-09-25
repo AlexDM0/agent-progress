@@ -1,5 +1,5 @@
 /**
- * The git steps of releasing a branch into the main checkout, as verdicts: which branch the main checkout is on, whether a branch descends
+ * The git steps of bringing a branch into the main checkout, as verdicts: which branch the main checkout is on, whether a branch descends
  * from the main line, the fast-forward itself, and the two cleanups. Nothing here forces anything: a refusal git gives is handed back with its reason.
  */
 import { GitProcess } from './GitProcess';
@@ -49,7 +49,7 @@ export function readCurrentBranch(directory: string): CurrentBranchReading {
   return { verdict: 'on-branch', branch: run.standardOutput.trim() };
 }
 
-/** Both names are looked up as local branches only: a release deletes the branch afterwards, which a remote-tracking ref cannot be. */
+/** Both names are looked up as local branches only, so the branch that was checked is the one a later branch deletion can delete. */
 export function readBranchDescent(directory: string, branch: string, mainLine: string): BranchDescentReading {
   const branchCommit = GitProcess.resolvedCommitOf(directory, `refs/heads/${branch}`);
   if (branchCommit === null) return { verdict: 'unknown-branch' };
@@ -63,7 +63,7 @@ export function readBranchDescent(directory: string, branch: string, mainLine: s
   return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(ancestry, ancestryArguments) };
 }
 
-/** Merges the commit that was checked, not the branch name, so a commit made to the branch after the check is not released unseen. */
+/** Merges the commit that was checked, not the branch name, so a commit made to the branch after the check is not merged unseen. */
 export function fastForwardTo(directory: string, commit: string): FastForwardOutcome {
   const mergeArguments = ['merge', '--ff-only', '--quiet', commit];
   const run            = GitProcess.run(directory, mergeArguments);

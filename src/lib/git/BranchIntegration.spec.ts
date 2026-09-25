@@ -1,8 +1,8 @@
 /**
- * The verdicts a release acts on, against real git in scratch repositories: which branch the main checkout is on, whether a branch
- * descends from the main line, the fast-forward, and the two cleanups. What matters is that every refusal git gives comes back as a
- * verdict with git's own reason, that a worktree holding work is left standing with that work named, and that an option-shaped branch name
- * is read as a ref under refs/heads/.
+ * The verdicts of bringing a branch into the main checkout, against real git in scratch repositories: which branch the main checkout is on,
+ * whether a branch descends from the main line, the fast-forward, and the two cleanups. What matters is that every refusal git gives comes
+ * back as a verdict with git's own reason, that a worktree holding work is left standing with that work named, and that an option-shaped
+ * branch name is read as a ref under refs/heads/.
  */
 import { existsSync, writeFileSync } from 'node:fs';
 import { join }                      from 'node:path';
@@ -29,7 +29,7 @@ import {
   readBranchDescent,
   readCurrentBranch,
   removeWorktree
-} from './BranchRelease';
+} from './BranchIntegration';
 
 const scratchDirectories: string[] = [];
 
@@ -51,18 +51,18 @@ afterAll(() => {
 
 describe.skipIf(!gitIsAvailable())('the branch the main checkout is on', () => {
   test('a checkout on a branch reads on-branch with that branch\'s name', () => {
-    const repositoryDirectory = scratchGitRepository('branch-release-on-branch');
+    const repositoryDirectory = scratchGitRepository('branch-integration-on-branch');
     expect(readCurrentBranch(repositoryDirectory)).toEqual({ verdict: 'on-branch', branch: currentBranchOf(repositoryDirectory) });
   });
 
   test('a detached HEAD reads detached, not as a git failure', () => {
-    const repositoryDirectory = scratchGitRepository('branch-release-detached');
+    const repositoryDirectory = scratchGitRepository('branch-integration-detached');
     gitOutputIn(repositoryDirectory, ['checkout', '-q', '--detach']);
     expect(readCurrentBranch(repositoryDirectory)).toEqual({ verdict: 'detached' });
   });
 
   test('a directory outside any repository reads git-failed with git\'s own exit code and reason', () => {
-    const plainDirectory = scratchDirectory('branch-release-no-repository');
+    const plainDirectory = scratchDirectory('branch-integration-no-repository');
     const reading        = readCurrentBranch(plainDirectory);
     expect(reading.verdict).toBe('git-failed');
     if (reading.verdict !== 'git-failed') return;
@@ -72,7 +72,7 @@ describe.skipIf(!gitIsAvailable())('the branch the main checkout is on', () => {
 
 describe.skipIf(!gitIsAvailable())('whether a branch descends from the main line', () => {
   test('a branch built on the main line\'s tip is a descendant, with both commits named', () => {
-    const repositoryDirectory = scratchGitRepository('branch-release-descendant');
+    const repositoryDirectory = scratchGitRepository('branch-integration-descendant');
     const mainLine            = currentBranchOf(repositoryDirectory);
     const mainLineCommit      = gitOutputIn(repositoryDirectory, ['rev-parse', 'HEAD']);
     gitOutputIn(repositoryDirectory, ['checkout', '-q', '-b', 'feature']);
@@ -82,7 +82,7 @@ describe.skipIf(!gitIsAvailable())('whether a branch descends from the main line
   });
 
   test('a branch missing a commit the main line gained is not a descendant', () => {
-    const repositoryDirectory = scratchGitRepository('branch-release-not-descendant');
+    const repositoryDirectory = scratchGitRepository('branch-integration-not-descendant');
     const mainLine            = currentBranchOf(repositoryDirectory);
     gitOutputIn(repositoryDirectory, ['checkout', '-q', '-b', 'feature']);
     const branchCommit = commitFile(repositoryDirectory, 'feature.txt', 'feature\n');
@@ -93,25 +93,25 @@ describe.skipIf(!gitIsAvailable())('whether a branch descends from the main line
   });
 
   test('a branch that does not exist reads unknown-branch', () => {
-    const repositoryDirectory = scratchGitRepository('branch-release-unknown-branch');
+    const repositoryDirectory = scratchGitRepository('branch-integration-unknown-branch');
     expect(readBranchDescent(repositoryDirectory, 'no-such-branch', currentBranchOf(repositoryDirectory))).toEqual({ verdict: 'unknown-branch' });
   });
 
   test('a main line that does not exist reads unknown-main-line', () => {
-    const repositoryDirectory = scratchGitRepository('branch-release-unknown-main-line');
+    const repositoryDirectory = scratchGitRepository('branch-integration-unknown-main-line');
     gitOutputIn(repositoryDirectory, ['branch', 'feature']);
     expect(readBranchDescent(repositoryDirectory, 'feature', 'no-such-main-line')).toEqual({ verdict: 'unknown-main-line' });
   });
 
   // A branch name comes from a caller; it is read under refs/heads/, so an option-shaped one is only ever a ref name.
   test('a branch named like an option that does not exist reads unknown-branch and writes no file', () => {
-    const repositoryDirectory = scratchGitRepository('branch-release-option-branch');
+    const repositoryDirectory = scratchGitRepository('branch-integration-option-branch');
     expect(readBranchDescent(repositoryDirectory, '--output=x', currentBranchOf(repositoryDirectory))).toEqual({ verdict: 'unknown-branch' });
     expect(existsSync(join(repositoryDirectory, 'x'))).toBe(false);
   });
 
   test('a branch named like an option that does exist is read as that branch', () => {
-    const repositoryDirectory = scratchGitRepository('branch-release-option-branch-present');
+    const repositoryDirectory = scratchGitRepository('branch-integration-option-branch-present');
     const mainLine            = currentBranchOf(repositoryDirectory);
     const mainLineCommit      = gitOutputIn(repositoryDirectory, ['rev-parse', 'HEAD']);
     gitOutputIn(repositoryDirectory, ['update-ref', 'refs/heads/--output=x', mainLineCommit]);
@@ -123,7 +123,7 @@ describe.skipIf(!gitIsAvailable())('whether a branch descends from the main line
 
 describe.skipIf(!gitIsAvailable())('the fast-forward', () => {
   test('a commit ahead of the main line is fast-forwarded to and left at HEAD', () => {
-    const repositoryDirectory = scratchGitRepository('branch-release-fast-forward');
+    const repositoryDirectory = scratchGitRepository('branch-integration-fast-forward');
     const mainLine            = currentBranchOf(repositoryDirectory);
     gitOutputIn(repositoryDirectory, ['checkout', '-q', '-b', 'feature']);
     const branchCommit = commitFile(repositoryDirectory, 'feature.txt', 'feature\n');
@@ -134,7 +134,7 @@ describe.skipIf(!gitIsAvailable())('the fast-forward', () => {
   });
 
   test('a main line that has diverged is refused with git\'s reason, and HEAD stays where it was', () => {
-    const repositoryDirectory = scratchGitRepository('branch-release-diverged');
+    const repositoryDirectory = scratchGitRepository('branch-integration-diverged');
     const mainLine            = currentBranchOf(repositoryDirectory);
     gitOutputIn(repositoryDirectory, ['checkout', '-q', '-b', 'feature']);
     const branchCommit = commitFile(repositoryDirectory, 'feature.txt', 'feature\n');
@@ -151,7 +151,7 @@ describe.skipIf(!gitIsAvailable())('the fast-forward', () => {
 
 describe.skipIf(!gitIsAvailable())('removing the worktree', () => {
   test('a clean worktree is removed', () => {
-    const repositoryDirectory = scratchGitRepository('branch-release-clean-worktree');
+    const repositoryDirectory = scratchGitRepository('branch-integration-clean-worktree');
     const worktreeDirectory   = addWorktree(repositoryDirectory, 'subagent');
 
     expect(removeWorktree(repositoryDirectory, worktreeDirectory)).toEqual({ verdict: 'removed' });
@@ -160,7 +160,7 @@ describe.skipIf(!gitIsAvailable())('removing the worktree', () => {
 
   // Never forced: the files git would lose are named, unquoted, so a person can decide what to keep.
   test('a worktree holding an untracked file and a changed one is left standing, with both named', () => {
-    const repositoryDirectory = scratchGitRepository('branch-release-dirty-worktree');
+    const repositoryDirectory = scratchGitRepository('branch-integration-dirty-worktree');
     commitFile(repositoryDirectory, 'tracked.txt', 'original\n');
     const worktreeDirectory = addWorktree(repositoryDirectory, 'subagent');
     writeFileSync(join(worktreeDirectory, 'tracked.txt'), 'changed\n');
@@ -175,9 +175,9 @@ describe.skipIf(!gitIsAvailable())('removing the worktree', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('deleting the released branch', () => {
+describe.skipIf(!gitIsAvailable())('deleting the merged branch', () => {
   test('a branch the main checkout\'s HEAD holds is deleted', () => {
-    const repositoryDirectory = scratchGitRepository('branch-release-merged-branch');
+    const repositoryDirectory = scratchGitRepository('branch-integration-merged-branch');
     gitOutputIn(repositoryDirectory, ['branch', 'merged-work']);
 
     expect(deleteMergedBranch(repositoryDirectory, 'merged-work')).toEqual({ verdict: 'deleted' });
@@ -185,7 +185,7 @@ describe.skipIf(!gitIsAvailable())('deleting the released branch', () => {
   });
 
   test('a branch holding unmerged work is left, with git\'s reason', () => {
-    const repositoryDirectory = scratchGitRepository('branch-release-unmerged-branch');
+    const repositoryDirectory = scratchGitRepository('branch-integration-unmerged-branch');
     const mainLine            = currentBranchOf(repositoryDirectory);
     gitOutputIn(repositoryDirectory, ['checkout', '-q', '-b', 'unmerged-work']);
     commitFile(repositoryDirectory, 'feature.txt', 'feature\n');

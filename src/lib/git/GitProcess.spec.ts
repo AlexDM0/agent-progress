@@ -61,7 +61,7 @@ describe.skipIf(!gitIsAvailable())('a git run', () => {
     });
   });
 
-  // BranchRelease names the files a worktree still holds from this output, so a quoted, octal-escaped name would name no file at all.
+  // BranchIntegration names the files a worktree still holds from this output, so a quoted, octal-escaped name would name no file at all.
   test('a non-ASCII file name is printed unquoted, whatever the user\'s own configuration says', () => {
     const repositoryDirectory = scratchGitRepository('git-process-unquoted');
     writeFileSync(join(repositoryDirectory, 'café.txt'), 'content\n');

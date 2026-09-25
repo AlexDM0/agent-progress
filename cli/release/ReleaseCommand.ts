@@ -8,14 +8,14 @@ import { resolve } from 'node:path';
 import type { Task, Ticket }                                                                 from '../../lib/constants/Types';
 import { readTicket }                                                                        from '../../lib/tickets/TicketStore';
 import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS, applyTicketTransition, ticketMoveIsLegal } from '../../lib/tickets/TicketTransitions';
-import type { BranchDeletionOutcome, FilesLeftInWorktree, WorktreeRemovalOutcome }           from '../../src/lib/git/BranchRelease';
+import type { BranchDeletionOutcome, FilesLeftInWorktree, WorktreeRemovalOutcome }           from '../../src/lib/git/BranchIntegration';
 import {
   deleteMergedBranch,
   fastForwardTo,
   readBranchDescent,
   readCurrentBranch,
   removeWorktree
-}                                                                                            from '../../src/lib/git/BranchRelease';
+}                                                                                            from '../../src/lib/git/BranchIntegration';
 import { OperationRefusal, refusalIsOperationRefusal, type OperationRefusalStatus } from '../../src/shared/OperationRefusal';
 import type { CommandContext }                                                      from '../CommandContext';
 import {
