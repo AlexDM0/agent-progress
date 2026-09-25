@@ -38,15 +38,15 @@ export type RowState = TaskStatus | 'reviewing';
  * `pillLabelForRowState` appends, and the rest are the label as written.
  */
 const PILL_LABEL_FOR_ROW_STATE: Record<RowState, string> = {
-  'pending':   'unstarted',
-  'running':   'wip',
-  'paused':    'paused',
-  'finished':  'awaiting review',
-  'reviewing': 'reviewing',
-  're-review': 'reviewing',
-  'reviewed':  'awaiting merge',
-  'delivered': 'done',
-  'abandoned': 'abandoned',
+  'pending':     'unstarted',
+  'in-progress': 'wip',
+  'paused':      'paused',
+  'in-review':   'awaiting review',
+  'reviewing':   'reviewing',
+  're-review':   'reviewing',
+  'reviewed':    'awaiting merge',
+  'delivered':   'done',
+  'abandoned':   'abandoned',
 };
 
 const COLLAPSED_TICKET_STATUSES: readonly string[] = ['reviewed', 'delivered', 'abandoned'];
@@ -115,7 +115,7 @@ export function labelSitsLeftOfItsLine(tick: TimelineTick, axisWidthPixels: numb
 }
 
 export function rowStateFor(task: Pick<Task, 'status'>, ticketStatus: TicketStatus | null): RowState {
-  return task.status === 'finished' && ticketStatus === 'in-review' ? 'reviewing' : task.status;
+  return task.status === 'in-review' && ticketStatus === 'in-review' ? 'reviewing' : task.status;
 }
 
 export function pillLabelForRowState(state: RowState, reviewRound: number): string {
@@ -246,7 +246,7 @@ export function overlayMarkup(ticks: readonly TimelineTick[], nowPercent: number
 export function summaryStatsMarkup(tasks: readonly Task[], concurrency: { limit: number; agentsInFlight: number }): string {
   const completedCount     = tasks.filter((task) => SETTLED_TASK_STATUSES.includes(task.status)).length;
   const awaitingMergeCount = tasks.filter((task) => task.status === 'reviewed').length;
-  const inReviewCount      = tasks.filter((task) => task.status === 'finished' || task.status === 're-review').length;
+  const inReviewCount      = tasks.filter((task) => task.status === 'in-review' || task.status === 're-review').length;
   const reportedTokens     = tasks.filter((task) => task.tokens !== null);
   const figureMarkup = (figure: string): string => `<span class="ap-stat-n">${escapeHtml(figure)}</span>`;
   const stats = [

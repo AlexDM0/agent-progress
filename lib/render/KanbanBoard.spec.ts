@@ -100,10 +100,10 @@ describe('which lane a card sits in', () => {
   // Every row state the Progress tab can show, so a card can never land in a lane whose pill disagrees with the chart.
   test.each([
     ['pending', 'pending', 'todo'],
-    ['running', 'in-progress', 'progress'],
+    ['in-progress', 'in-progress', 'progress'],
     ['paused', 'in-progress', 'progress'],
-    ['finished', 'pending', 'review'],
-    ['finished', 'in-review', 'review'],
+    ['in-review', 'pending', 'review'],
+    ['in-review', 'in-review', 'review'],
     ['re-review', 'in-review', 'review'],
     ['reviewed', 'reviewed', 'merge'],
     ['delivered', 'delivered', 'done'],
@@ -114,14 +114,14 @@ describe('which lane a card sits in', () => {
     expect(laneOfState(card.state)).toBe(lane);
   });
 
-  test('reads a finished row of an in-review ticket as reviewing, the pill the Progress tab shows', () => {
-    expect(cardOf(exampleTicket('007', { status: 'in-review' }), [exampleRow(1, { status: 'finished', ticket: '007' })]).state).toBe('reviewing');
+  test('reads an in-review row of an in-review ticket as reviewing, the pill the Progress tab shows', () => {
+    expect(cardOf(exampleTicket('007', { status: 'in-review' }), [exampleRow(1, { status: 'in-review', ticket: '007' })]).state).toBe('reviewing');
   });
 
   // A low ticket never started has no row; its status alone decides the lane.
   test.each([
     ['pending', 'pending', 'todo'],
-    ['in-progress', 'running', 'progress'],
+    ['in-progress', 'in-progress', 'progress'],
     ['in-review', 'reviewing', 'review'],
     ['reviewed', 'reviewed', 'merge'],
     ['delivered', 'delivered', 'done'],
@@ -135,7 +135,7 @@ describe('which lane a card sits in', () => {
   });
 
   test('never takes a review row as the ticket’s own row', () => {
-    const reviewRow = exampleRow(2, { status: 'running', reviewOf: '007' });
+    const reviewRow = exampleRow(2, { status: 'in-progress', reviewOf: '007' });
 
     expect(cardOf(exampleTicket('007'), [reviewRow]).ownRow).toBeNull();
   });
@@ -196,7 +196,7 @@ describe('the sub-state note', () => {
     const row = exampleRow(1, {
       status:  'paused',
       ticket:  '061',
-      history: [{ status: 'paused', at: at('09:00') }, { status: 'running', at: at('09:30') }, { status: 'paused', at: at('11:45') }],
+      history: [{ status: 'paused', at: at('09:00') }, { status: 'in-progress', at: at('09:30') }, { status: 'paused', at: at('11:45') }],
     });
 
     expect(subStateNoteOf(cardOf(exampleTicket('061', { status: 'in-progress' }), [row]), noteFormat([row]))).toBe('paused since 11:45 · 1h 51m');
@@ -209,17 +209,17 @@ describe('the sub-state note', () => {
   });
 
   test.each([
-    ['the newest finished phase', { history: [{ status: 'finished', at: at('13:20') }] }, { finished: at('12:00') }, 'no reviewer yet · 16m'],
+    ['the newest finished phase', { history: [{ status: 'in-review', at: at('13:20') }] }, { finished: at('12:00') }, 'no reviewer yet · 16m'],
     ['the ticket’s finished stamp', {}, { finished: at('13:00') }, 'no reviewer yet · 36m'],
     ['the row’s end', { end: at('11:36') }, {}, 'no reviewer yet · 2h'],
   ] as Array<[string, Partial<Task>, Partial<PageTicket>, string]>)('counts the wait for a reviewer from %s', (_source, rowChanges, ticketChanges, expected) => {
-    const row = exampleRow(1, { status: 'finished', ticket: '062', ...rowChanges });
+    const row = exampleRow(1, { status: 'in-review', ticket: '062', ...rowChanges });
 
     expect(subStateNoteOf(cardOf(exampleTicket('062', { status: 'pending', ...ticketChanges }), [row]), noteFormat([row]))).toBe(expected);
   });
 
   test('names the running reviewer’s start on a reviewing card', () => {
-    const tasks = [exampleRow(1, { status: 'finished', ticket: '058' }), exampleRow(2, { status: 'running', reviewOf: '058', start: at('13:05') })];
+    const tasks = [exampleRow(1, { status: 'in-review', ticket: '058' }), exampleRow(2, { status: 'in-progress', reviewOf: '058', start: at('13:05') })];
 
     expect(subStateNoteOf(cardOf(exampleTicket('058', { status: 'in-review' }), tasks), noteFormat(tasks))).toBe('reviewer since 13:05');
   });
@@ -230,14 +230,14 @@ describe('the sub-state note', () => {
       exampleRow(2, {
         name: 'Review 1 #059 — Accent-blind search', status: 'delivered', start: at('10:50'), end: at('11:30') 
       }),
-      exampleRow(3, { name: 'Review 2 #059 — Accent-blind search', status: 'running', start: at('11:34', '2026-09-24') }),
+      exampleRow(3, { name: 'Review 2 #059 — Accent-blind search', status: 'in-progress', start: at('11:34', '2026-09-24') }),
     ];
 
     expect(subStateNoteOf(cardOf(exampleTicket('059', { status: 'in-review' }), tasks), noteFormat(tasks))).toBe('round 3 reviewer since 09-24 11:34');
   });
 
   test('falls back to the first repeat round when the row names none', () => {
-    const tasks = [exampleRow(1, { status: 're-review', ticket: '059' }), exampleRow(2, { reviewOf: '059', status: 'running', start: at('11:34') })];
+    const tasks = [exampleRow(1, { status: 're-review', ticket: '059' }), exampleRow(2, { reviewOf: '059', status: 'in-progress', start: at('11:34') })];
 
     expect(subStateNoteOf(cardOf(exampleTicket('059', { status: 'in-review' }), tasks), noteFormat(tasks))).toBe('round 2 reviewer since 11:34');
   });
@@ -246,7 +246,7 @@ describe('the sub-state note', () => {
   test('leaves a reviewing card with no note when the newest review row has ended', () => {
     const tasks = [
       exampleRow(1, { status: 're-review', ticket: '059' }),
-      exampleRow(2, { reviewOf: '059', status: 'running', start: at('10:50') }),
+      exampleRow(2, { reviewOf: '059', status: 'in-progress', start: at('10:50') }),
       exampleRow(3, {
         reviewOf: '059', status: 'delivered', start: at('11:00'), end: at('11:30') 
       }),
@@ -281,7 +281,7 @@ describe('the lane heads', () => {
   });
 
   test('leaves a zero count out and counts a repeat review as reviewing', () => {
-    const tasks = [exampleRow(1, { status: 're-review', ticket: '059' }), exampleRow(2, { status: 'finished', ticket: '058' })];
+    const tasks = [exampleRow(1, { status: 're-review', ticket: '059' }), exampleRow(2, { status: 'in-review', ticket: '058' })];
     const cards = kanbanCardsFor([exampleTicket('059', { status: 'in-review' }), exampleTicket('058', { status: 'in-review' })], tasks, new Map());
 
     expect(laneSubCountsOf('review', cards).map((entry) => `${entry.dotState} ${entry.count} ${entry.label}`)).toEqual(['reviewing 2 reviewing']);

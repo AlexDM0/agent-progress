@@ -57,11 +57,11 @@ describe.skipIf(!gitIsAvailable())('the lifecycle of a row', () => {
     });
 
     await run(['task', 'start', '1']);
-    expect(storedProgress().tasks[0]?.status).toBe('running');
+    expect(storedProgress().tasks[0]?.status).toBe('in-progress');
     expect(storedProgress().tasks[0]?.start).not.toBeNull();
 
     await run(['task', 'finish', '1']);
-    expect(storedProgress().tasks[0]?.status).toBe('finished');
+    expect(storedProgress().tasks[0]?.status).toBe('in-review');
     expect(storedProgress().tasks[0]?.end).not.toBeNull();
 
     await run(['task', 'review', '1']);
@@ -97,11 +97,11 @@ describe.skipIf(!gitIsAvailable())('the lifecycle of a row', () => {
     expect(storedProgress().tasks[0]?.end).toBe(endAfterTheFirstFinish ?? null);
   });
 
-  test('--start files the row already running, with its start at --at', async () => {
+  test('--start files the row already in-progress, with its start at --at', async () => {
     await run(['task', 'add', 'Review pass', '--start', '--at', '-2h']);
 
     const [task] = storedProgress().tasks;
-    expect(task?.status).toBe('running');
+    expect(task?.status).toBe('in-progress');
     expect(Date.parse(task?.start ?? '')).toBe(FROZEN_NOW.getTime() - 2 * 60 * 60 * 1000);
   });
 
@@ -116,11 +116,11 @@ describe.skipIf(!gitIsAvailable())('the lifecycle of a row', () => {
     await run(['task', 'add', 'Review pass', '--start']);
     const startBefore = storedProgress().tasks[0]?.start;
 
-    await run(['task', 'update', '1', '--name', 'Review pass, second round', '--status', 'finished', '--owner', 'Alex Example']);
+    await run(['task', 'update', '1', '--name', 'Review pass, second round', '--status', 'in-review', '--owner', 'Alex Example']);
 
     const [task] = storedProgress().tasks;
     expect(task?.name).toBe('Review pass, second round');
-    expect(task?.status).toBe('finished');
+    expect(task?.status).toBe('in-review');
     expect(task?.owner).toBe('Alex Example');
     expect(task?.start).toBe(startBefore ?? null);
     expect(task?.end).toBeNull();
@@ -130,11 +130,11 @@ describe.skipIf(!gitIsAvailable())('the lifecycle of a row', () => {
   test('update files no phase, while the verbs that really move the row file one each', async () => {
     await run(['task', 'add', 'Review pass', '--start']);
 
-    await run(['task', 'update', '1', '--status', 'finished']);
-    expect(storedProgress().tasks[0]?.history?.map((phase) => phase.status)).toEqual(['pending', 'running']);
+    await run(['task', 'update', '1', '--status', 'in-review']);
+    expect(storedProgress().tasks[0]?.history?.map((phase) => phase.status)).toEqual(['pending', 'in-progress']);
 
     await run(['task', 'review', '1']);
-    expect(storedProgress().tasks[0]?.history?.map((phase) => phase.status)).toEqual(['pending', 'running', 'reviewed']);
+    expect(storedProgress().tasks[0]?.history?.map((phase) => phase.status)).toEqual(['pending', 'in-progress', 'reviewed']);
   });
 
   // The queue interval is what an orchestrator reads the panel for, and it is measurable only if the filing itself is a phase.
@@ -144,7 +144,7 @@ describe.skipIf(!gitIsAvailable())('the lifecycle of a row', () => {
 
     await run(['task', 'start', '1']);
     const history = storedProgress().tasks[0]?.history ?? [];
-    expect(history.map((phase) => phase.status)).toEqual(['pending', 'running']);
+    expect(history.map((phase) => phase.status)).toEqual(['pending', 'in-progress']);
     expect(Date.parse(history[1]?.at ?? '') - Date.parse(history[0]?.at ?? ''), 'two hours in the queue').toBe(2 * 60 * 60 * 1000);
   });
 });
@@ -216,7 +216,7 @@ describe.skipIf(!gitIsAvailable())('linking a row to a ticket', () => {
     await run(['task', 'add', 'Review 1 #3 — x', '--review-of', '3', '--start']);
 
     const review = storedProgress().tasks.find((task) => task.name === 'Review 1 #3 — x');
-    expect(review).toMatchObject({ reviewOf: '003', ticket: null, status: 'running' });
+    expect(review).toMatchObject({ reviewOf: '003', ticket: null, status: 'in-progress' });
     expect(storedTicketText('003-split-the-exporter.md')).toBe(ticketTextBefore);
 
     const status   = await run(['status', '--json', '--full']);
@@ -259,7 +259,7 @@ describe.skipIf(!gitIsAvailable())('pausing and resuming', () => {
 
     await run(['task', 'start', '1']);
     const resumed = storedProgress().tasks[0];
-    expect(resumed?.status).toBe('running');
+    expect(resumed?.status).toBe('in-progress');
     expect(resumed?.start).toBe(startedAt);
     expect(resumed?.end).toBeNull();
   });
@@ -323,10 +323,10 @@ describe.skipIf(!gitIsAvailable())('a row a ticket owns', () => {
 
   test('is refused by task update --status too, and --force moves only the row', async () => {
     const refused  = contextHere();
-    expect(await runCommandLine(['task', 'update', '1', '--status', 'finished'], refused)).toBe(1);
+    expect(await runCommandLine(['task', 'update', '1', '--status', 'in-review'], refused)).toBe(1);
 
-    await run(['task', 'update', '1', '--status', 'finished', '--force']);
-    expect(storedProgress().tasks[0]?.status).toBe('finished');
+    await run(['task', 'update', '1', '--status', 'in-review', '--force']);
+    expect(storedProgress().tasks[0]?.status).toBe('in-review');
     expect(storedTicketText('001-double-click-a-role-to-edit-it.md')).toContain('status: "pending"');
   });
 
@@ -335,7 +335,7 @@ describe.skipIf(!gitIsAvailable())('a row a ticket owns', () => {
     expect(storedProgress().tasks[0]?.status).toBe('paused');
 
     await run(['task', 'start', '1']);
-    expect(storedProgress().tasks[0]?.status).toBe('running');
+    expect(storedProgress().tasks[0]?.status).toBe('in-progress');
   });
 });
 

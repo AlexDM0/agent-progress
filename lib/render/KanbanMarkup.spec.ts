@@ -159,7 +159,7 @@ describe('the placeholder board, rebuilt', () => {
       ticket:  '061',
       tokens:  900_000,
       start:   at('10:20'),
-      history: [{ status: 'pending', at: at('08:55') }, { status: 'running', at: at('10:20') }, { status: 'paused', at: at('11:45') }],
+      history: [{ status: 'pending', at: at('08:55') }, { status: 'in-progress', at: at('10:20') }, { status: 'paused', at: at('11:45') }],
     });
     const input  = boardInput([ticket], [row]);
     const [card] = input.cards;
@@ -184,7 +184,7 @@ describe('the placeholder board, rebuilt', () => {
       exampleRow(30, {
         reviewOf: '059', status: 'delivered', start: at('10:50'), end: at('11:30') 
       }),
-      exampleRow(31, { reviewOf: '059', status: 'running', start: at('11:34') }),
+      exampleRow(31, { reviewOf: '059', status: 'in-progress', start: at('11:34') }),
     ];
     const input  = boardInput([ticket], tasks);
     const [card] = input.cards;

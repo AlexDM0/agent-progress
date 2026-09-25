@@ -39,7 +39,7 @@ const ABANDONED_WITHOUT_ROW_NOTE    = 'Abandoned before it was started; it never
 const ABANDONED_BEFORE_START_NOTE   = 'Abandoned before it was started.';
 
 /** The row statuses a build has ended by, so a row's `end` stands in for the finish only on one of them, never on an abandoned row. */
-const ROW_STATUSES_PAST_THE_BUILD: readonly Task['status'][] = ['finished', 're-review', 'reviewed', 'delivered'];
+const ROW_STATUSES_PAST_THE_BUILD: readonly Task['status'][] = ['in-review', 're-review', 'reviewed', 'delivered'];
 
 export type TicketTimelineLimits = TimelineLimits & TimestampSlices;
 
@@ -185,11 +185,11 @@ function stateLabelOf(state: RowState): string {
   return pillLabelForRowState(state, LIMITS.FIRST_REPEAT_REVIEW_ROUND);
 }
 
-function buildSpan(state: 'running' | 'paused', startEpochMilliseconds: number, endEpochMilliseconds: number, isLive: boolean): TimelineSpan {
+function buildSpan(state: 'in-progress' | 'paused', startEpochMilliseconds: number, endEpochMilliseconds: number, isLive: boolean): TimelineSpan {
   return timelineSpan(state, stateLabelOf(state), startEpochMilliseconds, endEpochMilliseconds, isLive);
 }
 
-/** One segment per recorded `running` or `paused` phase, each to the next phase; a row without such a phase gets one from its `start`. */
+/** One segment per recorded `in-progress` or `paused` phase, each to the next phase; a row without such a phase gets one from its `start`. */
 function buildSegmentsOf(ownRow: Task | null, lastMomentEpochMilliseconds: number, ticketIsClosed: boolean): TimelineSpan[] {
   if (ownRow === null) {
     return [];
@@ -198,7 +198,7 @@ function buildSegmentsOf(ownRow: Task | null, lastMomentEpochMilliseconds: numbe
   const rowEndMilliseconds = epochOf(ownRow.end);
   const recorded = history.flatMap((phase, index) => {
     const startEpochMilliseconds = epochOf(phase.at);
-    if ((phase.status !== 'running' && phase.status !== 'paused') || startEpochMilliseconds === null) {
+    if ((phase.status !== 'in-progress' && phase.status !== 'paused') || startEpochMilliseconds === null) {
       return [];
     }
     const nextPhase = history[index + 1];
@@ -213,15 +213,15 @@ function buildSegmentsOf(ownRow: Task | null, lastMomentEpochMilliseconds: numbe
   if (startEpochMilliseconds === null) {
     return [];
   }
-  const state = ownRow.status === 'paused' ? 'paused' : 'running';
+  const state = ownRow.status === 'paused' ? 'paused' : 'in-progress';
   return [buildSpan(state, startEpochMilliseconds, rowEndMilliseconds ?? lastMomentEpochMilliseconds, rowEndMilliseconds === null && !ticketIsClosed)];
 }
 
-/** The latest build's `finished` phase; a reopened ticket building again has none, as its history's `running` came after it. */
+/** The latest build's `in-review` phase; a reopened ticket building again has none, as its history's `in-progress` came after it. */
 function latestBuildFinishedPhaseOf(ownRow: Task | null): TaskPhase | undefined {
   const history         = ownRow?.history ?? [];
-  const latestBuildMove = history.findLast((phase) => phase.status === 'running' || phase.status === 'paused' || phase.status === 'finished');
-  return latestBuildMove?.status === 'finished' ? latestBuildMove : undefined;
+  const latestBuildMove = history.findLast((phase) => phase.status === 'in-progress' || phase.status === 'paused' || phase.status === 'in-review');
+  return latestBuildMove?.status === 'in-review' ? latestBuildMove : undefined;
 }
 
 function buildEndOf(ticket: PageTicket, ownRow: Task | null): number | null {
@@ -281,7 +281,7 @@ function afterBuildSpansOf(input: AfterBuildInput): TimelineSpan[] {
     end,
     end === lastMomentEpochMilliseconds && !ticketIsClosed,
   );
-  const awaitingReview = (end: number): TimelineSpan => span('finished', stateLabelOf('finished'), buildEndEpochMilliseconds, end);
+  const awaitingReview = (end: number): TimelineSpan => span('in-review', stateLabelOf('in-review'), buildEndEpochMilliseconds, end);
   const awaitingMerge  = (start: number): TimelineSpan => span('reviewed', stateLabelOf('reviewed'), start, lastMomentEpochMilliseconds);
   const spans: TimelineSpan[] = [];
   const firstReview = reviews[0];

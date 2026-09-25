@@ -2,19 +2,9 @@
 import type { TaskStatus }   from '../@types/Task.ts';
 import type { TicketStatus } from '../@types/Ticket.ts';
 
-export const TASK_STATUSES = ['pending', 'running', 'paused', 'finished', 're-review', 'reviewed', 'delivered', 'abandoned'] as const;
+export const TASK_STATUSES = ['pending', 'in-progress', 'paused', 'in-review', 're-review', 'reviewed', 'delivered', 'abandoned'] as const;
 
 export const TICKET_STATUSES = ['pending', 'in-progress', 'in-review', 'reviewed', 'delivered', 'abandoned'] as const;
-
-/** `in-review` → `finished` reads backwards until you notice the two ladders are named from opposite ends. */
-export const TASK_STATUS_FOR_TICKET_STATUS: Record<TicketStatus, TaskStatus> = {
-  'pending':     'pending',
-  'in-progress': 'running',
-  'in-review':   'finished',
-  'reviewed':    'reviewed',
-  'delivered':   'delivered',
-  'abandoned':   'abandoned',
-};
 
 /** Nothing more will happen to a row or ticket in one of these: the page counts them as work completed, and `status` hides them. */
 export const SETTLED_TASK_STATUSES: readonly TaskStatus[] = ['delivered', 'abandoned'];

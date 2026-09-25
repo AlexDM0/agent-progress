@@ -44,7 +44,7 @@ function exampleTask(): Task {
   return {
     id:     1,
     name:   'Planning pass',
-    status: 'running',
+    status: 'in-progress',
     start:  new Date(EXAMPLE_START_EPOCH_MILLISECONDS).toISOString(),
     end:    null,
     owner:  'Alex Example',

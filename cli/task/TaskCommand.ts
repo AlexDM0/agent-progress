@@ -34,9 +34,9 @@ interface TaskTransition {
 }
 
 const TRANSITION_SUBCOMMANDS: Record<string, TaskTransition> = {
-  start:    { status: 'running',   spoken: 'started' },
+  start:    { status: 'in-progress', spoken: 'started' },
   pause:    { status: 'paused',    spoken: 'paused' },
-  finish:   { status: 'finished',  spoken: 'finished' },
+  finish:   { status: 'in-review', spoken: 'finished' },
   review:   { status: 'reviewed',  spoken: 'reviewed' },
   rereview: { status: 're-review', spoken: 'under review again' },
   deliver:  { status: 'delivered', spoken: 'delivered' },
@@ -44,13 +44,13 @@ const TRANSITION_SUBCOMMANDS: Record<string, TaskTransition> = {
 
 /** Written out rather than derived, because a command folder may not import a sibling's. */
 const TICKET_VERB_FOR_TASK_STATUS: Partial<Record<TaskStatus, string>> = {
-  'pending':   'ticket reopen',
-  'running':   'ticket start',
-  'finished':  'ticket review',
-  're-review': 'ticket rereview',
-  'reviewed':  'ticket done',
-  'delivered': 'ticket deliver',
-  'abandoned': 'ticket abandon',
+  'pending':     'ticket reopen',
+  'in-progress': 'ticket start',
+  'in-review':   'ticket review',
+  're-review':   'ticket rereview',
+  'reviewed':    'ticket done',
+  'delivered':   'ticket deliver',
+  'abandoned':   'ticket abandon',
 };
 
 const ADD_OPTION_NAMES        = ['owner', 'note', 'ticket', 'review-of', 'start', 'at', 'tokens', 'force', 'json'];
@@ -85,7 +85,7 @@ function requireTask(progress: ProgressFile, taskId: number): Task {
 function refuseATicketOwnedMove(task: Task, targetStatus: TaskStatus, movesAnyway: boolean): void {
   if (task.ticket === null || movesAnyway) return;
   if (targetStatus === 'paused') return;
-  if (targetStatus === 'running' && task.status === 'paused') return;
+  if (targetStatus === 'in-progress' && task.status === 'paused') return;
 
   const ticketVerb = TICKET_VERB_FOR_TASK_STATUS[targetStatus] ?? 'ticket status';
   throw new OperationRefusal(
@@ -167,7 +167,7 @@ async function addOneTask(commandArguments: ArgumentParser, context: CommandCont
       ...(ticket === null ? {} : { ticket: ticket.frontmatter.id }),
       ...(reviewedTicket === null ? {} : { reviewOf: reviewedTicket.frontmatter.id }),
     });
-    if (startsNow) transitionTask(progress, created.id, 'running', at);
+    if (startsNow) transitionTask(progress, created.id, 'in-progress', at);
 
     if (ticket !== null) {
       ticket.frontmatter.task = created.id;

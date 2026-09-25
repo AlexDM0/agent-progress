@@ -91,11 +91,11 @@ function progressOperations(): ProgressOperations {
           task.start = null;
           task.end   = null;
           break;
-        case 'running':
+        case 'in-progress':
           task.start ??= at;
           task.end = null;
           break;
-        case 'finished':
+        case 'in-review':
         case 'reviewed':
         case 'delivered':
           task.start ??= at;
@@ -172,7 +172,7 @@ describe('ensureTaskForTicket', () => {
 });
 
 describe('applyTicketTransition', () => {
-  test('start puts the ticket in progress, stamps started, and sets its row running', () => {
+  test('start puts the ticket in progress, stamps started, and sets its row in-progress', () => {
     const progress   = progressFixture();
     const ticket     = ticketFixture();
     const operations = progressOperations();
@@ -188,13 +188,13 @@ describe('applyTicketTransition', () => {
     expect(ticket.frontmatter.status).toBe('in-progress');
     expect(ticket.frontmatter.started).toBe(STARTED_AT);
     expect(ticket.frontmatter.updated).toBe(STARTED_AT);
-    expect(progress.tasks[0]?.status).toBe('running');
+    expect(progress.tasks[0]?.status).toBe('in-progress');
     expect(progress.tasks[0]?.start).toBe(STARTED_AT);
     expect(result.logText).toBe('Ticket #003 started');
     expect(progress.log).toEqual([{ at: STARTED_AT, text: 'Ticket #003 started' }]);
   });
 
-  test('review stamps finished and sets the row finished', () => {
+  test('review stamps finished and sets the row in-review', () => {
     const progress   = progressFixture();
     const ticket     = ticketFixture();
     const operations = progressOperations();
@@ -216,7 +216,7 @@ describe('applyTicketTransition', () => {
 
     expect(ticket.frontmatter.status).toBe('in-review');
     expect(ticket.frontmatter.finished).toBe(FINISHED_AT);
-    expect(progress.tasks[0]?.status).toBe('finished');
+    expect(progress.tasks[0]?.status).toBe('in-review');
     expect(progress.tasks[0]?.end).toBe(FINISHED_AT);
     expect(result.logText).toBe('Ticket #003 in review');
   });
@@ -423,7 +423,7 @@ describe('applyTicketTransition', () => {
 
     expect(progress.tasks).toHaveLength(1);
     expect(ticket.frontmatter.task).toBe(progress.tasks[0]?.id ?? 0);
-    expect(progress.tasks[0]?.status).toBe('running');
+    expect(progress.tasks[0]?.status).toBe('in-progress');
   });
 
   test('a branch and a commit handed to a transition are recorded on the ticket', () => {

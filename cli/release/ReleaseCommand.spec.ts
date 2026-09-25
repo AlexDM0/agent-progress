@@ -367,7 +367,7 @@ describe.skipIf(!gitIsAvailable())('a release closes the running review bars of 
     expect(humanOutcome.exitCode, humanOutcome.error).toBe(0);
     const reviewRow = storedRow(reviewRowId);
     expect(reviewRow).toMatchObject({ status: 'delivered', start: startedAt, end: releaseStamp });
-    expect(reviewRow?.history?.slice(-2)).toEqual([{ status: 'finished', at: releaseStamp }, { status: 'delivered', at: releaseStamp }]);
+    expect(reviewRow?.history?.slice(-2)).toEqual([{ status: 'in-review', at: releaseStamp }, { status: 'delivered', at: releaseStamp }]);
     expect(humanOutcome.output).toContain(`Closed the review row #${reviewRowId}, delivered: Review 1 #${identifier}`);
     expect(humanOutcome.output.split('\n').at(-1)).toStartWith('Next: 2 of 2 slots free');
   });
@@ -415,7 +415,7 @@ describe.skipIf(!gitIsAvailable())('a release closes the running review bars of 
     expect(releaseDocumentOf(outcome)).toMatchObject({ closedReviewRows: [firstReviewId, bundledReviewId] });
     for (const closedId of [firstReviewId, bundledReviewId]) expect(storedRow(closedId)).toMatchObject({ status: 'delivered', end: releaseStamp });
     expect(storedRow(earlierRoundId)).toEqual(earlierRoundBefore);
-    expect(storedRow(nameOnlyReviewId)).toMatchObject({ status: 'running', end: null });
+    expect(storedRow(nameOnlyReviewId)).toMatchObject({ status: 'in-progress', end: null });
   });
 
   test('a release refused as main-moved leaves the review row running', async () => {
@@ -426,7 +426,7 @@ describe.skipIf(!gitIsAvailable())('a release closes the running review bars of 
     const outcome = await agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree, '--json']);
 
     expect(releaseRefusalDocumentOf(outcome).reason).toBe('main-moved');
-    expect(storedRow(reviewRowId)).toMatchObject({ status: 'running', end: null });
+    expect(storedRow(reviewRowId)).toMatchObject({ status: 'in-progress', end: null });
   });
 
   // The reviewer stops after it released, so its SubagentStop hook runs on a row the release already delivered.

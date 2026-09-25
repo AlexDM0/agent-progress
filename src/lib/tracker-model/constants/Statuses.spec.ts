@@ -1,19 +1,20 @@
 /**
  * That the status tuples and the unions in `src/lib/tracker-model/@types/` still describe the same ladders, that each
- * ladder holds its states in order and once, and that a ticket status crossing into the task ladder keeps its meaning.
+ * ladder holds its states in order and once, and that every ticket status is a task status, paused and re-review being the task's own.
  */
 import { expect, test } from 'bun:test';
 
-import type { TaskStatus }                                               from '../@types/Task';
-import type { TicketStatus }                                             from '../@types/Ticket';
-import { VocabularyUtil }                                                from '../utils/VocabularyUtil';
-import { TASK_STATUSES, TASK_STATUS_FOR_TICKET_STATUS, TICKET_STATUSES } from './Statuses';
+import type { TaskStatus }                from '../@types/Task';
+import type { TicketStatus }              from '../@types/Ticket';
+import { VocabularyUtil }                 from '../utils/VocabularyUtil';
+import { TASK_STATUSES, TICKET_STATUSES } from './Statuses';
 
 const { taskStatusIsKnown } = VocabularyUtil;
 
 /** A tuple member the union has never heard of fails `bun run typecheck` rather than a test. */
 const TASK_STATUS_TUPLE_MATCHES_THE_UNION = TASK_STATUSES satisfies readonly TaskStatus[];
 const TICKET_STATUS_TUPLE_MATCHES_THE_UNION = TICKET_STATUSES satisfies readonly TicketStatus[];
+const TICKET_STATUS_TUPLE_FITS_THE_TASK_LADDER = TICKET_STATUSES satisfies readonly TaskStatus[];
 
 /** The other direction: a union member the tuple lacks leaves a remainder that is not `never`, and `true` then fails `bun run typecheck`. */
 type TupleCoversTheUnion<Union, Tuple extends readonly unknown[]> = [Exclude<Union, Tuple[number]>] extends [never] ? true : false;
@@ -31,20 +32,18 @@ test('every member of each status union is a name the matching tuple also carrie
   expect([TASK_STATUS_TUPLE_COVERS_THE_UNION, TICKET_STATUS_TUPLE_COVERS_THE_UNION]).toEqual([true, true]);
 });
 
-test('the task ladder carries paused between running and finished, and no ticket status reaches it', () => {
-  expect(TASK_STATUSES.indexOf('paused')).toBe(TASK_STATUSES.indexOf('running') + 1);
-  expect(TASK_STATUSES.indexOf('finished')).toBe(TASK_STATUSES.indexOf('paused') + 1);
+test('the task ladder carries paused between in-progress and in-review, and no ticket status reaches it', () => {
+  expect(TASK_STATUSES.indexOf('paused')).toBe(TASK_STATUSES.indexOf('in-progress') + 1);
+  expect(TASK_STATUSES.indexOf('in-review')).toBe(TASK_STATUSES.indexOf('paused') + 1);
   expect(taskStatusIsKnown('paused')).toBe(true);
   expect((TICKET_STATUSES as readonly string[]).includes('paused')).toBe(false);
-  expect(Object.values(TASK_STATUS_FOR_TICKET_STATUS)).not.toContain('paused');
 });
 
-test('the task ladder carries the repeat review between finished and reviewed, and no ticket status reaches it', () => {
-  expect(TASK_STATUSES.indexOf('re-review')).toBe(TASK_STATUSES.indexOf('finished') + 1);
+test('the task ladder carries the repeat review between in-review and reviewed, and no ticket status reaches it', () => {
+  expect(TASK_STATUSES.indexOf('re-review')).toBe(TASK_STATUSES.indexOf('in-review') + 1);
   expect(TASK_STATUSES.indexOf('reviewed')).toBe(TASK_STATUSES.indexOf('re-review') + 1);
   expect(taskStatusIsKnown('re-review')).toBe(true);
   expect((TICKET_STATUSES as readonly string[]).includes('re-review')).toBe(false);
-  expect(Object.values(TASK_STATUS_FOR_TICKET_STATUS)).not.toContain('re-review');
 });
 
 test('both ladders carry the delivered state, between the reviewed end of the ladder and abandoned', () => {
@@ -59,19 +58,13 @@ test('no name appears twice in a ladder, so an index into it identifies one stat
   expect(new Set(TICKET_STATUSES).size).toBe(TICKET_STATUSES.length);
 });
 
-test('a ticket status crossing into the task ladder keeps its own meaning: in-review becomes finished', () => {
-  expect(TASK_STATUS_FOR_TICKET_STATUS['in-review']).toBe('finished');
+// A ticket moves its row to the same word, so a ticket status the task ladder lacks would leave that row nowhere to go.
+test('every ticket status is also a task status', () => {
+  expect(TICKET_STATUS_TUPLE_FITS_THE_TASK_LADDER.length).toBe(TICKET_STATUSES.length);
+  expect(TICKET_STATUSES.filter((status) => !taskStatusIsKnown(status))).toEqual([]);
 });
 
-test('pending, reviewed, delivered and abandoned keep their name across the ladders', () => {
-  expect(TASK_STATUS_FOR_TICKET_STATUS['pending']).toBe('pending');
-  expect(TASK_STATUS_FOR_TICKET_STATUS['reviewed']).toBe('reviewed');
-  expect(TASK_STATUS_FOR_TICKET_STATUS['delivered']).toBe('delivered');
-  expect(TASK_STATUS_FOR_TICKET_STATUS['abandoned']).toBe('abandoned');
-});
-
-test('the mapping has an entry for every ticket status and every entry names a known task status', () => {
-  const mappedTicketStatuses = Object.keys(TASK_STATUS_FOR_TICKET_STATUS).sort();
-  expect(mappedTicketStatuses).toEqual([...TICKET_STATUSES].sort());
-  expect(Object.values(TASK_STATUS_FOR_TICKET_STATUS).filter((status) => !taskStatusIsKnown(status))).toEqual([]);
+test('paused and re-review are the only task statuses a ticket never takes', () => {
+  const ticketStatuses: readonly string[] = TICKET_STATUSES;
+  expect(TASK_STATUSES.filter((status) => !ticketStatuses.includes(status))).toEqual(['paused', 're-review']);
 });

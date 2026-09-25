@@ -51,7 +51,7 @@ function storedProgress(): ProgressFile {
 }
 
 function runningBarsReviewing(ticketId: string): Task[] {
-  return storedProgress().tasks.filter((task) => task.status === 'running' && task.reviewOf === ticketId);
+  return storedProgress().tasks.filter((task) => task.status === 'in-progress' && task.reviewOf === ticketId);
 }
 
 async function agentsInFlightNow(): Promise<number> {
@@ -141,7 +141,7 @@ describe.skipIf(!gitIsAvailable())('starting the review bar with the move to rev
 
     const refused = await runWithExitCode(['ticket', 'claim', '1']);
     expect(refused.exitCode).toBe(1);
-    expect(refused.context.errorText()).toContain(`Ticket #001 is under review: its review row #${bar?.id} is running`);
+    expect(refused.context.errorText()).toContain(`Ticket #001 is under review: its review row #${bar?.id} is in progress`);
     expect(JSON.parse((await run(['ticket', 'show', '1', '--json'])).outputText())).toMatchObject({ status: 'in-review' });
 
     await run(['task', 'finish', String(bar?.id)]);

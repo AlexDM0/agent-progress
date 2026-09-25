@@ -3,7 +3,7 @@
  * folder and no Node builtin, because the page's DOM-only project (`lib/render/page/tsconfig.json`) compiles it.
  */
 
-export type TaskStatus = 'pending' | 'running' | 'paused' | 'finished' | 're-review' | 'reviewed' | 'delivered' | 'abandoned';
+export type TaskStatus = 'pending' | 'in-progress' | 'paused' | 'in-review' | 're-review' | 'reviewed' | 'delivered' | 'abandoned';
 
 /** One status a row actually reached, and when. A correction never files one: a correction is not something that happened. */
 export interface TaskPhase {
@@ -35,7 +35,7 @@ export interface Task {
   history?:     TaskPhase[];
   /**
    * The agent this row belongs to: every row one `ticket claim` started carries the claimed ids joined (`"003,004,005"`), so a bundle's
-   * running rows count as one agent. Absent on a row no claim started, which counts as an agent of its own.
+   * in-progress rows count as one agent. Absent on a row no claim started, which counts as an agent of its own.
    */
   agent?:       string;
   /**

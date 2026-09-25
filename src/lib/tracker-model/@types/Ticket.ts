@@ -1,5 +1,8 @@
+import type { TaskStatus } from './Task.ts';
+
 export type TicketType     = 'bug' | 'change' | 'feature';
-export type TicketStatus   = 'pending' | 'in-progress' | 'in-review' | 'reviewed' | 'delivered' | 'abandoned';
+/** The task ladder without the two states only a row reaches. */
+export type TicketStatus   = Exclude<TaskStatus, 'paused' | 're-review'>;
 export type TicketPriority = 'low' | 'normal' | 'high';
 
 /** The model aliases a Claude Code agent definition's `model` key accepts, as an agent working a ticket runs on. */

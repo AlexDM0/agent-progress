@@ -152,13 +152,13 @@ describe.skipIf(!gitIsAvailable())('moving a ticket', () => {
 
   test('every transition moves the row and stamps the frontmatter it belongs to', async () => {
     await run(['ticket', 'start', '1', '--branch', 'ticket/role-editor']);
-    expect(storedProgress().tasks[0]?.status).toBe('running');
+    expect(storedProgress().tasks[0]?.status).toBe('in-progress');
     expect(storedTicketText()).toContain('status: "in-progress"');
     expect(storedTicketText()).toContain('branch: "ticket/role-editor"');
     expect(storedTicketText()).not.toContain('started: null');
 
     await run(['ticket', 'review', '1']);
-    expect(storedProgress().tasks[0]?.status).toBe('finished');
+    expect(storedProgress().tasks[0]?.status).toBe('in-review');
     expect(storedTicketText()).toContain('status: "in-review"');
     expect(storedTicketText()).not.toContain('finished: null');
 
@@ -181,7 +181,7 @@ describe.skipIf(!gitIsAvailable())('moving a ticket', () => {
     await run(['ticket', 'rereview', '1']);
     await run(['ticket', 'done', '1']);
 
-    expect(storedProgress().tasks[0]?.history?.map((phase) => phase.status)).toEqual(['pending', 'running', 'finished', 're-review', 'reviewed']);
+    expect(storedProgress().tasks[0]?.history?.map((phase) => phase.status)).toEqual(['pending', 'in-progress', 'in-review', 're-review', 'reviewed']);
   });
 
   // Reopening is something that happened to the row, and it is what restarts the review rounds the panel counts.
@@ -191,7 +191,7 @@ describe.skipIf(!gitIsAvailable())('moving a ticket', () => {
 
     await run(['ticket', 'reopen', '1']);
 
-    expect(storedProgress().tasks[0]?.history?.map((phase) => phase.status)).toEqual(['pending', 'running', 'reviewed', 'pending']);
+    expect(storedProgress().tasks[0]?.history?.map((phase) => phase.status)).toEqual(['pending', 'in-progress', 'reviewed', 'pending']);
   });
 
   test('reopen clears the stamps and returns the row to pending', async () => {
@@ -226,7 +226,7 @@ describe.skipIf(!gitIsAvailable())('moving a ticket', () => {
     await run(['ticket', 'status', '1', 'in-review']);
 
     expect(storedTicketText()).toContain('status: "in-review"');
-    expect(storedProgress().tasks[0]?.status).toBe('finished');
+    expect(storedProgress().tasks[0]?.status).toBe('in-review');
   });
 
   test('a status that is not one is refused, listing the ones that are', async () => {

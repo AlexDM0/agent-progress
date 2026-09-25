@@ -108,7 +108,7 @@ describe.skipIf(!gitIsAvailable())('a whole session through the binary', () => {
       expect(document.tasks[0]?.start).not.toBeNull();
       expect(document.tasks[0]?.end).not.toBeNull();
       expect(document.tasks[1]).toMatchObject({
-        id: 2, name: 'Review pass', status: 'running', ticket: null, tokens: null 
+        id: 2, name: 'Review pass', status: 'in-progress', ticket: null, tokens: null 
       });
 
       expect(document.tickets).toHaveLength(1);

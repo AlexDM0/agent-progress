@@ -90,7 +90,7 @@ function exampleRow(id: number, changes: Partial<Task> = {}): Task {
 function reviewRow(id: number, ticketId: string, round: number, start: string, end: string | null, tokens: number): Task {
   return exampleRow(id, {
     name:     `Review ${round} #${ticketId} — Example ticket ${ticketId}`,
-    status:   end === null ? 'running' : 'delivered',
+    status:   end === null ? 'in-progress' : 'delivered',
     start:    at(start),
     end:      end === null ? null : at(end),
     tokens,
@@ -124,7 +124,7 @@ const ROWS_059 = [
     reviewRound: 2,
     start:       at('09:15'),
     end:         at('10:48'),
-    history:     phases(['pending', '08:40'], ['running', '09:15'], ['paused', '09:52'], ['running', '10:06'], ['finished', '10:48'], ['re-review', '11:34']),
+    history:     phases(['pending', '08:40'], ['in-progress', '09:15'], ['paused', '09:52'], ['in-progress', '10:06'], ['in-review', '10:48'], ['re-review', '11:34']),
   }),
   reviewRow(30, '059', 1, '10:50', '11:30', 1_200_000),
   reviewRow(31, '059', 2, '11:34', null, 780_000),
@@ -148,7 +148,7 @@ const ROWS_055 = [
     start:    at('09:15'),
     end:      at('10:48'),
     reviewed: at('12:10'),
-    history:  phases(['pending', '09:04'], ['running', '09:15'], ['finished', '10:48'], ['reviewed', '12:10'], ['delivered', '13:28']),
+    history:  phases(['pending', '09:04'], ['in-progress', '09:15'], ['in-review', '10:48'], ['reviewed', '12:10'], ['delivered', '13:28']),
   }),
   reviewRow(26, '055', 1, '10:52', '11:30', 1_100_000),
 ];
@@ -179,7 +179,7 @@ describe('the design’s #059, in its second review at the design’s now', () =
   });
 
   test('its Build row splits into wip, paused and wip, each to the next recorded phase', () => {
-    expect(timeline.buildSegments.map((segment) => segment.state)).toEqual(['running', 'paused', 'running']);
+    expect(timeline.buildSegments.map((segment) => segment.state)).toEqual(['in-progress', 'paused', 'in-progress']);
     expect(spansText(timeline.buildSegments)).toBe(`wip ${minutes(37)} · paused ${minutes(14)} · wip ${minutes(42)}`);
     expect(timeline.buildSegments.some((segment) => segment.isLive)).toBe(false);
     expect(timeline.buildTimeText).toBe('1h 33m');
@@ -242,7 +242,7 @@ describe('the design’s #055, delivered', () => {
   test('a lifecycle segment 9% of the axis or wider carries its label, a narrower one none', () => {
     const markup = ticketTimelineMarkup(inputFor(TICKET_055, ROWS_055));
     expect(markup).toMatch(/data-state="reviewed"[^>]*>awaiting merge<\/div>/);
-    expect(markup).toMatch(/data-state="finished"[^>]*><\/div>/);
+    expect(markup).toMatch(/data-state="in-review"[^>]*><\/div>/);
   });
 });
 
@@ -272,12 +272,12 @@ describe('the design’s #067, filed and never started', () => {
 
 describe('the shapes the design did not show', () => {
   // A row filed before `history` existed, or re-seeded, has only its stamps: it still gets a build segment rather than an empty track.
-  test('a running row with no history gets one live running segment from its start, counted as wip', () => {
+  test('an in-progress row with no history gets one live in-progress segment from its start, counted as wip', () => {
     const ticket   = exampleTicket('070', {
       status: 'in-progress', filed: at('09:00'), started: at('10:00'), task: 40 
     });
-    const timeline = ticketTimelineOf(inputFor(ticket, [exampleRow(40, { ticket: '070', status: 'running', start: at('10:00') })]));
-    expect(timeline.buildSegments.map((segment) => [segment.state, segment.isLive])).toEqual([['running', true]]);
+    const timeline = ticketTimelineOf(inputFor(ticket, [exampleRow(40, { ticket: '070', status: 'in-progress', start: at('10:00') })]));
+    expect(timeline.buildSegments.map((segment) => [segment.state, segment.isLive])).toEqual([['in-progress', true]]);
     expect(legendText(timeline)).toBe('unstarted 1h · wip 3h 36m');
   });
 
@@ -305,20 +305,20 @@ describe('the shapes the design did not show', () => {
     expect(ticketTimelineMarkup(inputFor(ticket, rows))).not.toContain('now ');
   });
 
-  // `reopen` clears the ticket's stamps but the row's history keeps the first build's `finished` phase.
+  // `reopen` clears the ticket's stamps but the row's history keeps the first build's `in-review` phase.
   test('a reopened ticket building again has no wait after the build, whatever its first build finished at', () => {
     const ticket   = exampleTicket('078', {
       status: 'in-progress', filed: at('09:00'), started: at('11:00'), task: 44,
     });
     const rows     = [exampleRow(44, {
       ticket:  '078',
-      status:  'running',
+      status:  'in-progress',
       start:   at('11:00'),
-      history: phases(['pending', '09:00'], ['running', '09:15'], ['finished', '10:00'], ['pending', '10:30'], ['running', '11:00']),
+      history: phases(['pending', '09:00'], ['in-progress', '09:15'], ['in-review', '10:00'], ['pending', '10:30'], ['in-progress', '11:00']),
     })];
     const timeline = ticketTimelineOf(inputFor(ticket, rows));
     expect(timeline.afterBuild).toEqual([]);
-    expect(timeline.buildSegments.map((segment) => [segment.state, segment.isLive])).toEqual([['running', false], ['running', true]]);
+    expect(timeline.buildSegments.map((segment) => [segment.state, segment.isLive])).toEqual([['in-progress', false], ['in-progress', true]]);
   });
 
   test('a review bar left running on a delivered ticket ends at the delivery and is not live', () => {

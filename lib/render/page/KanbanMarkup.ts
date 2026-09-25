@@ -48,7 +48,7 @@ interface LaneDesign {
 
 const LANE_DESIGN: Record<KanbanLane, LaneDesign> = {
   todo:      { title: 'To do', dotState: 'pending', leading: null },
-  progress:  { title: 'In progress', dotState: 'running', leading: null },
+  progress:  { title: 'In progress', dotState: 'in-progress', leading: null },
   review:    { title: 'Review', dotState: 'reviewing', leading: null },
   merge:     { title: 'Awaiting merge', dotState: 'reviewed', leading: 'by priority' },
   done:      { title: 'Done', dotState: 'delivered', leading: 'newest first' },

@@ -118,11 +118,11 @@ export function reportIgnoredTicketFiles(context: CommandContext, malformedTicke
   for (const malformed of malformedTickets) context.standardError(ignoredTicketFileText(malformed));
 }
 
-/** Finishes and delivers every running review row of the tickets, with one log line each, for every move that ends their review. */
+/** Finishes and delivers every in-progress review row of the tickets, with one log line each, for every move that ends their review. */
 export function closeRunningReviewRows(progress: ProgressFile, ticketIds: readonly string[], at: string): Task[] {
   const closedRows = runningReviewRowsOf(progress, ticketIds);
   for (const runningRow of closedRows) {
-    transitionTask(progress, runningRow.id, 'finished', at);
+    transitionTask(progress, runningRow.id, 'in-review', at);
     transitionTask(progress, runningRow.id, 'delivered', at);
     appendLogEntry(progress, at, `Closed the review row #${runningRow.id}, delivered: ${runningRow.name}`);
   }

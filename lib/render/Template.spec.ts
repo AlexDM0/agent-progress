@@ -17,7 +17,7 @@ function exampleTask(changes: Partial<Task> = {}): Task {
   return {
     id:     1,
     name:   'Split the exporter into two passes',
-    status: 'running',
+    status: 'in-progress',
     start:  '2026-09-18T20:05:00+02:00',
     end:    null,
     owner:  'Alex Example',

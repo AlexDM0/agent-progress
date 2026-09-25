@@ -63,9 +63,9 @@ describe('taskIsLongDone', () => {
     expect(taskIsLongDone(exampleTask({ status: 'reviewed' }), NOW_EPOCH_MILLISECONDS, DAY_MILLISECONDS)).toBe(false);
   });
 
-  // `finished` and `re-review` both mean awaiting a reviewer, so neither is done yet.
+  // `in-review` and `re-review` both mean awaiting a reviewer, so neither is done yet.
   test('never hides a task that is not done, however long ago it ended', () => {
-    for (const status of ['pending', 'running', 'paused', 'finished', 're-review'] as const) {
+    for (const status of ['pending', 'in-progress', 'paused', 'in-review', 're-review'] as const) {
       expect(taskIsLongDone(exampleTask({ status }), NOW_EPOCH_MILLISECONDS, DAY_MILLISECONDS)).toBe(false);
     }
   });

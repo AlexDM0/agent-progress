@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 
+import { LegacyStatusUtil }                          from '../../src/adapters/utils/LegacyStatusUtil';
 import { createFileAtomically, writeFileAtomically } from '../../src/lib/atomic-file/AtomicFile';
 import type {
   DispatcherState,
@@ -22,7 +23,7 @@ const FIRST_TASK_ID = 1;
 const LOWEST_CONCURRENCY_LIMIT = 1;
 
 /** The statuses whose moment is the row's `end` rather than its `start`, which is what a seeded phase is stamped at. */
-const TASK_STATUSES_THAT_CLOSE_THE_BAR: readonly TaskStatus[] = ['finished', 're-review', 'reviewed', 'delivered', 'abandoned'];
+const TASK_STATUSES_THAT_CLOSE_THE_BAR: readonly TaskStatus[] = ['in-review', 're-review', 'reviewed', 'delivered', 'abandoned'];
 
 export type ReadProgressFileResult =
   | { verdict: 'readable'; progress: ProgressFile }
@@ -82,16 +83,16 @@ export function dispatcherRunIdIsWellFormed(value: unknown): value is string {
 
 export interface Concurrency {
   limit:          number;
-  /** The running rows grouped by their `agent` key, each group counted once; a running row with no key, such as a review bar, is an agent of its own. */
+  /** The in-progress rows grouped by their `agent` key, each group counted once; one with no key, such as a review bar, is an agent of its own. */
   agentsInFlight: number;
   /** Never negative: a limit lowered below the agents already in flight leaves no slot, and takes none of them back. */
   freeSlots:      number;
 }
 
 function agentsInFlightOf(tasks: readonly Task[]): number {
-  const runningTasks      = tasks.filter((task) => task.status === 'running');
-  const claimedAgentKeys  = new Set(runningTasks.flatMap((task) => (task.agent === undefined ? [] : [task.agent])));
-  const unclaimedRowCount = runningTasks.filter((task) => task.agent === undefined).length;
+  const inProgressTasks   = tasks.filter((task) => task.status === 'in-progress');
+  const claimedAgentKeys  = new Set(inProgressTasks.flatMap((task) => (task.agent === undefined ? [] : [task.agent])));
+  const unclaimedRowCount = inProgressTasks.filter((task) => task.agent === undefined).length;
   return claimedAgentKeys.size + unclaimedRowCount;
 }
 
@@ -174,6 +175,25 @@ function logEntryProblem(value: unknown, index: number): string | null {
   return null;
 }
 
+function replaceRetiredStatusWord(record: unknown): void {
+  if (typeof record !== 'object' || record === null) return;
+  const candidate = record as Record<string, unknown>;
+  if (typeof candidate['status'] !== 'string') return;
+  candidate['status'] = LegacyStatusUtil.currentTaskStatusFor(candidate['status']) ?? candidate['status'];
+}
+
+/** In memory only: a read never writes, so a file keeps its retired words until the next command that changes it stores the new ones. */
+function replaceRetiredTaskStatusWords(parsed: unknown): void {
+  if (typeof parsed !== 'object' || parsed === null) return;
+  const { tasks } = parsed as Record<string, unknown>;
+  if (!Array.isArray(tasks)) return;
+  for (const task of tasks) {
+    replaceRetiredStatusWord(task);
+    const history = typeof task === 'object' && task !== null ? (task as Record<string, unknown>)['history'] : undefined;
+    if (Array.isArray(history)) history.forEach(replaceRetiredStatusWord);
+  }
+}
+
 function progressFileProblem(parsed: unknown): string | null {
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return 'the document is not a JSON object';
   const candidate = parsed as Record<string, unknown>;
@@ -230,6 +250,7 @@ export function readProgressFile(workspace: Workspace): ReadProgressFileResult {
     return { verdict: 'unreadable', reason: `it is not valid JSON (${error instanceof Error ? error.message : 'unparseable'})` };
   }
 
+  replaceRetiredTaskStatusWords(parsed);
   const problem = progressFileProblem(parsed);
   if (problem !== null) return { verdict: 'unreadable', reason: problem };
   return { verdict: 'readable', progress: parsed as ProgressFile };
@@ -293,7 +314,7 @@ export function addTask(progress: ProgressFile, input: AddTaskInput): Task {
 
 /** Linked by `reviewOf` alone: the page's nesting by name is a display fallback for older rows, never a reason to move one. */
 export function runningReviewRowsOf(progress: ProgressFile, ticketIds: readonly string[]): Task[] {
-  return progress.tasks.filter((task) => task.status === 'running' && task.reviewOf !== undefined && ticketIds.includes(task.reviewOf));
+  return progress.tasks.filter((task) => task.status === 'in-progress' && task.reviewOf !== undefined && ticketIds.includes(task.reviewOf));
 }
 
 export function setTaskTokens(progress: ProgressFile, taskId: number, tokens: number | null): 'applied' | 'no-such-task' {
@@ -327,13 +348,13 @@ export function transitionTask(progress: ProgressFile, taskId: number, status: T
 
   const statusMoved = task.status !== status;
 
-  // A row that starts running anew is its own agent until a claim keys it again; only a resumed pause is still the same agent.
-  if (status === 'running' && task.status !== 'running' && task.status !== 'paused') delete task.agent;
+  // A row that starts work anew is its own agent until a claim keys it again; only a resumed pause is still the same agent.
+  if (status === 'in-progress' && task.status !== 'in-progress' && task.status !== 'paused') delete task.agent;
 
-  if (status === 'running' || status === 'paused') {
+  if (status === 'in-progress' || status === 'paused') {
     task.start = task.start ?? at;
     task.end = null;
-  } else if (status === 'finished' || status === 're-review' || status === 'reviewed' || status === 'delivered') {
+  } else if (status === 'in-review' || status === 're-review' || status === 'reviewed' || status === 'delivered') {
     task.start = task.start ?? at;
     task.end = task.end ?? at;
     if (status === 're-review') task.reviewRound = task.reviewRound === undefined ? LIMITS.FIRST_REPEAT_REVIEW_ROUND : task.reviewRound + 1;

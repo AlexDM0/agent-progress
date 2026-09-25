@@ -38,14 +38,14 @@ const TICKET_LINE_START = /^Ticket #/;
 
 /** How far up the ladder a status is, so a derived phase a row never reached is left out; `abandoned` sits above everything it could follow. */
 const LADDER_RANK_FOR_TASK_STATUS: Record<TaskStatus, number> = {
-  'pending':   0,
-  'running':   1,
-  'paused':    1,
-  'finished':  2,
-  're-review': 2,
-  'reviewed':  3,
-  'delivered': 4,
-  'abandoned': 5,
+  'pending':     0,
+  'in-progress': 1,
+  'paused':      1,
+  'in-review':   2,
+  're-review':   2,
+  'reviewed':    3,
+  'delivered':   4,
+  'abandoned':   5,
 };
 
 interface PhaseLine {
@@ -161,7 +161,7 @@ function recordedPhaseLines(task: Task): PhaseLine[] {
 
 /**
  * The newest phase is the row as it stands, so it is read the way the chart reads it: the one state a task status cannot name on its
- * own is a `finished` row whose ticket is `in-review`. An older phase keeps the status it was filed under.
+ * own is an `in-review` row whose ticket is `in-review` too. An older phase keeps the status it was filed under.
  */
 function readNewestPhaseAsTheChartDoes(lines: readonly PhaseLine[], task: Task, ticketStatus: TicketStatus | null): PhaseLine[] {
   const newest = lines.at(-1);
@@ -181,8 +181,8 @@ function derivedPhases(task: Task, ticket: PageTicket | null): TaskPhase[] {
   const rowWasAbandoned = task.status === 'abandoned';
   const candidates: Array<[status: TaskStatus, at: string | null | undefined]> = [
     ['pending', ticket?.filed],
-    ['running', task.start ?? ticket?.started],
-    ['finished', rowWasAbandoned ? ticket?.finished : task.end ?? ticket?.finished],
+    ['in-progress', task.start ?? ticket?.started],
+    ['in-review', rowWasAbandoned ? ticket?.finished : task.end ?? ticket?.finished],
     ['reviewed', task.reviewed],
     ['delivered', ticket?.delivered],
     ['abandoned', rowWasAbandoned ? ticket?.abandonedAt ?? task.end : null],

@@ -78,7 +78,7 @@ describe.skipIf(!gitIsAvailable())('the human listing', () => {
     const printed = context.outputText();
 
     expect(printed).toContain('Example Agency');
-    expect(printed).toContain('2 running');
+    expect(printed).toContain('2 in-progress');
     expect(printed).toContain('1 in-progress');
     expect(printed).toContain('#001 Double-click a role to edit it');
     expect(printed).toContain('Review pass');
@@ -106,7 +106,7 @@ describe.skipIf(!gitIsAvailable())('the --json --full document', () => {
     expect(document.startedAt.length).toBeGreaterThan(0);
 
     expect(document.tasks.map((task) => task.name)).toEqual(['#001 Double-click a role to edit it', 'Review pass']);
-    expect(document.tasks[1]).toMatchObject({ status: 'running', owner: 'Alex Example', ticket: null });
+    expect(document.tasks[1]).toMatchObject({ status: 'in-progress', owner: 'Alex Example', ticket: null });
 
     expect(document.tickets).toHaveLength(1);
     expect(document.tickets[0]).toMatchObject({ id: '001', status: 'in-progress', task: 1 });
@@ -141,12 +141,12 @@ describe.skipIf(!gitIsAvailable())('the --json working view', () => {
     expect(document.omitted).toEqual({ settledTasks: 2, settledTickets: 1, olderLogEntries: 0 });
   });
 
-  test('keeps finished and reviewed rows, which still wait on the orchestrator', async () => {
+  test('keeps in-review and reviewed rows, which still wait on the orchestrator', async () => {
     await run(['task', 'finish', '2']);
 
     const document = JSON.parse((await run(['status', '--json'])).outputText()) as StatusDocument;
 
-    expect(document.tasks[1]).toMatchObject({ name: 'Review pass', status: 'finished' });
+    expect(document.tasks[1]).toMatchObject({ name: 'Review pass', status: 'in-review' });
   });
 
   test('carries the last 10 log entries newest first by their stamp, and counts the older ones', async () => {

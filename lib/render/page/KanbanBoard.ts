@@ -5,7 +5,6 @@
 
 import type { Task }                                                 from '../../../src/lib/tracker-model/@types/Task.ts';
 import type { TicketPriority }                                       from '../../../src/lib/tracker-model/@types/Ticket.ts';
-import { TASK_STATUS_FOR_TICKET_STATUS }                             from '../../../src/lib/tracker-model/constants/Statuses.ts';
 import { TicketDefaultsUtil }                                        from '../../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
 import { LIMITS }                                                    from '../../../src/shared/constants/Limits.ts';
 import type { PageTicket }                                           from './PageData.ts';
@@ -31,15 +30,15 @@ export const DEFAULT_ABANDONED_LANE_CHOICE = 'closed';
 
 /** A card's lane is the pill its ticket's own row shows on the Progress tab. */
 const LANE_FOR_ROW_STATE: Record<RowState, KanbanLane> = {
-  'pending':   'todo',
-  'running':   'progress',
-  'paused':    'progress',
-  'finished':  'review',
-  'reviewing': 'review',
-  're-review': 'review',
-  'reviewed':  'merge',
-  'delivered': 'done',
-  'abandoned': 'abandoned',
+  'pending':     'todo',
+  'in-progress': 'progress',
+  'paused':      'progress',
+  'in-review':   'review',
+  'reviewing':   'review',
+  're-review':   'review',
+  'reviewed':    'merge',
+  'delivered':   'done',
+  'abandoned':   'abandoned',
 };
 
 const PRIORITY_ORDER: Record<TicketPriority, number> = { high: 0, normal: 1, low: 2 };
@@ -63,9 +62,9 @@ export function ownRowOf(ticketId: string, tasks: readonly Task[]): Task | null 
   return tasks.find((task) => task.ticket === ticketId) ?? null;
 }
 
-/** A ticket with no row reads the pill a row in its status's task status would show. */
+/** A ticket with no row reads the pill a row in its own status would show. */
 export function cardStateFor(ticket: PageTicket, ownRow: Task | null): RowState {
-  return rowStateFor(ownRow ?? { status: TASK_STATUS_FOR_TICKET_STATUS[ticket.status] }, ticket.status);
+  return rowStateFor(ownRow ?? { status: ticket.status }, ticket.status);
 }
 
 export function laneOfState(state: RowState): KanbanLane {
@@ -156,11 +155,11 @@ export function laneSubCountsOf(lane: KanbanLane, members: readonly KanbanCard[]
       subCount(countOf((card) => card.ownRow === null), 'no row'),
     ],
     progress: [
-      subCount(countOf((card) => card.state === 'running'), 'wip', 'running'),
+      subCount(countOf((card) => card.state === 'in-progress'), 'wip', 'in-progress'),
       subCount(countOf((card) => card.state === 'paused'), 'paused', 'paused'),
     ],
     review: [
-      subCount(countOf((card) => card.state === 'finished'), 'awaiting', 'finished'),
+      subCount(countOf((card) => card.state === 'in-review'), 'awaiting', 'in-review'),
       subCount(countOf((card) => card.state === 'reviewing' || card.state === 're-review'), 'reviewing', 'reviewing'),
     ],
     merge:     [],
@@ -199,7 +198,7 @@ function pausedNote(card: KanbanCard, format: NoteFormat): string | null {
 }
 
 function waitingForReviewerNote(card: KanbanCard, format: NoteFormat): string | null {
-  const duration = durationSince(newestPhaseAt(card.ownRow, 'finished') ?? card.ticket.finished ?? card.ownRow?.end, format);
+  const duration = durationSince(newestPhaseAt(card.ownRow, 'in-review') ?? card.ticket.finished ?? card.ownRow?.end, format);
   return duration === null ? null : `no reviewer yet · ${duration}`;
 }
 
@@ -217,7 +216,7 @@ export function subStateNoteOf(card: KanbanCard, format: NoteFormat): string | n
   switch (card.state) {
     case 'paused':
       return pausedNote(card, format);
-    case 'finished':
+    case 'in-review':
       return waitingForReviewerNote(card, format);
     case 'reviewing':
     case 're-review':

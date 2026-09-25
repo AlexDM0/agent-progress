@@ -34,7 +34,7 @@ function timestampAt(offsetMinutes: number): string {
   return new Date(EXAMPLE_START_EPOCH_MILLISECONDS + minutesAsMilliseconds(offsetMinutes)).toISOString();
 }
 
-function exampleTask(id: number, startOffsetMinutes: number | null, endOffsetMinutes: number | null, status: TaskStatus = 'finished'): Task {
+function exampleTask(id: number, startOffsetMinutes: number | null, endOffsetMinutes: number | null, status: TaskStatus = 'in-review'): Task {
   return {
     id,
     name:   `Example task ${id}`,
@@ -131,7 +131,7 @@ describe('computeTimeline', () => {
   test('starts a ten-day-old tracker at its earliest visible row, not at startedAt', () => {
     const tenDaysMinutes = 10 * 1440;
     const timeline       = timelineFor({
-      tasks:            [exampleTask(1, tenDaysMinutes - 180, tenDaysMinutes - 120), exampleTask(2, tenDaysMinutes - 60, null, 'running')],
+      tasks:            [exampleTask(1, tenDaysMinutes - 180, tenDaysMinutes - 120), exampleTask(2, tenDaysMinutes - 60, null, 'in-progress')],
       nowOffsetMinutes: tenDaysMinutes,
     });
 
@@ -146,7 +146,7 @@ describe('computeTimeline', () => {
   });
 
   test('counts a task start beyond every recorded end towards the automatic horizon', () => {
-    const timeline = timelineFor({ tasks: [exampleTask(1, 0, 5), exampleTask(2, 200, null, 'running')], nowOffsetMinutes: 5 });
+    const timeline = timelineFor({ tasks: [exampleTask(1, 0, 5), exampleTask(2, 200, null, 'in-progress')], nowOffsetMinutes: 5 });
 
     expect(timeline.toEpochMilliseconds - timeline.fromEpochMilliseconds).toBe(minutesAsMilliseconds(215));
   });
@@ -203,7 +203,7 @@ describe('computeTimeline', () => {
   });
 
   test('extends a started task with no recorded end to now', () => {
-    const timeline = timelineFor({ tasks: [exampleTask(1, 0, null, 'running')], range: absoluteRange(0, 60), nowOffsetMinutes: 30 });
+    const timeline = timelineFor({ tasks: [exampleTask(1, 0, null, 'in-progress')], range: absoluteRange(0, 60), nowOffsetMinutes: 30 });
     const [bar]    = timeline.bars;
 
     expect(bar?.widthPercent).toBe(50);

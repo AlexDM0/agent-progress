@@ -73,7 +73,7 @@ function exampleTask(changes: Partial<Task> = {}): Task {
   return {
     id:     1,
     name:   'Split the exporter into two passes',
-    status: 'running',
+    status: 'in-progress',
     start:  '2026-09-18T20:05:00+02:00',
     end:    null,
     owner:  'Alex Example',
@@ -126,9 +126,9 @@ describe('taskRowsMarkup', () => {
   // The ladder the chart is read by: every label names the state the row is in, and `done` means merged.
   test.each<[TaskStatus, string]>([
     ['pending', 'unstarted'],
-    ['running', 'wip'],
+    ['in-progress', 'wip'],
     ['paused', 'paused'],
-    ['finished', 'awaiting review'],
+    ['in-review', 'awaiting review'],
     ['re-review', 'reviewing 2'],
     ['reviewed', 'awaiting merge'],
     ['delivered', 'done'],
@@ -148,7 +148,7 @@ describe('taskRowsMarkup', () => {
     expect(markup).toContain('title="Reviewed 2026-09-18 21:10 before delivery"');
   });
 
-  test('leaves the mark off a row delivered straight from finished, and off a reviewed row that is not delivered yet', () => {
+  test('leaves the mark off a row delivered straight from in-review, and off a reviewed row that is not delivered yet', () => {
     expect(rowFor(exampleTask({ status: 'delivered' }))).not.toContain('ap-reviewed-mark');
     expect(rowFor(exampleTask({ status: 'reviewed', reviewed: '2026-09-18T21:10:00+02:00' }))).not.toContain('ap-reviewed-mark');
   });
@@ -169,7 +169,7 @@ describe('taskRowsMarkup', () => {
   });
 
   test('gives a reviewing row the reviewing state and label', () => {
-    const markup = rowFor(exampleTask({ status: 'finished' }), 'in-review');
+    const markup = rowFor(exampleTask({ status: 'in-review' }), 'in-review');
 
     expect(markup).toContain('data-state="reviewing"');
     expect(markup).toContain('<span class="ap-pill">reviewing</span>');
@@ -188,8 +188,8 @@ describe('taskRowsMarkup', () => {
   });
 
   test('leaves every other status alone whatever its ticket says', () => {
-    expect(rowFor(exampleTask({ status: 'running' }), 'in-review')).toContain('data-state="running"');
-    expect(rowFor(exampleTask({ status: 'finished' }), 'reviewed')).toContain('data-state="finished"');
+    expect(rowFor(exampleTask({ status: 'in-progress' }), 'in-review')).toContain('data-state="in-progress"');
+    expect(rowFor(exampleTask({ status: 'in-review' }), 'reviewed')).toContain('data-state="in-review"');
   });
 
   test('carries the ids the ticket table and the fragment contract link to', () => {
@@ -341,7 +341,7 @@ describe('summaryStatsMarkup', () => {
   test('reads in the same ladder as the pills: work completed out of the total, then what is awaited', () => {
     const markup = summaryStatsMarkup([
       exampleTask({ id: 1, status: 'pending' }),
-      exampleTask({ id: 2, status: 'finished' }),
+      exampleTask({ id: 2, status: 'in-review' }),
       exampleTask({ id: 3, status: 'reviewed' }),
       exampleTask({ id: 4, status: 'delivered' }),
     ], NO_AGENTS_OF_TWO);
@@ -357,7 +357,7 @@ describe('summaryStatsMarkup', () => {
       exampleTask({ id: 1, status: 'delivered' }),
       exampleTask({ id: 2, status: 'delivered' }),
       exampleTask({ id: 3, status: 'abandoned' }),
-      exampleTask({ id: 4, status: 'running' }),
+      exampleTask({ id: 4, status: 'in-progress' }),
     ], NO_AGENTS_OF_TWO);
     const settled = summaryStatsMarkup([
       exampleTask({ id: 1, status: 'delivered' }),
@@ -395,7 +395,7 @@ describe('summaryStatsMarkup', () => {
 
   // The figures are the ones `status --json` reports, handed in; the line must print them as given rather than count the rows itself.
   test('prints the agents in flight against the limit as handed in, not a count of the running rows', () => {
-    const markup = summaryStatsMarkup([exampleTask({ status: 'running' })], { limit: 3, agentsInFlight: 2 });
+    const markup = summaryStatsMarkup([exampleTask({ status: 'in-progress' })], { limit: 3, agentsInFlight: 2 });
 
     expect(markup).toContain('<span class="ap-stat"><span class="ap-stat-n">2 of 3</span> agents running</span>');
   });

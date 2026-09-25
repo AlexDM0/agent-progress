@@ -78,9 +78,9 @@ output never carries either.
                               tickets in the same order as {id, priority, model, effort}, the
                               defaults resolved, so a dispatcher derives none of them itself.
 
-  task add "<name>"           Add a Gantt row. --start marks it running at --at (default now),
-      [--owner <who>]         --ticket links it to a ticket that has no row of its own, --note is
-      [--note <text>]         the detail shown beside the bar, and --tokens records what the work
+  task add "<name>"           Add a Gantt row. --start marks it in-progress at --at (default
+      [--owner <who>]         now), --ticket links it to a ticket that has no row of its own, --note
+      [--note <text>]         is the detail shown beside the bar, and --tokens records what the work
       [--ticket <id>]         cost. --force moves --ticket's link off the row that holds it.
       [--review-of <id>]      --review-of marks the row as a review pass of that ticket: the page
       [--start]               draws it directly above the ticket's own row, latest round first. A
@@ -178,8 +178,8 @@ output never carries either.
       [--worktree <path>]     tracker's root, wherever this runs from — to <b>, then move the
       [--main <line>]         ticket to reviewed and deliver it with --branch <b> and --commit set
       [--json]                to the merged tip. More ids after <id> release every ticket of a
-                              bundle, which share <b>. Every running review row whose --review-of
-                              names a released ticket is finished and delivered at the release
+                              bundle, which share <b>. Every in-progress review row whose
+                              --review-of names a released ticket is finished and delivered at the release
                               time, and named; a row linked by its name alone is left. All of it happens in
                               one lock hold, so two releases never race. Refused at exit 1, with
                               nothing changed (no review row either), when a ticket
@@ -270,7 +270,7 @@ output never carries either.
                               already delivered or abandoned, reopen from anything but pending.
                               Moving a ticket to the status it already has is refused and logs
                               nothing — \`ticket rereview\` below is the one exception. Every
-                              move out of in-review finishes and delivers the ticket's running
+                              move out of in-review finishes and delivers the ticket's in-progress
                               review bar, with one log line each. \`start\` warns on standard error, and still
                               moves it, when the ticket is held.
                               \`abandon\` requires --reason; \`reopen\` clears the stamps and returns
@@ -279,7 +279,7 @@ output never carries either.
                               row (a low one never started) is refused at exit 1.
 
   ticket review|rereview <id> --start-review [--owner <who>] [--note <text>] [--at <when>]
-                              The move to review, or the next round, and the reviewer's running bar
+                              The move to review, or the next round, and the reviewer's in-progress bar
                               (\`Review <N> #<id> — <title>\`, its \`reviewOf\` the ticket, N the
                               \`## Review\` sections plus one) in one lock hold, closing any bar of
                               the round before: the builder's slot passes to its reviewer, and one
@@ -296,7 +296,7 @@ output never carries either.
                               that is not reviewed or delivered (one inside it is settled: the
                               bundle is worked in dependency order), when one is low and a normal
                               or high ticket is not yet delivered or abandoned — \`ticket start\` only warns
-                              about that — when a review bar of one is running, or when the agents
+                              about that — when a review bar of one is in progress, or when the agents
                               in flight already number the concurrency limit. The count and the
                               moves share one lock hold, so
                               two claims racing for the last slot cannot both succeed. --json
@@ -328,9 +328,9 @@ output never carries either.
                               warns on standard error but still moves it.
 
   concurrency [<n>] [--json]  Print the concurrency limit: how many agents may be in flight at once.
-                              A slot is an agent: the running rows one \`ticket claim\` started count
-                              once, and every other running row, such as a review bar, counts on
-                              its own. With <n>, store a new one (a whole number, 1 or more) for
+                              A slot is an agent: the in-progress rows one \`ticket claim\` started
+                              count once, and every other in-progress row, such as a review bar,
+                              counts on its own. With <n>, store a new one (a whole number, 1 or more) for
                               every worktree, from 1 to 10: a higher one is refused at exit 1 with
                               nothing written, and one an older tracker stored reads as 10. A
                               tracker that never set one reads 2; a limit below the agents already

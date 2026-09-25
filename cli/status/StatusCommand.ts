@@ -35,7 +35,7 @@ const WORKING_VIEW_LOG_ENTRY_COUNT = 10;
 
 const TASK_COLUMN_WIDTHS = {
   identifier: 5,
-  status:     11,
+  status:     12,
   owner:      14,
   ticket:     7,
   tokens:     8,

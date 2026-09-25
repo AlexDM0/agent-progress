@@ -100,14 +100,14 @@ describe.skipIf(!gitIsAvailable())('filing and moving a low ticket', () => {
     expect(readdirSync(join(repositoryDirectory, '.agent-progress', 'tickets'))).toHaveLength(0);
   });
 
-  test('ticket start on a low ticket gives it a running row, and the ticket stays low', async () => {
+  test('ticket start on a low ticket gives it an in-progress row, and the ticket stays low', async () => {
     await run(['ticket', 'add', 'Reword the empty-log note', '--priority', 'low']);
 
     await run(['ticket', 'start', '1']);
 
     const { tasks } = storedProgress();
     expect(tasks).toHaveLength(1);
-    expect(tasks[0]).toMatchObject({ status: 'running', ticket: '001' });
+    expect(tasks[0]).toMatchObject({ status: 'in-progress', ticket: '001' });
     expect(storedTicketText('001')).toContain('priority: "low"');
     expect(storedTicketText('001')).toContain(`task: ${tasks[0]?.id}`);
   });
@@ -235,7 +235,7 @@ describe.skipIf(!gitIsAvailable())('readiness and claiming', () => {
 
     expect(await readyTicketIds()).toEqual(['002']);
     await run(['ticket', 'claim', '2', '--owner', 'opus']);
-    expect(storedProgress().tasks.find((task) => task.ticket === '002')).toMatchObject({ status: 'running', owner: 'opus' });
+    expect(storedProgress().tasks.find((task) => task.ticket === '002')).toMatchObject({ status: 'in-progress', owner: 'opus' });
   });
 
   test('a high ticket filed after a normal one is listed first', async () => {

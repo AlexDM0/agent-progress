@@ -79,7 +79,7 @@ describe.skipIf(!gitIsAvailable())('claiming a ticket', () => {
     const progress = storedProgress();
     const row      = progress.tasks.find((task) => task.ticket === '001');
     expect(ticketText()).toContain('status: "in-progress"');
-    expect(row?.status).toBe('running');
+    expect(row?.status).toBe('in-progress');
     expect(row?.owner).toBe('Alex Example');
     expect(row?.note).toBe('role editor');
     expect(progress.log.length).toBe(logLengthBefore + 1);
@@ -93,7 +93,7 @@ describe.skipIf(!gitIsAvailable())('claiming a ticket', () => {
 
     const message = await expectRefusedWithNothingWritten(['ticket', 'claim', '1']);
 
-    expect(message).toContain('2 rows are running');
+    expect(message).toContain('2 rows are in progress');
     expect(message).toContain('the concurrency limit is 2');
   });
 
@@ -103,7 +103,7 @@ describe.skipIf(!gitIsAvailable())('claiming a ticket', () => {
 
     const message = await expectRefusedWithNothingWritten(['ticket', 'claim', '1']);
 
-    expect(message).toContain('1 agent is in flight (1 row is running) and the concurrency limit is 1 agent.');
+    expect(message).toContain('1 agent is in flight (1 row is in progress) and the concurrency limit is 1 agent.');
   });
 
   test('a ticket waiting on one that is not done yet is refused with nothing written', async () => {
@@ -134,7 +134,7 @@ describe.skipIf(!gitIsAvailable())('claiming a ticket', () => {
     ]);
 
     expect(outcomes.map((outcome) => outcome.exitCode).sort()).toEqual([0, 1]);
-    expect(storedProgress().tasks.filter((task) => task.status === 'running')).toHaveLength(2);
+    expect(storedProgress().tasks.filter((task) => task.status === 'in-progress')).toHaveLength(2);
   });
 });
 
@@ -172,7 +172,7 @@ describe.skipIf(!gitIsAvailable())('claiming several tickets as one agent', () =
     const context = await run(['ticket', 'claim', '3', '4', '5', '--owner', 'Alex Example', '--note', 'role import and export']);
 
     const bundleRows = storedProgress().tasks.filter((task) => task.ticket !== null && ['003', '004', '005'].includes(task.ticket));
-    const expectedRow = ['running', '003,004,005', 'Alex Example', 'role import and export'];
+    const expectedRow = ['in-progress', '003,004,005', 'Alex Example', 'role import and export'];
     expect(bundleRows.map((row) => [row.status, row.agent, row.owner, row.note])).toEqual([expectedRow, expectedRow, expectedRow]);
     expect(everyTicketText().filter((text) => text.includes('status: "in-progress"'))).toHaveLength(3);
     expect(context.outputText()).toContain('Tickets #003, #004, #005 started as one agent: 2 of 2 slots are now taken.');

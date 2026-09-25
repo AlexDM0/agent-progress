@@ -322,7 +322,7 @@ function startReviewBar(progress: ProgressFile, ticket: Ticket, request: ReviewB
     reviewOf: id,
     ...request,
   });
-  transitionTask(progress, bar.id, 'running', at);
+  transitionTask(progress, bar.id, 'in-progress', at);
   const bundleAgentKey = agentKeyOfABundleStillRunning(progress, ticket);
   if (bundleAgentKey !== null) bar.agent = bundleAgentKey;
   appendLogEntry(progress, at, `Review row #${bar.id} started: ${bar.name}`);
@@ -338,7 +338,7 @@ function agentKeyOfABundleStillRunning(progress: ProgressFile, ticket: Ticket): 
   const { task } = ticket.frontmatter;
   const claimAgentKey = task === null ? undefined : findTask(progress, task)?.agent;
   if (claimAgentKey === undefined) return null;
-  return progress.tasks.some((row) => row.status === 'running' && row.agent === claimAgentKey) ? claimAgentKey : null;
+  return progress.tasks.some((row) => row.status === 'in-progress' && row.agent === claimAgentKey) ? claimAgentKey : null;
 }
 
 function closedReviewBarsText(closedBarIds: readonly number[]): string {
@@ -635,7 +635,7 @@ function refuseAnUnclaimableTicket(ticket: Ticket, tickets: readonly Ticket[], c
 function refuseATicketUnderReview(progress: ProgressFile, ticketId: string): void {
   const [runningBar] = runningReviewRowsOf(progress, [ticketId]);
   if (runningBar === undefined) return;
-  throw new OperationRefusal('refused', `Ticket #${ticketId} is under review: its review row #${runningBar.id} is running. Nothing was written.`);
+  throw new OperationRefusal('refused', `Ticket #${ticketId} is under review: its review row #${runningBar.id} is in progress. Nothing was written.`);
 }
 
 /** `1 agent is`, `2 agents are`: the count, its noun and the verb agreeing with it. */
@@ -675,11 +675,11 @@ async function claimTickets(references: readonly string[], commandArguments: Arg
 
     const { agentsInFlight, limit } = concurrencyOf(change.progress);
     if (agentsInFlight >= limit) {
-      const runningRowCount = change.progress.tasks.filter((task) => task.status === 'running').length;
+      const runningRowCount = change.progress.tasks.filter((task) => task.status === 'in-progress').length;
       throw new OperationRefusal(
         'refused',
         `${namedTicketsText(identifiers)} ${identifiers.length === 1 ? 'was' : 'were'} not claimed: ${countedText(agentsInFlight, 'agent')} in flight `
-        + `(${countedText(runningRowCount, 'row')} running) and the concurrency limit is ${limit} ${limit === 1 ? 'agent' : 'agents'}. `
+        + `(${countedText(runningRowCount, 'row')} in progress) and the concurrency limit is ${limit} ${limit === 1 ? 'agent' : 'agents'}. `
         + 'Nothing was written; claim once an agent has finished.',
       );
     }

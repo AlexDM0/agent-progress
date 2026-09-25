@@ -13,9 +13,8 @@ import type {
   TicketPriority,
   TicketStatus
 } from '../../src/lib/tracker-model/@types/Ticket.ts';
-import { TASK_STATUS_FOR_TICKET_STATUS } from '../../src/lib/tracker-model/constants/Statuses.ts';
-import { TicketDefaultsUtil }            from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
-import { LIMITS }                        from '../../src/shared/constants/Limits.ts';
+import { TicketDefaultsUtil } from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
+import { LIMITS }             from '../../src/shared/constants/Limits.ts';
 
 export interface AddTaskInput {
   name:      string;
@@ -223,7 +222,7 @@ export function applyTicketTransition(input: ApplyTicketTransitionInput): ApplyT
     at,
   });
   // The row was just found or created, so `no-such-task` cannot come back.
-  if (task !== null) operations.transitionTask(progress, task.id, TASK_STATUS_FOR_TICKET_STATUS[targetStatus], at);
+  if (task !== null) operations.transitionTask(progress, task.id, targetStatus, at);
 
   const logText = logTextFor(frontmatter, targetStatus);
   operations.appendLogEntry(progress, at, logText);
@@ -276,7 +275,7 @@ export function seedTaskFromTicket(input: TicketRowInput): Task {
   const seeded = operations.addTask(progress, {
     name:   taskNameFor(frontmatter),
     ticket: frontmatter.id,
-    status: TASK_STATUS_FOR_TICKET_STATUS[frontmatter.status],
+    status: frontmatter.status,
     ...(frontmatter.started === null ? {} : { start: frontmatter.started }),
     ...(endTimestamp === null ? {} : { end: endTimestamp }),
     ...(frontmatter.status === 'reviewed' || frontmatter.status === 'delivered' ? { reviewed: frontmatter.finished ?? frontmatter.updated } : {}),

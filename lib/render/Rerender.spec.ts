@@ -30,7 +30,7 @@ const SYNTHETIC_PROGRESS: ProgressFile = {
   tasks:      [{
     id:     1,
     name:   'Review pass',
-    status: 'running',
+    status: 'in-progress',
     start:  '2026-09-18T20:05:00+02:00',
     end:    null,
     owner:  'Alex Example',
