@@ -1,6 +1,6 @@
 /** The Kanban tab's markup, shaped by the placeholder board in `lib/render/page/template.html`; the rules it follows are `KanbanBoard.ts`'s. */
 
-import { LIMITS }              from '../../constants/Limits.ts';
+import { LIMITS }              from '../../../src/shared/constants/Limits.ts';
 import { ticketPriorityOf }    from '../../constants/Statuses.ts';
 import type { TicketPriority } from '../../constants/Types.ts';
 import { HtmlEscapeUtil }      from '../../utils/HtmlEscapeUtil.ts';

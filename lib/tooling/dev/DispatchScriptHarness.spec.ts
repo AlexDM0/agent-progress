@@ -5,8 +5,8 @@
  */
 import { describe, expect, test } from 'bun:test';
 
+import { LIMITS }                                    from '../../../src/shared/constants/Limits.ts';
 import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../constants/AgentSettings.ts';
-import { LIMITS }                                    from '../../constants/Limits.ts';
 import {
   BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM,
   readDispatchScript,

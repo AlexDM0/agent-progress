@@ -15,7 +15,7 @@
     "./**/*.ts",
     "../../constants/Types.ts",
     "../../constants/Statuses.ts",
-    "../../constants/Limits.ts",
+    "../../../src/shared/constants/Limits.ts",
     "../../utils/HtmlEscapeUtil.ts",
     "../../utils/TokenCountUtil.ts",
     "../../utils/TicketDependencyUtil.ts"

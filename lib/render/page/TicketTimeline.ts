@@ -3,7 +3,7 @@
  * phases and its review rows. DOM-free, and reads no clock: the page's now is handed in.
  */
 
-import { LIMITS }                                                  from '../../constants/Limits.ts';
+import { LIMITS }                                                  from '../../../src/shared/constants/Limits.ts';
 import { ticketPriorityOf }                                        from '../../constants/Statuses.ts';
 import type { Task, TaskPhase }                                    from '../../constants/Types.ts';
 import { HtmlEscapeUtil }                                          from '../../utils/HtmlEscapeUtil.ts';

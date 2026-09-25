@@ -4,7 +4,6 @@
  * render lands last and the progress file is never behind the tickets.
  */
 import { agentEffortOf, agentModelOf } from '../lib/constants/AgentSettings';
-import { LIMITS }                      from '../lib/constants/Limits';
 import { ticketPriorityOf }            from '../lib/constants/Statuses';
 import type {
   AgentEffort,
@@ -39,6 +38,7 @@ import { TicketDependencyUtil }                    from '../lib/utils/TicketDepe
 import { TimeUtil }                                from '../lib/utils/TimeUtil';
 import { TokenCountUtil }                          from '../lib/utils/TokenCountUtil';
 import { OperationRefusal }                        from '../src/shared/OperationRefusal';
+import { LIMITS }                                  from '../src/shared/constants/Limits';
 import type { CommandContext }                     from './CommandContext';
 import type { ArgumentParser }                     from './arguments/ArgumentParser';
 

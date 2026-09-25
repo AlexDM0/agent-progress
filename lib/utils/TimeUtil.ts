@@ -1,5 +1,5 @@
 /** Every timestamp `agent-progress` writes or reads back is local-offset ISO 8601, never UTC, and that is the whole reason this module exists. */
-import { LIMITS } from '../constants/Limits';
+import { LIMITS } from '../../src/shared/constants/Limits';
 
 const MILLISECONDS_PER_MINUTE = 60_000;
 const MINUTES_PER_HOUR        = 60;

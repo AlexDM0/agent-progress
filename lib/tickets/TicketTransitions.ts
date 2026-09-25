@@ -4,7 +4,7 @@
  * and the named verbs consult `LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS` before transitioning.
  */
 
-import { LIMITS }                                          from '../constants/Limits.ts';
+import { LIMITS }                                          from '../../src/shared/constants/Limits.ts';
 import { TASK_STATUS_FOR_TICKET_STATUS, ticketPriorityOf } from '../constants/Statuses.ts';
 import type {
   ProgressFile,

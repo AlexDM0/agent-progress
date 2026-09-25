@@ -1,4 +1,3 @@
-import { LIMITS }   from '../../lib/constants/Limits';
 import {
   SETTLED_TASK_STATUSES,
   SETTLED_TICKET_STATUSES,
@@ -15,6 +14,7 @@ import { requireWorkspace } from '../../lib/platform/Workspace';
 import { listTickets }      from '../../lib/tickets/TicketStore';
 import { TimeUtil }         from '../../lib/utils/TimeUtil';
 import { TokenCountUtil }   from '../../lib/utils/TokenCountUtil';
+import { LIMITS }           from '../../src/shared/constants/Limits';
 import {
   concurrencyDocumentOf,
   nextLineFor,

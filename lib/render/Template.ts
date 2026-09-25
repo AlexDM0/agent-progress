@@ -6,7 +6,7 @@
 import { readFileSync }                                  from 'node:fs';
 import { join }                                          from 'node:path';
 import { OperationRefusal }                              from '../../src/shared/OperationRefusal.ts';
-import { LIMITS }                                        from '../constants/Limits.ts';
+import { LIMITS }                                        from '../../src/shared/constants/Limits.ts';
 import type { ProgressFile, Ticket }                     from '../constants/Types.ts';
 import { HtmlEscapeUtil }                                from '../utils/HtmlEscapeUtil.ts';
 import { renderMarkdown }                                from './Markdown.ts';

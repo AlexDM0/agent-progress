@@ -10,7 +10,6 @@ import {
   agentModelIsKnown,
   agentModelOf
 }                                from '../../lib/constants/AgentSettings';
-import { LIMITS }     from '../../lib/constants/Limits';
 import {
   TICKET_PRIORITIES,
   TICKET_STATUSES,
@@ -58,6 +57,7 @@ import { NextLineUtil }         from '../../lib/utils/NextLineUtil';
 import { TicketDependencyUtil } from '../../lib/utils/TicketDependencyUtil';
 import { TicketIdUtil }         from '../../lib/utils/TicketIdUtil';
 import { OperationRefusal }     from '../../src/shared/OperationRefusal';
+import { LIMITS }               from '../../src/shared/constants/Limits';
 import type { CommandContext }  from '../CommandContext';
 import {
   TICKET_STATUSES_NO_AGENT_WORKS_AGAIN,

@@ -15,8 +15,8 @@ import {
 import { afterAll, expect, test } from 'bun:test';
 
 import { refusalIsOperationRefusal }                      from '../../src/shared/OperationRefusal';
+import { LIMITS }                                         from '../../src/shared/constants/Limits';
 import { createScratchDirectory, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
-import { LIMITS }                                         from '../constants/Limits';
 import { LockGenerationSteps, withLock }                  from './Lock';
 import { workspacePathsFor }                              from './Workspace';
 import type { Workspace }                                 from './Workspace';

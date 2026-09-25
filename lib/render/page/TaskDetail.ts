@@ -3,7 +3,7 @@
  * Every value passes `escapeHtml` exactly once here, except a ticket's `bodyHtml`, already escaped by `lib/render/Markdown.ts`.
  */
 
-import { LIMITS } from '../../constants/Limits.ts';
+import { LIMITS } from '../../../src/shared/constants/Limits.ts';
 import type {
   LogEntry,
   Task,

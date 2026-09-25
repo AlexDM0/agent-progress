@@ -1,6 +1,6 @@
 /**
  * The Gantt axis and bar geometry as pure arithmetic over epoch milliseconds: no DOM, no clock. Its bounds arrive as a parameter instead of
- * from `lib/constants/Limits.ts`, so `lib/render/GanttGeometry.spec.ts` drives it with a constructed tick ladder; the page passes what
+ * from `src/shared/constants/Limits.ts`, so `lib/render/GanttGeometry.spec.ts` drives it with a constructed tick ladder; the page passes what
  * `lib/render/Template.ts` put in the progress island.
  */
 

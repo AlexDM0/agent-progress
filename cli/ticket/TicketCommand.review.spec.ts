@@ -13,10 +13,10 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import { LIMITS }                                                             from '../../lib/constants/Limits';
 import type { ProgressFile, Task }                                            from '../../lib/constants/Types';
 import { withLock }                                                           from '../../lib/platform/Lock';
 import { workspacePathsFor }                                                  from '../../lib/platform/Workspace';
+import { LIMITS }                                                             from '../../src/shared/constants/Limits';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
 import { runCommandLine }                                                     from '../Main';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';

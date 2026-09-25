@@ -6,7 +6,7 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import { LIMITS }                 from '../constants/Limits.ts';
+import { LIMITS }                 from '../../src/shared/constants/Limits.ts';
 import type { Task, TaskPhase }   from '../constants/Types.ts';
 import type { PageTicket }        from './page/PageData.ts';
 import type {

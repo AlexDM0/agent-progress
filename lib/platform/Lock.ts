@@ -21,7 +21,7 @@ import {
 import { join } from 'node:path';
 
 import { OperationRefusal } from '../../src/shared/OperationRefusal';
-import { LIMITS }           from '../constants/Limits';
+import { LIMITS }           from '../../src/shared/constants/Limits';
 import { TimeUtil }         from '../utils/TimeUtil';
 import type { Workspace }   from './Workspace';
 

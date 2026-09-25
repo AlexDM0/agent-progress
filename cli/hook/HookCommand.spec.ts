@@ -21,8 +21,8 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import { LIMITS }            from '../../lib/constants/Limits';
 import type { ProgressFile } from '../../lib/constants/Types';
+import { LIMITS }            from '../../src/shared/constants/Limits';
 import {
   createScratchDirectory,
   createScratchGitRepository,

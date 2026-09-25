@@ -9,7 +9,7 @@
  * inside the CLI is what lets `agent-progress init --hooks` wire a hook up instead of asking a person
  * to paste a file, and it is why the format of the line is fixed here rather than in a template.
  */
-import { LIMITS }         from '../constants/Limits';
+import { LIMITS }         from '../../src/shared/constants/Limits';
 import { TicketIdUtil }   from './TicketIdUtil';
 import { TokenCountUtil } from './TokenCountUtil';
 

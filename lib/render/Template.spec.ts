@@ -5,7 +5,7 @@
 
 import { describe, expect, test }                       from 'bun:test';
 import { refusalIsOperationRefusal }                    from '../../src/shared/OperationRefusal.ts';
-import { LIMITS }                                       from '../constants/Limits.ts';
+import { LIMITS }                                       from '../../src/shared/constants/Limits.ts';
 import type { ProgressFile, Task, Ticket }              from '../constants/Types.ts';
 import { renderProgressHtml, substituteTemplateTokens } from './Template.ts';
 

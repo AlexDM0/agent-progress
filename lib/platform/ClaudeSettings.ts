@@ -6,7 +6,7 @@
 import { readFileSync, statSync } from 'node:fs';
 import { join }                   from 'node:path';
 
-import { LIMITS }              from '../constants/Limits';
+import { LIMITS }              from '../../src/shared/constants/Limits';
 import { writeFileAtomically } from './AtomicFile';
 
 const CLAUDE_DIRECTORY_NAME = '.claude';

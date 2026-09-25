@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 
-import { LIMITS }                                              from '../constants/Limits';
+import { LIMITS }                                              from '../../src/shared/constants/Limits';
 import { DISPATCHER_STATES, TASK_STATUSES, taskStatusIsKnown } from '../constants/Statuses';
 import type {
   DispatcherState,

@@ -3,7 +3,7 @@
  * "003"` on a task — never a number, so a comparison is a string comparison. Whether a ticket with
  * that id exists is `lib/tickets/TicketStore.ts`'s question.
  */
-import { LIMITS } from '../constants/Limits';
+import { LIMITS } from '../../src/shared/constants/Limits';
 
 const TICKET_REFERENCE_PATTERN = /^#?(\d+)$/;
 

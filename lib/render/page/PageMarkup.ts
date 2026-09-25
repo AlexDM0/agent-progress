@@ -3,7 +3,7 @@
  * the tracker or a ticket passes `escapeHtml` exactly once here, except a ticket's `bodyHtml`, already escaped by `lib/render/Markdown.ts`.
  */
 
-import { LIMITS }                                  from '../../constants/Limits.ts';
+import { LIMITS }                                  from '../../../src/shared/constants/Limits.ts';
 import { SETTLED_TASK_STATUSES, ticketPriorityOf } from '../../constants/Statuses.ts';
 import type {
   LogEntry,

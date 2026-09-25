@@ -4,7 +4,6 @@
  */
 import { readFileSync } from 'node:fs';
 
-import { LIMITS }                                       from '../../lib/constants/Limits';
 import type { SubagentTranscript }                      from '../../lib/platform/ClaudeTranscripts';
 import { listSubagentTranscripts, transcriptFolderFor } from '../../lib/platform/ClaudeTranscripts';
 import { requireWorkspace }                             from '../../lib/platform/Workspace';
@@ -15,6 +14,7 @@ import { TranscriptCohortUtil }                         from '../../lib/utils/Tr
 import type { TranscriptProfile }                       from '../../lib/utils/TranscriptUsageUtil';
 import { TranscriptUsageUtil }                          from '../../lib/utils/TranscriptUsageUtil';
 import { OperationRefusal }                             from '../../src/shared/OperationRefusal';
+import { LIMITS }                                       from '../../src/shared/constants/Limits';
 import type { CommandContext }                          from '../CommandContext';
 import { padColumn, printEntity }                       from '../CommandSupport';
 import type { CommandHandler }                          from '../CommandTable';

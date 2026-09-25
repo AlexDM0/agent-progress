@@ -23,7 +23,7 @@ the plan is specific it wins; these rules decide the rest.
 - One purpose per file, explainable in two or three lines from its path and export; usually one export plus a few
   types. A file is `PascalCase.ts`, named after its export; folders are lower case. No barrel files.
 - A util is pure and stateless, one frozen object per file (`TimeUtil.formatLocalIso(…)`), tested against its own
-  contract, not through a caller. An app-wide list is one global object: `LIMITS` in `lib/constants/Limits.ts`.
+  contract, not through a caller. An app-wide list is one global object: `LIMITS` in `src/shared/constants/Limits.ts`.
 - Code starts beside its only consumer and moves on a second consumer, generalised first; never in anticipation.
 - Full, descriptive names, no abbreviations. Only a loop `i` and a comparator `(a, b)` are one letter; callbacks,
   destructured bindings and throwaway scripts are not exempt.
@@ -42,9 +42,9 @@ lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/, lib/tic
 ```
 
 - Imports run up only, with no cycles. `lib/constants/` imports nothing outside itself; `lib/utils/` imports only
-  itself and `lib/constants/`; neither imports a package or a builtin (a spec beside them may import `bun:test`).
-  Nothing under `lib/` imports `cli/`, nothing that ships imports `src/testing/`, `cli/testing/` or `lib/tooling/dev/`,
-  and `agent-progress.ts` imports only `cli/`.
+  itself, `lib/constants/` and `src/shared/constants/`; neither imports a package or a builtin (a spec beside them may
+  import `bun:test`). Nothing under `lib/` imports `cli/`, nothing that ships imports `src/testing/`, `cli/testing/` or
+  `lib/tooling/dev/`, and `agent-progress.ts` imports only `cli/`.
 - `src/testing/` may import `lib/platform/Workspace.ts` until plan step 6 moves it; `cli/testing/` is imported only by
   `cli/` specs.
 - `src/shared/` holds app-specific code several parts use and imports only `src/lib/` and itself; what remains in
@@ -226,7 +226,7 @@ setup.sh                    machine setup: Bun, bun install and bun link, and th
 cli/                        the command surface: dispatch, arguments, help, one folder per command; cli/testing/ is test-only
 lib/                        everything the commands do, in the layers above; lib/tooling/dev/ holds the dispatcher's test harness
 src/                        the target layout's code, filled step by step as the migration plan moves it
-  src/shared/               app-specific code several parts use: the environment reader, the refusal
+  src/shared/               app-specific code several parts use: the environment reader, the refusal, LIMITS
   src/testing/              test-only helpers several parts use: the scratch workspace and the tracker isolation check
 skill/                      the skill every session in a tracked repository loads
 skill-orchestrate/          the skill for the one session running the board
