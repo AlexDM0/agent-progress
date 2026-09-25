@@ -2,6 +2,7 @@
  * `writeFileAtomically` against its own contract: a reader holding the file across the write sees the
  * whole old or the whole new content and never a prefix, a symlink and its mode survive, and a failed
  * write leaves the previous file untouched. `createFileAtomically` refuses an existing file with its bytes intact.
+ * `danglingLinkDestinationOf` names the missing file a dangling link points at, so writing there keeps the link.
  */
 import {
   chmodSync,
@@ -9,6 +10,7 @@ import {
   lstatSync,
   mkdirSync,
   readFileSync,
+  readlinkSync,
   statSync,
   symlinkSync,
   writeFileSync
@@ -24,7 +26,7 @@ import { tmpdir }                 from 'node:os';
 import { join }                   from 'node:path';
 import { afterAll, expect, test } from 'bun:test';
 
-import { createFileAtomically, writeFileAtomically } from './AtomicFile';
+import { createFileAtomically, danglingLinkDestinationOf, writeFileAtomically } from './AtomicFile';
 
 /** Root can write into a directory it has no permission on, so the failure case cannot be staged there. */
 const RUNNING_AS_ROOT = typeof process.getuid === 'function' && process.getuid() === 0;
@@ -165,4 +167,55 @@ test('the create-exclusive write refuses an existing file, leaving its bytes and
 
   expect(readFileSync(filePath, 'utf8')).toBe('existing tracker');
   expect(await unexpectedLeftovers(directory, ['progress.json'])).toEqual([]);
+});
+
+test('a relative dangling link resolves against the folder the link sits in', async () => {
+  const directory = await createScratchDirectory();
+  mkdirSync(join(directory, 'case'));
+  mkdirSync(join(directory, 'shared'));
+  const linkPath = join(directory, 'case', 'CLAUDE.md');
+  symlinkSync('../shared/CLAUDE.md', linkPath);
+
+  expect(danglingLinkDestinationOf(linkPath)).toBe(join(directory, 'shared', 'CLAUDE.md'));
+});
+
+test('a two-hop chain ends at the last, missing path', async () => {
+  const directory = await createScratchDirectory();
+  const firstLinkPath = join(directory, 'CLAUDE.md');
+  const secondLinkPath = join(directory, 'AGENTS.md');
+  symlinkSync('AGENTS.md', firstLinkPath);
+  symlinkSync('missing-instructions.md', secondLinkPath);
+
+  expect(danglingLinkDestinationOf(firstLinkPath)).toBe(join(directory, 'missing-instructions.md'));
+});
+
+test('a path that is no link, present or absent, answers itself', async () => {
+  const directory = await createScratchDirectory();
+  const presentPath = join(directory, 'CLAUDE.md');
+  writeFileSync(presentPath, '# Example Agency\n');
+
+  expect(danglingLinkDestinationOf(presentPath)).toBe(presentPath);
+  expect(danglingLinkDestinationOf(join(directory, 'absent.md'))).toBe(join(directory, 'absent.md'));
+});
+
+// A cycle has no destination; answering the original path hands the write to `writeFileAtomically`'s own fallback.
+test('a link cycle answers the original path', async () => {
+  const directory = await createScratchDirectory();
+  const firstLinkPath = join(directory, 'first.md');
+  symlinkSync('second.md', firstLinkPath);
+  symlinkSync('first.md', join(directory, 'second.md'));
+
+  expect(danglingLinkDestinationOf(firstLinkPath)).toBe(firstLinkPath);
+});
+
+test('writing at the destination of a dangling link keeps the link and creates its target', async () => {
+  const directory = await createScratchDirectory();
+  const linkPath = join(directory, 'progress.json');
+  symlinkSync('real-progress.json', linkPath);
+
+  writeFileAtomically(danglingLinkDestinationOf(linkPath), '{"version":1}');
+
+  expect(lstatSync(linkPath).isSymbolicLink(), 'the link is still a link').toBe(true);
+  expect(readlinkSync(linkPath)).toBe('real-progress.json');
+  expect(readFileSync(join(directory, 'real-progress.json'), 'utf8')).toBe('{"version":1}');
 });

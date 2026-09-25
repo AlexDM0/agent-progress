@@ -6,8 +6,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join }                     from 'node:path';
 
-import { TRACKER_DIRECTORY_NAME } from '../constants/Statuses';
-import { writeFileAtomically }    from './AtomicFile';
+import { TRACKER_DIRECTORY_NAME }                         from '../constants/Statuses';
+import { danglingLinkDestinationOf, writeFileAtomically } from './AtomicFile';
 
 const IGNORE_LINE = `${TRACKER_DIRECTORY_NAME}/`;
 
@@ -48,11 +48,12 @@ export function ensureIgnored(rootDirectory: string): EnsureIgnoredOutcome {
   if (gitVerdict === true) return 'already-ignored';
 
   const gitIgnorePath = join(rootDirectory, '.gitignore');
+  const writePath = danglingLinkDestinationOf(gitIgnorePath);
   if (!existsSync(gitIgnorePath)) {
     // Fail closed: a directory holding a `.git` entry is a repository even when git itself refused to answer.
     const rootIsARepository = gitVerdict === false || existsSync(join(rootDirectory, '.git'));
     if (!rootIsARepository) return 'no-gitignore-written';
-    writeFileAtomically(gitIgnorePath, `${IGNORE_LINE}\n`);
+    writeFileAtomically(writePath, `${IGNORE_LINE}\n`);
     return 'appended';
   }
 
@@ -61,6 +62,6 @@ export function ensureIgnored(rootDirectory: string): EnsureIgnoredOutcome {
 
   const lineEnding = existingContent.includes('\r\n') ? '\r\n' : '\n';
   const separator = existingContent.length > 0 && !existingContent.endsWith('\n') ? lineEnding : '';
-  writeFileAtomically(gitIgnorePath, `${existingContent}${separator}${IGNORE_LINE}${lineEnding}`);
+  writeFileAtomically(writePath, `${existingContent}${separator}${IGNORE_LINE}${lineEnding}`);
   return 'appended';
 }

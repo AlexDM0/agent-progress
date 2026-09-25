@@ -1,6 +1,6 @@
 /**
  * What the tool may do to somebody's `CLAUDE.md`: everything outside the managed region survives byte
- * for byte, a start marker with no end is refused, and a symlinked file stays a symlink.
+ * for byte, a start marker with no end is refused, and a symlinked file stays a symlink, dangling or not.
  * The file is replaced whole, never rewritten in place, and its permission bits survive the replacement.
  */
 import {
@@ -9,6 +9,7 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  readlinkSync,
   statSync,
   symlinkSync,
   writeFileSync
@@ -159,4 +160,29 @@ test('a symlinked CLAUDE.md keeps the mode of the file it points at', () => {
   expect(lstatSync(linkPath).isSymbolicLink(), 'the link is still a link').toBe(true);
   expect(readFileSync(realPath, 'utf8')).toBe(`# Example Agency\n\n${EXPECTED_BLOCK}\n`);
   expect(statSync(realPath).mode & PERMISSION_BITS).toBe(OWNER_READ_WRITE_GROUP_READ_MODE);
+});
+
+test('a dangling CLAUDE.md link stays a link and its missing target is created with the block', () => {
+  const directory = scratchDirectory('claude-dangling-symlink');
+  const linkPath = join(directory, 'CLAUDE.md');
+  symlinkSync('AGENTS.md', linkPath);
+
+  expect(writeManagedBlock(linkPath, BLOCK_BODY)).toBe('created');
+
+  expect(lstatSync(linkPath).isSymbolicLink(), 'the link is still a link').toBe(true);
+  expect(readlinkSync(linkPath)).toBe('AGENTS.md');
+  expect(readFileSync(join(directory, 'AGENTS.md'), 'utf8')).toBe(`${EXPECTED_BLOCK}\n`);
+});
+
+test('a dangling link into a sibling folder is resolved against the link, not the working directory', () => {
+  const directory = scratchDirectory('claude-dangling-relative-symlink');
+  mkdirSync(join(directory, 'case'));
+  mkdirSync(join(directory, 'shared'));
+  const linkPath = join(directory, 'case', 'CLAUDE.md');
+  symlinkSync('../shared/CLAUDE.md', linkPath);
+
+  expect(writeManagedBlock(linkPath, BLOCK_BODY)).toBe('created');
+
+  expect(lstatSync(linkPath).isSymbolicLink(), 'the link is still a link').toBe(true);
+  expect(readFileSync(join(directory, 'shared', 'CLAUDE.md'), 'utf8')).toBe(`${EXPECTED_BLOCK}\n`);
 });

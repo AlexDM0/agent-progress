@@ -9,19 +9,39 @@ import {
   fchmodSync,
   fsyncSync,
   linkSync,
+  lstatSync,
   mkdirSync,
   openSync,
+  readlinkSync,
   realpathSync,
   renameSync,
   statSync,
   unlinkSync,
   writeSync
 } from 'node:fs';
-import { dirname } from 'node:path';
+import { dirname, resolve } from 'node:path';
 
 const TEMPORARY_NAME_RANDOM_LENGTH = 8;
 
 const PERMISSION_BITS = 0o777;
+
+const SYMLINK_FOLLOW_LIMIT = 40;
+
+/** Where a write through a possibly dangling symlink must land, so the link survives the atomic rename; a link cycle answers the path itself. */
+export function danglingLinkDestinationOf(targetPath: string): string {
+  let currentPath = targetPath;
+  for (let i = 0; i < SYMLINK_FOLLOW_LIMIT; i++) {
+    let entryIsASymbolicLink = false;
+    try {
+      entryIsASymbolicLink = lstatSync(currentPath).isSymbolicLink();
+    } catch {
+      return currentPath;
+    }
+    if (!entryIsASymbolicLink) return currentPath;
+    currentPath = resolve(dirname(currentPath), readlinkSync(currentPath));
+  }
+  return targetPath;
+}
 
 /**
  * A symlinked target stays a symlink and keeps its mode: the path is `realpath`-resolved first, and

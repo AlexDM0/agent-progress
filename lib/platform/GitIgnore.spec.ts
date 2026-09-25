@@ -1,7 +1,7 @@
 /**
  * What `init` does to a repository's `.gitignore` and, mostly, when it does nothing: any pattern that
  * already covers the tracker must produce no diff, and a plain directory gains no file nobody asked for.
- * A symlinked or permission-restricted `.gitignore` survives the append as it was, replaced whole rather than rewritten in place.
+ * A symlinked (even dangling) or permission-restricted `.gitignore` survives the append as it was, replaced whole rather than rewritten in place.
  */
 import {
   chmodSync,
@@ -10,6 +10,7 @@ import {
   mkdirSync,
   readdirSync,
   readFileSync,
+  readlinkSync,
   statSync,
   symlinkSync,
   writeFileSync
@@ -109,6 +110,18 @@ describe.skipIf(!gitIsAvailable())('in a git repository', () => {
     writeFileSync(join(repositoryDirectory, '.gitignore'), 'node_modules/\r\ndist/\r\n');
     expect(ensureIgnored(repositoryDirectory)).toBe('appended');
     expect(gitIgnoreIn(repositoryDirectory)).toBe('node_modules/\r\ndist/\r\n.agent-progress/\r\n');
+  });
+
+  test('a dangling .gitignore link stays a link and its missing target is created holding the tracker line', () => {
+    const repositoryDirectory = scratchRepository('gitignore-dangling-symlink');
+    const linkPath = join(repositoryDirectory, '.gitignore');
+    symlinkSync('shared-gitignore', linkPath);
+
+    expect(ensureIgnored(repositoryDirectory)).toBe('appended');
+
+    expect(lstatSync(linkPath).isSymbolicLink(), 'the link is still a link').toBe(true);
+    expect(readlinkSync(linkPath)).toBe('shared-gitignore');
+    expect(readFileSync(join(repositoryDirectory, 'shared-gitignore'), 'utf8')).toBe('.agent-progress/\n');
   });
 });
 
