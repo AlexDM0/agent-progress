@@ -16,6 +16,7 @@ import {
   createScratchDirectory,
   createScratchGitRepository,
   gitIsAvailable,
+  gitOutputIn,
   removeScratchDirectory
 } from '../../testing/ScratchWorkspace';
 import { discoverRepositoryRoot } from './RepositoryRoot';
@@ -37,13 +38,6 @@ function scratchDirectory(prefix: string): string {
   const directory = createScratchDirectory(prefix);
   scratchDirectories.push(directory);
   return directory;
-}
-
-function runGit(workingDirectory: string, gitArguments: readonly string[]): void {
-  const finished = Bun.spawnSync(['git', ...gitArguments], { cwd: workingDirectory, stdout: 'pipe', stderr: 'pipe' });
-  if (finished.exitCode !== 0) {
-    throw new Error(`git ${gitArguments.join(' ')} failed in ${workingDirectory}: ${new TextDecoder().decode(finished.stderr).trim()}`);
-  }
 }
 
 afterAll(() => {
@@ -87,7 +81,7 @@ describe.skipIf(!gitIsAvailable())('with git on the machine', () => {
     const superprojectDirectory = scratchGitRepository('repository-root-superproject');
     const submoduleSource       = scratchGitRepository('repository-root-submodule-source');
     // `protocol.file.allow` is off by default since git 2.38, so a submodule cannot be added from a local path without it.
-    runGit(superprojectDirectory, ['-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', submoduleSource, 'example']);
+    gitOutputIn(superprojectDirectory, ['-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', submoduleSource, 'example']);
 
     const submoduleCheckout = join(superprojectDirectory, 'example');
     const discovered        = discoverRepositoryRoot(submoduleCheckout);
@@ -100,7 +94,7 @@ describe.skipIf(!gitIsAvailable())('with git on the machine', () => {
   test('a subdirectory of a submodule resolves to the submodule, not to the superproject', () => {
     const superprojectDirectory = scratchGitRepository('repository-root-submodule-deep');
     const submoduleSource       = scratchGitRepository('repository-root-submodule-deep-source');
-    runGit(superprojectDirectory, ['-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', submoduleSource, 'example']);
+    gitOutputIn(superprojectDirectory, ['-c', 'protocol.file.allow=always', 'submodule', 'add', '-q', submoduleSource, 'example']);
     const nestedDirectory = join(superprojectDirectory, 'example', 'packages', 'inner');
     mkdirSync(nestedDirectory, { recursive: true });
 
@@ -109,7 +103,7 @@ describe.skipIf(!gitIsAvailable())('with git on the machine', () => {
 
   test('a bare repository is reported as bare, so nothing is ever written beside it', () => {
     const bareDirectory = scratchDirectory('repository-root-bare');
-    runGit(bareDirectory, ['init', '-q', '--bare']);
+    gitOutputIn(bareDirectory, ['init', '-q', '--bare']);
 
     const discovered = discoverRepositoryRoot(bareDirectory);
 
