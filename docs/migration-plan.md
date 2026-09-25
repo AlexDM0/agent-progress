@@ -221,7 +221,9 @@ Each step is one or more commits on the branch; each commit is green.
    refusal with its exemptions. Update skill-orchestrate/SKILL.md to launch the dispatcher from
    `.agent-progress/` and to run `update` after pulling.
 9. **Documentation.** Keep `README.md` and delete the other two READMEs, bring `docs/cli.md` and
-   `docs/development.md` in line, and update `docs/backlog.md`.
+   `docs/development.md` in line, and update `docs/backlog.md`. The owner retakes `docs/images/`
+   with `.readme-graphics/regenerate.sh` (their checkout only): the ticket badges in
+   `docs/images/panel-tickets.png` and `docs/images/panel-watch.gif` still show the pre-4a words `open` and `done`.
 10. **Verify and merge.** Full suite; exercise init, update, a ticket's lifecycle, a release and
     a dispatcher run in scratch repositories, including one created by the old version so
     migration on ingestion is tested on real old files. Merge per §1, then run `update`
