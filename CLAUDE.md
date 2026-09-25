@@ -228,7 +228,10 @@ tsconfig.json            The strict Bun project. Excludes `lib/render/page/`, wh
 eslint.config.js         ESLint 9 flat config: the shared rules, plus the devDependency exemption
                          for the test-only helpers.
 bun.lock                 The lockfile. Committed, as a tool installed by `git clone` needs it.
-.gitignore               `node_modules/`, `.agent-progress/`, `.DS_Store`.
+.gitignore               `node_modules/`, `.agent-progress/`, `.DS_Store`, `.readme-graphics/`.
+.readme-graphics/        Git-ignored, in the owner's checkout only: the synthetic demo board and the
+                         scripts that regenerate `docs/images/` after a UI change
+                         (`.readme-graphics/regenerate.sh`); its own README says what each file does.
 CLAUDE.md                This file: the conventions, and this map.
 README.md                The GitHub landing page, in the "product page" layout: what the tool does,
                          screenshots of a synthetic board, how it works with agents, setup.sh, init.

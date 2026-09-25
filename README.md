@@ -114,14 +114,6 @@ orchestrator picks up where it left off.
 </p>
 </details>
 
-<details>
-<summary><b>One working day on the board</b> — animated, 09:10 to 13:40</summary>
-<br>
-<p align="center">
-  <img src="docs/images/board-day.gif" width="100%" alt="Animation of the Example Storefront board through a working morning: bars grow, pills move from unstarted to wip to reviewing to done, review rows appear above their tickets and the log fills">
-</p>
-</details>
-
 ## Get started
 
 ### 1. Install once
@@ -238,3 +230,13 @@ offers its official installer.
   the dashboard in detail and the files on disk.
 - **[Developing agent-progress](docs/development.md)**: getting a checkout running, the checks every change
   must pass, the repository layout, the guard specs and the decisions behind the design.
+
+## See it in action
+
+One working day on a synthetic board, Example Storefront, sped up to ten seconds: six tickets filed, three
+builders starting at once, fresh reviewers taking over, a second review round after a large rework,
+releases onto main, and a high-priority ticket taking the first slot that frees up.
+
+<p align="center">
+  <img src="docs/images/board-day.gif" width="100%" alt="Animated dashboard of the synthetic Example Storefront board from 09:10 to 13:40: Gantt bars grow, state pills change from unstarted to wip to reviewing to done, review rows appear above their tickets and the log fills">
+</p>

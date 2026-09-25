@@ -180,3 +180,7 @@ themselves. The five timestamp slice positions travel the same way, so no page m
   banner-only script, so a command that has already written `progress.json` still writes a page.
 - The one exception to "no work at module load" is the last statement of
   `lib/render/page/GanttPage.ts`, which starts the page; a browser entry has no caller.
+- **A change to how the page looks leaves the README's screenshots stale.** Once it is on the main line,
+  `.readme-graphics/regenerate.sh` in the main checkout redraws every dashboard image in `docs/images/`
+  from a synthetic board; the folder is git-ignored and exists only in the owner's checkout, so a
+  worktree does not have it.
