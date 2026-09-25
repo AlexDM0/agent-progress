@@ -5,7 +5,7 @@
 
 import { FIRST_REPEAT_REVIEW_ROUND }                               from '../../constants/Limits.ts';
 import { ticketPriorityOf }                                        from '../../constants/Statuses.ts';
-import type { Task }                                               from '../../constants/Types.ts';
+import type { Task, TaskPhase }                                    from '../../constants/Types.ts';
 import { HtmlEscapeUtil }                                          from '../../utils/HtmlEscapeUtil.ts';
 import { TokenCountUtil }                                          from '../../utils/TokenCountUtil.ts';
 import type { TimelineLimits, TimelineTick }                       from './GanttGeometry.ts';
@@ -217,8 +217,15 @@ function buildSegmentsOf(ownRow: Task | null, lastMomentEpochMilliseconds: numbe
   return [buildSpan(state, startEpochMilliseconds, rowEndMilliseconds ?? lastMomentEpochMilliseconds, rowEndMilliseconds === null && !ticketIsClosed)];
 }
 
+/** The latest build's `finished` phase; a reopened ticket building again has none, as its history's `running` came after it. */
+function latestBuildFinishedPhaseOf(ownRow: Task | null): TaskPhase | undefined {
+  const history         = ownRow?.history ?? [];
+  const latestBuildMove = history.findLast((phase) => phase.status === 'running' || phase.status === 'paused' || phase.status === 'finished');
+  return latestBuildMove?.status === 'finished' ? latestBuildMove : undefined;
+}
+
 function buildEndOf(ticket: PageTicket, ownRow: Task | null): number | null {
-  const finishedPhase = (ownRow?.history ?? []).find((phase) => phase.status === 'finished');
+  const finishedPhase = latestBuildFinishedPhaseOf(ownRow);
   const rowEnd        = ownRow !== null && ROW_STATUSES_PAST_THE_BUILD.includes(ownRow.status) ? epochOf(ownRow.end) : null;
   return epochOf(ticket.finished) ?? epochOf(finishedPhase?.at) ?? rowEnd;
 }

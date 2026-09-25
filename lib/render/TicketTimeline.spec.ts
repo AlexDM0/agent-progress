@@ -321,6 +321,22 @@ describe('the shapes the design did not show', () => {
     expect(ticketTimelineMarkup(inputFor(ticket, rows))).not.toContain('now ');
   });
 
+  // `reopen` clears the ticket's stamps but the row's history keeps the first build's `finished` phase.
+  test('a reopened ticket building again has no wait after the build, whatever its first build finished at', () => {
+    const ticket   = exampleTicket('078', {
+      status: 'in-progress', filed: at('09:00'), started: at('11:00'), task: 44,
+    });
+    const rows     = [exampleRow(44, {
+      ticket:  '078',
+      status:  'running',
+      start:   at('11:00'),
+      history: phases(['pending', '09:00'], ['running', '09:15'], ['finished', '10:00'], ['pending', '10:30'], ['running', '11:00']),
+    })];
+    const timeline = ticketTimelineOf(inputFor(ticket, rows));
+    expect(timeline.afterBuild).toEqual([]);
+    expect(timeline.buildSegments.map((segment) => [segment.state, segment.isLive])).toEqual([['running', false], ['running', true]]);
+  });
+
   test('a low ticket without a row has no build row and says why', () => {
     const timeline = ticketTimelineOf(inputFor(exampleTicket('073', { priority: 'low', filed: at('12:00') }), []));
     expect(timeline.buildTimeText).toBe('no row');
