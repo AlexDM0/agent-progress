@@ -60,7 +60,13 @@
  #ap-overlay              el     absolute layer over the track area only
  #ap-now                  el     the now marker inside #ap-overlay; [hidden] if out of range
  #ap-chart-empty          el     shown instead of rows when there are none
- #ap-log                  ul     log entries, newest first; children li > time + span
+ #ap-name-column          button in the chart's Task header, aria-pressed; pressed widens the
+                                 name column (data-name-column="wide" on the root element)
+ #ap-log                  ul     log entries, newest first; children li > time + span; the
+                                 newest 10 unless #ap-log-toggle is pressed
+ #ap-log-note             text   "newest first", or "newest 10 of 25, 15 hidden" while capped
+ #ap-log-control          el     [hidden] unless the log holds more than 10 entries
+ #ap-log-toggle           button "Show all 25", aria-pressed while every entry is shown
  #ap-log-empty            el     shown instead of log entries when there are none
  #ap-ticket-rows          tbody  ticket table body; each <tr> carries data-ticket-id
  #ap-ticket-count         text   "6 tickets · 1 in progress" above the ticket table
@@ -116,7 +122,8 @@
    radius     4 pill-inner / 6 controls / 10 cards / 999 pills
    type       11 micro · 12 small · 13 body · 15 card title · 20 page title
               system UI stack for prose, system mono stack for times and numbers
-   density    --row-h 30px, --col-name 336px, --col-pill 126px
+   density    --row-h 30px, --col-name 336px, --col-pill 126px;
+              --col-name-wide 780px while :root[data-name-column="wide"]
 ===============================================================================
 -->
 
@@ -137,9 +144,10 @@
 
   --row-h: 30px;
   --col-name: 336px;
+  --col-name-wide: 780px;
   --col-pill: 126px;
 
-  --bg:          oklch(0.975 0.004 265);
+  --bg:         oklch(0.975 0.004 265);
   --surface:     oklch(1 0 0);
   --surface-2:   oklch(0.961 0.006 265);
   --ink:         oklch(0.24 0.02 265);
@@ -358,6 +366,9 @@ a:hover { color: var(--ink); text-decoration: underline; }
 }
 .ap-chart-head .ap-cell-name,
 .ap-chart-head .ap-cell-pill { background: var(--surface); z-index: 4; height: 100%; display: flex; align-items: center; }
+.ap-chart-head .ap-seg { margin-left: auto; }
+.ap-chart-head .ap-seg button,
+.ap-card-head .ap-seg button { padding: 3px 7px; font-family: var(--font-ui); text-transform: none; letter-spacing: 0; }
 
 .ap-body { position: relative; width: fit-content; min-width: 100%; }
 .ap-row { border-bottom: 1px solid var(--line); }
@@ -647,6 +658,9 @@ a:hover { color: var(--ink); text-decoration: underline; }
 @media (max-width: 1024px) {
   #ap-range-note { margin-left: 0; width: 100%; }
 }
+/* After the breakpoints and more specific than :root, so the widened column wins at every window width. */
+:root[data-name-column="wide"] { --col-name: var(--col-name-wide); }
+.ap-seg[hidden] { display: none; }
 </style>
 </head>
 
@@ -672,6 +686,8 @@ a:hover { color: var(--ink); text-decoration: underline; }
     <span class="ap-stat"><span class="ap-stat-n">1</span> awaiting merge</span>
     <span class="ap-sep">·</span>
     <span class="ap-stat"><span class="ap-stat-n">2</span> in review</span>
+    <span class="ap-sep">·</span>
+    <span class="ap-stat"><span class="ap-stat-n">1 of 2</span> agents running</span>
     <span class="ap-sep">·</span>
     <span class="ap-stat"><span class="ap-stat-n">55.8k</span> tokens</span>
   </div>
@@ -729,7 +745,7 @@ a:hover { color: var(--ink); text-decoration: underline; }
 
     <div id="ap-chart">
       <div class="ap-grid-row ap-chart-head">
-        <div class="ap-cell-name">Task</div>
+        <div class="ap-cell-name">Task<div class="ap-seg"><button type="button" id="ap-name-column" aria-pressed="false" title="Widen the task column so full names fit">Expand</button></div></div>
         <div class="ap-cell-pill">State</div>
         <div class="ap-cell-track" style="height:100%"><div id="ap-ticks">
           <div class="ap-tick" style="left:0%"><span>20:30</span></div>
@@ -806,7 +822,10 @@ a:hover { color: var(--ink); text-decoration: underline; }
   </div>
 
   <div class="ap-card">
-    <div class="ap-card-head"><span class="ap-card-title">Log</span><span class="ap-card-note">newest first</span></div>
+    <div class="ap-card-head">
+      <span class="ap-card-title">Log</span><span class="ap-card-note" id="ap-log-note">newest first</span>
+      <div class="ap-seg" id="ap-log-control" hidden><button type="button" id="ap-log-toggle" aria-pressed="false">Show all 25</button></div>
+    </div>
     <ul id="ap-log">
       <li><time>21:56</time><span>#004 Brighter colours — subagent started, branch ticket/brighter-colours</span></li>
       <li><time>21:51</time><span>#001 Double-click a role to edit it — delivered at abc1234</span></li>

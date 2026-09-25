@@ -20,7 +20,9 @@ export interface TrackerReads {
     | { verdict: 'absent' }
     | { verdict: 'unreadable'; reason: string }
   );
-  listTickets: (workspace: Workspace) => { verdict: 'listed'; tickets: Ticket[]; malformed: MalformedTicketFile[] };
+  listTickets:   (workspace: Workspace) => { verdict: 'listed'; tickets: Ticket[]; malformed: MalformedTicketFile[] };
+  /** The function `status --json` builds its `concurrency` block with, so the page and the command cannot disagree on a count. */
+  concurrencyOf: (progress: ProgressFile) => { limit: number; agentsInFlight: number };
 }
 
 export type RerenderOutcome =
@@ -60,6 +62,7 @@ export async function rerenderDashboard(input: RerenderInput): Promise<RerenderO
     pageScript:        pageBundle.verdict === 'built' ? pageBundle.script : null,
     pageScriptFailure: failureReason,
     generatedAt,
+    concurrency:       reads.concurrencyOf(progressRead.progress),
   });
   writeFileAtomically(workspace.htmlFilePath, document);
 

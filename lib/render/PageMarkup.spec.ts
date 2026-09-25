@@ -35,6 +35,8 @@ const EXAMPLE_SLICES: TimestampSlices = {
   clockSliceEnd:         16,
 };
 
+const NO_AGENTS_OF_TWO = { limit: 2, agentsInFlight: 0 };
+
 const EXAMPLE_RANGE_LIMITS = {
   hourMinutes:                60,
   dayMinutes:                 1440,
@@ -338,7 +340,7 @@ describe('summaryStatsMarkup', () => {
       exampleTask({ id: 2, status: 'finished' }),
       exampleTask({ id: 3, status: 'reviewed' }),
       exampleTask({ id: 4, status: 'delivered' }),
-    ]);
+    ], NO_AGENTS_OF_TWO);
 
     expect(markup).toContain('Work completed: <span class="ap-stat-n">1 / 4</span>');
     expect(markup).toContain('<span class="ap-stat-n">1</span> awaiting merge');
@@ -352,12 +354,12 @@ describe('summaryStatsMarkup', () => {
       exampleTask({ id: 2, status: 'delivered' }),
       exampleTask({ id: 3, status: 'abandoned' }),
       exampleTask({ id: 4, status: 'running' }),
-    ]);
+    ], NO_AGENTS_OF_TWO);
     const settled = summaryStatsMarkup([
       exampleTask({ id: 1, status: 'delivered' }),
       exampleTask({ id: 2, status: 'abandoned' }),
       exampleTask({ id: 3, status: 'abandoned' }),
-    ]);
+    ], NO_AGENTS_OF_TWO);
 
     expect(inFlight).toContain('<span class="ap-stat">Work completed: <span class="ap-stat-n">3 / 4</span></span>');
     expect(settled).toContain('Work completed: <span class="ap-stat-n">3 / 3</span>');
@@ -369,7 +371,7 @@ describe('summaryStatsMarkup', () => {
       exampleTask({ id: 1, status: 're-review', reviewRound: 3 }),
       exampleTask({ id: 2, status: 'reviewed' }),
       exampleTask({ id: 3, status: 'delivered' }),
-    ]);
+    ], NO_AGENTS_OF_TWO);
 
     expect(markup).toContain('Work completed: <span class="ap-stat-n">1 / 3</span>');
     expect(markup).toContain('<span class="ap-stat-n">1</span> awaiting merge');
@@ -377,14 +379,29 @@ describe('summaryStatsMarkup', () => {
   });
 
   test('sums the reported token counts and omits the figure when none were reported', () => {
-    const reported = summaryStatsMarkup([exampleTask({ tokens: 12_300 }), exampleTask({ id: 2, tokens: 50_100 })]);
+    const reported = summaryStatsMarkup([exampleTask({ tokens: 12_300 }), exampleTask({ id: 2, tokens: 50_100 })], NO_AGENTS_OF_TWO);
 
     expect(reported).toContain('<span class="ap-stat-n">62.4k</span> tokens');
-    expect(summaryStatsMarkup([exampleTask()])).not.toContain('tokens');
+    expect(summaryStatsMarkup([exampleTask()], NO_AGENTS_OF_TWO)).not.toContain('tokens');
   });
 
   test('separates the stats with the design’s middot', () => {
-    expect(summaryStatsMarkup([exampleTask()])).toContain('<span class="ap-sep">&middot;</span>');
+    expect(summaryStatsMarkup([exampleTask()], NO_AGENTS_OF_TWO)).toContain('<span class="ap-sep">&middot;</span>');
+  });
+
+  // The figures are the ones `status --json` reports, handed in; the line must print them as given rather than count the rows itself.
+  test('prints the agents in flight against the limit as handed in, not a count of the running rows', () => {
+    const markup = summaryStatsMarkup([exampleTask({ status: 'running' })], { limit: 3, agentsInFlight: 2 });
+
+    expect(markup).toContain('<span class="ap-stat"><span class="ap-stat-n">2 of 3</span> agents running</span>');
+  });
+
+  test('reads a fresh board as none of the default two agents running', () => {
+    expect(summaryStatsMarkup([], NO_AGENTS_OF_TWO)).toContain('<span class="ap-stat-n">0 of 2</span> agents running');
+  });
+
+  test('speaks of one agent in the singular when the limit is one', () => {
+    expect(summaryStatsMarkup([], { limit: 1, agentsInFlight: 1 })).toContain('<span class="ap-stat-n">1 of 1</span> agent running');
   });
 });
 
@@ -406,6 +423,25 @@ describe('logItemsMarkup', () => {
     const times = [...logItemsMarkup(acrossMidnight, EXAMPLE_SLICES).matchAll(/<time>([^<]+)<\/time>/g)].map((match) => match[1]);
 
     expect(times).toEqual(['09-19 00:12', '09-18 21:56', '09-18 21:21', '09-18 20:36']);
+  });
+
+  // The card shows the newest ten of a long log; cutting before sorting would keep the oldest ten the store happened to append first.
+  test('keeps the newest entries when a limit is given, newest first', () => {
+    const times = [...logItemsMarkup(entries, EXAMPLE_SLICES, 2).matchAll(/<time>([^<]+)<\/time>/g)].map((match) => match[1]);
+
+    expect(times).toEqual(['21:56', '21:21']);
+  });
+
+  // Toggling the cap must not flip the stamps between clock-only and dated: the dates are judged on the whole log.
+  test('dates every kept line when the whole log spans two days, even if the kept lines do not', () => {
+    const acrossMidnight = [...entries, { at: '2026-09-17T23:59:00+02:00', text: 'The day before' }];
+    const times = [...logItemsMarkup(acrossMidnight, EXAMPLE_SLICES, 2).matchAll(/<time>([^<]+)<\/time>/g)].map((match) => match[1]);
+
+    expect(times).toEqual(['09-18 21:56', '09-18 21:21']);
+  });
+
+  test('renders exactly the markup of no limit when the limit is null', () => {
+    expect(logItemsMarkup(entries, EXAMPLE_SLICES, null)).toBe(logItemsMarkup(entries, EXAMPLE_SLICES));
   });
 
   test('escapes a log line that carries markup', () => {

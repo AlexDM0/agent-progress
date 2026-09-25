@@ -199,8 +199,8 @@ export function nextLineFor(progress: ProgressFile, tickets: readonly Ticket[]):
   });
 }
 
-function trackerReads(): { readProgressFile: typeof readProgressFile; listTickets: typeof listTickets } {
-  return { listTickets, readProgressFile };
+function trackerReads(): { readProgressFile: typeof readProgressFile; listTickets: typeof listTickets; concurrencyOf: typeof concurrencyOf } {
+  return { listTickets, readProgressFile, concurrencyOf };
 }
 
 /** The store is already written by the time this runs, so none of these fail the command: exit 0, reason on standard error. */

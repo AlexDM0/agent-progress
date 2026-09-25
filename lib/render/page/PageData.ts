@@ -14,10 +14,17 @@ export interface PageLimits extends TimelineLimits {
   doneWorkVisibleMilliseconds: number;
 }
 
+/** The two figures of `status --json`'s `concurrency` block the page shows, computed Bun-side by the same function. */
+export interface PageConcurrency {
+  limit:          number;
+  agentsInFlight: number;
+}
+
 export interface PagePayload {
   progress:                     ProgressFile;
   generatedAtEpochMilliseconds: number;
   limits:                       PageLimits;
+  concurrency:                  PageConcurrency;
   pageScriptFailure:            string | null;
 }
 
@@ -85,9 +92,12 @@ export function pagePayloadFrom(value: unknown): PagePayload | null {
   if (!isRecord(value)) {
     return null;
   }
-  const { progress, limits } = value;
+  const { progress, limits, concurrency } = value;
   const generatedAtEpochMilliseconds = numberOrNull(value['generatedAtEpochMilliseconds']);
   if (!isRecord(progress) || !isRecord(limits) || generatedAtEpochMilliseconds === null) {
+    return null;
+  }
+  if (!isRecord(concurrency) || numberOrNull(concurrency['limit']) === null || numberOrNull(concurrency['agentsInFlight']) === null) {
     return null;
   }
   if (typeof progress['trackerId'] !== 'string' || typeof progress['startedAt'] !== 'string') {

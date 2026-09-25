@@ -9,8 +9,27 @@ import type {
   TicketStatus,
   ViewRange,
 } from '../../constants/Types.ts';
-import type { Timeline }   from './GanttGeometry.ts';
-import { computeTimeline } from './GanttGeometry.ts';
+import type { Timeline }      from './GanttGeometry.ts';
+import { computeTimeline }    from './GanttGeometry.ts';
+import type { LogVisibility } from './LogVisibility.ts';
+import {
+  DEFAULT_LOG_VISIBILITY,
+  logControlIsNeeded,
+  logControlText,
+  logEntryLimitFor,
+  logNoteText,
+  logVisibilityFrom,
+  logVisibilityStorageKeyFor,
+  toggledLogVisibility,
+} from './LogVisibility.ts';
+import type { NameColumnWidth } from './NameColumnWidth.ts';
+import {
+  DEFAULT_NAME_COLUMN_WIDTH,
+  NAME_COLUMN_WIDTH_ATTRIBUTE,
+  nameColumnWidthFrom,
+  nameColumnWidthStorageKeyFor,
+  toggledNameColumnWidth,
+} from './NameColumnWidth.ts';
 import type {
   PageLimits,
   PagePayload,
@@ -64,7 +83,7 @@ const DETAIL_BODY_ELEMENT_ID   = 'ap-detail-body';
 const DETAIL_CLOSE_ELEMENT_ID  = 'ap-detail-close';
 
 const OWNED_MARKUP_CONTAINER_IDS = ['ap-summary', 'ap-ticks', 'ap-overlay', 'ap-rows', 'ap-log', 'ap-ticket-rows', 'ap-ticket-cards', 'ap-detail-body'];
-const OWNED_TEXT_CONTAINER_IDS   = ['ap-project', 'ap-generated', 'ap-range-note', 'ap-ticket-count', 'ap-hidden-note'];
+const OWNED_TEXT_CONTAINER_IDS   = ['ap-project', 'ap-generated', 'ap-range-note', 'ap-ticket-count', 'ap-hidden-note', 'ap-log-note'];
 
 interface TemplateBehaviour {
   selectTab:              (name: string) => void;
@@ -149,23 +168,53 @@ function writeStoredOverride(trackerId: string, override: StoredViewOverride): v
   }
 }
 
-function readStoredVisibility(trackerId: string): WorkVisibility {
+function readStoredChoice(storageKey: string): string | null {
   try {
-    return workVisibilityFrom(window.localStorage.getItem(workVisibilityStorageKeyFor(trackerId)));
+    return window.localStorage.getItem(storageKey);
   } catch {
-    return DEFAULT_WORK_VISIBILITY;
+    return null;
   }
 }
 
-function writeStoredVisibility(trackerId: string, visibility: WorkVisibility): void {
+/** The key is removed at the default, so a viewer who never departs from it leaves nothing behind. */
+function writeStoredChoice(storageKey: string, choice: string, defaultChoice: string): void {
   try {
-    if (visibility === DEFAULT_WORK_VISIBILITY) {
-      window.localStorage.removeItem(workVisibilityStorageKeyFor(trackerId));
+    if (choice === defaultChoice) {
+      window.localStorage.removeItem(storageKey);
       return;
     }
-    window.localStorage.setItem(workVisibilityStorageKeyFor(trackerId), visibility);
+    window.localStorage.setItem(storageKey, choice);
   } catch {
     // The page works without persistence.
+  }
+}
+
+function readStoredVisibility(trackerId: string): WorkVisibility {
+  return workVisibilityFrom(readStoredChoice(workVisibilityStorageKeyFor(trackerId)));
+}
+
+function writeStoredVisibility(trackerId: string, visibility: WorkVisibility): void {
+  writeStoredChoice(workVisibilityStorageKeyFor(trackerId), visibility, DEFAULT_WORK_VISIBILITY);
+}
+
+function applyNameColumnWidth(width: NameColumnWidth): void {
+  document.documentElement.setAttribute(NAME_COLUMN_WIDTH_ATTRIBUTE, width);
+  const control = document.getElementById('ap-name-column');
+  if (control !== null) {
+    control.setAttribute('aria-pressed', String(width === 'wide'));
+  }
+}
+
+function showLog(entries: PagePayload['progress']['log'], limits: PageLimits, visibility: LogVisibility): void {
+  const controlIsNeeded = logControlIsNeeded(entries.length);
+  setMarkup('ap-log', logItemsMarkup(entries, limits, controlIsNeeded ? logEntryLimitFor(visibility) : null));
+  setHidden('ap-log-empty', entries.length > 0);
+  setText('ap-log-note', logNoteText(entries.length, visibility));
+  setHidden('ap-log-control', !controlIsNeeded);
+  const control = document.getElementById('ap-log-toggle');
+  if (control !== null) {
+    control.textContent = logControlText(entries.length);
+    control.setAttribute('aria-pressed', String(visibility === 'all'));
   }
 }
 
@@ -411,10 +460,14 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
 
   setText('ap-project', progress.project);
   setText('ap-generated', `generated ${clockLabelFor(payload.generatedAtEpochMilliseconds)}`);
-  setMarkup('ap-summary', summaryStatsMarkup(progress.tasks));
+  setMarkup('ap-summary', summaryStatsMarkup(progress.tasks, payload.concurrency));
 
-  setMarkup('ap-log', logItemsMarkup(progress.log, limits));
-  setHidden('ap-log-empty', progress.log.length > 0);
+  let logVisibility = logVisibilityFrom(readStoredChoice(logVisibilityStorageKeyFor(progress.trackerId)));
+  showLog(progress.log, limits, logVisibility);
+
+  // Applied before the first layout, which measures the pinned columns this width sets.
+  let nameColumnWidth = nameColumnWidthFrom(readStoredChoice(nameColumnWidthStorageKeyFor(progress.trackerId)));
+  applyNameColumnWidth(nameColumnWidth);
 
   const chart         = document.getElementById('ap-chart');
   let visibility      = readStoredVisibility(progress.trackerId);
@@ -489,6 +542,19 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     writeStoredVisibility(progress.trackerId, visibility);
     showVisibleWork();
     layOut(true);
+  });
+
+  document.getElementById('ap-log-toggle')?.addEventListener('click', () => {
+    logVisibility = toggledLogVisibility(logVisibility);
+    writeStoredChoice(logVisibilityStorageKeyFor(progress.trackerId), logVisibility, DEFAULT_LOG_VISIBILITY);
+    showLog(progress.log, limits, logVisibility);
+  });
+
+  document.getElementById('ap-name-column')?.addEventListener('click', () => {
+    nameColumnWidth = toggledNameColumnWidth(nameColumnWidth);
+    writeStoredChoice(nameColumnWidthStorageKeyFor(progress.trackerId), nameColumnWidth, DEFAULT_NAME_COLUMN_WIDTH);
+    applyNameColumnWidth(nameColumnWidth);
+    layOut(false);
   });
 
   window.addEventListener('resize', () => {

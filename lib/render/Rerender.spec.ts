@@ -52,7 +52,8 @@ function readsReturning(tickets: Ticket[], malformed: MalformedTicketFile[]): Tr
         return { verdict: 'unreadable', reason: problem instanceof Error ? problem.message : String(problem) };
       }
     },
-    listTickets: () => ({ verdict: 'listed', tickets, malformed }),
+    listTickets:   () => ({ verdict: 'listed', tickets, malformed }),
+    concurrencyOf: (progress: ProgressFile) => ({ limit: 3, agentsInFlight: progress.tasks.length }),
   };
 }
 

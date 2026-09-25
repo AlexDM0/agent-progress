@@ -71,6 +71,7 @@ function examplePayload(): Record<string, unknown> {
     progress:                     exampleProgress(),
     generatedAtEpochMilliseconds: EXAMPLE_START_EPOCH_MILLISECONDS,
     limits:                       EXAMPLE_LIMITS,
+    concurrency:                  { limit: 2, agentsInFlight: 0 },
     pageScriptFailure:            null,
   };
 }
@@ -102,11 +103,16 @@ describe('pagePayloadFrom', () => {
     ['the progress file', 'progress'],
     ['the limits', 'limits'],
     ['the generated stamp', 'generatedAtEpochMilliseconds'],
+    ['the concurrency figures', 'concurrency'],
   ])('refuses a payload missing %s', (_description, missingKey) => {
     const payload: Record<string, unknown> = examplePayload();
     delete payload[missingKey];
 
     expect(pagePayloadFrom(payload)).toBeNull();
+  });
+
+  test('refuses a payload whose concurrency figures are not numbers, since the summary line prints them', () => {
+    expect(pagePayloadFrom({ ...examplePayload(), concurrency: { limit: '2', agentsInFlight: 0 } })).toBeNull();
   });
 
   test('refuses a payload whose limits are not all finite numbers, since every percentage divides by one', () => {

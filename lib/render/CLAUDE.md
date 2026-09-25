@@ -24,6 +24,8 @@ the real store functions in. Every mutating command calls it **inside its lock**
 | `lib/render/GanttGeometry.spec.ts` | The geometry's spec — see below for why it is not beside its module. |
 | `lib/render/PageData.spec.ts` | The island checks, the stored range and `effectiveRangeFor`. |
 | `lib/render/WorkVisibility.spec.ts` | Which tasks and tickets count as long done, and what the hidden note says. |
+| `lib/render/LogVisibility.spec.ts` | The log card's cap, its stored choice and key, and the control's and note's wording. |
+| `lib/render/NameColumnWidth.spec.ts` | The task column's stored width and key, and that the template keys its override on the same attribute. |
 | `lib/render/PageMarkup.spec.ts` | Every state's pill, review rows nested above their ticket's row, the summary's figures, the token figure, the log's sort, which ticket cards collapse, the low and high priority marks, and the escaping. |
 | `lib/render/TaskDetail.spec.ts` | The overview panel: a recorded history against a derived one, the review rounds, which log lines a row and a ticket claim, a span that runs backwards, the note, and the escaping. |
 | `lib/render/page/template.html` | The designer's template: the styles, the state system, the containers and the bootstrap. Not generated. |
@@ -32,6 +34,8 @@ the real store functions in. Every mutating command calls it **inside its lock**
 | `lib/render/page/PageMarkup.ts` | Every string of HTML the page emits, as pure functions. DOM-free. |
 | `lib/render/page/TaskDetail.ts` | The overview panel's markup — header, task facts, phases, ticket, log — as pure functions. DOM-free. |
 | `lib/render/page/WorkVisibility.ts` | Whether a task or ticket has been done for longer than the window, the stored visibility and the hidden note. DOM-free. |
+| `lib/render/page/LogVisibility.ts` | The log card's cap (`LOG_ENTRIES_SHOWN_BY_DEFAULT`, 10), the stored newest/all choice and the control's and note's text. DOM-free. |
+| `lib/render/page/NameColumnWidth.ts` | The chart's task column at its normal or widened width, stored per tracker; the widths are the template's `--col-name` and `--col-name-wide`. DOM-free. |
 | `lib/render/page/GanttPage.ts` | The browser entry: DOM wiring only — find the container, call a builder, assign. |
 | `lib/render/page/tsconfig.json` | The page's own project: `lib` `DOM`, `types` `[]`. |
 
@@ -76,6 +80,14 @@ was last `updated` that long ago, are left out of the chart, the ticket table an
 cards until the viewer picks "Show all" (`#ap-visibility`, stored per tracker). The axis is computed
 from the visible rows only. Done means merged: a `reviewed` row and a `done` ticket await a merge and
 stay visible. This is the page's one clock comparison, and it only decides what is shown.
+
+**The log card, the task column and the agents stat.** The log card shows the newest 10 entries until the viewer presses
+`#ap-log-toggle`, shown only when the log holds more; the island still carries the whole log. `#ap-name-column` sets
+`data-name-column="wide"` on the root element, which the template turns into `--col-name: var(--col-name-wide)`, so the grid, the
+pill column's sticky offset and the overlay all follow one variable. Both choices are stored per tracker the way "Show all" is, the
+key removed at the default. The summary's `<in flight> of <limit> agents running` is the payload's `concurrency`, which
+`lib/render/Rerender.ts` computes through the `concurrencyOf` its caller supplies — the function `status --json` uses — so the page
+never counts running rows itself.
 
 **There is no stale banner** — it was cut from the design. Nothing on this side compares a clock
 against `generatedAt`, and `lib/constants/Limits.ts` no longer needs

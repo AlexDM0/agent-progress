@@ -23,11 +23,11 @@ import {
   TICK_STEP_LADDER_MINUTES,
   WEEK_AXIS_LABEL_LIMIT_MINUTES,
 } from '../constants/Limits.ts';
-import type { ProgressFile, Ticket }    from '../constants/Types.ts';
-import { OperationRefusal }             from '../platform/OperationRefusal.ts';
-import { HtmlEscapeUtil }               from '../utils/HtmlEscapeUtil.ts';
-import { renderMarkdown }               from './Markdown.ts';
-import type { PagePayload, PageTicket } from './page/PageData.ts';
+import type { ProgressFile, Ticket }                     from '../constants/Types.ts';
+import { OperationRefusal }                              from '../platform/OperationRefusal.ts';
+import { HtmlEscapeUtil }                                from '../utils/HtmlEscapeUtil.ts';
+import { renderMarkdown }                                from './Markdown.ts';
+import type { PageConcurrency, PagePayload, PageTicket } from './page/PageData.ts';
 
 const { escapeHtml, escapeJsonForScriptTag } = HtmlEscapeUtil;
 
@@ -47,6 +47,7 @@ interface RenderProgressHtmlInput {
   pageScript:        string | null;
   pageScriptFailure: string | null;
   generatedAt:       Date;
+  concurrency:       PageConcurrency;
 }
 
 function pageLimits(): PagePayload['limits'] {
@@ -111,6 +112,7 @@ export function renderProgressHtml(input: RenderProgressHtmlInput): string {
     pageScript,
     pageScriptFailure,
     generatedAt,
+    concurrency,
   } = input;
   // Read per call, never at module load, and from the installed package rather than the caller's working directory.
   const template = readFileSync(join(import.meta.dir, 'page', TEMPLATE_FILE_NAME), 'utf8');
@@ -119,6 +121,7 @@ export function renderProgressHtml(input: RenderProgressHtmlInput): string {
     progress,
     generatedAtEpochMilliseconds: generatedAt.getTime(),
     limits:                       pageLimits(),
+    concurrency:                  { limit: concurrency.limit, agentsInFlight: concurrency.agentsInFlight },
     pageScriptFailure,
   };
 

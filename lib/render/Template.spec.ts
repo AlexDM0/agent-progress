@@ -75,6 +75,7 @@ function render(overrides: Partial<Parameters<typeof renderProgressHtml>[0]> = {
     pageScript:        'window.examplePageScript = 1;',
     pageScriptFailure: null,
     generatedAt:       GENERATED_AT,
+    concurrency:       { limit: 2, agentsInFlight: 1 },
     ...overrides,
   });
 }
@@ -147,6 +148,12 @@ describe('renderProgressHtml', () => {
     const payload = islandContentsOf(render(), 'ap-progress-data') as { generatedAtEpochMilliseconds: number };
 
     expect(payload.generatedAtEpochMilliseconds).toBe(GENERATED_AT.getTime());
+  });
+
+  test('carries the concurrency figures it was handed, never a count of its own', () => {
+    const payload = islandContentsOf(render({ concurrency: { limit: 3, agentsInFlight: 2 } }), 'ap-progress-data') as { concurrency: unknown };
+
+    expect(payload.concurrency).toEqual({ limit: 3, agentsInFlight: 2 });
   });
 
   test('sends the real constants as the limits, not page-local copies', () => {

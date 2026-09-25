@@ -218,7 +218,7 @@ export function overlayMarkup(ticks: readonly TimelineTick[], nowPercent: number
 }
 
 /** The token figure is left out entirely when no task reports one, because `null` means "nobody said" and `0 tokens` would be a claim. */
-export function summaryStatsMarkup(tasks: readonly Task[]): string {
+export function summaryStatsMarkup(tasks: readonly Task[], concurrency: { limit: number; agentsInFlight: number }): string {
   const completedCount     = tasks.filter((task) => SETTLED_TASK_STATUSES.includes(task.status)).length;
   const awaitingMergeCount = tasks.filter((task) => task.status === 'reviewed').length;
   const inReviewCount      = tasks.filter((task) => task.status === 'finished' || task.status === 're-review').length;
@@ -228,6 +228,7 @@ export function summaryStatsMarkup(tasks: readonly Task[]): string {
     `Work completed: ${figureMarkup(`${completedCount} / ${tasks.length}`)}`,
     `${figureMarkup(String(awaitingMergeCount))} awaiting merge`,
     `${figureMarkup(String(inReviewCount))} in review`,
+    `${figureMarkup(`${concurrency.agentsInFlight} of ${concurrency.limit}`)} ${concurrency.limit === 1 ? 'agent' : 'agents'} running`,
   ];
   if (reportedTokens.length > 0) {
     stats.push(`${figureMarkup(formatTokenCount(reportedTokens.reduce((total, task) => total + (task.tokens ?? 0), 0)))} tokens`);
@@ -237,12 +238,14 @@ export function summaryStatsMarkup(tasks: readonly Task[]): string {
     .join('<span class="ap-sep">&middot;</span>');
 }
 
-export function logItemsMarkup(entries: readonly LogEntry[], slices: TimestampSlices): string {
+/** `entryLimit` keeps the newest that many, `null` all; dates are judged on the whole log, so the stamps keep their form under the limit. */
+export function logItemsMarkup(entries: readonly LogEntry[], slices: TimestampSlices, entryLimit: number | null = null): string {
   const distinctDates = new Set(entries.map((entry) => entry.at.slice(0, slices.calendarDateLength)));
   const sliceStart    = distinctDates.size > 1 ? slices.monthAndDaySliceStart : slices.clockSliceStart;
   return entries
     .slice()
     .sort((a, b) => b.at.localeCompare(a.at))
+    .slice(0, entryLimit ?? entries.length)
     .map((entry) => {
       const stamp = entry.at.slice(sliceStart, slices.clockSliceEnd).replace('T', ' ');
       return `<li><time>${escapeHtml(stamp)}</time><span>${escapeHtml(entry.text)}</span></li>`;
