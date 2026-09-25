@@ -1,7 +1,7 @@
 import { requireWorkspace }                                            from '../../lib/platform/Workspace';
 import { appendLogEntry, concurrencyLimitIsWellFormed, concurrencyOf } from '../../lib/progress/ProgressStore';
+import { CONCURRENCY_LIMIT_CEILING_AGENTS }                            from '../../src/lib/tracker-model/constants/ConcurrencyLimits';
 import { OperationRefusal }                                            from '../../src/shared/OperationRefusal';
-import { LIMITS }                                                      from '../../src/shared/constants/Limits';
 import type { CommandContext }                                         from '../CommandContext';
 import { openTrackerForWriting, printEntity, requireProgressFile }     from '../CommandSupport';
 import type { CommandHandler }                                         from '../CommandTable';
@@ -15,10 +15,10 @@ const WHOLE_NUMBER_PATTERN = /^\d+$/;
 
 function limitFrom(written: string): number {
   const limit = WHOLE_NUMBER_PATTERN.test(written) ? Number(written) : Number.NaN;
-  if (!concurrencyLimitIsWellFormed(limit) || limit > LIMITS.CONCURRENCY_LIMIT_CEILING_AGENTS) {
+  if (!concurrencyLimitIsWellFormed(limit) || limit > CONCURRENCY_LIMIT_CEILING_AGENTS) {
     throw new OperationRefusal(
       'refused',
-      `"${written}" is not a concurrency limit. Write a whole number of agents from 1 to ${LIMITS.CONCURRENCY_LIMIT_CEILING_AGENTS}.\n  Usage: ${USAGE}`,
+      `"${written}" is not a concurrency limit. Write a whole number of agents from 1 to ${CONCURRENCY_LIMIT_CEILING_AGENTS}.\n  Usage: ${USAGE}`,
     );
   }
   return limit;

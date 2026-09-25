@@ -25,12 +25,6 @@ export const LIMITS = {
   CLOCK_SLICE_START:                  11,
   CLOCK_SLICE_END:                    16,
   JSON_INDENT:                        2,
-  // The round a row reaches the first time its ticket is sent back for review again; the first pass is round 1 and records no number.
-  FIRST_REPEAT_REVIEW_ROUND:          2,
   // A call above this context counts as oversized: a brief asks an agent to hand its work on rather than let its window grow past it.
   OVERSIZED_CONTEXT_THRESHOLD_TOKENS: 200_000,
-  // What a tracker that never set a limit reads: the two-slot dispatch the orchestrate skill was written around.
-  DEFAULT_CONCURRENCY_LIMIT:          2,
-  // The most agents allowed in flight at once: `concurrency` refuses a higher limit, and a higher stored one reads as this.
-  CONCURRENCY_LIMIT_CEILING_AGENTS:   10,
 } as const;

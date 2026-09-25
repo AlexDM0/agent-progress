@@ -4,10 +4,10 @@
  */
 
 import type { Task, TaskPhase }                                    from '../../../src/lib/tracker-model/@types/Task.ts';
+import { FIRST_REPEAT_REVIEW_ROUND }                               from '../../../src/lib/tracker-model/constants/ReviewRounds.ts';
 import { TicketDefaultsUtil }                                      from '../../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
 import { HtmlEscapeUtil }                                          from '../../../src/lib/utils/HtmlEscapeUtil.ts';
 import { TokenCountUtil }                                          from '../../../src/lib/utils/TokenCountUtil.ts';
-import { LIMITS }                                                  from '../../../src/shared/constants/Limits.ts';
 import type { TimelineLimits, TimelineTick }                       from './GanttGeometry.ts';
 import { buildTicks, chooseStepMinutes }                           from './GanttGeometry.ts';
 import { ownRowOf }                                                from './KanbanBoard.ts';
@@ -182,7 +182,7 @@ function timelineSpan(state: RowState, label: string, startEpochMilliseconds: nu
 
 /** A state's pill label; only `re-review` carries a round, and every caller of this passes another state. */
 function stateLabelOf(state: RowState): string {
-  return pillLabelForRowState(state, LIMITS.FIRST_REPEAT_REVIEW_ROUND);
+  return pillLabelForRowState(state, FIRST_REPEAT_REVIEW_ROUND);
 }
 
 function buildSpan(state: 'in-progress' | 'paused', startEpochMilliseconds: number, endEpochMilliseconds: number, isLive: boolean): TimelineSpan {

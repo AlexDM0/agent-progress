@@ -5,8 +5,8 @@
 
 import type { Task }                                                 from '../../../src/lib/tracker-model/@types/Task.ts';
 import type { TicketPriority }                                       from '../../../src/lib/tracker-model/@types/Ticket.ts';
+import { FIRST_REPEAT_REVIEW_ROUND }                                 from '../../../src/lib/tracker-model/constants/ReviewRounds.ts';
 import { TicketDefaultsUtil }                                        from '../../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
-import { LIMITS }                                                    from '../../../src/shared/constants/Limits.ts';
 import type { PageTicket }                                           from './PageData.ts';
 import type { RowState, TimestampSlices }                            from './PageMarkup.ts';
 import { deliveredAfterReview, reviewedTicketNumberOf, rowStateFor } from './PageMarkup.ts';
@@ -207,7 +207,7 @@ function runningReviewerNote(card: KanbanCard, format: NoteFormat): string | nul
   if (reviewRow === null || reviewRow.end !== null) {
     return null;
   }
-  const round = card.state === 're-review' ? `round ${card.ownRow?.reviewRound ?? LIMITS.FIRST_REPEAT_REVIEW_ROUND} reviewer since` : 'reviewer since';
+  const round = card.state === 're-review' ? `round ${card.ownRow?.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND} reviewer since` : 'reviewer since';
   return stampNote(round, reviewRow.start, format);
 }
 

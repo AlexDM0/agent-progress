@@ -8,12 +8,14 @@ import type {
   ProgressFile,
   ViewRange
 } from '../../src/lib/tracker-model/@types/ProgressFile';
-import type { Task, TaskPhase, TaskStatus } from '../../src/lib/tracker-model/@types/Task';
-import { DISPATCHER_STATES }                from '../../src/lib/tracker-model/constants/DispatcherStates';
-import { TASK_STATUSES }                    from '../../src/lib/tracker-model/constants/Statuses';
-import { VocabularyUtil }                   from '../../src/lib/tracker-model/utils/VocabularyUtil';
-import { LIMITS }                           from '../../src/shared/constants/Limits';
-import type { Workspace }                   from '../platform/Workspace';
+import type { Task, TaskPhase, TaskStatus }                            from '../../src/lib/tracker-model/@types/Task';
+import { CONCURRENCY_LIMIT_CEILING_AGENTS, DEFAULT_CONCURRENCY_LIMIT } from '../../src/lib/tracker-model/constants/ConcurrencyLimits';
+import { DEFAULT_DISPATCHER_STATE, DISPATCHER_STATES }                 from '../../src/lib/tracker-model/constants/DispatcherStates';
+import { FIRST_REPEAT_REVIEW_ROUND }                                   from '../../src/lib/tracker-model/constants/ReviewRounds';
+import { TASK_STATUSES }                                               from '../../src/lib/tracker-model/constants/Statuses';
+import { VocabularyUtil }                                              from '../../src/lib/tracker-model/utils/VocabularyUtil';
+import { LIMITS }                                                      from '../../src/shared/constants/Limits';
+import type { Workspace }                                              from '../platform/Workspace';
 
 /** Checked by equality: a future format is refused rather than half-read. */
 const SUPPORTED_PROGRESS_VERSION = 1;
@@ -55,7 +57,7 @@ export function createEmptyProgressFile(input: { project: string; startedAt: str
     startedAt:        input.startedAt,
     view:             { kind: 'auto' },
     nextTaskId:       FIRST_TASK_ID,
-    concurrencyLimit: LIMITS.DEFAULT_CONCURRENCY_LIMIT,
+    concurrencyLimit: DEFAULT_CONCURRENCY_LIMIT,
     tasks:            [],
     log:              [],
   };
@@ -65,9 +67,6 @@ export function createEmptyProgressFile(input: { project: string; startedAt: str
 export function concurrencyLimitIsWellFormed(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= LOWEST_CONCURRENCY_LIMIT;
 }
-
-/** What a tracker that never set a dispatcher state reads: the first start waits for the user's go, as a stop by the user does. */
-const DEFAULT_DISPATCHER_STATE: DispatcherState = 'stopped';
 
 export function dispatcherStateIsKnown(value: unknown): value is DispatcherState {
   return typeof value === 'string' && (DISPATCHER_STATES as readonly string[]).includes(value);
@@ -97,7 +96,7 @@ function agentsInFlightOf(tasks: readonly Task[]): number {
 }
 
 export function concurrencyOf(progress: ProgressFile): Concurrency {
-  const limit          = Math.min(progress.concurrencyLimit ?? LIMITS.DEFAULT_CONCURRENCY_LIMIT, LIMITS.CONCURRENCY_LIMIT_CEILING_AGENTS);
+  const limit          = Math.min(progress.concurrencyLimit ?? DEFAULT_CONCURRENCY_LIMIT, CONCURRENCY_LIMIT_CEILING_AGENTS);
   const agentsInFlight = agentsInFlightOf(progress.tasks);
   return { limit, agentsInFlight, freeSlots: Math.max(0, limit - agentsInFlight) };
 }
@@ -127,7 +126,7 @@ function tokenCountIsWellFormed(value: unknown): value is number | null {
 
 /** Only a repeat review is counted, so the first round a row can record is the second one. */
 function reviewRoundIsWellFormed(value: unknown): value is number {
-  return typeof value === 'number' && Number.isSafeInteger(value) && value >= LIMITS.FIRST_REPEAT_REVIEW_ROUND;
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= FIRST_REPEAT_REVIEW_ROUND;
 }
 
 function taskPhaseIsWellFormed(value: unknown): value is TaskPhase {
@@ -157,7 +156,7 @@ function taskProblem(value: unknown, index: number): string | null {
   if (!tokenCountIsWellFormed(task['tokens'])) return `tasks[${index}].tokens is neither a whole number of tokens nor null`;
   if (task['reviewed'] !== undefined && typeof task['reviewed'] !== 'string') return `tasks[${index}].reviewed is present but not a timestamp`;
   if (task['reviewRound'] !== undefined && !reviewRoundIsWellFormed(task['reviewRound'])) {
-    return `tasks[${index}].reviewRound is present and is not a whole round of at least ${LIMITS.FIRST_REPEAT_REVIEW_ROUND}`;
+    return `tasks[${index}].reviewRound is present and is not a whole round of at least ${FIRST_REPEAT_REVIEW_ROUND}`;
   }
   if (task['history'] !== undefined && !taskHistoryIsWellFormed(task['history'])) {
     return `tasks[${index}].history is present and is not a list of phases, each a known status with the timestamp it was reached at`;
@@ -357,7 +356,7 @@ export function transitionTask(progress: ProgressFile, taskId: number, status: T
   } else if (status === 'in-review' || status === 're-review' || status === 'reviewed' || status === 'delivered') {
     task.start = task.start ?? at;
     task.end = task.end ?? at;
-    if (status === 're-review') task.reviewRound = task.reviewRound === undefined ? LIMITS.FIRST_REPEAT_REVIEW_ROUND : task.reviewRound + 1;
+    if (status === 're-review') task.reviewRound = task.reviewRound === undefined ? FIRST_REPEAT_REVIEW_ROUND : task.reviewRound + 1;
     if (status === 'reviewed') task.reviewed = task.reviewed ?? at;
   } else if (status === 'abandoned') {
     if (task.start !== null) task.end = task.end ?? at;

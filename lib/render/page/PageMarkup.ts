@@ -6,11 +6,11 @@
 import type { LogEntry }                  from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { Task, TaskStatus }          from '../../../src/lib/tracker-model/@types/Task.ts';
 import type { TicketStatus }              from '../../../src/lib/tracker-model/@types/Ticket.ts';
+import { FIRST_REPEAT_REVIEW_ROUND }      from '../../../src/lib/tracker-model/constants/ReviewRounds.ts';
 import { SETTLED_TASK_STATUSES }          from '../../../src/lib/tracker-model/constants/Statuses.ts';
 import { TicketDefaultsUtil }             from '../../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
 import { HtmlEscapeUtil }                 from '../../../src/lib/utils/HtmlEscapeUtil.ts';
 import { TokenCountUtil }                 from '../../../src/lib/utils/TokenCountUtil.ts';
-import { LIMITS }                         from '../../../src/shared/constants/Limits.ts';
 import type { TimelineBar, TimelineTick } from './GanttGeometry.ts';
 import type { PageTicket }                from './PageData.ts';
 import {
@@ -124,7 +124,7 @@ export function pillLabelForRowState(state: RowState, reviewRound: number): stri
 }
 
 function pillLabelFor(state: RowState, task: Task): string {
-  return pillLabelForRowState(state, task.reviewRound ?? LIMITS.FIRST_REPEAT_REVIEW_ROUND);
+  return pillLabelForRowState(state, task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND);
 }
 
 function reviewedTitleFor(task: Task, slices: TimestampSlices): string {

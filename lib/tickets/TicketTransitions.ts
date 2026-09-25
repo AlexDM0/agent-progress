@@ -13,8 +13,8 @@ import type {
   TicketPriority,
   TicketStatus
 } from '../../src/lib/tracker-model/@types/Ticket.ts';
-import { TicketDefaultsUtil } from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
-import { LIMITS }             from '../../src/shared/constants/Limits.ts';
+import { FIRST_REPEAT_REVIEW_ROUND } from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
+import { TicketDefaultsUtil }        from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
 
 export interface AddTaskInput {
   name:      string;
@@ -257,7 +257,7 @@ export function applyTicketRereview(input: ApplyTicketRereviewInput): ApplyTicke
   });
   operations.transitionTask(progress, task.id, 're-review', at);
 
-  const logText = `Ticket #${frontmatter.id} in review, round ${task.reviewRound ?? LIMITS.FIRST_REPEAT_REVIEW_ROUND}`;
+  const logText = `Ticket #${frontmatter.id} in review, round ${task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND}`;
   operations.appendLogEntry(progress, at, logText);
 
   return { verdict: 'applied', ticket, logText };

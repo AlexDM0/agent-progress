@@ -1,10 +1,10 @@
 /** The Kanban tab's markup, shaped by the placeholder board in `lib/render/page/template.html`; the rules it follows are `KanbanBoard.ts`'s. */
 
-import type { TicketPriority } from '../../../src/lib/tracker-model/@types/Ticket.ts';
-import { TicketDefaultsUtil }  from '../../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
-import { HtmlEscapeUtil }      from '../../../src/lib/utils/HtmlEscapeUtil.ts';
-import { TokenCountUtil }      from '../../../src/lib/utils/TokenCountUtil.ts';
-import { LIMITS }              from '../../../src/shared/constants/Limits.ts';
+import type { TicketPriority }       from '../../../src/lib/tracker-model/@types/Ticket.ts';
+import { FIRST_REPEAT_REVIEW_ROUND } from '../../../src/lib/tracker-model/constants/ReviewRounds.ts';
+import { TicketDefaultsUtil }        from '../../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
+import { HtmlEscapeUtil }            from '../../../src/lib/utils/HtmlEscapeUtil.ts';
+import { TokenCountUtil }            from '../../../src/lib/utils/TokenCountUtil.ts';
 import type {
   ClosedKanbanLane,
   KanbanCard,
@@ -81,7 +81,7 @@ export interface KanbanBoardInput extends NoteFormat {
 }
 
 function pillLabelOf(card: KanbanCard): string {
-  return pillLabelForRowState(card.state, card.ownRow?.reviewRound ?? LIMITS.FIRST_REPEAT_REVIEW_ROUND);
+  return pillLabelForRowState(card.state, card.ownRow?.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND);
 }
 
 function marksMarkup(card: KanbanCard, lane: KanbanLane): string {

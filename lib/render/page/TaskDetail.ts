@@ -6,9 +6,9 @@
 import type { LogEntry }                    from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { Task, TaskPhase, TaskStatus } from '../../../src/lib/tracker-model/@types/Task.ts';
 import type { TicketStatus }                from '../../../src/lib/tracker-model/@types/Ticket.ts';
+import { FIRST_REPEAT_REVIEW_ROUND }        from '../../../src/lib/tracker-model/constants/ReviewRounds.ts';
 import { HtmlEscapeUtil }                   from '../../../src/lib/utils/HtmlEscapeUtil.ts';
 import { TokenCountUtil }                   from '../../../src/lib/utils/TokenCountUtil.ts';
-import { LIMITS }                           from '../../../src/shared/constants/Limits.ts';
 import type { PageTicket }                  from './PageData.ts';
 import type { RowState, TimestampSlices }   from './PageMarkup.ts';
 import {
@@ -153,7 +153,7 @@ function recordedPhaseLines(task: Task): PhaseLine[] {
     if (phase.status === 're-review') repeatReviews += 1;
     return {
       state:       phase.status,
-      reviewRound: LIMITS.FIRST_REPEAT_REVIEW_ROUND + Math.max(0, repeatReviews - 1),
+      reviewRound: FIRST_REPEAT_REVIEW_ROUND + Math.max(0, repeatReviews - 1),
       at:          phase.at,
     };
   });
@@ -195,7 +195,7 @@ function derivedPhases(task: Task, ticket: PageTicket | null): TaskPhase[] {
 function derivedPhaseLines(task: Task, ticket: PageTicket | null): PhaseLine[] {
   return derivedPhases(task, ticket).map((phase) => ({
     state:       phase.status,
-    reviewRound: task.reviewRound ?? LIMITS.FIRST_REPEAT_REVIEW_ROUND,
+    reviewRound: task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND,
     at:          phase.at,
   }));
 }
@@ -311,7 +311,7 @@ function headMarkup(task: Task | null, ticket: PageTicket | null): string {
     `<div class="ap-detail-head" ${attribute('data-state', state)}>`,
     `<span class="ap-detail-id">#${escapeHtml(String(task.id))}</span>`,
     `<h2 class="ap-detail-title">${escapeHtml(task.name)}</h2>`,
-    `<span class="ap-pill">${escapeHtml(pillLabelForRowState(state, task.reviewRound ?? LIMITS.FIRST_REPEAT_REVIEW_ROUND))}</span>`,
+    `<span class="ap-pill">${escapeHtml(pillLabelForRowState(state, task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND))}</span>`,
     ticketBadge,
     '</div>',
   ].join('');
