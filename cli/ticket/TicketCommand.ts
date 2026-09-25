@@ -11,7 +11,7 @@ import {
   appendLogEntry,
   concurrencyOf,
   findTask,
-  runningReviewRowsOf,
+  inProgressReviewRowsOf,
   setTaskTokens,
   transitionTask
 }                                                from '../../lib/progress/ProgressStore';
@@ -51,7 +51,7 @@ import { OperationRefusal }                                           from '../.
 import { LIMITS }                                                     from '../../src/shared/constants/Limits';
 import type { CommandContext }                                        from '../CommandContext';
 import {
-  closeRunningReviewRows,
+  closeInProgressReviewRows,
   ignoredTicketFileText,
   openTrackerForWriting,
   openTrackerForWritingThenReadNextLine,
@@ -317,12 +317,12 @@ function reviewRoundOf(ticket: Ticket): number {
 }
 
 /**
- * Closes the ticket's running review bars and starts the next one, inside the caller's lock hold, so the ticket's slot is never free between two
+ * Closes the ticket's in-progress review bars and starts the next one, inside the caller's lock hold, so the ticket's slot is never free between two
  * agents: a builder's `ticket finish` hands it to its reviewer, a reviewer's round to the next.
  */
 function startReviewBar(progress: ProgressFile, ticket: Ticket, request: ReviewBarRequest, at: string): StartedReviewBar {
   const { id, title } = ticket.frontmatter;
-  const closedBarIds  = closeRunningReviewBars(progress, id, at);
+  const closedBarIds  = closeInProgressReviewBars(progress, id, at);
   const bar = addTask(progress, {
     name:     `Review ${reviewRoundOf(ticket)} #${id} — ${title}`,
     filedAt:  at,
@@ -330,18 +330,18 @@ function startReviewBar(progress: ProgressFile, ticket: Ticket, request: ReviewB
     ...request,
   });
   transitionTask(progress, bar.id, 'in-progress', at);
-  const bundleAgentKey = agentKeyOfABundleStillRunning(progress, ticket);
+  const bundleAgentKey = agentKeyOfABundleStillInProgress(progress, ticket);
   if (bundleAgentKey !== null) bar.agent = bundleAgentKey;
   appendLogEntry(progress, at, `Review row #${bar.id} started: ${bar.name}`);
   return { bar, closedBarIds };
 }
 
-function closeRunningReviewBars(progress: ProgressFile, ticketId: string, at: string): number[] {
-  return closeRunningReviewRows(progress, [ticketId], at).map((closedBar) => closedBar.id);
+function closeInProgressReviewBars(progress: ProgressFile, ticketId: string, at: string): number[] {
+  return closeInProgressReviewRows(progress, [ticketId], at).map((closedBar) => closedBar.id);
 }
 
 /** A bundle is one agent, so its reviewer takes no second slot while the builder still holds the claim's slot for the bundle's other tickets. */
-function agentKeyOfABundleStillRunning(progress: ProgressFile, ticket: Ticket): string | null {
+function agentKeyOfABundleStillInProgress(progress: ProgressFile, ticket: Ticket): string | null {
   const { task } = ticket.frontmatter;
   const claimAgentKey = task === null ? undefined : findTask(progress, task)?.agent;
   if (claimAgentKey === undefined) return null;
@@ -421,10 +421,10 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
 }
 
 /** An old status word is named with the word that replaced it, since a reader who typed it meant that one. */
-function refuseAnUnknownTicketStatus(writtenStatus: string, adviceNaming: (renamedStatus: TicketStatus) => string): never {
+function refuseAnUnknownTicketStatus(writtenStatus: string, retryAdviceFor: (renamedStatus: TicketStatus) => string): never {
   const renamedStatus = LegacyStatusUtil.currentTicketStatusFor(writtenStatus);
   if (renamedStatus !== null) {
-    throw new OperationRefusal('refused', `"${writtenStatus}" is the old name of the ticket status ${renamedStatus}; ${adviceNaming(renamedStatus)}.`);
+    throw new OperationRefusal('refused', `"${writtenStatus}" is the old name of the ticket status ${renamedStatus}; ${retryAdviceFor(renamedStatus)}.`);
   }
   throw new OperationRefusal('refused', `"${writtenStatus}" is not a ticket status. The statuses are ${TICKET_STATUSES.join(', ')}.`);
 }
@@ -564,7 +564,7 @@ async function transitionOneTicket(
       setTaskTokens(change.progress, outcome.ticket.frontmatter.task, tokens);
     }
     // A reviewer is at work only while the ticket is in review, so every move out of it ends the bar, as `release` does.
-    const closedReviewBarIds = targetStatus === 'in-review' ? [] : closeRunningReviewBars(change.progress, outcome.ticket.frontmatter.id, change.at);
+    const closedReviewBarIds = targetStatus === 'in-review' ? [] : closeInProgressReviewBars(change.progress, outcome.ticket.frontmatter.id, change.at);
     const startedReviewBar   = reviewBarRequest === null ? null : startReviewBar(change.progress, outcome.ticket, reviewBarRequest, change.at);
     change.writeTicketAfterwards(outcome.ticket);
     const { tickets } = listTickets(change.workspace);
@@ -649,9 +649,9 @@ function refuseAnUnclaimableTicket(ticket: Ticket, tickets: readonly Ticket[], c
 
 // A running bar is a reviewer at work, so a builder claiming the ticket, a second dispatcher run's among them, would rebuild it under review.
 function refuseATicketUnderReview(progress: ProgressFile, ticketId: string): void {
-  const [runningBar] = runningReviewRowsOf(progress, [ticketId]);
-  if (runningBar === undefined) return;
-  throw new OperationRefusal('refused', `Ticket #${ticketId} is under review: its review row #${runningBar.id} is in progress. Nothing was written.`);
+  const [inProgressBar] = inProgressReviewRowsOf(progress, [ticketId]);
+  if (inProgressBar === undefined) return;
+  throw new OperationRefusal('refused', `Ticket #${ticketId} is under review: its review row #${inProgressBar.id} is in progress. Nothing was written.`);
 }
 
 /** `1 agent is`, `2 agents are`: the count, its noun and the verb agreeing with it. */
@@ -691,11 +691,11 @@ async function claimTickets(references: readonly string[], commandArguments: Arg
 
     const { agentsInFlight, limit } = concurrencyOf(change.progress);
     if (agentsInFlight >= limit) {
-      const runningRowCount = change.progress.tasks.filter((task) => task.status === 'in-progress').length;
+      const inProgressRowCount = change.progress.tasks.filter((task) => task.status === 'in-progress').length;
       throw new OperationRefusal(
         'refused',
         `${namedTicketsText(identifiers)} ${identifiers.length === 1 ? 'was' : 'were'} not claimed: ${countedText(agentsInFlight, 'agent')} in flight `
-        + `(${countedText(runningRowCount, 'row')} in progress) and the concurrency limit is ${limit} ${limit === 1 ? 'agent' : 'agents'}. `
+        + `(${countedText(inProgressRowCount, 'row')} in progress) and the concurrency limit is ${limit} ${limit === 1 ? 'agent' : 'agents'}. `
         + 'Nothing was written; claim once an agent has finished.',
       );
     }
@@ -962,14 +962,14 @@ async function holdOrUnholdTicket(holds: boolean, commandArguments: ArgumentPars
 }
 
 function refuseARetiredSubcommand(subcommand: string, commandArguments: ArgumentParser): never {
-  const replacement  = RETIRED_SUBCOMMAND_REPLACEMENTS[subcommand] ?? subcommand;
-  const targetStatus = Object.hasOwn(TRANSITION_SUBCOMMANDS, replacement) ? TRANSITION_SUBCOMMANDS[replacement] : undefined;
-  const ticketId     = commandArguments.positionals()[1] ?? '<id>';
-  const carriesOver  = targetStatus === 'in-review' ? ', and takes --start-review the same way' : '';
+  const replacement              = RETIRED_SUBCOMMAND_REPLACEMENTS[subcommand] ?? subcommand;
+  const targetStatus             = Object.hasOwn(TRANSITION_SUBCOMMANDS, replacement) ? TRANSITION_SUBCOMMANDS[replacement] : undefined;
+  const ticketId                 = commandArguments.positionals()[1] ?? '<id>';
+  const startReviewCarryOverText = targetStatus === 'in-review' ? ', and takes --start-review the same way' : '';
   throw new OperationRefusal(
     'refused',
-    `\`agent-progress ticket ${subcommand}\` was renamed: \`agent-progress ticket ${replacement} ${ticketId}\` moves a ticket to ${targetStatus ?? replacement}${carriesOver}. `
-    + 'Nothing was written.',
+    `\`agent-progress ticket ${subcommand}\` was renamed: \`agent-progress ticket ${replacement} ${ticketId}\` moves a ticket to ${targetStatus ?? replacement}`
+    + `${startReviewCarryOverText}. Nothing was written.`,
   );
 }
 

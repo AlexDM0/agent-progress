@@ -127,7 +127,7 @@ function storedRow(rowIdentifier: number): Task | undefined {
 }
 
 /** A review bar as the orchestrate skill adds one, started an hour before the release; linked by `--review-of` unless the name alone is to link it. */
-async function runningReviewRow(identifier: string, linkArguments: readonly string[] = ['--review-of', identifier]): Promise<number> {
+async function inProgressReviewRow(identifier: string, linkArguments: readonly string[] = ['--review-of', identifier]): Promise<number> {
   const addArguments = ['task', 'add', `Review 1 #${identifier} — the work`, ...linkArguments, '--owner', 'opus', '--start', '--at', '-1h', '--json'];
   return (JSON.parse(await agentProgressOrFail(addArguments)) as Task).id;
 }
@@ -359,7 +359,7 @@ describe.skipIf(!gitIsAvailable())('a release closes the running review bars of 
 
   test('the one running review row ends delivered, finished and delivered at the release time, and the slot it held is free', async () => {
     const { identifier, worktree, branch } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
-    const reviewRowId = await runningReviewRow(identifier);
+    const reviewRowId = await inProgressReviewRow(identifier);
     const startedAt   = storedRow(reviewRowId)?.start;
 
     const humanOutcome = await agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree]);
@@ -375,7 +375,7 @@ describe.skipIf(!gitIsAvailable())('a release closes the running review bars of 
   // Every other move that closes a review bar logs it, so the log would otherwise be the one place a released review never ended.
   test('each review row it closes gets the same log line every other closing move writes', async () => {
     const { identifier, worktree, branch } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
-    const reviewRowId = await runningReviewRow(identifier);
+    const reviewRowId = await inProgressReviewRow(identifier);
 
     const outcome = await agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree]);
 
@@ -385,7 +385,7 @@ describe.skipIf(!gitIsAvailable())('a release closes the running review bars of 
 
   test('under --json the closed review rows are listed by id', async () => {
     const { identifier, worktree, branch } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
-    const reviewRowId = await runningReviewRow(identifier);
+    const reviewRowId = await inProgressReviewRow(identifier);
 
     const outcome = await agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree, '--json']);
 
@@ -401,13 +401,13 @@ describe.skipIf(!gitIsAvailable())('a release closes the running review bars of 
     } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
     const bundled = JSON.parse(await agentProgressOrFail(['ticket', 'add', 'Sort the role history', '--json'])) as { id: string };
     await agentProgressOrFail(['ticket', 'start', bundled.id]);
-    const earlierRoundId = await runningReviewRow(identifier);
+    const earlierRoundId = await inProgressReviewRow(identifier);
     await agentProgressOrFail(['task', 'finish', String(earlierRoundId), '--at', '-30m']);
     await agentProgressOrFail(['task', 'deliver', String(earlierRoundId), '--at', '-30m']);
     const earlierRoundBefore = storedRow(earlierRoundId);
-    const firstReviewId      = await runningReviewRow(identifier);
-    const bundledReviewId    = await runningReviewRow(bundled.id);
-    const nameOnlyReviewId   = await runningReviewRow(identifier, []);
+    const firstReviewId      = await inProgressReviewRow(identifier);
+    const bundledReviewId    = await inProgressReviewRow(bundled.id);
+    const nameOnlyReviewId   = await inProgressReviewRow(identifier, []);
 
     const outcome = await agentProgress(['release', identifier, bundled.id, '--branch', branch, '--worktree', worktree, '--json']);
 
@@ -420,7 +420,7 @@ describe.skipIf(!gitIsAvailable())('a release closes the running review bars of 
 
   test('a release refused as main-moved leaves the review row running', async () => {
     const { identifier, worktree, branch } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
-    const reviewRowId = await runningReviewRow(identifier);
+    const reviewRowId = await inProgressReviewRow(identifier);
     commitFile(repositoryDirectory, 'main-moves.ts', 'export const mainMoved = true;\n');
 
     const outcome = await agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree, '--json']);
@@ -432,7 +432,7 @@ describe.skipIf(!gitIsAvailable())('a release closes the running review bars of 
   // The reviewer stops after it released, so its SubagentStop hook runs on a row the release already delivered.
   test('the hook run after the release still adds the reviewer\'s input to the delivered review row', async () => {
     const { identifier, worktree, branch } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
-    const reviewRowId = await runningReviewRow(identifier, ['--review-of', identifier, '--tokens', '2000']);
+    const reviewRowId = await inProgressReviewRow(identifier, ['--review-of', identifier, '--tokens', '2000']);
     expect((await agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree])).exitCode).toBe(0);
     const transcriptPath = join(repositoryDirectory, 'reviewer-transcript.jsonl');
     const transcriptLines = [

@@ -21,7 +21,7 @@ import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS, ticketMoveIsLegal }           
 import { OperationRefusal, refusalIsOperationRefusal, type OperationRefusalStatus } from '../../src/shared/OperationRefusal';
 import type { CommandContext }                                                      from '../CommandContext';
 import {
-  closeRunningReviewRows,
+  closeInProgressReviewRows,
   openTrackerForWritingThenReadNextLine,
   printEntity,
   printEntityThenNextLine,
@@ -184,7 +184,7 @@ async function releaseUnderTheLock(
     }
 
     // The reviewer releases as the last step of its pass, so its bar is closed here rather than left running until the orchestrator reads the verdict.
-    const closedReviewRows = closeRunningReviewRows(change.progress, tickets.map(({ frontmatter }) => frontmatter.id), change.at);
+    const closedReviewRows = closeInProgressReviewRows(change.progress, tickets.map(({ frontmatter }) => frontmatter.id), change.at);
     return {
       tickets,
       commit: merge.commit,

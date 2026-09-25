@@ -50,7 +50,7 @@ function storedProgress(): ProgressFile {
   return JSON.parse(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')) as ProgressFile;
 }
 
-function runningBarsReviewing(ticketId: string): Task[] {
+function inProgressBarsReviewing(ticketId: string): Task[] {
   return storedProgress().tasks.filter((task) => task.status === 'in-progress' && task.reviewOf === ticketId);
 }
 
@@ -78,7 +78,7 @@ describe.skipIf(!gitIsAvailable())('starting the review bar with the move to rev
 
     const output = (await run(['ticket', 'finish', '1', '--start-review', '--owner', 'opus', '--note', 'Reviewed by the dispatcher'])).outputText();
 
-    const bars = runningBarsReviewing('001');
+    const bars = inProgressBarsReviewing('001');
     expect(bars).toHaveLength(1);
     expect(bars[0]?.name).toBe(`Review 1 #001 — ${REVIEWED_TICKET_TITLE}`);
     expect(bars[0]?.owner).toBe('opus');
@@ -113,12 +113,12 @@ describe.skipIf(!gitIsAvailable())('starting the review bar with the move to rev
     expect(reviewOutcome?.exitCode).toBe(0);
     expect(claimOutcome?.exitCode).toBe(1);
     expect(await agentsInFlightNow()).toBe(1);
-    expect(runningBarsReviewing('001')).toHaveLength(1);
+    expect(inProgressBarsReviewing('001')).toHaveLength(1);
   });
 
   test('ticket rereview --start-review closes the round\'s running bar and starts the next, numbered from the ticket\'s review sections', async () => {
     await run(['ticket', 'finish', '1', '--start-review']);
-    const [firstBar] = runningBarsReviewing('001');
+    const [firstBar] = inProgressBarsReviewing('001');
     const ticketFilePath = JSON.parse((await run(['ticket', 'show', '1', '--json'])).outputText()) as { filePath: string };
     const ticketText     = readFileSync(ticketFilePath.filePath, 'utf8');
     await Bun.write(ticketFilePath.filePath, `${ticketText}\n## Review\nRound 1 reworked 900 lines.\n`);
@@ -126,7 +126,7 @@ describe.skipIf(!gitIsAvailable())('starting the review bar with the move to rev
 
     await run(['ticket', 'rereview', '1', '--start-review', '--owner', 'opus']);
 
-    const bars = runningBarsReviewing('001');
+    const bars = inProgressBarsReviewing('001');
     expect(bars).toHaveLength(1);
     expect(bars[0]?.name).toBe(`Review 2 #001 — ${REVIEWED_TICKET_TITLE}`);
     expect(storedProgress().tasks.find((task) => task.id === firstBar?.id)?.status).toBe('delivered');
@@ -137,7 +137,7 @@ describe.skipIf(!gitIsAvailable())('starting the review bar with the move to rev
   test('a claim of a ticket whose review bar runs is refused, and one after the bar is closed takes it for the rebuild', async () => {
     await run(['ticket', 'finish', '1', '--start-review']);
     await run(['concurrency', '2']);
-    const [bar] = runningBarsReviewing('001');
+    const [bar] = inProgressBarsReviewing('001');
 
     const refused = await runWithExitCode(['ticket', 'claim', '1']);
     expect(refused.exitCode).toBe(1);
@@ -162,11 +162,11 @@ describe.skipIf(!gitIsAvailable())('starting the review bar with the move to rev
     for (const moveOutOfReview of movesOutOfReview) {
       await run(['ticket', 'status', '1', 'in-review']);
       await run(['ticket', 'rereview', '1', '--start-review']);
-      const [bar] = runningBarsReviewing('001');
+      const [bar] = inProgressBarsReviewing('001');
 
       const output = (await run(moveOutOfReview)).outputText();
 
-      expect(runningBarsReviewing('001'), moveOutOfReview.join(' ')).toHaveLength(0);
+      expect(inProgressBarsReviewing('001'), moveOutOfReview.join(' ')).toHaveLength(0);
       expect(storedProgress().tasks.find((task) => task.id === bar?.id)?.status).toBe('delivered');
       expect(output).toContain(`Closed the review row #${bar?.id}, delivered`);
       expect(storedProgress().log.filter((entry) => entry.text.startsWith(`Closed the review row #${bar?.id}`))).toHaveLength(1);
@@ -196,7 +196,7 @@ describe.skipIf(!gitIsAvailable())('starting the review bar with the move to rev
 
     await run(['ticket', 'finish', '1', '--start-review']);
     expect(await agentsInFlightNow()).toBe(1);
-    expect(runningBarsReviewing('001')[0]?.agent).toBe('001,002');
+    expect(inProgressBarsReviewing('001')[0]?.agent).toBe('001,002');
 
     await run(['ticket', 'finish', '2', '--start-review']);
     expect(await agentsInFlightNow()).toBe(1);

@@ -11,9 +11,9 @@ import {
   concurrencyOf,
   dispatcherStateOf,
   findTask,
+  inProgressReviewRowsOf,
   readProgressFile,
   removeTask,
-  runningReviewRowsOf,
   transitionTask,
   writeProgressFile,
   type Concurrency
@@ -119,12 +119,12 @@ export function reportIgnoredTicketFiles(context: CommandContext, malformedTicke
 }
 
 /** Finishes and delivers every in-progress review row of the tickets, with one log line each, for every move that ends their review. */
-export function closeRunningReviewRows(progress: ProgressFile, ticketIds: readonly string[], at: string): Task[] {
-  const closedRows = runningReviewRowsOf(progress, ticketIds);
-  for (const runningRow of closedRows) {
-    transitionTask(progress, runningRow.id, 'in-review', at);
-    transitionTask(progress, runningRow.id, 'delivered', at);
-    appendLogEntry(progress, at, `Closed the review row #${runningRow.id}, delivered: ${runningRow.name}`);
+export function closeInProgressReviewRows(progress: ProgressFile, ticketIds: readonly string[], at: string): Task[] {
+  const closedRows = inProgressReviewRowsOf(progress, ticketIds);
+  for (const inProgressRow of closedRows) {
+    transitionTask(progress, inProgressRow.id, 'in-review', at);
+    transitionTask(progress, inProgressRow.id, 'delivered', at);
+    appendLogEntry(progress, at, `Closed the review row #${inProgressRow.id}, delivered: ${inProgressRow.name}`);
   }
   return closedRows;
 }
