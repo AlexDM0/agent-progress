@@ -3,39 +3,24 @@
  * selection and ticket open state stay with the template's own bootstrap, reached through `window.agentProgressTemplate`.
  */
 
-import type { ProgressFile, ViewRange }             from '../src/lib/tracker-model/@types/ProgressFile.ts';
-import type { Task }                                from '../src/lib/tracker-model/@types/Task.ts';
-import type { TicketStatus }                        from '../src/lib/tracker-model/@types/Ticket.ts';
-import type { PageLimits, PagePayload, PageTicket } from '../src/shared/@types/PagePayload.ts';
-import type { KanbanCard }                          from './@types/KanbanCard.ts';
-import type { ClosedKanbanLane }                    from './constants/KanbanLane.ts';
-import { CAPPED_LANE_FIRST_PAGE }                   from './constants/KanbanLane.ts';
-import { KANBAN_BOARD_ELEMENT_ID, KANBAN_TAB_NAME } from './constants/TemplateIds.ts';
-import { taskDetailMarkup }                         from './detail-dialog/TaskDetail.ts';
-import { ticketDetailMarkup }                       from './detail-dialog/TicketDetail.ts';
-import { cardsInLane, kanbanCardsFor }              from './kanban/KanbanLanes.ts';
-import { kanbanBoardMarkup }                        from './kanban/KanbanMarkup.ts';
-import { KanbanOverflowUtil }                       from './kanban/utils/KanbanOverflowUtil.ts';
-import { LanePagingUtil }                           from './kanban/utils/LanePagingUtil.ts';
-import {
-  logControlIsNeeded,
-  logControlText,
-  logEntryLimitFor,
-  logNoteText,
-} from './log/LogCap.ts';
-import type {
-  LogVisibility,
-  NameColumnWidth,
-  StoredViewOverride,
-  ViewerPreferences,
-} from './preferences/ViewerPreferences.ts';
-import {
-  createViewerPreferences,
-  toggledLogVisibility,
-  toggledNameColumnWidth,
-  workVisibilityFrom,
-} from './preferences/ViewerPreferences.ts';
-import type { PlacedTick, TaskRow } from './progress/ProgressMarkup.ts';
+import type { ProgressFile, ViewRange }                                        from '../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Task }                                                           from '../src/lib/tracker-model/@types/Task.ts';
+import type { TicketStatus }                                                   from '../src/lib/tracker-model/@types/Ticket.ts';
+import type { PageLimits, PagePayload, PageTicket }                            from '../src/shared/@types/PagePayload.ts';
+import type { KanbanCard }                                                     from './@types/KanbanCard.ts';
+import type { ClosedKanbanLane }                                               from './constants/KanbanLane.ts';
+import { CAPPED_LANE_FIRST_PAGE }                                              from './constants/KanbanLane.ts';
+import { KANBAN_BOARD_ELEMENT_ID, KANBAN_TAB_NAME }                            from './constants/TemplateIds.ts';
+import { taskDetailMarkup }                                                    from './detail-dialog/TaskDetail.ts';
+import { ticketDetailMarkup }                                                  from './detail-dialog/TicketDetail.ts';
+import { cardsInLane, kanbanCardsFor }                                         from './kanban/KanbanLanes.ts';
+import { kanbanBoardMarkup }                                                   from './kanban/KanbanMarkup.ts';
+import { KanbanOverflowUtil }                                                  from './kanban/utils/KanbanOverflowUtil.ts';
+import { LanePagingUtil }                                                      from './kanban/utils/LanePagingUtil.ts';
+import { createLogController }                                                 from './log/LogController.ts';
+import type { NameColumnWidth, StoredViewOverride, ViewerPreferences }         from './preferences/ViewerPreferences.ts';
+import { createViewerPreferences, toggledNameColumnWidth, workVisibilityFrom } from './preferences/ViewerPreferences.ts';
+import type { PlacedTick, TaskRow }                                            from './progress/ProgressMarkup.ts';
 import {
   axisPixelsNeededFor,
   generatedStampText,
@@ -53,16 +38,15 @@ import {
   NAME_COLUMN_WIDTH_ATTRIBUTE,
   RANGE_PRESET_BOUNDS,
 } from './progress/constants/ProgressChart.ts';
-import { ViewRangeUtil }                                             from './progress/utils/ViewRangeUtil.ts';
-import { ticketCardsMarkup, ticketCountText, ticketTableRowsMarkup } from './tickets/TicketsMarkup.ts';
-import type { Timeline }                                             from './utils/GeometryUtil.ts';
-import { GeometryUtil }                                              from './utils/GeometryUtil.ts';
-import { IslandUtil }                                                from './utils/IslandUtil.ts';
-import { LogMarkupUtil }                                             from './utils/LogMarkupUtil.ts';
-import type { ShortenedText }                                        from './utils/MarkupUtil.ts';
-import { TimeUtil }                                                  from './utils/TimeUtil.ts';
-import { VisibilityUtil }                                            from './utils/VisibilityUtil.ts';
-import { WaitingOnUtil }                                             from './utils/WaitingOnUtil.ts';
+import { ViewRangeUtil }           from './progress/utils/ViewRangeUtil.ts';
+import { createTicketsController } from './tickets/TicketsController.ts';
+import { DomUtil }                 from './utils/DomUtil.ts';
+import type { Timeline }           from './utils/GeometryUtil.ts';
+import { GeometryUtil }            from './utils/GeometryUtil.ts';
+import { IslandUtil }              from './utils/IslandUtil.ts';
+import { TimeUtil }                from './utils/TimeUtil.ts';
+import { VisibilityUtil }          from './utils/VisibilityUtil.ts';
+import { WaitingOnUtil }           from './utils/WaitingOnUtil.ts';
 
 const PROGRESS_ISLAND_ELEMENT_ID = 'ap-progress-data';
 const TICKETS_ISLAND_ELEMENT_ID  = 'ap-tickets-data';
@@ -77,23 +61,6 @@ const TAB_NAMES = ['progress', KANBAN_TAB_NAME, 'tickets'];
 
 const OWNED_MARKUP_CONTAINER_IDS = ['ap-summary', 'ap-ticks', 'ap-overlay', 'ap-rows', 'ap-log', 'ap-ticket-rows', 'ap-ticket-cards', 'ap-detail-body', KANBAN_BOARD_ELEMENT_ID];
 const OWNED_TEXT_CONTAINER_IDS   = ['ap-project', 'ap-generated', 'ap-range-note', 'ap-ticket-count', 'ap-hidden-note', 'ap-log-note'];
-
-interface TemplateBehaviour {
-  selectTab:              (name: string) => void;
-  restoreTicketOpenState: () => void;
-}
-
-function templateBehaviour(): TemplateBehaviour | null {
-  const candidate = (window as unknown as Record<string, unknown>)['agentProgressTemplate'];
-  if (typeof candidate !== 'object' || candidate === null) {
-    return null;
-  }
-  const behaviour = candidate as Partial<TemplateBehaviour>;
-  if (typeof behaviour.selectTab !== 'function' || typeof behaviour.restoreTicketOpenState !== 'function') {
-    return null;
-  }
-  return { selectTab: behaviour.selectTab, restoreTicketOpenState: behaviour.restoreTicketOpenState };
-}
 
 function showLayoutFailure(message: string): void {
   const banner = document.getElementById('ap-error');
@@ -118,59 +85,11 @@ function islandContentsOf(elementId: string): unknown {
   }
 }
 
-function setText(elementId: string, text: string): void {
-  const element = document.getElementById(elementId);
-  if (element !== null) {
-    element.textContent = text;
-  }
-}
-
-function setShortenedText(elementId: string, shortened: ShortenedText): void {
-  setText(elementId, shortened.text);
-  const element = document.getElementById(elementId);
-  if (element === null) {
-    return;
-  }
-  if (shortened.title === null) {
-    element.removeAttribute('title');
-  } else {
-    element.setAttribute('title', shortened.title);
-  }
-}
-
-/** `innerHTML` is safe here because the markup modules escaped every value once and ticket bodies arrive sanitised. */
-function setMarkup(elementId: string, markup: string): void {
-  const element = document.getElementById(elementId);
-  if (element !== null) {
-    element.innerHTML = markup;
-  }
-}
-
-function setHidden(elementId: string, hidden: boolean): void {
-  const element = document.getElementById(elementId);
-  if (element !== null) {
-    element.hidden = hidden;
-  }
-}
-
 function applyNameColumnWidth(width: NameColumnWidth): void {
   document.documentElement.setAttribute(NAME_COLUMN_WIDTH_ATTRIBUTE, width);
   const control = document.getElementById('ap-name-column');
   if (control !== null) {
     control.setAttribute('aria-pressed', String(width === 'wide'));
-  }
-}
-
-function showLog(entries: PagePayload['progress']['log'], limits: PageLimits, todayCalendarDate: string, visibility: LogVisibility): void {
-  const controlIsNeeded = logControlIsNeeded(entries.length);
-  setMarkup('ap-log', LogMarkupUtil.logItemsMarkup(entries, limits, todayCalendarDate, controlIsNeeded ? logEntryLimitFor(visibility) : null));
-  setHidden('ap-log-empty', entries.length > 0);
-  setText('ap-log-note', logNoteText(entries.length, visibility));
-  setHidden('ap-log-control', !controlIsNeeded);
-  const control = document.getElementById('ap-log-toggle');
-  if (control !== null) {
-    control.textContent = logControlText(entries.length);
-    control.setAttribute('aria-pressed', String(visibility === 'all'));
   }
 }
 
@@ -194,7 +113,7 @@ function applyFragment(fragment: string): void {
   if (target === '') {
     return;
   }
-  const behaviour = templateBehaviour();
+  const behaviour = DomUtil.templateBehaviour();
   if (TAB_NAMES.includes(target)) {
     behaviour?.selectTab(target);
     return;
@@ -235,22 +154,10 @@ function taskRowsFor(
   });
 }
 
-function reflectSegment(containerId: string, attributeName: string, selectedValue: string): void {
-  const container = document.getElementById(containerId);
-  if (container === null) {
-    return;
-  }
-  for (const button of container.querySelectorAll(`[data-${attributeName}]`)) {
-    if (button instanceof HTMLElement) {
-      button.setAttribute('aria-pressed', String(button.dataset[attributeName] === selectedValue));
-    }
-  }
-}
-
 function reflectRangeBar(override: StoredViewOverride): void {
   const boundsAreUnset = override.fromText === null && override.toText === null;
-  reflectSegment('ap-range-presets', 'preset', override.presetKey ?? (boundsAreUnset ? AUTOMATIC_RANGE_PRESET : ''));
-  reflectSegment('ap-range-ticks', 'tick', override.tickMinutes === null ? AUTOMATIC_TICK_CHOICE : String(override.tickMinutes));
+  DomUtil.reflectSegment('ap-range-presets', 'preset', override.presetKey ?? (boundsAreUnset ? AUTOMATIC_RANGE_PRESET : ''));
+  DomUtil.reflectSegment('ap-range-ticks', 'tick', override.tickMinutes === null ? AUTOMATIC_TICK_CHOICE : String(override.tickMinutes));
   const fromInput = document.getElementById('ap-range-from');
   const toInput   = document.getElementById('ap-range-to');
   if (fromInput instanceof HTMLInputElement && document.activeElement !== fromInput) {
@@ -393,7 +300,7 @@ function wireTaskDetail(sources: DetailSources): void {
     if (markup === '') {
       return;
     }
-    setMarkup(DETAIL_BODY_ELEMENT_ID, markup);
+    DomUtil.setMarkup(DETAIL_BODY_ELEMENT_ID, markup);
     dialog.showModal();
   };
 
@@ -413,7 +320,7 @@ function wireTaskDetail(sources: DetailSources): void {
     if (card === undefined) {
       return;
     }
-    setMarkup(DETAIL_BODY_ELEMENT_ID, ticketDetailMarkup({
+    DomUtil.setMarkup(DETAIL_BODY_ELEMENT_ID, ticketDetailMarkup({
       card,
       tasks:                progress.tasks,
       nowEpochMilliseconds: Date.now(),
@@ -472,7 +379,7 @@ interface KanbanControls {
 
 /** Shows the Kanban tab and brings the dependency's card into view with focus; a card the board does not hold is left alone. */
 function followKanbanLink(ticketId: string, controls: KanbanControls): void {
-  templateBehaviour()?.selectTab(KANBAN_TAB_NAME);
+  DomUtil.templateBehaviour()?.selectTab(KANBAN_TAB_NAME);
   const cardId = `ap-kanban-${ticketId}`;
   if ((document.getElementById(cardId)?.closest('[data-collapsed]') ?? null) !== null) {
     controls.toggleAbandonedLane(true);
@@ -520,10 +427,10 @@ function wireKanban(controls: KanbanControls): void {
 
 function clearPlaceholderContent(): void {
   for (const elementId of OWNED_MARKUP_CONTAINER_IDS) {
-    setMarkup(elementId, '');
+    DomUtil.setMarkup(elementId, '');
   }
   for (const elementId of OWNED_TEXT_CONTAINER_IDS) {
-    setText(elementId, '');
+    DomUtil.setText(elementId, '');
   }
 }
 
@@ -538,10 +445,15 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     showLayoutFailure(payload.pageScriptFailure);
   }
 
-  setText('ap-project', progress.project);
-  setMarkup('ap-summary', summaryStatsMarkup(progress.tasks, payload.concurrency));
+  DomUtil.setText('ap-project', progress.project);
+  DomUtil.setMarkup('ap-summary', summaryStatsMarkup(progress.tasks, payload.concurrency));
 
-  let logVisibility = preferences.readLogVisibility();
+  const logController = createLogController({
+    entries:               progress.log,
+    slices:                limits,
+    preferences,
+    readTodayCalendarDate: () => todayCalendarDate,
+  });
   // Set from the visibility filter's now before anything prints a stamp; the page reloads every few minutes, so the day is never stale for long.
   let todayCalendarDate = '';
 
@@ -556,7 +468,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   let visibleKanbanCards: KanbanCard[] = [];
   let abandonedLaneIsOpen              = preferences.readAbandonedLaneIsOpen();
   const showKanban                     = (): void => {
-    setMarkup(KANBAN_BOARD_ELEMENT_ID, kanbanBoardMarkup({
+    DomUtil.setMarkup(KANBAN_BOARD_ELEMENT_ID, kanbanBoardMarkup({
       cards:                  visibleKanbanCards,
       tasks:                  progress.tasks,
       nowEpochMilliseconds:   Date.now(),
@@ -574,6 +486,8 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     showKanban();
   };
 
+  const ticketsController = createTicketsController({ allTickets: tickets, waitingOnById, slices: limits });
+
   const showVisibleWork = (): void => {
     const nowEpochMilliseconds = Date.now();
     const showsAll             = visibility === 'all';
@@ -583,17 +497,14 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     visibleProgress = { ...progress, tasks: visibleTasks };
     todayCalendarDate = TimeUtil.calendarDateOf(nowEpochMilliseconds);
 
-    setShortenedText('ap-generated', generatedStampText(payload.generatedAtEpochMilliseconds, todayCalendarDate));
-    showLog(progress.log, limits, todayCalendarDate, logVisibility);
-    setMarkup('ap-ticket-rows', ticketTableRowsMarkup(visibleTickets, waitingOnById));
-    setMarkup('ap-ticket-cards', ticketCardsMarkup(visibleTickets, waitingOnById, limits, todayCalendarDate));
-    setText('ap-ticket-count', ticketCountText(tickets));
-    templateBehaviour()?.restoreTicketOpenState();
+    DomUtil.setShortenedText('ap-generated', generatedStampText(payload.generatedAtEpochMilliseconds, todayCalendarDate));
+    logController.show();
+    ticketsController.show(visibleTickets, todayCalendarDate);
     visibleKanbanCards = kanbanCardsFor(visibleTickets, progress.tasks, waitingOnById);
     showKanban();
 
-    setText('ap-hidden-note', hiddenWorkNoteText(progress.tasks.length - visibleTasks.length, tickets.length - visibleTickets.length));
-    reflectSegment('ap-visibility', 'visibility', visibility);
+    DomUtil.setText('ap-hidden-note', hiddenWorkNoteText(progress.tasks.length - visibleTasks.length, tickets.length - visibleTickets.length));
+    DomUtil.reflectSegment('ap-visibility', 'visibility', visibility);
   };
 
   const layOut = (bringNowIntoView: boolean): void => {
@@ -618,13 +529,13 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
       ...tick,
       labelSitsLeftOfItsLine: labelSitsLeftOfItsLine(tick, axisWidthPixels),
     }));
-    setMarkup('ap-ticks', tickLayerMarkup(placedTicks));
-    setMarkup('ap-overlay', overlayMarkup(timeline.ticks, timeline.nowPercent));
-    setMarkup('ap-rows', taskRowsMarkup(taskRowsFor(visibleProgress, timeline, ticketStatusById, waitingOnById), limits));
-    setHidden('ap-chart-empty', visibleProgress.tasks.length > 0);
+    DomUtil.setMarkup('ap-ticks', tickLayerMarkup(placedTicks));
+    DomUtil.setMarkup('ap-overlay', overlayMarkup(timeline.ticks, timeline.nowPercent));
+    DomUtil.setMarkup('ap-rows', taskRowsMarkup(taskRowsFor(visibleProgress, timeline, ticketStatusById, waitingOnById), limits));
+    DomUtil.setHidden('ap-chart-empty', visibleProgress.tasks.length > 0);
 
     const rangeNote = rangeNoteText(timeline.fromEpochMilliseconds, timeline.toEpochMilliseconds, timeline.stepMinutes, TimeUtil.calendarDateOf(nowEpochMilliseconds), limits);
-    setShortenedText('ap-range-note', rangeNote);
+    DomUtil.setShortenedText('ap-range-note', rangeNote);
     reflectRangeBar(override);
 
     if (bringNowIntoView && chart !== null && timeline.nowPercent !== null) {
@@ -657,11 +568,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     layOut(true);
   });
 
-  document.getElementById('ap-log-toggle')?.addEventListener('click', () => {
-    logVisibility = toggledLogVisibility(logVisibility);
-    preferences.writeLogVisibility(logVisibility);
-    showLog(progress.log, limits, todayCalendarDate, logVisibility);
-  });
+  logController.wire();
 
   document.getElementById('ap-name-column')?.addEventListener('click', () => {
     nameColumnWidth = toggledNameColumnWidth(nameColumnWidth);
