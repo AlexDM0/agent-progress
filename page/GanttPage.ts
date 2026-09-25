@@ -8,11 +8,11 @@ import type { Task }                                from '../src/lib/tracker-mod
 import type { TicketStatus }                        from '../src/lib/tracker-model/@types/Ticket.ts';
 import type { PageLimits, PagePayload, PageTicket } from '../src/shared/@types/PagePayload.ts';
 import type { KanbanCard }                          from './@types/KanbanCard.ts';
-import { taskDetailMarkup }                         from './TaskDetail.ts';
-import { ticketDetailMarkup }                       from './TicketDetail.ts';
 import type { ClosedKanbanLane }                    from './constants/KanbanLane.ts';
 import { CAPPED_LANE_FIRST_PAGE }                   from './constants/KanbanLane.ts';
 import { KANBAN_BOARD_ELEMENT_ID, KANBAN_TAB_NAME } from './constants/TemplateIds.ts';
+import { taskDetailMarkup }                         from './detail-dialog/TaskDetail.ts';
+import { ticketDetailMarkup }                       from './detail-dialog/TicketDetail.ts';
 import { cardsInLane, kanbanCardsFor }              from './kanban/KanbanLanes.ts';
 import { kanbanBoardMarkup }                        from './kanban/KanbanMarkup.ts';
 import { KanbanOverflowUtil }                       from './kanban/utils/KanbanOverflowUtil.ts';

@@ -3,20 +3,21 @@
  * Every value passes `escapeHtml` exactly once here, except a ticket's `bodyHtml`, already escaped by `lib/render/Markdown.ts`.
  */
 
-import type { LogEntry }                    from '../src/lib/tracker-model/@types/ProgressFile.ts';
-import type { Task, TaskPhase, TaskStatus } from '../src/lib/tracker-model/@types/Task.ts';
-import type { TicketStatus }                from '../src/lib/tracker-model/@types/Ticket.ts';
-import { HtmlEscapeUtil }                   from '../src/lib/utils/HtmlEscapeUtil.ts';
-import { TokenCountUtil }                   from '../src/lib/utils/TokenCountUtil.ts';
-import type { PageTicket }                  from '../src/shared/@types/PagePayload.ts';
-import { LIMITS }                           from '../src/shared/constants/Limits.ts';
-import type { RowState }                    from './constants/RowState.ts';
-import { BoardRulesUtil }                   from './utils/BoardRulesUtil.ts';
-import { LogMarkupUtil }                    from './utils/LogMarkupUtil.ts';
-import { MarkupUtil }                       from './utils/MarkupUtil.ts';
-import type { TimestampSlices }             from './utils/TimeUtil.ts';
-import { TimeUtil }                         from './utils/TimeUtil.ts';
-import { WorkItemMarkupUtil }               from './utils/WorkItemMarkupUtil.ts';
+import type { LogEntry }                    from '../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Task, TaskPhase, TaskStatus } from '../../src/lib/tracker-model/@types/Task.ts';
+import type { TicketStatus }                from '../../src/lib/tracker-model/@types/Ticket.ts';
+import { HtmlEscapeUtil }                   from '../../src/lib/utils/HtmlEscapeUtil.ts';
+import { TokenCountUtil }                   from '../../src/lib/utils/TokenCountUtil.ts';
+import type { PageTicket }                  from '../../src/shared/@types/PagePayload.ts';
+import { LIMITS }                           from '../../src/shared/constants/Limits.ts';
+import type { RowState }                    from '../constants/RowState.ts';
+import { BoardRulesUtil }                   from '../utils/BoardRulesUtil.ts';
+import { LogMarkupUtil }                    from '../utils/LogMarkupUtil.ts';
+import { MarkupUtil }                       from '../utils/MarkupUtil.ts';
+import type { TimestampSlices }             from '../utils/TimeUtil.ts';
+import { TimeUtil }                         from '../utils/TimeUtil.ts';
+import { WorkItemMarkupUtil }               from '../utils/WorkItemMarkupUtil.ts';
+import { DetailMarkupUtil }                 from './utils/DetailMarkupUtil.ts';
 
 const { escapeHtml }       = HtmlEscapeUtil;
 const { formatTokenCount } = TokenCountUtil;
@@ -70,7 +71,7 @@ function stampFact(label: string, stamp: string, format: StampFormat): Fact {
 function factsMarkup(entries: readonly Fact[]): string {
   const rows = entries.map(([label, valueMarkup, carriesItsOwnElement]) => {
     const valueElement = carriesItsOwnElement === true ? valueMarkup : `<span>${valueMarkup}</span>`;
-    return `<div><b>${escapeHtml(label)}</b>${valueElement}</div>`;
+    return DetailMarkupUtil.factMarkup(label, valueElement);
   }).join('');
   return `<div class="ap-ticket-meta">${rows}</div>`;
 }
@@ -272,10 +273,6 @@ function headMarkup(task: Task | null, ticket: PageTicket | null): string {
   ].join('');
 }
 
-function sectionMarkup(title: string, bodyMarkup: string): string {
-  return `<section class="ap-detail-section"><h3 class="ap-detail-section-title">${escapeHtml(title)}</h3>${bodyMarkup}</section>`;
-}
-
 /** Empty when neither a task nor a ticket was found, so a double-click on something the page cannot resolve opens nothing. */
 export function taskDetailMarkup(input: TaskDetailInput): string {
   const { task, ticket } = input;
@@ -284,9 +281,9 @@ export function taskDetailMarkup(input: TaskDetailInput): string {
   }
   return [
     headMarkup(task, ticket),
-    task === null ? '' : sectionMarkup('Task', taskFactsMarkup(task, input)),
-    task === null ? '' : sectionMarkup('Phases', phasesMarkup(task, ticket, input)),
-    ticket === null ? '' : sectionMarkup('Ticket', ticketMarkup(ticket, input)),
-    sectionMarkup('Log', logMarkup(input)),
+    task === null ? '' : DetailMarkupUtil.sectionMarkup('Task', taskFactsMarkup(task, input)),
+    task === null ? '' : DetailMarkupUtil.sectionMarkup('Phases', phasesMarkup(task, ticket, input)),
+    ticket === null ? '' : DetailMarkupUtil.sectionMarkup('Ticket', ticketMarkup(ticket, input)),
+    DetailMarkupUtil.sectionMarkup('Log', logMarkup(input)),
   ].join('');
 }

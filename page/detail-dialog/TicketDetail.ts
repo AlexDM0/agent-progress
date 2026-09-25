@@ -3,15 +3,16 @@
  * except the ticket's `bodyHtml`, already escaped by `lib/render/Markdown.ts`.
  */
 
-import type { Task }                 from '../src/lib/tracker-model/@types/Task.ts';
-import { HtmlEscapeUtil }            from '../src/lib/utils/HtmlEscapeUtil.ts';
-import { LIMITS }                    from '../src/shared/constants/Limits.ts';
-import type { KanbanCard }           from './@types/KanbanCard.ts';
+import type { Task }                 from '../../src/lib/tracker-model/@types/Task.ts';
+import { HtmlEscapeUtil }            from '../../src/lib/utils/HtmlEscapeUtil.ts';
+import { LIMITS }                    from '../../src/shared/constants/Limits.ts';
+import type { KanbanCard }           from '../@types/KanbanCard.ts';
+import { BoardRulesUtil }            from '../utils/BoardRulesUtil.ts';
+import { MarkupUtil }                from '../utils/MarkupUtil.ts';
+import { WorkItemMarkupUtil }        from '../utils/WorkItemMarkupUtil.ts';
 import type { TicketTimelineLimits } from './TicketTimeline.ts';
-import { ticketTimelineMarkup }      from './TicketTimeline.ts';
-import { BoardRulesUtil }            from './utils/BoardRulesUtil.ts';
-import { MarkupUtil }                from './utils/MarkupUtil.ts';
-import { WorkItemMarkupUtil }        from './utils/WorkItemMarkupUtil.ts';
+import { ticketTimelineMarkup }      from './TicketTimelineMarkup.ts';
+import { DetailMarkupUtil }          from './utils/DetailMarkupUtil.ts';
 
 const { escapeHtml } = HtmlEscapeUtil;
 
@@ -42,8 +43,8 @@ function headMarkup(input: TicketDetailInput): string {
   ].join('');
 }
 
-function factMarkup(label: string, valueElementMarkup: string): string {
-  return `<div><b>${escapeHtml(label)}</b>${valueElementMarkup}</div>`;
+function plainFactMarkup(label: string, valueMarkup: string): string {
+  return DetailMarkupUtil.factMarkup(label, `<span>${valueMarkup}</span>`);
 }
 
 function factsMarkup(input: TicketDetailInput): string {
@@ -58,18 +59,14 @@ function factsMarkup(input: TicketDetailInput): string {
     ['abandoned', ticket.abandonedAt],
   ];
   const facts = stamps.flatMap(([label, stamp]) => (typeof stamp === 'string' && stamp !== ''
-    ? [factMarkup(label, MarkupUtil.stampMarkup('span', stamp, todayCalendarDate, limits))]
+    ? [DetailMarkupUtil.factMarkup(label, MarkupUtil.stampMarkup('span', stamp, todayCalendarDate, limits))]
     : []));
-  if (ticket.reason !== undefined && ticket.reason !== '') facts.push(factMarkup('reason', `<span>${escapeHtml(ticket.reason)}</span>`));
-  if (ticket.hold !== undefined) facts.push(factMarkup('held', `<span>${escapeHtml(ticket.hold === '' ? HELD_WITHOUT_REASON_TEXT : ticket.hold)}</span>`));
-  if (card.waitingOn.length > 0) facts.push(factMarkup('waiting on', `<span>${WorkItemMarkupUtil.ticketLinksMarkup(card.waitingOn, 'kanban-card')}</span>`));
-  if (ticket.branch !== undefined && ticket.branch !== '') facts.push(factMarkup('branch', `<span>${escapeHtml(ticket.branch)}</span>`));
-  if (ticket.task !== null) facts.push(factMarkup('task', `<span>${WorkItemMarkupUtil.taskLinkMarkup(ticket.task)}</span>`));
+  if (ticket.reason !== undefined && ticket.reason !== '') facts.push(plainFactMarkup('reason', escapeHtml(ticket.reason)));
+  if (ticket.hold !== undefined) facts.push(plainFactMarkup('held', escapeHtml(ticket.hold === '' ? HELD_WITHOUT_REASON_TEXT : ticket.hold)));
+  if (card.waitingOn.length > 0) facts.push(plainFactMarkup('waiting on', WorkItemMarkupUtil.ticketLinksMarkup(card.waitingOn, 'kanban-card')));
+  if (ticket.branch !== undefined && ticket.branch !== '') facts.push(plainFactMarkup('branch', escapeHtml(ticket.branch)));
+  if (ticket.task !== null) facts.push(plainFactMarkup('task', WorkItemMarkupUtil.taskLinkMarkup(ticket.task)));
   return `<div class="ap-ticket-meta">${facts.join('')}</div>`;
-}
-
-function sectionMarkup(title: string, bodyMarkup: string): string {
-  return `<section class="ap-detail-section"><h3 class="ap-detail-section-title">${escapeHtml(title)}</h3>${bodyMarkup}</section>`;
 }
 
 export function ticketDetailMarkup(input: TicketDetailInput): string {
@@ -85,7 +82,7 @@ export function ticketDetailMarkup(input: TicketDetailInput): string {
   return [
     headMarkup(input),
     factsMarkup(input),
-    sectionMarkup('Timeline', timeline),
-    sectionMarkup('Description', `<div class="ap-ticket-body md">${card.ticket.bodyHtml}</div>`),
+    DetailMarkupUtil.sectionMarkup('Timeline', timeline),
+    DetailMarkupUtil.sectionMarkup('Description', `<div class="ap-ticket-body md">${card.ticket.bodyHtml}</div>`),
   ].join('');
 }

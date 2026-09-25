@@ -6,11 +6,11 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import type { LogEntry }        from '../src/lib/tracker-model/@types/ProgressFile.ts';
-import type { Task }            from '../src/lib/tracker-model/@types/Task.ts';
-import type { PageTicket }      from '../src/shared/@types/PagePayload.ts';
+import type { LogEntry }        from '../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Task }            from '../../src/lib/tracker-model/@types/Task.ts';
+import type { PageTicket }      from '../../src/shared/@types/PagePayload.ts';
+import type { TimestampSlices } from '../utils/TimeUtil.ts';
 import { taskDetailMarkup }     from './TaskDetail.ts';
-import type { TimestampSlices } from './utils/TimeUtil.ts';
 
 const EXAMPLE_SLICES: TimestampSlices = {
   dateAndClockLength:    16,

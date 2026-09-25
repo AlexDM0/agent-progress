@@ -6,21 +6,17 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import type { Task, TaskPhase }   from '../src/lib/tracker-model/@types/Task.ts';
-import type { PageTicket }        from '../src/shared/@types/PagePayload.ts';
-import { LIMITS }                 from '../src/shared/constants/Limits.ts';
+import type { Task, TaskPhase }   from '../../src/lib/tracker-model/@types/Task.ts';
+import type { PageTicket }        from '../../src/shared/@types/PagePayload.ts';
+import { LIMITS }                 from '../../src/shared/constants/Limits.ts';
 import type {
   TicketTimeline,
   TicketTimelineInput,
   TicketTimelineLimits,
   TimelineSpan,
 } from './TicketTimeline.ts';
-import {
-  clockLabelFor,
-  TICKET_TIMELINE_MAXIMUM_TICKS,
-  ticketTimelineMarkup,
-  ticketTimelineOf,
-} from './TicketTimeline.ts';
+import { clockLabelFor, TICKET_TIMELINE_MAXIMUM_TICKS, ticketTimelineOf } from './TicketTimeline.ts';
+import { ticketTimelineMarkup }                                           from './TicketTimelineMarkup.ts';
 
 const EXAMPLE_TODAY = '2026-09-25';
 const EXAMPLE_NOW   = Date.parse('2026-09-25T13:36:00+02:00');
