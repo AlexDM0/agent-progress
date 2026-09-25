@@ -13,8 +13,8 @@ the plan is specific it wins; these rules decide the rest.
 ## Verify
 
 `bun run typecheck && bun test && bun run lint`: all three after any TypeScript change, before calling it done.
-`typecheck` covers every project: the Bun one, the DOM-only page and the dispatcher's spec project. Never ad-hoc
-`tsc` flags; never edit `package.json` to make a check pass.
+`typecheck` covers every project: the Bun one, the DOM-only page, the dispatcher's spec project and the
+Workflow-runtime dispatcher. Never ad-hoc `tsc` flags; never edit `package.json` to make a check pass.
 
 ## Rules
 
@@ -212,7 +212,9 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
 - A `SKILL.md` `description` is its trigger, so it names the words a user says. Skill files cite only commands, paths
   inside a tracked repository, or files beside them; never a file of this repository.
 - `skill-orchestrate/` repeats nothing from `skill/`, writes rules as instructions, and never restates what the
-  dispatcher decides in code. The call-budget numbers stay in `templates/AgentBrief.md`.
+  dispatcher decides in code. The call budgets and the rework threshold are `DISPATCH_PROTOCOL` in
+  `src/shared/constants/DispatchProtocol.ts`; `templates/AgentBrief.md` states them in prose until plan step 8
+  generates them, and the dispatcher's brief spec holds the two together.
 - `setup.sh` symlinks both into `~/.claude/skills/`, and `~/development/claude/skills.json` must list them under
   `ignore`.
 

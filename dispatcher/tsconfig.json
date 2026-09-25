@@ -1,0 +1,24 @@
+{
+  // The dispatcher's own project: it runs inside the Workflow tool, so no Bun, Node or DOM types, and a module
+  // reaching for any of them fails to compile rather than failing in a tracked repository. Strictness is the root's.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ESNext"],
+    "types": []
+  },
+  // Exactly the shared files the dispatcher reaches, directly or through their imports, named one by one, so each
+  // is proven to compile for the Workflow runtime.
+  "include": [
+    "./**/*.ts",
+    "../src/shared/constants/DispatchProtocol.ts",
+    "../src/shared/constants/Limits.ts",
+    "../src/shared/@types/ReleaseRefusalReason.ts",
+    "../src/shared/utils/DispatcherClaimNoteUtil.ts",
+    "../src/lib/tracker-model/constants/AgentSettings.ts",
+    "../src/lib/tracker-model/@types/Ticket.ts",
+    "../src/lib/tracker-model/@types/Task.ts",
+    "../src/lib/tracker-model/@types/ProgressFile.ts"
+  ],
+  // The specs and the test-only helpers use Bun; `dispatcher/tsconfig.spec.json` checks them.
+  "exclude": ["./**/*.spec.ts", "./testing/**"]
+}

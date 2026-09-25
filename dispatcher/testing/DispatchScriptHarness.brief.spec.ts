@@ -1,12 +1,13 @@
 /**
  * The dispatcher's prompts point every agent at the installed copy of `templates/AgentBrief.md` for the blocks it follows, and state three numbers
  * of their own: the builder's call budget, the reviewer's, and the rework count above which a round is granted. Those three are read here from
- * the brief and from what the script actually sends, so a change to either that leaves the other behind fails.
+ * the brief and from what the script actually sends, and held to `DISPATCH_PROTOCOL`, so a change to one that leaves another behind fails.
  */
 import { readFileSync }           from 'node:fs';
 import { join }                   from 'node:path';
 import { describe, expect, test } from 'bun:test';
 
+import { DISPATCH_PROTOCOL }  from '../../src/shared/constants/DispatchProtocol';
 import { runDispatchScript }  from './DispatchScriptHarness';
 import { readDispatchScript } from './OldDispatchScript';
 import { DECISION_SCENARIOS } from './claims/DecisionClaims';
@@ -29,6 +30,14 @@ describe('the dispatcher and the agent brief', () => {
 
   test('the brief states the three numbers the prompts repeat', () => {
     expect([builderBudget, reviewerBudget, reworkThresholdLines]).toEqual([150, 75, 750]);
+  });
+
+  test('the brief\'s three numbers are the dispatch protocol\'s', () => {
+    expect([builderBudget, reviewerBudget, reworkThresholdLines]).toEqual([
+      DISPATCH_PROTOCOL.BUILDER_API_CALL_BUDGET,
+      DISPATCH_PROTOCOL.REVIEWER_API_CALL_BUDGET,
+      DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES,
+    ]);
   });
 
   test('the builder is sent the brief\'s call budget and told to read the installed brief', async () => {
