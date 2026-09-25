@@ -1,8 +1,7 @@
 # Backlog: agreed, not started
 
-**Nothing is in flight as of 2026-09-19.** No branch, no partial implementation, nothing half
-written waiting for someone to come back to it. When that stops being true this line says so, with
-the date and the branch.
+**In flight since 2026-09-25: the conventions migration**, on branch `migration/conventions`, in a
+worktree; `docs/migration-plan.md` is its plan and records its progress. Nothing else is in flight.
 
 This file is where a TODO would otherwise go — there are no TODOs in the code. An item here is
 **agreed in principle and deliberately not done**, with the reason it is not done yet. Something
