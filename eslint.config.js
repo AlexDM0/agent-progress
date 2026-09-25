@@ -8,4 +8,5 @@ export default [
     files: ['lib/tooling/dev/**/*.ts'],
     rules: { 'import/no-extraneous-dependencies': ['error', { devDependencies: true }] },
   },
+  { files: ['**/*.ts'], rules: { 'import/enforce-node-protocol-usage': ['error', 'always'] } },
 ];

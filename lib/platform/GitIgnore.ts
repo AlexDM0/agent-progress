@@ -4,8 +4,8 @@
  * and the exact-line scan is only the fallback for a machine with no git. The write is in place
  * rather than through `lib/platform/AtomicFile.ts`, because nothing holds a `.gitignore` open.
  */
-import { existsSync, readFileSync, writeFileSync } from 'fs';
-import { join }                                    from 'path';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { join }                                    from 'node:path';
 
 import { TRACKER_DIRECTORY_NAME } from '../constants/Statuses';
 

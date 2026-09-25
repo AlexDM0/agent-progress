@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 import { LIMITS }                                              from '../constants/Limits';
 import { DISPATCHER_STATES, TASK_STATUSES, taskStatusIsKnown } from '../constants/Statuses';

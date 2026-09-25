@@ -3,7 +3,7 @@
  * so everything outside them is untouched, and written in place rather than through
  * `lib/platform/AtomicFile.ts`, so a symlinked `CLAUDE.md` stays a symlink.
  */
-import { existsSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
 import { CLAUDE_MANAGED_END, CLAUDE_MANAGED_START } from '../constants/Statuses';
 

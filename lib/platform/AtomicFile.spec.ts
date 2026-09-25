@@ -12,16 +12,16 @@ import {
   statSync,
   symlinkSync,
   writeFileSync
-} from 'fs';
+} from 'node:fs';
 import {
   chmod,
   mkdtemp,
   readFile,
   readdir,
   rm
-} from 'fs/promises';
-import { tmpdir }                 from 'os';
-import { join }                   from 'path';
+} from 'node:fs/promises';
+import { tmpdir }                 from 'node:os';
+import { join }                   from 'node:path';
 import { afterAll, expect, test } from 'bun:test';
 
 import { createFileAtomically, writeFileAtomically } from './AtomicFile';

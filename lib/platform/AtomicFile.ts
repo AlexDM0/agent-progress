@@ -3,7 +3,7 @@
  * file beside the target — beside, because a rename across filesystems is a copy and a copy is not
  * atomic — are flushed with `fsync` before the rename, and are renamed over it.
  */
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import {
   closeSync,
   fchmodSync,
@@ -16,8 +16,8 @@ import {
   statSync,
   unlinkSync,
   writeSync
-} from 'fs';
-import { dirname } from 'path';
+} from 'node:fs';
+import { dirname } from 'node:path';
 
 const TEMPORARY_NAME_RANDOM_LENGTH = 8;
 

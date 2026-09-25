@@ -113,8 +113,9 @@ lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/, lib/tic
   `lib/render/page/`; page specs sit in `lib/render/`.
 - ESLint 9 flat config through `@reliquary/eslint-config`: 2-space indent, single quotes, semicolons; line length
   180 for code, 155 for comments; aligned object values; aligned `from`; imports builtin → external → internal,
-  alphabetised; more than 3 named imports or 4+ properties one per line; arrow parameters parenthesised; no `any`; a
-  blank line before a function declaration. `lib/tooling/dev/` may import devDependencies. Deliberately off:
+  alphabetised; builtins through the `node:` protocol (`import/enforce-node-protocol-usage`, turned on in
+  `eslint.config.js`); more than 3 named imports or 4+ properties one per line; arrow parameters parenthesised; no
+  `any`; a blank line before a function declaration. `lib/tooling/dev/` may import devDependencies. Deliberately off:
   `no-plusplus`, `no-continue`, `no-await-in-loop`, `no-param-reassign`, `consistent-return`, `no-restricted-syntax`,
   `guard-for-in`, `class-methods-use-this`, `no-use-before-define`.
 
@@ -206,7 +207,7 @@ lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/, lib/tic
 agent-progress.ts           the bin shim: runs the command line and exits with its number
 package.json                the bin entry, the scripts and the one runtime dependency, marked
 tsconfig.json               the strict Bun project; excludes lib/render/page/
-eslint.config.js            the shared ESLint config, plus the devDependency exemption for lib/tooling/dev/
+eslint.config.js            the shared ESLint config, the node: protocol rule, and the devDependency exemption for lib/tooling/dev/
 bun.lock                    the lockfile, committed
 .gitignore                  node_modules/, .agent-progress/, .DS_Store, .readme-graphics/, .idea/
 .idea/                      git-ignored IDE settings

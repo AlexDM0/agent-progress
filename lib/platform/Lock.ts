@@ -8,7 +8,7 @@
  * itself wrote; the fallback to the record's own mtime, reached only when the record is missing,
  * unparseable or holds an unparseable time, fails closed both ways.
  */
-import { randomUUID } from 'crypto';
+import { randomUUID } from 'node:crypto';
 import {
   linkSync,
   mkdirSync,
@@ -17,8 +17,8 @@ import {
   statSync,
   unlinkSync,
   writeFileSync
-} from 'fs';
-import { join } from 'path';
+} from 'node:fs';
+import { join } from 'node:path';
 
 import { LIMITS }           from '../constants/Limits';
 import { TimeUtil }         from '../utils/TimeUtil';

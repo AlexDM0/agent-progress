@@ -10,13 +10,13 @@ import {
   readFileSync,
   realpathSync,
   statSync
-} from 'fs';
+} from 'node:fs';
 import {
   basename,
   dirname,
   isAbsolute,
   resolve
-} from 'path';
+} from 'node:path';
 
 const WORKTREE_GIT_DIRECTORY_SEGMENT = '/.git/worktrees/';
 

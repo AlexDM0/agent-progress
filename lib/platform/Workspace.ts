@@ -3,8 +3,8 @@
  * and asks `lib/platform/RepositoryRoot.ts` only when the walk finds nothing, which is what makes a
  * sibling worktree, with nothing above it holding the tracker, resolve to the main checkout.
  */
-import { existsSync, realpathSync, statSync } from 'fs';
-import { dirname, join, resolve }             from 'path';
+import { existsSync, realpathSync, statSync } from 'node:fs';
+import { dirname, join, resolve }             from 'node:path';
 
 import {
   HTML_FILE_NAME,
