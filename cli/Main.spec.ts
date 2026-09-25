@@ -9,7 +9,7 @@ import {
   mock,
   test
 }                                                         from 'bun:test';
-import { OperationRefusal }                               from '../lib/platform/OperationRefusal';
+import { OperationRefusal }                               from '../src/shared/OperationRefusal';
 import { createScratchDirectory, removeScratchDirectory } from '../src/testing/ScratchWorkspace';
 import { runCommandLine }                                 from './Main';
 import * as realRenderCommandModule                       from './render/RenderCommand';

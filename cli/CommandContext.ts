@@ -1,7 +1,7 @@
 /**
  * Everything a command may know about its process, so every command spec runs in the test process
  * against a scratch directory and a frozen clock. It carries no environment access on purpose:
- * `lib/platform/Environment.ts` is the one module that reads the environment.
+ * `src/shared/Environment.ts` is the one module that reads the environment.
  */
 import { createInterface } from 'node:readline';
 

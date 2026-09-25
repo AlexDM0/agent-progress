@@ -6,6 +6,8 @@
 import { existsSync, realpathSync, statSync } from 'node:fs';
 import { dirname, join, resolve }             from 'node:path';
 
+import { agentProgressRootOverride } from '../../src/shared/Environment';
+import { OperationRefusal }          from '../../src/shared/OperationRefusal';
 import {
   HTML_FILE_NAME,
   LOCK_DIRECTORY_NAME,
@@ -13,9 +15,7 @@ import {
   TICKETS_DIRECTORY_NAME,
   TRACKER_DIRECTORY_NAME
 } from '../constants/Statuses';
-import { agentProgressRootOverride } from './Environment';
-import { OperationRefusal }          from './OperationRefusal';
-import { discoverRepositoryRoot }    from './RepositoryRoot';
+import { discoverRepositoryRoot } from './RepositoryRoot';
 
 /** Every path one tracker owns, all absolute: a relative one would resolve against a subagent's working directory. */
 export interface Workspace {

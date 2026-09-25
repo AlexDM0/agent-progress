@@ -17,7 +17,6 @@ import type {
   TicketStatus
 }                                                     from '../lib/constants/Types';
 import { withLock }                         from '../lib/platform/Lock';
-import { OperationRefusal }                 from '../lib/platform/OperationRefusal';
 import { requireWorkspace, type Workspace } from '../lib/platform/Workspace';
 import {
   addTask,
@@ -39,6 +38,7 @@ import { NextLineUtil }                            from '../lib/utils/NextLineUt
 import { TicketDependencyUtil }                    from '../lib/utils/TicketDependencyUtil';
 import { TimeUtil }                                from '../lib/utils/TimeUtil';
 import { TokenCountUtil }                          from '../lib/utils/TokenCountUtil';
+import { OperationRefusal }                        from '../src/shared/OperationRefusal';
 import type { CommandContext }                     from './CommandContext';
 import type { ArgumentParser }                     from './arguments/ArgumentParser';
 

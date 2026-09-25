@@ -7,7 +7,6 @@ import { readFileSync } from 'node:fs';
 import { LIMITS }                                       from '../../lib/constants/Limits';
 import type { SubagentTranscript }                      from '../../lib/platform/ClaudeTranscripts';
 import { listSubagentTranscripts, transcriptFolderFor } from '../../lib/platform/ClaudeTranscripts';
-import { OperationRefusal }                             from '../../lib/platform/OperationRefusal';
 import { requireWorkspace }                             from '../../lib/platform/Workspace';
 import { TimeUtil }                                     from '../../lib/utils/TimeUtil';
 import { TokenCountUtil }                               from '../../lib/utils/TokenCountUtil';
@@ -15,6 +14,7 @@ import type { CohortSummary }                           from '../../lib/utils/Tr
 import { TranscriptCohortUtil }                         from '../../lib/utils/TranscriptCohortUtil';
 import type { TranscriptProfile }                       from '../../lib/utils/TranscriptUsageUtil';
 import { TranscriptUsageUtil }                          from '../../lib/utils/TranscriptUsageUtil';
+import { OperationRefusal }                             from '../../src/shared/OperationRefusal';
 import type { CommandContext }                          from '../CommandContext';
 import { padColumn, printEntity }                       from '../CommandSupport';
 import type { CommandHandler }                          from '../CommandTable';

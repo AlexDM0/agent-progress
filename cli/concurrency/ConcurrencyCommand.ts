@@ -1,7 +1,7 @@
 import { LIMITS }                                                      from '../../lib/constants/Limits';
-import { OperationRefusal }                                            from '../../lib/platform/OperationRefusal';
 import { requireWorkspace }                                            from '../../lib/platform/Workspace';
 import { appendLogEntry, concurrencyLimitIsWellFormed, concurrencyOf } from '../../lib/progress/ProgressStore';
+import { OperationRefusal }                                            from '../../src/shared/OperationRefusal';
 import type { CommandContext }                                         from '../CommandContext';
 import { openTrackerForWriting, printEntity, requireProgressFile }     from '../CommandSupport';
 import type { CommandHandler }                                         from '../CommandTable';

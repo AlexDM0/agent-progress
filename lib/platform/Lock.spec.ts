@@ -14,10 +14,10 @@ import {
 } from 'node:fs';
 import { afterAll, expect, test } from 'bun:test';
 
+import { refusalIsOperationRefusal }                      from '../../src/shared/OperationRefusal';
 import { createScratchDirectory, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
 import { LIMITS }                                         from '../constants/Limits';
 import { LockGenerationSteps, withLock }                  from './Lock';
-import { refusalIsOperationRefusal }                      from './OperationRefusal';
 import { workspacePathsFor }                              from './Workspace';
 import type { Workspace }                                 from './Workspace';
 

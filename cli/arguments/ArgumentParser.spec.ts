@@ -3,7 +3,7 @@
  * a flag swallowing the positional behind it, and a bare `--`. Every refusal is an `OperationRefusal`, never a `process.exit`.
  */
 import { describe, expect, test }                           from 'bun:test';
-import { refusalIsOperationRefusal, type OperationRefusal } from '../../lib/platform/OperationRefusal';
+import { refusalIsOperationRefusal, type OperationRefusal } from '../../src/shared/OperationRefusal';
 import { createArgumentParser }                             from './ArgumentParser';
 
 function refusalFrom(action: () => unknown): OperationRefusal {

@@ -62,6 +62,6 @@ is designer-owned, so it wants a design answer before a code one.
 The conventions say an environment variable can turn a skipped spec into a failure on a machine that
 has the tool. `gitIsAvailable` in `src/testing/ScratchWorkspace.ts` only checks `Bun.which('git')`,
 and no such variable exists. When it is built, it is read through a getter in
-`lib/platform/Environment.ts`, like every environment read.
+`src/shared/Environment.ts`, like every environment read.
 
 Not done yet because the conventions migration changes no behaviour outside its plan.

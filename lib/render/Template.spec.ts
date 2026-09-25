@@ -4,9 +4,9 @@
  */
 
 import { describe, expect, test }                       from 'bun:test';
+import { refusalIsOperationRefusal }                    from '../../src/shared/OperationRefusal.ts';
 import { LIMITS }                                       from '../constants/Limits.ts';
 import type { ProgressFile, Task, Ticket }              from '../constants/Types.ts';
-import { refusalIsOperationRefusal }                    from '../platform/OperationRefusal.ts';
 import { renderProgressHtml, substituteTemplateTokens } from './Template.ts';
 
 const GENERATED_AT = new Date('2026-09-18T20:11:03Z');

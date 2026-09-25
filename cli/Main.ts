@@ -2,7 +2,7 @@
  * The dispatch, and the only place an exit code is decided: 0 done or nothing to do, 1 a refusal the
  * caller can act on, 2 a state the tool will not repair. It returns the number rather than exiting.
  */
-import { refusalIsOperationRefusal } from '../lib/platform/OperationRefusal';
+import { refusalIsOperationRefusal } from '../src/shared/OperationRefusal';
 import type { CommandContext }       from './CommandContext';
 import { commandLoaderFor }          from './CommandTable';
 import { helpText }                  from './HelpText';

@@ -47,6 +47,9 @@ lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/, lib/tic
   and `agent-progress.ts` imports only `cli/`.
 - `src/testing/` may import `lib/platform/Workspace.ts` until plan step 6 moves it; `cli/testing/` is imported only by
   `cli/` specs.
+- `src/shared/` holds app-specific code several parts use and imports only `src/lib/` and itself; what remains in
+  `lib/` may import `src/shared/`; `src/` never imports `lib/` or `cli/` (the one exception is the `src/testing/` one
+  above).
 - A feature folder never imports a sibling: hoist what both need, or pass a structurally typed parameter.
 - `lib/platform/` touches the machine and knows nothing about tasks or tickets: a caller hands it paths and values,
   never a task or a ticket, even though the layer order would let it import their types from `lib/constants/`.
@@ -62,7 +65,8 @@ lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/, lib/tic
 ### Errors and exit codes
 
 - A decider returns a verdict, and fails closed: an answer the machine cannot give reads as the safe verdict. Library
-  code throws `OperationRefusal` (`refused` or `unrepaired`), never writes to the terminal and never exits.
+  code throws `OperationRefusal` (`src/shared/OperationRefusal.ts`: `refused` or `unrepaired`), never writes to the
+  terminal and never exits.
 - Exit codes are decided only in `cli/Main.ts`: 0 done or nothing to do; 1 a refusal the caller can act on
   (`refused`, or an unknown command); 2 a state the tool will not repair (`unrepaired`, or any other throw).
   `agent-progress.ts` is the only `process.exit`.
@@ -72,8 +76,8 @@ lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/, lib/tic
 
 ### Runtime
 
-- `process.env` is read only in `lib/platform/Environment.ts`, through getters, each with a docblock saying what it
-  overrides and why. The one in-process assignment is in `lib/platform/Environment.spec.ts`; other specs set the
+- `process.env` is read only in `src/shared/Environment.ts`, through getters, each with a docblock saying what it
+  overrides and why. The one in-process assignment is in `src/shared/Environment.spec.ts`; other specs set the
   environment in a child process.
 - No work at module load. The one exception is the last statement of `lib/render/page/GanttPage.ts`, which starts
   the page.
@@ -222,6 +226,7 @@ setup.sh                    machine setup: Bun, bun install and bun link, and th
 cli/                        the command surface: dispatch, arguments, help, one folder per command; cli/testing/ is test-only
 lib/                        everything the commands do, in the layers above; lib/tooling/dev/ holds the dispatcher's test harness
 src/                        the target layout's code, filled step by step as the migration plan moves it
+  src/shared/               app-specific code several parts use: the environment reader, the refusal
   src/testing/              test-only helpers several parts use: the scratch workspace and the tracker isolation check
 skill/                      the skill every session in a tracked repository loads
 skill-orchestrate/          the skill for the one session running the board

@@ -1,7 +1,7 @@
 /**
  * Where a command finds the tracker that governs it: the paths a root owns, the walk up, the nearest
  * tracker winning, and `requireWorkspace`'s refusal. The `AGENT_PROGRESS_ROOT` cases run in a child
- * process because only `lib/platform/Environment.spec.ts` assigns the environment in-process.
+ * process because only `src/shared/Environment.spec.ts` assigns the environment in-process.
  */
 import {
   mkdirSync,
@@ -12,6 +12,7 @@ import {
 import { dirname, join }          from 'node:path';
 import { afterAll, expect, test } from 'bun:test';
 
+import { refusalIsOperationRefusal } from '../../src/shared/OperationRefusal';
 import {
   addWorktree,
   createScratchDirectory,
@@ -19,7 +20,6 @@ import {
   gitIsAvailable,
   removeScratchDirectory
 } from '../../src/testing/ScratchWorkspace';
-import { refusalIsOperationRefusal }                          from './OperationRefusal';
 import { findWorkspace, requireWorkspace, workspacePathsFor } from './Workspace';
 
 const WORKSPACE_MODULE_PATH = join(import.meta.dir, 'Workspace.ts');

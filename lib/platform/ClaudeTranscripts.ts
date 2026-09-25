@@ -2,7 +2,7 @@
  * Where the harness keeps one repository's transcripts, and which of them belong to subagents.
  * **The folder is `<home>/.claude/projects/` plus the repository root's absolute path with every character
  * outside `[a-zA-Z0-9]` replaced by `-`**, a dot or a space as much as a separator, so every worktree resolves to one folder.
- * The home directory is `node:os`'s `homedir()`, never `HOME`, since only `lib/platform/Environment.ts` reads `process.env`.
+ * The home directory is `node:os`'s `homedir()`, never `HOME`, since only `src/shared/Environment.ts` reads `process.env`.
  */
 import type { Dirent }   from 'node:fs';
 import { readdirSync }   from 'node:fs';

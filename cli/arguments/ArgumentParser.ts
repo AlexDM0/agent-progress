@@ -2,7 +2,7 @@
  * Reading one command's arguments. A valueless option, an extra positional or an unknown option
  * throws `OperationRefusal` rather than exiting: `cli/Main.ts` alone turns a refusal into an exit code.
  */
-import { OperationRefusal }         from '../../lib/platform/OperationRefusal';
+import { OperationRefusal }         from '../../src/shared/OperationRefusal';
 import { OPTION_NAMES_WITH_VALUES } from './OptionsWithValues';
 
 export interface ArgumentParser {

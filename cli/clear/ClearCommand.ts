@@ -2,10 +2,10 @@
  * Re-seeds one row per surviving ticket from that ticket's own stamps, so a cleared tracker still draws the work that was done — except a low
  * ticket that has no row, which had none to lose.
  */
-import { OperationRefusal }                                       from '../../lib/platform/OperationRefusal';
 import { appendLogEntry }                                         from '../../lib/progress/ProgressStore';
 import { deleteAllTickets, listTickets }                          from '../../lib/tickets/TicketStore';
 import { seedTaskFromTicket, ticketStaysOffTheChart }             from '../../lib/tickets/TicketTransitions';
+import { OperationRefusal }                                       from '../../src/shared/OperationRefusal';
 import { openTrackerForWriting, printEntity, progressOperations } from '../CommandSupport';
 import type { CommandHandler }                                    from '../CommandTable';
 

@@ -3,9 +3,9 @@
  * last two hours"; `lib/render/page/GanttGeometry.ts` resolves each end, which is what makes a mixed pair legal.
  */
 import type { ViewRange }                     from '../../lib/constants/Types';
-import { OperationRefusal }                   from '../../lib/platform/OperationRefusal';
 import { appendLogEntry }                     from '../../lib/progress/ProgressStore';
 import { TimeUtil }                           from '../../lib/utils/TimeUtil';
+import { OperationRefusal }                   from '../../src/shared/OperationRefusal';
 import { openTrackerForWriting, printEntity } from '../CommandSupport';
 import type { CommandHandler }                from '../CommandTable';
 

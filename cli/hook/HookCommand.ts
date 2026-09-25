@@ -6,13 +6,13 @@ import { readFileSync } from 'node:fs';
 import { homedir }      from 'node:os';
 
 import type { ProgressFile, Task }       from '../../lib/constants/Types';
-import { OperationRefusal }              from '../../lib/platform/OperationRefusal';
 import type { Workspace }                from '../../lib/platform/Workspace';
 import { addTaskTokens, appendLogEntry } from '../../lib/progress/ProgressStore';
 import { reviewedTicketNumberOf }        from '../../lib/render/page/PageMarkup';
 import { readTicket }                    from '../../lib/tickets/TicketStore';
 import type { TranscriptUsageTotals }    from '../../lib/utils/TranscriptUsageUtil';
 import { TranscriptUsageUtil }           from '../../lib/utils/TranscriptUsageUtil';
+import { OperationRefusal }              from '../../src/shared/OperationRefusal';
 import type { CommandContext }           from '../CommandContext';
 import { openTrackerForWriting }         from '../CommandSupport';
 import type { CommandHandler }           from '../CommandTable';

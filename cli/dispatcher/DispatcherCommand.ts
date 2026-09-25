@@ -1,6 +1,5 @@
 import { DISPATCHER_STATES }    from '../../lib/constants/Statuses';
 import type { DispatcherState } from '../../lib/constants/Types';
-import { OperationRefusal }     from '../../lib/platform/OperationRefusal';
 import { requireWorkspace }     from '../../lib/platform/Workspace';
 import {
   appendLogEntry,
@@ -8,6 +7,7 @@ import {
   dispatcherStateIsKnown,
   dispatcherStateOf
 }                                                                  from '../../lib/progress/ProgressStore';
+import { OperationRefusal }                                        from '../../src/shared/OperationRefusal';
 import type { CommandContext }                                     from '../CommandContext';
 import { openTrackerForWriting, printEntity, requireProgressFile } from '../CommandSupport';
 import type { CommandHandler }                                     from '../CommandTable';

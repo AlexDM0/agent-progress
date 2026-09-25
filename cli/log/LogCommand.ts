@@ -1,5 +1,5 @@
-import { OperationRefusal }                   from '../../lib/platform/OperationRefusal';
 import { appendLogEntry }                     from '../../lib/progress/ProgressStore';
+import { OperationRefusal }                   from '../../src/shared/OperationRefusal';
 import { openTrackerForWriting, printEntity } from '../CommandSupport';
 import type { CommandHandler }                from '../CommandTable';
 

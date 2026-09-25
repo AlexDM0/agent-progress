@@ -1,6 +1,5 @@
 import { TASK_STATUSES, taskStatusIsKnown }    from '../../lib/constants/Statuses';
 import type { ProgressFile, Task, TaskStatus } from '../../lib/constants/Types';
-import { OperationRefusal }                    from '../../lib/platform/OperationRefusal';
 import {
   addTask,
   findTask,
@@ -8,6 +7,7 @@ import {
   transitionTask
 }                                             from '../../lib/progress/ProgressStore';
 import { readTicket }          from '../../lib/tickets/TicketStore';
+import { OperationRefusal }    from '../../src/shared/OperationRefusal';
 import type { CommandContext } from '../CommandContext';
 import {
   openTrackerForWriting,

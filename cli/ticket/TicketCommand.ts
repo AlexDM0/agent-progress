@@ -30,7 +30,6 @@ import type {
   TicketStatus,
   TicketType
 }                                                from '../../lib/constants/Types';
-import { OperationRefusal }                 from '../../lib/platform/OperationRefusal';
 import { requireWorkspace, type Workspace } from '../../lib/platform/Workspace';
 import {
   addTask,
@@ -58,6 +57,7 @@ import {
 import { NextLineUtil }         from '../../lib/utils/NextLineUtil';
 import { TicketDependencyUtil } from '../../lib/utils/TicketDependencyUtil';
 import { TicketIdUtil }         from '../../lib/utils/TicketIdUtil';
+import { OperationRefusal }     from '../../src/shared/OperationRefusal';
 import type { CommandContext }  from '../CommandContext';
 import {
   TICKET_STATUSES_NO_AGENT_WORKS_AGAIN,

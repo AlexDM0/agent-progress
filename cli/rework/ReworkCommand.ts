@@ -8,10 +8,10 @@
  */
 import { resolve } from 'node:path';
 
-import { OperationRefusal }                                   from '../../lib/platform/OperationRefusal';
 import { readCommitsDiff, readRebaseDiffs, readWorktreeHead } from '../../lib/platform/ReworkDiffs';
 import type { FileRework, ReworkTotals }                      from '../../lib/utils/ReworkCountUtil';
 import { ReworkCountUtil }                                    from '../../lib/utils/ReworkCountUtil';
+import { OperationRefusal }                                   from '../../src/shared/OperationRefusal';
 import { printEntity }                                        from '../CommandSupport';
 import type { CommandHandler }                                from '../CommandTable';
 

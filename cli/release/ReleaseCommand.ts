@@ -14,9 +14,9 @@ import {
   readCurrentBranch,
   removeWorktree
 }                                                                                            from '../../lib/platform/BranchRelease';
-import { OperationRefusal, refusalIsOperationRefusal, type OperationRefusalStatus }          from '../../lib/platform/OperationRefusal';
 import { readTicket }                                                                        from '../../lib/tickets/TicketStore';
 import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS, applyTicketTransition, ticketMoveIsLegal } from '../../lib/tickets/TicketTransitions';
+import { OperationRefusal, refusalIsOperationRefusal, type OperationRefusalStatus }          from '../../src/shared/OperationRefusal';
 import type { CommandContext }                                                               from '../CommandContext';
 import {
   closeRunningReviewRows,
