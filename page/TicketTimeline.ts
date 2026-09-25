@@ -11,18 +11,17 @@ import type { PageTicket }                             from '../src/shared/@type
 import { LIMITS }                                      from '../src/shared/constants/Limits.ts';
 import { TicketNumberUtil }                            from '../src/shared/utils/TicketNumberUtil.ts';
 import { ownRowOf }                                    from './KanbanBoard.ts';
-import type { RowState }                               from './PageMarkup.ts';
-import { attribute, pillLabelForRowState }             from './PageMarkup.ts';
+import type { RowState }                               from './constants/RowState.ts';
 import { MILLISECONDS_PER_MINUTE, PERCENT_OF_A_WHOLE } from './constants/Units.ts';
 import type { TimelineLimits, TimelineTick }           from './utils/GeometryUtil.ts';
 import { GeometryUtil }                                from './utils/GeometryUtil.ts';
+import { MarkupUtil }                                  from './utils/MarkupUtil.ts';
 import type { TimestampSlices }                        from './utils/TimeUtil.ts';
 import { TimeUtil }                                    from './utils/TimeUtil.ts';
+import { WorkItemMarkupUtil }                          from './utils/WorkItemMarkupUtil.ts';
 
 const { escapeHtml }       = HtmlEscapeUtil;
 const { formatTokenCount } = TokenCountUtil;
-
-const PERCENT_DECIMAL_PLACES = 2;
 
 export const AXIS_PADDING_FRACTION_PER_SIDE = 0.025;
 export const TICKET_TIMELINE_MAXIMUM_TICKS  = 9;
@@ -158,7 +157,7 @@ function timelineSpan(state: RowState, label: string, startEpochMilliseconds: nu
 
 /** A state's pill label; only `re-review` carries a round, and every caller of this passes another state. */
 function stateLabelOf(state: RowState): string {
-  return pillLabelForRowState(state, LIMITS.FIRST_REPEAT_REVIEW_ROUND);
+  return WorkItemMarkupUtil.pillLabelForRowState(state, LIMITS.FIRST_REPEAT_REVIEW_ROUND);
 }
 
 function buildSpan(state: 'in-progress' | 'paused', startEpochMilliseconds: number, endEpochMilliseconds: number, isLive: boolean): TimelineSpan {
@@ -266,7 +265,7 @@ function afterBuildSpansOf(input: AfterBuildInput): TimelineSpan[] {
     reviews.forEach((review, index) => {
       const following = reviews[index + 1];
       const end       = following?.startEpochMilliseconds ?? reviewedEpochMilliseconds ?? lastMomentEpochMilliseconds;
-      spans.push(span(review.state, pillLabelForRowState(review.state, review.round), review.startEpochMilliseconds, end));
+      spans.push(span(review.state, WorkItemMarkupUtil.pillLabelForRowState(review.state, review.round), review.startEpochMilliseconds, end));
     });
     if (reviewedEpochMilliseconds !== null) spans.push(awaitingMerge(reviewedEpochMilliseconds));
   } else if (reviewedEpochMilliseconds !== null) {
@@ -389,10 +388,6 @@ export function ticketTimelineOf(input: TicketTimelineInput): TicketTimeline {
   };
 }
 
-function percent(value: number): string {
-  return `${value.toFixed(PERCENT_DECIMAL_PLACES)}%`;
-}
-
 function clampToAxis(value: number): number {
   return Math.min(PERCENT_OF_A_WHOLE, Math.max(0, value));
 }
@@ -401,7 +396,7 @@ function barStyle(axis: TicketTimelineAxis, span: TimelineSpan, limits: Timeline
   const leftPercent  = clampToAxis(percentAlong(axis, span.startEpochMilliseconds));
   const rightPercent = clampToAxis(percentAlong(axis, span.endEpochMilliseconds));
   const widthPercent = Math.min(PERCENT_OF_A_WHOLE - leftPercent, Math.max(rightPercent - leftPercent, limits.minimumBarWidthPercent));
-  return `left:${percent(leftPercent)};width:${percent(widthPercent)}`;
+  return `left:${MarkupUtil.percentText(leftPercent)};width:${MarkupUtil.percentText(widthPercent)}`;
 }
 
 function spanTitle(span: TimelineSpan, label: string, todayCalendarDate: string): string {
@@ -428,22 +423,22 @@ function filedNameMarkup(ticket: PageTicket, input: TicketTimelineInput): string
   if (ticket.filed.slice(0, limits.calendarDateLength) === todayCalendarDate) {
     return `<span class="ap-name">Filed <span class="mono">${escapeHtml(TimeUtil.shortStampText(ticket.filed, todayCalendarDate, limits))}</span></span>`;
   }
-  return `<span class="ap-name" ${attribute('title', `filed ${TimeUtil.fullStampText(ticket.filed, limits)}`)}>Filed</span>`;
+  return `<span class="ap-name" ${MarkupUtil.attribute('title', `filed ${TimeUtil.fullStampText(ticket.filed, limits)}`)}>Filed</span>`;
 }
 
 function filedRowMarkup(timeline: TicketTimeline, input: TicketTimelineInput): string {
   const { queue, axis } = timeline;
   const queued          = durationTextOf(queue.endEpochMilliseconds - queue.startEpochMilliseconds);
   const title           = `filed ${TimeUtil.fullStampText(input.ticket.filed, input.limits)} · in the queue ${queued}${queue.isLive ? ' so far' : ''}`;
-  const bar             = `<div class="ap-bar ap-ticket-gantt-filed" style="${barStyle(axis, queue, input.limits)}" ${attribute('title', title)}></div>`;
+  const bar             = `<div class="ap-bar ap-ticket-gantt-filed" style="${barStyle(axis, queue, input.limits)}" ${MarkupUtil.attribute('title', title)}></div>`;
   return ganttRowMarkup(filedNameMarkup(input.ticket, input), timeline.queueTimeText, bar);
 }
 
 function buildRowMarkup(timeline: TicketTimeline, input: TicketTimelineInput): string {
   const rowId    = timeline.ownRowId === null ? '' : ` <span class="mono">#${escapeHtml(String(timeline.ownRowId))}</span>`;
   const segments = timeline.buildSegments.map((segment) => [
-    `<div class="ap-bar ap-bar-segment" ${attribute('data-state', segment.state)}${liveAttribute(segment)}`,
-    ` style="${barStyle(timeline.axis, segment, input.limits)}" ${attribute('title', spanTitle(segment, segment.label, input.todayCalendarDate))}></div>`,
+    `<div class="ap-bar ap-bar-segment" ${MarkupUtil.attribute('data-state', segment.state)}${liveAttribute(segment)}`,
+    ` style="${barStyle(timeline.axis, segment, input.limits)}" ${MarkupUtil.attribute('title', spanTitle(segment, segment.label, input.todayCalendarDate))}></div>`,
   ].join('')).join('');
   return ganttRowMarkup(`<span class="ap-name">Build${rowId}</span>`, timeline.buildTimeText, segments);
 }
@@ -451,8 +446,8 @@ function buildRowMarkup(timeline: TicketTimeline, input: TicketTimelineInput): s
 function reviewRowMarkup(review: ReviewSpan, timeline: TicketTimeline, input: TicketTimelineInput): string {
   const tokens = review.tokens === null ? '' : ` · ${formatTokenCount(review.tokens)} tokens`;
   const bar    = [
-    `<div class="ap-bar" ${attribute('data-state', review.state)}${liveAttribute(review)} style="${barStyle(timeline.axis, review, input.limits)}"`,
-    ` ${attribute('title', `${spanTitle(review, review.label, input.todayCalendarDate)}${tokens}`)}></div>`,
+    `<div class="ap-bar" ${MarkupUtil.attribute('data-state', review.state)}${liveAttribute(review)} style="${barStyle(timeline.axis, review, input.limits)}"`,
+    ` ${MarkupUtil.attribute('title', `${spanTitle(review, review.label, input.todayCalendarDate)}${tokens}`)}></div>`,
   ].join('');
   return ganttRowMarkup(`<span class="ap-name">${escapeHtml(review.label)}</span>`, durationTextOf(review.endEpochMilliseconds - review.startEpochMilliseconds), bar);
 }
@@ -468,8 +463,8 @@ function afterBuildRowMarkup(timeline: TicketTimeline, input: TicketTimelineInpu
     const widthPercent = percentAlong(axis, segment.endEpochMilliseconds) - percentAlong(axis, segment.startEpochMilliseconds);
     const label        = widthPercent >= SEGMENT_LABEL_MINIMUM_PERCENT ? escapeHtml(segment.label) : '';
     return [
-      `<div class="ap-bar ap-lifecycle-segment" ${attribute('data-state', segment.state)} style="${barStyle(axis, segment, input.limits)}"`,
-      ` ${attribute('title', spanTitle(segment, segment.label, input.todayCalendarDate))}>${label}</div>`,
+      `<div class="ap-bar ap-lifecycle-segment" ${MarkupUtil.attribute('data-state', segment.state)} style="${barStyle(axis, segment, input.limits)}"`,
+      ` ${MarkupUtil.attribute('title', spanTitle(segment, segment.label, input.todayCalendarDate))}>${label}</div>`,
     ].join('');
   }).join('');
   return ganttRowMarkup('<span class="ap-name">After build</span>', durationTextOf(last.endEpochMilliseconds - first.startEpochMilliseconds), segments);
@@ -477,7 +472,7 @@ function afterBuildRowMarkup(timeline: TicketTimeline, input: TicketTimelineInpu
 
 function legendMarkup(legend: readonly LegendEntry[]): string {
   const items = legend.map((entry) => [
-    `<li><span class="ap-ticket-gantt-swatch" ${attribute('data-state', entry.state)}></span>`,
+    `<li><span class="ap-ticket-gantt-swatch" ${MarkupUtil.attribute('data-state', entry.state)}></span>`,
     `<b>${escapeHtml(entry.label)}</b><time>${escapeHtml(entry.durationText)}</time></li>`,
   ].join('')).join('');
   return `<ul class="ap-ticket-gantt-legend" aria-label="Time spent in each state">${items}</ul>`;
@@ -487,10 +482,12 @@ function legendMarkup(legend: readonly LegendEntry[]): string {
 export function ticketTimelineMarkup(input: TicketTimelineInput): string {
   const timeline      = ticketTimelineOf(input);
   const { end }       = timeline;
-  const endState      = end.closedState === null ? '' : ` ${attribute('data-state', end.closedState)}`;
-  const endLeft       = `left:${percent(end.leftPercent)}`;
-  const ticks         = timeline.ticks.map((tick) => `<div class="ap-tick" style="left:${percent(tick.leftPercent)}"><span>${escapeHtml(tick.label)}</span></div>`).join('');
-  const gridLines     = timeline.ticks.map((tick) => `<div class="ap-grid-line" style="left:${percent(tick.leftPercent)}"></div>`).join('');
+  const endState      = end.closedState === null ? '' : ` ${MarkupUtil.attribute('data-state', end.closedState)}`;
+  const endLeft       = `left:${MarkupUtil.percentText(end.leftPercent)}`;
+  const ticks         = timeline.ticks
+    .map((tick) => `<div class="ap-tick" style="left:${MarkupUtil.percentText(tick.leftPercent)}"><span>${escapeHtml(tick.label)}</span></div>`)
+    .join('');
+  const gridLines     = timeline.ticks.map((tick) => `<div class="ap-grid-line" style="left:${MarkupUtil.percentText(tick.leftPercent)}"></div>`).join('');
   const rows          = [
     filedRowMarkup(timeline, input),
     buildRowMarkup(timeline, input),

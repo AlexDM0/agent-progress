@@ -10,16 +10,13 @@ import { HtmlEscapeUtil }                   from '../src/lib/utils/HtmlEscapeUti
 import { TokenCountUtil }                   from '../src/lib/utils/TokenCountUtil.ts';
 import type { PageTicket }                  from '../src/shared/@types/PagePayload.ts';
 import { LIMITS }                           from '../src/shared/constants/Limits.ts';
-import type { RowState }                    from './PageMarkup.ts';
-import {
-  attribute,
-  logItemsMarkup,
-  pillLabelForRowState,
-  rowStateFor,
-  stampMarkup,
-} from './PageMarkup.ts';
-import type { TimestampSlices } from './utils/TimeUtil.ts';
-import { TimeUtil }             from './utils/TimeUtil.ts';
+import { rowStateFor }                      from './PageMarkup.ts';
+import type { RowState }                    from './constants/RowState.ts';
+import { LogMarkupUtil }                    from './utils/LogMarkupUtil.ts';
+import { MarkupUtil }                       from './utils/MarkupUtil.ts';
+import type { TimestampSlices }             from './utils/TimeUtil.ts';
+import { TimeUtil }                         from './utils/TimeUtil.ts';
+import { WorkItemMarkupUtil }               from './utils/WorkItemMarkupUtil.ts';
 
 const { escapeHtml }       = HtmlEscapeUtil;
 const { formatTokenCount } = TokenCountUtil;
@@ -67,15 +64,7 @@ interface StampFormat {
 type Fact = [label: string, valueMarkup: string] | [label: string, valueElementMarkup: string, carriesItsOwnElement: true];
 
 function stampFact(label: string, stamp: string, format: StampFormat): Fact {
-  return [label, stampMarkup('span', stamp, format.todayCalendarDate, format.slices), true];
-}
-
-function ticketLinkMarkup(ticketId: string): string {
-  return `<a ${attribute('href', `#ap-ticket-${ticketId}`)}>#${escapeHtml(ticketId)}</a>`;
-}
-
-function taskLinkMarkup(taskId: number): string {
-  return `<a ${attribute('href', `#ap-task-${taskId}`)}>#${escapeHtml(String(taskId))}</a>`;
+  return [label, MarkupUtil.stampMarkup('span', stamp, format.todayCalendarDate, format.slices), true];
 }
 
 function factsMarkup(entries: readonly Fact[]): string {
@@ -103,7 +92,7 @@ function taskFactsMarkup(task: Task, format: StampFormat): string {
   if (elapsed !== null) entries.push(['elapsed', escapeHtml(elapsed)]);
   if (task.tokens !== null) entries.push(['tokens', escapeHtml(formatTokenCount(task.tokens))]);
   if (task.reviewRound !== undefined) entries.push(['review round', escapeHtml(String(task.reviewRound))]);
-  if (task.ticket !== null) entries.push(['ticket', ticketLinkMarkup(task.ticket)]);
+  if (task.ticket !== null) entries.push(['ticket', WorkItemMarkupUtil.ticketLinksMarkup([task.ticket])]);
 
   return factsMarkup(entries);
 }
@@ -171,9 +160,9 @@ function phaseListMarkup(lines: readonly PhaseLine[], format: StampFormat): stri
     const gapDuration = durationBetween(lines[index - 1]?.at, line.at);
     const gap         = gapDuration === null ? '' : `<span class="ap-detail-gap">after ${escapeHtml(gapDuration)}</span>`;
     return [
-      `<li ${attribute('data-state', line.state)}>`,
-      `<span class="ap-pill">${escapeHtml(pillLabelForRowState(line.state, line.reviewRound))}</span>`,
-      stampMarkup('time', line.at, format.todayCalendarDate, format.slices),
+      `<li ${MarkupUtil.attribute('data-state', line.state)}>`,
+      `<span class="ap-pill">${escapeHtml(WorkItemMarkupUtil.pillLabelForRowState(line.state, line.reviewRound))}</span>`,
+      MarkupUtil.stampMarkup('time', line.at, format.todayCalendarDate, format.slices),
       gap,
       '</li>',
     ].join('');
@@ -217,9 +206,9 @@ function ticketFactsMarkup(ticket: PageTicket, format: StampFormat): string {
   for (const [label, value] of plainValues) {
     if (value !== undefined && value !== '') entries.push([label, escapeHtml(value)]);
   }
-  if (ticket.task !== null) entries.push(['task', taskLinkMarkup(ticket.task)]);
+  if (ticket.task !== null) entries.push(['task', WorkItemMarkupUtil.taskLinkMarkup(ticket.task)]);
   const dependsOn = ticket.dependsOn ?? [];
-  if (dependsOn.length > 0) entries.push(['waits on', dependsOn.map(ticketLinkMarkup).join(', ')]);
+  if (dependsOn.length > 0) entries.push(['waits on', WorkItemMarkupUtil.ticketLinksMarkup(dependsOn)]);
 
   return factsMarkup(entries);
 }
@@ -230,7 +219,7 @@ function ticketMarkup(ticket: PageTicket, format: StampFormat): string {
     `<span class="ap-ticket-id">#${escapeHtml(ticket.id)}</span>`,
     `<h4 class="ap-ticket-title">${escapeHtml(ticket.title)}</h4>`,
     `<span class="ap-detail-type">${escapeHtml(ticket.type)}</span>`,
-    `<span class="ap-badge ${escapeHtml(ticket.status)}">${escapeHtml(ticket.status)}</span>`,
+    WorkItemMarkupUtil.ticketStatusBadgeMarkup(ticket.status),
     '</div>',
   ].join('');
   return `${head}${ticketFactsMarkup(ticket, format)}<div class="ap-ticket-body md">${ticket.bodyHtml}</div>`;
@@ -257,7 +246,7 @@ function logMarkup(input: TaskDetailInput): string {
   if (named.length === 0) {
     return noteMarkup(NO_LOG_LINES_NOTE);
   }
-  return `<ul class="ap-detail-log">${logItemsMarkup(named, input.slices, input.todayCalendarDate)}</ul>`;
+  return `<ul class="ap-detail-log">${LogMarkupUtil.logItemsMarkup(named, input.slices, input.todayCalendarDate)}</ul>`;
 }
 
 function headMarkup(task: Task | null, ticket: PageTicket | null): string {
@@ -267,17 +256,17 @@ function headMarkup(task: Task | null, ticket: PageTicket | null): string {
       '<div class="ap-detail-head">',
       `<span class="ap-detail-id">#${escapeHtml(ticket.id)}</span>`,
       `<h2 class="ap-detail-title">${escapeHtml(ticket.title)}</h2>`,
-      `<span class="ap-badge ${escapeHtml(ticket.status)}">${escapeHtml(ticket.status)}</span>`,
+      WorkItemMarkupUtil.ticketStatusBadgeMarkup(ticket.status),
       '</div>',
     ].join('');
   }
   const state       = rowStateFor(task, ticket?.status ?? null);
-  const ticketBadge = task.ticket === null ? '' : `<a class="ap-ticket-badge" ${attribute('href', `#ap-ticket-${task.ticket}`)}>#${escapeHtml(task.ticket)}</a>`;
+  const ticketBadge = task.ticket === null ? '' : WorkItemMarkupUtil.ticketBadgeMarkup(task.ticket);
   return [
-    `<div class="ap-detail-head" ${attribute('data-state', state)}>`,
+    `<div class="ap-detail-head" ${MarkupUtil.attribute('data-state', state)}>`,
     `<span class="ap-detail-id">#${escapeHtml(String(task.id))}</span>`,
     `<h2 class="ap-detail-title">${escapeHtml(task.name)}</h2>`,
-    `<span class="ap-pill">${escapeHtml(pillLabelForRowState(state, task.reviewRound ?? LIMITS.FIRST_REPEAT_REVIEW_ROUND))}</span>`,
+    `<span class="ap-pill">${escapeHtml(WorkItemMarkupUtil.pillLabelForRowState(state, task.reviewRound ?? LIMITS.FIRST_REPEAT_REVIEW_ROUND))}</span>`,
     ticketBadge,
     '</div>',
   ].join('');

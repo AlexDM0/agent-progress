@@ -24,15 +24,9 @@ import {
   nextPageSizeFor,
   subStateNoteOf,
 } from './KanbanBoard.ts';
-import type { RowState } from './PageMarkup.ts';
-import {
-  attribute,
-  latestMilestoneMarkup,
-  pillLabelForRowState,
-  priorityMarkMarkup,
-  reviewedMarkMarkup,
-  waitingOnMarkup,
-} from './PageMarkup.ts';
+import type { RowState }      from './constants/RowState.ts';
+import { MarkupUtil }         from './utils/MarkupUtil.ts';
+import { WorkItemMarkupUtil } from './utils/WorkItemMarkupUtil.ts';
 
 const { escapeHtml }       = HtmlEscapeUtil;
 const { formatTokenCount } = TokenCountUtil;
@@ -81,15 +75,15 @@ export interface KanbanBoardInput extends NoteFormat {
 }
 
 function pillLabelOf(card: KanbanCard): string {
-  return pillLabelForRowState(card.state, card.ownRow?.reviewRound ?? LIMITS.FIRST_REPEAT_REVIEW_ROUND);
+  return WorkItemMarkupUtil.pillLabelForRowState(card.state, card.ownRow?.reviewRound ?? LIMITS.FIRST_REPEAT_REVIEW_ROUND);
 }
 
 function marksMarkup(card: KanbanCard, lane: KanbanLane): string {
   const { hold } = card.ticket;
   const marks    = [
-    waitingOnMarkup(card.waitingOn, 'kanban-card'),
-    hold === undefined ? '' : `<span class="ap-kanban-held" ${attribute('title', hold === '' ? 'Held' : `Held: ${hold}`)}>held</span>`,
-    lane === 'todo' && card.ownRow === null ? `<span class="ap-kanban-no-row" ${attribute('title', NO_ROW_TITLE)}>no row yet</span>` : '',
+    WorkItemMarkupUtil.waitingOnMarkup(card.waitingOn, 'kanban-card'),
+    hold === undefined ? '' : `<span class="ap-kanban-held" ${MarkupUtil.attribute('title', hold === '' ? 'Held' : `Held: ${hold}`)}>held</span>`,
+    lane === 'todo' && card.ownRow === null ? `<span class="ap-kanban-no-row" ${MarkupUtil.attribute('title', NO_ROW_TITLE)}>no row yet</span>` : '',
   ].join('');
   return marks === '' ? '' : `<div class="ap-kanban-marks">${marks}</div>`;
 }
@@ -97,7 +91,7 @@ function marksMarkup(card: KanbanCard, lane: KanbanLane): string {
 function stateMarkup(card: KanbanCard, lane: KanbanLane, format: NoteFormat): string {
   const pill         = laneMixesStates(lane) ? `<span class="ap-pill">${escapeHtml(pillLabelOf(card))}</span>` : '';
   const reviewedMark = lane === 'done' && card.ownRow !== null && cardCarriesReviewedMark(card)
-    ? `${reviewedMarkMarkup(card.ownRow, format.slices)}<span>reviewed</span>`
+    ? `${WorkItemMarkupUtil.reviewedMarkMarkup(card.ownRow, format.slices)}<span>reviewed</span>`
     : '';
   return `<div class="ap-kanban-state">${pill}${reviewedMark}</div>`;
 }
@@ -105,19 +99,23 @@ function stateMarkup(card: KanbanCard, lane: KanbanLane, format: NoteFormat): st
 export function kanbanCardMarkup(card: KanbanCard, lane: KanbanLane, format: NoteFormat): string {
   const { ticket, ownRow } = card;
   const label              = `#${ticket.id} ${ticket.title}, ${pillLabelOf(card)}, ${TicketDefaultsUtil.ticketPriorityOf(ticket)} priority`;
-  const identities         = `${attribute('id', `ap-kanban-${ticket.id}`)} ${attribute('data-ticket-id', ticket.id)} ${attribute('data-state', card.state)}`;
+  const identities         = [
+    MarkupUtil.attribute('id', `ap-kanban-${ticket.id}`),
+    MarkupUtil.attribute('data-ticket-id', ticket.id),
+    MarkupUtil.attribute('data-state', card.state),
+  ].join(' ');
   const tokens             = ownRow === null || ownRow.tokens === null ? '' : `<span class="ap-tokens">${escapeHtml(formatTokenCount(ownRow.tokens))} tokens</span>`;
   const note               = subStateNoteOf(card, format);
   return [
-    `<article class="ap-kanban-card" ${identities}${ownRow === null ? ' data-row="none"' : ''} tabindex="0" ${attribute('aria-label', label)}>`,
-    `<div class="ap-kanban-card-head"><span class="ap-ticket-id">#${escapeHtml(ticket.id)}</span>${priorityMarkMarkup(ticket)}`,
+    `<article class="ap-kanban-card" ${identities}${ownRow === null ? ' data-row="none"' : ''} tabindex="0" ${MarkupUtil.attribute('aria-label', label)}>`,
+    `<div class="ap-kanban-card-head"><span class="ap-ticket-id">#${escapeHtml(ticket.id)}</span>${WorkItemMarkupUtil.priorityMarkMarkup(ticket)}`,
     `<span class="ap-detail-type">${escapeHtml(ticket.type)}</span></div>`,
     tokens,
-    `<p class="ap-kanban-title" ${attribute('title', ticket.title)}>${escapeHtml(ticket.title)}</p>`,
+    `<p class="ap-kanban-title" ${MarkupUtil.attribute('title', ticket.title)}>${escapeHtml(ticket.title)}</p>`,
     marksMarkup(card, lane),
     note === null ? '' : `<p class="ap-kanban-note">${escapeHtml(note)}</p>`,
     stateMarkup(card, lane, format),
-    latestMilestoneMarkup(ticket, format.slices, format.todayCalendarDate, 'ap-kanban-stamp'),
+    WorkItemMarkupUtil.latestMilestoneMarkup(ticket, format.slices, format.todayCalendarDate, 'ap-kanban-stamp'),
     '</article>',
   ].join('');
 }
@@ -125,7 +123,7 @@ export function kanbanCardMarkup(card: KanbanCard, lane: KanbanLane, format: Not
 function laneSubMarkup(lane: KanbanLane, members: readonly KanbanCard[]): string {
   const { leading } = LANE_DESIGN[lane];
   const counts      = laneSubCountsOf(lane, members).map((entry) => {
-    const dot  = entry.dotState === null ? '' : `<span class="ap-lane-dot" ${attribute('data-state', entry.dotState)}></span>`;
+    const dot  = entry.dotState === null ? '' : `<span class="ap-lane-dot" ${MarkupUtil.attribute('data-state', entry.dotState)}></span>`;
     const mark = entry.reviewedMark ? '<span class="ap-reviewed-mark" data-state="reviewed" aria-hidden="true">✓</span>' : '';
     return `${dot}${mark}${entry.count} ${escapeHtml(entry.label)}`;
   });
@@ -144,7 +142,7 @@ function laneCardsMarkup(lane: KanbanLane, members: readonly KanbanCard[], shown
     const startsGroup = dividesByPriority && (index === 0 || TicketDefaultsUtil.ticketPriorityOf(shown[index - 1]?.ticket ?? card.ticket) !== priority);
     const groupSize   = shown.filter((other) => TicketDefaultsUtil.ticketPriorityOf(other.ticket) === priority).length;
     const divider     = startsGroup
-      ? `<div class="ap-lane-group" ${attribute('data-priority', priority)}>${PRIORITY_TITLE[priority]} <span class="ap-lane-group-count">${groupSize}</span></div>`
+      ? `<div class="ap-lane-group" ${MarkupUtil.attribute('data-priority', priority)}>${PRIORITY_TITLE[priority]} <span class="ap-lane-group-count">${groupSize}</span></div>`
       : '';
     return `${divider}${kanbanCardMarkup(card, lane, input)}`;
   }).join('');
@@ -156,8 +154,8 @@ export function cappedLaneFooterMarkup(lane: ClosedKanbanLane, shownCount: numbe
   }
   const pageSize = nextPageSizeFor(shownCount, laneCount);
   const buttons  = [
-    pageSize > 0 ? `<button type="button" ${attribute('data-lane-more', lane)}>Show ${pageSize} more</button>` : '',
-    shownCount > CAPPED_LANE_FIRST_PAGE ? `<button type="button" ${attribute('data-lane-reset', lane)}>Latest ${CAPPED_LANE_FIRST_PAGE}</button>` : '',
+    pageSize > 0 ? `<button type="button" ${MarkupUtil.attribute('data-lane-more', lane)}>Show ${pageSize} more</button>` : '',
+    shownCount > CAPPED_LANE_FIRST_PAGE ? `<button type="button" ${MarkupUtil.attribute('data-lane-reset', lane)}>Latest ${CAPPED_LANE_FIRST_PAGE}</button>` : '',
   ].join('');
   return `<div class="ap-lane-more"><span>${shownCount} of ${laneCount} shown</span><div class="ap-seg">${buttons}</div></div>`;
 }
@@ -165,7 +163,7 @@ export function cappedLaneFooterMarkup(lane: ClosedKanbanLane, shownCount: numbe
 function laneHeadMarkup(lane: KanbanLane, members: readonly KanbanCard[], laneIsCollapsed: boolean): string {
   const design    = LANE_DESIGN[lane];
   const headInner = [
-    `<span class="ap-lane-dot" ${attribute('data-state', design.dotState)}></span>`,
+    `<span class="ap-lane-dot" ${MarkupUtil.attribute('data-state', design.dotState)}></span>`,
     `<span class="ap-card-title">${escapeHtml(design.title)}</span>`,
     `<span class="ap-lane-count">${members.length}</span>`,
   ].join('');
@@ -175,7 +173,7 @@ function laneHeadMarkup(lane: KanbanLane, members: readonly KanbanCard[], laneIs
   }
   const toggle = [
     `<button type="button" class="ap-lane-toggle" aria-expanded="${String(!laneIsCollapsed)}" aria-controls="ap-lane-abandoned-cards"`,
-    ` ${attribute('title', `${laneIsCollapsed ? 'Show' : 'Collapse'} the abandoned tickets`)}>${headInner}</button>`,
+    ` ${MarkupUtil.attribute('title', `${laneIsCollapsed ? 'Show' : 'Collapse'} the abandoned tickets`)}>${headInner}</button>`,
   ].join('');
   return `<div class="ap-card-head">${toggle}${sub}</div>`;
 }
@@ -188,9 +186,10 @@ export function kanbanLaneMarkup(lane: KanbanLane, input: KanbanBoardInput): str
   const laneIsCollapsed = lane === 'abandoned' && !input.abandonedLaneIsOpen;
   const design          = LANE_DESIGN[lane];
   return [
-    `<section class="ap-card ap-lane" ${attribute('data-lane', lane)}${laneIsCollapsed ? ' data-collapsed=""' : ''} ${attribute('aria-label', design.title)}>`,
+    `<section class="ap-card ap-lane" ${MarkupUtil.attribute('data-lane', lane)}${laneIsCollapsed ? ' data-collapsed=""' : ''}`,
+    ` ${MarkupUtil.attribute('aria-label', design.title)}>`,
     laneHeadMarkup(lane, members, laneIsCollapsed),
-    `<div class="ap-lane-cards" ${attribute('id', `ap-lane-${lane}-cards`)}>${laneCardsMarkup(lane, members, shown, input)}</div>`,
+    `<div class="ap-lane-cards" ${MarkupUtil.attribute('id', `ap-lane-${lane}-cards`)}>${laneCardsMarkup(lane, members, shown, input)}</div>`,
     footer,
     '</section>',
   ].join('');

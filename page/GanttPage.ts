@@ -54,12 +54,11 @@ import {
   storedOverrideFrom,
   waitingOnByTicketId,
 } from './PageData.ts';
-import type { PlacedTick, ShortenedText, TaskRow } from './PageMarkup.ts';
+import type { PlacedTick, TaskRow } from './PageMarkup.ts';
 import {
   axisPixelsNeededFor,
   generatedStampText,
   labelSitsLeftOfItsLine,
-  logItemsMarkup,
   overlayMarkup,
   rangeNoteText,
   summaryStatsMarkup,
@@ -80,9 +79,11 @@ import {
   workVisibilityFrom,
   workVisibilityStorageKeyFor,
 } from './WorkVisibility.ts';
-import type { Timeline } from './utils/GeometryUtil.ts';
-import { GeometryUtil }  from './utils/GeometryUtil.ts';
-import { TimeUtil }      from './utils/TimeUtil.ts';
+import type { Timeline }      from './utils/GeometryUtil.ts';
+import { GeometryUtil }       from './utils/GeometryUtil.ts';
+import { LogMarkupUtil }      from './utils/LogMarkupUtil.ts';
+import type { ShortenedText } from './utils/MarkupUtil.ts';
+import { TimeUtil }           from './utils/TimeUtil.ts';
 
 const PROGRESS_ISLAND_ELEMENT_ID = 'ap-progress-data';
 const TICKETS_ISLAND_ELEMENT_ID  = 'ap-tickets-data';
@@ -237,7 +238,7 @@ function applyNameColumnWidth(width: NameColumnWidth): void {
 
 function showLog(entries: PagePayload['progress']['log'], limits: PageLimits, todayCalendarDate: string, visibility: LogVisibility): void {
   const controlIsNeeded = logControlIsNeeded(entries.length);
-  setMarkup('ap-log', logItemsMarkup(entries, limits, todayCalendarDate, controlIsNeeded ? logEntryLimitFor(visibility) : null));
+  setMarkup('ap-log', LogMarkupUtil.logItemsMarkup(entries, limits, todayCalendarDate, controlIsNeeded ? logEntryLimitFor(visibility) : null));
   setHidden('ap-log-empty', entries.length > 0);
   setText('ap-log-note', logNoteText(entries.length, visibility));
   setHidden('ap-log-control', !controlIsNeeded);

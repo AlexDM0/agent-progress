@@ -3,21 +3,15 @@
  * except the ticket's `bodyHtml`, already escaped by `lib/render/Markdown.ts`.
  */
 
-import type { Task }               from '../src/lib/tracker-model/@types/Task.ts';
-import { HtmlEscapeUtil }          from '../src/lib/utils/HtmlEscapeUtil.ts';
-import { LIMITS }                  from '../src/shared/constants/Limits.ts';
-import type { KanbanCard }         from './KanbanBoard.ts';
-import { cardCarriesReviewedMark } from './KanbanBoard.ts';
-import {
-  attribute,
-  pillLabelForRowState,
-  priorityMarkMarkup,
-  reviewedMarkMarkup,
-  stampMarkup,
-  ticketLinksMarkup,
-} from './PageMarkup.ts';
+import type { Task }                 from '../src/lib/tracker-model/@types/Task.ts';
+import { HtmlEscapeUtil }            from '../src/lib/utils/HtmlEscapeUtil.ts';
+import { LIMITS }                    from '../src/shared/constants/Limits.ts';
+import type { KanbanCard }           from './KanbanBoard.ts';
+import { cardCarriesReviewedMark }   from './KanbanBoard.ts';
 import type { TicketTimelineLimits } from './TicketTimeline.ts';
 import { ticketTimelineMarkup }      from './TicketTimeline.ts';
+import { MarkupUtil }                from './utils/MarkupUtil.ts';
+import { WorkItemMarkupUtil }        from './utils/WorkItemMarkupUtil.ts';
 
 const { escapeHtml } = HtmlEscapeUtil;
 
@@ -35,14 +29,14 @@ export interface TicketDetailInput {
 function headMarkup(input: TicketDetailInput): string {
   const { card, limits } = input;
   const { ticket, ownRow } = card;
-  const reviewedMark       = ownRow !== null && cardCarriesReviewedMark(card) ? reviewedMarkMarkup(ownRow, limits) : '';
+  const reviewedMark       = ownRow !== null && cardCarriesReviewedMark(card) ? WorkItemMarkupUtil.reviewedMarkMarkup(ownRow, limits) : '';
   return [
-    `<div class="ap-detail-head" ${attribute('data-state', card.state)}>`,
+    `<div class="ap-detail-head" ${MarkupUtil.attribute('data-state', card.state)}>`,
     `<span class="ap-detail-id">#${escapeHtml(ticket.id)}</span>`,
     `<h2 class="ap-detail-title">${escapeHtml(ticket.title)}</h2>`,
-    `<span class="ap-pill">${escapeHtml(pillLabelForRowState(card.state, ownRow?.reviewRound ?? LIMITS.FIRST_REPEAT_REVIEW_ROUND))}</span>`,
+    `<span class="ap-pill">${escapeHtml(WorkItemMarkupUtil.pillLabelForRowState(card.state, ownRow?.reviewRound ?? LIMITS.FIRST_REPEAT_REVIEW_ROUND))}</span>`,
     reviewedMark,
-    priorityMarkMarkup(ticket),
+    WorkItemMarkupUtil.priorityMarkMarkup(ticket),
     `<span class="ap-detail-type">${escapeHtml(ticket.type)}</span>`,
     '</div>',
   ].join('');
@@ -64,15 +58,13 @@ function factsMarkup(input: TicketDetailInput): string {
     ['abandoned', ticket.abandonedAt],
   ];
   const facts = stamps.flatMap(([label, stamp]) => (typeof stamp === 'string' && stamp !== ''
-    ? [factMarkup(label, stampMarkup('span', stamp, todayCalendarDate, limits))]
+    ? [factMarkup(label, MarkupUtil.stampMarkup('span', stamp, todayCalendarDate, limits))]
     : []));
   if (ticket.reason !== undefined && ticket.reason !== '') facts.push(factMarkup('reason', `<span>${escapeHtml(ticket.reason)}</span>`));
   if (ticket.hold !== undefined) facts.push(factMarkup('held', `<span>${escapeHtml(ticket.hold === '' ? HELD_WITHOUT_REASON_TEXT : ticket.hold)}</span>`));
-  if (card.waitingOn.length > 0) facts.push(factMarkup('waiting on', `<span>${ticketLinksMarkup(card.waitingOn, 'kanban-card')}</span>`));
+  if (card.waitingOn.length > 0) facts.push(factMarkup('waiting on', `<span>${WorkItemMarkupUtil.ticketLinksMarkup(card.waitingOn, 'kanban-card')}</span>`));
   if (ticket.branch !== undefined && ticket.branch !== '') facts.push(factMarkup('branch', `<span>${escapeHtml(ticket.branch)}</span>`));
-  if (ticket.task !== null) {
-    facts.push(factMarkup('task', `<span><a ${attribute('href', `#ap-task-${ticket.task}`)}>#${escapeHtml(String(ticket.task))}</a></span>`));
-  }
+  if (ticket.task !== null) facts.push(factMarkup('task', `<span>${WorkItemMarkupUtil.taskLinkMarkup(ticket.task)}</span>`));
   return `<div class="ap-ticket-meta">${facts.join('')}</div>`;
 }
 

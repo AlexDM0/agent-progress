@@ -9,8 +9,8 @@ import { TicketDefaultsUtil }                from '../src/lib/tracker-model/util
 import type { PageTicket }                   from '../src/shared/@types/PagePayload.ts';
 import { LIMITS }                            from '../src/shared/constants/Limits.ts';
 import { TicketNumberUtil }                  from '../src/shared/utils/TicketNumberUtil.ts';
-import type { RowState }                     from './PageMarkup.ts';
 import { deliveredAfterReview, rowStateFor } from './PageMarkup.ts';
+import type { RowState }                     from './constants/RowState.ts';
 import type { TimestampSlices }              from './utils/TimeUtil.ts';
 import { TimeUtil }                          from './utils/TimeUtil.ts';
 

@@ -27,7 +27,7 @@ import {
   shownCountFrom,
   subStateNoteOf,
 } from './KanbanBoard.ts';
-import type { RowState } from './PageMarkup.ts';
+import type { RowState } from './constants/RowState.ts';
 
 const EXAMPLE_TODAY = '2026-09-25';
 const EXAMPLE_NOW   = Date.parse('2026-09-25T13:36:00+02:00');

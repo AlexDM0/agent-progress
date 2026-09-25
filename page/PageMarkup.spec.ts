@@ -3,7 +3,6 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import type { LogEntry }          from '../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { Task, TaskStatus }  from '../src/lib/tracker-model/@types/Task.ts';
 import type { TicketStatus }      from '../src/lib/tracker-model/@types/Ticket.ts';
 import type { PageTicket }        from '../src/shared/@types/PagePayload.ts';
@@ -11,7 +10,6 @@ import {
   axisPixelsNeededFor,
   generatedStampText,
   labelSitsLeftOfItsLine,
-  logItemsMarkup,
   overlayMarkup,
   rangeNoteText,
   summaryStatsMarkup,
@@ -409,75 +407,6 @@ describe('summaryStatsMarkup', () => {
 
   test('speaks of one agent in the singular when the limit is one', () => {
     expect(summaryStatsMarkup([], { limit: 1, agentsInFlight: 1 })).toContain('<span class="ap-stat-n">1 of 1</span> agent running');
-  });
-});
-
-describe('logItemsMarkup', () => {
-  const entries: LogEntry[] = [
-    { at: '2026-09-18T20:36:00+02:00', text: 'Tracker created' },
-    { at: '2026-09-18T21:56:00+02:00', text: 'Subagent started' },
-    { at: '2026-09-18T21:21:00+02:00', text: 'Old idea abandoned' },
-  ];
-
-  function timesIn(markup: string): Array<string | undefined> {
-    return [...markup.matchAll(/<time(?: title="[^"]+")?>([^<]+)<\/time>/g)].map((match) => match[1]);
-  }
-
-  test('puts the newest entry first however the store appended them', () => {
-    expect(timesIn(logItemsMarkup(entries, EXAMPLE_SLICES, EXAMPLE_TODAY))).toEqual(['21:56', '21:21', '20:36']);
-  });
-
-  // Commands run in one second stamp their lines alike; under the cap the newer appends must win, or the card drops the latest lines.
-  test('keeps the later append first among lines stamped in the same second', () => {
-    const sameSecond = [
-      { at: '2026-09-18T21:56:00+02:00', text: 'First append' },
-      { at: '2026-09-18T21:56:00+02:00', text: 'Second append' },
-      { at: '2026-09-18T21:56:00+02:00', text: 'Third append' },
-    ];
-    const texts = [...logItemsMarkup(sameSecond, EXAMPLE_SLICES, EXAMPLE_TODAY, 2).matchAll(/<span>([^<]+)<\/span>/g)].map((match) => match[1]);
-
-    expect(texts).toEqual(['Third append', 'Second append']);
-  });
-
-  // Each line is judged on its own day against the viewer's: a log that crosses midnight no longer dates today's lines.
-  test('dates only the lines from another day, and gives every shortened line its full stamp as the title', () => {
-    const withEarlierDays = [
-      ...entries,
-      { at: '2026-09-17T23:48:00+02:00', text: 'The day before' },
-      { at: '2025-12-31T23:48:00+01:00', text: 'Last year' },
-    ];
-    const markup = logItemsMarkup(withEarlierDays, EXAMPLE_SLICES, EXAMPLE_TODAY);
-
-    expect(timesIn(markup)).toEqual(['21:56', '21:21', '20:36', '09-17 23:48', '2025-12-31 23:48']);
-    expect(markup).toContain('<time title="2026-09-18 21:56">21:56</time>');
-    expect(markup).toContain('<time title="2026-09-17 23:48">09-17 23:48</time>');
-    expect(markup, 'a stamp shown in full needs no hover').toContain('<time>2025-12-31 23:48</time>');
-  });
-
-  // The card shows the newest ten of a long log; cutting before sorting would keep the oldest ten the store happened to append first.
-  test('keeps the newest entries when a limit is given, newest first', () => {
-    expect(timesIn(logItemsMarkup(entries, EXAMPLE_SLICES, EXAMPLE_TODAY, 2))).toEqual(['21:56', '21:21']);
-  });
-
-  // Toggling the cap must not change a kept line's form: it depends on the line's own day and the viewer's, never on the rest of the log.
-  test('prints a kept line the same under the cap as without it', () => {
-    const withTheDayBefore = [...entries, { at: '2026-09-17T23:59:00+02:00', text: 'The day before' }];
-    const capped           = logItemsMarkup(withTheDayBefore, EXAMPLE_SLICES, EXAMPLE_TODAY, 2);
-    const whole            = logItemsMarkup(withTheDayBefore, EXAMPLE_SLICES, EXAMPLE_TODAY);
-
-    expect(timesIn(capped)).toEqual(['21:56', '21:21']);
-    expect(whole.startsWith(capped)).toBe(true);
-  });
-
-  test('renders exactly the markup of no limit when the limit is null', () => {
-    expect(logItemsMarkup(entries, EXAMPLE_SLICES, EXAMPLE_TODAY, null)).toBe(logItemsMarkup(entries, EXAMPLE_SLICES, EXAMPLE_TODAY));
-  });
-
-  test('escapes a log line that carries markup', () => {
-    const markup = logItemsMarkup([{ at: '2026-09-18T20:36:00+02:00', text: '</script><b>x</b>' }], EXAMPLE_SLICES, EXAMPLE_TODAY);
-
-    expect(markup).not.toContain('<b>');
-    expect(markup).toContain('&lt;/script&gt;');
   });
 });
 
