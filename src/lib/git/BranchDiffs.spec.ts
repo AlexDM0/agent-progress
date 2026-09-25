@@ -143,7 +143,8 @@ describe.skipIf(!gitIsAvailable())('the commits made since a commit', () => {
 });
 
 describe.skipIf(!gitIsAvailable())('what a rebase changed in a branch\'s own work', () => {
-  test('reads the old and new bases and both net patches after a real rebase', () => {
+  // Each patch is taken against its own merge base, and the rebased tip is the caller's commit, not HEAD.
+  test('takes each net patch against its own merge base and stops at the rebased tip the caller gave, not HEAD', () => {
     const repositoryDirectory = scratchGitRepository('branch-diffs-rebase');
     const mainLine            = currentBranchOf(repositoryDirectory);
     const oldBaseCommit       = headCommitOf(repositoryDirectory);
@@ -154,6 +155,7 @@ describe.skipIf(!gitIsAvailable())('what a rebase changed in a branch\'s own wor
     gitOutputIn(repositoryDirectory, ['checkout', '-q', 'feature']);
     gitOutputIn(repositoryDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'rebase', '-q', mainLine]);
     const rebasedTipCommit = headCommitOf(repositoryDirectory);
+    commitFile(repositoryDirectory, 'after-rebase.txt', 'after rebase line\n');
 
     const reading = readRebaseDiffs(repositoryDirectory, oldTipCommit, mainLine, rebasedTipCommit);
     expect(reading.verdict).toBe('read');
@@ -163,6 +165,9 @@ describe.skipIf(!gitIsAvailable())('what a rebase changed in a branch\'s own wor
     expect(reading.newBaseCommit).toBe(newBaseCommit);
     expect(reading.beforeDiffText).toContain('+feature line');
     expect(reading.afterDiffText).toContain('+feature line');
+    expect(reading.beforeDiffText).not.toContain('main.txt');
+    expect(reading.afterDiffText).not.toContain('main.txt');
+    expect(reading.afterDiffText).not.toContain('after-rebase.txt');
   });
 
   test('an old tip that names no commit reads unknown-commit in the old-tip role', () => {
@@ -186,5 +191,16 @@ describe.skipIf(!gitIsAvailable())('what a rebase changed in a branch\'s own wor
     const orphanCommit = commitFile(repositoryDirectory, 'orphan.txt', 'orphan\n');
 
     expect(readRebaseDiffs(repositoryDirectory, orphanCommit, mainLine, mainLineCommit)).toEqual({ verdict: 'no-common-base', role: 'old-tip' });
+  });
+
+  // The old tip is the main line's own commit, so its merge base exists and only the rebased-tip check can fail.
+  test('a rebased tip sharing no history with the main line reads no-common-base in the rebased-tip role', () => {
+    const repositoryDirectory = scratchGitRepository('branch-diffs-orphan-rebased-tip');
+    const mainLine            = currentBranchOf(repositoryDirectory);
+    const oldTipCommit        = headCommitOf(repositoryDirectory);
+    gitOutputIn(repositoryDirectory, ['checkout', '-q', '--orphan', 'orphan']);
+    const orphanCommit = commitFile(repositoryDirectory, 'orphan.txt', 'orphan\n');
+
+    expect(readRebaseDiffs(repositoryDirectory, oldTipCommit, mainLine, orphanCommit)).toEqual({ verdict: 'no-common-base', role: 'rebased-tip' });
   });
 });
