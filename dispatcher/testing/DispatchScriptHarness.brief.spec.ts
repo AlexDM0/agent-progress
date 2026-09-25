@@ -7,7 +7,11 @@ import { readFileSync }           from 'node:fs';
 import { join }                   from 'node:path';
 import { describe, expect, test } from 'bun:test';
 
-import { readDispatchScript, runDispatchScript } from './DispatchScriptHarness';
+import { runDispatchScript }  from './DispatchScriptHarness';
+import { readDispatchScript } from './OldDispatchScript';
+import { DECISION_SCENARIOS } from './claims/DecisionClaims';
+
+const SCRIPT_SOURCE = readDispatchScript();
 
 const AGENT_BRIEF_PATH = join(import.meta.dir, '..', '..', 'templates', 'AgentBrief.md');
 
@@ -28,14 +32,14 @@ describe('the dispatcher and the agent brief', () => {
   });
 
   test('the builder is sent the brief\'s call budget and told to read the installed brief', async () => {
-    const run = await runDispatchScript({ limit: 1, readyTicketIds: ['001'] });
+    const run = await runDispatchScript(DECISION_SCENARIOS['one ticket is ready at a limit of 1'](), SCRIPT_SOURCE);
     const builder = run.calls.find((call) => call.kind === 'build');
     expect(builder?.prompt).toContain(`or at about ${builderBudget} API calls`);
     expect(builder?.prompt).toContain('/scratch/example-repository/.agent-progress/agent-brief.md');
   });
 
   test('the reviewer is sent the brief\'s call budget, its rework threshold and the Review brief to follow', async () => {
-    const run = await runDispatchScript({ limit: 1, readyTicketIds: ['001'] });
+    const run = await runDispatchScript(DECISION_SCENARIOS['one ticket is ready at a limit of 1'](), SCRIPT_SOURCE);
     const reviewer = run.calls.find((call) => call.kind === 'review');
     expect(reviewer?.prompt).toContain(`up to about ${reviewerBudget} API calls`);
     expect(reviewer?.prompt).toContain(`over ${reworkThresholdLines} lines of code`);
@@ -43,6 +47,6 @@ describe('the dispatcher and the agent brief', () => {
   });
 
   test('the round decision counts against the brief\'s threshold', () => {
-    expect(numberIn(readDispatchScript(), /const REWORK_ROUND_THRESHOLD_LINES = (\d+);/)).toBe(reworkThresholdLines);
+    expect(numberIn(SCRIPT_SOURCE, /const REWORK_ROUND_THRESHOLD_LINES = (\d+);/)).toBe(reworkThresholdLines);
   });
 });

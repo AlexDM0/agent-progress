@@ -5,7 +5,7 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { readDispatchScript }                            from './DispatchScriptHarness';
+import { readDispatchScript }                            from './OldDispatchScript';
 import { metaLiteralVerdictOf, nondeterministicCallsIn } from './WorkflowScriptSource';
 
 const PURE_META = 'export const meta = { name: \'example\', description: \'Example\', phases: [{ title: \'One\' }], retries: -1, cached: false, owner: null };\n';

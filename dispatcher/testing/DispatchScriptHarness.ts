@@ -1,5 +1,5 @@
 /**
- * Runs `templates/workflows/AgentProgressDispatch.js` as the Workflow tool would, against a fake `agent()` and a fake board, so a spec can pin
+ * Runs a dispatcher Workflow script's text as the Workflow tool would, against a fake `agent()` and a fake board, so a spec can pin
  * the script's decisions without spawning a model. An agent's kind is read from its prompt's token marker, the way the hook reads it. A builder
  * or reviewer is on the board from its first command, as a real one is from its claim or its `task add --start`, until it finishes — except that
  * a builder that stops short of review and a reviewer that returns nothing leave their row running, until a fresh agent's first command takes it over,
@@ -9,9 +9,6 @@
  * A paused build row refuses the claim too, unless the prompt resumes it and the note is the run's own or, in a run named for the ticket, any run's.
  * A reviewer whose prompt runs `ticket rereview` counts a round each time, unless the prompt skips it and the bar of the ticket's round already runs.
  */
-import { readFileSync } from 'node:fs';
-import { join }         from 'node:path';
-
 import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../src/lib/tracker-model/constants/AgentSettings.ts';
 
 /** `settings` is a single-ticket run's lookup of the model and effort its arguments did not state; its `ticketId` is the ids it names, comma-joined. */
@@ -230,14 +227,6 @@ const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor as new (
 
 const SCRIPT_GLOBAL_NAMES = ['agent', 'parallel', 'pipeline', 'phase', 'log', 'args', 'budget', 'workflow', 'Date', 'Math'];
 
-export function dispatchScriptPath(): string {
-  return join(import.meta.dir, '..', '..', 'templates', 'workflows', 'AgentProgressDispatch.js');
-}
-
-export function readDispatchScript(): string {
-  return readFileSync(dispatchScriptPath(), 'utf8');
-}
-
 /** The clock and randomness a Workflow script is refused at runtime, refused here too so a run cannot lean on them. */
 function guardedDate(): DateConstructor {
   return new Proxy(Date, {
@@ -316,7 +305,7 @@ function reviewerDocumentOf(reply: ReviewerReply, round: number): Record<string,
   };
 }
 
-export async function runDispatchScript(scenario: DispatchScenario, source: string = readDispatchScript()): Promise<DispatchRun> {
+export async function runDispatchScript(scenario: DispatchScenario, source: string): Promise<DispatchRun> {
   const board: FakeBoard = {
     limit:                 scenario.limit,
     otherAgentsInFlight:   scenario.otherAgentsInFlight ?? 0,
