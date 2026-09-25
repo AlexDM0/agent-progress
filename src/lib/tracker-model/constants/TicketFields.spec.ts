@@ -5,13 +5,13 @@
 import { expect, test } from 'bun:test';
 
 import type { TicketPriority, TicketType } from '../@types/Ticket';
+import type { TupleCoversTheUnion }        from '../@types/TupleCoversTheUnion';
 import {
   DEFAULT_TICKET_PRIORITY,
   TICKET_ID_DIGITS,
   TICKET_PRIORITIES,
   TICKET_TYPES
 }                                          from './TicketFields';
-import type { TupleCoversTheUnion } from './TupleCoversTheUnion';
 
 /** A tuple member the union has never heard of fails `bun run typecheck` rather than a test. */
 const TICKET_TYPE_TUPLE_MATCHES_THE_UNION = TICKET_TYPES satisfies readonly TicketType[];

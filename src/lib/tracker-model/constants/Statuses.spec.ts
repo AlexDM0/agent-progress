@@ -6,9 +6,9 @@ import { expect, test } from 'bun:test';
 
 import type { TaskStatus }                from '../@types/Task';
 import type { TicketStatus }              from '../@types/Ticket';
+import type { TupleCoversTheUnion }       from '../@types/TupleCoversTheUnion';
 import { VocabularyUtil }                 from '../utils/VocabularyUtil';
 import { TASK_STATUSES, TICKET_STATUSES } from './Statuses';
-import type { TupleCoversTheUnion }       from './TupleCoversTheUnion';
 
 const { taskStatusIsKnown } = VocabularyUtil;
 

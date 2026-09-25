@@ -2,8 +2,8 @@
 import { expect, test } from 'bun:test';
 
 import type { DispatcherState }     from '../@types/ProgressFile';
+import type { TupleCoversTheUnion } from '../@types/TupleCoversTheUnion';
 import { DISPATCHER_STATES }        from './DispatcherStates';
-import type { TupleCoversTheUnion } from './TupleCoversTheUnion';
 
 /** A tuple member the union has never heard of fails `bun run typecheck` rather than a test. */
 const DISPATCHER_STATE_TUPLE_MATCHES_THE_UNION = DISPATCHER_STATES satisfies readonly DispatcherState[];
