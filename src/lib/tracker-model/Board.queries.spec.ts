@@ -2,7 +2,8 @@
  * The Board's readings. What callers rely on: a ticket reference typed on the command line resolves however it was padded or prefixed,
  * and text that is no reference resolves to nothing rather than to a ticket; a task is found by its id alone; the concurrency is the
  * one `ConcurrencyUtil` reads over the Board's rows; the stored run id is read as stored; a dependency the board does not hold still
- * counts as unsettled; and only a low ticket is held back, by normal or high work still owed.
+ * counts as unsettled; only a low ticket is held back, by normal or high work still owed; the ready tickets come in the order to take
+ * them; the held ids leave out settled tickets; and a settled check judges the record handed in, never another found by its id.
  */
 import { expect, test } from 'bun:test';
 
@@ -79,4 +80,59 @@ test('a low ticket is held back by every normal or high ticket not yet delivered
   const settledTickets          = [ticketFixture({ id: '001', status: 'delivered' }), ticketFixture({ id: '002', priority: 'low' })];
   const { board: settledBoard } = boardFixture({ tickets: settledTickets });
   expect(settledBoard.lowPriorityWorkHoldingBack('002')).toEqual([]);
+});
+
+test('a task is found by id, and a missing one is undefined rather than an exception', () => {
+  const { board } = boardFixture({ tasks: [taskFixture({ id: 1, name: 'Review pass' })] });
+  expect(board.taskById(1)?.name).toBe('Review pass');
+  expect(board.taskById(99)).toBeUndefined();
+});
+
+test('ready tickets come high first and then by id, each pending and with every dependency settled', () => {
+  const { board } = boardFixture({
+    tickets: [
+      ticketFixture({ id: '001', status: 'reviewed' }),
+      ticketFixture({ id: '002' }),
+      ticketFixture({ id: '003', priority: 'high', dependsOn: ['001'] }),
+      ticketFixture({ id: '004', dependsOn: ['002'] }),
+      ticketFixture({ id: '005', status: 'in-progress' }),
+      ticketFixture({ id: '010', priority: 'high' }),
+    ],
+  });
+  expect(board.readyTickets().map((ticket) => ticket.frontmatter.id)).toEqual(['003', '010', '002']);
+});
+
+// A low ticket is the orchestrator's to triage, so it is offered only once no normal or high work is owed.
+test('a low ticket is held back from the ready tickets while normal or high work is owed', () => {
+  const { board: busyBoard } = boardFixture({ tickets: [ticketFixture({ id: '001', status: 'in-review' }), ticketFixture({ id: '002', priority: 'low' })] });
+  expect(busyBoard.readyTickets()).toEqual([]);
+
+  const { board: quietBoard } = boardFixture({ tickets: [ticketFixture({ id: '001', status: 'delivered' }), ticketFixture({ id: '002', priority: 'low' })] });
+  expect(quietBoard.readyTickets().map((ticket) => ticket.frontmatter.id)).toEqual(['002']);
+});
+
+test('the held ids are every held ticket an agent may still work, in progress and in review included, and no settled one', () => {
+  const { board } = boardFixture({
+    tickets: [
+      ticketFixture({ id: '001', hold: '' }),
+      ticketFixture({ id: '002', status: 'in-progress', hold: 'waiting on design' }),
+      ticketFixture({ id: '003', status: 'in-review', hold: '' }),
+      ticketFixture({ id: '004', status: 'delivered', hold: '' }),
+      ticketFixture({ id: '005', status: 'abandoned', hold: '' }),
+      ticketFixture({ id: '006' }),
+    ],
+  });
+  expect(board.heldTicketIds()).toEqual(['001', '002', '003']);
+});
+
+// Rows or tickets sharing a hand-duplicated id must each be judged on their own status, never on the first one found by that id.
+test('the settled checks read the record handed in, so a hand-duplicated id cannot borrow a verdict', () => {
+  const deliveredRow    = taskFixture({ id: 3, status: 'delivered' });
+  const pendingRow      = taskFixture({ id: 3, status: 'pending' });
+  const settledTicket   = ticketFixture({ id: '001', status: 'abandoned' });
+  const unsettledTicket = ticketFixture({ id: '001', status: 'in-review' });
+  const { board }       = boardFixture({ tasks: [deliveredRow, pendingRow], tickets: [settledTicket, unsettledTicket] });
+
+  expect([board.taskIsSettled(deliveredRow), board.taskIsSettled(pendingRow)]).toEqual([true, false]);
+  expect([board.ticketIsSettled(settledTicket), board.ticketIsSettled(unsettledTicket)]).toEqual([true, false]);
 });

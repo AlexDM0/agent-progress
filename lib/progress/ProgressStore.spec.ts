@@ -5,20 +5,14 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { afterAll, expect, test }                 from 'bun:test';
 
-import type { ProgressFile }                              from '../../src/lib/tracker-model/@types/ProgressFile';
-import type { Task }                                      from '../../src/lib/tracker-model/@types/Task';
-import { ConcurrencyUtil }                                from '../../src/lib/tracker-model/utils/ConcurrencyUtil';
-import { TaskFilingUtil, type TaskFiling }                from '../../src/lib/tracker-model/utils/TaskFilingUtil';
-import { createScratchDirectory, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
-import { workspacePathsFor }                              from '../platform/Workspace';
-import type { Workspace }                                 from '../platform/Workspace';
-import {
-  appendLogEntry,
-  createEmptyProgressFile,
-  findTask,
-  readProgressFile,
-  writeProgressFile
-} from './ProgressStore';
+import type { ProgressFile }                                            from '../../src/lib/tracker-model/@types/ProgressFile';
+import type { Task }                                                    from '../../src/lib/tracker-model/@types/Task';
+import { ConcurrencyUtil }                                              from '../../src/lib/tracker-model/utils/ConcurrencyUtil';
+import { TaskFilingUtil, type TaskFiling }                              from '../../src/lib/tracker-model/utils/TaskFilingUtil';
+import { createScratchDirectory, removeScratchDirectory }               from '../../src/testing/ScratchWorkspace';
+import { workspacePathsFor }                                            from '../platform/Workspace';
+import type { Workspace }                                               from '../platform/Workspace';
+import { createEmptyProgressFile, readProgressFile, writeProgressFile } from './ProgressStore';
 
 const FILED_AT = '2026-09-18T20:11:03+02:00';
 const STARTED_AT = '2026-09-18T20:40:00+02:00';
@@ -77,7 +71,7 @@ test('a written tracker reads back exactly as it was written', () => {
   const workspace = scratchWorkspace('store-round-trip');
   const progress = emptyProgress();
   fileRow(progress, { name: 'Review pass', owner: 'Alex Example', note: 'second reading' });
-  appendLogEntry(progress, FILED_AT, 'Session started');
+  progress.log.push({ at: FILED_AT, text: 'Session started' });
   writeProgressFile(workspace, progress);
 
   const result = readProgressFile(workspace);
@@ -211,13 +205,6 @@ test('an absolute view range with its fields intact is accepted, because that is
   expect(readBack('store-relative-view', relative).verdict).toBe('readable');
 });
 
-test('a task is found by id, and a missing one is undefined rather than an exception', () => {
-  const progress = emptyProgress();
-  fileRow(progress, { name: 'Review pass' });
-  expect(findTask(progress, 1)?.name).toBe('Review pass');
-  expect(findTask(progress, 99)).toBeUndefined();
-});
-
 test('a round of two or more is read back, because that is a row someone deliberately sent round again', () => {
   const progress = emptyProgress();
   fileRow(progress, { name: 'Review pass' });
@@ -288,15 +275,4 @@ test('a status that is neither current nor a retired task word still makes the f
   const unknownPhase = readBack('store-retired-ticket-word-phase', { ...progress, tasks: [{ ...progress.tasks[0], history: [{ status: 'done', at: STARTED_AT }] }] });
   expect(unknownPhase.verdict).toBe('unreadable');
   expect(unknownPhase.verdict === 'unreadable' ? unknownPhase.reason : '').toContain('tasks[0].history');
-});
-
-test('log entries are appended in order, oldest first', () => {
-  const progress = emptyProgress();
-  appendLogEntry(progress, FILED_AT, 'Ticket #003 filed: Double-click a role to edit it');
-  appendLogEntry(progress, STARTED_AT, 'Ticket #003 started');
-  expect(progress.log.map((entry) => entry.text)).toEqual([
-    'Ticket #003 filed: Double-click a role to edit it',
-    'Ticket #003 started',
-  ]);
-  expect(progress.log[0]?.at).toBe(FILED_AT);
 });

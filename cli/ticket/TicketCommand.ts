@@ -6,7 +6,6 @@ import { readFileSync }            from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 
 import { requireWorkspace, type Workspace } from '../../lib/platform/Workspace';
-import { appendLogEntry, findTask }         from '../../lib/progress/ProgressStore';
 import {
   createTicket,
   listTickets,
@@ -20,28 +19,26 @@ import { TicketBodyUtil }                         from '../../src/adapters/utils
 import { TicketPhraseUtil }                       from '../../src/adapters/utils/TicketPhraseUtil';
 import type { AgentAssignment, ReviewBarStarted } from '../../src/lib/tracker-model/@types/BoardChanges';
 import type { LogRecord }                         from '../../src/lib/tracker-model/@types/LogRecord';
-import type { ProgressFile }                      from '../../src/lib/tracker-model/@types/ProgressFile';
 import type { Task }                              from '../../src/lib/tracker-model/@types/Task';
 import type {
   AgentEffort,
   AgentModel,
-  AgentPair,
   Ticket,
   TicketPriority,
   TicketStatus,
   TicketType
 } from '../../src/lib/tracker-model/@types/Ticket';
-import { AGENT_EFFORTS, AGENT_MODELS }                           from '../../src/lib/tracker-model/constants/AgentSettings';
-import { TICKET_STATUSES, TICKET_STATUSES_NO_AGENT_WORKS_AGAIN } from '../../src/lib/tracker-model/constants/Statuses';
-import { TICKET_PRIORITIES, TICKET_TYPES }                       from '../../src/lib/tracker-model/constants/TicketFields';
-import { TicketDefaultsUtil }                                    from '../../src/lib/tracker-model/utils/TicketDefaultsUtil';
-import { TicketDependencyUtil }                                  from '../../src/lib/tracker-model/utils/TicketDependencyUtil';
-import { TicketIdUtil }                                          from '../../src/lib/tracker-model/utils/TicketIdUtil';
-import { VocabularyUtil }                                        from '../../src/lib/tracker-model/utils/VocabularyUtil';
-import { OperationRefusal }                                      from '../../src/shared/OperationRefusal';
-import { LIMITS }                                                from '../../src/shared/constants/Limits';
-import { VERB_FOR_STATUS }                                       from '../../src/shared/constants/StatusVerbs';
-import type { CommandContext }                                   from '../CommandContext';
+import { AGENT_EFFORTS, AGENT_MODELS }     from '../../src/lib/tracker-model/constants/AgentSettings';
+import { TICKET_STATUSES }                 from '../../src/lib/tracker-model/constants/Statuses';
+import { TICKET_PRIORITIES, TICKET_TYPES } from '../../src/lib/tracker-model/constants/TicketFields';
+import { TicketDefaultsUtil }              from '../../src/lib/tracker-model/utils/TicketDefaultsUtil';
+import { TicketDependencyUtil }            from '../../src/lib/tracker-model/utils/TicketDependencyUtil';
+import { TicketIdUtil }                    from '../../src/lib/tracker-model/utils/TicketIdUtil';
+import { VocabularyUtil }                  from '../../src/lib/tracker-model/utils/VocabularyUtil';
+import { OperationRefusal }                from '../../src/shared/OperationRefusal';
+import { LIMITS }                          from '../../src/shared/constants/Limits';
+import { VERB_FOR_STATUS }                 from '../../src/shared/constants/StatusVerbs';
+import type { CommandContext }             from '../CommandContext';
 import {
   ignoredTicketFileText,
   openTrackerForWriting,
@@ -230,10 +227,6 @@ function agentEffortFrom(writtenEffort: string | undefined): AgentEffort | undef
     throw new OperationRefusal('refused', `"${writtenEffort}" is not an agent effort. The efforts are ${AGENT_EFFORTS.join(', ')}.`);
   }
   return writtenEffort;
-}
-
-function resolvedAgentPairOf(ticket: { model?: AgentModel; effort?: AgentEffort }): AgentPair {
-  return { model: TicketDefaultsUtil.agentModelOf(ticket), effort: TicketDefaultsUtil.agentEffortOf(ticket) };
 }
 
 /** Only what the file names: a ticket left to the defaults prints nothing extra, so a listing of old tickets looks as it did. */
@@ -551,42 +544,11 @@ async function linkOneTicket(commandArguments: ArgumentParser, context: CommandC
   }
   const movesTheLink = commandArguments.flag('force');
 
-  const linked = await openTrackerForWriting(commandArguments, context, (change) => {
-    const {
-      progress,
-      workspace,
-      writeTicketAfterwards,
-    } = change;
-    const ticket = requireTicket(change, ticketReference);
-    const task   = findTask(progress, taskId);
-    if (task === undefined) {
-      throw new OperationRefusal('refused', `There is no task #${taskId}. Run \`agent-progress status\` to see the rows this tracker holds.`);
-    }
-
-    if (task.ticket !== null && task.ticket !== ticket.frontmatter.id) {
-      if (!movesTheLink) {
-        throw new OperationRefusal(
-          'refused',
-          `Task #${taskId} already belongs to ticket #${task.ticket}. Pass --force to move it to ticket #${ticket.frontmatter.id}.`,
-        );
-      }
-      const previousOwner = readTicket(workspace, task.ticket);
-      if (previousOwner !== null && previousOwner.frontmatter.task === taskId) {
-        previousOwner.frontmatter.task = null;
-        writeTicketAfterwards(previousOwner);
-      }
-    }
-
-    if (ticket.frontmatter.task !== null && ticket.frontmatter.task !== taskId) {
-      const abandonedRow = findTask(progress, ticket.frontmatter.task);
-      if (abandonedRow !== undefined) abandonedRow.ticket = null;
-    }
-
-    task.ticket             = ticket.frontmatter.id;
-    ticket.frontmatter.task = taskId;
-    writeTicketAfterwards(ticket);
-    return ticket;
-  });
+  const linked = await openTrackerForWriting(
+    commandArguments,
+    context,
+    (change) => change.board.linkTicketToTask(requireTicket(change, ticketReference).frontmatter.id, taskId, { movesTheLink }),
+  );
 
   printEntity(commandArguments, context, ticketAsJson(linked), `Ticket #${linked.frontmatter.id} linked to task #${taskId}`);
 }
@@ -630,7 +592,6 @@ async function setTicketPriority(commandArguments: ArgumentParser, context: Comm
   printEntityThenNextLine(commandArguments, context, ticketAsJson(changed.ticket), sentencesOf(changed.logged), closingLines);
 }
 
-/** A changed pair is judged on the resolved values, so naming the default a ticket already runs on is refused as no change. */
 async function setTicketAgent(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   commandArguments.rejectUnknownOptions(AGENT_OPTION_NAMES, USAGE);
   commandArguments.rejectExtraPositionals(2, USAGE);
@@ -646,35 +607,19 @@ async function setTicketAgent(commandArguments: ArgumentParser, context: Command
   }
 
   const { result: changed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
-    const ticket = requireTicket(change, reference);
-    const { frontmatter } = ticket;
-    const { id, status }  = frontmatter;
-    if (TICKET_STATUSES_NO_AGENT_WORKS_AGAIN.includes(status)) {
-      throw new OperationRefusal('refused', `Ticket #${id} is ${status}, and its agents were not changed: no agent will work it again. Nothing was written.`);
-    }
-    const before = TicketPhraseUtil.agentPairText(resolvedAgentPairOf(frontmatter));
-    const after  = TicketPhraseUtil.agentPairText(resolvedAgentPairOf({
-      ...(frontmatter.model === undefined ? {} : { model: frontmatter.model }),
-      ...(frontmatter.effort === undefined ? {} : { effort: frontmatter.effort }),
+    const ticketId = requireTicket(change, reference).frontmatter.id;
+    return change.board.setTicketAgents(ticketId, {
       ...(model === undefined ? {} : { model }),
       ...(effort === undefined ? {} : { effort }),
-    }));
-    if (before === after) {
-      throw new OperationRefusal('refused', `Ticket #${id} is ${status}, and its agents were not changed: they already run on ${before}. Nothing was written.`);
-    }
-    if (model !== undefined) frontmatter.model = model;
-    if (effort !== undefined) frontmatter.effort = effort;
-    const logText = `Ticket #${id} agents ${before} → ${after}`;
-    appendLogEntry(change.progress, change.at, logText);
-    change.writeTicketAfterwards(ticket);
-    return { logText, ticket };
+    }, change.at);
   });
 
-  printEntityThenNextLine(commandArguments, context, ticketAsJson(changed.ticket), changed.logText, NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState));
+  const closingLines = NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState);
+  printEntityThenNextLine(commandArguments, context, ticketAsJson(changed.ticket), sentencesOf(changed.logged), closingLines);
 }
 
 // Every dispatcher run's builder takes over only a row paused under a dispatcher claim note; any other pause is a person's, resumed by hand.
-function resumeBuildHintFor(ticketId: string, pausedRow: Task): string {
+function resumeBuildHintFor(ticketId: string, pausedRow: Readonly<Task>): string {
   if (!noteIsADispatcherClaimOn(pausedRow.note, ticketId)) {
     return `Its build row #${pausedRow.id} was left paused under a person's note, which the dispatcher never takes over: `
       + `resume it with \`agent-progress task start ${pausedRow.id}\`, or settle the row by hand.`;
@@ -685,13 +630,6 @@ function resumeBuildHintFor(ticketId: string, pausedRow: Task): string {
 
 function noteIsADispatcherClaimOn(note: string, ticketId: string): boolean {
   return note.startsWith('Built by the ') && note.endsWith(` dispatcher run on ticket-${ticketId}`);
-}
-
-function pausedBuildRowOf(progress: ProgressFile, ticket: Ticket): Task | null {
-  const { status, task } = ticket.frontmatter;
-  if (status !== 'in-progress' || task === null) return null;
-  const row = findTask(progress, task);
-  return row?.status === 'paused' ? row : null;
 }
 
 /** A hold stops the dispatcher starting the ticket's next builder or reviewer; an agent already running is never interrupted by it. */
@@ -707,27 +645,18 @@ async function holdOrUnholdTicket(holds: boolean, commandArguments: ArgumentPars
   const reason = commandArguments.option('reason') ?? '';
 
   const { result: changed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
-    const ticket = requireTicket(change, reference);
-    const { frontmatter } = ticket;
-    const { id, status }  = frontmatter;
-    if (TICKET_STATUSES_NO_AGENT_WORKS_AGAIN.includes(status)) {
-      throw new OperationRefusal('refused', `Ticket #${id} is ${status}, and no agent will work it again, so there is nothing to ${verb}. Nothing was written.`);
-    }
-    if (holds === (frontmatter.hold !== undefined)) {
-      throw new OperationRefusal('refused', `Ticket #${id} is ${holds ? 'already held' : 'not held'}. Nothing was written.`);
-    }
-    if (holds) frontmatter.hold = reason;
-    else delete frontmatter.hold;
-    const logText = holds ? `Ticket #${id} held${reason === '' ? '' : `: ${reason}`}` : `Ticket #${id} unheld`;
-    appendLogEntry(change.progress, change.at, logText);
-    change.writeTicketAfterwards(ticket);
-    const pausedRow = holds ? null : pausedBuildRowOf(change.progress, ticket);
-    return { logText, ticket, resumeBuildHint: pausedRow === null ? null : resumeBuildHintFor(id, pausedRow) };
+    const { board } = change;
+    const ticketId  = requireTicket(change, reference).frontmatter.id;
+    if (holds) return { holdChange: board.holdTicket(ticketId, reason, change.at), resumeBuildHint: null };
+    const holdChange = board.unholdTicket(ticketId, change.at);
+    const pausedRow  = board.pausedBuildRowOf(ticketId);
+    return { holdChange, resumeBuildHint: pausedRow === null ? null : resumeBuildHintFor(ticketId, pausedRow) };
   });
 
-  const endedNextLine = NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState);
-  const closingLines  = changed.resumeBuildHint === null ? endedNextLine : `${endedNextLine}\n${changed.resumeBuildHint}`;
-  printEntityThenNextLine(commandArguments, context, ticketAsJson(changed.ticket), changed.logText, closingLines);
+  const { holdChange, resumeBuildHint } = changed;
+  const endedNextLine                   = NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState);
+  const closingLines                    = resumeBuildHint === null ? endedNextLine : `${endedNextLine}\n${resumeBuildHint}`;
+  printEntityThenNextLine(commandArguments, context, ticketAsJson(holdChange.ticket), sentencesOf(holdChange.logged), closingLines);
 }
 
 function refuseARetiredSubcommand(subcommand: string, commandArguments: ArgumentParser): never {

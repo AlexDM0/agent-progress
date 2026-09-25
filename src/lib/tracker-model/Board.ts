@@ -4,6 +4,7 @@
  */
 import type {
   AgentAssignment,
+  AgentChoice,
   AgentStopRecorded,
   ConcurrencyLimitSet,
   DispatcherStateSet,
@@ -28,25 +29,27 @@ import type { AgentUsage, LogRecord }                    from './@types/LogRecor
 import type { DispatcherState, ProgressFile, ViewRange } from './@types/ProgressFile.ts';
 import type { Task, TaskStatus }                         from './@types/Task.ts';
 import type {
+  AgentPair,
   Ticket,
   TicketFrontmatter,
   TicketPriority,
   TicketStatus
 }                                                        from './@types/Ticket.ts';
-import { BoardRefusal }              from './BoardRefusal.ts';
-import type { Logger }               from './Logger.ts';
-import { DEFAULT_DISPATCHER_STATE }  from './constants/DispatcherStates.ts';
-import { FIRST_REPEAT_REVIEW_ROUND } from './constants/ReviewRounds.ts';
-import { ticketMoveIsLegal }         from './constants/TicketMoveLegality.ts';
-import { ConcurrencyUtil }           from './utils/ConcurrencyUtil.ts';
-import type { TaskFiling }           from './utils/TaskFilingUtil.ts';
-import { TaskFilingUtil }            from './utils/TaskFilingUtil.ts';
-import { TaskTransitionUtil }        from './utils/TaskTransitionUtil.ts';
-import { TicketChartUtil }           from './utils/TicketChartUtil.ts';
-import { TicketDefaultsUtil }        from './utils/TicketDefaultsUtil.ts';
-import { TicketDependencyUtil }      from './utils/TicketDependencyUtil.ts';
-import { TicketIdUtil }              from './utils/TicketIdUtil.ts';
-import { TicketStampUtil }           from './utils/TicketStampUtil.ts';
+import { BoardRefusal }                                                                         from './BoardRefusal.ts';
+import type { Logger }                                                                          from './Logger.ts';
+import { DEFAULT_DISPATCHER_STATE }                                                             from './constants/DispatcherStates.ts';
+import { FIRST_REPEAT_REVIEW_ROUND }                                                            from './constants/ReviewRounds.ts';
+import { SETTLED_TASK_STATUSES, SETTLED_TICKET_STATUSES, TICKET_STATUSES_NO_AGENT_WORKS_AGAIN } from './constants/Statuses.ts';
+import { ticketMoveIsLegal }                                                                    from './constants/TicketMoveLegality.ts';
+import { ConcurrencyUtil }                                                                      from './utils/ConcurrencyUtil.ts';
+import type { TaskFiling }                                                                      from './utils/TaskFilingUtil.ts';
+import { TaskFilingUtil }                                                                       from './utils/TaskFilingUtil.ts';
+import { TaskTransitionUtil }                                                                   from './utils/TaskTransitionUtil.ts';
+import { TicketChartUtil }                                                                      from './utils/TicketChartUtil.ts';
+import { TicketDefaultsUtil }                                                                   from './utils/TicketDefaultsUtil.ts';
+import { TicketDependencyUtil }                                                                 from './utils/TicketDependencyUtil.ts';
+import { TicketIdUtil }                                                                         from './utils/TicketIdUtil.ts';
+import { TicketStampUtil }                                                                      from './utils/TicketStampUtil.ts';
 
 type TicketMoveFields = Pick<TicketMoveRequest, 'branch' | 'commit' | 'reason'>;
 
@@ -323,6 +326,40 @@ export class Board {
   }
 
   /**
+   * A row another ticket owns moves only with `movesTheLink`, and that ticket lets go of it when it named the row; the row the ticket
+   * leaves stays as a free-standing row. Nothing is logged, as a link says which row draws the ticket rather than what the work did.
+   */
+  linkTicketToTask(ticketId: string, taskId: number, request: { movesTheLink: boolean }): Readonly<Ticket> {
+    const ticket = this.requireTicket(ticketId);
+    const task   = this.requireTask(taskId);
+    if (task.ticket !== null && task.ticket !== ticketId) {
+      if (!request.movesTheLink) {
+        throw new BoardRefusal({
+          reason:         'task-belongs-to-another-ticket',
+          taskId,
+          owningTicketId: task.ticket,
+          ticketId,
+        });
+      }
+      const previousOwner = this.ticketRecordByReference(task.ticket);
+      if (previousOwner !== undefined && previousOwner.frontmatter.task === taskId) {
+        previousOwner.frontmatter.task = null;
+        this.markChanged(previousOwner);
+      }
+    }
+
+    const { frontmatter } = ticket;
+    if (frontmatter.task !== null && frontmatter.task !== taskId) {
+      const rowLeftBehind = this.taskRecordById(frontmatter.task);
+      if (rowLeftBehind !== undefined) rowLeftBehind.ticket = null;
+    }
+    task.ticket      = ticketId;
+    frontmatter.task = taskId;
+    this.markChanged(ticket);
+    return ticket;
+  }
+
+  /**
    * Lowering to low is refused unless the ticket is pending, and removes its row; raising a low ticket gives it a row at once, seeded from
    * its stamps when it is no longer pending, the way `clear` would, so an abandoned ticket does not come back as a pending bar.
    */
@@ -353,6 +390,48 @@ export class Board {
     }
     this.markChanged(ticket);
     return { logged: [this.logger.ticketPriorityChanged(ticketId, { from: current, to: priority }, at)], ticket };
+  }
+
+  /** Judged on the resolved pair, so naming the default a ticket already runs on is refused as no change. */
+  setTicketAgents(ticketId: string, agents: AgentChoice, at: string): TicketChanged {
+    const ticket          = this.requireTicket(ticketId);
+    const { frontmatter } = ticket;
+    const { status }      = frontmatter;
+    if (TICKET_STATUSES_NO_AGENT_WORKS_AGAIN.includes(status)) throw new BoardRefusal({ reason: 'agents-of-a-settled-ticket', ticketId, status });
+    const from: AgentPair = { model: TicketDefaultsUtil.agentModelOf(frontmatter), effort: TicketDefaultsUtil.agentEffortOf(frontmatter) };
+    const to: AgentPair   = { model: agents.model ?? from.model, effort: agents.effort ?? from.effort };
+    if (from.model === to.model && from.effort === to.effort) {
+      throw new BoardRefusal({
+        reason: 'agents-unchanged',
+        ticketId,
+        status,
+        agents: from,
+      });
+    }
+
+    if (agents.model !== undefined) frontmatter.model = agents.model;
+    if (agents.effort !== undefined) frontmatter.effort = agents.effort;
+    this.markChanged(ticket);
+    return { logged: [this.logger.ticketAgentsChanged(ticketId, { from, to }, at)], ticket };
+  }
+
+  /** An empty reason still holds: the hold is the key's presence, not its text. */
+  holdTicket(ticketId: string, reason: string, at: string): TicketChanged {
+    const ticket = this.requireTicket(ticketId);
+    refuseAHoldChangeOfASettledTicket(ticket, 'hold');
+    if (ticket.frontmatter.hold !== undefined) throw new BoardRefusal({ reason: 'ticket-already-held', ticketId });
+    ticket.frontmatter.hold = reason;
+    this.markChanged(ticket);
+    return { logged: [this.logger.ticketHeld(ticketId, reason, at)], ticket };
+  }
+
+  unholdTicket(ticketId: string, at: string): TicketChanged {
+    const ticket = this.requireTicket(ticketId);
+    refuseAHoldChangeOfASettledTicket(ticket, 'unhold');
+    if (ticket.frontmatter.hold === undefined) throw new BoardRefusal({ reason: 'ticket-not-held', ticketId });
+    delete ticket.frontmatter.hold;
+    this.markChanged(ticket);
+    return { logged: [this.logger.ticketUnheld(ticketId, at)], ticket };
   }
 
   /**
@@ -409,6 +488,19 @@ export class Board {
     return this.progress.dispatcherRunId;
   }
 
+  /** In the order to take them: high first, then by id, with low tickets held back while normal or high work is still owed. */
+  readyTickets(): readonly Readonly<Ticket>[] {
+    const readyTicketIds = TicketDependencyUtil.readyTicketIdsOf(this.ticketRecords.map((ticket) => ticket.frontmatter));
+    return readyTicketIds.flatMap((ticketId) => this.ticketRecordById(ticketId) ?? []);
+  }
+
+  /** Every held ticket a dispatcher could still start a step of, in progress or in review as much as ready. */
+  heldTicketIds(): string[] {
+    return this.ticketRecords
+      .filter((ticket) => ticket.frontmatter.hold !== undefined && !TICKET_STATUSES_NO_AGENT_WORKS_AGAIN.includes(ticket.frontmatter.status))
+      .map((ticket) => ticket.frontmatter.id);
+  }
+
   /** A dependency missing from the board counts as unsettled: a ticket nobody can see is not finished work. */
   unsettledDependenciesOf(ticketId: string): string[] {
     const ticket     = this.requireTicket(ticketId);
@@ -423,9 +515,26 @@ export class Board {
     return TicketDependencyUtil.ticketsHoldingBackLowPriorityWork(this.ticketRecords.map((candidate) => candidate.frontmatter));
   }
 
+  /** Only an in-progress ticket has a build to resume; a ticket that moved on took its row along. */
+  pausedBuildRowOf(ticketId: string): Readonly<Task> | null {
+    const { status, task } = this.requireTicket(ticketId).frontmatter;
+    if (status !== 'in-progress' || task === null) return null;
+    const row = this.taskRecordById(task);
+    return row?.status === 'paused' ? row : null;
+  }
+
   /** A release reviews the ticket on its way to delivering it, so it takes the tickets a move to `reviewed` is legal from. */
   ticketIsReleasable(ticket: Readonly<Ticket>): boolean {
     return ticketMoveIsLegal(ticket.frontmatter.status, 'reviewed');
+  }
+
+  /** Read on the record handed in rather than looked up by id, so a hand-duplicated id cannot borrow another row's verdict. */
+  taskIsSettled(task: Readonly<Task>): boolean {
+    return SETTLED_TASK_STATUSES.includes(task.status);
+  }
+
+  ticketIsSettled(ticket: Readonly<Ticket>): boolean {
+    return SETTLED_TICKET_STATUSES.includes(ticket.frontmatter.status);
   }
 
   changedTickets(): readonly Ticket[] {
@@ -639,5 +748,16 @@ function refuseATicketOwnedMove(task: Readonly<Task>, targetStatus: TaskStatus, 
     taskId:   task.id,
     ticketId: task.ticket,
     targetStatus,
+  });
+}
+
+function refuseAHoldChangeOfASettledTicket(ticket: Readonly<Ticket>, action: 'hold' | 'unhold'): void {
+  const { id: ticketId, status } = ticket.frontmatter;
+  if (!TICKET_STATUSES_NO_AGENT_WORKS_AGAIN.includes(status)) return;
+  throw new BoardRefusal({
+    reason: 'hold-of-a-settled-ticket',
+    ticketId,
+    status,
+    action,
   });
 }

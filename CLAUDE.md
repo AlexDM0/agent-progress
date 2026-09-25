@@ -180,7 +180,7 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
   `cli/CommandTable.spec.ts` and `cli/HelpText.spec.ts` fail until all three exist.
 - Every mutating command writes through `openTrackerForWriting` in `cli/CommandSupport.ts`, and none repeats it:
   lock; read the progress file and the tickets into a Board; change them through it; write the progress file, then
-  the tickets the Board changed (and any a command still queues); then render from disk, all under the lock. Ticket
+  the tickets the Board changed; then render from disk, all under the lock. Ticket
   files follow the progress file so it is never behind them. `status` takes no lock and renders nothing.
 
 ### Tickets
@@ -246,11 +246,11 @@ lib/                        everything the commands do, in the layers above; lib
 src/                        the target layout's code, filled step by step as the migration plan moves it
   src/lib/                  package-grade building blocks, one folder each, the package's description in its main module's header:
                             atomic-file (AtomicFile.ts), git (GitProcess.ts), claude-code (ClaudeTranscripts.ts),
-                            tracker-model (@types/Task.ts), utils
-  src/adapters/             the boundary to stored files: reading and mapping what the tracker stores
+                            tracker-model (@types/Task.ts; Board.ts is its aggregate), utils
+  src/adapters/             the boundary: reading and mapping what the tracker stores, and the wording of log records and Board refusals
   src/services/             app-wide services, one folder each
-  src/shared/               app-specific code several parts use: the environment reader, the refusal, LIMITS
-  src/testing/              test-only helpers several parts use: the scratch workspace and the tracker isolation check
+  src/shared/               app-specific code several parts use: the environment reader, the refusal, LIMITS, the status verbs
+  src/testing/              test-only helpers several parts use: the scratch workspace, the tracker isolation check, the Board fixtures
 skill/                      the skill every session in a tracked repository loads
 skill-orchestrate/          the skill for the one session running the board
 templates/                  what init and update install into a tracked repository, the dispatcher included

@@ -1,12 +1,12 @@
 /**
  * The sequence every mutating command follows, written once: take the lock of `lib/platform/Lock.ts`, read the progress file and the
- * tickets into a Board, mutate, write the progress file, write the queued tickets and the tickets the Board changed, render through
+ * tickets into a Board, mutate, write the progress file, then the tickets the Board changed, then render through
  * `lib/render/Rerender.ts` — all inside the lock, in that order, so no older render lands last and the progress file is never behind the tickets.
  */
-import { withLock }                                               from '../lib/platform/Lock';
-import { requireWorkspace, type Workspace }                       from '../lib/platform/Workspace';
-import { dispatcherStateOf, readProgressFile, writeProgressFile } from '../lib/progress/ProgressStore';
-import { rerenderDashboard, type RerenderOutcome }                from '../lib/render/Rerender';
+import { withLock }                                from '../lib/platform/Lock';
+import { requireWorkspace, type Workspace }        from '../lib/platform/Workspace';
+import { readProgressFile, writeProgressFile }     from '../lib/progress/ProgressStore';
+import { rerenderDashboard, type RerenderOutcome } from '../lib/render/Rerender';
 import {
   deleteAllTickets,
   listTickets,
@@ -24,29 +24,25 @@ import type {
   Ticket,
   TicketPriority
 } from '../src/lib/tracker-model/@types/Ticket';
-import { Board }                                from '../src/lib/tracker-model/Board';
-import { refusalIsBoardRefusal }                from '../src/lib/tracker-model/BoardRefusal';
-import { createLogger }                         from '../src/lib/tracker-model/Logger';
-import { TICKET_STATUSES_NO_AGENT_WORKS_AGAIN } from '../src/lib/tracker-model/constants/Statuses';
-import { ConcurrencyUtil }                      from '../src/lib/tracker-model/utils/ConcurrencyUtil';
-import { TicketDefaultsUtil }                   from '../src/lib/tracker-model/utils/TicketDefaultsUtil';
-import { TicketDependencyUtil }                 from '../src/lib/tracker-model/utils/TicketDependencyUtil';
-import { TimeUtil }                             from '../src/lib/utils/TimeUtil';
-import { TokenCountUtil }                       from '../src/lib/utils/TokenCountUtil';
-import { OperationRefusal }                     from '../src/shared/OperationRefusal';
-import { LIMITS }                               from '../src/shared/constants/Limits';
-import type { CommandContext }                  from './CommandContext';
-import type { ArgumentParser }                  from './arguments/ArgumentParser';
+import { Board }                 from '../src/lib/tracker-model/Board';
+import { refusalIsBoardRefusal } from '../src/lib/tracker-model/BoardRefusal';
+import { createLogger }          from '../src/lib/tracker-model/Logger';
+import { ConcurrencyUtil }       from '../src/lib/tracker-model/utils/ConcurrencyUtil';
+import { TicketDefaultsUtil }    from '../src/lib/tracker-model/utils/TicketDefaultsUtil';
+import { TimeUtil }              from '../src/lib/utils/TimeUtil';
+import { TokenCountUtil }        from '../src/lib/utils/TokenCountUtil';
+import { OperationRefusal }      from '../src/shared/OperationRefusal';
+import { LIMITS }                from '../src/shared/constants/Limits';
+import type { CommandContext }   from './CommandContext';
+import type { ArgumentParser }   from './arguments/ArgumentParser';
 
 export interface TrackerChange {
   board:                          Board;
-  progress:                       ProgressFile;
   workspace:                      Workspace;
   at:                             string;
   malformedTickets:               readonly MalformedTicketFile[];
   /** How many entries the log held when it was read, before anything this invocation logged. */
   storedLogEntryCount:            number;
-  writeTicketAfterwards:          (ticket: Ticket) => void;
   /** `clear --all`: after the progress file and the changed tickets, before the render; the callback gets the deleted file count. */
   deleteAllTicketFilesAfterwards: (onDeleted: (deletedTicketCount: number) => void) => void;
 }
@@ -120,27 +116,22 @@ export function printEntity(commandArguments: ArgumentParser, context: CommandCo
   context.standardOutput(humanLine);
 }
 
+/** A Board for the commands that only read: what it would log goes nowhere, and nothing it holds is written. */
+export function boardForReading(progress: ProgressFile, tickets: Ticket[]): Board {
+  return new Board({ progress, tickets, logger: createLogger(() => undefined) });
+}
+
 /**
  * What a dispatcher needs to start the next agent: the limit, the agents in flight against it, what is left, and the tickets that could take it —
  * in the order to take them, high first, with low tickets held back while normal or high work is still owed — and where the user left the dispatcher.
  */
-export function concurrencyDocumentOf(
-  progress: ProgressFile,
-  tickets: readonly Ticket[],
-): Concurrency & { readyTicketIds: string[]; dispatcherState: DispatcherState; heldTicketIds: string[] } {
+export function concurrencyDocumentOf(board: Board): Concurrency & { readyTicketIds: string[]; dispatcherState: DispatcherState; heldTicketIds: string[] } {
   return {
-    ...ConcurrencyUtil.concurrencyOf(progress.tasks, progress.concurrencyLimit),
-    readyTicketIds:  TicketDependencyUtil.readyTicketIdsOf(tickets.map((ticket) => ticket.frontmatter)),
-    dispatcherState: dispatcherStateOf(progress),
-    heldTicketIds:   heldTicketIdsOf(tickets),
+    ...board.concurrency(),
+    readyTicketIds:  board.readyTickets().map((ticket) => ticket.frontmatter.id),
+    dispatcherState: board.dispatcherState(),
+    heldTicketIds:   board.heldTicketIds(),
   };
-}
-
-/** Every held ticket a dispatcher could still start a step of, in progress or in review as much as ready. */
-function heldTicketIdsOf(tickets: readonly Ticket[]): string[] {
-  return tickets
-    .filter((ticket) => ticket.frontmatter.hold !== undefined && !TICKET_STATUSES_NO_AGENT_WORKS_AGAIN.includes(ticket.frontmatter.status))
-    .map((ticket) => ticket.frontmatter.id);
 }
 
 export interface ReadyTicket {
@@ -152,28 +143,22 @@ export interface ReadyTicket {
   held?:    true;
 }
 
-/** Built from `readyTicketIds` and never recomputed, so the two lists cannot disagree on a member or the order; the defaults are resolved here. */
-export function readyTicketsOf(readyTicketIds: readonly string[], tickets: readonly Ticket[]): ReadyTicket[] {
-  const frontmatterById = new Map(tickets.map((ticket) => [ticket.frontmatter.id, ticket.frontmatter]));
-  return readyTicketIds.flatMap((ticketId) => {
-    const frontmatter = frontmatterById.get(ticketId);
-    if (frontmatter === undefined) return [];
-    return [{
-      id:       ticketId,
-      priority: TicketDefaultsUtil.ticketPriorityOf(frontmatter),
-      model:    TicketDefaultsUtil.agentModelOf(frontmatter),
-      effort:   TicketDefaultsUtil.agentEffortOf(frontmatter),
-      ...(frontmatter.hold === undefined ? {} : { held: true as const }),
-    }];
-  });
+/** Read from the Board's ready tickets, as `readyTicketIds` is, so the two lists cannot disagree on a member or the order; defaults resolved here. */
+export function readyTicketsOf(board: Board): ReadyTicket[] {
+  return board.readyTickets().map(({ frontmatter }) => ({
+    id:       frontmatter.id,
+    priority: TicketDefaultsUtil.ticketPriorityOf(frontmatter),
+    model:    TicketDefaultsUtil.agentModelOf(frontmatter),
+    effort:   TicketDefaultsUtil.agentEffortOf(frontmatter),
+    ...(frontmatter.hold === undefined ? {} : { held: true as const }),
+  }));
 }
 
-export function nextLineFor(progress: ProgressFile, tickets: readonly Ticket[]): string {
-  const lowPriorityTicketIds = new Set(tickets.filter((ticket) => TicketDefaultsUtil.ticketPriorityOf(ticket.frontmatter) === 'low').map((ticket) => ticket.frontmatter.id));
-  const concurrency          = concurrencyDocumentOf(progress, tickets);
+export function nextLineFor(board: Board): string {
+  const lowPriorityReadyTickets = board.readyTickets().filter((ticket) => TicketDefaultsUtil.ticketPriorityOf(ticket.frontmatter) === 'low');
   return NextLineUtil.composeNextLine({
-    ...concurrency,
-    lowPriorityReadyTicketIds: concurrency.readyTicketIds.filter((ticketId) => lowPriorityTicketIds.has(ticketId)),
+    ...concurrencyDocumentOf(board),
+    lowPriorityReadyTicketIds: lowPriorityReadyTickets.map((ticket) => ticket.frontmatter.id),
   });
 }
 
@@ -229,7 +214,7 @@ async function writeTrackerUnderLock<MutationResult, Reading>(
   commandArguments: ArgumentParser,
   context: CommandContext,
   mutate: (change: TrackerChange) => MutationResult | Promise<MutationResult>,
-  readAfterWriting: (workspace: Workspace, progress: ProgressFile) => Reading,
+  readAfterWriting: (board: Board) => Reading,
 ): Promise<{ result: MutationResult; reading: Reading }> {
   const workspace = requireWorkspace(context.currentDirectory);
   const at        = resolveAtOption(commandArguments, context);
@@ -240,27 +225,20 @@ async function writeTrackerUnderLock<MutationResult, Reading>(
     const storedLogEntryCount = progress.log.length;
     const board               = new Board({ progress, tickets: listing.tickets, logger: createLogger(createProgressLogSink(progress.log)) });
 
-    const ticketsToWrite: Ticket[] = [];
     const deletionCallbacks: ((deletedTicketCount: number) => void)[] = [];
     const result = await mutateRefusingInWords(mutate, {
       at,
       board,
-      progress,
       workspace,
       malformedTickets:               listing.malformed,
       storedLogEntryCount,
-      writeTicketAfterwards:          (ticket: Ticket) => { ticketsToWrite.push(ticket); },
       deleteAllTicketFilesAfterwards: (onDeleted) => { deletionCallbacks.push(onDeleted); },
     });
 
     writeProgressFile(workspace, progress);
-    for (const ticket of ticketsToWrite) writeTicket(ticket);
-    const queuedTicketFilePaths = new Set(ticketsToWrite.map((ticket) => ticket.filePath));
-    for (const ticket of board.changedTickets()) {
-      if (!queuedTicketFilePaths.has(ticket.filePath)) writeTicket(ticket);
-    }
+    for (const ticket of board.changedTickets()) writeTicket(ticket);
     for (const onDeleted of deletionCallbacks) onDeleted(deleteAllTickets(workspace));
-    const reading = readAfterWriting(workspace, progress);
+    const reading = readAfterWriting(board);
     await renderDashboard(context, workspace);
     return { result, reading };
   }, context.now);
@@ -275,7 +253,7 @@ export async function openTrackerForWriting<MutationResult>(
   return result;
 }
 
-/** The Next line and the dispatcher state are read from the files just written, inside the same lock hold, so neither predates the move. */
+/** The Next line and the dispatcher state are read from the Board just written, inside the same lock hold, so neither predates the move. */
 export async function openTrackerForWritingThenReadNextLine<MutationResult>(
   commandArguments: ArgumentParser,
   context: CommandContext,
@@ -285,7 +263,7 @@ export async function openTrackerForWritingThenReadNextLine<MutationResult>(
     commandArguments,
     context,
     mutate,
-    (workspace, progress) => ({ nextLine: nextLineFor(progress, listTickets(workspace).tickets), dispatcherState: dispatcherStateOf(progress) }),
+    (board) => ({ nextLine: nextLineFor(board), dispatcherState: board.dispatcherState() }),
   );
   return { result, ...reading };
 }

@@ -1,18 +1,14 @@
-import { requireWorkspace }            from '../../lib/platform/Workspace';
-import { listTickets }                 from '../../lib/tickets/TicketStore';
-import type { LogEntry, ProgressFile } from '../../src/lib/tracker-model/@types/ProgressFile';
-import type { Task }                   from '../../src/lib/tracker-model/@types/Task';
-import type { Ticket }                 from '../../src/lib/tracker-model/@types/Ticket';
+import { requireWorkspace }               from '../../lib/platform/Workspace';
+import { listTickets }                    from '../../lib/tickets/TicketStore';
+import type { LogEntry, ProgressFile }    from '../../src/lib/tracker-model/@types/ProgressFile';
+import type { Task }                      from '../../src/lib/tracker-model/@types/Task';
+import type { Board }                     from '../../src/lib/tracker-model/Board';
+import { TASK_STATUSES, TICKET_STATUSES } from '../../src/lib/tracker-model/constants/Statuses';
+import { TimeUtil }                       from '../../src/lib/utils/TimeUtil';
+import { TokenCountUtil }                 from '../../src/lib/utils/TokenCountUtil';
+import { LIMITS }                         from '../../src/shared/constants/Limits';
 import {
-  SETTLED_TASK_STATUSES,
-  SETTLED_TICKET_STATUSES,
-  TASK_STATUSES,
-  TICKET_STATUSES
-} from '../../src/lib/tracker-model/constants/Statuses';
-import { TimeUtil }       from '../../src/lib/utils/TimeUtil';
-import { TokenCountUtil } from '../../src/lib/utils/TokenCountUtil';
-import { LIMITS }         from '../../src/shared/constants/Limits';
-import {
+  boardForReading,
   concurrencyDocumentOf,
   nextLineFor,
   padColumn,
@@ -69,48 +65,42 @@ function logStampOf(entry: LogEntry, showsTheDate: boolean): string {
 }
 
 /** `null` when no row reported a usage, which is a different answer from `0`. */
-function totalTokensOf(tasks: readonly Task[]): number | null {
+function totalTokensOf(tasks: readonly Readonly<Task>[]): number | null {
   const reported = tasks.filter((task) => task.tokens !== null);
   if (reported.length === 0) return null;
   return reported.reduce((running, task) => running + (task.tokens ?? 0), 0);
 }
 
-function taskIsSettled(task: Task): boolean {
-  return SETTLED_TASK_STATUSES.includes(task.status);
-}
-
-function ticketIsSettled(ticket: Ticket): boolean {
-  return SETTLED_TICKET_STATUSES.includes(ticket.frontmatter.status);
-}
-
 /**
  * The stored run id rides in `concurrency` beside the state it belongs to, so the orchestrator finds the run to resume where it reads the
- * state; `readyTickets` is built from the same `readyTicketIds`.
+ * state; `readyTickets` is read from the Board's ready tickets, as `readyTicketIds` is.
  */
-function derivedDocumentOf(progress: ProgressFile, tickets: readonly Ticket[]): { concurrency: object; readyTickets: ReadyTicket[] } {
-  const concurrency = concurrencyDocumentOf(progress, tickets);
+function derivedDocumentOf(board: Board): { concurrency: object; readyTickets: ReadyTicket[] } {
+  const concurrency     = concurrencyDocumentOf(board);
+  const dispatcherRunId = board.dispatcherRunId();
   return {
-    concurrency:  progress.dispatcherRunId === undefined ? concurrency : { ...concurrency, dispatcherRunId: progress.dispatcherRunId },
-    readyTickets: readyTicketsOf(concurrency.readyTicketIds, tickets),
+    concurrency:  dispatcherRunId === undefined ? concurrency : { ...concurrency, dispatcherRunId },
+    readyTickets: readyTicketsOf(board),
   };
 }
 
 /** The whole progress file plus every ticket: a document an agent could write back, with the derived `concurrency` and `readyTickets` beside it. */
-function fullDocumentOf(progress: ProgressFile, tickets: readonly Ticket[]): object {
-  return { ...progress, tickets: tickets.map(ticketDocumentOf), ...derivedDocumentOf(progress, tickets) };
+function fullDocumentOf(progress: ProgressFile, board: Board): object {
+  return { ...progress, tickets: board.tickets().map(ticketDocumentOf), ...derivedDocumentOf(board) };
 }
 
 /** What an agent opening a session needs: unsettled rows and tickets, the recent log newest first, and counts of what was left out. */
-function workingDocumentOf(progress: ProgressFile, tickets: readonly Ticket[]): object {
-  const unsettledTasks   = progress.tasks.filter((task) => !taskIsSettled(task));
-  const unsettledTickets = tickets.filter((ticket) => !ticketIsSettled(ticket));
+function workingDocumentOf(progress: ProgressFile, board: Board): object {
+  const tickets          = board.tickets();
+  const unsettledTasks   = board.tasks().filter((task) => !board.taskIsSettled(task));
+  const unsettledTickets = tickets.filter((ticket) => !board.ticketIsSettled(ticket));
   const recentLog        = logNewestFirst(progress.log).slice(0, WORKING_VIEW_LOG_ENTRY_COUNT);
   return {
     ...progress,
     tasks:   unsettledTasks,
     tickets: unsettledTickets.map(ticketDocumentOf),
     log:     recentLog,
-    ...derivedDocumentOf(progress, tickets),
+    ...derivedDocumentOf(board),
     omitted: {
       settledTasks:    progress.tasks.length - unsettledTasks.length,
       settledTickets:  tickets.length - unsettledTickets.length,
@@ -119,7 +109,8 @@ function workingDocumentOf(progress: ProgressFile, tickets: readonly Ticket[]): 
   };
 }
 
-function renderHumanStatus(progress: ProgressFile, tickets: readonly Ticket[], showsEverything: boolean): string {
+function renderHumanStatus(progress: ProgressFile, board: Board, showsEverything: boolean): string {
+  const tickets = board.tickets();
   const lines = [
     `${progress.project} — started ${progress.startedAt.slice(0, LIMITS.DATE_AND_CLOCK_LENGTH).replace('T', ' ')}`,
     `Tasks:   ${countsByStatus(TASK_STATUSES, progress.tasks.map((task) => task.status))}`,
@@ -132,7 +123,7 @@ function renderHumanStatus(progress: ProgressFile, tickets: readonly Ticket[], s
     lines.push(`Tokens:  ${TokenCountUtil.formatTokenCount(totalTokens)} reported across ${reportedCount} of ${progress.tasks.length} rows`);
   }
 
-  const listedTasks = showsEverything ? progress.tasks : progress.tasks.filter((task) => !taskIsSettled(task));
+  const listedTasks = showsEverything ? progress.tasks : progress.tasks.filter((task) => !board.taskIsSettled(task));
   if (listedTasks.length > 0) {
     lines.push('');
     lines.push([
@@ -177,11 +168,12 @@ export const statusCommand: CommandHandler = async (commandArguments, context) =
   const workspace = requireWorkspace(context.currentDirectory);
   const progress  = requireProgressFile(workspace);
   const listing   = listTickets(workspace);
+  const board     = boardForReading(progress, listing.tickets);
 
   reportIgnoredTicketFiles(context, listing.malformed);
 
   const showsEverything = commandArguments.flag('full');
-  const asJson          = showsEverything ? fullDocumentOf(progress, listing.tickets) : workingDocumentOf(progress, listing.tickets);
-  printEntityThenNextLine(commandArguments, context, asJson, renderHumanStatus(progress, listing.tickets, showsEverything), nextLineFor(progress, listing.tickets));
+  const asJson          = showsEverything ? fullDocumentOf(progress, board) : workingDocumentOf(progress, board);
+  printEntityThenNextLine(commandArguments, context, asJson, renderHumanStatus(progress, board, showsEverything), nextLineFor(board));
   return Promise.resolve();
 };

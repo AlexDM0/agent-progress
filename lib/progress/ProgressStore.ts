@@ -1,21 +1,16 @@
 import { existsSync, readFileSync } from 'node:fs';
 
-import { LegacyStatusUtil }                          from '../../src/adapters/utils/LegacyStatusUtil';
-import { createFileAtomically, writeFileAtomically } from '../../src/lib/atomic-file/AtomicFile';
-import type {
-  DispatcherState,
-  LogEntry,
-  ProgressFile,
-  ViewRange
-} from '../../src/lib/tracker-model/@types/ProgressFile';
-import type { Task, TaskPhase }                        from '../../src/lib/tracker-model/@types/Task';
-import { DEFAULT_CONCURRENCY_LIMIT }                   from '../../src/lib/tracker-model/constants/ConcurrencyLimits';
-import { DEFAULT_DISPATCHER_STATE, DISPATCHER_STATES } from '../../src/lib/tracker-model/constants/DispatcherStates';
-import { FIRST_REPEAT_REVIEW_ROUND }                   from '../../src/lib/tracker-model/constants/ReviewRounds';
-import { TASK_STATUSES }                               from '../../src/lib/tracker-model/constants/Statuses';
-import { VocabularyUtil }                              from '../../src/lib/tracker-model/utils/VocabularyUtil';
-import { LIMITS }                                      from '../../src/shared/constants/Limits';
-import type { Workspace }                              from '../platform/Workspace';
+import { LegacyStatusUtil }                              from '../../src/adapters/utils/LegacyStatusUtil';
+import { createFileAtomically, writeFileAtomically }     from '../../src/lib/atomic-file/AtomicFile';
+import type { DispatcherState, ProgressFile, ViewRange } from '../../src/lib/tracker-model/@types/ProgressFile';
+import type { TaskPhase }                                from '../../src/lib/tracker-model/@types/Task';
+import { DEFAULT_CONCURRENCY_LIMIT }                     from '../../src/lib/tracker-model/constants/ConcurrencyLimits';
+import { DISPATCHER_STATES }                             from '../../src/lib/tracker-model/constants/DispatcherStates';
+import { FIRST_REPEAT_REVIEW_ROUND }                     from '../../src/lib/tracker-model/constants/ReviewRounds';
+import { TASK_STATUSES }                                 from '../../src/lib/tracker-model/constants/Statuses';
+import { VocabularyUtil }                                from '../../src/lib/tracker-model/utils/VocabularyUtil';
+import { LIMITS }                                        from '../../src/shared/constants/Limits';
+import type { Workspace }                                from '../platform/Workspace';
 
 /** Checked by equality: a future format is refused rather than half-read. */
 const SUPPORTED_PROGRESS_VERSION = 1;
@@ -51,10 +46,6 @@ export function concurrencyLimitIsWellFormed(value: unknown): value is number {
 
 export function dispatcherStateIsKnown(value: unknown): value is DispatcherState {
   return typeof value === 'string' && (DISPATCHER_STATES as readonly string[]).includes(value);
-}
-
-export function dispatcherStateOf(progress: ProgressFile): DispatcherState {
-  return progress.dispatcherState ?? DEFAULT_DISPATCHER_STATE;
 }
 
 export function dispatcherRunIdIsWellFormed(value: unknown): value is string {
@@ -223,14 +214,4 @@ export function writeProgressFile(workspace: Workspace, progress: ProgressFile):
 /** `init`'s write: it never replaces a progress file, whatever path led to it, and says so instead. */
 export function createProgressFile(workspace: Workspace, progress: ProgressFile): 'created' | 'already-exists' {
   return createFileAtomically(workspace.progressFilePath, `${JSON.stringify(progress, null, LIMITS.JSON_INDENT)}\n`);
-}
-
-export function findTask(progress: ProgressFile, taskId: number): Task | undefined {
-  return progress.tasks.find((task) => task.id === taskId);
-}
-
-/** Stored oldest-first; readers sort by `at` for display, since `--at` backfills out of order. */
-export function appendLogEntry(progress: ProgressFile, at: string, text: string): void {
-  const entry: LogEntry = { at, text };
-  progress.log.push(entry);
 }

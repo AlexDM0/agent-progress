@@ -71,6 +71,11 @@ const CALLS_THAT_CHANGE_NO_TICKET: readonly (readonly [string, (board: Board) =>
   ['ticketIsReleasable', (board) => board.tickets().map((ticket) => board.ticketIsReleasable(ticket))],
   ['unsettledDependenciesOf', (board) => board.unsettledDependenciesOf('001')],
   ['lowPriorityWorkHoldingBack', (board) => board.lowPriorityWorkHoldingBack('002')],
+  ['pausedBuildRowOf', (board) => board.pausedBuildRowOf('001')],
+  ['readyTickets', (board) => board.readyTickets()],
+  ['heldTicketIds', (board) => board.heldTicketIds()],
+  ['taskIsSettled', (board) => board.tasks().map((task) => board.taskIsSettled(task))],
+  ['ticketIsSettled', (board) => board.tickets().map((ticket) => board.ticketIsSettled(ticket))],
   ['tasks', (board) => board.tasks()],
   ['tickets', (board) => board.tickets()],
   ['taskById', (board) => board.taskById(1)],
@@ -112,6 +117,11 @@ const CALLS_THAT_CHANGE_A_TICKET: readonly (readonly [string, (board: Board) => 
     return board.releaseTickets(['001', '002'], { branch: 'ticket/example-checkout', commit: 'a1b2c3d4' }, CHANGED_AT);
   }, ['001', '002']],
   ['setTicketPriority', (board) => board.setTicketPriority('002', 'high', CHANGED_AT), ['002']],
+  ['linkTicketToTask', (board) => board.linkTicketToTask('002', 2, { movesTheLink: false }), ['002']],
+  ['linkTicketToTask moving a row from its owner', (board) => board.linkTicketToTask('002', 1, { movesTheLink: true }), ['001', '002']],
+  ['setTicketAgents', (board) => board.setTicketAgents('002', { model: 'sonnet' }, CHANGED_AT), ['002']],
+  ['holdTicket', (board) => board.holdTicket('001', 'Example reason', CHANGED_AT), ['001']],
+  ['unholdTicket', (board) => board.unholdTicket('002', CHANGED_AT), ['002']],
   ['clearTracker with the tickets', (board) => board.clearTracker({ ticketsSurvive: true }, CHANGED_AT), ['001', '002']],
 ];
 
