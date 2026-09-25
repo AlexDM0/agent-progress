@@ -28,6 +28,7 @@ import {
   ensureTaskForTicketOnTheChart
 } from '../../lib/tickets/TicketTransitions';
 import { NextLineUtil }      from '../../lib/utils/NextLineUtil';
+import { LegacyStatusUtil }  from '../../src/adapters/utils/LegacyStatusUtil';
 import type { ProgressFile } from '../../src/lib/tracker-model/@types/ProgressFile';
 import type { Task }         from '../../src/lib/tracker-model/@types/Task';
 import type {
@@ -70,8 +71,8 @@ const USAGE = [
   + '[--depends-on <ids>] [--body <markdown> | --body-file <path|->] [--at <when>]',
   'agent-progress ticket list [--status <s>] [--priority <p>] [--json]',
   'agent-progress ticket show <id> [--json]',
-  'agent-progress ticket start|review|done|deliver|abandon|reopen <id> [--branch <b>] [--commit <sha>] [--reason <text>] [--tokens <n>] [--at <when>]',
-  'agent-progress ticket review|rereview <id> --start-review [--owner <who>] [--note <text>] [--at <when>]',
+  'agent-progress ticket start|finish|approve|deliver|abandon|reopen <id> [--branch <b>] [--commit <sha>] [--reason <text>] [--tokens <n>] [--at <when>]',
+  'agent-progress ticket finish|rereview <id> --start-review [--owner <who>] [--note <text>] [--at <when>]',
   'agent-progress ticket claim <id> [<id>...] [--owner <who>] [--note <text>] [--at <when>]',
   'agent-progress ticket rereview <id> [--at <when>]',
   'agent-progress ticket status <id> <status> [...same options]',
@@ -85,11 +86,17 @@ const USAGE = [
 
 const TRANSITION_SUBCOMMANDS: Record<string, TicketStatus> = {
   start:   'in-progress',
-  review:  'in-review',
-  done:    'reviewed',
+  finish:  'in-review',
+  approve: 'reviewed',
   deliver: 'delivered',
   abandon: 'abandoned',
   reopen:  'pending',
+};
+
+/** A verb that was renamed is refused naming its replacement, rather than read as an unknown word. */
+const RETIRED_SUBCOMMAND_REPLACEMENTS: Record<string, string> = {
+  review: 'finish',
+  done:   'approve',
 };
 
 const ADD_OPTION_NAMES        = ['type', 'priority', 'model', 'effort', 'group', 'depends-on', 'body', 'body-file', 'at', 'json'];
@@ -112,8 +119,8 @@ const DEPENDENCY_SEPARATOR_PATTERN = /[\s,]+/;
 const TRANSITION_WORD_FOR_TICKET_STATUS: Record<TicketStatus, string> = {
   'pending':     'reopen',
   'in-progress': 'start',
-  'in-review':   'review',
-  'reviewed':    'done',
+  'in-review':   'finish',
+  'reviewed':    'approve',
   'delivered':   'deliver',
   'abandoned':   'abandon',
 };
@@ -311,7 +318,7 @@ function reviewRoundOf(ticket: Ticket): number {
 
 /**
  * Closes the ticket's running review bars and starts the next one, inside the caller's lock hold, so the ticket's slot is never free between two
- * agents: a builder's `ticket review` hands it to its reviewer, a reviewer's round to the next.
+ * agents: a builder's `ticket finish` hands it to its reviewer, a reviewer's round to the next.
  */
 function startReviewBar(progress: ProgressFile, ticket: Ticket, request: ReviewBarRequest, at: string): StartedReviewBar {
   const { id, title } = ticket.frontmatter;
@@ -413,13 +420,22 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
   );
 }
 
+/** An old status word is named with the word that replaced it, since a reader who typed it meant that one. */
+function refuseAnUnknownTicketStatus(writtenStatus: string, adviceNaming: (renamedStatus: TicketStatus) => string): never {
+  const renamedStatus = LegacyStatusUtil.currentTicketStatusFor(writtenStatus);
+  if (renamedStatus !== null) {
+    throw new OperationRefusal('refused', `"${writtenStatus}" is the old name of the ticket status ${renamedStatus}; ${adviceNaming(renamedStatus)}.`);
+  }
+  throw new OperationRefusal('refused', `"${writtenStatus}" is not a ticket status. The statuses are ${TICKET_STATUSES.join(', ')}.`);
+}
+
 function listAllTickets(commandArguments: ArgumentParser, context: CommandContext): void {
   commandArguments.rejectUnknownOptions(LIST_OPTION_NAMES, USAGE);
   commandArguments.rejectExtraPositionals(1, USAGE);
 
   const writtenStatus = commandArguments.option('status');
   if (writtenStatus !== undefined && !VocabularyUtil.ticketStatusIsKnown(writtenStatus)) {
-    throw new OperationRefusal('refused', `"${writtenStatus}" is not a ticket status. The statuses are ${TICKET_STATUSES.join(', ')}.`);
+    refuseAnUnknownTicketStatus(writtenStatus, (renamedStatus) => `pass --status ${renamedStatus}`);
   }
 
   const writtenPriority = priorityFrom(commandArguments.option('priority'));
@@ -599,7 +615,7 @@ async function rereviewOneTicket(
     });
     if (outcome.verdict === 'refused') {
       const { id, status } = ticket.frontmatter;
-      const firstReviewAdvice = ticketMoveIsLegal(status, 'in-review') ? ` Run \`agent-progress ticket review ${id}\` to send it to its first reviewer.` : '';
+      const firstReviewAdvice = ticketMoveIsLegal(status, 'in-review') ? ` Run \`agent-progress ticket finish ${id}\` to send it to its first reviewer.` : '';
       throw new OperationRefusal('refused', `Ticket #${id} is ${status}, and ${outcome.reason}.${firstReviewAdvice}`);
     }
     const startedReviewBar = reviewBarRequest === null ? null : startReviewBar(change.progress, outcome.ticket, reviewBarRequest, change.at);
@@ -945,6 +961,18 @@ async function holdOrUnholdTicket(holds: boolean, commandArguments: ArgumentPars
   printEntityThenNextLine(commandArguments, context, ticketAsJson(changed.ticket), changed.logText, closingLines);
 }
 
+function refuseARetiredSubcommand(subcommand: string, commandArguments: ArgumentParser): never {
+  const replacement  = RETIRED_SUBCOMMAND_REPLACEMENTS[subcommand] ?? subcommand;
+  const targetStatus = Object.hasOwn(TRANSITION_SUBCOMMANDS, replacement) ? TRANSITION_SUBCOMMANDS[replacement] : undefined;
+  const ticketId     = commandArguments.positionals()[1] ?? '<id>';
+  const carriesOver  = targetStatus === 'in-review' ? ', and takes --start-review the same way' : '';
+  throw new OperationRefusal(
+    'refused',
+    `\`agent-progress ticket ${subcommand}\` was renamed: \`agent-progress ticket ${replacement} ${ticketId}\` moves a ticket to ${targetStatus ?? replacement}${carriesOver}. `
+    + 'Nothing was written.',
+  );
+}
+
 async function setTicketStatus(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   commandArguments.rejectUnknownOptions(TRANSITION_OPTION_NAMES, USAGE);
   commandArguments.rejectExtraPositionals(3, USAGE);
@@ -954,7 +982,7 @@ async function setTicketStatus(commandArguments: ArgumentParser, context: Comman
     throw new OperationRefusal('refused', `agent-progress ticket status needs a ticket id and a status.\n  Usage: ${USAGE}`);
   }
   if (!VocabularyUtil.ticketStatusIsKnown(writtenStatus)) {
-    throw new OperationRefusal('refused', `"${writtenStatus}" is not a ticket status. The statuses are ${TICKET_STATUSES.join(', ')}.`);
+    refuseAnUnknownTicketStatus(writtenStatus, (renamedStatus) => `run \`agent-progress ticket status ${reference} ${renamedStatus}\``);
   }
   return transitionOneTicket(writtenStatus, reference, commandArguments, context, false);
 }
@@ -962,6 +990,7 @@ async function setTicketStatus(commandArguments: ArgumentParser, context: Comman
 export const ticketCommand: CommandHandler = async (commandArguments, context) => {
   const subcommand = commandArguments.positionals()[0];
 
+  if (subcommand !== undefined && Object.hasOwn(RETIRED_SUBCOMMAND_REPLACEMENTS, subcommand)) refuseARetiredSubcommand(subcommand, commandArguments);
   if (subcommand === 'add') return addOneTicket(commandArguments, context);
   if (subcommand === 'link') return linkOneTicket(commandArguments, context);
   if (subcommand === 'depends') return setTicketDependencies(commandArguments, context);
@@ -1008,7 +1037,7 @@ export const ticketCommand: CommandHandler = async (commandArguments, context) =
     if (reference === undefined) {
       throw new OperationRefusal('refused', `agent-progress ticket ${subcommand} needs a ticket id.\n  Usage: ${USAGE}`);
     }
-    const reviewBarRequest = sendsToReview ? reviewBarRequestFrom(commandArguments, 'review') : null;
+    const reviewBarRequest = sendsToReview ? reviewBarRequestFrom(commandArguments, 'finish') : null;
     return transitionOneTicket(targetStatus, reference, commandArguments, context, true, reviewBarRequest);
   }
 

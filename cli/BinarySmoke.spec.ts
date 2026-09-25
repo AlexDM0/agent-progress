@@ -82,8 +82,8 @@ describe.skipIf(!gitIsAvailable())('a whole session through the binary', () => {
       await run(['task', 'start', '2']);
       await run(['log', 'Halfway through the role editor', '--at', '-5m']);
       expect(await refused(['ticket', 'deliver', '1'])).toContain('agent-progress ticket status 001 delivered');
-      await run(['ticket', 'review', '1', '--at', '-1h']);
-      await run(['ticket', 'done', '1', '--commit', 'abc1234', '--tokens', '12k']);
+      await run(['ticket', 'finish', '1', '--at', '-1h']);
+      await run(['ticket', 'approve', '1', '--commit', 'abc1234', '--tokens', '12k']);
       await run(['ticket', 'deliver', '1']);
 
       const document = JSON.parse(await run(['status', '--json', '--full'])) as {

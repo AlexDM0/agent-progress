@@ -45,13 +45,13 @@ const NEXT_LINE_CASES: NextLineCase[] = [
     expectedNextLine: 'Next: no slot free (2 agents in flight); ready: #002, #003',
   },
   {
-    command:          ['ticket', 'review', '1'],
+    command:          ['ticket', 'finish', '1'],
     setup:            [['ticket', 'claim', '1']],
     expectedNextLine: 'Next: 2 of 2 slots free; ready: #002, #003',
   },
   {
     command:          ['ticket', 'deliver', '1'],
-    setup:            [['ticket', 'claim', '1'], ['ticket', 'review', '1'], ['ticket', 'done', '1']],
+    setup:            [['ticket', 'claim', '1'], ['ticket', 'finish', '1'], ['ticket', 'approve', '1']],
     expectedNextLine: 'Next: 2 of 2 slots free; ready: #002, #003',
   },
   {

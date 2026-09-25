@@ -137,7 +137,7 @@ async function reviewedTicketOnAWorktree(title: string, worktreeName: string): P
   const added      = JSON.parse(await agentProgressOrFail(['ticket', 'add', title, '--json'])) as { id: string };
   const identifier = added.id;
   await agentProgressOrFail(['ticket', 'start', identifier]);
-  await agentProgressOrFail(['ticket', 'review', identifier]);
+  await agentProgressOrFail(['ticket', 'finish', identifier]);
   const worktree = addWorktree(repositoryDirectory, worktreeName);
   const tip      = commitFile(worktree, `${worktreeName}.ts`, `export const ${worktreeName.replaceAll('-', '')} = true;\n`);
   return {

@@ -112,7 +112,7 @@ describe.skipIf(!gitIsAvailable())('holding a ticket', () => {
     await run(['ticket', 'add', 'Show the role history']);
     await run(['ticket', 'add', 'Export the roles']);
     await run(['ticket', 'claim', '1']);
-    await run(['ticket', 'review', '1']);
+    await run(['ticket', 'finish', '1']);
     await run(['ticket', 'hold', '1', '--reason', 'the user reads it first']);
     await run(['ticket', 'hold', '2']);
 
@@ -242,7 +242,7 @@ describe.skipIf(!gitIsAvailable())('unholding a ticket whose build a dispatcher 
     expect((await run(['ticket', 'hold', '1'])).outputText()).not.toContain(RESUME_BUILD_HINT);
 
     await run(['task', 'start', '1']);
-    await run(['ticket', 'review', '1']);
+    await run(['ticket', 'finish', '1']);
     await run(['task', 'pause', '1']);
     expect(await unholdOutput()).not.toContain(RESUME_BUILD_HINT);
   });

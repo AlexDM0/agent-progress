@@ -49,7 +49,7 @@ afterEach(() => {
 });
 
 describe.skipIf(!gitIsAvailable())('the lifecycle of a row', () => {
-  test('add, start, finish, review and deliver each move the row and say so', async () => {
+  test('add, start, finish, approve and deliver each move the row and say so', async () => {
     const added = await run(['task', 'add', 'Review pass', '--owner', 'Alex Example', '--note', 'the whole surface']);
     expect(added.outputText()).toContain('Task #1 added: Review pass');
     expect(storedProgress().tasks[0]).toMatchObject({
@@ -64,7 +64,7 @@ describe.skipIf(!gitIsAvailable())('the lifecycle of a row', () => {
     expect(storedProgress().tasks[0]?.status).toBe('in-review');
     expect(storedProgress().tasks[0]?.end).not.toBeNull();
 
-    await run(['task', 'review', '1']);
+    await run(['task', 'approve', '1']);
     expect(storedProgress().tasks[0]?.status).toBe('reviewed');
 
     const delivered = await run(['task', 'deliver', '1']);
@@ -133,7 +133,7 @@ describe.skipIf(!gitIsAvailable())('the lifecycle of a row', () => {
     await run(['task', 'update', '1', '--status', 'in-review']);
     expect(storedProgress().tasks[0]?.history?.map((phase) => phase.status)).toEqual(['pending', 'in-progress']);
 
-    await run(['task', 'review', '1']);
+    await run(['task', 'approve', '1']);
     expect(storedProgress().tasks[0]?.history?.map((phase) => phase.status)).toEqual(['pending', 'in-progress', 'reviewed']);
   });
 
@@ -174,6 +174,50 @@ describe.skipIf(!gitIsAvailable())('refusals a caller can act on', () => {
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('is not a time');
     expect(storedProgress().tasks).toEqual([]);
+  });
+});
+
+describe.skipIf(!gitIsAvailable())('the retired verb and status words', () => {
+  function progressFileText(): string {
+    return readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8');
+  }
+
+  // A caller still on the old verb must learn the new one, not be told `review` is unknown, and must move nothing.
+  test('task review is refused at exit 1 naming task approve, and the progress file stays byte-identical', async () => {
+    await run(['task', 'add', 'Review pass', '--start']);
+    const progressBefore = progressFileText();
+
+    const context  = contextHere();
+    const exitCode = await runCommandLine(['task', 'review', '1'], context);
+
+    expect(exitCode).toBe(1);
+    expect(context.errorText()).toContain('agent-progress task approve 1');
+    expect(progressFileText()).toBe(progressBefore);
+  });
+
+  // `running` is still a word agents type from habit, so the refusal says which word replaced it.
+  test('task update --status running is refused at exit 1 naming in-progress, and nothing is written', async () => {
+    await run(['task', 'add', 'Review pass']);
+    const progressBefore = progressFileText();
+
+    const context  = contextHere();
+    const exitCode = await runCommandLine(['task', 'update', '1', '--status', 'running'], context);
+
+    expect(exitCode).toBe(1);
+    expect(context.errorText()).toContain('"running" is the old name of the task status in-progress');
+    expect(context.errorText()).toContain('--status in-progress');
+    expect(progressFileText()).toBe(progressBefore);
+  });
+
+  // The verb that replaced `review` must reach the same status the old one did.
+  test('task approve moves a row to reviewed', async () => {
+    await run(['task', 'add', 'Review pass', '--start']);
+    await run(['task', 'finish', '1']);
+
+    const approved = await run(['task', 'approve', '1']);
+
+    expect(storedProgress().tasks[0]?.status).toBe('reviewed');
+    expect(approved.outputText()).toContain('Task #1 reviewed: Review pass');
   });
 });
 
@@ -308,7 +352,7 @@ describe.skipIf(!gitIsAvailable())('a row a ticket owns', () => {
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('belongs to ticket #001');
-    expect(context.errorText()).toContain('agent-progress ticket review 001');
+    expect(context.errorText()).toContain('agent-progress ticket finish 001');
     expect(storedProgress().tasks[0]?.status).toBe('pending');
   });
 

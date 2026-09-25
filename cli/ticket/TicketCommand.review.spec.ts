@@ -1,7 +1,7 @@
 /**
- * `ticket review|rereview --start-review`: the move to review and the review bar in one lock hold, so the ticket's slot passes from its builder to
+ * `ticket finish|rereview --start-review`: the move to review and the review bar in one lock hold, so the ticket's slot passes from its builder to
  * its reviewer, and from one round to the next, without a moment at which `status --json` shows it free. The race with a claim for that slot is
- * the case the option exists for; the plain `ticket review` beside it shows the gap it closes.
+ * the case the option exists for; the plain `ticket finish` beside it shows the gap it closes.
  */
 import { readFileSync } from 'node:fs';
 import { join }         from 'node:path';
@@ -73,10 +73,10 @@ afterEach(() => {
 });
 
 describe.skipIf(!gitIsAvailable())('starting the review bar with the move to review', () => {
-  test('ticket review --start-review puts the ticket in review beside a running bar that reviews it, and the agents in flight stay as many', async () => {
+  test('ticket finish --start-review puts the ticket in review beside a running bar that reviews it, and the agents in flight stay as many', async () => {
     const agentsBefore = await agentsInFlightNow();
 
-    const output = (await run(['ticket', 'review', '1', '--start-review', '--owner', 'opus', '--note', 'Reviewed by the dispatcher'])).outputText();
+    const output = (await run(['ticket', 'finish', '1', '--start-review', '--owner', 'opus', '--note', 'Reviewed by the dispatcher'])).outputText();
 
     const bars = runningBarsReviewing('001');
     expect(bars).toHaveLength(1);
@@ -89,8 +89,8 @@ describe.skipIf(!gitIsAvailable())('starting the review bar with the move to rev
   });
 
   // The gap the option closes: between a plain move to review and the reviewer's own `task add --start`, the board shows the slot free.
-  test('a plain ticket review frees the slot, so a claim before the reviewer adds its bar takes it and the board runs one over', async () => {
-    await run(['ticket', 'review', '1']);
+  test('a plain ticket finish frees the slot, so a claim before the reviewer adds its bar takes it and the board runs one over', async () => {
+    await run(['ticket', 'finish', '1']);
     await run(['ticket', 'claim', '2']);
     await run(['task', 'add', `Review 1 #001 — ${REVIEWED_TICKET_TITLE}`, '--review-of', '1', '--start']);
 
@@ -103,7 +103,7 @@ describe.skipIf(!gitIsAvailable())('starting the review bar with the move to rev
 
     await withLock(workspacePathsFor(repositoryDirectory), async () => {
       queuedCommands = [
-        runWithExitCode(['ticket', 'review', '1', '--start-review']),
+        runWithExitCode(['ticket', 'finish', '1', '--start-review']),
         runWithExitCode(['ticket', 'claim', '2']),
       ];
       await Bun.sleep(LOCK_HELD_WHILE_COMMANDS_QUEUE_MILLISECONDS);
@@ -117,7 +117,7 @@ describe.skipIf(!gitIsAvailable())('starting the review bar with the move to rev
   });
 
   test('ticket rereview --start-review closes the round\'s running bar and starts the next, numbered from the ticket\'s review sections', async () => {
-    await run(['ticket', 'review', '1', '--start-review']);
+    await run(['ticket', 'finish', '1', '--start-review']);
     const [firstBar] = runningBarsReviewing('001');
     const ticketFilePath = JSON.parse((await run(['ticket', 'show', '1', '--json'])).outputText()) as { filePath: string };
     const ticketText     = readFileSync(ticketFilePath.filePath, 'utf8');
@@ -135,7 +135,7 @@ describe.skipIf(!gitIsAvailable())('starting the review bar with the move to rev
 
   // A single-ticket dispatcher run launched late would otherwise claim the in-review ticket its whole-board twin is reviewing, and rebuild it.
   test('a claim of a ticket whose review bar runs is refused, and one after the bar is closed takes it for the rebuild', async () => {
-    await run(['ticket', 'review', '1', '--start-review']);
+    await run(['ticket', 'finish', '1', '--start-review']);
     await run(['concurrency', '2']);
     const [bar] = runningBarsReviewing('001');
 
@@ -156,7 +156,7 @@ describe.skipIf(!gitIsAvailable())('starting the review bar with the move to rev
       ['ticket', 'abandon', '1', '--reason', 'superseded by #2'],
       ['ticket', 'reopen', '1'],
       ['ticket', 'start', '1'],
-      ['ticket', 'done', '1'],
+      ['ticket', 'approve', '1'],
       ['ticket', 'status', '1', 'pending'],
     ];
     for (const moveOutOfReview of movesOutOfReview) {
@@ -174,7 +174,7 @@ describe.skipIf(!gitIsAvailable())('starting the review bar with the move to rev
   });
 
   test('at a limit of 1, a claim after abandoning a ticket whose review bar ran takes the freed slot', async () => {
-    await run(['ticket', 'review', '1', '--start-review']);
+    await run(['ticket', 'finish', '1', '--start-review']);
     await run(['ticket', 'abandon', '1', '--reason', 'superseded by #2']);
 
     expect(await agentsInFlightNow()).toBe(0);
@@ -182,7 +182,7 @@ describe.skipIf(!gitIsAvailable())('starting the review bar with the move to rev
   });
 
   test('a reopened ticket whose review bar ran can be claimed again', async () => {
-    await run(['ticket', 'review', '1', '--start-review']);
+    await run(['ticket', 'finish', '1', '--start-review']);
     await run(['ticket', 'reopen', '1']);
 
     await run(['ticket', 'claim', '1']);
@@ -194,16 +194,16 @@ describe.skipIf(!gitIsAvailable())('starting the review bar with the move to rev
     await run(['ticket', 'claim', '1', '2']);
     expect(await agentsInFlightNow()).toBe(1);
 
-    await run(['ticket', 'review', '1', '--start-review']);
+    await run(['ticket', 'finish', '1', '--start-review']);
     expect(await agentsInFlightNow()).toBe(1);
     expect(runningBarsReviewing('001')[0]?.agent).toBe('001,002');
 
-    await run(['ticket', 'review', '2', '--start-review']);
+    await run(['ticket', 'finish', '2', '--start-review']);
     expect(await agentsInFlightNow()).toBe(1);
   });
 
   test('--owner or --note without --start-review is refused, and nothing moves', async () => {
-    const { exitCode, context } = await runWithExitCode(['ticket', 'review', '1', '--owner', 'opus']);
+    const { exitCode, context } = await runWithExitCode(['ticket', 'finish', '1', '--owner', 'opus']);
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('only with --start-review');

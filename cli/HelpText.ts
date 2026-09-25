@@ -88,11 +88,11 @@ output never carries either.
       [--at <when>] [--force] whose name starts "Review <N> #<id>" is nested the same way; for a
                               bundle, the first id named is the parent.
 
-  task start|pause|finish|review|rereview|deliver <id> [--owner <who>] [--note <text>]
+  task start|pause|finish|approve|rereview|deliver <id> [--owner <who>] [--note <text>]
       [--tokens <n>] [--at <when>] [--force]
                               Move one row and stamp it: \`start\` sets its start and resumes a
                               paused row, \`pause\` records that the work is waiting without closing
-                              the bar, \`finish\` and \`review\` set its end, \`rereview\` sends a row
+                              the bar, \`finish\` and \`approve\` set its end, \`rereview\` sends a row
                               whose review found too much into its next review pass — round 2, then
                               3 — without reopening the bar, and \`deliver\` records that the work
                               reached its destination. A stamp already recorded is kept, so --at
@@ -175,8 +175,8 @@ output never carries either.
                               the per-file breakdown. It needs no tracker and writes nothing.
 
   release <id> --branch <b>   Release a reviewed branch: fast-forward the main checkout — the
-      [--worktree <path>]     tracker's root, wherever this runs from — to <b>, then move the
-      [--main <line>]         ticket to reviewed and deliver it with --branch <b> and --commit set
+      [--worktree <path>]     tracker's root, wherever this runs from — to <b>, then approve the
+      [--main <line>]         ticket and deliver it with --branch <b> and --commit set
       [--json]                to the merged tip. More ids after <id> release every ticket of a
                               bundle, which share <b>. Every in-progress review row whose
                               --review-of names a released ticket is finished and delivered at the release
@@ -261,13 +261,14 @@ output never carries either.
                               its row when \`ticket start\` or \`ticket claim\` starts it, and keeps
                               it; abandoning a low ticket that has none creates none.
 
-  ticket start|review|done|deliver|abandon|reopen <id> [--branch <b>] [--commit <sha>]
+  ticket start|finish|approve|deliver|abandon|reopen <id> [--branch <b>] [--commit <sha>]
       [--reason <text>] [--tokens <n>] [--at <when>]
                               Move a ticket and its Gantt row together, stamping both. Each verb
                               moves a ticket that is in a status it makes sense from: start from
-                              pending or in-review, review from in-progress, done from in-progress
-                              or in-review, deliver from reviewed, abandon from anything not
-                              already delivered or abandoned, reopen from anything but pending.
+                              pending or in-review, finish from in-progress, approve from
+                              in-progress or in-review, deliver from reviewed, abandon from
+                              anything not already delivered or abandoned, reopen from anything
+                              but pending.
                               Moving a ticket to the status it already has is refused and logs
                               nothing — \`ticket rereview\` below is the one exception. Every
                               move out of in-review finishes and delivers the ticket's in-progress
@@ -276,9 +277,14 @@ output never carries either.
                               \`abandon\` requires --reason; \`reopen\` clears the stamps and returns
                               the row to pending. --branch and --commit record where the work
                               landed, and --tokens what it cost; --tokens on a ticket with no
-                              row (a low one never started) is refused at exit 1.
+                              row (a low one never started) is refused at exit 1. The retired
+                              verbs are refused at exit 1 with nothing written, naming the one
+                              that replaced them: \`ticket review\` names \`finish\`, \`ticket done\`
+                              and \`task review\` name \`approve\`. So is an old status word given
+                              to \`ticket status\`, \`ticket list --status\` or \`task update
+                              --status\` (open, done, running, finished), naming its new word.
 
-  ticket review|rereview <id> --start-review [--owner <who>] [--note <text>] [--at <when>]
+  ticket finish|rereview <id> --start-review [--owner <who>] [--note <text>] [--at <when>]
                               The move to review, or the next round, and the reviewer's in-progress bar
                               (\`Review <N> #<id> — <title>\`, its \`reviewOf\` the ticket, N the
                               \`## Review\` sections plus one) in one lock hold, closing any bar of

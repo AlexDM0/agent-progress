@@ -238,7 +238,7 @@ describe.skipIf(!gitIsAvailable())('claiming several tickets as one agent', () =
 
     const agentsInFlightAfterEachReview: number[] = [];
     for (const identifier of ['3', '4', '5']) {
-      await run(['ticket', 'review', identifier]);
+      await run(['ticket', 'finish', identifier]);
       agentsInFlightAfterEachReview.push(await agentsInFlightNow());
     }
 

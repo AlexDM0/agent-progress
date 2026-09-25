@@ -229,7 +229,7 @@ describe.skipIf(!gitIsAvailable())('readiness and claiming', () => {
     expect(storedTicketText('002')).toContain('status: "pending"');
 
     await run(['ticket', 'start', '1']);
-    await run(['ticket', 'done', '1']);
+    await run(['ticket', 'approve', '1']);
     await runExpectingRefusal(['ticket', 'claim', '2']);
     await run(['ticket', 'deliver', '1']);
 

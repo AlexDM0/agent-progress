@@ -49,7 +49,7 @@ beforeEach(async () => {
   await run(['init', '--project', 'Example Agency']);
   await run(['ticket', 'add', 'Double-click a role to edit it']);
   await run(['ticket', 'start', '1', '--at', '-2h']);
-  await run(['ticket', 'done', '1', '--at', '-1h']);
+  await run(['ticket', 'approve', '1', '--at', '-1h']);
   await run(['task', 'add', 'Review pass', '--start']);
   await run(['log', 'Halfway through the role editor']);
 });

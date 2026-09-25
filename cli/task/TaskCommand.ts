@@ -5,6 +5,7 @@ import {
   transitionTask
 }                                             from '../../lib/progress/ProgressStore';
 import { readTicket }            from '../../lib/tickets/TicketStore';
+import { LegacyStatusUtil }      from '../../src/adapters/utils/LegacyStatusUtil';
 import type { ProgressFile }     from '../../src/lib/tracker-model/@types/ProgressFile';
 import type { Task, TaskStatus } from '../../src/lib/tracker-model/@types/Task';
 import { TASK_STATUSES }         from '../../src/lib/tracker-model/constants/Statuses';
@@ -23,7 +24,7 @@ import type { ArgumentParser } from '../arguments/ArgumentParser';
 
 const USAGE = [
   'agent-progress task add "<name>" [--owner <who>] [--note <text>] [--ticket <id>] [--review-of <id>] [--start] [--tokens <n>] [--at <when>] [--force]',
-  'agent-progress task start|pause|finish|review|rereview|deliver <id> [--owner <who>] [--note <text>] [--tokens <n>] [--at <when>] [--force]',
+  'agent-progress task start|pause|finish|approve|rereview|deliver <id> [--owner <who>] [--note <text>] [--tokens <n>] [--at <when>] [--force]',
   'agent-progress task update <id> [--name <text>] [--owner <who>] [--note <text>] [--status <status>] [--tokens <n>] [--force]',
   'agent-progress task remove <id>',
 ].join('\n         ');
@@ -37,7 +38,7 @@ const TRANSITION_SUBCOMMANDS: Record<string, TaskTransition> = {
   start:    { status: 'in-progress', spoken: 'started' },
   pause:    { status: 'paused',    spoken: 'paused' },
   finish:   { status: 'in-review', spoken: 'finished' },
-  review:   { status: 'reviewed',  spoken: 'reviewed' },
+  approve:  { status: 'reviewed',  spoken: 'reviewed' },
   rereview: { status: 're-review', spoken: 'under review again' },
   deliver:  { status: 'delivered', spoken: 'delivered' },
 };
@@ -46,12 +47,15 @@ const TRANSITION_SUBCOMMANDS: Record<string, TaskTransition> = {
 const TICKET_VERB_FOR_TASK_STATUS: Partial<Record<TaskStatus, string>> = {
   'pending':     'ticket reopen',
   'in-progress': 'ticket start',
-  'in-review':   'ticket review',
+  'in-review':   'ticket finish',
   're-review':   'ticket rereview',
-  'reviewed':    'ticket done',
+  'reviewed':    'ticket approve',
   'delivered':   'ticket deliver',
   'abandoned':   'ticket abandon',
 };
+
+/** A verb that was renamed is refused naming its replacement, rather than read as an unknown word. */
+const RETIRED_SUBCOMMAND_REPLACEMENTS: Record<string, string> = { review: 'approve' };
 
 const ADD_OPTION_NAMES        = ['owner', 'note', 'ticket', 'review-of', 'start', 'at', 'tokens', 'force', 'json'];
 const TRANSITION_OPTION_NAMES = ['owner', 'note', 'at', 'tokens', 'force', 'json'];
@@ -216,6 +220,10 @@ async function updateOneTask(commandArguments: ArgumentParser, context: CommandC
   const taskId        = taskIdFrom(commandArguments.positionals()[1], 'update');
   const writtenStatus = commandArguments.option('status');
   if (writtenStatus !== undefined && !VocabularyUtil.taskStatusIsKnown(writtenStatus)) {
+    const renamedStatus = LegacyStatusUtil.currentTaskStatusFor(writtenStatus);
+    if (renamedStatus !== null) {
+      throw new OperationRefusal('refused', `"${writtenStatus}" is the old name of the task status ${renamedStatus}; pass --status ${renamedStatus}.`);
+    }
     throw new OperationRefusal('refused', `"${writtenStatus}" is not a task status. The statuses are ${TASK_STATUSES.join(', ')}.`);
   }
   const status: TaskStatus | undefined = writtenStatus !== undefined && VocabularyUtil.taskStatusIsKnown(writtenStatus) ? writtenStatus : undefined;
@@ -240,6 +248,16 @@ async function updateOneTask(commandArguments: ArgumentParser, context: CommandC
   });
 
   printEntity(commandArguments, context, task, `Task #${task.id} updated: ${task.name}`);
+}
+
+function refuseARetiredSubcommand(subcommand: string, commandArguments: ArgumentParser): never {
+  const replacement  = RETIRED_SUBCOMMAND_REPLACEMENTS[subcommand] ?? subcommand;
+  const targetStatus = TRANSITION_SUBCOMMANDS[replacement]?.status ?? replacement;
+  const taskId       = commandArguments.positionals()[1] ?? '<id>';
+  throw new OperationRefusal(
+    'refused',
+    `\`agent-progress task ${subcommand}\` was renamed: \`agent-progress task ${replacement} ${taskId}\` moves a row to ${targetStatus}. Nothing was written.`,
+  );
 }
 
 async function removeOneTask(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
@@ -279,6 +297,7 @@ export const taskCommand: CommandHandler = async (commandArguments, context) => 
   if (subcommand !== undefined && move !== undefined) return transitionOneTask(subcommand, move, commandArguments, context);
   if (subcommand === 'update') return updateOneTask(commandArguments, context);
   if (subcommand === 'remove') return removeOneTask(commandArguments, context);
+  if (subcommand !== undefined && Object.hasOwn(RETIRED_SUBCOMMAND_REPLACEMENTS, subcommand)) refuseARetiredSubcommand(subcommand, commandArguments);
 
   throw new OperationRefusal(
     'refused',

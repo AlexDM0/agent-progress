@@ -157,12 +157,12 @@ describe.skipIf(!gitIsAvailable())('moving a ticket', () => {
     expect(storedTicketText()).toContain('branch: "ticket/role-editor"');
     expect(storedTicketText()).not.toContain('started: null');
 
-    await run(['ticket', 'review', '1']);
+    await run(['ticket', 'finish', '1']);
     expect(storedProgress().tasks[0]?.status).toBe('in-review');
     expect(storedTicketText()).toContain('status: "in-review"');
     expect(storedTicketText()).not.toContain('finished: null');
 
-    await run(['ticket', 'done', '1', '--commit', 'abc1234']);
+    await run(['ticket', 'approve', '1', '--commit', 'abc1234']);
     expect(storedProgress().tasks[0]?.status).toBe('reviewed');
     expect(storedTicketText()).toContain('commit: "abc1234"');
 
@@ -177,9 +177,9 @@ describe.skipIf(!gitIsAvailable())('moving a ticket', () => {
     expect(storedProgress().tasks[0]?.history?.map((phase) => phase.status)).toEqual(['pending']);
 
     await run(['ticket', 'start', '1']);
-    await run(['ticket', 'review', '1']);
+    await run(['ticket', 'finish', '1']);
     await run(['ticket', 'rereview', '1']);
-    await run(['ticket', 'done', '1']);
+    await run(['ticket', 'approve', '1']);
 
     expect(storedProgress().tasks[0]?.history?.map((phase) => phase.status)).toEqual(['pending', 'in-progress', 'in-review', 're-review', 'reviewed']);
   });
@@ -187,7 +187,7 @@ describe.skipIf(!gitIsAvailable())('moving a ticket', () => {
   // Reopening is something that happened to the row, and it is what restarts the review rounds the panel counts.
   test('reopen files a pending phase of its own after the phases that led to it', async () => {
     await run(['ticket', 'start', '1']);
-    await run(['ticket', 'done', '1']);
+    await run(['ticket', 'approve', '1']);
 
     await run(['ticket', 'reopen', '1']);
 
@@ -196,7 +196,7 @@ describe.skipIf(!gitIsAvailable())('moving a ticket', () => {
 
   test('reopen clears the stamps and returns the row to pending', async () => {
     await run(['ticket', 'start', '1']);
-    await run(['ticket', 'done', '1']);
+    await run(['ticket', 'approve', '1']);
 
     await run(['ticket', 'reopen', '1']);
 
@@ -251,7 +251,7 @@ describe.skipIf(!gitIsAvailable())('a second review pass', () => {
   beforeEach(async () => {
     await run(['ticket', 'add', 'Double-click a role to edit it']);
     await run(['ticket', 'start', '1']);
-    await run(['ticket', 'review', '1']);
+    await run(['ticket', 'finish', '1']);
   });
 
   test('rereview leaves the ticket in review, moves the row into the next round and logs which round that is', async () => {
@@ -268,10 +268,10 @@ describe.skipIf(!gitIsAvailable())('a second review pass', () => {
     expect(storedProgress().log.at(-1)?.text).toBe('Ticket #001 in review, round 3');
   });
 
-  test('done still moves a ticket whose row is in a repeat review', async () => {
+  test('approve still moves a ticket whose row is in a repeat review', async () => {
     await run(['ticket', 'rereview', '1']);
 
-    await run(['ticket', 'done', '1']);
+    await run(['ticket', 'approve', '1']);
 
     expect(storedTicketText()).toContain('status: "reviewed"');
     expect(storedProgress().tasks[0]?.status).toBe('reviewed');
@@ -296,18 +296,18 @@ describe.skipIf(!gitIsAvailable())('a second review pass', () => {
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('Ticket #002 is pending');
     expect(context.errorText()).toContain('needs a ticket that is in-review');
-    expect(context.errorText()).not.toContain('ticket review 002');
+    expect(context.errorText()).not.toContain('ticket finish 002');
     expect(storedProgress().tasks[1]?.status).toBe('pending');
   });
 
-  test('a refused rereview names ticket review only where that verb would be accepted', async () => {
+  test('a refused rereview names ticket finish only where that verb would be accepted', async () => {
     await run(['ticket', 'add', 'Fix the axis', '--type', 'bug']);
     await run(['ticket', 'start', '2']);
 
     const context = contextHere();
     await runCommandLine(['ticket', 'rereview', '2'], context);
 
-    expect(context.errorText()).toContain('agent-progress ticket review 002');
+    expect(context.errorText()).toContain('agent-progress ticket finish 002');
   });
 
   test('rereview takes no --tokens, so the figure on the row stays the builder\'s', async () => {
@@ -324,7 +324,7 @@ describe.skipIf(!gitIsAvailable())('reading tickets back', () => {
     await run(['ticket', 'add', 'Double-click a role to edit it']);
     await run(['ticket', 'add', 'Fix the axis', '--type', 'bug']);
     await run(['ticket', 'start', '2']);
-    await run(['ticket', 'done', '2']);
+    await run(['ticket', 'approve', '2']);
   });
 
   test('show prints the frontmatter summary, the file path and the body', async () => {
@@ -394,6 +394,53 @@ describe.skipIf(!gitIsAvailable())('linking a ticket to a row', () => {
   });
 });
 
+describe.skipIf(!gitIsAvailable())('the retired verbs and status words', () => {
+  function trackerFilesText(): string {
+    return `${readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')}\n${storedTicketText()}`;
+  }
+
+  async function refusalOf(commandLineArguments: readonly string[]): Promise<string> {
+    const trackerBefore = trackerFilesText();
+    const context       = contextHere();
+    const exitCode      = await runCommandLine(commandLineArguments, context);
+
+    expect(exitCode, `\`agent-progress ${commandLineArguments.join(' ')}\` exits 1`).toBe(1);
+    expect(trackerFilesText(), 'a refused retired word writes nothing').toBe(trackerBefore);
+    return context.errorText();
+  }
+
+  beforeEach(async () => {
+    await run(['ticket', 'add', 'Double-click a role to edit it']);
+    await run(['ticket', 'start', '1']);
+  });
+
+  // A builder still briefed with the old verb must be told the new one, including that its --start-review still works there.
+  test('ticket review is refused naming ticket finish, with or without --start-review', async () => {
+    expect(await refusalOf(['ticket', 'review', '1'])).toContain('agent-progress ticket finish 1');
+
+    const withTheReviewBar = await refusalOf(['ticket', 'review', '1', '--start-review']);
+    expect(withTheReviewBar).toContain('agent-progress ticket finish 1');
+    expect(withTheReviewBar).toContain('--start-review');
+  });
+
+  // `done` was a verb and a status at once; the verb that moves to reviewed is now `approve`.
+  test('ticket done is refused naming ticket approve', async () => {
+    expect(await refusalOf(['ticket', 'done', '1'])).toContain('agent-progress ticket approve 1');
+  });
+
+  // An old status word given as a value is named with its replacement, never taken as a typo of some other status.
+  test('ticket status with open or done is refused naming pending or reviewed', async () => {
+    expect(await refusalOf(['ticket', 'status', '1', 'open'])).toContain('"open" is the old name of the ticket status pending');
+    expect(await refusalOf(['ticket', 'status', '1', 'done'])).toContain('"done" is the old name of the ticket status reviewed');
+  });
+
+  test('ticket list --status done is refused naming reviewed', async () => {
+    const refusal = await refusalOf(['ticket', 'list', '--status', 'done']);
+    expect(refusal).toContain('"done" is the old name of the ticket status reviewed');
+    expect(refusal).toContain('--status reviewed');
+  });
+});
+
 describe.skipIf(!gitIsAvailable())('the transition matrix', () => {
   beforeEach(async () => {
     await run(['ticket', 'add', 'Double-click a role to edit it']);
@@ -445,8 +492,8 @@ describe.skipIf(!gitIsAvailable())('the transition matrix', () => {
 
   test('the whole legal pipeline still runs end to end', async () => {
     await run(['ticket', 'start', '1']);
-    await run(['ticket', 'review', '1']);
-    await run(['ticket', 'done', '1']);
+    await run(['ticket', 'finish', '1']);
+    await run(['ticket', 'approve', '1']);
     await run(['ticket', 'deliver', '1']);
     expect(storedTicketText()).toContain('status: "delivered"');
   });
@@ -477,7 +524,7 @@ describe.skipIf(!gitIsAvailable())('token counts on a ticket move', () => {
     await run(['ticket', 'add', 'Double-click a role to edit it']);
     await run(['ticket', 'start', '1']);
 
-    await run(['ticket', 'review', '1', '--tokens', '48k']);
+    await run(['ticket', 'finish', '1', '--tokens', '48k']);
 
     expect(storedProgress().tasks[0]?.tokens).toBe(48_000);
   });
@@ -581,7 +628,7 @@ describe.skipIf(!gitIsAvailable())('ticket dependencies', () => {
   test('a finished dependency no longer holds the ticket back in the listing', async () => {
     await run(['ticket', 'depends', '2', '1']);
     await run(['ticket', 'start', '1']);
-    await run(['ticket', 'done', '1']);
+    await run(['ticket', 'approve', '1']);
 
     expect((await run(['ticket', 'list'])).outputText()).not.toContain('waiting on');
   });
