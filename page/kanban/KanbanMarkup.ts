@@ -1,29 +1,27 @@
-/** The Kanban tab's markup, shaped by the placeholder board in `resources/template.html`; the rules it follows are `KanbanBoard.ts`'s. */
+/** The Kanban tab's markup, shaped by the placeholder board in `resources/template.html`; the rules it follows are `KanbanLanes.ts`'s. */
 
-import type { TicketPriority } from '../src/lib/tracker-model/@types/Ticket.ts';
-import { TicketDefaultsUtil }  from '../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
-import { HtmlEscapeUtil }      from '../src/lib/utils/HtmlEscapeUtil.ts';
-import { TokenCountUtil }      from '../src/lib/utils/TokenCountUtil.ts';
-import { LIMITS }              from '../src/shared/constants/Limits.ts';
-import type { KanbanCard }     from './@types/KanbanCard.ts';
-import type { NoteFormat }     from './KanbanBoard.ts';
+import type { TicketPriority }               from '../../src/lib/tracker-model/@types/Ticket.ts';
+import { TicketDefaultsUtil }                from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
+import { HtmlEscapeUtil }                    from '../../src/lib/utils/HtmlEscapeUtil.ts';
+import { TokenCountUtil }                    from '../../src/lib/utils/TokenCountUtil.ts';
+import { LIMITS }                            from '../../src/shared/constants/Limits.ts';
+import type { KanbanCard }                   from '../@types/KanbanCard.ts';
+import type { ClosedKanbanLane, KanbanLane } from '../constants/KanbanLane.ts';
+import { CAPPED_LANE_FIRST_PAGE }            from '../constants/KanbanLane.ts';
+import type { RowState }                     from '../constants/RowState.ts';
+import { BoardRulesUtil }                    from '../utils/BoardRulesUtil.ts';
+import { MarkupUtil }                        from '../utils/MarkupUtil.ts';
+import { WorkItemMarkupUtil }                from '../utils/WorkItemMarkupUtil.ts';
+import type { NoteFormat }                   from './KanbanLaneText.ts';
+import { laneSubCountsOf, subStateNoteOf }   from './KanbanLaneText.ts';
 import {
-  cappedLaneShownCount,
   cardsInLane,
-  KANBAN_LANES,
   laneIsClosed,
   laneIsDividedByPriority,
   laneMixesStates,
-  laneSubCountsOf,
-  nextPageSizeFor,
-  subStateNoteOf,
-} from './KanbanBoard.ts';
-import type { ClosedKanbanLane, KanbanLane } from './constants/KanbanLane.ts';
-import { CAPPED_LANE_FIRST_PAGE }            from './constants/KanbanLane.ts';
-import type { RowState }                     from './constants/RowState.ts';
-import { BoardRulesUtil }                    from './utils/BoardRulesUtil.ts';
-import { MarkupUtil }                        from './utils/MarkupUtil.ts';
-import { WorkItemMarkupUtil }                from './utils/WorkItemMarkupUtil.ts';
+} from './KanbanLanes.ts';
+import { KANBAN_LANES }   from './constants/KanbanBoardLayout.ts';
+import { LanePagingUtil } from './utils/LanePagingUtil.ts';
 
 const { escapeHtml }       = HtmlEscapeUtil;
 const { formatTokenCount } = TokenCountUtil;
@@ -149,7 +147,7 @@ export function cappedLaneFooterMarkup(lane: ClosedKanbanLane, shownCount: numbe
   if (laneCount <= CAPPED_LANE_FIRST_PAGE) {
     return '';
   }
-  const pageSize = nextPageSizeFor(shownCount, laneCount);
+  const pageSize = LanePagingUtil.nextPageSizeFor(shownCount, laneCount);
   const buttons  = [
     pageSize > 0 ? `<button type="button" ${MarkupUtil.attribute('data-lane-more', lane)}>Show ${pageSize} more</button>` : '',
     shownCount > CAPPED_LANE_FIRST_PAGE ? `<button type="button" ${MarkupUtil.attribute('data-lane-reset', lane)}>Latest ${CAPPED_LANE_FIRST_PAGE}</button>` : '',
@@ -177,7 +175,7 @@ function laneHeadMarkup(lane: KanbanLane, members: readonly KanbanCard[], laneIs
 
 export function kanbanLaneMarkup(lane: KanbanLane, input: KanbanBoardInput): string {
   const members         = cardsInLane(input.cards, lane);
-  const shownCount      = laneIsClosed(lane) ? cappedLaneShownCount(input.shownCountByClosedLane[lane], members.length) : members.length;
+  const shownCount      = laneIsClosed(lane) ? LanePagingUtil.cappedLaneShownCount(input.shownCountByClosedLane[lane], members.length) : members.length;
   const shown           = members.slice(0, shownCount);
   const footer          = laneIsClosed(lane) ? cappedLaneFooterMarkup(lane, shownCount, members.length) : '';
   const laneIsCollapsed = lane === 'abandoned' && !input.abandonedLaneIsOpen;

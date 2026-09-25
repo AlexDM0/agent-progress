@@ -8,11 +8,11 @@ import { describe, expect, test } from 'bun:test';
 import type { Task }              from '../src/lib/tracker-model/@types/Task.ts';
 import type { PageTicket }        from '../src/shared/@types/PagePayload.ts';
 import type { KanbanCard }        from './@types/KanbanCard.ts';
-import { kanbanCardsFor }         from './KanbanBoard.ts';
-import { kanbanBoardMarkup }      from './KanbanMarkup.ts';
 import { taskDetailMarkup }       from './TaskDetail.ts';
 import type { TicketDetailInput } from './TicketDetail.ts';
 import { ticketDetailMarkup }     from './TicketDetail.ts';
+import { kanbanCardsFor }         from './kanban/KanbanLanes.ts';
+import { kanbanBoardMarkup }      from './kanban/KanbanMarkup.ts';
 import { taskRowsMarkup }         from './progress/ProgressMarkup.ts';
 
 const EXAMPLE_TODAY = '2026-09-25';

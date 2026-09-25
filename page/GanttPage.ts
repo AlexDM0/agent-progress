@@ -8,19 +8,15 @@ import type { Task }                                from '../src/lib/tracker-mod
 import type { TicketStatus }                        from '../src/lib/tracker-model/@types/Ticket.ts';
 import type { PageLimits, PagePayload, PageTicket } from '../src/shared/@types/PagePayload.ts';
 import type { KanbanCard }                          from './@types/KanbanCard.ts';
-import {
-  cappedLaneShownCount,
-  cardsInLane,
-  kanbanCardsFor,
-  overflowDirectionsOf,
-  shownCountAfterMore,
-} from './KanbanBoard.ts';
-import { kanbanBoardMarkup }                        from './KanbanMarkup.ts';
 import { taskDetailMarkup }                         from './TaskDetail.ts';
 import { ticketDetailMarkup }                       from './TicketDetail.ts';
 import type { ClosedKanbanLane }                    from './constants/KanbanLane.ts';
 import { CAPPED_LANE_FIRST_PAGE }                   from './constants/KanbanLane.ts';
 import { KANBAN_BOARD_ELEMENT_ID, KANBAN_TAB_NAME } from './constants/TemplateIds.ts';
+import { cardsInLane, kanbanCardsFor }              from './kanban/KanbanLanes.ts';
+import { kanbanBoardMarkup }                        from './kanban/KanbanMarkup.ts';
+import { KanbanOverflowUtil }                       from './kanban/utils/KanbanOverflowUtil.ts';
+import { LanePagingUtil }                           from './kanban/utils/LanePagingUtil.ts';
 import {
   logControlIsNeeded,
   logControlText,
@@ -455,7 +451,7 @@ function updateKanbanOverflow(): void {
   if (board === null || frame === null) {
     return;
   }
-  const directions = overflowDirectionsOf(board.scrollLeft, board.scrollWidth, board.clientWidth);
+  const directions = KanbanOverflowUtil.overflowDirectionsOf(board.scrollLeft, board.scrollWidth, board.clientWidth);
   if (directions === null) {
     frame.removeAttribute('data-overflow');
   } else {
@@ -516,8 +512,8 @@ function wireKanban(controls: KanbanControls): void {
       return;
     }
     const laneCount    = cardsInLane(controls.readVisibleCards(), lane).length;
-    const currentCount = cappedLaneShownCount(controls.preferences.readCappedLaneShownCount(lane), laneCount);
-    controls.preferences.writeCappedLaneShownCount(lane, moreLane === null ? CAPPED_LANE_FIRST_PAGE : shownCountAfterMore(currentCount, laneCount));
+    const currentCount = LanePagingUtil.cappedLaneShownCount(controls.preferences.readCappedLaneShownCount(lane), laneCount);
+    controls.preferences.writeCappedLaneShownCount(lane, moreLane === null ? CAPPED_LANE_FIRST_PAGE : LanePagingUtil.shownCountAfterMore(currentCount, laneCount));
     controls.showKanban();
   });
 }

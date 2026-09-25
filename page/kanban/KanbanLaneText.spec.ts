@@ -1,30 +1,15 @@
 /**
- * The Kanban rules callers rely on: a card sits in the lane its row's Progress pill names, the open lanes read by priority and the closed ones
- * newest first, each sub-state note appears only where its source exists, the lane heads count independently, and the closed lanes open
- * 15, then 25 at a time, clamped whatever storage says.
+ * The words a Kanban card and lane head print: each sub-state note appears only where its source exists, and the lane heads count
+ * independently.
  */
 
-import { describe, expect, test }            from 'bun:test';
-import type { Task, TaskStatus }             from '../src/lib/tracker-model/@types/Task.ts';
-import type { TicketPriority, TicketStatus } from '../src/lib/tracker-model/@types/Ticket.ts';
-import type { PageTicket }                   from '../src/shared/@types/PagePayload.ts';
-import type { KanbanCard }                   from './@types/KanbanCard.ts';
-import type { NoteFormat }                   from './KanbanBoard.ts';
-import {
-  cappedLaneShownCount,
-  cardsInLane,
-  kanbanCardsFor,
-  laneIsDividedByPriority,
-  laneOfState,
-  laneSubCountsOf,
-  nextPageSizeFor,
-  overflowDirectionsOf,
-  shownCountAfterMore,
-  subStateNoteOf,
-} from './KanbanBoard.ts';
-import type { KanbanLane } from './constants/KanbanLane.ts';
-import type { RowState }   from './constants/RowState.ts';
-import { shownCountFrom }  from './preferences/ViewerPreferences.ts';
+import { describe, expect, test }          from 'bun:test';
+import type { Task }                       from '../../src/lib/tracker-model/@types/Task.ts';
+import type { PageTicket }                 from '../../src/shared/@types/PagePayload.ts';
+import type { KanbanCard }                 from '../@types/KanbanCard.ts';
+import type { NoteFormat }                 from './KanbanLaneText.ts';
+import { laneSubCountsOf, subStateNoteOf } from './KanbanLaneText.ts';
+import { kanbanCardsFor }                  from './KanbanLanes.ts';
 
 const EXAMPLE_TODAY = '2026-09-25';
 const EXAMPLE_NOW   = Date.parse('2026-09-25T13:36:00+02:00');
@@ -92,101 +77,6 @@ function noteFormat(tasks: readonly Task[]): NoteFormat {
     slices:               EXAMPLE_SLICES,
   };
 }
-
-describe('which lane a card sits in', () => {
-  // Every row state the Progress tab can show, so a card can never land in a lane whose pill disagrees with the chart.
-  test.each([
-    ['pending', 'pending', 'todo'],
-    ['in-progress', 'in-progress', 'progress'],
-    ['paused', 'in-progress', 'progress'],
-    ['in-review', 'pending', 'review'],
-    ['in-review', 'in-review', 'review'],
-    ['re-review', 'in-review', 'review'],
-    ['reviewed', 'reviewed', 'merge'],
-    ['delivered', 'delivered', 'done'],
-    ['abandoned', 'abandoned', 'abandoned'],
-  ] as Array<[TaskStatus, TicketStatus, KanbanLane]>)('puts a %s row of a %s ticket in %s', (rowStatus, ticketStatus, lane) => {
-    const card = cardOf(exampleTicket('007', { status: ticketStatus }), [exampleRow(1, { status: rowStatus, ticket: '007' })]);
-
-    expect(laneOfState(card.state)).toBe(lane);
-  });
-
-  test('reads an in-review row of an in-review ticket as reviewing, the pill the Progress tab shows', () => {
-    expect(cardOf(exampleTicket('007', { status: 'in-review' }), [exampleRow(1, { status: 'in-review', ticket: '007' })]).state).toBe('reviewing');
-  });
-
-  // A low ticket never started has no row; its status alone decides the lane.
-  test.each([
-    ['pending', 'pending', 'todo'],
-    ['in-progress', 'in-progress', 'progress'],
-    ['in-review', 'reviewing', 'review'],
-    ['reviewed', 'reviewed', 'merge'],
-    ['delivered', 'delivered', 'done'],
-    ['abandoned', 'abandoned', 'abandoned'],
-  ] as Array<[TicketStatus, RowState, KanbanLane]>)('puts a %s ticket with no row in state %s and lane %s', (ticketStatus, state, lane) => {
-    const card = cardOf(exampleTicket('007', { status: ticketStatus }), []);
-
-    expect(card.ownRow).toBeNull();
-    expect(card.state).toBe(state);
-    expect(laneOfState(card.state)).toBe(lane);
-  });
-
-  test('never takes a review row as the ticket’s own row', () => {
-    const reviewRow = exampleRow(2, { status: 'in-progress', reviewOf: '007' });
-
-    expect(cardOf(exampleTicket('007'), [reviewRow]).ownRow).toBeNull();
-  });
-});
-
-describe('the order within a lane', () => {
-  function idsInLane(tickets: readonly PageTicket[], lane: Parameters<typeof cardsInLane>[1]): string[] {
-    return cardsInLane(kanbanCardsFor(tickets, [], new Map()), lane).map((card) => card.ticket.id);
-  }
-
-  test('runs high, normal, low, then the id as a number, so #9 comes before #10', () => {
-    const tickets = [
-      exampleTicket('10'),
-      exampleTicket('9'),
-      exampleTicket('3', { priority: 'low' }),
-      exampleTicket('12', { priority: 'high' }),
-    ];
-
-    expect(idsInLane(tickets, 'todo')).toEqual(['12', '9', '10', '3']);
-  });
-
-  test('divides an open lane only when it holds more than one priority', () => {
-    const cardsOfPriorities = (priorities: TicketPriority[]): KanbanCard[] => kanbanCardsFor(
-      priorities.map((priority, index) => exampleTicket(String(index + 1), { priority })),
-      [],
-      new Map(),
-    );
-
-    expect(laneIsDividedByPriority('todo', cardsOfPriorities(['normal', 'normal']))).toBe(false);
-    expect(laneIsDividedByPriority('todo', cardsOfPriorities(['normal', 'low']))).toBe(true);
-    expect(laneIsDividedByPriority('done', cardsOfPriorities(['normal', 'low']))).toBe(false);
-  });
-
-  test('puts Done newest first by its delivered stamp, a tie to the higher id', () => {
-    const tickets = [
-      exampleTicket('004', { status: 'delivered', delivered: at('09:00') }),
-      exampleTicket('005', { status: 'delivered', delivered: at('11:00') }),
-      exampleTicket('006', { status: 'delivered', delivered: at('09:00') }),
-      exampleTicket('003', { status: 'delivered', delivered: at('23:00', '2026-09-24') }),
-    ];
-
-    expect(idsInLane(tickets, 'done')).toEqual(['005', '006', '004', '003']);
-  });
-
-  test('puts Abandoned newest first by its abandoned stamp, a tie to the higher id', () => {
-    const tickets = [
-      exampleTicket('004', { status: 'abandoned', abandonedAt: at('09:00') }),
-      exampleTicket('002', { status: 'abandoned', abandonedAt: at('10:00') }),
-      exampleTicket('008', { status: 'abandoned', abandonedAt: at('09:00') }),
-    ];
-
-    expect(idsInLane(tickets, 'abandoned')).toEqual(['002', '008', '004']);
-  });
-});
 
 describe('the sub-state note', () => {
   test('dates a pause from the newest paused phase and counts to now', () => {
@@ -294,42 +184,5 @@ describe('the lane heads', () => {
       dotState:     null,
       reviewedMark: true,
     }]);
-  });
-});
-
-describe('the capped lanes', () => {
-  const LANE_COUNT = 52;
-
-  test('open 15, then 40 after one step, then all 52 after the remaining 12', () => {
-    const first = cappedLaneShownCount(shownCountFrom(null), LANE_COUNT);
-    const second = shownCountAfterMore(first, LANE_COUNT);
-
-    expect(first).toBe(15);
-    expect(nextPageSizeFor(first, LANE_COUNT)).toBe(25);
-    expect(second).toBe(40);
-    expect(nextPageSizeFor(second, LANE_COUNT)).toBe(12);
-    expect(shownCountAfterMore(second, LANE_COUNT)).toBe(52);
-    expect(nextPageSizeFor(52, LANE_COUNT)).toBe(0);
-  });
-
-  test.each([
-    ['a count above the lane', '80', 52],
-    ['a count below the first page', '3', 15],
-    ['text that is no number', 'many', 15],
-    ['a fraction', '20.5', 15],
-  ])('clamps %s to the first page … the lane’s count', (_description, stored, expected) => {
-    expect(cappedLaneShownCount(shownCountFrom(stored), LANE_COUNT)).toBe(expected);
-  });
-});
-
-describe('overflowDirectionsOf', () => {
-  test.each([
-    ['fits', 0, 1000, 1000, null],
-    ['at the start of a wider board', 0, 1400, 1000, 'end'],
-    ['mid-scroll', 200, 1400, 1000, 'start end'],
-    ['at the end', 400, 1400, 1000, 'start'],
-    ['within a pixel of the end', 399.5, 1400, 1000, 'start'],
-  ])('answers the directions a board that %s can still scroll', (_description, scrollLeft, scrollWidth, clientWidth, expected) => {
-    expect(overflowDirectionsOf(scrollLeft, scrollWidth, clientWidth)).toBe(expected);
   });
 });

@@ -4,17 +4,20 @@
  * buttons, the empty lanes under Show all, the Abandoned toggle and the escaping.
  */
 
-import { describe, expect, test }                                    from 'bun:test';
-import type { Task }                                                 from '../src/lib/tracker-model/@types/Task.ts';
-import type { PageTicket }                                           from '../src/shared/@types/PagePayload.ts';
-import { cappedLaneShownCount, kanbanCardsFor, shownCountAfterMore } from './KanbanBoard.ts';
-import type { KanbanBoardInput }                                     from './KanbanMarkup.ts';
+import { describe, expect, test } from 'bun:test';
+import type { Task }              from '../../src/lib/tracker-model/@types/Task.ts';
+import type { PageTicket }        from '../../src/shared/@types/PagePayload.ts';
+import { kanbanCardsFor }         from './KanbanLanes.ts';
+import type { KanbanBoardInput }  from './KanbanMarkup.ts';
 import {
   cappedLaneFooterMarkup,
   kanbanBoardMarkup,
   kanbanCardMarkup,
   kanbanLaneMarkup,
 } from './KanbanMarkup.ts';
+import { LanePagingUtil } from './utils/LanePagingUtil.ts';
+
+const { cappedLaneShownCount, shownCountAfterMore } = LanePagingUtil;
 
 const EXAMPLE_TODAY = '2026-09-25';
 const EXAMPLE_NOW   = Date.parse('2026-09-25T13:36:00+02:00');
@@ -103,7 +106,7 @@ function deliveredTickets(count: number): { tickets: PageTicket[]; tasks: Task[]
   return { tickets, tasks };
 }
 
-const templateText = await Bun.file(`${import.meta.dir}/../resources/template.html`).text();
+const templateText = await Bun.file(`${import.meta.dir}/../../resources/template.html`).text();
 
 function placeholderLane(lane: string): string {
   return templateText.split('\n').find((line) => line.includes(`<section class="ap-card ap-lane" data-lane="${lane}"`))?.trim() ?? '';
