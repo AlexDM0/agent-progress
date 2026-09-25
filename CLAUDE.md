@@ -238,7 +238,7 @@ lib/                        everything the commands do, in the layers above; lib
 src/                        the target layout's code, filled step by step as the migration plan moves it
   src/lib/                  package-grade building blocks, one folder each, the package's description in its main module's header:
                             atomic-file (AtomicFile.ts), git (GitProcess.ts), claude-code (ClaudeTranscripts.ts),
-                            tracker-model, utils
+                            tracker-model (@types/Task.ts), utils
   src/adapters/             the boundary to stored files: reading and mapping what the tracker stores
   src/services/             app-wide services, one folder each
   src/shared/               app-specific code several parts use: the environment reader, the refusal, LIMITS
