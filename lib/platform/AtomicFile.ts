@@ -6,6 +6,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   closeSync,
+  existsSync,
   fchmodSync,
   fsyncSync,
   linkSync,
@@ -27,8 +28,13 @@ const PERMISSION_BITS = 0o777;
 
 const SYMLINK_FOLLOW_LIMIT = 40;
 
-/** Where a write through a possibly dangling symlink must land, so the link survives the atomic rename; a link cycle answers the path itself. */
-export function danglingLinkDestinationOf(targetPath: string): string {
+/** The last path of a symlink chain, which may not exist yet; a chain that never ends throws ELOOP, as a plain write through it would. */
+function linkChainEndOf(targetPath: string): string {
+  try {
+    return realpathSync(targetPath);
+  } catch {
+    // Dangling, absent or cyclic: the chain is followed by hand below.
+  }
   let currentPath = targetPath;
   for (let i = 0; i < SYMLINK_FOLLOW_LIMIT; i++) {
     let entryIsASymbolicLink = false;
@@ -38,9 +44,10 @@ export function danglingLinkDestinationOf(targetPath: string): string {
       return currentPath;
     }
     if (!entryIsASymbolicLink) return currentPath;
-    currentPath = resolve(dirname(currentPath), readlinkSync(currentPath));
+    // The kernel resolves a relative link against the physical folder holding it, so a `..` after a symlinked folder lands where it would.
+    currentPath = resolve(realpathSync(dirname(currentPath)), readlinkSync(currentPath));
   }
-  return targetPath;
+  throw Object.assign(new Error(`ELOOP: too many symbolic links encountered, '${targetPath}'`), { code: 'ELOOP' });
 }
 
 /**
@@ -84,6 +91,18 @@ export function writeFileAtomically(targetPath: string, contents: string): void 
     }
     throw error;
   }
+}
+
+/**
+ * Writes where a possibly dangling link chain ends, so the link survives the rename. Like a plain write
+ * through the link, it never creates the folder a dangling link points into (ENOENT) and refuses a cycle (ELOOP).
+ */
+export function writeFileAtomicallyThroughLinks(linkPath: string, contents: string): void {
+  const destinationPath = linkChainEndOf(linkPath);
+  if (destinationPath !== linkPath && !existsSync(dirname(destinationPath))) {
+    throw Object.assign(new Error(`ENOENT: no such file or directory, open '${linkPath}'`), { code: 'ENOENT' });
+  }
+  writeFileAtomically(destinationPath, contents);
 }
 
 /** The create-exclusive twin: the complete temporary file is hard-linked into place, which fails rather than replaces when the target exists. */

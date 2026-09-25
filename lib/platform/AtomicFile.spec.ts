@@ -2,7 +2,8 @@
  * `writeFileAtomically` against its own contract: a reader holding the file across the write sees the
  * whole old or the whole new content and never a prefix, a symlink and its mode survive, and a failed
  * write leaves the previous file untouched. `createFileAtomically` refuses an existing file with its bytes intact.
- * `danglingLinkDestinationOf` names the missing file a dangling link points at, so writing there keeps the link.
+ * `writeFileAtomicallyThroughLinks` writes where a link chain ends, resolving each hop as the kernel does, so even a dangling link
+ * survives; like a plain write it refuses a cycle and never creates the folder a dangling link points into.
  */
 import {
   chmodSync,
@@ -26,7 +27,7 @@ import { tmpdir }                 from 'node:os';
 import { join }                   from 'node:path';
 import { afterAll, expect, test } from 'bun:test';
 
-import { createFileAtomically, danglingLinkDestinationOf, writeFileAtomically } from './AtomicFile';
+import { createFileAtomically, writeFileAtomically, writeFileAtomicallyThroughLinks } from './AtomicFile';
 
 /** Root can write into a directory it has no permission on, so the failure case cannot be staged there. */
 const RUNNING_AS_ROOT = typeof process.getuid === 'function' && process.getuid() === 0;
@@ -169,53 +170,105 @@ test('the create-exclusive write refuses an existing file, leaving its bytes and
   expect(await unexpectedLeftovers(directory, ['progress.json'])).toEqual([]);
 });
 
-test('a relative dangling link resolves against the folder the link sits in', async () => {
+/** `temporary/dotfiles` is a symlinked folder, and the link inside it climbs out with `..`: spelled, that lands on `temporary/shared`. */
+function linkChainThroughASymlinkedFolder(directory: string): { linkPath: string; realPath: string; spelledStrayFolder: string } {
+  mkdirSync(join(directory, 'Dropbox', 'dotfiles'), { recursive: true });
+  mkdirSync(join(directory, 'Dropbox', 'shared'));
+  mkdirSync(join(directory, 'repository'));
+  symlinkSync(join(directory, 'Dropbox', 'dotfiles'), join(directory, 'dotfiles'));
+  symlinkSync('../shared/CLAUDE.md', join(directory, 'Dropbox', 'dotfiles', 'CLAUDE.md'));
+  const linkPath = join(directory, 'repository', 'CLAUDE.md');
+  symlinkSync('../dotfiles/CLAUDE.md', linkPath);
+  return { linkPath, realPath: join(directory, 'Dropbox', 'shared', 'CLAUDE.md'), spelledStrayFolder: join(directory, 'shared') };
+}
+
+test('writing through a relative dangling link keeps the link and creates its target beside the folder the link sits in', async () => {
   const directory = await createScratchDirectory();
   mkdirSync(join(directory, 'case'));
   mkdirSync(join(directory, 'shared'));
   const linkPath = join(directory, 'case', 'CLAUDE.md');
   symlinkSync('../shared/CLAUDE.md', linkPath);
 
-  expect(danglingLinkDestinationOf(linkPath)).toBe(join(directory, 'shared', 'CLAUDE.md'));
+  writeFileAtomicallyThroughLinks(linkPath, '# Example Agency\n');
+
+  expect(lstatSync(linkPath).isSymbolicLink(), 'the link is still a link').toBe(true);
+  expect(readlinkSync(linkPath)).toBe('../shared/CLAUDE.md');
+  expect(readFileSync(join(directory, 'shared', 'CLAUDE.md'), 'utf8')).toBe('# Example Agency\n');
 });
 
-test('a two-hop chain ends at the last, missing path', async () => {
+test('writing through a two-hop dangling chain keeps both links and creates the last, missing path', async () => {
   const directory = await createScratchDirectory();
   const firstLinkPath = join(directory, 'CLAUDE.md');
   const secondLinkPath = join(directory, 'AGENTS.md');
   symlinkSync('AGENTS.md', firstLinkPath);
   symlinkSync('missing-instructions.md', secondLinkPath);
 
-  expect(danglingLinkDestinationOf(firstLinkPath)).toBe(join(directory, 'missing-instructions.md'));
+  writeFileAtomicallyThroughLinks(firstLinkPath, '# Example Agency\n');
+
+  expect(lstatSync(firstLinkPath).isSymbolicLink()).toBe(true);
+  expect(lstatSync(secondLinkPath).isSymbolicLink()).toBe(true);
+  expect(readFileSync(join(directory, 'missing-instructions.md'), 'utf8')).toBe('# Example Agency\n');
 });
 
-test('a path that is no link, present or absent, answers itself', async () => {
+test('a path that is no link, present or absent, is written in place', async () => {
   const directory = await createScratchDirectory();
   const presentPath = join(directory, 'CLAUDE.md');
+  const absentPath = join(directory, 'absent.md');
   writeFileSync(presentPath, '# Example Agency\n');
 
-  expect(danglingLinkDestinationOf(presentPath)).toBe(presentPath);
-  expect(danglingLinkDestinationOf(join(directory, 'absent.md'))).toBe(join(directory, 'absent.md'));
+  writeFileAtomicallyThroughLinks(presentPath, 'rewritten\n');
+  writeFileAtomicallyThroughLinks(absentPath, 'created\n');
+
+  expect(readFileSync(presentPath, 'utf8')).toBe('rewritten\n');
+  expect(readFileSync(absentPath, 'utf8')).toBe('created\n');
+  expect(await unexpectedLeftovers(directory, ['CLAUDE.md', 'absent.md'])).toEqual([]);
 });
 
-// A cycle has no destination; answering the original path hands the write to `writeFileAtomically`'s own fallback.
-test('a link cycle answers the original path', async () => {
+// Following a relative hop by its spelling would write a stray file under `temporary/shared` and leave the real file unchanged.
+test('a live chain whose relative hop climbs out of a symlinked folder writes the file the kernel resolves', async () => {
+  const directory = await createScratchDirectory();
+  const { linkPath, realPath, spelledStrayFolder } = linkChainThroughASymlinkedFolder(directory);
+  writeFileSync(realPath, '# Real\n');
+
+  writeFileAtomicallyThroughLinks(linkPath, '# Rewritten\n');
+
+  expect(readFileSync(realPath, 'utf8')).toBe('# Rewritten\n');
+  expect(lstatSync(linkPath).isSymbolicLink()).toBe(true);
+  expect(existsSync(spelledStrayFolder), 'no stray folder at the spelled path').toBe(false);
+});
+
+test('a dangling chain whose relative hop climbs out of a symlinked folder creates its target under the physical folder', async () => {
+  const directory = await createScratchDirectory();
+  const { linkPath, realPath, spelledStrayFolder } = linkChainThroughASymlinkedFolder(directory);
+
+  writeFileAtomicallyThroughLinks(linkPath, '# Created\n');
+
+  expect(readFileSync(realPath, 'utf8')).toBe('# Created\n');
+  expect(lstatSync(linkPath).isSymbolicLink()).toBe(true);
+  expect(existsSync(spelledStrayFolder), 'no stray folder at the spelled path').toBe(false);
+});
+
+// Answering the link itself would let the rename replace the link with a regular file.
+test('a link cycle is refused with ELOOP and stays a link', async () => {
   const directory = await createScratchDirectory();
   const firstLinkPath = join(directory, 'first.md');
   symlinkSync('second.md', firstLinkPath);
   symlinkSync('first.md', join(directory, 'second.md'));
 
-  expect(danglingLinkDestinationOf(firstLinkPath)).toBe(firstLinkPath);
+  expect(() => writeFileAtomicallyThroughLinks(firstLinkPath, 'content')).toThrow(expect.objectContaining({ code: 'ELOOP' }));
+
+  expect(lstatSync(firstLinkPath).isSymbolicLink()).toBe(true);
+  expect(readlinkSync(firstLinkPath)).toBe('second.md');
+  expect(await unexpectedLeftovers(directory, ['first.md', 'second.md'])).toEqual([]);
 });
 
-test('writing at the destination of a dangling link keeps the link and creates its target', async () => {
+test('a dangling link into a folder that does not exist is refused with ENOENT and creates no folder', async () => {
   const directory = await createScratchDirectory();
-  const linkPath = join(directory, 'progress.json');
-  symlinkSync('real-progress.json', linkPath);
+  const linkPath = join(directory, 'CLAUDE.md');
+  symlinkSync('missing-folder/CLAUDE.md', linkPath);
 
-  writeFileAtomically(danglingLinkDestinationOf(linkPath), '{"version":1}');
+  expect(() => writeFileAtomicallyThroughLinks(linkPath, 'content')).toThrow(expect.objectContaining({ code: 'ENOENT' }));
 
-  expect(lstatSync(linkPath).isSymbolicLink(), 'the link is still a link').toBe(true);
-  expect(readlinkSync(linkPath)).toBe('real-progress.json');
-  expect(readFileSync(join(directory, 'real-progress.json'), 'utf8')).toBe('{"version":1}');
+  expect(existsSync(join(directory, 'missing-folder'))).toBe(false);
+  expect(readlinkSync(linkPath)).toBe('missing-folder/CLAUDE.md');
 });

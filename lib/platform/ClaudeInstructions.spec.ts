@@ -1,10 +1,12 @@
 /**
  * What the tool may do to somebody's `CLAUDE.md`: everything outside the managed region survives byte
- * for byte, a start marker with no end is refused, and a symlinked file stays a symlink, dangling or not.
+ * for byte, a start marker with no end is refused, and a symlinked file stays a symlink, dangling or not, with a chain
+ * resolved as the kernel resolves it. A link cycle or a dangling link into a missing folder is refused as a plain write was.
  * The file is replaced whole, never rewritten in place, and its permission bits survive the replacement.
  */
 import {
   chmodSync,
+  existsSync,
   lstatSync,
   mkdirSync,
   readdirSync,
@@ -185,4 +187,51 @@ test('a dangling link into a sibling folder is resolved against the link, not th
 
   expect(lstatSync(linkPath).isSymbolicLink(), 'the link is still a link').toBe(true);
   expect(readFileSync(join(directory, 'shared', 'CLAUDE.md'), 'utf8')).toBe(`${EXPECTED_BLOCK}\n`);
+});
+
+test('writes through a link chain whose relative hop climbs out of a symlinked folder, as the kernel resolves it', () => {
+  const directory = scratchDirectory('claude-symlinked-folder-chain');
+  mkdirSync(join(directory, 'Dropbox', 'dotfiles'), { recursive: true });
+  mkdirSync(join(directory, 'Dropbox', 'shared'));
+  mkdirSync(join(directory, 'repository'));
+  const realPath = join(directory, 'Dropbox', 'shared', 'CLAUDE.md');
+  writeFileSync(realPath, '# Real\n');
+  symlinkSync(join(directory, 'Dropbox', 'dotfiles'), join(directory, 'dotfiles'));
+  symlinkSync('../shared/CLAUDE.md', join(directory, 'Dropbox', 'dotfiles', 'CLAUDE.md'));
+  const linkPath = join(directory, 'repository', 'CLAUDE.md');
+  symlinkSync(join(directory, 'dotfiles', 'CLAUDE.md'), linkPath);
+
+  expect(writeManagedBlock(linkPath, BLOCK_BODY)).toBe('appended');
+  expect(writeManagedBlock(linkPath, BLOCK_BODY)).toBe('replaced');
+
+  expect(readFileSync(realPath, 'utf8')).toBe(`# Real\n\n${EXPECTED_BLOCK}\n`);
+  expect(lstatSync(linkPath).isSymbolicLink()).toBe(true);
+  expect(lstatSync(join(directory, 'Dropbox', 'dotfiles', 'CLAUDE.md')).isSymbolicLink()).toBe(true);
+  expect(existsSync(join(directory, 'shared')), 'no stray folder at the spelled path').toBe(false);
+});
+
+test('a dangling CLAUDE.md link into a missing folder is refused with ENOENT and creates no folder', () => {
+  const directory = scratchDirectory('claude-dangling-into-missing-folder');
+  const linkPath = join(directory, 'CLAUDE.md');
+  symlinkSync('missing-folder/CLAUDE.md', linkPath);
+
+  expect(() => writeManagedBlock(linkPath, BLOCK_BODY)).toThrow(expect.objectContaining({ code: 'ENOENT' }));
+
+  expect(existsSync(join(directory, 'missing-folder'))).toBe(false);
+  expect(lstatSync(linkPath).isSymbolicLink()).toBe(true);
+  expect(readlinkSync(linkPath)).toBe('missing-folder/CLAUDE.md');
+});
+
+// A cycle answered with the link itself would let the rename replace the link with a regular file.
+test('a CLAUDE.md link cycle is refused with ELOOP and stays a link', () => {
+  const directory = scratchDirectory('claude-symlink-cycle');
+  const linkPath = join(directory, 'CLAUDE.md');
+  symlinkSync('second.md', linkPath);
+  symlinkSync('CLAUDE.md', join(directory, 'second.md'));
+
+  expect(() => writeManagedBlock(linkPath, BLOCK_BODY)).toThrow(expect.objectContaining({ code: 'ELOOP' }));
+
+  expect(lstatSync(linkPath).isSymbolicLink()).toBe(true);
+  expect(readlinkSync(linkPath)).toBe('second.md');
+  expect(readdirSync(directory).sort()).toEqual(['CLAUDE.md', 'second.md']);
 });

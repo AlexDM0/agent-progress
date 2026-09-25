@@ -4,8 +4,8 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 
-import { CLAUDE_MANAGED_END, CLAUDE_MANAGED_START }       from '../constants/Statuses';
-import { danglingLinkDestinationOf, writeFileAtomically } from './AtomicFile';
+import { CLAUDE_MANAGED_END, CLAUDE_MANAGED_START } from '../constants/Statuses';
+import { writeFileAtomicallyThroughLinks }          from './AtomicFile';
 
 export type WriteManagedBlockOutcome = 'created' | 'appended' | 'replaced' | 'refused-start-without-end';
 
@@ -19,17 +19,16 @@ function managedBlockFrom(blockBody: string): string {
  */
 export function writeManagedBlock(claudeFilePath: string, blockBody: string): WriteManagedBlockOutcome {
   const block = managedBlockFrom(blockBody);
-  const writePath = danglingLinkDestinationOf(claudeFilePath);
 
   if (!existsSync(claudeFilePath)) {
-    writeFileAtomically(writePath, `${block}\n`);
+    writeFileAtomicallyThroughLinks(claudeFilePath, `${block}\n`);
     return 'created';
   }
 
   const existingContent = readFileSync(claudeFilePath, 'utf8');
   const startOffset = existingContent.indexOf(CLAUDE_MANAGED_START);
   if (startOffset < 0) {
-    writeFileAtomically(writePath, `${existingContent.replace(/\n*$/, '')}\n\n${block}\n`);
+    writeFileAtomicallyThroughLinks(claudeFilePath, `${existingContent.replace(/\n*$/, '')}\n\n${block}\n`);
     return 'appended';
   }
 
@@ -38,6 +37,6 @@ export function writeManagedBlock(claudeFilePath: string, blockBody: string): Wr
 
   const contentBefore = existingContent.slice(0, startOffset);
   const contentAfter = existingContent.slice(endOffset + CLAUDE_MANAGED_END.length);
-  writeFileAtomically(writePath, `${contentBefore}${block}${contentAfter}`);
+  writeFileAtomicallyThroughLinks(claudeFilePath, `${contentBefore}${block}${contentAfter}`);
   return 'replaced';
 }

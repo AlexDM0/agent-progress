@@ -1,7 +1,8 @@
 /**
  * What `init` does to a repository's `.gitignore` and, mostly, when it does nothing: any pattern that
  * already covers the tracker must produce no diff, and a plain directory gains no file nobody asked for.
- * A symlinked (even dangling) or permission-restricted `.gitignore` survives the append as it was, replaced whole rather than rewritten in place.
+ * A symlinked (even dangling) or permission-restricted `.gitignore` survives the append as it was, replaced whole rather than rewritten in place;
+ * a link chain resolves as the kernel resolves it, and a link cycle or a dangling link into a missing folder is refused as a plain write was.
  */
 import {
   chmodSync,
@@ -122,6 +123,51 @@ describe.skipIf(!gitIsAvailable())('in a git repository', () => {
     expect(lstatSync(linkPath).isSymbolicLink(), 'the link is still a link').toBe(true);
     expect(readlinkSync(linkPath)).toBe('shared-gitignore');
     expect(readFileSync(join(repositoryDirectory, 'shared-gitignore'), 'utf8')).toBe('.agent-progress/\n');
+  });
+
+  test('a .gitignore link chain whose relative hop climbs out of a symlinked folder is written where the kernel resolves it', () => {
+    const repositoryDirectory = scratchRepository('gitignore-symlinked-folder-chain');
+    const outsideDirectory = scratchDirectory('gitignore-symlinked-folder-chain-outside');
+    mkdirSync(join(outsideDirectory, 'Dropbox', 'dotfiles'), { recursive: true });
+    mkdirSync(join(outsideDirectory, 'Dropbox', 'shared'));
+    const realPath = join(outsideDirectory, 'Dropbox', 'shared', 'gitignore');
+    writeFileSync(realPath, 'node_modules/\n');
+    symlinkSync(join(outsideDirectory, 'Dropbox', 'dotfiles'), join(outsideDirectory, 'dotfiles'));
+    symlinkSync('../shared/gitignore', join(outsideDirectory, 'Dropbox', 'dotfiles', 'gitignore'));
+    const linkPath = join(repositoryDirectory, '.gitignore');
+    symlinkSync(join(outsideDirectory, 'dotfiles', 'gitignore'), linkPath);
+
+    expect(ensureIgnored(repositoryDirectory)).toBe('appended');
+    expect(ensureIgnored(repositoryDirectory)).toBe('already-ignored');
+
+    expect(readFileSync(realPath, 'utf8')).toBe('node_modules/\n.agent-progress/\n');
+    expect(lstatSync(linkPath).isSymbolicLink()).toBe(true);
+    expect(lstatSync(join(outsideDirectory, 'Dropbox', 'dotfiles', 'gitignore')).isSymbolicLink()).toBe(true);
+    expect(existsSync(join(outsideDirectory, 'shared')), 'no stray folder at the spelled path').toBe(false);
+  });
+
+  test('a dangling .gitignore link into a missing folder is refused with ENOENT and creates no folder', () => {
+    const repositoryDirectory = scratchRepository('gitignore-dangling-into-missing-folder');
+    const linkPath = join(repositoryDirectory, '.gitignore');
+    symlinkSync('missing-folder/shared-gitignore', linkPath);
+
+    expect(() => ensureIgnored(repositoryDirectory)).toThrow(expect.objectContaining({ code: 'ENOENT' }));
+
+    expect(existsSync(join(repositoryDirectory, 'missing-folder'))).toBe(false);
+    expect(readlinkSync(linkPath)).toBe('missing-folder/shared-gitignore');
+  });
+
+  // A cycle answered with the link itself would let the rename replace the link with a regular file.
+  test('a .gitignore link cycle is refused with ELOOP and stays a link', () => {
+    const repositoryDirectory = scratchRepository('gitignore-symlink-cycle');
+    const linkPath = join(repositoryDirectory, '.gitignore');
+    symlinkSync('other-ignore', linkPath);
+    symlinkSync('.gitignore', join(repositoryDirectory, 'other-ignore'));
+
+    expect(() => ensureIgnored(repositoryDirectory)).toThrow(expect.objectContaining({ code: 'ELOOP' }));
+
+    expect(lstatSync(linkPath).isSymbolicLink()).toBe(true);
+    expect(readlinkSync(linkPath)).toBe('other-ignore');
   });
 });
 
