@@ -12,9 +12,6 @@ import {
   EMPTY_VIEW_OVERRIDE,
   effectiveRangeFor,
   overrideIsEmpty,
-  pagePayloadFrom,
-  pageTicketsFrom,
-  waitingOnByTicketId,
   RANGE_PRESET_BOUNDS,
   storageKeyFor,
   storedOverrideFrom,
@@ -68,130 +65,9 @@ function exampleProgress(): ProgressFile {
   };
 }
 
-function examplePayload(): Record<string, unknown> {
-  return {
-    progress:                     exampleProgress(),
-    generatedAtEpochMilliseconds: EXAMPLE_START_EPOCH_MILLISECONDS,
-    limits:                       EXAMPLE_LIMITS,
-    concurrency:                  { limit: 2, agentsInFlight: 0 },
-    pageScriptFailure:            null,
-  };
-}
-
 function overrideWith(changes: Partial<StoredViewOverride>): StoredViewOverride {
   return { ...EMPTY_VIEW_OVERRIDE, ...changes };
 }
-
-describe('pagePayloadFrom', () => {
-  test('accepts the payload the generator writes', () => {
-    expect(pagePayloadFrom(examplePayload())).not.toBeNull();
-  });
-
-  test('accepts a payload carrying fields the page has never heard of', () => {
-    const progress = { ...exampleProgress(), somethingAddedLater: 'x' };
-
-    expect(pagePayloadFrom({ ...examplePayload(), progress, addedAtTheTopLevelToo: 1 })).not.toBeNull();
-  });
-
-  test.each([
-    ['null', null],
-    ['a string', 'not a payload'],
-    ['an empty object', {}],
-  ])('refuses %s rather than casting it', (_description, value) => {
-    expect(pagePayloadFrom(value)).toBeNull();
-  });
-
-  test.each([
-    ['the progress file', 'progress'],
-    ['the limits', 'limits'],
-    ['the generated stamp', 'generatedAtEpochMilliseconds'],
-    ['the concurrency figures', 'concurrency'],
-  ])('refuses a payload missing %s', (_description, missingKey) => {
-    const payload: Record<string, unknown> = examplePayload();
-    delete payload[missingKey];
-
-    expect(pagePayloadFrom(payload)).toBeNull();
-  });
-
-  test('refuses a payload whose concurrency figures are not numbers, since the summary line prints them', () => {
-    expect(pagePayloadFrom({ ...examplePayload(), concurrency: { limit: '2', agentsInFlight: 0 } })).toBeNull();
-  });
-
-  test('refuses a payload whose limits are not all finite numbers, since every percentage divides by one', () => {
-    const limits = { ...EXAMPLE_LIMITS, axisMinimumSpanMinutes: Number.NaN };
-
-    expect(pagePayloadFrom({ ...examplePayload(), limits })).toBeNull();
-  });
-
-  test('refuses a payload whose timestamp slice positions are missing', () => {
-    const limits: Record<string, unknown> = { ...EXAMPLE_LIMITS };
-    delete limits['clockSliceEnd'];
-
-    expect(pagePayloadFrom({ ...examplePayload(), limits })).toBeNull();
-  });
-
-  test('refuses a payload whose tick ladder is not a list of numbers', () => {
-    const limits = { ...EXAMPLE_LIMITS, tickStepLadderMinutes: ['five'] };
-
-    expect(pagePayloadFrom({ ...examplePayload(), limits })).toBeNull();
-  });
-
-  test('refuses a progress file whose tasks and log are not lists', () => {
-    const progress = { ...exampleProgress(), tasks: 'none' };
-
-    expect(pagePayloadFrom({ ...examplePayload(), progress })).toBeNull();
-  });
-});
-
-describe('pageTicketsFrom', () => {
-  const usable = {
-    id:       '003',
-    title:    'Split the exporter',
-    status:   'in-review',
-    bodyHtml: '<p>x</p>',
-  };
-
-  test('keeps the usable entries and drops the rest, rather than failing the whole island', () => {
-    const tickets = pageTicketsFrom([usable, { id: '004' }, null, 'nonsense']);
-
-    expect(tickets.map((ticket) => ticket.id)).toEqual(['003']);
-  });
-
-  test.each([
-    ['a non-array', { id: '003' }],
-    ['null', null],
-  ])('reads %s as no tickets at all', (_description, value) => {
-    expect(pageTicketsFrom(value)).toEqual([]);
-  });
-});
-
-describe('waitingOnByTicketId', () => {
-  function ticketsFrom(entries: Array<{ id: string; status: string; dependsOn?: string[] }>): ReturnType<typeof pageTicketsFrom> {
-    return pageTicketsFrom(entries.map((entry) => ({ title: `Ticket ${entry.id}`, bodyHtml: '', ...entry })));
-  }
-
-  test('maps a ticket to the dependencies that are not reviewed or delivered yet', () => {
-    const tickets = ticketsFrom([
-      { id: '001', status: 'reviewed' },
-      { id: '002', status: 'in-progress' },
-      { id: '003', status: 'pending', dependsOn: ['001', '002'] },
-    ]);
-
-    expect(waitingOnByTicketId(tickets)).toEqual(new Map([['003', ['002']]]));
-  });
-
-  // A closed ticket's list is history; showing it as waiting would suggest work that is not coming.
-  test('leaves out tickets that are closed and tickets whose dependencies are all settled', () => {
-    const tickets = ticketsFrom([
-      { id: '001', status: 'pending' },
-      { id: '002', status: 'reviewed', dependsOn: ['001'] },
-      { id: '003', status: 'abandoned', dependsOn: ['001'] },
-      { id: '004', status: 'pending' },
-    ]);
-
-    expect(waitingOnByTicketId(tickets).size).toBe(0);
-  });
-});
 
 describe('storageKeyFor', () => {
   test('namespaces the stored range by tracker id', () => {

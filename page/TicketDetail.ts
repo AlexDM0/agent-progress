@@ -6,10 +6,10 @@
 import type { Task }                 from '../src/lib/tracker-model/@types/Task.ts';
 import { HtmlEscapeUtil }            from '../src/lib/utils/HtmlEscapeUtil.ts';
 import { LIMITS }                    from '../src/shared/constants/Limits.ts';
-import type { KanbanCard }           from './KanbanBoard.ts';
-import { cardCarriesReviewedMark }   from './KanbanBoard.ts';
+import type { KanbanCard }           from './@types/KanbanCard.ts';
 import type { TicketTimelineLimits } from './TicketTimeline.ts';
 import { ticketTimelineMarkup }      from './TicketTimeline.ts';
+import { BoardRulesUtil }            from './utils/BoardRulesUtil.ts';
 import { MarkupUtil }                from './utils/MarkupUtil.ts';
 import { WorkItemMarkupUtil }        from './utils/WorkItemMarkupUtil.ts';
 
@@ -29,7 +29,7 @@ export interface TicketDetailInput {
 function headMarkup(input: TicketDetailInput): string {
   const { card, limits } = input;
   const { ticket, ownRow } = card;
-  const reviewedMark       = ownRow !== null && cardCarriesReviewedMark(card) ? WorkItemMarkupUtil.reviewedMarkMarkup(ownRow, limits) : '';
+  const reviewedMark       = ownRow !== null && BoardRulesUtil.cardCarriesReviewedMark(card) ? WorkItemMarkupUtil.reviewedMarkMarkup(ownRow, limits) : '';
   return [
     `<div class="ap-detail-head" ${MarkupUtil.attribute('data-state', card.state)}>`,
     `<span class="ap-detail-id">#${escapeHtml(ticket.id)}</span>`,

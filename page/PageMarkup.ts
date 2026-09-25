@@ -13,7 +13,9 @@ import type { PageTicket }                from '../src/shared/@types/PagePayload
 import { LIMITS }                         from '../src/shared/constants/Limits.ts';
 import { TicketNumberUtil }               from '../src/shared/utils/TicketNumberUtil.ts';
 import type { RowState }                  from './constants/RowState.ts';
+import { CLOSED_TICKET_STATUSES }         from './constants/TicketStatusGroups.ts';
 import { PERCENT_OF_A_WHOLE }             from './constants/Units.ts';
+import { BoardRulesUtil }                 from './utils/BoardRulesUtil.ts';
 import type { TimelineBar, TimelineTick } from './utils/GeometryUtil.ts';
 import type { ShortenedText }             from './utils/MarkupUtil.ts';
 import { MarkupUtil }                     from './utils/MarkupUtil.ts';
@@ -28,8 +30,6 @@ const TICK_MINIMUM_PIXELS             = 60;
 const TICK_PIXELS_PER_LABEL_CHARACTER = 9;
 
 const TICK_LABEL_GUTTER_PIXELS = 5;
-
-const COLLAPSED_TICKET_STATUSES: readonly string[] = ['reviewed', 'delivered', 'abandoned'];
 
 export interface TaskRow {
   task:         Task;
@@ -53,17 +53,8 @@ export function labelSitsLeftOfItsLine(tick: TimelineTick, axisWidthPixels: numb
   return remainingPixels < tick.label.length * TICK_PIXELS_PER_LABEL_CHARACTER + TICK_LABEL_GUTTER_PIXELS;
 }
 
-export function rowStateFor(task: Pick<Task, 'status'>, ticketStatus: TicketStatus | null): RowState {
-  return task.status === 'in-review' && ticketStatus === 'in-review' ? 'reviewing' : task.status;
-}
-
 function pillLabelFor(state: RowState, task: Task): string {
   return WorkItemMarkupUtil.pillLabelForRowState(state, task.reviewRound ?? LIMITS.FIRST_REPEAT_REVIEW_ROUND);
-}
-
-// Rows written before the review stamp existed carry none; a delivered ticket had to pass `reviewed`, so its row counts as reviewed.
-export function deliveredAfterReview(task: Task, ticketStatus: TicketStatus | null): boolean {
-  return task.status === 'delivered' && (task.reviewed !== undefined || ticketStatus === 'delivered');
 }
 
 export interface PlacedTaskRow {
@@ -105,9 +96,9 @@ export function taskRowsInDisplayOrder(rows: readonly TaskRow[]): PlacedTaskRow[
 function taskRowMarkup(placed: PlacedTaskRow, slices: TimestampSlices): string {
   const { row, nestedWithTicket } = placed;
   const { task, bar }              = row;
-  const state         = rowStateFor(task, row.ticketStatus);
+  const state         = BoardRulesUtil.rowStateFor(task, row.ticketStatus);
   const ticketBadge   = task.ticket === null ? '' : WorkItemMarkupUtil.ticketBadgeMarkup(task.ticket);
-  const reviewedMark = deliveredAfterReview(task, row.ticketStatus) ? WorkItemMarkupUtil.reviewedMarkMarkup(task, slices) : '';
+  const reviewedMark = BoardRulesUtil.deliveredAfterReview(task, row.ticketStatus) ? WorkItemMarkupUtil.reviewedMarkMarkup(task, slices) : '';
   const tokens = task.tokens === null
     ? ''
     : `<span class="ap-tokens">${escapeHtml(formatTokenCount(task.tokens))} tokens</span>`;
@@ -233,7 +224,7 @@ function ticketCardMarkup(ticket: PageTicket, waitingOn: readonly string[], slic
     WorkItemMarkupUtil.latestMilestoneMarkup(ticket, slices, todayCalendarDate),
   ].join('');
   const body  = `${ticketMetaMarkup(ticket, slices, todayCalendarDate)}<div class="ap-ticket-body md">${ticket.bodyHtml}</div>`;
-  const inner = COLLAPSED_TICKET_STATUSES.includes(ticket.status)
+  const inner = CLOSED_TICKET_STATUSES.includes(ticket.status)
     ? `<details><summary>${head}</summary>${body}</details>`
     : `<div class="ap-ticket-head">${head}</div>${body}`;
   return `<section class="ap-ticket" ${MarkupUtil.attribute('id', `ap-ticket-${ticket.id}`)}>${inner}</section>`;

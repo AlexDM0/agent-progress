@@ -5,16 +5,10 @@ import { TicketDefaultsUtil }  from '../src/lib/tracker-model/utils/TicketDefaul
 import { HtmlEscapeUtil }      from '../src/lib/utils/HtmlEscapeUtil.ts';
 import { TokenCountUtil }      from '../src/lib/utils/TokenCountUtil.ts';
 import { LIMITS }              from '../src/shared/constants/Limits.ts';
-import type {
-  ClosedKanbanLane,
-  KanbanCard,
-  KanbanLane,
-  NoteFormat,
-} from './KanbanBoard.ts';
+import type { KanbanCard }     from './@types/KanbanCard.ts';
+import type { NoteFormat }     from './KanbanBoard.ts';
 import {
-  CAPPED_LANE_FIRST_PAGE,
   cappedLaneShownCount,
-  cardCarriesReviewedMark,
   cardsInLane,
   KANBAN_LANES,
   laneIsClosed,
@@ -24,9 +18,12 @@ import {
   nextPageSizeFor,
   subStateNoteOf,
 } from './KanbanBoard.ts';
-import type { RowState }      from './constants/RowState.ts';
-import { MarkupUtil }         from './utils/MarkupUtil.ts';
-import { WorkItemMarkupUtil } from './utils/WorkItemMarkupUtil.ts';
+import type { ClosedKanbanLane, KanbanLane } from './constants/KanbanLane.ts';
+import { CAPPED_LANE_FIRST_PAGE }            from './constants/KanbanLane.ts';
+import type { RowState }                     from './constants/RowState.ts';
+import { BoardRulesUtil }                    from './utils/BoardRulesUtil.ts';
+import { MarkupUtil }                        from './utils/MarkupUtil.ts';
+import { WorkItemMarkupUtil }                from './utils/WorkItemMarkupUtil.ts';
 
 const { escapeHtml }       = HtmlEscapeUtil;
 const { formatTokenCount } = TokenCountUtil;
@@ -90,7 +87,7 @@ function marksMarkup(card: KanbanCard, lane: KanbanLane): string {
 
 function stateMarkup(card: KanbanCard, lane: KanbanLane, format: NoteFormat): string {
   const pill         = laneMixesStates(lane) ? `<span class="ap-pill">${escapeHtml(pillLabelOf(card))}</span>` : '';
-  const reviewedMark = lane === 'done' && card.ownRow !== null && cardCarriesReviewedMark(card)
+  const reviewedMark = lane === 'done' && card.ownRow !== null && BoardRulesUtil.cardCarriesReviewedMark(card)
     ? `${WorkItemMarkupUtil.reviewedMarkMarkup(card.ownRow, format.slices)}<span>reviewed</span>`
     : '';
   return `<div class="ap-kanban-state">${pill}${reviewedMark}</div>`;

@@ -8,20 +8,17 @@ import type { TicketPriority }               from '../src/lib/tracker-model/@typ
 import { TicketDefaultsUtil }                from '../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
 import type { PageTicket }                   from '../src/shared/@types/PagePayload.ts';
 import { LIMITS }                            from '../src/shared/constants/Limits.ts';
-import { TicketNumberUtil }                  from '../src/shared/utils/TicketNumberUtil.ts';
-import { deliveredAfterReview, rowStateFor } from './PageMarkup.ts';
+import type { KanbanCard }                   from './@types/KanbanCard.ts';
+import type { ClosedKanbanLane, KanbanLane } from './constants/KanbanLane.ts';
+import { CAPPED_LANE_FIRST_PAGE }            from './constants/KanbanLane.ts';
 import type { RowState }                     from './constants/RowState.ts';
+import { BoardRulesUtil }                    from './utils/BoardRulesUtil.ts';
 import type { TimestampSlices }              from './utils/TimeUtil.ts';
 import { TimeUtil }                          from './utils/TimeUtil.ts';
 
-export type KanbanLane = 'todo' | 'progress' | 'review' | 'merge' | 'done' | 'abandoned';
-
-export type ClosedKanbanLane = 'done' | 'abandoned';
-
 export const KANBAN_LANES: readonly KanbanLane[] = ['todo', 'progress', 'review', 'merge', 'done', 'abandoned'];
 
-export const CAPPED_LANE_FIRST_PAGE = 15;
-export const CAPPED_LANE_PAGE_STEP  = 25;
+export const CAPPED_LANE_PAGE_STEP = 25;
 
 export const OVERFLOW_TOLERANCE_PIXELS = 1;
 
@@ -44,14 +41,6 @@ const LANE_FOR_ROW_STATE: Record<RowState, KanbanLane> = {
 
 const PRIORITY_ORDER: Record<TicketPriority, number> = { high: 0, normal: 1, low: 2 };
 
-export interface KanbanCard {
-  ticket:    PageTicket;
-  /** The task whose `ticket` is this ticket's id, or `null` for a ticket never started. */
-  ownRow:    Task | null;
-  state:     RowState;
-  waitingOn: readonly string[];
-}
-
 export interface NoteFormat {
   tasks:                readonly Task[];
   nowEpochMilliseconds: number;
@@ -59,13 +48,9 @@ export interface NoteFormat {
   slices:               TimestampSlices;
 }
 
-export function ownRowOf(ticketId: string, tasks: readonly Task[]): Task | null {
-  return tasks.find((task) => task.ticket === ticketId) ?? null;
-}
-
 /** A ticket with no row reads the pill a row in its own status would show. */
 export function cardStateFor(ticket: PageTicket, ownRow: Task | null): RowState {
-  return rowStateFor(ownRow ?? { status: ticket.status }, ticket.status);
+  return BoardRulesUtil.rowStateFor(ownRow ?? { status: ticket.status }, ticket.status);
 }
 
 export function laneOfState(state: RowState): KanbanLane {
@@ -74,7 +59,7 @@ export function laneOfState(state: RowState): KanbanLane {
 
 export function kanbanCardsFor(tickets: readonly PageTicket[], tasks: readonly Task[], waitingOnById: ReadonlyMap<string, readonly string[]>): KanbanCard[] {
   return tickets.map((ticket) => {
-    const ownRow = ownRowOf(ticket.id, tasks);
+    const ownRow = BoardRulesUtil.ownRowOf(ticket.id, tasks);
     return {
       ticket,
       ownRow,
@@ -125,10 +110,6 @@ export function laneIsDividedByPriority(lane: KanbanLane, members: readonly Kanb
   return !laneIsClosed(lane) && new Set(members.map((card) => TicketDefaultsUtil.ticketPriorityOf(card.ticket))).size > 1;
 }
 
-export function cardCarriesReviewedMark(card: KanbanCard): boolean {
-  return card.ownRow !== null && deliveredAfterReview(card.ownRow, card.ticket.status);
-}
-
 /** One figure of a lane head; `dotState` draws the state's dot before it, `reviewedMark` the ✓. */
 export interface LaneSubCount {
   count:        number;
@@ -164,7 +145,7 @@ export function laneSubCountsOf(lane: KanbanLane, members: readonly KanbanCard[]
       subCount(countOf((card) => card.state === 'reviewing' || card.state === 're-review'), 'reviewing', 'reviewing'),
     ],
     merge:     [],
-    done:      [subCount(countOf(cardCarriesReviewedMark), 'reviewed first', null, true)],
+    done:      [subCount(countOf(BoardRulesUtil.cardCarriesReviewedMark), 'reviewed first', null, true)],
     abandoned: [],
   };
   return counts[lane].filter((entry) => entry.count > 0);
@@ -173,12 +154,6 @@ export function laneSubCountsOf(lane: KanbanLane, members: readonly KanbanCard[]
 function newestPhaseAt(task: Task | null, status: Task['status']): string | null {
   const phases = task?.history ?? [];
   return phases.findLast((phase) => phase.status === status)?.at ?? null;
-}
-
-function newestReviewRowOf(ticketId: string, tasks: readonly Task[]): Task | null {
-  const ticketNumber = Number(ticketId);
-  const reviewRows   = tasks.filter((task) => task.ticket === null && TicketNumberUtil.reviewedTicketNumberOf(task) === ticketNumber);
-  return reviewRows.reduce<Task | null>((newest, task) => (newest === null || task.id > newest.id ? task : newest), null);
 }
 
 function stampNote(prefix: string, stamp: string | null | undefined, format: NoteFormat): string | null {
@@ -204,7 +179,7 @@ function waitingForReviewerNote(card: KanbanCard, format: NoteFormat): string | 
 }
 
 function runningReviewerNote(card: KanbanCard, format: NoteFormat): string | null {
-  const reviewRow = newestReviewRowOf(card.ticket.id, format.tasks);
+  const reviewRow = BoardRulesUtil.reviewRowsOf(card.ticket.id, format.tasks).at(-1) ?? null;
   if (reviewRow === null || reviewRow.end !== null) {
     return null;
   }

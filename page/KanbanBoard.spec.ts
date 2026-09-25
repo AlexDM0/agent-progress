@@ -4,11 +4,12 @@
  * 15, then 25 at a time, clamped whatever storage says.
  */
 
-import { describe, expect, test }                  from 'bun:test';
-import type { Task, TaskStatus }                   from '../src/lib/tracker-model/@types/Task.ts';
-import type { TicketPriority, TicketStatus }       from '../src/lib/tracker-model/@types/Ticket.ts';
-import type { PageTicket }                         from '../src/shared/@types/PagePayload.ts';
-import type { KanbanCard, KanbanLane, NoteFormat } from './KanbanBoard.ts';
+import { describe, expect, test }            from 'bun:test';
+import type { Task, TaskStatus }             from '../src/lib/tracker-model/@types/Task.ts';
+import type { TicketPriority, TicketStatus } from '../src/lib/tracker-model/@types/Ticket.ts';
+import type { PageTicket }                   from '../src/shared/@types/PagePayload.ts';
+import type { KanbanCard }                   from './@types/KanbanCard.ts';
+import type { NoteFormat }                   from './KanbanBoard.ts';
 import {
   abandonedLaneChoiceFor,
   abandonedLaneIsOpenFrom,
@@ -27,7 +28,8 @@ import {
   shownCountFrom,
   subStateNoteOf,
 } from './KanbanBoard.ts';
-import type { RowState } from './constants/RowState.ts';
+import type { KanbanLane } from './constants/KanbanLane.ts';
+import type { RowState }   from './constants/RowState.ts';
 
 const EXAMPLE_TODAY = '2026-09-25';
 const EXAMPLE_NOW   = Date.parse('2026-09-25T13:36:00+02:00');

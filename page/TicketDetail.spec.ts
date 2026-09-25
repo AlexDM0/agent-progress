@@ -7,8 +7,8 @@
 import { describe, expect, test } from 'bun:test';
 import type { Task }              from '../src/lib/tracker-model/@types/Task.ts';
 import type { PageTicket }        from '../src/shared/@types/PagePayload.ts';
+import type { KanbanCard }        from './@types/KanbanCard.ts';
 import { kanbanCardsFor }         from './KanbanBoard.ts';
-import type { KanbanCard }        from './KanbanBoard.ts';
 import { kanbanBoardMarkup }      from './KanbanMarkup.ts';
 import { taskRowsMarkup }         from './PageMarkup.ts';
 import { taskDetailMarkup }       from './TaskDetail.ts';

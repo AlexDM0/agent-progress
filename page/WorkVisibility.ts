@@ -1,31 +1,8 @@
-/** Which tasks and tickets the page shows: work that has been done for longer than the window is hidden unless the viewer asked for all of it. */
-
-import type { Task, TaskStatus }                from '../src/lib/tracker-model/@types/Task.ts';
-import type { TicketFrontmatter, TicketStatus } from '../src/lib/tracker-model/@types/Ticket.ts';
-import { TimeUtil }                             from './utils/TimeUtil.ts';
+/** The viewer's choice between recent and all work, and the note that says how much of it is hidden. */
 
 export type WorkVisibility = 'recent' | 'all';
 
 export const DEFAULT_WORK_VISIBILITY: WorkVisibility = 'recent';
-
-// Done means merged: a `reviewed` row and a `reviewed` ticket are awaiting merge, so they stay visible.
-const DONE_TASK_STATUSES: readonly TaskStatus[]     = ['delivered', 'abandoned'];
-const DONE_TICKET_STATUSES: readonly TicketStatus[] = ['delivered', 'abandoned'];
-
-// Comparing with now is a stated clock exception that decides only what the page shows, never what is stored.
-function doneLongerThan(doneAt: string | null, nowEpochMilliseconds: number, windowMilliseconds: number): boolean {
-  const doneEpochMilliseconds = TimeUtil.epochMillisecondsOf(doneAt);
-  return doneEpochMilliseconds !== null && nowEpochMilliseconds - doneEpochMilliseconds > windowMilliseconds;
-}
-
-export function taskIsLongDone(task: Task, nowEpochMilliseconds: number, windowMilliseconds: number): boolean {
-  return DONE_TASK_STATUSES.includes(task.status) && doneLongerThan(task.end ?? task.start, nowEpochMilliseconds, windowMilliseconds);
-}
-
-// `updated` rather than `finished`: `finished` is stamped when review starts, `updated` by the last transition.
-export function ticketIsLongDone(ticket: TicketFrontmatter, nowEpochMilliseconds: number, windowMilliseconds: number): boolean {
-  return DONE_TICKET_STATUSES.includes(ticket.status) && doneLongerThan(ticket.updated, nowEpochMilliseconds, windowMilliseconds);
-}
 
 export function workVisibilityFrom(value: unknown): WorkVisibility {
   return value === 'all' ? 'all' : DEFAULT_WORK_VISIBILITY;

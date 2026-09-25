@@ -10,8 +10,8 @@ import { HtmlEscapeUtil }                   from '../src/lib/utils/HtmlEscapeUti
 import { TokenCountUtil }                   from '../src/lib/utils/TokenCountUtil.ts';
 import type { PageTicket }                  from '../src/shared/@types/PagePayload.ts';
 import { LIMITS }                           from '../src/shared/constants/Limits.ts';
-import { rowStateFor }                      from './PageMarkup.ts';
 import type { RowState }                    from './constants/RowState.ts';
+import { BoardRulesUtil }                   from './utils/BoardRulesUtil.ts';
 import { LogMarkupUtil }                    from './utils/LogMarkupUtil.ts';
 import { MarkupUtil }                       from './utils/MarkupUtil.ts';
 import type { TimestampSlices }             from './utils/TimeUtil.ts';
@@ -123,7 +123,7 @@ function readNewestPhaseAsTheChartDoes(lines: readonly PhaseLine[], task: Task, 
   if (newest === undefined || newest.state !== task.status) {
     return [...lines];
   }
-  return [...lines.slice(0, -1), { ...newest, state: rowStateFor(task, ticketStatus) }];
+  return [...lines.slice(0, -1), { ...newest, state: BoardRulesUtil.rowStateFor(task, ticketStatus) }];
 }
 
 /**
@@ -260,7 +260,7 @@ function headMarkup(task: Task | null, ticket: PageTicket | null): string {
       '</div>',
     ].join('');
   }
-  const state       = rowStateFor(task, ticket?.status ?? null);
+  const state       = BoardRulesUtil.rowStateFor(task, ticket?.status ?? null);
   const ticketBadge = task.ticket === null ? '' : WorkItemMarkupUtil.ticketBadgeMarkup(task.ticket);
   return [
     `<div class="ap-detail-head" ${MarkupUtil.attribute('data-state', state)}>`,

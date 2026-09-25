@@ -9,10 +9,9 @@ import { HtmlEscapeUtil }                              from '../src/lib/utils/Ht
 import { TokenCountUtil }                              from '../src/lib/utils/TokenCountUtil.ts';
 import type { PageTicket }                             from '../src/shared/@types/PagePayload.ts';
 import { LIMITS }                                      from '../src/shared/constants/Limits.ts';
-import { TicketNumberUtil }                            from '../src/shared/utils/TicketNumberUtil.ts';
-import { ownRowOf }                                    from './KanbanBoard.ts';
 import type { RowState }                               from './constants/RowState.ts';
 import { MILLISECONDS_PER_MINUTE, PERCENT_OF_A_WHOLE } from './constants/Units.ts';
+import { BoardRulesUtil }                              from './utils/BoardRulesUtil.ts';
 import type { TimelineLimits, TimelineTick }           from './utils/GeometryUtil.ts';
 import { GeometryUtil }                                from './utils/GeometryUtil.ts';
 import { MarkupUtil }                                  from './utils/MarkupUtil.ts';
@@ -205,14 +204,6 @@ function buildEndOf(ticket: PageTicket, ownRow: Task | null): number | null {
   return TimeUtil.epochMillisecondsOf(ticket.finished) ?? TimeUtil.epochMillisecondsOf(finishedPhase?.at) ?? rowEnd;
 }
 
-/** Oldest first by filing order, which is the row id: nothing here compares two clocks to decide an order. */
-function reviewRowsOf(ticket: PageTicket, tasks: readonly Task[]): Task[] {
-  const ticketNumber = Number(ticket.id);
-  return tasks
-    .filter((task) => task.ticket === null && TicketNumberUtil.reviewedTicketNumberOf(task) === ticketNumber)
-    .toSorted((a, b) => a.id - b.id);
-}
-
 function reviewSpansOf(reviewRows: readonly Task[], lastMomentEpochMilliseconds: number, ticketIsClosed: boolean): ReviewSpan[] {
   const started = reviewRows.flatMap((row) => {
     const startEpochMilliseconds = TimeUtil.epochMillisecondsOf(row.start);
@@ -347,14 +338,14 @@ export function ticketTimelineOf(input: TicketTimelineInput): TicketTimeline {
   const filedEpochMilliseconds    = TimeUtil.epochMillisecondsOf(ticket.filed) ?? input.nowEpochMilliseconds;
   const lastMoment                = Math.max(filedEpochMilliseconds, TimeUtil.epochMillisecondsOf(closingStamp) ?? input.nowEpochMilliseconds);
   const axis                      = axisFor(filedEpochMilliseconds, lastMoment, limits);
-  const ownRow                    = ownRowOf(ticket.id, tasks);
+  const ownRow                    = BoardRulesUtil.ownRowOf(ticket.id, tasks);
   const buildSegments             = buildSegmentsOf(ownRow, lastMoment, closedState !== null);
   const firstSegment              = buildSegments[0];
   const lastSegment               = buildSegments.at(-1);
   const queueIsOpen               = firstSegment === undefined && closedState === null;
   const queue                     = timelineSpan('pending', stateLabelOf('pending'), filedEpochMilliseconds, firstSegment?.startEpochMilliseconds ?? lastMoment, queueIsOpen);
   const queuedMilliseconds        = queue.endEpochMilliseconds - queue.startEpochMilliseconds;
-  const reviews                   = reviewSpansOf(reviewRowsOf(ticket, tasks), lastMoment, closedState !== null);
+  const reviews                   = reviewSpansOf(BoardRulesUtil.reviewRowsOf(ticket.id, tasks), lastMoment, closedState !== null);
   const afterBuild                = afterBuildSpansOf({
     buildEndEpochMilliseconds:   buildEndOf(ticket, ownRow),
     reviews,

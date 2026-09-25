@@ -1,9 +1,9 @@
-/** The DOM-free half of the page: the checks that establish the island shapes, and the range the geometry is finally given. */
+/** The DOM-free half of the page's range: the viewer's stored override and the range the geometry is finally given. */
 
-import type { ProgressFile, ViewRange }             from '../src/lib/tracker-model/@types/ProgressFile.ts';
-import { TicketDependencyUtil }                     from '../src/lib/tracker-model/utils/TicketDependencyUtil.ts';
-import type { PageLimits, PagePayload, PageTicket } from '../src/shared/@types/PagePayload.ts';
-import { GeometryUtil }                             from './utils/GeometryUtil.ts';
+import type { ProgressFile, ViewRange } from '../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { PageLimits }              from '../src/shared/@types/PagePayload.ts';
+import { GeometryUtil }                 from './utils/GeometryUtil.ts';
+import { JsonValueUtil }                from './utils/JsonValueUtil.ts';
 
 export interface StoredViewOverride {
   presetKey:   string | null;
@@ -29,105 +29,20 @@ export const RANGE_PRESET_BOUNDS: Readonly<Record<string, { fromText: string | n
   'all':  { fromText: 'start', toText: 'now' },
 };
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function numberOrNull(value: unknown): number | null {
-  return typeof value === 'number' && Number.isFinite(value) ? value : null;
-}
-
-function textOrNull(value: unknown): string | null {
-  return typeof value === 'string' ? value : null;
-}
-
-const REQUIRED_LIMIT_NAMES = [
-  'maximumTicksPerAxis',
-  'axisMinimumSpanMinutes',
-  'axisPaddingMinutes',
-  'minimumBarWidthPercent',
-  'hoursAxisLabelLimitMinutes',
-  'weekAxisLabelLimitMinutes',
-  'hourMinutes',
-  'dayMinutes',
-  'tickCountSafetyBound',
-  'dateAndClockLength',
-  'calendarDateLength',
-  'monthAndDaySliceStart',
-  'clockSliceStart',
-  'clockSliceEnd',
-  'doneWorkVisibleMilliseconds',
-] as const;
-
-/** Unrecognised properties are accepted: the progress file gains fields over time and a stricter check would blank the chart on that upgrade. */
-export function pagePayloadFrom(value: unknown): PagePayload | null {
-  if (!isRecord(value)) {
-    return null;
-  }
-  const { progress, limits, concurrency } = value;
-  const generatedAtEpochMilliseconds = numberOrNull(value['generatedAtEpochMilliseconds']);
-  if (!isRecord(progress) || !isRecord(limits) || generatedAtEpochMilliseconds === null) {
-    return null;
-  }
-  if (!isRecord(concurrency) || numberOrNull(concurrency['limit']) === null || numberOrNull(concurrency['agentsInFlight']) === null) {
-    return null;
-  }
-  if (typeof progress['trackerId'] !== 'string' || typeof progress['startedAt'] !== 'string') {
-    return null;
-  }
-  if (!Array.isArray(progress['tasks']) || !Array.isArray(progress['log']) || !isRecord(progress['view'])) {
-    return null;
-  }
-  const ladder = limits['tickStepLadderMinutes'];
-  if (!Array.isArray(ladder) || ladder.some((step) => numberOrNull(step) === null)) {
-    return null;
-  }
-  if (REQUIRED_LIMIT_NAMES.some((name) => numberOrNull(limits[name]) === null)) {
-    return null;
-  }
-  return value as unknown as PagePayload;
-}
-
-/** Drops an unusable entry instead of failing the whole island, which is the opposite direction from `pagePayloadFrom`. */
-export function pageTicketsFrom(value: unknown): PageTicket[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value.filter((entry): entry is PageTicket => isRecord(entry)
-    && typeof entry['id'] === 'string'
-    && typeof entry['title'] === 'string'
-    && typeof entry['status'] === 'string'
-    && typeof entry['bodyHtml'] === 'string');
-}
-
-const CLOSED_TICKET_STATUSES: readonly string[] = ['reviewed', 'delivered', 'abandoned'];
-
-/** Only tickets still to be worked on wait; a closed ticket's list is history. */
-export function waitingOnByTicketId(tickets: readonly PageTicket[]): Map<string, string[]> {
-  const statusById = new Map(tickets.map((ticket) => [ticket.id, ticket.status]));
-  const waitingOn  = new Map<string, string[]>();
-  for (const ticket of tickets) {
-    if (CLOSED_TICKET_STATUSES.includes(ticket.status)) continue;
-    const unsettled = TicketDependencyUtil.unsettledDependenciesOf(ticket.dependsOn ?? [], statusById);
-    if (unsettled.length > 0) waitingOn.set(ticket.id, unsettled);
-  }
-  return waitingOn;
-}
-
 /** `file://` is one origin in Chrome, so the tracker id is what keeps two dashboards' ranges apart. */
 export function storageKeyFor(trackerId: string): string {
   return `agent-progress:${trackerId}`;
 }
 
 export function storedOverrideFrom(value: unknown): StoredViewOverride {
-  if (!isRecord(value)) {
+  if (!JsonValueUtil.valueIsRecord(value)) {
     return EMPTY_VIEW_OVERRIDE;
   }
   return {
-    presetKey:   textOrNull(value['presetKey']),
-    fromText:    textOrNull(value['fromText']),
-    toText:      textOrNull(value['toText']),
-    tickMinutes: numberOrNull(value['tickMinutes']),
+    presetKey:   JsonValueUtil.textOrNull(value['presetKey']),
+    fromText:    JsonValueUtil.textOrNull(value['fromText']),
+    toText:      JsonValueUtil.textOrNull(value['toText']),
+    tickMinutes: JsonValueUtil.finiteNumberOrNull(value['tickMinutes']),
   };
 }
 

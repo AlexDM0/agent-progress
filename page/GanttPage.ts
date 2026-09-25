@@ -7,12 +7,11 @@ import type { ProgressFile, ViewRange }             from '../src/lib/tracker-mod
 import type { Task }                                from '../src/lib/tracker-model/@types/Task.ts';
 import type { TicketStatus }                        from '../src/lib/tracker-model/@types/Ticket.ts';
 import type { PageLimits, PagePayload, PageTicket } from '../src/shared/@types/PagePayload.ts';
-import type { ClosedKanbanLane, KanbanCard }        from './KanbanBoard.ts';
+import type { KanbanCard }                          from './@types/KanbanCard.ts';
 import {
   abandonedLaneChoiceFor,
   abandonedLaneIsOpenFrom,
   abandonedLaneStorageKeyFor,
-  CAPPED_LANE_FIRST_PAGE,
   cappedLaneShownCount,
   cappedLaneStorageKeyFor,
   cardsInLane,
@@ -47,12 +46,9 @@ import {
   EMPTY_VIEW_OVERRIDE,
   effectiveRangeFor,
   overrideIsEmpty,
-  pagePayloadFrom,
-  pageTicketsFrom,
   RANGE_PRESET_BOUNDS,
   storageKeyFor,
   storedOverrideFrom,
-  waitingOnByTicketId,
 } from './PageData.ts';
 import type { PlacedTick, TaskRow } from './PageMarkup.ts';
 import {
@@ -74,16 +70,20 @@ import type { WorkVisibility }   from './WorkVisibility.ts';
 import {
   DEFAULT_WORK_VISIBILITY,
   hiddenWorkNoteText,
-  taskIsLongDone,
-  ticketIsLongDone,
   workVisibilityFrom,
   workVisibilityStorageKeyFor,
 } from './WorkVisibility.ts';
-import type { Timeline }      from './utils/GeometryUtil.ts';
-import { GeometryUtil }       from './utils/GeometryUtil.ts';
-import { LogMarkupUtil }      from './utils/LogMarkupUtil.ts';
-import type { ShortenedText } from './utils/MarkupUtil.ts';
-import { TimeUtil }           from './utils/TimeUtil.ts';
+import type { ClosedKanbanLane }                    from './constants/KanbanLane.ts';
+import { CAPPED_LANE_FIRST_PAGE }                   from './constants/KanbanLane.ts';
+import { KANBAN_BOARD_ELEMENT_ID, KANBAN_TAB_NAME } from './constants/TemplateIds.ts';
+import type { Timeline }                            from './utils/GeometryUtil.ts';
+import { GeometryUtil }                             from './utils/GeometryUtil.ts';
+import { IslandUtil }                               from './utils/IslandUtil.ts';
+import { LogMarkupUtil }                            from './utils/LogMarkupUtil.ts';
+import type { ShortenedText }                       from './utils/MarkupUtil.ts';
+import { TimeUtil }                                 from './utils/TimeUtil.ts';
+import { VisibilityUtil }                           from './utils/VisibilityUtil.ts';
+import { WaitingOnUtil }                            from './utils/WaitingOnUtil.ts';
 
 const PROGRESS_ISLAND_ELEMENT_ID = 'ap-progress-data';
 const TICKETS_ISLAND_ELEMENT_ID  = 'ap-tickets-data';
@@ -94,9 +94,7 @@ const DETAIL_DIALOG_ELEMENT_ID = 'ap-detail';
 const DETAIL_BODY_ELEMENT_ID   = 'ap-detail-body';
 const DETAIL_CLOSE_ELEMENT_ID  = 'ap-detail-close';
 
-const KANBAN_BOARD_ELEMENT_ID = 'ap-kanban';
 const KANBAN_FRAME_ELEMENT_ID = 'ap-kanban-frame';
-const KANBAN_TAB_NAME         = 'kanban';
 
 const TAB_NAMES = ['progress', KANBAN_TAB_NAME, 'tickets'];
 
@@ -606,7 +604,7 @@ function clearPlaceholderContent(): void {
 function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   const { progress, limits } = payload;
   const ticketStatusById     = new Map(tickets.map((ticket) => [ticket.id, ticket.status]));
-  const waitingOnById        = waitingOnByTicketId(tickets);
+  const waitingOnById        = WaitingOnUtil.waitingOnByTicketId(tickets);
   let override               = readStoredOverride(progress.trackerId);
 
   if (payload.pageScriptFailure !== null) {
@@ -654,8 +652,8 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     const nowEpochMilliseconds = Date.now();
     const showsAll             = visibility === 'all';
     const windowMilliseconds   = limits.doneWorkVisibleMilliseconds;
-    const visibleTasks         = progress.tasks.filter((task) => showsAll || !taskIsLongDone(task, nowEpochMilliseconds, windowMilliseconds));
-    const visibleTickets       = tickets.filter((ticket) => showsAll || !ticketIsLongDone(ticket, nowEpochMilliseconds, windowMilliseconds));
+    const visibleTasks         = progress.tasks.filter((task) => showsAll || !VisibilityUtil.taskIsLongDone(task, nowEpochMilliseconds, windowMilliseconds));
+    const visibleTickets       = tickets.filter((ticket) => showsAll || !VisibilityUtil.ticketIsLongDone(ticket, nowEpochMilliseconds, windowMilliseconds));
     visibleProgress = { ...progress, tasks: visibleTasks };
     todayCalendarDate = TimeUtil.calendarDateOf(nowEpochMilliseconds);
 
@@ -773,12 +771,12 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
 
 function startGanttPage(): void {
   clearPlaceholderContent();
-  const payload = pagePayloadFrom(islandContentsOf(PROGRESS_ISLAND_ELEMENT_ID));
+  const payload = IslandUtil.pagePayloadFrom(islandContentsOf(PROGRESS_ISLAND_ELEMENT_ID));
   if (payload === null) {
     showLayoutFailure('The progress data island is missing or could not be read, so the chart could not be built.');
     return;
   }
-  renderPage(payload, pageTicketsFrom(islandContentsOf(TICKETS_ISLAND_ELEMENT_ID)));
+  renderPage(payload, IslandUtil.pageTicketsFrom(islandContentsOf(TICKETS_ISLAND_ELEMENT_ID)));
 }
 
 function startGanttPageSafely(): void {
