@@ -1,4 +1,4 @@
-/** The display format is the shared contract with `lib/render/`, which must reach it by importing this module rather than restating the thresholds. */
+/** One display format for token counts, so every surface that prints one shows the same units. */
 
 /** Not 1024: these are counts a model reported, and every model's own dashboard shows them in thousands. */
 const THOUSAND_TOKENS = 1000;
@@ -10,9 +10,9 @@ const SHORTENED_DECIMAL_PLACES = 1;
 const TOKEN_COUNT_PATTERN = /^(\d+)(?:\.(\d+))?\s*([km])?$/i;
 
 /**
- * Reads `12000`, `12k`, `12.3k` or `1.2m`; `null` for anything else, which `cli/task/TaskCommand.ts`
- * turns into a refusal. A fractional part is legal only with a suffix, because a bare `12.5` is a
- * count that cannot exist and is far likelier to be a typo for `12500`.
+ * Reads `12000`, `12k`, `12.3k` or `1.2m`; `null` for anything else, which a caller turns into a
+ * refusal. A fractional part is legal only with a suffix, because a bare `12.5` is a count that
+ * cannot exist and is far likelier to be a typo for `12500`.
  */
 function parseTokenCount(text: string): number | null {
   const match = TOKEN_COUNT_PATTERN.exec(text.trim());

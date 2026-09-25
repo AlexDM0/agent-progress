@@ -9,14 +9,14 @@ import {
   readFileSync,
   unlinkSync,
 } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join }       from 'node:path';
+import { writeFileAtomically } from '../../src/lib/atomic-file/AtomicFile.ts';
 import type {
   Ticket,
   TicketFrontmatter,
   TicketPriority,
   TicketType
 }                                                       from '../constants/Types.ts';
-import { writeFileAtomically }                          from '../platform/AtomicFile.ts';
 import type { Workspace }                               from '../platform/Workspace.ts';
 import { SlugUtil }                                     from '../utils/SlugUtil.ts';
 import { TicketIdUtil }                                 from '../utils/TicketIdUtil.ts';
@@ -108,7 +108,7 @@ export function readTicket(workspace: Workspace, reference: string): Ticket | nu
   return listTickets(workspace).tickets.find((ticket) => ticket.frontmatter.id === identifier) ?? null;
 }
 
-/** Writes through `lib/platform/AtomicFile.ts` and never touches `updated`; only `lib/tickets/TicketTransitions.ts` knows that a ticket changed. */
+/** Writes through `src/lib/atomic-file/AtomicFile.ts` and never touches `updated`; only `lib/tickets/TicketTransitions.ts` knows that a ticket changed. */
 export function writeTicket(ticket: Ticket): void {
   // The directory is recreated rather than assumed: `clear --all` may have removed it.
   mkdirSync(dirname(ticket.filePath), { recursive: true });

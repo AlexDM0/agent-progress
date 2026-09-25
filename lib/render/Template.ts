@@ -1,14 +1,14 @@
 /**
  * Fills `lib/render/page/template.html` — two islands, the page script and the title — from one progress file and its tickets. Both islands go
- * through `escapeJsonForScriptTag` of `lib/utils/HtmlEscapeUtil.ts`, so none can close its script tag; `generatedAt` is a parameter, not a clock.
+ * through `escapeJsonForScriptTag` of `src/lib/utils/HtmlEscapeUtil.ts`, so none can close its script tag; `generatedAt` is a parameter, not a clock.
  */
 
 import { readFileSync }                                  from 'node:fs';
 import { join }                                          from 'node:path';
+import { HtmlEscapeUtil }                                from '../../src/lib/utils/HtmlEscapeUtil.ts';
 import { OperationRefusal }                              from '../../src/shared/OperationRefusal.ts';
 import { LIMITS }                                        from '../../src/shared/constants/Limits.ts';
 import type { ProgressFile, Ticket }                     from '../constants/Types.ts';
-import { HtmlEscapeUtil }                                from '../utils/HtmlEscapeUtil.ts';
 import { renderMarkdown }                                from './Markdown.ts';
 import type { PageConcurrency, PagePayload, PageTicket } from './page/PageData.ts';
 

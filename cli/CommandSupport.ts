@@ -35,8 +35,8 @@ import { listTickets, writeTicket }                from '../lib/tickets/TicketSt
 import type { PriorityOperations }                 from '../lib/tickets/TicketTransitions';
 import { NextLineUtil }                            from '../lib/utils/NextLineUtil';
 import { TicketDependencyUtil }                    from '../lib/utils/TicketDependencyUtil';
-import { TimeUtil }                                from '../lib/utils/TimeUtil';
-import { TokenCountUtil }                          from '../lib/utils/TokenCountUtil';
+import { TimeUtil }                                from '../src/lib/utils/TimeUtil';
+import { TokenCountUtil }                          from '../src/lib/utils/TokenCountUtil';
 import { OperationRefusal }                        from '../src/shared/OperationRefusal';
 import { LIMITS }                                  from '../src/shared/constants/Limits';
 import type { CommandContext }                     from './CommandContext';

@@ -12,8 +12,8 @@ import type {
 }                                            from '../../lib/constants/Types';
 import { requireWorkspace } from '../../lib/platform/Workspace';
 import { listTickets }      from '../../lib/tickets/TicketStore';
-import { TimeUtil }         from '../../lib/utils/TimeUtil';
-import { TokenCountUtil }   from '../../lib/utils/TokenCountUtil';
+import { TimeUtil }         from '../../src/lib/utils/TimeUtil';
+import { TokenCountUtil }   from '../../src/lib/utils/TokenCountUtil';
 import { LIMITS }           from '../../src/shared/constants/Limits';
 import {
   concurrencyDocumentOf,

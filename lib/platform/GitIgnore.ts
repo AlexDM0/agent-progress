@@ -6,8 +6,8 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join }                     from 'node:path';
 
+import { writeFileAtomicallyThroughLinks } from '../../src/lib/atomic-file/AtomicFile';
 import { TRACKER_DIRECTORY_NAME }          from '../constants/Statuses';
-import { writeFileAtomicallyThroughLinks } from './AtomicFile';
 
 const IGNORE_LINE = `${TRACKER_DIRECTORY_NAME}/`;
 

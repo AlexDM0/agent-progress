@@ -20,7 +20,7 @@ import {
   test
 }                                       from 'bun:test';
 import type { ProgressFile, Task } from '../../lib/constants/Types';
-import { TimeUtil }                from '../../lib/utils/TimeUtil';
+import { TimeUtil }                from '../../src/lib/utils/TimeUtil';
 import {
   addWorktree,
   createScratchGitRepository,

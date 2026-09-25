@@ -3,7 +3,9 @@
  * Every value passes `escapeHtml` exactly once here, except a ticket's `bodyHtml`, already escaped by `lib/render/Markdown.ts`.
  */
 
-import { LIMITS } from '../../../src/shared/constants/Limits.ts';
+import { HtmlEscapeUtil } from '../../../src/lib/utils/HtmlEscapeUtil.ts';
+import { TokenCountUtil } from '../../../src/lib/utils/TokenCountUtil.ts';
+import { LIMITS }         from '../../../src/shared/constants/Limits.ts';
 import type {
   LogEntry,
   Task,
@@ -11,8 +13,6 @@ import type {
   TaskStatus,
   TicketStatus,
 } from '../../constants/Types.ts';
-import { HtmlEscapeUtil }                 from '../../utils/HtmlEscapeUtil.ts';
-import { TokenCountUtil }                 from '../../utils/TokenCountUtil.ts';
 import type { PageTicket }                from './PageData.ts';
 import type { RowState, TimestampSlices } from './PageMarkup.ts';
 import {

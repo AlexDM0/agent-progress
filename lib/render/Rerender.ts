@@ -1,7 +1,7 @@
 /** Turns whatever is on disk into `progress.html`; the only file write in `lib/render/`, and every mutating command ends here inside its lock. */
 
+import { writeFileAtomically }       from '../../src/lib/atomic-file/AtomicFile.ts';
 import type { ProgressFile, Ticket } from '../constants/Types.ts';
-import { writeFileAtomically }       from '../platform/AtomicFile.ts';
 import type { Workspace }            from '../platform/Workspace.ts';
 import { bundlePageScript }          from './PageBundle.ts';
 import { renderProgressHtml }        from './Template.ts';

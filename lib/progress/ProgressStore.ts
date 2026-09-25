@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 
+import { createFileAtomically, writeFileAtomically }           from '../../src/lib/atomic-file/AtomicFile';
 import { LIMITS }                                              from '../../src/shared/constants/Limits';
 import { DISPATCHER_STATES, TASK_STATUSES, taskStatusIsKnown } from '../constants/Statuses';
 import type {
@@ -11,8 +12,7 @@ import type {
   TaskStatus,
   ViewRange
 } from '../constants/Types';
-import { createFileAtomically, writeFileAtomically } from '../platform/AtomicFile';
-import type { Workspace }                            from '../platform/Workspace';
+import type { Workspace } from '../platform/Workspace';
 
 /** Checked by equality: a future format is refused rather than half-read. */
 const SUPPORTED_PROGRESS_VERSION = 1;
@@ -235,7 +235,7 @@ export function readProgressFile(workspace: Workspace): ReadProgressFileResult {
   return { verdict: 'readable', progress: parsed as ProgressFile };
 }
 
-/** Through `lib/platform/AtomicFile.ts`, because a subagent in another worktree may be reading this exact file right now. */
+/** Through `src/lib/atomic-file/AtomicFile.ts`, because a subagent in another worktree may be reading this exact file right now. */
 export function writeProgressFile(workspace: Workspace, progress: ProgressFile): void {
   writeFileAtomically(workspace.progressFilePath, `${JSON.stringify(progress, null, LIMITS.JSON_INDENT)}\n`);
 }

@@ -20,9 +20,9 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 
+import { TimeUtil }         from '../../src/lib/utils/TimeUtil';
 import { OperationRefusal } from '../../src/shared/OperationRefusal';
 import { LIMITS }           from '../../src/shared/constants/Limits';
-import { TimeUtil }         from '../utils/TimeUtil';
 import type { Workspace }   from './Workspace';
 
 interface LockPayload {

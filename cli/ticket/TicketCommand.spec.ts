@@ -19,9 +19,9 @@ import {
   test
 }                                                                             from 'bun:test';
 import type { ProgressFile }                                                  from '../../lib/constants/Types';
-import * as AtomicFile                                                        from '../../lib/platform/AtomicFile';
 import { withLock }                                                           from '../../lib/platform/Lock';
 import { workspacePathsFor }                                                  from '../../lib/platform/Workspace';
+import * as AtomicFile                                                        from '../../src/lib/atomic-file/AtomicFile';
 import { LIMITS }                                                             from '../../src/shared/constants/Limits';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
 import { runCommandLine }                                                     from '../Main';

@@ -4,8 +4,8 @@
  */
 import { existsSync, readFileSync } from 'node:fs';
 
+import { writeFileAtomicallyThroughLinks }          from '../../src/lib/atomic-file/AtomicFile';
 import { CLAUDE_MANAGED_END, CLAUDE_MANAGED_START } from '../constants/Statuses';
-import { writeFileAtomicallyThroughLinks }          from './AtomicFile';
 
 export type WriteManagedBlockOutcome = 'created' | 'appended' | 'replaced' | 'refused-start-without-end';
 

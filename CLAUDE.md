@@ -38,13 +38,17 @@ the plan is specific it wins; these rules decide the rest.
 ### Imports (today's tree, held by review)
 
 ```
-lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/, lib/tickets/, lib/render/  →  cli/
+src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/, lib/tickets/, lib/render/  →  cli/
 ```
 
 - Imports run up only, with no cycles. `lib/constants/` imports nothing outside itself; `lib/utils/` imports only
-  itself, `lib/constants/` and `src/shared/constants/`; neither imports a package or a builtin (a spec beside them may
-  import `bun:test`). Nothing under `lib/` imports `cli/`, nothing that ships imports `src/testing/`, `cli/testing/` or
-  `lib/tooling/dev/`, and `agent-progress.ts` imports only `cli/`.
+  itself, `lib/constants/`, `src/lib/utils/` and `src/shared/constants/`; neither imports a package or a builtin (a
+  spec beside them may import `bun:test`). Nothing under `lib/` imports `cli/`, nothing that ships imports
+  `src/testing/`, `cli/testing/` or `lib/tooling/dev/`, and `agent-progress.ts` imports only `cli/`.
+- A `src/lib/` package imports only the other `src/lib/` packages its main module's header names, node builtins and
+  external dependencies. It never imports `src/shared/`, `lib/` or `cli/`, and knows nothing about its callers: no
+  agent-progress names, tracker file names, user-facing wording or exit codes. App values arrive as parameters; a
+  refusal leaves as a verdict the caller turns into `OperationRefusal`. A `src/lib/` spec may import `src/testing/`.
 - `src/testing/` may import `lib/platform/Workspace.ts` until plan step 6 moves it; `cli/testing/` is imported only by
   `cli/` specs.
 - `src/shared/` holds app-specific code several parts use and imports only `src/lib/` and itself; what remains in
@@ -86,7 +90,7 @@ lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/, lib/tic
 - A record keyed by outside text is indexed through `Object.hasOwn`, never a bare lookup.
 - A command takes everything from its `CommandContext` (directory, now, streams, standard input, prompt, platform),
   never from the process.
-- Every write of a file a reader may hold open goes through `lib/platform/AtomicFile.ts`.
+- Every write of a file a reader may hold open goes through `src/lib/atomic-file/AtomicFile.ts`.
 - A clock decides nothing: identity is a content hash, staleness a set difference or a version number, and
   timestamps are recorded and displayed. Each exception is stated in a comment at its site.
 
@@ -114,8 +118,8 @@ lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/, lib/tic
   conditionally instead of spreading `undefined`, `import type` for type-only imports.
 - The page is its own DOM-only project, `lib/render/page/tsconfig.json` (DOM lib, no Bun or Node types), and the
   root project excludes it. Its `include` list is the written-down surface of shared files the page reaches: a page
-  module that imports a new file from outside the folder adds it there in the same change. No spec sits in
-  `lib/render/page/`; page specs sit in `lib/render/`.
+  module that imports a new file from outside the folder adds it there in the same change, and every file the page
+  project reaches, in `src/` too, stays DOM-safe. No spec sits in `lib/render/page/`; page specs sit in `lib/render/`.
 - ESLint 9 flat config through `@reliquary/eslint-config`: 2-space indent, single quotes, semicolons; line length
   180 for code, 155 for comments; aligned object values; aligned `from`; imports builtin → external → internal,
   alphabetised; builtins through the `node:` protocol (`import/enforce-node-protocol-usage`, turned on in
@@ -226,6 +230,7 @@ setup.sh                    machine setup: Bun, bun install and bun link, and th
 cli/                        the command surface: dispatch, arguments, help, one folder per command; cli/testing/ is test-only
 lib/                        everything the commands do, in the layers above; lib/tooling/dev/ holds the dispatcher's test harness
 src/                        the target layout's code, filled step by step as the migration plan moves it
+  src/lib/                  package-grade building blocks, one folder each: atomic-file, utils
   src/shared/               app-specific code several parts use: the environment reader, the refusal, LIMITS
   src/testing/              test-only helpers several parts use: the scratch workspace and the tracker isolation check
 skill/                      the skill every session in a tracked repository loads

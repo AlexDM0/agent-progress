@@ -4,7 +4,7 @@
  */
 import type { ViewRange }                     from '../../lib/constants/Types';
 import { appendLogEntry }                     from '../../lib/progress/ProgressStore';
-import { TimeUtil }                           from '../../lib/utils/TimeUtil';
+import { TimeUtil }                           from '../../src/lib/utils/TimeUtil';
 import { OperationRefusal }                   from '../../src/shared/OperationRefusal';
 import { openTrackerForWriting, printEntity } from '../CommandSupport';
 import type { CommandHandler }                from '../CommandTable';

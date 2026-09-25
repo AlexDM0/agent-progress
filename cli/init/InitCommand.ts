@@ -8,7 +8,7 @@ import { withLock }                                    from '../../lib/platform/
 import { discoverRepositoryRoot }                      from '../../lib/platform/RepositoryRoot';
 import { findWorkspace, workspacePathsFor }            from '../../lib/platform/Workspace';
 import { createEmptyProgressFile, createProgressFile } from '../../lib/progress/ProgressStore';
-import { TimeUtil }                                    from '../../lib/utils/TimeUtil';
+import { TimeUtil }                                    from '../../src/lib/utils/TimeUtil';
 import { agentProgressRootOverride }                   from '../../src/shared/Environment';
 import { OperationRefusal }                            from '../../src/shared/OperationRefusal';
 import { renderDashboard }                             from '../CommandSupport';

@@ -3,9 +3,9 @@
  * except the ticket's `bodyHtml`, already escaped by `lib/render/Markdown.ts`.
  */
 
+import { HtmlEscapeUtil }          from '../../../src/lib/utils/HtmlEscapeUtil.ts';
 import { LIMITS }                  from '../../../src/shared/constants/Limits.ts';
 import type { Task }               from '../../constants/Types.ts';
-import { HtmlEscapeUtil }          from '../../utils/HtmlEscapeUtil.ts';
 import type { KanbanCard }         from './KanbanBoard.ts';
 import { cardCarriesReviewedMark } from './KanbanBoard.ts';
 import {

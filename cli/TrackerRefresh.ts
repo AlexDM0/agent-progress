@@ -10,7 +10,6 @@ import { join }         from 'node:path';
 
 import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL }   from '../lib/constants/AgentSettings';
 import { AGENT_BRIEF_FILE_NAME, CLAUDE_MANAGED_START } from '../lib/constants/Statuses';
-import { writeFileAtomically }                         from '../lib/platform/AtomicFile';
 import { writeManagedBlock }                           from '../lib/platform/ClaudeInstructions';
 import {
   claudeLocalSettingsFilePathFor,
@@ -18,7 +17,8 @@ import {
   refreshSubagentStopHook,
   writeSubagentStopHook
 }                                                      from '../lib/platform/ClaudeSettings';
-import type { Workspace } from '../lib/platform/Workspace';
+import type { Workspace }      from '../lib/platform/Workspace';
+import { writeFileAtomically } from '../src/lib/atomic-file/AtomicFile';
 
 const CLAUDE_BLOCK_TEMPLATE_PATH = ['..', 'templates', 'ClaudeInstructionsBlock.md'];
 

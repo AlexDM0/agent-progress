@@ -1,8 +1,8 @@
-/** Every timestamp `agent-progress` writes or reads back is local-offset ISO 8601, never UTC, and that is the whole reason this module exists. */
-import { LIMITS } from '../../src/shared/constants/Limits';
+/** Timestamps are local-offset ISO 8601, never UTC: formatted, parsed, resolved from `now` or a signed offset, and measured in minutes. */
 
 const MILLISECONDS_PER_MINUTE = 60_000;
 const MINUTES_PER_HOUR        = 60;
+const MINUTES_PER_DAY         = 1440;
 const MILLISECOND_DIGITS = 3;
 
 const YEAR_DIGITS  = 4;
@@ -26,7 +26,7 @@ function minutesPerUnit(unit: string): number | null {
   switch (unit.toLowerCase()) {
     case 'm': return 1;
     case 'h': return MINUTES_PER_HOUR;
-    case 'd': return LIMITS.DAY_MINUTES;
+    case 'd': return MINUTES_PER_DAY;
     default:  return null;
   }
 }
@@ -54,7 +54,7 @@ function localComponentsSurvived(date: Date, year: number, monthIndex: number, d
 /**
  * Anything not fully understood is `null`, never an `Invalid Date`, and every caller depends on that.
  * A timestamp with no offset is read as local time and a bare date as local midnight — the opposite
- * of `new Date('2026-09-18')`, and the direction a person typing `--at 09:00` means.
+ * of `new Date('2026-09-18')`, and the direction a person typing `09:00` means.
  */
 function parseIso(text: string): Date | null {
   const match = ISO_TIMESTAMP_PATTERN.exec(text.trim());

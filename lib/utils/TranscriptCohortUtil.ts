@@ -3,7 +3,7 @@
  * **Calls and end context are medians; the token figures are means, deliberately.** One runaway agent must
  * not move what a typical agent did, and must not be hidden in what the cohort cost, since a bill is a sum.
  */
-import { TimeUtil }               from './TimeUtil';
+import { TimeUtil }               from '../../src/lib/utils/TimeUtil';
 import type { TranscriptProfile } from './TranscriptUsageUtil';
 
 /** `transcriptCount` is on the summary rather than left to the caller, so a printed line can say how many agents it is speaking for. */

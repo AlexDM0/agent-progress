@@ -1,7 +1,6 @@
 /**
- * Every value on the page is text an agent or a person wrote, and `progress.html` is opened over
- * `file://`, so an injected `<script>` there runs with local-file access. Element text and the JSON
- * island `lib/render/Template.ts` embeds need different escapes, and neither replaces the other.
+ * Text someone else wrote must never reach a page as markup. Element text and attributes need the
+ * five-character escape; JSON embedded in a script tag needs its own, and neither replaces the other.
  */
 
 /** All five characters, because values also land in attributes; `&` is replaced first, or a just-written `&lt;` would come back out as `&amp;lt;`. */

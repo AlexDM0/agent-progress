@@ -9,9 +9,9 @@
  * inside the CLI is what lets `agent-progress init --hooks` wire a hook up instead of asking a person
  * to paste a file, and it is why the format of the line is fixed here rather than in a template.
  */
+import { TokenCountUtil } from '../../src/lib/utils/TokenCountUtil';
 import { LIMITS }         from '../../src/shared/constants/Limits';
 import { TicketIdUtil }   from './TicketIdUtil';
-import { TokenCountUtil } from './TokenCountUtil';
 
 /**
  * `endContextTokens` is the window of the *last* call rather than a sum: it is how full the agent's
@@ -405,7 +405,7 @@ function profileTranscript(transcriptText: string): TranscriptProfile {
 }
 
 /**
- * The log line a stopped subagent leaves behind, formatted through `lib/utils/TokenCountUtil.ts` so
+ * The log line a stopped subagent leaves behind, formatted through `src/lib/utils/TokenCountUtil.ts` so
  * the log and the chart's token column read in the same units. The input figure is the whole of what
  * was sent — fresh input plus both cache figures — with the cache-read share named separately,
  * because that share is the number that explains a long session and is invisible in a plain total.
