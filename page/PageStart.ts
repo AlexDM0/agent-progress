@@ -183,7 +183,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   kanbanController.updateOverflow();
 }
 
-function startGanttPage(): void {
+function startPage(): void {
   clearPlaceholderContent();
   const payload = IslandUtil.pagePayloadFrom(islandContentsOf(PROGRESS_ISLAND_ELEMENT_ID));
   if (payload === null) {
@@ -193,9 +193,9 @@ function startGanttPage(): void {
   renderPage(payload, IslandUtil.pageTicketsFrom(islandContentsOf(TICKETS_ISLAND_ELEMENT_ID)));
 }
 
-function startGanttPageSafely(): void {
+function startPageSafely(): void {
   try {
-    startGanttPage();
+    startPage();
   } catch (failure) {
     showLayoutFailure(failure instanceof Error ? failure.message : String(failure));
   }
@@ -203,7 +203,7 @@ function startGanttPageSafely(): void {
 
 // The one deliberate exception to "no work at module load": a browser entry has no caller.
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', startGanttPageSafely);
+  document.addEventListener('DOMContentLoaded', startPageSafely);
 } else {
-  startGanttPageSafely();
+  startPageSafely();
 }
