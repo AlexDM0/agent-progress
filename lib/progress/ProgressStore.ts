@@ -257,14 +257,6 @@ export function setTaskTokens(progress: ProgressFile, taskId: number, tokens: nu
   return 'applied';
 }
 
-/** Accumulates rather than sets, so an agent's tokens reach a row that other agents have already worked on; an unset count counts as 0. */
-export function addTaskTokens(progress: ProgressFile, taskId: number, tokens: number): 'applied' | 'no-such-task' {
-  const task = findTask(progress, taskId);
-  if (task === undefined) return 'no-such-task';
-  task.tokens = (task.tokens ?? 0) + tokens;
-  return 'applied';
-}
-
 /** Callers hold the record across a move, so the moved row is written into the same object; a key it keeps stays where the file stores it. */
 function replaceFieldsInPlace(task: Task, replacement: Task): void {
   for (const key of Object.keys(task)) {

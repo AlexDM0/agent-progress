@@ -5,23 +5,20 @@
 import { readFileSync } from 'node:fs';
 import { homedir }      from 'node:os';
 
-import type { Workspace }                from '../../lib/platform/Workspace';
-import { addTaskTokens, appendLogEntry } from '../../lib/progress/ProgressStore';
-import { reviewedTicketNumberOf }        from '../../lib/render/page/PageMarkup';
-import { readTicket }                    from '../../lib/tickets/TicketStore';
-import { LogUtil }                       from '../../src/adapters/utils/LogUtil';
-import type { TranscriptUsageTotals }    from '../../src/lib/claude-code/utils/TranscriptUsageUtil';
-import { TranscriptUsageUtil }           from '../../src/lib/claude-code/utils/TranscriptUsageUtil';
-import type { AgentUsage }               from '../../src/lib/tracker-model/@types/LogRecord';
-import type { ProgressFile }             from '../../src/lib/tracker-model/@types/ProgressFile';
-import type { Task }                     from '../../src/lib/tracker-model/@types/Task';
-import { OperationRefusal }              from '../../src/shared/OperationRefusal';
-import { LIMITS }                        from '../../src/shared/constants/Limits';
-import type { CommandContext }           from '../CommandContext';
-import { openTrackerForWriting }         from '../CommandSupport';
-import type { CommandHandler }           from '../CommandTable';
-import type { ArgumentParser }           from '../arguments/ArgumentParser';
-import { SubagentStopUtil }              from './utils/SubagentStopUtil';
+import { reviewedTicketNumberOf }               from '../../lib/render/page/PageMarkup';
+import type { TranscriptUsageTotals }           from '../../src/lib/claude-code/utils/TranscriptUsageUtil';
+import { TranscriptUsageUtil }                  from '../../src/lib/claude-code/utils/TranscriptUsageUtil';
+import type { TokenCredit, TokenCreditOutcome } from '../../src/lib/tracker-model/@types/BoardChanges';
+import type { AgentUsage }                      from '../../src/lib/tracker-model/@types/LogRecord';
+import type { Task }                            from '../../src/lib/tracker-model/@types/Task';
+import type { Board }                           from '../../src/lib/tracker-model/Board';
+import { OperationRefusal }                     from '../../src/shared/OperationRefusal';
+import { LIMITS }                               from '../../src/shared/constants/Limits';
+import type { CommandContext }                  from '../CommandContext';
+import { openTrackerForWriting }                from '../CommandSupport';
+import type { CommandHandler }                  from '../CommandTable';
+import type { ArgumentParser }                  from '../arguments/ArgumentParser';
+import { SubagentStopUtil }                     from './utils/SubagentStopUtil';
 
 const USAGE = 'agent-progress hook subagent-stop  (the hook JSON arrives on standard input)';
 
@@ -34,6 +31,8 @@ const UNKNOWN_AGENT = 'unknown';
 /** The prefix on every sentence this writes, so a line in a harness log says which command produced it. */
 const REPORT_PREFIX = 'agent-progress hook subagent-stop:';
 
+const SHARE_NOT_RECORDED = 'so its share of the tokens was not recorded.';
+
 /**
  * A share of the agent's input and what the brief named it against: a row directly, a ticket whose row is looked up when the hook runs,
  * or a ticket whose newest review row is, since a reviewer files its own row after its brief was written.
@@ -42,6 +41,11 @@ type BriefShare =
   | { target: 'row'; rowIdentifier: number; tokens: number }
   | { target: 'ticket'; ticketIdentifier: string; tokens: number }
   | { target: 'review'; ticketIdentifier: string; tokens: number };
+
+/** A share turned into what the Board credits, or the sentence saying why it never reached the Board. */
+type ResolvedShare =
+  | { kind: 'credit'; credit: TokenCredit }
+  | { kind: 'unrecorded'; sentence: string };
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
@@ -107,18 +111,17 @@ async function recordInTheTracker(
   commandArguments: ArgumentParser,
   context: CommandContext,
   workingDirectory: string,
-  usageLine: string,
+  usage: AgentUsage,
   briefShares: readonly BriefShare[],
 ): Promise<void> {
   const trackerContext: CommandContext = { ...context, currentDirectory: workingDirectory };
   let unrecordedShareSentences: string[] = [];
   try {
     unrecordedShareSentences = await openTrackerForWriting(commandArguments, trackerContext, (change) => {
-      const sentences = briefShares
-        .map((share) => addShareToItsRow(change.workspace, change.progress, share))
-        .filter((sentence): sentence is string => sentence !== undefined);
-      appendLogEntry(change.progress, change.at, usageLine);
-      return sentences;
+      const resolvedShares = briefShares.map((share) => resolvedShareOf(change.board, share));
+      const credits        = resolvedShares.flatMap((resolved) => (resolved.kind === 'credit' ? [resolved.credit] : []));
+      const { outcomes }   = change.board.recordAgentStop(usage, credits, change.at);
+      return unrecordedSentencesInShareOrder(resolvedShares, outcomes);
     });
   } catch (failure) {
     const reason = failure instanceof Error ? failure.message : String(failure);
@@ -131,36 +134,55 @@ async function recordInTheTracker(
  * Row ids only ever grow, so the highest one is the review filed last. Its status is not consulted: `release` has already delivered the
  * bar by the time its reviewer stops. Linked by `reviewOf` or by the name the page nests by, through the page's own reader of both.
  */
-function newestReviewRowOf(progress: ProgressFile, ticketIdentifier: string): Task | undefined {
+function newestReviewRowOf(tasks: readonly Readonly<Task>[], ticketIdentifier: string): Readonly<Task> | undefined {
   const reviewedNumber = Number(ticketIdentifier);
-  return progress.tasks
+  return tasks
     .filter((task) => task.ticket === null && reviewedTicketNumberOf(task) === reviewedNumber)
-    .reduce<Task | undefined>((newest, task) => (newest === undefined || task.id > newest.id ? task : newest), undefined);
+    .reduce<Readonly<Task> | undefined>((newest, task) => (newest === undefined || task.id > newest.id ? task : newest), undefined);
 }
 
-/** Adds the share and answers nothing, or answers the sentence saying why it was not recorded. A ticket is resolved to its row here, under the lock. */
-function addShareToItsRow(workspace: Workspace, progress: ProgressFile, share: BriefShare): string | undefined {
-  const notRecorded = 'so its share of the tokens was not recorded.';
-  if (share.target === 'row') {
-    if (addTaskTokens(progress, share.rowIdentifier, share.tokens) === 'applied') return undefined;
-    return `the brief names row #${share.rowIdentifier}, which the tracker does not hold, ${notRecorded}`;
+/** A review share is resolved to its row here, under the lock; a ticket share is resolved by the Board. */
+function resolvedShareOf(board: Board, share: BriefShare): ResolvedShare {
+  if (share.target === 'row') return { kind: 'credit', credit: { target: 'row', taskId: share.rowIdentifier, tokens: share.tokens } };
+  if (share.target === 'ticket') return { kind: 'credit', credit: { target: 'ticket', ticketId: share.ticketIdentifier, tokens: share.tokens } };
+
+  const reviewRow = newestReviewRowOf(board.tasks(), share.ticketIdentifier);
+  if (reviewRow === undefined) {
+    return { kind: 'unrecorded', sentence: `the brief names the review of ticket #${share.ticketIdentifier}, which has no review row, ${SHARE_NOT_RECORDED}` };
   }
+  return { kind: 'credit', credit: { target: 'row', taskId: reviewRow.id, tokens: share.tokens } };
+}
 
-  if (share.target === 'review') {
-    const reviewRow = newestReviewRowOf(progress, share.ticketIdentifier);
-    if (reviewRow === undefined) return `the brief names the review of ticket #${share.ticketIdentifier}, which has no review row, ${notRecorded}`;
-    addTaskTokens(progress, reviewRow.id, share.tokens);
-    return undefined;
+function unrecordedSentenceOf(outcome: TokenCreditOutcome): string | undefined {
+  switch (outcome.verdict) {
+    case 'credited':
+      return undefined;
+    case 'unknown-row':
+      return `the brief names row #${outcome.taskId}, which the tracker does not hold, ${SHARE_NOT_RECORDED}`;
+    case 'unknown-ticket':
+      return `the brief names ticket #${outcome.ticketId}, which the tracker does not hold, ${SHARE_NOT_RECORDED}`;
+    case 'ticket-without-row':
+      return `the brief names ticket #${outcome.ticketId}, which has no row yet, ${SHARE_NOT_RECORDED}`;
+    case 'ticket-row-missing':
+      return `the brief names ticket #${outcome.ticketId}, whose row #${outcome.taskId} the tracker does not hold, ${SHARE_NOT_RECORDED}`;
   }
+}
 
-  const ticket = readTicket(workspace, share.ticketIdentifier);
-  if (ticket === null) return `the brief names ticket #${share.ticketIdentifier}, which the tracker does not hold, ${notRecorded}`;
-
-  const rowIdentifier = ticket.frontmatter.task;
-  if (rowIdentifier === null) return `the brief names ticket #${share.ticketIdentifier}, which has no row yet, ${notRecorded}`;
-
-  if (addTaskTokens(progress, rowIdentifier, share.tokens) === 'applied') return undefined;
-  return `the brief names ticket #${share.ticketIdentifier}, whose row #${rowIdentifier} the tracker does not hold, ${notRecorded}`;
+/** The Board answers one outcome per credit, in the order it was handed them, so each credited share takes the next outcome. */
+function unrecordedSentencesInShareOrder(resolvedShares: readonly ResolvedShare[], outcomes: readonly TokenCreditOutcome[]): string[] {
+  const sentences: string[] = [];
+  let outcomeIndex          = 0;
+  for (const resolved of resolvedShares) {
+    if (resolved.kind === 'unrecorded') {
+      sentences.push(resolved.sentence);
+      continue;
+    }
+    const outcome = outcomes[outcomeIndex];
+    outcomeIndex++;
+    const sentence = outcome === undefined ? undefined : unrecordedSentenceOf(outcome);
+    if (sentence !== undefined) sentences.push(sentence);
+  }
+  return sentences;
 }
 
 /**
@@ -229,10 +251,8 @@ async function recordSubagentStop(commandArguments: ArgumentParser, context: Com
     return;
   }
 
-  const usageLine = LogUtil.sentenceOf({ kind: 'agent-stopped', fields: agentUsageOf(hookInput, totals) });
-
   const workingDirectory = readStringField(hookInput, 'cwd') ?? context.currentDirectory;
-  await recordInTheTracker(commandArguments, context, workingDirectory, usageLine, briefSharesFor(transcriptText, totals));
+  await recordInTheTracker(commandArguments, context, workingDirectory, agentUsageOf(hookInput, totals), briefSharesFor(transcriptText, totals));
 }
 
 /**

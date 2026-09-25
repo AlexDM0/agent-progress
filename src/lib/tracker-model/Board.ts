@@ -3,14 +3,18 @@
  * changed. It does no I/O, logs through the `Logger` and refuses with a `BoardRefusal`; it changes the records it was handed in place.
  */
 import type {
+  AgentStopRecorded,
   ConcurrencyLimitSet,
   DispatcherStateSet,
   Logged,
   TaskAddition,
   TaskAnnotation,
-  TaskCorrection
+  TaskCorrection,
+  TokenCredit,
+  TokenCreditOutcome
 }                                                        from './@types/BoardChanges.ts';
 import type { Concurrency }                              from './@types/Concurrency.ts';
+import type { AgentUsage }                               from './@types/LogRecord.ts';
 import type { DispatcherState, ProgressFile, ViewRange } from './@types/ProgressFile.ts';
 import type { Task, TaskStatus }                         from './@types/Task.ts';
 import type { Ticket }                                   from './@types/Ticket.ts';
@@ -143,6 +147,12 @@ export class Board {
     return task;
   }
 
+  /** The hook forgives everything, so a credit that cannot land is a verdict beside the others, never a refusal; the usage is logged after them. */
+  recordAgentStop(usage: AgentUsage, credits: readonly TokenCredit[], at: string): AgentStopRecorded {
+    const outcomes = credits.map((credit) => this.creditTokens(credit));
+    return { logged: [this.logger.agentStopped(usage, at)], outcomes };
+  }
+
   tasks(): readonly Readonly<Task>[] {
     return this.progress.tasks;
   }
@@ -184,10 +194,14 @@ export class Board {
     return this.progress.tasks.find((task) => task.id === taskId);
   }
 
+  private ticketRecordById(ticketId: string): Ticket | undefined {
+    return this.ticketRecords.find((ticket) => ticket.frontmatter.id === ticketId);
+  }
+
   private ticketRecordByReference(reference: string): Ticket | undefined {
     const ticketId = TicketIdUtil.parseTicketReference(reference);
     if (ticketId === null) return undefined;
-    return this.ticketRecords.find((ticket) => ticket.frontmatter.id === ticketId);
+    return this.ticketRecordById(ticketId);
   }
 
   private requireTask(taskId: number): Task {
@@ -198,7 +212,7 @@ export class Board {
 
   /** A caller hands in an id it resolved itself, so a miss here is a programming error rather than a refusal to word. */
   private requireTicket(ticketId: string): Ticket {
-    const ticket = this.ticketRecords.find((candidate) => candidate.frontmatter.id === ticketId);
+    const ticket = this.ticketRecordById(ticketId);
     if (ticket === undefined) throw new Error(`The board holds no ticket #${ticketId}.`);
     return ticket;
   }
@@ -225,6 +239,29 @@ export class Board {
     }
     Object.assign(task, transitioned);
   }
+
+  /** A ticket's share lands on the row the ticket has now, which may have been filed after the brief that named the ticket. */
+  private creditTokens(credit: TokenCredit): TokenCreditOutcome {
+    if (credit.target === 'row') {
+      const task = this.taskRecordById(credit.taskId);
+      if (task === undefined) return { verdict: 'unknown-row', taskId: credit.taskId };
+      return creditedOutcomeOf(task, credit.tokens);
+    }
+
+    const ticket = this.ticketRecordById(credit.ticketId);
+    if (ticket === undefined) return { verdict: 'unknown-ticket', ticketId: credit.ticketId };
+    const taskId = ticket.frontmatter.task;
+    if (taskId === null) return { verdict: 'ticket-without-row', ticketId: credit.ticketId };
+    const task = this.taskRecordById(taskId);
+    if (task === undefined) return { verdict: 'ticket-row-missing', ticketId: credit.ticketId, taskId };
+    return creditedOutcomeOf(task, credit.tokens);
+  }
+}
+
+/** Accumulates rather than sets, so an agent's tokens reach a row other agents have already worked on; an unset count counts as 0. */
+function creditedOutcomeOf(task: Task, tokens: number): TokenCreditOutcome {
+  task.tokens = (task.tokens ?? 0) + tokens;
+  return { verdict: 'credited', taskId: task.id };
 }
 
 /** A row a ticket owns moves through the ticket so the two files cannot disagree; a pause and its resume are exempt, as no ticket status says either. */
