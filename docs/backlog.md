@@ -56,3 +56,12 @@ says it has been paused since Tuesday.
 Agreed in principle: surface the linked row's `paused` state on the ticket card, as a property of the
 row rather than as a ticket status. Not started because it is a render change and the page's template
 is designer-owned, so it wants a design answer before a code one.
+
+## A variable that turns the git skip into a failure
+
+The conventions say an environment variable can turn a skipped spec into a failure on a machine that
+has the tool. `gitIsAvailable` in `lib/tooling/dev/ScratchWorkspace.ts` only checks `Bun.which('git')`,
+and no such variable exists. When it is built, it is read through a getter in
+`lib/platform/Environment.ts`, like every environment read.
+
+Not done yet because the conventions migration changes no behaviour outside its plan.

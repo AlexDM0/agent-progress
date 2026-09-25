@@ -121,8 +121,9 @@ lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/, lib/tic
   `.test.ts`. It opens with a docblock of which cases matter and why; test names are claims written as sentences. A
   frozen table of expected outputs comes from the previous implementation and says how to retake it.
 - A test that needs a tool the machine may lack skips through one shared guard (`gitIsAvailable`) and says what is
-  missing; skips are counted, never silent. End-to-end suites that spawn the real binary sit at the layer root,
-  named for what they pin.
+  missing; skips are counted, never silent. An environment variable is meant to turn that skip into a failure on a
+  machine that has the tool; it is not built yet (`docs/backlog.md`). End-to-end suites that spawn the real binary
+  sit at the layer root, named for what they pin.
 - A guard proves its scan found something, and is watched failing on each form it claims to catch. An allowlist is
   exact in both directions.
 - Tests never touch live data. Every spec works under the scratch root, and `lib/tooling/dev/TrackerIsolation.ts`
