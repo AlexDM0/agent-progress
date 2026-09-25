@@ -6,9 +6,9 @@ import { describe, expect, test }           from 'bun:test';
 import type { LogEntry }                    from '../../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { Task, TaskStatus }            from '../../src/lib/tracker-model/@types/Task.ts';
 import type { TicketStatus }                from '../../src/lib/tracker-model/@types/Ticket.ts';
+import type { PageTicket }                  from '../../src/shared/@types/PagePayload.ts';
 import type { TimelineBar, TimelineLimits } from './page/GanttGeometry.ts';
 import { computeTimeline }                  from './page/GanttGeometry.ts';
-import type { PageTicket }                  from './page/PageData.ts';
 import type { TimestampSlices }             from './page/PageMarkup.ts';
 import {
   axisPixelsNeededFor,

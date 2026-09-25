@@ -1,38 +1,9 @@
-/** The DOM-free half of the page: the island shapes, the checks that establish them, and the range the geometry is finally given. */
+/** The DOM-free half of the page: the checks that establish the island shapes, and the range the geometry is finally given. */
 
-import type { ProgressFile, ViewRange } from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
-import type { TicketFrontmatter }       from '../../../src/lib/tracker-model/@types/Ticket.ts';
-import { TicketDependencyUtil }         from '../../../src/lib/tracker-model/utils/TicketDependencyUtil.ts';
-import type { TimelineLimits }          from './GanttGeometry.ts';
-import { computeTimeline }              from './GanttGeometry.ts';
-
-export interface PageLimits extends TimelineLimits {
-  dateAndClockLength:          number;
-  calendarDateLength:          number;
-  monthAndDaySliceStart:       number;
-  clockSliceStart:             number;
-  clockSliceEnd:               number;
-  doneWorkVisibleMilliseconds: number;
-}
-
-/** The two figures of `status --json`'s `concurrency` block the page shows, computed Bun-side by the same function. */
-export interface PageConcurrency {
-  limit:          number;
-  agentsInFlight: number;
-}
-
-export interface PagePayload {
-  progress:                     ProgressFile;
-  generatedAtEpochMilliseconds: number;
-  limits:                       PageLimits;
-  concurrency:                  PageConcurrency;
-  pageScriptFailure:            string | null;
-}
-
-export interface PageTicket extends TicketFrontmatter {
-  filePath: string;
-  bodyHtml: string;
-}
+import type { ProgressFile, ViewRange }             from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
+import { TicketDependencyUtil }                     from '../../../src/lib/tracker-model/utils/TicketDependencyUtil.ts';
+import type { PageLimits, PagePayload, PageTicket } from '../../../src/shared/@types/PagePayload.ts';
+import { computeTimeline }                          from './GanttGeometry.ts';
 
 export interface StoredViewOverride {
   presetKey:   string | null;

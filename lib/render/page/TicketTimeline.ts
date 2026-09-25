@@ -3,17 +3,18 @@
  * phases and its review rows. DOM-free, and reads no clock: the page's now is handed in.
  */
 
-import type { Task, TaskPhase }                                    from '../../../src/lib/tracker-model/@types/Task.ts';
-import { TicketDefaultsUtil }                                      from '../../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
-import { HtmlEscapeUtil }                                          from '../../../src/lib/utils/HtmlEscapeUtil.ts';
-import { TokenCountUtil }                                          from '../../../src/lib/utils/TokenCountUtil.ts';
-import { LIMITS }                                                  from '../../../src/shared/constants/Limits.ts';
-import type { TimelineLimits, TimelineTick }                       from './GanttGeometry.ts';
-import { buildTicks, chooseStepMinutes }                           from './GanttGeometry.ts';
-import { ownRowOf }                                                from './KanbanBoard.ts';
-import type { PageTicket }                                         from './PageData.ts';
-import type { RowState, TimestampSlices }                          from './PageMarkup.ts';
-import { attribute, pillLabelForRowState, reviewedTicketNumberOf } from './PageMarkup.ts';
+import type { Task, TaskPhase }              from '../../../src/lib/tracker-model/@types/Task.ts';
+import { TicketDefaultsUtil }                from '../../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
+import { HtmlEscapeUtil }                    from '../../../src/lib/utils/HtmlEscapeUtil.ts';
+import { TokenCountUtil }                    from '../../../src/lib/utils/TokenCountUtil.ts';
+import type { PageTicket }                   from '../../../src/shared/@types/PagePayload.ts';
+import { LIMITS }                            from '../../../src/shared/constants/Limits.ts';
+import { TicketNumberUtil }                  from '../../../src/shared/utils/TicketNumberUtil.ts';
+import type { TimelineLimits, TimelineTick } from './GanttGeometry.ts';
+import { buildTicks, chooseStepMinutes }     from './GanttGeometry.ts';
+import { ownRowOf }                          from './KanbanBoard.ts';
+import type { RowState, TimestampSlices }    from './PageMarkup.ts';
+import { attribute, pillLabelForRowState }   from './PageMarkup.ts';
 import {
   calendarDateOf,
   fullStampText,
@@ -234,7 +235,7 @@ function buildEndOf(ticket: PageTicket, ownRow: Task | null): number | null {
 function reviewRowsOf(ticket: PageTicket, tasks: readonly Task[]): Task[] {
   const ticketNumber = Number(ticket.id);
   return tasks
-    .filter((task) => task.ticket === null && reviewedTicketNumberOf(task) === ticketNumber)
+    .filter((task) => task.ticket === null && TicketNumberUtil.reviewedTicketNumberOf(task) === ticketNumber)
     .toSorted((a, b) => a.id - b.id);
 }
 

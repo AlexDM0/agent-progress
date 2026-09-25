@@ -3,15 +3,16 @@
  * carries and how far the Done and Abandoned lanes are opened. DOM-free, and reads no clock: the page's now is handed in.
  */
 
-import type { Task }                                                 from '../../../src/lib/tracker-model/@types/Task.ts';
-import type { TicketPriority }                                       from '../../../src/lib/tracker-model/@types/Ticket.ts';
-import { TicketDefaultsUtil }                                        from '../../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
-import { LIMITS }                                                    from '../../../src/shared/constants/Limits.ts';
-import type { PageTicket }                                           from './PageData.ts';
-import type { RowState, TimestampSlices }                            from './PageMarkup.ts';
-import { deliveredAfterReview, reviewedTicketNumberOf, rowStateFor } from './PageMarkup.ts';
-import { shortStampText }                                            from './StampText.ts';
-import { formatDuration }                                            from './TaskDetail.ts';
+import type { Task }                         from '../../../src/lib/tracker-model/@types/Task.ts';
+import type { TicketPriority }               from '../../../src/lib/tracker-model/@types/Ticket.ts';
+import { TicketDefaultsUtil }                from '../../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
+import type { PageTicket }                   from '../../../src/shared/@types/PagePayload.ts';
+import { LIMITS }                            from '../../../src/shared/constants/Limits.ts';
+import { TicketNumberUtil }                  from '../../../src/shared/utils/TicketNumberUtil.ts';
+import type { RowState, TimestampSlices }    from './PageMarkup.ts';
+import { deliveredAfterReview, rowStateFor } from './PageMarkup.ts';
+import { shortStampText }                    from './StampText.ts';
+import { formatDuration }                    from './TaskDetail.ts';
 
 export type KanbanLane = 'todo' | 'progress' | 'review' | 'merge' | 'done' | 'abandoned';
 
@@ -176,7 +177,7 @@ function newestPhaseAt(task: Task | null, status: Task['status']): string | null
 
 function newestReviewRowOf(ticketId: string, tasks: readonly Task[]): Task | null {
   const ticketNumber = Number(ticketId);
-  const reviewRows   = tasks.filter((task) => task.ticket === null && reviewedTicketNumberOf(task) === ticketNumber);
+  const reviewRows   = tasks.filter((task) => task.ticket === null && TicketNumberUtil.reviewedTicketNumberOf(task) === ticketNumber);
   return reviewRows.reduce<Task | null>((newest, task) => (newest === null || task.id > newest.id ? task : newest), null);
 }
 

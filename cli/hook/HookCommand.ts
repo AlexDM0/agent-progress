@@ -7,7 +7,6 @@ import { homedir }      from 'node:os';
 
 import type { Workspace }                from '../../lib/platform/Workspace';
 import { addTaskTokens, appendLogEntry } from '../../lib/progress/ProgressStore';
-import { reviewedTicketNumberOf }        from '../../lib/render/page/PageMarkup';
 import { readTicket }                    from '../../lib/tickets/TicketStore';
 import type { TranscriptUsageTotals }    from '../../src/lib/claude-code/utils/TranscriptUsageUtil';
 import { TranscriptUsageUtil }           from '../../src/lib/claude-code/utils/TranscriptUsageUtil';
@@ -15,6 +14,7 @@ import type { ProgressFile }             from '../../src/lib/tracker-model/@type
 import type { Task }                     from '../../src/lib/tracker-model/@types/Task';
 import { OperationRefusal }              from '../../src/shared/OperationRefusal';
 import { LIMITS }                        from '../../src/shared/constants/Limits';
+import { TicketNumberUtil }              from '../../src/shared/utils/TicketNumberUtil';
 import type { CommandContext }           from '../CommandContext';
 import { openTrackerForWriting }         from '../CommandSupport';
 import type { CommandHandler }           from '../CommandTable';
@@ -127,12 +127,13 @@ async function recordInTheTracker(
 
 /**
  * Row ids only ever grow, so the highest one is the review filed last. Its status is not consulted: `release` has already delivered the
- * bar by the time its reviewer stops. Linked by `reviewOf` or by the name the page nests by, through the page's own reader of both.
+ * bar by the time its reviewer stops. Linked by `reviewOf` or by the name the page nests by, through `src/shared/utils/TicketNumberUtil.ts`,
+ * the reader the page nests by.
  */
 function newestReviewRowOf(progress: ProgressFile, ticketIdentifier: string): Task | undefined {
   const reviewedNumber = Number(ticketIdentifier);
   return progress.tasks
-    .filter((task) => task.ticket === null && reviewedTicketNumberOf(task) === reviewedNumber)
+    .filter((task) => task.ticket === null && TicketNumberUtil.reviewedTicketNumberOf(task) === reviewedNumber)
     .reduce<Task | undefined>((newest, task) => (newest === undefined || task.id > newest.id ? task : newest), undefined);
 }
 

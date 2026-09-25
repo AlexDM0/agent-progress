@@ -7,8 +7,8 @@
 
 import { describe, expect, test } from 'bun:test';
 import type { Task, TaskPhase }   from '../../src/lib/tracker-model/@types/Task.ts';
+import type { PageTicket }        from '../../src/shared/@types/PagePayload.ts';
 import { LIMITS }                 from '../../src/shared/constants/Limits.ts';
-import type { PageTicket }        from './page/PageData.ts';
 import type {
   TicketTimeline,
   TicketTimelineInput,

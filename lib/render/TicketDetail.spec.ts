@@ -6,10 +6,10 @@
 
 import { describe, expect, test } from 'bun:test';
 import type { Task }              from '../../src/lib/tracker-model/@types/Task.ts';
+import type { PageTicket }        from '../../src/shared/@types/PagePayload.ts';
 import { kanbanCardsFor }         from './page/KanbanBoard.ts';
 import type { KanbanCard }        from './page/KanbanBoard.ts';
 import { kanbanBoardMarkup }      from './page/KanbanMarkup.ts';
-import type { PageTicket }        from './page/PageData.ts';
 import { taskRowsMarkup }         from './page/PageMarkup.ts';
 import { taskDetailMarkup }       from './page/TaskDetail.ts';
 import type { TicketDetailInput } from './page/TicketDetail.ts';

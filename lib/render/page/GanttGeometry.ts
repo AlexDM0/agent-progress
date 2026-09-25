@@ -6,6 +6,7 @@
 
 import type { ProgressFile, ViewRange } from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { Task }                    from '../../../src/lib/tracker-model/@types/Task.ts';
+import type { PageLimits }              from '../../../src/shared/@types/PagePayload.ts';
 
 const MILLISECONDS_PER_MINUTE = 60_000;
 const PERCENT_OF_A_WHOLE      = 100;
@@ -13,18 +14,8 @@ const MINIMUM_STEP_MINUTES    = 1;
 
 const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 
-export interface TimelineLimits {
-  tickStepLadderMinutes:      readonly number[];
-  maximumTicksPerAxis:        number;
-  axisMinimumSpanMinutes:     number;
-  axisPaddingMinutes:         number;
-  minimumBarWidthPercent:     number;
-  hoursAxisLabelLimitMinutes: number;
-  weekAxisLabelLimitMinutes:  number;
-  hourMinutes:                number;
-  dayMinutes:                 number;
-  tickCountSafetyBound:       number;
-}
+export type TimelineLimits = Pick<PageLimits, 'tickStepLadderMinutes' | 'maximumTicksPerAxis' | 'axisMinimumSpanMinutes' | 'axisPaddingMinutes'
+  | 'minimumBarWidthPercent' | 'hoursAxisLabelLimitMinutes' | 'weekAxisLabelLimitMinutes' | 'hourMinutes' | 'dayMinutes' | 'tickCountSafetyBound'>;
 
 export interface TimelineTick {
   leftPercent: number;

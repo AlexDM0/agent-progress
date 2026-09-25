@@ -7,6 +7,7 @@
 import { describe, expect, test }                  from 'bun:test';
 import type { Task, TaskStatus }                   from '../../src/lib/tracker-model/@types/Task.ts';
 import type { TicketPriority, TicketStatus }       from '../../src/lib/tracker-model/@types/Ticket.ts';
+import type { PageTicket }                         from '../../src/shared/@types/PagePayload.ts';
 import type { KanbanCard, KanbanLane, NoteFormat } from './page/KanbanBoard.ts';
 import {
   abandonedLaneChoiceFor,
@@ -26,8 +27,7 @@ import {
   shownCountFrom,
   subStateNoteOf,
 } from './page/KanbanBoard.ts';
-import type { PageTicket } from './page/PageData.ts';
-import type { RowState }   from './page/PageMarkup.ts';
+import type { RowState } from './page/PageMarkup.ts';
 
 const EXAMPLE_TODAY = '2026-09-25';
 const EXAMPLE_NOW   = Date.parse('2026-09-25T13:36:00+02:00');

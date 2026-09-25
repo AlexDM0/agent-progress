@@ -8,8 +8,8 @@ import type { Task, TaskPhase, TaskStatus } from '../../../src/lib/tracker-model
 import type { TicketStatus }                from '../../../src/lib/tracker-model/@types/Ticket.ts';
 import { HtmlEscapeUtil }                   from '../../../src/lib/utils/HtmlEscapeUtil.ts';
 import { TokenCountUtil }                   from '../../../src/lib/utils/TokenCountUtil.ts';
+import type { PageTicket }                  from '../../../src/shared/@types/PagePayload.ts';
 import { LIMITS }                           from '../../../src/shared/constants/Limits.ts';
-import type { PageTicket }                  from './PageData.ts';
 import type { RowState, TimestampSlices }   from './PageMarkup.ts';
 import {
   attribute,

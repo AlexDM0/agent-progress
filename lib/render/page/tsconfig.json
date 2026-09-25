@@ -27,7 +27,9 @@
     "../../../src/lib/tracker-model/utils/VocabularyUtil.ts",
     "../../../src/shared/constants/Limits.ts",
     "../../../src/lib/utils/HtmlEscapeUtil.ts",
-    "../../../src/lib/utils/TokenCountUtil.ts"
+    "../../../src/lib/utils/TokenCountUtil.ts",
+    "../../../src/shared/@types/PagePayload.ts",
+    "../../../src/shared/utils/TicketNumberUtil.ts"
   ],
   // Emptied on purpose: an inherited `exclude` resolves against the root, which excludes this folder.
   "exclude": []

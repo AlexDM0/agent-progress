@@ -8,10 +8,10 @@ import { join }                                          from 'node:path';
 import type { ProgressFile }                             from '../../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { Ticket }                                   from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { HtmlEscapeUtil }                                from '../../src/lib/utils/HtmlEscapeUtil.ts';
+import type { PageConcurrency, PagePayload, PageTicket } from '../../src/shared/@types/PagePayload.ts';
 import { OperationRefusal }                              from '../../src/shared/OperationRefusal.ts';
 import { LIMITS }                                        from '../../src/shared/constants/Limits.ts';
 import { renderMarkdown }                                from './Markdown.ts';
-import type { PageConcurrency, PagePayload, PageTicket } from './page/PageData.ts';
 
 const { escapeHtml, escapeJsonForScriptTag } = HtmlEscapeUtil;
 

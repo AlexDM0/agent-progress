@@ -6,6 +6,7 @@
 
 import { describe, expect, test }                                    from 'bun:test';
 import type { Task }                                                 from '../../src/lib/tracker-model/@types/Task.ts';
+import type { PageTicket }                                           from '../../src/shared/@types/PagePayload.ts';
 import { cappedLaneShownCount, kanbanCardsFor, shownCountAfterMore } from './page/KanbanBoard.ts';
 import type { KanbanBoardInput }                                     from './page/KanbanMarkup.ts';
 import {
@@ -14,7 +15,6 @@ import {
   kanbanCardMarkup,
   kanbanLaneMarkup,
 } from './page/KanbanMarkup.ts';
-import type { PageTicket } from './page/PageData.ts';
 
 const EXAMPLE_TODAY = '2026-09-25';
 const EXAMPLE_NOW   = Date.parse('2026-09-25T13:36:00+02:00');

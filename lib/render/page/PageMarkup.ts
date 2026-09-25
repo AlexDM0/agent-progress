@@ -10,9 +10,10 @@ import { SETTLED_TASK_STATUSES }          from '../../../src/lib/tracker-model/c
 import { TicketDefaultsUtil }             from '../../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
 import { HtmlEscapeUtil }                 from '../../../src/lib/utils/HtmlEscapeUtil.ts';
 import { TokenCountUtil }                 from '../../../src/lib/utils/TokenCountUtil.ts';
+import type { PageTicket }                from '../../../src/shared/@types/PagePayload.ts';
 import { LIMITS }                         from '../../../src/shared/constants/Limits.ts';
+import { TicketNumberUtil }               from '../../../src/shared/utils/TicketNumberUtil.ts';
 import type { TimelineBar, TimelineTick } from './GanttGeometry.ts';
-import type { PageTicket }                from './PageData.ts';
 import {
   fullInstantText,
   fullStampText,
@@ -140,26 +141,6 @@ export function reviewedMarkMarkup(task: Task, slices: TimestampSlices): string 
   return `<span class="ap-reviewed-mark" data-state="reviewed" ${attribute('title', reviewedTitleFor(task, slices))} role="img" aria-label="reviewed">✓</span>`;
 }
 
-/** Only the prefix is read, and a bundle's first id is its parent: `Review 1 #13, #5 — …` reviews #13. */
-const REVIEW_NAME_PATTERN = /^Review (\d+) #(\d+)/;
-
-function wholeNumberOrNull(text: string | undefined): number | null {
-  const value = Number(text);
-  return text === undefined || text === '' || !Number.isSafeInteger(value) ? null : value;
-}
-
-/** Compared as a number, so a name's `#3`, a stored `003` and a ticket row's `003` all name one ticket. */
-export function reviewedTicketNumberOf(task: Task): number | null {
-  if (task.reviewOf !== undefined) {
-    return wholeNumberOrNull(task.reviewOf);
-  }
-  return wholeNumberOrNull(REVIEW_NAME_PATTERN.exec(task.name)?.[2]);
-}
-
-function reviewRoundNamedBy(task: Task): number {
-  return wholeNumberOrNull(REVIEW_NAME_PATTERN.exec(task.name)?.[1]) ?? Number.MAX_SAFE_INTEGER;
-}
-
 export interface PlacedTaskRow {
   row:              TaskRow;
   /** The ticket id of the row this one is nested with, drawn directly above it, or `null` for a row drawn at the top level. */
@@ -173,13 +154,13 @@ export interface PlacedTaskRow {
 export function taskRowsInDisplayOrder(rows: readonly TaskRow[]): PlacedTaskRow[] {
   const ownRowByTicketNumber = new Map<number, TaskRow>();
   for (const row of rows) {
-    const ticketNumber = wholeNumberOrNull(row.task.ticket ?? undefined);
+    const ticketNumber = TicketNumberUtil.ticketNumberOf(row.task.ticket ?? undefined);
     if (ticketNumber !== null) ownRowByTicketNumber.set(ticketNumber, row);
   }
 
   const reviewsByParent = new Map<TaskRow, TaskRow[]>();
   for (const row of rows) {
-    const reviewedNumber = row.task.ticket === null ? reviewedTicketNumberOf(row.task) : null;
+    const reviewedNumber = row.task.ticket === null ? TicketNumberUtil.reviewedTicketNumberOf(row.task) : null;
     const parent         = reviewedNumber === null ? undefined : ownRowByTicketNumber.get(reviewedNumber);
     if (parent !== undefined) reviewsByParent.set(parent, [...reviewsByParent.get(parent) ?? [], row]);
   }
@@ -187,7 +168,8 @@ export function taskRowsInDisplayOrder(rows: readonly TaskRow[]): PlacedTaskRow[
 
   return rows.toReversed().flatMap((row) => {
     if (nestedRows.has(row)) return [];
-    const reviews = (reviewsByParent.get(row) ?? []).toSorted((a, b) => reviewRoundNamedBy(b.task) - reviewRoundNamedBy(a.task) || b.task.id - a.task.id);
+    const reviews = (reviewsByParent.get(row) ?? []).toSorted((a, b) => TicketNumberUtil.reviewRoundNamedBy(b.task) - TicketNumberUtil.reviewRoundNamedBy(a.task)
+      || b.task.id - a.task.id);
     return [
       ...reviews.map((review) => ({ row: review, nestedWithTicket: row.task.ticket })),
       { row, nestedWithTicket: null },

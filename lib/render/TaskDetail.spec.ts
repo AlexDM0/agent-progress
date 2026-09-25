@@ -8,7 +8,7 @@ import { describe, expect, test } from 'bun:test';
 
 import type { LogEntry }                    from '../../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { Task }                        from '../../src/lib/tracker-model/@types/Task.ts';
-import type { PageTicket }                  from './page/PageData.ts';
+import type { PageTicket }                  from '../../src/shared/@types/PagePayload.ts';
 import type { TimestampSlices }             from './page/PageMarkup.ts';
 import { formatDuration, taskDetailMarkup } from './page/TaskDetail.ts';
 
