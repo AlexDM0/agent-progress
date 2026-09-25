@@ -48,7 +48,8 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
 - A `src/lib/` package imports only the other `src/lib/` packages its main module's header names, node builtins and
   external dependencies. It never imports `src/shared/`, `lib/` or `cli/`, and knows nothing about its callers: no
   agent-progress names, tracker file names, user-facing wording or exit codes. App values arrive as parameters; a
-  refusal leaves as a verdict the caller turns into `OperationRefusal`. A `src/lib/` spec may import `src/testing/`.
+  refusal leaves as a verdict the caller turns into `OperationRefusal`, except that the tracker model's `Board`, a
+  domain class, throws its typed `BoardRefusal` instead. A `src/lib/` spec may import `src/testing/`.
 - `src/lib/tracker-model/` imports nothing outside its own folder and no builtin: the page's DOM-only project compiles
   it, so it stays DOM-safe. The `lib/` layers import it like any `src/lib/` package.
 - `src/testing/` may import `lib/platform/Workspace.ts` until plan step 6 moves it; `cli/testing/` is imported only by
@@ -71,12 +72,18 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
 - An optional stored key is written only once somebody sets it, and a read never adds or rewrites one, so an older
   file stays byte-identical.
 - A malformed stored file is a verdict and a report, never a throw that takes down `status` or `render`.
+- The Board logs through the semantic Logger (`src/lib/tracker-model/Logger.ts`), with ids and values only;
+  `src/adapters/utils/LogUtil.ts` words the records. Until plan step 5, `src/adapters/ProgressLogSink.ts` appends the
+  sentences to `progress.json`'s log.
 
 ### Errors and exit codes
 
 - A decider returns a verdict, and fails closed: an answer the machine cannot give reads as the safe verdict. Library
   code throws `OperationRefusal` (`src/shared/OperationRefusal.ts`: `refused` or `unrepaired`), never writes to the
   terminal and never exits.
+- A Board rule throws `BoardRefusal` (`src/lib/tracker-model/BoardRefusal.ts`): a reason code with its facts and no
+  wording. The pipeline in `cli/CommandSupport.ts` words it through `src/adapters/utils/BoardRefusalWordingUtil.ts` as
+  a `refused` `OperationRefusal`.
 - Exit codes are decided only in `cli/Main.ts`: 0 done or nothing to do; 1 a refusal the caller can act on
   (`refused`, or an unknown command); 2 a state the tool will not repair (`unrepaired`, or any other throw).
   `agent-progress.ts` is the only `process.exit`.
@@ -172,7 +179,8 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
 - Adding a command is an entry in `cli/CommandTable.ts`, a block in `cli/HelpText.ts` and a folder;
   `cli/CommandTable.spec.ts` and `cli/HelpText.spec.ts` fail until all three exist.
 - Every mutating command writes through `openTrackerForWriting` in `cli/CommandSupport.ts`, and none repeats it:
-  lock, read, mutate, write the progress file, then the tickets, then render from disk, all under the lock. Ticket
+  lock; read the progress file and the tickets into a Board; change them through it; write the progress file, then
+  the tickets the Board changed (and any a command still queues); then render from disk, all under the lock. Ticket
   files follow the progress file so it is never behind them. `status` takes no lock and renders nothing.
 
 ### Tickets

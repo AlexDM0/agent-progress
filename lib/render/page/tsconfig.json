@@ -19,6 +19,7 @@
     "../../../src/lib/tracker-model/@types/Task.ts",
     "../../../src/lib/tracker-model/@types/Ticket.ts",
     "../../../src/lib/tracker-model/@types/TupleCoversTheUnion.ts",
+    "../../../src/lib/tracker-model/Board.ts",
     "../../../src/lib/tracker-model/BoardRefusal.ts",
     "../../../src/lib/tracker-model/Logger.ts",
     "../../../src/lib/tracker-model/constants/AgentSettings.ts",

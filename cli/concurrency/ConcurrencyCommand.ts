@@ -1,5 +1,6 @@
 import { requireWorkspace }                                        from '../../lib/platform/Workspace';
-import { appendLogEntry, concurrencyLimitIsWellFormed }            from '../../lib/progress/ProgressStore';
+import { concurrencyLimitIsWellFormed }                            from '../../lib/progress/ProgressStore';
+import { LogUtil }                                                 from '../../src/adapters/utils/LogUtil';
 import { CONCURRENCY_LIMIT_CEILING_AGENTS }                        from '../../src/lib/tracker-model/constants/ConcurrencyLimits';
 import { ConcurrencyUtil }                                         from '../../src/lib/tracker-model/utils/ConcurrencyUtil';
 import { OperationRefusal }                                        from '../../src/shared/OperationRefusal';
@@ -42,18 +43,13 @@ export const concurrencyCommand: CommandHandler = async (commandArguments, conte
   }
   const limit = limitFrom(written);
 
-  const changed = await openTrackerForWriting(commandArguments, context, (change) => {
-    const previousLimit             = ConcurrencyUtil.concurrencyOf(change.progress.tasks, change.progress.concurrencyLimit).limit;
-    change.progress.concurrencyLimit = limit;
-    appendLogEntry(change.progress, change.at, `Concurrency limit set to ${limit}`);
-    return { previousLimit, concurrency: ConcurrencyUtil.concurrencyOf(change.progress.tasks, change.progress.concurrencyLimit) };
-  });
+  const { logged, previousLimit, concurrency } = await openTrackerForWriting(commandArguments, context, (change) => change.board.setConcurrencyLimit(limit, change.at));
 
-  const { concurrency, previousLimit } = changed;
+  const loggedSentence = logged.map((record) => LogUtil.sentenceOf(record)).join('\n');
   printEntity(
     commandArguments,
     context,
     concurrency,
-    `Concurrency limit set to ${limit} (was ${previousLimit}): ${concurrency.agentsInFlight} agents in flight, ${concurrency.freeSlots} free.`,
+    `${loggedSentence} (was ${previousLimit}): ${concurrency.agentsInFlight} agents in flight, ${concurrency.freeSlots} free.`,
   );
 };

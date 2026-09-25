@@ -2,7 +2,6 @@
  * A relative bound is stored as written and resolved at layout time, so `--from -2h` keeps meaning "the
  * last two hours"; `lib/render/page/GanttGeometry.ts` resolves each end, which is what makes a mixed pair legal.
  */
-import { appendLogEntry }                     from '../../lib/progress/ProgressStore';
 import { LogUtil }                            from '../../src/adapters/utils/LogUtil';
 import type { ViewRange }                     from '../../src/lib/tracker-model/@types/ProgressFile';
 import { TimeUtil }                           from '../../src/lib/utils/TimeUtil';
@@ -85,10 +84,6 @@ function viewRangeFrom(writtenFrom: string, writtenTo: string, writtenTick: stri
   };
 }
 
-function rangeSentenceOf(view: ViewRange): string {
-  return LogUtil.sentenceOf({ kind: 'chart-range-set', fields: { view } });
-}
-
 export const rangeCommand: CommandHandler = async (commandArguments, context) => {
   commandArguments.rejectUnknownOptions(KNOWN_OPTION_NAMES, USAGE);
   commandArguments.rejectExtraPositionals(0, USAGE);
@@ -109,11 +104,8 @@ export const rangeCommand: CommandHandler = async (commandArguments, context) =>
     ? { kind: 'auto' }
     : viewRangeFrom(writtenFrom, writtenTo, writtenTick, context.now());
 
-  const stored = await openTrackerForWriting(commandArguments, context, (change) => {
-    change.progress.view = view;
-    appendLogEntry(change.progress, change.at, rangeSentenceOf(view));
-    return view;
-  });
+  const { logged } = await openTrackerForWriting(commandArguments, context, (change) => change.board.setChartRange(view, change.at));
 
-  printEntity(commandArguments, context, stored, rangeSentenceOf(stored));
+  const humanLine = logged.map((record) => LogUtil.sentenceOf(record)).join('\n');
+  printEntity(commandArguments, context, view, humanLine);
 };

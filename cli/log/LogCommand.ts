@@ -1,4 +1,3 @@
-import { appendLogEntry }                     from '../../lib/progress/ProgressStore';
 import { OperationRefusal }                   from '../../src/shared/OperationRefusal';
 import { openTrackerForWriting, printEntity } from '../CommandSupport';
 import type { CommandHandler }                from '../CommandTable';
@@ -17,7 +16,7 @@ export const logCommand: CommandHandler = async (commandArguments, context) => {
   }
 
   const entry = await openTrackerForWriting(commandArguments, context, (change) => {
-    appendLogEntry(change.progress, change.at, text);
+    change.board.recordNote(text, change.at);
     return { at: change.at, text };
   });
 

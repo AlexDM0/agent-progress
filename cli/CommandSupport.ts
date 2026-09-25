@@ -1,7 +1,7 @@
 /**
- * The sequence every mutating command follows, written once: take the lock of `lib/platform/Lock.ts`, read, mutate, write the
- * progress file, write the queued tickets, render through `lib/render/Rerender.ts` — all inside the lock, in that order, so no older
- * render lands last and the progress file is never behind the tickets.
+ * The sequence every mutating command follows, written once: take the lock of `lib/platform/Lock.ts`, read the progress file and the
+ * tickets into a Board, mutate, write the progress file, write the queued tickets and the tickets the Board changed, render through
+ * `lib/render/Rerender.ts` — all inside the lock, in that order, so no older render lands last and the progress file is never behind the tickets.
  */
 import { withLock }                         from '../lib/platform/Lock';
 import { requireWorkspace, type Workspace } from '../lib/platform/Workspace';
@@ -16,19 +16,24 @@ import {
   transitionTask,
   writeProgressFile
 }                                               from '../lib/progress/ProgressStore';
-import { rerenderDashboard, type RerenderOutcome } from '../lib/render/Rerender';
-import { listTickets, writeTicket }                from '../lib/tickets/TicketStore';
-import type { PriorityOperations }                 from '../lib/tickets/TicketTransitions';
-import { NextLineUtil }                            from '../lib/utils/NextLineUtil';
-import type { Concurrency }                        from '../src/lib/tracker-model/@types/Concurrency';
-import type { DispatcherState, ProgressFile }      from '../src/lib/tracker-model/@types/ProgressFile';
-import type { Task }                               from '../src/lib/tracker-model/@types/Task';
+import { rerenderDashboard, type RerenderOutcome }            from '../lib/render/Rerender';
+import { listTickets, writeTicket, type MalformedTicketFile } from '../lib/tickets/TicketStore';
+import type { PriorityOperations }                            from '../lib/tickets/TicketTransitions';
+import { NextLineUtil }                                       from '../lib/utils/NextLineUtil';
+import { createProgressLogSink }                              from '../src/adapters/ProgressLogSink';
+import { BoardRefusalWordingUtil }                            from '../src/adapters/utils/BoardRefusalWordingUtil';
+import type { Concurrency }                                   from '../src/lib/tracker-model/@types/Concurrency';
+import type { DispatcherState, ProgressFile }                 from '../src/lib/tracker-model/@types/ProgressFile';
+import type { Task }                                          from '../src/lib/tracker-model/@types/Task';
 import type {
   AgentEffort,
   AgentModel,
   Ticket,
   TicketPriority
 } from '../src/lib/tracker-model/@types/Ticket';
+import { Board }                                from '../src/lib/tracker-model/Board';
+import { refusalIsBoardRefusal }                from '../src/lib/tracker-model/BoardRefusal';
+import { createLogger }                         from '../src/lib/tracker-model/Logger';
 import { TICKET_STATUSES_NO_AGENT_WORKS_AGAIN } from '../src/lib/tracker-model/constants/Statuses';
 import { ConcurrencyUtil }                      from '../src/lib/tracker-model/utils/ConcurrencyUtil';
 import { TicketDefaultsUtil }                   from '../src/lib/tracker-model/utils/TicketDefaultsUtil';
@@ -49,9 +54,13 @@ export const progressOperations: PriorityOperations = {
 };
 
 export interface TrackerChange {
+  board:                   Board;
   progress:                ProgressFile;
   workspace:               Workspace;
   at:                      string;
+  malformedTickets:        readonly MalformedTicketFile[];
+  /** How many entries the log held when it was read, before anything this invocation logged. */
+  storedLogEntryCount:     number;
   writeTicketAfterwards:   (ticket: Ticket) => void;
   /** For a change to the tickets directory other than a write, run after the progress file and the queued tickets and before the render. */
   changeTicketsAfterwards: (step: () => void) => void;
@@ -229,6 +238,19 @@ export async function renderDashboardOrRefuse(context: CommandContext, workspace
   reportRenderProblems(context, outcome);
 }
 
+/** A Board refusal is one the caller can act on, worded here at the edge; nothing has been written when it is thrown. */
+async function mutateRefusingInWords<MutationResult>(
+  mutate: (change: TrackerChange) => MutationResult | Promise<MutationResult>,
+  change: TrackerChange,
+): Promise<MutationResult> {
+  try {
+    return await mutate(change);
+  } catch (error) {
+    if (refusalIsBoardRefusal(error)) throw new OperationRefusal('refused', BoardRefusalWordingUtil.messageOf(error.detail));
+    throw error;
+  }
+}
+
 async function writeTrackerUnderLock<MutationResult, Reading>(
   commandArguments: ArgumentParser,
   context: CommandContext,
@@ -239,20 +261,30 @@ async function writeTrackerUnderLock<MutationResult, Reading>(
   const at        = resolveAtOption(commandArguments, context);
 
   return withLock(workspace, async () => {
-    const progress = requireProgressFile(workspace);
+    const progress            = requireProgressFile(workspace);
+    const listing             = listTickets(workspace);
+    const storedLogEntryCount = progress.log.length;
+    const board               = new Board({ progress, tickets: listing.tickets, logger: createLogger(createProgressLogSink(progress.log)) });
 
     const ticketsToWrite: Ticket[] = [];
     const ticketStepsToRun: (() => void)[] = [];
-    const result = await mutate({
+    const result = await mutateRefusingInWords(mutate, {
       at,
+      board,
       progress,
       workspace,
+      malformedTickets:        listing.malformed,
+      storedLogEntryCount,
       writeTicketAfterwards:   (ticket: Ticket) => { ticketsToWrite.push(ticket); },
       changeTicketsAfterwards: (step: () => void) => { ticketStepsToRun.push(step); },
     });
 
     writeProgressFile(workspace, progress);
     for (const ticket of ticketsToWrite) writeTicket(ticket);
+    const queuedTicketFilePaths = new Set(ticketsToWrite.map((ticket) => ticket.filePath));
+    for (const ticket of board.changedTickets()) {
+      if (!queuedTicketFilePaths.has(ticket.filePath)) writeTicket(ticket);
+    }
     for (const ticketStep of ticketStepsToRun) ticketStep();
     const reading = readAfterWriting(workspace, progress);
     await renderDashboard(context, workspace);
