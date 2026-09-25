@@ -418,6 +418,18 @@ describe('logItemsMarkup', () => {
     expect(times).toEqual(['21:56', '21:21', '20:36']);
   });
 
+  // Commands run in one second stamp their lines alike; under the cap the newer appends must win, or the card drops the latest lines.
+  test('keeps the later append first among lines stamped in the same second', () => {
+    const sameSecond = [
+      { at: '2026-09-18T21:56:00+02:00', text: 'First append' },
+      { at: '2026-09-18T21:56:00+02:00', text: 'Second append' },
+      { at: '2026-09-18T21:56:00+02:00', text: 'Third append' },
+    ];
+    const texts = [...logItemsMarkup(sameSecond, EXAMPLE_SLICES, 2).matchAll(/<span>([^<]+)<\/span>/g)].map((match) => match[1]);
+
+    expect(texts).toEqual(['Third append', 'Second append']);
+  });
+
   test('adds the date to every line once the log covers more than one calendar day', () => {
     const acrossMidnight = [...entries, { at: '2026-09-19T00:12:00+02:00', text: 'Still going' }];
     const times = [...logItemsMarkup(acrossMidnight, EXAMPLE_SLICES).matchAll(/<time>([^<]+)<\/time>/g)].map((match) => match[1]);

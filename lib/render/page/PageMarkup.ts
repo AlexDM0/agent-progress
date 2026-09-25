@@ -242,11 +242,12 @@ export function summaryStatsMarkup(tasks: readonly Task[], concurrency: { limit:
 export function logItemsMarkup(entries: readonly LogEntry[], slices: TimestampSlices, entryLimit: number | null = null): string {
   const distinctDates = new Set(entries.map((entry) => entry.at.slice(0, slices.calendarDateLength)));
   const sliceStart    = distinctDates.size > 1 ? slices.monthAndDaySliceStart : slices.clockSliceStart;
+  // Within one second the later append is the newer line, so the cap never keeps an older one over it.
   return entries
-    .slice()
-    .sort((a, b) => b.at.localeCompare(a.at))
+    .map((entry, appendIndex) => ({ entry, appendIndex }))
+    .sort((a, b) => b.entry.at.localeCompare(a.entry.at) || b.appendIndex - a.appendIndex)
     .slice(0, entryLimit ?? entries.length)
-    .map((entry) => {
+    .map(({ entry }) => {
       const stamp = entry.at.slice(sliceStart, slices.clockSliceEnd).replace('T', ' ');
       return `<li><time>${escapeHtml(stamp)}</time><span>${escapeHtml(entry.text)}</span></li>`;
     })
