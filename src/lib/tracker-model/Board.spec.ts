@@ -66,6 +66,9 @@ const CALLS_THAT_CHANGE_NO_TICKET: readonly (readonly [string, (board: Board) =>
     cacheReadInputTokens: 0,
     outputTokens:         10,
   }, [{ target: 'row', taskId: 1, tokens: 1_000 }, { target: 'ticket', ticketId: '001', tokens: 1_000 }], CHANGED_AT)],
+  ['startReviewBar', (board) => board.startReviewBar('001', { round: 1, owner: 'Alex Example' }, CHANGED_AT)],
+  ['unsettledDependenciesOf', (board) => board.unsettledDependenciesOf('001')],
+  ['lowPriorityWorkHoldingBack', (board) => board.lowPriorityWorkHoldingBack('002')],
   ['tasks', (board) => board.tasks()],
   ['tickets', (board) => board.tickets()],
   ['taskById', (board) => board.taskById(1)],
@@ -81,6 +84,19 @@ const CALLS_THAT_CHANGE_A_TICKET: readonly (readonly [string, (board: Board) => 
     name: 'Example basket badge row', ticketId: '002', startsNow: false, movesTheLink: false 
   }, CHANGED_AT), ['002']],
   ['removeTask of the row a ticket names', (board) => board.removeTask(1), ['001']],
+  ['fileTicket', (board) => board.fileTicket(ticketFixture({ id: '003', title: 'Example order history' }), CHANGED_AT), ['003']],
+  ['moveTicket', (board) => board.moveTicket('001', 'in-review', { checksLegality: true }, CHANGED_AT), ['001']],
+  ['moveTicket that closes a review bar', (board) => {
+    board.startReviewBar('001', { round: 1 }, CHANGED_AT);
+    return board.moveTicket('001', 'pending', { checksLegality: true }, CHANGED_AT);
+  }, ['001']],
+  ['rereviewTicket', (board) => {
+    // Put in review by hand rather than by a move, so the only change that can mark the ticket is the review pass itself.
+    const ticket = board.ticketByReference('001');
+    if (ticket !== undefined) ticket.frontmatter.status = 'in-review';
+    return board.rereviewTicket('001', CHANGED_AT);
+  }, ['001']],
+  ['setTicketDependencies', (board) => board.setTicketDependencies('002', ['001'], CHANGED_AT), ['002']],
 ];
 
 describe('the tickets a method marks changed', () => {

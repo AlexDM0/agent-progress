@@ -1,8 +1,7 @@
 /**
  * What a ticket's status change means: which timestamp it writes and which status its Gantt row
  * takes. Nothing here writes a file, takes a lock or checks legality — the caller holds the lock, and the
- * named verbs consult `src/lib/tracker-model/constants/TicketMoveLegality.ts` before transitioning; `applyTicketRereview`
- * is the one move deliberately outside that table.
+ * named verbs consult `src/lib/tracker-model/constants/TicketMoveLegality.ts` before transitioning.
  */
 
 import type { ProgressFile }     from '../../src/lib/tracker-model/@types/ProgressFile.ts';
@@ -13,11 +12,10 @@ import type {
   TicketPriority,
   TicketStatus
 } from '../../src/lib/tracker-model/@types/Ticket.ts';
-import { FIRST_REPEAT_REVIEW_ROUND } from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
-import type { TaskFiling }           from '../../src/lib/tracker-model/utils/TaskFilingUtil.ts';
-import { TicketChartUtil }           from '../../src/lib/tracker-model/utils/TicketChartUtil.ts';
-import { TicketDefaultsUtil }        from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
-import { TicketStampUtil }           from '../../src/lib/tracker-model/utils/TicketStampUtil.ts';
+import type { TaskFiling }    from '../../src/lib/tracker-model/utils/TaskFilingUtil.ts';
+import { TicketChartUtil }    from '../../src/lib/tracker-model/utils/TicketChartUtil.ts';
+import { TicketDefaultsUtil } from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
+import { TicketStampUtil }    from '../../src/lib/tracker-model/utils/TicketStampUtil.ts';
 
 export interface ProgressOperations {
   addTask:        (progress: ProgressFile, filing: TaskFiling) => Task;
@@ -40,13 +38,6 @@ export interface TicketRowInput {
 /** `at` is used only when there is no row yet: a row a ticket files is filed at that moment, which is the first phase of its history. */
 export interface EnsureTaskForTicketInput extends TicketRowInput {
   at: string;
-}
-
-export interface ApplyTicketRereviewInput {
-  progress:   ProgressFile;
-  ticket:     Ticket;
-  at:         string;
-  operations: ProgressOperations;
 }
 
 export interface ApplyTicketTransitionInput {
@@ -84,8 +75,6 @@ const LOG_PHRASE_FOR_TICKET_STATUS: Record<TicketStatus, string> = {
 
 const ABANDON_WITHOUT_REASON_REFUSAL = 'abandon needs --reason';
 
-const REREVIEW_FROM_ELSEWHERE_REFUSAL = 'another review pass needs a ticket that is in-review';
-
 const LOWERING_A_TICKET_THAT_IS_NOT_PENDING_REFUSAL = 'only a pending ticket can be lowered to low, since a low ticket has no row until it is started';
 
 /** An existing row comes back untouched, so a row `ticket link --force` deliberately moved is never taken back. */
@@ -110,7 +99,7 @@ export function ensureTaskForTicket(input: EnsureTaskForTicketInput): Task {
 }
 
 /** `ensureTaskForTicket`, except that a row-less ticket staying off the chart is given no row and `null` comes back. */
-export function ensureTaskForTicketOnTheChart(input: EnsureTaskForTicketInput): Task | null {
+function ensureTaskForTicketOnTheChart(input: EnsureTaskForTicketInput): Task | null {
   const { progress, ticket, operations } = input;
   const { frontmatter }                  = ticket;
   const linkedTask                       = frontmatter.task === null ? undefined : operations.findTask(progress, frontmatter.task);
@@ -211,39 +200,6 @@ export function applyTicketTransition(input: ApplyTicketTransitionInput): ApplyT
   if (task !== null) operations.transitionTask(progress, task.id, targetStatus, at);
 
   const logText = logTextFor(frontmatter, targetStatus);
-  operations.appendLogEntry(progress, at, logText);
-
-  return { verdict: 'applied', ticket, logText };
-}
-
-/**
- * The one move that leaves a ticket in the status it already has: a second reviewer is still review,
- * so only `updated` is stamped and the row counts the round. It is why this is not a matrix entry.
- */
-export function applyTicketRereview(input: ApplyTicketRereviewInput): ApplyTicketTransitionResult {
-  const {
-    progress,
-    ticket,
-    at,
-    operations,
-  } = input;
-  const { frontmatter } = ticket;
-
-  if (frontmatter.status !== 'in-review') {
-    return { verdict: 'refused', reason: REREVIEW_FROM_ELSEWHERE_REFUSAL };
-  }
-
-  frontmatter.updated = at;
-
-  const task = ensureTaskForTicket({
-    progress,
-    ticket,
-    operations,
-    at,
-  });
-  operations.transitionTask(progress, task.id, 're-review', at);
-
-  const logText = `Ticket #${frontmatter.id} in review, round ${task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND}`;
   operations.appendLogEntry(progress, at, logText);
 
   return { verdict: 'applied', ticket, logText };

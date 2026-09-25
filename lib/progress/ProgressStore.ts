@@ -250,13 +250,6 @@ export function inProgressReviewRowsOf(progress: ProgressFile, ticketIds: readon
   return progress.tasks.filter((task) => task.status === 'in-progress' && task.reviewOf !== undefined && ticketIds.includes(task.reviewOf));
 }
 
-export function setTaskTokens(progress: ProgressFile, taskId: number, tokens: number | null): 'applied' | 'no-such-task' {
-  const task = findTask(progress, taskId);
-  if (task === undefined) return 'no-such-task';
-  task.tokens = tokens;
-  return 'applied';
-}
-
 /** Callers hold the record across a move, so the moved row is written into the same object; a key it keeps stays where the file stores it. */
 function replaceFieldsInPlace(task: Task, replacement: Task): void {
   for (const key of Object.keys(task)) {

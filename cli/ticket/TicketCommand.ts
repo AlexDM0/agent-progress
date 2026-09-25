@@ -5,32 +5,24 @@
 import { readFileSync }            from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 
-import { requireWorkspace, type Workspace } from '../../lib/platform/Workspace';
-import {
-  addTask,
-  appendLogEntry,
-  findTask,
-  inProgressReviewRowsOf,
-  setTaskTokens,
-  transitionTask
-}                                                from '../../lib/progress/ProgressStore';
+import { requireWorkspace, type Workspace }                 from '../../lib/platform/Workspace';
+import { appendLogEntry, findTask, inProgressReviewRowsOf } from '../../lib/progress/ProgressStore';
 import {
   createTicket,
   listTickets,
   readTicket,
   type MalformedTicketFile
-}                                                from '../../lib/tickets/TicketStore';
-import {
-  applyTicketPriority,
-  applyTicketRereview,
-  applyTicketTransition,
-  ensureTaskForTicketOnTheChart
-} from '../../lib/tickets/TicketTransitions';
-import { NextLineUtil }      from '../../lib/utils/NextLineUtil';
-import { LegacyStatusUtil }  from '../../src/adapters/utils/LegacyStatusUtil';
-import { TicketPhraseUtil }  from '../../src/adapters/utils/TicketPhraseUtil';
-import type { ProgressFile } from '../../src/lib/tracker-model/@types/ProgressFile';
-import type { Task }         from '../../src/lib/tracker-model/@types/Task';
+}                                                           from '../../lib/tickets/TicketStore';
+import { applyTicketPriority, applyTicketTransition } from '../../lib/tickets/TicketTransitions';
+import { NextLineUtil }                               from '../../lib/utils/NextLineUtil';
+import { LegacyStatusUtil }                           from '../../src/adapters/utils/LegacyStatusUtil';
+import { LogUtil }                                    from '../../src/adapters/utils/LogUtil';
+import { TicketBodyUtil }                             from '../../src/adapters/utils/TicketBodyUtil';
+import { TicketPhraseUtil }                           from '../../src/adapters/utils/TicketPhraseUtil';
+import type { AgentAssignment, ReviewBarStarted }     from '../../src/lib/tracker-model/@types/BoardChanges';
+import type { LogRecord }                             from '../../src/lib/tracker-model/@types/LogRecord';
+import type { ProgressFile }                          from '../../src/lib/tracker-model/@types/ProgressFile';
+import type { Task }                                  from '../../src/lib/tracker-model/@types/Task';
 import type {
   AgentEffort,
   AgentModel,
@@ -45,7 +37,6 @@ import { TICKET_STATUSES, TICKET_STATUSES_NO_AGENT_WORKS_AGAIN }      from '../.
 import { TICKET_PRIORITIES, TICKET_TYPES }                            from '../../src/lib/tracker-model/constants/TicketFields';
 import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS, ticketMoveIsLegal } from '../../src/lib/tracker-model/constants/TicketMoveLegality';
 import { ConcurrencyUtil }                                            from '../../src/lib/tracker-model/utils/ConcurrencyUtil';
-import { TicketChartUtil }                                            from '../../src/lib/tracker-model/utils/TicketChartUtil';
 import { TicketDefaultsUtil }                                         from '../../src/lib/tracker-model/utils/TicketDefaultsUtil';
 import { TicketDependencyUtil }                                       from '../../src/lib/tracker-model/utils/TicketDependencyUtil';
 import { TicketIdUtil }                                               from '../../src/lib/tracker-model/utils/TicketIdUtil';
@@ -55,7 +46,6 @@ import { LIMITS }                                                     from '../.
 import { VERB_FOR_STATUS }                                            from '../../src/shared/constants/StatusVerbs';
 import type { CommandContext }                                        from '../CommandContext';
 import {
-  closeInProgressReviewRows,
   ignoredTicketFileText,
   openTrackerForWriting,
   openTrackerForWritingThenReadNextLine,
@@ -65,7 +55,8 @@ import {
   progressOperations,
   reportIgnoredTicketFiles,
   ticketDocumentOf,
-  tokenCountFrom
+  tokenCountFrom,
+  type TrackerChange
 } from '../CommandSupport';
 import type { CommandHandler } from '../CommandTable';
 import type { ArgumentParser } from '../arguments/ArgumentParser';
@@ -163,28 +154,33 @@ async function suppliedBodyFor(commandArguments: ArgumentParser, context: Comman
   }
 }
 
-function malformedFileOfTicket(workspace: Workspace, reference: string): MalformedTicketFile | undefined {
+function malformedFileOfTicket(malformedTickets: readonly MalformedTicketFile[], reference: string): MalformedTicketFile | undefined {
   const identifier = TicketIdUtil.parseTicketReference(reference);
   if (identifier === null) return undefined;
-  return listTickets(workspace).malformed.find(({ filePath }) => {
+  return malformedTickets.find(({ filePath }) => {
     const fileName = basename(filePath);
     return fileName.startsWith(`${identifier}-`) || fileName === `${identifier}.md`;
   });
 }
 
 /** A ticket file that is there and will not parse is exit 2: the tool will not repair a hand edit, and a missing ticket is the caller's to fix. */
-function requireTicket(workspace: Workspace, reference: string): Ticket {
-  const ticket = readTicket(workspace, reference);
-  if (ticket === null) {
-    const malformed = malformedFileOfTicket(workspace, reference);
-    if (malformed !== undefined) throw new OperationRefusal('unrepaired', ignoredTicketFileText(malformed));
-    throw new OperationRefusal(
-      'refused',
-      `There is no readable ticket ${reference}. Run \`agent-progress ticket list\` to see what this tracker holds; `
-      + 'a file that will not parse is reported there as malformed.',
-    );
-  }
-  return ticket;
+function refuseAMissingTicket(reference: string, malformedTickets: readonly MalformedTicketFile[]): never {
+  const malformed = malformedFileOfTicket(malformedTickets, reference);
+  if (malformed !== undefined) throw new OperationRefusal('unrepaired', ignoredTicketFileText(malformed));
+  throw new OperationRefusal(
+    'refused',
+    `There is no readable ticket ${reference}. Run \`agent-progress ticket list\` to see what this tracker holds; `
+    + 'a file that will not parse is reported there as malformed.',
+  );
+}
+
+function requireTicket(change: TrackerChange, reference: string): Ticket {
+  return change.board.ticketByReference(reference) ?? refuseAMissingTicket(reference, change.malformedTickets);
+}
+
+/** `ticket show` changes nothing, so it reads the ticket files as they are, with no lock and no Board. */
+function requireTicketToShow(workspace: Workspace, reference: string): Ticket {
+  return readTicket(workspace, reference) ?? refuseAMissingTicket(reference, listTickets(workspace).malformed);
 }
 
 function dependencyListFrom(texts: readonly string[]): string[] {
@@ -197,20 +193,6 @@ function dependencyListFrom(texts: readonly string[]): string[] {
     if (!dependsOn.includes(identifier)) dependsOn.push(identifier);
   }
   return dependsOn;
-}
-
-function refuseAnUnworkableDependencyList(ticketId: string, dependsOn: readonly string[], tickets: readonly Ticket[]): void {
-  const known   = new Set(tickets.map((ticket) => ticket.frontmatter.id));
-  const missing = dependsOn.filter((identifier) => !known.has(identifier));
-  if (missing.length > 0) {
-    const named = missing.map((identifier) => `#${identifier}`).join(', ');
-    throw new OperationRefusal('refused', `There is no ticket ${named}. Run \`agent-progress ticket list\` to see what this tracker holds.`);
-  }
-  const dependsOnById = new Map(tickets.map((ticket) => [ticket.frontmatter.id, ticket.frontmatter.dependsOn ?? []]));
-  const loop          = TicketDependencyUtil.dependencyLoopFrom(ticketId, dependsOn, dependsOnById);
-  if (loop !== null) {
-    throw new OperationRefusal('refused', `That would make tickets wait on each other in a circle: ${loop.map((identifier) => `#${identifier}`).join(' → ')}.`);
-  }
 }
 
 function unsettledDependenciesFor(ticket: Ticket, tickets: readonly Ticket[]): string[] {
@@ -271,19 +253,7 @@ function lowTicketHeldBackText(ticket: Ticket, tickets: readonly Ticket[]): stri
   return TicketPhraseUtil.lowPriorityHeldBackText(ticket.frontmatter.id, holdingBack);
 }
 
-interface ReviewBarRequest {
-  owner?: string;
-  note?:  string;
-}
-
-interface StartedReviewBar {
-  bar:          Task;
-  closedBarIds: number[];
-}
-
-const REVIEW_SECTION_HEADING_PATTERN = /^## Review[ \t]*$/gm;
-
-function reviewBarRequestFrom(commandArguments: ArgumentParser, subcommand: string): ReviewBarRequest | null {
+function reviewBarRequestFrom(commandArguments: ArgumentParser, subcommand: string): AgentAssignment | null {
   const owner = commandArguments.option('owner');
   const note  = commandArguments.option('note');
   if (!commandArguments.flag('start-review')) {
@@ -301,55 +271,41 @@ function reviewBarRequestFrom(commandArguments: ArgumentParser, subcommand: stri
   };
 }
 
-/** The round a reviewer states for itself: the `## Review` sections already in the ticket, plus one. */
-function reviewRoundOf(ticket: Ticket): number {
-  return (ticket.body.match(REVIEW_SECTION_HEADING_PATTERN)?.length ?? 0) + 1;
-}
-
 /**
- * Closes the ticket's in-progress review bars and starts the next one, inside the caller's lock hold, so the ticket's slot is never free between two
- * agents: a builder's `ticket finish` hands it to its reviewer, a reviewer's round to the next.
+ * A builder's `ticket finish` hands the ticket's slot to its reviewer, a reviewer's `rereview` to the next. The round is the one a reviewer
+ * states for itself: the `## Review` sections already in the ticket, plus one.
  */
-function startReviewBar(progress: ProgressFile, ticket: Ticket, request: ReviewBarRequest, at: string): StartedReviewBar {
-  const { id }      = ticket.frontmatter;
-  const closedBarIds = closeInProgressReviewBars(progress, id, at);
-  const bar = addTask(progress, {
-    name:     TicketChartUtil.reviewBarNameOf(reviewRoundOf(ticket), ticket.frontmatter),
-    filedAt:  at,
-    reviewOf: id,
-    ...request,
-  });
-  transitionTask(progress, bar.id, 'in-progress', at);
-  const bundleAgentKey = agentKeyOfABundleStillInProgress(progress, ticket);
-  if (bundleAgentKey !== null) bar.agent = bundleAgentKey;
-  appendLogEntry(progress, at, `Review row #${bar.id} started: ${bar.name}`);
-  return { bar, closedBarIds };
+function reviewBarStartedFor(change: TrackerChange, ticket: Readonly<Ticket>, request: AgentAssignment | null): ReviewBarStarted | null {
+  if (request === null) return null;
+  const round = TicketBodyUtil.reviewSectionCountOf(ticket.body) + 1;
+  return change.board.startReviewBar(ticket.frontmatter.id, { round, ...request }, change.at);
 }
 
-function closeInProgressReviewBars(progress: ProgressFile, ticketId: string, at: string): number[] {
-  return closeInProgressReviewRows(progress, [ticketId], at).map((closedBar) => closedBar.id);
+function sentencesOf(logged: readonly LogRecord[]): string {
+  return logged.map(LogUtil.sentenceOf).join('\n');
 }
 
-/** A bundle is one agent, so its reviewer takes no second slot while the builder still holds the claim's slot for the bundle's other tickets. */
-function agentKeyOfABundleStillInProgress(progress: ProgressFile, ticket: Ticket): string | null {
-  const { task } = ticket.frontmatter;
-  const claimAgentKey = task === null ? undefined : findTask(progress, task)?.agent;
-  if (claimAgentKey === undefined) return null;
-  return progress.tasks.some((row) => row.status === 'in-progress' && row.agent === claimAgentKey) ? claimAgentKey : null;
+/** A closed bar is printed by its id alone, as it always has been, rather than as the sentence the log holds for it. */
+function recordClosesNoBar(record: LogRecord): boolean {
+  return record.kind !== 'review-bar-closed';
 }
 
-function closedReviewBarsText(closedBarIds: readonly number[]): string {
-  return closedBarIds.map((barId) => `\nClosed the review row #${barId}, delivered`).join('');
+function idsOf(bars: readonly Readonly<Task>[]): number[] {
+  return bars.map((bar) => bar.id);
 }
 
-function reviewBarText(started: StartedReviewBar | null): string {
+function closedReviewBarsText(closedBars: readonly Readonly<Task>[]): string {
+  return closedBars.map((bar) => `\nClosed the review row #${bar.id}, delivered`).join('');
+}
+
+function reviewBarText(started: ReviewBarStarted | null): string {
   if (started === null) return '';
-  return `${closedReviewBarsText(started.closedBarIds)}\nReview row #${started.bar.id} started: ${started.bar.name}`;
+  return `${closedReviewBarsText(started.closedBars)}\n${sentencesOf(started.logged.filter(recordClosesNoBar))}`;
 }
 
-function ticketWithReviewBarAsJson(ticket: Ticket, started: StartedReviewBar | null, closedBarIds: readonly number[] = []): Record<string, unknown> {
-  if (started !== null) return { ...ticketAsJson(ticket), reviewRow: started.bar, closedReviewRows: started.closedBarIds };
-  if (closedBarIds.length > 0) return { ...ticketAsJson(ticket), closedReviewRows: closedBarIds };
+function ticketWithReviewBarAsJson(ticket: Ticket, started: ReviewBarStarted | null, closedBars: readonly Readonly<Task>[] = []): Record<string, unknown> {
+  if (started !== null) return { ...ticketAsJson(ticket), reviewRow: started.bar, closedReviewRows: idsOf(started.closedBars) };
+  if (closedBars.length > 0) return { ...ticketAsJson(ticket), closedReviewRows: idsOf(closedBars) };
   return ticketAsJson(ticket);
 }
 
@@ -376,8 +332,8 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
   requireWorkspace(context.currentDirectory);
   const suppliedBody = await suppliedBodyFor(commandArguments, context);
 
-  const { result: ticket, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
-    const filed = createTicket(change.workspace, {
+  const { result: filed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
+    const ticket = createTicket(change.workspace, {
       title,
       type,
       ...(priority === undefined ? {} : { priority }),
@@ -385,27 +341,17 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
       bodyFor: (ticketId) => bodyForNewTicket(suppliedBody, ticketId, title),
       at:      change.at,
     });
-    // A ticket that does not exist yet has nobody waiting on it, so only the ids themselves can be wrong.
-    refuseAnUnworkableDependencyList(filed.frontmatter.id, dependsOn, listTickets(change.workspace).tickets);
-    if (dependsOn.length > 0) filed.frontmatter.dependsOn = dependsOn;
-    if (model !== undefined) filed.frontmatter.model = model;
-    if (effort !== undefined) filed.frontmatter.effort = effort;
-    ensureTaskForTicketOnTheChart({
-      progress:   change.progress,
-      ticket:     filed,
-      operations: progressOperations,
-      at:         change.at,
-    });
-    appendLogEntry(change.progress, change.at, `Ticket #${filed.frontmatter.id} filed: ${title}`);
-    change.writeTicketAfterwards(filed);
-    return filed;
+    if (dependsOn.length > 0) ticket.frontmatter.dependsOn = dependsOn;
+    if (model !== undefined) ticket.frontmatter.model = model;
+    if (effort !== undefined) ticket.frontmatter.effort = effort;
+    return change.board.fileTicket(ticket, change.at);
   });
 
   printEntityThenNextLine(
     commandArguments,
     context,
-    ticketAsJson(ticket),
-    `Ticket #${ticket.frontmatter.id} filed: ${ticket.frontmatter.title}${priority === 'low' ? ' (low priority: no row until it is started)' : ''}\n  ${ticket.filePath}`,
+    ticketAsJson(filed.ticket),
+    `${sentencesOf(filed.logged)}${priority === 'low' ? ' (low priority: no row until it is started)' : ''}\n  ${filed.ticket.filePath}`,
     NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState),
   );
 }
@@ -484,7 +430,7 @@ function showOneTicket(commandArguments: ArgumentParser, context: CommandContext
   }
 
   const workspace = requireWorkspace(context.currentDirectory);
-  const ticket    = requireTicket(workspace, reference);
+  const ticket    = requireTicketToShow(workspace, reference);
   const { frontmatter } = ticket;
   const statusById      = new Map(listTickets(workspace).tickets.map((candidate) => [candidate.frontmatter.id, candidate.frontmatter.status]));
   const dependencies    = (frontmatter.dependsOn ?? []).map((identifier) => `#${identifier} (${statusById.get(identifier) ?? 'missing'})`);
@@ -514,8 +460,8 @@ async function transitionOneTicket(
   reference: string,
   commandArguments: ArgumentParser,
   context: CommandContext,
-  checksTheMatrix: boolean,
-  reviewBarRequest: ReviewBarRequest | null = null,
+  checksLegality: boolean,
+  reviewBarRequest: AgentAssignment | null = null,
 ): Promise<void> {
   const branch = commandArguments.option('branch');
   const commit = commandArguments.option('commit');
@@ -523,68 +469,41 @@ async function transitionOneTicket(
   const tokens = tokenCountFrom(commandArguments);
 
   const { result: moved, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
-    const ticket = requireTicket(change.workspace, reference);
-    refuseAnIllegalMove(ticket, targetStatus, checksTheMatrix);
-
-    const outcome = applyTicketTransition({
-      progress:   change.progress,
-      ticket,
-      targetStatus,
-      at:         change.at,
-      operations: progressOperations,
+    const { board }  = change;
+    const ticketId   = requireTicket(change, reference).frontmatter.id;
+    const move       = board.moveTicket(ticketId, targetStatus, {
+      checksLegality,
       ...(branch === undefined ? {} : { branch }),
       ...(commit === undefined ? {} : { commit }),
       ...(reason === undefined ? {} : { reason }),
-    });
-    if (outcome.verdict === 'refused') {
-      throw new OperationRefusal(
-        'refused',
-        `Ticket #${ticket.frontmatter.id} was not moved: ${outcome.reason}. `
-        + 'Say why the work was dropped, for example `agent-progress ticket abandon 3 --reason "superseded by #7"`.',
-      );
-    }
-    // After the transition, which files a low ticket's row when it starts; a move that leaves it row-less throws before anything is written.
-    if (tokens !== undefined) {
-      if (outcome.ticket.frontmatter.task === null) {
-        throw new OperationRefusal(
-          'refused',
-          `Ticket #${ticket.frontmatter.id} has no row, so --tokens has nowhere to be recorded: a low-priority ticket gets its row when it is started. Drop --tokens.`,
-        );
-      }
-      setTaskTokens(change.progress, outcome.ticket.frontmatter.task, tokens);
-    }
-    // A reviewer is at work only while the ticket is in review, so every move out of it ends the bar, as `release` does.
-    const closedReviewBarIds = targetStatus === 'in-review' ? [] : closeInProgressReviewBars(change.progress, outcome.ticket.frontmatter.id, change.at);
-    const startedReviewBar   = reviewBarRequest === null ? null : startReviewBar(change.progress, outcome.ticket, reviewBarRequest, change.at);
-    change.writeTicketAfterwards(outcome.ticket);
-    const { tickets } = listTickets(change.workspace);
+      ...(tokens === undefined ? {} : { tokens }),
+    }, change.at);
     return {
-      logText:     outcome.logText,
-      ticket:      outcome.ticket,
-      closedReviewBarIds,
-      startedReviewBar,
-      unsettled:   unsettledDependenciesFor(outcome.ticket, tickets),
-      lowHeldBack: lowTicketHeldBackText(outcome.ticket, tickets),
+      move,
+      startedReviewBar:       reviewBarStartedFor(change, move.ticket, reviewBarRequest),
+      unsettled:              board.unsettledDependenciesOf(ticketId),
+      lowPriorityHoldingBack: board.lowPriorityWorkHoldingBack(ticketId),
     };
   });
 
+  const { move, startedReviewBar } = moved;
+  const { id }                     = move.ticket.frontmatter;
   // A reopened ticket goes back into the queue a running dispatcher takes from, so it is intake like `ticket add`.
   const closingLines = targetStatus === 'pending' ? NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState) : nextLine;
-  const humanText    = `${moved.logText}${closedReviewBarsText(moved.closedReviewBarIds)}${reviewBarText(moved.startedReviewBar)}`;
-  const document     = ticketWithReviewBarAsJson(moved.ticket, moved.startedReviewBar, moved.closedReviewBarIds);
+  const humanText    = `${sentencesOf(move.logged.filter(recordClosesNoBar))}${closedReviewBarsText(move.closedReviewBars)}${reviewBarText(startedReviewBar)}`;
+  const document     = ticketWithReviewBarAsJson(move.ticket, startedReviewBar, move.closedReviewBars);
   printEntityThenNextLine(commandArguments, context, document, humanText, closingLines);
 
   // A warning, not a refusal: the order is advice to whoever picks work up, and the user may know better.
   if (targetStatus === 'in-progress' && moved.unsettled.length > 0) {
     const notSettledYetText = moved.unsettled.length === 1 ? 'which is not reviewed or delivered yet' : 'which are not reviewed or delivered yet';
-    context.standardError(`Ticket #${moved.ticket.frontmatter.id} is ${TicketPhraseUtil.waitingOnText(moved.unsettled)}, ${notSettledYetText}.`);
+    context.standardError(`Ticket #${id} is ${TicketPhraseUtil.waitingOnText(moved.unsettled)}, ${notSettledYetText}.`);
   }
-  if (targetStatus === 'in-progress' && moved.ticket.frontmatter.hold !== undefined) {
-    const { id } = moved.ticket.frontmatter;
+  if (targetStatus === 'in-progress' && move.ticket.frontmatter.hold !== undefined) {
     context.standardError(`Ticket #${id} is held; it was started anyway, and \`agent-progress ticket unhold ${id}\` lifts the hold.`);
   }
-  if (targetStatus === 'in-progress' && moved.lowHeldBack !== null) {
-    context.standardError(`${moved.lowHeldBack}; it was started anyway.`);
+  if (targetStatus === 'in-progress' && moved.lowPriorityHoldingBack.length > 0) {
+    context.standardError(`${TicketPhraseUtil.lowPriorityHeldBackText(id, moved.lowPriorityHoldingBack)}; it was started anyway.`);
   }
 }
 
@@ -593,28 +512,16 @@ async function rereviewOneTicket(
   reference: string,
   commandArguments: ArgumentParser,
   context: CommandContext,
-  reviewBarRequest: ReviewBarRequest | null,
+  reviewBarRequest: AgentAssignment | null,
 ): Promise<void> {
-  const { result: moved, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
-    const ticket  = requireTicket(change.workspace, reference);
-    const outcome = applyTicketRereview({
-      progress:   change.progress,
-      ticket,
-      at:         change.at,
-      operations: progressOperations,
-    });
-    if (outcome.verdict === 'refused') {
-      const { id, status } = ticket.frontmatter;
-      const firstReviewAdvice = ticketMoveIsLegal(status, 'in-review') ? ` Run \`agent-progress ticket finish ${id}\` to send it to its first reviewer.` : '';
-      throw new OperationRefusal('refused', `Ticket #${id} is ${status}, and ${outcome.reason}.${firstReviewAdvice}`);
-    }
-    const startedReviewBar = reviewBarRequest === null ? null : startReviewBar(change.progress, outcome.ticket, reviewBarRequest, change.at);
-    change.writeTicketAfterwards(outcome.ticket);
-    return { logText: outcome.logText, ticket: outcome.ticket, startedReviewBar };
+  const { result: rereviewed, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
+    const rereview = change.board.rereviewTicket(requireTicket(change, reference).frontmatter.id, change.at);
+    return { rereview, startedReviewBar: reviewBarStartedFor(change, rereview.ticket, reviewBarRequest) };
   });
 
-  const humanText = `${moved.logText}${reviewBarText(moved.startedReviewBar)}`;
-  printEntityThenNextLine(commandArguments, context, ticketWithReviewBarAsJson(moved.ticket, moved.startedReviewBar), humanText, nextLine);
+  const { rereview, startedReviewBar } = rereviewed;
+  const humanText                      = `${sentencesOf(rereview.logged)}${reviewBarText(startedReviewBar)}`;
+  printEntityThenNextLine(commandArguments, context, ticketWithReviewBarAsJson(rereview.ticket, startedReviewBar), humanText, nextLine);
 }
 
 /** A dependency on another ticket in the same claim is settled: one agent works a bundle in dependency order. */
@@ -653,10 +560,10 @@ function countedText(count: number, singularNoun: string): string {
 }
 
 /** Several references to one ticket (`3`, `003`, `#3`) claim it once. */
-function distinctTicketsOf(references: readonly string[], workspace: Workspace): Ticket[] {
+function distinctTicketsOf(references: readonly string[], change: TrackerChange): Ticket[] {
   const claimedTickets = new Map<string, Ticket>();
   for (const reference of references) {
-    const ticket = requireTicket(workspace, reference);
+    const ticket = requireTicket(change, reference);
     if (!claimedTickets.has(ticket.frontmatter.id)) claimedTickets.set(ticket.frontmatter.id, ticket);
   }
   return [...claimedTickets.values()].sort((a, b) => a.frontmatter.id.localeCompare(b.frontmatter.id));
@@ -671,7 +578,7 @@ async function claimTickets(references: readonly string[], commandArguments: Arg
   const note  = commandArguments.option('note');
 
   const { result: claimed, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
-    const claimedTickets = distinctTicketsOf(references, change.workspace);
+    const claimedTickets = distinctTicketsOf(references, change);
     const identifiers    = claimedTickets.map((ticket) => ticket.frontmatter.id);
     const { tickets }    = listTickets(change.workspace);
     for (const ticket of claimedTickets) refuseAnUnclaimableTicket(ticket, tickets, identifiers);
@@ -720,22 +627,6 @@ async function claimTickets(references: readonly string[], commandArguments: Arg
   printEntityThenNextLine(commandArguments, context, tickets.map(ticketAsJson), `${TicketPhraseUtil.namedTicketsText(identifiers)} started as one agent: ${slotsText}`, nextLine);
 }
 
-function refuseAnIllegalMove(ticket: Ticket, targetStatus: TicketStatus, checksTheMatrix: boolean): void {
-  const { id, status } = ticket.frontmatter;
-
-  if (status === targetStatus) {
-    throw new OperationRefusal('refused', `Ticket #${id} is already ${targetStatus}, so nothing was changed and nothing was logged.`);
-  }
-  if (!checksTheMatrix || ticketMoveIsLegal(status, targetStatus)) return;
-
-  const legalSources = LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS[targetStatus].join(' or ');
-  throw new OperationRefusal(
-    'refused',
-    `Ticket #${id} is ${status}, and \`agent-progress ticket ${VERB_FOR_STATUS[targetStatus]}\` moves a ticket that is ${legalSources}. `
-    + `Run \`agent-progress ticket status ${id} ${targetStatus}\` if you mean to set it directly.`,
-  );
-}
-
 async function linkOneTicket(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   commandArguments.rejectUnknownOptions(LINK_OPTION_NAMES, USAGE);
   commandArguments.rejectExtraPositionals(3, USAGE);
@@ -756,7 +647,7 @@ async function linkOneTicket(commandArguments: ArgumentParser, context: CommandC
       workspace,
       writeTicketAfterwards,
     } = change;
-    const ticket = requireTicket(workspace, ticketReference);
+    const ticket = requireTicket(change, ticketReference);
     const task   = findTask(progress, taskId);
     if (task === undefined) {
       throw new OperationRefusal('refused', `There is no task #${taskId}. Run \`agent-progress status\` to see the rows this tracker holds.`);
@@ -799,24 +690,14 @@ async function setTicketDependencies(commandArguments: ArgumentParser, context: 
   }
   const dependsOn = dependencyListFrom(dependencyTexts);
 
-  const { result: changed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
-    const ticket = requireTicket(change.workspace, reference);
-    refuseAnUnworkableDependencyList(ticket.frontmatter.id, dependsOn, listTickets(change.workspace).tickets);
+  const { result: changed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(
+    commandArguments,
+    context,
+    (change) => change.board.setTicketDependencies(requireTicket(change, reference).frontmatter.id, dependsOn, change.at),
+  );
 
-    if (dependsOn.length === 0) {
-      delete ticket.frontmatter.dependsOn;
-    } else {
-      ticket.frontmatter.dependsOn = dependsOn;
-    }
-    const logText = dependsOn.length === 0
-      ? `Ticket #${ticket.frontmatter.id} waits on no other ticket`
-      : `Ticket #${ticket.frontmatter.id} waits on ${dependsOn.map((identifier) => `#${identifier}`).join(', ')}`;
-    appendLogEntry(change.progress, change.at, logText);
-    change.writeTicketAfterwards(ticket);
-    return { ticket, logText };
-  });
-
-  printEntityThenNextLine(commandArguments, context, ticketAsJson(changed.ticket), changed.logText, NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState));
+  const closingLines = NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState);
+  printEntityThenNextLine(commandArguments, context, ticketAsJson(changed.ticket), sentencesOf(changed.logged), closingLines);
 }
 
 async function setTicketPriority(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
@@ -830,7 +711,7 @@ async function setTicketPriority(commandArguments: ArgumentParser, context: Comm
   const priority = requirePriority(writtenPriority);
 
   const { result: changed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
-    const ticket  = requireTicket(change.workspace, reference);
+    const ticket  = requireTicket(change, reference);
     const outcome = applyTicketPriority({
       progress:   change.progress,
       ticket,
@@ -865,7 +746,7 @@ async function setTicketAgent(commandArguments: ArgumentParser, context: Command
   }
 
   const { result: changed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
-    const ticket = requireTicket(change.workspace, reference);
+    const ticket = requireTicket(change, reference);
     const { frontmatter } = ticket;
     const { id, status }  = frontmatter;
     if (TICKET_STATUSES_NO_AGENT_WORKS_AGAIN.includes(status)) {
@@ -926,7 +807,7 @@ async function holdOrUnholdTicket(holds: boolean, commandArguments: ArgumentPars
   const reason = commandArguments.option('reason') ?? '';
 
   const { result: changed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
-    const ticket = requireTicket(change.workspace, reference);
+    const ticket = requireTicket(change, reference);
     const { frontmatter } = ticket;
     const { id, status }  = frontmatter;
     if (TICKET_STATUSES_NO_AGENT_WORKS_AGAIN.includes(status)) {

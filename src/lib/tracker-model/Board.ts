@@ -7,25 +7,45 @@ import type {
   ConcurrencyLimitSet,
   DispatcherStateSet,
   Logged,
+  ReviewBarRequest,
+  ReviewBarStarted,
   TaskAddition,
   TaskAnnotation,
   TaskCorrection,
+  TicketChanged,
+  TicketMoved,
+  TicketMoveRequest,
   TokenCredit,
   TokenCreditOutcome
 }                                                        from './@types/BoardChanges.ts';
 import type { Concurrency }                              from './@types/Concurrency.ts';
-import type { AgentUsage }                               from './@types/LogRecord.ts';
+import type { AgentUsage, LogRecord }                    from './@types/LogRecord.ts';
 import type { DispatcherState, ProgressFile, ViewRange } from './@types/ProgressFile.ts';
 import type { Task, TaskStatus }                         from './@types/Task.ts';
-import type { Ticket }                                   from './@types/Ticket.ts';
+import type { Ticket, TicketFrontmatter, TicketStatus }  from './@types/Ticket.ts';
 import { BoardRefusal }                                  from './BoardRefusal.ts';
 import type { Logger }                                   from './Logger.ts';
 import { DEFAULT_DISPATCHER_STATE }                      from './constants/DispatcherStates.ts';
+import { FIRST_REPEAT_REVIEW_ROUND }                     from './constants/ReviewRounds.ts';
+import { ticketMoveIsLegal }                             from './constants/TicketMoveLegality.ts';
 import { ConcurrencyUtil }                               from './utils/ConcurrencyUtil.ts';
 import type { TaskFiling }                               from './utils/TaskFilingUtil.ts';
 import { TaskFilingUtil }                                from './utils/TaskFilingUtil.ts';
 import { TaskTransitionUtil }                            from './utils/TaskTransitionUtil.ts';
+import { TicketChartUtil }                               from './utils/TicketChartUtil.ts';
+import { TicketDefaultsUtil }                            from './utils/TicketDefaultsUtil.ts';
+import { TicketDependencyUtil }                          from './utils/TicketDependencyUtil.ts';
 import { TicketIdUtil }                                  from './utils/TicketIdUtil.ts';
+import { TicketStampUtil }                               from './utils/TicketStampUtil.ts';
+
+type TicketMoveFields = Pick<TicketMoveRequest, 'branch' | 'commit' | 'reason'>;
+
+type ReviewBar = Task & { reviewOf: string };
+
+interface ReviewBarsClosed {
+  bars:   ReviewBar[];
+  logged: LogRecord[];
+}
 
 export interface BoardInput {
   progress: ProgressFile;
@@ -153,6 +173,90 @@ export class Board {
     return { logged: [this.logger.agentStopped(usage, at)], outcomes };
   }
 
+  /** Judged against the tickets already on the board, before the new one joins, so a ticket naming its own id names no ticket. */
+  fileTicket(ticket: Ticket, at: string): TicketChanged {
+    const { frontmatter } = ticket;
+    this.refuseAnUnworkableDependencyList(frontmatter.id, frontmatter.dependsOn ?? []);
+    this.ticketRecords.push(ticket);
+    this.ensureTaskForTicketOnTheChart(ticket, at);
+    this.markChanged(ticket);
+    return { logged: [this.logger.ticketFiled(frontmatter.id, frontmatter.title, at)], ticket };
+  }
+
+  /**
+   * `checksLegality` is false only for `ticket status`, the documented override. The tokens are judged after the move, which files a
+   * low ticket's row when it starts; a refused invocation writes nothing, so the move before the refusal is never seen.
+   */
+  moveTicket(ticketId: string, targetStatus: TicketStatus, request: TicketMoveRequest, at: string): TicketMoved {
+    const ticket     = this.requireTicket(ticketId);
+    const { status } = ticket.frontmatter;
+    if (status === targetStatus) throw new BoardRefusal({ reason: 'ticket-already-in-status', ticketId, status });
+    if (request.checksLegality && !ticketMoveIsLegal(status, targetStatus)) {
+      throw new BoardRefusal({
+        reason: 'illegal-ticket-move',
+        ticketId,
+        status,
+        targetStatus,
+      });
+    }
+    if (targetStatus === 'abandoned' && (request.reason === undefined || request.reason.trim() === '')) {
+      throw new BoardRefusal({ reason: 'abandon-without-reason', ticketId });
+    }
+
+    const moveRecord = this.applyTicketMove(ticket, targetStatus, request, at);
+    if (request.tokens !== undefined) {
+      if (ticket.frontmatter.task === null) throw new BoardRefusal({ reason: 'tokens-without-a-row', ticketId });
+      const row = this.taskRecordById(ticket.frontmatter.task);
+      if (row !== undefined) row.tokens = request.tokens;
+    }
+    // A reviewer is at work only while the ticket is in review, so every move out of it ends the bar, as a release does.
+    const closed: ReviewBarsClosed = targetStatus === 'in-review' ? { bars: [], logged: [] } : this.closeInProgressReviewBars([ticketId], at);
+    return { logged: [moveRecord, ...closed.logged], ticket, closedReviewBars: closed.bars };
+  }
+
+  /** The one move that leaves a ticket in its status: a further review pass is still review, so only `updated` moves and the row counts the round. */
+  rereviewTicket(ticketId: string, at: string): TicketChanged {
+    const ticket          = this.requireTicket(ticketId);
+    const { frontmatter } = ticket;
+    if (frontmatter.status !== 'in-review') throw new BoardRefusal({ reason: 'rereview-outside-review', ticketId, status: frontmatter.status });
+
+    frontmatter.updated = at;
+    const task          = this.ensureTaskForTicket(ticket, at);
+    this.transitionTaskInPlace(task, 're-review', at);
+    this.markChanged(ticket);
+    return { logged: [this.logger.ticketRereviewed(ticketId, task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND, at)], ticket };
+  }
+
+  /**
+   * Closes the ticket's in-progress review bars and starts the next one in the same change, so the ticket's slot is never free between
+   * two agents. The round is the caller's to count from the ticket's body, so the Board reads no markdown.
+   */
+  startReviewBar(ticketId: string, request: ReviewBarRequest, at: string): ReviewBarStarted {
+    const ticket = this.requireTicket(ticketId);
+    const closed = this.closeInProgressReviewBars([ticketId], at);
+    const bar    = this.fileTask({
+      name:     TicketChartUtil.reviewBarNameOf(request.round, ticket.frontmatter),
+      filedAt:  at,
+      reviewOf: ticketId,
+      ...(request.owner === undefined ? {} : { owner: request.owner }),
+      ...(request.note === undefined ? {} : { note: request.note }),
+    });
+    this.transitionTaskInPlace(bar, 'in-progress', at);
+    const bundleAgentKey = this.agentKeyOfABundleStillInProgress(ticket);
+    if (bundleAgentKey !== null) bar.agent = bundleAgentKey;
+    const started = this.logger.reviewBarStarted({ taskId: bar.id, ticketId, name: bar.name }, at);
+    return { logged: [...closed.logged, started], bar, closedBars: closed.bars };
+  }
+
+  setTicketDependencies(ticketId: string, dependsOn: readonly string[], at: string): TicketChanged {
+    const ticket = this.requireTicket(ticketId);
+    this.refuseAnUnworkableDependencyList(ticketId, dependsOn);
+    if (dependsOn.length === 0) delete ticket.frontmatter.dependsOn;
+    else ticket.frontmatter.dependsOn = [...dependsOn];
+    this.markChanged(ticket);
+    return { logged: [this.logger.ticketDependenciesSet(ticketId, dependsOn, at)], ticket };
+  }
+
   tasks(): readonly Readonly<Task>[] {
     return this.progress.tasks;
   }
@@ -180,6 +284,20 @@ export class Board {
 
   dispatcherRunId(): string | undefined {
     return this.progress.dispatcherRunId;
+  }
+
+  /** A dependency missing from the board counts as unsettled: a ticket nobody can see is not finished work. */
+  unsettledDependenciesOf(ticketId: string): string[] {
+    const ticket     = this.requireTicket(ticketId);
+    const statusById = new Map(this.ticketRecords.map((candidate) => [candidate.frontmatter.id, candidate.frontmatter.status]));
+    return TicketDependencyUtil.unsettledDependenciesOf(ticket.frontmatter.dependsOn ?? [], statusById);
+  }
+
+  /** The normal and high tickets a low ticket waits behind; empty for a ticket that is not low, and once none is owed. */
+  lowPriorityWorkHoldingBack(ticketId: string): string[] {
+    const ticket = this.requireTicket(ticketId);
+    if (TicketDefaultsUtil.ticketPriorityOf(ticket.frontmatter) !== 'low') return [];
+    return TicketDependencyUtil.ticketsHoldingBackLowPriorityWork(this.ticketRecords.map((candidate) => candidate.frontmatter));
   }
 
   changedTickets(): readonly Ticket[] {
@@ -238,6 +356,103 @@ export class Board {
       if (!Object.hasOwn(transitioned, key)) Reflect.deleteProperty(task, key);
     }
     Object.assign(task, transitioned);
+  }
+
+  /** An existing row comes back untouched, so a row `ticket link --force` deliberately moved is never taken back. */
+  private ensureTaskForTicket(ticket: Ticket, at: string): Task {
+    const { frontmatter } = ticket;
+    const linkedTask      = frontmatter.task === null ? undefined : this.taskRecordById(frontmatter.task);
+    if (linkedTask !== undefined) return linkedTask;
+
+    const filed = this.fileTask({
+      name:    TicketChartUtil.rowNameOf(frontmatter),
+      ticket:  frontmatter.id,
+      status:  'pending',
+      filedAt: at,
+    });
+    frontmatter.task = filed.id;
+    return filed;
+  }
+
+  /** `ensureTaskForTicket`, except that a rowless ticket staying off the chart is given no row and `null` comes back. */
+  private ensureTaskForTicketOnTheChart(ticket: Ticket, at: string): Task | null {
+    const { frontmatter } = ticket;
+    const linkedTask      = frontmatter.task === null ? undefined : this.taskRecordById(frontmatter.task);
+    if (linkedTask === undefined && TicketChartUtil.ticketStaysOffTheChart(frontmatter)) return null;
+    return this.ensureTaskForTicket(ticket, at);
+  }
+
+  /** The move itself, unchecked: the status, its stamps and the fields given, and the row taking the same status. */
+  private applyTicketMove(ticket: Ticket, targetStatus: TicketStatus, fields: TicketMoveFields, at: string): LogRecord {
+    const { frontmatter } = ticket;
+    frontmatter.status      = targetStatus;
+    frontmatter.updated     = at;
+    const stamps            = TicketStampUtil.stampsAfterMoveOf(frontmatter, targetStatus, at);
+    frontmatter.started     = stamps.started;
+    frontmatter.finished    = stamps.finished;
+    frontmatter.delivered   = stamps.delivered;
+    frontmatter.abandonedAt = stamps.abandonedAt;
+    if (stamps.clearsReason) delete frontmatter.reason;
+    if (fields.branch !== undefined) frontmatter.branch = fields.branch;
+    if (fields.commit !== undefined) frontmatter.commit = fields.commit;
+    if (fields.reason !== undefined) frontmatter.reason = fields.reason;
+
+    const task = this.ensureTaskForTicketOnTheChart(ticket, at);
+    if (task !== null) this.transitionTaskInPlace(task, targetStatus, at);
+    this.markChanged(ticket);
+    return this.logTicketMove(frontmatter, targetStatus, at);
+  }
+
+  /** `pending` is logged as a reopen: a ticket's first `pending` is its filing, which `fileTicket` logs. */
+  private logTicketMove(frontmatter: Readonly<TicketFrontmatter>, targetStatus: TicketStatus, at: string): LogRecord {
+    const { id } = frontmatter;
+    switch (targetStatus) {
+      case 'pending':
+        return this.logger.ticketReopened(id, at);
+      case 'in-progress':
+        return this.logger.ticketStarted(id, at);
+      case 'in-review':
+        return this.logger.ticketFinished(id, at);
+      case 'reviewed':
+        return this.logger.ticketApproved(id, at);
+      case 'delivered':
+        return this.logger.ticketDelivered(id, at);
+      case 'abandoned':
+        return this.logger.ticketAbandoned(id, frontmatter.reason ?? '', at);
+    }
+  }
+
+  /** Linked by `reviewOf` alone: the page's nesting by name is a display fallback for older rows, never a reason to close one. */
+  private inProgressReviewBarsOf(ticketIds: readonly string[]): ReviewBar[] {
+    return this.progress.tasks.filter((task): task is ReviewBar => task.status === 'in-progress' && task.reviewOf !== undefined && ticketIds.includes(task.reviewOf));
+  }
+
+  /** Finishes and delivers every in-progress review bar of the tickets, one record each, for every move that ends their review. */
+  private closeInProgressReviewBars(ticketIds: readonly string[], at: string): ReviewBarsClosed {
+    const bars                = this.inProgressReviewBarsOf(ticketIds);
+    const logged: LogRecord[] = [];
+    for (const bar of bars) {
+      this.transitionTaskInPlace(bar, 'in-review', at);
+      this.transitionTaskInPlace(bar, 'delivered', at);
+      logged.push(this.logger.reviewBarClosed({ taskId: bar.id, ticketId: bar.reviewOf, name: bar.name }, at));
+    }
+    return { bars, logged };
+  }
+
+  /** A bundle is one agent, so its reviewer takes no second slot while the builder still holds the claim's slot for the bundle's other tickets. */
+  private agentKeyOfABundleStillInProgress(ticket: Readonly<Ticket>): string | null {
+    const { task }      = ticket.frontmatter;
+    const claimAgentKey = task === null ? undefined : this.taskRecordById(task)?.agent;
+    if (claimAgentKey === undefined) return null;
+    return this.progress.tasks.some((row) => row.status === 'in-progress' && row.agent === claimAgentKey) ? claimAgentKey : null;
+  }
+
+  private refuseAnUnworkableDependencyList(ticketId: string, dependsOn: readonly string[]): void {
+    const missingTicketIds = dependsOn.filter((dependencyId) => this.ticketRecordById(dependencyId) === undefined);
+    if (missingTicketIds.length > 0) throw new BoardRefusal({ reason: 'unknown-dependency', missingTicketIds });
+    const dependsOnById = new Map(this.ticketRecords.map((candidate) => [candidate.frontmatter.id, candidate.frontmatter.dependsOn ?? []]));
+    const loopTicketIds = TicketDependencyUtil.dependencyLoopFrom(ticketId, dependsOn, dependsOnById);
+    if (loopTicketIds !== null) throw new BoardRefusal({ reason: 'dependency-loop', loopTicketIds });
   }
 
   /** A ticket's share lands on the row the ticket has now, which may have been filed after the brief that named the ticket. */

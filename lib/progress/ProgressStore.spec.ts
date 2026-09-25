@@ -17,7 +17,6 @@ import {
   findTask,
   readProgressFile,
   removeTask,
-  setTaskTokens,
   transitionTask,
   writeProgressFile
 } from './ProgressStore';
@@ -233,17 +232,6 @@ test('a hand-renumbered row cannot be handed its own id by the next allocation',
   const onlyRow = addTask(progress, { name: 'Plan the work' });
   onlyRow.id = 40;
   expect(addTask(progress, { name: 'Review pass' }).id).toBe(41);
-});
-
-test('a token count is recorded, replaced by a later report, and kept apart from zero', () => {
-  const progress = emptyProgress();
-  const task = addTask(progress, { name: 'Rewrite the importer', tokens: 12_000 });
-  expect(task.tokens).toBe(12_000);
-  expect(setTaskTokens(progress, task.id, 18_500)).toBe('applied');
-  expect(task.tokens).toBe(18_500);
-  expect(setTaskTokens(progress, task.id, 0)).toBe('applied');
-  expect(task.tokens).toBe(0);
-  expect(setTaskTokens(progress, 99, 100)).toBe('no-such-task');
 });
 
 test('a task is found by id, and a missing one is undefined rather than an exception', () => {

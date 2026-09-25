@@ -3,19 +3,16 @@
  * are a recording double because `lib/tickets/` may not import `lib/progress/`.
  */
 
-import { describe, expect, test }                                          from 'bun:test';
-import type { ProgressFile }                                               from '../../src/lib/tracker-model/@types/ProgressFile.ts';
-import type { Task }                                                       from '../../src/lib/tracker-model/@types/Task.ts';
-import type { Ticket }                                                     from '../../src/lib/tracker-model/@types/Ticket.ts';
-import { TICKET_STATUSES }                                                 from '../../src/lib/tracker-model/constants/Statuses.ts';
-import { applyTicketRereview, applyTicketTransition, ensureTaskForTicket } from './TicketTransitions.ts';
-import type { ApplyTicketTransitionResult, ProgressOperations }            from './TicketTransitions.ts';
+import { describe, expect, test }                               from 'bun:test';
+import type { ProgressFile }                                    from '../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Task }                                            from '../../src/lib/tracker-model/@types/Task.ts';
+import type { Ticket }                                          from '../../src/lib/tracker-model/@types/Ticket.ts';
+import { applyTicketTransition, ensureTaskForTicket }           from './TicketTransitions.ts';
+import type { ApplyTicketTransitionResult, ProgressOperations } from './TicketTransitions.ts';
 
 const FILED_AT            = '2026-09-18T09:00:00+02:00';
 const STARTED_AT          = '2026-09-18T10:00:00+02:00';
 const FINISHED_AT         = '2026-09-18T12:00:00+02:00';
-const REREVIEWED_AT       = '2026-09-18T13:00:00+02:00';
-const REREVIEWED_AGAIN_AT = '2026-09-18T14:00:00+02:00';
 const DELIVERED_AT        = '2026-09-18T15:00:00+02:00';
 const TICKET_BODY         = '# Example\n\n## Report\n\nReported by Alex Example.\n';
 const TICKET_NAME         = '#003 Fix the export dialog';
@@ -438,111 +435,5 @@ describe('applyTicketTransition', () => {
 
     expect(ticket.frontmatter.branch).toBe('ticket/export-dialog');
     expect(ticket.frontmatter.commit).toBe('a1b2c3d');
-  });
-});
-
-describe('applyTicketRereview', () => {
-  function ticketInReview(progress: ProgressFile, operations: ProgressOperations): Ticket {
-    const ticket = ticketFixture();
-    applyTicketTransition({
-      progress,
-      ticket,
-      operations,
-      targetStatus: 'in-progress',
-      at:           STARTED_AT,
-    });
-    applyTicketTransition({
-      progress,
-      ticket,
-      operations,
-      targetStatus: 'in-review',
-      at:           FINISHED_AT,
-    });
-    return ticket;
-  }
-
-  test('a ticket already in review goes round again: the status stays, only updated moves, and the row counts the second pass', () => {
-    const progress   = progressFixture();
-    const operations = progressOperations();
-    const ticket     = ticketInReview(progress, operations);
-
-    const result = applied(applyTicketRereview({
-      progress,
-      ticket,
-      operations,
-      at: REREVIEWED_AT,
-    }));
-
-    expect(ticket.frontmatter.status).toBe('in-review');
-    expect(ticket.frontmatter.finished).toBe(FINISHED_AT);
-    expect(ticket.frontmatter.updated).toBe(REREVIEWED_AT);
-    expect(progress.tasks[0]?.status).toBe('re-review');
-    expect(progress.tasks[0]?.reviewRound).toBe(2);
-    expect(progress.tasks[0]?.end, 'the bar ended when the first review began').toBe(FINISHED_AT);
-    expect(result.logText).toBe('Ticket #003 in review, round 2');
-    expect(progress.log.at(-1)).toEqual({ at: REREVIEWED_AT, text: 'Ticket #003 in review, round 2' });
-  });
-
-  test('running it again on the same ticket reaches the third round and says so', () => {
-    const progress   = progressFixture();
-    const operations = progressOperations();
-    const ticket     = ticketInReview(progress, operations);
-
-    applied(applyTicketRereview({
-      progress,
-      ticket,
-      operations,
-      at: REREVIEWED_AT,
-    }));
-    const result = applied(applyTicketRereview({
-      progress,
-      ticket,
-      operations,
-      at: REREVIEWED_AGAIN_AT,
-    }));
-
-    expect(progress.tasks[0]?.reviewRound).toBe(3);
-    expect(result.logText).toBe('Ticket #003 in review, round 3');
-    expect(ticket.frontmatter.status).toBe('in-review');
-  });
-
-  test('a ticket in any other status is refused, the reason names the status it needs, and nothing moves', () => {
-    for (const status of TICKET_STATUSES.filter((candidate) => candidate !== 'in-review')) {
-      const progress            = progressFixture();
-      const operations          = progressOperations();
-      const ticket              = ticketFixture();
-      ticket.frontmatter.status = status;
-
-      const result = applyTicketRereview({
-        progress,
-        ticket,
-        operations,
-        at: REREVIEWED_AT,
-      });
-
-      expect(result, status).toEqual({ verdict: 'refused', reason: 'another review pass needs a ticket that is in-review' });
-      expect(ticket.frontmatter.status, status).toBe(status);
-      expect(ticket.frontmatter.updated, status).toBe(FILED_AT);
-      expect(progress.tasks, status).toEqual([]);
-      expect(progress.log, status).toEqual([]);
-    }
-  });
-
-  test('a ticket whose row was cleared away gets a new one in its next round rather than a refusal', () => {
-    const progress            = progressFixture();
-    const operations          = progressOperations();
-    const ticket              = ticketInReview(progress, operations);
-    progress.tasks.length     = 0;
-
-    const result = applied(applyTicketRereview({
-      progress,
-      ticket,
-      operations,
-      at: REREVIEWED_AT,
-    }));
-
-    expect(progress.tasks).toHaveLength(1);
-    expect(progress.tasks[0]?.reviewRound).toBe(2);
-    expect(result.logText).toBe('Ticket #003 in review, round 2');
   });
 });

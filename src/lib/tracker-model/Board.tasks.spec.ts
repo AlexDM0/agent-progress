@@ -240,6 +240,20 @@ describe('annotateTask', () => {
     expect(board.annotateTask(1, { tokens: 0 }).tokens).toBe(0);
     expect(board.annotateTask(2, { tokens: 800 }).tokens).toBe(800);
   });
+
+  test('a token count is recorded, replaced by a later report, and kept apart from zero', () => {
+    const { board } = boardFixture();
+    const task      = board.addTask({
+      name:         'Example importer rewrite',
+      tokens:       12_000,
+      startsNow:    false,
+      movesTheLink: false,
+    }, FILED_AT);
+    expect(task.tokens).toBe(12_000);
+    expect(board.annotateTask(task.id, { tokens: 18_500 }).tokens).toBe(18_500);
+    expect(board.annotateTask(task.id, { tokens: 0 }).tokens).toBe(0);
+    expect(refusalDetailOf(() => board.annotateTask(99, { tokens: 100 }))).toEqual({ reason: 'unknown-task', taskId: 99 });
+  });
 });
 
 describe('removeTask', () => {
