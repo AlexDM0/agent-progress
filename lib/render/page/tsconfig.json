@@ -7,20 +7,23 @@
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": []
   },
-  // The files outside this folder the page reaches, named one by one so the surface is written down in
-  // one place. Naming them is not what puts them in the program — a page module's import already does,
-  // and every file the imports reach is checked under the DOM-only options above, which is what proves
-  // they stay environment-neutral.
+  // The shared files the page reaches plus every non-spec module of `src/lib/tracker-model/`, named one
+  // by one (no glob, as the specs import `bun:test`), so the whole model package is compiled under the
+  // DOM-only options above, which is what proves it stays environment-neutral.
   "include": [
     "./**/*.ts",
     "../../../src/lib/tracker-model/@types/ProgressFile.ts",
     "../../../src/lib/tracker-model/@types/Task.ts",
     "../../../src/lib/tracker-model/@types/Ticket.ts",
     "../../../src/lib/tracker-model/constants/AgentSettings.ts",
+    "../../../src/lib/tracker-model/constants/DispatcherStates.ts",
     "../../../src/lib/tracker-model/constants/Statuses.ts",
     "../../../src/lib/tracker-model/constants/TicketFields.ts",
+    "../../../src/lib/tracker-model/constants/TicketMoveLegality.ts",
     "../../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts",
     "../../../src/lib/tracker-model/utils/TicketDependencyUtil.ts",
+    "../../../src/lib/tracker-model/utils/TicketIdUtil.ts",
+    "../../../src/lib/tracker-model/utils/VocabularyUtil.ts",
     "../../../src/shared/constants/Limits.ts",
     "../../../src/lib/utils/HtmlEscapeUtil.ts",
     "../../../src/lib/utils/TokenCountUtil.ts"
