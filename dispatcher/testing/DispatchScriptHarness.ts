@@ -12,7 +12,7 @@
 import { readFileSync } from 'node:fs';
 import { join }         from 'node:path';
 
-import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../../src/lib/tracker-model/constants/AgentSettings.ts';
+import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../src/lib/tracker-model/constants/AgentSettings.ts';
 
 /** `settings` is a single-ticket run's lookup of the model and effort its arguments did not state; its `ticketId` is the ids it names, comma-joined. */
 export type AgentKind = 'survey' | 'settings' | 'build' | 'review' | 'park';
@@ -231,7 +231,7 @@ const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor as new (
 const SCRIPT_GLOBAL_NAMES = ['agent', 'parallel', 'pipeline', 'phase', 'log', 'args', 'budget', 'workflow', 'Date', 'Math'];
 
 export function dispatchScriptPath(): string {
-  return join(import.meta.dir, '..', '..', '..', 'templates', 'workflows', 'AgentProgressDispatch.js');
+  return join(import.meta.dir, '..', '..', 'templates', 'workflows', 'AgentProgressDispatch.js');
 }
 
 export function readDispatchScript(): string {

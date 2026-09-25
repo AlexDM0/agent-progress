@@ -13,8 +13,8 @@ the plan is specific it wins; these rules decide the rest.
 ## Verify
 
 `bun run typecheck && bun test && bun run lint`: all three after any TypeScript change, before calling it done.
-`typecheck` covers both projects, the Bun one and the DOM-only page. Never ad-hoc `tsc` flags; never edit
-`package.json` to make a check pass.
+`typecheck` covers every project: the Bun one, the DOM-only page and the dispatcher's spec project. Never ad-hoc
+`tsc` flags; never edit `package.json` to make a check pass.
 
 ## Rules
 
@@ -44,7 +44,7 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
 - Imports run up only, with no cycles. `lib/constants/` imports nothing outside itself; `lib/utils/` imports only
   itself, `lib/constants/` and `src/lib/tracker-model/`; neither imports a package or a builtin (a spec beside them may
   import `bun:test`). Nothing under `lib/` imports `cli/`, nothing that ships imports `src/testing/`, `cli/testing/` or
-  `lib/tooling/dev/`, and `agent-progress.ts` imports only `cli/`.
+  `dispatcher/testing/`, and `agent-progress.ts` imports only `cli/`.
 - A `src/lib/` package imports only the other `src/lib/` packages its main module's header names, node builtins and
   external dependencies. It never imports `src/shared/`, `lib/` or `cli/`, and knows nothing about its callers: no
   agent-progress names, tracker file names, user-facing wording or exit codes. App values arrive as parameters; a
@@ -130,8 +130,8 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
   180 for code, 155 for comments; aligned object values; aligned `from`; imports builtin → external → internal,
   alphabetised; builtins through the `node:` protocol (`import/enforce-node-protocol-usage`, turned on in
   `eslint.config.js`); more than 3 named imports or 4+ properties one per line; arrow parameters parenthesised; no
-  `any`; a blank line before a function declaration. `src/testing/`, `cli/testing/` and `lib/tooling/dev/` may import
-  devDependencies. Deliberately off: `no-plusplus`, `no-continue`, `no-await-in-loop`, `no-param-reassign`,
+  `any`; a blank line before a function declaration. `src/testing/`, `cli/testing/` and `dispatcher/testing/` may
+  import devDependencies. Deliberately off: `no-plusplus`, `no-continue`, `no-await-in-loop`, `no-param-reassign`,
   `consistent-return`, `no-restricted-syntax`, `guard-for-in`, `class-methods-use-this`, `no-use-before-define`.
 
 ### Tests
@@ -149,7 +149,7 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
   checked by the captured context (`cli/testing/CapturedCommandContext.ts`), on a hook input's `cwd` and by
   `cli/testing/CliProcess.ts` before a command runs. A spec never creates the real process context, spawns the binary
   only through `cli/testing/CliProcess.ts`, and never calls `process.chdir`.
-- Each dispatcher decision pinned by the `lib/tooling/dev/DispatchScriptHarness.spec.ts` suites also runs against a
+- Each dispatcher decision pinned by the `dispatcher/testing/DispatchScriptHarness.spec.ts` suites also runs against a
   mutant of the script that breaks exactly that decision, which must fail.
 
 ### Documentation and commits
@@ -223,7 +223,7 @@ agent-progress.ts           the bin shim: runs the command line and exits with i
 package.json                the bin entry, the scripts and the one runtime dependency, marked
 tsconfig.json               the strict Bun project; excludes lib/render/page/
 eslint.config.js            the shared ESLint config, the node: protocol rule, and the devDependency exemption for the three
-                            test-only folders: src/testing/, cli/testing/ and lib/tooling/dev/
+                            test-only folders: src/testing/, cli/testing/ and dispatcher/testing/
 bun.lock                    the lockfile, committed
 .gitignore                  node_modules/, .agent-progress/, .DS_Store, .readme-graphics/, .idea/
 .idea/                      git-ignored IDE settings
@@ -234,7 +234,9 @@ README-keynote.md           the same page in a keynote layout, kept for comparis
 README-day-on-the-board.md  the same page told as one day on a board, kept for comparison
 setup.sh                    machine setup: Bun, bun install and bun link, and the skill symlinks
 cli/                        the command surface: dispatch, arguments, help, one folder per command; cli/testing/ is test-only
-lib/                        everything the commands do, in the layers above; lib/tooling/dev/ holds the dispatcher's test harness
+dispatcher/                 the dispatcher feature, ported to TypeScript in plan step 7; dispatcher/testing/ is test-only:
+                            the harness that runs the dispatcher script against a fake board
+lib/                        everything the commands do, in the layers above
 src/                        the target layout's code, filled step by step as the migration plan moves it
   src/lib/                  package-grade building blocks, one folder each, the package's description in its main module's header:
                             atomic-file (AtomicFile.ts), git (GitProcess.ts), claude-code (ClaudeTranscripts.ts),

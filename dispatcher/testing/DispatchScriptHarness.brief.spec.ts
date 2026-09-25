@@ -9,7 +9,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { readDispatchScript, runDispatchScript } from './DispatchScriptHarness';
 
-const AGENT_BRIEF_PATH = join(import.meta.dir, '..', '..', '..', 'templates', 'AgentBrief.md');
+const AGENT_BRIEF_PATH = join(import.meta.dir, '..', '..', 'templates', 'AgentBrief.md');
 
 function numberIn(text: string, pattern: RegExp): number {
   const match = pattern.exec(text);
