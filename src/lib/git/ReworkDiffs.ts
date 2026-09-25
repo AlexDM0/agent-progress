@@ -1,9 +1,10 @@
 /**
- * The git half of `agent-progress rework`: which commits a review made, and what a rebase changed in a
- * branch's own work, as diff text for `lib/utils/ReworkCountUtil.ts` to count. Every diff is asked for with
- * its options spelled out, so a reviewer's own git configuration cannot make two reviewers count differently.
+ * Which commits a review made, and what a rebase changed in a branch's own work, as diff text for a caller to count. Every diff is asked
+ * for with its options spelled out, so a reviewer's own git configuration cannot make two reviewers count differently.
  */
 import { existsSync, statSync } from 'node:fs';
+
+import { GitProcess } from './GitProcess';
 
 const GIT_SUCCESS_EXIT_CODE = 0;
 
@@ -29,14 +30,6 @@ const DIFF_OPTIONS = [
   `--unified=${REWORK_DIFF_CONTEXT_LINES}`,
 ];
 
-const CONFIGURATION_OVERRIDES = ['-c', 'core.quotePath=false'];
-
-interface GitRun {
-  exitCode:       number;
-  standardOutput: string;
-  standardError:  string;
-}
-
 export type WorktreeHeadReading =
   | { verdict: 'read'; headCommit: string }
   | { verdict: 'not-a-repository' }
@@ -56,38 +49,6 @@ export type RebaseDiffsReading =
   | { verdict: 'no-common-base'; role: 'old-tip' | 'rebased-tip' }
   | { verdict: 'git-failed'; reason: string };
 
-/** `null` when git could not be started at all. */
-function runGit(directory: string, gitArguments: readonly string[]): GitRun | null {
-  try {
-    const finished = Bun.spawnSync({
-      cmd:    ['git', ...CONFIGURATION_OVERRIDES, ...gitArguments],
-      cwd:    directory,
-      stdout: 'pipe',
-      stderr: 'pipe',
-    });
-    return {
-      exitCode:       finished.exitCode,
-      standardOutput: finished.stdout.toString(),
-      standardError:  finished.stderr.toString().trim(),
-    };
-  } catch {
-    return null;
-  }
-}
-
-function failureReasonOf(run: GitRun | null, gitArguments: readonly string[]): string {
-  const command = `git ${gitArguments.join(' ')}`;
-  if (run === null) return `${command} could not be started.`;
-  return `${command} exited with ${run.exitCode}: ${run.standardError}`;
-}
-
-/** `--end-of-options`, so a revision written as `--output=x` is looked up rather than obeyed. */
-function resolvedCommit(directory: string, revision: string): string | null {
-  const run = runGit(directory, ['rev-parse', '--verify', '--quiet', '--end-of-options', `${revision}^{commit}`]);
-  if (run === null || run.exitCode !== GIT_SUCCESS_EXIT_CODE) return null;
-  return run.standardOutput.trim();
-}
-
 function linesOf(output: string): string[] {
   return output.split('\n').map((line) => line.trim()).filter((line) => line.length > 0);
 }
@@ -103,39 +64,39 @@ function directoryExists(path: string): boolean {
 
 export function readWorktreeHead(directory: string): WorktreeHeadReading {
   if (!directoryExists(directory)) return { verdict: 'not-a-repository' };
-  const insideWorkTree = runGit(directory, ['rev-parse', '--is-inside-work-tree']);
+  const insideWorkTree = GitProcess.run(directory, ['rev-parse', '--is-inside-work-tree']);
   if (insideWorkTree === null) return { verdict: 'git-unavailable' };
   if (insideWorkTree.exitCode !== GIT_SUCCESS_EXIT_CODE || insideWorkTree.standardOutput.trim() !== 'true') return { verdict: 'not-a-repository' };
-  const headCommit = resolvedCommit(directory, 'HEAD');
+  const headCommit = GitProcess.resolvedCommitOf(directory, 'HEAD');
   return headCommit === null ? { verdict: 'no-commits' } : { verdict: 'read', headCommit };
 }
 
 /** Every commit in `<since>..HEAD`. A merge among them is a verdict of its own: work is rebased, and a merge would count the main line's commits. */
 export function readCommitsDiff(directory: string, since: string): CommitsDiffReading {
-  const sinceCommit = resolvedCommit(directory, since);
+  const sinceCommit = GitProcess.resolvedCommitOf(directory, since);
   if (sinceCommit === null) return { verdict: 'unknown-commit' };
 
   const ancestryArguments = ['merge-base', '--is-ancestor', sinceCommit, 'HEAD'];
-  const ancestry          = runGit(directory, ancestryArguments);
+  const ancestry          = GitProcess.run(directory, ancestryArguments);
   if (ancestry === null || (ancestry.exitCode !== GIT_SUCCESS_EXIT_CODE && ancestry.exitCode !== MERGE_BASE_NOT_FOUND_EXIT_CODE)) {
-    return { verdict: 'git-failed', reason: failureReasonOf(ancestry, ancestryArguments) };
+    return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(ancestry, ancestryArguments) };
   }
   if (ancestry.exitCode === MERGE_BASE_NOT_FOUND_EXIT_CODE) return { verdict: 'not-an-ancestor', sinceCommit };
 
   const range           = `${sinceCommit}..HEAD`;
   const mergesArguments = ['rev-list', '--merges', range];
-  const merges          = runGit(directory, mergesArguments);
-  if (merges === null || merges.exitCode !== GIT_SUCCESS_EXIT_CODE) return { verdict: 'git-failed', reason: failureReasonOf(merges, mergesArguments) };
+  const merges          = GitProcess.run(directory, mergesArguments);
+  if (merges === null || merges.exitCode !== GIT_SUCCESS_EXIT_CODE) return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(merges, mergesArguments) };
   const mergeCommits = linesOf(merges.standardOutput);
   if (mergeCommits.length > 0) return { verdict: 'merge-found', mergeCommits };
 
   const commitsArguments = ['rev-list', '--reverse', range];
-  const commits          = runGit(directory, commitsArguments);
-  if (commits === null || commits.exitCode !== GIT_SUCCESS_EXIT_CODE) return { verdict: 'git-failed', reason: failureReasonOf(commits, commitsArguments) };
+  const commits          = GitProcess.run(directory, commitsArguments);
+  if (commits === null || commits.exitCode !== GIT_SUCCESS_EXIT_CODE) return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(commits, commitsArguments) };
 
   const logArguments = ['log', '--patch', '--format=', '--no-show-signature', ...DIFF_OPTIONS, range];
-  const log          = runGit(directory, logArguments);
-  if (log === null || log.exitCode !== GIT_SUCCESS_EXIT_CODE) return { verdict: 'git-failed', reason: failureReasonOf(log, logArguments) };
+  const log          = GitProcess.run(directory, logArguments);
+  if (log === null || log.exitCode !== GIT_SUCCESS_EXIT_CODE) return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(log, logArguments) };
 
   return {
     verdict:  'read',
@@ -149,16 +110,16 @@ type MergeBaseReading = { verdict: 'found'; base: string } | { verdict: 'none' }
 
 function mergeBaseOf(directory: string, commit: string, mainLineCommit: string): MergeBaseReading {
   const mergeBaseArguments = ['merge-base', commit, mainLineCommit];
-  const run                = runGit(directory, mergeBaseArguments);
+  const run                = GitProcess.run(directory, mergeBaseArguments);
   if (run !== null && run.exitCode === MERGE_BASE_NOT_FOUND_EXIT_CODE && run.standardError === '') return { verdict: 'none' };
-  if (run === null || run.exitCode !== GIT_SUCCESS_EXIT_CODE) return { verdict: 'git-failed', reason: failureReasonOf(run, mergeBaseArguments) };
+  if (run === null || run.exitCode !== GIT_SUCCESS_EXIT_CODE) return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(run, mergeBaseArguments) };
   return { verdict: 'found', base: run.standardOutput.trim() };
 }
 
 function diffBetween(directory: string, fromCommit: string, toCommit: string): { verdict: 'read'; diffText: string } | { verdict: 'git-failed'; reason: string } {
   const diffArguments = ['diff', ...DIFF_OPTIONS, fromCommit, toCommit];
-  const run           = runGit(directory, diffArguments);
-  if (run === null || run.exitCode !== GIT_SUCCESS_EXIT_CODE) return { verdict: 'git-failed', reason: failureReasonOf(run, diffArguments) };
+  const run           = GitProcess.run(directory, diffArguments);
+  if (run === null || run.exitCode !== GIT_SUCCESS_EXIT_CODE) return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(run, diffArguments) };
   return { verdict: 'read', diffText: run.standardOutput };
 }
 
@@ -168,9 +129,9 @@ function diffBetween(directory: string, fromCommit: string, toCommit: string): {
  * branch's own work. The rebased tip is a resolved commit the caller chose, so commits made after the rebase stay out.
  */
 export function readRebaseDiffs(directory: string, oldTip: string, mainLine: string, rebasedTipCommit: string): RebaseDiffsReading {
-  const oldTipCommit = resolvedCommit(directory, oldTip);
+  const oldTipCommit = GitProcess.resolvedCommitOf(directory, oldTip);
   if (oldTipCommit === null) return { verdict: 'unknown-commit', role: 'old-tip' };
-  const mainLineCommit = resolvedCommit(directory, mainLine);
+  const mainLineCommit = GitProcess.resolvedCommitOf(directory, mainLine);
   if (mainLineCommit === null) return { verdict: 'unknown-commit', role: 'main-line' };
 
   const oldBase = mergeBaseOf(directory, oldTipCommit, mainLineCommit);

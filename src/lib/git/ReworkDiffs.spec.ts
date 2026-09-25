@@ -18,7 +18,7 @@ import {
   createScratchGitRepository,
   gitIsAvailable,
   removeScratchDirectory
-} from '../../src/testing/ScratchWorkspace';
+} from '../../testing/ScratchWorkspace';
 import { readCommitsDiff, readRebaseDiffs, readWorktreeHead } from './ReworkDiffs';
 
 const COMMIT_IDENTITY_ARGUMENTS = ['-c', 'user.name=Alex Example', '-c', 'user.email=alex.example@example.com', '-c', 'commit.gpgsign=false'];

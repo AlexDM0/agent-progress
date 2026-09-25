@@ -1,9 +1,7 @@
 /**
- * One tracker per repository, shared by every worktree of it: subagents in `.claude/worktrees/*`
- * would otherwise each create their own `.agent-progress/`. `git rev-parse --git-common-dir` resolves
- * a worktree to the repository that owns it, and its answer is relative to the working directory
- * inside the main checkout, so it is resolved against the directory asked about. Every answer is
- * `realpath`-resolved, so two spellings of one directory cannot make two trackers.
+ * The root of the repository a directory belongs to, the same for every worktree of it. `git rev-parse --git-common-dir` resolves a
+ * worktree to the repository that owns it, relative to the directory asked about, and every answer is `realpath`-resolved, so two
+ * spellings of one directory give one root.
  */
 import {
   existsSync,
@@ -18,6 +16,8 @@ import {
   resolve
 } from 'node:path';
 
+import { GitProcess } from './GitProcess';
+
 const WORKTREE_GIT_DIRECTORY_SEGMENT = '/.git/worktrees/';
 
 const GIT_ENTRY_NAME = '.git';
@@ -26,7 +26,7 @@ const GIT_SUCCESS_EXIT_CODE = 0;
 
 const BARE_REPOSITORY_ANSWER = 'true';
 
-/** `bare-repository` is a place no tracker may go and `directory` means nothing decided, so `lib/platform/Workspace.ts` acts on `'git'` alone. */
+/** `git` found a checkout, `bare-repository` found a repository with no working tree, and `directory` found nothing and hands the start back. */
 export interface RepositoryRootDiscovery {
   rootDirectory: string;
   source:        'git' | 'bare-repository' | 'directory';
@@ -45,20 +45,10 @@ function resolvedRealPath(path: string): string {
  * apply, which is what lets `--show-toplevel` be asked speculatively where a bare repository refuses it.
  */
 function gitAnswer(directory: string, gitArguments: readonly string[]): string | null {
-  try {
-    const completed = Bun.spawnSync({
-      cmd:    ['git', ...gitArguments],
-      cwd:    directory,
-      stdout: 'pipe',
-      stderr: 'pipe',
-    });
-    if (completed.exitCode !== GIT_SUCCESS_EXIT_CODE) return null;
-    const answer = completed.stdout.toString().trim();
-    return answer.length > 0 ? answer : null;
-  } catch {
-    // No git on this machine, which the hand-parsed fallback below handles.
-    return null;
-  }
+  const run = GitProcess.run(directory, gitArguments);
+  if (run === null || run.exitCode !== GIT_SUCCESS_EXIT_CODE) return null;
+  const answer = run.standardOutput.trim();
+  return answer.length > 0 ? answer : null;
 }
 
 /** A `.git` file pointing at `/abs/.git/worktrees/<name>` names `/abs`; anything else, a submodule, means the containing directory. */

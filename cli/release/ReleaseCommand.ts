@@ -5,19 +5,19 @@
  */
 import { resolve } from 'node:path';
 
-import type { Task, Ticket }                                                       from '../../lib/constants/Types';
-import type { BranchDeletionOutcome, FilesLeftInWorktree, WorktreeRemovalOutcome } from '../../lib/platform/BranchRelease';
+import type { Task, Ticket }                                                                 from '../../lib/constants/Types';
+import { readTicket }                                                                        from '../../lib/tickets/TicketStore';
+import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS, applyTicketTransition, ticketMoveIsLegal } from '../../lib/tickets/TicketTransitions';
+import type { BranchDeletionOutcome, FilesLeftInWorktree, WorktreeRemovalOutcome }           from '../../src/lib/git/BranchRelease';
 import {
   deleteMergedBranch,
   fastForwardTo,
   readBranchDescent,
   readCurrentBranch,
   removeWorktree
-}                                                                                            from '../../lib/platform/BranchRelease';
-import { readTicket }                                                                        from '../../lib/tickets/TicketStore';
-import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS, applyTicketTransition, ticketMoveIsLegal } from '../../lib/tickets/TicketTransitions';
-import { OperationRefusal, refusalIsOperationRefusal, type OperationRefusalStatus }          from '../../src/shared/OperationRefusal';
-import type { CommandContext }                                                               from '../CommandContext';
+}                                                                                            from '../../src/lib/git/BranchRelease';
+import { OperationRefusal, refusalIsOperationRefusal, type OperationRefusalStatus } from '../../src/shared/OperationRefusal';
+import type { CommandContext }                                                      from '../CommandContext';
 import {
   closeRunningReviewRows,
   openTrackerForWritingThenReadNextLine,

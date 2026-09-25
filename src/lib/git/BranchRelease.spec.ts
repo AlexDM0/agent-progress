@@ -19,7 +19,7 @@ import {
   createScratchGitRepository,
   gitIsAvailable,
   removeScratchDirectory
-} from '../../src/testing/ScratchWorkspace';
+} from '../../testing/ScratchWorkspace';
 import {
   deleteMergedBranch,
   fastForwardTo,

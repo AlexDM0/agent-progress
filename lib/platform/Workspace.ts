@@ -1,11 +1,12 @@
 /**
  * Where one tracker's files are. `findWorkspace` walks up first — the nearest tracker above wins —
- * and asks `lib/platform/RepositoryRoot.ts` only when the walk finds nothing, which is what makes a
+ * and asks `src/lib/git/RepositoryRoot.ts` only when the walk finds nothing, which is what makes a
  * sibling worktree, with nothing above it holding the tracker, resolve to the main checkout.
  */
 import { existsSync, realpathSync, statSync } from 'node:fs';
 import { dirname, join, resolve }             from 'node:path';
 
+import { discoverRepositoryRoot }    from '../../src/lib/git/RepositoryRoot';
 import { agentProgressRootOverride } from '../../src/shared/Environment';
 import { OperationRefusal }          from '../../src/shared/OperationRefusal';
 import {
@@ -15,7 +16,6 @@ import {
   TICKETS_DIRECTORY_NAME,
   TRACKER_DIRECTORY_NAME
 } from '../constants/Statuses';
-import { discoverRepositoryRoot } from './RepositoryRoot';
 
 /** Every path one tracker owns, all absolute: a relative one would resolve against a subagent's working directory. */
 export interface Workspace {
