@@ -47,10 +47,10 @@ import {
   storedOverrideFrom,
   waitingOnByTicketId,
 } from './PageData.ts';
-import type { PlacedTick, TaskRow } from './PageMarkup.ts';
+import type { PlacedTick, ShortenedText, TaskRow } from './PageMarkup.ts';
 import {
   axisPixelsNeededFor,
-  clockLabelFor,
+  generatedStampText,
   labelSitsLeftOfItsLine,
   logItemsMarkup,
   overlayMarkup,
@@ -62,6 +62,7 @@ import {
   ticketTableRowsMarkup,
   tickLayerMarkup,
 } from './PageMarkup.ts';
+import { calendarDateOf }        from './StampText.ts';
 import { taskDetailMarkup }      from './TaskDetail.ts';
 import type { WorkVisibility }   from './WorkVisibility.ts';
 import {
@@ -129,6 +130,19 @@ function setText(elementId: string, text: string): void {
   const element = document.getElementById(elementId);
   if (element !== null) {
     element.textContent = text;
+  }
+}
+
+function setShortenedText(elementId: string, shortened: ShortenedText): void {
+  setText(elementId, shortened.text);
+  const element = document.getElementById(elementId);
+  if (element === null) {
+    return;
+  }
+  if (shortened.title === null) {
+    element.removeAttribute('title');
+  } else {
+    element.setAttribute('title', shortened.title);
   }
 }
 
@@ -205,9 +219,9 @@ function applyNameColumnWidth(width: NameColumnWidth): void {
   }
 }
 
-function showLog(entries: PagePayload['progress']['log'], limits: PageLimits, visibility: LogVisibility): void {
+function showLog(entries: PagePayload['progress']['log'], limits: PageLimits, todayCalendarDate: string, visibility: LogVisibility): void {
   const controlIsNeeded = logControlIsNeeded(entries.length);
-  setMarkup('ap-log', logItemsMarkup(entries, limits, controlIsNeeded ? logEntryLimitFor(visibility) : null));
+  setMarkup('ap-log', logItemsMarkup(entries, limits, todayCalendarDate, controlIsNeeded ? logEntryLimitFor(visibility) : null));
   setHidden('ap-log-empty', entries.length > 0);
   setText('ap-log-note', logNoteText(entries.length, visibility));
   setHidden('ap-log-control', !controlIsNeeded);
@@ -392,7 +406,7 @@ function wireRowOverview(containerId: string, rowSelector: string, showRowDetail
   });
 }
 
-function wireTaskDetail(progress: ProgressFile, tickets: readonly PageTicket[], limits: PageLimits): void {
+function wireTaskDetail(progress: ProgressFile, tickets: readonly PageTicket[], limits: PageLimits, readTodayCalendarDate: () => string): void {
   const dialog = document.getElementById(DETAIL_DIALOG_ELEMENT_ID);
   if (!(dialog instanceof HTMLDialogElement)) {
     return;
@@ -403,8 +417,9 @@ function wireTaskDetail(progress: ProgressFile, tickets: readonly PageTicket[], 
     const markup = taskDetailMarkup({
       task,
       ticket,
-      log:    progress.log,
-      slices: limits,
+      log:               progress.log,
+      slices:            limits,
+      todayCalendarDate: readTodayCalendarDate(),
     });
     if (markup === '') {
       return;
@@ -459,11 +474,11 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   }
 
   setText('ap-project', progress.project);
-  setText('ap-generated', `generated ${clockLabelFor(payload.generatedAtEpochMilliseconds)}`);
   setMarkup('ap-summary', summaryStatsMarkup(progress.tasks, payload.concurrency));
 
   let logVisibility = logVisibilityFrom(readStoredChoice(logVisibilityStorageKeyFor(progress.trackerId)));
-  showLog(progress.log, limits, logVisibility);
+  // Set from the visibility filter's now before anything prints a stamp; the page reloads every few minutes, so the day is never stale for long.
+  let todayCalendarDate = '';
 
   // Applied before the first layout, which measures the pinned columns this width sets.
   let nameColumnWidth = nameColumnWidthFrom(readStoredChoice(nameColumnWidthStorageKeyFor(progress.trackerId)));
@@ -480,9 +495,12 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     const visibleTasks         = progress.tasks.filter((task) => showsAll || !taskIsLongDone(task, nowEpochMilliseconds, windowMilliseconds));
     const visibleTickets       = tickets.filter((ticket) => showsAll || !ticketIsLongDone(ticket, nowEpochMilliseconds, windowMilliseconds));
     visibleProgress = { ...progress, tasks: visibleTasks };
+    todayCalendarDate = calendarDateOf(nowEpochMilliseconds);
 
+    setShortenedText('ap-generated', generatedStampText(payload.generatedAtEpochMilliseconds, todayCalendarDate));
+    showLog(progress.log, limits, todayCalendarDate, logVisibility);
     setMarkup('ap-ticket-rows', ticketTableRowsMarkup(visibleTickets, waitingOnById));
-    setMarkup('ap-ticket-cards', ticketCardsMarkup(visibleTickets, waitingOnById, limits));
+    setMarkup('ap-ticket-cards', ticketCardsMarkup(visibleTickets, waitingOnById, limits, todayCalendarDate));
     setText('ap-ticket-count', ticketCountText(tickets));
     templateBehaviour()?.restoreTicketOpenState();
 
@@ -517,7 +535,8 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     setMarkup('ap-rows', taskRowsMarkup(taskRowsFor(visibleProgress, timeline, ticketStatusById, waitingOnById), limits));
     setHidden('ap-chart-empty', visibleProgress.tasks.length > 0);
 
-    setText('ap-range-note', rangeNoteText(timeline.fromEpochMilliseconds, timeline.toEpochMilliseconds, timeline.stepMinutes, limits));
+    const rangeNote = rangeNoteText(timeline.fromEpochMilliseconds, timeline.toEpochMilliseconds, timeline.stepMinutes, calendarDateOf(nowEpochMilliseconds), limits);
+    setShortenedText('ap-range-note', rangeNote);
     reflectRangeBar(override);
 
     if (bringNowIntoView && chart !== null && timeline.nowPercent !== null) {
@@ -525,7 +544,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     }
   };
 
-  wireTaskDetail(progress, tickets, limits);
+  wireTaskDetail(progress, tickets, limits, () => todayCalendarDate);
 
   wireRangeBar(() => override, (next) => {
     override = next;
@@ -547,7 +566,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   document.getElementById('ap-log-toggle')?.addEventListener('click', () => {
     logVisibility = toggledLogVisibility(logVisibility);
     writeStoredChoice(logVisibilityStorageKeyFor(progress.trackerId), logVisibility, DEFAULT_LOG_VISIBILITY);
-    showLog(progress.log, limits, logVisibility);
+    showLog(progress.log, limits, todayCalendarDate, logVisibility);
   });
 
   document.getElementById('ap-name-column')?.addEventListener('click', () => {

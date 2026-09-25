@@ -15,6 +15,7 @@ import type { PageTicket }                  from './page/PageData.ts';
 import type { TimestampSlices }             from './page/PageMarkup.ts';
 import {
   axisPixelsNeededFor,
+  generatedStampText,
   labelSitsLeftOfItsLine,
   logItemsMarkup,
   overlayMarkup,
@@ -26,6 +27,12 @@ import {
   ticketTableRowsMarkup,
   tickLayerMarkup,
 } from './page/PageMarkup.ts';
+import { calendarDateOf, fullInstantText } from './page/StampText.ts';
+
+/** The example board's own day: its stamps from the 18th print as a clock, the rest dated. */
+const EXAMPLE_TODAY = '2026-09-18';
+
+const MILLISECONDS_PER_MINUTE = 60_000;
 
 const EXAMPLE_SLICES: TimestampSlices = {
   dateAndClockLength:    16,
@@ -38,20 +45,20 @@ const EXAMPLE_SLICES: TimestampSlices = {
 const NO_AGENTS_OF_TWO = { limit: 2, agentsInFlight: 0 };
 
 const EXAMPLE_RANGE_LIMITS = {
-  hourMinutes:                60,
-  dayMinutes:                 1440,
-  hoursAxisLabelLimitMinutes: 1440,
+  hourMinutes: 60,
+  dayMinutes:  1440,
 };
 
 const EXAMPLE_TIMELINE_LIMITS: TimelineLimits = {
   ...EXAMPLE_RANGE_LIMITS,
-  tickStepLadderMinutes:     [5, 10, 15, 30, 60, 120, 180, 360, 720, 1440],
-  maximumTicksPerAxis:       12,
-  axisMinimumSpanMinutes:    60,
-  axisPaddingMinutes:        15,
-  minimumBarWidthPercent:    0.6,
-  weekAxisLabelLimitMinutes: 10_080,
-  tickCountSafetyBound:      500,
+  hoursAxisLabelLimitMinutes: 1440,
+  tickStepLadderMinutes:      [5, 10, 15, 30, 60, 120, 180, 360, 720, 1440],
+  maximumTicksPerAxis:        12,
+  axisMinimumSpanMinutes:     60,
+  axisPaddingMinutes:         15,
+  minimumBarWidthPercent:     0.6,
+  weekAxisLabelLimitMinutes:  10_080,
+  tickCountSafetyBound:       500,
 };
 
 const NO_WAITING = new Map<string, string[]>();
@@ -412,10 +419,12 @@ describe('logItemsMarkup', () => {
     { at: '2026-09-18T21:21:00+02:00', text: 'Old idea abandoned' },
   ];
 
-  test('puts the newest entry first however the store appended them', () => {
-    const times = [...logItemsMarkup(entries, EXAMPLE_SLICES).matchAll(/<time>([^<]+)<\/time>/g)].map((match) => match[1]);
+  function timesIn(markup: string): Array<string | undefined> {
+    return [...markup.matchAll(/<time(?: title="[^"]+")?>([^<]+)<\/time>/g)].map((match) => match[1]);
+  }
 
-    expect(times).toEqual(['21:56', '21:21', '20:36']);
+  test('puts the newest entry first however the store appended them', () => {
+    expect(timesIn(logItemsMarkup(entries, EXAMPLE_SLICES, EXAMPLE_TODAY))).toEqual(['21:56', '21:21', '20:36']);
   });
 
   // Commands run in one second stamp their lines alike; under the cap the newer appends must win, or the card drops the latest lines.
@@ -425,39 +434,47 @@ describe('logItemsMarkup', () => {
       { at: '2026-09-18T21:56:00+02:00', text: 'Second append' },
       { at: '2026-09-18T21:56:00+02:00', text: 'Third append' },
     ];
-    const texts = [...logItemsMarkup(sameSecond, EXAMPLE_SLICES, 2).matchAll(/<span>([^<]+)<\/span>/g)].map((match) => match[1]);
+    const texts = [...logItemsMarkup(sameSecond, EXAMPLE_SLICES, EXAMPLE_TODAY, 2).matchAll(/<span>([^<]+)<\/span>/g)].map((match) => match[1]);
 
     expect(texts).toEqual(['Third append', 'Second append']);
   });
 
-  test('adds the date to every line once the log covers more than one calendar day', () => {
-    const acrossMidnight = [...entries, { at: '2026-09-19T00:12:00+02:00', text: 'Still going' }];
-    const times = [...logItemsMarkup(acrossMidnight, EXAMPLE_SLICES).matchAll(/<time>([^<]+)<\/time>/g)].map((match) => match[1]);
+  // Each line is judged on its own day against the viewer's: a log that crosses midnight no longer dates today's lines.
+  test('dates only the lines from another day, and gives every shortened line its full stamp as the title', () => {
+    const withEarlierDays = [
+      ...entries,
+      { at: '2026-09-17T23:48:00+02:00', text: 'The day before' },
+      { at: '2025-12-31T23:48:00+01:00', text: 'Last year' },
+    ];
+    const markup = logItemsMarkup(withEarlierDays, EXAMPLE_SLICES, EXAMPLE_TODAY);
 
-    expect(times).toEqual(['09-19 00:12', '09-18 21:56', '09-18 21:21', '09-18 20:36']);
+    expect(timesIn(markup)).toEqual(['21:56', '21:21', '20:36', '09-17 23:48', '2025-12-31 23:48']);
+    expect(markup).toContain('<time title="2026-09-18 21:56">21:56</time>');
+    expect(markup).toContain('<time title="2026-09-17 23:48">09-17 23:48</time>');
+    expect(markup, 'a stamp shown in full needs no hover').toContain('<time>2025-12-31 23:48</time>');
   });
 
   // The card shows the newest ten of a long log; cutting before sorting would keep the oldest ten the store happened to append first.
   test('keeps the newest entries when a limit is given, newest first', () => {
-    const times = [...logItemsMarkup(entries, EXAMPLE_SLICES, 2).matchAll(/<time>([^<]+)<\/time>/g)].map((match) => match[1]);
-
-    expect(times).toEqual(['21:56', '21:21']);
+    expect(timesIn(logItemsMarkup(entries, EXAMPLE_SLICES, EXAMPLE_TODAY, 2))).toEqual(['21:56', '21:21']);
   });
 
-  // Toggling the cap must not flip the stamps between clock-only and dated: the dates are judged on the whole log.
-  test('dates every kept line when the whole log spans two days, even if the kept lines do not', () => {
-    const acrossMidnight = [...entries, { at: '2026-09-17T23:59:00+02:00', text: 'The day before' }];
-    const times = [...logItemsMarkup(acrossMidnight, EXAMPLE_SLICES, 2).matchAll(/<time>([^<]+)<\/time>/g)].map((match) => match[1]);
+  // Toggling the cap must not change a kept line's form: it depends on the line's own day and the viewer's, never on the rest of the log.
+  test('prints a kept line the same under the cap as without it', () => {
+    const withTheDayBefore = [...entries, { at: '2026-09-17T23:59:00+02:00', text: 'The day before' }];
+    const capped           = logItemsMarkup(withTheDayBefore, EXAMPLE_SLICES, EXAMPLE_TODAY, 2);
+    const whole            = logItemsMarkup(withTheDayBefore, EXAMPLE_SLICES, EXAMPLE_TODAY);
 
-    expect(times).toEqual(['09-18 21:56', '09-18 21:21']);
+    expect(timesIn(capped)).toEqual(['21:56', '21:21']);
+    expect(whole.startsWith(capped)).toBe(true);
   });
 
   test('renders exactly the markup of no limit when the limit is null', () => {
-    expect(logItemsMarkup(entries, EXAMPLE_SLICES, null)).toBe(logItemsMarkup(entries, EXAMPLE_SLICES));
+    expect(logItemsMarkup(entries, EXAMPLE_SLICES, EXAMPLE_TODAY, null)).toBe(logItemsMarkup(entries, EXAMPLE_SLICES, EXAMPLE_TODAY));
   });
 
   test('escapes a log line that carries markup', () => {
-    const markup = logItemsMarkup([{ at: '2026-09-18T20:36:00+02:00', text: '</script><b>x</b>' }], EXAMPLE_SLICES);
+    const markup = logItemsMarkup([{ at: '2026-09-18T20:36:00+02:00', text: '</script><b>x</b>' }], EXAMPLE_SLICES, EXAMPLE_TODAY);
 
     expect(markup).not.toContain('<b>');
     expect(markup).toContain('&lt;/script&gt;');
@@ -507,56 +524,66 @@ describe('ticketCountText', () => {
 
 describe('ticketCardsMarkup', () => {
   test('lists every dependency in the card, and heads a waiting card with what it still waits on', () => {
-    const markup = ticketCardsMarkup([exampleTicket({ dependsOn: ['001', '002'] })], new Map([['003', ['002']]]), EXAMPLE_SLICES);
+    const markup = ticketCardsMarkup([exampleTicket({ dependsOn: ['001', '002'] })], new Map([['003', ['002']]]), EXAMPLE_SLICES, EXAMPLE_TODAY);
 
     expect(markup).toContain('<b>waits on</b><span><a href="#ap-ticket-001">#001</a>, <a href="#ap-ticket-002">#002</a></span>');
     expect(markup).toContain('<span class="ap-waiting">waiting on <a href="#ap-ticket-002">#002</a></span>');
   });
 
   test.each<[TicketStatus]>([['open'], ['in-progress'], ['in-review']])('leaves a %s card open, with no disclosure', (status) => {
-    const markup = ticketCardsMarkup([exampleTicket({ status })], NO_WAITING, EXAMPLE_SLICES);
+    const markup = ticketCardsMarkup([exampleTicket({ status })], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY);
 
     expect(markup).toContain('<div class="ap-ticket-head">');
     expect(markup).not.toContain('<details>');
   });
 
   test.each<[TicketStatus]>([['done'], ['delivered'], ['abandoned']])('collapses a %s card into a disclosure', (status) => {
-    const markup = ticketCardsMarkup([exampleTicket({ status })], NO_WAITING, EXAMPLE_SLICES);
+    const markup = ticketCardsMarkup([exampleTicket({ status })], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY);
 
     expect(markup).toContain('<details><summary>');
     expect(markup).not.toContain('ap-ticket-head');
   });
 
   test('keeps the id on the outer section either way', () => {
-    expect(ticketCardsMarkup([exampleTicket({ status: 'open' })], NO_WAITING, EXAMPLE_SLICES)).toContain('<section class="ap-ticket" id="ap-ticket-003">');
-    expect(ticketCardsMarkup([exampleTicket({ status: 'done' })], NO_WAITING, EXAMPLE_SLICES)).toContain('<section class="ap-ticket" id="ap-ticket-003">');
+    expect(ticketCardsMarkup([exampleTicket({ status: 'open' })], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY)).toContain('<section class="ap-ticket" id="ap-ticket-003">');
+    expect(ticketCardsMarkup([exampleTicket({ status: 'done' })], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY)).toContain('<section class="ap-ticket" id="ap-ticket-003">');
   });
 
   test('shows the latest milestone the ticket reached, not the first', () => {
-    const delivered = ticketCardsMarkup([exampleTicket({ status: 'delivered', delivered: '2026-09-18T21:51:00+02:00' })], NO_WAITING, EXAMPLE_SLICES);
-    const filedOnly = ticketCardsMarkup([exampleTicket({ started: null, finished: null })], NO_WAITING, EXAMPLE_SLICES);
+    const delivered = ticketCardsMarkup([exampleTicket({ status: 'delivered', delivered: '2026-09-18T21:51:00+02:00' })], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY);
+    const filedOnly = ticketCardsMarkup([exampleTicket({ started: null, finished: null })], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY);
 
-    expect(delivered).toContain('<span class="ap-ticket-dates">delivered 21:51</span>');
-    expect(filedOnly).toContain('<span class="ap-ticket-dates">filed 20:44</span>');
+    expect(delivered).toContain('<span class="ap-ticket-dates" title="delivered 2026-09-18 21:51">delivered 21:51</span>');
+    expect(filedOnly).toContain('<span class="ap-ticket-dates" title="filed 2026-09-18 20:44">filed 20:44</span>');
   });
 
-  test('shortens the timestamps in the meta list and leaves the branch whole', () => {
-    const markup = ticketCardsMarkup([exampleTicket({ commit: '4f1e9c0abcdef' })], NO_WAITING, EXAMPLE_SLICES);
+  // The head once printed a bare clock whatever the day; a milestone from yesterday read as today's.
+  test('dates a head milestone from another day, and shows one from another year in full with no title', () => {
+    const yesterday = ticketCardsMarkup([exampleTicket({ status: 'delivered', delivered: '2026-09-17T23:48:00+02:00' })], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY);
+    const lastYear  = ticketCardsMarkup([exampleTicket({ started: null, finished: null, filed: '2025-12-31T23:48:00+01:00' })], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY);
 
-    expect(markup).toContain('<div><b>filed</b><span>2026-09-18 20:44</span></div>');
+    expect(yesterday).toContain('<span class="ap-ticket-dates" title="delivered 2026-09-17 23:48">delivered 09-17 23:48</span>');
+    expect(lastYear).toContain('<span class="ap-ticket-dates">filed 2025-12-31 23:48</span>');
+    expect(lastYear).toContain('<div><b>filed</b><span>2025-12-31 23:48</span></div>');
+  });
+
+  test('shortens the timestamps in the meta list, titled with the full stamp, and leaves the branch whole', () => {
+    const markup = ticketCardsMarkup([exampleTicket({ commit: '4f1e9c0abcdef' })], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY);
+
+    expect(markup).toContain('<div><b>filed</b><span title="2026-09-18 20:44">20:44</span></div>');
     expect(markup).toContain('<div><b>branch</b><span>ticket/exporter-passes</span></div>');
     expect(markup).toContain('<div><b>commit</b><span>4f1e9c0abcdef</span></div>');
   });
 
   test('leaves out the meta entries the ticket never recorded', () => {
-    const markup = ticketCardsMarkup([exampleTicket({ started: null, finished: null })], NO_WAITING, EXAMPLE_SLICES);
+    const markup = ticketCardsMarkup([exampleTicket({ started: null, finished: null })], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY);
 
     expect(markup).not.toContain('<b>started</b>');
     expect(markup).not.toContain('<b>finished</b>');
   });
 
   test('places the pre-rendered body verbatim inside the markdown container', () => {
-    const markup = ticketCardsMarkup([exampleTicket({ bodyHtml: '<h2>Report</h2><p>one</p>' })], NO_WAITING, EXAMPLE_SLICES);
+    const markup = ticketCardsMarkup([exampleTicket({ bodyHtml: '<h2>Report</h2><p>one</p>' })], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY);
 
     expect(markup).toContain('<div class="ap-ticket-body md"><h2>Report</h2><p>one</p></div>');
   });
@@ -570,7 +597,7 @@ describe('the priority marks on the Tickets tab', () => {
   test('marks a low ticket low, beside its title in the table and after its status in the card, with an empty task cell while it has no row', () => {
     const lowTicket = exampleTicket({ priority: 'low', status: 'open', task: null });
     const tableRow  = ticketTableRowsMarkup([lowTicket], NO_WAITING);
-    const card      = ticketCardsMarkup([lowTicket], NO_WAITING, EXAMPLE_SLICES);
+    const card      = ticketCardsMarkup([lowTicket], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY);
 
     expect(tableRow).toMatch(/two passes <span class="ap-ticket-badge" data-priority="low" title="[^"]+">low<\/span><\/td>/);
     expect(tableRow).toContain('<td class="mono"></td></tr>');
@@ -582,12 +609,12 @@ describe('the priority marks on the Tickets tab', () => {
     const highTicket = exampleTicket({ priority: 'high' });
 
     expect(ticketTableRowsMarkup([highTicket], NO_WAITING)).toMatch(/two passes<span class="ap-waiting" data-priority="high" title="[^"]+">high<\/span><\/td>/);
-    expect(ticketCardsMarkup([highTicket], NO_WAITING, EXAMPLE_SLICES)).toContain(HIGH_MARK_OPENING);
+    expect(ticketCardsMarkup([highTicket], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY)).toContain(HIGH_MARK_OPENING);
   });
 
   test('leaves a normal ticket, and one whose file carries no priority, unmarked', () => {
     for (const ticket of [exampleTicket({ priority: 'normal' }), exampleTicket()]) {
-      const markup = ticketTableRowsMarkup([ticket], NO_WAITING) + ticketCardsMarkup([ticket], NO_WAITING, EXAMPLE_SLICES);
+      const markup = ticketTableRowsMarkup([ticket], NO_WAITING) + ticketCardsMarkup([ticket], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY);
       expect(markup).not.toContain('data-priority');
     }
     expect(ticketTableRowsMarkup([exampleTicket({ priority: 'low' })], NO_WAITING)).toContain(LOW_MARK_OPENING);
@@ -628,28 +655,41 @@ describe('the axis layer', () => {
   });
 
   test('writes the tick step in the largest unit that divides it', () => {
-    const from = Date.UTC(2026, 8, 18, 18, 30, 0);
+    const from  = Date.UTC(2026, 8, 18, 18, 30, 0);
+    const today = calendarDateOf(from);
 
-    expect(rangeNoteText(from, from + 105 * 60_000, 15, EXAMPLE_RANGE_LIMITS)).toContain('· 15m ticks');
-    expect(rangeNoteText(from, from + 105 * 60_000, 360, EXAMPLE_RANGE_LIMITS)).toContain('· 6h ticks');
-    expect(rangeNoteText(from, from + 105 * 60_000, 1440, EXAMPLE_RANGE_LIMITS)).toContain('· 1d ticks');
+    expect(rangeNoteText(from, from + 105 * MILLISECONDS_PER_MINUTE, 15, today, EXAMPLE_RANGE_LIMITS).text).toContain('· 15m ticks');
+    expect(rangeNoteText(from, from + 105 * MILLISECONDS_PER_MINUTE, 360, today, EXAMPLE_RANGE_LIMITS).text).toContain('· 6h ticks');
+    expect(rangeNoteText(from, from + 105 * MILLISECONDS_PER_MINUTE, 1440, today, EXAMPLE_RANGE_LIMITS).text).toContain('· 1d ticks');
   });
 
-  test('adds the date to both ends once the range outgrows a day', () => {
-    const from = Date.UTC(2026, 8, 18, 18, 30, 0);
+  // Each end is judged against the viewer's day on its own, and the title is always the whole note in full.
+  test('dates an end only when it falls on another day than today, and titles the note with both ends in full', () => {
+    const to        = Date.UTC(2026, 8, 18, 12, 0, 0);
+    const today     = calendarDateOf(to);
+    const sameDay   = rangeNoteText(to - 60 * MILLISECONDS_PER_MINUTE, to, 15, today, EXAMPLE_RANGE_LIMITS);
+    const threeDays = rangeNoteText(to - 3 * 1440 * MILLISECONDS_PER_MINUTE, to, 1440, today, EXAMPLE_RANGE_LIMITS);
 
-    expect(rangeNoteText(from, from + 105 * 60_000, 15, EXAMPLE_RANGE_LIMITS)).not.toMatch(/\d\d-\d\d /);
-    expect(rangeNoteText(from, from + 1440 * 60_000, 60, EXAMPLE_RANGE_LIMITS)).toMatch(/\d\d-\d\d \d\d:\d\d → \d\d-\d\d \d\d:\d\d/);
-    expect(rangeNoteText(from, from + 7 * 1440 * 60_000, 1440, EXAMPLE_RANGE_LIMITS)).toMatch(/\d\d-\d\d \d\d:\d\d → \d\d-\d\d \d\d:\d\d/);
+    expect(sameDay.text).toMatch(/^\d\d:\d\d → \d\d:\d\d · 15m ticks$/);
+    expect(threeDays.text).toMatch(/^\d\d-\d\d \d\d:\d\d → \d\d:\d\d · 1d ticks$/);
+    expect(threeDays.title).toBe(`${fullInstantText(to - 3 * 1440 * MILLISECONDS_PER_MINUTE)} → ${fullInstantText(to)} · 1d ticks`);
   });
 
-  // The 24h preset spans exactly the label limit; the axis and the note once disagreed on which side of it that falls.
-  test.each([
-    [1439, false],
-    [1440, true],
-  ])('names the day on the ticks and in the range note alike for a %i-minute span', (spanMinutes, dayIsNamed) => {
-    const from     = Date.UTC(2026, 8, 18, 18, 30, 0);
-    const to       = from + spanMinutes * 60_000;
+  test('carries no title on a note whose ends are both from another year, since nothing was shortened', () => {
+    const to   = Date.UTC(2025, 5, 1, 12, 0, 0);
+    const note = rangeNoteText(to - 60 * MILLISECONDS_PER_MINUTE, to, 15, '2026-09-18', EXAMPLE_RANGE_LIMITS);
+
+    expect(note.text).toMatch(/^2025-\d\d-\d\d \d\d:\d\d → 2025-\d\d-\d\d \d\d:\d\d · 15m ticks$/);
+    expect(note.title).toBeNull();
+  });
+
+  /**
+   * The ticks and the note follow different rules on purpose: a tick is an axis label, dated by the span the axis covers, while the note's
+   * ends are stamps, dated only when they fall on another day than the viewer's. A 24h range ending now dates every tick and not its `to` end.
+   */
+  test('dates the ticks of a day-long range while the note leaves its today end clock-only', () => {
+    const to       = Date.UTC(2026, 8, 18, 18, 30, 0);
+    const from     = to - 1440 * MILLISECONDS_PER_MINUTE;
     const timeline = computeTimeline({
       progress: {
         version:    1,
@@ -667,13 +707,32 @@ describe('the axis layer', () => {
         to:          new Date(to).toISOString(),
         tickMinutes: null,
       },
-      nowEpochMilliseconds: from,
+      nowEpochMilliseconds: to,
       limits:               EXAMPLE_TIMELINE_LIMITS,
     });
     const clockOnly = /^\d\d:\d\d$/;
+    const note      = rangeNoteText(from, to, timeline.stepMinutes, calendarDateOf(to), EXAMPLE_RANGE_LIMITS);
 
     expect(timeline.ticks.length).toBeGreaterThan(0);
-    expect(timeline.ticks.every((tick) => !clockOnly.test(tick.label))).toBe(dayIsNamed);
-    expect(/\d\d-\d\d \d\d:\d\d → \d\d-\d\d \d\d:\d\d/.test(rangeNoteText(from, to, timeline.stepMinutes, EXAMPLE_RANGE_LIMITS))).toBe(dayIsNamed);
+    expect(timeline.ticks.every((tick) => !clockOnly.test(tick.label))).toBe(true);
+    expect(note.text).toMatch(/→ \d\d:\d\d · /);
+  });
+});
+
+describe('generatedStampText', () => {
+  // The header's stamp follows the same rule as every other: the template's `generated 21:56` is today's page.
+  test('shows only the clock of a page generated today, with the full stamp as the title', () => {
+    const generatedAt = Date.UTC(2026, 8, 18, 19, 56, 0);
+    const stamp       = generatedStampText(generatedAt, calendarDateOf(generatedAt));
+
+    expect(stamp.text).toMatch(/^generated \d\d:\d\d$/);
+    expect(stamp.title).toBe(`generated ${fullInstantText(generatedAt)}`);
+  });
+
+  test('dates a page generated on another day', () => {
+    const generatedAt = Date.UTC(2026, 8, 17, 12, 0, 0);
+    const stamp       = generatedStampText(generatedAt, calendarDateOf(generatedAt + 1440 * MILLISECONDS_PER_MINUTE));
+
+    expect(stamp.text).toBe(`generated ${fullInstantText(generatedAt).slice(5)}`);
   });
 });

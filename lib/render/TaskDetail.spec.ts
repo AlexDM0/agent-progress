@@ -19,6 +19,9 @@ const EXAMPLE_SLICES: TimestampSlices = {
   clockSliceEnd:         16,
 };
 
+/** The example board's own day, so its stamps print as a clock with the full stamp on hover. */
+const EXAMPLE_TODAY = '2026-09-18';
+
 const FILED_AT     = '2026-09-18T20:26:00+02:00';
 const STARTED_AT   = '2026-09-18T20:36:00+02:00';
 const FINISHED_AT  = '2026-09-18T21:26:00+02:00';
@@ -66,7 +69,8 @@ function panelFor(task: Task | null, ticket: PageTicket | null = null, log: read
     task,
     ticket,
     log,
-    slices: EXAMPLE_SLICES,
+    slices:            EXAMPLE_SLICES,
+    todayCalendarDate: EXAMPLE_TODAY,
   });
 }
 
@@ -106,8 +110,8 @@ describe('the task facts', () => {
   test('gives the span between the two stamps as a duration, since a span has no wall clock to preserve', () => {
     const markup = panelFor(exampleTask({ end: FINISHED_AT, tokens: 18_400 }));
 
-    expect(markup).toContain('<div><b>start</b><span>2026-09-18 20:36</span></div>');
-    expect(markup).toContain('<div><b>end</b><span>2026-09-18 21:26</span></div>');
+    expect(markup).toContain('<div><b>start</b><span title="2026-09-18 20:36">20:36</span></div>');
+    expect(markup).toContain('<div><b>end</b><span title="2026-09-18 21:26">21:26</span></div>');
     expect(markup).toContain('<div><b>elapsed</b><span>50m</span></div>');
     expect(markup).toContain('<div><b>tokens</b><span>18.4k</span></div>');
   });
@@ -157,8 +161,8 @@ describe('the phases', () => {
     }));
 
     expect(phaseLabelsIn(markup)).toEqual(['wip', 'awaiting review', 'awaiting merge']);
-    expect(markup).toContain('<li data-state="running"><span class="ap-pill">wip</span><time>2026-09-18 20:36</time></li>');
-    expect(markup, 'the first phase follows nothing, so it carries no gap').not.toContain('<time>2026-09-18 20:36</time><span class="ap-detail-gap">');
+    expect(markup).toContain('<li data-state="running"><span class="ap-pill">wip</span><time title="2026-09-18 20:36">20:36</time></li>');
+    expect(markup, 'the first phase follows nothing, so it carries no gap').not.toContain('20:36</time><span class="ap-detail-gap">');
     expect(markup).toContain('<span class="ap-detail-gap">after 50m</span>');
     expect(markup).toContain('<span class="ap-detail-gap">after 14m</span>');
     expect(markup, 'a recorded history is not announced as a derivation').not.toContain('were not recorded');
@@ -286,6 +290,29 @@ describe('the phases', () => {
   });
 });
 
+// Every stamp in the panel follows the page's one rule, so a stamp from yesterday cannot read as today's clock.
+describe('the stamps against the viewer\'s day', () => {
+  test('dates a stamp from another day in the facts, the phases and the log, and shows one from another year in full with no title', () => {
+    const yesterday = '2026-09-17T23:48:00+02:00';
+    const lastYear  = '2025-12-31T23:48:00+01:00';
+    const markup    = panelFor(
+      exampleTask({
+        status:  'running',
+        ticket:  '001',
+        start:   yesterday,
+        history: [{ status: 'running', at: yesterday }],
+      }),
+      exampleTicket({ filed: lastYear, started: yesterday }),
+      [{ at: yesterday, text: 'Ticket #001 started' }],
+    );
+
+    expect(markup).toContain('<div><b>start</b><span title="2026-09-17 23:48">09-17 23:48</span></div>');
+    expect(markup).toContain('<span class="ap-pill">wip</span><time title="2026-09-17 23:48">09-17 23:48</time>');
+    expect(markup).toContain('<div><b>filed</b><span>2025-12-31 23:48</span></div>');
+    expect(markup).toContain('<li><time title="2026-09-17 23:48">09-17 23:48</time><span>Ticket #001 started</span></li>');
+  });
+});
+
 describe('the ticket', () => {
   test('carries the ticket’s own facts, including the ones the chart never shows', () => {
     const markup = panelFor(exampleTask({ ticket: '001' }), exampleTicket({
@@ -298,7 +325,7 @@ describe('the ticket', () => {
     expect(markup).toContain('<span class="ap-detail-type">change</span>');
     expect(markup).toContain('<div><b>group</b><span>role-editor</span></div>');
     expect(markup).toContain('<div><b>commit</b><span>abc1234</span></div>');
-    expect(markup).toContain('<div><b>filed</b><span>2026-09-18 20:26</span></div>');
+    expect(markup).toContain('<div><b>filed</b><span title="2026-09-18 20:26">20:26</span></div>');
     expect(markup).toContain('<div><b>waits on</b><span><a href="#ap-ticket-002">#002</a>, <a href="#ap-ticket-003">#003</a></span></div>');
   });
 

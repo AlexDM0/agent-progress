@@ -20,6 +20,7 @@ import {
   logItemsMarkup,
   pillLabelForRowState,
   rowStateFor,
+  stampMarkup,
 } from './PageMarkup.ts';
 
 const { escapeHtml }       = HtmlEscapeUtil;
@@ -58,14 +59,23 @@ interface PhaseLine {
 }
 
 export interface TaskDetailInput {
-  task:   Task | null;
-  ticket: PageTicket | null;
-  log:    readonly LogEntry[];
-  slices: TimestampSlices;
+  task:              Task | null;
+  ticket:            PageTicket | null;
+  log:               readonly LogEntry[];
+  slices:            TimestampSlices;
+  todayCalendarDate: string;
 }
 
-function stampText(timestamp: string, slices: TimestampSlices): string {
-  return timestamp.slice(0, slices.dateAndClockLength).replace('T', ' ');
+interface StampFormat {
+  slices:            TimestampSlices;
+  todayCalendarDate: string;
+}
+
+/** A fact's value is either markup for a plain `<span>` or, for a stamp, the whole element carrying its title. */
+type Fact = [label: string, valueMarkup: string] | [label: string, valueElementMarkup: string, carriesItsOwnElement: true];
+
+function stampFact(label: string, stamp: string, format: StampFormat): Fact {
+  return [label, stampMarkup('span', stamp, format.todayCalendarDate, format.slices), true];
 }
 
 /** Instants the tool wrote are sliced for display; a span between two of them has no wall clock to preserve, so it is parsed and formatted. */
@@ -106,8 +116,11 @@ function taskLinkMarkup(taskId: number): string {
   return `<a ${attribute('href', `#ap-task-${taskId}`)}>#${escapeHtml(String(taskId))}</a>`;
 }
 
-function factsMarkup(entries: ReadonlyArray<[label: string, valueMarkup: string]>): string {
-  const rows = entries.map(([label, valueMarkup]) => `<div><b>${escapeHtml(label)}</b><span>${valueMarkup}</span></div>`).join('');
+function factsMarkup(entries: readonly Fact[]): string {
+  const rows = entries.map(([label, valueMarkup, carriesItsOwnElement]) => {
+    const valueElement = carriesItsOwnElement === true ? valueMarkup : `<span>${valueMarkup}</span>`;
+    return `<div><b>${escapeHtml(label)}</b>${valueElement}</div>`;
+  }).join('');
   return `<div class="ap-ticket-meta">${rows}</div>`;
 }
 
@@ -117,14 +130,14 @@ function durationBetween(fromTimestamp: string | null | undefined, toTimestamp: 
   return fromEpochMilliseconds === null || toEpochMilliseconds === null ? null : formatDuration(toEpochMilliseconds - fromEpochMilliseconds);
 }
 
-function taskFactsMarkup(task: Task, slices: TimestampSlices): string {
+function taskFactsMarkup(task: Task, format: StampFormat): string {
   const elapsed = durationBetween(task.start, task.end);
-  const entries: Array<[label: string, valueMarkup: string]> = [];
+  const entries: Fact[] = [];
 
   if (task.owner !== '') entries.push(['owner', escapeHtml(task.owner)]);
   if (task.note !== '') entries.push(['note', escapeHtml(task.note)]);
-  if (task.start !== null) entries.push(['start', escapeHtml(stampText(task.start, slices))]);
-  if (task.end !== null) entries.push(['end', escapeHtml(stampText(task.end, slices))]);
+  if (task.start !== null) entries.push(stampFact('start', task.start, format));
+  if (task.end !== null) entries.push(stampFact('end', task.end, format));
   if (elapsed !== null) entries.push(['elapsed', escapeHtml(elapsed)]);
   if (task.tokens !== null) entries.push(['tokens', escapeHtml(formatTokenCount(task.tokens))]);
   if (task.reviewRound !== undefined) entries.push(['review round', escapeHtml(String(task.reviewRound))]);
@@ -191,14 +204,14 @@ function derivedPhaseLines(task: Task, ticket: PageTicket | null): PhaseLine[] {
   }));
 }
 
-function phaseListMarkup(lines: readonly PhaseLine[], slices: TimestampSlices): string {
+function phaseListMarkup(lines: readonly PhaseLine[], format: StampFormat): string {
   const items = lines.map((line, index) => {
     const gapDuration = durationBetween(lines[index - 1]?.at, line.at);
     const gap         = gapDuration === null ? '' : `<span class="ap-detail-gap">after ${escapeHtml(gapDuration)}</span>`;
     return [
       `<li ${attribute('data-state', line.state)}>`,
       `<span class="ap-pill">${escapeHtml(pillLabelForRowState(line.state, line.reviewRound))}</span>`,
-      `<time>${escapeHtml(stampText(line.at, slices))}</time>`,
+      stampMarkup('time', line.at, format.todayCalendarDate, format.slices),
       gap,
       '</li>',
     ].join('');
@@ -210,17 +223,17 @@ function noteMarkup(text: string): string {
   return `<p class="ap-detail-note">${escapeHtml(text)}</p>`;
 }
 
-function phasesMarkup(task: Task, ticket: PageTicket | null, slices: TimestampSlices): string {
+function phasesMarkup(task: Task, ticket: PageTicket | null, format: StampFormat): string {
   const wasRecorded = (task.history ?? []).length > 0;
   const filed       = wasRecorded ? recordedPhaseLines(task) : derivedPhaseLines(task, ticket);
   const lines       = readNewestPhaseAsTheChartDoes(filed, task, ticket?.status ?? null);
   if (lines.length === 0) {
     return noteMarkup(NO_PHASES_TO_SHOW_NOTE);
   }
-  return `${wasRecorded ? '' : noteMarkup(PHASES_WERE_NOT_RECORDED_NOTE)}${phaseListMarkup(lines, slices)}`;
+  return `${wasRecorded ? '' : noteMarkup(PHASES_WERE_NOT_RECORDED_NOTE)}${phaseListMarkup(lines, format)}`;
 }
 
-function ticketFactsMarkup(ticket: PageTicket, slices: TimestampSlices): string {
+function ticketFactsMarkup(ticket: PageTicket, format: StampFormat): string {
   const stamps: Array<[label: string, value: string | null]> = [
     ['filed', ticket.filed],
     ['started', ticket.started],
@@ -234,10 +247,10 @@ function ticketFactsMarkup(ticket: PageTicket, slices: TimestampSlices): string 
     ['commit', ticket.commit],
     ['reason', ticket.reason],
   ];
-  const entries: Array<[label: string, valueMarkup: string]> = [];
+  const entries: Fact[] = [];
 
   for (const [label, value] of stamps) {
-    if (value !== null && value !== '') entries.push([label, escapeHtml(stampText(value, slices))]);
+    if (value !== null && value !== '') entries.push(stampFact(label, value, format));
   }
   for (const [label, value] of plainValues) {
     if (value !== undefined && value !== '') entries.push([label, escapeHtml(value)]);
@@ -249,7 +262,7 @@ function ticketFactsMarkup(ticket: PageTicket, slices: TimestampSlices): string 
   return factsMarkup(entries);
 }
 
-function ticketMarkup(ticket: PageTicket, slices: TimestampSlices): string {
+function ticketMarkup(ticket: PageTicket, format: StampFormat): string {
   const head = [
     '<div class="ap-detail-ticket-head">',
     `<span class="ap-ticket-id">#${escapeHtml(ticket.id)}</span>`,
@@ -258,7 +271,7 @@ function ticketMarkup(ticket: PageTicket, slices: TimestampSlices): string {
     `<span class="ap-badge ${escapeHtml(ticket.status)}">${escapeHtml(ticket.status)}</span>`,
     '</div>',
   ].join('');
-  return `${head}${ticketFactsMarkup(ticket, slices)}<div class="ap-ticket-body md">${ticket.bodyHtml}</div>`;
+  return `${head}${ticketFactsMarkup(ticket, format)}<div class="ap-ticket-body md">${ticket.bodyHtml}</div>`;
 }
 
 /**
@@ -282,7 +295,7 @@ function logMarkup(input: TaskDetailInput): string {
   if (named.length === 0) {
     return noteMarkup(NO_LOG_LINES_NOTE);
   }
-  return `<ul class="ap-detail-log">${logItemsMarkup(named, input.slices)}</ul>`;
+  return `<ul class="ap-detail-log">${logItemsMarkup(named, input.slices, input.todayCalendarDate)}</ul>`;
 }
 
 function headMarkup(task: Task | null, ticket: PageTicket | null): string {
@@ -314,15 +327,15 @@ function sectionMarkup(title: string, bodyMarkup: string): string {
 
 /** Empty when neither a task nor a ticket was found, so a double-click on something the page cannot resolve opens nothing. */
 export function taskDetailMarkup(input: TaskDetailInput): string {
-  const { task, ticket, slices } = input;
+  const { task, ticket } = input;
   if (task === null && ticket === null) {
     return '';
   }
   return [
     headMarkup(task, ticket),
-    task === null ? '' : sectionMarkup('Task', taskFactsMarkup(task, slices)),
-    task === null ? '' : sectionMarkup('Phases', phasesMarkup(task, ticket, slices)),
-    ticket === null ? '' : sectionMarkup('Ticket', ticketMarkup(ticket, slices)),
+    task === null ? '' : sectionMarkup('Task', taskFactsMarkup(task, input)),
+    task === null ? '' : sectionMarkup('Phases', phasesMarkup(task, ticket, input)),
+    ticket === null ? '' : sectionMarkup('Ticket', ticketMarkup(ticket, input)),
     sectionMarkup('Log', logMarkup(input)),
   ].join('');
 }

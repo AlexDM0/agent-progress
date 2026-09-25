@@ -38,7 +38,13 @@
  ---------------------------------------------------------------- containers ---
  #ap-project              text   project name
  #ap-summary              html   status line; children are .ap-stat (> .ap-stat-n and its label, on either side)
- #ap-generated            text   "generated 21:56" (monospace)
+ #ap-generated            text   "generated 21:56" (monospace), title "generated 2026-09-18 21:56".
+                                 Every stamp on the page follows one rule against the viewer's
+                                 day: today's shows only its clock ("21:56"), another day of the
+                                 same year gains its month and day ("09-17 23:48"), another year
+                                 the full date; a shortened stamp's element carries the full one
+                                 as its title. The placeholders are relative to the example
+                                 board's day, 2026-09-18; a later placeholder may name its own.
  #ap-theme                el     buttons data-theme="auto|light|dark", aria-pressed
  #ap-error                el     [hidden] unless the layout script threw
  #ap-error-text           text   message shown in the error banner
@@ -53,7 +59,8 @@
  #ap-range-from           input  from field (free text: ISO, "start", "now", "-2h")
  #ap-range-to             input  to field
  #ap-range-ticks          el     buttons data-tick="auto|5|15|60|360|1440", aria-pressed
- #ap-range-note           text   resolved range, e.g. "20:30 → 22:15 · 15m ticks"
+ #ap-range-note           text   resolved range, e.g. "20:30 → 22:15 · 15m ticks", each end a
+                                 stamp; title the whole note with both ends in full
  #ap-chart                el     horizontal scroller; owns --timeline-w
  #ap-ticks                el     tick layer in the header row; children .ap-tick > span
  #ap-rows                 el     row list; direct children are .ap-row
@@ -63,7 +70,8 @@
  #ap-name-column          button in the chart's Task header, aria-pressed; pressed widens the
                                  name column (data-name-column="wide" on the root element)
  #ap-log                  ul     log entries, newest first; children li > time + span; the
-                                 newest 10 unless #ap-log-toggle is pressed
+                                 newest 10 unless #ap-log-toggle is pressed. Each time follows
+                                 the stamp rule at #ap-generated on its own, with its title
  #ap-log-note             text   "newest first", or "newest 10 of 25, 15 hidden" while capped
  #ap-log-control          el     [hidden] unless the log holds more than 10 entries
  #ap-log-toggle           button "Show all 25", aria-pressed while every entry is shown
@@ -508,7 +516,7 @@ a:hover { color: var(--ink); text-decoration: underline; }
 #ap-log { margin: 0; padding: 0; list-style: none; }
 #ap-log li { display: flex; gap: var(--sp-3); padding: 5px var(--sp-4); border-bottom: 1px solid var(--line); font-size: var(--fs-small); }
 #ap-log li:last-child { border-bottom: 0; }
-#ap-log time { flex: none; width: 46px; color: var(--ink-muted); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+#ap-log time { flex: none; min-width: 46px; white-space: nowrap; color: var(--ink-muted); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 #ap-log li span { min-width: 0; }
 
 /* ---------------------------------------------------------------- tickets -- */
@@ -648,7 +656,7 @@ a:hover { color: var(--ink); text-decoration: underline; }
 .ap-detail-log { margin: 0; padding: 0; list-style: none; }
 .ap-detail-log li { display: flex; gap: var(--sp-3); padding: 4px 0; border-bottom: 1px solid var(--line); font-size: var(--fs-small); }
 .ap-detail-log li:last-child { border-bottom: 0; }
-.ap-detail-log time { flex: none; width: 46px; color: var(--ink-muted); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.ap-detail-log time { flex: none; min-width: 46px; white-space: nowrap; color: var(--ink-muted); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
 @media (max-width: 1180px) {
   :root { --col-name: 268px; --col-pill: 126px; }
@@ -674,7 +682,7 @@ a:hover { color: var(--ink); text-decoration: underline; }
 
 <header class="ap-head">
   <h1 class="ap-title"><span id="ap-project">Example Agency</span> <span class="ap-kicker">progress</span></h1>
-  <div class="mono" id="ap-generated">generated 21:56</div>
+  <div class="mono" id="ap-generated" title="generated 2026-09-18 21:56">generated 21:56</div>
   <div class="ap-seg" id="ap-theme">
     <button type="button" data-theme="auto" aria-pressed="true">Auto</button>
     <button type="button" data-theme="light" aria-pressed="false">Light</button>
@@ -740,7 +748,7 @@ a:hover { color: var(--ink); text-decoration: underline; }
         <button type="button" data-tick="360" aria-pressed="false">6h</button>
         <button type="button" data-tick="1440" aria-pressed="false">1d</button>
       </div>
-      <div id="ap-range-note">20:30 → 22:15 · 15m ticks</div>
+      <div id="ap-range-note" title="2026-09-18 20:30 → 2026-09-18 22:15 · 15m ticks">20:30 → 22:15 · 15m ticks</div>
     </div>
 
     <div id="ap-chart">
@@ -827,12 +835,12 @@ a:hover { color: var(--ink); text-decoration: underline; }
       <div class="ap-seg" id="ap-log-control" hidden><button type="button" id="ap-log-toggle" aria-pressed="false">Show all 25</button></div>
     </div>
     <ul id="ap-log">
-      <li><time>21:56</time><span>#004 Brighter colours — subagent started, branch ticket/brighter-colours</span></li>
-      <li><time>21:51</time><span>#001 Double-click a role to edit it — delivered at abc1234</span></li>
-      <li><time>21:38</time><span>#002 Cache ticket bodies between runs — review passed</span></li>
-      <li><time>21:26</time><span>#001 Double-click a role to edit it — finished, 18.4k tokens</span></li>
-      <li><time>21:21</time><span>#006 Old idea — abandoned, superseded by #003</span></li>
-      <li><time>20:36</time><span>Tracker created, 8 tasks queued</span></li>
+      <li><time title="2026-09-18 21:56">21:56</time><span>#004 Brighter colours — subagent started, branch ticket/brighter-colours</span></li>
+      <li><time title="2026-09-18 21:51">21:51</time><span>#001 Double-click a role to edit it — delivered at abc1234</span></li>
+      <li><time title="2026-09-18 21:38">21:38</time><span>#002 Cache ticket bodies between runs — review passed</span></li>
+      <li><time title="2026-09-18 21:26">21:26</time><span>#001 Double-click a role to edit it — finished, 18.4k tokens</span></li>
+      <li><time title="2026-09-18 21:21">21:21</time><span>#006 Old idea — abandoned, superseded by #003</span></li>
+      <li><time title="2026-09-17 23:48">09-17 23:48</time><span>Tracker created, 8 tasks queued</span></li>
     </ul>
     <div class="ap-empty" id="ap-log-empty" hidden>Nothing logged yet.</div>
   </div>
@@ -862,11 +870,11 @@ a:hover { color: var(--ink); text-decoration: underline; }
         <h3 class="ap-ticket-title">Brighter colours</h3>
         <span class="ap-badge in-progress">in-progress</span>
         <span class="ap-waiting" data-priority="high" title="High priority: dispatched before every normal ticket">high</span>
-        <span class="ap-ticket-dates">started 21:06</span>
+        <span class="ap-ticket-dates" title="started 2026-09-18 21:06">started 21:06</span>
       </div>
       <div class="ap-ticket-meta">
-        <div><b>filed</b><span>2026-09-18 20:56</span></div>
-        <div><b>started</b><span>2026-09-18 21:06</span></div>
+        <div><b>filed</b><span title="2026-09-18 20:56">20:56</span></div>
+        <div><b>started</b><span title="2026-09-18 21:06">21:06</span></div>
         <div><b>branch</b><span>ticket/brighter-colours</span></div>
         <div><b>task</b><span><a href="#ap-task-5">#5</a></span></div>
       </div>
@@ -888,12 +896,12 @@ a:hover { color: var(--ink); text-decoration: underline; }
           <span class="ap-ticket-id">#003</span>
           <h3 class="ap-ticket-title">Split the exporter into two passes</h3>
           <span class="ap-badge in-review">in-review</span>
-          <span class="ap-ticket-dates">filed 20:44 · finished 21:49</span>
+          <span class="ap-ticket-dates" title="finished 2026-09-18 21:49">finished 21:49</span>
         </summary>
         <div class="ap-ticket-meta">
-          <div><b>filed</b><span>2026-09-18 20:44</span></div>
-          <div><b>started</b><span>2026-09-18 21:02</span></div>
-          <div><b>finished</b><span>2026-09-18 21:49</span></div>
+          <div><b>filed</b><span title="2026-09-18 20:44">20:44</span></div>
+          <div><b>started</b><span title="2026-09-18 21:02">21:02</span></div>
+          <div><b>finished</b><span title="2026-09-18 21:49">21:49</span></div>
           <div><b>branch</b><span>ticket/exporter-passes</span></div>
           <div><b>commit</b><span>4f1e9c0</span></div>
         </div>
@@ -920,13 +928,13 @@ a:hover { color: var(--ink); text-decoration: underline; }
           <span class="ap-ticket-id">#001</span>
           <h3 class="ap-ticket-title">Double-click a role to edit it</h3>
           <span class="ap-badge delivered">delivered</span>
-          <span class="ap-ticket-dates">delivered 21:51</span>
+          <span class="ap-ticket-dates" title="delivered 2026-09-18 21:51">delivered 21:51</span>
         </summary>
         <div class="ap-ticket-meta">
-          <div><b>filed</b><span>2026-09-18 20:26</span></div>
-          <div><b>started</b><span>2026-09-18 20:36</span></div>
-          <div><b>finished</b><span>2026-09-18 21:26</span></div>
-          <div><b>delivered</b><span>2026-09-18 21:51</span></div>
+          <div><b>filed</b><span title="2026-09-18 20:26">20:26</span></div>
+          <div><b>started</b><span title="2026-09-18 20:36">20:36</span></div>
+          <div><b>finished</b><span title="2026-09-18 21:26">21:26</span></div>
+          <div><b>delivered</b><span title="2026-09-18 21:51">21:51</span></div>
           <div><b>branch</b><span>ticket/role-editor</span></div>
           <div><b>commit</b><span>abc1234</span></div>
         </div>
@@ -945,11 +953,11 @@ a:hover { color: var(--ink); text-decoration: underline; }
           <span class="ap-ticket-id">#006</span>
           <h3 class="ap-ticket-title">Old idea</h3>
           <span class="ap-badge abandoned">abandoned</span>
-          <span class="ap-ticket-dates">abandoned 21:21</span>
+          <span class="ap-ticket-dates" title="abandoned 2026-09-18 21:21">abandoned 21:21</span>
         </summary>
         <div class="ap-ticket-meta">
-          <div><b>filed</b><span>2026-09-18 21:16</span></div>
-          <div><b>abandoned</b><span>2026-09-18 21:21</span></div>
+          <div><b>filed</b><span title="2026-09-18 21:16">21:16</span></div>
+          <div><b>abandoned</b><span title="2026-09-18 21:21">21:21</span></div>
           <div><b>reason</b><span>superseded by #003</span></div>
         </div>
         <div class="ap-ticket-body md">
@@ -974,8 +982,8 @@ a:hover { color: var(--ink); text-decoration: underline; }
       <h3 class="ap-detail-section-title">Task</h3>
       <div class="ap-ticket-meta">
         <div><b>owner</b><span>opus</span></div>
-        <div><b>start</b><span>2026-09-18 20:36</span></div>
-        <div><b>end</b><span>2026-09-18 21:26</span></div>
+        <div><b>start</b><span title="2026-09-18 20:36">20:36</span></div>
+        <div><b>end</b><span title="2026-09-18 21:26">21:26</span></div>
         <div><b>elapsed</b><span>50m</span></div>
         <div><b>tokens</b><span>18.4k</span></div>
         <div><b>ticket</b><span><a href="#ap-ticket-001">#001</a></span></div>
@@ -984,11 +992,11 @@ a:hover { color: var(--ink); text-decoration: underline; }
     <section class="ap-detail-section">
       <h3 class="ap-detail-section-title">Phases</h3>
       <ol class="ap-detail-phases">
-        <li data-state="pending"><span class="ap-pill">unstarted</span><time>2026-09-18 20:26</time></li>
-        <li data-state="running"><span class="ap-pill">wip</span><time>2026-09-18 20:36</time><span class="ap-detail-gap">after 10m</span></li>
-        <li data-state="finished"><span class="ap-pill">awaiting review</span><time>2026-09-18 21:26</time><span class="ap-detail-gap">after 50m</span></li>
-        <li data-state="reviewed"><span class="ap-pill">awaiting merge</span><time>2026-09-18 21:40</time><span class="ap-detail-gap">after 14m</span></li>
-        <li data-state="delivered"><span class="ap-pill">done</span><time>2026-09-18 21:51</time><span class="ap-detail-gap">after 11m</span></li>
+        <li data-state="pending"><span class="ap-pill">unstarted</span><time title="2026-09-18 20:26">20:26</time></li>
+        <li data-state="running"><span class="ap-pill">wip</span><time title="2026-09-18 20:36">20:36</time><span class="ap-detail-gap">after 10m</span></li>
+        <li data-state="finished"><span class="ap-pill">awaiting review</span><time title="2026-09-18 21:26">21:26</time><span class="ap-detail-gap">after 50m</span></li>
+        <li data-state="reviewed"><span class="ap-pill">awaiting merge</span><time title="2026-09-18 21:40">21:40</time><span class="ap-detail-gap">after 14m</span></li>
+        <li data-state="delivered"><span class="ap-pill">done</span><time title="2026-09-18 21:51">21:51</time><span class="ap-detail-gap">after 11m</span></li>
       </ol>
     </section>
     <section class="ap-detail-section">
@@ -1000,10 +1008,10 @@ a:hover { color: var(--ink); text-decoration: underline; }
         <span class="ap-badge delivered">delivered</span>
       </div>
       <div class="ap-ticket-meta">
-        <div><b>filed</b><span>2026-09-18 20:26</span></div>
-        <div><b>started</b><span>2026-09-18 20:36</span></div>
-        <div><b>finished</b><span>2026-09-18 21:26</span></div>
-        <div><b>delivered</b><span>2026-09-18 21:51</span></div>
+        <div><b>filed</b><span title="2026-09-18 20:26">20:26</span></div>
+        <div><b>started</b><span title="2026-09-18 20:36">20:36</span></div>
+        <div><b>finished</b><span title="2026-09-18 21:26">21:26</span></div>
+        <div><b>delivered</b><span title="2026-09-18 21:51">21:51</span></div>
         <div><b>group</b><span>role-editor</span></div>
         <div><b>branch</b><span>ticket/role-editor</span></div>
         <div><b>commit</b><span>abc1234</span></div>
@@ -1019,8 +1027,8 @@ a:hover { color: var(--ink); text-decoration: underline; }
     <section class="ap-detail-section">
       <h3 class="ap-detail-section-title">Log</h3>
       <ul class="ap-detail-log">
-        <li><time>21:51</time><span>#001 Double-click a role to edit it — delivered at abc1234</span></li>
-        <li><time>21:26</time><span>#001 Double-click a role to edit it — finished, 18.4k tokens</span></li>
+        <li><time title="2026-09-18 21:51">21:51</time><span>#001 Double-click a role to edit it — delivered at abc1234</span></li>
+        <li><time title="2026-09-18 21:26">21:26</time><span>#001 Double-click a role to edit it — finished, 18.4k tokens</span></li>
       </ul>
     </section>
   </div>

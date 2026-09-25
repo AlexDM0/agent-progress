@@ -140,8 +140,9 @@ rather than spreading `undefined` in.
 - Every write of a file a reader may hold open goes through the atomic writer (temp file beside
   the target, fsync, rename). Never truncate-then-write.
 - A clock decides nothing. Identity is a content hash; staleness is a set difference or a version
-  number; timestamps are recorded and displayed, never compared. Four exceptions are stated; the first
-  three compare times the tool itself wrote, the fourth times the harness wrote:
+  number; timestamps are recorded and displayed, never compared. Five exceptions are stated; the first
+  three compare times the tool itself wrote, the fourth times the harness wrote, and the fifth compares
+  a stored stamp's date with the viewer's day:
   - **lock staleness** in `lib/platform/Lock.ts`. Its one comparison against a time the tool did not
     write is the fallback to the generation record's own mtime, reached only when that record is
     missing, unparseable or holds an unparseable time — and it fails closed in both directions: an
@@ -156,6 +157,9 @@ rather than spreading `undefined` in.
   - **the `usage --since` cohort split** in `lib/utils/TranscriptCohortUtil.ts` (`splitAt`), which
     compares each transcript's first harness-written timestamp to the given instant. It decides only
     which cohort a transcript is summarised in, never what is stored.
+  - **shortening a stamp on the page** in `lib/render/page/StampText.ts`: a stamp from the viewer's day
+    shows only its clock, one from another day its month and day too. It decides nothing but the text
+    printed.
 
 ## 4. Comments — the code explains itself
 

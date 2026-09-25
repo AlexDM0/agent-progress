@@ -27,11 +27,13 @@ the real store functions in. Every mutating command calls it **inside its lock**
 | `lib/render/LogVisibility.spec.ts` | The log card's cap, its stored choice and key, and the control's and note's wording. |
 | `lib/render/NameColumnWidth.spec.ts` | The task column's stored width and key, and that the template keys its override on the same attribute. |
 | `lib/render/PageMarkup.spec.ts` | Every state's pill, review rows nested above their ticket's row, the summary's figures, the token figure, the log's sort, which ticket cards collapse, the low and high priority marks, and the escaping. |
-| `lib/render/TaskDetail.spec.ts` | The overview panel: a recorded history against a derived one, the review rounds, which log lines a row and a ticket claim, a span that runs backwards, the note, and the escaping. |
+| `lib/render/TaskDetail.spec.ts` | The overview panel: a recorded history against a derived one, the review rounds, which log lines a row and a ticket claim, a span that runs backwards, the note, the stamps against the viewer's day, and the escaping. |
+| `lib/render/StampText.spec.ts` | The three forms a stored stamp takes against the viewer's day, a stamp read as written whatever its offset, and the instant forms in local time. |
 | `lib/render/page/template.html` | The designer's template: the styles, the state system, the containers and the bootstrap. Not generated. |
 | `lib/render/page/GanttGeometry.ts` | `computeTimeline(input)`: the axis, the ticks, every bar and the now marker as percentages. Pure, no DOM. |
 | `lib/render/page/PageData.ts` | The island shapes, the checks that establish them, and the stored range. DOM-free. |
 | `lib/render/page/PageMarkup.ts` | Every string of HTML the page emits, as pure functions. DOM-free. |
+| `lib/render/page/StampText.ts` | The one stamp formatter: `calendarDateOf`, `shortStampText` and `fullStampText` for stored stamps, `shortInstantText` and `fullInstantText` for instants the page computed. DOM-free, and reads no clock. |
 | `lib/render/page/TaskDetail.ts` | The overview panel's markup — header, task facts, phases, ticket, log — as pure functions. DOM-free. |
 | `lib/render/page/WorkVisibility.ts` | Whether a task or ticket has been done for longer than the window, the stored visibility and the hidden note. DOM-free. |
 | `lib/render/page/LogVisibility.ts` | The log card's cap (`LOG_ENTRIES_SHOWN_BY_DEFAULT`, 10), the stored newest/all choice and the control's and note's text. DOM-free. |
@@ -79,7 +81,9 @@ more than `DONE_WORK_VISIBLE_MILLISECONDS` ago, and a ticket that is `delivered`
 was last `updated` that long ago, are left out of the chart, the ticket table and the
 cards until the viewer picks "Show all" (`#ap-visibility`, stored per tracker). The axis is computed
 from the visible rows only. Done means merged: a `reviewed` row and a `done` ticket await a merge and
-stay visible. This is the page's one clock comparison, and it only decides what is shown.
+stay visible. This is one of the page's two clock comparisons, and it only decides what is shown; the
+other is `lib/render/page/StampText.ts` shortening a stamp from the viewer's day, which decides only
+the text printed.
 
 **The log card, the task column and the agents stat.** The log card shows the newest 10 entries until the viewer presses
 `#ap-log-toggle`, shown only when the log holds more; the island still carries the whole log. `#ap-name-column` sets
@@ -116,7 +120,7 @@ being the surface and starts being a subset of it.
 The consequence: **no `*.spec.ts` may sit in `lib/render/page/`** — a spec's `bun:test` import would
 not resolve there. A page module's spec goes one level up and reaches it by a relative import, which
 is how `lib/render/GanttGeometry.spec.ts`, `lib/render/PageData.spec.ts`,
-`lib/render/PageMarkup.spec.ts`, `lib/render/TaskDetail.spec.ts` and `lib/render/WorkVisibility.spec.ts` are placed. It is also why
+`lib/render/PageMarkup.spec.ts`, `lib/render/TaskDetail.spec.ts`, `lib/render/StampText.spec.ts` and `lib/render/WorkVisibility.spec.ts` are placed. It is also why
 `lib/render/page/GanttPage.ts` holds no logic worth testing: everything that could be was moved into
 the DOM-free modules beside it.
 
@@ -185,7 +189,12 @@ themselves. The five timestamp slice positions travel the same way, so no page m
   dispatcher's claim note lives, is shown among the task facts.
 - **Timestamps stored by the CLI are sliced, never re-parsed**; each carries the offset of the machine
   that recorded it. Instants the page computed (the axis, the now marker, the generated stamp) are
-  formatted, because they have no written-down wall clock to preserve.
+  formatted, because they have no written-down wall clock to preserve. **Every stamp is then shortened
+  against the viewer's day** through `lib/render/page/StampText.ts` and nowhere else: today's shows
+  only its clock, another day of the same year `MM-DD HH:MM`, another year the full date, and the
+  element carrying a shortened one gets the full form as its `title`. "Today" is
+  `calendarDateOf` of the now `lib/render/page/GanttPage.ts` already reads, handed to every markup
+  function as a parameter. The tick labels are axis labels, not stamps, and keep their own rule.
 - **A ticket body is the one unescaped string on the page**, because `lib/render/Markdown.ts` has
   already escaped its raw HTML and dropped every href outside the scheme allowlist.
 - **A failed page bundle is rendered, not refused**: the reason travels in the island and as a

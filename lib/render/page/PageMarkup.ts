@@ -14,13 +14,17 @@ import type {
 import { HtmlEscapeUtil }                 from '../../utils/HtmlEscapeUtil.ts';
 import { TokenCountUtil }                 from '../../utils/TokenCountUtil.ts';
 import type { TimelineBar, TimelineTick } from './GanttGeometry.ts';
-import { spanFitsClockOnlyLabels }        from './GanttGeometry.ts';
 import type { PageTicket }                from './PageData.ts';
+import {
+  fullInstantText,
+  fullStampText,
+  shortInstantText,
+  shortStampText,
+} from './StampText.ts';
 
 const { escapeHtml }       = HtmlEscapeUtil;
 const { formatTokenCount } = TokenCountUtil;
 
-const MILLISECONDS_PER_MINUTE = 60_000;
 const PERCENT_DECIMAL_PLACES  = 2;
 const PERCENT_OF_A_WHOLE     = 100;
 
@@ -80,6 +84,27 @@ export function attribute(name: string, value: string): string {
   return `${name}="${escapeHtml(value)}"`;
 }
 
+/** Text shortened for display, and its full form for the hover, or `null` where nothing was shortened. */
+export interface ShortenedText {
+  text:  string;
+  title: string | null;
+}
+
+function shortenedText(text: string, fullText: string): ShortenedText {
+  return { text, title: text === fullText ? null : fullText };
+}
+
+/** The element carrying a shortened text gets its full form as `title`; an element showing the full form carries none. */
+export function shortenedTextMarkup(tagName: string, text: string, fullText: string, className = ''): string {
+  const classAttribute = className === '' ? '' : ` ${attribute('class', className)}`;
+  const titleAttribute = text === fullText ? '' : ` ${attribute('title', fullText)}`;
+  return `<${tagName}${classAttribute}${titleAttribute}>${escapeHtml(text)}</${tagName}>`;
+}
+
+export function stampMarkup(tagName: string, stamp: string, todayCalendarDate: string, slices: TimestampSlices): string {
+  return shortenedTextMarkup(tagName, shortStampText(stamp, todayCalendarDate, slices), fullStampText(stamp, slices));
+}
+
 export function axisPixelsNeededFor(ticks: readonly TimelineTick[]): number {
   const longestLabel  = ticks.reduce((longest, tick) => Math.max(longest, tick.label.length), 0);
   const perTickPixels = Math.max(TICK_MINIMUM_PIXELS, longestLabel * TICK_PIXELS_PER_LABEL_CHARACTER);
@@ -105,7 +130,7 @@ function pillLabelFor(state: RowState, task: Task): string {
 }
 
 function reviewedTitleFor(task: Task, slices: TimestampSlices): string {
-  return task.reviewed === undefined ? 'Reviewed before delivery' : `Reviewed ${task.reviewed.slice(0, slices.dateAndClockLength).replace('T', ' ')} before delivery`;
+  return task.reviewed === undefined ? 'Reviewed before delivery' : `Reviewed ${fullStampText(task.reviewed, slices)} before delivery`;
 }
 
 // Rows written before the review stamp existed carry none; a delivered ticket had to pass `done`, so its row counts as reviewed.
@@ -238,19 +263,14 @@ export function summaryStatsMarkup(tasks: readonly Task[], concurrency: { limit:
     .join('<span class="ap-sep">&middot;</span>');
 }
 
-/** `entryLimit` keeps the newest that many, `null` all; dates are judged on the whole log, so the stamps keep their form under the limit. */
-export function logItemsMarkup(entries: readonly LogEntry[], slices: TimestampSlices, entryLimit: number | null = null): string {
-  const distinctDates = new Set(entries.map((entry) => entry.at.slice(0, slices.calendarDateLength)));
-  const sliceStart    = distinctDates.size > 1 ? slices.monthAndDaySliceStart : slices.clockSliceStart;
+/** `entryLimit` keeps the newest that many, `null` all; each stamp is shortened against the viewer's day on its own. */
+export function logItemsMarkup(entries: readonly LogEntry[], slices: TimestampSlices, todayCalendarDate: string, entryLimit: number | null = null): string {
   // Within one second the later append is the newer line, so the cap never keeps an older one over it.
   return entries
     .map((entry, appendIndex) => ({ entry, appendIndex }))
     .sort((a, b) => b.entry.at.localeCompare(a.entry.at) || b.appendIndex - a.appendIndex)
     .slice(0, entryLimit ?? entries.length)
-    .map(({ entry }) => {
-      const stamp = entry.at.slice(sliceStart, slices.clockSliceEnd).replace('T', ' ');
-      return `<li><time>${escapeHtml(stamp)}</time><span>${escapeHtml(entry.text)}</span></li>`;
-    })
+    .map(({ entry }) => `<li>${stampMarkup('time', entry.at, todayCalendarDate, slices)}<span>${escapeHtml(entry.text)}</span></li>`)
     .join('');
 }
 
@@ -301,7 +321,7 @@ export function ticketCountText(tickets: readonly PageTicket[]): string {
   return inProgressCount === 0 ? total : `${total} · ${inProgressCount} in progress`;
 }
 
-function ticketMetaMarkup(ticket: PageTicket, slices: TimestampSlices): string {
+function ticketMetaMarkup(ticket: PageTicket, slices: TimestampSlices, todayCalendarDate: string): string {
   const entries: Array<{ label: string; value: string | null | undefined; isTimestamp: boolean }> = [
     { label: 'filed', value: ticket.filed, isTimestamp: true },
     { label: 'started', value: ticket.started, isTimestamp: true },
@@ -315,9 +335,9 @@ function ticketMetaMarkup(ticket: PageTicket, slices: TimestampSlices): string {
   const shown = entries
     .filter((entry) => typeof entry.value === 'string' && entry.value !== '')
     .map((entry) => {
-      const value      = entry.value ?? '';
-      const shownValue = entry.isTimestamp ? value.slice(0, slices.dateAndClockLength).replace('T', ' ') : value;
-      return `<div><b>${escapeHtml(entry.label)}</b><span>${escapeHtml(shownValue)}</span></div>`;
+      const value       = entry.value ?? '';
+      const valueMarkup = entry.isTimestamp ? stampMarkup('span', value, todayCalendarDate, slices) : `<span>${escapeHtml(value)}</span>`;
+      return `<div><b>${escapeHtml(entry.label)}</b>${valueMarkup}</div>`;
     })
     .join('');
   const taskEntry       = ticket.task === null ? '' : `<div><b>task</b><span>${taskLinkMarkup(ticket.task)}</span></div>`;
@@ -326,7 +346,7 @@ function ticketMetaMarkup(ticket: PageTicket, slices: TimestampSlices): string {
   return `<div class="ap-ticket-meta">${shown}${taskEntry}${dependencyEntry}</div>`;
 }
 
-function latestMilestoneText(ticket: PageTicket, slices: TimestampSlices): string {
+function latestMilestoneMarkup(ticket: PageTicket, slices: TimestampSlices, todayCalendarDate: string): string {
   const milestones: Array<[label: string, value: string | null | undefined]> = [
     ['delivered', ticket.delivered],
     ['abandoned', ticket.abandonedAt],
@@ -336,40 +356,39 @@ function latestMilestoneText(ticket: PageTicket, slices: TimestampSlices): strin
   ];
   for (const [label, value] of milestones) {
     if (typeof value === 'string' && value !== '') {
-      return `${label} ${value.slice(slices.clockSliceStart, slices.clockSliceEnd)}`;
+      return shortenedTextMarkup('span', `${label} ${shortStampText(value, todayCalendarDate, slices)}`, `${label} ${fullStampText(value, slices)}`, 'ap-ticket-dates');
     }
   }
   return '';
 }
 
-function ticketCardMarkup(ticket: PageTicket, waitingOn: readonly string[], slices: TimestampSlices): string {
-  const dates = latestMilestoneText(ticket, slices);
-  const head  = [
+function ticketCardMarkup(ticket: PageTicket, waitingOn: readonly string[], slices: TimestampSlices, todayCalendarDate: string): string {
+  const head = [
     `<span class="ap-ticket-id">#${escapeHtml(ticket.id)}</span>`,
     `<h3 class="ap-ticket-title">${escapeHtml(ticket.title)}</h3>`,
     `<span class="ap-badge ${escapeHtml(ticket.status)}">${escapeHtml(ticket.status)}</span>`,
     priorityMarkMarkup(ticket),
     waitingOnMarkup(waitingOn),
-    dates === '' ? '' : `<span class="ap-ticket-dates">${escapeHtml(dates)}</span>`,
+    latestMilestoneMarkup(ticket, slices, todayCalendarDate),
   ].join('');
-  const body  = `${ticketMetaMarkup(ticket, slices)}<div class="ap-ticket-body md">${ticket.bodyHtml}</div>`;
+  const body  = `${ticketMetaMarkup(ticket, slices, todayCalendarDate)}<div class="ap-ticket-body md">${ticket.bodyHtml}</div>`;
   const inner = COLLAPSED_TICKET_STATUSES.includes(ticket.status)
     ? `<details><summary>${head}</summary>${body}</details>`
     : `<div class="ap-ticket-head">${head}</div>${body}`;
   return `<section class="ap-ticket" ${attribute('id', `ap-ticket-${ticket.id}`)}>${inner}</section>`;
 }
 
-export function ticketCardsMarkup(tickets: readonly PageTicket[], waitingOnById: ReadonlyMap<string, readonly string[]>, slices: TimestampSlices): string {
-  return tickets.map((ticket) => ticketCardMarkup(ticket, waitingOnById.get(ticket.id) ?? [], slices)).join('');
+export function ticketCardsMarkup(
+  tickets: readonly PageTicket[],
+  waitingOnById: ReadonlyMap<string, readonly string[]>,
+  slices: TimestampSlices,
+  todayCalendarDate: string,
+): string {
+  return tickets.map((ticket) => ticketCardMarkup(ticket, waitingOnById.get(ticket.id) ?? [], slices, todayCalendarDate)).join('');
 }
 
-function padToTwoDigits(value: number): string {
-  return value < 10 ? `0${value}` : String(value);
-}
-
-export function clockLabelFor(epochMilliseconds: number): string {
-  const moment = new Date(epochMilliseconds);
-  return `${padToTwoDigits(moment.getHours())}:${padToTwoDigits(moment.getMinutes())}`;
+export function generatedStampText(generatedAtEpochMilliseconds: number, todayCalendarDate: string): ShortenedText {
+  return shortenedText(`generated ${shortInstantText(generatedAtEpochMilliseconds, todayCalendarDate)}`, `generated ${fullInstantText(generatedAtEpochMilliseconds)}`);
 }
 
 function tickStepLabel(stepMinutes: number, hourMinutes: number, dayMinutes: number): string {
@@ -383,21 +402,20 @@ function tickStepLabel(stepMinutes: number, hourMinutes: number, dayMinutes: num
 }
 
 export interface RangeNoteLimits {
-  hourMinutes:                number;
-  dayMinutes:                 number;
-  hoursAxisLabelLimitMinutes: number;
+  hourMinutes: number;
+  dayMinutes:  number;
 }
 
-export function rangeNoteText(fromEpochMilliseconds: number, toEpochMilliseconds: number, stepMinutes: number, limits: RangeNoteLimits): string {
-  const spanMinutes = (toEpochMilliseconds - fromEpochMilliseconds) / MILLISECONDS_PER_MINUTE;
-  const moment      = (epochMilliseconds: number): string => {
-    const clock = clockLabelFor(epochMilliseconds);
-    if (spanFitsClockOnlyLabels(spanMinutes, limits.hoursAxisLabelLimitMinutes)) {
-      return clock;
-    }
-    const day = new Date(epochMilliseconds);
-    return `${padToTwoDigits(day.getMonth() + 1)}-${padToTwoDigits(day.getDate())} ${clock}`;
-  };
-  const step = tickStepLabel(stepMinutes, limits.hourMinutes, limits.dayMinutes);
-  return `${moment(fromEpochMilliseconds)} \u2192 ${moment(toEpochMilliseconds)} \u00b7 ${step} ticks`;
+/** Each end is shortened against the viewer's day on its own, unlike the tick labels, which the axis dates by the span it covers. */
+export function rangeNoteText(
+  fromEpochMilliseconds: number,
+  toEpochMilliseconds: number,
+  stepMinutes: number,
+  todayCalendarDate: string,
+  limits: RangeNoteLimits,
+): ShortenedText {
+  const step      = `${tickStepLabel(stepMinutes, limits.hourMinutes, limits.dayMinutes)} ticks`;
+  const shortEnds = `${shortInstantText(fromEpochMilliseconds, todayCalendarDate)} \u2192 ${shortInstantText(toEpochMilliseconds, todayCalendarDate)}`;
+  const fullEnds  = `${fullInstantText(fromEpochMilliseconds)} \u2192 ${fullInstantText(toEpochMilliseconds)}`;
+  return shortenedText(`${shortEnds} \u00b7 ${step}`, `${fullEnds} \u00b7 ${step}`);
 }

@@ -332,6 +332,9 @@ mutating command and reloading itself every 5 minutes. Open it with `agent-progr
 - **Done work older than a day is hidden**: delivered and abandoned tasks and tickets leave the chart
   and the ticket list a day after they closed. Work awaiting merge — a reviewed task, a done ticket —
   stays. **Show all** brings them back; the choice is kept in the browser.
+- **Stamps are as short as the day allows**: one from today shows only its clock (`21:56`), one from
+  another day of the year its month and day too (`09-17 23:48`), one from another year the full date;
+  hover a shortened one for the full stamp.
 - **A ✓ beside a delivered pill** when that task was reviewed before it was delivered; hover it for
   the review time. A delivered task without it went straight from finished to delivered.
 - **An error banner** when a command wrote the store but could not rebuild the page script.
