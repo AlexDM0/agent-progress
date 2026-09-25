@@ -238,7 +238,7 @@ function reviewRowsOf(ticket: PageTicket, tasks: readonly Task[]): Task[] {
     .toSorted((a, b) => a.id - b.id);
 }
 
-function reviewSpansOf(reviewRows: readonly Task[], lastMomentEpochMilliseconds: number): ReviewSpan[] {
+function reviewSpansOf(reviewRows: readonly Task[], lastMomentEpochMilliseconds: number, ticketIsClosed: boolean): ReviewSpan[] {
   const started = reviewRows.flatMap((row) => {
     const startEpochMilliseconds = epochOf(row.start);
     return startEpochMilliseconds === null ? [] : [{ row, startEpochMilliseconds }];
@@ -247,7 +247,7 @@ function reviewSpansOf(reviewRows: readonly Task[], lastMomentEpochMilliseconds:
     const round = index + 1;
     const end   = epochOf(row.end);
     return {
-      ...timelineSpan(round === 1 ? 'reviewing' : 're-review', `Review ${round}`, startEpochMilliseconds, end ?? lastMomentEpochMilliseconds, end === null),
+      ...timelineSpan(round === 1 ? 'reviewing' : 're-review', `Review ${round}`, startEpochMilliseconds, end ?? lastMomentEpochMilliseconds, end === null && !ticketIsClosed),
       round,
       tokens: row.tokens,
     };
@@ -379,7 +379,7 @@ export function ticketTimelineOf(input: TicketTimelineInput): TicketTimeline {
   const queueIsOpen               = firstSegment === undefined && closedState === null;
   const queue                     = timelineSpan('pending', stateLabelOf('pending'), filedEpochMilliseconds, firstSegment?.startEpochMilliseconds ?? lastMoment, queueIsOpen);
   const queuedMilliseconds        = queue.endEpochMilliseconds - queue.startEpochMilliseconds;
-  const reviews                   = reviewSpansOf(reviewRowsOf(ticket, tasks), lastMoment);
+  const reviews                   = reviewSpansOf(reviewRowsOf(ticket, tasks), lastMoment, closedState !== null);
   const afterBuild                = afterBuildSpansOf({
     buildEndEpochMilliseconds:   buildEndOf(ticket, ownRow),
     reviews,

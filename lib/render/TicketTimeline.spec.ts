@@ -337,6 +337,13 @@ describe('the shapes the design did not show', () => {
     expect(timeline.buildSegments.map((segment) => [segment.state, segment.isLive])).toEqual([['running', false], ['running', true]]);
   });
 
+  test('a review bar left running on a delivered ticket ends at the delivery and is not live', () => {
+    const rows     = [...ROWS_055.slice(0, 1), reviewRow(26, '055', 1, '10:52', null, 1_100_000)];
+    const timeline = ticketTimelineOf(inputFor(TICKET_055, rows));
+    expect(timeline.reviews.map((review) => [review.endEpochMilliseconds, review.isLive])).toEqual([[Date.parse(at('13:28')), false]]);
+    expect(ticketTimelineMarkup(inputFor(TICKET_055, rows))).not.toContain('data-live');
+  });
+
   test('a low ticket without a row has no build row and says why', () => {
     const timeline = ticketTimelineOf(inputFor(exampleTicket('073', { priority: 'low', filed: at('12:00') }), []));
     expect(timeline.buildTimeText).toBe('no row');
