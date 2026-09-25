@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img">
+  <title>agent-progress</title>
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2E3140"/>
+      <stop offset="1" stop-color="#15161C"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.10"/>
+      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <pattern id="stripes" width="22" height="22" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="22" height="22" fill="#F0B43C"/>
+      <rect width="9" height="22" fill="#FFFFFF" fill-opacity="0.38"/>
+    </pattern>
+    <clipPath id="tileClip"><rect x="16" y="16" width="480" height="480" rx="108"/></clipPath>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#tile)"/>
+  <g clip-path="url(#tileClip)" stroke="#FFFFFF" stroke-opacity="0.07" stroke-width="3">
+    <line x1="142" y1="90" x2="142" y2="430"/>
+    <line x1="228" y1="90" x2="228" y2="430"/>
+    <line x1="314" y1="90" x2="314" y2="430"/>
+  </g>
+  <rect x="96" y="128" width="150" height="40" rx="20" fill="#A184F0"/>
+  <rect x="140" y="196" width="196" height="40" rx="20" fill="#4CC38A"/>
+  <rect x="220" y="264" width="150" height="40" rx="20" fill="#2FB8CC"/>
+  <rect x="286" y="332" width="112" height="40" rx="20" fill="url(#stripes)"/>
+  <line x1="398" y1="104" x2="398" y2="410" stroke="#FF5A4E" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="398" cy="104" r="14" fill="#FF5A4E"/>
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#sheen)"/>
+  <rect x="17.5" y="17.5" width="477" height="477" rx="106.5" fill="none" stroke="#FFFFFF" stroke-opacity="0.10" stroke-width="3"/>
+</svg>

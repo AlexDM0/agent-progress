@@ -230,8 +230,10 @@ eslint.config.js         ESLint 9 flat config: the shared rules, plus the devDep
 bun.lock                 The lockfile. Committed, as a tool installed by `git clone` needs it.
 .gitignore               `node_modules/`, `.agent-progress/`, `.DS_Store`.
 CLAUDE.md                This file: the conventions, and this map.
-README.md                For a person: install, adopting a repository, the dashboard, the command
-                         reference, the file formats, and the three decisions worth knowing.
+README.md                The GitHub landing page, in the "product page" layout: what the tool does,
+                         screenshots of a synthetic board, how it works with agents, setup.sh, init.
+README-keynote.md        The same page in a "keynote" layout, kept beside README.md for comparison.
+README-day-on-the-board.md  The same page told as one day on a synthetic board, also for comparison.
 setup.sh                 Machine setup in three steps — Bun ≥ 1.2, `bun install` + `bun link`, and
                          a symlink under `~/.claude/skills/` for each bundled skill folder.
 
@@ -261,7 +263,10 @@ templates/               The markdown this tool writes into somebody else's repo
                          limit, and decides rounds and parking in code. Its decisions are pinned by
                          `lib/tooling/dev/DispatchScriptHarness.spec.ts`.
 docs/                    `docs/backlog.md`: what is agreed and not started, with the reason it is
-                         not done yet. Not a status page.
+                         not done yet. Not a status page. `docs/cli.md`: every command, flag, exit
+                         code and file format. `docs/development.md`: working on this repository.
+                         `docs/images/`: the READMEs' screenshots, panels and diagrams, all of a
+                         synthetic "Example Storefront" board; diagram sources kept as SVG beside them.
 node_modules/            Git-ignored dependencies.
 ```
 

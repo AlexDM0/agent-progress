@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" height="500" viewBox="0 0 680 500" role="img" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif">
+  <title>Everything goes through one CLI</title>
+  <desc>You talk to the orchestrator session, which files tickets and starts the dispatcher workflow; the dispatcher runs builder and reviewer agents, and reviewers release to main. The orchestrator, builders, reviewers and a SubagentStop hook all write through the agent-progress CLI, which writes .agent-progress/ and re-renders progress.html for your browser.</desc>
+  <defs>
+    <marker id="ah" markerWidth="9" markerHeight="9" refX="6" refY="4.5" orient="auto">
+      <path d="M0,0 L8,4.5 L0,9 z" fill="#73726c"/>
+    </marker>
+    <marker id="ahl" markerWidth="9" markerHeight="9" refX="2" refY="4.5" orient="auto">
+      <path d="M8,0 L0,4.5 L8,9 z" fill="#73726c"/>
+    </marker>
+  </defs>
+
+  <rect x="1" y="1" width="678" height="498" rx="16" fill="#FAF9F5" stroke="#ECE7DC" stroke-width="1.5"/>
+
+  <text x="40" y="46" font-size="18" font-weight="500" fill="#3d3d3a">Everything goes through one CLI</text>
+  <text x="40" y="68" font-size="13" fill="#73726c">so the board can never disagree with the work</text>
+
+  <!-- connectors -->
+  <g fill="none" stroke="#bfbdb0" stroke-width="1.6">
+    <path d="M92,120 L120,120" marker-start="url(#ahl)" marker-end="url(#ah)"/>
+    <path d="M320,120 L348,120" marker-end="url(#ah)"/>
+    <path d="M426,148 L426,192" marker-end="url(#ah)"/>
+    <path d="M426,172 L294,172 L294,192" marker-end="url(#ah)"/>
+    <path d="M488,224 L576,224" marker-end="url(#ah)"/>
+    <path d="M170,148 L170,296" marker-end="url(#ah)"/>
+    <path d="M294,252 L294,296" marker-end="url(#ah)"/>
+    <path d="M426,252 L426,296" marker-end="url(#ah)"/>
+    <path d="M500,328 L454,328" marker-end="url(#ah)"/>
+    <path d="M130,356 L130,400" marker-end="url(#ah)"/>
+    <path d="M220,442 L260,442" marker-end="url(#ah)"/>
+    <path d="M434,442 L466,442" marker-end="url(#ah)"/>
+  </g>
+  <g font-size="11" fill="#73726c" text-anchor="middle">
+    <text x="532" y="203">release:</text>
+    <text x="532" y="217">fast-forward</text>
+    <text x="475" y="321">tokens</text>
+  </g>
+
+  <!-- band 1: who acts -->
+  <rect x="40" y="92" width="48" height="56" rx="8" fill="#F1EFE8" stroke="#E1DDD0"/>
+  <text x="64" y="125" font-size="14" font-weight="500" fill="#444441" text-anchor="middle">You</text>
+
+  <rect x="124" y="92" width="196" height="56" rx="8" fill="#E6F1FB" stroke="#CFE2F6"/>
+  <text x="222" y="116" font-size="14" font-weight="500" fill="#0C447C" text-anchor="middle">Orchestrator session</text>
+  <text x="222" y="134" font-size="12" fill="#185FA5" text-anchor="middle">agent-progress-orchestrate skill</text>
+
+  <rect x="352" y="92" width="148" height="56" rx="8" fill="#E6F1FB" stroke="#CFE2F6"/>
+  <text x="426" y="116" font-size="14" font-weight="500" fill="#0C447C" text-anchor="middle">Dispatcher workflow</text>
+  <text x="426" y="134" font-size="12" fill="#185FA5" text-anchor="middle">decides rounds in code</text>
+
+  <rect x="232" y="196" width="124" height="56" rx="8" fill="#FAEEDA" stroke="#F2DDB0"/>
+  <text x="294" y="220" font-size="14" font-weight="500" fill="#633806" text-anchor="middle">Builders</text>
+  <text x="294" y="238" font-size="12" fill="#854F0B" text-anchor="middle">Opus · own worktree</text>
+
+  <rect x="364" y="196" width="124" height="56" rx="8" fill="#FAEEDA" stroke="#F2DDB0"/>
+  <text x="426" y="220" font-size="14" font-weight="500" fill="#633806" text-anchor="middle">Reviewers</text>
+  <text x="426" y="238" font-size="12" fill="#854F0B" text-anchor="middle">Opus · own worktree</text>
+
+  <rect x="580" y="196" width="60" height="56" rx="8" fill="#EAF3DE" stroke="#D3E6BC"/>
+  <text x="610" y="229" font-size="14" font-weight="500" fill="#27500A" text-anchor="middle" font-family="ui-monospace,Menlo,Consolas,monospace">main</text>
+
+  <!-- band 2: the single writer -->
+  <rect x="40" y="300" width="410" height="56" rx="8" fill="#FAECE7" stroke="#F3D2C5"/>
+  <text x="245" y="324" font-size="14" font-weight="500" fill="#712B13" text-anchor="middle">agent-progress CLI</text>
+  <text x="245" y="342" font-size="12" fill="#993C1D" text-anchor="middle">lock · atomic write · re-render</text>
+
+  <rect x="500" y="306" width="140" height="44" rx="8" fill="#FAF9F5" stroke="#E0A48C" stroke-width="1.2"/>
+  <text x="570" y="333" font-size="14" font-weight="500" fill="#712B13" text-anchor="middle">SubagentStop hook</text>
+
+  <!-- band 3: what it writes -->
+  <rect x="40" y="404" width="180" height="76" rx="8" fill="#F1EFE8" stroke="#E1DDD0"/>
+  <g font-family="ui-monospace,Menlo,Consolas,monospace" text-anchor="middle">
+    <text x="130" y="428" font-size="14" font-weight="500" fill="#444441">.agent-progress/</text>
+    <text x="130" y="450" font-size="11" fill="#5F5E5A">progress.json</text>
+    <text x="130" y="466" font-size="11" fill="#5F5E5A">tickets/*.md</text>
+  </g>
+
+  <rect x="264" y="414" width="170" height="56" rx="8" fill="#EAF3DE" stroke="#D3E6BC"/>
+  <text x="349" y="438" font-size="14" font-weight="500" fill="#27500A" text-anchor="middle">progress.html</text>
+  <text x="349" y="456" font-size="12" fill="#3B6D11" text-anchor="middle">one file, no server</text>
+
+  <rect x="470" y="414" width="170" height="56" rx="8" fill="#F1EFE8" stroke="#E1DDD0"/>
+  <text x="555" y="438" font-size="14" font-weight="500" fill="#444441" text-anchor="middle">Your browser</text>
+  <text x="555" y="456" font-size="12" fill="#5F5E5A" text-anchor="middle">reloads every 5 min</text>
+</svg>
