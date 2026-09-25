@@ -2,7 +2,7 @@
  * Merges the `SubagentStop` hook entry into a repository's Claude settings file, adding it only when no
  * identical command is there and handing every other key back unchanged.
  * A file that will not parse is **refused, never overwritten**, since the tool cannot tell a corrupted document from an unknown format.
- * Written through `lib/platform/AtomicFile.ts`, unlike `.gitignore` and `CLAUDE.md`, because the harness reads it at moments nobody controls.
+ * Written through `lib/platform/AtomicFile.ts` because the harness reads it at moments nobody controls.
  */
 import { readFileSync, statSync } from 'node:fs';
 import { join }                   from 'node:path';

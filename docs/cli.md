@@ -94,8 +94,8 @@ Claude Code files under `.claude/`, each written by default and each with its ow
    `.git/info/exclude` gets no diff at all.
 4. **The managed block**, between `<!-- agent-progress:managed:start -->` and
    `<!-- agent-progress:managed:end -->`, telling the next agent to track its work through the tool.
-   The file is written in place, so a symlinked `CLAUDE.md` stays a symlink; a start marker with no
-   end marker is refused and the file is left alone.
+   The file is replaced atomically at the path its symlink resolves to, so a symlinked `CLAUDE.md`
+   stays a symlink; a start marker with no end marker is refused and the file is left alone.
 5. **The hook**, under an empty matcher so every subagent type is recorded. It goes into
    `.claude/settings.local.json` — the per-user file Claude Code applies over the shared one and keeps
    out of git — so an accurate token figure needs no flag and lands in nothing colleagues share. A

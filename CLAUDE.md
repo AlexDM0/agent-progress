@@ -80,8 +80,7 @@ lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/, lib/tic
 - A record keyed by outside text is indexed through `Object.hasOwn`, never a bare lookup.
 - A command takes everything from its `CommandContext` (directory, now, streams, standard input, prompt, platform),
   never from the process.
-- Every write of a file a reader may hold open goes through `lib/platform/AtomicFile.ts`. Today's two in-place
-  exceptions, `.gitignore` and `CLAUDE.md`, say so at their site.
+- Every write of a file a reader may hold open goes through `lib/platform/AtomicFile.ts`.
 - A clock decides nothing: identity is a content hash, staleness a set difference or a version number, and
   timestamps are recorded and displayed. Each exception is stated in a comment at its site.
 

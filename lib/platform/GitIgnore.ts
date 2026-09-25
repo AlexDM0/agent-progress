@@ -1,13 +1,13 @@
 /**
  * Keep `.agent-progress/` out of the repository it tracks. `git check-ignore` decides rather than a
  * scan of `.gitignore`, so a repository that already covers the directory in any way gets no diff,
- * and the exact-line scan is only the fallback for a machine with no git. The write is in place
- * rather than through `lib/platform/AtomicFile.ts`, because nothing holds a `.gitignore` open.
+ * and the exact-line scan is only the fallback for a machine with no git.
  */
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { join }                                    from 'node:path';
+import { existsSync, readFileSync } from 'node:fs';
+import { join }                     from 'node:path';
 
 import { TRACKER_DIRECTORY_NAME } from '../constants/Statuses';
+import { writeFileAtomically }    from './AtomicFile';
 
 const IGNORE_LINE = `${TRACKER_DIRECTORY_NAME}/`;
 
@@ -52,7 +52,7 @@ export function ensureIgnored(rootDirectory: string): EnsureIgnoredOutcome {
     // Fail closed: a directory holding a `.git` entry is a repository even when git itself refused to answer.
     const rootIsARepository = gitVerdict === false || existsSync(join(rootDirectory, '.git'));
     if (!rootIsARepository) return 'no-gitignore-written';
-    writeFileSync(gitIgnorePath, `${IGNORE_LINE}\n`);
+    writeFileAtomically(gitIgnorePath, `${IGNORE_LINE}\n`);
     return 'appended';
   }
 
@@ -61,6 +61,6 @@ export function ensureIgnored(rootDirectory: string): EnsureIgnoredOutcome {
 
   const lineEnding = existingContent.includes('\r\n') ? '\r\n' : '\n';
   const separator = existingContent.length > 0 && !existingContent.endsWith('\n') ? lineEnding : '';
-  writeFileSync(gitIgnorePath, `${existingContent}${separator}${IGNORE_LINE}${lineEnding}`);
+  writeFileAtomically(gitIgnorePath, `${existingContent}${separator}${IGNORE_LINE}${lineEnding}`);
   return 'appended';
 }

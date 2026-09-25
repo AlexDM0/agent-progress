@@ -1,9 +1,20 @@
 /**
  * What `init` does to a repository's `.gitignore` and, mostly, when it does nothing: any pattern that
  * already covers the tracker must produce no diff, and a plain directory gains no file nobody asked for.
+ * A symlinked or permission-restricted `.gitignore` survives the append as it was, replaced whole rather than rewritten in place.
  */
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { join }                                    from 'node:path';
+import {
+  chmodSync,
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  symlinkSync,
+  writeFileSync
+} from 'node:fs';
+import { join } from 'node:path';
 import {
   afterAll,
   describe,
@@ -18,6 +29,10 @@ import {
   removeScratchDirectory
 } from '../tooling/dev/ScratchWorkspace';
 import { ensureIgnored } from './GitIgnore';
+
+const OWNER_READ_WRITE_GROUP_READ_MODE = 0o640;
+
+const PERMISSION_BITS = 0o777;
 
 const scratchDirectories: string[] = [];
 
@@ -127,4 +142,38 @@ test('a directory that is no repository but already has a .gitignore still gains
   writeFileSync(join(plainDirectory, '.gitignore'), 'node_modules/\n');
   expect(ensureIgnored(plainDirectory)).toBe('appended');
   expect(gitIgnoreIn(plainDirectory)).toBe('node_modules/\n.agent-progress/\n');
+});
+
+test('a symlinked .gitignore stays a symlink and the line lands on the file it points at', () => {
+  const plainDirectory = scratchDirectory('gitignore-symlink');
+  const sharedConfigDirectory = join(plainDirectory, 'shared-config');
+  mkdirSync(sharedConfigDirectory);
+  const realPath = join(sharedConfigDirectory, 'gitignore');
+  const linkPath = join(plainDirectory, '.gitignore');
+  writeFileSync(realPath, 'node_modules/\n');
+  symlinkSync(realPath, linkPath);
+
+  expect(ensureIgnored(plainDirectory)).toBe('appended');
+
+  expect(lstatSync(linkPath).isSymbolicLink(), 'the link is still a link').toBe(true);
+  expect(readFileSync(realPath, 'utf8')).toBe('node_modules/\n.agent-progress/\n');
+});
+
+test('an existing .gitignore keeps its permission bits', () => {
+  const plainDirectory = scratchDirectory('gitignore-mode');
+  const gitIgnorePath = join(plainDirectory, '.gitignore');
+  writeFileSync(gitIgnorePath, 'node_modules/\n');
+  chmodSync(gitIgnorePath, OWNER_READ_WRITE_GROUP_READ_MODE);
+  expect(ensureIgnored(plainDirectory)).toBe('appended');
+  expect(statSync(gitIgnorePath).mode & PERMISSION_BITS).toBe(OWNER_READ_WRITE_GROUP_READ_MODE);
+});
+
+test('the .gitignore is replaced rather than rewritten in place, and no temporary file is left beside it', () => {
+  const plainDirectory = scratchDirectory('gitignore-replaced-not-rewritten');
+  const gitIgnorePath = join(plainDirectory, '.gitignore');
+  writeFileSync(gitIgnorePath, 'node_modules/\n');
+  const inodeBeforeWrite = statSync(gitIgnorePath).ino;
+  expect(ensureIgnored(plainDirectory)).toBe('appended');
+  expect(statSync(gitIgnorePath).ino).not.toBe(inodeBeforeWrite);
+  expect(readdirSync(plainDirectory)).toEqual(['.gitignore']);
 });

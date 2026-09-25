@@ -1,15 +1,19 @@
 /**
  * What the tool may do to somebody's `CLAUDE.md`: everything outside the managed region survives byte
  * for byte, a start marker with no end is refused, and a symlinked file stays a symlink.
+ * The file is replaced whole, never rewritten in place, and its permission bits survive the replacement.
  */
 import {
+  chmodSync,
   lstatSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
+  statSync,
   symlinkSync,
   writeFileSync
 } from 'node:fs';
-import { join }                   from 'node:path';
+import { dirname, join }          from 'node:path';
 import { afterAll, expect, test } from 'bun:test';
 
 import { CLAUDE_MANAGED_END, CLAUDE_MANAGED_START }       from '../constants/Statuses';
@@ -18,6 +22,10 @@ import { writeManagedBlock }                              from './ClaudeInstruct
 
 const BLOCK_BODY = 'This repository tracks work with `agent-progress`. Load the agent-progress skill.';
 const EXPECTED_BLOCK = `${CLAUDE_MANAGED_START}\n${BLOCK_BODY}\n${CLAUDE_MANAGED_END}`;
+
+const OWNER_READ_WRITE_GROUP_READ_MODE = 0o640;
+
+const PERMISSION_BITS = 0o777;
 
 const scratchDirectories: string[] = [];
 
@@ -118,4 +126,37 @@ test('a multi-line body is written between the markers exactly as given', () => 
   const claudeFilePath = claudeFileWith('claude-multiline-body', null);
   expect(writeManagedBlock(claudeFilePath, multiLineBody)).toBe('created');
   expect(readFileSync(claudeFilePath, 'utf8')).toBe(`${CLAUDE_MANAGED_START}\n${multiLineBody}\n${CLAUDE_MANAGED_END}\n`);
+});
+
+test('an existing CLAUDE.md keeps its permission bits across the rewrite', () => {
+  const claudeFilePath = claudeFileWith('claude-mode', '# Example Agency\n');
+  chmodSync(claudeFilePath, OWNER_READ_WRITE_GROUP_READ_MODE);
+  expect(writeManagedBlock(claudeFilePath, BLOCK_BODY)).toBe('appended');
+  expect(statSync(claudeFilePath).mode & PERMISSION_BITS).toBe(OWNER_READ_WRITE_GROUP_READ_MODE);
+});
+
+// A reader holding the old file open keeps reading the old bytes only when the file is replaced by a rename.
+test('the file is replaced rather than rewritten in place, and no temporary file is left beside it', () => {
+  const claudeFilePath = claudeFileWith('claude-replaced-not-rewritten', '# Example Agency\n');
+  const inodeBeforeWrite = statSync(claudeFilePath).ino;
+  expect(writeManagedBlock(claudeFilePath, BLOCK_BODY)).toBe('appended');
+  expect(statSync(claudeFilePath).ino).not.toBe(inodeBeforeWrite);
+  expect(readdirSync(dirname(claudeFilePath))).toEqual(['CLAUDE.md']);
+});
+
+test('a symlinked CLAUDE.md keeps the mode of the file it points at', () => {
+  const directory = scratchDirectory('claude-symlink-mode');
+  const realDirectory = join(directory, 'config-repository');
+  mkdirSync(realDirectory);
+  const realPath = join(realDirectory, 'CLAUDE.md');
+  const linkPath = join(directory, 'CLAUDE.md');
+  writeFileSync(realPath, '# Example Agency\n');
+  chmodSync(realPath, OWNER_READ_WRITE_GROUP_READ_MODE);
+  symlinkSync(realPath, linkPath);
+
+  expect(writeManagedBlock(linkPath, BLOCK_BODY)).toBe('appended');
+
+  expect(lstatSync(linkPath).isSymbolicLink(), 'the link is still a link').toBe(true);
+  expect(readFileSync(realPath, 'utf8')).toBe(`# Example Agency\n\n${EXPECTED_BLOCK}\n`);
+  expect(statSync(realPath).mode & PERMISSION_BITS).toBe(OWNER_READ_WRITE_GROUP_READ_MODE);
 });
