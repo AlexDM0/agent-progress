@@ -1396,6 +1396,54 @@
       "ranAway": false,
       "resumed": false
     },
+    "decisions: a board stopped after a does-not-hold leaves the queued rebuild for the user's go and out of the paused builds": {
+      "calls": [
+        "main|survey|null|null|haiku|low|survey|Survey|d7e8ad299a422606|ade1795a34e5b33b|0|0",
+        "main|build|001|1|opus|medium|build #001|Build|62fd595ac3d04a90|b2aa9b83f09f2d8f|1|0",
+        "main|review|001|1|opus|medium|review 1 #001|Review|2b058569dd2533cb|cf66cfd6a4335b19|2|0"
+      ],
+      "phasesEntered": [
+        "main|Survey",
+        "main|Build"
+      ],
+      "logs": [
+        "#001: the review found it does not hold; a fresh agent takes it.",
+        "The board is stopped: no new agent starts, and the 0 in flight finish.",
+        "Left for the user's go: #001.",
+        "Done: 0 delivered, 0 parked, 0 findings filed, 3 agents run."
+      ],
+      "racingLogs": [],
+      "relaunchLogs": [],
+      "summaryJson": "{\"delivered\":[],\"parked\":[],\"findingsFiled\":[],\"agentsRun\":3,\"stoppedByBoard\":true}",
+      "racingSummaryJson": "null",
+      "relaunchSummaryJson": "null",
+      "threw": null,
+      "counts": {
+        "mostAgentsAtOnce": 1,
+        "mostAgentsInFlightAtOnce": 1,
+        "mostLiveAgentsAtOnce": 1,
+        "mostAgentsOnBoardAtOnce": 1
+      },
+      "statusSide": {
+        "buildersOnBoard": [
+          "main build 001"
+        ],
+        "slotGaps": [],
+        "rowsRunningAtEnd": [],
+        "rowsPaused": [],
+        "reviewBarsAdded": [
+          "review 001"
+        ],
+        "rereviewsRun": [],
+        "heldTicketIdsReturned": [
+          [],
+          [],
+          []
+        ]
+      },
+      "ranAway": false,
+      "resumed": false
+    },
     "decisions: a takeover kept out because agents elsewhere hold the whole limit starts no parking agent over it, and the log hands its row on by name": {
       "calls": [
         "main|survey|null|null|haiku|low|survey|Survey|d7e8ad299a422606|ade1795a34e5b33b|0|0",

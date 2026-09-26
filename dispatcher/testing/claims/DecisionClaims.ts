@@ -404,6 +404,21 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     mutant: LEAVE_TAKEOVERS_UNSTARTED_RUNNING,
   },
   {
+    // A rebuild queued by does-not-hold has no paused row, so a stop that keeps it from starting leaves it waiting, not among the paused builds to resume.
+    name:        'a board stopped after a does-not-hold leaves the queued rebuild for the user\'s go and out of the paused builds',
+    scenarioFor: () => ({
+      limit:          2,
+      readyTicketIds: ['001'],
+      reviewerReply:  () => ({ verdict: 'does-not-hold' }),
+      afterAgent:     (call, board) => { if (call.kind === 'review') board.dispatcherState = 'stopped'; },
+    }),
+    holds: (run) => kindsAndTickets(run).join(', ') === 'survey, build 001, review 001'
+      && runSummaryOf(run).pausedBuilds === undefined
+      && parkedIds(run).length === 0
+      && run.logs.some((message) => message.includes('Left for the user\'s go: #001')),
+    mutant: { modulePath: DISPATCH_RUN, find: 'rebuild.rowIsPaused === true && ', replace: '' },
+  },
+  {
     // The limit bounds agents alive, and a parking agent is one: with no agent just finished for it to replace, it would be one over the limit.
     name:        'a takeover kept out because agents elsewhere hold the whole limit starts no parking agent over it, and the log hands its row on by name',
     scenarioFor: () => ({
