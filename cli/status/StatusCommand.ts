@@ -6,7 +6,7 @@ import type { Board }                     from '../../src/lib/tracker-model/Boar
 import { TASK_STATUSES, TICKET_STATUSES } from '../../src/lib/tracker-model/constants/Statuses';
 import { TimeUtil }                       from '../../src/lib/utils/TimeUtil';
 import { TokenCountUtil }                 from '../../src/lib/utils/TokenCountUtil';
-import { listTickets }                    from '../../src/services/tracker/TicketStore';
+import { requireTracker }                 from '../../src/services/tracker/TrackerReader';
 import { requireWorkspace }               from '../../src/services/tracker/Workspace';
 import type { WordedLogEntry }            from '../../src/shared/@types/WordedLogEntry';
 import { LIMITS }                         from '../../src/shared/constants/Limits';
@@ -18,7 +18,6 @@ import {
   printEntityThenNextLine,
   readyTicketsOf,
   reportIgnoredTicketFiles,
-  requireProgressFileAndStoredLog,
   ticketDocumentOf,
   type ReadyTicket
 } from '../CommandSupport';
@@ -168,10 +167,8 @@ export const statusCommand: CommandHandler = async (commandArguments, context) =
   commandArguments.rejectExtraPositionals(0, USAGE);
 
   const workspace = requireWorkspace(context.currentDirectory);
-  const { progressReading, storedLog } = requireProgressFileAndStoredLog(workspace);
+  const { progress, storedLog, listing } = requireTracker(workspace);
   const wordedLog       = storedLog.records.map(LogUtil.wordedEntryOf);
-  const { progress } = progressReading;
-  const listing         = listTickets(workspace);
   const board           = boardForReading(progress, listing.tickets);
 
   reportIgnoredTicketFiles(context, listing.malformed);

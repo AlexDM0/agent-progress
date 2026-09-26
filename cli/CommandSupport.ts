@@ -4,44 +4,38 @@
  * `lib/render/Rerender.ts` — all inside the lock, in that order, so no older render lands last and the progress file is never behind the
  * tickets. A log taken over from a version 1 progress file also has its notes copied first, so they are on disk before that file stops holding them.
  */
-import { rerenderDashboard, type RerenderOutcome }               from '../lib/render/Rerender';
-import { NextLineUtil }                                          from '../lib/utils/NextLineUtil';
-import { LogFileIngestion, type LogFileReading }                 from '../src/adapters/log/LogFileIngestion';
-import { createLogFileSink }                                     from '../src/adapters/log/LogFileSink';
-import { createLogFileWriter }                                   from '../src/adapters/log/LogFileWriter';
-import { TrackerLogUtil, type StoredLog, type StoredLogReading } from '../src/adapters/log/utils/TrackerLogUtil';
-import { ProgressFileIngestion, type ProgressFileReading }       from '../src/adapters/progress/ProgressFileIngestion';
-import { createProgressFileWriter }                              from '../src/adapters/progress/ProgressFileWriter';
-import { createTicketFileWriter }                                from '../src/adapters/tickets/TicketFileWriter';
-import type { Concurrency }                                      from '../src/lib/tracker-model/@types/Concurrency';
-import type { LogRecord }                                        from '../src/lib/tracker-model/@types/LogRecord';
-import type { DispatcherState, ProgressFile }                    from '../src/lib/tracker-model/@types/ProgressFile';
+import { rerenderDashboard, type RerenderOutcome, type TrackerReads } from '../lib/render/Rerender';
+import { NextLineUtil }                                               from '../lib/utils/NextLineUtil';
+import { LogFileIngestion }                                           from '../src/adapters/log/LogFileIngestion';
+import { createLogFileSink }                                          from '../src/adapters/log/LogFileSink';
+import { createLogFileWriter }                                        from '../src/adapters/log/LogFileWriter';
+import { TrackerLogUtil }                                             from '../src/adapters/log/utils/TrackerLogUtil';
+import { ProgressFileIngestion }                                      from '../src/adapters/progress/ProgressFileIngestion';
+import { createProgressFileWriter }                                   from '../src/adapters/progress/ProgressFileWriter';
+import { createTicketFileWriter }                                     from '../src/adapters/tickets/TicketFileWriter';
+import type { Concurrency }                                           from '../src/lib/tracker-model/@types/Concurrency';
+import type { DispatcherState, ProgressFile }                         from '../src/lib/tracker-model/@types/ProgressFile';
 import type {
   AgentEffort,
   AgentModel,
   Ticket,
   TicketPriority
 } from '../src/lib/tracker-model/@types/Ticket';
-import { Board }                 from '../src/lib/tracker-model/Board';
-import { refusalIsBoardRefusal } from '../src/lib/tracker-model/BoardRefusal';
-import { createLogger }          from '../src/lib/tracker-model/Logger';
-import { ConcurrencyUtil }       from '../src/lib/tracker-model/utils/ConcurrencyUtil';
-import { TicketDefaultsUtil }    from '../src/lib/tracker-model/utils/TicketDefaultsUtil';
-import { TimeUtil }              from '../src/lib/utils/TimeUtil';
-import { TokenCountUtil }        from '../src/lib/utils/TokenCountUtil';
-import {
-  deleteAllTickets,
-  listTickets,
-  type MalformedTicketFile,
-  type TicketListing
-} from '../src/services/tracker/TicketStore';
-import { withLock }                                    from '../src/services/tracker/TrackerLock';
-import { requireWorkspace, type Workspace }            from '../src/services/tracker/Workspace';
-import type { UnreadableTracker }                      from '../src/shared/@types/UnreadableTracker';
-import { OperationRefusal, refusalIsOperationRefusal } from '../src/shared/OperationRefusal';
-import { LIMITS }                                      from '../src/shared/constants/Limits';
-import type { CommandContext }                         from './CommandContext';
-import type { ArgumentParser }                         from './arguments/ArgumentParser';
+import { Board }                                                   from '../src/lib/tracker-model/Board';
+import { refusalIsBoardRefusal }                                   from '../src/lib/tracker-model/BoardRefusal';
+import { createLogger }                                            from '../src/lib/tracker-model/Logger';
+import { ConcurrencyUtil }                                         from '../src/lib/tracker-model/utils/ConcurrencyUtil';
+import { TicketDefaultsUtil }                                      from '../src/lib/tracker-model/utils/TicketDefaultsUtil';
+import { TimeUtil }                                                from '../src/lib/utils/TimeUtil';
+import { TokenCountUtil }                                          from '../src/lib/utils/TokenCountUtil';
+import { deleteAllTickets, listTickets, type MalformedTicketFile } from '../src/services/tracker/TicketStore';
+import { withLock }                                                from '../src/services/tracker/TrackerLock';
+import { readTracker, requireTracker, type TrackerContents }       from '../src/services/tracker/TrackerReader';
+import { requireWorkspace, type Workspace }                        from '../src/services/tracker/Workspace';
+import { OperationRefusal }                                        from '../src/shared/OperationRefusal';
+import { LIMITS }                                                  from '../src/shared/constants/Limits';
+import type { CommandContext }                                     from './CommandContext';
+import type { ArgumentParser }                                     from './arguments/ArgumentParser';
 
 export interface TrackerChange {
   board:                          Board;
@@ -91,78 +85,6 @@ export function padColumn(text: string, width: number): string {
 /** The priority is spelled out even where the file leaves it to the default, so a script never has to know what an absent key means. */
 export function ticketDocumentOf(ticket: Ticket): Ticket['frontmatter'] & { priority: TicketPriority; filePath: string } {
   return { ...ticket.frontmatter, priority: TicketDefaultsUtil.ticketPriorityOf(ticket.frontmatter), filePath: ticket.filePath };
-}
-
-export type ReadableProgressFile = Extract<ProgressFileReading, { verdict: 'readable' }>;
-
-/**
- * Without the lock, for the read-only commands, this reads either the old file or the new one, since it is written atomically. Unreadable is
- * `'unrepaired'`: under the lock the file was there a moment ago, so it vanished or broke under the command.
- */
-export function requireProgressFileReading(workspace: Workspace): ReadableProgressFile {
-  const progressRead = new ProgressFileIngestion(workspace.progressFilePath).read();
-  if (progressRead.verdict === 'absent') {
-    throw new OperationRefusal('unrepaired', { kind: 'unreadable-tracker', reading: { verdict: 'absent', filePath: workspace.progressFilePath } });
-  }
-  if (progressRead.verdict === 'unreadable') {
-    const reading: UnreadableTracker = {
-      verdict:        'unreadable',
-      unreadableFile: 'progress-file',
-      filePath:       workspace.progressFilePath,
-      reason:         progressRead.reason,
-    };
-    throw new OperationRefusal('unrepaired', { kind: 'unreadable-tracker', reading });
-  }
-  return progressRead;
-}
-
-export function requireProgressFile(workspace: Workspace): ProgressFile {
-  return requireProgressFileReading(workspace).progress;
-}
-
-function readLogFile(workspace: Workspace): LogFileReading {
-  return new LogFileIngestion(workspace.logFilePath).read();
-}
-
-/** `embeddedLog` is the progress file's own log, which a version 1 file has; `src/adapters/log/utils/TrackerLogUtil.ts` decides between the two. */
-function storedLogFrom(workspace: Workspace, embeddedLog: readonly LogRecord[] | null, logFileReading: LogFileReading): StoredLogReading {
-  return TrackerLogUtil.storedLogOf(embeddedLog, logFileReading, { logFilePath: workspace.logFilePath, progressFilePath: workspace.progressFilePath });
-}
-
-export function readStoredLog(workspace: Workspace, embeddedLog: readonly LogRecord[] | null): StoredLogReading {
-  return storedLogFrom(workspace, embeddedLog, readLogFile(workspace));
-}
-
-/** Unreadable is `'unrepaired'`, as an unreadable progress file is: no command repairs a log it cannot read. */
-function storedLogOrRefusal(workspace: Workspace, storedLog: StoredLogReading): StoredLog {
-  if (storedLog.verdict === 'unreadable') {
-    const reading: UnreadableTracker = {
-      verdict:        'unreadable',
-      unreadableFile: 'log-file',
-      filePath:       workspace.logFilePath,
-      reason:         storedLog.reason,
-    };
-    throw new OperationRefusal('unrepaired', { kind: 'unreadable-tracker', reading });
-  }
-  return storedLog;
-}
-
-export function requireStoredLog(workspace: Workspace, embeddedLog: readonly LogRecord[] | null): StoredLog {
-  return storedLogOrRefusal(workspace, readStoredLog(workspace, embeddedLog));
-}
-
-/**
- * Without the lock the log is read first, so a version 1 progress file only sits beside an absent log or its own copied notes; an absent log
- * beside a version 2 file may have been written between the two reads, so it is read again.
- */
-export function requireProgressFileAndStoredLog(workspace: Workspace): { progressReading: ReadableProgressFile; storedLog: StoredLog } {
-  const logFileReadingBeforeProgress = readLogFile(workspace);
-  const progressReading              = requireProgressFileReading(workspace);
-  const logFileReading               = progressReading.embeddedLog === null && logFileReadingBeforeProgress.verdict === 'absent'
-    ? readLogFile(workspace)
-    : logFileReadingBeforeProgress;
-  const storedLog = storedLogOrRefusal(workspace, storedLogFrom(workspace, progressReading.embeddedLog, logFileReading));
-  return { progressReading, storedLog };
 }
 
 export function ignoredTicketFileText(malformed: { filePath: string; line: number; reason: string }): string {
@@ -228,15 +150,14 @@ export function nextLineFor(board: Board): string {
   });
 }
 
-function trackerReads(): {
-  readProgressFile: (workspace: Workspace) => ProgressFileReading;
-  readStoredLog:    typeof readStoredLog;
-  listTickets:      typeof listTickets;
-  concurrencyOf:    (progress: ProgressFile) => Concurrency;
-} {
+function trackerReads(): TrackerReads {
   return {
     listTickets,
-    readStoredLog,
+    readStoredLog: (workspace, embeddedLog) => TrackerLogUtil.storedLogOf(
+      embeddedLog,
+      new LogFileIngestion(workspace.logFilePath).read(),
+      { logFilePath: workspace.logFilePath, progressFilePath: workspace.progressFilePath },
+    ),
     readProgressFile: (workspace) => new ProgressFileIngestion(workspace.progressFilePath).read(),
     concurrencyOf:    (progress) => ConcurrencyUtil.concurrencyOf(progress.tasks, progress.concurrencyLimit),
   };
@@ -283,28 +204,15 @@ async function mutateWrappingBoardRefusals<MutationResult>(
 }
 
 interface TrackerUnderLock {
-  progress:    ProgressFile;
-  embeddedLog: readonly LogRecord[] | null;
-  storedLog:   StoredLog;
-  listing:     TicketListing;
+  contents:    TrackerContents;
   logFileSink: ReturnType<typeof createLogFileSink>;
   board:       Board;
 }
 
-function readTrackerUnderLock(workspace: Workspace): TrackerUnderLock {
-  const progressReading = requireProgressFileReading(workspace);
-  const storedLog       = requireStoredLog(workspace, progressReading.embeddedLog);
-  const listing         = listTickets(workspace);
-  const logFileSink     = createLogFileSink(storedLog);
-  const board           = new Board({ progress: progressReading.progress, tickets: listing.tickets, logger: createLogger(logFileSink.record) });
-  return {
-    progress:    progressReading.progress,
-    embeddedLog: progressReading.embeddedLog,
-    storedLog,
-    listing,
-    logFileSink,
-    board,
-  };
+function openBoard(contents: TrackerContents): TrackerUnderLock {
+  const logFileSink = createLogFileSink(contents.storedLog);
+  const board       = new Board({ progress: contents.progress, tickets: contents.listing.tickets, logger: createLogger(logFileSink.record) });
+  return { contents, logFileSink, board };
 }
 
 /** `extraTickets` are written as well as the ones the Board changed, once each; a mutation hands in none. */
@@ -317,9 +225,9 @@ async function writeTrackerUnderLock<Reading>(
   const logRecordsToWrite = tracker.logFileSink.recordsToWrite();
   const logFileWriter     = createLogFileWriter(workspace.logFilePath);
   // A log line never describes an unstored change, so the log goes last; a log taken over from a version 1 file is copied first, before it is lost.
-  if (tracker.storedLog.logFileMustBeRewritten) logFileWriter.write(tracker.storedLog.records);
+  if (tracker.contents.storedLog.logFileMustBeRewritten) logFileWriter.write(tracker.contents.storedLog.records);
 
-  createProgressFileWriter(workspace.progressFilePath).write(tracker.progress);
+  createProgressFileWriter(workspace.progressFilePath).write(tracker.contents.progress);
   const ticketsToWrite = new Map<string, Ticket>();
   for (const ticket of [...tracker.board.changedTickets(), ...writes.extraTickets]) {
     if (!ticketsToWrite.has(ticket.filePath)) ticketsToWrite.set(ticket.filePath, ticket);
@@ -344,15 +252,15 @@ async function changeTrackerUnderLock<MutationResult, Reading>(
   const at        = resolveAtOption(commandArguments, context);
 
   return withLock(workspace, async () => {
-    const tracker = readTrackerUnderLock(workspace);
+    const tracker = openBoard(requireTracker(workspace));
 
     const deletionCallbacks: ((deletedTicketCount: number) => void)[] = [];
     const result = await mutateWrappingBoardRefusals(mutate, {
       at,
       board:                          tracker.board,
       workspace,
-      malformedTickets:               tracker.listing.malformed,
-      storedLogEntryCount:            tracker.storedLog.records.length,
+      malformedTickets:               tracker.contents.listing.malformed,
+      storedLogEntryCount:            tracker.contents.storedLog.records.length,
       deleteAllTicketFilesAfterwards: (onDeleted) => { deletionCallbacks.push(onDeleted); },
     });
 
@@ -390,8 +298,8 @@ export interface TrackerRewrite {
   rewrittenTicketCount:     number;
 }
 
-function trackerIsInAnOlderFormat(embeddedLog: readonly LogRecord[] | null, listing: TicketListing): boolean {
-  return embeddedLog !== null || listing.ticketsInAnOlderFormat.length > 0;
+function trackerIsInAnOlderFormat(contents: TrackerContents): boolean {
+  return contents.storedLog.logFileMustBeRewritten || contents.listing.ticketsInAnOlderFormat.length > 0;
 }
 
 /**
@@ -399,26 +307,19 @@ function trackerIsInAnOlderFormat(embeddedLog: readonly LogRecord[] | null, list
  * pipeline's two halves, with nothing changed and nothing logged. A current, absent or unreadable tracker is `null`, read without the lock.
  */
 export async function rewriteOlderTrackerFiles(context: CommandContext, workspace: Workspace): Promise<TrackerRewrite | null> {
-  const logFileReading  = readLogFile(workspace);
-  const progressReading = new ProgressFileIngestion(workspace.progressFilePath).read();
-  if (progressReading.verdict !== 'readable') return null;
-  if (storedLogFrom(workspace, progressReading.embeddedLog, logFileReading).verdict !== 'readable') return null;
-  if (!trackerIsInAnOlderFormat(progressReading.embeddedLog, listTickets(workspace))) return null;
+  const readingWithoutTheLock = readTracker(workspace);
+  if (readingWithoutTheLock.verdict !== 'readable' || !trackerIsInAnOlderFormat(readingWithoutTheLock.contents)) return null;
 
   return withLock(workspace, async () => {
-    let tracker: TrackerUnderLock;
-    try {
-      tracker = readTrackerUnderLock(workspace);
-    } catch (error) {
-      if (refusalIsOperationRefusal(error) && error.status === 'unrepaired') return null;
-      throw error;
-    }
+    const reading = readTracker(workspace);
+    if (reading.verdict !== 'readable') return null;
     // Another command may have written the tracker since the read above, and a current tracker is left alone.
-    if (!trackerIsInAnOlderFormat(tracker.embeddedLog, tracker.listing)) return null;
+    if (!trackerIsInAnOlderFormat(reading.contents)) return null;
 
-    const extraTickets = tracker.listing.ticketsInAnOlderFormat;
-    await writeTrackerUnderLock(context, workspace, tracker, { extraTickets, deletionCallbacks: [], readAfterWriting: () => undefined });
-    return { progressFileWasRewritten: tracker.embeddedLog !== null, rewrittenTicketCount: extraTickets.length };
+    const { contents } = reading;
+    const extraTickets = contents.listing.ticketsInAnOlderFormat;
+    await writeTrackerUnderLock(context, workspace, openBoard(contents), { extraTickets, deletionCallbacks: [], readAfterWriting: () => undefined });
+    return { progressFileWasRewritten: contents.storedLog.logFileMustBeRewritten, rewrittenTicketCount: extraTickets.length };
   }, context.now);
 }
 
