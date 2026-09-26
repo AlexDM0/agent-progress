@@ -159,7 +159,7 @@ An agent continued with a follow-up message had a median of 149 calls and 367k o
 62 and 229k for a fresh one, because the second instruction pays for everything the first one read. A
 brief that names its own end is therefore cheaper than one that trusts the agent to notice.
 
-One budget of about 150 calls covers every ticket and every bundle. Across 46 runs of 100 calls or
+One budget of about {{builderApiCallBudget}} calls covers every ticket and every bundle. Across 46 runs of 100 calls or
 more, priced as billed, the first 50 calls weighed 1.6 million input tokens, the first 100 weighed
 3.3 and the first 150 weighed 5.8, on a context of 240, 310 and 400 thousand. Measured within the
 same runs rather than by subtracting those medians: in the 22 that reached 150 calls, calls 101 to
@@ -173,7 +173,7 @@ The budget itself is not shaved to force that: three tickets in one afternoon to
 each, and every fresh agent pays the fixed context and its own rediscovery again.
 
 ```
-Stop when every Acceptance block you were given is satisfied, or at about 150 API calls, whichever
+Stop when every Acceptance block you were given is satisfied, or at about {{builderApiCallBudget}} API calls, whichever
 is first. In a bundle, never start a ticket you cannot finish inside the budget: leave it untouched
 and say so.
 Then leave green whatever is green, close as "Ready to merge" says, write the Handoff, and report.
@@ -251,7 +251,7 @@ and a pass that follows its findings into the neighbourhood spends its budget th
 reviewer files each as a low-priority ticket itself, and by hand the orchestrator files what it
 reports; either way the orchestrator triages them and runs them once the user's own work is done. A fix
 the reviewer watched fail and pass needs no second reader: a second review is for a pass that
-reworked over 750 lines of code, documentation and comments not counted, and is always asked of the
+reworked over {{reworkThresholdLines}} lines of code, documentation and comments not counted, and is always asked of the
 orchestrator, which decides between a further round and a new ticket for what keeps turning up.
 
 The round is the number of `## Review` sections already in the ticket, plus one. From round 2 on,
@@ -307,7 +307,7 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
    file, your commits, what the rebase touched and what you resolved by hand, and both counts.
 7. The first that applies:
    a. A gap you could not close: `does not hold`.
-   b. Over 750 lines of code reworked — the two counts together; the tool counts code only, never
+   b. Over {{reworkThresholdLines}} lines of code reworked — the two counts together; the tool counts code only, never
       a comment, a blank line or documentation: request round <N+1>, stating the count and whether
       the branch holds as it stands. Nothing else is a reason for another review.
    c. Otherwise release: step 8.
@@ -319,13 +319,13 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
    - `"released": true`: done. Name any `cleanup` step that is `left`, and the files it lists.
    - `"reason": "main-moved"`: another branch went in first. Repeat step 5 — record the tip, rebase,
      checks, `agent-progress rework --rebased-from` — add that count to your total and to your
-     `## Review`, and apply step 7 again: over 750 now requests the next round; otherwise run
+     `## Review`, and apply step 7 again: over {{reworkThresholdLines}} now requests the next round; otherwise run
      this step again.
    - Any other reason: change nothing and report `holds, not released: <reason>` with its `detail`.
    - Denied by the permission system: do not retry or reword it, and never merge around it; report
      `holds, not released: permission denied` with the command line as you would have run it.
 
-Do not `cat` any CLAUDE.md. You may use up to about 75 API calls, half the builder's budget, since
+Do not `cat` any CLAUDE.md. You may use up to about {{reviewerApiCallBudget}} API calls, since
 you judge one change rather than build it; a pass that is done sooner stops sooner. A fix that will
 not fit is reported unfixed, never left half made.
 Report under 150 words plus 40 per finding handed on, opening with exactly one of: `released <commit>` /
@@ -339,7 +339,7 @@ No message is sent to a finished agent, reviewer or builder. Two releases into o
 race, and `agent-progress release` serialises them under the tracker's lock instead of through the
 orchestrator: the reviewer whose branch was overtaken reads `main-moved`, rebases, re-checks, counts
 the rebase and releases again inside its own pass, or asks for the next round when the rebase pushed
-its reworked total over 750.
+its reworked total over {{reworkThresholdLines}}.
 
 ## Orchestrator checklist
 

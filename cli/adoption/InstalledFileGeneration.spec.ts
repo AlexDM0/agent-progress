@@ -1,21 +1,24 @@
 /**
  * The texts `init` and `update` install, computed before anything is written. The cases that matter: no placeholder survives, the definition
- * keeps its frontmatter at byte 0 with the default pair, the brief is the template, the dispatcher is a Workflow script with its meta first
- * and no path of this checkout in it, `--no-workflow` bundles nothing, and a failed bundle is a refusal the tool will not repair. The spec
- * builds the dispatcher by path, as the command does, and never imports `dispatcher/`.
+ * keeps its frontmatter at byte 0 with the default pair, the brief and the block state `DISPATCH_PROTOCOL`'s numbers, which the dispatcher's
+ * prompts also state, and name the paths the catalogue installs to, the dispatcher is a Workflow script with its meta first and no path of
+ * this checkout in it, `--no-workflow` bundles nothing, and a failed bundle is a refusal the tool will not repair. The spec builds the
+ * dispatcher by path, as the command does, and never imports `dispatcher/`.
  */
-import { readFileSync } from 'node:fs';
-import { join }         from 'node:path';
+import { join, relative, sep } from 'node:path';
 
 import { describe, expect, test } from 'bun:test';
 
 import { OperationRefusal }                              from '../../src/shared/OperationRefusal';
-import { resourceFilePathOf }                            from '../../src/shared/ResourceFilePath';
+import { DISPATCH_PROTOCOL }                             from '../../src/shared/constants/DispatchProtocol';
+import { installedFilePathsIn }                          from '../InstalledFiles';
 import { dispatcherScriptTextOf, installedFileTextsFor } from './InstalledFileGeneration';
 
 const TEXTS = await installedFileTextsFor({ generatesTheDispatcherScript: true });
 
 const CHECKOUT_DIRECTORY = join(import.meta.dir, '..', '..');
+
+const EXAMPLE_ROOT = join(sep, 'scratch', 'example-repository');
 
 describe('the installed texts', () => {
   test('no text holds a placeholder left unfilled', () => {
@@ -28,8 +31,22 @@ describe('the installed texts', () => {
     expect(TEXTS.agentDefinition).toContain('effort: medium\n');
   });
 
-  test('the brief is the brief template as it stands', () => {
-    expect(TEXTS.agentBrief).toBe(readFileSync(resourceFilePathOf('templates', 'AgentBrief.md'), 'utf8'));
+  test('the brief states the dispatch protocol\'s call budgets and rework threshold', () => {
+    expect(TEXTS.agentBrief).toContain(`One budget of about ${DISPATCH_PROTOCOL.BUILDER_API_CALL_BUDGET} calls`);
+    expect(TEXTS.agentBrief).toContain(`or at about ${DISPATCH_PROTOCOL.BUILDER_API_CALL_BUDGET} API calls`);
+    expect(TEXTS.agentBrief).toContain(`up to about ${DISPATCH_PROTOCOL.REVIEWER_API_CALL_BUDGET} API calls`);
+    expect(TEXTS.agentBrief).toContain(`Over ${DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES} lines of code reworked`);
+  });
+
+  test('the block states the rework threshold and names the installed brief and dispatcher by their paths in the repository', () => {
+    const dispatcherPathInRepository = relative(EXAMPLE_ROOT, installedFilePathsIn(EXAMPLE_ROOT).dispatcherScript).split(sep).join('/');
+    expect(TEXTS.claudeInstructionsBlockBody).toContain(`over ${DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES} lines of code`);
+    expect(TEXTS.claudeInstructionsBlockBody).toContain(`\`${DISPATCH_PROTOCOL.AGENT_BRIEF_PATH_IN_REPOSITORY}\``);
+    expect(TEXTS.claudeInstructionsBlockBody).toContain(`\`${dispatcherPathInRepository}\``);
+  });
+
+  test('the agent definition names the installed brief by its path in the repository', () => {
+    expect(TEXTS.agentDefinition).toContain(`\`${DISPATCH_PROTOCOL.AGENT_BRIEF_PATH_IN_REPOSITORY}\``);
   });
 
   test('the dispatcher is a Workflow script: its meta first, no import or export, and the runner\'s call last', () => {

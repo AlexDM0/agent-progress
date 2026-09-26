@@ -5,7 +5,5 @@ export const TRACKER_FILES = {
   HTML_FILE_NAME:         'progress.html',
   TRACKER_DIRECTORY_NAME: '.agent-progress',
   TICKETS_DIRECTORY_NAME: 'tickets',
-  // Beside the tickets rather than in the repository's own tree: it is guidance for agents, not source, and the tracker is git-ignored.
-  AGENT_BRIEF_FILE_NAME:  'agent-brief.md',
   LOCK_DIRECTORY_NAME:    '.lock',
 } as const;

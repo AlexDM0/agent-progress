@@ -1,9 +1,15 @@
 /**
  * The catalogue of installed files. The cases that matter: the managed CLAUDE.md markers, since the block writer finds the end by searching
  * forward from the start and the block sits in a file people read rendered; the dispatcher in the git-ignored tracker directory rather than
- * in the project's `.claude/`; and every path absolute under the root it was given, since `init` and `update` print them.
+ * in the project's `.claude/`; the brief in that directory too, where the dispatcher's prompts send every agent; and every path absolute
+ * under the root it was given, since `init` and `update` print them.
  */
-import { isAbsolute, join, sep } from 'node:path';
+import {
+  isAbsolute,
+  join,
+  relative,
+  sep
+} from 'node:path';
 
 import { expect, test } from 'bun:test';
 
@@ -30,6 +36,10 @@ test('both markers are HTML comments on a single line, so they stay invisible in
 
 test('the dispatcher script sits in the tracker directory, under the name its meta gives', () => {
   expect(installedFilePathsIn(EXAMPLE_ROOT).dispatcherScript).toBe(join(EXAMPLE_ROOT, TRACKER_FILES.TRACKER_DIRECTORY_NAME, 'agent-progress-dispatch.js'));
+});
+
+test('the brief sits in the tracker directory, where the dispatcher\'s prompts send every agent to read it', () => {
+  expect(relative(EXAMPLE_ROOT, installedFilePathsIn(EXAMPLE_ROOT).agentBrief)).toStartWith(`${TRACKER_FILES.TRACKER_DIRECTORY_NAME}${sep}`);
 });
 
 test('the retired dispatcher path is the copy an older agent-progress installed under .claude/workflows', () => {

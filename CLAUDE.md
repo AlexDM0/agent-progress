@@ -276,8 +276,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
   inside a tracked repository, or files beside them; never a file of this repository.
 - `skill-orchestrate/` repeats nothing from `skill/`, writes rules as instructions, and never restates what the
   dispatcher decides in code. The call budgets and the rework threshold are `DISPATCH_PROTOCOL` in
-  `src/shared/constants/DispatchProtocol.ts`; `resources/templates/AgentBrief.md` states them in prose until plan
-  step 8 generates them, and the dispatcher's brief spec holds the two together.
+  `src/shared/constants/DispatchProtocol.ts`, which the dispatcher's prompts state; the brief and the block carry them
+  as placeholders `init` and `update` fill.
 - `setup.sh` symlinks both into `~/.claude/skills/`, and `~/development/claude/skills.json` must list them under
   `ignore`.
 

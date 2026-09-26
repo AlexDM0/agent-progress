@@ -84,7 +84,7 @@ tracker — each written by default and each with its own opt-out.
 | # | what | path | written by | opt-out |
 |---|---|---|---|---|
 | 1 | The tracker: `progress.json`, `log.jsonl`, a `tickets/` folder, the generated `progress.html` and the `.lock` directory | `.agent-progress/` | `init` only | — |
-| 2 | The agent brief, from `resources/templates/AgentBrief.md` | `.agent-progress/agent-brief.md` | `init`, `update` | — |
+| 2 | The agent brief, generated from `resources/templates/AgentBrief.md` | `.agent-progress/agent-brief.md` | `init`, `update` | — |
 | 3 | A `.gitignore` entry for the tracker | `.gitignore` | `init` only | — |
 | 4 | The managed block, from `resources/templates/ClaudeInstructionsBlock.md` | `CLAUDE.md` | `init`, `update` | `--no-claude-md` |
 | 5 | The `SubagentStop` hook running `agent-progress hook subagent-stop` | `.claude/settings.local.json` | `init`, `update` | `--no-hooks` |
@@ -95,7 +95,9 @@ tracker — each written by default and each with its own opt-out.
 2. **The brief** an orchestrator fills in before it spawns an implementing agent: the scope, the facts
    it needs instead of a reading list, how many calls and browser calls it may spend, when to stop,
    and what to report. It is guidance shipped with the tool rather than a file a project edits, so
-   every `init` and every `update` rewrites it.
+   every `init` and every `update` rewrites it, generated with the call budgets and the rework
+   threshold the dispatcher's prompts state, from the same constant. The managed block states that
+   threshold the same way.
 3. **The `.gitignore` entry**, only when the repository does not already ignore the tracker.
    `git check-ignore` decides, so a repository covered by a broader pattern, a parent `.gitignore` or
    `.git/info/exclude` gets no diff at all.

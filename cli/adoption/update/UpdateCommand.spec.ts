@@ -33,7 +33,7 @@ import { installedFileTextsFor }        from '../InstalledFileGeneration';
 
 const scratchDirectories: string[] = [];
 
-const BRIEF_TEMPLATE = readFileSync(resourceFilePathOf('templates', 'AgentBrief.md'), 'utf8');
+const GENERATED_AGENT_BRIEF = (await installedFileTextsFor({ generatesTheDispatcherScript: false })).agentBrief;
 
 function scratchRepository(): string {
   const repositoryDirectory = createScratchGitRepository('update-command');
@@ -117,7 +117,7 @@ describe.skipIf(!gitIsAvailable())('updating a tracked repository', () => {
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
     expect(await runCommandLine(['update'], context)).toBe(0);
 
-    expect(readFileSync(briefFilePath, 'utf8')).toBe(BRIEF_TEMPLATE);
+    expect(readFileSync(briefFilePath, 'utf8')).toBe(GENERATED_AGENT_BRIEF);
     expect(context.outputText()).toContain('brief:       updated — re-read it before your next brief');
     expect(context.errorText()).toBe('');
   });
@@ -142,7 +142,7 @@ describe.skipIf(!gitIsAvailable())('updating a tracked repository', () => {
     expect(await runCommandLine(['update'], context)).toBe(0);
 
     expect(context.outputText()).toContain('brief:       updated');
-    expect(readFileSync(briefFilePath, 'utf8')).toBe(BRIEF_TEMPLATE);
+    expect(readFileSync(briefFilePath, 'utf8')).toBe(GENERATED_AGENT_BRIEF);
   });
 
   test('a stale managed block is rewritten and reported updated, and a current one unchanged', async () => {
@@ -439,7 +439,7 @@ describe.skipIf(!gitIsAvailable())('from inside a linked worktree', () => {
     const context = createCapturedCommandContext({ currentDirectory: worktreeDirectory });
     expect(await runCommandLine(['update'], context)).toBe(0);
 
-    expect(readFileSync(join(repositoryDirectory, '.agent-progress', 'agent-brief.md'), 'utf8')).toBe(BRIEF_TEMPLATE);
+    expect(readFileSync(join(repositoryDirectory, '.agent-progress', 'agent-brief.md'), 'utf8')).toBe(GENERATED_AGENT_BRIEF);
     expect(existsSync(join(worktreeDirectory, '.agent-progress')), 'a worktree never grows a tracker of its own').toBe(false);
     expect(context.outputText()).toContain(repositoryDirectory);
   });

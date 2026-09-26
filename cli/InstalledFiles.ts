@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import type { ManagedBlockMarkers } from '../src/lib/claude-code/ClaudeInstructions';
 import { TRACKER_FILES }            from '../src/services/tracker/constants/TrackerFiles';
+import { DISPATCH_PROTOCOL }        from '../src/shared/constants/DispatchProtocol';
 
 /** Named as the dispatcher's `meta.name`; it is launched by its path only. */
 const DISPATCHER_SCRIPT_FILE_NAME = 'agent-progress-dispatch.js';
@@ -25,7 +26,7 @@ export interface InstalledFilePaths {
 
 export function installedFilePathsIn(rootDirectory: string): InstalledFilePaths {
   return {
-    agentBrief:              join(rootDirectory, TRACKER_FILES.TRACKER_DIRECTORY_NAME, TRACKER_FILES.AGENT_BRIEF_FILE_NAME),
+    agentBrief:              join(rootDirectory, DISPATCH_PROTOCOL.AGENT_BRIEF_PATH_IN_REPOSITORY),
     claudeInstructions:      join(rootDirectory, 'CLAUDE.md'),
     dispatcherScript:        join(rootDirectory, TRACKER_FILES.TRACKER_DIRECTORY_NAME, DISPATCHER_SCRIPT_FILE_NAME),
     retiredDispatcherScript: join(rootDirectory, '.claude', 'workflows', DISPATCHER_SCRIPT_FILE_NAME),

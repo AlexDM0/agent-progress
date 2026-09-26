@@ -1,13 +1,12 @@
 /**
- * The dispatcher's prompts point every agent at the installed copy of `resources/templates/AgentBrief.md` for the blocks it follows, and state
- * three numbers of their own: the builder's call budget, the reviewer's, and the rework count above which a round is granted. Those three are read
- * here from the brief and from what the TypeScript port, bundled, actually sends and decides, and held to `DISPATCH_PROTOCOL`, so a change to one
- * that leaves another behind fails.
+ * The dispatcher's prompts point every agent at the installed agent brief for the blocks it follows, and state three numbers of their own:
+ * the builder's call budget, the reviewer's, and the rework count above which a round is granted. What the TypeScript port, bundled,
+ * actually sends and decides is held here to `DISPATCH_PROTOCOL`; `init` and `update` generate the installed brief from the same constant,
+ * which `cli/adoption/InstalledFileGeneration.spec.ts` pins.
  */
 import { describe, expect, test } from 'bun:test';
 
 import { DISPATCH_PROTOCOL }                           from '../src/shared/constants/DispatchProtocol.ts';
-import { agentBriefNumbers }                           from './testing/AgentBriefNumbers.ts';
 import { builtScriptTextOf, bundleDispatchScript }     from './testing/DispatchScriptBundle.ts';
 import { runDispatchScript, type RecordedDispatchRun } from './testing/DispatchScriptHarness.ts';
 import { DECISION_SCENARIOS }                          from './testing/claims/DecisionClaims.ts';
@@ -28,32 +27,19 @@ function reviewerCountOf(run: RecordedDispatchRun): number {
 }
 
 describe('the dispatcher and the agent brief', () => {
-  const { builderApiCallBudget, reviewerApiCallBudget, reworkThresholdLines } = agentBriefNumbers();
-
-  test('the brief states the three numbers the prompts repeat', () => {
-    expect([builderApiCallBudget, reviewerApiCallBudget, reworkThresholdLines]).toEqual([150, 75, 750]);
-  });
-
-  test('the brief\'s three numbers are the dispatch protocol\'s', () => {
-    expect([builderApiCallBudget, reviewerApiCallBudget, reworkThresholdLines]).toEqual([
-      DISPATCH_PROTOCOL.BUILDER_API_CALL_BUDGET,
-      DISPATCH_PROTOCOL.REVIEWER_API_CALL_BUDGET,
-      DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES,
-    ]);
-  });
-
-  test('the builder is sent the brief\'s call budget and told to read the installed brief', async () => {
+  test('the builder is sent the protocol\'s call budget and told to read the installed brief', async () => {
     const run = await runDispatchScript(DECISION_SCENARIOS['one ticket is ready at a limit of 1'](), builtScriptTextOf(BUNDLE));
     const builder = run.calls.find((call) => call.kind === 'build');
-    expect(builder?.prompt).toContain(`or at about ${builderApiCallBudget} API calls`);
-    expect(builder?.prompt).toContain('/scratch/example-repository/.agent-progress/agent-brief.md');
+    expect(builder?.prompt).toContain(`or at about ${DISPATCH_PROTOCOL.BUILDER_API_CALL_BUDGET} API calls`);
+    expect(builder?.prompt).toContain(`/scratch/example-repository/${DISPATCH_PROTOCOL.AGENT_BRIEF_PATH_IN_REPOSITORY}`);
   });
 
-  test('the reviewer is sent the brief\'s call budget, its rework threshold and the Review brief to follow', async () => {
+  test('the reviewer is sent the protocol\'s call budget and rework threshold, the installed brief and the Review brief to follow', async () => {
     const run = await runDispatchScript(DECISION_SCENARIOS['one ticket is ready at a limit of 1'](), builtScriptTextOf(BUNDLE));
     const reviewer = run.calls.find((call) => call.kind === 'review');
-    expect(reviewer?.prompt).toContain(`up to about ${reviewerApiCallBudget} API calls`);
-    expect(reviewer?.prompt).toContain(`over ${reworkThresholdLines} lines of code`);
+    expect(reviewer?.prompt).toContain(`up to about ${DISPATCH_PROTOCOL.REVIEWER_API_CALL_BUDGET} API calls`);
+    expect(reviewer?.prompt).toContain(`over ${DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES} lines of code`);
+    expect(reviewer?.prompt).toContain(`/scratch/example-repository/${DISPATCH_PROTOCOL.AGENT_BRIEF_PATH_IN_REPOSITORY}`);
     expect(reviewer?.prompt).toContain('`## Review brief`');
   });
 

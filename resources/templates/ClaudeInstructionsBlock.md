@@ -26,7 +26,7 @@ in separate checkouts all write to the same chart.
   ticket's Acceptance, settles its own doubts, rebases onto the main line again, and releases the
   branch itself with `agent-progress release`, which lets one branch into main at a time. Anything
   outside that, however small, is filed unfixed as a low-priority ticket. A second review is only for
-  a pass that reworked over 750 lines of code (comments and documentation not counted) in its fixes
+  a pass that reworked over {{reworkThresholdLines}} lines of code (comments and documentation not counted) in its fixes
   and rebase, and is asked for, never scheduled by the reviewer.
 - File every bug, change or feature the user reports as a ticket (`agent-progress ticket add
   "<title>" --type bug|change|feature`) and move it with `agent-progress ticket start|finish|approve|deliver <id>`.
