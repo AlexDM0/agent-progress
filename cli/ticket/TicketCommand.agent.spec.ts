@@ -16,7 +16,7 @@ import {
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
 import { runCommandLine }                                                     from '../Main';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';
-import { storedLogEntriesOf }                                                 from '../testing/StoredLog';
+import { storedLogEntriesOf }                                                 from '../testing/StoredLogEntries';
 
 const FROZEN_NOW = new Date('2026-09-24T09:25:00Z');
 

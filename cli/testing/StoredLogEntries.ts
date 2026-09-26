@@ -1,4 +1,4 @@
-/** The tracker's log as people read it, whatever file it is stored in, for a command spec to check what a command logged. */
+/** The tracker's log.jsonl as people read it, each record worded through LogUtil, for a command spec to check what a command logged. */
 import { join } from 'node:path';
 
 import { LogFileIngestion }    from '../../src/adapters/log/LogFileIngestion';

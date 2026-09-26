@@ -31,7 +31,7 @@ import {
 import { helpText }                     from '../HelpText';
 import { runCommandLine }               from '../Main';
 import { createCapturedCommandContext } from '../testing/CapturedCommandContext';
-import { storedLogEntriesOf }           from '../testing/StoredLog';
+import { storedLogEntriesOf }           from '../testing/StoredLogEntries';
 
 type CleanupStepDocument =
   | { target: 'worktree'; path: string; outcome: 'removed' }
