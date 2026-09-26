@@ -66,7 +66,11 @@ const CALLS_THAT_CHANGE_NO_TICKET: readonly (readonly [string, (board: Board) =>
     totalInputTokens:     1_000,
     cacheReadInputTokens: 0,
     outputTokens:         10,
-  }, [{ target: 'row', taskId: 1, tokens: 1_000 }, { target: 'ticket', ticketId: '001', tokens: 1_000 }], CHANGED_AT)],
+  }, [
+    { target: 'row', taskId: 1, tokens: 1_000 },
+    { target: 'ticket', ticketId: '001', tokens: 1_000 },
+    { target: 'review', ticketId: '001', tokens: 1_000 },
+  ], CHANGED_AT)],
   ['startReviewBar', (board) => board.startReviewBar('001', { round: 1, owner: 'Alex Example' }, CHANGED_AT)],
   ['clearTracker without the tickets', (board) => board.clearTracker({ ticketsSurvive: false }, CHANGED_AT)],
   ['ticketIsReleasable', (board) => board.tickets().map((ticket) => board.ticketIsReleasable(ticket))],

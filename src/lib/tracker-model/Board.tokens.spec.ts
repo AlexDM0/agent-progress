@@ -1,7 +1,8 @@
 /**
  * The Board's token crediting, which the `SubagentStop` hook makes. What it relies on: a share adds to what a row already holds, an
- * unset count counting as 0; a ticket's share lands on the row the ticket has when the hook runs; a share that cannot land is a verdict
- * that costs only that share, never a throw, because the agent has already stopped; and the usage is logged once, after the credits.
+ * unset count counting as 0; a ticket's share lands on the row the ticket has when the hook runs; a review share lands on the ticket's
+ * newest free-standing review bar, whatever its status; a share that cannot land is a verdict that costs only that share, never a throw,
+ * because the agent has already stopped; and the usage is logged once, after the credits.
  */
 import { expect, test } from 'bun:test';
 
@@ -89,6 +90,81 @@ test('each share that cannot land is a verdict of its own, credits nothing else 
   ]);
   expect(progress.tasks.map((task) => task.tokens)).toEqual([500, 600]);
   expect(progress.tasks.map((task): Task => ({ ...task, tokens: null }))).toEqual(tasksBefore);
+});
+
+function deliveredReviewBarFixture(id: number, reviewOf: string, reviewBarRound: number): Task {
+  return taskFixture({
+    id,
+    name:   `Review ${reviewBarRound} #${reviewOf} — Example review`,
+    status: 'delivered',
+    reviewOf,
+    reviewBarRound,
+  });
+}
+
+// A reviewer files its own bar after its brief was written, and release delivers that bar before the reviewer stops.
+test('a review share lands on the ticket\'s newest filed review bar, a delivered one included, and leaves the earlier bar as it was', () => {
+  const { board, progress } = boardFixture({
+    tasks: [
+      deliveredReviewBarFixture(6, '001', 2),
+      { ...deliveredReviewBarFixture(2, '001', 1), tokens: 300 },
+      { ...deliveredReviewBarFixture(4, '002', 1), status: 'in-progress' },
+    ],
+    tickets: [ticketFixture({ id: '001', status: 'delivered' }), ticketFixture({ id: '002', title: 'Example basket badge' })],
+  });
+
+  const { outcomes } = board.recordAgentStop(EXAMPLE_USAGE, [{ target: 'review', ticketId: '001', tokens: 1_001 }], STOPPED_AT);
+
+  expect(outcomes).toEqual([{ verdict: 'credited', taskId: 6 }]);
+  expect(progress.tasks.map((task) => task.tokens)).toEqual([1_001, 300, null]);
+});
+
+// The hook's sentence for a review nobody filed a bar for depends on this verdict, and the other shares must still land.
+test('a review share for a ticket without a free-standing review bar is its own verdict, costs only that share, and the usage is still logged once', () => {
+  const { board, progress, records } = boardFixture({
+    tasks:   [taskFixture({ id: 1, name: 'Example free-standing task' })],
+    tickets: [ticketFixture({ id: '001', status: 'in-review' })],
+  });
+
+  const { outcomes, logged } = board.recordAgentStop(EXAMPLE_USAGE, [
+    { target: 'review', ticketId: '001', tokens: 400 },
+    { target: 'row', taskId: 1, tokens: 500 },
+  ], STOPPED_AT);
+
+  expect(outcomes).toEqual([{ verdict: 'ticket-without-review-bar', ticketId: '001' }, { verdict: 'credited', taskId: 1 }]);
+  expect(progress.tasks.map((task) => task.tokens)).toEqual([500]);
+  expect(logged).toEqual([{ at: STOPPED_AT, kind: 'agent-stopped', fields: EXAMPLE_USAGE }]);
+  expect(records).toEqual([...logged]);
+});
+
+// A ticket's own row is never a review bar, even when it names a reviewed ticket, so a reviewer's tokens never land on a build row.
+test('a ticket-owned row whose reviewOf names the ticket takes no review share', () => {
+  const { board, progress } = boardFixture({
+    tasks: [
+      taskFixture({
+        id:       3,
+        name:     '#002 Example basket badge',
+        ticket:   '002',
+        reviewOf: '001',
+      }),
+    ],
+    tickets: [ticketFixture({ id: '001' }), ticketFixture({ id: '002', title: 'Example basket badge', task: 3 })],
+  });
+
+  const { outcomes } = board.recordAgentStop(EXAMPLE_USAGE, [{ target: 'review', ticketId: '001', tokens: 700 }], STOPPED_AT);
+
+  expect(outcomes).toEqual([{ verdict: 'ticket-without-review-bar', ticketId: '001' }]);
+  expect(progress.tasks[0]?.tokens).toBeNull();
+});
+
+// A bar is found by its reviewOf, never through the ticket, so a ticket missing from the board does not cost the reviewer's share.
+test('a review bar is credited even when its ticket id names no ticket on the board', () => {
+  const { board, progress } = boardFixture({ tasks: [deliveredReviewBarFixture(5, '042', 1)] });
+
+  const { outcomes } = board.recordAgentStop(EXAMPLE_USAGE, [{ target: 'review', ticketId: '042', tokens: 900 }], STOPPED_AT);
+
+  expect(outcomes).toEqual([{ verdict: 'credited', taskId: 5 }]);
+  expect(progress.tasks[0]?.tokens).toBe(900);
 });
 
 test('no share at all still logs the usage', () => {

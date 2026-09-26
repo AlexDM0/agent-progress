@@ -42,16 +42,19 @@ export interface TaskCorrection {
   status?: TaskStatus;
 }
 
+/** A `review` share lands on the ticket's newest review bar, which its reviewer filed after the brief was written. */
 export type TokenCredit =
   | { target: 'row'; taskId: number; tokens: number }
-  | { target: 'ticket'; ticketId: string; tokens: number };
+  | { target: 'ticket'; ticketId: string; tokens: number }
+  | { target: 'review'; ticketId: string; tokens: number };
 
 export type TokenCreditOutcome =
   | { verdict: 'credited'; taskId: number }
   | { verdict: 'unknown-row'; taskId: number }
   | { verdict: 'unknown-ticket'; ticketId: string }
   | { verdict: 'ticket-without-row'; ticketId: string }
-  | { verdict: 'ticket-row-missing'; ticketId: string; taskId: number };
+  | { verdict: 'ticket-row-missing'; ticketId: string; taskId: number }
+  | { verdict: 'ticket-without-review-bar'; ticketId: string };
 
 export interface TicketMoveRequest {
   checksLegality: boolean;

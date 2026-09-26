@@ -762,6 +762,13 @@ export class Board {
       return creditTokensTo(task, credit.tokens);
     }
 
+    // The bar's status is not consulted: release has already delivered it by the time its reviewer stops.
+    if (credit.target === 'review') {
+      const newestBar = this.reviewBarRecordsOf(credit.ticketId).at(-1);
+      if (newestBar === undefined) return { verdict: 'ticket-without-review-bar', ticketId: credit.ticketId };
+      return creditTokensTo(newestBar, credit.tokens);
+    }
+
     const ticket = this.ticketRecordById(credit.ticketId);
     if (ticket === undefined) return { verdict: 'unknown-ticket', ticketId: credit.ticketId };
     const taskId = ticket.frontmatter.task;
