@@ -227,8 +227,9 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  cli/
   `window.agentProgressTemplate`.
 - The page script reads and writes browser storage only in `page/preferences/ViewerPreferences.ts`, and a key
   string never changes.
-- Board facts such as the agents in flight arrive in the payload, computed by what `status --json` uses; the page
-  never recounts them.
+- The render service computes the Board facts through `src/services/render/utils/BoardFactsUtil.ts` and writes them
+  as the payload's last key, `boardFacts`; the concurrency figures come from `board.concurrency()`, which
+  `status --json` prints too. The page switches to the facts in plan step 7b and until then derives its own.
 - Every value passes `escapeHtml` once; a ticket's `bodyHtml`, already escaped by `src/services/render/Markdown.ts`,
   is the one unescaped string. Stored stamps are sliced, never re-parsed, and shortened only through
   `page/utils/TimeUtil.ts`.

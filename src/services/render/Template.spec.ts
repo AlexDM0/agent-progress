@@ -75,6 +75,7 @@ function render(overrides: Partial<Parameters<typeof renderProgressHtml>[0]> = {
     pageScriptFailure: null,
     generatedAt:       GENERATED_AT,
     concurrency:       { limit: 2, agentsInFlight: 1 },
+    boardFacts:        { rows: [], tickets: [] },
     ...overrides,
   });
 }
@@ -164,6 +165,30 @@ describe('renderProgressHtml', () => {
     const payload = islandContentsOf(render({ concurrency: { limit: 3, agentsInFlight: 2 } }), 'ap-progress-data') as { concurrency: unknown };
 
     expect(payload.concurrency).toEqual({ limit: 3, agentsInFlight: 2 });
+  });
+
+  // Last, so every byte of the island before it stays where the page read it before the facts existed.
+  test('carries the board facts it was handed, after every other payload key', () => {
+    const boardFacts = {
+      rows: [{
+        displayState:                   'reviewing' as const,
+        deliveredRowCountsAsReviewed:   false,
+        ownRowPositionOfReviewedTicket: null,
+      }],
+      tickets: [{
+        ticketId:           '003',
+        ownRowPosition:     0,
+        reviewBarPositions: [],
+        displayState:       'reviewing' as const,
+      }],
+    };
+
+    const islandText = islandTextOf(render({ boardFacts }), 'ap-progress-data');
+    const payload    = JSON.parse(islandText) as Record<string, unknown>;
+
+    expect(Object.keys(payload)).toEqual(['progress', 'generatedAtEpochMilliseconds', 'limits', 'concurrency', 'pageScriptFailure', 'boardFacts']);
+    expect(payload['boardFacts']).toEqual(boardFacts);
+    expect(islandText.endsWith(`,"boardFacts":${JSON.stringify(boardFacts)}}`)).toBe(true);
   });
 
   test('sends the real constants as the limits, not page-local copies', () => {

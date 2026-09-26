@@ -301,7 +301,9 @@ marker from it, which is what lets the in-page range presets re-lay-out without 
 means there is exactly one implementation of the geometry rather than a server copy and a client
 copy that disagree. The geometry's bounds are put into the island by `src/services/render/Template.ts` and taken
 as a parameter rather than read from `src/shared/constants/Limits.ts`, so `page/utils/GeometryUtil.spec.ts`
-can drive it with a constructed tick ladder.
+can drive it with a constructed tick ladder. The island's last key, `boardFacts`, carries the Board's answers
+the render service computes through `src/services/render/utils/BoardFactsUtil.ts`: one fact per row at its
+index, and one per ticket by id. The page reads them from plan step 7b on.
 
 ## Backlog
 

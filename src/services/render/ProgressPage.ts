@@ -2,9 +2,11 @@
 import type { LogRecord }     from '../../lib/tracker-model/@types/LogRecord.ts';
 import type { ProgressFile }  from '../../lib/tracker-model/@types/ProgressFile.ts';
 import type { Ticket }        from '../../lib/tracker-model/@types/Ticket.ts';
-import { ConcurrencyUtil }    from '../../lib/tracker-model/utils/ConcurrencyUtil.ts';
+import { Board }              from '../../lib/tracker-model/Board.ts';
+import { createLogger }       from '../../lib/tracker-model/Logger.ts';
 import { bundlePageScript }   from './PageBundle.ts';
 import { renderProgressHtml } from './Template.ts';
+import { BoardFactsUtil }     from './utils/BoardFactsUtil.ts';
 
 export interface ProgressPageInput {
   progress:    ProgressFile;
@@ -20,7 +22,10 @@ export interface ProgressPageRendering {
   pageScriptFailure: string | null;
 }
 
-/** The concurrency figures come from the function `status --json` builds its block with, so the page and the command cannot disagree on a count. */
+/**
+ * The concurrency figures come from the function `status --json` builds its block with, so the page and the command cannot disagree on a count.
+ * The Board is built over the very `progress` the island carries, so every row position in its facts indexes the island's own tasks.
+ */
 export async function renderProgressPage(input: ProgressPageInput): Promise<ProgressPageRendering> {
   const {
     progress,
@@ -31,6 +36,7 @@ export async function renderProgressPage(input: ProgressPageInput): Promise<Prog
 
   const pageBundle        = await bundlePageScript();
   const pageScriptFailure = pageBundle.verdict === 'failed' ? pageBundle.reason : null;
+  const board             = new Board({ progress, tickets, logger: createLogger(() => undefined) });
 
   const document = renderProgressHtml({
     progress,
@@ -39,7 +45,8 @@ export async function renderProgressPage(input: ProgressPageInput): Promise<Prog
     pageScript:  pageBundle.verdict === 'built' ? pageBundle.script : null,
     pageScriptFailure,
     generatedAt,
-    concurrency: ConcurrencyUtil.concurrencyOf(progress.tasks, progress.concurrencyLimit),
+    concurrency: board.concurrency(),
+    boardFacts:  BoardFactsUtil.boardFactsOf(board),
   });
   return { document, pageScriptFailure };
 }

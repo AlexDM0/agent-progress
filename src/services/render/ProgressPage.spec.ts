@@ -1,14 +1,19 @@
 /**
  * What `renderProgressPage` adds to the template: the concurrency figures `status --json` prints, so the page and the command cannot
- * disagree on a count, and the tickets in the order it was handed them. The islands are read back from the document the way the page reads them.
+ * disagree on a count, the tickets in the order it was handed them, and the Board facts, one row fact per stored row at the same index even
+ * where a hand edit duplicated an id, since the page will zip them onto its tasks. The islands are read back the way the page reads them.
  */
 import { describe, expect, test } from 'bun:test';
 
-import type { ProgressFile }  from '../../lib/tracker-model/@types/ProgressFile.ts';
-import type { Task }          from '../../lib/tracker-model/@types/Task.ts';
-import { ConcurrencyUtil }    from '../../lib/tracker-model/utils/ConcurrencyUtil.ts';
-import { ticketFixture }      from '../../testing/BoardFixtures.ts';
-import { renderProgressPage } from './ProgressPage.ts';
+import type { ProgressFile }   from '../../lib/tracker-model/@types/ProgressFile.ts';
+import type { Task }           from '../../lib/tracker-model/@types/Task.ts';
+import { Board }               from '../../lib/tracker-model/Board.ts';
+import { createLogger }        from '../../lib/tracker-model/Logger.ts';
+import { ConcurrencyUtil }     from '../../lib/tracker-model/utils/ConcurrencyUtil.ts';
+import { ticketFixture }       from '../../testing/BoardFixtures.ts';
+import type { PageBoardFacts } from './@types/PageBoardFacts.ts';
+import { renderProgressPage }  from './ProgressPage.ts';
+import { BoardFactsUtil }      from './utils/BoardFactsUtil.ts';
 
 const GENERATED_AT = new Date('2026-09-18T20:11:03Z');
 
@@ -79,5 +84,53 @@ describe('renderProgressPage', () => {
     expect(rendering.pageScriptFailure).toBeNull();
     expect(rendering.document.startsWith('<!doctype html>')).toBe(true);
     expect(rendering.document).toContain('ap-progress-data');
+  });
+
+  test('writes one row fact per stored row, in order, keeping two rows that share a hand-duplicated id apart', async () => {
+    const progress: ProgressFile = {
+      ...EXAMPLE_PROGRESS,
+      tasks: [
+        exampleTask(1, { ticket: '003', status: 'in-review' }),
+        exampleTask(2, { status: 'delivered', reviewed: '2026-09-18T21:10:00+02:00' }),
+        exampleTask(2, { status: 'delivered' }),
+        exampleTask(3, { reviewOf: '003', status: 'in-progress' }),
+      ],
+    };
+
+    const { document } = await renderProgressPage({
+      progress,
+      tickets:     [ticketFixture({ id: '003', status: 'in-review', task: 1 })],
+      logRecords:  [],
+      generatedAt: GENERATED_AT,
+    });
+
+    const { boardFacts } = islandContentsOf(document, 'ap-progress-data') as { boardFacts: PageBoardFacts };
+    expect(boardFacts.rows.map((row) => row.displayState)).toEqual(['reviewing', 'delivered', 'delivered', 'in-progress']);
+    expect(boardFacts.rows.map((row) => row.deliveredRowCountsAsReviewed)).toEqual([false, true, false, false]);
+    expect(boardFacts.rows.map((row) => row.ownRowPositionOfReviewedTicket)).toEqual([null, null, null, 0]);
+  });
+
+  test('writes the facts boardFactsOf gives for a Board over the same progress and tickets', async () => {
+    const tickets = [ticketFixture({ id: '003', status: 'in-progress', task: 1 }), ticketFixture({ id: '004' })];
+    const progress: ProgressFile = {
+      ...EXAMPLE_PROGRESS,
+      tasks: [
+        exampleTask(1, { ticket: '003' }),
+        exampleTask(2, { reviewOf: '003', status: 'delivered' }),
+        exampleTask(3, { reviewOf: '004' }),
+      ],
+    };
+
+    const { document } = await renderProgressPage({
+      progress,
+      tickets,
+      logRecords:  [],
+      generatedAt: GENERATED_AT,
+    });
+
+    const expected       = BoardFactsUtil.boardFactsOf(new Board({ progress, tickets, logger: createLogger(() => undefined) }));
+    const { boardFacts } = islandContentsOf(document, 'ap-progress-data') as { boardFacts: PageBoardFacts };
+    expect(boardFacts).toEqual(expected);
+    expect(boardFacts.tickets.map((ticket) => ticket.ticketId)).toEqual(['003', '004']);
   });
 });
