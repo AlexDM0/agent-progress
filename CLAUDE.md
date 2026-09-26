@@ -70,7 +70,8 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
 
 - Internal values are string-literal unions, never display text; wording is mapped in and out at the edge.
 - An optional stored key is written only once somebody sets it, and a read never adds or rewrites one, so an older
-  file stays byte-identical.
+  file stays byte-identical. The one exception is a legacy review bar: the read gives a row known only by its name
+  `reviewOf` and `reviewBarRound`, and pads a stored all-digit `reviewOf`, in memory; the next write stores them.
 - A malformed stored file is a verdict and a report, never a throw that takes down `status` or `render`.
 - The Board logs through the semantic Logger (`src/lib/tracker-model/Logger.ts`), with ids and values only;
   `src/adapters/utils/LogUtil.ts` words the records. Until plan step 5, `src/adapters/ProgressLogSink.ts` appends the
