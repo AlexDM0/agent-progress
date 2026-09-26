@@ -68,7 +68,8 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  cli/
 ### Model and boundaries
 
 - Internal values are string-literal unions, never display text; wording is mapped in and out at the edge. Statuses,
-  types and priorities print as their words; a mapper exists only where the wording differs from the value.
+  types and priorities print as their words; a mapper exists only where the wording differs from the value, and for
+  the ticket status badge, which the page words through `src/adapters/utils/HtmlLabelUtil.ts`.
 - An optional stored key is written only once somebody sets it, and a read never adds or rewrites one, so an older
   file stays byte-identical. The one exception is a legacy review bar: the read gives a row known only by its name
   `reviewOf` and `reviewBarRound`, and pads a stored `reviewOf` that reads as a whole number, in memory; the next

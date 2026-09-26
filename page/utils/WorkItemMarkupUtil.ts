@@ -39,7 +39,7 @@ function ticketBadgeMarkup(ticketId: string): string {
 }
 
 function ticketStatusBadgeMarkup(status: TicketStatus): string {
-  return `<span class="ap-badge ${HtmlEscapeUtil.escapeHtml(status)}">${HtmlEscapeUtil.escapeHtml(status)}</span>`;
+  return `<span class="ap-badge ${HtmlEscapeUtil.escapeHtml(status)}">${HtmlEscapeUtil.escapeHtml(HtmlLabelUtil.ticketStatusBadgeTextOf(status))}</span>`;
 }
 
 /** Normal is unmarked. Low borrows the row's quiet ticket badge and high the amber "waiting on" note: the template has no priority style of its own. */
