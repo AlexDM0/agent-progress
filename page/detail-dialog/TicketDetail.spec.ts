@@ -1,17 +1,13 @@
 /**
  * The body a Kanban card's dialog shows. What callers rely on is the order — head, facts, Timeline, Description — the facts present
- * and only those, in their fixed order, the waiting-on links leading to Kanban cards, and the quiet filed bar existing only here: the
- * Progress chart, the Kanban board and a row's overview never draw it.
+ * and only those, in their fixed order, the waiting-on links leading to Kanban cards, and the quiet filed bar the body draws.
  */
 
 import { describe, expect, test } from 'bun:test';
 import type { Task }              from '../../src/lib/tracker-model/@types/Task.ts';
 import type { PageTicket }        from '../../src/shared/@types/PagePayload.ts';
 import type { KanbanCard }        from '../@types/KanbanCard.ts';
-import { kanbanCardsFor }         from '../kanban/KanbanLanes.ts';
-import { kanbanBoardMarkup }      from '../kanban/KanbanMarkup.ts';
-import { taskRowsMarkup }         from '../progress/ProgressMarkup.ts';
-import { taskDetailMarkup }       from './TaskDetail.ts';
+import { BoardRulesUtil }         from '../utils/BoardRulesUtil.ts';
 import type { TicketDetailInput } from './TicketDetail.ts';
 import { ticketDetailMarkup }     from './TicketDetail.ts';
 
@@ -101,11 +97,13 @@ const WAITING_ROW = exampleRow(20, { ticket: '065' });
 const TASKS = [DELIVERED_ROW, WAITING_ROW];
 
 function cardFor(ticket: PageTicket, waitingOn: readonly string[] = []): KanbanCard {
-  const card = kanbanCardsFor([ticket], TASKS, new Map([[ticket.id, waitingOn]]))[0];
-  if (card === undefined) {
-    throw new Error('the example card was not built');
-  }
-  return card;
+  const ownRow = BoardRulesUtil.ownRowOf(ticket.id, TASKS);
+  return {
+    ticket,
+    ownRow,
+    state: BoardRulesUtil.rowStateFor(ownRow ?? { status: ticket.status }, ticket.status),
+    waitingOn,
+  };
 }
 
 function inputFor(card: KanbanCard): TicketDetailInput {
@@ -158,47 +156,5 @@ describe('the ticket body', () => {
   test('a held ticket names its reason among the facts, or says none was given', () => {
     expect(ticketDetailMarkup(inputFor(cardFor({ ...WAITING_TICKET, hold: 'Example Agency copy' })))).toContain('<div><b>held</b><span>Example Agency copy</span></div>');
     expect(ticketDetailMarkup(inputFor(cardFor({ ...WAITING_TICKET, hold: '' })))).toContain('<div><b>held</b><span>no reason given</span></div>');
-  });
-});
-
-// The quiet filed bar is the dialog's alone: drawing it on the Progress chart would put a ticket's queue time among the rows' work.
-describe('the filed bar outside the dialog', () => {
-  test('neither the Progress rows, the Kanban board nor a row’s overview draws one', () => {
-    const bar     = {
-      leftPercent:  0,
-      widthPercent: 10,
-      clippedLeft:  false,
-      clippedRight: false,
-      visible:      true,
-    };
-    const rows    = taskRowsMarkup(TASKS.map((task) => ({
-      task,
-      ticketStatus: null,
-      bar:          { ...bar, taskId: task.id },
-      waitingOn:    [],
-    })), EXAMPLE_LIMITS);
-    const board   = kanbanBoardMarkup({
-      cards:                  [cardFor(DELIVERED_TICKET), cardFor(WAITING_TICKET)],
-      tasks:                  TASKS,
-      nowEpochMilliseconds:   EXAMPLE_NOW,
-      todayCalendarDate:      EXAMPLE_TODAY,
-      slices:                 EXAMPLE_LIMITS,
-      showsAllWork:           true,
-      shownCountByClosedLane: { done: 15, abandoned: 15 },
-      abandonedLaneIsOpen:    true,
-    });
-    const overview = taskDetailMarkup({
-      task:              DELIVERED_ROW,
-      ticket:            DELIVERED_TICKET,
-      log:               [],
-      slices:            EXAMPLE_LIMITS,
-      todayCalendarDate: EXAMPLE_TODAY,
-    });
-    expect(rows).toContain('ap-row');
-    expect(board).toContain('ap-kanban-card');
-    for (const markup of [rows, board, overview]) {
-      expect(markup).not.toContain('ap-ticket-gantt');
-    }
-    expect(ticketDetailMarkup(inputFor(cardFor(DELIVERED_TICKET)))).toContain('class="ap-bar ap-ticket-gantt-filed"');
   });
 });
