@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 
-import { withLock }                from '../../lib/platform/Lock';
-import { requireWorkspace }        from '../../lib/platform/Workspace';
+import { withLock }                from '../../src/services/tracker/TrackerLock';
+import { requireWorkspace }        from '../../src/services/tracker/Workspace';
 import { renderDashboardOrRefuse } from '../CommandSupport';
 import type { CommandHandler }     from '../CommandTable';
 

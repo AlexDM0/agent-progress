@@ -39,7 +39,7 @@ to make a check pass.
 ### Imports (today's tree, held by review)
 
 ```
-src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/tickets/, lib/render/  →  cli/
+src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/tickets/, lib/render/  →  cli/
 ```
 
 - Imports run up only, with no cycles. `lib/constants/` imports nothing outside itself; `lib/utils/` imports only
@@ -53,18 +53,14 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
   domain class, throws its typed `BoardRefusal` instead. A `src/lib/` spec may import `src/testing/`.
 - `src/lib/tracker-model/` imports nothing outside its own folder and no builtin: the page's DOM-only project compiles
   it, so it stays DOM-safe. The `lib/` layers import it like any `src/lib/` package.
-- `src/testing/` may import `lib/platform/Workspace.ts` until plan step 6 moves it; `cli/testing/` is imported only by
-  `cli/` specs.
+- `cli/testing/` is imported only by `cli/` specs.
 - `src/adapters/` imports only `src/lib/` and `src/shared/`; a `src/adapters/` spec may also import `src/testing/`.
   What remains in `lib/` and `cli/` may import `src/adapters/` until plan step 6 moves the listing and the pipeline.
-- A `src/services/` folder imports only `src/lib/`, `src/shared/` and `src/adapters/`. What remains in `lib/` and
-  `cli/` may import `src/services/` until plan step 6 moves it there.
+- A `src/services/` folder imports only `src/lib/`, `src/shared/` and `src/adapters/`; a `src/services/` spec may import
+  `src/testing/`. What remains in `lib/` and `cli/` may import `src/services/` until plan step 6 moves it there.
 - `src/shared/` holds app-specific code several parts use and imports only `src/lib/` and itself; what remains in
-  `lib/` may import `src/shared/`; `src/` never imports `lib/` or `cli/` (the one exception is the `src/testing/` one
-  above).
+  `lib/` may import `src/shared/`; `src/` never imports `lib/` or `cli/`.
 - A feature folder never imports a sibling: hoist what both need, or pass a structurally typed parameter.
-- `lib/platform/` touches the machine and knows nothing about tasks or tickets: a caller hands it paths and values,
-  never a task or a ticket, even though the layer order would let it import their types from `src/lib/tracker-model/`.
 - The target layout's import rules are in section 2 of `docs/migration-plan.md`.
 
 ### Model and boundaries

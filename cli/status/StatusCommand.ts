@@ -1,4 +1,3 @@
-import { requireWorkspace }               from '../../lib/platform/Workspace';
 import { listTickets }                    from '../../lib/tickets/TicketStore';
 import { ProgressDocumentUtil }           from '../../src/adapters/progress/utils/ProgressDocumentUtil';
 import { LogUtil }                        from '../../src/adapters/utils/LogUtil';
@@ -8,6 +7,7 @@ import type { Board }                     from '../../src/lib/tracker-model/Boar
 import { TASK_STATUSES, TICKET_STATUSES } from '../../src/lib/tracker-model/constants/Statuses';
 import { TimeUtil }                       from '../../src/lib/utils/TimeUtil';
 import { TokenCountUtil }                 from '../../src/lib/utils/TokenCountUtil';
+import { requireWorkspace }               from '../../src/services/tracker/Workspace';
 import type { WordedLogEntry }            from '../../src/shared/@types/WordedLogEntry';
 import { LIMITS }                         from '../../src/shared/constants/Limits';
 import {

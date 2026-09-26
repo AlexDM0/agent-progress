@@ -13,7 +13,7 @@ import {
   test
 }                                                 from 'bun:test';
 
-import { workspacePathsFor }                                   from '../../lib/platform/Workspace';
+import { workspacePathsFor }                                   from '../services/tracker/Workspace';
 import { createScratchDirectory, removeScratchDirectory }      from './ScratchWorkspace';
 import { requireTrackerIsolation, trackerIsolationVerdictFor } from './TrackerIsolation';
 

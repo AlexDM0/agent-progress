@@ -12,14 +12,14 @@ import {
 import { dirname, join }          from 'node:path';
 import { afterAll, expect, test } from 'bun:test';
 
-import { refusalIsOperationRefusal } from '../../src/shared/OperationRefusal';
+import { refusalIsOperationRefusal } from '../../shared/OperationRefusal';
 import {
   addWorktree,
   createScratchDirectory,
   createScratchGitRepository,
   gitIsAvailable,
   removeScratchDirectory
-} from '../../src/testing/ScratchWorkspace';
+} from '../../testing/ScratchWorkspace';
 import { findWorkspace, requireWorkspace, workspacePathsFor } from './Workspace';
 
 const WORKSPACE_MODULE_PATH = join(import.meta.dir, 'Workspace.ts');

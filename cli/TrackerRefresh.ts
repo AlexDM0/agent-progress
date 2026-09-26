@@ -8,7 +8,6 @@
 import { readFileSync } from 'node:fs';
 import { join }         from 'node:path';
 
-import type { Workspace }           from '../lib/platform/Workspace';
 import { writeFileAtomically }      from '../src/lib/atomic-file/AtomicFile';
 import { writeManagedBlock }        from '../src/lib/claude-code/ClaudeInstructions';
 import type { ManagedBlockMarkers } from '../src/lib/claude-code/ClaudeInstructions';
@@ -19,6 +18,7 @@ import {
   writeSubagentStopHook
 }                                                    from '../src/lib/claude-code/ClaudeSettings';
 import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../src/lib/tracker-model/constants/AgentSettings';
+import type { Workspace }                            from '../src/services/tracker/Workspace';
 import { TRACKER_FILES }                             from '../src/services/tracker/constants/TrackerFiles';
 
 const CLAUDE_BLOCK_TEMPLATE_PATH = ['..', 'templates', 'ClaudeInstructionsBlock.md'];

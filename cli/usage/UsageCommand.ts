@@ -4,7 +4,6 @@
  */
 import { readFileSync } from 'node:fs';
 
-import { requireWorkspace }                             from '../../lib/platform/Workspace';
 import type { SubagentTranscript }                      from '../../src/lib/claude-code/ClaudeTranscripts';
 import { listSubagentTranscripts, transcriptFolderFor } from '../../src/lib/claude-code/ClaudeTranscripts';
 import type { CohortSummary }                           from '../../src/lib/claude-code/utils/TranscriptCohortUtil';
@@ -13,6 +12,7 @@ import type { TranscriptProfile }                       from '../../src/lib/clau
 import { TranscriptUsageUtil }                          from '../../src/lib/claude-code/utils/TranscriptUsageUtil';
 import { TimeUtil }                                     from '../../src/lib/utils/TimeUtil';
 import { TokenCountUtil }                               from '../../src/lib/utils/TokenCountUtil';
+import { requireWorkspace }                             from '../../src/services/tracker/Workspace';
 import { OperationRefusal }                             from '../../src/shared/OperationRefusal';
 import { LIMITS }                                       from '../../src/shared/constants/Limits';
 import type { CommandContext }                          from '../CommandContext';

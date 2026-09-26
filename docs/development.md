@@ -156,7 +156,7 @@ docs/                this page, the CLI reference, the backlog and the README im
 Inside `lib/`, imports run up the tree only:
 
 ```
-src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/tickets/ lib/render/  →  cli/
+src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/tickets/, lib/render/  →  cli/
 ```
 
 A feature folder (`lib/tickets/`, `lib/render/`) never imports a sibling; what two

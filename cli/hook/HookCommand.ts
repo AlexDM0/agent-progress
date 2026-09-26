@@ -87,7 +87,7 @@ async function readHookInput(context: CommandContext): Promise<Record<string, un
 /**
  * The tracker is resolved from the hook input's `cwd`, not from this process's: the hook runs wherever
  * the harness happens to be, and the agent that stopped may have been working in a worktree. A
- * worktree still finds the main checkout's tracker, because `lib/platform/Workspace.ts` asks git for
+ * worktree still finds the main checkout's tracker, because `src/services/tracker/Workspace.ts` asks git for
  * the common directory — so this only has to hand the walk the right place to start.
  */
 async function recordInTheTracker(

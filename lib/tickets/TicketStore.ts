@@ -14,7 +14,7 @@ import type {
   TicketType
 } from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { TicketIdUtil }   from '../../src/lib/tracker-model/utils/TicketIdUtil.ts';
-import type { Workspace } from '../platform/Workspace.ts';
+import type { Workspace } from '../../src/services/tracker/Workspace.ts';
 import { SlugUtil }       from '../utils/SlugUtil.ts';
 
 export interface MalformedTicketFile {

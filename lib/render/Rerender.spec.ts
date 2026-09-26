@@ -13,9 +13,9 @@ import {
 import type { StoredLogReading }                          from '../../src/adapters/log/utils/TrackerLogUtil.ts';
 import type { ProgressFile }                              from '../../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { Ticket }                                    from '../../src/lib/tracker-model/@types/Ticket.ts';
+import { workspacePathsFor }                              from '../../src/services/tracker/Workspace.ts';
+import type { Workspace }                                 from '../../src/services/tracker/Workspace.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
-import { workspacePathsFor }                              from '../platform/Workspace.ts';
-import type { Workspace }                                 from '../platform/Workspace.ts';
 import { rerenderDashboard }                              from './Rerender.ts';
 import type { MalformedTicketFile, TrackerReads }         from './Rerender.ts';
 

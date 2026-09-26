@@ -1,8 +1,8 @@
-import { requireWorkspace }                                        from '../../lib/platform/Workspace';
 import { LogUtil }                                                 from '../../src/adapters/utils/LogUtil';
 import type { DispatcherState }                                    from '../../src/lib/tracker-model/@types/ProgressFile';
 import { DEFAULT_DISPATCHER_STATE, DISPATCHER_STATES }             from '../../src/lib/tracker-model/constants/DispatcherStates';
 import { BoardSettingsUtil }                                       from '../../src/lib/tracker-model/utils/BoardSettingsUtil';
+import { requireWorkspace }                                        from '../../src/services/tracker/Workspace';
 import { OperationRefusal }                                        from '../../src/shared/OperationRefusal';
 import type { CommandContext }                                     from '../CommandContext';
 import { openTrackerForWriting, printEntity, requireProgressFile } from '../CommandSupport';

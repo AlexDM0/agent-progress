@@ -1,8 +1,8 @@
-import { requireWorkspace }                                        from '../../lib/platform/Workspace';
 import { LogUtil }                                                 from '../../src/adapters/utils/LogUtil';
 import { CONCURRENCY_LIMIT_CEILING_AGENTS }                        from '../../src/lib/tracker-model/constants/ConcurrencyLimits';
 import { BoardSettingsUtil }                                       from '../../src/lib/tracker-model/utils/BoardSettingsUtil';
 import { ConcurrencyUtil }                                         from '../../src/lib/tracker-model/utils/ConcurrencyUtil';
+import { requireWorkspace }                                        from '../../src/services/tracker/Workspace';
 import { OperationRefusal }                                        from '../../src/shared/OperationRefusal';
 import type { CommandContext }                                     from '../CommandContext';
 import { openTrackerForWriting, printEntity, requireProgressFile } from '../CommandSupport';

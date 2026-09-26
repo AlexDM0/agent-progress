@@ -6,10 +6,10 @@
 import { existsSync, realpathSync, statSync } from 'node:fs';
 import { dirname, join, resolve }             from 'node:path';
 
-import { discoverRepositoryRoot }    from '../../src/lib/git/RepositoryRoot';
-import { TRACKER_FILES }             from '../../src/services/tracker/constants/TrackerFiles';
-import { agentProgressRootOverride } from '../../src/shared/Environment';
-import { OperationRefusal }          from '../../src/shared/OperationRefusal';
+import { discoverRepositoryRoot }    from '../../lib/git/RepositoryRoot';
+import { agentProgressRootOverride } from '../../shared/Environment';
+import { OperationRefusal }          from '../../shared/OperationRefusal';
+import { TRACKER_FILES }             from './constants/TrackerFiles';
 
 /** Every path one tracker owns, all absolute: a relative one would resolve against a subagent's working directory. */
 export interface Workspace {

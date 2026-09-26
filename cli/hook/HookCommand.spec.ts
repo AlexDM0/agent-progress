@@ -38,7 +38,7 @@ const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
 const TRANSCRIPT_FILE_NAME = 'agent-example.jsonl';
 
-/** The held-lock case waits out the whole retry budget before it is refused, exactly as `lib/platform/Lock.spec.ts` does. */
+/** The held-lock case waits out the whole retry budget before it is refused, exactly as `src/services/tracker/TrackerLock.spec.ts` does. */
 const HELD_LOCK_TIMEOUT_MILLISECONDS = LIMITS.LOCK_RETRY_COUNT * LIMITS.LOCK_RETRY_INTERVAL_MILLISECONDS * 3;
 
 let repositoryDirectory = '';
@@ -550,7 +550,7 @@ describe.skipIf(!gitIsAvailable())('every way it can fail', () => {
   /**
    * The only failure that reaches this command as a throw from inside the tracker, and the one a
    * fan-out actually produces: a sibling command holds the lock when the agent stops. A `.lock` that
-   * is a plain file rather than the lock directory is one `lib/platform/Lock.ts` cannot judge, so it
+   * is a plain file rather than the lock directory is one `src/services/tracker/TrackerLock.ts` cannot judge, so it
    * waits it out and then refuses rather than assuming free — so the line is lost, and nothing else is.
    */
   test('a lock the tracker will not give up costs the line only, leaving the log and the lock as they were', async () => {

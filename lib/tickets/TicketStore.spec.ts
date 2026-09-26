@@ -26,8 +26,8 @@ import { createTicketFileWriter }   from '../../src/adapters/tickets/TicketFileW
 import type { Ticket, TicketType }  from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { EmptyProgressUtil }        from '../../src/lib/tracker-model/utils/EmptyProgressUtil.ts';
 import { TaskFilingUtil }           from '../../src/lib/tracker-model/utils/TaskFilingUtil.ts';
+import type { Workspace }           from '../../src/services/tracker/Workspace.ts';
 import { TRACKER_FILES }            from '../../src/services/tracker/constants/TrackerFiles.ts';
-import type { Workspace }           from '../platform/Workspace.ts';
 import {
   createTicket,
   deleteAllTickets,

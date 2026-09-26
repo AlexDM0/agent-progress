@@ -4,7 +4,7 @@
  * no tracker, so it takes neither `--project` nor `--root`, and touches the tracker only to rewrite
  * files still in an older format.
  */
-import { requireWorkspace }                                                    from '../../lib/platform/Workspace';
+import { requireWorkspace }                                                    from '../../src/services/tracker/Workspace';
 import { rewriteOlderTrackerFiles, rewrittenFilesTextOf, type TrackerRewrite } from '../CommandSupport';
 import type { CommandHandler }                                                 from '../CommandTable';
 import { refreshTrackedRepository }                                            from '../TrackerRefresh';

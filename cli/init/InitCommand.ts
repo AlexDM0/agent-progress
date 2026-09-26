@@ -3,14 +3,14 @@ import { randomUUID }                        from 'node:crypto';
 import { mkdirSync, realpathSync, statSync } from 'node:fs';
 import { basename, resolve }                 from 'node:path';
 
-import { withLock }                         from '../../lib/platform/Lock';
-import { findWorkspace, workspacePathsFor } from '../../lib/platform/Workspace';
 import { createLogFileWriter }              from '../../src/adapters/log/LogFileWriter';
 import { createProgressFileWriter }         from '../../src/adapters/progress/ProgressFileWriter';
 import { ensureIgnored }                    from '../../src/lib/git/GitIgnore';
 import { discoverRepositoryRoot }           from '../../src/lib/git/RepositoryRoot';
 import { EmptyProgressUtil }                from '../../src/lib/tracker-model/utils/EmptyProgressUtil';
 import { TimeUtil }                         from '../../src/lib/utils/TimeUtil';
+import { withLock }                         from '../../src/services/tracker/TrackerLock';
+import { findWorkspace, workspacePathsFor } from '../../src/services/tracker/Workspace';
 import { TRACKER_FILES }                    from '../../src/services/tracker/constants/TrackerFiles';
 import { agentProgressRootOverride }        from '../../src/shared/Environment';
 import { OperationRefusal }                 from '../../src/shared/OperationRefusal';

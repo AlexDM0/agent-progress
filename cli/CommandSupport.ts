@@ -1,11 +1,9 @@
 /**
- * The sequence every mutating command follows, written once: take the lock of `lib/platform/Lock.ts`; read the progress file, its log and the
- * tickets into a Board; mutate; write the progress file, then the tickets the Board changed, then log.jsonl, then render through
+ * The sequence every mutating command follows, written once: take the lock of `src/services/tracker/TrackerLock.ts`; read the progress file, its log
+ * and the tickets into a Board; mutate; write the progress file, then the tickets the Board changed, then log.jsonl, then render through
  * `lib/render/Rerender.ts` — all inside the lock, in that order, so no older render lands last and the progress file is never behind the
  * tickets. A log taken over from a version 1 progress file also has its notes copied first, so they are on disk before that file stops holding them.
  */
-import { withLock }                                from '../lib/platform/Lock';
-import { requireWorkspace, type Workspace }        from '../lib/platform/Workspace';
 import { rerenderDashboard, type RerenderOutcome } from '../lib/render/Rerender';
 import {
   deleteAllTickets,
@@ -38,6 +36,8 @@ import { ConcurrencyUtil }                             from '../src/lib/tracker-
 import { TicketDefaultsUtil }                          from '../src/lib/tracker-model/utils/TicketDefaultsUtil';
 import { TimeUtil }                                    from '../src/lib/utils/TimeUtil';
 import { TokenCountUtil }                              from '../src/lib/utils/TokenCountUtil';
+import { withLock }                                    from '../src/services/tracker/TrackerLock';
+import { requireWorkspace, type Workspace }            from '../src/services/tracker/Workspace';
 import { OperationRefusal, refusalIsOperationRefusal } from '../src/shared/OperationRefusal';
 import { LIMITS }                                      from '../src/shared/constants/Limits';
 import type { CommandContext }                         from './CommandContext';

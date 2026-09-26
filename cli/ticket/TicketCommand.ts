@@ -5,7 +5,6 @@
 import { readFileSync }            from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 
-import { requireWorkspace, type Workspace } from '../../lib/platform/Workspace';
 import {
   createTicket,
   listTickets,
@@ -29,17 +28,18 @@ import type {
   TicketStatus,
   TicketType
 } from '../../src/lib/tracker-model/@types/Ticket';
-import { AGENT_EFFORTS, AGENT_MODELS }     from '../../src/lib/tracker-model/constants/AgentSettings';
-import { TICKET_STATUSES }                 from '../../src/lib/tracker-model/constants/Statuses';
-import { TICKET_PRIORITIES, TICKET_TYPES } from '../../src/lib/tracker-model/constants/TicketFields';
-import { TicketDefaultsUtil }              from '../../src/lib/tracker-model/utils/TicketDefaultsUtil';
-import { TicketDependencyUtil }            from '../../src/lib/tracker-model/utils/TicketDependencyUtil';
-import { TicketIdUtil }                    from '../../src/lib/tracker-model/utils/TicketIdUtil';
-import { VocabularyUtil }                  from '../../src/lib/tracker-model/utils/VocabularyUtil';
-import { OperationRefusal }                from '../../src/shared/OperationRefusal';
-import { LIMITS }                          from '../../src/shared/constants/Limits';
-import { DispatcherClaimNoteUtil }         from '../../src/shared/utils/DispatcherClaimNoteUtil';
-import type { CommandContext }             from '../CommandContext';
+import { AGENT_EFFORTS, AGENT_MODELS }      from '../../src/lib/tracker-model/constants/AgentSettings';
+import { TICKET_STATUSES }                  from '../../src/lib/tracker-model/constants/Statuses';
+import { TICKET_PRIORITIES, TICKET_TYPES }  from '../../src/lib/tracker-model/constants/TicketFields';
+import { TicketDefaultsUtil }               from '../../src/lib/tracker-model/utils/TicketDefaultsUtil';
+import { TicketDependencyUtil }             from '../../src/lib/tracker-model/utils/TicketDependencyUtil';
+import { TicketIdUtil }                     from '../../src/lib/tracker-model/utils/TicketIdUtil';
+import { VocabularyUtil }                   from '../../src/lib/tracker-model/utils/VocabularyUtil';
+import { requireWorkspace, type Workspace } from '../../src/services/tracker/Workspace';
+import { OperationRefusal }                 from '../../src/shared/OperationRefusal';
+import { LIMITS }                           from '../../src/shared/constants/Limits';
+import { DispatcherClaimNoteUtil }          from '../../src/shared/utils/DispatcherClaimNoteUtil';
+import type { CommandContext }              from '../CommandContext';
 import {
   ignoredTicketFileText,
   openTrackerForWriting,
