@@ -227,7 +227,7 @@ test('sending a row back to pending files that as a phase and keeps the phases t
   ]);
 });
 
-// The store writes the result back into the record it holds; an input changed on the way would leave a caller's copy half-moved.
+// The Board writes the result back into the record its callers hold; an input changed on the way would leave a caller's copy half-moved.
 test('returns a new record and leaves the one it was given untouched', () => {
   const task     = { ...filed({ name: 'Review pass', filedAt: FILED_AT }), agent: '003,004' };
   const snapshot = structuredClone(task);
