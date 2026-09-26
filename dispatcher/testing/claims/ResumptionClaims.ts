@@ -2,8 +2,14 @@
  * The dispatcher's resumption of a build an earlier run left paused, as claims shared by the resumption suite: each a scenario, what must hold
  * after it, and the mutant that breaks exactly that decision.
  */
+import type { DispatchSummary }                                          from '../../@types/DispatchOutcome.ts';
 import type { DispatchScenario, RecordedAgentCall, RecordedDispatchRun } from '../DispatchScriptHarness.ts';
-import { DISPATCHER_MODULE_PATHS, type DispatchClaim }                   from './DispatchClaim.ts';
+import {
+  DISPATCHER_MODULE_PATHS,
+  dispatchSummaryFrom,
+  runSummaryOf,
+  type DispatchClaim
+} from './DispatchClaim.ts';
 
 const {
   DISPATCH_RUN,
@@ -12,21 +18,9 @@ const {
   DISPATCH_WORDING_UTIL,
 } = DISPATCHER_MODULE_PATHS;
 
-interface ResumeSummary {
-  delivered:           string[];
-  held?:               { id: string; waitingFor: string }[];
-  pausedBuilds?:       string[];
-  reviewsLeft?:        string[];
-  lowPriorityWaiting?: string[];
-}
-
 const PAUSED_TICKET_ID = '001';
 
 const WHOLE_BOARD_CLAIM_NOTE = `Built by the whole-board dispatcher run on ticket-${PAUSED_TICKET_ID}`;
-
-function summaryOf(summary: unknown): ResumeSummary {
-  return summary as ResumeSummary;
-}
 
 function callsOf(run: RecordedDispatchRun, runName: string, kind: string, ticketId: string): RecordedAgentCall[] {
   return run.calls.filter((call) => call.run === runName && call.kind === kind && call.ticketId === ticketId);
@@ -84,7 +78,7 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
     scenarioFor: stoppedMidBuildThenRelaunched,
     holds:       (run) => {
       const [firstRelaunchBuilder] = run.calls.filter((call) => call.run === 'relaunch' && call.kind === 'build');
-      return summaryOf(run.relaunchSummary).delivered.join() === `${PAUSED_TICKET_ID},002`
+      return (dispatchSummaryFrom(run.relaunchSummary) as DispatchSummary).delivered.join() === `${PAUSED_TICKET_ID},002`
         && firstRelaunchBuilder?.ticketId === PAUSED_TICKET_ID
         && callsOf(run, 'relaunch', 'build', PAUSED_TICKET_ID).length === 1
         && run.buildersOnBoard.filter((builder) => builder === `relaunch build ${PAUSED_TICKET_ID}`).length === 1
@@ -97,15 +91,15 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
   {
     name:        'the stopped run names the build it left paused in its summary',
     scenarioFor: stoppedMidBuildThenRelaunched,
-    holds:       (run) => JSON.stringify(summaryOf(run.summary).pausedBuilds) === JSON.stringify([PAUSED_TICKET_ID])
-      && summaryOf(run.relaunchSummary).pausedBuilds === undefined,
+    holds:       (run) => JSON.stringify(runSummaryOf(run).pausedBuilds) === JSON.stringify([PAUSED_TICKET_ID])
+      && (dispatchSummaryFrom(run.relaunchSummary) as DispatchSummary).pausedBuilds === undefined,
     mutant: { modulePath: DISPATCH_RUN, find: 'pausedBuilds:       this.pausedBuildsLeft,', replace: 'pausedBuilds:       [],' },
   },
   {
     // Another run's label, a single-ticket run's here, is a claim the builder's own note does not match, so only the takeover sentence carries it on.
     name:        'a whole-board run takes over a build another dispatcher run left paused and delivers it with one builder',
     scenarioFor: pausedBuildBeside(`Built by the ticket-${PAUSED_TICKET_ID} dispatcher run on ticket-${PAUSED_TICKET_ID}`),
-    holds:       (run) => summaryOf(run.summary).delivered.join() === `${PAUSED_TICKET_ID},002`
+    holds:       (run) => runSummaryOf(run).delivered.join() === `${PAUSED_TICKET_ID},002`
       && callsOf(run, 'main', 'build', PAUSED_TICKET_ID).length === 1
       && run.rowsPaused.length === 0,
     mutant: {
@@ -119,8 +113,8 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
     scenarioFor: pausedBuildBeside(WHOLE_BOARD_CLAIM_NOTE, [PAUSED_TICKET_ID]),
     holds:       (run) => callsOf(run, 'main', 'build', PAUSED_TICKET_ID).length === 0
       && run.rowsPaused.join() === `build ${PAUSED_TICKET_ID}`
-      && summaryOf(run.summary).delivered.join() === '002'
-      && JSON.stringify(summaryOf(run.summary).held) === JSON.stringify([{ id: PAUSED_TICKET_ID, waitingFor: 'build' }]),
+      && runSummaryOf(run).delivered.join() === '002'
+      && JSON.stringify(runSummaryOf(run).held) === JSON.stringify([{ id: PAUSED_TICKET_ID, waitingFor: 'build' }]),
     mutant: {
       modulePath: DISPATCH_RUN,
       find:       'resumablePausedBuildIds.filter((ticketId) => !this.ticketIdsTakenThisRun.has(ticketId) && !this.ticketIsHeld(ticketId));',
@@ -133,7 +127,7 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
     scenarioFor: pausedBuildBeside('Paused by Alex Example for a design question'),
     holds:       (run) => callsOf(run, 'main', 'build', PAUSED_TICKET_ID).length === 0
       && run.rowsPaused.join() === `build ${PAUSED_TICKET_ID}`
-      && summaryOf(run.summary).delivered.join() === '002',
+      && runSummaryOf(run).delivered.join() === '002',
     mutant: {
       modulePath: DISPATCH_RUN,
       find:       '      if (!DispatcherClaimNoteUtil.noteIsADispatcherClaimOn(pausedBuild.note, pausedBuild.id)) continue;\n',
@@ -147,7 +141,7 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
       readyTicketIds:             ['004'],
       pausedBuildNotesByTicketId: Object.fromEntries(['001', '002', '003'].map((ticketId) => [ticketId, `Built by the whole-board dispatcher run on ticket-${ticketId}`])),
     }),
-    holds: (run) => ['001', '002', '003', '004'].every((ticketId) => summaryOf(run.summary).delivered.includes(ticketId))
+    holds: (run) => ['001', '002', '003', '004'].every((ticketId) => runSummaryOf(run).delivered.includes(ticketId))
       && run.mostLiveAgentsAtOnce <= 2
       && run.mostAgentsInFlightAtOnce <= 2
       && run.mostAgentsOnBoardAtOnce <= 2,
@@ -161,7 +155,7 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
       ...pausedBuildBeside(`Built by the ticket-${PAUSED_TICKET_ID} dispatcher run on ticket-${PAUSED_TICKET_ID}`)(),
       builderReply: takingOverBuilderDiesOnce,
     }),
-    holds: (run) => summaryOf(run.summary).delivered.includes(PAUSED_TICKET_ID)
+    holds: (run) => runSummaryOf(run).delivered.includes(PAUSED_TICKET_ID)
       && callsOf(run, 'main', 'build', PAUSED_TICKET_ID).length === 2
       && run.rowsRunningAtEnd.length === 0,
     mutant: { modulePath: AGENT_PROMPT_UTIL, find: '<that row> --note "${claimNote}"', replace: '<that row>' },
@@ -175,14 +169,14 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
       pausedBuildNotesByTicketId: { [PAUSED_TICKET_ID]: WHOLE_BOARD_CLAIM_NOTE },
       builderReply:               takingOverBuilderDiesOnce,
     }),
-    holds:  (run) => summaryOf(run.summary).delivered.join() === PAUSED_TICKET_ID && run.rowsRunningAtEnd.length === 0,
+    holds:  (run) => runSummaryOf(run).delivered.join() === PAUSED_TICKET_ID && run.rowsRunningAtEnd.length === 0,
     mutant: { modulePath: AGENT_PROMPT_UTIL, find: '<that row> --note "${claimNote}"', replace: '<that row>' },
   },
   {
     name:        'at a limit of 1 a ready high ticket is built before a paused low build',
     scenarioFor: lowPausedBuildBesideHighReadyTicket(true),
     holds:       (run) => run.calls.filter((call) => call.kind === 'build').map((call) => call.ticketId).join() === `002,${PAUSED_TICKET_ID}`
-      && summaryOf(run.summary).delivered.join() === `002,${PAUSED_TICKET_ID}`,
+      && runSummaryOf(run).delivered.join() === `002,${PAUSED_TICKET_ID}`,
     mutant: {
       modulePath: DISPATCH_RUN,
       find:       'this.priorityRankOf(this.pausedBuildPriorities.get(pausedBuildId)) <= this.priorityRankOf(readyTicketPriority)',
@@ -195,9 +189,9 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
     scenarioFor: lowPausedBuildBesideHighReadyTicket(false),
     holds:       (run) => callsOf(run, 'main', 'build', PAUSED_TICKET_ID).length === 0
       && run.rowsPaused.join() === `build ${PAUSED_TICKET_ID}`
-      && summaryOf(run.summary).delivered.join() === '002'
-      && JSON.stringify(summaryOf(run.summary).pausedBuilds) === JSON.stringify([PAUSED_TICKET_ID])
-      && JSON.stringify(summaryOf(run.summary).lowPriorityWaiting) === JSON.stringify([PAUSED_TICKET_ID]),
+      && runSummaryOf(run).delivered.join() === '002'
+      && JSON.stringify(runSummaryOf(run).pausedBuilds) === JSON.stringify([PAUSED_TICKET_ID])
+      && JSON.stringify(runSummaryOf(run).lowPriorityWaiting) === JSON.stringify([PAUSED_TICKET_ID]),
     mutant: { modulePath: DISPATCH_RUN, find: '      .filter((ticketId) => this.pausedBuildIsAdmitted(ticketId))\n', replace: '' },
   },
   {
@@ -215,8 +209,8 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
         }
       },
     }),
-    holds: (run) => JSON.stringify(summaryOf(run.summary).pausedBuilds) === JSON.stringify([PAUSED_TICKET_ID])
-      && summaryOf(run.summary).held === undefined
+    holds: (run) => JSON.stringify(runSummaryOf(run).pausedBuilds) === JSON.stringify([PAUSED_TICKET_ID])
+      && runSummaryOf(run).held === undefined
       && run.rowsPaused.join() === `build ${PAUSED_TICKET_ID}`,
     mutant: { modulePath: DISPATCH_RUN, find: '[...unheldBuildsWithPausedRows, ...this.untakenPausedBuildIds()]', replace: '[...this.untakenPausedBuildIds()]' },
   },
@@ -232,7 +226,7 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
         if (call.kind === 'review' && call.ticketId === PAUSED_TICKET_ID) board.dispatcherState = 'stopped';
       },
     }),
-    holds: (run) => JSON.stringify(summaryOf(run.summary).reviewsLeft) === JSON.stringify([PAUSED_TICKET_ID, '002'])
+    holds: (run) => JSON.stringify(runSummaryOf(run).reviewsLeft) === JSON.stringify([PAUSED_TICKET_ID, '002'])
       && callsOf(run, 'main', 'review', '002').length === 0
       && run.rowsRunningAtEnd.length === 0,
     mutant: { modulePath: DISPATCH_WORDING_UTIL, find: '  if (outcome.reviewsLeft.length > 0) summary.reviewsLeft = outcome.reviewsLeft;\n', replace: '' },
@@ -243,7 +237,7 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
     scenarioFor: () => ({ ...pausedBuildBeside(WHOLE_BOARD_CLAIM_NOTE)(), pausedBuildIdsWithoutWorktree: [PAUSED_TICKET_ID] }),
     holds:       (run) => callsOf(run, 'main', 'build', PAUSED_TICKET_ID).length === 0
       && run.rowsPaused.join() === `build ${PAUSED_TICKET_ID}`
-      && summaryOf(run.summary).delivered.join() === '002',
+      && runSummaryOf(run).delivered.join() === '002',
     mutant: { modulePath: WORKFLOW_INPUT_UTIL, find: ' || pausedBuild[\'worktreeExists\'] !== true', replace: '' },
   },
   {

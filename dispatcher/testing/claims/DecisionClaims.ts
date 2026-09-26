@@ -3,14 +3,20 @@
  * that decision.
  */
 import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../../src/lib/tracker-model/constants/AgentSettings.ts';
+import type { DispatchSummary }                      from '../../@types/DispatchOutcome.ts';
 import type {
   DispatchRunName,
   DispatchScenario,
   RecordedDispatchRun,
   ReviewFinding
 } from '../DispatchScriptHarness.ts';
-import type { SourceMutant }                           from '../SourceMutant.ts';
-import { DISPATCHER_MODULE_PATHS, type DispatchClaim } from './DispatchClaim.ts';
+import type { SourceMutant } from '../SourceMutant.ts';
+import {
+  DISPATCHER_MODULE_PATHS,
+  dispatchSummaryFrom,
+  runSummaryOf,
+  type DispatchClaim
+} from './DispatchClaim.ts';
 
 const {
   DISPATCH_RUN,
@@ -31,22 +37,8 @@ export function kindsAndTickets(run: RecordedDispatchRun): string[] {
   return run.calls.map((call) => (call.ticketId === null ? call.kind : `${call.kind} ${call.ticketId}`));
 }
 
-interface DispatchSummary {
-  delivered:           string[];
-  parked:              { id: string; reason: string }[];
-  findingsFiled:       string[];
-  agentsRun:           number;
-  stoppedByBoard?:     boolean;
-  stoppedByFailures?:  boolean;
-  lowPriorityWaiting?: string[];
-}
-
-export function summaryOf(run: RecordedDispatchRun): DispatchSummary {
-  return run.summary as DispatchSummary;
-}
-
 function parkedIds(run: RecordedDispatchRun): string[] {
-  return summaryOf(run).parked.map((parkedTicket) => parkedTicket.id);
+  return runSummaryOf(run).parked.map((parkedTicket) => parkedTicket.id);
 }
 
 function reviewsOf(run: RecordedDispatchRun, ticketId: string): number {
@@ -140,7 +132,7 @@ function kindsAndTicketsOf(run: RecordedDispatchRun, runName: DispatchRunName): 
 }
 
 function racingSummaryOf(run: RecordedDispatchRun): DispatchSummary | null {
-  return run.racingSummary as DispatchSummary | null;
+  return dispatchSummaryFrom(run.racingSummary);
 }
 
 function buildersOnBoardOf(run: RecordedDispatchRun, ticketId: string): string {
@@ -170,13 +162,13 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
   {
     name:        'the agents running at once never exceed a board limit of 2',
     scenarioFor: () => ({ limit: 2, readyTicketIds: ticketIdsFrom(1, 5) }),
-    holds:       (run) => run.mostAgentsAtOnce === 2 && summaryOf(run).delivered.length === 5,
+    holds:       (run) => run.mostAgentsAtOnce === 2 && runSummaryOf(run).delivered.length === 5,
     mutant:      { modulePath: DISPATCH_RUN, find: 'Math.min(statedLimit, LIMITS.CONCURRENCY_LIMIT_CEILING_AGENTS)', replace: 'LIMITS.CONCURRENCY_LIMIT_CEILING_AGENTS' },
   },
   {
     name:        'never more than 10 run at once, even with a board limit of 12 and none in flight elsewhere',
     scenarioFor: () => ({ limit: 12, readyTicketIds: ticketIdsFrom(1, 15) }),
-    holds:       (run) => run.mostAgentsAtOnce === 10 && summaryOf(run).delivered.length === 15,
+    holds:       (run) => run.mostAgentsAtOnce === 10 && runSummaryOf(run).delivered.length === 15,
     mutant:      { modulePath: DISPATCH_RUN, find: 'Math.min(statedLimit, LIMITS.CONCURRENCY_LIMIT_CEILING_AGENTS)', replace: 'statedLimit' },
   },
   {
@@ -189,7 +181,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     // An own agent launched a moment before a status block was taken has not claimed yet: subtracting it too would read a real other agent as free.
     name:        'agents in flight elsewhere plus every own agent, on the board yet or not, never exceed the board limit',
     scenarioFor: () => ({ limit: 3, otherAgentsInFlight: 1, readyTicketIds: ticketIdsFrom(1, 5) }),
-    holds:       (run) => run.mostAgentsInFlightAtOnce === 3 && summaryOf(run).delivered.length === 5,
+    holds:       (run) => run.mostAgentsInFlightAtOnce === 3 && runSummaryOf(run).delivered.length === 5,
     mutant:      SUBTRACT_EVERY_OWN_AGENT,
   },
   {
@@ -200,7 +192,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       readyTicketIds:          ticketIdsFrom(1, 6),
       turnsBeforeFirstCommand: 3,
     }),
-    holds:  (run) => run.mostAgentsInFlightAtOnce === 4 && summaryOf(run).delivered.length === 6,
+    holds:  (run) => run.mostAgentsInFlightAtOnce === 4 && runSummaryOf(run).delivered.length === 6,
     mutant: SUBTRACT_EVERY_OWN_AGENT,
   },
   {
@@ -213,7 +205,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       reviewWaitingTicketIds:  ticketIdsFrom(1, 6),
       turnsBeforeFirstCommand: 3,
     }),
-    holds:  (run) => run.mostAgentsInFlightAtOnce === 4 && summaryOf(run).delivered.length === 6,
+    holds:  (run) => run.mostAgentsInFlightAtOnce === 4 && runSummaryOf(run).delivered.length === 6,
     mutant: {
       modulePath: DISPATCH_RUN,
       find:       'const confirmingTicketIds = work.kind === \'build\' ? status.inProgressTicketIds : status.inProgressReviewOfIds;',
@@ -230,7 +222,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       reviewWaitingTicketIds:    ticketIdsFrom(7, 3),
       statusOmitsInProgressRows: true,
     }),
-    holds:  (run) => run.mostAgentsInFlightAtOnce <= 3 && summaryOf(run).delivered.length === 6,
+    holds:  (run) => run.mostAgentsInFlightAtOnce <= 3 && runSummaryOf(run).delivered.length === 6,
     mutant: { modulePath: DISPATCH_RUN, find: STATUS_WITHOUT_ROWS_CONFIRMS, replace: 'if (confirmingTicketIds === \'unlisted\') return true;' },
   },
   {
@@ -251,7 +243,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       readyTicketIds: ['001'],
       afterAgent:     (call, board) => { if (call.kind === 'build' && call.ticketId === '001') board.readyTicketIds.push('002'); },
     }),
-    holds:  (run) => kindsAndTickets(run).includes('build 002') && summaryOf(run).delivered.includes('002'),
+    holds:  (run) => kindsAndTickets(run).includes('build 002') && runSummaryOf(run).delivered.includes('002'),
     mutant: { modulePath: DISPATCH_RUN, find: 'if (finished.reading !== null) this.adoptStatusReading(finished.reading.status);', replace: '' },
   },
   {
@@ -261,7 +253,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       readyTicketIds: ['001'],
       reviewerReply:  (_ticketId, round) => (round === 1 ? { verdict: 'round-requested', reworkedLines: 751 } : { verdict: 'released' }),
     }),
-    holds:  (run) => reviewsOf(run, '001') === 2 && summaryOf(run).delivered.includes('001'),
+    holds:  (run) => reviewsOf(run, '001') === 2 && runSummaryOf(run).delivered.includes('001'),
     mutant: {
       modulePath: ROUND_VERDICT_UTIL,
       find:       'current.reworkedLines <= DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES',
@@ -303,7 +295,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
   {
     name:        'round 3 is granted when round 2 converges: at most half the findings, a new class, known files',
     scenarioFor: () => roundThreeScenario([finding('spacing', 'a.ts'), finding('typing', 'b.ts')]),
-    holds:       (run) => reviewsOf(run, '001') === 3 && summaryOf(run).delivered.includes('001'),
+    holds:       (run) => reviewsOf(run, '001') === 3 && runSummaryOf(run).delivered.includes('001'),
     mutant:      {
       modulePath: ROUND_VERDICT_UTIL,
       find:       '  return { granted: true };\n}\n\nexport const',
@@ -323,7 +315,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
   {
     name:        'a builder that returns nothing is a failed pass, and a fresh builder takes the ticket',
     scenarioFor: () => ({ limit: 2, readyTicketIds: ['001'], builderReply: (_ticketId, pass) => (pass === 1 ? null : { outcome: 'in-review' }) }),
-    holds:       (run) => summaryOf(run).delivered.includes('001') && run.logs.some((message) => message.includes('#001: the builder returned no result')),
+    holds:       (run) => runSummaryOf(run).delivered.includes('001') && run.logs.some((message) => message.includes('#001: the builder returned no result')),
     mutant:      {
       modulePath: DISPATCH_RUN,
       find:       'this.countFailedPass(ticketId, { cause: \'builder-returned-nothing\' }, rebuild, work);',
@@ -335,7 +327,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     name:        'with a limit of 1, a builder that failed with its row left running is followed by a fresh builder that takes that row over and delivers',
     scenarioFor: () => ({ limit: 1, readyTicketIds: ['001'], builderReply: (_ticketId, pass) => (pass === 1 ? { outcome: 'failed' } : { outcome: 'in-review' }) }),
     holds:       (run) => kindsAndTickets(run).join(', ') === 'survey, build 001, build 001, review 001'
-      && summaryOf(run).delivered.join() === '001'
+      && runSummaryOf(run).delivered.join() === '001'
       && run.mostAgentsInFlightAtOnce === 1,
     mutant: { modulePath: DISPATCH_RUN, find: SETTLE_THEN_ADOPT, replace: ADOPT_THEN_SETTLE },
   },
@@ -344,7 +336,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     name:        'with a limit of 1, a ticket parked after two failed builders has its row paused, and the next ready ticket is delivered',
     scenarioFor: () => ({ limit: 1, readyTicketIds: ['001', '002'], builderReply: (ticketId) => (ticketId === '001' ? { outcome: 'failed' } : { outcome: 'in-review' }) }),
     holds:       (run) => kindsAndTickets(run).join(', ') === 'survey, build 001, build 001, park 001, build 002, review 002'
-      && summaryOf(run).delivered.join() === '002'
+      && runSummaryOf(run).delivered.join() === '002'
       && parkedIds(run).join() === '001'
       && run.rowsPaused.join() === 'build 001'
       && run.mostAgentsInFlightAtOnce === 1
@@ -356,7 +348,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     // The reason reaches the board's log through the parking agent, where `review ()` reads as a detail that was lost.
     name:        'a builder that failed with no detail is parked on a reason without empty brackets',
     scenarioFor: () => ({ limit: 1, readyTicketIds: ['001'], builderReply: () => ({ outcome: 'failed' }) }),
-    holds:       (run) => summaryOf(run).parked[0]?.reason === 'the builder did not reach review, the second failed pass'
+    holds:       (run) => runSummaryOf(run).parked[0]?.reason === 'the builder did not reach review, the second failed pass'
       && run.calls.some((call) => call.kind === 'park' && call.prompt.includes('"Parked #001: the builder did not reach review, the second failed pass"')),
     mutant: { modulePath: DISPATCH_WORDING_UTIL, find: 'review${parentheticalOf(failure.detail)}`', replace: 'review (${failure.detail})`' },
   },
@@ -372,7 +364,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       },
     }),
     holds: (run) => kindsAndTickets(run).join(', ') === 'survey, build 001, review 001, build 001, review 001, park 001, build 002, review 002'
-      && summaryOf(run).delivered.join() === '002'
+      && runSummaryOf(run).delivered.join() === '002'
       && parkedIds(run).join() === '001'
       && run.mostAgentsInFlightAtOnce === 1
       && run.mostLiveAgentsAtOnce === 1
@@ -427,7 +419,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       afterAgent:             (call, board) => { if (call.kind === 'review' && call.ticketId === '002') board.otherAgentsInFlight = 1; },
     }),
     holds: (run) => reviewsOf(run, '001') === 2
-      && summaryOf(run).delivered.length === 3
+      && runSummaryOf(run).delivered.length === 3
       && run.mostAgentsInFlightAtOnce === 2,
     mutant: {
       modulePath: DISPATCH_RUN,
@@ -445,7 +437,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       afterAgent:     (call, board) => { if (call.kind === 'build' && call.ordinal === 1 && call.ticketId === '001') board.readyTicketIds.push('002'); },
     }),
     holds: (run) => kindsAndTickets(run).slice(0, 4).join(', ') === 'survey, build 001, build 001, build 002'
-      && summaryOf(run).delivered.length === 2
+      && runSummaryOf(run).delivered.length === 2
       && run.mostAgentsInFlightAtOnce === 2,
     mutant: { modulePath: DISPATCH_RUN, find: '\n      + this.takeoversConfirmedByStatus(status).length', replace: '' },
   },
@@ -457,7 +449,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       readyTicketIds: ticketIdsFrom(1, 3),
       builderReply:   (ticketId, pass) => (ticketId === '001' && pass === 1 ? { outcome: 'failed' } : { outcome: 'in-review' }),
     }),
-    holds:  (run) => run.mostAgentsInFlightAtOnce === 2 && summaryOf(run).delivered.length === 3,
+    holds:  (run) => run.mostAgentsInFlightAtOnce === 2 && runSummaryOf(run).delivered.length === 3,
     mutant: {
       modulePath: DISPATCH_RUN,
       find:       'if (takeover !== undefined) {',
@@ -474,7 +466,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     }),
     holds: (run) => reviewsOf(run, '001') === 0
       && run.calls.filter((call) => call.ticketId === '001').length === 1
-      && summaryOf(run).delivered.join() === '002'
+      && runSummaryOf(run).delivered.join() === '002'
       && run.logs.some((message) => message.includes('#001 skipped for this run')),
     mutant: {
       modulePath: DISPATCH_RUN,
@@ -489,7 +481,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     scenarioFor: () => ({ limit: 1, readyTicketIds: ['001', '002'], killedAtFirstCommandOf: 'build 001' }),
     holds:       (run) => run.resumed
       && kindsAndTickets(run).join(', ') === 'survey, build 001, build 001, review 001, build 002, review 002'
-      && summaryOf(run).delivered.join() === '001,002'
+      && runSummaryOf(run).delivered.join() === '001,002'
       && run.rowsRunningAtEnd.length === 0
       && run.mostAgentsInFlightAtOnce === 1,
     mutant: CARRY_ON_PAST_NO_CLAIM,
@@ -499,7 +491,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     name:        'a builder the runtime restarts within one run carries on past its first attempt\'s claim, and the next ticket is delivered within the limit',
     scenarioFor: () => ({ limit: 1, readyTicketIds: ['001', '002'], restartedBuilderTicketIds: ['001'] }),
     holds:       (run) => kindsAndTickets(run).join(', ') === 'survey, build 001, review 001, build 002, review 002'
-      && summaryOf(run).delivered.join() === '001,002'
+      && runSummaryOf(run).delivered.join() === '001,002'
       && run.rowsRunningAtEnd.length === 0
       && run.mostAgentsInFlightAtOnce === 1,
     mutant: CARRY_ON_PAST_NO_CLAIM,
@@ -514,7 +506,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       builderReply:              (ticketId, pass) => (ticketId === '001' && pass === 1 ? { outcome: 'claim-refused', detail: '#001 is in-progress' } : { outcome: 'in-review' }),
     }),
     holds: (run) => kindsAndTickets(run).join(', ') === 'survey, build 001, build 001, review 001, build 002, review 002'
-      && summaryOf(run).delivered.join() === '001,002'
+      && runSummaryOf(run).delivered.join() === '001,002'
       && run.rowsRunningAtEnd.length === 0
       && run.mostAgentsInFlightAtOnce === 1,
     mutant: SKIP_A_CLAIM_REFUSED_BY_THE_RUN_ITSELF,
@@ -529,7 +521,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     }),
     holds: (run) => parkedIds(run).join() === '001'
       && run.rowsPaused.join() === 'build 001'
-      && summaryOf(run).delivered.join() === '002'
+      && runSummaryOf(run).delivered.join() === '002'
       && run.rowsRunningAtEnd.length === 0
       && run.mostLiveAgentsAtOnce === 1,
     mutant: SKIP_A_CLAIM_REFUSED_BY_THE_RUN_ITSELF,
@@ -546,7 +538,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     holds: (run) => run.resumed
       && reviewsOf(run, '001') === 2
       && run.reviewBarsAdded.join() === 'review 001'
-      && summaryOf(run).delivered.join() === '001'
+      && runSummaryOf(run).delivered.join() === '001'
       && run.rowsRunningAtEnd.length === 0,
     mutant: ADD_A_SECOND_BAR,
   },
@@ -561,7 +553,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       reviewerReply:              (_ticketId, round) => (round === 1 ? { verdict: 'does-not-hold' } : { verdict: 'released' }),
     }),
     holds: (run) => kindsAndTickets(run).join(', ') === 'survey, review 001, build 001, review 001'
-      && summaryOf(run).delivered.join() === '001'
+      && runSummaryOf(run).delivered.join() === '001'
       && run.reviewBarsAdded.join(', ') === 'review 001, review 001'
       && run.rowsRunningAtEnd.length === 0,
     mutant: ADD_A_SECOND_BAR,
@@ -578,14 +570,14 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     }),
     holds: (run) => reviewsOf(run, '001') === 2
       && run.rereviewsRun.join(', ') === 'rereview 001 round 2'
-      && summaryOf(run).delivered.join() === '001'
+      && runSummaryOf(run).delivered.join() === '001'
       && run.rowsRunningAtEnd.length === 0,
     mutant: { modulePath: AGENT_PROMPT_UTIL, find: 'skip the rereview and take that row as your bar. ', replace: 'run the rereview regardless. ' },
   },
   {
     name:        'a release refused for a reason other than main-moved parks the ticket',
     scenarioFor: () => ({ limit: 2, readyTicketIds: ['001'], reviewerReply: () => ({ verdict: 'not-released', releaseReason: 'main-checkout-dirty' }) }),
-    holds:       (run) => reviewsOf(run, '001') === 1 && summaryOf(run).parked.some((parkedTicket) => parkedTicket.reason.includes('main-checkout-dirty')),
+    holds:       (run) => reviewsOf(run, '001') === 1 && runSummaryOf(run).parked.some((parkedTicket) => parkedTicket.reason.includes('main-checkout-dirty')),
     mutant:      { modulePath: DISPATCH_RUN, find: 'reading.releaseRefusal !== \'main-moved\'', replace: 'false' },
   },
   {
@@ -612,8 +604,8 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       afterAgent:             (call, board) => { if (call.kind === 'review' && call.ticketId === '001') board.dispatcherState = 'stopped'; },
     }),
     holds: (run) => kindsAndTickets(run).join(', ') === 'survey, review 001, build 002, park 002'
-      && summaryOf(run).delivered.join() === '001'
-      && summaryOf(run).stoppedByBoard === true,
+      && runSummaryOf(run).delivered.join() === '001'
+      && runSummaryOf(run).stoppedByBoard === true,
     mutant: { modulePath: DISPATCH_RUN, find: 'return this.stoppedByBoard || this.stoppedByFailures;', replace: 'return this.stoppedByFailures;' },
   },
   {
@@ -632,7 +624,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     // Low tickets are the orchestrator's to triage first: abandon the stale, merge the overlapping, then relaunch with the flag.
     name:        'with only low tickets ready and no includeLowPriority, no builder starts and the summary lists them as lowPriorityWaiting',
     scenarioFor: () => ({ limit: 2, readyTicketIds: ['004', '005'], lowPriorityTicketIds: ['004', '005'] }),
-    holds:       (run) => kindsAndTickets(run).join(', ') === 'survey' && summaryOf(run).lowPriorityWaiting?.join() === '004,005',
+    holds:       (run) => kindsAndTickets(run).join(', ') === 'survey' && runSummaryOf(run).lowPriorityWaiting?.join() === '004,005',
     mutant:      { modulePath: DISPATCH_RUN, find: ' && this.readyTicketIsAdmitted(ticketId));', replace: ');' },
   },
   {
@@ -643,7 +635,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       lowPriorityTicketIds: ['004', '005'],
       includeLowPriority:   true,
     }),
-    holds:  (run) => summaryOf(run).delivered.join() === '004,005' && summaryOf(run).lowPriorityWaiting === undefined,
+    holds:  (run) => runSummaryOf(run).delivered.join() === '004,005' && runSummaryOf(run).lowPriorityWaiting === undefined,
     mutant: { modulePath: WORKFLOW_INPUT_UTIL, find: 'includeLowPriority: given[\'includeLowPriority\'] === true,', replace: 'includeLowPriority: false,' },
   },
   {
@@ -659,8 +651,8 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       },
     }),
     holds: (run) => !kindsAndTickets(run).includes('build 009')
-      && summaryOf(run).delivered.join() === '001,002'
-      && summaryOf(run).lowPriorityWaiting?.join() === '009',
+      && runSummaryOf(run).delivered.join() === '001,002'
+      && runSummaryOf(run).lowPriorityWaiting?.join() === '009',
     mutant: {
       modulePath: DISPATCH_RUN,
       find:       'this.lowPriorityReadyTicketIds = lowPriorityReadyTicketIdsOf(status);',
@@ -675,7 +667,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       readyTicketIds:          ['004'],
       statusOmitsReadyTickets: true,
     }),
-    holds:  (run) => kindsAndTickets(run).join(', ') === 'survey' && summaryOf(run).lowPriorityWaiting?.join() === '004',
+    holds:  (run) => kindsAndTickets(run).join(', ') === 'survey' && runSummaryOf(run).lowPriorityWaiting?.join() === '004',
     mutant: {
       modulePath: DISPATCH_RUN,
       find:       '!priorityIsAdmittedWithoutTriage(readyTicketEntryOf(status.readyTickets, ticketId)?.priority)',
@@ -761,7 +753,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     scenarioFor: () => ({ limit: 2, readyTicketIds: ticketIdsFrom(1, 3), elsewhereClaimsAFreedSlot: true }),
     holds:       (run) => run.slotGaps.length === 0
       && run.mostAgentsOnBoardAtOnce === 2
-      && summaryOf(run).delivered.length === 3
+      && runSummaryOf(run).delivered.length === 3
       && run.reviewBarsAdded.join(', ') === 'review 001, review 002, review 003',
     mutant: {
       modulePath: AGENT_PROMPT_UTIL,
@@ -780,7 +772,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     }),
     holds: (run) => run.slotGaps.length === 0
       && run.mostAgentsOnBoardAtOnce <= 2
-      && summaryOf(run).delivered.length === 2
+      && runSummaryOf(run).delivered.length === 2
       && run.rowsRunningAtEnd.length === 0,
     mutant: { modulePath: AGENT_PROMPT_UTIL, find: 'leave your bar running: ', replace: 'close it and leave nothing running: ' },
   },
@@ -808,7 +800,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       reviewWaitingTicketIds:    ticketIdsFrom(7, 3),
       statusOmitsInProgressRows: true,
     }),
-    holds:  (run) => run.mostAgentsOnBoardAtOnce <= 3 && summaryOf(run).delivered.length === 6,
+    holds:  (run) => run.mostAgentsOnBoardAtOnce <= 3 && runSummaryOf(run).delivered.length === 6,
     mutant: { modulePath: DISPATCH_RUN, find: STATUS_WITHOUT_ROWS_CONFIRMS, replace: 'if (confirmingTicketIds === \'unlisted\') return false;' },
   },
   {
@@ -842,7 +834,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     }),
     holds: (run) => kindsAndTickets(run).join(', ') === 'build 007, build 007, park 007'
       && parkedIds(run).join() === '007'
-      && summaryOf(run).delivered.length === 0
+      && runSummaryOf(run).delivered.length === 0
       && run.rowsPaused.join() === 'build 007'
       && run.rowsRunningAtEnd.length === 0,
     mutant: PARK_WITHOUT_RELEASING_THE_ROWS,
@@ -853,7 +845,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     scenarioFor: () => raceForTheHighTicket(0),
     holds:       (run) => buildersOnBoardOf(run, '009') === 'racing build 009'
       && racingSummaryOf(run)?.delivered.join() === '009'
-      && summaryOf(run).delivered.join() === '001,002'
+      && runSummaryOf(run).delivered.join() === '001,002'
       && run.logs.some((message) => message.includes('#009 skipped for this run'))
       && run.mostAgentsOnBoardAtOnce <= 2,
     mutant: ONE_NOTE_FOR_EVERY_RUN,
@@ -865,7 +857,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       && kindsAndTicketsOf(run, 'racing') === 'build 009'
       && racingSummaryOf(run)?.delivered.length === 0
       && run.racingLogs.some((message) => message.includes('#009 skipped for this run'))
-      && summaryOf(run).delivered.join() === '009,001,002'
+      && runSummaryOf(run).delivered.join() === '009,001,002'
       && run.mostAgentsOnBoardAtOnce <= 2,
     mutant: ONE_NOTE_FOR_EVERY_RUN,
   },
@@ -873,8 +865,8 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     // At a session limit every agent dies on its first call: read as failed passes, two minutes of it parked eight tickets and filled every slot.
     name:        'every builder returning nothing stops the run after two in a row across two tickets, with stoppedByFailures, nothing parked and no row left running',
     scenarioFor: () => ({ limit: 2, readyTicketIds: ['001', '002', '003'], builderReply: () => null }),
-    holds:       (run) => summaryOf(run).stoppedByFailures === true
-      && summaryOf(run).parked.length === 0
+    holds:       (run) => runSummaryOf(run).stoppedByFailures === true
+      && runSummaryOf(run).parked.length === 0
       && !kindsAndTickets(run).includes('build 003')
       && run.rowsRunningAtEnd.length === 0,
     mutant: NEVER_STOP_ON_DEAD_AGENTS,
@@ -882,15 +874,15 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
   {
     name:        'every reviewer returning nothing stops the run the same way, and parks nothing',
     scenarioFor: () => ({ limit: 2, readyTicketIds: ['001', '002'], reviewerReply: () => null }),
-    holds:       (run) => summaryOf(run).stoppedByFailures === true && summaryOf(run).parked.length === 0 && run.rowsRunningAtEnd.length === 0,
+    holds:       (run) => runSummaryOf(run).stoppedByFailures === true && runSummaryOf(run).parked.length === 0 && run.rowsRunningAtEnd.length === 0,
     mutant:      NEVER_STOP_ON_DEAD_AGENTS,
   },
   {
     // #001's first death was counted as a failed pass before the second death showed an outage; its fresh builder, in flight, then fails for real.
     name:        'a failed pass counted for a death that turned out to be the first of an outage is taken back, so a later real failure does not park the ticket',
     scenarioFor: () => ({ limit: 2, readyTicketIds: ['001', '002'], builderReply: (ticketId, pass) => (ticketId === '001' && pass === 2 ? { outcome: 'failed' } : null) }),
-    holds:       (run) => summaryOf(run).stoppedByFailures === true
-      && summaryOf(run).parked.length === 0
+    holds:       (run) => runSummaryOf(run).stoppedByFailures === true
+      && runSummaryOf(run).parked.length === 0
       && kindsAndTickets(run).filter((call) => call === 'build 001').length === 2,
     mutant: {
       modulePath: DISPATCH_RUN,
@@ -910,8 +902,8 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       },
       reviewerReply: () => null,
     }),
-    holds: (run) => summaryOf(run).stoppedByFailures === true
-      && summaryOf(run).parked.length === 0
+    holds: (run) => runSummaryOf(run).stoppedByFailures === true
+      && runSummaryOf(run).parked.length === 0
       && run.rowsRunningAtEnd.length === 0,
     mutant: {
       modulePath: DISPATCH_RUN,
@@ -930,9 +922,9 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
         return pass === 1 ? { outcome: 'failed' } : null;
       },
     }),
-    holds: (run) => summaryOf(run).stoppedByFailures === undefined
+    holds: (run) => runSummaryOf(run).stoppedByFailures === undefined
       && parkedIds(run).join() === '001'
-      && summaryOf(run).delivered.join() === '002,003'
+      && runSummaryOf(run).delivered.join() === '002,003'
       && run.rowsRunningAtEnd.length === 0
       && run.mostAgentsInFlightAtOnce <= 2,
     mutant: { modulePath: DISPATCH_RUN, find: '      this.carryOutParksAwaitingTheNextAgent();\n      return;', replace: '      return;' },
@@ -940,7 +932,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
   {
     name:        'an agent that returns something resets the count, so two deaths with a success between them stop nothing',
     scenarioFor: () => ({ limit: 1, readyTicketIds: ['001', '002'], builderReply: (_ticketId, pass) => (pass === 1 ? null : { outcome: 'in-review' }) }),
-    holds:       (run) => summaryOf(run).stoppedByFailures === undefined && summaryOf(run).delivered.join() === '001,002' && summaryOf(run).parked.length === 0,
+    holds:       (run) => runSummaryOf(run).stoppedByFailures === undefined && runSummaryOf(run).delivered.join() === '001,002' && runSummaryOf(run).parked.length === 0,
     mutant:      {
       modulePath: DISPATCH_RUN,
       find:       '      this.consecutiveDeadAgents           = 0;\n      this.failedPassesOfConsecutiveDeaths = [];\n',

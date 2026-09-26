@@ -13,15 +13,14 @@ import {
   REVIEWER_TAKES_OVER_A_RUNNING_BAR,
   runDispatchScript
 } from './testing/DispatchScriptHarness.ts';
-import type { SourceMutant } from './testing/SourceMutant.ts';
+import type { SourceMutant }    from './testing/SourceMutant.ts';
 import {
   DECISION_CLAIMS,
   DECISION_SCENARIOS,
   kindsAndTickets,
-  modelsAndEffortsAreExplicit,
-  summaryOf
+  modelsAndEffortsAreExplicit
 } from './testing/claims/DecisionClaims.ts';
-import { DISPATCHER_MODULE_PATHS } from './testing/claims/DispatchClaim.ts';
+import { DISPATCHER_MODULE_PATHS, runSummaryOf } from './testing/claims/DispatchClaim.ts';
 
 const BUNDLE = await bundleDispatchScript();
 
@@ -152,14 +151,14 @@ describe('the dispatcher script', () => {
     expect(reviewers).toHaveLength(2);
     expect(reviewers[1]?.prompt).toContain('An earlier reviewer of this run returned nothing');
     expect(reviewers[0]?.prompt).not.toContain('An earlier reviewer of this run returned nothing');
-    expect(summaryOf(run).delivered).toEqual(['001']);
+    expect(runSummaryOf(run).delivered).toEqual(['001']);
   });
 
   // At a limit of 1 no status block follows a dead reviewer, so its bar is never read as another's: this pins the case, it decides nothing new.
   test('with a limit of 1, a reviewer that returned nothing with its bar left running is followed by a fresh reviewer that releases', async () => {
     const run = await runDispatchScript(DECISION_SCENARIOS['a reviewer returns nothing on round 1 at a limit of 1'](), builtScriptTextOf(BUNDLE));
     expect(kindsAndTickets(run)).toEqual(['survey', 'build 001', 'review 001', 'review 001']);
-    expect(summaryOf(run).delivered).toEqual(['001']);
+    expect(runSummaryOf(run).delivered).toEqual(['001']);
     expect(run.mostAgentsInFlightAtOnce).toBe(1);
   });
 });

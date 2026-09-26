@@ -1,3 +1,4 @@
+import type { DispatchSummary }                       from '../../@types/DispatchOutcome.ts';
 import type { DispatchScenario, RecordedDispatchRun } from '../DispatchScriptHarness.ts';
 import type { SourceMutant }                          from '../SourceMutant.ts';
 
@@ -19,3 +20,13 @@ export const DISPATCHER_MODULE_PATHS = {
   DISPATCH_WORDING_UTIL:      'dispatcher/utils/DispatchWordingUtil.ts',
   DISPATCHER_CLAIM_NOTE_UTIL: 'src/shared/utils/DispatcherClaimNoteUtil.ts',
 } as const;
+
+/** A run's returned summary, read as the shipped shape; `null` when that run returned none. */
+export function dispatchSummaryFrom(returnedSummary: unknown): DispatchSummary | null {
+  return returnedSummary as DispatchSummary | null;
+}
+
+/** The main run's summary, dereferenced as returned, so a claim read on a run that returned none fails loudly. */
+export function runSummaryOf(run: RecordedDispatchRun): DispatchSummary {
+  return dispatchSummaryFrom(run.summary) as DispatchSummary;
+}

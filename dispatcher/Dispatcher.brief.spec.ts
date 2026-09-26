@@ -10,7 +10,8 @@ import { DISPATCH_PROTOCOL }                           from '../src/shared/const
 import { agentBriefNumbers }                           from './testing/AgentBriefNumbers.ts';
 import { builtScriptTextOf, bundleDispatchScript }     from './testing/DispatchScriptBundle.ts';
 import { runDispatchScript, type RecordedDispatchRun } from './testing/DispatchScriptHarness.ts';
-import { DECISION_SCENARIOS, summaryOf }               from './testing/claims/DecisionClaims.ts';
+import { DECISION_SCENARIOS }                          from './testing/claims/DecisionClaims.ts';
+import { runSummaryOf }                                from './testing/claims/DispatchClaim.ts';
 
 const BUNDLE = await bundleDispatchScript();
 
@@ -60,9 +61,9 @@ describe('the dispatcher and the agent brief', () => {
   test('the round decision refuses round 2 at the protocol\'s rework threshold and grants it one line above', async () => {
     const atTheThreshold = await roundOneReviewerReworked(DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES);
     expect(reviewersOf(atTheThreshold)).toBe(1);
-    expect(summaryOf(atTheThreshold).parked.map((parkedTicket) => parkedTicket.id)).toEqual(['001']);
+    expect(runSummaryOf(atTheThreshold).parked.map((parkedTicket) => parkedTicket.id)).toEqual(['001']);
     const aboveTheThreshold = await roundOneReviewerReworked(DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES + 1);
     expect(reviewersOf(aboveTheThreshold)).toBe(2);
-    expect(summaryOf(aboveTheThreshold).delivered).toEqual(['001']);
+    expect(runSummaryOf(aboveTheThreshold).delivered).toEqual(['001']);
   });
 });
