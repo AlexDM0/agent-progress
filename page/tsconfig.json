@@ -1,0 +1,45 @@
+{
+  // DOM library and no Bun or Node types, so a page module reaching for `Bun.file` or `node:fs` fails to compile.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "types": []
+  },
+  // The shared files the page reaches plus every non-spec module of `src/lib/tracker-model/`, named one by one (the specs import `bun:test`),
+  // so the whole model package compiles under DOM-only options, which proves it stays environment-neutral.
+  "include": [
+    "./**/*.ts",
+    "../src/lib/tracker-model/@types/BoardChanges.ts",
+    "../src/lib/tracker-model/@types/Concurrency.ts",
+    "../src/lib/tracker-model/@types/LogRecord.ts",
+    "../src/lib/tracker-model/@types/ProgressFile.ts",
+    "../src/lib/tracker-model/@types/Task.ts",
+    "../src/lib/tracker-model/@types/Ticket.ts",
+    "../src/lib/tracker-model/@types/TupleCoversTheUnion.ts",
+    "../src/lib/tracker-model/Board.ts",
+    "../src/lib/tracker-model/BoardRefusal.ts",
+    "../src/lib/tracker-model/Logger.ts",
+    "../src/lib/tracker-model/constants/AgentSettings.ts",
+    "../src/lib/tracker-model/constants/ConcurrencyLimits.ts",
+    "../src/lib/tracker-model/constants/DispatcherStates.ts",
+    "../src/lib/tracker-model/constants/ReviewRounds.ts",
+    "../src/lib/tracker-model/constants/Statuses.ts",
+    "../src/lib/tracker-model/constants/TicketFields.ts",
+    "../src/lib/tracker-model/constants/TicketMoveLegality.ts",
+    "../src/lib/tracker-model/utils/ConcurrencyUtil.ts",
+    "../src/lib/tracker-model/utils/TaskFilingUtil.ts",
+    "../src/lib/tracker-model/utils/TaskTransitionUtil.ts",
+    "../src/lib/tracker-model/utils/TicketChartUtil.ts",
+    "../src/lib/tracker-model/utils/TicketDefaultsUtil.ts",
+    "../src/lib/tracker-model/utils/TicketDependencyUtil.ts",
+    "../src/lib/tracker-model/utils/TicketIdUtil.ts",
+    "../src/lib/tracker-model/utils/TicketStampUtil.ts",
+    "../src/lib/tracker-model/utils/VocabularyUtil.ts",
+    "../src/shared/constants/Limits.ts",
+    "../src/lib/utils/HtmlEscapeUtil.ts",
+    "../src/lib/utils/TokenCountUtil.ts",
+    "../src/shared/@types/PagePayload.ts",
+    "../src/shared/utils/TicketNumberUtil.ts"
+  ],
+  "exclude": ["./**/*.spec.ts"]
+}

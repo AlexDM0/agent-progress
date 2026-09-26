@@ -1,0 +1,66 @@
+import type { Task }                         from '../../../src/lib/tracker-model/@types/Task.ts';
+import type { PageTicket }                   from '../../../src/shared/@types/PagePayload.ts';
+import type { RowState }                     from '../../constants/RowState.ts';
+import type { TimelineLimits, TimelineTick } from '../../utils/GeometryUtil.ts';
+import type { TimestampSlices }              from '../../utils/TimeUtil.ts';
+
+export type TicketTimelineLimits = TimelineLimits & TimestampSlices;
+
+export interface TicketTimelineInput {
+  ticket:               PageTicket;
+  /** The whole progress file's rows, in which the ticket's own row and its review rows are looked up. */
+  tasks:                readonly Task[];
+  waitingOn:            readonly string[];
+  nowEpochMilliseconds: number;
+  todayCalendarDate:    string;
+  limits:               TicketTimelineLimits;
+}
+
+export interface TimelineSpan {
+  state:                  RowState;
+  label:                  string;
+  startEpochMilliseconds: number;
+  endEpochMilliseconds:   number;
+  isLive:                 boolean;
+}
+
+export interface ReviewSpan extends TimelineSpan {
+  round:  number;
+  tokens: number | null;
+}
+
+export interface TicketTimelineAxis {
+  fromEpochMilliseconds:       number;
+  toEpochMilliseconds:         number;
+  filedEpochMilliseconds:      number;
+  lastMomentEpochMilliseconds: number;
+}
+
+export interface LegendEntry {
+  state:        RowState;
+  label:        string;
+  durationText: string;
+}
+
+export type ClosedTicketState = 'delivered' | 'abandoned';
+
+export interface TimelineEnd {
+  closedState: ClosedTicketState | null;
+  label:       string;
+  leftPercent: number;
+}
+
+export interface TicketTimeline {
+  axis:          TicketTimelineAxis;
+  ticks:         TimelineTick[];
+  queue:         TimelineSpan;
+  queueTimeText: string;
+  ownRowId:      number | null;
+  buildSegments: TimelineSpan[];
+  buildTimeText: string;
+  reviews:       ReviewSpan[];
+  afterBuild:    TimelineSpan[];
+  legend:        LegendEntry[];
+  end:           TimelineEnd;
+  note:          string | null;
+}

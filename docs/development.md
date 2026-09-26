@@ -120,13 +120,14 @@ Run all three after any TypeScript change, before calling the change done. Bun e
 TypeScript directly, so a type error is not a build failure; it is a runtime surprise on a path
 nobody exercised. Never substitute an ad-hoc `tsc` invocation with hand-picked flags.
 
-`typecheck` is two passes, `tsc -p tsconfig.json && tsc -p lib/render/page/tsconfig.json`. The root
-project is the Bun program (`agent-progress.ts`, `cli/`, `lib/`, `src/`) and excludes `lib/render/page/`. The
-page project, `lib/render/page/tsconfig.json`, extends the root's strictness but compiles with the DOM
+`typecheck` is three passes, `tsc -p tsconfig.json && tsc -p page/tsconfig.json && tsc -p page/tsconfig.spec.json`.
+The root project is the Bun program (`agent-progress.ts`, `cli/`, `lib/`, `src/`) and does not reach `page/`. The
+page project, `page/tsconfig.json`, extends the root's strictness but compiles with the DOM
 library and no Bun or Node types, so a page module reaching for `Bun.file` or `node:fs` fails to
 compile instead of failing in a browser. Every shared file a page module imports is checked under
 those DOM-only options too, which is what proves `src/lib/tracker-model/`,
 `src/lib/utils/HtmlEscapeUtil.ts` and the other shared modules the page reaches stay environment-neutral.
+The spec project, `page/tsconfig.spec.json`, is the same program plus Bun types, so the page's specs compile.
 
 `cli/HelpText.spec.ts` holds the help against the command table in both directions, and holds the
 bundled skills to their shape: none of them may carry a command table of its own, and the one every
@@ -138,6 +139,8 @@ agent loads has a size ceiling.
 agent-progress.ts    the bin shim; the only file that calls process.exit
 cli/                 the command surface: dispatch, arguments, help, one folder per command
 lib/                 everything the commands do, in five layers
+page/                the browser page, with its own DOM-only project and spec project
+resources/           files read at runtime: the page's HTML template
 src/                 the target layout's code, filled step by step as the migration plan moves it
 skill/               the skill every session in a tracked repository loads
 skill-orchestrate/   the skill for the one session running the board
@@ -169,9 +172,8 @@ the command surface, tickets, the page and the skills.
 ## Tests and isolation
 
 A spec is `<Module>.spec.ts` beside its module (a second suite on the same module is
-`<Module>.<aspect>.spec.ts`; `.test.ts` is never used). The exception is `lib/render/page/`, which
-holds no specs because a `bun:test` import would not resolve in the DOM-only project; its specs sit one
-level up in `lib/render/` and import the page modules by relative path.
+`<Module>.<aspect>.spec.ts`; `.test.ts` is never used). That holds in `page/` too: the DOM-only project
+excludes the specs, and `page/tsconfig.spec.json` checks them with Bun types.
 
 The test-only helpers live in `src/testing/`, `cli/testing/` and `lib/tooling/dev/`, the only folders allowed to import devDependencies:
 
@@ -213,15 +215,15 @@ watched it fail.
 
 ## The page
 
-`progress.html` is built from `lib/render/page/template.html`, which is the designer's file: edited as
+`progress.html` is built from `resources/template.html`, which is the designer's file: edited as
 HTML, carried over rather than generated. Its placeholder content is the contract, so a change to what
-`lib/render/page/PageMarkup.ts` emits that is not also made in the template is a bug, in whichever
+the page modules under `page/` emit that is not also made in the template is a bug, in whichever
 direction it was made. `lib/render/Template.ts` replaces four tokens in it. The comment block at the top of the template
 names those tokens, the ids and classes the template exposes, and the one layout invariant to protect
 (the axis box that keeps bars, ticks and the now-marker aligned).
 
-The TypeScript under `lib/render/page/` runs in the browser and is compiled by its own DOM-only
-project (see [Checks](#checks)). It is bundled into the page by `lib/render/PageBundle.ts`.
+The TypeScript under `page/` runs in the browser and is compiled by its own DOM-only
+project (see [Checks](#checks)). It is bundled into the page from `page/PageStart.ts` by `lib/render/PageBundle.ts`.
 
 To see a change, render a scratch tracker (the one from the session above, before its `rm -rf`) and
 open it:
@@ -276,13 +278,12 @@ next one as released. A takeover therefore removes or renames nothing another pr
 written, and exactly one waiter wins.
 
 **Layout is computed in the browser, and the limits travel as data.** `progress.html` embeds the
-progress file in a JSON island and `lib/render/page/GanttGeometry.ts` computes every bar, tick and
+progress file in a JSON island and `page/utils/GeometryUtil.ts` computes every bar, tick and
 marker from it, which is what lets the in-page range presets re-lay-out without a regeneration, and
 means there is exactly one implementation of the geometry rather than a server copy and a client
 copy that disagree. The geometry's bounds are put into the island by `lib/render/Template.ts` and taken
-as a parameter rather than read from `src/shared/constants/Limits.ts`, so `lib/render/GanttGeometry.spec.ts`
-can drive it with a constructed tick ladder; other page modules import `src/shared/constants/Limits.ts`
-directly.
+as a parameter rather than read from `src/shared/constants/Limits.ts`, so `page/utils/GeometryUtil.spec.ts`
+can drive it with a constructed tick ladder.
 
 ## Backlog
 

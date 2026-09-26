@@ -66,7 +66,7 @@ describe.skipIf(!gitIsAvailable())('storing a range', () => {
     expect(view.kind === 'absolute' ? view.tickMinutes : 0).toBeNull();
   });
 
-  /** A mixed pair is legal because `lib/render/page/GanttGeometry.ts` resolves each end on its own. */
+  /** A mixed pair is legal because `page/utils/GeometryUtil.ts` resolves each end on its own. */
   test('one timestamp and one relative bound are stored together, under the relative kind', async () => {
     await run(['range', '--from', '2026-09-18T09:00', '--to', 'now']);
 

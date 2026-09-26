@@ -1,6 +1,6 @@
 /**
  * The tracker-model building block: the records of a board and their vocabularies and rules. It imports nothing outside its own
- * folder and no Node builtin, because the page's DOM-only project (`lib/render/page/tsconfig.json`) compiles it.
+ * folder and no Node builtin, because the page's DOM-only project (`page/tsconfig.json`) compiles it.
  */
 
 export type TaskStatus = 'pending' | 'in-progress' | 'paused' | 'in-review' | 're-review' | 'reviewed' | 'delivered' | 'abandoned';

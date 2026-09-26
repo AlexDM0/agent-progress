@@ -1,5 +1,5 @@
 /**
- * Bundles `lib/render/page/GanttPage.ts` into the single minified script `lib/render/Template.ts` inlines, resolved from `import.meta.dir`
+ * Bundles `page/PageStart.ts` into the single minified script `lib/render/Template.ts` inlines, resolved from `import.meta.dir`
  * because the binary is installed with `bun link` and run from whatever repository the orchestrator is in.
  */
 
@@ -32,7 +32,7 @@ export const PageBundleBookkeeping = {
 async function buildPageScript(): Promise<PageBundleOutcome> {
   PageBundleBookkeeping.buildCount += 1;
   const result = await Bun.build({
-    entrypoints: [join(import.meta.dir, 'page', 'GanttPage.ts')],
+    entrypoints: [join(import.meta.dir, '..', '..', 'page', 'PageStart.ts')],
     target:      'browser',
     minify:      true,
     throw:       false,
