@@ -164,7 +164,7 @@ level above both (a set's own files, or `cli/`'s root and `cli/utils/`), or pass
 typed parameter. A service imports one other service, one way only (tracker → render). `src/` never
 imports a feature, and `agent-progress.ts` imports only `cli/`.
 Nothing that ships imports the test-only
-`src/testing/`, `cli/testing/`, `src/adapters/progress/testing/` and `dispatcher/testing/`.
+`src/testing/`, `cli/testing/`, `src/adapters/progress/testing/`, `dispatcher/testing/` and `page/testing/`.
 Exit codes are decided in `cli/` and nowhere else; a service returns a
 verdict or throws `OperationRefusal`.
 
@@ -183,7 +183,7 @@ A spec is `<Module>.spec.ts` beside its module (a second suite on the same modul
 `<Module>.<aspect>.spec.ts`; `.test.ts` is never used). That holds in `page/` too: the DOM-only project
 excludes the specs, and `page/tsconfig.spec.json` checks them with Bun types.
 
-The test-only helpers live in `src/testing/`, `cli/testing/`, `src/adapters/progress/testing/` and `dispatcher/testing/`, the only folders allowed to import devDependencies:
+The test-only helpers live in `src/testing/`, `cli/testing/`, `src/adapters/progress/testing/`, `dispatcher/testing/` and `page/testing/`, the only folders allowed to import devDependencies:
 
 | helper | use |
 |---|---|
