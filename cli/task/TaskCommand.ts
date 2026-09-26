@@ -1,11 +1,12 @@
 import { LegacyStatusUtil }    from '../../src/adapters/utils/LegacyStatusUtil';
+import type { MovedToStatus }  from '../../src/adapters/utils/StatusWordingUtil';
+import { StatusWordingUtil }   from '../../src/adapters/utils/StatusWordingUtil';
 import { TicketBodyUtil }      from '../../src/adapters/utils/TicketBodyUtil';
 import type { TaskAnnotation } from '../../src/lib/tracker-model/@types/BoardChanges';
 import type { TaskStatus }     from '../../src/lib/tracker-model/@types/Task';
 import { TASK_STATUSES }       from '../../src/lib/tracker-model/constants/Statuses';
 import { VocabularyUtil }      from '../../src/lib/tracker-model/utils/VocabularyUtil';
 import { OperationRefusal }    from '../../src/shared/OperationRefusal';
-import { VERB_FOR_STATUS }     from '../../src/shared/constants/StatusVerbs';
 import type { CommandContext } from '../CommandContext';
 import {
   openTrackerForWriting,
@@ -24,18 +25,13 @@ const USAGE = [
   'agent-progress task remove <id>',
 ].join('\n         ');
 
-interface TaskTransition {
-  status: TaskStatus;
-  spoken: string;
-}
-
-const TRANSITION_SUBCOMMANDS: Record<string, TaskTransition> = {
-  [VERB_FOR_STATUS['in-progress']]: { status: 'in-progress', spoken: 'started' },
-  [VERB_FOR_STATUS['paused']]:      { status: 'paused', spoken: 'paused' },
-  [VERB_FOR_STATUS['in-review']]:   { status: 'in-review', spoken: 'in review' },
-  [VERB_FOR_STATUS['reviewed']]:    { status: 'reviewed', spoken: 'reviewed' },
-  [VERB_FOR_STATUS['re-review']]:   { status: 're-review', spoken: 'under review again' },
-  [VERB_FOR_STATUS['delivered']]:   { status: 'delivered', spoken: 'delivered' },
+const TRANSITION_SUBCOMMANDS: Record<string, MovedToStatus> = {
+  [StatusWordingUtil.verbFor('in-progress')]: 'in-progress',
+  [StatusWordingUtil.verbFor('paused')]:      'paused',
+  [StatusWordingUtil.verbFor('in-review')]:   'in-review',
+  [StatusWordingUtil.verbFor('reviewed')]:    'reviewed',
+  [StatusWordingUtil.verbFor('re-review')]:   're-review',
+  [StatusWordingUtil.verbFor('delivered')]:   'delivered',
 };
 
 /** A verb that was renamed is refused naming its replacement, rather than read as an unknown word. */
@@ -128,7 +124,7 @@ async function addOneTask(commandArguments: ArgumentParser, context: CommandCont
 
 async function transitionOneTask(
   subcommand: string,
-  move: TaskTransition,
+  targetStatus: MovedToStatus,
   commandArguments: ArgumentParser,
   context: CommandContext,
 ): Promise<void> {
@@ -139,11 +135,11 @@ async function transitionOneTask(
   const movesAnyway = commandArguments.flag('force');
 
   const { result: task, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, ({ board, at }) => {
-    board.moveTask(taskId, move.status, { movesAnyway }, at);
+    board.moveTask(taskId, targetStatus, { movesAnyway }, at);
     return board.annotateTask(taskId, annotationFrom(commandArguments));
   });
 
-  printEntityThenNextLine(commandArguments, context, task, `Task #${task.id} ${move.spoken}: ${task.name}`, nextLine);
+  printEntityThenNextLine(commandArguments, context, task, `Task #${task.id} ${StatusWordingUtil.movedPhraseFor(targetStatus)}: ${task.name}`, nextLine);
 }
 
 /** `update` corrects a row and deliberately moves no timestamp, which is what separates it from the transitions. */
@@ -185,7 +181,7 @@ async function updateOneTask(commandArguments: ArgumentParser, context: CommandC
 
 function refuseARetiredSubcommand(subcommand: string, commandArguments: ArgumentParser): never {
   const replacement  = RETIRED_SUBCOMMAND_REPLACEMENTS[subcommand] ?? subcommand;
-  const targetStatus = TRANSITION_SUBCOMMANDS[replacement]?.status ?? replacement;
+  const targetStatus = (Object.hasOwn(TRANSITION_SUBCOMMANDS, replacement) ? TRANSITION_SUBCOMMANDS[replacement] : undefined) ?? replacement;
   const taskId       = commandArguments.positionals()[1] ?? '<id>';
   throw new OperationRefusal(
     'refused',
@@ -208,8 +204,8 @@ export const taskCommand: CommandHandler = async (commandArguments, context) => 
   const subcommand = commandArguments.positionals()[0];
 
   if (subcommand === 'add') return addOneTask(commandArguments, context);
-  const move = subcommand !== undefined && Object.hasOwn(TRANSITION_SUBCOMMANDS, subcommand) ? TRANSITION_SUBCOMMANDS[subcommand] : undefined;
-  if (subcommand !== undefined && move !== undefined) return transitionOneTask(subcommand, move, commandArguments, context);
+  const targetStatus = subcommand !== undefined && Object.hasOwn(TRANSITION_SUBCOMMANDS, subcommand) ? TRANSITION_SUBCOMMANDS[subcommand] : undefined;
+  if (subcommand !== undefined && targetStatus !== undefined) return transitionOneTask(subcommand, targetStatus, commandArguments, context);
   if (subcommand === 'update') return updateOneTask(commandArguments, context);
   if (subcommand === 'remove') return removeOneTask(commandArguments, context);
   if (subcommand !== undefined && Object.hasOwn(RETIRED_SUBCOMMAND_REPLACEMENTS, subcommand)) refuseARetiredSubcommand(subcommand, commandArguments);

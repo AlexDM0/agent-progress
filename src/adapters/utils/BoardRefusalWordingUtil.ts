@@ -2,7 +2,7 @@
 import type { TicketStatus }                                          from '../../lib/tracker-model/@types/Ticket.ts';
 import type { BoardRefusalDetail }                                    from '../../lib/tracker-model/BoardRefusal.ts';
 import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS, ticketMoveIsLegal } from '../../lib/tracker-model/constants/TicketMoveLegality.ts';
-import { VERB_FOR_STATUS }                                            from '../../shared/constants/StatusVerbs.ts';
+import { StatusWordingUtil }                                          from './StatusWordingUtil.ts';
 import { TicketPhraseUtil }                                           from './TicketPhraseUtil.ts';
 
 const NOTHING_WAS_WRITTEN = 'Nothing was written.';
@@ -28,7 +28,7 @@ function messageOf(detail: BoardRefusalDetail): string {
       return `There is no task #${detail.taskId}. Run \`agent-progress status\` to see the rows this tracker holds.`;
     case 'ticket-owned-row':
       return `Task #${detail.taskId} belongs to ticket #${detail.ticketId}, so moving it here would leave the row and the ticket disagreeing. `
-        + `Run \`agent-progress ticket ${VERB_FOR_STATUS[detail.targetStatus]} ${detail.ticketId}\` instead, which moves both, `
+        + `Run \`agent-progress ticket ${StatusWordingUtil.verbFor(detail.targetStatus)} ${detail.ticketId}\` instead, which moves both, `
         + 'or pass --force to move only the row.';
     case 'ticket-already-has-row':
       return `Ticket #${detail.ticketId} already has task #${detail.taskId} ("${detail.taskName}"). `
@@ -38,7 +38,7 @@ function messageOf(detail: BoardRefusalDetail): string {
     case 'ticket-already-in-status':
       return `Ticket #${detail.ticketId} is already ${detail.status}, so nothing was changed and nothing was logged.`;
     case 'illegal-ticket-move':
-      return `Ticket #${detail.ticketId} is ${detail.status}, and \`agent-progress ticket ${VERB_FOR_STATUS[detail.targetStatus]}\` moves a ticket that is `
+      return `Ticket #${detail.ticketId} is ${detail.status}, and \`agent-progress ticket ${StatusWordingUtil.verbFor(detail.targetStatus)}\` moves a ticket that is `
         + `${legalSourcesText(detail.targetStatus)}. Run \`agent-progress ticket status ${detail.ticketId} ${detail.targetStatus}\` if you mean to set it directly.`;
     case 'abandon-without-reason':
       return `Ticket #${detail.ticketId} was not moved: abandon needs --reason. `

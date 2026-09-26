@@ -257,7 +257,7 @@ src/                        the target layout's code, filled step by step as the
                             tracker-model (@types/Task.ts; Board.ts is its aggregate), utils
   src/adapters/             the boundary: reading and mapping what the tracker stores, and the wording of log records and Board refusals
   src/services/             app-wide services, one folder each
-  src/shared/               app-specific code several parts use: the environment reader, the refusal, LIMITS, the status verbs,
+  src/shared/               app-specific code several parts use: the environment reader, the refusal, LIMITS,
                             the page payload types, ticket numbers
   src/testing/              test-only helpers several parts use: the scratch workspace, the tracker isolation check, the Board fixtures
 skill/                      the skill every session in a tracked repository loads

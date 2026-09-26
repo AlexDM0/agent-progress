@@ -15,6 +15,7 @@ import {
 import { NextLineUtil }                           from '../../lib/utils/NextLineUtil';
 import { LegacyStatusUtil }                       from '../../src/adapters/utils/LegacyStatusUtil';
 import { LogUtil }                                from '../../src/adapters/utils/LogUtil';
+import { StatusWordingUtil }                      from '../../src/adapters/utils/StatusWordingUtil';
 import { TicketBodyUtil }                         from '../../src/adapters/utils/TicketBodyUtil';
 import { TicketPhraseUtil }                       from '../../src/adapters/utils/TicketPhraseUtil';
 import type { AgentAssignment, ReviewBarStarted } from '../../src/lib/tracker-model/@types/BoardChanges';
@@ -37,7 +38,6 @@ import { TicketIdUtil }                    from '../../src/lib/tracker-model/uti
 import { VocabularyUtil }                  from '../../src/lib/tracker-model/utils/VocabularyUtil';
 import { OperationRefusal }                from '../../src/shared/OperationRefusal';
 import { LIMITS }                          from '../../src/shared/constants/Limits';
-import { VERB_FOR_STATUS }                 from '../../src/shared/constants/StatusVerbs';
 import type { CommandContext }             from '../CommandContext';
 import {
   ignoredTicketFileText,
@@ -73,12 +73,12 @@ const USAGE = [
 ].join('\n         ');
 
 const TRANSITION_SUBCOMMANDS: Record<string, TicketStatus> = {
-  [VERB_FOR_STATUS['in-progress']]: 'in-progress',
-  [VERB_FOR_STATUS['in-review']]:   'in-review',
-  [VERB_FOR_STATUS['reviewed']]:    'reviewed',
-  [VERB_FOR_STATUS['delivered']]:   'delivered',
-  [VERB_FOR_STATUS['abandoned']]:   'abandoned',
-  [VERB_FOR_STATUS['pending']]:     'pending',
+  [StatusWordingUtil.verbFor('in-progress')]: 'in-progress',
+  [StatusWordingUtil.verbFor('in-review')]:   'in-review',
+  [StatusWordingUtil.verbFor('reviewed')]:    'reviewed',
+  [StatusWordingUtil.verbFor('delivered')]:   'delivered',
+  [StatusWordingUtil.verbFor('abandoned')]:   'abandoned',
+  [StatusWordingUtil.verbFor('pending')]:     'pending',
 };
 
 /** A verb that was renamed is refused naming its replacement, rather than read as an unknown word. */

@@ -2,14 +2,16 @@
 import type { AgentUsage, LogRecordContent } from '../../lib/tracker-model/@types/LogRecord.ts';
 import type { DispatcherState, ViewRange }   from '../../lib/tracker-model/@types/ProgressFile.ts';
 import { TokenCountUtil }                    from '../../lib/utils/TokenCountUtil.ts';
+import type { MovedToStatus }                from './StatusWordingUtil.ts';
+import { StatusWordingUtil }                 from './StatusWordingUtil.ts';
 import { TicketPhraseUtil }                  from './TicketPhraseUtil.ts';
 
 type TicketMoveKind = 'ticket-reopened' | 'ticket-started' | 'ticket-finished' | 'ticket-approved' | 'ticket-delivered';
 
-const MOVE_PHRASE_FOR_KIND: Readonly<Record<TicketMoveKind, string>> = {
-  'ticket-reopened':  'reopened',
-  'ticket-started':   'started',
-  'ticket-finished':  'in review',
+const STATUS_REACHED_BY_MOVE_KIND: Readonly<Record<TicketMoveKind, MovedToStatus>> = {
+  'ticket-reopened':  'pending',
+  'ticket-started':   'in-progress',
+  'ticket-finished':  'in-review',
   'ticket-approved':  'reviewed',
   'ticket-delivered': 'delivered',
 };
@@ -47,7 +49,7 @@ function sentenceOf(record: LogRecordContent): string {
     case 'ticket-finished':
     case 'ticket-approved':
     case 'ticket-delivered':
-      return `Ticket #${record.ticketId} ${MOVE_PHRASE_FOR_KIND[record.kind]}`;
+      return `Ticket #${record.ticketId} ${StatusWordingUtil.movedPhraseFor(STATUS_REACHED_BY_MOVE_KIND[record.kind])}`;
     case 'ticket-abandoned':
       return `Ticket #${record.ticketId} abandoned: ${record.fields.reason}`;
     case 'ticket-rereviewed':
