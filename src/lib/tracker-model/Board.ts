@@ -53,7 +53,6 @@ import { TicketStampUtil }                                                      
 
 type TicketMoveFields = Pick<TicketMoveRequest, 'branch' | 'commit' | 'reason'>;
 
-/** Every id of the claim, not the lowest alone: a bundle ticket reopened and claimed on its own must not share a key with the rest still in progress. */
 const BUNDLE_AGENT_KEY_SEPARATOR = ',';
 
 type ReviewBar = Task & { reviewOf: string };
@@ -293,6 +292,8 @@ export class Board {
       });
     }
 
+    // Every id of the claim, not the lowest alone: a bundle ticket reopened and claimed on its own must not share a key with the rest
+    // still in progress.
     const agentKey = claimedTicketIds.join(BUNDLE_AGENT_KEY_SEPARATOR);
     const logged   = claimedTickets.map((ticket) => {
       const moveRecord = this.applyTicketMove(ticket, 'in-progress', {}, at);
@@ -367,8 +368,8 @@ export class Board {
     const ticket          = this.requireTicket(ticketId);
     const { frontmatter } = ticket;
     const { status }      = frontmatter;
-    const current         = TicketDefaultsUtil.ticketPriorityOf(frontmatter);
-    if (current === priority) {
+    const currentPriority = TicketDefaultsUtil.ticketPriorityOf(frontmatter);
+    if (currentPriority === priority) {
       throw new BoardRefusal({
         reason: 'priority-unchanged',
         ticketId,
@@ -389,7 +390,7 @@ export class Board {
       this.seedTaskFromTicket(ticket);
     }
     this.markChanged(ticket);
-    return { logged: [this.logger.ticketPriorityChanged(ticketId, { from: current, to: priority }, at)], ticket };
+    return { logged: [this.logger.ticketPriorityChanged(ticketId, { from: currentPriority, to: priority }, at)], ticket };
   }
 
   /** Judged on the resolved pair, so naming the default a ticket already runs on is refused as no change. */
@@ -719,7 +720,7 @@ export class Board {
     if (credit.target === 'row') {
       const task = this.taskRecordById(credit.taskId);
       if (task === undefined) return { verdict: 'unknown-row', taskId: credit.taskId };
-      return creditedOutcomeOf(task, credit.tokens);
+      return creditTokensTo(task, credit.tokens);
     }
 
     const ticket = this.ticketRecordById(credit.ticketId);
@@ -728,12 +729,12 @@ export class Board {
     if (taskId === null) return { verdict: 'ticket-without-row', ticketId: credit.ticketId };
     const task = this.taskRecordById(taskId);
     if (task === undefined) return { verdict: 'ticket-row-missing', ticketId: credit.ticketId, taskId };
-    return creditedOutcomeOf(task, credit.tokens);
+    return creditTokensTo(task, credit.tokens);
   }
 }
 
 /** Accumulates rather than sets, so an agent's tokens reach a row other agents have already worked on; an unset count counts as 0. */
-function creditedOutcomeOf(task: Task, tokens: number): TokenCreditOutcome {
+function creditTokensTo(task: Task, tokens: number): TokenCreditOutcome {
   task.tokens = (task.tokens ?? 0) + tokens;
   return { verdict: 'credited', taskId: task.id };
 }
