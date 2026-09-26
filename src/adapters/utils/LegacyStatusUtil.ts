@@ -2,12 +2,14 @@
 import type { TaskStatus }   from '../../lib/tracker-model/@types/Task.ts';
 import type { TicketStatus } from '../../lib/tracker-model/@types/Ticket.ts';
 
+export type RetiredTaskStatusWord = 'running' | 'finished';
+
 const CURRENT_TICKET_STATUS_FOR_RETIRED_WORD: Record<string, TicketStatus> = {
   open: 'pending',
   done: 'reviewed',
 };
 
-const CURRENT_TASK_STATUS_FOR_RETIRED_WORD: Record<string, TaskStatus> = {
+const CURRENT_TASK_STATUS_FOR_RETIRED_WORD: Readonly<Record<RetiredTaskStatusWord, TaskStatus>> = {
   running:  'in-progress',
   finished: 'in-review',
 };
@@ -18,9 +20,13 @@ function currentTicketStatusFor(statusWord: string): TicketStatus | null {
   return Object.hasOwn(CURRENT_TICKET_STATUS_FOR_RETIRED_WORD, statusWord) ? CURRENT_TICKET_STATUS_FOR_RETIRED_WORD[statusWord] ?? null : null;
 }
 
+function taskStatusWordIsRetired(statusWord: string): statusWord is RetiredTaskStatusWord {
+  return Object.hasOwn(CURRENT_TASK_STATUS_FOR_RETIRED_WORD, statusWord);
+}
+
 /** `null` for anything that is not a retired task word, current words included, so the caller keeps the text it read. */
 function currentTaskStatusFor(statusWord: string): TaskStatus | null {
-  return Object.hasOwn(CURRENT_TASK_STATUS_FOR_RETIRED_WORD, statusWord) ? CURRENT_TASK_STATUS_FOR_RETIRED_WORD[statusWord] ?? null : null;
+  return taskStatusWordIsRetired(statusWord) ? CURRENT_TASK_STATUS_FOR_RETIRED_WORD[statusWord] : null;
 }
 
 export const LegacyStatusUtil = { currentTicketStatusFor, currentTaskStatusFor } as const;
