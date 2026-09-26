@@ -539,7 +539,7 @@ export class Board {
     return SETTLED_TICKET_STATUSES.includes(ticket.frontmatter.status);
   }
 
-  /** Oldest filed first; a row a ticket owns is never a review bar, and a bar naming a ticket the board does not hold is still returned. */
+  /** Oldest filed first; free-standing rows only, as the page and the hook read them; a bar naming a ticket the board lacks is still returned. */
   reviewBarsOf(ticketId: string): readonly Readonly<Task>[] {
     return this.reviewBarRecordsOf(ticketId);
   }
@@ -704,12 +704,9 @@ export class Board {
     }
   }
 
-  /** The in-progress subset of `reviewBarsOf`, so closing, claiming and crediting agree on what a review bar is; oldest filed first. */
+  /** Linked by `reviewOf` on any row, unlike `reviewBarsOf`, as closing and the claim refusal read it before the Board queries; in file order. */
   private inProgressReviewBarsOf(ticketIds: readonly string[]): ReviewBar[] {
-    return ticketIds
-      .flatMap((ticketId) => this.reviewBarRecordsOf(ticketId))
-      .filter((bar) => bar.status === 'in-progress')
-      .toSorted((a, b) => a.id - b.id);
+    return this.progress.tasks.filter((task): task is ReviewBar => task.status === 'in-progress' && task.reviewOf !== undefined && ticketIds.includes(task.reviewOf));
   }
 
   /** Finishes and delivers every in-progress review bar of the tickets, one record each, for every move that ends their review. */

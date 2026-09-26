@@ -3,7 +3,8 @@
  * round on its row, from any status but review refused; a ticket whose row was cleared gets one back; a bar is named for the round the
  * caller counted, reviews its ticket and runs at once; a bar shares its claim's agent key only while the claim is still being worked, so
  * a bundle's reviewer takes no second slot and a lone reviewer takes its own; the earlier bar is closed before the next one starts; and
- * the Board reads no name: a record without `reviewOf` is never closed, as ingestion links a legacy bar before the Board sees it.
+ * the Board reads no name: a record without `reviewOf` is never closed, as ingestion links a legacy bar before the Board sees it. Closing
+ * and the claim refusal follow file order, as they did before the Board existed.
  * Refusals are asserted by reason code, never by wording.
  */
 import { describe, expect, test } from 'bun:test';
@@ -15,6 +16,7 @@ import {
   taskFixture,
   ticketFixture
 } from '../../testing/BoardFixtures';
+import type { AgentUsage } from './@types/LogRecord';
 import { TICKET_STATUSES } from './constants/Statuses';
 
 const FILED_AT            = '2026-09-18T09:00:00+02:00';
@@ -22,6 +24,16 @@ const STARTED_AT          = '2026-09-18T10:00:00+02:00';
 const FINISHED_AT         = '2026-09-18T12:00:00+02:00';
 const REREVIEWED_AT       = '2026-09-18T13:00:00+02:00';
 const REREVIEWED_AGAIN_AT = '2026-09-18T14:00:00+02:00';
+
+const EXAMPLE_USAGE: AgentUsage = {
+  agentId:              'agent_example',
+  agentType:            'general-purpose',
+  apiCallCount:         1,
+  endContextTokens:     1_001,
+  totalInputTokens:     1_001,
+  cacheReadInputTokens: 0,
+  outputTokens:         10,
+};
 
 function ticketInReviewFixture(): BoardFixture {
   return boardFixture({
@@ -216,8 +228,8 @@ describe('startReviewBar', () => {
   });
 });
 
-// `task add --review-of` on a row a ticket owns stores `reviewOf` on it, yet only a free-standing row is a review bar: closing, claiming
-// and crediting read one definition, so that row is never closed with the review and never blocks the reviewed ticket's claim.
+// `task add --review-of` on a row a ticket owns stores `reviewOf` on it. Closing and the claim refusal read `reviewOf` on any row, while
+// the page and hook queries read only free-standing rows.
 describe('a row a ticket owns that also stores reviewOf', () => {
   const OWNED_ROW_ID         = 2;
   const FREE_STANDING_BAR_ID = 3;
@@ -248,42 +260,89 @@ describe('a row a ticket owns that also stores reviewOf', () => {
     return records.flatMap((record) => (record.kind === 'review-bar-closed' && 'taskId' in record ? [record.taskId] : []));
   }
 
-  test('a move out of review leaves it in progress, logs no closure for it, and still closes the free-standing bar', () => {
+  test('a move out of review delivers it with the free-standing bar and logs a closure for each', () => {
     const { board, progress, records } = ownedRowReviewingFixture(true);
     board.moveTicket('003', 'reviewed', { checksLegality: true }, REREVIEWED_AT);
 
-    expect(progress.tasks.find((task) => task.id === OWNED_ROW_ID)?.status).toBe('in-progress');
+    expect(progress.tasks.find((task) => task.id === OWNED_ROW_ID)?.status).toBe('delivered');
     expect(progress.tasks.find((task) => task.id === FREE_STANDING_BAR_ID)?.status).toBe('delivered');
-    expect(closedTaskIdsOf(records)).toEqual([FREE_STANDING_BAR_ID]);
+    expect(closedTaskIdsOf(records)).toEqual([OWNED_ROW_ID, FREE_STANDING_BAR_ID]);
   });
 
-  test('starting the next review bar leaves it in progress and closes only the free-standing bar', () => {
+  test('starting the next review bar closes it with the free-standing bar', () => {
     const { board, progress } = ownedRowReviewingFixture(true);
     const started             = board.startReviewBar('003', { round: 2 }, REREVIEWED_AT);
 
-    expect(started.closedBars.map((bar) => bar.id)).toEqual([FREE_STANDING_BAR_ID]);
-    expect(progress.tasks.find((task) => task.id === OWNED_ROW_ID)?.status).toBe('in-progress');
+    expect(started.closedBars.map((bar) => bar.id)).toEqual([OWNED_ROW_ID, FREE_STANDING_BAR_ID]);
+    expect(progress.tasks.find((task) => task.id === OWNED_ROW_ID)?.status).toBe('delivered');
   });
 
-  test('a release leaves it in progress, logs no closure for it, and still closes the free-standing bar', () => {
+  test('a release closes and delivers it with the free-standing bar, and logs a closure for each', () => {
     const { board, progress, records } = ownedRowReviewingFixture(true);
     const released                     = board.releaseTickets(['003'], { branch: 'ticket/example-export', commit: 'a1b2c3d4e5f6' }, REREVIEWED_AT);
 
-    expect(released.closedReviewBars.map((bar) => bar.id)).toEqual([FREE_STANDING_BAR_ID]);
-    expect(progress.tasks.find((task) => task.id === OWNED_ROW_ID)?.status).toBe('in-progress');
-    expect(closedTaskIdsOf(records)).toEqual([FREE_STANDING_BAR_ID]);
+    expect(released.closedReviewBars.map((bar) => bar.id)).toEqual([OWNED_ROW_ID, FREE_STANDING_BAR_ID]);
+    expect(progress.tasks.find((task) => task.id === OWNED_ROW_ID)?.status).toBe('delivered');
+    expect(progress.tasks.find((task) => task.id === FREE_STANDING_BAR_ID)?.status).toBe('delivered');
+    expect(closedTaskIdsOf(records)).toEqual([OWNED_ROW_ID, FREE_STANDING_BAR_ID]);
   });
 
-  test('a claim of the reviewed ticket is not refused because of it', () => {
+  test('a claim of the reviewed ticket is refused because of it, naming it', () => {
     const { board } = ownedRowReviewingFixture(false);
 
-    expect(() => board.claimTickets(['003'], { owner: 'Alex Example' }, REREVIEWED_AT)).not.toThrow();
+    expect(refusalDetailOf(() => board.claimTickets(['003'], { owner: 'Alex Example' }, REREVIEWED_AT)))
+      .toEqual({ reason: 'claim-under-review', ticketId: '003', reviewBarTaskId: OWNED_ROW_ID });
   });
 
-  test('a claim of the reviewed ticket is refused for the free-standing bar in progress, naming that bar', () => {
+  test('a claim of the reviewed ticket with the free-standing bar in progress too names it, the oldest', () => {
     const { board } = ownedRowReviewingFixture(true);
 
     expect(refusalDetailOf(() => board.claimTickets(['003'], { owner: 'Alex Example' }, REREVIEWED_AT)))
-      .toEqual({ reason: 'claim-under-review', ticketId: '003', reviewBarTaskId: FREE_STANDING_BAR_ID });
+      .toEqual({ reason: 'claim-under-review', ticketId: '003', reviewBarTaskId: OWNED_ROW_ID });
+  });
+
+  test('the ticket\'s review bars leave it out, and a review share goes to the free-standing bar, never to it', () => {
+    const { board, progress } = ownedRowReviewingFixture(true);
+
+    expect(board.reviewBarsOf('003').map((bar) => bar.id)).toEqual([FREE_STANDING_BAR_ID]);
+    const { outcomes } = board.recordAgentStop(EXAMPLE_USAGE, [{ target: 'review', ticketId: '003', tokens: 1_001 }], REREVIEWED_AT);
+    expect(outcomes).toEqual([{ verdict: 'credited', taskId: FREE_STANDING_BAR_ID }]);
+    expect(progress.tasks.find((task) => task.id === OWNED_ROW_ID)?.tokens ?? null).toBeNull();
+  });
+});
+
+describe('in-progress review bars stored out of id order', () => {
+  function barsOutOfIdOrderFixture(): BoardFixture {
+    const fixture = ticketInReviewFixture();
+    fixture.progress.tasks.push(
+      taskFixture({
+        id:       8,
+        name:     'Review 2 #003 — Example export dialog',
+        status:   'in-progress',
+        reviewOf: '003',
+      }),
+      taskFixture({
+        id:       4,
+        name:     'Review 1 #003 — Example export dialog',
+        status:   'in-progress',
+        reviewOf: '003',
+      }),
+    );
+    return fixture;
+  }
+
+  test('a claim of the ticket is refused naming the first bar in the file', () => {
+    const { board } = barsOutOfIdOrderFixture();
+
+    expect(refusalDetailOf(() => board.claimTickets(['003'], { owner: 'Alex Example' }, REREVIEWED_AT)))
+      .toEqual({ reason: 'claim-under-review', ticketId: '003', reviewBarTaskId: 8 });
+  });
+
+  test('the move that ends the review closes them in file order and logs them in that order', () => {
+    const { board, records } = barsOutOfIdOrderFixture();
+    const moved              = board.moveTicket('003', 'reviewed', { checksLegality: true }, REREVIEWED_AT);
+
+    expect(moved.closedReviewBars.map((bar) => bar.id)).toEqual([8, 4]);
+    expect(records.flatMap((record) => (record.kind === 'review-bar-closed' && 'taskId' in record ? [record.taskId] : []))).toEqual([8, 4]);
   });
 });
