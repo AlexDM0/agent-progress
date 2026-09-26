@@ -135,11 +135,17 @@ export function requireStoredLog(workspace: Workspace, embeddedLog: readonly Log
   return storedLogOrRefusal(readStoredLog(workspace, embeddedLog));
 }
 
-/** Without the lock the log is read first: a version 1 progress file only ever sits beside an absent log or its own copied notes. */
+/**
+ * Without the lock the log is read first, so a version 1 progress file only sits beside an absent log or its own copied notes; an absent log
+ * beside a version 2 file may have been written between the two reads, so it is read again.
+ */
 export function requireProgressFileAndStoredLog(workspace: Workspace): { progressReading: ReadableProgressFile; storedLog: StoredLog } {
-  const logFileReading  = readLogFile(workspace);
-  const progressReading = requireProgressFileReading(workspace);
-  const storedLog       = storedLogOrRefusal(storedLogFrom(workspace, progressReading.embeddedLog, logFileReading));
+  const logFileReadingBeforeProgress = readLogFile(workspace);
+  const progressReading              = requireProgressFileReading(workspace);
+  const logFileReading               = progressReading.embeddedLog === null && logFileReadingBeforeProgress.verdict === 'absent'
+    ? readLogFile(workspace)
+    : logFileReadingBeforeProgress;
+  const storedLog = storedLogOrRefusal(storedLogFrom(workspace, progressReading.embeddedLog, logFileReading));
   return { progressReading, storedLog };
 }
 
