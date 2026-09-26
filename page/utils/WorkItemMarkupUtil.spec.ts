@@ -1,6 +1,8 @@
 /**
  * How a task or ticket is marked wherever the page shows it. Every expected string is the markup the page printed before these marks were
- * gathered here, so a merged copy that drifts by one character fails; the status badge prints the raw stored status.
+ * gathered here, so a merged copy that drifts by one character fails; the status badge prints the raw stored status. Retake by checking out
+ * bc42604 and calling the mark functions in `lib/render/page/PageMarkup.ts`, or reading the inline badge and task-link markup there and in
+ * `lib/render/page/TaskDetail.ts`, with this spec's example task, ticket and slices.
  */
 
 import { describe, expect, test } from 'bun:test';
