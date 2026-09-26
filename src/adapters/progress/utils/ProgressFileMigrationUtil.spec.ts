@@ -1,6 +1,6 @@
 /**
  * The migration replaces the retired task words on copies, so the parsed document a caller holds is never changed under it; current words
- * and every other key, unknown ones included, come through as they were, in their order.
+ * and every other key, unknown ones included, come through as they were, in their order. A version 1 log becomes notes, in order, stamps kept.
  */
 import { expect, test } from 'bun:test';
 
@@ -42,4 +42,16 @@ test('a row without history is not given one', () => {
   delete withoutHistory.history;
   const [migrated] = ProgressFileMigrationUtil.tasksInCurrentWords([withoutHistory]);
   expect(migrated === undefined ? [] : Object.keys(migrated)).not.toContain('history');
+});
+
+test('each worded log entry becomes a note carrying its stamp and its sentence, in the log\'s order', () => {
+  const entries = [
+    { at: '2026-09-18T20:40:00+02:00', text: 'Ticket #001 started' },
+    { at: '2026-09-18T20:11:03+02:00', text: 'Example note stamped earlier' },
+  ];
+  expect(ProgressFileMigrationUtil.notesOf(entries)).toEqual([
+    { at: '2026-09-18T20:40:00+02:00', kind: 'note', fields: { text: 'Ticket #001 started' } },
+    { at: '2026-09-18T20:11:03+02:00', kind: 'note', fields: { text: 'Example note stamped earlier' } },
+  ]);
+  expect(Object.keys(ProgressFileMigrationUtil.notesOf(entries)[0] ?? {}), 'the order log.jsonl stores a record in').toEqual(['at', 'kind', 'fields']);
 });

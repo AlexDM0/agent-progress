@@ -15,6 +15,7 @@ import type { ProgressFile }                                                  fr
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
 import { runCommandLine }                                                     from '../Main';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';
+import { storedLogEntriesOf }                                                 from '../testing/StoredLog';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -198,8 +199,7 @@ describe.skipIf(!gitIsAvailable())('the log', () => {
     await run(['range', '--from', '-2h', '--to', 'now', '--tick', '15m']);
     await run(['range', '--auto']);
 
-    const { log } = JSON.parse(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')) as ProgressFile;
-    const messages = log.map((entry) => entry.text);
+    const messages = storedLogEntriesOf(repositoryDirectory).map((entry) => entry.text);
     expect(messages).toContain('Chart range: -2h → now (tick 15m)');
     expect(messages).toContain('Chart range: automatic');
   });

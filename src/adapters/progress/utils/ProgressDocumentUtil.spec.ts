@@ -81,5 +81,7 @@ test('the document written to a file reads back through the ingestion', () => {
   scratchDirectories.push(directory);
   const progressFilePath = join(directory, 'progress.json');
   writeFileAtomically(progressFilePath, JSON.stringify(ProgressDocumentUtil.documentOf(progressWithSettingsAfterTheLog(), WORDED_LOG)));
-  expect(new ProgressFileIngestion(progressFilePath).read().verdict).toBe('readable');
+  const reading = new ProgressFileIngestion(progressFilePath).read();
+  expect(reading.verdict).toBe('readable');
+  expect(reading.verdict === 'readable' ? reading.embeddedLog?.map((record) => record.at) : null, 'read as version 1, owning its log').toEqual(WORDED_LOG.map((entry) => entry.at));
 });

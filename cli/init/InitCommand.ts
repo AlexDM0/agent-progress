@@ -5,6 +5,7 @@ import { basename, resolve }                 from 'node:path';
 
 import { withLock }                         from '../../lib/platform/Lock';
 import { findWorkspace, workspacePathsFor } from '../../lib/platform/Workspace';
+import { createLogFileWriter }              from '../../src/adapters/log/LogFileWriter';
 import { createProgressFileWriter }         from '../../src/adapters/progress/ProgressFileWriter';
 import { ensureIgnored }                    from '../../src/lib/git/GitIgnore';
 import { discoverRepositoryRoot }           from '../../src/lib/git/RepositoryRoot';
@@ -143,7 +144,12 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
 
   const creation = await withLock(workspace, async () => {
     const verdict = createProgressFileWriter(workspace.progressFilePath).create(progress);
-    if (verdict === 'created') await renderDashboard(context, workspace);
+    if (verdict === 'created') {
+      // A new tracker's log starts empty, so a log.jsonl left from a removed tracker is emptied, never adopted.
+      // A crash between the two writes leaves that old log.jsonl beside the new progress file.
+      createLogFileWriter(workspace.logFilePath).write([]);
+      await renderDashboard(context, workspace);
+    }
     return verdict;
   }, context.now);
   if (creation === 'already-exists') {

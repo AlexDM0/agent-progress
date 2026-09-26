@@ -1,10 +1,11 @@
 import { createFileAtomically, writeFileAtomically } from '../../lib/atomic-file/AtomicFile.ts';
 import type { ProgressFile }                         from '../../lib/tracker-model/@types/ProgressFile.ts';
 import { LIMITS }                                    from '../../shared/constants/Limits.ts';
+import { ProgressFileMappingUtil }                   from './utils/ProgressFileMappingUtil.ts';
 
-/** Indented and ending with a newline, because people repair the file by hand. */
+/** Always the current version, indented and ending with a newline, because people repair the file by hand. */
 function documentTextOf(progress: ProgressFile): string {
-  return `${JSON.stringify(progress, null, LIMITS.JSON_INDENT)}\n`;
+  return `${JSON.stringify(ProgressFileMappingUtil.storedDocumentOf(progress), null, LIMITS.JSON_INDENT)}\n`;
 }
 
 export function createProgressFileWriter(progressFilePath: string): {

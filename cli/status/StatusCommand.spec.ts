@@ -12,15 +12,15 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import type { ProgressFile }                                                  from '../../src/lib/tracker-model/@types/ProgressFile';
 import type { TicketFrontmatter }                                             from '../../src/lib/tracker-model/@types/Ticket';
+import type { ProgressDocument }                                              from '../../src/shared/@types/ProgressDocument';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
 import { runCommandLine }                                                     from '../Main';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
-type StatusDocument = ProgressFile & {
+type StatusDocument = ProgressDocument & {
   tickets:     Array<TicketFrontmatter & { filePath: string }>;
   omitted?:    { settledTasks: number; settledTickets: number; olderLogEntries: number };
   concurrency: {

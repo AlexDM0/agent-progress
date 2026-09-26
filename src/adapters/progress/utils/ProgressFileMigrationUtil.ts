@@ -1,8 +1,17 @@
-/** The retired task status words of a validated progress.json replaced by their current ones, on copies: the input is never changed. */
-import type { TaskStatus }                                        from '../../../lib/tracker-model/@types/Task.ts';
-import { VocabularyUtil }                                         from '../../../lib/tracker-model/utils/VocabularyUtil.ts';
-import { LegacyStatusUtil }                                       from '../../utils/LegacyStatusUtil.ts';
-import type { StoredTask, StoredTaskPhase, StoredTaskStatusWord } from '../@types/StoredProgressFile.ts';
+/**
+ * A validated progress.json brought up to date on copies, so the input is never changed: the retired task status words replaced by their
+ * current ones, and a version 1 file's worded log turned into note records.
+ */
+import type { LogRecord }   from '../../../lib/tracker-model/@types/LogRecord.ts';
+import type { TaskStatus }  from '../../../lib/tracker-model/@types/Task.ts';
+import { VocabularyUtil }   from '../../../lib/tracker-model/utils/VocabularyUtil.ts';
+import { LegacyStatusUtil } from '../../utils/LegacyStatusUtil.ts';
+import type {
+  StoredLogEntry,
+  StoredTask,
+  StoredTaskPhase,
+  StoredTaskStatusWord
+} from '../@types/StoredProgressFile.ts';
 
 function currentStatusOf(status: StoredTaskStatusWord): TaskStatus {
   if (VocabularyUtil.taskStatusIsKnown(status)) return status;
@@ -26,4 +35,9 @@ function tasksInCurrentWords(tasks: readonly StoredTask[]): StoredTask<TaskStatu
   });
 }
 
-export const ProgressFileMigrationUtil = { tasksInCurrentWords } as const;
+/** A sentence cannot be parsed back into the event it words, so each one is kept as a note, in order, with its stamp. */
+function notesOf(entries: readonly StoredLogEntry[]): LogRecord[] {
+  return entries.map((entry) => ({ at: entry.at, kind: 'note', fields: { text: entry.text } }));
+}
+
+export const ProgressFileMigrationUtil = { tasksInCurrentWords, notesOf } as const;

@@ -21,12 +21,13 @@ import {
   expect,
   test,
 } from 'bun:test';
-import { createTicketFileWriter }  from '../../src/adapters/tickets/TicketFileWriter.ts';
-import type { Ticket, TicketType } from '../../src/lib/tracker-model/@types/Ticket.ts';
-import { EmptyProgressUtil }       from '../../src/lib/tracker-model/utils/EmptyProgressUtil.ts';
-import { TaskFilingUtil }          from '../../src/lib/tracker-model/utils/TaskFilingUtil.ts';
-import { TRACKER_FILES }           from '../../src/services/tracker/constants/TrackerFiles.ts';
-import type { Workspace }          from '../platform/Workspace.ts';
+import { createProgressFileWriter } from '../../src/adapters/progress/ProgressFileWriter.ts';
+import { createTicketFileWriter }   from '../../src/adapters/tickets/TicketFileWriter.ts';
+import type { Ticket, TicketType }  from '../../src/lib/tracker-model/@types/Ticket.ts';
+import { EmptyProgressUtil }        from '../../src/lib/tracker-model/utils/EmptyProgressUtil.ts';
+import { TaskFilingUtil }           from '../../src/lib/tracker-model/utils/TaskFilingUtil.ts';
+import { TRACKER_FILES }            from '../../src/services/tracker/constants/TrackerFiles.ts';
+import type { Workspace }           from '../platform/Workspace.ts';
 import {
   createTicket,
   deleteAllTickets,
@@ -289,7 +290,7 @@ describe('a ticket file renamed by hand', () => {
     const workspace = scratchWorkspace();
     fileTicket(workspace, 'Fix the export dialog', 'bug');
     const progress = EmptyProgressUtil.emptyProgressFor({ project: 'Example Agency', startedAt: FILED_AT, trackerId: 'example-tracker-id' });
-    writeFileSync(workspace.progressFilePath, JSON.stringify({
+    createProgressFileWriter(workspace.progressFilePath).write({
       ...progress,
       nextTaskId: 4,
       tasks:      [
@@ -297,7 +298,7 @@ describe('a ticket file renamed by hand', () => {
         TaskFilingUtil.filedTaskOf(2, { name: 'Example row of a ticket never written', ticket: '005' }),
         TaskFilingUtil.filedTaskOf(3, { name: 'Example free row' }),
       ],
-    }));
+    });
 
     expect(nextTicketId(workspace)).toBe('006');
   });

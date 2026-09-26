@@ -52,14 +52,12 @@ function exampleTask(id: number, startOffsetMinutes: number | null, endOffsetMin
 
 function exampleProgress(tasks: Task[], view: ViewRange = { kind: 'auto' }): ProgressFile {
   return {
-    version:    1,
     trackerId:  'example-tracker',
     project:    'Example Agency',
     startedAt:  timestampAt(0),
     nextTaskId: 99,
     view,
     tasks,
-    log:        [],
   };
 }
 

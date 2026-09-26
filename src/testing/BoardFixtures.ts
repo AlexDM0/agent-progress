@@ -62,7 +62,6 @@ export function boardFixture(contents: { tasks?: Task[]; tickets?: Ticket[]; con
   const tickets    = contents.tickets ?? [];
   const records: LogRecord[] = [];
   const progress: ProgressFile = {
-    version:    1,
     trackerId:  'example-tracker-id',
     project:    'Example Agency',
     startedAt:  FIXTURE_STARTED_AT,
@@ -70,7 +69,6 @@ export function boardFixture(contents: { tasks?: Task[]; tickets?: Ticket[]; con
     nextTaskId: Math.max(0, ...tasks.map((task) => task.id)) + 1,
     ...(contents.concurrencyLimit === undefined ? {} : { concurrencyLimit: contents.concurrencyLimit }),
     tasks,
-    log:        [],
   };
   const board = new Board({ progress, tickets, logger: createLogger((record) => records.push(record)) });
   return {

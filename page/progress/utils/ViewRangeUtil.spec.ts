@@ -50,14 +50,12 @@ function exampleTask(): Task {
 
 function exampleProgress(): ProgressFile {
   return {
-    version:    1,
     trackerId:  'example-tracker-8f21',
     project:    'Example Agency',
     startedAt:  new Date(EXAMPLE_START_EPOCH_MILLISECONDS).toISOString(),
     nextTaskId: 2,
     view:       { kind: 'auto' },
     tasks:      [exampleTask()],
-    log:        [],
   };
 }
 

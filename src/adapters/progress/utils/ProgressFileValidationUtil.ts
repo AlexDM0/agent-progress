@@ -1,14 +1,14 @@
 /** Whether a parsed progress.json is a document this build can read, and if not, the reason naming the offending field. */
-import { LOWEST_CONCURRENCY_LIMIT_AGENTS }                   from '../../../lib/tracker-model/constants/ConcurrencyLimits.ts';
-import { DISPATCHER_STATES }                                 from '../../../lib/tracker-model/constants/DispatcherStates.ts';
-import { FIRST_REPEAT_REVIEW_ROUND, FIRST_REVIEW_BAR_ROUND } from '../../../lib/tracker-model/constants/ReviewRounds.ts';
-import { TASK_STATUSES }                                     from '../../../lib/tracker-model/constants/Statuses.ts';
-import { FIRST_TASK_ID }                                     from '../../../lib/tracker-model/constants/TaskIds.ts';
-import { BoardSettingsUtil }                                 from '../../../lib/tracker-model/utils/BoardSettingsUtil.ts';
-import { VocabularyUtil }                                    from '../../../lib/tracker-model/utils/VocabularyUtil.ts';
-import { LegacyStatusUtil }                                  from '../../utils/LegacyStatusUtil.ts';
-import type { StoredTaskPhase }                              from '../@types/StoredProgressFile.ts';
-import { EMBEDDED_LOG_PROGRESS_FILE_VERSION }                from '../constants/ProgressFileVersions.ts';
+import { LOWEST_CONCURRENCY_LIMIT_AGENTS }                                   from '../../../lib/tracker-model/constants/ConcurrencyLimits.ts';
+import { DISPATCHER_STATES }                                                 from '../../../lib/tracker-model/constants/DispatcherStates.ts';
+import { FIRST_REPEAT_REVIEW_ROUND, FIRST_REVIEW_BAR_ROUND }                 from '../../../lib/tracker-model/constants/ReviewRounds.ts';
+import { TASK_STATUSES }                                                     from '../../../lib/tracker-model/constants/Statuses.ts';
+import { FIRST_TASK_ID }                                                     from '../../../lib/tracker-model/constants/TaskIds.ts';
+import { BoardSettingsUtil }                                                 from '../../../lib/tracker-model/utils/BoardSettingsUtil.ts';
+import { VocabularyUtil }                                                    from '../../../lib/tracker-model/utils/VocabularyUtil.ts';
+import { LegacyStatusUtil }                                                  from '../../utils/LegacyStatusUtil.ts';
+import type { StoredTaskPhase }                                              from '../@types/StoredProgressFile.ts';
+import { CURRENT_PROGRESS_FILE_VERSION, EMBEDDED_LOG_PROGRESS_FILE_VERSION } from '../constants/ProgressFileVersions.ts';
 
 function textFieldIsPresent(candidate: Record<string, unknown>, field: string): boolean {
   return typeof candidate[field] === 'string';
@@ -86,12 +86,16 @@ function logEntryProblem(value: unknown, index: number): string | null {
   return null;
 }
 
-/** `null` for a document this build reads; retired status words pass, and are replaced by the migration step, never here. */
+/**
+ * `null` for a document this build reads; retired status words pass, and are replaced by the migration step, never here. A version 1
+ * file owns its log; a version 2 file keeps it in log.jsonl, so a `log` in one is refused rather than silently ignored.
+ */
 function documentProblemOf(parsed: unknown): string | null {
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return 'the document is not a JSON object';
   const candidate = parsed as Record<string, unknown>;
-  if (candidate['version'] !== EMBEDDED_LOG_PROGRESS_FILE_VERSION) {
-    return `version is ${JSON.stringify(candidate['version'])}, and this build of agent-progress reads version ${EMBEDDED_LOG_PROGRESS_FILE_VERSION}`;
+  const { version } = candidate;
+  if (version !== EMBEDDED_LOG_PROGRESS_FILE_VERSION && version !== CURRENT_PROGRESS_FILE_VERSION) {
+    return `version is ${JSON.stringify(version)}, and this build of agent-progress reads versions ${EMBEDDED_LOG_PROGRESS_FILE_VERSION} and ${CURRENT_PROGRESS_FILE_VERSION}`;
   }
   if (!textFieldIsPresent(candidate, 'trackerId')) return 'trackerId is not a string';
   if (!textFieldIsPresent(candidate, 'project')) return 'project is not a string';
@@ -110,13 +114,17 @@ function documentProblemOf(parsed: unknown): string | null {
     return `dispatcherRunId is ${JSON.stringify(candidate['dispatcherRunId'])}, and when present it has to be a Workflow run id`;
   }
   if (!Array.isArray(candidate['tasks'])) return 'tasks is not an array';
-  if (!Array.isArray(candidate['log'])) return 'log is not an array';
+  if (version === CURRENT_PROGRESS_FILE_VERSION && Object.hasOwn(candidate, 'log')) {
+    return `log is present, and a version ${CURRENT_PROGRESS_FILE_VERSION} file keeps its log in log.jsonl`;
+  }
+  if (version === EMBEDDED_LOG_PROGRESS_FILE_VERSION && !Array.isArray(candidate['log'])) return 'log is not an array';
 
   for (const [index, task] of candidate['tasks'].entries()) {
     const problem = taskProblem(task, index);
     if (problem !== null) return problem;
   }
-  for (const [index, entry] of candidate['log'].entries()) {
+  const embeddedLog: unknown[] = Array.isArray(candidate['log']) ? candidate['log'] : [];
+  for (const [index, entry] of embeddedLog.entries()) {
     const problem = logEntryProblem(entry, index);
     if (problem !== null) return problem;
   }

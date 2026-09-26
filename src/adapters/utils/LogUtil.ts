@@ -1,4 +1,4 @@
-/** Words the Board's log records as the log's stored sentences, so entries written by any version of the tool read alike. */
+/** Words the Board's log records as sentences for `status` and the page, so entries written by any version of the tool read alike. */
 import type { AgentUsage, LogRecord, LogRecordContent } from '../../lib/tracker-model/@types/LogRecord.ts';
 import type { DispatcherState, ViewRange }              from '../../lib/tracker-model/@types/ProgressFile.ts';
 import { TokenCountUtil }                               from '../../lib/utils/TokenCountUtil.ts';

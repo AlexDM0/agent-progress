@@ -68,15 +68,19 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
 
 ### Model and boundaries
 
-- Internal values are string-literal unions, never display text; wording is mapped in and out at the edge.
+- Internal values are string-literal unions, never display text; wording is mapped in and out at the edge. Statuses,
+  types and priorities print as their words; a mapper exists only where the wording differs from the value.
 - An optional stored key is written only once somebody sets it, and a read never adds or rewrites one, so an older
   file stays byte-identical. The one exception is a legacy review bar: the read gives a row known only by its name
   `reviewOf` and `reviewBarRound`, and pads a stored `reviewOf` that reads as a whole number, in memory; the next
   write stores them.
+- A version 1 `progress.json` owns its log: the read turns its sentences into notes, and the next write moves them to
+  log.jsonl and stores the file as version 2.
+- `progress.json` keeps the keys the tool does not know, at the top level and on rows, in the file's order.
 - A malformed stored file is a verdict and a report, never a throw that takes down `status` or `render`.
 - The Board logs through the semantic Logger (`src/lib/tracker-model/Logger.ts`), with ids and values only;
-  `src/adapters/utils/LogUtil.ts` words the records. Until plan step 5, `src/adapters/ProgressLogSink.ts` appends the
-  sentences to `progress.json`'s log.
+  `src/adapters/utils/LogUtil.ts` words the records. The records go to `.agent-progress/log.jsonl` through
+  `src/adapters/log/LogFileSink.ts`.
 
 ### Errors and exit codes
 
@@ -181,9 +185,10 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
 - Adding a command is an entry in `cli/CommandTable.ts`, a block in `cli/HelpText.ts` and a folder;
   `cli/CommandTable.spec.ts` and `cli/HelpText.spec.ts` fail until all three exist.
 - Every mutating command writes through `openTrackerForWriting` in `cli/CommandSupport.ts`, and none repeats it:
-  lock; read the progress file and the tickets into a Board; change them through it; write the progress file, then
-  the tickets the Board changed; then render from disk, all under the lock. Ticket
-  files follow the progress file so it is never behind them. `status` takes no lock and renders nothing.
+  lock; read the progress file, its log and the tickets into a Board; change them through it; write the progress file,
+  then the tickets the Board changed, then log.jsonl; then render from disk, all under the lock. Ticket files follow
+  the progress file so it is never behind them, and the log comes last so a line never describes an unstored change;
+  a log taken over from a version 1 progress file is written first instead. `status` takes no lock and renders nothing.
 
 ### Tickets
 
@@ -257,7 +262,7 @@ src/                        the target layout's code, filled step by step as the
   src/lib/                  package-grade building blocks, one folder each, the package's description in its main module's header:
                             atomic-file (AtomicFile.ts), git (GitProcess.ts), claude-code (ClaudeTranscripts.ts),
                             tracker-model (@types/Task.ts; Board.ts is its aggregate), utils
-  src/adapters/             the boundary, one folder per stored format (progress and tickets so far) plus the shared utils:
+  src/adapters/             the boundary, one folder per stored format (progress, tickets and log) plus the shared utils:
                             reading, writing and mapping what the tracker stores, and the wording of log records and Board refusals
   src/services/             app-wide services, one folder each
   src/shared/               app-specific code several parts use: the environment reader, the refusal, LIMITS,

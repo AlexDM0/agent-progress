@@ -99,12 +99,10 @@ test('without the tickets, the board holds no ticket and no row, and marks none'
 });
 
 // Whether earlier entries survive a clear is the log's own decision, taken where it is stored; the Board reports the event and no more.
-test('the clearing is logged as one record, and the stored log is left for the logger to restart', () => {
-  const { board, progress, records } = workedBoardFixture();
-  progress.log.push({ at: STARTED_AT, text: 'Ticket #001 started' });
-  const cleared = board.clearTracker({ ticketsSurvive: true }, CLEARED_AT);
+test('the clearing is logged as one record, and what becomes of the stored log is the sink\'s decision', () => {
+  const { board, records } = workedBoardFixture();
+  const cleared            = board.clearTracker({ ticketsSurvive: true }, CLEARED_AT);
 
   expect(records).toEqual([{ at: CLEARED_AT, kind: 'tracker-cleared', fields: {} }]);
   expect(cleared.logged).toEqual(records);
-  expect(progress.log).toEqual([{ at: STARTED_AT, text: 'Ticket #001 started' }]);
 });

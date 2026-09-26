@@ -1,7 +1,7 @@
 # agent-progress — command and file-format reference
 
 The complete reference for someone using the tool: what `init` and `update` write into a repository,
-every command and flag, the exit codes, what the dashboard shows, the two files on disk and what each
+every command and flag, the exit codes, what the dashboard shows, the three files on disk and what each
 ticket move does to its Gantt row. The code wins every disagreement: `agent-progress help` prints the
 command reference from `cli/HelpText.ts` and is never out of step with the tool, and
 `skill/Reference.md` is the fuller source on tokens, the concurrency limit, the dispatcher state and
@@ -33,8 +33,11 @@ chart.
 
 **Locking.** Every mutating command (`init`, `task`, `ticket`, `log`, `concurrency`, `dispatcher`,
 `range`, `release`, `clear`, `hook subagent-stop`) takes the tracker's lock, reads, changes, writes
-`progress.json` atomically, writes any ticket file after it, and regenerates `progress.html` from
-disk — all before releasing the lock, so the page never describes a state the store did not hold.
+`progress.json` atomically, writes any ticket file after it, then `log.jsonl` when it logged something,
+and regenerates `progress.html` from disk — all before releasing the lock, so the page never describes
+a state the store did not hold, and a log line never describes a change that was not stored. The one
+other order: when the log is taken over from a version 1 `progress.json`, `log.jsonl` is written
+first, before the file that held the log is rewritten without it.
 `render` and `open` take the lock only to render. `status`, `ticket list`, `ticket show`,
 `concurrency` and `dispatcher` without an argument, `usage` and `rework` take none: every file they
 read is written atomically. `update` takes none either, since it writes nothing inside the tracker.
@@ -76,7 +79,7 @@ Claude Code files under `.claude/`, each written by default and each with its ow
 
 | # | what | path | written by | opt-out |
 |---|---|---|---|---|
-| 1 | The tracker: `progress.json`, a `tickets/` folder, the generated `progress.html` and the `.lock` directory | `.agent-progress/` | `init` only | — |
+| 1 | The tracker: `progress.json`, `log.jsonl`, a `tickets/` folder, the generated `progress.html` and the `.lock` directory | `.agent-progress/` | `init` only | — |
 | 2 | The agent brief, from `templates/AgentBrief.md` | `.agent-progress/agent-brief.md` | `init`, `update` | — |
 | 3 | A `.gitignore` entry for the tracker | `.gitignore` | `init` only | — |
 | 4 | The managed block, from `templates/ClaudeInstructionsBlock.md` | `CLAUDE.md` | `init`, `update` | `--no-claude-md` |
@@ -170,7 +173,7 @@ Options in `[brackets]` are optional; `a|b` is a choice of one.
 
 | command | what it does |
 |---|---|
-| `status [--json] [--full]` | The project, the counts, the rows that are not delivered or abandoned, and the last five log entries newest first, then the Next line. `--json` prints the same working view for an agent — the unsettled rows and tickets, the last 10 log entries, and an `omitted` object counting what was left out. `--full` lists everything; with `--json` it prints the whole progress file plus every ticket's frontmatter. Both `--json` documents carry `concurrency` — `limit`, `agentsInFlight`, `freeSlots`, `readyTicketIds`, `heldTicketIds`, `dispatcherState` and, while one is stored, `dispatcherRunId` — and beside it `readyTickets`. |
+| `status [--json] [--full]` | The project, the counts, the rows that are not delivered or abandoned, and the last five log entries newest first, then the Next line. `--json` prints the same working view for an agent — the unsettled rows and tickets, the last 10 log entries, and an `omitted` object counting what was left out. `--full` lists everything; with `--json` it prints the whole progress file plus every ticket's frontmatter. The `version` both `--json` documents carry is the document's own shape version, `1`, with the worded log directly after `tasks`, whatever version the stored file is at. Both `--json` documents carry `concurrency` — `limit`, `agentsInFlight`, `freeSlots`, `readyTicketIds`, `heldTicketIds`, `dispatcherState` and, while one is stored, `dispatcherRunId` — and beside it `readyTickets`. |
 | `ticket list [--status <s>] [--priority <p>] [--json]` | The tickets with their status, priority, type and row id, the model and effort after the title where the ticket names them, and "waiting on #003" where a dependency is unsettled. `--status` and `--priority` narrow the listing. `--json` carries no bodies. |
 | `ticket show <id> [--json]` | One ticket: its frontmatter, its priority, its model and effort where it names them, its body, and always its file path — which is what an agent needs in order to edit that body. |
 
@@ -298,7 +301,7 @@ comment is code, and a file type it does not know counts every non-blank line.
 |---|---|---|
 | **0** | done, or there was nothing to do | also a store write whose page could not be rebuilt (reported on standard error, with an error banner on the page when only its script failed; `render` rebuilds it), a release whose cleanup git declined, and every `hook subagent-stop` |
 | **1** | a refusal the caller can act on | no tracker here, no such task or ticket, a missing `--reason`, a move the matrix refuses, a claim with no free slot or on a held-back low ticket, a release refused (`main-moved` among them), an unknown command |
-| **2** | a state the tool will not repair on its own | an unreadable or malformed progress file, a malformed ticket file a command names, a lock it could not take, a release reason `git-failed` or `tracker-failed` |
+| **2** | a state the tool will not repair on its own | an unreadable or malformed progress file, an unreadable or malformed log.jsonl, a malformed ticket file a command names, a lock it could not take, a release reason `git-failed` or `tracker-failed` |
 
 ## The Handoff and the token column
 
@@ -383,7 +386,8 @@ nobody closed.
 
 ```
 .agent-progress/
-  progress.json          the rows, the log, the view, the limits
+  progress.json          the rows, the view, the limits
+  log.jsonl              the log, one record per line
   progress.html          the generated dashboard
   agent-brief.md         the brief, rewritten by init and update
   tickets/003-<slug>.md  one file per ticket
@@ -398,7 +402,7 @@ never re-parsed into a viewer's zone.
 
 ```jsonc
 {
-  "version": 1,                                  // guards a future migration
+  "version": 2,                                  // guards a future migration
   "trackerId": "…",                              // namespaces the page's browser storage per tracker
   "project": "Example Agency",
   "startedAt": "2026-09-18T20:55:10+02:00",
@@ -441,10 +445,16 @@ never re-parsed into a viewer's zone.
       "reviewOf": "003",                         // optional: the ticket this row reviews
       "reviewBarRound": 1                        // optional: which review of that ticket this bar is, from 1
     }
-  ],
-  "log": [{ "at": "2026-09-18T21:30:54+02:00", "text": "Wave 1 landed." }]
+  ]
 }
 ```
+
+A file at version 1, written before the log moved to `log.jsonl`, is still read: its `log` array of
+`{ "at", "text" }` sentences is the tracker's log, read as notes. Reading never rewrites it; the next
+command that writes stores the notes in `log.jsonl` and the file as version 2 without `log`. A
+version 2 file holding `log`, or a version other than 1 and 2, is unreadable (exit 2). Keys the tool
+does not know survive a read and a write, at the top level and on a row, in the file's order, as a
+ticket's unknown frontmatter lines do.
 
 A present `concurrencyLimit` that is not a whole number of at least 1, a `dispatcherState` outside
 the three, or an empty `dispatcherRunId` makes the file unreadable (exit 2). A task is linked to at
@@ -457,6 +467,24 @@ A free-standing row without `reviewOf` or `reviewBarRound` whose name starts `Re
 with the ticket and round the name gives, and a free-standing row's stored `reviewOf` that reads as a
 positive whole number (`"3"`, `"+3"`, `"3.0"`) reads as the padded ticket id (`"003"`); reading never
 rewrites the file, and the next write stores them.
+
+### `.agent-progress/log.jsonl`
+
+One record per line, each a JSON object ending in a newline: `at`, `kind`, then `taskId` and
+`ticketId` where the kind names them, then `fields`. `status` and the page word each record as a
+sentence; a note's sentence is its text.
+
+```
+{"at":"2026-09-18T21:30:54+02:00","kind":"ticket-started","ticketId":"003","fields":{}}
+{"at":"2026-09-18T22:00:00+02:00","kind":"review-bar-started","taskId":18,"ticketId":"003","fields":{"name":"Review 1 #003 — Rewrite the importer"}}
+{"at":"2026-09-18T22:05:00+02:00","kind":"note","fields":{"text":"Wave 1 landed."}}
+```
+
+The file is always written whole, atomically; an absent file is an empty log, and a blank line is
+skipped. A line that is not a well-formed record of a known kind makes the log unreadable (exit 2),
+naming the line and the field. A `log.jsonl` beside a version 1 `progress.json` is taken as a
+migration cut short only when it begins with that file's log as notes, and rewritten; any other one
+is unreadable, naming both files, and nothing is discarded silently.
 
 ### `.agent-progress/tickets/003-double-click-a-role-to-edit-it.md`
 

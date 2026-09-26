@@ -1,10 +1,5 @@
 import type { Task } from './Task.ts';
 
-export interface LogEntry {
-  at:   string;
-  text: string;
-}
-
 /** `relative` forms are stored raw (`"-2h"`, `"start"`, `"now"`) and resolved against an explicit `now` at layout time. */
 export type ViewRange =
   | { kind: 'auto' }
@@ -15,7 +10,6 @@ export type ViewRange =
 export type DispatcherState = 'running' | 'finished' | 'stopped';
 
 export interface ProgressFile {
-  version:           1;
   trackerId:         string;
   project:           string;
   startedAt:         string;
@@ -29,5 +23,4 @@ export interface ProgressFile {
   /** The Workflow run a `running` dispatcher is, stored so a killed run can be resumed after a compaction; absent in every other state. */
   dispatcherRunId?:  string;
   tasks:             Task[];
-  log:               LogEntry[];
 }

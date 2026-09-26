@@ -453,14 +453,12 @@ describe('the axis layer', () => {
     const from     = to - 1440 * MILLISECONDS_PER_MINUTE;
     const timeline = computeTimeline({
       progress: {
-        version:    1,
         trackerId:  'example-tracker',
         project:    'Example Agency',
         startedAt:  new Date(from).toISOString(),
         nextTaskId: 1,
         view:       { kind: 'auto' },
         tasks:      [],
-        log:        [],
       },
       range: {
         kind:        'absolute',

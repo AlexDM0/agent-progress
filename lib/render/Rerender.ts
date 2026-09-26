@@ -1,7 +1,9 @@
 /** Turns whatever is on disk into `progress.html`; the only file write in `lib/render/`, and every mutating command ends here inside its lock. */
 
+import type { StoredLogReading }    from '../../src/adapters/log/utils/TrackerLogUtil.ts';
 import type { ProgressFileReading } from '../../src/adapters/progress/ProgressFileIngestion.ts';
 import { writeFileAtomically }      from '../../src/lib/atomic-file/AtomicFile.ts';
+import type { LogRecord }           from '../../src/lib/tracker-model/@types/LogRecord.ts';
 import type { ProgressFile }        from '../../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { Ticket }              from '../../src/lib/tracker-model/@types/Ticket.ts';
 import type { Workspace }           from '../platform/Workspace.ts';
@@ -17,6 +19,8 @@ export interface MalformedTicketFile {
 
 export interface TrackerReads {
   readProgressFile: (workspace: Workspace) => ProgressFileReading;
+  /** The log a readable progress file's tracker has: `embeddedLog` is that file's own log, for a version 1 file. */
+  readStoredLog:    (workspace: Workspace, embeddedLog: readonly LogRecord[] | null) => StoredLogReading;
   /** Declared structurally rather than imported: `lib/tickets/` is a sibling feature, which `lib/render/` may not import. */
   listTickets:      (workspace: Workspace) => { verdict: 'listed'; tickets: Ticket[]; malformed: MalformedTicketFile[] };
   /** The function `status --json` builds its `concurrency` block with, so the page and the command cannot disagree on a count. */
@@ -49,6 +53,8 @@ export async function rerenderDashboard(input: RerenderInput): Promise<RerenderO
   if (progressRead.verdict === 'unreadable') {
     return { verdict: 'unreadable', reason: `${workspace.progressFilePath} could not be read: ${progressRead.reason}` };
   }
+  const storedLog = reads.readStoredLog(workspace, progressRead.embeddedLog);
+  if (storedLog.verdict === 'unreadable') return { verdict: 'unreadable', reason: `The log cannot be read: ${storedLog.reason}` };
 
   const listing       = reads.listTickets(workspace);
   const pageBundle    = await bundlePageScript();
@@ -56,6 +62,7 @@ export async function rerenderDashboard(input: RerenderInput): Promise<RerenderO
 
   const document = renderProgressHtml({
     progress:          progressRead.progress,
+    logRecords:        storedLog.records,
     tickets:           listing.tickets,
     pageScript:        pageBundle.verdict === 'built' ? pageBundle.script : null,
     pageScriptFailure: failureReason,

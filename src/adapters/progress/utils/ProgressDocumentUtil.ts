@@ -10,7 +10,6 @@ import { EMBEDDED_LOG_PROGRESS_FILE_VERSION } from '../constants/ProgressFileVer
 function documentOf(progress: ProgressFile, log: readonly WordedLogEntry[]): ProgressDocument {
   const entries: [string, unknown][] = [['version', EMBEDDED_LOG_PROGRESS_FILE_VERSION]];
   for (const [key, value] of Object.entries(progress)) {
-    if (key === 'version' || key === 'log') continue;
     entries.push([key, value]);
     if (key === 'tasks') entries.push(['log', [...log]]);
   }

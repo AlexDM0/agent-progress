@@ -378,18 +378,21 @@ describe.skipIf(!gitIsAvailable())('what update never touches', () => {
     await runCommandLine(['log', 'The orchestrator started the board'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }));
 
     const progressFilePath = join(repositoryDirectory, '.agent-progress', 'progress.json');
+    const logFilePath      = join(repositoryDirectory, '.agent-progress', 'log.jsonl');
     const ticketsDirectory = join(repositoryDirectory, '.agent-progress', 'tickets');
     const ticketFileName   = readdirSync(ticketsDirectory)[0] ?? '';
     const ticketFilePath   = join(ticketsDirectory, ticketFileName);
     const progressBefore   = readFileSync(progressFilePath, 'utf8');
+    const logBefore        = readFileSync(logFilePath, 'utf8');
     const ticketBefore     = readFileSync(ticketFilePath, 'utf8');
     expect(ticketFileName, 'the fixture filed a ticket, so the comparison below is about a real file').toContain('export-button');
 
     expect(await runCommandLine(['update', '--hooks'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }))).toBe(0);
 
     expect(readFileSync(progressFilePath, 'utf8'), 'the rows, the log and the counters are none of this command\'s business').toBe(progressBefore);
+    expect(readFileSync(logFilePath, 'utf8')).toBe(logBefore);
     expect(readFileSync(ticketFilePath, 'utf8')).toBe(ticketBefore);
-    expect(progressBefore, 'the fixture holds a row and a log line, so the comparison above is about something').toContain('The orchestrator started the board');
+    expect(logBefore, 'the fixture holds a log line, so the comparison above is about something').toContain('The orchestrator started the board');
   });
 });
 

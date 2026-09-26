@@ -1,14 +1,22 @@
 /**
  * What the ingestion refuses to believe and what it migrates, read through a real file as every command reads it: absent is never
- * unreadable, every malformed field is named, retired words and legacy review bars come back current, and a read never writes.
+ * unreadable, every malformed field is named, only versions 1 and 2 are read, a version 1 file's log comes back as notes, retired words
+ * and legacy review bars come back current, and a read never writes.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join }                        from 'node:path';
 import { afterAll, expect, test }      from 'bun:test';
 
-import { ConcurrencyUtil }                                 from '../../lib/tracker-model/utils/ConcurrencyUtil.ts';
-import { boardFixture, ticketFixture }                     from '../../testing/BoardFixtures.ts';
-import { emptyProgress, fileRow, documentInRetiredWords }  from '../../testing/ProgressFileFixtures.ts';
+import { ConcurrencyUtil }             from '../../lib/tracker-model/utils/ConcurrencyUtil.ts';
+import { boardFixture, ticketFixture } from '../../testing/BoardFixtures.ts';
+import {
+  documentInRetiredWords,
+  emptyDocument,
+  emptyProgress,
+  fileRow,
+  versionOneDocumentOf,
+  versionTwoDocumentOf
+} from '../../testing/ProgressFileFixtures.ts';
 import { createScratchDirectory, removeScratchDirectory }  from '../../testing/ScratchWorkspace.ts';
 import { ProgressFileIngestion, type ProgressFileReading } from './ProgressFileIngestion.ts';
 import { createProgressFileWriter }                        from './ProgressFileWriter.ts';
@@ -46,14 +54,34 @@ test('a file that is not JSON is unreadable and says so', () => {
 });
 
 test('a document from a future format version is refused rather than half-read', () => {
-  const result = readBack('store-future-version', { ...emptyProgress(), version: 2 });
+  const result = readBack('store-future-version', { ...emptyDocument(), version: 3 });
   expect(result.verdict).toBe('unreadable');
-  expect(result.verdict === 'unreadable' ? result.reason : '').toContain('version');
+  expect(result.verdict === 'unreadable' ? result.reason : '').toBe('version is 3, and this build of agent-progress reads versions 1 and 2');
+});
+
+test('a version 1 file\'s own log comes back as notes, in order with their stamps; a version 2 file has none, its log being log.jsonl', () => {
+  const log = [{ at: FILED_AT, text: 'Ticket #001 filed: Example checkout flow' }, { at: STARTED_AT, text: 'Example note' }];
+  const versionOne = readBack('store-embedded-log', versionOneDocumentOf(emptyProgress(), log));
+  expect(versionOne.verdict === 'readable' ? versionOne.embeddedLog : 'unreadable').toEqual([
+    { at: FILED_AT, kind: 'note', fields: { text: 'Ticket #001 filed: Example checkout flow' } },
+    { at: STARTED_AT, kind: 'note', fields: { text: 'Example note' } },
+  ]);
+
+  const versionTwo = readBack('store-no-embedded-log', emptyDocument());
+  expect(versionTwo.verdict === 'readable' ? versionTwo.embeddedLog : 'unreadable').toBeNull();
+});
+
+test('the model read from either version holds neither the format\'s version nor a log', () => {
+  for (const document of [emptyDocument(), versionOneDocumentOf(emptyProgress())]) {
+    const result = readBack('store-model-keys', document);
+    if (result.verdict !== 'readable') throw new Error(`expected a readable file, got ${JSON.stringify(result)}`);
+    expect(Object.keys(result.progress)).toEqual(Object.keys(emptyProgress()));
+  }
 });
 
 // Every tracker filed before the limit existed has no such field, and must go on reading rather than stop every command in its repository.
 test('a document with no concurrency limit reads, and its figures fall back to the default of 2', () => {
-  const withoutLimit = emptyProgress();
+  const withoutLimit = emptyDocument();
   delete withoutLimit.concurrencyLimit;
   const result = readBack('store-no-limit', withoutLimit);
   expect(result.verdict).toBe('readable');
@@ -63,7 +91,7 @@ test('a document with no concurrency limit reads, and its figures fall back to t
 
 test('a concurrency limit that is not a whole number of at least 1 makes the file unreadable, and the reason names the field', () => {
   for (const malformedLimit of [0, -1, 2.5, '3', null]) {
-    const result = readBack('store-malformed-limit', { ...emptyProgress(), concurrencyLimit: malformedLimit });
+    const result = readBack('store-malformed-limit', { ...emptyDocument(), concurrencyLimit: malformedLimit });
     expect(result.verdict === 'unreadable' ? result.reason : '', JSON.stringify(malformedLimit)).toContain('concurrencyLimit');
   }
 });
@@ -91,7 +119,7 @@ test('a bar that stores its round reads back unchanged', () => {
   const progress = emptyProgress();
   fileRow(progress, { name: 'Review 1 #3 — x', reviewOf: '003', reviewBarRound: 1 });
 
-  const result = readBack('store-review-bar-round', progress);
+  const result = readBack('store-review-bar-round', versionTwoDocumentOf(progress));
   if (result.verdict !== 'readable') throw new Error(`expected a readable file, got ${JSON.stringify(result)}`);
   expect(result.progress.tasks[0]?.reviewBarRound).toBe(1);
   expect(result.progress).toEqual(progress);
@@ -99,7 +127,7 @@ test('a bar that stores its round reads back unchanged', () => {
 
 // The page reads a stored reviewOf as a number, so the Board must still find a bar that stored it unpadded.
 test('a bar storing an unpadded reviewOf is one of that ticket\'s review bars once read', () => {
-  const progress = emptyProgress();
+  const progress = emptyDocument();
   fileRow(progress, { name: 'Example review', reviewOf: '3' });
 
   const result = readBack('store-unpadded-review-of', progress);
@@ -109,7 +137,7 @@ test('a bar storing an unpadded reviewOf is one of that ticket\'s review bars on
 });
 
 test('a task whose status this build does not know makes the whole file unreadable, and the reason names the task and the status', () => {
-  const progress = emptyProgress();
+  const progress = emptyDocument();
   fileRow(progress, { name: 'Review pass' });
   const document = { ...progress, tasks: [{ ...progress.tasks[0], status: 'blocked' }] };
   const result = readBack('store-unknown-status', document);
@@ -121,7 +149,7 @@ test('a task whose status this build does not know makes the whole file unreadab
 });
 
 test('every other missing or mistyped field is named too', () => {
-  const progress = emptyProgress();
+  const progress = emptyDocument();
   fileRow(progress, { name: 'Review pass' });
   const cases: Array<{ prefix: string; document: unknown; named: string }> = [
     { prefix: 'store-not-an-object', document: [1, 2, 3], named: 'JSON object' },
@@ -130,11 +158,13 @@ test('every other missing or mistyped field is named too', () => {
     { prefix: 'store-no-started-at', document: { ...progress, startedAt: undefined }, named: 'startedAt' },
     { prefix: 'store-bad-view', document: { ...progress, view: { kind: 'sliding' } }, named: 'view' },
     { prefix: 'store-tasks-not-array', document: { ...progress, tasks: {} }, named: 'tasks' },
-    { prefix: 'store-log-not-array', document: { ...progress, log: 'none' }, named: 'log' },
+    { prefix: 'store-version-one-without-log', document: { ...progress, version: 1 }, named: 'log is not an array' },
+    { prefix: 'store-log-not-array', document: { ...progress, version: 1, log: 'none' }, named: 'log is not an array' },
+    { prefix: 'store-version-two-with-log', document: { ...progress, log: [] }, named: 'log is present, and a version 2 file keeps its log in log.jsonl' },
     { prefix: 'store-task-id', document: { ...progress, tasks: [{ ...progress.tasks[0], id: '1' }] }, named: 'tasks[0].id' },
     { prefix: 'store-task-start', document: { ...progress, tasks: [{ ...progress.tasks[0], start: 17 }] }, named: 'tasks[0].start' },
     { prefix: 'store-task-ticket', document: { ...progress, tasks: [{ ...progress.tasks[0], ticket: 3 }] }, named: 'tasks[0].ticket' },
-    { prefix: 'store-log-entry', document: { ...progress, log: [{ at: FILED_AT }] }, named: 'log[0].text' },
+    { prefix: 'store-log-entry', document: { ...progress, version: 1, log: [{ at: FILED_AT }] }, named: 'log[0].text' },
     { prefix: 'store-no-next-id', document: { ...progress, nextTaskId: undefined }, named: 'nextTaskId' },
     { prefix: 'store-zero-next-id', document: { ...progress, nextTaskId: 0 }, named: 'nextTaskId' },
     { prefix: 'store-task-tokens', document: { ...progress, tasks: [{ ...progress.tasks[0], tokens: -1 }] }, named: 'tasks[0].tokens' },
@@ -173,14 +203,14 @@ test('every other missing or mistyped field is named too', () => {
 
 test('an absolute view range with its fields intact is accepted, because that is a range someone stored on purpose', () => {
   const stored = {
-    ...emptyProgress(),
+    ...emptyDocument(),
     view: {
       kind: 'absolute', from: FILED_AT, to: FINISHED_AT, tickMinutes: 15 
     } 
   };
   expect(readBack('store-absolute-view', stored).verdict).toBe('readable');
   const relative = {
-    ...emptyProgress(),
+    ...emptyDocument(),
     view: {
       kind: 'relative', from: '-2h', to: 'now', tickMinutes: null 
     } 
@@ -189,14 +219,14 @@ test('an absolute view range with its fields intact is accepted, because that is
 });
 
 test('a round of two or more is read back, because that is a row someone deliberately sent round again', () => {
-  const progress = emptyProgress();
+  const progress = emptyDocument();
   fileRow(progress, { name: 'Review pass' });
   const document = { ...progress, tasks: [{ ...progress.tasks[0], reviewRound: 3 }] };
   expect(readBack('store-third-round', document).verdict).toBe('readable');
 });
 
 test('a history of known statuses with their stamps is read back', () => {
-  const progress = emptyProgress();
+  const progress = emptyDocument();
   fileRow(progress, { name: 'Review pass' });
   const document = { ...progress, tasks: [{ ...progress.tasks[0], history: [{ status: 'in-progress', at: STARTED_AT }] }] };
   expect(readBack('store-history-readable', document).verdict).toBe('readable');
@@ -221,7 +251,7 @@ test('reading a file in the retired words leaves its bytes as they were', () => 
 
 // Only the two retired task words map: a ticket's retired word on a row is as unknown as any other, in the row and in its history.
 test('a status that is neither current nor a retired task word still makes the file unreadable, naming the field', () => {
-  const progress = emptyProgress();
+  const progress = emptyDocument();
   fileRow(progress, { name: 'Review pass' });
   const unknownRowStatus = readBack('store-retired-ticket-word', { ...progress, tasks: [{ ...progress.tasks[0], status: 'open' }] });
   expect(unknownRowStatus.verdict).toBe('unreadable');

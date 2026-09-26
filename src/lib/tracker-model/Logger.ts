@@ -1,6 +1,6 @@
 /**
  * What the Board tells the log, one method per kind of event. `createLogger` is the only implementation: each call becomes one
- * `LogRecord` for the sink, and what the sink keeps (the progress file's log, a test's list, nothing) is the sink's decision.
+ * `LogRecord` for the sink, and what the sink stores (log.jsonl, a test's list, nothing) is the sink's decision.
  */
 import type {
   AgentUsage,

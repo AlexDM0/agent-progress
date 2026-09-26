@@ -1,14 +1,20 @@
-/** progress.json read into the model: read, validate, migrate the retired words, map, and give legacy review bars their `reviewOf` and round. */
-import { existsSync, readFileSync }          from 'node:fs';
-import type { ProgressFile }                 from '../../lib/tracker-model/@types/ProgressFile.ts';
-import { LegacyReviewBarUtil }               from '../utils/LegacyReviewBarUtil.ts';
-import type { StoredProgressFileVersionOne } from './@types/StoredProgressFile.ts';
-import { ProgressFileMappingUtil }           from './utils/ProgressFileMappingUtil.ts';
-import { ProgressFileMigrationUtil }         from './utils/ProgressFileMigrationUtil.ts';
-import { ProgressFileValidationUtil }        from './utils/ProgressFileValidationUtil.ts';
+/**
+ * progress.json read into the model: read, validate, migrate the retired words and a version 1 file's log, map, and give legacy review bars
+ * their `reviewOf` and round.
+ */
+import { existsSync, readFileSync }           from 'node:fs';
+import type { LogRecord }                     from '../../lib/tracker-model/@types/LogRecord.ts';
+import type { ProgressFile }                  from '../../lib/tracker-model/@types/ProgressFile.ts';
+import { LegacyReviewBarUtil }                from '../utils/LegacyReviewBarUtil.ts';
+import type { StoredProgressFile }            from './@types/StoredProgressFile.ts';
+import { EMBEDDED_LOG_PROGRESS_FILE_VERSION } from './constants/ProgressFileVersions.ts';
+import { ProgressFileMappingUtil }            from './utils/ProgressFileMappingUtil.ts';
+import { ProgressFileMigrationUtil }          from './utils/ProgressFileMigrationUtil.ts';
+import { ProgressFileValidationUtil }         from './utils/ProgressFileValidationUtil.ts';
 
 export type ProgressFileReading =
-  | { verdict: 'readable'; progress: ProgressFile }
+  /** `embeddedLog` is a version 1 file's own log as notes, and null for a version 2 file, whose log is log.jsonl. */
+  | { verdict: 'readable'; progress: ProgressFile; embeddedLog: LogRecord[] | null }
   | { verdict: 'absent' }
   | { verdict: 'unreadable'; reason: string };
 
@@ -37,11 +43,12 @@ export class ProgressFileIngestion {
 
     const problem = ProgressFileValidationUtil.documentProblemOf(parsed);
     if (problem !== null) return { verdict: 'unreadable', reason: problem };
-    const document = parsed as StoredProgressFileVersionOne;
+    const document = parsed as StoredProgressFile;
 
-    const progress = ProgressFileMappingUtil.progressOf({ ...document, tasks: ProgressFileMigrationUtil.tasksInCurrentWords(document.tasks) });
+    const embeddedLog = document.version === EMBEDDED_LOG_PROGRESS_FILE_VERSION ? ProgressFileMigrationUtil.notesOf(document.log) : null;
+    const progress    = ProgressFileMappingUtil.progressOf({ ...document, tasks: ProgressFileMigrationUtil.tasksInCurrentWords(document.tasks) });
     // In memory only, like the status words: the next write stores the fields.
     progress.tasks = progress.tasks.map(LegacyReviewBarUtil.linkedReviewBarOf);
-    return { verdict: 'readable', progress };
+    return { verdict: 'readable', progress, embeddedLog };
   }
 }

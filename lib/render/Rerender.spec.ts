@@ -1,5 +1,5 @@
 /**
- * The three answers `rerenderDashboard` can give; the reads are supplied as literals because
+ * The three answers `rerenderDashboard` can give, an unreadable log among the unreadable ones; the reads are supplied as literals because
  * `lib/render/` may not import `lib/tickets/`.
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -10,6 +10,7 @@ import {
   expect,
   test
 }                                                              from 'bun:test';
+import type { StoredLogReading }                          from '../../src/adapters/log/utils/TrackerLogUtil.ts';
 import type { ProgressFile }                              from '../../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { Ticket }                                    from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
@@ -21,7 +22,6 @@ import type { MalformedTicketFile, TrackerReads }         from './Rerender.ts';
 const GENERATED_AT = new Date('2026-09-18T20:11:03Z');
 
 const SYNTHETIC_PROGRESS: ProgressFile = {
-  version:    1,
   trackerId:  'tracker-for-the-rerender-spec',
   project:    'Example Agency',
   startedAt:  '2026-09-18T20:00:00+02:00',
@@ -38,21 +38,27 @@ const SYNTHETIC_PROGRESS: ProgressFile = {
     ticket: null,
     tokens: 12_300,
   }],
-  log: [{ at: '2026-09-18T20:05:00+02:00', text: 'Review pass started' }],
+};
+
+const SYNTHETIC_STORED_LOG: StoredLogReading = {
+  verdict:                'readable',
+  records:                [{ at: '2026-09-18T20:05:00+02:00', kind: 'note', fields: { text: 'Review pass started' } }],
+  logFileMustBeRewritten: false,
 };
 
 let scratchDirectory = '';
 let workspace: Workspace;
 
-function readsReturning(tickets: Ticket[], malformed: MalformedTicketFile[]): TrackerReads {
+function readsReturning(tickets: Ticket[], malformed: MalformedTicketFile[], storedLog: StoredLogReading = SYNTHETIC_STORED_LOG): TrackerReads {
   return {
     readProgressFile: (asked: Workspace) => {
       try {
-        return { verdict: 'readable', progress: JSON.parse(readFileSync(asked.progressFilePath, 'utf8')) as ProgressFile };
+        return { verdict: 'readable', progress: JSON.parse(readFileSync(asked.progressFilePath, 'utf8')) as ProgressFile, embeddedLog: null };
       } catch (problem) {
         return { verdict: 'unreadable', reason: problem instanceof Error ? problem.message : String(problem) };
       }
     },
+    readStoredLog: () => storedLog,
     listTickets:   () => ({ verdict: 'listed', tickets, malformed }),
     concurrencyOf: (progress: ProgressFile) => ({ limit: 3, agentsInFlight: progress.tasks.length }),
   };
@@ -62,7 +68,7 @@ beforeEach(() => {
   scratchDirectory = createScratchDirectory('rerender');
   workspace        = workspacePathsFor(scratchDirectory);
   mkdirSync(workspace.ticketsDirectory, { recursive: true });
-  writeFileSync(workspace.progressFilePath, JSON.stringify(SYNTHETIC_PROGRESS));
+  writeFileSync(workspace.progressFilePath, JSON.stringify({ version: 2, ...SYNTHETIC_PROGRESS }));
 });
 
 afterEach(() => {
@@ -142,4 +148,12 @@ describe('when something cannot be read', () => {
     expect(outcome.verdict).toBe('unreadable');
   });
 
+  test('an unreadable log is a verdict giving its reason, and no page is written', async () => {
+    const unreadableLog: StoredLogReading = { verdict: 'unreadable', reason: `${workspace.logFilePath}, line 3: fields.text is not a string` };
+
+    const outcome = await rerenderDashboard({ workspace, generatedAt: GENERATED_AT, reads: readsReturning([], [], unreadableLog) });
+
+    expect(outcome).toEqual({ verdict: 'unreadable', reason: `The log cannot be read: ${workspace.logFilePath}, line 3: fields.text is not a string` });
+    expect(() => readFileSync(workspace.htmlFilePath, 'utf8')).toThrow();
+  });
 });

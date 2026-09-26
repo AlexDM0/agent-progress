@@ -1,21 +1,30 @@
 /**
- * The sequence every mutating command follows, written once: take the lock of `lib/platform/Lock.ts`, read the progress file through
- * `src/adapters/progress/ProgressFileIngestion.ts` and the tickets into a Board, mutate, write the progress file, then the tickets the Board
- * changed, then render through `lib/render/Rerender.ts` — all inside the lock, in that order, so no older render lands last and the progress
- * file is never behind the tickets.
+ * The sequence every mutating command follows, written once: take the lock of `lib/platform/Lock.ts`; read the progress file, its log and the
+ * tickets into a Board; mutate; write the progress file, then the tickets the Board changed, then log.jsonl, then render through
+ * `lib/render/Rerender.ts` — all inside the lock, in that order, so no older render lands last and the progress file is never behind the
+ * tickets. A log taken over from a version 1 progress file is written first instead, so it is on disk before that file stops holding it.
  */
-import { withLock }                                                from '../lib/platform/Lock';
-import { requireWorkspace, type Workspace }                        from '../lib/platform/Workspace';
-import { rerenderDashboard, type RerenderOutcome }                 from '../lib/render/Rerender';
-import { deleteAllTickets, listTickets, type MalformedTicketFile } from '../lib/tickets/TicketStore';
-import { NextLineUtil }                                            from '../lib/utils/NextLineUtil';
-import { createProgressLogSink }                                   from '../src/adapters/ProgressLogSink';
-import { ProgressFileIngestion, type ProgressFileReading }         from '../src/adapters/progress/ProgressFileIngestion';
-import { createProgressFileWriter }                                from '../src/adapters/progress/ProgressFileWriter';
-import { createTicketFileWriter }                                  from '../src/adapters/tickets/TicketFileWriter';
-import { BoardRefusalWordingUtil }                                 from '../src/adapters/utils/BoardRefusalWordingUtil';
-import type { Concurrency }                                        from '../src/lib/tracker-model/@types/Concurrency';
-import type { DispatcherState, ProgressFile }                      from '../src/lib/tracker-model/@types/ProgressFile';
+import { withLock }                                from '../lib/platform/Lock';
+import { requireWorkspace, type Workspace }        from '../lib/platform/Workspace';
+import { rerenderDashboard, type RerenderOutcome } from '../lib/render/Rerender';
+import {
+  deleteAllTickets,
+  listTickets,
+  type MalformedTicketFile,
+  type TicketListing
+} from '../lib/tickets/TicketStore';
+import { NextLineUtil }                                          from '../lib/utils/NextLineUtil';
+import { LogFileIngestion }                                      from '../src/adapters/log/LogFileIngestion';
+import { createLogFileSink }                                     from '../src/adapters/log/LogFileSink';
+import { createLogFileWriter }                                   from '../src/adapters/log/LogFileWriter';
+import { TrackerLogUtil, type StoredLog, type StoredLogReading } from '../src/adapters/log/utils/TrackerLogUtil';
+import { ProgressFileIngestion, type ProgressFileReading }       from '../src/adapters/progress/ProgressFileIngestion';
+import { createProgressFileWriter }                              from '../src/adapters/progress/ProgressFileWriter';
+import { createTicketFileWriter }                                from '../src/adapters/tickets/TicketFileWriter';
+import { BoardRefusalWordingUtil }                               from '../src/adapters/utils/BoardRefusalWordingUtil';
+import type { Concurrency }                                      from '../src/lib/tracker-model/@types/Concurrency';
+import type { LogRecord }                                        from '../src/lib/tracker-model/@types/LogRecord';
+import type { DispatcherState, ProgressFile }                    from '../src/lib/tracker-model/@types/ProgressFile';
 import type {
   AgentEffort,
   AgentModel,
@@ -84,17 +93,36 @@ export function ticketDocumentOf(ticket: Ticket): Ticket['frontmatter'] & { prio
   return { ...ticket.frontmatter, priority: TicketDefaultsUtil.ticketPriorityOf(ticket.frontmatter), filePath: ticket.filePath };
 }
 
+export type ReadableProgressFile = Extract<ProgressFileReading, { verdict: 'readable' }>;
+
 /**
  * Without the lock, for the read-only commands, this reads either the old file or the new one, since it is written atomically. Unreadable is
  * `'unrepaired'`: under the lock the file was there a moment ago, so it vanished or broke under the command.
  */
-export function requireProgressFile(workspace: Workspace): ProgressFile {
+export function requireProgressFileReading(workspace: Workspace): ReadableProgressFile {
   const progressRead = new ProgressFileIngestion(workspace.progressFilePath).read();
   if (progressRead.verdict !== 'readable') {
     const reason = progressRead.verdict === 'absent' ? 'it is not there' : progressRead.reason;
     throw new OperationRefusal('unrepaired', `${workspace.progressFilePath} cannot be read: ${reason}`);
   }
-  return progressRead.progress;
+  return progressRead;
+}
+
+export function requireProgressFile(workspace: Workspace): ProgressFile {
+  return requireProgressFileReading(workspace).progress;
+}
+
+/** `embeddedLog` is the progress file's own log, which a version 1 file has; `src/adapters/log/utils/TrackerLogUtil.ts` decides between the two. */
+export function readStoredLog(workspace: Workspace, embeddedLog: readonly LogRecord[] | null): StoredLogReading {
+  const logFileReading = new LogFileIngestion(workspace.logFilePath).read();
+  return TrackerLogUtil.storedLogOf(embeddedLog, logFileReading, { logFilePath: workspace.logFilePath, progressFilePath: workspace.progressFilePath });
+}
+
+/** Unreadable is `'unrepaired'`, as an unreadable progress file is: no command repairs a log it cannot read. */
+export function requireStoredLog(workspace: Workspace, embeddedLog: readonly LogRecord[] | null): StoredLog {
+  const storedLog = readStoredLog(workspace, embeddedLog);
+  if (storedLog.verdict === 'unreadable') throw new OperationRefusal('unrepaired', `The log cannot be read: ${storedLog.reason}`);
+  return storedLog;
 }
 
 export function ignoredTicketFileText(malformed: { filePath: string; line: number; reason: string }): string {
@@ -162,11 +190,13 @@ export function nextLineFor(board: Board): string {
 
 function trackerReads(): {
   readProgressFile: (workspace: Workspace) => ProgressFileReading;
+  readStoredLog:    typeof readStoredLog;
   listTickets:      typeof listTickets;
   concurrencyOf:    (progress: ProgressFile) => Concurrency;
 } {
   return {
     listTickets,
+    readStoredLog,
     readProgressFile: (workspace) => new ProgressFileIngestion(workspace.progressFilePath).read(),
     concurrencyOf:    (progress) => ConcurrencyUtil.concurrencyOf(progress.tasks, progress.concurrencyLimit),
   };
@@ -212,7 +242,58 @@ async function mutateRefusingInWords<MutationResult>(
   }
 }
 
-async function writeTrackerUnderLock<MutationResult, Reading>(
+interface TrackerUnderLock {
+  progress:    ProgressFile;
+  storedLog:   StoredLog;
+  listing:     TicketListing;
+  logFileSink: ReturnType<typeof createLogFileSink>;
+  board:       Board;
+}
+
+function readTrackerUnderLock(workspace: Workspace): TrackerUnderLock {
+  const progressReading = requireProgressFileReading(workspace);
+  const storedLog       = requireStoredLog(workspace, progressReading.embeddedLog);
+  const listing         = listTickets(workspace);
+  const logFileSink     = createLogFileSink(storedLog);
+  const board           = new Board({ progress: progressReading.progress, tickets: listing.tickets, logger: createLogger(logFileSink.record) });
+  return {
+    progress: progressReading.progress,
+    storedLog,
+    listing,
+    logFileSink,
+    board,
+  };
+}
+
+/** `extraTickets` are written as well as the ones the Board changed, once each; a mutation hands in none. */
+async function writeTrackerUnderLock<Reading>(
+  context: CommandContext,
+  workspace: Workspace,
+  tracker: TrackerUnderLock,
+  writes: { extraTickets: readonly Ticket[]; deletionCallbacks: readonly ((deletedTicketCount: number) => void)[]; readAfterWriting: (board: Board) => Reading },
+): Promise<Reading> {
+  const logRecordsToWrite = tracker.logFileSink.recordsToWrite();
+  const logFileWriter     = createLogFileWriter(workspace.logFilePath);
+  const logIsTakenOver    = tracker.storedLog.logFileMustBeRewritten;
+  // A log line never describes an unstored change, so the log goes last; one taken over from a version 1 file goes first, before that file loses it.
+  if (logIsTakenOver && logRecordsToWrite !== null) logFileWriter.write(logRecordsToWrite);
+
+  createProgressFileWriter(workspace.progressFilePath).write(tracker.progress);
+  const ticketsToWrite = new Map<string, Ticket>();
+  for (const ticket of [...tracker.board.changedTickets(), ...writes.extraTickets]) {
+    if (!ticketsToWrite.has(ticket.filePath)) ticketsToWrite.set(ticket.filePath, ticket);
+  }
+  const ticketFileWriter = createTicketFileWriter();
+  for (const ticket of ticketsToWrite.values()) ticketFileWriter.write(ticket);
+  for (const onDeleted of writes.deletionCallbacks) onDeleted(deleteAllTickets(workspace));
+
+  if (!logIsTakenOver && logRecordsToWrite !== null) logFileWriter.write(logRecordsToWrite);
+  const reading = writes.readAfterWriting(tracker.board);
+  await renderDashboard(context, workspace);
+  return reading;
+}
+
+async function changeTrackerUnderLock<MutationResult, Reading>(
   commandArguments: ArgumentParser,
   context: CommandContext,
   mutate: (change: TrackerChange) => MutationResult | Promise<MutationResult>,
@@ -222,27 +303,19 @@ async function writeTrackerUnderLock<MutationResult, Reading>(
   const at        = resolveAtOption(commandArguments, context);
 
   return withLock(workspace, async () => {
-    const progress            = requireProgressFile(workspace);
-    const listing             = listTickets(workspace);
-    const storedLogEntryCount = progress.log.length;
-    const board               = new Board({ progress, tickets: listing.tickets, logger: createLogger(createProgressLogSink(progress.log)) });
+    const tracker = readTrackerUnderLock(workspace);
 
     const deletionCallbacks: ((deletedTicketCount: number) => void)[] = [];
     const result = await mutateRefusingInWords(mutate, {
       at,
-      board,
+      board:                          tracker.board,
       workspace,
-      malformedTickets:               listing.malformed,
-      storedLogEntryCount,
+      malformedTickets:               tracker.listing.malformed,
+      storedLogEntryCount:            tracker.storedLog.records.length,
       deleteAllTicketFilesAfterwards: (onDeleted) => { deletionCallbacks.push(onDeleted); },
     });
 
-    const ticketFileWriter = createTicketFileWriter();
-    createProgressFileWriter(workspace.progressFilePath).write(progress);
-    for (const ticket of board.changedTickets()) ticketFileWriter.write(ticket);
-    for (const onDeleted of deletionCallbacks) onDeleted(deleteAllTickets(workspace));
-    const reading = readAfterWriting(board);
-    await renderDashboard(context, workspace);
+    const reading = await writeTrackerUnderLock(context, workspace, tracker, { extraTickets: [], deletionCallbacks, readAfterWriting });
     return { result, reading };
   }, context.now);
 }
@@ -252,7 +325,7 @@ export async function openTrackerForWriting<MutationResult>(
   context: CommandContext,
   mutate: (change: TrackerChange) => MutationResult | Promise<MutationResult>,
 ): Promise<MutationResult> {
-  const { result } = await writeTrackerUnderLock(commandArguments, context, mutate, () => undefined);
+  const { result } = await changeTrackerUnderLock(commandArguments, context, mutate, () => undefined);
   return result;
 }
 
@@ -262,7 +335,7 @@ export async function openTrackerForWritingThenReadNextLine<MutationResult>(
   context: CommandContext,
   mutate: (change: TrackerChange) => MutationResult | Promise<MutationResult>,
 ): Promise<{ result: MutationResult; nextLine: string; dispatcherState: DispatcherState }> {
-  const { result, reading } = await writeTrackerUnderLock(
+  const { result, reading } = await changeTrackerUnderLock(
     commandArguments,
     context,
     mutate,

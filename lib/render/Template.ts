@@ -1,11 +1,13 @@
 /**
- * Fills `resources/template.html` — two islands, the page script and the title — from one progress file and its tickets. Both islands go
+ * Fills `resources/template.html` — two islands, the page script and the title — from one progress file, its log and its tickets. Both islands go
  * through `escapeJsonForScriptTag` of `src/lib/utils/HtmlEscapeUtil.ts`, so none can close its script tag; `generatedAt` is a parameter, not a clock.
  */
 
 import { readFileSync }                                  from 'node:fs';
 import { join }                                          from 'node:path';
 import { ProgressDocumentUtil }                          from '../../src/adapters/progress/utils/ProgressDocumentUtil.ts';
+import { LogUtil }                                       from '../../src/adapters/utils/LogUtil.ts';
+import type { LogRecord }                                from '../../src/lib/tracker-model/@types/LogRecord.ts';
 import type { ProgressFile }                             from '../../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { Ticket }                                   from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { HtmlEscapeUtil }                                from '../../src/lib/utils/HtmlEscapeUtil.ts';
@@ -28,6 +30,7 @@ const TEMPLATE_TOKEN_PATTERN = /(__PROGRESS__|__TICKETS__|__PAGE_SCRIPT__|<title
 
 interface RenderProgressHtmlInput {
   progress:          ProgressFile;
+  logRecords:        readonly LogRecord[];
   tickets:           Ticket[];
   pageScript:        string | null;
   pageScriptFailure: string | null;
@@ -93,6 +96,7 @@ export function substituteTemplateTokens(template: string, values: Readonly<Reco
 export function renderProgressHtml(input: RenderProgressHtmlInput): string {
   const {
     progress,
+    logRecords,
     tickets,
     pageScript,
     pageScriptFailure,
@@ -103,7 +107,7 @@ export function renderProgressHtml(input: RenderProgressHtmlInput): string {
   const template = readFileSync(join(import.meta.dir, '..', '..', 'resources', TEMPLATE_FILE_NAME), 'utf8');
 
   const payload: PagePayload = {
-    progress:                     ProgressDocumentUtil.documentOf(progress, progress.log),
+    progress:                     ProgressDocumentUtil.documentOf(progress, logRecords.map(LogUtil.wordedEntryOf)),
     generatedAtEpochMilliseconds: generatedAt.getTime(),
     limits:                       pageLimits(),
     concurrency:                  { limit: concurrency.limit, agentsInFlight: concurrency.agentsInFlight },

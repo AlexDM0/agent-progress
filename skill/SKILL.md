@@ -96,7 +96,7 @@ ready to merge: your work committed on it, rebased onto the main line, the check
 
 ## The rules
 
-- **Never edit `progress.json` by hand**, and never write into `.agent-progress/` with a file tool.
+- **Never edit `progress.json` or `log.jsonl` by hand**, and never write into `.agent-progress/` with a file tool.
   Every command takes a lock, writes atomically and regenerates the page; a hand-written file races
   with that and loses silently.
 - **A ticket body is yours to edit — below the frontmatter only.** The CLI preserves it byte for

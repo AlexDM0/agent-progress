@@ -1,6 +1,7 @@
 import { requireWorkspace }               from '../../lib/platform/Workspace';
 import { listTickets }                    from '../../lib/tickets/TicketStore';
 import { ProgressDocumentUtil }           from '../../src/adapters/progress/utils/ProgressDocumentUtil';
+import { LogUtil }                        from '../../src/adapters/utils/LogUtil';
 import type { ProgressFile }              from '../../src/lib/tracker-model/@types/ProgressFile';
 import type { Task }                      from '../../src/lib/tracker-model/@types/Task';
 import type { Board }                     from '../../src/lib/tracker-model/Board';
@@ -17,7 +18,8 @@ import {
   printEntityThenNextLine,
   readyTicketsOf,
   reportIgnoredTicketFiles,
-  requireProgressFile,
+  requireProgressFileReading,
+  requireStoredLog,
   ticketDocumentOf,
   type ReadyTicket
 } from '../CommandSupport';
@@ -87,16 +89,16 @@ function derivedDocumentOf(board: Board): { concurrency: object; readyTickets: R
 }
 
 /** The whole progress file plus every ticket: a document an agent could write back, with the derived `concurrency` and `readyTickets` beside it. */
-function fullDocumentOf(progress: ProgressFile, board: Board): object {
-  return { ...ProgressDocumentUtil.documentOf(progress, progress.log), tickets: board.tickets().map(ticketDocumentOf), ...derivedDocumentOf(board) };
+function fullDocumentOf(progress: ProgressFile, wordedLog: readonly WordedLogEntry[], board: Board): object {
+  return { ...ProgressDocumentUtil.documentOf(progress, wordedLog), tickets: board.tickets().map(ticketDocumentOf), ...derivedDocumentOf(board) };
 }
 
 /** What an agent opening a session needs: unsettled rows and tickets, the recent log newest first, and counts of what was left out. */
-function workingDocumentOf(progress: ProgressFile, board: Board): object {
+function workingDocumentOf(progress: ProgressFile, wordedLog: readonly WordedLogEntry[], board: Board): object {
   const tickets          = board.tickets();
   const unsettledTasks   = board.tasks().filter((task) => !board.taskIsSettled(task));
   const unsettledTickets = tickets.filter((ticket) => !board.ticketIsSettled(ticket));
-  const recentLog        = logNewestFirst(progress.log).slice(0, WORKING_VIEW_LOG_ENTRY_COUNT);
+  const recentLog        = logNewestFirst(wordedLog).slice(0, WORKING_VIEW_LOG_ENTRY_COUNT);
   return {
     ...ProgressDocumentUtil.documentOf(progress, recentLog),
     tasks:   unsettledTasks,
@@ -105,12 +107,12 @@ function workingDocumentOf(progress: ProgressFile, board: Board): object {
     omitted: {
       settledTasks:    progress.tasks.length - unsettledTasks.length,
       settledTickets:  tickets.length - unsettledTickets.length,
-      olderLogEntries: progress.log.length - recentLog.length,
+      olderLogEntries: wordedLog.length - recentLog.length,
     },
   };
 }
 
-function renderHumanStatus(progress: ProgressFile, board: Board, showsEverything: boolean): string {
+function renderHumanStatus(progress: ProgressFile, wordedLog: readonly WordedLogEntry[], board: Board, showsEverything: boolean): string {
   const tickets = board.tickets();
   const lines = [
     `${progress.project} — started ${progress.startedAt.slice(0, LIMITS.DATE_AND_CLOCK_LENGTH).replace('T', ' ')}`,
@@ -150,9 +152,9 @@ function renderHumanStatus(progress: ProgressFile, board: Board, showsEverything
   const settledTaskCount = progress.tasks.length - listedTasks.length;
   if (settledTaskCount > 0) lines.push(`(${settledTaskCount} delivered or abandoned rows not shown; --full lists them)`);
 
-  const newestFirst  = logNewestFirst(progress.log);
+  const newestFirst  = logNewestFirst(wordedLog);
   const recentLog    = showsEverything ? newestFirst : newestFirst.slice(0, HUMAN_LOG_ENTRY_COUNT);
-  const distinctDays = new Set(progress.log.map((entry) => entry.at.slice(0, LIMITS.CALENDAR_DATE_LENGTH)));
+  const distinctDays = new Set(wordedLog.map((entry) => entry.at.slice(0, LIMITS.CALENDAR_DATE_LENGTH)));
   if (recentLog.length > 0) {
     lines.push('');
     lines.push(showsEverything ? `Log (all ${recentLog.length}):` : `Log (last ${recentLog.length}):`);
@@ -167,14 +169,17 @@ export const statusCommand: CommandHandler = async (commandArguments, context) =
   commandArguments.rejectExtraPositionals(0, USAGE);
 
   const workspace = requireWorkspace(context.currentDirectory);
-  const progress  = requireProgressFile(workspace);
-  const listing   = listTickets(workspace);
-  const board     = boardForReading(progress, listing.tickets);
+  const progressReading = requireProgressFileReading(workspace);
+  const storedLog       = requireStoredLog(workspace, progressReading.embeddedLog);
+  const wordedLog       = storedLog.records.map(LogUtil.wordedEntryOf);
+  const { progress } = progressReading;
+  const listing         = listTickets(workspace);
+  const board           = boardForReading(progress, listing.tickets);
 
   reportIgnoredTicketFiles(context, listing.malformed);
 
   const showsEverything = commandArguments.flag('full');
-  const asJson          = showsEverything ? fullDocumentOf(progress, board) : workingDocumentOf(progress, board);
-  printEntityThenNextLine(commandArguments, context, asJson, renderHumanStatus(progress, board, showsEverything), nextLineFor(board));
+  const asJson          = showsEverything ? fullDocumentOf(progress, wordedLog, board) : workingDocumentOf(progress, wordedLog, board);
+  printEntityThenNextLine(commandArguments, context, asJson, renderHumanStatus(progress, wordedLog, board, showsEverything), nextLineFor(board));
   return Promise.resolve();
 };

@@ -4,6 +4,8 @@
  */
 
 import { describe, expect, test }                       from 'bun:test';
+import { ProgressDocumentUtil }                         from '../../src/adapters/progress/utils/ProgressDocumentUtil.ts';
+import type { LogRecord }                               from '../../src/lib/tracker-model/@types/LogRecord.ts';
 import type { ProgressFile }                            from '../../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { Task }                                    from '../../src/lib/tracker-model/@types/Task.ts';
 import type { Ticket }                                  from '../../src/lib/tracker-model/@types/Ticket.ts';
@@ -12,6 +14,8 @@ import { LIMITS }                                       from '../../src/shared/c
 import { renderProgressHtml, substituteTemplateTokens } from './Template.ts';
 
 const GENERATED_AT = new Date('2026-09-18T20:11:03Z');
+
+const REVIEW_STARTED_NOTE: LogRecord = { at: '2026-09-18T20:05:00+02:00', kind: 'note', fields: { text: 'Review pass started' } };
 
 function exampleTask(changes: Partial<Task> = {}): Task {
   return {
@@ -30,14 +34,12 @@ function exampleTask(changes: Partial<Task> = {}): Task {
 
 function exampleProgress(changes: Partial<ProgressFile> = {}): ProgressFile {
   return {
-    version:    1,
     trackerId:  'tracker-for-the-template-spec',
     project:    'Example Agency',
     startedAt:  '2026-09-18T20:00:00+02:00',
     nextTaskId: 2,
     view:       { kind: 'auto' },
     tasks:      [exampleTask()],
-    log:        [{ at: '2026-09-18T20:05:00+02:00', text: 'Review pass started' }],
     ...changes,
   };
 }
@@ -67,6 +69,7 @@ function exampleTicket(changes: { title?: string; body?: string } = {}): Ticket 
 function render(overrides: Partial<Parameters<typeof renderProgressHtml>[0]> = {}): string {
   return renderProgressHtml({
     progress:          exampleProgress(),
+    logRecords:        [REVIEW_STARTED_NOTE],
     tickets:           [exampleTicket()],
     pageScript:        'window.examplePageScript = 1;',
     pageScriptFailure: null,
@@ -144,10 +147,10 @@ describe('renderProgressHtml', () => {
     expect(document).toContain('<title>&lt;/title&gt;&lt;script&gt;alert(1)&lt;/script&gt; progress</title>');
   });
 
-  test('carries the tracker through the progress island unchanged', () => {
+  test('carries the tracker through the progress island unchanged, with its log worded', () => {
     const payload = islandContentsOf(render(), 'ap-progress-data') as { progress: ProgressFile; pageScriptFailure: string | null };
 
-    expect(payload.progress).toEqual(exampleProgress());
+    expect(payload.progress).toEqual(ProgressDocumentUtil.documentOf(exampleProgress(), [{ at: '2026-09-18T20:05:00+02:00', text: 'Review pass started' }]));
     expect(payload.pageScriptFailure).toBeNull();
   });
 
