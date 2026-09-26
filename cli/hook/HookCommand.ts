@@ -127,8 +127,8 @@ async function recordInTheTracker(
 
 /**
  * Row ids only ever grow, so the highest one is the review filed last. Its status is not consulted: `release` has already delivered the
- * bar by the time its reviewer stops. Linked by `reviewOf` or by the name the page nests by, through `src/shared/utils/TicketNumberUtil.ts`,
- * the reader the page nests by.
+ * bar by the time its reviewer stops. Linked by `reviewOf` or by the review name, through `src/shared/utils/TicketNumberUtil.ts`,
+ * the same reader the page nests rows by.
  */
 function newestReviewRowOf(progress: ProgressFile, ticketIdentifier: string): Task | undefined {
   const reviewedNumber = Number(ticketIdentifier);
