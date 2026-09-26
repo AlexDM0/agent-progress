@@ -1,7 +1,8 @@
 /**
  * Which paragraphs a request puts in a prompt; the exact text is the frozen trace table's to pin. What the run relies on is that the takeover
  * of another run's paused build is offered only where this run may take it over, that a builder is told to resume a paused row only where it
- * can meet one, that the install line appears only with an install command, and that the parking agent's log line cannot break its quotes.
+ * can meet one, that the install line appears only with an install command, that the parking agent's log line cannot break its quotes, and
+ * that every agent copies what `status --json` prints instead of working it out from the rows.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -102,6 +103,12 @@ describe('the builder prompt', () => {
     for (const reason of ['A reviewer found', 'An earlier builder', 'An earlier dispatcher run']) expect(firstPass).not.toContain(reason);
   });
 
+  test('a builder refused as in-progress reads the row\'s note from the ticket\'s `ticketRows` entry', () => {
+    const firstPass = firstPassOf(WHOLE_BOARD_SETTINGS, false);
+    expect(firstPass).toContain('read the `note` of the `row` in the ticket\'s `ticketRows` entry of `agent-progress status --json`');
+    expect(firstPass).not.toContain('--full');
+  });
+
   test('the builder starts its reviewer\'s bar with `ticket finish --start-review` under this run\'s review note', () => {
     expect(firstPassOf(WHOLE_BOARD_SETTINGS, false))
       .toContain('`agent-progress ticket finish 001 --start-review --owner opus --note "Reviewed by the whole-board dispatcher run on ticket-001"`');
@@ -133,11 +140,56 @@ describe('the reviewer prompt', () => {
   test('the round the dispatcher counts is stated', () => {
     expect(reviewerPromptWith(false, false)).toContain('round 2 as the dispatcher counts it');
   });
+
+  test('the reviewer finds its round\'s bar and a bar left running in the ticket\'s `ticketRows` entry', () => {
+    expect(reviewerPromptWith(true, false)).toContain('When its `reviewBars` list an `in-progress` bar whose `round` is your round');
+    expect(reviewerPromptWith(false, false)).toContain('When the `ticketRows` entry for 001 in `agent-progress status --json` lists an `in-progress` review bar');
+    expect(reviewerPromptWith(true, false)).not.toContain('is named `Review <your round>');
+  });
 });
 
 describe('the helper prompts', () => {
   test('the survey runs in the main checkout', () => {
-    expect(surveyPrompt(WHOLE_BOARD_SETTINGS)).toContain('once, in /scratch/example-repository, then `test -d` once per paused build');
+    expect(surveyPrompt(WHOLE_BOARD_SETTINGS)).toContain('once, in /scratch/example-repository, then `test -d` once per entry of its `pausedBuilds`');
+  });
+
+  test('the survey copies the concurrency block as printed and the two top-level lists, and works none of them out from the rows', () => {
+    const survey = surveyPrompt(WHOLE_BOARD_SETTINGS);
+    expect(survey).toContain('its `concurrency` block as printed (limit, agentsInFlight, freeSlots, readyTicketIds, dispatcherState, heldTicketIds, '
+      + 'inProgressTicketIds, inProgressReviewOfIds)');
+    expect(survey).toContain('`reviewWaitingTickets`: the document\'s top-level `reviewWaitingTickets` list, verbatim');
+    expect(survey).toContain('`pausedBuilds`: each entry of the document\'s top-level `pausedBuilds` list, verbatim, with `worktreeExists` added');
+    expect(survey).not.toContain('task that has one');
+    expect(survey).not.toContain('names in its `reviewOf`');
+    expect(survey).not.toContain('copied from its entry in `tickets`');
+  });
+
+  test('the parking agent reads the ticket\'s row and review bars from its `ticketRows` entry', () => {
+    const parking = parkingPrompt(WHOLE_BOARD_SETTINGS, '001', 'Parked #001');
+    expect(parking).toContain('take the `ticketRows` entry for 001: when its `row` is `in-progress`');
+    expect(parking).toContain('Each of that entry\'s `reviewBars` that is `in-progress`');
+    expect(parking).not.toContain('--full');
+  });
+
+  test('every status return copies the concurrency block as printed, adding only `readyTickets`', () => {
+    const statusReturnText = 'return its `concurrency` block as `status`, adding `readyTickets` (the same document\'s top-level `readyTickets` list, verbatim), '
+      + 'so the dispatcher acts on the newest board.';
+    const reviewerRequest = {
+      ticketId:            '001',
+      expectedRound:       1,
+      rereviewRunsFirst:   false,
+      earlierReviewerDied: false,
+      owner:               'opus',
+    };
+    const promptsReturningStatus = [
+      firstPassOf(WHOLE_BOARD_SETTINGS, false),
+      reviewerPrompt(WHOLE_BOARD_SETTINGS, reviewerRequest),
+      parkingPrompt(WHOLE_BOARD_SETTINGS, '001', 'Parked #001'),
+    ];
+    for (const prompt of promptsReturningStatus) {
+      expect(prompt).toContain(statusReturnText);
+      expect(prompt).not.toContain('inProgressTicketIds');
+    }
   });
 
   test('the settings lookup names its tickets on its marker line and in its request', () => {

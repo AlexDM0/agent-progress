@@ -20,11 +20,9 @@ export interface ReviewerPromptRequest {
   owner:               string;
 }
 
-const DERIVED_STATUS_FIELDS_TEXT = 'adding `inProgressTicketIds` (the `ticket` of every `in-progress` task that has one), '
-  + '`inProgressReviewOfIds` (the `reviewOf` of every `in-progress` task that has one) '
-  + 'and `readyTickets` (the same document\'s top-level `readyTickets` list, verbatim)';
+const READY_TICKETS_ADDITION_TEXT = 'adding `readyTickets` (the same document\'s top-level `readyTickets` list, verbatim)';
 
-const STATUS_RETURN_TEXT = `As your very last act run \`agent-progress status --json\` and return its \`concurrency\` block as \`status\`, ${DERIVED_STATUS_FIELDS_TEXT}, `
+const STATUS_RETURN_TEXT = `As your very last act run \`agent-progress status --json\` and return its \`concurrency\` block as \`status\`, ${READY_TICKETS_ADDITION_TEXT}, `
   + 'so the dispatcher acts on the newest board.';
 
 function worktreeOf(settings: DispatchSettings, ticketId: string): string {
@@ -46,14 +44,13 @@ function startReviewCommandOf(settings: DispatchSettings, verb: 'finish' | 'rere
 
 function surveyPrompt(settings: DispatchSettings): string {
   return [
-    `Run \`agent-progress status --json\` once, in ${settings.mainCheckout}, then \`test -d\` once per paused build below, and make no other call. Judge nothing; return:`,
-    '- `status`: its `concurrency` block as printed (limit, agentsInFlight, freeSlots, readyTicketIds, dispatcherState, heldTicketIds), '
-      + `${DERIVED_STATUS_FIELDS_TEXT};`,
-    '- `reviewWaitingTickets`: every ticket whose status is `in-review` and that no `in-progress` task names in its `reviewOf`, as `{ id, model, effort }` '
-      + 'with `model` and `effort` copied from its entry in `tickets` and left out where that entry has none;',
-    '- `pausedBuilds`: every ticket whose status is `in-progress` and whose own row (the task its `task` field names) is `paused`, as '
-      + '`{ id, note, worktreeExists, priority, model, effort }`: `note` that row\'s note verbatim (empty when it has none), `worktreeExists` whether '
-      + `\`test -d ${settings.mainCheckout}/.claude/worktrees/ticket-<id>\` succeeds, \`priority\` copied from its entry in \`tickets\`, and \`model\` and \`effort\` as above.`,
+    `Run \`agent-progress status --json\` once, in ${settings.mainCheckout}, then \`test -d\` once per entry of its \`pausedBuilds\`, and make no other call. `
+      + 'Judge nothing; return:',
+    '- `status`: its `concurrency` block as printed (limit, agentsInFlight, freeSlots, readyTicketIds, dispatcherState, heldTicketIds, inProgressTicketIds, '
+      + `inProgressReviewOfIds), ${READY_TICKETS_ADDITION_TEXT};`,
+    '- `reviewWaitingTickets`: the document\'s top-level `reviewWaitingTickets` list, verbatim;',
+    '- `pausedBuilds`: each entry of the document\'s top-level `pausedBuilds` list, verbatim, with `worktreeExists` added: whether '
+      + `\`test -d ${settings.mainCheckout}/.claude/worktrees/ticket-<id>\` succeeds.`,
   ].join('\n');
 }
 
@@ -96,9 +93,8 @@ function builderPrompt(settings: DispatchSettings, request: BuilderPromptRequest
   const takeoverText = pausedBuildTakeoverText(settings, ticketId, pausedBuildWasFoundBySurvey);
   // A restarted or resumed builder repeats its prompt and finds its first attempt's claim, which `ticket claim` refuses as in-progress; another
   // dispatcher run may hold the ticket too, so the row's note decides.
-  const claimRefusalText = 'If it exits 1 saying the ticket is in-progress, read the `note` of the ticket\'s row '
-    + `(the \`task\` of \`agent-progress ticket show ${ticketId} --json\`, `
-    + `in \`agent-progress status --json --full\`). When that note is exactly "${claimNote}" and ${worktree} exists, `
+  const claimRefusalText = 'If it exits 1 saying the ticket is in-progress, read the `note` of the `row` in the ticket\'s `ticketRows` entry '
+    + `of \`agent-progress status --json\`. When that note is exactly "${claimNote}" and ${worktree} exists, `
     + 'the claim is this run\'s own: an earlier attempt at this ticket made it, a builder of this run that stopped short, or this very builder before the runtime '
     + 'restarted or resumed it. Carry on in that worktree, keeping every uncommitted edit it holds. '
     + takeoverText
@@ -157,8 +153,8 @@ function reviewerPrompt(settings: DispatchSettings, request: ReviewerPromptReque
   // `rereview` counts a round each time it runs, and a restarted or resumed reviewer repeats its prompt; the bar it opened for this round is its trace.
   if (rereviewRunsFirst) {
     lines.push(
-      `FIRST, before anything else: read your round from \`agent-progress ticket show ${ticketId}\`, and the in-progress rows from \`agent-progress status --json\`. `
-        + `When an \`in-progress\` row whose \`reviewOf\` is ${ticketId} is named \`Review <your round> #${ticketId} — …\`, the rereview of your round already ran: `
+      `FIRST, before anything else: read your round from \`agent-progress ticket show ${ticketId}\`, and the ticket's \`ticketRows\` entry `
+        + 'from `agent-progress status --json`. When its `reviewBars` list an `in-progress` bar whose `round` is your round, the rereview of your round already ran: '
         + 'skip the rereview and take that row as your bar. '
         + `Otherwise run \`${startReviewCommandOf(settings, 'rereview', ticketId, owner)}\` as your next command; it starts your bar.`,
     );
@@ -167,7 +163,8 @@ function reviewerPrompt(settings: DispatchSettings, request: ReviewerPromptReque
   // A second bar would leave the first running, holding one of the board's slots for the rest of the run, and any reviewer may find its own first
   // attempt's bar, since a restart or a resume repeats its prompt.
   lines.push(
-    `Then your bar. When \`agent-progress status --json\` shows an \`in-progress\` row whose \`reviewOf\` is ${ticketId}, it is this review's own, left by an earlier reviewer `
+    `Then your bar. When the \`ticketRows\` entry for ${ticketId} in \`agent-progress status --json\` lists an \`in-progress\` review bar, it is this review's own, `
+      + 'left by an earlier reviewer '
       + 'of this run, by the builder\'s `--start-review` or by this very reviewer before the runtime restarted or resumed it: take it as your bar and add none. '
       + `Otherwise add your own: \`agent-progress task add "Review <round> #${ticketId} — <ticket title>" --review-of ${ticketId} --owner ${owner} `
       + `--note "${reviewNoteOf(settings, ticketId)}" --start\`, `
@@ -201,9 +198,9 @@ function parkingPrompt(settings: DispatchSettings, ticketId: string, boardLogLin
     `agent-progress park: ${ticketId}`,
     `You close the rows of ticket #${ticketId} that no agent of the agent-progress dispatcher works on any more, in ${settings.mainCheckout}. `
       + 'Judge nothing and change no file.',
-    `1. \`agent-progress ticket show ${ticketId} --json\`: its \`task\` field is the ticket's row. When \`agent-progress status --json --full\` shows that row \`in-progress\`, `
+    `1. In \`agent-progress status --json\`, take the \`ticketRows\` entry for ${ticketId}: when its \`row\` is \`in-progress\`, `
       + 'run `agent-progress task pause <that row>`.',
-    `2. Every \`in-progress\` row of that status whose \`reviewOf\` is ${ticketId} is a review bar nobody works on: close it with \`agent-progress task finish <that row>\`, `
+    '2. Each of that entry\'s `reviewBars` that is `in-progress` is a review bar nobody works on: close it with `agent-progress task finish <that row>`, '
       + 'then `agent-progress task deliver <that row>`.',
     `3. \`agent-progress log "${boardLogLineText(boardLogLine)}"\`.`,
     STATUS_RETURN_TEXT,

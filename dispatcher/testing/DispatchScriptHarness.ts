@@ -111,7 +111,7 @@ export interface DispatchScenario {
   afterAgent?:                    (call: RecordedAgentCall, board: FakeBoard) => void;
   /** How many turns a builder or reviewer runs before its first command puts it on the board; defaults to `DEFAULT_TURNS_BEFORE_FIRST_COMMAND`. */
   turnsBeforeFirstCommand?:       number;
-  /** Every status block leaves out `inProgressTicketIds` and `inProgressReviewOfIds`, as an agent that did not derive them would. */
+  /** Every status block leaves out `inProgressTicketIds` and `inProgressReviewOfIds`, as an agent that did not copy them would. */
   statusOmitsInProgressRows?:     boolean;
   /** Every status block leaves out `readyTickets`, as an agent that did not copy it would. */
   statusOmitsReadyTickets?:       boolean;
@@ -514,19 +514,22 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     slotIsFreedFor(`build ${ticketId}`);
   };
 
-  // As the `tickets` list states them: a ticket's model and effort only where it names them.
+  // As `status --json` lists them, the defaults resolved.
   const reviewWaitingTicketsOnBoard = (): Record<string, string>[] => (scenario.reviewWaitingTicketIds ?? []).map((reviewWaitingTicketId) => ({
-    id: reviewWaitingTicketId,
-    ...statedAgentSettingsOf(reviewWaitingTicketId),
+    id:     reviewWaitingTicketId,
+    model:  statedAgentSettingsOf(reviewWaitingTicketId)?.model ?? DEFAULT_AGENT_MODEL,
+    effort: statedAgentSettingsOf(reviewWaitingTicketId)?.effort ?? DEFAULT_AGENT_EFFORT,
   }));
 
-  // Every paused build row is an in-progress ticket's own, and its worktree exists unless the scenario removed it, as a parking agent leaves one.
+  // As `status --json` lists them, the defaults resolved. Every paused build row is an in-progress ticket's own, and its worktree exists unless the
+  // scenario removed it, as a parking agent leaves one.
   const pausedBuildsOnBoard = (): Record<string, unknown>[] => [...pausedRows.values()].filter((row) => row.kind === 'build').map((row) => ({
     id:             row.ticketId,
     note:           row.note,
     worktreeExists: !(scenario.pausedBuildIdsWithoutWorktree ?? []).includes(row.ticketId),
     priority:       priorityOf(row.ticketId),
-    ...statedAgentSettingsOf(row.ticketId),
+    model:          statedAgentSettingsOf(row.ticketId)?.model ?? DEFAULT_AGENT_MODEL,
+    effort:         statedAgentSettingsOf(row.ticketId)?.effort ?? DEFAULT_AGENT_EFFORT,
   }));
 
   const statusBlock = (): Record<string, unknown> => {
