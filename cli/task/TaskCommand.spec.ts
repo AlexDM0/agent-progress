@@ -1,8 +1,14 @@
 /**
- * The Gantt rows `agent-progress task` files and moves: a lifecycle stamps the row once and never again, and `--at` backfills.
+ * The Gantt rows `agent-progress task` files and moves: a lifecycle stamps the row once and never again, and `--at` backfills;
+ * the closing render reports a ticket file that will not parse exactly once, in exactly these words.
  */
-import { appendFileSync, readFileSync } from 'node:fs';
-import { join }                         from 'node:path';
+import {
+  appendFileSync,
+  readFileSync,
+  realpathSync,
+  writeFileSync
+} from 'node:fs';
+import { join } from 'node:path';
 
 import {
   afterEach,
@@ -422,5 +428,19 @@ describe.skipIf(!gitIsAvailable())('the refusals that stop a row being filed wro
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('at least one of --name');
+  });
+});
+
+describe.skipIf(!gitIsAvailable())('the render report after a write', () => {
+  test('a ticket file that will not parse is reported once on standard error, and the row is still filed with exit 0', async () => {
+    const ticketFilePath = join(realpathSync(repositoryDirectory), '.agent-progress', 'tickets', '001-broken-by-hand.md');
+    writeFileSync(ticketFilePath, 'no frontmatter here\n');
+
+    const context  = contextHere();
+    const exitCode = await runCommandLine(['task', 'add', 'Example task', '--at', '2026-09-18T20:05:00+02:00'], context);
+
+    expect(exitCode).toBe(0);
+    expect(context.outputText()).toContain('Task #1 added: Example task');
+    expect(context.errorText()).toBe(`Ticket file ignored: ${ticketFilePath} (line 1): the first line must be the frontmatter fence \`---\``);
   });
 });

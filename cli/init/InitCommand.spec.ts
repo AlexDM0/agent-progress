@@ -6,6 +6,7 @@ import {
   mkdirSync,
   readFileSync,
   readlinkSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync
@@ -82,6 +83,19 @@ describe.skipIf(!gitIsAvailable())('initialising a repository', () => {
 
     expect(context.outputText()).not.toContain('already initialised');
     expect(readFileSync(logFilePath, 'utf8')).toBe('');
+  });
+
+  test('a ticket file left from a removed tracker that will not parse is the first line on standard error, and init still exits 0', async () => {
+    const repositoryDirectory = scratchRepository();
+    const ticketsDirectory    = join(realpathSync(repositoryDirectory), '.agent-progress', 'tickets');
+    const ticketFilePath      = join(ticketsDirectory, '001-broken-by-hand.md');
+    mkdirSync(ticketsDirectory, { recursive: true });
+    writeFileSync(ticketFilePath, 'no frontmatter here\n');
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+
+    expect(await runCommandLine(['init', '--project', 'Example Agency'], context)).toBe(0);
+
+    expect(context.errorText().split('\n')[0]).toBe(`Ticket file ignored: ${ticketFilePath} (line 1): the first line must be the frontmatter fence \`---\``);
   });
 
   test('the project name defaults to the directory the tracker is in', async () => {
