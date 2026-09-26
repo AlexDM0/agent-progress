@@ -41,7 +41,7 @@ export interface ProgressControllerSources {
 export interface ProgressController {
   showSummary(): void;
   applyNameColumnWidth(): void;
-  showVisibleTasks(visibleTasks: Task[]): void;
+  setVisibleTasks(visibleTasks: Task[]): void;
   showGeneratedStamp(todayCalendarDate: string): void;
   showHiddenNote(hiddenTaskCount: number, hiddenTicketCount: number): void;
   layOut(bringNowIntoView: boolean): void;
@@ -215,7 +215,7 @@ export function createProgressController(sources: ProgressControllerSources): Pr
     applyNameColumnWidth: () => {
       reflectNameColumnWidth(nameColumnWidth);
     },
-    showVisibleTasks: (visibleTasks) => {
+    setVisibleTasks: (visibleTasks) => {
       visibleProgress = { ...progress, tasks: visibleTasks };
     },
     showGeneratedStamp: (todayCalendarDate) => {

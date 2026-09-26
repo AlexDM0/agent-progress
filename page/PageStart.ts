@@ -138,7 +138,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     const windowMilliseconds   = limits.doneWorkVisibleMilliseconds;
     const visibleTasks         = progress.tasks.filter((task) => showsAll || !VisibilityUtil.taskIsLongDone(task, nowEpochMilliseconds, windowMilliseconds));
     const visibleTickets       = tickets.filter((ticket) => showsAll || !VisibilityUtil.ticketIsLongDone(ticket, nowEpochMilliseconds, windowMilliseconds));
-    progressController.showVisibleTasks(visibleTasks);
+    progressController.setVisibleTasks(visibleTasks);
     todayCalendarDate = TimeUtil.calendarDateOf(nowEpochMilliseconds);
 
     progressController.showGeneratedStamp(todayCalendarDate);
