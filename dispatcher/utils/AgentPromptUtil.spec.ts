@@ -19,14 +19,14 @@ const {
 } = AgentPromptUtil;
 
 const WHOLE_BOARD_SETTINGS: DispatchSettings = {
-  mainCheckout:       '/scratch/example-repository',
-  mainLine:           'main',
-  checkCommand:       'example-check',
-  installCommand:     '',
-  includeLowPriority: false,
-  ticketIds:          null,
-  readyTickets:       [],
-  runLabel:           'whole-board',
+  mainCheckout:          '/scratch/example-repository',
+  mainLine:              'main',
+  checkCommand:          'example-check',
+  installCommand:        '',
+  lowPriorityIsIncluded: false,
+  ticketIds:             null,
+  readyTickets:          [],
+  runLabel:              'whole-board',
 };
 
 const SINGLE_TICKET_SETTINGS: DispatchSettings = { ...WHOLE_BOARD_SETTINGS, ticketIds: ['001'], runLabel: 'ticket-001' };
@@ -109,11 +109,11 @@ describe('the builder prompt', () => {
 });
 
 describe('the reviewer prompt', () => {
-  function reviewerPromptWith(rereviewFirst: boolean, earlierReviewerDied: boolean): string {
+  function reviewerPromptWith(rereviewRunsFirst: boolean, earlierReviewerDied: boolean): string {
     return reviewerPrompt(WHOLE_BOARD_SETTINGS, {
       ticketId:      '001',
       expectedRound: 2,
-      rereviewFirst,
+      rereviewRunsFirst,
       earlierReviewerDied,
       owner:         'opus',
     });

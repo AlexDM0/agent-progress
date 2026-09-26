@@ -90,12 +90,12 @@ const SUBTRACT_EVERY_OWN_AGENT: SourceMutant = {
   replace:    '.length',
 };
 
-const SETTLE_THEN_ADOPT = '    if (finished.reading === null && this.stoppedByFailures) this.settleDeadAgentOfAStoppedRun(finished.work);\n'
+const SETTLE_THEN_ADOPT = '    if (finished.reading === null && this.runWasStoppedByFailures) this.settleDeadAgentOfAStoppedRun(finished.work);\n'
   + '    else this.settle(finished);\n'
   + '    if (finished.reading !== null) this.adoptStatusReading(finished.reading.status);\n';
 
 const ADOPT_THEN_SETTLE = '    if (finished.reading !== null) this.adoptStatusReading(finished.reading.status);\n'
-  + '    if (finished.reading === null && this.stoppedByFailures) this.settleDeadAgentOfAStoppedRun(finished.work);\n'
+  + '    if (finished.reading === null && this.runWasStoppedByFailures) this.settleDeadAgentOfAStoppedRun(finished.work);\n'
   + '    else this.settle(finished);\n';
 
 const PARK_WITHOUT_RELEASING_THE_ROWS: SourceMutant = {
@@ -112,7 +112,7 @@ const LEAVE_TAKEOVERS_UNSTARTED_RUNNING: SourceMutant = {
 
 const NEVER_STOP_ON_DEAD_AGENTS: SourceMutant = {
   modulePath: DISPATCH_RUN,
-  find:       '    if (this.consecutiveDeadAgents < DISPATCH_POLICY.CONSECUTIVE_DEAD_AGENTS_BEFORE_STOPPING || this.stoppedByFailures) return;',
+  find:       '    if (this.consecutiveDeadAgents < DISPATCH_POLICY.CONSECUTIVE_DEAD_AGENTS_BEFORE_STOPPING || this.runWasStoppedByFailures) return;',
   replace:    '    return;',
 };
 
@@ -636,7 +636,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     holds: (run) => kindsAndTickets(run).join(', ') === 'survey, review 001, build 002, park 002'
       && runSummaryOf(run).delivered.join() === '001'
       && runSummaryOf(run).stoppedByBoard === true,
-    mutant: { modulePath: DISPATCH_RUN, find: 'return this.stoppedByBoard || this.stoppedByFailures;', replace: 'return this.stoppedByFailures;' },
+    mutant: { modulePath: DISPATCH_RUN, find: 'return this.runWasStoppedByBoard || this.runWasStoppedByFailures;', replace: 'return this.runWasStoppedByFailures;' },
   },
   {
     name:        'a board stopped when the run starts dispatches nothing, and the summary says the board stopped it',
@@ -648,7 +648,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       agentsRun:      1,
       stoppedByBoard: true,
     }),
-    mutant: { modulePath: DISPATCH_WORDING_UTIL, find: '  if (outcome.stoppedByBoard) summary.stoppedByBoard = true;\n', replace: '' },
+    mutant: { modulePath: DISPATCH_WORDING_UTIL, find: '  if (outcome.runWasStoppedByBoard) summary.stoppedByBoard = true;\n', replace: '' },
   },
   {
     // Low tickets are the orchestrator's to triage first: abandon the stale, merge the overlapping, then relaunch with the flag.
@@ -666,7 +666,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       includeLowPriority:   true,
     }),
     holds:  (run) => runSummaryOf(run).delivered.join() === '004,005' && runSummaryOf(run).lowPriorityWaiting === undefined,
-    mutant: { modulePath: WORKFLOW_INPUT_UTIL, find: 'includeLowPriority: given[\'includeLowPriority\'] === true,', replace: 'includeLowPriority: false,' },
+    mutant: { modulePath: WORKFLOW_INPUT_UTIL, find: 'lowPriorityIsIncluded: given[\'includeLowPriority\'] === true,', replace: 'lowPriorityIsIncluded: false,' },
   },
   {
     // A reviewer files its findings as low tickets minutes before the normal work runs out; the run must not pick them up untriaged.

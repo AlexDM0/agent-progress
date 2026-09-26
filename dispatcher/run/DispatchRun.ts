@@ -96,8 +96,8 @@ export class DispatchRun {
   private launchCount:                      number = 0;
   private latestStatusReading:              StatusReading | null = null;
   private othersInFlightAtStatusReading:    number = 0;
-  private stoppedByBoard:                   boolean = false;
-  private stoppedByFailures:                boolean = false;
+  private runWasStoppedByBoard:             boolean = false;
+  private runWasStoppedByFailures:          boolean = false;
   private consecutiveDeadAgents:            number = 0;
   // The tickets whose failed pass a dead agent of the current run of deaths counted, taken back once that run turns out to be an outage.
   private failedPassesOfConsecutiveDeaths:  string[] = [];
@@ -118,7 +118,7 @@ export class DispatchRun {
     this.settings = settings;
     this.ports    = ports;
     // A single-ticket run reads no board before its builder starts, so its arguments' entries seed the set.
-    this.heldTicketIds = new Set(settings.readyTickets.filter((entry) => entry.held).map((entry) => entry.id));
+    this.heldTicketIds = new Set(settings.readyTickets.filter((entry) => entry.ticketIsHeld).map((entry) => entry.id));
   }
 
   recordSurveyAgentStarted(): void {
@@ -180,7 +180,7 @@ export class DispatchRun {
     this.inFlight.delete(finished.key);
     this.noteWhetherTheAgentDied(finished.reading);
     // Settled first, so a row this agent left running is a takeover or being parked by the time its own status block is read.
-    if (finished.reading === null && this.stoppedByFailures) this.settleDeadAgentOfAStoppedRun(finished.work);
+    if (finished.reading === null && this.runWasStoppedByFailures) this.settleDeadAgentOfAStoppedRun(finished.work);
     else this.settle(finished);
     if (finished.reading !== null) this.adoptStatusReading(finished.reading.status);
   }
@@ -237,16 +237,16 @@ export class DispatchRun {
 
   outcome(): DispatchOutcome {
     return {
-      delivered:          this.delivered,
-      parked:             this.parked,
-      findingsFiled:      this.findingsFiled,
-      agentsRun:          this.agentsRun,
-      stoppedByBoard:     this.stoppedByBoard,
-      stoppedByFailures:  this.stoppedByFailures,
-      lowPriorityWaiting: this.lowPriorityWaitingIds(),
-      held:               this.heldEntries(),
-      pausedBuilds:       this.pausedBuildsLeft,
-      reviewsLeft:        this.reviewsLeftIds(),
+      delivered:               this.delivered,
+      parked:                  this.parked,
+      findingsFiled:           this.findingsFiled,
+      agentsRun:               this.agentsRun,
+      runWasStoppedByBoard:    this.runWasStoppedByBoard,
+      runWasStoppedByFailures: this.runWasStoppedByFailures,
+      lowPriorityWaiting:      this.lowPriorityWaitingIds(),
+      held:                    this.heldEntries(),
+      pausedBuilds:            this.pausedBuildsLeft,
+      reviewsLeft:             this.reviewsLeftIds(),
     };
   }
 
@@ -269,12 +269,12 @@ export class DispatchRun {
   }
 
   private readyTicketIsAdmitted(ticketId: string): boolean {
-    return this.settings.includeLowPriority || !this.lowPriorityReadyTicketIds.has(ticketId);
+    return this.settings.lowPriorityIsIncluded || !this.lowPriorityReadyTicketIds.has(ticketId);
   }
 
   // Like a ready ticket's, a priority the survey did not state reads as `DISPATCH_POLICY.UNSTATED_PRIORITY`.
   private pausedBuildIsAdmitted(ticketId: string): boolean {
-    return this.settings.includeLowPriority || priorityIsAdmittedWithoutTriage(this.pausedBuildPriorities.get(ticketId));
+    return this.settings.lowPriorityIsIncluded || priorityIsAdmittedWithoutTriage(this.pausedBuildPriorities.get(ticketId));
   }
 
   private priorityRankOf(priority: TicketPriority | undefined): number {
@@ -332,8 +332,8 @@ export class DispatchRun {
       + this.takeoversConfirmedByStatus(status).length;
     this.othersInFlightAtStatusReading = Math.max(0, status.agentsInFlight - ownAgentsConfirmedByStatus);
     // A stop is final for this run: the agents in flight finish and are settled, and nothing new starts until the user's go launches a new run.
-    if (status.dispatcherIsStopped && !this.stoppedByBoard) {
-      this.stoppedByBoard = true;
+    if (status.dispatcherIsStopped && !this.runWasStoppedByBoard) {
+      this.runWasStoppedByBoard = true;
       this.ports.logger.statusShowsTheRunStopped(this.inFlight.size);
     }
   }
@@ -401,7 +401,7 @@ export class DispatchRun {
   }
 
   private runIsStopped(): boolean {
-    return this.stoppedByBoard || this.stoppedByFailures;
+    return this.runWasStoppedByBoard || this.runWasStoppedByFailures;
   }
 
   private releaseRowsOf(ticketId: string, release: RowRelease): void {
@@ -416,18 +416,18 @@ export class DispatchRun {
     this.releaseRowsOf(ticketId, { cause: 'parked', parkReason: reason });
   }
 
-  private reviewWorkFor(ticketId: string, rereviewFirst: boolean, earlierReviewerDied: boolean): ReviewWork {
+  private reviewWorkFor(ticketId: string, rereviewRunsFirst: boolean, earlierReviewerDied: boolean): ReviewWork {
     return {
       kind:  'review',
       ticketId,
       round: this.ticketRecordFor(ticketId).nextRound,
-      rereviewFirst,
+      rereviewRunsFirst,
       earlierReviewerDied,
     };
   }
 
-  private queueReview(ticketId: string, rereviewFirst: boolean): void {
-    this.reviewQueue.push(this.reviewWorkFor(ticketId, rereviewFirst, false));
+  private queueReview(ticketId: string, rereviewRunsFirst: boolean): void {
+    this.reviewQueue.push(this.reviewWorkFor(ticketId, rereviewRunsFirst, false));
   }
 
   // A reviewer asking for another round leaves its bar running for the next one's `rereview --start-review`, so the slot never shows free between them.
@@ -593,8 +593,8 @@ export class DispatchRun {
       return;
     }
     this.consecutiveDeadAgents++;
-    if (this.consecutiveDeadAgents < DISPATCH_POLICY.CONSECUTIVE_DEAD_AGENTS_BEFORE_STOPPING || this.stoppedByFailures) return;
-    this.stoppedByFailures = true;
+    if (this.consecutiveDeadAgents < DISPATCH_POLICY.CONSECUTIVE_DEAD_AGENTS_BEFORE_STOPPING || this.runWasStoppedByFailures) return;
+    this.runWasStoppedByFailures = true;
     for (const ticketId of this.failedPassesOfConsecutiveDeaths) this.ticketRecordFor(ticketId).failedPasses--;
     this.failedPassesOfConsecutiveDeaths = [];
     const cancelledParks = this.parksAwaitingTheNextAgent;

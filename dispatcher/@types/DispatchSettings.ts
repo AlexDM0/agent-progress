@@ -10,18 +10,18 @@ export interface ReadyTicketEntry {
   id:                  string;
   priority:            TicketPriority;
   agentModelAndEffort: AgentModelAndEffort;
-  held:                boolean;
+  ticketIsHeld:        boolean;
 }
 
 export interface DispatchSettings {
-  mainCheckout:       string;
-  mainLine:           string;
-  checkCommand:       string;
-  installCommand:     string;
-  includeLowPriority: boolean;
-  ticketIds:          string[] | null;
-  readyTickets:       ReadyTicketEntry[];
-  runLabel:           string;
+  mainCheckout:          string;
+  mainLine:              string;
+  checkCommand:          string;
+  installCommand:        string;
+  lowPriorityIsIncluded: boolean;
+  ticketIds:             string[] | null;
+  readyTickets:          ReadyTicketEntry[];
+  runLabel:              string;
 }
 
 export type DispatchSettingsRefusal = { reason: 'missing-argument'; argumentName: string } | { reason: 'invalid-ticket-ids' };

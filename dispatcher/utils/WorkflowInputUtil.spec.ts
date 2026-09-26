@@ -38,7 +38,7 @@ const STATUS_BLOCK = {
 const BUILD_WORK: DispatchWork = { kind: 'build', ticketId: '001', previousPass: null };
 
 const REVIEW_WORK: DispatchWork = {
-  kind: 'review', ticketId: '001', round: 1, rereviewFirst: false, earlierReviewerDied: false 
+  kind: 'review', ticketId: '001', round: 1, rereviewRunsFirst: false, earlierReviewerDied: false 
 };
 
 const REVIEWER_REPLY = {
@@ -57,11 +57,11 @@ describe('the Workflow arguments', () => {
       verdict:  'valid',
       settings: {
         ...REQUIRED_ARGUMENTS,
-        installCommand:     '',
-        includeLowPriority: false,
-        ticketIds:          null,
-        readyTickets:       [],
-        runLabel:           'whole-board',
+        installCommand:        '',
+        lowPriorityIsIncluded: false,
+        ticketIds:             null,
+        readyTickets:          [],
+        runLabel:              'whole-board',
       },
     });
   });
@@ -101,8 +101,8 @@ describe('the Workflow arguments', () => {
 
   // Starting untriaged low work cannot be undone, so only an explicit true admits it.
   test('low priority is included only for an explicit true', () => {
-    expect(settingsVerdictOf({ ...REQUIRED_ARGUMENTS, includeLowPriority: true })).toMatchObject({ settings: { includeLowPriority: true } });
-    expect(settingsVerdictOf({ ...REQUIRED_ARGUMENTS, includeLowPriority: 'yes' })).toMatchObject({ settings: { includeLowPriority: false } });
+    expect(settingsVerdictOf({ ...REQUIRED_ARGUMENTS, includeLowPriority: true })).toMatchObject({ settings: { lowPriorityIsIncluded: true } });
+    expect(settingsVerdictOf({ ...REQUIRED_ARGUMENTS, includeLowPriority: 'yes' })).toMatchObject({ settings: { lowPriorityIsIncluded: false } });
   });
 
   test('ready ticket entries take the default model and effort for an absent or empty one, and read an unstated or unknown priority as low', () => {
@@ -120,13 +120,13 @@ describe('the Workflow arguments', () => {
       settings: {
         readyTickets: [
           {
-            id: '001', priority: 'high', agentModelAndEffort: { model: 'sonnet', effort: 'high' }, held: true 
+            id: '001', priority: 'high', agentModelAndEffort: { model: 'sonnet', effort: 'high' }, ticketIsHeld: true 
           },
           {
-            id: '002', priority: 'low', agentModelAndEffort: DEFAULT_AGENT_MODEL_AND_EFFORT, held: false 
+            id: '002', priority: 'low', agentModelAndEffort: DEFAULT_AGENT_MODEL_AND_EFFORT, ticketIsHeld: false 
           },
           {
-            id: '003', priority: 'low', agentModelAndEffort: DEFAULT_AGENT_MODEL_AND_EFFORT, held: false 
+            id: '003', priority: 'low', agentModelAndEffort: DEFAULT_AGENT_MODEL_AND_EFFORT, ticketIsHeld: false 
           },
         ],
       },
@@ -147,7 +147,7 @@ describe('a status block', () => {
       agentsInFlight: 1,
       readyTicketIds: ['001'],
       readyTickets:   [{
-        id: '001', priority: 'high', agentModelAndEffort: { model: 'sonnet', effort: 'high' }, held: false 
+        id: '001', priority: 'high', agentModelAndEffort: { model: 'sonnet', effort: 'high' }, ticketIsHeld: false 
       }],
       dispatcherIsStopped:   false,
       inProgressTicketIds:   ['002'],
@@ -245,7 +245,7 @@ describe('the ticket settings lookup', () => {
   test('a lookup with a list of tickets maps them like ready ticket entries', () => {
     expect(ticketSettingsLookupOf({ tickets: [{ id: '001', model: 'sonnet' }] })).toEqual([
       {
-        id: '001', priority: 'low', agentModelAndEffort: { model: 'sonnet', effort: DEFAULT_AGENT_EFFORT }, held: false 
+        id: '001', priority: 'low', agentModelAndEffort: { model: 'sonnet', effort: DEFAULT_AGENT_EFFORT }, ticketIsHeld: false 
       },
     ]);
   });

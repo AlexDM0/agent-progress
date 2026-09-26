@@ -75,7 +75,7 @@ export function createAgentStarter(runtime: WorkflowRuntime, settings: DispatchS
     const prompt = AgentPromptUtil.reviewerPrompt(settings, {
       ticketId:            work.ticketId,
       expectedRound:       work.round,
-      rereviewFirst:       work.rereviewFirst,
+      rereviewRunsFirst:   work.rereviewRunsFirst,
       earlierReviewerDied: work.earlierReviewerDied,
       owner:               model,
     });

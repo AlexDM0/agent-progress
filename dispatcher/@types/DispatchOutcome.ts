@@ -38,16 +38,16 @@ export interface HeldEntry {
 }
 
 export interface DispatchOutcome {
-  delivered:          string[];
-  parked:             { ticketId: string; reason: ParkReason }[];
-  findingsFiled:      string[];
-  agentsRun:          number;
-  stoppedByBoard:     boolean;
-  stoppedByFailures:  boolean;
-  lowPriorityWaiting: string[];
-  held:               HeldEntry[];
-  pausedBuilds:       string[];
-  reviewsLeft:        string[];
+  delivered:               string[];
+  parked:                  { ticketId: string; reason: ParkReason }[];
+  findingsFiled:           string[];
+  agentsRun:               number;
+  runWasStoppedByBoard:    boolean;
+  runWasStoppedByFailures: boolean;
+  lowPriorityWaiting:      string[];
+  held:                    HeldEntry[];
+  pausedBuilds:            string[];
+  reviewsLeft:             string[];
 }
 
 /** What the Workflow run returns, keys in the order the frozen trace table pins, each conditional key present only when it says something. */

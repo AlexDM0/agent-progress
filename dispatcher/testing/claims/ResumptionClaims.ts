@@ -99,7 +99,7 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
     scenarioFor: stoppedMidBuildThenRelaunched,
     holds:       (run) => JSON.stringify(runSummaryOf(run).pausedBuilds) === JSON.stringify([PAUSED_TICKET_ID])
       && (dispatchSummaryFrom(run.relaunchSummary) as DispatchSummary).pausedBuilds === undefined,
-    mutant: { modulePath: DISPATCH_RUN, find: 'pausedBuilds:       this.pausedBuildsLeft,', replace: 'pausedBuilds:       [],' },
+    mutant: { modulePath: DISPATCH_RUN, find: 'pausedBuilds:            this.pausedBuildsLeft,', replace: 'pausedBuilds:            [],' },
   },
   {
     // Another run's label, a single-ticket run's here, is a claim the builder's own note does not match, so only the takeover sentence carries it on.

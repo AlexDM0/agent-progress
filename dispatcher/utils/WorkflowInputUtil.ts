@@ -67,7 +67,7 @@ function readyTicketEntriesOf(value: unknown): ReadyTicketEntry[] {
       id,
       priority:            priorityOf(entry['priority']),
       agentModelAndEffort: agentModelAndEffortOf(entry),
-      held:                entry['held'] === true,
+      ticketIsHeld:        entry['held'] === true,
     });
   }
   return entries;
@@ -88,15 +88,15 @@ function settingsVerdictOf(workflowArguments: unknown): DispatchSettingsVerdict 
   return {
     verdict:  'valid',
     settings: {
-      mainCheckout:       textOrEmpty(given['mainCheckout']),
-      mainLine:           textOrEmpty(given['mainLine']),
-      checkCommand:       textOrEmpty(given['checkCommand']),
-      installCommand:     textOrEmpty(given['installCommand']),
+      mainCheckout:          textOrEmpty(given['mainCheckout']),
+      mainLine:              textOrEmpty(given['mainLine']),
+      checkCommand:          textOrEmpty(given['checkCommand']),
+      installCommand:        textOrEmpty(given['installCommand']),
       // Low tickets are the orchestrator's to triage first; only its relaunch after that triage passes true.
-      includeLowPriority: given['includeLowPriority'] === true,
+      lowPriorityIsIncluded: given['includeLowPriority'] === true,
       ticketIds,
-      readyTickets:       readyTicketEntriesOf(given['readyTickets']),
-      runLabel:           DispatcherClaimNoteUtil.runLabelFor(ticketIds),
+      readyTickets:          readyTicketEntriesOf(given['readyTickets']),
+      runLabel:              DispatcherClaimNoteUtil.runLabelFor(ticketIds),
     },
   };
 }

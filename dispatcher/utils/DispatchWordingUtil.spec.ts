@@ -21,16 +21,16 @@ const {
 const ARGUMENTS_SUMMARY = '{ mainCheckout, mainLine, checkCommand, installCommand?, includeLowPriority?, ticketIds?, readyTickets? }';
 
 const QUIET_OUTCOME: DispatchOutcome = {
-  delivered:          [],
-  parked:             [],
-  findingsFiled:      [],
-  agentsRun:          0,
-  stoppedByBoard:     false,
-  stoppedByFailures:  false,
-  lowPriorityWaiting: [],
-  held:               [],
-  pausedBuilds:       [],
-  reviewsLeft:        [],
+  delivered:               [],
+  parked:                  [],
+  findingsFiled:           [],
+  agentsRun:               0,
+  runWasStoppedByBoard:    false,
+  runWasStoppedByFailures: false,
+  lowPriorityWaiting:      [],
+  held:                    [],
+  pausedBuilds:            [],
+  reviewsLeft:             [],
 };
 
 describe('the settings refusal', () => {
@@ -55,7 +55,7 @@ describe('the agent labels', () => {
         kind:                'review',
         ticketId:            '001',
         round:               2,
-        rereviewFirst:       true,
+        rereviewRunsFirst:   true,
         earlierReviewerDied: false,
       } as const,
       'review 2 #001',
@@ -181,13 +181,13 @@ describe('the summary', () => {
   test('every key that says something is present, in the order the run has always returned them', () => {
     const summary = summaryOf({
       ...QUIET_OUTCOME,
-      parked:             [{ ticketId: '002', reason: { cause: 'release-refused', statedReason: 'merge-refused' } }],
-      stoppedByBoard:     true,
-      stoppedByFailures:  true,
-      lowPriorityWaiting: ['003'],
-      held:               [{ ticketId: '004', waitingFor: 'build' }],
-      pausedBuilds:       ['005'],
-      reviewsLeft:        ['006'],
+      parked:                  [{ ticketId: '002', reason: { cause: 'release-refused', statedReason: 'merge-refused' } }],
+      runWasStoppedByBoard:    true,
+      runWasStoppedByFailures: true,
+      lowPriorityWaiting:      ['003'],
+      held:                    [{ ticketId: '004', waitingFor: 'build' }],
+      pausedBuilds:            ['005'],
+      reviewsLeft:             ['006'],
     });
     expect(Object.keys(summary)).toEqual([
       'delivered',

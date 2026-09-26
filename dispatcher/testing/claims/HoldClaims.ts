@@ -157,7 +157,7 @@ export const HOLD_CLAIMS: readonly DispatchClaim[] = [
     scenarioFor: () => HELD_AND_NEVER_UNHELD,
     holds:       (run) => callsOf(run, 'review', HELD_TICKET_ID).length === 0
       && JSON.stringify(runSummaryOf(run).held) === JSON.stringify([{ id: HELD_TICKET_ID, waitingFor: 'review' }]),
-    mutant: { modulePath: DISPATCH_RUN, find: 'held:               this.heldEntries(),', replace: 'held:               [],' },
+    mutant: { modulePath: DISPATCH_RUN, find: 'held:                    this.heldEntries(),', replace: 'held:                    [],' },
   },
   {
     // A queued step, not a takeover: the survey's in-review ticket and a rebuild after a review that did not hold reach the queue this way.
@@ -198,7 +198,7 @@ export const HOLD_CLAIMS: readonly DispatchClaim[] = [
       heldTicketIds:  [HELD_TICKET_ID],
     }),
     holds:  (run) => run.calls.length === 0 && JSON.stringify(runSummaryOf(run).held) === JSON.stringify([{ id: HELD_TICKET_ID, waitingFor: 'build' }]),
-    mutant: { modulePath: DISPATCH_RUN, find: 'settings.readyTickets.filter((entry) => entry.held)', replace: 'settings.readyTickets.filter(() => false)' },
+    mutant: { modulePath: DISPATCH_RUN, find: 'settings.readyTickets.filter((entry) => entry.ticketIsHeld)', replace: 'settings.readyTickets.filter(() => false)' },
   },
   {
     // The fail-review claim: an in-progress ticket is on no ready list, so a run named for it is the only way its paused build is ever finished.

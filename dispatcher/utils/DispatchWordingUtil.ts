@@ -155,8 +155,8 @@ function summaryOf(outcome: DispatchOutcome): DispatchSummary {
     findingsFiled: outcome.findingsFiled,
     agentsRun:     outcome.agentsRun,
   };
-  if (outcome.stoppedByBoard) summary.stoppedByBoard = true;
-  if (outcome.stoppedByFailures) summary.stoppedByFailures = true;
+  if (outcome.runWasStoppedByBoard) summary.stoppedByBoard = true;
+  if (outcome.runWasStoppedByFailures) summary.stoppedByFailures = true;
   if (outcome.lowPriorityWaiting.length > 0) summary.lowPriorityWaiting = outcome.lowPriorityWaiting;
   if (outcome.held.length > 0) summary.held = outcome.held.map((heldEntry) => ({ id: heldEntry.ticketId, waitingFor: heldEntry.waitingFor }));
   if (outcome.pausedBuilds.length > 0) summary.pausedBuilds = outcome.pausedBuilds;

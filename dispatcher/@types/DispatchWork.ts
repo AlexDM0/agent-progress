@@ -16,7 +16,7 @@ export interface ReviewWork {
   kind:                'review';
   ticketId:            string;
   round:               number;
-  rereviewFirst:       boolean;
+  rereviewRunsFirst:   boolean;
   earlierReviewerDied: boolean;
   barIsHandedOn?:      true;
   rowIsPaused?:        true;

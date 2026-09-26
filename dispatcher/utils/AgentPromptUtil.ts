@@ -15,7 +15,7 @@ export interface BuilderPromptRequest {
 export interface ReviewerPromptRequest {
   ticketId:            string;
   expectedRound:       number;
-  rereviewFirst:       boolean;
+  rereviewRunsFirst:   boolean;
   earlierReviewerDied: boolean;
   owner:               string;
 }
@@ -144,7 +144,7 @@ function reviewerPrompt(settings: DispatchSettings, request: ReviewerPromptReque
   const {
     ticketId,
     expectedRound,
-    rereviewFirst,
+    rereviewRunsFirst,
     earlierReviewerDied,
     owner,
   } = request;
@@ -155,7 +155,7 @@ function reviewerPrompt(settings: DispatchSettings, request: ReviewerPromptReque
       + 'Your round is the number of `## Review` sections already in the ticket plus one; return it as `round`.',
   ];
   // `rereview` counts a round each time it runs, and a restarted or resumed reviewer repeats its prompt; the bar it opened for this round is its trace.
-  if (rereviewFirst) {
+  if (rereviewRunsFirst) {
     lines.push(
       `FIRST, before anything else: read your round from \`agent-progress ticket show ${ticketId}\`, and the in-progress rows from \`agent-progress status --json\`. `
         + `When an \`in-progress\` row whose \`reviewOf\` is ${ticketId} is named \`Review <your round> #${ticketId} — …\`, the rereview of your round already ran: `
