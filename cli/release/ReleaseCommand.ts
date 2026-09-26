@@ -19,6 +19,7 @@ import type { Task }                                                            
 import type { Ticket }                                                                 from '../../src/lib/tracker-model/@types/Ticket';
 import type { Board }                                                                  from '../../src/lib/tracker-model/Board';
 import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS }                                     from '../../src/lib/tracker-model/constants/TicketMoveLegality';
+import type { ReleaseRefusalReason }                                                   from '../../src/shared/@types/ReleaseRefusalReason';
 import { OperationRefusal, refusalIsOperationRefusal, type OperationRefusalStatus }    from '../../src/shared/OperationRefusal';
 import type { CommandContext }                                                         from '../CommandContext';
 import { openTrackerForWritingThenReadNextLine, printEntity, printEntityThenNextLine } from '../CommandSupport';
@@ -34,17 +35,6 @@ const DEFAULT_MAIN_LINE = 'main';
 const SHORT_COMMIT_LENGTH = 8;
 
 const OPTION_PREFIX = '-';
-
-export type ReleaseRefusalReason =
-  | 'invalid-request'
-  | 'unknown-ticket'
-  | 'ticket-not-releasable'
-  | 'unknown-branch'
-  | 'not-on-main-line'
-  | 'main-moved'
-  | 'merge-refused'
-  | 'git-failed'
-  | 'tracker-failed';
 
 class ReleaseRefusal extends OperationRefusal {
   readonly reason: ReleaseRefusalReason;

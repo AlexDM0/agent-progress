@@ -13,8 +13,9 @@ the plan is specific it wins; these rules decide the rest.
 ## Verify
 
 `bun run typecheck && bun test && bun run lint`: all three after any TypeScript change, before calling it done.
-`typecheck` covers the Bun program, the DOM-only page program and the page's spec program. Never ad-hoc `tsc`
-flags; never edit `package.json` to make a check pass.
+`typecheck` covers every project: the Bun program, the DOM-only page program, the page's spec program, the
+dispatcher's spec project and the Workflow-runtime dispatcher. Never ad-hoc `tsc` flags; never edit `package.json`
+to make a check pass.
 
 ## Rules
 
@@ -44,7 +45,7 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
 - Imports run up only, with no cycles. `lib/constants/` imports nothing outside itself; `lib/utils/` imports only
   itself, `lib/constants/` and `src/lib/tracker-model/`; neither imports a package or a builtin (a spec beside them may
   import `bun:test`). Nothing under `lib/` imports `cli/`, nothing that ships imports `src/testing/`, `cli/testing/`,
-  `src/adapters/progress/testing/` or `lib/tooling/dev/`, and `agent-progress.ts` imports only `cli/`.
+  `src/adapters/progress/testing/` or `dispatcher/testing/`, and `agent-progress.ts` imports only `cli/`.
 - A `src/lib/` package imports only the other `src/lib/` packages its main module's header names, node builtins and
   external dependencies. It never imports `src/shared/`, `lib/` or `cli/`, and knows nothing about its callers: no
   agent-progress names, tracker file names, user-facing wording or exit codes. App values arrive as parameters; a
@@ -115,8 +116,10 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
 ### Generated and installed files
 
 - Generated files do not live in the repository, and everything installed elsewhere is to carry one install
-  version. Until plan step 8, nothing is stamped or refused on a mismatch, and the dispatcher is committed under
-  `templates/workflows/`.
+  version. Until plan step 8, nothing is stamped or refused on a mismatch, and `init` and `update` still install the
+  committed `templates/workflows/AgentProgressDispatch.js`. Its policy is ported to `dispatcher/` in TypeScript, held to
+  that script's behaviour by the frozen table `dispatcher/testing/FrozenDispatchTraces.json`, until step 8 generates
+  the installed script from the port and deletes the old one.
 
 ### Comments
 
@@ -139,12 +142,16 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
   module that imports a new file from outside the folder adds it there in the same change, and every file the page
   project reaches, in `src/` too, stays DOM-safe. The page's specs sit beside their modules and are checked by
   `page/tsconfig.spec.json`, the same program plus Bun types.
+- `dispatcher/` is the Workflow-runtime project `dispatcher/tsconfig.json` (no Bun, Node or DOM types), with
+  `dispatcher/tsconfig.spec.json` for its specs and `dispatcher/testing/`. Its `include` list is the `src/` files the
+  dispatcher reaches, and a dispatcher module that imports a new `src/` file adds it there in the same change. Only
+  `dispatcher/DispatchScript.ts` names the Workflow globals; specs build it by path and never import it.
 - ESLint 9 flat config through `@reliquary/eslint-config`: 2-space indent, single quotes, semicolons; line length
   180 for code, 155 for comments; aligned object values; aligned `from`; imports builtin → external → internal,
   alphabetised; builtins through the `node:` protocol (`import/enforce-node-protocol-usage`, turned on in
   `eslint.config.js`); more than 3 named imports or 4+ properties one per line; arrow parameters parenthesised; no
-  `any`; a blank line before a function declaration. `src/testing/`, `cli/testing/` and `lib/tooling/dev/` may import
-  devDependencies. Deliberately off: `no-plusplus`, `no-continue`, `no-await-in-loop`, `no-param-reassign`,
+  `any`; a blank line before a function declaration. `src/testing/`, `cli/testing/`, `src/adapters/progress/testing/`
+  and `dispatcher/testing/` may import devDependencies. Deliberately off: `no-plusplus`, `no-continue`, `no-await-in-loop`, `no-param-reassign`,
   `consistent-return`, `no-restricted-syntax`, `guard-for-in`, `class-methods-use-this`, `no-use-before-define`.
 
 ### Tests
@@ -162,8 +169,9 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
   checked by the captured context (`cli/testing/CapturedCommandContext.ts`), on a hook input's `cwd` and by
   `cli/testing/CliProcess.ts` before a command runs. A spec never creates the real process context, spawns the binary
   only through `cli/testing/CliProcess.ts`, and never calls `process.chdir`.
-- Each dispatcher decision pinned by the `lib/tooling/dev/DispatchScriptHarness.spec.ts` suites also runs against a
-  mutant of the script that breaks exactly that decision, which must fail.
+- Each dispatcher decision pinned by the `dispatcher/Dispatcher.*.spec.ts` claim suites runs against the built bundle of
+  the TypeScript port, where it must hold, and against a SourceMutant of the module that holds that decision, which
+  must fail. A mutant whose text is not in its module exactly once fails the build.
 
 ### Documentation and commits
 
@@ -234,7 +242,9 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
 - A `SKILL.md` `description` is its trigger, so it names the words a user says. Skill files cite only commands, paths
   inside a tracked repository, or files beside them; never a file of this repository.
 - `skill-orchestrate/` repeats nothing from `skill/`, writes rules as instructions, and never restates what the
-  dispatcher decides in code. The call-budget numbers stay in `templates/AgentBrief.md`.
+  dispatcher decides in code. The call budgets and the rework threshold are `DISPATCH_PROTOCOL` in
+  `src/shared/constants/DispatchProtocol.ts`; `templates/AgentBrief.md` states them in prose until plan step 8
+  generates them, and the dispatcher's brief spec holds the two together.
 - `setup.sh` symlinks both into `~/.claude/skills/`, and `~/development/claude/skills.json` must list them under
   `ignore`.
 
@@ -244,8 +254,8 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
 agent-progress.ts           the bin shim: runs the command line and exits with its number
 package.json                the bin entry, the scripts and the one runtime dependency, marked
 tsconfig.json               the strict Bun project
-eslint.config.js            the shared ESLint config, the node: protocol rule, and the devDependency exemption for the three
-                            test-only folders: src/testing/, cli/testing/ and lib/tooling/dev/
+eslint.config.js            the shared ESLint config, the node: protocol rule, and the devDependency exemption for the four
+                            test-only folders: src/testing/, cli/testing/, src/adapters/progress/testing/ and dispatcher/testing/
 bun.lock                    the lockfile, committed
 .gitignore                  node_modules/, .agent-progress/, .DS_Store, .readme-graphics/, .idea/
 .idea/                      git-ignored IDE settings
@@ -256,7 +266,9 @@ README-keynote.md           the same page in a keynote layout, kept for comparis
 README-day-on-the-board.md  the same page told as one day on a board, kept for comparison
 setup.sh                    machine setup: Bun, bun install and bun link, and the skill symlinks
 cli/                        the command surface: dispatch, arguments, help, one folder per command; cli/testing/ is test-only
-lib/                        everything the commands do, in the layers above; lib/tooling/dev/ holds the dispatcher's test harness
+dispatcher/                 the dispatcher policy in TypeScript, bundled into a Workflow script; dispatcher/testing/ is
+                            test-only: the harness, the bundle builder, the frozen table
+lib/                        everything the commands do, in the layers above
 page/                       the browser page: its sets, its own DOM-only tsconfig and spec tsconfig
 resources/                  files read at runtime: the page's HTML template
 src/                        the target layout's code, filled step by step as the migration plan moves it

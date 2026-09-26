@@ -1,5 +1,5 @@
 /**
- * Runs `templates/workflows/AgentProgressDispatch.js` as the Workflow tool would, against a fake `agent()` and a fake board, so a spec can pin
+ * Runs a dispatcher Workflow script's text as the Workflow tool would, against a fake `agent()` and a fake board, so a spec can pin
  * the script's decisions without spawning a model. An agent's kind is read from its prompt's token marker, the way the hook reads it. A builder
  * or reviewer is on the board from its first command, as a real one is from its claim or its `task add --start`, until it finishes — except that
  * a builder that stops short of review and a reviewer that returns nothing leave their row running, until a fresh agent's first command takes it over,
@@ -9,10 +9,8 @@
  * A paused build row refuses the claim too, unless the prompt resumes it and the note is the run's own or, in a run named for the ticket, any run's.
  * A reviewer whose prompt runs `ticket rereview` counts a round each time, unless the prompt skips it and the bar of the ticket's round already runs.
  */
-import { readFileSync } from 'node:fs';
-import { join }         from 'node:path';
-
-import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../../src/lib/tracker-model/constants/AgentSettings.ts';
+import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../src/lib/tracker-model/constants/AgentSettings.ts';
+import { DispatcherClaimNoteUtil }                   from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
 
 /** `settings` is a single-ticket run's lookup of the model and effort its arguments did not state; its `ticketId` is the ids it names, comma-joined. */
 export type AgentKind = 'survey' | 'settings' | 'build' | 'review' | 'park';
@@ -68,10 +66,20 @@ export interface RecordedAgentCall {
   model:                      unknown;
   effort:                     unknown;
   label:                      unknown;
+  phase:                      unknown;
+  schema:                     unknown;
   prompt:                     string;
   /** How many status blocks this run had been handed when the call was made: an index into `heldTicketIdsReturned`. */
   statusBlocksReturnedBefore: number;
+  /** How many lines this call's own run had logged when the call was made, which pins how its logs interleave with its agent calls. */
+  logsBefore:                 number;
 }
+
+/**
+ * How one agent departs from the fake board's answer. `nothing` and `throws` leave the board as a dead agent does; `replacesFields` is merged
+ * over the document the agent returns, its status block included.
+ */
+export type AgentMisbehaviour = { returns: 'nothing' } | { throws: string } | { replacesFields: Record<string, unknown> };
 
 export interface DispatchScenario {
   limit:                          number;
@@ -133,9 +141,12 @@ export interface DispatchScenario {
   pausedBuildIdsWithoutWorktree?: string[];
   /** Once the run returns, the user's go sets the board running and a fresh whole-board run starts on the board it left; its calls are `relaunch`. */
   relaunchedAfterTheRun?:         boolean;
+  /** Spread last over the main run's arguments only; a value of `undefined` leaves that argument missing. */
+  argumentOverrides?:             Record<string, unknown>;
+  agentMisbehaviour?:             (call: RecordedAgentCall) => AgentMisbehaviour | undefined;
 }
 
-export interface DispatchRun {
+export interface RecordedDispatchRun {
   calls:                    RecordedAgentCall[];
   /** The most of the script's own builders and reviewers that were running at one moment. */
   mostAgentsAtOnce:         number;
@@ -174,6 +185,9 @@ export interface DispatchRun {
   ranAway:                  boolean;
   /** Whether `killedAtFirstCommandOf` was reached, so that `summary` is the resumed run's. */
   resumed:                  boolean;
+  phasesEntered:            { run: DispatchRunName; title: unknown }[];
+  /** What the main run threw, `null` when it returned: `TypeError` for a type error, otherwise the error's message. */
+  threw:                    string | null;
 }
 
 /** The sentence a builder's prompt carries on past a claim refused as in-progress by, and the one a reviewer's takes a bar left running by. */
@@ -228,15 +242,9 @@ const KILLED = Symbol('killed');
 
 const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor as new (...parameterNames: string[]) => ScriptBody;
 
-const SCRIPT_GLOBAL_NAMES = ['agent', 'parallel', 'pipeline', 'phase', 'log', 'args', 'budget', 'workflow', 'Date', 'Math'];
+export const WORKFLOW_GLOBAL_NAMES = ['agent', 'parallel', 'pipeline', 'phase', 'log', 'args', 'budget', 'workflow'] as const;
 
-export function dispatchScriptPath(): string {
-  return join(import.meta.dir, '..', '..', '..', 'templates', 'workflows', 'AgentProgressDispatch.js');
-}
-
-export function readDispatchScript(): string {
-  return readFileSync(dispatchScriptPath(), 'utf8');
-}
+const SCRIPT_GLOBAL_NAMES = [...WORKFLOW_GLOBAL_NAMES, 'Date', 'Math'];
 
 /** The clock and randomness a Workflow script is refused at runtime, refused here too so a run cannot lean on them. */
 function guardedDate(): DateConstructor {
@@ -305,6 +313,11 @@ function rowIsLeftRunning(kind: AgentKind, reply: Record<string, unknown> | null
   return reply === null || (reviewAsksForAnotherRound(reply) && prompt.includes(REVIEWER_LEAVES_ITS_BAR_FOR_THE_NEXT_ROUND));
 }
 
+function thrownTextOf(error: unknown): string {
+  if (error instanceof TypeError) return 'TypeError';
+  return error instanceof Error ? error.message : String(error);
+}
+
 function reviewerDocumentOf(reply: ReviewerReply, round: number): Record<string, unknown> {
   return {
     round,
@@ -316,7 +329,7 @@ function reviewerDocumentOf(reply: ReviewerReply, round: number): Record<string,
   };
 }
 
-export async function runDispatchScript(scenario: DispatchScenario, source: string = readDispatchScript()): Promise<DispatchRun> {
+export async function runDispatchScript(scenario: DispatchScenario, source: string): Promise<RecordedDispatchRun> {
   const board: FakeBoard = {
     limit:                 scenario.limit,
     otherAgentsInFlight:   scenario.otherAgentsInFlight ?? 0,
@@ -329,6 +342,9 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   const calls: RecordedAgentCall[] = [];
   const logs: string[] = [];
   const racingLogs: string[] = [];
+  const relaunchLogs: string[] = [];
+  const logsOf = (run: DispatchRunName): string[] => ({ main: logs, racing: racingLogs, relaunch: relaunchLogs })[run];
+  const phasesEntered: { run: DispatchRunName; title: unknown }[] = [];
   const heldTicketIdsReturned: string[][] = [];
   const passesByTicket = new Map<string, number>();
   const ownAgentsOnBoard = new Map<number, RunningRow>();
@@ -456,7 +472,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     if (earlierRow === undefined && pausedRow !== undefined) {
       const noteIsOwn = prompt.includes(BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM) && pausedRow.note === claimNoteIn(prompt);
       const noteIsAnotherDispatcherRuns = prompt.includes(BUILDER_TAKES_OVER_A_PAUSED_DISPATCHER_BUILD)
-        && new RegExp(`^Built by the .+ dispatcher run on ticket-${ticketId}$`).test(pausedRow.note);
+        && DispatcherClaimNoteUtil.noteIsADispatcherClaimOn(pausedRow.note, ticketId);
       if (prompt.includes(BUILDER_RESUMES_A_PAUSED_ROW) && (noteIsOwn || noteIsAnotherDispatcherRuns)) return reply;
       return {
         ...reply, outcome: 'claim-refused', detail: `#${ticketId} is in-progress`, claimNote: pausedRow.note,
@@ -465,7 +481,10 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     if (earlierRow !== undefined) {
       if (prompt.includes(BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM) && earlierRow.note === claimNoteIn(prompt)) return reply;
       return {
-        ...reply, outcome: 'claim-refused', detail: `#${ticketId} is in-progress`, claimNote: earlierRow.note 
+        ...reply,
+        outcome:   'claim-refused',
+        detail:    `#${ticketId} is in-progress`,
+        claimNote: earlierRow.note,
       };
     }
     if (runningRowOf(`review:${ticketId}`) !== undefined) return { ...reply, outcome: 'claim-refused', detail: `#${ticketId} is under review` };
@@ -571,8 +590,11 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       model:                      options['model'],
       effort:                     options['effort'],
       label:                      options['label'],
+      phase:                      options['phase'],
+      schema:                     options['schema'],
       prompt,
       statusBlocksReturnedBefore: heldTicketIdsReturned.length,
+      logsBefore:                 logsOf(run).length,
     };
     calls.push(call);
     if (calls.length > MOST_AGENT_CALLS_PER_RUN) {
@@ -580,6 +602,13 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       return null;
     }
     let reply = replyFor(call);
+    const misbehaviour = scenario.agentMisbehaviour?.(call);
+    if (misbehaviour !== undefined && !('replacesFields' in misbehaviour)) reply = null;
+    const documentReturned = (document: Record<string, unknown> | null): Record<string, unknown> | null => {
+      if (misbehaviour !== undefined && 'throws' in misbehaviour) throw new Error(misbehaviour.throws);
+      if (document === null || misbehaviour === undefined || !('replacesFields' in misbehaviour)) return document;
+      return { ...document, ...misbehaviour.replacesFields };
+    };
     if (ticketId !== null && ordinal === restartedOrdinalOf(kind) && restartedTicketIdsOf(kind).includes(ticketId)) restartedAttemptActs(kind, ticketId, passKey, prompt);
     liveOwnAgents++;
     mostLiveAgentsAtOnce = Math.max(mostLiveAgentsAtOnce, board.otherAgentsInFlight + liveOwnAgents);
@@ -598,7 +627,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       if (generation !== callGeneration) return NEVER_SETTLES;
       liveOwnAgents--;
       scenario.afterAgent?.(call, board);
-      return reply === null ? null : { ...reply, status: returnedStatusBlock(run) };
+      return documentReturned(reply === null ? null : { ...reply, status: returnedStatusBlock(run) });
     }
     const callIndex = calls.length - 1;
     rowKeysOfOwnAgentsRunning.set(callIndex, passKey);
@@ -660,7 +689,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     rowKeysOfOwnAgentsRunning.delete(callIndex);
     liveOwnAgents--;
     scenario.afterAgent?.(call, board);
-    return reply === null ? null : { ...reply, ...('status' in reply ? { status: returnedStatusBlock(run) } : {}) };
+    return documentReturned(reply === null ? null : { ...reply, ...('status' in reply ? { status: returnedStatusBlock(run) } : {}) });
   };
 
   const journaledAgent: FakeAgent = async (prompt, options = {}) => {
@@ -696,33 +725,45 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   };
 
   const scriptBody = compileScript(source);
-  const runScript = async (agentOfThisRun: FakeAgent, runGeneration: number, scriptArguments: Record<string, unknown>, logsOfThisRun: string[]): Promise<unknown> => scriptBody(
+  const runScript = async (run: DispatchRunName, agentOfThisRun: FakeAgent, runGeneration: number, scriptArguments: Record<string, unknown>): Promise<unknown> => scriptBody(
     agentOfThisRun,
     async (thunks: (() => Promise<unknown>)[]) => Promise.all(thunks.map(async (thunk) => thunk().catch(() => null))),
     () => { throw new Error('The harness offers no pipeline(): the dispatcher runs its own pool.'); },
-    () => {},
-    (message: string) => { if (generation === runGeneration) logsOfThisRun.push(message); },
+    (title: unknown) => { if (generation === runGeneration) phasesEntered.push({ run, title }); },
+    (message: string) => { if (generation === runGeneration) logsOf(run).push(message); },
     scriptArguments,
     { total: null, spent: () => 0, remaining: () => Number.POSITIVE_INFINITY },
     () => { throw new Error('The harness offers no workflow().'); },
     guardedDate(),
     guardedMath(),
   );
-  const mainArguments   = argumentsFor(scenario.ticketIds);
+  const mainArguments   = { ...argumentsFor(scenario.ticketIds), ...scenario.argumentOverrides };
   const racingRun       = (async () => {
     if (scenario.racingTicketIds === undefined) return null;
     await turnsPass(scenario.racingRunStartsAfterTurns ?? 0);
-    return runScript(racingAgent, 1, argumentsFor(scenario.racingTicketIds), racingLogs);
+    return runScript('racing', racingAgent, 1, argumentsFor(scenario.racingTicketIds));
   })();
-  const firstRunOutcome = await Promise.race([runScript(journaledAgent, 1, mainArguments, logs), runIsKilled.then(() => KILLED)]);
-  const resumed         = firstRunOutcome === KILLED;
-  const summary         = resumed ? await runScript(replayingAgent, generation, mainArguments, logs) : firstRunOutcome;
-  const racingSummary   = await racingRun;
-  const relaunchLogs: string[] = [];
+  let threw: string | null = null;
+  let firstRunOutcome: unknown = null;
+  try {
+    firstRunOutcome = await Promise.race([runScript('main', journaledAgent, 1, mainArguments), runIsKilled.then(() => KILLED)]);
+  } catch (error) {
+    threw = thrownTextOf(error);
+  }
+  const resumed = firstRunOutcome === KILLED;
+  let summary: unknown = resumed ? null : firstRunOutcome;
+  if (resumed) {
+    try {
+      summary = await runScript('main', replayingAgent, generation, mainArguments);
+    } catch (error) {
+      threw = thrownTextOf(error);
+    }
+  }
+  const racingSummary = await racingRun;
   let relaunchSummary: unknown = null;
   if (scenario.relaunchedAfterTheRun === true) {
     board.dispatcherState = 'running';
-    relaunchSummary = await runScript(relaunchAgent, generation, argumentsFor(undefined), relaunchLogs);
+    relaunchSummary = await runScript('relaunch', relaunchAgent, generation, argumentsFor(undefined));
   }
   return {
     calls,
@@ -745,5 +786,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     summary,
     ranAway,
     resumed,
+    phasesEntered,
+    threw,
   };
 }
