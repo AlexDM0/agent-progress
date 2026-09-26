@@ -1,15 +1,15 @@
 /**
  * Reads a progress.json in an older shape: version 1 with its own log, rows in the retired task words, review bars known only by name.
- * It can go once `agent-progress update` has run in every tracker, which stores every such file in the current format.
+ * It serves only trackers `agent-progress update` has not yet rewritten, and can go once update has run in every tracker.
  */
 import { RetiredStatusWordUtil }                                             from '../../../shared/legacy/utils/RetiredStatusWordUtil.ts';
+import { ReviewBarNameUtil }                                                 from '../../../shared/legacy/utils/ReviewBarNameUtil.ts';
 import type { ProgressFileMigration }                                        from '../../progress/@types/ProgressFileMigration.ts';
 import type { StoredProgressFile }                                           from '../../progress/@types/StoredProgressFile.ts';
 import { CURRENT_PROGRESS_FILE_VERSION, EMBEDDED_LOG_PROGRESS_FILE_VERSION } from '../../progress/constants/ProgressFileVersions.ts';
 import { ProgressFileValidationUtil }                                        from '../../progress/utils/ProgressFileValidationUtil.ts';
 import type { StoredLogEntry }                                               from '../@types/StoredProgressFileVersionOne.ts';
 import { EmbeddedLogUtil }                                                   from './EmbeddedLogUtil.ts';
-import { ReviewBarNameUtil }                                                 from './ReviewBarNameUtil.ts';
 
 function recordOf(value: unknown): Record<string, unknown> | null {
   return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null;

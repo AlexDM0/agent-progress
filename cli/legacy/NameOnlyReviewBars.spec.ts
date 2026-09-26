@@ -1,7 +1,8 @@
 /**
- * Review rows filed without `--review-of`, known only by their `Review <N> #<id>` name, through the commands that act on review bars: a
- * release closes one among a bundle's bars and stores its link, and the SubagentStop hook finds the later round by its name.
- * It reads the older input `src/adapters/legacy/` links, and is deleted with that folder.
+ * Review rows filed without `--review-of`, by their `Review <N> #<id>` name alone: `task add` stores the link the name gives, a release
+ * closes such a row among a bundle's bars, and the SubagentStop hook credits the later round. A row stored name-only by a tracker `update`
+ * has not yet rewritten is still linked when read, so a release closes it and stores its link. It covers the older habit `cli/legacy/`'s
+ * filing mapper answers and the older input `src/adapters/legacy/` links, and is deleted with them.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join }                        from 'node:path';
@@ -16,6 +17,7 @@ import {
 import type { ProgressFile } from '../../src/lib/tracker-model/@types/ProgressFile';
 import type { Task }         from '../../src/lib/tracker-model/@types/Task';
 import { TimeUtil }          from '../../src/lib/utils/TimeUtil';
+import { LIMITS }            from '../../src/shared/constants/Limits';
 import {
   addWorktree,
   createScratchGitRepository,
@@ -34,6 +36,8 @@ interface CommandOutcome {
 const COMMIT_IDENTITY = ['-c', 'user.name=Alex Example', '-c', 'user.email=alex.example@example.com', '-c', 'commit.gpgsign=false'];
 
 const FROZEN_NOW = new Date('2026-09-23T10:00:00Z');
+
+const REVIEWED_TICKET_NUMBER = 7;
 
 const TRANSCRIPT_FILE_NAME = 'agent-example.jsonl';
 
@@ -72,6 +76,18 @@ function storedRow(rowIdentifier: number): Task | undefined {
   return storedProgress().tasks.find((task) => task.id === rowIdentifier);
 }
 
+/** Stores the row as an agent-progress older than filing-time linking left it: known only by its name. */
+function storeWithoutItsLink(rowIdentifier: number): void {
+  const progressFilePath = join(repositoryDirectory, '.agent-progress', 'progress.json');
+  const progress         = storedProgress();
+  const tasks            = progress.tasks.map((task) => {
+    if (task.id !== rowIdentifier) return task;
+    const { reviewOf: droppedReviewOf, reviewBarRound: droppedReviewBarRound, ...unlinkedTask } = task;
+    return unlinkedTask;
+  });
+  writeFileSync(progressFilePath, `${JSON.stringify({ ...progress, tasks }, null, LIMITS.JSON_INDENT)}\n`);
+}
+
 beforeEach(async () => {
   if (!gitIsAvailable()) return;
   repositoryDirectory = createScratchGitRepository('name-only-review-bars');
@@ -106,8 +122,8 @@ describe.skipIf(!gitIsAvailable())('a release', () => {
     return { identifier, worktree, branch: `worktree/${worktreeName}` };
   }
 
-  // An earlier round's bar is already on the record; a row known only by its name is linked when progress.json is read, so it closes too.
-  test('a bundle closes the running review row of each ticket, one known only by its name among them, and leaves an earlier delivered round', async () => {
+  // An earlier round's bar is already on the record; a row filed by its name alone is linked at filing, so it closes too.
+  test('a bundle closes the running review row of each ticket, one filed without --review-of among them, and leaves an earlier delivered round', async () => {
     const {
       identifier,
       worktree,
@@ -136,11 +152,32 @@ describe.skipIf(!gitIsAvailable())('a release', () => {
     });
     expect(storedRow(earlierRoundId)).toEqual(earlierRoundBefore);
   });
+
+  // A tracker `update` has not yet rewritten may hold a row stored with no link; the read links it by its name, so the release closes it.
+  test('closes a free-standing review row stored by its name alone, and stores its link', async () => {
+    const {
+      identifier,
+      worktree,
+      branch,
+    } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
+    const nameOnlyReviewId = await inProgressReviewRow(identifier);
+    storeWithoutItsLink(nameOnlyReviewId);
+    expect(storedRow(nameOnlyReviewId)).not.toHaveProperty('reviewOf');
+
+    const outcome = await agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree, '--json']);
+
+    expect(outcome.exitCode, outcome.error).toBe(0);
+    expect(JSON.parse(outcome.output)).toMatchObject({ closedReviewRows: [nameOnlyReviewId] });
+    expect(storedRow(nameOnlyReviewId)).toMatchObject({
+      status:         'delivered',
+      end:            releaseStamp,
+      reviewOf:       identifier,
+      reviewBarRound: 1,
+    });
+  });
 });
 
 describe.skipIf(!gitIsAvailable())('the SubagentStop hook for a reviewer', () => {
-  const REVIEWED_TICKET_NUMBER = 7;
-
   /** The fixture's two calls: 10 + 90,000 and 20 + 140,000. */
   const FIXTURE_INPUT_TOKENS = 230_030;
 
@@ -186,8 +223,8 @@ describe.skipIf(!gitIsAvailable())('the SubagentStop hook for a reviewer', () =>
     for (let i = 1; i <= REVIEWED_TICKET_NUMBER; i++) await agentProgressOrFail(['ticket', 'add', `Example work ${i}`]);
   });
 
-  // A second round files a second row; the reviewer that stops is the one whose row was filed last, even one linked by its name alone.
-  test('with two review rows for the ticket, the later one known only by its name gets it and the earlier is left as it was', async () => {
+  // A second round files a second row; the reviewer that stops is the one whose row was filed last, even one filed by its name alone.
+  test('with two review rows for the ticket, the later one filed without --review-of gets it and the earlier is left as it was', async () => {
     const firstRound     = await reviewRowFiled(['Review 1 #007 — Example work 7', '--review-of', '7']);
     const transcriptPath = writeTranscript([
       userLine('agent-progress review: #007'),
@@ -201,5 +238,16 @@ describe.skipIf(!gitIsAvailable())('the SubagentStop hook for a reviewer', () =>
 
     expect(storedRow(secondRound)?.tokens).toBe(FIXTURE_INPUT_TOKENS);
     expect(storedRow(firstRound)?.tokens).toBeNull();
+  });
+});
+
+describe.skipIf(!gitIsAvailable())('task add of a review-shaped name without --review-of', () => {
+  test('stores the ticket and round the name gives at filing, and prints them in its JSON', async () => {
+    for (let i = 1; i <= REVIEWED_TICKET_NUMBER; i++) await agentProgressOrFail(['ticket', 'add', `Example work ${i}`]);
+
+    const printed = JSON.parse(await agentProgressOrFail(['task', 'add', 'Review 2 #7 — Example work 7', '--json'])) as Task;
+
+    expect(printed).toMatchObject({ reviewOf: '007', reviewBarRound: 2 });
+    expect(storedRow(printed.id)).toMatchObject({ reviewOf: '007', reviewBarRound: 2 });
   });
 });

@@ -1,7 +1,8 @@
 /**
- * The task command's seams to the retired verbs and status words, seen from the current side: every current verb reaches its own handler and
- * every current status is taken by `task update --status`, so none is ever answered as a retired word. It imports nothing from `cli/legacy/`,
- * so it still holds once that folder and its seam lines are dropped.
+ * The task command's seams to the retired verbs and status words, and to the review link a review-shaped name gives, seen from the current
+ * side: every current verb reaches its own handler and every current status is taken by `task update --status`, so none is ever answered as
+ * a retired word, and a row whose name is not review-shaped, or that is filed with `--ticket`, is stored with no review link. It imports
+ * nothing from `cli/legacy/`, so it still holds once that folder and its seam lines are dropped.
  */
 import { readFileSync } from 'node:fs';
 import { join }         from 'node:path';
@@ -64,6 +65,17 @@ describe.skipIf(!gitIsAvailable())('the task command with current words only', (
     for (const [commandLineArguments, answer] of verbsWithTheirAnswers) {
       const context = await run(commandLineArguments);
       expect(context.outputText(), commandLineArguments.join(' ')).toContain(answer);
+    }
+  });
+
+  test('a plain name, and a review-shaped name filed with --ticket, are both stored with no review link', async () => {
+    await run(['ticket', 'add', 'Example work']);
+    await run(['task', 'add', 'Draft the example page']);
+    await run(['task', 'add', 'Review 1 #1 — Example work', '--ticket', '1', '--force']);
+
+    for (const task of storedProgress().tasks) {
+      expect(task, task.name).not.toHaveProperty('reviewOf');
+      expect(task, task.name).not.toHaveProperty('reviewBarRound');
     }
   });
 

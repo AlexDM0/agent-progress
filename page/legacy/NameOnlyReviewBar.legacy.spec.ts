@@ -6,9 +6,9 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import { ReviewBarNameUtil }    from '../../src/adapters/legacy/utils/ReviewBarNameUtil.ts';
 import type { Task }            from '../../src/lib/tracker-model/@types/Task.ts';
 import type { PageTicket }      from '../../src/shared/@types/PagePayload.ts';
+import { ReviewBarNameUtil }    from '../../src/shared/legacy/utils/ReviewBarNameUtil.ts';
 import { subStateNoteOf }       from '../kanban/KanbanLaneText.ts';
 import { kanbanCardsFor }       from '../kanban/KanbanLanes.ts';
 import { taskRowsMarkup }       from '../progress/ProgressMarkup.ts';

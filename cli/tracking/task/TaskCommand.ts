@@ -11,6 +11,7 @@ import type { CommandHandler }                                          from '..
 import { openTrackerForWriting, openTrackerForWritingThenReadNextLine } from '../../TrackerWriting';
 import type { ArgumentParser }                                          from '../../arguments/ArgumentParser';
 import { RetiredWordRefusalUtil }                                       from '../../legacy/utils/RetiredWordRefusalUtil';
+import { ReviewBarNameFilingUtil }                                      from '../../legacy/utils/ReviewBarNameFilingUtil';
 import { OptionValueUtil }                                              from '../../utils/OptionValueUtil';
 import { OutputUtil }                                                   from '../../utils/OutputUtil';
 
@@ -76,6 +77,8 @@ async function addOneTask(commandArguments: ArgumentParser, context: CommandCont
   const tokens            = OptionValueUtil.tokenCountFrom(commandArguments);
   const startsNow         = commandArguments.flag('start');
   const movesTheLink      = commandArguments.flag('force');
+  // The seam: dropping cli/legacy/ files such a row without a link.
+  const reviewLinkOfTheName = ticketReference === undefined && reviewedReference === undefined ? ReviewBarNameFilingUtil.reviewLinkNamedBy(name) : undefined;
 
   const { result: task, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, ({ board, at }) => {
     const ticket = ticketReference === undefined ? undefined : board.ticketByReference(ticketReference);
@@ -103,6 +106,7 @@ async function addOneTask(commandArguments: ArgumentParser, context: CommandCont
       ...(tokens === undefined ? {} : { tokens }),
       ...(ticket === undefined ? {} : { ticketId: ticket.frontmatter.id }),
       ...(reviewedTicket === undefined ? {} : { reviewOf: { ticketId: reviewedTicket.frontmatter.id, round: TicketBodyUtil.nextReviewRoundOf(reviewedTicket.body) } }),
+      ...(reviewLinkOfTheName === undefined ? {} : { reviewOf: reviewLinkOfTheName }),
     }, at);
   });
 

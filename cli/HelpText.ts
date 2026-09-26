@@ -88,9 +88,9 @@ output never carries either.
       [--ticket <id>]         cost. --force moves --ticket's link off the row that holds it.
       [--review-of <id>]      --review-of marks the row as a review pass of that ticket: the page
       [--start]               draws it directly above the ticket's own row, latest round first. A
-      [--tokens <n>]          ticket that does not exist is refused at exit 1. A row without it
-      [--at <when>] [--force] whose name starts "Review <N> #<id>" is nested the same way; for a
-                              bundle, the first id named is the parent.
+      [--tokens <n>]          ticket that does not exist is refused at exit 1. A row filed without
+      [--at <when>] [--force] it or --ticket whose name starts "Review <N> #<id>" is stored linked
+                              the same way; for a bundle, the first id named is the parent.
 
   task start|pause|finish|approve|rereview|deliver <id> [--owner <who>] [--note <text>]
       [--tokens <n>] [--at <when>] [--force]

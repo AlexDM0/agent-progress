@@ -91,8 +91,9 @@ the ticket it reviews in its `reviewOf` field, which `status --json --full` show
 lists each ticket's row and review bars, with each bar's round, in `ticketRows`; a ticket that does
 not exist is refused at exit 1 and nothing is written. On the Progress tab each review row sits
 directly above that ticket's own row, indented one level, latest round first, so round 1 is right
-above the ticket, with its own bar, pill and times. A row without the field whose name starts
-`Review <N> #<id>` is read the same way, so a board filed before the flag nests too; a bundle's
+above the ticket, with its own bar, pill and times. A row filed without the flag or `--ticket` whose
+name starts `Review <N> #<id>` is stored with the field its name gives, and one an older version stored
+without it is read the same way, so a board filed before the flag nests too; a bundle's
 review, `Review 1 #13, #5 — …`, sits once, above the first
 ticket it names. A review whose ticket has no row on the chart — a low ticket not started, or one
 hidden as long done — is drawn where its filing puts it. `--review-of` is not `--ticket`: the ticket
