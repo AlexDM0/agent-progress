@@ -1,4 +1,4 @@
-/** The interim log sink until plan step 5 moves the log to its own file: each record lands in the progress file's `log` as its sentence. */
+/** The log sink that stores each record in the progress file's `log` as its sentence. */
 import type { LogRecord } from '../lib/tracker-model/@types/LogRecord.ts';
 import type { LogEntry }  from '../lib/tracker-model/@types/ProgressFile.ts';
 import { LogUtil }        from './utils/LogUtil.ts';
