@@ -11,9 +11,11 @@ import { TimeUtil }             from './TimeUtil.ts';
 
 const {
   calendarDateOf,
+  clockOf,
   formatDuration,
   fullInstantText,
   fullStampText,
+  monthAndDayOf,
   shortInstantText,
   shortStampText,
 } = TimeUtil;
@@ -87,6 +89,18 @@ describe('the instant forms', () => {
 
     expect(shortInstantText(lastYear, today)).toBe(fullInstantText(lastYear));
     expect(fullInstantText(lastYear)).toMatch(/^2025-\d\d-\d\d \d\d:\d\d$/);
+  });
+});
+
+describe('the local clock and month-day of a moment', () => {
+  const moment = new Date(2026, 0, 5, 7, 3);
+
+  test('clockOf pads hours and minutes to two digits', () => {
+    expect(clockOf(moment)).toBe('07:03');
+  });
+
+  test('monthAndDayOf counts months from one and pads both parts', () => {
+    expect(monthAndDayOf(moment)).toBe('01-05');
   });
 });
 

@@ -166,14 +166,14 @@ function localWallClockMinutes(epochMilliseconds: number): number {
 
 function formatTickLabel(epochMilliseconds: number, spanMinutes: number, limits: TimelineLimits): string {
   const moment     = new Date(epochMilliseconds);
-  const clockLabel = `${TimeUtil.padToTwoDigits(moment.getHours())}:${TimeUtil.padToTwoDigits(moment.getMinutes())}`;
+  const clockLabel = TimeUtil.clockOf(moment);
   if (spanFitsClockOnlyLabels(spanMinutes, limits.hoursAxisLabelLimitMinutes)) {
     return clockLabel;
   }
   if (spanMinutes <= limits.weekAxisLabelLimitMinutes) {
     return `${WEEKDAY_NAMES[moment.getDay()] ?? ''} ${clockLabel}`;
   }
-  return `${TimeUtil.padToTwoDigits(moment.getMonth() + 1)}-${TimeUtil.padToTwoDigits(moment.getDate())}`;
+  return TimeUtil.monthAndDayOf(moment);
 }
 
 function buildTicks(span: ResolvedSpan, stepMinutes: number, spanMinutes: number, limits: TimelineLimits): TimelineTick[] {

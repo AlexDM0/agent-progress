@@ -103,11 +103,12 @@ function epochMillisecondsOf(stamp: string | null | undefined): number | null {
 
 export const TimeUtil = {
   calendarDateOf,
+  clockOf,
+  monthAndDayOf,
   fullStampText,
   shortStampText,
   fullInstantText,
   shortInstantText,
   formatDuration,
   epochMillisecondsOf,
-  padToTwoDigits,
 } as const;
