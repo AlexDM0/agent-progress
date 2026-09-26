@@ -269,17 +269,23 @@ describe('substituteTemplateTokens', () => {
   });
 
   test.each([
-    ['a token that is gone', 'a __PROGRESS__ b'],
-    ['a token that occurs twice', 'a __PROGRESS__ b __TICKETS__ c __TICKETS__'],
-  ])('refuses %s as unrepaired', (_description, template) => {
-    let status: string | false = false;
+    ['a token that is gone', 'a __PROGRESS__ b', 0],
+    ['a token that occurs twice', 'a __PROGRESS__ b __TICKETS__ c __TICKETS__', 2],
+  ])('refuses %s as unrepaired, carrying the token and how often it occurs', (_description, template, occurrenceCount) => {
+    let caught: unknown = null;
     try {
       substituteTemplateTokens(template, values);
     } catch (failure) {
-      status = refusalIsOperationRefusal(failure) && failure.status;
+      caught = failure;
     }
 
-    expect(status).toBe('unrepaired');
+    expect(refusalIsOperationRefusal(caught) ? caught.status : null).toBe('unrepaired');
+    expect(refusalIsOperationRefusal(caught) ? caught.detail : null).toEqual({
+      kind:             'template-token-not-unique',
+      templateFilePath: 'resources/template.html',
+      token:            '__TICKETS__',
+      occurrenceCount,
+    });
   });
 
   test('does not find a token inside the text it just injected', () => {

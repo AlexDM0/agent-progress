@@ -86,10 +86,12 @@ export function substituteTemplateTokens(template: string, values: Readonly<Reco
   for (const token of Object.keys(values)) {
     const occurrences = pieces.filter((piece) => piece === token).length;
     if (occurrences !== 1) {
-      throw new OperationRefusal(
-        'unrepaired',
-        `the page template resources/${TEMPLATE_FILE_NAME} holds ${occurrences} occurrences of ${token}, not exactly one`,
-      );
+      throw new OperationRefusal('unrepaired', {
+        kind:             'template-token-not-unique',
+        templateFilePath: `resources/${TEMPLATE_FILE_NAME}`,
+        token,
+        occurrenceCount:  occurrences,
+      });
     }
   }
   return pieces.map((piece) => (Object.hasOwn(values, piece) ? values[piece] ?? '' : piece)).join('');

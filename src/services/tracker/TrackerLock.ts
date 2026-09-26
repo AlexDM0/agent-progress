@@ -227,7 +227,7 @@ export const LockGenerationSteps = {
 /**
  * Run `action` with this tracker's lock held, releasing it however `action` ends. A held record is taken over once its
  * process is gone or its stamp is more than `LIMITS.LOCK_STALE_MILLISECONDS` old, live holder or not; one stamped in the future
- * by a live holder never goes stale. Throws `OperationRefusal('unrepaired')` — exit 2 — when the retry budget runs out.
+ * by a live holder never goes stale. Throws `OperationRefusal('unrepaired')`, its detail `tracker-lock-held` — exit 2 — when the retry budget runs out.
  */
 export async function withLock<ActionResult>(
   workspace: Workspace,
@@ -250,10 +250,7 @@ export async function withLock<ActionResult>(
   }
 
   if (heldGeneration === null) {
-    throw new OperationRefusal(
-      'unrepaired',
-      `Another agent-progress command is holding ${lockDirectoryPath} and did not release it. If nothing else is running, remove that path and try again.`,
-    );
+    throw new OperationRefusal('unrepaired', { kind: 'tracker-lock-held', lockDirectoryPath });
   }
 
   try {

@@ -71,6 +71,12 @@ test('a refusal built from an unreadable tracker carries the reading, and its me
   expect(refusal.message).toBe('unreadable-tracker');
 });
 
+test('a refusal built from a held lock carries the lock path, and its message is only the kind', () => {
+  const refusal = new OperationRefusal('unrepaired', { kind: 'tracker-lock-held', lockDirectoryPath: '/example/.agent-progress/.lock' });
+  expect(refusal.detail).toEqual({ kind: 'tracker-lock-held', lockDirectoryPath: '/example/.agent-progress/.lock' });
+  expect(refusal.message).toBe('tracker-lock-held');
+});
+
 test('a refusal built from words carries no detail, so its message is what gets printed', () => {
   expect(new OperationRefusal('refused', 'no tracker here').detail).toBeNull();
 });

@@ -1,6 +1,7 @@
 /**
  * What a command line does to the exit code: 0 for the reference, 1 for an unknown command or an actionable refusal, 2 for anything else.
  */
+import { resolve } from 'node:path';
 import {
   afterAll,
   beforeAll,
@@ -118,6 +119,18 @@ describe('a command that does not exist', () => {
     expect(await runCommandLine(['taks', 'add', 'Review pass'], context)).toBe(1);
     expect(context.errorText()).toContain('Unknown command: "taks".');
     expect(context.errorText()).toContain('Usage: agent-progress <command>');
+    expect(context.outputText()).toBe('');
+  });
+});
+
+describe('a command run where no tracker is', () => {
+  test('prints the no-tracker refusal byte for byte on standard error and exits 1', async () => {
+    const context = capturingContext();
+    expect(await runCommandLine(['status'], context)).toBe(1);
+    expect(context.errorText()).toBe(
+      `No agent-progress tracker was found in ${resolve(untrackedDirectory)} or any directory above it. `
+      + 'Run `agent-progress init` in the repository you want tracked.',
+    );
     expect(context.outputText()).toBe('');
   });
 });

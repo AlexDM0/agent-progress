@@ -1,7 +1,7 @@
 /**
  * The typed refusal library code throws instead of exiting, since nothing under `lib/` or `src/` calls `process.exit`: `cli/Main.ts` maps
  * `refused` to exit 1, a refusal the caller can act on, and `unrepaired` to exit 2, a state the tool will not repair on its own. A refusal
- * carries either its words or a detail, a reason code with its facts, that the command line words.
+ * thrown from `src/` carries a detail, a reason code with its facts and no words, that the command line words; only `cli/` builds one from words.
  */
 import type { BoardRefusalDetail } from '../lib/tracker-model/BoardRefusal.ts';
 import type { UnreadableTracker }  from './@types/UnreadableTracker.ts';
@@ -10,7 +10,11 @@ export type OperationRefusalStatus = 'refused' | 'unrepaired';
 
 export type OperationRefusalDetail =
   | { kind: 'board-refusal'; boardRefusal: BoardRefusalDetail }
-  | { kind: 'unreadable-tracker'; reading: UnreadableTracker };
+  | { kind: 'unreadable-tracker'; reading: UnreadableTracker }
+  | { kind: 'no-tracker-at-override'; overrideDirectory: string }
+  | { kind: 'no-tracker-found'; searchedFrom: string }
+  | { kind: 'tracker-lock-held'; lockDirectoryPath: string }
+  | { kind: 'template-token-not-unique'; templateFilePath: string; token: string; occurrenceCount: number };
 
 function reasonCodeOf(detail: OperationRefusalDetail): string {
   return detail.kind === 'board-refusal' ? detail.boardRefusal.reason : detail.kind;

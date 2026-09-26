@@ -170,12 +170,13 @@ test('a freshly written unparseable record is waited for and then refused, rathe
 
   expect(refusalIsOperationRefusal(caught)).toBe(true);
   expect(refusalIsOperationRefusal(caught) ? caught.status : null).toBe('unrepaired');
-  expect(refusalIsOperationRefusal(caught) ? caught.message : '').toContain(workspace.lockDirectoryPath);
+  expect(refusalIsOperationRefusal(caught) ? caught.detail : null).toEqual({ kind: 'tracker-lock-held', lockDirectoryPath: workspace.lockDirectoryPath });
   expect(readFileSync(generationPathFor(workspace.lockDirectoryPath, 1), 'utf8'), 'the record it refused to take is left exactly as it was').toBe('');
 }, REFUSAL_TEST_TIMEOUT_MILLISECONDS);
 
 // An older version wrote the lock as a plain file at this path; one still held must never be treated as free.
-test('a lock path that is a plain file refuses the same way, and the message does not call it a file', async () => {
+// The wording, which calls it a path to remove and never a file, is pinned in `src/adapters/utils/OperationRefusalWordingUtil.spec.ts`.
+test('a lock path that is a plain file refuses the same way, as a held lock at that path', async () => {
   const workspace = scratchWorkspace('lock-plain-file');
   writeFileSync(workspace.lockDirectoryPath, '');
 
@@ -187,10 +188,8 @@ test('a lock path that is a plain file refuses the same way, and the message doe
   }
 
   expect(refusalIsOperationRefusal(caught)).toBe(true);
-  const message = refusalIsOperationRefusal(caught) ? caught.message : '';
-  expect(message).toContain(workspace.lockDirectoryPath);
-  expect(message).toContain('remove that path');
-  expect(message, 'the path is not necessarily a file').not.toContain('that file');
+  expect(refusalIsOperationRefusal(caught) ? caught.status : null).toBe('unrepaired');
+  expect(refusalIsOperationRefusal(caught) ? caught.detail : null).toEqual({ kind: 'tracker-lock-held', lockDirectoryPath: workspace.lockDirectoryPath });
   expect(readFileSync(workspace.lockDirectoryPath, 'utf8')).toBe('');
 }, REFUSAL_TEST_TIMEOUT_MILLISECONDS);
 

@@ -57,14 +57,14 @@ function rootFoundByAChildProcess(childEnvironment: Record<string, string>, star
   return JSON.parse(finished.stdout.toString().trim()) as string | null;
 }
 
-function refusalFromAChildProcess(childEnvironment: Record<string, string>, startDirectory: string): string {
+function refusalDetailFromAChildProcess(childEnvironment: Record<string, string>, startDirectory: string): unknown {
   const source = [
     `const loaded = await import(${JSON.stringify(WORKSPACE_MODULE_PATH)});`,
     'try {',
     `  loaded.requireWorkspace(${JSON.stringify(startDirectory)});`,
     '  console.log(JSON.stringify("it found a tracker and refused nothing"));',
     '} catch (refusal) {',
-    '  console.log(JSON.stringify(refusal.message));',
+    '  console.log(JSON.stringify({ status: refusal.status, detail: refusal.detail }));',
     '}',
   ].join('\n');
   const finished = Bun.spawnSync([process.execPath, '-e', source], {
@@ -73,7 +73,7 @@ function refusalFromAChildProcess(childEnvironment: Record<string, string>, star
     stderr: 'pipe',
   });
   if (finished.exitCode !== 0) throw new Error(`the child process failed: ${finished.stderr.toString().trim()}`);
-  return JSON.parse(finished.stdout.toString().trim()) as string;
+  return JSON.parse(finished.stdout.toString().trim()) as unknown;
 }
 
 test('every path a tracker owns is derived from one root and lands inside it', () => {
@@ -151,7 +151,7 @@ test('a start directory that does not exist finds nothing rather than throwing',
   expect(findWorkspace(removedDirectory)).toBeNull();
 });
 
-test('requireWorkspace refuses with an actionable status and names the command that fixes it', () => {
+test('requireWorkspace refuses with an actionable status and the directory it searched from, for the command line to word', () => {
   const plainDirectory = scratchDirectory('workspace-refusal');
   let caught: unknown = null;
   try {
@@ -161,8 +161,7 @@ test('requireWorkspace refuses with an actionable status and names the command t
   }
   expect(refusalIsOperationRefusal(caught)).toBe(true);
   expect(refusalIsOperationRefusal(caught) ? caught.status : null).toBe('refused');
-  expect(refusalIsOperationRefusal(caught) ? caught.message : '').toContain('agent-progress init');
-  expect(refusalIsOperationRefusal(caught) ? caught.message : '').toContain(plainDirectory);
+  expect(refusalIsOperationRefusal(caught) ? caught.detail : null).toEqual({ kind: 'no-tracker-found', searchedFrom: plainDirectory });
 });
 
 test('requireWorkspace hands back the tracker when there is one, rather than refusing defensively', () => {
@@ -194,19 +193,20 @@ test('an override naming a directory with no tracker finds nothing, instead of f
   expect(rootFoundByAChildProcess({ AGENT_PROGRESS_ROOT: emptyDirectory }, walkableRoot)).toBeNull();
 });
 
-test('the refusal under an override names the override path and the variable, and not the directory the command ran in', () => {
+test('the refusal under an override carries the override path as its only fact, and not the directory the command ran in', () => {
   const walkableRoot   = trackerAt(scratchDirectory('workspace-override-message-walkable'));
   const emptyDirectory = scratchDirectory('workspace-override-message-empty');
 
-  const message = refusalFromAChildProcess({ AGENT_PROGRESS_ROOT: emptyDirectory }, walkableRoot);
-
-  expect(message).toContain(emptyDirectory);
-  expect(message).toContain('AGENT_PROGRESS_ROOT');
-  expect(message).toContain('agent-progress init');
-  expect(message, 'the working directory had nothing to do with the answer').not.toContain(walkableRoot);
+  expect(refusalDetailFromAChildProcess({ AGENT_PROGRESS_ROOT: emptyDirectory }, walkableRoot)).toEqual({
+    status: 'refused',
+    detail: { kind: 'no-tracker-at-override', overrideDirectory: emptyDirectory },
+  });
 });
 
-test('the refusal without an override still names the directory that was searched from', () => {
+test('the refusal without an override still carries the directory that was searched from', () => {
   const plainDirectory = scratchDirectory('workspace-no-override-message');
-  expect(refusalFromAChildProcess({}, plainDirectory)).toContain(plainDirectory);
+  expect(refusalDetailFromAChildProcess({}, plainDirectory)).toEqual({
+    status: 'refused',
+    detail: { kind: 'no-tracker-found', searchedFrom: plainDirectory },
+  });
 });

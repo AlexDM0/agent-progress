@@ -78,23 +78,19 @@ export function findWorkspace(startDirectory: string): Workspace | null {
   return directoryHoldsATracker(discovery.rootDirectory) ? workspacePathsFor(discovery.rootDirectory) : null;
 }
 
-/** The one place the "no tracker here" refusal is written, so every command exits 1 with a message naming `agent-progress init`. */
+/**
+ * The one place the "no tracker here" refusal is thrown, so every command exits 1: with the directory AGENT_PROGRESS_ROOT names when it is
+ * set, otherwise with the directory the search started from, for the command line to word.
+ */
 export function requireWorkspace(startDirectory: string): Workspace {
   const workspace = findWorkspace(startDirectory);
   if (workspace !== null) return workspace;
 
   const overrideRoot = agentProgressRootOverride();
   if (overrideRoot !== undefined) {
-    throw new OperationRefusal(
-      'refused',
-      `No agent-progress tracker was found in ${resolve(overrideRoot)}, which AGENT_PROGRESS_ROOT names. `
-      + 'Run `agent-progress init` there, or unset AGENT_PROGRESS_ROOT to search upwards from the current directory instead.',
-    );
+    throw new OperationRefusal('refused', { kind: 'no-tracker-at-override', overrideDirectory: resolve(overrideRoot) });
   }
 
   const searchedFrom = existsSync(startDirectory) ? resolve(startDirectory) : startDirectory;
-  throw new OperationRefusal(
-    'refused',
-    `No agent-progress tracker was found in ${searchedFrom} or any directory above it. Run \`agent-progress init\` in the repository you want tracked.`,
-  );
+  throw new OperationRefusal('refused', { kind: 'no-tracker-found', searchedFrom });
 }
