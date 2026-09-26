@@ -1,7 +1,8 @@
 /**
  * `init` beside `AGENT_PROGRESS_ROOT`, through the real binary because no spec may set the environment in-process. The case that
  * matters is an override naming a folder without a tracker while `init` runs in a tracked repository: it once wrote an empty store over
- * that repository's rows and log. Every case compares the progress files' bytes, since an exit code alone cannot show nothing was lost.
+ * that repository's rows and log. Every case compares the bytes of the tracker's progress.json and log.jsonl together, since an exit code
+ * alone cannot show nothing was lost.
  */
 import { createHash }                             from 'node:crypto';
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
@@ -31,8 +32,11 @@ function progressFilePathOf(repositoryDirectory: string): string {
   return join(repositoryDirectory, '.agent-progress', 'progress.json');
 }
 
-function progressFileHashOf(repositoryDirectory: string): string {
-  return createHash('sha256').update(readFileSync(progressFilePathOf(repositoryDirectory))).digest('hex');
+function trackerFilesHashOf(repositoryDirectory: string): string {
+  return createHash('sha256')
+    .update(readFileSync(progressFilePathOf(repositoryDirectory)))
+    .update(readFileSync(join(repositoryDirectory, '.agent-progress', 'log.jsonl')))
+    .digest('hex');
 }
 
 async function trackedRepositoryWithARowAndALogLine(): Promise<string> {
@@ -49,7 +53,7 @@ describe.skipIf(!gitIsAvailable())('init with AGENT_PROGRESS_ROOT set', () => {
   test('an override naming an untracked repository is refused at exit 1, naming both, and neither progress file changes', async () => {
     const trackedDirectory   = await trackedRepositoryWithARowAndALogLine();
     const untrackedDirectory = scratchRepository('init-override-untracked');
-    const hashBefore         = progressFileHashOf(trackedDirectory);
+    const hashBefore         = trackerFilesHashOf(trackedDirectory);
 
     const result = await runAgentProgress(['init', '--project', 'Example Agency'], {
       currentDirectory: trackedDirectory,
@@ -60,13 +64,13 @@ describe.skipIf(!gitIsAvailable())('init with AGENT_PROGRESS_ROOT set', () => {
     expect(result.standardError).toContain('AGENT_PROGRESS_ROOT');
     expect(result.standardError).toContain(trackedDirectory);
     expect(result.standardError).toContain(untrackedDirectory);
-    expect(progressFileHashOf(trackedDirectory)).toBe(hashBefore);
+    expect(trackerFilesHashOf(trackedDirectory)).toBe(hashBefore);
     expect(existsSync(progressFilePathOf(untrackedDirectory))).toBe(false);
   });
 
   test('an override naming the tracked repository itself refreshes it like update, at exit 0, with its progress file unchanged', async () => {
     const trackedDirectory = await trackedRepositoryWithARowAndALogLine();
-    const hashBefore       = progressFileHashOf(trackedDirectory);
+    const hashBefore       = trackerFilesHashOf(trackedDirectory);
 
     const result = await runAgentProgress(['init'], {
       currentDirectory: trackedDirectory,
@@ -75,24 +79,24 @@ describe.skipIf(!gitIsAvailable())('init with AGENT_PROGRESS_ROOT set', () => {
 
     expect(result.exitCode).toBe(0);
     expect(result.standardOutput).toContain('agent-progress is already initialised');
-    expect(progressFileHashOf(trackedDirectory)).toBe(hashBefore);
+    expect(trackerFilesHashOf(trackedDirectory)).toBe(hashBefore);
   });
 
   test('with the override unset, init in a tracked repository still refreshes it at exit 0, its progress file unchanged', async () => {
     const trackedDirectory = await trackedRepositoryWithARowAndALogLine();
-    const hashBefore       = progressFileHashOf(trackedDirectory);
+    const hashBefore       = trackerFilesHashOf(trackedDirectory);
 
     const result = await runAgentProgress(['init'], { currentDirectory: trackedDirectory, environment: {} });
 
     expect(result.exitCode).toBe(0);
     expect(result.standardOutput).toContain('agent-progress is already initialised');
-    expect(progressFileHashOf(trackedDirectory)).toBe(hashBefore);
+    expect(trackerFilesHashOf(trackedDirectory)).toBe(hashBefore);
   });
 
   test('--root naming a different directory from the override is refused at exit 1, naming both, and writes nothing there', async () => {
     const trackedDirectory   = await trackedRepositoryWithARowAndALogLine();
     const untrackedDirectory = scratchRepository('init-override-root');
-    const hashBefore         = progressFileHashOf(trackedDirectory);
+    const hashBefore         = trackerFilesHashOf(trackedDirectory);
 
     const result = await runAgentProgress(['init', '--root', untrackedDirectory], {
       currentDirectory: trackedDirectory,
@@ -104,7 +108,7 @@ describe.skipIf(!gitIsAvailable())('init with AGENT_PROGRESS_ROOT set', () => {
     expect(result.standardError).toContain(trackedDirectory);
     expect(result.standardError).toContain(untrackedDirectory);
     expect(existsSync(join(untrackedDirectory, '.agent-progress'))).toBe(false);
-    expect(progressFileHashOf(trackedDirectory)).toBe(hashBefore);
+    expect(trackerFilesHashOf(trackedDirectory)).toBe(hashBefore);
   });
 
   test('--root naming the directory the override names creates the tracker there at exit 0', async () => {

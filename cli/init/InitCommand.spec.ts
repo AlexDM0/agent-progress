@@ -65,6 +65,20 @@ describe.skipIf(!gitIsAvailable())('initialising a repository', () => {
     expect(context.errorText()).toBe('');
   });
 
+  // A new tracker's log starts empty, so a log left from a removed tracker is never adopted as its history.
+  test('a fresh init empties a log.jsonl left from a removed tracker', async () => {
+    const repositoryDirectory = scratchRepository();
+    const logFilePath         = join(repositoryDirectory, '.agent-progress', 'log.jsonl');
+    mkdirSync(join(repositoryDirectory, '.agent-progress'), { recursive: true });
+    writeFileSync(logFilePath, '{"at":"2026-09-18T08:00:00+02:00","kind":"note","fields":{"text":"A line from a removed tracker"}}\n');
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+
+    expect(await runCommandLine(['init', '--project', 'Example Agency'], context)).toBe(0);
+
+    expect(context.outputText()).not.toContain('already initialised');
+    expect(readFileSync(logFilePath, 'utf8')).toBe('');
+  });
+
   test('the project name defaults to the directory the tracker is in', async () => {
     const repositoryDirectory = scratchRepository();
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
