@@ -31,7 +31,7 @@ picks the change up at its next agent's return and is never stopped or relaunche
 output never carries either.
 
   init                        Create the tracker here: \`.agent-progress/\` with an empty progress
-      [--project <name>]      file, a \`tickets/\` folder and \`agent-brief.md\` — the brief to fill in
+      [--project <name>]      file and log, a \`tickets/\` folder and \`agent-brief.md\` — the brief to fill in
       [--root <path>]         before spawning an implementing agent — a \`.gitignore\` entry for it,
       [--no-claude-md]        a managed block in the repository's CLAUDE.md telling an agent to track
       [--no-hooks]            its work through this tool, the SubagentStop hook below, and the
