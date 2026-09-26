@@ -4,7 +4,7 @@ import { LegacyStatusUtil }                              from '../../src/adapter
 import { createFileAtomically, writeFileAtomically }     from '../../src/lib/atomic-file/AtomicFile';
 import type { DispatcherState, ProgressFile, ViewRange } from '../../src/lib/tracker-model/@types/ProgressFile';
 import type { TaskPhase }                                from '../../src/lib/tracker-model/@types/Task';
-import { DEFAULT_CONCURRENCY_LIMIT }                     from '../../src/lib/tracker-model/constants/ConcurrencyLimits';
+import { DEFAULT_CONCURRENCY_LIMIT_AGENTS }              from '../../src/lib/tracker-model/constants/ConcurrencyLimits';
 import { DISPATCHER_STATES }                             from '../../src/lib/tracker-model/constants/DispatcherStates';
 import { FIRST_REPEAT_REVIEW_ROUND }                     from '../../src/lib/tracker-model/constants/ReviewRounds';
 import { TASK_STATUSES }                                 from '../../src/lib/tracker-model/constants/Statuses';
@@ -33,7 +33,7 @@ export function createEmptyProgressFile(input: { project: string; startedAt: str
     startedAt:        input.startedAt,
     view:             { kind: 'auto' },
     nextTaskId:       FIRST_TASK_ID,
-    concurrencyLimit: DEFAULT_CONCURRENCY_LIMIT,
+    concurrencyLimit: DEFAULT_CONCURRENCY_LIMIT_AGENTS,
     tasks:            [],
     log:              [],
   };

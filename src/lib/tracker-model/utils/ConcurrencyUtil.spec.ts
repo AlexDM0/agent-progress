@@ -5,11 +5,11 @@
  */
 import { expect, test } from 'bun:test';
 
-import type { Task }                                                   from '../@types/Task';
-import { CONCURRENCY_LIMIT_CEILING_AGENTS, DEFAULT_CONCURRENCY_LIMIT } from '../constants/ConcurrencyLimits';
-import { ConcurrencyUtil }                                             from './ConcurrencyUtil';
-import { TaskFilingUtil, type TaskFiling }                             from './TaskFilingUtil';
-import { TaskTransitionUtil }                                          from './TaskTransitionUtil';
+import type { Task }                                                          from '../@types/Task';
+import { CONCURRENCY_LIMIT_CEILING_AGENTS, DEFAULT_CONCURRENCY_LIMIT_AGENTS } from '../constants/ConcurrencyLimits';
+import { ConcurrencyUtil }                                                    from './ConcurrencyUtil';
+import { TaskFilingUtil, type TaskFiling }                                    from './TaskFilingUtil';
+import { TaskTransitionUtil }                                                 from './TaskTransitionUtil';
 
 const { agentsInFlightOf, concurrencyOf } = ConcurrencyUtil;
 
@@ -63,7 +63,7 @@ test('a bundle whose rows finish one at a time counts as one agent until its las
 
 // Every tracker filed before the limit existed stores none, and must still read a limit that lets a claim through.
 test('a tracker that never stored a limit reads the default one', () => {
-  expect(concurrencyOf([], undefined)).toEqual({ limit: DEFAULT_CONCURRENCY_LIMIT, agentsInFlight: 0, freeSlots: DEFAULT_CONCURRENCY_LIMIT });
+  expect(concurrencyOf([], undefined)).toEqual({ limit: DEFAULT_CONCURRENCY_LIMIT_AGENTS, agentsInFlight: 0, freeSlots: DEFAULT_CONCURRENCY_LIMIT_AGENTS });
 });
 
 // An older tracker may hold a limit the `concurrency` command would now refuse; it reads as the ceiling rather than failing.
