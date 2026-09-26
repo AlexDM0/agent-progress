@@ -21,6 +21,7 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
+import { LogFileIngestion }  from '../../src/adapters/log/LogFileIngestion';
 import type { ProgressFile } from '../../src/lib/tracker-model/@types/ProgressFile';
 import { LIMITS }            from '../../src/shared/constants/Limits';
 import {
@@ -166,6 +167,21 @@ describe.skipIf(!gitIsAvailable())('a subagent that stopped', () => {
     expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
 
     expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toContain('input 12k (cache read 9k)');
+  });
+
+  // The log's ingestion refuses a count that is not whole, so a stored fraction would leave every later command unable to read the log.
+  test('a fractional token count in the transcript is logged as zero, and the log stays readable for the next command', async () => {
+    transcriptPath = writeTranscript([assistantLine('msg_one', 10.5, 9000, 500)]);
+
+    expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput()))).toBe(0);
+
+    const reading = new LogFileIngestion(join(repositoryDirectory, '.agent-progress', 'log.jsonl')).read();
+    if (reading.verdict !== 'readable') throw new Error(`the log is ${reading.verdict} after the hook ran`);
+    const agentStopped = reading.records.at(-1);
+    if (agentStopped?.kind !== 'agent-stopped') throw new Error('the hook logged no agent-stopped record');
+    expect(agentStopped.fields.totalInputTokens).toBe(9000);
+    expect(agentStopped.fields.endContextTokens).toBe(9000);
+    expect(await runCommandLine(['status'], contextWith(''))).toBe(0);
   });
 });
 

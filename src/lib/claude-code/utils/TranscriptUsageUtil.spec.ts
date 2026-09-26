@@ -1,7 +1,8 @@
 /**
- * The one rule this module exists for — a call is a `message.id`, not a line — and the four shapes a
- * real transcript carries that would otherwise be read as an error: a line that is not JSON, an entry
- * that is not an assistant turn, an assistant turn with no usage, and a message with no id at all.
+ * The one rule this module exists for — a call is a `message.id`, not a line — and the shapes a
+ * transcript can carry that would otherwise be read as an error: a line that is not JSON, an entry
+ * that is not an assistant turn, an assistant turn with no usage, a message with no id at all, and a
+ * usage count that is missing, not a number or not a whole count of at least zero.
  * Every transcript here is constructed, because the claim is about the arithmetic and not about any
  * particular recorded session.
  */
@@ -134,6 +135,21 @@ describe('the lines a transcript carries that are not calls', () => {
     expect(totals.apiCallCount).toBe(1);
     expect(totals.inputTokens).toBe(0);
     expect(totals.outputTokens).toBe(9);
+  });
+
+  test('a fractional or negative usage count reads as zero, like any other count that is not whole', () => {
+    const transcript = JSON.stringify({
+      type:    'assistant',
+      message: { id: 'msg_one', usage: { input_tokens: 10.5, cache_read_input_tokens: -4, output_tokens: 9 } },
+    });
+
+    const totals = summariseTranscriptUsage(transcript, OVERSIZED_CONTEXT_THRESHOLD_TOKENS);
+
+    expect(totals.apiCallCount).toBe(1);
+    expect(totals.inputTokens).toBe(0);
+    expect(totals.cacheReadInputTokens).toBe(0);
+    expect(totals.outputTokens).toBe(9);
+    expect(totals.endContextTokens).toBe(0);
   });
 
   /** Zero calls is a verdict a caller acts on, so it has to come back as zero and not as a throw. */

@@ -70,10 +70,10 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
   return value as Record<string, unknown>;
 }
 
-/** Anything that is not a finite number reads as 0, so a transcript written by a newer harness costs a field rather than the whole summary. */
+/** Anything that is not a whole count of at least 0 reads as 0, so a transcript written by a newer harness costs a field rather than the whole summary. */
 function readTokenCount(usage: Record<string, unknown>, key: string): number {
   const value = usage[key];
-  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : 0;
 }
 
 function parsedJsonLine(line: string): unknown {
