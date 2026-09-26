@@ -55,7 +55,7 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  cli/
   it, so it stays DOM-safe. The `lib/` layers import it like any `src/lib/` package.
 - `cli/testing/` is imported only by `cli/` specs.
 - `src/adapters/` imports only `src/lib/` and `src/shared/`; a `src/adapters/` spec may also import `src/testing/`.
-  What remains in `lib/` and `cli/` may import `src/adapters/` until plan step 6 moves the listing and the pipeline.
+  `cli/` imports `src/adapters/` as a feature does.
 - `src/services/tracker/` imports `src/lib/`, `src/shared/`, `src/adapters/` and `src/services/render/`;
   `src/services/render/` imports only `src/lib/`, `src/shared/` and `src/adapters/`; a `src/services/` spec may import
   `src/testing/`. `cli/` imports `src/services/` as a feature does.
@@ -86,7 +86,8 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  cli/
   code throws `OperationRefusal` (`src/shared/OperationRefusal.ts`: `refused` or `unrepaired`), never writes to the
   terminal and never exits.
 - A Board rule throws `BoardRefusal` (`src/lib/tracker-model/BoardRefusal.ts`): a reason code with its facts and no
-  wording. The pipeline in `cli/CommandSupport.ts` wraps it as a `refused` `OperationRefusal` carrying its detail.
+  wording. The tracker service's pipeline (`src/services/tracker/TrackerPipeline.ts`) wraps it as a `refused`
+  `OperationRefusal` carrying its detail.
 - An `OperationRefusal` carries either its message or a `detail`, a Board refusal or an unreadable tracker, as a reason
   code with its facts and no words. Wherever the command line prints a refusal (`cli/Main.ts`, `release --json`'s
   `detail`, the hook's sentence), it words it through `src/adapters/utils/OperationRefusalWordingUtil.ts`; a service
@@ -192,12 +193,14 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  cli/
   never exits 0 or prints help into a parsed pipe.
 - Adding a command is an entry in `cli/CommandTable.ts`, a block in `cli/HelpText.ts` and a folder;
   `cli/CommandTable.spec.ts` and `cli/HelpText.spec.ts` fail until all three exist.
-- Every mutating command writes through `openTrackerForWriting` in `cli/CommandSupport.ts`, and none repeats it:
+- Every mutating command writes through `writeTracker` in `src/services/tracker/TrackerPipeline.ts`, reached through
+  `openTrackerForWriting` in `cli/CommandSupport.ts`, and none repeats it:
   lock; read the progress file, its log and the tickets into a Board; change them through it; write the progress file,
   then the tickets the Board changed, then log.jsonl; then render from disk, all under the lock. Ticket files follow
   the progress file so it is never behind them, and the log comes last so a line never describes an unstored change;
-  a log taken over from a version 1 progress file also has its notes copied first. `update` and `init` rewrite older tracker files
-  through the same two halves. `status` takes no lock and renders nothing.
+  a log taken over from a version 1 progress file also has its notes copied first. `init` creates a tracker through
+  `createTracker` in `src/services/tracker/TrackerCreation.ts`; `update` and `init` rewrite older tracker files through
+  `rewriteOlderTrackerFiles`, the same two halves. `status` takes no lock and renders nothing.
 
 ### Tickets
 
@@ -268,7 +271,7 @@ setup.sh                    machine setup: Bun, bun install and bun link, and th
 cli/                        the command surface: dispatch, arguments, help, one folder per command; cli/testing/ is test-only
 dispatcher/                 the dispatcher policy in TypeScript, bundled into a Workflow script; dispatcher/testing/ is
                             test-only: the harness, the bundle builder, the frozen table
-lib/                        everything the commands do, in the layers above
+lib/                        what is left of the old layers: the next-line and rework utils and the comment syntaxes
 page/                       the browser page: its sets, its own DOM-only tsconfig and spec tsconfig
 resources/                  files read at runtime: the page's HTML template
 src/                        the target layout's code, filled step by step as the migration plan moves it
@@ -277,7 +280,7 @@ src/                        the target layout's code, filled step by step as the
                             tracker-model (@types/Task.ts; Board.ts is its aggregate), utils
   src/adapters/             the boundary, one folder per stored format (progress, tickets and log) plus the shared utils:
                             reading, writing and mapping what the tracker stores, and the wording of log records and Board refusals
-  src/services/             app-wide services, one folder each
+  src/services/             tracker (discovery, the lock, reading, the write pipeline, creation) and render (the page document)
   src/shared/               app-specific code several parts use: the environment reader, the refusal, LIMITS,
                             the page payload types, ticket numbers
   src/testing/              test-only helpers several parts use: the scratch workspace, the tracker isolation check, the Board fixtures

@@ -35,6 +35,7 @@ import {
   readTicket,
   type MalformedTicketFile
 }                                                     from '../../src/services/tracker/TicketStore';
+import type { TrackerChange }               from '../../src/services/tracker/TrackerPipeline';
 import { requireWorkspace, type Workspace } from '../../src/services/tracker/Workspace';
 import { OperationRefusal }                 from '../../src/shared/OperationRefusal';
 import { LIMITS }                           from '../../src/shared/constants/Limits';
@@ -49,8 +50,7 @@ import {
   printEntityThenNextLine,
   reportIgnoredTicketFiles,
   ticketDocumentOf,
-  tokenCountFrom,
-  type TrackerChange
+  tokenCountFrom
 } from '../CommandSupport';
 import type { CommandHandler } from '../CommandTable';
 import type { ArgumentParser } from '../arguments/ArgumentParser';

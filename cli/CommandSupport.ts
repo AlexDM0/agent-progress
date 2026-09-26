@@ -1,15 +1,5 @@
-/**
- * The sequence every mutating command follows, written once: take the lock of `src/services/tracker/TrackerLock.ts`; read the progress file, its log
- * and the tickets into a Board; mutate; write the progress file, then the tickets the Board changed, then log.jsonl, then render through
- * `src/services/tracker/DashboardRendering.ts` — all inside the lock, in that order, so no older render lands last and the progress file is never
- * behind the tickets. A log taken over from a version 1 progress file also has its notes copied first, so they are on disk before that file stops
- * holding them.
- */
+/** The command line's shared printing and option parsing, and the adapters that run the tracker service for a command. */
 import { NextLineUtil }                       from '../lib/utils/NextLineUtil';
-import { createLogFileSink }                  from '../src/adapters/log/LogFileSink';
-import { createLogFileWriter }                from '../src/adapters/log/LogFileWriter';
-import { createProgressFileWriter }           from '../src/adapters/progress/ProgressFileWriter';
-import { createTicketFileWriter }             from '../src/adapters/tickets/TicketFileWriter';
 import { TrackerReadingWordingUtil }          from '../src/adapters/utils/TrackerReadingWordingUtil';
 import type { Concurrency }                   from '../src/lib/tracker-model/@types/Concurrency';
 import type { DispatcherState, ProgressFile } from '../src/lib/tracker-model/@types/ProgressFile';
@@ -19,32 +9,24 @@ import type {
   Ticket,
   TicketPriority
 } from '../src/lib/tracker-model/@types/Ticket';
-import { Board }                                                                  from '../src/lib/tracker-model/Board';
-import { refusalIsBoardRefusal }                                                  from '../src/lib/tracker-model/BoardRefusal';
-import { createLogger }                                                           from '../src/lib/tracker-model/Logger';
-import { TicketDefaultsUtil }                                                     from '../src/lib/tracker-model/utils/TicketDefaultsUtil';
-import { TimeUtil }                                                               from '../src/lib/utils/TimeUtil';
-import { TokenCountUtil }                                                         from '../src/lib/utils/TokenCountUtil';
-import { renderDashboard, renderDashboardUnderLock, type DashboardRenderOutcome } from '../src/services/tracker/DashboardRendering';
-import { deleteAllTickets, type MalformedTicketFile }                             from '../src/services/tracker/TicketStore';
-import { withLock }                                                               from '../src/services/tracker/TrackerLock';
-import { readTracker, requireTracker, type TrackerContents }                      from '../src/services/tracker/TrackerReader';
-import { requireWorkspace, type Workspace }                                       from '../src/services/tracker/Workspace';
-import { OperationRefusal }                                                       from '../src/shared/OperationRefusal';
-import { LIMITS }                                                                 from '../src/shared/constants/Limits';
-import type { CommandContext }                                                    from './CommandContext';
-import type { ArgumentParser }                                                    from './arguments/ArgumentParser';
-
-export interface TrackerChange {
-  board:                          Board;
-  workspace:                      Workspace;
-  at:                             string;
-  malformedTickets:               readonly MalformedTicketFile[];
-  /** How many entries the log held when it was read, before anything this invocation logged. */
-  storedLogEntryCount:            number;
-  /** `clear --all`: after the progress file and the changed tickets, before the render; the callback gets the deleted file count. */
-  deleteAllTicketFilesAfterwards: (onDeleted: (deletedTicketCount: number) => void) => void;
-}
+import { Board }                                                 from '../src/lib/tracker-model/Board';
+import { createLogger }                                          from '../src/lib/tracker-model/Logger';
+import { TicketDefaultsUtil }                                    from '../src/lib/tracker-model/utils/TicketDefaultsUtil';
+import { TimeUtil }                                              from '../src/lib/utils/TimeUtil';
+import { TokenCountUtil }                                        from '../src/lib/utils/TokenCountUtil';
+import { renderDashboardUnderLock, type DashboardRenderOutcome } from '../src/services/tracker/DashboardRendering';
+import {
+  rewriteOlderTrackerFiles,
+  writeTracker,
+  type TrackerChange,
+  type TrackerRewrite,
+  type TrackerWritten
+} from '../src/services/tracker/TrackerPipeline';
+import { requireWorkspace, type Workspace } from '../src/services/tracker/Workspace';
+import { OperationRefusal }                 from '../src/shared/OperationRefusal';
+import { LIMITS }                           from '../src/shared/constants/Limits';
+import type { CommandContext }              from './CommandContext';
+import type { ArgumentParser }              from './arguments/ArgumentParser';
 
 /** An unreadable `--at` is refused rather than defaulted to now, which would stamp a bar nobody can explain. */
 export function resolveAtOption(commandArguments: ArgumentParser, context: CommandContext): string {
@@ -160,12 +142,6 @@ export function reportRenderProblems(context: CommandContext, outcome: Dashboard
   reportIgnoredTicketFiles(context, outcome.malformedTickets);
 }
 
-export async function renderDashboardAndReport(context: CommandContext, workspace: Workspace): Promise<DashboardRenderOutcome> {
-  const outcome = await renderDashboard(workspace, context.now());
-  reportRenderProblems(context, outcome);
-  return outcome;
-}
-
 /** For `render` and `open`, whose whole job is the page: an unreadable tracker is their failure, reported once, by the refusal alone. */
 export async function renderDashboardOrRefuse(context: CommandContext, workspace: Workspace): Promise<void> {
   const outcome = await renderDashboardUnderLock(workspace, context.now);
@@ -175,83 +151,18 @@ export async function renderDashboardOrRefuse(context: CommandContext, workspace
   reportRenderProblems(context, outcome);
 }
 
-/** A Board refusal is one the caller can act on, wrapped with its detail for the command line to word; nothing has been written when it is thrown. */
-async function mutateWrappingBoardRefusals<MutationResult>(
-  mutate: (change: TrackerChange) => MutationResult | Promise<MutationResult>,
-  change: TrackerChange,
-): Promise<MutationResult> {
-  try {
-    return await mutate(change);
-  } catch (error) {
-    if (refusalIsBoardRefusal(error)) throw new OperationRefusal('refused', { kind: 'board-refusal', boardRefusal: error.detail });
-    throw error;
-  }
-}
-
-interface TrackerUnderLock {
-  contents:    TrackerContents;
-  logFileSink: ReturnType<typeof createLogFileSink>;
-  board:       Board;
-}
-
-function openBoard(contents: TrackerContents): TrackerUnderLock {
-  const logFileSink = createLogFileSink(contents.storedLog);
-  const board       = new Board({ progress: contents.progress, tickets: contents.listing.tickets, logger: createLogger(logFileSink.record) });
-  return { contents, logFileSink, board };
-}
-
-/** `extraTickets` are written as well as the ones the Board changed, once each; a mutation hands in none. */
-async function writeTrackerUnderLock<Reading>(
-  context: CommandContext,
-  workspace: Workspace,
-  tracker: TrackerUnderLock,
-  writes: { extraTickets: readonly Ticket[]; deletionCallbacks: readonly ((deletedTicketCount: number) => void)[]; readAfterWriting: (board: Board) => Reading },
-): Promise<Reading> {
-  const logRecordsToWrite = tracker.logFileSink.recordsToWrite();
-  const logFileWriter     = createLogFileWriter(workspace.logFilePath);
-  // A log line never describes an unstored change, so the log goes last; a log taken over from a version 1 file is copied first, before it is lost.
-  if (tracker.contents.storedLog.logFileMustBeRewritten) logFileWriter.write(tracker.contents.storedLog.records);
-
-  createProgressFileWriter(workspace.progressFilePath).write(tracker.contents.progress);
-  const ticketsToWrite = new Map<string, Ticket>();
-  for (const ticket of [...tracker.board.changedTickets(), ...writes.extraTickets]) {
-    if (!ticketsToWrite.has(ticket.filePath)) ticketsToWrite.set(ticket.filePath, ticket);
-  }
-  const ticketFileWriter = createTicketFileWriter();
-  for (const ticket of ticketsToWrite.values()) ticketFileWriter.write(ticket);
-  for (const onDeleted of writes.deletionCallbacks) onDeleted(deleteAllTickets(workspace));
-
-  if (logRecordsToWrite !== null) logFileWriter.write(logRecordsToWrite);
-  const reading = writes.readAfterWriting(tracker.board);
-  await renderDashboardAndReport(context, workspace);
-  return reading;
-}
-
-async function changeTrackerUnderLock<MutationResult, Reading>(
+async function writeTrackerForCommand<MutationResult>(
   commandArguments: ArgumentParser,
   context: CommandContext,
   mutate: (change: TrackerChange) => MutationResult | Promise<MutationResult>,
-  readAfterWriting: (board: Board) => Reading,
-): Promise<{ result: MutationResult; reading: Reading }> {
+): Promise<TrackerWritten<MutationResult>> {
   const workspace = requireWorkspace(context.currentDirectory);
   const at        = resolveAtOption(commandArguments, context);
-
-  return withLock(workspace, async () => {
-    const tracker = openBoard(requireTracker(workspace));
-
-    const deletionCallbacks: ((deletedTicketCount: number) => void)[] = [];
-    const result = await mutateWrappingBoardRefusals(mutate, {
-      at,
-      board:                          tracker.board,
-      workspace,
-      malformedTickets:               tracker.contents.listing.malformed,
-      storedLogEntryCount:            tracker.contents.storedLog.records.length,
-      deleteAllTicketFilesAfterwards: (onDeleted) => { deletionCallbacks.push(onDeleted); },
-    });
-
-    const reading = await writeTrackerUnderLock(context, workspace, tracker, { extraTickets: [], deletionCallbacks, readAfterWriting });
-    return { result, reading };
-  }, context.now);
+  const written   = await writeTracker({
+    workspace, at, now: context.now, mutate 
+  });
+  reportRenderProblems(context, written.renderOutcome);
+  return written;
 }
 
 export async function openTrackerForWriting<MutationResult>(
@@ -259,53 +170,26 @@ export async function openTrackerForWriting<MutationResult>(
   context: CommandContext,
   mutate: (change: TrackerChange) => MutationResult | Promise<MutationResult>,
 ): Promise<MutationResult> {
-  const { result } = await changeTrackerUnderLock(commandArguments, context, mutate, () => undefined);
-  return result;
+  const written = await writeTrackerForCommand(commandArguments, context, mutate);
+  return written.result;
 }
 
-/** The Next line and the dispatcher state are read from the Board just written, inside the same lock hold, so neither predates the move. */
+/** The Next line and the dispatcher state are read from the Board just written, which only this invocation holds, so neither predates the move. */
 export async function openTrackerForWritingThenReadNextLine<MutationResult>(
   commandArguments: ArgumentParser,
   context: CommandContext,
   mutate: (change: TrackerChange) => MutationResult | Promise<MutationResult>,
 ): Promise<{ result: MutationResult; nextLine: string; dispatcherState: DispatcherState }> {
-  const { result, reading } = await changeTrackerUnderLock(
-    commandArguments,
-    context,
-    mutate,
-    (board) => ({ nextLine: nextLineFor(board), dispatcherState: board.dispatcherState() }),
-  );
-  return { result, ...reading };
+  const written = await writeTrackerForCommand(commandArguments, context, mutate);
+  return { result: written.result, nextLine: nextLineFor(written.board), dispatcherState: written.board.dispatcherState() };
 }
 
-export interface TrackerRewrite {
-  progressFileWasRewritten: boolean;
-  rewrittenTicketCount:     number;
-}
-
-function trackerIsInAnOlderFormat(contents: TrackerContents): boolean {
-  return contents.storedLog.logFileMustBeRewritten || contents.listing.ticketsInAnOlderFormat.length > 0;
-}
-
-/**
- * For `update` and `init` on an existing tracker: a readable tracker still in an older format is written in the current one through the
- * pipeline's two halves, with nothing changed and nothing logged. A current, absent or unreadable tracker is `null`, read without the lock.
- */
-export async function rewriteOlderTrackerFiles(context: CommandContext, workspace: Workspace): Promise<TrackerRewrite | null> {
-  const readingWithoutTheLock = readTracker(workspace);
-  if (readingWithoutTheLock.verdict !== 'readable' || !trackerIsInAnOlderFormat(readingWithoutTheLock.contents)) return null;
-
-  return withLock(workspace, async () => {
-    const reading = readTracker(workspace);
-    if (reading.verdict !== 'readable') return null;
-    // Another command may have written the tracker since the read above, and a current tracker is left alone.
-    if (!trackerIsInAnOlderFormat(reading.contents)) return null;
-
-    const { contents } = reading;
-    const extraTickets = contents.listing.ticketsInAnOlderFormat;
-    await writeTrackerUnderLock(context, workspace, openBoard(contents), { extraTickets, deletionCallbacks: [], readAfterWriting: () => undefined });
-    return { progressFileWasRewritten: contents.storedLog.logFileMustBeRewritten, rewrittenTicketCount: extraTickets.length };
-  }, context.now);
+/** For `update` and `init` on an existing tracker: a current, absent or unreadable tracker is `null`, and a rewrite reports its render. */
+export async function rewriteOlderTrackerFilesAndReport(context: CommandContext, workspace: Workspace): Promise<TrackerRewrite | null> {
+  const rewriting = await rewriteOlderTrackerFiles(workspace, context.now);
+  if (rewriting.verdict !== 'rewritten') return null;
+  reportRenderProblems(context, rewriting.renderOutcome);
+  return rewriting.rewrite;
 }
 
 /** What a rewrite wrote, as `update` and `init` print it. */

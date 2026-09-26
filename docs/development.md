@@ -164,7 +164,7 @@ imports a sibling; what two features need is promoted to the level above both, o
 structurally typed parameter.
 Nothing under `lib/` imports `cli/`, and nothing that ships imports the test-only
 `src/testing/`, `cli/testing/`, `src/adapters/progress/testing/` and `dispatcher/testing/`.
-Exit codes are decided in `cli/` and nowhere else; a `lib/` module returns a
+Exit codes are decided in `cli/` and nowhere else; a service returns a
 verdict or throws `OperationRefusal`.
 
 The rules are in the root `CLAUDE.md`; there are no folder `CLAUDE.md` files.

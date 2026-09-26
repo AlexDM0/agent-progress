@@ -4,10 +4,11 @@
  * no tracker, so it takes neither `--project` nor `--root`, and touches the tracker only to rewrite
  * files still in an older format.
  */
-import { requireWorkspace }                                                    from '../../src/services/tracker/Workspace';
-import { rewriteOlderTrackerFiles, rewrittenFilesTextOf, type TrackerRewrite } from '../CommandSupport';
-import type { CommandHandler }                                                 from '../CommandTable';
-import { refreshTrackedRepository }                                            from '../TrackerRefresh';
+import type { TrackerRewrite }                                     from '../../src/services/tracker/TrackerPipeline';
+import { requireWorkspace }                                        from '../../src/services/tracker/Workspace';
+import { rewriteOlderTrackerFilesAndReport, rewrittenFilesTextOf } from '../CommandSupport';
+import type { CommandHandler }                                     from '../CommandTable';
+import { refreshTrackedRepository }                                from '../TrackerRefresh';
 
 const USAGE = 'agent-progress update [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';
 
@@ -41,7 +42,7 @@ export const updateCommand: CommandHandler = async (commandArguments, context) =
 
   let rewrite: TrackerRewrite | null;
   try {
-    rewrite = await rewriteOlderTrackerFiles(context, workspace);
+    rewrite = await rewriteOlderTrackerFilesAndReport(context, workspace);
   } catch (error) {
     // The repository files are already refreshed, and a session must still learn its brief is stale; the refusal then exits 2.
     printRefreshReport(`Refreshed what agent-progress manages in ${workspace.rootDirectory}; `

@@ -1,27 +1,20 @@
 /** The ignore entry goes in before the tracker directory exists, so the tracker is never briefly visible to `git status`. */
-import { randomUUID }                        from 'node:crypto';
-import { mkdirSync, realpathSync, statSync } from 'node:fs';
-import { basename, resolve }                 from 'node:path';
+import { randomUUID }             from 'node:crypto';
+import { realpathSync, statSync } from 'node:fs';
+import { basename, resolve }      from 'node:path';
 
-import { createLogFileWriter }              from '../../src/adapters/log/LogFileWriter';
-import { createProgressFileWriter }         from '../../src/adapters/progress/ProgressFileWriter';
-import { ensureIgnored }                    from '../../src/lib/git/GitIgnore';
-import { discoverRepositoryRoot }           from '../../src/lib/git/RepositoryRoot';
-import { EmptyProgressUtil }                from '../../src/lib/tracker-model/utils/EmptyProgressUtil';
-import { TimeUtil }                         from '../../src/lib/utils/TimeUtil';
-import { withLock }                         from '../../src/services/tracker/TrackerLock';
-import { findWorkspace, workspacePathsFor } from '../../src/services/tracker/Workspace';
-import { TRACKER_FILES }                    from '../../src/services/tracker/constants/TrackerFiles';
-import { agentProgressRootOverride }        from '../../src/shared/Environment';
-import { OperationRefusal }                 from '../../src/shared/OperationRefusal';
-import {
-  renderDashboardAndReport,
-  rewriteOlderTrackerFiles,
-  rewrittenFilesTextOf,
-  type TrackerRewrite
-} from '../CommandSupport';
-import type { CommandHandler }      from '../CommandTable';
-import { refreshTrackedRepository } from '../TrackerRefresh';
+import { ensureIgnored }                                                                 from '../../src/lib/git/GitIgnore';
+import { discoverRepositoryRoot }                                                        from '../../src/lib/git/RepositoryRoot';
+import { TimeUtil }                                                                      from '../../src/lib/utils/TimeUtil';
+import { createTracker }                                                                 from '../../src/services/tracker/TrackerCreation';
+import type { TrackerRewrite }                                                           from '../../src/services/tracker/TrackerPipeline';
+import { findWorkspace, workspacePathsFor }                                              from '../../src/services/tracker/Workspace';
+import { TRACKER_FILES }                                                                 from '../../src/services/tracker/constants/TrackerFiles';
+import { agentProgressRootOverride }                                                     from '../../src/shared/Environment';
+import { OperationRefusal }                                                              from '../../src/shared/OperationRefusal';
+import { reportRenderProblems, rewriteOlderTrackerFilesAndReport, rewrittenFilesTextOf } from '../CommandSupport';
+import type { CommandHandler }                                                           from '../CommandTable';
+import { refreshTrackedRepository }                                                      from '../TrackerRefresh';
 
 const USAGE = 'agent-progress init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';
 
@@ -128,7 +121,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
 
     let rewrite: TrackerRewrite | null;
     try {
-      rewrite = await rewriteOlderTrackerFiles(context, workspace);
+      rewrite = await rewriteOlderTrackerFilesAndReport(context, workspace);
     } catch (error) {
       // The repository files are already refreshed, and a session must still learn its brief is stale; the refusal then exits 2.
       printRefreshReport('rewriting older files did not finish; some may already be in the current format');
@@ -151,33 +144,22 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
   }
 
   const ignoreOutcome = ensureIgnored(rootDirectory, TRACKER_FILES.TRACKER_DIRECTORY_NAME);
-  mkdirSync(workspace.ticketsDirectory, { recursive: true });
-
-  const progress = EmptyProgressUtil.emptyProgressFor({
-    project:   commandArguments.option('project') ?? basename(rootDirectory),
+  const project  = commandArguments.option('project') ?? basename(rootDirectory);
+  const creation = await createTracker(workspace, {
+    project,
     startedAt: TimeUtil.formatLocalIso(context.now()),
     // The page's localStorage key: `file://` is one origin in Chrome, so two trackers would otherwise share a saved range.
     trackerId: randomUUID(),
-  });
-
-  const creation = await withLock(workspace, async () => {
-    const verdict = createProgressFileWriter(workspace.progressFilePath).create(progress);
-    if (verdict === 'created') {
-      // A new tracker's log starts empty, so a log.jsonl left from a removed tracker is emptied, never adopted.
-      // A crash between the two writes leaves that old log.jsonl beside the new progress file.
-      createLogFileWriter(workspace.logFilePath).write([]);
-      await renderDashboardAndReport(context, workspace);
-    }
-    return verdict;
   }, context.now);
-  if (creation === 'already-exists') {
+  if (creation.verdict === 'already-exists') {
     await reportTheRefreshOfAnExistingTracker();
     return;
   }
+  reportRenderProblems(context, creation.renderOutcome);
 
   const refresh = refreshTheRepository();
 
-  context.standardOutput(`Initialised agent-progress for "${progress.project}" in ${rootDirectory}`);
+  context.standardOutput(`Initialised agent-progress for "${project}" in ${rootDirectory}`);
   context.standardOutput(`  tracker:     ${workspace.trackerDirectory}`);
   context.standardOutput(`  brief:       ${refresh.briefFilePath}`);
   context.standardOutput(`  dashboard:   ${workspace.htmlFilePath}`);
