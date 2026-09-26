@@ -1,6 +1,6 @@
 /**
  * The one line this command writes, the rows its brief names that it adds the agent's tokens to, and
- * the seven ways it is allowed to write nothing. The failure
+ * the eight ways it is allowed to write nothing, installed files of another install version among them. The failure
  * cases carry the weight: each one asserts **exit 0 and an untouched tracker**. The agent has already
  * finished when this runs, so a non-zero exit prevents nothing; what it does produce is an error the
  * orchestrator has to read and a delay before it hears its agent is done, and both cost more than the
@@ -9,6 +9,7 @@
 import {
   mkdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   writeFileSync
 } from 'node:fs';
@@ -21,16 +22,19 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import { LogFileIngestion }  from '../../../src/adapters/log/LogFileIngestion';
-import type { ProgressFile } from '../../../src/lib/tracker-model/@types/ProgressFile';
-import { LIMITS }            from '../../../src/shared/constants/Limits';
+import { LogFileIngestion }          from '../../../src/adapters/log/LogFileIngestion';
+import { InstallVersionWordingUtil } from '../../../src/adapters/utils/InstallVersionWordingUtil';
+import type { ProgressFile }         from '../../../src/lib/tracker-model/@types/ProgressFile';
+import { LIMITS }                    from '../../../src/shared/constants/Limits';
 import {
   createScratchDirectory,
   createScratchGitRepository,
   gitIsAvailable,
   removeScratchDirectory
 }                                                                             from '../../../src/testing/ScratchWorkspace';
+import { installedFilePathsIn }         from '../../InstalledFiles';
 import { runCommandLine }               from '../../Main';
+import { INSTALL_VERSION }              from '../../constants/InstallVersion';
 import { createCapturedCommandContext } from '../../testing/CapturedCommandContext';
 import { storedLogEntriesOf }           from '../../testing/StoredLogEntries';
 
@@ -580,6 +584,33 @@ describe.skipIf(!gitIsAvailable())('every way it can fail', () => {
       expect(context.errorText()).toContain('could not be recorded');
     } finally {
       removeScratchDirectory(untrackedDirectory);
+    }
+  });
+
+  test('a tracker the input\'s cwd names whose installed files are of another install version is reported once, credits nothing and exits 0', async () => {
+    const rowIdentifier = await addedRow('Example work');
+    transcriptPath      = writeTranscript([userLine(`Do the work.\nagent-progress row: ${rowIdentifier}`), ...FIXTURE_CALLS]);
+    const rootDirectory = realpathSync(repositoryDirectory);
+    rmSync(installedFilePathsIn(rootDirectory).installManifest);
+    const elsewhereDirectory = createScratchDirectory('hook-command-elsewhere');
+    try {
+      const context = contextWith(hookInput(), elsewhereDirectory);
+
+      expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
+
+      const mismatchParagraph = InstallVersionWordingUtil.messageOf({
+        kind:             'install-version-mismatch',
+        rootDirectory,
+        manifestFilePath: installedFilePathsIn(rootDirectory).installManifest,
+        installVersion:   INSTALL_VERSION,
+        mismatch:         { reason: 'unversioned' },
+      });
+      expect(context.errorText()).toBe(`agent-progress hook subagent-stop: the line could not be recorded in ${repositoryDirectory}: ${mismatchParagraph}`);
+      expect(storedLogEntriesOf(repositoryDirectory).map((entry) => entry.text).filter((text) => text.startsWith('Agent '))).toEqual([]);
+      expect(storedTokensOf(rowIdentifier)).toBeNull();
+      expect(context.outputText()).toBe('');
+    } finally {
+      removeScratchDirectory(elsewhereDirectory);
     }
   });
 });

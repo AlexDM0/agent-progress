@@ -25,6 +25,7 @@ import type { ReleaseRefusalReason }                                            
 import { OperationRefusal, refusalIsOperationRefusal, type OperationRefusalStatus } from '../../../src/shared/OperationRefusal';
 import type { CommandContext }                                                      from '../../CommandContext';
 import type { CommandHandler }                                                      from '../../CommandTable';
+import { requireCurrentInstall }                                                    from '../../InstallVersionCheck';
 import { openTrackerForWritingThenReadNextLine }                                    from '../../TrackerWriting';
 import type { ArgumentParser }                                                      from '../../arguments/ArgumentParser';
 import { OutputUtil }                                                               from '../../utils/OutputUtil';
@@ -222,6 +223,7 @@ export const releaseCommand: CommandHandler = async (commandArguments, context) 
   let nextLine: string;
   let request: ReleaseRequest;
   try {
+    requireCurrentInstall(context.currentDirectory);
     request = releaseRequestFrom(commandArguments, context);
     ({ release, nextLine } = await releaseUnderTheLock(request, commandArguments, context));
   } catch (error) {

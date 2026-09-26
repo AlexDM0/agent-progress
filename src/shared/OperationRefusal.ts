@@ -3,8 +3,9 @@
  * `refused` to exit 1, a refusal the caller can act on, and `unrepaired` to exit 2, a state the tool will not repair on its own. A refusal
  * thrown from `src/` carries a detail, a reason code with its facts and no words, that the command line words; only `cli/` builds one from words.
  */
-import type { BoardRefusalDetail } from '../lib/tracker-model/BoardRefusal.ts';
-import type { UnreadableTracker }  from './@types/UnreadableTracker.ts';
+import type { BoardRefusalDetail }     from '../lib/tracker-model/BoardRefusal.ts';
+import type { InstallVersionMismatch } from './@types/InstallVersionMismatch.ts';
+import type { UnreadableTracker }      from './@types/UnreadableTracker.ts';
 
 export type OperationRefusalStatus = 'refused' | 'unrepaired';
 
@@ -14,7 +15,8 @@ export type OperationRefusalDetail =
   | { kind: 'no-tracker-at-override'; overrideDirectory: string }
   | { kind: 'no-tracker-found'; searchedFrom: string }
   | { kind: 'tracker-lock-held'; lockDirectoryPath: string }
-  | { kind: 'template-token-not-unique'; templateFilePath: string; token: string; occurrenceCount: number };
+  | { kind: 'template-token-not-unique'; templateFilePath: string; token: string; occurrenceCount: number }
+  | { kind: 'install-version-mismatch'; rootDirectory: string; manifestFilePath: string; installVersion: number; mismatch: InstallVersionMismatch };
 
 function reasonCodeOf(detail: OperationRefusalDetail): string {
   return detail.kind === 'board-refusal' ? detail.boardRefusal.reason : detail.kind;

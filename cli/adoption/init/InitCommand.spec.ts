@@ -18,6 +18,7 @@ import {
   expect,
   test
 }                                                              from 'bun:test';
+import { InstallVersionWordingUtil } from '../../../src/adapters/utils/InstallVersionWordingUtil';
 import {
   addWorktree,
   createScratchDirectory,
@@ -25,11 +26,12 @@ import {
   gitIsAvailable,
   removeScratchDirectory
 }                                                              from '../../../src/testing/ScratchWorkspace';
-import { CLAUDE_MANAGED_BLOCK_MARKERS } from '../../InstalledFiles';
-import { runCommandLine }               from '../../Main';
-import { INSTALL_VERSION }              from '../../constants/InstallVersion';
-import { createCapturedCommandContext } from '../../testing/CapturedCommandContext';
-import { installedFileTextsFor }        from '../InstalledFileGeneration';
+import { CLAUDE_MANAGED_BLOCK_MARKERS, installedFilePathsIn } from '../../InstalledFiles';
+import { runCommandLine }                                     from '../../Main';
+import { INSTALL_VERSION }                                    from '../../constants/InstallVersion';
+import { createCapturedCommandContext }                       from '../../testing/CapturedCommandContext';
+import { repositoryFileContentsOf }                           from '../../testing/RepositoryFileContents';
+import { installedFileTextsFor }                              from '../InstalledFileGeneration';
 
 const scratchDirectories: string[] = [];
 
@@ -303,6 +305,30 @@ describe.skipIf(!gitIsAvailable())('a second init', () => {
     expect(context.outputText()).toContain('already initialised');
     expect(readlinkSync(progressFilePath)).toBe(missingTargetPath);
     expect(existsSync(missingTargetPath)).toBe(false);
+  });
+
+  test('over files a newer agent-progress installed is refused with exit 1 and the newer paragraph, and nothing is written', async () => {
+    const repositoryDirectory = scratchRepository();
+    await runCommandLine(['init'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }));
+    writeFileSync(join(repositoryDirectory, '.agent-progress', 'agent-brief.md'), 'An older brief nobody refreshed.\n');
+    const rootDirectory    = realpathSync(repositoryDirectory);
+    const manifestFilePath = installedFilePathsIn(rootDirectory).installManifest;
+    writeFileSync(manifestFilePath, `{\n  "installVersion": ${INSTALL_VERSION + 1}\n}\n`);
+    const filesBefore = repositoryFileContentsOf(repositoryDirectory);
+
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['init'], context)).toBe(1);
+
+    expect(context.errorText()).toBe(InstallVersionWordingUtil.messageOf({
+      kind:           'install-version-mismatch',
+      rootDirectory,
+      manifestFilePath,
+      installVersion: INSTALL_VERSION,
+      mismatch:       { reason: 'newer', installedVersion: INSTALL_VERSION + 1 },
+    }));
+    expect(context.outputText()).toBe('');
+    expect(repositoryFileContentsOf(repositoryDirectory)).toEqual(filesBefore);
+    expect(filesBefore.size, 'the fixture holds the tracker and its installed files, so the comparison above is about something').toBeGreaterThan(3);
   });
 });
 

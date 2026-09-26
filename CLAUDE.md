@@ -104,9 +104,10 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
   wording. The tracker service's pipeline (`src/services/tracker/TrackerPipeline.ts`) wraps it as a `refused`
   `OperationRefusal` carrying its detail.
 - A refusal thrown from `src/` carries a `detail`, a reason code with its facts and no words: a Board refusal, an
-  unreadable tracker, no tracker found, the held lock, or a template token count. Only `cli/` builds a refusal from
-  words. Wherever the command line prints a refusal (`cli/Main.ts`, `release --json`'s `detail`, the hook's sentence),
-  it words it through `src/adapters/utils/OperationRefusalWordingUtil.ts`; a service never imports a wording util.
+  unreadable tracker, no tracker found, the held lock, or a template token count. The install-version mismatch is the
+  one detail thrown from `cli/`, by `cli/InstallVersionCheck.ts`. Only `cli/` builds a refusal from words. Wherever
+  the command line prints a refusal (`cli/Main.ts`, `release --json`'s `detail`, the hook's sentence), it words it
+  through `src/adapters/utils/OperationRefusalWordingUtil.ts`; a service never imports a wording util.
 - Exit codes are decided only in `cli/Main.ts`: 0 done or nothing to do; 1 a refusal the caller can act on
   (`refused`, or an unknown command); 2 a state the tool will not repair (`unrepaired`, or any other throw).
   `agent-progress.ts` is the only `process.exit`.
@@ -143,6 +144,10 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
   against the new CLI: a command, flag, JSON field, stored state or exit code an installed file names or reads changes
   meaning or is removed; the dispatcher's launch arguments change; or an installed file moves or a new one is
   installed. A template's wording or a `DISPATCH_PROTOCOL` number does not bump it.
+- The check reads only the manifest: a version equal to `INSTALL_VERSION` is current and a different one a mismatch;
+  a missing manifest is a mismatch while the brief is installed (a tracker from before versioning) and current when
+  it is not, since nothing installed can then disagree; an unreadable one is a mismatch. `update` and `init` refuse a
+  newer manifest rather than write an older install over it.
 - The frozen table `dispatcher/testing/FrozenDispatchTraces.json` was first taken from the old committed script at
   bc42604, and is retaken from the port's bundle only in a commit that means to change what the agents are told, whose
   table diff shows prompt text or wire names and no decision: the one exception to a frozen table coming from the
@@ -221,6 +226,10 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
 - Help is one screen, with no per-command help: a second help surface is a second thing to keep in step with the
   command table. It goes to standard output when asked for and to standard error after an unknown command, so a typo
   never exits 0 or prints help into a parsed pipe.
+- `cli/Main.ts` runs the install version check (`requireCurrentInstall` in `cli/InstallVersionCheck.ts`) before every
+  command but `COMMANDS_THE_INSTALL_CHECK_SPARES` (`init`, `update`, `help`, `status`) and
+  `COMMANDS_THAT_CHECK_THEIR_OWN_INSTALL`: `release` runs it first in its own `try`, so `--json` prints the refusal as
+  its `invalid-request` document, and `hook subagent-stop` first in `recordInTheTracker`'s, so it is reported at exit 0.
 - Adding a command is an entry in `cli/CommandTable.ts`, a block in `cli/HelpText.ts` and a folder in its set;
   `cli/CommandTable.spec.ts` and `cli/HelpText.spec.ts` fail until all three exist.
 - Every mutating command writes through `writeTracker` in `src/services/tracker/TrackerPipeline.ts`, reached through
@@ -307,9 +316,10 @@ README.md                   the GitHub landing page
 README-keynote.md           the same page in a keynote layout, kept for comparison
 README-day-on-the-board.md  the same page told as one day on a board, kept for comparison
 setup.sh                    machine setup: Bun, bun install and bun link, and the skill symlinks
-cli/                        the command surface: dispatch, arguments, help, and the commands grouped into sets: tracking/,
-                            tickets/, dispatch/, adoption/ and measurement/; cli/utils/ holds the Next line, the printing
-                            and the option values; cli/constants/ the install version; cli/testing/ is test-only
+cli/                        the command surface: dispatch, arguments, help, the install version check, and the commands
+                            grouped into sets: tracking/, tickets/, dispatch/, adoption/ and measurement/; cli/utils/
+                            holds the Next line, the printing, the option values and the install version verdict;
+                            cli/constants/ the install version; cli/testing/ is test-only
 dispatcher/                 the dispatcher policy in TypeScript, which init and update bundle into a Workflow script; dispatcher/testing/ is
                             test-only: the harness, the bundle wrapper, the frozen table
 page/                       the browser page: its sets, its own DOM-only tsconfig and spec tsconfig; page/testing/ is

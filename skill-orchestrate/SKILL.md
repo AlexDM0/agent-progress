@@ -55,7 +55,8 @@ with it. Then act on the answers in this order.
    `CLAUDE.md` or its scripts; `installCommand`, what a fresh worktree needs before that runs (a
    `bun install`), or none. Ask the user, through AskUserQuestion, only for what the repository
    does not say.
-6. `agent-progress open`, once.
+6. `agent-progress open`, once. Refused naming the install version: see When agent-progress itself
+   changes.
 7. Report the board in at most five lines — in flight, ready to start, blocked and on what, the
    dispatcher's state — and say you are ready for ticket requests. Then act on that state as
    Relaunching and stopping says; a `running` state with no workflow of this session behind it is a
@@ -307,7 +308,8 @@ alone — whether one is still relevant, which of two survives — is an AskUser
 reads it at its next agent's return, starts nothing new, lets the agents in flight finish and returns
 with `stoppedByBoard`, the builds it could not finish paused and named in `pausedBuilds`; the relaunch
 on the user's go resumes them by itself. Stopping or killing the workflow task outright happens only on the user's
-explicit instruction to do exactly that: it abandons agents mid-work, with their claims, bars and
+explicit instruction to do exactly that, or on an install version refusal (When agent-progress
+itself changes): it abandons agents mid-work, with their claims, bars and
 worktrees, and the run is then resumed as Recovering says.
 
 **By hand.** Only while the dispatcher is stopped and the user asks for one ticket by hand: create its
@@ -332,6 +334,15 @@ the one linked binary. **After it was pulled, run `agent-progress update` in the
 anything else**, and report its lines: it regenerates the dispatcher and the brief the new version
 expects. Commit what it changed in tracked files — `CLAUDE.md`, the agent definition, the deletion of
 the old `.claude/workflows/agent-progress-dispatch.js` — before the next release.
+
+**A command refused naming the install version** means the files installed here are of another
+version than the agent-progress you run: run `agent-progress update` in the main checkout first, then
+carry on. `update` is always allowed; when the paragraph says a newer agent-progress installed them,
+tell the user agent-progress itself needs updating first. `status` never refuses, so in the opening
+sequence the refusal first shows at `open`. If a run was live or a run id is stored when the refusal
+came, the run's own commands are refused too, so stop that Workflow without waiting for the user's
+word, run `update`, then follow Recovering as written: the resume replays its journal against the
+regenerated script, and if the resume is refused the fallback Recovering gives applies.
 
 ## Your own working memory
 

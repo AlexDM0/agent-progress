@@ -12,6 +12,7 @@ import { TRACKER_FILES }                                  from '../../../src/ser
 import { agentProgressRootOverride }                      from '../../../src/shared/Environment';
 import { OperationRefusal }                               from '../../../src/shared/OperationRefusal';
 import type { CommandHandler }                            from '../../CommandTable';
+import { requireNoNewerInstall }                          from '../../InstallVersionCheck';
 import { OlderTrackerFilesRewriteReport }                 from '../../legacy/OlderTrackerFilesRewriteReport';
 import { IGNORED_RETIRED_OPTION_NAMES }                   from '../../legacy/constants/IgnoredRetiredOptions';
 import { OutputUtil }                                     from '../../utils/OutputUtil';
@@ -134,6 +135,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
       + `Run \`agent-progress update\` in ${existingWorkspace.rootDirectory} instead to refresh what the tracker writes into the repository.`,
     );
   }
+  requireNoNewerInstall(workspace.rootDirectory);
 
   // Every installed text is computed before the first write, so a dispatcher that will not bundle leaves no tracker and no file behind.
   const installedFileTexts = await installedFileTextsFor({ generatesTheDispatcherScript: writesTheDispatcherWorkflow });

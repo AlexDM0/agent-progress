@@ -341,7 +341,7 @@ default. Bars outside the window are clipped and marked, never dropped.
 | code | meaning |
 |---|---|
 | **0** | done, or there was nothing to do |
-| **1** | a refusal you can act on: no tracker here (run `agent-progress init`), no such task or ticket, a missing `--reason`, a claim with no free slot or on a low ticket still held back, lowering a ticket that is not pending, a release refused (`main-moved` among them), an unknown command |
+| **1** | a refusal you can act on: no tracker here (run `agent-progress init`), no such task or ticket, a missing `--reason`, a claim with no free slot or on a low ticket still held back, lowering a ticket that is not pending, a release refused (`main-moved` among them), files installed here of another install version (run `agent-progress update`), an unknown command |
 | **2** | a state the tool will not repair on its own: an unreadable or malformed progress file, an unreadable or malformed log.jsonl, a lock it could not take |
 
 Check the code rather than the wording. A command that wrote the store but could not rebuild the

@@ -10,6 +10,7 @@ import type { BoardRefusalDetail }     from '../../lib/tracker-model/BoardRefusa
 import type { UnreadableTracker }      from '../../shared/@types/UnreadableTracker';
 import { OperationRefusal }            from '../../shared/OperationRefusal';
 import { BoardRefusalWordingUtil }     from './BoardRefusalWordingUtil';
+import { InstallVersionWordingUtil }   from './InstallVersionWordingUtil';
 import { OperationRefusalWordingUtil } from './OperationRefusalWordingUtil';
 import { TrackerReadingWordingUtil }   from './TrackerReadingWordingUtil';
 
@@ -64,4 +65,16 @@ test('a template token that is not unique is worded with the template path, the 
     occurrenceCount:  2,
   });
   expect(OperationRefusalWordingUtil.messageOf(refusal)).toBe('the page template resources/template.html holds 2 occurrences of __TICKETS__, not exactly one');
+});
+
+test('an install version mismatch is printed as the install version wording words its detail', () => {
+  const detail = {
+    kind:             'install-version-mismatch',
+    rootDirectory:    '/example/repository',
+    manifestFilePath: '/example/repository/.agent-progress/version.json',
+    installVersion:   1,
+    mismatch:         { reason: 'unversioned' },
+  } as const;
+  const refusal = new OperationRefusal('refused', detail);
+  expect(OperationRefusalWordingUtil.messageOf(refusal)).toBe(InstallVersionWordingUtil.messageOf(detail));
 });

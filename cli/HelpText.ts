@@ -66,7 +66,10 @@ output never carries either.
                               Each line says whether that file changed, so a session that read the
                               brief at its start learns that its copy is now stale. It takes the same
                               --no-claude-md, --no-hooks, --no-workflow, --no-agent-definition and
-                              no-op --hooks as \`init\`.
+                              no-op --hooks as \`init\`. Every other command except help and status
+                              refuses, with exit 1, while the files installed here are of another
+                              install version than this agent-progress; update rewrites them, and
+                              it and \`init\` refuse files a newer agent-progress installed.
 
   status [--json] [--full]    The project, the counts, the rows that are not delivered or
                               abandoned, and the last log entries newest first. --json prints the

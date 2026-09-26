@@ -8,6 +8,8 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
+  realpathSync,
+  rmSync,
   writeFileSync
 }                from 'node:fs';
 import { join } from 'node:path';
@@ -19,9 +21,10 @@ import {
   expect,
   test
 }                                       from 'bun:test';
-import type { ProgressFile } from '../../../src/lib/tracker-model/@types/ProgressFile';
-import type { Task }         from '../../../src/lib/tracker-model/@types/Task';
-import { TimeUtil }          from '../../../src/lib/utils/TimeUtil';
+import { InstallVersionWordingUtil } from '../../../src/adapters/utils/InstallVersionWordingUtil';
+import type { ProgressFile }         from '../../../src/lib/tracker-model/@types/ProgressFile';
+import type { Task }                 from '../../../src/lib/tracker-model/@types/Task';
+import { TimeUtil }                  from '../../../src/lib/utils/TimeUtil';
 import {
   addWorktree,
   createScratchGitRepository,
@@ -29,7 +32,9 @@ import {
   removeScratchDirectory
 }                                       from '../../../src/testing/ScratchWorkspace';
 import { helpText }                     from '../../HelpText';
+import { installedFilePathsIn }         from '../../InstalledFiles';
 import { runCommandLine }               from '../../Main';
+import { INSTALL_VERSION }              from '../../constants/InstallVersion';
 import { createCapturedCommandContext } from '../../testing/CapturedCommandContext';
 import { storedLogEntriesOf }           from '../../testing/StoredLogEntries';
 
@@ -524,6 +529,31 @@ describe.skipIf(!gitIsAvailable())('a release that is refused changes nothing', 
     const outcome = await expectNothingChanged(identifier, worktree, () => agentProgress(['release', identifier, '--branch', 'no-such-branch', '--json']));
 
     expect(releaseRefusalDocumentOf(outcome).reason).toBe('unknown-branch');
+  });
+
+  // An installed dispatcher of any version reads invalid-request, so the mismatch needs no reason of its own.
+  test('installed files of another install version exit 1 with the invalid-request document carrying the mismatch paragraph', async () => {
+    const { identifier, worktree, branch } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
+    const rootDirectory = realpathSync(repositoryDirectory);
+    rmSync(installedFilePathsIn(rootDirectory).installManifest);
+
+    const outcome = await expectNothingChanged(identifier, worktree, () => agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree, '--json']));
+
+    const mismatchParagraph = InstallVersionWordingUtil.messageOf({
+      kind:             'install-version-mismatch',
+      rootDirectory,
+      manifestFilePath: installedFilePathsIn(rootDirectory).installManifest,
+      installVersion:   INSTALL_VERSION,
+      mismatch:         { reason: 'unversioned' },
+    });
+    expect(releaseDocumentOf(outcome)).toEqual({
+      released: false,
+      reason:   'invalid-request',
+      detail:   mismatchParagraph,
+      cleanup:  [],
+    });
+    expect(outcome.error).toBe(mismatchParagraph);
+    expect(branchExists(branch)).toBe(true);
   });
 });
 

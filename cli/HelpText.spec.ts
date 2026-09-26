@@ -51,6 +51,12 @@ describe('the command reference', () => {
     expect(HELP_TEXT).toContain('Usage: agent-progress <command> [options]');
   });
 
+  test('it names the install version refusal, the commands it spares and the command that lifts it', () => {
+    const flattenedHelp = HELP_TEXT.replaceAll(/\s+/g, ' ');
+    expect(flattenedHelp).toContain('Every other command except help and status refuses, with exit 1, while the files installed here are of another install version');
+    expect(flattenedHelp).toContain('update rewrites them, and it and `init` refuse files a newer agent-progress installed');
+  });
+
   test('the delivered state is offered on both the task and the ticket side', () => {
     expect(HELP_TEXT).toContain('task start|pause|finish|approve|rereview|deliver <id>');
     expect(HELP_TEXT).toContain('ticket start|finish|approve|deliver|abandon|reopen <id>');

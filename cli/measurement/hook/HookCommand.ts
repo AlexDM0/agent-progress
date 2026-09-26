@@ -14,6 +14,7 @@ import { OperationRefusal, refusalIsOperationRefusal } from '../../../src/shared
 import { LIMITS }                                      from '../../../src/shared/constants/Limits';
 import type { CommandContext }                         from '../../CommandContext';
 import type { CommandHandler }                         from '../../CommandTable';
+import { requireCurrentInstall }                       from '../../InstallVersionCheck';
 import { openTrackerForWriting }                       from '../../TrackerWriting';
 import type { ArgumentParser }                         from '../../arguments/ArgumentParser';
 import { SubagentStopUtil }                            from './utils/SubagentStopUtil';
@@ -101,6 +102,7 @@ async function recordInTheTracker(
   const trackerContext: CommandContext = { ...context, currentDirectory: workingDirectory };
   let unrecordedShareSentences: string[] = [];
   try {
+    requireCurrentInstall(workingDirectory);
     unrecordedShareSentences = await openTrackerForWriting(commandArguments, trackerContext, (change) => {
       const { outcomes } = change.board.recordAgentStop(usage, briefCredits, change.at);
       return outcomes.flatMap((outcome) => unrecordedSentenceOf(outcome) ?? []);

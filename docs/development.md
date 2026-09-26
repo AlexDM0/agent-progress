@@ -191,6 +191,7 @@ The test-only helpers live in `src/testing/`, `cli/testing/`, `src/adapters/prog
 | `src/testing/ScratchWorkspace.ts` | Scratch directories, git repositories and worktrees under the OS temp directory. |
 | `cli/testing/CapturedCommandContext.ts` | A command context whose two output streams are arrays, so a spec drives `runCommandLine` in-process and reads back what a user would have seen. |
 | `cli/testing/CliProcess.ts` | The one sanctioned way to spawn the real binary. |
+| `cli/testing/RepositoryFileContents.ts` | Every file of a scratch repository outside `.git/`, so a spec shows a refused command wrote nothing. |
 | `src/testing/TrackerIsolation.ts` | The guard that keeps a spec away from any tracker it did not create. |
 | `src/testing/BoardFixtures.ts` | A `Board` over synthetic records (`boardFixture`, `taskFixture`, `ticketFixture`) whose logger keeps every record in a list, so the Board specs assert reason codes, records and changed tickets. |
 | `dispatcher/testing/DispatchScriptHarness.ts` | Runs a dispatcher Workflow script's text against a fake `agent()` and a fake board. |

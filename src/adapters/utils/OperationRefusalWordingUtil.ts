@@ -1,6 +1,7 @@
 /** Words an `OperationRefusal` wherever the command line prints one: its own message, or its detail, worded here or by the util that words that kind. */
 import type { OperationRefusal }     from '../../shared/OperationRefusal.ts';
 import { BoardRefusalWordingUtil }   from './BoardRefusalWordingUtil.ts';
+import { InstallVersionWordingUtil } from './InstallVersionWordingUtil.ts';
 import { TrackerReadingWordingUtil } from './TrackerReadingWordingUtil.ts';
 
 function noTrackerAtOverrideText(overrideDirectory: string): string {
@@ -36,6 +37,8 @@ function messageOf(refusal: OperationRefusal): string {
       return trackerLockHeldText(detail.lockDirectoryPath);
     case 'template-token-not-unique':
       return templateTokenNotUniqueText(detail.templateFilePath, detail.token, detail.occurrenceCount);
+    case 'install-version-mismatch':
+      return InstallVersionWordingUtil.messageOf(detail);
   }
 }
 

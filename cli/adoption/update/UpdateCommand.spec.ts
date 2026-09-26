@@ -1,12 +1,13 @@
 /**
  * What `agent-progress update` refreshes, what it reports about each of those files, and that it leaves a current tracker's progress file,
- * tickets and log byte for byte.
+ * tickets and log byte for byte; and that it refuses, writing nothing, files a newer agent-progress installed.
  */
 import {
   existsSync,
   mkdirSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   rmSync,
   writeFileSync
 }               from 'node:fs';
@@ -18,7 +19,8 @@ import {
   expect,
   test
 }                                        from 'bun:test';
-import { resourceFilePathOf } from '../../../src/shared/ResourceFilePath';
+import { InstallVersionWordingUtil } from '../../../src/adapters/utils/InstallVersionWordingUtil';
+import { resourceFilePathOf }        from '../../../src/shared/ResourceFilePath';
 import {
   addWorktree,
   createScratchDirectory,
@@ -26,11 +28,12 @@ import {
   gitIsAvailable,
   removeScratchDirectory
 }                                        from '../../../src/testing/ScratchWorkspace';
-import { CLAUDE_MANAGED_BLOCK_MARKERS } from '../../InstalledFiles';
-import { runCommandLine }               from '../../Main';
-import { INSTALL_VERSION }              from '../../constants/InstallVersion';
-import { createCapturedCommandContext } from '../../testing/CapturedCommandContext';
-import { installedFileTextsFor }        from '../InstalledFileGeneration';
+import { CLAUDE_MANAGED_BLOCK_MARKERS, installedFilePathsIn } from '../../InstalledFiles';
+import { runCommandLine }                                     from '../../Main';
+import { INSTALL_VERSION }                                    from '../../constants/InstallVersion';
+import { createCapturedCommandContext }                       from '../../testing/CapturedCommandContext';
+import { repositoryFileContentsOf }                           from '../../testing/RepositoryFileContents';
+import { installedFileTextsFor }                              from '../InstalledFileGeneration';
 
 const scratchDirectories: string[] = [];
 
@@ -485,5 +488,28 @@ describe.skipIf(!gitIsAvailable())('what update refuses', () => {
       expect(context.errorText(), refusedArguments.join(' ')).toContain('agent-progress update [--no-claude-md] [--no-hooks] [--no-workflow]');
     }
     expect(readFileSync(briefFilePath, 'utf8'), 'a refused invocation writes nothing').toBe(briefBefore);
+  });
+
+  // Two colleagues on different versions would otherwise flip the committed installed files back and forth.
+  test('files installed by a newer agent-progress are refused with exit 1 and the newer paragraph, and nothing is written', async () => {
+    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
+    const rootDirectory       = realpathSync(repositoryDirectory);
+    const manifestFilePath    = installedFilePathsIn(rootDirectory).installManifest;
+    writeFileSync(manifestFilePath, `{\n  "installVersion": ${INSTALL_VERSION + 1}\n}\n`);
+    const filesBefore = repositoryFileContentsOf(repositoryDirectory);
+
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['update'], context)).toBe(1);
+
+    expect(context.errorText()).toBe(InstallVersionWordingUtil.messageOf({
+      kind:           'install-version-mismatch',
+      rootDirectory,
+      manifestFilePath,
+      installVersion: INSTALL_VERSION,
+      mismatch:       { reason: 'newer', installedVersion: INSTALL_VERSION + 1 },
+    }));
+    expect(context.outputText()).toBe('');
+    expect(repositoryFileContentsOf(repositoryDirectory)).toEqual(filesBefore);
+    expect(filesBefore.size, 'the fixture holds the tracker and its installed files, so the comparison above is about something').toBeGreaterThan(3);
   });
 });

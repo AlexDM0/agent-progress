@@ -77,6 +77,19 @@ test('a refusal built from a held lock carries the lock path, and its message is
   expect(refusal.message).toBe('tracker-lock-held');
 });
 
+test('a refusal built from an install version mismatch carries the mismatch, and its message is only the kind', () => {
+  const detail = {
+    kind:             'install-version-mismatch',
+    rootDirectory:    '/example/repository',
+    manifestFilePath: '/example/repository/.agent-progress/version.json',
+    installVersion:   1,
+    mismatch:         { reason: 'newer', installedVersion: 2 },
+  } as const;
+  const refusal = new OperationRefusal('refused', detail);
+  expect(refusal.detail).toEqual(detail);
+  expect(refusal.message).toBe('install-version-mismatch');
+});
+
 test('a refusal built from words carries no detail, so its message is what gets printed', () => {
   expect(new OperationRefusal('refused', 'no tracker here').detail).toBeNull();
 });

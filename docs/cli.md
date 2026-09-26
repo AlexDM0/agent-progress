@@ -156,6 +156,38 @@ Claude Code adds `**/.claude/settings.local.json` to your global git excludes th
 writes that file itself. If it has not yet, and the file this tool creates shows up in `git status`,
 ignore it the way you ignore any personal file; this tool writes no `.gitignore` entry for it.
 
+### Install version
+
+`.agent-progress/version.json` records which install version the installed files are (item 8 above),
+written last by `init` and `update`. Every command except `init`, `update`, `help` and `status` checks
+it against the running agent-progress before it does anything:
+
+- the version it records equals this agent-progress's: the command runs;
+- it records a different version, older or newer: refused;
+- it is missing while the brief, `.agent-progress/agent-brief.md`, is there — the files were installed
+  by an agent-progress from before versioning, since every `init` and `update` writes the brief:
+  refused;
+- it is missing and there is no brief — nothing is installed that could disagree: the command runs;
+- it cannot be read or does not hold a whole number of at least 1: refused.
+
+A refusal is one paragraph on standard error at exit 1, naming the tracked root and saying to run
+`agent-progress update` there; nothing is locked or written first. For files a newer agent-progress
+installed it says to update agent-progress itself first. Where no tracker governs the directory, the
+command's own no-tracker refusal is unchanged.
+
+- `release` runs the check itself, so `release --json` prints its refusal document,
+  `{ released: false, reason: 'invalid-request', detail: <the paragraph>, cleanup: [] }`, at exit 1:
+  a dispatcher of any install version knows that reason.
+- `hook subagent-stop` checks the tracker the hook input's `cwd` names and, on a mismatch, reports
+  `agent-progress hook subagent-stop: the line could not be recorded in <cwd>: <the paragraph>` and
+  exits 0, crediting nothing, like every other hook failure. Tokens are credited again once `update`
+  has run.
+- `update`, and `init` on an existing tracker, are what lift the refusal. They refuse, at exit 1 with
+  the same paragraph and writing nothing, only files a newer agent-progress installed, so an older
+  agent-progress never writes its files over a newer one's.
+- `status` never refuses and says nothing about a mismatch, because its output is what scripts read.
+  This is a known gap: the refusal first shows at the next command.
+
 ## The two skills
 
 `setup.sh` links two Claude Code skills into `~/.claude/skills/`, split by audience because the
@@ -185,8 +217,8 @@ Options in `[brackets]` are optional; `a|b` is a choice of one.
 
 | command | what it does |
 |---|---|
-| `init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]` | Create the tracker here and write the eight items in [Adopting a repository](#adopting-a-repository). `--project` names the project shown on the page (default: the root directory's name); `--root` tracks that directory instead of the discovered repository root. Refused when an ancestor already holds a tracker, when `--root` is not an existing directory, inside a bare repository, and when `AGENT_PROGRESS_ROOT` is set to a directory other than the one it would create the tracker in (the message names both, and nothing is written). A re-run refreshes only what `update` refreshes, and rewrites older tracker files as `update` does, printing a `tracker:` line when it did. `--hooks` is accepted and does nothing. |
-| `update [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]` | Refresh what the tool wrote into a repository it already tracks: the managed block, `agent-brief.md`, the hook, the workflow — generated anew into `.agent-progress/`, removing a copy an older version installed under `.claude/workflows/` — and the agent definition, undoing a hand edit to either of the last two; then, last, `version.json`. A tracker still in an older format — a version 1 `progress.json` holding its own log, a `progress.json` holding retired status words or review rows known only by their name, or tickets holding retired status words — is rewritten in the current one under the lock, a version 1 file's log moved to `log.jsonl`, and the first line names what was rewritten; nothing is logged, and a current or unreadable tracker is left alone; a rewrite that cannot take the lock is exit 2, after the refresh report, and leaves `version.json` as it was. It creates no tracker, so it takes no `--project` and no `--root`. With no tracker it is refused at exit 1, naming `agent-progress init`. |
+| `init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]` | Create the tracker here and write the eight items in [Adopting a repository](#adopting-a-repository). `--project` names the project shown on the page (default: the root directory's name); `--root` tracks that directory instead of the discovered repository root. Refused when an ancestor already holds a tracker, when `--root` is not an existing directory, inside a bare repository, and when `AGENT_PROGRESS_ROOT` is set to a directory other than the one it would create the tracker in (the message names both, and nothing is written). A re-run refreshes only what `update` refreshes, and rewrites older tracker files as `update` does, printing a `tracker:` line when it did; like `update`, it is refused at exit 1, writing nothing, over files a newer agent-progress installed ([Install version](#install-version)). `--hooks` is accepted and does nothing. |
+| `update [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]` | Refresh what the tool wrote into a repository it already tracks: the managed block, `agent-brief.md`, the hook, the workflow — generated anew into `.agent-progress/`, removing a copy an older version installed under `.claude/workflows/` — and the agent definition, undoing a hand edit to either of the last two; then, last, `version.json`. A tracker still in an older format — a version 1 `progress.json` holding its own log, a `progress.json` holding retired status words or review rows known only by their name, or tickets holding retired status words — is rewritten in the current one under the lock, a version 1 file's log moved to `log.jsonl`, and the first line names what was rewritten; nothing is logged, and a current or unreadable tracker is left alone; a rewrite that cannot take the lock is exit 2, after the refresh report, and leaves `version.json` as it was. It creates no tracker, so it takes no `--project` and no `--root`. With no tracker it is refused at exit 1, naming `agent-progress init`, and over files a newer agent-progress installed at exit 1, writing nothing ([Install version](#install-version)). Every other command but `help` and `status` is refused until it has run over files of an older install version. |
 | `help` | The command reference. |
 
 ### Reading the board
@@ -287,7 +319,7 @@ stored in the tracker. `skill/Reference.md` is the fuller source on both.
 
 | reason | exit | when |
 |---|---|---|
-| `invalid-request` | 1 | the arguments do not describe a release — no id or no `--branch`, a branch named like an option or after the main line, an unknown option — or there is no tracker here |
+| `invalid-request` | 1 | the arguments do not describe a release — no id or no `--branch`, a branch named like an option or after the main line, an unknown option — or there is no tracker here, or its installed files are of another install version |
 | `unknown-ticket` | 1 | a ticket id names no ticket |
 | `ticket-not-releasable` | 1 | a ticket is not in-progress or in-review |
 | `unknown-branch` | 1 | `<b>` is not a local branch |
@@ -318,7 +350,7 @@ comment is code, and a file type it does not know counts every non-blank line.
 
 | command | what it does |
 |---|---|
-| `hook subagent-stop` | Record what a finished subagent cost, as one log line. The hook JSON arrives on standard input, and the agent's transcript is summed per API call rather than per line. When the agent's brief — its first message — holds a line `agent-progress row: <id>`, or several ids separated by commas, the log line's `input` total is also added to those rows' tokens, divided evenly. A line `agent-progress ticket: <id>` names tickets instead, each resolved to the row it holds when the hook runs. A line `agent-progress review: <id>` names one ticket whose review row the reviewer files itself: the total goes to the most recently added row reviewing that ticket (`--review-of`, or a `Review <N> #<id>` name), whatever its status; a row a ticket owns is never a review row. A brief with several is read by one alone: `row:` over `ticket:` over `review:`. The tracker is found from the hook input's own `cwd`. `init` and `update` wire it into `.claude/settings.local.json`; nobody types it. It exits 0 whatever goes wrong — no input, an unreadable transcript, no tracker, a row or a ticket's row that does not exist — and writes the reason to standard error: the agent has already finished, so a non-zero exit would prevent nothing and only give the orchestrator an error to read. |
+| `hook subagent-stop` | Record what a finished subagent cost, as one log line. The hook JSON arrives on standard input, and the agent's transcript is summed per API call rather than per line. When the agent's brief — its first message — holds a line `agent-progress row: <id>`, or several ids separated by commas, the log line's `input` total is also added to those rows' tokens, divided evenly. A line `agent-progress ticket: <id>` names tickets instead, each resolved to the row it holds when the hook runs. A line `agent-progress review: <id>` names one ticket whose review row the reviewer files itself: the total goes to the most recently added row reviewing that ticket (`--review-of`, or a `Review <N> #<id>` name), whatever its status; a row a ticket owns is never a review row. A brief with several is read by one alone: `row:` over `ticket:` over `review:`. The tracker is found from the hook input's own `cwd`. `init` and `update` wire it into `.claude/settings.local.json`; nobody types it. It exits 0 whatever goes wrong — no input, an unreadable transcript, no tracker, installed files of another install version, a row or a ticket's row that does not exist — and writes the reason to standard error: the agent has already finished, so a non-zero exit would prevent nothing and only give the orchestrator an error to read. |
 | `usage [--since <when>] [--transcripts <folder>] [--json]` | What this repository's subagents cost, read out of the transcripts the harness wrote for them under `~/.claude/projects/`, a workflow's agents under `subagents/workflows/<run>/` included: one row per agent, oldest first, with its start, its API calls, its end context, its input and output, its browser calls, the characters the harness injected into it and the first line of its brief; then the cohort summary — median calls and end context, mean input and output, and the mean of each figure below. Three columns catch a brief being breached without anyone reading a transcript: `over 200k` is the share of an agent's input sent at a context past 200,000 tokens (a raw token count under `--json`), `bash edits` counts the edits it made through a shell command — a heredoc, an inline interpreter or an in-place editor — instead of the editing tools, and `checks` counts the full test, type-check and lint runs it made per edit instead of per batch. `--since` splits the cohort on an instant and summarises both sides, which is how a change in the way agents are briefed is measured. `--transcripts` reads a folder other than the one this repository's path resolves to. It writes nothing, takes no lock and regenerates no page; a repository with no transcripts is one sentence at exit 0. |
 
 ### The page and the board's lifetime
@@ -336,7 +368,7 @@ comment is code, and a file type it does not know counts every non-blank line.
 | code | meaning | examples |
 |---|---|---|
 | **0** | done, or there was nothing to do | also a store write whose page could not be rebuilt (reported on standard error, with an error banner on the page when only its script failed; `render` rebuilds it), a release whose cleanup git declined, and every `hook subagent-stop` |
-| **1** | a refusal the caller can act on | no tracker here, no such task or ticket, a missing `--reason`, a move the matrix refuses, a claim with no free slot or on a held-back low ticket, a release refused (`main-moved` among them), an unknown command |
+| **1** | a refusal the caller can act on | no tracker here, no such task or ticket, a missing `--reason`, a move the matrix refuses, a claim with no free slot or on a held-back low ticket, a release refused (`main-moved` among them), installed files of another install version (every command but `init`, `update`, `help` and `status`), and `init` or `update` over files a newer agent-progress installed, an unknown command |
 | **2** | a state the tool will not repair on its own | an unreadable or malformed progress file, an unreadable or malformed log.jsonl, a malformed ticket file a command names, a lock it could not take, a release reason `git-failed` or `tracker-failed` |
 
 ## The Handoff and the token column

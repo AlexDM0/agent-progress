@@ -1,18 +1,31 @@
 /**
  * What a command line does to the exit code: 0 for the reference, 1 for an unknown command or an actionable refusal, 2 for anything else.
+ * The install version check runs here too: it refuses every command but the four it spares, before the command writes anything.
  */
-import { resolve } from 'node:path';
+import {
+  existsSync,
+  readFileSync,
+  realpathSync,
+  rmSync
+} from 'node:fs';
+import { join, resolve } from 'node:path';
 import {
   afterAll,
+  afterEach,
   beforeAll,
+  beforeEach,
   describe,
   expect,
   mock,
   test
 }                                                         from 'bun:test';
+import { createInstallManifestWriter }                    from '../src/adapters/install/InstallManifestWriter';
+import { InstallVersionWordingUtil }                      from '../src/adapters/utils/InstallVersionWordingUtil';
 import { OperationRefusal }                               from '../src/shared/OperationRefusal';
 import { createScratchDirectory, removeScratchDirectory } from '../src/testing/ScratchWorkspace';
+import { installedFilePathsIn }                           from './InstalledFiles';
 import { runCommandLine }                                 from './Main';
+import { INSTALL_VERSION }                                from './constants/InstallVersion';
 import { createCapturedCommandContext }                   from './testing/CapturedCommandContext';
 import * as realRenderCommandModule                       from './tracking/render/RenderCommand';
 
@@ -132,6 +145,94 @@ describe('a command run where no tracker is', () => {
       + 'Run `agent-progress init` in the repository you want tracked.',
     );
     expect(context.outputText()).toBe('');
+  });
+});
+
+describe('a tracker whose installed files are of another install version', () => {
+  /** A tracker made by `init` and then stripped of its manifest is exactly a tracker installed by an agent-progress from before versioning. */
+  let trackedDirectory = '';
+
+  beforeEach(async () => {
+    trackedDirectory = realpathSync(createScratchDirectory('main-install-version'));
+    const initialisingContext = createCapturedCommandContext({ currentDirectory: trackedDirectory });
+    expect(await runCommandLine(['init', '--project', 'Example Agency', '--no-claude-md', '--no-hooks'], initialisingContext)).toBe(0);
+    rmSync(installedFilePathsIn(trackedDirectory).installManifest);
+  });
+
+  afterEach(() => {
+    removeScratchDirectory(trackedDirectory);
+  });
+
+  function trackedContext(): ReturnType<typeof createCapturedCommandContext> {
+    return createCapturedCommandContext({ currentDirectory: trackedDirectory });
+  }
+
+  function unversionedParagraph(): string {
+    return InstallVersionWordingUtil.messageOf({
+      kind:             'install-version-mismatch',
+      rootDirectory:    trackedDirectory,
+      manifestFilePath: installedFilePathsIn(trackedDirectory).installManifest,
+      installVersion:   INSTALL_VERSION,
+      mismatch:         { reason: 'unversioned' },
+    });
+  }
+
+  test('every checked command exits 1 with the one paragraph on standard error and leaves progress.json byte for byte', async () => {
+    const progressFilePath   = join(trackedDirectory, '.agent-progress', 'progress.json');
+    const progressFileBefore = readFileSync(progressFilePath);
+    for (const line of [['task', 'add', 'Example row'], ['ticket', 'list'], ['render'], ['open'], ['usage'], ['dispatcher']]) {
+      const context = trackedContext();
+      expect(await runCommandLine(line, context), line.join(' ')).toBe(1);
+      expect(context.errorText(), line.join(' ')).toBe(unversionedParagraph());
+      expect(context.outputText(), line.join(' ')).toBe('');
+    }
+    expect(readFileSync(progressFilePath).equals(progressFileBefore)).toBe(true);
+    expect(existsSync(installedFilePathsIn(trackedDirectory).installManifest)).toBe(false);
+  });
+
+  test('help, --help after a command word and status run, and status prints what it printed before the manifest went', async () => {
+    for (const line of [['help'], ['task', '--help']]) {
+      const context = trackedContext();
+      expect(await runCommandLine(line, context), line.join(' ')).toBe(0);
+      expect(context.outputText(), line.join(' ')).toContain('Usage: agent-progress <command>');
+    }
+    const statusWithoutTheManifest = trackedContext();
+    expect(await runCommandLine(['status', '--json', '--full'], statusWithoutTheManifest)).toBe(0);
+    expect(statusWithoutTheManifest.errorText()).toBe('');
+    createInstallManifestWriter(installedFilePathsIn(trackedDirectory).installManifest).write(INSTALL_VERSION);
+    const statusWithTheManifest = trackedContext();
+    expect(await runCommandLine(['status', '--json', '--full'], statusWithTheManifest)).toBe(0);
+    expect(statusWithoutTheManifest.outputText()).toBe(statusWithTheManifest.outputText());
+  });
+
+  test('init runs and records the install version, after which a refused command runs', async () => {
+    expect(await runCommandLine(['init', '--no-claude-md', '--no-hooks'], trackedContext())).toBe(0);
+    expect(existsSync(installedFilePathsIn(trackedDirectory).installManifest)).toBe(true);
+    const addingContext = trackedContext();
+    expect(await runCommandLine(['task', 'add', 'Example row'], addingContext), addingContext.errorText()).toBe(0);
+  });
+
+  test('update runs and records the install version, after which a refused command runs', async () => {
+    const refusedContext = trackedContext();
+    expect(await runCommandLine(['task', 'add', 'Example row'], refusedContext)).toBe(1);
+    expect(await runCommandLine(['update', '--no-claude-md', '--no-hooks'], trackedContext())).toBe(0);
+    const addingContext = trackedContext();
+    expect(await runCommandLine(['task', 'add', 'Example row'], addingContext), addingContext.errorText()).toBe(0);
+  });
+
+  test('a tracker with neither a brief nor a manifest counts as current, so its commands run', async () => {
+    rmSync(installedFilePathsIn(trackedDirectory).agentBrief);
+    const addingContext = trackedContext();
+    expect(await runCommandLine(['task', 'add', 'Example row'], addingContext), addingContext.errorText()).toBe(0);
+  });
+
+  test('a checked command where no tracker is keeps the no-tracker refusal', async () => {
+    const context = capturingContext();
+    expect(await runCommandLine(['task', 'add', 'Example row'], context)).toBe(1);
+    expect(context.errorText()).toBe(
+      `No agent-progress tracker was found in ${resolve(untrackedDirectory)} or any directory above it. `
+      + 'Run `agent-progress init` in the repository you want tracked.',
+    );
   });
 });
 
