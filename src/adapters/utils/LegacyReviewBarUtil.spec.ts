@@ -1,7 +1,7 @@
 /**
  * The ingestion step that links a review bar known only by its name. What readers rely on: only a free-standing row whose name starts
- * `Review <N> #<id>` gains fields, a stored field always wins over the name, a stored all-digit `reviewOf` is padded as the page read
- * it as a number, a name naming no ticket links nothing, and a row that gains nothing comes back with exactly the keys it had, so a
+ * `Review <N> #<id>` gains fields, a stored field always wins over the name, a stored `reviewOf` the page read as a whole number is
+ * padded, a name naming no ticket links nothing, and a row that gains nothing comes back with exactly the keys it had, so a
  * rewrite leaves it byte-identical. The names are the page's nesting cases.
  */
 import { describe, expect, test } from 'bun:test';
@@ -69,11 +69,17 @@ describe('a row with a stored field', () => {
   // The page reads a stored reviewOf as a number, so an unpadded one must still name its ticket to the Board.
   test('pads a stored reviewOf the page reads as a number, so "3" reads as "003"', () => {
     expect(linkedReviewBarOf(taskFixture({ name: 'Example review', reviewOf: '3' })).reviewOf).toBe('003');
+    for (const storedReviewOf of ['+5', '5.0', '5.', '5e0', '0x5', '0b101', '0o5', ' 5 ', '0005']) {
+      expect(linkedReviewBarOf(taskFixture({ name: 'Example review', reviewOf: storedReviewOf })).reviewOf).toBe('005');
+    }
   });
 
   test('leaves a stored reviewOf the page does not read as a number standing', () => {
     expect(linkedReviewBarOf(taskFixture({ name: 'Example review', reviewOf: '#3' })).reviewOf).toBe('#3');
     expect(linkedReviewBarOf(taskFixture({ name: 'Example review', reviewOf: 'abc' })).reviewOf).toBe('abc');
+    for (const storedReviewOf of ['0', '-5', '5.5', '']) {
+      expect(linkedReviewBarOf(taskFixture({ name: 'Example review', reviewOf: storedReviewOf })).reviewOf).toBe(storedReviewOf);
+    }
   });
 
   test('pads a stored reviewOf also on a row whose name matches the legacy pattern', () => {
