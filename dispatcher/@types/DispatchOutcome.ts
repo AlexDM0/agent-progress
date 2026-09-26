@@ -50,7 +50,7 @@ export interface DispatchOutcome {
   reviewsLeft:        string[];
 }
 
-/** What the Workflow run returns: the old script's keys in its order, each conditional key present only when it says something. */
+/** What the Workflow run returns, keys in the order the frozen trace table pins, each conditional key present only when it says something. */
 export interface DispatchSummary {
   delivered:           string[];
   parked:              { id: string; reason: string }[];

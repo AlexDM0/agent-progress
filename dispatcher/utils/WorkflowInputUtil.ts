@@ -1,6 +1,6 @@
 /**
  * The dispatcher's one input edge: the Workflow arguments and every agent's reply, mapped into internal values. Each guard reads a malformed
- * shape the way the script it was ported from did, so a reply the schema admits maps to exactly what that script acted on.
+ * shape as `dispatcher/testing/FrozenDispatchTraces.json` pins it, so a reply the schema admits maps to exactly what the run acts on.
  */
 import type { TicketPriority }                       from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../src/lib/tracker-model/constants/AgentSettings.ts';

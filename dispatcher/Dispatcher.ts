@@ -10,7 +10,7 @@ import { createWorkflowDispatchLogger } from './run/WorkflowDispatchLogger.ts';
 import { DispatchWordingUtil }          from './utils/DispatchWordingUtil.ts';
 import { WorkflowInputUtil }            from './utils/WorkflowInputUtil.ts';
 
-// Its own async function, awaited from both loops, as in the ported script: inlining it would drop a microtask hop.
+// Its own async function, awaited from both loops: inlining it would drop a microtask hop that the frozen trace table pins.
 async function settleNextFinished(run: DispatchRun): Promise<void> {
   const finished = await Promise.race(run.agentsInFlight());
   run.settleFinished(finished);

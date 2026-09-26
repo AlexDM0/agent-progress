@@ -88,7 +88,8 @@ export function createAgentStarter(runtime: WorkflowRuntime, settings: DispatchS
     }, work);
   }
 
-  // Not async, and the reply is mapped in the `.then` that builds the finished record, so no microtask hop is added to the ported script's.
+  // Not async, and the reply is mapped in the `.then` that builds the finished record, so no microtask hop is added beyond what the frozen trace
+  // table pins.
   function startAgent(launch: AgentLaunch): Promise<FinishedAgent> {
     const { key, work } = launch;
     const agentRun = 'agentModelAndEffort' in launch

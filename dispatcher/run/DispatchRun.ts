@@ -68,7 +68,7 @@ function priorityIsAdmittedWithoutTriage(priority: TicketPriority | undefined): 
   return DISPATCH_POLICY.PRIORITIES_ADMITTED_WITHOUT_TRIAGE.some((admittedPriority) => admittedPriority === priority);
 }
 
-// A block without a ready ticket's entry reads it as low: holding back normal work is undone by a relaunch, starting untriaged low work is not.
+// A block without a ready ticket's entry reads it as `DISPATCH_POLICY.UNSTATED_PRIORITY`.
 function lowPriorityReadyTicketIdsOf(status: StatusReading): Set<string> {
   return new Set(status.readyTicketIds.filter((ticketId) => !priorityIsAdmittedWithoutTriage(readyTicketEntryOf(status.readyTickets, ticketId)?.priority)));
 }
@@ -146,7 +146,7 @@ export class DispatchRun {
       this.ports.logger.surveyStatusUnreadable();
       return 'nothing-dispatched';
     }
-    // The run it was ported from crashed here, after the same log lines, on a list it could not walk; the crash is kept.
+    // The frozen trace table pins a crash here, after the same log lines, when the survey lists no reviews waiting.
     if (survey.reviewWaitingTickets === 'unlisted') throw new TypeError('The survey returned no list of reviews waiting.');
     for (const reviewWaitingTicket of survey.reviewWaitingTickets) {
       this.ticketIdsTakenThisRun.add(reviewWaitingTicket.id);
@@ -272,7 +272,7 @@ export class DispatchRun {
     return this.settings.includeLowPriority || !this.lowPriorityReadyTicketIds.has(ticketId);
   }
 
-  // Like a ready ticket's, a priority the survey did not state reads as low.
+  // Like a ready ticket's, a priority the survey did not state reads as `DISPATCH_POLICY.UNSTATED_PRIORITY`.
   private pausedBuildIsAdmitted(ticketId: string): boolean {
     return this.settings.includeLowPriority || priorityIsAdmittedWithoutTriage(this.pausedBuildPriorities.get(ticketId));
   }
