@@ -481,7 +481,10 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     if (earlierRow !== undefined) {
       if (prompt.includes(BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM) && earlierRow.note === claimNoteIn(prompt)) return reply;
       return {
-        ...reply, outcome: 'claim-refused', detail: `#${ticketId} is in-progress`, claimNote: earlierRow.note 
+        ...reply,
+        outcome:   'claim-refused',
+        detail:    `#${ticketId} is in-progress`,
+        claimNote: earlierRow.note,
       };
     }
     if (runningRowOf(`review:${ticketId}`) !== undefined) return { ...reply, outcome: 'claim-refused', detail: `#${ticketId} is under review` };

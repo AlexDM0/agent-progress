@@ -27,7 +27,10 @@ const STATUS_BLOCK = {
   freeSlots:      1,
   readyTicketIds: ['001'],
   readyTickets:   [{
-    id: '001', priority: 'high', model: 'sonnet', effort: 'high' 
+    id:       '001',
+    priority: 'high',
+    model:    'sonnet',
+    effort:   'high',
   }],
   dispatcherState:       'running',
   inProgressTicketIds:   ['002'],
@@ -38,7 +41,11 @@ const STATUS_BLOCK = {
 const BUILD_WORK: DispatchWork = { kind: 'build', ticketId: '001', previousPass: null };
 
 const REVIEW_WORK: DispatchWork = {
-  kind: 'review', ticketId: '001', round: 1, rereviewRunsFirst: false, earlierReviewerDied: false 
+  kind:                'review',
+  ticketId:            '001',
+  round:               1,
+  rereviewRunsFirst:   false,
+  earlierReviewerDied: false,
 };
 
 const REVIEWER_REPLY = {
@@ -110,7 +117,11 @@ describe('the Workflow arguments', () => {
       ...REQUIRED_ARGUMENTS,
       readyTickets: [
         {
-          id: '001', priority: 'high', model: 'sonnet', effort: 'high', held: true 
+          id:       '001',
+          priority: 'high',
+          model:    'sonnet',
+          effort:   'high',
+          held:     true,
         },
         { id: '002', model: '', effort: '' },
         { id: '003', priority: 'urgent', held: 'yes' },
@@ -120,13 +131,22 @@ describe('the Workflow arguments', () => {
       settings: {
         readyTickets: [
           {
-            id: '001', priority: 'high', agentModelAndEffort: { model: 'sonnet', effort: 'high' }, ticketIsHeld: true 
+            id:                  '001',
+            priority:            'high',
+            agentModelAndEffort: { model: 'sonnet', effort: 'high' },
+            ticketIsHeld:        true,
           },
           {
-            id: '002', priority: 'low', agentModelAndEffort: DEFAULT_AGENT_MODEL_AND_EFFORT, ticketIsHeld: false 
+            id:                  '002',
+            priority:            'low',
+            agentModelAndEffort: DEFAULT_AGENT_MODEL_AND_EFFORT,
+            ticketIsHeld:        false,
           },
           {
-            id: '003', priority: 'low', agentModelAndEffort: DEFAULT_AGENT_MODEL_AND_EFFORT, ticketIsHeld: false 
+            id:                  '003',
+            priority:            'low',
+            agentModelAndEffort: DEFAULT_AGENT_MODEL_AND_EFFORT,
+            ticketIsHeld:        false,
           },
         ],
       },
@@ -147,7 +167,10 @@ describe('a status block', () => {
       agentsInFlight: 1,
       readyTicketIds: ['001'],
       readyTickets:   [{
-        id: '001', priority: 'high', agentModelAndEffort: { model: 'sonnet', effort: 'high' }, ticketIsHeld: false 
+        id:                  '001',
+        priority:            'high',
+        agentModelAndEffort: { model: 'sonnet', effort: 'high' },
+        ticketIsHeld:        false,
       }],
       dispatcherIsStopped:   false,
       inProgressTicketIds:   ['002'],
@@ -166,7 +189,10 @@ describe('a status block', () => {
   // A block without these lists confirms nothing and keeps the last held set, which is not what an empty list says.
   test('the in-progress and held lists read as unlisted when they are not arrays, not as empty', () => {
     const reading = statusReadingOf({
-      ...STATUS_BLOCK, inProgressTicketIds: undefined, inProgressReviewOfIds: null, heldTicketIds: 'none' 
+      ...STATUS_BLOCK,
+      inProgressTicketIds:   undefined,
+      inProgressReviewOfIds: null,
+      heldTicketIds:         'none',
     });
     expect(reading).toMatchObject({ inProgressTicketIds: 'unlisted', inProgressReviewOfIds: 'unlisted', heldTicketIds: 'unlisted' });
   });
@@ -208,16 +234,25 @@ describe('the survey', () => {
       pausedBuilds: [
         null,
         {
-          id: '004', note: 'Paused by Alex Example', worktreeExists: false, priority: 'high' 
+          id:             '004',
+          note:           'Paused by Alex Example',
+          worktreeExists: false,
+          priority:       'high',
         },
         { id: '005', note: 'Paused by Alex Example', priority: 'high' },
         {
-          id: '006', worktreeExists: true, priority: 'urgent', effort: 'high' 
+          id:             '006',
+          worktreeExists: true,
+          priority:       'urgent',
+          effort:         'high',
         },
       ],
     });
     expect(reading?.pausedBuilds).toEqual([{
-      id: '006', note: '', priority: 'low', agentModelAndEffort: { model: DEFAULT_AGENT_MODEL, effort: 'high' } 
+      id:                  '006',
+      note:                '',
+      priority:            'low',
+      agentModelAndEffort: { model: DEFAULT_AGENT_MODEL, effort: 'high' },
     }]);
   });
 
@@ -226,8 +261,11 @@ describe('the survey', () => {
     const reading = surveyReadingOf({
       ...survey,
       pausedBuilds: [{
-        id: '004', note: 'Paused by Alex Example', worktreeExists: true, priority: 'normal' 
-      }] 
+        id:             '004',
+        note:           'Paused by Alex Example',
+        worktreeExists: true,
+        priority:       'normal',
+      }]
     });
     expect(reading?.pausedBuilds).toMatchObject([{ id: '004', note: 'Paused by Alex Example', priority: 'normal' }]);
   });
@@ -245,7 +283,10 @@ describe('the ticket settings lookup', () => {
   test('a lookup with a list of tickets maps them like ready ticket entries', () => {
     expect(ticketSettingsLookupOf({ tickets: [{ id: '001', model: 'sonnet' }] })).toEqual([
       {
-        id: '001', priority: 'low', agentModelAndEffort: { model: 'sonnet', effort: DEFAULT_AGENT_EFFORT }, ticketIsHeld: false 
+        id:                  '001',
+        priority:            'low',
+        agentModelAndEffort: { model: 'sonnet', effort: DEFAULT_AGENT_EFFORT },
+        ticketIsHeld:        false,
       },
     ]);
   });
@@ -265,10 +306,17 @@ describe('a finished agent\'s reply', () => {
 
   test('a builder\'s reply keeps its outcome, detail and claim note', () => {
     const reading = finishedReadingOf(BUILD_WORK, {
-      outcome: 'claim-refused', detail: '#001 is in-progress', claimNote: 'Paused by Alex Example', status: STATUS_BLOCK 
+      outcome:   'claim-refused',
+      detail:    '#001 is in-progress',
+      claimNote: 'Paused by Alex Example',
+      status:    STATUS_BLOCK,
     });
     expect(reading).toMatchObject({
-      kind: 'build', outcome: 'claim-refused', detail: '#001 is in-progress', claimNote: 'Paused by Alex Example', status: { limit: 2 } 
+      kind:      'build',
+      outcome:   'claim-refused',
+      detail:    '#001 is in-progress',
+      claimNote: 'Paused by Alex Example',
+      status:    { limit: 2 },
     });
   });
 

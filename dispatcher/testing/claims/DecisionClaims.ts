@@ -846,7 +846,10 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     holds:       (run) => kindsAndTickets(run).join(', ') === 'build 007, review 007'
       && run.calls.every((call) => call.ticketId === '007')
       && JSON.stringify(run.summary) === JSON.stringify({
-        delivered: ['007'], parked: [], findingsFiled: [], agentsRun: 2 
+        delivered:     ['007'],
+        parked:        [],
+        findingsFiled: [],
+        agentsRun:     2,
       }),
     mutant: {
       modulePath: DISPATCH_RUN,

@@ -161,7 +161,11 @@ const STATUS_WITHOUT_HELD_TICKET_IDS = {
   freeSlots:      2,
   readyTicketIds: ['002'],
   readyTickets:   [{
-    id: '002', priority: 'normal', model: 'opus', effort: 'medium', held: true 
+    id:       '002',
+    priority: 'normal',
+    model:    'opus',
+    effort:   'medium',
+    held:     true,
   }],
   dispatcherState:       'running',
   inProgressTicketIds:   [],

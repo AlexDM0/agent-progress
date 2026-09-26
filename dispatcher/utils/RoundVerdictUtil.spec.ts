@@ -69,7 +69,10 @@ describe('round 3 and later', () => {
     expect(nextRoundVerdictOf([roundOne, current], current)).toEqual({
       granted: false,
       refusal: {
-        reason: 'findings-not-halved', requestedRound: 3, findingCount: 3, previousFindingCount: 4 
+        reason:               'findings-not-halved',
+        requestedRound:       3,
+        findingCount:         3,
+        previousFindingCount: 4,
       },
     });
   });
