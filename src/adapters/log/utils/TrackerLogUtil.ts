@@ -12,8 +12,8 @@ export type StoredLogReading = ({ verdict: 'readable' } & StoredLog) | { verdict
 /** Only a prefix can be checked: one command's records may carry different `at` stamps, so no count or stamp tells its lines apart. */
 function logFileContinuesTheEmbeddedLog(embeddedLog: readonly LogRecord[], logFileRecords: readonly LogRecord[]): boolean {
   if (logFileRecords.length < embeddedLog.length) return false;
-  return embeddedLog.every((embeddedRecord, i) => {
-    const logFileRecord = logFileRecords[i];
+  return embeddedLog.every((embeddedRecord, index) => {
+    const logFileRecord = logFileRecords[index];
     return embeddedRecord.kind === 'note'
       && logFileRecord?.kind === 'note'
       && logFileRecord.at === embeddedRecord.at
