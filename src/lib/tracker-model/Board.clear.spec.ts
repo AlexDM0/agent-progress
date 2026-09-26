@@ -6,6 +6,7 @@
  */
 import { describe, expect, test } from 'bun:test';
 
+import type { BoardFixture }                        from '../../testing/BoardFixtures';
 import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures';
 
 const STARTED_AT   = '2026-09-18T10:00:00+02:00';
@@ -13,7 +14,7 @@ const FINISHED_AT  = '2026-09-18T12:00:00+02:00';
 const DELIVERED_AT = '2026-09-18T14:00:00+02:00';
 const CLEARED_AT   = '2026-09-18T16:00:00+02:00';
 
-function workedBoardFixture(): ReturnType<typeof boardFixture> {
+function workedBoardFixture(): BoardFixture {
   return boardFixture({
     tasks: [
       taskFixture({ id: 7, status: 'delivered', ticket: '001' }),

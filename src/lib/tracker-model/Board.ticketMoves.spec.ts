@@ -7,12 +7,16 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures';
-import type { TicketStatus }                        from './@types/Ticket';
-import type { BoardRefusalDetail }                  from './BoardRefusal';
-import { refusalIsBoardRefusal }                    from './BoardRefusal';
-import { TICKET_STATUSES }                          from './constants/Statuses';
-import { ticketMoveIsLegal }                        from './constants/TicketMoveLegality';
+import type { BoardFixture } from '../../testing/BoardFixtures';
+import {
+  boardFixture,
+  refusalDetailOf,
+  taskFixture,
+  ticketFixture
+} from '../../testing/BoardFixtures';
+import type { TicketStatus } from './@types/Ticket';
+import { TICKET_STATUSES }   from './constants/Statuses';
+import { ticketMoveIsLegal } from './constants/TicketMoveLegality';
 
 const FILED_AT     = '2026-09-18T09:00:00+02:00';
 const STARTED_AT   = '2026-09-18T10:00:00+02:00';
@@ -23,17 +27,7 @@ const CHECKED = { checksLegality: true } as const;
 
 const EXAMPLE_REASON = 'the export dialog is being replaced';
 
-function refusalDetailOf(change: () => unknown): BoardRefusalDetail {
-  try {
-    change();
-  } catch (error) {
-    if (refusalIsBoardRefusal(error)) return error.detail;
-    throw error;
-  }
-  throw new Error('The change was not refused.');
-}
-
-function pendingTicketFixture(): ReturnType<typeof boardFixture> {
+function pendingTicketFixture(): BoardFixture {
   return boardFixture({ tickets: [ticketFixture({ id: '003', title: 'Example export dialog', type: 'bug' })] });
 }
 
@@ -268,7 +262,7 @@ describe('a low ticket and the chart', () => {
 describe('review bars a move ends', () => {
   const REVIEW_BAR_NAME = 'Review 1 #001 — Example checkout page';
 
-  function ticketUnderReviewFixture(): ReturnType<typeof boardFixture> {
+  function ticketUnderReviewFixture(): BoardFixture {
     return boardFixture({
       tasks: [
         taskFixture({

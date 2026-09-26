@@ -6,22 +6,11 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { boardFixture, ticketFixture } from '../../testing/BoardFixtures';
-import type { BoardRefusalDetail }     from './BoardRefusal';
-import { refusalIsBoardRefusal }       from './BoardRefusal';
+import type { BoardFixture }                            from '../../testing/BoardFixtures';
+import { boardFixture, refusalDetailOf, ticketFixture } from '../../testing/BoardFixtures';
 
 const FILED_AT   = '2026-09-18T09:30:00+02:00';
 const CHANGED_AT = '2026-09-18T11:15:00+02:00';
-
-function refusalDetailOf(change: () => unknown): BoardRefusalDetail {
-  try {
-    change();
-  } catch (error) {
-    if (refusalIsBoardRefusal(error)) return error.detail;
-    throw error;
-  }
-  throw new Error('The change was not refused.');
-}
 
 describe('fileTicket', () => {
   test('a filed ticket joins the board with a pending row filed at the same moment', () => {
@@ -83,7 +72,7 @@ describe('fileTicket', () => {
 });
 
 describe('setTicketDependencies', () => {
-  function dependencyChainFixture(): ReturnType<typeof boardFixture> {
+  function dependencyChainFixture(): BoardFixture {
     return boardFixture({
       tickets: [
         ticketFixture({ id: '001' }),

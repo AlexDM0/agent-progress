@@ -6,25 +6,20 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures';
-import type { BoardRefusalDetail }                  from './BoardRefusal';
-import { refusalIsBoardRefusal }                    from './BoardRefusal';
+import type { BoardFixture } from '../../testing/BoardFixtures';
+import {
+  boardFixture,
+  refusalDetailOf,
+  taskFixture,
+  ticketFixture
+} from '../../testing/BoardFixtures';
+import type { BoardRefusalDetail } from './BoardRefusal';
 
 const STARTED_AT = '2026-09-18T10:00:00+02:00';
 const CLAIMED_AT = '2026-09-18T11:00:00+02:00';
 
-function refusalDetailOf(change: () => unknown): BoardRefusalDetail {
-  try {
-    change();
-  } catch (error) {
-    if (refusalIsBoardRefusal(error)) return error.detail;
-    throw error;
-  }
-  throw new Error('The change was not refused.');
-}
-
 /** The refusal, and proof that it left the records, the log and the changed tickets as they were. */
-function refusalOfAClaimOn(fixture: ReturnType<typeof boardFixture>, ticketIds: readonly string[]): BoardRefusalDetail {
+function refusalOfAClaimOn(fixture: BoardFixture, ticketIds: readonly string[]): BoardRefusalDetail {
   const progressBefore = structuredClone(fixture.progress);
   const ticketsBefore  = structuredClone(fixture.tickets);
   const detail         = refusalDetailOf(() => fixture.board.claimTickets(ticketIds, { owner: 'Alex Example' }, CLAIMED_AT));

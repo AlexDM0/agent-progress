@@ -6,25 +6,20 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures';
-import type { BoardRefusalDetail }                  from './BoardRefusal';
-import { refusalIsBoardRefusal }                    from './BoardRefusal';
+import type { BoardFixture } from '../../testing/BoardFixtures';
+import {
+  boardFixture,
+  refusalDetailOf,
+  taskFixture,
+  ticketFixture
+} from '../../testing/BoardFixtures';
+import type { BoardRefusalDetail } from './BoardRefusal';
 
 const FILED_AT = '2026-09-18T09:30:00+02:00';
 
 const MOVED_AT = '2026-09-18T11:15:00+02:00';
 
-function refusalDetailOf(change: () => unknown): BoardRefusalDetail {
-  try {
-    change();
-  } catch (error) {
-    if (refusalIsBoardRefusal(error)) return error.detail;
-    throw error;
-  }
-  throw new Error('The change was not refused.');
-}
-
-function ticketOwnedRowFixture(status: 'pending' | 'in-progress' | 'paused' = 'in-progress'): ReturnType<typeof boardFixture> {
+function ticketOwnedRowFixture(status: 'pending' | 'in-progress' | 'paused' = 'in-progress'): BoardFixture {
   return boardFixture({
     tasks: [taskFixture({
       id: 4, name: '#001 Example checkout page', status, start: status === 'pending' ? null : FILED_AT, ticket: '001' 

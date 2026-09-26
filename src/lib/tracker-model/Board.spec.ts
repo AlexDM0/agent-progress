@@ -5,12 +5,13 @@
  */
 import { describe, expect, test } from 'bun:test';
 
+import type { BoardFixture }                        from '../../testing/BoardFixtures';
 import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures';
 import type { Board }                               from './Board';
 
 const CHANGED_AT = '2026-09-18T20:40:00+02:00';
 
-function populatedBoardFixture(): ReturnType<typeof boardFixture> {
+function populatedBoardFixture(): BoardFixture {
   return boardFixture({
     tasks: [
       taskFixture({

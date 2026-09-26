@@ -7,6 +7,8 @@ import type { ProgressFile }              from '../lib/tracker-model/@types/Prog
 import type { Task }                      from '../lib/tracker-model/@types/Task.ts';
 import type { Ticket, TicketFrontmatter } from '../lib/tracker-model/@types/Ticket.ts';
 import { Board }                          from '../lib/tracker-model/Board.ts';
+import type { BoardRefusalDetail }        from '../lib/tracker-model/BoardRefusal.ts';
+import { refusalIsBoardRefusal }          from '../lib/tracker-model/BoardRefusal.ts';
 import { createLogger }                   from '../lib/tracker-model/Logger.ts';
 
 const FIXTURE_STARTED_AT = '2026-09-18T09:00:00+02:00';
@@ -77,4 +79,15 @@ export function boardFixture(contents: { tasks?: Task[]; tickets?: Ticket[]; con
     tickets,
     records,
   };
+}
+
+/** The detail of the Board refusal the change throws; any other error is rethrown, and a change that is not refused fails. */
+export function refusalDetailOf(change: () => unknown): BoardRefusalDetail {
+  try {
+    change();
+  } catch (error) {
+    if (refusalIsBoardRefusal(error)) return error.detail;
+    throw error;
+  }
+  throw new Error('The change was not refused.');
 }

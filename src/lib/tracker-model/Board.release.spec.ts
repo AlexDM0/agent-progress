@@ -6,6 +6,7 @@
  */
 import { describe, expect, test } from 'bun:test';
 
+import type { BoardFixture }                        from '../../testing/BoardFixtures';
 import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures';
 import { refusalIsBoardRefusal }                    from './BoardRefusal';
 import { TICKET_STATUSES }                          from './constants/Statuses';
@@ -47,7 +48,7 @@ function reviewBarFixture(taskId: number, ticketId: string, status: 'in-progress
   });
 }
 
-function bundleInReviewFixture(): ReturnType<typeof boardFixture> {
+function bundleInReviewFixture(): BoardFixture {
   return boardFixture({
     tasks: [
       rowInReviewFixture(1, '001'),

@@ -7,10 +7,14 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures';
-import type { BoardRefusalDetail }                  from './BoardRefusal';
-import { refusalIsBoardRefusal }                    from './BoardRefusal';
-import { TICKET_STATUSES }                          from './constants/Statuses';
+import type { BoardFixture } from '../../testing/BoardFixtures';
+import {
+  boardFixture,
+  refusalDetailOf,
+  taskFixture,
+  ticketFixture
+} from '../../testing/BoardFixtures';
+import { TICKET_STATUSES } from './constants/Statuses';
 
 const FILED_AT            = '2026-09-18T09:00:00+02:00';
 const STARTED_AT          = '2026-09-18T10:00:00+02:00';
@@ -18,17 +22,7 @@ const FINISHED_AT         = '2026-09-18T12:00:00+02:00';
 const REREVIEWED_AT       = '2026-09-18T13:00:00+02:00';
 const REREVIEWED_AGAIN_AT = '2026-09-18T14:00:00+02:00';
 
-function refusalDetailOf(change: () => unknown): BoardRefusalDetail {
-  try {
-    change();
-  } catch (error) {
-    if (refusalIsBoardRefusal(error)) return error.detail;
-    throw error;
-  }
-  throw new Error('The change was not refused.');
-}
-
-function ticketInReviewFixture(): ReturnType<typeof boardFixture> {
+function ticketInReviewFixture(): BoardFixture {
   return boardFixture({
     tasks: [taskFixture({
       id:     1,

@@ -7,24 +7,19 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures';
-import type { BoardRefusalDetail }                  from './BoardRefusal';
-import { refusalIsBoardRefusal }                    from './BoardRefusal';
+import type { BoardFixture } from '../../testing/BoardFixtures';
+import {
+  boardFixture,
+  refusalDetailOf,
+  taskFixture,
+  ticketFixture
+} from '../../testing/BoardFixtures';
+import type { BoardRefusalDetail } from './BoardRefusal';
 
 const CHANGED_AT = '2026-09-18T15:00:00+02:00';
 
-function refusalDetailOf(change: () => unknown): BoardRefusalDetail {
-  try {
-    change();
-  } catch (error) {
-    if (refusalIsBoardRefusal(error)) return error.detail;
-    throw error;
-  }
-  throw new Error('The change was not refused.');
-}
-
 /** The change is refused with the given reason, and the records are left exactly as they were. */
-function expectRefusedWithNothingChanged(fixture: ReturnType<typeof boardFixture>, change: () => unknown, reason: BoardRefusalDetail['reason']): BoardRefusalDetail {
+function expectRefusedWithNothingChanged(fixture: BoardFixture, change: () => unknown, reason: BoardRefusalDetail['reason']): BoardRefusalDetail {
   const progressBefore = structuredClone(fixture.progress);
   const ticketsBefore  = structuredClone(fixture.tickets);
   const detail         = refusalDetailOf(change);

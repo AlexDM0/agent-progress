@@ -7,24 +7,17 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures';
-import type { BoardRefusalDetail }                  from './BoardRefusal';
-import { refusalIsBoardRefusal }                    from './BoardRefusal';
+import {
+  boardFixture,
+  refusalDetailOf,
+  taskFixture,
+  ticketFixture
+} from '../../testing/BoardFixtures';
 
 const FILED_AT     = '2026-09-18T09:00:00+02:00';
 const STARTED_AT   = '2026-09-18T10:00:00+02:00';
 const FINISHED_AT  = '2026-09-18T12:00:00+02:00';
 const CHANGED_AT   = '2026-09-18T15:00:00+02:00';
-
-function refusalDetailOf(change: () => unknown): BoardRefusalDetail {
-  try {
-    change();
-  } catch (error) {
-    if (refusalIsBoardRefusal(error)) return error.detail;
-    throw error;
-  }
-  throw new Error('The change was not refused.');
-}
 
 describe('lowering', () => {
   test('lowering a pending ticket to low removes its row and logs the change', () => {
