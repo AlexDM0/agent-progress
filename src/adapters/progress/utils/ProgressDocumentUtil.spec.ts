@@ -1,17 +1,14 @@
 /**
  * `status --json` and the page island print this document, so its key order is output: `version` 1 first, the log right after `tasks`
- * even when a setting stored later follows it, and unknown keys where the progress had them. It must also stay a file the ingestion reads.
+ * even when a setting stored later follows it, and unknown keys where the progress had them.
  */
-import { join }                   from 'node:path';
 import { afterAll, expect, test } from 'bun:test';
 
-import { writeFileAtomically }                            from '../../../lib/atomic-file/AtomicFile.ts';
-import type { ProgressFile }                              from '../../../lib/tracker-model/@types/ProgressFile.ts';
-import type { WordedLogEntry }                            from '../../../shared/@types/WordedLogEntry.ts';
-import { createScratchDirectory, removeScratchDirectory } from '../../../testing/ScratchWorkspace.ts';
-import { ProgressFileIngestion }                          from '../ProgressFileIngestion.ts';
-import { emptyProgress, fileRow }                         from '../testing/ProgressFileFixtures.ts';
-import { ProgressDocumentUtil }                           from './ProgressDocumentUtil.ts';
+import type { ProgressFile }      from '../../../lib/tracker-model/@types/ProgressFile.ts';
+import type { WordedLogEntry }    from '../../../shared/@types/WordedLogEntry.ts';
+import { removeScratchDirectory } from '../../../testing/ScratchWorkspace.ts';
+import { emptyProgress, fileRow } from '../testing/ProgressFileFixtures.ts';
+import { ProgressDocumentUtil }   from './ProgressDocumentUtil.ts';
 
 const WORDED_LOG: readonly WordedLogEntry[] = [
   { at: '2026-09-18T20:11:03+02:00', text: 'Ticket #001 filed: Example checkout flow' },
@@ -74,15 +71,4 @@ test('keys the tool does not know keep their place among the others', () => {
     'unknownMiddleKey',
     'trailingKey',
   ]);
-});
-
-test('the document written to a file reads back through the ingestion', () => {
-  const directory = createScratchDirectory('progress-document');
-  scratchDirectories.push(directory);
-  const progressFilePath = join(directory, 'progress.json');
-  writeFileAtomically(progressFilePath, JSON.stringify(ProgressDocumentUtil.documentOf(progressWithSettingsAfterTheLog(), WORDED_LOG)));
-  const reading = new ProgressFileIngestion(progressFilePath).read();
-  expect(reading.verdict).toBe('readable');
-  expect(reading.verdict === 'readable' ? reading.carriedOverLog?.map((record) => record.at) : null, 'read as version 1, owning its log')
-    .toEqual(WORDED_LOG.map((entry) => entry.at));
 });

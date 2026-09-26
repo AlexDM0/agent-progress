@@ -7,7 +7,6 @@ import {
   copyFileSync,
   mkdirSync,
   mkdtempSync,
-  readFileSync,
   renameSync,
   rmSync,
   unlinkSync,
@@ -194,29 +193,15 @@ describe('readTicket', () => {
     expect(readTicket(workspace, '1')).toBeNull();
   });
 
-  // Keeps the retired word as input on purpose: only the next write may move a stored ticket to the new word, never a read.
-  test('listing or reading a ticket stored as open reads it as pending and leaves the file byte for byte', () => {
-    const workspace  = scratchWorkspace();
-    const ticketPath = fileTicket(workspace, 'Fix the export dialog', 'bug').filePath;
-    writeFileSync(ticketPath, readFileSync(ticketPath, 'utf8').replace('status: "pending"', 'status: open'));
-    const storedBytes = readFileSync(ticketPath, 'utf8');
-
-    expect(listTickets(workspace).tickets.map((listed) => listed.frontmatter.status)).toEqual(['pending']);
-    expect(readTicket(workspace, '1')?.frontmatter.status).toBe('pending');
-    expect(readFileSync(ticketPath, 'utf8')).toBe(storedBytes);
-    expect(storedBytes).toContain('status: open');
-  });
-
-  test('ticketsInAnOlderFormat lists exactly the tickets stored with a retired word', () => {
-    const workspace  = scratchWorkspace();
+  test('ticketsInAnOlderFormat is empty when every ticket is stored in the current format', () => {
+    const workspace = scratchWorkspace();
     fileTicket(workspace, 'Fix the export dialog', 'bug');
-    const ticketPath = fileTicket(workspace, 'Add a keyboard shortcut', 'feature').filePath;
-    writeFileSync(ticketPath, readFileSync(ticketPath, 'utf8').replace('status: "pending"', 'status: open'));
+    fileTicket(workspace, 'Add a keyboard shortcut', 'feature');
 
     const listing = listTickets(workspace);
 
     expect(listing.tickets.map((listed) => listed.frontmatter.id)).toEqual(['001', '002']);
-    expect(listing.ticketsInAnOlderFormat.map((listed) => listed.filePath)).toEqual([ticketPath]);
+    expect(listing.ticketsInAnOlderFormat).toEqual([]);
   });
 });
 

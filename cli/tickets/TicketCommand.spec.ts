@@ -401,53 +401,6 @@ describe.skipIf(!gitIsAvailable())('linking a ticket to a row', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('the retired verbs and status words', () => {
-  function trackerFilesText(): string {
-    return `${readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')}\n${storedTicketText()}`;
-  }
-
-  async function refusalOf(commandLineArguments: readonly string[]): Promise<string> {
-    const trackerBefore = trackerFilesText();
-    const context       = contextHere();
-    const exitCode      = await runCommandLine(commandLineArguments, context);
-
-    expect(exitCode, `\`agent-progress ${commandLineArguments.join(' ')}\` exits 1`).toBe(1);
-    expect(trackerFilesText(), 'a refused retired word writes nothing').toBe(trackerBefore);
-    return context.errorText();
-  }
-
-  beforeEach(async () => {
-    await run(['ticket', 'add', 'Double-click a role to edit it']);
-    await run(['ticket', 'start', '1']);
-  });
-
-  // A builder still briefed with the old verb must be told the new one, including that its --start-review still works there.
-  test('ticket review is refused naming ticket finish, with or without --start-review', async () => {
-    expect(await refusalOf(['ticket', 'review', '1'])).toContain('agent-progress ticket finish 1');
-
-    const withTheReviewBar = await refusalOf(['ticket', 'review', '1', '--start-review']);
-    expect(withTheReviewBar).toContain('agent-progress ticket finish 1');
-    expect(withTheReviewBar).toContain('--start-review');
-  });
-
-  // `done` was a verb and a status at once; the verb that moves to reviewed is now `approve`.
-  test('ticket done is refused naming ticket approve', async () => {
-    expect(await refusalOf(['ticket', 'done', '1'])).toContain('agent-progress ticket approve 1');
-  });
-
-  // An old status word given as a value is named with its replacement, never taken as a typo of some other status.
-  test('ticket status with open or done is refused naming pending or reviewed', async () => {
-    expect(await refusalOf(['ticket', 'status', '1', 'open'])).toContain('"open" is the old name of the ticket status pending');
-    expect(await refusalOf(['ticket', 'status', '1', 'done'])).toContain('"done" is the old name of the ticket status reviewed');
-  });
-
-  test('ticket list --status done is refused naming reviewed', async () => {
-    const refusal = await refusalOf(['ticket', 'list', '--status', 'done']);
-    expect(refusal).toContain('"done" is the old name of the ticket status reviewed');
-    expect(refusal).toContain('--status reviewed');
-  });
-});
-
 describe.skipIf(!gitIsAvailable())('the transition matrix', () => {
   beforeEach(async () => {
     await run(['ticket', 'add', 'Double-click a role to edit it']);

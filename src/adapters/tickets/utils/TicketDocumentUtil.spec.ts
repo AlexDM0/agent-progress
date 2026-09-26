@@ -355,36 +355,13 @@ describe('model and effort', () => {
   });
 });
 
-// These keep the retired words as input on purpose: a ticket file written before the rename must still read, and move on when written.
-describe('retired status words', () => {
-  test('a ticket stored as open or done reads as pending or reviewed, quoted or bare', () => {
-    expect(parsedDocument(FULL_TICKET.replace('status: "in-progress"', 'status: open')).frontmatter.status).toBe('pending');
-    expect(parsedDocument(FULL_TICKET.replace('status: "in-progress"', 'status: "done"')).frontmatter.status).toBe('reviewed');
-  });
-
-  test('reading open or done, quoted or bare, reports that a retired word was read', () => {
-    for (const storedStatus of ['open', '"open"', 'done', '"done"']) {
-      const parsed = TicketDocumentUtil.parseTicketDocument(FULL_TICKET.replace('status: "in-progress"', `status: ${storedStatus}`));
-
-      expect(parsed.verdict === 'parsed' && parsed.olderFormatWasRead).toBe(true);
-    }
-  });
-
+describe('status words', () => {
   test('reading a current word, quoted or bare, reports no retired word', () => {
     for (const storedStatus of ['"in-progress"', 'pending', '"reviewed"']) {
       const parsed = TicketDocumentUtil.parseTicketDocument(FULL_TICKET.replace('status: "in-progress"', `status: ${storedStatus}`));
 
       expect(parsed.verdict === 'parsed' && !parsed.olderFormatWasRead).toBe(true);
     }
-  });
-
-  test('writing a ticket read with a retired word stores the word that replaced it', () => {
-    const { frontmatter, body } = parsedDocument(FULL_TICKET.replace('status: "in-progress"', 'status: "open"'));
-
-    const written = TicketDocumentUtil.serializeTicketDocument(frontmatter, body);
-
-    expect(written).toContain('status: "pending"');
-    expect(written).not.toContain('status: "open"');
   });
 
   test('a word that was never a ticket status is still malformed at its line', () => {

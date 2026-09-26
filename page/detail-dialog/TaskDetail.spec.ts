@@ -6,12 +6,12 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import type { Task }                               from '../../src/lib/tracker-model/@types/Task.ts';
-import type { PageTicket }                         from '../../src/shared/@types/PagePayload.ts';
-import type { IdentifiedLogEntry, WordedLogEntry } from '../../src/shared/@types/WordedLogEntry.ts';
-import { pageBoardFixture }                        from '../testing/PageBoardFixture.ts';
-import type { TimestampSlices }                    from '../utils/TimeUtil.ts';
-import { taskDetailMarkup }                        from './TaskDetail.ts';
+import type { Task }               from '../../src/lib/tracker-model/@types/Task.ts';
+import type { PageTicket }         from '../../src/shared/@types/PagePayload.ts';
+import type { IdentifiedLogEntry } from '../../src/shared/@types/WordedLogEntry.ts';
+import { pageBoardFixture }        from '../testing/PageBoardFixture.ts';
+import type { TimestampSlices }    from '../utils/TimeUtil.ts';
+import { taskDetailMarkup }        from './TaskDetail.ts';
 
 const EXAMPLE_SLICES: TimestampSlices = {
   dateAndClockLength:    16,
@@ -347,18 +347,38 @@ describe('the ticket', () => {
 });
 
 describe('the log', () => {
-  const log: WordedLogEntry[] = [
-    { at: FILED_AT, text: 'Ticket #001 filed: Double-click a role to edit it' },
-    { at: STARTED_AT, text: 'Ticket #002 started' },
-    { at: FINISHED_AT, text: 'Review row #1 started: Review 1 #001 — Double-click a role to edit it' },
-    { at: DELIVERED_AT, text: 'Ticket #001 delivered' },
+  const log: IdentifiedLogEntry[] = [
+    {
+      at:        FILED_AT,
+      text:      'Ticket #001 filed: Double-click a role to edit it',
+      taskIds:   [],
+      ticketIds: ['001'],
+    },
+    {
+      at:        STARTED_AT,
+      text:      'Ticket #002 started',
+      taskIds:   [],
+      ticketIds: ['002'],
+    },
+    {
+      at:        FINISHED_AT,
+      text:      'Review row #1 started: Review 1 #001 — Double-click a role to edit it',
+      taskIds:   [1],
+      ticketIds: ['001'],
+    },
+    {
+      at:        DELIVERED_AT,
+      text:      'Ticket #001 delivered',
+      taskIds:   [],
+      ticketIds: ['001'],
+    },
   ];
 
   function logLinesIn(markup: string): Array<string | undefined> {
     return [...markup.matchAll(/<span>([^<]*)<\/span><\/li>/g)].map((match) => match[1]);
   }
 
-  test('keeps the lines that name this row or its ticket, newest first', () => {
+  test('keeps the lines whose ids hold this row or its ticket, newest first', () => {
     const lines = logLinesIn(panelFor(exampleTask({ id: 1, ticket: '001' }), exampleTicket(), log));
 
     expect(lines).toEqual([

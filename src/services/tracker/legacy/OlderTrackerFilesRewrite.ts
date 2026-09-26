@@ -1,5 +1,5 @@
 /**
- * It rewrites a tracker still in an older format (a progress file carrying its log, tickets in retired words) in the current one for `update` and `init`.
+ * Rewrites a tracker in an older format (a progress file carrying its log, tickets in retired words) in the current one for `update` and `init`.
  * It can be deleted once every tracker has been rewritten by `agent-progress update`.
  */
 import type { RenderState }                             from '../../render/RenderState.ts';

@@ -1,6 +1,6 @@
 /**
- * Reads a free-standing row known only by its `Review <N> #<id>` name, and a stored `reviewOf` left unpadded, from before `reviewOf` and
- * `reviewBarRound` were stored. It can be deleted once every tracker has been rewritten by `agent-progress update`.
+ * Reads a row known only by its `Review <N> #<id>` name, and a stored `reviewOf` left unpadded, giving it `reviewOf` and `reviewBarRound`.
+ * It can go once agents file bars only through `--review-of` or `--start-review` and every tracker has had a mutating command since, which stores both.
  */
 import { FIRST_REVIEW_BAR_ROUND } from '../../../lib/tracker-model/constants/ReviewRounds.ts';
 import { TicketIdUtil }           from '../../../lib/tracker-model/utils/TicketIdUtil.ts';

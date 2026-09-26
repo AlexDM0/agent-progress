@@ -111,13 +111,24 @@ describe('the sub-state note', () => {
     expect(subStateNoteOf(cardOf(exampleTicket('058', { status: 'in-review' }), tasks), noteFormat())).toBe('reviewer since 13:05');
   });
 
-  test('names the round and the newest reviewer on a repeat review, finding a review row by its name', () => {
+  test('names the round and the newest reviewer on a repeat review, finding a review row by its reviewOf', () => {
     const tasks = [
       exampleRow(1, { status: 're-review', ticket: '059', reviewRound: 3 }),
       exampleRow(2, {
-        name: 'Review 1 #059 — Accent-blind search', status: 'delivered', start: at('10:50'), end: at('11:30') 
+        name:           'Review 1 #059 — Accent-blind search',
+        status:         'delivered',
+        start:          at('10:50'),
+        end:            at('11:30'),
+        reviewOf:       '059',
+        reviewBarRound: 1,
       }),
-      exampleRow(3, { name: 'Review 2 #059 — Accent-blind search', status: 'in-progress', start: at('11:34', '2026-09-24') }),
+      exampleRow(3, {
+        name:           'Review 2 #059 — Accent-blind search',
+        status:         'in-progress',
+        start:          at('11:34', '2026-09-24'),
+        reviewOf:       '059',
+        reviewBarRound: 2,
+      }),
     ];
 
     expect(subStateNoteOf(cardOf(exampleTicket('059', { status: 'in-review' }), tasks), noteFormat())).toBe('round 3 reviewer since 09-24 11:34');

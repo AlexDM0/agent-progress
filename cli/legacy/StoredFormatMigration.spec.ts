@@ -6,6 +6,7 @@
  * is rewritten; any other log.jsonl beside a version 1 file is refused, and neither file is touched; `update`, and `init` on the tracker,
  * rewrite the progress file and a ticket holding a retired word in the current format, the ticket normalised by the serialiser, and a
  * second run touches nothing.
+ * It reads the older input `src/adapters/legacy/` and `cli/legacy/` exist for, and is deleted with them.
  */
 import {
   chmodSync,
@@ -23,11 +24,11 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import { TimeUtil }                                                           from '../src/lib/utils/TimeUtil';
-import type { WordedLogEntry }                                                from '../src/shared/@types/WordedLogEntry';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../src/testing/ScratchWorkspace';
-import { runCommandLine }                                                     from './Main';
-import { createCapturedCommandContext }                                       from './testing/CapturedCommandContext';
+import { TimeUtil }                                                           from '../../src/lib/utils/TimeUtil';
+import type { WordedLogEntry }                                                from '../../src/shared/@types/WordedLogEntry';
+import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
+import { runCommandLine }                                                     from '../Main';
+import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';
 
 /**
  * Written by main at 5c6b0ad. To retake them, unpack that commit with `git archive 5c6b0ad | tar -x -C <folder>`, then in a scratch git

@@ -456,11 +456,11 @@ describe.skipIf(!gitIsAvailable())('the ticket a reviewer\'s brief names', () =>
     expect(context.errorText()).toBe('');
   });
 
-  // A second round files a second row; the reviewer that stops is the one whose row was filed last, linked by field or by name alone.
+  // A second round files a second row; the reviewer that stops is the one whose row was filed last, linked by its reviewOf.
   test('with two review rows for the ticket, the later one gets it and the earlier is left as it was', async () => {
     const firstRound  = await reviewRowFiled(['Review 1 #007 — Example work 7', '--review-of', '7']);
     transcriptPath    = writeTranscript([userLine('agent-progress review: #007'), ...FIXTURE_CALLS]);
-    const secondRound = await reviewRowFiled(['Review 2 #7 — Example work 7']);
+    const secondRound = await reviewRowFiled(['Review 2 #7 — Example work 7', '--review-of', '7']);
 
     expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput()))).toBe(0);
 

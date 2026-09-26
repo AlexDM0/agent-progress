@@ -1,18 +1,14 @@
 /**
- * Progress documents for the progress.json adapter specs: a new tracker, a row filed the way the Board files one, the tracker stored in either
- * version, and a document written before the task statuses were renamed. Test-only: nothing that ships may import
- * `src/adapters/progress/testing/`.
+ * Progress documents for the progress.json adapter specs: a new tracker, a row filed the way the Board files one, and the tracker as the
+ * current format stores it. Test-only: nothing that ships may import `src/adapters/progress/testing/`.
  */
-import type { ProgressFile }                                 from '../../../lib/tracker-model/@types/ProgressFile.ts';
-import type { Task }                                         from '../../../lib/tracker-model/@types/Task.ts';
-import { EmptyProgressUtil }                                 from '../../../lib/tracker-model/utils/EmptyProgressUtil.ts';
-import { TaskFilingUtil, type TaskFiling }                   from '../../../lib/tracker-model/utils/TaskFilingUtil.ts';
-import type { StoredLogEntry, StoredProgressFileVersionOne } from '../../legacy/@types/StoredProgressFileVersionOne.ts';
-import type { StoredProgressFile }                           from '../@types/StoredProgressFile.ts';
+import type { ProgressFile }               from '../../../lib/tracker-model/@types/ProgressFile.ts';
+import type { Task }                       from '../../../lib/tracker-model/@types/Task.ts';
+import { EmptyProgressUtil }               from '../../../lib/tracker-model/utils/EmptyProgressUtil.ts';
+import { TaskFilingUtil, type TaskFiling } from '../../../lib/tracker-model/utils/TaskFilingUtil.ts';
+import type { StoredProgressFile }         from '../@types/StoredProgressFile.ts';
 
-const FILED_AT    = '2026-09-18T20:11:03+02:00';
-const STARTED_AT  = '2026-09-18T20:40:00+02:00';
-const FINISHED_AT = '2026-09-18T21:05:00+02:00';
+const FILED_AT = '2026-09-18T20:11:03+02:00';
 
 export function emptyProgress(): ProgressFile {
   return EmptyProgressUtil.emptyProgressFor({ project: 'Example Agency', startedAt: FILED_AT, trackerId: 'example-tracker-id' });
@@ -31,33 +27,6 @@ export function versionTwoDocumentOf(progress: ProgressFile): StoredProgressFile
   return { version: 2, ...progress };
 }
 
-/** The progress as a build before log.jsonl stored it, with its log after `tasks`, where a file `init` created keeps it. */
-export function versionOneDocumentOf(progress: ProgressFile, log: StoredLogEntry[] = []): StoredProgressFileVersionOne {
-  return { version: 1, ...progress, log };
-}
-
 export function emptyDocument(): StoredProgressFile {
   return versionTwoDocumentOf(emptyProgress());
-}
-
-/** A file written before the task statuses were renamed: it keeps the retired words on purpose, in its rows and in their history. */
-export function documentInRetiredWords(): StoredProgressFileVersionOne {
-  const progress = emptyProgress();
-  const building  = fileRow(progress, { name: 'Example build' });
-  const reviewing = fileRow(progress, { name: 'Example review' });
-  return {
-    ...versionOneDocumentOf(progress),
-    tasks: [
-      {
-        ...building,
-        status:  'running',
-        history: [{ status: 'pending', at: FILED_AT }, { status: 'running', at: STARTED_AT }],
-      },
-      {
-        ...reviewing,
-        status:  'finished',
-        history: [{ status: 'running', at: STARTED_AT }, { status: 'finished', at: FINISHED_AT }],
-      },
-    ],
-  };
 }

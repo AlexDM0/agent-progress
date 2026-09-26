@@ -185,42 +185,7 @@ describe.skipIf(!gitIsAvailable())('refusals a caller can act on', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('the retired verb and status words', () => {
-  function progressFileText(): string {
-    return readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8');
-  }
-
-  // A caller still on the old verb must learn the new one, not be told `review` is unknown, and must move nothing.
-  test('task review is refused at exit 1 naming task approve, and the progress file stays byte-identical', async () => {
-    await run(['task', 'add', 'Review pass', '--start']);
-    const progressBefore = progressFileText();
-    const logBefore      = storedLogTextOf(repositoryDirectory);
-
-    const context  = contextHere();
-    const exitCode = await runCommandLine(['task', 'review', '1'], context);
-
-    expect(exitCode).toBe(1);
-    expect(context.errorText()).toContain('agent-progress task approve 1');
-    expect(progressFileText()).toBe(progressBefore);
-    expect(storedLogTextOf(repositoryDirectory)).toBe(logBefore);
-  });
-
-  // `running` is still a word agents type from habit, so the refusal says which word replaced it.
-  test('task update --status running is refused at exit 1 naming in-progress, and nothing is written', async () => {
-    await run(['task', 'add', 'Review pass']);
-    const progressBefore = progressFileText();
-    const logBefore      = storedLogTextOf(repositoryDirectory);
-
-    const context  = contextHere();
-    const exitCode = await runCommandLine(['task', 'update', '1', '--status', 'running'], context);
-
-    expect(exitCode).toBe(1);
-    expect(context.errorText()).toContain('"running" is the old name of the task status in-progress');
-    expect(context.errorText()).toContain('--status in-progress');
-    expect(progressFileText()).toBe(progressBefore);
-    expect(storedLogTextOf(repositoryDirectory)).toBe(logBefore);
-  });
-
+describe.skipIf(!gitIsAvailable())('the verb that replaced review', () => {
   // The verb that replaced `review` must reach the same status the old one did.
   test('task approve moves a row to reviewed', async () => {
     await run(['task', 'add', 'Review pass', '--start']);

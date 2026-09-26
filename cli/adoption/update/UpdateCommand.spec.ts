@@ -1,6 +1,6 @@
 /**
- * What `agent-progress update` refreshes, what it reports about each of those files, and what it touches
- * in the tracker only to rewrite an older format: the progress file, the tickets and the log.
+ * What `agent-progress update` refreshes, what it reports about each of those files, and that it leaves a current tracker's progress file,
+ * tickets and log byte for byte.
  */
 import {
   existsSync,
@@ -18,7 +18,6 @@ import {
   expect,
   test
 }                                        from 'bun:test';
-import { LIMITS }          from '../../../src/shared/constants/Limits';
 import {
   addWorktree,
   createScratchDirectory,
@@ -31,9 +30,6 @@ import { createCapturedCommandContext } from '../../testing/CapturedCommandConte
 import { CLAUDE_MANAGED_BLOCK_MARKERS } from '../TrackerRefresh';
 
 const scratchDirectories: string[] = [];
-
-/** A lock that is never given up is waited out through the whole retry budget before the refusal. */
-const HELD_LOCK_TIMEOUT_MILLISECONDS = LIMITS.LOCK_RETRY_COUNT * LIMITS.LOCK_RETRY_INTERVAL_MILLISECONDS * 3;
 
 const BRIEF_TEMPLATE = readFileSync(join(import.meta.dir, '..', '..', '..', 'templates', 'AgentBrief.md'), 'utf8');
 
@@ -258,16 +254,6 @@ describe.skipIf(!gitIsAvailable())('updating a tracked repository', () => {
     expect(context.outputText()).toContain('hooks:       left alone (--no-hooks)');
   });
 
-  /** The flag that used to ask for the hook is now the default; a habit that still types it is answered, not refused. */
-  test('--hooks is still accepted and does what the default already does', async () => {
-    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-
-    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    expect(await runCommandLine(['update', '--hooks'], context)).toBe(0);
-
-    expect(context.outputText()).toContain('settings.local.json (installed)');
-  });
-
   test('the dispatcher workflow is installed byte-identical to the template, and a second run reports it unchanged', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
     const workflowFilePath    = workflowFilePathIn(repositoryDirectory);
@@ -391,7 +377,7 @@ describe.skipIf(!gitIsAvailable())('what update never touches', () => {
     const ticketBefore     = readFileSync(ticketFilePath, 'utf8');
     expect(ticketFileName, 'the fixture filed a ticket, so the comparison below is about a real file').toContain('export-button');
 
-    expect(await runCommandLine(['update', '--hooks'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }))).toBe(0);
+    expect(await runCommandLine(['update'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }))).toBe(0);
 
     expect(readFileSync(progressFilePath, 'utf8'), 'the rows, the log and the counters are none of this command\'s business').toBe(progressBefore);
     expect(readFileSync(logFilePath, 'utf8')).toBe(logBefore);
@@ -414,101 +400,6 @@ describe.skipIf(!gitIsAvailable())('what update never touches', () => {
     expect(readFileSync(progressFilePath, 'utf8')).toBe(unreadableProgress);
     expect(readFileSync(logFilePath, 'utf8')).toBe(logBefore);
   });
-});
-
-interface TrackerInAnOlderFormat {
-  repositoryDirectory: string;
-  progressFilePath:    string;
-  logFilePath:         string;
-  ticketFilePath:      string;
-}
-
-/** A tracker as a build before log.jsonl left it: the log inside a version 1 progress file, and a ticket holding the retired word `open`. */
-async function trackedRepositoryInAnOlderFormat(): Promise<TrackerInAnOlderFormat> {
-  const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-  await runCommandLine(['ticket', 'add', 'Rename the export button', '--type', 'change'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }));
-
-  const trackerDirectory = join(repositoryDirectory, '.agent-progress');
-  const progressFilePath = join(trackerDirectory, 'progress.json');
-  const logFilePath      = join(trackerDirectory, 'log.jsonl');
-  const ticketsDirectory = join(trackerDirectory, 'tickets');
-  const ticketFilePath   = join(ticketsDirectory, readdirSync(ticketsDirectory)[0] ?? '');
-
-  const currentProgress = JSON.parse(readFileSync(progressFilePath, 'utf8')) as Record<string, unknown>;
-  const versionOneProgress = {
-    ...currentProgress,
-    version: 1,
-    log:     [{ at: '2026-09-18T09:00:00+02:00', text: 'Example session started' }],
-  };
-  writeFileSync(progressFilePath, `${JSON.stringify(versionOneProgress, null, 2)}\n`);
-  rmSync(logFilePath);
-  writeFileSync(ticketFilePath, readFileSync(ticketFilePath, 'utf8').replace('status: "pending"', 'status: open'));
-  return {
-    repositoryDirectory,
-    progressFilePath,
-    logFilePath,
-    ticketFilePath,
-  };
-}
-
-describe.skipIf(!gitIsAvailable())('what update rewrites', () => {
-  test('a version 1 progress file and a ticket holding a retired word are rewritten in the current format, and a second run touches nothing', async () => {
-    const {
-      repositoryDirectory,
-      progressFilePath,
-      logFilePath,
-      ticketFilePath
-    } = await trackedRepositoryInAnOlderFormat();
-    expect(readFileSync(ticketFilePath, 'utf8'), 'the fixture holds the retired word, so the rewrite below is about something').toContain('status: open');
-
-    const first = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    expect(await runCommandLine(['update'], first)).toBe(0);
-
-    expect(first.outputText().split('\n')[0]).toEndWith(
-      ', and rewrote its older tracker files in the current format: progress.json, with its log moved to log.jsonl and 1 ticket file.',
-    );
-    const storedProgress = JSON.parse(readFileSync(progressFilePath, 'utf8')) as Record<string, unknown>;
-    expect(storedProgress['version']).toBe(2);
-    expect(storedProgress).not.toHaveProperty('log');
-    expect(readFileSync(logFilePath, 'utf8')).toBe('{"at":"2026-09-18T09:00:00+02:00","kind":"note","fields":{"text":"Example session started"}}\n');
-    expect(readFileSync(ticketFilePath, 'utf8')).toContain('status: "pending"');
-
-    const progressAfterRewrite = readFileSync(progressFilePath, 'utf8');
-    const logAfterRewrite      = readFileSync(logFilePath, 'utf8');
-    const ticketAfterRewrite   = readFileSync(ticketFilePath, 'utf8');
-    const second = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    expect(await runCommandLine(['update'], second)).toBe(0);
-
-    expect(second.outputText().split('\n')[0]).toEndWith('; the tracker itself was not touched.');
-    expect(readFileSync(progressFilePath, 'utf8')).toBe(progressAfterRewrite);
-    expect(readFileSync(logFilePath, 'utf8')).toBe(logAfterRewrite);
-    expect(readFileSync(ticketFilePath, 'utf8')).toBe(ticketAfterRewrite);
-  });
-
-  /** The refreshed files are already on disk when the lock is refused, so the report that names a stale brief must still be printed. */
-  test('a rewrite that cannot take the lock exits 2 after the refresh report, leaving the progress file as it was', async () => {
-    const { repositoryDirectory, progressFilePath } = await trackedRepositoryInAnOlderFormat();
-    const progressBefore = readFileSync(progressFilePath, 'utf8');
-    const lockFilePath   = join(repositoryDirectory, '.agent-progress', '.lock');
-    rmSync(lockFilePath, { force: true, recursive: true });
-    writeFileSync(lockFilePath, '');
-
-    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    expect(await runCommandLine(['update'], context)).toBe(2);
-
-    const outputLines = context.outputText().split('\n');
-    expect(outputLines[0]).toEndWith('; rewriting its older tracker files did not finish, so some may already be in the current format.');
-    expect(outputLines[2]).toStartWith('  brief:       updated — re-read it before your next brief');
-    expect(outputLines.slice(1, 7).map((line) => line.slice(0, 15))).toEqual([
-      '  CLAUDE.md:   ',
-      '  brief:       ',
-      '  hooks:       ',
-      '  workflow:    ',
-      '  agent:       ',
-      '  dashboard:   ',
-    ]);
-    expect(readFileSync(progressFilePath, 'utf8')).toBe(progressBefore);
-  }, HELD_LOCK_TIMEOUT_MILLISECONDS);
 });
 
 describe.skipIf(!gitIsAvailable())('from inside a linked worktree', () => {

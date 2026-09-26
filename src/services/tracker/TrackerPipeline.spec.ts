@@ -1,7 +1,7 @@
 /**
  * The write pipeline on real tracker files: the mutation runs with the lock held, a Board refusal and any other throw leave every stored
- * file as it was, an unreadable tracker is refused before the mutation runs, and the write order holds (a version 1 log first, then
- * progress.json, the tickets, the deletions and log.jsonl last), observed by breaking one write from inside the mutation, with no clock.
+ * file as it was, an unreadable tracker is refused before the mutation runs, and the write order holds (progress.json, the tickets, the
+ * deletions and log.jsonl last), observed by breaking one write from inside the mutation, with no clock.
  */
 import {
   existsSync,
@@ -27,7 +27,6 @@ import type { LogRecord }                                 from '../../lib/tracke
 import type { ProgressFile }                              from '../../lib/tracker-model/@types/ProgressFile.ts';
 import { EmptyProgressUtil }                              from '../../lib/tracker-model/utils/EmptyProgressUtil.ts';
 import { OperationRefusal, refusalIsOperationRefusal }    from '../../shared/OperationRefusal.ts';
-import { LIMITS }                                         from '../../shared/constants/Limits.ts';
 import { ticketFixture }                                  from '../../testing/BoardFixtures.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
 import { createRenderState }                              from '../render/RenderState.ts';
@@ -63,14 +62,6 @@ function writeReadableTracker(): void {
   createProgressFileWriter(workspace.progressFilePath).write(emptyProgress());
   createLogFileWriter(workspace.logFilePath).write([NOTE_RECORD]);
   createTicketFileWriter().write({ ...ticketFixture({ title: 'Example checkout page' }), filePath: ticketFilePath() });
-}
-
-/** A version 1 file keeps its log inside itself as `{ at, text }` notes; the writers only write version 2, so the version is set by hand. */
-function writeVersionOneTracker(): void {
-  createProgressFileWriter(workspace.progressFilePath).write(emptyProgress());
-  const stored = JSON.parse(readFileSync(workspace.progressFilePath, 'utf8')) as Record<string, unknown>;
-  const versionOneDocument = { ...stored, version: 1, log: [{ at: NOTE_RECORD.at, text: 'Example session started' }] };
-  writeFileSync(workspace.progressFilePath, `${JSON.stringify(versionOneDocument, null, LIMITS.JSON_INDENT)}\n`);
 }
 
 /** Every stored file but the lock's records, which every lock hold writes. */
@@ -241,25 +232,6 @@ describe('writeTracker', () => {
     expect(String(failure), 'the ticket write is what failed').toContain(`/${TICKET_FILE_NAME}'`);
     expect(readFileSync(workspace.progressFilePath, 'utf8')).toContain('Example rendered row');
     expect(readFileSync(workspace.logFilePath, 'utf8')).toBe(logBefore);
-  });
-
-  test('for a version 1 tracker, log.jsonl is written before progress.json', async () => {
-    writeVersionOneTracker();
-
-    const failure = await failureOf(() => writeTracker({
-      workspace,
-      at:     CHANGED_AT,
-      now,
-      renderState,
-      mutate: (change) => {
-        addExampleRow(change);
-        rmSync(workspace.progressFilePath);
-        mkdirSync(workspace.progressFilePath);
-      },
-    }));
-
-    expect(String(failure), 'the progress file write is what failed').toContain('/progress.json\'');
-    expect(readFileSync(workspace.logFilePath, 'utf8')).toBe(`${JSON.stringify(NOTE_RECORD)}\n`);
   });
 
   test('the ticket files are deleted after progress.json is written, and the callback is handed their count', async () => {

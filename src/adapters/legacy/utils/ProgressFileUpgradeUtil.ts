@@ -1,6 +1,6 @@
 /**
- * Reads a progress.json written before the current format (version 1 with its own log, the retired task words, review bars known only by
- * name) and hands the ingestion the current document. It can be deleted once every tracker has been rewritten by `agent-progress update`.
+ * Reads a progress.json in an older shape: version 1 with its own log, rows in the retired task words, review bars known only by name.
+ * It can go once `update` has rewritten every version 1 file and a mutating command has stored every other tracker's rows, as `ReviewBarNameUtil` says.
  */
 import { RetiredStatusWordUtil }                                             from '../../../shared/legacy/utils/RetiredStatusWordUtil.ts';
 import type { ProgressFileMigration }                                        from '../../progress/@types/ProgressFileMigration.ts';

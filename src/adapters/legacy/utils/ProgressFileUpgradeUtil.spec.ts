@@ -7,17 +7,12 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import type { ProgressFileMigration } from '../../progress/@types/ProgressFileMigration.ts';
-import type { StoredProgressFile }    from '../../progress/@types/StoredProgressFile.ts';
-import {
-  documentInRetiredWords,
-  emptyDocument,
-  emptyProgress,
-  fileRow,
-  versionOneDocumentOf
-} from '../../progress/testing/ProgressFileFixtures.ts';
-import { ProgressFileMappingUtil } from '../../progress/utils/ProgressFileMappingUtil.ts';
-import { ProgressFileUpgradeUtil } from './ProgressFileUpgradeUtil.ts';
+import type { ProgressFileMigration }                   from '../../progress/@types/ProgressFileMigration.ts';
+import type { StoredProgressFile }                      from '../../progress/@types/StoredProgressFile.ts';
+import { emptyDocument, emptyProgress, fileRow }        from '../../progress/testing/ProgressFileFixtures.ts';
+import { ProgressFileMappingUtil }                      from '../../progress/utils/ProgressFileMappingUtil.ts';
+import { documentInRetiredWords, versionOneDocumentOf } from '../testing/LegacyProgressFileFixtures.ts';
+import { ProgressFileUpgradeUtil }                      from './ProgressFileUpgradeUtil.ts';
 
 const { migrationOf } = ProgressFileUpgradeUtil;
 

@@ -1,7 +1,6 @@
 /**
- * The verdicts one ticket file reads as: parsed with the line its `id` sits on, malformed at line 0 when the file cannot be read at
- * all, and marked as in an older format exactly when it holds a retired status word. A read never writes, so a retired word stays on
- * disk until the next write.
+ * The verdicts one ticket file reads as: parsed with the line its `id` sits on, and malformed at line 0 when the file cannot be read at
+ * all. A file in the current words is never in an older format, and a read never writes.
  */
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -76,20 +75,16 @@ describe('TicketFileIngestion', () => {
     expect(reading.verdict === 'malformed' ? reading.reason : '').toStartWith('the file could not be read: ');
   });
 
-  test('a file holding a retired status word is in an older format, and one holding a current word is not', () => {
-    const retiredPath = ticketFileHolding(TICKET_WITH_A_COMMENT_ABOVE_ITS_ID.replace('status: "pending"', 'status: open'));
+  test('a file holding a current word is not in an older format', () => {
     const currentPath = ticketFileHolding(TICKET_WITH_A_COMMENT_ABOVE_ITS_ID);
 
-    const retiredReading = new TicketFileIngestion(retiredPath).read();
     const currentReading = new TicketFileIngestion(currentPath).read();
 
-    expect(retiredReading.verdict === 'parsed' ? retiredReading.fileIsInAnOlderFormat : null).toBe(true);
-    expect(retiredReading.verdict === 'parsed' ? retiredReading.ticket.frontmatter.status : null).toBe('pending');
     expect(currentReading.verdict === 'parsed' ? currentReading.fileIsInAnOlderFormat : null).toBe(false);
   });
 
-  test('reading a file leaves it byte for byte, a retired word included', () => {
-    const storedText = TICKET_WITH_A_COMMENT_ABOVE_ITS_ID.replace('status: "pending"', 'status: open');
+  test('reading a file leaves it byte for byte', () => {
+    const storedText = TICKET_WITH_A_COMMENT_ABOVE_ITS_ID;
     const ticketPath = ticketFileHolding(storedText);
 
     new TicketFileIngestion(ticketPath).read();

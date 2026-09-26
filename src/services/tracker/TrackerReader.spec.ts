@@ -1,6 +1,6 @@
 /**
  * The tracker read without the lock: which verdict each broken or missing file gives, that the progress file's verdict wins over a broken
- * log, how an absent log.jsonl reads beside either format, and that reading writes nothing. `requireProgressFile` is pinned apart because
+ * log, how an absent log.jsonl reads beside a version 2 file, and that reading writes nothing. `requireProgressFile` is pinned apart because
  * `concurrency` and `dispatcher` must keep working with a broken log.jsonl.
  */
 import {
@@ -26,7 +26,6 @@ import type { ProgressFile }                              from '../../lib/tracke
 import { EmptyProgressUtil }                              from '../../lib/tracker-model/utils/EmptyProgressUtil.ts';
 import type { UnreadableTracker }                         from '../../shared/@types/UnreadableTracker.ts';
 import { refusalIsOperationRefusal }                      from '../../shared/OperationRefusal.ts';
-import { LIMITS }                                         from '../../shared/constants/Limits.ts';
 import { ticketFixture }                                  from '../../testing/BoardFixtures.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
 import {
@@ -76,13 +75,6 @@ function writeReadableTracker(): void {
   createLogFileWriter(workspace.logFilePath).write([NOTE_RECORD]);
   createTicketFileWriter().write({ ...ticketFixture({ title: 'Example checkout page' }), filePath: join(workspace.ticketsDirectory, '001-example-checkout-page.md') });
   writeFileSync(join(workspace.ticketsDirectory, '002-broken-by-hand.md'), MALFORMED_TICKET_TEXT);
-}
-
-/** A version 1 file keeps its log inside itself as `{ at, text }` notes; the writers only write version 2, so the version is set by hand. */
-function writeVersionOneProgressFile(): void {
-  createProgressFileWriter(workspace.progressFilePath).write(progressWithOneRow());
-  const stored = JSON.parse(readFileSync(workspace.progressFilePath, 'utf8')) as Record<string, unknown>;
-  writeFileSync(workspace.progressFilePath, `${JSON.stringify({ ...stored, version: 1, log: [{ at: NOTE_AT, text: 'Example note' }] }, null, LIMITS.JSON_INDENT)}\n`);
 }
 
 function trackerFileContents(): Record<string, string> {
@@ -175,12 +167,6 @@ describe('readTracker', () => {
     createProgressFileWriter(workspace.progressFilePath).write(progressWithOneRow());
 
     expect(contentsOf(readTracker(workspace)).storedLog).toEqual({ records: [], logFileMustBeRewritten: false });
-  });
-
-  test('a version 1 file beside no log.jsonl reads its embedded notes, and log.jsonl must be rewritten', () => {
-    writeVersionOneProgressFile();
-
-    expect(contentsOf(readTracker(workspace)).storedLog).toEqual({ records: [NOTE_RECORD], logFileMustBeRewritten: true });
   });
 });
 

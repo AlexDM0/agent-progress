@@ -1,7 +1,6 @@
 /**
- * The status words the rename retired, each with its replacement, which stored files and command lines written before the rename still hold.
- * It can be deleted once every tracker has been rewritten by `agent-progress update` and agents no longer use the retired words, with the
- * last of its callers in `src/adapters/legacy/` and `cli/legacy/`.
+ * The status words the rename retired, with their replacements, as older stored files and command lines hold them. It can go once `update`
+ * has rewritten old tickets and version 1 files, a mutating command every version 2 row, and agents no longer use the retired words.
  */
 import type { TaskStatus }   from '../../../lib/tracker-model/@types/Task.ts';
 import type { TicketStatus } from '../../../lib/tracker-model/@types/Ticket.ts';

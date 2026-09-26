@@ -127,7 +127,7 @@ function storedRow(rowIdentifier: number): Task | undefined {
   return storedProgress().tasks.find((task) => task.id === rowIdentifier);
 }
 
-/** A review bar as the orchestrate skill adds one, started an hour before the release; linked by `--review-of` unless the name alone is to link it. */
+/** A review bar as the orchestrate skill adds one, started an hour before the release and linked by `--review-of`, with any other options given. */
 async function inProgressReviewRow(identifier: string, linkArguments: readonly string[] = ['--review-of', identifier]): Promise<number> {
   const addArguments = ['task', 'add', `Review 1 #${identifier} — the work`, ...linkArguments, '--owner', 'opus', '--start', '--at', '-1h', '--json'];
   return (JSON.parse(await agentProgressOrFail(addArguments)) as Task).id;
@@ -395,8 +395,8 @@ describe.skipIf(!gitIsAvailable())('a release closes the running review bars of 
     expect(releaseDocumentOf(outcome)).toMatchObject({ released: true, closedReviewRows: [reviewRowId] });
   });
 
-  // An earlier round's bar is already on the record; a row known only by its name is linked when progress.json is read, so it closes too.
-  test('a bundle closes the running review row of each ticket, one known only by its name among them, and leaves an earlier delivered round', async () => {
+  // An earlier round's bar is already on the record, so only the running bars close.
+  test('a bundle closes the running review row of each ticket, and leaves an earlier delivered round', async () => {
     const {
       identifier,
       worktree,
@@ -410,19 +410,12 @@ describe.skipIf(!gitIsAvailable())('a release closes the running review bars of 
     const earlierRoundBefore = storedRow(earlierRoundId);
     const firstReviewId      = await inProgressReviewRow(identifier);
     const bundledReviewId    = await inProgressReviewRow(bundled.id);
-    const nameOnlyReviewId   = await inProgressReviewRow(identifier, []);
 
     const outcome = await agentProgress(['release', identifier, bundled.id, '--branch', branch, '--worktree', worktree, '--json']);
 
     expect(outcome.exitCode, outcome.error).toBe(0);
-    expect(releaseDocumentOf(outcome)).toMatchObject({ closedReviewRows: [firstReviewId, bundledReviewId, nameOnlyReviewId] });
+    expect(releaseDocumentOf(outcome)).toMatchObject({ closedReviewRows: [firstReviewId, bundledReviewId] });
     for (const closedId of [firstReviewId, bundledReviewId]) expect(storedRow(closedId)).toMatchObject({ status: 'delivered', end: releaseStamp });
-    expect(storedRow(nameOnlyReviewId)).toMatchObject({
-      status:         'delivered',
-      end:            releaseStamp,
-      reviewOf:       identifier,
-      reviewBarRound: 1,
-    });
     expect(storedRow(earlierRoundId)).toEqual(earlierRoundBefore);
   });
 
