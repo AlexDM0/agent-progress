@@ -234,8 +234,9 @@ AGENT_PROGRESS_ROOT="$SCRATCH" bun agent-progress.ts render
 AGENT_PROGRESS_ROOT="$SCRATCH" bun agent-progress.ts open
 ```
 
-`render` regenerates `progress.html` from the progress file and the tickets; `open` renders first
-when the page is missing and opens it in the default browser. Reload the tab after each `render`.
+`render` regenerates `progress.html` from the progress file, `log.jsonl` and the tickets; `open`
+renders first when the page is missing and opens it in the default browser. Reload the tab after each
+`render`.
 
 ## The dispatcher script and its harness
 
