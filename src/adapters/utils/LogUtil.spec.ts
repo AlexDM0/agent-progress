@@ -138,8 +138,8 @@ describe('the line the log receives', () => {
     expect(line).toBe('Agent agent_42 (general-purpose) stopped: 32 calls, end context 165k, input 4.8M (cache read 4.5M), output 48k');
   });
 
-  /** The cache-read share is what explains a long session; a plain input total hides it, which is why it is named separately. */
-  test('the input figure is the whole of what was sent, so it is never smaller than the cache-read share beside it', () => {
+  /** The cache-read share is what explains a long session; a plain input total hides it, which is why it is printed beside it. */
+  test('prints the input total it is given beside the cache-read share, each in the chart units', () => {
     const line = agentStoppedSentenceOf({
       agentId:              'agent_1',
       agentType:            'Explore',

@@ -42,12 +42,17 @@ const HELD_LOCK_TIMEOUT_MILLISECONDS = LIMITS.LOCK_RETRY_COUNT * LIMITS.LOCK_RET
 let repositoryDirectory = '';
 let transcriptPath      = '';
 
-function assistantLine(messageIdentifier: string, inputTokens: number, cacheReadTokens: number, outputTokens: number): string {
+function assistantLine(messageIdentifier: string, inputTokens: number, cacheReadTokens: number, outputTokens: number, cacheCreationTokens = 0): string {
   return JSON.stringify({
     type:    'assistant',
     message: {
       id:    messageIdentifier,
-      usage: { input_tokens: inputTokens, cache_read_input_tokens: cacheReadTokens, output_tokens: outputTokens },
+      usage: {
+        input_tokens:            inputTokens,
+        cache_read_input_tokens: cacheReadTokens,
+        ...(cacheCreationTokens > 0 ? { cache_creation_input_tokens: cacheCreationTokens } : {}),
+        output_tokens:           outputTokens,
+      },
     },
   });
 }
@@ -154,6 +159,16 @@ describe.skipIf(!gitIsAvailable())('a subagent that stopped', () => {
     expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
 
     expect(storedLog().at(-1)?.text).toStartWith('Agent unknown (unknown) stopped: 2 calls');
+  });
+
+  // The log's input figure must count cache creation too, and only this case pins that the hook does the addition.
+  test('the logged input counts fresh input, cache read and cache creation together', async () => {
+    transcriptPath = writeTranscript([assistantLine('msg_one', 1000, 9000, 500, 2000)]);
+    const context = contextWith(hookInput());
+
+    expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
+
+    expect(storedLog().at(-1)?.text).toContain('input 12k (cache read 9k)');
   });
 });
 
