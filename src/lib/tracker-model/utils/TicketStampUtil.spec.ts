@@ -46,7 +46,7 @@ test('each move stamps only the moment it reaches, and only when that stamp is s
 });
 
 // Abandoning twice is deciding twice, so the stamp moves to the latest decision rather than keeping the first.
-test('abandoning a ticket that was abandoned before moves abandonedAt to the second decision', () => {
+test('abandoning twice moves abandonedAt to the second decision', () => {
   expect(stampsAfterMoveOf(FULLY_STAMPED, 'abandoned', MOVED_AT)).toEqual({ ...FULLY_STAMPED, abandonedAt: MOVED_AT, clearsReason: false });
 });
 
