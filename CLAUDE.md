@@ -73,11 +73,11 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
   home even where it equals the value today; JSON output, stored files and the reasons that name a stored file's
   values carry the values themselves, and the help screen is prose `cli/HelpText.spec.ts` holds.
 - Code that exists only to read what an older version stored, or to answer an older habit, lives in a `legacy/` folder
-  of its boundary (`src/adapters/legacy/`, `cli/legacy/`, `page/legacy/`, and `src/shared/legacy/` for what two legacy
-  folders share) and is reached only through one seam call per consumer; current code imports nothing else from it,
-  and a legacy module may import current code. Its header says what older input it reads and when it can go; dropping
-  it deletes the module, its specs and its seam calls, each seam line becoming the current-format answer, and the help
-  and `docs/cli.md` sentences on it.
+  of its boundary (`src/adapters/legacy/`, `src/services/tracker/legacy/`, `cli/legacy/`, `page/legacy/`, and
+  `src/shared/legacy/` for what two legacy folders share) and is reached only through one seam call per consumer;
+  current code imports nothing else from it, and a legacy module may import current code. Its header says what older
+  input it reads and when it can go; dropping it deletes the module, its specs and its seam calls, each seam line
+  becoming the current-format answer, and the help and `docs/cli.md` sentences on it.
 - An optional stored key is written only once somebody sets it, and a read never adds or rewrites one, so an older
   file stays byte-identical. The one exception is a legacy review bar, read through `src/adapters/legacy/`: the read
   gives a row known only by its name `reviewOf` and `reviewBarRound`, and pads a stored `reviewOf` that reads as a
@@ -217,7 +217,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
   a log taken over from a version 1 progress file, by the rule in `src/adapters/legacy/`, also has its notes copied
   first. `init` creates a tracker through
   `createTracker` in `src/services/tracker/TrackerCreation.ts`; `update` and `init` rewrite older tracker files through
-  `rewriteOlderTrackerFiles`, the same two halves. `status` takes no lock and renders nothing.
+  `src/services/tracker/legacy/OlderTrackerFilesRewrite.ts`, reached from `cli/legacy/`, over the same two halves.
+  `status` takes no lock and renders nothing.
 
 ### Tickets
 
@@ -306,8 +307,8 @@ src/                        the target layout's code, filled step by step as the
   src/adapters/             the boundary, one folder per stored format (progress, tickets and log) plus the shared utils:
                             reading, writing and mapping what the tracker stores, the ticket JSON document, and the wording of
                             log records and refusals; legacy/ reads the older progress.json shapes
-  src/services/             tracker (discovery, the lock, reading, the write pipeline, creation) and render (the page document
-                            and the render state one invocation holds)
+  src/services/             tracker (discovery, the lock, reading, the write pipeline, creation; legacy/ rewrites older tracker
+                            files) and render (the page document and the render state one invocation holds)
   src/shared/               app-specific code several parts use: the environment reader, the refusal, LIMITS,
                             the page payload types
   src/testing/              test-only helpers several parts use: the scratch workspace, the tracker isolation check, the Board fixtures

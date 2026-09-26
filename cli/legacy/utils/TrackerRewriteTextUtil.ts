@@ -1,6 +1,9 @@
-import type { TrackerRewrite } from '../../../src/services/tracker/TrackerPipeline';
+/**
+ * What the rewrite of older tracker files wrote, as `update` and `init` print it.
+ * It can be deleted once every tracker has been rewritten by `agent-progress update`.
+ */
+import type { TrackerRewrite } from '../../../src/services/tracker/legacy/OlderTrackerFilesRewrite';
 
-/** What a rewrite wrote, as `update` and `init` print it. */
 function rewrittenFilesTextOf(rewrite: TrackerRewrite): string {
   const parts: string[] = [];
   if (rewrite.progressFileWasRewritten) parts.push('progress.json, with its log moved to log.jsonl');

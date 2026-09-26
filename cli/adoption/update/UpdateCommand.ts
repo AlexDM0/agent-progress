@@ -4,17 +4,15 @@
  * no tracker, so it takes neither `--project` nor `--root`, and touches the tracker only to rewrite
  * files still in an older format.
  */
-import type { TrackerRewrite }               from '../../../src/services/tracker/TrackerPipeline';
-import { requireWorkspace }                  from '../../../src/services/tracker/Workspace';
-import type { CommandHandler }               from '../../CommandTable';
-import { rewriteOlderTrackerFilesAndReport } from '../OlderTrackerFilesRewrite';
-import { refreshTrackedRepository }          from '../TrackerRefresh';
-import { TrackerRewriteTextUtil }            from '../utils/TrackerRewriteTextUtil';
+import { requireWorkspace }               from '../../../src/services/tracker/Workspace';
+import type { CommandHandler }            from '../../CommandTable';
+import { OlderTrackerFilesRewriteReport } from '../../legacy/OlderTrackerFilesRewriteReport';
+import { IGNORED_RETIRED_OPTION_NAMES }   from '../../legacy/constants/IgnoredRetiredOptions';
+import { refreshTrackedRepository }       from '../TrackerRefresh';
 
 const USAGE = 'agent-progress update [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';
 
-// `--hooks` is kept, and does nothing: the hook it used to ask for is now written by default, and a habit that still types it should not be refused.
-const KNOWN_OPTION_NAMES = ['no-claude-md', 'hooks', 'no-hooks', 'no-workflow', 'no-agent-definition'];
+const KNOWN_OPTION_NAMES = ['no-claude-md', 'no-hooks', 'no-workflow', 'no-agent-definition', ...IGNORED_RETIRED_OPTION_NAMES];
 
 export const updateCommand: CommandHandler = async (commandArguments, context) => {
   commandArguments.rejectUnknownOptions(KNOWN_OPTION_NAMES, USAGE);
@@ -41,17 +39,7 @@ export const updateCommand: CommandHandler = async (commandArguments, context) =
     context.standardOutput(`  dashboard:   ${workspace.htmlFilePath}`);
   };
 
-  let rewrite: TrackerRewrite | null;
-  try {
-    rewrite = await rewriteOlderTrackerFilesAndReport(context, workspace);
-  } catch (error) {
-    // The repository files are already refreshed, and a session must still learn its brief is stale; the refusal then exits 2.
-    printRefreshReport(`Refreshed what agent-progress manages in ${workspace.rootDirectory}; `
-      + 'rewriting its older tracker files did not finish, so some may already be in the current format.');
-    throw error;
-  }
-  printRefreshReport(rewrite === null
-    ? `Refreshed what agent-progress manages in ${workspace.rootDirectory}; the tracker itself was not touched.`
-    : `Refreshed what agent-progress manages in ${workspace.rootDirectory}, and rewrote its older tracker files in the current format: `
-      + `${TrackerRewriteTextUtil.rewrittenFilesTextOf(rewrite)}.`);
+  // Dropping cli/legacy/ makes this one call: printRefreshReport(`Refreshed what agent-progress manages in ${workspace.rootDirectory}; the tracker
+  // itself was not touched.`).
+  await OlderTrackerFilesRewriteReport.rewriteThenPrintUpdateHeading(context, workspace, printRefreshReport);
 };

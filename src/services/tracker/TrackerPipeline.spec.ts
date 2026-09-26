@@ -2,7 +2,6 @@
  * The write pipeline on real tracker files: the mutation runs with the lock held, a Board refusal and any other throw leave every stored
  * file as it was, an unreadable tracker is refused before the mutation runs, and the write order holds (a version 1 log first, then
  * progress.json, the tickets, the deletions and log.jsonl last), observed by breaking one write from inside the mutation, with no clock.
- * `rewriteOlderTrackerFiles` is pinned on its three verdicts and on being idempotent.
  */
 import {
   existsSync,
@@ -21,20 +20,20 @@ import {
   expect,
   test,
 } from 'bun:test';
-import { createLogFileWriter }                                        from '../../adapters/log/LogFileWriter.ts';
-import { createProgressFileWriter }                                   from '../../adapters/progress/ProgressFileWriter.ts';
-import { createTicketFileWriter }                                     from '../../adapters/tickets/TicketFileWriter.ts';
-import type { LogRecord }                                             from '../../lib/tracker-model/@types/LogRecord.ts';
-import type { ProgressFile }                                          from '../../lib/tracker-model/@types/ProgressFile.ts';
-import { EmptyProgressUtil }                                          from '../../lib/tracker-model/utils/EmptyProgressUtil.ts';
-import { OperationRefusal, refusalIsOperationRefusal }                from '../../shared/OperationRefusal.ts';
-import { LIMITS }                                                     from '../../shared/constants/Limits.ts';
-import { ticketFixture }                                              from '../../testing/BoardFixtures.ts';
-import { createScratchDirectory, removeScratchDirectory }             from '../../testing/ScratchWorkspace.ts';
-import { createRenderState }                                          from '../render/RenderState.ts';
-import { LockGenerationSteps }                                        from './TrackerLock.ts';
-import { rewriteOlderTrackerFiles, writeTracker, type TrackerChange } from './TrackerPipeline.ts';
-import { workspacePathsFor, type Workspace }                          from './Workspace.ts';
+import { createLogFileWriter }                            from '../../adapters/log/LogFileWriter.ts';
+import { createProgressFileWriter }                       from '../../adapters/progress/ProgressFileWriter.ts';
+import { createTicketFileWriter }                         from '../../adapters/tickets/TicketFileWriter.ts';
+import type { LogRecord }                                 from '../../lib/tracker-model/@types/LogRecord.ts';
+import type { ProgressFile }                              from '../../lib/tracker-model/@types/ProgressFile.ts';
+import { EmptyProgressUtil }                              from '../../lib/tracker-model/utils/EmptyProgressUtil.ts';
+import { OperationRefusal, refusalIsOperationRefusal }    from '../../shared/OperationRefusal.ts';
+import { LIMITS }                                         from '../../shared/constants/Limits.ts';
+import { ticketFixture }                                  from '../../testing/BoardFixtures.ts';
+import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
+import { createRenderState }                              from '../render/RenderState.ts';
+import { LockGenerationSteps }                            from './TrackerLock.ts';
+import { writeTracker, type TrackerChange }               from './TrackerPipeline.ts';
+import { workspacePathsFor, type Workspace }              from './Workspace.ts';
 
 const STARTED_AT = '2026-09-18T09:00:00+02:00';
 
@@ -45,22 +44,6 @@ const NOTE_RECORD: LogRecord = { at: '2026-09-18T10:15:00+02:00', kind: 'note', 
 const BROKEN_LOG_TEXT = '{"at":"2026-09-18T20:05:00+02:00","kind":"note","fields":{"text":5}}\n';
 
 const TICKET_FILE_NAME = '001-example-checkout-page.md';
-
-const TICKET_FILE_WITH_A_RETIRED_WORD = `---
-id: "002"
-title: "Rewrite the example importer"
-type: "change"
-status: "open"
-filed: "2026-09-18T09:00:00+02:00"
-updated: "2026-09-18T09:00:00+02:00"
-started: null
-finished: null
-delivered: null
-abandonedAt: null
-task: null
----
-# 002 — Rewrite the example importer
-`;
 
 const now = (): Date => new Date('2026-09-18T18:05:00Z');
 
@@ -318,43 +301,5 @@ describe('writeTracker', () => {
 
     expect(written.result).toBe(1);
     expect(readFileSync(workspace.logFilePath, 'utf8').trimEnd().split('\n')).toHaveLength(2);
-  });
-});
-
-describe('rewriteOlderTrackerFiles', () => {
-  test('a current tracker answers current and is left byte for byte', async () => {
-    writeReadableTracker();
-    const filesBefore = storedFileContents();
-
-    expect(await rewriteOlderTrackerFiles(workspace, now, renderState)).toEqual({ verdict: 'current' });
-    expect(storedFileContents()).toEqual(filesBefore);
-  });
-
-  test('an unreadable or absent tracker answers unreadable and is left byte for byte', async () => {
-    expect(await rewriteOlderTrackerFiles(workspace, now, renderState)).toEqual({ verdict: 'unreadable' });
-
-    writeVersionOneTracker();
-    writeFileSync(workspace.logFilePath, BROKEN_LOG_TEXT);
-    const filesBefore = storedFileContents();
-
-    expect(await rewriteOlderTrackerFiles(workspace, now, renderState)).toEqual({ verdict: 'unreadable' });
-    expect(storedFileContents()).toEqual(filesBefore);
-  });
-
-  test('a version 1 file and a ticket holding a retired word are rewritten, and a second run answers current', async () => {
-    writeVersionOneTracker();
-    writeFileSync(join(workspace.ticketsDirectory, '002-rewrite-the-example-importer.md'), TICKET_FILE_WITH_A_RETIRED_WORD);
-
-    const rewriting = await rewriteOlderTrackerFiles(workspace, now, renderState);
-
-    expect(rewriting).toEqual({
-      verdict:       'rewritten',
-      rewrite:       { progressFileWasRewritten: true, rewrittenTicketCount: 1 },
-      renderOutcome: { verdict: 'rendered', malformedTickets: [] },
-    });
-    expect(JSON.parse(readFileSync(workspace.progressFilePath, 'utf8'))).toMatchObject({ version: 2 });
-    expect(readFileSync(workspace.logFilePath, 'utf8')).toBe(`${JSON.stringify(NOTE_RECORD)}\n`);
-    expect(readFileSync(join(workspace.ticketsDirectory, '002-rewrite-the-example-importer.md'), 'utf8')).not.toContain('status: "open"');
-    expect(await rewriteOlderTrackerFiles(workspace, now, renderState)).toEqual({ verdict: 'current' });
   });
 });

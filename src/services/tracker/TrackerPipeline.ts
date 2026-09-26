@@ -3,21 +3,21 @@
  * file, then the tickets the Board changed, then log.jsonl, then render from disk, so no older render lands last and the progress file is never
  * behind the tickets. A log carried over from an older progress file is copied first, so its notes are on disk before that file stops holding them.
  */
-import { createLogFileSink }                                 from '../../adapters/log/LogFileSink.ts';
-import { createLogFileWriter }                               from '../../adapters/log/LogFileWriter.ts';
-import { createProgressFileWriter }                          from '../../adapters/progress/ProgressFileWriter.ts';
-import { createTicketFileWriter }                            from '../../adapters/tickets/TicketFileWriter.ts';
-import type { Ticket }                                       from '../../lib/tracker-model/@types/Ticket.ts';
-import { Board }                                             from '../../lib/tracker-model/Board.ts';
-import { refusalIsBoardRefusal }                             from '../../lib/tracker-model/BoardRefusal.ts';
-import { createLogger }                                      from '../../lib/tracker-model/Logger.ts';
-import { OperationRefusal }                                  from '../../shared/OperationRefusal.ts';
-import type { RenderState }                                  from '../render/RenderState.ts';
-import { renderDashboard, type DashboardRenderOutcome }      from './DashboardRendering.ts';
-import { deleteAllTickets, type MalformedTicketFile }        from './TicketStore.ts';
-import { withLock }                                          from './TrackerLock.ts';
-import { readTracker, requireTracker, type TrackerContents } from './TrackerReader.ts';
-import type { Workspace }                                    from './Workspace.ts';
+import { createLogFileSink }                            from '../../adapters/log/LogFileSink.ts';
+import { createLogFileWriter }                          from '../../adapters/log/LogFileWriter.ts';
+import { createProgressFileWriter }                     from '../../adapters/progress/ProgressFileWriter.ts';
+import { createTicketFileWriter }                       from '../../adapters/tickets/TicketFileWriter.ts';
+import type { Ticket }                                  from '../../lib/tracker-model/@types/Ticket.ts';
+import { Board }                                        from '../../lib/tracker-model/Board.ts';
+import { refusalIsBoardRefusal }                        from '../../lib/tracker-model/BoardRefusal.ts';
+import { createLogger }                                 from '../../lib/tracker-model/Logger.ts';
+import { OperationRefusal }                             from '../../shared/OperationRefusal.ts';
+import type { RenderState }                             from '../render/RenderState.ts';
+import { renderDashboard, type DashboardRenderOutcome } from './DashboardRendering.ts';
+import { deleteAllTickets, type MalformedTicketFile }   from './TicketStore.ts';
+import { withLock }                                     from './TrackerLock.ts';
+import { requireTracker, type TrackerContents }         from './TrackerReader.ts';
+import type { Workspace }                               from './Workspace.ts';
 
 export interface TrackerChange {
   board:                          Board;
@@ -46,16 +46,6 @@ export interface TrackerWritten<MutationResult> {
   board:         Board;
   renderOutcome: DashboardRenderOutcome;
 }
-
-export interface TrackerRewrite {
-  progressFileWasRewritten: boolean;
-  rewrittenTicketCount:     number;
-}
-
-export type TrackerRewriting =
-  | { verdict: 'current' }
-  | { verdict: 'unreadable' }
-  | { verdict: 'rewritten'; rewrite: TrackerRewrite; renderOutcome: DashboardRenderOutcome };
 
 interface OpenBoard {
   contents:    TrackerContents;
@@ -130,33 +120,10 @@ export function writeTracker<MutationResult>(request: TrackerWriteRequest<Mutati
   }, now);
 }
 
-function trackerIsInAnOlderFormat(contents: TrackerContents): boolean {
-  return contents.storedLog.logFileMustBeRewritten || contents.listing.ticketsInAnOlderFormat.length > 0;
-}
-
 /**
- * For `update` and `init` on an existing tracker: a readable tracker still in an older format is written in the current one through the
- * pipeline's two halves, with nothing changed and nothing logged. Checked without the lock first, then again under it; a second run answers `current`.
+ * Writes a tracker read under the lock back through the write half with nothing changed and nothing logged, plus `extraTickets` besides the
+ * ones the Board changed.
  */
-export async function rewriteOlderTrackerFiles(workspace: Workspace, now: () => Date, renderState: RenderState): Promise<TrackerRewriting> {
-  const readingWithoutTheLock = readTracker(workspace);
-  if (readingWithoutTheLock.verdict !== 'readable') return { verdict: 'unreadable' };
-  if (!trackerIsInAnOlderFormat(readingWithoutTheLock.contents)) return { verdict: 'current' };
-
-  return withLock(workspace, async (): Promise<TrackerRewriting> => {
-    const reading = readTracker(workspace);
-    if (reading.verdict !== 'readable') return { verdict: 'unreadable' };
-    // Another command may have written the tracker since the read above, and a current tracker is left alone.
-    if (!trackerIsInAnOlderFormat(reading.contents)) return { verdict: 'current' };
-
-    const { contents } = reading;
-    const extraTickets = contents.listing.ticketsInAnOlderFormat;
-    writeBoard(workspace, openBoard(contents), { extraTickets, deletionCallbacks: [] });
-    const renderOutcome = await renderDashboard(workspace, now(), renderState);
-    return {
-      verdict: 'rewritten',
-      rewrite: { progressFileWasRewritten: contents.storedLog.logFileMustBeRewritten, rewrittenTicketCount: extraTickets.length },
-      renderOutcome,
-    };
-  }, now);
+export function writeTrackerUnchanged(workspace: Workspace, contents: TrackerContents, extraTickets: readonly Ticket[]): void {
+  writeBoard(workspace, openBoard(contents), { extraTickets, deletionCallbacks: [] });
 }

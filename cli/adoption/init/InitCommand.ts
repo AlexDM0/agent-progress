@@ -3,25 +3,23 @@ import { randomUUID }             from 'node:crypto';
 import { realpathSync, statSync } from 'node:fs';
 import { basename, resolve }      from 'node:path';
 
-import { ensureIgnored }                     from '../../../src/lib/git/GitIgnore';
-import { discoverRepositoryRoot }            from '../../../src/lib/git/RepositoryRoot';
-import { TimeUtil }                          from '../../../src/lib/utils/TimeUtil';
-import { createTracker }                     from '../../../src/services/tracker/TrackerCreation';
-import type { TrackerRewrite }               from '../../../src/services/tracker/TrackerPipeline';
-import { findWorkspace, workspacePathsFor }  from '../../../src/services/tracker/Workspace';
-import { TRACKER_FILES }                     from '../../../src/services/tracker/constants/TrackerFiles';
-import { agentProgressRootOverride }         from '../../../src/shared/Environment';
-import { OperationRefusal }                  from '../../../src/shared/OperationRefusal';
-import type { CommandHandler }               from '../../CommandTable';
-import { OutputUtil }                        from '../../utils/OutputUtil';
-import { rewriteOlderTrackerFilesAndReport } from '../OlderTrackerFilesRewrite';
-import { refreshTrackedRepository }          from '../TrackerRefresh';
-import { TrackerRewriteTextUtil }            from '../utils/TrackerRewriteTextUtil';
+import { ensureIgnored }                    from '../../../src/lib/git/GitIgnore';
+import { discoverRepositoryRoot }           from '../../../src/lib/git/RepositoryRoot';
+import { TimeUtil }                         from '../../../src/lib/utils/TimeUtil';
+import { createTracker }                    from '../../../src/services/tracker/TrackerCreation';
+import { findWorkspace, workspacePathsFor } from '../../../src/services/tracker/Workspace';
+import { TRACKER_FILES }                    from '../../../src/services/tracker/constants/TrackerFiles';
+import { agentProgressRootOverride }        from '../../../src/shared/Environment';
+import { OperationRefusal }                 from '../../../src/shared/OperationRefusal';
+import type { CommandHandler }              from '../../CommandTable';
+import { OlderTrackerFilesRewriteReport }   from '../../legacy/OlderTrackerFilesRewriteReport';
+import { IGNORED_RETIRED_OPTION_NAMES }     from '../../legacy/constants/IgnoredRetiredOptions';
+import { OutputUtil }                       from '../../utils/OutputUtil';
+import { refreshTrackedRepository }         from '../TrackerRefresh';
 
 const USAGE = 'agent-progress init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';
 
-// `--hooks` is kept, and does nothing: the hook it used to ask for is now written by default, and a habit that still types it should not be refused.
-const KNOWN_OPTION_NAMES = ['project', 'root', 'no-claude-md', 'hooks', 'no-hooks', 'no-workflow', 'no-agent-definition'];
+const KNOWN_OPTION_NAMES = ['project', 'root', 'no-claude-md', 'no-hooks', 'no-workflow', 'no-agent-definition', ...IGNORED_RETIRED_OPTION_NAMES];
 
 const IGNORE_OUTCOME_WORDS: Record<string, string> = {
   'already-ignored':      'already ignored, so nothing was added',
@@ -121,15 +119,8 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
       context.standardOutput('  `agent-progress update` is the command for this refresh; `init` only creates a tracker.');
     };
 
-    let rewrite: TrackerRewrite | null;
-    try {
-      rewrite = await rewriteOlderTrackerFilesAndReport(context, workspace);
-    } catch (error) {
-      // The repository files are already refreshed, and a session must still learn its brief is stale; the refusal then exits 2.
-      printRefreshReport('rewriting older files did not finish; some may already be in the current format');
-      throw error;
-    }
-    printRefreshReport(rewrite === null ? null : `rewrote ${TrackerRewriteTextUtil.rewrittenFilesTextOf(rewrite)} in the current format`);
+    // Dropping cli/legacy/ makes this printRefreshReport(null).
+    await OlderTrackerFilesRewriteReport.rewriteThenPrintInitTrackerLine(context, workspace, printRefreshReport);
   };
 
   const existingWorkspace = findWorkspace(rootDirectory);
