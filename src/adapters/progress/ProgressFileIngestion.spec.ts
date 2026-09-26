@@ -1,19 +1,17 @@
 /**
- * The store's concerns: what it refuses to believe, and that what it writes reads back as it was written. What a move and a filing do
- * to a row, and that a task id is never handed out twice, are pinned against the tracker model's utils and the Board.
+ * What the ingestion refuses to believe and what it migrates, read through a real file as every command reads it: absent is never
+ * unreadable, every malformed field is named, retired words and legacy review bars come back current, and a read never writes.
  */
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { afterAll, expect, test }                 from 'bun:test';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join }                        from 'node:path';
+import { afterAll, expect, test }      from 'bun:test';
 
-import type { ProgressFile }                                            from '../../src/lib/tracker-model/@types/ProgressFile';
-import type { Task }                                                    from '../../src/lib/tracker-model/@types/Task';
-import { ConcurrencyUtil }                                              from '../../src/lib/tracker-model/utils/ConcurrencyUtil';
-import { TaskFilingUtil, type TaskFiling }                              from '../../src/lib/tracker-model/utils/TaskFilingUtil';
-import { boardFixture, ticketFixture }                                  from '../../src/testing/BoardFixtures';
-import { createScratchDirectory, removeScratchDirectory }               from '../../src/testing/ScratchWorkspace';
-import { workspacePathsFor }                                            from '../platform/Workspace';
-import type { Workspace }                                               from '../platform/Workspace';
-import { createEmptyProgressFile, readProgressFile, writeProgressFile } from './ProgressStore';
+import { ConcurrencyUtil }                                 from '../../lib/tracker-model/utils/ConcurrencyUtil.ts';
+import { boardFixture, ticketFixture }                     from '../../testing/BoardFixtures.ts';
+import { emptyProgress, fileRow, documentInRetiredWords }  from '../../testing/ProgressFileFixtures.ts';
+import { createScratchDirectory, removeScratchDirectory }  from '../../testing/ScratchWorkspace.ts';
+import { ProgressFileIngestion, type ProgressFileReading } from './ProgressFileIngestion.ts';
+import { createProgressFileWriter }                        from './ProgressFileWriter.ts';
 
 const FILED_AT = '2026-09-18T20:11:03+02:00';
 const STARTED_AT = '2026-09-18T20:40:00+02:00';
@@ -25,67 +23,20 @@ afterAll(() => {
   for (const directory of scratchDirectories) removeScratchDirectory(directory);
 });
 
-function scratchWorkspace(prefix: string): Workspace {
-  const rootDirectory = createScratchDirectory(prefix);
-  scratchDirectories.push(rootDirectory);
-  const workspace = workspacePathsFor(rootDirectory);
-  mkdirSync(workspace.trackerDirectory, { recursive: true });
-  return workspace;
+function scratchProgressFilePath(prefix: string): string {
+  const directory = createScratchDirectory(prefix);
+  scratchDirectories.push(directory);
+  return join(directory, 'progress.json');
 }
 
-function emptyProgress(): ProgressFile {
-  return createEmptyProgressFile({ project: 'Example Agency', startedAt: FILED_AT, trackerId: 'example-tracker-id' });
+function readBack(prefix: string, document: unknown): ProgressFileReading {
+  const progressFilePath = scratchProgressFilePath(prefix);
+  writeFileSync(progressFilePath, typeof document === 'string' ? document : JSON.stringify(document));
+  return new ProgressFileIngestion(progressFilePath).read();
 }
-
-/** Files a row the way the Board does, so a document read back holds exactly what a command would have written. */
-function fileRow(progress: ProgressFile, filing: TaskFiling): Task {
-  const task          = TaskFilingUtil.filedTaskOf(progress.nextTaskId, filing);
-  progress.nextTaskId = task.id + 1;
-  progress.tasks.push(task);
-  return task;
-}
-
-function readBack(prefix: string, document: unknown): ReturnType<typeof readProgressFile> {
-  const workspace = scratchWorkspace(prefix);
-  writeFileSync(workspace.progressFilePath, typeof document === 'string' ? document : JSON.stringify(document));
-  return readProgressFile(workspace);
-}
-
-test('a new tracker starts at version 1, with the caller\'s id, an automatic view and an unused id counter', () => {
-  const progress = emptyProgress();
-  expect(progress.version).toBe(1);
-  expect(progress.trackerId).toBe('example-tracker-id');
-  expect(progress.project).toBe('Example Agency');
-  expect(progress.startedAt).toBe(FILED_AT);
-  expect(progress.view).toEqual({ kind: 'auto' });
-  expect(progress.nextTaskId).toBe(1);
-  expect(progress.concurrencyLimit).toBe(2);
-  expect(progress.tasks).toEqual([]);
-  expect(progress.log).toEqual([]);
-});
 
 test('a tracker that has never been initialised is absent, not unreadable', () => {
-  expect(readProgressFile(scratchWorkspace('store-absent')).verdict).toBe('absent');
-});
-
-test('a written tracker reads back exactly as it was written', () => {
-  const workspace = scratchWorkspace('store-round-trip');
-  const progress = emptyProgress();
-  fileRow(progress, { name: 'Review pass', owner: 'Alex Example', note: 'second reading' });
-  progress.log.push({ at: FILED_AT, text: 'Session started' });
-  writeProgressFile(workspace, progress);
-
-  const result = readProgressFile(workspace);
-  expect(result.verdict).toBe('readable');
-  expect(result.verdict === 'readable' ? result.progress : null).toEqual(progress);
-});
-
-test('the file on disk is indented and ends with a newline, because people repair it by hand', () => {
-  const workspace = scratchWorkspace('store-formatting');
-  writeProgressFile(workspace, emptyProgress());
-  const onDisk = readFileSync(workspace.progressFilePath, 'utf8');
-  expect(onDisk.endsWith('\n')).toBe(true);
-  expect(onDisk).toContain('\n  "version": 1');
+  expect(new ProgressFileIngestion(scratchProgressFilePath('store-absent')).read().verdict).toBe('absent');
 });
 
 test('a file that is not JSON is unreadable and says so', () => {
@@ -119,35 +70,21 @@ test('a concurrency limit that is not a whole number of at least 1 makes the fil
 
 // Every review row filed before the fields existed has neither; ingestion reads them from its name so that nothing downstream has to.
 test('a free-standing row known only by its Review <N> #<id> name reads with the reviewOf and round its name gives, and the read leaves the file as it was', () => {
-  const workspace = scratchWorkspace('store-review-of');
-  const progress  = emptyProgress();
+  const progressFilePath = scratchProgressFilePath('store-review-of');
+  const progress         = emptyProgress();
   fileRow(progress, { name: 'Review 1 #3 — x' });
   fileRow(progress, { name: 'Review 2 #3 — x', reviewOf: '003' });
   fileRow(progress, { name: 'Example free row' });
-  writeProgressFile(workspace, progress);
-  const bytesBeforeTheRead = readFileSync(workspace.progressFilePath);
+  createProgressFileWriter(progressFilePath).write(progress);
+  const bytesBeforeTheRead = readFileSync(progressFilePath);
 
-  const result = readProgressFile(workspace);
+  const result = new ProgressFileIngestion(progressFilePath).read();
   if (result.verdict !== 'readable') throw new Error(`expected a readable file, got ${JSON.stringify(result)}`);
   const [nameOnlyRow, linkedRow, plainRow] = result.progress.tasks;
   expect(nameOnlyRow).toMatchObject({ reviewOf: '003', reviewBarRound: 1 });
   expect(linkedRow).toMatchObject({ reviewOf: '003', reviewBarRound: 2 });
   expect(plainRow === undefined ? [] : Object.keys(plainRow), 'toEqual would not see a key added as undefined').toEqual(Object.keys(progress.tasks[2] ?? {}));
-  expect(readFileSync(workspace.progressFilePath)).toEqual(bytesBeforeTheRead);
-});
-
-test('a write after the read stores the reviewOf and round a legacy name gave', () => {
-  const workspace = scratchWorkspace('store-review-of-written');
-  const progress  = emptyProgress();
-  fileRow(progress, { name: 'Review 1 #3 — x' });
-  writeProgressFile(workspace, progress);
-
-  const result = readProgressFile(workspace);
-  if (result.verdict !== 'readable') throw new Error(`expected a readable file, got ${JSON.stringify(result)}`);
-  writeProgressFile(workspace, result.progress);
-
-  const onDisk = JSON.parse(readFileSync(workspace.progressFilePath, 'utf8')) as ProgressFile;
-  expect(onDisk.tasks[0]).toMatchObject({ reviewOf: '003', reviewBarRound: 1 });
+  expect(readFileSync(progressFilePath)).toEqual(bytesBeforeTheRead);
 });
 
 test('a bar that stores its round reads back unchanged', () => {
@@ -265,21 +202,6 @@ test('a history of known statuses with their stamps is read back', () => {
   expect(readBack('store-history-readable', document).verdict).toBe('readable');
 });
 
-/** A file written before the task statuses were renamed: these inputs keep the retired words on purpose. */
-function documentInRetiredWords(): ProgressFile {
-  const progress = emptyProgress();
-  fileRow(progress, { name: 'Example build' });
-  fileRow(progress, { name: 'Example review' });
-  const [building, reviewing] = progress.tasks;
-  return {
-    ...progress,
-    tasks: [
-      { ...building, status: 'running', history: [{ status: 'pending', at: FILED_AT }, { status: 'running', at: STARTED_AT }] },
-      { ...reviewing, status: 'finished', history: [{ status: 'running', at: STARTED_AT }, { status: 'finished', at: FINISHED_AT }] },
-    ],
-  } as unknown as ProgressFile;
-}
-
 // A tracker written before the rename must keep working, rows and the phases the page draws alike.
 test('a stored running or finished row and history phase reads as in-progress or in-review', () => {
   const result = readBack('store-retired-words', documentInRetiredWords());
@@ -290,24 +212,11 @@ test('a stored running or finished row and history phase reads as in-progress or
 
 // `status` and `render` only read, and a read that rewrote the file would race an agent writing it from another worktree.
 test('reading a file in the retired words leaves its bytes as they were', () => {
-  const workspace = scratchWorkspace('store-retired-words-untouched');
-  const storedText = JSON.stringify(documentInRetiredWords(), null, 2);
-  writeFileSync(workspace.progressFilePath, storedText);
-  expect(readProgressFile(workspace).verdict).toBe('readable');
-  expect(readFileSync(workspace.progressFilePath, 'utf8')).toBe(storedText);
-});
-
-test('the next write of a file read in the retired words stores the new ones', () => {
-  const workspace = scratchWorkspace('store-retired-words-rewritten');
-  writeFileSync(workspace.progressFilePath, JSON.stringify(documentInRetiredWords()));
-  const result = readProgressFile(workspace);
-  if (result.verdict !== 'readable') throw new Error(`expected a readable file, got ${JSON.stringify(result)}`);
-  writeProgressFile(workspace, result.progress);
-  const rewrittenText = readFileSync(workspace.progressFilePath, 'utf8');
-  expect(rewrittenText).toContain('"in-progress"');
-  expect(rewrittenText).toContain('"in-review"');
-  expect(rewrittenText).not.toContain('"running"');
-  expect(rewrittenText).not.toContain('"finished"');
+  const progressFilePath = scratchProgressFilePath('store-retired-words-untouched');
+  const storedText       = JSON.stringify(documentInRetiredWords(), null, 2);
+  writeFileSync(progressFilePath, storedText);
+  expect(new ProgressFileIngestion(progressFilePath).read().verdict).toBe('readable');
+  expect(readFileSync(progressFilePath, 'utf8')).toBe(storedText);
 });
 
 // Only the two retired task words map: a ticket's retired word on a row is as unknown as any other, in the row and in its history.

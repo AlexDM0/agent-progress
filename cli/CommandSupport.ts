@@ -1,15 +1,17 @@
 /**
- * The sequence every mutating command follows, written once: take the lock of `lib/platform/Lock.ts`, read the progress file and the
- * tickets into a Board, mutate, write the progress file, then the tickets the Board changed, then render through
- * `lib/render/Rerender.ts` — all inside the lock, in that order, so no older render lands last and the progress file is never behind the tickets.
+ * The sequence every mutating command follows, written once: take the lock of `lib/platform/Lock.ts`, read the progress file through
+ * `src/adapters/progress/ProgressFileIngestion.ts` and the tickets into a Board, mutate, write the progress file, then the tickets the Board
+ * changed, then render through `lib/render/Rerender.ts` — all inside the lock, in that order, so no older render lands last and the progress
+ * file is never behind the tickets.
  */
 import { withLock }                                                from '../lib/platform/Lock';
 import { requireWorkspace, type Workspace }                        from '../lib/platform/Workspace';
-import { readProgressFile, writeProgressFile }                     from '../lib/progress/ProgressStore';
 import { rerenderDashboard, type RerenderOutcome }                 from '../lib/render/Rerender';
 import { deleteAllTickets, listTickets, type MalformedTicketFile } from '../lib/tickets/TicketStore';
 import { NextLineUtil }                                            from '../lib/utils/NextLineUtil';
 import { createProgressLogSink }                                   from '../src/adapters/ProgressLogSink';
+import { ProgressFileIngestion, type ProgressFileReading }         from '../src/adapters/progress/ProgressFileIngestion';
+import { createProgressFileWriter }                                from '../src/adapters/progress/ProgressFileWriter';
 import { createTicketFileWriter }                                  from '../src/adapters/tickets/TicketFileWriter';
 import { BoardRefusalWordingUtil }                                 from '../src/adapters/utils/BoardRefusalWordingUtil';
 import type { Concurrency }                                        from '../src/lib/tracker-model/@types/Concurrency';
@@ -87,7 +89,7 @@ export function ticketDocumentOf(ticket: Ticket): Ticket['frontmatter'] & { prio
  * `'unrepaired'`: under the lock the file was there a moment ago, so it vanished or broke under the command.
  */
 export function requireProgressFile(workspace: Workspace): ProgressFile {
-  const progressRead = readProgressFile(workspace);
+  const progressRead = new ProgressFileIngestion(workspace.progressFilePath).read();
   if (progressRead.verdict !== 'readable') {
     const reason = progressRead.verdict === 'absent' ? 'it is not there' : progressRead.reason;
     throw new OperationRefusal('unrepaired', `${workspace.progressFilePath} cannot be read: ${reason}`);
@@ -158,11 +160,15 @@ export function nextLineFor(board: Board): string {
   });
 }
 
-function trackerReads(): { readProgressFile: typeof readProgressFile; listTickets: typeof listTickets; concurrencyOf: (progress: ProgressFile) => Concurrency } {
+function trackerReads(): {
+  readProgressFile: (workspace: Workspace) => ProgressFileReading;
+  listTickets:      typeof listTickets;
+  concurrencyOf:    (progress: ProgressFile) => Concurrency;
+} {
   return {
     listTickets,
-    readProgressFile,
-    concurrencyOf: (progress) => ConcurrencyUtil.concurrencyOf(progress.tasks, progress.concurrencyLimit),
+    readProgressFile: (workspace) => new ProgressFileIngestion(workspace.progressFilePath).read(),
+    concurrencyOf:    (progress) => ConcurrencyUtil.concurrencyOf(progress.tasks, progress.concurrencyLimit),
   };
 }
 
@@ -232,7 +238,7 @@ async function writeTrackerUnderLock<MutationResult, Reading>(
     });
 
     const ticketFileWriter = createTicketFileWriter();
-    writeProgressFile(workspace, progress);
+    createProgressFileWriter(workspace.progressFilePath).write(progress);
     for (const ticket of board.changedTickets()) ticketFileWriter.write(ticket);
     for (const onDeleted of deletionCallbacks) onDeleted(deleteAllTickets(workspace));
     const reading = readAfterWriting(board);

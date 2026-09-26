@@ -1,6 +1,6 @@
 /**
  * The three answers `rerenderDashboard` can give; the reads are supplied as literals because
- * `lib/render/` may not import `lib/progress/` or `lib/tickets/`.
+ * `lib/render/` may not import `lib/tickets/`.
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import {

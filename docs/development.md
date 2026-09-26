@@ -151,10 +151,10 @@ docs/                this page, the CLI reference, the backlog and the README im
 Inside `lib/`, imports run up the tree only:
 
 ```
-src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/ lib/tickets/ lib/render/  →  cli/
+src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/tickets/ lib/render/  →  cli/
 ```
 
-A feature folder (`lib/progress/`, `lib/tickets/`, `lib/render/`) never imports a sibling; what two
+A feature folder (`lib/tickets/`, `lib/render/`) never imports a sibling; what two
 features need is promoted to the level above both, or passed as a structurally typed parameter.
 Nothing under `lib/` imports `cli/`, and nothing that ships imports the test-only
 `src/testing/`, `cli/testing/` and `lib/tooling/dev/`. Exit codes are decided in `cli/` and nowhere else; a `lib/` module returns a

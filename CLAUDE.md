@@ -38,7 +38,7 @@ flags; never edit `package.json` to make a check pass.
 ### Imports (today's tree, held by review)
 
 ```
-src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/progress/, lib/tickets/, lib/render/  →  cli/
+src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platform/  →  lib/tickets/, lib/render/  →  cli/
 ```
 
 - Imports run up only, with no cycles. `lib/constants/` imports nothing outside itself; `lib/utils/` imports only
@@ -55,7 +55,7 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
 - `src/testing/` may import `lib/platform/Workspace.ts` until plan step 6 moves it; `cli/testing/` is imported only by
   `cli/` specs.
 - `src/adapters/` imports only `src/lib/` and `src/shared/`; a `src/adapters/` spec may also import `src/testing/`.
-  What remains in `lib/` and `cli/` may import `src/adapters/` until plan step 5 moves the readers there.
+  What remains in `lib/` and `cli/` may import `src/adapters/` until plan step 6 moves the listing and the pipeline.
 - A `src/services/` folder imports only `src/lib/`, `src/shared/` and `src/adapters/`. What remains in `lib/` and
   `cli/` may import `src/services/` until plan step 6 moves it there.
 - `src/shared/` holds app-specific code several parts use and imports only `src/lib/` and itself; what remains in
@@ -257,8 +257,8 @@ src/                        the target layout's code, filled step by step as the
   src/lib/                  package-grade building blocks, one folder each, the package's description in its main module's header:
                             atomic-file (AtomicFile.ts), git (GitProcess.ts), claude-code (ClaudeTranscripts.ts),
                             tracker-model (@types/Task.ts; Board.ts is its aggregate), utils
-  src/adapters/             the boundary, one folder per stored format (tickets so far) plus the shared utils: reading, writing and
-                            mapping what the tracker stores, and the wording of log records and Board refusals
+  src/adapters/             the boundary, one folder per stored format (progress and tickets so far) plus the shared utils:
+                            reading, writing and mapping what the tracker stores, and the wording of log records and Board refusals
   src/services/             app-wide services, one folder each
   src/shared/               app-specific code several parts use: the environment reader, the refusal, LIMITS,
                             the page payload types, ticket numbers

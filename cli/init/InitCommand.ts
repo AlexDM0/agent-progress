@@ -3,18 +3,19 @@ import { randomUUID }                        from 'node:crypto';
 import { mkdirSync, realpathSync, statSync } from 'node:fs';
 import { basename, resolve }                 from 'node:path';
 
-import { withLock }                                    from '../../lib/platform/Lock';
-import { findWorkspace, workspacePathsFor }            from '../../lib/platform/Workspace';
-import { createEmptyProgressFile, createProgressFile } from '../../lib/progress/ProgressStore';
-import { ensureIgnored }                               from '../../src/lib/git/GitIgnore';
-import { discoverRepositoryRoot }                      from '../../src/lib/git/RepositoryRoot';
-import { TimeUtil }                                    from '../../src/lib/utils/TimeUtil';
-import { TRACKER_FILES }                               from '../../src/services/tracker/constants/TrackerFiles';
-import { agentProgressRootOverride }                   from '../../src/shared/Environment';
-import { OperationRefusal }                            from '../../src/shared/OperationRefusal';
-import { renderDashboard }                             from '../CommandSupport';
-import type { CommandHandler }                         from '../CommandTable';
-import { refreshTrackedRepository }                    from '../TrackerRefresh';
+import { withLock }                         from '../../lib/platform/Lock';
+import { findWorkspace, workspacePathsFor } from '../../lib/platform/Workspace';
+import { createProgressFileWriter }         from '../../src/adapters/progress/ProgressFileWriter';
+import { ensureIgnored }                    from '../../src/lib/git/GitIgnore';
+import { discoverRepositoryRoot }           from '../../src/lib/git/RepositoryRoot';
+import { EmptyProgressUtil }                from '../../src/lib/tracker-model/utils/EmptyProgressUtil';
+import { TimeUtil }                         from '../../src/lib/utils/TimeUtil';
+import { TRACKER_FILES }                    from '../../src/services/tracker/constants/TrackerFiles';
+import { agentProgressRootOverride }        from '../../src/shared/Environment';
+import { OperationRefusal }                 from '../../src/shared/OperationRefusal';
+import { renderDashboard }                  from '../CommandSupport';
+import type { CommandHandler }              from '../CommandTable';
+import { refreshTrackedRepository }         from '../TrackerRefresh';
 
 const USAGE = 'agent-progress init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';
 
@@ -133,7 +134,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
   const ignoreOutcome = ensureIgnored(rootDirectory, TRACKER_FILES.TRACKER_DIRECTORY_NAME);
   mkdirSync(workspace.ticketsDirectory, { recursive: true });
 
-  const progress = createEmptyProgressFile({
+  const progress = EmptyProgressUtil.emptyProgressFor({
     project:   commandArguments.option('project') ?? basename(rootDirectory),
     startedAt: TimeUtil.formatLocalIso(context.now()),
     // The page's localStorage key: `file://` is one origin in Chrome, so two trackers would otherwise share a saved range.
@@ -141,7 +142,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
   });
 
   const creation = await withLock(workspace, async () => {
-    const verdict = createProgressFile(workspace, progress);
+    const verdict = createProgressFileWriter(workspace.progressFilePath).create(progress);
     if (verdict === 'created') await renderDashboard(context, workspace);
     return verdict;
   }, context.now);

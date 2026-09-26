@@ -29,6 +29,7 @@
     "../src/lib/tracker-model/constants/TicketMoveLegality.ts",
     "../src/lib/tracker-model/utils/BoardSettingsUtil.ts",
     "../src/lib/tracker-model/utils/ConcurrencyUtil.ts",
+    "../src/lib/tracker-model/utils/EmptyProgressUtil.ts",
     "../src/lib/tracker-model/utils/TaskFilingUtil.ts",
     "../src/lib/tracker-model/utils/TaskTransitionUtil.ts",
     "../src/lib/tracker-model/utils/TicketChartUtil.ts",

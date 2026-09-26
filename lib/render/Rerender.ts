@@ -1,11 +1,12 @@
 /** Turns whatever is on disk into `progress.html`; the only file write in `lib/render/`, and every mutating command ends here inside its lock. */
 
-import { writeFileAtomically } from '../../src/lib/atomic-file/AtomicFile.ts';
-import type { ProgressFile }   from '../../src/lib/tracker-model/@types/ProgressFile.ts';
-import type { Ticket }         from '../../src/lib/tracker-model/@types/Ticket.ts';
-import type { Workspace }      from '../platform/Workspace.ts';
-import { bundlePageScript }    from './PageBundle.ts';
-import { renderProgressHtml }  from './Template.ts';
+import type { ProgressFileReading } from '../../src/adapters/progress/ProgressFileIngestion.ts';
+import { writeFileAtomically }      from '../../src/lib/atomic-file/AtomicFile.ts';
+import type { ProgressFile }        from '../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Ticket }              from '../../src/lib/tracker-model/@types/Ticket.ts';
+import type { Workspace }           from '../platform/Workspace.ts';
+import { bundlePageScript }         from './PageBundle.ts';
+import { renderProgressHtml }       from './Template.ts';
 
 export interface MalformedTicketFile {
   filePath: string;
@@ -14,16 +15,12 @@ export interface MalformedTicketFile {
   line:     number;
 }
 
-/** Declared structurally rather than imported: `lib/progress/` and `lib/tickets/` are sibling features, which may not import each other. */
 export interface TrackerReads {
-  readProgressFile: (workspace: Workspace) => (
-    | { verdict: 'readable'; progress: ProgressFile }
-    | { verdict: 'absent' }
-    | { verdict: 'unreadable'; reason: string }
-  );
-  listTickets:   (workspace: Workspace) => { verdict: 'listed'; tickets: Ticket[]; malformed: MalformedTicketFile[] };
+  readProgressFile: (workspace: Workspace) => ProgressFileReading;
+  /** Declared structurally rather than imported: `lib/tickets/` is a sibling feature, which `lib/render/` may not import. */
+  listTickets:      (workspace: Workspace) => { verdict: 'listed'; tickets: Ticket[]; malformed: MalformedTicketFile[] };
   /** The function `status --json` builds its `concurrency` block with, so the page and the command cannot disagree on a count. */
-  concurrencyOf: (progress: ProgressFile) => { limit: number; agentsInFlight: number };
+  concurrencyOf:    (progress: ProgressFile) => { limit: number; agentsInFlight: number };
 }
 
 export type RerenderOutcome =

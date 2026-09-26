@@ -3,9 +3,10 @@
  * file is a listing entry and a `null`, so one broken file cannot take down `status` or `render`.
  */
 
-import { readdirSync, readFileSync, unlinkSync } from 'node:fs';
-import { join }                                  from 'node:path';
-import { TicketFileIngestion }                   from '../../src/adapters/tickets/TicketFileIngestion.ts';
+import { readdirSync, unlinkSync } from 'node:fs';
+import { join }                    from 'node:path';
+import { ProgressFileIngestion }   from '../../src/adapters/progress/ProgressFileIngestion.ts';
+import { TicketFileIngestion }     from '../../src/adapters/tickets/TicketFileIngestion.ts';
 import type {
   Ticket,
   TicketFrontmatter,
@@ -185,27 +186,17 @@ function identifierInFileName(fileName: string): string | null {
   return found === null ? null : TicketIdUtil.parseTicketReference(found[1] ?? '');
 }
 
-/**
- * Read as raw JSON rather than through the progress store, which is a sibling feature. A file that is absent or will not parse
- * names nothing: every command that files a ticket has already refused an unreadable progress file before it gets here.
- */
+/** A progress file that is absent or unreadable names nothing: every command that files a ticket has already refused an unreadable one. */
 function ticketIdsNamedByTaskRows(workspace: Workspace): string[] {
-  let document: unknown;
-  try {
-    document = JSON.parse(readFileSync(workspace.progressFilePath, 'utf8'));
-  } catch {
-    return [];
-  }
-  if (typeof document !== 'object' || document === null || !('tasks' in document) || !Array.isArray(document.tasks)) {
+  const reading = new ProgressFileIngestion(workspace.progressFilePath).read();
+  if (reading.verdict !== 'readable') {
     return [];
   }
 
   const identifiers: string[] = [];
-  for (const task of document.tasks as unknown[]) {
-    if (typeof task === 'object' && task !== null && 'ticket' in task && typeof task.ticket === 'string') {
-      const identifier = TicketIdUtil.parseTicketReference(task.ticket);
-      if (identifier !== null) identifiers.push(identifier);
-    }
+  for (const task of reading.progress.tasks) {
+    const identifier = task.ticket === null ? null : TicketIdUtil.parseTicketReference(task.ticket);
+    if (identifier !== null) identifiers.push(identifier);
   }
   return identifiers;
 }

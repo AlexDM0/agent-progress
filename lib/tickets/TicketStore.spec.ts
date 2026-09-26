@@ -23,6 +23,8 @@ import {
 } from 'bun:test';
 import { createTicketFileWriter }  from '../../src/adapters/tickets/TicketFileWriter.ts';
 import type { Ticket, TicketType } from '../../src/lib/tracker-model/@types/Ticket.ts';
+import { EmptyProgressUtil }       from '../../src/lib/tracker-model/utils/EmptyProgressUtil.ts';
+import { TaskFilingUtil }          from '../../src/lib/tracker-model/utils/TaskFilingUtil.ts';
 import { TRACKER_FILES }           from '../../src/services/tracker/constants/TrackerFiles.ts';
 import type { Workspace }          from '../platform/Workspace.ts';
 import {
@@ -285,7 +287,16 @@ describe('a ticket file renamed by hand', () => {
   test('an id a task row names spends its number although no ticket file holds it', () => {
     const workspace = scratchWorkspace();
     fileTicket(workspace, 'Fix the export dialog', 'bug');
-    writeFileSync(workspace.progressFilePath, JSON.stringify({ tasks: [{ id: 1, ticket: '001' }, { id: 2, ticket: '005' }, { id: 3 }] }));
+    const progress = EmptyProgressUtil.emptyProgressFor({ project: 'Example Agency', startedAt: FILED_AT, trackerId: 'example-tracker-id' });
+    writeFileSync(workspace.progressFilePath, JSON.stringify({
+      ...progress,
+      nextTaskId: 4,
+      tasks:      [
+        TaskFilingUtil.filedTaskOf(1, { name: 'Fix the export dialog', ticket: '001' }),
+        TaskFilingUtil.filedTaskOf(2, { name: 'Example row of a ticket never written', ticket: '005' }),
+        TaskFilingUtil.filedTaskOf(3, { name: 'Example free row' }),
+      ],
+    }));
 
     expect(nextTicketId(workspace)).toBe('006');
   });
