@@ -5,6 +5,7 @@
  * past the old claim, never a held ticket's nor a person's pause, all within the limit, and the stopped run names what it left paused and which
  * reviews wait. A takeover must also survive its own builder dying, admit a low build only as a low ticket is, and never outrank a ready ticket of
  * a higher priority.
+ * A run that throws never counts as a claim holding, and a mutant that only crashes the script never counts as caught.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -23,6 +24,7 @@ describe('the dispatcher script and a build an earlier run left paused', () => {
     test(claim.name, async () => {
       const run = await runDispatchScript(claim.scenarioFor(), builtScriptTextOf(BUNDLE));
       expect(run.ranAway).toBe(false);
+      expect(run.threw).toBeNull();
       expect(claim.holds(run), JSON.stringify({ calls: kindsAndTickets(run), summary: run.summary, relaunch: run.relaunchSummary })).toBe(true);
     });
 
@@ -30,6 +32,7 @@ describe('the dispatcher script and a build an earlier run left paused', () => {
       const mutated = await bundleDispatchScript(claim.mutant);
       expect(mutated).toMatchObject({ verdict: 'built' });
       const run = await runDispatchScript(claim.scenarioFor(), builtScriptTextOf(mutated));
+      expect(run.threw).toBeNull();
       expect(claim.holds(run)).toBe(false);
     });
   }

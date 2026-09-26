@@ -4,6 +4,7 @@
  * paused ticket relies on: no builder or reviewer of a held ticket starts before a returned status block shows the hold lifted, the step starts
  * at the first block that does, a held ticket's row left running is released rather than holding a slot, the other tickets keep flowing within
  * the limit, and a run that ends first says what it left held.
+ * A run that throws never counts as a claim holding, and a mutant that only crashes the script never counts as caught.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -22,6 +23,7 @@ describe('the dispatcher script and a held ticket', () => {
     test(claim.name, async () => {
       const run = await runDispatchScript(claim.scenarioFor(), builtScriptTextOf(BUNDLE));
       expect(run.ranAway).toBe(false);
+      expect(run.threw).toBeNull();
       expect(claim.holds(run), JSON.stringify({ calls: kindsAndTickets(run), summary: run.summary, held: run.heldTicketIdsReturned })).toBe(true);
     });
 
@@ -29,6 +31,7 @@ describe('the dispatcher script and a held ticket', () => {
       const mutated = await bundleDispatchScript(claim.mutant);
       expect(mutated).toMatchObject({ verdict: 'built' });
       const run = await runDispatchScript(claim.scenarioFor(), builtScriptTextOf(mutated));
+      expect(run.threw).toBeNull();
       expect(claim.holds(run)).toBe(false);
     });
   }

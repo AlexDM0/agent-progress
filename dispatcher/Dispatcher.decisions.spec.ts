@@ -2,6 +2,7 @@
  * The dispatcher's decisions, pinned by running the TypeScript port, bundled, against a fake board. Each claim runs twice: against the bundle,
  * where it must hold, and against a mutant of the TypeScript module that holds the decision, where it must fail — so every claim here was watched
  * failing, and keeps being watched. A mutant whose text is not in its module exactly once fails the build rather than passing by mutating nothing.
+ * A run that throws never counts as a claim holding, and a mutant that only crashes the script never counts as caught.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -48,6 +49,7 @@ describe('the dispatcher script', () => {
     test(claim.name, async () => {
       const run = await runDispatchScript(claim.scenarioFor(), builtScriptTextOf(BUNDLE));
       expect(run.ranAway).toBe(false);
+      expect(run.threw).toBeNull();
       expect(claim.holds(run), JSON.stringify({ calls: kindsAndTickets(run), summary: run.summary, most: run.mostAgentsAtOnce })).toBe(true);
     });
 
@@ -55,6 +57,7 @@ describe('the dispatcher script', () => {
       const mutated = await bundleDispatchScript(claim.mutant);
       expect(mutated).toMatchObject({ verdict: 'built' });
       const run = await runDispatchScript(claim.scenarioFor(), builtScriptTextOf(mutated));
+      expect(run.threw).toBeNull();
       expect(claim.holds(run)).toBe(false);
     });
   }
