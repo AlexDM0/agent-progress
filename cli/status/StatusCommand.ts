@@ -1,11 +1,13 @@
 import { requireWorkspace }               from '../../lib/platform/Workspace';
 import { listTickets }                    from '../../lib/tickets/TicketStore';
-import type { LogEntry, ProgressFile }    from '../../src/lib/tracker-model/@types/ProgressFile';
+import { ProgressDocumentUtil }           from '../../src/adapters/progress/utils/ProgressDocumentUtil';
+import type { ProgressFile }              from '../../src/lib/tracker-model/@types/ProgressFile';
 import type { Task }                      from '../../src/lib/tracker-model/@types/Task';
 import type { Board }                     from '../../src/lib/tracker-model/Board';
 import { TASK_STATUSES, TICKET_STATUSES } from '../../src/lib/tracker-model/constants/Statuses';
 import { TimeUtil }                       from '../../src/lib/utils/TimeUtil';
 import { TokenCountUtil }                 from '../../src/lib/utils/TokenCountUtil';
+import type { WordedLogEntry }            from '../../src/shared/@types/WordedLogEntry';
 import { LIMITS }                         from '../../src/shared/constants/Limits';
 import {
   boardForReading,
@@ -49,7 +51,7 @@ function countsByStatus(statuses: readonly string[], statusOfEach: readonly stri
  * Sorted for display because `--at` backfills, so array order is not chronological: a stated exception
  * to "a clock decides nothing" that decides nothing but a print order, on a copy of the caller's array.
  */
-function logNewestFirst(log: readonly LogEntry[]): LogEntry[] {
+function logNewestFirst(log: readonly WordedLogEntry[]): WordedLogEntry[] {
   const dated = log.map((entry, appendedIndex) => ({
     entry,
     appendedIndex,
@@ -59,7 +61,7 @@ function logNewestFirst(log: readonly LogEntry[]): LogEntry[] {
   return dated.map((datedEntry) => datedEntry.entry);
 }
 
-function logStampOf(entry: LogEntry, showsTheDate: boolean): string {
+function logStampOf(entry: WordedLogEntry, showsTheDate: boolean): string {
   const start = showsTheDate ? LIMITS.MONTH_AND_DAY_SLICE_START : LIMITS.CLOCK_SLICE_START;
   return entry.at.slice(start, LIMITS.CLOCK_SLICE_END).replace('T', ' ');
 }
@@ -86,7 +88,7 @@ function derivedDocumentOf(board: Board): { concurrency: object; readyTickets: R
 
 /** The whole progress file plus every ticket: a document an agent could write back, with the derived `concurrency` and `readyTickets` beside it. */
 function fullDocumentOf(progress: ProgressFile, board: Board): object {
-  return { ...progress, tickets: board.tickets().map(ticketDocumentOf), ...derivedDocumentOf(board) };
+  return { ...ProgressDocumentUtil.documentOf(progress, progress.log), tickets: board.tickets().map(ticketDocumentOf), ...derivedDocumentOf(board) };
 }
 
 /** What an agent opening a session needs: unsettled rows and tickets, the recent log newest first, and counts of what was left out. */
@@ -96,10 +98,9 @@ function workingDocumentOf(progress: ProgressFile, board: Board): object {
   const unsettledTickets = tickets.filter((ticket) => !board.ticketIsSettled(ticket));
   const recentLog        = logNewestFirst(progress.log).slice(0, WORKING_VIEW_LOG_ENTRY_COUNT);
   return {
-    ...progress,
+    ...ProgressDocumentUtil.documentOf(progress, recentLog),
     tasks:   unsettledTasks,
     tickets: unsettledTickets.map(ticketDocumentOf),
-    log:     recentLog,
     ...derivedDocumentOf(board),
     omitted: {
       settledTasks:    progress.tasks.length - unsettledTasks.length,

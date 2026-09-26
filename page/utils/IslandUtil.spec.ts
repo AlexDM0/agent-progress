@@ -4,9 +4,9 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import type { ProgressFile }      from '../../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { Task }              from '../../src/lib/tracker-model/@types/Task.ts';
 import type { PageLimits }        from '../../src/shared/@types/PagePayload.ts';
+import type { ProgressDocument }  from '../../src/shared/@types/ProgressDocument.ts';
 import { IslandUtil }             from './IslandUtil.ts';
 
 const { pagePayloadFrom, pageTicketsFrom } = IslandUtil;
@@ -46,7 +46,7 @@ function exampleTask(): Task {
   };
 }
 
-function exampleProgress(): ProgressFile {
+function exampleProgress(): ProgressDocument {
   return {
     version:    1,
     trackerId:  'example-tracker-8f21',

@@ -1,6 +1,6 @@
 /** The log card: its entries, cut to the newest unless the viewer asked for all, and the toggle between the two. */
 
-import type { LogEntry }          from '../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { WordedLogEntry }    from '../../src/shared/@types/WordedLogEntry.ts';
 import type { ViewerPreferences } from '../preferences/ViewerPreferences.ts';
 import { toggledLogVisibility }   from '../preferences/ViewerPreferences.ts';
 import { DomUtil }                from '../utils/DomUtil.ts';
@@ -14,7 +14,7 @@ import {
 } from './LogCap.ts';
 
 interface LogControllerSources {
-  entries:               readonly LogEntry[];
+  entries:               readonly WordedLogEntry[];
   slices:                TimestampSlices;
   preferences:           ViewerPreferences;
   readTodayCalendarDate: () => string;

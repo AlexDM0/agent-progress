@@ -5,7 +5,7 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import type { LogEntry }        from '../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { WordedLogEntry }  from '../../src/shared/@types/WordedLogEntry.ts';
 import { LogMarkupUtil }        from './LogMarkupUtil.ts';
 import type { TimestampSlices } from './TimeUtil.ts';
 
@@ -23,7 +23,7 @@ const EXAMPLE_SLICES: TimestampSlices = {
 };
 
 describe('logItemsMarkup', () => {
-  const entries: LogEntry[] = [
+  const entries: WordedLogEntry[] = [
     { at: '2026-09-18T20:36:00+02:00', text: 'Tracker created' },
     { at: '2026-09-18T21:56:00+02:00', text: 'Subagent started' },
     { at: '2026-09-18T21:21:00+02:00', text: 'Old idea abandoned' },

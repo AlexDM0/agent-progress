@@ -3,13 +3,13 @@
  * Every value passes `escapeHtml` exactly once here, except a ticket's `bodyHtml`, already escaped by `lib/render/Markdown.ts`.
  */
 
-import type { LogEntry }                    from '../../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { Task, TaskPhase, TaskStatus } from '../../src/lib/tracker-model/@types/Task.ts';
 import type { TicketStatus }                from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { FIRST_REPEAT_REVIEW_ROUND }        from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
 import { HtmlEscapeUtil }                   from '../../src/lib/utils/HtmlEscapeUtil.ts';
 import { TokenCountUtil }                   from '../../src/lib/utils/TokenCountUtil.ts';
 import type { PageTicket }                  from '../../src/shared/@types/PagePayload.ts';
+import type { WordedLogEntry }              from '../../src/shared/@types/WordedLogEntry.ts';
 import type { RowState }                    from '../constants/RowState.ts';
 import { BoardRulesUtil }                   from '../utils/BoardRulesUtil.ts';
 import { LogMarkupUtil }                    from '../utils/LogMarkupUtil.ts';
@@ -49,7 +49,7 @@ interface PhaseLine {
 export interface TaskDetailInput {
   task:              Task | null;
   ticket:            PageTicket | null;
-  log:               readonly LogEntry[];
+  log:               readonly WordedLogEntry[];
   slices:            TimestampSlices;
   todayCalendarDate: string;
 }

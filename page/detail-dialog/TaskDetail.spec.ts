@@ -6,9 +6,9 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import type { LogEntry }        from '../../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { Task }            from '../../src/lib/tracker-model/@types/Task.ts';
 import type { PageTicket }      from '../../src/shared/@types/PagePayload.ts';
+import type { WordedLogEntry }  from '../../src/shared/@types/WordedLogEntry.ts';
 import type { TimestampSlices } from '../utils/TimeUtil.ts';
 import { taskDetailMarkup }     from './TaskDetail.ts';
 
@@ -65,7 +65,7 @@ function exampleTicket(changes: Partial<PageTicket> = {}): PageTicket {
   };
 }
 
-function panelFor(task: Task | null, ticket: PageTicket | null = null, log: readonly LogEntry[] = []): string {
+function panelFor(task: Task | null, ticket: PageTicket | null = null, log: readonly WordedLogEntry[] = []): string {
   return taskDetailMarkup({
     task,
     ticket,
@@ -346,7 +346,7 @@ describe('the ticket', () => {
 });
 
 describe('the log', () => {
-  const log: LogEntry[] = [
+  const log: WordedLogEntry[] = [
     { at: FILED_AT, text: 'Ticket #001 filed: Double-click a role to edit it' },
     { at: STARTED_AT, text: 'Ticket #002 started' },
     { at: FINISHED_AT, text: 'Review row #1 started: Review 1 #001 — Double-click a role to edit it' },

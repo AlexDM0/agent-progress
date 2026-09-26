@@ -43,6 +43,8 @@
     "../src/lib/utils/HtmlEscapeUtil.ts",
     "../src/lib/utils/TokenCountUtil.ts",
     "../src/shared/@types/PagePayload.ts",
+    "../src/shared/@types/ProgressDocument.ts",
+    "../src/shared/@types/WordedLogEntry.ts",
     "../src/shared/utils/TicketNumberUtil.ts"
   ],
   "exclude": ["./**/*.spec.ts"]

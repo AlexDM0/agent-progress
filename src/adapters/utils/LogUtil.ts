@@ -1,10 +1,11 @@
 /** Words the Board's log records as the log's stored sentences, so entries written by any version of the tool read alike. */
-import type { AgentUsage, LogRecordContent } from '../../lib/tracker-model/@types/LogRecord.ts';
-import type { DispatcherState, ViewRange }   from '../../lib/tracker-model/@types/ProgressFile.ts';
-import { TokenCountUtil }                    from '../../lib/utils/TokenCountUtil.ts';
-import type { MovedToStatus }                from './StatusWordingUtil.ts';
-import { StatusWordingUtil }                 from './StatusWordingUtil.ts';
-import { TicketPhraseUtil }                  from './TicketPhraseUtil.ts';
+import type { AgentUsage, LogRecord, LogRecordContent } from '../../lib/tracker-model/@types/LogRecord.ts';
+import type { DispatcherState, ViewRange }              from '../../lib/tracker-model/@types/ProgressFile.ts';
+import { TokenCountUtil }                               from '../../lib/utils/TokenCountUtil.ts';
+import type { WordedLogEntry }                          from '../../shared/@types/WordedLogEntry.ts';
+import type { MovedToStatus }                           from './StatusWordingUtil.ts';
+import { StatusWordingUtil }                            from './StatusWordingUtil.ts';
+import { TicketPhraseUtil }                             from './TicketPhraseUtil.ts';
 
 type TicketMoveKind = 'ticket-reopened' | 'ticket-started' | 'ticket-finished' | 'ticket-approved' | 'ticket-delivered';
 
@@ -85,4 +86,8 @@ function sentenceOf(record: LogRecordContent): string {
   }
 }
 
-export const LogUtil = { dispatcherStateTextOf, sentenceOf } as const;
+function wordedEntryOf(record: LogRecord): WordedLogEntry {
+  return { at: record.at, text: sentenceOf(record) };
+}
+
+export const LogUtil = { dispatcherStateTextOf, sentenceOf, wordedEntryOf } as const;

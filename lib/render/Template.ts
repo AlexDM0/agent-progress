@@ -5,6 +5,7 @@
 
 import { readFileSync }                                  from 'node:fs';
 import { join }                                          from 'node:path';
+import { ProgressDocumentUtil }                          from '../../src/adapters/progress/utils/ProgressDocumentUtil.ts';
 import type { ProgressFile }                             from '../../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { Ticket }                                   from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { HtmlEscapeUtil }                                from '../../src/lib/utils/HtmlEscapeUtil.ts';
@@ -102,7 +103,7 @@ export function renderProgressHtml(input: RenderProgressHtmlInput): string {
   const template = readFileSync(join(import.meta.dir, '..', '..', 'resources', TEMPLATE_FILE_NAME), 'utf8');
 
   const payload: PagePayload = {
-    progress,
+    progress:                     ProgressDocumentUtil.documentOf(progress, progress.log),
     generatedAtEpochMilliseconds: generatedAt.getTime(),
     limits:                       pageLimits(),
     concurrency:                  { limit: concurrency.limit, agentsInFlight: concurrency.agentsInFlight },

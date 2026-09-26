@@ -5,10 +5,10 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import type { AgentUsage, LogRecordContent } from '../../lib/tracker-model/@types/LogRecord';
-import { LogUtil }                           from './LogUtil';
+import type { AgentUsage, LogRecord, LogRecordContent } from '../../lib/tracker-model/@types/LogRecord';
+import { LogUtil }                                      from './LogUtil';
 
-const { dispatcherStateTextOf, sentenceOf } = LogUtil;
+const { dispatcherStateTextOf, sentenceOf, wordedEntryOf } = LogUtil;
 
 /**
  * Taken from the binary before the records existed, at bc42604 (the last commit before step 4b). To retake a row, check that commit out
@@ -112,6 +112,17 @@ const RECORD_KIND_COUNT = 21;
 test('every kind of record reads as the sentence the log held before there were records', () => {
   expect(new Set(SENTENCE_FOR_RECORD.map(([record]) => record.kind)).size, 'the table covers every kind').toBe(RECORD_KIND_COUNT);
   for (const [record, sentence] of SENTENCE_FOR_RECORD) expect(sentenceOf(record), record.kind).toBe(sentence);
+});
+
+test('a worded entry keeps the record\'s stamp and carries its sentence', () => {
+  const at = '2026-09-18T20:11:03+02:00';
+  const record: LogRecord = {
+    at,
+    kind:     'ticket-started',
+    ticketId: '001',
+    fields:   {},
+  };
+  expect(wordedEntryOf(record)).toEqual({ at, text: 'Ticket #001 started' });
 });
 
 test('a dispatcher state names its run only when it has one, as the dispatcher command reads it back', () => {

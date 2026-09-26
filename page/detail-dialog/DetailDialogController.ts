@@ -1,8 +1,8 @@
 /** The overview dialog: which row, ticket line or Kanban card opens it, what it is filled with, and how it closes. */
 
-import type { ProgressFile }           from '../../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { Task }                   from '../../src/lib/tracker-model/@types/Task.ts';
 import type { PageLimits, PageTicket } from '../../src/shared/@types/PagePayload.ts';
+import type { ProgressDocument }       from '../../src/shared/@types/ProgressDocument.ts';
 import type { KanbanCard }             from '../@types/KanbanCard.ts';
 import { KANBAN_BOARD_ELEMENT_ID }     from '../constants/TemplateIds.ts';
 import { DomUtil }                     from '../utils/DomUtil.ts';
@@ -15,7 +15,7 @@ const DETAIL_BODY_ELEMENT_ID   = 'ap-detail-body';
 const DETAIL_CLOSE_ELEMENT_ID  = 'ap-detail-close';
 
 export interface DetailDialogSources {
-  progress:              ProgressFile;
+  progress:              ProgressDocument;
   tickets:               readonly PageTicket[];
   limits:                PageLimits;
   readTodayCalendarDate: () => string;
