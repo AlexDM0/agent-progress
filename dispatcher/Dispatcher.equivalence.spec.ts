@@ -6,9 +6,9 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { bundleDispatchScript }                        from './testing/DispatchScriptBundle.ts';
+import { builtScriptTextOf, bundleDispatchScript }     from './testing/DispatchScriptBundle.ts';
 import { runDispatchScript, type RecordedDispatchRun } from './testing/DispatchScriptHarness.ts';
-import { digestOf, traceOf }                           from './testing/DispatchTrace.ts';
+import { digestOf, promptDigestOfCallText, traceOf }   from './testing/DispatchTrace.ts';
 import { readFrozenDispatchTraces }                    from './testing/DispatchTraceCapture.ts';
 import { dispatchTraceCatalogue }                      from './testing/DispatchTraceCatalogue.ts';
 
@@ -42,27 +42,19 @@ function lineDiffOf(oldText: string, newText: string): string {
   return differingLines.join('\n');
 }
 
-// The prompt digest is the tenth field of a call's text, after run, kind, ticket, ordinal, model, effort, label, phase and schema digest.
-const PROMPT_DIGEST_FIELD_INDEX = 9;
-
 function promptDiffsOf(run: RecordedDispatchRun, frozenCalls: readonly string[]): string {
   const promptDiffs: string[] = [];
   run.calls.forEach((call, callIndex) => {
-    const frozenPromptDigest = frozenCalls[callIndex]?.split('|')[PROMPT_DIGEST_FIELD_INDEX];
+    const frozenCallText = frozenCalls[callIndex];
+    const frozenPromptDigest = frozenCallText === undefined ? undefined : promptDigestOfCallText(frozenCallText);
     if (frozenPromptDigest === undefined || frozenPromptDigest === digestOf(call.prompt)) return;
     promptDiffs.push(`call ${callIndex} (${call.run} ${call.kind} ${call.ticketId ?? ''}):\n${lineDiffOf(frozenPromptOf(frozenPromptDigest), call.prompt)}`);
   });
   return promptDiffs.join('\n\n');
 }
 
-async function scriptText(): Promise<string> {
-  const bundle = await bundleDispatchScript();
-  if (bundle.verdict === 'failed') throw new Error(bundle.reason);
-  return bundle.scriptText;
-}
-
 describe('the bundled TypeScript dispatcher against the frozen table of the old script', () => {
-  test('bundles', async () => {
+  test('bundles into one Workflow script', async () => {
     expect((await bundleDispatchScript()).verdict).toBe('built');
   });
 
@@ -78,7 +70,7 @@ describe('the bundled TypeScript dispatcher against the frozen table of the old 
     test(`reproduces ${entry.key}`, async () => {
       const frozenTrace = frozenTraceOf(entry.key);
       if (frozenTrace === undefined) throw new Error(`${entry.key} is not in the table`);
-      const run = await runDispatchScript(entry.scenarioFor(), await scriptText());
+      const run = await runDispatchScript(entry.scenarioFor(), builtScriptTextOf(await bundleDispatchScript()));
       expect(traceOf(run), promptDiffsOf(run, frozenTrace.calls)).toEqual(frozenTrace);
     });
   }

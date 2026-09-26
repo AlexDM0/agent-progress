@@ -49,6 +49,10 @@ function schemaDigestOf(schema: unknown): string {
   return schema === undefined ? 'undefined' : digestOf(JSON.stringify(schema));
 }
 
+const CALL_TEXT_FIELD_SEPARATOR = '|';
+// The position of `digestOf(call.prompt)` in the array below.
+const PROMPT_DIGEST_FIELD_INDEX = 9;
+
 function callTextOf(call: RecordedAgentCall): string {
   return [
     call.run,
@@ -63,7 +67,11 @@ function callTextOf(call: RecordedAgentCall): string {
     digestOf(call.prompt),
     String(call.statusBlocksReturnedBefore),
     String(call.logsBefore),
-  ].join('|');
+  ].join(CALL_TEXT_FIELD_SEPARATOR);
+}
+
+export function promptDigestOfCallText(callText: string): string | undefined {
+  return callText.split(CALL_TEXT_FIELD_SEPARATOR)[PROMPT_DIGEST_FIELD_INDEX];
 }
 
 export function traceOf(run: RecordedDispatchRun): DispatchTrace {
