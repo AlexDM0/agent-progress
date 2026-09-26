@@ -1,9 +1,8 @@
 /** The Progress tab: the summary, the generated stamp, the hidden-work note, the chart's layout, the range bar and the name column. */
 
-import type { ProgressFile, ViewRange }                                from '../../src/lib/tracker-model/@types/ProgressFile.ts';
-import type { Task }                                                   from '../../src/lib/tracker-model/@types/Task.ts';
-import type { TicketStatus }                                           from '../../src/lib/tracker-model/@types/Ticket.ts';
+import type { ViewRange }                                              from '../../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { PagePayload }                                            from '../../src/shared/@types/PagePayload.ts';
+import type { BoardRow }                                               from '../@types/PageBoard.ts';
 import { PERCENT_OF_A_WHOLE }                                          from '../constants/Units.ts';
 import type { NameColumnWidth, StoredViewOverride, ViewerPreferences } from '../preferences/ViewerPreferences.ts';
 import { toggledNameColumnWidth }                                      from '../preferences/ViewerPreferences.ts';
@@ -32,16 +31,16 @@ import {
 import { ViewRangeUtil } from './utils/ViewRangeUtil.ts';
 
 export interface ProgressControllerSources {
-  payload:          PagePayload;
-  ticketStatusById: ReadonlyMap<string, TicketStatus>;
-  waitingOnById:    ReadonlyMap<string, readonly string[]>;
-  preferences:      ViewerPreferences;
+  payload:       PagePayload;
+  rows:          readonly BoardRow[];
+  waitingOnById: ReadonlyMap<string, readonly string[]>;
+  preferences:   ViewerPreferences;
 }
 
 export interface ProgressController {
   showSummary(): void;
   applyNameColumnWidth(): void;
-  setVisibleTasks(visibleTasks: Task[]): void;
+  setVisibleRows(visibleRows: readonly BoardRow[]): void;
   showGeneratedStamp(todayCalendarDate: string): void;
   showHiddenNote(hiddenTaskCount: number, hiddenTicketCount: number): void;
   layOut(bringNowIntoView: boolean): void;
@@ -72,22 +71,16 @@ function scrollNowIntoView(chart: HTMLElement, nowPercent: number, axisWidthPixe
   chart.scrollLeft = Math.max(0, Math.min(desiredScrollLeft, furthestScrollLeft));
 }
 
-function taskRowsFor(
-  progress: ProgressFile,
-  timeline: Timeline,
-  ticketStatusById: ReadonlyMap<string, TicketStatus>,
-  waitingOnById: ReadonlyMap<string, readonly string[]>,
-): TaskRow[] {
-  return progress.tasks.flatMap((task, index) => {
+function taskRowsFor(visibleRows: readonly BoardRow[], timeline: Timeline, waitingOnById: ReadonlyMap<string, readonly string[]>): TaskRow[] {
+  return visibleRows.flatMap((task, index) => {
     const bar = timeline.bars[index];
     if (bar === undefined) {
       return [];
     }
     return [{
       task,
-      ticketStatus: task.ticket === null ? null : ticketStatusById.get(task.ticket) ?? null,
       bar,
-      waitingOn:    task.ticket === null ? [] : waitingOnById.get(task.ticket) ?? [],
+      waitingOn: task.ticket === null ? [] : waitingOnById.get(task.ticket) ?? [],
     }];
   });
 }
@@ -162,7 +155,7 @@ function wireRangeControls(readOverride: () => StoredViewOverride, applyOverride
 export function createProgressController(sources: ProgressControllerSources): ProgressController {
   const {
     payload,
-    ticketStatusById,
+    rows,
     waitingOnById,
     preferences,
   } = sources;
@@ -170,7 +163,8 @@ export function createProgressController(sources: ProgressControllerSources): Pr
   const chart                = document.getElementById('ap-chart');
   let override               = preferences.readRangeOverride();
   let nameColumnWidth        = preferences.readNameColumnWidth();
-  let visibleProgress        = progress;
+  let visibleRows            = rows;
+  let visibleProgress        = { ...progress, tasks: [...visibleRows] };
 
   const layOut = (bringNowIntoView: boolean): void => {
     const nowEpochMilliseconds = Date.now();
@@ -196,7 +190,7 @@ export function createProgressController(sources: ProgressControllerSources): Pr
     }));
     DomUtil.setMarkup('ap-ticks', tickLayerMarkup(placedTicks));
     DomUtil.setMarkup('ap-overlay', overlayMarkup(timeline.ticks, timeline.nowPercent));
-    DomUtil.setMarkup('ap-rows', taskRowsMarkup(taskRowsFor(visibleProgress, timeline, ticketStatusById, waitingOnById), limits));
+    DomUtil.setMarkup('ap-rows', taskRowsMarkup(taskRowsFor(visibleRows, timeline, waitingOnById), limits));
     DomUtil.setHidden('ap-chart-empty', visibleProgress.tasks.length > 0);
 
     const rangeNote = rangeNoteText(timeline.fromEpochMilliseconds, timeline.toEpochMilliseconds, timeline.stepMinutes, TimeUtil.calendarDateOf(nowEpochMilliseconds), limits);
@@ -215,8 +209,9 @@ export function createProgressController(sources: ProgressControllerSources): Pr
     applyNameColumnWidth: () => {
       reflectNameColumnWidth(nameColumnWidth);
     },
-    setVisibleTasks: (visibleTasks) => {
-      visibleProgress = { ...progress, tasks: visibleTasks };
+    setVisibleRows: (nextVisibleRows) => {
+      visibleRows     = nextVisibleRows;
+      visibleProgress = { ...progress, tasks: [...visibleRows] };
     },
     showGeneratedStamp: (todayCalendarDate) => {
       DomUtil.setShortenedText('ap-generated', generatedStampText(payload.generatedAtEpochMilliseconds, todayCalendarDate));

@@ -1,6 +1,7 @@
 /** The Kanban tab's markup, shaped by the placeholder board in `resources/template.html`; the rules it follows are `KanbanLanes.ts`'s. */
 
 import { HtmlLabelUtil }                     from '../../src/adapters/utils/HtmlLabelUtil.ts';
+import type { DisplayState }                 from '../../src/lib/tracker-model/@types/Task.ts';
 import { FIRST_REPEAT_REVIEW_ROUND }         from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
 import { TicketDefaultsUtil }                from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
 import { HtmlEscapeUtil }                    from '../../src/lib/utils/HtmlEscapeUtil.ts';
@@ -8,8 +9,6 @@ import { TokenCountUtil }                    from '../../src/lib/utils/TokenCoun
 import type { KanbanCard }                   from '../@types/KanbanCard.ts';
 import type { ClosedKanbanLane, KanbanLane } from '../constants/KanbanLane.ts';
 import { CAPPED_LANE_FIRST_PAGE }            from '../constants/KanbanLane.ts';
-import type { RowState }                     from '../constants/RowState.ts';
-import { BoardRulesUtil }                    from '../utils/BoardRulesUtil.ts';
 import { MarkupUtil }                        from '../utils/MarkupUtil.ts';
 import { WorkItemMarkupUtil }                from '../utils/WorkItemMarkupUtil.ts';
 import type { NoteFormat }                   from './KanbanLaneText.ts';
@@ -28,7 +27,7 @@ const NO_ROW_TITLE = 'Low priority: it gets a row on the Progress chart once it 
 
 interface LaneDesign {
   title:    string;
-  dotState: RowState;
+  dotState: DisplayState;
   /** The head's words before its counts. */
   leading:  string | null;
 }
@@ -58,7 +57,7 @@ const EMPTY_CLOSED_LANE_TEXT_UNDER_SHOW_ALL: Record<ClosedKanbanLane, string> = 
 };
 
 export interface KanbanBoardInput extends NoteFormat {
-  /** The cards of the tickets the Tickets tab shows; rows are looked up in the whole progress file, `tasks`. */
+  /** The cards of the tickets the Tickets tab shows. */
   cards:                  readonly KanbanCard[];
   showsAllWork:           boolean;
   shownCountByClosedLane: Readonly<Record<ClosedKanbanLane, number>>;
@@ -66,7 +65,7 @@ export interface KanbanBoardInput extends NoteFormat {
 }
 
 function pillLabelOf(card: KanbanCard): string {
-  return WorkItemMarkupUtil.pillLabelForRowState(card.state, card.ownRow?.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND);
+  return WorkItemMarkupUtil.pillLabelForDisplayState(card.state, card.ownRow?.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND);
 }
 
 function marksMarkup(card: KanbanCard, lane: KanbanLane): string {
@@ -81,7 +80,7 @@ function marksMarkup(card: KanbanCard, lane: KanbanLane): string {
 
 function stateMarkup(card: KanbanCard, lane: KanbanLane, format: NoteFormat): string {
   const pill         = laneMixesStates(lane) ? `<span class="ap-pill">${HtmlEscapeUtil.escapeHtml(pillLabelOf(card))}</span>` : '';
-  const reviewedMark = lane === 'done' && card.ownRow !== null && BoardRulesUtil.cardCarriesReviewedMark(card)
+  const reviewedMark = lane === 'done' && card.ownRow !== null && card.ownRow.deliveredRowCountsAsReviewed
     ? `${WorkItemMarkupUtil.reviewedMarkMarkup(card.ownRow, format.slices)}<span>reviewed</span>`
     : '';
   return `<div class="ap-kanban-state">${pill}${reviewedMark}</div>`;

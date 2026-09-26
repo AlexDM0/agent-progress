@@ -1,16 +1,15 @@
 /** How a task or ticket is marked wherever it appears: its links, badges, marks and pill label. */
 
-import { HtmlLabelUtil }            from '../../src/adapters/utils/HtmlLabelUtil.ts';
-import type { Task }                from '../../src/lib/tracker-model/@types/Task.ts';
-import type { TicketStatus }        from '../../src/lib/tracker-model/@types/Ticket.ts';
-import { TicketDefaultsUtil }       from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
-import { HtmlEscapeUtil }           from '../../src/lib/utils/HtmlEscapeUtil.ts';
-import type { PageTicket }          from '../../src/shared/@types/PagePayload.ts';
-import type { RowState }            from '../constants/RowState.ts';
-import { PILL_LABEL_FOR_ROW_STATE } from '../constants/RowState.ts';
-import { MarkupUtil }               from './MarkupUtil.ts';
-import type { TimestampSlices }     from './TimeUtil.ts';
-import { TimeUtil }                 from './TimeUtil.ts';
+import { HtmlLabelUtil }                from '../../src/adapters/utils/HtmlLabelUtil.ts';
+import type { DisplayState, Task }      from '../../src/lib/tracker-model/@types/Task.ts';
+import type { TicketStatus }            from '../../src/lib/tracker-model/@types/Ticket.ts';
+import { TicketDefaultsUtil }           from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
+import { HtmlEscapeUtil }               from '../../src/lib/utils/HtmlEscapeUtil.ts';
+import type { PageTicket }              from '../../src/shared/@types/PagePayload.ts';
+import { PILL_LABEL_FOR_DISPLAY_STATE } from '../constants/PillLabels.ts';
+import { MarkupUtil }                   from './MarkupUtil.ts';
+import type { TimestampSlices }         from './TimeUtil.ts';
+import { TimeUtil }                     from './TimeUtil.ts';
 
 
 /** Where a ticket link leads: the ticket's card on the Tickets tab, or its card on the Kanban board, which the page script follows itself. */
@@ -40,7 +39,7 @@ function ticketBadgeMarkup(ticketId: string): string {
 }
 
 function ticketStatusBadgeMarkup(status: TicketStatus): string {
-  return `<span class="ap-badge ${HtmlEscapeUtil.escapeHtml(status)}">${HtmlEscapeUtil.escapeHtml(status)}</span>`;
+  return `<span class="ap-badge ${HtmlEscapeUtil.escapeHtml(status)}">${HtmlEscapeUtil.escapeHtml(HtmlLabelUtil.ticketStatusBadgeTextOf(status))}</span>`;
 }
 
 /** Normal is unmarked. Low borrows the row's quiet ticket badge and high the amber "waiting on" note: the template has no priority style of its own. */
@@ -63,8 +62,8 @@ function reviewedMarkMarkup(task: Task, slices: TimestampSlices): string {
   return `<span class="ap-reviewed-mark" data-state="reviewed" ${MarkupUtil.attribute('title', reviewedTitleFor(task, slices))} role="img" aria-label="reviewed">✓</span>`;
 }
 
-function pillLabelForRowState(state: RowState, reviewRound: number): string {
-  const label = PILL_LABEL_FOR_ROW_STATE[state];
+function pillLabelForDisplayState(state: DisplayState, reviewRound: number): string {
+  const label = PILL_LABEL_FOR_DISPLAY_STATE[state];
   return state === 're-review' ? `${label} ${reviewRound}` : label;
 }
 
@@ -98,6 +97,6 @@ export const WorkItemMarkupUtil = {
   ticketStatusBadgeMarkup,
   priorityMarkMarkup,
   reviewedMarkMarkup,
-  pillLabelForRowState,
+  pillLabelForDisplayState,
   latestMilestoneMarkup,
 } as const;

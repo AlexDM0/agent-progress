@@ -7,6 +7,7 @@
 import { describe, expect, test } from 'bun:test';
 import type { Task }              from '../../src/lib/tracker-model/@types/Task.ts';
 import type { PageTicket }        from '../../src/shared/@types/PagePayload.ts';
+import { pageBoardFixture }       from '../testing/PageBoardFixture.ts';
 import { kanbanCardsFor }         from './KanbanLanes.ts';
 import type { KanbanBoardInput }  from './KanbanMarkup.ts';
 import {
@@ -76,8 +77,7 @@ function exampleRow(id: number, changes: Partial<Task> = {}): Task {
 function boardInput(tickets: readonly PageTicket[], tasks: readonly Task[], changes: Partial<KanbanBoardInput> = {}): KanbanBoardInput {
   const waitingOnById = new Map(tickets.flatMap((ticket) => (ticket.dependsOn === undefined ? [] : [[ticket.id, ticket.dependsOn]])));
   return {
-    cards:                  kanbanCardsFor(tickets, tasks, waitingOnById),
-    tasks,
+    cards:                  kanbanCardsFor(pageBoardFixture({ tasks, tickets }).tickets, waitingOnById),
     nowEpochMilliseconds:   EXAMPLE_NOW,
     todayCalendarDate:      EXAMPLE_TODAY,
     slices:                 EXAMPLE_SLICES,

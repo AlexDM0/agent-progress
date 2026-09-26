@@ -1,22 +1,23 @@
 /** The overview dialog: which row, ticket line or Kanban card opens it, what it is filled with, and how it closes. */
 
-import type { Task }                   from '../../src/lib/tracker-model/@types/Task.ts';
-import type { PageLimits, PageTicket } from '../../src/shared/@types/PagePayload.ts';
-import type { ProgressDocument }       from '../../src/shared/@types/ProgressDocument.ts';
-import type { KanbanCard }             from '../@types/KanbanCard.ts';
-import { KANBAN_BOARD_ELEMENT_ID }     from '../constants/TemplateIds.ts';
-import { DomUtil }                     from '../utils/DomUtil.ts';
-import { GeometryUtil }                from '../utils/GeometryUtil.ts';
-import { taskDetailMarkup }            from './TaskDetail.ts';
-import { ticketDetailMarkup }          from './TicketDetail.ts';
+import type { PageLimits }            from '../../src/shared/@types/PagePayload.ts';
+import type { IdentifiedLogEntry }    from '../../src/shared/@types/WordedLogEntry.ts';
+import type { KanbanCard }            from '../@types/KanbanCard.ts';
+import type { BoardRow, BoardTicket } from '../@types/PageBoard.ts';
+import { KANBAN_BOARD_ELEMENT_ID }    from '../constants/TemplateIds.ts';
+import { DomUtil }                    from '../utils/DomUtil.ts';
+import { GeometryUtil }               from '../utils/GeometryUtil.ts';
+import { taskDetailMarkup }           from './TaskDetail.ts';
+import { ticketDetailMarkup }         from './TicketDetail.ts';
 
 const DETAIL_DIALOG_ELEMENT_ID = 'ap-detail';
 const DETAIL_BODY_ELEMENT_ID   = 'ap-detail-body';
 const DETAIL_CLOSE_ELEMENT_ID  = 'ap-detail-close';
 
 export interface DetailDialogSources {
-  progress:              ProgressDocument;
-  tickets:               readonly PageTicket[];
+  rows:                  readonly BoardRow[];
+  tickets:               readonly BoardTicket[];
+  log:                   readonly IdentifiedLogEntry[];
   limits:                PageLimits;
   readTodayCalendarDate: () => string;
   readKanbanCards:       () => readonly KanbanCard[];
@@ -72,8 +73,9 @@ function markCoveredTickLabels(): void {
 export function createDetailDialogController(sources: DetailDialogSources): { wire(): void } {
   const wire = (): void => {
     const {
-      progress,
+      rows,
       tickets,
+      log,
       limits,
       readTodayCalendarDate,
     } = sources;
@@ -83,11 +85,11 @@ export function createDetailDialogController(sources: DetailDialogSources): { wi
     }
     const ticketById = new Map(tickets.map((ticket) => [ticket.id, ticket]));
 
-    const showDetail = (task: Task | null, ticket: PageTicket | null): void => {
+    const showDetail = (task: BoardRow | null, ticket: BoardTicket | null): void => {
       const markup = taskDetailMarkup({
         task,
         ticket,
-        log:               progress.log,
+        log,
         slices:            limits,
         todayCalendarDate: readTodayCalendarDate(),
       });
@@ -99,14 +101,14 @@ export function createDetailDialogController(sources: DetailDialogSources): { wi
     };
 
     const showTaskRowDetail = (row: HTMLElement): void => {
-      const task = progress.tasks.find((candidate) => String(candidate.id) === row.dataset['taskId']);
+      const task = rows.find((candidate) => String(candidate.id) === row.dataset['taskId']);
       if (task !== undefined) {
         showDetail(task, task.ticket === null ? null : ticketById.get(task.ticket) ?? null);
       }
     };
     const showTicketRowDetail = (row: HTMLElement): void => {
-      const ticketId = row.dataset['ticketId'] ?? '';
-      showDetail(progress.tasks.find((candidate) => candidate.ticket === ticketId) ?? null, ticketById.get(ticketId) ?? null);
+      const ticket = ticketById.get(row.dataset['ticketId'] ?? '') ?? null;
+      showDetail(ticket?.ownRow ?? null, ticket);
     };
 
     const showKanbanCardDetail = (cardElement: HTMLElement): void => {
@@ -116,7 +118,6 @@ export function createDetailDialogController(sources: DetailDialogSources): { wi
       }
       DomUtil.setMarkup(DETAIL_BODY_ELEMENT_ID, ticketDetailMarkup({
         card,
-        tasks:                progress.tasks,
         nowEpochMilliseconds: Date.now(),
         todayCalendarDate:    readTodayCalendarDate(),
         limits,

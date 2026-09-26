@@ -1,16 +1,13 @@
 /** The words the Kanban lane heads and cards print beyond the pill: the heads' counts and a card's sub-state note. The page's now is handed in. */
 
-import type { Task }                 from '../../src/lib/tracker-model/@types/Task.ts';
+import type { DisplayState, Task }   from '../../src/lib/tracker-model/@types/Task.ts';
 import { FIRST_REPEAT_REVIEW_ROUND } from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
 import type { KanbanCard }           from '../@types/KanbanCard.ts';
 import type { KanbanLane }           from '../constants/KanbanLane.ts';
-import type { RowState }             from '../constants/RowState.ts';
-import { BoardRulesUtil }            from '../utils/BoardRulesUtil.ts';
 import type { TimestampSlices }      from '../utils/TimeUtil.ts';
 import { TimeUtil }                  from '../utils/TimeUtil.ts';
 
 export interface NoteFormat {
-  tasks:                readonly Task[];
   nowEpochMilliseconds: number;
   todayCalendarDate:    string;
   slices:               TimestampSlices;
@@ -20,11 +17,11 @@ export interface NoteFormat {
 export interface LaneSubCount {
   count:        number;
   label:        string;
-  dotState:     RowState | null;
+  dotState:     DisplayState | null;
   reviewedMark: boolean;
 }
 
-function subCount(count: number, label: string, dotState: RowState | null = null, reviewedMark = false): LaneSubCount {
+function subCount(count: number, label: string, dotState: DisplayState | null = null, reviewedMark = false): LaneSubCount {
   return {
     count,
     label,
@@ -51,7 +48,7 @@ export function laneSubCountsOf(lane: KanbanLane, members: readonly KanbanCard[]
       subCount(countOf((card) => card.state === 'reviewing' || card.state === 're-review'), 'reviewing', 'reviewing'),
     ],
     merge:     [],
-    done:      [subCount(countOf(BoardRulesUtil.cardCarriesReviewedMark), 'reviewed first', null, true)],
+    done:      [subCount(countOf((card) => card.ownRow?.deliveredRowCountsAsReviewed === true), 'reviewed first', null, true)],
     abandoned: [],
   };
   return counts[lane].filter((entry) => entry.count > 0);
@@ -85,7 +82,7 @@ function waitingForReviewerNote(card: KanbanCard, format: NoteFormat): string | 
 }
 
 function runningReviewerNote(card: KanbanCard, format: NoteFormat): string | null {
-  const reviewRow = BoardRulesUtil.reviewRowsOf(card.ticket.id, format.tasks).at(-1) ?? null;
+  const reviewRow = card.reviewBars.at(-1) ?? null;
   if (reviewRow === null || reviewRow.end !== null) {
     return null;
   }

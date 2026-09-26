@@ -210,7 +210,7 @@ verbs refuse it, except a pause and its resume, naming the `ticket` verb that mo
 
 | command | what it does |
 |---|---|
-| `task add "<name>" [--owner <who>] [--note <text>] [--ticket <id>] [--review-of <id>] [--start] [--tokens <n>] [--at <when>] [--force]` | Add a row. `--start` marks it in-progress at `--at` (default now); `--note` is the detail shown beside the bar; `--tokens` records what the work cost. `--ticket` links it to a ticket that has no row of its own, and `--force` moves that link off the row that holds it. `--review-of` marks the row as a review pass of that ticket, drawn directly above the ticket's own row, latest round first, and also stores the bar's round as `reviewBarRound`, the ticket's `## Review` sections plus one; a ticket that does not exist is refused at exit 1. A row without it whose name starts `Review <N> #<id>` is nested the same way; for a bundle, the first id named is the parent. |
+| `task add "<name>" [--owner <who>] [--note <text>] [--ticket <id>] [--review-of <id>] [--start] [--tokens <n>] [--at <when>] [--force]` | Add a row. `--start` marks it in-progress at `--at` (default now); `--note` is the detail shown beside the bar; `--tokens` records what the work cost. `--ticket` links it to a ticket that has no row of its own, and `--force` moves that link off the row that holds it. `--review-of` marks the row as a review pass of that ticket, drawn directly above the ticket's own row, newest filed first, and also stores the bar's round as `reviewBarRound`, the ticket's `## Review` sections plus one; a ticket that does not exist is refused at exit 1. A row without it whose name starts `Review <N> #<id>` is nested the same way; for a bundle, the first id named is the parent. |
 | `task start\|pause\|finish\|approve\|rereview\|deliver <id> [--owner <who>] [--note <text>] [--tokens <n>] [--at <when>] [--force]` | Move one row and stamp it. `start` sets its start and resumes a paused row; `pause` records that the work is waiting without closing the bar; `finish` and `approve` set its end; `rereview` sends a row whose review found too much into its next review pass — round 2, then 3 — without reopening the bar; `deliver` records that the work reached its destination. |
 | `task update <id> [--name <text>] [--owner <who>] [--note <text>] [--status <status>] [--tokens <n>] [--force]` | Change a row without moving its clock, and without adding to its `history`: a correction is not something that happened. At least one field is required. `--status` is for a correction the transitions cannot express, and on a row a ticket owns is refused unless `--force`, except a pause and its resume. |
 | `task remove <id>` | Delete a row. A ticket pointing at it is unlinked rather than deleted. The id is never given to another row. |
@@ -344,7 +344,7 @@ mutating command and reloading itself every 5 minutes. Open it with `agent-progr
 
 - **Progress tab**: the Gantt chart, one row per task, newest on top, each with its number, name,
   ticket badge, token count, status pill and bar; a now-marker; and the log underneath, newest first.
-  Review rows are drawn indented directly above the ticket they review, latest round first.
+  Review rows are drawn indented directly above the ticket they review, newest filed first.
 - **Kanban tab**, between the two: one card per ticket in six lanes — To do, In progress, Review,
   Awaiting merge, Done and Abandoned — each card in the lane its row's Progress pill names. The open
   lanes run high → normal → low, then by id, with a divider per priority; a card shows its priority
@@ -360,8 +360,9 @@ mutating command and reloading itself every 5 minutes. Open it with `agent-progr
   any row reports tokens, their sum.
 - **Double-click any row**, in the chart or the ticket table, for the whole story of that task: its
   facts, every phase it went through with how long it sat in each, the ticket with its body, and the
-  log lines that name either. A row filed before phases were recorded says so and shows what can be
-  derived from its stamps instead. **Double-click a Kanban card**, or press Enter on it, for the
+  log lines about either (a line the tool wrote by its task and ticket ids, a note by the numbers it
+  names). A row filed before phases were recorded says so and shows what can be derived from its
+  stamps instead. **Double-click a Kanban card**, or press Enter on it, for the
   ticket instead: its facts, a Timeline of that ticket alone — a quiet Filed bar from filing to the
   build's start, the build's wip and paused segments, one row per review pass, the waits after the
   build, and a marker at now or at its delivery or abandonment — with the time spent in each state

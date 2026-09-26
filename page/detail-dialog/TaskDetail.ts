@@ -1,23 +1,26 @@
 /**
- * The overview panel a double-click opens: one task, the ticket it belongs to and the log lines that name either, as pure functions.
+ * The overview panel a double-click opens: one task, the ticket it belongs to and the log lines about either, as pure functions.
  * Every value passes `escapeHtml` exactly once here, except a ticket's `bodyHtml`, already escaped by `src/services/render/Markdown.ts`.
  */
 
-import type { Task, TaskPhase, TaskStatus } from '../../src/lib/tracker-model/@types/Task.ts';
-import type { TicketStatus }                from '../../src/lib/tracker-model/@types/Ticket.ts';
-import { FIRST_REPEAT_REVIEW_ROUND }        from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
-import { HtmlEscapeUtil }                   from '../../src/lib/utils/HtmlEscapeUtil.ts';
-import { TokenCountUtil }                   from '../../src/lib/utils/TokenCountUtil.ts';
-import type { PageTicket }                  from '../../src/shared/@types/PagePayload.ts';
-import type { WordedLogEntry }              from '../../src/shared/@types/WordedLogEntry.ts';
-import type { RowState }                    from '../constants/RowState.ts';
-import { BoardRulesUtil }                   from '../utils/BoardRulesUtil.ts';
-import { LogMarkupUtil }                    from '../utils/LogMarkupUtil.ts';
-import { MarkupUtil }                       from '../utils/MarkupUtil.ts';
-import type { TimestampSlices }             from '../utils/TimeUtil.ts';
-import { TimeUtil }                         from '../utils/TimeUtil.ts';
-import { WorkItemMarkupUtil }               from '../utils/WorkItemMarkupUtil.ts';
-import { DetailMarkupUtil }                 from './utils/DetailMarkupUtil.ts';
+import type {
+  DisplayState,
+  Task,
+  TaskPhase,
+  TaskStatus
+} from '../../src/lib/tracker-model/@types/Task.ts';
+import { FIRST_REPEAT_REVIEW_ROUND } from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
+import { HtmlEscapeUtil }            from '../../src/lib/utils/HtmlEscapeUtil.ts';
+import { TokenCountUtil }            from '../../src/lib/utils/TokenCountUtil.ts';
+import type { PageTicket }           from '../../src/shared/@types/PagePayload.ts';
+import type { IdentifiedLogEntry }   from '../../src/shared/@types/WordedLogEntry.ts';
+import type { BoardRow }             from '../@types/PageBoard.ts';
+import { LogMarkupUtil }             from '../utils/LogMarkupUtil.ts';
+import { MarkupUtil }                from '../utils/MarkupUtil.ts';
+import type { TimestampSlices }      from '../utils/TimeUtil.ts';
+import { TimeUtil }                  from '../utils/TimeUtil.ts';
+import { WorkItemMarkupUtil }        from '../utils/WorkItemMarkupUtil.ts';
+import { DetailMarkupUtil }          from './utils/DetailMarkupUtil.ts';
 
 
 const PHASES_WERE_NOT_RECORDED_NOTE = 'The phases of this row were not recorded, so what follows is derived from its own stamps and its ticket’s.';
@@ -41,15 +44,15 @@ const LADDER_RANK_FOR_TASK_STATUS: Record<TaskStatus, number> = {
 };
 
 interface PhaseLine {
-  state:       RowState;
+  state:       DisplayState;
   reviewRound: number;
   at:          string;
 }
 
 export interface TaskDetailInput {
-  task:              Task | null;
+  task:              BoardRow | null;
   ticket:            PageTicket | null;
-  log:               readonly WordedLogEntry[];
+  log:               readonly IdentifiedLogEntry[];
   slices:            TimestampSlices;
   todayCalendarDate: string;
 }
@@ -118,12 +121,12 @@ function recordedPhaseLines(task: Task): PhaseLine[] {
  * The newest phase is the row as it stands, so it is read the way the chart reads it: the one state a task status cannot name on its
  * own is an `in-review` row whose ticket is `in-review` too. An older phase keeps the status it was filed under.
  */
-function readNewestPhaseAsTheChartDoes(lines: readonly PhaseLine[], task: Task, ticketStatus: TicketStatus | null): PhaseLine[] {
+function readNewestPhaseAsTheChartDoes(lines: readonly PhaseLine[], task: BoardRow): PhaseLine[] {
   const newest = lines.at(-1);
   if (newest === undefined || newest.state !== task.status) {
     return [...lines];
   }
-  return [...lines.slice(0, -1), { ...newest, state: BoardRulesUtil.rowStateFor(task, ticketStatus) }];
+  return [...lines.slice(0, -1), { ...newest, state: task.displayState }];
 }
 
 /**
@@ -161,7 +164,7 @@ function phaseListMarkup(lines: readonly PhaseLine[], format: StampFormat): stri
     const gap         = gapDuration === null ? '' : `<span class="ap-detail-gap">after ${HtmlEscapeUtil.escapeHtml(gapDuration)}</span>`;
     return [
       `<li ${MarkupUtil.attribute('data-state', line.state)}>`,
-      `<span class="ap-pill">${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.pillLabelForRowState(line.state, line.reviewRound))}</span>`,
+      `<span class="ap-pill">${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.pillLabelForDisplayState(line.state, line.reviewRound))}</span>`,
       MarkupUtil.stampMarkup('time', line.at, format.todayCalendarDate, format.slices),
       gap,
       '</li>',
@@ -174,10 +177,10 @@ function noteMarkup(text: string): string {
   return `<p class="ap-detail-note">${HtmlEscapeUtil.escapeHtml(text)}</p>`;
 }
 
-function phasesMarkup(task: Task, ticket: PageTicket | null, format: StampFormat): string {
+function phasesMarkup(task: BoardRow, ticket: PageTicket | null, format: StampFormat): string {
   const wasRecorded = (task.history ?? []).length > 0;
   const filed       = wasRecorded ? recordedPhaseLines(task) : derivedPhaseLines(task, ticket);
-  const lines       = readNewestPhaseAsTheChartDoes(filed, task, ticket?.status ?? null);
+  const lines       = readNewestPhaseAsTheChartDoes(filed, task);
   if (lines.length === 0) {
     return noteMarkup(NO_PHASES_TO_SHOW_NOTE);
   }
@@ -226,6 +229,7 @@ function ticketMarkup(ticket: PageTicket, format: StampFormat): string {
 }
 
 /**
+ * Only for a line without ids: a note, or a line from before the log was structured.
  * From ticket #100 up a ticket's `#120` is spelled as task 120's, so a row is named only as `Task #N` or `row #N` — `Review row #N`
  * and `the review row #N`, the forms the CLI writes for rows — and a line beginning `Ticket #` names no row. The lookahead keeps
  * task 1 from claiming task 13.
@@ -234,22 +238,31 @@ function textNamesTask(text: string, taskId: number): boolean {
   return !TICKET_LINE_START.test(text) && new RegExp(`\\b(?:task|row) #${taskId}(?![0-9])`, 'i').test(text);
 }
 
-/** A ticket is `#003` anywhere except in the row forms above, which from #100 up could be a row of the same number. */
+/**
+ * Only for a line without ids, like `textNamesTask`. A ticket is `#003` anywhere except in the row forms above, which from #100 up
+ * could be a row of the same number.
+ */
 function textNamesTicket(text: string, ticketId: string): boolean {
   return new RegExp(`(?<!\\b(?:task|row) )#${ticketId}(?![0-9])`, 'i').test(text);
 }
 
+function entryIsAboutTaskOrTicket(entry: IdentifiedLogEntry, task: Task | null, ticket: PageTicket | null): boolean {
+  if (entry.taskId === undefined && entry.ticketId === undefined) {
+    return (task !== null && textNamesTask(entry.text, task.id)) || (ticket !== null && textNamesTicket(entry.text, ticket.id));
+  }
+  return (task !== null && entry.taskId === task.id) || (ticket !== null && entry.ticketId === ticket.id);
+}
+
 function logMarkup(input: TaskDetailInput): string {
   const { task, ticket } = input;
-  const named = input.log.filter((entry) => (task !== null && textNamesTask(entry.text, task.id))
-    || (ticket !== null && textNamesTicket(entry.text, ticket.id)));
+  const named = input.log.filter((entry) => entryIsAboutTaskOrTicket(entry, task, ticket));
   if (named.length === 0) {
     return noteMarkup(NO_LOG_LINES_NOTE);
   }
   return `<ul class="ap-detail-log">${LogMarkupUtil.logItemsMarkup(named, input.slices, input.todayCalendarDate)}</ul>`;
 }
 
-function headMarkup(task: Task | null, ticket: PageTicket | null): string {
+function headMarkup(task: BoardRow | null, ticket: PageTicket | null): string {
   if (task === null) {
     // A ticket whose row was removed: there is no state to colour the header with, so the ticket's own badge carries it.
     return ticket === null ? '' : [
@@ -260,13 +273,13 @@ function headMarkup(task: Task | null, ticket: PageTicket | null): string {
       '</div>',
     ].join('');
   }
-  const state       = BoardRulesUtil.rowStateFor(task, ticket?.status ?? null);
+  const state       = task.displayState;
   const ticketBadge = task.ticket === null ? '' : WorkItemMarkupUtil.ticketBadgeMarkup(task.ticket);
   return [
     `<div class="ap-detail-head" ${MarkupUtil.attribute('data-state', state)}>`,
     `<span class="ap-detail-id">#${HtmlEscapeUtil.escapeHtml(String(task.id))}</span>`,
     `<h2 class="ap-detail-title">${HtmlEscapeUtil.escapeHtml(task.name)}</h2>`,
-    `<span class="ap-pill">${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.pillLabelForRowState(state, task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND))}</span>`,
+    `<span class="ap-pill">${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.pillLabelForDisplayState(state, task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND))}</span>`,
     ticketBadge,
     '</div>',
   ].join('');

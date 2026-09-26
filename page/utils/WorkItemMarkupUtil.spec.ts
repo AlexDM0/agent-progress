@@ -14,7 +14,7 @@ import { WorkItemMarkupUtil }   from './WorkItemMarkupUtil.ts';
 
 const {
   latestMilestoneMarkup,
-  pillLabelForRowState,
+  pillLabelForDisplayState,
   priorityMarkMarkup,
   reviewedMarkMarkup,
   taskLinkMarkup,
@@ -141,10 +141,10 @@ describe('reviewedMarkMarkup', () => {
   });
 });
 
-describe('pillLabelForRowState', () => {
+describe('pillLabelForDisplayState', () => {
   test('appends the round to a repeat review and to nothing else', () => {
-    expect(pillLabelForRowState('re-review', 3)).toBe('reviewing 3');
-    expect(pillLabelForRowState('reviewing', 3)).toBe('reviewing');
+    expect(pillLabelForDisplayState('re-review', 3)).toBe('reviewing 3');
+    expect(pillLabelForDisplayState('reviewing', 3)).toBe('reviewing');
   });
 });
 

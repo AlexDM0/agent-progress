@@ -45,8 +45,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
 - Imports run up only, with no cycles. A feature (`cli/`, `page/`, `dispatcher/`) imports itself and `src/*`, never
   another feature. Inside `cli/` a command folder never imports a sibling command's folder: what two need is hoisted to
   the level above both (a set's own files, or `cli/`'s root and `cli/utils/`), or passed as a structurally typed
-  parameter. Nothing that ships imports `src/testing/`, `cli/testing/`, `src/adapters/progress/testing/` or
-  `dispatcher/testing/`, and `agent-progress.ts` imports only `cli/`.
+  parameter. Nothing that ships imports `src/testing/`, `cli/testing/`, `src/adapters/progress/testing/`,
+  `dispatcher/testing/` or `page/testing/`, and `agent-progress.ts` imports only `cli/`.
 - A `src/lib/` package imports only the other `src/lib/` packages its main module's header names, node builtins and
   external dependencies, and knows nothing about its callers: no agent-progress names, tracker file names, user-facing
   wording or exit codes. App values arrive as parameters; a refusal leaves as a verdict the caller turns into
@@ -55,6 +55,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
 - `src/lib/tracker-model/` imports nothing outside its own folder and no builtin: the page's DOM-only project compiles
   it, so it stays DOM-safe.
 - `cli/testing/` is imported only by `cli/` specs.
+- `page/testing/` is imported only by `page/` specs.
 - `src/adapters/` imports only `src/lib/` and `src/shared/`; a `src/adapters/` spec may also import `src/testing/`.
   `cli/` imports `src/adapters/` as a feature does.
 - `src/services/tracker/` imports `src/lib/`, `src/shared/`, `src/adapters/` and `src/services/render/`;
@@ -67,7 +68,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
 ### Model and boundaries
 
 - Internal values are string-literal unions, never display text; wording is mapped in and out at the edge. Statuses,
-  types and priorities print as their words; a mapper exists only where the wording differs from the value.
+  types and priorities print as their words; a mapper exists only where the wording differs from the value, and for
+  the ticket status badge, which the page words through `src/adapters/utils/HtmlLabelUtil.ts`.
 - An optional stored key is written only once somebody sets it, and a read never adds or rewrites one, so an older
   file stays byte-identical. The one exception is a legacy review bar: the read gives a row known only by its name
   `reviewOf` and `reviewBarRound`, and pads a stored `reviewOf` that reads as a whole number, in memory; the next
@@ -146,8 +148,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
 - The page is its own DOM-only project, `page/tsconfig.json` (DOM lib, no Bun or Node types), which the root
   project does not reach. Its `include` list is the written-down surface of shared files the page reaches: a page
   module that imports a new file from outside the folder adds it there in the same change, and every file the page
-  project reaches, in `src/` too, stays DOM-safe. The page's specs sit beside their modules and are checked by
-  `page/tsconfig.spec.json`, the same program plus Bun types.
+  project reaches, in `src/` too, stays DOM-safe. The page's specs sit beside their modules and, with
+  `page/testing/`, are checked by `page/tsconfig.spec.json`, the same program plus Bun types.
 - `dispatcher/` is the Workflow-runtime project `dispatcher/tsconfig.json` (no Bun, Node or DOM types), with
   `dispatcher/tsconfig.spec.json` for its specs and `dispatcher/testing/`. Its `include` list is the `src/` files the
   dispatcher reaches, and a dispatcher module that imports a new `src/` file adds it there in the same change. Only
@@ -156,8 +158,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
   180 for code, 155 for comments; aligned object values; aligned `from`; imports builtin → external → internal,
   alphabetised; builtins through the `node:` protocol (`import/enforce-node-protocol-usage`, turned on in
   `eslint.config.js`); more than 3 named imports or 4+ properties one per line; arrow parameters parenthesised; no
-  `any`; a blank line before a function declaration. `src/testing/`, `cli/testing/`, `src/adapters/progress/testing/`
-  and `dispatcher/testing/` may import devDependencies. Deliberately off: `no-plusplus`, `no-continue`, `no-await-in-loop`, `no-param-reassign`,
+  `any`; a blank line before a function declaration. `src/testing/`, `cli/testing/`, `src/adapters/progress/testing/`,
+  `dispatcher/testing/` and `page/testing/` may import devDependencies. Deliberately off: `no-plusplus`, `no-continue`, `no-await-in-loop`, `no-param-reassign`,
   `consistent-return`, `no-restricted-syntax`, `guard-for-in`, `class-methods-use-this`, `no-use-before-define`.
 
 ### Tests
@@ -217,8 +219,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
   over the lines would put at risk keeping every unowned line byte for byte.
 - A row's `history` holds only what the tool watched; nothing reconstructs phases. A review row belongs to its
   ticket by `reviewOf`; a free-standing row known only by its `Review <N> #<id>` name is given `reviewOf` and
-  `reviewBarRound` when progress.json is read. Outside that, only the page (`page/`) still matches a name, as a
-  display fallback that never moves a row, until it switches to the Board queries (plan step 7b).
+  `reviewBarRound` when progress.json is read. Nothing else matches a name: the page reads which rows are bars from
+  the Board facts.
 
 ### The page
 
@@ -234,7 +236,10 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
   string never changes.
 - The render service computes the Board facts through `src/services/render/utils/BoardFactsUtil.ts` and writes them
   as the payload's last key, `boardFacts`; the concurrency figures come from `board.concurrency()`, which
-  `status --json` prints too. The page switches to the facts in plan step 7b and until then derives its own.
+  `status --json` prints too. The page reads them, zipped onto its rows and tickets by `page/utils/IslandUtil.ts`,
+  and keeps no copy of the rules.
+- The detail panel claims a log line by its `taskId` and `ticketId`; only a line without ids, a note, is matched by
+  the numbers its sentence names.
 - Every value passes `escapeHtml` once; a ticket's `bodyHtml`, already escaped by `src/services/render/Markdown.ts`,
   is the one unescaped string. Stored stamps are sliced, never re-parsed, and shortened only through
   `page/utils/TimeUtil.ts`.
@@ -263,8 +268,9 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
 agent-progress.ts           the bin shim: runs the command line and exits with its number
 package.json                the bin entry, the scripts and the one runtime dependency, marked
 tsconfig.json               the strict Bun project
-eslint.config.js            the shared ESLint config, the node: protocol rule, and the devDependency exemption for the four
-                            test-only folders: src/testing/, cli/testing/, src/adapters/progress/testing/ and dispatcher/testing/
+eslint.config.js            the shared ESLint config, the node: protocol rule, and the devDependency exemption for the five
+                            test-only folders: src/testing/, cli/testing/, src/adapters/progress/testing/, dispatcher/testing/
+                            and page/testing/
 bun.lock                    the lockfile, committed
 .gitignore                  node_modules/, .agent-progress/, .DS_Store, .readme-graphics/, .idea/
 .idea/                      git-ignored IDE settings
@@ -279,7 +285,8 @@ cli/                        the command surface: dispatch, arguments, help, and 
                             and the option values; cli/testing/ is test-only
 dispatcher/                 the dispatcher policy in TypeScript, bundled into a Workflow script; dispatcher/testing/ is
                             test-only: the harness, the bundle builder, the frozen table
-page/                       the browser page: its sets, its own DOM-only tsconfig and spec tsconfig
+page/                       the browser page: its sets, its own DOM-only tsconfig and spec tsconfig; page/testing/ is
+                            test-only: the Board fixture its specs read
 resources/                  files read at runtime: the page's HTML template
 src/                        the target layout's code, filled step by step as the migration plan moves it
   src/lib/                  package-grade building blocks, one folder each, the package's description in its main module's header:
@@ -291,7 +298,7 @@ src/                        the target layout's code, filled step by step as the
   src/services/             tracker (discovery, the lock, reading, the write pipeline, creation) and render (the page document
                             and the render state one invocation holds)
   src/shared/               app-specific code several parts use: the environment reader, the refusal, LIMITS,
-                            the page payload types, ticket numbers
+                            the page payload types
   src/testing/              test-only helpers several parts use: the scratch workspace, the tracker isolation check, the Board fixtures
 skill/                      the skill every session in a tracked repository loads
 skill-orchestrate/          the skill for the one session running the board

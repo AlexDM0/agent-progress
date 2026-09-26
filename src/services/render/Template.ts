@@ -14,7 +14,6 @@ import { HtmlEscapeUtil }                                from '../../lib/utils/H
 import type { PageConcurrency, PagePayload, PageTicket } from '../../shared/@types/PagePayload.ts';
 import { OperationRefusal }                              from '../../shared/OperationRefusal.ts';
 import { LIMITS }                                        from '../../shared/constants/Limits.ts';
-import type { PageBoardFacts }                           from './@types/PageBoardFacts.ts';
 
 const { escapeHtml, escapeJsonForScriptTag } = HtmlEscapeUtil;
 
@@ -36,7 +35,7 @@ interface RenderProgressHtmlInput {
   pageScriptFailure: string | null;
   generatedAt:       Date;
   concurrency:       PageConcurrency;
-  boardFacts:        PageBoardFacts;
+  boardFacts:        PagePayload['boardFacts'];
   renderMarkdown:    (markdown: string) => string;
 }
 
@@ -112,13 +111,13 @@ export function renderProgressHtml(input: RenderProgressHtmlInput): string {
   // Read per call, never at module load, and from the installed package rather than the caller's working directory.
   const template = readFileSync(join(import.meta.dir, '..', '..', '..', 'resources', TEMPLATE_FILE_NAME), 'utf8');
 
-  // Last, so every byte of the island before it stays where it was; the page's own type leaves it out until it reads the facts.
-  const payload: PagePayload & { boardFacts: PageBoardFacts } = {
-    progress:                     ProgressDocumentUtil.documentOf(progress, logRecords.map(LogUtil.wordedEntryOf)),
+  const payload: PagePayload = {
+    progress:                     ProgressDocumentUtil.documentOf(progress, logRecords.map(LogUtil.identifiedEntryOf)),
     generatedAtEpochMilliseconds: generatedAt.getTime(),
     limits:                       pageLimits(),
     concurrency:                  { limit: concurrency.limit, agentsInFlight: concurrency.agentsInFlight },
     pageScriptFailure,
+    // Last, so every byte of the island before it stays where it was.
     boardFacts,
   };
 

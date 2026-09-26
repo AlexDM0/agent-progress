@@ -13,6 +13,7 @@ import { ticketDetailMarkup }     from './detail-dialog/TicketDetail.ts';
 import { kanbanCardsFor }         from './kanban/KanbanLanes.ts';
 import { kanbanBoardMarkup }      from './kanban/KanbanMarkup.ts';
 import { taskRowsMarkup }         from './progress/ProgressMarkup.ts';
+import { pageBoardFixture }       from './testing/PageBoardFixture.ts';
 
 const EXAMPLE_TODAY = '2026-09-25';
 const EXAMPLE_NOW   = Date.parse('2026-09-25T13:36:00+02:00');
@@ -100,7 +101,7 @@ const WAITING_ROW = exampleRow(20, { ticket: '065' });
 const TASKS = [DELIVERED_ROW, WAITING_ROW];
 
 function cardFor(ticket: PageTicket, waitingOn: readonly string[] = []): KanbanCard {
-  const card = kanbanCardsFor([ticket], TASKS, new Map([[ticket.id, waitingOn]]))[0];
+  const card = kanbanCardsFor(pageBoardFixture({ tasks: TASKS, tickets: [ticket] }).tickets, new Map([[ticket.id, waitingOn]]))[0];
   if (card === undefined) {
     throw new Error('the example card was not built');
   }
@@ -110,7 +111,6 @@ function cardFor(ticket: PageTicket, waitingOn: readonly string[] = []): KanbanC
 function inputFor(card: KanbanCard): TicketDetailInput {
   return {
     card,
-    tasks:                TASKS,
     nowEpochMilliseconds: EXAMPLE_NOW,
     todayCalendarDate:    EXAMPLE_TODAY,
     limits:               EXAMPLE_LIMITS,
@@ -127,15 +127,14 @@ describe('the filed bar outside the dialog', () => {
       clippedRight: false,
       visible:      true,
     };
-    const rows    = taskRowsMarkup(TASKS.map((task) => ({
+    const boardRows = pageBoardFixture({ tasks: TASKS, tickets: [DELIVERED_TICKET, WAITING_TICKET] }).rows;
+    const rows      = taskRowsMarkup(boardRows.map((task) => ({
       task,
-      ticketStatus: null,
-      bar:          { ...bar, taskId: task.id },
-      waitingOn:    [],
+      bar:       { ...bar, taskId: task.id },
+      waitingOn: [],
     })), EXAMPLE_LIMITS);
     const board   = kanbanBoardMarkup({
       cards:                  [cardFor(DELIVERED_TICKET), cardFor(WAITING_TICKET)],
-      tasks:                  TASKS,
       nowEpochMilliseconds:   EXAMPLE_NOW,
       todayCalendarDate:      EXAMPLE_TODAY,
       slices:                 EXAMPLE_LIMITS,
@@ -144,7 +143,7 @@ describe('the filed bar outside the dialog', () => {
       abandonedLaneIsOpen:    true,
     });
     const overview = taskDetailMarkup({
-      task:              DELIVERED_ROW,
+      task:              boardRows.find((row) => row.id === DELIVERED_ROW.id) ?? null,
       ticket:            DELIVERED_TICKET,
       log:               [],
       slices:            EXAMPLE_LIMITS,

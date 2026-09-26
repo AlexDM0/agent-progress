@@ -9,6 +9,7 @@ import { describe, expect, test } from 'bun:test';
 import type { Task, TaskPhase }   from '../../src/lib/tracker-model/@types/Task.ts';
 import type { PageTicket }        from '../../src/shared/@types/PagePayload.ts';
 import { LIMITS }                 from '../../src/shared/constants/Limits.ts';
+import { pageBoardFixture }       from '../testing/PageBoardFixture.ts';
 import type {
   TicketTimeline,
   TicketTimelineInput,
@@ -94,9 +95,11 @@ function reviewRow(id: number, ticketId: string, round: number, start: string, e
 }
 
 function inputFor(ticket: PageTicket, tasks: Task[], waitingOn: string[] = []): TicketTimelineInput {
+  const boardTicket = pageBoardFixture({ tasks, tickets: [ticket] }).tickets[0];
   return {
     ticket,
-    tasks,
+    ownRow:               boardTicket?.ownRow ?? null,
+    reviewBars:           boardTicket?.reviewBars ?? [],
     waitingOn,
     nowEpochMilliseconds: EXAMPLE_NOW,
     todayCalendarDate:    EXAMPLE_TODAY,

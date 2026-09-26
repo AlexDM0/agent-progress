@@ -3,3 +3,9 @@ export interface WordedLogEntry {
   at:   string;
   text: string;
 }
+
+/** A worded entry with the ids of the task and the ticket its record names, each present only when the record names one. */
+export interface IdentifiedLogEntry extends WordedLogEntry {
+  taskId?:   number;
+  ticketId?: string;
+}

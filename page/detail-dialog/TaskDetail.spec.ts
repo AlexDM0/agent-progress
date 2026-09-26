@@ -6,11 +6,12 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import type { Task }            from '../../src/lib/tracker-model/@types/Task.ts';
-import type { PageTicket }      from '../../src/shared/@types/PagePayload.ts';
-import type { WordedLogEntry }  from '../../src/shared/@types/WordedLogEntry.ts';
-import type { TimestampSlices } from '../utils/TimeUtil.ts';
-import { taskDetailMarkup }     from './TaskDetail.ts';
+import type { Task }                               from '../../src/lib/tracker-model/@types/Task.ts';
+import type { PageTicket }                         from '../../src/shared/@types/PagePayload.ts';
+import type { IdentifiedLogEntry, WordedLogEntry } from '../../src/shared/@types/WordedLogEntry.ts';
+import { pageBoardFixture }                        from '../testing/PageBoardFixture.ts';
+import type { TimestampSlices }                    from '../utils/TimeUtil.ts';
+import { taskDetailMarkup }                        from './TaskDetail.ts';
 
 const EXAMPLE_SLICES: TimestampSlices = {
   dateAndClockLength:    16,
@@ -65,9 +66,9 @@ function exampleTicket(changes: Partial<PageTicket> = {}): PageTicket {
   };
 }
 
-function panelFor(task: Task | null, ticket: PageTicket | null = null, log: readonly WordedLogEntry[] = []): string {
+function panelFor(task: Task | null, ticket: PageTicket | null = null, log: readonly IdentifiedLogEntry[] = []): string {
   return taskDetailMarkup({
-    task,
+    task:              pageBoardFixture({ tasks: task === null ? [] : [task], tickets: ticket === null ? [] : [ticket] }).rows[0] ?? null,
     ticket,
     log,
     slices:            EXAMPLE_SLICES,
@@ -186,7 +187,7 @@ describe('the phases', () => {
   // Reading the newest phase the way the chart reads the row is the whole reason the panel is handed the ticket.
   test('reads the newest phase of an in-review row through its ticket, recorded or derived', () => {
     const recorded = panelFor(
-      exampleTask({ status: 'in-review', history: [{ status: 'in-progress', at: STARTED_AT }, { status: 'in-review', at: FINISHED_AT }] }),
+      exampleTask({ status: 'in-review', ticket: '001', history: [{ status: 'in-progress', at: STARTED_AT }, { status: 'in-review', at: FINISHED_AT }] }),
       exampleTicket({ status: 'in-review' }),
     );
     const derived = panelFor(exampleTask({ status: 'in-review', end: FINISHED_AT, ticket: '001' }), exampleTicket({ status: 'in-review' }));
@@ -404,6 +405,30 @@ describe('the log', () => {
     ]));
 
     expect(lines).toEqual(['Review row #9 started: Review 1 #120 — Example', 'Ticket #120 filed: Example']);
+  });
+
+  test('claims a line the tool wrote by its ticket id, not by the ticket numbers its sentence names', () => {
+    const identifiedLog: IdentifiedLogEntry[] = [
+      { at: FILED_AT, text: 'Ticket #001 filed: Fix #002', ticketId: '001' },
+      { at: STARTED_AT, text: 'Ticket #003 waits on #001', ticketId: '003' },
+    ];
+
+    expect(logLinesIn(panelFor(null, exampleTicket({ id: '001' }), identifiedLog))).toEqual(['Ticket #001 filed: Fix #002']);
+    expect(logLinesIn(panelFor(null, exampleTicket({ id: '002' }), identifiedLog))).toEqual([]);
+  });
+
+  test('claims a review bar’s lines for its row and its ticket by id, even when the bar’s name no longer names the ticket', () => {
+    const identifiedLog: IdentifiedLogEntry[] = [
+      {
+        at:       FINISHED_AT,
+        text:     'Review row #9 started: Renamed pass',
+        taskId:   9,
+        ticketId: '001',
+      },
+    ];
+
+    expect(logLinesIn(panelFor(exampleTask({ id: 9, name: 'Renamed pass' }), null, identifiedLog))).toEqual(['Review row #9 started: Renamed pass']);
+    expect(logLinesIn(panelFor(null, exampleTicket({ id: '001' }), identifiedLog))).toEqual(['Review row #9 started: Renamed pass']);
   });
 
   // Phases says so in words when it has nothing; a labelled empty box beside it would read as a section that failed to load.

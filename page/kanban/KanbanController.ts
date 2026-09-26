@@ -1,6 +1,5 @@
 /** The Kanban tab: the board of the visible cards, its overflow marks, the capped lanes' paging, the Abandoned toggle and the waiting-on links. */
 
-import type { Task }                                from '../../src/lib/tracker-model/@types/Task.ts';
 import type { KanbanCard }                          from '../@types/KanbanCard.ts';
 import type { ClosedKanbanLane }                    from '../constants/KanbanLane.ts';
 import { CAPPED_LANE_FIRST_PAGE }                   from '../constants/KanbanLane.ts';
@@ -16,7 +15,6 @@ import { LanePagingUtil }                           from './utils/LanePagingUtil
 const KANBAN_FRAME_ELEMENT_ID = 'ap-kanban-frame';
 
 export interface KanbanControllerSources {
-  tasks:                 readonly Task[];
   slices:                TimestampSlices;
   preferences:           ViewerPreferences;
   readTodayCalendarDate: () => string;
@@ -50,7 +48,6 @@ function closedLaneNamedBy(value: string | undefined): ClosedKanbanLane | null {
 
 export function createKanbanController(sources: KanbanControllerSources): KanbanController {
   const {
-    tasks,
     slices,
     preferences,
     readTodayCalendarDate,
@@ -62,7 +59,6 @@ export function createKanbanController(sources: KanbanControllerSources): Kanban
   const showKanban = (): void => {
     DomUtil.setMarkup(KANBAN_BOARD_ELEMENT_ID, kanbanBoardMarkup({
       cards:                  visibleCards,
-      tasks,
       nowEpochMilliseconds:   Date.now(),
       todayCalendarDate:      readTodayCalendarDate(),
       slices,
