@@ -399,21 +399,21 @@ export class Board {
     const { frontmatter } = ticket;
     const { status }      = frontmatter;
     if (TICKET_STATUSES_NO_AGENT_WORKS_AGAIN.includes(status)) throw new BoardRefusal({ reason: 'agents-of-a-settled-ticket', ticketId, status });
-    const from: AgentPair = { model: TicketDefaultsUtil.agentModelOf(frontmatter), effort: TicketDefaultsUtil.agentEffortOf(frontmatter) };
-    const to: AgentPair   = { model: agents.model ?? from.model, effort: agents.effort ?? from.effort };
-    if (from.model === to.model && from.effort === to.effort) {
+    const currentAgents: AgentPair   = { model: TicketDefaultsUtil.agentModelOf(frontmatter), effort: TicketDefaultsUtil.agentEffortOf(frontmatter) };
+    const requestedAgents: AgentPair = { model: agents.model ?? currentAgents.model, effort: agents.effort ?? currentAgents.effort };
+    if (currentAgents.model === requestedAgents.model && currentAgents.effort === requestedAgents.effort) {
       throw new BoardRefusal({
         reason: 'agents-unchanged',
         ticketId,
         status,
-        agents: from,
+        agents: currentAgents,
       });
     }
 
     if (agents.model !== undefined) frontmatter.model = agents.model;
     if (agents.effort !== undefined) frontmatter.effort = agents.effort;
     this.markChanged(ticket);
-    return { logged: [this.logger.ticketAgentsChanged(ticketId, { from, to }, at)], ticket };
+    return { logged: [this.logger.ticketAgentsChanged(ticketId, { from: currentAgents, to: requestedAgents }, at)], ticket };
   }
 
   /** An empty reason still holds: the hold is the key's presence, not its text. */
