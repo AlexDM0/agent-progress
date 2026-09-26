@@ -12,7 +12,7 @@ import { digestOf, promptDigestOfCallText, traceOf }   from './testing/DispatchT
 import { readFrozenDispatchTraces }                    from './testing/DispatchTraceCapture.ts';
 import { dispatchTraceCatalogue }                      from './testing/DispatchTraceCatalogue.ts';
 
-// The table held 160 entries and 1010 agent calls when it was taken; retaking it may add to them, never drop below.
+// A little under the frozen table's size, so a retake may grow it but a catalogue that shrank fails.
 const CATALOGUE_ENTRIES_FLOOR = 150;
 const AGENT_CALLS_COMPARED_FLOOR = 1000;
 
