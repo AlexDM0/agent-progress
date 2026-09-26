@@ -20,10 +20,11 @@ import {
 import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../src/lib/tracker-model/constants/AgentSettings';
 import type { Workspace }                            from '../../src/services/tracker/Workspace';
 import { TRACKER_FILES }                             from '../../src/services/tracker/constants/TrackerFiles';
+import { resourceFilePathOf }                        from '../../src/shared/ResourceFilePath';
 
-const CLAUDE_BLOCK_TEMPLATE_PATH = ['..', '..', 'templates', 'ClaudeInstructionsBlock.md'];
+const CLAUDE_BLOCK_TEMPLATE_PATH = ['templates', 'ClaudeInstructionsBlock.md'];
 
-const AGENT_BRIEF_TEMPLATE_PATH = ['..', '..', 'templates', 'AgentBrief.md'];
+const AGENT_BRIEF_TEMPLATE_PATH = ['templates', 'AgentBrief.md'];
 
 const CLAUDE_INSTRUCTIONS_FILE_NAME = 'CLAUDE.md';
 
@@ -32,7 +33,7 @@ const DISPATCHER_WORKFLOW_TEMPLATE_PATH = ['..', '..', 'templates', 'workflows',
 /** The Workflow tool finds a script by the file name under `.claude/workflows/`, so the name is the one `meta.name` gives. */
 const DISPATCHER_WORKFLOW_TARGET_PATH = ['.claude', 'workflows', 'agent-progress-dispatch.js'];
 
-const AGENT_DEFINITION_TEMPLATE_PATH = ['..', '..', 'templates', 'AgentProgressWorker.md'];
+const AGENT_DEFINITION_TEMPLATE_PATH = ['templates', 'AgentProgressWorker.md'];
 
 /** Claude Code reads a project's subagent definitions from `.claude/agents/`; the file name matches the definition's `name`. */
 const AGENT_DEFINITION_TARGET_PATH = ['.claude', 'agents', 'agent-progress-worker.md'];
@@ -97,7 +98,7 @@ function bytesDiffer(before: Buffer | null, after: Buffer | null): boolean {
 }
 
 function claudeInstructionsBlockBody(): string {
-  return readFileSync(join(import.meta.dir, ...CLAUDE_BLOCK_TEMPLATE_PATH), 'utf8').replace(/\n+$/, '');
+  return readFileSync(resourceFilePathOf(...CLAUDE_BLOCK_TEMPLATE_PATH), 'utf8').replace(/\n+$/, '');
 }
 
 /**
@@ -110,7 +111,7 @@ function claudeInstructionsBlockBody(): string {
 function refreshAgentBrief(workspace: Workspace): { briefFilePath: string; briefLine: string } {
   const briefFilePath = join(workspace.trackerDirectory, TRACKER_FILES.AGENT_BRIEF_FILE_NAME);
   const bytesBefore   = fileBytesOrNothing(briefFilePath);
-  writeFileAtomically(briefFilePath, readFileSync(join(import.meta.dir, ...AGENT_BRIEF_TEMPLATE_PATH), 'utf8'));
+  writeFileAtomically(briefFilePath, readFileSync(resourceFilePathOf(...AGENT_BRIEF_TEMPLATE_PATH), 'utf8'));
   const briefLine = bytesDiffer(bytesBefore, fileBytesOrNothing(briefFilePath))
     ? `updated — re-read it before your next brief (${briefFilePath})`
     : `unchanged (${briefFilePath})`;
@@ -161,7 +162,7 @@ function refreshSubagentStopHookIn(
 
 /** The template names its model and effort as placeholders, so the installed definition and the tool's default pair cannot drift apart. */
 function agentDefinitionText(): string {
-  return readFileSync(join(import.meta.dir, ...AGENT_DEFINITION_TEMPLATE_PATH), 'utf8')
+  return readFileSync(resourceFilePathOf(...AGENT_DEFINITION_TEMPLATE_PATH), 'utf8')
     .split(AGENT_DEFINITION_PLACEHOLDERS.model).join(DEFAULT_AGENT_MODEL)
     .split(AGENT_DEFINITION_PLACEHOLDERS.effort).join(DEFAULT_AGENT_EFFORT);
 }

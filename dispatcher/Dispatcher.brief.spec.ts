@@ -1,8 +1,8 @@
 /**
- * The dispatcher's prompts point every agent at the installed copy of `templates/AgentBrief.md` for the blocks it follows, and state three numbers
- * of their own: the builder's call budget, the reviewer's, and the rework count above which a round is granted. Those three are read here from
- * the brief and from what the TypeScript port, bundled, actually sends and decides, and held to `DISPATCH_PROTOCOL`, so a change to one that leaves
- * another behind fails.
+ * The dispatcher's prompts point every agent at the installed copy of `resources/templates/AgentBrief.md` for the blocks it follows, and state
+ * three numbers of their own: the builder's call budget, the reviewer's, and the rework count above which a round is granted. Those three are read
+ * here from the brief and from what the TypeScript port, bundled, actually sends and decides, and held to `DISPATCH_PROTOCOL`, so a change to one
+ * that leaves another behind fails.
  */
 import { describe, expect, test } from 'bun:test';
 

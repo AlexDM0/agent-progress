@@ -271,8 +271,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
   inside a tracked repository, or files beside them; never a file of this repository.
 - `skill-orchestrate/` repeats nothing from `skill/`, writes rules as instructions, and never restates what the
   dispatcher decides in code. The call budgets and the rework threshold are `DISPATCH_PROTOCOL` in
-  `src/shared/constants/DispatchProtocol.ts`; `templates/AgentBrief.md` states them in prose until plan step 8
-  generates them, and the dispatcher's brief spec holds the two together.
+  `src/shared/constants/DispatchProtocol.ts`; `resources/templates/AgentBrief.md` states them in prose until plan
+  step 8 generates them, and the dispatcher's brief spec holds the two together.
 - `setup.sh` symlinks both into `~/.claude/skills/`, and `~/development/claude/skills.json` must list them under
   `ignore`.
 
@@ -301,7 +301,8 @@ dispatcher/                 the dispatcher policy in TypeScript, bundled into a 
                             test-only: the harness, the bundle builder, the frozen table
 page/                       the browser page: its sets, its own DOM-only tsconfig and spec tsconfig; page/testing/ is
                             test-only: the Board fixture its specs read
-resources/                  files read at runtime: the page's HTML template
+resources/                  files read at runtime: the page's HTML template, and under templates/ the markdown init, update
+                            and ticket add fill
 src/                        the target layout's code, filled step by step as the migration plan moves it
   src/lib/                  package-grade building blocks, one folder each, the package's description in its main module's header:
                             atomic-file (AtomicFile.ts), git (GitProcess.ts), claude-code (ClaudeTranscripts.ts),
@@ -316,7 +317,7 @@ src/                        the target layout's code, filled step by step as the
   src/testing/              test-only helpers several parts use: the scratch workspace, the tracker isolation check, the Board fixtures
 skill/                      the skill every session in a tracked repository loads
 skill-orchestrate/          the skill for the one session running the board
-templates/                  what init and update install into a tracked repository, the dispatcher included
+templates/                  the committed old dispatcher script init and update still install
 docs/                       the CLI reference, development notes, the backlog, the migration plan, README images
 node_modules/               git-ignored dependencies
 ```

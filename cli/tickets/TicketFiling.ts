@@ -1,11 +1,12 @@
-import { readFileSync }  from 'node:fs';
-import { join, resolve } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { resolve }      from 'node:path';
 
 import { StatusWordingUtil }                     from '../../src/adapters/utils/StatusWordingUtil';
 import type { TicketType }                       from '../../src/lib/tracker-model/@types/Ticket';
 import { createTicket }                          from '../../src/services/tracker/TicketStore';
 import { requireWorkspace }                      from '../../src/services/tracker/Workspace';
 import { OperationRefusal }                      from '../../src/shared/OperationRefusal';
+import { resourceFilePathOf }                    from '../../src/shared/ResourceFilePath';
 import type { CommandContext }                   from '../CommandContext';
 import { openTrackerForWritingThenReadNextLine } from '../TrackerWriting';
 import type { ArgumentParser }                   from '../arguments/ArgumentParser';
@@ -22,15 +23,14 @@ const DEFAULT_TICKET_TYPE: TicketType = 'change';
 
 const STANDARD_INPUT_MARKER = '-';
 
-/** Relative to this module, not the caller's working directory: the binary is `bun link`ed. */
-const TICKET_BODY_TEMPLATE_PATH = ['..', '..', 'templates', 'TicketBody.md'];
+const TICKET_BODY_TEMPLATE_PATH = ['templates', 'TicketBody.md'];
 
 const TICKET_TEMPLATE_PLACEHOLDERS = { id: '{{id}}', title: '{{title}}' } as const;
 
 function bodyForNewTicket(suppliedBody: string | undefined, ticketId: string, title: string): string {
   if (suppliedBody !== undefined && suppliedBody.trim() !== '') return suppliedBody;
 
-  return readFileSync(join(import.meta.dir, ...TICKET_BODY_TEMPLATE_PATH), 'utf8')
+  return readFileSync(resourceFilePathOf(...TICKET_BODY_TEMPLATE_PATH), 'utf8')
     .split(TICKET_TEMPLATE_PLACEHOLDERS.id).join(ticketId)
     .split(TICKET_TEMPLATE_PLACEHOLDERS.title).join(title);
 }

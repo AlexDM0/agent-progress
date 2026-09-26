@@ -1,7 +1,8 @@
-/** Reads the three numbers `templates/AgentBrief.md` states that the dispatcher's prompts repeat, for the specs that hold them together. */
+/** Reads the three numbers `resources/templates/AgentBrief.md` states that the dispatcher's prompts repeat, for the specs that hold them together. */
 import { readFileSync } from 'node:fs';
-import { join }         from 'node:path';
 import { expect }       from 'bun:test';
+
+import { resourceFilePathOf } from '../../src/shared/ResourceFilePath.ts';
 
 export interface AgentBriefNumbers {
   builderApiCallBudget:  number;
@@ -16,7 +17,7 @@ function numberIn(text: string, pattern: RegExp): number {
 }
 
 function agentBriefPath(): string {
-  return join(import.meta.dir, '..', '..', 'templates', 'AgentBrief.md');
+  return resourceFilePathOf('templates', 'AgentBrief.md');
 }
 
 export function agentBriefNumbers(): AgentBriefNumbers {

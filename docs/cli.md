@@ -83,12 +83,12 @@ Claude Code files under `.claude/`, each written by default and each with its ow
 | # | what | path | written by | opt-out |
 |---|---|---|---|---|
 | 1 | The tracker: `progress.json`, `log.jsonl`, a `tickets/` folder, the generated `progress.html` and the `.lock` directory | `.agent-progress/` | `init` only | — |
-| 2 | The agent brief, from `templates/AgentBrief.md` | `.agent-progress/agent-brief.md` | `init`, `update` | — |
+| 2 | The agent brief, from `resources/templates/AgentBrief.md` | `.agent-progress/agent-brief.md` | `init`, `update` | — |
 | 3 | A `.gitignore` entry for the tracker | `.gitignore` | `init` only | — |
-| 4 | The managed block, from `templates/ClaudeInstructionsBlock.md` | `CLAUDE.md` | `init`, `update` | `--no-claude-md` |
+| 4 | The managed block, from `resources/templates/ClaudeInstructionsBlock.md` | `CLAUDE.md` | `init`, `update` | `--no-claude-md` |
 | 5 | The `SubagentStop` hook running `agent-progress hook subagent-stop` | `.claude/settings.local.json` | `init`, `update` | `--no-hooks` |
 | 6 | The dispatcher workflow, from `templates/workflows/AgentProgressDispatch.js` | `.claude/workflows/agent-progress-dispatch.js` | `init`, `update` | `--no-workflow` |
-| 7 | The worker agent definition, from `templates/AgentProgressWorker.md` | `.claude/agents/agent-progress-worker.md` | `init`, `update` | `--no-agent-definition` |
+| 7 | The worker agent definition, from `resources/templates/AgentProgressWorker.md` | `.claude/agents/agent-progress-worker.md` | `init`, `update` | `--no-agent-definition` |
 
 1. **The tracker.** Its root is the main checkout, found from any worktree.
 2. **The brief** an orchestrator fills in before it spawns an implementing agent: the scope, the facts
@@ -236,7 +236,7 @@ ticket's agents run on opus at medium effort.
 
 | command | what it does |
 |---|---|
-| `ticket add "<title>" [--type bug\|change\|feature] [--priority low\|normal\|high] [--model <m>] [--effort <e>] [--group <name>] [--depends-on <ids>] [--body <markdown>] [--body-file <path\|->] [--at <when>]` | File a ticket, `pending`, plus a `pending` row — none for a low ticket, which takes no task id until it is started. The body comes from `templates/TicketBody.md`, from `--body`, or from `--body-file` (`-` reads standard input); an empty body falls back to the template, and afterwards the body is preserved byte for byte, so an agent may edit everything below the frontmatter freely. `--depends-on 3,4` files it already waiting on those tickets. A model or effort outside the lists is refused at exit 1. |
+| `ticket add "<title>" [--type bug\|change\|feature] [--priority low\|normal\|high] [--model <m>] [--effort <e>] [--group <name>] [--depends-on <ids>] [--body <markdown>] [--body-file <path\|->] [--at <when>]` | File a ticket, `pending`, plus a `pending` row — none for a low ticket, which takes no task id until it is started. The body comes from `resources/templates/TicketBody.md`, from `--body`, or from `--body-file` (`-` reads standard input); an empty body falls back to the template, and afterwards the body is preserved byte for byte, so an agent may edit everything below the frontmatter freely. `--depends-on 3,4` files it already waiting on those tickets. A model or effort outside the lists is refused at exit 1. |
 | `ticket agent <id> [--model <m>] [--effort <e>] [--at <when>]` | Change the model or effort a ticket's agents run on, or both, with one log line such as `Ticket #003 agents opus/medium → sonnet/medium`. Refused at exit 1, writing nothing, on a delivered or abandoned ticket, with neither option, with a value outside the lists, and when the resolved pair would not change. |
 | `ticket priority <id> low\|normal\|high [--at <when>]` | Change a ticket's priority, with one log line. Lowering to low is refused unless the ticket is pending, and removes its row; raising a low ticket that has no row gives it one at once. A low ticket gets its row when `ticket start` or `ticket claim` starts it, and keeps it; abandoning a low ticket that has none creates none. |
 | `ticket hold <id> [--reason <text>] [--at <when>]` | Pause a ticket between build and review, or between review rounds, without stopping the dispatcher. While the frontmatter's `hold` key is set (to the reason, empty without one) the run starts no builder or reviewer for it and parks a row it left in progress for it, `ticket claim` refuses it, and `status --json` lists it in `concurrency.heldTicketIds` and marks its `readyTickets` entry `held: true`. An agent already running is never interrupted: a hold set after a builder's final status read is too late for the reviewer it starts. One log line; refused at exit 1 on a delivered or abandoned ticket and on one already held. |
@@ -569,7 +569,7 @@ never rewrites the file, and the next write stores the new word.
 in the order above and everything else follows, keeping its order among itself, so a hand-written
 line moves below the CLI's block once and never again.
 
-The body is preserved byte for byte from the template (`templates/TicketBody.md`: Report, Wanted,
+The body is preserved byte for byte from the template (`resources/templates/TicketBody.md`: Report, Wanted,
 Acceptance, Handoff), `--body` or `--body-file`; an empty body falls back to the template. A
 malformed ticket file is listed as ignored rather than failing `status` or `render`. A new ticket id is
 one past the highest of every file name, every parsed id and every ticket a row names; gaps are

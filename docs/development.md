@@ -144,11 +144,12 @@ agent loads has a size ceiling.
 agent-progress.ts    the bin shim; the only file that calls process.exit
 cli/                 the command surface: dispatch, arguments, help, the commands grouped into sets
 page/                the browser page, with its own DOM-only project and spec project
-resources/           files read at runtime: the page's HTML template
+resources/           files read at runtime: the page's HTML template, and under templates/ the markdown init,
+                     update and ticket add fill
 src/                 the target layout's code, filled step by step as the migration plan moves it
 skill/               the skill every session in a tracked repository loads
 skill-orchestrate/   the skill for the one session running the board
-templates/           what the tool writes into other repositories, and the dispatcher script
+templates/           the committed old dispatcher script init and update still install
 docs/                this page, the CLI reference, the backlog and the README images
 ```
 
@@ -269,7 +270,7 @@ clock and randomness refused as the Workflow tool refuses them. The specs:
 | `dispatcher/Dispatcher.decisions.spec.ts` | Rounds, parking, concurrency, claims and restarts. Each claim runs against the bundle, where it must hold, and against a `SourceMutant` of the module that holds the decision, where it must fail. A mutant whose text is not in its module exactly once fails. |
 | `dispatcher/Dispatcher.holds.spec.ts` | A held ticket gets no builder or reviewer until a status block shows the hold lifted, its running row gives up its slot, and the other tickets keep flowing. |
 | `dispatcher/Dispatcher.resumption.spec.ts` | A build an earlier run left paused is resumed by a whole-board relaunch with one builder, never a held ticket's or a person's pause. |
-| `dispatcher/Dispatcher.brief.spec.ts` | The call budgets and rework threshold sent by the bundle and stated in `templates/AgentBrief.md` equal `DISPATCH_PROTOCOL`. |
+| `dispatcher/Dispatcher.brief.spec.ts` | The call budgets and rework threshold sent by the bundle and stated in `resources/templates/AgentBrief.md` equal `DISPATCH_PROTOCOL`. |
 | `dispatcher/Dispatcher.equivalence.spec.ts` | The bundle reproduces the frozen table on every catalogued scenario. |
 | `dispatcher/testing/DispatchTraceCapture.spec.ts` | The table names the bundle it was taken from and the command that retakes it. |
 | `dispatcher/DispatchScript.spec.ts` and `dispatcher/testing/WorkflowScriptSource.spec.ts` | No nondeterministic call, and a literal `meta`. |

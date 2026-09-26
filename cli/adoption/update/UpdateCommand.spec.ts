@@ -18,6 +18,7 @@ import {
   expect,
   test
 }                                        from 'bun:test';
+import { resourceFilePathOf } from '../../../src/shared/ResourceFilePath';
 import {
   addWorktree,
   createScratchDirectory,
@@ -31,7 +32,7 @@ import { CLAUDE_MANAGED_BLOCK_MARKERS } from '../TrackerRefresh';
 
 const scratchDirectories: string[] = [];
 
-const BRIEF_TEMPLATE = readFileSync(join(import.meta.dir, '..', '..', '..', 'templates', 'AgentBrief.md'), 'utf8');
+const BRIEF_TEMPLATE = readFileSync(resourceFilePathOf('templates', 'AgentBrief.md'), 'utf8');
 
 function scratchRepository(): string {
   const repositoryDirectory = createScratchGitRepository('update-command');
@@ -69,7 +70,7 @@ function workflowLineSaying(verdict: 'updated' | 'unchanged'): RegExp {
 }
 
 // The template with its two placeholders filled by the default pair, which is what `update` must write byte for byte.
-const INSTALLED_AGENT_DEFINITION = readFileSync(join(import.meta.dir, '..', '..', '..', 'templates', 'AgentProgressWorker.md'), 'utf8')
+const INSTALLED_AGENT_DEFINITION = readFileSync(resourceFilePathOf('templates', 'AgentProgressWorker.md'), 'utf8')
   .replace('{{model}}', 'opus')
   .replace('{{effort}}', 'medium');
 
