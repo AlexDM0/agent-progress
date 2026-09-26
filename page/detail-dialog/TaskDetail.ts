@@ -1,5 +1,5 @@
 /**
- * The overview panel a double-click opens: one task, the ticket it belongs to and the log lines that name either, as pure functions.
+ * The overview panel a double-click opens: one task, the ticket it belongs to and the log lines about either, as pure functions.
  * Every value passes `escapeHtml` exactly once here, except a ticket's `bodyHtml`, already escaped by `src/services/render/Markdown.ts`.
  */
 
@@ -13,7 +13,7 @@ import { FIRST_REPEAT_REVIEW_ROUND } from '../../src/lib/tracker-model/constants
 import { HtmlEscapeUtil }            from '../../src/lib/utils/HtmlEscapeUtil.ts';
 import { TokenCountUtil }            from '../../src/lib/utils/TokenCountUtil.ts';
 import type { PageTicket }           from '../../src/shared/@types/PagePayload.ts';
-import type { WordedLogEntry }       from '../../src/shared/@types/WordedLogEntry.ts';
+import type { IdentifiedLogEntry }   from '../../src/shared/@types/WordedLogEntry.ts';
 import type { BoardRow }             from '../@types/PageBoard.ts';
 import { LogMarkupUtil }             from '../utils/LogMarkupUtil.ts';
 import { MarkupUtil }                from '../utils/MarkupUtil.ts';
@@ -52,7 +52,7 @@ interface PhaseLine {
 export interface TaskDetailInput {
   task:              BoardRow | null;
   ticket:            PageTicket | null;
-  log:               readonly WordedLogEntry[];
+  log:               readonly IdentifiedLogEntry[];
   slices:            TimestampSlices;
   todayCalendarDate: string;
 }
@@ -229,6 +229,7 @@ function ticketMarkup(ticket: PageTicket, format: StampFormat): string {
 }
 
 /**
+ * Only for a line without ids: a note, or a line from before the log was structured.
  * From ticket #100 up a ticket's `#120` is spelled as task 120's, so a row is named only as `Task #N` or `row #N` — `Review row #N`
  * and `the review row #N`, the forms the CLI writes for rows — and a line beginning `Ticket #` names no row. The lookahead keeps
  * task 1 from claiming task 13.
@@ -237,15 +238,24 @@ function textNamesTask(text: string, taskId: number): boolean {
   return !TICKET_LINE_START.test(text) && new RegExp(`\\b(?:task|row) #${taskId}(?![0-9])`, 'i').test(text);
 }
 
-/** A ticket is `#003` anywhere except in the row forms above, which from #100 up could be a row of the same number. */
+/**
+ * Only for a line without ids, like `textNamesTask`. A ticket is `#003` anywhere except in the row forms above, which from #100 up
+ * could be a row of the same number.
+ */
 function textNamesTicket(text: string, ticketId: string): boolean {
   return new RegExp(`(?<!\\b(?:task|row) )#${ticketId}(?![0-9])`, 'i').test(text);
 }
 
+function entryIsAboutTaskOrTicket(entry: IdentifiedLogEntry, task: Task | null, ticket: PageTicket | null): boolean {
+  if (entry.taskId === undefined && entry.ticketId === undefined) {
+    return (task !== null && textNamesTask(entry.text, task.id)) || (ticket !== null && textNamesTicket(entry.text, ticket.id));
+  }
+  return (task !== null && entry.taskId === task.id) || (ticket !== null && entry.ticketId === ticket.id);
+}
+
 function logMarkup(input: TaskDetailInput): string {
   const { task, ticket } = input;
-  const named = input.log.filter((entry) => (task !== null && textNamesTask(entry.text, task.id))
-    || (ticket !== null && textNamesTicket(entry.text, ticket.id)));
+  const named = input.log.filter((entry) => entryIsAboutTaskOrTicket(entry, task, ticket));
   if (named.length === 0) {
     return noteMarkup(NO_LOG_LINES_NOTE);
   }

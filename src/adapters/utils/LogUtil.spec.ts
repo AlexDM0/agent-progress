@@ -8,7 +8,12 @@ import { describe, expect, test } from 'bun:test';
 import type { AgentUsage, LogRecord, LogRecordContent } from '../../lib/tracker-model/@types/LogRecord';
 import { LogUtil }                                      from './LogUtil';
 
-const { dispatcherStateTextOf, sentenceOf, wordedEntryOf } = LogUtil;
+const {
+  dispatcherStateTextOf,
+  identifiedEntryOf,
+  sentenceOf,
+  wordedEntryOf,
+} = LogUtil;
 
 /**
  * Taken from the binary before the records existed, at bc42604 (the last commit before step 4b). To retake a row, check that commit out
@@ -123,6 +128,67 @@ test('a worded entry keeps the record\'s stamp and carries its sentence', () => 
     fields:   {},
   };
   expect(wordedEntryOf(record)).toEqual({ at, text: 'Ticket #001 started' });
+});
+
+describe('the entry the page reads', () => {
+  const at = '2026-09-18T20:11:03+02:00';
+
+  test('gives a ticket record its ticket id only, and a review-bar record its task id and ticket id', () => {
+    const ticketRecord: LogRecord    = {
+      at,
+      kind:     'ticket-held',
+      ticketId: '003',
+      fields:   { reason: 'waits on #005' },
+    };
+    const reviewBarRecord: LogRecord = {
+      at,
+      kind:     'review-bar-started',
+      taskId:   9,
+      ticketId: '003',
+      fields:   { name: 'Review 1 #003 — Example' },
+    };
+
+    expect(identifiedEntryOf(ticketRecord)).toEqual({ at, text: 'Ticket #003 held: waits on #005', ticketId: '003' });
+    expect(identifiedEntryOf(reviewBarRecord)).toEqual({
+      at,
+      text:     'Review row #9 started: Review 1 #003 — Example',
+      taskId:   9,
+      ticketId: '003',
+    });
+  });
+
+  // A line with no id key is the one the detail panel still matches by its words, so an id-less record must reach the page without one.
+  test('gives a record that names no task or ticket exactly the stamp and the sentence', () => {
+    const recordsWithoutIds: readonly LogRecord[] = [
+      { at, kind: 'note', fields: { text: 'Ticket #001 looks done' } },
+      {
+        at,
+        kind:   'agent-stopped',
+        fields: {
+          agentId:              'agent_1',
+          agentType:            'Explore',
+          apiCallCount:         2,
+          endContextTokens:     6000,
+          totalInputTokens:     12_000,
+          cacheReadInputTokens: 9000,
+          outputTokens:         500,
+        },
+      },
+      { at, kind: 'tracker-cleared', fields: {} },
+      { at, kind: 'dispatcher-set', fields: { state: 'running', runId: 'example-run' } },
+    ];
+
+    for (const record of recordsWithoutIds) expect(Object.keys(identifiedEntryOf(record)), record.kind).toEqual(['at', 'text']);
+  });
+
+  test('words a record exactly as the entry status prints', () => {
+    for (const [content] of SENTENCE_FOR_RECORD) {
+      const record: LogRecord = { ...content, at };
+      const identified        = identifiedEntryOf(record);
+
+      expect({ at: identified.at, text: identified.text }, content.kind).toEqual(wordedEntryOf(record));
+    }
+  });
 });
 
 test('a dispatcher state names its run only when it has one, as the dispatcher command reads it back', () => {

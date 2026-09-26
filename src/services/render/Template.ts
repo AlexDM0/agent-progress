@@ -109,7 +109,7 @@ export function renderProgressHtml(input: RenderProgressHtmlInput): string {
   const template = readFileSync(join(import.meta.dir, '..', '..', '..', 'resources', TEMPLATE_FILE_NAME), 'utf8');
 
   const payload: PagePayload = {
-    progress:                     ProgressDocumentUtil.documentOf(progress, logRecords.map(LogUtil.wordedEntryOf)),
+    progress:                     ProgressDocumentUtil.documentOf(progress, logRecords.map(LogUtil.identifiedEntryOf)),
     generatedAtEpochMilliseconds: generatedAt.getTime(),
     limits:                       pageLimits(),
     concurrency:                  { limit: concurrency.limit, agentsInFlight: concurrency.agentsInFlight },

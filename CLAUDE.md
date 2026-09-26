@@ -232,6 +232,8 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  cli/
   as the payload's last key, `boardFacts`; the concurrency figures come from `board.concurrency()`, which
   `status --json` prints too. The page reads them, zipped onto its rows and tickets by `page/utils/IslandUtil.ts`,
   and keeps no copy of the rules.
+- The detail panel claims a log line by its `taskId` and `ticketId`; only a line without ids, a note, is matched by
+  the numbers its sentence names.
 - Every value passes `escapeHtml` once; a ticket's `bodyHtml`, already escaped by `src/services/render/Markdown.ts`,
   is the one unescaped string. Stored stamps are sliced, never re-parsed, and shortened only through
   `page/utils/TimeUtil.ts`.

@@ -1,8 +1,11 @@
-/** Words the Board's log records as sentences for `status` and the page, so entries written by any version of the tool read alike. */
+/**
+ * Words the Board's log records as sentences, so entries written by any version of the tool read alike: `status` through `wordedEntryOf`,
+ * the page through `identifiedEntryOf`, which also carries the ids the record names.
+ */
 import type { AgentUsage, LogRecord, LogRecordContent } from '../../lib/tracker-model/@types/LogRecord.ts';
 import type { DispatcherState, ViewRange }              from '../../lib/tracker-model/@types/ProgressFile.ts';
 import { TokenCountUtil }                               from '../../lib/utils/TokenCountUtil.ts';
-import type { WordedLogEntry }                          from '../../shared/@types/WordedLogEntry.ts';
+import type { IdentifiedLogEntry, WordedLogEntry }      from '../../shared/@types/WordedLogEntry.ts';
 import type { MovedToStatus }                           from './StatusWordingUtil.ts';
 import { StatusWordingUtil }                            from './StatusWordingUtil.ts';
 import { TicketPhraseUtil }                             from './TicketPhraseUtil.ts';
@@ -90,4 +93,17 @@ function wordedEntryOf(record: LogRecord): WordedLogEntry {
   return { at: record.at, text: sentenceOf(record) };
 }
 
-export const LogUtil = { dispatcherStateTextOf, sentenceOf, wordedEntryOf } as const;
+function identifiedEntryOf(record: LogRecord): IdentifiedLogEntry {
+  return {
+    ...wordedEntryOf(record),
+    ...('taskId' in record ? { taskId: record.taskId } : {}),
+    ...('ticketId' in record ? { ticketId: record.ticketId } : {}),
+  };
+}
+
+export const LogUtil = {
+  dispatcherStateTextOf,
+  identifiedEntryOf,
+  sentenceOf,
+  wordedEntryOf,
+} as const;

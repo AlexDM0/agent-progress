@@ -344,8 +344,9 @@ mutating command and reloading itself every 5 minutes. Open it with `agent-progr
   any row reports tokens, their sum.
 - **Double-click any row**, in the chart or the ticket table, for the whole story of that task: its
   facts, every phase it went through with how long it sat in each, the ticket with its body, and the
-  log lines that name either. A row filed before phases were recorded says so and shows what can be
-  derived from its stamps instead. **Double-click a Kanban card**, or press Enter on it, for the
+  log lines about either (a line the tool wrote by its task and ticket ids, a note by the numbers it
+  names). A row filed before phases were recorded says so and shows what can be derived from its
+  stamps instead. **Double-click a Kanban card**, or press Enter on it, for the
   ticket instead: its facts, a Timeline of that ticket alone — a quiet Filed bar from filing to the
   build's start, the build's wip and paused segments, one row per review pass, the waits after the
   build, and a marker at now or at its delivery or abandonment — with the time spent in each state

@@ -1,7 +1,7 @@
 /** The overview dialog: which row, ticket line or Kanban card opens it, what it is filled with, and how it closes. */
 
 import type { PageLimits }            from '../../src/shared/@types/PagePayload.ts';
-import type { WordedLogEntry }        from '../../src/shared/@types/WordedLogEntry.ts';
+import type { IdentifiedLogEntry }    from '../../src/shared/@types/WordedLogEntry.ts';
 import type { KanbanCard }            from '../@types/KanbanCard.ts';
 import type { BoardRow, BoardTicket } from '../@types/PageBoard.ts';
 import { KANBAN_BOARD_ELEMENT_ID }    from '../constants/TemplateIds.ts';
@@ -17,7 +17,7 @@ const DETAIL_CLOSE_ELEMENT_ID  = 'ap-detail-close';
 export interface DetailDialogSources {
   rows:                  readonly BoardRow[];
   tickets:               readonly BoardTicket[];
-  log:                   readonly WordedLogEntry[];
+  log:                   readonly IdentifiedLogEntry[];
   limits:                PageLimits;
   readTodayCalendarDate: () => string;
   readKanbanCards:       () => readonly KanbanCard[];

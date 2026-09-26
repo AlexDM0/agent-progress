@@ -7,14 +7,14 @@ import { EMBEDDED_LOG_PROGRESS_FILE_VERSION } from '../constants/ProgressFileVer
  * The progress in the version 1 shape, which the ingestion reads back: `version` first, every other key in the progress's order, and the
  * worded log directly after `tasks`.
  */
-function documentOf(progress: ProgressFile, log: readonly WordedLogEntry[]): ProgressDocument {
+function documentOf<Entry extends WordedLogEntry>(progress: ProgressFile, log: readonly Entry[]): ProgressDocument<Entry> {
   const entries: [string, unknown][] = [['version', EMBEDDED_LOG_PROGRESS_FILE_VERSION]];
   for (const [key, value] of Object.entries(progress)) {
     entries.push([key, value]);
     if (key === 'tasks') entries.push(['log', [...log]]);
   }
   // A walk that keeps key order loses the types; it carries every key of the progress plus `version` and `log`, which is what the type states.
-  return Object.fromEntries(entries) as unknown as ProgressDocument;
+  return Object.fromEntries(entries) as unknown as ProgressDocument<Entry>;
 }
 
 export const ProgressDocumentUtil = { documentOf } as const;
