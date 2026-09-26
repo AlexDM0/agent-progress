@@ -12,6 +12,7 @@ import { openTrackerForWritingThenReadNextLine } from '../TrackerWriting';
 import type { ArgumentParser }                   from '../arguments/ArgumentParser';
 import { NextLineUtil }                          from '../utils/NextLineUtil';
 import { OutputUtil }                            from '../utils/OutputUtil';
+import { TemplatePlaceholderUtil }               from '../utils/TemplatePlaceholderUtil';
 import type { TicketSubcommandHandler }          from './@types/TicketSubcommandHandler';
 import { TICKET_USAGE }                          from './constants/TicketUsage';
 import { TicketArgumentUtil }                    from './utils/TicketArgumentUtil';
@@ -25,14 +26,10 @@ const STANDARD_INPUT_MARKER = '-';
 
 const TICKET_BODY_TEMPLATE_PATH = ['templates', 'TicketBody.md'];
 
-const TICKET_TEMPLATE_PLACEHOLDERS = { id: '{{id}}', title: '{{title}}' } as const;
-
 function bodyForNewTicket(suppliedBody: string | undefined, ticketId: string, title: string): string {
   if (suppliedBody !== undefined && suppliedBody.trim() !== '') return suppliedBody;
 
-  return readFileSync(resourceFilePathOf(...TICKET_BODY_TEMPLATE_PATH), 'utf8')
-    .split(TICKET_TEMPLATE_PLACEHOLDERS.id).join(ticketId)
-    .split(TICKET_TEMPLATE_PLACEHOLDERS.title).join(title);
+  return TemplatePlaceholderUtil.filledTemplateOf(readFileSync(resourceFilePathOf(...TICKET_BODY_TEMPLATE_PATH), 'utf8'), { id: ticketId, title });
 }
 
 async function suppliedBodyFor(commandArguments: ArgumentParser, context: CommandContext): Promise<string | undefined> {

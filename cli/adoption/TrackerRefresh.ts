@@ -21,6 +21,7 @@ import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../src/lib/tracker
 import type { Workspace }                            from '../../src/services/tracker/Workspace';
 import { TRACKER_FILES }                             from '../../src/services/tracker/constants/TrackerFiles';
 import { resourceFilePathOf }                        from '../../src/shared/ResourceFilePath';
+import { TemplatePlaceholderUtil }                   from '../utils/TemplatePlaceholderUtil';
 
 const CLAUDE_BLOCK_TEMPLATE_PATH = ['templates', 'ClaudeInstructionsBlock.md'];
 
@@ -37,8 +38,6 @@ const AGENT_DEFINITION_TEMPLATE_PATH = ['templates', 'AgentProgressWorker.md'];
 
 /** Claude Code reads a project's subagent definitions from `.claude/agents/`; the file name matches the definition's `name`. */
 const AGENT_DEFINITION_TARGET_PATH = ['.claude', 'agents', 'agent-progress-worker.md'];
-
-const AGENT_DEFINITION_PLACEHOLDERS = { model: '{{model}}', effort: '{{effort}}' } as const;
 
 /**
  * The hook the tool installs. **The matcher is empty, so every subagent type is recorded**, and not
@@ -162,9 +161,8 @@ function refreshSubagentStopHookIn(
 
 /** The template names its model and effort as placeholders, so the installed definition and the tool's default pair cannot drift apart. */
 function agentDefinitionText(): string {
-  return readFileSync(resourceFilePathOf(...AGENT_DEFINITION_TEMPLATE_PATH), 'utf8')
-    .split(AGENT_DEFINITION_PLACEHOLDERS.model).join(DEFAULT_AGENT_MODEL)
-    .split(AGENT_DEFINITION_PLACEHOLDERS.effort).join(DEFAULT_AGENT_EFFORT);
+  const templateText = readFileSync(resourceFilePathOf(...AGENT_DEFINITION_TEMPLATE_PATH), 'utf8');
+  return TemplatePlaceholderUtil.filledTemplateOf(templateText, { model: DEFAULT_AGENT_MODEL, effort: DEFAULT_AGENT_EFFORT });
 }
 
 /** Rewritten on every refresh like the workflow: a hand edit is undone, and a project that wants its own keeps it under another name. */
