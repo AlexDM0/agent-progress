@@ -12,6 +12,7 @@ import { Board }                                             from '../../lib/tra
 import { refusalIsBoardRefusal }                             from '../../lib/tracker-model/BoardRefusal.ts';
 import { createLogger }                                      from '../../lib/tracker-model/Logger.ts';
 import { OperationRefusal }                                  from '../../shared/OperationRefusal.ts';
+import type { RenderState }                                  from '../render/RenderState.ts';
 import { renderDashboard, type DashboardRenderOutcome }      from './DashboardRendering.ts';
 import { deleteAllTickets, type MalformedTicketFile }        from './TicketStore.ts';
 import { withLock }                                          from './TrackerLock.ts';
@@ -30,12 +31,13 @@ export interface TrackerChange {
 }
 
 export interface TrackerWriteRequest<MutationResult> {
-  workspace: Workspace;
+  workspace:   Workspace;
   /** Already resolved by the caller; the Board stamps and logs with it. */
-  at:        string;
+  at:          string;
   /** The caller's clock: the lock's records and the page's generated stamp. */
-  now:       () => Date;
-  mutate:    (change: TrackerChange) => MutationResult | Promise<MutationResult>;
+  now:         () => Date;
+  renderState: RenderState;
+  mutate:      (change: TrackerChange) => MutationResult | Promise<MutationResult>;
 }
 
 export interface TrackerWritten<MutationResult> {
@@ -106,7 +108,7 @@ async function mutateWrappingBoardRefusals<MutationResult>(
 
 export function writeTracker<MutationResult>(request: TrackerWriteRequest<MutationResult>): Promise<TrackerWritten<MutationResult>> {
   const {
-    workspace, at, now, mutate 
+    workspace, at, now, renderState, mutate
   } = request;
 
   return withLock(workspace, async () => {
@@ -123,7 +125,7 @@ export function writeTracker<MutationResult>(request: TrackerWriteRequest<Mutati
     });
 
     writeBoard(workspace, openedBoard, { extraTickets: [], deletionCallbacks });
-    const renderOutcome = await renderDashboard(workspace, now());
+    const renderOutcome = await renderDashboard(workspace, now(), renderState);
     return { result, board: openedBoard.board, renderOutcome };
   }, now);
 }
@@ -136,7 +138,7 @@ function trackerIsInAnOlderFormat(contents: TrackerContents): boolean {
  * For `update` and `init` on an existing tracker: a readable tracker still in an older format is written in the current one through the
  * pipeline's two halves, with nothing changed and nothing logged. Checked without the lock first, then again under it; a second run answers `current`.
  */
-export async function rewriteOlderTrackerFiles(workspace: Workspace, now: () => Date): Promise<TrackerRewriting> {
+export async function rewriteOlderTrackerFiles(workspace: Workspace, now: () => Date, renderState: RenderState): Promise<TrackerRewriting> {
   const readingWithoutTheLock = readTracker(workspace);
   if (readingWithoutTheLock.verdict !== 'readable') return { verdict: 'unreadable' };
   if (!trackerIsInAnOlderFormat(readingWithoutTheLock.contents)) return { verdict: 'current' };
@@ -150,7 +152,7 @@ export async function rewriteOlderTrackerFiles(workspace: Workspace, now: () => 
     const { contents } = reading;
     const extraTickets = contents.listing.ticketsInAnOlderFormat;
     writeBoard(workspace, openBoard(contents), { extraTickets, deletionCallbacks: [] });
-    const renderOutcome = await renderDashboard(workspace, now());
+    const renderOutcome = await renderDashboard(workspace, now(), renderState);
     return {
       verdict: 'rewritten',
       rewrite: { progressFileWasRewritten: contents.storedLog.logFileMustBeRewritten, rewrittenTicketCount: extraTickets.length },

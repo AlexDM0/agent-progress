@@ -4,7 +4,7 @@ import type { ProgressFile }  from '../../lib/tracker-model/@types/ProgressFile.
 import type { Ticket }        from '../../lib/tracker-model/@types/Ticket.ts';
 import { Board }              from '../../lib/tracker-model/Board.ts';
 import { createLogger }       from '../../lib/tracker-model/Logger.ts';
-import { bundlePageScript }   from './PageBundle.ts';
+import type { RenderState }   from './RenderState.ts';
 import { renderProgressHtml } from './Template.ts';
 import { BoardFactsUtil }     from './utils/BoardFactsUtil.ts';
 
@@ -26,7 +26,7 @@ export interface ProgressPageRendering {
  * The concurrency figures come from the function `status --json` builds its block with, so the page and the command cannot disagree on a count.
  * The Board is built over the very `progress` the island carries, so every row position in its facts indexes the island's own tasks.
  */
-export async function renderProgressPage(input: ProgressPageInput): Promise<ProgressPageRendering> {
+export async function renderProgressPage(input: ProgressPageInput, renderState: RenderState): Promise<ProgressPageRendering> {
   const {
     progress,
     tickets,
@@ -34,7 +34,7 @@ export async function renderProgressPage(input: ProgressPageInput): Promise<Prog
     generatedAt,
   } = input;
 
-  const pageBundle        = await bundlePageScript();
+  const pageBundle        = await renderState.pageBundler.bundlePageScript();
   const pageScriptFailure = pageBundle.verdict === 'failed' ? pageBundle.reason : null;
   const board             = new Board({ progress, tickets, logger: createLogger(() => undefined) });
 
@@ -42,11 +42,12 @@ export async function renderProgressPage(input: ProgressPageInput): Promise<Prog
     progress,
     logRecords,
     tickets,
-    pageScript:  pageBundle.verdict === 'built' ? pageBundle.script : null,
+    pageScript:     pageBundle.verdict === 'built' ? pageBundle.script : null,
     pageScriptFailure,
     generatedAt,
-    concurrency: board.concurrency(),
-    boardFacts:  BoardFactsUtil.boardFactsOf(board),
+    concurrency:    board.concurrency(),
+    boardFacts:     BoardFactsUtil.boardFactsOf(board),
+    renderMarkdown: renderState.markdownRenderer.renderMarkdown,
   });
   return { document, pageScriptFailure };
 }

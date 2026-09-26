@@ -105,6 +105,9 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  cli/
   overrides and why. The one in-process assignment is in `src/shared/Environment.spec.ts`; other specs set the
   environment in a child process.
 - No work at module load. The one exception is the last statement of `page/PageStart.ts`, which starts the page.
+- The render service keeps no module state: the page bundle and the configured Marked live in the `RenderState`
+  (`src/services/render/RenderState.ts`) that `createProcessContext` creates once per invocation and the command context
+  carries.
 - Factories of closures over classes, except for state carried across calls, domain classes and ingestion classes.
   A constructor does no work.
 - A record keyed by outside text is indexed through `Object.hasOwn`, never a bare lookup.

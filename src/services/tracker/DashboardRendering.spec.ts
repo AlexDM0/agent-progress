@@ -25,12 +25,15 @@ import type { ProgressFile }                              from '../../lib/tracke
 import type { Task }                                      from '../../lib/tracker-model/@types/Task.ts';
 import { ticketFixture }                                  from '../../testing/BoardFixtures.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
+import { createRenderState }                              from '../render/RenderState.ts';
 import { renderDashboard, renderDashboardUnderLock }      from './DashboardRendering.ts';
 import { listTickets }                                    from './TicketStore.ts';
 import { LockGenerationSteps }                            from './TrackerLock.ts';
 import { workspacePathsFor, type Workspace }              from './Workspace.ts';
 
 const GENERATED_AT = new Date('2026-09-18T20:11:03Z');
+
+const renderState = createRenderState();
 
 const REVIEW_PASS_TASK: Task = {
   id:     1,
@@ -83,7 +86,7 @@ describe('rendering the dashboard', () => {
   test('writes a whole document to the workspace\'s html path and says it rendered', async () => {
     writeTracker();
 
-    const outcome = await renderDashboard(workspace, GENERATED_AT);
+    const outcome = await renderDashboard(workspace, GENERATED_AT, renderState);
 
     expect(outcome).toEqual({ verdict: 'rendered', malformedTickets: [] });
     const document = writtenPage();
@@ -99,7 +102,7 @@ describe('rendering the dashboard', () => {
     writeFileSync(malformedFilePath, MALFORMED_TICKET_TEXT);
     const expectedMalformed = listTickets(workspace).malformed;
 
-    const outcome = await renderDashboard(workspace, GENERATED_AT);
+    const outcome = await renderDashboard(workspace, GENERATED_AT, renderState);
 
     expect(expectedMalformed.map((malformed) => malformed.filePath)).toEqual([malformedFilePath]);
     expect(outcome).toEqual({ verdict: 'rendered', malformedTickets: expectedMalformed });
@@ -115,7 +118,7 @@ describe('rendering the dashboard', () => {
       filePath: join(workspace.ticketsDirectory, '003-double-click-a-role-to-edit-it.md'),
     });
 
-    await renderDashboard(workspace, GENERATED_AT);
+    await renderDashboard(workspace, GENERATED_AT, renderState);
 
     const document = writtenPage();
     expect(document).toContain('Double-click a role to edit it');
@@ -124,14 +127,14 @@ describe('rendering the dashboard', () => {
 
   test('a row written to disk after an earlier render appears on the next render', async () => {
     writeTracker();
-    await renderDashboard(workspace, GENERATED_AT);
+    await renderDashboard(workspace, GENERATED_AT, renderState);
     expect(writtenPage()).not.toContain('Stored after the first render');
 
     const laterRow: Task = {
       ...REVIEW_PASS_TASK, id: 2, name: 'Stored after the first render', status: 'pending', start: null 
     };
     createProgressFileWriter(workspace.progressFilePath).write({ ...EXAMPLE_PROGRESS, nextTaskId: 3, tasks: [REVIEW_PASS_TASK, laterRow] });
-    await renderDashboard(workspace, GENERATED_AT);
+    await renderDashboard(workspace, GENERATED_AT, renderState);
 
     expect(writtenPage()).toContain('Stored after the first render');
   });
@@ -139,7 +142,7 @@ describe('rendering the dashboard', () => {
   test('under the lock it renders the same way, and leaves the lock released', async () => {
     writeTracker();
 
-    const outcome = await renderDashboardUnderLock(workspace, () => GENERATED_AT);
+    const outcome = await renderDashboardUnderLock(workspace, () => GENERATED_AT, renderState);
 
     expect(outcome).toEqual({ verdict: 'rendered', malformedTickets: [] });
     expect(writtenPage()).toContain('Review pass');
@@ -154,7 +157,7 @@ describe('when something cannot be read', () => {
   test('an unreadable progress file is an unreadable verdict carrying the reading, and no page is written', async () => {
     writeFileSync(workspace.progressFilePath, 'this is not JSON');
 
-    const outcome = await renderDashboard(workspace, GENERATED_AT);
+    const outcome = await renderDashboard(workspace, GENERATED_AT, renderState);
 
     expect(outcome.verdict).toBe('unreadable');
     const reading = outcome.verdict === 'unreadable' ? outcome.reading : null;
@@ -164,7 +167,7 @@ describe('when something cannot be read', () => {
   });
 
   test('a progress file that is not there reads as absent rather than as an empty tracker, and no page is written', async () => {
-    const outcome = await renderDashboard(workspace, GENERATED_AT);
+    const outcome = await renderDashboard(workspace, GENERATED_AT, renderState);
 
     expect(outcome).toEqual({ verdict: 'unreadable', reading: { verdict: 'absent', filePath: workspace.progressFilePath } });
     expect(existsSync(workspace.htmlFilePath)).toBe(false);
@@ -174,7 +177,7 @@ describe('when something cannot be read', () => {
     createProgressFileWriter(workspace.progressFilePath).write(EXAMPLE_PROGRESS);
     writeFileSync(workspace.logFilePath, BROKEN_LOG_TEXT);
 
-    const outcome = await renderDashboard(workspace, GENERATED_AT);
+    const outcome = await renderDashboard(workspace, GENERATED_AT, renderState);
 
     expect(outcome).toEqual({
       verdict: 'unreadable',

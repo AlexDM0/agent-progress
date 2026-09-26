@@ -11,6 +11,7 @@ import type { Task }                                    from '../../lib/tracker-
 import type { Ticket }                                  from '../../lib/tracker-model/@types/Ticket.ts';
 import { refusalIsOperationRefusal }                    from '../../shared/OperationRefusal.ts';
 import { LIMITS }                                       from '../../shared/constants/Limits.ts';
+import { createMarkdownRenderer }                       from './Markdown.ts';
 import { renderProgressHtml, substituteTemplateTokens } from './Template.ts';
 
 const GENERATED_AT = new Date('2026-09-18T20:11:03Z');
@@ -76,6 +77,7 @@ function render(overrides: Partial<Parameters<typeof renderProgressHtml>[0]> = {
     generatedAt:       GENERATED_AT,
     concurrency:       { limit: 2, agentsInFlight: 1 },
     boardFacts:        { rows: [], tickets: [] },
+    renderMarkdown:    createMarkdownRenderer().renderMarkdown,
     ...overrides,
   });
 }

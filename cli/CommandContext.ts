@@ -5,6 +5,8 @@
  */
 import { createInterface } from 'node:readline';
 
+import { createRenderState, type RenderState } from '../src/services/render/RenderState';
+
 export interface CommandContext {
   currentDirectory:        string;
   now:                     () => Date;
@@ -16,6 +18,8 @@ export interface CommandContext {
   confirm:                 (question: string) => Promise<boolean>;
   /** `process.platform`, carried here so a spec can choose the operating system a command believes it runs on. */
   platform:                string;
+  /** Created once per invocation; holds the render service's memos, the page bundle and the configured Marked. */
+  renderState:             RenderState;
 }
 
 /** A function, never a module constant: a constant would read `process.cwd()` at import time and hand every spec the test runner's directory. */
@@ -29,6 +33,7 @@ export function createProcessContext(): CommandContext {
     readStandardInput:       readEverythingOnStandardInput,
     confirm:                 confirmOnStandardInput,
     platform:                process.platform,
+    renderState:             createRenderState(),
   };
 }
 

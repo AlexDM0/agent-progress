@@ -150,7 +150,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
     startedAt: TimeUtil.formatLocalIso(context.now()),
     // The page's localStorage key: `file://` is one origin in Chrome, so two trackers would otherwise share a saved range.
     trackerId: randomUUID(),
-  }, context.now);
+  }, context.now, context.renderState);
   if (creation.verdict === 'already-exists') {
     await reportTheRefreshOfAnExistingTracker();
     return;

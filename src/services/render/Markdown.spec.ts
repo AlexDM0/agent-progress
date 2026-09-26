@@ -4,7 +4,9 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import { renderMarkdown }         from './Markdown.ts';
+import { createMarkdownRenderer } from './Markdown.ts';
+
+const { renderMarkdown } = createMarkdownRenderer();
 
 describe('renderMarkdown', () => {
   test('renders a fenced block as preformatted code carrying its language', () => {

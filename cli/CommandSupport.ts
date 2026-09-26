@@ -144,7 +144,7 @@ export function reportRenderProblems(context: CommandContext, outcome: Dashboard
 
 /** For `render` and `open`, whose whole job is the page: an unreadable tracker is their failure, reported once, by the refusal alone. */
 export async function renderDashboardOrRefuse(context: CommandContext, workspace: Workspace): Promise<void> {
-  const outcome = await renderDashboardUnderLock(workspace, context.now);
+  const outcome = await renderDashboardUnderLock(workspace, context.now, context.renderState);
   if (outcome.verdict === 'unreadable') {
     throw new OperationRefusal('unrepaired', `The dashboard could not be regenerated: ${TrackerReadingWordingUtil.renderReasonOf(outcome.reading)}`);
   }
@@ -159,7 +159,7 @@ async function writeTrackerForCommand<MutationResult>(
   const workspace = requireWorkspace(context.currentDirectory);
   const at        = resolveAtOption(commandArguments, context);
   const written   = await writeTracker({
-    workspace, at, now: context.now, mutate 
+    workspace, at, now: context.now, renderState: context.renderState, mutate
   });
   reportRenderProblems(context, written.renderOutcome);
   return written;
@@ -186,7 +186,7 @@ export async function openTrackerForWritingThenReadNextLine<MutationResult>(
 
 /** For `update` and `init` on an existing tracker: a current, absent or unreadable tracker is `null`, and a rewrite reports its render. */
 export async function rewriteOlderTrackerFilesAndReport(context: CommandContext, workspace: Workspace): Promise<TrackerRewrite | null> {
-  const rewriting = await rewriteOlderTrackerFiles(workspace, context.now);
+  const rewriting = await rewriteOlderTrackerFiles(workspace, context.now, context.renderState);
   if (rewriting.verdict !== 'rewritten') return null;
   reportRenderProblems(context, rewriting.renderOutcome);
   return rewriting.rewrite;

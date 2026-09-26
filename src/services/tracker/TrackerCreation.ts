@@ -4,6 +4,7 @@ import { mkdirSync } from 'node:fs';
 import { createLogFileWriter }                          from '../../adapters/log/LogFileWriter.ts';
 import { createProgressFileWriter }                     from '../../adapters/progress/ProgressFileWriter.ts';
 import { EmptyProgressUtil }                            from '../../lib/tracker-model/utils/EmptyProgressUtil.ts';
+import type { RenderState }                             from '../render/RenderState.ts';
 import { renderDashboard, type DashboardRenderOutcome } from './DashboardRendering.ts';
 import { withLock }                                     from './TrackerLock.ts';
 import type { Workspace }                               from './Workspace.ts';
@@ -19,7 +20,7 @@ export type TrackerCreation =
   | { verdict: 'created'; renderOutcome: DashboardRenderOutcome }
   | { verdict: 'already-exists' };
 
-export async function createTracker(workspace: Workspace, newTracker: NewTracker, now: () => Date): Promise<TrackerCreation> {
+export async function createTracker(workspace: Workspace, newTracker: NewTracker, now: () => Date, renderState: RenderState): Promise<TrackerCreation> {
   mkdirSync(workspace.ticketsDirectory, { recursive: true });
   const progress = EmptyProgressUtil.emptyProgressFor(newTracker);
 
@@ -29,6 +30,6 @@ export async function createTracker(workspace: Workspace, newTracker: NewTracker
     // A new tracker's log starts empty, so a log.jsonl left from a removed tracker is emptied, never adopted.
     // A crash between the two writes leaves that old log.jsonl beside the new progress file.
     createLogFileWriter(workspace.logFilePath).write([]);
-    return { verdict: 'created', renderOutcome: await renderDashboard(workspace, now()) };
+    return { verdict: 'created', renderOutcome: await renderDashboard(workspace, now(), renderState) };
   }, now);
 }

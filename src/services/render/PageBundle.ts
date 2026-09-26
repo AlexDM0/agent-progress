@@ -5,7 +5,7 @@
 
 import { join } from 'node:path';
 
-type PageBundleOutcome =
+export type PageBundleOutcome =
   | { verdict: 'built'; script: string }
   | { verdict: 'failed'; reason: string };
 
@@ -19,18 +19,12 @@ export function scriptWouldOpenAnHtmlComment(script: string): boolean {
   return script.includes('<!--');
 }
 
-let pendingBundle: Promise<PageBundleOutcome> | null = null;
-
-export const PageBundleBookkeeping = {
-  buildCount: 0,
-  forgetMemoisedBundle(): void {
-    pendingBundle                    = null;
-    PageBundleBookkeeping.buildCount = 0;
-  },
-};
+export interface PageBundler {
+  /** A failure is returned, never thrown, so a command that has already written `progress.json` can still write a page. */
+  bundlePageScript(): Promise<PageBundleOutcome>;
+}
 
 async function buildPageScript(): Promise<PageBundleOutcome> {
-  PageBundleBookkeeping.buildCount += 1;
   const result = await Bun.build({
     entrypoints: [join(import.meta.dir, '..', '..', '..', 'page', 'PageStart.ts')],
     target:      'browser',
@@ -51,8 +45,13 @@ async function buildPageScript(): Promise<PageBundleOutcome> {
   return { verdict: 'built', script };
 }
 
-/** A failure is returned, never thrown, so a command that has already written `progress.json` can still write a page. */
-export function bundlePageScript(): Promise<PageBundleOutcome> {
-  pendingBundle ??= buildPageScript();
-  return pendingBundle;
+/** Builds on the first call and hands every later or concurrent caller that same promise, so one bundler builds the page script once. */
+export function createPageBundler(): PageBundler {
+  let firstBuild: Promise<PageBundleOutcome> | null = null;
+  return {
+    bundlePageScript(): Promise<PageBundleOutcome> {
+      firstBuild ??= buildPageScript();
+      return firstBuild;
+    },
+  };
 }

@@ -96,13 +96,17 @@ const PAGE_RENDERER: RendererObject = {
   },
 };
 
-let memoisedMarked: Marked | null = null;
-
-function markedInstance(): Marked {
-  memoisedMarked ??= new Marked({ gfm: true, renderer: PAGE_RENDERER });
-  return memoisedMarked;
+export interface MarkdownRenderer {
+  renderMarkdown(markdown: string): string;
 }
 
-export function renderMarkdown(markdown: string): string {
-  return markedInstance().parse(markdown, { async: false });
+/** The configured Marked is built on the first render and reused by every later one. */
+export function createMarkdownRenderer(): MarkdownRenderer {
+  let configuredMarked: Marked | null = null;
+  return {
+    renderMarkdown(markdown: string): string {
+      configuredMarked ??= new Marked({ gfm: true, renderer: PAGE_RENDERER });
+      return configuredMarked.parse(markdown, { async: false });
+    },
+  };
 }

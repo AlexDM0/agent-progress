@@ -31,6 +31,7 @@ import { OperationRefusal, refusalIsOperationRefusal }                from '../.
 import { LIMITS }                                                     from '../../shared/constants/Limits.ts';
 import { ticketFixture }                                              from '../../testing/BoardFixtures.ts';
 import { createScratchDirectory, removeScratchDirectory }             from '../../testing/ScratchWorkspace.ts';
+import { createRenderState }                                          from '../render/RenderState.ts';
 import { LockGenerationSteps }                                        from './TrackerLock.ts';
 import { rewriteOlderTrackerFiles, writeTracker, type TrackerChange } from './TrackerPipeline.ts';
 import { workspacePathsFor, type Workspace }                          from './Workspace.ts';
@@ -62,6 +63,8 @@ task: null
 `;
 
 const now = (): Date => new Date('2026-09-18T18:05:00Z');
+
+const renderState = createRenderState();
 
 let workspace: Workspace;
 
@@ -134,6 +137,7 @@ describe('writeTracker', () => {
       workspace,
       at:     CHANGED_AT,
       now,
+      renderState,
       mutate: () => newestLockRecord(),
     });
 
@@ -147,6 +151,7 @@ describe('writeTracker', () => {
       workspace,
       at:     CHANGED_AT,
       now,
+      renderState,
       mutate: (change) => addExampleRow(change),
     });
 
@@ -163,6 +168,7 @@ describe('writeTracker', () => {
       workspace,
       at:     CHANGED_AT,
       now,
+      renderState,
       mutate: (change) => {
         addExampleRow(change);
         change.board.holdTicket('001', 'Waiting on Alex Example', change.at);
@@ -187,6 +193,7 @@ describe('writeTracker', () => {
       workspace,
       at:     CHANGED_AT,
       now,
+      renderState,
       mutate: (change) => {
         addExampleRow(change);
         throw thrownFailure;
@@ -206,6 +213,7 @@ describe('writeTracker', () => {
       workspace,
       at:     CHANGED_AT,
       now,
+      renderState,
       mutate: () => { throw thrownRefusal; },
     }));
 
@@ -221,6 +229,7 @@ describe('writeTracker', () => {
       workspace,
       at:     CHANGED_AT,
       now,
+      renderState,
       mutate: () => { mutationWasCalled = true; },
     }));
 
@@ -237,6 +246,7 @@ describe('writeTracker', () => {
       workspace,
       at:     CHANGED_AT,
       now,
+      renderState,
       mutate: (change) => {
         addExampleRow(change);
         change.board.holdTicket('001', 'Waiting on Alex Example', change.at);
@@ -257,6 +267,7 @@ describe('writeTracker', () => {
       workspace,
       at:     CHANGED_AT,
       now,
+      renderState,
       mutate: (change) => {
         addExampleRow(change);
         rmSync(workspace.progressFilePath);
@@ -277,6 +288,7 @@ describe('writeTracker', () => {
       workspace,
       at:     CHANGED_AT,
       now,
+      renderState,
       mutate: (change) => {
         addExampleRow(change);
         change.deleteAllTicketFilesAfterwards((deletedTicketCount) => {
@@ -297,6 +309,7 @@ describe('writeTracker', () => {
       workspace,
       at:     CHANGED_AT,
       now,
+      renderState,
       mutate: (change) => {
         change.board.recordNote('Example note', change.at);
         return change.storedLogEntryCount;
@@ -313,18 +326,18 @@ describe('rewriteOlderTrackerFiles', () => {
     writeReadableTracker();
     const filesBefore = storedFileContents();
 
-    expect(await rewriteOlderTrackerFiles(workspace, now)).toEqual({ verdict: 'current' });
+    expect(await rewriteOlderTrackerFiles(workspace, now, renderState)).toEqual({ verdict: 'current' });
     expect(storedFileContents()).toEqual(filesBefore);
   });
 
   test('an unreadable or absent tracker answers unreadable and is left byte for byte', async () => {
-    expect(await rewriteOlderTrackerFiles(workspace, now)).toEqual({ verdict: 'unreadable' });
+    expect(await rewriteOlderTrackerFiles(workspace, now, renderState)).toEqual({ verdict: 'unreadable' });
 
     writeVersionOneTracker();
     writeFileSync(workspace.logFilePath, BROKEN_LOG_TEXT);
     const filesBefore = storedFileContents();
 
-    expect(await rewriteOlderTrackerFiles(workspace, now)).toEqual({ verdict: 'unreadable' });
+    expect(await rewriteOlderTrackerFiles(workspace, now, renderState)).toEqual({ verdict: 'unreadable' });
     expect(storedFileContents()).toEqual(filesBefore);
   });
 
@@ -332,7 +345,7 @@ describe('rewriteOlderTrackerFiles', () => {
     writeVersionOneTracker();
     writeFileSync(join(workspace.ticketsDirectory, '002-rewrite-the-example-importer.md'), TICKET_FILE_WITH_A_RETIRED_WORD);
 
-    const rewriting = await rewriteOlderTrackerFiles(workspace, now);
+    const rewriting = await rewriteOlderTrackerFiles(workspace, now, renderState);
 
     expect(rewriting).toEqual({
       verdict:       'rewritten',
@@ -342,6 +355,6 @@ describe('rewriteOlderTrackerFiles', () => {
     expect(JSON.parse(readFileSync(workspace.progressFilePath, 'utf8'))).toMatchObject({ version: 2 });
     expect(readFileSync(workspace.logFilePath, 'utf8')).toBe(`${JSON.stringify(NOTE_RECORD)}\n`);
     expect(readFileSync(join(workspace.ticketsDirectory, '002-rewrite-the-example-importer.md'), 'utf8')).not.toContain('status: "open"');
-    expect(await rewriteOlderTrackerFiles(workspace, now)).toEqual({ verdict: 'current' });
+    expect(await rewriteOlderTrackerFiles(workspace, now, renderState)).toEqual({ verdict: 'current' });
   });
 });

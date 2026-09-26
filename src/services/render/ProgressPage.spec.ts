@@ -13,9 +13,12 @@ import { ConcurrencyUtil }     from '../../lib/tracker-model/utils/ConcurrencyUt
 import { ticketFixture }       from '../../testing/BoardFixtures.ts';
 import type { PageBoardFacts } from './@types/PageBoardFacts.ts';
 import { renderProgressPage }  from './ProgressPage.ts';
+import { createRenderState }   from './RenderState.ts';
 import { BoardFactsUtil }      from './utils/BoardFactsUtil.ts';
 
 const GENERATED_AT = new Date('2026-09-18T20:11:03Z');
+
+const renderState = createRenderState();
 
 function exampleTask(id: number, changes: Partial<Task> = {}): Task {
   return {
@@ -57,7 +60,7 @@ describe('renderProgressPage', () => {
   test('writes the limit and the agents in flight that concurrencyOf gives for the rows', async () => {
     const { document } = await renderProgressPage({
       progress: EXAMPLE_PROGRESS, tickets: [], logRecords: [], generatedAt: GENERATED_AT 
-    });
+    }, renderState);
     const expected     = ConcurrencyUtil.concurrencyOf(EXAMPLE_PROGRESS.tasks, EXAMPLE_PROGRESS.concurrencyLimit);
 
     const payload = islandContentsOf(document, 'ap-progress-data') as { concurrency: unknown };
@@ -70,7 +73,7 @@ describe('renderProgressPage', () => {
 
     const { document } = await renderProgressPage({
       progress: EXAMPLE_PROGRESS, tickets, logRecords: [], generatedAt: GENERATED_AT 
-    });
+    }, renderState);
 
     const ticketIsland = islandContentsOf(document, 'ap-tickets-data') as Array<{ id: string }>;
     expect(ticketIsland.map((ticket) => ticket.id)).toEqual(['005', '002', '003']);
@@ -79,7 +82,7 @@ describe('renderProgressPage', () => {
   test('a page script that builds leaves no failure and goes into the document', async () => {
     const rendering = await renderProgressPage({
       progress: EXAMPLE_PROGRESS, tickets: [], logRecords: [], generatedAt: GENERATED_AT 
-    });
+    }, renderState);
 
     expect(rendering.pageScriptFailure).toBeNull();
     expect(rendering.document.startsWith('<!doctype html>')).toBe(true);
@@ -102,7 +105,7 @@ describe('renderProgressPage', () => {
       tickets:     [ticketFixture({ id: '003', status: 'in-review', task: 1 })],
       logRecords:  [],
       generatedAt: GENERATED_AT,
-    });
+    }, renderState);
 
     const { boardFacts } = islandContentsOf(document, 'ap-progress-data') as { boardFacts: PageBoardFacts };
     expect(boardFacts.rows.map((row) => row.displayState)).toEqual(['reviewing', 'delivered', 'delivered', 'in-progress']);
@@ -126,7 +129,7 @@ describe('renderProgressPage', () => {
       tickets,
       logRecords:  [],
       generatedAt: GENERATED_AT,
-    });
+    }, renderState);
 
     const expected       = BoardFactsUtil.boardFactsOf(new Board({ progress, tickets, logger: createLogger(() => undefined) }));
     const { boardFacts } = islandContentsOf(document, 'ap-progress-data') as { boardFacts: PageBoardFacts };

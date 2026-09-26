@@ -2,65 +2,51 @@
  * That the page entry bundles from wherever the binary is run and the result is safe to inline in a `<script>`.
  */
 
-import {
-  beforeEach,
-  describe,
-  expect,
-  test,
-} from 'bun:test';
-import {
-  bundlePageScript,
-  PageBundleBookkeeping,
-  scriptWouldOpenAnHtmlComment,
-  withScriptEndEscaped,
-} from './PageBundle.ts';
+import { describe, expect, test }                                                from 'bun:test';
+import { createPageBundler, scriptWouldOpenAnHtmlComment, withScriptEndEscaped } from './PageBundle.ts';
 
-describe('bundlePageScript', () => {
-  beforeEach(() => {
-    PageBundleBookkeeping.forgetMemoisedBundle();
-  });
-
+describe('createPageBundler', () => {
   test('bundles the page entry point into a non-empty script', async () => {
-    const outcome = await bundlePageScript();
+    const outcome = await createPageBundler().bundlePageScript();
 
     expect(outcome.verdict).toBe('built');
     expect(outcome.verdict === 'built' && outcome.script.length).toBeGreaterThan(0);
   });
 
   test('produces a script that contains nothing a browser would read as the end of a script element', async () => {
-    const outcome = await bundlePageScript();
+    const outcome = await createPageBundler().bundlePageScript();
 
     expect(outcome.verdict).toBe('built');
     expect(outcome.verdict === 'built' && /<\/script/i.test(outcome.script)).toBe(false);
   });
 
   test('carries the page entry point, not an empty module', async () => {
-    const outcome = await bundlePageScript();
+    const outcome = await createPageBundler().bundlePageScript();
 
     expect(outcome.verdict === 'built' && outcome.script.includes('ap-progress-data')).toBe(true);
   });
 
-  test('returns the same script on a second call without building again', async () => {
-    const first  = await bundlePageScript();
-    const second = await bundlePageScript();
+  test('hands a second call the very outcome of the first, without building again', async () => {
+    const pageBundler = createPageBundler();
+    const first       = await pageBundler.bundlePageScript();
+    const second      = await pageBundler.bundlePageScript();
 
-    expect(PageBundleBookkeeping.buildCount).toBe(1);
-    expect(first.verdict === 'built' && second.verdict === 'built' && first.script === second.script).toBe(true);
+    expect(second).toBe(first);
   });
 
-  test('starts only one build when two callers ask at the same time', async () => {
-    const [first, second] = await Promise.all([bundlePageScript(), bundlePageScript()]);
+  test('hands two callers asking at the same time the very same outcome, from one build', async () => {
+    const pageBundler     = createPageBundler();
+    const [first, second] = await Promise.all([pageBundler.bundlePageScript(), pageBundler.bundlePageScript()]);
 
-    expect(PageBundleBookkeeping.buildCount).toBe(1);
-    expect(first.verdict === 'built' && second.verdict === 'built' && first.script === second.script).toBe(true);
+    expect(second).toBe(first);
   });
 
-  test('builds again once its bookkeeping has been reset', async () => {
-    await bundlePageScript();
-    PageBundleBookkeeping.forgetMemoisedBundle();
-    await bundlePageScript();
+  test('gives each bundler a build of its own, so no bundle outlives the invocation that made it', async () => {
+    const first  = await createPageBundler().bundlePageScript();
+    const second = await createPageBundler().bundlePageScript();
 
-    expect(PageBundleBookkeeping.buildCount).toBe(1);
+    expect(second).not.toBe(first);
+    expect(first.verdict === 'built' && second.verdict === 'built' && first.script === second.script).toBe(true);
   });
 });
 
@@ -100,7 +86,7 @@ describe('scriptWouldOpenAnHtmlComment', () => {
   });
 
   test('the real bundle carries none', async () => {
-    const outcome = await bundlePageScript();
+    const outcome = await createPageBundler().bundlePageScript();
 
     expect(outcome.verdict === 'built' && scriptWouldOpenAnHtmlComment(outcome.script)).toBe(false);
   });

@@ -16,6 +16,7 @@ import {
   test,
 } from 'bun:test';
 import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
+import { createRenderState }                              from '../render/RenderState.ts';
 import { createTracker, type NewTracker }                 from './TrackerCreation.ts';
 import { workspacePathsFor, type Workspace }              from './Workspace.ts';
 
@@ -31,6 +32,8 @@ const EXISTING_LOG_TEXT = '{"at":"2026-09-18T20:05:00+02:00","kind":"note","fiel
 
 const now = (): Date => new Date('2026-09-18T07:00:00Z');
 
+const renderState = createRenderState();
+
 let workspace: Workspace;
 
 beforeEach(() => {
@@ -42,7 +45,7 @@ afterEach(() => {
 });
 
 test('a fresh workspace gets its tickets directory, a version 2 progress file, an empty log and a first page, and answers created', async () => {
-  const creation = await createTracker(workspace, NEW_TRACKER, now);
+  const creation = await createTracker(workspace, NEW_TRACKER, now, renderState);
 
   expect(creation).toEqual({ verdict: 'created', renderOutcome: { verdict: 'rendered', malformedTickets: [] } });
   expect(statSync(workspace.ticketsDirectory).isDirectory()).toBe(true);
@@ -55,7 +58,7 @@ test('a log.jsonl left from a removed tracker is emptied, never adopted', async 
   mkdirSync(workspace.trackerDirectory, { recursive: true });
   writeFileSync(workspace.logFilePath, EXISTING_LOG_TEXT);
 
-  await createTracker(workspace, NEW_TRACKER, now);
+  await createTracker(workspace, NEW_TRACKER, now, renderState);
 
   expect(readFileSync(workspace.logFilePath, 'utf8')).toBe('');
 });
@@ -65,7 +68,7 @@ test('an existing progress file answers already-exists, leaves progress.json and
   writeFileSync(workspace.progressFilePath, EXISTING_PROGRESS_TEXT);
   writeFileSync(workspace.logFilePath, EXISTING_LOG_TEXT);
 
-  expect(await createTracker(workspace, NEW_TRACKER, now)).toEqual({ verdict: 'already-exists' });
+  expect(await createTracker(workspace, NEW_TRACKER, now, renderState)).toEqual({ verdict: 'already-exists' });
   expect(readFileSync(workspace.progressFilePath, 'utf8')).toBe(EXISTING_PROGRESS_TEXT);
   expect(readFileSync(workspace.logFilePath, 'utf8')).toBe(EXISTING_LOG_TEXT);
   expect(existsSync(workspace.htmlFilePath)).toBe(false);

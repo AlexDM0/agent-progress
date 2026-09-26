@@ -15,7 +15,6 @@ import type { PageConcurrency, PagePayload, PageTicket } from '../../shared/@typ
 import { OperationRefusal }                              from '../../shared/OperationRefusal.ts';
 import { LIMITS }                                        from '../../shared/constants/Limits.ts';
 import type { PageBoardFacts }                           from './@types/PageBoardFacts.ts';
-import { renderMarkdown }                                from './Markdown.ts';
 
 const { escapeHtml, escapeJsonForScriptTag } = HtmlEscapeUtil;
 
@@ -38,6 +37,7 @@ interface RenderProgressHtmlInput {
   generatedAt:       Date;
   concurrency:       PageConcurrency;
   boardFacts:        PageBoardFacts;
+  renderMarkdown:    (markdown: string) => string;
 }
 
 function pageLimits(): PagePayload['limits'] {
@@ -61,7 +61,7 @@ function pageLimits(): PagePayload['limits'] {
   };
 }
 
-function pageTicketsFor(tickets: readonly Ticket[]): PageTicket[] {
+function pageTicketsFor(tickets: readonly Ticket[], renderMarkdown: (markdown: string) => string): PageTicket[] {
   return tickets.map((ticket) => ({
     ...ticket.frontmatter,
     filePath: ticket.filePath,
@@ -107,6 +107,7 @@ export function renderProgressHtml(input: RenderProgressHtmlInput): string {
     generatedAt,
     concurrency,
     boardFacts,
+    renderMarkdown,
   } = input;
   // Read per call, never at module load, and from the installed package rather than the caller's working directory.
   const template = readFileSync(join(import.meta.dir, '..', '..', '..', 'resources', TEMPLATE_FILE_NAME), 'utf8');
@@ -124,7 +125,7 @@ export function renderProgressHtml(input: RenderProgressHtmlInput): string {
   return substituteTemplateTokens(template, {
     [TITLE_TOKEN]:       `<title>${escapeHtml(progress.project)} progress</title>`,
     [PROGRESS_TOKEN]:    escapeJsonForScriptTag(JSON.stringify(payload)),
-    [TICKETS_TOKEN]:     escapeJsonForScriptTag(JSON.stringify(pageTicketsFor(tickets))),
+    [TICKETS_TOKEN]:     escapeJsonForScriptTag(JSON.stringify(pageTicketsFor(tickets, renderMarkdown))),
     [PAGE_SCRIPT_TOKEN]: pageScript ?? bannerOnlyScript(pageScriptFailure ?? 'the page script could not be built'),
   });
 }
