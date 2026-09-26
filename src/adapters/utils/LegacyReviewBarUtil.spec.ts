@@ -1,7 +1,8 @@
 /**
  * The ingestion step that links a review bar known only by its name. What readers rely on: only a free-standing row whose name starts
- * `Review <N> #<id>` gains fields, a stored field always wins over the name, a name naming no ticket links nothing, and a row that
- * gains nothing comes back with exactly the keys it had, so a rewrite leaves it byte-identical. The names are the page's nesting cases.
+ * `Review <N> #<id>` gains fields, a stored field always wins over the name, a stored all-digit `reviewOf` is padded as the page read
+ * it as a number, a name naming no ticket links nothing, and a row that gains nothing comes back with exactly the keys it had, so a
+ * rewrite leaves it byte-identical. The names are the page's nesting cases.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -64,12 +65,38 @@ describe('a row with a stored field', () => {
 
     expect(linkedReviewBarOf(task)).toStrictEqual(task);
   });
+
+  // The page and the replaced hook compared a stored reviewOf as a number, so an unpadded one must still name its ticket to the Board.
+  test('pads a stored reviewOf the page reads as a number, so "3" reads as "003"', () => {
+    expect(linkedReviewBarOf(taskFixture({ name: 'Example review', reviewOf: '3' })).reviewOf).toBe('003');
+  });
+
+  test('leaves a stored reviewOf the page does not read as a number standing', () => {
+    expect(linkedReviewBarOf(taskFixture({ name: 'Example review', reviewOf: '#3' })).reviewOf).toBe('#3');
+    expect(linkedReviewBarOf(taskFixture({ name: 'Example review', reviewOf: 'abc' })).reviewOf).toBe('abc');
+  });
+
+  test('pads a stored reviewOf also on a row whose name matches the legacy pattern', () => {
+    expect(linkedReviewBarOf(taskFixture({ name: 'Review 1 #3 — x', reviewOf: '3' }))).toMatchObject({ reviewOf: '003', reviewBarRound: 1 });
+  });
+
+  test('replaces a padded reviewOf in place, so the keys keep their order', () => {
+    const task = taskFixture({ name: 'Example review', reviewOf: '3' });
+
+    expect(Object.keys(linkedReviewBarOf(task))).toEqual(Object.keys(task));
+  });
 });
 
 describe('a row that is not a legacy review bar', () => {
   // A ticket's own row is never a review bar, as the page and the hook read it, whatever it is called.
   test('a ticket-owned row comes back unchanged, whatever its name', () => {
     const task = taskFixture({ name: 'Review 1 #3 — misnamed', ticket: '009' });
+
+    expect(linkedReviewBarOf(task)).toStrictEqual(task);
+  });
+
+  test('never touches a ticket row\'s reviewOf', () => {
+    const task = taskFixture({ name: 'Example follow-up', ticket: '003', reviewOf: '3' });
 
     expect(linkedReviewBarOf(task)).toStrictEqual(task);
   });

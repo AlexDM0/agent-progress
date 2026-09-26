@@ -9,6 +9,7 @@ import type { ProgressFile }                                            from '..
 import type { Task }                                                    from '../../src/lib/tracker-model/@types/Task';
 import { ConcurrencyUtil }                                              from '../../src/lib/tracker-model/utils/ConcurrencyUtil';
 import { TaskFilingUtil, type TaskFiling }                              from '../../src/lib/tracker-model/utils/TaskFilingUtil';
+import { boardFixture, ticketFixture }                                  from '../../src/testing/BoardFixtures';
 import { createScratchDirectory, removeScratchDirectory }               from '../../src/testing/ScratchWorkspace';
 import { workspacePathsFor }                                            from '../platform/Workspace';
 import type { Workspace }                                               from '../platform/Workspace';
@@ -157,6 +158,17 @@ test('a bar that stores its round reads back unchanged', () => {
   if (result.verdict !== 'readable') throw new Error(`expected a readable file, got ${JSON.stringify(result)}`);
   expect(result.progress.tasks[0]?.reviewBarRound).toBe(1);
   expect(result.progress).toEqual(progress);
+});
+
+// The page and the replaced hook compared a stored reviewOf as a number, so the Board must still find a bar that stored it unpadded.
+test('a bar storing an unpadded reviewOf is one of that ticket\'s review bars once read', () => {
+  const progress = emptyProgress();
+  fileRow(progress, { name: 'Example review', reviewOf: '3' });
+
+  const result = readBack('store-unpadded-review-of', progress);
+  if (result.verdict !== 'readable') throw new Error(`expected a readable file, got ${JSON.stringify(result)}`);
+  const { board } = boardFixture({ tasks: result.progress.tasks, tickets: [ticketFixture({ id: '003' })] });
+  expect(board.reviewBarsOf('003').map((task) => task.id)).toEqual([1]);
 });
 
 test('a task whose status this build does not know makes the whole file unreadable, and the reason names the task and the status', () => {

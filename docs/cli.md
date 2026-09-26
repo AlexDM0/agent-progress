@@ -454,7 +454,8 @@ A row or history phase stored with the retired status `running` or `finished` re
 or `in-review`; reading never rewrites the file, and the next write stores the new word.
 
 A free-standing row without `reviewOf` or `reviewBarRound` whose name starts `Review <N> #<id>` reads
-with the ticket and round the name gives; reading never rewrites the file, and the next write stores
+with the ticket and round the name gives, and a free-standing row's stored all-digit `reviewOf` (`"3"`)
+reads as the padded ticket id (`"003"`); reading never rewrites the file, and the next write stores
 them.
 
 ### `.agent-progress/tickets/003-double-click-a-role-to-edit-it.md`
