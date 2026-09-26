@@ -1,6 +1,7 @@
 /** Reads one tracker's stored files without the lock, the progress file, its stored log and the ticket listing, as a verdict or a refusal. */
+import type { StoredLog }                                  from '../../adapters/log/@types/StoredLog.ts';
 import { LogFileIngestion }                                from '../../adapters/log/LogFileIngestion.ts';
-import { TrackerLogUtil, type StoredLog }                  from '../../adapters/log/utils/TrackerLogUtil.ts';
+import { TrackerLogUtil }                                  from '../../adapters/log/utils/TrackerLogUtil.ts';
 import { ProgressFileIngestion, type ProgressFileReading } from '../../adapters/progress/ProgressFileIngestion.ts';
 import type { ProgressFile }                               from '../../lib/tracker-model/@types/ProgressFile.ts';
 import type { UnreadableTracker }                          from '../../shared/@types/UnreadableTracker.ts';

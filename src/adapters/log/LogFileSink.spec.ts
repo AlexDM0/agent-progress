@@ -1,14 +1,14 @@
 /**
  * The sink decides what log.jsonl holds after a command: the stored log followed by the new records in the order the Board logged them;
- * after a clearing, the clearing alone; a stored log that must be moved out of a version 1 progress.json even when nothing new was logged;
+ * after a clearing, the clearing alone; a log carried over from an older progress file, which must reach log.jsonl even when nothing new was logged;
  * and nothing at all when there is nothing to write, so a command that logs nothing leaves the file alone.
  */
 import { expect, test } from 'bun:test';
 
 import type { LogRecord }    from '../../lib/tracker-model/@types/LogRecord.ts';
 import { createLogger }      from '../../lib/tracker-model/Logger.ts';
+import type { StoredLog }    from './@types/StoredLog.ts';
 import { createLogFileSink } from './LogFileSink.ts';
-import type { StoredLog }    from './utils/TrackerLogUtil.ts';
 
 const FILED_AT   = '2026-09-18T20:30:00+02:00';
 const STARTED_AT = '2026-09-18T20:40:00+02:00';

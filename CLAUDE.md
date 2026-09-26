@@ -83,7 +83,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
   gives a row known only by its name `reviewOf` and `reviewBarRound`, and pads a stored `reviewOf` that reads as a
   whole number, in memory; the next write stores them.
 - A version 1 `progress.json` owns its log: the read, through `src/adapters/legacy/`, turns its sentences into notes,
-  and the next write moves them to log.jsonl and stores the file as version 2.
+  and the next write moves them to log.jsonl and stores the file as version 2. The takeover rule for a log.jsonl
+  beside it, believed only as a migration cut short, lives in `src/adapters/legacy/` too.
 - `progress.json` keeps the keys the tool does not know, at the top level and on rows, in the file's order.
 - A malformed stored file is a verdict and a report, never a throw that takes down `status` or `render`.
 - The Board logs through the semantic Logger (`src/lib/tracker-model/Logger.ts`), with ids and values only;
@@ -213,7 +214,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
   lock; read the progress file, its log and the tickets into a Board; change them through it; write the progress file,
   then the tickets the Board changed, then log.jsonl; then render from disk, all under the lock. Ticket files follow
   the progress file so it is never behind them, and the log comes last so a line never describes an unstored change;
-  a log taken over from a version 1 progress file also has its notes copied first. `init` creates a tracker through
+  a log taken over from a version 1 progress file, by the rule in `src/adapters/legacy/`, also has its notes copied
+  first. `init` creates a tracker through
   `createTracker` in `src/services/tracker/TrackerCreation.ts`; `update` and `init` rewrite older tracker files through
   `rewriteOlderTrackerFiles`, the same two halves. `status` takes no lock and renders nothing.
 

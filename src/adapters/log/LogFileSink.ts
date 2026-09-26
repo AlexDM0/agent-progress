@@ -1,6 +1,6 @@
 /** The log sink that collects the Board's records for log.jsonl and answers what the file should hold once the command is done. */
 import type { LogRecord } from '../../lib/tracker-model/@types/LogRecord.ts';
-import type { StoredLog } from './utils/TrackerLogUtil.ts';
+import type { StoredLog } from './@types/StoredLog.ts';
 
 /** `recordsToWrite` is null when the file must stay as it is, so a command that logs nothing leaves log.jsonl alone. */
 export function createLogFileSink(storedLog: StoredLog): {
