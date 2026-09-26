@@ -587,9 +587,9 @@ export class Board {
     return this.ticketRecordById(task.ticket)?.frontmatter.status ?? null;
   }
 
-  private reviewBarRecordsOf(ticketId: string): Task[] {
+  private reviewBarRecordsOf(ticketId: string): ReviewBar[] {
     return this.progress.tasks
-      .filter((task) => task.ticket === null && task.reviewOf === ticketId)
+      .filter((task): task is ReviewBar => task.ticket === null && task.reviewOf === ticketId)
       .toSorted((a, b) => a.id - b.id);
   }
 
@@ -704,9 +704,12 @@ export class Board {
     }
   }
 
-  /** Linked by `reviewOf` alone; ingestion gives a bar known only by its name its `reviewOf` before the Board sees it. */
+  /** The in-progress subset of `reviewBarsOf`, so closing, claiming and crediting agree on what a review bar is; oldest filed first. */
   private inProgressReviewBarsOf(ticketIds: readonly string[]): ReviewBar[] {
-    return this.progress.tasks.filter((task): task is ReviewBar => task.status === 'in-progress' && task.reviewOf !== undefined && ticketIds.includes(task.reviewOf));
+    return ticketIds
+      .flatMap((ticketId) => this.reviewBarRecordsOf(ticketId))
+      .filter((bar) => bar.status === 'in-progress')
+      .toSorted((a, b) => a.id - b.id);
   }
 
   /** Finishes and delivers every in-progress review bar of the tickets, one record each, for every move that ends their review. */

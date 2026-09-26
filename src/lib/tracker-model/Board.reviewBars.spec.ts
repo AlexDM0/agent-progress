@@ -215,3 +215,75 @@ describe('startReviewBar', () => {
     expect(progress.tasks.find((task) => task.id === 2)?.status).toBe('in-progress');
   });
 });
+
+// `task add --review-of` on a row a ticket owns stores `reviewOf` on it, yet only a free-standing row is a review bar: closing, claiming
+// and crediting read one definition, so that row is never closed with the review and never blocks the reviewed ticket's claim.
+describe('a row a ticket owns that also stores reviewOf', () => {
+  const OWNED_ROW_ID         = 2;
+  const FREE_STANDING_BAR_ID = 3;
+
+  function ownedRowReviewingFixture(withFreeStandingBar: boolean): BoardFixture {
+    const fixture = ticketInReviewFixture();
+    fixture.tickets.push(ticketFixture({ id: '004', title: 'Example follow-up' }));
+    fixture.board.addTask({
+      name:         '#004 Example follow-up',
+      ticketId:     '004',
+      reviewOf:     { ticketId: '003', round: 1 },
+      startsNow:    true,
+      movesTheLink: false,
+    }, STARTED_AT);
+    if (withFreeStandingBar) {
+      fixture.board.addTask({
+        name:         'Review 1 #003 — Example export dialog',
+        reviewOf:     { ticketId: '003', round: 1 },
+        startsNow:    true,
+        movesTheLink: false,
+      }, STARTED_AT);
+    }
+    fixture.records.length = 0;
+    return fixture;
+  }
+
+  function closedTaskIdsOf(records: BoardFixture['records']): number[] {
+    return records.flatMap((record) => (record.kind === 'review-bar-closed' && 'taskId' in record ? [record.taskId] : []));
+  }
+
+  test('a move out of review leaves it in progress, logs no closure for it, and still closes the free-standing bar', () => {
+    const { board, progress, records } = ownedRowReviewingFixture(true);
+    board.moveTicket('003', 'reviewed', { checksLegality: true }, REREVIEWED_AT);
+
+    expect(progress.tasks.find((task) => task.id === OWNED_ROW_ID)?.status).toBe('in-progress');
+    expect(progress.tasks.find((task) => task.id === FREE_STANDING_BAR_ID)?.status).toBe('delivered');
+    expect(closedTaskIdsOf(records)).toEqual([FREE_STANDING_BAR_ID]);
+  });
+
+  test('starting the next review bar leaves it in progress and closes only the free-standing bar', () => {
+    const { board, progress } = ownedRowReviewingFixture(true);
+    const started             = board.startReviewBar('003', { round: 2 }, REREVIEWED_AT);
+
+    expect(started.closedBars.map((bar) => bar.id)).toEqual([FREE_STANDING_BAR_ID]);
+    expect(progress.tasks.find((task) => task.id === OWNED_ROW_ID)?.status).toBe('in-progress');
+  });
+
+  test('a release leaves it in progress, logs no closure for it, and still closes the free-standing bar', () => {
+    const { board, progress, records } = ownedRowReviewingFixture(true);
+    const released                     = board.releaseTickets(['003'], { branch: 'ticket/example-export', commit: 'a1b2c3d4e5f6' }, REREVIEWED_AT);
+
+    expect(released.closedReviewBars.map((bar) => bar.id)).toEqual([FREE_STANDING_BAR_ID]);
+    expect(progress.tasks.find((task) => task.id === OWNED_ROW_ID)?.status).toBe('in-progress');
+    expect(closedTaskIdsOf(records)).toEqual([FREE_STANDING_BAR_ID]);
+  });
+
+  test('a claim of the reviewed ticket is not refused because of it', () => {
+    const { board } = ownedRowReviewingFixture(false);
+
+    expect(() => board.claimTickets(['003'], { owner: 'Alex Example' }, REREVIEWED_AT)).not.toThrow();
+  });
+
+  test('a claim of the reviewed ticket is refused for the free-standing bar in progress, naming that bar', () => {
+    const { board } = ownedRowReviewingFixture(true);
+
+    expect(refusalDetailOf(() => board.claimTickets(['003'], { owner: 'Alex Example' }, REREVIEWED_AT)))
+      .toEqual({ reason: 'claim-under-review', ticketId: '003', reviewBarTaskId: FREE_STANDING_BAR_ID });
+  });
+});
