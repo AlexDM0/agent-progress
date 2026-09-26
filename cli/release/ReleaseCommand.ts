@@ -6,6 +6,7 @@
 import { resolve } from 'node:path';
 
 import { LogUtil }                                                                 from '../../src/adapters/utils/LogUtil';
+import { OperationRefusalWordingUtil }                                             from '../../src/adapters/utils/OperationRefusalWordingUtil';
 import type { BranchDeletionOutcome, FilesLeftInWorktree, WorktreeRemovalOutcome } from '../../src/lib/git/BranchIntegration';
 import {
   deleteMergedBranch,
@@ -225,7 +226,7 @@ export const releaseCommand: CommandHandler = async (commandArguments, context) 
       const refusalDocument = {
         released: false,
         reason:   reasonOfRefusal(error),
-        detail:   error.message,
+        detail:   OperationRefusalWordingUtil.messageOf(error),
         cleanup:  [],
       };
       printEntity(commandArguments, context, refusalDocument, '');

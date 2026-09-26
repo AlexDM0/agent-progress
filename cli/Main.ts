@@ -2,11 +2,12 @@
  * The dispatch, and the only place an exit code is decided: 0 done or nothing to do, 1 a refusal the
  * caller can act on, 2 a state the tool will not repair. It returns the number rather than exiting.
  */
-import { refusalIsOperationRefusal } from '../src/shared/OperationRefusal';
-import type { CommandContext }       from './CommandContext';
-import { commandLoaderFor }          from './CommandTable';
-import { helpText }                  from './HelpText';
-import { createArgumentParser }      from './arguments/ArgumentParser';
+import { OperationRefusalWordingUtil } from '../src/adapters/utils/OperationRefusalWordingUtil';
+import { refusalIsOperationRefusal }   from '../src/shared/OperationRefusal';
+import type { CommandContext }         from './CommandContext';
+import { commandLoaderFor }            from './CommandTable';
+import { helpText }                    from './HelpText';
+import { createArgumentParser }        from './arguments/ArgumentParser';
 
 const HELP_OPTION_NAME = 'help';
 const HELP_SHORT_ALIAS = '-h';
@@ -52,7 +53,7 @@ export async function runCommandLine(commandLineArguments: readonly string[], co
     return 0;
   } catch (error) {
     if (refusalIsOperationRefusal(error)) {
-      context.standardError(error.message);
+      context.standardError(OperationRefusalWordingUtil.messageOf(error));
       return error.status === 'refused' ? 1 : 2;
     }
     context.standardError(error instanceof Error ? error.message : String(error));

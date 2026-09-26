@@ -5,17 +5,18 @@
 import { readFileSync } from 'node:fs';
 import { homedir }      from 'node:os';
 
-import type { TranscriptUsageTotals }           from '../../src/lib/claude-code/utils/TranscriptUsageUtil';
-import { TranscriptUsageUtil }                  from '../../src/lib/claude-code/utils/TranscriptUsageUtil';
-import type { TokenCredit, TokenCreditOutcome } from '../../src/lib/tracker-model/@types/BoardChanges';
-import type { AgentUsage }                      from '../../src/lib/tracker-model/@types/LogRecord';
-import { OperationRefusal }                     from '../../src/shared/OperationRefusal';
-import { LIMITS }                               from '../../src/shared/constants/Limits';
-import type { CommandContext }                  from '../CommandContext';
-import { openTrackerForWriting }                from '../CommandSupport';
-import type { CommandHandler }                  from '../CommandTable';
-import type { ArgumentParser }                  from '../arguments/ArgumentParser';
-import { SubagentStopUtil }                     from './utils/SubagentStopUtil';
+import { OperationRefusalWordingUtil }                 from '../../src/adapters/utils/OperationRefusalWordingUtil';
+import type { TranscriptUsageTotals }                  from '../../src/lib/claude-code/utils/TranscriptUsageUtil';
+import { TranscriptUsageUtil }                         from '../../src/lib/claude-code/utils/TranscriptUsageUtil';
+import type { TokenCredit, TokenCreditOutcome }        from '../../src/lib/tracker-model/@types/BoardChanges';
+import type { AgentUsage }                             from '../../src/lib/tracker-model/@types/LogRecord';
+import { OperationRefusal, refusalIsOperationRefusal } from '../../src/shared/OperationRefusal';
+import { LIMITS }                                      from '../../src/shared/constants/Limits';
+import type { CommandContext }                         from '../CommandContext';
+import { openTrackerForWriting }                       from '../CommandSupport';
+import type { CommandHandler }                         from '../CommandTable';
+import type { ArgumentParser }                         from '../arguments/ArgumentParser';
+import { SubagentStopUtil }                            from './utils/SubagentStopUtil';
 
 const USAGE = 'agent-progress hook subagent-stop  (the hook JSON arrives on standard input)';
 
@@ -105,10 +106,15 @@ async function recordInTheTracker(
       return outcomes.flatMap((outcome) => unrecordedSentenceOf(outcome) ?? []);
     });
   } catch (failure) {
-    const reason = failure instanceof Error ? failure.message : String(failure);
-    context.standardError(`${REPORT_PREFIX} the line could not be recorded in ${workingDirectory}: ${reason}`);
+    context.standardError(`${REPORT_PREFIX} the line could not be recorded in ${workingDirectory}: ${failureReasonOf(failure)}`);
   }
   for (const sentence of unrecordedShareSentences) context.standardError(`${REPORT_PREFIX} ${sentence}`);
+}
+
+function failureReasonOf(failure: unknown): string {
+  if (refusalIsOperationRefusal(failure)) return OperationRefusalWordingUtil.messageOf(failure);
+  if (failure instanceof Error) return failure.message;
+  return String(failure);
 }
 
 function unrecordedSentenceOf(outcome: TokenCreditOutcome): string | undefined {

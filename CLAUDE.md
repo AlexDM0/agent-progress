@@ -85,8 +85,11 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/rende
   code throws `OperationRefusal` (`src/shared/OperationRefusal.ts`: `refused` or `unrepaired`), never writes to the
   terminal and never exits.
 - A Board rule throws `BoardRefusal` (`src/lib/tracker-model/BoardRefusal.ts`): a reason code with its facts and no
-  wording. The pipeline in `cli/CommandSupport.ts` words it through `src/adapters/utils/BoardRefusalWordingUtil.ts` as
-  a `refused` `OperationRefusal`.
+  wording. The pipeline in `cli/CommandSupport.ts` wraps it as a `refused` `OperationRefusal` carrying its detail.
+- An `OperationRefusal` carries either its message or a `detail`, a Board refusal or an unreadable tracker, as a reason
+  code with its facts and no words. Wherever the command line prints a refusal (`cli/Main.ts`, `release --json`'s
+  `detail`, the hook's sentence), it words it through `src/adapters/utils/OperationRefusalWordingUtil.ts`; a service
+  never imports a wording util.
 - Exit codes are decided only in `cli/Main.ts`: 0 done or nothing to do; 1 a refusal the caller can act on
   (`refused`, or an unknown command); 2 a state the tool will not repair (`unrepaired`, or any other throw).
   `agent-progress.ts` is the only `process.exit`.

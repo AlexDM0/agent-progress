@@ -13,7 +13,6 @@ import { TrackerLogUtil, type StoredLog, type StoredLogReading } from '../src/ad
 import { ProgressFileIngestion, type ProgressFileReading }       from '../src/adapters/progress/ProgressFileIngestion';
 import { createProgressFileWriter }                              from '../src/adapters/progress/ProgressFileWriter';
 import { createTicketFileWriter }                                from '../src/adapters/tickets/TicketFileWriter';
-import { BoardRefusalWordingUtil }                               from '../src/adapters/utils/BoardRefusalWordingUtil';
 import type { Concurrency }                                      from '../src/lib/tracker-model/@types/Concurrency';
 import type { LogRecord }                                        from '../src/lib/tracker-model/@types/LogRecord';
 import type { DispatcherState, ProgressFile }                    from '../src/lib/tracker-model/@types/ProgressFile';
@@ -38,6 +37,7 @@ import {
 } from '../src/services/tracker/TicketStore';
 import { withLock }                                    from '../src/services/tracker/TrackerLock';
 import { requireWorkspace, type Workspace }            from '../src/services/tracker/Workspace';
+import type { UnreadableTracker }                      from '../src/shared/@types/UnreadableTracker';
 import { OperationRefusal, refusalIsOperationRefusal } from '../src/shared/OperationRefusal';
 import { LIMITS }                                      from '../src/shared/constants/Limits';
 import type { CommandContext }                         from './CommandContext';
@@ -101,9 +101,17 @@ export type ReadableProgressFile = Extract<ProgressFileReading, { verdict: 'read
  */
 export function requireProgressFileReading(workspace: Workspace): ReadableProgressFile {
   const progressRead = new ProgressFileIngestion(workspace.progressFilePath).read();
-  if (progressRead.verdict !== 'readable') {
-    const reason = progressRead.verdict === 'absent' ? 'it is not there' : progressRead.reason;
-    throw new OperationRefusal('unrepaired', `${workspace.progressFilePath} cannot be read: ${reason}`);
+  if (progressRead.verdict === 'absent') {
+    throw new OperationRefusal('unrepaired', { kind: 'unreadable-tracker', reading: { verdict: 'absent', filePath: workspace.progressFilePath } });
+  }
+  if (progressRead.verdict === 'unreadable') {
+    const reading: UnreadableTracker = {
+      verdict:        'unreadable',
+      unreadableFile: 'progress-file',
+      filePath:       workspace.progressFilePath,
+      reason:         progressRead.reason,
+    };
+    throw new OperationRefusal('unrepaired', { kind: 'unreadable-tracker', reading });
   }
   return progressRead;
 }
@@ -126,13 +134,21 @@ export function readStoredLog(workspace: Workspace, embeddedLog: readonly LogRec
 }
 
 /** Unreadable is `'unrepaired'`, as an unreadable progress file is: no command repairs a log it cannot read. */
-function storedLogOrRefusal(storedLog: StoredLogReading): StoredLog {
-  if (storedLog.verdict === 'unreadable') throw new OperationRefusal('unrepaired', `The log cannot be read: ${storedLog.reason}`);
+function storedLogOrRefusal(workspace: Workspace, storedLog: StoredLogReading): StoredLog {
+  if (storedLog.verdict === 'unreadable') {
+    const reading: UnreadableTracker = {
+      verdict:        'unreadable',
+      unreadableFile: 'log-file',
+      filePath:       workspace.logFilePath,
+      reason:         storedLog.reason,
+    };
+    throw new OperationRefusal('unrepaired', { kind: 'unreadable-tracker', reading });
+  }
   return storedLog;
 }
 
 export function requireStoredLog(workspace: Workspace, embeddedLog: readonly LogRecord[] | null): StoredLog {
-  return storedLogOrRefusal(readStoredLog(workspace, embeddedLog));
+  return storedLogOrRefusal(workspace, readStoredLog(workspace, embeddedLog));
 }
 
 /**
@@ -145,7 +161,7 @@ export function requireProgressFileAndStoredLog(workspace: Workspace): { progres
   const logFileReading               = progressReading.embeddedLog === null && logFileReadingBeforeProgress.verdict === 'absent'
     ? readLogFile(workspace)
     : logFileReadingBeforeProgress;
-  const storedLog = storedLogOrRefusal(storedLogFrom(workspace, progressReading.embeddedLog, logFileReading));
+  const storedLog = storedLogOrRefusal(workspace, storedLogFrom(workspace, progressReading.embeddedLog, logFileReading));
   return { progressReading, storedLog };
 }
 
@@ -253,15 +269,15 @@ export async function renderDashboardOrRefuse(context: CommandContext, workspace
   reportRenderProblems(context, outcome);
 }
 
-/** A Board refusal is one the caller can act on, worded here at the edge; nothing has been written when it is thrown. */
-async function mutateRefusingInWords<MutationResult>(
+/** A Board refusal is one the caller can act on, wrapped with its detail for the command line to word; nothing has been written when it is thrown. */
+async function mutateWrappingBoardRefusals<MutationResult>(
   mutate: (change: TrackerChange) => MutationResult | Promise<MutationResult>,
   change: TrackerChange,
 ): Promise<MutationResult> {
   try {
     return await mutate(change);
   } catch (error) {
-    if (refusalIsBoardRefusal(error)) throw new OperationRefusal('refused', BoardRefusalWordingUtil.messageOf(error.detail));
+    if (refusalIsBoardRefusal(error)) throw new OperationRefusal('refused', { kind: 'board-refusal', boardRefusal: error.detail });
     throw error;
   }
 }
@@ -331,7 +347,7 @@ async function changeTrackerUnderLock<MutationResult, Reading>(
     const tracker = readTrackerUnderLock(workspace);
 
     const deletionCallbacks: ((deletedTicketCount: number) => void)[] = [];
-    const result = await mutateRefusingInWords(mutate, {
+    const result = await mutateWrappingBoardRefusals(mutate, {
       at,
       board:                          tracker.board,
       workspace,
