@@ -118,6 +118,57 @@ const HELD_TAKEOVER_UNHELD_AS_THE_BOARD_STOPS_AND_HELD_AGAIN: DispatchScenario =
   },
 };
 
+/**
+ * #001's first builder stops short and the ticket is held, so its row is paused. The hold lifts while another agent holds the limit's last
+ * slot, #001 is held again while its rebuild waits in the queue, and it is unheld as the board stops.
+ */
+const PAUSED_REBUILD_HELD_AGAIN_WHILE_QUEUED: DispatchScenario = {
+  limit:          2,
+  readyTicketIds: ['001', '002', '003'],
+  builderReply:   (ticketId, pass) => (ticketId === HELD_TICKET_ID && pass === 1 ? { outcome: 'failed' } : { outcome: 'in-review' }),
+  afterAgent:     (call, board) => {
+    if (call.kind === 'build' && call.ticketId === HELD_TICKET_ID) board.heldTicketIds.push(HELD_TICKET_ID);
+    if (call.kind === 'park' && call.ticketId === HELD_TICKET_ID) {
+      removeHold(board, HELD_TICKET_ID);
+      board.otherAgentsInFlight = 1;
+    }
+    if (call.kind === 'review' && call.ticketId === '002') {
+      board.heldTicketIds = [HELD_TICKET_ID];
+      board.otherAgentsInFlight = 0;
+    }
+    if (call.kind === 'build' && call.ticketId === '003') {
+      removeHold(board, HELD_TICKET_ID);
+      board.dispatcherState = 'stopped';
+    }
+  },
+};
+
+/** #007's reviewer finds it does not hold, then holds #007 and #008 and stops the board, so #007's rebuild and #008's review are left queued. */
+const HELD_REVIEW_AND_REBUILD_QUEUED_AS_THE_BOARD_STOPS: DispatchScenario = {
+  limit:                  1,
+  readyTicketIds:         [],
+  reviewWaitingTicketIds: ['007', '008'],
+  reviewerReply:          (ticketId) => (ticketId === '007' ? { verdict: 'does-not-hold' } : { verdict: 'released' }),
+  afterAgent:             (call, board) => {
+    if (call.kind !== 'review' || call.ticketId !== '007') return;
+    board.heldTicketIds.push('007', '008');
+    board.dispatcherState = 'stopped';
+  },
+};
+
+/** #007 waits for review, held from the start; #001's builder holds #001 as it hands its review bar on, and stops the board. */
+const HELD_REVIEW_BESIDE_A_HELD_TAKEOVER_AS_THE_BOARD_STOPS: DispatchScenario = {
+  limit:                  2,
+  readyTicketIds:         [HELD_TICKET_ID],
+  reviewWaitingTicketIds: ['007'],
+  heldTicketIds:          ['007'],
+  afterAgent:             (call, board) => {
+    if (call.kind !== 'build' || call.ticketId !== HELD_TICKET_ID) return;
+    board.heldTicketIds.push(HELD_TICKET_ID);
+    board.dispatcherState = 'stopped';
+  },
+};
+
 /** #001 is held as its builder hands its review bar on, and unheld as the parking agent releases that bar; no status block lists the rows. */
 const HELD_REVIEW_TAKEOVER_UNHELD_WITHOUT_LISTED_ROWS: DispatchScenario = {
   limit:                     2,
@@ -328,6 +379,19 @@ export const HOLD_CLAIMS: readonly DispatchClaim[] = [
     mutant: { modulePath: DISPATCH_RUN, find: 'rebuild.rowIsPaused === true && !this.ticketIsHeld(rebuild.ticketId)', replace: 'rebuild.rowIsPaused === true' },
   },
   {
+    // The second hold finds the rebuild queued, not as a takeover, yet its row is still the one the first hold paused.
+    name:        'a paused rebuild held again while queued keeps its paused row, and a stop that ends the run after its unhold names it in pausedBuilds',
+    scenarioFor: () => PAUSED_REBUILD_HELD_AGAIN_WHILE_QUEUED,
+    holds:       (run) => RecordedDispatchRunUtil.kindsAndTicketsOf(run).join(', ') === 'survey, build 001, build 002, park 001, review 002, build 003, park 003'
+      && JSON.stringify(RecordedDispatchRunUtil.mainSummaryOf(run).pausedBuilds) === JSON.stringify([HELD_TICKET_ID]),
+    mutant: {
+      modulePath: DISPATCH_RUN,
+      find:       'if (work.kind === \'build\') return rowIsPaused ? { ...work, rowIsPaused: true } : { ...work };',
+      replace:    'if (work.kind === \'build\') return rowIsPaused ? { ...work, rowIsPaused: true } '
+        + ': { kind: work.kind, ticketId: work.ticketId, previousPass: work.previousPass };',
+    },
+  },
+  {
     // The parking agent released the handed-on bar, so a reviewer counted on it before the rows are listed would free a slot nobody holds.
     name:        'a held review takeover unheld later no longer counts as a bar handed on, so a status block without its in-progress rows does not free its slot',
     scenarioFor: () => HELD_REVIEW_TAKEOVER_UNHELD_WITHOUT_LISTED_ROWS,
@@ -372,6 +436,43 @@ export const HOLD_CLAIMS: readonly DispatchClaim[] = [
         + '      ...this.heldUntakenTicketIds().map((ticketId): HeldEntry => ({ ticketId, waitingFor: \'build\' })),\n',
       replace: '      ...this.heldUntakenTicketIds().map((ticketId): HeldEntry => ({ ticketId, waitingFor: \'build\' })),\n'
         + '      ...heldSteps.map((work): HeldEntry => ({ ticketId: work.ticketId, waitingFor: work.kind })),\n',
+    },
+  },
+  {
+    name:        'a queued review is listed under held before a queued rebuild',
+    scenarioFor: () => HELD_REVIEW_AND_REBUILD_QUEUED_AS_THE_BOARD_STOPS,
+    holds:       (run) => JSON.stringify(RecordedDispatchRunUtil.mainSummaryOf(run).held)
+      === JSON.stringify([{ id: '008', waitingFor: 'review' }, { id: '007', waitingFor: 'build' }]),
+    mutant: { modulePath: DISPATCH_RUN, find: '...this.reviewQueue, ...this.rebuildQueue]\n', replace: '...this.rebuildQueue, ...this.reviewQueue]\n' },
+  },
+  {
+    name:        'held-back work is listed under held before a takeover still waiting',
+    scenarioFor: () => HELD_REVIEW_BESIDE_A_HELD_TAKEOVER_AS_THE_BOARD_STOPS,
+    holds:       (run) => RecordedDispatchRunUtil.mainSummaryOf(run).held?.map((entry) => `${entry.id} ${entry.waitingFor}`).join() === '007 review,001 review',
+    mutant:      {
+      modulePath: DISPATCH_RUN,
+      find:       '[...this.heldWork.values(), ...this.takeoversWaiting.values(), ',
+      replace:    '[...this.takeoversWaiting.values(), ...this.heldWork.values(), ',
+    },
+  },
+  {
+    // A ticket this run took is no longer waiting for a build, even when its claim was refused and a later block reads it as held.
+    name:        'a ready ticket the run took, whose claim was refused and which is then held, is not listed under held',
+    scenarioFor: () => ({
+      limit:          2,
+      readyTicketIds: ['001', '002'],
+      builderReply:   (ticketId) => (ticketId === '002' ? { outcome: 'claim-refused', detail: 'no slot free' } : { outcome: 'in-review' }),
+      afterAgent:     (call, board) => {
+        if (call.kind === 'build' && call.ticketId === '002') board.heldTicketIds.push('002');
+      },
+    }),
+    holds: (run) => RecordedDispatchRunUtil.kindsAndTicketsOf(run).includes('build 002')
+      && run.logs.some((message) => message.includes('#002 skipped for this run: the claim was refused'))
+      && RecordedDispatchRunUtil.mainSummaryOf(run).held === undefined,
+    mutant: {
+      modulePath: DISPATCH_RUN,
+      find:       'return candidates.filter((ticketId) => !this.ticketIdsTakenThisRun.has(ticketId) && this.ticketIsHeld(ticketId));',
+      replace:    'return candidates.filter((ticketId) => this.ticketIsHeld(ticketId));',
     },
   },
 ];

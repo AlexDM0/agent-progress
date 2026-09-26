@@ -346,6 +346,69 @@
       "ranAway": false,
       "resumed": false
     },
+    "decisions: a status block counting fewer agents in flight than the own rows it lists never opens a slot past the board limit": {
+      "calls": [
+        "main|survey|null|null|haiku|low|survey|Survey|d7e8ad299a422606|ade1795a34e5b33b|0|0",
+        "main|build|001|1|opus|medium|build #001|Build|62fd595ac3d04a90|b2aa9b83f09f2d8f|1|0",
+        "main|build|002|1|opus|medium|build #002|Build|62fd595ac3d04a90|7c7d2ce36146ce52|1|0",
+        "main|review|001|1|opus|medium|review 1 #001|Review|2b058569dd2533cb|cf66cfd6a4335b19|2|0",
+        "main|review|002|1|opus|medium|review 1 #002|Review|2b058569dd2533cb|25bd2f7f3e8717d3|3|0",
+        "main|build|003|1|opus|medium|build #003|Build|62fd595ac3d04a90|cafb0999fb8016d1|4|0",
+        "main|build|004|1|opus|medium|build #004|Build|62fd595ac3d04a90|45bcafd572c42f9b|5|0",
+        "main|review|003|1|opus|medium|review 1 #003|Review|2b058569dd2533cb|2e668045159fdf64|6|0",
+        "main|review|004|1|opus|medium|review 1 #004|Review|2b058569dd2533cb|ac417538b6844c56|7|0"
+      ],
+      "phasesEntered": [
+        "main|Survey",
+        "main|Build"
+      ],
+      "logs": [
+        "Done: 4 delivered, 0 parked, 0 findings filed, 9 agents run."
+      ],
+      "racingLogs": [],
+      "relaunchLogs": [],
+      "summaryJson": "{\"delivered\":[\"001\",\"002\",\"003\",\"004\"],\"parked\":[],\"findingsFiled\":[],\"agentsRun\":9}",
+      "racingSummaryJson": "null",
+      "relaunchSummaryJson": "null",
+      "threw": null,
+      "counts": {
+        "mostAgentsAtOnce": 2,
+        "mostAgentsInFlightAtOnce": 2,
+        "mostLiveAgentsAtOnce": 2,
+        "mostAgentsOnBoardAtOnce": 2
+      },
+      "statusSide": {
+        "buildersOnBoard": [
+          "main build 001",
+          "main build 002",
+          "main build 003",
+          "main build 004"
+        ],
+        "slotGaps": [],
+        "rowsRunningAtEnd": [],
+        "rowsPaused": [],
+        "reviewBarsAdded": [
+          "review 001",
+          "review 002",
+          "review 003",
+          "review 004"
+        ],
+        "rereviewsRun": [],
+        "heldTicketIdsReturned": [
+          [],
+          [],
+          [],
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      },
+      "ranAway": false,
+      "resumed": false
+    },
     "decisions: agents in flight elsewhere plus every own agent, on the board yet or not, never exceed the board limit": {
       "calls": [
         "main|survey|null|null|haiku|low|survey|Survey|d7e8ad299a422606|ade1795a34e5b33b|0|0",
@@ -1134,6 +1197,56 @@
       "ranAway": false,
       "resumed": false
     },
+    "decisions: the round after a reviewer's stated round is that round plus one, in the next reviewer's label and the main-moved log": {
+      "calls": [
+        "main|survey|null|null|haiku|low|survey|Survey|d7e8ad299a422606|ade1795a34e5b33b|0|0",
+        "main|build|001|1|opus|medium|build #001|Build|62fd595ac3d04a90|b2aa9b83f09f2d8f|1|0",
+        "main|review|001|1|opus|medium|review 1 #001|Review|2b058569dd2533cb|cf66cfd6a4335b19|2|0",
+        "main|review|001|2|opus|medium|review 4 #001|Review|2b058569dd2533cb|9042080788ec8508|3|1"
+      ],
+      "phasesEntered": [
+        "main|Survey",
+        "main|Build"
+      ],
+      "logs": [
+        "#001: the main line moved and the reviewer did not finish the release; round 4 takes it.",
+        "Done: 1 delivered, 0 parked, 0 findings filed, 4 agents run."
+      ],
+      "racingLogs": [],
+      "relaunchLogs": [],
+      "summaryJson": "{\"delivered\":[\"001\"],\"parked\":[],\"findingsFiled\":[],\"agentsRun\":4}",
+      "racingSummaryJson": "null",
+      "relaunchSummaryJson": "null",
+      "threw": null,
+      "counts": {
+        "mostAgentsAtOnce": 1,
+        "mostAgentsInFlightAtOnce": 1,
+        "mostLiveAgentsAtOnce": 1,
+        "mostAgentsOnBoardAtOnce": 1
+      },
+      "statusSide": {
+        "buildersOnBoard": [
+          "main build 001"
+        ],
+        "slotGaps": [],
+        "rowsRunningAtEnd": [],
+        "rowsPaused": [],
+        "reviewBarsAdded": [
+          "review 001"
+        ],
+        "rereviewsRun": [
+          "rereview 001 round 2"
+        ],
+        "heldTicketIdsReturned": [
+          [],
+          [],
+          [],
+          []
+        ]
+      },
+      "ranAway": false,
+      "resumed": false
+    },
     "decisions: a first does-not-hold sends a fresh builder, and a second parks the ticket": {
       "calls": [
         "main|survey|null|null|haiku|low|survey|Survey|d7e8ad299a422606|ade1795a34e5b33b|0|0",
@@ -1543,6 +1656,50 @@
         "rereviewsRun": [],
         "heldTicketIdsReturned": [
           [],
+          [],
+          []
+        ]
+      },
+      "ranAway": false,
+      "resumed": false
+    },
+    "decisions: the log of tickets left for the user's go names the queued reviews before the queued rebuilds": {
+      "calls": [
+        "main|survey|null|null|haiku|low|survey|Survey|d7e8ad299a422606|ade1795a34e5b33b|0|0",
+        "main|review|007|1|opus|medium|review 1 #007|Review|2b058569dd2533cb|1941be2e0ccdf823|1|0"
+      ],
+      "phasesEntered": [
+        "main|Survey",
+        "main|Build"
+      ],
+      "logs": [
+        "#007: the review found it does not hold; a fresh agent takes it.",
+        "The board is stopped: no new agent starts, and the 0 in flight finish.",
+        "Left for the user's go: #008, #007.",
+        "Done: 0 delivered, 0 parked, 0 findings filed, 2 agents run."
+      ],
+      "racingLogs": [],
+      "relaunchLogs": [],
+      "summaryJson": "{\"delivered\":[],\"parked\":[],\"findingsFiled\":[],\"agentsRun\":2,\"stoppedByBoard\":true,\"reviewsLeft\":[\"008\"]}",
+      "racingSummaryJson": "null",
+      "relaunchSummaryJson": "null",
+      "threw": null,
+      "counts": {
+        "mostAgentsAtOnce": 1,
+        "mostAgentsInFlightAtOnce": 1,
+        "mostLiveAgentsAtOnce": 1,
+        "mostAgentsOnBoardAtOnce": 1
+      },
+      "statusSide": {
+        "buildersOnBoard": [],
+        "slotGaps": [],
+        "rowsRunningAtEnd": [],
+        "rowsPaused": [],
+        "reviewBarsAdded": [
+          "review 007"
+        ],
+        "rereviewsRun": [],
+        "heldTicketIdsReturned": [
           [],
           []
         ]
@@ -2892,6 +3049,59 @@
       "ranAway": false,
       "resumed": false
     },
+    "decisions: the closing log names the low tickets left for triage before the held ones": {
+      "calls": [
+        "main|survey|null|null|haiku|low|survey|Survey|d7e8ad299a422606|ade1795a34e5b33b|0|0",
+        "main|build|001|1|opus|medium|build #001|Build|62fd595ac3d04a90|b2aa9b83f09f2d8f|1|0",
+        "main|review|001|1|opus|medium|review 1 #001|Review|2b058569dd2533cb|cf66cfd6a4335b19|2|0"
+      ],
+      "phasesEntered": [
+        "main|Survey",
+        "main|Build"
+      ],
+      "logs": [
+        "Left for the orchestrator's triage, low priority: #002.",
+        "Held, for the next run once unheld: #003 (build).",
+        "Done: 1 delivered, 0 parked, 0 findings filed, 3 agents run."
+      ],
+      "racingLogs": [],
+      "relaunchLogs": [],
+      "summaryJson": "{\"delivered\":[\"001\"],\"parked\":[],\"findingsFiled\":[],\"agentsRun\":3,\"lowPriorityWaiting\":[\"002\"],\"held\":[{\"id\":\"003\",\"waitingFor\":\"build\"}]}",
+      "racingSummaryJson": "null",
+      "relaunchSummaryJson": "null",
+      "threw": null,
+      "counts": {
+        "mostAgentsAtOnce": 1,
+        "mostAgentsInFlightAtOnce": 1,
+        "mostLiveAgentsAtOnce": 1,
+        "mostAgentsOnBoardAtOnce": 1
+      },
+      "statusSide": {
+        "buildersOnBoard": [
+          "main build 001"
+        ],
+        "slotGaps": [],
+        "rowsRunningAtEnd": [],
+        "rowsPaused": [],
+        "reviewBarsAdded": [
+          "review 001"
+        ],
+        "rereviewsRun": [],
+        "heldTicketIdsReturned": [
+          [
+            "003"
+          ],
+          [
+            "003"
+          ],
+          [
+            "003"
+          ]
+        ]
+      },
+      "ranAway": false,
+      "resumed": false
+    },
     "decisions: every builder moves its ticket to review with --start-review, so no claim from elsewhere finds its slot free before the reviewer starts": {
       "calls": [
         "main|survey|null|null|haiku|low|survey|Survey|d7e8ad299a422606|ade1795a34e5b33b|0|0",
@@ -3113,6 +3323,68 @@
         "heldTicketIdsReturned": [
           [],
           [],
+          [],
+          [],
+          [],
+          [],
+          [],
+          [],
+          [],
+          []
+        ]
+      },
+      "ranAway": false,
+      "resumed": false
+    },
+    "decisions: a status block without the running rows still counts the bar a reviewer left for the next round as the run's own, so that round starts on the next block": {
+      "calls": [
+        "main|survey|null|null|haiku|low|survey|Survey|d7e8ad299a422606|ade1795a34e5b33b|0|0",
+        "main|build|001|1|opus|medium|build #001|Build|62fd595ac3d04a90|b2aa9b83f09f2d8f|1|0",
+        "main|build|002|1|opus|medium|build #002|Build|62fd595ac3d04a90|7c7d2ce36146ce52|1|0",
+        "main|review|001|1|opus|medium|review 1 #001|Review|2b058569dd2533cb|cf66cfd6a4335b19|3|0",
+        "main|review|002|1|opus|medium|review 1 #002|Review|2b058569dd2533cb|25bd2f7f3e8717d3|3|0",
+        "main|review|001|2|opus|medium|review 2 #001|Review|2b058569dd2533cb|3a10744e6f50550f|4|1",
+        "main|build|003|1|opus|medium|build #003|Build|62fd595ac3d04a90|cafb0999fb8016d1|5|1",
+        "main|review|003|1|opus|medium|review 1 #003|Review|2b058569dd2533cb|2e668045159fdf64|7|1"
+      ],
+      "phasesEntered": [
+        "main|Survey",
+        "main|Build"
+      ],
+      "logs": [
+        "#001: round 2 granted at 900 reworked lines.",
+        "Done: 3 delivered, 0 parked, 0 findings filed, 8 agents run."
+      ],
+      "racingLogs": [],
+      "relaunchLogs": [],
+      "summaryJson": "{\"delivered\":[\"002\",\"001\",\"003\"],\"parked\":[],\"findingsFiled\":[],\"agentsRun\":8}",
+      "racingSummaryJson": "null",
+      "relaunchSummaryJson": "null",
+      "threw": null,
+      "counts": {
+        "mostAgentsAtOnce": 2,
+        "mostAgentsInFlightAtOnce": 2,
+        "mostLiveAgentsAtOnce": 2,
+        "mostAgentsOnBoardAtOnce": 2
+      },
+      "statusSide": {
+        "buildersOnBoard": [
+          "main build 001",
+          "main build 002",
+          "main build 003"
+        ],
+        "slotGaps": [],
+        "rowsRunningAtEnd": [],
+        "rowsPaused": [],
+        "reviewBarsAdded": [
+          "review 001",
+          "review 002",
+          "review 003"
+        ],
+        "rereviewsRun": [
+          "rereview 001 round 2"
+        ],
+        "heldTicketIdsReturned": [
           [],
           [],
           [],
@@ -3779,6 +4051,63 @@
           [],
           [],
           [],
+          [],
+          [],
+          []
+        ]
+      },
+      "ranAway": false,
+      "resumed": false
+    },
+    "decisions: a parking agent returning nothing counts toward the outage: with the next builder dead too, the run stops without a second builder": {
+      "calls": [
+        "main|survey|null|null|haiku|low|survey|Survey|d7e8ad299a422606|ade1795a34e5b33b|0|0",
+        "main|build|001|1|opus|medium|build #001|Build|62fd595ac3d04a90|b2aa9b83f09f2d8f|1|0",
+        "main|review|001|1|opus|medium|review 1 #001|Review|2b058569dd2533cb|cf66cfd6a4335b19|2|0",
+        "main|park|001|1|haiku|low|park #001|Park|f9555643a76d8af3|3df13b7971c6c969|3|1",
+        "main|build|002|1|opus|medium|build #002|Build|62fd595ac3d04a90|7c7d2ce36146ce52|3|2",
+        "main|park|002|1|haiku|low|park #002|Park|f9555643a76d8af3|8a52f623f9a15541|3|3"
+      ],
+      "phasesEntered": [
+        "main|Survey",
+        "main|Build",
+        "main|Park"
+      ],
+      "logs": [
+        "#001 parked: the release was refused: merge-refused.",
+        "#001: the parking agent returned nothing, so its row may still be running and count against the limit until it is paused by hand.",
+        "2 agents in a row returned nothing, a session limit or a lost connection: no new agent starts, and the 0 in flight finish.",
+        "#002: the parking agent returned nothing, so its row may still be running and count against the limit until it is paused by hand.",
+        "Left for the user's go: #002.",
+        "Done: 0 delivered, 1 parked (#001), 0 findings filed, 6 agents run."
+      ],
+      "racingLogs": [],
+      "relaunchLogs": [],
+      "summaryJson": "{\"delivered\":[],\"parked\":[{\"id\":\"001\",\"reason\":\"the release was refused: merge-refused\"}],\"findingsFiled\":[],\"agentsRun\":6,\"stoppedByFailures\":true,\"pausedBuilds\":[\"002\"]}",
+      "racingSummaryJson": "null",
+      "relaunchSummaryJson": "null",
+      "threw": null,
+      "counts": {
+        "mostAgentsAtOnce": 1,
+        "mostAgentsInFlightAtOnce": 1,
+        "mostLiveAgentsAtOnce": 1,
+        "mostAgentsOnBoardAtOnce": 1
+      },
+      "statusSide": {
+        "buildersOnBoard": [
+          "main build 001",
+          "main build 002"
+        ],
+        "slotGaps": [],
+        "rowsRunningAtEnd": [],
+        "rowsPaused": [
+          "build 002"
+        ],
+        "reviewBarsAdded": [
+          "review 001"
+        ],
+        "rereviewsRun": [],
+        "heldTicketIdsReturned": [
           [],
           [],
           []
@@ -4964,6 +5293,78 @@
       "ranAway": false,
       "resumed": false
     },
+    "holds: a paused rebuild held again while queued keeps its paused row, and a stop that ends the run after its unhold names it in pausedBuilds": {
+      "calls": [
+        "main|survey|null|null|haiku|low|survey|Survey|d7e8ad299a422606|ade1795a34e5b33b|0|0",
+        "main|build|001|1|opus|medium|build #001|Build|62fd595ac3d04a90|b2aa9b83f09f2d8f|1|0",
+        "main|build|002|1|opus|medium|build #002|Build|62fd595ac3d04a90|7c7d2ce36146ce52|1|0",
+        "main|park|001|1|haiku|low|park #001|Park|f9555643a76d8af3|490fe629ed026288|2|2",
+        "main|review|002|1|opus|medium|review 1 #002|Review|2b058569dd2533cb|25bd2f7f3e8717d3|4|3",
+        "main|build|003|1|opus|medium|build #003|Build|62fd595ac3d04a90|cafb0999fb8016d1|5|4",
+        "main|park|003|1|haiku|low|park #003|Park|f9555643a76d8af3|02c5e9b050c29a4b|6|6"
+      ],
+      "phasesEntered": [
+        "main|Survey",
+        "main|Build",
+        "main|Park"
+      ],
+      "logs": [
+        "#001: the builder did not reach review; a fresh agent takes it.",
+        "#001 is held: its build waits for `agent-progress ticket unhold 001`.",
+        "#001 is no longer held: its build starts.",
+        "#001 is held: its build waits for `agent-progress ticket unhold 001`.",
+        "#001 is no longer held: its build starts.",
+        "The board is stopped: no new agent starts, and the 0 in flight finish.",
+        "Left for the user's go: #003, #001.",
+        "Done: 1 delivered, 0 parked, 0 findings filed, 7 agents run."
+      ],
+      "racingLogs": [],
+      "relaunchLogs": [],
+      "summaryJson": "{\"delivered\":[\"002\"],\"parked\":[],\"findingsFiled\":[],\"agentsRun\":7,\"stoppedByBoard\":true,\"pausedBuilds\":[\"001\"],\"reviewsLeft\":[\"003\"]}",
+      "racingSummaryJson": "null",
+      "relaunchSummaryJson": "null",
+      "threw": null,
+      "counts": {
+        "mostAgentsAtOnce": 2,
+        "mostAgentsInFlightAtOnce": 2,
+        "mostLiveAgentsAtOnce": 2,
+        "mostAgentsOnBoardAtOnce": 2
+      },
+      "statusSide": {
+        "buildersOnBoard": [
+          "main build 001",
+          "main build 002",
+          "main build 003"
+        ],
+        "slotGaps": [],
+        "rowsRunningAtEnd": [],
+        "rowsPaused": [
+          "build 001"
+        ],
+        "reviewBarsAdded": [
+          "review 002",
+          "review 003"
+        ],
+        "rereviewsRun": [],
+        "heldTicketIdsReturned": [
+          [],
+          [
+            "001"
+          ],
+          [
+            "001"
+          ],
+          [],
+          [
+            "001"
+          ],
+          [],
+          []
+        ]
+      },
+      "ranAway": false,
+      "resumed": false
+    },
     "holds: a held review takeover unheld later no longer counts as a bar handed on, so a status block without its in-progress rows does not free its slot": {
       "calls": [
         "main|survey|null|null|haiku|low|survey|Survey|d7e8ad299a422606|ade1795a34e5b33b|0|0",
@@ -5119,6 +5520,162 @@
           [
             "008",
             "001"
+          ]
+        ]
+      },
+      "ranAway": false,
+      "resumed": false
+    },
+    "holds: a queued review is listed under held before a queued rebuild": {
+      "calls": [
+        "main|survey|null|null|haiku|low|survey|Survey|d7e8ad299a422606|ade1795a34e5b33b|0|0",
+        "main|review|007|1|opus|medium|review 1 #007|Review|2b058569dd2533cb|1941be2e0ccdf823|1|0"
+      ],
+      "phasesEntered": [
+        "main|Survey",
+        "main|Build"
+      ],
+      "logs": [
+        "#007: the review found it does not hold; a fresh agent takes it.",
+        "The board is stopped: no new agent starts, and the 0 in flight finish.",
+        "Held, for the next run once unheld: #008 (review), #007 (build).",
+        "Done: 0 delivered, 0 parked, 0 findings filed, 2 agents run."
+      ],
+      "racingLogs": [],
+      "relaunchLogs": [],
+      "summaryJson": "{\"delivered\":[],\"parked\":[],\"findingsFiled\":[],\"agentsRun\":2,\"stoppedByBoard\":true,\"held\":[{\"id\":\"008\",\"waitingFor\":\"review\"},{\"id\":\"007\",\"waitingFor\":\"build\"}]}",
+      "racingSummaryJson": "null",
+      "relaunchSummaryJson": "null",
+      "threw": null,
+      "counts": {
+        "mostAgentsAtOnce": 1,
+        "mostAgentsInFlightAtOnce": 1,
+        "mostLiveAgentsAtOnce": 1,
+        "mostAgentsOnBoardAtOnce": 1
+      },
+      "statusSide": {
+        "buildersOnBoard": [],
+        "slotGaps": [],
+        "rowsRunningAtEnd": [],
+        "rowsPaused": [],
+        "reviewBarsAdded": [
+          "review 007"
+        ],
+        "rereviewsRun": [],
+        "heldTicketIdsReturned": [
+          [],
+          [
+            "007",
+            "008"
+          ]
+        ]
+      },
+      "ranAway": false,
+      "resumed": false
+    },
+    "holds: held-back work is listed under held before a takeover still waiting": {
+      "calls": [
+        "main|survey|null|null|haiku|low|survey|Survey|d7e8ad299a422606|ade1795a34e5b33b|0|0",
+        "main|build|001|1|opus|medium|build #001|Build|62fd595ac3d04a90|b2aa9b83f09f2d8f|1|1",
+        "main|park|001|1|haiku|low|park #001|Park|f9555643a76d8af3|e785af2db661dc7a|2|2"
+      ],
+      "phasesEntered": [
+        "main|Survey",
+        "main|Build",
+        "main|Park"
+      ],
+      "logs": [
+        "#007 is held: its review waits for `agent-progress ticket unhold 007`.",
+        "The board is stopped: no new agent starts, and the 0 in flight finish.",
+        "Held, for the next run once unheld: #007 (review), #001 (review).",
+        "Done: 0 delivered, 0 parked, 0 findings filed, 3 agents run."
+      ],
+      "racingLogs": [],
+      "relaunchLogs": [],
+      "summaryJson": "{\"delivered\":[],\"parked\":[],\"findingsFiled\":[],\"agentsRun\":3,\"stoppedByBoard\":true,\"held\":[{\"id\":\"007\",\"waitingFor\":\"review\"},{\"id\":\"001\",\"waitingFor\":\"review\"}]}",
+      "racingSummaryJson": "null",
+      "relaunchSummaryJson": "null",
+      "threw": null,
+      "counts": {
+        "mostAgentsAtOnce": 1,
+        "mostAgentsInFlightAtOnce": 1,
+        "mostLiveAgentsAtOnce": 1,
+        "mostAgentsOnBoardAtOnce": 1
+      },
+      "statusSide": {
+        "buildersOnBoard": [
+          "main build 001"
+        ],
+        "slotGaps": [],
+        "rowsRunningAtEnd": [],
+        "rowsPaused": [],
+        "reviewBarsAdded": [
+          "review 001"
+        ],
+        "rereviewsRun": [],
+        "heldTicketIdsReturned": [
+          [
+            "007"
+          ],
+          [
+            "007",
+            "001"
+          ],
+          [
+            "007",
+            "001"
+          ]
+        ]
+      },
+      "ranAway": false,
+      "resumed": false
+    },
+    "holds: a ready ticket the run took, whose claim was refused and which is then held, is not listed under held": {
+      "calls": [
+        "main|survey|null|null|haiku|low|survey|Survey|d7e8ad299a422606|ade1795a34e5b33b|0|0",
+        "main|build|001|1|opus|medium|build #001|Build|62fd595ac3d04a90|b2aa9b83f09f2d8f|1|0",
+        "main|build|002|1|opus|medium|build #002|Build|62fd595ac3d04a90|7c7d2ce36146ce52|1|0",
+        "main|review|001|1|opus|medium|review 1 #001|Review|2b058569dd2533cb|cf66cfd6a4335b19|2|0"
+      ],
+      "phasesEntered": [
+        "main|Survey",
+        "main|Build"
+      ],
+      "logs": [
+        "#002 skipped for this run: the claim was refused (no slot free).",
+        "Done: 1 delivered, 0 parked, 0 findings filed, 4 agents run."
+      ],
+      "racingLogs": [],
+      "relaunchLogs": [],
+      "summaryJson": "{\"delivered\":[\"001\"],\"parked\":[],\"findingsFiled\":[],\"agentsRun\":4}",
+      "racingSummaryJson": "null",
+      "relaunchSummaryJson": "null",
+      "threw": null,
+      "counts": {
+        "mostAgentsAtOnce": 2,
+        "mostAgentsInFlightAtOnce": 2,
+        "mostLiveAgentsAtOnce": 2,
+        "mostAgentsOnBoardAtOnce": 1
+      },
+      "statusSide": {
+        "buildersOnBoard": [
+          "main build 001"
+        ],
+        "slotGaps": [],
+        "rowsRunningAtEnd": [],
+        "rowsPaused": [],
+        "reviewBarsAdded": [
+          "review 001"
+        ],
+        "rereviewsRun": [],
+        "heldTicketIdsReturned": [
+          [],
+          [],
+          [
+            "002"
+          ],
+          [
+            "002"
           ]
         ]
       },
@@ -6146,6 +6703,60 @@
           [],
           [],
           [],
+          []
+        ]
+      },
+      "ranAway": false,
+      "resumed": false
+    },
+    "resumption: pausedBuilds names an unheld rebuild whose row the hold paused before a paused build the run never took": {
+      "calls": [
+        "main|survey|null|null|haiku|low|survey|Survey|d7e8ad299a422606|ade1795a34e5b33b|0|0",
+        "main|build|001|1|opus|medium|build #001|Build|62fd595ac3d04a90|b2aa9b83f09f2d8f|1|0",
+        "main|park|001|1|haiku|low|park #001|Park|f9555643a76d8af3|490fe629ed026288|2|2"
+      ],
+      "phasesEntered": [
+        "main|Survey",
+        "main|Build"
+      ],
+      "logs": [
+        "#001: the builder did not reach review; a fresh agent takes it.",
+        "#001 is held: its build waits for `agent-progress ticket unhold 001`.",
+        "#001 is no longer held: its build starts.",
+        "The board is stopped: no new agent starts, and the 0 in flight finish.",
+        "Left for the user's go: #001.",
+        "Left for the orchestrator's triage, low priority: #004.",
+        "Done: 0 delivered, 0 parked, 0 findings filed, 3 agents run."
+      ],
+      "racingLogs": [],
+      "relaunchLogs": [],
+      "summaryJson": "{\"delivered\":[],\"parked\":[],\"findingsFiled\":[],\"agentsRun\":3,\"stoppedByBoard\":true,\"lowPriorityWaiting\":[\"004\"],\"pausedBuilds\":[\"001\",\"004\"]}",
+      "racingSummaryJson": "null",
+      "relaunchSummaryJson": "null",
+      "threw": null,
+      "counts": {
+        "mostAgentsAtOnce": 1,
+        "mostAgentsInFlightAtOnce": 1,
+        "mostLiveAgentsAtOnce": 1,
+        "mostAgentsOnBoardAtOnce": 1
+      },
+      "statusSide": {
+        "buildersOnBoard": [
+          "main build 001"
+        ],
+        "slotGaps": [],
+        "rowsRunningAtEnd": [],
+        "rowsPaused": [
+          "build 004",
+          "build 001"
+        ],
+        "reviewBarsAdded": [],
+        "rereviewsRun": [],
+        "heldTicketIdsReturned": [
+          [],
+          [
+            "001"
+          ],
           []
         ]
       },
@@ -10312,6 +10923,52 @@
       "ranAway": false,
       "resumed": false
     },
+    "lever: builder status null": {
+      "calls": [
+        "main|survey|null|null|haiku|low|survey|Survey|d7e8ad299a422606|ade1795a34e5b33b|0|0",
+        "main|build|001|1|opus|medium|build #001|Build|62fd595ac3d04a90|b2aa9b83f09f2d8f|1|0",
+        "main|review|001|1|opus|medium|review 1 #001|Review|2b058569dd2533cb|cf66cfd6a4335b19|2|0"
+      ],
+      "phasesEntered": [
+        "main|Survey",
+        "main|Build"
+      ],
+      "logs": [
+        "Left for the orchestrator's triage, low priority: #002.",
+        "Done: 1 delivered, 0 parked, 0 findings filed, 3 agents run."
+      ],
+      "racingLogs": [],
+      "relaunchLogs": [],
+      "summaryJson": "{\"delivered\":[\"001\"],\"parked\":[],\"findingsFiled\":[],\"agentsRun\":3,\"lowPriorityWaiting\":[\"002\"]}",
+      "racingSummaryJson": "null",
+      "relaunchSummaryJson": "null",
+      "threw": null,
+      "counts": {
+        "mostAgentsAtOnce": 1,
+        "mostAgentsInFlightAtOnce": 1,
+        "mostLiveAgentsAtOnce": 1,
+        "mostAgentsOnBoardAtOnce": 1
+      },
+      "statusSide": {
+        "buildersOnBoard": [
+          "main build 001"
+        ],
+        "slotGaps": [],
+        "rowsRunningAtEnd": [],
+        "rowsPaused": [],
+        "reviewBarsAdded": [
+          "review 001"
+        ],
+        "rereviewsRun": [],
+        "heldTicketIdsReturned": [
+          [],
+          [],
+          []
+        ]
+      },
+      "ranAway": false,
+      "resumed": false
+    },
     "lever: paused builds null": {
       "calls": [
         "main|survey|null|null|haiku|low|survey|Survey|d7e8ad299a422606|ade1795a34e5b33b|0|0"
@@ -10537,6 +11194,7 @@
     "b38ecd170d8db2a5": "agent-progress ticket: 009\nWorktree: /scratch/example-repository/.claude/worktrees/ticket-009   Branch: ticket-009   Main checkout: /scratch/example-repository   Main line: main\nYou build ticket #009 for the agent-progress dispatcher, alone: one ticket, one agent.\nFIRST command, before anything else: `agent-progress ticket claim 009 --owner opus --note \"Built by the ticket-009 dispatcher run on ticket-009\"`. If it exits 1 saying the ticket is in-progress, read the `note` of the ticket's row (the `task` of `agent-progress ticket show 009 --json`, in `agent-progress status --json --full`). When that note is exactly \"Built by the ticket-009 dispatcher run on ticket-009\" and /scratch/example-repository/.claude/worktrees/ticket-009 exists, the claim is this run's own: an earlier attempt at this ticket made it, a builder of this run that stopped short, or this very builder before the runtime restarted or resumed it. Carry on in that worktree, keeping every uncommitted edit it holds. This run was launched for this ticket alone: when the note is instead another dispatcher run's claim, beginning \"Built by the \" and ending \" dispatcher run on ticket-009\", the row is `paused` and /scratch/example-repository/.claude/worktrees/ticket-009 exists, a hold or a stop left that build paused, and it is this run's to take over in the same way. When the row you carry on past is `paused` rather than `in-progress`, resume it first with `agent-progress task start <that row> --note \"Built by the ticket-009 dispatcher run on ticket-009\"`, so your build holds its slot under this run's claim. On any other refusal, stop at once and return outcome `claim-refused` with its message verbatim as `detail` and, when it was refused as in-progress, that row's note as `claimNote`.\nThen the worktree: when /scratch/example-repository/.claude/worktrees/ticket-009 exists, reuse it as it stands, since it holds an earlier pass's commits and edits; start from `git -C /scratch/example-repository/.claude/worktrees/ticket-009 status`. Otherwise `git -C /scratch/example-repository worktree add /scratch/example-repository/.claude/worktrees/ticket-009 -b ticket-009 main`, dropping `-b` when the branch already exists.\nEverything you do happens in that worktree: every edit, every command, every commit, git as `git -C <worktree>`. Your working directory may be the main checkout; it is not yours to touch.\nThe task is the ticket: `agent-progress ticket show 009` prints it. Its `## Brief` section, when it has one, is your brief; otherwise Report, Wanted and Acceptance are, and the files they name are where the work belongs.\nRead `/scratch/example-repository/.agent-progress/agent-brief.md` once and follow its fenced blocks under Call discipline, Stop conditions, Find and fix, Ready to merge and Report, with <worktree> = /scratch/example-repository/.claude/worktrees/ticket-009, <branch> = ticket-009, <main line> = main, <main checkout> = /scratch/example-repository and <full check command> = `example-check`. The Scope, Contract, Browser loop and Review brief blocks are not yours.\nDo not `cat` any CLAUDE.md.\nStop when the Acceptance block is satisfied, or at about 150 API calls, whichever is first.\nClose as Ready to merge says, append the `## Handoff`, then run `agent-progress ticket finish 009 --start-review --owner opus --note \"Reviewed by the ticket-009 dispatcher run on ticket-009\"`. Never merge ticket-009 into main and never run `agent-progress release`: the release is the reviewer's.\nReturn outcome `in-review` when `ticket finish` succeeded and `failed` otherwise, with your report as `detail` and `claimNote` empty unless your claim was refused as in-progress. As your very last act run `agent-progress status --json` and return its `concurrency` block as `status`, adding `inProgressTicketIds` (the `ticket` of every `in-progress` task that has one), `inProgressReviewOfIds` (the `reviewOf` of every `in-progress` task that has one) and `readyTickets` (the same document's top-level `readyTickets` list, verbatim), so the dispatcher acts on the newest board.",
     "7a309046195f449f": "agent-progress review: 009\nWorktree: /scratch/example-repository/.claude/worktrees/ticket-009   Branch: ticket-009   Main checkout: /scratch/example-repository   Main line: main\nYou are a clean reviewer of ticket #009 for the agent-progress dispatcher, round 1 as the dispatcher counts it. Your round is the number of `## Review` sections already in the ticket plus one; return it as `round`.\nThen your bar. When `agent-progress status --json` shows an `in-progress` row whose `reviewOf` is 009, it is this review's own, left by an earlier reviewer of this run, by the builder's `--start-review` or by this very reviewer before the runtime restarted or resumed it: take it as your bar and add none. Otherwise add your own: `agent-progress task add \"Review <round> #009 — <ticket title>\" --review-of 009 --owner opus --note \"Reviewed by the ticket-009 dispatcher run on ticket-009\" --start`, the title from `agent-progress ticket show 009`. Your bar takes the place of the brief's `agent-progress row:` line; the review line above carries your tokens to it.\nRead `/scratch/example-repository/.agent-progress/agent-brief.md` once and follow the fenced block under `## Review brief` as your whole procedure, steps 0 to 8, with <worktree> = /scratch/example-repository/.claude/worktrees/ticket-009, <branch> = ticket-009, <main line> = main, <main checkout> = /scratch/example-repository and <full check command> = `example-check`. Step 0 reads the diff first; you fix only what you review.\nYou may use up to about 75 API calls.\nEvery finding you would hand on instead of fixing, you file yourself: `agent-progress ticket add \"<what and where>\" --priority low --body \"<what you saw and what you would do>\"`; return the ids it printed as `filedTicketIds`.\nStep 7b is a count: request the next round only when over 750 lines of code were reworked. Whether that round runs is the dispatcher's decision.\nA release refused with `main-moved` is yours to handle, as step 8 says. On `round-requested`, and on `not-released` for `main-moved`, leave your bar running: the next round's `ticket rereview --start-review` closes it, so the ticket's slot stays held. On every other verdict than released, close your own bar: `agent-progress task finish <bar>`, then `agent-progress task deliver <bar>`.\nReturn `verdict` (released, round-requested, does-not-hold or not-released), `releaseReason` (the release's reason when not-released, empty otherwise), `reworkedLines` (both rework counts together), `findings` (every finding of this round, each with a one-word `class`, its `file` and a one-line `summary`), and `filedTicketIds`. As your very last act run `agent-progress status --json` and return its `concurrency` block as `status`, adding `inProgressTicketIds` (the `ticket` of every `in-progress` task that has one), `inProgressReviewOfIds` (the `reviewOf` of every `in-progress` task that has one) and `readyTickets` (the same document's top-level `readyTickets` list, verbatim), so the dispatcher acts on the newest board.",
     "02c5e9b050c29a4b": "agent-progress park: 003\nYou close the rows of ticket #003 that no agent of the agent-progress dispatcher works on any more, in /scratch/example-repository. Judge nothing and change no file.\n1. `agent-progress ticket show 003 --json`: its `task` field is the ticket's row. When `agent-progress status --json --full` shows that row `in-progress`, run `agent-progress task pause <that row>`.\n2. Every `in-progress` row of that status whose `reviewOf` is 003 is a review bar nobody works on: close it with `agent-progress task finish <that row>`, then `agent-progress task deliver <that row>`.\n3. `agent-progress log \"Paused the row of #003: left for the user's go\"`.\nAs your very last act run `agent-progress status --json` and return its `concurrency` block as `status`, adding `inProgressTicketIds` (the `ticket` of every `in-progress` task that has one), `inProgressReviewOfIds` (the `reviewOf` of every `in-progress` task that has one) and `readyTickets` (the same document's top-level `readyTickets` list, verbatim), so the dispatcher acts on the newest board.",
+    "3df13b7971c6c969": "agent-progress park: 001\nYou close the rows of ticket #001 that no agent of the agent-progress dispatcher works on any more, in /scratch/example-repository. Judge nothing and change no file.\n1. `agent-progress ticket show 001 --json`: its `task` field is the ticket's row. When `agent-progress status --json --full` shows that row `in-progress`, run `agent-progress task pause <that row>`.\n2. Every `in-progress` row of that status whose `reviewOf` is 001 is a review bar nobody works on: close it with `agent-progress task finish <that row>`, then `agent-progress task deliver <that row>`.\n3. `agent-progress log \"Parked #001: the release was refused: merge-refused\"`.\nAs your very last act run `agent-progress status --json` and return its `concurrency` block as `status`, adding `inProgressTicketIds` (the `ticket` of every `in-progress` task that has one), `inProgressReviewOfIds` (the `reviewOf` of every `in-progress` task that has one) and `readyTickets` (the same document's top-level `readyTickets` list, verbatim), so the dispatcher acts on the newest board.",
     "32d045bf7aaffb44": "agent-progress park: 001\nYou close the rows of ticket #001 that no agent of the agent-progress dispatcher works on any more, in /scratch/example-repository. Judge nothing and change no file.\n1. `agent-progress ticket show 001 --json`: its `task` field is the ticket's row. When `agent-progress status --json --full` shows that row `in-progress`, run `agent-progress task pause <that row>`.\n2. Every `in-progress` row of that status whose `reviewOf` is 001 is a review bar nobody works on: close it with `agent-progress task finish <that row>`, then `agent-progress task deliver <that row>`.\n3. `agent-progress log \"Parked #001: the builder returned no result, the second failed pass\"`.\nAs your very last act run `agent-progress status --json` and return its `concurrency` block as `status`, adding `inProgressTicketIds` (the `ticket` of every `in-progress` task that has one), `inProgressReviewOfIds` (the `reviewOf` of every `in-progress` task that has one) and `readyTickets` (the same document's top-level `readyTickets` list, verbatim), so the dispatcher acts on the newest board.",
     "6122286b0575ed46": "agent-progress ticket: 002\nWorktree: /scratch/example-repository/.claude/worktrees/ticket-002   Branch: ticket-002   Main checkout: /scratch/example-repository   Main line: main\nYou build ticket #002 for the agent-progress dispatcher, alone: one ticket, one agent.\nFIRST command, before anything else: `agent-progress ticket claim 002 --owner opus --note \"Built by the whole-board dispatcher run on ticket-002\"`. If it exits 1 saying the ticket is in-progress, read the `note` of the ticket's row (the `task` of `agent-progress ticket show 002 --json`, in `agent-progress status --json --full`). When that note is exactly \"Built by the whole-board dispatcher run on ticket-002\" and /scratch/example-repository/.claude/worktrees/ticket-002 exists, the claim is this run's own: an earlier attempt at this ticket made it, a builder of this run that stopped short, or this very builder before the runtime restarted or resumed it. Carry on in that worktree, keeping every uncommitted edit it holds. When the row you carry on past is `paused` rather than `in-progress`, resume it first with `agent-progress task start <that row> --note \"Built by the whole-board dispatcher run on ticket-002\"`, so your build holds its slot under this run's claim. On any other refusal, stop at once and return outcome `claim-refused` with its message verbatim as `detail` and, when it was refused as in-progress, that row's note as `claimNote`.\nThen the worktree: when /scratch/example-repository/.claude/worktrees/ticket-002 exists, reuse it as it stands, since it holds an earlier pass's commits and edits; start from `git -C /scratch/example-repository/.claude/worktrees/ticket-002 status`. Otherwise `git -C /scratch/example-repository worktree add /scratch/example-repository/.claude/worktrees/ticket-002 -b ticket-002 main`, dropping `-b` when the branch already exists.\nEverything you do happens in that worktree: every edit, every command, every commit, git as `git -C <worktree>`. Your working directory may be the main checkout; it is not yours to touch.\nThe task is the ticket: `agent-progress ticket show 002` prints it. Its `## Brief` section, when it has one, is your brief; otherwise Report, Wanted and Acceptance are, and the files they name are where the work belongs.\nAn earlier builder of this run stopped before review: the worktree holds whatever it committed, and your work continues from there.\nRead `/scratch/example-repository/.agent-progress/agent-brief.md` once and follow its fenced blocks under Call discipline, Stop conditions, Find and fix, Ready to merge and Report, with <worktree> = /scratch/example-repository/.claude/worktrees/ticket-002, <branch> = ticket-002, <main line> = main, <main checkout> = /scratch/example-repository and <full check command> = `example-check`. The Scope, Contract, Browser loop and Review brief blocks are not yours.\nDo not `cat` any CLAUDE.md.\nStop when the Acceptance block is satisfied, or at about 150 API calls, whichever is first.\nClose as Ready to merge says, append the `## Handoff`, then run `agent-progress ticket finish 002 --start-review --owner opus --note \"Reviewed by the whole-board dispatcher run on ticket-002\"`. Never merge ticket-002 into main and never run `agent-progress release`: the release is the reviewer's.\nReturn outcome `in-review` when `ticket finish` succeeded and `failed` otherwise, with your report as `detail` and `claimNote` empty unless your claim was refused as in-progress. As your very last act run `agent-progress status --json` and return its `concurrency` block as `status`, adding `inProgressTicketIds` (the `ticket` of every `in-progress` task that has one), `inProgressReviewOfIds` (the `reviewOf` of every `in-progress` task that has one) and `readyTickets` (the same document's top-level `readyTickets` list, verbatim), so the dispatcher acts on the newest board.",
     "8f2bbb4ebab4717e": "agent-progress settings: 001\nFor each of the tickets 001, run `agent-progress ticket show <id> --json` once, in /scratch/example-repository, and make no other call. Judge nothing; return `tickets`: one `{ id, model, effort }` per ticket, with `model` and `effort` copied from its document and left out where it has none.",
@@ -10573,7 +11231,6 @@
     "2e2262eb5c7e526b": "agent-progress review: 003\nWorktree: /scratch/example-repository/.claude/worktrees/ticket-003   Branch: ticket-003   Main checkout: /scratch/example-repository   Main line: main\nYou are a clean reviewer of ticket #003 for the agent-progress dispatcher, round 2 as the dispatcher counts it. Your round is the number of `## Review` sections already in the ticket plus one; return it as `round`.\nThen your bar. When `agent-progress status --json` shows an `in-progress` row whose `reviewOf` is 003, it is this review's own, left by an earlier reviewer of this run, by the builder's `--start-review` or by this very reviewer before the runtime restarted or resumed it: take it as your bar and add none. Otherwise add your own: `agent-progress task add \"Review <round> #003 — <ticket title>\" --review-of 003 --owner opus --note \"Reviewed by the whole-board dispatcher run on ticket-003\" --start`, the title from `agent-progress ticket show 003`. Your bar takes the place of the brief's `agent-progress row:` line; the review line above carries your tokens to it.\nRead `/scratch/example-repository/.agent-progress/agent-brief.md` once and follow the fenced block under `## Review brief` as your whole procedure, steps 0 to 8, with <worktree> = /scratch/example-repository/.claude/worktrees/ticket-003, <branch> = ticket-003, <main line> = main, <main checkout> = /scratch/example-repository and <full check command> = `example-check`. Step 0 reads the diff first; you fix only what you review.\nYou may use up to about 75 API calls.\nEvery finding you would hand on instead of fixing, you file yourself: `agent-progress ticket add \"<what and where>\" --priority low --body \"<what you saw and what you would do>\"`; return the ids it printed as `filedTicketIds`.\nStep 7b is a count: request the next round only when over 750 lines of code were reworked. Whether that round runs is the dispatcher's decision.\nA release refused with `main-moved` is yours to handle, as step 8 says. On `round-requested`, and on `not-released` for `main-moved`, leave your bar running: the next round's `ticket rereview --start-review` closes it, so the ticket's slot stays held. On every other verdict than released, close your own bar: `agent-progress task finish <bar>`, then `agent-progress task deliver <bar>`.\nReturn `verdict` (released, round-requested, does-not-hold or not-released), `releaseReason` (the release's reason when not-released, empty otherwise), `reworkedLines` (both rework counts together), `findings` (every finding of this round, each with a one-word `class`, its `file` and a one-line `summary`), and `filedTicketIds`. As your very last act run `agent-progress status --json` and return its `concurrency` block as `status`, adding `inProgressTicketIds` (the `ticket` of every `in-progress` task that has one), `inProgressReviewOfIds` (the `reviewOf` of every `in-progress` task that has one) and `readyTickets` (the same document's top-level `readyTickets` list, verbatim), so the dispatcher acts on the newest board.",
     "cb32f23f54c802d4": "agent-progress park: 003\nYou close the rows of ticket #003 that no agent of the agent-progress dispatcher works on any more, in /scratch/example-repository. Judge nothing and change no file.\n1. `agent-progress ticket show 003 --json`: its `task` field is the ticket's row. When `agent-progress status --json --full` shows that row `in-progress`, run `agent-progress task pause <that row>`.\n2. Every `in-progress` row of that status whose `reviewOf` is 003 is a review bar nobody works on: close it with `agent-progress task finish <that row>`, then `agent-progress task deliver <that row>`.\n3. `agent-progress log \"Parked #003: the review found it does not hold, the second failed pass\"`.\nAs your very last act run `agent-progress status --json` and return its `concurrency` block as `status`, adding `inProgressTicketIds` (the `ticket` of every `in-progress` task that has one), `inProgressReviewOfIds` (the `reviewOf` of every `in-progress` task that has one) and `readyTickets` (the same document's top-level `readyTickets` list, verbatim), so the dispatcher acts on the newest board.",
     "d124e0894b863461": "agent-progress park: 007\nYou close the rows of ticket #007 that no agent of the agent-progress dispatcher works on any more, in /scratch/example-repository. Judge nothing and change no file.\n1. `agent-progress ticket show 007 --json`: its `task` field is the ticket's row. When `agent-progress status --json --full` shows that row `in-progress`, run `agent-progress task pause <that row>`.\n2. Every `in-progress` row of that status whose `reviewOf` is 007 is a review bar nobody works on: close it with `agent-progress task finish <that row>`, then `agent-progress task deliver <that row>`.\n3. `agent-progress log \"Parked #007: the release was refused: merge-refused\"`.\nAs your very last act run `agent-progress status --json` and return its `concurrency` block as `status`, adding `inProgressTicketIds` (the `ticket` of every `in-progress` task that has one), `inProgressReviewOfIds` (the `reviewOf` of every `in-progress` task that has one) and `readyTickets` (the same document's top-level `readyTickets` list, verbatim), so the dispatcher acts on the newest board.",
-    "3df13b7971c6c969": "agent-progress park: 001\nYou close the rows of ticket #001 that no agent of the agent-progress dispatcher works on any more, in /scratch/example-repository. Judge nothing and change no file.\n1. `agent-progress ticket show 001 --json`: its `task` field is the ticket's row. When `agent-progress status --json --full` shows that row `in-progress`, run `agent-progress task pause <that row>`.\n2. Every `in-progress` row of that status whose `reviewOf` is 001 is a review bar nobody works on: close it with `agent-progress task finish <that row>`, then `agent-progress task deliver <that row>`.\n3. `agent-progress log \"Parked #001: the release was refused: merge-refused\"`.\nAs your very last act run `agent-progress status --json` and return its `concurrency` block as `status`, adding `inProgressTicketIds` (the `ticket` of every `in-progress` task that has one), `inProgressReviewOfIds` (the `reviewOf` of every `in-progress` task that has one) and `readyTickets` (the same document's top-level `readyTickets` list, verbatim), so the dispatcher acts on the newest board.",
     "da42602fb8e6274f": "agent-progress park: 002\nYou close the rows of ticket #002 that no agent of the agent-progress dispatcher works on any more, in /scratch/example-repository. Judge nothing and change no file.\n1. `agent-progress ticket show 002 --json`: its `task` field is the ticket's row. When `agent-progress status --json --full` shows that row `in-progress`, run `agent-progress task pause <that row>`.\n2. Every `in-progress` row of that status whose `reviewOf` is 002 is a review bar nobody works on: close it with `agent-progress task finish <that row>`, then `agent-progress task deliver <that row>`.\n3. `agent-progress log \"Parked #002: the release was refused: merge-refused\"`.\nAs your very last act run `agent-progress status --json` and return its `concurrency` block as `status`, adding `inProgressTicketIds` (the `ticket` of every `in-progress` task that has one), `inProgressReviewOfIds` (the `reviewOf` of every `in-progress` task that has one) and `readyTickets` (the same document's top-level `readyTickets` list, verbatim), so the dispatcher acts on the newest board.",
     "f19f3162871f26c2": "agent-progress park: 003\nYou close the rows of ticket #003 that no agent of the agent-progress dispatcher works on any more, in /scratch/example-repository. Judge nothing and change no file.\n1. `agent-progress ticket show 003 --json`: its `task` field is the ticket's row. When `agent-progress status --json --full` shows that row `in-progress`, run `agent-progress task pause <that row>`.\n2. Every `in-progress` row of that status whose `reviewOf` is 003 is a review bar nobody works on: close it with `agent-progress task finish <that row>`, then `agent-progress task deliver <that row>`.\n3. `agent-progress log \"Parked #003: the release was refused: merge-refused\"`.\nAs your very last act run `agent-progress status --json` and return its `concurrency` block as `status`, adding `inProgressTicketIds` (the `ticket` of every `in-progress` task that has one), `inProgressReviewOfIds` (the `reviewOf` of every `in-progress` task that has one) and `readyTickets` (the same document's top-level `readyTickets` list, verbatim), so the dispatcher acts on the newest board.",
     "5c7bf1a12f29a6d4": "agent-progress park: 007\nYou close the rows of ticket #007 that no agent of the agent-progress dispatcher works on any more, in /scratch/example-repository. Judge nothing and change no file.\n1. `agent-progress ticket show 007 --json`: its `task` field is the ticket's row. When `agent-progress status --json --full` shows that row `in-progress`, run `agent-progress task pause <that row>`.\n2. Every `in-progress` row of that status whose `reviewOf` is 007 is a review bar nobody works on: close it with `agent-progress task finish <that row>`, then `agent-progress task deliver <that row>`.\n3. `agent-progress log \"Parked #007: the main line moved under 2 releases\"`.\nAs your very last act run `agent-progress status --json` and return its `concurrency` block as `status`, adding `inProgressTicketIds` (the `ticket` of every `in-progress` task that has one), `inProgressReviewOfIds` (the `reviewOf` of every `in-progress` task that has one) and `readyTickets` (the same document's top-level `readyTickets` list, verbatim), so the dispatcher acts on the newest board.",

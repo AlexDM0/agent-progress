@@ -123,6 +123,7 @@ export const LEVERS_READ_AS_THEIR_BASE = [
   'lever: reviewer round not an integer',
   'lever: paused builds holding a null entry and one without its worktree',
   'lever: builder status without a list of held tickets',
+  'lever: builder status null',
 ] as const;
 
 const PAUSED_BUILD_ON_THE_BOARD: DispatchScenario = { limit: 2, readyTicketIds: [], pausedBuildNotesByTicketId: { '004': EXAMPLE_PAUSED_BUILD_NOTE } };
@@ -220,6 +221,15 @@ const LEVER_ENTRIES: readonly CatalogueEntry[] = [
       readyTicketIds:    ['001', '002'],
       heldTicketIds:     ['002'],
       agentMisbehaviour: misbehaviourOfKind('build', { replacesFields: { status: STATUS_WITHOUT_HELD_TICKET_IDS } }),
+    }),
+  },
+  {
+    key:         'lever: builder status null',
+    scenarioFor: () => ({
+      limit:                2,
+      readyTicketIds:       ['001', '002'],
+      lowPriorityTicketIds: ['002'],
+      agentMisbehaviour:    misbehaviourOfKind('build', { replacesFields: { status: null } }),
     }),
   },
   {

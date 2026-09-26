@@ -131,6 +131,32 @@ function buildersOnBoardOf(run: RecordedDispatchRun, ticketId: string): string {
   return run.buildersOnBoard.filter((builder) => builder.endsWith(`build ${ticketId}`)).join(', ');
 }
 
+/** #007's reviewer finds it does not hold and the board stops, so #007's rebuild and #008's review are both left queued. */
+const STOPPED_WITH_A_REVIEW_AND_A_REBUILD_QUEUED: DispatchScenario = {
+  limit:                  1,
+  readyTicketIds:         [],
+  reviewWaitingTicketIds: ['007', '008'],
+  reviewerReply:          (ticketId) => (ticketId === '007' ? { verdict: 'does-not-hold' } : { verdict: 'released' }),
+  afterAgent:             (call, board) => {
+    if (call.kind === 'review' && call.ticketId === '007') board.dispatcherState = 'stopped';
+  },
+};
+
+/** The block #001's first reviewer returns with its call for round 2; without its bar counted, round 2 would wait for the block after. */
+const SECOND_ROUND_STATUS_BLOCKS_BEFORE_WITH_ITS_BAR_COUNTED = 4;
+
+const STATUS_COUNTING_NONE_IN_FLIGHT_BESIDE_TWO_LISTED_REVIEWS = {
+  limit:                 2,
+  agentsInFlight:        0,
+  freeSlots:             2,
+  readyTicketIds:        ['003', '004'],
+  readyTickets:          [{ id: '003', priority: 'normal' }, { id: '004', priority: 'normal' }],
+  inProgressTicketIds:   [],
+  inProgressReviewOfIds: ['001', '002'],
+  heldTicketIds:         [],
+  dispatcherState:       'running',
+};
+
 const SINGLE_TICKET_RUN_AMONG_OTHERS: DispatchScenario = { limit: 3, readyTicketIds: ['001', '007', '009'], ticketIds: ['007'] };
 
 /** A whole-board run and a single-ticket run for the high ticket #009, launched while the board has room, as the orchestrator's fast lane does. */
@@ -175,6 +201,25 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     scenarioFor: () => ({ limit: 3, otherAgentsInFlight: 1, readyTicketIds: ticketIdsFrom(1, 5) }),
     holds:       (run) => run.mostAgentsAtOnce === 2,
     mutant:      { modulePath: DISPATCH_RUN, find: 'Math.max(0, status.agentsInFlight - ownAgentsConfirmedByStatus)', replace: '0' },
+  },
+  {
+    // A block may list more own rows than its agentsInFlight counts; reading the difference as negative others would free slots the limit lacks.
+    name:        'a status block counting fewer agents in flight than the own rows it lists never opens a slot past the board limit',
+    scenarioFor: () => ({
+      limit:             2,
+      readyTicketIds:    ticketIdsFrom(1, 4),
+      agentMisbehaviour: (call) => (call.kind === 'review' && call.ordinal === 1 && (call.ticketId === '001' || call.ticketId === '002')
+        ? { replacesFields: { status: STATUS_COUNTING_NONE_IN_FLIGHT_BESIDE_TWO_LISTED_REVIEWS } }
+        : undefined),
+    }),
+    holds: (run) => run.mostLiveAgentsAtOnce <= 2
+      && run.mostAgentsAtOnce === 2
+      && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.length === 4,
+    mutant: {
+      modulePath: DISPATCH_RUN,
+      find:       'Math.max(0, status.agentsInFlight - ownAgentsConfirmedByStatus)',
+      replace:    '(status.agentsInFlight - ownAgentsConfirmedByStatus)',
+    },
   },
   {
     // An own agent launched a moment before a status block was taken has not claimed yet: subtracting it too would read a real other agent as free.
@@ -343,6 +388,20 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     },
   },
   {
+    // A review-waiting ticket that already carries reviews states a round above the dispatcher's own count, and the next reviewer continues from it.
+    name:        'the round after a reviewer\'s stated round is that round plus one, in the next reviewer\'s label and the main-moved log',
+    scenarioFor: () => ({
+      limit:             2,
+      readyTicketIds:    ['001'],
+      reviewerReply:     (_ticketId, round) => (round === 1 ? { verdict: 'not-released', releaseReason: 'main-moved' } : { verdict: 'released' }),
+      agentMisbehaviour: (call) => (call.kind === 'review' && call.ordinal === 1 ? { replacesFields: { round: 3 } } : undefined),
+    }),
+    holds: (run) => run.calls.filter((call) => call.kind === 'review' && call.ticketId === '001').map((call) => call.label).join(', ') === 'review 1 #001, review 4 #001'
+      && run.logs.includes('#001: the main line moved and the reviewer did not finish the release; round 4 takes it.')
+      && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.join() === '001',
+    mutant: { modulePath: DISPATCH_RUN, find: 'record.nextRound = round + 1;', replace: 'record.nextRound = work.round + 1;' },
+  },
+  {
     name:        'a first does-not-hold sends a fresh builder, and a second parks the ticket',
     scenarioFor: () => ({ limit: 2, readyTicketIds: ['001'], reviewerReply: () => ({ verdict: 'does-not-hold' }) }),
     holds:       (run) => RecordedDispatchRunUtil.kindsAndTicketsOf(run).join(', ') === 'survey, build 001, review 001, build 001, review 001, park 001'
@@ -444,6 +503,16 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       && parkedIds(run).length === 0
       && run.logs.some((message) => message.includes('Left for the user\'s go: #001')),
     mutant: { modulePath: DISPATCH_RUN, find: 'rebuild.rowIsPaused === true && ', replace: '' },
+  },
+  {
+    name:        'the log of tickets left for the user\'s go names the queued reviews before the queued rebuilds',
+    scenarioFor: () => STOPPED_WITH_A_REVIEW_AND_A_REBUILD_QUEUED,
+    holds:       (run) => run.logs.includes('Left for the user\'s go: #008, #007.'),
+    mutant:      {
+      modulePath: DISPATCH_RUN,
+      find:       '      ...this.reviewQueue.map((review) => review.ticketId),\n      ...this.rebuildQueue.map((rebuild) => rebuild.ticketId),\n',
+      replace:    '      ...this.rebuildQueue.map((rebuild) => rebuild.ticketId),\n      ...this.reviewQueue.map((review) => review.ticketId),\n',
+    },
   },
   {
     // The limit bounds agents alive, and a parking agent is one: with no agent just finished for it to replace, it would be one over the limit.
@@ -856,6 +925,31 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     },
   },
   {
+    name:        'the closing log names the low tickets left for triage before the held ones',
+    scenarioFor: () => ({
+      limit:                2,
+      readyTicketIds:       ['001', '002', '003'],
+      lowPriorityTicketIds: ['002'],
+      heldTicketIds:        ['003'],
+    }),
+    holds: (run) => {
+      const lowPriorityLineIndex = run.logs.findIndex((message) => message.startsWith('Left for the orchestrator\'s triage, low priority:'));
+      const heldLineIndex = run.logs.findIndex((message) => message.startsWith('Held, for the next run once unheld:'));
+      return lowPriorityLineIndex !== -1 && heldLineIndex !== -1 && lowPriorityLineIndex < heldLineIndex;
+    },
+    mutant: {
+      modulePath: DISPATCH_RUN,
+      find:       '    const lowPriorityWaiting = this.lowPriorityWaitingIds();\n'
+        + '    if (lowPriorityWaiting.length > 0) this.ports.logger.lowPriorityLeftForTriage(lowPriorityWaiting);\n'
+        + '    const heldAtEnd = this.heldEntries();\n'
+        + '    if (heldAtEnd.length > 0) this.ports.logger.heldAtEnd(heldAtEnd);\n',
+      replace: '    const heldAtEnd = this.heldEntries();\n'
+        + '    if (heldAtEnd.length > 0) this.ports.logger.heldAtEnd(heldAtEnd);\n'
+        + '    const lowPriorityWaiting = this.lowPriorityWaitingIds();\n'
+        + '    if (lowPriorityWaiting.length > 0) this.ports.logger.lowPriorityLeftForTriage(lowPriorityWaiting);\n',
+    },
+  },
+  {
     // A plain `ticket finish` frees the slot until the reviewer's `task add --start`, which checks no limit: a claim in between puts the board one over.
     name:        'every builder moves its ticket to review with --start-review, so no claim from elsewhere finds its slot free before the reviewer starts',
     scenarioFor: () => ({ limit: 2, readyTicketIds: ticketIdsFrom(1, 3), elsewhereClaimsAFreedSlot: true }),
@@ -910,6 +1004,29 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     }),
     holds:  (run) => run.mostAgentsOnBoardAtOnce <= 3 && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.length === 6,
     mutant: { modulePath: DISPATCH_RUN, find: STATUS_WITHOUT_ROWS_CONFIRMS, replace: 'if (confirmingTicketIds === \'unlisted\') return false;' },
+  },
+  {
+    // A reviewer's call for another round is word that its bar runs; without it, a block lacking the rows would hold the next round back a block.
+    name:        'a status block without the running rows still counts the bar a reviewer left for the next round as the run\'s own, so that round starts on the next block',
+    scenarioFor: () => ({
+      limit:                     2,
+      readyTicketIds:            ticketIdsFrom(1, 3),
+      statusOmitsInProgressRows: true,
+      reviewerReply:             (ticketId, round) => (ticketId === '001' && round === 1
+        ? { verdict: 'round-requested', reworkedLines: 900, findings: [finding('naming', 'a.ts')] }
+        : { verdict: 'released' }),
+    }),
+    holds: (run) => {
+      const secondRoundOfTheFirstTicket = run.calls.filter((call) => call.kind === 'review' && call.ticketId === '001')[1];
+      return secondRoundOfTheFirstTicket?.statusBlocksReturnedBefore === SECOND_ROUND_STATUS_BLOCKS_BEFORE_WITH_ITS_BAR_COUNTED
+        && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.length === 3
+        && run.mostAgentsOnBoardAtOnce <= 2;
+    },
+    mutant: {
+      modulePath: DISPATCH_RUN,
+      find:       'this.awaitTakeover({ ...this.reviewWorkFor(ticketId, true, false), barIsHandedOn: true });',
+      replace:    'this.awaitTakeover(this.reviewWorkFor(ticketId, true, false));',
+    },
   },
   {
     name:        'with ticketIds, no survey agent runs',
@@ -1079,6 +1196,24 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       modulePath: DISPATCH_RUN,
       find:       '(this.reviewWorkFor(ticketId, true, true)); }, work);',
       replace:    '(this.reviewWorkFor(ticketId, true, true)); });',
+    },
+  },
+  {
+    // A parking agent is an agent: its death counts toward an outage like any other, so the dead park and the dead builder after it stop the run.
+    name:        'a parking agent returning nothing counts toward the outage: with the next builder dead too, the run stops without a second builder',
+    scenarioFor: () => ({
+      limit:             1,
+      readyTicketIds:    ['001', '002'],
+      builderReply:      (ticketId) => (ticketId === '002' ? null : { outcome: 'in-review' }),
+      reviewerReply:     () => ({ verdict: 'not-released', releaseReason: 'merge-refused' }),
+      agentMisbehaviour: (call) => (call.kind === 'park' ? { returns: 'nothing' } : undefined),
+    }),
+    holds: (run) => RecordedDispatchRunUtil.mainSummaryOf(run).stoppedByFailures === true
+      && RecordedDispatchRunUtil.kindsAndTicketsOf(run).join(', ') === 'survey, build 001, review 001, park 001, build 002, park 002',
+    mutant: {
+      modulePath: DISPATCH_RUN,
+      find:       '    this.noteWhetherTheAgentDied(finished.reading);\n',
+      replace:    '    if (finished.work.kind !== \'park\') this.noteWhetherTheAgentDied(finished.reading);\n',
     },
   },
   {

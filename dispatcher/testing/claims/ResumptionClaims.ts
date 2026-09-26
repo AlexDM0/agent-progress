@@ -359,4 +359,28 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
     },
     mutant: { modulePath: AGENT_PROMPT_UTIL, find: '  if (previousPass === null && takeoverText === \'\') return \'\';\n', replace: '' },
   },
+  {
+    // #001's rebuild is held after its builder stops short, and unheld as the board stops; #004 is a low paused build this run never took.
+    name:        'pausedBuilds names an unheld rebuild whose row the hold paused before a paused build the run never took',
+    scenarioFor: () => ({
+      limit:                      1,
+      readyTicketIds:             [PAUSED_TICKET_ID],
+      lowPriorityTicketIds:       [PAUSED_BUILD_BESIDE_READY_TICKET_ID],
+      pausedBuildNotesByTicketId: { [PAUSED_BUILD_BESIDE_READY_TICKET_ID]: PAUSED_BUILD_BESIDE_READY_TICKET_CLAIM_NOTE },
+      builderReply:               (ticketId, pass) => (ticketId === PAUSED_TICKET_ID && pass === 1 ? { outcome: 'failed' } : { outcome: 'in-review' }),
+      afterAgent:                 (call, board) => {
+        if (call.kind === 'build' && call.ticketId === PAUSED_TICKET_ID) board.heldTicketIds.push(PAUSED_TICKET_ID);
+        if (call.kind === 'park' && call.ticketId === PAUSED_TICKET_ID) {
+          board.heldTicketIds = board.heldTicketIds.filter((heldTicketId) => heldTicketId !== PAUSED_TICKET_ID);
+          board.dispatcherState = 'stopped';
+        }
+      },
+    }),
+    holds:  (run) => JSON.stringify(RecordedDispatchRunUtil.mainSummaryOf(run).pausedBuilds) === JSON.stringify([PAUSED_TICKET_ID, PAUSED_BUILD_BESIDE_READY_TICKET_ID]),
+    mutant: {
+      modulePath: DISPATCH_RUN,
+      find:       '[...unheldBuildsWithPausedRows, ...this.untakenPausedBuildIds()]',
+      replace:    '[...this.untakenPausedBuildIds(), ...unheldBuildsWithPausedRows]',
+    },
+  },
 ];
