@@ -1,8 +1,8 @@
 /**
  * The ingestion's seam to the older progress.json shapes, seen from the current side: a document in the current format, whatever current
- * status, linked bar, look-alike name or unknown key it holds, reads to exactly what the mapper makes of it, carries no log over and keeps
- * its bytes; a malformed current document is refused with the current validator's reason. It imports nothing from `src/adapters/legacy/`,
- * so it still holds once that folder and its seam line are dropped.
+ * status, linked bar, look-alike name or unknown key it holds, reads to exactly what the mapper makes of it, carries no log over, is not
+ * in an older format and keeps its bytes; a malformed current document is refused with the current validator's reason. It imports
+ * nothing from `src/adapters/legacy/`, so it still holds once that folder and its seam line are dropped.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join }                        from 'node:path';
@@ -73,16 +73,17 @@ function scratchProgressFilePath(prefix: string): string {
   return join(directory, 'progress.json');
 }
 
-test('a current document reads to exactly what the mapper makes of it, carries no log over, and keeps its bytes', () => {
+test('a current document reads to exactly what the mapper makes of it, carries no log over, is not in an older format, and keeps its bytes', () => {
   const progressFilePath = scratchProgressFilePath('legacy-seam-current');
   const storedText       = currentDocumentText();
   writeFileSync(progressFilePath, storedText);
 
   const reading = new ProgressFileIngestion(progressFilePath).read();
   expect(reading).toEqual({
-    verdict:        'readable',
-    progress:       ProgressFileMappingUtil.progressOf(JSON.parse(storedText) as StoredProgressFile),
-    carriedOverLog: null,
+    verdict:               'readable',
+    progress:              ProgressFileMappingUtil.progressOf(JSON.parse(storedText) as StoredProgressFile),
+    carriedOverLog:        null,
+    fileIsInAnOlderFormat: false,
   });
   if (reading.verdict !== 'readable') throw new Error(`expected a readable file, got ${JSON.stringify(reading)}`);
   expect(Object.keys(reading.progress.tasks.at(-2) ?? {}), 'no key added to a ticket row named like a bar').not.toContain('reviewBarRound');

@@ -1,12 +1,14 @@
 /**
- * What `update` and `init` do only for older trackers and older habits: a version 1 progress file and a ticket in a retired word are
- * rewritten once in the current format, a rewrite that cannot take the lock still prints the refresh report, and `--hooks` is accepted.
+ * What `update` and `init` do only for older trackers and older habits: a version 1 progress file, a version 2 one holding a retired word
+ * or a review row known only by its name, and a ticket in a retired word are rewritten once in the current format, a rewrite that cannot
+ * take the lock still prints the refresh report, and `--hooks` is accepted.
  * It answers the older input and habit `cli/legacy/` and `src/services/tracker/legacy/` exist for, and is deleted with them.
  */
 import {
   readdirSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync
 }               from 'node:fs';
 import { join } from 'node:path';
@@ -24,6 +26,9 @@ import { runCommandLine }                                                     fr
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';
 
 const scratchDirectories: string[] = [];
+
+/** Every run below renders at the same moment, so a run that changes nothing leaves the page byte for byte too. */
+const FROZEN_NOW = new Date('2026-09-18T10:00:00+02:00');
 
 /** A lock that is never given up is waited out through the whole retry budget before the refusal. */
 const HELD_LOCK_TIMEOUT_MILLISECONDS = LIMITS.LOCK_RETRY_COUNT * LIMITS.LOCK_RETRY_INTERVAL_MILLISECONDS * 3;
@@ -106,7 +111,81 @@ async function trackedRepositoryInAnOlderFormat(): Promise<TrackerInAnOlderForma
   };
 }
 
+interface StoredRow {
+  status:          string;
+  history?:        Array<{ status: string }>;
+  reviewOf?:       string;
+  reviewBarRound?: number;
+}
+
+/** A version 2 tracker as a build before the status rename and the review link left it: a row and its phase running, and a bar named only. */
+async function trackedRepositoryWithVersionTwoRowsInOlderWords(): Promise<{ repositoryDirectory: string; progressFilePath: string }> {
+  const repositoryDirectory = scratchRepository();
+  for (const commandLineArguments of [
+    ['init', '--project', 'Example Agency'],
+    ['ticket', 'add', 'Example importer', '--type', 'change'],
+    ['task', 'add', 'Draft the example page', '--start'],
+  ]) {
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory, now: () => FROZEN_NOW });
+    expect(await runCommandLine(commandLineArguments, context), context.errorText()).toBe(0);
+  }
+
+  const progressFilePath = join(repositoryDirectory, '.agent-progress', 'progress.json');
+  const stored           = JSON.parse(readFileSync(progressFilePath, 'utf8')) as { nextTaskId: number; tasks: Array<Record<string, unknown>> };
+  const draftingRow      = stored.tasks.find((row) => row['name'] === 'Draft the example page');
+  if (draftingRow === undefined) throw new Error('expected the filed row in progress.json');
+  draftingRow['status']  = 'running';
+  draftingRow['history'] = (draftingRow['history'] as Array<Record<string, unknown>>).map((phase) => ({ ...phase, status: 'running' }));
+  stored.tasks.push({
+    id:     stored.nextTaskId,
+    name:   'Review 1 #001 — Example importer',
+    status: 'pending',
+    start:  null,
+    end:    null,
+    owner:  '',
+    note:   '',
+    ticket: null,
+    tokens: null,
+  });
+  stored.nextTaskId += 1;
+  writeFileSync(progressFilePath, `${JSON.stringify(stored, null, LIMITS.JSON_INDENT)}\n`);
+  return { repositoryDirectory, progressFilePath };
+}
+
+/** Every file under the tracker directory but the lock's records, which every lock hold writes. */
+function storedTrackerFiles(repositoryDirectory: string): Record<string, string> {
+  const trackerDirectory                 = join(repositoryDirectory, '.agent-progress');
+  const contents: Record<string, string> = {};
+  for (const fileName of readdirSync(trackerDirectory, { recursive: true, encoding: 'utf8' })) {
+    const filePath = join(trackerDirectory, fileName);
+    if (fileName.startsWith('.lock') || statSync(filePath).isDirectory()) continue;
+    contents[fileName] = readFileSync(filePath, 'utf8');
+  }
+  return contents;
+}
+
 describe.skipIf(!gitIsAvailable())('what update rewrites', () => {
+  test('a version 2 progress file holding a retired word and a review row known only by its name is stored current, and a second run touches nothing', async () => {
+    const { repositoryDirectory, progressFilePath } = await trackedRepositoryWithVersionTwoRowsInOlderWords();
+    expect(readFileSync(progressFilePath, 'utf8'), 'the fixture holds the retired word, so the rewrite below is about something').toContain('"running"');
+
+    const first = createCapturedCommandContext({ currentDirectory: repositoryDirectory, now: () => FROZEN_NOW });
+    expect(await runCommandLine(['update'], first)).toBe(0);
+
+    expect(first.outputText().split('\n')[0]).toEndWith(', and rewrote its older tracker files in the current format: progress.json.');
+    const [, draftingRow, reviewRow] = (JSON.parse(readFileSync(progressFilePath, 'utf8')) as { tasks: StoredRow[] }).tasks;
+    expect(draftingRow?.status).toBe('in-progress');
+    expect(draftingRow?.history?.map((phase) => phase.status)).toEqual(['in-progress', 'in-progress']);
+    expect(reviewRow).toMatchObject({ reviewOf: '001', reviewBarRound: 1 });
+
+    const filesAfterTheRewrite = storedTrackerFiles(repositoryDirectory);
+    const second               = createCapturedCommandContext({ currentDirectory: repositoryDirectory, now: () => FROZEN_NOW });
+    expect(await runCommandLine(['update'], second)).toBe(0);
+
+    expect(second.outputText().split('\n')[0]).toEndWith('; the tracker itself was not touched.');
+    expect(storedTrackerFiles(repositoryDirectory)).toEqual(filesAfterTheRewrite);
+  });
+
   test('a version 1 progress file and a ticket holding a retired word are rewritten in the current format, and a second run touches nothing', async () => {
     const {
       repositoryDirectory,
@@ -167,6 +246,16 @@ describe.skipIf(!gitIsAvailable())('what update rewrites', () => {
 });
 
 describe.skipIf(!gitIsAvailable())('what a second init rewrites', () => {
+  test('a version 2 progress file holding a retired word and a review row known only by its name is named on the tracker line', async () => {
+    const { repositoryDirectory, progressFilePath } = await trackedRepositoryWithVersionTwoRowsInOlderWords();
+
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory, now: () => FROZEN_NOW });
+    expect(await runCommandLine(['init'], context)).toBe(0);
+
+    expect(context.outputText().split('\n')[1]).toBe('  tracker:     rewrote progress.json in the current format');
+    expect(JSON.parse(readFileSync(progressFilePath, 'utf8'))).toMatchObject({ tasks: [{ ticket: '001' }, { status: 'in-progress' }, { reviewOf: '001', reviewBarRound: 1 }] });
+  });
+
   /** The refreshed files are already on disk when the lock is refused, so the report that names a stale brief must still be printed. */
   test('a rewrite of an older tracker that cannot take the lock exits 2 after the refresh report, leaving the progress file as it was', async () => {
     const repositoryDirectory = scratchRepository();

@@ -11,10 +11,12 @@ import { listTickets, type TicketListing }                 from './TicketStore.t
 import type { Workspace }                                  from './Workspace.ts';
 
 export interface TrackerContents {
-  progress:  ProgressFile;
+  progress:                      ProgressFile;
   /** The records, and whether log.jsonl must be rewritten on the next write. */
-  storedLog: StoredLog;
-  listing:   TicketListing;
+  storedLog:                     StoredLog;
+  listing:                       TicketListing;
+  /** A progress file `update` rewrites in the current format; the other older files show in the log and the listing. */
+  progressFileIsInAnOlderFormat: boolean;
 }
 
 export type TrackerReading = { verdict: 'readable'; contents: TrackerContents } | UnreadableTracker;
@@ -64,9 +66,10 @@ export function readTracker(workspace: Workspace): TrackerReading {
   return {
     verdict:  'readable',
     contents: {
-      progress:  progressReading.progress,
-      storedLog: { records: storedLog.records, logFileMustBeRewritten: storedLog.logFileMustBeRewritten },
-      listing:   listTickets(workspace),
+      progress:                      progressReading.progress,
+      storedLog:                     { records: storedLog.records, logFileMustBeRewritten: storedLog.logFileMustBeRewritten },
+      listing:                       listTickets(workspace),
+      progressFileIsInAnOlderFormat: progressReading.fileIsInAnOlderFormat,
     },
   };
 }

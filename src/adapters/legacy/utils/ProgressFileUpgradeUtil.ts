@@ -1,6 +1,6 @@
 /**
  * Reads a progress.json in an older shape: version 1 with its own log, rows in the retired task words, review bars known only by name.
- * It can go once `update` has rewritten every version 1 file and a mutating command has stored every other tracker's rows, as `ReviewBarNameUtil` says.
+ * It can go once `agent-progress update` has run in every tracker, which stores every such file in the current format.
  */
 import { RetiredStatusWordUtil }                                             from '../../../shared/legacy/utils/RetiredStatusWordUtil.ts';
 import type { ProgressFileMigration }                                        from '../../progress/@types/ProgressFileMigration.ts';
@@ -44,7 +44,7 @@ function withCurrentStatus(record: Record<string, unknown>): Record<string, unkn
   return replacement === null ? { ...record } : { ...record, status: replacement };
 }
 
-/** In memory only: a read never writes, so a file keeps its retired words until the next command that changes it stores the new ones. */
+/** In memory only: a read never writes, so a file keeps its retired words until `update` or the next command that changes it stores the new ones. */
 function taskInCurrentWords(task: unknown): unknown {
   const taskRecord = recordOf(task);
   if (taskRecord === null) return task;

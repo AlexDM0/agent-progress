@@ -1,6 +1,7 @@
 /**
  * Reads a row known only by its `Review <N> #<id>` name, and a stored `reviewOf` left unpadded, giving it `reviewOf` and `reviewBarRound`.
- * It can go once agents file bars only through `--review-of` or `--start-review` and every tracker has had a mutating command since, which stores both.
+ * It can go once `agent-progress update` has run in every tracker, which stores both, and agents file review rows only with `--review-of`
+ * or `--start-review`.
  */
 import { FIRST_REVIEW_BAR_ROUND } from '../../../lib/tracker-model/constants/ReviewRounds.ts';
 import { TicketIdUtil }           from '../../../lib/tracker-model/utils/TicketIdUtil.ts';

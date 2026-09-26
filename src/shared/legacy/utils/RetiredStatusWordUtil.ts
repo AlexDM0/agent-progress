@@ -1,6 +1,6 @@
 /**
- * The status words the rename retired, with their replacements, as older stored files and command lines hold them. It can go once `update`
- * has rewritten old tickets and version 1 files, a mutating command every version 2 row, and agents no longer use the retired words.
+ * The status words the rename retired, with their replacements, as older stored files and command lines hold them. It can go once
+ * `agent-progress update` has run in every tracker and agents no longer type the retired words.
  */
 import type { TaskStatus }   from '../../../lib/tracker-model/@types/Task.ts';
 import type { TicketStatus } from '../../../lib/tracker-model/@types/Ticket.ts';

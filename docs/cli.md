@@ -179,7 +179,7 @@ Options in `[brackets]` are optional; `a|b` is a choice of one.
 | command | what it does |
 |---|---|
 | `init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]` | Create the tracker here and write the seven items in [Adopting a repository](#adopting-a-repository). `--project` names the project shown on the page (default: the root directory's name); `--root` tracks that directory instead of the discovered repository root. Refused when an ancestor already holds a tracker, when `--root` is not an existing directory, inside a bare repository, and when `AGENT_PROGRESS_ROOT` is set to a directory other than the one it would create the tracker in (the message names both, and nothing is written). A re-run refreshes only what `update` refreshes, and rewrites older tracker files as `update` does, printing a `tracker:` line when it did. `--hooks` is accepted and does nothing. |
-| `update [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]` | Refresh what the tool wrote into a repository it already tracks: the managed block, `agent-brief.md`, the hook, the workflow — generated anew into `.agent-progress/`, removing a copy an older version installed under `.claude/workflows/` — and the agent definition, undoing a hand edit to either of the last two. A tracker still in an older format — a version 1 `progress.json` holding its own log, or tickets holding retired status words — is rewritten in the current one under the lock, its log moved to `log.jsonl`, and the first line names what was rewritten; nothing is logged, and a current or unreadable tracker is left alone; a rewrite that cannot take the lock is exit 2, after the refresh report. It creates no tracker, so it takes no `--project` and no `--root`. With no tracker it is refused at exit 1, naming `agent-progress init`. |
+| `update [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]` | Refresh what the tool wrote into a repository it already tracks: the managed block, `agent-brief.md`, the hook, the workflow — generated anew into `.agent-progress/`, removing a copy an older version installed under `.claude/workflows/` — and the agent definition, undoing a hand edit to either of the last two. A tracker still in an older format — a version 1 `progress.json` holding its own log, a `progress.json` holding retired status words or review rows known only by their name, or tickets holding retired status words — is rewritten in the current one under the lock, a version 1 file's log moved to `log.jsonl`, and the first line names what was rewritten; nothing is logged, and a current or unreadable tracker is left alone; a rewrite that cannot take the lock is exit 2, after the refresh report. It creates no tracker, so it takes no `--project` and no `--root`. With no tracker it is refused at exit 1, naming `agent-progress init`. |
 | `help` | The command reference. |
 
 ### Reading the board
@@ -492,12 +492,12 @@ the three, or an empty `dispatcherRunId` makes the file unreadable (exit 2). A t
 most one ticket. Task ids are never reused, not even after `task remove` or `clear`.
 
 A row or history phase stored with the retired status `running` or `finished` reads as `in-progress`
-or `in-review`; reading never rewrites the file, and the next write stores the new word.
+or `in-review`; reading never rewrites the file, and `update` or the next write stores the new word.
 
 A free-standing row without `reviewOf` or `reviewBarRound` whose name starts `Review <N> #<id>` reads
 with the ticket and round the name gives, and a free-standing row's stored `reviewOf` that reads as a
 positive whole number (`"3"`, `"+3"`, `"3.0"`) reads as the padded ticket id (`"003"`); reading never
-rewrites the file, and the next write stores them.
+rewrites the file, and `update` or the next write stores them.
 
 ### `.agent-progress/log.jsonl`
 

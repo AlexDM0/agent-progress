@@ -1,5 +1,6 @@
 /**
- * Rewrites a tracker in an older format (a progress file carrying its log, tickets in retired words) in the current one for `update` and `init`.
+ * Rewrites a tracker in an older format (a progress file carrying its log, rows in retired words or review rows known only by their name,
+ * tickets in retired words) in the current one for `update` and `init`.
  * It can be deleted once every tracker has been rewritten by `agent-progress update`.
  */
 import type { RenderState }                             from '../../render/RenderState.ts';
@@ -11,6 +12,7 @@ import type { Workspace }                               from '../Workspace.ts';
 
 export interface TrackerRewrite {
   progressFileWasRewritten: boolean;
+  logWasMovedToItsOwnFile:  boolean;
   rewrittenTicketCount:     number;
 }
 
@@ -20,7 +22,7 @@ export type TrackerRewriting =
   | { verdict: 'rewritten'; rewrite: TrackerRewrite; renderOutcome: DashboardRenderOutcome };
 
 function trackerIsInAnOlderFormat(contents: TrackerContents): boolean {
-  return contents.storedLog.logFileMustBeRewritten || contents.listing.ticketsInAnOlderFormat.length > 0;
+  return contents.progressFileIsInAnOlderFormat || contents.storedLog.logFileMustBeRewritten || contents.listing.ticketsInAnOlderFormat.length > 0;
 }
 
 /**
@@ -38,13 +40,18 @@ export async function rewriteOlderTrackerFiles(workspace: Workspace, now: () => 
     // Another command may have written the tracker since the read above, and a current tracker is left alone.
     if (!trackerIsInAnOlderFormat(reading.contents)) return { verdict: 'current' };
 
-    const { contents } = reading;
-    const extraTickets = contents.listing.ticketsInAnOlderFormat;
+    const { contents }            = reading;
+    const extraTickets            = contents.listing.ticketsInAnOlderFormat;
+    const logWasMovedToItsOwnFile = contents.storedLog.logFileMustBeRewritten;
     writeTrackerUnchanged(workspace, contents, extraTickets);
     const renderOutcome = await renderDashboard(workspace, now(), renderState);
     return {
       verdict: 'rewritten',
-      rewrite: { progressFileWasRewritten: contents.storedLog.logFileMustBeRewritten, rewrittenTicketCount: extraTickets.length },
+      rewrite: {
+        progressFileWasRewritten: contents.progressFileIsInAnOlderFormat || logWasMovedToItsOwnFile,
+        logWasMovedToItsOwnFile,
+        rewrittenTicketCount:     extraTickets.length,
+      },
       renderOutcome,
     };
   }, now);

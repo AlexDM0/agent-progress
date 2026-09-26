@@ -118,6 +118,25 @@ test('reading a file in the retired words leaves its bytes as they were', () => 
   expect(readFileSync(progressFilePath, 'utf8')).toBe(storedText);
 });
 
+// `update` rewrites exactly the files read in an older format, so each older input must say so.
+test('a file holding retired words, a bar known only by its name or an unpadded reviewOf reads as in an older format', () => {
+  const nameOnlyBar = emptyDocument();
+  fileRow(nameOnlyBar, { name: 'Review 1 #3 — x' });
+  const unpaddedReviewOf = emptyDocument();
+  fileRow(unpaddedReviewOf, { name: 'Example review', reviewOf: '3' });
+  // Stored as version 2, so only the retired words are older: JSON leaves out a key whose value is undefined.
+  const retiredWordsAtVersionTwo = { ...documentInRetiredWords(), version: 2, log: undefined };
+  const cases: Array<{ prefix: string; document: unknown }> = [
+    { prefix: 'store-older-retired-words', document: retiredWordsAtVersionTwo },
+    { prefix: 'store-older-name-only-bar', document: nameOnlyBar },
+    { prefix: 'store-older-unpadded-review-of', document: unpaddedReviewOf },
+  ];
+  for (const { prefix, document } of cases) {
+    const result = readBack(prefix, document);
+    expect(result.verdict === 'readable' ? result.fileIsInAnOlderFormat : result.verdict, prefix).toBe(true);
+  }
+});
+
 // Only the two retired task words map: a ticket's retired word on a row is as unknown as any other, in the row and in its history.
 test('a status that is neither current nor a retired task word still makes the file unreadable, naming the field', () => {
   const progress = emptyDocument();

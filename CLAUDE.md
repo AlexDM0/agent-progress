@@ -83,7 +83,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
 - An optional stored key is written only once somebody sets it, and a read never adds or rewrites one, so an older
   file stays byte-identical. The one exception is a legacy review bar, read through `src/adapters/legacy/`: the read
   gives a row known only by its name `reviewOf` and `reviewBarRound`, and pads a stored `reviewOf` that reads as a
-  whole number, in memory; the next write stores them.
+  whole number, in memory; `update` or the next write stores them.
 - A version 1 `progress.json` owns its log: the read, through `src/adapters/legacy/`, turns its sentences into notes,
   and the next write moves them to log.jsonl and stores the file as version 2. The takeover rule for a log.jsonl
   beside it, believed only as a migration cut short, lives in `src/adapters/legacy/` too.
@@ -237,8 +237,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
   over the lines would put at risk keeping every unowned line byte for byte.
 - A row's `history` holds only what the tool watched; nothing reconstructs phases. A review row belongs to its
   ticket by `reviewOf`; a free-standing row known only by its `Review <N> #<id>` name is given `reviewOf` and
-  `reviewBarRound` by `src/adapters/legacy/` when progress.json is read. Nothing else matches a name: the page reads which rows are bars from
-  the Board facts.
+  `reviewBarRound` by `src/adapters/legacy/` when progress.json is read, and `update` stores them. Nothing else
+  matches a name: the page reads which rows are bars from the Board facts.
 
 ### The page
 

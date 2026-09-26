@@ -57,8 +57,9 @@ output never carries either.
       [--no-workflow]         dispatcher workflow, generated anew, and the agent definition, a hand
       [--no-agent-definition] edit to either of which is undone; a dispatcher an older version
                               installed under \`.claude/workflows/\` is removed. A tracker still in
-                              an older format — a progress file holding its own log, or tickets
-                              holding retired status words — is rewritten in the current one,
+                              an older format — a progress file holding its own log, retired status
+                              words or review rows known only by their name, or tickets holding
+                              retired status words — is rewritten in the current one,
                               under the lock; otherwise the tracker is left alone. It creates no tracker, so it takes no
                               --project and no --root, and it is refused with exit 1 where there
                               is none — \`agent-progress init\` makes one.

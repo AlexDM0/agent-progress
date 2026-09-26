@@ -9,8 +9,14 @@ import { ProgressFileMappingUtil }    from './utils/ProgressFileMappingUtil.ts';
 import { ProgressFileValidationUtil } from './utils/ProgressFileValidationUtil.ts';
 
 export type ProgressFileReading =
-  /** `carriedOverLog` is the log records an older progress file carried, which the next write moves to log.jsonl; null when it carried none. */
-  | { verdict: 'readable'; progress: ProgressFile; carriedOverLog: LogRecord[] | null }
+  | {
+    verdict:               'readable';
+    progress:              ProgressFile;
+    /** The log records an older progress file carried, which the next write moves to log.jsonl; null when it carried none. */
+    carriedOverLog:        LogRecord[] | null;
+    /** `update` rewrites such a file in the current format. */
+    fileIsInAnOlderFormat: boolean;
+  }
   | { verdict: 'absent' }
   | { verdict: 'unreadable'; reason: string };
 
@@ -46,6 +52,11 @@ export class ProgressFileIngestion {
     if (problem !== null) return { verdict: 'unreadable', reason: problem };
     const progress       = ProgressFileMappingUtil.progressOf(document as StoredProgressFile);
     const carriedOverLog = migration.verdict === 'migrated' ? migration.carriedOverLog : null;
-    return { verdict: 'readable', progress, carriedOverLog };
+    return {
+      verdict:               'readable',
+      progress,
+      carriedOverLog,
+      fileIsInAnOlderFormat: migration.verdict === 'migrated',
+    };
   }
 }
