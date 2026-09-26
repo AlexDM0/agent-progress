@@ -268,8 +268,8 @@ cannot describe one worktree in isolation; the alternative was a tracker per che
 fan-out produces five charts and no picture.
 
 **The page is rendered under the lock, from disk.** Every mutating command takes the lock, reads,
-mutates, writes `progress.json` atomically, then the tickets, then `log.jsonl` (first instead, when it
-takes the log over from a version 1 `progress.json`), then re-reads and rewrites `progress.html`, all
+mutates, writes `progress.json` atomically, then the tickets, then `log.jsonl` (and first a copy of the notes,
+when it takes the log over from a version 1 `progress.json`), then re-reads and rewrites `progress.html`, all
 before releasing. Rendering afterwards would let two commands interleave and leave the page describing a
 state the store never held. The lock is a directory of numbered generation records, each carrying a
 pid, a timestamp and whether it is held or released, each created exclusively and never rewritten:

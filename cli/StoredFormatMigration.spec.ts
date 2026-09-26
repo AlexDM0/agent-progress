@@ -1,11 +1,14 @@
 /**
  * A tracker written before log.jsonl existed, read and written by today's CLI. The cases that matter: a read writes nothing, not even a
  * log.jsonl; the first write moves the embedded log into log.jsonl as notes and stores progress.json as version 2 with the migrated
- * words and review-bar fields; a log.jsonl that begins with the embedded log is a migration cut short and is rewritten; any other
- * log.jsonl beside a version 1 file is refused, and neither file is touched; `update`, and `init` on the tracker, rewrite the progress file
- * and a ticket holding a retired word in the current format, the ticket normalised by the serialiser, and a second run touches nothing.
+ * words and review-bar fields; the notes are copied before the progress file loses them and the command's own lines go last, so a write
+ * cut short leaves the notes alone, which read and clear; a log.jsonl that begins with the embedded log is a migration cut short and is
+ * rewritten; any other log.jsonl beside a version 1 file is refused, and neither file is touched; `update`, and `init` on the tracker,
+ * rewrite the progress file and a ticket holding a retired word in the current format, the ticket normalised by the serialiser, and a
+ * second run touches nothing.
  */
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   readFileSync,
@@ -187,6 +190,9 @@ const EMBEDDED_LOG_AS_NOTE_LINES = [
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
+const READ_AND_ENTER_ONLY_MODE = 0o555;
+const OWNER_FULL_ACCESS_MODE   = 0o755;
+
 const NEW_NOTE_TEXT = 'Example note after the upgrade';
 
 const NEW_NOTE_LINE = `${JSON.stringify({ at: TimeUtil.formatLocalIso(FROZEN_NOW), kind: 'note', fields: { text: NEW_NOTE_TEXT } })}\n`;
@@ -270,7 +276,7 @@ describe.skipIf(!gitIsAvailable())('a tracker written before log.jsonl', () => {
     expect(readFileSync(files.ticketFilePath, 'utf8'), 'the Board did not change the ticket, so it is not written').toBe(TICKET_FILE_WITH_A_RETIRED_WORD);
   });
 
-  // A crash between the two writes leaves a log.jsonl holding the notes and the command's lines beside the version 1 file it came from.
+  // A copy of the notes beside the version 1 file is a migration cut short; lines after them never had their progress write, so they go.
   test('a log.jsonl that begins with the embedded log is a migration cut short, and the next write replaces what follows the notes', async () => {
     const files = trackerWrittenBeforeLogJsonl();
     const strayLine = '{"at":"2026-09-18T11:00:00+02:00","kind":"note","fields":{"text":"A line whose progress write never happened"}}\n';
@@ -280,6 +286,33 @@ describe.skipIf(!gitIsAvailable())('a tracker written before log.jsonl', () => {
 
     expect(readFileSync(files.logFilePath, 'utf8')).toBe(`${EMBEDDED_LOG_AS_NOTE_LINES}${NEW_NOTE_LINE}`);
     expect(JSON.parse(readFileSync(files.progressFilePath, 'utf8'))).not.toHaveProperty('log');
+  });
+
+  test('a write cut short after the progress file leaves log.jsonl holding the embedded log alone, with no line for the unfinished change', async () => {
+    const files            = trackerWrittenBeforeLogJsonl();
+    const ticketsDirectory = join(files.repositoryDirectory, '.agent-progress', 'tickets');
+    chmodSync(ticketsDirectory, READ_AND_ENTER_ONLY_MODE);
+    try {
+      const context  = createCapturedCommandContext({ currentDirectory: files.repositoryDirectory, now: () => FROZEN_NOW });
+      const exitCode = await runCommandLine(['ticket', 'start', '001'], context);
+
+      expect(exitCode).toBe(2);
+    } finally {
+      chmodSync(ticketsDirectory, OWNER_FULL_ACCESS_MODE);
+    }
+    expect(readFileSync(files.logFilePath, 'utf8')).toBe(EMBEDDED_LOG_AS_NOTE_LINES);
+  });
+
+  test('the embedded log copied beside the pristine version 1 file reads, and clear then leaves the clearing alone at version 2', async () => {
+    const files = trackerWrittenBeforeLogJsonl();
+    writeFileSync(files.logFilePath, EMBEDDED_LOG_AS_NOTE_LINES);
+
+    await run(files.repositoryDirectory, ['status']);
+    await run(files.repositoryDirectory, ['clear', '--yes']);
+
+    const storedKinds = readFileSync(files.logFilePath, 'utf8').trimEnd().split('\n').map((line) => (JSON.parse(line) as { kind: string }).kind);
+    expect(storedKinds).toEqual(['tracker-cleared']);
+    expect(JSON.parse(readFileSync(files.progressFilePath, 'utf8'))).toHaveProperty('version', 2);
   });
 
   test('a log.jsonl that does not begin with the embedded log is refused at exit 2, naming both files, and neither file changes', async () => {

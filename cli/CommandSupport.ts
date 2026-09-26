@@ -2,7 +2,7 @@
  * The sequence every mutating command follows, written once: take the lock of `lib/platform/Lock.ts`; read the progress file, its log and the
  * tickets into a Board; mutate; write the progress file, then the tickets the Board changed, then log.jsonl, then render through
  * `lib/render/Rerender.ts` — all inside the lock, in that order, so no older render lands last and the progress file is never behind the
- * tickets. A log taken over from a version 1 progress file is written first instead, so it is on disk before that file stops holding it.
+ * tickets. A log taken over from a version 1 progress file also has its notes copied first, so they are on disk before that file stops holding them.
  */
 import { withLock }                                from '../lib/platform/Lock';
 import { requireWorkspace, type Workspace }        from '../lib/platform/Workspace';
@@ -276,9 +276,8 @@ async function writeTrackerUnderLock<Reading>(
 ): Promise<Reading> {
   const logRecordsToWrite = tracker.logFileSink.recordsToWrite();
   const logFileWriter     = createLogFileWriter(workspace.logFilePath);
-  const logIsTakenOver    = tracker.storedLog.logFileMustBeRewritten;
-  // A log line never describes an unstored change, so the log goes last; one taken over from a version 1 file goes first, before that file loses it.
-  if (logIsTakenOver && logRecordsToWrite !== null) logFileWriter.write(logRecordsToWrite);
+  // A log line never describes an unstored change, so the log goes last; a log taken over from a version 1 file is copied first, before it is lost.
+  if (tracker.storedLog.logFileMustBeRewritten) logFileWriter.write(tracker.storedLog.records);
 
   createProgressFileWriter(workspace.progressFilePath).write(tracker.progress);
   const ticketsToWrite = new Map<string, Ticket>();
@@ -289,7 +288,7 @@ async function writeTrackerUnderLock<Reading>(
   for (const ticket of ticketsToWrite.values()) ticketFileWriter.write(ticket);
   for (const onDeleted of writes.deletionCallbacks) onDeleted(deleteAllTickets(workspace));
 
-  if (!logIsTakenOver && logRecordsToWrite !== null) logFileWriter.write(logRecordsToWrite);
+  if (logRecordsToWrite !== null) logFileWriter.write(logRecordsToWrite);
   const reading = writes.readAfterWriting(tracker.board);
   await renderDashboard(context, workspace);
   return reading;
