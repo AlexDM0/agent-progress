@@ -11,9 +11,11 @@ import { BoardRefusalWordingUtil } from './BoardRefusalWordingUtil';
 const { messageOf } = BoardRefusalWordingUtil;
 
 /**
- * Taken from the binary before the Board existed: to retake it, run the step 4b byte-identity scenario at bc42604 (the last commit
- * before step 4b) and copy each refusal from the scenario's standard error. The rows the scenario never reaches (the singular limit,
- * a ticket-owned row sent to re-review, a held-back ticket with one blocker) are copied from that commit's command specs and code.
+ * Taken from the binary before the Board existed, at bc42604 (the last commit before step 4b). To retake a row, check that commit out in
+ * a worktree, run the refused command with `bun run <worktree>/agent-progress.ts` in a scratch git repository after `init`, and copy its
+ * standard error. Rows no command reaches easily (the singular limit, a ticket-owned row sent to re-review, a held-back ticket with one
+ * blocker) are read from the wording in bc42604:cli/task/TaskCommand.ts, bc42604:cli/ticket/TicketCommand.ts and
+ * bc42604:lib/tickets/TicketTransitions.ts.
  */
 const MESSAGE_FOR_REFUSAL: readonly (readonly [BoardRefusalDetail, string])[] = [
   [{ reason: 'unknown-task', taskId: 99 }, 'There is no task #99. Run `agent-progress status` to see the rows this tracker holds.'],

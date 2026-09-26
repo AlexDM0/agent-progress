@@ -11,10 +11,11 @@ import { LogUtil }                           from './LogUtil';
 const { dispatcherStateTextOf, sentenceOf } = LogUtil;
 
 /**
- * Taken from the binary before the records existed: to retake it, run the step 4b byte-identity scenario at bc42604 (the last commit
- * before step 4b) and copy the `log` texts out of the scenario's `progress.json` files. The rows the scenario never logs (a hold
- * without a reason, an abandon without one, two dependencies at once) are copied from that commit's ticket transition module and
- * `cli/ticket/TicketCommand.ts`.
+ * Taken from the binary before the records existed, at bc42604 (the last commit before step 4b). To retake a row, check that commit out
+ * in a worktree, run `bun run <worktree>/agent-progress.ts init` in a scratch git repository, then the command that logs the row (`log`,
+ * a `ticket` or `task` verb, `range`, `concurrency`, `dispatcher`, `clear --yes`), and copy its text from the `log` in progress.json.
+ * Rows no command reaches easily (a hold or abandon without a reason, two dependencies at once) are read from the wording in
+ * bc42604:cli/ticket/TicketCommand.ts and bc42604:lib/tickets/TicketTransitions.ts.
  */
 const SENTENCE_FOR_RECORD: readonly (readonly [LogRecordContent, string])[] = [
   [{ kind: 'note', fields: { text: 'Example note from the orchestrator' } }, 'Example note from the orchestrator'],
