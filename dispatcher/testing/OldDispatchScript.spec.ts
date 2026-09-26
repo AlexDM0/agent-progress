@@ -2,7 +2,7 @@
  * The guards that read the text of the committed old script, `templates/workflows/AgentProgressDispatch.js`, which `init` and `update` still install
  * until plan step 8 generates the script from the TypeScript port and deletes these with it. They pin what the old script states for itself: the
  * tool's default model, effort and ceiling, a model and effort at every agent site, the held tickets in every status block, and a body the Workflow
- * tool can run without a clock and a `meta` it can read without running it.
+ * tool can run without a clock and a `meta` it can read without running it. They also pin the script itself to the one the port was frozen against.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -10,11 +10,15 @@ import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL }       from '../../src/lib/t
 import { CONCURRENCY_LIMIT_CEILING_AGENTS }                from '../../src/lib/tracker-model/constants/ConcurrencyLimits.ts';
 import { agentBriefNumbers }                               from './AgentBriefNumbers.ts';
 import { runDispatchScript }                               from './DispatchScriptHarness.ts';
+import { digestOf }                                        from './DispatchTrace.ts';
 import { readOldDispatchScript }                           from './OldDispatchScript.ts';
 import { metaLiteralVerdictOf, nondeterministicCallsIn }   from './WorkflowScriptSource.ts';
 import { DECISION_SCENARIOS, modelsAndEffortsAreExplicit } from './claims/DecisionClaims.ts';
 
 const SCRIPT_SOURCE = readOldDispatchScript();
+
+// The digest the frozen trace table recorded when it was taken from this script at bc42604.
+const OLD_SCRIPT_DIGEST_AT_BC42604 = 'dbe5772aeb9a3bf5';
 
 /** Each site that starts an agent, with its model or its effort taken out: four sites, eight forms. */
 const AGENT_OPTIONS_LEFT_OUT: [string, string][] = [
@@ -36,6 +40,11 @@ function scriptConstantOf(name: string): string | null {
 }
 
 describe('the old dispatcher script, templates/workflows/AgentProgressDispatch.js', () => {
+  test('is still the script the port was frozen against', () => {
+    expect(digestOf(readOldDispatchScript()), 'the old script changed: that is behaviour the port does not have, so port it and pin it with a claim')
+      .toBe(OLD_SCRIPT_DIGEST_AT_BC42604);
+  });
+
   test.each(AGENT_OPTIONS_LEFT_OUT)('an agent started without its model or effort (%s → %s) fails the check', async (find, replace) => {
     expect(SCRIPT_SOURCE.split(find).length - 1).toBe(1);
     expect(modelsAndEffortsAreExplicit(await runDispatchScript(DECISION_SCENARIOS['every kind of agent runs'](), SCRIPT_SOURCE.replace(find, replace)))).toBe(false);

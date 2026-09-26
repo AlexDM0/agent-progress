@@ -176,7 +176,7 @@ Options in `[brackets]` are optional; `a|b` is a choice of one.
 
 | command | what it does |
 |---|---|
-| `status [--json] [--full]` | The project, the counts, the rows that are not delivered or abandoned, and the last five log entries newest first, then the Next line. `--json` prints the same working view for an agent — the unsettled rows and tickets, the last 10 log entries, and an `omitted` object counting what was left out. `--full` lists everything; with `--json` it prints the whole progress file plus every ticket's frontmatter. The `version` both `--json` documents carry is the document's own shape version, `1`, with the worded log directly after `tasks`, whatever version the stored file is at. Both `--json` documents carry `concurrency` — `limit`, `agentsInFlight`, `freeSlots`, `readyTicketIds`, `heldTicketIds`, `dispatcherState` and, while one is stored, `dispatcherRunId` — and beside it `readyTickets`. |
+| `status [--json] [--full]` | The project, the counts, the rows that are not delivered or abandoned, and the last five log entries newest first, then the Next line. `--json` prints the same working view for an agent — the unsettled rows and tickets, the last 10 log entries, and an `omitted` object counting what was left out. `--full` lists everything; with `--json` it prints the whole progress file plus every ticket's frontmatter. The `version` both `--json` documents carry is the document's own shape version, `1`, with the worded log directly after `tasks`, whatever version the stored file is at. Both `--json` documents carry `concurrency` — `limit`, `agentsInFlight`, `freeSlots`, `readyTicketIds`, `heldTicketIds`, `dispatcherState`, while one is stored `dispatcherRunId`, then `inProgressTicketIds` and `inProgressReviewOfIds` — and beside it `readyTickets`, and end with `reviewWaitingTickets`, `pausedBuilds` and `ticketRows`. |
 | `ticket list [--status <s>] [--priority <p>] [--json]` | The tickets with their status, priority, type and row id, the model and effort after the title where the ticket names them, and "waiting on #003" where a dependency is unsettled. `--status` and `--priority` narrow the listing. `--json` carries no bodies. |
 | `ticket show <id> [--json]` | One ticket: its frontmatter, its priority, its model and effort where it names them, its body, and always its file path — which is what an agent needs in order to edit that body. |
 
@@ -185,6 +185,22 @@ delivered. `readyTicketIds` orders them high priority first, then normal, each l
 ticket is ready only once no normal or high ticket is left that is not delivered or abandoned.
 `readyTickets` lists the same tickets in the same order as `{ id, priority, model, effort }` with the
 defaults resolved, plus `held: true` on a held one, so a dispatcher derives none of them itself.
+
+**What a dispatcher reads.** Every list below is in file order, each id once, with a ticket's model,
+effort and priority resolved to their defaults.
+
+- `concurrency.inProgressTicketIds`: the `ticket` of every `in-progress` row that has one.
+- `concurrency.inProgressReviewOfIds`: the `reviewOf` of every `in-progress` row that stores one, on
+  any row, a ticket's own row included, as `ticket claim` and the moves out of review read it.
+- `reviewWaitingTickets`: `{ id, model, effort }` for every `in-review` ticket whose id is not in
+  `inProgressReviewOfIds`, a held one included; `heldTicketIds` says which are held.
+- `pausedBuilds`: `{ id, note, priority, model, effort }` for every `in-progress` ticket whose row is
+  `paused`, `note` being that row's note, whoever paused it.
+- `ticketRows`: `{ id, row, reviewBars }` for each ticket the document lists, in its order, so the
+  working view covers only the unsettled tickets. `row` is `{ id, status, note }` of the row the
+  ticket's `task` names, or `null`. `reviewBars` are `{ id, status, round }` of the rows no ticket
+  owns whose `reviewOf` is the ticket, oldest filed first, `round` being the stored `reviewBarRound`
+  and absent where the bar stores none.
 
 ### Tasks
 

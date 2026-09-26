@@ -218,7 +218,7 @@ held by review, not by a spec.
 | `cli/InitRootOverride.spec.ts` | `init` beside `AGENT_PROGRESS_ROOT`, spawned because no spec may set the environment in-process: an override naming another directory refused with both progress files byte-identical, an agreeing one refreshing like `update`. |
 | `dispatcher/testing/WorkflowScriptSource.spec.ts` | Every form the guard catches, each watched failing. |
 | `dispatcher/DispatchScript.spec.ts` | The built script's meta equals the old script's, it has no clock or randomness, builds to the same text every time and has one `agent()` call. |
-| `dispatcher/testing/OldDispatchScript.spec.ts` | What the committed old script states for itself. |
+| `dispatcher/testing/OldDispatchScript.spec.ts` | What the committed old script states for itself, and that it is still the script the port was frozen against. |
 | `dispatcher/Dispatcher.decisions.spec.ts` and its `.holds`, `.resumption`, `.brief` and `.equivalence` suites | The dispatcher's decisions; see below. |
 
 A new guard does not count until you have introduced each form of the violation it claims to catch and
@@ -256,8 +256,9 @@ tracked repository as `.claude/workflows/agent-progress-dispatch.js`. It runs a 
 and a clean reviewer per built one within the board limit, and decides rounds and parking in code.
 
 Its policy is ported to `dispatcher/` in TypeScript. The frozen table
-`dispatcher/testing/FrozenDispatchTraces.json`, taken from that script at bc42604 with the retake command
-stated in the table, holds the port to its behaviour.
+`dispatcher/testing/FrozenDispatchTraces.json` holds the port to its behaviour: it was taken from the old
+script at bc42604, and is now retaken from the port's bundle by the command it states, only in a commit
+meant to change what the agents are told, whose diff of the table is that commit's review.
 
 `dispatcher/testing/DispatchScriptBundle.ts` bundles the port into one Workflow script, and
 `dispatcher/testing/DispatchScriptHarness.ts` runs it against a fake `agent()` and a fake board, with the
@@ -270,7 +271,7 @@ clock and randomness refused as the Workflow tool refuses them. The specs:
 | `dispatcher/Dispatcher.resumption.spec.ts` | A build an earlier run left paused is resumed by a whole-board relaunch with one builder, never a held ticket's or a person's pause. |
 | `dispatcher/Dispatcher.brief.spec.ts` | The call budgets and rework threshold sent by the bundle and stated in `templates/AgentBrief.md` equal `DISPATCH_PROTOCOL`. |
 | `dispatcher/Dispatcher.equivalence.spec.ts` | The bundle reproduces the frozen table on every catalogued scenario. |
-| `dispatcher/testing/DispatchTraceCapture.spec.ts` | The committed old script is still the one the table was taken from. |
+| `dispatcher/testing/DispatchTraceCapture.spec.ts` | The table names the bundle it was taken from and the command that retakes it. |
 | `dispatcher/DispatchScript.spec.ts` and `dispatcher/testing/WorkflowScriptSource.spec.ts` | No nondeterministic call, and a literal `meta`. |
 
 A change to the dispatcher's behaviour therefore comes with a claim and its mutant.

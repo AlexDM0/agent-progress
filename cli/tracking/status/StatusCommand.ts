@@ -1,5 +1,6 @@
 import { ProgressDocumentUtil }           from '../../../src/adapters/progress/utils/ProgressDocumentUtil';
 import { LogUtil }                        from '../../../src/adapters/utils/LogUtil';
+import { StatusDocumentUtil }             from '../../../src/adapters/utils/StatusDocumentUtil';
 import { TicketJsonUtil }                 from '../../../src/adapters/utils/TicketJsonUtil';
 import type { ProgressFile }              from '../../../src/lib/tracker-model/@types/ProgressFile';
 import type { Task }                      from '../../../src/lib/tracker-model/@types/Task';
@@ -75,14 +76,19 @@ function derivedDocumentOf(board: Board): { concurrency: object; readyTickets: R
   const concurrency     = board.dispatchCapacity();
   const dispatcherRunId = board.dispatcherRunId();
   return {
-    concurrency:  dispatcherRunId === undefined ? concurrency : { ...concurrency, dispatcherRunId },
+    concurrency:  { ...(dispatcherRunId === undefined ? concurrency : { ...concurrency, dispatcherRunId }), ...StatusDocumentUtil.inProgressIdsOf(board) },
     readyTickets: board.readyTicketEntries(),
   };
 }
 
 /** The whole progress file plus every ticket in the version 1 document shape, with the derived `concurrency` and `readyTickets` beside it. */
 function fullDocumentOf(progress: ProgressFile, wordedLog: readonly WordedLogEntry[], board: Board): object {
-  return { ...ProgressDocumentUtil.documentOf(progress, wordedLog), tickets: board.tickets().map(TicketJsonUtil.ticketDocumentOf), ...derivedDocumentOf(board) };
+  return {
+    ...ProgressDocumentUtil.documentOf(progress, wordedLog),
+    tickets: board.tickets().map(TicketJsonUtil.ticketDocumentOf),
+    ...derivedDocumentOf(board),
+    ...StatusDocumentUtil.boardWorkOf(board, board.tickets()),
+  };
 }
 
 /** What an agent opening a session needs: unsettled rows and tickets, the recent log newest first, and counts of what was left out. */
@@ -101,6 +107,7 @@ function workingDocumentOf(progress: ProgressFile, wordedLog: readonly WordedLog
       settledTickets:  tickets.length - unsettledTickets.length,
       olderLogEntries: wordedLog.length - recentLog.length,
     },
+    ...StatusDocumentUtil.boardWorkOf(board, unsettledTickets),
   };
 }
 

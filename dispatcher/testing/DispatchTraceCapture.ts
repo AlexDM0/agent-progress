@@ -1,10 +1,12 @@
 /**
  * Captures the frozen dispatch trace table from a dispatcher script's text: every catalogue entry run through the harness, reduced to its
- * trace. Run as a script, it prints the table for `dispatcher/testing/FrozenDispatchTraces.json`.
+ * trace. Run as a script at the commit that holds the table, it bundles the TypeScript port and prints the table for
+ * `dispatcher/testing/FrozenDispatchTraces.json`.
  */
 import { readFileSync } from 'node:fs';
 import { join }         from 'node:path';
 
+import { builtScriptTextOf, bundleDispatchScript }  from './DispatchScriptBundle.ts';
 import { runDispatchScript, type DispatchScenario } from './DispatchScriptHarness.ts';
 import { digestOf, traceOf, type DispatchTrace }    from './DispatchTrace.ts';
 import {
@@ -17,7 +19,8 @@ import {
 import { metaLiteralValueOf, metaLiteralVerdictOf } from './WorkflowScriptSource.ts';
 
 export interface FrozenDispatchTraces {
-  takenFrom:   { scriptPath: string; commit: string; scriptDigest: string };
+  /** A bundle is named by its digest, since a table retaken in the commit that changes the port cannot name that commit. */
+  takenFrom:   { scriptPath: string; scriptDigest: string };
   /** The command that retakes this table, stated in the table itself. */
   retake:      string;
   meta:        unknown;
@@ -26,18 +29,13 @@ export interface FrozenDispatchTraces {
   promptTexts: Record<string, string>;
 }
 
-const OLD_SCRIPT_PATH = 'templates/workflows/AgentProgressDispatch.js';
+export const BUNDLE_ENTRY_PATH = 'dispatcher/DispatchScript.ts';
 
-const FROZEN_TABLE_PATH = 'dispatcher/testing/FrozenDispatchTraces.json';
+export const RETAKE_COMMAND = 'bun dispatcher/testing/DispatchTraceCapture.ts > dispatcher/testing/FrozenDispatchTraces.json';
 
 const LEVER_KEY_OPENING = 'lever: ';
 
 const TRACE_TABLE_INDENT_SPACES = 2;
-
-function retakeCommandFor(commit: string): string {
-  return `git show ${commit}:${OLD_SCRIPT_PATH} > <scratch>/AgentProgressDispatch.js`
-    + ` && bun dispatcher/testing/DispatchTraceCapture.ts <scratch>/AgentProgressDispatch.js ${commit} > ${FROZEN_TABLE_PATH}`;
-}
 
 function metaValueOf(scriptSource: string): unknown {
   const metaRead = metaLiteralValueOf(scriptSource);
@@ -110,7 +108,7 @@ export async function captureDispatchTraces(scriptSource: string, takenFrom: Fro
   if (problems.length > 0) throw new Error(`The dispatch trace catalogue fails its sanity checks:\n${problems.join('\n')}`);
   return {
     takenFrom,
-    retake: retakeCommandFor(takenFrom.commit),
+    retake: RETAKE_COMMAND,
     meta:   metaValueOf(scriptSource),
     traces,
     promptTexts,
@@ -122,9 +120,7 @@ export function readFrozenDispatchTraces(): FrozenDispatchTraces {
 }
 
 if (import.meta.main) {
-  const [scriptFilePath, commit] = Bun.argv.slice(2);
-  if (scriptFilePath === undefined || commit === undefined) throw new Error('Usage: bun dispatcher/testing/DispatchTraceCapture.ts <script file> <commit>');
-  const scriptSource = readFileSync(scriptFilePath, 'utf8');
-  const table = await captureDispatchTraces(scriptSource, { scriptPath: OLD_SCRIPT_PATH, commit, scriptDigest: digestOf(scriptSource) });
+  const scriptText = builtScriptTextOf(await bundleDispatchScript());
+  const table = await captureDispatchTraces(scriptText, { scriptPath: BUNDLE_ENTRY_PATH, scriptDigest: digestOf(scriptText) });
   process.stdout.write(`${JSON.stringify(table, null, TRACE_TABLE_INDENT_SPACES)}\n`);
 }

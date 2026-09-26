@@ -1,6 +1,6 @@
 /**
  * The reply schema of each agent the dispatcher starts. Key and array orders are part of the wire contract the frozen table hashes, and the
- * field names are the ones the prompts ask the agents to return.
+ * field names mirror the `status --json` fields the prompts ask the agents to copy, with `worktreeExists` the survey's own `test -d`.
  */
 import type { DispatcherState } from '../../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { JsonSchema }      from '../@types/WorkflowRuntime.ts';

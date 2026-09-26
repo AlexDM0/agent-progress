@@ -124,17 +124,18 @@ describe('the dispatcher script', () => {
     const run = await runDispatchScript(DECISION_SCENARIOS['a reviewer returns nothing on round 1 at a limit of 2'](), builtScriptTextOf(BUNDLE));
     const reviewers = run.calls.filter((call) => call.kind === 'review');
     expect(reviewers).toHaveLength(2);
-    for (const reviewer of reviewers) expect(reviewer.prompt).toContain('`reviewOf` is 001, it is this review\'s own');
+    const runningBarIsOwnText = 'entry for 001 in `agent-progress status --json` lists an `in-progress` review bar, it is this review\'s own';
+    for (const reviewer of reviewers) expect(reviewer.prompt).toContain(runningBarIsOwnText);
     for (const reviewer of reviewers) expect(reviewer.prompt).toContain(REVIEWER_TAKES_OVER_A_RUNNING_BAR);
     expect(run.reviewBarsAdded).toEqual(['review 001']);
   });
 
-  test('only a round-2 reviewer runs ticket rereview, and its prompt skips it when the bar named for its round already runs', async () => {
+  test('only a round-2 reviewer runs ticket rereview, and its prompt skips it when the bar of its round already runs', async () => {
     const run = await runDispatchScript(DECISION_SCENARIOS['a reviewer asks for round 2'](), builtScriptTextOf(BUNDLE));
     const reviewers = run.calls.filter((call) => call.kind === 'review');
     expect(reviewers).toHaveLength(2);
     expect(reviewers[0]?.prompt).not.toContain('ticket rereview 001');
-    expect(reviewers[1]?.prompt).toContain('is named `Review <your round> #001 — …`');
+    expect(reviewers[1]?.prompt).toContain('an `in-progress` bar whose `round` is your round');
     expect(reviewers[1]?.prompt).toContain(REVIEWER_SKIPS_A_REREVIEW_ALREADY_RUN);
     expect(run.rereviewsRun).toEqual(['rereview 001 round 2']);
   });

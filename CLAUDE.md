@@ -121,9 +121,11 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
 
 - Generated files do not live in the repository, and everything installed elsewhere is to carry one install
   version. Until plan step 8, nothing is stamped or refused on a mismatch, and `init` and `update` still install the
-  committed `templates/workflows/AgentProgressDispatch.js`. Its policy is ported to `dispatcher/` in TypeScript, held to
-  that script's behaviour by the frozen table `dispatcher/testing/FrozenDispatchTraces.json`, until step 8 generates
-  the installed script from the port and deletes the old one.
+  committed `templates/workflows/AgentProgressDispatch.js`. Its policy is ported to `dispatcher/` in TypeScript until
+  step 8 generates the installed script from the port and deletes the old one.
+- The frozen table `dispatcher/testing/FrozenDispatchTraces.json` was taken from that script and is since retaken from
+  the port's bundle only in a commit that means to change what the agents are told, whose table diff shows prompt text
+  or wire names and no decision: the one exception to a frozen table coming from the previous implementation.
 
 ### Comments
 
