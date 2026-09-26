@@ -191,7 +191,8 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
 - Only a transition stamps `updated`. The named verbs enforce the legality matrix; `ticket status` skips it on purpose.
 - A row's `history` holds only what the tool watched; nothing reconstructs phases. A review row belongs to its
   ticket by `reviewOf`; a free-standing row known only by its `Review <N> #<id>` name is given `reviewOf` and
-  `reviewBarRound` when progress.json is read, and nothing else reads a name.
+  `reviewBarRound` when progress.json is read. Outside that, only the page still matches a name, as a display
+  fallback that never moves a row, until it switches to the Board queries (plan step 7b).
 
 ### The page
 
