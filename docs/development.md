@@ -157,7 +157,8 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
 A feature folder (`lib/tickets/`, `lib/render/`) never imports a sibling; what two
 features need is promoted to the level above both, or passed as a structurally typed parameter.
 Nothing under `lib/` imports `cli/`, and nothing that ships imports the test-only
-`src/testing/`, `cli/testing/` and `lib/tooling/dev/`. Exit codes are decided in `cli/` and nowhere else; a `lib/` module returns a
+`src/testing/`, `cli/testing/`, `src/adapters/progress/testing/` and `lib/tooling/dev/`.
+Exit codes are decided in `cli/` and nowhere else; a `lib/` module returns a
 verdict or throws `OperationRefusal`.
 
 The rules are in the root `CLAUDE.md`; there are no folder `CLAUDE.md` files.
