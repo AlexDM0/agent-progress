@@ -1,5 +1,6 @@
 /**
  * The markdown tickets and the Gantt rows they drive: every transition moves the row and stamps the frontmatter, which is what `clear` re-seeds from.
+ * The command merges its subcommand groups into one table, so no two groups may claim the same verb, or one would silently win.
  */
 import {
   mkdirSync,
@@ -27,6 +28,11 @@ import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } fr
 import { runCommandLine }                                                     from '../Main';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';
 import { storedLogEntriesOf }                                                 from '../testing/StoredLogEntries';
+import { TICKET_CLAIM_SUBCOMMANDS }                                           from './TicketClaims';
+import { TICKET_FILING_SUBCOMMANDS }                                          from './TicketFiling';
+import { TICKET_MOVE_SUBCOMMANDS }                                            from './TicketMoves';
+import { TICKET_READING_SUBCOMMANDS }                                         from './TicketReading';
+import { TICKET_SETTING_SUBCOMMANDS }                                         from './TicketSettings';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -675,5 +681,52 @@ describe.skipIf(!gitIsAvailable())('a ticket file that will not parse', () => {
     const missingContext = contextHere();
     expect(await runCommandLine(['ticket', 'show', '2'], missingContext)).toBe(1);
     expect(missingContext.errorText()).toContain('There is no readable ticket 2');
+  });
+});
+
+describe.skipIf(!gitIsAvailable())('the subcommand groups', () => {
+  test('no two groups name the same subcommand, and together they hold every verb the usage lists', () => {
+    const groups = [
+      TICKET_FILING_SUBCOMMANDS,
+      TICKET_READING_SUBCOMMANDS,
+      TICKET_MOVE_SUBCOMMANDS,
+      TICKET_CLAIM_SUBCOMMANDS,
+      TICKET_SETTING_SUBCOMMANDS,
+    ];
+    const subcommands = groups.flatMap((group) => Object.keys(group));
+
+    expect(subcommands.length).toBeGreaterThan(0);
+    expect(new Set(subcommands).size).toBe(subcommands.length);
+    expect([...subcommands].sort()).toEqual([
+      'abandon',
+      'add',
+      'agent',
+      'approve',
+      'claim',
+      'deliver',
+      'depends',
+      'done',
+      'finish',
+      'hold',
+      'link',
+      'list',
+      'priority',
+      'reopen',
+      'rereview',
+      'review',
+      'show',
+      'start',
+      'status',
+      'unhold',
+    ]);
+  });
+
+  test('constructor, inherited by every table, is refused as an unknown subcommand, with nothing on standard output', async () => {
+    const context  = contextHere();
+    const exitCode = await runCommandLine(['ticket', 'constructor', '1'], context);
+
+    expect(exitCode).toBe(1);
+    expect(context.errorText()).toStartWith('"constructor" is not an agent-progress ticket subcommand.\n  Usage: agent-progress ticket add "<title>"');
+    expect(context.outputText()).toBe('');
   });
 });

@@ -1,0 +1,82 @@
+import { LegacyStatusUtil } from '../../../src/adapters/utils/LegacyStatusUtil';
+import type {
+  AgentEffort,
+  AgentModel,
+  TicketPriority,
+  TicketStatus,
+  TicketType
+} from '../../../src/lib/tracker-model/@types/Ticket';
+import { AGENT_EFFORTS, AGENT_MODELS }     from '../../../src/lib/tracker-model/constants/AgentSettings';
+import { TICKET_STATUSES }                 from '../../../src/lib/tracker-model/constants/Statuses';
+import { TICKET_PRIORITIES, TICKET_TYPES } from '../../../src/lib/tracker-model/constants/TicketFields';
+import { TicketIdUtil }                    from '../../../src/lib/tracker-model/utils/TicketIdUtil';
+import { VocabularyUtil }                  from '../../../src/lib/tracker-model/utils/VocabularyUtil';
+import { OperationRefusal }                from '../../../src/shared/OperationRefusal';
+
+const DEPENDENCY_SEPARATOR_PATTERN = /[\s,]+/;
+
+function requirePriority(writtenPriority: string): TicketPriority {
+  if (!VocabularyUtil.ticketPriorityIsKnown(writtenPriority)) {
+    throw new OperationRefusal('refused', `"${writtenPriority}" is not a ticket priority. The priorities are ${TICKET_PRIORITIES.join(', ')}.`);
+  }
+  return writtenPriority;
+}
+
+function priorityFrom(writtenPriority: string | undefined): TicketPriority | undefined {
+  return writtenPriority === undefined ? undefined : requirePriority(writtenPriority);
+}
+
+function ticketTypeFrom(writtenType: string | undefined): TicketType | undefined {
+  if (writtenType === undefined) return undefined;
+  if (!VocabularyUtil.ticketTypeIsKnown(writtenType)) {
+    throw new OperationRefusal('refused', `"${writtenType}" is not a ticket type. The types are ${TICKET_TYPES.join(', ')}.`);
+  }
+  return writtenType;
+}
+
+function agentModelFrom(writtenModel: string | undefined): AgentModel | undefined {
+  if (writtenModel === undefined) return undefined;
+  if (!VocabularyUtil.agentModelIsKnown(writtenModel)) {
+    throw new OperationRefusal('refused', `"${writtenModel}" is not an agent model. The models are ${AGENT_MODELS.join(', ')}.`);
+  }
+  return writtenModel;
+}
+
+function agentEffortFrom(writtenEffort: string | undefined): AgentEffort | undefined {
+  if (writtenEffort === undefined) return undefined;
+  if (!VocabularyUtil.agentEffortIsKnown(writtenEffort)) {
+    throw new OperationRefusal('refused', `"${writtenEffort}" is not an agent effort. The efforts are ${AGENT_EFFORTS.join(', ')}.`);
+  }
+  return writtenEffort;
+}
+
+function dependencyListFrom(texts: readonly string[]): string[] {
+  const dependsOn: string[] = [];
+  for (const reference of texts.flatMap((text) => text.split(DEPENDENCY_SEPARATOR_PATTERN)).filter((part) => part !== '')) {
+    const identifier = TicketIdUtil.parseTicketReference(reference);
+    if (identifier === null) {
+      throw new OperationRefusal('refused', `"${reference}" is not a ticket id. Write it as \`3\`, \`003\` or \`#3\`.`);
+    }
+    if (!dependsOn.includes(identifier)) dependsOn.push(identifier);
+  }
+  return dependsOn;
+}
+
+/** An old status word is named with the word that replaced it, since a reader who typed it meant that one. */
+function refuseAnUnknownTicketStatus(writtenStatus: string, retryAdviceFor: (renamedStatus: TicketStatus) => string): never {
+  const renamedStatus = LegacyStatusUtil.currentTicketStatusFor(writtenStatus);
+  if (renamedStatus !== null) {
+    throw new OperationRefusal('refused', `"${writtenStatus}" is the old name of the ticket status ${renamedStatus}; ${retryAdviceFor(renamedStatus)}.`);
+  }
+  throw new OperationRefusal('refused', `"${writtenStatus}" is not a ticket status. The statuses are ${TICKET_STATUSES.join(', ')}.`);
+}
+
+export const TicketArgumentUtil = {
+  requirePriority,
+  priorityFrom,
+  ticketTypeFrom,
+  agentModelFrom,
+  agentEffortFrom,
+  dependencyListFrom,
+  refuseAnUnknownTicketStatus,
+} as const;

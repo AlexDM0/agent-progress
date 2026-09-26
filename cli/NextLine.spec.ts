@@ -121,7 +121,7 @@ describe.skipIf(!gitIsAvailable())('the line the human output ends with', () => 
     test(`\`${nextLineCase.command.join(' ')}\` ends with the board as the move left it`, async () => {
       await runSetup(nextLineCase.setup);
 
-      // `ticket add` follows it with the running dispatcher notice, pinned in `cli/ticket/TicketCommand.dispatcher.spec.ts`.
+      // `ticket add` follows it with the running dispatcher notice, pinned in `cli/tickets/TicketCommand.dispatcher.spec.ts`.
       const lines = (await run(nextLineCase.command)).outputText().split('\n').filter((line) => !line.startsWith('Dispatcher running:'));
 
       expect(lines.at(-1)).toBe(nextLineCase.expectedNextLine);

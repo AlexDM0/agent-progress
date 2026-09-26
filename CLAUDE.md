@@ -273,8 +273,8 @@ README-keynote.md           the same page in a keynote layout, kept for comparis
 README-day-on-the-board.md  the same page told as one day on a board, kept for comparison
 setup.sh                    machine setup: Bun, bun install and bun link, and the skill symlinks
 cli/                        the command surface: dispatch, arguments, help, and the commands grouped into sets: tracking/,
-                            dispatch/, adoption/ and measurement/, plus ticket/ until it moves; cli/utils/ holds the
-                            Next line; cli/testing/ is test-only
+                            tickets/, dispatch/, adoption/ and measurement/; cli/utils/ holds the Next line, the printing
+                            and the option values; cli/testing/ is test-only
 dispatcher/                 the dispatcher policy in TypeScript, bundled into a Workflow script; dispatcher/testing/ is
                             test-only: the harness, the bundle builder, the frozen table
 page/                       the browser page: its sets, its own DOM-only tsconfig and spec tsconfig
