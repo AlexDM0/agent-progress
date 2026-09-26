@@ -1,6 +1,5 @@
 import { existsSync } from 'node:fs';
 
-import { withLock }                from '../../src/services/tracker/TrackerLock';
 import { requireWorkspace }        from '../../src/services/tracker/Workspace';
 import { renderDashboardOrRefuse } from '../CommandSupport';
 import type { CommandHandler }     from '../CommandTable';
@@ -24,7 +23,7 @@ export const openCommand: CommandHandler = async (commandArguments, context) => 
 
   const workspace = requireWorkspace(context.currentDirectory);
   if (!existsSync(workspace.htmlFilePath)) {
-    await withLock(workspace, () => renderDashboardOrRefuse(context, workspace), context.now);
+    await renderDashboardOrRefuse(context, workspace);
   }
 
   const opener = openerForPlatform(context.platform);

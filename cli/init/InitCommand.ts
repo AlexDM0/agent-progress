@@ -15,7 +15,7 @@ import { TRACKER_FILES }                    from '../../src/services/tracker/con
 import { agentProgressRootOverride }        from '../../src/shared/Environment';
 import { OperationRefusal }                 from '../../src/shared/OperationRefusal';
 import {
-  renderDashboard,
+  renderDashboardAndReport,
   rewriteOlderTrackerFiles,
   rewrittenFilesTextOf,
   type TrackerRewrite
@@ -166,7 +166,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
       // A new tracker's log starts empty, so a log.jsonl left from a removed tracker is emptied, never adopted.
       // A crash between the two writes leaves that old log.jsonl beside the new progress file.
       createLogFileWriter(workspace.logFilePath).write([]);
-      await renderDashboard(context, workspace);
+      await renderDashboardAndReport(context, workspace);
     }
     return verdict;
   }, context.now);

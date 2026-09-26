@@ -39,7 +39,7 @@ to make a check pass.
 ### Imports (today's tree, held by review)
 
 ```
-src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/render/  →  cli/
+src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  cli/
 ```
 
 - Imports run up only, with no cycles. `lib/constants/` imports nothing outside itself; `lib/utils/` imports only
@@ -56,8 +56,9 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/rende
 - `cli/testing/` is imported only by `cli/` specs.
 - `src/adapters/` imports only `src/lib/` and `src/shared/`; a `src/adapters/` spec may also import `src/testing/`.
   What remains in `lib/` and `cli/` may import `src/adapters/` until plan step 6 moves the listing and the pipeline.
-- A `src/services/` folder imports only `src/lib/`, `src/shared/` and `src/adapters/`; a `src/services/` spec may import
-  `src/testing/`. What remains in `lib/` and `cli/` may import `src/services/` until plan step 6 moves it there.
+- `src/services/tracker/` imports `src/lib/`, `src/shared/`, `src/adapters/` and `src/services/render/`;
+  `src/services/render/` imports only `src/lib/`, `src/shared/` and `src/adapters/`; a `src/services/` spec may import
+  `src/testing/`. `cli/` imports `src/services/` as a feature does.
 - `src/shared/` holds app-specific code several parts use and imports only `src/lib/` and itself; what remains in
   `lib/` may import `src/shared/`; `src/` never imports `lib/` or `cli/`.
 - A feature folder never imports a sibling: hoist what both need, or pass a structurally typed parameter.

@@ -1,41 +1,39 @@
 /**
  * The sequence every mutating command follows, written once: take the lock of `src/services/tracker/TrackerLock.ts`; read the progress file, its log
  * and the tickets into a Board; mutate; write the progress file, then the tickets the Board changed, then log.jsonl, then render through
- * `lib/render/Rerender.ts` — all inside the lock, in that order, so no older render lands last and the progress file is never behind the
- * tickets. A log taken over from a version 1 progress file also has its notes copied first, so they are on disk before that file stops holding them.
+ * `src/services/tracker/DashboardRendering.ts` — all inside the lock, in that order, so no older render lands last and the progress file is never
+ * behind the tickets. A log taken over from a version 1 progress file also has its notes copied first, so they are on disk before that file stops
+ * holding them.
  */
-import { rerenderDashboard, type RerenderOutcome, type TrackerReads } from '../lib/render/Rerender';
-import { NextLineUtil }                                               from '../lib/utils/NextLineUtil';
-import { LogFileIngestion }                                           from '../src/adapters/log/LogFileIngestion';
-import { createLogFileSink }                                          from '../src/adapters/log/LogFileSink';
-import { createLogFileWriter }                                        from '../src/adapters/log/LogFileWriter';
-import { TrackerLogUtil }                                             from '../src/adapters/log/utils/TrackerLogUtil';
-import { ProgressFileIngestion }                                      from '../src/adapters/progress/ProgressFileIngestion';
-import { createProgressFileWriter }                                   from '../src/adapters/progress/ProgressFileWriter';
-import { createTicketFileWriter }                                     from '../src/adapters/tickets/TicketFileWriter';
-import type { Concurrency }                                           from '../src/lib/tracker-model/@types/Concurrency';
-import type { DispatcherState, ProgressFile }                         from '../src/lib/tracker-model/@types/ProgressFile';
+import { NextLineUtil }                       from '../lib/utils/NextLineUtil';
+import { createLogFileSink }                  from '../src/adapters/log/LogFileSink';
+import { createLogFileWriter }                from '../src/adapters/log/LogFileWriter';
+import { createProgressFileWriter }           from '../src/adapters/progress/ProgressFileWriter';
+import { createTicketFileWriter }             from '../src/adapters/tickets/TicketFileWriter';
+import { TrackerReadingWordingUtil }          from '../src/adapters/utils/TrackerReadingWordingUtil';
+import type { Concurrency }                   from '../src/lib/tracker-model/@types/Concurrency';
+import type { DispatcherState, ProgressFile } from '../src/lib/tracker-model/@types/ProgressFile';
 import type {
   AgentEffort,
   AgentModel,
   Ticket,
   TicketPriority
 } from '../src/lib/tracker-model/@types/Ticket';
-import { Board }                                                   from '../src/lib/tracker-model/Board';
-import { refusalIsBoardRefusal }                                   from '../src/lib/tracker-model/BoardRefusal';
-import { createLogger }                                            from '../src/lib/tracker-model/Logger';
-import { ConcurrencyUtil }                                         from '../src/lib/tracker-model/utils/ConcurrencyUtil';
-import { TicketDefaultsUtil }                                      from '../src/lib/tracker-model/utils/TicketDefaultsUtil';
-import { TimeUtil }                                                from '../src/lib/utils/TimeUtil';
-import { TokenCountUtil }                                          from '../src/lib/utils/TokenCountUtil';
-import { deleteAllTickets, listTickets, type MalformedTicketFile } from '../src/services/tracker/TicketStore';
-import { withLock }                                                from '../src/services/tracker/TrackerLock';
-import { readTracker, requireTracker, type TrackerContents }       from '../src/services/tracker/TrackerReader';
-import { requireWorkspace, type Workspace }                        from '../src/services/tracker/Workspace';
-import { OperationRefusal }                                        from '../src/shared/OperationRefusal';
-import { LIMITS }                                                  from '../src/shared/constants/Limits';
-import type { CommandContext }                                     from './CommandContext';
-import type { ArgumentParser }                                     from './arguments/ArgumentParser';
+import { Board }                                                                  from '../src/lib/tracker-model/Board';
+import { refusalIsBoardRefusal }                                                  from '../src/lib/tracker-model/BoardRefusal';
+import { createLogger }                                                           from '../src/lib/tracker-model/Logger';
+import { TicketDefaultsUtil }                                                     from '../src/lib/tracker-model/utils/TicketDefaultsUtil';
+import { TimeUtil }                                                               from '../src/lib/utils/TimeUtil';
+import { TokenCountUtil }                                                         from '../src/lib/utils/TokenCountUtil';
+import { renderDashboard, renderDashboardUnderLock, type DashboardRenderOutcome } from '../src/services/tracker/DashboardRendering';
+import { deleteAllTickets, type MalformedTicketFile }                             from '../src/services/tracker/TicketStore';
+import { withLock }                                                               from '../src/services/tracker/TrackerLock';
+import { readTracker, requireTracker, type TrackerContents }                      from '../src/services/tracker/TrackerReader';
+import { requireWorkspace, type Workspace }                                       from '../src/services/tracker/Workspace';
+import { OperationRefusal }                                                       from '../src/shared/OperationRefusal';
+import { LIMITS }                                                                 from '../src/shared/constants/Limits';
+import type { CommandContext }                                                    from './CommandContext';
+import type { ArgumentParser }                                                    from './arguments/ArgumentParser';
 
 export interface TrackerChange {
   board:                          Board;
@@ -150,23 +148,10 @@ export function nextLineFor(board: Board): string {
   });
 }
 
-function trackerReads(): TrackerReads {
-  return {
-    listTickets,
-    readStoredLog: (workspace, embeddedLog) => TrackerLogUtil.storedLogOf(
-      embeddedLog,
-      new LogFileIngestion(workspace.logFilePath).read(),
-      { logFilePath: workspace.logFilePath, progressFilePath: workspace.progressFilePath },
-    ),
-    readProgressFile: (workspace) => new ProgressFileIngestion(workspace.progressFilePath).read(),
-    concurrencyOf:    (progress) => ConcurrencyUtil.concurrencyOf(progress.tasks, progress.concurrencyLimit),
-  };
-}
-
 /** The store is already written by the time this runs, so none of these fail the command: exit 0, reason on standard error. */
-function reportRenderProblems(context: CommandContext, outcome: RerenderOutcome): void {
+export function reportRenderProblems(context: CommandContext, outcome: DashboardRenderOutcome): void {
   if (outcome.verdict === 'unreadable') {
-    context.standardError(`The dashboard was not regenerated: ${outcome.reason}`);
+    context.standardError(`The dashboard was not regenerated: ${TrackerReadingWordingUtil.renderReasonOf(outcome.reading)}`);
     return;
   }
   if (outcome.verdict === 'rendered-without-page-script') {
@@ -175,17 +160,17 @@ function reportRenderProblems(context: CommandContext, outcome: RerenderOutcome)
   reportIgnoredTicketFiles(context, outcome.malformedTickets);
 }
 
-export async function renderDashboard(context: CommandContext, workspace: Workspace): Promise<RerenderOutcome> {
-  const outcome = await rerenderDashboard({ workspace, generatedAt: context.now(), reads: trackerReads() });
+export async function renderDashboardAndReport(context: CommandContext, workspace: Workspace): Promise<DashboardRenderOutcome> {
+  const outcome = await renderDashboard(workspace, context.now());
   reportRenderProblems(context, outcome);
   return outcome;
 }
 
 /** For `render` and `open`, whose whole job is the page: an unreadable tracker is their failure, reported once, by the refusal alone. */
 export async function renderDashboardOrRefuse(context: CommandContext, workspace: Workspace): Promise<void> {
-  const outcome = await rerenderDashboard({ workspace, generatedAt: context.now(), reads: trackerReads() });
+  const outcome = await renderDashboardUnderLock(workspace, context.now);
   if (outcome.verdict === 'unreadable') {
-    throw new OperationRefusal('unrepaired', `The dashboard could not be regenerated: ${outcome.reason}`);
+    throw new OperationRefusal('unrepaired', `The dashboard could not be regenerated: ${TrackerReadingWordingUtil.renderReasonOf(outcome.reading)}`);
   }
   reportRenderProblems(context, outcome);
 }
@@ -238,7 +223,7 @@ async function writeTrackerUnderLock<Reading>(
 
   if (logRecordsToWrite !== null) logFileWriter.write(logRecordsToWrite);
   const reading = writes.readAfterWriting(tracker.board);
-  await renderDashboard(context, workspace);
+  await renderDashboardAndReport(context, workspace);
   return reading;
 }
 
