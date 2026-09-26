@@ -15,6 +15,7 @@ import type { ProgressFile }                                                  fr
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
 import { runCommandLine }                                                     from '../Main';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';
+import { storedLogTextOf }                                                    from '../testing/StoredLogText';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -33,10 +34,6 @@ async function run(commandLineArguments: readonly string[]): Promise<ReturnType<
 
 function storedProgress(): ProgressFile {
   return JSON.parse(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')) as ProgressFile;
-}
-
-function logFileText(): string {
-  return readFileSync(join(repositoryDirectory, '.agent-progress', 'log.jsonl'), 'utf8');
 }
 
 function storedTicketText(fileName: string): string {
@@ -191,7 +188,7 @@ describe.skipIf(!gitIsAvailable())('the retired verb and status words', () => {
   test('task review is refused at exit 1 naming task approve, and the progress file stays byte-identical', async () => {
     await run(['task', 'add', 'Review pass', '--start']);
     const progressBefore = progressFileText();
-    const logBefore      = logFileText();
+    const logBefore      = storedLogTextOf(repositoryDirectory);
 
     const context  = contextHere();
     const exitCode = await runCommandLine(['task', 'review', '1'], context);
@@ -199,14 +196,14 @@ describe.skipIf(!gitIsAvailable())('the retired verb and status words', () => {
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('agent-progress task approve 1');
     expect(progressFileText()).toBe(progressBefore);
-    expect(logFileText()).toBe(logBefore);
+    expect(storedLogTextOf(repositoryDirectory)).toBe(logBefore);
   });
 
   // `running` is still a word agents type from habit, so the refusal says which word replaced it.
   test('task update --status running is refused at exit 1 naming in-progress, and nothing is written', async () => {
     await run(['task', 'add', 'Review pass']);
     const progressBefore = progressFileText();
-    const logBefore      = logFileText();
+    const logBefore      = storedLogTextOf(repositoryDirectory);
 
     const context  = contextHere();
     const exitCode = await runCommandLine(['task', 'update', '1', '--status', 'running'], context);
@@ -215,7 +212,7 @@ describe.skipIf(!gitIsAvailable())('the retired verb and status words', () => {
     expect(context.errorText()).toContain('"running" is the old name of the task status in-progress');
     expect(context.errorText()).toContain('--status in-progress');
     expect(progressFileText()).toBe(progressBefore);
-    expect(logFileText()).toBe(logBefore);
+    expect(storedLogTextOf(repositoryDirectory)).toBe(logBefore);
   });
 
   // The verb that replaced `review` must reach the same status the old one did.
@@ -294,14 +291,14 @@ describe.skipIf(!gitIsAvailable())('linking a row to a ticket', () => {
   test('--review-of naming a ticket that does not exist is refused with exit 1, and nothing is written', async () => {
     await run(['ticket', 'add', 'Double-click a role to edit it']);
     const progressBefore = readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8');
-    const logBefore      = logFileText();
+    const logBefore      = storedLogTextOf(repositoryDirectory);
 
     const refused = contextHere();
     expect(await runCommandLine(['task', 'add', 'Review 1 #9 — x', '--review-of', '9', '--start'], refused)).toBe(1);
 
     expect(refused.errorText()).toContain('--review-of names ticket 9, and there is none');
     expect(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')).toBe(progressBefore);
-    expect(logFileText()).toBe(logBefore);
+    expect(storedLogTextOf(repositoryDirectory)).toBe(logBefore);
   });
 
   test('remove clears the linked ticket\'s task, so the ticket never names a row that is gone', async () => {

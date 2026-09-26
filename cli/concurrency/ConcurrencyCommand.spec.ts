@@ -17,6 +17,7 @@ import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } fr
 import { runCommandLine }                                                     from '../Main';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';
 import { storedLogEntriesOf }                                                 from '../testing/StoredLogEntries';
+import { storedLogTextOf }                                                    from '../testing/StoredLogText';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -24,10 +25,6 @@ let repositoryDirectory = '';
 
 function progressFilePath(): string {
   return join(repositoryDirectory, '.agent-progress', 'progress.json');
-}
-
-function logFileText(): string {
-  return readFileSync(join(repositoryDirectory, '.agent-progress', 'log.jsonl'), 'utf8');
 }
 
 async function runWithExitCode(commandLineArguments: readonly string[]): Promise<{ exitCode: number; context: ReturnType<typeof createCapturedCommandContext> }> {
@@ -78,13 +75,13 @@ describe.skipIf(!gitIsAvailable())('the concurrency limit', () => {
 
   test.each([['0'], ['-1'], ['x'], ['2.5'], ['11']])('"%s" is refused at exit 1 and the progress file is left byte-identical', async (written) => {
     const before    = readFileSync(progressFilePath(), 'utf8');
-    const logBefore = logFileText();
+    const logBefore = storedLogTextOf(repositoryDirectory);
 
     const { exitCode } = await runWithExitCode(['concurrency', written]);
 
     expect(exitCode).toBe(1);
     expect(readFileSync(progressFilePath(), 'utf8')).toBe(before);
-    expect(logFileText()).toBe(logBefore);
+    expect(storedLogTextOf(repositoryDirectory)).toBe(logBefore);
   });
 
   // The ceiling itself is a limit the user may set; one more is not.

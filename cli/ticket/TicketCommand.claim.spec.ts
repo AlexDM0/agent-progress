@@ -17,6 +17,7 @@ import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } fr
 import { runCommandLine }                                                     from '../Main';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';
 import { storedLogEntriesOf }                                                 from '../testing/StoredLogEntries';
+import { storedLogTextOf }                                                    from '../testing/StoredLogText';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -40,10 +41,6 @@ function progressText(): string {
   return readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8');
 }
 
-function logFileText(): string {
-  return readFileSync(join(repositoryDirectory, '.agent-progress', 'log.jsonl'), 'utf8');
-}
-
 function storedProgress(): ProgressFile {
   return JSON.parse(progressText()) as ProgressFile;
 }
@@ -54,14 +51,14 @@ function ticketText(fileName = FIRST_TICKET_FILE_NAME): string {
 
 async function expectRefusedWithNothingWritten(commandLineArguments: readonly string[]): Promise<string> {
   const progressBefore = progressText();
-  const logBefore      = logFileText();
+  const logBefore      = storedLogTextOf(repositoryDirectory);
   const ticketBefore   = ticketText();
 
   const { context, exitCode } = await runWithExitCode(commandLineArguments);
 
   expect(exitCode).toBe(1);
   expect(progressText()).toBe(progressBefore);
-  expect(logFileText()).toBe(logBefore);
+  expect(storedLogTextOf(repositoryDirectory)).toBe(logBefore);
   expect(ticketText()).toBe(ticketBefore);
   return context.errorText();
 }
@@ -157,14 +154,14 @@ async function agentsInFlightNow(): Promise<number> {
 
 async function expectBundleRefusedWithNothingWritten(commandLineArguments: readonly string[]): Promise<string> {
   const progressBefore = progressText();
-  const logBefore      = logFileText();
+  const logBefore      = storedLogTextOf(repositoryDirectory);
   const ticketsBefore  = everyTicketText();
 
   const { context, exitCode } = await runWithExitCode(commandLineArguments);
 
   expect(exitCode).toBe(1);
   expect(progressText()).toBe(progressBefore);
-  expect(logFileText()).toBe(logBefore);
+  expect(storedLogTextOf(repositoryDirectory)).toBe(logBefore);
   expect(everyTicketText()).toEqual(ticketsBefore);
   return context.errorText();
 }

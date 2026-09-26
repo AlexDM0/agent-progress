@@ -18,6 +18,7 @@ import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } fr
 import { runCommandLine }                                                     from '../Main';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';
 import { storedLogEntriesOf }                                                 from '../testing/StoredLogEntries';
+import { storedLogTextOf }                                                    from '../testing/StoredLogText';
 
 const FROZEN_NOW = new Date('2026-09-23T20:11:03Z');
 
@@ -25,10 +26,6 @@ let repositoryDirectory = '';
 
 function progressFilePath(): string {
   return join(repositoryDirectory, '.agent-progress', 'progress.json');
-}
-
-function logFileText(): string {
-  return readFileSync(join(repositoryDirectory, '.agent-progress', 'log.jsonl'), 'utf8');
 }
 
 function storedProgress(): ProgressFile {
@@ -96,13 +93,13 @@ describe.skipIf(!gitIsAvailable())('the dispatcher state', () => {
 
   test.each([['paused'], ['Running'], ['constructor']])('"%s" is refused at exit 1 and the progress file is left byte-identical', async (written) => {
     const before    = readFileSync(progressFilePath(), 'utf8');
-    const logBefore = logFileText();
+    const logBefore = storedLogTextOf(repositoryDirectory);
 
     const { exitCode } = await runWithExitCode(['dispatcher', written]);
 
     expect(exitCode).toBe(1);
     expect(readFileSync(progressFilePath(), 'utf8')).toBe(before);
-    expect(logFileText()).toBe(logBefore);
+    expect(storedLogTextOf(repositoryDirectory)).toBe(logBefore);
   });
 
   test('a stored state that is not one of the three makes the progress file unreadable rather than guessed at', async () => {
@@ -164,13 +161,13 @@ describe.skipIf(!gitIsAvailable())('the stored run id', () => {
   ])('dispatcher %p is refused at exit 1 and the progress file is left byte-identical', async (commandArguments) => {
     await run(['dispatcher', 'running', '--run', EXAMPLE_RUN_ID]);
     const before    = readFileSync(progressFilePath(), 'utf8');
-    const logBefore = logFileText();
+    const logBefore = storedLogTextOf(repositoryDirectory);
 
     const { exitCode } = await runWithExitCode(['dispatcher', ...commandArguments]);
 
     expect(exitCode).toBe(1);
     expect(readFileSync(progressFilePath(), 'utf8')).toBe(before);
-    expect(logFileText()).toBe(logBefore);
+    expect(storedLogTextOf(repositoryDirectory)).toBe(logBefore);
   });
 
   test('a stored run id that is not text makes the progress file unreadable rather than guessed at', async () => {
