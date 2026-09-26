@@ -111,13 +111,14 @@ describe('ownRowOf', () => {
     expect(board.ownRowOf('007')).toBeNull();
   });
 
-  test('takes the first filed when two rows name the ticket', () => {
+  test('takes the first in the file when two rows name the ticket, whatever their ids', () => {
     const { board } = boardFixture({
-      tasks:   [taskFixture({ id: 1, ticket: '007' }), taskFixture({ id: 2, ticket: '007' })],
-      tickets: [ticketFixture({ id: '007', task: 2 })],
+      tasks:   [taskFixture({ id: 2, ticket: '007' }), taskFixture({ id: 1, ticket: '007' })],
+      tickets: [ticketFixture({ id: '007', task: 1 })],
     });
 
-    expect(board.ownRowOf('007')?.id).toBe(1);
+    expect(board.tasks().map((task) => task.id)).toEqual([2, 1]);
+    expect(board.ownRowOf('007')?.id).toBe(2);
   });
 });
 
