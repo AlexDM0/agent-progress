@@ -112,12 +112,12 @@ export function requireProgressFile(workspace: Workspace): ProgressFile {
   return requireProgressFileReading(workspace).progress;
 }
 
-export function readLogFile(workspace: Workspace): LogFileReading {
+function readLogFile(workspace: Workspace): LogFileReading {
   return new LogFileIngestion(workspace.logFilePath).read();
 }
 
 /** `embeddedLog` is the progress file's own log, which a version 1 file has; `src/adapters/log/utils/TrackerLogUtil.ts` decides between the two. */
-export function storedLogFrom(workspace: Workspace, embeddedLog: readonly LogRecord[] | null, logFileReading: LogFileReading): StoredLogReading {
+function storedLogFrom(workspace: Workspace, embeddedLog: readonly LogRecord[] | null, logFileReading: LogFileReading): StoredLogReading {
   return TrackerLogUtil.storedLogOf(embeddedLog, logFileReading, { logFilePath: workspace.logFilePath, progressFilePath: workspace.progressFilePath });
 }
 
