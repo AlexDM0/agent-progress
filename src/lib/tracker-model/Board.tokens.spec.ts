@@ -131,8 +131,8 @@ test('a review share on two bars sharing the highest id lands on the first of th
   expect(secondBar.tokens).toBeNull();
 });
 
-// The hook before the Board queries credited the first row holding the bar's id, whatever it was; a reviewer's share belongs on its bar.
-test('a review share lands on the newest bar even when an earlier row that is not a review bar holds the same id', () => {
+// A review share is credited by its bar's id, so a hand-edited file that repeats the id credits the first row holding it, as a row share would.
+test('a review share lands on the first row in the file holding the newest bar\'s id, even when that row is not a review bar', () => {
   const buildRow  = taskFixture({ id: 5, name: 'Example build', tokens: 200 });
   const reviewBar = deliveredReviewBarFixture(5, '003', 1);
   const { board } = boardFixture({ tasks: [buildRow, reviewBar], tickets: [ticketFixture({ id: '003', status: 'delivered' })] });
@@ -140,8 +140,8 @@ test('a review share lands on the newest bar even when an earlier row that is no
   const { outcomes } = board.recordAgentStop(EXAMPLE_USAGE, [{ target: 'review', ticketId: '003', tokens: 1_001 }], STOPPED_AT);
 
   expect(outcomes).toEqual([{ verdict: 'credited', taskId: 5 }]);
-  expect(reviewBar.tokens).toBe(1_001);
-  expect(buildRow.tokens).toBe(200);
+  expect(buildRow.tokens).toBe(1_201);
+  expect(reviewBar.tokens).toBeNull();
 });
 
 // The hook's sentence for a review nobody filed a bar for depends on this verdict, and the other shares must still land.

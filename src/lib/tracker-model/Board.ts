@@ -768,7 +768,8 @@ export class Board {
       const newestBar = this.reviewBarRecordsOf(credit.ticketId)
         .reduce<ReviewBar | undefined>((newest, bar) => (newest === undefined || bar.id > newest.id ? bar : newest), undefined);
       if (newestBar === undefined) return { verdict: 'ticket-without-review-bar', ticketId: credit.ticketId };
-      return creditTokensTo(newestBar, credit.tokens);
+      // Credited by id like a row share, so a hand-repeated id lands on the first row holding it.
+      return creditTokensTo(this.taskRecordById(newestBar.id) ?? newestBar, credit.tokens);
     }
 
     const ticket = this.ticketRecordById(credit.ticketId);
