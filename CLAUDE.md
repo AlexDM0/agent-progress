@@ -39,13 +39,13 @@ to make a check pass.
 ### Imports (today's tree, held by review)
 
 ```
-src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  cli/
+src/lib/  →  src/shared/  →  lib/utils/  →  cli/
 ```
 
-- Imports run up only, with no cycles. `lib/constants/` imports nothing outside itself; `lib/utils/` imports only
-  itself, `lib/constants/` and `src/lib/tracker-model/`; neither imports a package or a builtin (a spec beside them may
-  import `bun:test`). Nothing under `lib/` imports `cli/`, nothing that ships imports `src/testing/`, `cli/testing/`,
-  `src/adapters/progress/testing/` or `dispatcher/testing/`, and `agent-progress.ts` imports only `cli/`.
+- Imports run up only, with no cycles. `lib/utils/` imports only itself and `src/lib/tracker-model/`, and no package or
+  builtin (a spec beside it may import `bun:test`). Nothing under `lib/` imports `cli/`, nothing that ships imports
+  `src/testing/`, `cli/testing/`, `src/adapters/progress/testing/` or `dispatcher/testing/`, and `agent-progress.ts`
+  imports only `cli/`.
 - A `src/lib/` package imports only the other `src/lib/` packages its main module's header names, node builtins and
   external dependencies. It never imports `src/shared/`, `lib/` or `cli/`, and knows nothing about its callers: no
   agent-progress names, tracker file names, user-facing wording or exit codes. App values arrive as parameters; a
@@ -272,11 +272,11 @@ README.md                   the GitHub landing page
 README-keynote.md           the same page in a keynote layout, kept for comparison
 README-day-on-the-board.md  the same page told as one day on a board, kept for comparison
 setup.sh                    machine setup: Bun, bun install and bun link, and the skill symlinks
-cli/                        the command surface: dispatch, arguments, help, and the commands grouped into sets, cli/tracking/
-                            so far, the rest one folder per command until they move; cli/testing/ is test-only
+cli/                        the command surface: dispatch, arguments, help, and the commands grouped into sets: tracking/,
+                            dispatch/, adoption/ and measurement/, plus ticket/ until it moves; cli/testing/ is test-only
 dispatcher/                 the dispatcher policy in TypeScript, bundled into a Workflow script; dispatcher/testing/ is
                             test-only: the harness, the bundle builder, the frozen table
-lib/                        what is left of the old layers: the next-line and rework utils and the comment syntaxes
+lib/                        what is left of the old layers: the next-line util
 page/                       the browser page: its sets, its own DOM-only tsconfig and spec tsconfig
 resources/                  files read at runtime: the page's HTML template
 src/                        the target layout's code, filled step by step as the migration plan moves it

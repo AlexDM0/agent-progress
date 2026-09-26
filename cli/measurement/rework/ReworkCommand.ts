@@ -8,12 +8,12 @@
  */
 import { resolve } from 'node:path';
 
-import type { FileRework, ReworkTotals }                      from '../../lib/utils/ReworkCountUtil';
-import { ReworkCountUtil }                                    from '../../lib/utils/ReworkCountUtil';
-import { readCommitsDiff, readRebaseDiffs, readWorktreeHead } from '../../src/lib/git/BranchDiffs';
-import { OperationRefusal }                                   from '../../src/shared/OperationRefusal';
-import { printEntity }                                        from '../CommandSupport';
-import type { CommandHandler }                                from '../CommandTable';
+import { readCommitsDiff, readRebaseDiffs, readWorktreeHead } from '../../../src/lib/git/BranchDiffs';
+import { OperationRefusal }                                   from '../../../src/shared/OperationRefusal';
+import { printEntity }                                        from '../../CommandSupport';
+import type { CommandHandler }                                from '../../CommandTable';
+import { ReworkCountUtil }                                    from '../utils/ReworkCountUtil';
+import type { FileRework, ReworkTotals }                      from '../utils/ReworkCountUtil';
 
 const USAGE = 'agent-progress rework [--since <commit>] [--rebased-from <old tip>] [--main <branch>] [--worktree <path>] [--files] [--json]';
 

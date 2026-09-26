@@ -140,7 +140,7 @@ do not exist yet.
 | `lib/constants/Statuses.ts` | status unions and subsets → src/lib/tracker-model/constants; tracker file names → src/services/tracker/constants; CLAUDE.md markers → beside their only consumer, cli/TrackerRefresh.ts (since step 3 src/lib/claude-code takes them as parameters) |
 | `lib/constants/AgentSettings.ts` | src/lib/tracker-model (model and effort are ticket fields) |
 | `lib/constants/Limits.ts` | src/shared/constants/Limits.ts exporting LIMITS |
-| `lib/constants/CommentSyntaxes.ts`, `lib/utils/ReworkCountUtil.ts` | cli/measurement/utils (only rework uses them) |
+| `lib/constants/CommentSyntaxes.ts`, `lib/utils/ReworkCountUtil.ts` | cli/measurement/utils/ReworkCountUtil and cli/measurement/constants/CommentSyntaxes (only rework uses them) |
 | `lib/utils/TimeUtil.ts`, `lib/utils/TokenCountUtil.ts`, `lib/utils/HtmlEscapeUtil.ts` | src/lib/utils |
 | `lib/utils/SlugUtil.ts` | src/services/tracker/utils (only ticket file naming uses it) |
 | `lib/utils/TicketIdUtil.ts`, `lib/utils/TicketDependencyUtil.ts` | src/lib/tracker-model/utils |

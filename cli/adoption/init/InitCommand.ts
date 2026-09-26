@@ -3,17 +3,17 @@ import { randomUUID }             from 'node:crypto';
 import { realpathSync, statSync } from 'node:fs';
 import { basename, resolve }      from 'node:path';
 
-import { ensureIgnored }                                                                 from '../../src/lib/git/GitIgnore';
-import { discoverRepositoryRoot }                                                        from '../../src/lib/git/RepositoryRoot';
-import { TimeUtil }                                                                      from '../../src/lib/utils/TimeUtil';
-import { createTracker }                                                                 from '../../src/services/tracker/TrackerCreation';
-import type { TrackerRewrite }                                                           from '../../src/services/tracker/TrackerPipeline';
-import { findWorkspace, workspacePathsFor }                                              from '../../src/services/tracker/Workspace';
-import { TRACKER_FILES }                                                                 from '../../src/services/tracker/constants/TrackerFiles';
-import { agentProgressRootOverride }                                                     from '../../src/shared/Environment';
-import { OperationRefusal }                                                              from '../../src/shared/OperationRefusal';
-import { reportRenderProblems, rewriteOlderTrackerFilesAndReport, rewrittenFilesTextOf } from '../CommandSupport';
-import type { CommandHandler }                                                           from '../CommandTable';
+import { ensureIgnored }                                                                 from '../../../src/lib/git/GitIgnore';
+import { discoverRepositoryRoot }                                                        from '../../../src/lib/git/RepositoryRoot';
+import { TimeUtil }                                                                      from '../../../src/lib/utils/TimeUtil';
+import { createTracker }                                                                 from '../../../src/services/tracker/TrackerCreation';
+import type { TrackerRewrite }                                                           from '../../../src/services/tracker/TrackerPipeline';
+import { findWorkspace, workspacePathsFor }                                              from '../../../src/services/tracker/Workspace';
+import { TRACKER_FILES }                                                                 from '../../../src/services/tracker/constants/TrackerFiles';
+import { agentProgressRootOverride }                                                     from '../../../src/shared/Environment';
+import { OperationRefusal }                                                              from '../../../src/shared/OperationRefusal';
+import { reportRenderProblems, rewriteOlderTrackerFilesAndReport, rewrittenFilesTextOf } from '../../CommandSupport';
+import type { CommandHandler }                                                           from '../../CommandTable';
 import { refreshTrackedRepository }                                                      from '../TrackerRefresh';
 
 const USAGE = 'agent-progress init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';

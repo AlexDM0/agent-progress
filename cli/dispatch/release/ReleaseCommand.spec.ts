@@ -19,19 +19,19 @@ import {
   expect,
   test
 }                                       from 'bun:test';
-import type { ProgressFile } from '../../src/lib/tracker-model/@types/ProgressFile';
-import type { Task }         from '../../src/lib/tracker-model/@types/Task';
-import { TimeUtil }          from '../../src/lib/utils/TimeUtil';
+import type { ProgressFile } from '../../../src/lib/tracker-model/@types/ProgressFile';
+import type { Task }         from '../../../src/lib/tracker-model/@types/Task';
+import { TimeUtil }          from '../../../src/lib/utils/TimeUtil';
 import {
   addWorktree,
   createScratchGitRepository,
   gitIsAvailable,
   removeScratchDirectory
-}                                       from '../../src/testing/ScratchWorkspace';
-import { helpText }                     from '../HelpText';
-import { runCommandLine }               from '../Main';
-import { createCapturedCommandContext } from '../testing/CapturedCommandContext';
-import { storedLogEntriesOf }           from '../testing/StoredLogEntries';
+}                                       from '../../../src/testing/ScratchWorkspace';
+import { helpText }                     from '../../HelpText';
+import { runCommandLine }               from '../../Main';
+import { createCapturedCommandContext } from '../../testing/CapturedCommandContext';
+import { storedLogEntriesOf }           from '../../testing/StoredLogEntries';
 
 type CleanupStepDocument =
   | { target: 'worktree'; path: string; outcome: 'removed' }
@@ -70,7 +70,7 @@ const FROZEN_NOW = new Date('2026-09-23T10:00:00Z');
 
 const RELEASE_HELP_ENTRY = /\n {2}release <id>[\s\S]*?\n\n/.exec(helpText())?.[0] ?? '';
 
-const RELEASE_REFERENCE_SECTION = /## Releasing a branch[\s\S]*?\n## /.exec(readFileSync(join(import.meta.dir, '..', '..', 'skill', 'Reference.md'), 'utf8'))?.[0] ?? '';
+const RELEASE_REFERENCE_SECTION = /## Releasing a branch[\s\S]*?\n## /.exec(readFileSync(join(import.meta.dir, '..', '..', '..', 'skill', 'Reference.md'), 'utf8'))?.[0] ?? '';
 
 const RELEASE_DOCUMENTATION = [['cli/HelpText.ts', RELEASE_HELP_ENTRY], ['skill/Reference.md', RELEASE_REFERENCE_SECTION]] as const;
 

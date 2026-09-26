@@ -21,18 +21,18 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import { LogFileIngestion }  from '../../src/adapters/log/LogFileIngestion';
-import type { ProgressFile } from '../../src/lib/tracker-model/@types/ProgressFile';
-import { LIMITS }            from '../../src/shared/constants/Limits';
+import { LogFileIngestion }  from '../../../src/adapters/log/LogFileIngestion';
+import type { ProgressFile } from '../../../src/lib/tracker-model/@types/ProgressFile';
+import { LIMITS }            from '../../../src/shared/constants/Limits';
 import {
   createScratchDirectory,
   createScratchGitRepository,
   gitIsAvailable,
   removeScratchDirectory
-}                                                                             from '../../src/testing/ScratchWorkspace';
-import { runCommandLine }               from '../Main';
-import { createCapturedCommandContext } from '../testing/CapturedCommandContext';
-import { storedLogEntriesOf }           from '../testing/StoredLogEntries';
+}                                                                             from '../../../src/testing/ScratchWorkspace';
+import { runCommandLine }               from '../../Main';
+import { createCapturedCommandContext } from '../../testing/CapturedCommandContext';
+import { storedLogEntriesOf }           from '../../testing/StoredLogEntries';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 

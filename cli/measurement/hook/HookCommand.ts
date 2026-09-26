@@ -5,17 +5,17 @@
 import { readFileSync } from 'node:fs';
 import { homedir }      from 'node:os';
 
-import { OperationRefusalWordingUtil }                 from '../../src/adapters/utils/OperationRefusalWordingUtil';
-import type { TranscriptUsageTotals }                  from '../../src/lib/claude-code/utils/TranscriptUsageUtil';
-import { TranscriptUsageUtil }                         from '../../src/lib/claude-code/utils/TranscriptUsageUtil';
-import type { TokenCredit, TokenCreditOutcome }        from '../../src/lib/tracker-model/@types/BoardChanges';
-import type { AgentUsage }                             from '../../src/lib/tracker-model/@types/LogRecord';
-import { OperationRefusal, refusalIsOperationRefusal } from '../../src/shared/OperationRefusal';
-import { LIMITS }                                      from '../../src/shared/constants/Limits';
-import type { CommandContext }                         from '../CommandContext';
-import { openTrackerForWriting }                       from '../CommandSupport';
-import type { CommandHandler }                         from '../CommandTable';
-import type { ArgumentParser }                         from '../arguments/ArgumentParser';
+import { OperationRefusalWordingUtil }                 from '../../../src/adapters/utils/OperationRefusalWordingUtil';
+import type { TranscriptUsageTotals }                  from '../../../src/lib/claude-code/utils/TranscriptUsageUtil';
+import { TranscriptUsageUtil }                         from '../../../src/lib/claude-code/utils/TranscriptUsageUtil';
+import type { TokenCredit, TokenCreditOutcome }        from '../../../src/lib/tracker-model/@types/BoardChanges';
+import type { AgentUsage }                             from '../../../src/lib/tracker-model/@types/LogRecord';
+import { OperationRefusal, refusalIsOperationRefusal } from '../../../src/shared/OperationRefusal';
+import { LIMITS }                                      from '../../../src/shared/constants/Limits';
+import type { CommandContext }                         from '../../CommandContext';
+import { openTrackerForWriting }                       from '../../CommandSupport';
+import type { CommandHandler }                         from '../../CommandTable';
+import type { ArgumentParser }                         from '../../arguments/ArgumentParser';
 import { SubagentStopUtil }                            from './utils/SubagentStopUtil';
 
 const USAGE = 'agent-progress hook subagent-stop  (the hook JSON arrives on standard input)';

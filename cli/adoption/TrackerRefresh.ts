@@ -8,31 +8,31 @@
 import { readFileSync } from 'node:fs';
 import { join }         from 'node:path';
 
-import { writeFileAtomically }      from '../src/lib/atomic-file/AtomicFile';
-import { writeManagedBlock }        from '../src/lib/claude-code/ClaudeInstructions';
-import type { ManagedBlockMarkers } from '../src/lib/claude-code/ClaudeInstructions';
+import { writeFileAtomically }      from '../../src/lib/atomic-file/AtomicFile';
+import { writeManagedBlock }        from '../../src/lib/claude-code/ClaudeInstructions';
+import type { ManagedBlockMarkers } from '../../src/lib/claude-code/ClaudeInstructions';
 import {
   claudeLocalSettingsFilePathFor,
   claudeSettingsFilePathFor,
   refreshSubagentStopHook,
   writeSubagentStopHook
-}                                                    from '../src/lib/claude-code/ClaudeSettings';
-import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../src/lib/tracker-model/constants/AgentSettings';
-import type { Workspace }                            from '../src/services/tracker/Workspace';
-import { TRACKER_FILES }                             from '../src/services/tracker/constants/TrackerFiles';
+}                                                    from '../../src/lib/claude-code/ClaudeSettings';
+import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../src/lib/tracker-model/constants/AgentSettings';
+import type { Workspace }                            from '../../src/services/tracker/Workspace';
+import { TRACKER_FILES }                             from '../../src/services/tracker/constants/TrackerFiles';
 
-const CLAUDE_BLOCK_TEMPLATE_PATH = ['..', 'templates', 'ClaudeInstructionsBlock.md'];
+const CLAUDE_BLOCK_TEMPLATE_PATH = ['..', '..', 'templates', 'ClaudeInstructionsBlock.md'];
 
-const AGENT_BRIEF_TEMPLATE_PATH = ['..', 'templates', 'AgentBrief.md'];
+const AGENT_BRIEF_TEMPLATE_PATH = ['..', '..', 'templates', 'AgentBrief.md'];
 
 const CLAUDE_INSTRUCTIONS_FILE_NAME = 'CLAUDE.md';
 
-const DISPATCHER_WORKFLOW_TEMPLATE_PATH = ['..', 'templates', 'workflows', 'AgentProgressDispatch.js'];
+const DISPATCHER_WORKFLOW_TEMPLATE_PATH = ['..', '..', 'templates', 'workflows', 'AgentProgressDispatch.js'];
 
 /** The Workflow tool finds a script by the file name under `.claude/workflows/`, so the name is the one `meta.name` gives. */
 const DISPATCHER_WORKFLOW_TARGET_PATH = ['.claude', 'workflows', 'agent-progress-dispatch.js'];
 
-const AGENT_DEFINITION_TEMPLATE_PATH = ['..', 'templates', 'AgentProgressWorker.md'];
+const AGENT_DEFINITION_TEMPLATE_PATH = ['..', '..', 'templates', 'AgentProgressWorker.md'];
 
 /** Claude Code reads a project's subagent definitions from `.claude/agents/`; the file name matches the definition's `name`. */
 const AGENT_DEFINITION_TARGET_PATH = ['.claude', 'agents', 'agent-progress-worker.md'];

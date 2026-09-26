@@ -5,27 +5,27 @@
  */
 import { resolve } from 'node:path';
 
-import { LogUtil }                                                                 from '../../src/adapters/utils/LogUtil';
-import { OperationRefusalWordingUtil }                                             from '../../src/adapters/utils/OperationRefusalWordingUtil';
-import type { BranchDeletionOutcome, FilesLeftInWorktree, WorktreeRemovalOutcome } from '../../src/lib/git/BranchIntegration';
+import { LogUtil }                                                                 from '../../../src/adapters/utils/LogUtil';
+import { OperationRefusalWordingUtil }                                             from '../../../src/adapters/utils/OperationRefusalWordingUtil';
+import type { BranchDeletionOutcome, FilesLeftInWorktree, WorktreeRemovalOutcome } from '../../../src/lib/git/BranchIntegration';
 import {
   deleteMergedBranch,
   fastForwardTo,
   readBranchDescent,
   readCurrentBranch,
   removeWorktree
-}                                                                                            from '../../src/lib/git/BranchIntegration';
-import type { LogRecord }                                                              from '../../src/lib/tracker-model/@types/LogRecord';
-import type { Task }                                                                   from '../../src/lib/tracker-model/@types/Task';
-import type { Ticket }                                                                 from '../../src/lib/tracker-model/@types/Ticket';
-import type { Board }                                                                  from '../../src/lib/tracker-model/Board';
-import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS }                                     from '../../src/lib/tracker-model/constants/TicketMoveLegality';
-import type { ReleaseRefusalReason }                                                   from '../../src/shared/@types/ReleaseRefusalReason';
-import { OperationRefusal, refusalIsOperationRefusal, type OperationRefusalStatus }    from '../../src/shared/OperationRefusal';
-import type { CommandContext }                                                         from '../CommandContext';
-import { openTrackerForWritingThenReadNextLine, printEntity, printEntityThenNextLine } from '../CommandSupport';
-import type { CommandHandler }                                                         from '../CommandTable';
-import type { ArgumentParser }                                                         from '../arguments/ArgumentParser';
+}                                                                                            from '../../../src/lib/git/BranchIntegration';
+import type { LogRecord }                                                              from '../../../src/lib/tracker-model/@types/LogRecord';
+import type { Task }                                                                   from '../../../src/lib/tracker-model/@types/Task';
+import type { Ticket }                                                                 from '../../../src/lib/tracker-model/@types/Ticket';
+import type { Board }                                                                  from '../../../src/lib/tracker-model/Board';
+import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS }                                     from '../../../src/lib/tracker-model/constants/TicketMoveLegality';
+import type { ReleaseRefusalReason }                                                   from '../../../src/shared/@types/ReleaseRefusalReason';
+import { OperationRefusal, refusalIsOperationRefusal, type OperationRefusalStatus }    from '../../../src/shared/OperationRefusal';
+import type { CommandContext }                                                         from '../../CommandContext';
+import { openTrackerForWritingThenReadNextLine, printEntity, printEntityThenNextLine } from '../../CommandSupport';
+import type { CommandHandler }                                                         from '../../CommandTable';
+import type { ArgumentParser }                                                         from '../../arguments/ArgumentParser';
 
 const USAGE = 'agent-progress release <id> [<id>...] --branch <branch> [--worktree <path>] [--main <line>] [--json]';
 

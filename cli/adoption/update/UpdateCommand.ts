@@ -4,10 +4,10 @@
  * no tracker, so it takes neither `--project` nor `--root`, and touches the tracker only to rewrite
  * files still in an older format.
  */
-import type { TrackerRewrite }                                     from '../../src/services/tracker/TrackerPipeline';
-import { requireWorkspace }                                        from '../../src/services/tracker/Workspace';
-import { rewriteOlderTrackerFilesAndReport, rewrittenFilesTextOf } from '../CommandSupport';
-import type { CommandHandler }                                     from '../CommandTable';
+import type { TrackerRewrite }                                     from '../../../src/services/tracker/TrackerPipeline';
+import { requireWorkspace }                                        from '../../../src/services/tracker/Workspace';
+import { rewriteOlderTrackerFilesAndReport, rewrittenFilesTextOf } from '../../CommandSupport';
+import type { CommandHandler }                                     from '../../CommandTable';
 import { refreshTrackedRepository }                                from '../TrackerRefresh';
 
 const USAGE = 'agent-progress update [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';

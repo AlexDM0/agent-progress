@@ -1,24 +1,24 @@
 /**
- * What every subagent of this repository cost, read from the harness's transcripts; `cli/hook/HookCommand.ts` records one agent as it
+ * What every subagent of this repository cost, read from the harness's transcripts; `cli/measurement/hook/HookCommand.ts` records one agent as it
  * stops, this compares them all. Read-only, and finding no transcripts is one sentence at exit 0, not a refusal.
  */
 import { readFileSync } from 'node:fs';
 
-import type { SubagentTranscript }                      from '../../src/lib/claude-code/ClaudeTranscripts';
-import { listSubagentTranscripts, transcriptFolderFor } from '../../src/lib/claude-code/ClaudeTranscripts';
-import type { CohortSummary }                           from '../../src/lib/claude-code/utils/TranscriptCohortUtil';
-import { TranscriptCohortUtil }                         from '../../src/lib/claude-code/utils/TranscriptCohortUtil';
-import type { TranscriptProfile }                       from '../../src/lib/claude-code/utils/TranscriptUsageUtil';
-import { TranscriptUsageUtil }                          from '../../src/lib/claude-code/utils/TranscriptUsageUtil';
-import { TimeUtil }                                     from '../../src/lib/utils/TimeUtil';
-import { TokenCountUtil }                               from '../../src/lib/utils/TokenCountUtil';
-import { requireWorkspace }                             from '../../src/services/tracker/Workspace';
-import { OperationRefusal }                             from '../../src/shared/OperationRefusal';
-import { LIMITS }                                       from '../../src/shared/constants/Limits';
-import type { CommandContext }                          from '../CommandContext';
-import { padColumn, printEntity }                       from '../CommandSupport';
-import type { CommandHandler }                          from '../CommandTable';
-import type { ArgumentParser }                          from '../arguments/ArgumentParser';
+import type { SubagentTranscript }                      from '../../../src/lib/claude-code/ClaudeTranscripts';
+import { listSubagentTranscripts, transcriptFolderFor } from '../../../src/lib/claude-code/ClaudeTranscripts';
+import type { CohortSummary }                           from '../../../src/lib/claude-code/utils/TranscriptCohortUtil';
+import { TranscriptCohortUtil }                         from '../../../src/lib/claude-code/utils/TranscriptCohortUtil';
+import type { TranscriptProfile }                       from '../../../src/lib/claude-code/utils/TranscriptUsageUtil';
+import { TranscriptUsageUtil }                          from '../../../src/lib/claude-code/utils/TranscriptUsageUtil';
+import { TimeUtil }                                     from '../../../src/lib/utils/TimeUtil';
+import { TokenCountUtil }                               from '../../../src/lib/utils/TokenCountUtil';
+import { requireWorkspace }                             from '../../../src/services/tracker/Workspace';
+import { OperationRefusal }                             from '../../../src/shared/OperationRefusal';
+import { LIMITS }                                       from '../../../src/shared/constants/Limits';
+import type { CommandContext }                          from '../../CommandContext';
+import { padColumn, printEntity }                       from '../../CommandSupport';
+import type { CommandHandler }                          from '../../CommandTable';
+import type { ArgumentParser }                          from '../../arguments/ArgumentParser';
 
 const USAGE = 'agent-progress usage [--since <when>] [--transcripts <folder>] [--json]';
 

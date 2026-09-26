@@ -19,24 +19,24 @@ import {
   expect,
   test
 }                                                              from 'bun:test';
-import { LIMITS }          from '../../src/shared/constants/Limits';
+import { LIMITS }          from '../../../src/shared/constants/Limits';
 import {
   addWorktree,
   createScratchDirectory,
   createScratchGitRepository,
   gitIsAvailable,
   removeScratchDirectory
-}                                                              from '../../src/testing/ScratchWorkspace';
-import { runCommandLine }               from '../Main';
+}                                                              from '../../../src/testing/ScratchWorkspace';
+import { runCommandLine }               from '../../Main';
+import { createCapturedCommandContext } from '../../testing/CapturedCommandContext';
 import { CLAUDE_MANAGED_BLOCK_MARKERS } from '../TrackerRefresh';
-import { createCapturedCommandContext } from '../testing/CapturedCommandContext';
 
 const scratchDirectories: string[] = [];
 
 /** A lock that is never given up is waited out through the whole retry budget before the refusal. */
 const HELD_LOCK_TIMEOUT_MILLISECONDS = LIMITS.LOCK_RETRY_COUNT * LIMITS.LOCK_RETRY_INTERVAL_MILLISECONDS * 3;
 
-const DISPATCHER_WORKFLOW_TEMPLATE_PATH = join(import.meta.dir, '..', '..', 'templates', 'workflows', 'AgentProgressDispatch.js');
+const DISPATCHER_WORKFLOW_TEMPLATE_PATH = join(import.meta.dir, '..', '..', '..', 'templates', 'workflows', 'AgentProgressDispatch.js');
 
 function scratchRepository(): string {
   const repositoryDirectory = createScratchGitRepository('init-command');
