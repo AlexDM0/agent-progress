@@ -14,7 +14,8 @@ import {
 } from './testing/DispatchScriptHarness.ts';
 import type { SourceMutant }                                                from './testing/SourceMutant.ts';
 import { DECISION_CLAIMS, DECISION_SCENARIOS, modelsAndEffortsAreExplicit } from './testing/claims/DecisionClaims.ts';
-import { DISPATCHER_MODULE_PATHS, kindsAndTickets, runSummaryOf }           from './testing/claims/DispatchClaim.ts';
+import { DISPATCHER_MODULE_PATHS }                                          from './testing/claims/DispatchClaim.ts';
+import { RecordedDispatchRunUtil }                                          from './testing/utils/RecordedDispatchRunUtil.ts';
 
 const BUNDLE = await bundleDispatchScript();
 
@@ -43,7 +44,7 @@ describe('the dispatcher script', () => {
       const run = await runDispatchScript(claim.scenarioFor(), builtScriptTextOf(BUNDLE));
       expect(run.ranAway).toBe(false);
       expect(run.threw).toBeNull();
-      expect(claim.holds(run), JSON.stringify({ calls: kindsAndTickets(run), summary: run.summary, most: run.mostAgentsAtOnce })).toBe(true);
+      expect(claim.holds(run), JSON.stringify({ calls: RecordedDispatchRunUtil.kindsAndTicketsOf(run), summary: run.summary, most: run.mostAgentsAtOnce })).toBe(true);
     });
 
     test(`${claim.name} — and fails against the mutant that breaks it`, async () => {
@@ -58,7 +59,7 @@ describe('the dispatcher script', () => {
   // With nothing ready the survey is the whole run: a dispatcher that idled here would hold the orchestrator's turn for nothing.
   test('with nothing ready and nothing waiting, the survey is the only agent and the summary is empty', async () => {
     const run = await runDispatchScript(DECISION_SCENARIOS['nothing is ready and nothing waits'](), builtScriptTextOf(BUNDLE));
-    expect(kindsAndTickets(run)).toEqual(['survey']);
+    expect(RecordedDispatchRunUtil.kindsAndTicketsOf(run)).toEqual(['survey']);
     expect(run.summary).toEqual({
       delivered:     [],
       parked:        [],
@@ -91,7 +92,7 @@ describe('the dispatcher script', () => {
 
   test('a review waiting when the run starts is started before any ready ticket', async () => {
     const run = await runDispatchScript(DECISION_SCENARIOS['a review waits beside one ready ticket at a limit of 1'](), builtScriptTextOf(BUNDLE));
-    expect(kindsAndTickets(run)).toEqual(['survey', 'review 001', 'build 002', 'review 002']);
+    expect(RecordedDispatchRunUtil.kindsAndTicketsOf(run)).toEqual(['survey', 'review 001', 'build 002', 'review 002']);
   });
 
   test('a rebuild reuses the ticket worktree and tells the builder the last review is where it starts', async () => {
@@ -145,14 +146,14 @@ describe('the dispatcher script', () => {
     expect(reviewers).toHaveLength(2);
     expect(reviewers[1]?.prompt).toContain('An earlier reviewer of this run returned nothing');
     expect(reviewers[0]?.prompt).not.toContain('An earlier reviewer of this run returned nothing');
-    expect(runSummaryOf(run).delivered).toEqual(['001']);
+    expect(RecordedDispatchRunUtil.mainSummaryOf(run).delivered).toEqual(['001']);
   });
 
   // At a limit of 1 no status block follows a dead reviewer, so its bar is never read as another's: this pins the case, it decides nothing new.
   test('with a limit of 1, a reviewer that returned nothing with its bar left running is followed by a fresh reviewer that releases', async () => {
     const run = await runDispatchScript(DECISION_SCENARIOS['a reviewer returns nothing on round 1 at a limit of 1'](), builtScriptTextOf(BUNDLE));
-    expect(kindsAndTickets(run)).toEqual(['survey', 'build 001', 'review 001', 'review 001']);
-    expect(runSummaryOf(run).delivered).toEqual(['001']);
+    expect(RecordedDispatchRunUtil.kindsAndTicketsOf(run)).toEqual(['survey', 'build 001', 'review 001', 'review 001']);
+    expect(RecordedDispatchRunUtil.mainSummaryOf(run).delivered).toEqual(['001']);
     expect(run.mostAgentsInFlightAtOnce).toBe(1);
   });
 });

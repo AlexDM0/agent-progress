@@ -8,12 +8,8 @@ import type {
   RecordedAgentCall,
   RecordedDispatchRun
 } from '../DispatchScriptHarness.ts';
-import {
-  DISPATCHER_MODULE_PATHS,
-  kindsAndTickets,
-  runSummaryOf,
-  type DispatchClaim
-} from './DispatchClaim.ts';
+import { RecordedDispatchRunUtil }                     from '../utils/RecordedDispatchRunUtil.ts';
+import { DISPATCHER_MODULE_PATHS, type DispatchClaim } from './DispatchClaim.ts';
 
 const { DISPATCH_RUN, AGENT_PROMPT_UTIL } = DISPATCHER_MODULE_PATHS;
 
@@ -172,13 +168,13 @@ export const HOLD_CLAIMS: readonly DispatchClaim[] = [
   {
     name:        'a held ticket\'s step starts once a returned status block shows the hold lifted',
     scenarioFor: () => HELD_WHILE_ITS_BUILDER_RUNS,
-    holds:       (run) => runSummaryOf(run).delivered.includes(HELD_TICKET_ID) && runSummaryOf(run).held === undefined,
+    holds:       (run) => RecordedDispatchRunUtil.mainSummaryOf(run).delivered.includes(HELD_TICKET_ID) && RecordedDispatchRunUtil.mainSummaryOf(run).held === undefined,
     mutant:      { modulePath: DISPATCH_RUN, find: '    this.resumeUnheldWork();\n', replace: '' },
   },
   {
     name:        'other tickets keep flowing while one is held, and the agents alive never exceed the limit',
     scenarioFor: () => HELD_WHILE_ITS_BUILDER_RUNS,
-    holds:       (run) => ['002', '003'].every((ticketId) => runSummaryOf(run).delivered.includes(ticketId))
+    holds:       (run) => ['002', '003'].every((ticketId) => RecordedDispatchRunUtil.mainSummaryOf(run).delivered.includes(ticketId))
       && run.mostLiveAgentsAtOnce <= 2
       && run.mostAgentsInFlightAtOnce <= 2,
     // The mutant keeps the held step at the head of the queue, so everything behind it waits with it.
@@ -192,8 +188,8 @@ export const HOLD_CLAIMS: readonly DispatchClaim[] = [
     name:        'a held ready ticket is not built, and the run returns it as held for a build',
     scenarioFor: () => ({ limit: 2, readyTicketIds: ['001', '002'], heldTicketIds: [HELD_TICKET_ID] }),
     holds:       (run) => callsOf(run, 'build', HELD_TICKET_ID).length === 0
-      && runSummaryOf(run).delivered.join() === '002'
-      && JSON.stringify(runSummaryOf(run).held) === JSON.stringify([{ id: HELD_TICKET_ID, waitingFor: 'build' }]),
+      && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.join() === '002'
+      && JSON.stringify(RecordedDispatchRunUtil.mainSummaryOf(run).held) === JSON.stringify([{ id: HELD_TICKET_ID, waitingFor: 'build' }]),
     mutant: {
       modulePath: DISPATCH_RUN,
       find:       '.filter((ticketId) => !this.ticketIsHeld(ticketId) && !this.ticketIdsTakenThisRun',
@@ -204,14 +200,14 @@ export const HOLD_CLAIMS: readonly DispatchClaim[] = [
     name:        'a run ending with a ticket still held returns it in held, waiting for its review',
     scenarioFor: () => HELD_AND_NEVER_UNHELD,
     holds:       (run) => callsOf(run, 'review', HELD_TICKET_ID).length === 0
-      && JSON.stringify(runSummaryOf(run).held) === JSON.stringify([{ id: HELD_TICKET_ID, waitingFor: 'review' }]),
+      && JSON.stringify(RecordedDispatchRunUtil.mainSummaryOf(run).held) === JSON.stringify([{ id: HELD_TICKET_ID, waitingFor: 'review' }]),
     mutant: { modulePath: DISPATCH_RUN, find: 'held:                    this.heldEntries(),', replace: 'held:                    [],' },
   },
   {
     // A stop can end the run before a queued step's turn comes round to find its hold, and the orchestrator must still hear of it as held.
     name:        'a stop that ends the run with a held review still queued returns it under held, waiting for its review',
     scenarioFor: () => HELD_AND_STOPPED_WHILE_ITS_REVIEW_WAITS,
-    holds:       (run) => JSON.stringify(runSummaryOf(run).held) === JSON.stringify([{ id: '008', waitingFor: 'review' }]),
+    holds:       (run) => JSON.stringify(RecordedDispatchRunUtil.mainSummaryOf(run).held) === JSON.stringify([{ id: '008', waitingFor: 'review' }]),
     mutant:      {
       modulePath: DISPATCH_RUN,
       find:       '[...this.heldWork.values(), ...this.takeoversWaiting.values(), ...this.reviewQueue, ...this.rebuildQueue]',
@@ -222,7 +218,7 @@ export const HOLD_CLAIMS: readonly DispatchClaim[] = [
     // A held review waits for the unhold, not for the next run's survey, so naming it among the reviews left would send the relaunch to it.
     name:        'the same held review is named under held, never among the reviews left',
     scenarioFor: () => HELD_AND_STOPPED_WHILE_ITS_REVIEW_WAITS,
-    holds:       (run) => runSummaryOf(run).reviewsLeft === undefined,
+    holds:       (run) => RecordedDispatchRunUtil.mainSummaryOf(run).reviewsLeft === undefined,
     mutant:      { modulePath: DISPATCH_RUN, find: 'work.kind === \'review\' && !this.ticketIsHeld(work.ticketId)', replace: 'work.kind === \'review\'' },
   },
   {
@@ -243,8 +239,8 @@ export const HOLD_CLAIMS: readonly DispatchClaim[] = [
       heldTicketIds:          [HELD_TICKET_ID],
     }),
     holds: (run) => callsOf(run, 'review', HELD_TICKET_ID).length === 0
-      && runSummaryOf(run).delivered.join() === '002'
-      && JSON.stringify(runSummaryOf(run).held) === JSON.stringify([{ id: HELD_TICKET_ID, waitingFor: 'review' }]),
+      && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.join() === '002'
+      && JSON.stringify(RecordedDispatchRunUtil.mainSummaryOf(run).held) === JSON.stringify([{ id: HELD_TICKET_ID, waitingFor: 'review' }]),
     mutant: {
       modulePath: DISPATCH_RUN,
       find:       '      if (!this.ticketIsHeld(queued.ticketId)) return queued;\n      this.holdBack(queued, false);\n',
@@ -271,14 +267,14 @@ export const HOLD_CLAIMS: readonly DispatchClaim[] = [
       ticketIds:      [HELD_TICKET_ID],
       heldTicketIds:  [HELD_TICKET_ID],
     }),
-    holds:  (run) => run.calls.length === 0 && JSON.stringify(runSummaryOf(run).held) === JSON.stringify([{ id: HELD_TICKET_ID, waitingFor: 'build' }]),
+    holds:  (run) => run.calls.length === 0 && JSON.stringify(RecordedDispatchRunUtil.mainSummaryOf(run).held) === JSON.stringify([{ id: HELD_TICKET_ID, waitingFor: 'build' }]),
     mutant: { modulePath: DISPATCH_RUN, find: 'settings.readyTickets.filter((entry) => entry.ticketIsHeld)', replace: 'settings.readyTickets.filter(() => false)' },
   },
   {
     // The fail-review claim: an in-progress ticket is on no ready list, so a run named for it is the only way its paused build is ever finished.
     name:        'a single-ticket run for an in-progress ticket whose build another run left paused takes it over and delivers it, one agent in flight at most',
     scenarioFor: () => PAUSED_BUILD_RESUMED_ALONE,
-    holds:       (run) => runSummaryOf(run).delivered.join() === HELD_TICKET_ID
+    holds:       (run) => RecordedDispatchRunUtil.mainSummaryOf(run).delivered.join() === HELD_TICKET_ID
       && callsOf(run, 'build', HELD_TICKET_ID).length === 1
       && run.mostAgentsInFlightAtOnce <= 1
       && run.mostAgentsOnBoardAtOnce <= 1
@@ -293,14 +289,14 @@ export const HOLD_CLAIMS: readonly DispatchClaim[] = [
   {
     name:        'the same takeover resumes the paused row, so the build holds its slot while it runs',
     scenarioFor: () => PAUSED_BUILD_RESUMED_ALONE,
-    holds:       (run) => runSummaryOf(run).delivered.join() === HELD_TICKET_ID && run.buildersOnBoard.join() === `main build ${HELD_TICKET_ID}`,
+    holds:       (run) => RecordedDispatchRunUtil.mainSummaryOf(run).delivered.join() === HELD_TICKET_ID && run.buildersOnBoard.join() === `main build ${HELD_TICKET_ID}`,
     mutant:      { modulePath: AGENT_PROMPT_UTIL, find: PAUSED_ROW_RESUMPTION_SOURCE_LINE, replace: '' },
   },
   {
     // Within one run the same resume applies: the held takeover's row was paused by a parking agent, and the rebuild after the unhold carries on past it.
     name:        'a builder resumed after an unhold in the same run carries on past its own paused row and the ticket is delivered',
     scenarioFor: () => HELD_AFTER_ITS_BUILDER_STOPPED_SHORT,
-    holds:       (run) => ['001', '002'].every((ticketId) => runSummaryOf(run).delivered.includes(ticketId))
+    holds:       (run) => ['001', '002'].every((ticketId) => RecordedDispatchRunUtil.mainSummaryOf(run).delivered.includes(ticketId))
       && callsOf(run, 'build', HELD_TICKET_ID).length === 2
       && callsOf(run, 'park', HELD_TICKET_ID).length === 1
       && run.rowsRunningAtEnd.length === 0,
@@ -327,16 +323,17 @@ export const HOLD_CLAIMS: readonly DispatchClaim[] = [
     // A held build waits for the unhold, not for the next run's survey, so naming it among the paused builds would send the relaunch to it.
     name:        'a held takeover unheld as the board stops and held again before the run ends is listed as held, not among the paused builds',
     scenarioFor: () => HELD_TAKEOVER_UNHELD_AS_THE_BOARD_STOPS_AND_HELD_AGAIN,
-    holds:       (run) => runSummaryOf(run).pausedBuilds === undefined
-      && JSON.stringify(runSummaryOf(run).held) === JSON.stringify([{ id: HELD_TICKET_ID, waitingFor: 'build' }]),
+    holds:       (run) => RecordedDispatchRunUtil.mainSummaryOf(run).pausedBuilds === undefined
+      && JSON.stringify(RecordedDispatchRunUtil.mainSummaryOf(run).held) === JSON.stringify([{ id: HELD_TICKET_ID, waitingFor: 'build' }]),
     mutant: { modulePath: DISPATCH_RUN, find: 'rebuild.rowIsPaused === true && !this.ticketIsHeld(rebuild.ticketId)', replace: 'rebuild.rowIsPaused === true' },
   },
   {
     // The parking agent released the handed-on bar, so a reviewer counted on it before the rows are listed would free a slot nobody holds.
     name:        'a held review takeover unheld later no longer counts as a bar handed on, so a status block without its in-progress rows does not free its slot',
     scenarioFor: () => HELD_REVIEW_TAKEOVER_UNHELD_WITHOUT_LISTED_ROWS,
-    holds:       (run) => kindsAndTickets(run).join(', ') === 'survey, build 001, build 002, park 001, review 002, review 001, build 003, build 004, review 003, review 004',
-    mutant:      { modulePath: DISPATCH_RUN, find: '  const { barIsHandedOn, ...waitingReview } = work;\n', replace: '  const waitingReview = work;\n' },
+    holds:       (run) => RecordedDispatchRunUtil.kindsAndTicketsOf(run).join(', ')
+      === 'survey, build 001, build 002, park 001, review 002, review 001, build 003, build 004, review 003, review 004',
+    mutant: { modulePath: DISPATCH_RUN, find: '  const { barIsHandedOn, ...waitingReview } = work;\n', replace: '  const waitingReview = work;\n' },
   },
   {
     // Both are held from the start: a paused build and a ready ticket; the summary lists the paused build first, as the frozen trace table pins.
@@ -347,7 +344,7 @@ export const HOLD_CLAIMS: readonly DispatchClaim[] = [
       heldTicketIds:              [HELD_TICKET_ID, HELD_PAUSED_TICKET_ID],
       pausedBuildNotesByTicketId: { [HELD_PAUSED_TICKET_ID]: `Built by the whole-board dispatcher run on ticket-${HELD_PAUSED_TICKET_ID}` },
     }),
-    holds:  (run) => runSummaryOf(run).held?.map((entry) => entry.id).join() === '004,001',
+    holds:  (run) => RecordedDispatchRunUtil.mainSummaryOf(run).held?.map((entry) => entry.id).join() === '004,001',
     mutant: {
       modulePath: DISPATCH_RUN,
       find:       '[...this.resumablePausedBuildIds, ...this.latestStatusReading.readyTicketIds]',
@@ -367,7 +364,7 @@ export const HOLD_CLAIMS: readonly DispatchClaim[] = [
         board.dispatcherState = 'stopped';
       },
     }),
-    holds: (run) => runSummaryOf(run).held?.map((entry) => `${entry.id} ${entry.waitingFor}`).join() === '008 review,001 build'
+    holds: (run) => RecordedDispatchRunUtil.mainSummaryOf(run).held?.map((entry) => `${entry.id} ${entry.waitingFor}`).join() === '008 review,001 build'
       && run.logs.includes('Held, for the next run once unheld: #008 (review), #001 (build).'),
     mutant: {
       modulePath: DISPATCH_RUN,

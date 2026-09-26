@@ -7,8 +7,8 @@ import { describe, expect, test } from 'bun:test';
 
 import { builtScriptTextOf, bundleDispatchScript } from './testing/DispatchScriptBundle.ts';
 import { runDispatchScript }                       from './testing/DispatchScriptHarness.ts';
-import { kindsAndTickets }                         from './testing/claims/DispatchClaim.ts';
 import { HOLD_CLAIMS }                             from './testing/claims/HoldClaims.ts';
+import { RecordedDispatchRunUtil }                 from './testing/utils/RecordedDispatchRunUtil.ts';
 
 const BUNDLE = await bundleDispatchScript();
 
@@ -18,7 +18,7 @@ describe('the dispatcher script and a held ticket', () => {
       const run = await runDispatchScript(claim.scenarioFor(), builtScriptTextOf(BUNDLE));
       expect(run.ranAway).toBe(false);
       expect(run.threw).toBeNull();
-      expect(claim.holds(run), JSON.stringify({ calls: kindsAndTickets(run), summary: run.summary, held: run.heldTicketIdsReturned })).toBe(true);
+      expect(claim.holds(run), JSON.stringify({ calls: RecordedDispatchRunUtil.kindsAndTicketsOf(run), summary: run.summary, held: run.heldTicketIdsReturned })).toBe(true);
     });
 
     test(`${claim.name} — and fails against the mutant that breaks it`, async () => {
