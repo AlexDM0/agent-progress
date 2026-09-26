@@ -519,10 +519,32 @@ export class Board {
 
   /** Only an in-progress ticket has a build to resume; a ticket that moved on took its row along. */
   pausedBuildRowOf(ticketId: string): Readonly<Task> | null {
-    const { status, task } = this.requireTicket(ticketId).frontmatter;
-    if (status !== 'in-progress' || task === null) return null;
-    const row = this.taskRecordById(task);
+    if (this.requireTicket(ticketId).frontmatter.status !== 'in-progress') return null;
+    const row = this.linkedRowOf(ticketId);
     return row?.status === 'paused' ? row : null;
+  }
+
+  /** In row order, once each. */
+  inProgressTicketIds(): string[] {
+    return [...new Set(this.progress.tasks.flatMap((task) => (task.status === 'in-progress' && task.ticket !== null ? [task.ticket] : [])))];
+  }
+
+  /** Matches `reviewOf` on any row, as `ticket claim` and the moves out of review do, so a ticket-owned row storing it counts; in row order, once each. */
+  inProgressReviewOfIds(): string[] {
+    return [...new Set(this.progress.tasks.flatMap((task) => (task.status === 'in-progress' && task.reviewOf !== undefined ? [task.reviewOf] : [])))];
+  }
+
+  /** The in-review tickets no reviewer is at work on, held ones included: a caller reads the holds from `heldTicketIds`. */
+  reviewWaitingTickets(): readonly Readonly<Ticket>[] {
+    const ticketIdsUnderReview = this.inProgressReviewOfIds();
+    return this.ticketRecords.filter((ticket) => ticket.frontmatter.status === 'in-review' && !ticketIdsUnderReview.includes(ticket.frontmatter.id));
+  }
+
+  /** The row the ticket's frontmatter `task` names, which the ticket verbs move; `ownRowOf` is the first row naming the ticket, which the page draws. */
+  linkedRowOf(ticketId: string): Readonly<Task> | null {
+    const { task } = this.requireTicket(ticketId).frontmatter;
+    if (task === null) return null;
+    return this.taskRecordById(task) ?? null;
   }
 
   /** A release reviews the ticket on its way to delivering it, so it takes the tickets a move to `reviewed` is legal from. */

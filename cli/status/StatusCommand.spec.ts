@@ -24,14 +24,23 @@ type StatusDocument = ProgressDocument & {
   tickets:     Array<TicketFrontmatter & { filePath: string }>;
   omitted?:    { settledTasks: number; settledTickets: number; olderLogEntries: number };
   concurrency: {
-    limit:            number;
-    agentsInFlight:   number;
-    freeSlots:        number;
-    readyTicketIds:   string[];
-    dispatcherState:  string;
-    dispatcherRunId?: string;
+    limit:                 number;
+    agentsInFlight:        number;
+    freeSlots:             number;
+    readyTicketIds:        string[];
+    dispatcherState:       string;
+    dispatcherRunId?:      string;
+    inProgressTicketIds:   string[];
+    inProgressReviewOfIds: string[];
   };
-  readyTickets: Array<{ id: string; priority: string; model: string; effort: string }>;
+  readyTickets:         Array<{ id: string; priority: string; model: string; effort: string }>;
+  reviewWaitingTickets: Array<{ id: string; model: string; effort: string }>;
+  pausedBuilds:         Array<{ id: string; note: string; priority: string; model: string; effort: string }>;
+  ticketRows:           Array<{
+    id:         string;
+    row:        { id: number; status: string; note: string } | null;
+    reviewBars: Array<{ id: number; status: string; round?: number }>;
+  }>;
 };
 
 let repositoryDirectory = '';
@@ -247,12 +256,14 @@ describe.skipIf(!gitIsAvailable())('the concurrency block both --json documents 
     const full    = JSON.parse((await run(['status', '--json', '--full'])).outputText()) as StatusDocument;
 
     const expected = {
-      limit:           2,
-      agentsInFlight:  2,
-      freeSlots:       0,
-      readyTicketIds:  ['002', '004'],
-      dispatcherState: 'stopped',
-      heldTicketIds:   [],
+      limit:                 2,
+      agentsInFlight:        2,
+      freeSlots:             0,
+      readyTicketIds:        ['002', '004'],
+      dispatcherState:       'stopped',
+      heldTicketIds:         [],
+      inProgressTicketIds:   ['001'],
+      inProgressReviewOfIds: [],
     };
     expect(working.concurrency).toEqual(expected);
     expect(full.concurrency).toEqual(expected);
@@ -308,5 +319,107 @@ describe.skipIf(!gitIsAvailable())('the concurrency block both --json documents 
 
     expect(working.concurrency.readyTicketIds).toEqual([]);
     expect(working.readyTickets).toEqual([]);
+  });
+});
+
+describe.skipIf(!gitIsAvailable())('the dispatch fields both --json documents carry', () => {
+  async function bothDocuments(): Promise<{ working: StatusDocument; full: StatusDocument }> {
+    const working = JSON.parse((await run(['status', '--json'])).outputText()) as StatusDocument;
+    const full    = JSON.parse((await run(['status', '--json', '--full'])).outputText()) as StatusDocument;
+    return { working, full };
+  }
+
+  // Older readers key on the document as it was, so the new fields only ever come after every key it carried before.
+  test('come last in both documents, after every key in the order the documents had before', async () => {
+    const { working, full } = await bothDocuments();
+    const progressKeys      = ['version', 'trackerId', 'project', 'startedAt', 'view', 'nextTaskId', 'concurrencyLimit', 'tasks', 'log'];
+    const dispatchKeys      = ['reviewWaitingTickets', 'pausedBuilds', 'ticketRows'];
+
+    expect(Object.keys(working)).toEqual([...progressKeys, 'tickets', 'concurrency', 'readyTickets', 'omitted', ...dispatchKeys]);
+    expect(Object.keys(full)).toEqual([...progressKeys, 'tickets', 'concurrency', 'readyTickets', ...dispatchKeys]);
+  });
+
+  test('the ids in flight end the concurrency block, after the stored run id', async () => {
+    await run(['dispatcher', 'running', '--run', 'wf_example-run-2']);
+
+    const { working, full } = await bothDocuments();
+    const expectedKeys      = [
+      'limit',
+      'agentsInFlight',
+      'freeSlots',
+      'readyTicketIds',
+      'dispatcherState',
+      'heldTicketIds',
+      'dispatcherRunId',
+      'inProgressTicketIds',
+      'inProgressReviewOfIds',
+    ];
+
+    expect(Object.keys(working.concurrency)).toEqual(expectedKeys);
+    expect(Object.keys(full.concurrency)).toEqual(expectedKeys);
+  });
+
+  test('a claimed ticket is in flight', async () => {
+    await run(['concurrency', '5']);
+    await run(['ticket', 'add', 'Show the role history']);
+    await run(['ticket', 'claim', '2', '--owner', 'Alex Example']);
+
+    const { working, full } = await bothDocuments();
+
+    expect(working.concurrency.inProgressTicketIds).toEqual(['001', '002']);
+    expect(full.concurrency.inProgressTicketIds).toEqual(['001', '002']);
+  });
+
+  // A review started with the move is a reviewer at work; one finished without it waits for a reviewer the dispatcher starts on these settings.
+  test('finish --start-review puts the ticket\'s review in flight, while a plain finish leaves it waiting with its agents resolved', async () => {
+    await run(['concurrency', '5']);
+    await run(['ticket', 'add', 'Show the role history', '--model', 'sonnet']);
+    await run(['ticket', 'claim', '2']);
+    await run(['ticket', 'finish', '1', '--start-review', '--owner', 'Alex Example']);
+    await run(['ticket', 'finish', '2']);
+
+    const { working, full } = await bothDocuments();
+
+    expect(working.concurrency.inProgressReviewOfIds).toEqual(['001']);
+    expect(working.reviewWaitingTickets).toEqual([{ id: '002', model: 'sonnet', effort: 'medium' }]);
+    expect(full.concurrency.inProgressReviewOfIds).toEqual(['001']);
+    expect(full.reviewWaitingTickets).toEqual(working.reviewWaitingTickets);
+  });
+
+  test('a claimed ticket whose row was paused is a paused build, with the row\'s note', async () => {
+    await run(['concurrency', '5']);
+    await run(['ticket', 'add', 'Show the role history', '--priority', 'high']);
+    await run(['ticket', 'claim', '2', '--note', 'Claimed by Alex Example']);
+    await run(['task', 'pause', '3', '--note', 'Waiting on Example Agency']);
+
+    const { working, full } = await bothDocuments();
+    const expected          = [{
+      id:       '002',
+      note:     'Waiting on Example Agency',
+      priority: 'high',
+      model:    'opus',
+      effort:   'medium',
+    }];
+
+    expect(working.pausedBuilds).toEqual(expected);
+    expect(full.pausedBuilds).toEqual(expected);
+  });
+
+  test('ticketRows covers the tickets each document lists, with the ticket\'s row and its review bar\'s round', async () => {
+    await run(['ticket', 'add', 'Rename the export button']);
+    await run(['ticket', 'abandon', '2', '--reason', 'Out of scope']);
+    await run(['ticket', 'finish', '1', '--start-review', '--owner', 'Alex Example']);
+
+    const { working, full } = await bothDocuments();
+    const firstTicketRows   = {
+      id:         '001',
+      row:        { id: 1, status: 'in-review', note: '' },
+      reviewBars: [{ id: 4, status: 'in-progress', round: 1 }],
+    };
+
+    expect(working.ticketRows).toEqual([firstTicketRows]);
+    expect(full.ticketRows.map((entry) => entry.id)).toEqual(['001', '002']);
+    expect(full.ticketRows[0]).toEqual(firstTicketRows);
+    expect(full.ticketRows[1]).toMatchObject({ id: '002', row: { id: 3, status: 'abandoned' }, reviewBars: [] });
   });
 });

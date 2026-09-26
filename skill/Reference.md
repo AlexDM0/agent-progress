@@ -87,7 +87,8 @@ branch to merge — reaches `done` through `agent-progress task deliver <id>` on
 accepted. A row that never gets there is a row the chart shows as still owed.
 
 **A review pass is drawn above its ticket.** A row filed with `task add … --review-of <id>` stores
-the ticket it reviews in its `reviewOf` field, which `status --json --full` shows; a ticket that does
+the ticket it reviews in its `reviewOf` field, which `status --json --full` shows, and `status --json`
+lists each ticket's row and review bars, with each bar's round, in `ticketRows`; a ticket that does
 not exist is refused at exit 1 and nothing is written. On the Progress tab each review row sits
 directly above that ticket's own row, indented one level, latest round first, so round 1 is right
 above the ticket, with its own bar, pill and times. A row without the field whose name starts
@@ -219,7 +220,9 @@ high ticket is left that is not delivered or abandoned** — a `reviewed` ticket
 merge holds them back — and `ticket claim` refuses a low ticket at exit 1 while one is left, where
 `ticket start` only warns. Beside `concurrency`, `readyTickets` lists the same tickets in the same
 order as `{ id, priority, model, effort }` with the defaults resolved, so a dispatcher never derives
-a priority or a model itself.
+a priority or a model itself. The block ends with `inProgressTicketIds`, the tickets an in-progress row
+builds, and `inProgressReviewOfIds`, the tickets an in-progress row reviews, so who is at work is read
+rather than worked out from the rows.
 
 The same figures close the human output of `status`, `ticket add`, `ticket depends`, `task add
 --start`, every ticket or task move and `release`, as one **Next line** read after the change, inside
@@ -274,18 +277,20 @@ failed pass and park nothing. A run that ended with builds left paused and not h
 summary as `pausedBuilds: [<ids>]`, absent when there are none, and the reviews it left waiting as
 `reviewsLeft: [<ids>]`, absent the same way; the next whole-board run resumes both.
 
-**Resuming a paused build** is stated here once. A whole-board run's survey returns every in-progress
-ticket whose own row is `paused` under a dispatcher run's claim note (`Built by the … dispatcher run on
-ticket-<id>`) and whose worktree exists, and resumes each that is not held: its builder resumes the row
-with `task start` and carries on in the ticket's worktree, keeping its uncommitted edits, without a new
-claim. It is ordered like a ready ticket of the same priority, just before one: after any ready ticket
-of a higher priority, and a low one only with `includeLowPriority: true` — until then it is named in
-`lowPriorityWaiting` as well. A paused row with any other note is a person's pause, left alone, and a
-paused build whose worktree is gone is never resumed. Two runs may then want one ticket, and the atomic `ticket claim` gives it to one: each
-builder's claim note names its run, so a builder refused as in-progress carries on only past its own
-run's claim and otherwise returns, and its run moves on. Every builder ends with
-`ticket finish <id> --start-review`, and its reviewer takes that bar over, so the ticket's slot is held
-from claim to release.
+**Resuming a paused build** is stated here once. `status --json` lists the in-progress tickets whose row
+is paused in `pausedBuilds`, with the row's note, and the in-review tickets no reviewer is at work on in
+`reviewWaitingTickets`; the survey reads those lists rather than working them out. A whole-board run's
+survey returns every in-progress ticket whose own row is `paused` under a dispatcher run's claim note
+(`Built by the … dispatcher run on ticket-<id>`) and whose worktree exists, and resumes each that is not
+held: its builder resumes the row with `task start` and carries on in the ticket's worktree, keeping its
+uncommitted edits, without a new claim. It is ordered like a ready ticket of the same priority, just
+before one: after any ready ticket of a higher priority, and a low one only with
+`includeLowPriority: true` — until then it is named in `lowPriorityWaiting` as well. A paused row with any other note is a
+person's pause, left alone, and a paused build whose worktree is gone is never resumed. Two runs may
+then want one ticket, and the atomic `ticket claim` gives it to one: each builder's claim note names its
+run, so a builder refused as in-progress carries on only past its own run's claim and otherwise returns,
+and its run moves on. Every builder ends with `ticket finish <id> --start-review`, and its reviewer
+takes that bar over, so the ticket's slot is held from claim to release.
 
 ## Releasing a branch
 
