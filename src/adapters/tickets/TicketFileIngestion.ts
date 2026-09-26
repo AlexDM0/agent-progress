@@ -34,7 +34,7 @@ export class TicketFileIngestion {
       verdict:               'parsed',
       ticket,
       identifierLine:        text.split('\n').findIndex((line) => IDENTIFIER_LINE_MATCH.test(line)) + 1,
-      fileIsInAnOlderFormat: parsed.retiredStatusWordWasRead,
+      fileIsInAnOlderFormat: parsed.olderFormatWasRead,
     };
   }
 }

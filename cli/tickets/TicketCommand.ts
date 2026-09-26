@@ -1,5 +1,6 @@
 import { OperationRefusal }             from '../../src/shared/OperationRefusal';
 import type { CommandHandler }          from '../CommandTable';
+import { RetiredWordRefusalUtil }       from '../legacy/utils/RetiredWordRefusalUtil';
 import type { TicketSubcommandHandler } from './@types/TicketSubcommandHandler';
 import { TICKET_CLAIM_SUBCOMMANDS }     from './TicketClaims';
 import { TICKET_FILING_SUBCOMMANDS }    from './TicketFiling';
@@ -22,6 +23,8 @@ export const ticketCommand: CommandHandler = async (commandArguments, context) =
   // `Object.hasOwn`, never a bare index: `subcommand` is argv text, and `constructor` is a truthy inherited property.
   const handler = subcommand !== undefined && Object.hasOwn(TICKET_SUBCOMMANDS, subcommand) ? TICKET_SUBCOMMANDS[subcommand] : undefined;
   if (subcommand !== undefined && handler !== undefined) return handler(commandArguments, context, subcommand);
+  // The seam to the retired verbs; dropping `cli/legacy/` leaves only the unknown-subcommand refusal below.
+  if (subcommand !== undefined) RetiredWordRefusalUtil.refuseARetiredTicketVerb(subcommand, commandArguments);
 
   throw new OperationRefusal(
     'refused',

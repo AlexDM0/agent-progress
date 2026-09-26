@@ -1,10 +1,8 @@
-import { LegacyStatusUtil }  from '../../../src/adapters/utils/LegacyStatusUtil';
 import { StatusWordingUtil } from '../../../src/adapters/utils/StatusWordingUtil';
 import type {
   AgentEffort,
   AgentModel,
   TicketPriority,
-  TicketStatus,
   TicketType
 } from '../../../src/lib/tracker-model/@types/Ticket';
 import { AGENT_EFFORTS, AGENT_MODELS }     from '../../../src/lib/tracker-model/constants/AgentSettings';
@@ -64,13 +62,7 @@ function dependencyListFrom(texts: readonly string[]): string[] {
   return dependsOn;
 }
 
-/** An old status word is named with the word that replaced it, since a reader who typed it meant that one. */
-function refuseAnUnknownTicketStatus(writtenStatus: string, retryAdviceFor: (renamedStatus: TicketStatus) => string): never {
-  const renamedStatus = LegacyStatusUtil.currentTicketStatusFor(writtenStatus);
-  if (renamedStatus !== null) {
-    const renamedStatusWord = StatusWordingUtil.statusWordFor(renamedStatus);
-    throw new OperationRefusal('refused', `"${writtenStatus}" is the old name of the ticket status ${renamedStatusWord}; ${retryAdviceFor(renamedStatus)}.`);
-  }
+function refuseAnUnknownTicketStatus(writtenStatus: string): never {
   throw new OperationRefusal('refused', `"${writtenStatus}" is not a ticket status. The statuses are ${TICKET_STATUSES.map(StatusWordingUtil.statusWordFor).join(', ')}.`);
 }
 

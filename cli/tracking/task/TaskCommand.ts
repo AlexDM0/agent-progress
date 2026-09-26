@@ -1,4 +1,3 @@
-import { LegacyStatusUtil }                                             from '../../../src/adapters/utils/LegacyStatusUtil';
 import type { MovedToStatus }                                           from '../../../src/adapters/utils/StatusWordingUtil';
 import { StatusWordingUtil }                                            from '../../../src/adapters/utils/StatusWordingUtil';
 import { TicketBodyUtil }                                               from '../../../src/adapters/utils/TicketBodyUtil';
@@ -11,6 +10,7 @@ import type { CommandContext }                                          from '..
 import type { CommandHandler }                                          from '../../CommandTable';
 import { openTrackerForWriting, openTrackerForWritingThenReadNextLine } from '../../TrackerWriting';
 import type { ArgumentParser }                                          from '../../arguments/ArgumentParser';
+import { RetiredWordRefusalUtil }                                       from '../../legacy/utils/RetiredWordRefusalUtil';
 import { OptionValueUtil }                                              from '../../utils/OptionValueUtil';
 import { OutputUtil }                                                   from '../../utils/OutputUtil';
 
@@ -29,9 +29,6 @@ const TRANSITION_SUBCOMMANDS: Record<string, MovedToStatus> = {
   [StatusWordingUtil.verbFor('re-review')]:   're-review',
   [StatusWordingUtil.verbFor('delivered')]:   'delivered',
 };
-
-/** A verb that was renamed is refused naming its replacement, rather than read as an unknown word. */
-const RETIRED_SUBCOMMAND_REPLACEMENTS: Record<string, string> = { review: 'approve' };
 
 const ADD_OPTION_NAMES        = ['owner', 'note', 'ticket', 'review-of', 'start', 'at', 'tokens', 'force', 'json'];
 const TRANSITION_OPTION_NAMES = ['owner', 'note', 'at', 'tokens', 'force', 'json'];
@@ -146,11 +143,8 @@ async function updateOneTask(commandArguments: ArgumentParser, context: CommandC
   const taskId        = taskIdFrom(commandArguments.positionals()[1], 'update');
   const writtenStatus = commandArguments.option('status');
   if (writtenStatus !== undefined && !VocabularyUtil.taskStatusIsKnown(writtenStatus)) {
-    const renamedStatus = LegacyStatusUtil.currentTaskStatusFor(writtenStatus);
-    if (renamedStatus !== null) {
-      const renamedStatusWord = StatusWordingUtil.statusWordFor(renamedStatus);
-      throw new OperationRefusal('refused', `"${writtenStatus}" is the old name of the task status ${renamedStatusWord}; pass --status ${renamedStatusWord}.`);
-    }
+    // The seam to the retired words; dropping `cli/legacy/` leaves only the unknown-status refusal below.
+    RetiredWordRefusalUtil.refuseARetiredTaskStatus(writtenStatus);
     throw new OperationRefusal('refused', `"${writtenStatus}" is not a task status. The statuses are ${TASK_STATUSES.map(StatusWordingUtil.statusWordFor).join(', ')}.`);
   }
   const status: TaskStatus | undefined = writtenStatus !== undefined && VocabularyUtil.taskStatusIsKnown(writtenStatus) ? writtenStatus : undefined;
@@ -176,17 +170,6 @@ async function updateOneTask(commandArguments: ArgumentParser, context: CommandC
   OutputUtil.printEntity(commandArguments, context, task, `Task #${task.id} updated: ${task.name}`);
 }
 
-function refuseARetiredSubcommand(subcommand: string, commandArguments: ArgumentParser): never {
-  const replacement      = RETIRED_SUBCOMMAND_REPLACEMENTS[subcommand] ?? subcommand;
-  const targetStatus     = Object.hasOwn(TRANSITION_SUBCOMMANDS, replacement) ? TRANSITION_SUBCOMMANDS[replacement] : undefined;
-  const targetStatusText = targetStatus === undefined ? replacement : StatusWordingUtil.statusWordFor(targetStatus);
-  const taskId           = commandArguments.positionals()[1] ?? '<id>';
-  throw new OperationRefusal(
-    'refused',
-    `\`agent-progress task ${subcommand}\` was renamed: \`agent-progress task ${replacement} ${taskId}\` moves a row to ${targetStatusText}. Nothing was written.`,
-  );
-}
-
 async function removeOneTask(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   commandArguments.rejectUnknownOptions(REMOVE_OPTION_NAMES, USAGE);
   commandArguments.rejectExtraPositionals(2, USAGE);
@@ -206,7 +189,8 @@ export const taskCommand: CommandHandler = async (commandArguments, context) => 
   if (subcommand !== undefined && targetStatus !== undefined) return transitionOneTask(subcommand, targetStatus, commandArguments, context);
   if (subcommand === 'update') return updateOneTask(commandArguments, context);
   if (subcommand === 'remove') return removeOneTask(commandArguments, context);
-  if (subcommand !== undefined && Object.hasOwn(RETIRED_SUBCOMMAND_REPLACEMENTS, subcommand)) refuseARetiredSubcommand(subcommand, commandArguments);
+  // The seam to the retired verbs; dropping `cli/legacy/` leaves only the unknown-subcommand refusal below.
+  if (subcommand !== undefined) RetiredWordRefusalUtil.refuseARetiredTaskVerb(subcommand, commandArguments);
 
   throw new OperationRefusal(
     'refused',

@@ -4,7 +4,7 @@
  */
 import type { DispatcherState, ViewRange }                                        from '../../../lib/tracker-model/@types/ProgressFile.ts';
 import type { TaskStatus }                                                        from '../../../lib/tracker-model/@types/Task.ts';
-import type { RetiredTaskStatusWord }                                             from '../../utils/LegacyStatusUtil.ts';
+import type { RetiredTaskStatusWord }                                             from '../../../shared/legacy/utils/RetiredStatusWordUtil.ts';
 import type { CURRENT_PROGRESS_FILE_VERSION, EMBEDDED_LOG_PROGRESS_FILE_VERSION } from '../constants/ProgressFileVersions.ts';
 
 export type StoredTaskStatusWord = TaskStatus | RetiredTaskStatusWord;

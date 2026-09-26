@@ -7,12 +7,12 @@
 import type { TicketFrontmatter } from '../../../lib/tracker-model/@types/Ticket.ts';
 import { TicketIdUtil }           from '../../../lib/tracker-model/utils/TicketIdUtil.ts';
 import { VocabularyUtil }         from '../../../lib/tracker-model/utils/VocabularyUtil.ts';
-import { LegacyStatusUtil }       from '../../utils/LegacyStatusUtil.ts';
+import { RetiredStatusWordUtil }  from '../../../shared/legacy/utils/RetiredStatusWordUtil.ts';
 
 export type LineEnding = '\n' | '\r\n';
 
 export type ParsedTicketDocument =
-  | { verdict: 'parsed'; frontmatter: TicketFrontmatter; body: string; lineEnding: LineEnding; retiredStatusWordWasRead: boolean }
+  | { verdict: 'parsed'; frontmatter: TicketFrontmatter; body: string; lineEnding: LineEnding; olderFormatWasRead: boolean }
   | { verdict: 'malformed'; reason: string; line: number };
 
 type FrontmatterValue = string | number | null;
@@ -132,13 +132,13 @@ function parseTicketDocument(text: string): ParsedTicketDocument {
       knownValues.set(key, { value: scalarOf(rawValue, key, lineNumber), line: lineNumber });
     }
 
-    const { frontmatter, retiredStatusWordWasRead } = frontmatterFrom(knownValues, extra, closingFenceIndex + 1);
+    const { frontmatter, olderFormatWasRead } = frontmatterFrom(knownValues, extra, closingFenceIndex + 1);
     return {
       verdict:    'parsed',
       frontmatter,
       body:       bodyAfter(withoutByteOrderMark, lines, closingFenceIndex),
       lineEnding: (lines[0] ?? '').endsWith(CARRIAGE_RETURN) ? '\r\n' : '\n',
-      retiredStatusWordWasRead,
+      olderFormatWasRead,
     };
   } catch (problem) {
     if (problem instanceof FrontmatterProblem) {
@@ -292,10 +292,11 @@ function frontmatterFrom(
   knownValues: Map<string, KnownValue>,
   extra: Array<[key: string, rawValue: string]>,
   closingFenceLine: number,
-): { frontmatter: TicketFrontmatter; retiredStatusWordWasRead: boolean } {
+): { frontmatter: TicketFrontmatter; olderFormatWasRead: boolean } {
   const typeText         = requiredText(knownValues, 'type', closingFenceLine);
   const storedStatusText = requiredText(knownValues, 'status', closingFenceLine);
-  const statusText       = LegacyStatusUtil.currentTicketStatusFor(storedStatusText) ?? storedStatusText;
+  // The seam to the retired words; dropping `src/shared/legacy/` leaves `storedStatusText`.
+  const statusText       = RetiredStatusWordUtil.currentTicketStatusFor(storedStatusText) ?? storedStatusText;
 
   if (!VocabularyUtil.ticketTypeIsKnown(typeText)) {
     throw new FrontmatterProblem(`\`type\` is not a known ticket type: ${typeText}`, lineOf(knownValues, 'type', closingFenceLine));
@@ -323,7 +324,7 @@ function frontmatterFrom(
     task:        nullableInteger(knownValues, 'task'),
     extra,
   };
-  return { frontmatter, retiredStatusWordWasRead: statusText !== storedStatusText };
+  return { frontmatter, olderFormatWasRead: statusText !== storedStatusText };
 }
 
 /** The id is stored padded however it was written, so `id: 003`, `id: "003"` and `id: 3` name the same ticket. */

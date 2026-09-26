@@ -2,10 +2,10 @@
  * A validated progress.json brought up to date on copies, so the input is never changed: the retired task status words replaced by their
  * current ones, and a version 1 file's worded log turned into note records.
  */
-import type { LogRecord }   from '../../../lib/tracker-model/@types/LogRecord.ts';
-import type { TaskStatus }  from '../../../lib/tracker-model/@types/Task.ts';
-import { VocabularyUtil }   from '../../../lib/tracker-model/utils/VocabularyUtil.ts';
-import { LegacyStatusUtil } from '../../utils/LegacyStatusUtil.ts';
+import type { LogRecord }        from '../../../lib/tracker-model/@types/LogRecord.ts';
+import type { TaskStatus }       from '../../../lib/tracker-model/@types/Task.ts';
+import { VocabularyUtil }        from '../../../lib/tracker-model/utils/VocabularyUtil.ts';
+import { RetiredStatusWordUtil } from '../../../shared/legacy/utils/RetiredStatusWordUtil.ts';
 import type {
   StoredLogEntry,
   StoredTask,
@@ -15,7 +15,7 @@ import type {
 
 function currentStatusOf(status: StoredTaskStatusWord): TaskStatus {
   if (VocabularyUtil.taskStatusIsKnown(status)) return status;
-  const replacement = LegacyStatusUtil.currentTaskStatusFor(status);
+  const replacement = RetiredStatusWordUtil.currentTaskStatusFor(status);
   // Validation lets only current and retired words through, so this is a broken invariant, not a bad file.
   if (replacement === null) throw new Error(`the status word ${JSON.stringify(status)} passed validation without a replacement`);
   return replacement;

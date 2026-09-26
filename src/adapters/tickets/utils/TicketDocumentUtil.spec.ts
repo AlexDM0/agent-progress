@@ -366,7 +366,7 @@ describe('retired status words', () => {
     for (const storedStatus of ['open', '"open"', 'done', '"done"']) {
       const parsed = TicketDocumentUtil.parseTicketDocument(FULL_TICKET.replace('status: "in-progress"', `status: ${storedStatus}`));
 
-      expect(parsed.verdict === 'parsed' && parsed.retiredStatusWordWasRead).toBe(true);
+      expect(parsed.verdict === 'parsed' && parsed.olderFormatWasRead).toBe(true);
     }
   });
 
@@ -374,7 +374,7 @@ describe('retired status words', () => {
     for (const storedStatus of ['"in-progress"', 'pending', '"reviewed"']) {
       const parsed = TicketDocumentUtil.parseTicketDocument(FULL_TICKET.replace('status: "in-progress"', `status: ${storedStatus}`));
 
-      expect(parsed.verdict === 'parsed' && !parsed.retiredStatusWordWasRead).toBe(true);
+      expect(parsed.verdict === 'parsed' && !parsed.olderFormatWasRead).toBe(true);
     }
   });
 

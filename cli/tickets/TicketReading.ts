@@ -16,6 +16,7 @@ import { OperationRefusal }                 from '../../src/shared/OperationRefu
 import { LIMITS }                           from '../../src/shared/constants/Limits';
 import type { CommandContext }              from '../CommandContext';
 import type { ArgumentParser }              from '../arguments/ArgumentParser';
+import { RetiredWordRefusalUtil }           from '../legacy/utils/RetiredWordRefusalUtil';
 import { OutputUtil }                       from '../utils/OutputUtil';
 import type { TicketSubcommandHandler }     from './@types/TicketSubcommandHandler';
 import { TICKET_USAGE }                     from './constants/TicketUsage';
@@ -58,7 +59,9 @@ function namedAgentText(ticket: { model?: AgentModel; effort?: AgentEffort }): s
 
 function listedStatusFrom(writtenStatus: string | undefined): TicketStatus | undefined {
   if (writtenStatus === undefined || VocabularyUtil.ticketStatusIsKnown(writtenStatus)) return writtenStatus;
-  return TicketArgumentUtil.refuseAnUnknownTicketStatus(writtenStatus, (renamedStatus) => `pass --status ${StatusWordingUtil.statusWordFor(renamedStatus)}`);
+  // The seam to the retired words; dropping `cli/legacy/` leaves only the unknown-status refusal below.
+  RetiredWordRefusalUtil.refuseARetiredTicketStatus(writtenStatus, (renamedStatus) => `pass --status ${StatusWordingUtil.statusWordFor(renamedStatus)}`);
+  return TicketArgumentUtil.refuseAnUnknownTicketStatus(writtenStatus);
 }
 
 async function listAllTickets(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {

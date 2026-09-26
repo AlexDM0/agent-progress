@@ -76,16 +76,9 @@ describe('TicketArgumentUtil.dependencyListFrom', () => {
 });
 
 describe('TicketArgumentUtil.refuseAnUnknownTicketStatus', () => {
-  test('a retired status word is refused naming the word that replaced it, with the caller\'s retry advice', () => {
-    const refusal = refusalFrom(() => refuseAnUnknownTicketStatus('done', (renamedStatus) => `pass --status ${renamedStatus}`));
-
-    expect(refusal.status).toBe('refused');
-    expect(refusal.message).toBe('"done" is the old name of the ticket status reviewed; pass --status reviewed.');
-  });
-
   test('any other word is refused naming every status, and an inherited property name is not mistaken for a retired word', () => {
     for (const writtenStatus of ['finished-ish', 'constructor']) {
-      const refusal = refusalFrom(() => refuseAnUnknownTicketStatus(writtenStatus, () => 'unused advice'));
+      const refusal = refusalFrom(() => refuseAnUnknownTicketStatus(writtenStatus));
 
       expect(refusal.status).toBe('refused');
       expect(refusal.message).toBe(

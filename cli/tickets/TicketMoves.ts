@@ -15,6 +15,7 @@ import { OperationRefusal }                       from '../../src/shared/Operati
 import type { CommandContext }                    from '../CommandContext';
 import { openTrackerForWritingThenReadNextLine }  from '../TrackerWriting';
 import type { ArgumentParser }                    from '../arguments/ArgumentParser';
+import { RetiredWordRefusalUtil }                 from '../legacy/utils/RetiredWordRefusalUtil';
 import { NextLineUtil }                           from '../utils/NextLineUtil';
 import { OptionValueUtil }                        from '../utils/OptionValueUtil';
 import { OutputUtil }                             from '../utils/OutputUtil';
@@ -31,12 +32,6 @@ const TRANSITION_TARGET_STATUSES: Record<string, TicketStatus> = {
   [StatusWordingUtil.verbFor('delivered')]:   'delivered',
   [StatusWordingUtil.verbFor('abandoned')]:   'abandoned',
   [StatusWordingUtil.verbFor('pending')]:     'pending',
-};
-
-/** A verb that was renamed is refused naming its replacement, rather than read as an unknown word. */
-const RETIRED_SUBCOMMAND_REPLACEMENTS: Record<string, string> = {
-  review: 'finish',
-  done:   'approve',
 };
 
 const TRANSITION_OPTION_NAMES = ['branch', 'commit', 'reason', 'at', 'tokens', 'json'];
@@ -173,7 +168,9 @@ async function setTicketStatus(commandArguments: ArgumentParser, context: Comman
     throw new OperationRefusal('refused', `agent-progress ticket status needs a ticket id and a status.\n  Usage: ${TICKET_USAGE}`);
   }
   if (!VocabularyUtil.ticketStatusIsKnown(writtenStatus)) {
-    return TicketArgumentUtil.refuseAnUnknownTicketStatus(writtenStatus, (renamedStatus) => `run \`agent-progress ticket status ${reference} ${renamedStatus}\``);
+    // The seam to the retired words; dropping `cli/legacy/` leaves only the unknown-status refusal below.
+    RetiredWordRefusalUtil.refuseARetiredTicketStatus(writtenStatus, (renamedStatus) => `run \`agent-progress ticket status ${reference} ${renamedStatus}\``);
+    return TicketArgumentUtil.refuseAnUnknownTicketStatus(writtenStatus);
   }
   return transitionOneTicket(writtenStatus, reference, commandArguments, context, false);
 }
@@ -198,30 +195,12 @@ async function rereviewOneTicket(commandArguments: ArgumentParser, context: Comm
   OutputUtil.printEntityThenNextLine(commandArguments, context, ticketWithReviewBarAsJson(rereview.ticket, startedReviewBar), humanText, nextLine);
 }
 
-async function refuseARetiredSubcommand(commandArguments: ArgumentParser, _context: CommandContext, subcommand: string): Promise<never> {
-  const replacement              = RETIRED_SUBCOMMAND_REPLACEMENTS[subcommand] ?? subcommand;
-  const targetStatus             = Object.hasOwn(TRANSITION_TARGET_STATUSES, replacement) ? TRANSITION_TARGET_STATUSES[replacement] : undefined;
-  const ticketId                 = commandArguments.positionals()[1] ?? '<id>';
-  const targetStatusText         = targetStatus === undefined ? replacement : StatusWordingUtil.statusWordFor(targetStatus);
-  const startReviewCarryOverText = targetStatus === 'in-review' ? ', and takes --start-review the same way' : '';
-  throw new OperationRefusal(
-    'refused',
-    `\`agent-progress ticket ${subcommand}\` was renamed: \`agent-progress ticket ${replacement} ${ticketId}\` moves a ticket to ${targetStatusText}`
-    + `${startReviewCarryOverText}. Nothing was written.`,
-  );
-}
-
 const TRANSITION_HANDLERS: Record<string, TicketSubcommandHandler> = Object.fromEntries(
   Object.entries(TRANSITION_TARGET_STATUSES).map(([verb, targetStatus]) => [verb, transitionHandlerFor(targetStatus)]),
-);
-
-const RETIRED_SUBCOMMAND_HANDLERS: Record<string, TicketSubcommandHandler> = Object.fromEntries(
-  Object.keys(RETIRED_SUBCOMMAND_REPLACEMENTS).map((retiredVerb) => [retiredVerb, refuseARetiredSubcommand]),
 );
 
 export const TICKET_MOVE_SUBCOMMANDS: Readonly<Record<string, TicketSubcommandHandler>> = {
   ...TRANSITION_HANDLERS,
   status:   setTicketStatus,
   rereview: rereviewOneTicket,
-  ...RETIRED_SUBCOMMAND_HANDLERS,
 };

@@ -6,7 +6,7 @@ import { TASK_STATUSES }                                                     fro
 import { FIRST_TASK_ID }                                                     from '../../../lib/tracker-model/constants/TaskIds.ts';
 import { BoardSettingsUtil }                                                 from '../../../lib/tracker-model/utils/BoardSettingsUtil.ts';
 import { VocabularyUtil }                                                    from '../../../lib/tracker-model/utils/VocabularyUtil.ts';
-import { LegacyStatusUtil }                                                  from '../../utils/LegacyStatusUtil.ts';
+import { RetiredStatusWordUtil }                                             from '../../../shared/legacy/utils/RetiredStatusWordUtil.ts';
 import type { StoredTaskPhase }                                              from '../@types/StoredProgressFile.ts';
 import { CURRENT_PROGRESS_FILE_VERSION, EMBEDDED_LOG_PROGRESS_FILE_VERSION } from '../constants/ProgressFileVersions.ts';
 
@@ -35,7 +35,7 @@ function reviewBarRoundIsWellFormed(value: unknown): value is number {
 
 /** A retired word passes: the migration step replaces it, so it is as readable as the word it became. */
 function taskStatusIsReadable(value: unknown): boolean {
-  return typeof value === 'string' && (VocabularyUtil.taskStatusIsKnown(value) || LegacyStatusUtil.currentTaskStatusFor(value) !== null);
+  return typeof value === 'string' && (VocabularyUtil.taskStatusIsKnown(value) || RetiredStatusWordUtil.currentTaskStatusFor(value) !== null);
 }
 
 function taskPhaseIsWellFormed(value: unknown): value is StoredTaskPhase {

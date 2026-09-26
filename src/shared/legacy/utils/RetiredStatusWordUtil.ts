@@ -1,6 +1,10 @@
-/** The status words retired by the rename, each mapped to its replacement: a stored file may still hold one, and a command line may still pass one. */
-import type { TaskStatus }   from '../../lib/tracker-model/@types/Task.ts';
-import type { TicketStatus } from '../../lib/tracker-model/@types/Ticket.ts';
+/**
+ * The status words the rename retired, each with its replacement, which stored files and command lines written before the rename still hold.
+ * It can be deleted once every tracker has been rewritten by `agent-progress update` and agents no longer use the retired words, with the
+ * last of its callers in `src/adapters/legacy/` and `cli/legacy/`.
+ */
+import type { TaskStatus }   from '../../../lib/tracker-model/@types/Task.ts';
+import type { TicketStatus } from '../../../lib/tracker-model/@types/Ticket.ts';
 
 export type RetiredTaskStatusWord = 'running' | 'finished';
 
@@ -29,4 +33,4 @@ function currentTaskStatusFor(statusWord: string): TaskStatus | null {
   return taskStatusWordIsRetired(statusWord) ? CURRENT_TASK_STATUS_FOR_RETIRED_WORD[statusWord] : null;
 }
 
-export const LegacyStatusUtil = { currentTicketStatusFor, currentTaskStatusFor } as const;
+export const RetiredStatusWordUtil = { currentTicketStatusFor, currentTaskStatusFor } as const;

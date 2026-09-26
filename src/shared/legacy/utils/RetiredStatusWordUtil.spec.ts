@@ -4,9 +4,9 @@
  */
 import { expect, test } from 'bun:test';
 
-import { LegacyStatusUtil } from './LegacyStatusUtil';
+import { RetiredStatusWordUtil } from './RetiredStatusWordUtil';
 
-const { currentTicketStatusFor, currentTaskStatusFor } = LegacyStatusUtil;
+const { currentTicketStatusFor, currentTaskStatusFor } = RetiredStatusWordUtil;
 
 test('each retired ticket word maps to the word that replaced it', () => {
   expect(currentTicketStatusFor('open')).toBe('pending');

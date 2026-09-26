@@ -73,10 +73,11 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
   home even where it equals the value today; JSON output, stored files and the reasons that name a stored file's
   values carry the values themselves, and the help screen is prose `cli/HelpText.spec.ts` holds.
 - Code that exists only to read what an older version stored, or to answer an older habit, lives in a `legacy/` folder
-  of its boundary (`page/legacy/`) and is reached only through one seam call per consumer; current code imports
-  nothing else from it, and a legacy module may import current code. Its header says what older input it reads and
-  when it can go; dropping it deletes the module, its specs and its seam calls, each seam line becoming the
-  current-format answer, and the help and `docs/cli.md` sentences on it.
+  of its boundary (`cli/legacy/`, `page/legacy/`, and `src/shared/legacy/` for what two legacy folders share) and is
+  reached only through one seam call per consumer; current code imports nothing else from it, and a legacy module may
+  import current code. Its header says what older input it reads and when it can go; dropping it deletes the module,
+  its specs and its seam calls, each seam line becoming the current-format answer, and the help and `docs/cli.md`
+  sentences on it.
 - An optional stored key is written only once somebody sets it, and a read never adds or rewrites one, so an older
   file stays byte-identical. The one exception is a legacy review bar: the read gives a row known only by its name
   `reviewOf` and `reviewBarRound`, and pads a stored `reviewOf` that reads as a whole number, in memory; the next
