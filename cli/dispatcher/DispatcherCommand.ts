@@ -1,8 +1,8 @@
 import { requireWorkspace }                                        from '../../lib/platform/Workspace';
-import { dispatcherRunIdIsWellFormed, dispatcherStateIsKnown }     from '../../lib/progress/ProgressStore';
 import { LogUtil }                                                 from '../../src/adapters/utils/LogUtil';
 import type { DispatcherState }                                    from '../../src/lib/tracker-model/@types/ProgressFile';
 import { DEFAULT_DISPATCHER_STATE, DISPATCHER_STATES }             from '../../src/lib/tracker-model/constants/DispatcherStates';
+import { BoardSettingsUtil }                                       from '../../src/lib/tracker-model/utils/BoardSettingsUtil';
 import { OperationRefusal }                                        from '../../src/shared/OperationRefusal';
 import type { CommandContext }                                     from '../CommandContext';
 import { openTrackerForWriting, printEntity, requireProgressFile } from '../CommandSupport';
@@ -39,13 +39,13 @@ export const dispatcherCommand: CommandHandler = async (commandArguments, contex
     printCurrentState(commandArguments, context);
     return;
   }
-  if (!dispatcherStateIsKnown(written)) {
+  if (!BoardSettingsUtil.dispatcherStateIsKnown(written)) {
     throw new OperationRefusal('refused', `"${written}" is not a dispatcher state. Write one of ${DISPATCHER_STATES.join(', ')}.\n  Usage: ${USAGE}`);
   }
   if (runId !== undefined && written !== STATE_THAT_HOLDS_A_RUN) {
     throw new OperationRefusal('refused', `A ${written} dispatcher is no run, so --run goes with ${STATE_THAT_HOLDS_A_RUN} alone.\n  Usage: ${USAGE}`);
   }
-  if (runId !== undefined && !dispatcherRunIdIsWellFormed(runId)) throw new OperationRefusal('refused', `--run needs a Workflow run id.\n  Usage: ${USAGE}`);
+  if (runId !== undefined && !BoardSettingsUtil.dispatcherRunIdIsWellFormed(runId)) throw new OperationRefusal('refused', `--run needs a Workflow run id.\n  Usage: ${USAGE}`);
 
   const { logged, previousState } = await openTrackerForWriting(
     commandArguments,
