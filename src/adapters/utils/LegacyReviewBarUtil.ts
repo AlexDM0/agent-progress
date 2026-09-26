@@ -16,13 +16,13 @@ function roundNamedBy(roundText: string): number | null {
   return Number.isSafeInteger(round) && round >= FIRST_REVIEW_BAR_ROUND ? round : null;
 }
 
-/** The page and the hook compared a stored `reviewOf` as a number, so `3` and `0003` name ticket 003; anything else stays as written. */
+/** The page reads a stored `reviewOf` as a number, so `3` and `0003` name ticket 003; anything else stays as written. */
 function paddedReviewOf(reviewOf: string): string {
   if (!STORED_TICKET_NUMBER_PATTERN.test(reviewOf)) return reviewOf;
   return TicketIdUtil.parseTicketReference(reviewOf) ?? reviewOf;
 }
 
-/** A ticket's own row is never a review bar, as the page and the hook read it, so only a free-standing row is linked. */
+/** A ticket's own row is never a review bar, as the page reads it, so only a free-standing row is linked. */
 function linkedReviewBarOf(task: Readonly<Task>): Task {
   if (task.ticket !== null) return task;
   const storedReviewOf           = task.reviewOf === undefined ? undefined : paddedReviewOf(task.reviewOf);

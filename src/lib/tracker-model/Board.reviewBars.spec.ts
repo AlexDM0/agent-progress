@@ -222,7 +222,7 @@ describe('a row a ticket owns that also stores reviewOf', () => {
   const OWNED_ROW_ID         = 2;
   const FREE_STANDING_BAR_ID = 3;
 
-  function ownedRowReviewingFixture(withFreeStandingBar: boolean): BoardFixture {
+  function ownedRowReviewingFixture(aFreeStandingBarIsFiled: boolean): BoardFixture {
     const fixture = ticketInReviewFixture();
     fixture.tickets.push(ticketFixture({ id: '004', title: 'Example follow-up' }));
     fixture.board.addTask({
@@ -232,7 +232,7 @@ describe('a row a ticket owns that also stores reviewOf', () => {
       startsNow:    true,
       movesTheLink: false,
     }, STARTED_AT);
-    if (withFreeStandingBar) {
+    if (aFreeStandingBarIsFiled) {
       fixture.board.addTask({
         name:         'Review 1 #003 — Example export dialog',
         reviewOf:     { ticketId: '003', round: 1 },

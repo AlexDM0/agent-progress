@@ -131,7 +131,6 @@ function unrecordedSentenceOf(outcome: TokenCreditOutcome): string | undefined {
 /**
  * The brief's marker decides which rows the agent's `input` total is added to, split evenly over what it names. A brief carrying
  * several is read by one alone, `row:` over `ticket:` over `review:`, the most direct first: adding more would count the agent twice.
- * The Board resolves a ticket's share to its row and a review share to the ticket's newest review bar when the hook runs.
  */
 function briefCreditsFor(transcriptText: string, totals: TranscriptUsageTotals): TokenCredit[] {
   const {

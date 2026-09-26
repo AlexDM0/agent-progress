@@ -119,8 +119,8 @@ test('a review share lands on the ticket\'s newest filed review bar, a delivered
   expect(progress.tasks.map((task) => task.tokens)).toEqual([1_001, 300, null]);
 });
 
-// A hand-edited file can repeat an id; the replaced hook and the page's Kanban both took the first bar holding the highest one.
-test('a review share on two bars sharing the highest id lands on the first of them in the file, as the replaced hook chose', () => {
+// A hand-edited file can repeat an id; the page's Kanban takes the first bar holding the highest one, so crediting agrees with it.
+test('a review share on two bars sharing the highest id lands on the first of them in the file', () => {
   const firstBar  = deliveredReviewBarFixture(5, '003', 1);
   const secondBar = deliveredReviewBarFixture(5, '003', 2);
   const { board } = boardFixture({ tasks: [firstBar, secondBar], tickets: [ticketFixture({ id: '003', status: 'delivered' })] });

@@ -544,7 +544,7 @@ export class Board {
     return this.reviewBarRecordsOf(ticketId);
   }
 
-  /** The row naming the ticket, as the page draws it, rather than the one its frontmatter `task` points at. */
+  /** The first row whose `ticket` is the id, which may differ from the row the ticket's frontmatter `task` points at. */
   ownRowOf(ticketId: string): Readonly<Task> | null {
     return this.progress.tasks.find((task) => task.ticket === ticketId) ?? null;
   }
@@ -767,7 +767,7 @@ export class Board {
 
     // The bar's status is not consulted: release has already delivered it by the time its reviewer stops.
     if (credit.target === 'review') {
-      // On a hand-duplicated id the first bar in the file wins, as the page's Kanban picks it.
+      // On a hand-duplicated id the first bar in the file wins.
       const newestBar = this.reviewBarRecordsOf(credit.ticketId)
         .reduce<ReviewBar | undefined>((newest, bar) => (newest === undefined || bar.id > newest.id ? bar : newest), undefined);
       if (newestBar === undefined) return { verdict: 'ticket-without-review-bar', ticketId: credit.ticketId };

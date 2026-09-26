@@ -160,7 +160,7 @@ test('a bar that stores its round reads back unchanged', () => {
   expect(result.progress).toEqual(progress);
 });
 
-// The page and the replaced hook compared a stored reviewOf as a number, so the Board must still find a bar that stored it unpadded.
+// The page reads a stored reviewOf as a number, so the Board must still find a bar that stored it unpadded.
 test('a bar storing an unpadded reviewOf is one of that ticket\'s review bars once read', () => {
   const progress = emptyProgress();
   fileRow(progress, { name: 'Example review', reviewOf: '3' });

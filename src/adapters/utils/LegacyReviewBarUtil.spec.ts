@@ -66,7 +66,7 @@ describe('a row with a stored field', () => {
     expect(linkedReviewBarOf(task)).toStrictEqual(task);
   });
 
-  // The page and the replaced hook compared a stored reviewOf as a number, so an unpadded one must still name its ticket to the Board.
+  // The page reads a stored reviewOf as a number, so an unpadded one must still name its ticket to the Board.
   test('pads a stored reviewOf the page reads as a number, so "3" reads as "003"', () => {
     expect(linkedReviewBarOf(taskFixture({ name: 'Example review', reviewOf: '3' })).reviewOf).toBe('003');
   });
@@ -88,7 +88,7 @@ describe('a row with a stored field', () => {
 });
 
 describe('a row that is not a legacy review bar', () => {
-  // A ticket's own row is never a review bar, as the page and the hook read it, whatever it is called.
+  // A ticket's own row is never a review bar, as the page reads it, whatever it is called.
   test('a ticket-owned row comes back unchanged, whatever its name', () => {
     const task = taskFixture({ name: 'Review 1 #3 — misnamed', ticket: '009' });
 
