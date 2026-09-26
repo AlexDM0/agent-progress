@@ -343,8 +343,10 @@ Settled on 2026-09-26, from the black-box comparison with main:
   branch's behaviour: it is read as a real review bar, shown linked, and closed on release and on a
   move out of review. Every piece of code that exists only to read what older versions wrote, or to
   answer older habits, lives in a `legacy/` folder of its boundary (`src/shared/legacy/`,
-  `src/adapters/legacy/`, `src/services/tracker/legacy/`, `cli/legacy/`, `page/legacy/`), is reached
-  through one seam call per consumer, and is dropped once all users are migrated.
+  `src/adapters/legacy/`, `src/services/tracker/legacy/`, `cli/legacy/`), is reached through one
+  seam call per consumer, and is dropped once all users are migrated. A log note, written today or
+  carried over from a version 1 log, keeps its sentence matching on the page as current code,
+  because the two cannot be told apart.
 - **Additive output fields are allowed**: `reviewBarRound`, the payload's `boardFacts`, the new
   `status --json` fields, and the page's log-entry `taskIds` and `ticketIds`.
 

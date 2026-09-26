@@ -16,9 +16,9 @@ import { TokenCountUtil }            from '../../src/lib/utils/TokenCountUtil.ts
 import type { PageTicket }           from '../../src/shared/@types/PagePayload.ts';
 import type { IdentifiedLogEntry }   from '../../src/shared/@types/WordedLogEntry.ts';
 import type { BoardRow }             from '../@types/PageBoard.ts';
-import { NoteSentenceMatchUtil }     from '../legacy/utils/NoteSentenceMatchUtil.ts';
 import { LogMarkupUtil }             from '../utils/LogMarkupUtil.ts';
 import { MarkupUtil }                from '../utils/MarkupUtil.ts';
+import { NoteSentenceMatchUtil }     from '../utils/NoteSentenceMatchUtil.ts';
 import type { TimestampSlices }      from '../utils/TimeUtil.ts';
 import { TimeUtil }                  from '../utils/TimeUtil.ts';
 import { WorkItemMarkupUtil }        from '../utils/WorkItemMarkupUtil.ts';
@@ -230,7 +230,6 @@ function ticketMarkup(ticket: PageTicket, format: StampFormat): string {
 
 function entryIsAboutTaskOrTicket(entry: IdentifiedLogEntry, task: Task | null, ticket: PageTicket | null): boolean {
   if (entry.taskIds === undefined || entry.ticketIds === undefined) {
-    // Dropping page/legacy/ turns this into `return false`: a note then claims no panel.
     return NoteSentenceMatchUtil.noteNamesTaskOrTicket(entry.text, task?.id ?? null, ticket?.id ?? null);
   }
   return (task !== null && entry.taskIds.includes(task.id)) || (ticket !== null && entry.ticketIds.includes(ticket.id));

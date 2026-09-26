@@ -1,8 +1,6 @@
 /**
- * Claims a log note that carries no ids for a panel by the #numbers its sentence names: sentences carried over from a version 1
- * progress.json's log, and notes written with `agent-progress log`.
- * It can be deleted once no tracker's log still holds notes carried over from a version 1 progress.json; free-text notes then claim no
- * panel, as free text inside a structured record already does not.
+ * Claims a log note, which carries no ids, for a panel by the #numbers its sentence names. It covers notes written with
+ * `agent-progress log` and those carried over from a version 1 log.
  */
 
 const TICKET_LINE_START = /^Ticket #/;

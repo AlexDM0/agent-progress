@@ -73,8 +73,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
   home even where it equals the value today; JSON output, stored files and the reasons that name a stored file's
   values carry the values themselves, and the help screen is prose `cli/HelpText.spec.ts` holds.
 - Code that exists only to read what an older version stored, or to answer an older habit, lives in a `legacy/` folder
-  of its boundary (`src/adapters/legacy/`, `src/services/tracker/legacy/`, `cli/legacy/`, `page/legacy/`, and
-  `src/shared/legacy/` for what two legacy folders share) and is reached only through one seam call per consumer;
+  of its boundary (`src/adapters/legacy/`, `src/services/tracker/legacy/`, `cli/legacy/`, and `src/shared/legacy/`
+  for what two legacy folders share) and is reached only through one seam call per consumer;
   current code imports nothing else from it, and a legacy module may import current code. Its header says what older
   input it reads and when it can go; dropping it deletes the module, its specs and its seam calls, each seam line
   becoming the current-format answer, and the help and `docs/cli.md` sentences on it.
@@ -250,8 +250,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
   `status --json` prints too. The page reads them, zipped onto its rows and tickets by `page/utils/IslandUtil.ts`,
   and keeps no copy of the rules.
 - The detail panel claims a log line when its `taskIds` or `ticketIds` hold the panel's row or ticket: every id its
-  record concerns, never a number inside free text. A note carries none and is matched by its sentence in
-  `page/legacy/`.
+  record concerns, never a number inside free text. A note carries none and is matched by its sentence through
+  `page/utils/NoteSentenceMatchUtil.ts`.
 - Every value passes `escapeHtml` once; a ticket's `bodyHtml`, already escaped by `src/services/render/Markdown.ts`,
   is the one unescaped string. Stored stamps are sliced, never re-parsed, and shortened only through
   `page/utils/TimeUtil.ts`.
