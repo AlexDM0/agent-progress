@@ -88,7 +88,7 @@ function derivedDocumentOf(board: Board): { concurrency: object; readyTickets: R
   };
 }
 
-/** The whole progress file plus every ticket: a document an agent could write back, with the derived `concurrency` and `readyTickets` beside it. */
+/** The whole progress file plus every ticket in the version 1 document shape, with the derived `concurrency` and `readyTickets` beside it. */
 function fullDocumentOf(progress: ProgressFile, wordedLog: readonly WordedLogEntry[], board: Board): object {
   return { ...ProgressDocumentUtil.documentOf(progress, wordedLog), tickets: board.tickets().map(ticketDocumentOf), ...derivedDocumentOf(board) };
 }
