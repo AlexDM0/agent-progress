@@ -13,9 +13,18 @@ import { MILLISECONDS_PER_MINUTE, PERCENT_OF_A_WHOLE } from '../constants/Units.
 import { BoardRulesUtil }                              from '../utils/BoardRulesUtil.ts';
 import type { TimelineLimits, TimelineTick }           from '../utils/GeometryUtil.ts';
 import { GeometryUtil }                                from '../utils/GeometryUtil.ts';
-import type { TimestampSlices }                        from '../utils/TimeUtil.ts';
 import { TimeUtil }                                    from '../utils/TimeUtil.ts';
 import { WorkItemMarkupUtil }                          from '../utils/WorkItemMarkupUtil.ts';
+import type {
+  ClosedTicketState,
+  LegendEntry,
+  ReviewSpan,
+  TicketTimeline,
+  TicketTimelineAxis,
+  TicketTimelineInput,
+  TimelineEnd,
+  TimelineSpan,
+} from './@types/TicketTimeline.ts';
 
 const AXIS_PADDING_FRACTION_PER_SIDE = 0.025;
 
@@ -27,67 +36,6 @@ const ABANDONED_BEFORE_START_NOTE   = 'Abandoned before it was started.';
 
 /** The row statuses a build has ended by, so a row's `end` stands in for the finish only on one of them, never on an abandoned row. */
 const ROW_STATUSES_PAST_THE_BUILD: readonly Task['status'][] = ['in-review', 're-review', 'reviewed', 'delivered'];
-
-export type TicketTimelineLimits = TimelineLimits & TimestampSlices;
-
-export interface TicketTimelineInput {
-  ticket:               PageTicket;
-  /** The whole progress file's rows, in which the ticket's own row and its review rows are looked up. */
-  tasks:                readonly Task[];
-  waitingOn:            readonly string[];
-  nowEpochMilliseconds: number;
-  todayCalendarDate:    string;
-  limits:               TicketTimelineLimits;
-}
-
-export interface TimelineSpan {
-  state:                  RowState;
-  label:                  string;
-  startEpochMilliseconds: number;
-  endEpochMilliseconds:   number;
-  isLive:                 boolean;
-}
-
-export interface ReviewSpan extends TimelineSpan {
-  round:  number;
-  tokens: number | null;
-}
-
-export interface TicketTimelineAxis {
-  fromEpochMilliseconds:       number;
-  toEpochMilliseconds:         number;
-  filedEpochMilliseconds:      number;
-  lastMomentEpochMilliseconds: number;
-}
-
-export interface LegendEntry {
-  state:        RowState;
-  label:        string;
-  durationText: string;
-}
-
-export type ClosedTicketState = 'delivered' | 'abandoned';
-
-export interface TimelineEnd {
-  closedState: ClosedTicketState | null;
-  label:       string;
-  leftPercent: number;
-}
-
-export interface TicketTimeline {
-  axis:          TicketTimelineAxis;
-  ticks:         TimelineTick[];
-  queue:         TimelineSpan;
-  queueTimeText: string;
-  ownRowId:      number | null;
-  buildSegments: TimelineSpan[];
-  buildTimeText: string;
-  reviews:       ReviewSpan[];
-  afterBuild:    TimelineSpan[];
-  legend:        LegendEntry[];
-  end:           TimelineEnd;
-  note:          string | null;
-}
 
 export function clockLabelFor(epochMilliseconds: number): string {
   return TimeUtil.shortInstantText(epochMilliseconds, TimeUtil.calendarDateOf(epochMilliseconds));

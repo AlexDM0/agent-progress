@@ -10,7 +10,7 @@ import type { KanbanCard }           from '../@types/KanbanCard.ts';
 import { BoardRulesUtil }            from '../utils/BoardRulesUtil.ts';
 import { MarkupUtil }                from '../utils/MarkupUtil.ts';
 import { WorkItemMarkupUtil }        from '../utils/WorkItemMarkupUtil.ts';
-import type { TicketTimelineLimits } from './TicketTimeline.ts';
+import type { TicketTimelineLimits } from './@types/TicketTimeline.ts';
 import { ticketTimelineMarkup }      from './TicketTimelineMarkup.ts';
 import { DetailMarkupUtil }          from './utils/DetailMarkupUtil.ts';
 

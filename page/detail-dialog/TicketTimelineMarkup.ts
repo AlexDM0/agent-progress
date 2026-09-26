@@ -17,7 +17,7 @@ import type {
   TicketTimelineAxis,
   TicketTimelineInput,
   TimelineSpan,
-} from './TicketTimeline.ts';
+} from './@types/TicketTimeline.ts';
 import { durationTextOf, percentAlong, ticketTimelineOf } from './TicketTimeline.ts';
 
 const { escapeHtml }       = HtmlEscapeUtil;

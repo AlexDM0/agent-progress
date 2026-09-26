@@ -14,7 +14,7 @@ import type {
   TicketTimelineInput,
   TicketTimelineLimits,
   TimelineSpan,
-} from './TicketTimeline.ts';
+} from './@types/TicketTimeline.ts';
 import { clockLabelFor, TICKET_TIMELINE_MAXIMUM_TICKS, ticketTimelineOf } from './TicketTimeline.ts';
 import { ticketTimelineMarkup }                                           from './TicketTimelineMarkup.ts';
 
