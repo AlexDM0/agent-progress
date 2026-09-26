@@ -1,5 +1,6 @@
-import { TicketJsonUtil }   from '../../src/adapters/utils/TicketJsonUtil';
-import { TicketPhraseUtil } from '../../src/adapters/utils/TicketPhraseUtil';
+import { StatusWordingUtil } from '../../src/adapters/utils/StatusWordingUtil';
+import { TicketJsonUtil }    from '../../src/adapters/utils/TicketJsonUtil';
+import { TicketPhraseUtil }  from '../../src/adapters/utils/TicketPhraseUtil';
 import type {
   AgentEffort,
   AgentModel,
@@ -55,28 +56,32 @@ function namedAgentText(ticket: { model?: AgentModel; effort?: AgentEffort }): s
   return named.length === 0 ? '' : `  [${named.join(', ')}]`;
 }
 
+function listedStatusFrom(writtenStatus: string | undefined): TicketStatus | undefined {
+  if (writtenStatus === undefined || VocabularyUtil.ticketStatusIsKnown(writtenStatus)) return writtenStatus;
+  return TicketArgumentUtil.refuseAnUnknownTicketStatus(writtenStatus, (renamedStatus) => `pass --status ${StatusWordingUtil.statusWordFor(renamedStatus)}`);
+}
+
 async function listAllTickets(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   commandArguments.rejectUnknownOptions(LIST_OPTION_NAMES, TICKET_USAGE);
   commandArguments.rejectExtraPositionals(1, TICKET_USAGE);
 
-  const writtenStatus = commandArguments.option('status');
-  if (writtenStatus !== undefined && !VocabularyUtil.ticketStatusIsKnown(writtenStatus)) {
-    TicketArgumentUtil.refuseAnUnknownTicketStatus(writtenStatus, (renamedStatus) => `pass --status ${renamedStatus}`);
-  }
-
+  const listedStatus    = listedStatusFrom(commandArguments.option('status'));
   const writtenPriority = TicketArgumentUtil.priorityFrom(commandArguments.option('priority'));
 
   const workspace = requireWorkspace(context.currentDirectory);
   const listing   = listTickets(workspace);
   const shown     = listing.tickets
-    .filter((ticket) => writtenStatus === undefined || ticket.frontmatter.status === writtenStatus)
+    .filter((ticket) => listedStatus === undefined || ticket.frontmatter.status === listedStatus)
     .filter((ticket) => writtenPriority === undefined || TicketDefaultsUtil.ticketPriorityOf(ticket.frontmatter) === writtenPriority);
 
   // Before the listing, so a reader piping the table still sees what was left out of it.
   OutputUtil.reportIgnoredTicketFiles(context, listing.malformed);
 
   if (shown.length === 0) {
-    const narrowing = [writtenStatus, writtenPriority === undefined ? undefined : `${writtenPriority} priority`].filter((part) => part !== undefined);
+    const narrowing = [
+      listedStatus === undefined ? undefined : StatusWordingUtil.statusWordFor(listedStatus),
+      writtenPriority === undefined ? undefined : `${StatusWordingUtil.priorityWordFor(writtenPriority)} priority`,
+    ].filter((part) => part !== undefined);
     OutputUtil.printEntity(
       commandArguments,
       context,
@@ -98,9 +103,9 @@ async function listAllTickets(commandArguments: ArgumentParser, context: Command
     const unsettled = unsettledDependenciesFor(ticket, listing.tickets);
     return [
       OutputUtil.padColumn(`#${ticket.frontmatter.id}`, LIST_COLUMN_WIDTHS.identifier),
-      OutputUtil.padColumn(ticket.frontmatter.status, LIST_COLUMN_WIDTHS.status),
-      OutputUtil.padColumn(TicketDefaultsUtil.ticketPriorityOf(ticket.frontmatter), LIST_COLUMN_WIDTHS.priority),
-      OutputUtil.padColumn(ticket.frontmatter.type, LIST_COLUMN_WIDTHS.type),
+      OutputUtil.padColumn(StatusWordingUtil.statusWordFor(ticket.frontmatter.status), LIST_COLUMN_WIDTHS.status),
+      OutputUtil.padColumn(StatusWordingUtil.priorityWordFor(TicketDefaultsUtil.ticketPriorityOf(ticket.frontmatter)), LIST_COLUMN_WIDTHS.priority),
+      OutputUtil.padColumn(StatusWordingUtil.ticketTypeWordFor(ticket.frontmatter.type), LIST_COLUMN_WIDTHS.type),
       OutputUtil.padColumn(ticket.frontmatter.task === null ? '-' : `#${ticket.frontmatter.task}`, LIST_COLUMN_WIDTHS.task),
       ticket.frontmatter.title,
       namedAgentText(ticket.frontmatter),
@@ -108,6 +113,10 @@ async function listAllTickets(commandArguments: ArgumentParser, context: Command
     ].join('');
   });
   OutputUtil.printEntity(commandArguments, context, shown.map(TicketJsonUtil.ticketDocumentOf), [header, ...rows].join('\n'));
+}
+
+function dependencyStatusText(status: TicketStatus | undefined): string {
+  return status === undefined ? 'missing' : StatusWordingUtil.statusWordFor(status);
 }
 
 async function showOneTicket(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
@@ -123,15 +132,15 @@ async function showOneTicket(commandArguments: ArgumentParser, context: CommandC
   const ticket    = requireTicketToShow(workspace, reference);
   const { frontmatter } = ticket;
   const statusById      = new Map(listTickets(workspace).tickets.map((candidate) => [candidate.frontmatter.id, candidate.frontmatter.status]));
-  const dependencies    = (frontmatter.dependsOn ?? []).map((identifier) => `#${identifier} (${statusById.get(identifier) ?? 'missing'})`);
+  const dependencies    = (frontmatter.dependsOn ?? []).map((identifier) => `#${identifier} (${dependencyStatusText(statusById.get(identifier))})`);
   const summary = [
     `Ticket #${frontmatter.id}: ${frontmatter.title}`,
-    `  status:   ${frontmatter.status}`,
-    `  priority: ${TicketDefaultsUtil.ticketPriorityOf(frontmatter)}`,
+    `  status:   ${StatusWordingUtil.statusWordFor(frontmatter.status)}`,
+    `  priority: ${StatusWordingUtil.priorityWordFor(TicketDefaultsUtil.ticketPriorityOf(frontmatter))}`,
     ...(frontmatter.model === undefined ? [] : [`  model:    ${frontmatter.model}`]),
     ...(frontmatter.effort === undefined ? [] : [`  effort:   ${frontmatter.effort}`]),
     ...(frontmatter.hold === undefined ? [] : [`  held:     ${frontmatter.hold === '' ? 'yes' : frontmatter.hold}`]),
-    `  type:     ${frontmatter.type}`,
+    `  type:     ${StatusWordingUtil.ticketTypeWordFor(frontmatter.type)}`,
     `  group:    ${frontmatter.group ?? '-'}`,
     `  task:     ${frontmatter.task === null ? '-' : `#${frontmatter.task}`}`,
     `  waits on: ${dependencies.length === 0 ? '-' : dependencies.join(', ')}`,

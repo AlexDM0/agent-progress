@@ -21,7 +21,8 @@ const STATUS_REACHED_BY_MOVE_KIND: Readonly<Record<TicketMoveKind, MovedToStatus
 };
 
 function dispatcherStateTextOf(state: DispatcherState, runId: string | null): string {
-  return runId === null ? state : `${state} (run ${runId})`;
+  const stateWord = StatusWordingUtil.dispatcherStateWordFor(state);
+  return runId === null ? stateWord : `${stateWord} (run ${runId})`;
 }
 
 function chartRangeTextOf(view: ViewRange): string {
@@ -55,11 +56,11 @@ function sentenceOf(record: LogRecordContent): string {
     case 'ticket-delivered':
       return `Ticket #${record.ticketId} ${StatusWordingUtil.movedPhraseFor(STATUS_REACHED_BY_MOVE_KIND[record.kind])}`;
     case 'ticket-abandoned':
-      return `Ticket #${record.ticketId} abandoned: ${record.fields.reason}`;
+      return `Ticket #${record.ticketId} ${StatusWordingUtil.statusWordFor('abandoned')}: ${record.fields.reason}`;
     case 'ticket-rereviewed':
-      return `Ticket #${record.ticketId} in review, round ${record.fields.round}`;
+      return `Ticket #${record.ticketId} ${StatusWordingUtil.movedPhraseFor('in-review')}, round ${record.fields.round}`;
     case 'ticket-priority-changed':
-      return `Ticket #${record.ticketId} priority ${record.fields.from} → ${record.fields.to}`;
+      return `Ticket #${record.ticketId} priority ${StatusWordingUtil.priorityWordFor(record.fields.from)} → ${StatusWordingUtil.priorityWordFor(record.fields.to)}`;
     case 'ticket-dependencies-set': {
       const { dependsOn } = record.fields;
       return dependsOn.length === 0
@@ -75,7 +76,7 @@ function sentenceOf(record: LogRecordContent): string {
     case 'review-bar-started':
       return `Review row #${record.taskId} started: ${record.fields.name}`;
     case 'review-bar-closed':
-      return `Closed the review row #${record.taskId}, delivered: ${record.fields.name}`;
+      return `Closed the review row #${record.taskId}, ${StatusWordingUtil.movedPhraseFor('delivered')}: ${record.fields.name}`;
     case 'chart-range-set':
       return `Chart range: ${chartRangeTextOf(record.fields.view)}`;
     case 'concurrency-limit-set':

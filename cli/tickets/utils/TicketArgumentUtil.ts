@@ -1,4 +1,5 @@
-import { LegacyStatusUtil } from '../../../src/adapters/utils/LegacyStatusUtil';
+import { LegacyStatusUtil }  from '../../../src/adapters/utils/LegacyStatusUtil';
+import { StatusWordingUtil } from '../../../src/adapters/utils/StatusWordingUtil';
 import type {
   AgentEffort,
   AgentModel,
@@ -17,7 +18,8 @@ const DEPENDENCY_SEPARATOR_PATTERN = /[\s,]+/;
 
 function requirePriority(writtenPriority: string): TicketPriority {
   if (!VocabularyUtil.ticketPriorityIsKnown(writtenPriority)) {
-    throw new OperationRefusal('refused', `"${writtenPriority}" is not a ticket priority. The priorities are ${TICKET_PRIORITIES.join(', ')}.`);
+    const priorityWordsText = TICKET_PRIORITIES.map(StatusWordingUtil.priorityWordFor).join(', ');
+    throw new OperationRefusal('refused', `"${writtenPriority}" is not a ticket priority. The priorities are ${priorityWordsText}.`);
   }
   return writtenPriority;
 }
@@ -29,7 +31,7 @@ function priorityFrom(writtenPriority: string | undefined): TicketPriority | und
 function ticketTypeFrom(writtenType: string | undefined): TicketType | undefined {
   if (writtenType === undefined) return undefined;
   if (!VocabularyUtil.ticketTypeIsKnown(writtenType)) {
-    throw new OperationRefusal('refused', `"${writtenType}" is not a ticket type. The types are ${TICKET_TYPES.join(', ')}.`);
+    throw new OperationRefusal('refused', `"${writtenType}" is not a ticket type. The types are ${TICKET_TYPES.map(StatusWordingUtil.ticketTypeWordFor).join(', ')}.`);
   }
   return writtenType;
 }
@@ -66,9 +68,10 @@ function dependencyListFrom(texts: readonly string[]): string[] {
 function refuseAnUnknownTicketStatus(writtenStatus: string, retryAdviceFor: (renamedStatus: TicketStatus) => string): never {
   const renamedStatus = LegacyStatusUtil.currentTicketStatusFor(writtenStatus);
   if (renamedStatus !== null) {
-    throw new OperationRefusal('refused', `"${writtenStatus}" is the old name of the ticket status ${renamedStatus}; ${retryAdviceFor(renamedStatus)}.`);
+    const renamedStatusWord = StatusWordingUtil.statusWordFor(renamedStatus);
+    throw new OperationRefusal('refused', `"${writtenStatus}" is the old name of the ticket status ${renamedStatusWord}; ${retryAdviceFor(renamedStatus)}.`);
   }
-  throw new OperationRefusal('refused', `"${writtenStatus}" is not a ticket status. The statuses are ${TICKET_STATUSES.join(', ')}.`);
+  throw new OperationRefusal('refused', `"${writtenStatus}" is not a ticket status. The statuses are ${TICKET_STATUSES.map(StatusWordingUtil.statusWordFor).join(', ')}.`);
 }
 
 export const TicketArgumentUtil = {

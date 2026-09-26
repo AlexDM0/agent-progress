@@ -1,9 +1,10 @@
 import { ProgressDocumentUtil }           from '../../../src/adapters/progress/utils/ProgressDocumentUtil';
 import { LogUtil }                        from '../../../src/adapters/utils/LogUtil';
 import { StatusDocumentUtil }             from '../../../src/adapters/utils/StatusDocumentUtil';
+import { StatusWordingUtil }              from '../../../src/adapters/utils/StatusWordingUtil';
 import { TicketJsonUtil }                 from '../../../src/adapters/utils/TicketJsonUtil';
 import type { ProgressFile }              from '../../../src/lib/tracker-model/@types/ProgressFile';
-import type { Task }                      from '../../../src/lib/tracker-model/@types/Task';
+import type { Task, TaskStatus }          from '../../../src/lib/tracker-model/@types/Task';
 import type { ReadyTicket }               from '../../../src/lib/tracker-model/@types/Ticket';
 import type { Board }                     from '../../../src/lib/tracker-model/Board';
 import { readingBoardOf }                 from '../../../src/lib/tracker-model/ReadingBoard';
@@ -34,11 +35,11 @@ const TASK_COLUMN_WIDTHS = {
   tokens:     8,
 };
 
-function countsByStatus(statuses: readonly string[], statusOfEach: readonly string[]): string {
+function countsByStatus(statuses: readonly TaskStatus[], statusOfEach: readonly TaskStatus[]): string {
   const present = statuses
     .map((status) => ({ count: statusOfEach.filter((occurring) => occurring === status).length, status }))
     .filter((entry) => entry.count > 0)
-    .map((entry) => `${entry.count} ${entry.status}`);
+    .map((entry) => `${entry.count} ${StatusWordingUtil.statusWordFor(entry.status)}`);
   return present.length === 0 ? 'none' : present.join(' · ');
 }
 
@@ -139,7 +140,7 @@ function renderHumanStatus(progress: ProgressFile, wordedLog: readonly WordedLog
     for (const task of listedTasks) {
       lines.push([
         OutputUtil.padColumn(`#${task.id}`, TASK_COLUMN_WIDTHS.identifier),
-        OutputUtil.padColumn(task.status, TASK_COLUMN_WIDTHS.status),
+        OutputUtil.padColumn(StatusWordingUtil.statusWordFor(task.status), TASK_COLUMN_WIDTHS.status),
         OutputUtil.padColumn(task.owner === '' ? '-' : task.owner, TASK_COLUMN_WIDTHS.owner),
         OutputUtil.padColumn(task.ticket === null ? '-' : `#${task.ticket}`, TASK_COLUMN_WIDTHS.ticket),
         OutputUtil.padColumn(task.tokens === null ? '-' : TokenCountUtil.formatTokenCount(task.tokens), TASK_COLUMN_WIDTHS.tokens),
@@ -149,7 +150,10 @@ function renderHumanStatus(progress: ProgressFile, wordedLog: readonly WordedLog
   }
 
   const settledTaskCount = progress.tasks.length - listedTasks.length;
-  if (settledTaskCount > 0) lines.push(`(${settledTaskCount} delivered or abandoned rows not shown; --full lists them)`);
+  if (settledTaskCount > 0) {
+    const settledStatusesText = `${StatusWordingUtil.statusWordFor('delivered')} or ${StatusWordingUtil.statusWordFor('abandoned')}`;
+    lines.push(`(${settledTaskCount} ${settledStatusesText} rows not shown; --full lists them)`);
+  }
 
   const newestFirst  = logNewestFirst(wordedLog);
   const recentLog    = showsEverything ? newestFirst : newestFirst.slice(0, HUMAN_LOG_ENTRY_COUNT);

@@ -3,6 +3,7 @@
  * ticket value passes `escapeHtml` exactly once here, except a ticket's `bodyHtml`, already escaped by `src/services/render/Markdown.ts`.
  */
 
+import { HtmlLabelUtil }          from '../../src/adapters/utils/HtmlLabelUtil.ts';
 import { TicketDefaultsUtil }     from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
 import { HtmlEscapeUtil }         from '../../src/lib/utils/HtmlEscapeUtil.ts';
 import type { PageTicket }        from '../../src/shared/@types/PagePayload.ts';
@@ -23,7 +24,7 @@ export function ticketTableRowsMarkup(tickets: readonly PageTicket[], waitingOnB
     `<tr ${MarkupUtil.attribute('data-ticket-id', ticket.id)} tabindex="0">`,
     `<td class="mono">${WorkItemMarkupUtil.ticketLinksMarkup([ticket.id])}</td>`,
     `<td>${HtmlEscapeUtil.escapeHtml(ticket.title)}${ticketsTabPriorityMarkMarkup(ticket)}${WorkItemMarkupUtil.waitingOnMarkup(waitingOnById.get(ticket.id) ?? [])}</td>`,
-    `<td>${HtmlEscapeUtil.escapeHtml(ticket.type)}</td>`,
+    `<td>${HtmlEscapeUtil.escapeHtml(HtmlLabelUtil.ticketTypeLabelOf(ticket.type))}</td>`,
     `<td>${WorkItemMarkupUtil.ticketStatusBadgeMarkup(ticket.status)}</td>`,
     `<td>${HtmlEscapeUtil.escapeHtml(ticket.group ?? '')}</td>`,
     `<td class="mono">${HtmlEscapeUtil.escapeHtml(ticket.branch ?? '')}</td>`,

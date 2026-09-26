@@ -67,9 +67,11 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
 
 ### Model and boundaries
 
-- Internal values are string-literal unions, never display text; wording is mapped in and out at the edge. Statuses,
-  types and priorities print as their words; a mapper exists only where the wording differs from the value, and for
-  the ticket status badge, which the page words through `src/adapters/utils/HtmlLabelUtil.ts`.
+- Internal values are string-literal unions, never display text; wording is mapped in and out at the edge. Every
+  status, ticket type and priority the page shows goes through `src/adapters/utils/HtmlLabelUtil.ts`, and every one
+  the command line prints as text goes through `src/adapters/utils/StatusWordingUtil.ts`, so each display word has one
+  home even where it equals the value today; JSON output, stored files and the reasons that name a stored file's
+  values carry the values themselves, and the help screen is prose `cli/HelpText.spec.ts` holds.
 - An optional stored key is written only once somebody sets it, and a read never adds or rewrites one, so an older
   file stays byte-identical. The one exception is a legacy review bar: the read gives a row known only by its name
   `reviewOf` and `reviewBarRound`, and pads a stored `reviewOf` that reads as a whole number, in memory; the next

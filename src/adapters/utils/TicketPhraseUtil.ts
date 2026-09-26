@@ -1,5 +1,6 @@
 /** The phrases a worded Board refusal or log sentence shares with the ticket command's own lines, so each reads the same everywhere. */
-import type { AgentPair } from '../../lib/tracker-model/@types/Ticket.ts';
+import type { AgentPair }    from '../../lib/tracker-model/@types/Ticket.ts';
+import { StatusWordingUtil } from './StatusWordingUtil.ts';
 
 function ticketReferencesText(ticketIds: readonly string[]): string {
   return ticketIds.map((ticketId) => `#${ticketId}`).join(', ');
@@ -10,8 +11,10 @@ function waitingOnText(ticketIds: readonly string[]): string {
 }
 
 function lowPriorityHeldBackText(ticketId: string, holdingBackTicketIds: readonly string[]): string {
-  return `Ticket #${ticketId} is low priority, and ${ticketReferencesText(holdingBackTicketIds)} `
-    + `${holdingBackTicketIds.length === 1 ? 'is' : 'are'} normal or high and not delivered or abandoned yet`;
+  const { priorityWordFor, statusWordFor } = StatusWordingUtil;
+  return `Ticket #${ticketId} is ${priorityWordFor('low')} priority, and ${ticketReferencesText(holdingBackTicketIds)} `
+    + `${holdingBackTicketIds.length === 1 ? 'is' : 'are'} ${priorityWordFor('normal')} or ${priorityWordFor('high')} `
+    + `and not ${statusWordFor('delivered')} or ${statusWordFor('abandoned')} yet`;
 }
 
 /** `Ticket #003`, or `Tickets #003, #004` for more than one. */

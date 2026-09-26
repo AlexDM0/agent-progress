@@ -1,6 +1,7 @@
 import { readFileSync }  from 'node:fs';
 import { join, resolve } from 'node:path';
 
+import { StatusWordingUtil }                     from '../../src/adapters/utils/StatusWordingUtil';
 import type { TicketType }                       from '../../src/lib/tracker-model/@types/Ticket';
 import { createTicket }                          from '../../src/services/tracker/TicketStore';
 import { requireWorkspace }                      from '../../src/services/tracker/Workspace';
@@ -48,6 +49,10 @@ async function suppliedBodyFor(commandArguments: ArgumentParser, context: Comman
   }
 }
 
+function lowPriorityFilingNote(): string {
+  return ` (${StatusWordingUtil.priorityWordFor('low')} priority: no row until it is started)`;
+}
+
 async function addOneTicket(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   commandArguments.rejectUnknownOptions(ADD_OPTION_NAMES, TICKET_USAGE);
   commandArguments.rejectExtraPositionals(2, TICKET_USAGE);
@@ -86,7 +91,7 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
     commandArguments,
     context,
     TicketOutputUtil.ticketAsJson(filed.ticket),
-    `${TicketOutputUtil.loggedSentencesOf(filed.logged)}${priority === 'low' ? ' (low priority: no row until it is started)' : ''}\n  ${filed.ticket.filePath}`,
+    `${TicketOutputUtil.loggedSentencesOf(filed.logged)}${priority === 'low' ? lowPriorityFilingNote() : ''}\n  ${filed.ticket.filePath}`,
     NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState),
   );
 }

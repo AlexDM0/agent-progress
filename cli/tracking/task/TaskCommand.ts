@@ -148,9 +148,10 @@ async function updateOneTask(commandArguments: ArgumentParser, context: CommandC
   if (writtenStatus !== undefined && !VocabularyUtil.taskStatusIsKnown(writtenStatus)) {
     const renamedStatus = LegacyStatusUtil.currentTaskStatusFor(writtenStatus);
     if (renamedStatus !== null) {
-      throw new OperationRefusal('refused', `"${writtenStatus}" is the old name of the task status ${renamedStatus}; pass --status ${renamedStatus}.`);
+      const renamedStatusWord = StatusWordingUtil.statusWordFor(renamedStatus);
+      throw new OperationRefusal('refused', `"${writtenStatus}" is the old name of the task status ${renamedStatusWord}; pass --status ${renamedStatusWord}.`);
     }
-    throw new OperationRefusal('refused', `"${writtenStatus}" is not a task status. The statuses are ${TASK_STATUSES.join(', ')}.`);
+    throw new OperationRefusal('refused', `"${writtenStatus}" is not a task status. The statuses are ${TASK_STATUSES.map(StatusWordingUtil.statusWordFor).join(', ')}.`);
   }
   const status: TaskStatus | undefined = writtenStatus !== undefined && VocabularyUtil.taskStatusIsKnown(writtenStatus) ? writtenStatus : undefined;
   const movesAnyway = commandArguments.flag('force');
@@ -176,12 +177,13 @@ async function updateOneTask(commandArguments: ArgumentParser, context: CommandC
 }
 
 function refuseARetiredSubcommand(subcommand: string, commandArguments: ArgumentParser): never {
-  const replacement  = RETIRED_SUBCOMMAND_REPLACEMENTS[subcommand] ?? subcommand;
-  const targetStatus = (Object.hasOwn(TRANSITION_SUBCOMMANDS, replacement) ? TRANSITION_SUBCOMMANDS[replacement] : undefined) ?? replacement;
-  const taskId       = commandArguments.positionals()[1] ?? '<id>';
+  const replacement      = RETIRED_SUBCOMMAND_REPLACEMENTS[subcommand] ?? subcommand;
+  const targetStatus     = Object.hasOwn(TRANSITION_SUBCOMMANDS, replacement) ? TRANSITION_SUBCOMMANDS[replacement] : undefined;
+  const targetStatusText = targetStatus === undefined ? replacement : StatusWordingUtil.statusWordFor(targetStatus);
+  const taskId           = commandArguments.positionals()[1] ?? '<id>';
   throw new OperationRefusal(
     'refused',
-    `\`agent-progress task ${subcommand}\` was renamed: \`agent-progress task ${replacement} ${taskId}\` moves a row to ${targetStatus}. Nothing was written.`,
+    `\`agent-progress task ${subcommand}\` was renamed: \`agent-progress task ${replacement} ${taskId}\` moves a row to ${targetStatusText}. Nothing was written.`,
   );
 }
 

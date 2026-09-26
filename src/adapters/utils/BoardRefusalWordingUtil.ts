@@ -13,7 +13,7 @@ function countedText(count: number, singularNoun: string): string {
 }
 
 function legalSourcesText(targetStatus: TicketStatus): string {
-  return LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS[targetStatus].join(' or ');
+  return LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS[targetStatus].map(StatusWordingUtil.statusWordFor).join(' or ');
 }
 
 function messageOf(detail: BoardRefusalDetail): string {
@@ -23,6 +23,7 @@ function messageOf(detail: BoardRefusalDetail): string {
     ticketReferencesText,
     waitingOnText,
   } = TicketPhraseUtil;
+  const { priorityWordFor, statusWordFor } = StatusWordingUtil;
   switch (detail.reason) {
     case 'unknown-task':
       return `There is no task #${detail.taskId}. Run \`agent-progress status\` to see the rows this tracker holds.`;
@@ -36,27 +37,30 @@ function messageOf(detail: BoardRefusalDetail): string {
     case 'task-belongs-to-another-ticket':
       return `Task #${detail.taskId} already belongs to ticket #${detail.owningTicketId}. Pass --force to move it to ticket #${detail.ticketId}.`;
     case 'ticket-already-in-status':
-      return `Ticket #${detail.ticketId} is already ${detail.status}, so nothing was changed and nothing was logged.`;
+      return `Ticket #${detail.ticketId} is already ${statusWordFor(detail.status)}, so nothing was changed and nothing was logged.`;
     case 'illegal-ticket-move':
-      return `Ticket #${detail.ticketId} is ${detail.status}, and \`agent-progress ticket ${StatusWordingUtil.verbFor(detail.targetStatus)}\` moves a ticket that is `
-        + `${legalSourcesText(detail.targetStatus)}. Run \`agent-progress ticket status ${detail.ticketId} ${detail.targetStatus}\` if you mean to set it directly.`;
+      return `Ticket #${detail.ticketId} is ${statusWordFor(detail.status)}, `
+        + `and \`agent-progress ticket ${StatusWordingUtil.verbFor(detail.targetStatus)}\` moves a ticket that is ${legalSourcesText(detail.targetStatus)}. `
+        + `Run \`agent-progress ticket status ${detail.ticketId} ${detail.targetStatus}\` if you mean to set it directly.`;
     case 'abandon-without-reason':
       return `Ticket #${detail.ticketId} was not moved: abandon needs --reason. `
         + 'Say why the work was dropped, for example `agent-progress ticket abandon 3 --reason "superseded by #7"`.';
     case 'tokens-without-a-row':
-      return `Ticket #${detail.ticketId} has no row, so --tokens has nowhere to be recorded: a low-priority ticket gets its row when it is started. Drop --tokens.`;
+      return `Ticket #${detail.ticketId} has no row, so --tokens has nowhere to be recorded: `
+        + `a ${priorityWordFor('low')}-priority ticket gets its row when it is started. Drop --tokens.`;
     case 'rereview-outside-review': {
       const firstReviewAdvice = ticketMoveIsLegal(detail.status, 'in-review')
         ? ` Run \`agent-progress ticket finish ${detail.ticketId}\` to send it to its first reviewer.`
         : '';
-      return `Ticket #${detail.ticketId} is ${detail.status}, and another review pass needs a ticket that is in-review.${firstReviewAdvice}`;
+      return `Ticket #${detail.ticketId} is ${statusWordFor(detail.status)}, `
+        + `and another review pass needs a ticket that is ${statusWordFor('in-review')}.${firstReviewAdvice}`;
     }
     case 'unclaimable-status':
-      return `Ticket #${detail.ticketId} is ${detail.status}, and \`agent-progress ticket claim\` takes a ticket that is ${legalSourcesText('in-progress')}. `
+      return `Ticket #${detail.ticketId} is ${statusWordFor(detail.status)}, and \`agent-progress ticket claim\` takes a ticket that is ${legalSourcesText('in-progress')}. `
         + NOTHING_WAS_WRITTEN;
     case 'claim-waits-on-dependencies':
-      return `Ticket #${detail.ticketId} is ${waitingOnText(detail.unsettledTicketIds)}, which must be reviewed or delivered before it is claimed. `
-        + NOTHING_WAS_WRITTEN;
+      return `Ticket #${detail.ticketId} is ${waitingOnText(detail.unsettledTicketIds)}, `
+        + `which must be ${statusWordFor('reviewed')} or ${statusWordFor('delivered')} before it is claimed. ${NOTHING_WAS_WRITTEN}`;
     case 'claim-of-a-held-ticket':
       return `Ticket #${detail.ticketId} is held, so it is not claimed. Nothing was written; \`agent-progress ticket unhold ${detail.ticketId}\` lets it be claimed.`;
     case 'claim-of-held-back-low-ticket':
@@ -73,17 +77,19 @@ function messageOf(detail: BoardRefusalDetail): string {
     case 'dependency-loop':
       return `That would make tickets wait on each other in a circle: ${detail.loopTicketIds.map((ticketId) => `#${ticketId}`).join(' → ')}.`;
     case 'priority-unchanged':
-      return `Ticket #${detail.ticketId} is ${detail.status}, and its priority was not changed: it is already ${detail.priority} priority. ${NOTHING_WAS_WRITTEN}`;
+      return `Ticket #${detail.ticketId} is ${statusWordFor(detail.status)}, and its priority was not changed: `
+        + `it is already ${priorityWordFor(detail.priority)} priority. ${NOTHING_WAS_WRITTEN}`;
     case 'lowering-a-ticket-that-is-not-pending':
-      return `Ticket #${detail.ticketId} is ${detail.status}, and its priority was not changed: `
-        + `only a pending ticket can be lowered to low, since a low ticket has no row until it is started. ${NOTHING_WAS_WRITTEN}`;
+      return `Ticket #${detail.ticketId} is ${statusWordFor(detail.status)}, and its priority was not changed: `
+        + `only a ${statusWordFor('pending')} ticket can be lowered to ${priorityWordFor('low')}, `
+        + `since a ${priorityWordFor('low')} ticket has no row until it is started. ${NOTHING_WAS_WRITTEN}`;
     case 'agents-of-a-settled-ticket':
-      return `Ticket #${detail.ticketId} is ${detail.status}, and its agents were not changed: no agent will work it again. ${NOTHING_WAS_WRITTEN}`;
+      return `Ticket #${detail.ticketId} is ${statusWordFor(detail.status)}, and its agents were not changed: no agent will work it again. ${NOTHING_WAS_WRITTEN}`;
     case 'agents-unchanged':
-      return `Ticket #${detail.ticketId} is ${detail.status}, and its agents were not changed: `
+      return `Ticket #${detail.ticketId} is ${statusWordFor(detail.status)}, and its agents were not changed: `
         + `they already run on ${TicketPhraseUtil.agentPairText(detail.agents)}. ${NOTHING_WAS_WRITTEN}`;
     case 'hold-of-a-settled-ticket':
-      return `Ticket #${detail.ticketId} is ${detail.status}, and no agent will work it again, so there is nothing to ${detail.action}. ${NOTHING_WAS_WRITTEN}`;
+      return `Ticket #${detail.ticketId} is ${statusWordFor(detail.status)}, and no agent will work it again, so there is nothing to ${detail.action}. ${NOTHING_WAS_WRITTEN}`;
     case 'ticket-already-held':
       return `Ticket #${detail.ticketId} is already held. ${NOTHING_WAS_WRITTEN}`;
     case 'ticket-not-held':

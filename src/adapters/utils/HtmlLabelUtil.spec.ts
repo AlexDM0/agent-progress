@@ -3,14 +3,15 @@
  * text is a ticket status's badge. What the page relies on: every priority has a group title, every status has a badge text, and every
  * wording stays byte for byte what the page printed before it moved here.
  * The frozen tables were retaken from `PRIORITY_TITLE` in `git show 4ebbb73:page/kanban/KanbanMarkup.ts` and from `LOW_PRIORITY_TITLE`
- * and `HIGH_PRIORITY_TITLE` in `git show 4ebbb73:page/utils/WorkItemMarkupUtil.ts`.
+ * and `HIGH_PRIORITY_TITLE` in `git show 4ebbb73:page/utils/WorkItemMarkupUtil.ts`. The type and priority labels are the values
+ * themselves, which `git show 75548d8:page/tickets/TicketsMarkup.ts` and `git show 75548d8:page/kanban/KanbanMarkup.ts` printed.
  */
 import { expect, test } from 'bun:test';
 
-import type { TicketPriority, TicketStatus } from '../../lib/tracker-model/@types/Ticket';
-import { TICKET_STATUSES }                   from '../../lib/tracker-model/constants/Statuses';
-import { TICKET_PRIORITIES }                 from '../../lib/tracker-model/constants/TicketFields';
-import { HtmlLabelUtil }                     from './HtmlLabelUtil';
+import type { TicketPriority, TicketStatus, TicketType } from '../../lib/tracker-model/@types/Ticket';
+import { TICKET_STATUSES }                               from '../../lib/tracker-model/constants/Statuses';
+import { TICKET_PRIORITIES, TICKET_TYPES }               from '../../lib/tracker-model/constants/TicketFields';
+import { HtmlLabelUtil }                                 from './HtmlLabelUtil';
 
 const EXPECTED_GROUP_TITLE_FOR_PRIORITY: Readonly<Record<TicketPriority, string>> = Object.freeze({
   high:   'High',
@@ -33,6 +34,18 @@ const EXPECTED_BADGE_TEXT_FOR_TICKET_STATUS: Readonly<Record<TicketStatus, strin
   'abandoned':   'abandoned',
 });
 
+const EXPECTED_LABEL_FOR_TICKET_TYPE: Readonly<Record<TicketType, string>> = Object.freeze({
+  bug:     'bug',
+  change:  'change',
+  feature: 'feature',
+});
+
+const EXPECTED_LABEL_FOR_PRIORITY: Readonly<Record<TicketPriority, string>> = Object.freeze({
+  low:    'low',
+  normal: 'normal',
+  high:   'high',
+});
+
 test('each priority is titled as the lane group it has always headed', () => {
   expect(Object.keys(EXPECTED_GROUP_TITLE_FOR_PRIORITY).sort()).toEqual([...TICKET_PRIORITIES].sort());
   for (const priority of TICKET_PRIORITIES) expect(HtmlLabelUtil.priorityGroupTitleOf(priority), priority).toBe(EXPECTED_GROUP_TITLE_FOR_PRIORITY[priority]);
@@ -50,4 +63,19 @@ test('words every ticket status as the badge main\'s page printed', () => {
 
 test('prints a status from the island that the table does not know as itself', () => {
   expect(HtmlLabelUtil.ticketStatusBadgeTextOf('shipped' as TicketStatus)).toBe('shipped');
+});
+
+test('labels every ticket type as the value the page has always printed', () => {
+  expect(Object.keys(EXPECTED_LABEL_FOR_TICKET_TYPE).sort()).toEqual([...TICKET_TYPES].sort());
+  for (const type of TICKET_TYPES) expect(HtmlLabelUtil.ticketTypeLabelOf(type), type).toBe(EXPECTED_LABEL_FOR_TICKET_TYPE[type]);
+});
+
+test('labels every priority as the value the page has always printed', () => {
+  expect(Object.keys(EXPECTED_LABEL_FOR_PRIORITY).sort()).toEqual([...TICKET_PRIORITIES].sort());
+  for (const priority of TICKET_PRIORITIES) expect(HtmlLabelUtil.priorityLabelOf(priority), priority).toBe(EXPECTED_LABEL_FOR_PRIORITY[priority]);
+});
+
+test('prints a type or a priority from the island that the table does not know as itself', () => {
+  expect(HtmlLabelUtil.ticketTypeLabelOf('chore' as TicketType)).toBe('chore');
+  expect(HtmlLabelUtil.priorityLabelOf('urgent' as TicketPriority)).toBe('urgent');
 });

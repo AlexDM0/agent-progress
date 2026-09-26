@@ -1,3 +1,4 @@
+import { StatusWordingUtil }                                            from '../../src/adapters/utils/StatusWordingUtil';
 import type { Task }                                                    from '../../src/lib/tracker-model/@types/Task';
 import { OperationRefusal }                                             from '../../src/shared/OperationRefusal';
 import { DispatcherClaimNoteUtil }                                      from '../../src/shared/utils/DispatcherClaimNoteUtil';
@@ -109,12 +110,13 @@ async function setTicketAgent(commandArguments: ArgumentParser, context: Command
 
 // Every dispatcher run's builder takes over only a row paused under a dispatcher claim note; any other pause is a person's, resumed by hand.
 function resumeBuildHintFor(ticketId: string, pausedRow: Readonly<Task>): string {
+  const pausedWord = StatusWordingUtil.statusWordFor('paused');
   if (!DispatcherClaimNoteUtil.noteIsADispatcherClaimOn(pausedRow.note, ticketId)) {
-    return `Its build row #${pausedRow.id} was left paused under a person's note, which the dispatcher never takes over: `
+    return `Its build row #${pausedRow.id} was left ${pausedWord} under a person's note, which the dispatcher never takes over: `
       + `resume it with \`agent-progress task start ${pausedRow.id}\`, or settle the row by hand.`;
   }
   const singleTicketRun = `launch a single-ticket dispatcher run for #${ticketId} (ticketIds: ["${ticketId}"]) to resume it`;
-  return `Its build was left paused: the next whole-board dispatcher run resumes it; when none is going or about to be launched, ${singleTicketRun} now.`;
+  return `Its build was left ${pausedWord}: the next whole-board dispatcher run resumes it; when none is going or about to be launched, ${singleTicketRun} now.`;
 }
 
 /** A hold stops the dispatcher starting the ticket's next builder or reviewer; an agent already running is never interrupted by it. */

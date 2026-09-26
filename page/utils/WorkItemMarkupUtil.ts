@@ -42,15 +42,16 @@ function ticketStatusBadgeMarkup(status: TicketStatus): string {
   return `<span class="ap-badge ${HtmlEscapeUtil.escapeHtml(status)}">${HtmlEscapeUtil.escapeHtml(HtmlLabelUtil.ticketStatusBadgeTextOf(status))}</span>`;
 }
 
+function markedPriorityMarkup(className: string, priority: 'low' | 'high'): string {
+  const title = MarkupUtil.attribute('title', HtmlLabelUtil.priorityMarkTitleOf(priority));
+  return `<span class="${className}" data-priority="${priority}" ${title}>${HtmlEscapeUtil.escapeHtml(HtmlLabelUtil.priorityLabelOf(priority))}</span>`;
+}
+
 /** Normal is unmarked. Low borrows the row's quiet ticket badge and high the amber "waiting on" note: the template has no priority style of its own. */
 function priorityMarkMarkup(ticket: PageTicket): string {
   const priority = TicketDefaultsUtil.ticketPriorityOf(ticket);
-  if (priority === 'low') {
-    return `<span class="ap-ticket-badge" data-priority="low" ${MarkupUtil.attribute('title', HtmlLabelUtil.priorityMarkTitleOf('low'))}>low</span>`;
-  }
-  if (priority === 'high') {
-    return `<span class="ap-waiting" data-priority="high" ${MarkupUtil.attribute('title', HtmlLabelUtil.priorityMarkTitleOf('high'))}>high</span>`;
-  }
+  if (priority === 'low') return markedPriorityMarkup('ap-ticket-badge', 'low');
+  if (priority === 'high') return markedPriorityMarkup('ap-waiting', 'high');
   return '';
 }
 

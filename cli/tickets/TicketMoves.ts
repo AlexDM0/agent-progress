@@ -82,7 +82,7 @@ function idsOf(bars: readonly Readonly<Task>[]): number[] {
 }
 
 function closedReviewBarsText(closedBars: readonly Readonly<Task>[]): string {
-  return closedBars.map((bar) => `\nClosed the review row #${bar.id}, delivered`).join('');
+  return closedBars.map((bar) => `\nClosed the review row #${bar.id}, ${StatusWordingUtil.movedPhraseFor('delivered')}`).join('');
 }
 
 function reviewBarText(started: ReviewBarStarted | null): string {
@@ -138,7 +138,8 @@ async function transitionOneTicket(
 
   // A warning, not a refusal: the order is advice to whoever picks work up, and the user may know better.
   if (targetStatus === 'in-progress' && moved.unsettled.length > 0) {
-    const notSettledYetText = moved.unsettled.length === 1 ? 'which is not reviewed or delivered yet' : 'which are not reviewed or delivered yet';
+    const settledStatusesText = `${StatusWordingUtil.statusWordFor('reviewed')} or ${StatusWordingUtil.statusWordFor('delivered')}`;
+    const notSettledYetText   = `${moved.unsettled.length === 1 ? 'which is' : 'which are'} not ${settledStatusesText} yet`;
     context.standardError(`Ticket #${id} is ${TicketPhraseUtil.waitingOnText(moved.unsettled)}, ${notSettledYetText}.`);
   }
   if (targetStatus === 'in-progress' && move.ticket.frontmatter.hold !== undefined) {
@@ -201,10 +202,11 @@ async function refuseARetiredSubcommand(commandArguments: ArgumentParser, _conte
   const replacement              = RETIRED_SUBCOMMAND_REPLACEMENTS[subcommand] ?? subcommand;
   const targetStatus             = Object.hasOwn(TRANSITION_TARGET_STATUSES, replacement) ? TRANSITION_TARGET_STATUSES[replacement] : undefined;
   const ticketId                 = commandArguments.positionals()[1] ?? '<id>';
+  const targetStatusText         = targetStatus === undefined ? replacement : StatusWordingUtil.statusWordFor(targetStatus);
   const startReviewCarryOverText = targetStatus === 'in-review' ? ', and takes --start-review the same way' : '';
   throw new OperationRefusal(
     'refused',
-    `\`agent-progress ticket ${subcommand}\` was renamed: \`agent-progress ticket ${replacement} ${ticketId}\` moves a ticket to ${targetStatus ?? replacement}`
+    `\`agent-progress ticket ${subcommand}\` was renamed: \`agent-progress ticket ${replacement} ${ticketId}\` moves a ticket to ${targetStatusText}`
     + `${startReviewCarryOverText}. Nothing was written.`,
   );
 }

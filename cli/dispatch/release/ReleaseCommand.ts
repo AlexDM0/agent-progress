@@ -7,6 +7,7 @@ import { resolve } from 'node:path';
 
 import { LogUtil }                                                                 from '../../../src/adapters/utils/LogUtil';
 import { OperationRefusalWordingUtil }                                             from '../../../src/adapters/utils/OperationRefusalWordingUtil';
+import { StatusWordingUtil }                                                       from '../../../src/adapters/utils/StatusWordingUtil';
 import type { BranchDeletionOutcome, FilesLeftInWorktree, WorktreeRemovalOutcome } from '../../../src/lib/git/BranchIntegration';
 import {
   deleteMergedBranch,
@@ -109,7 +110,8 @@ function releasableTicket(board: Board, reference: string): Readonly<Ticket> {
   }
   const { id, status } = ticket.frontmatter;
   if (!board.ticketIsReleasable(ticket)) {
-    refuse('ticket-not-releasable', `Ticket #${id} is ${status}, and a release takes a ticket that is ${LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS.reviewed.join(' or ')}.`);
+    const releasableStatusesText = LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS.reviewed.map(StatusWordingUtil.statusWordFor).join(' or ');
+    refuse('ticket-not-releasable', `Ticket #${id} is ${StatusWordingUtil.statusWordFor(status)}, and a release takes a ticket that is ${releasableStatusesText}.`);
   }
   return ticket;
 }
@@ -248,7 +250,8 @@ export const releaseCommand: CommandHandler = async (commandArguments, context) 
 
   const ticketIds    = tickets.map(({ frontmatter }) => frontmatter.id);
   const ticketsNamed = ticketIds.length === 1 ? `ticket #${ticketIds.join('')}` : `tickets ${ticketIds.map((identifier) => `#${identifier}`).join(', ')}`;
-  const headline     = `Released ${ticketsNamed}: ${request.mainLine} fast-forwarded to ${shortCommit(commit)} from ${request.branch}, and delivered.`;
+  const headline     = `Released ${ticketsNamed}: ${request.mainLine} fast-forwarded to ${shortCommit(commit)} from ${request.branch}, `
+    + `and ${StatusWordingUtil.movedPhraseFor('delivered')}.`;
   const reviewLines  = logged.filter((record) => record.kind === 'review-bar-closed').map(LogUtil.sentenceOf);
   const document     = {
     released:         true,
