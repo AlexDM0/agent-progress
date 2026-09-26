@@ -1,6 +1,6 @@
 # Migration plan: the conventions refactor
 
-**Status (2026-09-26): in flight on `migration/conventions`; steps 0 to 3, 4a to 4c and 5 are done, 6 is next.**
+**Status (2026-09-26): in flight on `migration/conventions`; steps 0 to 3, 4a to 4c, 5 and 6 are done, 7 is next.**
 Two parts of step 7 run on sub-branches of it: the page split (`migration/page`, merged in 7058c2a; 7b's
 payload facts remain) and the dispatcher port (`migration/dispatcher`, in review, merged before step 8).
 The kanban-board feature has landed on main (9654720 through 5c6b0ad) and is mapped into this plan.
@@ -131,7 +131,7 @@ do not exist yet.
 |---|---|
 | `agent-progress.ts` | stays; composition root |
 | `cli/Main.ts`, `cli/CommandTable.ts`, `cli/HelpText.ts`, `cli/arguments/ArgumentParser.ts`, `cli/arguments/OptionsWithValues.ts`, `cli/CommandContext.ts` | stay in cli/ |
-| `cli/CommandSupport.ts` | dissolves: the lock → write → render pipeline → src/services/tracker; printing and --at/--tokens parsing → cli/utils (OutputUtil, OptionValueUtil); board reads → Board queries |
+| `cli/CommandSupport.ts` | dissolves. Step 6 moved the reading, the lock → write → render pipeline, `rewriteOlderTrackerFiles` and tracker creation to src/services/tracker (TrackerReader, TrackerPipeline, DashboardRendering, TrackerCreation); thin adapters over them stay (`openTrackerForWriting`, `openTrackerForWritingThenReadNextLine`, `renderDashboardOrRefuse`, `rewriteOlderTrackerFilesAndReport`). Step 7 takes the rest: printing, `reportRenderProblems`, the render refusal and the rewrite text → cli/utils/OutputUtil or src/adapters; `resolveAtOption` and `tokenCountFrom` → cli/utils/OptionValueUtil; board reads (`concurrencyDocumentOf`, `readyTicketsOf`, `nextLineFor`, `boardForReading`) → Board queries; the adapters are regrouped when the file dissolves |
 | `lib/utils/NextLineUtil.ts` | cli/utils/NextLineUtil (only cli uses it) |
 | `cli/TrackerRefresh.ts` | cli/adoption (only init and update use it); installs generated files with the version stamp |
 | command folders | grouped into sets: cli/tracking (task, log, status, range, clear, render, open), cli/tickets (ticket), cli/dispatch (dispatcher, concurrency, release), cli/adoption (init, update), cli/measurement (usage, rework, hook). Each command parses, calls the tracker service or the Board, and prints through src/adapters |
@@ -151,7 +151,7 @@ do not exist yet.
 | `lib/platform/ClaudeSettings.ts`, `lib/platform/ClaudeInstructions.ts`, `lib/platform/ClaudeTranscripts.ts` | src/lib/claude-code |
 | `lib/platform/Environment.ts`, `lib/platform/OperationRefusal.ts` | src/shared |
 | `lib/progress/ProgressStore.ts` | split: ingestion class + writer → src/adapters; mutations and queries → Board; store orchestration → src/services/tracker |
-| `lib/tickets/Frontmatter.ts`, `lib/tickets/TicketStore.ts` | src/adapters (ticket markdown ingestion class and writer); listing → src/services/tracker |
+| `lib/tickets/Frontmatter.ts`, `lib/tickets/TicketStore.ts` | src/adapters (ticket markdown ingestion class and writer); listing → src/services/tracker. Step 6 moved `TicketStore.ts` to src/services/tracker with the listing, `nextTicketId` and the file naming. Step 7 takes from it: `createTicket`'s initial frontmatter → a model util or a Board method; `deleteAllTickets` → the ticket writer; `readTicket` → `board.ticketByReference`; `nextTicketId`'s second read of progress.json → the Board's row ids |
 | `lib/tickets/TicketTransitions.ts` | the legality table → src/lib/tracker-model/constants; applying a move → Board methods |
 | `lib/render/Template.ts`, `lib/render/Markdown.ts`, `lib/render/PageBundle.ts` | src/services/render |
 | `lib/render/Rerender.ts` | dissolves into the tracker pipeline calling src/services/render |
@@ -212,9 +212,19 @@ Each step is one or more commits on the branch; each commit is green.
    resources/). The render service writes the Board facts from step 4 into the payload.
    `cli/CommandSupport.ts`'s pipeline halves, `readStoredLog`, `requireStoredLog` and
    `rewriteOlderTrackerFiles`, with the ticket listing and `nextTicketId`, move into
-   src/services/tracker. `Ticket.filePath`, a storage fact the model carries, is the tracker
-   service's to own. Whether the model's `ProgressFile` is renamed (for example to `TrackerProgress`)
-   is put to the owner.
+   src/services/tracker. Done: src/services/tracker holds `Workspace` and `TrackerLock` (renamed,
+   because `Lock` is a DOM global), `TicketStore` with `utils/SlugUtil`, `TrackerReader`,
+   `DashboardRendering`, `TrackerPipeline` (`writeTracker`, `rewriteOlderTrackerFiles`) and
+   `TrackerCreation`; src/services/render holds `Template`, `Markdown`, `PageBundle`, `ProgressPage`
+   and `utils/BoardFactsUtil`, and the payload's last key is `boardFacts`. The page is rendered from
+   what is on disk, through a second, reading Board over the files just written: that keeps the page
+   to what the store holds and covers `clear --all`'s deletions. `OperationRefusal` carries a
+   `detail` (a Board refusal or an unreadable tracker) with no words, and the CLI words it through
+   `src/adapters/utils/OperationRefusalWordingUtil.ts` wherever it prints a refusal. The owner
+   decided: `Ticket.filePath` stays in the model, because the service owns where a new path comes
+   from; renaming `ProgressFile` is deferred to the polish sweep; the render service's module-level
+   memos (the page bundle and the configured Marked) stay until step 7, which gives the CLI a
+   composition root.
 7. **Features.** Regroup cli/ into its sets; every command becomes parse → service or Board →
    adapter output; split the ticket command; the hook reads review bars from the Board. Move the
    page to page/ per §3, in this order, each commit green: (a) the utils and the preferences module;
@@ -222,14 +232,29 @@ Each step is one or more commits on the branch; each commit is green.
    split into its sets and GanttPage into PageStart and the controllers. In (b) the pill labels are
    rekeyed by `DisplayState`, and the payload's log entries gain `taskId` and `ticketId` from
    `LogUtil.wordedEntryOf` in the commit where the detail panel filters by them; the legacy notes
-   carry no ids. The spec tsconfig lets the page specs sit beside their modules. The detail panel
-   filters the log by id. The Kanban and
+   carry no ids. In (b) the page reads `boardFacts`: the same commit hoists `PageBoardFacts` into
+   `PagePayload`, lists it in page/tsconfig.json and adds its check to `pagePayloadFrom`. Row facts
+   are zipped onto the tasks when the island is read, before any filtering, and ticket facts are
+   joined by `ticketId`. `BoardRulesUtil`'s and `taskRowsInDisplayOrder`'s own derivations go, and
+   the page stops using `TicketNumberUtil`. The Progress chart changes as intended: a ticket's own
+   row is the first row naming it, not the last; bars are matched by `reviewOf`, not by name; nested
+   bars are ordered newest filed first. The spec tsconfig lets the page specs sit beside their
+   modules. The detail panel filters the log by id. The Kanban and
    ticket-dialog specs are the regression net for (b) and (c): they change only in their imports.
    Port the dispatcher to dispatcher/ in
    TypeScript, checked against a frozen table of the old script's behaviour, and add the JSON fields
    the prompts now make agents derive (running ticket ids, running review-of ids, ready and
    review-waiting tickets, paused builds, a ticket's row and review bars, the combined rework
-   total).
+   total). From step 6 it takes: `resolveAtOption` and `tokenCountFrom` → cli/utils/OptionValueUtil;
+   the printing helpers, `reportRenderProblems`, the render refusal, the rewrite text and the wording
+   `Workspace` and `TrackerLock` still carry → OutputUtil or src/adapters; `concurrencyDocumentOf`,
+   `readyTicketsOf`, `nextLineFor`, `boardForReading` and the raw computations in
+   `ConcurrencyCommand` and `DispatcherCommand` → Board queries; from `TicketStore`, `createTicket`'s
+   initial frontmatter, `deleteAllTickets` (→ the ticket writer), `readTicket` (→
+   `board.ticketByReference`) and `nextTicketId`'s second read of progress.json;
+   `TrackerChange.deleteAllTicketFilesAfterwards`, replaced by a Board query. The render service's
+   module-level memos (the page bundle and the configured Marked) become state held through the
+   composition root.
 8. **Installation and versioning.** Move templates to resources/. `init` and `update` generate the
    dispatcher and every installed file into the target with the protocol version. Add the mismatch
    refusal with its exemptions. Update skill-orchestrate/SKILL.md to launch the dispatcher from
@@ -240,7 +265,8 @@ Each step is one or more commits on the branch; each commit is green.
    `docs/images/panel-tickets.png` and `docs/images/panel-watch.gif` still show the pre-4a words `open` and `done`.
 10. **Polish, end-of-refactor review, verify and merge.**
     - **Polish.** Fix every minor finding the lean step reviews deferred, and sweep the whole tree
-      for the conventions.
+      for the conventions. Rename the model's `ProgressFile` (for example to `TrackerProgress`),
+      deferred from step 6.
     - **End-of-refactor review** of the whole branch against main, repeated until two rounds find
       nothing. The contract is external behaviour: the CLI's commands, output and exit codes, and
       the page's HTML and behaviour, must match main. The only allowed differences are the decided
