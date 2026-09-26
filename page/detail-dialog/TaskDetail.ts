@@ -19,8 +19,6 @@ import { TimeUtil }                         from '../utils/TimeUtil.ts';
 import { WorkItemMarkupUtil }               from '../utils/WorkItemMarkupUtil.ts';
 import { DetailMarkupUtil }                 from './utils/DetailMarkupUtil.ts';
 
-const { escapeHtml }       = HtmlEscapeUtil;
-const { formatTokenCount } = TokenCountUtil;
 
 const PHASES_WERE_NOT_RECORDED_NOTE = 'The phases of this row were not recorded, so what follows is derived from its own stamps and its ticket’s.';
 
@@ -86,13 +84,13 @@ function taskFactsMarkup(task: Task, format: StampFormat): string {
   const elapsed = durationBetween(task.start, task.end);
   const entries: Fact[] = [];
 
-  if (task.owner !== '') entries.push(['owner', escapeHtml(task.owner)]);
-  if (task.note !== '') entries.push(['note', escapeHtml(task.note)]);
+  if (task.owner !== '') entries.push(['owner', HtmlEscapeUtil.escapeHtml(task.owner)]);
+  if (task.note !== '') entries.push(['note', HtmlEscapeUtil.escapeHtml(task.note)]);
   if (task.start !== null) entries.push(stampFact('start', task.start, format));
   if (task.end !== null) entries.push(stampFact('end', task.end, format));
-  if (elapsed !== null) entries.push(['elapsed', escapeHtml(elapsed)]);
-  if (task.tokens !== null) entries.push(['tokens', escapeHtml(formatTokenCount(task.tokens))]);
-  if (task.reviewRound !== undefined) entries.push(['review round', escapeHtml(String(task.reviewRound))]);
+  if (elapsed !== null) entries.push(['elapsed', HtmlEscapeUtil.escapeHtml(elapsed)]);
+  if (task.tokens !== null) entries.push(['tokens', HtmlEscapeUtil.escapeHtml(TokenCountUtil.formatTokenCount(task.tokens))]);
+  if (task.reviewRound !== undefined) entries.push(['review round', HtmlEscapeUtil.escapeHtml(String(task.reviewRound))]);
   if (task.ticket !== null) entries.push(['ticket', WorkItemMarkupUtil.ticketLinksMarkup([task.ticket])]);
 
   return factsMarkup(entries);
@@ -159,10 +157,10 @@ function derivedPhaseLines(task: Task, ticket: PageTicket | null): PhaseLine[] {
 function phaseListMarkup(lines: readonly PhaseLine[], format: StampFormat): string {
   const items = lines.map((line, index) => {
     const gapDuration = durationBetween(lines[index - 1]?.at, line.at);
-    const gap         = gapDuration === null ? '' : `<span class="ap-detail-gap">after ${escapeHtml(gapDuration)}</span>`;
+    const gap         = gapDuration === null ? '' : `<span class="ap-detail-gap">after ${HtmlEscapeUtil.escapeHtml(gapDuration)}</span>`;
     return [
       `<li ${MarkupUtil.attribute('data-state', line.state)}>`,
-      `<span class="ap-pill">${escapeHtml(WorkItemMarkupUtil.pillLabelForRowState(line.state, line.reviewRound))}</span>`,
+      `<span class="ap-pill">${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.pillLabelForRowState(line.state, line.reviewRound))}</span>`,
       MarkupUtil.stampMarkup('time', line.at, format.todayCalendarDate, format.slices),
       gap,
       '</li>',
@@ -172,7 +170,7 @@ function phaseListMarkup(lines: readonly PhaseLine[], format: StampFormat): stri
 }
 
 function noteMarkup(text: string): string {
-  return `<p class="ap-detail-note">${escapeHtml(text)}</p>`;
+  return `<p class="ap-detail-note">${HtmlEscapeUtil.escapeHtml(text)}</p>`;
 }
 
 function phasesMarkup(task: Task, ticket: PageTicket | null, format: StampFormat): string {
@@ -205,7 +203,7 @@ function ticketFactsMarkup(ticket: PageTicket, format: StampFormat): string {
     if (value !== null && value !== '') entries.push(stampFact(label, value, format));
   }
   for (const [label, value] of plainValues) {
-    if (value !== undefined && value !== '') entries.push([label, escapeHtml(value)]);
+    if (value !== undefined && value !== '') entries.push([label, HtmlEscapeUtil.escapeHtml(value)]);
   }
   if (ticket.task !== null) entries.push(['task', WorkItemMarkupUtil.taskLinkMarkup(ticket.task)]);
   const dependsOn = ticket.dependsOn ?? [];
@@ -217,9 +215,9 @@ function ticketFactsMarkup(ticket: PageTicket, format: StampFormat): string {
 function ticketMarkup(ticket: PageTicket, format: StampFormat): string {
   const head = [
     '<div class="ap-detail-ticket-head">',
-    `<span class="ap-ticket-id">#${escapeHtml(ticket.id)}</span>`,
-    `<h4 class="ap-ticket-title">${escapeHtml(ticket.title)}</h4>`,
-    `<span class="ap-detail-type">${escapeHtml(ticket.type)}</span>`,
+    `<span class="ap-ticket-id">#${HtmlEscapeUtil.escapeHtml(ticket.id)}</span>`,
+    `<h4 class="ap-ticket-title">${HtmlEscapeUtil.escapeHtml(ticket.title)}</h4>`,
+    `<span class="ap-detail-type">${HtmlEscapeUtil.escapeHtml(ticket.type)}</span>`,
     WorkItemMarkupUtil.ticketStatusBadgeMarkup(ticket.status),
     '</div>',
   ].join('');
@@ -255,8 +253,8 @@ function headMarkup(task: Task | null, ticket: PageTicket | null): string {
     // A ticket whose row was removed: there is no state to colour the header with, so the ticket's own badge carries it.
     return ticket === null ? '' : [
       '<div class="ap-detail-head">',
-      `<span class="ap-detail-id">#${escapeHtml(ticket.id)}</span>`,
-      `<h2 class="ap-detail-title">${escapeHtml(ticket.title)}</h2>`,
+      `<span class="ap-detail-id">#${HtmlEscapeUtil.escapeHtml(ticket.id)}</span>`,
+      `<h2 class="ap-detail-title">${HtmlEscapeUtil.escapeHtml(ticket.title)}</h2>`,
       WorkItemMarkupUtil.ticketStatusBadgeMarkup(ticket.status),
       '</div>',
     ].join('');
@@ -265,9 +263,9 @@ function headMarkup(task: Task | null, ticket: PageTicket | null): string {
   const ticketBadge = task.ticket === null ? '' : WorkItemMarkupUtil.ticketBadgeMarkup(task.ticket);
   return [
     `<div class="ap-detail-head" ${MarkupUtil.attribute('data-state', state)}>`,
-    `<span class="ap-detail-id">#${escapeHtml(String(task.id))}</span>`,
-    `<h2 class="ap-detail-title">${escapeHtml(task.name)}</h2>`,
-    `<span class="ap-pill">${escapeHtml(WorkItemMarkupUtil.pillLabelForRowState(state, task.reviewRound ?? LIMITS.FIRST_REPEAT_REVIEW_ROUND))}</span>`,
+    `<span class="ap-detail-id">#${HtmlEscapeUtil.escapeHtml(String(task.id))}</span>`,
+    `<h2 class="ap-detail-title">${HtmlEscapeUtil.escapeHtml(task.name)}</h2>`,
+    `<span class="ap-pill">${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.pillLabelForRowState(state, task.reviewRound ?? LIMITS.FIRST_REPEAT_REVIEW_ROUND))}</span>`,
     ticketBadge,
     '</div>',
   ].join('');

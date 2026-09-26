@@ -20,8 +20,6 @@ import type {
 } from './@types/TicketTimeline.ts';
 import { durationTextOf, percentAlong, ticketTimelineOf } from './TicketTimeline.ts';
 
-const { escapeHtml }       = HtmlEscapeUtil;
-const { formatTokenCount } = TokenCountUtil;
 
 const SEGMENT_LABEL_MINIMUM_PERCENT = 9;
 
@@ -50,7 +48,7 @@ function liveAttribute(span: TimelineSpan): string {
 function ganttRowMarkup(nameMarkup: string, timeText: string, trackMarkup: string): string {
   return [
     `<div class="ap-grid-row ap-row"><div class="ap-cell-name">${nameMarkup}</div>`,
-    `<div class="ap-cell-pill">${escapeHtml(timeText)}</div>`,
+    `<div class="ap-cell-pill">${HtmlEscapeUtil.escapeHtml(timeText)}</div>`,
     `<div class="ap-cell-track">${trackMarkup}</div></div>`,
   ].join('');
 }
@@ -58,7 +56,7 @@ function ganttRowMarkup(nameMarkup: string, timeText: string, trackMarkup: strin
 function filedNameMarkup(ticket: PageTicket, input: TicketTimelineInput): string {
   const { limits, todayCalendarDate } = input;
   if (ticket.filed.slice(0, limits.calendarDateLength) === todayCalendarDate) {
-    return `<span class="ap-name">Filed <span class="mono">${escapeHtml(TimeUtil.shortStampText(ticket.filed, todayCalendarDate, limits))}</span></span>`;
+    return `<span class="ap-name">Filed <span class="mono">${HtmlEscapeUtil.escapeHtml(TimeUtil.shortStampText(ticket.filed, todayCalendarDate, limits))}</span></span>`;
   }
   return `<span class="ap-name" ${MarkupUtil.attribute('title', `filed ${TimeUtil.fullStampText(ticket.filed, limits)}`)}>Filed</span>`;
 }
@@ -72,7 +70,7 @@ function filedRowMarkup(timeline: TicketTimeline, input: TicketTimelineInput): s
 }
 
 function buildRowMarkup(timeline: TicketTimeline, input: TicketTimelineInput): string {
-  const rowId    = timeline.ownRowId === null ? '' : ` <span class="mono">#${escapeHtml(String(timeline.ownRowId))}</span>`;
+  const rowId    = timeline.ownRowId === null ? '' : ` <span class="mono">#${HtmlEscapeUtil.escapeHtml(String(timeline.ownRowId))}</span>`;
   const segments = timeline.buildSegments.map((segment) => [
     `<div class="ap-bar ap-bar-segment" ${MarkupUtil.attribute('data-state', segment.state)}${liveAttribute(segment)}`,
     ` style="${barStyle(timeline.axis, segment, input.limits)}" ${MarkupUtil.attribute('title', spanTitle(segment, segment.label, input.todayCalendarDate))}></div>`,
@@ -81,12 +79,16 @@ function buildRowMarkup(timeline: TicketTimeline, input: TicketTimelineInput): s
 }
 
 function reviewRowMarkup(review: ReviewSpan, timeline: TicketTimeline, input: TicketTimelineInput): string {
-  const tokens = review.tokens === null ? '' : ` · ${formatTokenCount(review.tokens)} tokens`;
+  const tokens = review.tokens === null ? '' : ` · ${TokenCountUtil.formatTokenCount(review.tokens)} tokens`;
   const bar    = [
     `<div class="ap-bar" ${MarkupUtil.attribute('data-state', review.state)}${liveAttribute(review)} style="${barStyle(timeline.axis, review, input.limits)}"`,
     ` ${MarkupUtil.attribute('title', `${spanTitle(review, review.label, input.todayCalendarDate)}${tokens}`)}></div>`,
   ].join('');
-  return ganttRowMarkup(`<span class="ap-name">${escapeHtml(review.label)}</span>`, durationTextOf(review.endEpochMilliseconds - review.startEpochMilliseconds), bar);
+  return ganttRowMarkup(
+    `<span class="ap-name">${HtmlEscapeUtil.escapeHtml(review.label)}</span>`,
+    durationTextOf(review.endEpochMilliseconds - review.startEpochMilliseconds),
+    bar,
+  );
 }
 
 function afterBuildRowMarkup(timeline: TicketTimeline, input: TicketTimelineInput): string {
@@ -98,7 +100,7 @@ function afterBuildRowMarkup(timeline: TicketTimeline, input: TicketTimelineInpu
   }
   const segments = afterBuild.map((segment) => {
     const widthPercent = percentAlong(axis, segment.endEpochMilliseconds) - percentAlong(axis, segment.startEpochMilliseconds);
-    const label        = widthPercent >= SEGMENT_LABEL_MINIMUM_PERCENT ? escapeHtml(segment.label) : '';
+    const label        = widthPercent >= SEGMENT_LABEL_MINIMUM_PERCENT ? HtmlEscapeUtil.escapeHtml(segment.label) : '';
     return [
       `<div class="ap-bar ap-lifecycle-segment" ${MarkupUtil.attribute('data-state', segment.state)} style="${barStyle(axis, segment, input.limits)}"`,
       ` ${MarkupUtil.attribute('title', spanTitle(segment, segment.label, input.todayCalendarDate))}>${label}</div>`,
@@ -110,7 +112,7 @@ function afterBuildRowMarkup(timeline: TicketTimeline, input: TicketTimelineInpu
 function legendMarkup(legend: readonly LegendEntry[]): string {
   const items = legend.map((entry) => [
     `<li><span class="ap-ticket-gantt-swatch" ${MarkupUtil.attribute('data-state', entry.state)}></span>`,
-    `<b>${escapeHtml(entry.label)}</b><time>${escapeHtml(entry.durationText)}</time></li>`,
+    `<b>${HtmlEscapeUtil.escapeHtml(entry.label)}</b><time>${HtmlEscapeUtil.escapeHtml(entry.durationText)}</time></li>`,
   ].join('')).join('');
   return `<ul class="ap-ticket-gantt-legend" aria-label="Time spent in each state">${items}</ul>`;
 }
@@ -122,7 +124,7 @@ export function ticketTimelineMarkup(input: TicketTimelineInput): string {
   const endState      = end.closedState === null ? '' : ` ${MarkupUtil.attribute('data-state', end.closedState)}`;
   const endLeft       = `left:${MarkupUtil.percentText(end.leftPercent)}`;
   const ticks         = timeline.ticks
-    .map((tick) => `<div class="ap-tick" style="left:${MarkupUtil.percentText(tick.leftPercent)}"><span>${escapeHtml(tick.label)}</span></div>`)
+    .map((tick) => `<div class="ap-tick" style="left:${MarkupUtil.percentText(tick.leftPercent)}"><span>${HtmlEscapeUtil.escapeHtml(tick.label)}</span></div>`)
     .join('');
   const gridLines     = timeline.ticks.map((tick) => `<div class="ap-grid-line" style="left:${MarkupUtil.percentText(tick.leftPercent)}"></div>`).join('');
   const rows          = [
@@ -134,10 +136,10 @@ export function ticketTimelineMarkup(input: TicketTimelineInput): string {
   return [
     '<div class="ap-ticket-gantt"><div class="ap-grid-row ap-chart-head"><div class="ap-cell-name">Row</div><div class="ap-cell-pill">Time</div>',
     `<div class="ap-cell-track" style="height:100%"><div class="ap-ticket-gantt-ticks">${ticks}`,
-    `<span class="ap-ticket-gantt-end-label"${endState} style="${endLeft}">${escapeHtml(end.label)}</span></div></div></div>`,
+    `<span class="ap-ticket-gantt-end-label"${endState} style="${endLeft}">${HtmlEscapeUtil.escapeHtml(end.label)}</span></div></div></div>`,
     `<div class="ap-body"><div class="ap-ticket-gantt-overlay">${gridLines}<div class="ap-ticket-gantt-end"${endState} style="${endLeft}"></div></div>`,
     `${rows}</div></div>`,
     legendMarkup(timeline.legend),
-    timeline.note === null ? '' : `<p class="ap-ticket-gantt-note">${escapeHtml(timeline.note)}</p>`,
+    timeline.note === null ? '' : `<p class="ap-ticket-gantt-note">${HtmlEscapeUtil.escapeHtml(timeline.note)}</p>`,
   ].join('');
 }

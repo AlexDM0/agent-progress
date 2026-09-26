@@ -11,7 +11,6 @@ import { MarkupUtil }               from './MarkupUtil.ts';
 import type { TimestampSlices }     from './TimeUtil.ts';
 import { TimeUtil }                 from './TimeUtil.ts';
 
-const { escapeHtml } = HtmlEscapeUtil;
 
 const LOW_PRIORITY_TITLE  = 'Low priority: no row on the chart until it is started, and worked once no normal or high ticket is left undelivered';
 const HIGH_PRIORITY_TITLE = 'High priority: dispatched before every normal ticket';
@@ -23,7 +22,7 @@ function ticketLinkMarkup(identifier: string, target: TicketLinkTarget): string 
   const destination = target === 'kanban-card'
     ? `${MarkupUtil.attribute('href', `#ap-kanban-${identifier}`)} ${MarkupUtil.attribute('data-ticket-link', identifier)}`
     : MarkupUtil.attribute('href', `#ap-ticket-${identifier}`);
-  return `<a ${destination}>#${escapeHtml(identifier)}</a>`;
+  return `<a ${destination}>#${HtmlEscapeUtil.escapeHtml(identifier)}</a>`;
 }
 
 function ticketLinksMarkup(identifiers: readonly string[], target: TicketLinkTarget = 'ticket-card'): string {
@@ -35,15 +34,15 @@ function waitingOnMarkup(identifiers: readonly string[], target: TicketLinkTarge
 }
 
 function taskLinkMarkup(taskId: number | null): string {
-  return taskId === null ? '' : `<a ${MarkupUtil.attribute('href', `#ap-task-${taskId}`)}>#${escapeHtml(String(taskId))}</a>`;
+  return taskId === null ? '' : `<a ${MarkupUtil.attribute('href', `#ap-task-${taskId}`)}>#${HtmlEscapeUtil.escapeHtml(String(taskId))}</a>`;
 }
 
 function ticketBadgeMarkup(ticketId: string): string {
-  return `<a class="ap-ticket-badge" ${MarkupUtil.attribute('href', `#ap-ticket-${ticketId}`)}>#${escapeHtml(ticketId)}</a>`;
+  return `<a class="ap-ticket-badge" ${MarkupUtil.attribute('href', `#ap-ticket-${ticketId}`)}>#${HtmlEscapeUtil.escapeHtml(ticketId)}</a>`;
 }
 
 function ticketStatusBadgeMarkup(status: TicketStatus): string {
-  return `<span class="ap-badge ${escapeHtml(status)}">${escapeHtml(status)}</span>`;
+  return `<span class="ap-badge ${HtmlEscapeUtil.escapeHtml(status)}">${HtmlEscapeUtil.escapeHtml(status)}</span>`;
 }
 
 /** Normal is unmarked. Low borrows the row's quiet ticket badge and high the amber "waiting on" note: the template has no priority style of its own. */

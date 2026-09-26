@@ -5,7 +5,6 @@ import { HtmlEscapeUtil }       from '../../src/lib/utils/HtmlEscapeUtil.ts';
 import { MarkupUtil }           from './MarkupUtil.ts';
 import type { TimestampSlices } from './TimeUtil.ts';
 
-const { escapeHtml } = HtmlEscapeUtil;
 
 /** `entryLimit` keeps the newest that many, `null` all; each stamp is shortened against the viewer's day on its own. */
 function logItemsMarkup(entries: readonly LogEntry[], slices: TimestampSlices, todayCalendarDate: string, entryLimit: number | null = null): string {
@@ -15,7 +14,7 @@ function logItemsMarkup(entries: readonly LogEntry[], slices: TimestampSlices, t
     .map((entry, appendIndex) => ({ entry, appendIndex }))
     .sort((a, b) => b.entry.at.localeCompare(a.entry.at) || b.appendIndex - a.appendIndex)
     .slice(0, entryLimit ?? entries.length)
-    .map(({ entry }) => `<li>${MarkupUtil.stampMarkup('time', entry.at, todayCalendarDate, slices)}<span>${escapeHtml(entry.text)}</span></li>`)
+    .map(({ entry }) => `<li>${MarkupUtil.stampMarkup('time', entry.at, todayCalendarDate, slices)}<span>${HtmlEscapeUtil.escapeHtml(entry.text)}</span></li>`)
     .join('');
 }
 

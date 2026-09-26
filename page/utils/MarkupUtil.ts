@@ -4,7 +4,6 @@ import { HtmlEscapeUtil }       from '../../src/lib/utils/HtmlEscapeUtil.ts';
 import type { TimestampSlices } from './TimeUtil.ts';
 import { TimeUtil }             from './TimeUtil.ts';
 
-const { escapeHtml } = HtmlEscapeUtil;
 
 const PERCENT_DECIMAL_PLACES = 2;
 
@@ -15,7 +14,7 @@ export interface ShortenedText {
 }
 
 function attribute(name: string, value: string): string {
-  return `${name}="${escapeHtml(value)}"`;
+  return `${name}="${HtmlEscapeUtil.escapeHtml(value)}"`;
 }
 
 function percentText(value: number): string {
@@ -30,7 +29,7 @@ function shortenedText(text: string, fullText: string): ShortenedText {
 function shortenedTextMarkup(tagName: string, text: string, fullText: string, className = ''): string {
   const classAttribute = className === '' ? '' : ` ${attribute('class', className)}`;
   const titleAttribute = text === fullText ? '' : ` ${attribute('title', fullText)}`;
-  return `<${tagName}${classAttribute}${titleAttribute}>${escapeHtml(text)}</${tagName}>`;
+  return `<${tagName}${classAttribute}${titleAttribute}>${HtmlEscapeUtil.escapeHtml(text)}</${tagName}>`;
 }
 
 function stampMarkup(tagName: string, stamp: string, todayCalendarDate: string, slices: TimestampSlices): string {

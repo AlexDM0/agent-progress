@@ -14,7 +14,6 @@ import type { TicketTimelineLimits } from './@types/TicketTimeline.ts';
 import { ticketTimelineMarkup }      from './TicketTimelineMarkup.ts';
 import { DetailMarkupUtil }          from './utils/DetailMarkupUtil.ts';
 
-const { escapeHtml } = HtmlEscapeUtil;
 
 const HELD_WITHOUT_REASON_TEXT = 'no reason given';
 
@@ -33,12 +32,12 @@ function headMarkup(input: TicketDetailInput): string {
   const reviewedMark       = ownRow !== null && BoardRulesUtil.cardCarriesReviewedMark(card) ? WorkItemMarkupUtil.reviewedMarkMarkup(ownRow, limits) : '';
   return [
     `<div class="ap-detail-head" ${MarkupUtil.attribute('data-state', card.state)}>`,
-    `<span class="ap-detail-id">#${escapeHtml(ticket.id)}</span>`,
-    `<h2 class="ap-detail-title">${escapeHtml(ticket.title)}</h2>`,
-    `<span class="ap-pill">${escapeHtml(WorkItemMarkupUtil.pillLabelForRowState(card.state, ownRow?.reviewRound ?? LIMITS.FIRST_REPEAT_REVIEW_ROUND))}</span>`,
+    `<span class="ap-detail-id">#${HtmlEscapeUtil.escapeHtml(ticket.id)}</span>`,
+    `<h2 class="ap-detail-title">${HtmlEscapeUtil.escapeHtml(ticket.title)}</h2>`,
+    `<span class="ap-pill">${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.pillLabelForRowState(card.state, ownRow?.reviewRound ?? LIMITS.FIRST_REPEAT_REVIEW_ROUND))}</span>`,
     reviewedMark,
     WorkItemMarkupUtil.priorityMarkMarkup(ticket),
-    `<span class="ap-detail-type">${escapeHtml(ticket.type)}</span>`,
+    `<span class="ap-detail-type">${HtmlEscapeUtil.escapeHtml(ticket.type)}</span>`,
     '</div>',
   ].join('');
 }
@@ -61,10 +60,10 @@ function factsMarkup(input: TicketDetailInput): string {
   const facts = stamps.flatMap(([label, stamp]) => (typeof stamp === 'string' && stamp !== ''
     ? [DetailMarkupUtil.factMarkup(label, MarkupUtil.stampMarkup('span', stamp, todayCalendarDate, limits))]
     : []));
-  if (ticket.reason !== undefined && ticket.reason !== '') facts.push(plainFactMarkup('reason', escapeHtml(ticket.reason)));
-  if (ticket.hold !== undefined) facts.push(plainFactMarkup('held', escapeHtml(ticket.hold === '' ? HELD_WITHOUT_REASON_TEXT : ticket.hold)));
+  if (ticket.reason !== undefined && ticket.reason !== '') facts.push(plainFactMarkup('reason', HtmlEscapeUtil.escapeHtml(ticket.reason)));
+  if (ticket.hold !== undefined) facts.push(plainFactMarkup('held', HtmlEscapeUtil.escapeHtml(ticket.hold === '' ? HELD_WITHOUT_REASON_TEXT : ticket.hold)));
   if (card.waitingOn.length > 0) facts.push(plainFactMarkup('waiting on', WorkItemMarkupUtil.ticketLinksMarkup(card.waitingOn, 'kanban-card')));
-  if (ticket.branch !== undefined && ticket.branch !== '') facts.push(plainFactMarkup('branch', escapeHtml(ticket.branch)));
+  if (ticket.branch !== undefined && ticket.branch !== '') facts.push(plainFactMarkup('branch', HtmlEscapeUtil.escapeHtml(ticket.branch)));
   if (ticket.task !== null) facts.push(plainFactMarkup('task', WorkItemMarkupUtil.taskLinkMarkup(ticket.task)));
   return `<div class="ap-ticket-meta">${facts.join('')}</div>`;
 }

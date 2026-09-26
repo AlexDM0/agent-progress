@@ -20,8 +20,6 @@ import type { TimestampSlices }           from '../utils/TimeUtil.ts';
 import { TimeUtil }                       from '../utils/TimeUtil.ts';
 import { WorkItemMarkupUtil }             from '../utils/WorkItemMarkupUtil.ts';
 
-const { escapeHtml }       = HtmlEscapeUtil;
-const { formatTokenCount } = TokenCountUtil;
 
 const TICK_MINIMUM_PIXELS             = 60;
 const TICK_PIXELS_PER_LABEL_CHARACTER = 9;
@@ -98,15 +96,15 @@ function taskRowMarkup(placed: PlacedTaskRow, slices: TimestampSlices): string {
   const reviewedMark = BoardRulesUtil.deliveredAfterReview(task, row.ticketStatus) ? WorkItemMarkupUtil.reviewedMarkMarkup(task, slices) : '';
   const tokens = task.tokens === null
     ? ''
-    : `<span class="ap-tokens">${escapeHtml(formatTokenCount(task.tokens))} tokens</span>`;
+    : `<span class="ap-tokens">${HtmlEscapeUtil.escapeHtml(TokenCountUtil.formatTokenCount(task.tokens))} tokens</span>`;
   const nesting    = nestedWithTicket === null ? '' : ` ${MarkupUtil.attribute('data-review-of', nestedWithTicket)}`;
   const identities = `${MarkupUtil.attribute('id', `ap-task-${task.id}`)} ${MarkupUtil.attribute('data-task-id', String(task.id))}`;
   return [
     `<div class="ap-grid-row ap-row" tabindex="0" ${identities} ${MarkupUtil.attribute('data-state', state)}${nesting}>`,
-    `<div class="ap-cell-name"><span class="ap-num">${escapeHtml(String(task.id))}</span>`,
-    `<span class="ap-name" ${MarkupUtil.attribute('title', task.name)}>${escapeHtml(task.name)}</span>`,
+    `<div class="ap-cell-name"><span class="ap-num">${HtmlEscapeUtil.escapeHtml(String(task.id))}</span>`,
+    `<span class="ap-name" ${MarkupUtil.attribute('title', task.name)}>${HtmlEscapeUtil.escapeHtml(task.name)}</span>`,
     `${ticketBadge}${WorkItemMarkupUtil.waitingOnMarkup(row.waitingOn)}${tokens}</div>`,
-    `<div class="ap-cell-pill"><span class="ap-pill">${escapeHtml(pillLabelFor(state, task))}</span>${reviewedMark}</div>`,
+    `<div class="ap-cell-pill"><span class="ap-pill">${HtmlEscapeUtil.escapeHtml(pillLabelFor(state, task))}</span>${reviewedMark}</div>`,
     `<div class="ap-cell-track"><span class="ap-clip-l"${bar.visible && bar.clippedLeft ? '' : ' hidden'}></span>`,
     `<div class="ap-bar"${bar.visible ? '' : ' hidden'} style="left:${MarkupUtil.percentText(bar.leftPercent)};width:${MarkupUtil.percentText(bar.widthPercent)}"></div>`,
     `<span class="ap-clip-r"${bar.visible && bar.clippedRight ? '' : ' hidden'}></span></div>`,
@@ -122,7 +120,7 @@ export function taskRowsMarkup(rows: readonly TaskRow[], slices: TimestampSlices
 export function tickLayerMarkup(ticks: readonly PlacedTick[]): string {
   return ticks.map((tick) => {
     const labelStyle = tick.labelSitsLeftOfItsLine ? ` style="left:auto;right:${TICK_LABEL_GUTTER_PIXELS}px"` : '';
-    return `<div class="ap-tick" style="left:${MarkupUtil.percentText(tick.leftPercent)}"><span${labelStyle}>${escapeHtml(tick.label)}</span></div>`;
+    return `<div class="ap-tick" style="left:${MarkupUtil.percentText(tick.leftPercent)}"><span${labelStyle}>${HtmlEscapeUtil.escapeHtml(tick.label)}</span></div>`;
   }).join('');
 }
 
@@ -142,7 +140,7 @@ export function summaryStatisticsMarkup(tasks: readonly Task[], concurrency: { l
   const awaitingMergeCount = tasks.filter((task) => task.status === 'reviewed').length;
   const inReviewCount      = tasks.filter((task) => task.status === 'in-review' || task.status === 're-review').length;
   const reportedTokens     = tasks.filter((task) => task.tokens !== null);
-  const figureMarkup = (figure: string): string => `<span class="ap-stat-n">${escapeHtml(figure)}</span>`;
+  const figureMarkup = (figure: string): string => `<span class="ap-stat-n">${HtmlEscapeUtil.escapeHtml(figure)}</span>`;
   const statistics = [
     `Work completed: ${figureMarkup(`${completedCount} / ${tasks.length}`)}`,
     `${figureMarkup(String(awaitingMergeCount))} awaiting merge`,
@@ -150,7 +148,7 @@ export function summaryStatisticsMarkup(tasks: readonly Task[], concurrency: { l
     `${figureMarkup(`${concurrency.agentsInFlight} of ${concurrency.limit}`)} ${concurrency.limit === 1 ? 'agent' : 'agents'} running`,
   ];
   if (reportedTokens.length > 0) {
-    statistics.push(`${figureMarkup(formatTokenCount(reportedTokens.reduce((total, task) => total + (task.tokens ?? 0), 0)))} tokens`);
+    statistics.push(`${figureMarkup(TokenCountUtil.formatTokenCount(reportedTokens.reduce((total, task) => total + (task.tokens ?? 0), 0)))} tokens`);
   }
   return statistics
     .map((statisticMarkup) => `<span class="ap-stat">${statisticMarkup}</span>`)

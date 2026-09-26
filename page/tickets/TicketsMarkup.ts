@@ -11,7 +11,6 @@ import { MarkupUtil }             from '../utils/MarkupUtil.ts';
 import type { TimestampSlices }   from '../utils/TimeUtil.ts';
 import { WorkItemMarkupUtil }     from '../utils/WorkItemMarkupUtil.ts';
 
-const { escapeHtml } = HtmlEscapeUtil;
 
 /** The Tickets tab sets the quiet low badge one space off the title or status badge before it; the amber high mark carries its own margin. */
 function ticketsTabPriorityMarkMarkup(ticket: PageTicket): string {
@@ -23,11 +22,11 @@ export function ticketTableRowsMarkup(tickets: readonly PageTicket[], waitingOnB
   return tickets.map((ticket) => [
     `<tr ${MarkupUtil.attribute('data-ticket-id', ticket.id)} tabindex="0">`,
     `<td class="mono">${WorkItemMarkupUtil.ticketLinksMarkup([ticket.id])}</td>`,
-    `<td>${escapeHtml(ticket.title)}${ticketsTabPriorityMarkMarkup(ticket)}${WorkItemMarkupUtil.waitingOnMarkup(waitingOnById.get(ticket.id) ?? [])}</td>`,
-    `<td>${escapeHtml(ticket.type)}</td>`,
+    `<td>${HtmlEscapeUtil.escapeHtml(ticket.title)}${ticketsTabPriorityMarkMarkup(ticket)}${WorkItemMarkupUtil.waitingOnMarkup(waitingOnById.get(ticket.id) ?? [])}</td>`,
+    `<td>${HtmlEscapeUtil.escapeHtml(ticket.type)}</td>`,
     `<td>${WorkItemMarkupUtil.ticketStatusBadgeMarkup(ticket.status)}</td>`,
-    `<td>${escapeHtml(ticket.group ?? '')}</td>`,
-    `<td class="mono">${escapeHtml(ticket.branch ?? '')}</td>`,
+    `<td>${HtmlEscapeUtil.escapeHtml(ticket.group ?? '')}</td>`,
+    `<td class="mono">${HtmlEscapeUtil.escapeHtml(ticket.branch ?? '')}</td>`,
     `<td class="mono">${WorkItemMarkupUtil.taskLinkMarkup(ticket.task)}</td>`,
     '</tr>',
   ].join('')).join('');
@@ -58,8 +57,8 @@ function ticketMetadataMarkup(ticket: PageTicket, slices: TimestampSlices, today
     .filter(([, value]) => typeof value === 'string' && value !== '')
     .map(([label, value, isTimestamp]) => {
       const text        = value ?? '';
-      const valueMarkup = isTimestamp ? MarkupUtil.stampMarkup('span', text, todayCalendarDate, slices) : `<span>${escapeHtml(text)}</span>`;
-      return `<div><b>${escapeHtml(label)}</b>${valueMarkup}</div>`;
+      const valueMarkup = isTimestamp ? MarkupUtil.stampMarkup('span', text, todayCalendarDate, slices) : `<span>${HtmlEscapeUtil.escapeHtml(text)}</span>`;
+      return `<div><b>${HtmlEscapeUtil.escapeHtml(label)}</b>${valueMarkup}</div>`;
     })
     .join('');
   const taskEntry       = ticket.task === null ? '' : `<div><b>task</b><span>${WorkItemMarkupUtil.taskLinkMarkup(ticket.task)}</span></div>`;
@@ -70,8 +69,8 @@ function ticketMetadataMarkup(ticket: PageTicket, slices: TimestampSlices, today
 
 function ticketCardMarkup(ticket: PageTicket, waitingOn: readonly string[], slices: TimestampSlices, todayCalendarDate: string): string {
   const head = [
-    `<span class="ap-ticket-id">#${escapeHtml(ticket.id)}</span>`,
-    `<h3 class="ap-ticket-title">${escapeHtml(ticket.title)}</h3>`,
+    `<span class="ap-ticket-id">#${HtmlEscapeUtil.escapeHtml(ticket.id)}</span>`,
+    `<h3 class="ap-ticket-title">${HtmlEscapeUtil.escapeHtml(ticket.title)}</h3>`,
     WorkItemMarkupUtil.ticketStatusBadgeMarkup(ticket.status),
     ticketsTabPriorityMarkMarkup(ticket),
     WorkItemMarkupUtil.waitingOnMarkup(waitingOn),
