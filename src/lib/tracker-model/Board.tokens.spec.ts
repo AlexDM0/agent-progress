@@ -119,7 +119,7 @@ test('a review share lands on the ticket\'s newest filed review bar, a delivered
   expect(progress.tasks.map((task) => task.tokens)).toEqual([1_001, 300, null]);
 });
 
-// A hand-edited file can repeat an id; the page's Kanban takes the first bar holding the highest one, so crediting agrees with it.
+// A hand-edited file can repeat an id; the page's Kanban takes the first bar holding the highest one, and so does crediting.
 test('a review share on two bars sharing the highest id lands on the first of them in the file', () => {
   const firstBar  = deliveredReviewBarFixture(5, '003', 1);
   const secondBar = deliveredReviewBarFixture(5, '003', 2);
@@ -129,6 +129,19 @@ test('a review share on two bars sharing the highest id lands on the first of th
 
   expect(firstBar.tokens).toBe(1_001);
   expect(secondBar.tokens).toBeNull();
+});
+
+// The hook before the Board queries credited the first row holding the bar's id, whatever it was; a reviewer's share belongs on its bar.
+test('a review share lands on the newest bar even when an earlier row that is not a review bar holds the same id', () => {
+  const buildRow  = taskFixture({ id: 5, name: 'Example build', tokens: 200 });
+  const reviewBar = deliveredReviewBarFixture(5, '003', 1);
+  const { board } = boardFixture({ tasks: [buildRow, reviewBar], tickets: [ticketFixture({ id: '003', status: 'delivered' })] });
+
+  const { outcomes } = board.recordAgentStop(EXAMPLE_USAGE, [{ target: 'review', ticketId: '003', tokens: 1_001 }], STOPPED_AT);
+
+  expect(outcomes).toEqual([{ verdict: 'credited', taskId: 5 }]);
+  expect(reviewBar.tokens).toBe(1_001);
+  expect(buildRow.tokens).toBe(200);
 });
 
 // The hook's sentence for a review nobody filed a bar for depends on this verdict, and the other shares must still land.
