@@ -17,9 +17,16 @@ const {
   WORKFLOW_INPUT_UTIL,
   AGENT_PROMPT_UTIL,
   DISPATCH_WORDING_UTIL,
+  DISPATCHER_CLAIM_NOTE_UTIL,
 } = DISPATCHER_MODULE_PATHS;
 
 const PAUSED_TICKET_ID = '001';
+
+const REVIEW_WAITING_TICKET_ID = '007';
+
+const SECOND_PAUSED_TICKET_ID = '004';
+
+const SECOND_PAUSED_TICKET_CLAIM_NOTE = `Built by the whole-board dispatcher run on ticket-${SECOND_PAUSED_TICKET_ID}`;
 
 const WHOLE_BOARD_CLAIM_NOTE = `Built by the whole-board dispatcher run on ticket-${PAUSED_TICKET_ID}`;
 
@@ -151,6 +158,19 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
     },
   },
   {
+    // A reviewer's note ends like a claim on the same ticket, so only the claim's opening tells the dispatcher's pause from a person's.
+    name:        'a paused row whose note only ends like a claim is left alone',
+    scenarioFor: pausedBuildBeside(`Reviewed by the whole-board dispatcher run on ticket-${PAUSED_TICKET_ID}`),
+    holds:       (run) => callsOf(run, 'main', 'build', PAUSED_TICKET_ID).length === 0
+      && run.rowsPaused.join() === `build ${PAUSED_TICKET_ID}`
+      && runSummaryOf(run).delivered.join() === '002',
+    mutant: {
+      modulePath: DISPATCHER_CLAIM_NOTE_UTIL,
+      find:       'return note.startsWith(opening) && note.endsWith(ending);',
+      replace:    'return note.endsWith(ending);',
+    },
+  },
+  {
     name:        'resumed builders count against the limit like any other: three paused builds and a ready ticket never run past a limit of 2',
     scenarioFor: () => ({
       limit:                      2,
@@ -220,6 +240,42 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
     },
   },
   {
+    // A ready ticket the block states no priority for ranks as low, so a paused normal build keeps the one slot first.
+    name:        'a paused normal build resumes before a ready ticket whose priority the status block does not state',
+    scenarioFor: () => ({
+      limit:                      1,
+      readyTicketIds:             ['001'],
+      includeLowPriority:         true,
+      statusOmitsReadyTickets:    true,
+      pausedBuildNotesByTicketId: { [SECOND_PAUSED_TICKET_ID]: SECOND_PAUSED_TICKET_CLAIM_NOTE },
+    }),
+    holds: (run) => run.calls.filter((call) => call.kind === 'build').map((call) => call.ticketId).join() === '004,001'
+      && runSummaryOf(run).delivered.join() === '004,001',
+    mutant: {
+      modulePath: DISPATCH_RUN,
+      find:       'return rank === -1 ? DISPATCH_POLICY.PRIORITIES_IN_ORDER.length - 1 : rank;',
+      replace:    'return rank === -1 ? 0 : rank;',
+    },
+  },
+  {
+    // A low paused build and a low ready ticket both wait for triage; the summary lists the paused builds first, as the old script did.
+    name:        'a low-priority paused build is listed as lowPriorityWaiting before a low-priority ready ticket',
+    scenarioFor: () => ({
+      limit:                      1,
+      readyTicketIds:             ['001'],
+      lowPriorityTicketIds:       ['001', SECOND_PAUSED_TICKET_ID],
+      pausedBuildNotesByTicketId: { [SECOND_PAUSED_TICKET_ID]: SECOND_PAUSED_TICKET_CLAIM_NOTE },
+    }),
+    holds:  (run) => runSummaryOf(run).lowPriorityWaiting?.join() === '004,001',
+    mutant: {
+      modulePath: DISPATCH_RUN,
+      find:       '      ...this.untakenPausedBuildIds().filter((ticketId) => !this.pausedBuildIsAdmitted(ticketId)),\n'
+        + '      ...this.latestStatusReading.readyTicketIds.filter((ticketId) => !this.ticketIdsTakenThisRun.has(ticketId) && !this.readyTicketIsAdmitted(ticketId)),\n',
+      replace: '      ...this.latestStatusReading.readyTicketIds.filter((ticketId) => !this.ticketIdsTakenThisRun.has(ticketId) && !this.readyTicketIsAdmitted(ticketId)),\n'
+        + '      ...this.untakenPausedBuildIds().filter((ticketId) => !this.pausedBuildIsAdmitted(ticketId)),\n',
+    },
+  },
+  {
     // Low work waits for the orchestrator's triage whether it is new or paused; the summary is what tells it the relaunch needs includeLowPriority.
     name:        'a paused low build is not resumed without includeLowPriority, stays paused and is reported',
     scenarioFor: lowPausedBuildBesideHighReadyTicket(false),
@@ -266,6 +322,22 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
       && callsOf(run, 'main', 'review', '002').length === 0
       && run.rowsRunningAtEnd.length === 0,
     mutant: { modulePath: DISPATCH_WORDING_UTIL, find: '  if (outcome.reviewsLeft.length > 0) summary.reviewsLeft = outcome.reviewsLeft;\n', replace: '' },
+  },
+  {
+    // A survey reply is agent output and may name a review twice; the summary names each review left once, or the relaunch would count it twice.
+    name:        'a survey that lists the same review twice leaves it named once in reviewsLeft',
+    scenarioFor: () => ({
+      limit:                  2,
+      readyTicketIds:         [],
+      reviewWaitingTicketIds: [REVIEW_WAITING_TICKET_ID, REVIEW_WAITING_TICKET_ID],
+      dispatcherState:        'stopped',
+    }),
+    holds:  (run) => JSON.stringify(runSummaryOf(run).reviewsLeft) === JSON.stringify([REVIEW_WAITING_TICKET_ID]),
+    mutant: {
+      modulePath: DISPATCH_RUN,
+      find:       'return [...new Set(reviewsLeft.map((review) => review.ticketId))];',
+      replace:    'return reviewsLeft.map((review) => review.ticketId);',
+    },
   },
   {
     // A worktree gone means the build's commits and edits are gone with it, and a builder "carrying on" would start from nothing under an old claim.

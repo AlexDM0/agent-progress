@@ -19,6 +19,8 @@ const { DISPATCH_RUN, AGENT_PROMPT_UTIL } = DISPATCHER_MODULE_PATHS;
 
 const HELD_TICKET_ID = '001';
 
+const HELD_PAUSED_TICKET_ID = '004';
+
 function callsOf(run: RecordedDispatchRun, kind: string, ticketId: string): RecordedAgentCall[] {
   return run.calls.filter((call) => call.kind === kind && call.ticketId === ticketId);
 }
@@ -335,5 +337,44 @@ export const HOLD_CLAIMS: readonly DispatchClaim[] = [
     scenarioFor: () => HELD_REVIEW_TAKEOVER_UNHELD_WITHOUT_LISTED_ROWS,
     holds:       (run) => kindsAndTickets(run).join(', ') === 'survey, build 001, build 002, park 001, review 002, review 001, build 003, build 004, review 003, review 004',
     mutant:      { modulePath: DISPATCH_RUN, find: '  const { barIsHandedOn, ...waitingReview } = work;\n', replace: '  const waitingReview = work;\n' },
+  },
+  {
+    // Both are held from the start: a paused build and a ready ticket; the summary lists the paused build first, as the old script did.
+    name:        'a held paused build is listed under held before a held ready ticket',
+    scenarioFor: () => ({
+      limit:                      1,
+      readyTicketIds:             [HELD_TICKET_ID],
+      heldTicketIds:              [HELD_TICKET_ID, HELD_PAUSED_TICKET_ID],
+      pausedBuildNotesByTicketId: { [HELD_PAUSED_TICKET_ID]: `Built by the whole-board dispatcher run on ticket-${HELD_PAUSED_TICKET_ID}` },
+    }),
+    holds:  (run) => runSummaryOf(run).held?.map((entry) => entry.id).join() === '004,001',
+    mutant: {
+      modulePath: DISPATCH_RUN,
+      find:       '[...this.resumablePausedBuildIds, ...this.latestStatusReading.readyTicketIds]',
+      replace:    '[...this.latestStatusReading.readyTicketIds, ...this.resumablePausedBuildIds]',
+    },
+  },
+  {
+    // #007's review holds #008, still waiting for its review, and #001, which no builder took, then stops the board.
+    name:        'a held step is listed under held before a held ticket no builder took',
+    scenarioFor: () => ({
+      limit:                  1,
+      readyTicketIds:         [HELD_TICKET_ID],
+      reviewWaitingTicketIds: ['007', '008'],
+      afterAgent:             (call, board) => {
+        if (call.kind !== 'review' || call.ticketId !== '007') return;
+        board.heldTicketIds.push('008', HELD_TICKET_ID);
+        board.dispatcherState = 'stopped';
+      },
+    }),
+    holds: (run) => runSummaryOf(run).held?.map((entry) => `${entry.id} ${entry.waitingFor}`).join() === '008 review,001 build'
+      && run.logs.includes('Held, for the next run once unheld: #008 (review), #001 (build).'),
+    mutant: {
+      modulePath: DISPATCH_RUN,
+      find:       '      ...heldSteps.map((work): HeldEntry => ({ ticketId: work.ticketId, waitingFor: work.kind })),\n'
+        + '      ...this.heldUntakenTicketIds().map((ticketId): HeldEntry => ({ ticketId, waitingFor: \'build\' })),\n',
+      replace: '      ...this.heldUntakenTicketIds().map((ticketId): HeldEntry => ({ ticketId, waitingFor: \'build\' })),\n'
+        + '      ...heldSteps.map((work): HeldEntry => ({ ticketId: work.ticketId, waitingFor: work.kind })),\n',
+    },
   },
 ];

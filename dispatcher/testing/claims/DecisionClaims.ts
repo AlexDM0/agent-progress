@@ -307,6 +307,32 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     },
   },
   {
+    // Round 3 names only b.ts, which round 1 named and round 2 did not: every earlier round's files count as known, not only the previous round's.
+    name:        'round 4 is granted when round 3 names only a file an earlier round than the previous one named',
+    scenarioFor: () => ({
+      limit:          1,
+      readyTicketIds: ['001'],
+      reviewerReply:  (_ticketId, round) => {
+        if (round === 1) {
+          return {
+            verdict:       'round-requested',
+            reworkedLines: 900,
+            findings:      [finding('naming', 'a.ts'), finding('ordering', 'b.ts'), finding('spacing', 'c.ts'), finding('typing', 'd.ts')],
+          };
+        }
+        if (round === 2) return { verdict: 'round-requested', reworkedLines: 900, findings: [finding('logging', 'a.ts'), finding('caching', 'a.ts')] };
+        if (round === 3) return { verdict: 'round-requested', reworkedLines: 900, findings: [finding('validation', 'b.ts')] };
+        return { verdict: 'released' };
+      },
+    }),
+    holds:  (run) => reviewsOf(run, '001') === 4 && runSummaryOf(run).delivered.includes('001'),
+    mutant: {
+      modulePath: ROUND_VERDICT_UTIL,
+      find:       'const earlierFiles = new Set(earlierFindings.map((finding) => finding.file));',
+      replace:    'const earlierFiles = new Set(previous.findings.map((finding) => finding.file));',
+    },
+  },
+  {
     name:        'a reviewer\'s stated round overrides the round the dispatcher counted',
     scenarioFor: () => ({
       limit:             2,
@@ -701,11 +727,13 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
   },
   {
     // A reviewer files its findings as low tickets minutes before the normal work runs out; the run must not pick them up untriaged.
-    name:        'a low ticket filed mid-run while normal work remains is not started, and is left for triage',
+    // A low set already non-empty must still be re-read from every status block, or the new one is taken for normal work.
+    name:        'a low ticket filed mid-run beside one already waiting is not started, and both are left for triage',
     scenarioFor: () => ({
-      limit:          1,
-      readyTicketIds: ['001', '002'],
-      afterAgent:     (call, board) => {
+      limit:                1,
+      readyTicketIds:       ['001', '002', '004'],
+      lowPriorityTicketIds: ['004'],
+      afterAgent:           (call, board) => {
         if (call.kind !== 'review' || call.ticketId !== '001') return;
         board.readyTicketIds.push('009');
         board.lowPriorityTicketIds.push('009');
@@ -713,11 +741,31 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     }),
     holds: (run) => !kindsAndTickets(run).includes('build 009')
       && runSummaryOf(run).delivered.join() === '001,002'
-      && runSummaryOf(run).lowPriorityWaiting?.join() === '009',
+      && runSummaryOf(run).lowPriorityWaiting?.join() === '004,009',
     mutant: {
       modulePath: DISPATCH_RUN,
       find:       'this.lowPriorityReadyTicketIds = lowPriorityReadyTicketIdsOf(status);',
-      replace:    'if (this.agentsRun === 1) this.lowPriorityReadyTicketIds = lowPriorityReadyTicketIdsOf(status);',
+      replace:    'if (this.lowPriorityReadyTicketIds.size === 0) this.lowPriorityReadyTicketIds = lowPriorityReadyTicketIdsOf(status);',
+    },
+  },
+  {
+    // A ticket this run took is no longer waiting for triage, even when its claim was refused and a later block reads it as low.
+    name:        'a ready ticket the run took, whose claim was refused and which later reads as low, is not left for triage',
+    scenarioFor: () => ({
+      limit:          2,
+      readyTicketIds: ['001', '002'],
+      builderReply:   (ticketId) => (ticketId === '002' ? { outcome: 'claim-refused', detail: 'no slot free' } : { outcome: 'in-review' }),
+      afterAgent:     (call, board) => {
+        if (call.kind === 'build' && call.ticketId === '002') board.lowPriorityTicketIds.push('002');
+      },
+    }),
+    holds: (run) => kindsAndTickets(run).includes('build 002')
+      && run.logs.some((message) => message.includes('#002 skipped for this run: the claim was refused'))
+      && runSummaryOf(run).lowPriorityWaiting === undefined,
+    mutant: {
+      modulePath: DISPATCH_RUN,
+      find:       'readyTicketIds.filter((ticketId) => !this.ticketIdsTakenThisRun.has(ticketId) && !this.readyTicketIsAdmitted(ticketId)),',
+      replace:    'readyTicketIds.filter((ticketId) => !this.readyTicketIsAdmitted(ticketId)),',
     },
   },
   {
@@ -1009,6 +1057,27 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       modulePath: DISPATCH_RUN,
       find:       '      else this.parksAwaitingTheNextAgent.push({ work: deadAgentWork, reason });\n',
       replace:    '      else this.park(ticketId, reason);\n',
+    },
+  },
+  {
+    // #001's reviewer is the outage's first death and #001's second failed pass: the park waits for #003's builder, a death too.
+    name:        'a reviewer of 001 returning nothing on its second failed pass, followed by a builder returning nothing, parks nothing: the outage stops the run',
+    scenarioFor: () => ({
+      limit:          2,
+      readyTicketIds: ['001', '002', '003'],
+      builderReply:   (ticketId, pass) => {
+        if (ticketId === '003') return null;
+        return ticketId === '001' && pass === 1 ? { outcome: 'failed' } : { outcome: 'in-review' };
+      },
+      reviewerReply: (ticketId) => (ticketId === '001' ? null : { verdict: 'released' }),
+    }),
+    holds: (run) => runSummaryOf(run).stoppedByFailures === true
+      && runSummaryOf(run).parked.length === 0
+      && runSummaryOf(run).reviewsLeft?.join() === '001',
+    mutant: {
+      modulePath: DISPATCH_RUN,
+      find:       '(this.reviewWorkFor(ticketId, true, true)); }, work);',
+      replace:    '(this.reviewWorkFor(ticketId, true, true)); });',
     },
   },
   {
