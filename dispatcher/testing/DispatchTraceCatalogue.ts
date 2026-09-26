@@ -113,8 +113,15 @@ export const REFUSED_ARGUMENT_KEYS = ['arguments: ticketIds empty', 'arguments: 
 /** The two survey shapes the dispatcher does not guard, where the port keeps the old crash. */
 export const KEPT_CRASH_KEYS = ['lever: survey without a list of reviews waiting', 'lever: survey with a null among the reviews waiting'] as const;
 
-/** Levers whose guard reads the malformed reply exactly as the unmisbehaved one, so their trace equals their base's rather than differing from it. */
-export const LEVERS_READ_AS_THEIR_BASE = ['lever: reviewer round not an integer', 'lever: paused builds holding a null entry and one without its worktree'] as const;
+/**
+ * Levers whose guard reads the malformed reply exactly as the unmisbehaved one, or keeps what an earlier reply stated, so their trace equals their
+ * base's.
+ */
+export const LEVERS_READ_AS_THEIR_BASE = [
+  'lever: reviewer round not an integer',
+  'lever: paused builds holding a null entry and one without its worktree',
+  'lever: builder status without a list of held tickets',
+] as const;
 
 const PAUSED_BUILD_ON_THE_BOARD: DispatchScenario = { limit: 2, readyTicketIds: [], pausedBuildNotesByTicketId: { '004': EXAMPLE_PAUSED_BUILD_NOTE } };
 
@@ -146,6 +153,19 @@ const STATUS_WITHOUT_READY_TICKET_IDS = {
   freeSlots:       2,
   dispatcherState: 'running',
   heldTicketIds:   [],
+};
+
+const STATUS_WITHOUT_HELD_TICKET_IDS = {
+  limit:          2,
+  agentsInFlight: 0,
+  freeSlots:      2,
+  readyTicketIds: ['002'],
+  readyTickets:   [{
+    id: '002', priority: 'normal', model: 'opus', effort: 'medium', held: true 
+  }],
+  dispatcherState:       'running',
+  inProgressTicketIds:   [],
+  inProgressReviewOfIds: ['001'],
 };
 
 const LEVER_ENTRIES: readonly CatalogueEntry[] = [
@@ -185,6 +205,15 @@ const LEVER_ENTRIES: readonly CatalogueEntry[] = [
       ...ONE_READY_TICKET,
       reviewerReply:     roundRequestedOnRoundOne(751),
       agentMisbehaviour: misbehaviourOfKind('review', { replacesFields: { round: 1.5 } }),
+    }),
+  },
+  {
+    key:         'lever: builder status without a list of held tickets',
+    scenarioFor: () => ({
+      limit:             2,
+      readyTicketIds:    ['001', '002'],
+      heldTicketIds:     ['002'],
+      agentMisbehaviour: misbehaviourOfKind('build', { replacesFields: { status: STATUS_WITHOUT_HELD_TICKET_IDS } }),
     }),
   },
   {
