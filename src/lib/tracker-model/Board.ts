@@ -510,7 +510,7 @@ export class Board {
   }
 
   /** The normal and high tickets a low ticket waits behind; empty for a ticket that is not low, and once none is owed. */
-  lowPriorityWorkHoldingBack(ticketId: string): string[] {
+  ticketIdsHoldingBack(ticketId: string): string[] {
     const ticket = this.requireTicket(ticketId);
     if (TicketDefaultsUtil.ticketPriorityOf(ticket.frontmatter) !== 'low') return [];
     return TicketDependencyUtil.ticketsHoldingBackLowPriorityWork(this.ticketRecords.map((candidate) => candidate.frontmatter));
@@ -697,7 +697,7 @@ export class Board {
     const unsettledTicketIds = this.unsettledDependenciesOf(ticketId).filter((dependencyId) => !claimedTicketIds.includes(dependencyId));
     if (unsettledTicketIds.length > 0) throw new BoardRefusal({ reason: 'claim-waits-on-dependencies', ticketId, unsettledTicketIds });
     if (ticket.frontmatter.hold !== undefined) throw new BoardRefusal({ reason: 'claim-of-a-held-ticket', ticketId });
-    const holdingBackTicketIds = this.lowPriorityWorkHoldingBack(ticketId);
+    const holdingBackTicketIds = this.ticketIdsHoldingBack(ticketId);
     if (holdingBackTicketIds.length > 0) throw new BoardRefusal({ reason: 'claim-of-held-back-low-ticket', ticketId, holdingBackTicketIds });
   }
 

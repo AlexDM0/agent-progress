@@ -74,12 +74,12 @@ test('a low ticket is held back by every normal or high ticket not yet delivered
       ticketFixture({ id: '005', priority: 'low', status: 'in-progress' }),
     ],
   });
-  expect(board.lowPriorityWorkHoldingBack('004')).toEqual(['001', '003']);
-  expect(board.lowPriorityWorkHoldingBack('001')).toEqual([]);
+  expect(board.ticketIdsHoldingBack('004')).toEqual(['001', '003']);
+  expect(board.ticketIdsHoldingBack('001')).toEqual([]);
 
   const settledTickets          = [ticketFixture({ id: '001', status: 'delivered' }), ticketFixture({ id: '002', priority: 'low' })];
   const { board: settledBoard } = boardFixture({ tickets: settledTickets });
-  expect(settledBoard.lowPriorityWorkHoldingBack('002')).toEqual([]);
+  expect(settledBoard.ticketIdsHoldingBack('002')).toEqual([]);
 });
 
 test('ready tickets come high first and then by id, each pending and with every dependency settled', () => {

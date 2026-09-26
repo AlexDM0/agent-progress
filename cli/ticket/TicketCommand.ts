@@ -462,9 +462,9 @@ async function transitionOneTicket(
     }, change.at);
     return {
       move,
-      startedReviewBar:       reviewBarStartedFor(change, move.ticket, reviewBarRequest),
-      unsettled:              board.unsettledDependenciesOf(ticketId),
-      lowPriorityHoldingBack: board.lowPriorityWorkHoldingBack(ticketId),
+      startedReviewBar:     reviewBarStartedFor(change, move.ticket, reviewBarRequest),
+      unsettled:            board.unsettledDependenciesOf(ticketId),
+      holdingBackTicketIds: board.ticketIdsHoldingBack(ticketId),
     };
   });
 
@@ -484,8 +484,8 @@ async function transitionOneTicket(
   if (targetStatus === 'in-progress' && move.ticket.frontmatter.hold !== undefined) {
     context.standardError(`Ticket #${id} is held; it was started anyway, and \`agent-progress ticket unhold ${id}\` lifts the hold.`);
   }
-  if (targetStatus === 'in-progress' && moved.lowPriorityHoldingBack.length > 0) {
-    context.standardError(`${TicketPhraseUtil.lowPriorityHeldBackText(id, moved.lowPriorityHoldingBack)}; it was started anyway.`);
+  if (targetStatus === 'in-progress' && moved.holdingBackTicketIds.length > 0) {
+    context.standardError(`${TicketPhraseUtil.lowPriorityHeldBackText(id, moved.holdingBackTicketIds)}; it was started anyway.`);
   }
 }
 
