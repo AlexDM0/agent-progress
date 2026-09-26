@@ -1,5 +1,5 @@
 /**
- * Which log a tracker has, row by row of the design's table: a version 2 progress.json leaves the log to log.jsonl; a version 1 one owns
+ * Which log a tracker has: a version 2 progress.json leaves the log to log.jsonl; a version 1 one owns
  * its log, which must be moved to log.jsonl on the next write; and a log.jsonl beside a version 1 file is believed only as a migration cut
  * short, when it begins with that log. Every other pairing is refused naming both files, so no log is dropped silently.
  */

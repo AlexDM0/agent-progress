@@ -1,7 +1,7 @@
 /**
- * The one rule the validation changed: a retired task word passes, in a row and in its history, because migration now follows validation.
- * An unknown word still gets the message listing the statuses. Versions 1 and 2 are read: a version 1 file needs its log, a version 2 file
- * must not have one, and any other version is named.
+ * A retired task word passes, in a row and in its history, because the ingestion migrates it after validation; an unknown word still gets
+ * the message listing the statuses. Versions 1 and 2 are read: a version 1 file needs its log, a version 2 file must not have one, and any
+ * other version is named.
  */
 import { expect, test } from 'bun:test';
 
