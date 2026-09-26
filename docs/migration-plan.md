@@ -238,10 +238,26 @@ Each step is one or more commits on the branch; each commit is green.
    `docs/development.md` in line, and update `docs/backlog.md`. The owner retakes `docs/images/`
    with `.readme-graphics/regenerate.sh` (their checkout only): the ticket badges in
    `docs/images/panel-tickets.png` and `docs/images/panel-watch.gif` still show the pre-4a words `open` and `done`.
-10. **Verify and merge.** Full suite; exercise init, update, a ticket's lifecycle, a release and
-    a dispatcher run in scratch repositories, including one created by the old version so
-    migration on ingestion is tested on real old files. Merge per §1, then run `update`
-    everywhere.
+10. **Polish, end-of-refactor review, verify and merge.**
+    - **Polish.** Fix every minor finding the lean step reviews deferred, and sweep the whole tree
+      for the conventions.
+    - **End-of-refactor review** of the whole branch against main, repeated until two rounds find
+      nothing. The contract is external behaviour: the CLI's commands, output and exit codes, and
+      the page's HTML and behaviour, must match main. The only allowed differences are the decided
+      ones (the status words, the aligned verbs and the refusals of retired words, progress.json
+      version 2 with log.jsonl). Internals may differ completely and are judged only by the
+      conventions. Lenses: black-box behaviour (the same scenarios run on main's CLI and on the
+      branch's, output and pages compared), migration of copies of real trackers, plan completeness
+      (every §3 row and §2 rule), architecture (every import against §2's direction rules, the
+      package test), conventions, tests (none lost, skipped or weakened against main), docs.
+    - **Verify and merge.** Full suite; exercise init, update, a ticket's lifecycle, a release and
+      a dispatcher run in scratch repositories, including one created by the old version so
+      migration on ingestion is tested on real old files. Ask the owner, then merge per §1 and run
+      `update` everywhere.
+
+From step 6 on, each step gets one lean review round (plan, behaviour and its own lens; no
+conventions lens), and its minor findings are deferred to the polish sweep (owner's choice,
+2026-09-26).
 
 ## 5. What carries over from the earlier proposal
 
