@@ -296,11 +296,10 @@ export class DispatchRun {
     return [...new Set(reviewsLeft.map((review) => review.ticketId))];
   }
 
-  // A builder is on the board from its claim, a reviewer from its bar; a status block without the rows confirms nothing, except a bar handed on: the
-  // one a builder's `in-review` or a reviewer's call for another round says was left running, which only a block listing the rows can contradict.
-  // A parking agent never is on the board, so the row it is pausing counts as another's until it returns: the safe side, for the few turns it runs.
+  // A status block without the rows confirms nothing, except a bar handed on (a builder's `in-review` or a reviewer's call for another round),
+  // which only a block listing the rows can contradict.
   private ownAgentIsConfirmedByStatus(work: DispatchWork, status: StatusReading): boolean {
-    if (work.kind === 'park') return false;
+    if (work.kind === 'park') return false; // Never on the board: the row it pauses counts as another's until it returns, the safe side.
     const confirmingTicketIds = work.kind === 'build' ? status.inProgressTicketIds : status.inProgressReviewOfIds;
     if (confirmingTicketIds === 'unlisted') return work.kind === 'review' && work.barIsHandedOn === true;
     return confirmingTicketIds.includes(work.ticketId);
@@ -450,9 +449,8 @@ export class DispatchRun {
     retry();
   }
 
-  // A takeover goes first: until it starts, its row is on the board and counted as the dispatcher's own, beside every agent it has in flight.
-  // Then reviews waiting: a built ticket holds a worktree and a finished pass, a new ticket holds nothing yet.
-  // A held ticket's pending step waits in `heldWork` instead, and the queue moves on to the next ticket's.
+  // A takeover goes first, as its row is on the board and counted as the dispatcher's own until it starts; then reviews, as a built ticket holds
+  // a worktree and a finished pass while a new ticket holds nothing yet.
   private nextWork(): DispatchWork | null {
     for (;;) {
       const [takeover] = this.takeoversWaiting.values();

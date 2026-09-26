@@ -1,8 +1,7 @@
 /**
  * The dispatcher's decisions, pinned by running the TypeScript port, bundled, against a fake board. Each claim runs twice: against the bundle,
- * where it must hold, and against a mutant of the TypeScript module that holds the decision, where it must fail — so every claim here was watched
- * failing, and keeps being watched. A mutant whose text is not in its module exactly once fails the build rather than passing by mutating nothing.
- * A run that throws never counts as a claim holding, and a mutant that only crashes the script never counts as caught.
+ * where it must hold, and against a mutant of the TypeScript module that holds the decision, where it must fail. A mutant whose text is not in
+ * its module exactly once fails the build; a run that throws never counts as a claim holding, nor a mutant that only crashes as caught.
  */
 import { describe, expect, test } from 'bun:test';
 

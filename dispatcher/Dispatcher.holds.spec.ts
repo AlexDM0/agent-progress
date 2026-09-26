@@ -1,10 +1,7 @@
 /**
- * The dispatcher's reading of `ticket hold`, pinned like the rest of its decisions: each claim runs against the TypeScript port, bundled, where
- * it must hold, and against a mutant of the TypeScript module that holds the decision, where it must fail. The cases that matter are the ones a
- * paused ticket relies on: no builder or reviewer of a held ticket starts before a returned status block shows the hold lifted, the step starts
- * at the first block that does, a held ticket's row left running is released rather than holding a slot, the other tickets keep flowing within
- * the limit, and a run that ends first says what it left held.
- * A run that throws never counts as a claim holding, and a mutant that only crashes the script never counts as caught.
+ * The dispatcher's reading of `ticket hold`, checked against the bundle and a mutant like the claims in `dispatcher/Dispatcher.decisions.spec.ts`.
+ * A paused ticket relies on these: no builder or reviewer starts before a status block shows the hold lifted, a held row left running frees its
+ * slot, other tickets keep flowing within the limit, and a run that ends first names what it left held.
  */
 import { describe, expect, test } from 'bun:test';
 
