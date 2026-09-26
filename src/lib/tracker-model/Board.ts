@@ -666,7 +666,7 @@ export class Board {
     }
   }
 
-  /** Linked by `reviewOf` alone: the page's nesting by name is a display fallback for older rows, never a reason to close one. */
+  /** Linked by `reviewOf` alone; ingestion gives a bar known only by its name its `reviewOf` before the Board sees it. */
   private inProgressReviewBarsOf(ticketIds: readonly string[]): ReviewBar[] {
     return this.progress.tasks.filter((task): task is ReviewBar => task.status === 'in-progress' && task.reviewOf !== undefined && ticketIds.includes(task.reviewOf));
   }

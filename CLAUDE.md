@@ -190,7 +190,8 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
 - A ticket is its frontmatter `id`, never its file name. Ticket and task ids are never reused; gaps are never filled.
 - Only a transition stamps `updated`. The named verbs enforce the legality matrix; `ticket status` skips it on purpose.
 - A row's `history` holds only what the tool watched; nothing reconstructs phases. A review row belongs to its
-  ticket by `reviewOf`; the page's match on its name is a display fallback that never moves a row.
+  ticket by `reviewOf`; a free-standing row known only by its `Review <N> #<id>` name is given `reviewOf` and
+  `reviewBarRound` when progress.json is read, and nothing else reads a name.
 
 ### The page
 

@@ -180,9 +180,9 @@ output never carries either.
       [--json]                to the merged tip. More ids after <id> release every ticket of a
                               bundle, which share <b>. Every in-progress review row whose
                               --review-of names a released ticket is finished and delivered at the release
-                              time, and named; a row linked by its name alone is left. All of it happens in
-                              one lock hold, so two releases never race. Refused at exit 1, with
-                              nothing changed (no review row either), when a ticket
+                              time, and named; a row known only by a "Review <N> #<id>" name counts as linked.
+                              All of it happens in one lock hold, so two releases never race.
+                              Refused at exit 1, with nothing changed (no review row either), when a ticket
                               is not in-progress or in-review, when the main checkout is not on
                               --main (default \`main\`), when <b> is not a local branch, when <b>
                               does not descend from --main — reason \`main-moved\`: rebase <b> onto

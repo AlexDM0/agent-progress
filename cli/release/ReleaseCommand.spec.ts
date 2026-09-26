@@ -392,8 +392,8 @@ describe.skipIf(!gitIsAvailable())('a release closes the running review bars of 
     expect(releaseDocumentOf(outcome)).toMatchObject({ released: true, closedReviewRows: [reviewRowId] });
   });
 
-  // An earlier round's bar is already on the record; a name-only row is left because the page's name match is a display fallback, not a link.
-  test('a bundle closes the running review row of each ticket, and leaves an earlier delivered round and a row linked only by name alone', async () => {
+  // An earlier round's bar is already on the record; a row known only by its name is linked when progress.json is read, so it closes too.
+  test('a bundle closes the running review row of each ticket, one known only by its name among them, and leaves an earlier delivered round', async () => {
     const {
       identifier,
       worktree,
@@ -412,10 +412,15 @@ describe.skipIf(!gitIsAvailable())('a release closes the running review bars of 
     const outcome = await agentProgress(['release', identifier, bundled.id, '--branch', branch, '--worktree', worktree, '--json']);
 
     expect(outcome.exitCode, outcome.error).toBe(0);
-    expect(releaseDocumentOf(outcome)).toMatchObject({ closedReviewRows: [firstReviewId, bundledReviewId] });
+    expect(releaseDocumentOf(outcome)).toMatchObject({ closedReviewRows: [firstReviewId, bundledReviewId, nameOnlyReviewId] });
     for (const closedId of [firstReviewId, bundledReviewId]) expect(storedRow(closedId)).toMatchObject({ status: 'delivered', end: releaseStamp });
+    expect(storedRow(nameOnlyReviewId)).toMatchObject({
+      status:         'delivered',
+      end:            releaseStamp,
+      reviewOf:       identifier,
+      reviewBarRound: 1,
+    });
     expect(storedRow(earlierRoundId)).toEqual(earlierRoundBefore);
-    expect(storedRow(nameOnlyReviewId)).toMatchObject({ status: 'in-progress', end: null });
   });
 
   test('a release refused as main-moved leaves the review row running', async () => {

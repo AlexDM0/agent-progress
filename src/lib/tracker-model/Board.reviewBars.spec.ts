@@ -3,7 +3,8 @@
  * round on its row, from any status but review refused; a ticket whose row was cleared gets one back; a bar is named for the round the
  * caller counted, reviews its ticket and runs at once; a bar shares its claim's agent key only while the claim is still being worked, so
  * a bundle's reviewer takes no second slot and a lone reviewer takes its own; the earlier bar is closed before the next one starts; and
- * a bar that names its ticket only in its name is never closed. Refusals are asserted by reason code, never by wording.
+ * the Board reads no name: a record without `reviewOf` is never closed, as ingestion links a legacy bar before the Board sees it.
+ * Refusals are asserted by reason code, never by wording.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -204,7 +205,7 @@ describe('startReviewBar', () => {
     expect(second.logged).toEqual(records.slice(1));
   });
 
-  // Older bars were linked to their ticket by name alone; the page may still nest them, but closing one would end a stranger's work.
+  // The Board reads no name; ingestion gives a legacy bar its `reviewOf` from its name before the Board sees it.
   test('a bar that names its ticket only in its name is never closed', () => {
     const { board, progress } = ticketInReviewFixture();
     progress.tasks.push(taskFixture({ id: 2, name: 'Review 1 #003 — Example export dialog', status: 'in-progress' }));

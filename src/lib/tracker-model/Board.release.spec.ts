@@ -2,7 +2,8 @@
  * A release, which delivers the tickets of a branch that was just fast-forwarded. What `release` relies on: only a ticket a move to
  * reviewed is legal from can be released, and asking for any other is a programming error the command refuses first; each ticket is
  * reviewed and then delivered with the branch and the commit, logged as two moves in the order the tickets were given; and every
- * review bar of the bundle still in progress is closed after the moves, while an earlier bar and one linked only by name are left alone.
+ * review bar of the bundle still in progress is closed after the moves, while an earlier bar and a record without `reviewOf` are left
+ * alone: the Board reads no name, as ingestion links a legacy bar before the Board sees it.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -108,7 +109,7 @@ describe('releaseTickets', () => {
     expect(released.logged).toEqual(records);
   });
 
-  // The reviewer releases as the last step of its pass, so its bar ends here; a bar found only by its name may be anybody's.
+  // The reviewer releases as the last step of its pass, so its bar ends here; the Board reads no name, since ingestion links a legacy bar.
   test('every review bar of the bundle in progress is closed, and an earlier bar and one linked only by name are left alone', () => {
     const { board, progress } = bundleInReviewFixture();
     const earlierBar          = structuredClone(progress.tasks[2]);

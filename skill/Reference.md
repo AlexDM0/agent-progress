@@ -296,7 +296,7 @@ worktree. Inside one lock hold it checks the ticket, that the main checkout is o
 that `<b>` descends from it, fast-forwards, and moves the ticket to reviewed and delivered with the branch
 and the merged tip. In the same hold every `in-progress` review row whose `--review-of` names a released
 ticket is finished and delivered at the release time, since the reviewer releases as the last step
-of its pass; a row that is not in progress, or is linked to the ticket only by its name, is left alone.
+of its pass; a row that is not in progress is left alone.
 A refusal at any of those steps changes nothing, the review rows included. After the lock it removes the
 worktree (never forced) and deletes the branch (`-d`). A cleanup git declines is reported at exit 0,
 because the release happened: a worktree holding untracked or changed files stays, and names them.

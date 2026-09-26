@@ -116,18 +116,37 @@ test('a concurrency limit that is not a whole number of at least 1 makes the fil
   }
 });
 
-// Every review row filed before the field existed has none; the page falls back to its name, and a read must not add the field.
-test('a row without reviewOf reads back unchanged, and a read does not add the field', () => {
-  const progress = emptyProgress();
+// Every review row filed before the fields existed has neither; ingestion reads them from its name so that nothing downstream has to.
+test('a free-standing row known only by its Review <N> #<id> name reads with the reviewOf and round its name gives, and the read leaves the file as it was', () => {
+  const workspace = scratchWorkspace('store-review-of');
+  const progress  = emptyProgress();
   fileRow(progress, { name: 'Review 1 #3 — x' });
   fileRow(progress, { name: 'Review 2 #3 — x', reviewOf: '003' });
+  fileRow(progress, { name: 'Example free row' });
+  writeProgressFile(workspace, progress);
+  const bytesBeforeTheRead = readFileSync(workspace.progressFilePath);
 
-  const result = readBack('store-review-of', progress);
+  const result = readProgressFile(workspace);
   if (result.verdict !== 'readable') throw new Error(`expected a readable file, got ${JSON.stringify(result)}`);
-  const [plainRow, linkedRow] = result.progress.tasks;
-  expect(plainRow !== undefined && 'reviewOf' in plainRow, 'toEqual would not see a key added as undefined').toBe(false);
-  expect(linkedRow?.reviewOf).toBe('003');
-  expect(result.progress).toEqual(progress);
+  const [nameOnlyRow, linkedRow, plainRow] = result.progress.tasks;
+  expect(nameOnlyRow).toMatchObject({ reviewOf: '003', reviewBarRound: 1 });
+  expect(linkedRow).toMatchObject({ reviewOf: '003', reviewBarRound: 2 });
+  expect(plainRow === undefined ? [] : Object.keys(plainRow), 'toEqual would not see a key added as undefined').toEqual(Object.keys(progress.tasks[2] ?? {}));
+  expect(readFileSync(workspace.progressFilePath)).toEqual(bytesBeforeTheRead);
+});
+
+test('a write after the read stores the reviewOf and round a legacy name gave', () => {
+  const workspace = scratchWorkspace('store-review-of-written');
+  const progress  = emptyProgress();
+  fileRow(progress, { name: 'Review 1 #3 — x' });
+  writeProgressFile(workspace, progress);
+
+  const result = readProgressFile(workspace);
+  if (result.verdict !== 'readable') throw new Error(`expected a readable file, got ${JSON.stringify(result)}`);
+  writeProgressFile(workspace, result.progress);
+
+  const onDisk = JSON.parse(readFileSync(workspace.progressFilePath, 'utf8')) as ProgressFile;
+  expect(onDisk.tasks[0]).toMatchObject({ reviewOf: '003', reviewBarRound: 1 });
 });
 
 test('a bar that stores its round reads back unchanged', () => {

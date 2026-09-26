@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 
+import { LegacyReviewBarUtil }                               from '../../src/adapters/utils/LegacyReviewBarUtil';
 import { LegacyStatusUtil }                                  from '../../src/adapters/utils/LegacyStatusUtil';
 import { createFileAtomically, writeFileAtomically }         from '../../src/lib/atomic-file/AtomicFile';
 import type { DispatcherState, ProgressFile, ViewRange }     from '../../src/lib/tracker-model/@types/ProgressFile';
@@ -210,7 +211,10 @@ export function readProgressFile(workspace: Workspace): ReadProgressFileResult {
   replaceRetiredTaskStatusWords(parsed);
   const problem = progressFileProblem(parsed);
   if (problem !== null) return { verdict: 'unreadable', reason: problem };
-  return { verdict: 'readable', progress: parsed as ProgressFile };
+  // In memory only, like the status words: the next write stores the fields.
+  const progress = parsed as ProgressFile;
+  progress.tasks = progress.tasks.map(LegacyReviewBarUtil.linkedReviewBarOf);
+  return { verdict: 'readable', progress };
 }
 
 /** Through `src/lib/atomic-file/AtomicFile.ts`, because a subagent in another worktree may be reading this exact file right now. */
