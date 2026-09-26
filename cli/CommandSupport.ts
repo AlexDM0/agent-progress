@@ -14,7 +14,7 @@ import {
   type TicketListing
 } from '../lib/tickets/TicketStore';
 import { NextLineUtil }                                          from '../lib/utils/NextLineUtil';
-import { LogFileIngestion }                                      from '../src/adapters/log/LogFileIngestion';
+import { LogFileIngestion, type LogFileReading }                 from '../src/adapters/log/LogFileIngestion';
 import { createLogFileSink }                                     from '../src/adapters/log/LogFileSink';
 import { createLogFileWriter }                                   from '../src/adapters/log/LogFileWriter';
 import { TrackerLogUtil, type StoredLog, type StoredLogReading } from '../src/adapters/log/utils/TrackerLogUtil';
@@ -112,17 +112,35 @@ export function requireProgressFile(workspace: Workspace): ProgressFile {
   return requireProgressFileReading(workspace).progress;
 }
 
+export function readLogFile(workspace: Workspace): LogFileReading {
+  return new LogFileIngestion(workspace.logFilePath).read();
+}
+
 /** `embeddedLog` is the progress file's own log, which a version 1 file has; `src/adapters/log/utils/TrackerLogUtil.ts` decides between the two. */
-export function readStoredLog(workspace: Workspace, embeddedLog: readonly LogRecord[] | null): StoredLogReading {
-  const logFileReading = new LogFileIngestion(workspace.logFilePath).read();
+export function storedLogFrom(workspace: Workspace, embeddedLog: readonly LogRecord[] | null, logFileReading: LogFileReading): StoredLogReading {
   return TrackerLogUtil.storedLogOf(embeddedLog, logFileReading, { logFilePath: workspace.logFilePath, progressFilePath: workspace.progressFilePath });
 }
 
+export function readStoredLog(workspace: Workspace, embeddedLog: readonly LogRecord[] | null): StoredLogReading {
+  return storedLogFrom(workspace, embeddedLog, readLogFile(workspace));
+}
+
 /** Unreadable is `'unrepaired'`, as an unreadable progress file is: no command repairs a log it cannot read. */
-export function requireStoredLog(workspace: Workspace, embeddedLog: readonly LogRecord[] | null): StoredLog {
-  const storedLog = readStoredLog(workspace, embeddedLog);
+function storedLogOrRefusal(storedLog: StoredLogReading): StoredLog {
   if (storedLog.verdict === 'unreadable') throw new OperationRefusal('unrepaired', `The log cannot be read: ${storedLog.reason}`);
   return storedLog;
+}
+
+export function requireStoredLog(workspace: Workspace, embeddedLog: readonly LogRecord[] | null): StoredLog {
+  return storedLogOrRefusal(readStoredLog(workspace, embeddedLog));
+}
+
+/** Without the lock the log is read first: a version 1 progress file only ever sits beside an absent log or its own copied notes. */
+export function requireProgressFileAndStoredLog(workspace: Workspace): { progressReading: ReadableProgressFile; storedLog: StoredLog } {
+  const logFileReading  = readLogFile(workspace);
+  const progressReading = requireProgressFileReading(workspace);
+  const storedLog       = storedLogOrRefusal(storedLogFrom(workspace, progressReading.embeddedLog, logFileReading));
+  return { progressReading, storedLog };
 }
 
 export function ignoredTicketFileText(malformed: { filePath: string; line: number; reason: string }): string {
@@ -359,9 +377,10 @@ function trackerIsInAnOlderFormat(embeddedLog: readonly LogRecord[] | null, list
  * pipeline's two halves, with nothing changed and nothing logged. A current, absent or unreadable tracker is `null`, read without the lock.
  */
 export async function rewriteOlderTrackerFiles(context: CommandContext, workspace: Workspace): Promise<TrackerRewrite | null> {
+  const logFileReading  = readLogFile(workspace);
   const progressReading = new ProgressFileIngestion(workspace.progressFilePath).read();
   if (progressReading.verdict !== 'readable') return null;
-  if (readStoredLog(workspace, progressReading.embeddedLog).verdict !== 'readable') return null;
+  if (storedLogFrom(workspace, progressReading.embeddedLog, logFileReading).verdict !== 'readable') return null;
   if (!trackerIsInAnOlderFormat(progressReading.embeddedLog, listTickets(workspace))) return null;
 
   return withLock(workspace, async () => {

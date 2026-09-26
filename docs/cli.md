@@ -40,7 +40,7 @@ is taken over from a version 1 `progress.json`, its notes are first copied to `l
 file that held them is rewritten without them; this command's lines still go last.
 `render` and `open` take the lock only to render. `status`, `ticket list`, `ticket show`,
 `concurrency` and `dispatcher` without an argument, `usage` and `rework` take none: every file they
-read is written atomically. `update`, and `init` on an existing tracker, take it only when they rewrite a
+read is written atomically, and `status` reads `log.jsonl` before `progress.json`, so the two always pair. `update`, and `init` on an existing tracker, take it only when they rewrite a
 tracker still in an older format, through the same read and write; otherwise they take none.
 
 **Help and options.** `agent-progress help` prints the whole reference. `--help` works after a

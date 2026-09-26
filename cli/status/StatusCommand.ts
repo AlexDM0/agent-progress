@@ -18,8 +18,7 @@ import {
   printEntityThenNextLine,
   readyTicketsOf,
   reportIgnoredTicketFiles,
-  requireProgressFileReading,
-  requireStoredLog,
+  requireProgressFileAndStoredLog,
   ticketDocumentOf,
   type ReadyTicket
 } from '../CommandSupport';
@@ -169,8 +168,7 @@ export const statusCommand: CommandHandler = async (commandArguments, context) =
   commandArguments.rejectExtraPositionals(0, USAGE);
 
   const workspace = requireWorkspace(context.currentDirectory);
-  const progressReading = requireProgressFileReading(workspace);
-  const storedLog       = requireStoredLog(workspace, progressReading.embeddedLog);
+  const { progressReading, storedLog } = requireProgressFileAndStoredLog(workspace);
   const wordedLog       = storedLog.records.map(LogUtil.wordedEntryOf);
   const { progress } = progressReading;
   const listing         = listTickets(workspace);
