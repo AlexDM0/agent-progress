@@ -539,7 +539,7 @@ export class Board {
     return SETTLED_TICKET_STATUSES.includes(ticket.frontmatter.status);
   }
 
-  /** Oldest filed first; free-standing rows only, as the page and the hook read them; a bar naming a ticket the board lacks is still returned. */
+  /** Oldest filed first; free-standing rows only, since a ticket's own row is never a review bar; a bar naming a missing ticket is still returned. */
   reviewBarsOf(ticketId: string): readonly Readonly<Task>[] {
     return this.reviewBarRecordsOf(ticketId);
   }
@@ -704,7 +704,7 @@ export class Board {
     }
   }
 
-  /** Linked by `reviewOf` on any row, unlike `reviewBarsOf`, as closing and the claim refusal read it before the Board queries; in file order. */
+  /** Matches `reviewOf` on any row, unlike `reviewBarsOf`, so a ticket-owned row storing `reviewOf` is closed and blocks a claim too; in file order. */
   private inProgressReviewBarsOf(ticketIds: readonly string[]): ReviewBar[] {
     return this.progress.tasks.filter((task): task is ReviewBar => task.status === 'in-progress' && task.reviewOf !== undefined && ticketIds.includes(task.reviewOf));
   }

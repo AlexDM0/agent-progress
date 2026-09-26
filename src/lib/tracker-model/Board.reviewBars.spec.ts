@@ -4,7 +4,7 @@
  * caller counted, reviews its ticket and runs at once; a bar shares its claim's agent key only while the claim is still being worked, so
  * a bundle's reviewer takes no second slot and a lone reviewer takes its own; the earlier bar is closed before the next one starts; and
  * the Board reads no name: a record without `reviewOf` is never closed, as ingestion links a legacy bar before the Board sees it. Closing
- * and the claim refusal follow file order, as they did before the Board existed.
+ * and the claim refusal follow file order, not id order.
  * Refusals are asserted by reason code, never by wording.
  */
 import { describe, expect, test } from 'bun:test';

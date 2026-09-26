@@ -43,8 +43,7 @@ export interface Task {
   agent?:          string;
   /**
    * The padded id of the ticket this row reviews, written by `task add --review-of`; the page draws the row directly above that ticket's own row.
-   * Absent on every other row; a free-standing row filed before the field existed is given it from its `Review <N> #<id>` name when
-   * progress.json is read.
+   * Absent on every other row; a free-standing row filed before the field existed is given it from its `Review <N> #<id>` name at ingestion.
    */
   reviewOf?:       string;
   /** Which review of the `reviewOf` ticket this bar is, from 1, fixed when the bar is filed; unlike `reviewRound`, no transition moves it. */
