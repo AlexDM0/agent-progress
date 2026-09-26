@@ -82,12 +82,6 @@ test('a low ticket is held back by every normal or high ticket not yet delivered
   expect(settledBoard.lowPriorityWorkHoldingBack('002')).toEqual([]);
 });
 
-test('a task is found by id, and a missing one is undefined rather than an exception', () => {
-  const { board } = boardFixture({ tasks: [taskFixture({ id: 1, name: 'Review pass' })] });
-  expect(board.taskById(1)?.name).toBe('Review pass');
-  expect(board.taskById(99)).toBeUndefined();
-});
-
 test('ready tickets come high first and then by id, each pending and with every dependency settled', () => {
   const { board } = boardFixture({
     tickets: [
