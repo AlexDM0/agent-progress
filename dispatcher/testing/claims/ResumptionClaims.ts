@@ -24,9 +24,9 @@ const PAUSED_TICKET_ID = '001';
 
 const REVIEW_WAITING_TICKET_ID = '007';
 
-const SECOND_PAUSED_TICKET_ID = '004';
+const PAUSED_BUILD_BESIDE_READY_TICKET_ID = '004';
 
-const SECOND_PAUSED_TICKET_CLAIM_NOTE = `Built by the whole-board dispatcher run on ticket-${SECOND_PAUSED_TICKET_ID}`;
+const PAUSED_BUILD_BESIDE_READY_TICKET_CLAIM_NOTE = `Built by the whole-board dispatcher run on ticket-${PAUSED_BUILD_BESIDE_READY_TICKET_ID}`;
 
 const WHOLE_BOARD_CLAIM_NOTE = `Built by the whole-board dispatcher run on ticket-${PAUSED_TICKET_ID}`;
 
@@ -247,7 +247,7 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
       readyTicketIds:             ['001'],
       includeLowPriority:         true,
       statusOmitsReadyTickets:    true,
-      pausedBuildNotesByTicketId: { [SECOND_PAUSED_TICKET_ID]: SECOND_PAUSED_TICKET_CLAIM_NOTE },
+      pausedBuildNotesByTicketId: { [PAUSED_BUILD_BESIDE_READY_TICKET_ID]: PAUSED_BUILD_BESIDE_READY_TICKET_CLAIM_NOTE },
     }),
     holds: (run) => run.calls.filter((call) => call.kind === 'build').map((call) => call.ticketId).join() === '004,001'
       && runSummaryOf(run).delivered.join() === '004,001',
@@ -258,13 +258,13 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
     },
   },
   {
-    // A low paused build and a low ready ticket both wait for triage; the summary lists the paused builds first, as the old script did.
+    // A low paused build and a low ready ticket both wait for triage; the summary lists the paused builds first, as the frozen trace table pins.
     name:        'a low-priority paused build is listed as lowPriorityWaiting before a low-priority ready ticket',
     scenarioFor: () => ({
       limit:                      1,
       readyTicketIds:             ['001'],
-      lowPriorityTicketIds:       ['001', SECOND_PAUSED_TICKET_ID],
-      pausedBuildNotesByTicketId: { [SECOND_PAUSED_TICKET_ID]: SECOND_PAUSED_TICKET_CLAIM_NOTE },
+      lowPriorityTicketIds:       ['001', PAUSED_BUILD_BESIDE_READY_TICKET_ID],
+      pausedBuildNotesByTicketId: { [PAUSED_BUILD_BESIDE_READY_TICKET_ID]: PAUSED_BUILD_BESIDE_READY_TICKET_CLAIM_NOTE },
     }),
     holds:  (run) => runSummaryOf(run).lowPriorityWaiting?.join() === '004,001',
     mutant: {

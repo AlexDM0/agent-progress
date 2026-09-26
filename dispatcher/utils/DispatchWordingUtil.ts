@@ -147,7 +147,7 @@ function logEntryText(entry: DispatchLogEntry): string {
   }
 }
 
-// Keys go in the order the Workflow run has always returned them, and a key with nothing to say is left out.
+// A key with nothing to say is left out; the key order is the one `DispatchSummary` states.
 function summaryOf(outcome: DispatchOutcome): DispatchSummary {
   const summary: DispatchSummary = {
     delivered:     outcome.delivered,

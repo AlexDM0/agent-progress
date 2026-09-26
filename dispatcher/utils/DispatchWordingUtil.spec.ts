@@ -1,7 +1,7 @@
 /**
  * The dispatcher's output edge. What callers rely on is each park reason's sentence, the round refusals' included, since the orchestrator reads
  * them in the summary and the board's log; the agent labels the Workflow tool shows; the board log lines a parking agent writes; a failure's
- * detail shown only when it says something; and a summary that leaves out a key with nothing to say while keeping the order it always had.
+ * detail shown only when it says something; and a summary that leaves out a key with nothing to say, in the key order the frozen trace table pins.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -174,11 +174,11 @@ describe('the log sentences', () => {
 });
 
 describe('the summary', () => {
-  test('a run with nothing to add returns only the four keys it always returns', () => {
+  test('a run with nothing to add returns only the four unconditional keys', () => {
     expect(Object.keys(summaryOf(QUIET_OUTCOME))).toEqual(['delivered', 'parked', 'findingsFiled', 'agentsRun']);
   });
 
-  test('every key that says something is present, in the order the run has always returned them', () => {
+  test('every key that says something is present, in the order the frozen trace table pins', () => {
     const summary = summaryOf({
       ...QUIET_OUTCOME,
       parked:                  [{ ticketId: '002', reason: { cause: 'release-refused', statedReason: 'merge-refused' } }],

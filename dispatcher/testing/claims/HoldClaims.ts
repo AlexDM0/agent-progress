@@ -339,7 +339,7 @@ export const HOLD_CLAIMS: readonly DispatchClaim[] = [
     mutant:      { modulePath: DISPATCH_RUN, find: '  const { barIsHandedOn, ...waitingReview } = work;\n', replace: '  const waitingReview = work;\n' },
   },
   {
-    // Both are held from the start: a paused build and a ready ticket; the summary lists the paused build first, as the old script did.
+    // Both are held from the start: a paused build and a ready ticket; the summary lists the paused build first, as the frozen trace table pins.
     name:        'a held paused build is listed under held before a held ready ticket',
     scenarioFor: () => ({
       limit:                      1,
