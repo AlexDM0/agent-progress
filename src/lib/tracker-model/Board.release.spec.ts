@@ -110,7 +110,7 @@ describe('releaseTickets', () => {
   });
 
   // The reviewer releases as the last step of its pass, so its bar ends here; the Board reads no name, since ingestion links a legacy bar.
-  test('every review bar of the bundle in progress is closed, and an earlier bar and one linked only by name are left alone', () => {
+  test('every review bar of the bundle in progress is closed, and an earlier bar and a record without reviewOf are left alone', () => {
     const { board, progress } = bundleInReviewFixture();
     const earlierBar          = structuredClone(progress.tasks[2]);
     const released            = board.releaseTickets(['001', '002'], RELEASE, RELEASED_AT);

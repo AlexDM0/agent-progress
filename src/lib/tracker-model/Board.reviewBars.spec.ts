@@ -206,7 +206,7 @@ describe('startReviewBar', () => {
   });
 
   // The Board reads no name; ingestion gives a legacy bar its `reviewOf` from its name before the Board sees it.
-  test('a bar that names its ticket only in its name is never closed', () => {
+  test('a record without reviewOf is never closed, whatever its name says', () => {
     const { board, progress } = ticketInReviewFixture();
     progress.tasks.push(taskFixture({ id: 2, name: 'Review 1 #003 — Example export dialog', status: 'in-progress' }));
     const started = board.startReviewBar('003', { round: 2 }, REREVIEWED_AT);
