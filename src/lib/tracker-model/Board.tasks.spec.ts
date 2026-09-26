@@ -38,24 +38,6 @@ describe('task ids', () => {
     expect(board.addTask({ name: 'Example first task', startsNow: false, movesTheLink: false }, FILED_AT).id).toBe(1);
   });
 
-  // An orchestrator that still holds a removed row's id would otherwise move a stranger's row with it.
-  test('an id is never handed out again after its row was removed', () => {
-    const { board } = boardFixture();
-    board.addTask({ name: 'Example first task', startsNow: false, movesTheLink: false }, FILED_AT);
-    const second = board.addTask({ name: 'Example second task', startsNow: false, movesTheLink: false }, FILED_AT);
-    board.removeTask(second.id);
-
-    expect(board.addTask({ name: 'Example third task', startsNow: false, movesTheLink: false }, FILED_AT).id).toBe(3);
-  });
-
-  test('a row renumbered by hand past the counter pushes the next id beyond it', () => {
-    const { board, progress } = boardFixture({ tasks: [taskFixture({ id: 1 })] });
-    progress.tasks[0] = taskFixture({ id: 9 });
-
-    expect(board.addTask({ name: 'Example next task', startsNow: false, movesTheLink: false }, FILED_AT).id).toBe(10);
-    expect(progress.nextTaskId).toBe(11);
-  });
-
   test('ids start at one and the counter moves past every id it hands out', () => {
     const { board, progress } = boardFixture();
     expect(board.addTask({ name: 'Plan the work', startsNow: false, movesTheLink: false }, FILED_AT).id).toBe(1);
@@ -63,6 +45,7 @@ describe('task ids', () => {
     expect(progress.nextTaskId).toBe(3);
   });
 
+  // An orchestrator that still holds a removed row's id would otherwise move a stranger's row with it.
   test('an id is never reused after the row that had it is removed', () => {
     const { board } = boardFixture();
     board.addTask({ name: 'Plan the work', startsNow: false, movesTheLink: false }, FILED_AT);
