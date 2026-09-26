@@ -1,6 +1,6 @@
 /**
  * The overview panel a double-click opens: one task, the ticket it belongs to and the log lines that name either, as pure functions.
- * Every value passes `escapeHtml` exactly once here, except a ticket's `bodyHtml`, already escaped by `lib/render/Markdown.ts`.
+ * Every value passes `escapeHtml` exactly once here, except a ticket's `bodyHtml`, already escaped by `src/services/render/Markdown.ts`.
  */
 
 import type { Task, TaskPhase, TaskStatus } from '../../src/lib/tracker-model/@types/Task.ts';

@@ -222,8 +222,8 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/rende
   string never changes.
 - Board facts such as the agents in flight arrive in the payload, computed by what `status --json` uses; the page
   never recounts them.
-- Every value passes `escapeHtml` once; a ticket's `bodyHtml`, already escaped by `lib/render/Markdown.ts`, is the
-  one unescaped string. Stored stamps are sliced, never re-parsed, and shortened only through
+- Every value passes `escapeHtml` once; a ticket's `bodyHtml`, already escaped by `src/services/render/Markdown.ts`,
+  is the one unescaped string. Stored stamps are sliced, never re-parsed, and shortened only through
   `page/utils/TimeUtil.ts`.
 - A visual change leaves the README screenshots stale: once it lands, run `.readme-graphics/regenerate.sh` in the
   main checkout.

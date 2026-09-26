@@ -5,15 +5,15 @@
 
 import { readFileSync }                                  from 'node:fs';
 import { join }                                          from 'node:path';
-import { ProgressDocumentUtil }                          from '../../src/adapters/progress/utils/ProgressDocumentUtil.ts';
-import { LogUtil }                                       from '../../src/adapters/utils/LogUtil.ts';
-import type { LogRecord }                                from '../../src/lib/tracker-model/@types/LogRecord.ts';
-import type { ProgressFile }                             from '../../src/lib/tracker-model/@types/ProgressFile.ts';
-import type { Ticket }                                   from '../../src/lib/tracker-model/@types/Ticket.ts';
-import { HtmlEscapeUtil }                                from '../../src/lib/utils/HtmlEscapeUtil.ts';
-import type { PageConcurrency, PagePayload, PageTicket } from '../../src/shared/@types/PagePayload.ts';
-import { OperationRefusal }                              from '../../src/shared/OperationRefusal.ts';
-import { LIMITS }                                        from '../../src/shared/constants/Limits.ts';
+import { ProgressDocumentUtil }                          from '../../adapters/progress/utils/ProgressDocumentUtil.ts';
+import { LogUtil }                                       from '../../adapters/utils/LogUtil.ts';
+import type { LogRecord }                                from '../../lib/tracker-model/@types/LogRecord.ts';
+import type { ProgressFile }                             from '../../lib/tracker-model/@types/ProgressFile.ts';
+import type { Ticket }                                   from '../../lib/tracker-model/@types/Ticket.ts';
+import { HtmlEscapeUtil }                                from '../../lib/utils/HtmlEscapeUtil.ts';
+import type { PageConcurrency, PagePayload, PageTicket } from '../../shared/@types/PagePayload.ts';
+import { OperationRefusal }                              from '../../shared/OperationRefusal.ts';
+import { LIMITS }                                        from '../../shared/constants/Limits.ts';
 import { renderMarkdown }                                from './Markdown.ts';
 
 const { escapeHtml, escapeJsonForScriptTag } = HtmlEscapeUtil;
@@ -104,7 +104,7 @@ export function renderProgressHtml(input: RenderProgressHtmlInput): string {
     concurrency,
   } = input;
   // Read per call, never at module load, and from the installed package rather than the caller's working directory.
-  const template = readFileSync(join(import.meta.dir, '..', '..', 'resources', TEMPLATE_FILE_NAME), 'utf8');
+  const template = readFileSync(join(import.meta.dir, '..', '..', '..', 'resources', TEMPLATE_FILE_NAME), 'utf8');
 
   const payload: PagePayload = {
     progress:                     ProgressDocumentUtil.documentOf(progress, logRecords.map(LogUtil.wordedEntryOf)),

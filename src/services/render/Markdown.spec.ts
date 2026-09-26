@@ -1,5 +1,5 @@
 /**
- * Where `lib/render/Markdown.ts` deliberately departs from marked: raw HTML escaped rather than
+ * Where `src/services/render/Markdown.ts` deliberately departs from marked: raw HTML escaped rather than
  * passed through, and only allowlisted link schemes surviving.
  */
 

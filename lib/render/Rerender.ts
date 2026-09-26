@@ -6,9 +6,9 @@ import { writeFileAtomically }      from '../../src/lib/atomic-file/AtomicFile.t
 import type { LogRecord }           from '../../src/lib/tracker-model/@types/LogRecord.ts';
 import type { ProgressFile }        from '../../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { Ticket }              from '../../src/lib/tracker-model/@types/Ticket.ts';
+import { bundlePageScript }         from '../../src/services/render/PageBundle.ts';
+import { renderProgressHtml }       from '../../src/services/render/Template.ts';
 import type { Workspace }           from '../../src/services/tracker/Workspace.ts';
-import { bundlePageScript }         from './PageBundle.ts';
-import { renderProgressHtml }       from './Template.ts';
 
 export interface MalformedTicketFile {
   filePath: string;

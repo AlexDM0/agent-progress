@@ -227,12 +227,12 @@ watched it fail.
 `progress.html` is built from `resources/template.html`, which is the designer's file: edited as
 HTML, carried over rather than generated. Its placeholder content is the contract, so a change to what
 the page modules under `page/` emit that is not also made in the template is a bug, in whichever
-direction it was made. `lib/render/Template.ts` replaces four tokens in it. The comment block at the top of the template
+direction it was made. `src/services/render/Template.ts` replaces four tokens in it. The comment block at the top of the template
 names those tokens, the ids and classes the template exposes, and the one layout invariant to protect
 (the axis box that keeps bars, ticks and the now-marker aligned).
 
 The TypeScript under `page/` runs in the browser and is compiled by its own DOM-only
-project (see [Checks](#checks)). It is bundled into the page from `page/PageStart.ts` by `lib/render/PageBundle.ts`.
+project (see [Checks](#checks)). It is bundled into the page from `page/PageStart.ts` by `src/services/render/PageBundle.ts`.
 
 To see a change, render a scratch tracker (the one from the session above, before its `rm -rf`) and
 open it:
@@ -298,7 +298,7 @@ written, and exactly one waiter wins.
 progress file in a JSON island and `page/utils/GeometryUtil.ts` computes every bar, tick and
 marker from it, which is what lets the in-page range presets re-lay-out without a regeneration, and
 means there is exactly one implementation of the geometry rather than a server copy and a client
-copy that disagree. The geometry's bounds are put into the island by `lib/render/Template.ts` and taken
+copy that disagree. The geometry's bounds are put into the island by `src/services/render/Template.ts` and taken
 as a parameter rather than read from `src/shared/constants/Limits.ts`, so `page/utils/GeometryUtil.spec.ts`
 can drive it with a constructed tick ladder.
 

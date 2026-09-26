@@ -5,7 +5,7 @@
 
 import { Marked }                      from 'marked';
 import type { RendererObject, Tokens } from 'marked';
-import { HtmlEscapeUtil }              from '../../src/lib/utils/HtmlEscapeUtil.ts';
+import { HtmlEscapeUtil }              from '../../lib/utils/HtmlEscapeUtil.ts';
 
 const { escapeHtml } = HtmlEscapeUtil;
 

@@ -4,13 +4,13 @@
  */
 
 import { describe, expect, test }                       from 'bun:test';
-import { ProgressDocumentUtil }                         from '../../src/adapters/progress/utils/ProgressDocumentUtil.ts';
-import type { LogRecord }                               from '../../src/lib/tracker-model/@types/LogRecord.ts';
-import type { ProgressFile }                            from '../../src/lib/tracker-model/@types/ProgressFile.ts';
-import type { Task }                                    from '../../src/lib/tracker-model/@types/Task.ts';
-import type { Ticket }                                  from '../../src/lib/tracker-model/@types/Ticket.ts';
-import { refusalIsOperationRefusal }                    from '../../src/shared/OperationRefusal.ts';
-import { LIMITS }                                       from '../../src/shared/constants/Limits.ts';
+import { ProgressDocumentUtil }                         from '../../adapters/progress/utils/ProgressDocumentUtil.ts';
+import type { LogRecord }                               from '../../lib/tracker-model/@types/LogRecord.ts';
+import type { ProgressFile }                            from '../../lib/tracker-model/@types/ProgressFile.ts';
+import type { Task }                                    from '../../lib/tracker-model/@types/Task.ts';
+import type { Ticket }                                  from '../../lib/tracker-model/@types/Ticket.ts';
+import { refusalIsOperationRefusal }                    from '../../shared/OperationRefusal.ts';
+import { LIMITS }                                       from '../../shared/constants/Limits.ts';
 import { renderProgressHtml, substituteTemplateTokens } from './Template.ts';
 
 const GENERATED_AT = new Date('2026-09-18T20:11:03Z');
