@@ -9,7 +9,6 @@ import { FIRST_REPEAT_REVIEW_ROUND }                   from '../../src/lib/track
 import { TicketDefaultsUtil }                          from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
 import type { PageTicket }                             from '../../src/shared/@types/PagePayload.ts';
 import { MILLISECONDS_PER_MINUTE, PERCENT_OF_A_WHOLE } from '../constants/Units.ts';
-import { BoardRulesUtil }                              from '../utils/BoardRulesUtil.ts';
 import type { TimelineLimits, TimelineTick }           from '../utils/GeometryUtil.ts';
 import { GeometryUtil }                                from '../utils/GeometryUtil.ts';
 import { TimeUtil }                                    from '../utils/TimeUtil.ts';
@@ -274,21 +273,20 @@ export function durationTextOf(milliseconds: number): string {
 }
 
 export function ticketTimelineOf(input: TicketTimelineInput): TicketTimeline {
-  const { ticket, tasks, limits } = input;
-  const closedState               = closedStateOf(ticket);
-  const closingStamp              = closingStampOf(ticket, closedState);
-  const filedEpochMilliseconds    = TimeUtil.epochMillisecondsOf(ticket.filed) ?? input.nowEpochMilliseconds;
-  const lastMoment                = Math.max(filedEpochMilliseconds, TimeUtil.epochMillisecondsOf(closingStamp) ?? input.nowEpochMilliseconds);
-  const axis                      = axisFor(filedEpochMilliseconds, lastMoment, limits);
-  const ownRow                    = BoardRulesUtil.ownRowOf(ticket.id, tasks);
-  const buildSegments             = buildSegmentsOf(ownRow, lastMoment, closedState !== null);
-  const firstSegment              = buildSegments[0];
-  const lastSegment               = buildSegments.at(-1);
-  const queueIsOpen               = firstSegment === undefined && closedState === null;
-  const queue                     = timelineSpan('pending', stateLabelOf('pending'), filedEpochMilliseconds, firstSegment?.startEpochMilliseconds ?? lastMoment, queueIsOpen);
-  const queuedMilliseconds        = queue.endEpochMilliseconds - queue.startEpochMilliseconds;
-  const reviews                   = reviewSpansOf(BoardRulesUtil.reviewRowsOf(ticket.id, tasks), lastMoment, closedState !== null);
-  const afterBuild                = afterBuildSpansOf({
+  const { ticket, ownRow, limits } = input;
+  const closedState                = closedStateOf(ticket);
+  const closingStamp               = closingStampOf(ticket, closedState);
+  const filedEpochMilliseconds     = TimeUtil.epochMillisecondsOf(ticket.filed) ?? input.nowEpochMilliseconds;
+  const lastMoment                 = Math.max(filedEpochMilliseconds, TimeUtil.epochMillisecondsOf(closingStamp) ?? input.nowEpochMilliseconds);
+  const axis                       = axisFor(filedEpochMilliseconds, lastMoment, limits);
+  const buildSegments              = buildSegmentsOf(ownRow, lastMoment, closedState !== null);
+  const firstSegment               = buildSegments[0];
+  const lastSegment                = buildSegments.at(-1);
+  const queueIsOpen                = firstSegment === undefined && closedState === null;
+  const queue                      = timelineSpan('pending', stateLabelOf('pending'), filedEpochMilliseconds, firstSegment?.startEpochMilliseconds ?? lastMoment, queueIsOpen);
+  const queuedMilliseconds         = queue.endEpochMilliseconds - queue.startEpochMilliseconds;
+  const reviews                    = reviewSpansOf(input.reviewBars, lastMoment, closedState !== null);
+  const afterBuild                 = afterBuildSpansOf({
     buildEndEpochMilliseconds:   buildEndOf(ticket, ownRow),
     reviews,
     reviewedEpochMilliseconds:   TimeUtil.epochMillisecondsOf(ownRow?.reviewed),

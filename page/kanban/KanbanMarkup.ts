@@ -9,7 +9,6 @@ import { TokenCountUtil }                    from '../../src/lib/utils/TokenCoun
 import type { KanbanCard }                   from '../@types/KanbanCard.ts';
 import type { ClosedKanbanLane, KanbanLane } from '../constants/KanbanLane.ts';
 import { CAPPED_LANE_FIRST_PAGE }            from '../constants/KanbanLane.ts';
-import { BoardRulesUtil }                    from '../utils/BoardRulesUtil.ts';
 import { MarkupUtil }                        from '../utils/MarkupUtil.ts';
 import { WorkItemMarkupUtil }                from '../utils/WorkItemMarkupUtil.ts';
 import type { NoteFormat }                   from './KanbanLaneText.ts';
@@ -58,7 +57,7 @@ const EMPTY_CLOSED_LANE_TEXT_UNDER_SHOW_ALL: Record<ClosedKanbanLane, string> = 
 };
 
 export interface KanbanBoardInput extends NoteFormat {
-  /** The cards of the tickets the Tickets tab shows; rows are looked up in the whole progress file, `tasks`. */
+  /** The cards of the tickets the Tickets tab shows. */
   cards:                  readonly KanbanCard[];
   showsAllWork:           boolean;
   shownCountByClosedLane: Readonly<Record<ClosedKanbanLane, number>>;
@@ -81,7 +80,7 @@ function marksMarkup(card: KanbanCard, lane: KanbanLane): string {
 
 function stateMarkup(card: KanbanCard, lane: KanbanLane, format: NoteFormat): string {
   const pill         = laneMixesStates(lane) ? `<span class="ap-pill">${HtmlEscapeUtil.escapeHtml(pillLabelOf(card))}</span>` : '';
-  const reviewedMark = lane === 'done' && card.ownRow !== null && BoardRulesUtil.cardCarriesReviewedMark(card)
+  const reviewedMark = lane === 'done' && card.ownRow !== null && card.ownRow.deliveredRowCountsAsReviewed
     ? `${WorkItemMarkupUtil.reviewedMarkMarkup(card.ownRow, format.slices)}<span>reviewed</span>`
     : '';
   return `<div class="ap-kanban-state">${pill}${reviewedMark}</div>`;

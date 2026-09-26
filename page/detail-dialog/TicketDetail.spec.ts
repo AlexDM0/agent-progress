@@ -7,7 +7,8 @@ import { describe, expect, test } from 'bun:test';
 import type { Task }              from '../../src/lib/tracker-model/@types/Task.ts';
 import type { PageTicket }        from '../../src/shared/@types/PagePayload.ts';
 import type { KanbanCard }        from '../@types/KanbanCard.ts';
-import { BoardRulesUtil }         from '../utils/BoardRulesUtil.ts';
+import { kanbanCardsFor }         from '../kanban/KanbanLanes.ts';
+import { pageBoardFixture }       from '../testing/PageBoardFixture.ts';
 import type { TicketDetailInput } from './TicketDetail.ts';
 import { ticketDetailMarkup }     from './TicketDetail.ts';
 
@@ -97,19 +98,16 @@ const WAITING_ROW = exampleRow(20, { ticket: '065' });
 const TASKS = [DELIVERED_ROW, WAITING_ROW];
 
 function cardFor(ticket: PageTicket, waitingOn: readonly string[] = []): KanbanCard {
-  const ownRow = BoardRulesUtil.ownRowOf(ticket.id, TASKS);
-  return {
-    ticket,
-    ownRow,
-    state: BoardRulesUtil.rowStateFor(ownRow ?? { status: ticket.status }, ticket.status),
-    waitingOn,
-  };
+  const [card] = kanbanCardsFor(pageBoardFixture({ tasks: TASKS, tickets: [ticket] }).tickets, new Map([[ticket.id, waitingOn]]));
+  if (card === undefined) {
+    throw new Error('no card was built');
+  }
+  return card;
 }
 
 function inputFor(card: KanbanCard): TicketDetailInput {
   return {
     card,
-    tasks:                TASKS,
     nowEpochMilliseconds: EXAMPLE_NOW,
     todayCalendarDate:    EXAMPLE_TODAY,
     limits:               EXAMPLE_LIMITS,

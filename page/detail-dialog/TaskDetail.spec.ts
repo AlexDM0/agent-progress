@@ -9,6 +9,7 @@ import { describe, expect, test } from 'bun:test';
 import type { Task }            from '../../src/lib/tracker-model/@types/Task.ts';
 import type { PageTicket }      from '../../src/shared/@types/PagePayload.ts';
 import type { WordedLogEntry }  from '../../src/shared/@types/WordedLogEntry.ts';
+import { pageBoardFixture }     from '../testing/PageBoardFixture.ts';
 import type { TimestampSlices } from '../utils/TimeUtil.ts';
 import { taskDetailMarkup }     from './TaskDetail.ts';
 
@@ -67,7 +68,7 @@ function exampleTicket(changes: Partial<PageTicket> = {}): PageTicket {
 
 function panelFor(task: Task | null, ticket: PageTicket | null = null, log: readonly WordedLogEntry[] = []): string {
   return taskDetailMarkup({
-    task,
+    task:              pageBoardFixture({ tasks: task === null ? [] : [task], tickets: ticket === null ? [] : [ticket] }).rows[0] ?? null,
     ticket,
     log,
     slices:            EXAMPLE_SLICES,
@@ -186,7 +187,7 @@ describe('the phases', () => {
   // Reading the newest phase the way the chart reads the row is the whole reason the panel is handed the ticket.
   test('reads the newest phase of an in-review row through its ticket, recorded or derived', () => {
     const recorded = panelFor(
-      exampleTask({ status: 'in-review', history: [{ status: 'in-progress', at: STARTED_AT }, { status: 'in-review', at: FINISHED_AT }] }),
+      exampleTask({ status: 'in-review', ticket: '001', history: [{ status: 'in-progress', at: STARTED_AT }, { status: 'in-review', at: FINISHED_AT }] }),
       exampleTicket({ status: 'in-review' }),
     );
     const derived = panelFor(exampleTask({ status: 'in-review', end: FINISHED_AT, ticket: '001' }), exampleTicket({ status: 'in-review' }));

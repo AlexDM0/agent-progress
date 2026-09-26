@@ -7,6 +7,7 @@ import { describe, expect, test }          from 'bun:test';
 import type { Task }                       from '../../src/lib/tracker-model/@types/Task.ts';
 import type { PageTicket }                 from '../../src/shared/@types/PagePayload.ts';
 import type { KanbanCard }                 from '../@types/KanbanCard.ts';
+import { pageBoardFixture }                from '../testing/PageBoardFixture.ts';
 import type { NoteFormat }                 from './KanbanLaneText.ts';
 import { laneSubCountsOf, subStateNoteOf } from './KanbanLaneText.ts';
 import { kanbanCardsFor }                  from './KanbanLanes.ts';
@@ -62,16 +63,15 @@ function exampleRow(id: number, changes: Partial<Task> = {}): Task {
 }
 
 function cardOf(ticket: PageTicket, tasks: readonly Task[], waitingOn: readonly string[] = []): KanbanCard {
-  const [card] = kanbanCardsFor([ticket], tasks, new Map([[ticket.id, waitingOn]]));
+  const [card] = kanbanCardsFor(pageBoardFixture({ tasks, tickets: [ticket] }).tickets, new Map([[ticket.id, waitingOn]]));
   if (card === undefined) {
     throw new Error('no card was built');
   }
   return card;
 }
 
-function noteFormat(tasks: readonly Task[]): NoteFormat {
+function noteFormat(): NoteFormat {
   return {
-    tasks,
     nowEpochMilliseconds: EXAMPLE_NOW,
     todayCalendarDate:    EXAMPLE_TODAY,
     slices:               EXAMPLE_SLICES,
@@ -86,13 +86,13 @@ describe('the sub-state note', () => {
       history: [{ status: 'paused', at: at('09:00') }, { status: 'in-progress', at: at('09:30') }, { status: 'paused', at: at('11:45') }],
     });
 
-    expect(subStateNoteOf(cardOf(exampleTicket('061', { status: 'in-progress' }), [row]), noteFormat([row]))).toBe('paused since 11:45 · 1h 51m');
+    expect(subStateNoteOf(cardOf(exampleTicket('061', { status: 'in-progress' }), [row]), noteFormat())).toBe('paused since 11:45 · 1h 51m');
   });
 
   test('leaves a paused row without history with no note', () => {
     const row = exampleRow(1, { status: 'paused', ticket: '061' });
 
-    expect(subStateNoteOf(cardOf(exampleTicket('061', { status: 'in-progress' }), [row]), noteFormat([row]))).toBeNull();
+    expect(subStateNoteOf(cardOf(exampleTicket('061', { status: 'in-progress' }), [row]), noteFormat())).toBeNull();
   });
 
   test.each([
@@ -102,13 +102,13 @@ describe('the sub-state note', () => {
   ] as Array<[string, Partial<Task>, Partial<PageTicket>, string]>)('counts the wait for a reviewer from %s', (_source, rowChanges, ticketChanges, expected) => {
     const row = exampleRow(1, { status: 'in-review', ticket: '062', ...rowChanges });
 
-    expect(subStateNoteOf(cardOf(exampleTicket('062', { status: 'pending', ...ticketChanges }), [row]), noteFormat([row]))).toBe(expected);
+    expect(subStateNoteOf(cardOf(exampleTicket('062', { status: 'pending', ...ticketChanges }), [row]), noteFormat())).toBe(expected);
   });
 
   test('names the running reviewer’s start on a reviewing card', () => {
     const tasks = [exampleRow(1, { status: 'in-review', ticket: '058' }), exampleRow(2, { status: 'in-progress', reviewOf: '058', start: at('13:05') })];
 
-    expect(subStateNoteOf(cardOf(exampleTicket('058', { status: 'in-review' }), tasks), noteFormat(tasks))).toBe('reviewer since 13:05');
+    expect(subStateNoteOf(cardOf(exampleTicket('058', { status: 'in-review' }), tasks), noteFormat())).toBe('reviewer since 13:05');
   });
 
   test('names the round and the newest reviewer on a repeat review, finding a review row by its name', () => {
@@ -120,13 +120,13 @@ describe('the sub-state note', () => {
       exampleRow(3, { name: 'Review 2 #059 — Accent-blind search', status: 'in-progress', start: at('11:34', '2026-09-24') }),
     ];
 
-    expect(subStateNoteOf(cardOf(exampleTicket('059', { status: 'in-review' }), tasks), noteFormat(tasks))).toBe('round 3 reviewer since 09-24 11:34');
+    expect(subStateNoteOf(cardOf(exampleTicket('059', { status: 'in-review' }), tasks), noteFormat())).toBe('round 3 reviewer since 09-24 11:34');
   });
 
   test('falls back to the first repeat round when the row names none', () => {
     const tasks = [exampleRow(1, { status: 're-review', ticket: '059' }), exampleRow(2, { reviewOf: '059', status: 'in-progress', start: at('11:34') })];
 
-    expect(subStateNoteOf(cardOf(exampleTicket('059', { status: 'in-review' }), tasks), noteFormat(tasks))).toBe('round 2 reviewer since 11:34');
+    expect(subStateNoteOf(cardOf(exampleTicket('059', { status: 'in-review' }), tasks), noteFormat())).toBe('round 2 reviewer since 11:34');
   });
 
   // Between rounds the newest review has ended and no new one has started: no reviewer is running, so none is named.
@@ -139,20 +139,20 @@ describe('the sub-state note', () => {
       }),
     ];
 
-    expect(subStateNoteOf(cardOf(exampleTicket('059', { status: 'in-review' }), tasks), noteFormat(tasks))).toBeNull();
+    expect(subStateNoteOf(cardOf(exampleTicket('059', { status: 'in-review' }), tasks), noteFormat())).toBeNull();
   });
 
   test('says when an awaiting-merge card was reviewed, and nothing when the row does not know', () => {
     const reviewed   = exampleRow(1, { status: 'reviewed', ticket: '056', reviewed: at('12:10') });
     const unrecorded = exampleRow(2, { status: 'reviewed', ticket: '057' });
 
-    expect(subStateNoteOf(cardOf(exampleTicket('056', { status: 'reviewed' }), [reviewed]), noteFormat([reviewed]))).toBe('reviewed 12:10');
-    expect(subStateNoteOf(cardOf(exampleTicket('057', { status: 'reviewed' }), [unrecorded]), noteFormat([unrecorded]))).toBeNull();
+    expect(subStateNoteOf(cardOf(exampleTicket('056', { status: 'reviewed' }), [reviewed]), noteFormat())).toBe('reviewed 12:10');
+    expect(subStateNoteOf(cardOf(exampleTicket('057', { status: 'reviewed' }), [unrecorded]), noteFormat())).toBeNull();
   });
 
   test('gives an abandoned card its reason, and no note without one', () => {
-    expect(subStateNoteOf(cardOf(exampleTicket('046', { status: 'abandoned', reason: 'Superseded by #056' }), []), noteFormat([]))).toBe('Superseded by #056');
-    expect(subStateNoteOf(cardOf(exampleTicket('047', { status: 'abandoned' }), []), noteFormat([]))).toBeNull();
+    expect(subStateNoteOf(cardOf(exampleTicket('046', { status: 'abandoned', reason: 'Superseded by #056' }), []), noteFormat())).toBe('Superseded by #056');
+    expect(subStateNoteOf(cardOf(exampleTicket('047', { status: 'abandoned' }), []), noteFormat())).toBeNull();
   });
 });
 
@@ -169,7 +169,10 @@ describe('the lane heads', () => {
 
   test('leaves a zero count out and counts a repeat review as reviewing', () => {
     const tasks = [exampleRow(1, { status: 're-review', ticket: '059' }), exampleRow(2, { status: 'in-review', ticket: '058' })];
-    const cards = kanbanCardsFor([exampleTicket('059', { status: 'in-review' }), exampleTicket('058', { status: 'in-review' })], tasks, new Map());
+    const cards = kanbanCardsFor(
+      pageBoardFixture({ tasks, tickets: [exampleTicket('059', { status: 'in-review' }), exampleTicket('058', { status: 'in-review' })] }).tickets,
+      new Map(),
+    );
 
     expect(laneSubCountsOf('review', cards).map((entry) => `${entry.dotState} ${entry.count} ${entry.label}`)).toEqual(['reviewing 2 reviewing']);
   });
@@ -178,7 +181,7 @@ describe('the lane heads', () => {
     const tickets = Array.from({ length: 20 }, (_unused, index) => exampleTicket(String(index + 1), { status: 'delivered', delivered: at('10:00') }));
     const tasks   = tickets.map((ticket, index) => exampleRow(index + 1, { status: 'delivered', ticket: ticket.id }));
 
-    expect(laneSubCountsOf('done', kanbanCardsFor(tickets, tasks, new Map()))).toEqual([{
+    expect(laneSubCountsOf('done', kanbanCardsFor(pageBoardFixture({ tasks, tickets }).tickets, new Map()))).toEqual([{
       count:        20,
       label:        'reviewed first',
       dotState:     null,

@@ -9,6 +9,7 @@ import type { TicketPriority, TicketStatus }   from '../../src/lib/tracker-model
 import type { PageTicket }                     from '../../src/shared/@types/PagePayload.ts';
 import type { KanbanCard }                     from '../@types/KanbanCard.ts';
 import type { KanbanLane }                     from '../constants/KanbanLane.ts';
+import { pageBoardFixture }                    from '../testing/PageBoardFixture.ts';
 import {
   cardsInLane,
   kanbanCardsFor,
@@ -58,7 +59,7 @@ function exampleRow(id: number, changes: Partial<Task> = {}): Task {
 }
 
 function cardOf(ticket: PageTicket, tasks: readonly Task[], waitingOn: readonly string[] = []): KanbanCard {
-  const [card] = kanbanCardsFor([ticket], tasks, new Map([[ticket.id, waitingOn]]));
+  const [card] = kanbanCardsFor(pageBoardFixture({ tasks, tickets: [ticket] }).tickets, new Map([[ticket.id, waitingOn]]));
   if (card === undefined) {
     throw new Error('no card was built');
   }
@@ -112,7 +113,7 @@ describe('which lane a card sits in', () => {
 
 describe('the order within a lane', () => {
   function idsInLane(tickets: readonly PageTicket[], lane: Parameters<typeof cardsInLane>[1]): string[] {
-    return cardsInLane(kanbanCardsFor(tickets, [], new Map()), lane).map((card) => card.ticket.id);
+    return cardsInLane(kanbanCardsFor(pageBoardFixture({ tasks: [], tickets }).tickets, new Map()), lane).map((card) => card.ticket.id);
   }
 
   test('runs high, normal, low, then the id as a number, so #9 comes before #10', () => {
@@ -128,8 +129,7 @@ describe('the order within a lane', () => {
 
   test('divides an open lane only when it holds more than one priority', () => {
     const cardsOfPriorities = (priorities: TicketPriority[]): KanbanCard[] => kanbanCardsFor(
-      priorities.map((priority, index) => exampleTicket(String(index + 1), { priority })),
-      [],
+      pageBoardFixture({ tasks: [], tickets: priorities.map((priority, index) => exampleTicket(String(index + 1), { priority })) }).tickets,
       new Map(),
     );
 

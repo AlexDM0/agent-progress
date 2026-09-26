@@ -303,7 +303,7 @@ copy that disagree. The geometry's bounds are put into the island by `src/servic
 as a parameter rather than read from `src/shared/constants/Limits.ts`, so `page/utils/GeometryUtil.spec.ts`
 can drive it with a constructed tick ladder. The island's last key, `boardFacts`, carries the Board's answers
 the render service computes through `src/services/render/utils/BoardFactsUtil.ts`: one fact per row at its
-index, and one per ticket by id. The page reads them from plan step 7b on.
+index, and one per ticket by id. The page reads every board fact from them and derives none itself.
 
 ## Backlog
 

@@ -213,8 +213,8 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  cli/
   over the lines would put at risk keeping every unowned line byte for byte.
 - A row's `history` holds only what the tool watched; nothing reconstructs phases. A review row belongs to its
   ticket by `reviewOf`; a free-standing row known only by its `Review <N> #<id>` name is given `reviewOf` and
-  `reviewBarRound` when progress.json is read. Outside that, only the page (`page/`) still matches a name, as a
-  display fallback that never moves a row, until it switches to the Board queries (plan step 7b).
+  `reviewBarRound` when progress.json is read. Nothing else matches a name: the page reads which rows are bars from
+  the Board facts.
 
 ### The page
 
@@ -230,7 +230,8 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  cli/
   string never changes.
 - The render service computes the Board facts through `src/services/render/utils/BoardFactsUtil.ts` and writes them
   as the payload's last key, `boardFacts`; the concurrency figures come from `board.concurrency()`, which
-  `status --json` prints too. The page switches to the facts in plan step 7b and until then derives its own.
+  `status --json` prints too. The page reads them, zipped onto its rows and tickets by `page/utils/IslandUtil.ts`,
+  and keeps no copy of the rules.
 - Every value passes `escapeHtml` once; a ticket's `bodyHtml`, already escaped by `src/services/render/Markdown.ts`,
   is the one unescaped string. Stored stamps are sliced, never re-parsed, and shortened only through
   `page/utils/TimeUtil.ts`.
@@ -286,7 +287,7 @@ src/                        the target layout's code, filled step by step as the
                             reading, writing and mapping what the tracker stores, and the wording of log records and Board refusals
   src/services/             tracker (discovery, the lock, reading, the write pipeline, creation) and render (the page document)
   src/shared/               app-specific code several parts use: the environment reader, the refusal, LIMITS,
-                            the page payload types, ticket numbers
+                            the page payload types
   src/testing/              test-only helpers several parts use: the scratch workspace, the tracker isolation check, the Board fixtures
 skill/                      the skill every session in a tracked repository loads
 skill-orchestrate/          the skill for the one session running the board

@@ -9,13 +9,12 @@ import type {
   TaskPhase,
   TaskStatus
 } from '../../src/lib/tracker-model/@types/Task.ts';
-import type { TicketStatus }         from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { FIRST_REPEAT_REVIEW_ROUND } from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
 import { HtmlEscapeUtil }            from '../../src/lib/utils/HtmlEscapeUtil.ts';
 import { TokenCountUtil }            from '../../src/lib/utils/TokenCountUtil.ts';
 import type { PageTicket }           from '../../src/shared/@types/PagePayload.ts';
 import type { WordedLogEntry }       from '../../src/shared/@types/WordedLogEntry.ts';
-import { BoardRulesUtil }            from '../utils/BoardRulesUtil.ts';
+import type { BoardRow }             from '../@types/PageBoard.ts';
 import { LogMarkupUtil }             from '../utils/LogMarkupUtil.ts';
 import { MarkupUtil }                from '../utils/MarkupUtil.ts';
 import type { TimestampSlices }      from '../utils/TimeUtil.ts';
@@ -51,7 +50,7 @@ interface PhaseLine {
 }
 
 export interface TaskDetailInput {
-  task:              Task | null;
+  task:              BoardRow | null;
   ticket:            PageTicket | null;
   log:               readonly WordedLogEntry[];
   slices:            TimestampSlices;
@@ -122,12 +121,12 @@ function recordedPhaseLines(task: Task): PhaseLine[] {
  * The newest phase is the row as it stands, so it is read the way the chart reads it: the one state a task status cannot name on its
  * own is an `in-review` row whose ticket is `in-review` too. An older phase keeps the status it was filed under.
  */
-function readNewestPhaseAsTheChartDoes(lines: readonly PhaseLine[], task: Task, ticketStatus: TicketStatus | null): PhaseLine[] {
+function readNewestPhaseAsTheChartDoes(lines: readonly PhaseLine[], task: BoardRow): PhaseLine[] {
   const newest = lines.at(-1);
   if (newest === undefined || newest.state !== task.status) {
     return [...lines];
   }
-  return [...lines.slice(0, -1), { ...newest, state: BoardRulesUtil.rowStateFor(task, ticketStatus) }];
+  return [...lines.slice(0, -1), { ...newest, state: task.displayState }];
 }
 
 /**
@@ -178,10 +177,10 @@ function noteMarkup(text: string): string {
   return `<p class="ap-detail-note">${HtmlEscapeUtil.escapeHtml(text)}</p>`;
 }
 
-function phasesMarkup(task: Task, ticket: PageTicket | null, format: StampFormat): string {
+function phasesMarkup(task: BoardRow, ticket: PageTicket | null, format: StampFormat): string {
   const wasRecorded = (task.history ?? []).length > 0;
   const filed       = wasRecorded ? recordedPhaseLines(task) : derivedPhaseLines(task, ticket);
-  const lines       = readNewestPhaseAsTheChartDoes(filed, task, ticket?.status ?? null);
+  const lines       = readNewestPhaseAsTheChartDoes(filed, task);
   if (lines.length === 0) {
     return noteMarkup(NO_PHASES_TO_SHOW_NOTE);
   }
@@ -253,7 +252,7 @@ function logMarkup(input: TaskDetailInput): string {
   return `<ul class="ap-detail-log">${LogMarkupUtil.logItemsMarkup(named, input.slices, input.todayCalendarDate)}</ul>`;
 }
 
-function headMarkup(task: Task | null, ticket: PageTicket | null): string {
+function headMarkup(task: BoardRow | null, ticket: PageTicket | null): string {
   if (task === null) {
     // A ticket whose row was removed: there is no state to colour the header with, so the ticket's own badge carries it.
     return ticket === null ? '' : [
@@ -264,7 +263,7 @@ function headMarkup(task: Task | null, ticket: PageTicket | null): string {
       '</div>',
     ].join('');
   }
-  const state       = BoardRulesUtil.rowStateFor(task, ticket?.status ?? null);
+  const state       = task.displayState;
   const ticketBadge = task.ticket === null ? '' : WorkItemMarkupUtil.ticketBadgeMarkup(task.ticket);
   return [
     `<div class="ap-detail-head" ${MarkupUtil.attribute('data-state', state)}>`,

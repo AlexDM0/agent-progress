@@ -101,7 +101,7 @@ const WAITING_ROW = exampleRow(20, { ticket: '065' });
 const TASKS = [DELIVERED_ROW, WAITING_ROW];
 
 function cardFor(ticket: PageTicket, waitingOn: readonly string[] = []): KanbanCard {
-  const card = kanbanCardsFor([ticket], TASKS, new Map([[ticket.id, waitingOn]]))[0];
+  const card = kanbanCardsFor(pageBoardFixture({ tasks: TASKS, tickets: [ticket] }).tickets, new Map([[ticket.id, waitingOn]]))[0];
   if (card === undefined) {
     throw new Error('the example card was not built');
   }
@@ -111,7 +111,6 @@ function cardFor(ticket: PageTicket, waitingOn: readonly string[] = []): KanbanC
 function inputFor(card: KanbanCard): TicketDetailInput {
   return {
     card,
-    tasks:                TASKS,
     nowEpochMilliseconds: EXAMPLE_NOW,
     todayCalendarDate:    EXAMPLE_TODAY,
     limits:               EXAMPLE_LIMITS,
@@ -136,7 +135,6 @@ describe('the filed bar outside the dialog', () => {
     })), EXAMPLE_LIMITS);
     const board   = kanbanBoardMarkup({
       cards:                  [cardFor(DELIVERED_TICKET), cardFor(WAITING_TICKET)],
-      tasks:                  TASKS,
       nowEpochMilliseconds:   EXAMPLE_NOW,
       todayCalendarDate:      EXAMPLE_TODAY,
       slices:                 EXAMPLE_LIMITS,
@@ -145,7 +143,7 @@ describe('the filed bar outside the dialog', () => {
       abandonedLaneIsOpen:    true,
     });
     const overview = taskDetailMarkup({
-      task:              DELIVERED_ROW,
+      task:              boardRows.find((row) => row.id === DELIVERED_ROW.id) ?? null,
       ticket:            DELIVERED_TICKET,
       log:               [],
       slices:            EXAMPLE_LIMITS,

@@ -3,11 +3,9 @@
  * except the ticket's `bodyHtml`, already escaped by `src/services/render/Markdown.ts`.
  */
 
-import type { Task }                 from '../../src/lib/tracker-model/@types/Task.ts';
 import { FIRST_REPEAT_REVIEW_ROUND } from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
 import { HtmlEscapeUtil }            from '../../src/lib/utils/HtmlEscapeUtil.ts';
 import type { KanbanCard }           from '../@types/KanbanCard.ts';
-import { BoardRulesUtil }            from '../utils/BoardRulesUtil.ts';
 import { MarkupUtil }                from '../utils/MarkupUtil.ts';
 import { WorkItemMarkupUtil }        from '../utils/WorkItemMarkupUtil.ts';
 import type { TicketTimelineLimits } from './@types/TicketTimeline.ts';
@@ -19,8 +17,6 @@ const HELD_WITHOUT_REASON_TEXT = 'no reason given';
 
 export interface TicketDetailInput {
   card:                 KanbanCard;
-  /** The whole progress file's rows, in which the ticket's review rows are looked up. */
-  tasks:                readonly Task[];
   nowEpochMilliseconds: number;
   todayCalendarDate:    string;
   limits:               TicketTimelineLimits;
@@ -29,7 +25,7 @@ export interface TicketDetailInput {
 function headMarkup(input: TicketDetailInput): string {
   const { card, limits } = input;
   const { ticket, ownRow } = card;
-  const reviewedMark       = ownRow !== null && BoardRulesUtil.cardCarriesReviewedMark(card) ? WorkItemMarkupUtil.reviewedMarkMarkup(ownRow, limits) : '';
+  const reviewedMark       = ownRow !== null && ownRow.deliveredRowCountsAsReviewed ? WorkItemMarkupUtil.reviewedMarkMarkup(ownRow, limits) : '';
   return [
     `<div class="ap-detail-head" ${MarkupUtil.attribute('data-state', card.state)}>`,
     `<span class="ap-detail-id">#${HtmlEscapeUtil.escapeHtml(ticket.id)}</span>`,
@@ -72,7 +68,8 @@ export function ticketDetailMarkup(input: TicketDetailInput): string {
   const { card } = input;
   const timeline = ticketTimelineMarkup({
     ticket:               card.ticket,
-    tasks:                input.tasks,
+    ownRow:               card.ownRow,
+    reviewBars:           card.reviewBars,
     waitingOn:            card.waitingOn,
     nowEpochMilliseconds: input.nowEpochMilliseconds,
     todayCalendarDate:    input.todayCalendarDate,

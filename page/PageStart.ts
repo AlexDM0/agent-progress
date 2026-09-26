@@ -117,7 +117,6 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
 
   let visibility         = preferences.readWorkVisibility();
   const kanbanController = createKanbanController({
-    tasks:                 board.rows,
     slices:                limits,
     preferences,
     readTodayCalendarDate: () => todayCalendarDate,
@@ -125,8 +124,9 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   });
   const ticketsController      = createTicketsController({ allTickets: board.tickets, waitingOnById, slices: limits });
   const detailDialogController = createDetailDialogController({
-    progress,
+    rows:                  board.rows,
     tickets:               board.tickets,
+    log:                   progress.log,
     limits,
     readTodayCalendarDate: () => todayCalendarDate,
     readKanbanCards:       () => kanbanController.readVisibleCards(),
@@ -144,7 +144,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     progressController.showGeneratedStamp(todayCalendarDate);
     logController.show();
     ticketsController.show(visibleTickets, todayCalendarDate);
-    kanbanController.showCards(kanbanCardsFor(visibleTickets, board.rows, waitingOnById));
+    kanbanController.showCards(kanbanCardsFor(visibleTickets, waitingOnById));
 
     progressController.showHiddenNote(board.rows.length - visibleRows.length, board.tickets.length - visibleTickets.length);
     DomUtil.reflectSegment('ap-visibility', 'visibility', visibility);

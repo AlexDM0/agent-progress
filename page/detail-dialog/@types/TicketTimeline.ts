@@ -7,8 +7,10 @@ export type TicketTimelineLimits = TimelineLimits & TimestampSlices;
 
 export interface TicketTimelineInput {
   ticket:               PageTicket;
-  /** The whole progress file's rows, in which the ticket's own row and its review rows are looked up. */
-  tasks:                readonly Task[];
+  /** The ticket's own row, the Board's fact. */
+  ownRow:               Task | null;
+  /** Oldest filed first. */
+  reviewBars:           readonly Task[];
   waitingOn:            readonly string[];
   nowEpochMilliseconds: number;
   todayCalendarDate:    string;
