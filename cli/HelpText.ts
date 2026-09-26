@@ -374,9 +374,9 @@ output never carries either.
   range --auto                Reset the axis to the automatic span; it takes no --from, --to or
                               --tick, and any of them beside it is refused at exit 1.
 
-  render                      Regenerate \`progress.html\` from the progress file and the tickets,
-                              changing nothing else. For a page lost to a crash, or after a ticket
-                              body was edited by hand.
+  render                      Regenerate \`progress.html\` from the progress file, the log and the
+                              tickets, changing nothing else. For a page lost to a crash, or after a
+                              ticket body was edited by hand.
 
   open                        Open \`progress.html\` in the default browser, rendering it first when
                               it is missing; a page that cannot be rendered is exit 2, as for
