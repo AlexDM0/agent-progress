@@ -4,10 +4,10 @@
  * no tracker, so it takes neither `--project` nor `--root`, and touches the tracker only to rewrite
  * files still in an older format.
  */
-import { requireWorkspace }                               from '../../lib/platform/Workspace';
-import { rewriteOlderTrackerFiles, rewrittenFilesTextOf } from '../CommandSupport';
-import type { CommandHandler }                            from '../CommandTable';
-import { refreshTrackedRepository }                       from '../TrackerRefresh';
+import { requireWorkspace }                                                    from '../../lib/platform/Workspace';
+import { rewriteOlderTrackerFiles, rewrittenFilesTextOf, type TrackerRewrite } from '../CommandSupport';
+import type { CommandHandler }                                                 from '../CommandTable';
+import { refreshTrackedRepository }                                            from '../TrackerRefresh';
 
 const USAGE = 'agent-progress update [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';
 
@@ -29,15 +29,25 @@ export const updateCommand: CommandHandler = async (commandArguments, context) =
     standardError:               context.standardError,
   });
 
-  const rewrite = await rewriteOlderTrackerFiles(context, workspace);
+  const printRefreshReport = (headingLine: string) => {
+    context.standardOutput(headingLine);
+    context.standardOutput(`  CLAUDE.md:   ${report.claudeInstructionsLine}`);
+    context.standardOutput(`  brief:       ${report.briefLine}`);
+    context.standardOutput(`  hooks:       ${report.hookLine}`);
+    context.standardOutput(`  workflow:    ${report.workflowLine}`);
+    context.standardOutput(`  agent:       ${report.agentDefinitionLine}`);
+    context.standardOutput(`  dashboard:   ${workspace.htmlFilePath}`);
+  };
 
-  context.standardOutput(rewrite === null
+  let rewrite: TrackerRewrite | null;
+  try {
+    rewrite = await rewriteOlderTrackerFiles(context, workspace);
+  } catch (error) {
+    // The repository files are already refreshed, and a session must still learn its brief is stale; the refusal then exits 2.
+    printRefreshReport(`Refreshed what agent-progress manages in ${workspace.rootDirectory}; its older tracker files were not rewritten.`);
+    throw error;
+  }
+  printRefreshReport(rewrite === null
     ? `Refreshed what agent-progress manages in ${workspace.rootDirectory}; the tracker itself was not touched.`
     : `Refreshed what agent-progress manages in ${workspace.rootDirectory}, and rewrote its older tracker files in the current format: ${rewrittenFilesTextOf(rewrite)}.`);
-  context.standardOutput(`  CLAUDE.md:   ${report.claudeInstructionsLine}`);
-  context.standardOutput(`  brief:       ${report.briefLine}`);
-  context.standardOutput(`  hooks:       ${report.hookLine}`);
-  context.standardOutput(`  workflow:    ${report.workflowLine}`);
-  context.standardOutput(`  agent:       ${report.agentDefinitionLine}`);
-  context.standardOutput(`  dashboard:   ${workspace.htmlFilePath}`);
 };

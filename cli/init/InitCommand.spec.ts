@@ -6,6 +6,7 @@ import {
   mkdirSync,
   readFileSync,
   readlinkSync,
+  rmSync,
   symlinkSync,
   writeFileSync
 } from 'node:fs';
@@ -17,6 +18,7 @@ import {
   expect,
   test
 }                                                              from 'bun:test';
+import { LIMITS }          from '../../src/shared/constants/Limits';
 import {
   addWorktree,
   createScratchDirectory,
@@ -29,6 +31,9 @@ import { CLAUDE_MANAGED_BLOCK_MARKERS } from '../TrackerRefresh';
 import { createCapturedCommandContext } from '../testing/CapturedCommandContext';
 
 const scratchDirectories: string[] = [];
+
+/** A lock that is never given up is waited out through the whole retry budget before the refusal. */
+const HELD_LOCK_TIMEOUT_MILLISECONDS = LIMITS.LOCK_RETRY_COUNT * LIMITS.LOCK_RETRY_INTERVAL_MILLISECONDS * 3;
 
 const DISPATCHER_WORKFLOW_TEMPLATE_PATH = join(import.meta.dir, '..', '..', 'templates', 'workflows', 'AgentProgressDispatch.js');
 
@@ -261,6 +266,46 @@ describe.skipIf(!gitIsAvailable())('a second init', () => {
     expect(readlinkSync(progressFilePath)).toBe(missingTargetPath);
     expect(existsSync(missingTargetPath)).toBe(false);
   });
+
+  /** The refreshed files are already on disk when the lock is refused, so the report that names a stale brief must still be printed. */
+  test('a rewrite of an older tracker that cannot take the lock exits 2 after the refresh report, leaving the progress file as it was', async () => {
+    const repositoryDirectory = scratchRepository();
+    await runCommandLine(['init'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }));
+    const trackerDirectory   = join(repositoryDirectory, '.agent-progress');
+    const progressFilePath   = join(trackerDirectory, 'progress.json');
+    const versionOneProgress = {
+      ...(JSON.parse(readFileSync(progressFilePath, 'utf8')) as Record<string, unknown>),
+      version: 1,
+      log:     [{ at: '2026-09-18T09:00:00+02:00', text: 'Example session started' }],
+    };
+    writeFileSync(progressFilePath, `${JSON.stringify(versionOneProgress, null, 2)}\n`);
+    // A version 1 tracker has no log.jsonl; an empty one beside it would not continue its log, and the rewrite would be skipped.
+    rmSync(join(trackerDirectory, 'log.jsonl'));
+    const progressBefore = readFileSync(progressFilePath, 'utf8');
+    writeFileSync(join(trackerDirectory, 'agent-brief.md'), 'An older brief nobody refreshed.\n');
+    const lockFilePath = join(trackerDirectory, '.lock');
+    rmSync(lockFilePath, { force: true, recursive: true });
+    writeFileSync(lockFilePath, '');
+
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['init'], context)).toBe(2);
+
+    const outputLines = context.outputText().split('\n');
+    expect(outputLines[0]).toStartWith('agent-progress is already initialised in ');
+    expect(outputLines.slice(1, 9).map((line) => line.slice(0, 15))).toEqual([
+      '  tracker:     ',
+      '  CLAUDE.md:   ',
+      '  brief:       ',
+      '  hooks:       ',
+      '  workflow:    ',
+      '  agent:       ',
+      '  dashboard:   ',
+      '  `agent-progre',
+    ]);
+    expect(outputLines[1]).toBe('  tracker:     older files were not rewritten');
+    expect(outputLines[3]).toStartWith('  brief:       updated — re-read it before your next brief');
+    expect(readFileSync(progressFilePath, 'utf8')).toBe(progressBefore);
+  }, HELD_LOCK_TIMEOUT_MILLISECONDS);
 });
 
 describe.skipIf(!gitIsAvailable())('from inside a linked worktree', () => {

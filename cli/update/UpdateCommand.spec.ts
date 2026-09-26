@@ -18,6 +18,7 @@ import {
   expect,
   test
 }                                        from 'bun:test';
+import { LIMITS }          from '../../src/shared/constants/Limits';
 import {
   addWorktree,
   createScratchDirectory,
@@ -30,6 +31,9 @@ import { CLAUDE_MANAGED_BLOCK_MARKERS } from '../TrackerRefresh';
 import { createCapturedCommandContext } from '../testing/CapturedCommandContext';
 
 const scratchDirectories: string[] = [];
+
+/** A lock that is never given up is waited out through the whole retry budget before the refusal. */
+const HELD_LOCK_TIMEOUT_MILLISECONDS = LIMITS.LOCK_RETRY_COUNT * LIMITS.LOCK_RETRY_INTERVAL_MILLISECONDS * 3;
 
 const BRIEF_TEMPLATE = readFileSync(join(import.meta.dir, '..', '..', 'templates', 'AgentBrief.md'), 'utf8');
 
@@ -480,6 +484,31 @@ describe.skipIf(!gitIsAvailable())('what update rewrites', () => {
     expect(readFileSync(logFilePath, 'utf8')).toBe(logAfterRewrite);
     expect(readFileSync(ticketFilePath, 'utf8')).toBe(ticketAfterRewrite);
   });
+
+  /** The refreshed files are already on disk when the lock is refused, so the report that names a stale brief must still be printed. */
+  test('a rewrite that cannot take the lock exits 2 after the refresh report, leaving the progress file as it was', async () => {
+    const { repositoryDirectory, progressFilePath } = await trackedRepositoryInAnOlderFormat();
+    const progressBefore = readFileSync(progressFilePath, 'utf8');
+    const lockFilePath   = join(repositoryDirectory, '.agent-progress', '.lock');
+    rmSync(lockFilePath, { force: true, recursive: true });
+    writeFileSync(lockFilePath, '');
+
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['update'], context)).toBe(2);
+
+    const outputLines = context.outputText().split('\n');
+    expect(outputLines[0]).toEndWith('; its older tracker files were not rewritten.');
+    expect(outputLines[2]).toStartWith('  brief:       updated — re-read it before your next brief');
+    expect(outputLines.slice(1, 7).map((line) => line.slice(0, 15))).toEqual([
+      '  CLAUDE.md:   ',
+      '  brief:       ',
+      '  hooks:       ',
+      '  workflow:    ',
+      '  agent:       ',
+      '  dashboard:   ',
+    ]);
+    expect(readFileSync(progressFilePath, 'utf8')).toBe(progressBefore);
+  }, HELD_LOCK_TIMEOUT_MILLISECONDS);
 });
 
 describe.skipIf(!gitIsAvailable())('from inside a linked worktree', () => {
