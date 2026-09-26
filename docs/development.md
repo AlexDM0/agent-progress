@@ -181,6 +181,7 @@ The test-only helpers live in `src/testing/`, `cli/testing/` and `lib/tooling/de
 | `cli/testing/CapturedCommandContext.ts` | A command context whose two output streams are arrays, so a spec drives `runCommandLine` in-process and reads back what a user would have seen. |
 | `cli/testing/CliProcess.ts` | The one sanctioned way to spawn the real binary. |
 | `src/testing/TrackerIsolation.ts` | The guard that keeps a spec away from any tracker it did not create. |
+| `src/testing/BoardFixtures.ts` | A `Board` over synthetic records (`boardFixture`, `taskFixture`, `ticketFixture`) whose logger keeps every record in a list, so the Board specs assert reason codes, records and changed tickets. |
 | `lib/tooling/dev/DispatchScriptHarness.ts` | Runs the dispatcher script against a fake board. |
 | `lib/tooling/dev/WorkflowScriptSource.ts` | Reads the dispatcher script's syntax tree for a clock, randomness or an impure `meta`. |
 
