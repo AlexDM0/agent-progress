@@ -1,7 +1,7 @@
 /**
  * The sequence every mutating command follows, written once and all inside the lock: read the tracker into a Board, mutate, write the progress
  * file, then the tickets the Board changed, then log.jsonl, then render from disk, so no older render lands last and the progress file is never
- * behind the tickets. A log taken over from a version 1 progress file is copied first, so its notes are on disk before that file stops holding them.
+ * behind the tickets. A log carried over from an older progress file is copied first, so its notes are on disk before that file stops holding them.
  */
 import { createLogFileSink }                                 from '../../adapters/log/LogFileSink.ts';
 import { createLogFileWriter }                               from '../../adapters/log/LogFileWriter.ts';
@@ -78,7 +78,7 @@ function writeBoard(
   const { contents, logFileSink, board } = openedBoard;
   const logRecordsToWrite = logFileSink.recordsToWrite();
   const logFileWriter     = createLogFileWriter(workspace.logFilePath);
-  // A log line never describes an unstored change, so the log goes last; a log taken over from a version 1 file is copied first, before it is lost.
+  // A log line never describes an unstored change, so the log goes last; a log carried over from an older file is copied first, before it is lost.
   if (contents.storedLog.logFileMustBeRewritten) logFileWriter.write(contents.storedLog.records);
 
   createProgressFileWriter(workspace.progressFilePath).write(contents.progress);

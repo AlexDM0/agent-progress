@@ -83,5 +83,6 @@ test('the document written to a file reads back through the ingestion', () => {
   writeFileAtomically(progressFilePath, JSON.stringify(ProgressDocumentUtil.documentOf(progressWithSettingsAfterTheLog(), WORDED_LOG)));
   const reading = new ProgressFileIngestion(progressFilePath).read();
   expect(reading.verdict).toBe('readable');
-  expect(reading.verdict === 'readable' ? reading.embeddedLog?.map((record) => record.at) : null, 'read as version 1, owning its log').toEqual(WORDED_LOG.map((entry) => entry.at));
+  expect(reading.verdict === 'readable' ? reading.carriedOverLog?.map((record) => record.at) : null, 'read as version 1, owning its log')
+    .toEqual(WORDED_LOG.map((entry) => entry.at));
 });

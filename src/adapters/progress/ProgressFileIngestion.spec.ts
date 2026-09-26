@@ -62,13 +62,13 @@ test('a document from a future format version is refused rather than half-read',
 test('a version 1 file\'s own log comes back as notes, in order with their stamps; a version 2 file has none, its log being log.jsonl', () => {
   const log = [{ at: FILED_AT, text: 'Ticket #001 filed: Example checkout flow' }, { at: STARTED_AT, text: 'Example note' }];
   const versionOne = readBack('store-embedded-log', versionOneDocumentOf(emptyProgress(), log));
-  expect(versionOne.verdict === 'readable' ? versionOne.embeddedLog : 'unreadable').toEqual([
+  expect(versionOne.verdict === 'readable' ? versionOne.carriedOverLog : 'unreadable').toEqual([
     { at: FILED_AT, kind: 'note', fields: { text: 'Ticket #001 filed: Example checkout flow' } },
     { at: STARTED_AT, kind: 'note', fields: { text: 'Example note' } },
   ]);
 
   const versionTwo = readBack('store-no-embedded-log', emptyDocument());
-  expect(versionTwo.verdict === 'readable' ? versionTwo.embeddedLog : 'unreadable').toBeNull();
+  expect(versionTwo.verdict === 'readable' ? versionTwo.carriedOverLog : 'unreadable').toBeNull();
 });
 
 test('the model read from either version holds neither the format\'s version nor a log', () => {

@@ -1,4 +1,4 @@
-/** Which log a tracker has, from its two stored readings: a version 1 progress.json owns its log, a version 2 one leaves it to log.jsonl. */
+/** Which log a tracker has, from its progress reading's carried-over log and its log.jsonl reading. */
 import type { LogRecord }      from '../../../lib/tracker-model/@types/LogRecord.ts';
 import type { LogFileReading } from '../LogFileIngestion.ts';
 
@@ -10,10 +10,10 @@ export interface StoredLog {
 export type StoredLogReading = ({ verdict: 'readable' } & StoredLog) | { verdict: 'unreadable'; reason: string };
 
 /** The notes are copied before progress.json is written and a command's records after it, so a copy cut short holds at most the embedded notes. */
-function logFileIsAStartOfTheEmbeddedLog(embeddedLog: readonly LogRecord[], logFileRecords: readonly LogRecord[]): boolean {
-  if (logFileRecords.length > embeddedLog.length) return false;
+function logFileIsAStartOfTheEmbeddedLog(carriedOverLog: readonly LogRecord[], logFileRecords: readonly LogRecord[]): boolean {
+  if (logFileRecords.length > carriedOverLog.length) return false;
   return logFileRecords.every((logFileRecord, index) => {
-    const embeddedRecord = embeddedLog[index];
+    const embeddedRecord = carriedOverLog[index];
     return logFileRecord.kind === 'note'
       && embeddedRecord?.kind === 'note'
       && logFileRecord.at === embeddedRecord.at
@@ -22,23 +22,23 @@ function logFileIsAStartOfTheEmbeddedLog(embeddedLog: readonly LogRecord[], logF
 }
 
 /**
- * `embeddedLog` is the version 1 file's log as notes, or null for a version 2 file. A log.jsonl beside a version 1 file is a migration cut
- * short only when it holds the start of that file's log, or all of it; one holding anything more is refused naming both files, so nothing is
- * dropped silently.
+ * `carriedOverLog` is the log an older progress file carried, as notes, or null when it carried none. A log.jsonl beside a file carrying one
+ * is a migration cut short only when it holds the start of that log, or all of it; one holding anything more is refused naming both files, so
+ * nothing is dropped silently.
  */
 function storedLogOf(
-  embeddedLog: readonly LogRecord[] | null,
+  carriedOverLog: readonly LogRecord[] | null,
   logFileReading: LogFileReading,
   locations: { logFilePath: string; progressFilePath: string },
 ): StoredLogReading {
-  if (embeddedLog === null) {
+  if (carriedOverLog === null) {
     if (logFileReading.verdict === 'unreadable') return logFileReading;
     const records = logFileReading.verdict === 'readable' ? logFileReading.records : [];
     return { verdict: 'readable', records, logFileMustBeRewritten: false };
   }
 
-  if (logFileReading.verdict === 'absent' || (logFileReading.verdict === 'readable' && logFileIsAStartOfTheEmbeddedLog(embeddedLog, logFileReading.records))) {
-    return { verdict: 'readable', records: [...embeddedLog], logFileMustBeRewritten: true };
+  if (logFileReading.verdict === 'absent' || (logFileReading.verdict === 'readable' && logFileIsAStartOfTheEmbeddedLog(carriedOverLog, logFileReading.records))) {
+    return { verdict: 'readable', records: [...carriedOverLog], logFileMustBeRewritten: true };
   }
   return {
     verdict: 'unreadable',

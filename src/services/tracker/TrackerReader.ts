@@ -32,19 +32,20 @@ function progressFileReadingOf(workspace: Workspace): Extract<ProgressFileReadin
 }
 
 /**
- * The log is read first, so a version 1 progress file only sits beside an absent log or its own copied notes; an absent log beside a
- * version 2 file may have been written between the two reads, so it is read again. A broken progress file is the verdict even beside a broken log.
+ * The log is read first, so a progress file carrying a log over sits only beside an absent log or its own copied records; an absent log
+ * beside one carrying none may have been written between the two reads, so it is read again. A broken progress file is the verdict even
+ * beside a broken log.
  */
 export function readTracker(workspace: Workspace): TrackerReading {
   const logFileReadingBeforeProgress = new LogFileIngestion(workspace.logFilePath).read();
   const progressReading              = progressFileReadingOf(workspace);
   if (progressReading.verdict !== 'readable') return progressReading;
 
-  const logFileReading = progressReading.embeddedLog === null && logFileReadingBeforeProgress.verdict === 'absent'
+  const logFileReading = progressReading.carriedOverLog === null && logFileReadingBeforeProgress.verdict === 'absent'
     ? new LogFileIngestion(workspace.logFilePath).read()
     : logFileReadingBeforeProgress;
   const storedLog = TrackerLogUtil.storedLogOf(
-    progressReading.embeddedLog,
+    progressReading.carriedOverLog,
     logFileReading,
     { logFilePath: workspace.logFilePath, progressFilePath: workspace.progressFilePath },
   );

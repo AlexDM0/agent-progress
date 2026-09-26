@@ -1,20 +1,16 @@
-/**
- * progress.json read into the model: read, validate, migrate the retired words and a version 1 file's log, map, and give legacy review bars
- * their `reviewOf` and round.
- */
-import { existsSync, readFileSync }           from 'node:fs';
-import type { LogRecord }                     from '../../lib/tracker-model/@types/LogRecord.ts';
-import type { ProgressFile }                  from '../../lib/tracker-model/@types/ProgressFile.ts';
-import { LegacyReviewBarUtil }                from '../utils/LegacyReviewBarUtil.ts';
-import type { StoredProgressFile }            from './@types/StoredProgressFile.ts';
-import { EMBEDDED_LOG_PROGRESS_FILE_VERSION } from './constants/ProgressFileVersions.ts';
-import { ProgressFileMappingUtil }            from './utils/ProgressFileMappingUtil.ts';
-import { ProgressFileMigrationUtil }          from './utils/ProgressFileMigrationUtil.ts';
-import { ProgressFileValidationUtil }         from './utils/ProgressFileValidationUtil.ts';
+/** progress.json read into the model: read, migrate an older shape to the current one, validate, map. */
+import { existsSync, readFileSync }   from 'node:fs';
+import type { LogRecord }             from '../../lib/tracker-model/@types/LogRecord.ts';
+import type { ProgressFile }          from '../../lib/tracker-model/@types/ProgressFile.ts';
+import { ProgressFileUpgradeUtil }    from '../legacy/utils/ProgressFileUpgradeUtil.ts';
+import type { ProgressFileMigration } from './@types/ProgressFileMigration.ts';
+import type { StoredProgressFile }    from './@types/StoredProgressFile.ts';
+import { ProgressFileMappingUtil }    from './utils/ProgressFileMappingUtil.ts';
+import { ProgressFileValidationUtil } from './utils/ProgressFileValidationUtil.ts';
 
 export type ProgressFileReading =
-  /** `embeddedLog` is a version 1 file's own log as notes, and null for a version 2 file, whose log is log.jsonl. */
-  | { verdict: 'readable'; progress: ProgressFile; embeddedLog: LogRecord[] | null }
+  /** `carriedOverLog` is the log records an older progress file carried, which the next write moves to log.jsonl; null when it carried none. */
+  | { verdict: 'readable'; progress: ProgressFile; carriedOverLog: LogRecord[] | null }
   | { verdict: 'absent' }
   | { verdict: 'unreadable'; reason: string };
 
@@ -41,14 +37,15 @@ export class ProgressFileIngestion {
       return { verdict: 'unreadable', reason: `it is not valid JSON (${error instanceof Error ? error.message : 'unparseable'})` };
     }
 
-    const problem = ProgressFileValidationUtil.documentProblemOf(parsed);
-    if (problem !== null) return { verdict: 'unreadable', reason: problem };
-    const document = parsed as StoredProgressFile;
+    // The seam: dropping src/adapters/legacy/ makes the right-hand side `{ verdict: 'current' } as ProgressFileMigration`.
+    const migration: ProgressFileMigration = ProgressFileUpgradeUtil.migrationOf(parsed);
+    if (migration.verdict === 'unreadable') return migration;
+    const document = migration.verdict === 'migrated' ? migration.document : parsed;
 
-    const embeddedLog = document.version === EMBEDDED_LOG_PROGRESS_FILE_VERSION ? ProgressFileMigrationUtil.notesOf(document.log) : null;
-    const progress    = ProgressFileMappingUtil.progressOf({ ...document, tasks: ProgressFileMigrationUtil.tasksInCurrentWords(document.tasks) });
-    // In memory only, like the status words: the next write stores the fields.
-    progress.tasks = progress.tasks.map(LegacyReviewBarUtil.linkedReviewBarOf);
-    return { verdict: 'readable', progress, embeddedLog };
+    const problem = ProgressFileValidationUtil.documentProblemOf(document);
+    if (problem !== null) return { verdict: 'unreadable', reason: problem };
+    const progress       = ProgressFileMappingUtil.progressOf(document as StoredProgressFile);
+    const carriedOverLog = migration.verdict === 'migrated' ? migration.carriedOverLog : null;
+    return { verdict: 'readable', progress, carriedOverLog };
   }
 }

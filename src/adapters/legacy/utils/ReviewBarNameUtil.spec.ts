@@ -2,14 +2,16 @@
  * The ingestion step that links a review bar known only by its name. What readers rely on: only a free-standing row whose name starts
  * `Review <N> #<id>` gains fields, a stored field always wins over the name, a stored `reviewOf` the page read as a whole number is
  * padded, a name naming no ticket links nothing, and a row that gains nothing comes back with exactly the keys it had, so a
- * rewrite leaves it byte-identical. The names are the page's nesting cases.
+ * rewrite leaves it byte-identical. The names are the page's nesting cases. Whether a stored row still needs linking answers exactly when
+ * linking would change it, and never throws on a row validation has not seen yet, so the ingestion can ask it first.
  */
 import { describe, expect, test } from 'bun:test';
 
-import { taskFixture }         from '../../testing/BoardFixtures';
-import { LegacyReviewBarUtil } from './LegacyReviewBarUtil';
+import type { Task }         from '../../../lib/tracker-model/@types/Task.ts';
+import { taskFixture }       from '../../../testing/BoardFixtures.ts';
+import { ReviewBarNameUtil } from './ReviewBarNameUtil.ts';
 
-const { linkedReviewBarOf } = LegacyReviewBarUtil;
+const { linkedReviewBarOf, reviewBarIsUnlinked } = ReviewBarNameUtil;
 
 describe('a free-standing row known only by its name', () => {
   test('takes the ticket and the round its name gives, the ticket padded', () => {
@@ -113,4 +115,54 @@ describe('a row that is not a legacy review bar', () => {
     expect('reviewOf' in linked).toBe(false);
     expect('reviewBarRound' in linked).toBe(false);
   });
+});
+
+describe('whether a stored row is a review bar still to be linked', () => {
+  const WELL_FORMED_ROWS: ReadonlyArray<{ claim: string; row: Pick<Task, 'name' | 'ticket' | 'reviewOf' | 'reviewBarRound'>; unlinked: boolean }> = [
+    { claim: 'a free-standing row known only by its name', row: { name: 'Review 1 #3 — x', ticket: null }, unlinked: true },
+    { claim: 'a bar storing its ticket but not the round its name gives', row: { name: 'Review 2 #3 — x', ticket: null, reviewOf: '003' }, unlinked: true },
+    { claim: 'a bar storing an unpadded reviewOf', row: { name: 'Example review', ticket: null, reviewOf: '3' }, unlinked: true },
+    {
+      claim: 'a bar storing both fields, padded',
+      row:   {
+        name: 'Review 1 #3 — x', ticket: null, reviewOf: '003', reviewBarRound: 1 
+      },
+      unlinked: false 
+    },
+    { claim: 'a bar whose name gives no round and which stores its padded ticket', row: { name: 'Review 0 #3', ticket: null, reviewOf: '003' }, unlinked: false },
+    { claim: 'a name naming ticket zero', row: { name: 'Review 1 #0', ticket: null }, unlinked: false },
+    { claim: 'a name without the prefix', row: { name: 'Review pass', ticket: null }, unlinked: false },
+    { claim: 'a stored reviewOf the page does not read as a number', row: { name: 'Example review', ticket: null, reviewOf: 'abc' }, unlinked: false },
+    { claim: 'a ticket-owned row named like a bar', row: { name: 'Review 1 #3 — misnamed', ticket: '009' }, unlinked: false },
+    { claim: 'a ticket row with an unpadded reviewOf', row: { name: 'Example follow-up', ticket: '003', reviewOf: '3' }, unlinked: false },
+  ];
+
+  // Validation has not run when the ingestion asks, so a mistyped field must be left for it to name, never thrown on.
+  const MALFORMED_ROWS: ReadonlyArray<{ claim: string; row: Record<string, unknown> }> = [
+    { claim: 'a row with no ticket field', row: { name: 'Review 1 #3 — x' } },
+    { claim: 'a row whose name is not text', row: { name: 7, ticket: null } },
+    { claim: 'a row whose reviewOf is not text', row: { name: 'Review 1 #3 — x', ticket: null, reviewOf: 3 } },
+    {
+      claim: 'a row whose round is not a number',
+      row:   {
+        name: 'Review 1 #3 — x', ticket: null, reviewOf: '003', reviewBarRound: '1' 
+      } 
+    },
+  ];
+
+  for (const { claim, row, unlinked } of WELL_FORMED_ROWS) {
+    test(`${claim} ${unlinked ? 'is' : 'is not'} one, exactly as linking it would change its reviewOf or its round`, () => {
+      const task   = taskFixture(row);
+      const linked = linkedReviewBarOf(task);
+
+      expect(reviewBarIsUnlinked({ ...row })).toBe(unlinked);
+      expect(linked.reviewOf !== task.reviewOf || linked.reviewBarRound !== task.reviewBarRound).toBe(unlinked);
+    });
+  }
+
+  for (const { claim, row } of MALFORMED_ROWS) {
+    test(`${claim} is not one, and asking does not throw`, () => {
+      expect(reviewBarIsUnlinked(row)).toBe(false);
+    });
+  }
 });

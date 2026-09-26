@@ -3,11 +3,12 @@
  * version, and a document written before the task statuses were renamed. Test-only: nothing that ships may import
  * `src/adapters/progress/testing/`.
  */
-import type { ProgressFile }                                                               from '../../../lib/tracker-model/@types/ProgressFile.ts';
-import type { Task, TaskStatus }                                                           from '../../../lib/tracker-model/@types/Task.ts';
-import { EmptyProgressUtil }                                                               from '../../../lib/tracker-model/utils/EmptyProgressUtil.ts';
-import { TaskFilingUtil, type TaskFiling }                                                 from '../../../lib/tracker-model/utils/TaskFilingUtil.ts';
-import type { StoredLogEntry, StoredProgressFileVersionOne, StoredProgressFileVersionTwo } from '../@types/StoredProgressFile.ts';
+import type { ProgressFile }                                 from '../../../lib/tracker-model/@types/ProgressFile.ts';
+import type { Task }                                         from '../../../lib/tracker-model/@types/Task.ts';
+import { EmptyProgressUtil }                                 from '../../../lib/tracker-model/utils/EmptyProgressUtil.ts';
+import { TaskFilingUtil, type TaskFiling }                   from '../../../lib/tracker-model/utils/TaskFilingUtil.ts';
+import type { StoredLogEntry, StoredProgressFileVersionOne } from '../../legacy/@types/StoredProgressFileVersionOne.ts';
+import type { StoredProgressFile }                           from '../@types/StoredProgressFile.ts';
 
 const FILED_AT    = '2026-09-18T20:11:03+02:00';
 const STARTED_AT  = '2026-09-18T20:40:00+02:00';
@@ -26,16 +27,16 @@ export function fileRow(progress: ProgressFile, filing: TaskFiling): Task {
 }
 
 /** The progress as the writer stores it, `version` first; the tasks array is the progress's own, so a row filed on either shows in both. */
-export function versionTwoDocumentOf(progress: ProgressFile): StoredProgressFileVersionTwo<TaskStatus> {
+export function versionTwoDocumentOf(progress: ProgressFile): StoredProgressFile {
   return { version: 2, ...progress };
 }
 
 /** The progress as a build before log.jsonl stored it, with its log after `tasks`, where a file `init` created keeps it. */
-export function versionOneDocumentOf(progress: ProgressFile, log: StoredLogEntry[] = []): StoredProgressFileVersionOne<TaskStatus> {
+export function versionOneDocumentOf(progress: ProgressFile, log: StoredLogEntry[] = []): StoredProgressFileVersionOne {
   return { version: 1, ...progress, log };
 }
 
-export function emptyDocument(): StoredProgressFileVersionTwo<TaskStatus> {
+export function emptyDocument(): StoredProgressFile {
   return versionTwoDocumentOf(emptyProgress());
 }
 

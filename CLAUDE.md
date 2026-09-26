@@ -73,17 +73,17 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
   home even where it equals the value today; JSON output, stored files and the reasons that name a stored file's
   values carry the values themselves, and the help screen is prose `cli/HelpText.spec.ts` holds.
 - Code that exists only to read what an older version stored, or to answer an older habit, lives in a `legacy/` folder
-  of its boundary (`cli/legacy/`, `page/legacy/`, and `src/shared/legacy/` for what two legacy folders share) and is
-  reached only through one seam call per consumer; current code imports nothing else from it, and a legacy module may
-  import current code. Its header says what older input it reads and when it can go; dropping it deletes the module,
-  its specs and its seam calls, each seam line becoming the current-format answer, and the help and `docs/cli.md`
-  sentences on it.
+  of its boundary (`src/adapters/legacy/`, `cli/legacy/`, `page/legacy/`, and `src/shared/legacy/` for what two legacy
+  folders share) and is reached only through one seam call per consumer; current code imports nothing else from it,
+  and a legacy module may import current code. Its header says what older input it reads and when it can go; dropping
+  it deletes the module, its specs and its seam calls, each seam line becoming the current-format answer, and the help
+  and `docs/cli.md` sentences on it.
 - An optional stored key is written only once somebody sets it, and a read never adds or rewrites one, so an older
-  file stays byte-identical. The one exception is a legacy review bar: the read gives a row known only by its name
-  `reviewOf` and `reviewBarRound`, and pads a stored `reviewOf` that reads as a whole number, in memory; the next
-  write stores them.
-- A version 1 `progress.json` owns its log: the read turns its sentences into notes, and the next write moves them to
-  log.jsonl and stores the file as version 2.
+  file stays byte-identical. The one exception is a legacy review bar, read through `src/adapters/legacy/`: the read
+  gives a row known only by its name `reviewOf` and `reviewBarRound`, and pads a stored `reviewOf` that reads as a
+  whole number, in memory; the next write stores them.
+- A version 1 `progress.json` owns its log: the read, through `src/adapters/legacy/`, turns its sentences into notes,
+  and the next write moves them to log.jsonl and stores the file as version 2.
 - `progress.json` keeps the keys the tool does not know, at the top level and on rows, in the file's order.
 - A malformed stored file is a verdict and a report, never a throw that takes down `status` or `render`.
 - The Board logs through the semantic Logger (`src/lib/tracker-model/Logger.ts`), with ids and values only;
@@ -227,7 +227,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
   over the lines would put at risk keeping every unowned line byte for byte.
 - A row's `history` holds only what the tool watched; nothing reconstructs phases. A review row belongs to its
   ticket by `reviewOf`; a free-standing row known only by its `Review <N> #<id>` name is given `reviewOf` and
-  `reviewBarRound` when progress.json is read. Nothing else matches a name: the page reads which rows are bars from
+  `reviewBarRound` by `src/adapters/legacy/` when progress.json is read. Nothing else matches a name: the page reads which rows are bars from
   the Board facts.
 
 ### The page
@@ -303,7 +303,7 @@ src/                        the target layout's code, filled step by step as the
                             tracker-model (@types/Task.ts; Board.ts is its aggregate), utils
   src/adapters/             the boundary, one folder per stored format (progress, tickets and log) plus the shared utils:
                             reading, writing and mapping what the tracker stores, the ticket JSON document, and the wording of
-                            log records and refusals
+                            log records and refusals; legacy/ reads the older progress.json shapes
   src/services/             tracker (discovery, the lock, reading, the write pipeline, creation) and render (the page document
                             and the render state one invocation holds)
   src/shared/               app-specific code several parts use: the environment reader, the refusal, LIMITS,
