@@ -86,7 +86,8 @@ output never carries either.
       [--start]               draws it directly above the ticket's own row, latest round first. A
       [--tokens <n>]          ticket that does not exist is refused at exit 1. A row without it
       [--at <when>] [--force] whose name starts "Review <N> #<id>" is nested the same way; for a
-                              bundle, the first id named is the parent.
+                              bundle, the first id named is the parent. A row a ticket owns is never
+                              a review row: no review closes it, blocks a claim or is credited to it.
 
   task start|pause|finish|approve|rereview|deliver <id> [--owner <who>] [--note <text>]
       [--tokens <n>] [--at <when>] [--force]
@@ -122,7 +123,8 @@ output never carries either.
                               the hook runs. A line \`agent-progress review: <id>\` names one
                               ticket whose review row the reviewer creates itself: the input goes
                               to the most recently added row reviewing that ticket (--review-of,
-                              or a "Review <N> #<id>" name), whatever its status. A brief with
+                              or a "Review <N> #<id>" name), whatever its status; a row a ticket
+                              owns is never a review row. A brief with
                               several is read by one alone: row over ticket over review.
                               This is the command \`init\` and \`update\` wire into
                               \`.claude/settings.local.json\`; nobody types it. It exits 0 whatever
@@ -178,8 +180,8 @@ output never carries either.
       [--worktree <path>]     tracker's root, wherever this runs from — to <b>, then approve the
       [--main <line>]         ticket and deliver it with --branch <b> and --commit set
       [--json]                to the merged tip. More ids after <id> release every ticket of a
-                              bundle, which share <b>. Every in-progress review row whose
-                              --review-of names a released ticket is finished and delivered at the release
+                              bundle, which share <b>. Every in-progress review row that no ticket
+                              owns, whose --review-of names a released ticket, is finished and delivered at the release
                               time, and named; a row known only by a "Review <N> #<id>" name counts as linked.
                               All of it happens in one lock hold, so two releases never race.
                               Refused at exit 1, with nothing changed (no review row either), when a ticket

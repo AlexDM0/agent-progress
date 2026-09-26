@@ -94,8 +94,9 @@ above the ticket, with its own bar, pill and times. A row without the field whos
 `Review <N> #<id>` is read the same way, so a board filed before the flag nests too; a bundle's
 review, `Review 1 #13, #5 — …`, sits once, above the first
 ticket it names. A review whose ticket has no row on the chart — a low ticket not started, or one
-hidden as long done — is drawn where its filing puts it. `--review-of` is not `--ticket`: the ticket
-keeps its own row, and the review row moves through the `task` verbs.
+hidden as long done — is drawn where its filing puts it. `--review-of` is not `--ticket`, and a row
+given both stays the ticket's own row: no review closes it, blocks a claim on it or credits it. The
+ticket keeps its own row, and the review row moves through the `task` verbs.
 
 **`--start-review` hands the slot on.** `ticket finish <id> --start-review` moves the ticket to review
 and adds its in-progress bar, `Review <N> #<id> — <title>` with `reviewOf` set and N the ticket's
@@ -185,8 +186,8 @@ standard error and its share skipped.
 
 `agent-progress review: 7` names one ticket whose review row the reviewer files itself, after its
 brief is written — a reviewer inside a workflow cannot be told that row's id in advance. When the
-hook runs it adds the whole `input` total to the most recently added row reviewing that ticket —
-linked by `task add --review-of`, or named `Review <N> #<id>` — whatever its status, since `release`
+hook runs it adds the whole `input` total to the most recently added row no ticket owns reviewing
+that ticket — linked by `task add --review-of`, or named `Review <N> #<id>` — whatever its status, since `release`
 has already delivered that bar when the reviewer stops. No such row is named on standard error. A
 brief carrying several lines is read by one alone, `row:` over `ticket:` over `review:`, so the agent
 is never counted twice. Where the hook is installed,
@@ -294,8 +295,8 @@ reaches the main line, and allowing it in the harness is the release permission:
 `git merge` into main by hand. The main checkout is the tracker's root, found the same way from any
 worktree. Inside one lock hold it checks the ticket, that the main checkout is on the main line and
 that `<b>` descends from it, fast-forwards, and moves the ticket to reviewed and delivered with the branch
-and the merged tip. In the same hold every `in-progress` review row whose `--review-of` names a released
-ticket is finished and delivered at the release time, since the reviewer releases as the last step
+and the merged tip. In the same hold every `in-progress` review row no ticket owns whose `--review-of`
+names a released ticket is finished and delivered at the release time, since the reviewer releases as the last step
 of its pass; a row that is not in progress is left alone.
 A refusal at any of those steps changes nothing, the review rows included. After the lock it removes the
 worktree (never forced) and deletes the branch (`-d`). A cleanup git declines is reported at exit 0,
