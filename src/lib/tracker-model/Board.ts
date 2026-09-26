@@ -767,7 +767,9 @@ export class Board {
 
     // The bar's status is not consulted: release has already delivered it by the time its reviewer stops.
     if (credit.target === 'review') {
-      const newestBar = this.reviewBarRecordsOf(credit.ticketId).at(-1);
+      // On a hand-duplicated id the first bar in the file wins, as the page's Kanban picks it.
+      const newestBar = this.reviewBarRecordsOf(credit.ticketId)
+        .reduce<ReviewBar | undefined>((newest, bar) => (newest === undefined || bar.id > newest.id ? bar : newest), undefined);
       if (newestBar === undefined) return { verdict: 'ticket-without-review-bar', ticketId: credit.ticketId };
       return creditTokensTo(newestBar, credit.tokens);
     }
