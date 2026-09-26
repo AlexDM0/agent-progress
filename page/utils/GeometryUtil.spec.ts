@@ -5,6 +5,7 @@
 import { describe, expect, test }       from 'bun:test';
 import type { ProgressFile, ViewRange } from '../../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { Task, TaskStatus }        from '../../src/lib/tracker-model/@types/Task.ts';
+import { PERCENT_OF_A_WHOLE }           from '../constants/Units.ts';
 import type { TimelineLimits }          from './GeometryUtil.ts';
 import { GeometryUtil }                 from './GeometryUtil.ts';
 
@@ -86,7 +87,7 @@ function localWallClockMinutesOf(epochMilliseconds: number): number {
 }
 
 function tickEpochMillisecondsOf(timeline: ReturnType<typeof computeTimeline>, leftPercent: number): number {
-  return timeline.fromEpochMilliseconds + (timeline.toEpochMilliseconds - timeline.fromEpochMilliseconds) * leftPercent / 100;
+  return timeline.fromEpochMilliseconds + (timeline.toEpochMilliseconds - timeline.fromEpochMilliseconds) * leftPercent / PERCENT_OF_A_WHOLE;
 }
 
 describe('computeTimeline', () => {

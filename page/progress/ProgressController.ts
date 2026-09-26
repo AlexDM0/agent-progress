@@ -4,6 +4,7 @@ import type { ProgressFile, ViewRange }                                from '../
 import type { Task }                                                   from '../../src/lib/tracker-model/@types/Task.ts';
 import type { TicketStatus }                                           from '../../src/lib/tracker-model/@types/Ticket.ts';
 import type { PagePayload }                                            from '../../src/shared/@types/PagePayload.ts';
+import { PERCENT_OF_A_WHOLE }                                          from '../constants/Units.ts';
 import type { NameColumnWidth, StoredViewOverride, ViewerPreferences } from '../preferences/ViewerPreferences.ts';
 import { toggledNameColumnWidth }                                      from '../preferences/ViewerPreferences.ts';
 import { DomUtil }                                                     from '../utils/DomUtil.ts';
@@ -65,7 +66,7 @@ function pinnedColumnsWidth(): number {
 
 function scrollNowIntoView(chart: HTMLElement, nowPercent: number, axisWidthPixels: number, pinnedWidth: number): void {
   const visibleAxisWidth   = Math.max(1, chart.clientWidth - pinnedWidth);
-  const markerAxisOffset   = axisWidthPixels * nowPercent / 100;
+  const markerAxisOffset   = axisWidthPixels * nowPercent / PERCENT_OF_A_WHOLE;
   const furthestScrollLeft = Math.max(0, chart.scrollWidth - chart.clientWidth);
   const desiredScrollLeft  = markerAxisOffset - visibleAxisWidth / 2;
   chart.scrollLeft = Math.max(0, Math.min(desiredScrollLeft, furthestScrollLeft));
