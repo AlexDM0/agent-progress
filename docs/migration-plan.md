@@ -1,8 +1,10 @@
 # Migration plan: the conventions refactor
 
-**Status (2026-09-26): in flight on `migration/conventions`; steps 0 to 3, 4a to 4c, 5, 6 and 7 are done, 7c included:
+**Status (2026-09-26): in flight on `migration/conventions`; steps 0 to 3, 4a to 4c, 5, 6, 7 and 8 are done, 7c included:
 legacy code isolated per boundary, the log id filter widened, and every status, type and priority worded through its
-edge mapper. Step 8 is next.** cli/ is grouped into tracking, tickets, dispatch, adoption and measurement; the ticket
+edge mapper. Step 8 put the templates under resources/templates, generates the dispatcher into `.agent-progress/`,
+records the install version in `.agent-progress/version.json` with the mismatch refusal, and stores name-only review
+rows' links at `update` and at filing. Step 9 is next.** cli/ is grouped into tracking, tickets, dispatch, adoption and measurement; the ticket
 command is split by subcommand group; `cli/CommandSupport.ts` is dissolved into cli/utils and the tracker-writing
 adapters; lib/ is deleted; the service refusals carry reason codes the CLI words; and the command context carries the
 render state. The page split (`migration/page`, merged in 7058c2a) and the dispatcher port (`migration/dispatcher`,
@@ -104,7 +106,7 @@ follow from the model above:
   bar's name). The Kanban and the Progress chart then agree because they read the same fact, not
   because two copies of a rule do.
 - **Legacy fallbacks are resolved once, at ingestion.** A review bar known only by its name gets its
-  `reviewOf` and round there (`src/adapters/legacy/utils/ReviewBarNameUtil.ts`, reached from the
+  `reviewOf` and round there (`src/shared/legacy/utils/ReviewBarNameUtil.ts`, reached from the
   progress ingestion's migrate step). A delivered row without a review stamp is not resolved at ingestion, because ingestion
   cannot invent the stamp. The Board query `deliveredRowCountsAsReviewed` answers it. Nothing
   downstream parses a name.
@@ -326,9 +328,9 @@ parts are dropped.
   uses them. Helpers used by several parts (the scratch workspace, the tracker isolation check) go
   in src/testing/, the one place in src/ that never ships. The lint devDependency exemption covers
   exactly those folders.
-- **The install version is stamped in each installed file**, in that file's own comment syntax. The
-  check reads each installed file's stamp. A missing or different stamp on any of them is a
-  mismatch.
+- **Superseded on 2026-09-26 by the install manifest (step 8, below).** ~~The install version is
+  stamped in each installed file, in that file's own comment syntax. The check reads each installed
+  file's stamp. A missing or different stamp on any of them is a mismatch.~~
 - **The dispatch protocol constants** (call budgets, rework threshold, claim-note format, release
   refusal reasons) have two consumers, cli/ and dispatcher/, so they go to src/shared by the
   hoisting rule.
@@ -349,6 +351,31 @@ Settled on 2026-09-26, from the black-box comparison with main:
   because the two cannot be told apart.
 - **Additive output fields are allowed**: `reviewBarRound`, the payload's `boardFacts`, the new
   `status --json` fields, and the page's log-entry `taskIds` and `ticketIds`.
+
+Settled on 2026-09-26, in step 8:
+
+- **The install version is one manifest, not per-file stamps.** `init` and `update` write
+  `.agent-progress/version.json` holding `{ "installVersion": N }`, where N is `INSTALL_VERSION`
+  (`cli/constants/InstallVersion.ts`), bumped by hand when the CLI ↔ installed-files contract
+  changes. No installed file carries a stamp. The check reads only the manifest: an equal version is
+  current; a different one, older or newer, is a mismatch; an absent manifest while the brief is
+  installed is a mismatch (a tracker from before step 8); an absent manifest with nothing installed
+  is current. Every command refuses on a mismatch (exit 1, one paragraph on standard error) except
+  `init`, `update`, `help` and `status`. The SubagentStop hook reports the mismatch, credits nothing
+  and exits 0; `release --json` prints its `invalid-request` document. `update` and `init` refuse a
+  newer manifest instead of downgrading it.
+- **An update is all or nothing.** `init` and `update` compute every installed text first (the
+  bundled dispatcher, the filled templates, the managed block, the agent definition), then write
+  each file atomically, and write `version.json` last. A failure while computing writes nothing; a
+  failure at any later point leaves the old version, so every command keeps asking for `update` and
+  a rerun completes it. The opt-out flags (`--no-claude-md`, `--no-workflow`,
+  `--no-agent-definition`, `--no-hooks`) keep their meaning.
+- **Name-only review rows become droppable legacy.** `update`, and `init` on an existing tracker,
+  store every free-standing row known only by its `Review <N> #<id>` name with its `reviewOf` and
+  `reviewBarRound`, and every retired status word in the new word. `task add` given a review-shaped
+  name and no `--review-of` stores the link at filing, through `cli/legacy/`. The read-time linking
+  in `src/adapters/legacy/` then serves only trackers not yet updated, and the name util both use
+  lives in `src/shared/legacy/utils/ReviewBarNameUtil.ts`.
 
 ## 7. Risks
 
