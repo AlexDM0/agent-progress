@@ -6,6 +6,7 @@ import type {
   RoundRefusal,
   RoundVerdict
 } from '../@types/DispatchOutcome.ts';
+import { DISPATCH_POLICY } from '../constants/DispatchPolicy.ts';
 
 function findingsOfRoundsBefore(earlierRounds: readonly ReviewedRound[], round: number): ReviewFinding[] {
   return earlierRounds.filter((earlier) => earlier.round < round).flatMap((earlier) => earlier.findings);
@@ -16,7 +17,7 @@ function refused(refusal: RoundRefusal): RoundVerdict {
 }
 
 /**
- * Round 2 needs the rework count alone; from round 3 the findings must also be converging, or the next round only finds more.
+ * Round `ROUND_GRANTED_ON_REWORK_ALONE` needs the rework count alone; a later round also needs the findings converging, or it only finds more.
  * Only rounds before `current.round` are read, so `earlierRounds` may already hold the current one.
  */
 function nextRoundVerdictOf(earlierRounds: readonly ReviewedRound[], current: ReviewedRoundWithRework): RoundVerdict {
@@ -24,13 +25,13 @@ function nextRoundVerdictOf(earlierRounds: readonly ReviewedRound[], current: Re
   if (current.reworkedLines <= DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES) {
     return refused({ reason: 'rework-not-over-threshold', requestedRound, reworkedLines: current.reworkedLines });
   }
-  if (requestedRound === 2) return { granted: true };
+  if (requestedRound === DISPATCH_POLICY.ROUND_GRANTED_ON_REWORK_ALONE) return { granted: true };
   const previous = earlierRounds.find((earlier) => earlier.round === current.round - 1);
   if (previous === undefined) return refused({ reason: 'previous-round-not-reviewed-in-this-run', requestedRound });
   const earlierFindings = findingsOfRoundsBefore(earlierRounds, current.round);
   const earlierClasses = new Set(earlierFindings.map((finding) => finding.class));
   const earlierFiles = new Set(earlierFindings.map((finding) => finding.file));
-  if (current.findings.length * 2 > previous.findings.length) {
+  if (current.findings.length * DISPATCH_POLICY.FINDINGS_SHRINK_FACTOR_PER_ROUND > previous.findings.length) {
     return refused({
       reason:               'findings-not-halved',
       requestedRound,

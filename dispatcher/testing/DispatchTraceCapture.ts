@@ -32,6 +32,8 @@ const FROZEN_TABLE_PATH = 'dispatcher/testing/FrozenDispatchTraces.json';
 
 const LEVER_KEY_OPENING = 'lever: ';
 
+const TRACE_TABLE_INDENT_SPACES = 2;
+
 function retakeCommandFor(commit: string): string {
   return `git show ${commit}:${OLD_SCRIPT_PATH} > <scratch>/AgentProgressDispatch.js`
     + ` && bun dispatcher/testing/DispatchTraceCapture.ts <scratch>/AgentProgressDispatch.js ${commit} > ${FROZEN_TABLE_PATH}`;
@@ -124,5 +126,5 @@ if (import.meta.main) {
   if (scriptFilePath === undefined || commit === undefined) throw new Error('Usage: bun dispatcher/testing/DispatchTraceCapture.ts <script file> <commit>');
   const scriptSource = readFileSync(scriptFilePath, 'utf8');
   const table = await captureDispatchTraces(scriptSource, { scriptPath: OLD_SCRIPT_PATH, commit, scriptDigest: digestOf(scriptSource) });
-  process.stdout.write(`${JSON.stringify(table, null, 2)}\n`);
+  process.stdout.write(`${JSON.stringify(table, null, TRACE_TABLE_INDENT_SPACES)}\n`);
 }

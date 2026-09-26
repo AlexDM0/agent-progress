@@ -65,7 +65,7 @@ function roundThreeScenario(roundTwoFindings: ReviewFinding[]): DispatchScenario
 
 const GRANT_ROUND_THREE_WITHOUT_CONVERGENCE: SourceMutant = {
   modulePath: ROUND_VERDICT_UTIL,
-  find:       'if (requestedRound === 2) return { granted: true };',
+  find:       'if (requestedRound === DISPATCH_POLICY.ROUND_GRANTED_ON_REWORK_ALONE) return { granted: true };',
   replace:    'return { granted: true };',
 };
 
