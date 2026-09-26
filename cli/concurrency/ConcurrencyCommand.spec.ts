@@ -16,6 +16,7 @@ import type { ProgressFile }                                                  fr
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
 import { runCommandLine }                                                     from '../Main';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';
+import { storedLogEntriesOf }                                                 from '../testing/StoredLog';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -68,7 +69,7 @@ describe.skipIf(!gitIsAvailable())('the concurrency limit', () => {
     expect((await run(['concurrency'])).outputText()).toBe('3');
     const progress = JSON.parse(readFileSync(progressFilePath(), 'utf8')) as ProgressFile;
     expect(progress.concurrencyLimit).toBe(3);
-    expect(progress.log.at(-1)?.text).toBe('Concurrency limit set to 3');
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe('Concurrency limit set to 3');
   });
 
   test.each([['0'], ['-1'], ['x'], ['2.5'], ['11']])('"%s" is refused at exit 1 and the progress file is left byte-identical', async (written) => {

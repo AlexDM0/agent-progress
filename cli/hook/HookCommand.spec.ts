@@ -31,6 +31,7 @@ import {
 }                                                                             from '../../src/testing/ScratchWorkspace';
 import { runCommandLine }               from '../Main';
 import { createCapturedCommandContext } from '../testing/CapturedCommandContext';
+import { storedLogEntriesOf }           from '../testing/StoredLog';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -82,10 +83,6 @@ function storedProgress(): ProgressFile {
   return JSON.parse(readFileSync(progressFilePath, 'utf8')) as ProgressFile;
 }
 
-function storedLog(): ProgressFile['log'] {
-  return storedProgress().log;
-}
-
 function storedTokensOf(rowIdentifier: number): number | null | undefined {
   return storedProgress().tasks.find((task) => task.id === rowIdentifier)?.tokens;
 }
@@ -131,7 +128,7 @@ describe.skipIf(!gitIsAvailable())('a subagent that stopped', () => {
 
     expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
 
-    const lastEntry = storedLog().at(-1);
+    const lastEntry = storedLogEntriesOf(repositoryDirectory).at(-1);
     expect(lastEntry?.text).toBe('Agent agent_42 (general-purpose) stopped: 2 calls, end context 140k, input 230k (cache read 230k), output 2k');
     expect(context.errorText()).toBe('');
   });
@@ -147,7 +144,7 @@ describe.skipIf(!gitIsAvailable())('a subagent that stopped', () => {
 
       expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
 
-      expect(storedLog().at(-1)?.text).toContain('Agent agent_42');
+      expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toContain('Agent agent_42');
     } finally {
       removeScratchDirectory(elsewhere);
     }
@@ -158,7 +155,7 @@ describe.skipIf(!gitIsAvailable())('a subagent that stopped', () => {
 
     expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
 
-    expect(storedLog().at(-1)?.text).toStartWith('Agent unknown (unknown) stopped: 2 calls');
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toStartWith('Agent unknown (unknown) stopped: 2 calls');
   });
 
   // The log's input figure must count cache creation too, and only this case pins that the hook does the addition.
@@ -168,7 +165,7 @@ describe.skipIf(!gitIsAvailable())('a subagent that stopped', () => {
 
     expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
 
-    expect(storedLog().at(-1)?.text).toContain('input 12k (cache read 9k)');
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toContain('input 12k (cache read 9k)');
   });
 });
 
@@ -181,7 +178,7 @@ describe.skipIf(!gitIsAvailable())('the row the brief names', () => {
 
     expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput()))).toBe(0);
     expect(storedTokensOf(rowIdentifier)).toBe(FIXTURE_INPUT_TOKENS);
-    expect(storedLog().at(-1)?.text).toContain('input 230k');
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toContain('input 230k');
 
     expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput()))).toBe(0);
     expect(storedTokensOf(rowIdentifier)).toBe(FIXTURE_INPUT_TOKENS * 2);
@@ -212,7 +209,7 @@ describe.skipIf(!gitIsAvailable())('the row the brief names', () => {
     expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
 
     expect(storedTokensOf(rowIdentifier)).toBeNull();
-    expect(storedLog().at(-1)?.text).toContain('Agent agent_42');
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toContain('Agent agent_42');
     expect(context.errorText()).toBe('');
   });
 
@@ -223,7 +220,7 @@ describe.skipIf(!gitIsAvailable())('the row the brief names', () => {
     expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput()))).toBe(0);
 
     expect(storedTokensOf(rowIdentifier)).toBeNull();
-    expect(storedLog().at(-1)?.text).toContain('input 230k');
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toContain('input 230k');
   });
 
   test('a row the tracker does not hold is named on standard error, the rows it does hold are recorded, and it exits 0', async () => {
@@ -237,7 +234,7 @@ describe.skipIf(!gitIsAvailable())('the row the brief names', () => {
     expect(storedTokensOf(rowIdentifier)).toBe(501);
     expect(context.errorText()).toContain(`#${missingRow}`);
     expect(context.errorText().trim().split('\n'), 'one sentence for the one missing row').toHaveLength(1);
-    expect(storedLog().at(-1)?.text).toContain('Agent agent_42');
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toContain('Agent agent_42');
   });
 
   /** The path and the agent type a workflow agent was observed with; nothing in them may stop the row from being found. */
@@ -252,7 +249,7 @@ describe.skipIf(!gitIsAvailable())('the row the brief names', () => {
     expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
 
     expect(storedTokensOf(rowIdentifier)).toBe(FIXTURE_INPUT_TOKENS);
-    expect(storedLog().at(-1)?.text).toContain('(workflow-subagent)');
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toContain('(workflow-subagent)');
   });
 });
 
@@ -284,7 +281,7 @@ describe.skipIf(!gitIsAvailable())('the tickets the brief names', () => {
     expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
 
     expect(storedTokensOfTicketRow('001')).toBe(FIXTURE_INPUT_TOKENS);
-    expect(storedLog().at(-1)?.text).toContain('input 230k');
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toContain('input 230k');
     expect(context.errorText()).toBe('');
   });
 
@@ -315,7 +312,7 @@ describe.skipIf(!gitIsAvailable())('the tickets the brief names', () => {
     expect(storedTokensOfTicketRow('002')).toBeUndefined();
     expect(context.errorText()).toContain('ticket #002, which has no row yet');
     expect(context.errorText().trim().split('\n'), 'one sentence for the one ticket without a row').toHaveLength(1);
-    expect(storedLog().at(-1)?.text).toContain('Agent agent_42');
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toContain('Agent agent_42');
   });
 
   test('a named ticket the tracker does not hold is skipped in one sentence, and it exits 0', async () => {
@@ -327,7 +324,7 @@ describe.skipIf(!gitIsAvailable())('the tickets the brief names', () => {
     expect(context.errorText().trim()).toBe(
       'agent-progress hook subagent-stop: the brief names ticket #042, which the tracker does not hold, so its share of the tokens was not recorded.',
     );
-    expect(storedLog().at(-1)?.text).toContain('Agent agent_42');
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toContain('Agent agent_42');
   });
 
   /** Adding both would count the agent twice when the orchestrator named a ticket and its row; the row line names the bar directly, so it wins. */
@@ -392,7 +389,7 @@ describe.skipIf(!gitIsAvailable())('a workflow agent\'s brief after the harness\
     expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput()))).toBe(0);
 
     expect(storedProgress().tasks.every((task) => task.tokens === null)).toBe(true);
-    expect(storedLog().at(-1)?.text).toContain('input 230k');
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toContain('input 230k');
   });
 
   test('a relay whose later ordinary user message carries a marker records nothing on any row', async () => {
@@ -406,7 +403,7 @@ describe.skipIf(!gitIsAvailable())('a workflow agent\'s brief after the harness\
     expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput()))).toBe(0);
 
     expect(storedProgress().tasks.every((task) => task.tokens === null)).toBe(true);
-    expect(storedLog().at(-1)?.text).toContain('Agent agent_42');
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toContain('Agent agent_42');
   });
 });
 
@@ -464,7 +461,7 @@ describe.skipIf(!gitIsAvailable())('the ticket a reviewer\'s brief names', () =>
     expect(context.errorText().trim()).toBe(
       'agent-progress hook subagent-stop: the brief names the review of ticket #007, which has no review row, so its share of the tokens was not recorded.',
     );
-    expect(storedLog().at(-1)?.text).toContain('Agent agent_42');
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toContain('Agent agent_42');
   });
 
   /** The ticket line names the builder's bar; a brief carrying both belongs to the builder, and counting it on the review too would count it twice. */
@@ -507,7 +504,7 @@ describe.skipIf(!gitIsAvailable())('every way it can fail', () => {
 
       expect(await runCommandLine(['hook', 'subagent-stop'], context), description).toBe(0);
 
-      expect(storedLog(), description).toEqual([]);
+      expect(storedLogEntriesOf(repositoryDirectory), description).toEqual([]);
       expect(context.errorText(), description).toContain('nothing was recorded');
       expect(context.outputText(), description).toBe('');
     }
@@ -519,7 +516,7 @@ describe.skipIf(!gitIsAvailable())('every way it can fail', () => {
 
     expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
 
-    expect(storedLog()).toEqual([]);
+    expect(storedLogEntriesOf(repositoryDirectory)).toEqual([]);
     expect(context.errorText()).toContain(missingPath);
     expect(context.errorText()).toContain('could not be read');
   });
@@ -530,7 +527,7 @@ describe.skipIf(!gitIsAvailable())('every way it can fail', () => {
 
     expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
 
-    expect(storedLog()).toEqual([]);
+    expect(storedLogEntriesOf(repositoryDirectory)).toEqual([]);
     expect(context.errorText()).toContain('holds no API calls');
   });
 
@@ -548,7 +545,7 @@ describe.skipIf(!gitIsAvailable())('every way it can fail', () => {
 
     expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
 
-    expect(storedLog()).toEqual([]);
+    expect(storedLogEntriesOf(repositoryDirectory)).toEqual([]);
     expect(context.errorText().split('\n'), 'one sentence, not a stack the orchestrator has to read').toHaveLength(1);
     expect(context.errorText()).toContain('could not be recorded');
     expect(context.outputText()).toBe('');
@@ -562,7 +559,7 @@ describe.skipIf(!gitIsAvailable())('every way it can fail', () => {
 
       expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
 
-      expect(storedLog()).toEqual([]);
+      expect(storedLogEntriesOf(repositoryDirectory)).toEqual([]);
       expect(context.errorText()).toContain(untrackedDirectory);
       expect(context.errorText()).toContain('could not be recorded');
     } finally {
@@ -579,7 +576,7 @@ describe.skipIf(!gitIsAvailable())('the one thing it does refuse', () => {
       expect(await runCommandLine(commandLineArguments, context), commandLineArguments.join(' ')).toBe(1);
 
       expect(context.errorText()).toContain('agent-progress hook takes one event');
-      expect(storedLog()).toEqual([]);
+      expect(storedLogEntriesOf(repositoryDirectory)).toEqual([]);
     }
   });
 });

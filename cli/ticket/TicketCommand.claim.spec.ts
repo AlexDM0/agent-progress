@@ -16,6 +16,7 @@ import type { ProgressFile }                                                  fr
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
 import { runCommandLine }                                                     from '../Main';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';
+import { storedLogEntriesOf }                                                 from '../testing/StoredLog';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -72,7 +73,7 @@ afterEach(() => {
 describe.skipIf(!gitIsAvailable())('claiming a ticket', () => {
   test('a ready pending ticket with a slot free is started, its row running with the owner and note, and one line logged', async () => {
     await run(['task', 'add', 'Review pass', '--start']);
-    const logLengthBefore = storedProgress().log.length;
+    const logLengthBefore = storedLogEntriesOf(repositoryDirectory).length;
 
     await run(['ticket', 'claim', '1', '--owner', 'Alex Example', '--note', 'role editor']);
 
@@ -82,8 +83,8 @@ describe.skipIf(!gitIsAvailable())('claiming a ticket', () => {
     expect(row?.status).toBe('in-progress');
     expect(row?.owner).toBe('Alex Example');
     expect(row?.note).toBe('role editor');
-    expect(progress.log.length).toBe(logLengthBefore + 1);
-    expect(progress.log.at(-1)?.text).toBe('Ticket #001 started');
+    expect(storedLogEntriesOf(repositoryDirectory).length).toBe(logLengthBefore + 1);
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe('Ticket #001 started');
   });
 
   // A review bar has no ticket, and it is an agent at work all the same: leaving it out is how a board ends up with four agents on two slots.
@@ -250,6 +251,6 @@ describe.skipIf(!gitIsAvailable())('claiming several tickets as one agent', () =
 
     const progress = storedProgress();
     expect(progress.tasks.find((task) => task.ticket === '003')?.agent).toBe('003');
-    expect(progress.log.filter((entry) => entry.text === 'Ticket #003 started')).toHaveLength(1);
+    expect(storedLogEntriesOf(repositoryDirectory).filter((entry) => entry.text === 'Ticket #003 started')).toHaveLength(1);
   });
 });

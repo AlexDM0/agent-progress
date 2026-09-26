@@ -17,6 +17,7 @@ import type { ProgressFile }                                                  fr
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
 import { runCommandLine }                                                     from '../Main';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';
+import { storedLogEntriesOf }                                                 from '../testing/StoredLog';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -67,7 +68,7 @@ async function readyTicketIds(): Promise<string[]> {
 }
 
 function logLinesAbout(identifier: string): string[] {
-  return storedProgress().log.map((entry) => entry.text).filter((text) => text.startsWith(`Ticket #${identifier} priority`));
+  return storedLogEntriesOf(repositoryDirectory).map((entry) => entry.text).filter((text) => text.startsWith(`Ticket #${identifier} priority`));
 }
 
 beforeEach(async () => {
@@ -131,7 +132,7 @@ describe.skipIf(!gitIsAvailable())('filing and moving a low ticket', () => {
     expect(storedProgress().tasks).toHaveLength(0);
     expect(storedProgress().nextTaskId).toBe(nextTaskIdBefore);
     expect(storedTicketText('001')).toContain('status: "abandoned"');
-    expect(storedProgress().log.at(-1)?.text).toBe('Ticket #001 abandoned: x');
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe('Ticket #001 abandoned: x');
   });
 
   test('clear re-seeds no row for a low ticket that was never started', async () => {

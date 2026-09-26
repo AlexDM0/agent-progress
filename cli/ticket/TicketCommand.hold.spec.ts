@@ -17,6 +17,7 @@ import type { ProgressFile }                                                  fr
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
 import { runCommandLine }                                                     from '../Main';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';
+import { storedLogEntriesOf }                                                 from '../testing/StoredLog';
 
 const FROZEN_NOW = new Date('2026-09-24T09:25:00Z');
 
@@ -73,7 +74,7 @@ function trackerBytes(): string {
 }
 
 function holdLogLines(): string[] {
-  return storedProgress().log.map((entry) => entry.text).filter((text) => / (?:un)?held\b/.test(text));
+  return storedLogEntriesOf(repositoryDirectory).map((entry) => entry.text).filter((text) => / (?:un)?held\b/.test(text));
 }
 
 beforeEach(async () => {

@@ -1,9 +1,6 @@
 /**
  * The log line and the two ways a caller writes one: an unquoted line is recorded whole, and `--at` backfills the stamp.
  */
-import { readFileSync } from 'node:fs';
-import { join }         from 'node:path';
-
 import {
   afterEach,
   beforeEach,
@@ -11,10 +8,10 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import type { ProgressFile }                                                  from '../../src/lib/tracker-model/@types/ProgressFile';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
 import { runCommandLine }                                                     from '../Main';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';
+import { storedLogEntriesOf }                                                 from '../testing/StoredLog';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -33,10 +30,6 @@ async function run(commandLineArguments: readonly string[]): Promise<ReturnType<
   return context;
 }
 
-function storedProgress(): ProgressFile {
-  return JSON.parse(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')) as ProgressFile;
-}
-
 beforeEach(async () => {
   repositoryDirectory = createScratchGitRepository('log-command');
   await run(['init', '--project', 'Example Agency']);
@@ -50,20 +43,20 @@ describe.skipIf(!gitIsAvailable())('appending to the log', () => {
   test('records a quoted line and confirms it', async () => {
     const context = await run(['log', 'Halfway through the role editor']);
 
-    expect(storedProgress().log.at(-1)?.text).toBe('Halfway through the role editor');
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe('Halfway through the role editor');
     expect(context.outputText()).toContain('Logged: Halfway through the role editor');
   });
 
   test('records every positional, so an unquoted line is not truncated to its first word', async () => {
     await run(['log', 'fixed', 'the', 'axis']);
 
-    expect(storedProgress().log.at(-1)?.text).toBe('fixed the axis');
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe('fixed the axis');
   });
 
   test('--at backfills the stamp to the moment it names', async () => {
     await run(['log', 'Halfway through the role editor', '--at', '-5m']);
 
-    const entry = storedProgress().log.at(-1);
+    const entry = storedLogEntriesOf(repositoryDirectory).at(-1);
     expect(Date.parse(entry?.at ?? '')).toBe(FROZEN_NOW.getTime() - FIVE_MINUTES_IN_MILLISECONDS);
   });
 
@@ -80,7 +73,7 @@ describe.skipIf(!gitIsAvailable())('appending to the log', () => {
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('needs something to record');
-    expect(storedProgress().log).toEqual([]);
+    expect(storedLogEntriesOf(repositoryDirectory)).toEqual([]);
   });
 });
 

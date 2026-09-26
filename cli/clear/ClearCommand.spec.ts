@@ -15,6 +15,7 @@ import type { ProgressFile }                                                  fr
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
 import { runCommandLine }                                                     from '../Main';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';
+import { storedLogEntriesOf }                                                 from '../testing/StoredLog';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -95,7 +96,7 @@ describe.skipIf(!gitIsAvailable())('clearing while keeping the tickets', () => {
   test('the log restarts with one line saying why it is empty', async () => {
     await run(['clear', '--yes']);
 
-    expect(storedProgress().log.map((entry) => entry.text)).toEqual(['Tracker cleared']);
+    expect(storedLogEntriesOf(repositoryDirectory).map((entry) => entry.text)).toEqual(['Tracker cleared']);
   });
 });
 

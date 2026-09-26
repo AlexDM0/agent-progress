@@ -26,6 +26,7 @@ import { LIMITS }                                                             fr
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
 import { runCommandLine }                                                     from '../Main';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';
+import { storedLogEntriesOf }                                                 from '../testing/StoredLog';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -77,7 +78,7 @@ describe.skipIf(!gitIsAvailable())('filing a ticket', () => {
 
     const progress = storedProgress();
     expect(progress.tasks[0]).toMatchObject({ id: 1, status: 'pending', ticket: '001' });
-    expect(progress.log.at(-1)?.text).toBe('Ticket #001 filed: Double-click a role to edit it');
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe('Ticket #001 filed: Double-click a role to edit it');
 
     expect(context.outputText()).toContain('Ticket #001 filed: Double-click a role to edit it');
     expect(context.outputText()).toContain(FIRST_TICKET_FILE_NAME);
@@ -219,7 +220,7 @@ describe.skipIf(!gitIsAvailable())('moving a ticket', () => {
 
     expect(storedProgress().tasks[0]?.status).toBe('abandoned');
     expect(storedTicketText()).toContain('reason: "superseded by ticket #007"');
-    expect(storedProgress().log.at(-1)?.text).toBe('Ticket #001 abandoned: superseded by ticket #007');
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe('Ticket #001 abandoned: superseded by ticket #007');
   });
 
   test('`ticket status` reaches the same states as the verbs do', async () => {
@@ -260,12 +261,12 @@ describe.skipIf(!gitIsAvailable())('a second review pass', () => {
     expect(storedTicketText()).toContain('status: "in-review"');
     expect(storedProgress().tasks[0]?.status).toBe('re-review');
     expect(storedProgress().tasks[0]?.reviewRound).toBe(2);
-    expect(storedProgress().log.at(-1)?.text).toBe('Ticket #001 in review, round 2');
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe('Ticket #001 in review, round 2');
     expect(context.outputText()).toContain('Ticket #001 in review, round 2');
 
     await run(['ticket', 'rereview', '1']);
     expect(storedProgress().tasks[0]?.reviewRound).toBe(3);
-    expect(storedProgress().log.at(-1)?.text).toBe('Ticket #001 in review, round 3');
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe('Ticket #001 in review, round 3');
   });
 
   test('approve still moves a ticket whose row is in a repeat review', async () => {
@@ -457,17 +458,17 @@ describe.skipIf(!gitIsAvailable())('the transition matrix', () => {
   });
 
   test('a refused move writes no log line and leaves the ticket where it was', async () => {
-    const logBefore = storedProgress().log.length;
+    const logBefore = storedLogEntriesOf(repositoryDirectory).length;
 
     expect(await runCommandLine(['ticket', 'deliver', '1'], contextHere())).toBe(1);
 
-    expect(storedProgress().log).toHaveLength(logBefore);
+    expect(storedLogEntriesOf(repositoryDirectory)).toHaveLength(logBefore);
     expect(storedTicketText()).toContain('status: "pending"');
   });
 
   test('moving a ticket to the status it already has is refused, under both spellings', async () => {
     await run(['ticket', 'start', '1']);
-    const logBefore = storedProgress().log.length;
+    const logBefore = storedLogEntriesOf(repositoryDirectory).length;
 
     const byVerb = contextHere();
     expect(await runCommandLine(['ticket', 'start', '1'], byVerb)).toBe(1);
@@ -477,7 +478,7 @@ describe.skipIf(!gitIsAvailable())('the transition matrix', () => {
     expect(await runCommandLine(['ticket', 'status', '1', 'in-progress'], byStatus)).toBe(1);
     expect(byStatus.errorText()).toContain('is already in-progress');
 
-    expect(storedProgress().log).toHaveLength(logBefore);
+    expect(storedLogEntriesOf(repositoryDirectory)).toHaveLength(logBefore);
   });
 
   test('ticket status makes the move the verbs refuse, and stamps the row it left unstarted', async () => {
@@ -618,11 +619,11 @@ describe.skipIf(!gitIsAvailable())('ticket dependencies', () => {
   test('depends replaces the list and logs it, and with no ids clears it', async () => {
     await run(['ticket', 'depends', '2', '1']);
     expect(storedTicketText('002-validate-the-rows.md')).toContain('dependsOn: "001"');
-    expect(storedProgress().log.at(-1)?.text).toBe('Ticket #002 waits on #001');
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe('Ticket #002 waits on #001');
 
     await run(['ticket', 'depends', '2']);
     expect(storedTicketText('002-validate-the-rows.md')).not.toContain('dependsOn');
-    expect(storedProgress().log.at(-1)?.text).toBe('Ticket #002 waits on no other ticket');
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe('Ticket #002 waits on no other ticket');
   });
 
   test('a finished dependency no longer holds the ticket back in the listing', async () => {

@@ -13,10 +13,10 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import type { ProgressFile }                                                  from '../../src/lib/tracker-model/@types/ProgressFile';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
 import { runCommandLine }                                                     from '../Main';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';
+import { storedLogEntriesOf }                                                 from '../testing/StoredLog';
 
 const FROZEN_NOW = new Date('2026-09-24T09:25:00Z');
 
@@ -42,10 +42,6 @@ async function runExpectingRefusal(commandLineArguments: readonly string[]): Pro
 
 function progressFilePath(): string {
   return join(repositoryDirectory, '.agent-progress', 'progress.json');
-}
-
-function storedProgress(): ProgressFile {
-  return JSON.parse(readFileSync(progressFilePath(), 'utf8')) as ProgressFile;
 }
 
 function ticketsDirectory(): string {
@@ -95,7 +91,7 @@ describe.skipIf(!gitIsAvailable())('naming a ticket\'s agents', () => {
 
     expect(printed).toContain('Ticket #001 agents sonnet/high → sonnet/low');
     expect(storedTicketText('001')).toContain('\nmodel: "sonnet"\neffort: "low"\n');
-    expect(storedProgress().log.filter((entry) => entry.text.startsWith('Ticket #001 agents'))).toHaveLength(1);
+    expect(storedLogEntriesOf(repositoryDirectory).filter((entry) => entry.text.startsWith('Ticket #001 agents'))).toHaveLength(1);
   });
 
   test('ticket agent on a ticket left to the defaults names the default pair it moves from', async () => {

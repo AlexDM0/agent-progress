@@ -17,6 +17,7 @@ import type { DispatcherState, ProgressFile }                                 fr
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
 import { runCommandLine }                                                     from '../Main';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';
+import { storedLogEntriesOf }                                                 from '../testing/StoredLog';
 
 const FROZEN_NOW = new Date('2026-09-23T20:11:03Z');
 
@@ -79,7 +80,7 @@ describe.skipIf(!gitIsAvailable())('the dispatcher state', () => {
     await run(['dispatcher', state]);
 
     expect(storedProgress().dispatcherState).toBe(state);
-    expect(storedProgress().log.at(-1)?.text).toBe(`Dispatcher set to ${state}`);
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe(`Dispatcher set to ${state}`);
     expect((await run(['dispatcher'])).outputText()).toBe(state);
   });
 
@@ -131,7 +132,7 @@ describe.skipIf(!gitIsAvailable())('the stored run id', () => {
     expect((await run(['dispatcher', 'running', '--run', EXAMPLE_RUN_ID])).outputText()).toBe(`Dispatcher set to running (run ${EXAMPLE_RUN_ID}) (was stopped).`);
 
     expect(storedProgress().dispatcherRunId).toBe(EXAMPLE_RUN_ID);
-    expect(storedProgress().log.at(-1)?.text).toBe(`Dispatcher set to running (run ${EXAMPLE_RUN_ID})`);
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe(`Dispatcher set to running (run ${EXAMPLE_RUN_ID})`);
     expect((await run(['dispatcher'])).outputText()).toBe(`running (run ${EXAMPLE_RUN_ID})`);
     expect(JSON.parse((await run(['dispatcher', '--json'])).outputText())).toEqual({ dispatcherState: 'running', dispatcherRunId: EXAMPLE_RUN_ID });
     expect((await statusConcurrency()).dispatcherRunId).toBe(EXAMPLE_RUN_ID);

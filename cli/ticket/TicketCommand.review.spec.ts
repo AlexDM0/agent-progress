@@ -21,6 +21,7 @@ import { LIMITS }                                                             fr
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
 import { runCommandLine }                                                     from '../Main';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';
+import { storedLogEntriesOf }                                                 from '../testing/StoredLog';
 
 const FROZEN_NOW = new Date('2026-09-24T12:00:00Z');
 
@@ -181,7 +182,7 @@ describe.skipIf(!gitIsAvailable())('starting the review bar with the move to rev
       expect(inProgressBarsReviewing('001'), moveOutOfReview.join(' ')).toHaveLength(0);
       expect(storedProgress().tasks.find((task) => task.id === bar?.id)?.status).toBe('delivered');
       expect(output).toContain(`Closed the review row #${bar?.id}, delivered`);
-      expect(storedProgress().log.filter((entry) => entry.text.startsWith(`Closed the review row #${bar?.id}`))).toHaveLength(1);
+      expect(storedLogEntriesOf(repositoryDirectory).filter((entry) => entry.text.startsWith(`Closed the review row #${bar?.id}`))).toHaveLength(1);
     }
   });
 

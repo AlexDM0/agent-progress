@@ -31,6 +31,7 @@ import {
 import { helpText }                     from '../HelpText';
 import { runCommandLine }               from '../Main';
 import { createCapturedCommandContext } from '../testing/CapturedCommandContext';
+import { storedLogEntriesOf }           from '../testing/StoredLog';
 
 type CleanupStepDocument =
   | { target: 'worktree'; path: string; outcome: 'removed' }
@@ -263,8 +264,7 @@ describe.skipIf(!gitIsAvailable())('a release that holds', () => {
 
     expect(outcome.exitCode, outcome.error).toBe(0);
     expect(outcome.output).toContain(`Released ticket #${identifier}:`);
-    const progressText = readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8');
-    expect(progressText.split(`"Ticket #${identifier} delivered"`).length - 1).toBe(1);
+    expect(storedLogEntriesOf(repositoryDirectory).filter((entry) => entry.text === `Ticket #${identifier} delivered`)).toHaveLength(1);
   });
 
   test('a bundle with one ticket that is not releasable releases none of them', async () => {
@@ -380,7 +380,10 @@ describe.skipIf(!gitIsAvailable())('a release closes the running review bars of 
     const outcome = await agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree]);
 
     expect(outcome.exitCode, outcome.error).toBe(0);
-    expect(storedProgress().log).toContainEqual({ at: releaseStamp, text: `Closed the review row #${reviewRowId}, delivered: Review 1 #${identifier} — the work` });
+    expect(storedLogEntriesOf(repositoryDirectory)).toContainEqual({
+      at:   releaseStamp,
+      text: `Closed the review row #${reviewRowId}, delivered: Review 1 #${identifier} — the work`,
+    });
   });
 
   test('under --json the closed review rows are listed by id', async () => {
