@@ -2,7 +2,8 @@
  * A version 1 file's own log: it has to be an array of `{ at, text }` entries, and the first malformed entry is named by its index and
  * field; each entry becomes a note, in order, stamps kept, in the key order log.jsonl stores a record in. The log must be moved to log.jsonl
  * on the next write, and a log.jsonl beside a version 1 file is believed only as a migration cut short, when it holds that log or its start;
- * one holding any record the log lacks is refused naming both files, so no log is dropped silently.
+ * one holding any record the log lacks is refused naming both files, so no log is dropped silently. With no log carried over it gives
+ * no answer.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -57,6 +58,12 @@ test('each worded log entry becomes a note carrying its stamp and its sentence, 
   expect(Object.keys(EmbeddedLogUtil.notesOf(entries)[0] ?? {}), 'the order log.jsonl stores a record in').toEqual(['at', 'kind', 'fields']);
 });
 
+test('with no log carried over there is no answer, and the current log.jsonl reading decides', () => {
+  expect(storedLogBesideAnEmbeddedLog(null, { verdict: 'readable', records: [LATER_RECORD] }, LOCATIONS)).toBeNull();
+  expect(storedLogBesideAnEmbeddedLog(null, { verdict: 'absent' }, LOCATIONS)).toBeNull();
+  expect(storedLogBesideAnEmbeddedLog(null, UNREADABLE_LOG_FILE, LOCATIONS)).toBeNull();
+});
+
 describe('beside a version 1 progress.json', () => {
   test('with no log.jsonl, the log is the embedded notes, which must be written to log.jsonl', () => {
     expect(storedLogBesideAnEmbeddedLog(EMBEDDED_LOG, { verdict: 'absent' }, LOCATIONS))
@@ -94,11 +101,11 @@ describe('beside a version 1 progress.json', () => {
 
   test('a note with the same text at another time is not the embedded log\'s start', () => {
     const restamped: LogRecord = { ...SECOND_NOTE, at: '2026-09-18T20:41:00+02:00' };
-    expect(storedLogBesideAnEmbeddedLog(EMBEDDED_LOG, { verdict: 'readable', records: [FIRST_NOTE, restamped] }, LOCATIONS).verdict).toBe('unreadable');
+    expect(storedLogBesideAnEmbeddedLog(EMBEDDED_LOG, { verdict: 'readable', records: [FIRST_NOTE, restamped] }, LOCATIONS)?.verdict).toBe('unreadable');
   });
 
   test('a record of another kind in a note\'s place is not the embedded log\'s start', () => {
-    expect(storedLogBesideAnEmbeddedLog(EMBEDDED_LOG, { verdict: 'readable', records: [LATER_RECORD] }, LOCATIONS).verdict).toBe('unreadable');
+    expect(storedLogBesideAnEmbeddedLog(EMBEDDED_LOG, { verdict: 'readable', records: [LATER_RECORD] }, LOCATIONS)?.verdict).toBe('unreadable');
   });
 
   test('an unreadable log.jsonl is refused with the same reason, naming both files', () => {

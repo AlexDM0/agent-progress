@@ -45,14 +45,15 @@ function logFileIsAStartOfTheEmbeddedLog(carriedOverLog: readonly LogRecord[], l
 }
 
 /**
- * A log.jsonl beside a version 1 file is a migration cut short only when it holds the start of that file's log, or all of it; one holding
- * anything more is refused naming both files, so nothing is dropped silently.
+ * Null when no log was carried over. A log.jsonl beside a version 1 file is a migration cut short only when it holds the start of that
+ * file's log, or all of it; one holding anything more is refused naming both files, so nothing is dropped silently.
  */
 function storedLogBesideAnEmbeddedLog(
-  carriedOverLog: readonly LogRecord[],
+  carriedOverLog: readonly LogRecord[] | null,
   logFileReading: LogFileReading,
   locations: { logFilePath: string; progressFilePath: string },
-): StoredLogReading {
+): StoredLogReading | null {
+  if (carriedOverLog === null) return null;
   if (logFileReading.verdict === 'absent' || (logFileReading.verdict === 'readable' && logFileIsAStartOfTheEmbeddedLog(carriedOverLog, logFileReading.records))) {
     return { verdict: 'readable', records: [...carriedOverLog], logFileMustBeRewritten: true };
   }

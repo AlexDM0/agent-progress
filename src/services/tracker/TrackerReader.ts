@@ -1,4 +1,5 @@
 /** Reads one tracker's stored files without the lock, the progress file, its stored log and the ticket listing, as a verdict or a refusal. */
+import { EmbeddedLogUtil }                                 from '../../adapters/legacy/utils/EmbeddedLogUtil.ts';
 import type { StoredLog }                                  from '../../adapters/log/@types/StoredLog.ts';
 import { LogFileIngestion }                                from '../../adapters/log/LogFileIngestion.ts';
 import { TrackerLogUtil }                                  from '../../adapters/log/utils/TrackerLogUtil.ts';
@@ -45,11 +46,12 @@ export function readTracker(workspace: Workspace): TrackerReading {
   const logFileReading = progressReading.carriedOverLog === null && logFileReadingBeforeProgress.verdict === 'absent'
     ? new LogFileIngestion(workspace.logFilePath).read()
     : logFileReadingBeforeProgress;
-  const storedLog = TrackerLogUtil.storedLogOf(
+  // The seam: dropping src/adapters/legacy/ makes this `TrackerLogUtil.storedLogOf(logFileReading)`.
+  const storedLog = EmbeddedLogUtil.storedLogBesideAnEmbeddedLog(
     progressReading.carriedOverLog,
     logFileReading,
     { logFilePath: workspace.logFilePath, progressFilePath: workspace.progressFilePath },
-  );
+  ) ?? TrackerLogUtil.storedLogOf(logFileReading);
   if (storedLog.verdict === 'unreadable') {
     return {
       verdict:        'unreadable',
