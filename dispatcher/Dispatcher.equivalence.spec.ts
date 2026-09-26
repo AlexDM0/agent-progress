@@ -13,8 +13,8 @@ import { readFrozenDispatchTraces }                    from './testing/DispatchT
 import { dispatchTraceCatalogue }                      from './testing/DispatchTraceCatalogue.ts';
 
 // A little under the frozen table's size, so a retake may grow it but a catalogue that shrank fails.
-const CATALOGUE_ENTRIES_FLOOR = 150;
-const AGENT_CALLS_COMPARED_FLOOR = 1000;
+const CATALOGUE_ENTRIES_FLOOR = 185;
+const AGENT_CALLS_COMPARED_FLOOR = 1120;
 
 const FROZEN_TABLE = readFrozenDispatchTraces();
 
