@@ -27,7 +27,7 @@ import type {
 import type { Concurrency }                              from './@types/Concurrency.ts';
 import type { AgentUsage, LogRecord }                    from './@types/LogRecord.ts';
 import type { DispatcherState, ProgressFile, ViewRange } from './@types/ProgressFile.ts';
-import type { Task, TaskStatus }                         from './@types/Task.ts';
+import type { DisplayState, Task, TaskStatus }           from './@types/Task.ts';
 import type {
   AgentPair,
   Ticket,
@@ -539,6 +539,33 @@ export class Board {
     return SETTLED_TICKET_STATUSES.includes(ticket.frontmatter.status);
   }
 
+  /** Oldest filed first; a row a ticket owns is never a review bar, and a ticket the board does not hold has none. */
+  reviewBarsOf(ticketId: string): readonly Readonly<Task>[] {
+    return this.reviewBarRecordsOf(ticketId);
+  }
+
+  /** The row naming the ticket, as the page draws it, rather than the one its frontmatter `task` points at. */
+  ownRowOf(ticketId: string): Readonly<Task> | null {
+    return this.progress.tasks.find((task) => task.ticket === ticketId) ?? null;
+  }
+
+  /** Read on the record handed in, like `taskIsSettled`. */
+  rowDisplayStateOf(task: Readonly<Task>): DisplayState {
+    return displayStateFor(task.status, this.ticketStatusOfRow(task));
+  }
+
+  /** A ticket without a row shows what a row in its own status would. */
+  ticketDisplayStateOf(ticketId: string): DisplayState {
+    const { status } = this.requireTicket(ticketId).frontmatter;
+    return displayStateFor(this.ownRowOf(ticketId)?.status ?? status, status);
+  }
+
+  deliveredRowCountsAsReviewed(task: Readonly<Task>): boolean {
+    // A delivered ticket passed `reviewed`, so its row counts without a stamp; this stays a query because ingestion would have to invent
+    // the stamp and read the ticket files.
+    return task.status === 'delivered' && (task.reviewed !== undefined || this.ticketStatusOfRow(task) === 'delivered');
+  }
+
   changedTickets(): readonly Ticket[] {
     return this.changedTicketRecords;
   }
@@ -553,6 +580,17 @@ export class Board {
 
   private ticketRecordById(ticketId: string): Ticket | undefined {
     return this.ticketRecords.find((ticket) => ticket.frontmatter.id === ticketId);
+  }
+
+  private ticketStatusOfRow(task: Readonly<Task>): TicketStatus | null {
+    if (task.ticket === null) return null;
+    return this.ticketRecordById(task.ticket)?.frontmatter.status ?? null;
+  }
+
+  private reviewBarRecordsOf(ticketId: string): Task[] {
+    return this.progress.tasks
+      .filter((task) => task.ticket === null && task.reviewOf === ticketId)
+      .toSorted((a, b) => a.id - b.id);
   }
 
   private ticketRecordByReference(reference: string): Ticket | undefined {
@@ -738,6 +776,10 @@ export class Board {
 function creditTokensTo(task: Task, tokens: number): TokenCreditOutcome {
   task.tokens = (task.tokens ?? 0) + tokens;
   return { verdict: 'credited', taskId: task.id };
+}
+
+function displayStateFor(status: TaskStatus, ticketStatus: TicketStatus | null): DisplayState {
+  return status === 'in-review' && ticketStatus === 'in-review' ? 'reviewing' : status;
 }
 
 /** A row a ticket owns moves through the ticket so the two files cannot disagree; a pause and its resume are exempt, as no ticket status says either. */
