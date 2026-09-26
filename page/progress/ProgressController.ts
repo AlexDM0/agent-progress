@@ -19,7 +19,7 @@ import {
   labelSitsLeftOfItsLine,
   overlayMarkup,
   rangeNoteText,
-  summaryStatsMarkup,
+  summaryStatisticsMarkup,
   taskRowsMarkup,
   tickLayerMarkup,
 } from './ProgressMarkup.ts';
@@ -210,7 +210,7 @@ export function createProgressController(sources: ProgressControllerSources): Pr
 
   return {
     showSummary: () => {
-      DomUtil.setMarkup('ap-summary', summaryStatsMarkup(progress.tasks, payload.concurrency));
+      DomUtil.setMarkup('ap-summary', summaryStatisticsMarkup(progress.tasks, payload.concurrency));
     },
     applyNameColumnWidth: () => {
       reflectNameColumnWidth(nameColumnWidth);

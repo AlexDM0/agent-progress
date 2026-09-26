@@ -42,7 +42,7 @@ export function ticketCountText(tickets: readonly PageTicket[]): string {
   return inProgressCount === 0 ? total : `${total} · ${inProgressCount} in progress`;
 }
 
-function ticketMetaMarkup(ticket: PageTicket, slices: TimestampSlices, todayCalendarDate: string): string {
+function ticketMetadataMarkup(ticket: PageTicket, slices: TimestampSlices, todayCalendarDate: string): string {
   // Tuples rather than records: the page bundle keeps every property name, and this table is its longest run of them.
   const entries: Array<[label: string, value: string | null | undefined, isTimestamp: boolean]> = [
     ['filed', ticket.filed, true],
@@ -77,7 +77,7 @@ function ticketCardMarkup(ticket: PageTicket, waitingOn: readonly string[], slic
     WorkItemMarkupUtil.waitingOnMarkup(waitingOn),
     WorkItemMarkupUtil.latestMilestoneMarkup(ticket, slices, todayCalendarDate),
   ].join('');
-  const body  = `${ticketMetaMarkup(ticket, slices, todayCalendarDate)}<div class="ap-ticket-body md">${ticket.bodyHtml}</div>`;
+  const body  = `${ticketMetadataMarkup(ticket, slices, todayCalendarDate)}<div class="ap-ticket-body md">${ticket.bodyHtml}</div>`;
   const inner = CLOSED_TICKET_STATUSES.includes(ticket.status)
     ? `<details><summary>${head}</summary>${body}</details>`
     : `<div class="ap-ticket-head">${head}</div>${body}`;

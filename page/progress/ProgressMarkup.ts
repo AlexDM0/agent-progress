@@ -137,23 +137,23 @@ export function overlayMarkup(ticks: readonly TimelineTick[], nowPercent: number
 }
 
 /** The token figure is left out entirely when no task reports one, because `null` means "nobody said" and `0 tokens` would be a claim. */
-export function summaryStatsMarkup(tasks: readonly Task[], concurrency: { limit: number; agentsInFlight: number }): string {
+export function summaryStatisticsMarkup(tasks: readonly Task[], concurrency: { limit: number; agentsInFlight: number }): string {
   const completedCount     = tasks.filter((task) => SETTLED_TASK_STATUSES.includes(task.status)).length;
   const awaitingMergeCount = tasks.filter((task) => task.status === 'reviewed').length;
   const inReviewCount      = tasks.filter((task) => task.status === 'in-review' || task.status === 're-review').length;
   const reportedTokens     = tasks.filter((task) => task.tokens !== null);
   const figureMarkup = (figure: string): string => `<span class="ap-stat-n">${escapeHtml(figure)}</span>`;
-  const stats = [
+  const statistics = [
     `Work completed: ${figureMarkup(`${completedCount} / ${tasks.length}`)}`,
     `${figureMarkup(String(awaitingMergeCount))} awaiting merge`,
     `${figureMarkup(String(inReviewCount))} in review`,
     `${figureMarkup(`${concurrency.agentsInFlight} of ${concurrency.limit}`)} ${concurrency.limit === 1 ? 'agent' : 'agents'} running`,
   ];
   if (reportedTokens.length > 0) {
-    stats.push(`${figureMarkup(formatTokenCount(reportedTokens.reduce((total, task) => total + (task.tokens ?? 0), 0)))} tokens`);
+    statistics.push(`${figureMarkup(formatTokenCount(reportedTokens.reduce((total, task) => total + (task.tokens ?? 0), 0)))} tokens`);
   }
-  return stats
-    .map((statMarkup) => `<span class="ap-stat">${statMarkup}</span>`)
+  return statistics
+    .map((statisticMarkup) => `<span class="ap-stat">${statisticMarkup}</span>`)
     .join('<span class="ap-sep">&middot;</span>');
 }
 

@@ -17,7 +17,7 @@ import {
   labelSitsLeftOfItsLine,
   overlayMarkup,
   rangeNoteText,
-  summaryStatsMarkup,
+  summaryStatisticsMarkup,
   taskRowsMarkup,
   tickLayerMarkup,
 } from './ProgressMarkup.ts';
@@ -309,10 +309,10 @@ describe('review rows nested above their ticket', () => {
   });
 });
 
-describe('summaryStatsMarkup', () => {
+describe('summaryStatisticsMarkup', () => {
   // Work completed is the settled rows over the total, and the two figures beside it are what is still owed: a merge, and a review.
   test('reads in the same ladder as the pills: work completed out of the total, then what is awaited', () => {
-    const markup = summaryStatsMarkup([
+    const markup = summaryStatisticsMarkup([
       exampleTask({ id: 1, status: 'pending' }),
       exampleTask({ id: 2, status: 'in-review' }),
       exampleTask({ id: 3, status: 'reviewed' }),
@@ -326,13 +326,13 @@ describe('summaryStatsMarkup', () => {
 
   // An abandoned row has nothing left to do, so a board of only delivered and abandoned rows must not read as unfinished.
   test('counts an abandoned row as completed, so a settled board reads its total over its total', () => {
-    const inFlight = summaryStatsMarkup([
+    const inFlight = summaryStatisticsMarkup([
       exampleTask({ id: 1, status: 'delivered' }),
       exampleTask({ id: 2, status: 'delivered' }),
       exampleTask({ id: 3, status: 'abandoned' }),
       exampleTask({ id: 4, status: 'in-progress' }),
     ], NO_AGENTS_OF_TWO);
-    const settled = summaryStatsMarkup([
+    const settled = summaryStatisticsMarkup([
       exampleTask({ id: 1, status: 'delivered' }),
       exampleTask({ id: 2, status: 'abandoned' }),
       exampleTask({ id: 3, status: 'abandoned' }),
@@ -344,7 +344,7 @@ describe('summaryStatsMarkup', () => {
 
   // A delivered row is completed and nothing else: it is not still awaiting the merge it already had.
   test('counts a row sent round for another review as in review, and a delivered row only as completed', () => {
-    const markup = summaryStatsMarkup([
+    const markup = summaryStatisticsMarkup([
       exampleTask({ id: 1, status: 're-review', reviewRound: 3 }),
       exampleTask({ id: 2, status: 'reviewed' }),
       exampleTask({ id: 3, status: 'delivered' }),
@@ -356,29 +356,29 @@ describe('summaryStatsMarkup', () => {
   });
 
   test('sums the reported token counts and omits the figure when none were reported', () => {
-    const reported = summaryStatsMarkup([exampleTask({ tokens: 12_300 }), exampleTask({ id: 2, tokens: 50_100 })], NO_AGENTS_OF_TWO);
+    const reported = summaryStatisticsMarkup([exampleTask({ tokens: 12_300 }), exampleTask({ id: 2, tokens: 50_100 })], NO_AGENTS_OF_TWO);
 
     expect(reported).toContain('<span class="ap-stat-n">62.4k</span> tokens');
-    expect(summaryStatsMarkup([exampleTask()], NO_AGENTS_OF_TWO)).not.toContain('tokens');
+    expect(summaryStatisticsMarkup([exampleTask()], NO_AGENTS_OF_TWO)).not.toContain('tokens');
   });
 
-  test('separates the stats with the design’s middot', () => {
-    expect(summaryStatsMarkup([exampleTask()], NO_AGENTS_OF_TWO)).toContain('<span class="ap-sep">&middot;</span>');
+  test('separates the statistics with the design’s middot', () => {
+    expect(summaryStatisticsMarkup([exampleTask()], NO_AGENTS_OF_TWO)).toContain('<span class="ap-sep">&middot;</span>');
   });
 
   // The figures are the ones `status --json` reports, handed in; the line must print them as given rather than count the rows itself.
   test('prints the agents in flight against the limit as handed in, not a count of the running rows', () => {
-    const markup = summaryStatsMarkup([exampleTask({ status: 'in-progress' })], { limit: 3, agentsInFlight: 2 });
+    const markup = summaryStatisticsMarkup([exampleTask({ status: 'in-progress' })], { limit: 3, agentsInFlight: 2 });
 
     expect(markup).toContain('<span class="ap-stat"><span class="ap-stat-n">2 of 3</span> agents running</span>');
   });
 
   test('reads a fresh board as none of the default two agents running', () => {
-    expect(summaryStatsMarkup([], NO_AGENTS_OF_TWO)).toContain('<span class="ap-stat-n">0 of 2</span> agents running');
+    expect(summaryStatisticsMarkup([], NO_AGENTS_OF_TWO)).toContain('<span class="ap-stat-n">0 of 2</span> agents running');
   });
 
   test('speaks of one agent in the singular when the limit is one', () => {
-    expect(summaryStatsMarkup([], { limit: 1, agentsInFlight: 1 })).toContain('<span class="ap-stat-n">1 of 1</span> agent running');
+    expect(summaryStatisticsMarkup([], { limit: 1, agentsInFlight: 1 })).toContain('<span class="ap-stat-n">1 of 1</span> agent running');
   });
 });
 
