@@ -58,9 +58,13 @@ function storedTicketText(identifier: string): string {
   return readFileSync(ticketFilePath(identifier), 'utf8');
 }
 
+function logFileText(): string {
+  return readFileSync(join(repositoryDirectory, '.agent-progress', 'log.jsonl'), 'utf8');
+}
+
 function trackerBytes(): string {
   const ticketTexts = readdirSync(ticketsDirectory()).sort().map((name) => readFileSync(join(ticketsDirectory(), name), 'utf8'));
-  return [readFileSync(progressFilePath(), 'utf8'), ...ticketTexts].join('\n=====\n');
+  return [readFileSync(progressFilePath(), 'utf8'), logFileText(), ...ticketTexts].join('\n=====\n');
 }
 
 beforeEach(async () => {

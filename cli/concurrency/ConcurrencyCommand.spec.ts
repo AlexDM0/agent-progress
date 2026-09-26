@@ -26,6 +26,10 @@ function progressFilePath(): string {
   return join(repositoryDirectory, '.agent-progress', 'progress.json');
 }
 
+function logFileText(): string {
+  return readFileSync(join(repositoryDirectory, '.agent-progress', 'log.jsonl'), 'utf8');
+}
+
 async function runWithExitCode(commandLineArguments: readonly string[]): Promise<{ exitCode: number; context: ReturnType<typeof createCapturedCommandContext> }> {
   const context  = createCapturedCommandContext({ currentDirectory: repositoryDirectory, now: () => FROZEN_NOW });
   const exitCode = await runCommandLine(commandLineArguments, context);
@@ -73,12 +77,14 @@ describe.skipIf(!gitIsAvailable())('the concurrency limit', () => {
   });
 
   test.each([['0'], ['-1'], ['x'], ['2.5'], ['11']])('"%s" is refused at exit 1 and the progress file is left byte-identical', async (written) => {
-    const before = readFileSync(progressFilePath(), 'utf8');
+    const before    = readFileSync(progressFilePath(), 'utf8');
+    const logBefore = logFileText();
 
     const { exitCode } = await runWithExitCode(['concurrency', written]);
 
     expect(exitCode).toBe(1);
     expect(readFileSync(progressFilePath(), 'utf8')).toBe(before);
+    expect(logFileText()).toBe(logBefore);
   });
 
   // The ceiling itself is a limit the user may set; one more is not.
