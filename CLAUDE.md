@@ -54,8 +54,8 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
   it, so it stays DOM-safe. The `lib/` layers import it like any `src/lib/` package.
 - `src/testing/` may import `lib/platform/Workspace.ts` until plan step 6 moves it; `cli/testing/` is imported only by
   `cli/` specs.
-- `src/adapters/` imports only `src/lib/` and `src/shared/`. What remains in `lib/` and `cli/` may import
-  `src/adapters/` until plan step 5 moves the readers there.
+- `src/adapters/` imports only `src/lib/` and `src/shared/`; a `src/adapters/` spec may also import `src/testing/`.
+  What remains in `lib/` and `cli/` may import `src/adapters/` until plan step 5 moves the readers there.
 - A `src/services/` folder imports only `src/lib/`, `src/shared/` and `src/adapters/`. What remains in `lib/` and
   `cli/` may import `src/services/` until plan step 6 moves it there.
 - `src/shared/` holds app-specific code several parts use and imports only `src/lib/` and itself; what remains in
