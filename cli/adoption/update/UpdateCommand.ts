@@ -4,11 +4,12 @@
  * no tracker, so it takes neither `--project` nor `--root`, and touches the tracker only to rewrite
  * files still in an older format.
  */
-import type { TrackerRewrite }                                     from '../../../src/services/tracker/TrackerPipeline';
-import { requireWorkspace }                                        from '../../../src/services/tracker/Workspace';
-import { rewriteOlderTrackerFilesAndReport, rewrittenFilesTextOf } from '../../CommandSupport';
-import type { CommandHandler }                                     from '../../CommandTable';
-import { refreshTrackedRepository }                                from '../TrackerRefresh';
+import type { TrackerRewrite }               from '../../../src/services/tracker/TrackerPipeline';
+import { requireWorkspace }                  from '../../../src/services/tracker/Workspace';
+import type { CommandHandler }               from '../../CommandTable';
+import { rewriteOlderTrackerFilesAndReport } from '../OlderTrackerFilesRewrite';
+import { refreshTrackedRepository }          from '../TrackerRefresh';
+import { TrackerRewriteTextUtil }            from '../utils/TrackerRewriteTextUtil';
 
 const USAGE = 'agent-progress update [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';
 
@@ -51,5 +52,6 @@ export const updateCommand: CommandHandler = async (commandArguments, context) =
   }
   printRefreshReport(rewrite === null
     ? `Refreshed what agent-progress manages in ${workspace.rootDirectory}; the tracker itself was not touched.`
-    : `Refreshed what agent-progress manages in ${workspace.rootDirectory}, and rewrote its older tracker files in the current format: ${rewrittenFilesTextOf(rewrite)}.`);
+    : `Refreshed what agent-progress manages in ${workspace.rootDirectory}, and rewrote its older tracker files in the current format: `
+      + `${TrackerRewriteTextUtil.rewrittenFilesTextOf(rewrite)}.`);
 };

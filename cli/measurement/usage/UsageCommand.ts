@@ -16,9 +16,9 @@ import { requireWorkspace }                             from '../../../src/servi
 import { OperationRefusal }                             from '../../../src/shared/OperationRefusal';
 import { LIMITS }                                       from '../../../src/shared/constants/Limits';
 import type { CommandContext }                          from '../../CommandContext';
-import { padColumn, printEntity }                       from '../../CommandSupport';
 import type { CommandHandler }                          from '../../CommandTable';
 import type { ArgumentParser }                          from '../../arguments/ArgumentParser';
+import { OutputUtil }                                   from '../../utils/OutputUtil';
 
 const USAGE = 'agent-progress usage [--since <when>] [--transcripts <folder>] [--json]';
 
@@ -113,31 +113,31 @@ function localStampOf(startedAt: string | null): string {
 function renderAgentRows(agents: readonly AgentUsage[]): string[] {
   const { formatTokenCount } = TokenCountUtil;
   const lines = [[
-    padColumn('started', AGENT_COLUMN_WIDTHS.startedAt),
-    padColumn('calls', AGENT_COLUMN_WIDTHS.calls),
-    padColumn('end context', AGENT_COLUMN_WIDTHS.endContext),
-    padColumn('input', AGENT_COLUMN_WIDTHS.input),
-    padColumn('output', AGENT_COLUMN_WIDTHS.output),
-    padColumn('browser', AGENT_COLUMN_WIDTHS.browser),
-    padColumn('over 200k', AGENT_COLUMN_WIDTHS.oversizedContext),
-    padColumn('bash edits', AGENT_COLUMN_WIDTHS.bashEdits),
-    padColumn('checks', AGENT_COLUMN_WIDTHS.checks),
-    padColumn('nested', AGENT_COLUMN_WIDTHS.nested),
+    OutputUtil.padColumn('started', AGENT_COLUMN_WIDTHS.startedAt),
+    OutputUtil.padColumn('calls', AGENT_COLUMN_WIDTHS.calls),
+    OutputUtil.padColumn('end context', AGENT_COLUMN_WIDTHS.endContext),
+    OutputUtil.padColumn('input', AGENT_COLUMN_WIDTHS.input),
+    OutputUtil.padColumn('output', AGENT_COLUMN_WIDTHS.output),
+    OutputUtil.padColumn('browser', AGENT_COLUMN_WIDTHS.browser),
+    OutputUtil.padColumn('over 200k', AGENT_COLUMN_WIDTHS.oversizedContext),
+    OutputUtil.padColumn('bash edits', AGENT_COLUMN_WIDTHS.bashEdits),
+    OutputUtil.padColumn('checks', AGENT_COLUMN_WIDTHS.checks),
+    OutputUtil.padColumn('nested', AGENT_COLUMN_WIDTHS.nested),
     'brief',
   ].join('')];
 
   for (const agent of agents) {
     lines.push([
-      padColumn(localStampOf(agent.startedAt), AGENT_COLUMN_WIDTHS.startedAt),
-      padColumn(String(agent.apiCallCount), AGENT_COLUMN_WIDTHS.calls),
-      padColumn(formatTokenCount(agent.endContextTokens), AGENT_COLUMN_WIDTHS.endContext),
-      padColumn(formatTokenCount(agent.totalInputTokens), AGENT_COLUMN_WIDTHS.input),
-      padColumn(formatTokenCount(agent.outputTokens), AGENT_COLUMN_WIDTHS.output),
-      padColumn(String(agent.browserCallCount), AGENT_COLUMN_WIDTHS.browser),
-      padColumn(oversizedContextPercentOf(agent), AGENT_COLUMN_WIDTHS.oversizedContext),
-      padColumn(String(agent.bashEditScriptCount), AGENT_COLUMN_WIDTHS.bashEdits),
-      padColumn(String(agent.verificationRunCount), AGENT_COLUMN_WIDTHS.checks),
-      padColumn(formatTokenCount(agent.nestedInstructionCharacters), AGENT_COLUMN_WIDTHS.nested),
+      OutputUtil.padColumn(localStampOf(agent.startedAt), AGENT_COLUMN_WIDTHS.startedAt),
+      OutputUtil.padColumn(String(agent.apiCallCount), AGENT_COLUMN_WIDTHS.calls),
+      OutputUtil.padColumn(formatTokenCount(agent.endContextTokens), AGENT_COLUMN_WIDTHS.endContext),
+      OutputUtil.padColumn(formatTokenCount(agent.totalInputTokens), AGENT_COLUMN_WIDTHS.input),
+      OutputUtil.padColumn(formatTokenCount(agent.outputTokens), AGENT_COLUMN_WIDTHS.output),
+      OutputUtil.padColumn(String(agent.browserCallCount), AGENT_COLUMN_WIDTHS.browser),
+      OutputUtil.padColumn(oversizedContextPercentOf(agent), AGENT_COLUMN_WIDTHS.oversizedContext),
+      OutputUtil.padColumn(String(agent.bashEditScriptCount), AGENT_COLUMN_WIDTHS.bashEdits),
+      OutputUtil.padColumn(String(agent.verificationRunCount), AGENT_COLUMN_WIDTHS.checks),
+      OutputUtil.padColumn(formatTokenCount(agent.nestedInstructionCharacters), AGENT_COLUMN_WIDTHS.nested),
       agent.briefExcerpt,
     ].join(''));
   }
@@ -209,7 +209,7 @@ export const usageCommand: CommandHandler = (commandArguments, context) => {
   const document = { transcriptFolder, agents, cohorts };
 
   if (agents.length === 0) {
-    printEntity(commandArguments, context, document, `No subagent transcripts were found in ${transcriptFolder}, so there is nothing to report yet.`);
+    OutputUtil.printEntity(commandArguments, context, document, `No subagent transcripts were found in ${transcriptFolder}, so there is nothing to report yet.`);
     return Promise.resolve();
   }
 
@@ -222,6 +222,6 @@ export const usageCommand: CommandHandler = (commandArguments, context) => {
     lines.push(renderCohortLine(`Since ${boundary}`, cohorts.after));
   }
 
-  printEntity(commandArguments, context, document, lines.join('\n'));
+  OutputUtil.printEntity(commandArguments, context, document, lines.join('\n'));
   return Promise.resolve();
 };

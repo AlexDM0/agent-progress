@@ -1,15 +1,16 @@
-import { LogUtil }                            from '../../../src/adapters/utils/LogUtil';
-import type { DispatcherState }               from '../../../src/lib/tracker-model/@types/ProgressFile';
-import { readingBoardOf }                     from '../../../src/lib/tracker-model/ReadingBoard';
-import { DISPATCHER_STATES }                  from '../../../src/lib/tracker-model/constants/DispatcherStates';
-import { BoardSettingsUtil }                  from '../../../src/lib/tracker-model/utils/BoardSettingsUtil';
-import { requireProgressFile }                from '../../../src/services/tracker/TrackerReader';
-import { requireWorkspace }                   from '../../../src/services/tracker/Workspace';
-import { OperationRefusal }                   from '../../../src/shared/OperationRefusal';
-import type { CommandContext }                from '../../CommandContext';
-import { openTrackerForWriting, printEntity } from '../../CommandSupport';
-import type { CommandHandler }                from '../../CommandTable';
-import type { ArgumentParser }                from '../../arguments/ArgumentParser';
+import { LogUtil }               from '../../../src/adapters/utils/LogUtil';
+import type { DispatcherState }  from '../../../src/lib/tracker-model/@types/ProgressFile';
+import { readingBoardOf }        from '../../../src/lib/tracker-model/ReadingBoard';
+import { DISPATCHER_STATES }     from '../../../src/lib/tracker-model/constants/DispatcherStates';
+import { BoardSettingsUtil }     from '../../../src/lib/tracker-model/utils/BoardSettingsUtil';
+import { requireProgressFile }   from '../../../src/services/tracker/TrackerReader';
+import { requireWorkspace }      from '../../../src/services/tracker/Workspace';
+import { OperationRefusal }      from '../../../src/shared/OperationRefusal';
+import type { CommandContext }   from '../../CommandContext';
+import type { CommandHandler }   from '../../CommandTable';
+import { openTrackerForWriting } from '../../TrackerWriting';
+import type { ArgumentParser }   from '../../arguments/ArgumentParser';
+import { OutputUtil }            from '../../utils/OutputUtil';
 
 const USAGE = `agent-progress dispatcher [${DISPATCHER_STATES.join('|')}] [--run <runId>] [--json]`;
 
@@ -25,7 +26,7 @@ function printCurrentState(commandArguments: ArgumentParser, context: CommandCon
   const dispatcherState = board.dispatcherState();
   const dispatcherRunId = board.dispatcherRunId();
   const entity          = dispatcherRunId === undefined ? { dispatcherState } : { dispatcherState, dispatcherRunId };
-  printEntity(commandArguments, context, entity, LogUtil.dispatcherStateTextOf(dispatcherState, dispatcherRunId ?? null));
+  OutputUtil.printEntity(commandArguments, context, entity, LogUtil.dispatcherStateTextOf(dispatcherState, dispatcherRunId ?? null));
 }
 
 /** Every write replaces the stored run id: a `running` without `--run` is a launch whose id is not known yet, and an older id would be resumed wrongly. */
@@ -58,5 +59,5 @@ export const dispatcherCommand: CommandHandler = async (commandArguments, contex
 
   const loggedSentence = logged.map((record) => LogUtil.sentenceOf(record)).join('\n');
   const entity         = runId === undefined ? { dispatcherState: written, previousState } : { dispatcherState: written, dispatcherRunId: runId, previousState };
-  printEntity(commandArguments, context, entity, `${loggedSentence} (was ${previousState}).`);
+  OutputUtil.printEntity(commandArguments, context, entity, `${loggedSentence} (was ${previousState}).`);
 };

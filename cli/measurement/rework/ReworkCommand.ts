@@ -10,8 +10,8 @@ import { resolve } from 'node:path';
 
 import { readCommitsDiff, readRebaseDiffs, readWorktreeHead } from '../../../src/lib/git/BranchDiffs';
 import { OperationRefusal }                                   from '../../../src/shared/OperationRefusal';
-import { printEntity }                                        from '../../CommandSupport';
 import type { CommandHandler }                                from '../../CommandTable';
+import { OutputUtil }                                         from '../../utils/OutputUtil';
 import { ReworkCountUtil }                                    from '../utils/ReworkCountUtil';
 import type { FileRework, ReworkTotals }                      from '../utils/ReworkCountUtil';
 
@@ -231,6 +231,6 @@ export const reworkCommand: CommandHandler = (commandArguments, context) => {
   ];
   const lines = [summaryLine(totals, scopes)];
   if (commandArguments.flag('files')) lines.push(...fileBreakdownLines(files, totals));
-  printEntity(commandArguments, context, document, lines.join('\n'));
+  OutputUtil.printEntity(commandArguments, context, document, lines.join('\n'));
   return Promise.resolve();
 };

@@ -197,7 +197,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
 - Adding a command is an entry in `cli/CommandTable.ts`, a block in `cli/HelpText.ts` and a folder in its set;
   `cli/CommandTable.spec.ts` and `cli/HelpText.spec.ts` fail until all three exist.
 - Every mutating command writes through `writeTracker` in `src/services/tracker/TrackerPipeline.ts`, reached through
-  `openTrackerForWriting` in `cli/CommandSupport.ts`, and none repeats it:
+  `openTrackerForWriting` in `cli/TrackerWriting.ts`, and none repeats it:
   lock; read the progress file, its log and the tickets into a Board; change them through it; write the progress file,
   then the tickets the Board changed, then log.jsonl; then render from disk, all under the lock. Ticket files follow
   the progress file so it is never behind them, and the log comes last so a line never describes an unstored change;

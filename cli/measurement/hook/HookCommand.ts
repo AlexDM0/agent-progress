@@ -13,8 +13,8 @@ import type { AgentUsage }                             from '../../../src/lib/tr
 import { OperationRefusal, refusalIsOperationRefusal } from '../../../src/shared/OperationRefusal';
 import { LIMITS }                                      from '../../../src/shared/constants/Limits';
 import type { CommandContext }                         from '../../CommandContext';
-import { openTrackerForWriting }                       from '../../CommandSupport';
 import type { CommandHandler }                         from '../../CommandTable';
+import { openTrackerForWriting }                       from '../../TrackerWriting';
 import type { ArgumentParser }                         from '../../arguments/ArgumentParser';
 import { SubagentStopUtil }                            from './utils/SubagentStopUtil';
 

@@ -9,6 +9,7 @@ import { LegacyStatusUtil }                       from '../../src/adapters/utils
 import { LogUtil }                                from '../../src/adapters/utils/LogUtil';
 import { StatusWordingUtil }                      from '../../src/adapters/utils/StatusWordingUtil';
 import { TicketBodyUtil }                         from '../../src/adapters/utils/TicketBodyUtil';
+import { TicketJsonUtil }                         from '../../src/adapters/utils/TicketJsonUtil';
 import { TicketPhraseUtil }                       from '../../src/adapters/utils/TicketPhraseUtil';
 import type { AgentAssignment, ReviewBarStarted } from '../../src/lib/tracker-model/@types/BoardChanges';
 import type { LogRecord }                         from '../../src/lib/tracker-model/@types/LogRecord';
@@ -34,26 +35,18 @@ import {
   readTicket,
   type MalformedTicketFile
 }                                                     from '../../src/services/tracker/TicketStore';
-import type { TrackerChange }               from '../../src/services/tracker/TrackerPipeline';
-import { requireWorkspace, type Workspace } from '../../src/services/tracker/Workspace';
-import { OperationRefusal }                 from '../../src/shared/OperationRefusal';
-import { LIMITS }                           from '../../src/shared/constants/Limits';
-import { DispatcherClaimNoteUtil }          from '../../src/shared/utils/DispatcherClaimNoteUtil';
-import type { CommandContext }              from '../CommandContext';
-import {
-  ignoredTicketFileText,
-  openTrackerForWriting,
-  openTrackerForWritingThenReadNextLine,
-  padColumn,
-  printEntity,
-  printEntityThenNextLine,
-  reportIgnoredTicketFiles,
-  ticketDocumentOf,
-  tokenCountFrom
-} from '../CommandSupport';
-import type { CommandHandler } from '../CommandTable';
-import type { ArgumentParser } from '../arguments/ArgumentParser';
-import { NextLineUtil }        from '../utils/NextLineUtil';
+import type { TrackerChange }                                           from '../../src/services/tracker/TrackerPipeline';
+import { requireWorkspace, type Workspace }                             from '../../src/services/tracker/Workspace';
+import { OperationRefusal }                                             from '../../src/shared/OperationRefusal';
+import { LIMITS }                                                       from '../../src/shared/constants/Limits';
+import { DispatcherClaimNoteUtil }                                      from '../../src/shared/utils/DispatcherClaimNoteUtil';
+import type { CommandContext }                                          from '../CommandContext';
+import type { CommandHandler }                                          from '../CommandTable';
+import { openTrackerForWriting, openTrackerForWritingThenReadNextLine } from '../TrackerWriting';
+import type { ArgumentParser }                                          from '../arguments/ArgumentParser';
+import { NextLineUtil }                                                 from '../utils/NextLineUtil';
+import { OptionValueUtil }                                              from '../utils/OptionValueUtil';
+import { OutputUtil }                                                   from '../utils/OutputUtil';
 
 const USAGE = [
   'agent-progress ticket add "<title>" [--type bug|change|feature] [--priority low|normal|high] [--model <m>] [--effort <e>] [--group <name>] '
@@ -160,7 +153,7 @@ function malformedFileOfTicket(malformedTickets: readonly MalformedTicketFile[],
 /** A ticket file that is there and will not parse is exit 2: the tool will not repair a hand edit, and a missing ticket is the caller's to fix. */
 function refuseAMissingTicket(reference: string, malformedTickets: readonly MalformedTicketFile[]): never {
   const malformed = malformedFileOfTicket(malformedTickets, reference);
-  if (malformed !== undefined) throw new OperationRefusal('unrepaired', ignoredTicketFileText(malformed));
+  if (malformed !== undefined) throw new OperationRefusal('unrepaired', OutputUtil.ignoredTicketFileText(malformed));
   throw new OperationRefusal(
     'refused',
     `There is no readable ticket ${reference}. Run \`agent-progress ticket list\` to see what this tracker holds; `
@@ -200,7 +193,7 @@ function ticketIsStillOpen(ticket: Ticket): boolean {
 
 /** The priority is always spelled out, so a script never has to know that an absent key means normal. */
 function ticketAsJson(ticket: Ticket): Record<string, unknown> {
-  return { ...ticketDocumentOf(ticket), body: ticket.body };
+  return { ...TicketJsonUtil.ticketDocumentOf(ticket), body: ticket.body };
 }
 
 function requirePriority(writtenPriority: string): TicketPriority {
@@ -330,7 +323,7 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
     return change.board.fileTicket(ticket, change.at);
   });
 
-  printEntityThenNextLine(
+  OutputUtil.printEntityThenNextLine(
     commandArguments,
     context,
     ticketAsJson(filed.ticket),
@@ -366,11 +359,11 @@ function listAllTickets(commandArguments: ArgumentParser, context: CommandContex
     .filter((ticket) => writtenPriority === undefined || TicketDefaultsUtil.ticketPriorityOf(ticket.frontmatter) === writtenPriority);
 
   // Before the listing, so a reader piping the table still sees what was left out of it.
-  reportIgnoredTicketFiles(context, listing.malformed);
+  OutputUtil.reportIgnoredTicketFiles(context, listing.malformed);
 
   if (shown.length === 0) {
     const narrowing = [writtenStatus, writtenPriority === undefined ? undefined : `${writtenPriority} priority`].filter((part) => part !== undefined);
-    printEntity(
+    OutputUtil.printEntity(
       commandArguments,
       context,
       [],
@@ -380,27 +373,27 @@ function listAllTickets(commandArguments: ArgumentParser, context: CommandContex
   }
 
   const header = [
-    padColumn('id', LIST_COLUMN_WIDTHS.identifier),
-    padColumn('status', LIST_COLUMN_WIDTHS.status),
-    padColumn('priority', LIST_COLUMN_WIDTHS.priority),
-    padColumn('type', LIST_COLUMN_WIDTHS.type),
-    padColumn('task', LIST_COLUMN_WIDTHS.task),
+    OutputUtil.padColumn('id', LIST_COLUMN_WIDTHS.identifier),
+    OutputUtil.padColumn('status', LIST_COLUMN_WIDTHS.status),
+    OutputUtil.padColumn('priority', LIST_COLUMN_WIDTHS.priority),
+    OutputUtil.padColumn('type', LIST_COLUMN_WIDTHS.type),
+    OutputUtil.padColumn('task', LIST_COLUMN_WIDTHS.task),
     'title',
   ].join('');
   const rows = shown.map((ticket) => {
     const unsettled = unsettledDependenciesFor(ticket, listing.tickets);
     return [
-      padColumn(`#${ticket.frontmatter.id}`, LIST_COLUMN_WIDTHS.identifier),
-      padColumn(ticket.frontmatter.status, LIST_COLUMN_WIDTHS.status),
-      padColumn(TicketDefaultsUtil.ticketPriorityOf(ticket.frontmatter), LIST_COLUMN_WIDTHS.priority),
-      padColumn(ticket.frontmatter.type, LIST_COLUMN_WIDTHS.type),
-      padColumn(ticket.frontmatter.task === null ? '-' : `#${ticket.frontmatter.task}`, LIST_COLUMN_WIDTHS.task),
+      OutputUtil.padColumn(`#${ticket.frontmatter.id}`, LIST_COLUMN_WIDTHS.identifier),
+      OutputUtil.padColumn(ticket.frontmatter.status, LIST_COLUMN_WIDTHS.status),
+      OutputUtil.padColumn(TicketDefaultsUtil.ticketPriorityOf(ticket.frontmatter), LIST_COLUMN_WIDTHS.priority),
+      OutputUtil.padColumn(ticket.frontmatter.type, LIST_COLUMN_WIDTHS.type),
+      OutputUtil.padColumn(ticket.frontmatter.task === null ? '-' : `#${ticket.frontmatter.task}`, LIST_COLUMN_WIDTHS.task),
       ticket.frontmatter.title,
       namedAgentText(ticket.frontmatter),
       ticketIsStillOpen(ticket) && unsettled.length > 0 ? `  (${TicketPhraseUtil.waitingOnText(unsettled)})` : '',
     ].join('');
   });
-  printEntity(commandArguments, context, shown.map(ticketDocumentOf), [header, ...rows].join('\n'));
+  OutputUtil.printEntity(commandArguments, context, shown.map(TicketJsonUtil.ticketDocumentOf), [header, ...rows].join('\n'));
 }
 
 function showOneTicket(commandArguments: ArgumentParser, context: CommandContext): void {
@@ -435,7 +428,7 @@ function showOneTicket(commandArguments: ArgumentParser, context: CommandContext
     `  reason:   ${frontmatter.reason ?? '-'}`,
     `  file:     ${ticket.filePath}`,
   ].join('\n');
-  printEntity(commandArguments, context, ticketAsJson(ticket), `${summary}\n\n${ticket.body}`);
+  OutputUtil.printEntity(commandArguments, context, ticketAsJson(ticket), `${summary}\n\n${ticket.body}`);
 }
 
 async function transitionOneTicket(
@@ -449,7 +442,7 @@ async function transitionOneTicket(
   const branch = commandArguments.option('branch');
   const commit = commandArguments.option('commit');
   const reason = commandArguments.option('reason');
-  const tokens = tokenCountFrom(commandArguments);
+  const tokens = OptionValueUtil.tokenCountFrom(commandArguments);
 
   const { result: moved, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
     const { board }  = change;
@@ -475,7 +468,7 @@ async function transitionOneTicket(
   const closingLines = targetStatus === 'pending' ? NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState) : nextLine;
   const humanText    = `${sentencesOf(move.logged.filter(recordClosesNoBar))}${closedReviewBarsText(move.closedReviewBars)}${reviewBarText(startedReviewBar)}`;
   const document     = ticketWithReviewBarAsJson(move.ticket, startedReviewBar, move.closedReviewBars);
-  printEntityThenNextLine(commandArguments, context, document, humanText, closingLines);
+  OutputUtil.printEntityThenNextLine(commandArguments, context, document, humanText, closingLines);
 
   // A warning, not a refusal: the order is advice to whoever picks work up, and the user may know better.
   if (targetStatus === 'in-progress' && moved.unsettled.length > 0) {
@@ -504,7 +497,7 @@ async function rereviewOneTicket(
 
   const { rereview, startedReviewBar } = rereviewed;
   const humanText                      = `${sentencesOf(rereview.logged)}${reviewBarText(startedReviewBar)}`;
-  printEntityThenNextLine(commandArguments, context, ticketWithReviewBarAsJson(rereview.ticket, startedReviewBar), humanText, nextLine);
+  OutputUtil.printEntityThenNextLine(commandArguments, context, ticketWithReviewBarAsJson(rereview.ticket, startedReviewBar), humanText, nextLine);
 }
 
 /** Every reference is resolved before the claim is judged, so the first naming no ticket is refused; `3`, `003` and `#3` claim one ticket once. */
@@ -525,10 +518,16 @@ async function claimTickets(references: readonly string[], commandArguments: Arg
   const [onlyTicket] = tickets;
   const slotsText    = `${concurrency.agentsInFlight} of ${concurrency.limit} slots are now taken.`;
   if (tickets.length === 1 && onlyTicket !== undefined) {
-    printEntityThenNextLine(commandArguments, context, ticketAsJson(onlyTicket), `${TicketPhraseUtil.namedTicketsText(identifiers)} started: ${slotsText}`, nextLine);
+    OutputUtil.printEntityThenNextLine(commandArguments, context, ticketAsJson(onlyTicket), `${TicketPhraseUtil.namedTicketsText(identifiers)} started: ${slotsText}`, nextLine);
     return;
   }
-  printEntityThenNextLine(commandArguments, context, tickets.map(ticketAsJson), `${TicketPhraseUtil.namedTicketsText(identifiers)} started as one agent: ${slotsText}`, nextLine);
+  OutputUtil.printEntityThenNextLine(
+    commandArguments,
+    context,
+    tickets.map(ticketAsJson),
+    `${TicketPhraseUtil.namedTicketsText(identifiers)} started as one agent: ${slotsText}`,
+    nextLine,
+  );
 }
 
 async function linkOneTicket(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
@@ -551,7 +550,7 @@ async function linkOneTicket(commandArguments: ArgumentParser, context: CommandC
     (change) => change.board.linkTicketToTask(requireTicket(change, ticketReference).frontmatter.id, taskId, { movesTheLink }),
   );
 
-  printEntity(commandArguments, context, ticketAsJson(linked), `Ticket #${linked.frontmatter.id} linked to task #${taskId}`);
+  OutputUtil.printEntity(commandArguments, context, ticketAsJson(linked), `Ticket #${linked.frontmatter.id} linked to task #${taskId}`);
 }
 
 async function setTicketDependencies(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
@@ -570,7 +569,7 @@ async function setTicketDependencies(commandArguments: ArgumentParser, context: 
   );
 
   const closingLines = NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState);
-  printEntityThenNextLine(commandArguments, context, ticketAsJson(changed.ticket), sentencesOf(changed.logged), closingLines);
+  OutputUtil.printEntityThenNextLine(commandArguments, context, ticketAsJson(changed.ticket), sentencesOf(changed.logged), closingLines);
 }
 
 async function setTicketPriority(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
@@ -590,7 +589,7 @@ async function setTicketPriority(commandArguments: ArgumentParser, context: Comm
   );
 
   const closingLines = NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState);
-  printEntityThenNextLine(commandArguments, context, ticketAsJson(changed.ticket), sentencesOf(changed.logged), closingLines);
+  OutputUtil.printEntityThenNextLine(commandArguments, context, ticketAsJson(changed.ticket), sentencesOf(changed.logged), closingLines);
 }
 
 async function setTicketAgent(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
@@ -616,7 +615,7 @@ async function setTicketAgent(commandArguments: ArgumentParser, context: Command
   });
 
   const closingLines = NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState);
-  printEntityThenNextLine(commandArguments, context, ticketAsJson(changed.ticket), sentencesOf(changed.logged), closingLines);
+  OutputUtil.printEntityThenNextLine(commandArguments, context, ticketAsJson(changed.ticket), sentencesOf(changed.logged), closingLines);
 }
 
 // Every dispatcher run's builder takes over only a row paused under a dispatcher claim note; any other pause is a person's, resumed by hand.
@@ -653,7 +652,7 @@ async function holdOrUnholdTicket(holds: boolean, commandArguments: ArgumentPars
   const { holdChange, resumeBuildHint } = changed;
   const endedNextLine                   = NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState);
   const closingLines                    = resumeBuildHint === null ? endedNextLine : `${endedNextLine}\n${resumeBuildHint}`;
-  printEntityThenNextLine(commandArguments, context, ticketAsJson(holdChange.ticket), sentencesOf(holdChange.logged), closingLines);
+  OutputUtil.printEntityThenNextLine(commandArguments, context, ticketAsJson(holdChange.ticket), sentencesOf(holdChange.logged), closingLines);
 }
 
 function refuseARetiredSubcommand(subcommand: string, commandArguments: ArgumentParser): never {

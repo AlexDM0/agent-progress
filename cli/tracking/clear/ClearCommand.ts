@@ -1,6 +1,7 @@
-import { OperationRefusal }                   from '../../../src/shared/OperationRefusal';
-import { openTrackerForWriting, printEntity } from '../../CommandSupport';
-import type { CommandHandler }                from '../../CommandTable';
+import { OperationRefusal }      from '../../../src/shared/OperationRefusal';
+import type { CommandHandler }   from '../../CommandTable';
+import { openTrackerForWriting } from '../../TrackerWriting';
+import { OutputUtil }            from '../../utils/OutputUtil';
 
 const USAGE = 'agent-progress clear [--all] [--yes]';
 
@@ -45,7 +46,7 @@ export const clearCommand: CommandHandler = async (commandArguments, context) =>
   const ticketLine = deletesTickets
     ? `${deletedTicketCount} ticket(s) deleted`
     : `${summary.reseededTicketCount} ticket(s) re-seeded`;
-  printEntity(
+  OutputUtil.printEntity(
     commandArguments,
     context,
     {

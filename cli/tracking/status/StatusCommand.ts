@@ -1,5 +1,6 @@
 import { ProgressDocumentUtil }           from '../../../src/adapters/progress/utils/ProgressDocumentUtil';
 import { LogUtil }                        from '../../../src/adapters/utils/LogUtil';
+import { TicketJsonUtil }                 from '../../../src/adapters/utils/TicketJsonUtil';
 import type { ProgressFile }              from '../../../src/lib/tracker-model/@types/ProgressFile';
 import type { Task }                      from '../../../src/lib/tracker-model/@types/Task';
 import type { ReadyTicket }               from '../../../src/lib/tracker-model/@types/Ticket';
@@ -12,14 +13,9 @@ import { requireTracker }                 from '../../../src/services/tracker/Tr
 import { requireWorkspace }               from '../../../src/services/tracker/Workspace';
 import type { WordedLogEntry }            from '../../../src/shared/@types/WordedLogEntry';
 import { LIMITS }                         from '../../../src/shared/constants/Limits';
-import {
-  padColumn,
-  printEntityThenNextLine,
-  reportIgnoredTicketFiles,
-  ticketDocumentOf
-} from '../../CommandSupport';
-import type { CommandHandler } from '../../CommandTable';
-import { NextLineUtil }        from '../../utils/NextLineUtil';
+import type { CommandHandler }            from '../../CommandTable';
+import { NextLineUtil }                   from '../../utils/NextLineUtil';
+import { OutputUtil }                     from '../../utils/OutputUtil';
 
 const USAGE = 'agent-progress status [--json] [--full]';
 
@@ -86,7 +82,7 @@ function derivedDocumentOf(board: Board): { concurrency: object; readyTickets: R
 
 /** The whole progress file plus every ticket in the version 1 document shape, with the derived `concurrency` and `readyTickets` beside it. */
 function fullDocumentOf(progress: ProgressFile, wordedLog: readonly WordedLogEntry[], board: Board): object {
-  return { ...ProgressDocumentUtil.documentOf(progress, wordedLog), tickets: board.tickets().map(ticketDocumentOf), ...derivedDocumentOf(board) };
+  return { ...ProgressDocumentUtil.documentOf(progress, wordedLog), tickets: board.tickets().map(TicketJsonUtil.ticketDocumentOf), ...derivedDocumentOf(board) };
 }
 
 /** What an agent opening a session needs: unsettled rows and tickets, the recent log newest first, and counts of what was left out. */
@@ -98,7 +94,7 @@ function workingDocumentOf(progress: ProgressFile, wordedLog: readonly WordedLog
   return {
     ...ProgressDocumentUtil.documentOf(progress, recentLog),
     tasks:   unsettledTasks,
-    tickets: unsettledTickets.map(ticketDocumentOf),
+    tickets: unsettledTickets.map(TicketJsonUtil.ticketDocumentOf),
     ...derivedDocumentOf(board),
     omitted: {
       settledTasks:    progress.tasks.length - unsettledTasks.length,
@@ -126,20 +122,20 @@ function renderHumanStatus(progress: ProgressFile, wordedLog: readonly WordedLog
   if (listedTasks.length > 0) {
     lines.push('');
     lines.push([
-      padColumn('id', TASK_COLUMN_WIDTHS.identifier),
-      padColumn('status', TASK_COLUMN_WIDTHS.status),
-      padColumn('owner', TASK_COLUMN_WIDTHS.owner),
-      padColumn('ticket', TASK_COLUMN_WIDTHS.ticket),
-      padColumn('tokens', TASK_COLUMN_WIDTHS.tokens),
+      OutputUtil.padColumn('id', TASK_COLUMN_WIDTHS.identifier),
+      OutputUtil.padColumn('status', TASK_COLUMN_WIDTHS.status),
+      OutputUtil.padColumn('owner', TASK_COLUMN_WIDTHS.owner),
+      OutputUtil.padColumn('ticket', TASK_COLUMN_WIDTHS.ticket),
+      OutputUtil.padColumn('tokens', TASK_COLUMN_WIDTHS.tokens),
       'name',
     ].join(''));
     for (const task of listedTasks) {
       lines.push([
-        padColumn(`#${task.id}`, TASK_COLUMN_WIDTHS.identifier),
-        padColumn(task.status, TASK_COLUMN_WIDTHS.status),
-        padColumn(task.owner === '' ? '-' : task.owner, TASK_COLUMN_WIDTHS.owner),
-        padColumn(task.ticket === null ? '-' : `#${task.ticket}`, TASK_COLUMN_WIDTHS.ticket),
-        padColumn(task.tokens === null ? '-' : TokenCountUtil.formatTokenCount(task.tokens), TASK_COLUMN_WIDTHS.tokens),
+        OutputUtil.padColumn(`#${task.id}`, TASK_COLUMN_WIDTHS.identifier),
+        OutputUtil.padColumn(task.status, TASK_COLUMN_WIDTHS.status),
+        OutputUtil.padColumn(task.owner === '' ? '-' : task.owner, TASK_COLUMN_WIDTHS.owner),
+        OutputUtil.padColumn(task.ticket === null ? '-' : `#${task.ticket}`, TASK_COLUMN_WIDTHS.ticket),
+        OutputUtil.padColumn(task.tokens === null ? '-' : TokenCountUtil.formatTokenCount(task.tokens), TASK_COLUMN_WIDTHS.tokens),
         task.name,
       ].join(''));
     }
@@ -169,10 +165,10 @@ export const statusCommand: CommandHandler = async (commandArguments, context) =
   const wordedLog       = storedLog.records.map(LogUtil.wordedEntryOf);
   const board           = readingBoardOf(progress, listing.tickets);
 
-  reportIgnoredTicketFiles(context, listing.malformed);
+  OutputUtil.reportIgnoredTicketFiles(context, listing.malformed);
 
   const showsEverything = commandArguments.flag('full');
   const asJson          = showsEverything ? fullDocumentOf(progress, wordedLog, board) : workingDocumentOf(progress, wordedLog, board);
-  printEntityThenNextLine(commandArguments, context, asJson, renderHumanStatus(progress, wordedLog, board, showsEverything), NextLineUtil.nextLineOf(board));
+  OutputUtil.printEntityThenNextLine(commandArguments, context, asJson, renderHumanStatus(progress, wordedLog, board, showsEverything), NextLineUtil.nextLineOf(board));
   return Promise.resolve();
 };

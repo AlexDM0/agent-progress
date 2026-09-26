@@ -15,17 +15,18 @@ import {
   readCurrentBranch,
   removeWorktree
 }                                                                                            from '../../../src/lib/git/BranchIntegration';
-import type { LogRecord }                                                              from '../../../src/lib/tracker-model/@types/LogRecord';
-import type { Task }                                                                   from '../../../src/lib/tracker-model/@types/Task';
-import type { Ticket }                                                                 from '../../../src/lib/tracker-model/@types/Ticket';
-import type { Board }                                                                  from '../../../src/lib/tracker-model/Board';
-import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS }                                     from '../../../src/lib/tracker-model/constants/TicketMoveLegality';
-import type { ReleaseRefusalReason }                                                   from '../../../src/shared/@types/ReleaseRefusalReason';
-import { OperationRefusal, refusalIsOperationRefusal, type OperationRefusalStatus }    from '../../../src/shared/OperationRefusal';
-import type { CommandContext }                                                         from '../../CommandContext';
-import { openTrackerForWritingThenReadNextLine, printEntity, printEntityThenNextLine } from '../../CommandSupport';
-import type { CommandHandler }                                                         from '../../CommandTable';
-import type { ArgumentParser }                                                         from '../../arguments/ArgumentParser';
+import type { LogRecord }                                                           from '../../../src/lib/tracker-model/@types/LogRecord';
+import type { Task }                                                                from '../../../src/lib/tracker-model/@types/Task';
+import type { Ticket }                                                              from '../../../src/lib/tracker-model/@types/Ticket';
+import type { Board }                                                               from '../../../src/lib/tracker-model/Board';
+import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS }                                  from '../../../src/lib/tracker-model/constants/TicketMoveLegality';
+import type { ReleaseRefusalReason }                                                from '../../../src/shared/@types/ReleaseRefusalReason';
+import { OperationRefusal, refusalIsOperationRefusal, type OperationRefusalStatus } from '../../../src/shared/OperationRefusal';
+import type { CommandContext }                                                      from '../../CommandContext';
+import type { CommandHandler }                                                      from '../../CommandTable';
+import { openTrackerForWritingThenReadNextLine }                                    from '../../TrackerWriting';
+import type { ArgumentParser }                                                      from '../../arguments/ArgumentParser';
+import { OutputUtil }                                                               from '../../utils/OutputUtil';
 
 const USAGE = 'agent-progress release <id> [<id>...] --branch <branch> [--worktree <path>] [--main <line>] [--json]';
 
@@ -229,7 +230,7 @@ export const releaseCommand: CommandHandler = async (commandArguments, context) 
         detail:   OperationRefusalWordingUtil.messageOf(error),
         cleanup:  [],
       };
-      printEntity(commandArguments, context, refusalDocument, '');
+      OutputUtil.printEntity(commandArguments, context, refusalDocument, '');
     }
     throw error;
   }
@@ -258,5 +259,5 @@ export const releaseCommand: CommandHandler = async (commandArguments, context) 
     closedReviewRows: closedReviewRows.map(({ id }) => id),
     cleanup,
   };
-  printEntityThenNextLine(commandArguments, context, document, [headline, ...reviewLines, ...cleanup.map(cleanupLine)].join('\n'), nextLine);
+  OutputUtil.printEntityThenNextLine(commandArguments, context, document, [headline, ...reviewLines, ...cleanup.map(cleanupLine)].join('\n'), nextLine);
 };

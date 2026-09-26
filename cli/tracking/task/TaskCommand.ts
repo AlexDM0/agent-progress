@@ -1,22 +1,18 @@
-import { LegacyStatusUtil }    from '../../../src/adapters/utils/LegacyStatusUtil';
-import type { MovedToStatus }  from '../../../src/adapters/utils/StatusWordingUtil';
-import { StatusWordingUtil }   from '../../../src/adapters/utils/StatusWordingUtil';
-import { TicketBodyUtil }      from '../../../src/adapters/utils/TicketBodyUtil';
-import type { TaskAnnotation } from '../../../src/lib/tracker-model/@types/BoardChanges';
-import type { TaskStatus }     from '../../../src/lib/tracker-model/@types/Task';
-import { TASK_STATUSES }       from '../../../src/lib/tracker-model/constants/Statuses';
-import { VocabularyUtil }      from '../../../src/lib/tracker-model/utils/VocabularyUtil';
-import { OperationRefusal }    from '../../../src/shared/OperationRefusal';
-import type { CommandContext } from '../../CommandContext';
-import {
-  openTrackerForWriting,
-  openTrackerForWritingThenReadNextLine,
-  printEntity,
-  printEntityThenNextLine,
-  tokenCountFrom
-} from '../../CommandSupport';
-import type { CommandHandler } from '../../CommandTable';
-import type { ArgumentParser } from '../../arguments/ArgumentParser';
+import { LegacyStatusUtil }                                             from '../../../src/adapters/utils/LegacyStatusUtil';
+import type { MovedToStatus }                                           from '../../../src/adapters/utils/StatusWordingUtil';
+import { StatusWordingUtil }                                            from '../../../src/adapters/utils/StatusWordingUtil';
+import { TicketBodyUtil }                                               from '../../../src/adapters/utils/TicketBodyUtil';
+import type { TaskAnnotation }                                          from '../../../src/lib/tracker-model/@types/BoardChanges';
+import type { TaskStatus }                                              from '../../../src/lib/tracker-model/@types/Task';
+import { TASK_STATUSES }                                                from '../../../src/lib/tracker-model/constants/Statuses';
+import { VocabularyUtil }                                               from '../../../src/lib/tracker-model/utils/VocabularyUtil';
+import { OperationRefusal }                                             from '../../../src/shared/OperationRefusal';
+import type { CommandContext }                                          from '../../CommandContext';
+import type { CommandHandler }                                          from '../../CommandTable';
+import { openTrackerForWriting, openTrackerForWritingThenReadNextLine } from '../../TrackerWriting';
+import type { ArgumentParser }                                          from '../../arguments/ArgumentParser';
+import { OptionValueUtil }                                              from '../../utils/OptionValueUtil';
+import { OutputUtil }                                                   from '../../utils/OutputUtil';
 
 const USAGE = [
   'agent-progress task add "<name>" [--owner <who>] [--note <text>] [--ticket <id>] [--review-of <id>] [--start] [--tokens <n>] [--at <when>] [--force]',
@@ -60,7 +56,7 @@ function taskIdFrom(written: string | undefined, subcommand: string): number {
 function annotationFrom(commandArguments: ArgumentParser): TaskAnnotation {
   const owner  = commandArguments.option('owner');
   const note   = commandArguments.option('note');
-  const tokens = tokenCountFrom(commandArguments);
+  const tokens = OptionValueUtil.tokenCountFrom(commandArguments);
   return {
     ...(owner === undefined ? {} : { owner }),
     ...(note === undefined ? {} : { note }),
@@ -80,7 +76,7 @@ async function addOneTask(commandArguments: ArgumentParser, context: CommandCont
   const reviewedReference = commandArguments.option('review-of');
   const owner             = commandArguments.option('owner');
   const note              = commandArguments.option('note');
-  const tokens            = tokenCountFrom(commandArguments);
+  const tokens            = OptionValueUtil.tokenCountFrom(commandArguments);
   const startsNow         = commandArguments.flag('start');
   const movesTheLink      = commandArguments.flag('force');
 
@@ -116,9 +112,9 @@ async function addOneTask(commandArguments: ArgumentParser, context: CommandCont
   const humanLine = `Task #${task.id} added: ${task.name}`;
   // Only a row started as it is added takes a slot; a pending one moves nothing the Next line reads.
   if (startsNow) {
-    printEntityThenNextLine(commandArguments, context, task, humanLine, nextLine);
+    OutputUtil.printEntityThenNextLine(commandArguments, context, task, humanLine, nextLine);
   } else {
-    printEntity(commandArguments, context, task, humanLine);
+    OutputUtil.printEntity(commandArguments, context, task, humanLine);
   }
 }
 
@@ -139,7 +135,7 @@ async function transitionOneTask(
     return board.annotateTask(taskId, annotationFrom(commandArguments));
   });
 
-  printEntityThenNextLine(commandArguments, context, task, `Task #${task.id} ${StatusWordingUtil.movedPhraseFor(targetStatus)}: ${task.name}`, nextLine);
+  OutputUtil.printEntityThenNextLine(commandArguments, context, task, `Task #${task.id} ${StatusWordingUtil.movedPhraseFor(targetStatus)}: ${task.name}`, nextLine);
 }
 
 /** `update` corrects a row and deliberately moves no timestamp, which is what separates it from the transitions. */
@@ -176,7 +172,7 @@ async function updateOneTask(commandArguments: ArgumentParser, context: CommandC
     return board.annotateTask(taskId, annotationFrom(commandArguments));
   });
 
-  printEntity(commandArguments, context, task, `Task #${task.id} updated: ${task.name}`);
+  OutputUtil.printEntity(commandArguments, context, task, `Task #${task.id} updated: ${task.name}`);
 }
 
 function refuseARetiredSubcommand(subcommand: string, commandArguments: ArgumentParser): never {
@@ -197,7 +193,7 @@ async function removeOneTask(commandArguments: ArgumentParser, context: CommandC
 
   const task = await openTrackerForWriting(commandArguments, context, ({ board }) => board.removeTask(taskId));
 
-  printEntity(commandArguments, context, task, `Task #${task.id} removed: ${task.name}`);
+  OutputUtil.printEntity(commandArguments, context, task, `Task #${task.id} removed: ${task.name}`);
 }
 
 export const taskCommand: CommandHandler = async (commandArguments, context) => {

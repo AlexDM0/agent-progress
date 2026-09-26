@@ -1,6 +1,7 @@
-import { OperationRefusal }                   from '../../../src/shared/OperationRefusal';
-import { openTrackerForWriting, printEntity } from '../../CommandSupport';
-import type { CommandHandler }                from '../../CommandTable';
+import { OperationRefusal }      from '../../../src/shared/OperationRefusal';
+import type { CommandHandler }   from '../../CommandTable';
+import { openTrackerForWriting } from '../../TrackerWriting';
+import { OutputUtil }            from '../../utils/OutputUtil';
 
 const USAGE = 'agent-progress log "<text>" [--at <when>]';
 
@@ -20,5 +21,5 @@ export const logCommand: CommandHandler = async (commandArguments, context) => {
     return { at: change.at, text };
   });
 
-  printEntity(commandArguments, context, entry, `Logged: ${entry.text}`);
+  OutputUtil.printEntity(commandArguments, context, entry, `Logged: ${entry.text}`);
 };
