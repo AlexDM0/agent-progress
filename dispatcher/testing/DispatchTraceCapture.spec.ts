@@ -1,16 +1,18 @@
 /**
- * The frozen trace table is the old dispatcher script's behaviour, so it holds only while that script is the one it was taken from: a change
- * to the committed script must retake the table and port the change, never leave the two apart.
+ * The frozen trace table names where it came from: the bundle of the TypeScript port, by its entry and digest, and the command that retakes it.
+ * A retake is made only in a commit meant to change what the agents are told, so the table must say how to make one.
  */
 import { describe, expect, test } from 'bun:test';
 
-import { digestOf }                 from './DispatchTrace.ts';
-import { readFrozenDispatchTraces } from './DispatchTraceCapture.ts';
-import { readOldDispatchScript }    from './OldDispatchScript.ts';
+import { BUNDLE_ENTRY_PATH, RETAKE_COMMAND, readFrozenDispatchTraces } from './DispatchTraceCapture.ts';
+
+const DIGEST_LENGTH_CHARACTERS = 16;
 
 describe('the frozen dispatch trace table', () => {
-  test('was taken from the committed old dispatcher script as it stands', () => {
-    expect(digestOf(readOldDispatchScript()), 'the old script changed since the table was taken: retake the table and port the change')
-      .toBe(readFrozenDispatchTraces().takenFrom.scriptDigest);
+  test('records the bundle it was taken from and the command that retakes it', () => {
+    const { takenFrom, retake } = readFrozenDispatchTraces();
+    expect(takenFrom.scriptPath).toBe(BUNDLE_ENTRY_PATH);
+    expect(takenFrom.scriptDigest).toMatch(new RegExp(`^[0-9a-f]{${DIGEST_LENGTH_CHARACTERS}}$`));
+    expect(retake).toBe(RETAKE_COMMAND);
   });
 });

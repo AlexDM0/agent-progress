@@ -1,7 +1,8 @@
 /**
  * The TypeScript port, bundled, does exactly what the old dispatcher script did on every catalogued scenario: every agent call with its options,
- * its prompt and where it falls among the logs, every phase, every log line, the summary and the board it leaves. The frozen table is that
- * script's own record, so a difference is a change of behaviour. The key check and the floors keep a catalogue that shrank from passing by
+ * its prompt and where it falls among the logs, every phase, every log line, the summary and the board it leaves. The frozen table was first
+ * taken from that script and is retaken from the bundle only in a commit meant to change what the agents are told, whose diff of it is that
+ * commit's review, so a difference here is a change of behaviour. The key check and the floors keep a catalogue that shrank from passing by
  * comparing less; a prompt that differs is shown as a line diff, since its digest alone says nothing.
  */
 import { describe, expect, test } from 'bun:test';
@@ -53,7 +54,7 @@ function promptDiffsOf(run: RecordedDispatchRun, frozenCalls: readonly string[])
   return promptDiffs.join('\n\n');
 }
 
-describe('the bundled TypeScript dispatcher against the frozen table of the old script', () => {
+describe('the bundled TypeScript dispatcher against the frozen trace table', () => {
   test('bundles into one Workflow script', async () => {
     expect((await bundleDispatchScript()).verdict).toBe('built');
   });

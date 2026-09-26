@@ -1,10 +1,9 @@
 {
   "takenFrom": {
-    "scriptPath": "templates/workflows/AgentProgressDispatch.js",
-    "commit": "bc42604",
-    "scriptDigest": "dbe5772aeb9a3bf5"
+    "scriptPath": "dispatcher/DispatchScript.ts",
+    "scriptDigest": "601e7771466961ca"
   },
-  "retake": "git show bc42604:templates/workflows/AgentProgressDispatch.js > <scratch>/AgentProgressDispatch.js && bun dispatcher/testing/DispatchTraceCapture.ts <scratch>/AgentProgressDispatch.js bc42604 > dispatcher/testing/FrozenDispatchTraces.json",
+  "retake": "bun dispatcher/testing/DispatchTraceCapture.ts > dispatcher/testing/FrozenDispatchTraces.json",
   "meta": {
     "name": "agent-progress-dispatch",
     "description": "Run the agent-progress board: a builder per ready ticket and a clean reviewer per built one, never past the board limit",

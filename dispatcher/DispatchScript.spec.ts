@@ -11,6 +11,7 @@ import { DISPATCH_META }                                                        
 import { DispatchScriptBundleBookkeeping, builtScriptTextOf, bundleDispatchScript } from './testing/DispatchScriptBundle.ts';
 import { WORKFLOW_GLOBAL_NAMES }                                                    from './testing/DispatchScriptHarness.ts';
 import { readFrozenDispatchTraces }                                                 from './testing/DispatchTraceCapture.ts';
+import { readOldDispatchScript }                                                    from './testing/OldDispatchScript.ts';
 import {
   metaLiteralValueOf,
   metaLiteralVerdictOf,
@@ -35,13 +36,17 @@ describe('the built dispatcher script', () => {
     expect(BUNDLE_TEXT).toMatch(/\nreturn await \w+\(\);\n$/);
   });
 
-  test('carries a pure meta whose value is DISPATCH_META and the old script\'s meta, key order included', () => {
+  test('carries a pure meta whose value is DISPATCH_META, the frozen table\'s and the old script\'s meta, key order included', () => {
     const frozenMeta = readFrozenDispatchTraces().meta;
+    const oldScriptMetaRead = metaLiteralValueOf(readOldDispatchScript());
     const metaRead = metaLiteralValueOf(BUNDLE_TEXT);
     expect(metaLiteralVerdictOf(BUNDLE_TEXT).verdict).toBe('pure');
     expect(metaRead).toEqual({ verdict: 'value', value: DISPATCH_META });
     expect(metaRead).toEqual({ verdict: 'value', value: frozenMeta });
     expect(metaRead.verdict === 'value' ? JSON.stringify(metaRead.value) : null).toBe(JSON.stringify(frozenMeta));
+    expect(oldScriptMetaRead.verdict).toBe('value');
+    expect(metaRead).toEqual(oldScriptMetaRead);
+    expect(JSON.stringify(metaRead)).toBe(JSON.stringify(oldScriptMetaRead));
   });
 
   test('calls no clock and no randomness', () => {
