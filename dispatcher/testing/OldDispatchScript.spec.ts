@@ -10,11 +10,11 @@ import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL }       from '../../src/lib/t
 import { LIMITS }                                          from '../../src/shared/constants/Limits.ts';
 import { agentBriefNumbers, numberIn }                     from './AgentBriefNumbers.ts';
 import { runDispatchScript }                               from './DispatchScriptHarness.ts';
-import { readDispatchScript }                              from './OldDispatchScript.ts';
+import { readOldDispatchScript }                           from './OldDispatchScript.ts';
 import { metaLiteralVerdictOf, nondeterministicCallsIn }   from './WorkflowScriptSource.ts';
 import { DECISION_SCENARIOS, modelsAndEffortsAreExplicit } from './claims/DecisionClaims.ts';
 
-const SCRIPT_SOURCE = readDispatchScript();
+const SCRIPT_SOURCE = readOldDispatchScript();
 
 /** Each site that starts an agent, with its model or its effort taken out: four sites, eight forms. */
 const AGENT_OPTIONS_LEFT_OUT: [string, string][] = [
@@ -79,7 +79,7 @@ describe('the dispatcher and the agent brief', () => {
 
 describe('nondeterministicCallsIn', () => {
   test('each form planted in the real script is caught', () => {
-    const source = readDispatchScript();
+    const source = readOldDispatchScript();
     expect(source.split(PLANTING_POINT).length - 1).toBe(1);
     for (const planted of ['Date.now()', 'Math.random()', 'new Date()']) {
       const found = nondeterministicCallsIn(source.replace(PLANTING_POINT, `log(String(${planted}));\n${PLANTING_POINT}`));
@@ -88,19 +88,19 @@ describe('nondeterministicCallsIn', () => {
   });
 
   test('the real script calls no clock and no randomness', () => {
-    expect(nondeterministicCallsIn(readDispatchScript())).toEqual([]);
+    expect(nondeterministicCallsIn(readOldDispatchScript())).toEqual([]);
   });
 });
 
 describe('metaLiteralVerdictOf', () => {
   test('the real script\'s meta is a pure literal, walked node by node', () => {
-    const verdict = metaLiteralVerdictOf(readDispatchScript());
+    const verdict = metaLiteralVerdictOf(readOldDispatchScript());
     expect(verdict.verdict).toBe('pure');
     expect(verdict.verdict === 'pure' ? verdict.literalNodeCount : 0).toBeGreaterThan(15);
   });
 
   test('an impurity planted in the real script\'s meta is caught', () => {
-    const source = readDispatchScript().replace('name:        \'agent-progress-dispatch\',', 'name:        `agent-progress-${1}`,');
+    const source = readOldDispatchScript().replace('name:        \'agent-progress-dispatch\',', 'name:        `agent-progress-${1}`,');
     expect(metaLiteralVerdictOf(source).verdict).toBe('impure');
   });
 });

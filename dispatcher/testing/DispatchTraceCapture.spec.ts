@@ -6,11 +6,11 @@ import { describe, expect, test } from 'bun:test';
 
 import { digestOf }                 from './DispatchTrace.ts';
 import { readFrozenDispatchTraces } from './DispatchTraceCapture.ts';
-import { readDispatchScript }       from './OldDispatchScript.ts';
+import { readOldDispatchScript }    from './OldDispatchScript.ts';
 
 describe('the frozen dispatch trace table', () => {
   test('was taken from the committed old dispatcher script as it stands', () => {
-    expect(digestOf(readDispatchScript()), 'the old script changed since the table was taken: retake the table and port the change')
+    expect(digestOf(readOldDispatchScript()), 'the old script changed since the table was taken: retake the table and port the change')
       .toBe(readFrozenDispatchTraces().takenFrom.scriptDigest);
   });
 });

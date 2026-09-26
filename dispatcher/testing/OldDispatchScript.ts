@@ -2,10 +2,10 @@
 import { readFileSync } from 'node:fs';
 import { join }         from 'node:path';
 
-export function dispatchScriptPath(): string {
+function oldDispatchScriptPath(): string {
   return join(import.meta.dir, '..', '..', 'templates', 'workflows', 'AgentProgressDispatch.js');
 }
 
-export function readDispatchScript(): string {
-  return readFileSync(dispatchScriptPath(), 'utf8');
+export function readOldDispatchScript(): string {
+  return readFileSync(oldDispatchScriptPath(), 'utf8');
 }
