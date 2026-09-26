@@ -60,6 +60,36 @@ const HELD_AFTER_ITS_BUILDER_STOPPED_SHORT: DispatchScenario = {
   },
 };
 
+/** #007 is held from the start; the hold lifts as #008's review returns, while #009's review still waits in the queue at a limit of 1. */
+const HOLD_LIFTED_WHILE_A_REVIEW_WAITS: DispatchScenario = {
+  limit:                  1,
+  readyTicketIds:         [],
+  reviewWaitingTicketIds: ['007', '008', '009'],
+  heldTicketIds:          ['007'],
+  afterAgent:             (call, board) => {
+    if (call.kind === 'review' && call.ticketId === '008') removeHold(board, '007');
+  },
+};
+
+/**
+ * Every review but #008's does not hold, so rebuilds queue; #007 is held as its review returns and unheld as #009's rebuild returns, with #010's
+ * rebuild still queued.
+ */
+const HOLD_LIFTED_WHILE_A_REBUILD_WAITS: DispatchScenario = {
+  limit:                  1,
+  readyTicketIds:         [],
+  reviewWaitingTicketIds: ['007', '008', '009', '010'],
+  reviewerReply:          (ticketId, round) => (round === 1 && ticketId !== '008' ? { verdict: 'does-not-hold' } : { verdict: 'released' }),
+  afterAgent:             (call, board) => {
+    if (call.kind === 'review' && call.ticketId === '007') board.heldTicketIds.push('007');
+    if (call.kind === 'build' && call.ticketId === '009') removeHold(board, '007');
+  },
+};
+
+function ticketOrderOf(run: RecordedDispatchRun, kind: string): string[] {
+  return run.calls.filter((call) => call.kind === kind).map((call) => call.ticketId ?? '');
+}
+
 const PAUSED_ROW_RESUMPTION_SOURCE_LINE = '    + pausedRowResumptionText(settings, ticketId, previousPass, takeoverText)\n';
 
 function lastBlockBeforeShowsHeld(run: RecordedDispatchRun, call: RecordedAgentCall, ticketId: string): boolean {
@@ -201,5 +231,22 @@ export const HOLD_CLAIMS: readonly DispatchClaim[] = [
       && callsOf(run, 'park', HELD_TICKET_ID).length === 1
       && run.rowsRunningAtEnd.length === 0,
     mutant: { modulePath: AGENT_PROMPT_UTIL, find: PAUSED_ROW_RESUMPTION_SOURCE_LINE, replace: '' },
+  },
+  {
+    // The step was due when the hold stopped it, so it goes ahead of work queued behind it meanwhile, as a takeover would have.
+    name:        'an unheld review goes to the front of the queue, ahead of a review that waited behind it',
+    scenarioFor: () => HOLD_LIFTED_WHILE_A_REVIEW_WAITS,
+    holds:       (run) => ticketOrderOf(run, 'review').join() === '008,007,009',
+    mutant:      {
+      modulePath: DISPATCH_RUN,
+      find:       'if (work.kind === \'review\') this.reviewQueue.unshift(work);',
+      replace:    'if (work.kind === \'review\') this.reviewQueue.push(work);',
+    },
+  },
+  {
+    name:        'an unheld rebuild goes to the front of the queue, ahead of a rebuild that waited behind it',
+    scenarioFor: () => HOLD_LIFTED_WHILE_A_REBUILD_WAITS,
+    holds:       (run) => ticketOrderOf(run, 'build').join() === '009,007,010',
+    mutant:      { modulePath: DISPATCH_RUN, find: 'else this.rebuildQueue.unshift(work);', replace: 'else this.rebuildQueue.push(work);' },
   },
 ];
