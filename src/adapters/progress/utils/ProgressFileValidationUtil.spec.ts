@@ -11,7 +11,7 @@ import {
   emptyProgress,
   fileRow,
   versionOneDocumentOf
-} from '../../../testing/ProgressFileFixtures.ts';
+} from '../testing/ProgressFileFixtures.ts';
 import { ProgressFileValidationUtil } from './ProgressFileValidationUtil.ts';
 
 test('a document holding the retired words running and finished, in rows and in their history, has no problem', () => {

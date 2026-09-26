@@ -1,12 +1,13 @@
 /**
  * Progress documents for the progress.json adapter specs: a new tracker, a row filed the way the Board files one, the tracker stored in either
- * version, and a document written before the task statuses were renamed. Test-only: nothing that ships may import `src/testing/`.
+ * version, and a document written before the task statuses were renamed. Test-only: nothing that ships may import
+ * `src/adapters/progress/testing/`.
  */
-import type { StoredLogEntry, StoredProgressFileVersionOne, StoredProgressFileVersionTwo } from '../adapters/progress/@types/StoredProgressFile.ts';
-import type { ProgressFile }                                                               from '../lib/tracker-model/@types/ProgressFile.ts';
-import type { Task, TaskStatus }                                                           from '../lib/tracker-model/@types/Task.ts';
-import { EmptyProgressUtil }                                                               from '../lib/tracker-model/utils/EmptyProgressUtil.ts';
-import { TaskFilingUtil, type TaskFiling }                                                 from '../lib/tracker-model/utils/TaskFilingUtil.ts';
+import type { ProgressFile }                                                               from '../../../lib/tracker-model/@types/ProgressFile.ts';
+import type { Task, TaskStatus }                                                           from '../../../lib/tracker-model/@types/Task.ts';
+import { EmptyProgressUtil }                                                               from '../../../lib/tracker-model/utils/EmptyProgressUtil.ts';
+import { TaskFilingUtil, type TaskFiling }                                                 from '../../../lib/tracker-model/utils/TaskFilingUtil.ts';
+import type { StoredLogEntry, StoredProgressFileVersionOne, StoredProgressFileVersionTwo } from '../@types/StoredProgressFile.ts';
 
 const FILED_AT    = '2026-09-18T20:11:03+02:00';
 const STARTED_AT  = '2026-09-18T20:40:00+02:00';

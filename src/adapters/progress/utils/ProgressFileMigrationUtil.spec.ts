@@ -4,8 +4,8 @@
  */
 import { expect, test } from 'bun:test';
 
-import { documentInRetiredWords }    from '../../../testing/ProgressFileFixtures.ts';
 import type { StoredTask }           from '../@types/StoredProgressFile.ts';
+import { documentInRetiredWords }    from '../testing/ProgressFileFixtures.ts';
 import { ProgressFileMigrationUtil } from './ProgressFileMigrationUtil.ts';
 
 test('running and finished come back as in-progress and in-review, in the row and in its history', () => {

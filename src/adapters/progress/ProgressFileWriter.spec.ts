@@ -9,10 +9,10 @@ import { afterAll, expect, test }      from 'bun:test';
 
 import type { ProgressFile }                              from '../../lib/tracker-model/@types/ProgressFile.ts';
 import { LIMITS }                                         from '../../shared/constants/Limits.ts';
-import { emptyProgress, fileRow, documentInRetiredWords } from '../../testing/ProgressFileFixtures.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
 import { ProgressFileIngestion }                          from './ProgressFileIngestion.ts';
 import { createProgressFileWriter }                       from './ProgressFileWriter.ts';
+import { emptyProgress, fileRow, documentInRetiredWords } from './testing/ProgressFileFixtures.ts';
 
 const FILED_AT = '2026-09-18T20:11:03+02:00';
 

@@ -7,8 +7,11 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join }                        from 'node:path';
 import { afterAll, expect, test }      from 'bun:test';
 
-import { ConcurrencyUtil }             from '../../lib/tracker-model/utils/ConcurrencyUtil.ts';
-import { boardFixture, ticketFixture } from '../../testing/BoardFixtures.ts';
+import { ConcurrencyUtil }                                 from '../../lib/tracker-model/utils/ConcurrencyUtil.ts';
+import { boardFixture, ticketFixture }                     from '../../testing/BoardFixtures.ts';
+import { createScratchDirectory, removeScratchDirectory }  from '../../testing/ScratchWorkspace.ts';
+import { ProgressFileIngestion, type ProgressFileReading } from './ProgressFileIngestion.ts';
+import { createProgressFileWriter }                        from './ProgressFileWriter.ts';
 import {
   documentInRetiredWords,
   emptyDocument,
@@ -16,10 +19,7 @@ import {
   fileRow,
   versionOneDocumentOf,
   versionTwoDocumentOf
-} from '../../testing/ProgressFileFixtures.ts';
-import { createScratchDirectory, removeScratchDirectory }  from '../../testing/ScratchWorkspace.ts';
-import { ProgressFileIngestion, type ProgressFileReading } from './ProgressFileIngestion.ts';
-import { createProgressFileWriter }                        from './ProgressFileWriter.ts';
+} from './testing/ProgressFileFixtures.ts';
 
 const FILED_AT = '2026-09-18T20:11:03+02:00';
 const STARTED_AT = '2026-09-18T20:40:00+02:00';

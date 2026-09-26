@@ -8,9 +8,9 @@ import { afterAll, expect, test } from 'bun:test';
 import { writeFileAtomically }                            from '../../../lib/atomic-file/AtomicFile.ts';
 import type { ProgressFile }                              from '../../../lib/tracker-model/@types/ProgressFile.ts';
 import type { WordedLogEntry }                            from '../../../shared/@types/WordedLogEntry.ts';
-import { emptyProgress, fileRow }                         from '../../../testing/ProgressFileFixtures.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../../testing/ScratchWorkspace.ts';
 import { ProgressFileIngestion }                          from '../ProgressFileIngestion.ts';
+import { emptyProgress, fileRow }                         from '../testing/ProgressFileFixtures.ts';
 import { ProgressDocumentUtil }                           from './ProgressDocumentUtil.ts';
 
 const WORDED_LOG: readonly WordedLogEntry[] = [

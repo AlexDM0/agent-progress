@@ -43,8 +43,8 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
 
 - Imports run up only, with no cycles. `lib/constants/` imports nothing outside itself; `lib/utils/` imports only
   itself, `lib/constants/` and `src/lib/tracker-model/`; neither imports a package or a builtin (a spec beside them may
-  import `bun:test`). Nothing under `lib/` imports `cli/`, nothing that ships imports `src/testing/`, `cli/testing/` or
-  `lib/tooling/dev/`, and `agent-progress.ts` imports only `cli/`.
+  import `bun:test`). Nothing under `lib/` imports `cli/`, nothing that ships imports `src/testing/`, `cli/testing/`,
+  `src/adapters/progress/testing/` or `lib/tooling/dev/`, and `agent-progress.ts` imports only `cli/`.
 - A `src/lib/` package imports only the other `src/lib/` packages its main module's header names, node builtins and
   external dependencies. It never imports `src/shared/`, `lib/` or `cli/`, and knows nothing about its callers: no
   agent-progress names, tracker file names, user-facing wording or exit codes. App values arrive as parameters; a
