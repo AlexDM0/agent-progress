@@ -497,7 +497,7 @@ describe.skipIf(!gitIsAvailable())('what update rewrites', () => {
     expect(await runCommandLine(['update'], context)).toBe(2);
 
     const outputLines = context.outputText().split('\n');
-    expect(outputLines[0]).toEndWith('; its older tracker files were not rewritten.');
+    expect(outputLines[0]).toEndWith('; rewriting its older tracker files did not finish, so some may already be in the current format.');
     expect(outputLines[2]).toStartWith('  brief:       updated — re-read it before your next brief');
     expect(outputLines.slice(1, 7).map((line) => line.slice(0, 15))).toEqual([
       '  CLAUDE.md:   ',

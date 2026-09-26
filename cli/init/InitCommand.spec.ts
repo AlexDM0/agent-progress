@@ -302,7 +302,7 @@ describe.skipIf(!gitIsAvailable())('a second init', () => {
       '  dashboard:   ',
       '  `agent-progre',
     ]);
-    expect(outputLines[1]).toBe('  tracker:     older files were not rewritten');
+    expect(outputLines[1]).toBe('  tracker:     rewriting older files did not finish; some may already be in the current format');
     expect(outputLines[3]).toStartWith('  brief:       updated — re-read it before your next brief');
     expect(readFileSync(progressFilePath, 'utf8')).toBe(progressBefore);
   }, HELD_LOCK_TIMEOUT_MILLISECONDS);

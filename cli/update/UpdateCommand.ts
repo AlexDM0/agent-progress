@@ -44,7 +44,8 @@ export const updateCommand: CommandHandler = async (commandArguments, context) =
     rewrite = await rewriteOlderTrackerFiles(context, workspace);
   } catch (error) {
     // The repository files are already refreshed, and a session must still learn its brief is stale; the refusal then exits 2.
-    printRefreshReport(`Refreshed what agent-progress manages in ${workspace.rootDirectory}; its older tracker files were not rewritten.`);
+    printRefreshReport(`Refreshed what agent-progress manages in ${workspace.rootDirectory}; `
+      + 'rewriting its older tracker files did not finish, so some may already be in the current format.');
     throw error;
   }
   printRefreshReport(rewrite === null

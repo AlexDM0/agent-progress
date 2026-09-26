@@ -131,7 +131,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
       rewrite = await rewriteOlderTrackerFiles(context, workspace);
     } catch (error) {
       // The repository files are already refreshed, and a session must still learn its brief is stale; the refusal then exits 2.
-      printRefreshReport('older files were not rewritten');
+      printRefreshReport('rewriting older files did not finish; some may already be in the current format');
       throw error;
     }
     printRefreshReport(rewrite === null ? null : `rewrote ${rewrittenFilesTextOf(rewrite)} in the current format`);
