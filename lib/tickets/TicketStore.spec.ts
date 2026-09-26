@@ -53,6 +53,7 @@ function scratchWorkspace(): Workspace {
     trackerDirectory,
     ticketsDirectory,
     progressFilePath:  join(trackerDirectory, TRACKER_FILES.PROGRESS_FILE_NAME),
+    logFilePath:       join(trackerDirectory, TRACKER_FILES.LOG_FILE_NAME),
     htmlFilePath:      join(trackerDirectory, TRACKER_FILES.HTML_FILE_NAME),
     lockDirectoryPath: join(trackerDirectory, TRACKER_FILES.LOCK_DIRECTORY_NAME),
   };
