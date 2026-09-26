@@ -194,7 +194,7 @@ The test-only helpers live in `src/testing/`, `cli/testing/`, `src/adapters/prog
 | `src/testing/TrackerIsolation.ts` | The guard that keeps a spec away from any tracker it did not create. |
 | `src/testing/BoardFixtures.ts` | A `Board` over synthetic records (`boardFixture`, `taskFixture`, `ticketFixture`) whose logger keeps every record in a list, so the Board specs assert reason codes, records and changed tickets. |
 | `dispatcher/testing/DispatchScriptHarness.ts` | Runs a dispatcher Workflow script's text against a fake `agent()` and a fake board. |
-| `dispatcher/testing/DispatchScriptBundle.ts` | Builds the Workflow script text from the TypeScript port, or a `SourceMutant` of one of its modules. |
+| `dispatcher/testing/DispatchScriptBundle.ts` | Hands `src/lib/claude-code/WorkflowScriptBundle.ts` the port's entry and meta module, or a `SourceMutant` of one of its modules, and memoises the unmutated build per process. |
 | `dispatcher/testing/WorkflowScriptSource.ts` | Reads a dispatcher script's syntax tree for a clock, randomness, an impure `meta` or a shadowed Workflow global. |
 
 `TrackerIsolation` refuses any directory outside the scratch root, and refuses when discovery from a
@@ -261,7 +261,8 @@ Its policy is ported to `dispatcher/` in TypeScript. The frozen table
 script at bc42604, and is now retaken from the port's bundle by the command it states, only in a commit
 meant to change what the agents are told, whose diff of the table is that commit's review.
 
-`dispatcher/testing/DispatchScriptBundle.ts` bundles the port into one Workflow script, and
+`dispatcher/testing/DispatchScriptBundle.ts` bundles the port into one Workflow script through
+`src/lib/claude-code/WorkflowScriptBundle.ts`, and
 `dispatcher/testing/DispatchScriptHarness.ts` runs it against a fake `agent()` and a fake board, with the
 clock and randomness refused as the Workflow tool refuses them. The specs:
 

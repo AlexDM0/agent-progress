@@ -1,7 +1,7 @@
 /**
  * Where Claude Code keeps one repository's transcripts, and which of them belong to subagents. As the claude-code building block's
- * main module it also stands for its siblings, which merge the `SubagentStop` hook into the settings and write a marker-delimited block in a `CLAUDE.md`.
- * The package depends on `src/lib/atomic-file` and `src/lib/utils`.
+ * main module it also stands for its siblings, which merge the `SubagentStop` hook into the settings, write a marker-delimited block in a `CLAUDE.md`
+ * and build Workflow scripts with Bun's bundler. The package depends on `src/lib/atomic-file` and `src/lib/utils`.
  */
 import type { Dirent }   from 'node:fs';
 import { readdirSync }   from 'node:fs';

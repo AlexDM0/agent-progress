@@ -298,14 +298,15 @@ cli/                        the command surface: dispatch, arguments, help, and 
                             tickets/, dispatch/, adoption/ and measurement/; cli/utils/ holds the Next line, the printing
                             and the option values; cli/testing/ is test-only
 dispatcher/                 the dispatcher policy in TypeScript, bundled into a Workflow script; dispatcher/testing/ is
-                            test-only: the harness, the bundle builder, the frozen table
+                            test-only: the harness, the bundle wrapper, the frozen table
 page/                       the browser page: its sets, its own DOM-only tsconfig and spec tsconfig; page/testing/ is
                             test-only: the Board fixture its specs read
 resources/                  files read at runtime: the page's HTML template, and under templates/ the markdown init, update
                             and ticket add fill
 src/                        the target layout's code, filled step by step as the migration plan moves it
   src/lib/                  package-grade building blocks, one folder each, the package's description in its main module's header:
-                            atomic-file (AtomicFile.ts), git (GitProcess.ts), claude-code (ClaudeTranscripts.ts),
+                            atomic-file (AtomicFile.ts), git (GitProcess.ts), claude-code (ClaudeTranscripts.ts; also
+                            builds Workflow scripts),
                             tracker-model (@types/Task.ts; Board.ts is its aggregate), utils
   src/adapters/             the boundary, one folder per stored format (progress, tickets and log) plus the shared utils:
                             reading, writing and mapping what the tracker stores, the ticket JSON document, and the wording of
