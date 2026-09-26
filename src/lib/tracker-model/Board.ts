@@ -539,7 +539,7 @@ export class Board {
     return SETTLED_TICKET_STATUSES.includes(ticket.frontmatter.status);
   }
 
-  /** Oldest filed first; a row a ticket owns is never a review bar, and a ticket the board does not hold has none. */
+  /** Oldest filed first; a row a ticket owns is never a review bar, and a bar naming a ticket the board does not hold is still returned. */
   reviewBarsOf(ticketId: string): readonly Readonly<Task>[] {
     return this.reviewBarRecordsOf(ticketId);
   }

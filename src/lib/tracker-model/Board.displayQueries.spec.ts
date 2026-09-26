@@ -72,8 +72,14 @@ describe('reviewBarsOf', () => {
     expect(board.reviewBarsOf('003')).toEqual([]);
   });
 
-  // The hook passes the id its brief names, which the board may not hold.
-  test('returns no bars for a ticket the board does not hold, without refusing', () => {
+  // The hook passes the id its brief names, and credits the bar even when that ticket's file is gone.
+  test('returns the bars naming a ticket the board does not hold, without refusing', () => {
+    const { board } = boardFixture({ tasks: [taskFixture({ id: 1, reviewOf: '007' })] });
+
+    expect(board.reviewBarsOf('007').map((task) => task.id)).toEqual([1]);
+  });
+
+  test('returns no bars for an id no bar names', () => {
     const { board } = boardFixture({ tasks: [taskFixture({ id: 1, reviewOf: '001' })] });
 
     expect(board.reviewBarsOf('007')).toEqual([]);
