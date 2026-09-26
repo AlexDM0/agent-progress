@@ -1,6 +1,6 @@
 # Migration plan: the conventions refactor
 
-**Status (2026-09-26): in flight on `migration/conventions`; steps 0 to 3 and 4a to 4c are done, 5 is next.**
+**Status (2026-09-26): in flight on `migration/conventions`; steps 0 to 3, 4a to 4c and 5 are done, 6 is next.**
 Two parts of step 7 run on sub-branches of it: the page split (`migration/page`, merged in 7058c2a; 7b's
 payload facts remain) and the dispatcher port (`migration/dispatcher`, in review, merged before step 8).
 The kanban-board feature has landed on main (9654720 through 5c6b0ad) and is mapped into this plan.
@@ -210,12 +210,20 @@ Each step is one or more commits on the branch; each commit is green.
 6. **Services.** src/services/tracker (workspace discovery, lock, the ingest → mutate → write →
    render pipeline) and src/services/render (template, markdown, compiling page/ by path, reading
    resources/). The render service writes the Board facts from step 4 into the payload.
+   `cli/CommandSupport.ts`'s pipeline halves, `readStoredLog`, `requireStoredLog` and
+   `rewriteOlderTrackerFiles`, with the ticket listing and `nextTicketId`, move into
+   src/services/tracker. `Ticket.filePath`, a storage fact the model carries, is the tracker
+   service's to own. Whether the model's `ProgressFile` is renamed (for example to `TrackerProgress`)
+   is put to the owner.
 7. **Features.** Regroup cli/ into its sets; every command becomes parse → service or Board →
    adapter output; split the ticket command; the hook reads review bars from the Board. Move the
    page to page/ per §3, in this order, each commit green: (a) the utils and the preferences module;
    (b) the page reads the new payload facts and its copies of the board rules go; (c) the page is
-   split into its sets and GanttPage into PageStart and the controllers. The spec tsconfig lets the
-   page specs sit beside their modules. The detail panel filters the log by id. The Kanban and
+   split into its sets and GanttPage into PageStart and the controllers. In (b) the pill labels are
+   rekeyed by `DisplayState`, and the payload's log entries gain `taskId` and `ticketId` from
+   `LogUtil.wordedEntryOf` in the commit where the detail panel filters by them; the legacy notes
+   carry no ids. The spec tsconfig lets the page specs sit beside their modules. The detail panel
+   filters the log by id. The Kanban and
    ticket-dialog specs are the regression net for (b) and (c): they change only in their imports.
    Port the dispatcher to dispatcher/ in
    TypeScript, checked against a frozen table of the old script's behaviour, and add the JSON fields
