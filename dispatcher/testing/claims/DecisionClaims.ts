@@ -303,6 +303,21 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     },
   },
   {
+    name:        'a reviewer\'s stated round overrides the round the dispatcher counted',
+    scenarioFor: () => ({
+      limit:             2,
+      readyTicketIds:    ['001'],
+      reviewerReply:     (_ticketId, round) => (round === 1 ? { verdict: 'round-requested', reworkedLines: 900, findings: [finding('naming', 'a.ts')] } : { verdict: 'released' }),
+      agentMisbehaviour: (call) => (call.kind === 'review' && call.ordinal === 1 ? { replacesFields: { round: 3 } } : undefined),
+    }),
+    holds:  (run) => reviewsOf(run, '001') === 1 && parkedIds(run).includes('001'),
+    mutant: {
+      modulePath: DISPATCH_RUN,
+      find:       'const round = reading.round === \'unstated\' ? work.round : reading.round;',
+      replace:    'const round = work.round;',
+    },
+  },
+  {
     name:        'a first does-not-hold sends a fresh builder, and a second parks the ticket',
     scenarioFor: () => ({ limit: 2, readyTicketIds: ['001'], reviewerReply: () => ({ verdict: 'does-not-hold' }) }),
     holds:       (run) => kindsAndTickets(run).join(', ') === 'survey, build 001, review 001, build 001, review 001, park 001' && parkedIds(run).includes('001'),
