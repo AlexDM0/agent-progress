@@ -4,13 +4,7 @@
  * `lib/render/Rerender.ts` — all inside the lock, in that order, so no older render lands last and the progress file is never behind the
  * tickets. A log taken over from a version 1 progress file also has its notes copied first, so they are on disk before that file stops holding them.
  */
-import { rerenderDashboard, type RerenderOutcome } from '../lib/render/Rerender';
-import {
-  deleteAllTickets,
-  listTickets,
-  type MalformedTicketFile,
-  type TicketListing
-} from '../lib/tickets/TicketStore';
+import { rerenderDashboard, type RerenderOutcome }               from '../lib/render/Rerender';
 import { NextLineUtil }                                          from '../lib/utils/NextLineUtil';
 import { LogFileIngestion, type LogFileReading }                 from '../src/adapters/log/LogFileIngestion';
 import { createLogFileSink }                                     from '../src/adapters/log/LogFileSink';
@@ -29,13 +23,19 @@ import type {
   Ticket,
   TicketPriority
 } from '../src/lib/tracker-model/@types/Ticket';
-import { Board }                                       from '../src/lib/tracker-model/Board';
-import { refusalIsBoardRefusal }                       from '../src/lib/tracker-model/BoardRefusal';
-import { createLogger }                                from '../src/lib/tracker-model/Logger';
-import { ConcurrencyUtil }                             from '../src/lib/tracker-model/utils/ConcurrencyUtil';
-import { TicketDefaultsUtil }                          from '../src/lib/tracker-model/utils/TicketDefaultsUtil';
-import { TimeUtil }                                    from '../src/lib/utils/TimeUtil';
-import { TokenCountUtil }                              from '../src/lib/utils/TokenCountUtil';
+import { Board }                 from '../src/lib/tracker-model/Board';
+import { refusalIsBoardRefusal } from '../src/lib/tracker-model/BoardRefusal';
+import { createLogger }          from '../src/lib/tracker-model/Logger';
+import { ConcurrencyUtil }       from '../src/lib/tracker-model/utils/ConcurrencyUtil';
+import { TicketDefaultsUtil }    from '../src/lib/tracker-model/utils/TicketDefaultsUtil';
+import { TimeUtil }              from '../src/lib/utils/TimeUtil';
+import { TokenCountUtil }        from '../src/lib/utils/TokenCountUtil';
+import {
+  deleteAllTickets,
+  listTickets,
+  type MalformedTicketFile,
+  type TicketListing
+} from '../src/services/tracker/TicketStore';
 import { withLock }                                    from '../src/services/tracker/TrackerLock';
 import { requireWorkspace, type Workspace }            from '../src/services/tracker/Workspace';
 import { OperationRefusal, refusalIsOperationRefusal } from '../src/shared/OperationRefusal';

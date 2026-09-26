@@ -1,4 +1,4 @@
-/** The tail of a ticket's file name; making a slug unique within a directory belongs to `lib/tickets/TicketStore.ts`. */
+/** The tail of a ticket's file name; making a slug unique within a directory belongs to `src/services/tracker/TicketStore.ts`. */
 
 const SLUG_MAXIMUM_LENGTH = 60;
 

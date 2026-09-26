@@ -21,13 +21,11 @@ import {
   expect,
   test,
 } from 'bun:test';
-import { createProgressFileWriter } from '../../src/adapters/progress/ProgressFileWriter.ts';
-import { createTicketFileWriter }   from '../../src/adapters/tickets/TicketFileWriter.ts';
-import type { Ticket, TicketType }  from '../../src/lib/tracker-model/@types/Ticket.ts';
-import { EmptyProgressUtil }        from '../../src/lib/tracker-model/utils/EmptyProgressUtil.ts';
-import { TaskFilingUtil }           from '../../src/lib/tracker-model/utils/TaskFilingUtil.ts';
-import type { Workspace }           from '../../src/services/tracker/Workspace.ts';
-import { TRACKER_FILES }            from '../../src/services/tracker/constants/TrackerFiles.ts';
+import { createProgressFileWriter } from '../../adapters/progress/ProgressFileWriter.ts';
+import { createTicketFileWriter }   from '../../adapters/tickets/TicketFileWriter.ts';
+import type { Ticket, TicketType }  from '../../lib/tracker-model/@types/Ticket.ts';
+import { EmptyProgressUtil }        from '../../lib/tracker-model/utils/EmptyProgressUtil.ts';
+import { TaskFilingUtil }           from '../../lib/tracker-model/utils/TaskFilingUtil.ts';
 import {
   createTicket,
   deleteAllTickets,
@@ -35,6 +33,8 @@ import {
   nextTicketId,
   readTicket,
 } from './TicketStore.ts';
+import type { Workspace } from './Workspace.ts';
+import { TRACKER_FILES }  from './constants/TrackerFiles.ts';
 
 const FILED_AT    = '2026-09-18T09:00:00+02:00';
 const TICKET_BODY = '# Example\n\n## Report\n\nReported by Alex Example.\n';

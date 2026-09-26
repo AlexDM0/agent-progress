@@ -5,17 +5,17 @@
 
 import { readdirSync, unlinkSync } from 'node:fs';
 import { join }                    from 'node:path';
-import { ProgressFileIngestion }   from '../../src/adapters/progress/ProgressFileIngestion.ts';
-import { TicketFileIngestion }     from '../../src/adapters/tickets/TicketFileIngestion.ts';
+import { ProgressFileIngestion }   from '../../adapters/progress/ProgressFileIngestion.ts';
+import { TicketFileIngestion }     from '../../adapters/tickets/TicketFileIngestion.ts';
 import type {
   Ticket,
   TicketFrontmatter,
   TicketPriority,
   TicketType
-} from '../../src/lib/tracker-model/@types/Ticket.ts';
-import { TicketIdUtil }   from '../../src/lib/tracker-model/utils/TicketIdUtil.ts';
-import type { Workspace } from '../../src/services/tracker/Workspace.ts';
-import { SlugUtil }       from '../utils/SlugUtil.ts';
+} from '../../lib/tracker-model/@types/Ticket.ts';
+import { TicketIdUtil }   from '../../lib/tracker-model/utils/TicketIdUtil.ts';
+import type { Workspace } from './Workspace.ts';
+import { SlugUtil }       from './utils/SlugUtil.ts';
 
 export interface MalformedTicketFile {
   filePath: string;

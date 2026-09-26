@@ -39,7 +39,7 @@ to make a check pass.
 ### Imports (today's tree, held by review)
 
 ```
-src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/tickets/, lib/render/  →  cli/
+src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/render/  →  cli/
 ```
 
 - Imports run up only, with no cycles. `lib/constants/` imports nothing outside itself; `lib/utils/` imports only
