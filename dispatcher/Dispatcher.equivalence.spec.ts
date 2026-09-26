@@ -6,11 +6,11 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { bundleDispatchScript }                from './testing/DispatchScriptBundle';
-import { runDispatchScript, type DispatchRun } from './testing/DispatchScriptHarness';
-import { digestOf, traceOf }                   from './testing/DispatchTrace';
-import { readFrozenDispatchTraces }            from './testing/DispatchTraceCapture';
-import { dispatchTraceCatalogue }              from './testing/DispatchTraceCatalogue';
+import { bundleDispatchScript }                        from './testing/DispatchScriptBundle';
+import { runDispatchScript, type RecordedDispatchRun } from './testing/DispatchScriptHarness';
+import { digestOf, traceOf }                           from './testing/DispatchTrace';
+import { readFrozenDispatchTraces }                    from './testing/DispatchTraceCapture';
+import { dispatchTraceCatalogue }                      from './testing/DispatchTraceCatalogue';
 
 // The table held 160 entries and 1010 agent calls when it was taken; retaking it may add to them, never drop below.
 const CATALOGUE_ENTRIES_FLOOR = 150;
@@ -45,7 +45,7 @@ function lineDiffOf(oldText: string, newText: string): string {
 // The prompt digest is the tenth field of a call's text, after run, kind, ticket, ordinal, model, effort, label, phase and schema digest.
 const PROMPT_DIGEST_FIELD_INDEX = 9;
 
-function promptDiffsOf(run: DispatchRun, frozenCalls: readonly string[]): string {
+function promptDiffsOf(run: RecordedDispatchRun, frozenCalls: readonly string[]): string {
   const promptDiffs: string[] = [];
   run.calls.forEach((call, callIndex) => {
     const frozenPromptDigest = frozenCalls[callIndex]?.split('|')[PROMPT_DIGEST_FIELD_INDEX];

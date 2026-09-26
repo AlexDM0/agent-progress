@@ -146,7 +146,7 @@ export interface DispatchScenario {
   agentMisbehaviour?:             (call: RecordedAgentCall) => AgentMisbehaviour | undefined;
 }
 
-export interface DispatchRun {
+export interface RecordedDispatchRun {
   calls:                    RecordedAgentCall[];
   /** The most of the script's own builders and reviewers that were running at one moment. */
   mostAgentsAtOnce:         number;
@@ -329,7 +329,7 @@ function reviewerDocumentOf(reply: ReviewerReply, round: number): Record<string,
   };
 }
 
-export async function runDispatchScript(scenario: DispatchScenario, source: string): Promise<DispatchRun> {
+export async function runDispatchScript(scenario: DispatchScenario, source: string): Promise<RecordedDispatchRun> {
   const board: FakeBoard = {
     limit:                 scenario.limit,
     otherAgentsInFlight:   scenario.otherAgentsInFlight ?? 0,

@@ -2,8 +2,8 @@
  * The dispatcher's resumption of a build an earlier run left paused, as claims shared by the resumption suite: each a scenario, what must hold
  * after it, and the mutant that breaks exactly that decision.
  */
-import type { DispatchRun, DispatchScenario, RecordedAgentCall } from '../DispatchScriptHarness';
-import { DISPATCHER_MODULE_PATHS, type DispatchClaim }           from './DispatchClaim';
+import type { DispatchScenario, RecordedAgentCall, RecordedDispatchRun } from '../DispatchScriptHarness';
+import { DISPATCHER_MODULE_PATHS, type DispatchClaim }                   from './DispatchClaim';
 
 const {
   DISPATCH_RUN,
@@ -28,7 +28,7 @@ function summaryOf(summary: unknown): ResumeSummary {
   return summary as ResumeSummary;
 }
 
-function callsOf(run: DispatchRun, runName: string, kind: string, ticketId: string): RecordedAgentCall[] {
+function callsOf(run: RecordedDispatchRun, runName: string, kind: string, ticketId: string): RecordedAgentCall[] {
   return run.calls.filter((call) => call.run === runName && call.kind === kind && call.ticketId === ticketId);
 }
 

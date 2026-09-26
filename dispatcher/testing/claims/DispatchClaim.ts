@@ -1,10 +1,10 @@
-import type { DispatchRun, DispatchScenario } from '../DispatchScriptHarness';
-import type { SourceMutant }                  from '../SourceMutant';
+import type { DispatchScenario, RecordedDispatchRun } from '../DispatchScriptHarness';
+import type { SourceMutant }                          from '../SourceMutant';
 
 export interface DispatchClaim {
   name:        string;
   scenarioFor: () => DispatchScenario;
-  holds:       (run: DispatchRun) => boolean;
+  holds:       (run: RecordedDispatchRun) => boolean;
   mutant:      SourceMutant;
 }
 

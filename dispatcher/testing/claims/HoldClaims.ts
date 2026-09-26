@@ -3,10 +3,10 @@
  * breaks exactly that decision.
  */
 import type {
-  DispatchRun,
   DispatchScenario,
   FakeBoard,
-  RecordedAgentCall
+  RecordedAgentCall,
+  RecordedDispatchRun
 } from '../DispatchScriptHarness';
 import { DISPATCHER_MODULE_PATHS, type DispatchClaim } from './DispatchClaim';
 
@@ -24,11 +24,11 @@ interface HoldSummary {
 
 const HELD_TICKET_ID = '001';
 
-function summaryOf(run: DispatchRun): HoldSummary {
+function summaryOf(run: RecordedDispatchRun): HoldSummary {
   return run.summary as HoldSummary;
 }
 
-function callsOf(run: DispatchRun, kind: string, ticketId: string): RecordedAgentCall[] {
+function callsOf(run: RecordedDispatchRun, kind: string, ticketId: string): RecordedAgentCall[] {
   return run.calls.filter((call) => call.kind === kind && call.ticketId === ticketId);
 }
 
@@ -76,18 +76,18 @@ const HELD_AFTER_ITS_BUILDER_STOPPED_SHORT: DispatchScenario = {
 
 const PAUSED_ROW_RESUMPTION_SOURCE_LINE = '    + pausedRowResumptionText(settings, ticketId, previousPass, takeoverText)\n';
 
-function lastBlockBeforeShowsHeld(run: DispatchRun, call: RecordedAgentCall, ticketId: string): boolean {
+function lastBlockBeforeShowsHeld(run: RecordedDispatchRun, call: RecordedAgentCall, ticketId: string): boolean {
   return run.heldTicketIdsReturned[call.statusBlocksReturnedBefore - 1]?.includes(ticketId) ?? false;
 }
 
 /** The index of the first status block showing the ticket unheld after one showed it held; -1 when none did. */
-function firstBlockShowingTheHoldLifted(run: DispatchRun, ticketId: string): number {
+function firstBlockShowingTheHoldLifted(run: RecordedDispatchRun, ticketId: string): number {
   const firstHeld = run.heldTicketIdsReturned.findIndex((heldTicketIds) => heldTicketIds.includes(ticketId));
   if (firstHeld === -1) return -1;
   return run.heldTicketIdsReturned.findIndex((heldTicketIds, index) => index > firstHeld && !heldTicketIds.includes(ticketId));
 }
 
-function reviewerWaitedForTheUnhold(run: DispatchRun): boolean {
+function reviewerWaitedForTheUnhold(run: RecordedDispatchRun): boolean {
   const reviewers = callsOf(run, 'review', HELD_TICKET_ID);
   const [firstReviewer] = reviewers;
   const unholdBlock = firstBlockShowingTheHoldLifted(run, HELD_TICKET_ID);

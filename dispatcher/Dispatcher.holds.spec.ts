@@ -8,13 +8,13 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { builtScriptTextOf, bundleDispatchScript } from './testing/DispatchScriptBundle';
-import { runDispatchScript, type DispatchRun }     from './testing/DispatchScriptHarness';
-import { HOLD_CLAIMS }                             from './testing/claims/HoldClaims';
+import { builtScriptTextOf, bundleDispatchScript }     from './testing/DispatchScriptBundle';
+import { runDispatchScript, type RecordedDispatchRun } from './testing/DispatchScriptHarness';
+import { HOLD_CLAIMS }                                 from './testing/claims/HoldClaims';
 
 const BUNDLE = await bundleDispatchScript();
 
-function kindsAndTickets(run: DispatchRun): string[] {
+function kindsAndTickets(run: RecordedDispatchRun): string[] {
   return run.calls.map((call) => (call.ticketId === null ? call.kind : `${call.kind} ${call.ticketId}`));
 }
 

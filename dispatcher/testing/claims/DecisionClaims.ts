@@ -4,9 +4,9 @@
  */
 import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../../src/lib/tracker-model/constants/AgentSettings.ts';
 import type {
-  DispatchRun,
   DispatchRunName,
   DispatchScenario,
+  RecordedDispatchRun,
   ReviewFinding
 } from '../DispatchScriptHarness';
 import type { SourceMutant }                           from '../SourceMutant';
@@ -27,7 +27,7 @@ function ticketIdsFrom(first: number, count: number): string[] {
   return Array.from({ length: count }, (_unused, i) => String(first + i).padStart(3, '0'));
 }
 
-export function kindsAndTickets(run: DispatchRun): string[] {
+export function kindsAndTickets(run: RecordedDispatchRun): string[] {
   return run.calls.map((call) => (call.ticketId === null ? call.kind : `${call.kind} ${call.ticketId}`));
 }
 
@@ -41,15 +41,15 @@ interface DispatchSummary {
   lowPriorityWaiting?: string[];
 }
 
-export function summaryOf(run: DispatchRun): DispatchSummary {
+export function summaryOf(run: RecordedDispatchRun): DispatchSummary {
   return run.summary as DispatchSummary;
 }
 
-function parkedIds(run: DispatchRun): string[] {
+function parkedIds(run: RecordedDispatchRun): string[] {
   return summaryOf(run).parked.map((parkedTicket) => parkedTicket.id);
 }
 
-function reviewsOf(run: DispatchRun, ticketId: string): number {
+function reviewsOf(run: RecordedDispatchRun, ticketId: string): number {
   return run.calls.filter((call) => call.kind === 'review' && call.ticketId === ticketId).length;
 }
 
@@ -126,24 +126,24 @@ const NEVER_STOP_ON_DEAD_AGENTS: SourceMutant = {
 
 const STATUS_WITHOUT_ROWS_CONFIRMS = 'if (confirmingTicketIds === \'unlisted\') return work.kind === \'review\' && work.barIsHandedOn === true;';
 
-function workersRunOn(run: DispatchRun, model: string, effort: string): boolean {
+function workersRunOn(run: RecordedDispatchRun, model: string, effort: string): boolean {
   const workers = run.calls.filter((call) => call.kind === 'build' || call.kind === 'review');
   return workers.length > 0 && workers.every((call) => call.model === model && call.effort === effort);
 }
 
-function releasedEveryRow(run: DispatchRun): boolean {
+function releasedEveryRow(run: RecordedDispatchRun): boolean {
   return run.rowsRunningAtEnd.length === 0 && !run.logs.some((message) => message.includes('No slot free'));
 }
 
-function kindsAndTicketsOf(run: DispatchRun, runName: DispatchRunName): string {
+function kindsAndTicketsOf(run: RecordedDispatchRun, runName: DispatchRunName): string {
   return run.calls.filter((call) => call.run === runName).map((call) => (call.ticketId === null ? call.kind : `${call.kind} ${call.ticketId}`)).join(', ');
 }
 
-function racingSummaryOf(run: DispatchRun): DispatchSummary | null {
+function racingSummaryOf(run: RecordedDispatchRun): DispatchSummary | null {
   return run.racingSummary as DispatchSummary | null;
 }
 
-function buildersOnBoardOf(run: DispatchRun, ticketId: string): string {
+function buildersOnBoardOf(run: RecordedDispatchRun, ticketId: string): string {
   return run.buildersOnBoard.filter((builder) => builder.endsWith(`build ${ticketId}`)).join(', ');
 }
 
@@ -967,7 +967,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
 
 const EVERY_KIND_OF_AGENT: DispatchScenario = { limit: 2, readyTicketIds: ['001', '002'], reviewerReply: () => ({ verdict: 'does-not-hold' }) };
 
-export function modelsAndEffortsAreExplicit(run: DispatchRun): boolean {
+export function modelsAndEffortsAreExplicit(run: RecordedDispatchRun): boolean {
   return run.calls.every((call) => {
     const helper = call.kind === 'survey' || call.kind === 'settings' || call.kind === 'park';
     return call.model === (helper ? 'haiku' : DEFAULT_AGENT_MODEL) && call.effort === (helper ? 'low' : DEFAULT_AGENT_EFFORT);

@@ -9,13 +9,13 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { builtScriptTextOf, bundleDispatchScript } from './testing/DispatchScriptBundle';
-import { runDispatchScript, type DispatchRun }     from './testing/DispatchScriptHarness';
-import { RESUMPTION_CLAIMS }                       from './testing/claims/ResumptionClaims';
+import { builtScriptTextOf, bundleDispatchScript }     from './testing/DispatchScriptBundle';
+import { runDispatchScript, type RecordedDispatchRun } from './testing/DispatchScriptHarness';
+import { RESUMPTION_CLAIMS }                           from './testing/claims/ResumptionClaims';
 
 const BUNDLE = await bundleDispatchScript();
 
-function kindsAndTickets(run: DispatchRun): string[] {
+function kindsAndTickets(run: RecordedDispatchRun): string[] {
   return run.calls.map((call) => `${call.run} ${call.kind}${call.ticketId === null ? '' : ` ${call.ticketId}`}`);
 }
 

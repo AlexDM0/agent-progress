@@ -1,5 +1,5 @@
 /** A dispatch run reduced to what two implementations of the dispatcher must agree on, in a form a frozen table can hold and compare. */
-import type { DispatchRun, RecordedAgentCall } from './DispatchScriptHarness';
+import type { RecordedAgentCall, RecordedDispatchRun } from './DispatchScriptHarness';
 
 const DIGEST_LENGTH_CHARACTERS = 16;
 
@@ -66,7 +66,7 @@ function callTextOf(call: RecordedAgentCall): string {
   ].join('|');
 }
 
-export function traceOf(run: DispatchRun): DispatchTrace {
+export function traceOf(run: RecordedDispatchRun): DispatchTrace {
   return {
     calls:               run.calls.map(callTextOf),
     phasesEntered:       run.phasesEntered.map((phaseEntered) => `${phaseEntered.run}|${fieldTextOf(phaseEntered.title)}`),
