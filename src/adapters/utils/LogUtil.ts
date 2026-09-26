@@ -1,4 +1,4 @@
-/** Words the Board's log records as the sentences the log has always held, so a stored log reads the same before and after the records. */
+/** Words the Board's log records as the log's stored sentences, so entries written by any version of the tool read alike. */
 import type { AgentUsage, LogRecordContent } from '../../lib/tracker-model/@types/LogRecord.ts';
 import type { DispatcherState, ViewRange }   from '../../lib/tracker-model/@types/ProgressFile.ts';
 import { TokenCountUtil }                    from '../../lib/utils/TokenCountUtil.ts';

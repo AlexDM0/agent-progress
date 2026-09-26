@@ -267,7 +267,7 @@ function sentencesOf(logged: readonly LogRecord[]): string {
   return logged.map(LogUtil.sentenceOf).join('\n');
 }
 
-/** A closed bar is printed by its id alone, as it always has been, rather than as the sentence the log holds for it. */
+/** A closed bar is printed by its id alone, not as the sentence the log holds for it. */
 function recordClosesNoBar(record: LogRecord): boolean {
   return record.kind !== 'review-bar-closed';
 }
