@@ -16,6 +16,7 @@ import { TokenCountUtil }            from '../../src/lib/utils/TokenCountUtil.ts
 import type { PageTicket }           from '../../src/shared/@types/PagePayload.ts';
 import type { IdentifiedLogEntry }   from '../../src/shared/@types/WordedLogEntry.ts';
 import type { BoardRow }             from '../@types/PageBoard.ts';
+import { NoteSentenceMatchUtil }     from '../legacy/utils/NoteSentenceMatchUtil.ts';
 import { LogMarkupUtil }             from '../utils/LogMarkupUtil.ts';
 import { MarkupUtil }                from '../utils/MarkupUtil.ts';
 import type { TimestampSlices }      from '../utils/TimeUtil.ts';
@@ -29,8 +30,6 @@ const PHASES_WERE_NOT_RECORDED_NOTE = 'The phases of this row were not recorded,
 const NO_PHASES_TO_SHOW_NOTE = 'The phases of this row were not recorded, and its stamps carry nothing to derive them from.';
 
 const NO_LOG_LINES_NOTE = 'No log line names this row or its ticket.';
-
-const TICKET_LINE_START = /^Ticket #/;
 
 /** How far up the ladder a status is, so a derived phase a row never reached is left out; `abandoned` sits above everything it could follow. */
 const LADDER_RANK_FOR_TASK_STATUS: Record<TaskStatus, number> = {
@@ -229,29 +228,12 @@ function ticketMarkup(ticket: PageTicket, format: StampFormat): string {
   return `${head}${ticketFactsMarkup(ticket, format)}<div class="ap-ticket-body md">${ticket.bodyHtml}</div>`;
 }
 
-/**
- * Only for a line without ids: a note, or a line from before the log was structured.
- * From ticket #100 up a ticket's `#120` is spelled as task 120's, so a row is named only as `Task #N` or `row #N` — `Review row #N`
- * and `the review row #N`, the forms the CLI writes for rows — and a line beginning `Ticket #` names no row. The lookahead keeps
- * task 1 from claiming task 13.
- */
-function textNamesTask(text: string, taskId: number): boolean {
-  return !TICKET_LINE_START.test(text) && new RegExp(`\\b(?:task|row) #${taskId}(?![0-9])`, 'i').test(text);
-}
-
-/**
- * Only for a line without ids, like `textNamesTask`. A ticket is `#003` anywhere except in the row forms above, which from #100 up
- * could be a row of the same number.
- */
-function textNamesTicket(text: string, ticketId: string): boolean {
-  return new RegExp(`(?<!\\b(?:task|row) )#${ticketId}(?![0-9])`, 'i').test(text);
-}
-
 function entryIsAboutTaskOrTicket(entry: IdentifiedLogEntry, task: Task | null, ticket: PageTicket | null): boolean {
-  if (entry.taskId === undefined && entry.ticketId === undefined) {
-    return (task !== null && textNamesTask(entry.text, task.id)) || (ticket !== null && textNamesTicket(entry.text, ticket.id));
+  if (entry.taskIds === undefined || entry.ticketIds === undefined) {
+    // Dropping page/legacy/ turns this into `return false`: a note then claims no panel.
+    return NoteSentenceMatchUtil.noteNamesTaskOrTicket(entry.text, task?.id ?? null, ticket?.id ?? null);
   }
-  return (task !== null && entry.taskId === task.id) || (ticket !== null && entry.ticketId === ticket.id);
+  return (task !== null && entry.taskIds.includes(task.id)) || (ticket !== null && entry.ticketIds.includes(ticket.id));
 }
 
 function logMarkup(input: TaskDetailInput): string {

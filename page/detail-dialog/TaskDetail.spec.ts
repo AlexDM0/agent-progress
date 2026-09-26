@@ -409,8 +409,18 @@ describe('the log', () => {
 
   test('claims a line the tool wrote by its ticket id, not by the ticket numbers its sentence names', () => {
     const identifiedLog: IdentifiedLogEntry[] = [
-      { at: FILED_AT, text: 'Ticket #001 filed: Fix #002', ticketId: '001' },
-      { at: STARTED_AT, text: 'Ticket #003 waits on #001', ticketId: '003' },
+      {
+        at:        FILED_AT,
+        text:      'Ticket #001 filed: Fix #002',
+        taskIds:   [],
+        ticketIds: ['001'],
+      },
+      {
+        at:        STARTED_AT,
+        text:      'Ticket #003 held: waits on #001',
+        taskIds:   [],
+        ticketIds: ['003'],
+      },
     ];
 
     expect(logLinesIn(panelFor(null, exampleTicket({ id: '001' }), identifiedLog))).toEqual(['Ticket #001 filed: Fix #002']);
@@ -420,15 +430,89 @@ describe('the log', () => {
   test('claims a review bar’s lines for its row and its ticket by id, even when the bar’s name no longer names the ticket', () => {
     const identifiedLog: IdentifiedLogEntry[] = [
       {
-        at:       FINISHED_AT,
-        text:     'Review row #9 started: Renamed pass',
-        taskId:   9,
-        ticketId: '001',
+        at:        FINISHED_AT,
+        text:      'Review row #9 started: Renamed pass',
+        taskIds:   [9],
+        ticketIds: ['001'],
       },
     ];
 
     expect(logLinesIn(panelFor(exampleTask({ id: 9, name: 'Renamed pass' }), null, identifiedLog))).toEqual(['Review row #9 started: Renamed pass']);
     expect(logLinesIn(panelFor(null, exampleTicket({ id: '001' }), identifiedLog))).toEqual(['Review row #9 started: Renamed pass']);
+  });
+
+  test('shows a dependency line in the panel of the waiting ticket and of each ticket it waits on', () => {
+    const identifiedLog: IdentifiedLogEntry[] = [
+      {
+        at:        FILED_AT,
+        text:      'Ticket #003 waits on #001 and #002',
+        taskIds:   [],
+        ticketIds: ['003', '001', '002'],
+      },
+    ];
+
+    for (const ticketId of ['003', '001', '002']) {
+      expect(logLinesIn(panelFor(null, exampleTicket({ id: ticketId, task: null }), identifiedLog)), ticketId).toEqual(['Ticket #003 waits on #001 and #002']);
+    }
+    expect(logLinesIn(panelFor(null, exampleTicket({ id: '004', task: null }), identifiedLog))).toEqual([]);
+  });
+
+  test('does not show a line in the panel of a ticket or row that only its title, reason or bar name mentions', () => {
+    const identifiedLog: IdentifiedLogEntry[] = [
+      {
+        at:        FILED_AT,
+        text:      'Ticket #004 filed: Follow up on #001',
+        taskIds:   [],
+        ticketIds: ['004'],
+      },
+      {
+        at:        STARTED_AT,
+        text:      'Ticket #004 abandoned: duplicate of #001',
+        taskIds:   [],
+        ticketIds: ['004'],
+      },
+      {
+        at:        FINISHED_AT,
+        text:      'Review row #9 started: Review 1 #004 — compare with task #1 and #001',
+        taskIds:   [9],
+        ticketIds: ['004'],
+      },
+    ];
+
+    expect(logLinesIn(panelFor(exampleTask({ id: 1, ticket: '001' }), exampleTicket({ id: '001' }), identifiedLog))).toEqual([]);
+  });
+
+  test('shows a line that concerns no row and no ticket in no panel', () => {
+    const identifiedLog: IdentifiedLogEntry[] = [
+      {
+        at:        FILED_AT,
+        text:      'Dispatcher set to running (run task #1 for #001)',
+        taskIds:   [],
+        ticketIds: [],
+      },
+    ];
+
+    expect(logLinesIn(panelFor(exampleTask({ id: 1, ticket: '001' }), exampleTicket({ id: '001' }), identifiedLog))).toEqual([]);
+  });
+
+  test('shows each ticket of a two-ticket claim its own started line and not the other’s', () => {
+    const identifiedLog: IdentifiedLogEntry[] = [
+      {
+        at:        STARTED_AT,
+        text:      'Ticket #001 started',
+        taskIds:   [],
+        ticketIds: ['001'],
+      },
+      {
+        at:        STARTED_AT,
+        text:      'Ticket #002 started',
+        taskIds:   [],
+        ticketIds: ['002'],
+      },
+    ];
+
+    expect(logLinesIn(panelFor(null, exampleTicket({ id: '001', task: null }), identifiedLog))).toEqual(['Ticket #001 started']);
+    expect(logLinesIn(panelFor(null, exampleTicket({ id: '002', task: null }), identifiedLog))).toEqual(['Ticket #002 started']);
   });
 
   // Phases says so in words when it has nothing; a labelled empty box beside it would read as a section that failed to load.

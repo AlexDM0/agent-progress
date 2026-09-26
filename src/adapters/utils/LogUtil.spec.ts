@@ -148,37 +148,95 @@ describe('the entry the page reads', () => {
       fields:   { name: 'Review 1 #003 — Example' },
     };
 
-    expect(identifiedEntryOf(ticketRecord)).toEqual({ at, text: 'Ticket #003 held: waits on #005', ticketId: '003' });
+    expect(identifiedEntryOf(ticketRecord)).toEqual({
+      at,
+      text:      'Ticket #003 held: waits on #005',
+      taskIds:   [],
+      ticketIds: ['003'],
+    });
     expect(identifiedEntryOf(reviewBarRecord)).toEqual({
       at,
-      text:     'Review row #9 started: Review 1 #003 — Example',
-      taskId:   9,
-      ticketId: '003',
+      text:      'Review row #9 started: Review 1 #003 — Example',
+      taskIds:   [9],
+      ticketIds: ['003'],
     });
   });
 
-  // A line with no id key is the one the detail panel still matches by its words, so an id-less record must reach the page without one.
-  test('gives a record that names no task or ticket exactly the stamp and the sentence', () => {
-    const recordsWithoutIds: readonly LogRecord[] = [
-      { at, kind: 'note', fields: { text: 'Ticket #001 looks done' } },
-      {
-        at,
-        kind:   'agent-stopped',
-        fields: {
-          agentId:              'agent_1',
-          agentType:            'Explore',
-          apiCallCount:         2,
-          endContextTokens:     6000,
-          totalInputTokens:     12_000,
-          cacheReadInputTokens: 9000,
-          outputTokens:         500,
+  /**
+   * One row per kind, and each form of a dependency record: the waiting ticket comes first, then each ticket it waits on, once. A
+   * `#005` inside a reason, a title or a bar name is free text and adds nothing.
+   */
+  test('carries every task and ticket id a record concerns, and none its free text mentions', () => {
+    const idsForRecord: ReadonlyArray<readonly [LogRecordContent, { taskIds: number[]; ticketIds: string[] }]> = [
+      [{ kind: 'ticket-filed', ticketId: '001', fields: { title: 'Follow up on #005' } }, { taskIds: [], ticketIds: ['001'] }],
+      [{ kind: 'ticket-reopened', ticketId: '004', fields: {} }, { taskIds: [], ticketIds: ['004'] }],
+      [{ kind: 'ticket-started', ticketId: '001', fields: {} }, { taskIds: [], ticketIds: ['001'] }],
+      [{ kind: 'ticket-finished', ticketId: '004', fields: {} }, { taskIds: [], ticketIds: ['004'] }],
+      [{ kind: 'ticket-approved', ticketId: '004', fields: {} }, { taskIds: [], ticketIds: ['004'] }],
+      [{ kind: 'ticket-delivered', ticketId: '005', fields: {} }, { taskIds: [], ticketIds: ['005'] }],
+      [{ kind: 'ticket-abandoned', ticketId: '006', fields: { reason: 'superseded by #005' } }, { taskIds: [], ticketIds: ['006'] }],
+      [{ kind: 'ticket-rereviewed', ticketId: '004', fields: { round: 2 } }, { taskIds: [], ticketIds: ['004'] }],
+      [{ kind: 'ticket-priority-changed', ticketId: '006', fields: { from: 'low', to: 'normal' } }, { taskIds: [], ticketIds: ['006'] }],
+      [{ kind: 'ticket-dependencies-set', ticketId: '005', fields: { dependsOn: ['003', '004'] } }, { taskIds: [], ticketIds: ['005', '003', '004'] }],
+      [{ kind: 'ticket-dependencies-set', ticketId: '005', fields: { dependsOn: ['004', '004'] } }, { taskIds: [], ticketIds: ['005', '004'] }],
+      [{ kind: 'ticket-dependencies-set', ticketId: '005', fields: { dependsOn: [] } }, { taskIds: [], ticketIds: ['005'] }],
+      [
+        { kind: 'ticket-agents-changed', ticketId: '001', fields: { from: { model: 'opus', effort: 'medium' }, to: { model: 'sonnet', effort: 'low' } } },
+        { taskIds: [], ticketIds: ['001'] },
+      ],
+      [{ kind: 'ticket-held', ticketId: '003', fields: { reason: 'waits on #005' } }, { taskIds: [], ticketIds: ['003'] }],
+      [{ kind: 'ticket-unheld', ticketId: '001', fields: {} }, { taskIds: [], ticketIds: ['001'] }],
+      [
+        {
+          kind:     'review-bar-started',
+          taskId:   7,
+          ticketId: '004',
+          fields:   { name: 'Review 1 #004 — compare with #005' },
         },
-      },
-      { at, kind: 'tracker-cleared', fields: {} },
-      { at, kind: 'dispatcher-set', fields: { state: 'running', runId: 'example-run' } },
+        { taskIds: [7], ticketIds: ['004'] },
+      ],
+      [
+        {
+          kind:     'review-bar-closed',
+          taskId:   13,
+          ticketId: '005',
+          fields:   { name: 'Example review pass' },
+        },
+        { taskIds: [13], ticketIds: ['005'] },
+      ],
+      [{ kind: 'chart-range-set', fields: { view: { kind: 'auto' } } }, { taskIds: [], ticketIds: [] }],
+      [{ kind: 'concurrency-limit-set', fields: { limit: 3 } }, { taskIds: [], ticketIds: [] }],
+      [{ kind: 'dispatcher-set', fields: { state: 'running', runId: 'example-run' } }, { taskIds: [], ticketIds: [] }],
+      [{ kind: 'tracker-cleared', fields: {} }, { taskIds: [], ticketIds: [] }],
+      [
+        {
+          kind:   'agent-stopped',
+          fields: {
+            agentId:              'agent_1',
+            agentType:            'Explore',
+            apiCallCount:         2,
+            endContextTokens:     6000,
+            totalInputTokens:     12_000,
+            cacheReadInputTokens: 9000,
+            outputTokens:         500,
+          },
+        },
+        { taskIds: [], ticketIds: [] },
+      ],
     ];
 
-    for (const record of recordsWithoutIds) expect(Object.keys(identifiedEntryOf(record)), record.kind).toEqual(['at', 'text']);
+    expect(new Set(idsForRecord.map(([record]) => record.kind)).size, 'the table covers every kind but the note').toBe(RECORD_KIND_COUNT - 1);
+    for (const [content, expectedIds] of idsForRecord) {
+      const identified = identifiedEntryOf({ ...content, at });
+      expect({ taskIds: identified.taskIds, ticketIds: identified.ticketIds }, content.kind).toEqual(expectedIds);
+    }
+  });
+
+  // A line with no id key is the one the detail panel still matches by its words, so a note must reach the page without one.
+  test('gives a note exactly the stamp and the sentence', () => {
+    const note: LogRecord = { at, kind: 'note', fields: { text: 'Ticket #001 looks done' } };
+
+    expect(Object.keys(identifiedEntryOf(note))).toEqual(['at', 'text']);
   });
 
   test('words a record exactly as the entry status prints', () => {

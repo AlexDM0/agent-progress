@@ -4,8 +4,11 @@ export interface WordedLogEntry {
   text: string;
 }
 
-/** A worded entry with the ids of the task and the ticket its record names, each present only when the record names one. */
+/**
+ * A worded entry with every task and ticket id its record concerns: both present on an entry worded from any record but a note (empty
+ * when it concerns none), both absent on a note, whose text names nothing by id.
+ */
 export interface IdentifiedLogEntry extends WordedLogEntry {
-  taskId?:   number;
-  ticketId?: string;
+  taskIds?:   number[];
+  ticketIds?: string[];
 }

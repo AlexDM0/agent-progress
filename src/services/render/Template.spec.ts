@@ -157,7 +157,7 @@ describe('renderProgressHtml', () => {
     expect(payload.pageScriptFailure).toBeNull();
   });
 
-  test('carries the ticket id a record names on its log entry, and no id key on a note', () => {
+  test('carries the ids a record concerns on its log entry, and no id key on a note', () => {
     const ticketRecord: LogRecord = {
       at:       '2026-09-18T20:08:00+02:00',
       kind:     'ticket-started',
@@ -168,7 +168,12 @@ describe('renderProgressHtml', () => {
 
     expect(payload.progress.log).toEqual([
       { at: '2026-09-18T20:05:00+02:00', text: 'Review pass started' },
-      { at: '2026-09-18T20:08:00+02:00', text: 'Ticket #003 started', ticketId: '003' },
+      {
+        at:        '2026-09-18T20:08:00+02:00',
+        text:      'Ticket #003 started',
+        taskIds:   [],
+        ticketIds: ['003'],
+      },
     ]);
     expect(Object.keys(payload.progress.log[0] as object)).toEqual(['at', 'text']);
   });

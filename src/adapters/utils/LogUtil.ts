@@ -1,6 +1,7 @@
 /**
  * Words the Board's log records as sentences, so entries written by any version of the tool read alike: `status` through `wordedEntryOf`,
- * the page through `identifiedEntryOf`, which also carries the ids the record names.
+ * the page through `identifiedEntryOf`, which also carries every task and ticket id the record concerns, so a detail panel never reads ids
+ * out of the sentence.
  */
 import type { AgentUsage, LogRecord, LogRecordContent } from '../../lib/tracker-model/@types/LogRecord.ts';
 import type { DispatcherState, ViewRange }              from '../../lib/tracker-model/@types/ProgressFile.ts';
@@ -94,11 +95,71 @@ function wordedEntryOf(record: LogRecord): WordedLogEntry {
   return { at: record.at, text: sentenceOf(record) };
 }
 
+function taskIdsConcernedBy(record: LogRecordContent): number[] {
+  switch (record.kind) {
+    case 'review-bar-started':
+    case 'review-bar-closed':
+      return [record.taskId];
+    case 'note':
+    case 'ticket-filed':
+    case 'ticket-reopened':
+    case 'ticket-started':
+    case 'ticket-finished':
+    case 'ticket-approved':
+    case 'ticket-delivered':
+    case 'ticket-abandoned':
+    case 'ticket-rereviewed':
+    case 'ticket-priority-changed':
+    case 'ticket-dependencies-set':
+    case 'ticket-agents-changed':
+    case 'ticket-held':
+    case 'ticket-unheld':
+    case 'chart-range-set':
+    case 'concurrency-limit-set':
+    case 'dispatcher-set':
+    case 'tracker-cleared':
+    case 'agent-stopped':
+      return [];
+  }
+}
+
+function ticketIdsConcernedBy(record: LogRecordContent): string[] {
+  switch (record.kind) {
+    case 'ticket-dependencies-set':
+      return [...new Set([record.ticketId, ...record.fields.dependsOn])];
+    case 'review-bar-started':
+    case 'review-bar-closed':
+    case 'ticket-filed':
+    case 'ticket-reopened':
+    case 'ticket-started':
+    case 'ticket-finished':
+    case 'ticket-approved':
+    case 'ticket-delivered':
+    case 'ticket-abandoned':
+    case 'ticket-rereviewed':
+    case 'ticket-priority-changed':
+    case 'ticket-agents-changed':
+    case 'ticket-held':
+    case 'ticket-unheld':
+      return [record.ticketId];
+    case 'note':
+    case 'chart-range-set':
+    case 'concurrency-limit-set':
+    case 'dispatcher-set':
+    case 'tracker-cleared':
+    case 'agent-stopped':
+      return [];
+  }
+}
+
 function identifiedEntryOf(record: LogRecord): IdentifiedLogEntry {
+  if (record.kind === 'note') {
+    return wordedEntryOf(record);
+  }
   return {
     ...wordedEntryOf(record),
-    ...('taskId' in record ? { taskId: record.taskId } : {}),
-    ...('ticketId' in record ? { ticketId: record.ticketId } : {}),
+    taskIds:   taskIdsConcernedBy(record),
+    ticketIds: ticketIdsConcernedBy(record),
   };
 }
 
