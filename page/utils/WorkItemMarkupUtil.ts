@@ -1,5 +1,6 @@
 /** How a task or ticket is marked wherever it appears: its links, badges, marks and pill label. */
 
+import { HtmlLabelUtil }            from '../../src/adapters/utils/HtmlLabelUtil.ts';
 import type { Task }                from '../../src/lib/tracker-model/@types/Task.ts';
 import type { TicketStatus }        from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { TicketDefaultsUtil }       from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
@@ -11,9 +12,6 @@ import { MarkupUtil }               from './MarkupUtil.ts';
 import type { TimestampSlices }     from './TimeUtil.ts';
 import { TimeUtil }                 from './TimeUtil.ts';
 
-
-const LOW_PRIORITY_TITLE  = 'Low priority: no row on the chart until it is started, and worked once no normal or high ticket is left undelivered';
-const HIGH_PRIORITY_TITLE = 'High priority: dispatched before every normal ticket';
 
 /** Where a ticket link leads: the ticket's card on the Tickets tab, or its card on the Kanban board, which the page script follows itself. */
 export type TicketLinkTarget = 'ticket-card' | 'kanban-card';
@@ -49,10 +47,10 @@ function ticketStatusBadgeMarkup(status: TicketStatus): string {
 function priorityMarkMarkup(ticket: PageTicket): string {
   const priority = TicketDefaultsUtil.ticketPriorityOf(ticket);
   if (priority === 'low') {
-    return `<span class="ap-ticket-badge" data-priority="low" ${MarkupUtil.attribute('title', LOW_PRIORITY_TITLE)}>low</span>`;
+    return `<span class="ap-ticket-badge" data-priority="low" ${MarkupUtil.attribute('title', HtmlLabelUtil.priorityMarkTitleOf('low'))}>low</span>`;
   }
   if (priority === 'high') {
-    return `<span class="ap-waiting" data-priority="high" ${MarkupUtil.attribute('title', HIGH_PRIORITY_TITLE)}>high</span>`;
+    return `<span class="ap-waiting" data-priority="high" ${MarkupUtil.attribute('title', HtmlLabelUtil.priorityMarkTitleOf('high'))}>high</span>`;
   }
   return '';
 }

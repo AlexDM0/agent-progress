@@ -1,6 +1,6 @@
 /** The Kanban tab's markup, shaped by the placeholder board in `resources/template.html`; the rules it follows are `KanbanLanes.ts`'s. */
 
-import type { TicketPriority }               from '../../src/lib/tracker-model/@types/Ticket.ts';
+import { HtmlLabelUtil }                     from '../../src/adapters/utils/HtmlLabelUtil.ts';
 import { FIRST_REPEAT_REVIEW_ROUND }         from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
 import { TicketDefaultsUtil }                from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
 import { HtmlEscapeUtil }                    from '../../src/lib/utils/HtmlEscapeUtil.ts';
@@ -56,8 +56,6 @@ const EMPTY_CLOSED_LANE_TEXT_UNDER_SHOW_ALL: Record<ClosedKanbanLane, string> = 
   done:      'Nothing delivered yet.',
   abandoned: 'Nothing abandoned.',
 };
-
-const PRIORITY_TITLE: Record<TicketPriority, string> = { high: 'High', normal: 'Normal', low: 'Low' };
 
 export interface KanbanBoardInput extends NoteFormat {
   /** The cards of the tickets the Tickets tab shows; rows are looked up in the whole progress file, `tasks`. */
@@ -136,8 +134,9 @@ function laneCardsMarkup(lane: KanbanLane, members: readonly KanbanCard[], shown
     const priority    = TicketDefaultsUtil.ticketPriorityOf(card.ticket);
     const startsGroup = dividesByPriority && (index === 0 || TicketDefaultsUtil.ticketPriorityOf(shown[index - 1]?.ticket ?? card.ticket) !== priority);
     const groupSize   = shown.filter((other) => TicketDefaultsUtil.ticketPriorityOf(other.ticket) === priority).length;
+    const groupTitle  = HtmlLabelUtil.priorityGroupTitleOf(priority);
     const divider     = startsGroup
-      ? `<div class="ap-lane-group" ${MarkupUtil.attribute('data-priority', priority)}>${PRIORITY_TITLE[priority]} <span class="ap-lane-group-count">${groupSize}</span></div>`
+      ? `<div class="ap-lane-group" ${MarkupUtil.attribute('data-priority', priority)}>${groupTitle} <span class="ap-lane-group-count">${groupSize}</span></div>`
       : '';
     return `${divider}${kanbanCardMarkup(card, lane, input)}`;
   }).join('');

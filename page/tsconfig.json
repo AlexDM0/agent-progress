@@ -37,6 +37,7 @@
     "../src/lib/tracker-model/utils/TicketIdUtil.ts",
     "../src/lib/tracker-model/utils/TicketStampUtil.ts",
     "../src/lib/tracker-model/utils/VocabularyUtil.ts",
+    "../src/adapters/utils/HtmlLabelUtil.ts",
     "../src/shared/constants/Limits.ts",
     "../src/lib/utils/HtmlEscapeUtil.ts",
     "../src/lib/utils/TokenCountUtil.ts",
