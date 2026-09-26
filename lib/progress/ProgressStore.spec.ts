@@ -130,6 +130,16 @@ test('a row without reviewOf reads back unchanged, and a read does not add the f
   expect(result.progress).toEqual(progress);
 });
 
+test('a bar that stores its round reads back unchanged', () => {
+  const progress = emptyProgress();
+  fileRow(progress, { name: 'Review 1 #3 — x', reviewOf: '003', reviewBarRound: 1 });
+
+  const result = readBack('store-review-bar-round', progress);
+  if (result.verdict !== 'readable') throw new Error(`expected a readable file, got ${JSON.stringify(result)}`);
+  expect(result.progress.tasks[0]?.reviewBarRound).toBe(1);
+  expect(result.progress).toEqual(progress);
+});
+
 test('a task whose status this build does not know makes the whole file unreadable, and the reason names the task and the status', () => {
   const progress = emptyProgress();
   fileRow(progress, { name: 'Review pass' });
@@ -182,6 +192,9 @@ test('every other missing or mistyped field is named too', () => {
       document: { ...progress, tasks: [{ ...progress.tasks[0], reviewOf: 3 }] },
       named:    'tasks[0].reviewOf',
     },
+    { prefix: 'store-zero-bar-round', document: { ...progress, tasks: [{ ...progress.tasks[0], reviewBarRound: 0 }] }, named: 'tasks[0].reviewBarRound' },
+    { prefix: 'store-fractional-bar-round', document: { ...progress, tasks: [{ ...progress.tasks[0], reviewBarRound: 1.5 }] }, named: 'tasks[0].reviewBarRound' },
+    { prefix: 'store-written-bar-round', document: { ...progress, tasks: [{ ...progress.tasks[0], reviewBarRound: '2' }] }, named: 'tasks[0].reviewBarRound' },
   ];
   for (const { prefix, document, named } of cases) {
     const result = readBack(prefix, document);

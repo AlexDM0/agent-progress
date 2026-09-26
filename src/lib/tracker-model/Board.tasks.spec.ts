@@ -89,17 +89,18 @@ describe('addTask', () => {
       owner:        'Alex Example',
       note:         'Example review note',
       tokens:       0,
-      reviewOf:     '001',
+      reviewOf:     { ticketId: '001', round: 1 },
       startsNow:    false,
       movesTheLink: false,
     }, FILED_AT);
 
     expect(filed).toMatchObject({
-      owner:    'Alex Example',
-      note:     'Example review note',
-      tokens:   0,
-      reviewOf: '001',
-      ticket:   null,
+      owner:          'Alex Example',
+      note:           'Example review note',
+      tokens:         0,
+      reviewOf:       '001',
+      reviewBarRound: 1,
+      ticket:         null,
     });
   });
 

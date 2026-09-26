@@ -1,19 +1,20 @@
 import type { Task, TaskPhase, TaskStatus } from '../@types/Task.ts';
 
 export interface TaskFiling {
-  name:         string;
-  owner?:       string;
-  note?:        string;
-  ticket?:      string | null;
-  status?:      TaskStatus;
-  start?:       string | null;
-  end?:         string | null;
-  tokens?:      number | null;
-  reviewed?:    string;
-  reviewRound?: number;
-  reviewOf?:    string;
+  name:            string;
+  owner?:          string;
+  note?:           string;
+  ticket?:         string | null;
+  status?:         TaskStatus;
+  start?:          string | null;
+  end?:            string | null;
+  tokens?:         number | null;
+  reviewed?:       string;
+  reviewRound?:    number;
+  reviewOf?:       string;
+  reviewBarRound?: number;
   /** When the row was filed. It is the stamp a `pending` row's first phase carries, and the only way the queue interval is ever measurable. */
-  filedAt?:     string;
+  filedAt?:        string;
 }
 
 /** The statuses whose moment is the row's `end` rather than its `start`, which is what a seeded phase is stamped at. */
@@ -49,6 +50,7 @@ function filedTaskOf(taskId: number, filing: TaskFiling): Task {
     ...(filing.reviewRound === undefined ? {} : { reviewRound: filing.reviewRound }),
     ...(seededHistory === null ? {} : { history: seededHistory }),
     ...(filing.reviewOf === undefined ? {} : { reviewOf: filing.reviewOf }),
+    ...(filing.reviewBarRound === undefined ? {} : { reviewBarRound: filing.reviewBarRound }),
   };
 }
 

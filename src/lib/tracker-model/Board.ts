@@ -134,7 +134,7 @@ export class Board {
       ...(addition.note === undefined ? {} : { note: addition.note }),
       ...(addition.tokens === undefined ? {} : { tokens: addition.tokens }),
       ...(ticket === null ? {} : { ticket: ticket.frontmatter.id }),
-      ...(addition.reviewOf === undefined ? {} : { reviewOf: addition.reviewOf }),
+      ...(addition.reviewOf === undefined ? {} : { reviewOf: addition.reviewOf.ticketId, reviewBarRound: addition.reviewOf.round }),
     });
     if (addition.startsNow) this.transitionTaskInPlace(filed, 'in-progress', at);
 
@@ -244,15 +244,16 @@ export class Board {
 
   /**
    * Closes the ticket's in-progress review bars and starts the next one in the same change, so the ticket's slot is never free between
-   * two agents. The round is the caller's to count from the ticket's body, so the Board reads no markdown.
+   * two agents. The round is the caller's to count from the ticket's body, so the Board reads no markdown; it names the bar and is stored on it.
    */
   startReviewBar(ticketId: string, request: ReviewBarRequest, at: string): ReviewBarStarted {
     const ticket = this.requireTicket(ticketId);
     const closed = this.closeInProgressReviewBars([ticketId], at);
     const bar    = this.fileTask({
-      name:     TicketChartUtil.reviewBarNameOf(request.round, ticket.frontmatter),
-      filedAt:  at,
-      reviewOf: ticketId,
+      name:           TicketChartUtil.reviewBarNameOf(request.round, ticket.frontmatter),
+      filedAt:        at,
+      reviewOf:       ticketId,
+      reviewBarRound: request.round,
       ...(request.owner === undefined ? {} : { owner: request.owner }),
       ...(request.note === undefined ? {} : { note: request.note }),
     });

@@ -117,12 +117,13 @@ describe('startReviewBar', () => {
 
     expect(progress.tasks[1]).toBe(started.bar);
     expect(started.bar).toMatchObject({
-      name:     'Review 2 #003 — Example export dialog',
-      status:   'in-progress',
-      start:    REREVIEWED_AT,
-      reviewOf: '003',
-      owner:    'Example reviewer',
-      note:     'Example review note',
+      name:           'Review 2 #003 — Example export dialog',
+      status:         'in-progress',
+      start:          REREVIEWED_AT,
+      reviewOf:       '003',
+      reviewBarRound: 2,
+      owner:          'Example reviewer',
+      note:           'Example review note',
     });
     expect(started.bar.agent).toBeUndefined();
     expect(started.closedBars).toEqual([]);
@@ -133,6 +134,19 @@ describe('startReviewBar', () => {
       ticketId: '003',
       fields:   { name: 'Review 2 #003 — Example export dialog' },
     }]);
+  });
+
+  // The bar's round and the row's repeat-pass count are two fields with two meanings, so a transition moves only the latter.
+  test('a bar keeps the round it was filed with through a repeat review and a move back to pending', () => {
+    const { board } = ticketInReviewFixture();
+    const { bar }   = board.startReviewBar('003', { round: 1 }, FINISHED_AT);
+
+    const rereviewed = board.moveTask(bar.id, 're-review', { movesAnyway: false }, REREVIEWED_AT);
+    expect(rereviewed).toMatchObject({ reviewRound: 2, reviewBarRound: 1 });
+
+    const pending = board.moveTask(bar.id, 'pending', { movesAnyway: false }, REREVIEWED_AGAIN_AT);
+    expect(pending.reviewBarRound).toBe(1);
+    expect('reviewRound' in pending).toBe(false);
   });
 
   // A bundle is one agent: its reviewer shares the builder's slot while the claim's other tickets are still being built.

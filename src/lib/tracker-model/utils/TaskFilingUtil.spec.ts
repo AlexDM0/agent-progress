@@ -66,19 +66,22 @@ test('a row filed into a status it is already in records that as its first phase
 });
 
 // Every row filed before these fields existed has none of them, so a row that was not given one must not gain the key either.
-test('reviewed, reviewRound and reviewOf are written only when given, after tokens and around the history as the file stores them', () => {
+test('reviewed, reviewRound, reviewOf and reviewBarRound are written only when given, after tokens and around the history as the file stores them', () => {
   const rowKeys = ['id', 'name', 'status', 'start', 'end', 'owner', 'note', 'ticket', 'tokens'];
   const plain   = filedTaskOf(1, { name: 'Review 1 #003 — Example ticket' });
   const full    = filedTaskOf(2, {
-    name:        'Review 3 #003 — Example ticket',
-    status:      'reviewed',
-    end:         FINISHED_AT,
-    reviewed:    FINISHED_AT,
-    reviewRound: 3,
-    reviewOf:    '003',
+    name:           'Review 3 #003 — Example ticket',
+    status:         'reviewed',
+    end:            FINISHED_AT,
+    reviewed:       FINISHED_AT,
+    reviewRound:    3,
+    reviewOf:       '003',
+    reviewBarRound: 2,
   });
 
   expect(Object.keys(plain)).toEqual(rowKeys);
-  expect(Object.keys(full)).toEqual([...rowKeys, 'reviewed', 'reviewRound', 'history', 'reviewOf']);
-  expect(full).toMatchObject({ reviewed: FINISHED_AT, reviewRound: 3, reviewOf: '003' });
+  expect(Object.keys(full)).toEqual([...rowKeys, 'reviewed', 'reviewRound', 'history', 'reviewOf', 'reviewBarRound']);
+  expect(full).toMatchObject({
+    reviewed: FINISHED_AT, reviewRound: 3, reviewOf: '003', reviewBarRound: 2
+  });
 });

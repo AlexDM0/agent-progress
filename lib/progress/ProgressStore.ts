@@ -1,16 +1,16 @@
 import { existsSync, readFileSync } from 'node:fs';
 
-import { LegacyStatusUtil }                              from '../../src/adapters/utils/LegacyStatusUtil';
-import { createFileAtomically, writeFileAtomically }     from '../../src/lib/atomic-file/AtomicFile';
-import type { DispatcherState, ProgressFile, ViewRange } from '../../src/lib/tracker-model/@types/ProgressFile';
-import type { TaskPhase }                                from '../../src/lib/tracker-model/@types/Task';
-import { DEFAULT_CONCURRENCY_LIMIT_AGENTS }              from '../../src/lib/tracker-model/constants/ConcurrencyLimits';
-import { DISPATCHER_STATES }                             from '../../src/lib/tracker-model/constants/DispatcherStates';
-import { FIRST_REPEAT_REVIEW_ROUND }                     from '../../src/lib/tracker-model/constants/ReviewRounds';
-import { TASK_STATUSES }                                 from '../../src/lib/tracker-model/constants/Statuses';
-import { VocabularyUtil }                                from '../../src/lib/tracker-model/utils/VocabularyUtil';
-import { LIMITS }                                        from '../../src/shared/constants/Limits';
-import type { Workspace }                                from '../platform/Workspace';
+import { LegacyStatusUtil }                                  from '../../src/adapters/utils/LegacyStatusUtil';
+import { createFileAtomically, writeFileAtomically }         from '../../src/lib/atomic-file/AtomicFile';
+import type { DispatcherState, ProgressFile, ViewRange }     from '../../src/lib/tracker-model/@types/ProgressFile';
+import type { TaskPhase }                                    from '../../src/lib/tracker-model/@types/Task';
+import { DEFAULT_CONCURRENCY_LIMIT_AGENTS }                  from '../../src/lib/tracker-model/constants/ConcurrencyLimits';
+import { DISPATCHER_STATES }                                 from '../../src/lib/tracker-model/constants/DispatcherStates';
+import { FIRST_REPEAT_REVIEW_ROUND, FIRST_REVIEW_BAR_ROUND } from '../../src/lib/tracker-model/constants/ReviewRounds';
+import { TASK_STATUSES }                                     from '../../src/lib/tracker-model/constants/Statuses';
+import { VocabularyUtil }                                    from '../../src/lib/tracker-model/utils/VocabularyUtil';
+import { LIMITS }                                            from '../../src/shared/constants/Limits';
+import type { Workspace }                                    from '../platform/Workspace';
 
 /** Checked by equality: a future format is refused rather than half-read. */
 const SUPPORTED_PROGRESS_VERSION = 1;
@@ -80,6 +80,10 @@ function reviewRoundIsWellFormed(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= FIRST_REPEAT_REVIEW_ROUND;
 }
 
+function reviewBarRoundIsWellFormed(value: unknown): value is number {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= FIRST_REVIEW_BAR_ROUND;
+}
+
 function taskPhaseIsWellFormed(value: unknown): value is TaskPhase {
   if (typeof value !== 'object' || value === null) return false;
   const phase = value as Record<string, unknown>;
@@ -114,6 +118,9 @@ function taskProblem(value: unknown, index: number): string | null {
   }
   if (task['agent'] !== undefined && typeof task['agent'] !== 'string') return `tasks[${index}].agent is present but not the key of the claim that started it`;
   if (task['reviewOf'] !== undefined && typeof task['reviewOf'] !== 'string') return `tasks[${index}].reviewOf is present but not the id of the ticket it reviews`;
+  if (task['reviewBarRound'] !== undefined && !reviewBarRoundIsWellFormed(task['reviewBarRound'])) {
+    return `tasks[${index}].reviewBarRound is present and is not a whole round of at least ${FIRST_REVIEW_BAR_ROUND}`;
+  }
   return null;
 }
 

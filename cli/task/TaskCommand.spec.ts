@@ -1,8 +1,8 @@
 /**
  * The Gantt rows `agent-progress task` files and moves: a lifecycle stamps the row once and never again, and `--at` backfills.
  */
-import { readFileSync } from 'node:fs';
-import { join }         from 'node:path';
+import { appendFileSync, readFileSync } from 'node:fs';
+import { join }                         from 'node:path';
 
 import {
   afterEach,
@@ -267,6 +267,20 @@ describe.skipIf(!gitIsAvailable())('linking a row to a ticket', () => {
     const status   = await run(['status', '--json', '--full']);
     const document = JSON.parse(status.outputText()) as ProgressFile;
     expect(document.tasks.find((task) => task.id === review?.id)?.reviewOf).toBe('003');
+  });
+
+  // The round is counted from the ticket's review sections, as the reviewer counts it; the name is user text and is never read.
+  test('--review-of stores the round after the ticket\'s review sections, whatever round the name gives', async () => {
+    await run(['ticket', 'add', 'Double-click a role to edit it']);
+    await run(['ticket', 'add', 'Cache ticket bodies']);
+    await run(['ticket', 'add', 'Split the exporter']);
+
+    await run(['task', 'add', 'Example first review', '--review-of', '3']);
+    expect(storedProgress().tasks.find((task) => task.name === 'Example first review')).toMatchObject({ reviewOf: '003', reviewBarRound: 1 });
+
+    appendFileSync(join(repositoryDirectory, '.agent-progress', 'tickets', '003-split-the-exporter.md'), '\n## Review\nExample round.\n');
+    await run(['task', 'add', 'Review 1 #3 — x', '--review-of', '3']);
+    expect(storedProgress().tasks.find((task) => task.name === 'Review 1 #3 — x')).toMatchObject({ reviewOf: '003', reviewBarRound: 2 });
   });
 
   test('--review-of naming a ticket that does not exist is refused with exit 1, and nothing is written', async () => {

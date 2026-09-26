@@ -8,4 +8,9 @@ function reviewSectionCountOf(body: string): number {
   return body.match(REVIEW_SECTION_HEADING_PATTERN)?.length ?? 0;
 }
 
-export const TicketBodyUtil = { reviewSectionCountOf } as const;
+/** The round the ticket's next review bar is filed as. */
+function nextReviewRoundOf(body: string): number {
+  return reviewSectionCountOf(body) + 1;
+}
+
+export const TicketBodyUtil = { reviewSectionCountOf, nextReviewRoundOf } as const;

@@ -1,4 +1,5 @@
 import { LegacyStatusUtil }    from '../../src/adapters/utils/LegacyStatusUtil';
+import { TicketBodyUtil }      from '../../src/adapters/utils/TicketBodyUtil';
 import type { TaskAnnotation } from '../../src/lib/tracker-model/@types/BoardChanges';
 import type { TaskStatus }     from '../../src/lib/tracker-model/@types/Task';
 import { TASK_STATUSES }       from '../../src/lib/tracker-model/constants/Statuses';
@@ -112,7 +113,7 @@ async function addOneTask(commandArguments: ArgumentParser, context: CommandCont
       ...(note === undefined ? {} : { note }),
       ...(tokens === undefined ? {} : { tokens }),
       ...(ticket === undefined ? {} : { ticketId: ticket.frontmatter.id }),
-      ...(reviewedTicket === undefined ? {} : { reviewOf: reviewedTicket.frontmatter.id }),
+      ...(reviewedTicket === undefined ? {} : { reviewOf: { ticketId: reviewedTicket.frontmatter.id, round: TicketBodyUtil.nextReviewRoundOf(reviewedTicket.body) } }),
     }, at);
   });
 

@@ -133,6 +133,18 @@ describe.skipIf(!gitIsAvailable())('starting the review bar with the move to rev
     expect(await agentsInFlightNow()).toBe(agentsBefore);
   });
 
+  test('each bar stores the round it was started for: 1 on finish, and the review sections plus one on rereview', async () => {
+    await run(['ticket', 'finish', '1', '--start-review']);
+    expect(inProgressBarsReviewing('001')[0]).toMatchObject({ reviewOf: '001', reviewBarRound: 1 });
+
+    const ticketFilePath = JSON.parse((await run(['ticket', 'show', '1', '--json'])).outputText()) as { filePath: string };
+    const ticketText     = readFileSync(ticketFilePath.filePath, 'utf8');
+    await Bun.write(ticketFilePath.filePath, `${ticketText}\n## Review\nExample round.\n`);
+    await run(['ticket', 'rereview', '1', '--start-review']);
+
+    expect(inProgressBarsReviewing('001')[0]).toMatchObject({ reviewOf: '001', reviewBarRound: 2 });
+  });
+
   // A single-ticket dispatcher run launched late would otherwise claim the in-review ticket its whole-board twin is reviewing, and rebuild it.
   test('a claim of a ticket whose review bar runs is refused, and one after the bar is closed takes it for the rebuild', async () => {
     await run(['ticket', 'finish', '1', '--start-review']);

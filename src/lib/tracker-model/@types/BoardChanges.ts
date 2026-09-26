@@ -19,11 +19,16 @@ export interface ReviewBarRequest extends AgentAssignment {
   round: number;
 }
 
+export interface ReviewedTicket {
+  ticketId: string;
+  round:    number;
+}
+
 export interface TaskAddition extends AgentAssignment {
   name:         string;
   tokens?:      number;
   ticketId?:    string;
-  reviewOf?:    string;
+  reviewOf?:    ReviewedTicket;
   startsNow:    boolean;
   movesTheLink: boolean;
 }

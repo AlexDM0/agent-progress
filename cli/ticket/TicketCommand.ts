@@ -259,7 +259,7 @@ function reviewBarRequestFrom(commandArguments: ArgumentParser, subcommand: stri
  */
 function reviewBarStartedFor(change: TrackerChange, ticket: Readonly<Ticket>, request: AgentAssignment | null): ReviewBarStarted | null {
   if (request === null) return null;
-  const round = TicketBodyUtil.reviewSectionCountOf(ticket.body) + 1;
+  const round = TicketBodyUtil.nextReviewRoundOf(ticket.body);
   return change.board.startReviewBar(ticket.frontmatter.id, { round, ...request }, change.at);
 }
 
