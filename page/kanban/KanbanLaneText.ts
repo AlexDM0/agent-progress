@@ -1,10 +1,9 @@
 /** The words the Kanban lane heads and cards print beyond the pill: the heads' counts and a card's sub-state note. The page's now is handed in. */
 
-import type { Task }                 from '../../src/lib/tracker-model/@types/Task.ts';
+import type { DisplayState, Task }   from '../../src/lib/tracker-model/@types/Task.ts';
 import { FIRST_REPEAT_REVIEW_ROUND } from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
 import type { KanbanCard }           from '../@types/KanbanCard.ts';
 import type { KanbanLane }           from '../constants/KanbanLane.ts';
-import type { RowState }             from '../constants/RowState.ts';
 import { BoardRulesUtil }            from '../utils/BoardRulesUtil.ts';
 import type { TimestampSlices }      from '../utils/TimeUtil.ts';
 import { TimeUtil }                  from '../utils/TimeUtil.ts';
@@ -20,11 +19,11 @@ export interface NoteFormat {
 export interface LaneSubCount {
   count:        number;
   label:        string;
-  dotState:     RowState | null;
+  dotState:     DisplayState | null;
   reviewedMark: boolean;
 }
 
-function subCount(count: number, label: string, dotState: RowState | null = null, reviewedMark = false): LaneSubCount {
+function subCount(count: number, label: string, dotState: DisplayState | null = null, reviewedMark = false): LaneSubCount {
   return {
     count,
     label,

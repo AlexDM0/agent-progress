@@ -3,14 +3,13 @@
  * `resources/template.html`. Every tracker value passes `escapeHtml` exactly once here.
  */
 
-import type { Task }                      from '../../src/lib/tracker-model/@types/Task.ts';
+import type { DisplayState, Task }        from '../../src/lib/tracker-model/@types/Task.ts';
 import type { TicketStatus }              from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { FIRST_REPEAT_REVIEW_ROUND }      from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
 import { SETTLED_TASK_STATUSES }          from '../../src/lib/tracker-model/constants/Statuses.ts';
 import { HtmlEscapeUtil }                 from '../../src/lib/utils/HtmlEscapeUtil.ts';
 import { TokenCountUtil }                 from '../../src/lib/utils/TokenCountUtil.ts';
 import { TicketNumberUtil }               from '../../src/shared/utils/TicketNumberUtil.ts';
-import type { RowState }                  from '../constants/RowState.ts';
 import { PERCENT_OF_A_WHOLE }             from '../constants/Units.ts';
 import { BoardRulesUtil }                 from '../utils/BoardRulesUtil.ts';
 import type { TimelineBar, TimelineTick } from '../utils/GeometryUtil.ts';
@@ -48,8 +47,8 @@ export function labelSitsLeftOfItsLine(tick: TimelineTick, axisWidthPixels: numb
   return remainingPixels < tick.label.length * TICK_PIXELS_PER_LABEL_CHARACTER + TICK_LABEL_GUTTER_PIXELS;
 }
 
-function pillLabelFor(state: RowState, task: Task): string {
-  return WorkItemMarkupUtil.pillLabelForRowState(state, task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND);
+function pillLabelFor(state: DisplayState, task: Task): string {
+  return WorkItemMarkupUtil.pillLabelForDisplayState(state, task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND);
 }
 
 interface PlacedTaskRow {

@@ -3,21 +3,25 @@
  * Every value passes `escapeHtml` exactly once here, except a ticket's `bodyHtml`, already escaped by `src/services/render/Markdown.ts`.
  */
 
-import type { Task, TaskPhase, TaskStatus } from '../../src/lib/tracker-model/@types/Task.ts';
-import type { TicketStatus }                from '../../src/lib/tracker-model/@types/Ticket.ts';
-import { FIRST_REPEAT_REVIEW_ROUND }        from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
-import { HtmlEscapeUtil }                   from '../../src/lib/utils/HtmlEscapeUtil.ts';
-import { TokenCountUtil }                   from '../../src/lib/utils/TokenCountUtil.ts';
-import type { PageTicket }                  from '../../src/shared/@types/PagePayload.ts';
-import type { WordedLogEntry }              from '../../src/shared/@types/WordedLogEntry.ts';
-import type { RowState }                    from '../constants/RowState.ts';
-import { BoardRulesUtil }                   from '../utils/BoardRulesUtil.ts';
-import { LogMarkupUtil }                    from '../utils/LogMarkupUtil.ts';
-import { MarkupUtil }                       from '../utils/MarkupUtil.ts';
-import type { TimestampSlices }             from '../utils/TimeUtil.ts';
-import { TimeUtil }                         from '../utils/TimeUtil.ts';
-import { WorkItemMarkupUtil }               from '../utils/WorkItemMarkupUtil.ts';
-import { DetailMarkupUtil }                 from './utils/DetailMarkupUtil.ts';
+import type {
+  DisplayState,
+  Task,
+  TaskPhase,
+  TaskStatus
+} from '../../src/lib/tracker-model/@types/Task.ts';
+import type { TicketStatus }         from '../../src/lib/tracker-model/@types/Ticket.ts';
+import { FIRST_REPEAT_REVIEW_ROUND } from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
+import { HtmlEscapeUtil }            from '../../src/lib/utils/HtmlEscapeUtil.ts';
+import { TokenCountUtil }            from '../../src/lib/utils/TokenCountUtil.ts';
+import type { PageTicket }           from '../../src/shared/@types/PagePayload.ts';
+import type { WordedLogEntry }       from '../../src/shared/@types/WordedLogEntry.ts';
+import { BoardRulesUtil }            from '../utils/BoardRulesUtil.ts';
+import { LogMarkupUtil }             from '../utils/LogMarkupUtil.ts';
+import { MarkupUtil }                from '../utils/MarkupUtil.ts';
+import type { TimestampSlices }      from '../utils/TimeUtil.ts';
+import { TimeUtil }                  from '../utils/TimeUtil.ts';
+import { WorkItemMarkupUtil }        from '../utils/WorkItemMarkupUtil.ts';
+import { DetailMarkupUtil }          from './utils/DetailMarkupUtil.ts';
 
 
 const PHASES_WERE_NOT_RECORDED_NOTE = 'The phases of this row were not recorded, so what follows is derived from its own stamps and its ticket’s.';
@@ -41,7 +45,7 @@ const LADDER_RANK_FOR_TASK_STATUS: Record<TaskStatus, number> = {
 };
 
 interface PhaseLine {
-  state:       RowState;
+  state:       DisplayState;
   reviewRound: number;
   at:          string;
 }
@@ -161,7 +165,7 @@ function phaseListMarkup(lines: readonly PhaseLine[], format: StampFormat): stri
     const gap         = gapDuration === null ? '' : `<span class="ap-detail-gap">after ${HtmlEscapeUtil.escapeHtml(gapDuration)}</span>`;
     return [
       `<li ${MarkupUtil.attribute('data-state', line.state)}>`,
-      `<span class="ap-pill">${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.pillLabelForRowState(line.state, line.reviewRound))}</span>`,
+      `<span class="ap-pill">${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.pillLabelForDisplayState(line.state, line.reviewRound))}</span>`,
       MarkupUtil.stampMarkup('time', line.at, format.todayCalendarDate, format.slices),
       gap,
       '</li>',
@@ -266,7 +270,7 @@ function headMarkup(task: Task | null, ticket: PageTicket | null): string {
     `<div class="ap-detail-head" ${MarkupUtil.attribute('data-state', state)}>`,
     `<span class="ap-detail-id">#${HtmlEscapeUtil.escapeHtml(String(task.id))}</span>`,
     `<h2 class="ap-detail-title">${HtmlEscapeUtil.escapeHtml(task.name)}</h2>`,
-    `<span class="ap-pill">${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.pillLabelForRowState(state, task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND))}</span>`,
+    `<span class="ap-pill">${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.pillLabelForDisplayState(state, task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND))}</span>`,
     ticketBadge,
     '</div>',
   ].join('');

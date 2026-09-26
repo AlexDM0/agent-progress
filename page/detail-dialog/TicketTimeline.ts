@@ -4,11 +4,10 @@
  * `page/detail-dialog/TicketTimelineMarkup.ts` draws it.
  */
 
-import type { Task, TaskPhase }                        from '../../src/lib/tracker-model/@types/Task.ts';
+import type { DisplayState, Task, TaskPhase }          from '../../src/lib/tracker-model/@types/Task.ts';
 import { FIRST_REPEAT_REVIEW_ROUND }                   from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
 import { TicketDefaultsUtil }                          from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
 import type { PageTicket }                             from '../../src/shared/@types/PagePayload.ts';
-import type { RowState }                               from '../constants/RowState.ts';
 import { MILLISECONDS_PER_MINUTE, PERCENT_OF_A_WHOLE } from '../constants/Units.ts';
 import { BoardRulesUtil }                              from '../utils/BoardRulesUtil.ts';
 import type { TimelineLimits, TimelineTick }           from '../utils/GeometryUtil.ts';
@@ -87,7 +86,7 @@ export function percentAlong(axis: TicketTimelineAxis, epochMilliseconds: number
   return (epochMilliseconds - axis.fromEpochMilliseconds) / (axis.toEpochMilliseconds - axis.fromEpochMilliseconds) * PERCENT_OF_A_WHOLE;
 }
 
-function timelineSpan(state: RowState, label: string, startEpochMilliseconds: number, endEpochMilliseconds: number, isLive: boolean): TimelineSpan {
+function timelineSpan(state: DisplayState, label: string, startEpochMilliseconds: number, endEpochMilliseconds: number, isLive: boolean): TimelineSpan {
   return {
     state,
     label,
@@ -98,8 +97,8 @@ function timelineSpan(state: RowState, label: string, startEpochMilliseconds: nu
 }
 
 /** A state's pill label; only `re-review` carries a round, and every caller of this passes another state. */
-function stateLabelOf(state: RowState): string {
-  return WorkItemMarkupUtil.pillLabelForRowState(state, FIRST_REPEAT_REVIEW_ROUND);
+function stateLabelOf(state: DisplayState): string {
+  return WorkItemMarkupUtil.pillLabelForDisplayState(state, FIRST_REPEAT_REVIEW_ROUND);
 }
 
 function buildSpan(state: 'in-progress' | 'paused', startEpochMilliseconds: number, endEpochMilliseconds: number, isLive: boolean): TimelineSpan {
@@ -183,7 +182,7 @@ function afterBuildSpansOf(input: AfterBuildInput): TimelineSpan[] {
     return [];
   }
   const ticketIsClosed = input.closedState !== null;
-  const span = (state: RowState, label: string, start: number, end: number): TimelineSpan => timelineSpan(
+  const span = (state: DisplayState, label: string, start: number, end: number): TimelineSpan => timelineSpan(
     state,
     label,
     start,
@@ -199,7 +198,7 @@ function afterBuildSpansOf(input: AfterBuildInput): TimelineSpan[] {
     reviews.forEach((review, index) => {
       const following = reviews[index + 1];
       const end       = following?.startEpochMilliseconds ?? reviewedEpochMilliseconds ?? lastMomentEpochMilliseconds;
-      spans.push(span(review.state, WorkItemMarkupUtil.pillLabelForRowState(review.state, review.round), review.startEpochMilliseconds, end));
+      spans.push(span(review.state, WorkItemMarkupUtil.pillLabelForDisplayState(review.state, review.round), review.startEpochMilliseconds, end));
     });
     if (reviewedEpochMilliseconds !== null) spans.push(awaitingMerge(reviewedEpochMilliseconds));
   } else if (reviewedEpochMilliseconds !== null) {
@@ -213,7 +212,7 @@ function afterBuildSpansOf(input: AfterBuildInput): TimelineSpan[] {
 }
 
 function legendOf(spans: readonly TimelineSpan[]): LegendEntry[] {
-  const totals: Array<{ state: RowState; label: string; milliseconds: number }> = [];
+  const totals: Array<{ state: DisplayState; label: string; milliseconds: number }> = [];
   for (const span of spans) {
     const milliseconds = span.endEpochMilliseconds - span.startEpochMilliseconds;
     const existing     = totals.find((total) => total.label === span.label);

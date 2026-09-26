@@ -3,13 +3,12 @@
  * closed ones newest first.
  */
 
-import { describe, expect, test }            from 'bun:test';
-import type { Task, TaskStatus }             from '../../src/lib/tracker-model/@types/Task.ts';
-import type { TicketPriority, TicketStatus } from '../../src/lib/tracker-model/@types/Ticket.ts';
-import type { PageTicket }                   from '../../src/shared/@types/PagePayload.ts';
-import type { KanbanCard }                   from '../@types/KanbanCard.ts';
-import type { KanbanLane }                   from '../constants/KanbanLane.ts';
-import type { RowState }                     from '../constants/RowState.ts';
+import { describe, expect, test }              from 'bun:test';
+import type { DisplayState, Task, TaskStatus } from '../../src/lib/tracker-model/@types/Task.ts';
+import type { TicketPriority, TicketStatus }   from '../../src/lib/tracker-model/@types/Ticket.ts';
+import type { PageTicket }                     from '../../src/shared/@types/PagePayload.ts';
+import type { KanbanCard }                     from '../@types/KanbanCard.ts';
+import type { KanbanLane }                     from '../constants/KanbanLane.ts';
 import {
   cardsInLane,
   kanbanCardsFor,
@@ -96,7 +95,7 @@ describe('which lane a card sits in', () => {
     ['reviewed', 'reviewed', 'merge'],
     ['delivered', 'delivered', 'done'],
     ['abandoned', 'abandoned', 'abandoned'],
-  ] as Array<[TicketStatus, RowState, KanbanLane]>)('puts a %s ticket with no row in state %s and lane %s', (ticketStatus, state, lane) => {
+  ] as Array<[TicketStatus, DisplayState, KanbanLane]>)('puts a %s ticket with no row in state %s and lane %s', (ticketStatus, state, lane) => {
     const card = cardOf(exampleTicket('007', { status: ticketStatus }), []);
 
     expect(card.ownRow).toBeNull();

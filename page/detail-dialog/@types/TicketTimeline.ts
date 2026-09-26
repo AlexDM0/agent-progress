@@ -1,6 +1,5 @@
-import type { Task }                         from '../../../src/lib/tracker-model/@types/Task.ts';
+import type { DisplayState, Task }           from '../../../src/lib/tracker-model/@types/Task.ts';
 import type { PageTicket }                   from '../../../src/shared/@types/PagePayload.ts';
-import type { RowState }                     from '../../constants/RowState.ts';
 import type { TimelineLimits, TimelineTick } from '../../utils/GeometryUtil.ts';
 import type { TimestampSlices }              from '../../utils/TimeUtil.ts';
 
@@ -17,7 +16,7 @@ export interface TicketTimelineInput {
 }
 
 export interface TimelineSpan {
-  state:                  RowState;
+  state:                  DisplayState;
   label:                  string;
   startEpochMilliseconds: number;
   endEpochMilliseconds:   number;
@@ -37,7 +36,7 @@ export interface TicketTimelineAxis {
 }
 
 export interface LegendEntry {
-  state:        RowState;
+  state:        DisplayState;
   label:        string;
   durationText: string;
 }
