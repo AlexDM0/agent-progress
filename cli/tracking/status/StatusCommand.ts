@@ -1,15 +1,15 @@
-import { ProgressDocumentUtil }           from '../../src/adapters/progress/utils/ProgressDocumentUtil';
-import { LogUtil }                        from '../../src/adapters/utils/LogUtil';
-import type { ProgressFile }              from '../../src/lib/tracker-model/@types/ProgressFile';
-import type { Task }                      from '../../src/lib/tracker-model/@types/Task';
-import type { Board }                     from '../../src/lib/tracker-model/Board';
-import { TASK_STATUSES, TICKET_STATUSES } from '../../src/lib/tracker-model/constants/Statuses';
-import { TimeUtil }                       from '../../src/lib/utils/TimeUtil';
-import { TokenCountUtil }                 from '../../src/lib/utils/TokenCountUtil';
-import { requireTracker }                 from '../../src/services/tracker/TrackerReader';
-import { requireWorkspace }               from '../../src/services/tracker/Workspace';
-import type { WordedLogEntry }            from '../../src/shared/@types/WordedLogEntry';
-import { LIMITS }                         from '../../src/shared/constants/Limits';
+import { ProgressDocumentUtil }           from '../../../src/adapters/progress/utils/ProgressDocumentUtil';
+import { LogUtil }                        from '../../../src/adapters/utils/LogUtil';
+import type { ProgressFile }              from '../../../src/lib/tracker-model/@types/ProgressFile';
+import type { Task }                      from '../../../src/lib/tracker-model/@types/Task';
+import type { Board }                     from '../../../src/lib/tracker-model/Board';
+import { TASK_STATUSES, TICKET_STATUSES } from '../../../src/lib/tracker-model/constants/Statuses';
+import { TimeUtil }                       from '../../../src/lib/utils/TimeUtil';
+import { TokenCountUtil }                 from '../../../src/lib/utils/TokenCountUtil';
+import { requireTracker }                 from '../../../src/services/tracker/TrackerReader';
+import { requireWorkspace }               from '../../../src/services/tracker/Workspace';
+import type { WordedLogEntry }            from '../../../src/shared/@types/WordedLogEntry';
+import { LIMITS }                         from '../../../src/shared/constants/Limits';
 import {
   boardForReading,
   concurrencyDocumentOf,
@@ -20,8 +20,8 @@ import {
   reportIgnoredTicketFiles,
   ticketDocumentOf,
   type ReadyTicket
-} from '../CommandSupport';
-import type { CommandHandler } from '../CommandTable';
+} from '../../CommandSupport';
+import type { CommandHandler } from '../../CommandTable';
 
 const USAGE = 'agent-progress status [--json] [--full]';
 

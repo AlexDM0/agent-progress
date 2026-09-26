@@ -1,22 +1,22 @@
-import { LegacyStatusUtil }    from '../../src/adapters/utils/LegacyStatusUtil';
-import type { MovedToStatus }  from '../../src/adapters/utils/StatusWordingUtil';
-import { StatusWordingUtil }   from '../../src/adapters/utils/StatusWordingUtil';
-import { TicketBodyUtil }      from '../../src/adapters/utils/TicketBodyUtil';
-import type { TaskAnnotation } from '../../src/lib/tracker-model/@types/BoardChanges';
-import type { TaskStatus }     from '../../src/lib/tracker-model/@types/Task';
-import { TASK_STATUSES }       from '../../src/lib/tracker-model/constants/Statuses';
-import { VocabularyUtil }      from '../../src/lib/tracker-model/utils/VocabularyUtil';
-import { OperationRefusal }    from '../../src/shared/OperationRefusal';
-import type { CommandContext } from '../CommandContext';
+import { LegacyStatusUtil }    from '../../../src/adapters/utils/LegacyStatusUtil';
+import type { MovedToStatus }  from '../../../src/adapters/utils/StatusWordingUtil';
+import { StatusWordingUtil }   from '../../../src/adapters/utils/StatusWordingUtil';
+import { TicketBodyUtil }      from '../../../src/adapters/utils/TicketBodyUtil';
+import type { TaskAnnotation } from '../../../src/lib/tracker-model/@types/BoardChanges';
+import type { TaskStatus }     from '../../../src/lib/tracker-model/@types/Task';
+import { TASK_STATUSES }       from '../../../src/lib/tracker-model/constants/Statuses';
+import { VocabularyUtil }      from '../../../src/lib/tracker-model/utils/VocabularyUtil';
+import { OperationRefusal }    from '../../../src/shared/OperationRefusal';
+import type { CommandContext } from '../../CommandContext';
 import {
   openTrackerForWriting,
   openTrackerForWritingThenReadNextLine,
   printEntity,
   printEntityThenNextLine,
   tokenCountFrom
-} from '../CommandSupport';
-import type { CommandHandler } from '../CommandTable';
-import type { ArgumentParser } from '../arguments/ArgumentParser';
+} from '../../CommandSupport';
+import type { CommandHandler } from '../../CommandTable';
+import type { ArgumentParser } from '../../arguments/ArgumentParser';
 
 const USAGE = [
   'agent-progress task add "<name>" [--owner <who>] [--note <text>] [--ticket <id>] [--review-of <id>] [--start] [--tokens <n>] [--at <when>] [--force]',

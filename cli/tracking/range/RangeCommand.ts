@@ -2,12 +2,12 @@
  * A relative bound is stored as written and resolved at layout time, so `--from -2h` keeps meaning "the
  * last two hours"; `page/utils/GeometryUtil.ts` resolves each end, which is what makes a mixed pair legal.
  */
-import { LogUtil }                            from '../../src/adapters/utils/LogUtil';
-import type { ViewRange }                     from '../../src/lib/tracker-model/@types/ProgressFile';
-import { TimeUtil }                           from '../../src/lib/utils/TimeUtil';
-import { OperationRefusal }                   from '../../src/shared/OperationRefusal';
-import { openTrackerForWriting, printEntity } from '../CommandSupport';
-import type { CommandHandler }                from '../CommandTable';
+import { LogUtil }                            from '../../../src/adapters/utils/LogUtil';
+import type { ViewRange }                     from '../../../src/lib/tracker-model/@types/ProgressFile';
+import { TimeUtil }                           from '../../../src/lib/utils/TimeUtil';
+import { OperationRefusal }                   from '../../../src/shared/OperationRefusal';
+import { openTrackerForWriting, printEntity } from '../../CommandSupport';
+import type { CommandHandler }                from '../../CommandTable';
 
 const USAGE = [
   'agent-progress range --from <iso|-2h|start> --to <iso|now|+30m> [--tick 15m|1h|1d]',

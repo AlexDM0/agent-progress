@@ -8,10 +8,10 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
-import { runCommandLine }                                                     from '../Main';
-import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';
-import { storedLogEntriesOf }                                                 from '../testing/StoredLogEntries';
+import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace';
+import { runCommandLine }                                                     from '../../Main';
+import { createCapturedCommandContext }                                       from '../../testing/CapturedCommandContext';
+import { storedLogEntriesOf }                                                 from '../../testing/StoredLogEntries';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 

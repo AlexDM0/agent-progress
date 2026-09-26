@@ -1,8 +1,8 @@
 import { existsSync } from 'node:fs';
 
-import { requireWorkspace }        from '../../src/services/tracker/Workspace';
-import { renderDashboardOrRefuse } from '../CommandSupport';
-import type { CommandHandler }     from '../CommandTable';
+import { requireWorkspace }        from '../../../src/services/tracker/Workspace';
+import { renderDashboardOrRefuse } from '../../CommandSupport';
+import type { CommandHandler }     from '../../CommandTable';
 
 const USAGE = 'agent-progress open';
 

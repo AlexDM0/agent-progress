@@ -194,7 +194,7 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  cli/
 - Help is one screen, with no per-command help: a second help surface is a second thing to keep in step with the
   command table. It goes to standard output when asked for and to standard error after an unknown command, so a typo
   never exits 0 or prints help into a parsed pipe.
-- Adding a command is an entry in `cli/CommandTable.ts`, a block in `cli/HelpText.ts` and a folder;
+- Adding a command is an entry in `cli/CommandTable.ts`, a block in `cli/HelpText.ts` and a folder in its set;
   `cli/CommandTable.spec.ts` and `cli/HelpText.spec.ts` fail until all three exist.
 - Every mutating command writes through `writeTracker` in `src/services/tracker/TrackerPipeline.ts`, reached through
   `openTrackerForWriting` in `cli/CommandSupport.ts`, and none repeats it:
@@ -272,7 +272,8 @@ README.md                   the GitHub landing page
 README-keynote.md           the same page in a keynote layout, kept for comparison
 README-day-on-the-board.md  the same page told as one day on a board, kept for comparison
 setup.sh                    machine setup: Bun, bun install and bun link, and the skill symlinks
-cli/                        the command surface: dispatch, arguments, help, one folder per command; cli/testing/ is test-only
+cli/                        the command surface: dispatch, arguments, help, and the commands grouped into sets, cli/tracking/
+                            so far, the rest one folder per command until they move; cli/testing/ is test-only
 dispatcher/                 the dispatcher policy in TypeScript, bundled into a Workflow script; dispatcher/testing/ is
                             test-only: the harness, the bundle builder, the frozen table
 lib/                        what is left of the old layers: the next-line and rework utils and the comment syntaxes

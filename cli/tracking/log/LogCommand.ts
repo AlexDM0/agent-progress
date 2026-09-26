@@ -1,6 +1,6 @@
-import { OperationRefusal }                   from '../../src/shared/OperationRefusal';
-import { openTrackerForWriting, printEntity } from '../CommandSupport';
-import type { CommandHandler }                from '../CommandTable';
+import { OperationRefusal }                   from '../../../src/shared/OperationRefusal';
+import { openTrackerForWriting, printEntity } from '../../CommandSupport';
+import type { CommandHandler }                from '../../CommandTable';
 
 const USAGE = 'agent-progress log "<text>" [--at <when>]';
 

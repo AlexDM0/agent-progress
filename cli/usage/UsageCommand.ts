@@ -99,7 +99,7 @@ function oldestFirst(agents: readonly AgentUsage[]): AgentUsage[] {
 }
 
 /**
- * The stamp is re-rendered in local time and then sliced, the way `cli/status/StatusCommand.ts`
+ * The stamp is re-rendered in local time and then sliced, the way `cli/tracking/status/StatusCommand.ts`
  * slices its log stamps: a transcript records UTC, and a reader in another zone must never be shown a
  * clock reading nobody was at.
  */

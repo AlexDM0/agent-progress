@@ -13,8 +13,8 @@ import {
 import { OperationRefusal }                               from '../src/shared/OperationRefusal';
 import { createScratchDirectory, removeScratchDirectory } from '../src/testing/ScratchWorkspace';
 import { runCommandLine }                                 from './Main';
-import * as realRenderCommandModule                       from './render/RenderCommand';
 import { createCapturedCommandContext }                   from './testing/CapturedCommandContext';
+import * as realRenderCommandModule                       from './tracking/render/RenderCommand';
 
 let errorThrownByTheStubbedCommand: unknown = null;
 // Holds no tracker, so a route that does reach a command is refused there instead of writing into the repository's own.
@@ -136,18 +136,18 @@ describe('a command run where no tracker is', () => {
 });
 
 describe('a command that throws', () => {
-  /** Stubbing `cli/render/RenderCommand.ts` reaches all three shapes with the real dispatch, catch and status-to-code mapping. */
+  /** Stubbing `cli/tracking/render/RenderCommand.ts` reaches all three shapes with the real dispatch, catch and status-to-code mapping. */
   let realRenderCommandExports: Record<string, unknown> = {};
 
   // Bun keeps a module mock for the rest of the process and `mock.restore()` leaves it standing, so the real exports are copied before the stub
   // goes in and mocked back afterwards; the copy has to precede the stub, because Bun patches the live namespace in place.
   beforeAll(() => {
     realRenderCommandExports = { ...realRenderCommandModule };
-    mock.module('./render/RenderCommand', () => ({ renderCommand: () => Promise.reject(errorThrownByTheStubbedCommand), }));
+    mock.module('./tracking/render/RenderCommand', () => ({ renderCommand: () => Promise.reject(errorThrownByTheStubbedCommand), }));
   });
 
   afterAll(() => {
-    mock.module('./render/RenderCommand', () => realRenderCommandExports);
+    mock.module('./tracking/render/RenderCommand', () => realRenderCommandExports);
   });
 
   test('an unrepaired refusal exits 2 with its own message and no stack trace', async () => {
