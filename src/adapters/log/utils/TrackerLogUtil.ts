@@ -9,21 +9,22 @@ export interface StoredLog {
 
 export type StoredLogReading = ({ verdict: 'readable' } & StoredLog) | { verdict: 'unreadable'; reason: string };
 
-/** Only a prefix can be checked: one command's records may carry different `at` stamps, so no count or stamp tells its lines apart. */
-function logFileContinuesTheEmbeddedLog(embeddedLog: readonly LogRecord[], logFileRecords: readonly LogRecord[]): boolean {
-  if (logFileRecords.length < embeddedLog.length) return false;
-  return embeddedLog.every((embeddedRecord, index) => {
-    const logFileRecord = logFileRecords[index];
-    return embeddedRecord.kind === 'note'
-      && logFileRecord?.kind === 'note'
+/** The notes are copied before progress.json is written and a command's records after it, so a copy cut short holds at most the embedded notes. */
+function logFileIsAStartOfTheEmbeddedLog(embeddedLog: readonly LogRecord[], logFileRecords: readonly LogRecord[]): boolean {
+  if (logFileRecords.length > embeddedLog.length) return false;
+  return logFileRecords.every((logFileRecord, index) => {
+    const embeddedRecord = embeddedLog[index];
+    return logFileRecord.kind === 'note'
+      && embeddedRecord?.kind === 'note'
       && logFileRecord.at === embeddedRecord.at
       && logFileRecord.fields.text === embeddedRecord.fields.text;
   });
 }
 
 /**
- * `embeddedLog` is the version 1 file's log as notes, or null for a version 2 file. A log.jsonl beside a version 1 file is a
- * migration cut short only when it begins with that log; any other one is refused naming both files, so nothing is dropped silently.
+ * `embeddedLog` is the version 1 file's log as notes, or null for a version 2 file. A log.jsonl beside a version 1 file is a migration cut
+ * short only when it holds the start of that file's log, or all of it; one holding anything more is refused naming both files, so nothing is
+ * dropped silently.
  */
 function storedLogOf(
   embeddedLog: readonly LogRecord[] | null,
@@ -36,12 +37,12 @@ function storedLogOf(
     return { verdict: 'readable', records, logFileMustBeRewritten: false };
   }
 
-  if (logFileReading.verdict === 'absent' || (logFileReading.verdict === 'readable' && logFileContinuesTheEmbeddedLog(embeddedLog, logFileReading.records))) {
+  if (logFileReading.verdict === 'absent' || (logFileReading.verdict === 'readable' && logFileIsAStartOfTheEmbeddedLog(embeddedLog, logFileReading.records))) {
     return { verdict: 'readable', records: [...embeddedLog], logFileMustBeRewritten: true };
   }
   return {
     verdict: 'unreadable',
-    reason:  `${locations.logFilePath} sits beside a version 1 ${locations.progressFilePath} and does not continue its log: `
+    reason:  `${locations.logFilePath} sits beside a version 1 ${locations.progressFilePath} and holds records its log does not: `
       + 'remove log.jsonl to keep the progress file\'s log, or restore the version 2 progress.json it belongs to',
   };
 }

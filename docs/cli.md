@@ -486,8 +486,8 @@ sentence; a note's sentence is its text.
 The file is always written whole, atomically; an absent file is an empty log, and a blank line is
 skipped. A line that is not a well-formed record of a known kind makes the log unreadable (exit 2),
 naming the line and the field. A `log.jsonl` beside a version 1 `progress.json` is taken as a
-migration cut short only when it begins with that file's log as notes, and rewritten; any other one
-is unreadable, naming both files, and nothing is discarded silently.
+migration cut short only when it holds that file's log as notes, or its start, and rewritten; one
+holding anything more is unreadable, naming both files, and nothing is discarded silently.
 
 ### `.agent-progress/tickets/003-double-click-a-role-to-edit-it.md`
 

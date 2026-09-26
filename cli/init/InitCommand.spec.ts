@@ -279,7 +279,7 @@ describe.skipIf(!gitIsAvailable())('a second init', () => {
       log:     [{ at: '2026-09-18T09:00:00+02:00', text: 'Example session started' }],
     };
     writeFileSync(progressFilePath, `${JSON.stringify(versionOneProgress, null, 2)}\n`);
-    // A version 1 tracker has no log.jsonl; an empty one beside it would not continue its log, and the rewrite would be skipped.
+    // A version 1 tracker has no log.jsonl.
     rmSync(join(trackerDirectory, 'log.jsonl'));
     const progressBefore = readFileSync(progressFilePath, 'utf8');
     writeFileSync(join(trackerDirectory, 'agent-brief.md'), 'An older brief nobody refreshed.\n');

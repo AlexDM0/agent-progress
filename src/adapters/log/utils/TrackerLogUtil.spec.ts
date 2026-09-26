@@ -1,7 +1,7 @@
 /**
  * Which log a tracker has: a version 2 progress.json leaves the log to log.jsonl; a version 1 one owns
  * its log, which must be moved to log.jsonl on the next write; and a log.jsonl beside a version 1 file is believed only as a migration cut
- * short, when it begins with that log. Every other pairing is refused naming both files, so no log is dropped silently.
+ * short, when it holds that log or its start. One holding any record the log lacks is refused naming both files, so no log is dropped silently.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -17,7 +17,7 @@ const LOCATIONS = {
 };
 
 const CONFLICT_REASON = '/example/repository/.agent-progress/log.jsonl sits beside a version 1 /example/repository/.agent-progress/progress.json '
-  + 'and does not continue its log: remove log.jsonl to keep the progress file\'s log, or restore the version 2 progress.json it belongs to';
+  + 'and holds records its log does not: remove log.jsonl to keep the progress file\'s log, or restore the version 2 progress.json it belongs to';
 
 const FIRST_NOTE: LogRecord  = { at: '2026-09-18T20:30:00+02:00', kind: 'note', fields: { text: 'Ticket #001 filed: Example checkout flow' } };
 const SECOND_NOTE: LogRecord = { at: '2026-09-18T20:40:00+02:00', kind: 'note', fields: { text: 'Ticket #001 started' } };
@@ -53,9 +53,9 @@ describe('beside a version 1 progress.json', () => {
       .toEqual({ verdict: 'readable', records: [FIRST_NOTE, SECOND_NOTE], logFileMustBeRewritten: true });
   });
 
-  test('a log.jsonl that begins with the embedded notes is a migration cut short: the lines after them are dropped by the rewrite', () => {
+  test('a log.jsonl holding records after the embedded notes is refused, naming both files', () => {
     expect(storedLogOf(EMBEDDED_LOG, { verdict: 'readable', records: [FIRST_NOTE, SECOND_NOTE, LATER_RECORD] }, LOCATIONS))
-      .toEqual({ verdict: 'readable', records: [FIRST_NOTE, SECOND_NOTE], logFileMustBeRewritten: true });
+      .toEqual({ verdict: 'unreadable', reason: CONFLICT_REASON });
   });
 
   test('a log.jsonl holding exactly the embedded notes is a migration cut short too', () => {
@@ -63,9 +63,13 @@ describe('beside a version 1 progress.json', () => {
       .toEqual({ verdict: 'readable', records: [FIRST_NOTE, SECOND_NOTE], logFileMustBeRewritten: true });
   });
 
-  test('an empty version 1 log is continued by any readable log.jsonl', () => {
-    expect(storedLogOf([], { verdict: 'readable', records: [LATER_RECORD] }, LOCATIONS))
-      .toEqual({ verdict: 'readable', records: [], logFileMustBeRewritten: true });
+  test('beside an empty version 1 log, a log.jsonl holding any record is refused', () => {
+    expect(storedLogOf([], { verdict: 'readable', records: [LATER_RECORD] }, LOCATIONS)).toEqual({ verdict: 'unreadable', reason: CONFLICT_REASON });
+  });
+
+  test('an empty log.jsonl beside a version 1 file is a migration cut short', () => {
+    expect(storedLogOf(EMBEDDED_LOG, { verdict: 'readable', records: [] }, LOCATIONS))
+      .toEqual({ verdict: 'readable', records: [FIRST_NOTE, SECOND_NOTE], logFileMustBeRewritten: true });
   });
 
   test('a log.jsonl that does not begin with the embedded notes is refused, naming both files', () => {
@@ -73,17 +77,18 @@ describe('beside a version 1 progress.json', () => {
       .toEqual({ verdict: 'unreadable', reason: CONFLICT_REASON });
   });
 
-  test('a log.jsonl shorter than the embedded log is refused', () => {
-    expect(storedLogOf(EMBEDDED_LOG, { verdict: 'readable', records: [FIRST_NOTE] }, LOCATIONS)).toEqual({ verdict: 'unreadable', reason: CONFLICT_REASON });
+  test('a log.jsonl holding the start of the embedded notes is a migration cut short an older CLI appended to', () => {
+    expect(storedLogOf(EMBEDDED_LOG, { verdict: 'readable', records: [FIRST_NOTE] }, LOCATIONS))
+      .toEqual({ verdict: 'readable', records: [FIRST_NOTE, SECOND_NOTE], logFileMustBeRewritten: true });
   });
 
-  test('a note with the same text at another time does not continue the log', () => {
+  test('a note with the same text at another time is not the embedded log\'s start', () => {
     const restamped: LogRecord = { ...SECOND_NOTE, at: '2026-09-18T20:41:00+02:00' };
     expect(storedLogOf(EMBEDDED_LOG, { verdict: 'readable', records: [FIRST_NOTE, restamped] }, LOCATIONS).verdict).toBe('unreadable');
   });
 
-  test('a record of another kind in a note\'s place does not continue the log', () => {
-    expect(storedLogOf(EMBEDDED_LOG, { verdict: 'readable', records: [FIRST_NOTE, LATER_RECORD] }, LOCATIONS).verdict).toBe('unreadable');
+  test('a record of another kind in a note\'s place is not the embedded log\'s start', () => {
+    expect(storedLogOf(EMBEDDED_LOG, { verdict: 'readable', records: [LATER_RECORD] }, LOCATIONS).verdict).toBe('unreadable');
   });
 
   test('an unreadable log.jsonl is refused with the same reason, naming both files', () => {
