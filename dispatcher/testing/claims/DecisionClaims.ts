@@ -172,6 +172,13 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     mutant:      { modulePath: DISPATCH_RUN, find: 'Math.min(statedLimit, LIMITS.CONCURRENCY_LIMIT_CEILING_AGENTS)', replace: 'statedLimit' },
   },
   {
+    // A named run is one agent's work at a time, so a builder and a reviewer of different tickets never overlap even with the board's room free.
+    name:        'a run naming two tickets never has two agents in flight, even with room on the board',
+    scenarioFor: () => ({ limit: 3, readyTicketIds: ['001', '002'], ticketIds: ['001', '002'] }),
+    holds:       (run) => run.mostAgentsAtOnce === 1 && runSummaryOf(run).delivered.length === 2,
+    mutant:      { modulePath: DISPATCH_RUN, find: 'return DISPATCH_POLICY.SINGLE_TICKET_RUN_AGENTS;', replace: 'return DISPATCH_POLICY.SINGLE_TICKET_RUN_AGENTS + 1;' },
+  },
+  {
     name:        'agents in flight elsewhere take their share of the board limit',
     scenarioFor: () => ({ limit: 3, otherAgentsInFlight: 1, readyTicketIds: ticketIdsFrom(1, 5) }),
     holds:       (run) => run.mostAgentsAtOnce === 2,
@@ -651,6 +658,21 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     mutant: { modulePath: DISPATCH_WORDING_UTIL, find: '  if (outcome.runWasStoppedByBoard) summary.stoppedByBoard = true;\n', replace: '' },
   },
   {
+    // The user's go relaunches the board, so the log names every build the stop kept from starting, a paused one found by the survey first.
+    name:        'a stop leaves an untaken admitted paused build named in the log of tickets left for the go',
+    scenarioFor: () => ({
+      limit:                      1,
+      readyTicketIds:             ['001'],
+      pausedBuildNotesByTicketId: { '004': 'Built by the whole-board dispatcher run on ticket-004' },
+      afterAgent:                 (call, board) => {
+        if (call.kind === 'survey') board.dispatcherState = 'stopped';
+      },
+    }),
+    holds: (run) => run.logs.some((message) => message.includes('Left for the user\'s go: #004, #001'))
+      && runSummaryOf(run).pausedBuilds?.join() === '004',
+    mutant: { modulePath: DISPATCH_RUN, find: '      ...this.admittedPausedBuildIds(),\n', replace: '' },
+  },
+  {
     // Low tickets are the orchestrator's to triage first: abandon the stale, merge the overlapping, then relaunch with the flag.
     name:        'with only low tickets ready and no includeLowPriority, no builder starts and the summary lists them as lowPriorityWaiting',
     scenarioFor: () => ({ limit: 2, readyTicketIds: ['004', '005'], lowPriorityTicketIds: ['004', '005'] }),
@@ -667,6 +689,18 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     }),
     holds:  (run) => runSummaryOf(run).delivered.join() === '004,005' && runSummaryOf(run).lowPriorityWaiting === undefined,
     mutant: { modulePath: WORKFLOW_INPUT_UTIL, find: 'lowPriorityIsIncluded: given[\'includeLowPriority\'] === true,', replace: 'lowPriorityIsIncluded: false,' },
+  },
+  {
+    // Triage is the whole-board run's report: a run the orchestrator named never looked at the rest of the board.
+    name:        'a named-ticket run reports no low ticket waiting, though the board has one ready',
+    scenarioFor: () => ({
+      limit:                2,
+      readyTicketIds:       ['001', '004'],
+      lowPriorityTicketIds: ['004'],
+      ticketIds:            ['001'],
+    }),
+    holds:  (run) => runSummaryOf(run).delivered.join() === '001' && runSummaryOf(run).lowPriorityWaiting === undefined,
+    mutant: { modulePath: DISPATCH_RUN, find: 'this.latestStatusReading === null || this.settings.ticketIds !== null', replace: 'this.latestStatusReading === null' },
   },
   {
     // A reviewer files its findings as low tickets minutes before the normal work runs out; the run must not pick them up untriaged.
@@ -924,6 +958,42 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     },
   },
   {
+    // The reviewer's death is taken back like a builder's, so the fresh reviewer's does-not-hold is the ticket's first failed pass, not its second.
+    name:        'a dead reviewer\'s failed pass is taken back when the next death shows an outage, so its fresh reviewer\'s does-not-hold queues a rebuild instead of parking',
+    scenarioFor: () => ({
+      limit:          2,
+      readyTicketIds: ['001', '002'],
+      reviewerReply:  (ticketId, round) => (ticketId === '001' && round === 2 ? { verdict: 'does-not-hold' } : null),
+    }),
+    holds: (run) => runSummaryOf(run).stoppedByFailures === true
+      && runSummaryOf(run).parked.length === 0
+      && kindsAndTickets(run).join(', ') === 'survey, build 001, build 002, review 001, review 002, review 001, park 002',
+    mutant: {
+      modulePath: DISPATCH_RUN,
+      find:       '      this.failedPassesOfConsecutiveDeaths.push(ticketId);\n      return;\n    }\n    this.findingsFiled',
+      replace:    '      return;\n    }\n    this.findingsFiled',
+    },
+  },
+  {
+    // A parking agent's row is what it was pausing, so its death leaves that row for the user, never a review for the next run to start.
+    name:        'a parking agent that dies after an outage stop is reported as a parking agent that returned nothing, and leaves no review waiting',
+    scenarioFor: () => ({
+      limit:             2,
+      readyTicketIds:    ['001', '002'],
+      builderReply:      () => null,
+      agentMisbehaviour: (call) => (call.kind === 'park' ? { returns: 'nothing' } : undefined),
+    }),
+    holds: (run) => runSummaryOf(run).stoppedByFailures === true
+      && runSummaryOf(run).reviewsLeft === undefined
+      && runSummaryOf(run).pausedBuilds?.join() === '002,001'
+      && run.logs.some((message) => message.includes('#001: the parking agent returned nothing')),
+    mutant: {
+      modulePath: DISPATCH_RUN,
+      find:       '    if (work.kind === \'park\') {\n      this.settleParking(work, null);\n      return;\n    }\n    if (work.kind === \'build\') {\n      this.awaitTakeover',
+      replace:    '    if (work.kind === \'build\') {\n      this.awaitTakeover',
+    },
+  },
+  {
     // #001's second pass is the outage's first death, so it would be the second failed pass: the park waits for #002's reviewer, a death too.
     name:        'builder 001 failing and every agent after #002\'s build returning nothing parks nothing: the second pass\'s death is the first of an outage',
     scenarioFor: () => ({
@@ -987,6 +1057,24 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       && workersRunOn(run, 'sonnet', 'high')
       && run.calls.filter((call) => call.kind === 'build').every((call) => call.prompt.includes('--owner sonnet')),
     mutant: { modulePath: WORKFLOW_INPUT_UTIL, find: '!Array.isArray(lookup[\'tickets\'])', replace: 'true' },
+  },
+  {
+    // A single-ticket run reads no status before its builder, so the readyTickets entry the orchestrator copied is the only place its pair can come from.
+    name:        'a single-ticket run runs its builder and reviewer on the model and effort its readyTickets entry states',
+    scenarioFor: () => ({
+      limit:                   1,
+      readyTicketIds:          ['001'],
+      ticketIds:               ['001'],
+      agentSettingsByTicketId: { '001': { model: 'sonnet', effort: 'high' } },
+    }),
+    holds: (run) => kindsAndTickets(run).join(', ') === 'build 001, review 001'
+      && workersRunOn(run, 'sonnet', 'high')
+      && run.calls.every((call) => call.prompt.includes('--owner sonnet')),
+    mutant: {
+      modulePath: DISPATCH_RUN,
+      find:       'return [...this.settings.readyTickets, ...this.lookedUpTicketSettings];',
+      replace:    'return [...this.lookedUpTicketSettings];',
+    },
   },
 ];
 

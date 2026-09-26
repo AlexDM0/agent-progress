@@ -1,7 +1,8 @@
 /**
  * The dispatcher's resumption of a paused build, checked against the bundle and a mutant like the claims in `dispatcher/Dispatcher.decisions.spec.ts`.
- * A stopped board relies on these: a relaunch delivers the paused build with one builder past the old claim (never a held or a person's pause)
- * within the limit, survives that builder dying, and neither admits a low build early nor outranks a higher-priority ready ticket.
+ * A stopped board relies on these: a relaunch delivers the paused builds, highest priority first, each with one builder past the old claim (never
+ * a held or a person's pause) within the limit, survives that builder dying, and neither admits a low build early nor outranks a higher-priority
+ * ready ticket.
  */
 import { describe, expect, test } from 'bun:test';
 

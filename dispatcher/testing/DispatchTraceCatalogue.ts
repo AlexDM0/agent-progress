@@ -1,6 +1,7 @@
 /**
  * Every scenario the frozen trace table holds, keyed: the claim suites' and plain tests' scenarios, a builder × reviewer grid, the argument
- * refusals and fallbacks, and one lever per reply shape the dispatcher guards against.
+ * refusals and fallbacks, and one lever per reply shape the dispatcher guards against. The round a dead reviewer of a failure-stopped run sets is
+ * left untraced: that stop is final, and nothing in the run reads the round again.
  */
 import type {
   AgentKind,

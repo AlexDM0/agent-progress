@@ -200,6 +200,26 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
     },
   },
   {
+    // The survey lists paused builds in its own order; a high build listed second must still take the one slot first.
+    name:        'a high paused build resumes before a normal one the survey listed first',
+    scenarioFor: () => ({
+      limit:                      1,
+      readyTicketIds:             ['001'],
+      highPriorityTicketIds:      ['005'],
+      pausedBuildNotesByTicketId: {
+        '004': 'Built by the whole-board dispatcher run on ticket-004',
+        '005': 'Built by the whole-board dispatcher run on ticket-005',
+      },
+    }),
+    holds: (run) => run.calls.filter((call) => call.kind === 'build').map((call) => call.ticketId).join() === '005,004,001'
+      && runSummaryOf(run).delivered.join() === '005,004,001',
+    mutant: {
+      modulePath: DISPATCH_RUN,
+      find:       '\n      .sort((a, b) => this.priorityRankOf(this.pausedBuildPriorities.get(a)) - this.priorityRankOf(this.pausedBuildPriorities.get(b)));',
+      replace:    ';',
+    },
+  },
+  {
     // Low work waits for the orchestrator's triage whether it is new or paused; the summary is what tells it the relaunch needs includeLowPriority.
     name:        'a paused low build is not resumed without includeLowPriority, stays paused and is reported',
     scenarioFor: lowPausedBuildBesideHighReadyTicket(false),
