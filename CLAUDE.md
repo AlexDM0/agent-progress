@@ -83,9 +83,9 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
 - An optional stored key is written only once somebody sets it, and a read never adds or rewrites one, so an older
   file stays byte-identical. The one exception is a legacy review bar, read through `src/adapters/legacy/`: the read
   gives a row known only by its name `reviewOf` and `reviewBarRound`, and pads a stored `reviewOf` that reads as a
-  whole number, in memory; `update` or the next write stores them. `task add` stores them at filing through
-  `cli/legacy/`, so the read serves only trackers `update` has not yet rewritten; both share
-  `src/shared/legacy/utils/ReviewBarNameUtil.ts`.
+  whole number, in memory; `update` or the next write stores them. `task add` and `task update --name` store them
+  through `cli/legacy/`, so past `update` the read links only a row renamed by hand or named `Review 0 #<id>`;
+  dropping it drops that linking too. Both share `src/shared/legacy/utils/ReviewBarNameUtil.ts`.
 - A version 1 `progress.json` owns its log: the read, through `src/adapters/legacy/`, turns its sentences into notes,
   and the next write moves them to log.jsonl and stores the file as version 2. The takeover rule for a log.jsonl
   beside it, believed only as a migration cut short, lives in `src/adapters/legacy/` too.
@@ -253,9 +253,9 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
   over the lines would put at risk keeping every unowned line byte for byte.
 - A row's `history` holds only what the tool watched; nothing reconstructs phases. A review row belongs to its
   ticket by `reviewOf`; a free-standing row known only by its `Review <N> #<id>` name is given `reviewOf` and
-  `reviewBarRound` by `cli/legacy/` when `task add` files it without `--review-of` or `--ticket`, by `update`'s
-  rewrite, and by `src/adapters/legacy/` when a tracker not yet updated is read. Nothing else matches a name: the
-  page reads which rows are bars from the Board facts.
+  `reviewBarRound` by `cli/legacy/` when `task add` files it without `--review-of` or `--ticket` or when
+  `task update --name` renames it, by `update`'s rewrite, and by `src/adapters/legacy/` when a row still unlinked
+  is read. Nothing else matches a name: the page reads which rows are bars from the Board facts.
 
 ### The page
 

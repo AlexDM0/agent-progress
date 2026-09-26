@@ -373,9 +373,11 @@ Settled on 2026-09-26, in step 8:
 - **Name-only review rows become droppable legacy.** `update`, and `init` on an existing tracker,
   store every free-standing row known only by its `Review <N> #<id>` name with its `reviewOf` and
   `reviewBarRound`, and every retired status word in the new word. `task add` given a review-shaped
-  name and no `--review-of` stores the link at filing, through `cli/legacy/`. The read-time linking
-  in `src/adapters/legacy/` then serves only trackers not yet updated, and the name util both use
-  lives in `src/shared/legacy/utils/ReviewBarNameUtil.ts`.
+  name and no `--review-of` stores the link at filing, and `task update --name` to such a name stores
+  it on a free-standing unlinked row, both through `cli/legacy/`. Past `update`, the read-time linking
+  in `src/adapters/legacy/` links only a row renamed by hand in `progress.json` or named round 0
+  (`Review 0 #<id>`), and dropping it drops that linking; the name util both use lives in
+  `src/shared/legacy/utils/ReviewBarNameUtil.ts`.
 
 ## 7. Risks
 

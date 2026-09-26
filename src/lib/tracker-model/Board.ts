@@ -154,10 +154,15 @@ export class Board {
   }
 
   /** A correction moves no timestamp and files no phase, which is what separates it from `moveTask`. */
+  /** A correction's `reviewOf` links only a free-standing row that has no link yet; it never moves an existing one. */
   correctTask(taskId: number, correction: TaskCorrection, request: { movesAnyway: boolean }): Readonly<Task> {
     const task = this.requireTask(taskId);
     if (correction.status !== undefined) refuseATicketOwnedMove(task, correction.status, request.movesAnyway);
     if (correction.name !== undefined) task.name = correction.name;
+    if (correction.reviewOf !== undefined && task.ticket === null && task.reviewOf === undefined) {
+      task.reviewOf       = correction.reviewOf.ticketId;
+      task.reviewBarRound = correction.reviewOf.round;
+    }
     if (correction.status !== undefined) task.status = correction.status;
     return task;
   }

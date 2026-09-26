@@ -262,6 +262,29 @@ describe('moveTask and correctTask', () => {
     });
     expect(corrected.history).toBeUndefined();
   });
+
+  test('a correction\'s review link links a free-standing row that has none', () => {
+    const { board } = boardFixture({ tasks: [taskFixture({ id: 1 })] });
+    const corrected = board.correctTask(1, { name: 'Review 3 #001 — Example review', reviewOf: { ticketId: '001', round: 3 } }, { movesAnyway: false });
+
+    expect(corrected).toMatchObject({ reviewOf: '001', reviewBarRound: 3 });
+  });
+
+  // A link already stored was given deliberately, by `--review-of` or an earlier filing, so a rename never moves it.
+  test('a correction\'s review link leaves a row that already has one as it was', () => {
+    const { board } = boardFixture({ tasks: [taskFixture({ id: 1, reviewOf: '002', reviewBarRound: 1 })] });
+    const corrected = board.correctTask(1, { reviewOf: { ticketId: '001', round: 3 } }, { movesAnyway: false });
+
+    expect(corrected).toMatchObject({ reviewOf: '002', reviewBarRound: 1 });
+  });
+
+  test('a correction\'s review link leaves a ticket\'s own row unlinked', () => {
+    const { board } = ticketOwnedRowFixture();
+    const corrected = board.correctTask(4, { reviewOf: { ticketId: '001', round: 3 } }, { movesAnyway: false });
+
+    expect(corrected.reviewOf).toBeUndefined();
+    expect(corrected.reviewBarRound).toBeUndefined();
+  });
 });
 
 describe('annotateTask', () => {

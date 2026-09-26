@@ -1,6 +1,6 @@
 /**
- * Gives a review row filed by its `Review <N> #<id>` name alone, without `--review-of`, the link its name names, so the row is stored
- * linked at filing. It can go once agents always pass `--review-of`, which the brief asks for.
+ * Gives a review row filed or renamed to a `Review <N> #<id>` name alone, without `--review-of`, the link its name names, so the row is
+ * stored linked by `task add` and `task update --name`. It can go once agents always pass `--review-of`, which the brief asks for.
  */
 import type { TaskAddition } from '../../../src/lib/tracker-model/@types/BoardChanges';
 import type { Task }         from '../../../src/lib/tracker-model/@types/Task';

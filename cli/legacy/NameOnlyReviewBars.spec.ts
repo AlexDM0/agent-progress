@@ -1,8 +1,8 @@
 /**
- * Review rows filed without `--review-of`, by their `Review <N> #<id>` name alone: `task add` stores the link the name gives, a release
- * closes such a row among a bundle's bars, and the SubagentStop hook credits the later round. A row stored name-only by a tracker `update`
- * has not yet rewritten is still linked when read, so a release closes it and stores its link. It covers the older habit `cli/legacy/`'s
- * filing mapper answers and the older input `src/adapters/legacy/` links, and is deleted with them.
+ * Review rows filed without `--review-of`, by their `Review <N> #<id>` name alone: `task add` and `task update --name` store the link the
+ * name gives, a release closes such a row among a bundle's bars, and the SubagentStop hook credits the later round. A row stored name-only
+ * by a tracker `update` has not yet rewritten is still linked when read, so a release closes it and stores its link. It covers the older
+ * habit `cli/legacy/`'s filing mapper answers and the older input `src/adapters/legacy/` links, and is deleted with them.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join }                        from 'node:path';
@@ -249,5 +249,16 @@ describe.skipIf(!gitIsAvailable())('task add of a review-shaped name without --r
 
     expect(printed).toMatchObject({ reviewOf: '007', reviewBarRound: 2 });
     expect(storedRow(printed.id)).toMatchObject({ reviewOf: '007', reviewBarRound: 2 });
+  });
+});
+
+describe.skipIf(!gitIsAvailable())('task update renaming a free-standing row to a review-shaped name', () => {
+  test('stores the ticket and round the name gives in the same write, and prints them in its JSON', async () => {
+    const plain = JSON.parse(await agentProgressOrFail(['task', 'add', 'Plain', '--json'])) as Task;
+
+    const printed = JSON.parse(await agentProgressOrFail(['task', 'update', String(plain.id), '--name', 'Review 3 #001 — Renamed', '--json'])) as Task;
+
+    expect(printed).toMatchObject({ reviewOf: '001', reviewBarRound: 3 });
+    expect(storedRow(plain.id)).toMatchObject({ name: 'Review 3 #001 — Renamed', reviewOf: '001', reviewBarRound: 3 });
   });
 });

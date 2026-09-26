@@ -1,6 +1,7 @@
 /**
  * Reads a progress.json in an older shape: version 1 with its own log, rows in the retired task words, review bars known only by name.
- * It serves only trackers `agent-progress update` has not yet rewritten, and can go once update has run in every tracker.
+ * Past `update`, name linking still reads a row renamed by hand in progress.json, or filed as `Review 0 #<id>`; dropping this module stops
+ * those rows nesting.
  */
 import { RetiredStatusWordUtil }                                             from '../../../shared/legacy/utils/RetiredStatusWordUtil.ts';
 import { ReviewBarNameUtil }                                                 from '../../../shared/legacy/utils/ReviewBarNameUtil.ts';

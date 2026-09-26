@@ -261,7 +261,7 @@ verbs refuse it, except a pause and its resume, naming the `ticket` verb that mo
 |---|---|
 | `task add "<name>" [--owner <who>] [--note <text>] [--ticket <id>] [--review-of <id>] [--start] [--tokens <n>] [--at <when>] [--force]` | Add a row. `--start` marks it in-progress at `--at` (default now); `--note` is the detail shown beside the bar; `--tokens` records what the work cost. `--ticket` links it to a ticket that has no row of its own, and `--force` moves that link off the row that holds it. `--review-of` marks the row as a review pass of that ticket, drawn directly above the ticket's own row, newest filed first, and also stores the bar's round as `reviewBarRound`, the ticket's `## Review` sections plus one; a ticket that does not exist is refused at exit 1. A row filed without it or `--ticket` whose name starts `Review <N> #<id>` is stored with the `reviewOf` and `reviewBarRound` its name gives, which `--json` prints, and is nested the same way; for a bundle, the first id named is the parent. |
 | `task start\|pause\|finish\|approve\|rereview\|deliver <id> [--owner <who>] [--note <text>] [--tokens <n>] [--at <when>] [--force]` | Move one row and stamp it. `start` sets its start and resumes a paused row; `pause` records that the work is waiting without closing the bar; `finish` and `approve` set its end; `rereview` sends a row whose review found too much into its next review pass — round 2, then 3 — without reopening the bar; `deliver` records that the work reached its destination. |
-| `task update <id> [--name <text>] [--owner <who>] [--note <text>] [--status <status>] [--tokens <n>] [--force]` | Change a row without moving its clock, and without adding to its `history`: a correction is not something that happened. At least one field is required. `--status` is for a correction the transitions cannot express, and on a row a ticket owns is refused unless `--force`, except a pause and its resume. |
+| `task update <id> [--name <text>] [--owner <who>] [--note <text>] [--status <status>] [--tokens <n>] [--force]` | Change a row without moving its clock, and without adding to its `history`: a correction is not something that happened. At least one field is required. `--status` is for a correction the transitions cannot express, and on a row a ticket owns is refused unless `--force`, except a pause and its resume. A free-standing row without `reviewOf` renamed with `--name` to `Review <N> #<id>` is stored with the `reviewOf` and `reviewBarRound` its name gives, as `task add` does. |
 | `task remove <id>` | Delete a row. A ticket pointing at it is unlinked rather than deleted. The id is never given to another row. |
 | `log "<text>" [--at <when>]` | Append one line to the log shown under the chart. Every positional is joined, so an unquoted sentence is kept whole. |
 
@@ -537,8 +537,9 @@ or `in-review`; reading never rewrites the file, and `update` or the next write 
 A free-standing row without `reviewOf` or `reviewBarRound` whose name starts `Review <N> #<id>` reads
 with the ticket and round the name gives, and a free-standing row's stored `reviewOf` that reads as a
 positive whole number (`"3"`, `"+3"`, `"3.0"`) reads as the padded ticket id (`"003"`); reading never
-rewrites the file, and `update` or the next write stores them. Since `task add` stores the link at filing,
-only a row an older agent-progress filed, or one renamed by hand or by `task update --name`, is read this way.
+rewrites the file, and `update` or the next write stores them. Since `task add` and `task update --name`
+store the link, only a row an older agent-progress filed, one renamed by hand in `progress.json`, or one
+named `Review 0 #<id>`, which gives a ticket but no round, is read this way.
 
 ### `.agent-progress/log.jsonl`
 

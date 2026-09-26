@@ -38,8 +38,9 @@ export interface TaskAnnotation extends AgentAssignment {
 }
 
 export interface TaskCorrection {
-  name?:   string;
-  status?: TaskStatus;
+  name?:     string;
+  status?:   TaskStatus;
+  reviewOf?: ReviewBarLink;
 }
 
 /** A `review` share lands on the ticket's newest review bar, which its reviewer filed after the brief was written. */

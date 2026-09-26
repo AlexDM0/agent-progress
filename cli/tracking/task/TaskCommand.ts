@@ -163,10 +163,13 @@ async function updateOneTask(commandArguments: ArgumentParser, context: CommandC
   }
 
   const name = commandArguments.option('name');
+  // The seam: dropping cli/legacy/ stores a free-standing row renamed to a review-shaped name without a link.
+  const reviewLinkOfTheName = name === undefined ? undefined : ReviewBarNameFilingUtil.reviewLinkNamedBy(name);
   const task = await openTrackerForWriting(commandArguments, context, ({ board }) => {
     board.correctTask(taskId, {
       ...(name === undefined ? {} : { name }),
       ...(status === undefined ? {} : { status }),
+      ...(reviewLinkOfTheName === undefined ? {} : { reviewOf: reviewLinkOfTheName }),
     }, { movesAnyway });
     return board.annotateTask(taskId, annotationFrom(commandArguments));
   });
