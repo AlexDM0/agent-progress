@@ -4,15 +4,15 @@
  * half-applied. The subset it accepts is stated in `docs/cli.md`.
  */
 
-import { LegacyStatusUtil }       from '../../src/adapters/utils/LegacyStatusUtil.ts';
-import type { TicketFrontmatter } from '../../src/lib/tracker-model/@types/Ticket.ts';
-import { TicketIdUtil }           from '../../src/lib/tracker-model/utils/TicketIdUtil.ts';
-import { VocabularyUtil }         from '../../src/lib/tracker-model/utils/VocabularyUtil.ts';
+import type { TicketFrontmatter } from '../../../lib/tracker-model/@types/Ticket.ts';
+import { TicketIdUtil }           from '../../../lib/tracker-model/utils/TicketIdUtil.ts';
+import { VocabularyUtil }         from '../../../lib/tracker-model/utils/VocabularyUtil.ts';
+import { LegacyStatusUtil }       from '../../utils/LegacyStatusUtil.ts';
 
 export type LineEnding = '\n' | '\r\n';
 
 export type ParsedTicketDocument =
-  | { verdict: 'parsed'; frontmatter: TicketFrontmatter; body: string; lineEnding: LineEnding }
+  | { verdict: 'parsed'; frontmatter: TicketFrontmatter; body: string; lineEnding: LineEnding; retiredStatusWordWasRead: boolean }
   | { verdict: 'malformed'; reason: string; line: number };
 
 type FrontmatterValue = string | number | null;
@@ -80,7 +80,7 @@ class FrontmatterProblem extends Error {
 }
 
 /** The closing fence is the first later line equal to `---`, never the last, because ticket bodies contain horizontal rules. */
-export function parseTicketDocument(text: string): ParsedTicketDocument {
+function parseTicketDocument(text: string): ParsedTicketDocument {
   const withoutByteOrderMark = text.startsWith(BYTE_ORDER_MARK) ? text.slice(BYTE_ORDER_MARK.length) : text;
   const lines                = withoutByteOrderMark.split('\n');
 
@@ -132,11 +132,13 @@ export function parseTicketDocument(text: string): ParsedTicketDocument {
       knownValues.set(key, { value: scalarOf(rawValue, key, lineNumber), line: lineNumber });
     }
 
+    const { frontmatter, retiredStatusWordWasRead } = frontmatterFrom(knownValues, extra, closingFenceIndex + 1);
     return {
-      verdict:     'parsed',
-      frontmatter: frontmatterFrom(knownValues, extra, closingFenceIndex + 1),
-      body:        bodyAfter(withoutByteOrderMark, lines, closingFenceIndex),
-      lineEnding:  (lines[0] ?? '').endsWith(CARRIAGE_RETURN) ? '\r\n' : '\n',
+      verdict:    'parsed',
+      frontmatter,
+      body:       bodyAfter(withoutByteOrderMark, lines, closingFenceIndex),
+      lineEnding: (lines[0] ?? '').endsWith(CARRIAGE_RETURN) ? '\r\n' : '\n',
+      retiredStatusWordWasRead,
     };
   } catch (problem) {
     if (problem instanceof FrontmatterProblem) {
@@ -150,7 +152,7 @@ export function parseTicketDocument(text: string): ParsedTicketDocument {
  * An unknown line is copied back with its raw value untouched, and an absent optional key is omitted rather than written as `null`.
  * The line ending is the one the frontmatter was read with; the body is kept byte for byte whatever it holds.
  */
-export function serializeTicketDocument(frontmatter: TicketFrontmatter, body: string, lineEnding: LineEnding = '\n'): string {
+function serializeTicketDocument(frontmatter: TicketFrontmatter, body: string, lineEnding: LineEnding = '\n'): string {
   const lines: string[] = [
     `id: ${JSON.stringify(frontmatter.id)}`,
     `title: ${JSON.stringify(frontmatter.title)}`,
@@ -290,7 +292,7 @@ function frontmatterFrom(
   knownValues: Map<string, KnownValue>,
   extra: Array<[key: string, rawValue: string]>,
   closingFenceLine: number,
-): TicketFrontmatter {
+): { frontmatter: TicketFrontmatter; retiredStatusWordWasRead: boolean } {
   const typeText         = requiredText(knownValues, 'type', closingFenceLine);
   const storedStatusText = requiredText(knownValues, 'status', closingFenceLine);
   const statusText       = LegacyStatusUtil.currentTicketStatusFor(storedStatusText) ?? storedStatusText;
@@ -302,7 +304,7 @@ function frontmatterFrom(
     throw new FrontmatterProblem(`\`status\` is not a known ticket status: ${statusText}`, lineOf(knownValues, 'status', closingFenceLine));
   }
 
-  return {
+  const frontmatter: TicketFrontmatter = {
     id:          identifierFrom(knownValues, closingFenceLine),
     title:       requiredText(knownValues, 'title', closingFenceLine),
     type:        typeText,
@@ -321,6 +323,7 @@ function frontmatterFrom(
     task:        nullableInteger(knownValues, 'task'),
     extra,
   };
+  return { frontmatter, retiredStatusWordWasRead: statusText !== storedStatusText };
 }
 
 /** The id is stored padded however it was written, so `id: 003`, `id: "003"` and `id: 3` name the same ticket. */
@@ -458,3 +461,5 @@ function extraLineOf(key: string, rawValue: string): string {
   }
   return rawValue === '' ? `${key}:` : `${key}: ${rawValue}`;
 }
+
+export const TicketDocumentUtil = { parseTicketDocument, serializeTicketDocument } as const;

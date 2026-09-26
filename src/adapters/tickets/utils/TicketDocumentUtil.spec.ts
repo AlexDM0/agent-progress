@@ -1,11 +1,11 @@
 /**
- * What `lib/tickets/Frontmatter.ts` must survive from outside the CLI — unknown keys, comments, CRLF,
+ * What `src/adapters/tickets/utils/TicketDocumentUtil.ts` must survive from outside the CLI — unknown keys, comments, CRLF,
  * a byte order mark, `---` inside the body — and the verdicts a malformed ticket comes back as.
  */
 
-import { describe, expect, test }                       from 'bun:test';
-import type { TicketFrontmatter }                       from '../../src/lib/tracker-model/@types/Ticket.ts';
-import { parseTicketDocument, serializeTicketDocument } from './Frontmatter.ts';
+import { describe, expect, test } from 'bun:test';
+import type { TicketFrontmatter } from '../../../lib/tracker-model/@types/Ticket.ts';
+import { TicketDocumentUtil }     from './TicketDocumentUtil.ts';
 
 const FULL_TICKET = [
   '---',
@@ -32,7 +32,7 @@ const FULL_TICKET = [
 ].join('\n');
 
 function parsedDocument(text: string): { frontmatter: TicketFrontmatter; body: string; lineEnding: '\n' | '\r\n' } {
-  const parsed = parseTicketDocument(text);
+  const parsed = TicketDocumentUtil.parseTicketDocument(text);
   if (parsed.verdict !== 'parsed') {
     throw new Error(`expected a parsed ticket document, got "${parsed.reason}" at line ${parsed.line}`);
   }
@@ -135,7 +135,7 @@ describe('parseTicketDocument', () => {
     expect(frontmatter.title).toBe('0042');
     expect(frontmatter.commit).toBe('0123456');
     expect(frontmatter.task).toBe(7);
-    expect(serializeTicketDocument(frontmatter, body)).toBe(handEdited.replace('title: 0042', 'title: "0042"').replace('commit: 0123456', 'commit: "0123456"'));
+    expect(TicketDocumentUtil.serializeTicketDocument(frontmatter, body)).toBe(handEdited.replace('title: 0042', 'title: "0042"').replace('commit: 0123456', 'commit: "0123456"'));
   });
 
   test('an id written unquoted or unpadded still names ticket 003', () => {
@@ -144,7 +144,7 @@ describe('parseTicketDocument', () => {
 
   test('a document with no closing fence is malformed and names the last line', () => {
     const unterminated = ['---', 'id: "003"', 'title: "No fence"'].join('\n');
-    const parsed       = parseTicketDocument(unterminated);
+    const parsed       = TicketDocumentUtil.parseTicketDocument(unterminated);
 
     expect(parsed).toEqual({ verdict: 'malformed', reason: 'the frontmatter has no closing `---` fence', line: 3 });
   });
@@ -152,7 +152,7 @@ describe('parseTicketDocument', () => {
   // Without this, the body's first rule closes the frontmatter and every heading above it is silently kept as a comment.
   test('a document whose closing fence was deleted is refused at the first heading, saying to restore the fence above it', () => {
     const fenceDeleted = FULL_TICKET.replace('task: 17\n---\n', 'task: 17\n').concat('---\n\n## Acceptance\n');
-    const parsed       = parseTicketDocument(fenceDeleted);
+    const parsed       = TicketDocumentUtil.parseTicketDocument(fenceDeleted);
 
     expect(parsed).toEqual({
       verdict: 'malformed',
@@ -164,7 +164,7 @@ describe('parseTicketDocument', () => {
 
   // The same refusal meets a correctly fenced file, so its reason must not call the real fence a rule in the body.
   test('a two-hash comment inside a correctly fenced frontmatter is refused without claiming the fence is missing', () => {
-    const parsed = parseTicketDocument(FULL_TICKET.replace('task: 17\n', 'task: 17\n## note from Alex Example\n'));
+    const parsed = TicketDocumentUtil.parseTicketDocument(FULL_TICKET.replace('task: 17\n', 'task: 17\n## note from Alex Example\n'));
 
     expect(parsed.verdict === 'malformed' ? parsed.reason : '').toStartWith('line 15 is the markdown heading `## note from Alex Example`');
     expect(parsed.verdict === 'malformed' ? parsed.reason : '').not.toContain('no closing');
@@ -174,7 +174,7 @@ describe('parseTicketDocument', () => {
   test('a single-hash line followed by a blank and prose is refused at itself when the closing fence was deleted, saying to restore the fence above it', () => {
     const fenceDeleted = FULL_TICKET.replace('task: 17\n---\n', 'task: 17\n').replace('## Report', 'The dialog forgets the folder.').concat('---\n');
 
-    expect(parseTicketDocument(fenceDeleted)).toEqual({
+    expect(TicketDocumentUtil.parseTicketDocument(fenceDeleted)).toEqual({
       verdict: 'malformed',
       reason:  'line 15 `# 003 — Fix: the export dialog forgets the folder` is followed after blank lines by line 17, which is not a `key: value` line: '
         + 'if line 15 is a markdown heading, the closing `---` fence was deleted and belongs above it; if it is a comment, line 17 does not belong in the frontmatter',
@@ -184,7 +184,7 @@ describe('parseTicketDocument', () => {
 
   // In a correctly fenced file the same shape is a comment above a stray line, so the reason must not state that line 15 is a heading.
   test('a single-hash comment followed by a blank and prose inside a fenced frontmatter is refused naming the stray line as well', () => {
-    const parsed = parseTicketDocument(FULL_TICKET.replace('task: 17\n', 'task: 17\n# owners\n\n- Alex Example\n'));
+    const parsed = TicketDocumentUtil.parseTicketDocument(FULL_TICKET.replace('task: 17\n', 'task: 17\n# owners\n\n- Alex Example\n'));
     const reason = parsed.verdict === 'malformed' ? parsed.reason : '';
 
     expect(reason).toContain('line 17 does not belong in the frontmatter');
@@ -198,36 +198,36 @@ describe('parseTicketDocument', () => {
   });
 
   test('a single-hash comment followed directly by prose is refused at the prose, not as a heading', () => {
-    const parsed = parseTicketDocument(FULL_TICKET.replace('task: 17\n', 'task: 17\n# pairing notes\nnot a key\n'));
+    const parsed = TicketDocumentUtil.parseTicketDocument(FULL_TICKET.replace('task: 17\n', 'task: 17\n# pairing notes\nnot a key\n'));
 
     expect(parsed).toEqual({ verdict: 'malformed', reason: '`not a key` is not a `key: value` line', line: 16 });
   });
 
   test('an id of zero or past the safe integers is refused rather than padded', () => {
-    expect(parseTicketDocument(FULL_TICKET.replace('id: "003"', 'id: 0'))).toEqual({ verdict: 'malformed', reason: '`id` is not a ticket number: 0', line: 2 });
-    expect(parseTicketDocument(FULL_TICKET.replace('id: "003"', 'id: 99999999999999999999')))
+    expect(TicketDocumentUtil.parseTicketDocument(FULL_TICKET.replace('id: "003"', 'id: 0'))).toEqual({ verdict: 'malformed', reason: '`id` is not a ticket number: 0', line: 2 });
+    expect(TicketDocumentUtil.parseTicketDocument(FULL_TICKET.replace('id: "003"', 'id: 99999999999999999999')))
       .toEqual({ verdict: 'malformed', reason: '`id` is not a ticket number: 99999999999999999999', line: 2 });
   });
 
   test('a task past the safe integers is refused rather than rounded', () => {
-    expect(parseTicketDocument(FULL_TICKET.replace('task: 17', 'task: 99999999999999999999')))
+    expect(TicketDocumentUtil.parseTicketDocument(FULL_TICKET.replace('task: 17', 'task: 99999999999999999999')))
       .toEqual({ verdict: 'malformed', reason: '`task` is not a safe whole number: 99999999999999999999', line: 14 });
   });
 
   test('a quoted task is refused with a reason saying it is quoted', () => {
-    expect(parseTicketDocument(FULL_TICKET.replace('task: 17', 'task: "5"')))
+    expect(TicketDocumentUtil.parseTicketDocument(FULL_TICKET.replace('task: 17', 'task: "5"')))
       .toEqual({ verdict: 'malformed', reason: '`task` is quoted, but a task is a whole number written without quotes: "5"', line: 14 });
   });
 
   test('a document that does not open with a fence is malformed at line 1', () => {
-    const parsed = parseTicketDocument('# just a markdown file\n');
+    const parsed = TicketDocumentUtil.parseTicketDocument('# just a markdown file\n');
 
     expect(parsed.verdict).toBe('malformed');
     expect(parsed.verdict === 'malformed' ? parsed.line : 0).toBe(1);
   });
 
   test('an unknown status is malformed, names the key and points at its line', () => {
-    const parsed = parseTicketDocument(FULL_TICKET.replace('status: "in-progress"', 'status: "in progress"'));
+    const parsed = TicketDocumentUtil.parseTicketDocument(FULL_TICKET.replace('status: "in-progress"', 'status: "in progress"'));
 
     expect(parsed.verdict).toBe('malformed');
     expect(parsed.verdict === 'malformed' ? parsed.reason : '').toBe('`status` is not a known ticket status: in progress');
@@ -235,7 +235,7 @@ describe('parseTicketDocument', () => {
   });
 
   test('a required key that is missing is malformed and names the key', () => {
-    const parsed = parseTicketDocument(FULL_TICKET.replace('title: "Fix: the export dialog forgets the folder"\n', ''));
+    const parsed = TicketDocumentUtil.parseTicketDocument(FULL_TICKET.replace('title: "Fix: the export dialog forgets the folder"\n', ''));
 
     expect(parsed.verdict === 'malformed' ? parsed.reason : '').toBe('the frontmatter has no `title` key');
   });
@@ -243,7 +243,8 @@ describe('parseTicketDocument', () => {
   test('an indented line is a nested structure this subset does not have, and is refused', () => {
     const nested = FULL_TICKET.replace('group: "export-dialog"', '  nested: true');
 
-    expect(parseTicketDocument(nested)).toEqual({ verdict: 'malformed', reason: '`  nested: true` is indented, and this frontmatter has no nested structure', line: 12 });
+    expect(TicketDocumentUtil.parseTicketDocument(nested))
+      .toEqual({ verdict: 'malformed', reason: '`  nested: true` is indented, and this frontmatter has no nested structure', line: 12 });
   });
 
   // An indented heading used to pass as a comment, so a deleted fence above an indented `## Report` went unnoticed.
@@ -252,14 +253,14 @@ describe('parseTicketDocument', () => {
     const expectedReason = 'line 17 is the markdown heading `  ## Report`, and a frontmatter holds no heading (a comment has one `#`); '
       + 'if the closing `---` fence was deleted, restore it above line 17';
 
-    expect(parseTicketDocument(fenceDeleted)).toEqual({ verdict: 'malformed', reason: expectedReason, line: 17 });
+    expect(TicketDocumentUtil.parseTicketDocument(fenceDeleted)).toEqual({ verdict: 'malformed', reason: expectedReason, line: 17 });
   });
 
   // A single indented hash is not a heading, and must not slip through as a comment either.
   test('an indented single-hash line is refused as indented rather than kept as a comment', () => {
     const indentedHash = FULL_TICKET.replace('group: "export-dialog"', '  # filed while pairing');
 
-    expect(parseTicketDocument(indentedHash)).toEqual({
+    expect(TicketDocumentUtil.parseTicketDocument(indentedHash)).toEqual({
       verdict: 'malformed',
       reason:  '`  # filed while pairing` is indented, and this frontmatter has no nested structure',
       line:    12,
@@ -292,7 +293,7 @@ describe('dependsOn', () => {
   });
 
   test('refuses a value that is not a ticket number, naming its line', () => {
-    const parsed = parseTicketDocument(FULL_TICKET.replace('task: 17', 'dependsOn: 3, the importer\ntask: 17'));
+    const parsed = TicketDocumentUtil.parseTicketDocument(FULL_TICKET.replace('task: 17', 'dependsOn: 3, the importer\ntask: 17'));
 
     expect(parsed.verdict).toBe('malformed');
     expect(parsed.verdict === 'malformed' ? parsed.line : 0).toBe(14);
@@ -306,7 +307,7 @@ describe('priority', () => {
 
     expect(frontmatter.priority).toBeUndefined();
     expect(parsedDocument(FULL_TICKET.replace('type: "bug"\n', 'type: "bug"\npriority: null\n')).frontmatter.priority).toBeUndefined();
-    expect(serializeTicketDocument(frontmatter, body)).toBe(FULL_TICKET);
+    expect(TicketDocumentUtil.serializeTicketDocument(frontmatter, body)).toBe(FULL_TICKET);
   });
 
   test('a priority written quoted or bare reads back, and is written just after the type', () => {
@@ -314,11 +315,11 @@ describe('priority', () => {
     const { frontmatter, body } = parsedDocument(withPriority);
 
     expect(frontmatter.priority).toBe('low');
-    expect(serializeTicketDocument(frontmatter, body)).toBe(withPriority.replace('priority: low', 'priority: "low"'));
+    expect(TicketDocumentUtil.serializeTicketDocument(frontmatter, body)).toBe(withPriority.replace('priority: low', 'priority: "low"'));
   });
 
   test('a priority that is not low, normal or high is malformed and names its line', () => {
-    const parsed = parseTicketDocument(FULL_TICKET.replace('type: "bug"\n', 'type: "bug"\npriority: "urgent"\n'));
+    const parsed = TicketDocumentUtil.parseTicketDocument(FULL_TICKET.replace('type: "bug"\n', 'type: "bug"\npriority: "urgent"\n'));
 
     expect(parsed).toEqual({ verdict: 'malformed', reason: '`priority` is not a known ticket priority: urgent', line: 5 });
   });
@@ -334,7 +335,7 @@ describe('model and effort', () => {
     expect(frontmatter.effort).toBeUndefined();
     expect(withNulls.model).toBeUndefined();
     expect(withNulls.effort).toBeUndefined();
-    expect(serializeTicketDocument(frontmatter, body)).toBe(FULL_TICKET);
+    expect(TicketDocumentUtil.serializeTicketDocument(frontmatter, body)).toBe(FULL_TICKET);
   });
 
   test('both read back quoted or bare, and are written after the priority and before the status', () => {
@@ -343,13 +344,13 @@ describe('model and effort', () => {
 
     expect(frontmatter.model).toBe('sonnet');
     expect(frontmatter.effort).toBe('xhigh');
-    expect(serializeTicketDocument(frontmatter, body)).toBe(withAgent.replace('model: sonnet', 'model: "sonnet"'));
+    expect(TicketDocumentUtil.serializeTicketDocument(frontmatter, body)).toBe(withAgent.replace('model: sonnet', 'model: "sonnet"'));
   });
 
   test('a model or an effort the tool does not know is malformed and names its line', () => {
-    expect(parseTicketDocument(FULL_TICKET.replace('type: "bug"\n', 'type: "bug"\nmodel: "claude-opus-5-5"\n')))
+    expect(TicketDocumentUtil.parseTicketDocument(FULL_TICKET.replace('type: "bug"\n', 'type: "bug"\nmodel: "claude-opus-5-5"\n')))
       .toEqual({ verdict: 'malformed', reason: '`model` is not a known agent model: claude-opus-5-5', line: 5 });
-    expect(parseTicketDocument(FULL_TICKET.replace('type: "bug"\n', 'type: "bug"\neffort: "extreme"\n')))
+    expect(TicketDocumentUtil.parseTicketDocument(FULL_TICKET.replace('type: "bug"\n', 'type: "bug"\neffort: "extreme"\n')))
       .toEqual({ verdict: 'malformed', reason: '`effort` is not a known agent effort: extreme', line: 5 });
   });
 });
@@ -361,17 +362,33 @@ describe('retired status words', () => {
     expect(parsedDocument(FULL_TICKET.replace('status: "in-progress"', 'status: "done"')).frontmatter.status).toBe('reviewed');
   });
 
+  test('reading open or done, quoted or bare, reports that a retired word was read', () => {
+    for (const storedStatus of ['open', '"open"', 'done', '"done"']) {
+      const parsed = TicketDocumentUtil.parseTicketDocument(FULL_TICKET.replace('status: "in-progress"', `status: ${storedStatus}`));
+
+      expect(parsed.verdict === 'parsed' && parsed.retiredStatusWordWasRead).toBe(true);
+    }
+  });
+
+  test('reading a current word, quoted or bare, reports no retired word', () => {
+    for (const storedStatus of ['"in-progress"', 'pending', '"reviewed"']) {
+      const parsed = TicketDocumentUtil.parseTicketDocument(FULL_TICKET.replace('status: "in-progress"', `status: ${storedStatus}`));
+
+      expect(parsed.verdict === 'parsed' && !parsed.retiredStatusWordWasRead).toBe(true);
+    }
+  });
+
   test('writing a ticket read with a retired word stores the word that replaced it', () => {
     const { frontmatter, body } = parsedDocument(FULL_TICKET.replace('status: "in-progress"', 'status: "open"'));
 
-    const written = serializeTicketDocument(frontmatter, body);
+    const written = TicketDocumentUtil.serializeTicketDocument(frontmatter, body);
 
     expect(written).toContain('status: "pending"');
     expect(written).not.toContain('status: "open"');
   });
 
   test('a word that was never a ticket status is still malformed at its line', () => {
-    const parsed = parseTicketDocument(FULL_TICKET.replace('status: "in-progress"', 'status: "closed"'));
+    const parsed = TicketDocumentUtil.parseTicketDocument(FULL_TICKET.replace('status: "in-progress"', 'status: "closed"'));
 
     expect(parsed.verdict === 'malformed' ? parsed.reason : '').toBe('`status` is not a known ticket status: closed');
     expect(parsed.verdict === 'malformed' ? parsed.line : 0).toBe(5);
@@ -382,7 +399,7 @@ describe('serializeTicketDocument', () => {
   test('a full ticket survives a parse and a write unchanged', () => {
     const { frontmatter, body } = parsedDocument(FULL_TICKET);
 
-    expect(serializeTicketDocument(frontmatter, body)).toBe(FULL_TICKET);
+    expect(TicketDocumentUtil.serializeTicketDocument(frontmatter, body)).toBe(FULL_TICKET);
   });
 
   test('unknown keys, comments and blank lines are written back below the keys the CLI owns', () => {
@@ -407,7 +424,7 @@ describe('serializeTicketDocument', () => {
     ].join('\n');
     const { frontmatter, body } = parsedDocument(handEdited);
 
-    expect(serializeTicketDocument(frontmatter, body)).toBe(handEdited);
+    expect(TicketDocumentUtil.serializeTicketDocument(frontmatter, body)).toBe(handEdited);
   });
 
   test('a CRLF document is written back with CRLF', () => {
@@ -415,7 +432,7 @@ describe('serializeTicketDocument', () => {
     const { frontmatter, body, lineEnding } = parsedDocument(windowsTicket);
 
     expect(body.includes('\r\n')).toBe(true);
-    expect(serializeTicketDocument(frontmatter, body, lineEnding)).toBe(windowsTicket);
+    expect(TicketDocumentUtil.serializeTicketDocument(frontmatter, body, lineEnding)).toBe(windowsTicket);
   });
 
   // The body used to be where the line ending was read from, so an empty one lost CRLF on the first rewrite.
@@ -424,21 +441,21 @@ describe('serializeTicketDocument', () => {
     const { frontmatter, body, lineEnding } = parsedDocument(windowsTicketWithoutBody);
 
     expect(body).toBe('');
-    expect(serializeTicketDocument(frontmatter, body, lineEnding)).toBe(windowsTicketWithoutBody);
+    expect(TicketDocumentUtil.serializeTicketDocument(frontmatter, body, lineEnding)).toBe(windowsTicketWithoutBody);
   });
 
   test('an LF frontmatter over a body holding a pasted CRLF line is written back with LF', () => {
     const mixedTicket = `${FULL_TICKET}pasted\r\n`;
     const { frontmatter, body, lineEnding } = parsedDocument(mixedTicket);
 
-    expect(serializeTicketDocument(frontmatter, body, lineEnding)).toBe(mixedTicket);
+    expect(TicketDocumentUtil.serializeTicketDocument(frontmatter, body, lineEnding)).toBe(mixedTicket);
   });
 
   test('a title holding a colon, a quote and a leading hash is written as JSON and read back identically', () => {
     const { frontmatter, body } = parsedDocument(FULL_TICKET);
     frontmatter.title           = '#3: the "export" dialog';
 
-    const written = serializeTicketDocument(frontmatter, body);
+    const written = TicketDocumentUtil.serializeTicketDocument(frontmatter, body);
 
     expect(written).toContain('title: "#3: the \\"export\\" dialog"');
     expect(parsedDocument(written).frontmatter.title).toBe('#3: the "export" dialog');
@@ -448,14 +465,14 @@ describe('serializeTicketDocument', () => {
     const { frontmatter, body } = parsedDocument(FULL_TICKET);
     delete frontmatter.group;
 
-    expect(serializeTicketDocument(frontmatter, body)).not.toContain('group:');
+    expect(TicketDocumentUtil.serializeTicketDocument(frontmatter, body)).not.toContain('group:');
   });
 
   test('a dependency list is written padded and comma-separated, after the optional keys and before the row', () => {
     const { frontmatter, body } = parsedDocument(FULL_TICKET);
     frontmatter.dependsOn       = ['001', '002'];
 
-    const written = serializeTicketDocument(frontmatter, body);
+    const written = TicketDocumentUtil.serializeTicketDocument(frontmatter, body);
 
     expect(written).toContain('branch: "ticket/export-dialog"\ndependsOn: "001, 002"\ntask: 17');
     expect(parsedDocument(written).frontmatter.dependsOn).toEqual(['001', '002']);
@@ -465,6 +482,6 @@ describe('serializeTicketDocument', () => {
     const { frontmatter, body } = parsedDocument(FULL_TICKET);
     frontmatter.dependsOn       = [];
 
-    expect(serializeTicketDocument(frontmatter, body)).not.toContain('dependsOn');
+    expect(TicketDocumentUtil.serializeTicketDocument(frontmatter, body)).not.toContain('dependsOn');
   });
 });

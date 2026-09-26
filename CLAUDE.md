@@ -191,6 +191,8 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
   line the CLI does not own is kept and written back.
 - A ticket is its frontmatter `id`, never its file name. Ticket and task ids are never reused; gaps are never filled.
 - Only a transition stamps `updated`. The named verbs enforce the legality matrix; `ticket status` skips it on purpose.
+- The ticket parse stays one line-oriented pass, an agreed exception to read → validate → migrate → map: a second walk
+  over the lines would put at risk keeping every unowned line byte for byte.
 - A row's `history` holds only what the tool watched; nothing reconstructs phases. A review row belongs to its
   ticket by `reviewOf`; a free-standing row known only by its `Review <N> #<id>` name is given `reviewOf` and
   `reviewBarRound` when progress.json is read. Outside that, only the page (`page/`) still matches a name, as a
@@ -255,7 +257,8 @@ src/                        the target layout's code, filled step by step as the
   src/lib/                  package-grade building blocks, one folder each, the package's description in its main module's header:
                             atomic-file (AtomicFile.ts), git (GitProcess.ts), claude-code (ClaudeTranscripts.ts),
                             tracker-model (@types/Task.ts; Board.ts is its aggregate), utils
-  src/adapters/             the boundary: reading and mapping what the tracker stores, and the wording of log records and Board refusals
+  src/adapters/             the boundary, one folder per stored format (tickets so far) plus the shared utils: reading, writing and
+                            mapping what the tracker stores, and the wording of log records and Board refusals
   src/services/             app-wide services, one folder each
   src/shared/               app-specific code several parts use: the environment reader, the refusal, LIMITS,
                             the page payload types, ticket numbers

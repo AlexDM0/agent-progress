@@ -3,24 +3,18 @@
  * file is a listing entry and a `null`, so one broken file cannot take down `status` or `render`.
  */
 
-import {
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  unlinkSync,
-} from 'node:fs';
-import { dirname, join }       from 'node:path';
-import { writeFileAtomically } from '../../src/lib/atomic-file/AtomicFile.ts';
+import { readdirSync, readFileSync, unlinkSync } from 'node:fs';
+import { join }                                  from 'node:path';
+import { TicketFileIngestion }                   from '../../src/adapters/tickets/TicketFileIngestion.ts';
 import type {
   Ticket,
   TicketFrontmatter,
   TicketPriority,
   TicketType
 } from '../../src/lib/tracker-model/@types/Ticket.ts';
-import { TicketIdUtil }                                 from '../../src/lib/tracker-model/utils/TicketIdUtil.ts';
-import type { Workspace }                               from '../platform/Workspace.ts';
-import { SlugUtil }                                     from '../utils/SlugUtil.ts';
-import { parseTicketDocument, serializeTicketDocument } from './Frontmatter.ts';
+import { TicketIdUtil }   from '../../src/lib/tracker-model/utils/TicketIdUtil.ts';
+import type { Workspace } from '../platform/Workspace.ts';
+import { SlugUtil }       from '../utils/SlugUtil.ts';
 
 export interface MalformedTicketFile {
   filePath: string;
@@ -29,9 +23,11 @@ export interface MalformedTicketFile {
 }
 
 export interface TicketListing {
-  verdict:   'listed';
-  tickets:   Ticket[];
-  malformed: MalformedTicketFile[];
+  verdict:                'listed';
+  tickets:                Ticket[];
+  malformed:              MalformedTicketFile[];
+  /** The listed tickets whose file still holds a retired word, in id order; the next write of each stores it in the current format. */
+  ticketsInAnOlderFormat: Ticket[];
 }
 
 export interface CreateTicketInput {
@@ -49,7 +45,6 @@ export interface CreateTicketInput {
 const TICKET_FILE_EXTENSION      = '.md';
 const IDENTIFIER_PREFIX_MATCH    = /^(\d+)-/;
 const FILE_NAME_IDENTIFIER_MATCH = /^(\d+)(?:-|\.md$)/;
-const IDENTIFIER_LINE_MATCH      = /^id:/;
 
 /**
  * A ticket is known by its frontmatter `id`. A file whose name carries another number, and every file holding an id another
@@ -61,12 +56,17 @@ export function listTickets(workspace: Workspace): TicketListing {
 
   for (const fileName of ticketFileNamesIn(workspace)) {
     const filePath = join(workspace.ticketsDirectory, fileName);
-    const ticket   = ticketAt(filePath);
+    const reading  = new TicketFileIngestion(filePath).read();
 
-    if (ticket.verdict === 'parsed') {
-      parsedFiles.push({ fileName, ticket: ticket.ticket, identifierLine: ticket.identifierLine });
+    if (reading.verdict === 'parsed') {
+      parsedFiles.push({
+        fileName,
+        ticket:                reading.ticket,
+        identifierLine:        reading.identifierLine,
+        fileIsInAnOlderFormat: reading.fileIsInAnOlderFormat,
+      });
     } else {
-      malformed.push({ filePath, reason: ticket.reason, line: ticket.line });
+      malformed.push({ filePath, reason: reading.reason, line: reading.line });
     }
   }
 
@@ -82,7 +82,7 @@ export function listTickets(workspace: Workspace): TicketListing {
     }
   }
 
-  const tickets: Ticket[] = [];
+  const listedFiles: ParsedTicketFile[] = [];
   for (const parsedFile of namedConsistently) {
     const otherHolders = namedConsistently.filter((other) => other !== parsedFile && other.ticket.frontmatter.id === parsedFile.ticket.frontmatter.id);
 
@@ -90,13 +90,18 @@ export function listTickets(workspace: Workspace): TicketListing {
       const otherFileNames = otherHolders.map((other) => other.fileName).join(', ');
       malformed.push(malformedEntryOf(parsedFile, `ticket #${parsedFile.ticket.frontmatter.id} is also held by ${otherFileNames}`));
     } else {
-      tickets.push(parsedFile.ticket);
+      listedFiles.push(parsedFile);
     }
   }
 
-  tickets.sort((a, b) => Number(a.frontmatter.id) - Number(b.frontmatter.id));
+  listedFiles.sort((a, b) => Number(a.ticket.frontmatter.id) - Number(b.ticket.frontmatter.id));
   malformed.sort((a, b) => (a.filePath < b.filePath ? -1 : Number(a.filePath > b.filePath)));
-  return { verdict: 'listed', tickets, malformed };
+  return {
+    verdict:                'listed',
+    tickets:                listedFiles.map((listedFile) => listedFile.ticket),
+    malformed,
+    ticketsInAnOlderFormat: listedFiles.filter((listedFile) => listedFile.fileIsInAnOlderFormat).map((listedFile) => listedFile.ticket),
+  };
 }
 
 /** Looked up by frontmatter `id`, never by file name; a ticket `listTickets` reports as malformed answers for no id. */
@@ -106,13 +111,6 @@ export function readTicket(workspace: Workspace, reference: string): Ticket | nu
     return null;
   }
   return listTickets(workspace).tickets.find((ticket) => ticket.frontmatter.id === identifier) ?? null;
-}
-
-/** Writes through `src/lib/atomic-file/AtomicFile.ts` and never touches `updated`; only `src/lib/tracker-model/Board.ts` knows that a ticket changed. */
-export function writeTicket(ticket: Ticket): void {
-  // The directory is recreated rather than assumed: `clear --all` may have removed it.
-  mkdirSync(dirname(ticket.filePath), { recursive: true });
-  writeFileAtomically(ticket.filePath, serializeTicketDocument(ticket.frontmatter, ticket.body, ticket.lineEnding));
 }
 
 /**
@@ -128,8 +126,8 @@ export function nextTicketId(workspace: Workspace): string {
 
   for (const fileName of ticketFileNamesIn(workspace)) {
     spend(identifierInFileName(fileName));
-    const ticket = ticketAt(join(workspace.ticketsDirectory, fileName));
-    if (ticket.verdict === 'parsed') spend(ticket.ticket.frontmatter.id);
+    const reading = new TicketFileIngestion(join(workspace.ticketsDirectory, fileName)).read();
+    if (reading.verdict === 'parsed') spend(reading.ticket.frontmatter.id);
   }
   for (const identifier of ticketIdsNamedByTaskRows(workspace)) {
     spend(identifier);
@@ -170,35 +168,11 @@ export function deleteAllTickets(workspace: Workspace): number {
   return removed;
 }
 
-type TicketAtPath =
-  | { verdict: 'parsed'; ticket: Ticket; identifierLine: number }
-  | { verdict: 'malformed'; reason: string; line: number };
-
 interface ParsedTicketFile {
-  fileName:       string;
-  ticket:         Ticket;
-  identifierLine: number;
-}
-
-function ticketAt(filePath: string): TicketAtPath {
-  let text: string;
-  try {
-    text = readFileSync(filePath, 'utf8');
-  } catch (problem) {
-    return { verdict: 'malformed', reason: `the file could not be read: ${String(problem)}`, line: 0 };
-  }
-
-  const parsed = parseTicketDocument(text);
-  if (parsed.verdict === 'malformed') {
-    return parsed;
-  }
-  const ticket: Ticket = {
-    frontmatter: parsed.frontmatter,
-    body:        parsed.body,
-    filePath,
-    lineEnding:  parsed.lineEnding,
-  };
-  return { verdict: 'parsed', ticket, identifierLine: text.split('\n').findIndex((line) => IDENTIFIER_LINE_MATCH.test(line)) + 1 };
+  fileName:              string;
+  ticket:                Ticket;
+  identifierLine:        number;
+  fileIsInAnOlderFormat: boolean;
 }
 
 function malformedEntryOf(parsedFile: ParsedTicketFile, reason: string): MalformedTicketFile {

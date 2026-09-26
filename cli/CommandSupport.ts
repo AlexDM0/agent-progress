@@ -3,21 +3,17 @@
  * tickets into a Board, mutate, write the progress file, then the tickets the Board changed, then render through
  * `lib/render/Rerender.ts` — all inside the lock, in that order, so no older render lands last and the progress file is never behind the tickets.
  */
-import { withLock }                                from '../lib/platform/Lock';
-import { requireWorkspace, type Workspace }        from '../lib/platform/Workspace';
-import { readProgressFile, writeProgressFile }     from '../lib/progress/ProgressStore';
-import { rerenderDashboard, type RerenderOutcome } from '../lib/render/Rerender';
-import {
-  deleteAllTickets,
-  listTickets,
-  writeTicket,
-  type MalformedTicketFile
-}                                             from '../lib/tickets/TicketStore';
-import { NextLineUtil }                       from '../lib/utils/NextLineUtil';
-import { createProgressLogSink }              from '../src/adapters/ProgressLogSink';
-import { BoardRefusalWordingUtil }            from '../src/adapters/utils/BoardRefusalWordingUtil';
-import type { Concurrency }                   from '../src/lib/tracker-model/@types/Concurrency';
-import type { DispatcherState, ProgressFile } from '../src/lib/tracker-model/@types/ProgressFile';
+import { withLock }                                                from '../lib/platform/Lock';
+import { requireWorkspace, type Workspace }                        from '../lib/platform/Workspace';
+import { readProgressFile, writeProgressFile }                     from '../lib/progress/ProgressStore';
+import { rerenderDashboard, type RerenderOutcome }                 from '../lib/render/Rerender';
+import { deleteAllTickets, listTickets, type MalformedTicketFile } from '../lib/tickets/TicketStore';
+import { NextLineUtil }                                            from '../lib/utils/NextLineUtil';
+import { createProgressLogSink }                                   from '../src/adapters/ProgressLogSink';
+import { createTicketFileWriter }                                  from '../src/adapters/tickets/TicketFileWriter';
+import { BoardRefusalWordingUtil }                                 from '../src/adapters/utils/BoardRefusalWordingUtil';
+import type { Concurrency }                                        from '../src/lib/tracker-model/@types/Concurrency';
+import type { DispatcherState, ProgressFile }                      from '../src/lib/tracker-model/@types/ProgressFile';
 import type {
   AgentEffort,
   AgentModel,
@@ -235,8 +231,9 @@ async function writeTrackerUnderLock<MutationResult, Reading>(
       deleteAllTicketFilesAfterwards: (onDeleted) => { deletionCallbacks.push(onDeleted); },
     });
 
+    const ticketFileWriter = createTicketFileWriter();
     writeProgressFile(workspace, progress);
-    for (const ticket of board.changedTickets()) writeTicket(ticket);
+    for (const ticket of board.changedTickets()) ticketFileWriter.write(ticket);
     for (const onDeleted of deletionCallbacks) onDeleted(deleteAllTickets(workspace));
     const reading = readAfterWriting(board);
     await renderDashboard(context, workspace);

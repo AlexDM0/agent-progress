@@ -21,6 +21,7 @@ import {
   expect,
   test,
 } from 'bun:test';
+import { createTicketFileWriter }  from '../../src/adapters/tickets/TicketFileWriter.ts';
 import type { Ticket, TicketType } from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { TRACKER_FILES }           from '../../src/services/tracker/constants/TrackerFiles.ts';
 import type { Workspace }          from '../platform/Workspace.ts';
@@ -30,7 +31,6 @@ import {
   listTickets,
   nextTicketId,
   readTicket,
-  writeTicket,
 } from './TicketStore.ts';
 
 const FILED_AT    = '2026-09-18T09:00:00+02:00';
@@ -63,7 +63,7 @@ function fileTicket(workspace: Workspace, title: string, type: TicketType): Tick
     bodyFor: () => TICKET_BODY,
     at:      FILED_AT,
   });
-  writeTicket(ticket);
+  createTicketFileWriter().write(ticket);
   return ticket;
 }
 
@@ -156,7 +156,9 @@ describe('createTicket and listTickets', () => {
     const workspace = scratchWorkspace();
     rmSync(workspace.ticketsDirectory, { recursive: true, force: true });
 
-    expect(listTickets(workspace)).toEqual({ verdict: 'listed', tickets: [], malformed: [] });
+    expect(listTickets(workspace)).toEqual({
+      verdict: 'listed', tickets: [], malformed: [], ticketsInAnOlderFormat: [] 
+    });
     expect(nextTicketId(workspace)).toBe('001');
   });
 });
@@ -200,6 +202,18 @@ describe('readTicket', () => {
     expect(readFileSync(ticketPath, 'utf8')).toBe(storedBytes);
     expect(storedBytes).toContain('status: open');
   });
+
+  test('ticketsInAnOlderFormat lists exactly the tickets stored with a retired word', () => {
+    const workspace  = scratchWorkspace();
+    fileTicket(workspace, 'Fix the export dialog', 'bug');
+    const ticketPath = fileTicket(workspace, 'Add a keyboard shortcut', 'feature').filePath;
+    writeFileSync(ticketPath, readFileSync(ticketPath, 'utf8').replace('status: "pending"', 'status: open'));
+
+    const listing = listTickets(workspace);
+
+    expect(listing.tickets.map((listed) => listed.frontmatter.id)).toEqual(['001', '002']);
+    expect(listing.ticketsInAnOlderFormat.map((listed) => listed.filePath)).toEqual([ticketPath]);
+  });
 });
 
 describe('nextTicketId', () => {
@@ -241,9 +255,10 @@ describe('a ticket file renamed by hand', () => {
     expect(readTicket(workspace, '12')).toBeNull();
     expect(readTicket(workspace, '1')).toBeNull();
     expect(listTickets(workspace)).toEqual({
-      verdict:   'listed',
-      tickets:   [],
-      malformed: [{ filePath: renamedPath, reason: 'the file name says #012 but its `id` is 001', line: 2 }],
+      verdict:                'listed',
+      tickets:                [],
+      malformed:              [{ filePath: renamedPath, reason: 'the file name says #012 but its `id` is 001', line: 2 }],
+      ticketsInAnOlderFormat: [],
     });
     expect(nextTicketId(workspace)).toBe('013');
   });
@@ -262,6 +277,7 @@ describe('a ticket file renamed by hand', () => {
         { filePath: first.filePath, reason: 'ticket #001 is also held by copy-of-the-first.md', line: 2 },
         { filePath: copyPath, reason: 'ticket #001 is also held by 001-fix-the-export-dialog.md', line: 2 },
       ],
+      ticketsInAnOlderFormat: [],
     });
   });
 
@@ -283,59 +299,7 @@ describe('a ticket file renamed by hand', () => {
   });
 });
 
-describe('writeTicket and deleteAllTickets', () => {
-  test('a CRLF ticket with an empty body is written back with CRLF', () => {
-    const workspace  = scratchWorkspace();
-    const ticketPath = join(workspace.ticketsDirectory, '001-windows.md');
-    const windowsTicket = [
-      '---',
-      'id: "001"',
-      'title: "Windows"',
-      'type: "bug"',
-      'status: "pending"',
-      'filed: "2026-09-18T09:00:00+02:00"',
-      'updated: "2026-09-18T09:00:00+02:00"',
-      'started: null',
-      'finished: null',
-      'delivered: null',
-      'abandonedAt: null',
-      'task: null',
-      '---',
-      '',
-    ].join('\r\n');
-    writeFileSync(ticketPath, windowsTicket);
-
-    const ticket = readTicket(workspace, '1');
-    if (ticket === null) throw new Error('expected the CRLF ticket to parse');
-    writeTicket(ticket);
-
-    expect(readFileSync(ticketPath, 'utf8')).toBe(windowsTicket);
-  });
-
-  test('writes exactly the ticket it is given, leaving updated for the transition that owns it', () => {
-    const workspace = scratchWorkspace();
-    const filed     = fileTicket(workspace, 'Fix the export dialog', 'bug');
-
-    filed.frontmatter.branch = 'ticket/export-dialog';
-    filed.body               = `${TICKET_BODY}\n## Acceptance\n\nThe folder is remembered.\n`;
-    writeTicket(filed);
-
-    const reread = readTicket(workspace, '1');
-
-    expect(reread?.frontmatter.branch).toBe('ticket/export-dialog');
-    expect(reread?.frontmatter.updated).toBe(FILED_AT);
-    expect(reread?.body).toBe(filed.body);
-  });
-
-  test('recreates a tickets directory that `clear --all` removed', () => {
-    const workspace = scratchWorkspace();
-    rmSync(workspace.ticketsDirectory, { recursive: true, force: true });
-
-    fileTicket(workspace, 'Fix the export dialog', 'bug');
-
-    expect(readTicket(workspace, '1')?.frontmatter.title).toBe('Fix the export dialog');
-  });
-
+describe('deleteAllTickets', () => {
   test('deletes every ticket file and answers how many there were', () => {
     const workspace = scratchWorkspace();
     fileTicket(workspace, 'Fix the export dialog', 'bug');
