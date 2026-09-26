@@ -94,7 +94,9 @@ follow from the model above:
   bar's name). The Kanban and the Progress chart then agree because they read the same fact, not
   because two copies of a rule do.
 - **Legacy fallbacks are resolved once, at ingestion.** A review bar known only by its name gets its
-  `reviewOf` and round there; a delivered row without a review stamp is handled there too. Nothing
+  `reviewOf` and round there (`src/adapters/utils/LegacyReviewBarUtil.ts`, called from the reader
+  today). A delivered row without a review stamp is not resolved at ingestion, because ingestion
+  cannot invent the stamp. The Board query `deliveredRowCountsAsReviewed` answers it. Nothing
   downstream parses a name.
 - **The row states and the Kanban lanes are page vocabularies**: string-literal unions local to
   page/, like the pill labels and lane titles that word them.
@@ -198,9 +200,11 @@ Each step is one or more commits on the branch; each commit is green.
    reviewed. Every rule gets a spec beside the Board. It runs as 4a (types, constants, status words and
    verbs), 4b (the Board) and 4c (the page and hook queries, the stored review round).
 5. **Adapters.** Ingestion classes and writers for progress.json, ticket markdown and log.jsonl,
-   including the migrations: old status words, old log sentences to notes, legacy review bars given
-   their `reviewOf` and round, delivered rows without a review stamp. The CLI wording and HTML label
-   mappers, and the refusal-reason wording.
+   including the migrations: old status words, old log sentences to notes, and legacy review bars
+   given their `reviewOf` and round (move `src/adapters/utils/LegacyReviewBarUtil.ts`'s call out of
+   `lib/progress/ProgressStore.ts` into the ingestion class). A delivered row without a review stamp
+   stays the Board query `deliveredRowCountsAsReviewed`, so ingestion has no migration for it. The
+   CLI wording and HTML label mappers, and the refusal-reason wording.
 6. **Services.** src/services/tracker (workspace discovery, lock, the ingest → mutate → write →
    render pipeline) and src/services/render (template, markdown, compiling page/ by path, reading
    resources/). The render service writes the Board facts from step 4 into the payload.
