@@ -28,14 +28,14 @@ const AGENT_OPTIONS_LEFT_OUT: [string, string][] = [
   ['schema: REVIEWER_SCHEMA,\n    model,\n    effort,', 'schema: REVIEWER_SCHEMA,\n    model,'],
 ];
 
-/** The real script's closing log line, where a planted form stands inside the body the Workflow tool would run. */
+/** The old script's closing log line, where a planted form stands inside the body the Workflow tool would run. */
 const PLANTING_POINT = 'log(`Done: ';
 
 function scriptConstantOf(name: string): string | null {
   return new RegExp(`^const ${name} = '(\\w+)';$`, 'm').exec(SCRIPT_SOURCE)?.[1] ?? null;
 }
 
-describe('the dispatcher script', () => {
+describe('the old dispatcher script, templates/workflows/AgentProgressDispatch.js', () => {
   test.each(AGENT_OPTIONS_LEFT_OUT)('an agent started without its model or effort (%s → %s) fails the check', async (find, replace) => {
     expect(SCRIPT_SOURCE.split(find).length - 1).toBe(1);
     expect(modelsAndEffortsAreExplicit(await runDispatchScript(DECISION_SCENARIOS['every kind of agent runs'](), SCRIPT_SOURCE.replace(find, replace)))).toBe(false);
@@ -62,14 +62,14 @@ describe('the dispatcher script', () => {
   });
 });
 
-describe('the dispatcher script and a held ticket', () => {
+describe('the old dispatcher script and a held ticket', () => {
   test('every agent is told to return heldTicketIds with the concurrency block, and the schema requires it', () => {
     expect(SCRIPT_SOURCE).toContain('(limit, agentsInFlight, freeSlots, readyTicketIds, dispatcherState, heldTicketIds)');
     expect(SCRIPT_SOURCE).toMatch(/required: \[[^\]]*'heldTicketIds'\]/);
   });
 });
 
-describe('the dispatcher and the agent brief', () => {
+describe('the old dispatcher script and the agent brief', () => {
   const { reworkThresholdLines } = agentBriefNumbers();
 
   test('the round decision counts against the brief\'s threshold', () => {
@@ -79,7 +79,7 @@ describe('the dispatcher and the agent brief', () => {
 });
 
 describe('nondeterministicCallsIn', () => {
-  test('each form planted in the real script is caught', () => {
+  test('each form planted in the old script is caught', () => {
     const source = readOldDispatchScript();
     expect(source.split(PLANTING_POINT).length - 1).toBe(1);
     for (const planted of ['Date.now()', 'Math.random()', 'new Date()']) {
@@ -88,19 +88,19 @@ describe('nondeterministicCallsIn', () => {
     }
   });
 
-  test('the real script calls no clock and no randomness', () => {
+  test('the old script calls no clock and no randomness', () => {
     expect(nondeterministicCallsIn(readOldDispatchScript())).toEqual([]);
   });
 });
 
 describe('metaLiteralVerdictOf', () => {
-  test('the real script\'s meta is a pure literal, walked node by node', () => {
+  test('the old script\'s meta is a pure literal, walked node by node', () => {
     const verdict = metaLiteralVerdictOf(readOldDispatchScript());
     expect(verdict.verdict).toBe('pure');
     expect(verdict.verdict === 'pure' ? verdict.literalNodeCount : 0).toBeGreaterThan(15);
   });
 
-  test('an impurity planted in the real script\'s meta is caught', () => {
+  test('an impurity planted in the old script\'s meta is caught', () => {
     const source = readOldDispatchScript().replace('name:        \'agent-progress-dispatch\',', 'name:        `agent-progress-${1}`,');
     expect(metaLiteralVerdictOf(source).verdict).toBe('impure');
   });

@@ -193,8 +193,11 @@ export class DispatchRun {
   }
 
   // A takeover still waiting here never starts in this run, a stop or others holding the limit kept it out, so its row is released like a parked one.
-  setAsideRowsToRelease(): boolean {
+  setAsideRowsToRelease(): void {
     this.rowsToRelease = [...this.takeoversWaiting.values()];
+  }
+
+  parkPhaseHasWork(): boolean {
     return this.rowsToRelease.length > 0 || this.inFlight.size > 0;
   }
 

@@ -49,7 +49,8 @@ export async function runDispatcher(runtime: WorkflowRuntime): Promise<DispatchS
   }
 
   run.carryOutParksAwaitingTheNextAgent();
-  if (run.setAsideRowsToRelease()) {
+  run.setAsideRowsToRelease();
+  if (run.parkPhaseHasWork()) {
     runtime.phase('Park');
     for (;;) {
       run.releaseRowsWithinSlots();

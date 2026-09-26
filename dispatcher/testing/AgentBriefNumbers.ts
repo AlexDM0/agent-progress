@@ -3,8 +3,6 @@ import { readFileSync } from 'node:fs';
 import { join }         from 'node:path';
 import { expect }       from 'bun:test';
 
-const AGENT_BRIEF_PATH = join(import.meta.dir, '..', '..', 'templates', 'AgentBrief.md');
-
 export interface AgentBriefNumbers {
   builderApiCallBudget:  number;
   reviewerApiCallBudget: number;
@@ -17,8 +15,12 @@ function numberIn(text: string, pattern: RegExp): number {
   return Number(match?.[1]);
 }
 
+function agentBriefPath(): string {
+  return join(import.meta.dir, '..', '..', 'templates', 'AgentBrief.md');
+}
+
 export function agentBriefNumbers(): AgentBriefNumbers {
-  const brief = readFileSync(AGENT_BRIEF_PATH, 'utf8');
+  const brief = readFileSync(agentBriefPath(), 'utf8');
   return {
     builderApiCallBudget:  numberIn(brief, /or at about (\d+) API calls/),
     reviewerApiCallBudget: numberIn(brief, /up to about (\d+) API calls/),

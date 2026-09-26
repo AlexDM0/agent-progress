@@ -39,10 +39,10 @@ function nextRoundVerdictOf(earlierRounds: readonly ReviewedRound[], current: Re
       previousFindingCount: previous.findings.length,
     });
   }
-  const repeatedClass = current.findings.find((finding) => earlierClasses.has(finding.class));
-  if (repeatedClass !== undefined) return refused({ reason: 'finding-class-returned', requestedRound, findingClass: repeatedClass.class });
-  const newFile = current.findings.find((finding) => !earlierFiles.has(finding.file));
-  if (newFile !== undefined) return refused({ reason: 'new-file-named', requestedRound, file: newFile.file });
+  const findingOfAReturnedClass = current.findings.find((finding) => earlierClasses.has(finding.class));
+  if (findingOfAReturnedClass !== undefined) return refused({ reason: 'finding-class-returned', requestedRound, findingClass: findingOfAReturnedClass.class });
+  const findingInANewFile = current.findings.find((finding) => !earlierFiles.has(finding.file));
+  if (findingInANewFile !== undefined) return refused({ reason: 'new-file-named', requestedRound, file: findingInANewFile.file });
   return { granted: true };
 }
 
