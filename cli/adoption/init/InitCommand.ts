@@ -15,6 +15,8 @@ import type { CommandHandler }              from '../../CommandTable';
 import { OlderTrackerFilesRewriteReport }   from '../../legacy/OlderTrackerFilesRewriteReport';
 import { IGNORED_RETIRED_OPTION_NAMES }     from '../../legacy/constants/IgnoredRetiredOptions';
 import { OutputUtil }                       from '../../utils/OutputUtil';
+import { installedFileTextsFor }            from '../InstalledFileGeneration';
+import type { InstalledFileTexts }          from '../InstalledFileGeneration';
 import { refreshTrackedRepository }         from '../TrackerRefresh';
 
 const USAGE = 'agent-progress init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';
@@ -96,17 +98,17 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
   refuseAnOverrideNamingAnotherDirectory(context.currentDirectory, rootDirectory);
 
   // The brief, the block and the hook are written by the same refresh a second `init` and `update` run, so a fresh tracker and an adopted one never drift.
-  const refreshTheRepository = () => refreshTrackedRepository({
+  const refreshTheRepository = (installedFileTexts: InstalledFileTexts) => refreshTrackedRepository({
     workspace,
+    installedFileTexts,
     commandName:   'init',
     writesClaudeInstructions,
     writesTheSubagentStopHook,
-    writesTheDispatcherWorkflow,
     writesTheAgentDefinition,
     standardError: context.standardError,
   });
-  const reportTheRefreshOfAnExistingTracker = async () => {
-    const refresh = refreshTheRepository();
+  const reportTheRefreshOfAnExistingTracker = async (installedFileTexts: InstalledFileTexts) => {
+    const refresh = refreshTheRepository(installedFileTexts);
     const printRefreshReport = (trackerLine: string | null) => {
       context.standardOutput(`agent-progress is already initialised in ${rootDirectory}.`);
       if (trackerLine !== null) context.standardOutput(`  tracker:     ${trackerLine}`);
@@ -124,15 +126,18 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
   };
 
   const existingWorkspace = findWorkspace(rootDirectory);
+  if (existingWorkspace !== null && existingWorkspace.rootDirectory !== workspace.rootDirectory) {
+    throw new OperationRefusal(
+      'refused',
+      `A tracker already governs this directory: ${existingWorkspace.trackerDirectory}. `
+      + `Run \`agent-progress update\` in ${existingWorkspace.rootDirectory} instead to refresh what the tracker writes into the repository.`,
+    );
+  }
+
+  // Every installed text is computed before the first write, so a dispatcher that will not bundle leaves no tracker and no file behind.
+  const installedFileTexts = await installedFileTextsFor({ generatesTheDispatcherScript: writesTheDispatcherWorkflow });
   if (existingWorkspace !== null) {
-    if (existingWorkspace.rootDirectory !== workspace.rootDirectory) {
-      throw new OperationRefusal(
-        'refused',
-        `A tracker already governs this directory: ${existingWorkspace.trackerDirectory}. `
-        + `Run \`agent-progress update\` in ${existingWorkspace.rootDirectory} instead to refresh what the tracker writes into the repository.`,
-      );
-    }
-    await reportTheRefreshOfAnExistingTracker();
+    await reportTheRefreshOfAnExistingTracker(installedFileTexts);
     return;
   }
 
@@ -145,12 +150,12 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
     trackerId: randomUUID(),
   }, context.now, context.renderState);
   if (creation.verdict === 'already-exists') {
-    await reportTheRefreshOfAnExistingTracker();
+    await reportTheRefreshOfAnExistingTracker(installedFileTexts);
     return;
   }
   OutputUtil.reportRenderProblems(context, creation.renderOutcome);
 
-  const refresh = refreshTheRepository();
+  const refresh = refreshTheRepository(installedFileTexts);
 
   context.standardOutput(`Initialised agent-progress for "${project}" in ${rootDirectory}`);
   context.standardOutput(`  tracker:     ${workspace.trackerDirectory}`);

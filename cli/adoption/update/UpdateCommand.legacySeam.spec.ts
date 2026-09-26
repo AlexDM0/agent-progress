@@ -23,7 +23,7 @@ const REFRESH_LINE_PATTERNS = [
   /^ {2}CLAUDE\.md: {3}unchanged$/m,
   /^ {2}brief: {7}unchanged \(\S+\/\.agent-progress\/agent-brief\.md\)$/m,
   /^ {2}hooks: {7}\S+\/\.claude\/settings\.local\.json \(unchanged\)$/m,
-  /^ {2}workflow: {4}unchanged \(\S+\/\.claude\/workflows\/agent-progress-dispatch\.js\)$/m,
+  /^ {2}workflow: {4}unchanged \(\S+\/\.agent-progress\/agent-progress-dispatch\.js\)$/m,
   /^ {2}agent: {7}unchanged \(\S+\/\.claude\/agents\/agent-progress-worker\.md\)$/m,
   /^ {2}dashboard: {3}\S+\/\.agent-progress\/progress\.html$/m,
 ];

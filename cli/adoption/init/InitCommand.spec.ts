@@ -25,13 +25,22 @@ import {
   gitIsAvailable,
   removeScratchDirectory
 }                                                              from '../../../src/testing/ScratchWorkspace';
+import { CLAUDE_MANAGED_BLOCK_MARKERS } from '../../InstalledFiles';
 import { runCommandLine }               from '../../Main';
 import { createCapturedCommandContext } from '../../testing/CapturedCommandContext';
-import { CLAUDE_MANAGED_BLOCK_MARKERS } from '../TrackerRefresh';
+import { installedFileTextsFor }        from '../InstalledFileGeneration';
 
 const scratchDirectories: string[] = [];
 
-const DISPATCHER_WORKFLOW_TEMPLATE_PATH = join(import.meta.dir, '..', '..', '..', 'templates', 'workflows', 'AgentProgressDispatch.js');
+const GENERATED_DISPATCHER_SCRIPT = (await installedFileTextsFor({ generatesTheDispatcherScript: true })).dispatcherScript ?? '';
+
+function dispatcherScriptPathIn(repositoryDirectory: string): string {
+  return join(repositoryDirectory, '.agent-progress', 'agent-progress-dispatch.js');
+}
+
+function retiredDispatcherScriptPathIn(repositoryDirectory: string): string {
+  return join(repositoryDirectory, '.claude', 'workflows', 'agent-progress-dispatch.js');
+}
 
 function scratchRepository(): string {
   const repositoryDirectory = createScratchGitRepository('init-command');
@@ -142,25 +151,26 @@ describe.skipIf(!gitIsAvailable())('initialising a repository', () => {
     expect(optedOut.outputText()).toContain('hooks:       left alone (--no-hooks)');
   });
 
-  // The Workflow tool finds the dispatcher by this file name, so a copy that differs from the template by a byte is a dispatcher nobody tested.
-  test('installs the dispatcher workflow byte-identical to the template', async () => {
+  // The orchestrator launches the dispatcher by this path, so a copy that differs from the generated script by a byte is a dispatcher nobody tested.
+  test('installs the dispatcher in the tracker directory byte-identical to the generated script, and nothing under .claude/workflows', async () => {
     const repositoryDirectory = scratchRepository();
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
 
     expect(await runCommandLine(['init'], context)).toBe(0);
 
-    const workflowFilePath = join(repositoryDirectory, '.claude', 'workflows', 'agent-progress-dispatch.js');
-    expect(readFileSync(workflowFilePath).equals(readFileSync(DISPATCHER_WORKFLOW_TEMPLATE_PATH))).toBe(true);
-    expect(context.outputText()).toMatch(/workflow: {4}updated \(\S+\/\.claude\/workflows\/agent-progress-dispatch\.js\)/);
+    expect(readFileSync(dispatcherScriptPathIn(repositoryDirectory), 'utf8')).toBe(GENERATED_DISPATCHER_SCRIPT);
+    expect(existsSync(join(repositoryDirectory, '.claude', 'workflows'))).toBe(false);
+    expect(context.outputText()).toMatch(/workflow: {4}updated \(\S+\/\.agent-progress\/agent-progress-dispatch\.js\)\n/);
   });
 
-  test('--no-workflow writes nothing under .claude/workflows, and says so', async () => {
+  test('--no-workflow writes no dispatcher, in the tracker or under .claude/workflows, and says so', async () => {
     const repositoryDirectory = scratchRepository();
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
 
     expect(await runCommandLine(['init', '--no-workflow', '--no-hooks', '--no-agent-definition'], context)).toBe(0);
 
     expect(existsSync(join(repositoryDirectory, '.claude')), 'with the hook and the agent opted out too, nothing at all lands in .claude/').toBe(false);
+    expect(existsSync(dispatcherScriptPathIn(repositoryDirectory))).toBe(false);
     expect(context.outputText()).toContain('workflow:    left alone (--no-workflow)');
   });
 
@@ -226,6 +236,21 @@ describe.skipIf(!gitIsAvailable())('a second init', () => {
     expect(readFileSync(briefFilePath, 'utf8'), 'the brief is shipped guidance, so a re-run restores the current wording').toStartWith('# Agent brief');
     // The tracker id is the page's localStorage key, so a re-run that reset it would reset every reader's stored range.
     expect((JSON.parse(readFileSync(progressFilePath, 'utf8')) as { trackerId: string }).trackerId).toBe(trackerIdBefore);
+  });
+
+  test('on an existing tracker writes the generated dispatcher, removes the copy an older version installed, and reports both', async () => {
+    const repositoryDirectory = scratchRepository();
+    await runCommandLine(['init'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }));
+    mkdirSync(join(repositoryDirectory, '.claude', 'workflows'), { recursive: true });
+    writeFileSync(retiredDispatcherScriptPathIn(repositoryDirectory), '// The dispatcher an older agent-progress installed.\n');
+
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['init'], context)).toBe(0);
+
+    expect(existsSync(retiredDispatcherScriptPathIn(repositoryDirectory))).toBe(false);
+    expect(readFileSync(dispatcherScriptPathIn(repositoryDirectory), 'utf8')).toBe(GENERATED_DISPATCHER_SCRIPT);
+    expect(context.outputText())
+      .toMatch(/workflow: {4}unchanged \(\S+\/\.agent-progress\/agent-progress-dispatch\.js\); removed the old \S+\/\.claude\/workflows\/agent-progress-dispatch\.js\n/);
   });
 
   test('one directory below an existing tracker is refused with exit 1 and names where the tracker is', async () => {

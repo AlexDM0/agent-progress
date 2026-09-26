@@ -1,7 +1,7 @@
 /**
- * The built Workflow script's shape, read through `dispatcher/testing/WorkflowScriptSource.ts`: a meta equal as a value to the old script's, no
- * clock or randomness, no top-level binding that shadows a Workflow global, the same text on every build with no path of the checkout in it, and
- * one agent() call. Each guard is watched failing on a form planted in the bundle, since a clean verdict on its own proves nothing.
+ * The built Workflow script's shape, read through `dispatcher/testing/WorkflowScriptSource.ts`: a pure meta equal as a value to the frozen
+ * table's, no clock or randomness, no top-level binding that shadows a Workflow global, the same text on every build with no path of the
+ * checkout in it, and one agent() call. Each guard is watched failing on a form planted in the bundle, since a clean verdict on its own proves nothing.
  */
 import { join } from 'node:path';
 
@@ -11,7 +11,6 @@ import { DISPATCH_META }                                                        
 import { DispatchScriptBundleBookkeeping, builtScriptTextOf, bundleDispatchScript } from './testing/DispatchScriptBundle.ts';
 import { WORKFLOW_GLOBAL_NAMES }                                                    from './testing/DispatchScriptHarness.ts';
 import { readFrozenDispatchTraces }                                                 from './testing/DispatchTraceCapture.ts';
-import { readOldDispatchScript }                                                    from './testing/OldDispatchScript.ts';
 import {
   metaLiteralValueOf,
   metaLiteralVerdictOf,
@@ -25,6 +24,11 @@ const RUNNER_CALL_OPENING = '\nreturn await ';
 
 const NAMES_DECLARED_AT_THE_BUNDLE_TOP_LEVEL = ['DispatchRun', 'runDispatcher', 'dispatchFromWorkflowGlobals'];
 
+const META_NAME_LINE = '"name": "agent-progress-dispatch",';
+
+// The floor proves the walk read the meta node by node, so a pure verdict is about a meta it actually walked.
+const LITERAL_NODE_FLOOR = 15;
+
 function plantedBeforeTheRunnerCall(statement: string): { source: string; plantedLine: number } {
   const runnerCallStart = BUNDLE_TEXT.lastIndexOf(RUNNER_CALL_OPENING) + 1;
   const textBefore = BUNDLE_TEXT.slice(0, runnerCallStart);
@@ -36,17 +40,24 @@ describe('the built dispatcher script', () => {
     expect(BUNDLE_TEXT).toMatch(/\nreturn await \w+\(\);\n$/);
   });
 
-  test('carries a pure meta whose value is DISPATCH_META, the frozen table\'s and the old script\'s meta, key order included', () => {
+  test('carries a pure meta whose value is DISPATCH_META and the frozen table\'s meta, key order included', () => {
     const frozenMeta = readFrozenDispatchTraces().meta;
-    const oldScriptMetaRead = metaLiteralValueOf(readOldDispatchScript());
     const metaRead = metaLiteralValueOf(BUNDLE_TEXT);
     expect(metaLiteralVerdictOf(BUNDLE_TEXT).verdict).toBe('pure');
     expect(metaRead).toEqual({ verdict: 'value', value: DISPATCH_META });
     expect(metaRead).toEqual({ verdict: 'value', value: frozenMeta });
     expect(metaRead.verdict === 'value' ? JSON.stringify(metaRead.value) : null).toBe(JSON.stringify(frozenMeta));
-    expect(oldScriptMetaRead.verdict).toBe('value');
-    expect(metaRead).toEqual(oldScriptMetaRead);
-    expect(JSON.stringify(metaRead)).toBe(JSON.stringify(oldScriptMetaRead));
+  });
+
+  test('its meta walk reaches more than 15 literal nodes', () => {
+    const verdict = metaLiteralVerdictOf(BUNDLE_TEXT);
+    expect(verdict.verdict === 'pure' ? verdict.literalNodeCount : 0).toBeGreaterThan(LITERAL_NODE_FLOOR);
+  });
+
+  test('an impurity planted in its meta is caught', () => {
+    expect(BUNDLE_TEXT.split(META_NAME_LINE)).toHaveLength(2);
+    const source = BUNDLE_TEXT.replace(META_NAME_LINE, '"name": `agent-progress-${1}`,');
+    expect(metaLiteralVerdictOf(source).verdict).toBe('impure');
   });
 
   test('calls no clock and no randomness', () => {

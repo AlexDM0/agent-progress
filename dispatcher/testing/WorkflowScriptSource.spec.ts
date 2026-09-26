@@ -1,8 +1,8 @@
 /**
  * The guard over a dispatcher Workflow script's text: no clock, no randomness, a `meta` the Workflow tool can read without running the script,
  * and no top-level binding that shadows a Workflow global. A clean verdict proves nothing on its own, so every form is constructed here and must
- * be caught; the cases on the committed old script are in `dispatcher/testing/OldDispatchScript.spec.ts`, and those on the bundle in
- * `dispatcher/DispatchScript.spec.ts`. The meta's value must come back exactly, as the bundle's JSON-written meta is compared by value.
+ * be caught; the cases on the bundle are in `dispatcher/DispatchScript.spec.ts`. The meta's value must come back exactly, as the bundle's
+ * JSON-written meta is compared by value.
  */
 import { describe, expect, test } from 'bun:test';
 

@@ -6,10 +6,11 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import type { DispatchSettings } from '../@types/DispatchSettings.ts';
-import type { PreviousPass }     from '../@types/DispatchWork.ts';
-import { DISPATCH_POLICY }       from '../constants/DispatchPolicy.ts';
-import { AgentPromptUtil }       from './AgentPromptUtil.ts';
+import { DispatcherClaimNoteUtil } from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
+import type { DispatchSettings }   from '../@types/DispatchSettings.ts';
+import type { PreviousPass }       from '../@types/DispatchWork.ts';
+import { DISPATCH_POLICY }         from '../constants/DispatchPolicy.ts';
+import { AgentPromptUtil }         from './AgentPromptUtil.ts';
 
 const {
   builderPrompt,
@@ -107,6 +108,13 @@ describe('the builder prompt', () => {
     const firstPass = firstPassOf(WHOLE_BOARD_SETTINGS, false);
     expect(firstPass).toContain('read the `note` of the `row` in the ticket\'s `ticketRows` entry of `agent-progress status --json`');
     expect(firstPass).not.toContain('--full');
+  });
+
+  // `ticket unhold` recognises a dispatcher's claim by this note, so the builder must claim under exactly the util's form for its run.
+  test('the builder claims its ticket under the claim note of its own run', () => {
+    for (const settings of [WHOLE_BOARD_SETTINGS, SINGLE_TICKET_SETTINGS]) {
+      expect(firstPassOf(settings, false), settings.runLabel).toContain(`--note "${DispatcherClaimNoteUtil.claimNoteFor(settings.runLabel, '001')}"`);
+    }
   });
 
   test('the builder starts its reviewer\'s bar with `ticket finish --start-review` under this run\'s review note', () => {

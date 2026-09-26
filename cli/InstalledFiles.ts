@@ -1,0 +1,34 @@
+/** Where each file the tool installs into a tracked repository lives, and the markers of the block it owns in `CLAUDE.md`. */
+import { join } from 'node:path';
+
+import type { ManagedBlockMarkers } from '../src/lib/claude-code/ClaudeInstructions';
+import { TRACKER_FILES }            from '../src/services/tracker/constants/TrackerFiles';
+
+/** Named as the dispatcher's `meta.name`; it is launched by its path only. */
+const DISPATCHER_SCRIPT_FILE_NAME = 'agent-progress-dispatch.js';
+
+/** Neither marker may contain the other: `src/lib/claude-code/ClaudeInstructions.ts` finds the end by searching forward from the start. */
+export const CLAUDE_MANAGED_BLOCK_MARKERS: ManagedBlockMarkers = {
+  start: '<!-- agent-progress:managed:start -->',
+  end:   '<!-- agent-progress:managed:end -->',
+};
+
+export interface InstalledFilePaths {
+  agentBrief:              string;
+  claudeInstructions:      string;
+  dispatcherScript:        string;
+  /** Where an agent-progress older than the generated dispatcher installed its copy, which `init` and `update` now delete. */
+  retiredDispatcherScript: string;
+  /** Claude Code reads a project's subagent definitions from `.claude/agents/`; the file name matches the definition's `name`. */
+  agentDefinition:         string;
+}
+
+export function installedFilePathsIn(rootDirectory: string): InstalledFilePaths {
+  return {
+    agentBrief:              join(rootDirectory, TRACKER_FILES.TRACKER_DIRECTORY_NAME, TRACKER_FILES.AGENT_BRIEF_FILE_NAME),
+    claudeInstructions:      join(rootDirectory, 'CLAUDE.md'),
+    dispatcherScript:        join(rootDirectory, TRACKER_FILES.TRACKER_DIRECTORY_NAME, DISPATCHER_SCRIPT_FILE_NAME),
+    retiredDispatcherScript: join(rootDirectory, '.claude', 'workflows', DISPATCHER_SCRIPT_FILE_NAME),
+    agentDefinition:         join(rootDirectory, '.claude', 'agents', 'agent-progress-worker.md'),
+  };
+}

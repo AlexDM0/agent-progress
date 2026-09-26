@@ -133,12 +133,13 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
 ### Generated and installed files
 
 - Generated files do not live in the repository, and everything installed elsewhere is to carry one install
-  version. Until plan step 8, nothing is stamped or refused on a mismatch, and `init` and `update` still install the
-  committed `templates/workflows/AgentProgressDispatch.js`. Its policy is ported to `dispatcher/` in TypeScript until
-  step 8 generates the installed script from the port and deletes the old one.
-- The frozen table `dispatcher/testing/FrozenDispatchTraces.json` was taken from that script and is since retaken from
-  the port's bundle only in a commit that means to change what the agents are told, whose table diff shows prompt text
-  or wire names and no decision: the one exception to a frozen table coming from the previous implementation.
+  version, which follows in plan step 8's later commits. `init` and `update` generate the dispatcher from
+  `dispatcher/` into `.agent-progress/agent-progress-dispatch.js`, and delete a `.claude/workflows/` copy an older
+  version installed.
+- The frozen table `dispatcher/testing/FrozenDispatchTraces.json` was first taken from the old committed script at
+  bc42604, and is retaken from the port's bundle only in a commit that means to change what the agents are told, whose
+  table diff shows prompt text or wire names and no decision: the one exception to a frozen table coming from the
+  previous implementation.
 
 ### Comments
 
@@ -164,7 +165,11 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
 - `dispatcher/` is the Workflow-runtime project `dispatcher/tsconfig.json` (no Bun, Node or DOM types), with
   `dispatcher/tsconfig.spec.json` for its specs and `dispatcher/testing/`. Its `include` list is the `src/` files the
   dispatcher reaches, and a dispatcher module that imports a new `src/` file adds it there in the same change. Only
-  `dispatcher/DispatchScript.ts` names the Workflow globals; specs build it by path and never import it.
+  `dispatcher/DispatchScript.ts` names the Workflow globals.
+- `cli/adoption/InstalledFileGeneration.ts` hands `src/lib/claude-code/WorkflowScriptBundle.ts` the paths of
+  `dispatcher/DispatchScript.ts` and `dispatcher/DispatchMeta.ts`. The builder imports the meta module by path, the one
+  place dispatcher code runs in the CLI's process, beside the render service compiling `page/` by path. Specs build by
+  path and never import `dispatcher/`.
 - ESLint 9 flat config through `@reliquary/eslint-config`: 2-space indent, single quotes, semicolons; line length
   180 for code, 155 for comments; aligned object values; aligned `from`; imports builtin → external → internal,
   alphabetised; builtins through the `node:` protocol (`import/enforce-node-protocol-usage`, turned on in
@@ -297,7 +302,7 @@ setup.sh                    machine setup: Bun, bun install and bun link, and th
 cli/                        the command surface: dispatch, arguments, help, and the commands grouped into sets: tracking/,
                             tickets/, dispatch/, adoption/ and measurement/; cli/utils/ holds the Next line, the printing
                             and the option values; cli/testing/ is test-only
-dispatcher/                 the dispatcher policy in TypeScript, bundled into a Workflow script; dispatcher/testing/ is
+dispatcher/                 the dispatcher policy in TypeScript, which init and update bundle into a Workflow script; dispatcher/testing/ is
                             test-only: the harness, the bundle wrapper, the frozen table
 page/                       the browser page: its sets, its own DOM-only tsconfig and spec tsconfig; page/testing/ is
                             test-only: the Board fixture its specs read
@@ -318,7 +323,6 @@ src/                        the target layout's code, filled step by step as the
   src/testing/              test-only helpers several parts use: the scratch workspace, the tracker isolation check, the Board fixtures
 skill/                      the skill every session in a tracked repository loads
 skill-orchestrate/          the skill for the one session running the board
-templates/                  the committed old dispatcher script init and update still install
 docs/                       the CLI reference, development notes, the backlog, the migration plan, README images
 node_modules/               git-ignored dependencies
 ```

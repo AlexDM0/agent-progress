@@ -257,14 +257,14 @@ args })` with the launch's args. `--run` goes with `running` alone, and every wr
 `finished`, `stopped`, a bare `running` — clears the stored id, so an old run is never resumed by
 mistake. A tracker without the field reads as it did.
 
-The dispatcher itself is the Workflow script `.claude/workflows/agent-progress-dispatch.js`, which
-`init` and `update` write byte for byte from the copy the tool ships — a hand edit is undone on the
-next refresh, and `--no-workflow` skips it on either command. It is launched by its path,
-`Workflow({ scriptPath: '<mainCheckout>/.claude/workflows/agent-progress-dispatch.js', args: { mainCheckout, mainLine, checkCommand, installCommand, includeLowPriority } })`,
-which works whenever the file exists; launching it by `name` should work only in a session started
-after the file was installed. It starts no low ticket unless it is
-launched with `includeLowPriority: true`, and returns the low tickets ready in its summary as
-`lowPriorityWaiting`, for the orchestrator to triage before that launch.
+The dispatcher itself is the Workflow script `.agent-progress/agent-progress-dispatch.js`, which
+`init` and `update` generate from the tool's dispatcher — a hand edit is undone on the next refresh,
+and `--no-workflow` skips it on either command. It is launched by its path only,
+`Workflow({ scriptPath: '<mainCheckout>/.agent-progress/agent-progress-dispatch.js', args: { mainCheckout, mainLine, checkCommand, installCommand, includeLowPriority } })`:
+it lives in the tracker, not under `.claude/workflows/`, so there is no name to launch it by. It
+starts no low ticket unless it is launched with `includeLowPriority: true`, and returns the low
+tickets ready in its summary as `lowPriorityWaiting`, for the orchestrator to triage before that
+launch.
 
 Launched with `ticketIds: ['<id>']` and `readyTickets` (those tickets' entries copied from
 `status --json`), it is a **single-ticket run**: no survey, one agent at a time, exactly those

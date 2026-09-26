@@ -8,6 +8,7 @@ import { requireWorkspace }               from '../../../src/services/tracker/Wo
 import type { CommandHandler }            from '../../CommandTable';
 import { OlderTrackerFilesRewriteReport } from '../../legacy/OlderTrackerFilesRewriteReport';
 import { IGNORED_RETIRED_OPTION_NAMES }   from '../../legacy/constants/IgnoredRetiredOptions';
+import { installedFileTextsFor }          from '../InstalledFileGeneration';
 import { refreshTrackedRepository }       from '../TrackerRefresh';
 
 const USAGE = 'agent-progress update [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';
@@ -18,15 +19,16 @@ export const updateCommand: CommandHandler = async (commandArguments, context) =
   commandArguments.rejectUnknownOptions(KNOWN_OPTION_NAMES, USAGE);
   commandArguments.rejectExtraPositionals(0, USAGE);
 
-  const workspace = requireWorkspace(context.currentDirectory);
-  const report    = refreshTrackedRepository({
+  const workspace          = requireWorkspace(context.currentDirectory);
+  const installedFileTexts = await installedFileTextsFor({ generatesTheDispatcherScript: !commandArguments.flag('no-workflow') });
+  const report             = refreshTrackedRepository({
     workspace,
-    commandName:                 'update',
-    writesClaudeInstructions:    !commandArguments.flag('no-claude-md'),
-    writesTheSubagentStopHook:   !commandArguments.flag('no-hooks'),
-    writesTheDispatcherWorkflow: !commandArguments.flag('no-workflow'),
-    writesTheAgentDefinition:    !commandArguments.flag('no-agent-definition'),
-    standardError:               context.standardError,
+    installedFileTexts,
+    commandName:               'update',
+    writesClaudeInstructions:  !commandArguments.flag('no-claude-md'),
+    writesTheSubagentStopHook: !commandArguments.flag('no-hooks'),
+    writesTheAgentDefinition:  !commandArguments.flag('no-agent-definition'),
+    standardError:             context.standardError,
   });
 
   const printRefreshReport = (headingLine: string) => {

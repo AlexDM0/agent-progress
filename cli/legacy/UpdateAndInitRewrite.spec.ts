@@ -19,8 +19,8 @@ import {
 }                                       from 'bun:test';
 import { LIMITS }                                                             from '../../src/shared/constants/Limits';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
+import { CLAUDE_MANAGED_BLOCK_MARKERS }                                       from '../InstalledFiles';
 import { runCommandLine }                                                     from '../Main';
-import { CLAUDE_MANAGED_BLOCK_MARKERS }                                       from '../adoption/TrackerRefresh';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';
 
 const scratchDirectories: string[] = [];

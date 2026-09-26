@@ -144,12 +144,12 @@ agent loads has a size ceiling.
 agent-progress.ts    the bin shim; the only file that calls process.exit
 cli/                 the command surface: dispatch, arguments, help, the commands grouped into sets
 page/                the browser page, with its own DOM-only project and spec project
+dispatcher/          the dispatcher's source, which init and update generate into a tracked repository
 resources/           files read at runtime: the page's HTML template, and under templates/ the markdown init,
                      update and ticket add fill
 src/                 the target layout's code, filled step by step as the migration plan moves it
 skill/               the skill every session in a tracked repository loads
 skill-orchestrate/   the skill for the one session running the board
-templates/           the committed old dispatcher script init and update still install
 docs/                this page, the CLI reference, the backlog and the README images
 ```
 
@@ -218,8 +218,7 @@ held by review, not by a spec.
 | `cli/BinarySmoke.spec.ts` | The real `agent-progress.ts` spawned end to end: the shebang, the argument slice and the exit status reaching the process. |
 | `cli/InitRootOverride.spec.ts` | `init` beside `AGENT_PROGRESS_ROOT`, spawned because no spec may set the environment in-process: an override naming another directory refused with both progress files byte-identical, an agreeing one refreshing like `update`. |
 | `dispatcher/testing/WorkflowScriptSource.spec.ts` | Every form the guard catches, each watched failing. |
-| `dispatcher/DispatchScript.spec.ts` | The built script's meta equals the old script's, it has no clock or randomness, builds to the same text every time and has one `agent()` call. |
-| `dispatcher/testing/OldDispatchScript.spec.ts` | What the committed old script states for itself, and that it is still the script the port was frozen against. |
+| `dispatcher/DispatchScript.spec.ts` | The built script's meta is pure and equals the frozen table's, an impurity planted in it is caught, it has no clock or randomness, builds to the same text every time and has one `agent()` call. |
 | `dispatcher/Dispatcher.decisions.spec.ts` and its `.holds`, `.resumption`, `.brief` and `.equivalence` suites | The dispatcher's decisions; see below. |
 
 A new guard does not count until you have introduced each form of the violation it claims to catch and
@@ -251,14 +250,15 @@ renders first when the page is missing and opens it in the default browser. Relo
 
 ## The dispatcher script and its harness
 
-`templates/workflows/AgentProgressDispatch.js` is the dispatcher: a Workflow-tool script, plain
-JavaScript, run by the Workflow tool and never by Bun. `init` and `update` copy it byte for byte into a
-tracked repository as `.claude/workflows/agent-progress-dispatch.js`. It runs a builder per ready ticket
-and a clean reviewer per built one within the board limit, and decides rounds and parking in code.
+The dispatcher's source is `dispatcher/`, in TypeScript: `dispatcher/DispatchScript.ts` is its entry
+and `dispatcher/DispatchMeta.ts` its `meta`. `init` and `update` bundle it into one Workflow-tool script,
+plain JavaScript run by the Workflow tool and never by Bun, and write it into a tracked repository as
+`.agent-progress/agent-progress-dispatch.js`: `cli/adoption/InstalledFileGeneration.ts` hands
+`src/lib/claude-code/WorkflowScriptBundle.ts` the two paths. It runs a builder per ready ticket and a
+clean reviewer per built one within the board limit, and decides rounds and parking in code.
 
-Its policy is ported to `dispatcher/` in TypeScript. The frozen table
-`dispatcher/testing/FrozenDispatchTraces.json` holds the port to its behaviour: it was taken from the old
-script at bc42604, and is now retaken from the port's bundle by the command it states, only in a commit
+The frozen table `dispatcher/testing/FrozenDispatchTraces.json` holds the port to the behaviour of the
+old committed script it replaced: it was taken from that script at bc42604, and is now retaken from the port's bundle by the command it states, only in a commit
 meant to change what the agents are told, whose diff of the table is that commit's review.
 
 `dispatcher/testing/DispatchScriptBundle.ts` bundles the port into one Workflow script through

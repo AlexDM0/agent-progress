@@ -35,8 +35,8 @@ output never carries either.
       [--root <path>]         before spawning an implementing agent — a \`.gitignore\` entry for it,
       [--no-claude-md]        a managed block in the repository's CLAUDE.md telling an agent to track
       [--no-hooks]            its work through this tool, the SubagentStop hook below, and the
-      [--no-workflow]         dispatcher workflow at \`.claude/workflows/agent-progress-dispatch.js\`,
-      [--no-agent-definition] byte for byte the script this tool ships, and the Claude Code agent
+      [--no-workflow]         dispatcher workflow at \`.agent-progress/agent-progress-dispatch.js\`,
+      [--no-agent-definition] generated from this tool's dispatcher, and the Claude Code agent
                               definition \`.claude/agents/agent-progress-worker.md\`, whose
                               frontmatter sets the default model and effort for builders and
                               reviewers (opus, medium). Refused when an ancestor
@@ -54,11 +54,12 @@ output never carries either.
   update                      Refresh what the tool wrote into a repository it already tracks: the
       [--no-claude-md]        managed CLAUDE.md block, \`agent-brief.md\` — guidance shipped with the
       [--no-hooks]            tool rather than a file a project edits — the SubagentStop hook and the
-      [--no-workflow]         dispatcher workflow and the agent definition, a hand edit to either
-      [--no-agent-definition] of which is undone. A tracker still in an older format — a progress
-                              file holding its own log, or tickets holding retired status words —
-                              is rewritten in the current one, under the lock; otherwise the
-                              tracker is left alone. It creates no tracker, so it takes no
+      [--no-workflow]         dispatcher workflow, generated anew, and the agent definition, a hand
+      [--no-agent-definition] edit to either of which is undone; a dispatcher an older version
+                              installed under \`.claude/workflows/\` is removed. A tracker still in
+                              an older format — a progress file holding its own log, or tickets
+                              holding retired status words — is rewritten in the current one,
+                              under the lock; otherwise the tracker is left alone. It creates no tracker, so it takes no
                               --project and no --root, and it is refused with exit 1 where there
                               is none — \`agent-progress init\` makes one.
                               Each line says whether that file changed, so a session that read the

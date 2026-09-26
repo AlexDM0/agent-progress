@@ -9,7 +9,7 @@ in separate checkouts all write to the same chart.
   taking ticket requests and dispatching agents for them — load `agent-progress-orchestrate`
   instead; it loads the other one itself.
 - Only the orchestrator runs agents for tickets, and it runs them through the dispatcher workflow,
-  `.claude/workflows/agent-progress-dispatch.js`, started only on the user's go. Any other session or
+  `.agent-progress/agent-progress-dispatch.js`, started only on the user's go. Any other session or
   agent files a ticket when it is asked to and stops there: it never dispatches an agent to handle
   one, its own or anybody else's.
 - Every agent's prompt names its row, its ticket or its review on a line of its own, and the

@@ -14,6 +14,7 @@ import {
   test
 }                                                                             from 'bun:test';
 import type { ProgressFile }                                                  from '../../src/lib/tracker-model/@types/ProgressFile';
+import { DispatcherClaimNoteUtil }                                            from '../../src/shared/utils/DispatcherClaimNoteUtil';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
 import { runCommandLine }                                                     from '../Main';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';
@@ -200,18 +201,15 @@ describe.skipIf(!gitIsAvailable())('unholding a ticket whose build a dispatcher 
     expect(lastLine).not.toContain('dispatcher run');
   });
 
-  // The script writes the claim note and the CLI recognises it; this reads the script's own `claimNoteOf`, so the two cannot drift apart.
-  test('a claim note in the form the dispatcher script writes, for either kind of run, is recognised as a dispatcher claim', async () => {
-    const scriptText    = readFileSync(join(import.meta.dir, '..', '..', 'templates', 'workflows', 'AgentProgressDispatch.js'), 'utf8');
-    const noteTemplate  = /function claimNoteOf\(ticketId\) \{\s*return `([^`]+)`;/.exec(scriptText)?.[1];
-    const runLabelMatch = /runLabel:\s*ticketIds === null \? '([^']+)' : `([^`]+)`,/.exec(scriptText);
-    expect(noteTemplate, 'claimNoteOf is no longer one template literal; update this reading of it').toBeDefined();
-    expect(runLabelMatch, 'runLabel is no longer one conditional; update this reading of it').not.toBeNull();
-    const runLabels = [runLabelMatch?.[1] ?? '', (runLabelMatch?.[2] ?? '').replace('${ticketIds.join(\'+\')}', '001')];
+  // This pins the CLI half against the util both sides build the note with. The dispatcher half is pinned in dispatcher/: the runLabel cases
+  // of WorkflowInputUtil.spec, the SKIP_A_CLAIM_REFUSED_BY_THE_RUN_ITSELF mutant in DecisionClaims, and AgentPromptUtil.spec's builder note case.
+  test('a claim note in the form the dispatcher writes, for either kind of run, is recognised as a dispatcher claim', async () => {
+    const claimNotes = [
+      DispatcherClaimNoteUtil.claimNoteFor(DispatcherClaimNoteUtil.runLabelFor(null), '001'),
+      DispatcherClaimNoteUtil.claimNoteFor(DispatcherClaimNoteUtil.runLabelFor(['001']), '001'),
+    ];
 
-    for (const runLabel of runLabels) {
-      const claimNote = (noteTemplate ?? '').replace('${settings.runLabel}', runLabel).replace('${ticketId}', '001');
-      expect(claimNote).not.toContain('${');
+    for (const claimNote of claimNotes) {
       await run(['ticket', 'claim', '1', '--note', claimNote]);
       await run(['task', 'pause', '1']);
       await run(['ticket', 'hold', '1']);

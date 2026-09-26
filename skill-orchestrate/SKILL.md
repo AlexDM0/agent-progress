@@ -18,7 +18,7 @@ description: >-
 You are the orchestrator. You write no code, judge none and dispatch nobody by hand: you turn what
 the user says into tickets, each carrying the brief its builder reads, start the dispatcher when the
 user says go, and act on what it hands back. The dispatcher is the Workflow script
-`.claude/workflows/agent-progress-dispatch.js`, which `agent-progress init` and `update` install: it
+`.agent-progress/agent-progress-dispatch.js`, which `agent-progress init` and `update` generate: it
 runs a builder per ready ticket and a clean reviewer per built one, never more at once than the
 board's limit, decides review rounds and parking in code, and runs every builder and reviewer on the
 model and effort its ticket names — Opus at medium effort unless the ticket says otherwise. The
@@ -45,7 +45,7 @@ with it. Then act on the answers in this order.
    was adopted before the hook existed, or somebody ran `--no-hooks` — say so once and offer
    `agent-progress update` as an AskUserQuestion question (Intake): it is what puts every agent's cost
    on its row; without it a workflow's agents reach no row at all.
-3. Check `.claude/workflows/agent-progress-dispatch.js` exists. If not — adopted before the
+3. Check `.agent-progress/agent-progress-dispatch.js` exists. If not — adopted before the
    dispatcher, or `--no-workflow` — say so once and offer `agent-progress update` the same way; until
    then only the manual path (By hand) is open.
 4. Read `.agent-progress/agent-brief.md` once: its `Ticket brief` block is the `## Brief` every ticket
@@ -167,7 +167,7 @@ dispatcher waits for the user however many tickets are filed; ask for the go wit
 
 ```
 agent-progress dispatcher running
-Workflow({ scriptPath: '<mainCheckout>/.claude/workflows/agent-progress-dispatch.js', args: { mainCheckout, mainLine, checkCommand, installCommand, includeLowPriority } })
+Workflow({ scriptPath: '<mainCheckout>/.agent-progress/agent-progress-dispatch.js', args: { mainCheckout, mainLine, checkCommand, installCommand, includeLowPriority } })
 ```
 
 with the arguments settled at the opening, `installCommand` left out where a worktree needs nothing.
@@ -175,8 +175,8 @@ with the arguments settled at the opening, `installCommand` left out where a wor
 with the `runId` the Workflow result names. The board keeps it through a compaction — `dispatcher`
 and `status --json` (`concurrency.dispatcherRunId`) print it — and it is what Recovering, below,
 resumes; every other `dispatcher` write clears it.
-The `scriptPath` form works whenever the file exists; `name: 'agent-progress-dispatch'` should work
-too, but only in a session started after the file was installed, so launch by the path.
+Launch it by its path: it lives in the tracker, not under `.claude/workflows/`, so there is no name to
+launch it by.
 `includeLowPriority: true` is passed only on the launch that follows a triage (Low-priority work,
 below); left out or false, the run starts no low ticket.
 The script sets every agent's model, effort and budget and creates every worktree itself: pass no
@@ -198,7 +198,7 @@ while a whole-board run is going gets a single-ticket run of its own at once, **
 after filing shows a free slot**:
 
 ```
-Workflow({ scriptPath: '<mainCheckout>/.claude/workflows/agent-progress-dispatch.js', args: { mainCheckout, mainLine, checkCommand, installCommand, ticketIds: ['<id>'], readyTickets: [<its entry from status --json readyTickets>] } })
+Workflow({ scriptPath: '<mainCheckout>/.agent-progress/agent-progress-dispatch.js', args: { mainCheckout, mainLine, checkCommand, installCommand, ticketIds: ['<id>'], readyTickets: [<its entry from status --json readyTickets>] } })
 ```
 
 Its entry carries the ticket's model and effort. With no slot free, launch nothing: the running
@@ -284,7 +284,7 @@ id the board stored and the same args as its launch, so the journal answers ever
 and only the ones in flight run again:
 
 ```
-Workflow({ scriptPath: '<mainCheckout>/.claude/workflows/agent-progress-dispatch.js', resumeFromRunId: '<concurrency.dispatcherRunId>', args: <the launch's args> })
+Workflow({ scriptPath: '<mainCheckout>/.agent-progress/agent-progress-dispatch.js', resumeFromRunId: '<concurrency.dispatcherRunId>', args: <the launch's args> })
 ```
 
 then `agent-progress dispatcher running --run <the new runId>`. A builder run again carries on in
@@ -324,6 +324,14 @@ Review brief, its bar added first with
 Stop when every ticket is delivered or abandoned — the low ones too — **and every row on the chart
 reads `done` or `abandoned`**. Say so, summarise what shipped in a few lines, and wait for the next
 request — do not invent work to keep the loop running.
+
+## When agent-progress itself changes
+
+**Pull agent-progress only while no tracked repository has a live run**: every tracked repository runs
+the one linked binary. **After it was pulled, run `agent-progress update` in the main checkout before
+anything else**, and report its lines: it regenerates the dispatcher and the brief the new version
+expects. Commit what it changed in tracked files — `CLAUDE.md`, the agent definition, the deletion of
+the old `.claude/workflows/agent-progress-dispatch.js` — before the next release.
 
 ## Your own working memory
 

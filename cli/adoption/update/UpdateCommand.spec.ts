@@ -26,9 +26,10 @@ import {
   gitIsAvailable,
   removeScratchDirectory
 }                                        from '../../../src/testing/ScratchWorkspace';
+import { CLAUDE_MANAGED_BLOCK_MARKERS } from '../../InstalledFiles';
 import { runCommandLine }               from '../../Main';
 import { createCapturedCommandContext } from '../../testing/CapturedCommandContext';
-import { CLAUDE_MANAGED_BLOCK_MARKERS } from '../TrackerRefresh';
+import { installedFileTextsFor }        from '../InstalledFileGeneration';
 
 const scratchDirectories: string[] = [];
 
@@ -58,15 +59,23 @@ function subagentStopGroupsIn(repositoryDirectory: string, settingsFileName: str
   return (settings['hooks'] as Record<string, unknown>)['SubagentStop'] as unknown[];
 }
 
-const DISPATCHER_WORKFLOW_TEMPLATE = readFileSync(join(import.meta.dir, '..', '..', '..', 'templates', 'workflows', 'AgentProgressDispatch.js'));
+const GENERATED_DISPATCHER_SCRIPT = (await installedFileTextsFor({ generatesTheDispatcherScript: true })).dispatcherScript ?? '';
 
 function workflowFilePathIn(repositoryDirectory: string): string {
+  return join(repositoryDirectory, '.agent-progress', 'agent-progress-dispatch.js');
+}
+
+function retiredWorkflowFilePathIn(repositoryDirectory: string): string {
   return join(repositoryDirectory, '.claude', 'workflows', 'agent-progress-dispatch.js');
 }
 
 // The printed path is the resolved root, which on macOS carries a `/private` the scratch path does not, so the line is matched by its shape.
 function workflowLineSaying(verdict: 'updated' | 'unchanged'): RegExp {
-  return new RegExp(`workflow: {4}${verdict} \\(\\S+/\\.claude/workflows/agent-progress-dispatch\\.js\\)`);
+  return new RegExp(`workflow: {4}${verdict} \\(\\S+/\\.agent-progress/agent-progress-dispatch\\.js\\)\n`);
+}
+
+function workflowLineRemovingTheRetiredCopy(verdict: 'updated' | 'unchanged'): RegExp {
+  return new RegExp(`workflow: {4}${verdict} \\(\\S+/\\.agent-progress/agent-progress-dispatch\\.js\\); removed the old \\S+/\\.claude/workflows/agent-progress-dispatch\\.js\n`);
 }
 
 // The template with its two placeholders filled by the default pair, which is what `update` must write byte for byte.
@@ -255,13 +264,13 @@ describe.skipIf(!gitIsAvailable())('updating a tracked repository', () => {
     expect(context.outputText()).toContain('hooks:       left alone (--no-hooks)');
   });
 
-  test('the dispatcher workflow is installed byte-identical to the template, and a second run reports it unchanged', async () => {
+  test('the dispatcher is installed byte-identical to the generated script, and a second run reports it unchanged', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
     const workflowFilePath    = workflowFilePathIn(repositoryDirectory);
 
     const first = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
     expect(await runCommandLine(['update'], first)).toBe(0);
-    expect(readFileSync(workflowFilePath).equals(DISPATCHER_WORKFLOW_TEMPLATE)).toBe(true);
+    expect(readFileSync(workflowFilePath, 'utf8')).toBe(GENERATED_DISPATCHER_SCRIPT);
     expect(first.outputText()).toMatch(workflowLineSaying('updated'));
 
     const second = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
@@ -270,39 +279,58 @@ describe.skipIf(!gitIsAvailable())('updating a tracked repository', () => {
   });
 
   // The script is the tool's, not the project's: a hand edit to the installed copy is a dispatcher the harness never pinned.
-  test('a workflow changed by hand is reported updated and restored to the template', async () => {
+  test('a dispatcher changed by hand is reported updated and restored to the generated script', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
     const workflowFilePath    = workflowFilePathIn(repositoryDirectory);
     await runCommandLine(['update'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }));
-    writeFileSync(workflowFilePath, `${DISPATCHER_WORKFLOW_TEMPLATE.toString('utf8')}\n// A local tweak nobody reviewed.\n`);
+    writeFileSync(workflowFilePath, `${GENERATED_DISPATCHER_SCRIPT}\n// A local tweak nobody reviewed.\n`);
 
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
     expect(await runCommandLine(['update'], context)).toBe(0);
 
     expect(context.outputText()).toMatch(workflowLineSaying('updated'));
-    expect(readFileSync(workflowFilePath).equals(DISPATCHER_WORKFLOW_TEMPLATE)).toBe(true);
+    expect(readFileSync(workflowFilePath, 'utf8')).toBe(GENERATED_DISPATCHER_SCRIPT);
   });
 
-  test('--no-workflow writes nothing under .claude/workflows, and says so', async () => {
+  // Only one dispatcher may be left to launch, so the copy an older version installed goes, and the line names both files.
+  test('removes the copy an older version installed under .claude/workflows, writes the generated script and reports both', async () => {
+    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
+    mkdirSync(join(repositoryDirectory, '.claude', 'workflows'), { recursive: true });
+    writeFileSync(retiredWorkflowFilePathIn(repositoryDirectory), '// The dispatcher an older agent-progress installed.\n');
+
+    const first = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['update'], first)).toBe(0);
+    expect(existsSync(retiredWorkflowFilePathIn(repositoryDirectory))).toBe(false);
+    expect(readFileSync(workflowFilePathIn(repositoryDirectory), 'utf8')).toBe(GENERATED_DISPATCHER_SCRIPT);
+    expect(first.outputText()).toMatch(workflowLineRemovingTheRetiredCopy('updated'));
+
+    const second = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['update'], second)).toBe(0);
+    expect(second.outputText()).toMatch(workflowLineSaying('unchanged'));
+    expect(second.outputText()).not.toContain('removed the old');
+  });
+
+  test('--no-workflow writes no dispatcher, in the tracker or under .claude/workflows, and says so', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
 
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
     expect(await runCommandLine(['update', '--no-workflow'], context)).toBe(0);
 
+    expect(existsSync(workflowFilePathIn(repositoryDirectory))).toBe(false);
     expect(existsSync(join(repositoryDirectory, '.claude', 'workflows'))).toBe(false);
     expect(context.outputText()).toContain('workflow:    left alone (--no-workflow)');
   });
 
   /** A hand-edited copy is the one a refusal to write can be told apart from having nothing to write by. */
-  test('--no-workflow leaves a hand-edited workflow byte for byte', async () => {
+  test('--no-workflow leaves a hand-edited dispatcher at the retired path byte for byte', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-    const workflowFilePath    = workflowFilePathIn(repositoryDirectory);
+    const retiredFilePath     = retiredWorkflowFilePathIn(repositoryDirectory);
     mkdirSync(join(repositoryDirectory, '.claude', 'workflows'), { recursive: true });
-    writeFileSync(workflowFilePath, '// Example Agency\'s own dispatcher.\n');
+    writeFileSync(retiredFilePath, '// Example Agency\'s own dispatcher.\n');
 
     expect(await runCommandLine(['update', '--no-workflow'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }))).toBe(0);
 
-    expect(readFileSync(workflowFilePath, 'utf8')).toBe('// Example Agency\'s own dispatcher.\n');
+    expect(readFileSync(retiredFilePath, 'utf8')).toBe('// Example Agency\'s own dispatcher.\n');
   });
 
   test('the worker agent definition is installed with the default pair, and a second run reports it unchanged', async () => {
