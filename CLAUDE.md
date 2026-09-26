@@ -284,8 +284,10 @@ src/                        the target layout's code, filled step by step as the
                             atomic-file (AtomicFile.ts), git (GitProcess.ts), claude-code (ClaudeTranscripts.ts),
                             tracker-model (@types/Task.ts; Board.ts is its aggregate), utils
   src/adapters/             the boundary, one folder per stored format (progress, tickets and log) plus the shared utils:
-                            reading, writing and mapping what the tracker stores, and the wording of log records and Board refusals
-  src/services/             tracker (discovery, the lock, reading, the write pipeline, creation) and render (the page document)
+                            reading, writing and mapping what the tracker stores, the ticket JSON document, and the wording of
+                            log records and refusals
+  src/services/             tracker (discovery, the lock, reading, the write pipeline, creation) and render (the page document
+                            and the render state one invocation holds)
   src/shared/               app-specific code several parts use: the environment reader, the refusal, LIMITS,
                             the page payload types, ticket numbers
   src/testing/              test-only helpers several parts use: the scratch workspace, the tracker isolation check, the Board fixtures

@@ -1,8 +1,15 @@
 # Migration plan: the conventions refactor
 
-**Status (2026-09-26): in flight on `migration/conventions`; steps 0 to 3, 4a to 4c, 5 and 6 are done, 7 is next.**
-Two parts of step 7 run on sub-branches of it: the page split (`migration/page`, merged in 7058c2a; 7b's
-payload facts remain) and the dispatcher port (`migration/dispatcher`, in review, merged before step 8).
+**Status (2026-09-26): in flight on `migration/conventions`; steps 0 to 3, 4a to 4c, 5 and 6 are done, and step 7's
+cli part is done.** cli/ is grouped into tracking, tickets, dispatch, adoption and measurement; the ticket command is
+split by subcommand group; `cli/CommandSupport.ts` is dissolved into cli/utils and the tracker-writing adapters; lib/
+is deleted; the service refusals carry reason codes the CLI words; and the command context carries the render state.
+The page split (`migration/page`, merged in 7058c2a) and the dispatcher port (`migration/dispatcher`, merged in
+4221a13) have landed. Step 7's two other parts are pending on sub-branches of it: the page reading the payload facts
+(`migration/page-facts`) and the dispatcher's JSON fields (`migration/dispatcher-json`). Step 7's TicketStore items
+remain open: `createTicket`'s initial frontmatter, `deleteAllTickets` moving to the ticket writer, `readTicket`
+becoming `board.ticketByReference`, `nextTicketId`'s second read of `progress.json`, and
+`TrackerChange.deleteAllTicketFilesAfterwards`.
 The kanban-board feature has landed on main (9654720 through 5c6b0ad) and is mapped into this plan.
 This file is the single source for the plan; `agent-progress-architecture.html` (untracked, repo
 root) is the evidence it was built from: the file map, the diagnosis and the measurements, taken at
