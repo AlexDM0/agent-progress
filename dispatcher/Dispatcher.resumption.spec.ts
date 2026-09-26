@@ -12,7 +12,7 @@ import { RESUMPTION_CLAIMS }                           from './testing/claims/Re
 
 const BUNDLE = await bundleDispatchScript();
 
-function kindsAndTickets(run: RecordedDispatchRun): string[] {
+function runKindAndTicketOfEachCall(run: RecordedDispatchRun): string[] {
   return run.calls.map((call) => `${call.run} ${call.kind}${call.ticketId === null ? '' : ` ${call.ticketId}`}`);
 }
 
@@ -22,7 +22,7 @@ describe('the dispatcher script and a build an earlier run left paused', () => {
       const run = await runDispatchScript(claim.scenarioFor(), builtScriptTextOf(BUNDLE));
       expect(run.ranAway).toBe(false);
       expect(run.threw).toBeNull();
-      expect(claim.holds(run), JSON.stringify({ calls: kindsAndTickets(run), summary: run.summary, relaunch: run.relaunchSummary })).toBe(true);
+      expect(claim.holds(run), JSON.stringify({ calls: runKindAndTicketOfEachCall(run), summary: run.summary, relaunch: run.relaunchSummary })).toBe(true);
     });
 
     test(`${claim.name} — and fails against the mutant that breaks it`, async () => {

@@ -12,14 +12,9 @@ import {
   REVIEWER_TAKES_OVER_A_RUNNING_BAR,
   runDispatchScript
 } from './testing/DispatchScriptHarness.ts';
-import type { SourceMutant }    from './testing/SourceMutant.ts';
-import {
-  DECISION_CLAIMS,
-  DECISION_SCENARIOS,
-  kindsAndTickets,
-  modelsAndEffortsAreExplicit
-} from './testing/claims/DecisionClaims.ts';
-import { DISPATCHER_MODULE_PATHS, runSummaryOf } from './testing/claims/DispatchClaim.ts';
+import type { SourceMutant }                                                from './testing/SourceMutant.ts';
+import { DECISION_CLAIMS, DECISION_SCENARIOS, modelsAndEffortsAreExplicit } from './testing/claims/DecisionClaims.ts';
+import { DISPATCHER_MODULE_PATHS, kindsAndTickets, runSummaryOf }           from './testing/claims/DispatchClaim.ts';
 
 const BUNDLE = await bundleDispatchScript();
 

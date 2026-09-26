@@ -14,6 +14,7 @@ import type { SourceMutant } from '../SourceMutant.ts';
 import {
   DISPATCHER_MODULE_PATHS,
   dispatchSummaryFrom,
+  kindsAndTickets,
   runSummaryOf,
   type DispatchClaim
 } from './DispatchClaim.ts';
@@ -31,10 +32,6 @@ const {
 
 function ticketIdsFrom(first: number, count: number): string[] {
   return Array.from({ length: count }, (_unused, i) => String(first + i).padStart(3, '0'));
-}
-
-export function kindsAndTickets(run: RecordedDispatchRun): string[] {
-  return run.calls.map((call) => (call.ticketId === null ? call.kind : `${call.kind} ${call.ticketId}`));
 }
 
 function parkedIds(run: RecordedDispatchRun): string[] {
@@ -128,7 +125,7 @@ function releasedEveryRow(run: RecordedDispatchRun): boolean {
 }
 
 function kindsAndTicketsOf(run: RecordedDispatchRun, runName: DispatchRunName): string {
-  return run.calls.filter((call) => call.run === runName).map((call) => (call.ticketId === null ? call.kind : `${call.kind} ${call.ticketId}`)).join(', ');
+  return kindsAndTickets({ ...run, calls: run.calls.filter((call) => call.run === runName) }).join(', ');
 }
 
 function racingSummaryOf(run: RecordedDispatchRun): DispatchSummary | null {

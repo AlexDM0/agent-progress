@@ -5,15 +5,12 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { builtScriptTextOf, bundleDispatchScript }     from './testing/DispatchScriptBundle.ts';
-import { runDispatchScript, type RecordedDispatchRun } from './testing/DispatchScriptHarness.ts';
-import { HOLD_CLAIMS }                                 from './testing/claims/HoldClaims.ts';
+import { builtScriptTextOf, bundleDispatchScript } from './testing/DispatchScriptBundle.ts';
+import { runDispatchScript }                       from './testing/DispatchScriptHarness.ts';
+import { kindsAndTickets }                         from './testing/claims/DispatchClaim.ts';
+import { HOLD_CLAIMS }                             from './testing/claims/HoldClaims.ts';
 
 const BUNDLE = await bundleDispatchScript();
-
-function kindsAndTickets(run: RecordedDispatchRun): string[] {
-  return run.calls.map((call) => (call.ticketId === null ? call.kind : `${call.kind} ${call.ticketId}`));
-}
 
 describe('the dispatcher script and a held ticket', () => {
   for (const claim of HOLD_CLAIMS) {

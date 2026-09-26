@@ -8,8 +8,12 @@ import type {
   RecordedAgentCall,
   RecordedDispatchRun
 } from '../DispatchScriptHarness.ts';
-import { kindsAndTickets }                                           from './DecisionClaims.ts';
-import { DISPATCHER_MODULE_PATHS, runSummaryOf, type DispatchClaim } from './DispatchClaim.ts';
+import {
+  DISPATCHER_MODULE_PATHS,
+  kindsAndTickets,
+  runSummaryOf,
+  type DispatchClaim
+} from './DispatchClaim.ts';
 
 const { DISPATCH_RUN, AGENT_PROMPT_UTIL } = DISPATCHER_MODULE_PATHS;
 

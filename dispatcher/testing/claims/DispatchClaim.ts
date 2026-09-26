@@ -30,3 +30,8 @@ export function dispatchSummaryFrom(returnedSummary: unknown): DispatchSummary |
 export function runSummaryOf(run: RecordedDispatchRun): DispatchSummary {
   return dispatchSummaryFrom(run.summary) as DispatchSummary;
 }
+
+/** Each call of the run as its kind, followed by its ticket id when it has one: `survey`, `build 001`. */
+export function kindsAndTickets(run: RecordedDispatchRun): string[] {
+  return run.calls.map((call) => (call.ticketId === null ? call.kind : `${call.kind} ${call.ticketId}`));
+}
