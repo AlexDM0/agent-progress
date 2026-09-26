@@ -161,8 +161,8 @@ agent-progress init --project "Example Storefront"
 - **The dispatcher**, `.claude/workflows/agent-progress-dispatch.js`.
 - **The worker agent definition**, `.claude/agents/agent-progress-worker.md`, set to Opus at medium effort.
 
-Each of the last four has an opt-out flag, and `agent-progress update` refreshes the tool's files later
-without touching your tickets or log. `agent-progress open` shows the board.
+Each of the last four has an opt-out flag, and `agent-progress update` refreshes the tool's files later,
+touching your tickets and log only to bring an older format up to date. `agent-progress open` shows the board.
 
 ### 3. Run the board
 

@@ -3,20 +3,20 @@ import { randomUUID }                        from 'node:crypto';
 import { mkdirSync, realpathSync, statSync } from 'node:fs';
 import { basename, resolve }                 from 'node:path';
 
-import { withLock }                         from '../../lib/platform/Lock';
-import { findWorkspace, workspacePathsFor } from '../../lib/platform/Workspace';
-import { createLogFileWriter }              from '../../src/adapters/log/LogFileWriter';
-import { createProgressFileWriter }         from '../../src/adapters/progress/ProgressFileWriter';
-import { ensureIgnored }                    from '../../src/lib/git/GitIgnore';
-import { discoverRepositoryRoot }           from '../../src/lib/git/RepositoryRoot';
-import { EmptyProgressUtil }                from '../../src/lib/tracker-model/utils/EmptyProgressUtil';
-import { TimeUtil }                         from '../../src/lib/utils/TimeUtil';
-import { TRACKER_FILES }                    from '../../src/services/tracker/constants/TrackerFiles';
-import { agentProgressRootOverride }        from '../../src/shared/Environment';
-import { OperationRefusal }                 from '../../src/shared/OperationRefusal';
-import { renderDashboard }                  from '../CommandSupport';
-import type { CommandHandler }              from '../CommandTable';
-import { refreshTrackedRepository }         from '../TrackerRefresh';
+import { withLock }                                                        from '../../lib/platform/Lock';
+import { findWorkspace, workspacePathsFor }                                from '../../lib/platform/Workspace';
+import { createLogFileWriter }                                             from '../../src/adapters/log/LogFileWriter';
+import { createProgressFileWriter }                                        from '../../src/adapters/progress/ProgressFileWriter';
+import { ensureIgnored }                                                   from '../../src/lib/git/GitIgnore';
+import { discoverRepositoryRoot }                                          from '../../src/lib/git/RepositoryRoot';
+import { EmptyProgressUtil }                                               from '../../src/lib/tracker-model/utils/EmptyProgressUtil';
+import { TimeUtil }                                                        from '../../src/lib/utils/TimeUtil';
+import { TRACKER_FILES }                                                   from '../../src/services/tracker/constants/TrackerFiles';
+import { agentProgressRootOverride }                                       from '../../src/shared/Environment';
+import { OperationRefusal }                                                from '../../src/shared/OperationRefusal';
+import { renderDashboard, rewriteOlderTrackerFiles, rewrittenFilesTextOf } from '../CommandSupport';
+import type { CommandHandler }                                             from '../CommandTable';
+import { refreshTrackedRepository }                                        from '../TrackerRefresh';
 
 const USAGE = 'agent-progress init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';
 
@@ -107,9 +107,11 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
     writesTheAgentDefinition,
     standardError: context.standardError,
   });
-  const reportTheRefreshOfAnExistingTracker = () => {
+  const reportTheRefreshOfAnExistingTracker = async () => {
     const refresh = refreshTheRepository();
+    const rewrite = await rewriteOlderTrackerFiles(context, workspace);
     context.standardOutput(`agent-progress is already initialised in ${rootDirectory}.`);
+    if (rewrite !== null) context.standardOutput(`  tracker:     rewrote ${rewrittenFilesTextOf(rewrite)} in the current format`);
     context.standardOutput(`  CLAUDE.md:   ${refresh.claudeInstructionsLine}`);
     context.standardOutput(`  brief:       ${refresh.briefLine}`);
     context.standardOutput(`  hooks:       ${refresh.hookLine}`);
@@ -128,7 +130,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
         + `Run \`agent-progress update\` in ${existingWorkspace.rootDirectory} instead to refresh what the tracker writes into the repository.`,
       );
     }
-    reportTheRefreshOfAnExistingTracker();
+    await reportTheRefreshOfAnExistingTracker();
     return;
   }
 
@@ -153,7 +155,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
     return verdict;
   }, context.now);
   if (creation === 'already-exists') {
-    reportTheRefreshOfAnExistingTracker();
+    await reportTheRefreshOfAnExistingTracker();
     return;
   }
 

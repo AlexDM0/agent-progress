@@ -40,7 +40,8 @@ other order: when the log is taken over from a version 1 `progress.json`, `log.j
 first, before the file that held the log is rewritten without it.
 `render` and `open` take the lock only to render. `status`, `ticket list`, `ticket show`,
 `concurrency` and `dispatcher` without an argument, `usage` and `rework` take none: every file they
-read is written atomically. `update` takes none either, since it writes nothing inside the tracker.
+read is written atomically. `update`, and `init` on an existing tracker, take it only when they rewrite a
+tracker still in an older format, through the same read and write; otherwise they take none.
 
 **Help and options.** `agent-progress help` prints the whole reference. `--help` works after a
 command word as well as on its own, and `-h` on its own or straight after the command word; a `-h`
@@ -165,8 +166,8 @@ Options in `[brackets]` are optional; `a|b` is a choice of one.
 
 | command | what it does |
 |---|---|
-| `init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]` | Create the tracker here and write the seven items in [Adopting a repository](#adopting-a-repository). `--project` names the project shown on the page (default: the root directory's name); `--root` tracks that directory instead of the discovered repository root. Refused when an ancestor already holds a tracker, when `--root` is not an existing directory, inside a bare repository, and when `AGENT_PROGRESS_ROOT` is set to a directory other than the one it would create the tracker in (the message names both, and nothing is written). A re-run refreshes only what `update` refreshes. `--hooks` is accepted and does nothing. |
-| `update [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]` | Refresh what the tool wrote into a repository it already tracks: the managed block, `agent-brief.md`, the hook, the workflow and the agent definition, undoing a hand edit to either of the last two. It creates no tracker and touches neither the progress file, the tickets nor the log, so it takes no `--project` and no `--root`. With no tracker it is refused at exit 1, naming `agent-progress init`. |
+| `init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]` | Create the tracker here and write the seven items in [Adopting a repository](#adopting-a-repository). `--project` names the project shown on the page (default: the root directory's name); `--root` tracks that directory instead of the discovered repository root. Refused when an ancestor already holds a tracker, when `--root` is not an existing directory, inside a bare repository, and when `AGENT_PROGRESS_ROOT` is set to a directory other than the one it would create the tracker in (the message names both, and nothing is written). A re-run refreshes only what `update` refreshes, and rewrites older tracker files as `update` does, printing a `tracker:` line when it did. `--hooks` is accepted and does nothing. |
+| `update [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]` | Refresh what the tool wrote into a repository it already tracks: the managed block, `agent-brief.md`, the hook, the workflow and the agent definition, undoing a hand edit to either of the last two. A tracker still in an older format — a version 1 `progress.json` holding its own log, or tickets holding retired status words — is rewritten in the current one under the lock, its log moved to `log.jsonl`, and the first line names what was rewritten; nothing is logged, and a current or unreadable tracker is left alone. It creates no tracker, so it takes no `--project` and no `--root`. With no tracker it is refused at exit 1, naming `agent-progress init`. |
 | `help` | The command reference. |
 
 ### Reading the board

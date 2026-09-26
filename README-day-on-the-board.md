@@ -150,7 +150,7 @@ It touches no repository you work in. Beyond this checkout's own dependencies, t
 - **The dispatcher workflow**, `.claude/workflows/agent-progress-dispatch.js`.
 - **The worker agent definition**, `.claude/agents/agent-progress-worker.md`: builders and reviewers run on Opus at medium effort unless a ticket names another model or effort.
 
-`agent-progress update` refreshes the tool's own files later without touching your tickets or log, and `agent-progress open` shows the dashboard.
+`agent-progress update` refreshes the tool's own files later, touching your tickets and log only to bring an older format up to date, and `agent-progress open` shows the dashboard.
 
 ### 3. Run the board from Claude Code
 

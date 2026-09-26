@@ -55,10 +55,12 @@ output never carries either.
       [--no-claude-md]        managed CLAUDE.md block, \`agent-brief.md\` — guidance shipped with the
       [--no-hooks]            tool rather than a file a project edits — the SubagentStop hook and the
       [--no-workflow]         dispatcher workflow and the agent definition, a hand edit to either
-      [--no-agent-definition] of which is undone. It creates no tracker and touches neither the
-                              progress file, the tickets nor the log, so it takes no --project
-                              and no --root, and it is refused
-                              with exit 1 where there is none — \`agent-progress init\` makes one.
+      [--no-agent-definition] of which is undone. A tracker still in an older format — a progress
+                              file holding its own log, or tickets holding retired status words —
+                              is rewritten in the current one, under the lock; otherwise the
+                              tracker is left alone. It creates no tracker, so it takes no
+                              --project and no --root, and it is refused with exit 1 where there
+                              is none — \`agent-progress init\` makes one.
                               Each line says whether that file changed, so a session that read the
                               brief at its start learns that its copy is now stale. It takes the same
                               --no-claude-md, --no-hooks, --no-workflow, --no-agent-definition and

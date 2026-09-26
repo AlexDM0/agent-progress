@@ -31,17 +31,17 @@ import type {
   Ticket,
   TicketPriority
 } from '../src/lib/tracker-model/@types/Ticket';
-import { Board }                 from '../src/lib/tracker-model/Board';
-import { refusalIsBoardRefusal } from '../src/lib/tracker-model/BoardRefusal';
-import { createLogger }          from '../src/lib/tracker-model/Logger';
-import { ConcurrencyUtil }       from '../src/lib/tracker-model/utils/ConcurrencyUtil';
-import { TicketDefaultsUtil }    from '../src/lib/tracker-model/utils/TicketDefaultsUtil';
-import { TimeUtil }              from '../src/lib/utils/TimeUtil';
-import { TokenCountUtil }        from '../src/lib/utils/TokenCountUtil';
-import { OperationRefusal }      from '../src/shared/OperationRefusal';
-import { LIMITS }                from '../src/shared/constants/Limits';
-import type { CommandContext }   from './CommandContext';
-import type { ArgumentParser }   from './arguments/ArgumentParser';
+import { Board }                                       from '../src/lib/tracker-model/Board';
+import { refusalIsBoardRefusal }                       from '../src/lib/tracker-model/BoardRefusal';
+import { createLogger }                                from '../src/lib/tracker-model/Logger';
+import { ConcurrencyUtil }                             from '../src/lib/tracker-model/utils/ConcurrencyUtil';
+import { TicketDefaultsUtil }                          from '../src/lib/tracker-model/utils/TicketDefaultsUtil';
+import { TimeUtil }                                    from '../src/lib/utils/TimeUtil';
+import { TokenCountUtil }                              from '../src/lib/utils/TokenCountUtil';
+import { OperationRefusal, refusalIsOperationRefusal } from '../src/shared/OperationRefusal';
+import { LIMITS }                                      from '../src/shared/constants/Limits';
+import type { CommandContext }                         from './CommandContext';
+import type { ArgumentParser }                         from './arguments/ArgumentParser';
 
 export interface TrackerChange {
   board:                          Board;
@@ -244,6 +244,7 @@ async function mutateRefusingInWords<MutationResult>(
 
 interface TrackerUnderLock {
   progress:    ProgressFile;
+  embeddedLog: readonly LogRecord[] | null;
   storedLog:   StoredLog;
   listing:     TicketListing;
   logFileSink: ReturnType<typeof createLogFileSink>;
@@ -257,7 +258,8 @@ function readTrackerUnderLock(workspace: Workspace): TrackerUnderLock {
   const logFileSink     = createLogFileSink(storedLog);
   const board           = new Board({ progress: progressReading.progress, tickets: listing.tickets, logger: createLogger(logFileSink.record) });
   return {
-    progress: progressReading.progress,
+    progress:    progressReading.progress,
+    embeddedLog: progressReading.embeddedLog,
     storedLog,
     listing,
     logFileSink,
@@ -342,6 +344,50 @@ export async function openTrackerForWritingThenReadNextLine<MutationResult>(
     (board) => ({ nextLine: nextLineFor(board), dispatcherState: board.dispatcherState() }),
   );
   return { result, ...reading };
+}
+
+export interface TrackerRewrite {
+  progressFileWasRewritten: boolean;
+  rewrittenTicketCount:     number;
+}
+
+function trackerIsInAnOlderFormat(embeddedLog: readonly LogRecord[] | null, listing: TicketListing): boolean {
+  return embeddedLog !== null || listing.ticketsInAnOlderFormat.length > 0;
+}
+
+/**
+ * For `update` and `init` on an existing tracker: a readable tracker still in an older format is written in the current one through the
+ * pipeline's two halves, with nothing changed and nothing logged. A current, absent or unreadable tracker is `null`, read without the lock.
+ */
+export async function rewriteOlderTrackerFiles(context: CommandContext, workspace: Workspace): Promise<TrackerRewrite | null> {
+  const progressReading = new ProgressFileIngestion(workspace.progressFilePath).read();
+  if (progressReading.verdict !== 'readable') return null;
+  if (readStoredLog(workspace, progressReading.embeddedLog).verdict !== 'readable') return null;
+  if (!trackerIsInAnOlderFormat(progressReading.embeddedLog, listTickets(workspace))) return null;
+
+  return withLock(workspace, async () => {
+    let tracker: TrackerUnderLock;
+    try {
+      tracker = readTrackerUnderLock(workspace);
+    } catch (error) {
+      if (refusalIsOperationRefusal(error) && error.status === 'unrepaired') return null;
+      throw error;
+    }
+    // Another command may have written the tracker since the read above, and a current tracker is left alone.
+    if (!trackerIsInAnOlderFormat(tracker.embeddedLog, tracker.listing)) return null;
+
+    const extraTickets = tracker.listing.ticketsInAnOlderFormat;
+    await writeTrackerUnderLock(context, workspace, tracker, { extraTickets, deletionCallbacks: [], readAfterWriting: () => undefined });
+    return { progressFileWasRewritten: tracker.embeddedLog !== null, rewrittenTicketCount: extraTickets.length };
+  }, context.now);
+}
+
+/** What a rewrite wrote, as `update` and `init` print it. */
+export function rewrittenFilesTextOf(rewrite: TrackerRewrite): string {
+  const parts: string[] = [];
+  if (rewrite.progressFileWasRewritten) parts.push('progress.json, with its log moved to log.jsonl');
+  if (rewrite.rewrittenTicketCount > 0) parts.push(`${rewrite.rewrittenTicketCount} ticket ${rewrite.rewrittenTicketCount === 1 ? 'file' : 'files'}`);
+  return parts.join(' and ');
 }
 
 /** The human line and the Next line under it, or the entity alone under `--json`, which a script parses and must never find a trailing sentence in. */

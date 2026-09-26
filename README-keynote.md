@@ -201,7 +201,7 @@ Safe to run again: a correct link is kept, a stale one is relinked, and a real d
 6. **The dispatcher**, `.claude/workflows/agent-progress-dispatch.js`.
 7. **The worker agent**, `.claude/agents/agent-progress-worker.md`: Opus at medium effort unless a ticket names another model.
 
-The last four each have an opt-out flag. `agent-progress update` refreshes the tool's own files later and never touches your tickets or log.
+The last four each have an opt-out flag. `agent-progress update` refreshes the tool's own files later and touches your tickets and log only to bring an older format up to date.
 
 </details>
 

@@ -2,7 +2,8 @@
  * A tracker written before log.jsonl existed, read and written by today's CLI. The cases that matter: a read writes nothing, not even a
  * log.jsonl; the first write moves the embedded log into log.jsonl as notes and stores progress.json as version 2 with the migrated
  * words and review-bar fields; a log.jsonl that begins with the embedded log is a migration cut short and is rewritten; any other
- * log.jsonl beside a version 1 file is refused, and neither file is touched.
+ * log.jsonl beside a version 1 file is refused, and neither file is touched; `update`, and `init` on the tracker, rewrite the progress file
+ * and a ticket holding a retired word in the current format, the ticket normalised by the serialiser, and a second run touches nothing.
  */
 import {
   existsSync,
@@ -161,6 +162,17 @@ Filled in by the agent that implements this ticket, as the last thing it does, i
 - The next concrete step, named so the follow-up agent starts working instead of re-orienting.
 `;
 
+/** The frozen ticket as a person might have edited it by hand: a byte order mark, a bare id, a comment, an unknown key and explicit nulls. */
+const HAND_EDITED_TICKET_FILE_WITH_A_RETIRED_WORD = `\uFEFF${TICKET_FILE_WITH_A_RETIRED_WORD
+  .replace('id: "001"\n', 'id: 1\n# Kept by Example Agency\nestimate: small\n')
+  .replace('type: "change"\n', 'type: "change"\npriority: null\n')
+  .replace('task: 1\n', 'group: null\ntask: 1\n')}`;
+
+/** What the serialiser writes for the hand-edited ticket: the id padded and quoted, the nulls dropped, the comment and key below its block. */
+const HAND_EDITED_TICKET_FILE_IN_THE_CURRENT_FORMAT = TICKET_FILE_WITH_A_RETIRED_WORD
+  .replace('status: "open"', 'status: "pending"')
+  .replace('task: 1\n', 'task: 1\n# Kept by Example Agency\nestimate: small\n');
+
 const EMBEDDED_LOG: readonly WordedLogEntry[] = [
   { at: '2026-09-18T09:00:00+02:00', text: 'Ticket #001 filed: Rewrite the example importer' },
   { at: '2026-09-18T10:15:00+02:00', text: 'Example session started' },
@@ -209,6 +221,8 @@ function trackerWrittenBeforeLogJsonl(): TrackerFiles {
   writeFileSync(files.ticketFilePath, TICKET_FILE_WITH_A_RETIRED_WORD);
   return files;
 }
+
+const REWRITE_TEXT = 'progress.json, with its log moved to log.jsonl and 1 ticket file';
 
 async function run(repositoryDirectory: string, commandLineArguments: readonly string[]): Promise<ReturnType<typeof createCapturedCommandContext>> {
   const context  = createCapturedCommandContext({ currentDirectory: repositoryDirectory, now: () => FROZEN_NOW });
@@ -282,5 +296,43 @@ describe.skipIf(!gitIsAvailable())('a tracker written before log.jsonl', () => {
     expect(readFileSync(files.logFilePath, 'utf8')).toBe(unrelatedLog);
     expect(readFileSync(files.progressFilePath, 'utf8')).toBe(VERSION_ONE_PROGRESS_FILE);
     expect(readFileSync(files.ticketFilePath, 'utf8')).toBe(TICKET_FILE_WITH_A_RETIRED_WORD);
+  });
+
+  test('update rewrites the progress file and the hand-edited ticket in the current format, and a second update touches nothing', async () => {
+    const files = trackerWrittenBeforeLogJsonl();
+    writeFileSync(files.ticketFilePath, HAND_EDITED_TICKET_FILE_WITH_A_RETIRED_WORD);
+
+    const first = await run(files.repositoryDirectory, ['update']);
+
+    expect(first.outputText().split('\n')[0]).toBe(
+      `Refreshed what agent-progress manages in ${files.repositoryDirectory}, and rewrote its older tracker files in the current format: ${REWRITE_TEXT}.`,
+    );
+    expect(readFileSync(files.ticketFilePath, 'utf8')).toBe(HAND_EDITED_TICKET_FILE_IN_THE_CURRENT_FORMAT);
+    expect(readFileSync(files.logFilePath, 'utf8'), 'nothing is logged by a rewrite').toBe(EMBEDDED_LOG_AS_NOTE_LINES);
+    const stored = JSON.parse(readFileSync(files.progressFilePath, 'utf8')) as Record<string, unknown>;
+    expect(stored['version']).toBe(2);
+    expect(stored).not.toHaveProperty('log');
+
+    const progressAfterRewrite = readFileSync(files.progressFilePath, 'utf8');
+    const second = await run(files.repositoryDirectory, ['update']);
+
+    expect(second.outputText().split('\n')[0]).toBe(`Refreshed what agent-progress manages in ${files.repositoryDirectory}; the tracker itself was not touched.`);
+    expect(readFileSync(files.progressFilePath, 'utf8')).toBe(progressAfterRewrite);
+    expect(readFileSync(files.logFilePath, 'utf8')).toBe(EMBEDDED_LOG_AS_NOTE_LINES);
+    expect(readFileSync(files.ticketFilePath, 'utf8')).toBe(HAND_EDITED_TICKET_FILE_IN_THE_CURRENT_FORMAT);
+  });
+
+  test('init on the tracker rewrites it as update does, and says so on a line of its own', async () => {
+    const files = trackerWrittenBeforeLogJsonl();
+
+    const context = await run(files.repositoryDirectory, ['init', '--no-claude-md', '--no-hooks', '--no-workflow', '--no-agent-definition']);
+
+    expect(context.outputText().split('\n').slice(0, 2)).toEqual([
+      `agent-progress is already initialised in ${files.repositoryDirectory}.`,
+      `  tracker:     rewrote ${REWRITE_TEXT} in the current format`,
+    ]);
+    expect(readFileSync(files.ticketFilePath, 'utf8')).toBe(TICKET_FILE_WITH_A_RETIRED_WORD.replace('status: "open"', 'status: "pending"'));
+    expect(readFileSync(files.logFilePath, 'utf8')).toBe(EMBEDDED_LOG_AS_NOTE_LINES);
+    expect(JSON.parse(readFileSync(files.progressFilePath, 'utf8'))).toHaveProperty('version', 2);
   });
 });

@@ -188,7 +188,8 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
   lock; read the progress file, its log and the tickets into a Board; change them through it; write the progress file,
   then the tickets the Board changed, then log.jsonl; then render from disk, all under the lock. Ticket files follow
   the progress file so it is never behind them, and the log comes last so a line never describes an unstored change;
-  a log taken over from a version 1 progress file is written first instead. `status` takes no lock and renders nothing.
+  a log taken over from a version 1 progress file is written first instead. `update` and `init` rewrite older tracker files
+  through the same two halves. `status` takes no lock and renders nothing.
 
 ### Tickets
 

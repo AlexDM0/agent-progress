@@ -1,6 +1,6 @@
 /**
- * What `agent-progress update` refreshes, what it reports about each of those files, and the three
- * things it never touches: the progress file, the tickets and the log.
+ * What `agent-progress update` refreshes, what it reports about each of those files, and what it touches
+ * in the tracker only to rewrite an older format: the progress file, the tickets and the log.
  */
 import {
   existsSync,
@@ -393,6 +393,92 @@ describe.skipIf(!gitIsAvailable())('what update never touches', () => {
     expect(readFileSync(logFilePath, 'utf8')).toBe(logBefore);
     expect(readFileSync(ticketFilePath, 'utf8')).toBe(ticketBefore);
     expect(logBefore, 'the fixture holds a log line, so the comparison above is about something').toContain('The orchestrator started the board');
+  });
+
+  test('an unreadable tracker still exits 0 with the untouched line, and its files are left byte for byte', async () => {
+    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
+    const progressFilePath    = join(repositoryDirectory, '.agent-progress', 'progress.json');
+    const logFilePath         = join(repositoryDirectory, '.agent-progress', 'log.jsonl');
+    const unreadableProgress  = '{ "version": 1, "tasks": [';
+    writeFileSync(progressFilePath, unreadableProgress);
+    const logBefore = readFileSync(logFilePath, 'utf8');
+
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['update'], context)).toBe(0);
+
+    expect(context.outputText().split('\n')[0]).toEndWith('; the tracker itself was not touched.');
+    expect(readFileSync(progressFilePath, 'utf8')).toBe(unreadableProgress);
+    expect(readFileSync(logFilePath, 'utf8')).toBe(logBefore);
+  });
+});
+
+interface TrackerInAnOlderFormat {
+  repositoryDirectory: string;
+  progressFilePath:    string;
+  logFilePath:         string;
+  ticketFilePath:      string;
+}
+
+/** A tracker as a build before log.jsonl left it: the log inside a version 1 progress file, and a ticket holding the retired word `open`. */
+async function trackedRepositoryInAnOlderFormat(): Promise<TrackerInAnOlderFormat> {
+  const repositoryDirectory = await trackedRepositoryWithStaleFiles();
+  await runCommandLine(['ticket', 'add', 'Rename the export button', '--type', 'change'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }));
+
+  const trackerDirectory = join(repositoryDirectory, '.agent-progress');
+  const progressFilePath = join(trackerDirectory, 'progress.json');
+  const logFilePath      = join(trackerDirectory, 'log.jsonl');
+  const ticketsDirectory = join(trackerDirectory, 'tickets');
+  const ticketFilePath   = join(ticketsDirectory, readdirSync(ticketsDirectory)[0] ?? '');
+
+  const currentProgress = JSON.parse(readFileSync(progressFilePath, 'utf8')) as Record<string, unknown>;
+  const versionOneProgress = {
+    ...currentProgress,
+    version: 1,
+    log:     [{ at: '2026-09-18T09:00:00+02:00', text: 'Example session started' }],
+  };
+  writeFileSync(progressFilePath, `${JSON.stringify(versionOneProgress, null, 2)}\n`);
+  rmSync(logFilePath);
+  writeFileSync(ticketFilePath, readFileSync(ticketFilePath, 'utf8').replace('status: "pending"', 'status: open'));
+  return {
+    repositoryDirectory,
+    progressFilePath,
+    logFilePath,
+    ticketFilePath,
+  };
+}
+
+describe.skipIf(!gitIsAvailable())('what update rewrites', () => {
+  test('a version 1 progress file and a ticket holding a retired word are rewritten in the current format, and a second run touches nothing', async () => {
+    const {
+      repositoryDirectory,
+      progressFilePath,
+      logFilePath,
+      ticketFilePath
+    } = await trackedRepositoryInAnOlderFormat();
+    expect(readFileSync(ticketFilePath, 'utf8'), 'the fixture holds the retired word, so the rewrite below is about something').toContain('status: open');
+
+    const first = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['update'], first)).toBe(0);
+
+    expect(first.outputText().split('\n')[0]).toEndWith(
+      ', and rewrote its older tracker files in the current format: progress.json, with its log moved to log.jsonl and 1 ticket file.',
+    );
+    const storedProgress = JSON.parse(readFileSync(progressFilePath, 'utf8')) as Record<string, unknown>;
+    expect(storedProgress['version']).toBe(2);
+    expect(storedProgress).not.toHaveProperty('log');
+    expect(readFileSync(logFilePath, 'utf8')).toBe('{"at":"2026-09-18T09:00:00+02:00","kind":"note","fields":{"text":"Example session started"}}\n');
+    expect(readFileSync(ticketFilePath, 'utf8')).toContain('status: "pending"');
+
+    const progressAfterRewrite = readFileSync(progressFilePath, 'utf8');
+    const logAfterRewrite      = readFileSync(logFilePath, 'utf8');
+    const ticketAfterRewrite   = readFileSync(ticketFilePath, 'utf8');
+    const second = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['update'], second)).toBe(0);
+
+    expect(second.outputText().split('\n')[0]).toEndWith('; the tracker itself was not touched.');
+    expect(readFileSync(progressFilePath, 'utf8')).toBe(progressAfterRewrite);
+    expect(readFileSync(logFilePath, 'utf8')).toBe(logAfterRewrite);
+    expect(readFileSync(ticketFilePath, 'utf8')).toBe(ticketAfterRewrite);
   });
 });
 
