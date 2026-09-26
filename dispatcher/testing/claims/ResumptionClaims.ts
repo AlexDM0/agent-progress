@@ -2,6 +2,7 @@
  * The dispatcher's resumption of a build an earlier run left paused, as claims shared by the resumption suite: each a scenario, what must hold
  * after it, and the mutant that breaks exactly that decision.
  */
+import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL }                     from '../../../src/lib/tracker-model/constants/AgentSettings.ts';
 import type { DispatchSummary }                                          from '../../@types/DispatchOutcome.ts';
 import type { DispatchScenario, RecordedAgentCall, RecordedDispatchRun } from '../DispatchScriptHarness.ts';
 import {
@@ -24,6 +25,11 @@ const WHOLE_BOARD_CLAIM_NOTE = `Built by the whole-board dispatcher run on ticke
 
 function callsOf(run: RecordedDispatchRun, runName: string, kind: string, ticketId: string): RecordedAgentCall[] {
   return run.calls.filter((call) => call.run === runName && call.kind === kind && call.ticketId === ticketId);
+}
+
+function workersOnTicketRunOn(run: RecordedDispatchRun, ticketId: string, model: string, effort: string): boolean {
+  const workers = run.calls.filter((call) => call.ticketId === ticketId && (call.kind === 'build' || call.kind === 'review'));
+  return workers.length > 0 && workers.every((call) => call.model === model && call.effort === effort);
 }
 
 /** #001's first builder stops short and the user stops the board as it returns; after the run ends the user's go relaunches the whole board. */
@@ -107,6 +113,16 @@ export const RESUMPTION_CLAIMS: readonly DispatchClaim[] = [
       find:       'if (settings.ticketIds === null && !pausedBuildWasFoundBySurvey) return \'\';',
       replace:    'if (settings.ticketIds === null) return \'\';',
     },
+  },
+  {
+    // A paused build is on no ready list, so the survey's entry is the only place its stated model and effort reach the run.
+    name:        'a whole-board run resumes a surveyed paused build on the model and effort its ticket states, and the ready ticket beside it on the default pair',
+    scenarioFor: () => ({ ...pausedBuildBeside(WHOLE_BOARD_CLAIM_NOTE)(), agentSettingsByTicketId: { [PAUSED_TICKET_ID]: { model: 'sonnet', effort: 'high' } } }),
+    holds:       (run) => runSummaryOf(run).delivered.join() === `${PAUSED_TICKET_ID},002`
+      && workersOnTicketRunOn(run, PAUSED_TICKET_ID, 'sonnet', 'high')
+      && workersOnTicketRunOn(run, '002', DEFAULT_AGENT_MODEL, DEFAULT_AGENT_EFFORT)
+      && callsOf(run, 'main', 'build', PAUSED_TICKET_ID).every((call) => call.prompt.includes('--owner sonnet')),
+    mutant: { modulePath: DISPATCH_RUN, find: '      this.ticketRecordFor(pausedBuild.id).agentModelAndEffort = pausedBuild.agentModelAndEffort;\n', replace: '' },
   },
   {
     name:        'a held ticket\'s paused build is not taken over, stays paused and is returned as held for a build',
