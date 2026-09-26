@@ -111,7 +111,7 @@ repository.
 ## Checks
 
 ```sh
-bun run typecheck   # tsc over the Bun project and the DOM-only page project
+bun run typecheck   # tsc over the Bun project, the DOM-only page project and the dispatcher's two projects
 bun test            # bun:test, specs beside their modules
 bun run lint        # eslint 9 flat config
 ```
@@ -120,13 +120,17 @@ Run all three after any TypeScript change, before calling the change done. Bun e
 TypeScript directly, so a type error is not a build failure; it is a runtime surprise on a path
 nobody exercised. Never substitute an ad-hoc `tsc` invocation with hand-picked flags.
 
-`typecheck` is two passes, `tsc -p tsconfig.json && tsc -p lib/render/page/tsconfig.json`. The root
-project is the Bun program (`agent-progress.ts`, `cli/`, `lib/`, `src/`) and excludes `lib/render/page/`. The
+`typecheck` is four passes, `tsc -p` over `tsconfig.json`, `lib/render/page/tsconfig.json`,
+`dispatcher/tsconfig.spec.json` and `dispatcher/tsconfig.json`. The root project is the Bun program (`agent-progress.ts`, `cli/`, `lib/`, `src/`) and excludes `lib/render/page/`. The
 page project, `lib/render/page/tsconfig.json`, extends the root's strictness but compiles with the DOM
 library and no Bun or Node types, so a page module reaching for `Bun.file` or `node:fs` fails to
 compile instead of failing in a browser. Every shared file a page module imports is checked under
 those DOM-only options too, which is what proves `src/lib/tracker-model/`,
 `src/lib/utils/HtmlEscapeUtil.ts` and the other shared modules the page reaches stay environment-neutral.
+`dispatcher/tsconfig.json` is the Workflow-runtime project, with no Bun, Node or DOM types. Its `include`
+list names the `src/` files the dispatcher reaches, so a module reaching for a runtime API fails to
+compile. `dispatcher/tsconfig.spec.json` checks the dispatcher's specs and `dispatcher/testing/` with Bun
+types. The root project excludes the whole `dispatcher/` folder.
 
 `cli/HelpText.spec.ts` holds the help against the command table in both directions, and holds the
 bundled skills to their shape: none of them may carry a command table of its own, and the one every
@@ -154,7 +158,7 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  lib/platf
 A feature folder (`lib/progress/`, `lib/tickets/`, `lib/render/`) never imports a sibling; what two
 features need is promoted to the level above both, or passed as a structurally typed parameter.
 Nothing under `lib/` imports `cli/`, and nothing that ships imports the test-only
-`src/testing/`, `cli/testing/` and `lib/tooling/dev/`. Exit codes are decided in `cli/` and nowhere else; a `lib/` module returns a
+`src/testing/`, `cli/testing/` and `dispatcher/testing/`. Exit codes are decided in `cli/` and nowhere else; a `lib/` module returns a
 verdict or throws `OperationRefusal`.
 
 The rules are in the root `CLAUDE.md`; there are no folder `CLAUDE.md` files.
@@ -173,7 +177,7 @@ A spec is `<Module>.spec.ts` beside its module (a second suite on the same modul
 holds no specs because a `bun:test` import would not resolve in the DOM-only project; its specs sit one
 level up in `lib/render/` and import the page modules by relative path.
 
-The test-only helpers live in `src/testing/`, `cli/testing/` and `lib/tooling/dev/`, the only folders allowed to import devDependencies:
+The test-only helpers live in `src/testing/`, `cli/testing/` and `dispatcher/testing/`, the only folders allowed to import devDependencies:
 
 | helper | use |
 |---|---|
@@ -181,8 +185,9 @@ The test-only helpers live in `src/testing/`, `cli/testing/` and `lib/tooling/de
 | `cli/testing/CapturedCommandContext.ts` | A command context whose two output streams are arrays, so a spec drives `runCommandLine` in-process and reads back what a user would have seen. |
 | `cli/testing/CliProcess.ts` | The one sanctioned way to spawn the real binary. |
 | `src/testing/TrackerIsolation.ts` | The guard that keeps a spec away from any tracker it did not create. |
-| `lib/tooling/dev/DispatchScriptHarness.ts` | Runs the dispatcher script against a fake board. |
-| `lib/tooling/dev/WorkflowScriptSource.ts` | Reads the dispatcher script's syntax tree for a clock, randomness or an impure `meta`. |
+| `dispatcher/testing/DispatchScriptHarness.ts` | Runs a dispatcher Workflow script's text against a fake `agent()` and a fake board. |
+| `dispatcher/testing/DispatchScriptBundle.ts` | Builds the Workflow script text from the TypeScript port, or a `SourceMutant` of one of its modules. |
+| `dispatcher/testing/WorkflowScriptSource.ts` | Reads a dispatcher script's syntax tree for a clock, randomness, an impure `meta` or a shadowed Workflow global. |
 
 `TrackerIsolation` refuses any directory outside the scratch root, and refuses when discovery from a
 directory inside it (the walk up, the git common directory, or `AGENT_PROGRESS_ROOT`) would resolve
@@ -204,8 +209,10 @@ held by review, not by a spec.
 | `cli/HelpText.spec.ts` | `cli/HelpText.ts` and the command table agree in both directions; no bundled skill carries its own command table; the skill every agent loads stays under its size ceiling. |
 | `cli/BinarySmoke.spec.ts` | The real `agent-progress.ts` spawned end to end: the shebang, the argument slice and the exit status reaching the process. |
 | `cli/InitRootOverride.spec.ts` | `init` beside `AGENT_PROGRESS_ROOT`, spawned because no spec may set the environment in-process: an override naming another directory refused with both progress files byte-identical, an agreeing one refreshing like `update`. |
-| `lib/tooling/dev/WorkflowScriptSource.spec.ts` | The dispatcher script calls no clock and no randomness, and opens with a literal `meta` the Workflow tool can read without running it. |
-| `lib/tooling/dev/DispatchScriptHarness.spec.ts` and its `.hold`, `.resume` and `.brief` suites | The dispatcher's decisions; see below. |
+| `dispatcher/testing/WorkflowScriptSource.spec.ts` | Every form the guard catches, each watched failing. |
+| `dispatcher/DispatchScript.spec.ts` | The built script's meta equals the old script's, it has no clock or randomness, builds to the same text every time and has one `agent()` call. |
+| `dispatcher/testing/OldDispatchScript.spec.ts` | What the committed old script states for itself. |
+| `dispatcher/Dispatcher.decisions.spec.ts` and its `.holds`, `.resumption`, `.brief` and `.equivalence` suites | The dispatcher's decisions; see below. |
 
 A new guard does not count until you have introduced each form of the violation it claims to catch and
 watched it fail.
@@ -240,19 +247,25 @@ JavaScript, run by the Workflow tool and never by Bun. `init` and `update` copy 
 tracked repository as `.claude/workflows/agent-progress-dispatch.js`. It runs a builder per ready ticket
 and a clean reviewer per built one within the board limit, and decides rounds and parking in code.
 
-Because nothing executes it in this repository, `lib/tooling/dev/DispatchScriptHarness.ts` compiles its
-body the way the Workflow tool would and runs it against a fake `agent()` and a fake board, with the
+Its policy is ported to `dispatcher/` in TypeScript. The frozen table
+`dispatcher/testing/FrozenDispatchTraces.json`, taken from that script at bc42604 with the retake command
+stated in the table, holds the port to its behaviour.
+
+`dispatcher/testing/DispatchScriptBundle.ts` bundles the port into one Workflow script, and
+`dispatcher/testing/DispatchScriptHarness.ts` runs it against a fake `agent()` and a fake board, with the
 clock and randomness refused as the Workflow tool refuses them. The specs:
 
 | spec | pins |
 |---|---|
-| `lib/tooling/dev/DispatchScriptHarness.spec.ts` | Rounds, parking, concurrency, claims and restarts. Each claim runs against the real script, where it must hold, and against a mutant that breaks exactly that decision, where it must fail; a mutant whose text has left the script fails loudly. |
-| `lib/tooling/dev/DispatchScriptHarness.hold.spec.ts` | A held ticket gets no builder or reviewer until a status block shows the hold lifted, its running row gives up its slot, and the other tickets keep flowing. |
-| `lib/tooling/dev/DispatchScriptHarness.resume.spec.ts` | A build an earlier run left paused is resumed by a whole-board relaunch with one builder, never a held ticket's or a person's pause. |
-| `lib/tooling/dev/DispatchScriptHarness.brief.spec.ts` | The prompts' call budgets and rework threshold match what `templates/AgentBrief.md` states. |
-| `lib/tooling/dev/WorkflowScriptSource.spec.ts` | No nondeterministic call in the script, and a literal `meta` first. |
+| `dispatcher/Dispatcher.decisions.spec.ts` | Rounds, parking, concurrency, claims and restarts. Each claim runs against the bundle, where it must hold, and against a `SourceMutant` of the module that holds the decision, where it must fail. A mutant whose text is not in its module exactly once fails. |
+| `dispatcher/Dispatcher.holds.spec.ts` | A held ticket gets no builder or reviewer until a status block shows the hold lifted, its running row gives up its slot, and the other tickets keep flowing. |
+| `dispatcher/Dispatcher.resumption.spec.ts` | A build an earlier run left paused is resumed by a whole-board relaunch with one builder, never a held ticket's or a person's pause. |
+| `dispatcher/Dispatcher.brief.spec.ts` | The call budgets and rework threshold sent by the bundle and stated in `templates/AgentBrief.md` equal `DISPATCH_PROTOCOL`. |
+| `dispatcher/Dispatcher.equivalence.spec.ts` | The bundle reproduces the frozen table on every catalogued scenario. |
+| `dispatcher/testing/DispatchTraceCapture.spec.ts` | The committed old script is still the one the table was taken from. |
+| `dispatcher/DispatchScript.spec.ts` and `dispatcher/testing/WorkflowScriptSource.spec.ts` | No nondeterministic call, and a literal `meta`. |
 
-A change to the script's behaviour therefore comes with a harness claim and its mutant.
+A change to the dispatcher's behaviour therefore comes with a claim and its mutant.
 
 ## Architecture decisions
 
