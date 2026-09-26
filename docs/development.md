@@ -122,7 +122,7 @@ nobody exercised. Never substitute an ad-hoc `tsc` invocation with hand-picked f
 
 `typecheck` is five passes, `tsc -p` over `tsconfig.json`, `page/tsconfig.json`, `page/tsconfig.spec.json`,
 `dispatcher/tsconfig.spec.json` and `dispatcher/tsconfig.json`. The root project is the Bun program
-(`agent-progress.ts`, `cli/`, `lib/`, `src/`) and reaches neither `page/` nor `dispatcher/`. The
+(`agent-progress.ts`, `cli/`, `src/`) and reaches neither `page/` nor `dispatcher/`. The
 page project, `page/tsconfig.json`, extends the root's strictness but compiles with the DOM
 library and no Bun or Node types, so a page module reaching for `Bun.file` or `node:fs` fails to
 compile instead of failing in a browser. Every shared file a page module imports is checked under
@@ -142,8 +142,7 @@ agent loads has a size ceiling.
 
 ```
 agent-progress.ts    the bin shim; the only file that calls process.exit
-cli/                 the command surface: dispatch, arguments, help, one folder per command
-lib/                 everything the commands do, in five layers
+cli/                 the command surface: dispatch, arguments, help, the commands grouped into sets
 page/                the browser page, with its own DOM-only project and spec project
 resources/           files read at runtime: the page's HTML template
 src/                 the target layout's code, filled step by step as the migration plan moves it
@@ -153,16 +152,18 @@ templates/           what the tool writes into other repositories, and the dispa
 docs/                this page, the CLI reference, the backlog and the README images
 ```
 
-Inside `lib/`, imports run up the tree only:
+Imports run up only, with no cycles:
 
 ```
-src/lib/  →  src/shared/  →  lib/utils/  →  cli/
+src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → render)  →  features (cli/, page/, dispatcher/)
 ```
 
-A service imports one other service, one way only (tracker → render), and a feature folder never
-imports a sibling; what two features need is promoted to the level above both, or passed as a
-structurally typed parameter.
-Nothing under `lib/` imports `cli/`, and nothing that ships imports the test-only
+A feature (`cli/`, `page/`, `dispatcher/`) imports itself and `src/*`, never another feature. Inside
+`cli/` a command folder never imports a sibling command's folder: what two need is hoisted to the
+level above both (a set's own files, or `cli/`'s root and `cli/utils/`), or passed as a structurally
+typed parameter. A service imports one other service, one way only (tracker → render). `src/` never
+imports a feature, and `agent-progress.ts` imports only `cli/`.
+Nothing that ships imports the test-only
 `src/testing/`, `cli/testing/`, `src/adapters/progress/testing/` and `dispatcher/testing/`.
 Exit codes are decided in `cli/` and nowhere else; a service returns a
 verdict or throws `OperationRefusal`.

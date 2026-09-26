@@ -2,7 +2,9 @@ import { ProgressDocumentUtil }           from '../../../src/adapters/progress/u
 import { LogUtil }                        from '../../../src/adapters/utils/LogUtil';
 import type { ProgressFile }              from '../../../src/lib/tracker-model/@types/ProgressFile';
 import type { Task }                      from '../../../src/lib/tracker-model/@types/Task';
+import type { ReadyTicket }               from '../../../src/lib/tracker-model/@types/Ticket';
 import type { Board }                     from '../../../src/lib/tracker-model/Board';
+import { readingBoardOf }                 from '../../../src/lib/tracker-model/ReadingBoard';
 import { TASK_STATUSES, TICKET_STATUSES } from '../../../src/lib/tracker-model/constants/Statuses';
 import { TimeUtil }                       from '../../../src/lib/utils/TimeUtil';
 import { TokenCountUtil }                 from '../../../src/lib/utils/TokenCountUtil';
@@ -11,17 +13,13 @@ import { requireWorkspace }               from '../../../src/services/tracker/Wo
 import type { WordedLogEntry }            from '../../../src/shared/@types/WordedLogEntry';
 import { LIMITS }                         from '../../../src/shared/constants/Limits';
 import {
-  boardForReading,
-  concurrencyDocumentOf,
-  nextLineFor,
   padColumn,
   printEntityThenNextLine,
-  readyTicketsOf,
   reportIgnoredTicketFiles,
-  ticketDocumentOf,
-  type ReadyTicket
+  ticketDocumentOf
 } from '../../CommandSupport';
 import type { CommandHandler } from '../../CommandTable';
+import { NextLineUtil }        from '../../utils/NextLineUtil';
 
 const USAGE = 'agent-progress status [--json] [--full]';
 
@@ -78,11 +76,11 @@ function totalTokensOf(tasks: readonly Readonly<Task>[]): number | null {
  * state; `readyTickets` is read from the Board's ready tickets, as `readyTicketIds` is.
  */
 function derivedDocumentOf(board: Board): { concurrency: object; readyTickets: ReadyTicket[] } {
-  const concurrency     = concurrencyDocumentOf(board);
+  const concurrency     = board.dispatchCapacity();
   const dispatcherRunId = board.dispatcherRunId();
   return {
     concurrency:  dispatcherRunId === undefined ? concurrency : { ...concurrency, dispatcherRunId },
-    readyTickets: readyTicketsOf(board),
+    readyTickets: board.readyTicketEntries(),
   };
 }
 
@@ -169,12 +167,12 @@ export const statusCommand: CommandHandler = async (commandArguments, context) =
   const workspace = requireWorkspace(context.currentDirectory);
   const { progress, storedLog, listing } = requireTracker(workspace);
   const wordedLog       = storedLog.records.map(LogUtil.wordedEntryOf);
-  const board           = boardForReading(progress, listing.tickets);
+  const board           = readingBoardOf(progress, listing.tickets);
 
   reportIgnoredTicketFiles(context, listing.malformed);
 
   const showsEverything = commandArguments.flag('full');
   const asJson          = showsEverything ? fullDocumentOf(progress, wordedLog, board) : workingDocumentOf(progress, wordedLog, board);
-  printEntityThenNextLine(commandArguments, context, asJson, renderHumanStatus(progress, wordedLog, board, showsEverything), nextLineFor(board));
+  printEntityThenNextLine(commandArguments, context, asJson, renderHumanStatus(progress, wordedLog, board, showsEverything), NextLineUtil.nextLineOf(board));
   return Promise.resolve();
 };

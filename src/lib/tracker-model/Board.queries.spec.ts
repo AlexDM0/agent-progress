@@ -3,7 +3,8 @@
  * and text that is no reference resolves to nothing rather than to a ticket; a task is found by its id alone; the concurrency is the
  * one `ConcurrencyUtil` reads over the Board's rows; the stored run id is read as stored; a dependency the board does not hold still
  * counts as unsettled; only a low ticket is held back, by normal or high work still owed; the ready tickets come in the order to take
- * them; the held ids leave out settled tickets; and a settled check judges the record handed in, never another found by its id.
+ * them; the held ids leave out settled tickets; the dispatch capacity keeps the key order its callers print; the ready entries spell
+ * out every default and mark only a held ticket; and a settled check judges the record handed in, never another found by its id.
  */
 import { expect, test } from 'bun:test';
 
@@ -117,6 +118,56 @@ test('the held ids are every held ticket an agent may still work, in progress an
     ],
   });
   expect(board.heldTicketIds()).toEqual(['001', '002', '003']);
+});
+
+/** A normal ticket held, a high one with its agents named, and a low one held back by both, beside one agent in flight. */
+function boardWithHeldAndLowTickets(): ReturnType<typeof boardFixture> {
+  return boardFixture({
+    tasks:   [taskFixture({ id: 1, status: 'in-progress' })],
+    tickets: [
+      ticketFixture({ id: '001', hold: '' }),
+      ticketFixture({
+        id:       '002',
+        priority: 'high',
+        model:    'sonnet',
+        effort:   'high',
+      }),
+      ticketFixture({ id: '003', priority: 'low' }),
+    ],
+    concurrencyLimit: 3,
+  });
+}
+
+// Callers print this object as it comes, so its key order is part of the document a script reads.
+test('the dispatch capacity is the concurrency, then the ready ids in the order to take them, the dispatcher state and the held ids', () => {
+  const capacity = boardWithHeldAndLowTickets().board.dispatchCapacity();
+  expect(Object.keys(capacity)).toEqual(['limit', 'agentsInFlight', 'freeSlots', 'readyTicketIds', 'dispatcherState', 'heldTicketIds']);
+  expect(capacity).toEqual({
+    limit:           3,
+    agentsInFlight:  1,
+    freeSlots:       2,
+    readyTicketIds:  ['002', '001'],
+    dispatcherState: 'stopped',
+    heldTicketIds:   ['001'],
+  });
+});
+
+test('the ready entries list the ready tickets in the same order with every default spelled out, and mark only a held ticket', () => {
+  expect(boardWithHeldAndLowTickets().board.readyTicketEntries()).toStrictEqual([
+    {
+      id:       '002',
+      priority: 'high',
+      model:    'sonnet',
+      effort:   'high',
+    },
+    {
+      id:       '001',
+      priority: 'normal',
+      model:    'opus',
+      effort:   'medium',
+      held:     true,
+    },
+  ]);
 });
 
 // Rows or tickets sharing a hand-duplicated id must each be judged on their own status, never on the first one found by that id.

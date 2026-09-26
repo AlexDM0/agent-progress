@@ -1,13 +1,15 @@
 /**
  * The three wordings an orchestrator reads after every move — a slot free, none free, nothing ready —
  * the cap that keeps a long queue to one line: five ids, then how many more — and the dispatcher's
- * advice, which is what survives a compaction of the orchestrator's context.
+ * advice, which is what survives a compaction of the orchestrator's context — and that a Board's line is composed from its own
+ * dispatch capacity, with its low ready tickets picked out by their resolved priority.
  */
 import { expect, test } from 'bun:test';
 
-import { NextLineUtil } from './NextLineUtil';
+import { boardFixture, taskFixture, ticketFixture } from '../../src/testing/BoardFixtures';
+import { NextLineUtil }                             from './NextLineUtil';
 
-const { composeNextLine, endWithRunningDispatcherNotice } = NextLineUtil;
+const { composeNextLine, nextLineOf, endWithRunningDispatcherNotice } = NextLineUtil;
 
 /** A running dispatcher adds nothing, so the slot and ready wordings are pinned against it. */
 const NOTHING_LOW_PRIORITY_OR_HELD = { lowPriorityReadyTicketIds: [], heldTicketIds: [] } as const;
@@ -259,4 +261,20 @@ test('a running dispatcher adds one line after the text telling an orchestrator 
 test('a finished or stopped dispatcher leaves the text as it was', () => {
   expect(endWithRunningDispatcherNotice('Next: nothing ready', 'finished')).toBe('Next: nothing ready');
   expect(endWithRunningDispatcherNotice('Next: nothing ready', 'stopped')).toBe('Next: nothing ready');
+});
+
+test('a Board with a free slot and one ready ticket names the free slot and that ticket', () => {
+  const { board, progress } = boardFixture({
+    tasks:            [taskFixture({ id: 1, status: 'in-progress' })],
+    tickets:          [ticketFixture({ id: '001' })],
+    concurrencyLimit: 2,
+  });
+  progress.dispatcherState = 'running';
+  expect(nextLineOf(board)).toBe('Next: 1 of 2 slots free; ready: #001');
+});
+
+test('a Board whose only ready ticket is low, under a finished dispatcher, advises triage before a launch', () => {
+  const { board, progress } = boardFixture({ tickets: [ticketFixture({ id: '001', status: 'delivered' }), ticketFixture({ id: '002', priority: 'low' })] });
+  progress.dispatcherState  = 'finished';
+  expect(nextLineOf(board)).toBe('Next: 2 of 2 slots free; ready: #002; only low priority ready: triage, then launch');
 });

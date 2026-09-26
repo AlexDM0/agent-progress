@@ -24,5 +24,5 @@
 
     "skipLibCheck": true
   },
-  "include": ["agent-progress.ts", "cli/**/*.ts", "lib/**/*.ts", "src/**/*.ts"]
+  "include": ["agent-progress.ts", "cli/**/*.ts", "src/**/*.ts"]
 }

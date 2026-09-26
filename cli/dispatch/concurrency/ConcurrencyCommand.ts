@@ -1,7 +1,7 @@
 import { LogUtil }                            from '../../../src/adapters/utils/LogUtil';
+import { readingBoardOf }                     from '../../../src/lib/tracker-model/ReadingBoard';
 import { CONCURRENCY_LIMIT_CEILING_AGENTS }   from '../../../src/lib/tracker-model/constants/ConcurrencyLimits';
 import { BoardSettingsUtil }                  from '../../../src/lib/tracker-model/utils/BoardSettingsUtil';
-import { ConcurrencyUtil }                    from '../../../src/lib/tracker-model/utils/ConcurrencyUtil';
 import { requireProgressFile }                from '../../../src/services/tracker/TrackerReader';
 import { requireWorkspace }                   from '../../../src/services/tracker/Workspace';
 import { OperationRefusal }                   from '../../../src/shared/OperationRefusal';
@@ -28,8 +28,8 @@ function limitFrom(written: string): number {
 }
 
 function printCurrentLimit(commandArguments: ArgumentParser, context: CommandContext): void {
-  const progress    = requireProgressFile(requireWorkspace(context.currentDirectory));
-  const concurrency = ConcurrencyUtil.concurrencyOf(progress.tasks, progress.concurrencyLimit);
+  // Built over progress.json alone, so a broken log or ticket file does not stop this read.
+  const concurrency = readingBoardOf(requireProgressFile(requireWorkspace(context.currentDirectory)), []).concurrency();
   printEntity(commandArguments, context, concurrency, String(concurrency.limit));
 }
 

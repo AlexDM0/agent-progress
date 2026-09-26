@@ -3,7 +3,7 @@
  * with, driven in process against one scratch tracker per case. What matters is that the line describes the
  * board after the move rather than before it — a claim that fills the last slot says so — and that no
  * `--json` document carries it, since a script parses that output whole. The wordings themselves are
- * pinned in `lib/utils/NextLineUtil.spec.ts`.
+ * pinned in `cli/utils/NextLineUtil.spec.ts`.
  */
 import {
   afterEach,

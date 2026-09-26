@@ -17,7 +17,7 @@ import { createCapturedCommandContext }                                       fr
 
 const FROZEN_NOW = new Date('2026-09-24T12:00:00Z');
 
-// Written out by hand, not imported, so a reworded notice fails here as well as in `lib/utils/NextLineUtil.spec.ts`.
+// Written out by hand, not imported, so a reworded notice fails here as well as in `cli/utils/NextLineUtil.spec.ts`.
 const RUNNING_DISPATCHER_NOTICE = 'Dispatcher running: it picks this change up at its next agent\'s return. Never stop or relaunch it for this.';
 
 const STATES_WITHOUT_THE_NOTICE: readonly DispatcherState[] = ['finished', 'stopped'];

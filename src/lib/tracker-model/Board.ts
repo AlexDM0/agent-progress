@@ -24,12 +24,13 @@ import type {
   TokenCreditOutcome,
   TrackerCleared
 }                                                        from './@types/BoardChanges.ts';
-import type { Concurrency }                              from './@types/Concurrency.ts';
+import type { Concurrency, DispatchCapacity }            from './@types/Concurrency.ts';
 import type { AgentUsage, LogRecord }                    from './@types/LogRecord.ts';
 import type { DispatcherState, ProgressFile, ViewRange } from './@types/ProgressFile.ts';
 import type { DisplayState, Task, TaskStatus }           from './@types/Task.ts';
 import type {
   AgentPair,
+  ReadyTicket,
   Ticket,
   TicketFrontmatter,
   TicketPriority,
@@ -496,11 +497,35 @@ export class Board {
     return readyTicketIds.flatMap((ticketId) => this.ticketRecordById(ticketId) ?? []);
   }
 
+  /** Read from the ready tickets, as `readyTicketIds` is, so the two lists cannot disagree on a member or the order; defaults resolved here. */
+  readyTicketEntries(): ReadyTicket[] {
+    return this.readyTickets().map(({ frontmatter }) => ({
+      id:       frontmatter.id,
+      priority: TicketDefaultsUtil.ticketPriorityOf(frontmatter),
+      model:    TicketDefaultsUtil.agentModelOf(frontmatter),
+      effort:   TicketDefaultsUtil.agentEffortOf(frontmatter),
+      ...(frontmatter.hold === undefined ? {} : { held: true as const }),
+    }));
+  }
+
   /** Every held ticket a dispatcher could still start a step of, in progress or in review as much as ready. */
   heldTicketIds(): string[] {
     return this.ticketRecords
       .filter((ticket) => ticket.frontmatter.hold !== undefined && !TICKET_STATUSES_NO_AGENT_WORKS_AGAIN.includes(ticket.frontmatter.status))
       .map((ticket) => ticket.frontmatter.id);
+  }
+
+  /**
+   * What a dispatcher needs to start the next agent: the limit, the agents in flight against it, what is left, and the tickets that could take it —
+   * in the order to take them, high first, with low tickets held back while normal or high work is still owed — and where the user left the dispatcher.
+   */
+  dispatchCapacity(): DispatchCapacity {
+    return {
+      ...this.concurrency(),
+      readyTicketIds:  this.readyTickets().map((ticket) => ticket.frontmatter.id),
+      dispatcherState: this.dispatcherState(),
+      heldTicketIds:   this.heldTicketIds(),
+    };
   }
 
   /** A dependency missing from the board counts as unsettled: a ticket nobody can see is not finished work. */

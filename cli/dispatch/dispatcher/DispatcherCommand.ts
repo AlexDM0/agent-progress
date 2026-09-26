@@ -1,14 +1,15 @@
-import { LogUtil }                                     from '../../../src/adapters/utils/LogUtil';
-import type { DispatcherState }                        from '../../../src/lib/tracker-model/@types/ProgressFile';
-import { DEFAULT_DISPATCHER_STATE, DISPATCHER_STATES } from '../../../src/lib/tracker-model/constants/DispatcherStates';
-import { BoardSettingsUtil }                           from '../../../src/lib/tracker-model/utils/BoardSettingsUtil';
-import { requireProgressFile }                         from '../../../src/services/tracker/TrackerReader';
-import { requireWorkspace }                            from '../../../src/services/tracker/Workspace';
-import { OperationRefusal }                            from '../../../src/shared/OperationRefusal';
-import type { CommandContext }                         from '../../CommandContext';
-import { openTrackerForWriting, printEntity }          from '../../CommandSupport';
-import type { CommandHandler }                         from '../../CommandTable';
-import type { ArgumentParser }                         from '../../arguments/ArgumentParser';
+import { LogUtil }                            from '../../../src/adapters/utils/LogUtil';
+import type { DispatcherState }               from '../../../src/lib/tracker-model/@types/ProgressFile';
+import { readingBoardOf }                     from '../../../src/lib/tracker-model/ReadingBoard';
+import { DISPATCHER_STATES }                  from '../../../src/lib/tracker-model/constants/DispatcherStates';
+import { BoardSettingsUtil }                  from '../../../src/lib/tracker-model/utils/BoardSettingsUtil';
+import { requireProgressFile }                from '../../../src/services/tracker/TrackerReader';
+import { requireWorkspace }                   from '../../../src/services/tracker/Workspace';
+import { OperationRefusal }                   from '../../../src/shared/OperationRefusal';
+import type { CommandContext }                from '../../CommandContext';
+import { openTrackerForWriting, printEntity } from '../../CommandSupport';
+import type { CommandHandler }                from '../../CommandTable';
+import type { ArgumentParser }                from '../../arguments/ArgumentParser';
 
 const USAGE = `agent-progress dispatcher [${DISPATCHER_STATES.join('|')}] [--run <runId>] [--json]`;
 
@@ -19,10 +20,11 @@ const STATE_THAT_HOLDS_A_RUN: DispatcherState = 'running';
 
 /** The read takes no lock and writes nothing, so a tracker that never set a state reads `stopped` and keeps its file as it was. */
 function printCurrentState(commandArguments: ArgumentParser, context: CommandContext): void {
-  const progress            = requireProgressFile(requireWorkspace(context.currentDirectory));
-  const dispatcherState     = progress.dispatcherState ?? DEFAULT_DISPATCHER_STATE;
-  const { dispatcherRunId } = progress;
-  const entity              = dispatcherRunId === undefined ? { dispatcherState } : { dispatcherState, dispatcherRunId };
+  // Built over progress.json alone, so a broken log or ticket file does not stop this read.
+  const board           = readingBoardOf(requireProgressFile(requireWorkspace(context.currentDirectory)), []);
+  const dispatcherState = board.dispatcherState();
+  const dispatcherRunId = board.dispatcherRunId();
+  const entity          = dispatcherRunId === undefined ? { dispatcherState } : { dispatcherState, dispatcherRunId };
   printEntity(commandArguments, context, entity, LogUtil.dispatcherStateTextOf(dispatcherState, dispatcherRunId ?? null));
 }
 

@@ -1,16 +1,7 @@
 /** The command line's shared printing and option parsing, and the adapters that run the tracker service for a command. */
-import { NextLineUtil }                       from '../lib/utils/NextLineUtil';
-import { TrackerReadingWordingUtil }          from '../src/adapters/utils/TrackerReadingWordingUtil';
-import type { Concurrency }                   from '../src/lib/tracker-model/@types/Concurrency';
-import type { DispatcherState, ProgressFile } from '../src/lib/tracker-model/@types/ProgressFile';
-import type {
-  AgentEffort,
-  AgentModel,
-  Ticket,
-  TicketPriority
-} from '../src/lib/tracker-model/@types/Ticket';
-import { Board }                                                 from '../src/lib/tracker-model/Board';
-import { createLogger }                                          from '../src/lib/tracker-model/Logger';
+import { TrackerReadingWordingUtil }                             from '../src/adapters/utils/TrackerReadingWordingUtil';
+import type { DispatcherState }                                  from '../src/lib/tracker-model/@types/ProgressFile';
+import type { Ticket, TicketPriority }                           from '../src/lib/tracker-model/@types/Ticket';
 import { TicketDefaultsUtil }                                    from '../src/lib/tracker-model/utils/TicketDefaultsUtil';
 import { TimeUtil }                                              from '../src/lib/utils/TimeUtil';
 import { TokenCountUtil }                                        from '../src/lib/utils/TokenCountUtil';
@@ -27,6 +18,7 @@ import { OperationRefusal }                 from '../src/shared/OperationRefusal
 import { LIMITS }                           from '../src/shared/constants/Limits';
 import type { CommandContext }              from './CommandContext';
 import type { ArgumentParser }              from './arguments/ArgumentParser';
+import { NextLineUtil }                     from './utils/NextLineUtil';
 
 /** An unreadable `--at` is refused rather than defaulted to now, which would stamp a bar nobody can explain. */
 export function resolveAtOption(commandArguments: ArgumentParser, context: CommandContext): string {
@@ -84,52 +76,6 @@ export function printEntity(commandArguments: ArgumentParser, context: CommandCo
   context.standardOutput(humanLine);
 }
 
-/** A Board for the commands that only read: what it would log goes nowhere, and nothing it holds is written. */
-export function boardForReading(progress: ProgressFile, tickets: Ticket[]): Board {
-  return new Board({ progress, tickets, logger: createLogger(() => undefined) });
-}
-
-/**
- * What a dispatcher needs to start the next agent: the limit, the agents in flight against it, what is left, and the tickets that could take it —
- * in the order to take them, high first, with low tickets held back while normal or high work is still owed — and where the user left the dispatcher.
- */
-export function concurrencyDocumentOf(board: Board): Concurrency & { readyTicketIds: string[]; dispatcherState: DispatcherState; heldTicketIds: string[] } {
-  return {
-    ...board.concurrency(),
-    readyTicketIds:  board.readyTickets().map((ticket) => ticket.frontmatter.id),
-    dispatcherState: board.dispatcherState(),
-    heldTicketIds:   board.heldTicketIds(),
-  };
-}
-
-export interface ReadyTicket {
-  id:       string;
-  priority: TicketPriority;
-  model:    AgentModel;
-  effort:   AgentEffort;
-  /** Present, and true, only on a held ticket. */
-  held?:    true;
-}
-
-/** Read from the Board's ready tickets, as `readyTicketIds` is, so the two lists cannot disagree on a member or the order; defaults resolved here. */
-export function readyTicketsOf(board: Board): ReadyTicket[] {
-  return board.readyTickets().map(({ frontmatter }) => ({
-    id:       frontmatter.id,
-    priority: TicketDefaultsUtil.ticketPriorityOf(frontmatter),
-    model:    TicketDefaultsUtil.agentModelOf(frontmatter),
-    effort:   TicketDefaultsUtil.agentEffortOf(frontmatter),
-    ...(frontmatter.hold === undefined ? {} : { held: true as const }),
-  }));
-}
-
-export function nextLineFor(board: Board): string {
-  const lowPriorityReadyTickets = board.readyTickets().filter((ticket) => TicketDefaultsUtil.ticketPriorityOf(ticket.frontmatter) === 'low');
-  return NextLineUtil.composeNextLine({
-    ...concurrencyDocumentOf(board),
-    lowPriorityReadyTicketIds: lowPriorityReadyTickets.map((ticket) => ticket.frontmatter.id),
-  });
-}
-
 /** The store is already written by the time this runs, so none of these fail the command: exit 0, reason on standard error. */
 export function reportRenderProblems(context: CommandContext, outcome: DashboardRenderOutcome): void {
   if (outcome.verdict === 'unreadable') {
@@ -181,7 +127,7 @@ export async function openTrackerForWritingThenReadNextLine<MutationResult>(
   mutate: (change: TrackerChange) => MutationResult | Promise<MutationResult>,
 ): Promise<{ result: MutationResult; nextLine: string; dispatcherState: DispatcherState }> {
   const written = await writeTrackerForCommand(commandArguments, context, mutate);
-  return { result: written.result, nextLine: nextLineFor(written.board), dispatcherState: written.board.dispatcherState() };
+  return { result: written.result, nextLine: NextLineUtil.nextLineOf(written.board), dispatcherState: written.board.dispatcherState() };
 }
 
 /** For `update` and `init` on an existing tracker: a current, absent or unreadable tracker is `null`, and a rewrite reports its render. */

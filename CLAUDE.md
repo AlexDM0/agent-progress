@@ -36,32 +36,32 @@ to make a check pass.
 - Everything is English: identifiers, flags, messages, file names, comments. Example data is obviously synthetic:
   `Alex Example`, `Example Agency`.
 
-### Imports (today's tree, held by review)
+### Imports (held by review)
 
 ```
-src/lib/  →  src/shared/  →  lib/utils/  →  cli/
+src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → render)  →  features (cli/, page/, dispatcher/)
 ```
 
-- Imports run up only, with no cycles. `lib/utils/` imports only itself and `src/lib/tracker-model/`, and no package or
-  builtin (a spec beside it may import `bun:test`). Nothing under `lib/` imports `cli/`, nothing that ships imports
-  `src/testing/`, `cli/testing/`, `src/adapters/progress/testing/` or `dispatcher/testing/`, and `agent-progress.ts`
-  imports only `cli/`.
+- Imports run up only, with no cycles. A feature (`cli/`, `page/`, `dispatcher/`) imports itself and `src/*`, never
+  another feature. Inside `cli/` a command folder never imports a sibling command's folder: what two need is hoisted to
+  the level above both (a set's own files, or `cli/`'s root and `cli/utils/`), or passed as a structurally typed
+  parameter. Nothing that ships imports `src/testing/`, `cli/testing/`, `src/adapters/progress/testing/` or
+  `dispatcher/testing/`, and `agent-progress.ts` imports only `cli/`.
 - A `src/lib/` package imports only the other `src/lib/` packages its main module's header names, node builtins and
-  external dependencies. It never imports `src/shared/`, `lib/` or `cli/`, and knows nothing about its callers: no
-  agent-progress names, tracker file names, user-facing wording or exit codes. App values arrive as parameters; a
-  refusal leaves as a verdict the caller turns into `OperationRefusal`, except that the tracker model's `Board`, a
-  domain class, throws its typed `BoardRefusal` instead. A `src/lib/` spec may import `src/testing/`.
+  external dependencies, and knows nothing about its callers: no agent-progress names, tracker file names, user-facing
+  wording or exit codes. App values arrive as parameters; a refusal leaves as a verdict the caller turns into
+  `OperationRefusal`, except that the tracker model's `Board`, a domain class, throws its typed `BoardRefusal` instead.
+  A `src/lib/` spec may import `src/testing/`.
 - `src/lib/tracker-model/` imports nothing outside its own folder and no builtin: the page's DOM-only project compiles
-  it, so it stays DOM-safe. The `lib/` layers import it like any `src/lib/` package.
+  it, so it stays DOM-safe.
 - `cli/testing/` is imported only by `cli/` specs.
 - `src/adapters/` imports only `src/lib/` and `src/shared/`; a `src/adapters/` spec may also import `src/testing/`.
   `cli/` imports `src/adapters/` as a feature does.
 - `src/services/tracker/` imports `src/lib/`, `src/shared/`, `src/adapters/` and `src/services/render/`;
   `src/services/render/` imports only `src/lib/`, `src/shared/` and `src/adapters/`; a `src/services/` spec may import
   `src/testing/`. `cli/` imports `src/services/` as a feature does.
-- `src/shared/` holds app-specific code several parts use and imports only `src/lib/` and itself; what remains in
-  `lib/` may import `src/shared/`; `src/` never imports `lib/` or `cli/`.
-- A feature folder never imports a sibling: hoist what both need, or pass a structurally typed parameter.
+- `src/shared/` holds app-specific code several parts use and imports only `src/lib/` and itself; `src/` never imports
+  a feature.
 - The target layout's import rules are in section 2 of `docs/migration-plan.md`.
 
 ### Model and boundaries
@@ -273,10 +273,10 @@ README-keynote.md           the same page in a keynote layout, kept for comparis
 README-day-on-the-board.md  the same page told as one day on a board, kept for comparison
 setup.sh                    machine setup: Bun, bun install and bun link, and the skill symlinks
 cli/                        the command surface: dispatch, arguments, help, and the commands grouped into sets: tracking/,
-                            dispatch/, adoption/ and measurement/, plus ticket/ until it moves; cli/testing/ is test-only
+                            dispatch/, adoption/ and measurement/, plus ticket/ until it moves; cli/utils/ holds the
+                            Next line; cli/testing/ is test-only
 dispatcher/                 the dispatcher policy in TypeScript, bundled into a Workflow script; dispatcher/testing/ is
                             test-only: the harness, the bundle builder, the frozen table
-lib/                        what is left of the old layers: the next-line util
 page/                       the browser page: its sets, its own DOM-only tsconfig and spec tsconfig
 resources/                  files read at runtime: the page's HTML template
 src/                        the target layout's code, filled step by step as the migration plan moves it

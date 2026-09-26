@@ -5,7 +5,6 @@
 import { readFileSync }            from 'node:fs';
 import { basename, join, resolve } from 'node:path';
 
-import { NextLineUtil }                           from '../../lib/utils/NextLineUtil';
 import { LegacyStatusUtil }                       from '../../src/adapters/utils/LegacyStatusUtil';
 import { LogUtil }                                from '../../src/adapters/utils/LogUtil';
 import { StatusWordingUtil }                      from '../../src/adapters/utils/StatusWordingUtil';
@@ -54,6 +53,7 @@ import {
 } from '../CommandSupport';
 import type { CommandHandler } from '../CommandTable';
 import type { ArgumentParser } from '../arguments/ArgumentParser';
+import { NextLineUtil }        from '../utils/NextLineUtil';
 
 const USAGE = [
   'agent-progress ticket add "<title>" [--type bug|change|feature] [--priority low|normal|high] [--model <m>] [--effort <e>] [--group <name>] '

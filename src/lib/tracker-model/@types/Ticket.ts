@@ -51,3 +51,13 @@ export interface Ticket {
   /** The frontmatter's line ending as read, which a rewrite keeps; absent for a ticket not read from a file, which is written with `\n`. */
   lineEnding?: '\n' | '\r\n';
 }
+
+/** A ready ticket with its priority and agents resolved to their defaults where the ticket names none. */
+export interface ReadyTicket {
+  id:       string;
+  priority: TicketPriority;
+  model:    AgentModel;
+  effort:   AgentEffort;
+  /** Present, and true, only on a held ticket. */
+  held?:    true;
+}

@@ -1,4 +1,5 @@
 import type { DispatcherState } from '../../src/lib/tracker-model/@types/ProgressFile';
+import type { Board }           from '../../src/lib/tracker-model/Board';
 
 const READY_TICKETS_LISTED_AT_MOST = 5;
 
@@ -51,6 +52,12 @@ function composeNextLine(capacity: BoardCapacity): string {
   return `Next: ${slotsTextOf(capacity)}; ${readyTextOf(startableTicketIds)}${heldTextOf(heldReadyTicketIds)}${dispatcherAdviceOf(capacity, startableTicketIds)}`;
 }
 
+/** Read from the Board's own dispatch capacity and ready entries, so the line and `status --json` cannot disagree on a slot or a ticket. */
+function nextLineOf(board: Board): string {
+  const lowPriorityReadyTicketIds = board.readyTicketEntries().filter((entry) => entry.priority === 'low').map((entry) => entry.id);
+  return composeNextLine({ ...board.dispatchCapacity(), lowPriorityReadyTicketIds });
+}
+
 const RUNNING_DISPATCHER_NOTICE = 'Dispatcher running: it picks this change up at its next agent\'s return. Never stop or relaunch it for this.';
 
 /** For the moves that change what a dispatcher picks up: an orchestrator that stopped a run to add work lost the agents in flight. */
@@ -58,4 +65,4 @@ function endWithRunningDispatcherNotice(humanText: string, dispatcherState: Disp
   return dispatcherState === 'running' ? `${humanText}\n${RUNNING_DISPATCHER_NOTICE}` : humanText;
 }
 
-export const NextLineUtil = { composeNextLine, endWithRunningDispatcherNotice } as const;
+export const NextLineUtil = { composeNextLine, nextLineOf, endWithRunningDispatcherNotice } as const;
