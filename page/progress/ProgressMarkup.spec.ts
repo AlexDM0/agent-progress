@@ -6,6 +6,8 @@
 import { describe, expect, test }           from 'bun:test';
 import type { Task, TaskStatus }            from '../../src/lib/tracker-model/@types/Task.ts';
 import type { TicketStatus }                from '../../src/lib/tracker-model/@types/Ticket.ts';
+import type { PageTicket }                  from '../../src/shared/@types/PagePayload.ts';
+import { pageBoardFixture }                 from '../testing/PageBoardFixture.ts';
 import type { TimelineBar, TimelineLimits } from '../utils/GeometryUtil.ts';
 import { GeometryUtil }                     from '../utils/GeometryUtil.ts';
 import type { TimestampSlices }             from '../utils/TimeUtil.ts';
@@ -78,20 +80,40 @@ function exampleTask(changes: Partial<Task> = {}): Task {
   };
 }
 
+function exampleTicket(id: string, status: TicketStatus): PageTicket {
+  return {
+    id,
+    title:       'Split the exporter into two passes',
+    type:        'feature',
+    status,
+    filed:       '2026-09-18T20:00:00+02:00',
+    updated:     '2026-09-18T20:00:00+02:00',
+    started:     null,
+    finished:    null,
+    delivered:   null,
+    abandonedAt: null,
+    task:        null,
+    extra:       [],
+    filePath:    `/example/.agent-progress/tickets/${id}.md`,
+    bodyHtml:    '',
+  };
+}
+
 function rowFor(task: Task, ticketStatus: TicketStatus | null = null, bar: TimelineBar = PLACED_BAR, waitingOn: readonly string[] = []): string {
-  return taskRowsMarkup([{
-    task,
-    ticketStatus,
-    bar,
-    waitingOn,
-  }], EXAMPLE_SLICES);
+  const ticketId = task.ticket ?? '001';
+  const board    = ticketStatus === null
+    ? pageBoardFixture({ tasks: [task] })
+    : pageBoardFixture({ tasks: [{ ...task, ticket: ticketId }], tickets: [exampleTicket(ticketId, ticketStatus)] });
+  const [row] = board.rows;
+  if (row === undefined) {
+    throw new Error('the example row was not built');
+  }
+  return taskRowsMarkup([{ task: row, bar, waitingOn }], EXAMPLE_SLICES);
 }
 
 describe('taskRowsMarkup', () => {
   test('draws the most recently filed task on top', () => {
-    const markup = taskRowsMarkup([1, 2, 3].map((id) => ({
-      task: exampleTask({ id }), ticketStatus: null, bar: PLACED_BAR, waitingOn: [] 
-    })), EXAMPLE_SLICES);
+    const markup = taskRowsMarkup(rowsFiled([1, 2, 3].map((id) => exampleTask({ id }))), EXAMPLE_SLICES);
 
     expect([...markup.matchAll(/data-task-id="(\d+)"/g)].map((match) => match[1])).toEqual(['3', '2', '1']);
   });
@@ -212,9 +234,7 @@ describe('taskRowsMarkup', () => {
 });
 
 function rowsFiled(tasks: readonly Task[]): Parameters<typeof taskRowsMarkup>[0] {
-  return tasks.map((task) => ({
-    task, ticketStatus: null, bar: PLACED_BAR, waitingOn: []
-  }));
+  return pageBoardFixture({ tasks }).rows.map((task) => ({ task, bar: PLACED_BAR, waitingOn: [] }));
 }
 
 function drawnOrderOf(markup: string): Array<[taskId: string, reviewOf: string | null]> {
@@ -223,7 +243,7 @@ function drawnOrderOf(markup: string): Array<[taskId: string, reviewOf: string |
 
 // A review pass belongs to its ticket: it is drawn above the ticket's own row rather than wherever its start time put it.
 describe('review rows nested above their ticket', () => {
-  test('draws the review rows directly above the ticket, indented, latest round first, whether linked by flag or only by name', () => {
+  test('draws the review rows directly above the ticket, indented, newest filed first, whether linked by flag or only by name', () => {
     const markup = taskRowsMarkup(rowsFiled([
       exampleTask({ id: 1, name: 'Split the exporter', ticket: '003' }),
       exampleTask({ id: 2, name: 'Regenerate the fixtures' }),
@@ -243,18 +263,43 @@ describe('review rows nested above their ticket', () => {
     ]);
   });
 
-  // With rounds filed in increasing id order an id-only sort draws the same thing, so only a later round filed earlier pins the round sort.
-  test('orders review rows by the round their name gives, not by id, when a higher round was filed first', () => {
+  // Only a later round filed earlier tells a round sort from a filing sort, and the name's round is not read.
+  test('orders review rows newest filed first, whatever round their name gives', () => {
     const markup = taskRowsMarkup(rowsFiled([
       exampleTask({ id: 1, ticket: '003' }),
       exampleTask({ id: 2, name: 'Review 2 #3 — Split the exporter', reviewOf: '003' }),
       exampleTask({ id: 3, name: 'Review 1 #3 — Split the exporter', reviewOf: '003' }),
     ]), EXAMPLE_SLICES);
 
-    expect(drawnOrderOf(markup)).toEqual([['2', '003'], ['3', '003'], ['1', null]]);
+    expect(drawnOrderOf(markup)).toEqual([['3', '003'], ['2', '003'], ['1', null]]);
   });
 
-  // Two rows of one round leave only the id to decide, so this is the case that pins the latest-filed-first tie-break.
+  // Two rows naming one ticket: the Board's own row is the first, so the bar goes above that one.
+  test('nests a review above the first row naming its ticket, not the last', () => {
+    const markup = taskRowsMarkup(rowsFiled([
+      exampleTask({ id: 1, ticket: '003' }),
+      exampleTask({ id: 2, ticket: '003' }),
+      exampleTask({ id: 3, name: 'Review 1 #3 — Split the exporter', reviewOf: '003' }),
+    ]), EXAMPLE_SLICES);
+
+    expect(drawnOrderOf(markup)).toEqual([['2', null], ['3', '003'], ['1', null]]);
+  });
+
+  test('leaves a review at the top level when its ticket\'s own row is hidden', () => {
+    const [ownRow, bar] = rowsFiled([
+      exampleTask({ id: 1, ticket: '003' }),
+      exampleTask({ id: 2, name: 'Review 1 #3 — Split the exporter', reviewOf: '003' }),
+    ]);
+    if (ownRow === undefined || bar === undefined) {
+      throw new Error('the example rows were not built');
+    }
+    const markup = taskRowsMarkup([bar], EXAMPLE_SLICES);
+
+    expect(bar.task.ownRowOfReviewedTicket).toBe(ownRow.task);
+    expect(drawnOrderOf(markup)).toEqual([['2', null]]);
+  });
+
+  // Two rows of one round: the filing order decides here as it does between rounds.
   test('draws the later-filed of two review rows of the same round first', () => {
     const markup = taskRowsMarkup(rowsFiled([
       exampleTask({ id: 1, ticket: '003' }),

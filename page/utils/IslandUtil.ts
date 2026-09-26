@@ -1,6 +1,13 @@
-import type { PagePayload, PageTicket } from '../../src/shared/@types/PagePayload.ts';
-import { PILL_LABEL_FOR_DISPLAY_STATE } from '../constants/PillLabels.ts';
-import { JsonValueUtil }                from './JsonValueUtil.ts';
+import type { Task } from '../../src/lib/tracker-model/@types/Task.ts';
+import type {
+  PageBoardFacts,
+  PagePayload,
+  PageTicket,
+  PageTicketFacts,
+} from '../../src/shared/@types/PagePayload.ts';
+import type { BoardRow, BoardTicket, PageBoard } from '../@types/PageBoard.ts';
+import { PILL_LABEL_FOR_DISPLAY_STATE }          from '../constants/PillLabels.ts';
+import { JsonValueUtil }                         from './JsonValueUtil.ts';
 
 const REQUIRED_LIMIT_NAMES = [
   'maximumTicksPerAxis',
@@ -108,7 +115,48 @@ function pageTicketsFrom(value: unknown): PageTicket[] {
     && typeof entry['bodyHtml'] === 'string');
 }
 
+function rowAt(rows: readonly BoardRow[], position: number | null): BoardRow | null {
+  return position === null ? null : rows[position] ?? null;
+}
+
+/**
+ * The facts must have passed `pagePayloadFrom`. A ticket the facts do not name is dropped, like an unusable entry, and a ticket id listed
+ * twice takes its first facts entry.
+ */
+function pageBoardFrom(tasks: readonly Task[], boardFacts: PageBoardFacts, tickets: readonly PageTicket[]): PageBoard {
+  const rows = tasks.map((task, position): BoardRow => {
+    const rowFacts = boardFacts.rows[position];
+    return {
+      ...task,
+      displayState:                 rowFacts?.displayState ?? task.status,
+      deliveredRowCountsAsReviewed: rowFacts?.deliveredRowCountsAsReviewed ?? false,
+      ownRowOfReviewedTicket:       null,
+    };
+  });
+  rows.forEach((row, position) => {
+    row.ownRowOfReviewedTicket = rowAt(rows, boardFacts.rows[position]?.ownRowPositionOfReviewedTicket ?? null);
+  });
+
+  const ticketFactsById = new Map<string, PageTicketFacts>();
+  for (const ticketFacts of boardFacts.tickets) {
+    if (!ticketFactsById.has(ticketFacts.ticketId)) ticketFactsById.set(ticketFacts.ticketId, ticketFacts);
+  }
+  const boardTickets = tickets.flatMap((ticket): BoardTicket[] => {
+    const ticketFacts = ticketFactsById.get(ticket.id);
+    if (ticketFacts === undefined) return [];
+    return [{
+      ...ticket,
+      ownRow:       rowAt(rows, ticketFacts.ownRowPosition),
+      reviewBars:   ticketFacts.reviewBarPositions.flatMap((position) => rows[position] ?? []),
+      displayState: ticketFacts.displayState,
+    }];
+  });
+
+  return { rows, tickets: boardTickets };
+}
+
 export const IslandUtil = {
   pagePayloadFrom,
   pageTicketsFrom,
+  pageBoardFrom,
 } as const;

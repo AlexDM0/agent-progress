@@ -45,7 +45,7 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  cli/
 - Imports run up only, with no cycles. `lib/constants/` imports nothing outside itself; `lib/utils/` imports only
   itself, `lib/constants/` and `src/lib/tracker-model/`; neither imports a package or a builtin (a spec beside them may
   import `bun:test`). Nothing under `lib/` imports `cli/`, nothing that ships imports `src/testing/`, `cli/testing/`,
-  `src/adapters/progress/testing/` or `dispatcher/testing/`, and `agent-progress.ts` imports only `cli/`.
+  `src/adapters/progress/testing/`, `dispatcher/testing/` or `page/testing/`, and `agent-progress.ts` imports only `cli/`.
 - A `src/lib/` package imports only the other `src/lib/` packages its main module's header names, node builtins and
   external dependencies. It never imports `src/shared/`, `lib/` or `cli/`, and knows nothing about its callers: no
   agent-progress names, tracker file names, user-facing wording or exit codes. App values arrive as parameters; a
@@ -54,6 +54,7 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  cli/
 - `src/lib/tracker-model/` imports nothing outside its own folder and no builtin: the page's DOM-only project compiles
   it, so it stays DOM-safe. The `lib/` layers import it like any `src/lib/` package.
 - `cli/testing/` is imported only by `cli/` specs.
+- `page/testing/` is imported only by `page/` specs.
 - `src/adapters/` imports only `src/lib/` and `src/shared/`; a `src/adapters/` spec may also import `src/testing/`.
   `cli/` imports `src/adapters/` as a feature does.
 - `src/services/tracker/` imports `src/lib/`, `src/shared/`, `src/adapters/` and `src/services/render/`;
@@ -141,8 +142,8 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  cli/
 - The page is its own DOM-only project, `page/tsconfig.json` (DOM lib, no Bun or Node types), which the root
   project does not reach. Its `include` list is the written-down surface of shared files the page reaches: a page
   module that imports a new file from outside the folder adds it there in the same change, and every file the page
-  project reaches, in `src/` too, stays DOM-safe. The page's specs sit beside their modules and are checked by
-  `page/tsconfig.spec.json`, the same program plus Bun types.
+  project reaches, in `src/` too, stays DOM-safe. The page's specs sit beside their modules and, with
+  `page/testing/`, are checked by `page/tsconfig.spec.json`, the same program plus Bun types.
 - `dispatcher/` is the Workflow-runtime project `dispatcher/tsconfig.json` (no Bun, Node or DOM types), with
   `dispatcher/tsconfig.spec.json` for its specs and `dispatcher/testing/`. Its `include` list is the `src/` files the
   dispatcher reaches, and a dispatcher module that imports a new `src/` file adds it there in the same change. Only
@@ -151,8 +152,8 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  cli/
   180 for code, 155 for comments; aligned object values; aligned `from`; imports builtin → external → internal,
   alphabetised; builtins through the `node:` protocol (`import/enforce-node-protocol-usage`, turned on in
   `eslint.config.js`); more than 3 named imports or 4+ properties one per line; arrow parameters parenthesised; no
-  `any`; a blank line before a function declaration. `src/testing/`, `cli/testing/`, `src/adapters/progress/testing/`
-  and `dispatcher/testing/` may import devDependencies. Deliberately off: `no-plusplus`, `no-continue`, `no-await-in-loop`, `no-param-reassign`,
+  `any`; a blank line before a function declaration. `src/testing/`, `cli/testing/`, `src/adapters/progress/testing/`,
+  `dispatcher/testing/` and `page/testing/` may import devDependencies. Deliberately off: `no-plusplus`, `no-continue`, `no-await-in-loop`, `no-param-reassign`,
   `consistent-return`, `no-restricted-syntax`, `guard-for-in`, `class-methods-use-this`, `no-use-before-define`.
 
 ### Tests
@@ -258,8 +259,9 @@ src/lib/  →  src/shared/  →  lib/constants/  →  lib/utils/  →  cli/
 agent-progress.ts           the bin shim: runs the command line and exits with its number
 package.json                the bin entry, the scripts and the one runtime dependency, marked
 tsconfig.json               the strict Bun project
-eslint.config.js            the shared ESLint config, the node: protocol rule, and the devDependency exemption for the four
-                            test-only folders: src/testing/, cli/testing/, src/adapters/progress/testing/ and dispatcher/testing/
+eslint.config.js            the shared ESLint config, the node: protocol rule, and the devDependency exemption for the five
+                            test-only folders: src/testing/, cli/testing/, src/adapters/progress/testing/, dispatcher/testing/
+                            and page/testing/
 bun.lock                    the lockfile, committed
 .gitignore                  node_modules/, .agent-progress/, .DS_Store, .readme-graphics/, .idea/
 .idea/                      git-ignored IDE settings
@@ -273,7 +275,8 @@ cli/                        the command surface: dispatch, arguments, help, one 
 dispatcher/                 the dispatcher policy in TypeScript, bundled into a Workflow script; dispatcher/testing/ is
                             test-only: the harness, the bundle builder, the frozen table
 lib/                        what is left of the old layers: the next-line and rework utils and the comment syntaxes
-page/                       the browser page: its sets, its own DOM-only tsconfig and spec tsconfig
+page/                       the browser page: its sets, its own DOM-only tsconfig and spec tsconfig; page/testing/ is
+                            test-only: the Board fixture its specs read
 resources/                  files read at runtime: the page's HTML template
 src/                        the target layout's code, filled step by step as the migration plan moves it
   src/lib/                  package-grade building blocks, one folder each, the package's description in its main module's header:

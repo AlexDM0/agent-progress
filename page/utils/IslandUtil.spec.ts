@@ -1,16 +1,17 @@
 /**
- * Validating the two JSON islands. The cases that matter: the progress island is refused whole, never cast, when anything the chart divides
- * by or prints is missing, or when a Board fact is missing, unknown or points outside the tasks, while the tickets island drops only its
- * unusable entries.
+ * Validating the two JSON islands and zipping the Board facts onto them. The cases that matter: the progress island is refused whole, never
+ * cast, when anything the chart divides by or prints is missing, or when a Board fact is missing, unknown or points outside the tasks, while
+ * the tickets island drops only its unusable entries; row facts go on by position and ticket facts by id, and a bar's own row stays the very
+ * row object, so it survives the visibility filter.
  */
 
-import { describe, expect, test }          from 'bun:test';
-import type { Task }                       from '../../src/lib/tracker-model/@types/Task.ts';
-import type { PageBoardFacts, PageLimits } from '../../src/shared/@types/PagePayload.ts';
-import type { ProgressDocument }           from '../../src/shared/@types/ProgressDocument.ts';
-import { IslandUtil }                      from './IslandUtil.ts';
+import { describe, expect, test }                      from 'bun:test';
+import type { Task }                                   from '../../src/lib/tracker-model/@types/Task.ts';
+import type { PageBoardFacts, PageLimits, PageTicket } from '../../src/shared/@types/PagePayload.ts';
+import type { ProgressDocument }                       from '../../src/shared/@types/ProgressDocument.ts';
+import { IslandUtil }                                  from './IslandUtil.ts';
 
-const { pagePayloadFrom, pageTicketsFrom } = IslandUtil;
+const { pagePayloadFrom, pageTicketsFrom, pageBoardFrom } = IslandUtil;
 
 const EXAMPLE_LIMITS: PageLimits = {
   tickStepLadderMinutes:       [5, 10, 15, 30, 60, 120, 180, 360, 720, 1440],
@@ -233,5 +234,125 @@ describe('pageTicketsFrom', () => {
     ['null', null],
   ])('reads %s as no tickets at all', (_description, value) => {
     expect(pageTicketsFrom(value)).toEqual([]);
+  });
+});
+
+function exampleTicket(id: string): PageTicket {
+  return {
+    id,
+    title:       `Example ticket ${id}`,
+    type:        'feature',
+    status:      'in-review',
+    filed:       new Date(EXAMPLE_START_EPOCH_MILLISECONDS).toISOString(),
+    updated:     new Date(EXAMPLE_START_EPOCH_MILLISECONDS).toISOString(),
+    started:     null,
+    finished:    null,
+    delivered:   null,
+    abandonedAt: null,
+    task:        null,
+    extra:       [],
+    filePath:    `/example/.agent-progress/tickets/${id}.md`,
+    bodyHtml:    '<p>x</p>',
+  };
+}
+
+/** Row 1 is ticket 003's own row, rows 2 and 3 its review bars, and ticket 004 has no row. */
+const OWN_ROW_AND_TWO_BARS: Task[] = [
+  { ...exampleTask(), id: 1, ticket: '003' },
+  {
+    ...exampleTask(),
+    id:       2,
+    name:     'Review 1 #003',
+    reviewOf: '003',
+  },
+  {
+    ...exampleTask(),
+    id:       3,
+    name:     'Review 2 #003',
+    reviewOf: '003',
+  },
+];
+
+const FACTS_OF_OWN_ROW_AND_TWO_BARS: PageBoardFacts = {
+  rows: [
+    { displayState: 'reviewing', deliveredRowCountsAsReviewed: false, ownRowPositionOfReviewedTicket: null },
+    { displayState: 'delivered', deliveredRowCountsAsReviewed: true, ownRowPositionOfReviewedTicket: 0 },
+    { displayState: 'in-progress', deliveredRowCountsAsReviewed: false, ownRowPositionOfReviewedTicket: 0 },
+  ],
+  tickets: [
+    {
+      ticketId: '004', ownRowPosition: null, reviewBarPositions: [], displayState: 'pending'
+    },
+    {
+      ticketId: '003', ownRowPosition: 0, reviewBarPositions: [1, 2], displayState: 'reviewing'
+    },
+  ],
+};
+
+describe('pageBoardFrom', () => {
+  test('zips one row fact onto each task by position, keeping every stored field', () => {
+    const { rows } = pageBoardFrom(OWN_ROW_AND_TWO_BARS, FACTS_OF_OWN_ROW_AND_TWO_BARS, []);
+
+    expect(rows.map((row) => [row.id, row.displayState, row.deliveredRowCountsAsReviewed])).toEqual([
+      [1, 'reviewing', false],
+      [2, 'delivered', true],
+      [3, 'in-progress', false],
+    ]);
+    expect(rows[1]?.reviewOf).toBe('003');
+  });
+
+  test('resolves a bar\'s own row to the very row object it zipped, and leaves every other row without one', () => {
+    const { rows: [ownRow, firstBar, secondBar] } = pageBoardFrom(OWN_ROW_AND_TWO_BARS, FACTS_OF_OWN_ROW_AND_TWO_BARS, []);
+
+    expect(ownRow?.ownRowOfReviewedTicket).toBeNull();
+    expect(firstBar?.ownRowOfReviewedTicket).toBe(ownRow ?? null);
+    expect(secondBar?.ownRowOfReviewedTicket).toBe(ownRow ?? null);
+  });
+
+  test('joins ticket facts by ticket id, not by position', () => {
+    const { rows, tickets } = pageBoardFrom(OWN_ROW_AND_TWO_BARS, FACTS_OF_OWN_ROW_AND_TWO_BARS, [exampleTicket('003'), exampleTicket('004')]);
+    const [withRow, withoutRow] = tickets;
+
+    expect(withRow?.id).toBe('003');
+    expect(withRow?.displayState).toBe('reviewing');
+    expect(withRow?.ownRow).toBe(rows[0] ?? null);
+    expect(withRow?.reviewBars).toEqual(rows.slice(1, 3));
+    expect(withRow?.reviewBars[0]).toBe(rows[1]);
+    expect(withoutRow?.id).toBe('004');
+    expect(withoutRow?.displayState).toBe('pending');
+    expect(withoutRow?.ownRow).toBeNull();
+    expect(withoutRow?.reviewBars).toEqual([]);
+  });
+
+  test('gives a ticket id listed twice in the facts its first entry', () => {
+    const boardFacts: PageBoardFacts = {
+      ...FACTS_OF_OWN_ROW_AND_TWO_BARS,
+      tickets: [
+        {
+          ticketId: '003', ownRowPosition: null, reviewBarPositions: [], displayState: 'pending'
+        },
+        ...FACTS_OF_OWN_ROW_AND_TWO_BARS.tickets,
+      ],
+    };
+
+    const { tickets: [ticket] } = pageBoardFrom(OWN_ROW_AND_TWO_BARS, boardFacts, [exampleTicket('003')]);
+
+    expect(ticket?.displayState).toBe('pending');
+    expect(ticket?.ownRow).toBeNull();
+  });
+
+  test('drops a ticket the facts do not name, like an unusable entry', () => {
+    const { tickets } = pageBoardFrom(OWN_ROW_AND_TWO_BARS, FACTS_OF_OWN_ROW_AND_TWO_BARS, [exampleTicket('009'), exampleTicket('003')]);
+
+    expect(tickets.map((ticket) => ticket.id)).toEqual(['003']);
+  });
+
+  test('keeps a bar\'s own-row reference when the rows are later filtered', () => {
+    const { rows } = pageBoardFrom(OWN_ROW_AND_TWO_BARS, FACTS_OF_OWN_ROW_AND_TWO_BARS, []);
+    const visibleRows = rows.filter((row) => row.id !== 1);
+
+    expect(visibleRows.map((row) => row.id)).toEqual([2, 3]);
+    expect(visibleRows[0]?.ownRowOfReviewedTicket).toBe(rows[0] ?? null);
+    expect(visibleRows[1]?.ownRowOfReviewedTicket).toBe(rows[0] ?? null);
   });
 });

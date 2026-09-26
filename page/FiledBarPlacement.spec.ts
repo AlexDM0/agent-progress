@@ -13,6 +13,7 @@ import { ticketDetailMarkup }     from './detail-dialog/TicketDetail.ts';
 import { kanbanCardsFor }         from './kanban/KanbanLanes.ts';
 import { kanbanBoardMarkup }      from './kanban/KanbanMarkup.ts';
 import { taskRowsMarkup }         from './progress/ProgressMarkup.ts';
+import { pageBoardFixture }       from './testing/PageBoardFixture.ts';
 
 const EXAMPLE_TODAY = '2026-09-25';
 const EXAMPLE_NOW   = Date.parse('2026-09-25T13:36:00+02:00');
@@ -127,11 +128,11 @@ describe('the filed bar outside the dialog', () => {
       clippedRight: false,
       visible:      true,
     };
-    const rows    = taskRowsMarkup(TASKS.map((task) => ({
+    const boardRows = pageBoardFixture({ tasks: TASKS, tickets: [DELIVERED_TICKET, WAITING_TICKET] }).rows;
+    const rows      = taskRowsMarkup(boardRows.map((task) => ({
       task,
-      ticketStatus: null,
-      bar:          { ...bar, taskId: task.id },
-      waitingOn:    [],
+      bar:       { ...bar, taskId: task.id },
+      waitingOn: [],
     })), EXAMPLE_LIMITS);
     const board   = kanbanBoardMarkup({
       cards:                  [cardFor(DELIVERED_TICKET), cardFor(WAITING_TICKET)],

@@ -47,5 +47,6 @@
     "../src/shared/@types/WordedLogEntry.ts",
     "../src/shared/utils/TicketNumberUtil.ts"
   ],
-  "exclude": ["./**/*.spec.ts"]
+  // The specs and the test-only fixtures stay out, so this program's surface is the page that ships.
+  "exclude": ["./**/*.spec.ts", "./testing/**"]
 }

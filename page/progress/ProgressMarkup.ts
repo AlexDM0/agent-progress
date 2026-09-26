@@ -3,15 +3,13 @@
  * `resources/template.html`. Every tracker value passes `escapeHtml` exactly once here.
  */
 
-import type { DisplayState, Task }        from '../../src/lib/tracker-model/@types/Task.ts';
-import type { TicketStatus }              from '../../src/lib/tracker-model/@types/Ticket.ts';
+import type { Task }                      from '../../src/lib/tracker-model/@types/Task.ts';
 import { FIRST_REPEAT_REVIEW_ROUND }      from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
 import { SETTLED_TASK_STATUSES }          from '../../src/lib/tracker-model/constants/Statuses.ts';
 import { HtmlEscapeUtil }                 from '../../src/lib/utils/HtmlEscapeUtil.ts';
 import { TokenCountUtil }                 from '../../src/lib/utils/TokenCountUtil.ts';
-import { TicketNumberUtil }               from '../../src/shared/utils/TicketNumberUtil.ts';
+import type { BoardRow }                  from '../@types/PageBoard.ts';
 import { PERCENT_OF_A_WHOLE }             from '../constants/Units.ts';
-import { BoardRulesUtil }                 from '../utils/BoardRulesUtil.ts';
 import type { TimelineBar, TimelineTick } from '../utils/GeometryUtil.ts';
 import type { ShortenedText }             from '../utils/MarkupUtil.ts';
 import { MarkupUtil }                     from '../utils/MarkupUtil.ts';
@@ -26,10 +24,9 @@ const TICK_PIXELS_PER_LABEL_CHARACTER = 9;
 const TICK_LABEL_GUTTER_PIXELS = 5;
 
 export interface TaskRow {
-  task:         Task;
-  ticketStatus: TicketStatus | null;
-  bar:          TimelineBar;
-  waitingOn:    readonly string[];
+  task:      BoardRow;
+  bar:       TimelineBar;
+  waitingOn: readonly string[];
 }
 
 export interface PlacedTick extends TimelineTick {
@@ -47,10 +44,6 @@ export function labelSitsLeftOfItsLine(tick: TimelineTick, axisWidthPixels: numb
   return remainingPixels < tick.label.length * TICK_PIXELS_PER_LABEL_CHARACTER + TICK_LABEL_GUTTER_PIXELS;
 }
 
-function pillLabelFor(state: DisplayState, task: Task): string {
-  return WorkItemMarkupUtil.pillLabelForDisplayState(state, task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND);
-}
-
 interface PlacedTaskRow {
   row:              TaskRow;
   /** The ticket id of the row this one is nested with, drawn directly above it, or `null` for a row drawn at the top level. */
@@ -58,28 +51,22 @@ interface PlacedTaskRow {
 }
 
 /**
- * Newest filed first, except that a review row is drawn directly above its ticket's own row, latest round first. A review whose ticket has
- * no row among these — never started, or hidden as long done — stays where its filing puts it, and a ticket's own row is never nested.
+ * Newest filed first, except that a review bar is drawn directly above its ticket's own row, as the Board answers it, newest filed first. A
+ * bar whose own row is not among these rows — none, or hidden as long done — stays where its filing puts it.
  */
 function taskRowsInDisplayOrder(rows: readonly TaskRow[]): PlacedTaskRow[] {
-  const ownRowByTicketNumber = new Map<number, TaskRow>();
-  for (const row of rows) {
-    const ticketNumber = TicketNumberUtil.ticketNumberOf(row.task.ticket ?? undefined);
-    if (ticketNumber !== null) ownRowByTicketNumber.set(ticketNumber, row);
-  }
+  const rowByTask = new Map(rows.map((row) => [row.task, row]));
 
   const reviewsByParent = new Map<TaskRow, TaskRow[]>();
   for (const row of rows) {
-    const reviewedNumber = row.task.ticket === null ? TicketNumberUtil.reviewedTicketNumberOf(row.task) : null;
-    const parent         = reviewedNumber === null ? undefined : ownRowByTicketNumber.get(reviewedNumber);
+    const parent = row.task.ownRowOfReviewedTicket === null ? undefined : rowByTask.get(row.task.ownRowOfReviewedTicket);
     if (parent !== undefined) reviewsByParent.set(parent, [...reviewsByParent.get(parent) ?? [], row]);
   }
   const nestedRows = new Set([...reviewsByParent.values()].flat());
 
   return rows.toReversed().flatMap((row) => {
     if (nestedRows.has(row)) return [];
-    const reviews = (reviewsByParent.get(row) ?? []).toSorted((a, b) => TicketNumberUtil.reviewRoundNamedBy(b.task) - TicketNumberUtil.reviewRoundNamedBy(a.task)
-      || b.task.id - a.task.id);
+    const reviews = (reviewsByParent.get(row) ?? []).toSorted((a, b) => b.task.id - a.task.id);
     return [
       ...reviews.map((review) => ({ row: review, nestedWithTicket: row.task.ticket })),
       { row, nestedWithTicket: null },
@@ -90,9 +77,10 @@ function taskRowsInDisplayOrder(rows: readonly TaskRow[]): PlacedTaskRow[] {
 function taskRowMarkup(placed: PlacedTaskRow, slices: TimestampSlices): string {
   const { row, nestedWithTicket } = placed;
   const { task, bar }              = row;
-  const state         = BoardRulesUtil.rowStateFor(task, row.ticketStatus);
+  const state         = task.displayState;
+  const pillLabel     = WorkItemMarkupUtil.pillLabelForDisplayState(state, task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND);
   const ticketBadge   = task.ticket === null ? '' : WorkItemMarkupUtil.ticketBadgeMarkup(task.ticket);
-  const reviewedMark = BoardRulesUtil.deliveredAfterReview(task, row.ticketStatus) ? WorkItemMarkupUtil.reviewedMarkMarkup(task, slices) : '';
+  const reviewedMark = task.deliveredRowCountsAsReviewed ? WorkItemMarkupUtil.reviewedMarkMarkup(task, slices) : '';
   const tokens = task.tokens === null
     ? ''
     : `<span class="ap-tokens">${HtmlEscapeUtil.escapeHtml(TokenCountUtil.formatTokenCount(task.tokens))} tokens</span>`;
@@ -103,7 +91,7 @@ function taskRowMarkup(placed: PlacedTaskRow, slices: TimestampSlices): string {
     `<div class="ap-cell-name"><span class="ap-num">${HtmlEscapeUtil.escapeHtml(String(task.id))}</span>`,
     `<span class="ap-name" ${MarkupUtil.attribute('title', task.name)}>${HtmlEscapeUtil.escapeHtml(task.name)}</span>`,
     `${ticketBadge}${WorkItemMarkupUtil.waitingOnMarkup(row.waitingOn)}${tokens}</div>`,
-    `<div class="ap-cell-pill"><span class="ap-pill">${HtmlEscapeUtil.escapeHtml(pillLabelFor(state, task))}</span>${reviewedMark}</div>`,
+    `<div class="ap-cell-pill"><span class="ap-pill">${HtmlEscapeUtil.escapeHtml(pillLabel)}</span>${reviewedMark}</div>`,
     `<div class="ap-cell-track"><span class="ap-clip-l"${bar.visible && bar.clippedLeft ? '' : ' hidden'}></span>`,
     `<div class="ap-bar"${bar.visible ? '' : ' hidden'} style="left:${MarkupUtil.percentText(bar.leftPercent)};width:${MarkupUtil.percentText(bar.widthPercent)}"></div>`,
     `<span class="ap-clip-r"${bar.visible && bar.clippedRight ? '' : ' hidden'}></span></div>`,

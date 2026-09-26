@@ -86,12 +86,12 @@ function clearPlaceholderContent(): void {
 
 function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   const { progress, limits } = payload;
-  const ticketStatusById     = new Map(tickets.map((ticket) => [ticket.id, ticket.status]));
-  const waitingOnById        = WaitingOnUtil.waitingOnByTicketId(tickets);
+  const board                = IslandUtil.pageBoardFrom(progress.tasks, payload.boardFacts, tickets);
+  const waitingOnById        = WaitingOnUtil.waitingOnByTicketId(board.tickets);
   const preferences          = createViewerPreferences(progress.trackerId, () => window.localStorage);
   const progressController   = createProgressController({
     payload,
-    ticketStatusById,
+    rows: board.rows,
     waitingOnById,
     preferences,
   });
@@ -117,16 +117,16 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
 
   let visibility         = preferences.readWorkVisibility();
   const kanbanController = createKanbanController({
-    tasks:                 progress.tasks,
+    tasks:                 board.rows,
     slices:                limits,
     preferences,
     readTodayCalendarDate: () => todayCalendarDate,
     readShowsAllWork:      () => visibility === 'all',
   });
-  const ticketsController      = createTicketsController({ allTickets: tickets, waitingOnById, slices: limits });
+  const ticketsController      = createTicketsController({ allTickets: board.tickets, waitingOnById, slices: limits });
   const detailDialogController = createDetailDialogController({
     progress,
-    tickets,
+    tickets:               board.tickets,
     limits,
     readTodayCalendarDate: () => todayCalendarDate,
     readKanbanCards:       () => kanbanController.readVisibleCards(),
@@ -136,17 +136,17 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     const nowEpochMilliseconds = Date.now();
     const showsAll             = visibility === 'all';
     const windowMilliseconds   = limits.doneWorkVisibleMilliseconds;
-    const visibleTasks         = progress.tasks.filter((task) => showsAll || !VisibilityUtil.taskIsLongDone(task, nowEpochMilliseconds, windowMilliseconds));
-    const visibleTickets       = tickets.filter((ticket) => showsAll || !VisibilityUtil.ticketIsLongDone(ticket, nowEpochMilliseconds, windowMilliseconds));
-    progressController.setVisibleTasks(visibleTasks);
+    const visibleRows          = board.rows.filter((row) => showsAll || !VisibilityUtil.taskIsLongDone(row, nowEpochMilliseconds, windowMilliseconds));
+    const visibleTickets       = board.tickets.filter((ticket) => showsAll || !VisibilityUtil.ticketIsLongDone(ticket, nowEpochMilliseconds, windowMilliseconds));
+    progressController.setVisibleRows(visibleRows);
     todayCalendarDate = TimeUtil.calendarDateOf(nowEpochMilliseconds);
 
     progressController.showGeneratedStamp(todayCalendarDate);
     logController.show();
     ticketsController.show(visibleTickets, todayCalendarDate);
-    kanbanController.showCards(kanbanCardsFor(visibleTickets, progress.tasks, waitingOnById));
+    kanbanController.showCards(kanbanCardsFor(visibleTickets, board.rows, waitingOnById));
 
-    progressController.showHiddenNote(progress.tasks.length - visibleTasks.length, tickets.length - visibleTickets.length);
+    progressController.showHiddenNote(board.rows.length - visibleRows.length, board.tickets.length - visibleTickets.length);
     DomUtil.reflectSegment('ap-visibility', 'visibility', visibility);
   };
 
