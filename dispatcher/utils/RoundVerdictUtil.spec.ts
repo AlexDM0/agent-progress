@@ -1,7 +1,8 @@
 /**
  * Whether a reviewer's call for another round is granted. What the run relies on is the threshold's edge (exactly the protocol's count is
  * refused), that round 2 asks for nothing but the count, and that from round 3 each convergence rule refuses on its own, with the refusal
- * naming what it found, and a missing previous round is refused rather than judged against nothing.
+ * naming what it found: classes and files are judged against every earlier round, the halving against the previous round's first record, and a
+ * missing previous round is refused rather than judged against nothing.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -100,8 +101,23 @@ describe('round 3 and later', () => {
     expect(nextRoundVerdictOf([roundOne, roundTwo, current], current)).toMatchObject({ granted: false, refusal: { reason: 'finding-class-returned', findingClass: 'naming' } });
   });
 
+  // A file named only in round 1 is still known in round 3: convergence reads every earlier round's files, not only the previous round's.
+  test('a file from any earlier round counts as named before, not only the previous round\'s', () => {
+    const roundTwo = { round: 2, findings: [finding('performance', 'a.ts'), finding('security', 'a.ts')] };
+    const current = { round: 3, findings: [finding('logging', 'b.ts')], reworkedLines: OVER_THE_THRESHOLD_LINES };
+    expect(nextRoundVerdictOf([roundOne, roundTwo, current], current)).toEqual({ granted: true });
+  });
+
   test('the current round in the list is not read as an earlier one', () => {
     const current = { round: 2, findings: [finding('performance', 'a.ts')], reworkedLines: OVER_THE_THRESHOLD_LINES };
     expect(nextRoundVerdictOf([roundOne, current], current)).toEqual(nextRoundVerdictOf([roundOne], current));
+  });
+
+  // A reviewer can state a round already on record, leaving two records of it; the halving is judged against the first.
+  test('when a round is on record twice, the findings are halved against its first record', () => {
+    const firstRoundTwo = { round: 2, findings: [finding('performance', 'a.ts'), finding('security', 'b.ts'), finding('logging', 'c.ts'), finding('style', 'd.ts')] };
+    const secondRoundTwo = { round: 2, findings: [finding('caching', 'a.ts')] };
+    const current = { round: 3, findings: [finding('concurrency', 'a.ts'), finding('validation', 'b.ts')], reworkedLines: OVER_THE_THRESHOLD_LINES };
+    expect(nextRoundVerdictOf([roundOne, firstRoundTwo, secondRoundTwo, current], current)).toEqual({ granted: true });
   });
 });

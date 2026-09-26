@@ -48,6 +48,12 @@ test('a person\'s note is not a dispatcher claim', () => {
   expect(noteIsADispatcherClaimOn('Paused by Alex Example', '001')).toBe(false);
 });
 
+// A reviewer's note ends the same way as a claim, so a check on the ending alone would hand a person's paused row to a builder.
+test('a note that ends like a claim but does not open like one is not a dispatcher claim', () => {
+  expect(noteIsADispatcherClaimOn('Reviewed by the whole-board dispatcher run on ticket-001', '001')).toBe(false);
+  expect(noteIsADispatcherClaimOn(' dispatcher run on ticket-001', '001')).toBe(false);
+});
+
 // Ticket 1001's id ends in 001, so a check on the digits alone would hand ticket 001 another ticket's paused build.
 test('another ticket\'s claim is not recognised on this ticket', () => {
   expect(noteIsADispatcherClaimOn(claimNoteFor('whole-board', '1001'), '001')).toBe(false);
