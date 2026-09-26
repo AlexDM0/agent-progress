@@ -6,7 +6,7 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { taskFixture }         from '../../testing/BoardFixtures.ts';
+import { taskFixture }         from '../../testing/BoardFixtures';
 import { LegacyReviewBarUtil } from './LegacyReviewBarUtil';
 
 const { linkedReviewBarOf } = LegacyReviewBarUtil;

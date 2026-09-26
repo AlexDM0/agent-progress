@@ -82,6 +82,9 @@ test('reviewed, reviewRound, reviewOf and reviewBarRound are written only when g
   expect(Object.keys(plain)).toEqual(rowKeys);
   expect(Object.keys(full)).toEqual([...rowKeys, 'reviewed', 'reviewRound', 'history', 'reviewOf', 'reviewBarRound']);
   expect(full).toMatchObject({
-    reviewed: FINISHED_AT, reviewRound: 3, reviewOf: '003', reviewBarRound: 2
+    reviewed:       FINISHED_AT,
+    reviewRound:    3,
+    reviewOf:       '003',
+    reviewBarRound: 2,
   });
 });

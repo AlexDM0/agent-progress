@@ -8,7 +8,6 @@ function reviewSectionCountOf(body: string): number {
   return body.match(REVIEW_SECTION_HEADING_PATTERN)?.length ?? 0;
 }
 
-/** The round the ticket's next review bar is filed as. */
 function nextReviewRoundOf(body: string): number {
   return reviewSectionCountOf(body) + 1;
 }
