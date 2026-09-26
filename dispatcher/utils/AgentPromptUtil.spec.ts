@@ -5,10 +5,10 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import type { DispatchSettings } from '../@types/DispatchSettings';
-import type { PreviousPass }     from '../@types/DispatchWork';
-import { DISPATCH_POLICY }       from '../constants/DispatchPolicy';
-import { AgentPromptUtil }       from './AgentPromptUtil';
+import type { DispatchSettings } from '../@types/DispatchSettings.ts';
+import type { PreviousPass }     from '../@types/DispatchWork.ts';
+import { DISPATCH_POLICY }       from '../constants/DispatchPolicy.ts';
+import { AgentPromptUtil }       from './AgentPromptUtil.ts';
 
 const {
   builderPrompt,

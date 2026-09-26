@@ -2,8 +2,8 @@
  * The dispatcher's resumption of a build an earlier run left paused, as claims shared by the resumption suite: each a scenario, what must hold
  * after it, and the mutant that breaks exactly that decision.
  */
-import type { DispatchScenario, RecordedAgentCall, RecordedDispatchRun } from '../DispatchScriptHarness';
-import { DISPATCHER_MODULE_PATHS, type DispatchClaim }                   from './DispatchClaim';
+import type { DispatchScenario, RecordedAgentCall, RecordedDispatchRun } from '../DispatchScriptHarness.ts';
+import { DISPATCHER_MODULE_PATHS, type DispatchClaim }                   from './DispatchClaim.ts';
 
 const {
   DISPATCH_RUN,

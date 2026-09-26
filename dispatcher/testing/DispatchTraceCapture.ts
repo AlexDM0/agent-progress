@@ -5,16 +5,16 @@
 import { readFileSync } from 'node:fs';
 import { join }         from 'node:path';
 
-import { runDispatchScript, type DispatchScenario } from './DispatchScriptHarness';
-import { digestOf, traceOf, type DispatchTrace }    from './DispatchTrace';
+import { runDispatchScript, type DispatchScenario } from './DispatchScriptHarness.ts';
+import { digestOf, traceOf, type DispatchTrace }    from './DispatchTrace.ts';
 import {
   KEPT_CRASH_KEYS,
   LEVERS_READ_AS_THEIR_BASE,
   REFUSED_ARGUMENT_KEYS,
   dispatchTraceCatalogue,
   type CatalogueEntry,
-} from './DispatchTraceCatalogue';
-import { metaLiteralValueOf, metaLiteralVerdictOf } from './WorkflowScriptSource';
+} from './DispatchTraceCatalogue.ts';
+import { metaLiteralValueOf, metaLiteralVerdictOf } from './WorkflowScriptSource.ts';
 
 export interface FrozenDispatchTraces {
   takenFrom:   { scriptPath: string; commit: string; scriptDigest: string };

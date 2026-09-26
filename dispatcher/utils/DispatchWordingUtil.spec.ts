@@ -5,8 +5,8 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import type { DispatchOutcome } from '../@types/DispatchOutcome';
-import { DispatchWordingUtil }  from './DispatchWordingUtil';
+import type { DispatchOutcome } from '../@types/DispatchOutcome.ts';
+import { DispatchWordingUtil }  from './DispatchWordingUtil.ts';
 
 const {
   settingsRefusalText,

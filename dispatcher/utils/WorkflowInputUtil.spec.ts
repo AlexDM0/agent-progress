@@ -5,9 +5,9 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../src/lib/tracker-model/constants/AgentSettings';
-import type { DispatchWork }                         from '../@types/DispatchWork';
-import { WorkflowInputUtil }                         from './WorkflowInputUtil';
+import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../src/lib/tracker-model/constants/AgentSettings.ts';
+import type { DispatchWork }                         from '../@types/DispatchWork.ts';
+import { WorkflowInputUtil }                         from './WorkflowInputUtil.ts';
 
 const {
   settingsVerdictOf,

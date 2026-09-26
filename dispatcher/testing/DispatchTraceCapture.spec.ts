@@ -4,9 +4,9 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { digestOf }                 from './DispatchTrace';
-import { readFrozenDispatchTraces } from './DispatchTraceCapture';
-import { readDispatchScript }       from './OldDispatchScript';
+import { digestOf }                 from './DispatchTrace.ts';
+import { readFrozenDispatchTraces } from './DispatchTraceCapture.ts';
+import { readDispatchScript }       from './OldDispatchScript.ts';
 
 describe('the frozen dispatch trace table', () => {
   test('was taken from the committed old dispatcher script as it stands', () => {

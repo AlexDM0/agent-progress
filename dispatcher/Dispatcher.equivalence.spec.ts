@@ -6,11 +6,11 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { bundleDispatchScript }                        from './testing/DispatchScriptBundle';
-import { runDispatchScript, type RecordedDispatchRun } from './testing/DispatchScriptHarness';
-import { digestOf, traceOf }                           from './testing/DispatchTrace';
-import { readFrozenDispatchTraces }                    from './testing/DispatchTraceCapture';
-import { dispatchTraceCatalogue }                      from './testing/DispatchTraceCatalogue';
+import { bundleDispatchScript }                        from './testing/DispatchScriptBundle.ts';
+import { runDispatchScript, type RecordedDispatchRun } from './testing/DispatchScriptHarness.ts';
+import { digestOf, traceOf }                           from './testing/DispatchTrace.ts';
+import { readFrozenDispatchTraces }                    from './testing/DispatchTraceCapture.ts';
+import { dispatchTraceCatalogue }                      from './testing/DispatchTraceCatalogue.ts';
 
 // The table held 160 entries and 1010 agent calls when it was taken; retaking it may add to them, never drop below.
 const CATALOGUE_ENTRIES_FLOOR = 150;

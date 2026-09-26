@@ -1,5 +1,5 @@
-import type { DispatchScenario, RecordedDispatchRun } from '../DispatchScriptHarness';
-import type { SourceMutant }                          from '../SourceMutant';
+import type { DispatchScenario, RecordedDispatchRun } from '../DispatchScriptHarness.ts';
+import type { SourceMutant }                          from '../SourceMutant.ts';
 
 export interface DispatchClaim {
   name:        string;

@@ -5,7 +5,7 @@
 import { join } from 'node:path';
 
 import { DISPATCH_META }                      from '../DispatchMeta.ts';
-import { mutantPluginFor, type SourceMutant } from './SourceMutant';
+import { mutantPluginFor, type SourceMutant } from './SourceMutant.ts';
 
 export type DispatchScriptBundle = { verdict: 'built'; scriptText: string } | { verdict: 'failed'; reason: string };
 

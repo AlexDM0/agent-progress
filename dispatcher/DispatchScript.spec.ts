@@ -8,15 +8,15 @@ import { join } from 'node:path';
 import { describe, expect, test } from 'bun:test';
 
 import { DISPATCH_META }                                                            from './DispatchMeta.ts';
-import { DispatchScriptBundleBookkeeping, builtScriptTextOf, bundleDispatchScript } from './testing/DispatchScriptBundle';
-import { WORKFLOW_GLOBAL_NAMES }                                                    from './testing/DispatchScriptHarness';
-import { readFrozenDispatchTraces }                                                 from './testing/DispatchTraceCapture';
+import { DispatchScriptBundleBookkeeping, builtScriptTextOf, bundleDispatchScript } from './testing/DispatchScriptBundle.ts';
+import { WORKFLOW_GLOBAL_NAMES }                                                    from './testing/DispatchScriptHarness.ts';
+import { readFrozenDispatchTraces }                                                 from './testing/DispatchTraceCapture.ts';
 import {
   metaLiteralValueOf,
   metaLiteralVerdictOf,
   nondeterministicCallsIn,
   topLevelBindingsNamed,
-} from './testing/WorkflowScriptSource';
+} from './testing/WorkflowScriptSource.ts';
 
 const BUNDLE_TEXT = builtScriptTextOf(await bundleDispatchScript());
 

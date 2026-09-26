@@ -11,7 +11,7 @@ import {
   metaLiteralVerdictOf,
   nondeterministicCallsIn,
   topLevelBindingsNamed,
-} from './WorkflowScriptSource';
+} from './WorkflowScriptSource.ts';
 
 const PURE_META = 'export const meta = { name: \'example\', description: \'Example\', phases: [{ title: \'One\' }], retries: -1, cached: false, owner: null };\n';
 

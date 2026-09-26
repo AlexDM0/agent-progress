@@ -9,10 +9,10 @@ import type {
   DispatchScenario,
   RecordedAgentCall,
   ReviewerReply,
-} from './DispatchScriptHarness';
-import { DECISION_CLAIMS, DECISION_SCENARIOS } from './claims/DecisionClaims';
-import { HOLD_CLAIMS }                         from './claims/HoldClaims';
-import { RESUMPTION_CLAIMS }                   from './claims/ResumptionClaims';
+} from './DispatchScriptHarness.ts';
+import { DECISION_CLAIMS, DECISION_SCENARIOS } from './claims/DecisionClaims.ts';
+import { HOLD_CLAIMS }                         from './claims/HoldClaims.ts';
+import { RESUMPTION_CLAIMS }                   from './claims/ResumptionClaims.ts';
 
 export interface CatalogueEntry {
   key:         string;

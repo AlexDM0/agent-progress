@@ -6,22 +6,22 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { builtScriptTextOf, bundleDispatchScript } from './testing/DispatchScriptBundle';
+import { builtScriptTextOf, bundleDispatchScript } from './testing/DispatchScriptBundle.ts';
 import {
   BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM,
   REVIEWER_SKIPS_A_REREVIEW_ALREADY_RUN,
   REVIEWER_TAKES_OVER_A_RUNNING_BAR,
   runDispatchScript
-} from './testing/DispatchScriptHarness';
-import type { SourceMutant } from './testing/SourceMutant';
+} from './testing/DispatchScriptHarness.ts';
+import type { SourceMutant } from './testing/SourceMutant.ts';
 import {
   DECISION_CLAIMS,
   DECISION_SCENARIOS,
   kindsAndTickets,
   modelsAndEffortsAreExplicit,
   summaryOf
-} from './testing/claims/DecisionClaims';
-import { DISPATCHER_MODULE_PATHS } from './testing/claims/DispatchClaim';
+} from './testing/claims/DecisionClaims.ts';
+import { DISPATCHER_MODULE_PATHS } from './testing/claims/DispatchClaim.ts';
 
 const BUNDLE = await bundleDispatchScript();
 

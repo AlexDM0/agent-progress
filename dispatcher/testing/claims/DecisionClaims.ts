@@ -8,9 +8,9 @@ import type {
   DispatchScenario,
   RecordedDispatchRun,
   ReviewFinding
-} from '../DispatchScriptHarness';
-import type { SourceMutant }                           from '../SourceMutant';
-import { DISPATCHER_MODULE_PATHS, type DispatchClaim } from './DispatchClaim';
+} from '../DispatchScriptHarness.ts';
+import type { SourceMutant }                           from '../SourceMutant.ts';
+import { DISPATCHER_MODULE_PATHS, type DispatchClaim } from './DispatchClaim.ts';
 
 const {
   DISPATCH_RUN,

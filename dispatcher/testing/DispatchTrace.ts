@@ -1,5 +1,5 @@
 /** A dispatch run reduced to what two implementations of the dispatcher must agree on, in a form a frozen table can hold and compare. */
-import type { RecordedAgentCall, RecordedDispatchRun } from './DispatchScriptHarness';
+import type { RecordedAgentCall, RecordedDispatchRun } from './DispatchScriptHarness.ts';
 
 const DIGEST_LENGTH_CHARACTERS = 16;
 

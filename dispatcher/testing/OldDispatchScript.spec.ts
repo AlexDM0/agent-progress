@@ -8,11 +8,11 @@ import { describe, expect, test } from 'bun:test';
 
 import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL }       from '../../src/lib/tracker-model/constants/AgentSettings.ts';
 import { LIMITS }                                          from '../../src/shared/constants/Limits.ts';
-import { agentBriefNumbers, numberIn }                     from './AgentBriefNumbers';
-import { runDispatchScript }                               from './DispatchScriptHarness';
-import { readDispatchScript }                              from './OldDispatchScript';
-import { metaLiteralVerdictOf, nondeterministicCallsIn }   from './WorkflowScriptSource';
-import { DECISION_SCENARIOS, modelsAndEffortsAreExplicit } from './claims/DecisionClaims';
+import { agentBriefNumbers, numberIn }                     from './AgentBriefNumbers.ts';
+import { runDispatchScript }                               from './DispatchScriptHarness.ts';
+import { readDispatchScript }                              from './OldDispatchScript.ts';
+import { metaLiteralVerdictOf, nondeterministicCallsIn }   from './WorkflowScriptSource.ts';
+import { DECISION_SCENARIOS, modelsAndEffortsAreExplicit } from './claims/DecisionClaims.ts';
 
 const SCRIPT_SOURCE = readDispatchScript();
 

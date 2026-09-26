@@ -6,11 +6,11 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { DISPATCH_PROTOCOL }                           from '../src/shared/constants/DispatchProtocol';
-import { agentBriefNumbers }                           from './testing/AgentBriefNumbers';
-import { builtScriptTextOf, bundleDispatchScript }     from './testing/DispatchScriptBundle';
-import { runDispatchScript, type RecordedDispatchRun } from './testing/DispatchScriptHarness';
-import { DECISION_SCENARIOS, summaryOf }               from './testing/claims/DecisionClaims';
+import { DISPATCH_PROTOCOL }                           from '../src/shared/constants/DispatchProtocol.ts';
+import { agentBriefNumbers }                           from './testing/AgentBriefNumbers.ts';
+import { builtScriptTextOf, bundleDispatchScript }     from './testing/DispatchScriptBundle.ts';
+import { runDispatchScript, type RecordedDispatchRun } from './testing/DispatchScriptHarness.ts';
+import { DECISION_SCENARIOS, summaryOf }               from './testing/claims/DecisionClaims.ts';
 
 const BUNDLE = await bundleDispatchScript();
 
