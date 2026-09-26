@@ -1,15 +1,16 @@
 # Migration plan: the conventions refactor
 
-**Status (2026-09-26): in flight on `migration/conventions`; steps 0 to 3, 4a to 4c, 5 and 6 are done, and step 7's
-cli part is done.** cli/ is grouped into tracking, tickets, dispatch, adoption and measurement; the ticket command is
-split by subcommand group; `cli/CommandSupport.ts` is dissolved into cli/utils and the tracker-writing adapters; lib/
-is deleted; the service refusals carry reason codes the CLI words; and the command context carries the render state.
-The page split (`migration/page`, merged in 7058c2a) and the dispatcher port (`migration/dispatcher`, merged in
-4221a13) have landed. Step 7's two other parts are pending on sub-branches of it: the page reading the payload facts
-(`migration/page-facts`) and the dispatcher's JSON fields (`migration/dispatcher-json`). Step 7's TicketStore items
-remain open: `createTicket`'s initial frontmatter, `deleteAllTickets` moving to the ticket writer, `readTicket`
-becoming `board.ticketByReference`, `nextTicketId`'s second read of `progress.json`, and
-`TrackerChange.deleteAllTicketFilesAfterwards`.
+**Status (2026-09-26): in flight on `migration/conventions`; steps 0 to 3, 4a to 4c, 5, 6 and 7 are done, 7c included:
+legacy code isolated per boundary, the log id filter widened, and every status, type and priority worded through its
+edge mapper. Step 8 is next.** cli/ is grouped into tracking, tickets, dispatch, adoption and measurement; the ticket
+command is split by subcommand group; `cli/CommandSupport.ts` is dissolved into cli/utils and the tracker-writing
+adapters; lib/ is deleted; the service refusals carry reason codes the CLI words; and the command context carries the
+render state. The page split (`migration/page`, merged in 7058c2a) and the dispatcher port (`migration/dispatcher`,
+merged in 4221a13) have landed, and so have step 7's two other parts: the page reading the payload facts
+(`migration/page-facts`, merged in 8d67026) and the dispatcher's JSON fields (`migration/dispatcher-json`, merged in
+99606f1). Step 7's TicketStore items are still open: `createTicket`'s initial frontmatter, `deleteAllTickets` moving
+to the ticket writer, `readTicket` becoming `board.ticketByReference`, `nextTicketId`'s second read of
+`progress.json`, and `TrackerChange.deleteAllTicketFilesAfterwards`.
 The kanban-board feature has landed on main (9654720 through 5c6b0ad) and is mapped into this plan.
 This file is the single source for the plan; `agent-progress-architecture.html` (untracked, repo
 root) is the evidence it was built from: the file map, the diagnosis and the measurements, taken at
@@ -103,8 +104,8 @@ follow from the model above:
   bar's name). The Kanban and the Progress chart then agree because they read the same fact, not
   because two copies of a rule do.
 - **Legacy fallbacks are resolved once, at ingestion.** A review bar known only by its name gets its
-  `reviewOf` and round there (`src/adapters/utils/LegacyReviewBarUtil.ts`, called from the reader
-  today). A delivered row without a review stamp is not resolved at ingestion, because ingestion
+  `reviewOf` and round there (`src/adapters/legacy/utils/ReviewBarNameUtil.ts`, reached from the
+  progress ingestion's migrate step). A delivered row without a review stamp is not resolved at ingestion, because ingestion
   cannot invent the stamp. The Board query `deliveredRowCountsAsReviewed` answers it. Nothing
   downstream parses a name.
 - **The row states and the Kanban lanes are page vocabularies**: string-literal unions local to
@@ -335,6 +336,17 @@ parts are dropped.
   deleted in step 9.
 - **The page payload carries the board facts** (§2 "The page"). The alternative, running the Board
   in the browser, was not chosen.
+
+Settled on 2026-09-26, from the black-box comparison with main:
+
+- **A legacy row known only by its name** (`Review <N> #<id> — …`, no stored `reviewOf`) keeps the
+  branch's behaviour: it is read as a real review bar, shown linked, and closed on release and on a
+  move out of review. Every piece of code that exists only to read what older versions wrote, or to
+  answer older habits, lives in a `legacy/` folder of its boundary (`src/shared/legacy/`,
+  `src/adapters/legacy/`, `src/services/tracker/legacy/`, `cli/legacy/`, `page/legacy/`), is reached
+  through one seam call per consumer, and is dropped once all users are migrated.
+- **Additive output fields are allowed**: `reviewBarRound`, the payload's `boardFacts`, the new
+  `status --json` fields, and the page's log-entry `taskIds` and `ticketIds`.
 
 ## 7. Risks
 
