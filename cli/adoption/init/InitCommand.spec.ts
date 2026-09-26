@@ -27,6 +27,7 @@ import {
 }                                                              from '../../../src/testing/ScratchWorkspace';
 import { CLAUDE_MANAGED_BLOCK_MARKERS } from '../../InstalledFiles';
 import { runCommandLine }               from '../../Main';
+import { INSTALL_VERSION }              from '../../constants/InstallVersion';
 import { createCapturedCommandContext } from '../../testing/CapturedCommandContext';
 import { installedFileTextsFor }        from '../InstalledFileGeneration';
 
@@ -198,6 +199,14 @@ describe.skipIf(!gitIsAvailable())('initialising a repository', () => {
 
     expect(existsSync(join(repositoryDirectory, '.claude', 'agents'))).toBe(false);
     expect(context.outputText()).toContain('agent:       left alone (--no-agent-definition)');
+  });
+
+  test('records the install version in the tracker directory as exactly the CLI\'s own', async () => {
+    const repositoryDirectory = scratchRepository();
+
+    expect(await runCommandLine(['init'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }))).toBe(0);
+
+    expect(readFileSync(join(repositoryDirectory, '.agent-progress', 'version.json'), 'utf8')).toBe(`{\n  "installVersion": ${INSTALL_VERSION}\n}\n`);
   });
 
   test('--root tracks the directory it names rather than the discovered repository root', async () => {

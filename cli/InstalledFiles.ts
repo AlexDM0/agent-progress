@@ -8,6 +8,8 @@ import { DISPATCH_PROTOCOL }        from '../src/shared/constants/DispatchProtoc
 /** Named as the dispatcher's `meta.name`; it is launched by its path only. */
 const DISPATCHER_SCRIPT_FILE_NAME = 'agent-progress-dispatch.js';
 
+const INSTALL_MANIFEST_FILE_NAME = 'version.json';
+
 /** Neither marker may contain the other: `src/lib/claude-code/ClaudeInstructions.ts` finds the end by searching forward from the start. */
 export const CLAUDE_MANAGED_BLOCK_MARKERS: ManagedBlockMarkers = {
   start: '<!-- agent-progress:managed:start -->',
@@ -22,6 +24,7 @@ export interface InstalledFilePaths {
   retiredDispatcherScript: string;
   /** Claude Code reads a project's subagent definitions from `.claude/agents/`; the file name matches the definition's `name`. */
   agentDefinition:         string;
+  installManifest:         string;
 }
 
 export function installedFilePathsIn(rootDirectory: string): InstalledFilePaths {
@@ -31,5 +34,6 @@ export function installedFilePathsIn(rootDirectory: string): InstalledFilePaths 
     dispatcherScript:        join(rootDirectory, TRACKER_FILES.TRACKER_DIRECTORY_NAME, DISPATCHER_SCRIPT_FILE_NAME),
     retiredDispatcherScript: join(rootDirectory, '.claude', 'workflows', DISPATCHER_SCRIPT_FILE_NAME),
     agentDefinition:         join(rootDirectory, '.claude', 'agents', 'agent-progress-worker.md'),
+    installManifest:         join(rootDirectory, TRACKER_FILES.TRACKER_DIRECTORY_NAME, INSTALL_MANIFEST_FILE_NAME),
   };
 }

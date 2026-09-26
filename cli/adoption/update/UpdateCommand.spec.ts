@@ -28,6 +28,7 @@ import {
 }                                        from '../../../src/testing/ScratchWorkspace';
 import { CLAUDE_MANAGED_BLOCK_MARKERS } from '../../InstalledFiles';
 import { runCommandLine }               from '../../Main';
+import { INSTALL_VERSION }              from '../../constants/InstallVersion';
 import { createCapturedCommandContext } from '../../testing/CapturedCommandContext';
 import { installedFileTextsFor }        from '../InstalledFileGeneration';
 
@@ -372,6 +373,20 @@ describe.skipIf(!gitIsAvailable())('updating a tracked repository', () => {
     writeFileSync(agentDefinitionFilePathIn(repositoryDirectory), '---\nname: agent-progress-worker\n---\nExample Agency\'s own.\n');
     expect(await runCommandLine(['update', '--no-agent-definition'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }))).toBe(0);
     expect(readFileSync(agentDefinitionFilePathIn(repositoryDirectory), 'utf8')).toBe('---\nname: agent-progress-worker\n---\nExample Agency\'s own.\n');
+  });
+
+  // A tracker adopted before the manifest existed has none, and `update` is what gives it one.
+  test('records the install version on a tracker that has none, and a second run leaves it byte for byte', async () => {
+    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
+    const manifestFilePath    = join(repositoryDirectory, '.agent-progress', 'version.json');
+    rmSync(manifestFilePath);
+
+    expect(await runCommandLine(['update'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }))).toBe(0);
+    const manifestAfterTheFirstRun = readFileSync(manifestFilePath, 'utf8');
+    expect(manifestAfterTheFirstRun).toBe(`{\n  "installVersion": ${INSTALL_VERSION}\n}\n`);
+
+    expect(await runCommandLine(['update'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }))).toBe(0);
+    expect(readFileSync(manifestFilePath, 'utf8')).toBe(manifestAfterTheFirstRun);
   });
 
   test('a local settings file that will not parse is left exactly as it was and reported on standard error', async () => {

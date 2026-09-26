@@ -3,21 +3,21 @@ import { randomUUID }             from 'node:crypto';
 import { realpathSync, statSync } from 'node:fs';
 import { basename, resolve }      from 'node:path';
 
-import { ensureIgnored }                    from '../../../src/lib/git/GitIgnore';
-import { discoverRepositoryRoot }           from '../../../src/lib/git/RepositoryRoot';
-import { TimeUtil }                         from '../../../src/lib/utils/TimeUtil';
-import { createTracker }                    from '../../../src/services/tracker/TrackerCreation';
-import { findWorkspace, workspacePathsFor } from '../../../src/services/tracker/Workspace';
-import { TRACKER_FILES }                    from '../../../src/services/tracker/constants/TrackerFiles';
-import { agentProgressRootOverride }        from '../../../src/shared/Environment';
-import { OperationRefusal }                 from '../../../src/shared/OperationRefusal';
-import type { CommandHandler }              from '../../CommandTable';
-import { OlderTrackerFilesRewriteReport }   from '../../legacy/OlderTrackerFilesRewriteReport';
-import { IGNORED_RETIRED_OPTION_NAMES }     from '../../legacy/constants/IgnoredRetiredOptions';
-import { OutputUtil }                       from '../../utils/OutputUtil';
-import { installedFileTextsFor }            from '../InstalledFileGeneration';
-import type { InstalledFileTexts }          from '../InstalledFileGeneration';
-import { refreshTrackedRepository }         from '../TrackerRefresh';
+import { ensureIgnored }                                  from '../../../src/lib/git/GitIgnore';
+import { discoverRepositoryRoot }                         from '../../../src/lib/git/RepositoryRoot';
+import { TimeUtil }                                       from '../../../src/lib/utils/TimeUtil';
+import { createTracker }                                  from '../../../src/services/tracker/TrackerCreation';
+import { findWorkspace, workspacePathsFor }               from '../../../src/services/tracker/Workspace';
+import { TRACKER_FILES }                                  from '../../../src/services/tracker/constants/TrackerFiles';
+import { agentProgressRootOverride }                      from '../../../src/shared/Environment';
+import { OperationRefusal }                               from '../../../src/shared/OperationRefusal';
+import type { CommandHandler }                            from '../../CommandTable';
+import { OlderTrackerFilesRewriteReport }                 from '../../legacy/OlderTrackerFilesRewriteReport';
+import { IGNORED_RETIRED_OPTION_NAMES }                   from '../../legacy/constants/IgnoredRetiredOptions';
+import { OutputUtil }                                     from '../../utils/OutputUtil';
+import { installedFileTextsFor }                          from '../InstalledFileGeneration';
+import type { InstalledFileTexts }                        from '../InstalledFileGeneration';
+import { recordInstallVersion, refreshTrackedRepository } from '../TrackerRefresh';
 
 const USAGE = 'agent-progress init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';
 
@@ -123,6 +123,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
 
     // Dropping cli/legacy/ makes this printRefreshReport(null).
     await OlderTrackerFilesRewriteReport.rewriteThenPrintInitTrackerLine(context, workspace, printRefreshReport);
+    recordInstallVersion(workspace.rootDirectory);
   };
 
   const existingWorkspace = findWorkspace(rootDirectory);
@@ -166,4 +167,5 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
   context.standardOutput(`  hooks:       ${refresh.hookLine}`);
   context.standardOutput(`  workflow:    ${refresh.workflowLine}`);
   context.standardOutput(`  agent:       ${refresh.agentDefinitionLine}`);
+  recordInstallVersion(workspace.rootDirectory);
 };

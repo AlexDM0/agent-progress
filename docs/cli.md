@@ -76,10 +76,11 @@ cd <the repository to track>
 agent-progress init
 ```
 
-`init` creates the tracker and installs everything a session needs to use it. Of the seven things
-below, the first four are the tracker itself and the instructions pointing at it; the last three are
+`init` creates the tracker and installs everything a session needs to use it. Of the eight things
+below, the first four are the tracker itself and the instructions pointing at it; the next three are
 what Claude Code runs — the hook and the agent definition under `.claude/`, the dispatcher in the
-tracker — each written by default and each with its own opt-out.
+tracker — each written by default and each with its own opt-out; the last records which install
+version all of them are.
 
 | # | what | path | written by | opt-out |
 |---|---|---|---|---|
@@ -90,6 +91,7 @@ tracker — each written by default and each with its own opt-out.
 | 5 | The `SubagentStop` hook running `agent-progress hook subagent-stop` | `.claude/settings.local.json` | `init`, `update` | `--no-hooks` |
 | 6 | The dispatcher workflow, generated from `dispatcher/DispatchScript.ts` | `.agent-progress/agent-progress-dispatch.js` | `init`, `update` | `--no-workflow` |
 | 7 | The worker agent definition, from `resources/templates/AgentProgressWorker.md` | `.claude/agents/agent-progress-worker.md` | `init`, `update` | `--no-agent-definition` |
+| 8 | The install version | `.agent-progress/version.json` | `init`, `update` | — |
 
 1. **The tracker.** Its root is the main checkout, found from any worktree.
 2. **The brief** an orchestrator fills in before it spawns an implementing agent: the scope, the facts
@@ -128,6 +130,11 @@ tracker — each written by default and each with its own opt-out.
    orchestrator working by hand gets the default pair. A ticket that names another pair
    (`ticket add --model/--effort`, `ticket agent`) is run through the dispatcher, which passes each
    agent the pair from `readyTickets`. A hand edit is undone.
+8. **The install version**, `{ "installVersion": N }`: the one version of everything above that the
+   tool installs, which changes only when what the CLI and those files expect of each other changes.
+   `init` and `update` compute every installed file first and write this one last, after every other
+   write, so a run that fails part way leaves the version it found and a second run completes it. A
+   refused `CLAUDE.md` block or settings file is reported and does not hold it back.
 
 `update`, and `init` at a root that already has a tracker, report items 2 and 4–7 on a line each:
 `updated` or `unchanged`, judged from the file's bytes before and after (the hook from its entry, and
@@ -178,8 +185,8 @@ Options in `[brackets]` are optional; `a|b` is a choice of one.
 
 | command | what it does |
 |---|---|
-| `init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]` | Create the tracker here and write the seven items in [Adopting a repository](#adopting-a-repository). `--project` names the project shown on the page (default: the root directory's name); `--root` tracks that directory instead of the discovered repository root. Refused when an ancestor already holds a tracker, when `--root` is not an existing directory, inside a bare repository, and when `AGENT_PROGRESS_ROOT` is set to a directory other than the one it would create the tracker in (the message names both, and nothing is written). A re-run refreshes only what `update` refreshes, and rewrites older tracker files as `update` does, printing a `tracker:` line when it did. `--hooks` is accepted and does nothing. |
-| `update [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]` | Refresh what the tool wrote into a repository it already tracks: the managed block, `agent-brief.md`, the hook, the workflow — generated anew into `.agent-progress/`, removing a copy an older version installed under `.claude/workflows/` — and the agent definition, undoing a hand edit to either of the last two. A tracker still in an older format — a version 1 `progress.json` holding its own log, a `progress.json` holding retired status words or review rows known only by their name, or tickets holding retired status words — is rewritten in the current one under the lock, a version 1 file's log moved to `log.jsonl`, and the first line names what was rewritten; nothing is logged, and a current or unreadable tracker is left alone; a rewrite that cannot take the lock is exit 2, after the refresh report. It creates no tracker, so it takes no `--project` and no `--root`. With no tracker it is refused at exit 1, naming `agent-progress init`. |
+| `init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]` | Create the tracker here and write the eight items in [Adopting a repository](#adopting-a-repository). `--project` names the project shown on the page (default: the root directory's name); `--root` tracks that directory instead of the discovered repository root. Refused when an ancestor already holds a tracker, when `--root` is not an existing directory, inside a bare repository, and when `AGENT_PROGRESS_ROOT` is set to a directory other than the one it would create the tracker in (the message names both, and nothing is written). A re-run refreshes only what `update` refreshes, and rewrites older tracker files as `update` does, printing a `tracker:` line when it did. `--hooks` is accepted and does nothing. |
+| `update [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]` | Refresh what the tool wrote into a repository it already tracks: the managed block, `agent-brief.md`, the hook, the workflow — generated anew into `.agent-progress/`, removing a copy an older version installed under `.claude/workflows/` — and the agent definition, undoing a hand edit to either of the last two; then, last, `version.json`. A tracker still in an older format — a version 1 `progress.json` holding its own log, a `progress.json` holding retired status words or review rows known only by their name, or tickets holding retired status words — is rewritten in the current one under the lock, a version 1 file's log moved to `log.jsonl`, and the first line names what was rewritten; nothing is logged, and a current or unreadable tracker is left alone; a rewrite that cannot take the lock is exit 2, after the refresh report, and leaves `version.json` as it was. It creates no tracker, so it takes no `--project` and no `--root`. With no tracker it is refused at exit 1, naming `agent-progress init`. |
 | `help` | The command reference. |
 
 ### Reading the board
@@ -421,6 +428,7 @@ nobody closed.
   progress.html          the generated dashboard
   agent-brief.md         the brief, rewritten by init and update
   agent-progress-dispatch.js  the dispatcher, generated by init and update
+  version.json           the install version, written last by init and update
   tickets/003-<slug>.md  one file per ticket
   .lock/                 the lock's generation records
 ```

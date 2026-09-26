@@ -1,10 +1,11 @@
 /**
  * What `update` and `init` do only for older trackers and older habits: a version 1 progress file, a version 2 one holding a retired word
  * or a review row known only by its name, and a ticket in a retired word are rewritten once in the current format, a rewrite that cannot
- * take the lock still prints the refresh report, and `--hooks` is accepted.
+ * take the lock still prints the refresh report and records no install version, and `--hooks` is accepted.
  * It answers the older input and habit `cli/legacy/` and `src/services/tracker/legacy/` exist for, and is deleted with them.
  */
 import {
+  existsSync,
   readdirSync,
   readFileSync,
   rmSync,
@@ -220,10 +221,12 @@ describe.skipIf(!gitIsAvailable())('what update rewrites', () => {
   });
 
   /** The refreshed files are already on disk when the lock is refused, so the report that names a stale brief must still be printed. */
-  test('a rewrite that cannot take the lock exits 2 after the refresh report, leaving the progress file as it was', async () => {
+  test('a rewrite that cannot take the lock exits 2 after the refresh report, leaving the progress file as it was and no install version', async () => {
     const { repositoryDirectory, progressFilePath } = await trackedRepositoryInAnOlderFormat();
-    const progressBefore = readFileSync(progressFilePath, 'utf8');
-    const lockFilePath   = join(repositoryDirectory, '.agent-progress', '.lock');
+    const progressBefore   = readFileSync(progressFilePath, 'utf8');
+    const manifestFilePath = join(repositoryDirectory, '.agent-progress', 'version.json');
+    rmSync(manifestFilePath);
+    const lockFilePath     = join(repositoryDirectory, '.agent-progress', '.lock');
     rmSync(lockFilePath, { force: true, recursive: true });
     writeFileSync(lockFilePath, '');
 
@@ -242,6 +245,7 @@ describe.skipIf(!gitIsAvailable())('what update rewrites', () => {
       '  dashboard:   ',
     ]);
     expect(readFileSync(progressFilePath, 'utf8')).toBe(progressBefore);
+    expect(existsSync(manifestFilePath), 'a refresh cut short leaves the old version, so every command keeps asking for update').toBe(false);
   }, HELD_LOCK_TIMEOUT_MILLISECONDS);
 });
 
@@ -257,7 +261,7 @@ describe.skipIf(!gitIsAvailable())('what a second init rewrites', () => {
   });
 
   /** The refreshed files are already on disk when the lock is refused, so the report that names a stale brief must still be printed. */
-  test('a rewrite of an older tracker that cannot take the lock exits 2 after the refresh report, leaving the progress file as it was', async () => {
+  test('a rewrite of an older tracker that cannot take the lock exits 2 after the refresh report, leaving the progress file as it was and no install version', async () => {
     const repositoryDirectory = scratchRepository();
     await runCommandLine(['init'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }));
     const trackerDirectory   = join(repositoryDirectory, '.agent-progress');
@@ -272,6 +276,8 @@ describe.skipIf(!gitIsAvailable())('what a second init rewrites', () => {
     rmSync(join(trackerDirectory, 'log.jsonl'));
     const progressBefore = readFileSync(progressFilePath, 'utf8');
     writeFileSync(join(trackerDirectory, 'agent-brief.md'), 'An older brief nobody refreshed.\n');
+    const manifestFilePath = join(trackerDirectory, 'version.json');
+    rmSync(manifestFilePath);
     const lockFilePath = join(trackerDirectory, '.lock');
     rmSync(lockFilePath, { force: true, recursive: true });
     writeFileSync(lockFilePath, '');
@@ -294,5 +300,6 @@ describe.skipIf(!gitIsAvailable())('what a second init rewrites', () => {
     expect(outputLines[1]).toBe('  tracker:     rewriting older files did not finish; some may already be in the current format');
     expect(outputLines[3]).toStartWith('  brief:       updated — re-read it before your next brief');
     expect(readFileSync(progressFilePath, 'utf8')).toBe(progressBefore);
+    expect(existsSync(manifestFilePath), 'a refresh cut short leaves the old version, so every command keeps asking for update').toBe(false);
   }, HELD_LOCK_TIMEOUT_MILLISECONDS);
 });

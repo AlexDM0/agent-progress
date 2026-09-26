@@ -151,10 +151,11 @@ agent-progress init --project "Example Storefront"
   <img src="docs/images/terminal-init.png" width="680" alt="Terminal output of agent-progress init for Example Storefront, listing tracker, brief, dashboard, .gitignore entry, CLAUDE.md block, SubagentStop hook, dispatcher workflow and worker agent, followed by agent-progress open">
 </p>
 
-`init` writes seven things:
+`init` writes eight things:
 
 - **`.agent-progress/`**, the tracker: the state file, a `tickets/` folder, the dashboard and its lock.
 - **`.agent-progress/agent-brief.md`**, the brief every builder and reviewer works from.
+- **`.agent-progress/version.json`**, the install version of everything the tool installs.
 - **A `.gitignore` entry** for `.agent-progress/`, unless git already ignores it.
 - **A managed block in `CLAUDE.md`** telling every session in the repository to track its work here.
 - **A `SubagentStop` hook** in `.claude/settings.local.json`, which records each agent's tokens.

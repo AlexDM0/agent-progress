@@ -1,8 +1,8 @@
 /**
  * The catalogue of installed files. The cases that matter: the managed CLAUDE.md markers, since the block writer finds the end by searching
  * forward from the start and the block sits in a file people read rendered; the dispatcher in the git-ignored tracker directory rather than
- * in the project's `.claude/`; the brief in that directory too, where the dispatcher's prompts send every agent; and every path absolute
- * under the root it was given, since `init` and `update` print them.
+ * in the project's `.claude/`; the brief in that directory too, where the dispatcher's prompts send every agent, and the install manifest
+ * beside what it versions; and every path absolute under the root it was given, since `init` and `update` print them.
  */
 import {
   isAbsolute,
@@ -46,9 +46,13 @@ test('the retired dispatcher path is the copy an older agent-progress installed 
   expect(installedFilePathsIn(EXAMPLE_ROOT).retiredDispatcherScript).toBe(join(EXAMPLE_ROOT, '.claude', 'workflows', 'agent-progress-dispatch.js'));
 });
 
+test('the install manifest sits in the tracker directory, beside what it versions', () => {
+  expect(installedFilePathsIn(EXAMPLE_ROOT).installManifest).toBe(join(EXAMPLE_ROOT, TRACKER_FILES.TRACKER_DIRECTORY_NAME, 'version.json'));
+});
+
 test('every path is absolute and under the root it was given', () => {
   const installedFilePaths = Object.values(installedFilePathsIn(EXAMPLE_ROOT));
-  expect(installedFilePaths).toHaveLength(5);
+  expect(installedFilePaths).toHaveLength(6);
   for (const installedFilePath of installedFilePaths) {
     expect(isAbsolute(installedFilePath), installedFilePath).toBe(true);
     expect(installedFilePath).toStartWith(`${EXAMPLE_ROOT}${sep}`);

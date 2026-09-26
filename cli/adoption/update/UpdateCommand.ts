@@ -4,12 +4,12 @@
  * no tracker, so it takes neither `--project` nor `--root`, and touches the tracker only to rewrite
  * files still in an older format.
  */
-import { requireWorkspace }               from '../../../src/services/tracker/Workspace';
-import type { CommandHandler }            from '../../CommandTable';
-import { OlderTrackerFilesRewriteReport } from '../../legacy/OlderTrackerFilesRewriteReport';
-import { IGNORED_RETIRED_OPTION_NAMES }   from '../../legacy/constants/IgnoredRetiredOptions';
-import { installedFileTextsFor }          from '../InstalledFileGeneration';
-import { refreshTrackedRepository }       from '../TrackerRefresh';
+import { requireWorkspace }                               from '../../../src/services/tracker/Workspace';
+import type { CommandHandler }                            from '../../CommandTable';
+import { OlderTrackerFilesRewriteReport }                 from '../../legacy/OlderTrackerFilesRewriteReport';
+import { IGNORED_RETIRED_OPTION_NAMES }                   from '../../legacy/constants/IgnoredRetiredOptions';
+import { installedFileTextsFor }                          from '../InstalledFileGeneration';
+import { recordInstallVersion, refreshTrackedRepository } from '../TrackerRefresh';
 
 const USAGE = 'agent-progress update [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';
 
@@ -44,4 +44,5 @@ export const updateCommand: CommandHandler = async (commandArguments, context) =
   // Dropping cli/legacy/ makes this one call: printRefreshReport(`Refreshed what agent-progress manages in ${workspace.rootDirectory}; the tracker
   // itself was not touched.`).
   await OlderTrackerFilesRewriteReport.rewriteThenPrintUpdateHeading(context, workspace, printRefreshReport);
+  recordInstallVersion(workspace.rootDirectory);
 };

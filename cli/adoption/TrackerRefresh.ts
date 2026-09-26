@@ -1,14 +1,16 @@
 /**
  * What the tool wrote into a repository and refreshes there: the managed CLAUDE.md block, the agent brief, the `SubagentStop` entry unless
  * `--no-hooks`, the dispatcher script generated from `dispatcher/` unless `--no-workflow`, and the worker agent definition unless
- * `--no-agent-definition`. `init` and `update` are its two callers, and hand it every text already computed. Each line says whether the file
+ * `--no-agent-definition`; then, last, the install version. `init` and `update` are its two callers, and hand it every text already
+ * computed. Each line says whether the file
  * on disk actually changed, because an orchestrator that read the brief at the start of its session has no other way to learn that the copy in
  * its context is stale.
  */
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 
-import { writeFileAtomically } from '../../src/lib/atomic-file/AtomicFile';
-import { writeManagedBlock }   from '../../src/lib/claude-code/ClaudeInstructions';
+import { createInstallManifestWriter } from '../../src/adapters/install/InstallManifestWriter';
+import { writeFileAtomically }         from '../../src/lib/atomic-file/AtomicFile';
+import { writeManagedBlock }           from '../../src/lib/claude-code/ClaudeInstructions';
 import {
   claudeLocalSettingsFilePathFor,
   claudeSettingsFilePathFor,
@@ -17,6 +19,7 @@ import {
 }                                                             from '../../src/lib/claude-code/ClaudeSettings';
 import type { Workspace }                                     from '../../src/services/tracker/Workspace';
 import { CLAUDE_MANAGED_BLOCK_MARKERS, installedFilePathsIn } from '../InstalledFiles';
+import { INSTALL_VERSION }                                    from '../constants/InstallVersion';
 import type { InstalledFileTexts }                            from './InstalledFileGeneration';
 
 /**
@@ -214,4 +217,9 @@ export function refreshTrackedRepository(request: TrackerRefreshRequest): Tracke
     workflowLine,
     agentDefinitionLine,
   };
+}
+
+/** Called last by `init` and `update`, after every other write, so a refresh cut short leaves the old version and commands keep asking for `update`. */
+export function recordInstallVersion(rootDirectory: string): void {
+  createInstallManifestWriter(installedFilePathsIn(rootDirectory).installManifest).write(INSTALL_VERSION);
 }

@@ -134,10 +134,15 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
 
 ### Generated and installed files
 
-- Generated files do not live in the repository, and everything installed elsewhere is to carry one install
-  version, which follows in plan step 8's later commits. `init` and `update` generate the dispatcher from
-  `dispatcher/` into `.agent-progress/agent-progress-dispatch.js`, and delete a `.claude/workflows/` copy an older
-  version installed.
+- Generated files do not live in the repository. `init` and `update` generate the dispatcher from `dispatcher/` into
+  `.agent-progress/agent-progress-dispatch.js`, and delete a `.claude/workflows/` copy an older version installed.
+- Everything installed is versioned by one manifest, `.agent-progress/version.json`, holding `INSTALL_VERSION`
+  (`cli/constants/InstallVersion.ts`); no installed file carries a stamp. `init` and `update` write it last, after every
+  other file is computed and written, so a run cut short leaves the old version and a rerun completes it.
+- Bump `INSTALL_VERSION` by hand, in the same commit, when a file installed by the previous version becomes wrong
+  against the new CLI: a command, flag, JSON field, stored state or exit code an installed file names or reads changes
+  meaning or is removed; the dispatcher's launch arguments change; or an installed file moves or a new one is
+  installed. A template's wording or a `DISPATCH_PROTOCOL` number does not bump it.
 - The frozen table `dispatcher/testing/FrozenDispatchTraces.json` was first taken from the old committed script at
   bc42604, and is retaken from the port's bundle only in a commit that means to change what the agents are told, whose
   table diff shows prompt text or wire names and no decision: the one exception to a frozen table coming from the
@@ -304,7 +309,7 @@ README-day-on-the-board.md  the same page told as one day on a board, kept for c
 setup.sh                    machine setup: Bun, bun install and bun link, and the skill symlinks
 cli/                        the command surface: dispatch, arguments, help, and the commands grouped into sets: tracking/,
                             tickets/, dispatch/, adoption/ and measurement/; cli/utils/ holds the Next line, the printing
-                            and the option values; cli/testing/ is test-only
+                            and the option values; cli/constants/ the install version; cli/testing/ is test-only
 dispatcher/                 the dispatcher policy in TypeScript, which init and update bundle into a Workflow script; dispatcher/testing/ is
                             test-only: the harness, the bundle wrapper, the frozen table
 page/                       the browser page: its sets, its own DOM-only tsconfig and spec tsconfig; page/testing/ is
@@ -316,9 +321,10 @@ src/                        the target layout's code, filled step by step as the
                             atomic-file (AtomicFile.ts), git (GitProcess.ts), claude-code (ClaudeTranscripts.ts; also
                             builds Workflow scripts),
                             tracker-model (@types/Task.ts; Board.ts is its aggregate), utils
-  src/adapters/             the boundary, one folder per stored format (progress, tickets and log) plus the shared utils:
-                            reading, writing and mapping what the tracker stores, the ticket JSON document, and the wording of
-                            log records and refusals; legacy/ reads the older progress.json shapes
+  src/adapters/             the boundary, one folder per stored format (progress, tickets, log, and install for the install
+                            manifest) plus the shared utils: reading, writing and mapping what the tracker stores, the ticket
+                            JSON document, and the wording of log records and refusals; legacy/ reads the older progress.json
+                            shapes
   src/services/             tracker (discovery, the lock, reading, the write pipeline, creation; legacy/ rewrites older tracker
                             files) and render (the page document and the render state one invocation holds)
   src/shared/               app-specific code several parts use: the environment reader, the refusal, LIMITS,
