@@ -1,6 +1,8 @@
 # Migration plan: the conventions refactor
 
 **Status (2026-09-26): in flight on `migration/conventions`; steps 0 to 3 and 4a to 4c are done, 5 is next.**
+Two parts of step 7 run on sub-branches of it: the page split (`migration/page`, merged in 7058c2a; 7b's
+payload facts remain) and the dispatcher port (`migration/dispatcher`, in review, merged before step 8).
 The kanban-board feature has landed on main (9654720 through 5c6b0ad) and is mapped into this plan.
 This file is the single source for the plan; `agent-progress-architecture.html` (untracked, repo
 root) is the evidence it was built from: the file map, the diagnosis and the measurements, taken at
