@@ -89,7 +89,10 @@ const CALLS_THAT_CHANGE_NO_TICKET: readonly (readonly [string, (board: Board) =>
 
 const CALLS_THAT_CHANGE_A_TICKET: readonly (readonly [string, (board: Board) => unknown, readonly string[]])[] = [
   ['addTask for a ticket', (board) => board.addTask({
-    name: 'Example basket badge row', ticketId: '002', startsNow: false, movesTheLink: false 
+    name:         'Example basket badge row',
+    ticketId:     '002',
+    startsNow:    false,
+    movesTheLink: false,
   }, CHANGED_AT), ['002']],
   ['removeTask of the row a ticket names', (board) => board.removeTask(1), ['001']],
   ['fileTicket', (board) => board.fileTicket(ticketFixture({ id: '003', title: 'Example order history' }), CHANGED_AT), ['003']],

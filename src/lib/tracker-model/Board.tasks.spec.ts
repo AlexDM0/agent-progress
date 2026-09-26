@@ -22,7 +22,11 @@ const MOVED_AT = '2026-09-18T11:15:00+02:00';
 function ticketOwnedRowFixture(status: 'pending' | 'in-progress' | 'paused' = 'in-progress'): BoardFixture {
   return boardFixture({
     tasks: [taskFixture({
-      id: 4, name: '#001 Example checkout page', status, start: status === 'pending' ? null : FILED_AT, ticket: '001' 
+      id:     4,
+      name:   '#001 Example checkout page',
+      status,
+      start:  status === 'pending' ? null : FILED_AT,
+      ticket: '001',
     })],
     tickets: [ticketFixture({ id: '001', status: 'in-progress', task: 4 })],
   });
@@ -119,7 +123,10 @@ describe('addTask', () => {
   test('a row filed for a ticket without one links both sides', () => {
     const { board, tickets } = boardFixture({ tickets: [ticketFixture({ id: '001' })] });
     const filed              = board.addTask({
-      name: 'Example checkout row', ticketId: '001', startsNow: false, movesTheLink: false 
+      name:         'Example checkout row',
+      ticketId:     '001',
+      startsNow:    false,
+      movesTheLink: false,
     }, FILED_AT);
 
     expect(filed.ticket).toBe('001');
@@ -133,7 +140,10 @@ describe('addTask', () => {
     const ticketsBefore  = structuredClone(fixture.tickets);
 
     expect(refusalDetailOf(() => fixture.board.addTask({
-      name: 'Example second row', ticketId: '001', startsNow: false, movesTheLink: false 
+      name:         'Example second row',
+      ticketId:     '001',
+      startsNow:    false,
+      movesTheLink: false,
     }, FILED_AT)))
       .toEqual({
         reason:   'ticket-already-has-row',
@@ -148,7 +158,10 @@ describe('addTask', () => {
   test('moving the link leaves the old row free-standing and links the new one', () => {
     const { board, progress, tickets } = ticketOwnedRowFixture();
     const filed                        = board.addTask({
-      name: 'Example second row', ticketId: '001', startsNow: false, movesTheLink: true 
+      name:         'Example second row',
+      ticketId:     '001',
+      startsNow:    false,
+      movesTheLink: true,
     }, FILED_AT);
 
     expect(progress.tasks.find((task) => task.id === 4)?.ticket).toBeNull();
@@ -160,7 +173,10 @@ describe('addTask', () => {
   test('a ticket whose row is gone takes the new row without movesTheLink', () => {
     const { board, tickets } = boardFixture({ tickets: [ticketFixture({ id: '001', task: 7 })] });
     const filed              = board.addTask({
-      name: 'Example replacement row', ticketId: '001', startsNow: false, movesTheLink: false 
+      name:         'Example replacement row',
+      ticketId:     '001',
+      startsNow:    false,
+      movesTheLink: false,
     }, FILED_AT);
 
     expect(tickets[0]?.frontmatter.task).toBe(filed.id);
