@@ -117,15 +117,17 @@ test('a concurrency limit that is not a whole number of at least 1 makes the fil
 });
 
 // Every review row filed before the field existed has none; the page falls back to its name, and a read must not add the field.
-test('a row without reviewOf reads unchanged, and filedTaskOf writes the field only when it is given one', () => {
+test('a row without reviewOf reads back unchanged, and a read does not add the field', () => {
   const progress = emptyProgress();
-  const plain    = fileRow(progress, { name: 'Review 1 #3 — x' });
-  const linked   = fileRow(progress, { name: 'Review 2 #3 — x', reviewOf: '003' });
-  expect('reviewOf' in plain).toBe(false);
-  expect(linked.reviewOf).toBe('003');
+  fileRow(progress, { name: 'Review 1 #3 — x' });
+  fileRow(progress, { name: 'Review 2 #3 — x', reviewOf: '003' });
 
   const result = readBack('store-review-of', progress);
-  expect(result.verdict === 'readable' ? result.progress : null).toEqual(progress);
+  if (result.verdict !== 'readable') throw new Error(`expected a readable file, got ${JSON.stringify(result)}`);
+  const [plainRow, linkedRow] = result.progress.tasks;
+  expect(plainRow !== undefined && 'reviewOf' in plainRow, 'toEqual would not see a key added as undefined').toBe(false);
+  expect(linkedRow?.reviewOf).toBe('003');
+  expect(result.progress).toEqual(progress);
 });
 
 test('a task whose status this build does not know makes the whole file unreadable, and the reason names the task and the status', () => {
