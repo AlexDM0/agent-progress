@@ -8,7 +8,7 @@
 import type { PageLimits }         from '../../src/shared/@types/PagePayload.ts';
 import { MILLISECONDS_PER_MINUTE } from '../constants/Units.ts';
 
-const TWO_DIGITS = 10;
+const SMALLEST_TWO_DIGIT_NUMBER = 10;
 
 const FIRST_MONTH_NUMBER = 1;
 
@@ -20,7 +20,7 @@ const SHORTEST_NAMED_DURATION = 'under a minute';
 export type TimestampSlices = Pick<PageLimits, 'dateAndClockLength' | 'calendarDateLength' | 'monthAndDaySliceStart' | 'clockSliceStart' | 'clockSliceEnd'>;
 
 function padToTwoDigits(value: number): string {
-  return value < TWO_DIGITS ? `0${value}` : String(value);
+  return value < SMALLEST_TWO_DIGIT_NUMBER ? `0${value}` : String(value);
 }
 
 function clockOf(moment: Date): string {
