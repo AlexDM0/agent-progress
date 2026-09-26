@@ -8,7 +8,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL }       from '../../src/lib/tracker-model/constants/AgentSettings.ts';
 import { LIMITS }                                          from '../../src/shared/constants/Limits.ts';
-import { agentBriefNumbers, numberIn }                     from './AgentBriefNumbers.ts';
+import { agentBriefNumbers }                               from './AgentBriefNumbers.ts';
 import { runDispatchScript }                               from './DispatchScriptHarness.ts';
 import { readOldDispatchScript }                           from './OldDispatchScript.ts';
 import { metaLiteralVerdictOf, nondeterministicCallsIn }   from './WorkflowScriptSource.ts';
@@ -73,7 +73,8 @@ describe('the dispatcher and the agent brief', () => {
   const { reworkThresholdLines } = agentBriefNumbers();
 
   test('the round decision counts against the brief\'s threshold', () => {
-    expect(numberIn(SCRIPT_SOURCE, /const REWORK_ROUND_THRESHOLD_LINES = (\d+);/)).toBe(reworkThresholdLines);
+    const statedThreshold = /^const REWORK_ROUND_THRESHOLD_LINES = (\d+);$/m.exec(SCRIPT_SOURCE)?.[1] ?? null;
+    expect(statedThreshold).toBe(String(reworkThresholdLines));
   });
 });
 
