@@ -153,7 +153,7 @@ describe('when something cannot be read', () => {
 
     const outcome = await rerenderDashboard({ workspace, generatedAt: GENERATED_AT, reads: readsReturning([], [], unreadableLog) });
 
-    expect(outcome).toEqual({ verdict: 'unreadable', reason: `The log cannot be read: ${workspace.logFilePath}, line 3: fields.text is not a string` });
+    expect(outcome).toEqual({ verdict: 'unreadable', reason: `the log cannot be read: ${workspace.logFilePath}, line 3: fields.text is not a string` });
     expect(() => readFileSync(workspace.htmlFilePath, 'utf8')).toThrow();
   });
 });

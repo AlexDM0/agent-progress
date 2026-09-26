@@ -54,7 +54,7 @@ export async function rerenderDashboard(input: RerenderInput): Promise<RerenderO
     return { verdict: 'unreadable', reason: `${workspace.progressFilePath} could not be read: ${progressRead.reason}` };
   }
   const storedLog = reads.readStoredLog(workspace, progressRead.embeddedLog);
-  if (storedLog.verdict === 'unreadable') return { verdict: 'unreadable', reason: `The log cannot be read: ${storedLog.reason}` };
+  if (storedLog.verdict === 'unreadable') return { verdict: 'unreadable', reason: `the log cannot be read: ${storedLog.reason}` };
 
   const listing       = reads.listTickets(workspace);
   const pageBundle    = await bundlePageScript();
