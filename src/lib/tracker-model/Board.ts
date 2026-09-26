@@ -438,7 +438,7 @@ export class Board {
   /**
    * Empties the rows in place, never the file: `trackerId` namespaces the page's stored range, and the id counter keeps a cleared id from
    * coming back. A surviving ticket is re-seeded from its own stamps, so a cleared tracker still draws the work that was done, except a
-   * low ticket with no row, which had none to lose. The Board only reports the clearing; what becomes of the log is the logger's to decide.
+   * low ticket with no row, which had none to lose. The Board only reports the clearing; what becomes of the log is the log sink's to decide.
    */
   clearTracker(request: { ticketsSurvive: boolean }, at: string): TrackerCleared {
     const removedTaskCount     = this.progress.tasks.length;
