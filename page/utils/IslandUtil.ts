@@ -1,4 +1,5 @@
 import type { PagePayload, PageTicket } from '../../src/shared/@types/PagePayload.ts';
+import { PILL_LABEL_FOR_DISPLAY_STATE } from '../constants/PillLabels.ts';
 import { JsonValueUtil }                from './JsonValueUtil.ts';
 
 const REQUIRED_LIMIT_NAMES = [
@@ -19,7 +20,49 @@ const REQUIRED_LIMIT_NAMES = [
   'doneWorkVisibleMilliseconds',
 ] as const;
 
-/** Unrecognised properties are accepted: the progress file gains fields over time and a stricter check would blank the chart on that upgrade. */
+function rowPositionIsValid(value: unknown, rowCount: number): boolean {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && value < rowCount;
+}
+
+function displayStateIsKnown(value: unknown): boolean {
+  return typeof value === 'string' && Object.hasOwn(PILL_LABEL_FOR_DISPLAY_STATE, value);
+}
+
+function rowFactsAreValid(value: unknown, rowCount: number): boolean {
+  return JsonValueUtil.valueIsRecord(value)
+    && displayStateIsKnown(value['displayState'])
+    && typeof value['deliveredRowCountsAsReviewed'] === 'boolean'
+    && (value['ownRowPositionOfReviewedTicket'] === null || rowPositionIsValid(value['ownRowPositionOfReviewedTicket'], rowCount));
+}
+
+function ticketFactsAreValid(value: unknown, rowCount: number): boolean {
+  if (!JsonValueUtil.valueIsRecord(value)) {
+    return false;
+  }
+  const { reviewBarPositions } = value;
+  return typeof value['ticketId'] === 'string'
+    && (value['ownRowPosition'] === null || rowPositionIsValid(value['ownRowPosition'], rowCount))
+    && Array.isArray(reviewBarPositions)
+    && reviewBarPositions.every((position) => rowPositionIsValid(position, rowCount))
+    && displayStateIsKnown(value['displayState']);
+}
+
+function boardFactsAreValid(value: unknown, rowCount: number): boolean {
+  if (!JsonValueUtil.valueIsRecord(value)) {
+    return false;
+  }
+  const { rows, tickets } = value;
+  return Array.isArray(rows)
+    && rows.length === rowCount
+    && rows.every((rowFacts) => rowFactsAreValid(rowFacts, rowCount))
+    && Array.isArray(tickets)
+    && tickets.every((ticketFacts) => ticketFactsAreValid(ticketFacts, rowCount));
+}
+
+/**
+ * Unrecognised properties are accepted: the progress file gains fields over time and a stricter check would blank the chart on that upgrade.
+ * The Board facts are checked in full, one row fact per task and every position inside the tasks, since each fact is read by position.
+ */
 function pagePayloadFrom(value: unknown): PagePayload | null {
   if (!JsonValueUtil.valueIsRecord(value)) {
     return null;
@@ -38,6 +81,9 @@ function pagePayloadFrom(value: unknown): PagePayload | null {
     return null;
   }
   if (!Array.isArray(progress['tasks']) || !Array.isArray(progress['log']) || !JsonValueUtil.valueIsRecord(progress['view'])) {
+    return null;
+  }
+  if (!boardFactsAreValid(value['boardFacts'], progress['tasks'].length)) {
     return null;
   }
   const ladder = limits['tickStepLadderMinutes'];

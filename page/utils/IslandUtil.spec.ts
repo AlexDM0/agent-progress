@@ -1,13 +1,14 @@
 /**
  * Validating the two JSON islands. The cases that matter: the progress island is refused whole, never cast, when anything the chart divides
- * by or prints is missing, while the tickets island drops only its unusable entries.
+ * by or prints is missing, or when a Board fact is missing, unknown or points outside the tasks, while the tickets island drops only its
+ * unusable entries.
  */
 
-import { describe, expect, test } from 'bun:test';
-import type { Task }              from '../../src/lib/tracker-model/@types/Task.ts';
-import type { PageLimits }        from '../../src/shared/@types/PagePayload.ts';
-import type { ProgressDocument }  from '../../src/shared/@types/ProgressDocument.ts';
-import { IslandUtil }             from './IslandUtil.ts';
+import { describe, expect, test }          from 'bun:test';
+import type { Task }                       from '../../src/lib/tracker-model/@types/Task.ts';
+import type { PageBoardFacts, PageLimits } from '../../src/shared/@types/PagePayload.ts';
+import type { ProgressDocument }           from '../../src/shared/@types/ProgressDocument.ts';
+import { IslandUtil }                      from './IslandUtil.ts';
 
 const { pagePayloadFrom, pageTicketsFrom } = IslandUtil;
 
@@ -66,7 +67,19 @@ function examplePayload(): Record<string, unknown> {
     limits:                       EXAMPLE_LIMITS,
     concurrency:                  { limit: 2, agentsInFlight: 0 },
     pageScriptFailure:            null,
+    boardFacts:                   exampleBoardFacts(),
   };
+}
+
+function exampleBoardFacts(): PageBoardFacts {
+  return {
+    rows:    [{ displayState: 'in-progress', deliveredRowCountsAsReviewed: false, ownRowPositionOfReviewedTicket: null }],
+    tickets: [],
+  };
+}
+
+function payloadWithBoardFacts(boardFacts: unknown): Record<string, unknown> {
+  return { ...examplePayload(), boardFacts };
 }
 
 describe('pagePayloadFrom', () => {
@@ -127,6 +140,77 @@ describe('pagePayloadFrom', () => {
     const progress = { ...exampleProgress(), tasks: 'none' };
 
     expect(pagePayloadFrom({ ...examplePayload(), progress })).toBeNull();
+  });
+
+  test('refuses a payload without its Board facts', () => {
+    const payload: Record<string, unknown> = examplePayload();
+    delete payload['boardFacts'];
+
+    expect(pagePayloadFrom(payload)).toBeNull();
+  });
+
+  test('refuses row facts whose count differs from the tasks, since each is zipped onto the task at its index', () => {
+    const { rows: [rowFacts] } = exampleBoardFacts();
+
+    expect(pagePayloadFrom(payloadWithBoardFacts({ rows: [], tickets: [] }))).toBeNull();
+    expect(pagePayloadFrom(payloadWithBoardFacts({ rows: [rowFacts, rowFacts], tickets: [] }))).toBeNull();
+  });
+
+  test.each([
+    ['negative', -1],
+    ['equal to the task count', 1],
+    ['fractional', 0.5],
+    ['text', '0'],
+  ])('refuses a row or ticket position that is %s', (_description, position) => {
+    const rowFacts = { displayState: 'in-review', deliveredRowCountsAsReviewed: false, ownRowPositionOfReviewedTicket: position };
+    const ticketFacts = {
+      ticketId: '003', ownRowPosition: null, reviewBarPositions: [position], displayState: 'in-review' 
+    };
+    const ownRowFacts = { ...ticketFacts, ownRowPosition: position, reviewBarPositions: [] };
+
+    expect(pagePayloadFrom(payloadWithBoardFacts({ rows: [rowFacts], tickets: [] }))).toBeNull();
+    expect(pagePayloadFrom(payloadWithBoardFacts({ ...exampleBoardFacts(), tickets: [ticketFacts] }))).toBeNull();
+    expect(pagePayloadFrom(payloadWithBoardFacts({ ...exampleBoardFacts(), tickets: [ownRowFacts] }))).toBeNull();
+  });
+
+  test('refuses a display state the page has no label for', () => {
+    const rowFacts = { displayState: 'finished', deliveredRowCountsAsReviewed: false, ownRowPositionOfReviewedTicket: null };
+    const ticketFacts = {
+      ticketId: '003', ownRowPosition: null, reviewBarPositions: [], displayState: 'toString' 
+    };
+
+    expect(pagePayloadFrom(payloadWithBoardFacts({ rows: [rowFacts], tickets: [] }))).toBeNull();
+    expect(pagePayloadFrom(payloadWithBoardFacts({ ...exampleBoardFacts(), tickets: [ticketFacts] }))).toBeNull();
+  });
+
+  test('refuses a ticket fact without a text ticket id or without a list of review bar positions', () => {
+    const ticketFacts = {
+      ticketId: '003', ownRowPosition: 0, reviewBarPositions: [], displayState: 'in-progress' 
+    };
+
+    expect(pagePayloadFrom(payloadWithBoardFacts({ ...exampleBoardFacts(), tickets: [ticketFacts] }))).not.toBeNull();
+    expect(pagePayloadFrom(payloadWithBoardFacts({ ...exampleBoardFacts(), tickets: [{ ...ticketFacts, ticketId: 3 }] }))).toBeNull();
+    expect(pagePayloadFrom(payloadWithBoardFacts({ ...exampleBoardFacts(), tickets: [{ ...ticketFacts, reviewBarPositions: 0 }] }))).toBeNull();
+  });
+
+  test('accepts facts with a ticket, its own row and a review bar', () => {
+    const progress = {
+      ...exampleProgress(),
+      tasks: [exampleTask(), {
+        ...exampleTask(), id: 2, name: 'Review 1 #003', reviewOf: '003' 
+      }] 
+    };
+    const boardFacts: PageBoardFacts = {
+      rows: [
+        { displayState: 'in-review', deliveredRowCountsAsReviewed: false, ownRowPositionOfReviewedTicket: null },
+        { displayState: 'in-progress', deliveredRowCountsAsReviewed: false, ownRowPositionOfReviewedTicket: 0 },
+      ],
+      tickets: [{
+        ticketId: '003', ownRowPosition: 0, reviewBarPositions: [1], displayState: 'reviewing' 
+      }],
+    };
+
+    expect(pagePayloadFrom({ ...examplePayload(), progress, boardFacts })).not.toBeNull();
   });
 });
 

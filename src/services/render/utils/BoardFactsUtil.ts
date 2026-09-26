@@ -1,7 +1,7 @@
 /** Maps a Board to the progress island's `boardFacts`, one Board query per fact, with every row named by its position in `board.tasks()`. */
 import type { Task }                                          from '../../../lib/tracker-model/@types/Task.ts';
 import type { Board }                                         from '../../../lib/tracker-model/Board.ts';
-import type { PageBoardFacts, PageRowFacts, PageTicketFacts } from '../@types/PageBoardFacts.ts';
+import type { PageBoardFacts, PageRowFacts, PageTicketFacts } from '../../../shared/@types/PagePayload.ts';
 
 type RowPositions = ReadonlyMap<Readonly<Task>, number>;
 
