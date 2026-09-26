@@ -5,7 +5,8 @@
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": []
   },
-  // The shared files the page reaches, named one by one: compiling them here under DOM-only options proves they stay environment-neutral.
+  // The shared files the page reaches plus every non-spec module of `src/lib/tracker-model/`, named one by one (the specs import `bun:test`),
+  // so the whole model package compiles under DOM-only options, which proves it stays environment-neutral.
   "include": [
     "./**/*.ts",
     "../src/lib/tracker-model/@types/ProgressFile.ts",
