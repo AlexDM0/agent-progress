@@ -3,7 +3,7 @@
  * Test-only, and it goes when `src/adapters/legacy/` goes.
  */
 import type { ProgressFile }                                 from '../../../lib/tracker-model/@types/ProgressFile.ts';
-import { emptyProgress, fileRow }                            from '../../progress/testing/ProgressFileFixtures.ts';
+import { emptyProgress, fileRow }                            from '../../../testing/ProgressFixtures.ts';
 import type { StoredLogEntry, StoredProgressFileVersionOne } from '../@types/StoredProgressFileVersionOne.ts';
 
 const FILED_AT    = '2026-09-18T20:11:03+02:00';

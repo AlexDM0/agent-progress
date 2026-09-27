@@ -1,8 +1,9 @@
 /** progress.json read into the model: read, migrate an older shape to the current one, validate, map. */
-import { existsSync, readFileSync }   from 'node:fs';
 import type { LogRecord }             from '../../lib/tracker-model/@types/LogRecord.ts';
 import type { ProgressFile }          from '../../lib/tracker-model/@types/ProgressFile.ts';
+import { storedFileTextOf }           from '../StoredFileText.ts';
 import { ProgressFileUpgradeUtil }    from '../legacy/utils/ProgressFileUpgradeUtil.ts';
+import { StoredValueUtil }            from '../utils/StoredValueUtil.ts';
 import type { ProgressFileMigration } from './@types/ProgressFileMigration.ts';
 import type { StoredProgressFile }    from './@types/StoredProgressFile.ts';
 import { ProgressFileMappingUtil }    from './utils/ProgressFileMappingUtil.ts';
@@ -28,20 +29,12 @@ export class ProgressFileIngestion {
    * A file that exists but cannot be read is `unreadable`, never `absent`, because `absent` is the answer that invites `init` to replace a good file.
    */
   read(): ProgressFileReading {
-    let rawText: string;
-    try {
-      rawText = readFileSync(this.progressFilePath, 'utf8');
-    } catch (error) {
-      if (!existsSync(this.progressFilePath)) return { verdict: 'absent' };
-      return { verdict: 'unreadable', reason: `it could not be read (${error instanceof Error ? error.message : 'unknown error'})` };
-    }
+    const storedText = storedFileTextOf(this.progressFilePath);
+    if (storedText.verdict !== 'readable') return storedText;
 
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(rawText);
-    } catch (error) {
-      return { verdict: 'unreadable', reason: `it is not valid JSON (${error instanceof Error ? error.message : 'unparseable'})` };
-    }
+    const parsedJson = StoredValueUtil.parsedJsonOf(storedText.text);
+    if (parsedJson.verdict === 'unparseable') return { verdict: 'unreadable', reason: parsedJson.problem };
+    const parsed = parsedJson.value;
 
     // The seam: dropping src/adapters/legacy/ makes the right-hand side `{ verdict: 'current' } as ProgressFileMigration`.
     const migration: ProgressFileMigration = ProgressFileUpgradeUtil.migrationOf(parsed);

@@ -4,12 +4,10 @@
  * half-applied. The subset it accepts is stated in `docs/cli.md`.
  */
 
-import type { TicketFrontmatter }  from '../../../lib/tracker-model/@types/Ticket.ts';
-import { TicketIdUtil }            from '../../../lib/tracker-model/utils/TicketIdUtil.ts';
-import { VocabularyUtil }          from '../../../lib/tracker-model/utils/VocabularyUtil.ts';
-import { TicketStatusUpgradeUtil } from '../../legacy/utils/TicketStatusUpgradeUtil.ts';
-
-export type LineEnding = '\n' | '\r\n';
+import type { LineEnding, TicketFrontmatter } from '../../../lib/tracker-model/@types/Ticket.ts';
+import { TicketIdUtil }                       from '../../../lib/tracker-model/utils/TicketIdUtil.ts';
+import { VocabularyUtil }                     from '../../../lib/tracker-model/utils/VocabularyUtil.ts';
+import { TicketStatusUpgradeUtil }            from '../../legacy/utils/TicketStatusUpgradeUtil.ts';
 
 export type ParsedTicketDocument =
   | { verdict: 'parsed'; frontmatter: TicketFrontmatter; body: string; lineEnding: LineEnding; olderFormatWasRead: boolean }
@@ -80,7 +78,7 @@ class FrontmatterProblem extends Error {
 }
 
 /** The closing fence is the first later line equal to `---`, never the last, because ticket bodies contain horizontal rules. */
-function parseTicketDocument(text: string): ParsedTicketDocument {
+function parsedTicketDocumentOf(text: string): ParsedTicketDocument {
   const withoutByteOrderMark = text.startsWith(BYTE_ORDER_MARK) ? text.slice(BYTE_ORDER_MARK.length) : text;
   const lines                = withoutByteOrderMark.split('\n');
 
@@ -152,7 +150,7 @@ function parseTicketDocument(text: string): ParsedTicketDocument {
  * An unknown line is copied back with its raw value untouched, and an absent optional key is omitted rather than written as `null`.
  * The line ending is the one the frontmatter was read with; the body is kept byte for byte whatever it holds.
  */
-function serializeTicketDocument(frontmatter: TicketFrontmatter, body: string, lineEnding: LineEnding = '\n'): string {
+function ticketDocumentTextOf(frontmatter: TicketFrontmatter, body: string, lineEnding: LineEnding = '\n'): string {
   const lines: string[] = [
     `id: ${JSON.stringify(frontmatter.id)}`,
     `title: ${JSON.stringify(frontmatter.title)}`,
@@ -463,4 +461,4 @@ function extraLineOf(key: string, rawValue: string): string {
   return rawValue === '' ? `${key}:` : `${key}: ${rawValue}`;
 }
 
-export const TicketDocumentUtil = { parseTicketDocument, serializeTicketDocument } as const;
+export const TicketDocumentUtil = { parsedTicketDocumentOf, ticketDocumentTextOf } as const;

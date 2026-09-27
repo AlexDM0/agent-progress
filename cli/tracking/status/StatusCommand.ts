@@ -58,8 +58,8 @@ function logNewestFirst(log: readonly WordedLogEntry[]): WordedLogEntry[] {
 }
 
 function logStampOf(entry: WordedLogEntry, showsTheDate: boolean): string {
-  const start = showsTheDate ? LIMITS.MONTH_AND_DAY_SLICE_START : LIMITS.CLOCK_SLICE_START;
-  return entry.at.slice(start, LIMITS.CLOCK_SLICE_END).replace('T', ' ');
+  const start = showsTheDate ? LIMITS.MONTH_AND_DAY_SLICE_START_CHARACTER_OFFSET : LIMITS.CLOCK_SLICE_START_CHARACTER_OFFSET;
+  return entry.at.slice(start, LIMITS.CLOCK_SLICE_END_CHARACTER_OFFSET).replace('T', ' ');
 }
 
 /** `null` when no row reported a usage, which is a different answer from `0`. */
@@ -118,7 +118,7 @@ function workingDocumentOf(progress: ProgressFile, wordedLog: readonly WordedLog
 function renderHumanStatus(progress: ProgressFile, wordedLog: readonly WordedLogEntry[], board: Board, showsEverything: boolean): string {
   const tickets = board.tickets();
   const lines = [
-    `${progress.project} — started ${progress.startedAt.slice(0, LIMITS.DATE_AND_CLOCK_LENGTH).replace('T', ' ')}`,
+    `${progress.project} — started ${progress.startedAt.slice(0, LIMITS.DATE_AND_CLOCK_LENGTH_CHARACTERS).replace('T', ' ')}`,
     `Tasks:   ${countsByStatus(TASK_STATUSES, progress.tasks.map((task) => task.status))}`,
     `Tickets: ${countsByStatus(TICKET_STATUSES, tickets.map((ticket) => ticket.frontmatter.status))}`,
   ];
@@ -160,7 +160,7 @@ function renderHumanStatus(progress: ProgressFile, wordedLog: readonly WordedLog
 
   const newestFirst  = logNewestFirst(wordedLog);
   const recentLog    = showsEverything ? newestFirst : newestFirst.slice(0, HUMAN_LOG_ENTRY_COUNT);
-  const distinctDays = new Set(wordedLog.map((entry) => entry.at.slice(0, LIMITS.CALENDAR_DATE_LENGTH)));
+  const distinctDays = new Set(wordedLog.map((entry) => entry.at.slice(0, LIMITS.CALENDAR_DATE_LENGTH_CHARACTERS)));
   if (recentLog.length > 0) {
     lines.push('');
     lines.push(showsEverything ? `Log (all ${recentLog.length}):` : `Log (last ${recentLog.length}):`);

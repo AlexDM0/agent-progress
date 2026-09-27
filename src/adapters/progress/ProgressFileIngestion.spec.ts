@@ -7,14 +7,10 @@ import { join }                   from 'node:path';
 import { afterAll, expect, test } from 'bun:test';
 
 import { ConcurrencyUtil }                                 from '../../lib/tracker-model/utils/ConcurrencyUtil.ts';
+import { emptyProgress, fileRow }                          from '../../testing/ProgressFixtures.ts';
 import { createScratchDirectory, removeScratchDirectory }  from '../../testing/ScratchWorkspace.ts';
 import { ProgressFileIngestion, type ProgressFileReading } from './ProgressFileIngestion.ts';
-import {
-  emptyDocument,
-  emptyProgress,
-  fileRow,
-  versionTwoDocumentOf
-} from './testing/ProgressFileFixtures.ts';
+import { emptyDocument, versionTwoDocumentOf }             from './testing/ProgressFileFixtures.ts';
 
 const FILED_AT = '2026-09-18T20:11:03+02:00';
 const STARTED_AT = '2026-09-18T20:40:00+02:00';

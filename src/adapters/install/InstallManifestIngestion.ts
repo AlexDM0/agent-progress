@@ -1,5 +1,6 @@
 /** `.agent-progress/version.json` read into the install version it records: read, parse, validate. */
-import { existsSync, readFileSync } from 'node:fs';
+import { storedFileTextOf } from '../StoredFileText.ts';
+import { StoredValueUtil }  from '../utils/StoredValueUtil.ts';
 
 const LOWEST_INSTALL_VERSION = 1;
 
@@ -7,10 +8,6 @@ export type InstallManifestReading =
   | { verdict: 'readable'; installVersion: number }
   | { verdict: 'absent' }
   | { verdict: 'unreadable'; reason: string };
-
-function installVersionIsValid(installVersion: unknown): installVersion is number {
-  return typeof installVersion === 'number' && Number.isSafeInteger(installVersion) && installVersion >= LOWEST_INSTALL_VERSION;
-}
 
 function installVersionProblemOf(installVersion: unknown): string {
   const valueAsWritten = installVersion === undefined ? 'missing' : JSON.stringify(installVersion);
@@ -25,24 +22,16 @@ export class InstallManifestIngestion {
    * read is `unreadable`, never `absent`, because `absent` is the answer a tracker from before the manifest gives.
    */
   read(): InstallManifestReading {
-    let rawText: string;
-    try {
-      rawText = readFileSync(this.manifestFilePath, 'utf8');
-    } catch (error) {
-      if (!existsSync(this.manifestFilePath)) return { verdict: 'absent' };
-      return { verdict: 'unreadable', reason: `it could not be read (${error instanceof Error ? error.message : 'unknown error'})` };
-    }
+    const storedText = storedFileTextOf(this.manifestFilePath);
+    if (storedText.verdict !== 'readable') return storedText;
 
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(rawText);
-    } catch (error) {
-      return { verdict: 'unreadable', reason: `it is not valid JSON (${error instanceof Error ? error.message : 'unparseable'})` };
-    }
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return { verdict: 'unreadable', reason: 'it is not a JSON object' };
+    const parsedJson = StoredValueUtil.parsedJsonOf(storedText.text);
+    if (parsedJson.verdict === 'unparseable') return { verdict: 'unreadable', reason: parsedJson.problem };
+    const parsed = parsedJson.value;
+    if (!StoredValueUtil.valueIsAPlainObject(parsed)) return { verdict: 'unreadable', reason: 'it is not a JSON object' };
 
-    const installVersion = Object.hasOwn(parsed, 'installVersion') ? (parsed as Record<string, unknown>)['installVersion'] : undefined;
-    if (!installVersionIsValid(installVersion)) return { verdict: 'unreadable', reason: installVersionProblemOf(installVersion) };
+    const installVersion = Object.hasOwn(parsed, 'installVersion') ? parsed['installVersion'] : undefined;
+    if (!StoredValueUtil.wholeNumberIsAtLeast(installVersion, LOWEST_INSTALL_VERSION)) return { verdict: 'unreadable', reason: installVersionProblemOf(installVersion) };
     return { verdict: 'readable', installVersion };
   }
 }

@@ -339,7 +339,7 @@ src/                        the code the features share, in the conventions' lay
                             files) and render (the page document and the render state one invocation holds)
   src/shared/               app-specific code several parts use: the environment reader, the refusal, LIMITS,
                             the page payload types
-  src/testing/              test-only helpers several parts use: the scratch workspace, the tracker isolation check, the Board fixtures
+  src/testing/              test-only helpers several parts use: the scratch workspace, the tracker isolation check, the Board and progress fixtures
 skill/                      the skill every session in a tracked repository loads
 skill-orchestrate/          the skill for the one session running the board
 docs/                       the CLI reference, development notes, the backlog, the migration plan, README images

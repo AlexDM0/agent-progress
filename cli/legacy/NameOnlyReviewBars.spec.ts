@@ -86,7 +86,7 @@ function storeWithoutItsLink(rowIdentifier: number): void {
     const { reviewOf: droppedReviewOf, reviewBarRound: droppedReviewBarRound, ...unlinkedTask } = task;
     return unlinkedTask;
   });
-  writeFileSync(progressFilePath, `${JSON.stringify({ ...progress, tasks }, null, LIMITS.JSON_INDENT)}\n`);
+  writeFileSync(progressFilePath, `${JSON.stringify({ ...progress, tasks }, null, LIMITS.JSON_INDENT_SPACES)}\n`);
 }
 
 beforeEach(async () => {

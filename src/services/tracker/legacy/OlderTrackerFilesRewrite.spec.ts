@@ -20,13 +20,13 @@ import {
 } from 'bun:test';
 import { createLogFileWriter }                            from '../../../adapters/log/LogFileWriter.ts';
 import { createProgressFileWriter }                       from '../../../adapters/progress/ProgressFileWriter.ts';
-import { fileRow }                                        from '../../../adapters/progress/testing/ProgressFileFixtures.ts';
 import { createTicketFileWriter }                         from '../../../adapters/tickets/TicketFileWriter.ts';
 import type { LogRecord }                                 from '../../../lib/tracker-model/@types/LogRecord.ts';
 import type { ProgressFile }                              from '../../../lib/tracker-model/@types/ProgressFile.ts';
 import { EmptyProgressUtil }                              from '../../../lib/tracker-model/utils/EmptyProgressUtil.ts';
 import { LIMITS }                                         from '../../../shared/constants/Limits.ts';
 import { ticketFixture }                                  from '../../../testing/BoardFixtures.ts';
+import { fileRow }                                        from '../../../testing/ProgressFixtures.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../../testing/ScratchWorkspace.ts';
 import { createRenderState }                              from '../../render/RenderState.ts';
 import { workspacePathsFor, type Workspace }              from '../Workspace.ts';
@@ -77,7 +77,7 @@ function writeVersionOneTracker(): void {
   createProgressFileWriter(workspace.progressFilePath).write(emptyProgress());
   const stored = JSON.parse(readFileSync(workspace.progressFilePath, 'utf8')) as Record<string, unknown>;
   const versionOneDocument = { ...stored, version: 1, log: [{ at: NOTE_RECORD.at, text: 'Example session started' }] };
-  writeFileSync(workspace.progressFilePath, `${JSON.stringify(versionOneDocument, null, LIMITS.JSON_INDENT)}\n`);
+  writeFileSync(workspace.progressFilePath, `${JSON.stringify(versionOneDocument, null, LIMITS.JSON_INDENT_SPACES)}\n`);
 }
 
 /** A version 2 file as a build before the status rename and the review link stored it: a row and its phase running, and a bar named only. */
@@ -92,7 +92,7 @@ function writeVersionTwoTrackerInOlderWords(): void {
   if (buildingRow === undefined) throw new Error('expected the filed row in the stored file');
   buildingRow['status']  = 'running';
   buildingRow['history'] = [{ status: 'running', at: STARTED_AT }];
-  writeFileSync(workspace.progressFilePath, `${JSON.stringify(stored, null, LIMITS.JSON_INDENT)}\n`);
+  writeFileSync(workspace.progressFilePath, `${JSON.stringify(stored, null, LIMITS.JSON_INDENT_SPACES)}\n`);
 }
 
 /** Every stored file but the lock's records, which every lock hold writes. */

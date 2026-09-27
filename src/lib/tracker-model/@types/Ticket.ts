@@ -4,6 +4,7 @@ export type TicketType     = 'bug' | 'change' | 'feature';
 /** The task ladder without the two states only a row reaches. */
 export type TicketStatus   = Exclude<TaskStatus, 'paused' | 're-review'>;
 export type TicketPriority = 'low' | 'normal' | 'high';
+export type LineEnding     = '\n' | '\r\n';
 
 /** The model aliases a Claude Code agent definition's `model` key accepts, as an agent working a ticket runs on. */
 export type AgentModel  = 'haiku' | 'sonnet' | 'opus' | 'fable';
@@ -49,7 +50,7 @@ export interface Ticket {
   body:        string;
   filePath:    string;
   /** The frontmatter's line ending as read, which a rewrite keeps; absent for a ticket not read from a file, which is written with `\n`. */
-  lineEnding?: '\n' | '\r\n';
+  lineEnding?: LineEnding;
 }
 
 /** A ready ticket with its priority and agents resolved to their defaults where the ticket names none. */

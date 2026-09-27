@@ -5,20 +5,13 @@ import { FIRST_REPEAT_REVIEW_ROUND } from '../../../lib/tracker-model/constants/
 import { TICKET_PRIORITIES }         from '../../../lib/tracker-model/constants/TicketFields.ts';
 import { BoardSettingsUtil }         from '../../../lib/tracker-model/utils/BoardSettingsUtil.ts';
 import { VocabularyUtil }            from '../../../lib/tracker-model/utils/VocabularyUtil.ts';
+import { StoredValueUtil }           from '../../utils/StoredValueUtil.ts';
 
 type UnknownObject = Record<string, unknown>;
 
 type KindCheck = (fields: UnknownObject, record: UnknownObject) => string | null;
 
 const AGENT_STOPPED_COUNT_FIELDS = ['apiCallCount', 'endContextTokens', 'totalInputTokens', 'cacheReadInputTokens', 'outputTokens'] as const;
-
-function valueIsAnObject(value: unknown): value is UnknownObject {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function wholeNumberIsAtLeast(value: unknown, lowest: number): value is number {
-  return typeof value === 'number' && Number.isSafeInteger(value) && value >= lowest;
-}
 
 function textFieldProblem(fields: UnknownObject, field: string): string | null {
   return typeof fields[field] === 'string' ? null : `fields.${field} is not a string`;
@@ -30,12 +23,7 @@ function ticketIdProblem(record: UnknownObject): string | null {
 
 /** The same rule as a task's own `id`, so every id a row can hold is one a review-bar record can name. */
 function taskIdProblem(record: UnknownObject): string | null {
-  const { taskId } = record;
-  return typeof taskId === 'number' && Number.isSafeInteger(taskId) ? null : 'taskId is not a whole number';
-}
-
-function countIsWellFormed(value: unknown): value is number {
-  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+  return StoredValueUtil.valueIsAWholeNumber(record['taskId']) ? null : 'taskId is not a whole number';
 }
 
 function priorityProblem(fields: UnknownObject, field: 'from' | 'to'): string | null {
@@ -46,7 +34,7 @@ function priorityProblem(fields: UnknownObject, field: 'from' | 'to'): string | 
 
 function agentPairProblem(fields: UnknownObject, field: 'from' | 'to'): string | null {
   const agentPair = fields[field];
-  if (!valueIsAnObject(agentPair)) return `fields.${field} is not an object`;
+  if (!StoredValueUtil.valueIsAPlainObject(agentPair)) return `fields.${field} is not an object`;
   const { model, effort } = agentPair;
   if (typeof model !== 'string' || !VocabularyUtil.agentModelIsKnown(model)) return `fields.${field}.model is ${JSON.stringify(model)}, which is not a known model`;
   if (typeof effort !== 'string' || !VocabularyUtil.agentEffortIsKnown(effort)) return `fields.${field}.effort is ${JSON.stringify(effort)}, which is not a known effort`;
@@ -74,7 +62,8 @@ function ticketWithReasonProblem(fields: UnknownObject, record: UnknownObject): 
 }
 
 function ticketRereviewedProblem(fields: UnknownObject, record: UnknownObject): string | null {
-  const roundProblem = wholeNumberIsAtLeast(fields['round'], FIRST_REPEAT_REVIEW_ROUND) ? null : `fields.round is not a whole round of at least ${FIRST_REPEAT_REVIEW_ROUND}`;
+  const roundIsWellFormed = StoredValueUtil.wholeNumberIsAtLeast(fields['round'], FIRST_REPEAT_REVIEW_ROUND);
+  const roundProblem      = roundIsWellFormed ? null : `fields.round is not a whole round of at least ${FIRST_REPEAT_REVIEW_ROUND}`;
   return firstProblemOf(ticketIdProblem(record), roundProblem);
 }
 
@@ -118,7 +107,7 @@ function agentStoppedProblem(fields: UnknownObject): string | null {
   return firstProblemOf(
     textFieldProblem(fields, 'agentId'),
     textFieldProblem(fields, 'agentType'),
-    ...AGENT_STOPPED_COUNT_FIELDS.map((field) => (countIsWellFormed(fields[field]) ? null : `fields.${field} is not a whole number of at least 0`)),
+    ...AGENT_STOPPED_COUNT_FIELDS.map((field) => (StoredValueUtil.wholeNumberIsAtLeast(fields[field], 0) ? null : `fields.${field} is not a whole number of at least 0`)),
   );
 }
 
@@ -151,12 +140,12 @@ function kindIsKnown(kind: unknown): kind is LogRecord['kind'] {
 }
 
 function recordProblemOf(value: unknown): string | null {
-  if (!valueIsAnObject(value)) return 'it is not an object';
+  if (!StoredValueUtil.valueIsAPlainObject(value)) return 'it is not an object';
   if (typeof value['at'] !== 'string') return 'at is not a string';
   const { kind } = value;
   if (!kindIsKnown(kind)) return `kind is ${JSON.stringify(kind)}, which is not a kind of log record`;
   const { fields } = value;
-  if (!valueIsAnObject(fields)) return 'fields is not an object';
+  if (!StoredValueUtil.valueIsAPlainObject(fields)) return 'fields is not an object';
   return CHECK_FOR_KIND[kind](fields, value);
 }
 

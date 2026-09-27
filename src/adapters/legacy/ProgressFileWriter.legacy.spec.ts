@@ -9,10 +9,10 @@ import { afterAll, expect, test }      from 'bun:test';
 
 import type { ProgressFile }                              from '../../lib/tracker-model/@types/ProgressFile.ts';
 import { LIMITS }                                         from '../../shared/constants/Limits.ts';
+import { emptyProgress, fileRow }                         from '../../testing/ProgressFixtures.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
 import { ProgressFileIngestion }                          from '../progress/ProgressFileIngestion.ts';
 import { createProgressFileWriter }                       from '../progress/ProgressFileWriter.ts';
-import { emptyProgress, fileRow }                         from '../progress/testing/ProgressFileFixtures.ts';
 import { documentInRetiredWords }                         from './testing/LegacyProgressFileFixtures.ts';
 
 const FILED_AT = '2026-09-18T20:11:03+02:00';
@@ -80,5 +80,5 @@ test('a version 1 file read and written changes only in its version and its log,
   const expectedEntries = Object.entries(JSON.parse(versionOneText) as Record<string, unknown>)
     .filter(([key]) => key !== 'log')
     .map(([key, value]): [string, unknown] => [key, key === 'version' ? 2 : value]);
-  expect(readFileSync(progressFilePath, 'utf8')).toBe(`${JSON.stringify(Object.fromEntries(expectedEntries), null, LIMITS.JSON_INDENT)}\n`);
+  expect(readFileSync(progressFilePath, 'utf8')).toBe(`${JSON.stringify(Object.fromEntries(expectedEntries), null, LIMITS.JSON_INDENT_SPACES)}\n`);
 });

@@ -6,8 +6,8 @@ import { afterAll, expect, test } from 'bun:test';
 
 import type { ProgressFile }      from '../../../lib/tracker-model/@types/ProgressFile.ts';
 import type { WordedLogEntry }    from '../../../shared/@types/WordedLogEntry.ts';
+import { emptyProgress, fileRow } from '../../../testing/ProgressFixtures.ts';
 import { removeScratchDirectory } from '../../../testing/ScratchWorkspace.ts';
-import { emptyProgress, fileRow } from '../testing/ProgressFileFixtures.ts';
 import { ProgressDocumentUtil }   from './ProgressDocumentUtil.ts';
 
 const WORDED_LOG: readonly WordedLogEntry[] = [

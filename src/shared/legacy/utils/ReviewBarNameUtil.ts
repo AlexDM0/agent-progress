@@ -21,14 +21,14 @@ function roundNamedBy(roundText: string): number | null {
   return Number.isSafeInteger(round) && round >= FIRST_REVIEW_BAR_ROUND ? round : null;
 }
 
-/** The page reads a stored `reviewOf` as `Number(text)`, so `3`, `0003` and `+3` name ticket 003; anything else stays as written. */
+/** `3`, `0003` and `+3` name ticket 003 and are stored padded, so the Board's exact `reviewOf` match finds them; any other text stays as written. */
 function paddedReviewOf(reviewOf: string): string {
   const ticketNumber = Number(reviewOf);
   if (reviewOf.trim() === '' || !Number.isSafeInteger(ticketNumber) || ticketNumber < 1) return reviewOf;
   return TicketIdUtil.padTicketId(ticketNumber);
 }
 
-/** A ticket's own row is never a review bar, as the page reads it, so only a free-standing row is linked. */
+/** A ticket's own row is never a review bar, as the Board reads it, so only a free-standing row is linked. */
 function linkedReviewBarOf<Row extends ReviewBarFields>(task: Readonly<Row>): Row {
   if (task.ticket !== null) return task;
   const storedReviewOf          = task.reviewOf === undefined ? undefined : paddedReviewOf(task.reviewOf);

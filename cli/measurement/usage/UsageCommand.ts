@@ -107,7 +107,7 @@ function localStampOf(startedAt: string | null): string {
   if (startedAt === null) return '-';
   const instant = TimeUtil.parseIso(startedAt);
   if (instant === null) return '-';
-  return TimeUtil.formatLocalIso(instant).slice(LIMITS.MONTH_AND_DAY_SLICE_START, LIMITS.CLOCK_SLICE_END).replace('T', ' ');
+  return TimeUtil.formatLocalIso(instant).slice(LIMITS.MONTH_AND_DAY_SLICE_START_CHARACTER_OFFSET, LIMITS.CLOCK_SLICE_END_CHARACTER_OFFSET).replace('T', ' ');
 }
 
 function renderAgentRows(agents: readonly AgentUsage[]): string[] {

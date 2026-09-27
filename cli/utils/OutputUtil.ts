@@ -19,7 +19,7 @@ function reportIgnoredTicketFiles(context: CommandContext, malformedTickets: rea
 
 function printEntity(commandArguments: ArgumentParser, context: CommandContext, entity: unknown, humanLine: string): void {
   if (commandArguments.flag('json')) {
-    context.standardOutput(JSON.stringify(entity, null, LIMITS.JSON_INDENT));
+    context.standardOutput(JSON.stringify(entity, null, LIMITS.JSON_INDENT_SPACES));
     return;
   }
   context.standardOutput(humanLine);

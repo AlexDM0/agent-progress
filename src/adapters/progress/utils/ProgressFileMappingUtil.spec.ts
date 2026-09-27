@@ -4,8 +4,8 @@
  */
 import { expect, test } from 'bun:test';
 
+import { emptyProgress, fileRow }  from '../../../testing/ProgressFixtures.ts';
 import type { StoredProgressFile } from '../@types/StoredProgressFile.ts';
-import { emptyProgress, fileRow }  from '../testing/ProgressFileFixtures.ts';
 import { ProgressFileMappingUtil } from './ProgressFileMappingUtil.ts';
 
 /** Parsed from text, as the ingestion does, since a typed literal cannot hold a key the type does not know. */

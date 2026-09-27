@@ -6,10 +6,10 @@ import { readFileSync }           from 'node:fs';
 import { join }                   from 'node:path';
 import { afterAll, expect, test } from 'bun:test';
 
+import { emptyProgress, fileRow }                         from '../../testing/ProgressFixtures.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
 import { ProgressFileIngestion }                          from './ProgressFileIngestion.ts';
 import { createProgressFileWriter }                       from './ProgressFileWriter.ts';
-import { emptyProgress, fileRow }                         from './testing/ProgressFileFixtures.ts';
 
 const scratchDirectories: string[] = [];
 

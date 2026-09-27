@@ -20,7 +20,7 @@ export class TicketFileIngestion {
       return { verdict: 'malformed', reason: `the file could not be read: ${String(problem)}`, line: 0 };
     }
 
-    const parsed = TicketDocumentUtil.parseTicketDocument(text);
+    const parsed = TicketDocumentUtil.parsedTicketDocumentOf(text);
     if (parsed.verdict === 'malformed') {
       return parsed;
     }

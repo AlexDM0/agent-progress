@@ -33,11 +33,11 @@ const EXAMPLE_LIMITS: TicketTimelineLimits = {
   hourMinutes:                LIMITS.HOUR_MINUTES,
   dayMinutes:                 LIMITS.DAY_MINUTES,
   tickCountSafetyBound:       LIMITS.TICK_COUNT_SAFETY_BOUND,
-  dateAndClockLength:         LIMITS.DATE_AND_CLOCK_LENGTH,
-  calendarDateLength:         LIMITS.CALENDAR_DATE_LENGTH,
-  monthAndDaySliceStart:      LIMITS.MONTH_AND_DAY_SLICE_START,
-  clockSliceStart:            LIMITS.CLOCK_SLICE_START,
-  clockSliceEnd:              LIMITS.CLOCK_SLICE_END,
+  dateAndClockLength:         LIMITS.DATE_AND_CLOCK_LENGTH_CHARACTERS,
+  calendarDateLength:         LIMITS.CALENDAR_DATE_LENGTH_CHARACTERS,
+  monthAndDaySliceStart:      LIMITS.MONTH_AND_DAY_SLICE_START_CHARACTER_OFFSET,
+  clockSliceStart:            LIMITS.CLOCK_SLICE_START_CHARACTER_OFFSET,
+  clockSliceEnd:              LIMITS.CLOCK_SLICE_END_CHARACTER_OFFSET,
 };
 
 function at(clock: string, day = EXAMPLE_TODAY): string {

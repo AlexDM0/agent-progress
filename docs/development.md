@@ -210,7 +210,8 @@ import a devDependency.
 | `cli/testing/StoredLogText.ts` | The tracker's `log.jsonl` exactly as stored, so a command spec checks that a refused command left the log byte-identical. |
 | `src/testing/TrackerIsolation.ts` | The guard that keeps a spec away from any tracker it did not create. |
 | `src/testing/BoardFixtures.ts` | A `Board` over synthetic records (`boardFixture`, `taskFixture`, `ticketFixture`) whose logger keeps every record in a list, so the Board specs assert reason codes, records and changed tickets. |
-| `src/adapters/progress/testing/ProgressFileFixtures.ts` | Progress documents for the `progress.json` adapter specs: a new tracker, a row filed the way the Board files one, and the tracker as the current format stores it. |
+| `src/testing/ProgressFixtures.ts` | A new tracker's progress and a row filed the way the Board files one, for the adapter and service specs that read or write `progress.json`. |
+| `src/adapters/progress/testing/ProgressFileFixtures.ts` | The tracker as the current `progress.json` format stores it, for the `progress.json` adapter specs. |
 | `src/adapters/legacy/testing/LegacyProgressFileFixtures.ts` | The older progress documents the legacy specs read: a version 1 file with its own log, and one in the retired task words. It goes with `src/adapters/legacy/`. |
 | `page/testing/PageBoardFixture.ts` | The page's rows and tickets with the Board facts built the way the render service builds them, so a page spec never restates a board rule. |
 | `dispatcher/testing/DispatchScriptHarness.ts` | Runs a dispatcher Workflow script's text against a fake `agent()` and a fake board. |

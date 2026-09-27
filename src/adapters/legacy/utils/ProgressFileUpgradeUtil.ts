@@ -1,7 +1,9 @@
 /**
  * Reads a progress.json in an older shape: version 1 with its own log, rows in the retired task words, review bars known only by name.
  * Past `update`, name linking still reads a row renamed by hand in progress.json, or filed as `Review 0 #<id>`; dropping this module stops
- * those rows nesting, and drops the migrate step's `migrated` verdict with it.
+ * those rows nesting, and drops with it the migrate step's `migrated` verdict, the progress reading's `fileIsInAnOlderFormat` and
+ * `carriedOverLog` (and `TrackerReader`'s `progressFileIsInAnOlderFormat` with them), and the split exports `documentHeaderProblemOf` and
+ * `taskRowsProblemOf` of `src/adapters/progress/utils/ProgressFileValidationUtil.ts`, which then exports only `documentProblemOf`.
  */
 import { RetiredStatusWordUtil }                                             from '../../../shared/legacy/utils/RetiredStatusWordUtil.ts';
 import { ReviewBarNameUtil }                                                 from '../../../shared/legacy/utils/ReviewBarNameUtil.ts';
@@ -9,11 +11,12 @@ import type { ProgressFileMigration }                                        fro
 import type { StoredProgressFile }                                           from '../../progress/@types/StoredProgressFile.ts';
 import { CURRENT_PROGRESS_FILE_VERSION, EMBEDDED_LOG_PROGRESS_FILE_VERSION } from '../../progress/constants/ProgressFileVersions.ts';
 import { ProgressFileValidationUtil }                                        from '../../progress/utils/ProgressFileValidationUtil.ts';
+import { StoredValueUtil }                                                   from '../../utils/StoredValueUtil.ts';
 import type { StoredLogEntry }                                               from '../@types/StoredProgressFileVersionOne.ts';
 import { EmbeddedLogUtil }                                                   from './EmbeddedLogUtil.ts';
 
-function recordOf(value: unknown): Record<string, unknown> | null {
-  return typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Record<string, unknown> : null;
+function plainObjectOrNull(value: unknown): Record<string, unknown> | null {
+  return StoredValueUtil.valueIsAPlainObject(value) ? value : null;
 }
 
 function statusIsRetired(record: Record<string, unknown>): boolean {
@@ -25,7 +28,7 @@ function taskHoldsARetiredWord(taskRecord: Record<string, unknown>): boolean {
   if (statusIsRetired(taskRecord)) return true;
   const { history } = taskRecord;
   return Array.isArray(history) && history.some((phase) => {
-    const phaseRecord = recordOf(phase);
+    const phaseRecord = plainObjectOrNull(phase);
     return phaseRecord !== null && statusIsRetired(phaseRecord);
   });
 }
@@ -33,7 +36,7 @@ function taskHoldsARetiredWord(taskRecord: Record<string, unknown>): boolean {
 function documentHoldsSomethingOlder(tasks: unknown): boolean {
   if (!Array.isArray(tasks)) return false;
   return tasks.some((task) => {
-    const taskRecord = recordOf(task);
+    const taskRecord = plainObjectOrNull(task);
     return taskRecord !== null && (taskHoldsARetiredWord(taskRecord) || ReviewBarNameUtil.reviewBarIsUnlinked(taskRecord));
   });
 }
@@ -47,13 +50,13 @@ function withCurrentStatus(record: Record<string, unknown>): Record<string, unkn
 
 /** In memory only: a read never writes, so a file keeps its retired words until `update` or the next command that changes it stores the new ones. */
 function taskInCurrentWords(task: unknown): unknown {
-  const taskRecord = recordOf(task);
+  const taskRecord = plainObjectOrNull(task);
   if (taskRecord === null) return task;
   const taskCopy    = withCurrentStatus(taskRecord);
   const { history } = taskRecord;
   if (Array.isArray(history)) {
     taskCopy['history'] = history.map((phase: unknown) => {
-      const phaseRecord = recordOf(phase);
+      const phaseRecord = plainObjectOrNull(phase);
       return phaseRecord === null ? phase : withCurrentStatus(phaseRecord);
     });
   }
@@ -86,7 +89,7 @@ function upgradedCopyProblemOf(upgradedCopy: Record<string, unknown>, carriedLog
 
 /** Never throws: a document that is not an object, or is already current, is left to the current path, which names what is wrong with it. */
 function migrationOf(parsed: unknown): ProgressFileMigration {
-  const candidate = recordOf(parsed);
+  const candidate = plainObjectOrNull(parsed);
   if (candidate === null) return { verdict: 'current' };
   const { version } = candidate;
   if (version !== EMBEDDED_LOG_PROGRESS_FILE_VERSION && version !== CURRENT_PROGRESS_FILE_VERSION) {

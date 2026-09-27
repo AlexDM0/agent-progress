@@ -1,11 +1,11 @@
 /**
- * The validator reads the current format alone: an unknown status word, the retired ones included, gets the message listing the statuses,
- * in a row and in its history; a version 2 file must not hold a log; and any other version is named, since older ones reach it only
- * through the migrate step.
+ * The validator reads the current format alone: an unknown status word is a problem, in a row and in its history; a version 2 file must not
+ * hold a log; and any other version is named, since older ones reach it only through the migrate step.
  */
 import { expect, test } from 'bun:test';
 
-import { emptyDocument, fileRow }     from '../testing/ProgressFileFixtures.ts';
+import { fileRow }                    from '../../../testing/ProgressFixtures.ts';
+import { emptyDocument }              from '../testing/ProgressFileFixtures.ts';
 import { ProgressFileValidationUtil } from './ProgressFileValidationUtil.ts';
 
 test('a document in the current words has no problem', () => {
@@ -14,7 +14,7 @@ test('a document in the current words has no problem', () => {
   expect(ProgressFileValidationUtil.documentProblemOf(progress)).toBeNull();
 });
 
-test('a row status that is neither current nor retired gets the message listing every status', () => {
+test('a row status the format does not know gets the message listing every status', () => {
   const progress = emptyDocument();
   fileRow(progress, { name: 'Example build' });
   const document = { ...progress, tasks: [{ ...progress.tasks[0], status: 'blocked' }] };
@@ -22,10 +22,10 @@ test('a row status that is neither current nor retired gets the message listing 
     .toBe('tasks[0].status is "blocked", which is not one of pending, in-progress, paused, in-review, re-review, reviewed, delivered, abandoned');
 });
 
-test('a history phase in a retired ticket word is a problem, since only the task words map', () => {
+test('a history phase in a status the file format does not know is a problem', () => {
   const progress = emptyDocument();
   fileRow(progress, { name: 'Example build' });
-  const document = { ...progress, tasks: [{ ...progress.tasks[0], history: [{ status: 'done', at: '2026-09-18T20:40:00+02:00' }] }] };
+  const document = { ...progress, tasks: [{ ...progress.tasks[0], history: [{ status: 'closed', at: '2026-09-18T20:40:00+02:00' }] }] };
   expect(ProgressFileValidationUtil.documentProblemOf(document)).toContain('tasks[0].history');
 });
 

@@ -55,7 +55,7 @@ function writeVersionOneTracker(): void {
   createProgressFileWriter(workspace.progressFilePath).write(emptyProgress());
   const stored = JSON.parse(readFileSync(workspace.progressFilePath, 'utf8')) as Record<string, unknown>;
   const versionOneDocument = { ...stored, version: 1, log: [{ at: NOTE_RECORD.at, text: 'Example session started' }] };
-  writeFileSync(workspace.progressFilePath, `${JSON.stringify(versionOneDocument, null, LIMITS.JSON_INDENT)}\n`);
+  writeFileSync(workspace.progressFilePath, `${JSON.stringify(versionOneDocument, null, LIMITS.JSON_INDENT_SPACES)}\n`);
 }
 
 function fileTicket(title: string, type: TicketType): Ticket {

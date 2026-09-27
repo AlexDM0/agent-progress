@@ -6,6 +6,7 @@ import { TASK_STATUSES }                                     from '../../../lib/
 import { FIRST_TASK_ID }                                     from '../../../lib/tracker-model/constants/TaskIds.ts';
 import { BoardSettingsUtil }                                 from '../../../lib/tracker-model/utils/BoardSettingsUtil.ts';
 import { VocabularyUtil }                                    from '../../../lib/tracker-model/utils/VocabularyUtil.ts';
+import { StoredValueUtil }                                   from '../../utils/StoredValueUtil.ts';
 import type { StoredTaskPhase }                              from '../@types/StoredProgressFile.ts';
 import { CURRENT_PROGRESS_FILE_VERSION }                     from '../constants/ProgressFileVersions.ts';
 
@@ -19,17 +20,16 @@ function nullableTextIsWellFormed(value: unknown): value is string | null {
 
 /** `0` and `null` are different answers — "it used none" and "nobody said" — and every reader keeps them apart. */
 function tokenCountIsWellFormed(value: unknown): value is number | null {
-  if (value === null) return true;
-  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+  return value === null || StoredValueUtil.wholeNumberIsAtLeast(value, 0);
 }
 
 /** Only a repeat review is counted, so the first round a row can record is the second one. */
 function reviewRoundIsWellFormed(value: unknown): value is number {
-  return typeof value === 'number' && Number.isSafeInteger(value) && value >= FIRST_REPEAT_REVIEW_ROUND;
+  return StoredValueUtil.wholeNumberIsAtLeast(value, FIRST_REPEAT_REVIEW_ROUND);
 }
 
 function reviewBarRoundIsWellFormed(value: unknown): value is number {
-  return typeof value === 'number' && Number.isSafeInteger(value) && value >= FIRST_REVIEW_BAR_ROUND;
+  return StoredValueUtil.wholeNumberIsAtLeast(value, FIRST_REVIEW_BAR_ROUND);
 }
 
 function taskStatusIsKnown(value: unknown): boolean {
@@ -37,10 +37,8 @@ function taskStatusIsKnown(value: unknown): boolean {
 }
 
 function taskPhaseIsWellFormed(value: unknown): value is StoredTaskPhase {
-  if (typeof value !== 'object' || value === null) return false;
-  const phase = value as Record<string, unknown>;
-  if (!taskStatusIsKnown(phase['status'])) return false;
-  return typeof phase['at'] === 'string';
+  if (!StoredValueUtil.valueIsAPlainObject(value)) return false;
+  return taskStatusIsKnown(value['status']) && typeof value['at'] === 'string';
 }
 
 function taskHistoryIsWellFormed(value: unknown): value is StoredTaskPhase[] {
@@ -48,9 +46,10 @@ function taskHistoryIsWellFormed(value: unknown): value is StoredTaskPhase[] {
 }
 
 function taskProblem(value: unknown, index: number): string | null {
+  // An array row is let through to the field checks, so its reason names the first field it lacks.
   if (typeof value !== 'object' || value === null) return `tasks[${index}] is not an object`;
   const task = value as Record<string, unknown>;
-  if (typeof task['id'] !== 'number' || !Number.isSafeInteger(task['id'])) return `tasks[${index}].id is not a whole number`;
+  if (!StoredValueUtil.valueIsAWholeNumber(task['id'])) return `tasks[${index}].id is not a whole number`;
   if (!textFieldIsPresent(task, 'name')) return `tasks[${index}].name is not a string`;
   if (!taskStatusIsKnown(task['status'])) {
     return `tasks[${index}].status is ${JSON.stringify(task['status'])}, which is not one of ${TASK_STATUSES.join(', ')}`;
@@ -80,16 +79,15 @@ function taskProblem(value: unknown, index: number): string | null {
  * `null` for a document whose top level this build reads, before its rows are looked at. A version 2 file keeps its log in log.jsonl, so a
  * `log` in one is refused rather than silently ignored.
  */
-function documentHeaderProblemOf(parsed: unknown): string | null {
-  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return 'the document is not a JSON object';
-  const candidate = parsed as Record<string, unknown>;
+function documentHeaderProblemOf(candidate: unknown): string | null {
+  if (!StoredValueUtil.valueIsAPlainObject(candidate)) return 'the document is not a JSON object';
   const { version } = candidate;
   if (version !== CURRENT_PROGRESS_FILE_VERSION) return `version is ${JSON.stringify(version)}, and this build of agent-progress reads version ${CURRENT_PROGRESS_FILE_VERSION}`;
   if (!textFieldIsPresent(candidate, 'trackerId')) return 'trackerId is not a string';
   if (!textFieldIsPresent(candidate, 'project')) return 'project is not a string';
   if (!textFieldIsPresent(candidate, 'startedAt')) return 'startedAt is not a timestamp';
   if (!BoardSettingsUtil.viewRangeIsWellFormed(candidate['view'])) return 'view is not one of the stored range shapes';
-  if (typeof candidate['nextTaskId'] !== 'number' || !Number.isSafeInteger(candidate['nextTaskId']) || candidate['nextTaskId'] < FIRST_TASK_ID) {
+  if (!StoredValueUtil.wholeNumberIsAtLeast(candidate['nextTaskId'], FIRST_TASK_ID)) {
     return `nextTaskId is ${JSON.stringify(candidate['nextTaskId'])}, and it has to be a whole number of at least ${FIRST_TASK_ID}`;
   }
   if (candidate['concurrencyLimit'] !== undefined && !BoardSettingsUtil.concurrencyLimitIsWellFormed(candidate['concurrencyLimit'])) {

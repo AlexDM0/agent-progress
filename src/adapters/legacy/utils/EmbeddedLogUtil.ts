@@ -13,6 +13,7 @@ function logArrayProblemOf(log: unknown): string | null {
 }
 
 function logEntryProblemOf(value: unknown, index: number): string | null {
+  // An array entry is let through to the field checks, so its reason names the first field it lacks.
   if (typeof value !== 'object' || value === null) return `log[${index}] is not an object`;
   const entry = value as Record<string, unknown>;
   if (typeof entry['at'] !== 'string') return `log[${index}].at is not a timestamp`;

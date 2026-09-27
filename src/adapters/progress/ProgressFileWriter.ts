@@ -5,7 +5,7 @@ import { ProgressFileMappingUtil }                   from './utils/ProgressFileM
 
 /** Always the current version, indented and ending with a newline, because people repair the file by hand. */
 function documentTextOf(progress: ProgressFile): string {
-  return `${JSON.stringify(ProgressFileMappingUtil.storedDocumentOf(progress), null, LIMITS.JSON_INDENT)}\n`;
+  return `${JSON.stringify(ProgressFileMappingUtil.storedDocumentOf(progress), null, LIMITS.JSON_INDENT_SPACES)}\n`;
 }
 
 export function createProgressFileWriter(progressFilePath: string): {

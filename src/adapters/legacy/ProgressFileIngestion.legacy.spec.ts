@@ -8,10 +8,11 @@ import { join }                        from 'node:path';
 import { afterAll, expect, test }      from 'bun:test';
 
 import { boardFixture, ticketFixture }                     from '../../testing/BoardFixtures.ts';
+import { emptyProgress, fileRow }                          from '../../testing/ProgressFixtures.ts';
 import { createScratchDirectory, removeScratchDirectory }  from '../../testing/ScratchWorkspace.ts';
 import { ProgressFileIngestion, type ProgressFileReading } from '../progress/ProgressFileIngestion.ts';
 import { createProgressFileWriter }                        from '../progress/ProgressFileWriter.ts';
-import { emptyDocument, emptyProgress, fileRow }           from '../progress/testing/ProgressFileFixtures.ts';
+import { emptyDocument }                                   from '../progress/testing/ProgressFileFixtures.ts';
 import { documentInRetiredWords, versionOneDocumentOf }    from './testing/LegacyProgressFileFixtures.ts';
 
 const FILED_AT = '2026-09-18T20:11:03+02:00';

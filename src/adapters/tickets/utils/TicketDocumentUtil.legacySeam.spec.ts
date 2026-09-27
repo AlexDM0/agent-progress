@@ -32,7 +32,7 @@ describe('a ticket document in a current status', () => {
   test('parses to that status, quoted or bare, with no older format read', () => {
     for (const status of TICKET_STATUSES) {
       for (const storedStatus of [`"${status}"`, status]) {
-        const parsed = TicketDocumentUtil.parseTicketDocument(ticketDocumentIn(storedStatus));
+        const parsed = TicketDocumentUtil.parsedTicketDocumentOf(ticketDocumentIn(storedStatus));
 
         expect(parsed.verdict, storedStatus).toBe('parsed');
         expect(parsed.verdict === 'parsed' && parsed.frontmatter.status, storedStatus).toBe(status);

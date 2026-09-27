@@ -9,7 +9,7 @@ export function createTicketFileWriter(): { write(ticket: Readonly<Ticket>): voi
   function write(ticket: Readonly<Ticket>): void {
     // The directory is recreated rather than assumed: `clear --all` may have removed it.
     mkdirSync(dirname(ticket.filePath), { recursive: true });
-    writeFileAtomically(ticket.filePath, TicketDocumentUtil.serializeTicketDocument(ticket.frontmatter, ticket.body, ticket.lineEnding));
+    writeFileAtomically(ticket.filePath, TicketDocumentUtil.ticketDocumentTextOf(ticket.frontmatter, ticket.body, ticket.lineEnding));
   }
 
   return { write };

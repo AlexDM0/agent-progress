@@ -149,7 +149,7 @@ async function trackedRepositoryWithVersionTwoRowsInOlderWords(): Promise<{ repo
     tokens: null,
   });
   stored.nextTaskId += 1;
-  writeFileSync(progressFilePath, `${JSON.stringify(stored, null, LIMITS.JSON_INDENT)}\n`);
+  writeFileSync(progressFilePath, `${JSON.stringify(stored, null, LIMITS.JSON_INDENT_SPACES)}\n`);
   return { repositoryDirectory, progressFilePath };
 }
 
