@@ -101,11 +101,16 @@ follow from the model above:
   because two copies of a rule do.
 - **Legacy fallbacks are resolved once, at ingestion.** A review bar known only by its name gets its
   `reviewOf` and round there (`src/shared/legacy/utils/ReviewBarNameUtil.ts`, reached from the
-  progress ingestion's migrate step). A delivered row without a review stamp is not resolved at ingestion, because ingestion
-  cannot invent the stamp. The Board query `deliveredRowCountsAsReviewed` answers it. Nothing
-  downstream parses a name.
-- **The row states and the Kanban lanes are page vocabularies**: string-literal unions local to
-  page/, like the pill labels and lane titles that word them.
+  progress ingestion's migrate step). A delivered row without a review stamp is not resolved at
+  ingestion, because ingestion cannot invent the stamp. The Board query
+  `deliveredRowCountsAsReviewed` answers it. Nothing downstream links by a name. The one read of a
+  name is the page drawing a ticket's nested review bars latest named round first
+  (`page/progress/ProgressMarkup.ts`), which keeps main's order; a bar whose name gives no round
+  sorts above the numbered rounds.
+- **The Kanban lanes are a page vocabulary**: string-literal unions local to page/, like the pill
+  labels and lane titles that word them. The display state (a row's status, or `reviewing`) is a
+  Board fact, so its union `DisplayState` lives in `src/lib/tracker-model/@types/Task.ts` beside
+  `TaskStatus`; page/ only words it, through `page/constants/PillLabels.ts`.
 - **Viewer preferences are a stored boundary.** The browser's storage is read and written in one
   place in page/: one preferences module owning the keys, the parsing with defaults and the writes.
   Today five modules each own a key, and `lib/render/page/GanttPage.ts` does the reads and writes.
@@ -160,7 +165,7 @@ do not exist yet.
 | `lib/render/Template.ts`, `lib/render/Markdown.ts`, `lib/render/PageBundle.ts` | src/services/render |
 | `lib/render/Rerender.ts` | dissolves into the tracker pipeline calling src/services/render |
 | `lib/render/page/GanttPage.ts` (804 lines) | page/PageStart (read the data islands, render, wire) plus one controller per surface, each in its set: page/progress (range bar, rows, now scroll), page/kanban (board, overflow, following a waiting-on link), page/tickets, page/log, page/detail-dialog (task and ticket bodies, covered tick labels); the element helpers → page/utils/DomUtil; storage reads and writes → page/preferences |
-| `lib/render/page/PageMarkup.ts` (440 lines, 20 exports) | split by purpose: markup primitives used by several sets (`attribute`, shortened text, stamp markup, ticket links, priority mark) → page/utils/MarkupUtil; row state and pill label → page/constants (the union and its labels) with the state itself from the payload; task rows, ticks, overlay, axis fit, generated stamp, range note → page/progress; summary stats → page/progress; log items → page/log; ticket table, cards, count, latest milestone → page/tickets; `reviewedTicketNumberOf`, `deliveredAfterReview`, `rowStateFor` → Board queries via the payload |
+| `lib/render/page/PageMarkup.ts` (440 lines, 20 exports) | split by purpose: markup primitives used by several sets (`attribute`, shortened text, stamp markup, ticket links, priority mark) → page/utils/MarkupUtil; pill labels → page/constants, keyed by the model's `DisplayState` (src/lib/tracker-model/@types/Task.ts, since the Board computes it) with the state itself from the payload; task rows, ticks, overlay, axis fit, generated stamp, range note → page/progress; summary stats → page/progress; log items → page/log; ticket table, cards, count, latest milestone → page/tickets; `reviewedTicketNumberOf`, `deliveredAfterReview`, `rowStateFor` → Board queries via the payload |
 | `lib/render/page/KanbanBoard.ts` | page/kanban: lane rules and order (KanbanLanes), the capped lanes' paging → page/kanban/utils/LanePagingUtil, overflow directions → page/kanban/utils; the storage keys → page/preferences; `ownRowOf` and the review-bar lookup → payload facts |
 | `lib/render/page/KanbanMarkup.ts` | page/kanban |
 | `lib/render/page/TicketDetail.ts`, `lib/render/page/TicketTimeline.ts` (533 lines) | page/detail-dialog; the timeline splits into its data (TicketTimeline) and its markup (TicketTimelineMarkup); `tickLabelIsCovered` (also used by the page controller) → page/utils/GeometryUtil |
@@ -305,9 +310,9 @@ parts are dropped.
   and `finished` → `in-review`; the ticket words `open` → `pending` and `done` → `reviewed`. The
   words change everywhere: the model, the CLI arguments, the stored files (old words are migrated on
   ingestion), the skills and the page. Dispatcher run states (`running`, `finished`, `stopped`) are a
-  different vocabulary and keep their words. The page's display vocabularies (the row state
-  `reviewing` and the Kanban lanes) are checked against the new words in step 7 and dropped where
-  they have become redundant.
+  different vocabulary and keep their words. The display state `reviewing` (the model's
+  `DisplayState`, since step 4c) and the page's Kanban lanes are checked against the new words in
+  step 7 and dropped where they have become redundant.
 - **The CLI verbs are aligned with the words** (decided when step 4 began): one verb per target
   status, the same for tasks and tickets where both have it. `start` → `in-progress`, `pause` →
   `paused` (tasks), `finish` → `in-review`, `rereview` → `re-review`, `approve` → `reviewed`,
