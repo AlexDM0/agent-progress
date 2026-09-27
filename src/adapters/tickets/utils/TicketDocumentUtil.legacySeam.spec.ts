@@ -1,6 +1,6 @@
 /**
  * The ticket parse's seam to the retired status words, seen from the current side: a ticket stored in any current status, quoted or bare, reads
- * as exactly that status and is never counted as an older format, so it is not rewritten. It imports nothing from `src/shared/legacy/`, so it
+ * as exactly that status and is never counted as an older format, so it is not rewritten. It imports nothing from `src/adapters/legacy/`, so it
  * still holds once that folder and its seam line are dropped.
  */
 import { describe, expect, test } from 'bun:test';

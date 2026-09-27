@@ -313,7 +313,7 @@ the rule in the root `CLAUDE.md` (Model and boundaries). There are five:
 | folder | what it answers |
 |---|---|
 | `src/shared/legacy/` | The retired status words, and the review-bar name util both folders below share. |
-| `src/adapters/legacy/` | A version 1 `progress.json` with its own log, rows in the retired words, and review bars known only by name. |
+| `src/adapters/legacy/` | A version 1 `progress.json` with its own log, rows and tickets in the retired words, and review bars known only by name. |
 | `src/services/tracker/legacy/` | The rewrite of older tracker files that `update` and `init` run, reached from `cli/legacy/`. |
 | `cli/legacy/` | The retired verbs and words, refused with their replacement; the ignored `--hooks`; review-shaped names given their link at filing; the rewrite report. |
 | `page/legacy/` | A spec only: how the page draws a review bar linked by its name. |
@@ -325,7 +325,7 @@ Current code reaches each through one seam call per consumer, marked at the call
 with it; the `*.legacySeam.spec.ts` suites beside current modules pin the current side of a seam and stay.
 
 To drop a folder, delete it with its specs, turn each seam line into the current-format answer its comment
-names, and delete the sentences on it in `cli/HelpText.ts`, `docs/cli.md` and `skill/Reference.md`. Each
+names, delete what current code carries only for it, which its modules' headers name, and delete the sentences on it in `cli/HelpText.ts`, `docs/cli.md` and `skill/Reference.md`. Each
 header says when: once every tracked repository has run `agent-progress update` and agents no longer type the
 retired forms. `src/shared/legacy/` goes last, once `src/adapters/legacy/` and `cli/legacy/` have gone.
 

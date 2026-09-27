@@ -60,7 +60,7 @@ function namedAgentText(ticket: { model?: AgentModel; effort?: AgentEffort }): s
 function listedStatusFrom(writtenStatus: string | undefined): TicketStatus | undefined {
   if (writtenStatus === undefined || VocabularyUtil.ticketStatusIsKnown(writtenStatus)) return writtenStatus;
   // The seam to the retired words; dropping `cli/legacy/` leaves only the unknown-status refusal below.
-  RetiredWordRefusalUtil.refuseARetiredTicketStatus(writtenStatus, (renamedStatus) => `pass --status ${StatusWordingUtil.statusWordFor(renamedStatus)}`);
+  RetiredWordRefusalUtil.refuseARetiredTicketStatus(writtenStatus, (renamedStatus) => `pass --status ${renamedStatus}`);
   return TicketArgumentUtil.refuseAnUnknownTicketStatus(writtenStatus);
 }
 

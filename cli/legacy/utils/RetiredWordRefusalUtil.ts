@@ -46,7 +46,7 @@ function refuseARetiredTaskStatus(writtenStatus: string): void {
   const renamedStatus = RetiredStatusWordUtil.currentTaskStatusFor(writtenStatus);
   if (renamedStatus === null) return;
   const renamedStatusWord = StatusWordingUtil.statusWordFor(renamedStatus);
-  throw new OperationRefusal('refused', `"${writtenStatus}" is the old name of the task status ${renamedStatusWord}; pass --status ${renamedStatusWord}.`);
+  throw new OperationRefusal('refused', `"${writtenStatus}" is the old name of the task status ${renamedStatusWord}; pass --status ${renamedStatus}.`);
 }
 
 /** Returns for any word that is not a retired ticket status; a reader who typed one meant its replacement, so the advice names that. */

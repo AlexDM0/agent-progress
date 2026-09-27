@@ -69,8 +69,9 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - Internal values are string-literal unions, never display text; wording is mapped in and out at the edge. Every
   status, ticket type and priority the page shows goes through `src/adapters/utils/HtmlLabelUtil.ts`, and every one
   the command line prints as text goes through `src/adapters/utils/StatusWordingUtil.ts`, so each display word has one
-  home even where it equals the value today; JSON output, stored files and the reasons that name a stored file's
-  values carry the values themselves, and the help screen is prose `cli/HelpText.spec.ts` holds.
+  home even where it equals the value today; JSON output, stored files, the reasons that name a stored file's values
+  and a command the output suggests running, whose arguments the parser reads as values, carry the values themselves,
+  and the help screen is prose `cli/HelpText.spec.ts` holds.
 - Code that exists only to read what an older version stored, or to answer an older habit, lives in a `legacy/` folder
   of its boundary (`src/adapters/legacy/`, `src/services/tracker/legacy/`, `cli/legacy/`, and `src/shared/legacy/`
   for what two legacy folders share) and is reached only through one seam call per consumer;

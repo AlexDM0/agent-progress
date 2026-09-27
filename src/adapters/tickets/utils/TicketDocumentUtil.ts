@@ -4,10 +4,10 @@
  * half-applied. The subset it accepts is stated in `docs/cli.md`.
  */
 
-import type { TicketFrontmatter } from '../../../lib/tracker-model/@types/Ticket.ts';
-import { TicketIdUtil }           from '../../../lib/tracker-model/utils/TicketIdUtil.ts';
-import { VocabularyUtil }         from '../../../lib/tracker-model/utils/VocabularyUtil.ts';
-import { RetiredStatusWordUtil }  from '../../../shared/legacy/utils/RetiredStatusWordUtil.ts';
+import type { TicketFrontmatter }  from '../../../lib/tracker-model/@types/Ticket.ts';
+import { TicketIdUtil }            from '../../../lib/tracker-model/utils/TicketIdUtil.ts';
+import { VocabularyUtil }          from '../../../lib/tracker-model/utils/VocabularyUtil.ts';
+import { TicketStatusUpgradeUtil } from '../../legacy/utils/TicketStatusUpgradeUtil.ts';
 
 export type LineEnding = '\n' | '\r\n';
 
@@ -295,8 +295,8 @@ function frontmatterFrom(
 ): { frontmatter: TicketFrontmatter; olderFormatWasRead: boolean } {
   const typeText         = requiredText(knownValues, 'type', closingFenceLine);
   const storedStatusText = requiredText(knownValues, 'status', closingFenceLine);
-  // The seam to the retired words; dropping `src/shared/legacy/` leaves `storedStatusText`.
-  const statusText       = RetiredStatusWordUtil.currentTicketStatusFor(storedStatusText) ?? storedStatusText;
+  // The seam to the retired words; dropping `src/adapters/legacy/` leaves `storedStatusText`.
+  const statusText       = TicketStatusUpgradeUtil.currentTicketStatusTextOf(storedStatusText);
 
   if (!VocabularyUtil.ticketTypeIsKnown(typeText)) {
     throw new FrontmatterProblem(`\`type\` is not a known ticket type: ${typeText}`, lineOf(knownValues, 'type', closingFenceLine));
