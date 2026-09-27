@@ -24,7 +24,11 @@ applies them to this repository.
 - Nothing runs the `agent-progress` CLI in this checkout; behaviour is exercised in scratch
   repositories only.
 - Merge only while no dispatcher run is live and no `dispatcherRunId` is stored on any board. After
-  the merge, run `agent-progress update` in every tracked repository.
+  the merge, once the `bun link` checkout is on merged main, run `agent-progress update` in every
+  tracked repository with that binary only. An older agent-progress's `update` on a migrated tracker
+  is not refused: it reinstalls its brief, CLAUDE.md block and `.claude/workflows/` dispatcher behind
+  a manifest that still reads current. Running the merged `update` again restores them and removes
+  the stray copy.
 
 ## 2. What was decided
 
@@ -394,7 +398,8 @@ Settled on 2026-09-26, in step 8:
 - **Viewers lose their page choices** if a storage key string changes during the preferences move.
   The preferences spec pins every key as a frozen table.
 - **Stored-format changes** (statuses, log file, installed versions) make a rolled-back CLI refuse
-  newer trackers. Test the migration on copies of real trackers before merging.
+  newer trackers, except its `update`, which silently reinstalls its old files over a current
+  manifest (see section 1). Test the migration on copies of real trackers before merging.
 - **Old installed dispatchers run against the new CLI until `update`.** The mismatch refusal makes
   that loud instead of silent.
 - **Removing the guard specs** makes review the only net for import direction; the review checklist
