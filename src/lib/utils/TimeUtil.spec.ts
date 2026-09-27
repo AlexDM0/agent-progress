@@ -113,6 +113,15 @@ test('resolveWhen reads the signed offsets every state-changing command accepts'
   expect(resolveWhen('+30m', now)?.getTime()).toBe(now.getTime() + 30 * MILLISECONDS_PER_MINUTE);
 });
 
+test('resolveWhen refuses an offset whose result is no date, or a date past the four-digit years a stamp is written in', () => {
+  const now = new Date(Date.UTC(2026, 8, 18, 18, 0, 0));
+  expect(resolveWhen('+99999999d', now)).toBeNull();
+  expect(resolveWhen('-99999999d', now)).toBeNull();
+  expect(resolveWhen('+9999999d', now)).toBeNull();
+  expect(resolveWhen('-999999999999999999999m', now)).toBeNull();
+  expect(resolveWhen('+2900000d', now)?.getFullYear()).toBe(9966);
+});
+
 test('resolveWhen falls through to an ISO timestamp, and refuses an unsigned duration', () => {
   const now = new Date(Date.UTC(2026, 8, 18, 18, 0, 0));
   expect(resolveWhen('2026-09-18T20:11:03+02:00', now)?.toISOString()).toBe('2026-09-18T18:11:03.000Z');

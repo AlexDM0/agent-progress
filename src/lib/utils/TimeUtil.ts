@@ -11,6 +11,9 @@ const MILLISECOND_DIGITS = 3;
 const YEAR_DIGITS  = 4;
 const FIELD_DIGITS = 2;
 
+const FIRST_FOUR_DIGIT_YEAR = 0;
+const LAST_FOUR_DIGIT_YEAR  = 9999;
+
 const LAST_MONTH_INDEX = 11;
 const FIRST_DAY        = 1;
 const LAST_DAY         = 31;
@@ -92,7 +95,16 @@ function parseIso(text: string): Date | null {
   return new Date(instant.getTime() - signedOffsetMinutes * MILLISECONDS_PER_MINUTE);
 }
 
-/** An ISO timestamp, the word `now`, or a signed offset (`-5m`, `+2h`); the sign is required, because a bare `5m` is ambiguous about direction. */
+/** An `Invalid Date` fails too: its year is `NaN`. */
+function yearIsWritableAsFourDigits(date: Date): boolean {
+  const year = date.getFullYear();
+  return year >= FIRST_FOUR_DIGIT_YEAR && year <= LAST_FOUR_DIGIT_YEAR;
+}
+
+/**
+ * An ISO timestamp, the word `now`, or a signed offset (`-5m`, `+2h`); the sign is required, because a bare `5m` is ambiguous about direction.
+ * An offset landing outside the four-digit years `formatLocalIso` writes and `parseIso` reads back is `null`, like any other unreadable text.
+ */
 function resolveWhen(text: string, now: Date): Date | null {
   const trimmed = text.trim();
   if (trimmed.toLowerCase() === 'now') return new Date(now.getTime());
@@ -102,7 +114,8 @@ function resolveWhen(text: string, now: Date): Date | null {
     const unitMinutes = minutesPerUnit(relative[3] ?? '');
     if (unitMinutes === null) return null;
     const signedMinutes = (relative[1] === '-' ? -1 : 1) * Number(relative[2] ?? '0') * unitMinutes;
-    return new Date(now.getTime() + signedMinutes * MILLISECONDS_PER_MINUTE);
+    const resolved = new Date(now.getTime() + signedMinutes * MILLISECONDS_PER_MINUTE);
+    return yearIsWritableAsFourDigits(resolved) ? resolved : null;
   }
 
   return parseIso(trimmed);

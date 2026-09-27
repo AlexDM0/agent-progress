@@ -26,8 +26,10 @@ function boundIsRelative(text: string): boolean {
   return RELATIVE_BOUND_WORDS.includes(text.trim().toLowerCase()) || RELATIVE_OFFSET_PATTERN.test(text.trim());
 }
 
-function storedBound(text: string): string | null {
-  if (boundIsRelative(text)) return text.trim();
+/** An offset is stored as written, but only one that resolves now, so the page is never handed a bound it cannot lay out. */
+function storedBound(text: string, now: Date): string | null {
+  if (boundIsStartOfWork(text)) return text.trim();
+  if (boundIsRelative(text)) return TimeUtil.resolveWhen(text, now) === null ? null : text.trim();
   const parsed = TimeUtil.parseIso(text);
   return parsed === null ? null : TimeUtil.formatLocalIso(parsed);
 }
@@ -54,8 +56,8 @@ function refuseABackwardsRange(writtenFrom: string, writtenTo: string, now: Date
 }
 
 function viewRangeFrom(writtenFrom: string, writtenTo: string, writtenTick: string | undefined, now: Date): ViewRange {
-  const from = storedBound(writtenFrom);
-  const to   = storedBound(writtenTo);
+  const from = storedBound(writtenFrom, now);
+  const to   = storedBound(writtenTo, now);
   for (const [optionName, written, stored] of [['from', writtenFrom, from], ['to', writtenTo, to]] as const) {
     if (stored === null) {
       throw new OperationRefusal(
