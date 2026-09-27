@@ -10,7 +10,7 @@ import { FIRST_REPEAT_REVIEW_ROUND }          from '../../src/lib/tracker-model/
 import { TicketDefaultsUtil }                 from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
 import type { PageTicket }                    from '../../src/shared/@types/PagePayload.ts';
 import type { TimelineLimits, TimelineTick }  from '../@types/Timeline.ts';
-import { MINIMUM_TICK_STEP_MINUTES }          from '../constants/TickSteps.ts';
+import { MINIMUM_TICK_STEP_MINUTES }          from '../utils/GeometryUtil.ts';
 import { GeometryUtil }                       from '../utils/GeometryUtil.ts';
 import { TimeUtil, type DurationUnits }       from '../utils/TimeUtil.ts';
 import { WorkItemMarkupUtil }                 from '../utils/WorkItemMarkupUtil.ts';

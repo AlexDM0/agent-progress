@@ -1,4 +1,4 @@
-import type { ClosedKanbanLane } from './ClosedKanbanLane.ts';
+import type { ClosedKanbanLane } from '../kanban/constants/KanbanBoardLayout.ts';
 
 export type LogVisibility = 'newest' | 'all';
 

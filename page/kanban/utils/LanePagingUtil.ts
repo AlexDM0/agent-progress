@@ -1,4 +1,4 @@
-import { CAPPED_LANE_FIRST_PAGE_CARDS } from '../../constants/CappedLanePaging.ts';
+import { CAPPED_LANE_FIRST_PAGE_CARDS } from '../constants/KanbanBoardLayout.ts';
 import { CAPPED_LANE_PAGE_STEP_CARDS }  from '../constants/KanbanBoardLayout.ts';
 
 /** A stored count is clamped to the first page … the lane's count, so a lane that shrank under Hide never shows an empty page. */

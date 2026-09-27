@@ -3,9 +3,9 @@
  * the template's bootstrap keeps its own theme, tab and open-ticket keys.
  */
 
-import type { ClosedKanbanLane }                                         from '../@types/ClosedKanbanLane.ts';
 import type { PreferenceStorage, StoredViewOverride, ViewerPreferences } from '../@types/ViewerChoices.ts';
-import { CAPPED_LANE_FIRST_PAGE_CARDS }                                  from '../constants/CappedLanePaging.ts';
+import type { ClosedKanbanLane }                                         from '../kanban/constants/KanbanBoardLayout.ts';
+import { CAPPED_LANE_FIRST_PAGE_CARDS }                                  from '../kanban/constants/KanbanBoardLayout.ts';
 import {
   DEFAULT_ABANDONED_LANE_CHOICE,
   DEFAULT_LOG_VISIBILITY,

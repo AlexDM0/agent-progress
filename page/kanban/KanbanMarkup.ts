@@ -6,15 +6,15 @@ import { TokenCountUtil }                  from '../../src/lib/token-count/Token
 import type { DisplayState }               from '../../src/lib/tracker-model/@types/Task.ts';
 import { FIRST_REPEAT_REVIEW_ROUND }       from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
 import { TicketDefaultsUtil }              from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
-import type { ClosedKanbanLane }           from '../@types/ClosedKanbanLane.ts';
 import type { KanbanCard }                 from '../@types/KanbanCard.ts';
-import { CAPPED_LANE_FIRST_PAGE_CARDS }    from '../constants/CappedLanePaging.ts';
 import { MarkupUtil }                      from '../utils/MarkupUtil.ts';
 import { TemplateIdUtil }                  from '../utils/TemplateIdUtil.ts';
 import { WorkItemMarkupUtil }              from '../utils/WorkItemMarkupUtil.ts';
 import type { KanbanLane }                 from './@types/KanbanLane.ts';
 import type { NoteFormat }                 from './KanbanLaneText.ts';
 import { laneSubCountsOf, subStateNoteOf } from './KanbanLaneText.ts';
+import type { ClosedKanbanLane }           from './constants/KanbanBoardLayout.ts';
+import { CAPPED_LANE_FIRST_PAGE_CARDS }    from './constants/KanbanBoardLayout.ts';
 import { KANBAN_LANES }                    from './constants/KanbanBoardLayout.ts';
 import { KanbanLaneUtil }                  from './utils/KanbanLaneUtil.ts';
 import { LanePagingUtil }                  from './utils/LanePagingUtil.ts';

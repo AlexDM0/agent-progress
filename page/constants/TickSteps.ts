@@ -1,1 +1,0 @@
-export const MINIMUM_TICK_STEP_MINUTES = 1;

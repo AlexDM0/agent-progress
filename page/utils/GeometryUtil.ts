@@ -16,8 +16,9 @@ import type {
   TimelineLimits,
   TimelineTick,
 } from '../@types/Timeline.ts';
-import { MINIMUM_TICK_STEP_MINUTES } from '../constants/TickSteps.ts';
-import { TimeUtil }                  from './TimeUtil.ts';
+import { TimeUtil } from './TimeUtil.ts';
+
+export const MINIMUM_TICK_STEP_MINUTES = 1;
 
 const TICK_LABEL_CLEARANCE_PIXELS = 6;
 

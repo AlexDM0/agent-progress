@@ -6,7 +6,7 @@ import type {
   StoredViewOverride,
   WorkVisibility,
 } from '../../@types/ViewerChoices.ts';
-import { CAPPED_LANE_FIRST_PAGE_CARDS } from '../../constants/CappedLanePaging.ts';
+import { CAPPED_LANE_FIRST_PAGE_CARDS } from '../../kanban/constants/KanbanBoardLayout.ts';
 import { JsonValueUtil }                from '../../utils/JsonValueUtil.ts';
 import {
   DEFAULT_ABANDONED_LANE_CHOICE,
