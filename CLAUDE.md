@@ -7,25 +7,30 @@ dispatcher its sessions run on.
 ## Verify
 
 `bun run typecheck && bun test && bun run lint`: all three after any TypeScript change, before calling it done.
-`typecheck` covers every project (TypeScript and lint, below). Never ad-hoc `tsc` flags; never edit `package.json` to
+`typecheck` covers every project (see TypeScript and lint). Never ad-hoc `tsc` flags; never edit `package.json` to
 make a check pass.
 
 ## Rules
 
+These follow the owner's coding conventions; where this repository deliberately does otherwise, the table under
+Deviations says so and why.
+
 ### Files and naming
 
-- One purpose per file, explainable in two or three lines from its path and export; usually one export plus a few
-  types. A file is `PascalCase.ts`, named after its export; folders are lower case. No barrel files.
-- A util is pure and stateless, one frozen object per file (`TimeUtil.formatLocalIso(…)`), tested against its own
-  contract, not through a caller. An app-wide list is one global object: `LIMITS` in `src/shared/constants/Limits.ts`.
-- Code starts beside its only consumer and moves on a second consumer, generalised first; never in anticipation.
+- One purpose per file, explainable in two or three lines from its path and what it exports. Several exports serving
+  that one purpose are fine. A file is `PascalCase.ts`, named after its main export; folders are lower case. No
+  barrel files.
+- A file earns its place. A util is pure and stateless, one frozen object (`TimeUtil.formatLocalIso(…)`) tested
+  against its own contract, and it groups a domain: never a util holding one function. A one-line type or constant
+  goes in its consumer's folder file, not a file of its own. An app-wide list is one global object, such as `LIMITS`.
+- Code starts beside its only consumer and moves on a second one, generalised first; never in anticipation.
 - Full, descriptive names, no abbreviations. Only a loop `i` and a comparator `(a, b)` are one letter; callbacks,
   destructured bindings and throwaway scripts are not exempt.
-- Name a thing for what it is or does, never for its layer or its history, and never with a name that shadows a
-  global (`CorpusMap.ts`, not `Map.ts`).
-- A function that answers a question is the question (`sourceIsReachable`); a producer is named for its product
-  (`fullTextOf`); a boolean is a predicate phrase (`cleanupHandlersAreInstalled`).
-- Design constants are `SCREAMING_CASE`, named for what they bound, with the unit. No magic number inline.
+- Name a thing for what it is or does, never for its layer or its history, and never shadowing a global
+  (`CorpusMap.ts`, not `Map.ts`). A question is named as the question (`sourceIsReachable`), a producer for its
+  product (`fullTextOf`), a boolean as a predicate phrase (`cleanupHandlersAreInstalled`).
+- Design constants are `SCREAMING_CASE`, named for what they bound, with the unit; no magic number inline.
+  Arithmetic identities are exempt and stay inline: a percent of a whole, a radix, a division by two.
 - Everything is English: identifiers, flags, messages, file names, comments. Example data is obviously synthetic:
   `Alex Example`, `Example Agency`.
 
@@ -51,67 +56,70 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   it, so it stays DOM-safe.
 - `src/shared/` holds app-specific code several parts use.
 
-### Model and boundaries
+### Values and wording
 
-- Internal values are string-literal unions, never display text; wording is mapped in and out at the edge. Every
-  ticket status, ticket type and priority the page shows goes through `src/adapters/utils/HtmlLabelUtil.ts`, every
-  display state's pill (on rows, cards and detail panels) through `page/constants/PillLabels.ts`, and every status
-  the command line prints as text through `src/adapters/utils/StatusWordingUtil.ts`, so each display word has one
-  home even where it equals the value today; JSON output, stored files, the reasons that name a stored file's values
-  and a command the output suggests running, whose arguments the parser reads as values, carry the values themselves,
-  and the help screen is prose `cli/HelpText.spec.ts` holds.
-- Code that exists only to read what an older version stored, or to answer an older habit, lives in a `legacy/` folder
-  of its boundary (`src/adapters/legacy/`, `src/services/tracker/legacy/`, `cli/legacy/`, and `src/shared/legacy/`
-  for what two legacy folders share) and is reached only through one seam call per consumer;
-  current code imports nothing else from it, and a legacy module may import current code. Its header says what older
-  input it reads and when it can go, and names what current code carries only for it (an ingestion's older-format flag,
-  a write only a legacy rewrite calls), which goes with it. Every case that reads an older input or an older habit sits in a spec inside a
-  legacy folder, end-to-end ones in `cli/legacy/` and the page's drawing of a legacy bar in `page/legacy/`, so dropping
-  it deletes the module, its specs and its seam calls, each seam line becoming the current-format answer, and the
-  help, `docs/cli.md` and `skill/Reference.md` sentences on it.
-- An optional stored key is written only once somebody sets it, and a read never adds or rewrites one, so an older
-  file stays byte-identical. The one exception is a legacy review bar, read through `src/adapters/legacy/`: the read
-  gives a row known only by its name `reviewOf` and `reviewBarRound`, and pads a stored `reviewOf` that reads as a
-  whole number, in memory; `update` or the next write stores them. `task add` and `task update --name` store them
-  through `cli/legacy/`, so past `update` the read links only a row renamed by hand or named `Review 0 #<id>`;
-  dropping it drops that linking too. Both share `src/shared/legacy/utils/ReviewBarNameUtil.ts`.
-- A version 1 `progress.json` owns its log: the read, through `src/adapters/legacy/`, turns its sentences into notes,
-  and the next write moves them to log.jsonl and stores the file as version 2. The takeover rule for a log.jsonl
-  beside it, believed only as a migration cut short, lives in `src/adapters/legacy/` too.
-- `progress.json` keeps the keys the tool does not know, at the top level and on rows, in the file's order.
+- Internal values are string-literal unions, never display text.
+- The command line is a boundary of its own: all its text (confirmations, usage lines, argument errors, the help's
+  prose, which `cli/HelpText.spec.ts` holds) lives in `cli/`, beside the command that prints it. Command verbs are
+  written as literals, so they grep.
+- `src/adapters/` holds only the translations: a refusal's detail and its exit code to their output, and the domain
+  model to an output format (status and label mapping, JSON shapes, the page's markup data).
+- A display map exists only where the display word differs from the value: no identity entries.
+- JSON output, stored files, a reason naming a stored file's values, and a command the output suggests running carry
+  the values themselves, since the parser reads them back as values.
+
+### Stored files
+
 - A malformed stored file is a verdict and a report, never a throw that takes down `status` or `render`.
-- The Board logs through the semantic Logger (`src/lib/tracker-model/Logger.ts`), with ids and values only;
-  `src/adapters/utils/LogUtil.ts` words the records. The records go to `.agent-progress/log.jsonl` through
-  `src/adapters/log/LogFileSink.ts`.
+- `progress.json` keeps the keys the tool does not know, at the top level and on rows, in the file's order.
+- An optional stored key is written only once somebody sets it, and a read never adds or rewrites one, so an older
+  file stays byte-identical. The one exception is the legacy review bar, below.
+- The Board logs through the logger with ids and values only; an adapter util words the records, and the log file
+  sink writes them to `.agent-progress/log.jsonl`. The logger takes one `log(record)` call over a typed record union,
+  and that union is the vocabulary; it has no method per record.
+
+### Legacy
+
+- Code that exists only to read what an older version stored, or to honour an older habit, lives in a `legacy/`
+  folder of its boundary (`src/adapters/`, `src/services/tracker/`, `cli/`, and `src/shared/` for what two of those
+  share). Current code reaches it only through one seam call per consumer; a legacy module may import current code.
+- Its header says what older input it reads, when it can go, and what current code carries only for it (an
+  older-format flag, a write only a legacy rewrite calls), which goes with it.
+- Every case that reads an older input or habit sits in a spec inside a legacy folder: end-to-end ones in
+  `cli/legacy/`, the page's drawing of a legacy bar in `page/legacy/`. Dropping a legacy module then deletes it, its
+  specs and its seam calls (each seam becoming the current-format answer), and its sentences in the help,
+  `docs/cli.md` and `skill/Reference.md`.
+- A version 1 `progress.json` holds its own log as sentences. The legacy read turns them into notes; the next write
+  moves them to `log.jsonl` and stores the file as version 2. A `log.jsonl` found beside a version 1 file is believed
+  only as a migration cut short, and that takeover rule is legacy too.
+- A legacy review bar is a row known only by its name, `Review <N> #<id>`. It is linked to its ticket, given
+  `reviewOf` and `reviewBarRound`, in four places: by `cli/legacy/` when `task add` files it without `--review-of` or
+  `--ticket` and when `task update --name` renames it, both stored at once; by `update`'s rewrite; and by the legacy
+  read, in memory only, which also pads a stored `reviewOf` that reads as a whole number, stored on the next write.
+  After `update`, the read still links only a row renamed by hand or named `Review 0 #<id>`; dropping the read drops
+  that linking. All of them share one legacy name util. Nothing else links a row by its name.
 
 ### Errors and exit codes
 
-- A decider returns a verdict, and fails closed: an answer the machine cannot give reads as the safe verdict. Library
-  code throws `OperationRefusal` (`src/shared/OperationRefusal.ts`: `refused` or `unrepaired`), never writes to the
-  terminal and never exits.
-- A Board rule throws `BoardRefusal` (`src/lib/tracker-model/BoardRefusal.ts`): a reason code with its facts and no
-  wording. The tracker service's pipeline (`src/services/tracker/TrackerPipeline.ts`) wraps it as a `refused`
-  `OperationRefusal` carrying its detail.
+- A decider returns a verdict, and fails closed: an answer the machine cannot give reads as the safe verdict.
+- Code outside `cli/` throws `OperationRefusal` (`refused` or `unrepaired`), never writes to the terminal and never
+  exits. A Board rule throws `BoardRefusal`, a reason code with its facts and no wording, and the tracker pipeline
+  wraps it as a `refused` `OperationRefusal` carrying that detail.
 - A refusal thrown from `src/` carries a `detail`, a reason code with its facts and no words: a Board refusal, an
   unreadable tracker, no tracker found, the held lock, or a template token count. The install-version mismatch is the
-  one detail thrown from `cli/`, by `cli/InstallVersionCheck.ts`. Only `cli/` builds a refusal from words. Wherever
-  the command line prints a refusal (`cli/Main.ts`, `release --json`'s `detail`, the hook's sentence), it words it
-  through `src/adapters/utils/OperationRefusalWordingUtil.ts`; a service never imports a refusal wording util.
-- Exit codes are decided only in `cli/Main.ts`: 0 done or nothing to do; 1 a refusal the caller can act on
-  (`refused`, or an unknown command); 2 a state the tool will not repair (`unrepaired`, or any other throw).
-  `agent-progress.ts` is the only `process.exit`.
-- Three deliberate exit-0 cases: `hook subagent-stop` on every failure after its arguments are read, because the agent
-  has already finished; a store write that succeeded while the render failed, reported on standard error; and a
-  `release` whose worktree removal or `branch -d` git declined after the merge, reported and never failed, because the
-  release happened.
+  one detail thrown from `cli/`. Only `cli/` builds a refusal from words.
+- Every place the command line prints a refusal (the main loop, `release --json`'s `detail`, the hook's sentence)
+  words it through the one refusal-wording util in `src/adapters/`; a service never imports it.
+- Exit codes: 0 done or nothing to do; 1 a refusal the caller can act on (`refused`, or an unknown command); 2 a state
+  the tool will not repair (`unrepaired`, or any other throw). The mapping is an adapter's translation, `cli/Main.ts`
+  is the one place that applies it, and `agent-progress.ts` holds the only `process.exit`.
+- Three cases exit 0 despite a failure, on purpose; see Deviations.
 
 ### Runtime
 
 - `process.env` is read only in `src/shared/Environment.ts`, through getters, each with a docblock saying what it
-  overrides and why. The one in-process assignment is in `src/shared/Environment.spec.ts`; other specs set the
-  environment in a child process.
-- No work at module load. The two exceptions are the entry points: `agent-progress.ts`, whose import is the invocation, and the last
-  statement of `page/PageStart.ts`, which starts the page. The test preload `src/testing/TestRunReport.ts` registers its report at load.
+  overrides and why. Specs set the environment in a child process, with one exception (see Deviations).
+- No work at module load, except where Deviations says so.
 - The render service keeps no module state: what one invocation builds, the page bundle and the configured Marked,
   lives in the render state the command context carries.
 - Factories of closures over classes, except for state carried across calls, domain classes and ingestion classes.
@@ -119,7 +127,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - A record keyed by outside text is indexed through `Object.hasOwn`, never a bare lookup.
 - A command takes everything from its `CommandContext` (directory, now, streams, standard input, prompt, platform,
   home directory), never from the process.
-- Every write of a file a reader may hold open goes through `src/lib/atomic-file/AtomicFile.ts`.
+- Every write of a file a reader may hold open goes through the atomic-file package.
 - A clock decides nothing: identity is a content hash, staleness a set difference or a version number, and
   timestamps are recorded and displayed. Each exception is stated in a comment at its site.
 
@@ -127,25 +135,27 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 
 - Generated files do not live in the repository. `init` and `update` generate the dispatcher from `dispatcher/` into
   `.agent-progress/agent-progress-dispatch.js`, and delete a `.claude/workflows/` copy an older version installed.
-- Everything installed is versioned by one manifest, `.agent-progress/version.json`, holding `INSTALL_VERSION`
-  (`cli/constants/InstallVersion.ts`); no installed file carries a stamp. `init` and `update` write it last, after every
-  other file is computed and written, so a run cut short leaves the old version and a rerun completes it; a fresh `init`
-  writes the brief first, so one cut short reads as unversioned rather than as nothing installed.
-- Bump `INSTALL_VERSION` by hand, in the same commit, when a file installed by the previous version becomes wrong
-  against the new CLI: a command, flag, JSON field, stored state or exit code an installed file names or reads changes
-  meaning or is removed; the dispatcher's launch arguments change; or an installed file moves or a new one is
-  installed. A template's wording or a `DISPATCH_PROTOCOL` number does not bump it. `cli/InstalledSurface.spec.ts` holds
-  this: `cli/FrozenInstalledSurface.json` freezes, per `INSTALL_VERSION`, the commands, flags and `status --json` fields
-  the installed files name; a version's surface only grows, and a frozen name the CLI no longer has fails until the bump
-  and a new key.
-- The check reads only the manifest: a version equal to `INSTALL_VERSION` is current and a different one a mismatch;
-  a missing manifest is a mismatch while the brief is installed (a tracker from before versioning) and current when
-  it is not, since nothing installed can then disagree; an unreadable one is a mismatch. `update` and `init` refuse a
-  newer manifest rather than write an older install over it.
-- The frozen table `dispatcher/testing/FrozenDispatchTraces.json` is retaken from the port's bundle only in a commit
-  that means to change what the agents are told; its diff shows prompt text or wire names and no decision. It and
-  `cli/FrozenInstalledSurface.json`, taken from the installed files, are the exceptions to a frozen table coming from the
-  previous implementation.
+- Everything installed is versioned by one manifest, `.agent-progress/version.json`, holding `INSTALL_VERSION`; no
+  installed file carries a stamp. `init` and `update` write the manifest last, after every other file is computed and
+  written, so a run cut short leaves the old version and a rerun completes it. A fresh `init` writes the brief first,
+  so one cut short reads as unversioned rather than as nothing installed.
+- Bump `INSTALL_VERSION` by hand, in the same commit, when a file the previous version installed becomes wrong against
+  the new CLI: a command, flag, JSON field, stored state or exit code an installed file names or reads changes meaning
+  or is removed; the dispatcher's launch arguments change; or an installed file moves or a new one is installed. A
+  template's wording or a `DISPATCH_PROTOCOL` number does not bump it.
+- `cli/InstalledSurface.spec.ts` holds the bump: `cli/FrozenInstalledSurface.json` freezes, per `INSTALL_VERSION`, the
+  commands, flags and `status --json` fields the installed files name. A version's surface only grows, and a frozen
+  name the CLI no longer has fails until the bump and a new key.
+- The version check reads only the manifest. `update` and `init` refuse a newer manifest rather than install an older
+  version over it.
+
+  | Manifest                                            | Verdict                                       |
+  | --------------------------------------------------- | --------------------------------------------- |
+  | equals `INSTALL_VERSION`                            | current                                       |
+  | any other version                                   | mismatch                                      |
+  | missing, brief installed (from before versioning)   | mismatch                                      |
+  | missing, no brief installed                         | current: nothing installed can disagree       |
+  | unreadable                                          | mismatch                                      |
 
 ### Comments
 
@@ -170,9 +180,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   `dispatcher/DispatchFromWorkflowGlobals.ts` names the Workflow globals.
 - `src/ProjectIncludeLists.spec.ts` holds both `include` lists exactly, both ways, against what the project's shipping
   modules reach outside its folder, plus, for the page, every shipping module of `src/lib/tracker-model/`.
-- `cli/` reaches `dispatcher/`, and the render service `page/`, only by path, to bundle them: dispatcher code runs in
-  the CLI's process only when `init` or `update` bundle it. `init`, `update` and the specs build the dispatcher from the
-  one request in `src/shared/DispatcherScriptBuildRequest.ts` and never import `dispatcher/`.
+- `init`, `update` and the specs build the dispatcher from the one shared dispatcher build request and never import
+  `dispatcher/`; see Deviations for how `cli/` and the render service reach the other features.
 - ESLint 9 flat config through `@reliquary/eslint-config`: 2-space indent, single quotes, semicolons; line length
   180 for code, 155 for comments; aligned object values; aligned `from`; imports builtin → external → internal,
   alphabetised; builtins through the `node:` protocol (`import/enforce-node-protocol-usage`, turned on in
@@ -188,7 +197,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 
 - A spec sits beside its module as `<Module>.spec.ts`, a second suite as `<Module>.<aspect>.spec.ts`, never
   `.test.ts`. It opens with a docblock of which cases matter and why; test names are claims written as sentences. A
-  frozen table of expected outputs comes from the previous implementation and says how to retake it.
+  frozen table of expected outputs comes from the previous implementation, except the two Deviations names, and says
+  how to retake it.
 - A test that needs a tool the machine may lack skips through one shared guard (`describeWhenGitIsPresent` or
   `testWhenGitIsPresent` in `src/testing/ToolGuard.ts`), never a bare `skipIf`, and its title says what is missing.
   Skips are counted, never silent: the preload `src/testing/TestRunReport.ts` (`bunfig.toml`) prints every one by
@@ -213,6 +223,22 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   `docs/cli.md` is the one reference for commands, flags, exit codes and file formats: one reference per fact.
 - A commit is one plain, human-written subject line. No AI attribution, no `Co-Authored-By`, no generated-with
   footer.
+
+### Deviations
+
+What this repository deliberately does instead of a convention or of a rule above.
+
+| Rule | Done instead | Why |
+| --- | --- | --- |
+| Ingestion reads, validates, migrates and maps in separate steps. | The ticket parse is one line-oriented pass. | A second walk over the lines would put at risk keeping every unowned line byte for byte. |
+| No work at module load. | `agent-progress.ts` runs the command on import, the last statement of `page/PageStart.ts` starts the page, and the test preload `src/testing/TestRunReport.ts` registers its report. | They are entry points: the import is the invocation. |
+| Specs never set the environment in-process. | `src/shared/Environment.spec.ts` assigns it once. | It tests the getters themselves. |
+| A frozen table comes from the previous implementation. | `dispatcher/testing/FrozenDispatchTraces.json` is retaken from the port's bundle, only in a commit that means to change what the agents are told, and its diff shows prompt text or wire names and no decision. `cli/FrozenInstalledSurface.json` is taken from the installed files. | No previous implementation holds what they pin. |
+| A `src/lib/` package leaves a refusal as a verdict. | The tracker model's `Board` throws its typed `BoardRefusal`. | It is a domain class, and a domain class throws a typed domain error. |
+| A feature never reaches another feature. | `cli/` reaches `dispatcher/`, and the render service `page/`, by path, to bundle them. | They are bundled, never imported; dispatcher code runs in the CLI's process only while `init` or `update` bundle it. |
+| One reference per fact. | `skill/Reference.md` copies three `docs/cli.md` sections word for word: the ticket file format, the ticket moves and the exit codes. `docs/cli.md` is the source, and a change to either changes both in the same commit. | Agents in other repositories cannot read `docs/cli.md`. |
+| A failure exits non-zero. | `hook subagent-stop` exits 0 on every failure after its arguments are read; a store write that succeeded while the render failed exits 0, reported on standard error; `release` exits 0 when git declined the worktree removal or `branch -d` after the merge, reported. | The agent has already finished; the store holds the change; the release happened. |
+| An optional stored key is never added by a read. | The legacy review-bar read gives an unlinked row its link in memory (see Legacy). | Rows from before `reviewOf` existed are otherwise unreadable as bars. |
 
 ## Local rules
 
@@ -242,12 +268,10 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - Only a transition stamps `updated`. The named verbs enforce the legality matrix; `ticket status` skips it on purpose.
 - The ticket parse stays one line-oriented pass, an agreed exception to read → validate → migrate → map: a second walk
   over the lines would put at risk keeping every unowned line byte for byte.
-- A row's `history` holds only what the tool watched; nothing reconstructs phases. A review row belongs to its
-  ticket by `reviewOf`; a free-standing row known only by its `Review <N> #<id>` name is given `reviewOf` and
-  `reviewBarRound` by `cli/legacy/` when `task add` files it without `--review-of` or `--ticket` or when
-  `task update --name` renames it, by `update`'s rewrite, and by `src/adapters/legacy/` when a row still unlinked
-  is read. Nothing else links by a name: the page reads which rows are bars from the Board facts, and reads a bar's
-  name only to draw a ticket's bars latest named round first.
+- A row's `history` holds only what the tool watched; nothing reconstructs phases.
+- A review row belongs to its ticket by `reviewOf`; only the legacy linking (see Legacy) reads a name for it. The page
+  reads which rows are bars from the Board facts, and reads a bar's name only to draw a ticket's bars latest named
+  round first.
 
 ### The page
 
@@ -265,9 +289,9 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   `status --json` prints; the page reads them and keeps no copy of the rules.
 - The detail panel claims a log line when its `taskIds` or `ticketIds` hold the panel's row or ticket: every id its
   record concerns, never a number inside free text. A note carries none and is matched by its sentence.
-- Every value passes `escapeHtml` once; a ticket's `bodyHtml`, already escaped by `src/services/render/MarkdownRenderer.ts`,
-  is the one unescaped string. Stored stamps are sliced, never re-parsed, and shortened only through
-  `page/utils/TimeUtil.ts`.
+- Every value passes `escapeHtml` once; a ticket's `bodyHtml`, already escaped by the render service's markdown
+  renderer, is the one unescaped string. Stored stamps are sliced, never re-parsed, and shortened only through the
+  page's `TimeUtil`.
 - A visual change leaves the README screenshots stale: once it lands, run `.readme-graphics/regenerate.sh` in the
   main checkout.
 
@@ -278,10 +302,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - No skill file lists commands: `agent-progress help` is the reference, and `cli/HelpText.spec.ts` holds it.
   `skill/SKILL.md` names both the help and `skill/Reference.md`; the reference holds only what the help does not
   print.
-- `skill/Reference.md` is the one allowed second copy of three `docs/cli.md` sections, the ticket file format, the
-  ticket moves and the exit codes, because agents in other repositories cannot read `docs/cli.md`. The copy is word
-  for word, `docs/cli.md` is the source, and a change to either changes both in the same commit. What else the
-  reference says follows `docs/cli.md`, never leads it.
+- `skill/Reference.md` is the one allowed second copy of `docs/cli.md` sections (see Deviations). What else it says
+  follows `docs/cli.md`, never leads it.
 - A `SKILL.md` `description` is its trigger, so it names the words a user says. Skill files cite only commands, paths
   inside a tracked repository, or files beside them; never a file of this repository.
 - `skill-orchestrate/` repeats nothing from `skill/`, writes rules as instructions, and never restates what the
