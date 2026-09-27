@@ -6,9 +6,9 @@
 import { describe, expect, test }   from 'bun:test';
 import type { WordedLogEntry }      from '../../src/shared/@types/WordedLogEntry.ts';
 import { EXAMPLE_TIMESTAMP_SLICES } from '../testing/PageLimitsFixture.ts';
-import { LogMarkupUtil }            from './LogMarkupUtil.ts';
+import { MarkupUtil }               from './MarkupUtil.ts';
 
-const { logItemsMarkup } = LogMarkupUtil;
+const { logItemsMarkup } = MarkupUtil;
 
 /** The example board's own day: its stamps from the 18th print as a clock, the rest dated. */
 const EXAMPLE_TODAY = '2026-09-18';

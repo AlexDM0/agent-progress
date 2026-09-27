@@ -1,6 +1,7 @@
 /** The markup primitives several parts of the page emit. Every value passes `escapeHtml` exactly once here. */
 
 import { HtmlEscapeUtil }       from '../../src/lib/html-escape/HtmlEscapeUtil.ts';
+import type { WordedLogEntry }  from '../../src/shared/@types/WordedLogEntry.ts';
 import type { TimestampSlices } from './TimeUtil.ts';
 import { TimeUtil }             from './TimeUtil.ts';
 
@@ -36,8 +37,21 @@ function stampMarkup(tagName: string, stamp: string, todayCalendarDate: string, 
   return shortenedTextMarkup(tagName, TimeUtil.shortStampText(stamp, todayCalendarDate, slices), TimeUtil.fullStampText(stamp, slices));
 }
 
+/** `entryLimit` keeps the newest that many, `null` all; each stamp is shortened against the viewer's day on its own. */
+function logItemsMarkup(entries: readonly WordedLogEntry[], slices: TimestampSlices, todayCalendarDate: string, entryLimit: number | null = null): string {
+  // Sorting by stamp is a stated clock exception that decides only the display order, because `--at` backfills.
+  // Within one second the later append is the newer line, so the cap never keeps an older one over it.
+  return entries
+    .map((entry, appendIndex) => ({ entry, appendIndex }))
+    .sort((a, b) => b.entry.at.localeCompare(a.entry.at) || b.appendIndex - a.appendIndex)
+    .slice(0, entryLimit ?? entries.length)
+    .map(({ entry }) => `<li>${stampMarkup('time', entry.at, todayCalendarDate, slices)}<span>${HtmlEscapeUtil.escapeHtml(entry.text)}</span></li>`)
+    .join('');
+}
+
 export const MarkupUtil = {
   attribute,
+  logItemsMarkup,
   percentText,
   shortenedText,
   shortenedTextMarkup,

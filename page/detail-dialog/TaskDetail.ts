@@ -15,7 +15,6 @@ import { FIRST_REPEAT_REVIEW_ROUND }           from '../../src/lib/tracker-model
 import type { PageTicket }                     from '../../src/shared/@types/PagePayload.ts';
 import type { IdentifiedLogEntry }             from '../../src/shared/@types/WordedLogEntry.ts';
 import type { BoardRow }                       from '../@types/PageBoard.ts';
-import { LogMarkupUtil }                       from '../utils/LogMarkupUtil.ts';
 import { MarkupUtil }                          from '../utils/MarkupUtil.ts';
 import type { DurationUnits, TimestampSlices } from '../utils/TimeUtil.ts';
 import { TimeUtil }                            from '../utils/TimeUtil.ts';
@@ -237,7 +236,7 @@ function logMarkup(input: TaskDetailInput): string {
   if (entriesAboutTheRowOrTicket.length === 0) {
     return noteMarkup(NO_LOG_LINES_NOTE);
   }
-  return `<ul class="ap-detail-log">${LogMarkupUtil.logItemsMarkup(entriesAboutTheRowOrTicket, input.slices, input.todayCalendarDate)}</ul>`;
+  return `<ul class="ap-detail-log">${MarkupUtil.logItemsMarkup(entriesAboutTheRowOrTicket, input.slices, input.todayCalendarDate)}</ul>`;
 }
 
 function headMarkup(task: BoardRow | null, ticket: PageTicket | null): string {

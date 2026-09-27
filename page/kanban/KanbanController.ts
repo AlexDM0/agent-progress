@@ -11,7 +11,6 @@ import type { DurationUnits, TimestampSlices }      from '../utils/TimeUtil.ts';
 import { kanbanBoardMarkup }                        from './KanbanMarkup.ts';
 import { CLOSED_KANBAN_LANES }                      from './constants/KanbanBoardLayout.ts';
 import { KanbanLaneUtil }                           from './utils/KanbanLaneUtil.ts';
-import { KanbanOverflowUtil }                       from './utils/KanbanOverflowUtil.ts';
 import { LanePagingUtil }                           from './utils/LanePagingUtil.ts';
 
 const KANBAN_FRAME_ELEMENT_ID = 'ap-kanban-frame';
@@ -36,7 +35,7 @@ function updateOverflow(): void {
   if (board === null || frame === null) {
     return;
   }
-  const directions = KanbanOverflowUtil.overflowDirectionsOf(board.scrollLeft, board.scrollWidth, board.clientWidth);
+  const directions = KanbanLaneUtil.overflowDirectionsOf(board.scrollLeft, board.scrollWidth, board.clientWidth);
   if (directions === null) {
     frame.removeAttribute('data-overflow');
   } else {

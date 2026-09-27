@@ -1,9 +1,9 @@
 /** Which way the Kanban board can still scroll; a board within a pixel of an end counts as at that end. */
 
 import { describe, expect, test } from 'bun:test';
-import { KanbanOverflowUtil }     from './KanbanOverflowUtil.ts';
+import { KanbanLaneUtil }         from './KanbanLaneUtil.ts';
 
-const { overflowDirectionsOf } = KanbanOverflowUtil;
+const { overflowDirectionsOf } = KanbanLaneUtil;
 
 describe('overflowDirectionsOf', () => {
   test.each([

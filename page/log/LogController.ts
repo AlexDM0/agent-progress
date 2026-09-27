@@ -5,7 +5,7 @@ import type { ViewerPreferences }                      from '../@types/ViewerCho
 import { LOG_ENTRIES_ELEMENT_ID, LOG_NOTE_ELEMENT_ID } from '../constants/TemplateIds.ts';
 import { ViewerPreferenceUtil }                        from '../preferences/utils/ViewerPreferenceUtil.ts';
 import { DomUtil }                                     from '../utils/DomUtil.ts';
-import { LogMarkupUtil }                               from '../utils/LogMarkupUtil.ts';
+import { MarkupUtil }                                  from '../utils/MarkupUtil.ts';
 import type { TimestampSlices }                        from '../utils/TimeUtil.ts';
 import { LogCapUtil }                                  from './utils/LogCapUtil.ts';
 
@@ -28,7 +28,7 @@ export function createLogController(sources: LogControllerSources): { show(): vo
   const show = (): void => {
     const controlIsNeeded = LogCapUtil.logControlIsNeeded(entries.length);
     const entryLimit      = controlIsNeeded ? LogCapUtil.logEntryLimitFor(logVisibility) : null;
-    DomUtil.setMarkup(LOG_ENTRIES_ELEMENT_ID, LogMarkupUtil.logItemsMarkup(entries, slices, readTodayCalendarDate(), entryLimit));
+    DomUtil.setMarkup(LOG_ENTRIES_ELEMENT_ID, MarkupUtil.logItemsMarkup(entries, slices, readTodayCalendarDate(), entryLimit));
     DomUtil.setHidden('ap-log-empty', entries.length > 0);
     DomUtil.setText(LOG_NOTE_ELEMENT_ID, LogCapUtil.logNoteText(entries.length, logVisibility));
     DomUtil.setHidden('ap-log-control', !controlIsNeeded);
