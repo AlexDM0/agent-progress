@@ -1,9 +1,8 @@
 /**
  * The task command's seams to the retired verbs and status words, and to the review link a review-shaped name gives, seen from the current
  * side: every current verb reaches its own handler and every current status is taken by `task update --status`, so none is ever answered as
- * a retired word, a row whose name is not review-shaped, or that is filed with `--ticket`, is stored with no review link, and a link given
- * by `--review-of` stays through a rename. It imports nothing from `cli/legacy/`, so it still holds once that folder and its seam lines are
- * dropped.
+ * a retired word, a row whose name is not review-shaped, or that is filed with `--ticket`, is stored with no review link, and a rename never
+ * moves or drops a stored link. It imports nothing from `cli/legacy/`, so it still holds once that folder and its seam lines are dropped.
  */
 import { readFileSync } from 'node:fs';
 import { join }         from 'node:path';
@@ -80,14 +79,16 @@ describe.skipIf(!gitIsAvailable())('the task command with current words only', (
     }
   });
 
-  test('a link given by --review-of under a plain name stays through a rename to another ticket\'s review name', async () => {
+  test('a rename never moves or drops a stored review link, whatever the new name', async () => {
     await run(['ticket', 'add', 'Example work']);
-    await run(['task', 'add', 'Example review', '--review-of', '1']);
-    const reviewRowId = storedProgress().tasks.find((task) => task.name === 'Example review')?.id;
+    await run(['ticket', 'add', 'Other work']);
+    await run(['task', 'add', 'Review 1 #001', '--review-of', '1']);
+    const reviewRowId = storedProgress().tasks.find((task) => task.name === 'Review 1 #001')?.id;
 
-    await run(['task', 'update', String(reviewRowId), '--name', 'Review 2 #2 — Other work']);
-
-    expect(storedProgress().tasks.find((task) => task.id === reviewRowId)).toMatchObject({ reviewOf: '001', reviewBarRound: 1 });
+    for (const newName of ['A plain name', 'Review 1 #002']) {
+      await run(['task', 'update', String(reviewRowId), '--name', newName]);
+      expect(storedProgress().tasks.find((task) => task.id === reviewRowId), newName).toMatchObject({ reviewOf: '001', reviewBarRound: 1 });
+    }
   });
 
   test('every current status is taken by task update --status and stored as written', async () => {
