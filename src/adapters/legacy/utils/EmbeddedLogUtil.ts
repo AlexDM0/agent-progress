@@ -1,6 +1,7 @@
 /**
  * Reads the log array a version 1 progress.json holds, its worded entries becoming note records, and believes a log.jsonl beside it only as a
- * migration cut short. It can be deleted once every tracker has been rewritten by `agent-progress update`.
+ * migration cut short. It can be deleted once every tracker has been rewritten by `agent-progress update`, with the progress ingestion's
+ * `carriedOverLog` and `StoredLog.logFileMustBeRewritten`, which only a carried-over log sets.
  */
 import type { LogRecord }        from '../../../lib/tracker-model/@types/LogRecord.ts';
 import type { StoredLogReading } from '../../log/@types/StoredLog.ts';

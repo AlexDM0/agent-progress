@@ -167,7 +167,7 @@ docs/                this page, the CLI reference, the backlog, the migration pl
 Imports run up only, with no cycles:
 
 ```
-src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → render)  →  features (cli/, page/, dispatcher/)
+src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → tracker)  →  features (cli/, page/, dispatcher/)
 ```
 
 A feature (`cli/`, `page/`, `dispatcher/`) imports itself and `src/*`, never another feature. Inside

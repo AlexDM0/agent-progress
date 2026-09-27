@@ -142,8 +142,9 @@ links it would make; it still runs `bun install` and `bun link`.
 
 **Updating.** A `git pull` in this checkout updates the CLI and both skills at once. Then run
 `agent-progress update` in every repository it tracks: it regenerates the dispatcher, the brief and the
-other files it installed, and records their install version in `.agent-progress/version.json`. Until it
-has run there, most commands in that repository refuse at exit 1 and say to run it; see
+other files it installed, and records their install version in `.agent-progress/version.json`. When the
+pull changed the install version, most commands in that repository refuse at exit 1 until it has run
+there, and say to run it; see
 [Install version](docs/cli.md#install-version).
 
 ### 2. Adopt a repository

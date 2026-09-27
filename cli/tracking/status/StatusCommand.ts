@@ -71,7 +71,7 @@ function totalTokensOf(tasks: readonly Readonly<Task>[]): number | null {
 
 /**
  * The stored run id rides in `concurrency` beside the state it belongs to, so the orchestrator finds the run to resume where it reads the
- * state; `readyTickets` is read from the Board's ready tickets, as `readyTicketIds` is.
+ * state, and the ids in flight end the block; `readyTickets` is read from the Board's ready tickets, as `readyTicketIds` is.
  */
 function derivedDocumentOf(board: Board): { concurrency: object; readyTickets: ReadyTicket[] } {
   const concurrency     = board.dispatchCapacity();
@@ -82,7 +82,10 @@ function derivedDocumentOf(board: Board): { concurrency: object; readyTickets: R
   };
 }
 
-/** The whole progress file plus every ticket in the version 1 document shape, with the derived `concurrency` and `readyTickets` beside it. */
+/**
+ * The whole progress file plus every ticket in the version 1 document shape, with the derived `concurrency` and `readyTickets` beside it,
+ * then the dispatch fields `reviewWaitingTickets`, `pausedBuilds` and `ticketRows`.
+ */
 function fullDocumentOf(progress: ProgressFile, wordedLog: readonly WordedLogEntry[], board: Board): object {
   return {
     ...ProgressDocumentUtil.documentOf(progress, wordedLog),

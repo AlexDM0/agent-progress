@@ -1,5 +1,5 @@
 /**
- * The typed refusal library code throws instead of exiting, since nothing under `lib/` or `src/` calls `process.exit`: `cli/Main.ts` maps
+ * The typed refusal library code throws instead of exiting, since nothing under `src/` calls `process.exit`: `cli/Main.ts` maps
  * `refused` to exit 1, a refusal the caller can act on, and `unrepaired` to exit 2, a state the tool will not repair on its own. A refusal
  * thrown from `src/` carries a detail, a reason code with its facts and no words, that the command line words; only `cli/` builds one from words.
  */

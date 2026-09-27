@@ -14,6 +14,7 @@ import { recordInstallVersion, refreshTrackedRepository } from '../TrackerRefres
 
 const USAGE = 'agent-progress update [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';
 
+// The seam to the retired `--hooks`; dropping `cli/legacy/` drops the spread.
 const KNOWN_OPTION_NAMES = ['no-claude-md', 'no-hooks', 'no-workflow', 'no-agent-definition', ...IGNORED_RETIRED_OPTION_NAMES];
 
 export const updateCommand: CommandHandler = async (commandArguments, context) => {

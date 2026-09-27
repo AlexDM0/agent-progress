@@ -130,7 +130,9 @@ or review-shaped names without `--review-of`.
 
 `docs/images/panel-tickets.png` and `docs/images/panel-watch.gif` show the ticket words `open` and
 `done` that step 4a retired, and `panel-tickets.png` shows no Kanban tab. Agreed: retake them with
-`.readme-graphics/regenerate.sh`.
+`.readme-graphics/regenerate.sh`. Its `compose.py` still builds the `frame-*`, `story-*` and
+`board-day.gif` images only the deleted READMEs used, and the script copies every built image into
+`docs/images/`: drop those jobs from `compose.py` first, or delete those copies before committing.
 
 Not started because the script and its demo board are git-ignored and live only in the owner's main
 checkout, which must run the merged code first.

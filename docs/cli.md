@@ -371,7 +371,7 @@ comment is code, and a file type it does not know counts every non-blank line.
 | code | meaning | examples |
 |---|---|---|
 | **0** | done, or there was nothing to do | also a store write whose page could not be rebuilt (reported on standard error, with an error banner on the page when only its script failed; `render` rebuilds it), a release whose cleanup git declined, and every `hook subagent-stop` |
-| **1** | a refusal the caller can act on | no tracker here, no such task or ticket, a missing `--reason`, a move the matrix refuses, a claim with no free slot or on a held-back low ticket, lowering a ticket that is not pending, a release refused (`main-moved` among them), installed files of another install version (every command but `init`, `update`, `help` and `status`), and `init` or `update` over files a newer agent-progress installed, an unknown command |
+| **1** | a refusal the caller can act on | no tracker here, no such task or ticket, a missing `--reason`, a move the matrix refuses, a claim with no free slot or on a held-back low ticket, lowering a ticket that is not pending, a release refused (`main-moved` among them), installed files of another install version (every command but `init`, `update`, `help`, `status` and `hook subagent-stop`, which reports it at exit 0), and `init` or `update` over files a newer agent-progress installed, an unknown command |
 | **2** | a state the tool will not repair on its own | an unreadable or malformed progress file, an unreadable or malformed log.jsonl, a malformed ticket file a command names, a lock it could not take, a release reason `git-failed` or `tracker-failed`, and any error the tool did not expect |
 
 ## The Handoff and the token column

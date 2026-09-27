@@ -117,10 +117,7 @@ function recordedPhaseLines(task: Task): PhaseLine[] {
   });
 }
 
-/**
- * The newest phase is the row as it stands, so it is read the way the chart reads it: the one state a task status cannot name on its
- * own is an `in-review` row whose ticket is `in-review` too. An older phase keeps the status it was filed under.
- */
+/** The newest phase is the row as it stands, so it takes the row's display state from the Board facts, as the chart does; an older phase keeps its own. */
 function readNewestPhaseAsTheChartDoes(lines: readonly PhaseLine[], task: BoardRow): PhaseLine[] {
   const newest = lines.at(-1);
   if (newest === undefined || newest.state !== task.status) {

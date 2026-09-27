@@ -184,7 +184,7 @@ describe('the phases', () => {
     expect(phaseLabelsIn(markup)).toEqual(['awaiting review', 'reviewing 2', 'reviewing 3']);
   });
 
-  // Reading the newest phase the way the chart reads the row is the whole reason the panel is handed the ticket.
+  // The newest phase takes the display state the Board facts give the row, which the ticket's own status decides here.
   test('reads the newest phase of an in-review row through its ticket, recorded or derived', () => {
     const recorded = panelFor(
       exampleTask({ status: 'in-review', ticket: '001', history: [{ status: 'in-progress', at: STARTED_AT }, { status: 'in-review', at: FINISHED_AT }] }),

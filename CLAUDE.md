@@ -39,7 +39,7 @@ to make a check pass.
 ### Imports (held by review)
 
 ```
-src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → render)  →  features (cli/, page/, dispatcher/)
+src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → tracker)  →  features (cli/, page/, dispatcher/)
 ```
 
 - Imports run up only, with no cycles. A feature (`cli/`, `page/`, `dispatcher/`) imports itself and `src/*`, never
@@ -75,7 +75,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
   of its boundary (`src/adapters/legacy/`, `src/services/tracker/legacy/`, `cli/legacy/`, and `src/shared/legacy/`
   for what two legacy folders share) and is reached only through one seam call per consumer;
   current code imports nothing else from it, and a legacy module may import current code. Its header says what older
-  input it reads and when it can go. Every case that reads an older input or an older habit sits in a spec inside a
+  input it reads and when it can go, and names what current code carries only for it (an ingestion's older-format flag,
+  a write only a legacy rewrite calls), which goes with it. Every case that reads an older input or an older habit sits in a spec inside a
   legacy folder, end-to-end ones in `cli/legacy/` and the page's drawing of a legacy bar in `page/legacy/`, so dropping
   it deletes the module, its specs and its seam calls, each seam line becoming the current-format answer, and the
   help, `docs/cli.md` and `skill/Reference.md` sentences on it.
@@ -106,7 +107,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
   unreadable tracker, no tracker found, the held lock, or a template token count. The install-version mismatch is the
   one detail thrown from `cli/`, by `cli/InstallVersionCheck.ts`. Only `cli/` builds a refusal from words. Wherever
   the command line prints a refusal (`cli/Main.ts`, `release --json`'s `detail`, the hook's sentence), it words it
-  through `src/adapters/utils/OperationRefusalWordingUtil.ts`; a service never imports a wording util.
+  through `src/adapters/utils/OperationRefusalWordingUtil.ts`; a service never imports a refusal wording util.
 - Exit codes are decided only in `cli/Main.ts`: 0 done or nothing to do; 1 a refusal the caller can act on
   (`refused`, or an unknown command); 2 a state the tool will not repair (`unrepaired`, or any other throw).
   `agent-progress.ts` is the only `process.exit`.
@@ -182,8 +183,9 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
   alphabetised; builtins through the `node:` protocol (`import/enforce-node-protocol-usage`, turned on in
   `eslint.config.js`); more than 3 named imports or 4+ properties one per line; arrow parameters parenthesised; no
   `any`; a blank line before a function declaration. `src/testing/`, `cli/testing/`, `src/adapters/progress/testing/`,
-  `dispatcher/testing/` and `page/testing/` may import devDependencies. Deliberately off: `no-plusplus`, `no-continue`, `no-await-in-loop`, `no-param-reassign`,
-  `consistent-return`, `no-restricted-syntax`, `guard-for-in`, `class-methods-use-this`, `no-use-before-define`.
+  `dispatcher/testing/` and `page/testing/` may import devDependencies. Deliberately off: `no-plusplus`, `no-continue`,
+  `no-await-in-loop`, `no-param-reassign`, `consistent-return`, `no-restricted-syntax`, `guard-for-in`,
+  `class-methods-use-this`, `no-use-before-define`.
 
 ### Tests
 

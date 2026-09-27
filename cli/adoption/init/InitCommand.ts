@@ -22,6 +22,7 @@ import { recordInstallVersion, refreshTrackedRepository } from '../TrackerRefres
 
 const USAGE = 'agent-progress init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';
 
+// The seam to the retired `--hooks`; dropping `cli/legacy/` drops the spread.
 const KNOWN_OPTION_NAMES = ['project', 'root', 'no-claude-md', 'no-hooks', 'no-workflow', 'no-agent-definition', ...IGNORED_RETIRED_OPTION_NAMES];
 
 const IGNORE_OUTCOME_WORDS: Record<string, string> = {

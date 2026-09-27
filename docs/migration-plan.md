@@ -137,7 +137,7 @@ do not exist yet.
 | `cli/Main.ts`, `cli/CommandTable.ts`, `cli/HelpText.ts`, `cli/arguments/ArgumentParser.ts`, `cli/arguments/OptionsWithValues.ts`, `cli/CommandContext.ts` | stay in cli/ |
 | `cli/CommandSupport.ts` | dissolves. Step 6 moved the reading, the lock → write → render pipeline, `rewriteOlderTrackerFiles` and tracker creation to src/services/tracker (TrackerReader, TrackerPipeline, DashboardRendering, TrackerCreation); thin adapters over them stay (`openTrackerForWriting`, `openTrackerForWritingThenReadNextLine`, `renderDashboardOrRefuse`, `rewriteOlderTrackerFilesAndReport`). Step 7 takes the rest: printing, `reportRenderProblems`, the render refusal and the rewrite text → cli/utils/OutputUtil or src/adapters; `resolveAtOption` and `tokenCountFrom` → cli/utils/OptionValueUtil; board reads (`concurrencyDocumentOf`, `readyTicketsOf`, `nextLineFor`, `boardForReading`) → Board queries; the adapters are regrouped when the file dissolves |
 | `lib/utils/NextLineUtil.ts` | cli/utils/NextLineUtil (only cli uses it) |
-| `cli/TrackerRefresh.ts` | cli/adoption (only init and update use it); installs generated files with the version stamp |
+| `cli/TrackerRefresh.ts` | cli/adoption (only init and update use it); installs the generated files and writes `.agent-progress/version.json` last |
 | command folders | grouped into sets: cli/tracking (task, log, status, range, clear, render, open), cli/tickets (ticket), cli/dispatch (dispatcher, concurrency, release), cli/adoption (init, update), cli/measurement (usage, rework, hook). Each command parses, calls the tracker service or the Board, and prints through src/adapters |
 | `cli/ticket/TicketCommand.ts` | split by subcommand group inside cli/tickets; its rules move to the Board |
 | `lib/constants/Types.ts` | src/lib/tracker-model/@types (Task, Ticket, ProgressFile, log entry) |
@@ -343,7 +343,9 @@ Settled on 2026-09-26, from the black-box comparison with main:
   carried over from a version 1 log, keeps its sentence matching on the page as current code,
   because the two cannot be told apart.
 - **Additive output fields are allowed**: `reviewBarRound`, the payload's `boardFacts`, the new
-  `status --json` fields, and the page's log-entry `taskIds` and `ticketIds`.
+  `status --json` fields, and the page's log-entry `taskIds` and `ticketIds`. Because the detail
+  panels filter by those ids, the record of a closed review row filed with `--review-of` under a
+  name without `#<id>` now shows in its ticket's panels, which main's sentence match missed.
 
 Settled on 2026-09-26, in step 8:
 
@@ -370,7 +372,13 @@ Settled on 2026-09-26, in step 8:
   it on a free-standing unlinked row, both through `cli/legacy/`. Past `update`, the read-time linking
   in `src/adapters/legacy/` links only a row renamed by hand in `progress.json` or named round 0
   (`Review 0 #<id>`), and dropping it drops that linking; the name util both use lives in
-  `src/shared/legacy/utils/ReviewBarNameUtil.ts`.
+  `src/shared/legacy/utils/ReviewBarNameUtil.ts`. `task add --json` and `task update --json`
+  therefore print that row's `reviewOf` and `reviewBarRound`.
+- **A refused CLAUDE.md block or settings file does not hold the install version back.** It is
+  reported on standard error with the fix, the command exits 0 and `version.json` is written, so
+  a malformed marker in a project's own file never locks every command; the refusal says to rerun
+  `update` once the marker is fixed. This departs on purpose from "a failure leaves the old version",
+  which covers writes that throw.
 
 ## 7. Risks
 

@@ -121,8 +121,8 @@ accepted. A row that never gets there is a row the chart shows as still owed.
 the ticket it reviews in its `reviewOf` field, which `status --json --full` shows, and `status --json`
 lists each ticket's row and review bars, with each bar's round, in `ticketRows`; a ticket that does
 not exist is refused at exit 1 and nothing is written. On the Progress tab each review row sits
-directly above that ticket's own row, indented one level, latest round first, so round 1 is right
-above the ticket, with its own bar, pill and times. A row filed without the flag or `--ticket` whose
+directly above that ticket's own row, indented one level, newest filed first, so the first one filed
+is right above the ticket, with its own bar, pill and times. A row filed without the flag or `--ticket` whose
 name starts `Review <N> #<id>` is stored with the field its name gives, and one an older version stored
 without it is read the same way, so a board filed before the flag nests too; a bundle's
 review, `Review 1 #13, #5 — …`, sits once, above the first
@@ -371,7 +371,7 @@ default. Bars outside the window are clipped and marked, never dropped.
 | code | meaning |
 |---|---|
 | **0** | done, or there was nothing to do; also a store write whose page could not be rebuilt (below), a release whose cleanup git declined, and every `hook subagent-stop` |
-| **1** | a refusal you can act on: no tracker here (run `agent-progress init`), no such task or ticket, a missing `--reason`, a move the matrix refuses, a claim with no free slot or on a low ticket still held back, lowering a ticket that is not pending, a release refused (`main-moved` among them), files installed here of another install version, on every command but `init`, `update`, `help` and `status` (run `agent-progress update`), `init` or `update` over files a newer agent-progress installed, an unknown command |
+| **1** | a refusal you can act on: no tracker here (run `agent-progress init`), no such task or ticket, a missing `--reason`, a move the matrix refuses, a claim with no free slot or on a low ticket still held back, lowering a ticket that is not pending, a release refused (`main-moved` among them), files installed here of another install version, on every command but `init`, `update`, `help`, `status` and `hook subagent-stop`, which reports it at exit 0 (run `agent-progress update`), `init` or `update` over files a newer agent-progress installed, an unknown command |
 | **2** | a state the tool will not repair on its own: an unreadable or malformed progress file, an unreadable or malformed log.jsonl, a malformed ticket file a command names, a lock it could not take, a release reason `git-failed` or `tracker-failed`, and any error the tool did not expect |
 
 Check the code rather than the wording. A command that wrote the store but could not rebuild the

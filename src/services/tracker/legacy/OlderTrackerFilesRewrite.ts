@@ -1,7 +1,8 @@
 /**
  * Rewrites a tracker in an older format (a progress file carrying its log, rows in retired words or review rows known only by their name,
  * tickets in retired words) in the current one for `update` and `init`.
- * It can be deleted once every tracker has been rewritten by `agent-progress update`.
+ * It can be deleted once every tracker has been rewritten by `agent-progress update`, with `writeTrackerUnchanged` and its `extraTickets` in
+ * `src/services/tracker/TrackerPipeline.ts` and the older-format flags the readers return: `progressFileIsInAnOlderFormat` and `ticketsInAnOlderFormat`.
  */
 import type { RenderState }                             from '../../render/RenderState.ts';
 import { renderDashboard, type DashboardRenderOutcome } from '../DashboardRendering.ts';
