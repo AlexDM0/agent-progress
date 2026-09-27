@@ -212,6 +212,27 @@ describe.skipIf(!gitIsAvailable())('initialising a repository', () => {
     expect(readFileSync(join(repositoryDirectory, '.agent-progress', 'version.json'), 'utf8')).toBe(`{\n  "installVersion": ${INSTALL_VERSION}\n}\n`);
   });
 
+  test('a fresh init cut short after its first installed file leaves the tracker unversioned, so the next command asks for a rerun', async () => {
+    const repositoryDirectory = scratchRepository();
+    const rootDirectory       = realpathSync(repositoryDirectory);
+    // A directory where the agent definition goes makes its write fail after the brief, the dispatcher and the CLAUDE.md block.
+    mkdirSync(installedFilePathsIn(rootDirectory).agentDefinition, { recursive: true });
+
+    expect(await runCommandLine(['init'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }))).toBe(2);
+    expect(existsSync(installedFilePathsIn(rootDirectory).agentBrief)).toBe(true);
+    expect(existsSync(installedFilePathsIn(rootDirectory).installManifest)).toBe(false);
+
+    const nextCommand = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['task', 'add', 'Example row'], nextCommand)).toBe(1);
+    expect(nextCommand.errorText()).toBe(InstallVersionWordingUtil.messageOf({
+      kind:             'install-version-mismatch',
+      rootDirectory,
+      manifestFilePath: installedFilePathsIn(rootDirectory).installManifest,
+      installVersion:   INSTALL_VERSION,
+      mismatch:         { reason: 'unversioned' },
+    }));
+  });
+
   test('--root tracks the directory it names rather than the discovered repository root', async () => {
     const repositoryDirectory = scratchRepository();
     const plainDirectory      = createScratchGitRepository('init-command-root');

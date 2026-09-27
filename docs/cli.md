@@ -168,8 +168,8 @@ it against the running agent-progress before it does anything:
 - the version it records equals this agent-progress's: the command runs;
 - it records a different version, older or newer: refused;
 - it is missing while the brief, `.agent-progress/agent-brief.md`, is there — the files were installed
-  by an agent-progress from before versioning, since every `init` and `update` writes the brief:
-  refused;
+  by an agent-progress from before versioning, since every `init` and `update` writes the brief, or a
+  fresh `init`, which writes the brief first, was cut short: refused;
 - it is missing and there is no brief — nothing is installed that could disagree: the command runs;
 - it cannot be read or does not hold a whole number of at least 1: refused;
 - a directory sits at its path: refused, saying to remove that directory and then run

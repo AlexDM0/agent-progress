@@ -10,7 +10,10 @@ import { INSTALL_VERSION }             from './constants/InstallVersion.ts';
 import type { InstallVersionVerdict }  from './utils/InstallVersionVerdictUtil.ts';
 import { InstallVersionVerdictUtil }   from './utils/InstallVersionVerdictUtil.ts';
 
-/** The brief has no opt-out and every `init` and `update` writes it, so it stands for the installed set. Fails closed: only ENOENT is absence. */
+/**
+ * The brief has no opt-out, every `init` and `update` writes it and a fresh `init` writes it first, so it stands for the installed set.
+ * Fails closed: only ENOENT is absence.
+ */
 function installedFilesArePresentIn(rootDirectory: string): boolean {
   try {
     lstatSync(installedFilePathsIn(rootDirectory).agentBrief);

@@ -35,6 +35,8 @@ export interface TrackerRefreshRequest {
   writesClaudeInstructions:  boolean;
   writesTheSubagentStopHook: boolean;
   writesTheAgentDefinition:  boolean;
+  /** Only a fresh `init`: the brief marks the files installed, so a run cut short after it reads as unversioned and asks for a rerun. */
+  writesTheBriefFirst:       boolean;
   standardError:             (text: string) => void;
 }
 
@@ -174,9 +176,11 @@ export function refreshTrackedRepository(request: TrackerRefreshRequest): Tracke
     writesClaudeInstructions,
     writesTheSubagentStopHook,
     writesTheAgentDefinition,
+    writesTheBriefFirst,
     standardError,
   } = request;
   const installedFilePaths = installedFilePathsIn(workspace.rootDirectory);
+  const briefWrittenFirst  = writesTheBriefFirst ? refreshAgentBrief(installedFilePaths.agentBrief, installedFileTexts.agentBrief) : null;
 
   const { dispatcherScript } = installedFileTexts;
 
@@ -188,8 +192,8 @@ export function refreshTrackedRepository(request: TrackerRefreshRequest): Tracke
     ? 'left alone (--no-workflow)'
     : refreshDispatcherScript(installedFilePaths.dispatcherScript, dispatcherScript);
   const agentDefinitionLine = refreshAgentDefinition(installedFilePaths.agentDefinition, installedFileTexts.agentDefinition, writesTheAgentDefinition);
-  // Last, so a write that fails before them leaves the brief's `updated` and the removal for the rerun to do and report.
-  const { briefFilePath, briefLine } = refreshAgentBrief(installedFilePaths.agentBrief, installedFileTexts.agentBrief);
+  // Otherwise last, so a write that fails before them leaves the brief's `updated` and the removal for the rerun to do and report.
+  const { briefFilePath, briefLine } = briefWrittenFirst ?? refreshAgentBrief(installedFilePaths.agentBrief, installedFileTexts.agentBrief);
   // The seam to the retired .claude/workflows/ copy; dropping cli/legacy/ makes the workflow line dispatcherScriptLine.
   const retiredCopyRemovalReport = dispatcherScript === null ? null : removeTheRetiredDispatcherScript(workspace.rootDirectory);
   const workflowLine = retiredCopyRemovalReport === null ? dispatcherScriptLine : `${dispatcherScriptLine}; ${retiredCopyRemovalReport}`;

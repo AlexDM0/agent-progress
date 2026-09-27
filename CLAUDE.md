@@ -142,7 +142,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   `.agent-progress/agent-progress-dispatch.js`, and delete a `.claude/workflows/` copy an older version installed.
 - Everything installed is versioned by one manifest, `.agent-progress/version.json`, holding `INSTALL_VERSION`
   (`cli/constants/InstallVersion.ts`); no installed file carries a stamp. `init` and `update` write it last, after every
-  other file is computed and written, so a run cut short leaves the old version and a rerun completes it.
+  other file is computed and written, so a run cut short leaves the old version and a rerun completes it; a fresh `init`
+  writes the brief first, so one cut short reads as unversioned rather than as nothing installed.
 - Bump `INSTALL_VERSION` by hand, in the same commit, when a file installed by the previous version becomes wrong
   against the new CLI: a command, flag, JSON field, stored state or exit code an installed file names or reads changes
   meaning or is removed; the dispatcher's launch arguments change; or an installed file moves or a new one is

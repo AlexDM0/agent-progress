@@ -31,6 +31,7 @@ export const updateCommand: CommandHandler = async (commandArguments, context) =
     writesClaudeInstructions:  !commandArguments.flag('no-claude-md'),
     writesTheSubagentStopHook: !commandArguments.flag('no-hooks'),
     writesTheAgentDefinition:  !commandArguments.flag('no-agent-definition'),
+    writesTheBriefFirst:       false,
     standardError:             context.standardError,
   });
 
