@@ -1,3 +1,4 @@
+import { FIRST_TASK_ID }       from '../../src/lib/tracker-model/constants/TaskIds.ts';
 import { TimeUtil }            from '../../src/lib/utils/TimeUtil.ts';
 import { TokenCountUtil }      from '../../src/lib/utils/TokenCountUtil.ts';
 import { OperationRefusal }    from '../../src/shared/OperationRefusal.ts';
@@ -32,10 +33,10 @@ function tokenCountFrom(commandArguments: ArgumentParser): number | undefined {
   return count;
 }
 
-/** A task id as written, or null when it is not a positive whole number; the caller words the refusal. */
+/** A task id as written, or null when it is not a whole number of at least the first task id; the caller words the refusal. */
 function taskIdOf(written: string): number | null {
   const identifier = Number(written);
-  return Number.isSafeInteger(identifier) && identifier > 0 ? identifier : null;
+  return Number.isSafeInteger(identifier) && identifier >= FIRST_TASK_ID ? identifier : null;
 }
 
 export const OptionValueUtil = { atStampFrom, tokenCountFrom, taskIdOf } as const;

@@ -13,9 +13,10 @@ import type {
   TicketPriority,
   TicketType
 } from '../../lib/tracker-model/@types/Ticket.ts';
-import { TicketIdUtil }   from '../../lib/tracker-model/utils/TicketIdUtil.ts';
-import type { Workspace } from './Workspace.ts';
-import { SlugUtil }       from './utils/SlugUtil.ts';
+import { FIRST_TICKET_NUMBER } from '../../lib/tracker-model/constants/TicketFields.ts';
+import { TicketIdUtil }        from '../../lib/tracker-model/utils/TicketIdUtil.ts';
+import type { Workspace }      from './Workspace.ts';
+import { SlugUtil }            from './utils/SlugUtil.ts';
 
 export interface MalformedTicketFile {
   filePath: string;
@@ -133,7 +134,7 @@ export function nextTicketId(workspace: Workspace): string {
   for (const identifier of ticketIdsNamedByTaskRows(workspace)) {
     markIdentifierSpent(identifier);
   }
-  return TicketIdUtil.padTicketId(highest + 1);
+  return TicketIdUtil.padTicketId(Math.max(highest + 1, FIRST_TICKET_NUMBER));
 }
 
 /** Writes nothing: the caller holds the lock and writes the ticket after the progress file, so the id it assigns is only safe to use inside that hold. */
