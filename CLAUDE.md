@@ -6,9 +6,9 @@ dispatcher its sessions run on.
 
 ## In flight
 
-The conventions migration is under way on branch `migration/conventions` per `docs/migration-plan.md`. The tree is
-mid-move, so code may still sit where the plan moves it from, and the map below describes the tree as it is. Where
-the plan is specific it wins; these rules decide the rest.
+The conventions migration (`docs/migration-plan.md`) is complete through step 9 on branch `migration/conventions`, and
+awaits the polish sweep and end-of-refactor review (step 10) and the owner's merge. Until the merge, where the plan is
+specific it wins; these rules decide the rest.
 
 ## Verify
 
@@ -63,7 +63,6 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
   `src/testing/`. `cli/` imports `src/services/` as a feature does.
 - `src/shared/` holds app-specific code several parts use and imports only `src/lib/` and itself; `src/` never imports
   a feature.
-- The target layout's import rules are in section 2 of `docs/migration-plan.md`.
 
 ### Model and boundaries
 
@@ -162,11 +161,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
 
 ### TypeScript and lint
 
-- Bun runs the TypeScript; `tsc` only type-checks. `tsconfig.json`: `noEmit`, `target` and `lib` `ESNext`,
-  `module` `Preserve`, `moduleResolution` `bundler`, `moduleDetection` `force`, `allowImportingTsExtensions`,
-  `verbatimModuleSyntax`, `types: ["bun"]`, `strict`, `noUncheckedIndexedAccess`, `noImplicitOverride`,
-  `noFallthroughCasesInSwitch`, `noPropertyAccessFromIndexSignature`, `exactOptionalPropertyTypes`,
-  `noUnusedLocals`, `noUnusedParameters`, `forceConsistentCasingInFileNames`, `skipLibCheck`.
+- Bun runs the TypeScript; `tsc` only type-checks, with the strict options `tsconfig.json` sets.
 - Write for their consequences: `process.env['NAME']`, a written fallback instead of `!`, objects built
   conditionally instead of spreading `undefined`, `import type` for type-only imports.
 - The page is its own DOM-only project, `page/tsconfig.json` (DOM lib, no Bun or Node types), which the root
@@ -304,9 +299,9 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
 agent-progress.ts           the bin shim: runs the command line and exits with its number
 package.json                the bin entry, the scripts and the one runtime dependency, marked
 tsconfig.json               the strict Bun project
-eslint.config.js            the shared ESLint config, the node: protocol rule, and the devDependency exemption for the five
-                            test-only folders: src/testing/, cli/testing/, src/adapters/progress/testing/, dispatcher/testing/
-                            and page/testing/
+eslint.config.js            the shared ESLint config, the node: protocol rule, and the devDependency exemption for the
+                            test-only folders that need one: src/testing/, cli/testing/, src/adapters/progress/testing/,
+                            dispatcher/testing/ and page/testing/
 bun.lock                    the lockfile, committed
 .gitignore                  node_modules/, .agent-progress/, .DS_Store, .readme-graphics/, .idea/
 .idea/                      git-ignored IDE settings
@@ -324,7 +319,7 @@ page/                       the browser page: its sets, its own DOM-only tsconfi
                             test-only: the Board fixture its specs read
 resources/                  files read at runtime: the page's HTML template, and under templates/ the markdown init, update
                             and ticket add fill
-src/                        the target layout's code, filled step by step as the migration plan moves it
+src/                        the code the features share, in the conventions' layout:
   src/lib/                  package-grade building blocks, one folder each, the package's description in its main module's header:
                             atomic-file (AtomicFile.ts), git (GitProcess.ts), claude-code (ClaudeTranscripts.ts; also
                             builds Workflow scripts),
