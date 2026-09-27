@@ -6,16 +6,14 @@ dispatcher its sessions run on.
 
 ## In flight
 
-The conventions migration (`docs/migration-plan.md`) is complete through step 9 on branch `migration/conventions`, and
-awaits the polish sweep and end-of-refactor review (step 10) and the owner's merge. Until the merge, where the plan is
-specific it wins; these rules decide the rest.
+The conventions migration is on branch `migration/conventions`; until the merge, where `docs/migration-plan.md` is
+specific it wins.
 
 ## Verify
 
 `bun run typecheck && bun test && bun run lint`: all three after any TypeScript change, before calling it done.
-`typecheck` covers every project: the Bun program, the DOM-only page program, the page's spec program, the
-dispatcher's spec project and the Workflow-runtime dispatcher. Never ad-hoc `tsc` flags; never edit `package.json`
-to make a check pass.
+`typecheck` covers every project (TypeScript and lint, below). Never ad-hoc `tsc` flags; never edit `package.json` to
+make a check pass.
 
 ## Rules
 
@@ -123,9 +121,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   environment in a child process.
 - No work at module load. The two exceptions are the entry points: `agent-progress.ts`, whose import is the invocation, and the last
   statement of `page/PageStart.ts`, which starts the page.
-- The render service keeps no module state: the page bundle and the configured Marked live in the `RenderState`
-  (`src/services/render/RenderState.ts`) that `createProcessContext` creates once per invocation and the command context
-  carries.
+- The render service keeps no module state: what one invocation builds, the page bundle and the configured Marked,
+  lives in the render state the command context carries.
 - Factories of closures over classes, except for state carried across calls, domain classes and ingestion classes.
   A constructor does no work.
 - A record keyed by outside text is indexed through `Object.hasOwn`, never a bare lookup.
@@ -150,10 +147,9 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   a missing manifest is a mismatch while the brief is installed (a tracker from before versioning) and current when
   it is not, since nothing installed can then disagree; an unreadable one is a mismatch. `update` and `init` refuse a
   newer manifest rather than write an older install over it.
-- The frozen table `dispatcher/testing/FrozenDispatchTraces.json` was first taken from the old committed script at
-  bc42604, and is retaken from the port's bundle only in a commit that means to change what the agents are told, whose
-  table diff shows prompt text or wire names and no decision: the one exception to a frozen table coming from the
-  previous implementation.
+- The frozen table `dispatcher/testing/FrozenDispatchTraces.json` is retaken from the port's bundle only in a commit
+  that means to change what the agents are told; its diff shows prompt text or wire names and no decision. It is the
+  one exception to a frozen table coming from the previous implementation.
 
 ### Comments
 
@@ -176,10 +172,9 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   `dispatcher/tsconfig.spec.json` for its specs and `dispatcher/testing/`. Its `include` list is the `src/` files the
   dispatcher reaches, and a dispatcher module that imports a new `src/` file adds it there in the same change. Only
   `dispatcher/DispatchFromWorkflowGlobals.ts` names the Workflow globals.
-- `cli/adoption/InstalledFileGeneration.ts` hands `src/lib/claude-code/WorkflowScriptBundle.ts` the paths of
-  `dispatcher/DispatchFromWorkflowGlobals.ts` and `dispatcher/DispatchMeta.ts`. The builder imports the meta module by path, the one
-  place dispatcher code runs in the CLI's process, beside the render service compiling `page/` by path. Specs build by
-  path and never import `dispatcher/`.
+- `cli/` reaches `dispatcher/`, and the render service `page/`, only by path, to bundle them: dispatcher code runs in
+  the CLI's process only when `init` or `update` bundle it. Specs build the dispatcher by path and never import
+  `dispatcher/`.
 - ESLint 9 flat config through `@reliquary/eslint-config`: 2-space indent, single quotes, semicolons; line length
   180 for code, 155 for comments; aligned object values; aligned `from`; imports builtin → external → internal,
   alphabetised; builtins through the `node:` protocol (`import/enforce-node-protocol-usage`, turned on in
@@ -226,22 +221,15 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - Help is one screen, with no per-command help: a second help surface is a second thing to keep in step with the
   command table. It goes to standard output when asked for and to standard error after an unknown command, so a typo
   never exits 0 or prints help into a parsed pipe.
-- `cli/Main.ts` runs the install version check (`requireCurrentInstall` in `cli/InstallVersionCheck.ts`) before every
-  command but `COMMANDS_THE_INSTALL_CHECK_SPARES` (`init`, `update`, `help`, `status`) and
-  `COMMANDS_THAT_CHECK_THEIR_OWN_INSTALL`: `release` runs it first in its own `try`, so `--json` prints the refusal as
-  its `invalid-request` document, and `hook subagent-stop` first in `recordInTheTracker`'s, so it is reported at exit 0.
+- Every command but `init`, `update`, `help` and `status` checks the install version before it runs; `release` reports
+  a mismatch as its `--json` refusal and `hook subagent-stop` at exit 0.
 - Adding a command is an entry in `cli/CommandTable.ts`, a block in `cli/HelpText.ts` and a folder in its set;
   `cli/CommandTable.spec.ts` and `cli/HelpText.spec.ts` fail until all three exist.
-- Every mutating command writes through `writeTracker` in `src/services/tracker/TrackerPipeline.ts`, reached through
-  `openTrackerForWriting` in `cli/OpenTrackerForWriting.ts`, and none repeats it:
-  lock; read the progress file, its log and the tickets into a Board; change them through it; write the progress file,
-  then the tickets the Board changed, then log.jsonl; then render from disk, all under the lock. Ticket files follow
-  the progress file so it is never behind them, and the log comes last so a line never describes an unstored change;
-  a log taken over from a version 1 progress file, by the rule in `src/adapters/legacy/`, also has its notes copied
-  first. `init` creates a tracker through
-  `createTracker` in `src/services/tracker/TrackerCreation.ts`; `update` and `init` rewrite older tracker files through
-  `src/services/tracker/legacy/OlderTrackerFilesRewrite.ts`, reached from `cli/legacy/`, over the same two halves.
-  `status` takes no lock and renders nothing.
+- Every mutating command writes through one pipeline, `writeTracker` in `src/services/tracker/TrackerPipeline.ts`, and
+  none repeats it: the lock, the read into a Board, the change through it, the writes in the order `docs/cli.md`
+  (Locking) states and the render from disk, all under one lock hold. `init` creates a tracker and `update` and `init`
+  rewrite older tracker files over the same read and write halves, the rewrite reached from `cli/legacy/`. `status`
+  takes no lock and renders nothing.
 
 ### Tickets
 
@@ -269,13 +257,10 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   `window.agentProgressTemplate`.
 - The page script reads and writes browser storage only in `page/preferences/ViewerPreferences.ts`, and a key
   string never changes.
-- The render service computes the Board facts through `src/services/render/utils/BoardFactsUtil.ts` and writes them
-  as the payload's last key, `boardFacts`; the concurrency figures come from `board.concurrency()`, which
-  `status --json` prints too. The page reads them, zipped onto its rows and tickets by `page/utils/IslandUtil.ts`,
-  and keeps no copy of the rules.
+- The render service writes the Board facts into the payload as `boardFacts`, from the same Board queries
+  `status --json` prints; the page reads them and keeps no copy of the rules.
 - The detail panel claims a log line when its `taskIds` or `ticketIds` hold the panel's row or ticket: every id its
-  record concerns, never a number inside free text. A note carries none and is matched by its sentence through
-  `page/detail-dialog/utils/NoteSentenceMatchUtil.ts`.
+  record concerns, never a number inside free text. A note carries none and is matched by its sentence.
 - Every value passes `escapeHtml` once; a ticket's `bodyHtml`, already escaped by `src/services/render/MarkdownRenderer.ts`,
   is the one unescaped string. Stored stamps are sliced, never re-parsed, and shortened only through
   `page/utils/TimeUtil.ts`.
@@ -289,9 +274,10 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - No skill file lists commands: `agent-progress help` is the reference, and `cli/HelpText.spec.ts` holds it.
   `skill/SKILL.md` names both the help and `skill/Reference.md`; the reference holds only what the help does not
   print.
-- `skill/Reference.md` is the one allowed second copy of the ticket file format, the ticket-move table and the exit
-  codes, because agents in other repositories cannot read `docs/cli.md`; `docs/cli.md` is the source, and a change to
-  either copy changes both in the same commit.
+- `skill/Reference.md` is the one allowed second copy of three `docs/cli.md` sections, the ticket file format, the
+  ticket moves and the exit codes, because agents in other repositories cannot read `docs/cli.md`. The copy is word
+  for word, `docs/cli.md` is the source, and a change to either changes both in the same commit. What else the
+  reference says follows `docs/cli.md`, never leads it.
 - A `SKILL.md` `description` is its trigger, so it names the words a user says. Skill files cite only commands, paths
   inside a tracked repository, or files beside them; never a file of this repository.
 - `skill-orchestrate/` repeats nothing from `skill/`, writes rules as instructions, and never restates what the
@@ -304,45 +290,17 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 ## Repository map
 
 ```
-agent-progress.ts           the bin shim: runs the command line and exits with its number
-package.json                the bin entry, the scripts and the one runtime dependency, marked
-tsconfig.json               the strict Bun project
-eslint.config.js            the shared ESLint config, the node: protocol rule, and the devDependency exemption for the
-                            test-only folders that need one: src/testing/, cli/testing/, src/adapters/progress/testing/,
-                            dispatcher/testing/ and page/testing/
-bun.lock                    the lockfile, committed
-.gitignore                  node_modules/, .agent-progress/, .DS_Store, .readme-graphics/, .idea/
-.idea/                      git-ignored IDE settings
-.readme-graphics/           git-ignored, owner's checkout only: the demo board that redraws docs/images/
-CLAUDE.md                   this file
-README.md                   the GitHub landing page
-setup.sh                    machine setup: Bun, bun install and bun link, and the skill symlinks
-cli/                        the command surface: dispatch, arguments, help, the install version check, and the commands
-                            grouped into sets: tracking/, tickets/, dispatch/, adoption/ and measurement/; cli/utils/
-                            holds the Next line, the printing, the option values and the install version verdict;
-                            cli/constants/ the install version; cli/testing/ is test-only
-dispatcher/                 the dispatcher policy in TypeScript, which init and update bundle into a Workflow script; dispatcher/testing/ is
-                            test-only: the harness, the bundle wrapper, the frozen table
-page/                       the browser page: its sets, its own DOM-only tsconfig and spec tsconfig; page/testing/ is
-                            test-only: the Board fixture its specs read
-resources/                  files read at runtime: the page's HTML template, and under templates/ the markdown init, update
-                            and ticket add fill
-src/                        the code the features share, in the conventions' layout:
-  src/lib/                  package-grade building blocks, one folder each, the package's description in its main module's header:
-                            atomic-file (AtomicFile.ts), git (GitProcess.ts), claude-code (ClaudeTranscripts.ts; also
-                            builds Workflow scripts),
-                            tracker-model (@types/Task.ts; Board.ts is its aggregate), utils (TimeUtil.ts)
-  src/adapters/             the boundary, one folder per stored format (progress, tickets, log, and install for the install
-                            manifest) plus the shared utils: reading, writing and mapping what the tracker stores, the ticket
-                            JSON document, and the wording of log records and refusals; legacy/ reads the older progress.json
-                            shapes
-  src/services/             tracker (discovery, the lock, reading, the write pipeline, creation; legacy/ rewrites older tracker
-                            files) and render (the page document and the render state one invocation holds)
-  src/shared/               app-specific code several parts use: the environment reader, the refusal, LIMITS,
-                            the page payload types
-  src/testing/              test-only helpers several parts use: the scratch workspace, the tracker isolation check, the Board and progress fixtures
-skill/                      the skill every session in a tracked repository loads
-skill-orchestrate/          the skill for the one session running the board
-docs/                       the CLI reference, development notes, the backlog, the migration plan, README images
-node_modules/               git-ignored dependencies
+agent-progress.ts    the bin shim: runs the command line and exits with its number
+cli/                 feature: the command surface, its commands grouped into sets
+page/                feature: the browser page, its own DOM-only project
+dispatcher/          feature: the dispatcher policy, which init and update bundle into a Workflow script
+resources/           files read at runtime: the page template and the markdown init, update and ticket add fill
+src/lib/             package-grade building blocks, one folder each
+src/adapters/        the boundary: every stored format read, written and mapped, and the wording
+src/services/        the tracker and render services
+src/shared/          app-specific code several parts use
+src/testing/         test-only helpers several parts use
+skill/               the skill every session in a tracked repository loads
+skill-orchestrate/   the skill for the one session running the board
+docs/                the CLI reference, development notes, the backlog, the migration plan, README images
 ```

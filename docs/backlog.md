@@ -1,13 +1,6 @@
 # Backlog: agreed, not started
 
-**In flight since 2026-09-25: the conventions migration**, on branch `migration/conventions`, in a
-worktree. On 2026-09-27 its steps 0 to 9 are complete on the branch; it awaits the polish sweep and the
-end-of-refactor review (step 10 of `docs/migration-plan.md`, which records its progress) and the
-owner's merge. Nothing else is in flight.
-
-This file is where a TODO would otherwise go — there are no TODOs in the code. An item here is
-**agreed in principle and deliberately not done**, with the reason it is not done yet. Something
-nobody has agreed to does not belong here, and this is not a status page.
+Each item is agreed in principle and deliberately not done, with the reason it waits.
 
 ---
 
@@ -109,8 +102,8 @@ dispatcher port kept the old script's instructions.
 
 ## Keeping the skill's copy of the formats in step
 
-`skill/Reference.md` carries a second copy of the ticket file format, the ticket-move table and the
-exit codes from `docs/cli.md`, kept in step by hand. Agreed: generate those sections of
+`skill/Reference.md` carries a word-for-word copy of three `docs/cli.md` sections, the ticket file
+format, the ticket moves and the exit codes, kept in step by hand. Agreed: generate those sections of
 `skill/Reference.md` from `docs/cli.md`, or pin them with a spec that fails when the two differ.
 
 Not started because it is a code change (a generator or a guard spec, watched failing on each drifted
@@ -129,7 +122,12 @@ or review-shaped names without `--review-of`.
 ## Retaking the README images
 
 `docs/images/panel-tickets.png` and `docs/images/panel-watch.gif` show the ticket words `open` and
-`done` that step 4a retired, and `panel-tickets.png` shows no Kanban tab. Agreed: retake them with
+`done` that step 4a retired, and `panel-tickets.png` shows no Kanban tab.
+`docs/images/terminal-init.svg` and the `terminal-init.png` built from it show init's report as it was
+before step 8: its workflow line names `.claude/workflows/agent-progress-dispatch.js` where it now
+names `.agent-progress/agent-progress-dispatch.js`.
+`docs/images/lifecycle.svg` and `lifecycle.png` state the rework threshold as a figure, which the
+README no longer repeats: redraw them without it. Agreed: retake them with
 `.readme-graphics/regenerate.sh`. Its `compose.py` still builds the `frame-*`, `story-*` and
 `board-day.gif` images only the deleted READMEs used, and the script copies every built image into
 `docs/images/`: drop those jobs from `compose.py` first, or delete those copies before committing.

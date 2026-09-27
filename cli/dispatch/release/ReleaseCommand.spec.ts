@@ -75,9 +75,9 @@ const FROZEN_NOW = new Date('2026-09-23T10:00:00Z');
 
 const RELEASE_HELP_ENTRY = /\n {2}release <id>[\s\S]*?\n\n/.exec(helpText())?.[0] ?? '';
 
-const RELEASE_REFERENCE_SECTION = /## Releasing a branch[\s\S]*?\n## /.exec(readFileSync(join(import.meta.dir, '..', '..', '..', 'skill', 'Reference.md'), 'utf8'))?.[0] ?? '';
+const RELEASE_CLI_REFERENCE_SECTION = /### Release and rework[\s\S]*?\n### /.exec(readFileSync(join(import.meta.dir, '..', '..', '..', 'docs', 'cli.md'), 'utf8'))?.[0] ?? '';
 
-const RELEASE_DOCUMENTATION = [['cli/HelpText.ts', RELEASE_HELP_ENTRY], ['skill/Reference.md', RELEASE_REFERENCE_SECTION]] as const;
+const RELEASE_DOCUMENTATION = [['cli/HelpText.ts', RELEASE_HELP_ENTRY], ['docs/cli.md', RELEASE_CLI_REFERENCE_SECTION]] as const;
 
 let repositoryDirectory = '';
 
@@ -558,7 +558,7 @@ describe.skipIf(!gitIsAvailable())('a release that is refused changes nothing', 
 });
 
 // An undocumented key the command prints is how #024 was found; reading the set from the documents fails a new one until they name it.
-describe.skipIf(!gitIsAvailable())('the --json document prints exactly the keys the help and the Reference name', () => {
+describe.skipIf(!gitIsAvailable())('the --json document prints exactly the keys the help and the CLI reference name', () => {
   test('a release that succeeds prints exactly the keys both documents give its success shape', async () => {
     const { identifier, worktree, branch } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
 

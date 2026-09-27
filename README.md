@@ -75,8 +75,8 @@ Handoff and the diff, is told to show the ticket does *not* hold, and re-runs ev
 fixes what is in scope and files everything else as a low-priority ticket.
 
 **The rules live in code, not in prompts.** Slots, review rounds and parking are decided by the
-dispatcher script. Another review round happens only when a pass reworked more than 750 lines of code
-(comments and docs do not count). Two failed passes park a ticket for you; two agents in a row returning
+dispatcher script. Another review round happens only when a pass reworked more lines of code than the
+dispatcher's rework threshold (comments and docs do not count). Two failed passes park a ticket for you; two agents in a row returning
 nothing stop the run as an outage instead of blaming the tickets.
 
 **Releases cannot collide.** `release` checks the ticket, fast-forwards main and closes the review bar in
@@ -98,7 +98,7 @@ cache reads included, to its row. `agent-progress usage` audits the same figures
 | **CLI and hook** | `agent-progress` | Holds the state, draws the page, records tokens when an agent stops. |
 
 <p align="center">
-  <img src="docs/images/lifecycle.png" width="560" alt="One ticket, start to merge: you describe the work, the orchestrator files a ticket, on your go the dispatcher starts a builder in a worktree, a fresh agent reviews it, over 750 lines reworked loops to another round, otherwise release fast-forwards main and done means merged; findings outside scope become low-priority tickets and the SubagentStop hook adds tokens to the row">
+  <img src="docs/images/lifecycle.png" width="560" alt="One ticket, start to merge: you describe the work, the orchestrator files a ticket, on your go the dispatcher starts a builder in a worktree, a fresh agent reviews it, a large rework loops to another round, otherwise release fast-forwards main and done means merged; findings outside scope become low-priority tickets and the SubagentStop hook adds tokens to the row">
 </p>
 
 You can keep filing tickets while a run is going; it picks them up when its next agent returns, and a
@@ -127,18 +127,9 @@ git clone https://github.com/AlexDM0/agent-progress.git && cd agent-progress
   <img src="docs/images/terminal-setup.png" width="680" alt="Terminal output of setup.sh: 1/3 Bun found, 2/3 dependencies installed and agent-progress on your PATH, 3/3 both skills linked into ~/.claude/skills, then Tooling ready">
 </p>
 
-`setup.sh` runs three steps and changes nothing in your projects:
-
-1. **Bun.** Checks that Bun is there and offers the official installer if it is not. 1.2 or newer is
-   recommended; an older one gets a warning, not a refusal.
-2. **Dependencies and the global command.** `bun install`, then `bun link`, so `agent-progress` works from
-   any directory. If `~/.bun/bin` is not on your `PATH`, it offers to add one line to your shell rc file.
-3. **The two skills.** Symlinks `agent-progress` and `agent-progress-orchestrate` into `~/.claude/skills/`.
-   Links, not copies, so a `git pull` in this checkout updates both with no reinstall.
-
-It is safe to re-run: a correct link is left alone, a stale one is replaced, and a real file or folder in
-the way is reported and never deleted. `./setup.sh --instruct-only` declines every offer and reports the
-links it would make; it still runs `bun install` and `bun link`.
+It offers to install Bun if it is missing, links the CLI and symlinks both skills into `~/.claude/skills/`; it changes
+nothing in your projects. [Getting the code running](docs/development.md#getting-the-code-running)
+walks through each step.
 
 **Updating.** A `git pull` in this checkout updates the CLI and both skills at once. Then run
 `agent-progress update` in every repository it tracks: it regenerates the dispatcher, the brief and the

@@ -89,11 +89,10 @@ the main line first and work in it.
 
 Your ticket's file path comes from `agent-progress ticket show <id>`, which also prints the body —
 that body is the whole brief, its `## Brief` section first when it has one; you do not need the
-frontmatter. When you finish, append a `## Handoff`
-section at the end of the ticket, under 15 lines: files touched, contracts you discovered that the
-ticket did not state, what is verified and how, what is not, and the next concrete step. The review
-pass reads that instead of re-deriving it from the codebase. Builder or reviewer, leave the branch
-ready to merge: your work committed on it, rebased onto the main line, the checks green on the result.
+frontmatter. When you finish, write the ticket's `## Handoff` at its end, under 15 lines, with what
+your brief or the section's placeholder text lists: the review pass reads it instead of re-deriving it
+from the codebase. Builder or reviewer, leave the branch ready to merge: your work committed on it,
+rebased onto the main line, the checks green on the result.
 
 ## The rules
 
@@ -114,5 +113,4 @@ ready to merge: your work committed on it, rebased onto the main line, the check
 **`agent-progress help` is the command reference** — every command with every flag, printed by the
 tool, so it cannot be out of date. Run it when you need a flag you do not remember.
 
-`Reference.md`, beside this file, is what the tool does not print: the ticket file format, what each
-move does to the Gantt row, how a row's tokens are recorded, the time axis and the exit codes.
+`Reference.md`, beside this file, holds what the tool does not print.

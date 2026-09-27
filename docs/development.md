@@ -1,16 +1,15 @@
 # Working on agent-progress
 
 This page is for changing the tool itself: getting a checkout running, the three checks every
-TypeScript change must pass, where things live and which way imports may point, how the specs keep
-away from real trackers, the guard specs that fail the build on a structural mistake, the page and
-the dispatcher script, the legacy folders, and the decisions that shape all of it. Using the tool is covered in the
-[README](../README.md); every command and file format is in the [CLI reference](cli.md). The rules
-themselves live in the root `CLAUDE.md`; this page points into it rather than restating it.
+TypeScript change must pass, the test helpers, the guard specs that fail the build on a structural
+mistake, the page and the dispatcher script, the legacy folders, and the decisions that shape all of
+it. Using the tool is covered in the [README](../README.md); every command and file format is in the
+[CLI reference](cli.md). The rules themselves live in the root `CLAUDE.md`; this page points into it
+rather than restating it.
 
 - [Getting the code running](#getting-the-code-running)
 - [Checks](#checks)
-- [Repository layout](#repository-layout)
-- [Conventions](#conventions)
+- [Layout and conventions](#layout-and-conventions)
 - [Tests and isolation](#tests-and-isolation)
 - [The guard specs](#the-guard-specs)
 - [The page](#the-page)
@@ -36,17 +35,12 @@ job. It runs three steps:
 | 2/3 Dependencies and the global command | Runs `bun install` on every run, not only the first, because every command that rewrites the page needs `marked`. Then `bun link`, so `agent-progress` works from any directory. When `agent-progress` is still not found on the `PATH` and the rc file does not already mention `~/.bun/bin`, it offers to add one export line to `~/.zshrc` (or `~/.bashrc` under bash). |
 | 3/3 The skills | Symlinks `~/.claude/skills/agent-progress` to this checkout's `skill/` and `~/.claude/skills/agent-progress-orchestrate` to its `skill-orchestrate/`. |
 
-The skills are **symlinks, never copies**. `cli/HelpText.spec.ts` holds the bundled skills against the
-command table of this checkout; a copy under `~/.claude` would be the one version nothing checks. A
-symlink also means an edit reaches every session at once and a `git pull` needs no install step. The
-step is idempotent: a link already pointing here is left alone (both sides are compared as resolved
+The skills are **symlinks, never copies**: an edit reaches every session at once, a `git pull` needs
+no install step, and a copy under `~/.claude` would be the one version nothing checks. The step is
+idempotent: a link already pointing here is left alone (both sides are compared as resolved
 physical paths, so `/tmp` against `/private/tmp` does not cause a relink on every run), a stale link is
 replaced, and a real file or directory at the target is reported and left untouched, because the
 only thing the script ever removes is a symlink.
-
-Two skills rather than one because they have two audiences: `skill/` is loaded by every session in a
-tracked repository, including every implementing agent; `skill-orchestrate/` only by the session
-running the board.
 
 If you keep a separate skills-installer repository that adopts every skill it finds under
 `~/.claude/skills/` unless its `skills.json` ignore list names it, that installer can replace the
@@ -73,16 +67,12 @@ Do not try changes against this checkout: it has a tracker of its own in `.agent
 `init` run here writes its managed block into this repository's `CLAUDE.md`. Use a throwaway
 repository instead. There are two ways to point the tool at one:
 
-- **`AGENT_PROGRESS_ROOT`** names the repository to use instead of walking up from the current
-  directory. It wins outright, and it is refused when the directory holds no tracker. `init` does
-  not choose its directory by it, since it creates a tracker rather than finding one: set to a
-  directory other than the one `init` targets (the discovered repository, or `--root`), `init` is
-  refused at exit 1 with a message naming both and writes nothing. And `init` never replaces an
-  existing `progress.json`: the store is created with an exclusive create, so a tracker already
-  there is refreshed as `update` refreshes it instead.
-- **`init --root <path>`** tracks that directory instead of the discovered repository root, and writes
-  its `CLAUDE.md` block, hook, workflow and agent definition there. It is refused when the path is not
-  an existing directory.
+- **`AGENT_PROGRESS_ROOT`** points every command but `init` at a scratch tracker.
+- **`init --root <path>`** adopts a scratch directory, writing its `CLAUDE.md` block, hook, workflow and
+  agent definition there.
+
+What each refuses is in the CLI reference: [Conventions](cli.md#conventions) and
+[Adopting a repository](cli.md#adopting-a-repository).
 
 A complete session, from this checkout's root:
 
@@ -112,93 +102,25 @@ repository.
 ## Checks
 
 ```sh
-bun run typecheck   # tsc over five projects: the Bun program, the page and its specs, the dispatcher and its specs
+bun run typecheck   # tsc -p over every project the root CLAUDE.md names under TypeScript and lint
 bun test            # bun:test, specs beside their modules
 bun run lint        # eslint 9 flat config
 ```
 
-Run all three after any TypeScript change, before calling the change done. Bun executes the
-TypeScript directly, so a type error is not a build failure; it is a runtime surprise on a path
-nobody exercised. Never substitute an ad-hoc `tsc` invocation with hand-picked flags.
+When to run them is the root `CLAUDE.md`'s Verify rule. The type check matters because Bun executes
+the TypeScript directly, so a type error is not a build failure; it is a runtime surprise on a path
+nobody exercised.
 
-`typecheck` is five passes, `tsc -p` over `tsconfig.json`, `page/tsconfig.json`, `page/tsconfig.spec.json`,
-`dispatcher/tsconfig.spec.json` and `dispatcher/tsconfig.json`. The root project is the Bun program
-(`agent-progress.ts`, `cli/`, `src/`) and reaches neither `page/` nor `dispatcher/`. The
-page project, `page/tsconfig.json`, extends the root's strictness but compiles with the DOM
-library and no Bun or Node types, so a page module reaching for `Bun.file` or `node:fs` fails to
-compile instead of failing in a browser. Every shared file a page module imports is checked under
-those DOM-only options too, which is what proves `src/lib/tracker-model/`,
-`src/lib/utils/HtmlEscapeUtil.ts` and the other shared modules the page reaches stay environment-neutral.
-The spec project, `page/tsconfig.spec.json`, is the same program plus Bun types, so the page's specs compile.
-`dispatcher/tsconfig.json` is the Workflow-runtime project, with no Bun, Node or DOM types. Its `include`
-list names the `src/` files the dispatcher reaches, so a module reaching for a runtime API fails to
-compile. `dispatcher/tsconfig.spec.json` checks the dispatcher's specs and `dispatcher/testing/` with Bun
-types.
+## Layout and conventions
 
-`cli/HelpText.spec.ts` holds the help against the command table in both directions, and holds the
-bundled skills to their shape: none of them may carry a command table of its own, and the one every
-agent loads has a size ceiling.
-
-## Repository layout
-
-```
-agent-progress.ts    the bin shim and composition root: the only process.exit; imports cli/ only
-cli/                 feature: the command surface, its commands grouped into tracking/, tickets/, dispatch/,
-                     adoption/ and measurement/, beside arguments/, utils/, constants/ and legacy/
-page/                feature: the browser page, with its own DOM-only project and spec project
-dispatcher/          feature: the dispatcher's policy in TypeScript, which init and update bundle into
-                     .agent-progress/agent-progress-dispatch.js
-resources/           files read at runtime: template.html, and under templates/ the markdown init, update and
-                     ticket add fill
-src/
-  adapters/          an ingestion class and a writer per stored format (progress/, tickets/, log/, install/), the
-                     wording, JSON and HTML-label mappers in utils/, and legacy/
-  services/          tracker/ (discovery, the lock, reading, the write pipeline, creation, legacy/) and render/
-                     (the page document and the per-invocation RenderState)
-  lib/               package-grade building blocks: atomic-file, git, claude-code, tracker-model, utils
-  shared/            Environment, OperationRefusal, LIMITS, DISPATCH_PROTOCOL, the page payload and the other
-                     shared @types, and legacy/
-  testing/           test-only helpers several parts use
-skill/               the skill every session in a tracked repository loads
-skill-orchestrate/   the skill for the one session running the board
-docs/                this page, the CLI reference, the backlog, the migration plan and the README images
-```
-
-Imports run up only, with no cycles:
-
-```
-src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → tracker)  →  features (cli/, page/, dispatcher/)
-```
-
-A feature (`cli/`, `page/`, `dispatcher/`) imports itself and `src/*`, never another feature. Inside
-`cli/` a command folder never imports a sibling command's folder: what two need is hoisted to the
-level above both (a set's own files, or `cli/`'s root and `cli/utils/`), or passed as a structurally
-typed parameter. A service imports one other service, one way only (tracker → render). `src/` never
-imports a feature, and `agent-progress.ts` imports only `cli/`.
-Nothing that ships imports the six test-only folders: `src/testing/`, `cli/testing/`,
-`src/adapters/progress/testing/`, `src/adapters/legacy/testing/`, `dispatcher/testing/` and `page/testing/`.
-Exit codes are decided in `cli/` and nowhere else; a service returns a
-verdict or throws `OperationRefusal`.
-
-The rules are in the root `CLAUDE.md`; there are no folder `CLAUDE.md` files.
-
-## Conventions
-
-All of them are in the root `CLAUDE.md`: its Rules section holds the conventions (files and naming,
-imports, the model and its boundaries, errors and exit codes, runtime, comments, TypeScript and lint,
-tests, documentation and commits), and its Local rules section holds what this repository adds for
-the command surface, tickets, the page and the skills.
+The repository map, the import rules and every convention are in the root `CLAUDE.md`: its Rules
+section holds the conventions and its Local rules section what this repository adds for the command
+surface, tickets, the page and the skills. There are no folder `CLAUDE.md` files.
 
 ## Tests and isolation
 
-A spec is `<Module>.spec.ts` beside its module (a second suite on the same module is
-`<Module>.<aspect>.spec.ts`; `.test.ts` is never used). That holds in `page/` too: the DOM-only project
-excludes the specs, and `page/tsconfig.spec.json` checks them with Bun types.
-
-The test-only helpers live in six folders: `src/testing/`, `cli/testing/`, `src/adapters/progress/testing/`,
-`src/adapters/legacy/testing/`, `dispatcher/testing/` and `page/testing/`. The devDependency exemption in
-`eslint.config.js` covers the five that need one, all but `src/adapters/legacy/testing/`; no other folder may
-import a devDependency.
+Spec naming, the test-only folders and their devDependency exemption are rules in the root
+`CLAUDE.md` (Imports, TypeScript and lint, Tests). The helpers:
 
 | helper | use |
 |---|---|
@@ -228,13 +150,11 @@ import a devDependency.
 | `dispatcher/testing/constants/` | The prompt sentences the fake agents follow, the Workflow globals, the modules a mutant may rewrite and the trace's digest length. |
 | `dispatcher/testing/utils/` | Readings of a recorded dispatch run that the claims share, such as its returned summary; its reduction to a trace a frozen table can hold and compare; and a script's syntax tree read for a clock, randomness, an impure `meta` or a shadowed Workflow global. |
 
-`TrackerIsolation` refuses any directory outside the scratch root, and refuses when discovery from a
-directory inside it (the walk up, the git common directory, or `AGENT_PROGRESS_ROOT`) would resolve
-to a tracker outside it. It runs in the captured command context, on a hook input's `cwd`, and in
-`CliProcess.ts`, and it runs before the command does, because a throw inside a command becomes an exit
-code a spec cannot tell apart from the command's own. Its own spec, `src/testing/TrackerIsolation.spec.ts`,
-tries every escape. No spec builds the real process context, and none spawns the binary except
-through `cli/testing/CliProcess.ts`.
+Where `TrackerIsolation` runs is a rule in the root `CLAUDE.md` (Tests). It refuses any directory
+outside the scratch root, and refuses when discovery from a directory inside it (the walk up, the git
+common directory, or `AGENT_PROGRESS_ROOT`) would resolve to a tracker outside it. It runs before the
+command does, because a throw inside a command becomes an exit code a spec cannot tell apart from the
+command's own. Its own spec, `src/testing/TrackerIsolation.spec.ts`, tries every escape.
 
 ## The guard specs
 
@@ -252,20 +172,12 @@ held by review, not by a spec.
 | `dispatcher/DispatchFromWorkflowGlobals.spec.ts` | The built script's meta is pure and equals the frozen table's, an impurity planted in it is caught, it has no clock or randomness, builds to the same text every time and has one `agent()` call. |
 | `dispatcher/Dispatcher.decisions.spec.ts` and its `.holds`, `.resumption`, `.brief` and `.equivalence` suites | The dispatcher's decisions; see below. |
 
-A new guard does not count until you have introduced each form of the violation it claims to catch and
-watched it fail.
-
 ## The page
 
-`progress.html` is built from `resources/template.html`, which is the designer's file: edited as
-HTML, carried over rather than generated. Its placeholder content is the contract, so a change to what
-the page modules under `page/` emit that is not also made in the template is a bug, in whichever
-direction it was made. `src/services/render/ProgressHtml.ts` replaces four tokens in it. The comment block at the top of the template
-names those tokens, the ids and classes the template exposes, and the one layout invariant to protect
-(the axis box that keeps bars, ticks and the now-marker aligned).
-
-The TypeScript under `page/` runs in the browser and is compiled by its own DOM-only
-project (see [Checks](#checks)). It is bundled into the page from `page/PageStart.ts` by `src/services/render/PageBundler.ts`.
+`progress.html` is built from `resources/template.html`, whose contract with the page modules is a
+rule in the root `CLAUDE.md` (The page). `src/services/render/ProgressHtml.ts` replaces four tokens in
+it, and `src/services/render/PageBundler.ts` bundles the TypeScript under `page/` into it from
+`page/PageStart.ts`.
 
 To see a change, render a scratch tracker (the one from the session above, before its `rm -rf`) and
 open it:
@@ -289,8 +201,8 @@ plain JavaScript run by the Workflow tool and never by Bun, and write it into a 
 clean reviewer per built one within the board limit, and decides rounds and parking in code.
 
 The frozen table `dispatcher/testing/FrozenDispatchTraces.json` holds the port to the behaviour of the
-old committed script it replaced: it was taken from that script at bc42604, and is now retaken from the port's bundle by the command it states, only in a commit
-meant to change what the agents are told, whose diff of the table is that commit's review.
+old committed script it replaced; when it is retaken is a rule in the root `CLAUDE.md` (Generated and
+installed files), and the table names the command that retakes it.
 
 `dispatcher/testing/DispatchScriptBundle.ts` bundles the port into one Workflow script through
 `src/lib/claude-code/WorkflowScriptBundle.ts`, and
@@ -299,7 +211,7 @@ clock and randomness refused as the Workflow tool refuses them. The specs:
 
 | spec | pins |
 |---|---|
-| `dispatcher/Dispatcher.decisions.spec.ts` | Rounds, parking, concurrency, claims and restarts. Each claim runs against the bundle, where it must hold, and against a `SourceMutant` of the module that holds the decision, where it must fail. A mutant whose text is not in its module exactly once fails. |
+| `dispatcher/Dispatcher.decisions.spec.ts` | Rounds, parking, concurrency, claims and restarts, each claim with its `SourceMutant` (root `CLAUDE.md`, Tests). |
 | `dispatcher/Dispatcher.holds.spec.ts` | A held ticket gets no builder or reviewer until a status block shows the hold lifted, its running row gives up its slot, and the other tickets keep flowing. |
 | `dispatcher/Dispatcher.resumption.spec.ts` | A build an earlier run left paused is resumed by a whole-board relaunch with one builder, never a held ticket's or a person's pause. |
 | `dispatcher/Dispatcher.brief.spec.ts` | The call budgets, the rework threshold and the brief path the bundle sends, and the threshold its round decision applies, are `DISPATCH_PROTOCOL`'s; `cli/adoption/InstalledFileGeneration.spec.ts` pins that the installed brief states the same numbers. |
@@ -311,8 +223,8 @@ A change to the dispatcher's behaviour therefore comes with a claim and its muta
 
 ## Legacy folders
 
-Code that only reads what an older version stored, or answers an older habit, lives in a `legacy/` folder by
-the rule in the root `CLAUDE.md` (Model and boundaries). There are five:
+The rule for a `legacy/` folder, and what dropping one deletes, are in the root `CLAUDE.md` (Model and
+boundaries). There are five:
 
 | folder | what it answers |
 |---|---|
@@ -328,10 +240,9 @@ Current code reaches each through one seam call per consumer, marked at the call
 `cli/adoption/update/UpdateCommand.ts`. The `*.legacy.spec.ts` suites and every spec inside a legacy folder go
 with it; the `*.legacySeam.spec.ts` suites beside current modules pin the current side of a seam and stay.
 
-To drop a folder, delete it with its specs, turn each seam line into the current-format answer its comment
-names, delete what current code carries only for it, which its modules' headers name, and delete the sentences on it in `cli/HelpText.ts`, `docs/cli.md` and `skill/Reference.md`. Each
-header says when: once every tracked repository has run `agent-progress update` and agents no longer type the
-retired forms. `src/shared/legacy/` goes last, once `src/adapters/legacy/` and `cli/legacy/` have gone.
+Each module header says when its folder can go: once every tracked repository has run
+`agent-progress update` and agents no longer type the retired forms. `src/shared/legacy/` goes last,
+once `src/adapters/legacy/` and `cli/legacy/` have gone.
 
 ## Architecture decisions
 
@@ -343,11 +254,10 @@ orchestrator that spawned it, which is the case the tool exists for. The cost is
 cannot describe one worktree in isolation; the alternative was a tracker per checkout, where a
 fan-out produces five charts and no picture.
 
-**The page is rendered under the lock, from disk.** Every mutating command takes the lock, reads,
-mutates, writes `progress.json` atomically, then the tickets, then `log.jsonl` (and first a copy of the notes,
-when it takes the log over from a version 1 `progress.json`), then re-reads and rewrites `progress.html`, all
-before releasing. Rendering afterwards would let two commands interleave and leave the page describing a
-state the store never held. The lock is a directory of numbered generation records, each carrying a
+**The page is rendered under the lock, from disk.** Every mutating command writes in the order the CLI
+reference's [Locking](cli.md#conventions) paragraph states, then re-reads and rewrites `progress.html`,
+all before releasing. Rendering afterwards would let two commands interleave and leave the page
+describing a state the store never held. The lock is a directory of numbered generation records, each carrying a
 pid, a timestamp and whether it is held or released, each created exclusively and never rewritten:
 taking the lock creates the generation after the newest once that one is released, its process is
 gone or it is stale, and holds only if no newer generation appeared meanwhile; releasing creates the
@@ -366,7 +276,5 @@ index, and one per ticket by id. The page reads every board fact from them and d
 
 ## Backlog
 
-`docs/backlog.md` holds what is agreed and deliberately not started, each item with the reason it is
-not done yet. It is not a status page, and it is where a TODO would otherwise go: there are none in
-the code. Its first line states whether anything is in flight, with a date and branch when something
-is.
+What is agreed and not started is in [backlog.md](backlog.md), by the rule in the root `CLAUDE.md`
+(Documentation and commits).

@@ -1,14 +1,15 @@
 /**
  * The texts `init` and `update` install, computed before anything is written. The cases that matter: no placeholder survives, the definition
- * keeps its frontmatter at byte 0 with the default pair, the brief and the block state `DISPATCH_PROTOCOL`'s numbers, which the dispatcher's
- * prompts also state, and name the paths the catalogue installs to, the dispatcher is a Workflow script with its meta first and no path of
- * this checkout in it, `--no-workflow` bundles nothing, and a failed bundle is a refusal the tool will not repair. The spec builds the
- * dispatcher by path, as the command does, and never imports `dispatcher/`.
+ * keeps its frontmatter at byte 0 with the default pair and the brief names the same pair, the brief and the block state `DISPATCH_PROTOCOL`'s
+ * numbers, which the dispatcher's prompts also state, and name the paths the catalogue installs to, the dispatcher is a Workflow script with
+ * its meta first and no path of this checkout in it, `--no-workflow` bundles nothing, and a failed bundle is a refusal the tool will not
+ * repair. The spec builds the dispatcher by path, as the command does, and never imports `dispatcher/`.
  */
 import { join, relative, sep } from 'node:path';
 
 import { describe, expect, test } from 'bun:test';
 
+import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL }     from '../../src/lib/tracker-model/constants/AgentSettings.ts';
 import { OperationRefusal }                              from '../../src/shared/OperationRefusal.ts';
 import { DISPATCH_PROTOCOL }                             from '../../src/shared/constants/DispatchProtocol.ts';
 import { installedFilePathsIn }                          from '../InstalledFiles.ts';
@@ -29,6 +30,10 @@ describe('the installed texts', () => {
     expect(TEXTS.agentDefinition).toStartWith('---\n');
     expect(TEXTS.agentDefinition).toContain('model: opus\n');
     expect(TEXTS.agentDefinition).toContain('effort: medium\n');
+  });
+
+  test('the brief names the same default model and effort as the agent definition', () => {
+    expect(TEXTS.agentBrief).toContain(`Both run on ${DEFAULT_AGENT_MODEL} at ${DEFAULT_AGENT_EFFORT} effort unless their ticket names another`);
   });
 
   test('the brief states the dispatch protocol\'s call budgets and rework threshold', () => {

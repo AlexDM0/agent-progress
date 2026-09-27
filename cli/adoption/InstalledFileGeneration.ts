@@ -50,20 +50,19 @@ export async function installedFileTextsFor(request: { generatesTheDispatcherScr
     : null;
   // The dispatcher's prompts state the same numbers from the same constant, so the brief, the block and the prompts cannot disagree.
   const reworkThresholdLines = String(DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES);
+  // The brief and the definition name the default pair as placeholders, so neither can drift from the tool's defaults.
+  const defaultAgentPair = { model: DEFAULT_AGENT_MODEL, effort: DEFAULT_AGENT_EFFORT };
   const agentBrief = TemplatePlaceholderUtil.filledTemplateOf(templateTextOf('AgentBrief.md'), {
     builderApiCallBudget:  String(DISPATCH_PROTOCOL.BUILDER_API_CALL_BUDGET),
     reviewerApiCallBudget: String(DISPATCH_PROTOCOL.REVIEWER_API_CALL_BUDGET),
     reworkThresholdLines,
+    ...defaultAgentPair,
   });
   const claudeInstructionsBlock = TemplatePlaceholderUtil.filledTemplateOf(templateTextOf('ClaudeInstructionsBlock.md'), { reworkThresholdLines });
   return {
     agentBrief,
     claudeInstructionsBlockBody: claudeInstructionsBlock.replace(/\n+$/, ''),
-    // The template names its model and effort as placeholders, so the installed definition and the tool's default pair cannot drift apart.
-    agentDefinition:             TemplatePlaceholderUtil.filledTemplateOf(templateTextOf('AgentProgressWorker.md'), {
-      model:  DEFAULT_AGENT_MODEL,
-      effort: DEFAULT_AGENT_EFFORT,
-    }),
+    agentDefinition:             TemplatePlaceholderUtil.filledTemplateOf(templateTextOf('AgentProgressWorker.md'), defaultAgentPair),
     dispatcherScript,
   };
 }
