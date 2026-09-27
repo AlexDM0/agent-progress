@@ -18,7 +18,7 @@ import {
 import { join } from 'node:path';
 
 import { createFileAtomically } from '../../lib/atomic-file/AtomicFile.ts';
-import { TimeUtil }             from '../../lib/utils/TimeUtil.ts';
+import { LocalTimeUtil }        from '../../lib/local-time/LocalTimeUtil.ts';
 import { OperationRefusal }     from '../../shared/OperationRefusal.ts';
 import { LIMITS }               from '../../shared/constants/Limits.ts';
 import type { Workspace }       from './Workspace.ts';
@@ -211,7 +211,7 @@ export async function withLock<ActionResult>(
   now: () => Date,
 ): Promise<ActionResult> {
   const { lockDirectoryPath } = workspace;
-  const payload: LockPayload = { acquiredAt: TimeUtil.formatLocalIso(now()), processId: process.pid };
+  const payload: LockPayload = { acquiredAt: LocalTimeUtil.formatLocalIso(now()), processId: process.pid };
 
   let heldGeneration: number | null = null;
   for (let attempt = 0; attempt < LIMITS.LOCK_RETRY_COUNT; attempt++) {
@@ -232,6 +232,6 @@ export async function withLock<ActionResult>(
   try {
     return await action();
   } finally {
-    release(lockDirectoryPath, heldGeneration, { acquiredAt: TimeUtil.formatLocalIso(now()), processId: process.pid });
+    release(lockDirectoryPath, heldGeneration, { acquiredAt: LocalTimeUtil.formatLocalIso(now()), processId: process.pid });
   }
 }

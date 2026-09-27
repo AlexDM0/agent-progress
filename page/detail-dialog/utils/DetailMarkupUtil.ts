@@ -1,4 +1,4 @@
-import { HtmlEscapeUtil } from '../../../src/lib/utils/HtmlEscapeUtil.ts';
+import { HtmlEscapeUtil } from '../../../src/lib/html-escape/HtmlEscapeUtil.ts';
 
 
 function sectionMarkup(title: string, bodyMarkup: string): string {

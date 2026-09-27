@@ -3,6 +3,8 @@
  * Every value passes `escapeHtml` exactly once here, except a ticket's `bodyHtml`, already escaped by `src/services/render/MarkdownRenderer.ts`.
  */
 
+import { HtmlEscapeUtil } from '../../src/lib/html-escape/HtmlEscapeUtil.ts';
+import { TokenCountUtil } from '../../src/lib/token-count/TokenCountUtil.ts';
 import type {
   DisplayState,
   Task,
@@ -10,8 +12,6 @@ import type {
   TaskStatus
 } from '../../src/lib/tracker-model/@types/Task.ts';
 import { FIRST_REPEAT_REVIEW_ROUND }           from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
-import { HtmlEscapeUtil }                      from '../../src/lib/utils/HtmlEscapeUtil.ts';
-import { TokenCountUtil }                      from '../../src/lib/utils/TokenCountUtil.ts';
 import type { PageTicket }                     from '../../src/shared/@types/PagePayload.ts';
 import type { IdentifiedLogEntry }             from '../../src/shared/@types/WordedLogEntry.ts';
 import type { BoardRow }                       from '../@types/PageBoard.ts';

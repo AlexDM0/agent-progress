@@ -1,7 +1,7 @@
 /** What `usage` prints for a person: one row per agent, then one line per cohort. */
 import type { CohortSummary } from '../../../src/lib/claude-code/utils/TranscriptCohortUtil.ts';
-import { TimeUtil }           from '../../../src/lib/utils/TimeUtil.ts';
-import { TokenCountUtil }     from '../../../src/lib/utils/TokenCountUtil.ts';
+import { LocalTimeUtil }      from '../../../src/lib/local-time/LocalTimeUtil.ts';
+import { TokenCountUtil }     from '../../../src/lib/token-count/TokenCountUtil.ts';
 import { LIMITS }             from '../../../src/shared/constants/Limits.ts';
 import { OutputUtil }         from '../../utils/OutputUtil.ts';
 import type { AgentUsage }    from './UsageAgents.ts';
@@ -37,9 +37,9 @@ function oversizedContextPercentOf(agent: AgentUsage): string {
  */
 function localStampOf(startedAt: string | null): string {
   if (startedAt === null) return '-';
-  const instant = TimeUtil.parseIso(startedAt);
+  const instant = LocalTimeUtil.parseIso(startedAt);
   if (instant === null) return '-';
-  return TimeUtil.formatLocalIso(instant).slice(LIMITS.MONTH_AND_DAY_SLICE_START_CHARACTER_OFFSET, LIMITS.CLOCK_SLICE_END_CHARACTER_OFFSET).replace('T', ' ');
+  return LocalTimeUtil.formatLocalIso(instant).slice(LIMITS.MONTH_AND_DAY_SLICE_START_CHARACTER_OFFSET, LIMITS.CLOCK_SLICE_END_CHARACTER_OFFSET).replace('T', ' ');
 }
 
 export function agentRowLinesOf(agents: readonly AgentUsage[]): string[] {

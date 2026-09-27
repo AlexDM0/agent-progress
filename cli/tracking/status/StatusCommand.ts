@@ -1,6 +1,6 @@
 import { LogUtil }                           from '../../../src/adapters/utils/LogUtil.ts';
+import { LocalTimeUtil }                     from '../../../src/lib/local-time/LocalTimeUtil.ts';
 import { readingBoardOf }                    from '../../../src/lib/tracker-model/ReadingBoard.ts';
-import { TimeUtil }                          from '../../../src/lib/utils/TimeUtil.ts';
 import { requireTracker }                    from '../../../src/services/tracker/TrackerReader.ts';
 import { requireWorkspace }                  from '../../../src/services/tracker/Workspace.ts';
 import type { WordedLogEntry }               from '../../../src/shared/@types/WordedLogEntry.ts';
@@ -22,7 +22,7 @@ function logNewestFirstOf(log: readonly WordedLogEntry[]): WordedLogEntry[] {
   const dated = log.map((entry, appendedIndex) => ({
     entry,
     appendedIndex,
-    epochMilliseconds: TimeUtil.parseIso(entry.at)?.getTime() ?? Number.NEGATIVE_INFINITY,
+    epochMilliseconds: LocalTimeUtil.parseIso(entry.at)?.getTime() ?? Number.NEGATIVE_INFINITY,
   }));
   dated.sort((a, b) => b.epochMilliseconds - a.epochMilliseconds || b.appendedIndex - a.appendedIndex);
   return dated.map((datedEntry) => datedEntry.entry);

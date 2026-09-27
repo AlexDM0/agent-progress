@@ -5,7 +5,7 @@
 import { listSubagentTranscripts, transcriptFolderFor } from '../../../src/lib/claude-code/ClaudeTranscripts.ts';
 import type { CohortSummary }                           from '../../../src/lib/claude-code/utils/TranscriptCohortUtil.ts';
 import { TranscriptCohortUtil }                         from '../../../src/lib/claude-code/utils/TranscriptCohortUtil.ts';
-import { TimeUtil }                                     from '../../../src/lib/utils/TimeUtil.ts';
+import { LocalTimeUtil }                                from '../../../src/lib/local-time/LocalTimeUtil.ts';
 import { requireWorkspace }                             from '../../../src/services/tracker/Workspace.ts';
 import { OperationRefusal }                             from '../../../src/shared/OperationRefusal.ts';
 import type { CommandContext }                          from '../../CommandContext.ts';
@@ -30,7 +30,7 @@ function sinceDateFrom(commandArguments: ArgumentParser, context: CommandContext
   const written = commandArguments.option('since');
   if (written === undefined) return undefined;
 
-  const resolved = TimeUtil.resolveWhen(written, context.now());
+  const resolved = LocalTimeUtil.resolveWhen(written, context.now());
   if (resolved === null) {
     throw new OperationRefusal(
       'refused',
@@ -68,7 +68,7 @@ export const usageCommand: CommandHandler = (commandArguments, context) => {
   lines.push('');
   lines.push(cohortLineOf('All', cohorts.all));
   if (since !== undefined && cohorts.before !== undefined && cohorts.after !== undefined) {
-    const boundary = TimeUtil.formatLocalIso(since);
+    const boundary = LocalTimeUtil.formatLocalIso(since);
     lines.push(cohortLineOf(`Before ${boundary}`, cohorts.before));
     lines.push(cohortLineOf(`Since ${boundary}`, cohorts.after));
   }

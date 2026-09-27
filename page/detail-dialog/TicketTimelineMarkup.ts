@@ -3,8 +3,8 @@
  * Every value passes `escapeHtml` once here.
  */
 
-import { HtmlEscapeUtil }      from '../../src/lib/utils/HtmlEscapeUtil.ts';
-import { TokenCountUtil }      from '../../src/lib/utils/TokenCountUtil.ts';
+import { HtmlEscapeUtil }      from '../../src/lib/html-escape/HtmlEscapeUtil.ts';
+import { TokenCountUtil }      from '../../src/lib/token-count/TokenCountUtil.ts';
 import type { PageTicket }     from '../../src/shared/@types/PagePayload.ts';
 import type { TimelineLimits } from '../@types/Timeline.ts';
 import { PERCENT_OF_A_WHOLE }  from '../constants/Units.ts';

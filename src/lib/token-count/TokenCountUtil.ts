@@ -1,4 +1,4 @@
-/** One display format for token counts, so every surface that prints one shows the same units. */
+/** One display format for token counts, so every surface that prints one shows the same units. It depends on no other lib package. */
 
 /** Not 1024: these are counts a model reported, and every model's own dashboard shows them in thousands. */
 const THOUSAND_TOKENS = 1000;

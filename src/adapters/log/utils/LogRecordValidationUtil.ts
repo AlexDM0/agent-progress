@@ -1,11 +1,11 @@
 /** Whether one parsed log.jsonl line is a well-formed record of a known kind, and if not, the reason naming the offending field. */
+import { JsonRecordUtil }            from '../../../lib/json-record/JsonRecordUtil.ts';
 import type { LogRecord }            from '../../../lib/tracker-model/@types/LogRecord.ts';
 import { DISPATCHER_STATES }         from '../../../lib/tracker-model/constants/DispatcherStates.ts';
 import { FIRST_REPEAT_REVIEW_ROUND } from '../../../lib/tracker-model/constants/ReviewRounds.ts';
 import { TICKET_PRIORITIES }         from '../../../lib/tracker-model/constants/TicketFields.ts';
 import { BoardSettingsUtil }         from '../../../lib/tracker-model/utils/BoardSettingsUtil.ts';
 import { VocabularyUtil }            from '../../../lib/tracker-model/utils/VocabularyUtil.ts';
-import { JsonRecordUtil }            from '../../../lib/utils/JsonRecordUtil.ts';
 import { StoredValueUtil }           from '../../utils/StoredValueUtil.ts';
 
 type UnknownObject = Record<string, unknown>;

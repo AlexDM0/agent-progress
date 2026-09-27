@@ -5,7 +5,7 @@
 
 import { Marked }                      from 'marked';
 import type { RendererObject, Tokens } from 'marked';
-import { HtmlEscapeUtil }              from '../../lib/utils/HtmlEscapeUtil.ts';
+import { HtmlEscapeUtil }              from '../../lib/html-escape/HtmlEscapeUtil.ts';
 
 const ALLOWED_HREF_SCHEMES = ['http:', 'https:', 'mailto:'] as const;
 

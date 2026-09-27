@@ -21,8 +21,8 @@ import {
   test
 }                                       from 'bun:test';
 import { InstallVersionWordingUtil }  from '../../../src/adapters/utils/InstallVersionWordingUtil.ts';
+import { LocalTimeUtil }              from '../../../src/lib/local-time/LocalTimeUtil.ts';
 import type { Task }                  from '../../../src/lib/tracker-model/@types/Task.ts';
-import { TimeUtil }                   from '../../../src/lib/utils/TimeUtil.ts';
 import {
   addWorktree,
   commitFile,
@@ -340,7 +340,7 @@ describeWhenGitIsPresent('a release that holds', () => {
 
 // The reviewer releases as its last step, so a review bar still running after a release reads as a reviewer owed and holds a slot.
 describeWhenGitIsPresent('a release closes the running review bars of the tickets it delivers', () => {
-  const releaseStamp = TimeUtil.formatLocalIso(FROZEN_NOW);
+  const releaseStamp = LocalTimeUtil.formatLocalIso(FROZEN_NOW);
 
   test('the one running review row ends delivered, finished and delivered at the release time, and the slot it held is free', async () => {
     const { identifier, worktree, branch } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');

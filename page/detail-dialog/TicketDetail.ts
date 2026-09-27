@@ -3,8 +3,8 @@
  * except the ticket's `bodyHtml`, already escaped by `src/services/render/MarkdownRenderer.ts`.
  */
 
+import { HtmlEscapeUtil }            from '../../src/lib/html-escape/HtmlEscapeUtil.ts';
 import { FIRST_REPEAT_REVIEW_ROUND } from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
-import { HtmlEscapeUtil }            from '../../src/lib/utils/HtmlEscapeUtil.ts';
 import type { KanbanCard }           from '../@types/KanbanCard.ts';
 import { MarkupUtil }                from '../utils/MarkupUtil.ts';
 import { WorkItemMarkupUtil }        from '../utils/WorkItemMarkupUtil.ts';

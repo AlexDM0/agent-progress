@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { basename }   from 'node:path';
 
 import { ensureIgnored, type EnsureIgnoredOutcome }                             from '../../../src/lib/git/GitIgnore.ts';
-import { TimeUtil }                                                             from '../../../src/lib/utils/TimeUtil.ts';
+import { LocalTimeUtil }                                                        from '../../../src/lib/local-time/LocalTimeUtil.ts';
 import { createTracker }                                                        from '../../../src/services/tracker/TrackerCreation.ts';
 import { findWorkspace, workspacePathsFor }                                     from '../../../src/services/tracker/Workspace.ts';
 import { TRACKER_FILES }                                                        from '../../../src/services/tracker/constants/TrackerFiles.ts';
@@ -88,7 +88,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
   const project  = commandArguments.option('project') ?? basename(rootDirectory);
   const creation = await createTracker(workspace, {
     project,
-    startedAt: TimeUtil.formatLocalIso(context.now()),
+    startedAt: LocalTimeUtil.formatLocalIso(context.now()),
     // The page's localStorage key: `file://` is one origin in Chrome, so two trackers would otherwise share a saved range.
     trackerId: randomUUID(),
   }, context.now, context.renderState);

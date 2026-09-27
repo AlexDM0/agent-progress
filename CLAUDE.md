@@ -20,7 +20,7 @@ Deviations says so and why.
 - One purpose per file, explainable in two or three lines from its path and what it exports. Several exports serving
   that one purpose are fine. A file is `PascalCase.ts`, named after its main export; folders are lower case. No
   barrel files.
-- A file earns its place. A util is pure and stateless, one frozen object (`TimeUtil.formatLocalIso(…)`) tested
+- A file earns its place. A util is pure and stateless, one frozen object (`LocalTimeUtil.formatLocalIso(…)`) tested
   against its own contract, and it groups a domain: never a util holding one function. A one-line type or constant
   goes in its consumer's folder file, not a file of its own. An app-wide list is one global object, such as `LIMITS`.
 - Code starts beside its only consumer and moves on a second one, generalised first; never in anticipation.

@@ -1,6 +1,6 @@
 /** The markup primitives several parts of the page emit. Every value passes `escapeHtml` exactly once here. */
 
-import { HtmlEscapeUtil }       from '../../src/lib/utils/HtmlEscapeUtil.ts';
+import { HtmlEscapeUtil }       from '../../src/lib/html-escape/HtmlEscapeUtil.ts';
 import type { TimestampSlices } from './TimeUtil.ts';
 import { TimeUtil }             from './TimeUtil.ts';
 

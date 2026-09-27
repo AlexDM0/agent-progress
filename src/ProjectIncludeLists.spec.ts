@@ -106,9 +106,9 @@ describe('each include list is exactly what its project reaches', () => {
 
 describe('the guard still names each form, planted in memory', () => {
   test('a needed entry removed from the page\'s list', () => {
-    const includeEntries = includeEntriesOf(PAGE_PROJECT.configurationPath).filter((entry) => entry !== '../src/lib/utils/HtmlEscapeUtil.ts');
+    const includeEntries = includeEntriesOf(PAGE_PROJECT.configurationPath).filter((entry) => entry !== '../src/lib/html-escape/HtmlEscapeUtil.ts');
     expect(includeListSentencesOf(PAGE_PROJECT, includeEntries, SCANNER.graph)).toEqual([
-      'page/tsconfig.json does not list src/lib/utils/HtmlEscapeUtil.ts, which page/ reaches: add it to the include list',
+      'page/tsconfig.json does not list src/lib/html-escape/HtmlEscapeUtil.ts, which page/ reaches: add it to the include list',
     ]);
   });
 

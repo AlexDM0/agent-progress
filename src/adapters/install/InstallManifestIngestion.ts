@@ -1,7 +1,7 @@
 /** `.agent-progress/version.json` read into the install version it records: read, parse, validate. */
 import { lstatSync } from 'node:fs';
 
-import { JsonRecordUtil }   from '../../lib/utils/JsonRecordUtil.ts';
+import { JsonRecordUtil }   from '../../lib/json-record/JsonRecordUtil.ts';
 import { storedFileTextOf } from '../StoredFileText.ts';
 import { StoredValueUtil }  from '../utils/StoredValueUtil.ts';
 

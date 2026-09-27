@@ -1,3 +1,5 @@
+/** Plain-object checks of parsed JSON. It depends on no other lib package. */
+
 /** A parsed JSON value that is an object with string keys: `null` and an array are objects to `typeof` and do not count. */
 function valueIsAPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

@@ -1,4 +1,5 @@
 /** Whether a parsed progress.json is a document in the current format this build can read, and if not, the reason naming the offending field. */
+import { JsonRecordUtil }                                    from '../../../lib/json-record/JsonRecordUtil.ts';
 import { LOWEST_CONCURRENCY_LIMIT_AGENTS }                   from '../../../lib/tracker-model/constants/ConcurrencyLimits.ts';
 import { DISPATCHER_STATES }                                 from '../../../lib/tracker-model/constants/DispatcherStates.ts';
 import { FIRST_REPEAT_REVIEW_ROUND, FIRST_REVIEW_BAR_ROUND } from '../../../lib/tracker-model/constants/ReviewRounds.ts';
@@ -6,7 +7,6 @@ import { TASK_STATUSES }                                     from '../../../lib/
 import { FIRST_TASK_ID }                                     from '../../../lib/tracker-model/constants/TaskIds.ts';
 import { BoardSettingsUtil }                                 from '../../../lib/tracker-model/utils/BoardSettingsUtil.ts';
 import { VocabularyUtil }                                    from '../../../lib/tracker-model/utils/VocabularyUtil.ts';
-import { JsonRecordUtil }                                    from '../../../lib/utils/JsonRecordUtil.ts';
 import { StoredValueUtil }                                   from '../../utils/StoredValueUtil.ts';
 import type { StoredProgressFile, StoredTaskPhase }          from '../@types/StoredProgressFile.ts';
 import { CURRENT_PROGRESS_FILE_VERSION }                     from '../constants/ProgressFileVersions.ts';

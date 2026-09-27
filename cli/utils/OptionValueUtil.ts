@@ -1,22 +1,22 @@
+import { LocalTimeUtil }       from '../../src/lib/local-time/LocalTimeUtil.ts';
+import { TokenCountUtil }      from '../../src/lib/token-count/TokenCountUtil.ts';
 import { FIRST_TASK_ID }       from '../../src/lib/tracker-model/constants/TaskIds.ts';
-import { TimeUtil }            from '../../src/lib/utils/TimeUtil.ts';
-import { TokenCountUtil }      from '../../src/lib/utils/TokenCountUtil.ts';
 import { OperationRefusal }    from '../../src/shared/OperationRefusal.ts';
 import type { ArgumentParser } from '../arguments/ArgumentParser.ts';
 
 /** An unreadable `--at` is refused rather than defaulted to now, which would stamp a bar nobody can explain. */
 function atStampFrom(commandArguments: ArgumentParser, now: Date): string {
   const written = commandArguments.option('at');
-  if (written === undefined) return TimeUtil.formatLocalIso(now);
+  if (written === undefined) return LocalTimeUtil.formatLocalIso(now);
 
-  const resolved = TimeUtil.resolveWhen(written, now);
+  const resolved = LocalTimeUtil.resolveWhen(written, now);
   if (resolved === null) {
     throw new OperationRefusal(
       'refused',
       `--at "${written}" is not a time. Write an ISO 8601 timestamp, \`now\`, or a signed offset from now such as \`-5m\`, \`-2h\`, \`-1d\` or \`+30m\`.`,
     );
   }
-  return TimeUtil.formatLocalIso(resolved);
+  return LocalTimeUtil.formatLocalIso(resolved);
 }
 
 function tokenCountFrom(commandArguments: ArgumentParser): number | undefined {

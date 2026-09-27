@@ -3,7 +3,7 @@
  * **Calls and end context are medians; the token figures are means, deliberately.** One runaway agent must
  * not move what a typical agent did, and must not be hidden in what the cohort cost, since a bill is a sum.
  */
-import { TimeUtil }               from '../../utils/TimeUtil.ts';
+import { LocalTimeUtil }          from '../../local-time/LocalTimeUtil.ts';
 import type { TranscriptProfile } from './TranscriptUsageUtil.ts';
 import { TranscriptUsageUtil }    from './TranscriptUsageUtil.ts';
 
@@ -71,7 +71,7 @@ function cohortSummaryOf(profiles: readonly TranscriptProfile[]): CohortSummary 
 function cohortSplitAt(profiles: readonly TranscriptProfile[], instant: Date): CohortSplit {
   const split: CohortSplit = { before: [], after: [] };
   for (const profile of profiles) {
-    const startedAt = profile.startedAt === null ? null : TimeUtil.parseIso(profile.startedAt);
+    const startedAt = profile.startedAt === null ? null : LocalTimeUtil.parseIso(profile.startedAt);
     if (startedAt !== null && startedAt.getTime() >= instant.getTime()) split.after.push(profile);
     else split.before.push(profile);
   }

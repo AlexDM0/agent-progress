@@ -3,9 +3,9 @@
  * ticket value passes `escapeHtml` exactly once here, except a ticket's `bodyHtml`, already escaped by `src/services/render/MarkdownRenderer.ts`.
  */
 
+import { HtmlEscapeUtil }                      from '../../src/lib/html-escape/HtmlEscapeUtil.ts';
 import { TICKET_STATUSES_THAT_CLOSE_A_TICKET } from '../../src/lib/tracker-model/constants/Statuses.ts';
 import { TicketDefaultsUtil }                  from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
-import { HtmlEscapeUtil }                      from '../../src/lib/utils/HtmlEscapeUtil.ts';
 import type { PageTicket }                     from '../../src/shared/@types/PagePayload.ts';
 import { MarkupUtil }                          from '../utils/MarkupUtil.ts';
 import { TemplateIdUtil }                      from '../utils/TemplateIdUtil.ts';

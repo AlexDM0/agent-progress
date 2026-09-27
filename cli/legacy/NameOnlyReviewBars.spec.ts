@@ -14,8 +14,8 @@ import {
   expect,
   test
 }                                       from 'bun:test';
+import { LocalTimeUtil }              from '../../src/lib/local-time/LocalTimeUtil.ts';
 import type { Task }                  from '../../src/lib/tracker-model/@types/Task.ts';
-import { TimeUtil }                   from '../../src/lib/utils/TimeUtil.ts';
 import { LIMITS }                     from '../../src/shared/constants/Limits.ts';
 import {
   addWorktree,
@@ -85,7 +85,7 @@ afterEach(() => {
 });
 
 describeWhenGitIsPresent('a release', () => {
-  const releaseStamp = TimeUtil.formatLocalIso(FROZEN_NOW);
+  const releaseStamp = LocalTimeUtil.formatLocalIso(FROZEN_NOW);
 
   /** A review bar as the orchestrate skill adds one, started an hour before the release; linked by `--review-of` unless the name alone is to link it. */
   async function inProgressReviewRow(identifier: string, linkArguments: readonly string[] = ['--review-of', identifier]): Promise<number> {

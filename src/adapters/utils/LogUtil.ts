@@ -3,9 +3,9 @@
  * the page through `identifiedEntryOf`, which also carries every task and ticket id the record concerns, so a detail panel never reads ids
  * out of the sentence.
  */
+import { TokenCountUtil }                               from '../../lib/token-count/TokenCountUtil.ts';
 import type { AgentUsage, LogRecord, LogRecordContent } from '../../lib/tracker-model/@types/LogRecord.ts';
 import type { DispatcherState, ViewRange }              from '../../lib/tracker-model/@types/TrackerProgress.ts';
-import { TokenCountUtil }                               from '../../lib/utils/TokenCountUtil.ts';
 import type { IdentifiedLogEntry, WordedLogEntry }      from '../../shared/@types/WordedLogEntry.ts';
 import type { MovedToStatus }                           from './StatusWordingUtil.ts';
 import { StatusWordingUtil }                            from './StatusWordingUtil.ts';
@@ -32,7 +32,7 @@ function chartRangeTextOf(view: ViewRange): string {
 }
 
 /**
- * Formatted through `src/lib/utils/TokenCountUtil.ts`, so the log and the chart's token column read in the same units. The cache-read
+ * Formatted through `src/lib/token-count/TokenCountUtil.ts`, so the log and the chart's token column read in the same units. The cache-read
  * share is named beside the whole input because it is the figure that explains a long session and is invisible in a plain total.
  */
 function agentStoppedTextOf(usage: AgentUsage): string {

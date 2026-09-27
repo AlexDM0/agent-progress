@@ -1,10 +1,10 @@
 /** How a task or ticket is marked wherever it appears: its links, badges, marks and pill label. */
 
 import { HtmlLabelUtil }                from '../../src/adapters/utils/HtmlLabelUtil.ts';
+import { HtmlEscapeUtil }               from '../../src/lib/html-escape/HtmlEscapeUtil.ts';
 import type { DisplayState, Task }      from '../../src/lib/tracker-model/@types/Task.ts';
 import type { TicketStatus }            from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { TicketDefaultsUtil }           from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
-import { HtmlEscapeUtil }               from '../../src/lib/utils/HtmlEscapeUtil.ts';
 import type { PageTicket }              from '../../src/shared/@types/PagePayload.ts';
 import { PILL_LABEL_FOR_DISPLAY_STATE } from '../constants/PillLabels.ts';
 import { MarkupUtil }                   from './MarkupUtil.ts';

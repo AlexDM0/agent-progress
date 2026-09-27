@@ -1,5 +1,5 @@
 /** The hook JSON the harness writes on standard input; anything unreadable is one sentence on standard error and no input. */
-import { JsonRecordUtil }      from '../../../src/lib/utils/JsonRecordUtil.ts';
+import { JsonRecordUtil }      from '../../../src/lib/json-record/JsonRecordUtil.ts';
 import type { CommandContext } from '../../CommandContext.ts';
 
 /** The prefix on every sentence the hook writes, so a line in a harness log says which command produced it. */

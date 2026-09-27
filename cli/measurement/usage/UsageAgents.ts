@@ -3,7 +3,7 @@ import type { SubagentTranscript } from '../../../src/lib/claude-code/ClaudeTran
 import { transcriptTextAt }        from '../../../src/lib/claude-code/ClaudeTranscripts.ts';
 import type { TranscriptProfile }  from '../../../src/lib/claude-code/utils/TranscriptUsageUtil.ts';
 import { TranscriptUsageUtil }     from '../../../src/lib/claude-code/utils/TranscriptUsageUtil.ts';
-import { TimeUtil }                from '../../../src/lib/utils/TimeUtil.ts';
+import { LocalTimeUtil }           from '../../../src/lib/local-time/LocalTimeUtil.ts';
 import { LIMITS }                  from '../../../src/shared/constants/Limits.ts';
 import type { CommandContext }     from '../../CommandContext.ts';
 
@@ -35,8 +35,8 @@ function agentUsageFor(transcript: SubagentTranscript, transcriptText: string): 
  */
 function oldestFirst(agents: readonly AgentUsage[]): AgentUsage[] {
   return [...agents].sort((a, b) => {
-    const aStart = a.startedAt === null ? Number.NEGATIVE_INFINITY : TimeUtil.parseIso(a.startedAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
-    const bStart = b.startedAt === null ? Number.NEGATIVE_INFINITY : TimeUtil.parseIso(b.startedAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
+    const aStart = a.startedAt === null ? Number.NEGATIVE_INFINITY : LocalTimeUtil.parseIso(a.startedAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
+    const bStart = b.startedAt === null ? Number.NEGATIVE_INFINITY : LocalTimeUtil.parseIso(b.startedAt)?.getTime() ?? Number.NEGATIVE_INFINITY;
     return aStart - bStart || a.transcriptPath.localeCompare(b.transcriptPath);
   });
 }

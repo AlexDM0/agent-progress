@@ -408,7 +408,7 @@ describe('the scan itself', () => {
     const libPackages = new Set(GRAPH.scannedPaths.flatMap((path) => libPackageOf(path) ?? []));
     expect(commandFolders.size, 'command folders under cli/').toBeGreaterThanOrEqual(10);
     expect(libPackages.size, 'packages under src/lib/').toBeGreaterThanOrEqual(4);
-    expect(declaredLibDependenciesOf(GRAPH).get('claude-code')).toEqual(['atomic-file', 'utils']);
+    expect(declaredLibDependenciesOf(GRAPH).get('claude-code')).toEqual(['atomic-file', 'json-record', 'local-time']);
   });
 
   test('every allowlist entry and every declared lib dependency is still used, and every testing folder is listed', () => {

@@ -1,6 +1,6 @@
 /** The log's lines, for the log card and the task dialog alike. */
 
-import { HtmlEscapeUtil }       from '../../src/lib/utils/HtmlEscapeUtil.ts';
+import { HtmlEscapeUtil }       from '../../src/lib/html-escape/HtmlEscapeUtil.ts';
 import type { WordedLogEntry }  from '../../src/shared/@types/WordedLogEntry.ts';
 import { MarkupUtil }           from './MarkupUtil.ts';
 import type { TimestampSlices } from './TimeUtil.ts';

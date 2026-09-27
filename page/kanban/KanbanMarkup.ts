@@ -1,11 +1,11 @@
 /** The Kanban tab's markup, shaped by the placeholder board in `resources/template.html`; it follows `page/kanban/utils/KanbanLaneUtil.ts`'s rules. */
 
 import { HtmlLabelUtil }                   from '../../src/adapters/utils/HtmlLabelUtil.ts';
+import { HtmlEscapeUtil }                  from '../../src/lib/html-escape/HtmlEscapeUtil.ts';
+import { TokenCountUtil }                  from '../../src/lib/token-count/TokenCountUtil.ts';
 import type { DisplayState }               from '../../src/lib/tracker-model/@types/Task.ts';
 import { FIRST_REPEAT_REVIEW_ROUND }       from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
 import { TicketDefaultsUtil }              from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
-import { HtmlEscapeUtil }                  from '../../src/lib/utils/HtmlEscapeUtil.ts';
-import { TokenCountUtil }                  from '../../src/lib/utils/TokenCountUtil.ts';
 import type { ClosedKanbanLane }           from '../@types/ClosedKanbanLane.ts';
 import type { KanbanCard }                 from '../@types/KanbanCard.ts';
 import { CAPPED_LANE_FIRST_PAGE_CARDS }    from '../constants/CappedLanePaging.ts';

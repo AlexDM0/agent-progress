@@ -1,6 +1,6 @@
 /**
- * The utils building block: pure, dependency-free value helpers (time stamps, token counts, HTML escaping, plain-object checks of parsed
- * JSON); it imports nothing. Timestamps are local-offset ISO 8601, never UTC: formatted, parsed, and resolved from `now` or a signed offset.
+ * Timestamps as local-offset ISO 8601, never UTC: formatted, parsed, and resolved from `now` or a signed offset. It depends on no other
+ * lib package.
  */
 
 const MILLISECONDS_PER_MINUTE = 60_000;
@@ -131,7 +131,7 @@ function parseDurationMinutes(text: string): number | null {
   return minutes > 0 ? minutes : null;
 }
 
-export const TimeUtil = {
+export const LocalTimeUtil = {
   formatLocalIso,
   parseDurationMinutes,
   parseIso,

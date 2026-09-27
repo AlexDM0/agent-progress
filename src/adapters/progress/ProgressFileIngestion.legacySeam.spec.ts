@@ -8,8 +8,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join }                        from 'node:path';
 import { afterAll, expect, test }      from 'bun:test';
 
+import { JsonRecordUtil }                                 from '../../lib/json-record/JsonRecordUtil.ts';
 import { TASK_STATUSES }                                  from '../../lib/tracker-model/constants/Statuses.ts';
-import { JsonRecordUtil }                                 from '../../lib/utils/JsonRecordUtil.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
 import type { StoredProgressFile }                        from './@types/StoredProgressFile.ts';
 import { ProgressFileIngestion }                          from './ProgressFileIngestion.ts';

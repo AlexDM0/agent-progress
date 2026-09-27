@@ -5,7 +5,7 @@
  * `carriedOverLog` (and `TrackerReader`'s `progressFileIsInAnOlderFormat` with them), and the split exports `documentHeaderProblemOf` and
  * `taskRowsProblemOf` of `src/adapters/progress/utils/ProgressFileValidationUtil.ts`, which then exports only `documentProblemOf`.
  */
-import { JsonRecordUtil }                                                    from '../../../lib/utils/JsonRecordUtil.ts';
+import { JsonRecordUtil }                                                    from '../../../lib/json-record/JsonRecordUtil.ts';
 import { RetiredStatusWordUtil }                                             from '../../../shared/legacy/utils/RetiredStatusWordUtil.ts';
 import { ReviewBarNameUtil }                                                 from '../../../shared/legacy/utils/ReviewBarNameUtil.ts';
 import type { ProgressFileMigration }                                        from '../../progress/@types/ProgressFileMigration.ts';

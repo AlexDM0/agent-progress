@@ -1,17 +1,17 @@
 /**
- * `TimeUtil` against its own contract: `parseIso` returns `null` and never an `Invalid Date`, and
+ * `LocalTimeUtil` against its own contract: `parseIso` returns `null` and never an `Invalid Date`, and
  * every assertion is written to hold in any timezone, because the suite must not reach for `TZ`.
  */
 import { expect, test } from 'bun:test';
 
-import { TimeUtil } from './TimeUtil.ts';
+import { LocalTimeUtil } from './LocalTimeUtil.ts';
 
 const {
   formatLocalIso,
   parseDurationMinutes,
   parseIso,
   resolveWhen,
-} = TimeUtil;
+} = LocalTimeUtil;
 
 const LOCAL_ISO_SHAPE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/;
 const MILLISECONDS_PER_MINUTE = 60_000;

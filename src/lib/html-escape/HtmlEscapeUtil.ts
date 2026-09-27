@@ -1,6 +1,7 @@
 /**
  * Text someone else wrote must never reach a page as markup. Element text and attributes need the
  * five-character escape; JSON embedded in a script tag needs its own, and neither replaces the other.
+ * It depends on no other lib package.
  */
 
 /** All five characters, because values also land in attributes; `&` is replaced first, or a just-written `&lt;` would come back out as `&amp;lt;`. */

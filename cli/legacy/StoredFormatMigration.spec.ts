@@ -19,7 +19,7 @@ import {
 import { join } from 'node:path';
 
 import { afterEach, expect, test }                            from 'bun:test';
-import { TimeUtil }                                           from '../../src/lib/utils/TimeUtil.ts';
+import { LocalTimeUtil }                                      from '../../src/lib/local-time/LocalTimeUtil.ts';
 import type { WordedLogEntry }                                from '../../src/shared/@types/WordedLogEntry.ts';
 import { createScratchGitRepository, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }                           from '../../src/testing/ToolGuard.ts';
@@ -192,7 +192,7 @@ const OWNER_FULL_ACCESS_MODE   = 0o755;
 
 const NEW_NOTE_TEXT = 'Example note after the upgrade';
 
-const NEW_NOTE_LINE = `${JSON.stringify({ at: TimeUtil.formatLocalIso(FROZEN_NOW), kind: 'note', fields: { text: NEW_NOTE_TEXT } })}\n`;
+const NEW_NOTE_LINE = `${JSON.stringify({ at: LocalTimeUtil.formatLocalIso(FROZEN_NOW), kind: 'note', fields: { text: NEW_NOTE_TEXT } })}\n`;
 
 interface TrackerFiles {
   repositoryDirectory: string;

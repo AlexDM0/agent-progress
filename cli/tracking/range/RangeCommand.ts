@@ -2,8 +2,8 @@
  * A relative bound is stored as written and resolved at layout time, so `--from -2h` keeps meaning "the
  * last two hours"; `page/utils/GeometryUtil.ts` resolves each end, which is what makes a mixed pair legal.
  */
+import { LocalTimeUtil }         from '../../../src/lib/local-time/LocalTimeUtil.ts';
 import type { ViewRange }        from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
-import { TimeUtil }              from '../../../src/lib/utils/TimeUtil.ts';
 import { OperationRefusal }      from '../../../src/shared/OperationRefusal.ts';
 import type { CommandHandler }   from '../../CommandHandler.ts';
 import { openTrackerForWriting } from '../../OpenTrackerForWriting.ts';
@@ -29,9 +29,9 @@ function boundIsRelative(text: string): boolean {
 /** An offset is stored as written, but only one that resolves now, so the page is never handed a bound it cannot lay out. */
 function storedBound(text: string, now: Date): string | null {
   if (boundIsStartOfWork(text)) return text.trim();
-  if (boundIsRelative(text)) return TimeUtil.resolveWhen(text, now) === null ? null : text.trim();
-  const parsed = TimeUtil.parseIso(text);
-  return parsed === null ? null : TimeUtil.formatLocalIso(parsed);
+  if (boundIsRelative(text)) return LocalTimeUtil.resolveWhen(text, now) === null ? null : text.trim();
+  const parsed = LocalTimeUtil.parseIso(text);
+  return parsed === null ? null : LocalTimeUtil.formatLocalIso(parsed);
 }
 
 function boundIsStartOfWork(text: string): boolean {
@@ -45,8 +45,8 @@ function boundIsStartOfWork(text: string): boolean {
 function refuseABackwardsRange(writtenFrom: string, writtenTo: string, now: Date): void {
   if (boundIsStartOfWork(writtenFrom) || boundIsStartOfWork(writtenTo)) return;
   if (boundIsRelative(writtenFrom) !== boundIsRelative(writtenTo)) return;
-  const from = TimeUtil.resolveWhen(writtenFrom, now);
-  const to   = TimeUtil.resolveWhen(writtenTo, now);
+  const from = LocalTimeUtil.resolveWhen(writtenFrom, now);
+  const to   = LocalTimeUtil.resolveWhen(writtenTo, now);
   if (from === null || to === null || from.getTime() < to.getTime()) return;
 
   throw new OperationRefusal(
@@ -71,7 +71,7 @@ function viewRangeFrom(writtenFrom: string, writtenTo: string, writtenTick: stri
 
   let tickMinutes: number | null = null;
   if (writtenTick !== undefined) {
-    tickMinutes = TimeUtil.parseDurationMinutes(writtenTick);
+    tickMinutes = LocalTimeUtil.parseDurationMinutes(writtenTick);
     if (tickMinutes === null) {
       throw new OperationRefusal('refused', `--tick "${writtenTick}" is not a duration. Write it as \`15m\`, \`1h\`, \`1d\`, or a whole number of minutes.`);
     }

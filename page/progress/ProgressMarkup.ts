@@ -3,11 +3,11 @@
  * `resources/template.html`. Every tracker value passes `escapeHtml` exactly once here.
  */
 
+import { HtmlEscapeUtil }                   from '../../src/lib/html-escape/HtmlEscapeUtil.ts';
+import { TokenCountUtil }                   from '../../src/lib/token-count/TokenCountUtil.ts';
 import type { Task }                        from '../../src/lib/tracker-model/@types/Task.ts';
 import { FIRST_REPEAT_REVIEW_ROUND }        from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
 import { SETTLED_TASK_STATUSES }            from '../../src/lib/tracker-model/constants/Statuses.ts';
-import { HtmlEscapeUtil }                   from '../../src/lib/utils/HtmlEscapeUtil.ts';
-import { TokenCountUtil }                   from '../../src/lib/utils/TokenCountUtil.ts';
 import type { PageConcurrency, PageLimits } from '../../src/shared/@types/PagePayload.ts';
 import type { BoardRow }                    from '../@types/PageBoard.ts';
 import type { TimelineBar, TimelineTick }   from '../@types/Timeline.ts';
