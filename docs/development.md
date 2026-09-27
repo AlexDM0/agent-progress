@@ -249,7 +249,7 @@ held by review, not by a spec.
 | `cli/BinarySmoke.spec.ts` | The real `agent-progress.ts` spawned end to end: the shebang, the argument slice and the exit status reaching the process. |
 | `cli/InitRootOverride.spec.ts` | `init` beside `AGENT_PROGRESS_ROOT`, spawned because no spec may set the environment in-process: an override naming another directory refused with both progress files byte-identical, an agreeing one refreshing like `update`. |
 | `dispatcher/testing/utils/WorkflowScriptSourceUtil.spec.ts` | Every form the guard catches, each watched failing. |
-| `dispatcher/DispatchScript.spec.ts` | The built script's meta is pure and equals the frozen table's, an impurity planted in it is caught, it has no clock or randomness, builds to the same text every time and has one `agent()` call. |
+| `dispatcher/DispatchFromWorkflowGlobals.spec.ts` | The built script's meta is pure and equals the frozen table's, an impurity planted in it is caught, it has no clock or randomness, builds to the same text every time and has one `agent()` call. |
 | `dispatcher/Dispatcher.decisions.spec.ts` and its `.holds`, `.resumption`, `.brief` and `.equivalence` suites | The dispatcher's decisions; see below. |
 
 A new guard does not count until you have introduced each form of the violation it claims to catch and
@@ -281,7 +281,7 @@ renders first when the page is missing and opens it in the default browser. Relo
 
 ## The dispatcher script and its harness
 
-The dispatcher's source is `dispatcher/`, in TypeScript: `dispatcher/DispatchScript.ts` is its entry
+The dispatcher's source is `dispatcher/`, in TypeScript: `dispatcher/DispatchFromWorkflowGlobals.ts` is its entry
 and `dispatcher/DispatchMeta.ts` its `meta`. `init` and `update` bundle it into one Workflow-tool script,
 plain JavaScript run by the Workflow tool and never by Bun, and write it into a tracked repository as
 `.agent-progress/agent-progress-dispatch.js`: `cli/adoption/InstalledFileGeneration.ts` hands
@@ -305,7 +305,7 @@ clock and randomness refused as the Workflow tool refuses them. The specs:
 | `dispatcher/Dispatcher.brief.spec.ts` | The call budgets, the rework threshold and the brief path the bundle sends, and the threshold its round decision applies, are `DISPATCH_PROTOCOL`'s; `cli/adoption/InstalledFileGeneration.spec.ts` pins that the installed brief states the same numbers. |
 | `dispatcher/Dispatcher.equivalence.spec.ts` | The bundle reproduces the frozen table on every catalogued scenario. |
 | `dispatcher/testing/DispatchTraceCapture.spec.ts` | The table names the bundle it was taken from and the command that retakes it. |
-| `dispatcher/DispatchScript.spec.ts` and `dispatcher/testing/utils/WorkflowScriptSourceUtil.spec.ts` | No nondeterministic call, and a literal `meta`. |
+| `dispatcher/DispatchFromWorkflowGlobals.spec.ts` and `dispatcher/testing/utils/WorkflowScriptSourceUtil.spec.ts` | No nondeterministic call, and a literal `meta`. |
 
 A change to the dispatcher's behaviour therefore comes with a claim and its mutant.
 

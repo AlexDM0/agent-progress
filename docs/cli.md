@@ -92,7 +92,7 @@ version all of them are.
 | 3 | A `.gitignore` entry for the tracker | `.gitignore` | `init` only | — |
 | 4 | The managed block, from `resources/templates/ClaudeInstructionsBlock.md` | `CLAUDE.md` | `init`, `update` | `--no-claude-md` |
 | 5 | The `SubagentStop` hook running `agent-progress hook subagent-stop` | `.claude/settings.local.json` | `init`, `update` | `--no-hooks` |
-| 6 | The dispatcher workflow, generated from `dispatcher/DispatchScript.ts` | `.agent-progress/agent-progress-dispatch.js` | `init`, `update` | `--no-workflow` |
+| 6 | The dispatcher workflow, generated from `dispatcher/DispatchFromWorkflowGlobals.ts` | `.agent-progress/agent-progress-dispatch.js` | `init`, `update` | `--no-workflow` |
 | 7 | The worker agent definition, from `resources/templates/AgentProgressWorker.md` | `.claude/agents/agent-progress-worker.md` | `init`, `update` | `--no-agent-definition` |
 | 8 | The install version | `.agent-progress/version.json` | `init`, `update` | — |
 

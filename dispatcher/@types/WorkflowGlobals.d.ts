@@ -1,4 +1,4 @@
-/** The globals the Workflow tool hands a script, declared for `dispatcher/DispatchScript.ts`, the one module that names them. */
+/** The globals the Workflow tool hands a script, declared for `dispatcher/DispatchFromWorkflowGlobals.ts`, the one module that names them. */
 import type { WorkflowRuntime } from './WorkflowRuntime.ts';
 
 export {};

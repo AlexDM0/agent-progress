@@ -175,9 +175,9 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - `dispatcher/` is the Workflow-runtime project `dispatcher/tsconfig.json` (no Bun, Node or DOM types), with
   `dispatcher/tsconfig.spec.json` for its specs and `dispatcher/testing/`. Its `include` list is the `src/` files the
   dispatcher reaches, and a dispatcher module that imports a new `src/` file adds it there in the same change. Only
-  `dispatcher/DispatchScript.ts` names the Workflow globals.
+  `dispatcher/DispatchFromWorkflowGlobals.ts` names the Workflow globals.
 - `cli/adoption/InstalledFileGeneration.ts` hands `src/lib/claude-code/WorkflowScriptBundle.ts` the paths of
-  `dispatcher/DispatchScript.ts` and `dispatcher/DispatchMeta.ts`. The builder imports the meta module by path, the one
+  `dispatcher/DispatchFromWorkflowGlobals.ts` and `dispatcher/DispatchMeta.ts`. The builder imports the meta module by path, the one
   place dispatcher code runs in the CLI's process, beside the render service compiling `page/` by path. Specs build by
   path and never import `dispatcher/`.
 - ESLint 9 flat config through `@reliquary/eslint-config`: 2-space indent, single quotes, semicolons; line length
