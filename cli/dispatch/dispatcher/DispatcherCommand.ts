@@ -1,5 +1,4 @@
 import { LogUtil }               from '../../../src/adapters/utils/LogUtil.ts';
-import { StatusWordingUtil }     from '../../../src/adapters/utils/StatusWordingUtil.ts';
 import type { DispatcherState }  from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import { readingBoardOf }        from '../../../src/lib/tracker-model/ReadingBoard.ts';
 import { DISPATCHER_STATES }     from '../../../src/lib/tracker-model/constants/DispatcherStates.ts';
@@ -39,20 +38,16 @@ export const dispatcherCommand: CommandHandler = async (commandArguments, contex
   const runId   = commandArguments.option('run');
   if (written === undefined) {
     if (runId !== undefined) {
-      const stateWord = StatusWordingUtil.dispatcherStateWordFor(STATE_THAT_HOLDS_A_RUN);
-      throw new OperationRefusal('refused', `--run is stored with the state ${stateWord}: dispatcher ${STATE_THAT_HOLDS_A_RUN} --run <runId>.\n  Usage: ${USAGE}`);
+      throw new OperationRefusal('refused', `--run is stored with the state ${STATE_THAT_HOLDS_A_RUN}: dispatcher ${STATE_THAT_HOLDS_A_RUN} --run <runId>.\n  Usage: ${USAGE}`);
     }
     printCurrentState(commandArguments, context);
     return;
   }
   if (!BoardSettingsUtil.dispatcherStateIsKnown(written)) {
-    const stateWordsText = DISPATCHER_STATES.map(StatusWordingUtil.dispatcherStateWordFor).join(', ');
-    throw new OperationRefusal('refused', `"${written}" is not a dispatcher state. Write one of ${stateWordsText}.\n  Usage: ${USAGE}`);
+    throw new OperationRefusal('refused', `"${written}" is not a dispatcher state. Write one of ${DISPATCHER_STATES.join(', ')}.\n  Usage: ${USAGE}`);
   }
   if (runId !== undefined && written !== STATE_THAT_HOLDS_A_RUN) {
-    const writtenStateWord = StatusWordingUtil.dispatcherStateWordFor(written);
-    const runStateWord     = StatusWordingUtil.dispatcherStateWordFor(STATE_THAT_HOLDS_A_RUN);
-    throw new OperationRefusal('refused', `A ${writtenStateWord} dispatcher is no run, so --run goes with ${runStateWord} alone.\n  Usage: ${USAGE}`);
+    throw new OperationRefusal('refused', `A ${written} dispatcher is no run, so --run goes with ${STATE_THAT_HOLDS_A_RUN} alone.\n  Usage: ${USAGE}`);
   }
   if (runId !== undefined && !BoardSettingsUtil.dispatcherRunIdIsWellFormed(runId)) throw new OperationRefusal('refused', `--run needs a Workflow run id.\n  Usage: ${USAGE}`);
 
@@ -64,5 +59,5 @@ export const dispatcherCommand: CommandHandler = async (commandArguments, contex
 
   const loggedSentence = OutputUtil.loggedSentencesOf(logged);
   const entity         = runId === undefined ? { dispatcherState: written, previousState } : { dispatcherState: written, dispatcherRunId: runId, previousState };
-  OutputUtil.printEntity(commandArguments, context, entity, `${loggedSentence} (was ${StatusWordingUtil.dispatcherStateWordFor(previousState)}).`);
+  OutputUtil.printEntity(commandArguments, context, entity, `${loggedSentence} (was ${previousState}).`);
 };

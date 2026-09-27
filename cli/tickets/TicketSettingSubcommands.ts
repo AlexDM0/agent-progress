@@ -1,9 +1,4 @@
-import { StatusWordingUtil }                                            from '../../src/adapters/utils/StatusWordingUtil.ts';
-import { TicketPhraseUtil }                                             from '../../src/adapters/utils/TicketPhraseUtil.ts';
-import type { TicketDependenciesChanged }                               from '../../src/lib/tracker-model/@types/BoardChanges.ts';
-import type { Task }                                                    from '../../src/lib/tracker-model/@types/Task.ts';
 import { OperationRefusal }                                             from '../../src/shared/OperationRefusal.ts';
-import { DispatcherClaimNoteUtil }                                      from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
 import type { CommandContext }                                          from '../CommandContext.ts';
 import { openTrackerForWriting, openTrackerForWritingThenReadNextLine } from '../OpenTrackerForWriting.ts';
 import type { ArgumentParser }                                          from '../arguments/ArgumentParser.ts';
@@ -11,17 +6,16 @@ import { NextLineUtil }                                                 from '..
 import { OptionValueUtil }                                              from '../utils/OptionValueUtil.ts';
 import { OutputUtil }                                                   from '../utils/OutputUtil.ts';
 import type { TicketSubcommandHandler }                                 from './@types/TicketSubcommandHandler.ts';
+import { setTicketDependencies }                                        from './TicketDependencies.ts';
+import { holdOrUnholdTicket }                                           from './TicketHold.ts';
 import { TICKET_USAGE }                                                 from './constants/TicketUsage.ts';
 import { TicketArgumentUtil }                                           from './utils/TicketArgumentUtil.ts';
 import { TicketLookupUtil }                                             from './utils/TicketLookupUtil.ts';
 import { TicketOutputUtil }                                             from './utils/TicketOutputUtil.ts';
 
 const LINK_OPTION_NAMES     = ['force', 'json'];
-const DEPENDS_OPTION_NAMES  = ['add', 'remove', 'json'];
 const PRIORITY_OPTION_NAMES = ['at', 'json'];
 const AGENT_OPTION_NAMES    = ['model', 'effort', 'at', 'json'];
-const HOLD_OPTION_NAMES     = ['reason', 'at', 'json'];
-const UNHOLD_OPTION_NAMES   = ['at', 'json'];
 
 async function linkOneTicket(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   commandArguments.rejectUnknownOptions(LINK_OPTION_NAMES, TICKET_USAGE);
@@ -44,55 +38,6 @@ async function linkOneTicket(commandArguments: ArgumentParser, context: CommandC
   );
 
   OutputUtil.printEntity(commandArguments, context, TicketOutputUtil.ticketAsJson(linked), `Ticket #${linked.frontmatter.id} linked to task #${taskId}`);
-}
-
-type DependencyEdit = { kind: 'replace' | 'add' | 'remove'; ticketIds: string[] };
-
-/** Bare ids beside `--add` or `--remove` could mean either list, and `--add 3 4` reads the 4 as bare, so both are refused rather than guessed. */
-function dependencyEditFrom(commandArguments: ArgumentParser, dependencyTexts: readonly string[]): DependencyEdit {
-  const addedText   = commandArguments.option('add');
-  const removedText = commandArguments.option('remove');
-  if (addedText !== undefined && removedText !== undefined) {
-    throw new OperationRefusal('refused', `agent-progress ticket depends takes --add or --remove, not both: run it once for each.\n  Usage: ${TICKET_USAGE}`);
-  }
-  const editedText = addedText ?? removedText;
-  if (editedText === undefined) return { kind: 'replace', ticketIds: TicketArgumentUtil.dependencyListFrom(dependencyTexts) };
-  const optionToken = addedText === undefined ? '--remove' : '--add';
-  if (dependencyTexts.length > 0) {
-    throw new OperationRefusal(
-      'refused',
-      `agent-progress ticket depends was given ${optionToken} and bare ids, which is ambiguous: `
-      + `list every id in the option, as \`${optionToken} 3,4\`, or give bare ids alone to replace the list.\n  Usage: ${TICKET_USAGE}`,
-    );
-  }
-  return { kind: addedText === undefined ? 'remove' : 'add', ticketIds: TicketArgumentUtil.dependencyListFrom([editedText]) };
-}
-
-function droppedDependencyLinesOf(ticketId: string, changed: TicketDependenciesChanged): string[] {
-  return changed.droppedUnsettledTicketIds.map((droppedId) => `#${droppedId} is still open: #${ticketId} may now start before it`);
-}
-
-async function setTicketDependencies(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
-  commandArguments.rejectUnknownOptions(DEPENDS_OPTION_NAMES, TICKET_USAGE);
-
-  const [, reference, ...dependencyTexts] = commandArguments.positionals();
-  if (reference === undefined) {
-    throw new OperationRefusal('refused', `agent-progress ticket depends needs a ticket id, then the ids it waits on (none clears the list).\n  Usage: ${TICKET_USAGE}`);
-  }
-  const edit = dependencyEditFrom(commandArguments, dependencyTexts);
-
-  const { result: changed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
-    const ticketId = TicketLookupUtil.requireTicket(change, reference).frontmatter.id;
-    if (edit.kind === 'add') return change.board.addTicketDependencies(ticketId, edit.ticketIds, change.at);
-    if (edit.kind === 'remove') return change.board.removeTicketDependencies(ticketId, edit.ticketIds, change.at);
-    return change.board.setTicketDependencies(ticketId, edit.ticketIds, change.at);
-  });
-
-  const ticketId      = changed.ticket.frontmatter.id;
-  const droppedSuffix = changed.droppedTicketIds.length === 0 ? '' : ` (dropped ${TicketPhraseUtil.ticketReferencesText(changed.droppedTicketIds)})`;
-  const humanLines    = [`${OutputUtil.loggedSentencesOf(changed.logged)}${droppedSuffix}`, ...droppedDependencyLinesOf(ticketId, changed)].join('\n');
-  const entity        = { ...TicketOutputUtil.ticketAsJson(changed.ticket), added: changed.addedTicketIds, dropped: changed.droppedTicketIds };
-  OutputUtil.printEntityThenNextLine(commandArguments, context, entity, humanLines, NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState));
 }
 
 async function setTicketPriority(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
@@ -139,50 +84,6 @@ async function setTicketAgent(commandArguments: ArgumentParser, context: Command
 
   const closingLines = NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState);
   OutputUtil.printEntityThenNextLine(commandArguments, context, TicketOutputUtil.ticketAsJson(changed.ticket), OutputUtil.loggedSentencesOf(changed.logged), closingLines);
-}
-
-// Every dispatcher run's builder takes over only a row paused under a dispatcher claim note; any other pause is a person's, resumed by hand.
-function resumeBuildHintFor(ticketId: string, pausedRow: Readonly<Task>): string {
-  const pausedWord = StatusWordingUtil.statusWordFor('paused');
-  if (!DispatcherClaimNoteUtil.noteIsADispatcherClaimOn(pausedRow.note, ticketId)) {
-    return `Its build row #${pausedRow.id} was left ${pausedWord} under a person's note, which the dispatcher never takes over: `
-      + `resume it with \`agent-progress task start ${pausedRow.id}\`, or settle the row by hand.`;
-  }
-  const singleTicketRun = `launch a single-ticket dispatcher run for #${ticketId} (ticketIds: ["${ticketId}"]) to resume it`;
-  return `Its build was left ${pausedWord}: the next whole-board dispatcher run resumes it; when none is going or about to be launched, ${singleTicketRun} now.`;
-}
-
-/** A hold stops the dispatcher starting the ticket's next builder or reviewer; an agent already running is never interrupted by it. */
-async function holdOrUnholdTicket(holds: boolean, commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
-  const verb = holds ? 'hold' : 'unhold';
-  commandArguments.rejectUnknownOptions(holds ? HOLD_OPTION_NAMES : UNHOLD_OPTION_NAMES, TICKET_USAGE);
-  commandArguments.rejectExtraPositionals(2, TICKET_USAGE);
-
-  const reference = commandArguments.positionals()[1];
-  if (reference === undefined) {
-    throw new OperationRefusal('refused', `agent-progress ticket ${verb} needs a ticket id.\n  Usage: ${TICKET_USAGE}`);
-  }
-  const reason = commandArguments.option('reason') ?? '';
-
-  const { result: changed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
-    const { board } = change;
-    const ticketId  = TicketLookupUtil.requireTicket(change, reference).frontmatter.id;
-    if (holds) return { holdChange: board.holdTicket(ticketId, reason, change.at), resumeBuildHint: null };
-    const holdChange = board.unholdTicket(ticketId, change.at);
-    const pausedRow  = board.pausedBuildRowOf(ticketId);
-    return { holdChange, resumeBuildHint: pausedRow === null ? null : resumeBuildHintFor(ticketId, pausedRow) };
-  });
-
-  const { holdChange, resumeBuildHint } = changed;
-  const endedNextLine                   = NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState);
-  const closingLines                    = resumeBuildHint === null ? endedNextLine : `${endedNextLine}\n${resumeBuildHint}`;
-  OutputUtil.printEntityThenNextLine(
-    commandArguments,
-    context,
-    TicketOutputUtil.ticketAsJson(holdChange.ticket),
-    OutputUtil.loggedSentencesOf(holdChange.logged),
-    closingLines,
-  );
 }
 
 export const TICKET_SETTING_SUBCOMMANDS: Readonly<Record<string, TicketSubcommandHandler>> = {

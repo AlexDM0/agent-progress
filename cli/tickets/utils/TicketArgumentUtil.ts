@@ -1,4 +1,3 @@
-import { StatusWordingUtil } from '../../../src/adapters/utils/StatusWordingUtil.ts';
 import type {
   AgentEffort,
   AgentModel,
@@ -16,8 +15,7 @@ const DEPENDENCY_SEPARATOR_PATTERN = /[\s,]+/;
 
 function requirePriority(writtenPriority: string): TicketPriority {
   if (!VocabularyUtil.ticketPriorityIsKnown(writtenPriority)) {
-    const priorityWordsText = TICKET_PRIORITIES.map(StatusWordingUtil.priorityWordFor).join(', ');
-    throw new OperationRefusal('refused', `"${writtenPriority}" is not a ticket priority. The priorities are ${priorityWordsText}.`);
+    throw new OperationRefusal('refused', `"${writtenPriority}" is not a ticket priority. The priorities are ${TICKET_PRIORITIES.join(', ')}.`);
   }
   return writtenPriority;
 }
@@ -29,7 +27,7 @@ function priorityFrom(writtenPriority: string | undefined): TicketPriority | und
 function ticketTypeFrom(writtenType: string | undefined): TicketType | undefined {
   if (writtenType === undefined) return undefined;
   if (!VocabularyUtil.ticketTypeIsKnown(writtenType)) {
-    throw new OperationRefusal('refused', `"${writtenType}" is not a ticket type. The types are ${TICKET_TYPES.map(StatusWordingUtil.ticketTypeWordFor).join(', ')}.`);
+    throw new OperationRefusal('refused', `"${writtenType}" is not a ticket type. The types are ${TICKET_TYPES.join(', ')}.`);
   }
   return writtenType;
 }
@@ -63,7 +61,7 @@ function dependencyListFrom(texts: readonly string[]): string[] {
 }
 
 function refuseAnUnknownTicketStatus(writtenStatus: string): never {
-  throw new OperationRefusal('refused', `"${writtenStatus}" is not a ticket status. The statuses are ${TICKET_STATUSES.map(StatusWordingUtil.statusWordFor).join(', ')}.`);
+  throw new OperationRefusal('refused', `"${writtenStatus}" is not a ticket status. The statuses are ${TICKET_STATUSES.join(', ')}.`);
 }
 
 export const TicketArgumentUtil = {

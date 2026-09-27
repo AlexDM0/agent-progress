@@ -1,122 +1,50 @@
-import { StatusWordingUtil } from '../../src/adapters/utils/StatusWordingUtil.ts';
-import { TicketJsonUtil }    from '../../src/adapters/utils/TicketJsonUtil.ts';
-import { TicketPhraseUtil }  from '../../src/adapters/utils/TicketPhraseUtil.ts';
-import type {
-  AgentEffort,
-  AgentModel,
-  Ticket,
-  TicketStatus
-} from '../../src/lib/tracker-model/@types/Ticket.ts';
+import type { Ticket, TicketStatus }        from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { TicketDefaultsUtil }               from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
-import { TicketDependencyUtil }             from '../../src/lib/tracker-model/utils/TicketDependencyUtil.ts';
-import { VocabularyUtil }                   from '../../src/lib/tracker-model/utils/VocabularyUtil.ts';
 import { listTickets, readTicket }          from '../../src/services/tracker/TicketStore.ts';
 import { requireWorkspace, type Workspace } from '../../src/services/tracker/Workspace.ts';
 import { OperationRefusal }                 from '../../src/shared/OperationRefusal.ts';
 import { LIMITS }                           from '../../src/shared/constants/Limits.ts';
 import type { CommandContext }              from '../CommandContext.ts';
 import type { ArgumentParser }              from '../arguments/ArgumentParser.ts';
-import { RetiredWordRefusalUtil }           from '../legacy/utils/RetiredWordRefusalUtil.ts';
 import { OutputUtil }                       from '../utils/OutputUtil.ts';
 import type { TicketSubcommandHandler }     from './@types/TicketSubcommandHandler.ts';
+import { listAllTickets }                   from './TicketList.ts';
 import { TICKET_USAGE }                     from './constants/TicketUsage.ts';
-import { TicketArgumentUtil }               from './utils/TicketArgumentUtil.ts';
 import { TicketLookupUtil }                 from './utils/TicketLookupUtil.ts';
 import { TicketOutputUtil }                 from './utils/TicketOutputUtil.ts';
 
-const LIST_OPTION_NAMES = ['status', 'priority', 'json'];
 const SHOW_OPTION_NAMES = ['json'];
-
-const LIST_COLUMN_WIDTHS_CHARACTERS = {
-  identifier: 6,
-  status:     12,
-  priority:   8,
-  type:       8,
-  task:       6,
-};
 
 /** `ticket show` changes nothing, so it reads the ticket files as they are, with no lock and no Board. */
 function requireTicketToShow(workspace: Workspace, reference: string): Ticket {
   return readTicket(workspace, reference) ?? TicketLookupUtil.refuseAMissingTicket(reference, listTickets(workspace).malformed);
 }
 
-function statusByIdOf(tickets: readonly Ticket[]): Map<string, TicketStatus> {
-  return new Map(tickets.map((candidate) => [candidate.frontmatter.id, candidate.frontmatter.status]));
+function stampText(stamp: string): string {
+  return stamp.slice(0, LIMITS.DATE_AND_CLOCK_LENGTH_CHARACTERS).replace('T', ' ');
 }
 
-function waitingOnFor(ticket: Ticket, tickets: readonly Ticket[]): string[] {
-  return TicketDependencyUtil.waitingOnOf(ticket.frontmatter, statusByIdOf(tickets));
-}
-
-/** Only what the file names: a ticket left to the defaults prints nothing extra, so a listing of old tickets looks as it did. */
-function namedAgentText(ticket: { model?: AgentModel; effort?: AgentEffort }): string {
-  const named = [ticket.model, ticket.effort === undefined ? undefined : `${ticket.effort} effort`].filter((part) => part !== undefined);
-  return named.length === 0 ? '' : `  [${named.join(', ')}]`;
-}
-
-function listedStatusFrom(writtenStatus: string | undefined): TicketStatus | undefined {
-  if (writtenStatus === undefined || VocabularyUtil.ticketStatusIsKnown(writtenStatus)) return writtenStatus;
-  // The seam to the retired words; dropping `cli/legacy/` leaves only the unknown-status refusal below.
-  RetiredWordRefusalUtil.refuseARetiredTicketStatus(writtenStatus, (renamedStatus) => `pass --status ${renamedStatus}`);
-  return TicketArgumentUtil.refuseAnUnknownTicketStatus(writtenStatus);
-}
-
-async function listAllTickets(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
-  commandArguments.rejectUnknownOptions(LIST_OPTION_NAMES, TICKET_USAGE);
-  commandArguments.rejectExtraPositionals(1, TICKET_USAGE);
-
-  const listedStatus    = listedStatusFrom(commandArguments.option('status'));
-  const writtenPriority = TicketArgumentUtil.priorityFrom(commandArguments.option('priority'));
-
-  const workspace = requireWorkspace(context.currentDirectory);
-  const listing   = listTickets(workspace);
-  const shown     = listing.tickets
-    .filter((ticket) => listedStatus === undefined || ticket.frontmatter.status === listedStatus)
-    .filter((ticket) => writtenPriority === undefined || TicketDefaultsUtil.ticketPriorityOf(ticket.frontmatter) === writtenPriority);
-
-  // Before the listing, so a reader piping the table still sees what was left out of it.
-  OutputUtil.reportIgnoredTicketFiles(context, listing.malformed);
-
-  if (shown.length === 0) {
-    const narrowing = [
-      listedStatus === undefined ? undefined : StatusWordingUtil.statusWordFor(listedStatus),
-      writtenPriority === undefined ? undefined : `${StatusWordingUtil.priorityWordFor(writtenPriority)} priority`,
-    ].filter((part) => part !== undefined);
-    OutputUtil.printEntity(
-      commandArguments,
-      context,
-      [],
-      narrowing.length === 0 ? 'No tickets have been filed yet.' : `No tickets are ${narrowing.join(' and ')}.`,
-    );
-    return;
-  }
-
-  const header = [
-    OutputUtil.padColumn('id', LIST_COLUMN_WIDTHS_CHARACTERS.identifier),
-    OutputUtil.padColumn('status', LIST_COLUMN_WIDTHS_CHARACTERS.status),
-    OutputUtil.padColumn('priority', LIST_COLUMN_WIDTHS_CHARACTERS.priority),
-    OutputUtil.padColumn('type', LIST_COLUMN_WIDTHS_CHARACTERS.type),
-    OutputUtil.padColumn('task', LIST_COLUMN_WIDTHS_CHARACTERS.task),
-    'title',
-  ].join('');
-  const rows = shown.map((ticket) => {
-    const waitingOn = waitingOnFor(ticket, listing.tickets);
-    return [
-      OutputUtil.padColumn(`#${ticket.frontmatter.id}`, LIST_COLUMN_WIDTHS_CHARACTERS.identifier),
-      OutputUtil.padColumn(StatusWordingUtil.statusWordFor(ticket.frontmatter.status), LIST_COLUMN_WIDTHS_CHARACTERS.status),
-      OutputUtil.padColumn(StatusWordingUtil.priorityWordFor(TicketDefaultsUtil.ticketPriorityOf(ticket.frontmatter)), LIST_COLUMN_WIDTHS_CHARACTERS.priority),
-      OutputUtil.padColumn(StatusWordingUtil.ticketTypeWordFor(ticket.frontmatter.type), LIST_COLUMN_WIDTHS_CHARACTERS.type),
-      OutputUtil.padColumn(ticket.frontmatter.task === null ? '-' : `#${ticket.frontmatter.task}`, LIST_COLUMN_WIDTHS_CHARACTERS.task),
-      ticket.frontmatter.title,
-      namedAgentText(ticket.frontmatter),
-      waitingOn.length > 0 ? `  (${TicketPhraseUtil.waitingOnText(waitingOn)})` : '',
-    ].join('');
-  });
-  OutputUtil.printEntity(commandArguments, context, shown.map(TicketJsonUtil.ticketDocumentOf), [header, ...rows].join('\n'));
-}
-
-function dependencyStatusText(status: TicketStatus | undefined): string {
-  return status === undefined ? 'missing' : StatusWordingUtil.statusWordFor(status);
+function summaryOf(ticket: Ticket, statusById: ReadonlyMap<string, TicketStatus>): string {
+  const { frontmatter } = ticket;
+  const dependencies    = (frontmatter.dependsOn ?? []).map((identifier) => `#${identifier} (${statusById.get(identifier) ?? 'missing'})`);
+  return [
+    `Ticket #${frontmatter.id}: ${frontmatter.title}`,
+    `  status:   ${frontmatter.status}`,
+    `  priority: ${TicketDefaultsUtil.ticketPriorityOf(frontmatter)}`,
+    ...(frontmatter.model === undefined ? [] : [`  model:    ${frontmatter.model}`]),
+    ...(frontmatter.effort === undefined ? [] : [`  effort:   ${frontmatter.effort}`]),
+    ...(frontmatter.hold === undefined ? [] : [`  held:     ${frontmatter.hold === '' ? 'yes' : frontmatter.hold}`]),
+    `  type:     ${frontmatter.type}`,
+    `  group:    ${frontmatter.group ?? '-'}`,
+    `  task:     ${frontmatter.task === null ? '-' : `#${frontmatter.task}`}`,
+    `  waits on: ${dependencies.length === 0 ? '-' : dependencies.join(', ')}`,
+    `  filed:    ${stampText(frontmatter.filed)}`,
+    `  updated:  ${stampText(frontmatter.updated)}`,
+    `  branch:   ${frontmatter.branch ?? '-'}`,
+    `  commit:   ${frontmatter.commit ?? '-'}`,
+    `  reason:   ${frontmatter.reason ?? '-'}`,
+    `  file:     ${ticket.filePath}`,
+  ].join('\n');
 }
 
 async function showOneTicket(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
@@ -128,30 +56,10 @@ async function showOneTicket(commandArguments: ArgumentParser, context: CommandC
     throw new OperationRefusal('refused', `agent-progress ticket show needs a ticket id.\n  Usage: ${TICKET_USAGE}`);
   }
 
-  const workspace = requireWorkspace(context.currentDirectory);
-  const ticket    = requireTicketToShow(workspace, reference);
-  const { frontmatter } = ticket;
-  const statusById      = statusByIdOf(listTickets(workspace).tickets);
-  const dependencies    = (frontmatter.dependsOn ?? []).map((identifier) => `#${identifier} (${dependencyStatusText(statusById.get(identifier))})`);
-  const summary = [
-    `Ticket #${frontmatter.id}: ${frontmatter.title}`,
-    `  status:   ${StatusWordingUtil.statusWordFor(frontmatter.status)}`,
-    `  priority: ${StatusWordingUtil.priorityWordFor(TicketDefaultsUtil.ticketPriorityOf(frontmatter))}`,
-    ...(frontmatter.model === undefined ? [] : [`  model:    ${frontmatter.model}`]),
-    ...(frontmatter.effort === undefined ? [] : [`  effort:   ${frontmatter.effort}`]),
-    ...(frontmatter.hold === undefined ? [] : [`  held:     ${frontmatter.hold === '' ? 'yes' : frontmatter.hold}`]),
-    `  type:     ${StatusWordingUtil.ticketTypeWordFor(frontmatter.type)}`,
-    `  group:    ${frontmatter.group ?? '-'}`,
-    `  task:     ${frontmatter.task === null ? '-' : `#${frontmatter.task}`}`,
-    `  waits on: ${dependencies.length === 0 ? '-' : dependencies.join(', ')}`,
-    `  filed:    ${frontmatter.filed.slice(0, LIMITS.DATE_AND_CLOCK_LENGTH_CHARACTERS).replace('T', ' ')}`,
-    `  updated:  ${frontmatter.updated.slice(0, LIMITS.DATE_AND_CLOCK_LENGTH_CHARACTERS).replace('T', ' ')}`,
-    `  branch:   ${frontmatter.branch ?? '-'}`,
-    `  commit:   ${frontmatter.commit ?? '-'}`,
-    `  reason:   ${frontmatter.reason ?? '-'}`,
-    `  file:     ${ticket.filePath}`,
-  ].join('\n');
-  OutputUtil.printEntity(commandArguments, context, TicketOutputUtil.ticketAsJson(ticket), `${summary}\n\n${ticket.body}`);
+  const workspace  = requireWorkspace(context.currentDirectory);
+  const ticket     = requireTicketToShow(workspace, reference);
+  const statusById = new Map(listTickets(workspace).tickets.map((candidate) => [candidate.frontmatter.id, candidate.frontmatter.status]));
+  OutputUtil.printEntity(commandArguments, context, TicketOutputUtil.ticketAsJson(ticket), `${summaryOf(ticket, statusById)}\n\n${ticket.body}`);
 }
 
 export const TICKET_READING_SUBCOMMANDS: Readonly<Record<string, TicketSubcommandHandler>> = { list: listAllTickets, show: showOneTicket };

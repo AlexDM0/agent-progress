@@ -1,4 +1,3 @@
-import { StatusWordingUtil }    from '../../src/adapters/utils/StatusWordingUtil.ts';
 import { TicketPhraseUtil }     from '../../src/adapters/utils/TicketPhraseUtil.ts';
 import type { DispatcherState } from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import type { Board }           from '../../src/lib/tracker-model/Board.ts';
@@ -20,10 +19,10 @@ interface BoardCapacity {
  * take: low tickets alone are the orchestrator's to triage before any run is launched for them, and a held ticket is none it could take.
  */
 function dispatcherAdviceOf(capacity: BoardCapacity, startableTicketIds: readonly string[]): string {
-  if (capacity.dispatcherState === 'stopped') return `; dispatcher ${StatusWordingUtil.dispatcherStateWordFor('stopped')}: wait for the user's go`;
+  if (capacity.dispatcherState === 'stopped') return '; dispatcher stopped: wait for the user\'s go';
   if (capacity.dispatcherState !== 'finished' || startableTicketIds.length === 0) return '';
   const normalOrHighTicketIsReady = startableTicketIds.some((ticketId) => !capacity.lowPriorityReadyTicketIds.includes(ticketId));
-  return normalOrHighTicketIsReady ? '; launch the dispatcher' : `; only ${StatusWordingUtil.priorityWordFor('low')} priority ready: triage, then launch`;
+  return normalOrHighTicketIsReady ? '; launch the dispatcher' : '; only low priority ready: triage, then launch';
 }
 
 function slotsTextOf(capacity: BoardCapacity): string {
@@ -63,7 +62,7 @@ function nextLineOf(board: Board): string {
 /** For the moves that change what a dispatcher picks up: an orchestrator that stopped a run to add work lost the agents in flight. */
 function endWithRunningDispatcherNotice(humanText: string, dispatcherState: DispatcherState): string {
   if (dispatcherState !== 'running') return humanText;
-  return `${humanText}\nDispatcher ${StatusWordingUtil.dispatcherStateWordFor('running')}: it picks this change up at its next agent's return. Never stop or relaunch it for this.`;
+  return `${humanText}\nDispatcher running: it picks this change up at its next agent's return. Never stop or relaunch it for this.`;
 }
 
 export const NextLineUtil = { composeNextLine, nextLineOf, endWithRunningDispatcherNotice } as const;
