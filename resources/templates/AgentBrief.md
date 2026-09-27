@@ -151,6 +151,8 @@ This work has a user interface. Budget about 15 browser calls in total.
 Read the page as text; send one batch per interaction sequence, not one call per click.
 Take screenshots only as final evidence, saved as `<evidence directory>/<ticket>-<acceptance item>.png`.
 The harness's screenshot-after-every-step workflow does not apply here.
+Stop only the editor you started, by the PID you started it with.
+Never `pkill` or `killall` by a pattern: other agents run editors of their own.
 ```
 
 ## Stop conditions
@@ -311,13 +313,16 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
       a comment, a blank line or documentation: request round <N+1>, stating the count and whether
       the branch holds as it stands. Nothing else is a reason for another review.
    c. Otherwise release: step 8.
-8. Release through the command, never `git merge`: it fast-forwards <main line>, delivers the
+8. First, when the root `CLAUDE.md` names a step for just before `agent-progress release` (a
+   version bump, say), run it now, exactly as written there.
+   Then release through the command, never `git merge`: it fast-forwards <main line>, delivers the
    ticket and your review bar, and cleans up, under the tracker's lock, so it cannot race another release.
    `cd <main checkout>` first, since your worktree is about to go, then run
    `agent-progress release <id> --branch <branch> --worktree <worktree> --main <main line> --json`
    (a bundle: every id in the one call). Act on what it prints:
    - `"released": true`: done. Name any `cleanup` step that is `left`, and the files it lists.
-   - `"reason": "main-moved"`: another branch went in first. Repeat step 5 — record the tip, rebase,
+   - `"reason": "main-moved"`: another branch went in first. If the step you ran first made a
+     commit, drop it the way the root `CLAUDE.md` says. Repeat step 5 — record the tip, rebase,
      checks, `agent-progress rework --rebased-from` — add that count to your total and to your
      `## Review`, and apply step 7 again: over {{reworkThresholdLines}} now requests the next round; otherwise run
      this step again.
