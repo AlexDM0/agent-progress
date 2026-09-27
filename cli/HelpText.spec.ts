@@ -7,8 +7,8 @@ import { readFileSync }           from 'node:fs';
 import { join }                   from 'node:path';
 import { describe, expect, test } from 'bun:test';
 
-import { COMMAND_NAMES } from './CommandTable';
-import { helpText }      from './HelpText';
+import { COMMAND_NAMES } from './CommandTable.ts';
+import { helpText }      from './HelpText.ts';
 
 const HELP_TEXT = helpText();
 
@@ -27,7 +27,7 @@ function commandWordsDocumented(): string[] {
   const words = HELP_TEXT.split('\n')
     .map((line) => /^ {2}(\S+)/.exec(line))
     .filter((match): match is RegExpExecArray => match !== null)
-    .map((match) => match[1]!);
+    .map((match) => match[1] ?? '');
   return [...new Set(words)].sort();
 }
 
@@ -51,10 +51,16 @@ describe('the command reference', () => {
     expect(HELP_TEXT).toContain('Usage: agent-progress <command> [options]');
   });
 
+  test('it names the install version refusal, the commands it spares and the command that lifts it', () => {
+    const flattenedHelp = HELP_TEXT.replaceAll(/\s+/g, ' ');
+    expect(flattenedHelp).toContain('Every command but init, update, help and status refuses, with exit 1, while the files installed here are of another install version');
+    expect(flattenedHelp).toContain('update rewrites them, and it and `init` refuse files a newer agent-progress installed');
+  });
+
   test('the delivered state is offered on both the task and the ticket side', () => {
-    expect(HELP_TEXT).toContain('task start|pause|finish|review|rereview|deliver <id>');
-    expect(HELP_TEXT).toContain('ticket start|review|done|deliver|abandon|reopen <id>');
-    expect(HELP_TEXT).toContain('in-review, done, delivered or abandoned');
+    expect(HELP_TEXT).toContain('task start|pause|finish|approve|rereview|deliver <id>');
+    expect(HELP_TEXT).toContain('ticket start|finish|approve|deliver|abandon|reopen <id>');
+    expect(HELP_TEXT).toContain('in-review, reviewed, delivered or abandoned');
   });
 
   /** `pause` is a task state with no ticket twin, so nothing else here would notice it going missing. */
@@ -92,7 +98,7 @@ describe('the command reference', () => {
 /** Read off the help's own `ticket …` lines rather than listed here, so a subcommand added to that entry reaches this check unaided. */
 function ticketSubcommandsDocumented(): string[] {
   const subcommands = [...HELP_TEXT.matchAll(/^ {2}ticket (\S+)/gm)]
-    .flatMap((match) => match[1]!.split('|'))
+    .flatMap((match) => (match[1] ?? '').split('|'))
     .filter((word) => /^[a-z-]+$/.test(word));
   return [...new Set(subcommands)].sort();
 }

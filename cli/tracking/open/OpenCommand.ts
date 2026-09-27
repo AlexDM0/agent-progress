@@ -1,0 +1,36 @@
+import { existsSync } from 'node:fs';
+
+import { requireWorkspace }        from '../../../src/services/tracker/Workspace.ts';
+import type { CommandHandler }     from '../../CommandHandler.ts';
+import { renderDashboardOrRefuse } from '../RenderDashboardOrRefuse.ts';
+import { OpenerUtil }              from './utils/OpenerUtil.ts';
+
+const USAGE = 'agent-progress open';
+
+const KNOWN_OPTION_NAMES: readonly string[] = [];
+
+export const openCommand: CommandHandler = async (commandArguments, context) => {
+  commandArguments.rejectUnknownOptions(KNOWN_OPTION_NAMES, USAGE);
+  commandArguments.rejectExtraPositionals(0, USAGE);
+
+  const workspace = requireWorkspace(context.currentDirectory);
+  if (!existsSync(workspace.htmlFilePath)) {
+    await renderDashboardOrRefuse(context, workspace);
+  }
+
+  const opener = OpenerUtil.openerFor(context.platform);
+  try {
+    // Detached with its streams dropped: a browser launched cold would otherwise inherit the pipes and keep this process alive.
+    const spawned = Bun.spawn([opener, workspace.htmlFilePath], {
+      stdin:  'ignore',
+      stdout: 'ignore',
+      stderr: 'ignore',
+    });
+    spawned.unref();
+  } catch (problem) {
+    // Reported, not thrown: the path is still printed below, so a machine with no desktop is not a failed command.
+    context.standardError(`\`${opener}\` could not be run (${problem instanceof Error ? problem.message : String(problem)}); open the path below yourself.`);
+  }
+
+  context.standardOutput(workspace.htmlFilePath);
+};

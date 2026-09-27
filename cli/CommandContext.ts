@@ -1,9 +1,12 @@
 /**
  * Everything a command may know about its process, so every command spec runs in the test process
  * against a scratch directory and a frozen clock. It carries no environment access on purpose:
- * `lib/platform/Environment.ts` is the one module that reads the environment.
+ * `src/shared/Environment.ts` is the one module that reads the environment.
  */
+import { homedir }         from 'node:os';
 import { createInterface } from 'node:readline';
+
+import { createRenderState, type RenderState } from '../src/services/render/RenderState.ts';
 
 export interface CommandContext {
   currentDirectory:        string;
@@ -16,6 +19,10 @@ export interface CommandContext {
   confirm:                 (question: string) => Promise<boolean>;
   /** `process.platform`, carried here so a spec can choose the operating system a command believes it runs on. */
   platform:                string;
+  /** `node:os`'s `homedir()`, carried here so a spec can point the Claude Code transcripts at a scratch tree. */
+  homeDirectory:           string;
+  /** Created once per invocation; holds the render service's memos, the page bundle and the configured Marked. */
+  renderState:             RenderState;
 }
 
 /** A function, never a module constant: a constant would read `process.cwd()` at import time and hand every spec the test runner's directory. */
@@ -29,6 +36,8 @@ export function createProcessContext(): CommandContext {
     readStandardInput:       readEverythingOnStandardInput,
     confirm:                 confirmOnStandardInput,
     platform:                process.platform,
+    homeDirectory:           homedir(),
+    renderState:             createRenderState(),
   };
 }
 

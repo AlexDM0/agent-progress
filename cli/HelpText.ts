@@ -25,18 +25,18 @@ free (2 agents in flight); ready: #003\` or \`Next: 2 of 2 slots free; nothing r
 ready ids, then \`and N more\`; a held ready ticket is left out and named apart, \`; held: #002\` —
 followed by the dispatcher's advice where it has any: \`; launch the
 dispatcher\` or \`; dispatcher stopped: wait for the user's go\`. While the dispatcher is \`running\`,
-\`ticket add\`, \`priority\`, \`agent\`, \`depends\`, \`hold\`, \`unhold\`, \`reopen\` and \`status <id> open\` add
+\`ticket add\`, \`priority\`, \`agent\`, \`depends\`, \`hold\`, \`unhold\`, \`reopen\` and \`status <id> pending\` add
 one more line after it: the run
 picks the change up at its next agent's return and is never stopped or relaunched for it. --json
 output never carries either.
 
   init                        Create the tracker here: \`.agent-progress/\` with an empty progress
-      [--project <name>]      file, a \`tickets/\` folder and \`agent-brief.md\` — the brief to fill in
+      [--project <name>]      file and log, a \`tickets/\` folder and \`agent-brief.md\` — the brief to fill in
       [--root <path>]         before spawning an implementing agent — a \`.gitignore\` entry for it,
       [--no-claude-md]        a managed block in the repository's CLAUDE.md telling an agent to track
       [--no-hooks]            its work through this tool, the SubagentStop hook below, and the
-      [--no-workflow]         dispatcher workflow at \`.claude/workflows/agent-progress-dispatch.js\`,
-      [--no-agent-definition] byte for byte the script this tool ships, and the Claude Code agent
+      [--no-workflow]         dispatcher workflow at \`.agent-progress/agent-progress-dispatch.js\`,
+      [--no-agent-definition] generated from this tool's dispatcher, and the Claude Code agent
                               definition \`.claude/agents/agent-progress-worker.md\`, whose
                               frontmatter sets the default model and effort for builders and
                               reviewers (opus, medium). Refused when an ancestor
@@ -54,15 +54,23 @@ output never carries either.
   update                      Refresh what the tool wrote into a repository it already tracks: the
       [--no-claude-md]        managed CLAUDE.md block, \`agent-brief.md\` — guidance shipped with the
       [--no-hooks]            tool rather than a file a project edits — the SubagentStop hook and the
-      [--no-workflow]         dispatcher workflow and the agent definition, a hand edit to either
-      [--no-agent-definition] of which is undone. It creates no tracker and touches neither the
-                              progress file, the tickets nor the log, so it takes no --project
-                              and no --root, and it is refused
-                              with exit 1 where there is none — \`agent-progress init\` makes one.
+      [--no-workflow]         dispatcher workflow, generated anew, and the agent definition, a hand
+      [--no-agent-definition] edit to either of which is undone; a dispatcher an older version
+                              installed under \`.claude/workflows/\` is removed. A tracker still in
+                              an older format — a progress file holding its own log, retired status
+                              words or review rows known only by their name, or tickets holding
+                              retired status words — is rewritten in the current one,
+                              under the lock; otherwise the tracker is left alone. It creates no tracker, so it takes no
+                              --project and no --root, and it is refused with exit 1 where there
+                              is none — \`agent-progress init\` makes one.
                               Each line says whether that file changed, so a session that read the
                               brief at its start learns that its copy is now stale. It takes the same
                               --no-claude-md, --no-hooks, --no-workflow, --no-agent-definition and
-                              no-op --hooks as \`init\`.
+                              no-op --hooks as \`init\`. Every command but init, update, help and
+                              status refuses, with exit 1, while the files installed here are of
+                              another install version than this agent-progress (the SubagentStop
+                              hook reports it and exits 0); update rewrites them, and it and \`init\`
+                              refuse files a newer agent-progress installed.
 
   status [--json] [--full]    The project, the counts, the rows that are not delivered or
                               abandoned, and the last log entries newest first. --json prints the
@@ -71,28 +79,28 @@ output never carries either.
                               everything, and with --json prints the whole progress file plus
                               every ticket's frontmatter. Both --json documents carry
                               \`concurrency\`: the limit, the agents in flight, the free slots and
-                              the ids of the ready tickets — open, every dependency settled —
+                              the ids of the ready tickets — pending, every dependency settled —
                               high priority first, then normal, each lowest id first. A low ticket
                               is ready only once no normal or high ticket is left that is not
                               delivered or abandoned. Beside it, \`readyTickets\` lists the same
                               tickets in the same order as {id, priority, model, effort}, the
                               defaults resolved, so a dispatcher derives none of them itself.
 
-  task add "<name>"           Add a Gantt row. --start marks it running at --at (default now),
-      [--owner <who>]         --ticket links it to a ticket that has no row of its own, --note is
-      [--note <text>]         the detail shown beside the bar, and --tokens records what the work
+  task add "<name>"           Add a Gantt row. --start marks it in-progress at --at (default
+      [--owner <who>]         now), --ticket links it to a ticket that has no row of its own, --note
+      [--note <text>]         is the detail shown beside the bar, and --tokens records what the work
       [--ticket <id>]         cost. --force moves --ticket's link off the row that holds it.
       [--review-of <id>]      --review-of marks the row as a review pass of that ticket: the page
       [--start]               draws it directly above the ticket's own row, latest round first. A
-      [--tokens <n>]          ticket that does not exist is refused at exit 1. A row without it
-      [--at <when>] [--force] whose name starts "Review <N> #<id>" is nested the same way; for a
-                              bundle, the first id named is the parent.
+      [--tokens <n>]          ticket that does not exist is refused at exit 1. A row filed without
+      [--at <when>] [--force] it or --ticket whose name starts "Review <N> #<id>" is stored linked
+                              the same way; for a bundle, the first id named is the parent.
 
-  task start|pause|finish|review|rereview|deliver <id> [--owner <who>] [--note <text>]
+  task start|pause|finish|approve|rereview|deliver <id> [--owner <who>] [--note <text>]
       [--tokens <n>] [--at <when>] [--force]
                               Move one row and stamp it: \`start\` sets its start and resumes a
                               paused row, \`pause\` records that the work is waiting without closing
-                              the bar, \`finish\` and \`review\` set its end, \`rereview\` sends a row
+                              the bar, \`finish\` and \`approve\` set its end, \`rereview\` sends a row
                               whose review found too much into its next review pass — round 2, then
                               3 — without reopening the bar, and \`deliver\` records that the work
                               reached its destination. A stamp already recorded is kept, so --at
@@ -122,13 +130,15 @@ output never carries either.
                               the hook runs. A line \`agent-progress review: <id>\` names one
                               ticket whose review row the reviewer creates itself: the input goes
                               to the most recently added row reviewing that ticket (--review-of,
-                              or a "Review <N> #<id>" name), whatever its status. A brief with
+                              or a "Review <N> #<id>" name), whatever its status; a row a ticket
+                              owns is never a review row. A brief with
                               several is read by one alone: row over ticket over review.
                               This is the command \`init\` and \`update\` wire into
-                              \`.claude/settings.local.json\`; nobody types it. It exits 0 whatever
-                              goes wrong — no input, an unreadable transcript, no tracker at the
-                              hook's own working directory, a row or a ticket's row that does not
-                              exist — and writes the reason to standard error. Its exit code
+                              \`.claude/settings.local.json\`; nobody types it. Given exactly the
+                              event word, it exits 0 whatever goes wrong — no input, an unreadable
+                              transcript, no tracker at the hook's own working directory, installed
+                              files of another install version, a row or a ticket's row that does
+                              not exist — and writes the reason to standard error. Its exit code
                               prevents nothing, since the agent has already finished; exiting 0 is
                               what keeps a failure here from becoming an error the orchestrator must
                               read, or a delay before it is told.
@@ -175,14 +185,14 @@ output never carries either.
                               the per-file breakdown. It needs no tracker and writes nothing.
 
   release <id> --branch <b>   Release a reviewed branch: fast-forward the main checkout — the
-      [--worktree <path>]     tracker's root, wherever this runs from — to <b>, then move the
-      [--main <line>]         ticket done and deliver it with --branch <b> and --commit set to the
-      [--json]                merged tip. More ids after <id> release every ticket of a bundle,
-                              which share <b>. Every running review row whose --review-of names a
-                              released ticket is finished and delivered at the release time, and
-                              named; a row linked by its name alone is left. All of it happens in
-                              one lock hold, so two releases never race. Refused at exit 1, with
-                              nothing changed (no review row either), when a ticket
+      [--worktree <path>]     tracker's root, wherever this runs from — to <b>, then approve the
+      [--main <line>]         ticket and deliver it with --branch <b> and --commit set
+      [--json]                to the merged tip. More ids after <id> release every ticket of a
+                              bundle, which share <b>. Every in-progress review row whose
+                              --review-of names a released ticket is finished and delivered at the release
+                              time, and named; a row known only by a "Review <N> #<id>" name counts as linked.
+                              All of it happens in one lock hold, so two releases never race.
+                              Refused at exit 1, with nothing changed (no review row either), when a ticket
                               is not in-progress or in-review, when the main checkout is not on
                               --main (default \`main\`), when <b> is not a local branch, when <b>
                               does not descend from --main — reason \`main-moved\`: rebase <b> onto
@@ -256,30 +266,37 @@ output never carries either.
 
   ticket priority <id> low|normal|high [--at <when>]
                               Change a ticket's priority, with one log line. Lowering to low is
-                              refused unless the ticket is open, and removes its row; raising a
+                              refused unless the ticket is pending, and removes its row; raising a
                               low ticket that has no row gives it one at once. A low ticket gets
                               its row when \`ticket start\` or \`ticket claim\` starts it, and keeps
                               it; abandoning a low ticket that has none creates none.
 
-  ticket start|review|done|deliver|abandon|reopen <id> [--branch <b>] [--commit <sha>]
+  ticket start|finish|approve|deliver|abandon|reopen <id> [--branch <b>] [--commit <sha>]
       [--reason <text>] [--tokens <n>] [--at <when>]
                               Move a ticket and its Gantt row together, stamping both. Each verb
                               moves a ticket that is in a status it makes sense from: start from
-                              open or in-review, review from in-progress, done from in-progress or
-                              in-review, deliver from done, abandon from anything not already
-                              delivered or abandoned, reopen from anything but open. Moving a
-                              ticket to the status it already has is refused and logs nothing —
-                              \`ticket rereview\` below is the one exception. Every move out of
-                              in-review finishes and delivers the ticket's running review bar,
-                              with one log line each. \`start\` warns on standard error, and still
+                              pending or in-review, finish from in-progress, approve from
+                              in-progress or in-review, deliver from reviewed, abandon from
+                              anything not already delivered or abandoned, reopen from anything
+                              but pending.
+                              Moving a ticket to the status it already has is refused and logs
+                              nothing — \`ticket rereview\` below is the one exception. Every
+                              move out of in-review finishes and delivers the ticket's in-progress
+                              review bar, with one log line each. \`start\` warns on standard error, and still
                               moves it, when the ticket is held.
                               \`abandon\` requires --reason; \`reopen\` clears the stamps and returns
                               the row to pending. --branch and --commit record where the work
                               landed, and --tokens what it cost; --tokens on a ticket with no
-                              row (a low one never started) is refused at exit 1.
+                              row (a low one never started) is refused at exit 1. The retired
+                              verbs are refused at exit 1 with nothing written, naming the one
+                              that replaced them: \`ticket review\` names \`finish\`, \`ticket done\`
+                              and \`task review\` name \`approve\`. So is an old status word given
+                              as a value, naming its new word: \`open\` or \`done\` to \`ticket
+                              status\` or \`ticket list --status\`, \`running\` or \`finished\` to
+                              \`task update --status\`.
 
-  ticket review|rereview <id> --start-review [--owner <who>] [--note <text>] [--at <when>]
-                              The move to review, or the next round, and the reviewer's running bar
+  ticket finish|rereview <id> --start-review [--owner <who>] [--note <text>] [--at <when>]
+                              The move to review, or the next round, and the reviewer's in-progress bar
                               (\`Review <N> #<id> — <title>\`, its \`reviewOf\` the ticket, N the
                               \`## Review\` sections plus one) in one lock hold, closing any bar of
                               the round before: the builder's slot passes to its reviewer, and one
@@ -292,11 +309,11 @@ output never carries either.
       [--owner <who>]         every ticket named, as ONE agent: a bundle's builder claims all its
       [--note <text>]         tickets in the one call, and their rows share one agent key. Refused
       [--at <when>]           at exit 1 with nothing written, all or nothing, when any ticket is not
-                              open or in-review, when one waits on a ticket outside the claim that
-                              is not done or delivered (one inside it is settled: the bundle is
-                              worked in dependency order), when one is low and a normal or high
-                              ticket is not yet delivered or abandoned — \`ticket start\` only warns
-                              about that — when a review bar of one is running, or when the agents
+                              pending or in-review, when one waits on a ticket outside the claim
+                              that is not reviewed or delivered (one inside it is settled: the
+                              bundle is worked in dependency order), when one is low and a normal
+                              or high ticket is not yet delivered or abandoned — \`ticket start\` only warns
+                              about that — when a review bar of one is in progress, or when the agents
                               in flight already number the concurrency limit. The count and the
                               moves share one lock hold, so
                               two claims racing for the last slot cannot both succeed. --json
@@ -310,9 +327,9 @@ output never carries either.
                               has, and it is refused from every other status. It takes no --tokens:
                               the row's figure is the builder's, and a review pass has its own row.
 
-  ticket status <id> <status> The same move, naming the target status directly: open, in-progress,
-                              in-review, done, delivered or abandoned. It takes the same options
-                              and is the documented way to make a move the verbs above refuse.
+  ticket status <id> <status> The same move, naming the target status directly: pending,
+                              in-progress, in-review, reviewed, delivered or abandoned. It takes
+                              the same options and is the documented way to make a move the verbs above refuse.
 
   ticket link <ticketId> <taskId> [--force]
                               Point a ticket at an existing row instead of the one it filed.
@@ -323,14 +340,14 @@ output never carries either.
                               Set the tickets this one waits on, replacing its list; no ids clears
                               it. Refused for a ticket that does not exist and for a list that
                               would make tickets wait on each other in a circle. Until every one
-                              of them is done or delivered, the ticket's row, table entry and card
-                              read "waiting on #003", \`ticket list\` says so too, and \`ticket start\`
+                              of them is reviewed or delivered, the ticket's row, table entry and
+                              card read "waiting on #003", \`ticket list\` says so too, and \`ticket start\`
                               warns on standard error but still moves it.
 
   concurrency [<n>] [--json]  Print the concurrency limit: how many agents may be in flight at once.
-                              A slot is an agent: the running rows one \`ticket claim\` started count
-                              once, and every other running row, such as a review bar, counts on
-                              its own. With <n>, store a new one (a whole number, 1 or more) for
+                              A slot is an agent: the in-progress rows one \`ticket claim\` started
+                              count once, and every other in-progress row, such as a review bar,
+                              counts on its own. With <n>, store a new one (a whole number, 1 or more) for
                               every worktree, from 1 to 10: a higher one is refused at exit 1 with
                               nothing written, and one an older tracker stored reads as 10. A
                               tracker that never set one reads 2; a limit below the agents already
@@ -364,9 +381,9 @@ output never carries either.
   range --auto                Reset the axis to the automatic span; it takes no --from, --to or
                               --tick, and any of them beside it is refused at exit 1.
 
-  render                      Regenerate \`progress.html\` from the progress file and the tickets,
-                              changing nothing else. For a page lost to a crash, or after a ticket
-                              body was edited by hand.
+  render                      Regenerate \`progress.html\` from the progress file, the log and the
+                              tickets, changing nothing else. For a page lost to a crash, or after a
+                              ticket body was edited by hand.
 
   open                        Open \`progress.html\` in the default browser, rendering it first when
                               it is missing; a page that cannot be rendered is exit 2, as for

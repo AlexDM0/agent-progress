@@ -2,19 +2,9 @@
  * The argument parser, against the shapes that fail quietly: `--option=value`, an option with no value,
  * a flag swallowing the positional behind it, and a bare `--`. Every refusal is an `OperationRefusal`, never a `process.exit`.
  */
-import { describe, expect, test }                           from 'bun:test';
-import { refusalIsOperationRefusal, type OperationRefusal } from '../../lib/platform/OperationRefusal';
-import { createArgumentParser }                             from './ArgumentParser';
-
-function refusalFrom(action: () => unknown): OperationRefusal {
-  try {
-    action();
-  } catch (error) {
-    if (refusalIsOperationRefusal(error)) return error;
-    throw error;
-  }
-  throw new Error('the call was expected to refuse and it returned instead');
-}
+import { describe, expect, test } from 'bun:test';
+import { refusalFrom }            from '../testing/RefusalFrom.ts';
+import { createArgumentParser }   from './ArgumentParser.ts';
 
 describe('an option and its value', () => {
   test('reads an option written as two arguments', () => {
@@ -40,8 +30,8 @@ describe('an option and its value', () => {
     expect(refusal.message).toContain('--owner was given 2 times');
   });
 
-  test('reads every value of an option that may be repeated, in order', () => {
-    expect(createArgumentParser(['--note', 'first', '--note=second']).optionValues('note')).toEqual(['first', 'second']);
+  test('keeps an equals sign inside a value written with an equals sign', () => {
+    expect(createArgumentParser(['--note=first=second']).option('note')).toBe('first=second');
   });
 });
 
@@ -61,8 +51,10 @@ describe('an option with nothing behind it', () => {
     expect(refusalFrom(() => createArgumentParser(['--project=']).option('project')).status).toBe('refused');
   });
 
-  test('refuses a repeated option that is missing one of its values', () => {
-    expect(refusalFrom(() => createArgumentParser(['--note', 'first', '--note']).optionValues('note')).status).toBe('refused');
+  test('refuses a repeated option for its missing value before counting it', () => {
+    const refusal = refusalFrom(() => createArgumentParser(['--note', 'first', '--note']).option('note'));
+    expect(refusal.status).toBe('refused');
+    expect(refusal.message).toContain('--note needs a value');
   });
 });
 
@@ -133,12 +125,5 @@ describe('arguments the command has no place for', () => {
   test('accepts the known options in both spellings', () => {
     const commandArguments = createArgumentParser(['--all', '--yes', '--project=Example Agency']);
     expect(() => commandArguments.rejectUnknownOptions(['all', 'yes', 'project'], 'usage')).not.toThrow();
-  });
-});
-
-describe('the arguments as they were written', () => {
-  test('hands the line back untouched, separator and all', () => {
-    const line = ['add', '--owner', 'Alex Example', '--', '--not an option'];
-    expect(createArgumentParser(line).rawArguments).toEqual(line);
   });
 });

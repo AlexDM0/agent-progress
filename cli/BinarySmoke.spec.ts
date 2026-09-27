@@ -11,13 +11,13 @@ import {
   expect,
   test
 }                                                              from 'bun:test';
-import { runAgentProgress } from '../lib/tooling/dev/CliProcess';
 import {
   createScratchDirectory,
   createScratchGitRepository,
   gitIsAvailable,
   removeScratchDirectory
-} from '../lib/tooling/dev/ScratchWorkspace';
+} from '../src/testing/ScratchWorkspace.ts';
+import { MULTI_PROCESS_CASE_TIMEOUT_MILLISECONDS, runAgentProgress } from './testing/CliProcess.ts';
 
 let scratchDirectory = '';
 
@@ -82,8 +82,8 @@ describe.skipIf(!gitIsAvailable())('a whole session through the binary', () => {
       await run(['task', 'start', '2']);
       await run(['log', 'Halfway through the role editor', '--at', '-5m']);
       expect(await refused(['ticket', 'deliver', '1'])).toContain('agent-progress ticket status 001 delivered');
-      await run(['ticket', 'review', '1', '--at', '-1h']);
-      await run(['ticket', 'done', '1', '--commit', 'abc1234', '--tokens', '12k']);
+      await run(['ticket', 'finish', '1', '--at', '-1h']);
+      await run(['ticket', 'approve', '1', '--commit', 'abc1234', '--tokens', '12k']);
       await run(['ticket', 'deliver', '1']);
 
       const document = JSON.parse(await run(['status', '--json', '--full'])) as {
@@ -108,7 +108,11 @@ describe.skipIf(!gitIsAvailable())('a whole session through the binary', () => {
       expect(document.tasks[0]?.start).not.toBeNull();
       expect(document.tasks[0]?.end).not.toBeNull();
       expect(document.tasks[1]).toMatchObject({
-        id: 2, name: 'Review pass', status: 'running', ticket: null, tokens: null 
+        id:     2,
+        name:   'Review pass',
+        status: 'in-progress',
+        ticket: null,
+        tokens: null,
       });
 
       expect(document.tickets).toHaveLength(1);
@@ -125,7 +129,7 @@ describe.skipIf(!gitIsAvailable())('a whole session through the binary', () => {
         'Ticket #001 started',
         'Halfway through the role editor',
         'Ticket #001 in review',
-        'Ticket #001 done',
+        'Ticket #001 reviewed',
         'Ticket #001 delivered',
       ]);
 
@@ -135,7 +139,7 @@ describe.skipIf(!gitIsAvailable())('a whole session through the binary', () => {
     } finally {
       removeScratchDirectory(repositoryDirectory);
     }
-  });
+  }, MULTI_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 });
 
 // The orchestrator reads this hint from the command's printed output, so it is pinned where a process prints it, and so is its absence from the JSON.
@@ -168,7 +172,7 @@ describe.skipIf(!gitIsAvailable())('unholding a ticket whose build was left paus
     } finally {
       removeScratchDirectory(repositoryDirectory);
     }
-  });
+  }, MULTI_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 });
 
 describe.skipIf(!gitIsAvailable())('a bare repository, through the binary', () => {

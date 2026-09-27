@@ -1,19 +1,34 @@
 /**
  * What a command line does to the exit code: 0 for the reference, 1 for an unknown command or an actionable refusal, 2 for anything else.
+ * The install version check runs here too: it refuses every command but the four it spares, before the command writes anything.
  */
 import {
+  existsSync,
+  readFileSync,
+  realpathSync,
+  rmSync
+} from 'node:fs';
+import { join, resolve } from 'node:path';
+import {
   afterAll,
+  afterEach,
   beforeAll,
+  beforeEach,
   describe,
   expect,
   mock,
   test
 }                                                         from 'bun:test';
-import { OperationRefusal }                               from '../lib/platform/OperationRefusal';
-import { createCapturedCommandContext }                   from '../lib/tooling/dev/CapturedCommandContext';
-import { createScratchDirectory, removeScratchDirectory } from '../lib/tooling/dev/ScratchWorkspace';
-import { runCommandLine }                                 from './Main';
-import * as realRenderCommandModule                       from './render/RenderCommand';
+import { createInstallManifestWriter }                    from '../src/adapters/install/InstallManifestWriter.ts';
+import { InstallVersionWordingUtil }                      from '../src/adapters/utils/InstallVersionWordingUtil.ts';
+import { OperationRefusal }                               from '../src/shared/OperationRefusal.ts';
+import { createScratchDirectory, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
+import { COMMAND_NAMES }                                  from './CommandTable.ts';
+import { installedFilePathsIn }                           from './InstalledFiles.ts';
+import { runCommandLine }                                 from './Main.ts';
+import { INSTALL_VERSION }                                from './constants/InstallVersion.ts';
+import { createCapturedCommandContext }                   from './testing/CapturedCommandContext.ts';
+import * as realRenderCommandModule                       from './tracking/render/RenderCommand.ts';
 
 let errorThrownByTheStubbedCommand: unknown = null;
 // Holds no tracker, so a route that does reach a command is refused there instead of writing into the repository's own.
@@ -122,19 +137,123 @@ describe('a command that does not exist', () => {
   });
 });
 
+describe('a command run where no tracker is', () => {
+  test('prints the no-tracker refusal byte for byte on standard error and exits 1', async () => {
+    const context = capturingContext();
+    expect(await runCommandLine(['status'], context)).toBe(1);
+    expect(context.errorText()).toBe(
+      `No agent-progress tracker was found in ${resolve(untrackedDirectory)} or any directory above it. `
+      + 'Run `agent-progress init` in the repository you want tracked.',
+    );
+    expect(context.outputText()).toBe('');
+  });
+});
+
+describe('a tracker whose installed files are of another install version', () => {
+  const COMMANDS_THAT_RUN_OR_CHECK_ON_THEIR_OWN = new Set(['init', 'update', 'help', 'status', 'hook', 'release']);
+  const CHECKED_COMMAND_NAMES = COMMAND_NAMES.filter((commandName) => !COMMANDS_THAT_RUN_OR_CHECK_ON_THEIR_OWN.has(commandName));
+
+  /** A tracker made by `init` and then stripped of its manifest is exactly a tracker installed by an agent-progress from before versioning. */
+  let trackedDirectory = '';
+
+  beforeEach(async () => {
+    trackedDirectory = realpathSync(createScratchDirectory('main-install-version'));
+    const initialisingContext = createCapturedCommandContext({ currentDirectory: trackedDirectory });
+    expect(await runCommandLine(['init', '--project', 'Example Agency', '--no-claude-md', '--no-hooks'], initialisingContext)).toBe(0);
+    rmSync(installedFilePathsIn(trackedDirectory).installManifest);
+  });
+
+  afterEach(() => {
+    removeScratchDirectory(trackedDirectory);
+  });
+
+  function trackedContext(): ReturnType<typeof createCapturedCommandContext> {
+    return createCapturedCommandContext({ currentDirectory: trackedDirectory });
+  }
+
+  function unversionedParagraph(): string {
+    return InstallVersionWordingUtil.messageOf({
+      kind:             'install-version-mismatch',
+      rootDirectory:    trackedDirectory,
+      manifestFilePath: installedFilePathsIn(trackedDirectory).installManifest,
+      installVersion:   INSTALL_VERSION,
+      mismatch:         { reason: 'unversioned' },
+    });
+  }
+
+  test('every checked command exits 1 with the one paragraph on standard error and leaves progress.json byte for byte', async () => {
+    const progressFilePath   = join(trackedDirectory, '.agent-progress', 'progress.json');
+    const progressFileBefore = readFileSync(progressFilePath);
+    expect(CHECKED_COMMAND_NAMES).toHaveLength(COMMAND_NAMES.length - COMMANDS_THAT_RUN_OR_CHECK_ON_THEIR_OWN.size);
+    for (const commandName of CHECKED_COMMAND_NAMES) {
+      const context = trackedContext();
+      expect(await runCommandLine([commandName], context), commandName).toBe(1);
+      expect(context.errorText(), commandName).toBe(unversionedParagraph());
+      expect(context.outputText(), commandName).toBe('');
+    }
+    expect(readFileSync(progressFilePath).equals(progressFileBefore)).toBe(true);
+    expect(existsSync(installedFilePathsIn(trackedDirectory).installManifest)).toBe(false);
+  });
+
+  test('help, --help after a command word and status run, and status prints what it printed before the manifest went', async () => {
+    for (const line of [['help'], ['task', '--help']]) {
+      const context = trackedContext();
+      expect(await runCommandLine(line, context), line.join(' ')).toBe(0);
+      expect(context.outputText(), line.join(' ')).toContain('Usage: agent-progress <command>');
+    }
+    const statusWithoutTheManifest = trackedContext();
+    expect(await runCommandLine(['status', '--json', '--full'], statusWithoutTheManifest)).toBe(0);
+    expect(statusWithoutTheManifest.errorText()).toBe('');
+    createInstallManifestWriter(installedFilePathsIn(trackedDirectory).installManifest).write(INSTALL_VERSION);
+    const statusWithTheManifest = trackedContext();
+    expect(await runCommandLine(['status', '--json', '--full'], statusWithTheManifest)).toBe(0);
+    expect(statusWithoutTheManifest.outputText()).toBe(statusWithTheManifest.outputText());
+  });
+
+  test('init runs and records the install version, after which a refused command runs', async () => {
+    expect(await runCommandLine(['init', '--no-claude-md', '--no-hooks'], trackedContext())).toBe(0);
+    expect(existsSync(installedFilePathsIn(trackedDirectory).installManifest)).toBe(true);
+    const addingContext = trackedContext();
+    expect(await runCommandLine(['task', 'add', 'Example row'], addingContext), addingContext.errorText()).toBe(0);
+  });
+
+  test('update runs and records the install version, after which a refused command runs', async () => {
+    const refusedContext = trackedContext();
+    expect(await runCommandLine(['task', 'add', 'Example row'], refusedContext)).toBe(1);
+    expect(await runCommandLine(['update', '--no-claude-md', '--no-hooks'], trackedContext())).toBe(0);
+    const addingContext = trackedContext();
+    expect(await runCommandLine(['task', 'add', 'Example row'], addingContext), addingContext.errorText()).toBe(0);
+  });
+
+  test('a tracker with neither a brief nor a manifest counts as current, so its commands run', async () => {
+    rmSync(installedFilePathsIn(trackedDirectory).agentBrief);
+    const addingContext = trackedContext();
+    expect(await runCommandLine(['task', 'add', 'Example row'], addingContext), addingContext.errorText()).toBe(0);
+  });
+
+  test('a checked command where no tracker is keeps the no-tracker refusal', async () => {
+    const context = capturingContext();
+    expect(await runCommandLine(['task', 'add', 'Example row'], context)).toBe(1);
+    expect(context.errorText()).toBe(
+      `No agent-progress tracker was found in ${resolve(untrackedDirectory)} or any directory above it. `
+      + 'Run `agent-progress init` in the repository you want tracked.',
+    );
+  });
+});
+
 describe('a command that throws', () => {
-  /** Stubbing `cli/render/RenderCommand.ts` reaches all three shapes with the real dispatch, catch and status-to-code mapping. */
+  /** Stubbing `cli/tracking/render/RenderCommand.ts` reaches all three shapes with the real dispatch, catch and status-to-code mapping. */
   let realRenderCommandExports: Record<string, unknown> = {};
 
   // Bun keeps a module mock for the rest of the process and `mock.restore()` leaves it standing, so the real exports are copied before the stub
   // goes in and mocked back afterwards; the copy has to precede the stub, because Bun patches the live namespace in place.
   beforeAll(() => {
     realRenderCommandExports = { ...realRenderCommandModule };
-    mock.module('./render/RenderCommand', () => ({ renderCommand: () => Promise.reject(errorThrownByTheStubbedCommand), }));
+    mock.module('./tracking/render/RenderCommand.ts', () => ({ renderCommand: () => Promise.reject(errorThrownByTheStubbedCommand), }));
   });
 
   afterAll(() => {
-    mock.module('./render/RenderCommand', () => realRenderCommandExports);
+    mock.module('./tracking/render/RenderCommand.ts', () => realRenderCommandExports);
   });
 
   test('an unrepaired refusal exits 2 with its own message and no stack trace', async () => {

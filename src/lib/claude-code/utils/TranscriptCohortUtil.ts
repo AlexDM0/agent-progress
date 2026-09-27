@@ -1,0 +1,84 @@
+/**
+ * What a group of subagent transcripts cost, as one row of figures, and the split that makes two groups comparable across a briefing change.
+ * **Calls and end context are medians; the token figures are means, deliberately.** One runaway agent must
+ * not move what a typical agent did, and must not be hidden in what the cohort cost, since a bill is a sum.
+ */
+import { TimeUtil }               from '../../utils/TimeUtil.ts';
+import type { TranscriptProfile } from './TranscriptUsageUtil.ts';
+import { TranscriptUsageUtil }    from './TranscriptUsageUtil.ts';
+
+/** `transcriptCount` is on the summary rather than left to the caller, so a printed line can say how many agents it is speaking for. */
+export interface CohortSummary {
+  transcriptCount:                 number;
+  medianApiCallCount:              number;
+  medianEndContextTokens:          number;
+  meanTotalInputTokens:            number;
+  meanOutputTokens:                number;
+  meanBrowserCallCount:            number;
+  meanOversizedContextShare:       number;
+  meanBashEditScriptCount:         number;
+  meanVerificationRunCount:        number;
+  meanNestedInstructionCharacters: number;
+}
+
+export interface CohortSplit {
+  before: TranscriptProfile[];
+  after:  TranscriptProfile[];
+}
+
+/** A fraction of the agent's own input, so one enormous agent does not decide the cohort's share on its own; an agent that sent nothing reads as 0. */
+function oversizedContextShareOf(profile: TranscriptProfile): number {
+  const totalInputTokens = TranscriptUsageUtil.totalInputTokensOf(profile);
+  return totalInputTokens === 0 ? 0 : profile.oversizedContextTokens / totalInputTokens;
+}
+
+/** An even count averages the two middle values, so a cohort of two agents reports a figure between them rather than the later one. */
+function medianOf(values: readonly number[]): number {
+  if (values.length === 0) return 0;
+  const sorted     = [...values].sort((a, b) => a - b);
+  const middle     = Math.floor(sorted.length / 2);
+  const lowerValue = sorted[middle - 1] ?? 0;
+  const upperValue = sorted[middle] ?? 0;
+  return sorted.length % 2 === 1 ? upperValue : (lowerValue + upperValue) / 2;
+}
+
+function meanOf(values: readonly number[]): number {
+  if (values.length === 0) return 0;
+  return values.reduce((running, value) => running + value, 0) / values.length;
+}
+
+/** Token figures are whole counts; means and shares are not rounded, so 1 in 10 reads as 0.1; an empty cohort is all zeros, not null. */
+function cohortSummaryOf(profiles: readonly TranscriptProfile[]): CohortSummary {
+  return {
+    transcriptCount:                 profiles.length,
+    medianApiCallCount:              medianOf(profiles.map((profile) => profile.apiCallCount)),
+    medianEndContextTokens:          Math.round(medianOf(profiles.map((profile) => profile.endContextTokens))),
+    meanTotalInputTokens:            Math.round(meanOf(profiles.map(TranscriptUsageUtil.totalInputTokensOf))),
+    meanOutputTokens:                Math.round(meanOf(profiles.map((profile) => profile.outputTokens))),
+    meanBrowserCallCount:            meanOf(profiles.map((profile) => profile.browserCallCount)),
+    meanOversizedContextShare:       meanOf(profiles.map(oversizedContextShareOf)),
+    meanBashEditScriptCount:         meanOf(profiles.map((profile) => profile.bashEditScriptCount)),
+    meanVerificationRunCount:        meanOf(profiles.map((profile) => profile.verificationRunCount)),
+    meanNestedInstructionCharacters: Math.round(meanOf(profiles.map((profile) => profile.nestedInstructionCharacters))),
+  };
+}
+
+/**
+ * Splits a cohort on an instant, a stated clock exception that decides only which cohort a transcript is summarised in: `before`
+ * started strictly earlier, `after` at the instant or later. **A profile whose transcript carries no readable stamp goes into `before`**,
+ * which is the closed answer: an agent that cannot be shown to have run after the change must not be counted as evidence that the change helped.
+ */
+function cohortSplitAt(profiles: readonly TranscriptProfile[], instant: Date): CohortSplit {
+  const split: CohortSplit = { before: [], after: [] };
+  for (const profile of profiles) {
+    const startedAt = profile.startedAt === null ? null : TimeUtil.parseIso(profile.startedAt);
+    if (startedAt !== null && startedAt.getTime() >= instant.getTime()) split.after.push(profile);
+    else split.before.push(profile);
+  }
+  return split;
+}
+
+export const TranscriptCohortUtil = {
+  cohortSplitAt,
+  cohortSummaryOf,
+} as const;

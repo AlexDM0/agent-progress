@@ -2,3 +2,4 @@ node_modules/
 .agent-progress/
 .DS_Store
 .readme-graphics/
+.idea/

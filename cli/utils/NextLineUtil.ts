@@ -1,0 +1,69 @@
+import { StatusWordingUtil }    from '../../src/adapters/utils/StatusWordingUtil.ts';
+import { TicketPhraseUtil }     from '../../src/adapters/utils/TicketPhraseUtil.ts';
+import type { DispatcherState } from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
+import type { Board }           from '../../src/lib/tracker-model/Board.ts';
+
+const READY_TICKETS_LISTED_AT_MOST = 5;
+
+interface BoardCapacity {
+  limit:                     number;
+  agentsInFlight:            number;
+  freeSlots:                 number;
+  readyTicketIds:            readonly string[];
+  lowPriorityReadyTicketIds: readonly string[];
+  heldTicketIds:             readonly string[];
+  dispatcherState:           DispatcherState;
+}
+
+/**
+ * A running dispatcher needs no advice, and one that finished by itself needs relaunching only when a normal or high ticket is there for it to
+ * take: low tickets alone are the orchestrator's to triage before any run is launched for them, and a held ticket is none it could take.
+ */
+function dispatcherAdviceOf(capacity: BoardCapacity, startableTicketIds: readonly string[]): string {
+  if (capacity.dispatcherState === 'stopped') return `; dispatcher ${StatusWordingUtil.dispatcherStateWordFor('stopped')}: wait for the user's go`;
+  if (capacity.dispatcherState !== 'finished' || startableTicketIds.length === 0) return '';
+  const normalOrHighTicketIsReady = startableTicketIds.some((ticketId) => !capacity.lowPriorityReadyTicketIds.includes(ticketId));
+  return normalOrHighTicketIsReady ? '; launch the dispatcher' : `; only ${StatusWordingUtil.priorityWordFor('low')} priority ready: triage, then launch`;
+}
+
+function slotsTextOf(capacity: BoardCapacity): string {
+  if (capacity.freeSlots === 0) return `no slot free (${capacity.agentsInFlight} ${capacity.agentsInFlight === 1 ? 'agent' : 'agents'} in flight)`;
+  return `${capacity.freeSlots} of ${capacity.limit} slots free`;
+}
+
+/** The ids are printed as given, in the dispatch order `readyTicketIdsOf` already sorts them into; only the first five are named. */
+function ticketListTextOf(ticketIds: readonly string[]): string {
+  const named    = TicketPhraseUtil.ticketReferencesText(ticketIds.slice(0, READY_TICKETS_LISTED_AT_MOST));
+  const leftOver = ticketIds.length - READY_TICKETS_LISTED_AT_MOST;
+  return leftOver > 0 ? `${named} and ${leftOver} more` : named;
+}
+
+function readyTextOf(startableTicketIds: readonly string[]): string {
+  return startableTicketIds.length === 0 ? 'nothing ready' : `ready: ${ticketListTextOf(startableTicketIds)}`;
+}
+
+/** Only a ready ticket is named as held: the line speaks of what could be started, and a held ticket in progress or review is not that. */
+function heldTextOf(heldReadyTicketIds: readonly string[]): string {
+  return heldReadyTicketIds.length === 0 ? '' : `; held: ${ticketListTextOf(heldReadyTicketIds)}`;
+}
+
+/** The last line a human-facing command prints, so an orchestrator is told after every move whether a slot and a ticket are both waiting. */
+function composeNextLine(capacity: BoardCapacity): string {
+  const startableTicketIds = capacity.readyTicketIds.filter((ticketId) => !capacity.heldTicketIds.includes(ticketId));
+  const heldReadyTicketIds = capacity.readyTicketIds.filter((ticketId) => capacity.heldTicketIds.includes(ticketId));
+  return `Next: ${slotsTextOf(capacity)}; ${readyTextOf(startableTicketIds)}${heldTextOf(heldReadyTicketIds)}${dispatcherAdviceOf(capacity, startableTicketIds)}`;
+}
+
+/** Read from the Board's own dispatch capacity and ready entries, so the line and `status --json` cannot disagree on a slot or a ticket. */
+function nextLineOf(board: Board): string {
+  const lowPriorityReadyTicketIds = board.readyTicketEntries().filter((entry) => entry.priority === 'low').map((entry) => entry.id);
+  return composeNextLine({ ...board.dispatchCapacity(), lowPriorityReadyTicketIds });
+}
+
+/** For the moves that change what a dispatcher picks up: an orchestrator that stopped a run to add work lost the agents in flight. */
+function endWithRunningDispatcherNotice(humanText: string, dispatcherState: DispatcherState): string {
+  if (dispatcherState !== 'running') return humanText;
+  return `${humanText}\nDispatcher ${StatusWordingUtil.dispatcherStateWordFor('running')}: it picks this change up at its next agent's return. Never stop or relaunch it for this.`;
+}
+
+export const NextLineUtil = { composeNextLine, nextLineOf, endWithRunningDispatcherNotice } as const;

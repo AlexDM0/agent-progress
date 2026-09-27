@@ -75,13 +75,13 @@ Handoff and the diff, is told to show the ticket does *not* hold, and re-runs ev
 fixes what is in scope and files everything else as a low-priority ticket.
 
 **The rules live in code, not in prompts.** Slots, review rounds and parking are decided by the
-dispatcher script. Another review round happens only when a pass reworked more than 750 lines of code
-(comments and docs do not count). Two failed passes park a ticket for you; two agents in a row returning
+dispatcher script. Another review round happens only when a pass reworked more lines of code than the
+dispatcher's rework threshold (comments and docs do not count). Two failed passes park a ticket for you; two agents in a row returning
 nothing stop the run as an outage instead of blaming the tickets.
 
 **Releases cannot collide.** `release` checks the ticket, fast-forwards main and closes the review bar in
-one lock hold. A branch that fell behind is told `main-moved`, rebases and tries again. On this board
-*done* means merged.
+one lock hold. A branch that fell behind is told `main-moved`, rebases and tries again. On this board a row's
+*done* pill means merged.
 
 **You see what every agent cost.** The `SubagentStop` hook that `init` installs adds everything an agent processed,
 cache reads included, to its row. `agent-progress usage` audits the same figures from the transcripts.
@@ -92,13 +92,13 @@ cache reads included, to its row. `agent-progress usage` audits the same figures
 |---|---|---|
 | **You** | yourself | Describe the work, answer questions, say go, say stop. |
 | **Orchestrator** | your Claude Code session, with `/agent-progress-orchestrate` | Files tickets with a brief, launches the dispatcher, triages what comes back. Writes no code, reads no diffs. |
-| **Dispatcher** | a Workflow script in `.claude/workflows/` | Starts a builder per free slot, a reviewer per built ticket, decides rounds and parking. |
+| **Dispatcher** | a Workflow script in `.agent-progress/` | Starts a builder per free slot, a reviewer per built ticket, decides rounds and parking. |
 | **Builder** | a subagent, Opus at medium effort unless the ticket names another | Claims the ticket, builds in its worktree, leaves green checks and a Handoff. |
 | **Reviewer** | a fresh subagent, the ticket's same model and effort | Tries to prove the build wrong, fixes, rebases, releases. |
 | **CLI and hook** | `agent-progress` | Holds the state, draws the page, records tokens when an agent stops. |
 
 <p align="center">
-  <img src="docs/images/lifecycle.png" width="560" alt="One ticket, start to merge: you describe the work, the orchestrator files a ticket, on your go the dispatcher starts a builder in a worktree, a fresh agent reviews it, over 750 lines reworked loops to another round, otherwise release fast-forwards main and done means merged; findings outside scope become low-priority tickets and the SubagentStop hook adds tokens to the row">
+  <img src="docs/images/lifecycle.png" width="560" alt="One ticket, start to merge: you describe the work, the orchestrator files a ticket, on your go the dispatcher starts a builder in a worktree, a fresh agent reviews it, a large rework loops to another round, otherwise release fast-forwards main and done means merged; findings outside scope become low-priority tickets and the SubagentStop hook adds tokens to the row">
 </p>
 
 You can keep filing tickets while a run is going; it picks them up when its next agent returns, and a
@@ -127,18 +127,16 @@ git clone https://github.com/AlexDM0/agent-progress.git && cd agent-progress
   <img src="docs/images/terminal-setup.png" width="680" alt="Terminal output of setup.sh: 1/3 Bun found, 2/3 dependencies installed and agent-progress on your PATH, 3/3 both skills linked into ~/.claude/skills, then Tooling ready">
 </p>
 
-`setup.sh` runs three steps and changes nothing in your projects:
+It offers to install Bun if it is missing, links the CLI and symlinks both skills into `~/.claude/skills/`; it changes
+nothing in your projects. [Getting the code running](docs/development.md#getting-the-code-running)
+walks through each step.
 
-1. **Bun.** Checks that Bun is there and offers the official installer if it is not. 1.2 or newer is
-   recommended; an older one gets a warning, not a refusal.
-2. **Dependencies and the global command.** `bun install`, then `bun link`, so `agent-progress` works from
-   any directory. If `~/.bun/bin` is not on your `PATH`, it offers to add one line to your shell rc file.
-3. **The two skills.** Symlinks `agent-progress` and `agent-progress-orchestrate` into `~/.claude/skills/`.
-   Links, not copies, so a `git pull` in this checkout updates both with no reinstall.
-
-It is safe to re-run: a correct link is left alone, a stale one is replaced, and a real file or folder in
-the way is reported and never deleted. `./setup.sh --instruct-only` declines every offer and reports the
-links it would make; it still runs `bun install` and `bun link`.
+**Updating.** A `git pull` in this checkout updates the CLI and both skills at once. Then run
+`agent-progress update` in every repository it tracks: it regenerates the dispatcher, the brief and the
+other files it installed, and records their install version in `.agent-progress/version.json`. When the
+pull changed the install version, most commands in that repository refuse at exit 1 until it has run
+there, and say to run it; see
+[Install version](docs/cli.md#install-version).
 
 ### 2. Adopt a repository
 
@@ -151,18 +149,19 @@ agent-progress init --project "Example Storefront"
   <img src="docs/images/terminal-init.png" width="680" alt="Terminal output of agent-progress init for Example Storefront, listing tracker, brief, dashboard, .gitignore entry, CLAUDE.md block, SubagentStop hook, dispatcher workflow and worker agent, followed by agent-progress open">
 </p>
 
-`init` writes seven things:
+`init` writes eight things:
 
-- **`.agent-progress/`**, the tracker: the state file, a `tickets/` folder, the dashboard and its lock.
+- **`.agent-progress/`**, the tracker: the state file, the log (`log.jsonl`), a `tickets/` folder, the dashboard and its lock.
 - **`.agent-progress/agent-brief.md`**, the brief every builder and reviewer works from.
+- **`.agent-progress/version.json`**, the install version of everything the tool installs.
 - **A `.gitignore` entry** for `.agent-progress/`, unless git already ignores it.
 - **A managed block in `CLAUDE.md`** telling every session in the repository to track its work here.
 - **A `SubagentStop` hook** in `.claude/settings.local.json`, which records each agent's tokens.
-- **The dispatcher**, `.claude/workflows/agent-progress-dispatch.js`.
+- **The dispatcher**, `.agent-progress/agent-progress-dispatch.js`, generated by `init` and `update`.
 - **The worker agent definition**, `.claude/agents/agent-progress-worker.md`, set to Opus at medium effort.
 
-Each of the last four has an opt-out flag, and `agent-progress update` refreshes the tool's files later
-without touching your tickets or log. `agent-progress open` shows the board.
+Each of the last four has an opt-out flag, and `agent-progress update` refreshes the tool's files later,
+touching your tickets and log only to bring an older format up to date. `agent-progress open` shows the board.
 
 ### 3. Run the board
 
@@ -229,4 +228,5 @@ offers its official installer.
 - **[CLI reference](docs/cli.md)**: every command and flag, the exit codes, what `init` and `update` write,
   the dashboard in detail and the files on disk.
 - **[Developing agent-progress](docs/development.md)**: getting a checkout running, the checks every change
-  must pass, the repository layout, the guard specs and the decisions behind the design.
+  must pass, the repository layout, the test helpers and guard specs, the legacy folders and the decisions
+  behind the design.

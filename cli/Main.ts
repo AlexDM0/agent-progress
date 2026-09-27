@@ -2,15 +2,22 @@
  * The dispatch, and the only place an exit code is decided: 0 done or nothing to do, 1 a refusal the
  * caller can act on, 2 a state the tool will not repair. It returns the number rather than exiting.
  */
-import { refusalIsOperationRefusal } from '../lib/platform/OperationRefusal';
-import type { CommandContext }       from './CommandContext';
-import { commandLoaderFor }          from './CommandTable';
-import { helpText }                  from './HelpText';
-import { createArgumentParser }      from './arguments/ArgumentParser';
+import { OperationRefusalWordingUtil } from '../src/adapters/utils/OperationRefusalWordingUtil.ts';
+import { refusalIsOperationRefusal }   from '../src/shared/OperationRefusal.ts';
+import type { CommandContext }         from './CommandContext.ts';
+import { commandLoaderFor }            from './CommandTable.ts';
+import { helpText }                    from './HelpText.ts';
+import { requireCurrentInstall }       from './InstallVersionCheck.ts';
+import { createArgumentParser }        from './arguments/ArgumentParser.ts';
 
 const HELP_OPTION_NAME = 'help';
 const HELP_SHORT_ALIAS = '-h';
 const HELP_ALIASES     = new Set([`--${HELP_OPTION_NAME}`, HELP_SHORT_ALIAS]);
+
+/** `init` and `update` repair a mismatch, and `status` output is a contract that stays silent about one. */
+const COMMANDS_THE_INSTALL_CHECK_SPARES = new Set(['init', 'update', 'help', 'status']);
+/** `release --json` words the refusal as its own document, and the hook reports it at exit 0, so each runs the check inside its own handling. */
+const COMMANDS_THAT_CHECK_THEIR_OWN_INSTALL = new Set(['hook', 'release']);
 
 type HelpRequest = 'reference' | 'ambiguous' | 'none';
 
@@ -48,11 +55,14 @@ export async function runCommandLine(commandLineArguments: readonly string[], co
 
   try {
     const runCommand = await loadCommand();
+    if (!COMMANDS_THE_INSTALL_CHECK_SPARES.has(command) && !COMMANDS_THAT_CHECK_THEIR_OWN_INSTALL.has(command)) {
+      requireCurrentInstall(context.currentDirectory);
+    }
     await runCommand(createArgumentParser(printsTheHelp ? [] : remainingArguments), context);
     return 0;
   } catch (error) {
     if (refusalIsOperationRefusal(error)) {
-      context.standardError(error.message);
+      context.standardError(OperationRefusalWordingUtil.messageOf(error));
       return error.status === 'refused' ? 1 : 2;
     }
     context.standardError(error instanceof Error ? error.message : String(error));

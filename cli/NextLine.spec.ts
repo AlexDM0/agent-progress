@@ -3,7 +3,7 @@
  * with, driven in process against one scratch tracker per case. What matters is that the line describes the
  * board after the move rather than before it — a claim that fills the last slot says so — and that no
  * `--json` document carries it, since a script parses that output whole. The wordings themselves are
- * pinned in `lib/utils/NextLineUtil.spec.ts`.
+ * pinned in `cli/utils/NextLineUtil.spec.ts`.
  */
 import {
   afterEach,
@@ -12,9 +12,9 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import { createCapturedCommandContext }                                       from '../lib/tooling/dev/CapturedCommandContext';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../lib/tooling/dev/ScratchWorkspace';
-import { runCommandLine }                                                     from './Main';
+import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
+import { runCommandLine }                                                     from './Main.ts';
+import { createCapturedCommandContext }                                       from './testing/CapturedCommandContext.ts';
 
 const FROZEN_NOW = new Date('2026-09-23T10:00:00Z');
 
@@ -25,7 +25,7 @@ interface NextLineCase {
 }
 
 /**
- * Each case starts from three open tickets (rows #1 to #3) and a free-standing row #4 under the default
+ * Each case starts from three pending tickets (rows #1 to #3) and a free-standing row #4 under the default
  * limit of 2, with the dispatcher running. The expected line is written out from that state by hand, never taken from a run.
  */
 const NEXT_LINE_CASES: NextLineCase[] = [
@@ -45,13 +45,13 @@ const NEXT_LINE_CASES: NextLineCase[] = [
     expectedNextLine: 'Next: no slot free (2 agents in flight); ready: #002, #003',
   },
   {
-    command:          ['ticket', 'review', '1'],
+    command:          ['ticket', 'finish', '1'],
     setup:            [['ticket', 'claim', '1']],
     expectedNextLine: 'Next: 2 of 2 slots free; ready: #002, #003',
   },
   {
     command:          ['ticket', 'deliver', '1'],
-    setup:            [['ticket', 'claim', '1'], ['ticket', 'review', '1'], ['ticket', 'done', '1']],
+    setup:            [['ticket', 'claim', '1'], ['ticket', 'finish', '1'], ['ticket', 'approve', '1']],
     expectedNextLine: 'Next: 2 of 2 slots free; ready: #002, #003',
   },
   {
@@ -104,7 +104,7 @@ beforeEach(async () => {
   await run(['ticket', 'add', 'Show the role history']);
   await run(['ticket', 'add', 'Export the roles']);
   await run(['task', 'add', 'Review pass']);
-  // A running dispatcher adds no advice, so these lines pin slots and queue alone; `cli/dispatcher/DispatcherCommand.spec.ts` pins the advice.
+  // A running dispatcher adds no advice, so these lines pin slots and queue alone; `cli/dispatch/dispatcher/DispatcherCommand.spec.ts` pins the advice.
   await run(['dispatcher', 'running']);
 });
 
@@ -121,7 +121,7 @@ describe.skipIf(!gitIsAvailable())('the line the human output ends with', () => 
     test(`\`${nextLineCase.command.join(' ')}\` ends with the board as the move left it`, async () => {
       await runSetup(nextLineCase.setup);
 
-      // `ticket add` follows it with the running dispatcher notice, pinned in `cli/ticket/TicketCommand.dispatcher.spec.ts`.
+      // `ticket add` follows it with the running dispatcher notice, pinned in `cli/tickets/TicketCommand.dispatcher.spec.ts`.
       const lines = (await run(nextLineCase.command)).outputText().split('\n').filter((line) => !line.startsWith('Dispatcher running:'));
 
       expect(lines.at(-1)).toBe(nextLineCase.expectedNextLine);

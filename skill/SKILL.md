@@ -67,16 +67,18 @@ order to file a ticket, move one, and stay out of the tool's way.
    BODY
    ```
 
-3. **Move it as the work moves**: `ticket start`, `ticket review`, `ticket done`, `ticket deliver`,
-   `ticket abandon --reason "<why>"`. Each verb only moves a ticket that is in a status it makes
+3. **Move it as the work moves**: `ticket start`, `ticket finish`, `ticket approve`, `ticket deliver`,
+   `ticket abandon --reason "<why>"`. Each verb is named for the status it moves to (in-progress,
+   in-review, reviewed, delivered, abandoned), only moves a ticket that is in a status it makes
    sense from, and a move to the status it already has is refused with exit 1. When one ticket can
    only be done after another, record it: `ticket depends 5 3`.
 4. **`agent-progress log "<text>"` at each milestone** — a decision taken, a direction abandoned.
    The log is what makes the chart readable a day later.
 5. **`agent-progress open` once per session**, so the user has the dashboard in front of them.
-6. **Backfill with `--at`.** Every state-changing command and `log` take `--at <when>`: an ISO 8601
-   timestamp, `now`, or an offset (`-5m`, `-2h`, `-1d`). A row nobody registered at the time is
-   registered now and stamped then.
+6. **Backfill with `--at`.** The moves, the additions, the claims, `ticket agent`, `hold`, `unhold`
+   and `priority`, and `log` take `--at <when>` (`agent-progress help` shows each one that does): an
+   ISO 8601 timestamp, `now`, or an offset (`-5m`, `-2h`, `-1d`). A row nobody registered at the time
+   is registered now and stamped then.
 
 ## If you are implementing a ticket
 
@@ -87,17 +89,16 @@ the main line first and work in it.
 
 Your ticket's file path comes from `agent-progress ticket show <id>`, which also prints the body —
 that body is the whole brief, its `## Brief` section first when it has one; you do not need the
-frontmatter. When you finish, append a `## Handoff`
-section at the end of the ticket, under 15 lines: files touched, contracts you discovered that the
-ticket did not state, what is verified and how, what is not, and the next concrete step. The review
-pass reads that instead of re-deriving it from the codebase. Builder or reviewer, leave the branch
-ready to merge: your work committed on it, rebased onto the main line, the checks green on the result.
+frontmatter. When you finish, write the ticket's `## Handoff` at its end, under 15 lines, with what
+your brief or the section's placeholder text lists: the review pass reads it instead of re-deriving it
+from the codebase. Builder or reviewer, leave the branch ready to merge: your work committed on it,
+rebased onto the main line, the checks green on the result.
 
 ## The rules
 
-- **Never edit `progress.json` by hand**, and never write into `.agent-progress/` with a file tool.
-  Every command takes a lock, writes atomically and regenerates the page; a hand-written file races
-  with that and loses silently.
+- **Never write `progress.json`, `log.jsonl` or `progress.html` with a file tool**, nor a frontmatter
+  key the CLI sets on a ticket. Every command takes a lock, writes atomically and regenerates the
+  page; a hand-written file races with that and loses silently.
 - **A ticket body is yours to edit — below the frontmatter only.** The CLI preserves it byte for
   byte across every transition and rewrites the frontmatter itself. Unknown keys you add (`owner:`,
   `estimate:`) survive too, so use one of those if you need a field the tool does not have.
@@ -112,5 +113,4 @@ ready to merge: your work committed on it, rebased onto the main line, the check
 **`agent-progress help` is the command reference** — every command with every flag, printed by the
 tool, so it cannot be out of date. Run it when you need a flag you do not remember.
 
-`Reference.md`, beside this file, is what the tool does not print: the ticket file format, what each
-move does to the Gantt row, how a row's tokens are recorded, the time axis and the exit codes.
+`Reference.md`, beside this file, holds what the tool does not print.
