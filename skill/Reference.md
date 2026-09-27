@@ -15,17 +15,17 @@ the Gantt row, how a row's tokens are recorded, the time axis and the exit codes
 ---
 id: "003"
 title: "Double-click a role to edit it"
-type: change
-priority: high
-status: in-progress
-filed: 2026-09-18T20:11:03+02:00
-updated: 2026-09-18T20:40:00+02:00
-started: 2026-09-18T20:40:00+02:00
+type: "change"
+priority: "high"
+status: "in-progress"
+filed: "2026-09-18T20:11:03+02:00"
+updated: "2026-09-18T20:40:00+02:00"
+started: "2026-09-18T20:40:00+02:00"
 finished: null
 delivered: null
 abandonedAt: null
-group: role-editor
-branch: ticket/role-editor
+group: "role-editor"
+branch: "ticket/role-editor"
 dependsOn: "001, 002"
 task: 17
 ---
@@ -35,9 +35,9 @@ task: 17
 …
 ```
 
-The keys the CLI owns are `id`, `title`, `type`, `priority`, `model`, `effort`, `status`, `filed`,
-`updated`, `started`, `finished`, `delivered`, `abandonedAt`, `group`, `branch`, `commit`, `reason`,
-`dependsOn`, `hold` and `task`. `hold` holds the ticket whatever its value: set it with `ticket hold`
+The keys the CLI owns are `id`, `title`, `type`, `priority`, `model`, `effort`, `hold`, `status`,
+`filed`, `updated`, `started`, `finished`, `delivered`, `abandonedAt`, `group`, `branch`, `commit`,
+`reason`, `dependsOn` and `task`. `hold` holds the ticket whatever its value: set it with `ticket hold`
 and remove it with `ticket unhold`, never by hand. `dependsOn` is the ticket ids this one waits on, comma-separated; set it with
 `ticket depends` rather than by hand, so a missing id or a circle is refused. `type` is
 one of **bug · change · feature**; `priority` is one of **low · normal · high**, and a ticket
@@ -342,7 +342,7 @@ default. Bars outside the window are clipped and marked, never dropped.
 |---|---|
 | **0** | done, or there was nothing to do |
 | **1** | a refusal you can act on: no tracker here (run `agent-progress init`), no such task or ticket, a missing `--reason`, a claim with no free slot or on a low ticket still held back, lowering a ticket that is not pending, a release refused (`main-moved` among them), files installed here of another install version (run `agent-progress update`), an unknown command |
-| **2** | a state the tool will not repair on its own: an unreadable or malformed progress file, an unreadable or malformed log.jsonl, a lock it could not take |
+| **2** | a state the tool will not repair on its own: an unreadable or malformed progress file, an unreadable or malformed log.jsonl, a malformed ticket file a command names, a lock it could not take |
 
 Check the code rather than the wording. A command that wrote the store but could not rebuild the
 page still exits 0, reports the failure on standard error, and leaves the page carrying a visible

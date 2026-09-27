@@ -215,8 +215,8 @@ builder or reviewer for it while it is held and keeps the other tickets flowing.
 lets the held step start at the run's next board read. A builder or reviewer already running is never
 interrupted, so tell the user when the hold came too late for the step under way.
 
-**A build a hold or a stop left paused is resumed by the next run**, as `skill/Reference.md` states
-under "The dispatcher state"; yours is only to launch `ticketIds: ["<id>"]`, with no `readyTickets`
+**A build a hold or a stop left paused is resumed by the next run**, as the `agent-progress` skill's
+`Reference.md` states under "The dispatcher state"; yours is only to launch `ticketIds: ["<id>"]`, with no `readyTickets`
 entry, when `ticket unhold <id>` names a single-ticket run and no whole-board run is going or due.
 
 **When it returns with `stoppedByFailures`**, its agents died back to back — a session limit or a lost
