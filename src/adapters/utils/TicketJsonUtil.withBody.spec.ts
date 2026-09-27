@@ -4,13 +4,12 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { TicketJsonUtil }   from '../../../src/adapters/utils/TicketJsonUtil.ts';
-import { ticketFixture }    from '../../../src/testing/BoardFixtures.ts';
-import { TicketOutputUtil } from './TicketOutputUtil.ts';
+import { ticketFixture }  from '../../testing/BoardFixtures.ts';
+import { TicketJsonUtil } from './TicketJsonUtil.ts';
 
-const { ticketAsJson } = TicketOutputUtil;
+const { ticketAsJson } = TicketJsonUtil;
 
-describe('TicketOutputUtil.ticketAsJson', () => {
+describe('TicketJsonUtil.ticketAsJson', () => {
   test('is the ticket document with the body appended as the last key', () => {
     const ticket   = { ...ticketFixture({ id: '003', priority: 'high' }), body: '## Example\n\nThe body.\n' };
     const document = ticketAsJson(ticket);

@@ -1,4 +1,5 @@
 /** `ticket hold` and `ticket unhold`, and the hint an unhold prints about a build it left paused. */
+import { TicketJsonUtil }                        from '../../src/adapters/utils/TicketJsonUtil.ts';
 import type { Task }                             from '../../src/lib/tracker-model/@types/Task.ts';
 import { OperationRefusal }                      from '../../src/shared/OperationRefusal.ts';
 import { DispatcherClaimNoteUtil }               from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
@@ -9,7 +10,6 @@ import { NextLineUtil }                          from '../utils/NextLineUtil.ts'
 import { OutputUtil }                            from '../utils/OutputUtil.ts';
 import { TICKET_USAGE }                          from './constants/TicketUsage.ts';
 import { TicketLookupUtil }                      from './utils/TicketLookupUtil.ts';
-import { TicketOutputUtil }                      from './utils/TicketOutputUtil.ts';
 
 const HOLD_OPTION_NAMES   = ['reason', 'at', 'json'];
 const UNHOLD_OPTION_NAMES = ['at', 'json'];
@@ -51,7 +51,7 @@ export async function holdOrUnholdTicket(holds: boolean, commandArguments: Argum
   OutputUtil.printEntityThenNextLine(
     commandArguments,
     context,
-    TicketOutputUtil.ticketAsJson(holdChange.ticket),
+    TicketJsonUtil.ticketAsJson(holdChange.ticket),
     OutputUtil.loggedSentencesOf(holdChange.logged),
     closingLines,
   );

@@ -1,4 +1,5 @@
 /** `ticket depends`: replaces, adds to or removes from the list of tickets one waits on, and says which open dependency it dropped. */
+import { TicketJsonUtil }                        from '../../src/adapters/utils/TicketJsonUtil.ts';
 import { TicketPhraseUtil }                      from '../../src/adapters/utils/TicketPhraseUtil.ts';
 import type { TicketDependenciesChanged }        from '../../src/lib/tracker-model/@types/BoardChanges.ts';
 import { OperationRefusal }                      from '../../src/shared/OperationRefusal.ts';
@@ -10,7 +11,6 @@ import { OutputUtil }                            from '../utils/OutputUtil.ts';
 import { TICKET_USAGE }                          from './constants/TicketUsage.ts';
 import { TicketArgumentUtil }                    from './utils/TicketArgumentUtil.ts';
 import { TicketLookupUtil }                      from './utils/TicketLookupUtil.ts';
-import { TicketOutputUtil }                      from './utils/TicketOutputUtil.ts';
 
 const DEPENDS_OPTION_NAMES = ['add', 'remove', 'json'];
 
@@ -59,6 +59,6 @@ export async function setTicketDependencies(commandArguments: ArgumentParser, co
   const ticketId      = changed.ticket.frontmatter.id;
   const droppedSuffix = changed.droppedTicketIds.length === 0 ? '' : ` (dropped ${TicketPhraseUtil.ticketReferencesText(changed.droppedTicketIds)})`;
   const humanLines    = [`${OutputUtil.loggedSentencesOf(changed.logged)}${droppedSuffix}`, ...droppedDependencyLinesOf(ticketId, changed)].join('\n');
-  const entity        = { ...TicketOutputUtil.ticketAsJson(changed.ticket), added: changed.addedTicketIds, dropped: changed.droppedTicketIds };
+  const entity        = { ...TicketJsonUtil.ticketAsJson(changed.ticket), added: changed.addedTicketIds, dropped: changed.droppedTicketIds };
   OutputUtil.printEntityThenNextLine(commandArguments, context, entity, humanLines, NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState));
 }

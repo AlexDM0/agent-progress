@@ -6,4 +6,9 @@ function ticketDocumentOf(ticket: Ticket): Ticket['frontmatter'] & { priority: T
   return { ...ticket.frontmatter, priority: TicketDefaultsUtil.ticketPriorityOf(ticket.frontmatter), filePath: ticket.filePath };
 }
 
-export const TicketJsonUtil = { ticketDocumentOf } as const;
+/** What the ticket subcommands print under `--json`: the ticket document with the body appended last. */
+function ticketAsJson(ticket: Ticket): Record<string, unknown> {
+  return { ...ticketDocumentOf(ticket), body: ticket.body };
+}
+
+export const TicketJsonUtil = { ticketAsJson, ticketDocumentOf } as const;

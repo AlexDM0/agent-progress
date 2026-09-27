@@ -1,3 +1,4 @@
+import { TicketJsonUtil }                                               from '../../src/adapters/utils/TicketJsonUtil.ts';
 import { OperationRefusal }                                             from '../../src/shared/OperationRefusal.ts';
 import type { CommandContext }                                          from '../CommandContext.ts';
 import { openTrackerForWriting, openTrackerForWritingThenReadNextLine } from '../OpenTrackerForWriting.ts';
@@ -11,7 +12,6 @@ import { holdOrUnholdTicket }                                           from './
 import { TICKET_USAGE }                                                 from './constants/TicketUsage.ts';
 import { TicketArgumentUtil }                                           from './utils/TicketArgumentUtil.ts';
 import { TicketLookupUtil }                                             from './utils/TicketLookupUtil.ts';
-import { TicketOutputUtil }                                             from './utils/TicketOutputUtil.ts';
 
 const LINK_OPTION_NAMES     = ['force', 'json'];
 const PRIORITY_OPTION_NAMES = ['at', 'json'];
@@ -37,7 +37,7 @@ async function linkOneTicket(commandArguments: ArgumentParser, context: CommandC
     (change) => change.board.linkTicketToTask(TicketLookupUtil.requireTicket(change, ticketReference).frontmatter.id, taskId, { movesTheLink }),
   );
 
-  OutputUtil.printEntity(commandArguments, context, TicketOutputUtil.ticketAsJson(linked), `Ticket #${linked.frontmatter.id} linked to task #${taskId}`);
+  OutputUtil.printEntity(commandArguments, context, TicketJsonUtil.ticketAsJson(linked), `Ticket #${linked.frontmatter.id} linked to task #${taskId}`);
 }
 
 async function setTicketPriority(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
@@ -57,7 +57,7 @@ async function setTicketPriority(commandArguments: ArgumentParser, context: Comm
   );
 
   const closingLines = NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState);
-  OutputUtil.printEntityThenNextLine(commandArguments, context, TicketOutputUtil.ticketAsJson(changed.ticket), OutputUtil.loggedSentencesOf(changed.logged), closingLines);
+  OutputUtil.printEntityThenNextLine(commandArguments, context, TicketJsonUtil.ticketAsJson(changed.ticket), OutputUtil.loggedSentencesOf(changed.logged), closingLines);
 }
 
 async function setTicketAgent(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
@@ -83,7 +83,7 @@ async function setTicketAgent(commandArguments: ArgumentParser, context: Command
   });
 
   const closingLines = NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState);
-  OutputUtil.printEntityThenNextLine(commandArguments, context, TicketOutputUtil.ticketAsJson(changed.ticket), OutputUtil.loggedSentencesOf(changed.logged), closingLines);
+  OutputUtil.printEntityThenNextLine(commandArguments, context, TicketJsonUtil.ticketAsJson(changed.ticket), OutputUtil.loggedSentencesOf(changed.logged), closingLines);
 }
 
 export const TICKET_SETTING_SUBCOMMANDS: Readonly<Record<string, TicketSubcommandHandler>> = {

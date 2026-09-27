@@ -1,3 +1,4 @@
+import { TicketJsonUtil }                   from '../../src/adapters/utils/TicketJsonUtil.ts';
 import type { Ticket, TicketStatus }        from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { TicketDefaultsUtil }               from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
 import { listTickets, readTicket }          from '../../src/services/tracker/TicketStore.ts';
@@ -11,7 +12,6 @@ import type { TicketSubcommandHandler }     from './@types/TicketSubcommandHandl
 import { listAllTickets }                   from './TicketList.ts';
 import { TICKET_USAGE }                     from './constants/TicketUsage.ts';
 import { TicketLookupUtil }                 from './utils/TicketLookupUtil.ts';
-import { TicketOutputUtil }                 from './utils/TicketOutputUtil.ts';
 
 const SHOW_OPTION_NAMES = ['json'];
 
@@ -59,7 +59,7 @@ async function showOneTicket(commandArguments: ArgumentParser, context: CommandC
   const workspace  = requireWorkspace(context.currentDirectory);
   const ticket     = requireTicketToShow(workspace, reference);
   const statusById = new Map(listTickets(workspace).tickets.map((candidate) => [candidate.frontmatter.id, candidate.frontmatter.status]));
-  OutputUtil.printEntity(commandArguments, context, TicketOutputUtil.ticketAsJson(ticket), `${summaryOf(ticket, statusById)}\n\n${ticket.body}`);
+  OutputUtil.printEntity(commandArguments, context, TicketJsonUtil.ticketAsJson(ticket), `${summaryOf(ticket, statusById)}\n\n${ticket.body}`);
 }
 
 export const TICKET_READING_SUBCOMMANDS: Readonly<Record<string, TicketSubcommandHandler>> = { list: listAllTickets, show: showOneTicket };

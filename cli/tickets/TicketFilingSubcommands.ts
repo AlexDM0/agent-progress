@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve }      from 'node:path';
 
+import { TicketJsonUtil }                        from '../../src/adapters/utils/TicketJsonUtil.ts';
 import type { TicketType }                       from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { createTicket }                          from '../../src/services/tracker/TicketStore.ts';
 import { requireWorkspace }                      from '../../src/services/tracker/Workspace.ts';
@@ -15,7 +16,6 @@ import { TemplatePlaceholderUtil }               from '../utils/TemplatePlacehol
 import type { TicketSubcommandHandler }          from './@types/TicketSubcommandHandler.ts';
 import { TICKET_USAGE }                          from './constants/TicketUsage.ts';
 import { TicketArgumentUtil }                    from './utils/TicketArgumentUtil.ts';
-import { TicketOutputUtil }                      from './utils/TicketOutputUtil.ts';
 
 const ADD_OPTION_NAMES = ['type', 'priority', 'model', 'effort', 'group', 'depends-on', 'body', 'body-file', 'at', 'json'];
 
@@ -84,7 +84,7 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
   OutputUtil.printEntityThenNextLine(
     commandArguments,
     context,
-    TicketOutputUtil.ticketAsJson(filed.ticket),
+    TicketJsonUtil.ticketAsJson(filed.ticket),
     `${OutputUtil.loggedSentencesOf(filed.logged)}${priority === 'low' ? LOW_PRIORITY_FILING_NOTE : ''}\n  ${filed.ticket.filePath}`,
     NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState),
   );

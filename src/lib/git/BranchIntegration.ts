@@ -3,7 +3,7 @@
  * from the main line, the fast-forward itself, and the two cleanups. Nothing here forces anything: a refusal git gives is handed back with its reason.
  */
 import { GitProcess }                from './GitProcess.ts';
-import { NOT_AN_ANCESTOR_EXIT_CODE } from './constants/GitExitCodes.ts';
+import { NOT_AN_ANCESTOR_EXIT_CODE } from './constants/GitConventions.ts';
 
 const DETACHED_HEAD_EXIT_CODE = 1;
 

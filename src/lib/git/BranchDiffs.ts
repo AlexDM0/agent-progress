@@ -3,7 +3,7 @@
  * to count. Every diff is asked for with its options spelled out, so the user's git configuration cannot change the diff text.
  */
 import { GitProcess }                from './GitProcess.ts';
-import { NOT_AN_ANCESTOR_EXIT_CODE } from './constants/GitExitCodes.ts';
+import { NOT_AN_ANCESTOR_EXIT_CODE } from './constants/GitConventions.ts';
 
 const MERGE_BASE_NOT_FOUND_EXIT_CODE = 1;
 

@@ -1,3 +1,4 @@
+import { TicketJsonUtil }                        from '../../src/adapters/utils/TicketJsonUtil.ts';
 import { TicketPhraseUtil }                      from '../../src/adapters/utils/TicketPhraseUtil.ts';
 import { OperationRefusal }                      from '../../src/shared/OperationRefusal.ts';
 import type { CommandContext }                   from '../CommandContext.ts';
@@ -7,7 +8,6 @@ import { OutputUtil }                            from '../utils/OutputUtil.ts';
 import type { TicketSubcommandHandler }          from './@types/TicketSubcommandHandler.ts';
 import { TICKET_USAGE }                          from './constants/TicketUsage.ts';
 import { TicketLookupUtil }                      from './utils/TicketLookupUtil.ts';
-import { TicketOutputUtil }                      from './utils/TicketOutputUtil.ts';
 
 const CLAIM_OPTION_NAMES = ['owner', 'note', 'at', 'json'];
 
@@ -32,7 +32,7 @@ async function claimTickets(references: readonly string[], commandArguments: Arg
     OutputUtil.printEntityThenNextLine(
       commandArguments,
       context,
-      TicketOutputUtil.ticketAsJson(onlyTicket),
+      TicketJsonUtil.ticketAsJson(onlyTicket),
       `${TicketPhraseUtil.namedTicketsText(identifiers)} started: ${slotsText}`,
       nextLine,
     );
@@ -41,7 +41,7 @@ async function claimTickets(references: readonly string[], commandArguments: Arg
   OutputUtil.printEntityThenNextLine(
     commandArguments,
     context,
-    tickets.map(TicketOutputUtil.ticketAsJson),
+    tickets.map(TicketJsonUtil.ticketAsJson),
     `${TicketPhraseUtil.namedTicketsText(identifiers)} started as one agent: ${slotsText}`,
     nextLine,
   );
