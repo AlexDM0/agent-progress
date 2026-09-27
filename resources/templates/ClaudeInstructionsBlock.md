@@ -12,6 +12,9 @@ in separate checkouts all write to the same chart.
   `.agent-progress/agent-progress-dispatch.js`, started only on the user's go. Any other session or
   agent files a ticket when it is asked to and stops there: it never dispatches an agent to handle
   one, its own or anybody else's.
+- Every agent's prompt names its row, its ticket or its review on a line of its own, and the
+  `SubagentStop` hook adds every token the agent processed to that row when it stops, so where the
+  hook is installed pass no `--tokens`: it would replace the sum.
 - A ticket is picked up on a worktree of its own, never in the main checkout, by a builder or by a
   reviewer. The ticket's `## Brief` section, when it has one, is its builder's brief. A builder fixes
   the defects it finds beside its work when it can prove the fix, and ends by committing on its
@@ -25,6 +28,11 @@ in separate checkouts all write to the same chart.
   outside that, however small, is filed unfixed as a low-priority ticket. A second review is only for
   a pass that reworked over {{reworkThresholdLines}} lines of code (comments and documentation not counted) in its fixes
   and rebase, and is asked for, never scheduled by the reviewer.
-- File every bug, change or feature the user reports as a ticket.
+- File every bug, change or feature the user reports as a ticket (`agent-progress ticket add
+  "<title>" --type bug|change|feature`) and move it with `agent-progress ticket start|finish|approve|deliver <id>`.
+- Record milestones with `agent-progress log "<what happened>"`; `--at -5m` backfills a stamp nobody
+  registered at the time.
 - Never edit `.agent-progress/progress.json` by hand, and edit a ticket only below its frontmatter —
   `agent-progress ticket show <id>` prints the file path to edit.
+- Run `agent-progress open` once per session so the user has the dashboard; it reloads itself every
+  5 minutes as the work moves.
