@@ -12,7 +12,7 @@ import type { TimelineLimits, TimelineTick }           from '../@types/Timeline.
 import { MINIMUM_TICK_STEP_MINUTES }                   from '../constants/TickSteps.ts';
 import { MILLISECONDS_PER_MINUTE, PERCENT_OF_A_WHOLE } from '../constants/Units.ts';
 import { GeometryUtil }                                from '../utils/GeometryUtil.ts';
-import { TimeUtil }                                    from '../utils/TimeUtil.ts';
+import { TimeUtil, type DurationUnits }                from '../utils/TimeUtil.ts';
 import { WorkItemMarkupUtil }                          from '../utils/WorkItemMarkupUtil.ts';
 import type {
   ClosedTicketState,
@@ -207,7 +207,7 @@ function afterBuildSpansOf(input: AfterBuildInput): TimelineSpan[] {
   return spans.filter((candidate) => candidate.endEpochMilliseconds > candidate.startEpochMilliseconds);
 }
 
-function legendOf(spans: readonly TimelineSpan[]): LegendEntry[] {
+function legendOf(spans: readonly TimelineSpan[], units: DurationUnits): LegendEntry[] {
   const totals: Array<{ state: DisplayState; label: string; milliseconds: number }> = [];
   for (const span of spans) {
     const milliseconds = span.endEpochMilliseconds - span.startEpochMilliseconds;
@@ -219,7 +219,7 @@ function legendOf(spans: readonly TimelineSpan[]): LegendEntry[] {
     }
   }
   return totals.flatMap((total) => {
-    const durationText = total.milliseconds > 0 ? TimeUtil.formatDuration(total.milliseconds) : null;
+    const durationText = total.milliseconds > 0 ? TimeUtil.formatDuration(total.milliseconds, units) : null;
     return durationText === null ? [] : [{ state: total.state, label: total.label, durationText }];
   });
 }
@@ -238,6 +238,7 @@ interface NoteInput {
   closedState:        ClosedTicketState | null;
   queuedMilliseconds: number;
   waitingOn:          readonly string[];
+  units:              DurationUnits;
 }
 
 function noteOf(input: NoteInput): string | null {
@@ -254,7 +255,7 @@ function noteOf(input: NoteInput): string | null {
   if (ownRow === null && TicketDefaultsUtil.ticketPriorityOf(ticket) === 'low') {
     return LOW_PRIORITY_WITHOUT_ROW_NOTE;
   }
-  const queued = TimeUtil.formatDuration(input.queuedMilliseconds);
+  const queued = TimeUtil.formatDuration(input.queuedMilliseconds, input.units);
   return queued === null ? null : `Not started: in the queue for ${queued}.${waitReasonOf(ticket, input.waitingOn)}`;
 }
 
@@ -265,8 +266,8 @@ function endOf(axis: TicketTimelineAxis, closedState: ClosedTicketState | null, 
   return { closedState, label, leftPercent: percentAlong(axis, axis.lastMomentEpochMilliseconds) };
 }
 
-export function durationTextOf(milliseconds: number): string {
-  return TimeUtil.formatDuration(milliseconds) ?? '';
+export function durationTextOf(milliseconds: number, units: DurationUnits): string {
+  return TimeUtil.formatDuration(milliseconds, units) ?? '';
 }
 
 export function ticketTimelineOf(input: TicketTimelineInput): TicketTimeline {
@@ -295,15 +296,15 @@ export function ticketTimelineOf(input: TicketTimelineInput): TicketTimeline {
     axis,
     ticks:         ticksFor(axis, limits),
     queue,
-    queueTimeText: `${queueIsOpen ? 'waiting' : 'queued'} ${durationTextOf(queuedMilliseconds)}`,
+    queueTimeText: `${queueIsOpen ? 'waiting' : 'queued'} ${durationTextOf(queuedMilliseconds, limits)}`,
     ownRowId:      ownRow?.id ?? null,
     buildSegments,
     buildTimeText: firstSegment === undefined || lastSegment === undefined
       ? noBuildText
-      : durationTextOf(lastSegment.endEpochMilliseconds - firstSegment.startEpochMilliseconds),
+      : durationTextOf(lastSegment.endEpochMilliseconds - firstSegment.startEpochMilliseconds, limits),
     reviews,
     afterBuild,
-    legend: legendOf([queue, ...buildSegments, ...afterBuild]),
+    legend: legendOf([queue, ...buildSegments, ...afterBuild], limits),
     end:    endOf(axis, closedState, closingStamp, input),
     note:   noteOf({
       ticket,
@@ -312,6 +313,7 @@ export function ticketTimelineOf(input: TicketTimelineInput): TicketTimeline {
       closedState,
       queuedMilliseconds,
       waitingOn:  input.waitingOn,
+      units:      limits,
     }),
   };
 }

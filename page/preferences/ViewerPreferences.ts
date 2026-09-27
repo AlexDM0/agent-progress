@@ -3,7 +3,7 @@
  * the template's bootstrap keeps its own theme, tab and open-ticket keys.
  */
 
-import type { ClosedKanbanLane }                                         from '../@types/KanbanLane.ts';
+import type { ClosedKanbanLane }                                         from '../@types/ClosedKanbanLane.ts';
 import type { PreferenceStorage, StoredViewOverride, ViewerPreferences } from '../@types/ViewerPreferences.ts';
 import { CAPPED_LANE_FIRST_PAGE_CARDS }                                  from '../constants/CappedLanePaging.ts';
 import { EMPTY_VIEW_OVERRIDE }                                           from '../constants/ViewOverride.ts';

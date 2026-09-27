@@ -4,8 +4,8 @@ import type { DisplayState }     from '../../../src/lib/tracker-model/@types/Tas
 import type { TicketPriority }   from '../../../src/lib/tracker-model/@types/Ticket.ts';
 import { TicketDefaultsUtil }    from '../../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
 import type { PageTicket }       from '../../../src/shared/@types/PagePayload.ts';
+import type { ClosedKanbanLane } from '../../@types/ClosedKanbanLane.ts';
 import type { KanbanCard }       from '../../@types/KanbanCard.ts';
-import type { ClosedKanbanLane } from '../../@types/KanbanLane.ts';
 import type { BoardTicket }      from '../../@types/PageBoard.ts';
 import { TimeUtil }              from '../../utils/TimeUtil.ts';
 import type { KanbanLane }       from '../@types/KanbanLane.ts';

@@ -1,16 +1,16 @@
 /** The words the Kanban lane heads and cards print beyond the pill: the heads' counts and a card's sub-state note. The page's now is handed in. */
 
-import type { DisplayState, Task }   from '../../src/lib/tracker-model/@types/Task.ts';
-import { FIRST_REPEAT_REVIEW_ROUND } from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
-import type { KanbanCard }           from '../@types/KanbanCard.ts';
-import type { TimestampSlices }      from '../utils/TimeUtil.ts';
-import { TimeUtil }                  from '../utils/TimeUtil.ts';
-import type { KanbanLane }           from './@types/KanbanLane.ts';
+import type { DisplayState, Task }             from '../../src/lib/tracker-model/@types/Task.ts';
+import { FIRST_REPEAT_REVIEW_ROUND }           from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
+import type { KanbanCard }                     from '../@types/KanbanCard.ts';
+import type { DurationUnits, TimestampSlices } from '../utils/TimeUtil.ts';
+import { TimeUtil }                            from '../utils/TimeUtil.ts';
+import type { KanbanLane }                     from './@types/KanbanLane.ts';
 
 export interface NoteFormat {
   nowEpochMilliseconds: number;
   todayCalendarDate:    string;
-  slices:               TimestampSlices;
+  slices:               TimestampSlices & DurationUnits;
 }
 
 /** One figure of a lane head; `dotState` draws the state's dot before it, `reviewedMark` the ✓. */
@@ -66,7 +66,7 @@ function stampNote(prefix: string, stamp: string | null | undefined, format: Not
 /** `null` for a stamp missing, unreadable or later than now, which a backfilled `--at` can write. */
 function durationSince(stamp: string | null | undefined, format: NoteFormat): string | null {
   const epochMilliseconds = TimeUtil.epochMillisecondsOf(stamp);
-  return epochMilliseconds === null ? null : TimeUtil.formatDuration(format.nowEpochMilliseconds - epochMilliseconds);
+  return epochMilliseconds === null ? null : TimeUtil.formatDuration(format.nowEpochMilliseconds - epochMilliseconds, format.slices);
 }
 
 function pausedNote(card: KanbanCard, format: NoteFormat): string | null {

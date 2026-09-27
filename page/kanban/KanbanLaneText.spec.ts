@@ -8,7 +8,7 @@ import type { Task }                       from '../../src/lib/tracker-model/@ty
 import type { PageTicket }                 from '../../src/shared/@types/PagePayload.ts';
 import type { KanbanCard }                 from '../@types/KanbanCard.ts';
 import { pageBoardFixture }                from '../testing/PageBoardFixture.ts';
-import { EXAMPLE_TIMESTAMP_SLICES }        from '../testing/PageLimitsFixture.ts';
+import { EXAMPLE_PAGE_LIMITS }             from '../testing/PageLimitsFixture.ts';
 import type { NoteFormat }                 from './KanbanLaneText.ts';
 import { laneSubCountsOf, subStateNoteOf } from './KanbanLaneText.ts';
 import { KanbanLaneUtil }                  from './utils/KanbanLaneUtil.ts';
@@ -67,7 +67,7 @@ function noteFormat(): NoteFormat {
   return {
     nowEpochMilliseconds: EXAMPLE_NOW,
     todayCalendarDate:    EXAMPLE_TODAY,
-    slices:               EXAMPLE_TIMESTAMP_SLICES,
+    slices:               EXAMPLE_PAGE_LIMITS,
   };
 }
 

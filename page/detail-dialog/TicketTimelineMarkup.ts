@@ -34,10 +34,11 @@ function barStyle(axis: TicketTimelineAxis, span: TimelineSpan, limits: Timeline
   return `left:${MarkupUtil.percentText(leftPercent)};width:${MarkupUtil.percentText(widthPercent)}`;
 }
 
-function spanTitle(span: TimelineSpan, label: string, todayCalendarDate: string): string {
+function spanTitle(span: TimelineSpan, label: string, input: TicketTimelineInput): string {
+  const { todayCalendarDate, limits } = input;
   const startText = TimeUtil.shortInstantText(span.startEpochMilliseconds, todayCalendarDate);
   const endText   = span.isLive ? ' → now' : `–${TimeUtil.shortInstantText(span.endEpochMilliseconds, todayCalendarDate)}`;
-  const duration  = TimeUtil.formatDuration(span.endEpochMilliseconds - span.startEpochMilliseconds);
+  const duration  = TimeUtil.formatDuration(span.endEpochMilliseconds - span.startEpochMilliseconds, limits);
   return `${label} ${startText}${endText}${duration === null ? '' : ` · ${duration}`}`;
 }
 
@@ -63,7 +64,7 @@ function filedNameMarkup(ticket: PageTicket, input: TicketTimelineInput): string
 
 function filedRowMarkup(timeline: TicketTimeline, input: TicketTimelineInput): string {
   const { queue, axis } = timeline;
-  const queued          = durationTextOf(queue.endEpochMilliseconds - queue.startEpochMilliseconds);
+  const queued          = durationTextOf(queue.endEpochMilliseconds - queue.startEpochMilliseconds, input.limits);
   const title           = `filed ${TimeUtil.fullStampText(input.ticket.filed, input.limits)} · in the queue ${queued}${queue.isLive ? ' so far' : ''}`;
   const bar             = `<div class="ap-bar ap-ticket-gantt-filed" style="${barStyle(axis, queue, input.limits)}" ${MarkupUtil.attribute('title', title)}></div>`;
   return ganttRowMarkup(filedNameMarkup(input.ticket, input), timeline.queueTimeText, bar);
@@ -73,7 +74,7 @@ function buildRowMarkup(timeline: TicketTimeline, input: TicketTimelineInput): s
   const rowId    = timeline.ownRowId === null ? '' : ` <span class="mono">#${HtmlEscapeUtil.escapeHtml(String(timeline.ownRowId))}</span>`;
   const segments = timeline.buildSegments.map((segment) => [
     `<div class="ap-bar ap-bar-segment" ${MarkupUtil.attribute('data-state', segment.state)}${liveAttribute(segment)}`,
-    ` style="${barStyle(timeline.axis, segment, input.limits)}" ${MarkupUtil.attribute('title', spanTitle(segment, segment.label, input.todayCalendarDate))}></div>`,
+    ` style="${barStyle(timeline.axis, segment, input.limits)}" ${MarkupUtil.attribute('title', spanTitle(segment, segment.label, input))}></div>`,
   ].join('')).join('');
   return ganttRowMarkup(`<span class="ap-name">Build${rowId}</span>`, timeline.buildTimeText, segments);
 }
@@ -82,11 +83,11 @@ function reviewRowMarkup(review: ReviewSpan, timeline: TicketTimeline, input: Ti
   const tokens = review.tokens === null ? '' : ` · ${TokenCountUtil.formatTokenCount(review.tokens)} tokens`;
   const bar    = [
     `<div class="ap-bar" ${MarkupUtil.attribute('data-state', review.state)}${liveAttribute(review)} style="${barStyle(timeline.axis, review, input.limits)}"`,
-    ` ${MarkupUtil.attribute('title', `${spanTitle(review, review.label, input.todayCalendarDate)}${tokens}`)}></div>`,
+    ` ${MarkupUtil.attribute('title', `${spanTitle(review, review.label, input)}${tokens}`)}></div>`,
   ].join('');
   return ganttRowMarkup(
     `<span class="ap-name">${HtmlEscapeUtil.escapeHtml(review.label)}</span>`,
-    durationTextOf(review.endEpochMilliseconds - review.startEpochMilliseconds),
+    durationTextOf(review.endEpochMilliseconds - review.startEpochMilliseconds, input.limits),
     bar,
   );
 }
@@ -103,10 +104,10 @@ function afterBuildRowMarkup(timeline: TicketTimeline, input: TicketTimelineInpu
     const label        = widthPercent >= SEGMENT_LABEL_MINIMUM_PERCENT ? HtmlEscapeUtil.escapeHtml(segment.label) : '';
     return [
       `<div class="ap-bar ap-lifecycle-segment" ${MarkupUtil.attribute('data-state', segment.state)} style="${barStyle(axis, segment, input.limits)}"`,
-      ` ${MarkupUtil.attribute('title', spanTitle(segment, segment.label, input.todayCalendarDate))}>${label}</div>`,
+      ` ${MarkupUtil.attribute('title', spanTitle(segment, segment.label, input))}>${label}</div>`,
     ].join('');
   }).join('');
-  return ganttRowMarkup('<span class="ap-name">After build</span>', durationTextOf(last.endEpochMilliseconds - first.startEpochMilliseconds), segments);
+  return ganttRowMarkup('<span class="ap-name">After build</span>', durationTextOf(last.endEpochMilliseconds - first.startEpochMilliseconds, input.limits), segments);
 }
 
 function legendMarkup(legend: readonly LegendEntry[]): string {

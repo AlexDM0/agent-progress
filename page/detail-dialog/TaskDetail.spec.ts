@@ -6,12 +6,12 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import type { Task }                from '../../src/lib/tracker-model/@types/Task.ts';
-import type { PageTicket }          from '../../src/shared/@types/PagePayload.ts';
-import type { IdentifiedLogEntry }  from '../../src/shared/@types/WordedLogEntry.ts';
-import { pageBoardFixture }         from '../testing/PageBoardFixture.ts';
-import { EXAMPLE_TIMESTAMP_SLICES } from '../testing/PageLimitsFixture.ts';
-import { taskDetailMarkup }         from './TaskDetail.ts';
+import type { Task }               from '../../src/lib/tracker-model/@types/Task.ts';
+import type { PageTicket }         from '../../src/shared/@types/PagePayload.ts';
+import type { IdentifiedLogEntry } from '../../src/shared/@types/WordedLogEntry.ts';
+import { pageBoardFixture }        from '../testing/PageBoardFixture.ts';
+import { EXAMPLE_PAGE_LIMITS }     from '../testing/PageLimitsFixture.ts';
+import { taskDetailMarkup }        from './TaskDetail.ts';
 
 /** The example board's own day, so its stamps print as a clock with the full stamp on hover. */
 const EXAMPLE_TODAY = '2026-09-18';
@@ -63,7 +63,7 @@ function panelFor(task: Task | null, ticket: PageTicket | null = null, log: read
     task:              pageBoardFixture({ tasks: task === null ? [] : [task], tickets: ticket === null ? [] : [ticket] }).rows[0] ?? null,
     ticket,
     log,
-    slices:            EXAMPLE_TIMESTAMP_SLICES,
+    slices:            EXAMPLE_PAGE_LIMITS,
     todayCalendarDate: EXAMPLE_TODAY,
   });
 }

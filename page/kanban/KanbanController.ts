@@ -1,13 +1,13 @@
 /** The Kanban tab: the board of the visible cards, its overflow marks, the capped lanes' paging, the Abandoned toggle and the waiting-on links. */
 
+import type { ClosedKanbanLane }                    from '../@types/ClosedKanbanLane.ts';
 import type { KanbanCard }                          from '../@types/KanbanCard.ts';
-import type { ClosedKanbanLane }                    from '../@types/KanbanLane.ts';
 import type { ViewerPreferences }                   from '../@types/ViewerPreferences.ts';
 import { CAPPED_LANE_FIRST_PAGE_CARDS }             from '../constants/CappedLanePaging.ts';
 import { KANBAN_BOARD_ELEMENT_ID, KANBAN_TAB_NAME } from '../constants/TemplateIds.ts';
 import { DomUtil }                                  from '../utils/DomUtil.ts';
 import { TemplateIdUtil }                           from '../utils/TemplateIdUtil.ts';
-import type { TimestampSlices }                     from '../utils/TimeUtil.ts';
+import type { DurationUnits, TimestampSlices }      from '../utils/TimeUtil.ts';
 import { kanbanBoardMarkup }                        from './KanbanMarkup.ts';
 import { CLOSED_KANBAN_LANES }                      from './constants/KanbanBoardLayout.ts';
 import { KanbanLaneUtil }                           from './utils/KanbanLaneUtil.ts';
@@ -17,7 +17,7 @@ import { LanePagingUtil }                           from './utils/LanePagingUtil
 const KANBAN_FRAME_ELEMENT_ID = 'ap-kanban-frame';
 
 export interface KanbanControllerSources {
-  slices:                TimestampSlices;
+  slices:                TimestampSlices & DurationUnits;
   preferences:           ViewerPreferences;
   readTodayCalendarDate: () => string;
   readShowsAllWork:      () => boolean;

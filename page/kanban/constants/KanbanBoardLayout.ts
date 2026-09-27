@@ -1,4 +1,4 @@
-import type { ClosedKanbanLane } from '../../@types/KanbanLane.ts';
+import type { ClosedKanbanLane } from '../../@types/ClosedKanbanLane.ts';
 
 export const KANBAN_LANES = ['todo', 'progress', 'review', 'merge', 'done', 'abandoned'] as const;
 

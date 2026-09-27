@@ -4,12 +4,12 @@
  * buttons, the empty lanes under Show all, the Abandoned toggle and the escaping.
  */
 
-import { describe, expect, test }   from 'bun:test';
-import type { Task }                from '../../src/lib/tracker-model/@types/Task.ts';
-import type { PageTicket }          from '../../src/shared/@types/PagePayload.ts';
-import { pageBoardFixture }         from '../testing/PageBoardFixture.ts';
-import { EXAMPLE_TIMESTAMP_SLICES } from '../testing/PageLimitsFixture.ts';
-import type { KanbanBoardInput }    from './KanbanMarkup.ts';
+import { describe, expect, test } from 'bun:test';
+import type { Task }              from '../../src/lib/tracker-model/@types/Task.ts';
+import type { PageTicket }        from '../../src/shared/@types/PagePayload.ts';
+import { pageBoardFixture }       from '../testing/PageBoardFixture.ts';
+import { EXAMPLE_PAGE_LIMITS }    from '../testing/PageLimitsFixture.ts';
+import type { KanbanBoardInput }  from './KanbanMarkup.ts';
 import {
   cappedLaneFooterMarkup,
   kanbanBoardMarkup,
@@ -73,7 +73,7 @@ function boardInput(tickets: readonly PageTicket[], tasks: readonly Task[], chan
     cards:                  KanbanLaneUtil.kanbanCardsFor(pageBoardFixture({ tasks, tickets }).tickets, waitingOnById),
     nowEpochMilliseconds:   EXAMPLE_NOW,
     todayCalendarDate:      EXAMPLE_TODAY,
-    slices:                 EXAMPLE_TIMESTAMP_SLICES,
+    slices:                 EXAMPLE_PAGE_LIMITS,
     showsAllWork:           false,
     shownCountByClosedLane: { done: 15, abandoned: 15 },
     abandonedLaneIsOpen:    false,

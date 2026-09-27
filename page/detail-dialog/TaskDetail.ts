@@ -10,19 +10,19 @@ import type {
   TaskPhase,
   TaskStatus
 } from '../../src/lib/tracker-model/@types/Task.ts';
-import { FIRST_REPEAT_REVIEW_ROUND } from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
-import { HtmlEscapeUtil }            from '../../src/lib/utils/HtmlEscapeUtil.ts';
-import { TokenCountUtil }            from '../../src/lib/utils/TokenCountUtil.ts';
-import type { PageTicket }           from '../../src/shared/@types/PagePayload.ts';
-import type { IdentifiedLogEntry }   from '../../src/shared/@types/WordedLogEntry.ts';
-import type { BoardRow }             from '../@types/PageBoard.ts';
-import { LogMarkupUtil }             from '../utils/LogMarkupUtil.ts';
-import { MarkupUtil }                from '../utils/MarkupUtil.ts';
-import type { TimestampSlices }      from '../utils/TimeUtil.ts';
-import { TimeUtil }                  from '../utils/TimeUtil.ts';
-import { WorkItemMarkupUtil }        from '../utils/WorkItemMarkupUtil.ts';
-import { DetailMarkupUtil }          from './utils/DetailMarkupUtil.ts';
-import { NoteSentenceMatchUtil }     from './utils/NoteSentenceMatchUtil.ts';
+import { FIRST_REPEAT_REVIEW_ROUND }           from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
+import { HtmlEscapeUtil }                      from '../../src/lib/utils/HtmlEscapeUtil.ts';
+import { TokenCountUtil }                      from '../../src/lib/utils/TokenCountUtil.ts';
+import type { PageTicket }                     from '../../src/shared/@types/PagePayload.ts';
+import type { IdentifiedLogEntry }             from '../../src/shared/@types/WordedLogEntry.ts';
+import type { BoardRow }                       from '../@types/PageBoard.ts';
+import { LogMarkupUtil }                       from '../utils/LogMarkupUtil.ts';
+import { MarkupUtil }                          from '../utils/MarkupUtil.ts';
+import type { DurationUnits, TimestampSlices } from '../utils/TimeUtil.ts';
+import { TimeUtil }                            from '../utils/TimeUtil.ts';
+import { WorkItemMarkupUtil }                  from '../utils/WorkItemMarkupUtil.ts';
+import { DetailMarkupUtil }                    from './utils/DetailMarkupUtil.ts';
+import { NoteSentenceMatchUtil }               from './utils/NoteSentenceMatchUtil.ts';
 
 
 const PHASES_WERE_NOT_RECORDED_NOTE = 'The phases of this row were not recorded, so what follows is derived from its own stamps and its ticket’s.';
@@ -53,12 +53,12 @@ export interface TaskDetailInput {
   task:              BoardRow | null;
   ticket:            PageTicket | null;
   log:               readonly IdentifiedLogEntry[];
-  slices:            TimestampSlices;
+  slices:            TimestampSlices & DurationUnits;
   todayCalendarDate: string;
 }
 
 interface StampFormat {
-  slices:            TimestampSlices;
+  slices:            TimestampSlices & DurationUnits;
   todayCalendarDate: string;
 }
 
@@ -77,14 +77,14 @@ function factsMarkup(entries: readonly Fact[]): string {
   return `<div class="ap-ticket-meta">${rows}</div>`;
 }
 
-function durationBetween(fromTimestamp: string | null | undefined, toTimestamp: string | null | undefined): string | null {
+function durationBetween(fromTimestamp: string | null | undefined, toTimestamp: string | null | undefined, units: DurationUnits): string | null {
   const fromEpochMilliseconds = TimeUtil.epochMillisecondsOf(fromTimestamp);
   const toEpochMilliseconds   = TimeUtil.epochMillisecondsOf(toTimestamp);
-  return fromEpochMilliseconds === null || toEpochMilliseconds === null ? null : TimeUtil.formatDuration(toEpochMilliseconds - fromEpochMilliseconds);
+  return fromEpochMilliseconds === null || toEpochMilliseconds === null ? null : TimeUtil.formatDuration(toEpochMilliseconds - fromEpochMilliseconds, units);
 }
 
 function taskFactsMarkup(task: Task, format: StampFormat): string {
-  const elapsed = durationBetween(task.start, task.end);
+  const elapsed = durationBetween(task.start, task.end, format.slices);
   const entries: Fact[] = [];
 
   if (task.owner !== '') entries.push(['owner', HtmlEscapeUtil.escapeHtml(task.owner)]);
@@ -157,7 +157,7 @@ function derivedPhaseLines(task: Task, ticket: PageTicket | null): PhaseLine[] {
 
 function phaseListMarkup(lines: readonly PhaseLine[], format: StampFormat): string {
   const items = lines.map((line, index) => {
-    const gapDuration = durationBetween(lines[index - 1]?.at, line.at);
+    const gapDuration = durationBetween(lines[index - 1]?.at, line.at, format.slices);
     const gap         = gapDuration === null ? '' : `<span class="ap-detail-gap">after ${HtmlEscapeUtil.escapeHtml(gapDuration)}</span>`;
     return [
       `<li ${MarkupUtil.attribute('data-state', line.state)}>`,

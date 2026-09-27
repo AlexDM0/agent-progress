@@ -5,12 +5,12 @@
 
 import { expect, test } from 'bun:test';
 
-import type { Task }                from '../../src/lib/tracker-model/@types/Task.ts';
-import type { PageTicket }          from '../../src/shared/@types/PagePayload.ts';
-import type { IdentifiedLogEntry }  from '../../src/shared/@types/WordedLogEntry.ts';
-import { pageBoardFixture }         from '../testing/PageBoardFixture.ts';
-import { EXAMPLE_TIMESTAMP_SLICES } from '../testing/PageLimitsFixture.ts';
-import { taskDetailMarkup }         from './TaskDetail.ts';
+import type { Task }               from '../../src/lib/tracker-model/@types/Task.ts';
+import type { PageTicket }         from '../../src/shared/@types/PagePayload.ts';
+import type { IdentifiedLogEntry } from '../../src/shared/@types/WordedLogEntry.ts';
+import { pageBoardFixture }        from '../testing/PageBoardFixture.ts';
+import { EXAMPLE_PAGE_LIMITS }     from '../testing/PageLimitsFixture.ts';
+import { taskDetailMarkup }        from './TaskDetail.ts';
 
 const EXAMPLE_AT = '2026-09-18T20:26:00+02:00';
 
@@ -61,7 +61,7 @@ function panelClaimsTheEntry(task: Task | null, ticket: PageTicket | null, entry
     task:              pageBoardFixture({ tasks: task === null ? [] : [task], tickets: ticket === null ? [] : [ticket] }).rows[0] ?? null,
     ticket,
     log:               [entry],
-    slices:            EXAMPLE_TIMESTAMP_SLICES,
+    slices:            EXAMPLE_PAGE_LIMITS,
     todayCalendarDate: '2026-09-18',
   });
   return markup.includes(entry.text);

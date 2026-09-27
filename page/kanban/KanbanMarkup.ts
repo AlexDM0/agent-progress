@@ -6,8 +6,8 @@ import { FIRST_REPEAT_REVIEW_ROUND }       from '../../src/lib/tracker-model/con
 import { TicketDefaultsUtil }              from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
 import { HtmlEscapeUtil }                  from '../../src/lib/utils/HtmlEscapeUtil.ts';
 import { TokenCountUtil }                  from '../../src/lib/utils/TokenCountUtil.ts';
+import type { ClosedKanbanLane }           from '../@types/ClosedKanbanLane.ts';
 import type { KanbanCard }                 from '../@types/KanbanCard.ts';
-import type { ClosedKanbanLane }           from '../@types/KanbanLane.ts';
 import { CAPPED_LANE_FIRST_PAGE_CARDS }    from '../constants/CappedLanePaging.ts';
 import { MarkupUtil }                      from '../utils/MarkupUtil.ts';
 import { TemplateIdUtil }                  from '../utils/TemplateIdUtil.ts';

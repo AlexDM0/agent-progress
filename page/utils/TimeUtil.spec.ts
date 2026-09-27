@@ -4,9 +4,9 @@
  * are checked against the instant's own local date rather than a literal clock. A duration matters at its unit boundaries and when it runs backwards.
  */
 
-import { describe, expect, test }   from 'bun:test';
-import { EXAMPLE_TIMESTAMP_SLICES } from '../testing/PageLimitsFixture.ts';
-import { TimeUtil }                 from './TimeUtil.ts';
+import { describe, expect, test }                        from 'bun:test';
+import { EXAMPLE_PAGE_LIMITS, EXAMPLE_TIMESTAMP_SLICES } from '../testing/PageLimitsFixture.ts';
+import { TimeUtil }                                      from './TimeUtil.ts';
 
 const {
   calendarDateOf,
@@ -114,12 +114,12 @@ describe('formatDuration', () => {
     [26 * 60 * 60_000, '1d 2h'],
     [48 * 60 * 60_000, '2d'],
   ])('reads %i milliseconds as %s', (milliseconds, expected) => {
-    expect(formatDuration(milliseconds)).toBe(expected);
+    expect(formatDuration(milliseconds, EXAMPLE_PAGE_LIMITS)).toBe(expected);
   });
 
   // A backfilled `--at` can put a later phase earlier; a negative span is no duration at all, neither "-3m" nor "under a minute".
   test('names no duration for a span that runs backwards', () => {
-    expect(formatDuration(-180_000)).toBeNull();
-    expect(formatDuration(-1)).toBeNull();
+    expect(formatDuration(-180_000, EXAMPLE_PAGE_LIMITS)).toBeNull();
+    expect(formatDuration(-1, EXAMPLE_PAGE_LIMITS)).toBeNull();
   });
 });

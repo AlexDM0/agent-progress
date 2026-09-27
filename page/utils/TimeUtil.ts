@@ -5,8 +5,8 @@
  * durations and parses stamps.
  */
 
-import type { PageLimits }                                          from '../../src/shared/@types/PagePayload.ts';
-import { HOURS_PER_DAY, MILLISECONDS_PER_MINUTE, MINUTES_PER_HOUR } from '../constants/Units.ts';
+import type { PageLimits }         from '../../src/shared/@types/PagePayload.ts';
+import { MILLISECONDS_PER_MINUTE } from '../constants/Units.ts';
 
 const SMALLEST_TWO_DIGIT_NUMBER = 10;
 
@@ -15,6 +15,8 @@ const FIRST_MONTH_NUMBER = 1;
 const SHORTEST_NAMED_DURATION = 'under a minute';
 
 export type TimestampSlices = Pick<PageLimits, 'dateAndClockLength' | 'calendarDateLength' | 'monthAndDaySliceStart' | 'clockSliceStart' | 'clockSliceEnd'>;
+
+export type DurationUnits = Pick<PageLimits, 'hourMinutes' | 'dayMinutes'>;
 
 function padToTwoDigits(value: number): string {
   return value < SMALLEST_TWO_DIGIT_NUMBER ? `0${value}` : String(value);
@@ -73,7 +75,7 @@ function shortInstantText(epochMilliseconds: number, todayCalendarDate: string):
 }
 
 /** Null for a span that runs backwards, which a backfilled `--at` can write: it is no duration, not a short one. */
-function formatDuration(milliseconds: number): string | null {
+function formatDuration(milliseconds: number, units: DurationUnits): string | null {
   if (milliseconds < 0) {
     return null;
   }
@@ -81,9 +83,9 @@ function formatDuration(milliseconds: number): string | null {
   if (totalMinutes < 1) {
     return SHORTEST_NAMED_DURATION;
   }
-  const days    = Math.floor(totalMinutes / (MINUTES_PER_HOUR * HOURS_PER_DAY));
-  const hours   = Math.floor(totalMinutes / MINUTES_PER_HOUR) % HOURS_PER_DAY;
-  const minutes = totalMinutes % MINUTES_PER_HOUR;
+  const days    = Math.floor(totalMinutes / units.dayMinutes);
+  const hours   = Math.floor((totalMinutes % units.dayMinutes) / units.hourMinutes);
+  const minutes = totalMinutes % units.hourMinutes;
   if (days > 0) {
     return hours === 0 ? `${days}d` : `${days}d ${hours}h`;
   }

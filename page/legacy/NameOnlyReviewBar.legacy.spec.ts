@@ -6,15 +6,15 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import type { Task }                from '../../src/lib/tracker-model/@types/Task.ts';
-import type { PageTicket }          from '../../src/shared/@types/PagePayload.ts';
-import { ReviewBarNameUtil }        from '../../src/shared/legacy/utils/ReviewBarNameUtil.ts';
-import type { TimelineBar }         from '../@types/Timeline.ts';
-import { subStateNoteOf }           from '../kanban/KanbanLaneText.ts';
-import { KanbanLaneUtil }           from '../kanban/utils/KanbanLaneUtil.ts';
-import { taskRowsMarkup }           from '../progress/ProgressMarkup.ts';
-import { pageBoardFixture }         from '../testing/PageBoardFixture.ts';
-import { EXAMPLE_TIMESTAMP_SLICES } from '../testing/PageLimitsFixture.ts';
+import type { Task }                                     from '../../src/lib/tracker-model/@types/Task.ts';
+import type { PageTicket }                               from '../../src/shared/@types/PagePayload.ts';
+import { ReviewBarNameUtil }                             from '../../src/shared/legacy/utils/ReviewBarNameUtil.ts';
+import type { TimelineBar }                              from '../@types/Timeline.ts';
+import { subStateNoteOf }                                from '../kanban/KanbanLaneText.ts';
+import { KanbanLaneUtil }                                from '../kanban/utils/KanbanLaneUtil.ts';
+import { taskRowsMarkup }                                from '../progress/ProgressMarkup.ts';
+import { pageBoardFixture }                              from '../testing/PageBoardFixture.ts';
+import { EXAMPLE_PAGE_LIMITS, EXAMPLE_TIMESTAMP_SLICES } from '../testing/PageLimitsFixture.ts';
 
 const EXAMPLE_TODAY = '2026-09-25';
 const EXAMPLE_NOW   = Date.parse('2026-09-25T13:36:00+02:00');
@@ -134,7 +134,7 @@ describe('review rows known only by their name', () => {
     const [card] = KanbanLaneUtil.kanbanCardsFor(pageBoardFixture({ tasks, tickets: [ticket] }).tickets, new Map([[ticket.id, []]]));
     if (card === undefined) throw new Error('no card was built');
 
-    expect(subStateNoteOf(card, { nowEpochMilliseconds: EXAMPLE_NOW, todayCalendarDate: EXAMPLE_TODAY, slices: EXAMPLE_TIMESTAMP_SLICES }))
+    expect(subStateNoteOf(card, { nowEpochMilliseconds: EXAMPLE_NOW, todayCalendarDate: EXAMPLE_TODAY, slices: EXAMPLE_PAGE_LIMITS }))
       .toBe('round 3 reviewer since 09-24 11:34');
   });
 });
