@@ -3,7 +3,7 @@
 This page is for changing the tool itself: getting a checkout running, the three checks every
 TypeScript change must pass, where things live and which way imports may point, how the specs keep
 away from real trackers, the guard specs that fail the build on a structural mistake, the page and
-the dispatcher script, and the decisions that shape all of it. Using the tool is covered in the
+the dispatcher script, the legacy folders, and the decisions that shape all of it. Using the tool is covered in the
 [README](../README.md); every command and file format is in the [CLI reference](cli.md). The rules
 themselves live in the root `CLAUDE.md`; this page points into it rather than restating it.
 
@@ -15,6 +15,7 @@ themselves live in the root `CLAUDE.md`; this page points into it rather than re
 - [The guard specs](#the-guard-specs)
 - [The page](#the-page)
 - [The dispatcher script and its harness](#the-dispatcher-script-and-its-harness)
+- [Legacy folders](#legacy-folders)
 - [Architecture decisions](#architecture-decisions)
 - [Backlog](#backlog)
 
@@ -111,7 +112,7 @@ repository.
 ## Checks
 
 ```sh
-bun run typecheck   # tsc over the Bun project, the DOM-only page project and the dispatcher's two projects
+bun run typecheck   # tsc over five projects: the Bun program, the page and its specs, the dispatcher and its specs
 bun test            # bun:test, specs beside their modules
 bun run lint        # eslint 9 flat config
 ```
@@ -141,16 +142,26 @@ agent loads has a size ceiling.
 ## Repository layout
 
 ```
-agent-progress.ts    the bin shim; the only file that calls process.exit
-cli/                 the command surface: dispatch, arguments, help, the commands grouped into sets
-page/                the browser page, with its own DOM-only project and spec project
-dispatcher/          the dispatcher's source, which init and update generate into a tracked repository
-resources/           files read at runtime: the page's HTML template, and under templates/ the markdown init,
-                     update and ticket add fill
-src/                 the target layout's code, filled step by step as the migration plan moves it
+agent-progress.ts    the bin shim and composition root: the only process.exit; imports cli/ only
+cli/                 feature: the command surface, its commands grouped into tracking/, tickets/, dispatch/,
+                     adoption/ and measurement/, beside arguments/, utils/, constants/ and legacy/
+page/                feature: the browser page, with its own DOM-only project and spec project
+dispatcher/          feature: the dispatcher's policy in TypeScript, which init and update bundle into
+                     .agent-progress/agent-progress-dispatch.js
+resources/           files read at runtime: template.html, and under templates/ the markdown init, update and
+                     ticket add fill
+src/
+  adapters/          an ingestion class and a writer per stored format (progress/, tickets/, log/, install/), the
+                     wording, JSON and HTML-label mappers in utils/, and legacy/
+  services/          tracker/ (discovery, the lock, reading, the write pipeline, creation, legacy/) and render/
+                     (the page document and the per-invocation RenderState)
+  lib/               package-grade building blocks: atomic-file, git, claude-code, tracker-model, utils
+  shared/            Environment, OperationRefusal, LIMITS, DISPATCH_PROTOCOL, the page payload and the other
+                     shared @types, and legacy/
+  testing/           test-only helpers several parts use
 skill/               the skill every session in a tracked repository loads
 skill-orchestrate/   the skill for the one session running the board
-docs/                this page, the CLI reference, the backlog and the README images
+docs/                this page, the CLI reference, the backlog, the migration plan and the README images
 ```
 
 Imports run up only, with no cycles:
@@ -164,8 +175,8 @@ A feature (`cli/`, `page/`, `dispatcher/`) imports itself and `src/*`, never ano
 level above both (a set's own files, or `cli/`'s root and `cli/utils/`), or passed as a structurally
 typed parameter. A service imports one other service, one way only (tracker → render). `src/` never
 imports a feature, and `agent-progress.ts` imports only `cli/`.
-Nothing that ships imports the test-only
-`src/testing/`, `cli/testing/`, `src/adapters/progress/testing/`, `dispatcher/testing/` and `page/testing/`.
+Nothing that ships imports the six test-only folders: `src/testing/`, `cli/testing/`,
+`src/adapters/progress/testing/`, `src/adapters/legacy/testing/`, `dispatcher/testing/` and `page/testing/`.
 Exit codes are decided in `cli/` and nowhere else; a service returns a
 verdict or throws `OperationRefusal`.
 
@@ -184,7 +195,10 @@ A spec is `<Module>.spec.ts` beside its module (a second suite on the same modul
 `<Module>.<aspect>.spec.ts`; `.test.ts` is never used). That holds in `page/` too: the DOM-only project
 excludes the specs, and `page/tsconfig.spec.json` checks them with Bun types.
 
-The test-only helpers live in `src/testing/`, `cli/testing/`, `src/adapters/progress/testing/`, `dispatcher/testing/` and `page/testing/`, the only folders allowed to import devDependencies:
+The test-only helpers live in six folders: `src/testing/`, `cli/testing/`, `src/adapters/progress/testing/`,
+`src/adapters/legacy/testing/`, `dispatcher/testing/` and `page/testing/`. The devDependency exemption in
+`eslint.config.js` covers the five that need one, all but `src/adapters/legacy/testing/`; no other folder may
+import a devDependency.
 
 | helper | use |
 |---|---|
@@ -192,11 +206,23 @@ The test-only helpers live in `src/testing/`, `cli/testing/`, `src/adapters/prog
 | `cli/testing/CapturedCommandContext.ts` | A command context whose two output streams are arrays, so a spec drives `runCommandLine` in-process and reads back what a user would have seen. |
 | `cli/testing/CliProcess.ts` | The one sanctioned way to spawn the real binary. |
 | `cli/testing/RepositoryFileContents.ts` | Every file of a scratch repository outside `.git/`, so a spec shows a refused command wrote nothing. |
+| `cli/testing/StoredLogEntries.ts` | The tracker's `log.jsonl` as people read it, each record worded through `LogUtil`, so a command spec checks what a command logged. |
+| `cli/testing/StoredLogText.ts` | The tracker's `log.jsonl` exactly as stored, so a command spec checks that a refused command left the log byte-identical. |
 | `src/testing/TrackerIsolation.ts` | The guard that keeps a spec away from any tracker it did not create. |
 | `src/testing/BoardFixtures.ts` | A `Board` over synthetic records (`boardFixture`, `taskFixture`, `ticketFixture`) whose logger keeps every record in a list, so the Board specs assert reason codes, records and changed tickets. |
+| `src/adapters/progress/testing/ProgressFileFixtures.ts` | Progress documents for the `progress.json` adapter specs: a new tracker, a row filed the way the Board files one, and the tracker as the current format stores it. |
+| `src/adapters/legacy/testing/LegacyProgressFileFixtures.ts` | The older progress documents the legacy specs read: a version 1 file with its own log, and one in the retired task words. It goes with `src/adapters/legacy/`. |
+| `page/testing/PageBoardFixture.ts` | The page's rows and tickets with the Board facts built the way the render service builds them, so a page spec never restates a board rule. |
 | `dispatcher/testing/DispatchScriptHarness.ts` | Runs a dispatcher Workflow script's text against a fake `agent()` and a fake board. |
 | `dispatcher/testing/DispatchScriptBundle.ts` | Hands `src/lib/claude-code/WorkflowScriptBundle.ts` the port's entry and meta module, or a `SourceMutant` of one of its modules, and memoises the unmutated build per process. |
 | `dispatcher/testing/WorkflowScriptSource.ts` | Reads a dispatcher script's syntax tree for a clock, randomness, an impure `meta` or a shadowed Workflow global. |
+| `dispatcher/testing/SourceMutant.ts` | A one-occurrence rewrite of one dispatcher module, applied as the bundle is built, so a claim can be watched failing without the decision it pins. |
+| `dispatcher/testing/DispatchTrace.ts` | A dispatch run reduced to what two implementations of the dispatcher must agree on, in a form a frozen table can hold and compare. |
+| `dispatcher/testing/DispatchTraceCapture.ts` | Runs every catalogue entry through the harness, reduced to its trace; run as a script, it prints the frozen table. |
+| `dispatcher/testing/DispatchTraceCatalogue.ts` | Every scenario the frozen table holds: the claim suites' scenarios, a builder × reviewer grid, the argument refusals and fallbacks, and one lever per reply shape the dispatcher guards against. |
+| `dispatcher/testing/FrozenDispatchTraces.json` | The frozen trace table, naming the bundle it was taken from and the command that retakes it. |
+| `dispatcher/testing/claims/` | The dispatcher's decisions, holds and resumptions as claims: each a scenario, what must hold after it, and the mutant that breaks exactly that decision. |
+| `dispatcher/testing/utils/` | Readings of a recorded dispatch run that the claims share, such as its returned summary. |
 
 `TrackerIsolation` refuses any directory outside the scratch root, and refuses when discovery from a
 directory inside it (the walk up, the git common directory, or `AGENT_PROGRESS_ROOT`) would resolve
@@ -278,6 +304,30 @@ clock and randomness refused as the Workflow tool refuses them. The specs:
 | `dispatcher/DispatchScript.spec.ts` and `dispatcher/testing/WorkflowScriptSource.spec.ts` | No nondeterministic call, and a literal `meta`. |
 
 A change to the dispatcher's behaviour therefore comes with a claim and its mutant.
+
+## Legacy folders
+
+Code that only reads what an older version stored, or answers an older habit, lives in a `legacy/` folder by
+the rule in the root `CLAUDE.md` (Model and boundaries). There are five:
+
+| folder | what it answers |
+|---|---|
+| `src/shared/legacy/` | The retired status words, and the review-bar name util both folders below share. |
+| `src/adapters/legacy/` | A version 1 `progress.json` with its own log, rows in the retired words, and review bars known only by name. |
+| `src/services/tracker/legacy/` | The rewrite of older tracker files that `update` and `init` run, reached from `cli/legacy/`. |
+| `cli/legacy/` | The retired verbs and words, refused with their replacement; the ignored `--hooks`; review-shaped names given their link at filing; the rewrite report. |
+| `page/legacy/` | A spec only: how the page draws a review bar linked by its name. |
+
+Current code reaches each through one seam call per consumer, marked at the call site by a `// The seam…` or
+`// Dropping … makes this …` comment, as in `src/adapters/progress/ProgressFileIngestion.ts`,
+`src/services/tracker/TrackerReader.ts`, `cli/tracking/task/TaskCommand.ts` and
+`cli/adoption/update/UpdateCommand.ts`. The `*.legacy.spec.ts` suites and every spec inside a legacy folder go
+with it; the `*.legacySeam.spec.ts` suites beside current modules pin the current side of a seam and stay.
+
+To drop a folder, delete it with its specs, turn each seam line into the current-format answer its comment
+names, and delete the sentences on it in `cli/HelpText.ts`, `docs/cli.md` and `skill/Reference.md`. Each
+header says when: once every tracked repository has run `agent-progress update` and agents no longer type the
+retired forms. `src/shared/legacy/` goes last, once `src/adapters/legacy/` and `cli/legacy/` have gone.
 
 ## Architecture decisions
 
