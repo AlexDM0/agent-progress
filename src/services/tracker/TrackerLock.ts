@@ -8,22 +8,20 @@
  * itself wrote; the fallback to the record's own mtime, reached only when the record is missing,
  * unparseable or holds an unparseable time, fails closed both ways.
  */
-import { randomUUID } from 'node:crypto';
 import {
-  linkSync,
   mkdirSync,
   readdirSync,
   readFileSync,
   statSync,
-  unlinkSync,
-  writeFileSync
+  unlinkSync
 } from 'node:fs';
 import { join } from 'node:path';
 
-import { TimeUtil }         from '../../lib/utils/TimeUtil.ts';
-import { OperationRefusal } from '../../shared/OperationRefusal.ts';
-import { LIMITS }           from '../../shared/constants/Limits.ts';
-import type { Workspace }   from './Workspace.ts';
+import { createFileAtomically } from '../../lib/atomic-file/AtomicFile.ts';
+import { TimeUtil }             from '../../lib/utils/TimeUtil.ts';
+import { OperationRefusal }     from '../../shared/OperationRefusal.ts';
+import { LIMITS }               from '../../shared/constants/Limits.ts';
+import type { Workspace }       from './Workspace.ts';
 
 interface LockPayload {
   processId:  number;
@@ -42,12 +40,9 @@ type AcquireAttempt = { verdict: 'acquired'; generation: number } | { verdict: '
 const ACQUIRE_STEPS = ['newest-judged-free', 'generation-created'] as const;
 type AcquireStep = typeof ACQUIRE_STEPS[number];
 
-const GENERATION_FILE_PREFIX     = 'generation-';
-const GENERATION_DIGITS_PATTERN  = /^[1-9]\d*$/;
-const PENDING_FILE_PREFIX        = '.pending-';
-const PENDING_NAME_RANDOM_LENGTH = 8;
-const FILE_ALREADY_EXISTS_CODE   = 'EEXIST';
-const NO_SUCH_PROCESS_CODE       = 'ESRCH';
+const GENERATION_FILE_PREFIX    = 'generation-';
+const GENERATION_DIGITS_PATTERN = /^[1-9]\d*$/;
+const NO_SUCH_PROCESS_CODE      = 'ESRCH';
 
 function errorCodeOf(error: unknown): string | undefined {
   return typeof error === 'object' && error !== null && 'code' in error ? String((error as { code: unknown }).code) : undefined;
@@ -134,27 +129,8 @@ function fileIsOlderThanTheStaleThreshold(filePath: string, nowMilliseconds: num
   }
 }
 
-/** Written beside the target and linked into place, so a record is complete the instant it exists and `link` refuses an existing one. */
 function generationWasCreated(lockDirectoryPath: string, generation: number, record: GenerationRecord): boolean {
-  const pendingPath = join(lockDirectoryPath, `${PENDING_FILE_PREFIX}${randomUUID().slice(0, PENDING_NAME_RANDOM_LENGTH)}`);
-  writeFileSync(pendingPath, JSON.stringify(record), { flag: 'wx' });
-  try {
-    linkSync(pendingPath, generationPathFor(lockDirectoryPath, generation));
-    return true;
-  } catch (error) {
-    if (errorCodeOf(error) === FILE_ALREADY_EXISTS_CODE) return false;
-    throw error;
-  } finally {
-    removePendingFile(pendingPath);
-  }
-}
-
-function removePendingFile(pendingPath: string): void {
-  try {
-    unlinkSync(pendingPath);
-  } catch {
-    // A leftover pending file is never read as a generation, so it only costs a name in a git-ignored directory.
-  }
+  return createFileAtomically(generationPathFor(lockDirectoryPath, generation), JSON.stringify(record)) === 'created';
 }
 
 function newerGenerationExists(lockDirectoryPath: string, generation: number): boolean {
@@ -211,7 +187,7 @@ function release(lockDirectoryPath: string, heldGeneration: number, payload: Loc
   try {
     if (generationWasCreated(lockDirectoryPath, releaseGeneration, { ...payload, state: 'released' })) removeGenerationsBelow(lockDirectoryPath, releaseGeneration);
   } catch {
-    // The lock directory went away under us; there is nothing left to release.
+    // Nothing is left to release when the record cannot be written.
   }
 }
 
