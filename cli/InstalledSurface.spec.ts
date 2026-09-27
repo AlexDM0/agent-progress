@@ -13,11 +13,11 @@ import { join }                      from 'node:path';
 import {
   afterAll,
   beforeAll,
-  describe,
   expect,
   test
 }                                                                             from 'bun:test';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                                           from '../src/testing/ToolGuard.ts';
 import { helpText }                                                           from './HelpText.ts';
 import { runCommandLine }                                                     from './Main.ts';
 import { INSTALL_VERSION }                                                    from './constants/InstallVersion.ts';
@@ -187,7 +187,7 @@ function cliSurfaceWithHelpReplaced(searched: string, replacement: string): CliS
   return cliSurfaceOf(helpText().replaceAll(searched, replacement), cliSurface.statusJsonFields);
 }
 
-describe.skipIf(!gitIsAvailable())('the scan itself', () => {
+describeWhenGitIsPresent('the scan itself', () => {
   /** Floors well under today's counts, to fail a scan that read the wrong files or a help screen it could not parse. */
   test('it reads the installed files and finds commands, flags and status fields in them and in the CLI', () => {
     expect(Object.keys(INSTALLED_TEXTS)).toEqual(expect.arrayContaining([...INSTALLED_TEMPLATE_PATHS, 'skill/SKILL.md', 'skill-orchestrate/SKILL.md', REPLY_SCHEMA_PATH]));
@@ -205,13 +205,13 @@ describe.skipIf(!gitIsAvailable())('the scan itself', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('the frozen surface', () => {
+describeWhenGitIsPresent('the frozen surface', () => {
   test(`holds for INSTALL_VERSION ${INSTALL_VERSION}: the CLI still has every name frozen, and every name installed is frozen`, () => {
     expect(surfaceSentencesOf(namedSurfaceOf(INSTALLED_TEXTS, cliSurface), cliSurface, FROZEN_TABLE, INSTALL_VERSION)).toEqual([]);
   });
 });
 
-describe.skipIf(!gitIsAvailable())('the guard, planted in memory', () => {
+describeWhenGitIsPresent('the guard, planted in memory', () => {
   const sentencesWith = (installedTexts: Readonly<Record<string, string>>, plantedCliSurface: CliSurface, installVersion = INSTALL_VERSION): readonly string[] => (
     surfaceSentencesOf(namedSurfaceOf(installedTexts, plantedCliSurface), plantedCliSurface, FROZEN_TABLE, installVersion)
   );
