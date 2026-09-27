@@ -18,8 +18,8 @@ import {
   gitIsAvailable,
   gitOutputIn,
   removeScratchDirectory
-} from '../../testing/ScratchWorkspace';
-import { GitProcess } from './GitProcess';
+} from '../../testing/ScratchWorkspace.ts';
+import { GitProcess } from './GitProcess.ts';
 
 const {
   directoryExists,

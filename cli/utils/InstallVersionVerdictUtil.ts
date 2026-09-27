@@ -1,5 +1,5 @@
-import type { InstallManifestReading } from '../../src/adapters/install/InstallManifestIngestion';
-import type { InstallVersionMismatch } from '../../src/shared/@types/InstallVersionMismatch';
+import type { InstallManifestReading } from '../../src/adapters/install/InstallManifestIngestion.ts';
+import type { InstallVersionMismatch } from '../../src/shared/@types/InstallVersionMismatch.ts';
 
 export type InstallVersionVerdict =
   | { verdict: 'current' }

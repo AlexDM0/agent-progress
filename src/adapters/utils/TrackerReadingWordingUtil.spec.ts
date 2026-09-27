@@ -6,8 +6,8 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import type { UnreadableTracker }    from '../../shared/@types/UnreadableTracker';
-import { TrackerReadingWordingUtil } from './TrackerReadingWordingUtil';
+import type { UnreadableTracker }    from '../../shared/@types/UnreadableTracker.ts';
+import { TrackerReadingWordingUtil } from './TrackerReadingWordingUtil.ts';
 
 test('an absent progress file is named by its path and said to be missing', () => {
   expect(TrackerReadingWordingUtil.refusalMessageOf({ verdict: 'absent', filePath: '/example/.agent-progress/progress.json' }))

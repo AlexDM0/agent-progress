@@ -12,8 +12,8 @@ import {
   test
 } from 'bun:test';
 
-import { createScratchDirectory, removeScratchDirectory }  from '../../testing/ScratchWorkspace';
-import { bundleWorkflowScript, type WorkflowScriptBundle } from './WorkflowScriptBundle';
+import { createScratchDirectory, removeScratchDirectory }  from '../../testing/ScratchWorkspace.ts';
+import { bundleWorkflowScript, type WorkflowScriptBundle } from './WorkflowScriptBundle.ts';
 
 const EXAMPLE_META = { name: 'example-workflow', description: 'An example workflow', args: { zeta: 'last in the alphabet', alpha: 'first' } };
 

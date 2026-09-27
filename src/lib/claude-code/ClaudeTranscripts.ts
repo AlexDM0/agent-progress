@@ -8,7 +8,7 @@ import { readdirSync }   from 'node:fs';
 import { homedir }       from 'node:os';
 import { join, resolve } from 'node:path';
 
-import { CLAUDE_DIRECTORY_NAME } from './constants/ClaudeCodePaths';
+import { CLAUDE_DIRECTORY_NAME } from './constants/ClaudeCodePaths.ts';
 
 const PROJECTS_DIRECTORY_NAME = 'projects';
 

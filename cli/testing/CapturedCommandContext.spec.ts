@@ -11,8 +11,8 @@ import {
   test
 }                       from 'bun:test';
 
-import { createScratchDirectory, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
-import { createCapturedCommandContext }                   from './CapturedCommandContext';
+import { createScratchDirectory, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
+import { createCapturedCommandContext }                   from './CapturedCommandContext.ts';
 
 const REPOSITORY_DIRECTORY = join(import.meta.dir, '..', '..');
 const scratchDirectories: string[] = [];

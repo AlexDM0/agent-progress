@@ -4,7 +4,7 @@
  */
 import { expect, test } from 'bun:test';
 
-import { TokenCountUtil } from './TokenCountUtil';
+import { TokenCountUtil } from './TokenCountUtil.ts';
 
 const { formatTokenCount, parseTokenCount } = TokenCountUtil;
 

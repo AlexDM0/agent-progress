@@ -18,8 +18,8 @@ import {
   gitIsAvailable,
   gitOutputIn,
   removeScratchDirectory
-} from '../../testing/ScratchWorkspace';
-import { discoverRepositoryRoot } from './RepositoryRoot';
+} from '../../testing/ScratchWorkspace.ts';
+import { discoverRepositoryRoot } from './RepositoryRoot.ts';
 
 const scratchDirectories: string[] = [];
 

@@ -5,7 +5,7 @@
  */
 import { expect, test } from 'bun:test';
 
-import { TicketBodyUtil } from './TicketBodyUtil';
+import { TicketBodyUtil } from './TicketBodyUtil.ts';
 
 const { reviewSectionCountOf, nextReviewRoundOf } = TicketBodyUtil;
 

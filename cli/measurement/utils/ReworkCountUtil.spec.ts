@@ -7,8 +7,8 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import type { FileRework } from './ReworkCountUtil';
-import { ReworkCountUtil } from './ReworkCountUtil';
+import type { FileRework } from './ReworkCountUtil.ts';
+import { ReworkCountUtil } from './ReworkCountUtil.ts';
 
 const {
   addedLinesInOnlyOne,

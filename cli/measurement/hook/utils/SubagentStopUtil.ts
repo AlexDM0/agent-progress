@@ -1,6 +1,6 @@
 /** What the `SubagentStop` hook reads out of a finished agent's transcript for the board: the rows and tickets its brief names, and their shares. */
-import { TranscriptUsageUtil } from '../../../../src/lib/claude-code/utils/TranscriptUsageUtil';
-import { TicketIdUtil }        from '../../../../src/lib/tracker-model/utils/TicketIdUtil';
+import { TranscriptUsageUtil } from '../../../../src/lib/claude-code/utils/TranscriptUsageUtil.ts';
+import { TicketIdUtil }        from '../../../../src/lib/tracker-model/utils/TicketIdUtil.ts';
 
 /** A line of its own, ids as digits separated by commas: a placeholder such as `<rowId>` in a brief template never matches. */
 const ROW_MARKER_PATTERN = /^[ \t]*agent-progress row:[ \t]*(\d+(?:[ \t]*,[ \t]*\d+)*)[ \t]*$/m;

@@ -19,15 +19,15 @@ import {
   mock,
   test
 }                                                         from 'bun:test';
-import { createInstallManifestWriter }                    from '../src/adapters/install/InstallManifestWriter';
-import { InstallVersionWordingUtil }                      from '../src/adapters/utils/InstallVersionWordingUtil';
-import { OperationRefusal }                               from '../src/shared/OperationRefusal';
-import { createScratchDirectory, removeScratchDirectory } from '../src/testing/ScratchWorkspace';
-import { installedFilePathsIn }                           from './InstalledFiles';
-import { runCommandLine }                                 from './Main';
-import { INSTALL_VERSION }                                from './constants/InstallVersion';
-import { createCapturedCommandContext }                   from './testing/CapturedCommandContext';
-import * as realRenderCommandModule                       from './tracking/render/RenderCommand';
+import { createInstallManifestWriter }                    from '../src/adapters/install/InstallManifestWriter.ts';
+import { InstallVersionWordingUtil }                      from '../src/adapters/utils/InstallVersionWordingUtil.ts';
+import { OperationRefusal }                               from '../src/shared/OperationRefusal.ts';
+import { createScratchDirectory, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
+import { installedFilePathsIn }                           from './InstalledFiles.ts';
+import { runCommandLine }                                 from './Main.ts';
+import { INSTALL_VERSION }                                from './constants/InstallVersion.ts';
+import { createCapturedCommandContext }                   from './testing/CapturedCommandContext.ts';
+import * as realRenderCommandModule                       from './tracking/render/RenderCommand.ts';
 
 let errorThrownByTheStubbedCommand: unknown = null;
 // Holds no tracker, so a route that does reach a command is refused there instead of writing into the repository's own.
@@ -244,11 +244,11 @@ describe('a command that throws', () => {
   // goes in and mocked back afterwards; the copy has to precede the stub, because Bun patches the live namespace in place.
   beforeAll(() => {
     realRenderCommandExports = { ...realRenderCommandModule };
-    mock.module('./tracking/render/RenderCommand', () => ({ renderCommand: () => Promise.reject(errorThrownByTheStubbedCommand), }));
+    mock.module('./tracking/render/RenderCommand.ts', () => ({ renderCommand: () => Promise.reject(errorThrownByTheStubbedCommand), }));
   });
 
   afterAll(() => {
-    mock.module('./tracking/render/RenderCommand', () => realRenderCommandExports);
+    mock.module('./tracking/render/RenderCommand.ts', () => realRenderCommandExports);
   });
 
   test('an unrepaired refusal exits 2 with its own message and no stack trace', async () => {

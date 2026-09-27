@@ -2,11 +2,11 @@
  * How `update` and `init` run the rewrite of older tracker files and report it, heading lines included.
  * It can be deleted once every tracker has been rewritten by `agent-progress update`.
  */
-import type { Workspace }                                from '../../src/services/tracker/Workspace';
-import { rewriteOlderTrackerFiles, type TrackerRewrite } from '../../src/services/tracker/legacy/OlderTrackerFilesRewrite';
-import type { CommandContext }                           from '../CommandContext';
-import { OutputUtil }                                    from '../utils/OutputUtil';
-import { TrackerRewriteTextUtil }                        from './utils/TrackerRewriteTextUtil';
+import type { Workspace }                                from '../../src/services/tracker/Workspace.ts';
+import { rewriteOlderTrackerFiles, type TrackerRewrite } from '../../src/services/tracker/legacy/OlderTrackerFilesRewrite.ts';
+import type { CommandContext }                           from '../CommandContext.ts';
+import { OutputUtil }                                    from '../utils/OutputUtil.ts';
+import { TrackerRewriteTextUtil }                        from './utils/TrackerRewriteTextUtil.ts';
 
 /** A current, absent or unreadable tracker is `null`, and a rewrite reports its render. */
 async function rewriteOlderTrackerFilesAndReport(context: CommandContext, workspace: Workspace): Promise<TrackerRewrite | null> {

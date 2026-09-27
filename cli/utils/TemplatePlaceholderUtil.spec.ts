@@ -5,7 +5,7 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { TemplatePlaceholderUtil } from './TemplatePlaceholderUtil';
+import { TemplatePlaceholderUtil } from './TemplatePlaceholderUtil.ts';
 
 const { filledTemplateOf } = TemplatePlaceholderUtil;
 

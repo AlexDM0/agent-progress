@@ -1,13 +1,13 @@
-import { TicketPhraseUtil }                      from '../../src/adapters/utils/TicketPhraseUtil';
-import { OperationRefusal }                      from '../../src/shared/OperationRefusal';
-import type { CommandContext }                   from '../CommandContext';
-import { openTrackerForWritingThenReadNextLine } from '../TrackerWriting';
-import type { ArgumentParser }                   from '../arguments/ArgumentParser';
-import { OutputUtil }                            from '../utils/OutputUtil';
-import type { TicketSubcommandHandler }          from './@types/TicketSubcommandHandler';
-import { TICKET_USAGE }                          from './constants/TicketUsage';
-import { TicketLookupUtil }                      from './utils/TicketLookupUtil';
-import { TicketOutputUtil }                      from './utils/TicketOutputUtil';
+import { TicketPhraseUtil }                      from '../../src/adapters/utils/TicketPhraseUtil.ts';
+import { OperationRefusal }                      from '../../src/shared/OperationRefusal.ts';
+import type { CommandContext }                   from '../CommandContext.ts';
+import { openTrackerForWritingThenReadNextLine } from '../TrackerWriting.ts';
+import type { ArgumentParser }                   from '../arguments/ArgumentParser.ts';
+import { OutputUtil }                            from '../utils/OutputUtil.ts';
+import type { TicketSubcommandHandler }          from './@types/TicketSubcommandHandler.ts';
+import { TICKET_USAGE }                          from './constants/TicketUsage.ts';
+import { TicketLookupUtil }                      from './utils/TicketLookupUtil.ts';
+import { TicketOutputUtil }                      from './utils/TicketOutputUtil.ts';
 
 const CLAIM_OPTION_NAMES = ['owner', 'note', 'at', 'json'];
 

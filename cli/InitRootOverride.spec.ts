@@ -13,8 +13,8 @@ import {
   expect,
   test
 }                                                              from 'bun:test';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../src/testing/ScratchWorkspace';
-import { runAgentProgress }                                                   from './testing/CliProcess';
+import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
+import { runAgentProgress }                                                   from './testing/CliProcess.ts';
 
 const scratchDirectories: string[] = [];
 

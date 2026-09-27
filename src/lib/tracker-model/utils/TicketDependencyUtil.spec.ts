@@ -5,8 +5,8 @@
  */
 import { expect, test } from 'bun:test';
 
-import type { TicketStatus }    from '../@types/Ticket';
-import { TicketDependencyUtil } from './TicketDependencyUtil';
+import type { TicketStatus }    from '../@types/Ticket.ts';
+import { TicketDependencyUtil } from './TicketDependencyUtil.ts';
 
 const {
   dependencyLoopFrom,

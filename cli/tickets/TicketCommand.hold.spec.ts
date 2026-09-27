@@ -13,13 +13,13 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import type { ProgressFile }                                                  from '../../src/lib/tracker-model/@types/ProgressFile';
-import { DispatcherClaimNoteUtil }                                            from '../../src/shared/utils/DispatcherClaimNoteUtil';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
-import { runCommandLine }                                                     from '../Main';
-import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';
-import { storedLogEntriesOf }                                                 from '../testing/StoredLogEntries';
-import { storedLogTextOf }                                                    from '../testing/StoredLogText';
+import type { ProgressFile }                                                  from '../../src/lib/tracker-model/@types/ProgressFile.ts';
+import { DispatcherClaimNoteUtil }                                            from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
+import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
+import { runCommandLine }                                                     from '../Main.ts';
+import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext.ts';
+import { storedLogEntriesOf }                                                 from '../testing/StoredLogEntries.ts';
+import { storedLogTextOf }                                                    from '../testing/StoredLogText.ts';
 
 const FROZEN_NOW = new Date('2026-09-24T09:25:00Z');
 

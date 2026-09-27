@@ -9,4 +9,10 @@ export default [
     rules: { 'import/no-extraneous-dependencies': ['error', { devDependencies: true }] },
   },
   { files: ['**/*.ts'], rules: { 'import/enforce-node-protocol-usage': ['error', 'always'] } },
+  {
+    // One style for local specifiers, the `.ts` file name; the resolver knows `.ts`, so an extensionless specifier is found and reported.
+    files:    ['**/*.ts'],
+    settings: { 'import/resolver': { node: { extensions: ['.ts'] } } },
+    rules:    { 'import/extensions': ['error', 'always', { ignorePackages: true }] },
+  },
 ];

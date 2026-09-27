@@ -5,7 +5,7 @@
  */
 import { expect, test } from 'bun:test';
 
-import { DispatcherClaimNoteUtil } from './DispatcherClaimNoteUtil';
+import { DispatcherClaimNoteUtil } from './DispatcherClaimNoteUtil.ts';
 
 const {
   runLabelFor,

@@ -1,9 +1,9 @@
 /** Where each file the tool installs into a tracked repository lives, and the markers of the block it owns in `CLAUDE.md`. */
 import { join } from 'node:path';
 
-import type { ManagedBlockMarkers } from '../src/lib/claude-code/ClaudeInstructions';
-import { TRACKER_FILES }            from '../src/services/tracker/constants/TrackerFiles';
-import { DISPATCH_PROTOCOL }        from '../src/shared/constants/DispatchProtocol';
+import type { ManagedBlockMarkers } from '../src/lib/claude-code/ClaudeInstructions.ts';
+import { TRACKER_FILES }            from '../src/services/tracker/constants/TrackerFiles.ts';
+import { DISPATCH_PROTOCOL }        from '../src/shared/constants/DispatchProtocol.ts';
 
 /** Named as the dispatcher's `meta.name`; it is launched by its path only. */
 const DISPATCHER_SCRIPT_FILE_NAME = 'agent-progress-dispatch.js';

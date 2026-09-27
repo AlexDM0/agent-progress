@@ -1,17 +1,17 @@
-import { LogUtil }               from '../../../src/adapters/utils/LogUtil';
-import { StatusWordingUtil }     from '../../../src/adapters/utils/StatusWordingUtil';
-import type { DispatcherState }  from '../../../src/lib/tracker-model/@types/ProgressFile';
-import { readingBoardOf }        from '../../../src/lib/tracker-model/ReadingBoard';
-import { DISPATCHER_STATES }     from '../../../src/lib/tracker-model/constants/DispatcherStates';
-import { BoardSettingsUtil }     from '../../../src/lib/tracker-model/utils/BoardSettingsUtil';
-import { requireProgressFile }   from '../../../src/services/tracker/TrackerReader';
-import { requireWorkspace }      from '../../../src/services/tracker/Workspace';
-import { OperationRefusal }      from '../../../src/shared/OperationRefusal';
-import type { CommandContext }   from '../../CommandContext';
-import type { CommandHandler }   from '../../CommandTable';
-import { openTrackerForWriting } from '../../TrackerWriting';
-import type { ArgumentParser }   from '../../arguments/ArgumentParser';
-import { OutputUtil }            from '../../utils/OutputUtil';
+import { LogUtil }               from '../../../src/adapters/utils/LogUtil.ts';
+import { StatusWordingUtil }     from '../../../src/adapters/utils/StatusWordingUtil.ts';
+import type { DispatcherState }  from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
+import { readingBoardOf }        from '../../../src/lib/tracker-model/ReadingBoard.ts';
+import { DISPATCHER_STATES }     from '../../../src/lib/tracker-model/constants/DispatcherStates.ts';
+import { BoardSettingsUtil }     from '../../../src/lib/tracker-model/utils/BoardSettingsUtil.ts';
+import { requireProgressFile }   from '../../../src/services/tracker/TrackerReader.ts';
+import { requireWorkspace }      from '../../../src/services/tracker/Workspace.ts';
+import { OperationRefusal }      from '../../../src/shared/OperationRefusal.ts';
+import type { CommandContext }   from '../../CommandContext.ts';
+import type { CommandHandler }   from '../../CommandTable.ts';
+import { openTrackerForWriting } from '../../TrackerWriting.ts';
+import type { ArgumentParser }   from '../../arguments/ArgumentParser.ts';
+import { OutputUtil }            from '../../utils/OutputUtil.ts';
 
 const USAGE = `agent-progress dispatcher [${DISPATCHER_STATES.join('|')}] [--run <runId>] [--json]`;
 

@@ -20,9 +20,9 @@ import {
   createScratchGitRepository,
   gitIsAvailable,
   removeScratchDirectory
-}                                                                             from '../../../src/testing/ScratchWorkspace';
-import { runCommandLine }               from '../../Main';
-import { createCapturedCommandContext } from '../../testing/CapturedCommandContext';
+}                                                                             from '../../../src/testing/ScratchWorkspace.ts';
+import { runCommandLine }               from '../../Main.ts';
+import { createCapturedCommandContext } from '../../testing/CapturedCommandContext.ts';
 
 interface ReworkPartDocument {
   reworkedCodeLines: number;

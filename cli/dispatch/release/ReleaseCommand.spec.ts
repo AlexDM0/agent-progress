@@ -21,22 +21,22 @@ import {
   expect,
   test
 }                                       from 'bun:test';
-import { InstallVersionWordingUtil } from '../../../src/adapters/utils/InstallVersionWordingUtil';
-import type { ProgressFile }         from '../../../src/lib/tracker-model/@types/ProgressFile';
-import type { Task }                 from '../../../src/lib/tracker-model/@types/Task';
-import { TimeUtil }                  from '../../../src/lib/utils/TimeUtil';
+import { InstallVersionWordingUtil } from '../../../src/adapters/utils/InstallVersionWordingUtil.ts';
+import type { ProgressFile }         from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Task }                 from '../../../src/lib/tracker-model/@types/Task.ts';
+import { TimeUtil }                  from '../../../src/lib/utils/TimeUtil.ts';
 import {
   addWorktree,
   createScratchGitRepository,
   gitIsAvailable,
   removeScratchDirectory
-}                                       from '../../../src/testing/ScratchWorkspace';
-import { helpText }                     from '../../HelpText';
-import { installedFilePathsIn }         from '../../InstalledFiles';
-import { runCommandLine }               from '../../Main';
-import { INSTALL_VERSION }              from '../../constants/InstallVersion';
-import { createCapturedCommandContext } from '../../testing/CapturedCommandContext';
-import { storedLogEntriesOf }           from '../../testing/StoredLogEntries';
+}                                       from '../../../src/testing/ScratchWorkspace.ts';
+import { helpText }                     from '../../HelpText.ts';
+import { installedFilePathsIn }         from '../../InstalledFiles.ts';
+import { runCommandLine }               from '../../Main.ts';
+import { INSTALL_VERSION }              from '../../constants/InstallVersion.ts';
+import { createCapturedCommandContext } from '../../testing/CapturedCommandContext.ts';
+import { storedLogEntriesOf }           from '../../testing/StoredLogEntries.ts';
 
 type CleanupStepDocument =
   | { target: 'worktree'; path: string; outcome: 'removed' }

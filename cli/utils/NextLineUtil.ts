@@ -1,6 +1,6 @@
-import { StatusWordingUtil }    from '../../src/adapters/utils/StatusWordingUtil';
-import type { DispatcherState } from '../../src/lib/tracker-model/@types/ProgressFile';
-import type { Board }           from '../../src/lib/tracker-model/Board';
+import { StatusWordingUtil }    from '../../src/adapters/utils/StatusWordingUtil.ts';
+import type { DispatcherState } from '../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Board }           from '../../src/lib/tracker-model/Board.ts';
 
 const READY_TICKETS_LISTED_AT_MOST = 5;
 

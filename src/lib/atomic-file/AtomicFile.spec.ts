@@ -17,8 +17,8 @@ import { chmod, readFile, readdir } from 'node:fs/promises';
 import { join }                     from 'node:path';
 import { afterAll, expect, test }   from 'bun:test';
 
-import { createScratchDirectory, removeScratchDirectory }                             from '../../testing/ScratchWorkspace';
-import { createFileAtomically, writeFileAtomically, writeFileAtomicallyThroughLinks } from './AtomicFile';
+import { createScratchDirectory, removeScratchDirectory }                             from '../../testing/ScratchWorkspace.ts';
+import { createFileAtomically, writeFileAtomically, writeFileAtomicallyThroughLinks } from './AtomicFile.ts';
 
 /** Root can write into a directory it has no permission on, so the failure case cannot be staged there. */
 const RUNNING_AS_ROOT = typeof process.getuid === 'function' && process.getuid() === 0;

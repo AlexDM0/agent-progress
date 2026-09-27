@@ -4,7 +4,7 @@
  */
 import { expect, test } from 'bun:test';
 
-import { ReviewBarNameFilingUtil } from './ReviewBarNameFilingUtil';
+import { ReviewBarNameFilingUtil } from './ReviewBarNameFilingUtil.ts';
 
 const { reviewLinkNamedBy } = ReviewBarNameFilingUtil;
 

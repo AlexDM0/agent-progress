@@ -1,11 +1,11 @@
 import { basename } from 'node:path';
 
-import type { Ticket }              from '../../../src/lib/tracker-model/@types/Ticket';
-import { TicketIdUtil }             from '../../../src/lib/tracker-model/utils/TicketIdUtil';
-import type { MalformedTicketFile } from '../../../src/services/tracker/TicketStore';
-import type { TrackerChange }       from '../../../src/services/tracker/TrackerPipeline';
-import { OperationRefusal }         from '../../../src/shared/OperationRefusal';
-import { OutputUtil }               from '../../utils/OutputUtil';
+import type { Ticket }              from '../../../src/lib/tracker-model/@types/Ticket.ts';
+import { TicketIdUtil }             from '../../../src/lib/tracker-model/utils/TicketIdUtil.ts';
+import type { MalformedTicketFile } from '../../../src/services/tracker/TicketStore.ts';
+import type { TrackerChange }       from '../../../src/services/tracker/TrackerPipeline.ts';
+import { OperationRefusal }         from '../../../src/shared/OperationRefusal.ts';
+import { OutputUtil }               from '../../utils/OutputUtil.ts';
 
 function malformedFileOfTicket(malformedTickets: readonly MalformedTicketFile[], reference: string): MalformedTicketFile | undefined {
   const identifier = TicketIdUtil.parseTicketReference(reference);

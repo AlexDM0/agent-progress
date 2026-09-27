@@ -4,11 +4,11 @@
  */
 import { expect, test } from 'bun:test';
 
-import type { TaskStatus }                from '../@types/Task';
-import type { TicketStatus }              from '../@types/Ticket';
-import type { TupleCoversTheUnion }       from '../@types/TupleCoversTheUnion';
-import { VocabularyUtil }                 from '../utils/VocabularyUtil';
-import { TASK_STATUSES, TICKET_STATUSES } from './Statuses';
+import type { TaskStatus }                from '../@types/Task.ts';
+import type { TicketStatus }              from '../@types/Ticket.ts';
+import type { TupleCoversTheUnion }       from '../@types/TupleCoversTheUnion.ts';
+import { VocabularyUtil }                 from '../utils/VocabularyUtil.ts';
+import { TASK_STATUSES, TICKET_STATUSES } from './Statuses.ts';
 
 const { taskStatusIsKnown } = VocabularyUtil;
 

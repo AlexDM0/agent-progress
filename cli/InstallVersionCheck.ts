@@ -1,14 +1,14 @@
 /** The install version check: every command but `init`, `update`, `help` and `status` refuses while the installed files are of another version. */
 import { lstatSync } from 'node:fs';
 
-import { InstallManifestIngestion }    from '../src/adapters/install/InstallManifestIngestion';
-import { findWorkspace }               from '../src/services/tracker/Workspace';
-import type { InstallVersionMismatch } from '../src/shared/@types/InstallVersionMismatch';
-import { OperationRefusal }            from '../src/shared/OperationRefusal';
-import { installedFilePathsIn }        from './InstalledFiles';
-import { INSTALL_VERSION }             from './constants/InstallVersion';
-import type { InstallVersionVerdict }  from './utils/InstallVersionVerdictUtil';
-import { InstallVersionVerdictUtil }   from './utils/InstallVersionVerdictUtil';
+import { InstallManifestIngestion }    from '../src/adapters/install/InstallManifestIngestion.ts';
+import { findWorkspace }               from '../src/services/tracker/Workspace.ts';
+import type { InstallVersionMismatch } from '../src/shared/@types/InstallVersionMismatch.ts';
+import { OperationRefusal }            from '../src/shared/OperationRefusal.ts';
+import { installedFilePathsIn }        from './InstalledFiles.ts';
+import { INSTALL_VERSION }             from './constants/InstallVersion.ts';
+import type { InstallVersionVerdict }  from './utils/InstallVersionVerdictUtil.ts';
+import { InstallVersionVerdictUtil }   from './utils/InstallVersionVerdictUtil.ts';
 
 /** The brief has no opt-out and every `init` and `update` writes it, so it stands for the installed set. Fails closed: only ENOENT is absence. */
 function installedFilesArePresentIn(rootDirectory: string): boolean {

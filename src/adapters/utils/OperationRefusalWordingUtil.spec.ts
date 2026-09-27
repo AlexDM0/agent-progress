@@ -6,13 +6,13 @@
  */
 import { expect, test } from 'bun:test';
 
-import type { BoardRefusalDetail }     from '../../lib/tracker-model/BoardRefusal';
-import type { UnreadableTracker }      from '../../shared/@types/UnreadableTracker';
-import { OperationRefusal }            from '../../shared/OperationRefusal';
-import { BoardRefusalWordingUtil }     from './BoardRefusalWordingUtil';
-import { InstallVersionWordingUtil }   from './InstallVersionWordingUtil';
-import { OperationRefusalWordingUtil } from './OperationRefusalWordingUtil';
-import { TrackerReadingWordingUtil }   from './TrackerReadingWordingUtil';
+import type { BoardRefusalDetail }     from '../../lib/tracker-model/BoardRefusal.ts';
+import type { UnreadableTracker }      from '../../shared/@types/UnreadableTracker.ts';
+import { OperationRefusal }            from '../../shared/OperationRefusal.ts';
+import { BoardRefusalWordingUtil }     from './BoardRefusalWordingUtil.ts';
+import { InstallVersionWordingUtil }   from './InstallVersionWordingUtil.ts';
+import { OperationRefusalWordingUtil } from './OperationRefusalWordingUtil.ts';
+import { TrackerReadingWordingUtil }   from './TrackerReadingWordingUtil.ts';
 
 test('a refusal built from words is printed with those words, unchanged', () => {
   const refusal = new OperationRefusal('refused', 'No tracker here. Run `agent-progress init` in /example/repository.');

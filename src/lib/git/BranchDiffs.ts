@@ -2,8 +2,8 @@
  * Which commits were made on a worktree since a given commit, and what a rebase changed in a branch's own work, as diff text for a caller
  * to count. Every diff is asked for with its options spelled out, so the user's git configuration cannot change the diff text.
  */
-import { GitProcess }                from './GitProcess';
-import { NOT_AN_ANCESTOR_EXIT_CODE } from './constants/GitExitCodes';
+import { GitProcess }                from './GitProcess.ts';
+import { NOT_AN_ANCESTOR_EXIT_CODE } from './constants/GitExitCodes.ts';
 
 const MERGE_BASE_NOT_FOUND_EXIT_CODE = 1;
 

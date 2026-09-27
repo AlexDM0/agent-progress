@@ -16,8 +16,8 @@ import {
   createScratchGitRepository,
   gitIsAvailable,
   removeScratchDirectory
-} from '../src/testing/ScratchWorkspace';
-import { runAgentProgress } from './testing/CliProcess';
+} from '../src/testing/ScratchWorkspace.ts';
+import { runAgentProgress } from './testing/CliProcess.ts';
 
 let scratchDirectory = '';
 

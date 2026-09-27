@@ -4,7 +4,7 @@
  */
 import { expect, test } from 'bun:test';
 
-import { TaskFilingUtil } from './TaskFilingUtil';
+import { TaskFilingUtil } from './TaskFilingUtil.ts';
 
 const { filedTaskOf } = TaskFilingUtil;
 

@@ -2,9 +2,9 @@
  * A `CommandContext` whose two output streams are arrays, so a command spec can drive `runCommandLine` in-process and read back what a user would
  * have seen.
  */
-import { createRenderState }       from '../../src/services/render/RenderState';
-import { requireTrackerIsolation } from '../../src/testing/TrackerIsolation';
-import type { CommandContext }     from '../CommandContext';
+import { createRenderState }       from '../../src/services/render/RenderState.ts';
+import { requireTrackerIsolation } from '../../src/testing/TrackerIsolation.ts';
+import type { CommandContext }     from '../CommandContext.ts';
 
 export interface CapturedCommandContext extends CommandContext {
   outputText:     () => string;

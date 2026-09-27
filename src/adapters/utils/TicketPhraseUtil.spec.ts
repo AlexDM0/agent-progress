@@ -4,7 +4,7 @@
  */
 import { expect, test } from 'bun:test';
 
-import { TicketPhraseUtil } from './TicketPhraseUtil';
+import { TicketPhraseUtil } from './TicketPhraseUtil.ts';
 
 const {
   agentPairText,

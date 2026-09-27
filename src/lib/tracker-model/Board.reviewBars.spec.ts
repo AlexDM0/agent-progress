@@ -1,15 +1,15 @@
 /** Review bars are linked by `reviewOf`, never by name, and close in file order; refusals are asserted by reason code, never by wording. */
 import { describe, expect, test } from 'bun:test';
 
-import type { BoardFixture } from '../../testing/BoardFixtures';
+import type { BoardFixture } from '../../testing/BoardFixtures.ts';
 import {
   boardFixture,
   refusalDetailOf,
   taskFixture,
   ticketFixture
-} from '../../testing/BoardFixtures';
-import type { AgentUsage } from './@types/LogRecord';
-import { TICKET_STATUSES } from './constants/Statuses';
+} from '../../testing/BoardFixtures.ts';
+import type { AgentUsage } from './@types/LogRecord.ts';
+import { TICKET_STATUSES } from './constants/Statuses.ts';
 
 const FILED_AT            = '2026-09-18T09:00:00+02:00';
 const STARTED_AT          = '2026-09-18T10:00:00+02:00';

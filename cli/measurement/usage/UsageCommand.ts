@@ -4,21 +4,21 @@
  */
 import { readFileSync } from 'node:fs';
 
-import type { SubagentTranscript }                      from '../../../src/lib/claude-code/ClaudeTranscripts';
-import { listSubagentTranscripts, transcriptFolderFor } from '../../../src/lib/claude-code/ClaudeTranscripts';
-import type { CohortSummary }                           from '../../../src/lib/claude-code/utils/TranscriptCohortUtil';
-import { TranscriptCohortUtil }                         from '../../../src/lib/claude-code/utils/TranscriptCohortUtil';
-import type { TranscriptProfile }                       from '../../../src/lib/claude-code/utils/TranscriptUsageUtil';
-import { TranscriptUsageUtil }                          from '../../../src/lib/claude-code/utils/TranscriptUsageUtil';
-import { TimeUtil }                                     from '../../../src/lib/utils/TimeUtil';
-import { TokenCountUtil }                               from '../../../src/lib/utils/TokenCountUtil';
-import { requireWorkspace }                             from '../../../src/services/tracker/Workspace';
-import { OperationRefusal }                             from '../../../src/shared/OperationRefusal';
-import { LIMITS }                                       from '../../../src/shared/constants/Limits';
-import type { CommandContext }                          from '../../CommandContext';
-import type { CommandHandler }                          from '../../CommandTable';
-import type { ArgumentParser }                          from '../../arguments/ArgumentParser';
-import { OutputUtil }                                   from '../../utils/OutputUtil';
+import type { SubagentTranscript }                      from '../../../src/lib/claude-code/ClaudeTranscripts.ts';
+import { listSubagentTranscripts, transcriptFolderFor } from '../../../src/lib/claude-code/ClaudeTranscripts.ts';
+import type { CohortSummary }                           from '../../../src/lib/claude-code/utils/TranscriptCohortUtil.ts';
+import { TranscriptCohortUtil }                         from '../../../src/lib/claude-code/utils/TranscriptCohortUtil.ts';
+import type { TranscriptProfile }                       from '../../../src/lib/claude-code/utils/TranscriptUsageUtil.ts';
+import { TranscriptUsageUtil }                          from '../../../src/lib/claude-code/utils/TranscriptUsageUtil.ts';
+import { TimeUtil }                                     from '../../../src/lib/utils/TimeUtil.ts';
+import { TokenCountUtil }                               from '../../../src/lib/utils/TokenCountUtil.ts';
+import { requireWorkspace }                             from '../../../src/services/tracker/Workspace.ts';
+import { OperationRefusal }                             from '../../../src/shared/OperationRefusal.ts';
+import { LIMITS }                                       from '../../../src/shared/constants/Limits.ts';
+import type { CommandContext }                          from '../../CommandContext.ts';
+import type { CommandHandler }                          from '../../CommandTable.ts';
+import type { ArgumentParser }                          from '../../arguments/ArgumentParser.ts';
+import { OutputUtil }                                   from '../../utils/OutputUtil.ts';
 
 const USAGE = 'agent-progress usage [--since <when>] [--transcripts <folder>] [--json]';
 

@@ -1,19 +1,19 @@
-import type { MovedToStatus }                                           from '../../../src/adapters/utils/StatusWordingUtil';
-import { StatusWordingUtil }                                            from '../../../src/adapters/utils/StatusWordingUtil';
-import { TicketBodyUtil }                                               from '../../../src/adapters/utils/TicketBodyUtil';
-import type { TaskAnnotation }                                          from '../../../src/lib/tracker-model/@types/BoardChanges';
-import type { TaskStatus }                                              from '../../../src/lib/tracker-model/@types/Task';
-import { TASK_STATUSES }                                                from '../../../src/lib/tracker-model/constants/Statuses';
-import { VocabularyUtil }                                               from '../../../src/lib/tracker-model/utils/VocabularyUtil';
-import { OperationRefusal }                                             from '../../../src/shared/OperationRefusal';
-import type { CommandContext }                                          from '../../CommandContext';
-import type { CommandHandler }                                          from '../../CommandTable';
-import { openTrackerForWriting, openTrackerForWritingThenReadNextLine } from '../../TrackerWriting';
-import type { ArgumentParser }                                          from '../../arguments/ArgumentParser';
-import { RetiredWordRefusalUtil }                                       from '../../legacy/utils/RetiredWordRefusalUtil';
-import { ReviewBarNameFilingUtil }                                      from '../../legacy/utils/ReviewBarNameFilingUtil';
-import { OptionValueUtil }                                              from '../../utils/OptionValueUtil';
-import { OutputUtil }                                                   from '../../utils/OutputUtil';
+import type { MovedToStatus }                                           from '../../../src/adapters/utils/StatusWordingUtil.ts';
+import { StatusWordingUtil }                                            from '../../../src/adapters/utils/StatusWordingUtil.ts';
+import { TicketBodyUtil }                                               from '../../../src/adapters/utils/TicketBodyUtil.ts';
+import type { TaskAnnotation }                                          from '../../../src/lib/tracker-model/@types/BoardChanges.ts';
+import type { TaskStatus }                                              from '../../../src/lib/tracker-model/@types/Task.ts';
+import { TASK_STATUSES }                                                from '../../../src/lib/tracker-model/constants/Statuses.ts';
+import { VocabularyUtil }                                               from '../../../src/lib/tracker-model/utils/VocabularyUtil.ts';
+import { OperationRefusal }                                             from '../../../src/shared/OperationRefusal.ts';
+import type { CommandContext }                                          from '../../CommandContext.ts';
+import type { CommandHandler }                                          from '../../CommandTable.ts';
+import { openTrackerForWriting, openTrackerForWritingThenReadNextLine } from '../../TrackerWriting.ts';
+import type { ArgumentParser }                                          from '../../arguments/ArgumentParser.ts';
+import { RetiredWordRefusalUtil }                                       from '../../legacy/utils/RetiredWordRefusalUtil.ts';
+import { ReviewBarNameFilingUtil }                                      from '../../legacy/utils/ReviewBarNameFilingUtil.ts';
+import { OptionValueUtil }                                              from '../../utils/OptionValueUtil.ts';
+import { OutputUtil }                                                   from '../../utils/OutputUtil.ts';
 
 const USAGE = [
   'agent-progress task add "<name>" [--owner <who>] [--note <text>] [--ticket <id>] [--review-of <id>] [--start] [--tokens <n>] [--at <when>] [--force]',

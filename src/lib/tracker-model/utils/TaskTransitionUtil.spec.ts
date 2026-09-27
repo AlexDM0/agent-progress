@@ -5,9 +5,9 @@
  */
 import { expect, test } from 'bun:test';
 
-import type { Task, TaskStatus }           from '../@types/Task';
-import { TaskFilingUtil, type TaskFiling } from './TaskFilingUtil';
-import { TaskTransitionUtil }              from './TaskTransitionUtil';
+import type { Task, TaskStatus }           from '../@types/Task.ts';
+import { TaskFilingUtil, type TaskFiling } from './TaskFilingUtil.ts';
+import { TaskTransitionUtil }              from './TaskTransitionUtil.ts';
 
 const { transitionedTaskOf } = TaskTransitionUtil;
 

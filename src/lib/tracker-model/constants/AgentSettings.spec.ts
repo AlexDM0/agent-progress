@@ -4,13 +4,13 @@
  */
 import { expect, test } from 'bun:test';
 
-import type { AgentEffort, AgentModel } from '../@types/Ticket';
+import type { AgentEffort, AgentModel } from '../@types/Ticket.ts';
 import {
   AGENT_EFFORTS,
   AGENT_MODELS,
   DEFAULT_AGENT_EFFORT,
   DEFAULT_AGENT_MODEL
-}                                       from './AgentSettings';
+}                                       from './AgentSettings.ts';
 
 const MODEL_TUPLE_MATCHES_THE_UNION  = AGENT_MODELS satisfies readonly AgentModel[];
 const EFFORT_TUPLE_MATCHES_THE_UNION = AGENT_EFFORTS satisfies readonly AgentEffort[];

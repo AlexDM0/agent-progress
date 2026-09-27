@@ -14,12 +14,12 @@ import {
 } from 'node:fs';
 import { afterAll, expect, test } from 'bun:test';
 
-import { refusalIsOperationRefusal }                      from '../../shared/OperationRefusal';
-import { LIMITS }                                         from '../../shared/constants/Limits';
-import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace';
-import { LockGenerationSteps, withLock }                  from './TrackerLock';
-import { workspacePathsFor }                              from './Workspace';
-import type { Workspace }                                 from './Workspace';
+import { refusalIsOperationRefusal }                      from '../../shared/OperationRefusal.ts';
+import { LIMITS }                                         from '../../shared/constants/Limits.ts';
+import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
+import { LockGenerationSteps, withLock }                  from './TrackerLock.ts';
+import { workspacePathsFor }                              from './Workspace.ts';
+import type { Workspace }                                 from './Workspace.ts';
 
 const {
   acquireSteps,

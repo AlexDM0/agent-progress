@@ -3,8 +3,8 @@
  * dispatch itself, so `cli/HelpText.spec.ts` can hold the help against `COMMAND_NAMES`: adding a
  * command is one entry here and one block in `cli/HelpText.ts`.
  */
-import type { CommandContext } from './CommandContext';
-import type { ArgumentParser } from './arguments/ArgumentParser';
+import type { CommandContext } from './CommandContext.ts';
+import type { ArgumentParser } from './arguments/ArgumentParser.ts';
 
 export type CommandHandler = (commandArguments: ArgumentParser, context: CommandContext) => Promise<void>;
 
@@ -12,24 +12,24 @@ export type CommandHandler = (commandArguments: ArgumentParser, context: Command
 export type CommandLoader = () => Promise<CommandHandler>;
 
 export const COMMAND_TABLE = {
-  init:        async () => (await import('./adoption/init/InitCommand')).initCommand,
-  update:      async () => (await import('./adoption/update/UpdateCommand')).updateCommand,
-  status:      async () => (await import('./tracking/status/StatusCommand')).statusCommand,
-  task:        async () => (await import('./tracking/task/TaskCommand')).taskCommand,
-  log:         async () => (await import('./tracking/log/LogCommand')).logCommand,
-  hook:        async () => (await import('./measurement/hook/HookCommand')).hookCommand,
-  usage:       async () => (await import('./measurement/usage/UsageCommand')).usageCommand,
-  rework:      async () => (await import('./measurement/rework/ReworkCommand')).reworkCommand,
-  release:     async () => (await import('./dispatch/release/ReleaseCommand')).releaseCommand,
-  ticket:      async () => (await import('./tickets/TicketCommand')).ticketCommand,
-  concurrency: async () => (await import('./dispatch/concurrency/ConcurrencyCommand')).concurrencyCommand,
-  dispatcher:  async () => (await import('./dispatch/dispatcher/DispatcherCommand')).dispatcherCommand,
-  range:       async () => (await import('./tracking/range/RangeCommand')).rangeCommand,
-  render:      async () => (await import('./tracking/render/RenderCommand')).renderCommand,
-  open:        async () => (await import('./tracking/open/OpenCommand')).openCommand,
-  clear:       async () => (await import('./tracking/clear/ClearCommand')).clearCommand,
+  init:        async () => (await import('./adoption/init/InitCommand.ts')).initCommand,
+  update:      async () => (await import('./adoption/update/UpdateCommand.ts')).updateCommand,
+  status:      async () => (await import('./tracking/status/StatusCommand.ts')).statusCommand,
+  task:        async () => (await import('./tracking/task/TaskCommand.ts')).taskCommand,
+  log:         async () => (await import('./tracking/log/LogCommand.ts')).logCommand,
+  hook:        async () => (await import('./measurement/hook/HookCommand.ts')).hookCommand,
+  usage:       async () => (await import('./measurement/usage/UsageCommand.ts')).usageCommand,
+  rework:      async () => (await import('./measurement/rework/ReworkCommand.ts')).reworkCommand,
+  release:     async () => (await import('./dispatch/release/ReleaseCommand.ts')).releaseCommand,
+  ticket:      async () => (await import('./tickets/TicketCommand.ts')).ticketCommand,
+  concurrency: async () => (await import('./dispatch/concurrency/ConcurrencyCommand.ts')).concurrencyCommand,
+  dispatcher:  async () => (await import('./dispatch/dispatcher/DispatcherCommand.ts')).dispatcherCommand,
+  range:       async () => (await import('./tracking/range/RangeCommand.ts')).rangeCommand,
+  render:      async () => (await import('./tracking/render/RenderCommand.ts')).renderCommand,
+  open:        async () => (await import('./tracking/open/OpenCommand.ts')).openCommand,
+  clear:       async () => (await import('./tracking/clear/ClearCommand.ts')).clearCommand,
   help:        async () => {
-    const { helpText } = await import('./HelpText');
+    const { helpText } = await import('./HelpText.ts');
     return (_commandArguments: ArgumentParser, context: CommandContext) => {
       context.standardOutput(helpText());
       return Promise.resolve();

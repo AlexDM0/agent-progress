@@ -1,7 +1,7 @@
-import { TimeUtil }            from '../../src/lib/utils/TimeUtil';
-import { TokenCountUtil }      from '../../src/lib/utils/TokenCountUtil';
-import { OperationRefusal }    from '../../src/shared/OperationRefusal';
-import type { ArgumentParser } from '../arguments/ArgumentParser';
+import { TimeUtil }            from '../../src/lib/utils/TimeUtil.ts';
+import { TokenCountUtil }      from '../../src/lib/utils/TokenCountUtil.ts';
+import { OperationRefusal }    from '../../src/shared/OperationRefusal.ts';
+import type { ArgumentParser } from '../arguments/ArgumentParser.ts';
 
 /** An unreadable `--at` is refused rather than defaulted to now, which would stamp a bar nobody can explain. */
 function resolveAtOption(commandArguments: ArgumentParser, now: Date): string {

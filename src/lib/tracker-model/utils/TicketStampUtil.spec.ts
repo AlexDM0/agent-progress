@@ -4,8 +4,8 @@
  */
 import { expect, test } from 'bun:test';
 
-import type { TicketStatus }                  from '../@types/Ticket';
-import { TicketStampUtil, type TicketStamps } from './TicketStampUtil';
+import type { TicketStatus }                  from '../@types/Ticket.ts';
+import { TicketStampUtil, type TicketStamps } from './TicketStampUtil.ts';
 
 const { stampsAfterMoveOf } = TicketStampUtil;
 

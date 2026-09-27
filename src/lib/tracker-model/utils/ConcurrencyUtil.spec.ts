@@ -5,11 +5,11 @@
  */
 import { expect, test } from 'bun:test';
 
-import type { Task }                                                          from '../@types/Task';
-import { CONCURRENCY_LIMIT_CEILING_AGENTS, DEFAULT_CONCURRENCY_LIMIT_AGENTS } from '../constants/ConcurrencyLimits';
-import { ConcurrencyUtil }                                                    from './ConcurrencyUtil';
-import { TaskFilingUtil, type TaskFiling }                                    from './TaskFilingUtil';
-import { TaskTransitionUtil }                                                 from './TaskTransitionUtil';
+import type { Task }                                                          from '../@types/Task.ts';
+import { CONCURRENCY_LIMIT_CEILING_AGENTS, DEFAULT_CONCURRENCY_LIMIT_AGENTS } from '../constants/ConcurrencyLimits.ts';
+import { ConcurrencyUtil }                                                    from './ConcurrencyUtil.ts';
+import { TaskFilingUtil, type TaskFiling }                                    from './TaskFilingUtil.ts';
+import { TaskTransitionUtil }                                                 from './TaskTransitionUtil.ts';
 
 const { agentsInFlightOf, concurrencyOf } = ConcurrencyUtil;
 

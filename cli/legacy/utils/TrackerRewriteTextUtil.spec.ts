@@ -4,7 +4,7 @@
  */
 import { expect, test } from 'bun:test';
 
-import { TrackerRewriteTextUtil } from './TrackerRewriteTextUtil';
+import { TrackerRewriteTextUtil } from './TrackerRewriteTextUtil.ts';
 
 const { rewrittenFilesTextOf } = TrackerRewriteTextUtil;
 

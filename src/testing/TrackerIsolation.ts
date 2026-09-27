@@ -13,7 +13,7 @@ import {
   resolve
 }                       from 'node:path';
 
-import { findWorkspace } from '../services/tracker/Workspace';
+import { findWorkspace } from '../services/tracker/Workspace.ts';
 
 export type TrackerIsolationVerdict = 'isolated' | 'directory-outside-the-scratch-root' | 'resolves-a-tracker-outside-the-scratch-root';
 

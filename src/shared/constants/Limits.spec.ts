@@ -4,7 +4,7 @@
  */
 import { expect, test } from 'bun:test';
 
-import { LIMITS } from './Limits';
+import { LIMITS } from './Limits.ts';
 
 const MILLISECONDS_PER_SECOND = 1000;
 const DAYS_PER_WEEK = 7;

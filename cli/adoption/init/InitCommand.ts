@@ -3,22 +3,22 @@ import { randomUUID }             from 'node:crypto';
 import { realpathSync, statSync } from 'node:fs';
 import { basename, resolve }      from 'node:path';
 
-import { ensureIgnored }                                  from '../../../src/lib/git/GitIgnore';
-import { discoverRepositoryRoot }                         from '../../../src/lib/git/RepositoryRoot';
-import { TimeUtil }                                       from '../../../src/lib/utils/TimeUtil';
-import { createTracker }                                  from '../../../src/services/tracker/TrackerCreation';
-import { findWorkspace, workspacePathsFor }               from '../../../src/services/tracker/Workspace';
-import { TRACKER_FILES }                                  from '../../../src/services/tracker/constants/TrackerFiles';
-import { agentProgressRootOverride }                      from '../../../src/shared/Environment';
-import { OperationRefusal }                               from '../../../src/shared/OperationRefusal';
-import type { CommandHandler }                            from '../../CommandTable';
-import { requireNoNewerInstall }                          from '../../InstallVersionCheck';
-import { OlderTrackerFilesRewriteReport }                 from '../../legacy/OlderTrackerFilesRewriteReport';
-import { IGNORED_RETIRED_OPTION_NAMES }                   from '../../legacy/constants/IgnoredRetiredOptions';
-import { OutputUtil }                                     from '../../utils/OutputUtil';
-import { installedFileTextsFor }                          from '../InstalledFileGeneration';
-import type { InstalledFileTexts }                        from '../InstalledFileGeneration';
-import { recordInstallVersion, refreshTrackedRepository } from '../TrackerRefresh';
+import { ensureIgnored }                                  from '../../../src/lib/git/GitIgnore.ts';
+import { discoverRepositoryRoot }                         from '../../../src/lib/git/RepositoryRoot.ts';
+import { TimeUtil }                                       from '../../../src/lib/utils/TimeUtil.ts';
+import { createTracker }                                  from '../../../src/services/tracker/TrackerCreation.ts';
+import { findWorkspace, workspacePathsFor }               from '../../../src/services/tracker/Workspace.ts';
+import { TRACKER_FILES }                                  from '../../../src/services/tracker/constants/TrackerFiles.ts';
+import { agentProgressRootOverride }                      from '../../../src/shared/Environment.ts';
+import { OperationRefusal }                               from '../../../src/shared/OperationRefusal.ts';
+import type { CommandHandler }                            from '../../CommandTable.ts';
+import { requireNoNewerInstall }                          from '../../InstallVersionCheck.ts';
+import { OlderTrackerFilesRewriteReport }                 from '../../legacy/OlderTrackerFilesRewriteReport.ts';
+import { IGNORED_RETIRED_OPTION_NAMES }                   from '../../legacy/constants/IgnoredRetiredOptions.ts';
+import { OutputUtil }                                     from '../../utils/OutputUtil.ts';
+import { installedFileTextsFor }                          from '../InstalledFileGeneration.ts';
+import type { InstalledFileTexts }                        from '../InstalledFileGeneration.ts';
+import { recordInstallVersion, refreshTrackedRepository } from '../TrackerRefresh.ts';
 
 const USAGE = 'agent-progress init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';
 

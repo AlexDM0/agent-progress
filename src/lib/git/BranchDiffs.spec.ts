@@ -20,8 +20,8 @@ import {
   gitOutputIn,
   removeScratchDirectory,
   SCRATCH_COMMIT_IDENTITY_ARGUMENTS
-} from '../../testing/ScratchWorkspace';
-import { readCommitsDiff, readRebaseDiffs, readWorktreeHead } from './BranchDiffs';
+} from '../../testing/ScratchWorkspace.ts';
+import { readCommitsDiff, readRebaseDiffs, readWorktreeHead } from './BranchDiffs.ts';
 
 const CONTEXT_FILE_LINE_COUNT = 60;
 

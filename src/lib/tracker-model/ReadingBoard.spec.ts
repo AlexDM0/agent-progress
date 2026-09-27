@@ -4,8 +4,8 @@
  */
 import { expect, test } from 'bun:test';
 
-import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures';
-import { readingBoardOf }                           from './ReadingBoard';
+import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures.ts';
+import { readingBoardOf }                           from './ReadingBoard.ts';
 
 test('its queries answer over the progress file and the tickets handed in', () => {
   const { progress, tickets } = boardFixture({

@@ -182,7 +182,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - ESLint 9 flat config through `@reliquary/eslint-config`: 2-space indent, single quotes, semicolons; line length
   180 for code, 155 for comments; aligned object values; aligned `from`; imports builtin → external → internal,
   alphabetised; builtins through the `node:` protocol (`import/enforce-node-protocol-usage`, turned on in
-  `eslint.config.js`); more than 3 named imports or 4+ properties one per line; arrow parameters parenthesised; no
+  `eslint.config.js`); local specifiers name the file with its `.ts` extension (`import/extensions`, turned on there
+  as well); more than 3 named imports or 4+ properties one per line; arrow parameters parenthesised; no
   `any`; a blank line before a function declaration. `src/testing/`, `cli/testing/`, `src/adapters/progress/testing/`,
   `dispatcher/testing/` and `page/testing/` may import devDependencies. Deliberately off: `no-plusplus`, `no-continue`,
   `no-await-in-loop`, `no-param-reassign`, `consistent-return`, `no-restricted-syntax`, `guard-for-in`,

@@ -4,7 +4,7 @@
  */
 import { expect, test } from 'bun:test';
 
-import { RetiredStatusWordUtil } from './RetiredStatusWordUtil';
+import { RetiredStatusWordUtil } from './RetiredStatusWordUtil.ts';
 
 const { currentTicketStatusFor, currentTaskStatusFor } = RetiredStatusWordUtil;
 

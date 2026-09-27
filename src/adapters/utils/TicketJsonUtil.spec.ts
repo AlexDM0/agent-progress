@@ -4,8 +4,8 @@
  */
 import { expect, test } from 'bun:test';
 
-import { ticketFixture }  from '../../testing/BoardFixtures';
-import { TicketJsonUtil } from './TicketJsonUtil';
+import { ticketFixture }  from '../../testing/BoardFixtures.ts';
+import { TicketJsonUtil } from './TicketJsonUtil.ts';
 
 const { ticketDocumentOf } = TicketJsonUtil;
 

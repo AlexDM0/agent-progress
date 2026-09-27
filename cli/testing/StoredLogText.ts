@@ -2,7 +2,7 @@
 import { readFileSync } from 'node:fs';
 import { join }         from 'node:path';
 
-import { TRACKER_FILES } from '../../src/services/tracker/constants/TrackerFiles';
+import { TRACKER_FILES } from '../../src/services/tracker/constants/TrackerFiles.ts';
 
 export function storedLogTextOf(repositoryDirectory: string): string {
   return readFileSync(join(repositoryDirectory, TRACKER_FILES.TRACKER_DIRECTORY_NAME, TRACKER_FILES.LOG_FILE_NAME), 'utf8');

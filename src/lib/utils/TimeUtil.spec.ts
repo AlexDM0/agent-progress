@@ -4,7 +4,7 @@
  */
 import { expect, test } from 'bun:test';
 
-import { TimeUtil } from './TimeUtil';
+import { TimeUtil } from './TimeUtil.ts';
 
 const {
   formatLocalIso,

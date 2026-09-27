@@ -7,19 +7,19 @@
  */
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 
-import { createInstallManifestWriter } from '../../src/adapters/install/InstallManifestWriter';
-import { writeFileAtomically }         from '../../src/lib/atomic-file/AtomicFile';
-import { writeManagedBlock }           from '../../src/lib/claude-code/ClaudeInstructions';
+import { createInstallManifestWriter } from '../../src/adapters/install/InstallManifestWriter.ts';
+import { writeFileAtomically }         from '../../src/lib/atomic-file/AtomicFile.ts';
+import { writeManagedBlock }           from '../../src/lib/claude-code/ClaudeInstructions.ts';
 import {
   claudeLocalSettingsFilePathFor,
   claudeSettingsFilePathFor,
   refreshSubagentStopHook,
   writeSubagentStopHook
-}                                                             from '../../src/lib/claude-code/ClaudeSettings';
-import type { Workspace }                                     from '../../src/services/tracker/Workspace';
-import { CLAUDE_MANAGED_BLOCK_MARKERS, installedFilePathsIn } from '../InstalledFiles';
-import { INSTALL_VERSION }                                    from '../constants/InstallVersion';
-import type { InstalledFileTexts }                            from './InstalledFileGeneration';
+}                                                             from '../../src/lib/claude-code/ClaudeSettings.ts';
+import type { Workspace }                                     from '../../src/services/tracker/Workspace.ts';
+import { CLAUDE_MANAGED_BLOCK_MARKERS, installedFilePathsIn } from '../InstalledFiles.ts';
+import { INSTALL_VERSION }                                    from '../constants/InstallVersion.ts';
+import type { InstalledFileTexts }                            from './InstalledFileGeneration.ts';
 
 /**
  * The hook the tool installs. **The matcher is empty, so every subagent type is recorded**, and not

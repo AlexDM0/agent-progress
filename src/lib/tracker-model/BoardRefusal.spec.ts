@@ -4,7 +4,7 @@
  */
 import { expect, test } from 'bun:test';
 
-import { BoardRefusal, refusalIsBoardRefusal, type BoardRefusalDetail } from './BoardRefusal';
+import { BoardRefusal, refusalIsBoardRefusal, type BoardRefusalDetail } from './BoardRefusal.ts';
 
 const EXAMPLE_DETAIL: BoardRefusalDetail = {
   reason:       'ticket-owned-row',

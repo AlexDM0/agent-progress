@@ -4,7 +4,7 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { TranscriptUsageUtil } from './TranscriptUsageUtil';
+import { TranscriptUsageUtil } from './TranscriptUsageUtil.ts';
 
 const {
   briefTextOf,

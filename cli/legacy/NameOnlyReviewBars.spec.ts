@@ -15,18 +15,18 @@ import {
   expect,
   test
 }                                       from 'bun:test';
-import type { ProgressFile } from '../../src/lib/tracker-model/@types/ProgressFile';
-import type { Task }         from '../../src/lib/tracker-model/@types/Task';
-import { TimeUtil }          from '../../src/lib/utils/TimeUtil';
-import { LIMITS }            from '../../src/shared/constants/Limits';
+import type { ProgressFile } from '../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Task }         from '../../src/lib/tracker-model/@types/Task.ts';
+import { TimeUtil }          from '../../src/lib/utils/TimeUtil.ts';
+import { LIMITS }            from '../../src/shared/constants/Limits.ts';
 import {
   addWorktree,
   createScratchGitRepository,
   gitIsAvailable,
   removeScratchDirectory
-}                                       from '../../src/testing/ScratchWorkspace';
-import { runCommandLine }               from '../Main';
-import { createCapturedCommandContext } from '../testing/CapturedCommandContext';
+}                                       from '../../src/testing/ScratchWorkspace.ts';
+import { runCommandLine }               from '../Main.ts';
+import { createCapturedCommandContext } from '../testing/CapturedCommandContext.ts';
 
 interface CommandOutcome {
   exitCode: number;

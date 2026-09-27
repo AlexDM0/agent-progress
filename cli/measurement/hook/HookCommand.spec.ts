@@ -22,21 +22,21 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import { LogFileIngestion }          from '../../../src/adapters/log/LogFileIngestion';
-import { InstallVersionWordingUtil } from '../../../src/adapters/utils/InstallVersionWordingUtil';
-import type { ProgressFile }         from '../../../src/lib/tracker-model/@types/ProgressFile';
-import { LIMITS }                    from '../../../src/shared/constants/Limits';
+import { LogFileIngestion }          from '../../../src/adapters/log/LogFileIngestion.ts';
+import { InstallVersionWordingUtil } from '../../../src/adapters/utils/InstallVersionWordingUtil.ts';
+import type { ProgressFile }         from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
+import { LIMITS }                    from '../../../src/shared/constants/Limits.ts';
 import {
   createScratchDirectory,
   createScratchGitRepository,
   gitIsAvailable,
   removeScratchDirectory
-}                                                                             from '../../../src/testing/ScratchWorkspace';
-import { installedFilePathsIn }         from '../../InstalledFiles';
-import { runCommandLine }               from '../../Main';
-import { INSTALL_VERSION }              from '../../constants/InstallVersion';
-import { createCapturedCommandContext } from '../../testing/CapturedCommandContext';
-import { storedLogEntriesOf }           from '../../testing/StoredLogEntries';
+}                                                                             from '../../../src/testing/ScratchWorkspace.ts';
+import { installedFilePathsIn }         from '../../InstalledFiles.ts';
+import { runCommandLine }               from '../../Main.ts';
+import { INSTALL_VERSION }              from '../../constants/InstallVersion.ts';
+import { createCapturedCommandContext } from '../../testing/CapturedCommandContext.ts';
+import { storedLogEntriesOf }           from '../../testing/StoredLogEntries.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 

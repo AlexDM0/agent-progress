@@ -13,9 +13,9 @@ import {
   test
 }                                                 from 'bun:test';
 
-import { workspacePathsFor }                                   from '../services/tracker/Workspace';
-import { createScratchDirectory, removeScratchDirectory }      from './ScratchWorkspace';
-import { requireTrackerIsolation, trackerIsolationVerdictFor } from './TrackerIsolation';
+import { workspacePathsFor }                                   from '../services/tracker/Workspace.ts';
+import { createScratchDirectory, removeScratchDirectory }      from './ScratchWorkspace.ts';
+import { requireTrackerIsolation, trackerIsolationVerdictFor } from './TrackerIsolation.ts';
 
 const TRACKER_ISOLATION_MODULE_PATH = join(import.meta.dir, 'TrackerIsolation.ts');
 const REPOSITORY_DIRECTORY          = join(import.meta.dir, '..', '..');

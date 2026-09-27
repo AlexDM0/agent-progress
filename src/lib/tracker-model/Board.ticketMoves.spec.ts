@@ -4,16 +4,16 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import type { BoardFixture } from '../../testing/BoardFixtures';
+import type { BoardFixture } from '../../testing/BoardFixtures.ts';
 import {
   boardFixture,
   refusalDetailOf,
   taskFixture,
   ticketFixture
-} from '../../testing/BoardFixtures';
-import type { TicketStatus } from './@types/Ticket';
-import { TICKET_STATUSES }   from './constants/Statuses';
-import { TicketMoveUtil }    from './utils/TicketMoveUtil';
+} from '../../testing/BoardFixtures.ts';
+import type { TicketStatus } from './@types/Ticket.ts';
+import { TICKET_STATUSES }   from './constants/Statuses.ts';
+import { TicketMoveUtil }    from './utils/TicketMoveUtil.ts';
 
 const FILED_AT     = '2026-09-18T09:00:00+02:00';
 const STARTED_AT   = '2026-09-18T10:00:00+02:00';

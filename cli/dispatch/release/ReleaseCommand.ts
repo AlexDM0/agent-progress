@@ -5,30 +5,30 @@
  */
 import { resolve } from 'node:path';
 
-import { LogUtil }                                                                 from '../../../src/adapters/utils/LogUtil';
-import { OperationRefusalWordingUtil }                                             from '../../../src/adapters/utils/OperationRefusalWordingUtil';
-import { StatusWordingUtil }                                                       from '../../../src/adapters/utils/StatusWordingUtil';
-import type { BranchDeletionOutcome, FilesLeftInWorktree, WorktreeRemovalOutcome } from '../../../src/lib/git/BranchIntegration';
+import { LogUtil }                                                                 from '../../../src/adapters/utils/LogUtil.ts';
+import { OperationRefusalWordingUtil }                                             from '../../../src/adapters/utils/OperationRefusalWordingUtil.ts';
+import { StatusWordingUtil }                                                       from '../../../src/adapters/utils/StatusWordingUtil.ts';
+import type { BranchDeletionOutcome, FilesLeftInWorktree, WorktreeRemovalOutcome } from '../../../src/lib/git/BranchIntegration.ts';
 import {
   deleteMergedBranch,
   fastForwardTo,
   readBranchDescent,
   readCurrentBranch,
   removeWorktree
-}                                                                                            from '../../../src/lib/git/BranchIntegration';
-import type { LogRecord }                                                           from '../../../src/lib/tracker-model/@types/LogRecord';
-import type { Task }                                                                from '../../../src/lib/tracker-model/@types/Task';
-import type { Ticket }                                                              from '../../../src/lib/tracker-model/@types/Ticket';
-import type { Board }                                                               from '../../../src/lib/tracker-model/Board';
-import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS }                                  from '../../../src/lib/tracker-model/constants/TicketMoveLegality';
-import type { ReleaseRefusalReason }                                                from '../../../src/shared/@types/ReleaseRefusalReason';
-import { OperationRefusal, refusalIsOperationRefusal, type OperationRefusalStatus } from '../../../src/shared/OperationRefusal';
-import type { CommandContext }                                                      from '../../CommandContext';
-import type { CommandHandler }                                                      from '../../CommandTable';
-import { requireCurrentInstall }                                                    from '../../InstallVersionCheck';
-import { openTrackerForWritingThenReadNextLine }                                    from '../../TrackerWriting';
-import type { ArgumentParser }                                                      from '../../arguments/ArgumentParser';
-import { OutputUtil }                                                               from '../../utils/OutputUtil';
+}                                                                                            from '../../../src/lib/git/BranchIntegration.ts';
+import type { LogRecord }                                                           from '../../../src/lib/tracker-model/@types/LogRecord.ts';
+import type { Task }                                                                from '../../../src/lib/tracker-model/@types/Task.ts';
+import type { Ticket }                                                              from '../../../src/lib/tracker-model/@types/Ticket.ts';
+import type { Board }                                                               from '../../../src/lib/tracker-model/Board.ts';
+import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS }                                  from '../../../src/lib/tracker-model/constants/TicketMoveLegality.ts';
+import type { ReleaseRefusalReason }                                                from '../../../src/shared/@types/ReleaseRefusalReason.ts';
+import { OperationRefusal, refusalIsOperationRefusal, type OperationRefusalStatus } from '../../../src/shared/OperationRefusal.ts';
+import type { CommandContext }                                                      from '../../CommandContext.ts';
+import type { CommandHandler }                                                      from '../../CommandTable.ts';
+import { requireCurrentInstall }                                                    from '../../InstallVersionCheck.ts';
+import { openTrackerForWritingThenReadNextLine }                                    from '../../TrackerWriting.ts';
+import type { ArgumentParser }                                                      from '../../arguments/ArgumentParser.ts';
+import { OutputUtil }                                                               from '../../utils/OutputUtil.ts';
 
 const USAGE = 'agent-progress release <id> [<id>...] --branch <branch> [--worktree <path>] [--main <line>] [--json]';
 

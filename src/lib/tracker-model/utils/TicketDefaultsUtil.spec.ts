@@ -4,7 +4,7 @@
  */
 import { expect, test } from 'bun:test';
 
-import { TicketDefaultsUtil } from './TicketDefaultsUtil';
+import { TicketDefaultsUtil } from './TicketDefaultsUtil.ts';
 
 const { agentEffortOf, agentModelOf, ticketPriorityOf } = TicketDefaultsUtil;
 

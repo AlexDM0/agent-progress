@@ -4,7 +4,7 @@
  */
 import { expect, test } from 'bun:test';
 
-import { TRACKER_FILES } from './TrackerFiles';
+import { TRACKER_FILES } from './TrackerFiles.ts';
 
 test('every path constant is a bare name, so joining one onto a directory cannot escape it', () => {
   const names = Object.values(TRACKER_FILES);

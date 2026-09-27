@@ -10,15 +10,15 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import { TICKET_STATUSES }                                                    from '../../src/lib/tracker-model/constants/Statuses';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
-import { runCommandLine }                                                     from '../Main';
-import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';
-import { TICKET_CLAIM_SUBCOMMANDS }                                           from './TicketClaims';
-import { TICKET_FILING_SUBCOMMANDS }                                          from './TicketFiling';
-import { TICKET_MOVE_SUBCOMMANDS }                                            from './TicketMoves';
-import { TICKET_READING_SUBCOMMANDS }                                         from './TicketReading';
-import { TICKET_SETTING_SUBCOMMANDS }                                         from './TicketSettings';
+import { TICKET_STATUSES }                                                    from '../../src/lib/tracker-model/constants/Statuses.ts';
+import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
+import { runCommandLine }                                                     from '../Main.ts';
+import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext.ts';
+import { TICKET_CLAIM_SUBCOMMANDS }                                           from './TicketClaims.ts';
+import { TICKET_FILING_SUBCOMMANDS }                                          from './TicketFiling.ts';
+import { TICKET_MOVE_SUBCOMMANDS }                                            from './TicketMoves.ts';
+import { TICKET_READING_SUBCOMMANDS }                                         from './TicketReading.ts';
+import { TICKET_SETTING_SUBCOMMANDS }                                         from './TicketSettings.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 

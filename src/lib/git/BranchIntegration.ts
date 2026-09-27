@@ -2,8 +2,8 @@
  * The git steps of bringing a branch into the main checkout, as verdicts: which branch the main checkout is on, whether a branch descends
  * from the main line, the fast-forward itself, and the two cleanups. Nothing here forces anything: a refusal git gives is handed back with its reason.
  */
-import { GitProcess }                from './GitProcess';
-import { NOT_AN_ANCESTOR_EXIT_CODE } from './constants/GitExitCodes';
+import { GitProcess }                from './GitProcess.ts';
+import { NOT_AN_ANCESTOR_EXIT_CODE } from './constants/GitExitCodes.ts';
 
 const DETACHED_HEAD_EXIT_CODE = 1;
 

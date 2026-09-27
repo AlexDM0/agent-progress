@@ -6,7 +6,7 @@
 import { join }         from 'node:path';
 import { expect, test } from 'bun:test';
 
-import { agentProgressRootOverride } from './Environment';
+import { agentProgressRootOverride } from './Environment.ts';
 
 const ENVIRONMENT_MODULE_PATH = join(import.meta.dir, 'Environment.ts');
 

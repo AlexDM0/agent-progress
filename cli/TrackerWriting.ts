@@ -1,12 +1,12 @@
 /** Runs the tracker service's write pipeline for a command: the workspace, the `--at` stamp and the render report are the command line's. */
-import type { DispatcherState }                                  from '../src/lib/tracker-model/@types/ProgressFile';
-import { writeTracker, type TrackerChange, type TrackerWritten } from '../src/services/tracker/TrackerPipeline';
-import { requireWorkspace }                                      from '../src/services/tracker/Workspace';
-import type { CommandContext }                                   from './CommandContext';
-import type { ArgumentParser }                                   from './arguments/ArgumentParser';
-import { NextLineUtil }                                          from './utils/NextLineUtil';
-import { OptionValueUtil }                                       from './utils/OptionValueUtil';
-import { OutputUtil }                                            from './utils/OutputUtil';
+import type { DispatcherState }                                  from '../src/lib/tracker-model/@types/ProgressFile.ts';
+import { writeTracker, type TrackerChange, type TrackerWritten } from '../src/services/tracker/TrackerPipeline.ts';
+import { requireWorkspace }                                      from '../src/services/tracker/Workspace.ts';
+import type { CommandContext }                                   from './CommandContext.ts';
+import type { ArgumentParser }                                   from './arguments/ArgumentParser.ts';
+import { NextLineUtil }                                          from './utils/NextLineUtil.ts';
+import { OptionValueUtil }                                       from './utils/OptionValueUtil.ts';
+import { OutputUtil }                                            from './utils/OutputUtil.ts';
 
 async function writeTrackerForCommand<MutationResult>(
   commandArguments: ArgumentParser,

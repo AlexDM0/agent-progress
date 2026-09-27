@@ -4,10 +4,10 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import type { BoardFixture }                        from '../../testing/BoardFixtures';
-import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures';
-import { refusalIsBoardRefusal }                    from './BoardRefusal';
-import { TICKET_STATUSES }                          from './constants/Statuses';
+import type { BoardFixture }                        from '../../testing/BoardFixtures.ts';
+import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures.ts';
+import { refusalIsBoardRefusal }                    from './BoardRefusal.ts';
+import { TICKET_STATUSES }                          from './constants/Statuses.ts';
 
 const STARTED_AT  = '2026-09-18T10:00:00+02:00';
 const FINISHED_AT = '2026-09-18T12:00:00+02:00';

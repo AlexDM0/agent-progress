@@ -2,7 +2,7 @@
  * What the rewrite of older tracker files wrote, as `update` and `init` print it.
  * It can be deleted once every tracker has been rewritten by `agent-progress update`.
  */
-import type { TrackerRewrite } from '../../../src/services/tracker/legacy/OlderTrackerFilesRewrite';
+import type { TrackerRewrite } from '../../../src/services/tracker/legacy/OlderTrackerFilesRewrite.ts';
 
 function rewrittenFilesTextOf(rewrite: TrackerRewrite): string {
   const parts: string[] = [];

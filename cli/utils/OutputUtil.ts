@@ -1,8 +1,8 @@
-import { TrackerReadingWordingUtil }   from '../../src/adapters/utils/TrackerReadingWordingUtil';
-import type { DashboardRenderOutcome } from '../../src/services/tracker/DashboardRendering';
-import { LIMITS }                      from '../../src/shared/constants/Limits';
-import type { CommandContext }         from '../CommandContext';
-import type { ArgumentParser }         from '../arguments/ArgumentParser';
+import { TrackerReadingWordingUtil }   from '../../src/adapters/utils/TrackerReadingWordingUtil.ts';
+import type { DashboardRenderOutcome } from '../../src/services/tracker/DashboardRendering.ts';
+import { LIMITS }                      from '../../src/shared/constants/Limits.ts';
+import type { CommandContext }         from '../CommandContext.ts';
+import type { ArgumentParser }         from '../arguments/ArgumentParser.ts';
 
 function padColumn(text: string, width: number): string {
   return text.length >= width ? `${text} ` : text.padEnd(width);

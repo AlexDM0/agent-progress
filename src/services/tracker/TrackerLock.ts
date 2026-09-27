@@ -20,10 +20,10 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 
-import { TimeUtil }         from '../../lib/utils/TimeUtil';
-import { OperationRefusal } from '../../shared/OperationRefusal';
-import { LIMITS }           from '../../shared/constants/Limits';
-import type { Workspace }   from './Workspace';
+import { TimeUtil }         from '../../lib/utils/TimeUtil.ts';
+import { OperationRefusal } from '../../shared/OperationRefusal.ts';
+import { LIMITS }           from '../../shared/constants/Limits.ts';
+import type { Workspace }   from './Workspace.ts';
 
 interface LockPayload {
   processId:  number;

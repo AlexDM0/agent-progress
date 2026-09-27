@@ -7,8 +7,8 @@ import { readFileSync }           from 'node:fs';
 import { join }                   from 'node:path';
 import { describe, expect, test } from 'bun:test';
 
-import { COMMAND_NAMES } from './CommandTable';
-import { helpText }      from './HelpText';
+import { COMMAND_NAMES } from './CommandTable.ts';
+import { helpText }      from './HelpText.ts';
 
 const HELP_TEXT = helpText();
 

@@ -12,10 +12,10 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace';
-import { runCommandLine }                                                     from '../../Main';
-import { createCapturedCommandContext }                                       from '../../testing/CapturedCommandContext';
-import { openerForPlatform }                                                  from './OpenCommand';
+import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
+import { runCommandLine }                                                     from '../../Main.ts';
+import { createCapturedCommandContext }                                       from '../../testing/CapturedCommandContext.ts';
+import { openerForPlatform }                                                  from './OpenCommand.ts';
 
 const UNREADABLE_PROGRESS_TEXT = '{ not json';
 

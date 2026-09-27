@@ -4,7 +4,7 @@
  */
 import { expect, test } from 'bun:test';
 
-import { HtmlEscapeUtil } from './HtmlEscapeUtil';
+import { HtmlEscapeUtil } from './HtmlEscapeUtil.ts';
 
 const { escapeHtml, escapeJsonForScriptTag } = HtmlEscapeUtil;
 

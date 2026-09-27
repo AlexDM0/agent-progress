@@ -6,7 +6,7 @@
 import { existsSync }               from 'node:fs';
 import { delimiter, dirname, join } from 'node:path';
 
-import { requireTrackerIsolation } from '../../src/testing/TrackerIsolation';
+import { requireTrackerIsolation } from '../../src/testing/TrackerIsolation.ts';
 
 export interface AgentProgressResult {
   exitCode:       number;

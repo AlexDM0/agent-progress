@@ -6,7 +6,7 @@ import { existsSync }             from 'node:fs';
 import { isAbsolute, join }       from 'node:path';
 import { describe, expect, test } from 'bun:test';
 
-import { resourceFilePathOf } from './ResourceFilePath';
+import { resourceFilePathOf } from './ResourceFilePath.ts';
 
 describe('resourceFilePathOf', () => {
   test('the path it gives is absolute', () => {

@@ -27,8 +27,8 @@ import {
   createScratchGitRepository,
   gitIsAvailable,
   removeScratchDirectory
-} from '../../testing/ScratchWorkspace';
-import { ensureIgnored } from './GitIgnore';
+} from '../../testing/ScratchWorkspace.ts';
+import { ensureIgnored } from './GitIgnore.ts';
 
 const IGNORED_DIRECTORY_NAME = '.example-cache';
 

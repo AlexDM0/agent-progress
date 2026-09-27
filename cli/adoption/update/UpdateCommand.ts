@@ -4,13 +4,13 @@
  * no tracker, so it takes neither `--project` nor `--root`, and touches the tracker only to rewrite
  * files still in an older format.
  */
-import { requireWorkspace }                               from '../../../src/services/tracker/Workspace';
-import type { CommandHandler }                            from '../../CommandTable';
-import { requireNoNewerInstall }                          from '../../InstallVersionCheck';
-import { OlderTrackerFilesRewriteReport }                 from '../../legacy/OlderTrackerFilesRewriteReport';
-import { IGNORED_RETIRED_OPTION_NAMES }                   from '../../legacy/constants/IgnoredRetiredOptions';
-import { installedFileTextsFor }                          from '../InstalledFileGeneration';
-import { recordInstallVersion, refreshTrackedRepository } from '../TrackerRefresh';
+import { requireWorkspace }                               from '../../../src/services/tracker/Workspace.ts';
+import type { CommandHandler }                            from '../../CommandTable.ts';
+import { requireNoNewerInstall }                          from '../../InstallVersionCheck.ts';
+import { OlderTrackerFilesRewriteReport }                 from '../../legacy/OlderTrackerFilesRewriteReport.ts';
+import { IGNORED_RETIRED_OPTION_NAMES }                   from '../../legacy/constants/IgnoredRetiredOptions.ts';
+import { installedFileTextsFor }                          from '../InstalledFileGeneration.ts';
+import { recordInstallVersion, refreshTrackedRepository } from '../TrackerRefresh.ts';
 
 const USAGE = 'agent-progress update [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';
 

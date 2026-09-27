@@ -4,7 +4,7 @@
  */
 import { expect, test } from 'bun:test';
 
-import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures';
+import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures.ts';
 
 test('a ticket reference resolves written as 3, #3 or 003', () => {
   const { board } = boardFixture({ tickets: [ticketFixture({ id: '001' }), ticketFixture({ id: '003', title: 'Example basket badge' })] });

@@ -4,7 +4,7 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { TicketMoveUtil } from './TicketMoveUtil';
+import { TicketMoveUtil } from './TicketMoveUtil.ts';
 
 const { ticketMoveIsLegal } = TicketMoveUtil;
 

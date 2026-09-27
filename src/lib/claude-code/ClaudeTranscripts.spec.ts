@@ -13,8 +13,8 @@ import {
   test
 } from 'bun:test';
 
-import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace';
-import { listSubagentTranscripts, transcriptFolderFor }   from './ClaudeTranscripts';
+import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
+import { listSubagentTranscripts, transcriptFolderFor }   from './ClaudeTranscripts.ts';
 
 let scratchDirectory = '';
 

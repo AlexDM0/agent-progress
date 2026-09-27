@@ -5,9 +5,9 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { refusalIsOperationRefusal, type OperationRefusal } from '../../src/shared/OperationRefusal';
-import { createArgumentParser }                             from '../arguments/ArgumentParser';
-import { OptionValueUtil }                                  from './OptionValueUtil';
+import { refusalIsOperationRefusal, type OperationRefusal } from '../../src/shared/OperationRefusal.ts';
+import { createArgumentParser }                             from '../arguments/ArgumentParser.ts';
+import { OptionValueUtil }                                  from './OptionValueUtil.ts';
 
 const { resolveAtOption, tokenCountFrom } = OptionValueUtil;
 

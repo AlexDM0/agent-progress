@@ -24,11 +24,11 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import { TimeUtil }                                                           from '../../src/lib/utils/TimeUtil';
-import type { WordedLogEntry }                                                from '../../src/shared/@types/WordedLogEntry';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
-import { runCommandLine }                                                     from '../Main';
-import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';
+import { TimeUtil }                                                           from '../../src/lib/utils/TimeUtil.ts';
+import type { WordedLogEntry }                                                from '../../src/shared/@types/WordedLogEntry.ts';
+import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
+import { runCommandLine }                                                     from '../Main.ts';
+import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext.ts';
 
 /**
  * Written by main at 5c6b0ad. To retake them, unpack that commit with `git archive 5c6b0ad | tar -x -C <folder>`, then in a scratch git

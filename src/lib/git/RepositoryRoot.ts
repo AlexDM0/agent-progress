@@ -16,8 +16,8 @@ import {
   resolve
 } from 'node:path';
 
-import { GitProcess }     from './GitProcess';
-import { GIT_ENTRY_NAME } from './constants/GitPaths';
+import { GitProcess }     from './GitProcess.ts';
+import { GIT_ENTRY_NAME } from './constants/GitPaths.ts';
 
 const WORKTREE_GIT_DIRECTORY_SEGMENT = '/.git/worktrees/';
 

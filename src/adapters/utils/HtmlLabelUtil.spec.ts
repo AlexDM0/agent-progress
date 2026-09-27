@@ -8,10 +8,10 @@
  */
 import { expect, test } from 'bun:test';
 
-import type { TicketPriority, TicketStatus, TicketType } from '../../lib/tracker-model/@types/Ticket';
-import { TICKET_STATUSES }                               from '../../lib/tracker-model/constants/Statuses';
-import { TICKET_PRIORITIES, TICKET_TYPES }               from '../../lib/tracker-model/constants/TicketFields';
-import { HtmlLabelUtil }                                 from './HtmlLabelUtil';
+import type { TicketPriority, TicketStatus, TicketType } from '../../lib/tracker-model/@types/Ticket.ts';
+import { TICKET_STATUSES }                               from '../../lib/tracker-model/constants/Statuses.ts';
+import { TICKET_PRIORITIES, TICKET_TYPES }               from '../../lib/tracker-model/constants/TicketFields.ts';
+import { HtmlLabelUtil }                                 from './HtmlLabelUtil.ts';
 
 const EXPECTED_GROUP_TITLE_FOR_PRIORITY: Readonly<Record<TicketPriority, string>> = Object.freeze({
   high:   'High',

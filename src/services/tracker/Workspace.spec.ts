@@ -12,15 +12,15 @@ import {
 import { dirname, join }          from 'node:path';
 import { afterAll, expect, test } from 'bun:test';
 
-import { refusalIsOperationRefusal } from '../../shared/OperationRefusal';
+import { refusalIsOperationRefusal } from '../../shared/OperationRefusal.ts';
 import {
   addWorktree,
   createScratchDirectory,
   createScratchGitRepository,
   gitIsAvailable,
   removeScratchDirectory
-} from '../../testing/ScratchWorkspace';
-import { findWorkspace, requireWorkspace, workspacePathsFor } from './Workspace';
+} from '../../testing/ScratchWorkspace.ts';
+import { findWorkspace, requireWorkspace, workspacePathsFor } from './Workspace.ts';
 
 const WORKSPACE_MODULE_PATH = join(import.meta.dir, 'Workspace.ts');
 const scratchDirectories: string[] = [];

@@ -5,7 +5,7 @@
  */
 import { expect, test } from 'bun:test';
 
-import { OperationRefusal, refusalIsOperationRefusal } from './OperationRefusal';
+import { OperationRefusal, refusalIsOperationRefusal } from './OperationRefusal.ts';
 
 test('the status survives being thrown and caught, which is the only path it ever travels', () => {
   let caught: unknown = null;

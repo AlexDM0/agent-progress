@@ -6,8 +6,8 @@
  */
 import { expect, test } from 'bun:test';
 
-import { boardFixture, taskFixture, ticketFixture } from '../../src/testing/BoardFixtures';
-import { NextLineUtil }                             from './NextLineUtil';
+import { boardFixture, taskFixture, ticketFixture } from '../../src/testing/BoardFixtures.ts';
+import { NextLineUtil }                             from './NextLineUtil.ts';
 
 const { composeNextLine, nextLineOf, endWithRunningDispatcherNotice } = NextLineUtil;
 

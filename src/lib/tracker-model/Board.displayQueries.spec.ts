@@ -5,10 +5,10 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures';
-import type { DisplayState, Task, TaskStatus }      from './@types/Task';
-import type { Ticket, TicketStatus }                from './@types/Ticket';
-import type { Board }                               from './Board';
+import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures.ts';
+import type { DisplayState, Task, TaskStatus }      from './@types/Task.ts';
+import type { Ticket, TicketStatus }                from './@types/Ticket.ts';
+import type { Board }                               from './Board.ts';
 
 const REVIEWED_AT = '2026-09-18T21:10:00+02:00';
 

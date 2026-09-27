@@ -4,11 +4,11 @@
  */
 import { expect, test } from 'bun:test';
 
-import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures';
-import type { AgentUsage }                          from './@types/LogRecord';
-import type { Task }                                from './@types/Task';
-import { Board }                                    from './Board';
-import { createLogger }                             from './Logger';
+import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures.ts';
+import type { AgentUsage }                          from './@types/LogRecord.ts';
+import type { Task }                                from './@types/Task.ts';
+import { Board }                                    from './Board.ts';
+import { createLogger }                             from './Logger.ts';
 
 const STOPPED_AT = '2026-09-18T16:20:00+02:00';
 

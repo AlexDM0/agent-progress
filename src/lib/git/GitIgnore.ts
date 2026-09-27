@@ -6,9 +6,9 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join }                     from 'node:path';
 
-import { writeFileAtomicallyThroughLinks } from '../atomic-file/AtomicFile';
-import { GitProcess }                      from './GitProcess';
-import { GIT_ENTRY_NAME }                  from './constants/GitPaths';
+import { writeFileAtomicallyThroughLinks } from '../atomic-file/AtomicFile.ts';
+import { GitProcess }                      from './GitProcess.ts';
+import { GIT_ENTRY_NAME }                  from './constants/GitPaths.ts';
 
 const CHECK_IGNORE_IGNORED_EXIT_CODE     = 0;
 const CHECK_IGNORE_NOT_IGNORED_EXIT_CODE = 1;

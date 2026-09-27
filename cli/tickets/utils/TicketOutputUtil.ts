@@ -1,7 +1,7 @@
-import { LogUtil }        from '../../../src/adapters/utils/LogUtil';
-import { TicketJsonUtil } from '../../../src/adapters/utils/TicketJsonUtil';
-import type { LogRecord } from '../../../src/lib/tracker-model/@types/LogRecord';
-import type { Ticket }    from '../../../src/lib/tracker-model/@types/Ticket';
+import { LogUtil }        from '../../../src/adapters/utils/LogUtil.ts';
+import { TicketJsonUtil } from '../../../src/adapters/utils/TicketJsonUtil.ts';
+import type { LogRecord } from '../../../src/lib/tracker-model/@types/LogRecord.ts';
+import type { Ticket }    from '../../../src/lib/tracker-model/@types/Ticket.ts';
 
 /** The priority is always spelled out, so a script never has to know that an absent key means normal. */
 function ticketAsJson(ticket: Ticket): Record<string, unknown> {

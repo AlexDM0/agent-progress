@@ -4,8 +4,8 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { TranscriptCohortUtil }   from './TranscriptCohortUtil';
-import type { TranscriptProfile } from './TranscriptUsageUtil';
+import { TranscriptCohortUtil }   from './TranscriptCohortUtil.ts';
+import type { TranscriptProfile } from './TranscriptUsageUtil.ts';
 
 const { cohortSplitAt, cohortSummaryOf } = TranscriptCohortUtil;
 

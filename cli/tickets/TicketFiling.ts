@@ -1,22 +1,22 @@
 import { readFileSync } from 'node:fs';
 import { resolve }      from 'node:path';
 
-import { StatusWordingUtil }                     from '../../src/adapters/utils/StatusWordingUtil';
-import type { TicketType }                       from '../../src/lib/tracker-model/@types/Ticket';
-import { createTicket }                          from '../../src/services/tracker/TicketStore';
-import { requireWorkspace }                      from '../../src/services/tracker/Workspace';
-import { OperationRefusal }                      from '../../src/shared/OperationRefusal';
-import { resourceFilePathOf }                    from '../../src/shared/ResourceFilePath';
-import type { CommandContext }                   from '../CommandContext';
-import { openTrackerForWritingThenReadNextLine } from '../TrackerWriting';
-import type { ArgumentParser }                   from '../arguments/ArgumentParser';
-import { NextLineUtil }                          from '../utils/NextLineUtil';
-import { OutputUtil }                            from '../utils/OutputUtil';
-import { TemplatePlaceholderUtil }               from '../utils/TemplatePlaceholderUtil';
-import type { TicketSubcommandHandler }          from './@types/TicketSubcommandHandler';
-import { TICKET_USAGE }                          from './constants/TicketUsage';
-import { TicketArgumentUtil }                    from './utils/TicketArgumentUtil';
-import { TicketOutputUtil }                      from './utils/TicketOutputUtil';
+import { StatusWordingUtil }                     from '../../src/adapters/utils/StatusWordingUtil.ts';
+import type { TicketType }                       from '../../src/lib/tracker-model/@types/Ticket.ts';
+import { createTicket }                          from '../../src/services/tracker/TicketStore.ts';
+import { requireWorkspace }                      from '../../src/services/tracker/Workspace.ts';
+import { OperationRefusal }                      from '../../src/shared/OperationRefusal.ts';
+import { resourceFilePathOf }                    from '../../src/shared/ResourceFilePath.ts';
+import type { CommandContext }                   from '../CommandContext.ts';
+import { openTrackerForWritingThenReadNextLine } from '../TrackerWriting.ts';
+import type { ArgumentParser }                   from '../arguments/ArgumentParser.ts';
+import { NextLineUtil }                          from '../utils/NextLineUtil.ts';
+import { OutputUtil }                            from '../utils/OutputUtil.ts';
+import { TemplatePlaceholderUtil }               from '../utils/TemplatePlaceholderUtil.ts';
+import type { TicketSubcommandHandler }          from './@types/TicketSubcommandHandler.ts';
+import { TICKET_USAGE }                          from './constants/TicketUsage.ts';
+import { TicketArgumentUtil }                    from './utils/TicketArgumentUtil.ts';
+import { TicketOutputUtil }                      from './utils/TicketOutputUtil.ts';
 
 const ADD_OPTION_NAMES = ['type', 'priority', 'model', 'effort', 'group', 'depends-on', 'body', 'body-file', 'at', 'json'];
 

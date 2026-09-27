@@ -12,11 +12,11 @@ import {
   expect,
   test
 }                                                         from 'bun:test';
-import { OperationRefusal }                               from '../src/shared/OperationRefusal';
-import { createScratchDirectory, removeScratchDirectory } from '../src/testing/ScratchWorkspace';
-import { requireCurrentInstall, requireNoNewerInstall }   from './InstallVersionCheck';
-import { installedFilePathsIn }                           from './InstalledFiles';
-import { INSTALL_VERSION }                                from './constants/InstallVersion';
+import { OperationRefusal }                               from '../src/shared/OperationRefusal.ts';
+import { createScratchDirectory, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
+import { requireCurrentInstall, requireNoNewerInstall }   from './InstallVersionCheck.ts';
+import { installedFilePathsIn }                           from './InstalledFiles.ts';
+import { INSTALL_VERSION }                                from './constants/InstallVersion.ts';
 
 let rootDirectory = '';
 

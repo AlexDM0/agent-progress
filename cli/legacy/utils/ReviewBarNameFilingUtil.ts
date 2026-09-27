@@ -2,9 +2,9 @@
  * Gives a review row filed or renamed to a `Review <N> #<id>` name alone, without `--review-of`, the link its name names, so the row is
  * stored linked by `task add` and `task update --name`. It can go once agents always pass `--review-of`, which the brief asks for.
  */
-import type { TaskAddition } from '../../../src/lib/tracker-model/@types/BoardChanges';
-import type { Task }         from '../../../src/lib/tracker-model/@types/Task';
-import { ReviewBarNameUtil } from '../../../src/shared/legacy/utils/ReviewBarNameUtil';
+import type { TaskAddition } from '../../../src/lib/tracker-model/@types/BoardChanges.ts';
+import type { Task }         from '../../../src/lib/tracker-model/@types/Task.ts';
+import { ReviewBarNameUtil } from '../../../src/shared/legacy/utils/ReviewBarNameUtil.ts';
 
 type NamedReviewBarFields = Pick<Task, 'name' | 'ticket' | 'reviewOf' | 'reviewBarRound'>;
 

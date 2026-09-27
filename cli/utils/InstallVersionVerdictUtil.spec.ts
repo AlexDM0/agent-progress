@@ -5,7 +5,7 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { InstallVersionVerdictUtil } from './InstallVersionVerdictUtil';
+import { InstallVersionVerdictUtil } from './InstallVersionVerdictUtil.ts';
 
 const { verdictOf } = InstallVersionVerdictUtil;
 

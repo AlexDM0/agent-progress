@@ -4,7 +4,7 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { SubagentStopUtil } from './SubagentStopUtil';
+import { SubagentStopUtil } from './SubagentStopUtil.ts';
 
 const {
   evenSharesOf,

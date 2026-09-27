@@ -17,8 +17,8 @@ import {
 import { dirname, join }          from 'node:path';
 import { afterAll, expect, test } from 'bun:test';
 
-import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace';
-import { writeManagedBlock }                              from './ClaudeInstructions';
+import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
+import { writeManagedBlock }                              from './ClaudeInstructions.ts';
 
 const MANAGED_BLOCK_MARKERS = { start: '<!-- example-tool:managed:start -->', end: '<!-- example-tool:managed:end -->' };
 

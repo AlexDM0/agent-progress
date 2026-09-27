@@ -5,9 +5,9 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { CONCURRENCY_LIMIT_CEILING_AGENTS, LOWEST_CONCURRENCY_LIMIT_AGENTS } from '../constants/ConcurrencyLimits';
-import { DISPATCHER_STATES }                                                 from '../constants/DispatcherStates';
-import { BoardSettingsUtil }                                                 from './BoardSettingsUtil';
+import { CONCURRENCY_LIMIT_CEILING_AGENTS, LOWEST_CONCURRENCY_LIMIT_AGENTS } from '../constants/ConcurrencyLimits.ts';
+import { DISPATCHER_STATES }                                                 from '../constants/DispatcherStates.ts';
+import { BoardSettingsUtil }                                                 from './BoardSettingsUtil.ts';
 
 const {
   concurrencyLimitIsWellFormed,

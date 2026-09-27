@@ -6,8 +6,8 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { refusalIsOperationRefusal, type OperationRefusal } from '../../../src/shared/OperationRefusal';
-import { TicketArgumentUtil }                               from './TicketArgumentUtil';
+import { refusalIsOperationRefusal, type OperationRefusal } from '../../../src/shared/OperationRefusal.ts';
+import { TicketArgumentUtil }                               from './TicketArgumentUtil.ts';
 
 const {
   requirePriority,

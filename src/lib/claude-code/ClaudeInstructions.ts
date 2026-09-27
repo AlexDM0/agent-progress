@@ -1,7 +1,7 @@
 /** A block owned by a caller inside a CLAUDE.md, written between two markers so everything outside them is untouched. */
 import { existsSync, readFileSync } from 'node:fs';
 
-import { writeFileAtomicallyThroughLinks } from '../atomic-file/AtomicFile';
+import { writeFileAtomicallyThroughLinks } from '../atomic-file/AtomicFile.ts';
 
 export type WriteManagedBlockOutcome = 'created' | 'appended' | 'replaced' | 'refused-start-without-end';
 

@@ -9,7 +9,7 @@ import {
   refusalDetailOf,
   taskFixture,
   ticketFixture
-} from '../../testing/BoardFixtures';
+} from '../../testing/BoardFixtures.ts';
 
 const FILED_AT     = '2026-09-18T09:00:00+02:00';
 const STARTED_AT   = '2026-09-18T10:00:00+02:00';

@@ -4,7 +4,7 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures';
+import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures.ts';
 
 describe('the ticket ids in flight', () => {
   test('come once each in row order, from in-progress rows that belong to a ticket only', () => {

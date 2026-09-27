@@ -5,8 +5,8 @@
  */
 import { expect, test } from 'bun:test';
 
-import type { BoardRefusalDetail } from '../../lib/tracker-model/BoardRefusal';
-import { BoardRefusalWordingUtil } from './BoardRefusalWordingUtil';
+import type { BoardRefusalDetail } from '../../lib/tracker-model/BoardRefusal.ts';
+import { BoardRefusalWordingUtil } from './BoardRefusalWordingUtil.ts';
 
 const { messageOf } = BoardRefusalWordingUtil;
 

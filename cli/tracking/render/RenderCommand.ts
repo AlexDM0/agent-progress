@@ -1,7 +1,7 @@
 /** Renders without writing the progress file; the tracker service takes the lock, so a concurrent write cannot leave the older picture on disk. */
-import { requireWorkspace }        from '../../../src/services/tracker/Workspace';
-import type { CommandHandler }     from '../../CommandTable';
-import { renderDashboardOrRefuse } from '../DashboardRenderOrRefusal';
+import { requireWorkspace }        from '../../../src/services/tracker/Workspace.ts';
+import type { CommandHandler }     from '../../CommandTable.ts';
+import { renderDashboardOrRefuse } from '../DashboardRenderOrRefusal.ts';
 
 const USAGE = 'agent-progress render';
 

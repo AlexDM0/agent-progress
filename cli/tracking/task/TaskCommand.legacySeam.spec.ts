@@ -14,11 +14,11 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import type { ProgressFile }                                                  from '../../../src/lib/tracker-model/@types/ProgressFile';
-import { TASK_STATUSES }                                                      from '../../../src/lib/tracker-model/constants/Statuses';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace';
-import { runCommandLine }                                                     from '../../Main';
-import { createCapturedCommandContext }                                       from '../../testing/CapturedCommandContext';
+import type { ProgressFile }                                                  from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
+import { TASK_STATUSES }                                                      from '../../../src/lib/tracker-model/constants/Statuses.ts';
+import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
+import { runCommandLine }                                                     from '../../Main.ts';
+import { createCapturedCommandContext }                                       from '../../testing/CapturedCommandContext.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 

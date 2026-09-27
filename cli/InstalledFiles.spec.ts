@@ -13,8 +13,8 @@ import {
 
 import { expect, test } from 'bun:test';
 
-import { TRACKER_FILES }                                      from '../src/services/tracker/constants/TrackerFiles';
-import { CLAUDE_MANAGED_BLOCK_MARKERS, installedFilePathsIn } from './InstalledFiles';
+import { TRACKER_FILES }                                      from '../src/services/tracker/constants/TrackerFiles.ts';
+import { CLAUDE_MANAGED_BLOCK_MARKERS, installedFilePathsIn } from './InstalledFiles.ts';
 
 const { start, end } = CLAUDE_MANAGED_BLOCK_MARKERS;
 

@@ -5,10 +5,10 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import type { MalformedTicketFile }                         from '../../../src/services/tracker/TicketStore';
-import { refusalIsOperationRefusal, type OperationRefusal } from '../../../src/shared/OperationRefusal';
-import { boardFixture, ticketFixture }                      from '../../../src/testing/BoardFixtures';
-import { TicketLookupUtil }                                 from './TicketLookupUtil';
+import type { MalformedTicketFile }                         from '../../../src/services/tracker/TicketStore.ts';
+import { refusalIsOperationRefusal, type OperationRefusal } from '../../../src/shared/OperationRefusal.ts';
+import { boardFixture, ticketFixture }                      from '../../../src/testing/BoardFixtures.ts';
+import { TicketLookupUtil }                                 from './TicketLookupUtil.ts';
 
 const { requireTicket, refuseAMissingTicket } = TicketLookupUtil;
 

@@ -20,11 +20,11 @@ import {
   expect,
   test
 }                                       from 'bun:test';
-import { LIMITS }                                                             from '../../src/shared/constants/Limits';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
-import { CLAUDE_MANAGED_BLOCK_MARKERS }                                       from '../InstalledFiles';
-import { runCommandLine }                                                     from '../Main';
-import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext';
+import { LIMITS }                                                             from '../../src/shared/constants/Limits.ts';
+import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
+import { CLAUDE_MANAGED_BLOCK_MARKERS }                                       from '../InstalledFiles.ts';
+import { runCommandLine }                                                     from '../Main.ts';
+import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext.ts';
 
 const scratchDirectories: string[] = [];
 

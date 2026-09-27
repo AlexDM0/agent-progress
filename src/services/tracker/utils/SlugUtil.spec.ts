@@ -4,7 +4,7 @@
  */
 import { expect, test } from 'bun:test';
 
-import { SlugUtil } from './SlugUtil';
+import { SlugUtil } from './SlugUtil.ts';
 
 const { slugFromTitle } = SlugUtil;
 

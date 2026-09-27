@@ -3,13 +3,13 @@
  * `agent-progress rework`. Every changed line is classified in the context of its own side of its hunk: the
  * old side is the context and removed lines, the new side the context and added lines.
  */
-import type { CommentSyntax, DelimiterPair, EmbeddedLanguage } from '../constants/CommentSyntaxes';
+import type { CommentSyntax, DelimiterPair, EmbeddedLanguage } from '../constants/CommentSyntaxes.ts';
 import {
   COMMENT_SYNTAX_BY_EXTENSION,
   COMMENT_SYNTAX_BY_FILE_NAME,
   DOCUMENTATION_DIRECTORY_PREFIX,
   DOCUMENTATION_EXTENSIONS
-} from '../constants/CommentSyntaxes';
+} from '../constants/CommentSyntaxes.ts';
 
 export type LineKind = 'code' | 'comment' | 'blank' | 'documentation';
 

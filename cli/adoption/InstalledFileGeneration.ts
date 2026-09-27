@@ -5,12 +5,12 @@
 import { readFileSync } from 'node:fs';
 import { join }         from 'node:path';
 
-import { bundleWorkflowScript, type WorkflowScriptBundle } from '../../src/lib/claude-code/WorkflowScriptBundle';
-import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL }       from '../../src/lib/tracker-model/constants/AgentSettings';
-import { OperationRefusal }                                from '../../src/shared/OperationRefusal';
-import { resourceFilePathOf }                              from '../../src/shared/ResourceFilePath';
-import { DISPATCH_PROTOCOL }                               from '../../src/shared/constants/DispatchProtocol';
-import { TemplatePlaceholderUtil }                         from '../utils/TemplatePlaceholderUtil';
+import { bundleWorkflowScript, type WorkflowScriptBundle } from '../../src/lib/claude-code/WorkflowScriptBundle.ts';
+import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL }       from '../../src/lib/tracker-model/constants/AgentSettings.ts';
+import { OperationRefusal }                                from '../../src/shared/OperationRefusal.ts';
+import { resourceFilePathOf }                              from '../../src/shared/ResourceFilePath.ts';
+import { DISPATCH_PROTOCOL }                               from '../../src/shared/constants/DispatchProtocol.ts';
+import { TemplatePlaceholderUtil }                         from '../utils/TemplatePlaceholderUtil.ts';
 
 const DISPATCHER_DIRECTORY = join(import.meta.dir, '..', '..', 'dispatcher');
 

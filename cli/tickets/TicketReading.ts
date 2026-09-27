@@ -1,28 +1,28 @@
-import { StatusWordingUtil } from '../../src/adapters/utils/StatusWordingUtil';
-import { TicketJsonUtil }    from '../../src/adapters/utils/TicketJsonUtil';
-import { TicketPhraseUtil }  from '../../src/adapters/utils/TicketPhraseUtil';
+import { StatusWordingUtil } from '../../src/adapters/utils/StatusWordingUtil.ts';
+import { TicketJsonUtil }    from '../../src/adapters/utils/TicketJsonUtil.ts';
+import { TicketPhraseUtil }  from '../../src/adapters/utils/TicketPhraseUtil.ts';
 import type {
   AgentEffort,
   AgentModel,
   Ticket,
   TicketStatus
-} from '../../src/lib/tracker-model/@types/Ticket';
-import { TicketDefaultsUtil }               from '../../src/lib/tracker-model/utils/TicketDefaultsUtil';
-import { TicketDependencyUtil }             from '../../src/lib/tracker-model/utils/TicketDependencyUtil';
-import { VocabularyUtil }                   from '../../src/lib/tracker-model/utils/VocabularyUtil';
-import { listTickets, readTicket }          from '../../src/services/tracker/TicketStore';
-import { requireWorkspace, type Workspace } from '../../src/services/tracker/Workspace';
-import { OperationRefusal }                 from '../../src/shared/OperationRefusal';
-import { LIMITS }                           from '../../src/shared/constants/Limits';
-import type { CommandContext }              from '../CommandContext';
-import type { ArgumentParser }              from '../arguments/ArgumentParser';
-import { RetiredWordRefusalUtil }           from '../legacy/utils/RetiredWordRefusalUtil';
-import { OutputUtil }                       from '../utils/OutputUtil';
-import type { TicketSubcommandHandler }     from './@types/TicketSubcommandHandler';
-import { TICKET_USAGE }                     from './constants/TicketUsage';
-import { TicketArgumentUtil }               from './utils/TicketArgumentUtil';
-import { TicketLookupUtil }                 from './utils/TicketLookupUtil';
-import { TicketOutputUtil }                 from './utils/TicketOutputUtil';
+} from '../../src/lib/tracker-model/@types/Ticket.ts';
+import { TicketDefaultsUtil }               from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
+import { TicketDependencyUtil }             from '../../src/lib/tracker-model/utils/TicketDependencyUtil.ts';
+import { VocabularyUtil }                   from '../../src/lib/tracker-model/utils/VocabularyUtil.ts';
+import { listTickets, readTicket }          from '../../src/services/tracker/TicketStore.ts';
+import { requireWorkspace, type Workspace } from '../../src/services/tracker/Workspace.ts';
+import { OperationRefusal }                 from '../../src/shared/OperationRefusal.ts';
+import { LIMITS }                           from '../../src/shared/constants/Limits.ts';
+import type { CommandContext }              from '../CommandContext.ts';
+import type { ArgumentParser }              from '../arguments/ArgumentParser.ts';
+import { RetiredWordRefusalUtil }           from '../legacy/utils/RetiredWordRefusalUtil.ts';
+import { OutputUtil }                       from '../utils/OutputUtil.ts';
+import type { TicketSubcommandHandler }     from './@types/TicketSubcommandHandler.ts';
+import { TICKET_USAGE }                     from './constants/TicketUsage.ts';
+import { TicketArgumentUtil }               from './utils/TicketArgumentUtil.ts';
+import { TicketLookupUtil }                 from './utils/TicketLookupUtil.ts';
+import { TicketOutputUtil }                 from './utils/TicketOutputUtil.ts';
 
 const LIST_OPTION_NAMES = ['status', 'priority', 'json'];
 const SHOW_OPTION_NAMES = ['json'];

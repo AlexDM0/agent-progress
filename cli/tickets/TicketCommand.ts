@@ -1,13 +1,13 @@
-import { OperationRefusal }             from '../../src/shared/OperationRefusal';
-import type { CommandHandler }          from '../CommandTable';
-import { RetiredWordRefusalUtil }       from '../legacy/utils/RetiredWordRefusalUtil';
-import type { TicketSubcommandHandler } from './@types/TicketSubcommandHandler';
-import { TICKET_CLAIM_SUBCOMMANDS }     from './TicketClaims';
-import { TICKET_FILING_SUBCOMMANDS }    from './TicketFiling';
-import { TICKET_MOVE_SUBCOMMANDS }      from './TicketMoves';
-import { TICKET_READING_SUBCOMMANDS }   from './TicketReading';
-import { TICKET_SETTING_SUBCOMMANDS }   from './TicketSettings';
-import { TICKET_USAGE }                 from './constants/TicketUsage';
+import { OperationRefusal }             from '../../src/shared/OperationRefusal.ts';
+import type { CommandHandler }          from '../CommandTable.ts';
+import { RetiredWordRefusalUtil }       from '../legacy/utils/RetiredWordRefusalUtil.ts';
+import type { TicketSubcommandHandler } from './@types/TicketSubcommandHandler.ts';
+import { TICKET_CLAIM_SUBCOMMANDS }     from './TicketClaims.ts';
+import { TICKET_FILING_SUBCOMMANDS }    from './TicketFiling.ts';
+import { TICKET_MOVE_SUBCOMMANDS }      from './TicketMoves.ts';
+import { TICKET_READING_SUBCOMMANDS }   from './TicketReading.ts';
+import { TICKET_SETTING_SUBCOMMANDS }   from './TicketSettings.ts';
+import { TICKET_USAGE }                 from './constants/TicketUsage.ts';
 
 const TICKET_SUBCOMMANDS: Readonly<Record<string, TicketSubcommandHandler>> = Object.freeze({
   ...TICKET_FILING_SUBCOMMANDS,

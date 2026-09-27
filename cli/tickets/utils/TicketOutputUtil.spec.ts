@@ -4,10 +4,10 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { LogUtil }                     from '../../../src/adapters/utils/LogUtil';
-import { TicketJsonUtil }              from '../../../src/adapters/utils/TicketJsonUtil';
-import { boardFixture, ticketFixture } from '../../../src/testing/BoardFixtures';
-import { TicketOutputUtil }            from './TicketOutputUtil';
+import { LogUtil }                     from '../../../src/adapters/utils/LogUtil.ts';
+import { TicketJsonUtil }              from '../../../src/adapters/utils/TicketJsonUtil.ts';
+import { boardFixture, ticketFixture } from '../../../src/testing/BoardFixtures.ts';
+import { TicketOutputUtil }            from './TicketOutputUtil.ts';
 
 const { ticketAsJson, loggedSentencesOf } = TicketOutputUtil;
 

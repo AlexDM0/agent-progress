@@ -17,8 +17,8 @@ import {
   test
 } from 'bun:test';
 
-import { createScratchDirectory, removeScratchDirectory }                            from '../../testing/ScratchWorkspace';
-import { claudeSettingsFilePathFor, refreshSubagentStopHook, writeSubagentStopHook } from './ClaudeSettings';
+import { createScratchDirectory, removeScratchDirectory }                            from '../../testing/ScratchWorkspace.ts';
+import { claudeSettingsFilePathFor, refreshSubagentStopHook, writeSubagentStopHook } from './ClaudeSettings.ts';
 
 const THE_HOOK = {
   matcher:        '',

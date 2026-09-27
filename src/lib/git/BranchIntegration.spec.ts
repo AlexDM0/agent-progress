@@ -20,14 +20,14 @@ import {
   gitIsAvailable,
   gitOutputIn,
   removeScratchDirectory
-} from '../../testing/ScratchWorkspace';
+} from '../../testing/ScratchWorkspace.ts';
 import {
   deleteMergedBranch,
   fastForwardTo,
   readBranchDescent,
   readCurrentBranch,
   removeWorktree
-} from './BranchIntegration';
+} from './BranchIntegration.ts';
 
 const scratchDirectories: string[] = [];
 

@@ -5,7 +5,7 @@
 import { join }                   from 'node:path';
 import { describe, expect, test } from 'bun:test';
 
-import { runAgentProgress } from './CliProcess';
+import { runAgentProgress } from './CliProcess.ts';
 
 const REPOSITORY_DIRECTORY = join(import.meta.dir, '..', '..');
 

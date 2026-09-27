@@ -5,19 +5,19 @@
 import { readFileSync } from 'node:fs';
 import { homedir }      from 'node:os';
 
-import { OperationRefusalWordingUtil }                 from '../../../src/adapters/utils/OperationRefusalWordingUtil';
-import type { TranscriptUsageTotals }                  from '../../../src/lib/claude-code/utils/TranscriptUsageUtil';
-import { TranscriptUsageUtil }                         from '../../../src/lib/claude-code/utils/TranscriptUsageUtil';
-import type { TokenCredit, TokenCreditOutcome }        from '../../../src/lib/tracker-model/@types/BoardChanges';
-import type { AgentUsage }                             from '../../../src/lib/tracker-model/@types/LogRecord';
-import { OperationRefusal, refusalIsOperationRefusal } from '../../../src/shared/OperationRefusal';
-import { LIMITS }                                      from '../../../src/shared/constants/Limits';
-import type { CommandContext }                         from '../../CommandContext';
-import type { CommandHandler }                         from '../../CommandTable';
-import { requireCurrentInstall }                       from '../../InstallVersionCheck';
-import { openTrackerForWriting }                       from '../../TrackerWriting';
-import type { ArgumentParser }                         from '../../arguments/ArgumentParser';
-import { SubagentStopUtil }                            from './utils/SubagentStopUtil';
+import { OperationRefusalWordingUtil }                 from '../../../src/adapters/utils/OperationRefusalWordingUtil.ts';
+import type { TranscriptUsageTotals }                  from '../../../src/lib/claude-code/utils/TranscriptUsageUtil.ts';
+import { TranscriptUsageUtil }                         from '../../../src/lib/claude-code/utils/TranscriptUsageUtil.ts';
+import type { TokenCredit, TokenCreditOutcome }        from '../../../src/lib/tracker-model/@types/BoardChanges.ts';
+import type { AgentUsage }                             from '../../../src/lib/tracker-model/@types/LogRecord.ts';
+import { OperationRefusal, refusalIsOperationRefusal } from '../../../src/shared/OperationRefusal.ts';
+import { LIMITS }                                      from '../../../src/shared/constants/Limits.ts';
+import type { CommandContext }                         from '../../CommandContext.ts';
+import type { CommandHandler }                         from '../../CommandTable.ts';
+import { requireCurrentInstall }                       from '../../InstallVersionCheck.ts';
+import { openTrackerForWriting }                       from '../../TrackerWriting.ts';
+import type { ArgumentParser }                         from '../../arguments/ArgumentParser.ts';
+import { SubagentStopUtil }                            from './utils/SubagentStopUtil.ts';
 
 const USAGE = 'agent-progress hook subagent-stop  (the hook JSON arrives on standard input)';
 

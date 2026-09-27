@@ -4,14 +4,14 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import type { BoardFixture } from '../../testing/BoardFixtures';
+import type { BoardFixture } from '../../testing/BoardFixtures.ts';
 import {
   boardFixture,
   refusalDetailOf,
   taskFixture,
   ticketFixture
-} from '../../testing/BoardFixtures';
-import type { BoardRefusalDetail } from './BoardRefusal';
+} from '../../testing/BoardFixtures.ts';
+import type { BoardRefusalDetail } from './BoardRefusal.ts';
 
 const STARTED_AT = '2026-09-18T10:00:00+02:00';
 const CLAIMED_AT = '2026-09-18T11:00:00+02:00';

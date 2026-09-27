@@ -2,12 +2,12 @@
  * It refuses the verbs and status words the rename retired, naming the word that replaced each, which agents briefed before the rename still type.
  * It can be deleted once agents no longer use the retired words.
  */
-import { StatusWordingUtil }     from '../../../src/adapters/utils/StatusWordingUtil';
-import type { TaskStatus }       from '../../../src/lib/tracker-model/@types/Task';
-import type { TicketStatus }     from '../../../src/lib/tracker-model/@types/Ticket';
-import { OperationRefusal }      from '../../../src/shared/OperationRefusal';
-import { RetiredStatusWordUtil } from '../../../src/shared/legacy/utils/RetiredStatusWordUtil';
-import type { ArgumentParser }   from '../../arguments/ArgumentParser';
+import { StatusWordingUtil }     from '../../../src/adapters/utils/StatusWordingUtil.ts';
+import type { TaskStatus }       from '../../../src/lib/tracker-model/@types/Task.ts';
+import type { TicketStatus }     from '../../../src/lib/tracker-model/@types/Ticket.ts';
+import { OperationRefusal }      from '../../../src/shared/OperationRefusal.ts';
+import { RetiredStatusWordUtil } from '../../../src/shared/legacy/utils/RetiredStatusWordUtil.ts';
+import type { ArgumentParser }   from '../../arguments/ArgumentParser.ts';
 
 const RETIRED_TASK_VERB_TARGETS: Record<string, TaskStatus> = { review: 'reviewed' };
 

@@ -4,7 +4,7 @@
  */
 import { expect, test } from 'bun:test';
 
-import { TicketIdUtil } from './TicketIdUtil';
+import { TicketIdUtil } from './TicketIdUtil.ts';
 
 const { padTicketId, parseTicketReference } = TicketIdUtil;
 

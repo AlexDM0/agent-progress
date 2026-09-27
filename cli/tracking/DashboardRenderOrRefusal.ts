@@ -1,9 +1,9 @@
-import { TrackerReadingWordingUtil } from '../../src/adapters/utils/TrackerReadingWordingUtil';
-import { renderDashboardUnderLock }  from '../../src/services/tracker/DashboardRendering';
-import type { Workspace }            from '../../src/services/tracker/Workspace';
-import { OperationRefusal }          from '../../src/shared/OperationRefusal';
-import type { CommandContext }       from '../CommandContext';
-import { OutputUtil }                from '../utils/OutputUtil';
+import { TrackerReadingWordingUtil } from '../../src/adapters/utils/TrackerReadingWordingUtil.ts';
+import { renderDashboardUnderLock }  from '../../src/services/tracker/DashboardRendering.ts';
+import type { Workspace }            from '../../src/services/tracker/Workspace.ts';
+import { OperationRefusal }          from '../../src/shared/OperationRefusal.ts';
+import type { CommandContext }       from '../CommandContext.ts';
+import { OutputUtil }                from '../utils/OutputUtil.ts';
 
 /** For `render` and `open`, whose whole job is the page: an unreadable tracker is their failure, reported once, by the refusal alone. */
 export async function renderDashboardOrRefuse(context: CommandContext, workspace: Workspace): Promise<void> {

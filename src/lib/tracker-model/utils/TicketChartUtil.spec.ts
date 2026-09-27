@@ -4,11 +4,11 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import type { Task }              from '../@types/Task';
-import type { TicketFrontmatter } from '../@types/Ticket';
-import { TICKET_STATUSES }        from '../constants/Statuses';
-import { TaskFilingUtil }         from './TaskFilingUtil';
-import { TicketChartUtil }        from './TicketChartUtil';
+import type { Task }              from '../@types/Task.ts';
+import type { TicketFrontmatter } from '../@types/Ticket.ts';
+import { TICKET_STATUSES }        from '../constants/Statuses.ts';
+import { TaskFilingUtil }         from './TaskFilingUtil.ts';
+import { TicketChartUtil }        from './TicketChartUtil.ts';
 
 const {
   reviewBarNameOf,

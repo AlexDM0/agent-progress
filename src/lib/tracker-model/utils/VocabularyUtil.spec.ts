@@ -4,10 +4,10 @@
  */
 import { expect, test } from 'bun:test';
 
-import { AGENT_EFFORTS, AGENT_MODELS }     from '../constants/AgentSettings';
-import { TASK_STATUSES, TICKET_STATUSES }  from '../constants/Statuses';
-import { TICKET_PRIORITIES, TICKET_TYPES } from '../constants/TicketFields';
-import { VocabularyUtil }                  from './VocabularyUtil';
+import { AGENT_EFFORTS, AGENT_MODELS }     from '../constants/AgentSettings.ts';
+import { TASK_STATUSES, TICKET_STATUSES }  from '../constants/Statuses.ts';
+import { TICKET_PRIORITIES, TICKET_TYPES } from '../constants/TicketFields.ts';
+import { VocabularyUtil }                  from './VocabularyUtil.ts';
 
 const {
   agentEffortIsKnown,

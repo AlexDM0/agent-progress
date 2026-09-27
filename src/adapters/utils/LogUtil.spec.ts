@@ -5,8 +5,8 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import type { AgentUsage, LogRecord, LogRecordContent } from '../../lib/tracker-model/@types/LogRecord';
-import { LogUtil }                                      from './LogUtil';
+import type { AgentUsage, LogRecord, LogRecordContent } from '../../lib/tracker-model/@types/LogRecord.ts';
+import { LogUtil }                                      from './LogUtil.ts';
 
 const {
   dispatcherStateTextOf,

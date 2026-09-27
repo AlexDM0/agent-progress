@@ -1,7 +1,7 @@
 /** Only a plain object is a record: `null` and an array are objects to `typeof`, and must not pass as one. */
 import { expect, test } from 'bun:test';
 
-import { JsonRecordUtil } from './JsonRecordUtil';
+import { JsonRecordUtil } from './JsonRecordUtil.ts';
 
 const { recordOf } = JsonRecordUtil;
 

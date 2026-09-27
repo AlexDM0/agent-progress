@@ -9,10 +9,10 @@ import { join, relative, sep } from 'node:path';
 
 import { describe, expect, test } from 'bun:test';
 
-import { OperationRefusal }                              from '../../src/shared/OperationRefusal';
-import { DISPATCH_PROTOCOL }                             from '../../src/shared/constants/DispatchProtocol';
-import { installedFilePathsIn }                          from '../InstalledFiles';
-import { dispatcherScriptTextOf, installedFileTextsFor } from './InstalledFileGeneration';
+import { OperationRefusal }                              from '../../src/shared/OperationRefusal.ts';
+import { DISPATCH_PROTOCOL }                             from '../../src/shared/constants/DispatchProtocol.ts';
+import { installedFilePathsIn }                          from '../InstalledFiles.ts';
+import { dispatcherScriptTextOf, installedFileTextsFor } from './InstalledFileGeneration.ts';
 
 const TEXTS = await installedFileTextsFor({ generatesTheDispatcherScript: true });
 

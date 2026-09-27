@@ -6,8 +6,8 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures';
-import { StatusDocumentUtil }                       from './StatusDocumentUtil';
+import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures.ts';
+import { StatusDocumentUtil }                       from './StatusDocumentUtil.ts';
 
 const { inProgressIdsOf, boardWorkOf } = StatusDocumentUtil;
 

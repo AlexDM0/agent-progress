@@ -10,10 +10,10 @@ import {
   expect,
   test,
 } from 'bun:test';
-import type { MalformedTicketFile }                       from '../../src/services/tracker/TicketStore';
-import { createScratchDirectory, removeScratchDirectory } from '../../src/testing/ScratchWorkspace';
-import { createCapturedCommandContext }                   from '../testing/CapturedCommandContext';
-import { OutputUtil }                                     from './OutputUtil';
+import type { MalformedTicketFile }                       from '../../src/services/tracker/TicketStore.ts';
+import { createScratchDirectory, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
+import { createCapturedCommandContext }                   from '../testing/CapturedCommandContext.ts';
+import { OutputUtil }                                     from './OutputUtil.ts';
 
 const { padColumn, ignoredTicketFileText, reportRenderProblems } = OutputUtil;
 

@@ -21,21 +21,21 @@ import {
   mock,
   test
 }                                                              from 'bun:test';
-import { InstallVersionWordingUtil }       from '../../../src/adapters/utils/InstallVersionWordingUtil';
-import * as realWorkflowScriptBundleModule from '../../../src/lib/claude-code/WorkflowScriptBundle';
+import { InstallVersionWordingUtil }       from '../../../src/adapters/utils/InstallVersionWordingUtil.ts';
+import * as realWorkflowScriptBundleModule from '../../../src/lib/claude-code/WorkflowScriptBundle.ts';
 import {
   addWorktree,
   createScratchDirectory,
   createScratchGitRepository,
   gitIsAvailable,
   removeScratchDirectory
-}                                                              from '../../../src/testing/ScratchWorkspace';
-import { CLAUDE_MANAGED_BLOCK_MARKERS, installedFilePathsIn } from '../../InstalledFiles';
-import { runCommandLine }                                     from '../../Main';
-import { INSTALL_VERSION }                                    from '../../constants/InstallVersion';
-import { createCapturedCommandContext }                       from '../../testing/CapturedCommandContext';
-import { repositoryFileContentsOf }                           from '../../testing/RepositoryFileContents';
-import { installedFileTextsFor }                              from '../InstalledFileGeneration';
+}                                                              from '../../../src/testing/ScratchWorkspace.ts';
+import { CLAUDE_MANAGED_BLOCK_MARKERS, installedFilePathsIn } from '../../InstalledFiles.ts';
+import { runCommandLine }                                     from '../../Main.ts';
+import { INSTALL_VERSION }                                    from '../../constants/InstallVersion.ts';
+import { createCapturedCommandContext }                       from '../../testing/CapturedCommandContext.ts';
+import { repositoryFileContentsOf }                           from '../../testing/RepositoryFileContents.ts';
+import { installedFileTextsFor }                              from '../InstalledFileGeneration.ts';
 
 const scratchDirectories: string[] = [];
 
@@ -396,14 +396,14 @@ describe.skipIf(!gitIsAvailable())('a dispatcher that will not bundle', () => {
   // Bun keeps a module mock for the rest of the process, so the real exports are copied before the stub goes in and mocked back afterwards.
   beforeAll(() => {
     realWorkflowScriptBundleExports = { ...realWorkflowScriptBundleModule };
-    mock.module('../../../src/lib/claude-code/WorkflowScriptBundle', () => ({
+    mock.module('../../../src/lib/claude-code/WorkflowScriptBundle.ts', () => ({
       ...realWorkflowScriptBundleExports,
       bundleWorkflowScript: () => Promise.resolve({ verdict: 'failed', reason: 'build-failed', detail: 'Example build failure' }),
     }));
   });
 
   afterAll(() => {
-    mock.module('../../../src/lib/claude-code/WorkflowScriptBundle', () => realWorkflowScriptBundleExports);
+    mock.module('../../../src/lib/claude-code/WorkflowScriptBundle.ts', () => realWorkflowScriptBundleExports);
   });
 
   // Every installed text is computed before the first write, so a fresh init that cannot generate the dispatcher leaves no tracker behind.

@@ -5,9 +5,9 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import type { BoardFixture }                        from '../../testing/BoardFixtures';
-import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures';
-import type { Board }                               from './Board';
+import type { BoardFixture }                        from '../../testing/BoardFixtures.ts';
+import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures.ts';
+import type { Board }                               from './Board.ts';
 
 const CHANGED_AT = '2026-09-18T20:40:00+02:00';
 

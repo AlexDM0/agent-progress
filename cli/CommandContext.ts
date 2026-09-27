@@ -5,7 +5,7 @@
  */
 import { createInterface } from 'node:readline';
 
-import { createRenderState, type RenderState } from '../src/services/render/RenderState';
+import { createRenderState, type RenderState } from '../src/services/render/RenderState.ts';
 
 export interface CommandContext {
   currentDirectory:        string;

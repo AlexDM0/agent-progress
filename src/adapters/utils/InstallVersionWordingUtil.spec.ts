@@ -5,8 +5,8 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import type { InstallVersionMismatch } from '../../shared/@types/InstallVersionMismatch';
-import { InstallVersionWordingUtil }   from './InstallVersionWordingUtil';
+import type { InstallVersionMismatch } from '../../shared/@types/InstallVersionMismatch.ts';
+import { InstallVersionWordingUtil }   from './InstallVersionWordingUtil.ts';
 
 const ROOT_DIRECTORY     = '/example/repository';
 const MANIFEST_FILE_PATH = '/example/repository/.agent-progress/version.json';
