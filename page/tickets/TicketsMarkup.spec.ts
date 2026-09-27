@@ -112,7 +112,7 @@ describe('ticketCardsMarkup', () => {
     expect(filedOnly).toContain('<span class="ap-ticket-dates" title="filed 2026-09-18 20:44">filed 20:44</span>');
   });
 
-  // The head once printed a bare clock whatever the day; a milestone from yesterday read as today's.
+  // A bare clock would make a milestone from yesterday read as today's, so a head milestone from another day carries its date.
   test('dates a head milestone from another day, and shows one from another year in full with no title', () => {
     const yesterday = ticketCardsMarkup([exampleTicket({ status: 'delivered', delivered: '2026-09-17T23:48:00+02:00' })], NO_WAITING, EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY);
     const lastYear  = ticketCardsMarkup(

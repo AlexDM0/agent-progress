@@ -9,7 +9,6 @@ import {
   readdirSync,
   readFileSync,
   rmSync,
-  statSync,
   writeFileSync
 }               from 'node:fs';
 import { join } from 'node:path';
@@ -20,8 +19,10 @@ import {
   expect,
   test
 }                                       from 'bun:test';
+import { workspacePathsFor }                                                  from '../../src/services/tracker/Workspace.ts';
 import { LIMITS }                                                             from '../../src/shared/constants/Limits.ts';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
+import { storedFileContentsOf }                                               from '../../src/testing/TrackerFileFixtures.ts';
 import { CLAUDE_MANAGED_BLOCK_MARKERS }                                       from '../InstalledFiles.ts';
 import { runCommandLine }                                                     from '../Main.ts';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext.ts';
@@ -153,18 +154,6 @@ async function trackedRepositoryWithVersionTwoRowsInOlderWords(): Promise<{ repo
   return { repositoryDirectory, progressFilePath };
 }
 
-/** Every file under the tracker directory but the lock's records, which every lock hold writes. */
-function storedTrackerFiles(repositoryDirectory: string): Record<string, string> {
-  const trackerDirectory                 = join(repositoryDirectory, '.agent-progress');
-  const contents: Record<string, string> = {};
-  for (const fileName of readdirSync(trackerDirectory, { recursive: true, encoding: 'utf8' })) {
-    const filePath = join(trackerDirectory, fileName);
-    if (fileName.startsWith('.lock') || statSync(filePath).isDirectory()) continue;
-    contents[fileName] = readFileSync(filePath, 'utf8');
-  }
-  return contents;
-}
-
 describe.skipIf(!gitIsAvailable())('what update rewrites', () => {
   test('a version 2 progress file holding a retired word and a review row known only by its name is stored current, and a second run touches nothing', async () => {
     const { repositoryDirectory, progressFilePath } = await trackedRepositoryWithVersionTwoRowsInOlderWords();
@@ -179,12 +168,12 @@ describe.skipIf(!gitIsAvailable())('what update rewrites', () => {
     expect(draftingRow?.history?.map((phase) => phase.status)).toEqual(['in-progress', 'in-progress']);
     expect(reviewRow).toMatchObject({ reviewOf: '001', reviewBarRound: 1 });
 
-    const filesAfterTheRewrite = storedTrackerFiles(repositoryDirectory);
+    const filesAfterTheRewrite = storedFileContentsOf(workspacePathsFor(repositoryDirectory));
     const second               = createCapturedCommandContext({ currentDirectory: repositoryDirectory, now: () => FROZEN_NOW });
     expect(await runCommandLine(['update'], second)).toBe(0);
 
     expect(second.outputText().split('\n')[0]).toEndWith('; the tracker itself was not touched.');
-    expect(storedTrackerFiles(repositoryDirectory)).toEqual(filesAfterTheRewrite);
+    expect(storedFileContentsOf(workspacePathsFor(repositoryDirectory))).toEqual(filesAfterTheRewrite);
   });
 
   test('a version 1 progress file and a ticket holding a retired word are rewritten in the current format, and a second run touches nothing', async () => {

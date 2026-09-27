@@ -3,9 +3,6 @@
  * each current option leaves every tracker file byte for byte and prints the refresh lines. The heading is worded in `cli/legacy/`, so it is not
  * asserted. It imports nothing from `cli/legacy/`, so it still holds once that folder and its seam lines are dropped.
  */
-import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join }                                from 'node:path';
-
 import {
   afterEach,
   beforeEach,
@@ -13,7 +10,9 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
+import { workspacePathsFor }                                                  from '../../../src/services/tracker/Workspace.ts';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
+import { storedFileContentsOf }                                               from '../../../src/testing/TrackerFileFixtures.ts';
 import { runCommandLine }                                                     from '../../Main.ts';
 import { createCapturedCommandContext }                                       from '../../testing/CapturedCommandContext.ts';
 
@@ -37,18 +36,6 @@ async function run(commandLineArguments: readonly string[]): Promise<ReturnType<
   return context;
 }
 
-/** Every file under the tracker directory but the lock's records, which every lock hold writes. */
-function storedTrackerFiles(): Record<string, string> {
-  const trackerDirectory = join(repositoryDirectory, '.agent-progress');
-  const contents: Record<string, string> = {};
-  for (const fileName of readdirSync(trackerDirectory, { recursive: true, encoding: 'utf8' })) {
-    const filePath = join(trackerDirectory, fileName);
-    if (fileName.startsWith('.lock') || statSync(filePath).isDirectory()) continue;
-    contents[fileName] = readFileSync(filePath, 'utf8');
-  }
-  return contents;
-}
-
 beforeEach(async () => {
   repositoryDirectory = createScratchGitRepository('update-command-legacy-seam');
   await run(['init', '--project', 'Example Agency']);
@@ -63,17 +50,17 @@ afterEach(() => {
 
 describe.skipIf(!gitIsAvailable())('update on a tracker in the current format', () => {
   test('leaves every tracker file byte for byte and prints each refresh line', async () => {
-    const filesBefore = storedTrackerFiles();
+    const filesBefore = storedFileContentsOf(workspacePathsFor(repositoryDirectory));
 
     const context = await run(['update']);
 
-    expect(storedTrackerFiles()).toEqual(filesBefore);
+    expect(storedFileContentsOf(workspacePathsFor(repositoryDirectory))).toEqual(filesBefore);
     for (const refreshLinePattern of REFRESH_LINE_PATTERNS) expect(context.outputText()).toMatch(refreshLinePattern);
     expect(context.errorText()).toBe('');
   });
 
   test('takes every current option, each leaving its own file alone and the tracker byte for byte', async () => {
-    const filesBefore = storedTrackerFiles();
+    const filesBefore = storedFileContentsOf(workspacePathsFor(repositoryDirectory));
     const optionsWithTheirLines: Array<[optionName: string, line: string]> = [
       ['--no-claude-md', '  CLAUDE.md:   left alone (--no-claude-md)'],
       ['--no-hooks', '  hooks:       left alone (--no-hooks)'],
@@ -87,6 +74,6 @@ describe.skipIf(!gitIsAvailable())('update on a tracker in the current format', 
     }
     const everyOption = await run(['update', ...optionsWithTheirLines.map(([optionName]) => optionName)]);
     for (const [, line] of optionsWithTheirLines) expect(everyOption.outputText()).toContain(line);
-    expect(storedTrackerFiles()).toEqual(filesBefore);
+    expect(storedFileContentsOf(workspacePathsFor(repositoryDirectory))).toEqual(filesBefore);
   });
 });

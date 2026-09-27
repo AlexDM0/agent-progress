@@ -120,35 +120,18 @@ surface, tickets, the page and the skills. There are no folder `CLAUDE.md` files
 ## Tests and isolation
 
 Spec naming, the test-only folders and their devDependency exemption are rules in the root
-`CLAUDE.md` (Imports, TypeScript and lint, Tests). The helpers:
+`CLAUDE.md` (Imports, TypeScript and lint, Tests). The test-only helpers sit beside their consumers,
+and each file's header says what it is for:
 
-| helper | use |
-|---|---|
-| `src/testing/ScratchWorkspace.ts` | Scratch directories, git repositories and worktrees under the OS temp directory, and the least a tracker needs for discovery to find it. |
-| `cli/testing/CapturedCommandContext.ts` | A command context whose two output streams are arrays, so a spec drives `runCommandLine` in-process and reads back what a user would have seen. |
-| `cli/testing/CliProcess.ts` | The one sanctioned way to spawn the real binary. |
-| `cli/testing/RepositoryFileContents.ts` | Every file of a scratch repository outside `.git/`, so a spec shows a refused command wrote nothing. |
-| `cli/testing/StoredLogEntries.ts` | The tracker's `log.jsonl` as people read it, each record worded through `LogUtil`, so a command spec checks what a command logged. |
-| `cli/testing/StoredLogText.ts` | The tracker's `log.jsonl` exactly as stored, so a command spec checks that a refused command left the log byte-identical. |
-| `src/testing/TrackerIsolation.ts` | The guard that keeps a spec away from any tracker it did not create. |
-| `src/testing/BoardFixtures.ts` | A `Board` over synthetic records (`boardFixture`, `taskFixture`, `ticketFixture`) whose logger keeps every record in a list, so the Board specs assert reason codes, records and changed tickets. |
-| `src/testing/TrackerFileFixtures.ts` | A readable tracker written through the store's own writers, a broken log line, every stored file's contents and a failed action's throw, for the tracker service specs. |
-| `src/testing/ChildProcessEvaluation.ts` | Runs a few lines in a child Bun process with its own environment and reads back the JSON they print, for the specs that must set an environment variable. |
-| `src/testing/RenderedIslandText.ts` | A JSON island read back out of a rendered page, for the render and page specs. |
-| `src/testing/ProgressFixtures.ts` | A new tracker's progress and a row filed the way the Board files one, for the adapter and service specs that read or write `progress.json`. |
-| `src/adapters/progress/testing/ProgressFileFixtures.ts` | The tracker as the current `progress.json` format stores it, for the `progress.json` adapter specs. |
-| `src/adapters/legacy/testing/LegacyProgressFileFixtures.ts` | The older progress documents the legacy specs read: a version 1 file with its own log, and one in the retired task words. It goes with `src/adapters/legacy/`. |
-| `page/testing/PageBoardFixture.ts` | The page's rows and tickets with the Board facts built the way the render service builds them, so a page spec never restates a board rule. |
-| `dispatcher/testing/DispatchScriptHarness.ts` | Runs a dispatcher Workflow script's text against a fake `agent()` and a fake board. |
-| `dispatcher/testing/DispatchScriptBundle.ts` | Hands `src/lib/claude-code/WorkflowScriptBundle.ts` the port's entry and meta module, or a `SourceMutant` of one of its modules, and memoises the unmutated build per process. |
-| `dispatcher/testing/SourceMutant.ts` | A one-occurrence rewrite of one dispatcher module, applied as the bundle is built, so a claim can be watched failing without the decision it pins. |
-| `dispatcher/testing/DispatchTraceCapture.ts` | Runs every catalogue entry through the harness, reduced to its trace; run as a script, it prints the frozen table. |
-| `dispatcher/testing/DispatchTraceCatalogue.ts` | Every scenario the frozen table holds: the claim suites' scenarios, a builder × reviewer grid, the argument refusals and fallbacks, and one lever per reply shape the dispatcher guards against. |
-| `dispatcher/testing/FrozenDispatchTraces.json` | The frozen trace table, naming the bundle it was taken from and the command that retakes it. |
-| `dispatcher/testing/claims/` | The dispatcher's decisions, holds and resumptions as claims: each a scenario, what must hold after it, and the mutant that breaks exactly that decision. |
-| `dispatcher/testing/@types/` | The harness's scenario and recorded run, the trace a frozen table holds, and a `meta`'s verdict. |
-| `dispatcher/testing/constants/` | The prompt sentences the fake agents follow, the Workflow globals, the modules a mutant may rewrite and the trace's digest length. |
-| `dispatcher/testing/utils/` | Readings of a recorded dispatch run that the claims share, such as its returned summary; its reduction to a trace a frozen table can hold and compare; and a script's syntax tree read for a clock, randomness, an impure `meta` or a shadowed Workflow global. |
+- `src/testing/`: the scratch workspace, the tracker isolation guard, and the Board, tracker-file and
+  progress fixtures several parts share.
+- `cli/testing/`: the captured command context, the one sanctioned way to spawn the binary
+  (`CliProcess.ts`), and readers of what a command left on disk.
+- `src/adapters/progress/testing/` and `src/adapters/legacy/testing/`: the stored-format fixtures for
+  their adapter specs.
+- `page/testing/`: the page specs' board and limits fixtures.
+- `dispatcher/testing/`: the Workflow-script harness, its bundle and source mutants, the claims, and
+  the frozen trace table with the catalogue and capture that retake it.
 
 Where `TrackerIsolation` runs is a rule in the root `CLAUDE.md` (Tests). It refuses any directory
 outside the scratch root, and refuses when discovery from a directory inside it (the walk up, the git
@@ -269,8 +252,7 @@ progress file in a JSON island and `page/utils/GeometryUtil.ts` computes every b
 marker from it, which is what lets the in-page range presets re-lay-out without a regeneration, and
 means there is exactly one implementation of the geometry rather than a server copy and a client
 copy that disagree. The geometry's bounds are put into the island by `src/services/render/ProgressHtml.ts` and taken
-as a parameter rather than read from `src/shared/constants/Limits.ts`, so `page/utils/GeometryUtil.spec.ts`
-can drive it with a constructed tick ladder. The island's last key, `boardFacts`, carries the Board's answers
+as a parameter; `page/utils/GeometryUtil.ts` says why. The island's last key, `boardFacts`, carries the Board's answers
 the render service computes through `src/services/render/utils/BoardFactsUtil.ts`: one fact per row at its
 index, and one per ticket by id. The page reads every board fact from them and derives none itself.
 

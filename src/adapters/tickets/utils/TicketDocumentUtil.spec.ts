@@ -170,7 +170,7 @@ describe('parsedTicketDocumentOf', () => {
     expect(parsed.verdict === 'malformed' ? parsed.reason : '').not.toContain('no closing');
   });
 
-  // A body opening on `# Title`, a blank and prose used to be refused at the prose as a bad key, hiding that the fence went missing.
+  // A body opening on `# Title`, a blank and prose is refused at the heading, not at the prose as a bad key, so the missing fence is named.
   test('a single-hash line followed by a blank and prose is refused at itself when the closing fence was deleted, saying to restore the fence above it', () => {
     const fenceDeleted = FULL_TICKET.replace('task: 17\n---\n', 'task: 17\n').replace('## Report', 'The dialog forgets the folder.').concat('---\n');
 
@@ -248,7 +248,7 @@ describe('parsedTicketDocumentOf', () => {
       .toEqual({ verdict: 'malformed', reason: '`  nested: true` is indented, and this frontmatter has no nested structure', line: 12 });
   });
 
-  // An indented heading used to pass as a comment, so a deleted fence above an indented `## Report` went unnoticed.
+  // An indented heading is a heading, not a comment, so a deleted fence above an indented `## Report` is caught.
   test('a deleted fence is refused at an indented heading as it is at one in column 0', () => {
     const fenceDeleted   = FULL_TICKET.replace('task: 17\n---\n', 'task: 17\n').replace('## Report', '  ## Report').concat('---\n\n## Acceptance\n');
     const expectedReason = 'line 17 is the markdown heading `  ## Report`, and a frontmatter holds no heading (a comment has one `#`); '
@@ -413,7 +413,7 @@ describe('ticketDocumentTextOf', () => {
     expect(TicketDocumentUtil.ticketDocumentTextOf(frontmatter, body, lineEnding)).toBe(windowsTicket);
   });
 
-  // The body used to be where the line ending was read from, so an empty one lost CRLF on the first rewrite.
+  // The line ending is read from the frontmatter, not the body, so an empty body still keeps CRLF on a rewrite.
   test('a CRLF document with an empty body keeps CRLF, because the line ending is the frontmatter\'s', () => {
     const windowsTicketWithoutBody = `${FULL_TICKET.slice(0, FULL_TICKET.indexOf('# 003'))}`.replaceAll('\n', '\r\n');
     const { frontmatter, body, lineEnding } = parsedDocument(windowsTicketWithoutBody);

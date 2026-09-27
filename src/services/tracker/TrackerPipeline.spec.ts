@@ -21,10 +21,10 @@ import {
 } from 'bun:test';
 import { OperationRefusal, refusalIsOperationRefusal }    from '../../shared/OperationRefusal.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
+import { failureOf }                                      from '../../testing/ThrownFailure.ts';
 import {
   BROKEN_LOG_TEXT,
   EXAMPLE_TICKET_FILE_NAME,
-  failureOf,
   storedFileContentsOf,
   writeReadableTracker
 } from '../../testing/TrackerFileFixtures.ts';
