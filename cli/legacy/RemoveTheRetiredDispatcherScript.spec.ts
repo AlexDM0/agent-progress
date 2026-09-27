@@ -3,7 +3,7 @@
  * matter: both commands remove it and name it on the workflow line, so only one dispatcher is left to launch; a second run has nothing to
  * remove and says nothing of it; the folder goes with the copy only when nothing else is in it; `--no-workflow` leaves `.claude/workflows/`
  * alone, since a copy there may be the project's own; and a refresh cut short leaves the copy for the rerun to remove and report. It is
- * deleted with `cli/legacy/RetiredDispatcherScriptRemoval.ts`.
+ * deleted with `cli/legacy/RemoveTheRetiredDispatcherScript.ts`.
  */
 import {
   chmodSync,

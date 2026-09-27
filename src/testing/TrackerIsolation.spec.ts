@@ -13,7 +13,7 @@ import {
   test
 }                    from 'bun:test';
 
-import { jsonPrintedByAChildProcess }                                                      from './ChildProcessEvaluation.ts';
+import { jsonPrintedByAChildProcess }                                                      from './JsonPrintedByAChildProcess.ts';
 import { createCanonicalScratchDirectory, createScratchDirectory, removeScratchDirectory } from './ScratchWorkspace.ts';
 import { writeMinimalTracker }                                                             from './TrackerFileFixtures.ts';
 import { requireTrackerIsolation, trackerIsolationVerdictFor }                             from './TrackerIsolation.ts';

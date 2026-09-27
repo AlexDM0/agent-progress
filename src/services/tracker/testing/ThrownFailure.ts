@@ -1,5 +1,5 @@
 /** What the action threw; an action that does not fail fails the test. */
-export async function failureOf(action: () => Promise<unknown>): Promise<unknown> {
+export async function thrownFailureOf(action: () => Promise<unknown>): Promise<unknown> {
   try {
     await action();
   } catch (error) {

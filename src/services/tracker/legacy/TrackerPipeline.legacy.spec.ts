@@ -16,7 +16,7 @@ import { EXAMPLE_SESSION_NOTE }                           from '../../../testing
 import { createRenderState }                              from '../../render/RenderState.ts';
 import { writeTracker }                                   from '../TrackerPipeline.ts';
 import { workspacePathsFor, type Workspace }              from '../Workspace.ts';
-import { failureOf }                                      from '../testing/ThrownFailure.ts';
+import { thrownFailureOf }                                from '../testing/ThrownFailure.ts';
 
 const CHANGED_AT = '2026-09-18T20:05:00+02:00';
 
@@ -39,7 +39,7 @@ describe('writeTracker', () => {
   test('for a version 1 tracker, log.jsonl is written before progress.json', async () => {
     writeVersionOneProgressFile(workspace.progressFilePath, [{ at: EXAMPLE_SESSION_NOTE.at, text: 'Example session started' }]);
 
-    const failure = await failureOf(() => writeTracker({
+    const failure = await thrownFailureOf(() => writeTracker({
       workspace,
       at:     CHANGED_AT,
       now,

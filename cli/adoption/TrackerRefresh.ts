@@ -16,7 +16,7 @@ import {
 import type { Workspace }                   from '../../src/services/tracker/Workspace.ts';
 import { installedFilePathsIn }             from '../InstalledFiles.ts';
 import { INSTALL_VERSION }                  from '../constants/InstallVersion.ts';
-import { removeTheRetiredDispatcherScript } from '../legacy/RetiredDispatcherScriptRemoval.ts';
+import { removeTheRetiredDispatcherScript } from '../legacy/RemoveTheRetiredDispatcherScript.ts';
 import type { InstalledFileTexts }          from './InstalledFileGeneration.ts';
 import { CLAUDE_MANAGED_BLOCK_MARKERS }     from './constants/ClaudeManagedBlockMarkers.ts';
 

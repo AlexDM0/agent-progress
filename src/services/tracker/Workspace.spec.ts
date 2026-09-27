@@ -8,7 +8,7 @@ import { dirname, join }                   from 'node:path';
 import { afterAll, expect, test }          from 'bun:test';
 
 import { refusalIsOperationRefusal }  from '../../shared/OperationRefusal.ts';
-import { jsonPrintedByAChildProcess } from '../../testing/ChildProcessEvaluation.ts';
+import { jsonPrintedByAChildProcess } from '../../testing/JsonPrintedByAChildProcess.ts';
 import {
   addWorktree,
   createCanonicalScratchDirectory,

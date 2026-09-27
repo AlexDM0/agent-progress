@@ -31,7 +31,7 @@ import { createRenderState }                 from '../render/RenderState.ts';
 import { LockGenerationSteps }               from './TrackerLock.ts';
 import { writeTracker, type TrackerChange }  from './TrackerPipeline.ts';
 import { workspacePathsFor, type Workspace } from './Workspace.ts';
-import { failureOf }                         from './testing/ThrownFailure.ts';
+import { thrownFailureOf }                   from './testing/ThrownFailure.ts';
 
 const CHANGED_AT = '2026-09-18T20:05:00+02:00';
 
@@ -99,7 +99,7 @@ describe('writeTracker', () => {
     writeReadableTracker(workspace);
     const filesBefore = storedFileContentsOf(workspace);
 
-    const failure = await failureOf(() => writeTracker({
+    const failure = await thrownFailureOf(() => writeTracker({
       workspace,
       at:     CHANGED_AT,
       now,
@@ -124,7 +124,7 @@ describe('writeTracker', () => {
     const filesBefore   = storedFileContentsOf(workspace);
     const thrownFailure = new Error('the mutation failed');
 
-    const failure = await failureOf(() => writeTracker({
+    const failure = await thrownFailureOf(() => writeTracker({
       workspace,
       at:     CHANGED_AT,
       now,
@@ -144,7 +144,7 @@ describe('writeTracker', () => {
     writeReadableTracker(workspace);
     const thrownRefusal = new OperationRefusal('refused', 'Example refusal from the mutation.');
 
-    const failure = await failureOf(() => writeTracker({
+    const failure = await thrownFailureOf(() => writeTracker({
       workspace,
       at:     CHANGED_AT,
       now,
@@ -160,7 +160,7 @@ describe('writeTracker', () => {
     writeFileSync(workspace.logFilePath, BROKEN_LOG_TEXT);
     let mutationWasCalled = false;
 
-    const failure = await failureOf(() => writeTracker({
+    const failure = await thrownFailureOf(() => writeTracker({
       workspace,
       at:     CHANGED_AT,
       now,
@@ -177,7 +177,7 @@ describe('writeTracker', () => {
     writeReadableTracker(workspace);
     const logBefore = readFileSync(workspace.logFilePath, 'utf8');
 
-    const failure = await failureOf(() => writeTracker({
+    const failure = await thrownFailureOf(() => writeTracker({
       workspace,
       at:     CHANGED_AT,
       now,
