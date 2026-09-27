@@ -171,7 +171,9 @@ it against the running agent-progress before it does anything:
   by an agent-progress from before versioning, since every `init` and `update` writes the brief:
   refused;
 - it is missing and there is no brief — nothing is installed that could disagree: the command runs;
-- it cannot be read or does not hold a whole number of at least 1: refused.
+- it cannot be read or does not hold a whole number of at least 1: refused;
+- a directory sits at its path: refused, saying to remove that directory and then run
+  `agent-progress update`, since `update` could not replace it.
 
 A refusal is one paragraph on standard error at exit 1, naming the tracked root and saying to run
 `agent-progress update` there; nothing is locked or written first. For files a newer agent-progress
@@ -187,7 +189,8 @@ command's own no-tracker refusal is unchanged.
   has run.
 - `update`, and `init` on an existing tracker, are what lift the refusal. They refuse, at exit 1 with
   the same paragraph and writing nothing, only files a newer agent-progress installed, so an older
-  agent-progress never writes its files over a newer one's.
+  agent-progress never writes its files over a newer one's, and a directory at the file's path, which
+  they could not replace.
 - `status` never refuses and says nothing about a mismatch, because its output is what scripts read.
   This is a known gap: the refusal first shows at the next command.
 

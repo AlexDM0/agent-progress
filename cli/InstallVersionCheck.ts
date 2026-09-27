@@ -20,7 +20,17 @@ function installedFilesArePresentIn(rootDirectory: string): boolean {
   }
 }
 
+/** Rename replaces any file or link at the manifest's path but fails on a directory, which `update` therefore cannot repair. */
+function manifestPathIsADirectoryIn(rootDirectory: string): boolean {
+  try {
+    return lstatSync(installedFilePathsIn(rootDirectory).installManifest).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
 function installVersionVerdictIn(rootDirectory: string): InstallVersionVerdict {
+  if (manifestPathIsADirectoryIn(rootDirectory)) return { verdict: 'mismatch', mismatch: { reason: 'manifest-is-a-directory' } };
   const reading = new InstallManifestIngestion(installedFilePathsIn(rootDirectory).installManifest).read();
   return InstallVersionVerdictUtil.verdictOf(reading, installedFilesArePresentIn(rootDirectory), INSTALL_VERSION);
 }
@@ -43,8 +53,12 @@ export function requireCurrentInstall(startDirectory: string): void {
   if (verdict.verdict === 'mismatch') throw installVersionMismatchRefusal(workspace.rootDirectory, verdict.mismatch);
 }
 
-/** `init` and `update` repair every other mismatch, but never write an older install over a newer agent-progress's. */
+/**
+ * `init` and `update` repair every other mismatch, but never write an older install over a newer agent-progress's, and refuse before
+ * writing a directory at the manifest's path, which they cannot replace, so a run never stops halfway.
+ */
 export function requireNoNewerInstall(rootDirectory: string): void {
   const verdict = installVersionVerdictIn(rootDirectory);
-  if (verdict.verdict === 'mismatch' && verdict.mismatch.reason === 'newer') throw installVersionMismatchRefusal(rootDirectory, verdict.mismatch);
+  const refusesToInstall = verdict.verdict === 'mismatch' && (verdict.mismatch.reason === 'newer' || verdict.mismatch.reason === 'manifest-is-a-directory');
+  if (refusesToInstall) throw installVersionMismatchRefusal(rootDirectory, verdict.mismatch);
 }

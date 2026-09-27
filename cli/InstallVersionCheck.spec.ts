@@ -1,7 +1,8 @@
 /**
  * The install version check on real directories. What matters: no tracker and a tracker with nothing installed pass, so the commands' own
  * refusals and hand-made fixtures are unchanged; a brief without a manifest is a tracker from before versioning; an equal manifest passes,
- * a newer or unreadable one refuses with the mismatch as its detail; and the check `init` and `update` run refuses only a newer manifest.
+ * a newer or unreadable one refuses with the mismatch as its detail; and the check `init` and `update` run refuses only a newer manifest and
+ * a directory at the manifest's path, which they could not replace.
  */
 import { mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { join }                                   from 'node:path';
@@ -40,6 +41,10 @@ function installBrief(): void {
 
 function writeManifest(text: string): void {
   writeFileSync(installedFilePathsIn(rootDirectory).installManifest, text);
+}
+
+function makeManifestADirectory(): void {
+  mkdirSync(installedFilePathsIn(rootDirectory).installManifest);
 }
 
 function refusalOf(check: () => void): OperationRefusal | null {
@@ -99,6 +104,15 @@ describe('requireCurrentInstall', () => {
     expect(refusal?.detail).toMatchObject({ kind: 'install-version-mismatch', mismatch: { reason: 'unreadable' } });
   });
 
+  test('a directory at the manifest\'s path refuses as manifest-is-a-directory', () => {
+    makeTracker();
+    installBrief();
+    makeManifestADirectory();
+    const refusal = refusalOf(() => requireCurrentInstall(rootDirectory));
+    expect(refusal?.status).toBe('refused');
+    expect(refusal?.detail).toMatchObject({ kind: 'install-version-mismatch', mismatch: { reason: 'manifest-is-a-directory' } });
+  });
+
   test('the tracker is found from a directory below its root, and the refusal names the root', () => {
     makeTracker();
     installBrief();
@@ -141,5 +155,14 @@ describe('requireNoNewerInstall', () => {
       installVersion:   INSTALL_VERSION,
       mismatch:         { reason: 'newer', installedVersion: INSTALL_VERSION + 1 },
     });
+  });
+
+  test('refuses a directory at the manifest\'s path before anything is written, since the final rename could not replace it', () => {
+    makeTracker();
+    installBrief();
+    makeManifestADirectory();
+    const refusal = refusalOf(() => requireNoNewerInstall(rootDirectory));
+    expect(refusal?.status).toBe('refused');
+    expect(refusal?.detail).toMatchObject({ kind: 'install-version-mismatch', mismatch: { reason: 'manifest-is-a-directory' } });
   });
 });

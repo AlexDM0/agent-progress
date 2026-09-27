@@ -2,4 +2,5 @@
 export type InstallVersionMismatch =
   | { reason: 'older' | 'newer'; installedVersion: number }
   | { reason: 'unversioned' }
-  | { reason: 'unreadable'; manifestProblem: string };
+  | { reason: 'unreadable'; manifestProblem: string }
+  | { reason: 'manifest-is-a-directory' };

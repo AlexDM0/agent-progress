@@ -46,8 +46,25 @@ describe('InstallVersionWordingUtil.messageOf', () => {
 
   test('an unreadable manifest names the manifest and its problem and asks for update', () => {
     expect(messageFor({ reason: 'unreadable', manifestProblem: 'it is not a JSON object' })).toBe(
-      '/example/repository/.agent-progress/version.json could not be read (it is not a JSON object), so the install version of the files '
+      '/example/repository/.agent-progress/version.json gives no install version: it is not a JSON object. So the install version of the files '
       + 'agent-progress installed in /example/repository is unknown and nothing was done. Run `agent-progress update` in /example/repository.',
+    );
+  });
+
+  test('an I/O failure reading the manifest names the problem once', () => {
+    const message = messageFor({ reason: 'unreadable', manifestProblem: 'it could not be read (EISDIR: illegal operation on a directory, read)' });
+    expect(message).toBe(
+      '/example/repository/.agent-progress/version.json gives no install version: it could not be read (EISDIR: illegal operation on a directory, '
+      + 'read). So the install version of the files agent-progress installed in /example/repository is unknown and nothing was done. '
+      + 'Run `agent-progress update` in /example/repository.',
+    );
+    expect(message.split('could not be read')).toHaveLength(2);
+  });
+
+  test('a directory at the manifest\'s path asks for it to be removed before update runs', () => {
+    expect(messageFor({ reason: 'manifest-is-a-directory' })).toBe(
+      '/example/repository/.agent-progress/version.json is a directory where agent-progress keeps its install version file, so nothing was done. '
+      + 'Remove that directory, then run `agent-progress update` in /example/repository.',
     );
   });
 
@@ -57,6 +74,7 @@ describe('InstallVersionWordingUtil.messageOf', () => {
       { reason: 'newer', installedVersion: 4 },
       { reason: 'unversioned' },
       { reason: 'unreadable', manifestProblem: 'it is not valid JSON' },
+      { reason: 'manifest-is-a-directory' },
     ];
     expect(mismatches.filter((mismatch) => messageFor(mismatch).includes('\n'))).toEqual([]);
   });

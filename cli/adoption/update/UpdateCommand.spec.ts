@@ -1,6 +1,7 @@
 /**
  * What `agent-progress update` refreshes, what it reports about each of those files, and that it leaves a current tracker's progress file,
- * tickets and log byte for byte; and that it refuses, writing nothing, files a newer agent-progress installed.
+ * tickets and log byte for byte; and that it refuses, writing nothing, files a newer agent-progress installed and a directory at the manifest's
+ * path, which it could not replace.
  */
 import {
   chmodSync,
@@ -515,6 +516,33 @@ describe.skipIf(!gitIsAvailable())('what update refuses', () => {
     expect(context.outputText()).toBe('');
     expect(repositoryFileContentsOf(repositoryDirectory)).toEqual(filesBefore);
     expect(filesBefore.size, 'the fixture holds the tracker and its installed files, so the comparison above is about something').toBeGreaterThan(3);
+  });
+
+  // The manifest is written last, by a rename a directory would refuse, so without the check every other file would be written first.
+  test('a directory at the manifest\'s path is refused with exit 1 before anything is written, and update runs once it is removed', async () => {
+    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
+    const rootDirectory       = realpathSync(repositoryDirectory);
+    const manifestFilePath    = installedFilePathsIn(rootDirectory).installManifest;
+    rmSync(manifestFilePath, { force: true });
+    mkdirSync(manifestFilePath);
+    const filesBefore = repositoryFileContentsOf(repositoryDirectory);
+
+    const refusedContext = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['update'], refusedContext)).toBe(1);
+    expect(refusedContext.errorText()).toBe(InstallVersionWordingUtil.messageOf({
+      kind:           'install-version-mismatch',
+      rootDirectory,
+      manifestFilePath,
+      installVersion: INSTALL_VERSION,
+      mismatch:       { reason: 'manifest-is-a-directory' },
+    }));
+    expect(refusedContext.outputText()).toBe('');
+    expect(repositoryFileContentsOf(repositoryDirectory)).toEqual(filesBefore);
+
+    rmSync(manifestFilePath, { recursive: true });
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['update'], context)).toBe(0);
+    expect(JSON.parse(readFileSync(manifestFilePath, 'utf8'))).toEqual({ installVersion: INSTALL_VERSION });
   });
 });
 
