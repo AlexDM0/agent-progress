@@ -73,7 +73,7 @@ export function removeScratchDirectory(directory: string): void {
 /** Throws on a non-zero exit, so a scratch setup step that failed stops the test instead of leaving it to assert on the wrong state. */
 export function gitOutputIn(workingDirectory: string, gitArguments: readonly string[]): string {
   if (!gitIsAvailable()) {
-    throw new Error('git is not on the PATH; a spec needing a scratch repository must skip through gitIsAvailable().');
+    throw new Error('git is not on the PATH; a spec needing a scratch repository must be guarded by src/testing/ToolGuard.ts.');
   }
   const finished = Bun.spawnSync(['git', ...gitArguments], { cwd: workingDirectory, stdout: 'pipe', stderr: 'pipe' });
   if (finished.exitCode !== 0) {
