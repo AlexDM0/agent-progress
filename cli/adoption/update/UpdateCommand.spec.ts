@@ -80,17 +80,9 @@ function workflowFilePathIn(repositoryDirectory: string): string {
   return join(repositoryDirectory, '.agent-progress', 'agent-progress-dispatch.js');
 }
 
-function retiredWorkflowFilePathIn(repositoryDirectory: string): string {
-  return join(repositoryDirectory, '.claude', 'workflows', 'agent-progress-dispatch.js');
-}
-
 // The printed path is the resolved root, which on macOS carries a `/private` the scratch path does not, so the line is matched by its shape.
 function workflowLineSaying(verdict: 'updated' | 'unchanged'): RegExp {
   return new RegExp(`workflow: {4}${verdict} \\(\\S+/\\.agent-progress/agent-progress-dispatch\\.js\\)\n`);
-}
-
-function workflowLineRemovingTheRetiredCopy(verdict: 'updated' | 'unchanged'): RegExp {
-  return new RegExp(`workflow: {4}${verdict} \\(\\S+/\\.agent-progress/agent-progress-dispatch\\.js\\); removed the old \\S+/\\.claude/workflows/agent-progress-dispatch\\.js\n`);
 }
 
 // The template with its two placeholders filled by the default pair, which is what `update` must write byte for byte.
@@ -307,24 +299,6 @@ describe.skipIf(!gitIsAvailable())('updating a tracked repository', () => {
     expect(readFileSync(workflowFilePath, 'utf8')).toBe(GENERATED_DISPATCHER_SCRIPT);
   });
 
-  // Only one dispatcher may be left to launch, so the copy an older version installed goes, and the line names both files.
-  test('removes the copy an older version installed under .claude/workflows, writes the generated script and reports both', async () => {
-    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
-    mkdirSync(join(repositoryDirectory, '.claude', 'workflows'), { recursive: true });
-    writeFileSync(retiredWorkflowFilePathIn(repositoryDirectory), '// The dispatcher an older agent-progress installed.\n');
-
-    const first = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    expect(await runCommandLine(['update'], first)).toBe(0);
-    expect(existsSync(retiredWorkflowFilePathIn(repositoryDirectory))).toBe(false);
-    expect(readFileSync(workflowFilePathIn(repositoryDirectory), 'utf8')).toBe(GENERATED_DISPATCHER_SCRIPT);
-    expect(first.outputText()).toMatch(workflowLineRemovingTheRetiredCopy('updated'));
-
-    const second = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    expect(await runCommandLine(['update'], second)).toBe(0);
-    expect(second.outputText()).toMatch(workflowLineSaying('unchanged'));
-    expect(second.outputText()).not.toContain('removed the old');
-  });
-
   test('--no-workflow writes no dispatcher, in the tracker or under .claude/workflows, and says so', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
 
@@ -337,27 +311,21 @@ describe.skipIf(!gitIsAvailable())('updating a tracked repository', () => {
   });
 
   /** A hand-edited copy is the one a refusal to write can be told apart from having nothing to write by. */
-  test('--no-workflow leaves a hand-edited dispatcher byte for byte, at the installed path and at the retired one', async () => {
+  test('--no-workflow leaves a hand-edited dispatcher byte for byte', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
     const installedFilePath   = workflowFilePathIn(repositoryDirectory);
-    const retiredFilePath     = retiredWorkflowFilePathIn(repositoryDirectory);
-    mkdirSync(join(repositoryDirectory, '.claude', 'workflows'), { recursive: true });
     writeFileSync(installedFilePath, '// Example Agency\'s own tweak of the installed dispatcher.\n');
-    writeFileSync(retiredFilePath, '// Example Agency\'s own dispatcher.\n');
 
     expect(await runCommandLine(['update', '--no-workflow'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }))).toBe(0);
 
     expect(readFileSync(installedFilePath, 'utf8')).toBe('// Example Agency\'s own tweak of the installed dispatcher.\n');
-    expect(readFileSync(retiredFilePath, 'utf8')).toBe('// Example Agency\'s own dispatcher.\n');
   });
 
-  // The brief and the removal come last, so a rerun after a failed write still tells the orchestrator its brief changed and names the removal.
-  test.skipIf(RUNNING_AS_ROOT)('a refresh cut short by an unwritable agents folder leaves the stale brief and the old dispatcher for the rerun to report', async () => {
+  // The brief comes last, so a rerun after a failed write still tells the orchestrator its brief changed.
+  test.skipIf(RUNNING_AS_ROOT)('a refresh cut short by an unwritable agents folder leaves the stale brief for the rerun to report', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
     const briefFilePath       = join(repositoryDirectory, '.agent-progress', 'agent-brief.md');
     const agentsDirectory     = join(repositoryDirectory, '.claude', 'agents');
-    mkdirSync(join(repositoryDirectory, '.claude', 'workflows'), { recursive: true });
-    writeFileSync(retiredWorkflowFilePathIn(repositoryDirectory), '// The dispatcher an older agent-progress installed.\n');
     mkdirSync(agentsDirectory, { recursive: true });
 
     chmodSync(agentsDirectory, READ_AND_ENTER_ONLY_MODE);
@@ -367,12 +335,10 @@ describe.skipIf(!gitIsAvailable())('updating a tracked repository', () => {
       chmodSync(agentsDirectory, OWNER_FULL_ACCESS_MODE);
     }
     expect(readFileSync(briefFilePath, 'utf8')).not.toBe(GENERATED_AGENT_BRIEF);
-    expect(existsSync(retiredWorkflowFilePathIn(repositoryDirectory))).toBe(true);
 
     const rerun = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
     expect(await runCommandLine(['update'], rerun)).toBe(0);
     expect(rerun.outputText()).toContain('brief:       updated — re-read it before your next brief');
-    expect(rerun.outputText()).toMatch(workflowLineRemovingTheRetiredCopy('unchanged'));
   });
 
   test('the worker agent definition is installed with the default pair, and a second run reports it unchanged', async () => {

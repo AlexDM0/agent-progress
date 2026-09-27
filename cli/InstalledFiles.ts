@@ -17,23 +17,20 @@ export const CLAUDE_MANAGED_BLOCK_MARKERS: ManagedBlockMarkers = {
 };
 
 export interface InstalledFilePaths {
-  agentBrief:              string;
-  claudeInstructions:      string;
-  dispatcherScript:        string;
-  /** Where an agent-progress older than the generated dispatcher installed its copy, which `init` and `update` now delete. */
-  retiredDispatcherScript: string;
+  agentBrief:         string;
+  claudeInstructions: string;
+  dispatcherScript:   string;
   /** Claude Code reads a project's subagent definitions from `.claude/agents/`; the file name matches the definition's `name`. */
-  agentDefinition:         string;
-  installManifest:         string;
+  agentDefinition:    string;
+  installManifest:    string;
 }
 
 export function installedFilePathsIn(rootDirectory: string): InstalledFilePaths {
   return {
-    agentBrief:              join(rootDirectory, DISPATCH_PROTOCOL.AGENT_BRIEF_PATH_IN_REPOSITORY),
-    claudeInstructions:      join(rootDirectory, 'CLAUDE.md'),
-    dispatcherScript:        join(rootDirectory, TRACKER_FILES.TRACKER_DIRECTORY_NAME, DISPATCHER_SCRIPT_FILE_NAME),
-    retiredDispatcherScript: join(rootDirectory, '.claude', 'workflows', DISPATCHER_SCRIPT_FILE_NAME),
-    agentDefinition:         join(rootDirectory, '.claude', 'agents', 'agent-progress-worker.md'),
-    installManifest:         join(rootDirectory, TRACKER_FILES.TRACKER_DIRECTORY_NAME, INSTALL_MANIFEST_FILE_NAME),
+    agentBrief:         join(rootDirectory, DISPATCH_PROTOCOL.AGENT_BRIEF_PATH_IN_REPOSITORY),
+    claudeInstructions: join(rootDirectory, 'CLAUDE.md'),
+    dispatcherScript:   join(rootDirectory, TRACKER_FILES.TRACKER_DIRECTORY_NAME, DISPATCHER_SCRIPT_FILE_NAME),
+    agentDefinition:    join(rootDirectory, '.claude', 'agents', 'agent-progress-worker.md'),
+    installManifest:    join(rootDirectory, TRACKER_FILES.TRACKER_DIRECTORY_NAME, INSTALL_MANIFEST_FILE_NAME),
   };
 }

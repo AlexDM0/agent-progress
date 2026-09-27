@@ -45,10 +45,6 @@ function dispatcherScriptPathIn(repositoryDirectory: string): string {
   return join(repositoryDirectory, '.agent-progress', 'agent-progress-dispatch.js');
 }
 
-function retiredDispatcherScriptPathIn(repositoryDirectory: string): string {
-  return join(repositoryDirectory, '.claude', 'workflows', 'agent-progress-dispatch.js');
-}
-
 function scratchRepository(): string {
   const repositoryDirectory = createScratchGitRepository('init-command');
   scratchDirectories.push(repositoryDirectory, `${repositoryDirectory}-worktrees`);
@@ -251,21 +247,6 @@ describe.skipIf(!gitIsAvailable())('a second init', () => {
     expect(readFileSync(briefFilePath, 'utf8'), 'the brief is shipped guidance, so a re-run restores the current wording').toStartWith('# Agent brief');
     // The tracker id is the page's localStorage key, so a re-run that reset it would reset every reader's stored range.
     expect((JSON.parse(readFileSync(progressFilePath, 'utf8')) as { trackerId: string }).trackerId).toBe(trackerIdBefore);
-  });
-
-  test('on an existing tracker writes the generated dispatcher, removes the copy an older version installed, and reports both', async () => {
-    const repositoryDirectory = scratchRepository();
-    await runCommandLine(['init'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }));
-    mkdirSync(join(repositoryDirectory, '.claude', 'workflows'), { recursive: true });
-    writeFileSync(retiredDispatcherScriptPathIn(repositoryDirectory), '// The dispatcher an older agent-progress installed.\n');
-
-    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    expect(await runCommandLine(['init'], context)).toBe(0);
-
-    expect(existsSync(retiredDispatcherScriptPathIn(repositoryDirectory))).toBe(false);
-    expect(readFileSync(dispatcherScriptPathIn(repositoryDirectory), 'utf8')).toBe(GENERATED_DISPATCHER_SCRIPT);
-    expect(context.outputText())
-      .toMatch(/workflow: {4}unchanged \(\S+\/\.agent-progress\/agent-progress-dispatch\.js\); removed the old \S+\/\.claude\/workflows\/agent-progress-dispatch\.js\n/);
   });
 
   test('one directory below an existing tracker is refused with exit 1 and names where the tracker is', async () => {

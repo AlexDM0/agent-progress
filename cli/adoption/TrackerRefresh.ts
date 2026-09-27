@@ -2,7 +2,7 @@
  * Writes what the tool installs into a tracked repository for `init` and `update`, and reports per file whether its bytes changed: that
  * is how an orchestrator that read the brief earlier learns its copy is stale.
  */
-import { existsSync, readFileSync, rmSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 
 import { createInstallManifestWriter } from '../../src/adapters/install/InstallManifestWriter.ts';
 import { writeFileAtomically }         from '../../src/lib/atomic-file/AtomicFile.ts';
@@ -16,6 +16,7 @@ import {
 import type { Workspace }                                     from '../../src/services/tracker/Workspace.ts';
 import { CLAUDE_MANAGED_BLOCK_MARKERS, installedFilePathsIn } from '../InstalledFiles.ts';
 import { INSTALL_VERSION }                                    from '../constants/InstallVersion.ts';
+import { removalOfTheRetiredDispatcherScript }                from '../legacy/RetiredDispatcherScriptRemoval.ts';
 import type { InstalledFileTexts }                            from './InstalledFileGeneration.ts';
 
 /** The matcher is empty so every subagent is recorded, matching the cohort `usage` reads; the timeout covers waiting on a held lock. */
@@ -135,13 +136,6 @@ function refreshDispatcherScript(dispatcherScriptFilePath: string, dispatcherScr
     : `unchanged (${dispatcherScriptFilePath})`;
 }
 
-/** The copy an older version installed under `.claude/workflows/` goes, so only one dispatcher is left to launch; `null` when there was none. */
-function removalOfTheRetiredDispatcherScript(retiredDispatcherScriptFilePath: string): string | null {
-  if (!existsSync(retiredDispatcherScriptFilePath)) return null;
-  rmSync(retiredDispatcherScriptFilePath, { force: true });
-  return `removed the old ${retiredDispatcherScriptFilePath}`;
-}
-
 function refreshClaudeInstructions(
   claudeFilePath: string,
   claudeInstructionsBlockBody: string,
@@ -195,7 +189,8 @@ export function refreshTrackedRepository(request: TrackerRefreshRequest): Tracke
   const agentDefinitionLine = refreshAgentDefinition(installedFilePaths.agentDefinition, installedFileTexts.agentDefinition, writesTheAgentDefinition);
   // Last, so a write that fails before them leaves the brief's `updated` and the removal for the rerun to do and report.
   const { briefFilePath, briefLine } = refreshAgentBrief(installedFilePaths.agentBrief, installedFileTexts.agentBrief);
-  const retiredCopyRemoval = dispatcherScript === null ? null : removalOfTheRetiredDispatcherScript(installedFilePaths.retiredDispatcherScript);
+  // The seam to the retired .claude/workflows/ copy; dropping cli/legacy/ makes the workflow line dispatcherScriptLine.
+  const retiredCopyRemoval = dispatcherScript === null ? null : removalOfTheRetiredDispatcherScript(workspace.rootDirectory);
   const workflowLine = retiredCopyRemoval === null ? dispatcherScriptLine : `${dispatcherScriptLine}; ${retiredCopyRemoval}`;
 
   return {

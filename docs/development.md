@@ -214,13 +214,13 @@ boundaries). There are five:
 | `src/shared/legacy/` | The retired status words, and the review-bar name util both folders below share. |
 | `src/adapters/legacy/` | A version 1 `progress.json` with its own log, rows and tickets in the retired words, and review bars known only by name. |
 | `src/services/tracker/legacy/` | The rewrite of older tracker files that `update` and `init` run, reached from `cli/legacy/`. |
-| `cli/legacy/` | The retired verbs and words, refused with their replacement; the ignored `--hooks`; review-shaped names given their link at filing; the rewrite report. |
+| `cli/legacy/` | The retired verbs and words, refused with their replacement; the ignored `--hooks`; review-shaped names given their link at filing; the rewrite report; the dispatcher copy older versions installed under `.claude/workflows/`, removed by `init` and `update`. |
 | `page/legacy/` | A spec only: how the page draws a review bar linked by its name. |
 
 Current code reaches each through one seam call per consumer, marked at the call site by a `// The seam…` or
 `// Dropping … makes this …` comment, as in `src/adapters/progress/ProgressFileIngestion.ts`,
-`src/services/tracker/TrackerReader.ts`, `cli/tracking/task/TaskCommand.ts` and
-`cli/adoption/update/UpdateCommand.ts`. The `*.legacy.spec.ts` suites and every spec inside a legacy folder go
+`src/services/tracker/TrackerReader.ts`, `cli/tracking/task/TaskCommand.ts`,
+`cli/adoption/update/UpdateCommand.ts` and `cli/adoption/TrackerRefresh.ts`. The `*.legacy.spec.ts` suites and every spec inside a legacy folder go
 with it; the `*.legacySeam.spec.ts` suites beside current modules pin the current side of a seam and stay.
 
 Each module header says when its folder can go: once every tracked repository has run

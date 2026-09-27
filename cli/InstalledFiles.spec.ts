@@ -42,17 +42,13 @@ test('the brief sits in the tracker directory, where the dispatcher\'s prompts s
   expect(relative(EXAMPLE_ROOT, installedFilePathsIn(EXAMPLE_ROOT).agentBrief)).toStartWith(`${TRACKER_FILES.TRACKER_DIRECTORY_NAME}${sep}`);
 });
 
-test('the retired dispatcher path is the copy an older agent-progress installed under .claude/workflows', () => {
-  expect(installedFilePathsIn(EXAMPLE_ROOT).retiredDispatcherScript).toBe(join(EXAMPLE_ROOT, '.claude', 'workflows', 'agent-progress-dispatch.js'));
-});
-
 test('the install manifest sits in the tracker directory, beside what it versions', () => {
   expect(installedFilePathsIn(EXAMPLE_ROOT).installManifest).toBe(join(EXAMPLE_ROOT, TRACKER_FILES.TRACKER_DIRECTORY_NAME, 'version.json'));
 });
 
 test('every path is absolute and under the root it was given', () => {
   const installedFilePaths = Object.values(installedFilePathsIn(EXAMPLE_ROOT));
-  expect(installedFilePaths).toHaveLength(6);
+  expect(installedFilePaths).toHaveLength(5);
   for (const installedFilePath of installedFilePaths) {
     expect(isAbsolute(installedFilePath), installedFilePath).toBe(true);
     expect(installedFilePath).toStartWith(`${EXAMPLE_ROOT}${sep}`);
