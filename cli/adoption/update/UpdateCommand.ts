@@ -6,7 +6,7 @@
  */
 import { requireWorkspace }                                                     from '../../../src/services/tracker/Workspace.ts';
 import type { CommandHandler }                                                  from '../../CommandHandler.ts';
-import { requireNoNewerInstall }                                                from '../../InstallVersionCheck.ts';
+import { requireInstallManifestThisVersionCanReplace }                          from '../../InstallVersionCheck.ts';
 import { OlderTrackerFilesRewriteReport }                                       from '../../legacy/OlderTrackerFilesRewriteReport.ts';
 import { IGNORED_RETIRED_OPTION_NAMES }                                         from '../../legacy/constants/IgnoredRetiredOptions.ts';
 import { installedFileTextsFor }                                                from '../InstalledFileGeneration.ts';
@@ -22,7 +22,7 @@ export const updateCommand: CommandHandler = async (commandArguments, context) =
   commandArguments.rejectExtraPositionals(0, USAGE);
 
   const workspace          = requireWorkspace(context.currentDirectory);
-  requireNoNewerInstall(workspace.rootDirectory);
+  requireInstallManifestThisVersionCanReplace(workspace.rootDirectory);
   const installedFileTexts = await installedFileTextsFor({ generatesTheDispatcherScript: !commandArguments.flag('no-workflow') });
   const report             = refreshTrackedRepository({
     workspace,

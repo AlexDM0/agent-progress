@@ -50,7 +50,7 @@ export function requireCurrentInstall(startDirectory: string): void {
  * `init` and `update` repair every other mismatch, but never write an older install over a newer agent-progress's, and refuse before
  * writing a directory at the manifest's path, which they cannot replace, so a run never stops halfway.
  */
-export function requireNoNewerInstall(rootDirectory: string): void {
+export function requireInstallManifestThisVersionCanReplace(rootDirectory: string): void {
   const verdict = installVersionVerdictIn(rootDirectory);
   const refusesToInstall = verdict.verdict === 'mismatch' && (verdict.mismatch.reason === 'newer' || verdict.mismatch.reason === 'manifest-is-a-directory');
   if (refusesToInstall) throw installVersionMismatchRefusal(rootDirectory, verdict.mismatch);

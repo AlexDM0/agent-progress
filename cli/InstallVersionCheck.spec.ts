@@ -13,11 +13,11 @@ import {
   expect,
   test
 }                                                         from 'bun:test';
-import { OperationRefusal }                               from '../src/shared/OperationRefusal.ts';
-import { createScratchDirectory, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
-import { requireCurrentInstall, requireNoNewerInstall }   from './InstallVersionCheck.ts';
-import { installedFilePathsIn }                           from './InstalledFiles.ts';
-import { INSTALL_VERSION }                                from './constants/InstallVersion.ts';
+import { OperationRefusal }                                                   from '../src/shared/OperationRefusal.ts';
+import { createScratchDirectory, removeScratchDirectory }                     from '../src/testing/ScratchWorkspace.ts';
+import { requireCurrentInstall, requireInstallManifestThisVersionCanReplace } from './InstallVersionCheck.ts';
+import { installedFilePathsIn }                                               from './InstalledFiles.ts';
+import { INSTALL_VERSION }                                                    from './constants/InstallVersion.ts';
 
 let rootDirectory = '';
 
@@ -123,30 +123,30 @@ describe('requireCurrentInstall', () => {
   });
 });
 
-describe('requireNoNewerInstall', () => {
+describe('requireInstallManifestThisVersionCanReplace', () => {
   test('passes a missing manifest, even with a brief installed, since update is what repairs it', () => {
     makeTracker();
     installBrief();
-    expect(refusalOf(() => requireNoNewerInstall(rootDirectory))).toBeNull();
+    expect(refusalOf(() => requireInstallManifestThisVersionCanReplace(rootDirectory))).toBeNull();
   });
 
   test('passes an unreadable manifest, since update rewrites it', () => {
     makeTracker();
     installBrief();
     writeManifest('not json at all');
-    expect(refusalOf(() => requireNoNewerInstall(rootDirectory))).toBeNull();
+    expect(refusalOf(() => requireInstallManifestThisVersionCanReplace(rootDirectory))).toBeNull();
   });
 
   test('passes a manifest recording this install version', () => {
     makeTracker();
     writeManifest(`{ "installVersion": ${INSTALL_VERSION} }\n`);
-    expect(refusalOf(() => requireNoNewerInstall(rootDirectory))).toBeNull();
+    expect(refusalOf(() => requireInstallManifestThisVersionCanReplace(rootDirectory))).toBeNull();
   });
 
   test('refuses a newer manifest with the same detail the other commands carry', () => {
     makeTracker();
     writeManifest(`{ "installVersion": ${INSTALL_VERSION + 1} }\n`);
-    const refusal = refusalOf(() => requireNoNewerInstall(rootDirectory));
+    const refusal = refusalOf(() => requireInstallManifestThisVersionCanReplace(rootDirectory));
     expect(refusal?.status).toBe('refused');
     expect(refusal?.detail).toEqual({
       kind:             'install-version-mismatch',
@@ -161,7 +161,7 @@ describe('requireNoNewerInstall', () => {
     makeTracker();
     installBrief();
     makeManifestADirectory();
-    const refusal = refusalOf(() => requireNoNewerInstall(rootDirectory));
+    const refusal = refusalOf(() => requireInstallManifestThisVersionCanReplace(rootDirectory));
     expect(refusal?.status).toBe('refused');
     expect(refusal?.detail).toMatchObject({ kind: 'install-version-mismatch', mismatch: { reason: 'manifest-is-a-directory' } });
   });
