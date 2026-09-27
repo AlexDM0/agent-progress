@@ -53,7 +53,7 @@ describe('the command reference', () => {
 
   test('it names the install version refusal, the commands it spares and the command that lifts it', () => {
     const flattenedHelp = HELP_TEXT.replaceAll(/\s+/g, ' ');
-    expect(flattenedHelp).toContain('Every other command except help and status refuses, with exit 1, while the files installed here are of another install version');
+    expect(flattenedHelp).toContain('Every command but init, update, help and status refuses, with exit 1, while the files installed here are of another install version');
     expect(flattenedHelp).toContain('update rewrites them, and it and `init` refuse files a newer agent-progress installed');
   });
 

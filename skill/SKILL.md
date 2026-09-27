@@ -75,10 +75,10 @@ order to file a ticket, move one, and stay out of the tool's way.
 4. **`agent-progress log "<text>"` at each milestone** — a decision taken, a direction abandoned.
    The log is what makes the chart readable a day later.
 5. **`agent-progress open` once per session**, so the user has the dashboard in front of them.
-6. **Backfill with `--at`.** The moves, the additions, the claims, the ticket settings that stamp
-   `updated` and `log` take `--at <when>` (`agent-progress help` shows each one that does): an ISO
-   8601 timestamp, `now`, or an offset (`-5m`, `-2h`, `-1d`). A row nobody registered at the time is
-   registered now and stamped then.
+6. **Backfill with `--at`.** The moves, the additions, the claims, `ticket agent`, `hold`, `unhold`
+   and `priority`, and `log` take `--at <when>` (`agent-progress help` shows each one that does): an
+   ISO 8601 timestamp, `now`, or an offset (`-5m`, `-2h`, `-1d`). A row nobody registered at the time
+   is registered now and stamped then.
 
 ## If you are implementing a ticket
 

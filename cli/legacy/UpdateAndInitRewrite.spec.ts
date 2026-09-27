@@ -200,7 +200,7 @@ describe.skipIf(!gitIsAvailable())('what update rewrites', () => {
     expect(await runCommandLine(['update'], first)).toBe(0);
 
     expect(first.outputText().split('\n')[0]).toEndWith(
-      ', and rewrote its older tracker files in the current format: progress.json, with its log moved to log.jsonl and 1 ticket file.',
+      ', and rewrote its older tracker files in the current format: progress.json (its log moved to log.jsonl) and 1 ticket file.',
     );
     const storedProgress = JSON.parse(readFileSync(progressFilePath, 'utf8')) as Record<string, unknown>;
     expect(storedProgress['version']).toBe(2);

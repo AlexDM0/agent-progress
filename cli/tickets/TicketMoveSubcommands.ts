@@ -2,29 +2,28 @@
  * The named verbs enforce the legality matrix of `src/lib/tracker-model/constants/TicketMoveLegality.ts`; `ticket status` is the
  * documented override that skips it.
  */
-import { StatusWordingUtil }                        from '../../src/adapters/utils/StatusWordingUtil.ts';
-import { TicketBodyUtil }                           from '../../src/adapters/utils/TicketBodyUtil.ts';
-import { TicketPhraseUtil }                         from '../../src/adapters/utils/TicketPhraseUtil.ts';
-import type { AgentAssignment, ReviewBarStarted }   from '../../src/lib/tracker-model/@types/BoardChanges.ts';
-import type { LogRecord }                           from '../../src/lib/tracker-model/@types/LogRecord.ts';
-import type { Task }                                from '../../src/lib/tracker-model/@types/Task.ts';
-import type { Ticket, TicketStatus }                from '../../src/lib/tracker-model/@types/Ticket.ts';
-import { TICKET_STATUSES_THAT_SETTLE_A_DEPENDENCY } from '../../src/lib/tracker-model/constants/Statuses.ts';
-import { VocabularyUtil }                           from '../../src/lib/tracker-model/utils/VocabularyUtil.ts';
-import type { TrackerChange }                       from '../../src/services/tracker/TrackerPipeline.ts';
-import { OperationRefusal }                         from '../../src/shared/OperationRefusal.ts';
-import type { CommandContext }                      from '../CommandContext.ts';
-import { openTrackerForWritingThenReadNextLine }    from '../OpenTrackerForWriting.ts';
-import type { ArgumentParser }                      from '../arguments/ArgumentParser.ts';
-import { RetiredWordRefusalUtil }                   from '../legacy/utils/RetiredWordRefusalUtil.ts';
-import { NextLineUtil }                             from '../utils/NextLineUtil.ts';
-import { OptionValueUtil }                          from '../utils/OptionValueUtil.ts';
-import { OutputUtil }                               from '../utils/OutputUtil.ts';
-import type { TicketSubcommandHandler }             from './@types/TicketSubcommandHandler.ts';
-import { TICKET_USAGE }                             from './constants/TicketUsage.ts';
-import { TicketArgumentUtil }                       from './utils/TicketArgumentUtil.ts';
-import { TicketLookupUtil }                         from './utils/TicketLookupUtil.ts';
-import { TicketOutputUtil }                         from './utils/TicketOutputUtil.ts';
+import { StatusWordingUtil }                      from '../../src/adapters/utils/StatusWordingUtil.ts';
+import { TicketBodyUtil }                         from '../../src/adapters/utils/TicketBodyUtil.ts';
+import { TicketPhraseUtil }                       from '../../src/adapters/utils/TicketPhraseUtil.ts';
+import type { AgentAssignment, ReviewBarStarted } from '../../src/lib/tracker-model/@types/BoardChanges.ts';
+import type { LogRecord }                         from '../../src/lib/tracker-model/@types/LogRecord.ts';
+import type { Task }                              from '../../src/lib/tracker-model/@types/Task.ts';
+import type { Ticket, TicketStatus }              from '../../src/lib/tracker-model/@types/Ticket.ts';
+import { VocabularyUtil }                         from '../../src/lib/tracker-model/utils/VocabularyUtil.ts';
+import type { TrackerChange }                     from '../../src/services/tracker/TrackerPipeline.ts';
+import { OperationRefusal }                       from '../../src/shared/OperationRefusal.ts';
+import type { CommandContext }                    from '../CommandContext.ts';
+import { openTrackerForWritingThenReadNextLine }  from '../OpenTrackerForWriting.ts';
+import type { ArgumentParser }                    from '../arguments/ArgumentParser.ts';
+import { RetiredWordRefusalUtil }                 from '../legacy/utils/RetiredWordRefusalUtil.ts';
+import { NextLineUtil }                           from '../utils/NextLineUtil.ts';
+import { OptionValueUtil }                        from '../utils/OptionValueUtil.ts';
+import { OutputUtil }                             from '../utils/OutputUtil.ts';
+import type { TicketSubcommandHandler }           from './@types/TicketSubcommandHandler.ts';
+import { TICKET_USAGE }                           from './constants/TicketUsage.ts';
+import { TicketArgumentUtil }                     from './utils/TicketArgumentUtil.ts';
+import { TicketLookupUtil }                       from './utils/TicketLookupUtil.ts';
+import { TicketOutputUtil }                       from './utils/TicketOutputUtil.ts';
 
 const TRANSITION_TARGET_STATUSES: Record<string, TicketStatus> = {
   [StatusWordingUtil.verbFor('in-progress')]: 'in-progress',
@@ -134,8 +133,7 @@ async function transitionOneTicket(
 
   // A warning, not a refusal: the order is advice to whoever picks work up, and the user may know better.
   if (targetStatus === 'in-progress' && moved.unsettled.length > 0) {
-    const settledStatusesText = TICKET_STATUSES_THAT_SETTLE_A_DEPENDENCY.map((status) => StatusWordingUtil.statusWordFor(status)).join(' or ');
-    const notSettledYetText   = `${moved.unsettled.length === 1 ? 'which is' : 'which are'} not ${settledStatusesText} yet`;
+    const notSettledYetText = `${moved.unsettled.length === 1 ? 'which is' : 'which are'} not ${StatusWordingUtil.statusWordFor('reviewed')} yet`;
     context.standardError(`Ticket #${id} is ${TicketPhraseUtil.waitingOnText(moved.unsettled)}, ${notSettledYetText}.`);
   }
   if (targetStatus === 'in-progress' && move.ticket.frontmatter.hold !== undefined) {

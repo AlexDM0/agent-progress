@@ -599,7 +599,13 @@ describe.skipIf(!gitIsAvailable())('ticket dependencies', () => {
     const context = await run(['ticket', 'start', '2']);
 
     expect(storedTicketText('002-validate-the-rows.md')).toContain('status: "in-progress"');
-    expect(context.errorText()).toContain('Ticket #002 is waiting on #001');
+    expect(context.errorText()).toContain('Ticket #002 is waiting on #001, which is not reviewed yet.');
+  });
+
+  test('the warning names every dependency still owed, in the plural', async () => {
+    await run(['ticket', 'add', 'Report the import', '--depends-on', '1,2']);
+
+    expect((await run(['ticket', 'start', '3'])).errorText()).toContain('which are not reviewed yet.');
   });
 
   test('a dependency on a ticket that does not exist is refused', async () => {

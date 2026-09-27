@@ -10,7 +10,7 @@ const { rewrittenFilesTextOf } = TrackerRewriteTextUtil;
 
 test('a rewrite of the progress file alone names it and where its log moved', () => {
   expect(rewrittenFilesTextOf({ progressFileWasRewritten: true, logWasMovedToItsOwnFile: true, rewrittenTicketCount: 0 }))
-    .toBe('progress.json, with its log moved to log.jsonl');
+    .toBe('progress.json (its log moved to log.jsonl)');
 });
 
 test('a progress file whose rows alone were rewritten is named without a log', () => {
@@ -27,7 +27,7 @@ test('several rewritten ticket files are counted in the plural', () => {
 
 test('a rewrite of both joins them with and, the progress file first', () => {
   expect(rewrittenFilesTextOf({ progressFileWasRewritten: true, logWasMovedToItsOwnFile: true, rewrittenTicketCount: 3 }))
-    .toBe('progress.json, with its log moved to log.jsonl and 3 ticket files');
+    .toBe('progress.json (its log moved to log.jsonl) and 3 ticket files');
   expect(rewrittenFilesTextOf({ progressFileWasRewritten: true, logWasMovedToItsOwnFile: false, rewrittenTicketCount: 1 }))
     .toBe('progress.json and 1 ticket file');
 });

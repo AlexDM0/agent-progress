@@ -66,10 +66,11 @@ output never carries either.
                               Each line says whether that file changed, so a session that read the
                               brief at its start learns that its copy is now stale. It takes the same
                               --no-claude-md, --no-hooks, --no-workflow, --no-agent-definition and
-                              no-op --hooks as \`init\`. Every other command except help and status
-                              refuses, with exit 1, while the files installed here are of another
-                              install version than this agent-progress; update rewrites them, and
-                              it and \`init\` refuse files a newer agent-progress installed.
+                              no-op --hooks as \`init\`. Every command but init, update, help and
+                              status refuses, with exit 1, while the files installed here are of
+                              another install version than this agent-progress (the SubagentStop
+                              hook reports it and exits 0); update rewrites them, and it and \`init\`
+                              refuse files a newer agent-progress installed.
 
   status [--json] [--full]    The project, the counts, the rows that are not delivered or
                               abandoned, and the last log entries newest first. --json prints the
@@ -135,11 +136,12 @@ output never carries either.
                               This is the command \`init\` and \`update\` wire into
                               \`.claude/settings.local.json\`; nobody types it. It exits 0 whatever
                               goes wrong — no input, an unreadable transcript, no tracker at the
-                              hook's own working directory, a row or a ticket's row that does not
-                              exist — and writes the reason to standard error. Its exit code
-                              prevents nothing, since the agent has already finished; exiting 0 is
-                              what keeps a failure here from becoming an error the orchestrator must
-                              read, or a delay before it is told.
+                              hook's own working directory, installed files of another install
+                              version, a row or a ticket's row that does not exist — and writes the
+                              reason to standard error. Its exit code prevents nothing, since the
+                              agent has already finished; exiting 0 is what keeps a failure here
+                              from becoming an error the orchestrator must read, or a delay before
+                              it is told.
 
   usage [--since <when>]      What this repository's subagents cost, read out of the transcripts the
       [--transcripts <folder>] harness wrote for them, a workflow's agents under

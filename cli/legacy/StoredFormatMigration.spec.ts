@@ -229,7 +229,7 @@ function trackerWrittenBeforeLogJsonl(): TrackerFiles {
   return files;
 }
 
-const REWRITE_TEXT = 'progress.json, with its log moved to log.jsonl and 1 ticket file';
+const REWRITE_TEXT = 'progress.json (its log moved to log.jsonl) and 1 ticket file';
 
 async function run(repositoryDirectory: string, commandLineArguments: readonly string[]): Promise<ReturnType<typeof createCapturedCommandContext>> {
   const context  = createCapturedCommandContext({ currentDirectory: repositoryDirectory, now: () => FROZEN_NOW });
