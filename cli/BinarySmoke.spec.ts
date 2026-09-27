@@ -19,6 +19,9 @@ import {
 } from '../src/testing/ScratchWorkspace.ts';
 import { runAgentProgress } from './testing/CliProcess.ts';
 
+// A session spawns a dozen processes one after another, which passes the five-second default on a busy machine.
+const MULTI_PROCESS_SESSION_TIMEOUT_MILLISECONDS = 30_000;
+
 let scratchDirectory = '';
 
 beforeAll(() => {
@@ -135,7 +138,7 @@ describe.skipIf(!gitIsAvailable())('a whole session through the binary', () => {
     } finally {
       removeScratchDirectory(repositoryDirectory);
     }
-  });
+  }, MULTI_PROCESS_SESSION_TIMEOUT_MILLISECONDS);
 });
 
 // The orchestrator reads this hint from the command's printed output, so it is pinned where a process prints it, and so is its absence from the JSON.
@@ -168,7 +171,7 @@ describe.skipIf(!gitIsAvailable())('unholding a ticket whose build was left paus
     } finally {
       removeScratchDirectory(repositoryDirectory);
     }
-  });
+  }, MULTI_PROCESS_SESSION_TIMEOUT_MILLISECONDS);
 });
 
 describe.skipIf(!gitIsAvailable())('a bare repository, through the binary', () => {
