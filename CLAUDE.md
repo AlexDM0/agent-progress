@@ -134,14 +134,18 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - Bump `INSTALL_VERSION` by hand, in the same commit, when a file installed by the previous version becomes wrong
   against the new CLI: a command, flag, JSON field, stored state or exit code an installed file names or reads changes
   meaning or is removed; the dispatcher's launch arguments change; or an installed file moves or a new one is
-  installed. A template's wording or a `DISPATCH_PROTOCOL` number does not bump it.
+  installed. A template's wording or a `DISPATCH_PROTOCOL` number does not bump it. `cli/InstalledSurface.spec.ts` holds
+  this: `cli/FrozenInstalledSurface.json` freezes, per `INSTALL_VERSION`, the commands, flags and `status --json` fields
+  the installed files name; a version's surface only grows, and a frozen name the CLI no longer has fails until the bump
+  and a new key.
 - The check reads only the manifest: a version equal to `INSTALL_VERSION` is current and a different one a mismatch;
   a missing manifest is a mismatch while the brief is installed (a tracker from before versioning) and current when
   it is not, since nothing installed can then disagree; an unreadable one is a mismatch. `update` and `init` refuse a
   newer manifest rather than write an older install over it.
 - The frozen table `dispatcher/testing/FrozenDispatchTraces.json` is retaken from the port's bundle only in a commit
-  that means to change what the agents are told; its diff shows prompt text or wire names and no decision. It is the
-  one exception to a frozen table coming from the previous implementation.
+  that means to change what the agents are told; its diff shows prompt text or wire names and no decision. It and
+  `cli/FrozenInstalledSurface.json`, taken from the installed files, are the exceptions to a frozen table coming from the
+  previous implementation.
 
 ### Comments
 
@@ -164,6 +168,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   `dispatcher/tsconfig.spec.json` for its specs and `dispatcher/testing/`. Its `include` list is the `src/` files the
   dispatcher reaches, and a dispatcher module that imports a new `src/` file adds it there in the same change. Only
   `dispatcher/DispatchFromWorkflowGlobals.ts` names the Workflow globals.
+- `src/ProjectIncludeLists.spec.ts` holds both `include` lists exactly, both ways, against what the project's shipping
+  modules reach outside its folder, plus, for the page, every shipping module of `src/lib/tracker-model/`.
 - `cli/` reaches `dispatcher/`, and the render service `page/`, only by path, to bundle them: dispatcher code runs in
   the CLI's process only when `init` or `update` bundle it. `init`, `update` and the specs build the dispatcher from the
   one request in `src/shared/DispatcherScriptBuildRequest.ts` and never import `dispatcher/`.
