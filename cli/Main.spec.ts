@@ -23,6 +23,7 @@ import { createInstallManifestWriter }                    from '../src/adapters/
 import { InstallVersionWordingUtil }                      from '../src/adapters/utils/InstallVersionWordingUtil.ts';
 import { OperationRefusal }                               from '../src/shared/OperationRefusal.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
+import { COMMAND_NAMES }                                  from './CommandTable.ts';
 import { installedFilePathsIn }                           from './InstalledFiles.ts';
 import { runCommandLine }                                 from './Main.ts';
 import { INSTALL_VERSION }                                from './constants/InstallVersion.ts';
@@ -149,6 +150,9 @@ describe('a command run where no tracker is', () => {
 });
 
 describe('a tracker whose installed files are of another install version', () => {
+  const COMMANDS_THAT_RUN_OR_CHECK_ON_THEIR_OWN = new Set(['init', 'update', 'help', 'status', 'hook', 'release']);
+  const CHECKED_COMMAND_NAMES = COMMAND_NAMES.filter((commandName) => !COMMANDS_THAT_RUN_OR_CHECK_ON_THEIR_OWN.has(commandName));
+
   /** A tracker made by `init` and then stripped of its manifest is exactly a tracker installed by an agent-progress from before versioning. */
   let trackedDirectory = '';
 
@@ -180,11 +184,12 @@ describe('a tracker whose installed files are of another install version', () =>
   test('every checked command exits 1 with the one paragraph on standard error and leaves progress.json byte for byte', async () => {
     const progressFilePath   = join(trackedDirectory, '.agent-progress', 'progress.json');
     const progressFileBefore = readFileSync(progressFilePath);
-    for (const line of [['task', 'add', 'Example row'], ['ticket', 'list'], ['render'], ['open'], ['usage'], ['dispatcher']]) {
+    expect(CHECKED_COMMAND_NAMES).toHaveLength(COMMAND_NAMES.length - COMMANDS_THAT_RUN_OR_CHECK_ON_THEIR_OWN.size);
+    for (const commandName of CHECKED_COMMAND_NAMES) {
       const context = trackedContext();
-      expect(await runCommandLine(line, context), line.join(' ')).toBe(1);
-      expect(context.errorText(), line.join(' ')).toBe(unversionedParagraph());
-      expect(context.outputText(), line.join(' ')).toBe('');
+      expect(await runCommandLine([commandName], context), commandName).toBe(1);
+      expect(context.errorText(), commandName).toBe(unversionedParagraph());
+      expect(context.outputText(), commandName).toBe('');
     }
     expect(readFileSync(progressFilePath).equals(progressFileBefore)).toBe(true);
     expect(existsSync(installedFilePathsIn(trackedDirectory).installManifest)).toBe(false);
