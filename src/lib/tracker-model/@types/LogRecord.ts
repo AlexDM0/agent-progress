@@ -32,6 +32,7 @@ export type LogRecordContent =
   | { kind: 'chart-range-set'; fields: { view: ViewRange } }
   | { kind: 'concurrency-limit-set'; fields: { limit: number } }
   | { kind: 'dispatcher-set'; fields: { state: DispatcherState; runId: string | null } }
-  | { kind: 'tracker-cleared'; fields: Record<string, never> }  | { kind: 'agent-stopped'; fields: AgentUsage };
+  | { kind: 'tracker-cleared'; fields: Record<string, never> }
+  | { kind: 'agent-stopped'; fields: AgentUsage };
 
 export type LogRecord = LogRecordContent & { at: string };
