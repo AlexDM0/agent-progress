@@ -1,23 +1,15 @@
 /**
- * Bundles `page/PageStart.ts` into the single minified script `src/services/render/Template.ts` inlines, resolved from `import.meta.dir`
+ * Bundles `page/PageStart.ts` into the single minified script `src/services/render/ProgressHtml.ts` inlines, resolved from `import.meta.dir`
  * because the binary is installed with `bun link` and run from whatever repository the orchestrator is in.
  */
 
 import { join } from 'node:path';
 
+import { PageScriptTextUtil } from './utils/PageScriptTextUtil.ts';
+
 export type PageBundleOutcome =
   | { verdict: 'built'; script: string }
   | { verdict: 'failed'; reason: string };
-
-/** An HTML parser ends a `<script>` at the first `</script`, inside a JavaScript string literal or not, so every one of them is escaped. */
-export function withScriptEndEscaped(script: string): string {
-  return script.replace(/<\/(script)/gi, '<\\/$1');
-}
-
-/** A `<!--` inside a `<script>` makes `</script>` stop closing the element, and it cannot be escaped in place, so such a bundle fails instead. */
-export function scriptWouldOpenAnHtmlComment(script: string): boolean {
-  return script.includes('<!--');
-}
 
 export interface PageBundler {
   /** A failure is returned, never thrown, so a command that has already written `progress.json` can still write a page. */
@@ -38,8 +30,8 @@ async function buildPageScript(): Promise<PageBundleOutcome> {
   if (firstOutput === undefined) {
     return { verdict: 'failed', reason: 'the page bundle succeeded but produced no output file' };
   }
-  const script = withScriptEndEscaped(await firstOutput.text());
-  if (scriptWouldOpenAnHtmlComment(script)) {
+  const script = PageScriptTextUtil.withScriptEndEscaped(await firstOutput.text());
+  if (PageScriptTextUtil.scriptWouldOpenAnHtmlComment(script)) {
     return { verdict: 'failed', reason: 'the page bundle contains an HTML comment opener, which would swallow the script element' };
   }
   return { verdict: 'built', script };

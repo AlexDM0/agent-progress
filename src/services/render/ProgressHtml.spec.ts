@@ -3,16 +3,16 @@
  * back to what went in, and nothing from the tracker able to close the script element it travels in.
  */
 
-import { describe, expect, test }                       from 'bun:test';
-import { ProgressDocumentUtil }                         from '../../adapters/progress/utils/ProgressDocumentUtil.ts';
-import type { LogRecord }                               from '../../lib/tracker-model/@types/LogRecord.ts';
-import type { ProgressFile }                            from '../../lib/tracker-model/@types/ProgressFile.ts';
-import type { Task }                                    from '../../lib/tracker-model/@types/Task.ts';
-import type { Ticket }                                  from '../../lib/tracker-model/@types/Ticket.ts';
-import { refusalIsOperationRefusal }                    from '../../shared/OperationRefusal.ts';
-import { LIMITS }                                       from '../../shared/constants/Limits.ts';
-import { createMarkdownRenderer }                       from './Markdown.ts';
-import { renderProgressHtml, substituteTemplateTokens } from './Template.ts';
+import { describe, expect, test }         from 'bun:test';
+import { ProgressDocumentUtil }           from '../../adapters/progress/utils/ProgressDocumentUtil.ts';
+import type { LogRecord }                 from '../../lib/tracker-model/@types/LogRecord.ts';
+import type { ProgressFile }              from '../../lib/tracker-model/@types/ProgressFile.ts';
+import type { Task }                      from '../../lib/tracker-model/@types/Task.ts';
+import type { Ticket }                    from '../../lib/tracker-model/@types/Ticket.ts';
+import { LIMITS }                         from '../../shared/constants/Limits.ts';
+import { islandContentsOf, islandTextOf } from '../../testing/RenderedIslandText.ts';
+import { createMarkdownRenderer }         from './MarkdownRenderer.ts';
+import { renderProgressHtml }             from './ProgressHtml.ts';
 
 const GENERATED_AT = new Date('2026-09-18T20:11:03Z');
 
@@ -82,19 +82,9 @@ function render(overrides: Partial<Parameters<typeof renderProgressHtml>[0]> = {
   });
 }
 
-/** `[^<]*` rather than a lazy any: every `<` inside an island is escaped, so the real element holds none. */
-function islandTextOf(document: string, elementId: string): string {
-  const match = new RegExp(`<script type="application/json" id="${elementId}">([^<]*)</script>`).exec(document);
-  return match?.[1] ?? '';
-}
-
 function lastScriptBodyOf(document: string): string {
   const body = document.slice(document.lastIndexOf('<script>') + '<script>'.length);
   return body.slice(0, body.indexOf('</script>'));
-}
-
-function islandContentsOf(document: string, elementId: string): unknown {
-  return JSON.parse(islandTextOf(document, elementId)) as unknown;
 }
 
 describe('renderProgressHtml', () => {
@@ -190,7 +180,7 @@ describe('renderProgressHtml', () => {
     expect(payload.concurrency).toEqual({ limit: 3, agentsInFlight: 2 });
   });
 
-  // Last, so every byte of the island before it stays where the page read it before the facts existed.
+  // Last, so every byte of the island before it keeps its position for the page that reads it.
   test('carries the board facts it was handed, after every other payload key', () => {
     const boardFacts = {
       rows: [{
@@ -281,39 +271,5 @@ describe('renderProgressHtml', () => {
 
     expect(injected).not.toContain('<');
     expect(injected).toContain('\\u003C/script');
-  });
-});
-
-describe('substituteTemplateTokens', () => {
-  const values = { '__PROGRESS__': '{}', '__TICKETS__': '[]' };
-
-  test('substitutes each token once and leaves the rest of the template byte for byte', () => {
-    expect(substituteTemplateTokens('a __PROGRESS__ b __TICKETS__ c', values)).toBe('a {} b [] c');
-  });
-
-  test.each([
-    ['a token that is gone', 'a __PROGRESS__ b', 0],
-    ['a token that occurs twice', 'a __PROGRESS__ b __TICKETS__ c __TICKETS__', 2],
-  ])('refuses %s as unrepaired, carrying the token and how often it occurs', (_description, template, occurrenceCount) => {
-    let caught: unknown = null;
-    try {
-      substituteTemplateTokens(template, values);
-    } catch (failure) {
-      caught = failure;
-    }
-
-    expect(refusalIsOperationRefusal(caught) ? caught.status : null).toBe('unrepaired');
-    expect(refusalIsOperationRefusal(caught) ? caught.detail : null).toEqual({
-      kind:             'template-token-not-unique',
-      templateFilePath: 'resources/template.html',
-      token:            '__TICKETS__',
-      occurrenceCount,
-    });
-  });
-
-  test('does not find a token inside the text it just injected', () => {
-    const injected = { '__PROGRESS__': '__TICKETS__', '__TICKETS__': 'second' };
-
-    expect(substituteTemplateTokens('__PROGRESS__ / __TICKETS__', injected)).toBe('__TICKETS__ / second');
   });
 });

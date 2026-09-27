@@ -11,21 +11,12 @@ import type { ProgressFile }                             from '../../lib/tracker
 import type { Ticket }                                   from '../../lib/tracker-model/@types/Ticket.ts';
 import { HtmlEscapeUtil }                                from '../../lib/utils/HtmlEscapeUtil.ts';
 import type { PageConcurrency, PagePayload, PageTicket } from '../../shared/@types/PagePayload.ts';
-import { OperationRefusal }                              from '../../shared/OperationRefusal.ts';
 import { resourceFilePathOf }                            from '../../shared/ResourceFilePath.ts';
 import { LIMITS }                                        from '../../shared/constants/Limits.ts';
+import { TEMPLATE_FILE_NAME, TEMPLATE_TOKENS }           from './constants/TemplateFile.ts';
+import { TemplateTokenUtil }                             from './utils/TemplateTokenUtil.ts';
 
 const { escapeHtml, escapeJsonForScriptTag } = HtmlEscapeUtil;
-
-const TEMPLATE_FILE_NAME = 'template.html';
-
-const PROGRESS_TOKEN    = '__PROGRESS__';
-const TICKETS_TOKEN     = '__TICKETS__';
-const PAGE_SCRIPT_TOKEN = '__PAGE_SCRIPT__';
-const TITLE_TOKEN       = '<title>agent-progress</title>';
-
-/** Splitting on all four at once keeps injected content out of the search: a task named `__TICKETS__` would be found by a later replacement. */
-const TEMPLATE_TOKEN_PATTERN = /(__PROGRESS__|__TICKETS__|__PAGE_SCRIPT__|<title>agent-progress<\/title>)/;
 
 interface RenderProgressHtmlInput {
   progress:          ProgressFile;
@@ -80,22 +71,6 @@ function bannerOnlyScript(reason: string): string {
   ].join('');
 }
 
-export function substituteTemplateTokens(template: string, values: Readonly<Record<string, string>>): string {
-  const pieces = template.split(TEMPLATE_TOKEN_PATTERN);
-  for (const token of Object.keys(values)) {
-    const occurrences = pieces.filter((piece) => piece === token).length;
-    if (occurrences !== 1) {
-      throw new OperationRefusal('unrepaired', {
-        kind:             'template-token-not-unique',
-        templateFilePath: `resources/${TEMPLATE_FILE_NAME}`,
-        token,
-        occurrenceCount:  occurrences,
-      });
-    }
-  }
-  return pieces.map((piece) => (Object.hasOwn(values, piece) ? values[piece] ?? '' : piece)).join('');
-}
-
 export function renderProgressHtml(input: RenderProgressHtmlInput): string {
   const {
     progress,
@@ -121,10 +96,10 @@ export function renderProgressHtml(input: RenderProgressHtmlInput): string {
     boardFacts,
   };
 
-  return substituteTemplateTokens(template, {
-    [TITLE_TOKEN]:       `<title>${escapeHtml(progress.project)} progress</title>`,
-    [PROGRESS_TOKEN]:    escapeJsonForScriptTag(JSON.stringify(payload)),
-    [TICKETS_TOKEN]:     escapeJsonForScriptTag(JSON.stringify(pageTicketsFor(tickets, renderMarkdown))),
-    [PAGE_SCRIPT_TOKEN]: pageScript ?? bannerOnlyScript(pageScriptFailure ?? 'the page script could not be built'),
+  return TemplateTokenUtil.substituteTemplateTokens(template, {
+    [TEMPLATE_TOKENS.TITLE]:       `<title>${escapeHtml(progress.project)} progress</title>`,
+    [TEMPLATE_TOKENS.PROGRESS]:    escapeJsonForScriptTag(JSON.stringify(payload)),
+    [TEMPLATE_TOKENS.TICKETS]:     escapeJsonForScriptTag(JSON.stringify(pageTicketsFor(tickets, renderMarkdown))),
+    [TEMPLATE_TOKENS.PAGE_SCRIPT]: pageScript ?? bannerOnlyScript(pageScriptFailure ?? 'the page script could not be built'),
   });
 }

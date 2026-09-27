@@ -1,7 +1,7 @@
 /**
  * The Gantt axis and bar geometry as pure arithmetic over epoch milliseconds: no DOM, no clock. Its bounds arrive as a parameter instead of
  * from `src/shared/constants/Limits.ts`, so `page/utils/GeometryUtil.spec.ts` drives it with a constructed tick ladder; the page passes what
- * `src/services/render/Template.ts` put in the progress island.
+ * `src/services/render/ProgressHtml.ts` put in the progress island.
  */
 
 import type { ProgressFile, ViewRange }                from '../../src/lib/tracker-model/@types/ProgressFile.ts';

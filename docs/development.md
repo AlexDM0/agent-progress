@@ -212,6 +212,7 @@ import a devDependency.
 | `src/testing/BoardFixtures.ts` | A `Board` over synthetic records (`boardFixture`, `taskFixture`, `ticketFixture`) whose logger keeps every record in a list, so the Board specs assert reason codes, records and changed tickets. |
 | `src/testing/TrackerFileFixtures.ts` | A readable tracker written through the store's own writers, a broken log line, every stored file's contents and a failed action's throw, for the tracker service specs. |
 | `src/testing/ChildProcessEvaluation.ts` | Runs a few lines in a child Bun process with its own environment and reads back the JSON they print, for the specs that must set an environment variable. |
+| `src/testing/RenderedIslandText.ts` | A JSON island read back out of a rendered page, for the render and page specs. |
 | `src/testing/ProgressFixtures.ts` | A new tracker's progress and a row filed the way the Board files one, for the adapter and service specs that read or write `progress.json`. |
 | `src/adapters/progress/testing/ProgressFileFixtures.ts` | The tracker as the current `progress.json` format stores it, for the `progress.json` adapter specs. |
 | `src/adapters/legacy/testing/LegacyProgressFileFixtures.ts` | The older progress documents the legacy specs read: a version 1 file with its own log, and one in the retired task words. It goes with `src/adapters/legacy/`. |
@@ -259,12 +260,12 @@ watched it fail.
 `progress.html` is built from `resources/template.html`, which is the designer's file: edited as
 HTML, carried over rather than generated. Its placeholder content is the contract, so a change to what
 the page modules under `page/` emit that is not also made in the template is a bug, in whichever
-direction it was made. `src/services/render/Template.ts` replaces four tokens in it. The comment block at the top of the template
+direction it was made. `src/services/render/ProgressHtml.ts` replaces four tokens in it. The comment block at the top of the template
 names those tokens, the ids and classes the template exposes, and the one layout invariant to protect
 (the axis box that keeps bars, ticks and the now-marker aligned).
 
 The TypeScript under `page/` runs in the browser and is compiled by its own DOM-only
-project (see [Checks](#checks)). It is bundled into the page from `page/PageStart.ts` by `src/services/render/PageBundle.ts`.
+project (see [Checks](#checks)). It is bundled into the page from `page/PageStart.ts` by `src/services/render/PageBundler.ts`.
 
 To see a change, render a scratch tracker (the one from the session above, before its `rm -rf`) and
 open it:
@@ -357,7 +358,7 @@ written, and exactly one waiter wins.
 progress file in a JSON island and `page/utils/GeometryUtil.ts` computes every bar, tick and
 marker from it, which is what lets the in-page range presets re-lay-out without a regeneration, and
 means there is exactly one implementation of the geometry rather than a server copy and a client
-copy that disagree. The geometry's bounds are put into the island by `src/services/render/Template.ts` and taken
+copy that disagree. The geometry's bounds are put into the island by `src/services/render/ProgressHtml.ts` and taken
 as a parameter rather than read from `src/shared/constants/Limits.ts`, so `page/utils/GeometryUtil.spec.ts`
 can drive it with a constructed tick ladder. The island's last key, `boardFacts`, carries the Board's answers
 the render service computes through `src/services/render/utils/BoardFactsUtil.ts`: one fact per row at its

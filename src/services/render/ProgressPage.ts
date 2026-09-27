@@ -4,8 +4,8 @@ import type { ProgressFile }  from '../../lib/tracker-model/@types/ProgressFile.
 import type { Ticket }        from '../../lib/tracker-model/@types/Ticket.ts';
 import { Board }              from '../../lib/tracker-model/Board.ts';
 import { createLogger }       from '../../lib/tracker-model/Logger.ts';
+import { renderProgressHtml } from './ProgressHtml.ts';
 import type { RenderState }   from './RenderState.ts';
-import { renderProgressHtml } from './Template.ts';
 import { BoardFactsUtil }     from './utils/BoardFactsUtil.ts';
 
 export interface ProgressPageInput {

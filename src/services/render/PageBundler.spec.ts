@@ -2,8 +2,9 @@
  * That the page entry bundles from wherever the binary is run and the result is safe to inline in a `<script>`.
  */
 
-import { describe, expect, test }                                                from 'bun:test';
-import { createPageBundler, scriptWouldOpenAnHtmlComment, withScriptEndEscaped } from './PageBundle.ts';
+import { describe, expect, test } from 'bun:test';
+import { createPageBundler }      from './PageBundler.ts';
+import { PageScriptTextUtil }     from './utils/PageScriptTextUtil.ts';
 
 describe('createPageBundler', () => {
   test('bundles the page entry point into a non-empty script', async () => {
@@ -50,44 +51,10 @@ describe('createPageBundler', () => {
   });
 });
 
-describe('withScriptEndEscaped', () => {
-  test.each([
-    ['a lowercase closing tag', 'var sample = "</script>";'],
-    ['an uppercase one', 'var sample = "</SCRIPT>";'],
-    ['a mixed-case one', 'var sample = "</ScRiPt>";'],
-    ['one with no closing angle bracket', 'var sample = "</script ";'],
-  ])('leaves nothing an HTML parser reads as the end of a script element, given %s', (_description, script) => {
-    expect(/<\/script/i.test(withScriptEndEscaped(script))).toBe(false);
-  });
-
-  test('leaves the string the script builds byte for byte unchanged', () => {
-    const escaped = withScriptEndEscaped('"</script></SCRIPT>".length');
-
-    expect(escaped).not.toBe('"</script></SCRIPT>".length');
-     
-    expect(eval(escaped)).toBe('</script></SCRIPT>'.length);
-  });
-
-  test('keeps the case of the tag it escaped, since the page script is minified and compared by eye', () => {
-    expect(withScriptEndEscaped('"</SCRIPT>"')).toContain('SCRIPT');
-  });
-
-  test('leaves a script containing no such sequence exactly as it was', () => {
-    const untouched = 'var sample = 1; sample += 2;';
-
-    expect(withScriptEndEscaped(untouched)).toBe(untouched);
-  });
-});
-
-describe('scriptWouldOpenAnHtmlComment', () => {
-  test('sees an HTML comment opener wherever it sits, and nothing else', () => {
-    expect(scriptWouldOpenAnHtmlComment('var sample = "<!--<script";')).toBe(true);
-    expect(scriptWouldOpenAnHtmlComment('var sample = 1 < 2; // -- not a comment opener')).toBe(false);
-  });
-
-  test('the real bundle carries none', async () => {
+describe('the bundled page script', () => {
+  test('carries no HTML comment opener', async () => {
     const outcome = await createPageBundler().bundlePageScript();
 
-    expect(outcome.verdict === 'built' && scriptWouldOpenAnHtmlComment(outcome.script)).toBe(false);
+    expect(outcome.verdict === 'built' && PageScriptTextUtil.scriptWouldOpenAnHtmlComment(outcome.script)).toBe(false);
   });
 });

@@ -1,6 +1,6 @@
 /**
  * The Tickets tab's markup: the table rows, the cards and the count, shaped by the placeholder content of `resources/template.html`. Every
- * ticket value passes `escapeHtml` exactly once here, except a ticket's `bodyHtml`, already escaped by `src/services/render/Markdown.ts`.
+ * ticket value passes `escapeHtml` exactly once here, except a ticket's `bodyHtml`, already escaped by `src/services/render/MarkdownRenderer.ts`.
  */
 
 import { HtmlLabelUtil }          from '../../src/adapters/utils/HtmlLabelUtil.ts';

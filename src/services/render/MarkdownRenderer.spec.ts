@@ -1,10 +1,10 @@
 /**
- * Where `src/services/render/Markdown.ts` deliberately departs from marked: raw HTML escaped rather than
+ * Where `src/services/render/MarkdownRenderer.ts` deliberately departs from marked: raw HTML escaped rather than
  * passed through, and only allowlisted link schemes surviving.
  */
 
 import { describe, expect, test } from 'bun:test';
-import { createMarkdownRenderer } from './Markdown.ts';
+import { createMarkdownRenderer } from './MarkdownRenderer.ts';
 
 const { renderMarkdown } = createMarkdownRenderer();
 
@@ -84,7 +84,7 @@ describe('renderMarkdown', () => {
     expect(html).toContain('x');
   });
 
-  // A reference past the last code point used to throw out of the render, taking the whole page with it.
+  // A reference past the last code point must not throw, or one ticket body would take down the whole page.
   test('drops a link whose reference names no code point instead of throwing', () => {
     const html = renderMarkdown('[x](&#99999999;avascript:alert(1)) and [y](&#x110000javascript:alert(1))');
 

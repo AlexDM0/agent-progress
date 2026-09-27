@@ -12,6 +12,7 @@ import { createLogger }        from '../../lib/tracker-model/Logger.ts';
 import { ConcurrencyUtil }     from '../../lib/tracker-model/utils/ConcurrencyUtil.ts';
 import type { PageBoardFacts } from '../../shared/@types/PagePayload.ts';
 import { ticketFixture }       from '../../testing/BoardFixtures.ts';
+import { islandContentsOf }    from '../../testing/RenderedIslandText.ts';
 import { renderProgressPage }  from './ProgressPage.ts';
 import { createRenderState }   from './RenderState.ts';
 import { BoardFactsUtil }      from './utils/BoardFactsUtil.ts';
@@ -49,12 +50,6 @@ const EXAMPLE_PROGRESS: ProgressFile = {
     exampleTask(4, { status: 'pending', start: null }),
   ],
 };
-
-/** `[^<]*` rather than a lazy any: every `<` inside an island is escaped, so the real element holds none. */
-function islandContentsOf(document: string, elementId: string): unknown {
-  const match = new RegExp(`<script type="application/json" id="${elementId}">([^<]*)</script>`).exec(document);
-  return JSON.parse(match?.[1] ?? 'null') as unknown;
-}
 
 describe('renderProgressPage', () => {
   test('writes the limit and the agents in flight that concurrencyOf gives for the rows', async () => {

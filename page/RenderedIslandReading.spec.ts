@@ -9,6 +9,7 @@ import type { ProgressFile }          from '../src/lib/tracker-model/@types/Prog
 import { renderProgressPage }         from '../src/services/render/ProgressPage.ts';
 import { createRenderState }          from '../src/services/render/RenderState.ts';
 import { taskFixture, ticketFixture } from '../src/testing/BoardFixtures.ts';
+import { islandContentsOf }           from '../src/testing/RenderedIslandText.ts';
 import { IslandUtil }                 from './utils/IslandUtil.ts';
 
 const GENERATED_AT = new Date('2026-09-18T20:11:03Z');
@@ -62,12 +63,6 @@ const EXAMPLE_TICKETS = [
     task:   3,
   }),
 ];
-
-/** `[^<]*` rather than a lazy any: every `<` inside an island is escaped, so the real element holds none. */
-function islandContentsOf(document: string, elementId: string): unknown {
-  const match = new RegExp(`<script type="application/json" id="${elementId}">([^<]*)</script>`).exec(document);
-  return JSON.parse(match?.[1] ?? 'null') as unknown;
-}
 
 async function renderedIslands(): Promise<{ progressIsland: unknown; ticketsIsland: unknown }> {
   const { document } = await renderProgressPage({

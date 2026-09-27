@@ -1,6 +1,6 @@
 /**
  * The panel a Kanban card opens: the ticket's head, its facts, its Timeline and its description. Every value passes `escapeHtml` once,
- * except the ticket's `bodyHtml`, already escaped by `src/services/render/Markdown.ts`.
+ * except the ticket's `bodyHtml`, already escaped by `src/services/render/MarkdownRenderer.ts`.
  */
 
 import { HtmlLabelUtil }             from '../../src/adapters/utils/HtmlLabelUtil.ts';

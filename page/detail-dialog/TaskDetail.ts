@@ -1,6 +1,6 @@
 /**
  * The overview panel a double-click opens: one task, the ticket it belongs to and the log lines about either, as pure functions.
- * Every value passes `escapeHtml` exactly once here, except a ticket's `bodyHtml`, already escaped by `src/services/render/Markdown.ts`.
+ * Every value passes `escapeHtml` exactly once here, except a ticket's `bodyHtml`, already escaped by `src/services/render/MarkdownRenderer.ts`.
  */
 
 import { HtmlLabelUtil } from '../../src/adapters/utils/HtmlLabelUtil.ts';
