@@ -52,6 +52,7 @@
     "../src/lib/tracker-model/utils/VocabularyUtil.ts",
     "../src/adapters/utils/HtmlLabelUtil.ts",
     "../src/lib/html-escape/HtmlEscapeUtil.ts",
+    "../src/lib/local-time/LocalTimeUtil.ts",
     "../src/lib/token-count/TokenCountUtil.ts",
     "../src/shared/@types/PagePayload.ts",
     "../src/shared/@types/WordedProgressDocument.ts",

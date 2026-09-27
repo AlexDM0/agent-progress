@@ -1,6 +1,6 @@
 /** How much of the log the page's log card shows: the newest entries by default, the whole log once the viewer asks for it. */
 
-import type { LogVisibility } from '../../@types/ViewerPreferences.ts';
+import type { LogVisibility } from '../../@types/ViewerChoices.ts';
 
 const LOG_ENTRIES_SHOWN_BY_DEFAULT = 10;
 

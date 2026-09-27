@@ -5,12 +5,8 @@
  * durations and parses stamps.
  */
 
+import { MILLISECONDS_PER_MINUTE } from '../../src/lib/local-time/LocalTimeUtil.ts';
 import type { PageLimits }         from '../../src/shared/@types/PagePayload.ts';
-import { MILLISECONDS_PER_MINUTE } from '../constants/Units.ts';
-
-const SMALLEST_TWO_DIGIT_NUMBER = 10;
-
-const FIRST_MONTH_NUMBER = 1;
 
 const SHORTEST_NAMED_DURATION = 'under a minute';
 
@@ -19,7 +15,7 @@ export type TimestampSlices = Pick<PageLimits, 'dateAndClockLength' | 'calendarD
 export type DurationUnits = Pick<PageLimits, 'hourMinutes' | 'dayMinutes'>;
 
 function padToTwoDigits(value: number): string {
-  return value < SMALLEST_TWO_DIGIT_NUMBER ? `0${value}` : String(value);
+  return String(value).padStart(2, '0');
 }
 
 function clockOf(moment: Date): string {
@@ -27,7 +23,7 @@ function clockOf(moment: Date): string {
 }
 
 function monthAndDayOf(moment: Date): string {
-  return `${padToTwoDigits(moment.getMonth() + FIRST_MONTH_NUMBER)}-${padToTwoDigits(moment.getDate())}`;
+  return `${padToTwoDigits(moment.getMonth() + 1)}-${padToTwoDigits(moment.getDate())}`;
 }
 
 function yearOf(calendarDate: string): string {

@@ -4,6 +4,7 @@
  * `src/services/render/PageTemplateFill.ts` put in the progress island.
  */
 
+import { MILLISECONDS_PER_MINUTE }         from '../../src/lib/local-time/LocalTimeUtil.ts';
 import type { Task }                       from '../../src/lib/tracker-model/@types/Task.ts';
 import type { TrackerProgress, ViewRange } from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import type {
@@ -15,9 +16,8 @@ import type {
   TimelineLimits,
   TimelineTick,
 } from '../@types/Timeline.ts';
-import { MINIMUM_TICK_STEP_MINUTES }                   from '../constants/TickSteps.ts';
-import { MILLISECONDS_PER_MINUTE, PERCENT_OF_A_WHOLE } from '../constants/Units.ts';
-import { TimeUtil }                                    from './TimeUtil.ts';
+import { MINIMUM_TICK_STEP_MINUTES } from '../constants/TickSteps.ts';
+import { TimeUtil }                  from './TimeUtil.ts';
 
 const TICK_LABEL_CLEARANCE_PIXELS = 6;
 
@@ -153,7 +153,7 @@ function buildTicks(span: ResolvedSpan, stepMinutes: number, spanMinutes: number
   const ticks: TimelineTick[] = [];
   while (tickEpochMilliseconds <= span.toEpochMilliseconds && ticks.length < limits.tickCountSafetyBound) {
     ticks.push({
-      leftPercent: (tickEpochMilliseconds - span.fromEpochMilliseconds) / spanMilliseconds * PERCENT_OF_A_WHOLE,
+      leftPercent: (tickEpochMilliseconds - span.fromEpochMilliseconds) / spanMilliseconds * 100,
       label:       formatTickLabel(tickEpochMilliseconds, spanMinutes, limits),
     });
     tickEpochMilliseconds += stepMilliseconds;
@@ -165,7 +165,7 @@ function clampPercent(value: number): number {
   if (!Number.isFinite(value) || value < 0) {
     return 0;
   }
-  return value > PERCENT_OF_A_WHOLE ? PERCENT_OF_A_WHOLE : value;
+  return value > 100 ? 100 : value;
 }
 
 /** Every bar is a percentage of the axis box and never narrower than `minimumBarWidthPercent`, so a zero-length task is still visible. */
@@ -183,16 +183,16 @@ function barForTask(task: Task, span: ResolvedSpan, nowEpochMilliseconds: number
   }
   const endEpochMilliseconds = Math.max(startEpochMilliseconds, TimeUtil.epochMillisecondsOf(task.end) ?? nowEpochMilliseconds);
   const spanMilliseconds     = span.toEpochMilliseconds - span.fromEpochMilliseconds;
-  const rawLeftPercent       = (startEpochMilliseconds - span.fromEpochMilliseconds) / spanMilliseconds * PERCENT_OF_A_WHOLE;
-  const rawRightPercent      = (endEpochMilliseconds - span.fromEpochMilliseconds) / spanMilliseconds * PERCENT_OF_A_WHOLE;
-  const widthPercent         = Math.min(PERCENT_OF_A_WHOLE, Math.max(clampPercent(rawRightPercent) - clampPercent(rawLeftPercent), limits.minimumBarWidthPercent));
-  const leftPercent          = Math.min(clampPercent(rawLeftPercent), PERCENT_OF_A_WHOLE - widthPercent);
+  const rawLeftPercent       = (startEpochMilliseconds - span.fromEpochMilliseconds) / spanMilliseconds * 100;
+  const rawRightPercent      = (endEpochMilliseconds - span.fromEpochMilliseconds) / spanMilliseconds * 100;
+  const widthPercent         = Math.min(100, Math.max(clampPercent(rawRightPercent) - clampPercent(rawLeftPercent), limits.minimumBarWidthPercent));
+  const leftPercent          = Math.min(clampPercent(rawLeftPercent), 100 - widthPercent);
   return {
     taskId:       task.id,
     leftPercent:  Math.max(0, leftPercent),
     widthPercent,
     clippedLeft:  rawLeftPercent < 0,
-    clippedRight: rawRightPercent > PERCENT_OF_A_WHOLE,
+    clippedRight: rawRightPercent > 100,
     visible:      true,
   };
 }
@@ -217,7 +217,7 @@ function computeTimeline(input: TimelineInput): Timeline {
     stepMinutes,
     ticks:                 buildTicks(span, stepMinutes, spanMinutes, limits),
     bars:                  progress.tasks.map((task) => barForTask(task, span, nowEpochMilliseconds, limits)),
-    nowPercent:            nowIsInRange ? (nowEpochMilliseconds - span.fromEpochMilliseconds) / spanMilliseconds * PERCENT_OF_A_WHOLE : null,
+    nowPercent:            nowIsInRange ? (nowEpochMilliseconds - span.fromEpochMilliseconds) / spanMilliseconds * 100 : null,
   };
 }
 

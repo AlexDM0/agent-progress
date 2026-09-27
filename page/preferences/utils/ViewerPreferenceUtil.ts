@@ -5,7 +5,7 @@ import type {
   NameColumnWidth,
   StoredViewOverride,
   WorkVisibility,
-} from '../../@types/ViewerPreferences.ts';
+} from '../../@types/ViewerChoices.ts';
 import { CAPPED_LANE_FIRST_PAGE_CARDS } from '../../constants/CappedLanePaging.ts';
 import { JsonValueUtil }                from '../../utils/JsonValueUtil.ts';
 import {

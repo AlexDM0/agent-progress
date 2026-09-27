@@ -13,7 +13,7 @@ import { pageBoardFixture }                                       from '../testi
 import { EXAMPLE_PAGE_LIMITS }                                    from '../testing/PageLimitsFixture.ts';
 import { TimeUtil }                                               from '../utils/TimeUtil.ts';
 import type { TicketTimeline, TicketTimelineInput, TimelineSpan } from './@types/TicketTimeline.ts';
-import { ticketTimelineOf }                                       from './TicketTimeline.ts';
+import { ticketTimelineOf }                                       from './TicketTimelineLayout.ts';
 import { ticketTimelineMarkup }                                   from './TicketTimelineMarkup.ts';
 
 const EXAMPLE_TODAY = '2026-09-25';

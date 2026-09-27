@@ -6,7 +6,7 @@
 import { describe, expect, test }  from 'bun:test';
 import type { Task }               from '../../../src/lib/tracker-model/@types/Task.ts';
 import type { TrackerProgress }    from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
-import type { StoredViewOverride } from '../../@types/ViewerPreferences.ts';
+import type { StoredViewOverride } from '../../@types/ViewerChoices.ts';
 import { EMPTY_VIEW_OVERRIDE }     from '../../preferences/constants/ViewOverride.ts';
 import { EXAMPLE_PAGE_LIMITS }     from '../../testing/PageLimitsFixture.ts';
 import { ViewRangeUtil }           from './ViewRangeUtil.ts';

@@ -2,7 +2,7 @@
 
 import type { TrackerProgress, ViewRange } from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import type { TimelineLimits }             from '../../@types/Timeline.ts';
-import type { StoredViewOverride }         from '../../@types/ViewerPreferences.ts';
+import type { StoredViewOverride }         from '../../@types/ViewerChoices.ts';
 import { GeometryUtil }                    from '../../utils/GeometryUtil.ts';
 
 function effectiveRangeFor(progress: TrackerProgress, override: StoredViewOverride, nowEpochMilliseconds: number, limits: TimelineLimits): ViewRange {

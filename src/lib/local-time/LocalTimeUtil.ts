@@ -3,7 +3,7 @@
  * lib package.
  */
 
-const MILLISECONDS_PER_MINUTE = 60_000;
+export const MILLISECONDS_PER_MINUTE = 60_000;
 const MINUTES_PER_HOUR        = 60;
 const MINUTES_PER_DAY         = 1440;
 const MILLISECOND_DIGITS = 3;

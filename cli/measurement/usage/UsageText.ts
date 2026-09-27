@@ -8,7 +8,6 @@ import type { AgentUsage }    from './UsageAgents.ts';
 
 const MEAN_CALL_COUNT_DECIMALS = 1;
 
-const PERCENT_OF_A_WHOLE = 100;
 
 /** Each width holds the wider of its header and its figures; the end-context column is the broad one because its header is, not its numbers. */
 const AGENT_COLUMN_WIDTHS_CHARACTERS = {
@@ -27,7 +26,7 @@ const AGENT_COLUMN_WIDTHS_CHARACTERS = {
 /** The table carries the share and not the raw count: agents are compared on how much of their own input was sent at an oversized context. */
 function oversizedContextPercentOf(agent: AgentUsage): string {
   if (agent.totalInputTokens === 0) return '0%';
-  return `${Math.round((agent.oversizedContextTokens / agent.totalInputTokens) * PERCENT_OF_A_WHOLE)}%`;
+  return `${Math.round((agent.oversizedContextTokens / agent.totalInputTokens) * 100)}%`;
 }
 
 /**
@@ -87,7 +86,7 @@ export function cohortLineOf(label: string, summary: CohortSummary): string {
     + `mean input ${TokenCountUtil.formatTokenCount(summary.meanTotalInputTokens)}, `
     + `mean output ${TokenCountUtil.formatTokenCount(summary.meanOutputTokens)}, `
     + `mean ${summary.meanBrowserCallCount.toFixed(MEAN_CALL_COUNT_DECIMALS)} browser calls, `
-    + `mean ${Math.round(summary.meanOversizedContextShare * PERCENT_OF_A_WHOLE)}% over ${oversizedThresholdText} context, `
+    + `mean ${Math.round(summary.meanOversizedContextShare * 100)}% over ${oversizedThresholdText} context, `
     + `mean ${summary.meanBashEditScriptCount.toFixed(MEAN_CALL_COUNT_DECIMALS)} bash edit scripts, `
     + `mean ${summary.meanVerificationRunCount.toFixed(MEAN_CALL_COUNT_DECIMALS)} verification runs, `
     + `mean ${TokenCountUtil.formatTokenCount(summary.meanNestedInstructionCharacters)} nested characters`;

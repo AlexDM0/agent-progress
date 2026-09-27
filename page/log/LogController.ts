@@ -1,7 +1,7 @@
 /** The log card: its entries, cut to the newest unless the viewer asked for all, and the toggle between the two. */
 
 import type { WordedLogEntry }                         from '../../src/shared/@types/WordedLogEntry.ts';
-import type { ViewerPreferences }                      from '../@types/ViewerPreferences.ts';
+import type { ViewerPreferences }                      from '../@types/ViewerChoices.ts';
 import { LOG_ENTRIES_ELEMENT_ID, LOG_NOTE_ELEMENT_ID } from '../constants/TemplateIds.ts';
 import { ViewerPreferenceUtil }                        from '../preferences/utils/ViewerPreferenceUtil.ts';
 import { DomUtil }                                     from '../utils/DomUtil.ts';

@@ -81,8 +81,6 @@ const HUNK_HEADER = /^@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@/;
 
 const OMITTED_HUNK_LENGTH_LINES = 1;
 
-const OCTAL_RADIX = 8;
-
 const NULL_DEVICE_PATH = '/dev/null';
 
 const GIT_PATH_PREFIXES = ['a/', 'b/'];
@@ -306,7 +304,7 @@ function unquotedGitPath(quoted: string): string {
     }
     const octalDigits = /^[0-7]{3}/.exec(inner.slice(i + 1));
     if (octalDigits !== null) {
-      bytes.push(Number.parseInt(octalDigits[0], OCTAL_RADIX));
+      bytes.push(Number.parseInt(octalDigits[0], 8));
       i += octalDigits[0].length;
       continue;
     }

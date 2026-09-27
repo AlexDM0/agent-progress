@@ -1,5 +1,5 @@
 /**
- * The markup of a ticket's detail-panel Timeline: the rows, bars, axis and legend drawn from `page/detail-dialog/TicketTimeline.ts`'s data.
+ * The markup of a ticket's detail-panel Timeline: the rows, bars, axis and legend drawn from `page/detail-dialog/TicketTimelineLayout.ts`'s data.
  * Every value passes `escapeHtml` once here.
  */
 
@@ -7,7 +7,6 @@ import { HtmlEscapeUtil }      from '../../src/lib/html-escape/HtmlEscapeUtil.ts
 import { TokenCountUtil }      from '../../src/lib/token-count/TokenCountUtil.ts';
 import type { PageTicket }     from '../../src/shared/@types/PagePayload.ts';
 import type { TimelineLimits } from '../@types/Timeline.ts';
-import { PERCENT_OF_A_WHOLE }  from '../constants/Units.ts';
 import { MarkupUtil }          from '../utils/MarkupUtil.ts';
 import { TimeUtil }            from '../utils/TimeUtil.ts';
 import type {
@@ -18,20 +17,20 @@ import type {
   TicketTimelineInput,
   TimelineSpan,
 } from './@types/TicketTimeline.ts';
-import { ticketTimelineOf }   from './TicketTimeline.ts';
+import { ticketTimelineOf }   from './TicketTimelineLayout.ts';
 import { TicketTimelineUtil } from './utils/TicketTimelineUtil.ts';
 
 
 const SEGMENT_LABEL_MINIMUM_PERCENT = 9;
 
 function clampToAxis(value: number): number {
-  return Math.min(PERCENT_OF_A_WHOLE, Math.max(0, value));
+  return Math.min(100, Math.max(0, value));
 }
 
 function barStyle(axis: TicketTimelineAxis, span: TimelineSpan, limits: TimelineLimits): string {
   const leftPercent  = clampToAxis(TicketTimelineUtil.percentAlong(axis, span.startEpochMilliseconds));
   const rightPercent = clampToAxis(TicketTimelineUtil.percentAlong(axis, span.endEpochMilliseconds));
-  const widthPercent = Math.min(PERCENT_OF_A_WHOLE - leftPercent, Math.max(rightPercent - leftPercent, limits.minimumBarWidthPercent));
+  const widthPercent = Math.min(100 - leftPercent, Math.max(rightPercent - leftPercent, limits.minimumBarWidthPercent));
   return `left:${MarkupUtil.percentText(leftPercent)};width:${MarkupUtil.percentText(widthPercent)}`;
 }
 

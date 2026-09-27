@@ -4,7 +4,7 @@ import type { ViewRange }                                              from '../
 import type { PagePayload }                                            from '../../src/shared/@types/PagePayload.ts';
 import type { BoardRow }                                               from '../@types/PageBoard.ts';
 import type { Timeline }                                               from '../@types/Timeline.ts';
-import type { NameColumnWidth, StoredViewOverride, ViewerPreferences } from '../@types/ViewerPreferences.ts';
+import type { NameColumnWidth, StoredViewOverride, ViewerPreferences } from '../@types/ViewerChoices.ts';
 import {
   AXIS_TICKS_ELEMENT_ID,
   CHART_OVERLAY_ELEMENT_ID,
@@ -14,7 +14,6 @@ import {
   SUMMARY_ELEMENT_ID,
   TASK_ROWS_ELEMENT_ID,
 } from '../constants/TemplateIds.ts';
-import { PERCENT_OF_A_WHOLE }       from '../constants/Units.ts';
 import { ViewerPreferenceUtil }     from '../preferences/utils/ViewerPreferenceUtil.ts';
 import { DomUtil }                  from '../utils/DomUtil.ts';
 import { GeometryUtil }             from '../utils/GeometryUtil.ts';
@@ -73,7 +72,7 @@ function pinnedColumnsWidth(): number {
 
 function scrollNowIntoView(chart: HTMLElement, nowPercent: number, axisWidthPixels: number, pinnedWidth: number): void {
   const visibleAxisWidth   = Math.max(1, chart.clientWidth - pinnedWidth);
-  const markerAxisOffset   = axisWidthPixels * nowPercent / PERCENT_OF_A_WHOLE;
+  const markerAxisOffset   = axisWidthPixels * nowPercent / 100;
   const furthestScrollLeft = Math.max(0, chart.scrollWidth - chart.clientWidth);
   const desiredScrollLeft  = markerAxisOffset - visibleAxisWidth / 2;
   chart.scrollLeft = Math.max(0, Math.min(desiredScrollLeft, furthestScrollLeft));

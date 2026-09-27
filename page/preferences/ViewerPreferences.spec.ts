@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, test }                                                     from 'bun:test';
-import type { PreferenceStorage, StoredViewOverride, ViewerPreferences }              from '../@types/ViewerPreferences.ts';
+import type { PreferenceStorage, StoredViewOverride, ViewerPreferences }              from '../@types/ViewerChoices.ts';
 import { CAPPED_LANE_FIRST_PAGE_CARDS }                                               from '../constants/CappedLanePaging.ts';
 import { createViewerPreferences }                                                    from './ViewerPreferences.ts';
 import { DEFAULT_LOG_VISIBILITY, DEFAULT_NAME_COLUMN_WIDTH, DEFAULT_WORK_VISIBILITY } from './constants/PreferenceDefaults.ts';

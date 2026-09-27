@@ -4,13 +4,13 @@
  * `page/detail-dialog/TicketTimelineMarkup.ts` draws it.
  */
 
+import { MILLISECONDS_PER_MINUTE }            from '../../src/lib/local-time/LocalTimeUtil.ts';
 import type { DisplayState, Task, TaskPhase } from '../../src/lib/tracker-model/@types/Task.ts';
 import { FIRST_REPEAT_REVIEW_ROUND }          from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
 import { TicketDefaultsUtil }                 from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
 import type { PageTicket }                    from '../../src/shared/@types/PagePayload.ts';
 import type { TimelineLimits, TimelineTick }  from '../@types/Timeline.ts';
 import { MINIMUM_TICK_STEP_MINUTES }          from '../constants/TickSteps.ts';
-import { MILLISECONDS_PER_MINUTE }            from '../constants/Units.ts';
 import { GeometryUtil }                       from '../utils/GeometryUtil.ts';
 import { TimeUtil, type DurationUnits }       from '../utils/TimeUtil.ts';
 import { WorkItemMarkupUtil }                 from '../utils/WorkItemMarkupUtil.ts';

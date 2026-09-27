@@ -1,7 +1,6 @@
 /** How many pixels the Progress chart's axis needs for its tick labels, and whether a label near the right edge must sit left of its line. */
 
 import type { TimelineTick }        from '../../@types/Timeline.ts';
-import { PERCENT_OF_A_WHOLE }       from '../../constants/Units.ts';
 import { TICK_LABEL_GUTTER_PIXELS } from '../constants/ProgressChart.ts';
 
 const TICK_MINIMUM_PIXELS             = 60;
@@ -14,7 +13,7 @@ function axisPixelsNeededFor(ticks: readonly TimelineTick[]): number {
 }
 
 function labelSitsLeftOfItsLine(tick: TimelineTick, axisWidthPixels: number): boolean {
-  const remainingPixels = axisWidthPixels * (PERCENT_OF_A_WHOLE - tick.leftPercent) / PERCENT_OF_A_WHOLE;
+  const remainingPixels = axisWidthPixels * (100 - tick.leftPercent) / 100;
   return remainingPixels < tick.label.length * TICK_PIXELS_PER_LABEL_CHARACTER + TICK_LABEL_GUTTER_PIXELS;
 }
 
