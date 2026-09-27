@@ -66,8 +66,8 @@ function traceOf(run: RecordedDispatchRun): DispatchTrace {
       rereviewsRun:          run.rereviewsRun,
       heldTicketIdsReturned: run.heldTicketIdsReturned,
     },
-    ranAway: run.ranAway,
-    resumed: run.resumed,
+    ranAway: run.runRanAway,
+    resumed: run.runWasResumed,
   };
 }
 

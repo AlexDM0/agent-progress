@@ -12,6 +12,7 @@ import type {
   DispatchOutcome,
   HeldEntry,
   ParkReason,
+  ParkedTicket,
   PassFailure,
   ReviewedRound
 } from '../@types/DispatchOutcome.ts';
@@ -29,7 +30,7 @@ import type {
 import { DISPATCH_POLICY }  from '../constants/DispatchPolicy.ts';
 import { RoundVerdictUtil } from '../utils/RoundVerdictUtil.ts';
 
-export interface DispatchRunPorts {
+export interface DispatchRunCollaborators {
   logger:     DispatchLogger;
   startAgent: (launch: AgentLaunch) => Promise<FinishedAgent>;
 }
@@ -82,7 +83,7 @@ function heldCopyOf(work: AgentWork, rowIsPaused: boolean): AgentWork {
 
 export class DispatchRun {
   private readonly settings:                DispatchSettings;
-  private readonly ports:                   DispatchRunPorts;
+  private readonly collaborators:           DispatchRunCollaborators;
   private readonly ticketRecords:           Map<string, TicketRecord> = new Map();
   private readonly reviewQueue:             ReviewWork[] = [];
   private readonly rebuildQueue:            BuildWork[] = [];
@@ -90,7 +91,7 @@ export class DispatchRun {
   private readonly ticketIdsTakenThisRun:   Set<string> = new Set();
   private readonly inFlight:                Map<number, OwnAgent> = new Map();
   private readonly delivered:               string[] = [];
-  private readonly parked:                  { ticketId: string; reason: ParkReason }[] = [];
+  private readonly parked:                  ParkedTicket[] = [];
   private readonly findingsFiled:           string[] = [];
   private agentsRun:                        number = 0;
   private launchCount:                      number = 0;
@@ -114,9 +115,9 @@ export class DispatchRun {
   private readonly pausedBuildsLeft:        string[] = [];
   private rowsToRelease:                    AgentWork[] = [];
 
-  constructor(settings: DispatchSettings, ports: DispatchRunPorts) {
-    this.settings = settings;
-    this.ports    = ports;
+  constructor(settings: DispatchSettings, collaborators: DispatchRunCollaborators) {
+    this.settings      = settings;
+    this.collaborators = collaborators;
     // A single-ticket run reads no board before its builder starts, so its arguments' entries seed the set.
     this.heldTicketIds = new Set(settings.readyTickets.filter((entry) => entry.ticketIsHeld).map((entry) => entry.id));
   }
@@ -133,17 +134,17 @@ export class DispatchRun {
 
   adoptLookedUpTicketSettings(lookup: ReadyTicketEntry[] | 'unread', ticketIds: readonly string[]): void {
     if (lookup !== 'unread') this.lookedUpTicketSettings = lookup;
-    else this.ports.logger.ticketSettingsUnread(ticketIds);
+    else this.collaborators.logger.ticketSettingsUnread(ticketIds);
   }
 
   adoptSurvey(survey: SurveyReading | null): 'ready-to-dispatch' | 'nothing-dispatched' {
     if (survey === null) {
-      this.ports.logger.surveyReturnedNothing();
+      this.collaborators.logger.surveyReturnedNothing();
       return 'nothing-dispatched';
     }
     this.adoptStatusReading(survey.status);
     if (this.latestStatusReading === null) {
-      this.ports.logger.surveyStatusUnreadable();
+      this.collaborators.logger.surveyStatusUnreadable();
       return 'nothing-dispatched';
     }
     // The frozen trace table pins a crash here, after the same log lines, when the survey lists no reviews waiting.
@@ -172,7 +173,7 @@ export class DispatchRun {
     }
   }
 
-  agentsInFlight(): Promise<FinishedAgent>[] {
+  finishingOfAgentsInFlight(): Promise<FinishedAgent>[] {
     return [...this.inFlight.values()].map((ownAgent) => ownAgent.finishing);
   }
 
@@ -212,7 +213,7 @@ export class DispatchRun {
   }
 
   noteRowsLeftRunning(): void {
-    if (this.rowsToRelease.length > 0) this.ports.logger.rowsLeftRunning(this.rowsToRelease.map((takeover) => takeover.ticketId));
+    if (this.rowsToRelease.length > 0) this.collaborators.logger.rowsLeftRunning(this.rowsToRelease.map((takeover) => takeover.ticketId));
   }
 
   closeTheRun(): void {
@@ -230,12 +231,12 @@ export class DispatchRun {
       .map((rebuild) => rebuild.ticketId);
     this.pausedBuildsLeft.push(...[...unheldBuildsWithPausedRows, ...this.untakenPausedBuildIds()].filter((ticketId) => !this.pausedBuildsLeft.includes(ticketId)));
     const leftWaitingUnheld = leftWaiting.filter((ticketId) => !this.ticketIsHeld(ticketId));
-    if (leftWaitingUnheld.length > 0) this.ports.logger.ticketsLeftWaiting(leftWaitingUnheld, this.runIsStopped());
+    if (leftWaitingUnheld.length > 0) this.collaborators.logger.ticketsLeftWaiting(leftWaitingUnheld, this.runIsStopped());
     const lowPriorityWaiting = this.lowPriorityWaitingIds();
-    if (lowPriorityWaiting.length > 0) this.ports.logger.lowPriorityLeftForTriage(lowPriorityWaiting);
+    if (lowPriorityWaiting.length > 0) this.collaborators.logger.lowPriorityLeftForTriage(lowPriorityWaiting);
     const heldAtEnd = this.heldEntries();
-    if (heldAtEnd.length > 0) this.ports.logger.heldAtEnd(heldAtEnd);
-    this.ports.logger.runDone(this.delivered.length, this.parked.map((parkedTicket) => parkedTicket.ticketId), this.findingsFiled.length, this.agentsRun);
+    if (heldAtEnd.length > 0) this.collaborators.logger.heldAtEnd(heldAtEnd);
+    this.collaborators.logger.runDone(this.delivered.length, this.parked.map((parkedTicket) => parkedTicket.ticketId), this.findingsFiled.length, this.agentsRun);
   }
 
   outcome(): DispatchOutcome {
@@ -336,7 +337,7 @@ export class DispatchRun {
     // A stop is final for this run: the agents in flight finish and are settled, and nothing new starts until the user's go launches a new run.
     if (status.dispatcherIsStopped && !this.runWasStoppedByBoard) {
       this.runWasStoppedByBoard = true;
-      this.ports.logger.statusShowsTheRunStopped(this.inFlight.size);
+      this.collaborators.logger.statusShowsTheRunStopped(this.inFlight.size);
     }
   }
 
@@ -372,7 +373,7 @@ export class DispatchRun {
 
   private holdBack(work: AgentWork, rowIsPaused: boolean): void {
     this.heldWork.set(work.ticketId, heldCopyOf(work, rowIsPaused));
-    this.ports.logger.ticketHeld(work.ticketId, work.kind);
+    this.collaborators.logger.ticketHeld(work.ticketId, work.kind);
   }
 
   // Front of the queue, as a takeover would have gone first: the step was due when the hold stopped it.
@@ -380,7 +381,7 @@ export class DispatchRun {
     for (const [ticketId, work] of this.heldWork) {
       if (this.ticketIsHeld(ticketId)) continue;
       this.heldWork.delete(ticketId);
-      this.ports.logger.ticketUnheld(ticketId, work.kind);
+      this.collaborators.logger.ticketUnheld(ticketId, work.kind);
       if (work.kind === 'review') this.reviewQueue.unshift(work);
       else this.rebuildQueue.unshift(work);
     }
@@ -414,7 +415,7 @@ export class DispatchRun {
   // that just finished: the dispatcher's agents alive stay as many as a moment before.
   private park(ticketId: string, reason: ParkReason): void {
     this.parked.push({ ticketId, reason });
-    this.ports.logger.ticketParked(ticketId, reason);
+    this.collaborators.logger.ticketParked(ticketId, reason);
     this.releaseRowsOf(ticketId, { cause: 'parked', parkReason: reason });
   }
 
@@ -448,7 +449,7 @@ export class DispatchRun {
       else this.parksAwaitingTheNextAgent.push({ work: deadAgentWork, reason });
       return;
     }
-    this.ports.logger.freshAgentTakesOver(ticketId, failure);
+    this.collaborators.logger.freshAgentTakesOver(ticketId, failure);
     retry();
   }
 
@@ -490,7 +491,7 @@ export class DispatchRun {
   private launch(work: DispatchWork): void {
     const key = this.launchCount++;
     this.agentsRun++;
-    const finishing = this.ports.startAgent(this.launchOf(key, work));
+    const finishing = this.collaborators.startAgent(this.launchOf(key, work));
     this.inFlight.set(key, { work, finishing });
   }
 
@@ -527,7 +528,7 @@ export class DispatchRun {
       return;
     }
     if (reading.outcome === 'claim-refused') {
-      this.ports.logger.ticketSkipped(ticketId, reading.detail);
+      this.collaborators.logger.ticketSkipped(ticketId, reading.detail);
       return;
     }
     if (reading.outcome === 'failed') {
@@ -569,7 +570,7 @@ export class DispatchRun {
         this.park(ticketId, { cause: 'main-line-moved', releases: record.mainMovedReleases });
         return;
       }
-      this.ports.logger.mainLineMovedUnderRelease(ticketId, record.nextRound);
+      this.collaborators.logger.mainLineMovedUnderRelease(ticketId, record.nextRound);
       this.takeOverTheBarLeftForTheNextRound(ticketId);
       return;
     }
@@ -578,12 +579,12 @@ export class DispatchRun {
       this.park(ticketId, { cause: 'round-refused', refusal: verdict.refusal });
       return;
     }
-    this.ports.logger.roundGranted(ticketId, record.nextRound, reading.reworkedLines);
+    this.collaborators.logger.roundGranted(ticketId, record.nextRound, reading.reworkedLines);
     this.takeOverTheBarLeftForTheNextRound(ticketId);
   }
 
   private settleParking(work: ParkWork, reading: AgentReading | null): void {
-    if (reading === null) this.ports.logger.parkingAgentReturnedNothing(work.ticketId);
+    if (reading === null) this.collaborators.logger.parkingAgentReturnedNothing(work.ticketId);
   }
 
   private noteWhetherTheAgentDied(reading: AgentReading | null): void {
@@ -601,7 +602,7 @@ export class DispatchRun {
     const cancelledParks = this.parksAwaitingTheNextAgent;
     this.parksAwaitingTheNextAgent = [];
     for (const { work } of cancelledParks) this.settleDeadAgentOfAStoppedRun(work);
-    this.ports.logger.agentsDiedInARow(this.consecutiveDeadAgents, this.inFlight.size);
+    this.collaborators.logger.agentsDiedInARow(this.consecutiveDeadAgents, this.inFlight.size);
   }
 
   // Not a failed pass: its row is left for the release at the end of the run, like a takeover a stop kept from starting.

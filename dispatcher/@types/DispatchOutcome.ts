@@ -32,14 +32,22 @@ export type ParkReason =
   | { cause: 'main-line-moved'; releases: number }
   | { cause: 'round-refused'; refusal: RoundRefusal };
 
+export interface ParkedTicket {
+  ticketId: string;
+  reason:   ParkReason;
+}
+
+/** What a held ticket waits on before its next agent starts. */
+export type HeldStep = 'build' | 'review';
+
 export interface HeldEntry {
   ticketId:   string;
-  waitingFor: 'build' | 'review';
+  waitingFor: HeldStep;
 }
 
 export interface DispatchOutcome {
   delivered:               string[];
-  parked:                  { ticketId: string; reason: ParkReason }[];
+  parked:                  ParkedTicket[];
   findingsFiled:           string[];
   agentsRun:               number;
   runWasStoppedByBoard:    boolean;
@@ -59,7 +67,7 @@ export interface DispatchSummary {
   stoppedByBoard?:     true;
   stoppedByFailures?:  true;
   lowPriorityWaiting?: string[];
-  held?:               { id: string; waitingFor: 'build' | 'review' }[];
+  held?:               { id: string; waitingFor: HeldStep }[];
   pausedBuilds?:       string[];
   reviewsLeft?:        string[];
 }

@@ -1,30 +1,20 @@
-import type { RecordedAgentCall } from './RecordedDispatchRun.ts';
-
-export interface ReviewFinding {
-  class:   string;
-  file:    string;
-  summary: string;
-}
+import type { DispatcherState }                                from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { BuilderOutcome, ReviewFinding, ReviewerVerdict } from '../../@types/AgentReadings.ts';
+import type { AgentModelAndEffort }                            from '../../@types/DispatchSettings.ts';
+import type { RecordedAgentCall }                              from './RecordedDispatchRun.ts';
 
 export interface BuilderReply {
-  outcome:    'in-review' | 'claim-refused' | 'failed';
+  outcome:    BuilderOutcome;
   detail?:    string;
   claimNote?: string;
 }
 
 export interface ReviewerReply {
-  verdict:         'released' | 'round-requested' | 'does-not-hold' | 'not-released';
+  verdict:         ReviewerVerdict;
   releaseReason?:  string;
   reworkedLines?:  number;
   findings?:       ReviewFinding[];
   filedTicketIds?: string[];
-}
-
-export type DispatcherStateOnBoard = 'running' | 'stopped' | 'finished';
-
-export interface TicketAgentSettings {
-  model:  string;
-  effort: string;
 }
 
 export interface FakeBoard {
@@ -34,7 +24,7 @@ export interface FakeBoard {
   /** Which tickets are low priority, ready or not; the status block names those among the ready ones. */
   lowPriorityTicketIds:  string[];
   highPriorityTicketIds: string[];
-  dispatcherState:       DispatcherStateOnBoard;
+  dispatcherState:       DispatcherState;
   /** The tickets `ticket hold` holds; `afterAgent` may hold or unhold one mid-run. */
   heldTicketIds:         string[];
 }
@@ -58,7 +48,7 @@ export interface DispatchScenario {
   /** A claim from elsewhere takes a free slot the moment a builder of the script's returns, after its status block was taken. */
   elsewhereClaimsAFreedSlot?:     boolean;
   /** The tickets that name their own model and effort; every other ticket runs on the tool's default pair. */
-  agentSettingsByTicketId?:       Record<string, TicketAgentSettings>;
+  agentSettingsByTicketId?:       Record<string, AgentModelAndEffort>;
   /** Passed to the script as `args.includeLowPriority`; left out of the arguments when absent. */
   includeLowPriority?:            boolean;
   otherAgentsInFlight?:           number;
@@ -66,7 +56,7 @@ export interface DispatchScenario {
   /** Held from the start, as `status --json` lists them in `heldTicketIds`. */
   heldTicketIds?:                 string[];
   /** Defaults to `running`; `afterAgent` may change it mid-run. */
-  dispatcherState?:               DispatcherStateOnBoard;
+  dispatcherState?:               DispatcherState;
   /** Defaults to `in-review`; `null` is an agent that died. */
   builderReply?:                  (ticketId: string, pass: number) => BuilderReply | null;
   /** Defaults to `released`; `null` is an agent that died. */

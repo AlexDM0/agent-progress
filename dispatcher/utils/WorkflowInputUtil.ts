@@ -8,8 +8,10 @@ import type { ReleaseRefusalReason }                 from '../../src/shared/@typ
 import { DispatcherClaimNoteUtil }                   from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
 import type {
   AgentReading,
+  BuilderOutcome,
   PausedBuild,
   ReviewFinding,
+  ReviewerVerdict,
   ReviewWaitingTicket,
   StatusReading,
   SurveyReading
@@ -19,9 +21,9 @@ import type { DispatchWork }                                                   f
 import { DISPATCH_ARGUMENTS }                                                  from '../constants/DispatchArguments.ts';
 import { DISPATCH_POLICY }                                                     from '../constants/DispatchPolicy.ts';
 
-const BUILDER_OUTCOMES_OTHER_THAN_IN_REVIEW = ['claim-refused', 'failed'] as const;
+const BUILDER_OUTCOMES_OTHER_THAN_IN_REVIEW = ['claim-refused', 'failed'] as const satisfies readonly Exclude<BuilderOutcome, 'in-review'>[];
 
-const REVIEWER_VERDICTS_OTHER_THAN_ROUND_REQUESTED = ['released', 'does-not-hold', 'not-released'] as const;
+const REVIEWER_VERDICTS_OTHER_THAN_ROUND_REQUESTED = ['released', 'does-not-hold', 'not-released'] as const satisfies readonly Exclude<ReviewerVerdict, 'round-requested'>[];
 
 function valueIsAnObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;

@@ -2,14 +2,10 @@
  * Runs a dispatcher Workflow script's text as the Workflow tool would, against fake agents and a fake board, so a spec can pin its decisions
  * without spawning a model.
  */
-import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../src/lib/tracker-model/constants/AgentSettings.ts';
-import { DispatcherClaimNoteUtil }                   from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
-import type {
-  DispatchScenario,
-  FakeBoard,
-  ReviewerReply,
-  TicketAgentSettings
-} from './@types/DispatchScenario.ts';
+import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL }       from '../../src/lib/tracker-model/constants/AgentSettings.ts';
+import { DispatcherClaimNoteUtil }                         from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
+import type { AgentModelAndEffort }                        from '../@types/DispatchSettings.ts';
+import type { DispatchScenario, FakeBoard, ReviewerReply } from './@types/DispatchScenario.ts';
 import type {
   AgentKind,
   DispatchRunName,
@@ -182,7 +178,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   let liveOwnAgents = 0;
   let mostLiveAgentsAtOnce = 0;
   let mostAgentsOnBoardAtOnce = 0;
-  let ranAway = false;
+  let runRanAway = false;
   const reviewBarsAdded: string[] = [];
   const rereviewsRun: string[] = [];
   const reviewsWrittenByTicket = new Map<string, number>();
@@ -210,9 +206,9 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   const reviewerRunsItsRereview = (ticketId: string, prompt: string, earlierRow: RunningRow | undefined): boolean => {
     if (!prompt.includes(`ticket rereview ${ticketId}`)) return false;
     const barOfThisRoundRuns = earlierRow?.reviewRound === ticketRoundOf(ticketId);
-    const ranIt = !(barOfThisRoundRuns && prompt.includes(REVIEWER_SKIPS_A_REREVIEW_ALREADY_RUN));
-    if (ranIt) rereviewsRun.push(`rereview ${ticketId} round ${ticketRoundOf(ticketId)}`);
-    return ranIt;
+    const rereviewRuns = !(barOfThisRoundRuns && prompt.includes(REVIEWER_SKIPS_A_REREVIEW_ALREADY_RUN));
+    if (rereviewRuns) rereviewsRun.push(`rereview ${ticketId} round ${ticketRoundOf(ticketId)}`);
+    return rereviewRuns;
   };
 
   const runningRowOf = (rowKey: string): RunningRow | undefined => [...ownAgentsOnBoard.values(), ...rowsLeftRunning.values()]
@@ -254,7 +250,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     return [...rowsLeftRunning.keys()].filter((rowKey) => !rowKeysBeingTakenOver.has(rowKey)).length;
   };
 
-  const statedAgentSettingsOf = (ticketId: string): TicketAgentSettings | null => {
+  const statedAgentSettingsOf = (ticketId: string): AgentModelAndEffort | null => {
     const settingsByTicketId = scenario.agentSettingsByTicketId ?? {};
     return Object.hasOwn(settingsByTicketId, ticketId) ? settingsByTicketId[ticketId] ?? null : null;
   };
@@ -422,7 +418,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     };
     calls.push(call);
     if (calls.length > MOST_AGENT_CALLS_PER_RUN) {
-      ranAway = true;
+      runRanAway = true;
       return null;
     }
     let reply = replyFor(call);
@@ -576,9 +572,9 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   } catch (error) {
     threw = thrownTextOf(error);
   }
-  const resumed = firstRunOutcome === KILLED;
-  let summary: unknown = resumed ? null : firstRunOutcome;
-  if (resumed) {
+  const runWasResumed = firstRunOutcome === KILLED;
+  let summary: unknown = runWasResumed ? null : firstRunOutcome;
+  if (runWasResumed) {
     try {
       summary = await runScript('main', replayingAgent, generation, mainArguments);
     } catch (error) {
@@ -610,8 +606,8 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     logs,
     heldTicketIdsReturned,
     summary,
-    ranAway,
-    resumed,
+    runRanAway,
+    runWasResumed,
     phasesEntered,
     threw,
   };

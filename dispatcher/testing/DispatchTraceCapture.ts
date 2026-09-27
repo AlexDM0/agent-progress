@@ -6,6 +6,7 @@
 import { readFileSync } from 'node:fs';
 import { join }         from 'node:path';
 
+import { DISPATCHER_SCRIPT_BUILD }                 from '../../src/shared/constants/DispatcherScriptBuild.ts';
 import type { DispatchScenario }                   from './@types/DispatchScenario.ts';
 import type { DispatchTrace }                      from './@types/DispatchTrace.ts';
 import { builtScriptTextOf, bundleDispatchScript } from './DispatchScriptBundle.ts';
@@ -31,7 +32,7 @@ export interface FrozenDispatchTraces {
   promptTexts: Record<string, string>;
 }
 
-export const BUNDLE_ENTRY_PATH = 'dispatcher/DispatchScript.ts';
+export const BUNDLE_ENTRY_PATH = `dispatcher/${DISPATCHER_SCRIPT_BUILD.ENTRY_FILE_NAME}`;
 
 export const RETAKE_COMMAND = 'bun dispatcher/testing/DispatchTraceCapture.ts > dispatcher/testing/FrozenDispatchTraces.json';
 
@@ -94,7 +95,7 @@ async function catalogueProblemsOf(entries: readonly CatalogueEntry[], traces: R
 }
 
 /** Throws when the catalogue fails its own sanity checks, so a table whose levers reach nothing is never written. */
-export async function captureDispatchTraces(scriptSource: string, takenFrom: FrozenDispatchTraces['takenFrom']): Promise<FrozenDispatchTraces> {
+async function captureDispatchTraces(scriptSource: string, takenFrom: FrozenDispatchTraces['takenFrom']): Promise<FrozenDispatchTraces> {
   const entries = dispatchTraceCatalogue();
   const traces: Record<string, DispatchTrace> = {};
   const promptTexts: Record<string, string> = {};

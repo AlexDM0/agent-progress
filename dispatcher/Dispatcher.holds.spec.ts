@@ -16,7 +16,7 @@ describe('the dispatcher script and a held ticket', () => {
   for (const claim of HOLD_CLAIMS) {
     test(claim.name, async () => {
       const run = await runDispatchScript(claim.scenarioFor(), builtScriptTextOf(BUNDLE));
-      expect(run.ranAway).toBe(false);
+      expect(run.runRanAway).toBe(false);
       expect(run.threw).toBeNull();
       expect(claim.holds(run), JSON.stringify({ calls: RecordedDispatchRunUtil.kindsAndTicketsOf(run), summary: run.summary, held: run.heldTicketIdsReturned })).toBe(true);
     });

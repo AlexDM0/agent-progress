@@ -4,9 +4,10 @@
  */
 import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../../src/lib/tracker-model/constants/AgentSettings.ts';
 import { TicketIdUtil }                              from '../../../src/lib/tracker-model/utils/TicketIdUtil.ts';
+import type { ReviewFinding }                        from '../../@types/AgentReadings.ts';
 import type { DispatchSummary }                      from '../../@types/DispatchOutcome.ts';
-import type { DispatchScenario, ReviewFinding }      from '../@types/DispatchScenario.ts';
-import type { DispatchRunName, RecordedDispatchRun } from '../@types/RecordedDispatchRun.ts';
+import type { DispatchScenario }                     from '../@types/DispatchScenario.ts';
+import type { RecordedDispatchRun }                  from '../@types/RecordedDispatchRun.ts';
 import type { SourceMutant }                         from '../SourceMutant.ts';
 import { DISPATCHER_MODULE_PATHS }                   from '../constants/DispatcherModulePaths.ts';
 import { RecordedDispatchRunUtil }                   from '../utils/RecordedDispatchRunUtil.ts';
@@ -29,10 +30,6 @@ function ticketIdsFrom(first: number, count: number): string[] {
 
 function parkedIds(run: RecordedDispatchRun): string[] {
   return RecordedDispatchRunUtil.mainSummaryOf(run).parked.map((parkedTicket) => parkedTicket.id);
-}
-
-function reviewCountOf(run: RecordedDispatchRun, ticketId: string): number {
-  return run.calls.filter((call) => call.kind === 'review' && call.ticketId === ticketId).length;
 }
 
 function finding(findingClass: string, file: string): ReviewFinding {
@@ -108,17 +105,8 @@ const NEVER_STOP_ON_DEAD_AGENTS: SourceMutant = {
 
 const STATUS_WITHOUT_ROWS_CONFIRMS = 'if (confirmingTicketIds === \'unlisted\') return work.kind === \'review\' && work.barIsHandedOn === true;';
 
-function workersRunOn(run: RecordedDispatchRun, model: string, effort: string): boolean {
-  const workers = run.calls.filter((call) => call.kind === 'build' || call.kind === 'review');
-  return workers.length > 0 && workers.every((call) => call.model === model && call.effort === effort);
-}
-
 function releasedEveryRow(run: RecordedDispatchRun): boolean {
   return run.rowsRunningAtEnd.length === 0 && !run.logs.some((message) => message.includes('No slot free'));
-}
-
-function kindsAndTicketsOf(run: RecordedDispatchRun, runName: DispatchRunName): string {
-  return RecordedDispatchRunUtil.kindsAndTicketsOf({ ...run, calls: run.calls.filter((call) => call.run === runName) }).join(', ');
 }
 
 function racingSummaryOf(run: RecordedDispatchRun): DispatchSummary | null {
@@ -295,7 +283,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       readyTicketIds: ['001'],
       reviewerReply:  (_ticketId, round) => (round === 1 ? { verdict: 'round-requested', reworkedLines: 751 } : { verdict: 'released' }),
     }),
-    holds:  (run) => reviewCountOf(run, '001') === 2 && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.includes('001'),
+    holds:  (run) => RecordedDispatchRunUtil.reviewCountOf(run, '001') === 2 && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.includes('001'),
     mutant: {
       modulePath: ROUND_VERDICT_UTIL,
       find:       'current.reworkedLines <= DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES',
@@ -309,7 +297,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       readyTicketIds: ['001'],
       reviewerReply:  (_ticketId, round) => (round === 1 ? { verdict: 'round-requested', reworkedLines: 750 } : { verdict: 'released' }),
     }),
-    holds:  (run) => reviewCountOf(run, '001') === 1 && parkedIds(run).includes('001'),
+    holds:  (run) => RecordedDispatchRunUtil.reviewCountOf(run, '001') === 1 && parkedIds(run).includes('001'),
     mutant: {
       modulePath: ROUND_VERDICT_UTIL,
       find:       'current.reworkedLines <= DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES',
@@ -319,29 +307,29 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
   {
     name:        'round 3 is refused when round 2 found more than half of round 1\'s findings',
     scenarioFor: () => roundThreeScenario([finding('spacing', 'a.ts'), finding('spacing', 'b.ts'), finding('typing', 'a.ts')]),
-    holds:       (run) => reviewCountOf(run, '001') === 2 && parkedIds(run).includes('001'),
+    holds:       (run) => RecordedDispatchRunUtil.reviewCountOf(run, '001') === 2 && parkedIds(run).includes('001'),
     mutant:      GRANT_ROUND_THREE_WITHOUT_CONVERGENCE,
   },
   {
     name:        'round 3 is refused when round 2 repeats a class an earlier round found',
     scenarioFor: () => roundThreeScenario([finding('naming', 'a.ts')]),
-    holds:       (run) => reviewCountOf(run, '001') === 2 && parkedIds(run).includes('001'),
+    holds:       (run) => RecordedDispatchRunUtil.reviewCountOf(run, '001') === 2 && parkedIds(run).includes('001'),
     mutant:      GRANT_ROUND_THREE_WITHOUT_CONVERGENCE,
   },
   {
     name:        'round 3 is refused when round 2 names a file no earlier round named',
     scenarioFor: () => roundThreeScenario([finding('spacing', 'c.ts')]),
-    holds:       (run) => reviewCountOf(run, '001') === 2 && parkedIds(run).includes('001'),
+    holds:       (run) => RecordedDispatchRunUtil.reviewCountOf(run, '001') === 2 && parkedIds(run).includes('001'),
     mutant:      GRANT_ROUND_THREE_WITHOUT_CONVERGENCE,
   },
   {
     name:        'round 3 is granted when round 2 converges: at most half the findings, a new class, known files',
     scenarioFor: () => roundThreeScenario([finding('spacing', 'a.ts'), finding('typing', 'b.ts')]),
-    holds:       (run) => reviewCountOf(run, '001') === 3 && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.includes('001'),
+    holds:       (run) => RecordedDispatchRunUtil.reviewCountOf(run, '001') === 3 && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.includes('001'),
     mutant:      {
       modulePath: ROUND_VERDICT_UTIL,
       find:       '  return { granted: true };\n}\n\nexport const',
-      replace:    '  return refused({ reason: \'previous-round-not-reviewed-in-this-run\', requestedRound });\n}\n\nexport const',
+      replace:    '  return refusedVerdictOf({ reason: \'previous-round-not-reviewed-in-this-run\', requestedRound });\n}\n\nexport const',
     },
   },
   {
@@ -363,7 +351,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
         return { verdict: 'released' };
       },
     }),
-    holds:  (run) => reviewCountOf(run, '001') === 4 && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.includes('001'),
+    holds:  (run) => RecordedDispatchRunUtil.reviewCountOf(run, '001') === 4 && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.includes('001'),
     mutant: {
       modulePath: ROUND_VERDICT_UTIL,
       find:       'const earlierFiles = new Set(earlierFindings.map((finding) => finding.file));',
@@ -378,7 +366,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       reviewerReply:     (_ticketId, round) => (round === 1 ? { verdict: 'round-requested', reworkedLines: 900, findings: [finding('naming', 'a.ts')] } : { verdict: 'released' }),
       agentMisbehaviour: (call) => (call.kind === 'review' && call.ordinal === 1 ? { replacesFields: { round: 3 } } : undefined),
     }),
-    holds:  (run) => reviewCountOf(run, '001') === 1 && parkedIds(run).includes('001'),
+    holds:  (run) => RecordedDispatchRunUtil.reviewCountOf(run, '001') === 1 && parkedIds(run).includes('001'),
     mutant: {
       modulePath: DISPATCH_RUN,
       find:       'const round = reading.round === \'unstated\' ? work.round : reading.round;',
@@ -542,7 +530,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       reviewerReply:          (ticketId, round) => (ticketId === '001' && round === 1 ? null : { verdict: 'released' }),
       afterAgent:             (call, board) => { if (call.kind === 'review' && call.ticketId === '002') board.otherAgentsInFlight = 1; },
     }),
-    holds: (run) => reviewCountOf(run, '001') === 2
+    holds: (run) => RecordedDispatchRunUtil.reviewCountOf(run, '001') === 2
       && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.length === 3
       && run.mostAgentsInFlightAtOnce === 2,
     mutant: {
@@ -588,13 +576,13 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       readyTicketIds: ['001', '002'],
       builderReply:   (ticketId, pass) => (ticketId === '001' && pass === 1 ? { outcome: 'claim-refused', detail: 'waits on #009' } : { outcome: 'in-review' }),
     }),
-    holds: (run) => reviewCountOf(run, '001') === 0
+    holds: (run) => RecordedDispatchRunUtil.reviewCountOf(run, '001') === 0
       && run.calls.filter((call) => call.ticketId === '001').length === 1
       && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.join() === '002'
       && run.logs.some((message) => message.includes('#001 skipped for this run')),
     mutant: {
       modulePath: DISPATCH_RUN,
-      find:       'this.ports.logger.ticketSkipped(ticketId, reading.detail);',
+      find:       'this.collaborators.logger.ticketSkipped(ticketId, reading.detail);',
       replace:    'this.rebuildQueue.push({ kind: \'build\', ticketId, previousPass: \'builder\' });',
     },
   },
@@ -603,7 +591,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     // refuses the second, and a builder that stopped there would leave the ticket stalled and its row holding the only slot.
     name:        'a builder resumed after its run was killed finds its ticket claimed and its worktree present, carries on in it, and delivers',
     scenarioFor: () => ({ limit: 1, readyTicketIds: ['001', '002'], killedAtFirstCommandOf: 'build 001' }),
-    holds:       (run) => run.resumed
+    holds:       (run) => run.runWasResumed
       && RecordedDispatchRunUtil.kindsAndTicketsOf(run).join(', ') === 'survey, build 001, build 001, review 001, build 002, review 002'
       && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.join() === '001,002'
       && run.rowsRunningAtEnd.length === 0
@@ -659,8 +647,8 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       reviewWaitingTicketIds: ['001'],
       killedAtFirstCommandOf: 'review 001',
     }),
-    holds: (run) => run.resumed
-      && reviewCountOf(run, '001') === 2
+    holds: (run) => run.runWasResumed
+      && RecordedDispatchRunUtil.reviewCountOf(run, '001') === 2
       && run.reviewBarsAdded.join() === 'review 001'
       && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.join() === '001'
       && run.rowsRunningAtEnd.length === 0,
@@ -692,7 +680,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       restartedReviewerRound:     2,
       reviewerReply:              (_ticketId, round) => (round === 1 ? { verdict: 'round-requested', reworkedLines: 900 } : { verdict: 'released' }),
     }),
-    holds: (run) => reviewCountOf(run, '001') === 2
+    holds: (run) => RecordedDispatchRunUtil.reviewCountOf(run, '001') === 2
       && run.rereviewsRun.join(', ') === 'rereview 001 round 2'
       && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.join() === '001'
       && run.rowsRunningAtEnd.length === 0,
@@ -701,7 +689,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
   {
     name:        'a release refused for a reason other than main-moved parks the ticket',
     scenarioFor: () => ({ limit: 2, readyTicketIds: ['001'], reviewerReply: () => ({ verdict: 'not-released', releaseReason: 'main-checkout-dirty' }) }),
-    holds:       (run) => reviewCountOf(run, '001') === 1
+    holds:       (run) => RecordedDispatchRunUtil.reviewCountOf(run, '001') === 1
       && RecordedDispatchRunUtil.mainSummaryOf(run).parked.some((parkedTicket) => parkedTicket.reason.includes('main-checkout-dirty')),
     mutant: { modulePath: DISPATCH_RUN, find: 'reading.releaseRefusal !== \'main-moved\'', replace: 'false' },
   },
@@ -853,8 +841,9 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     // The Workflow tool gives an agent without an effort the orchestrator's, which is how a fan-out runs at a tier nobody chose.
     name:        'a ticket naming no model or effort runs its builder and its reviewer on opus at medium effort',
     scenarioFor: () => ({ limit: 1, readyTicketIds: ['001'] }),
-    holds:       (run) => RecordedDispatchRunUtil.kindsAndTicketsOf(run).join(', ') === 'survey, build 001, review 001' && workersRunOn(run, 'opus', 'medium'),
-    mutant:      {
+    holds:       (run) => RecordedDispatchRunUtil.kindsAndTicketsOf(run).join(', ') === 'survey, build 001, review 001'
+      && RecordedDispatchRunUtil.workersRunOn(run, 'opus', 'medium'),
+    mutant: {
       modulePath: AGENT_STARTER,
       find:       'schema: AGENT_REPLY_SCHEMAS.BUILDER,\n        model,\n        effort,',
       replace:    'schema: AGENT_REPLY_SCHEMAS.BUILDER,\n        model,',
@@ -870,7 +859,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       reviewerReply:           (_ticketId, round) => (round === 1 ? { verdict: 'does-not-hold' } : { verdict: 'released' }),
     }),
     holds: (run) => RecordedDispatchRunUtil.kindsAndTicketsOf(run).join(', ') === 'survey, build 001, review 001, build 001, review 001'
-      && workersRunOn(run, 'sonnet', 'high')
+      && RecordedDispatchRunUtil.workersRunOn(run, 'sonnet', 'high')
       && run.calls.filter((call) => call.kind !== 'survey').every((call) => call.prompt.includes('--owner sonnet')),
     mutant: {
       modulePath: DISPATCH_RUN,
@@ -887,7 +876,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       reviewWaitingTicketIds:  ['001'],
       agentSettingsByTicketId: { '001': { model: 'sonnet', effort: 'high' } },
     }),
-    holds:  (run) => RecordedDispatchRunUtil.kindsAndTicketsOf(run).join(', ') === 'survey, review 001' && workersRunOn(run, 'sonnet', 'high'),
+    holds:  (run) => RecordedDispatchRunUtil.kindsAndTicketsOf(run).join(', ') === 'survey, review 001' && RecordedDispatchRunUtil.workersRunOn(run, 'sonnet', 'high'),
     mutant: {
       modulePath: DISPATCH_RUN,
       find:       '      this.ticketRecordFor(reviewWaitingTicket.id).agentModelAndEffort = reviewWaitingTicket.agentModelAndEffort;\n',
@@ -904,7 +893,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       statusOmitsReadyTickets: true,
       includeLowPriority:      true,
     }),
-    holds:  (run) => RecordedDispatchRunUtil.kindsAndTicketsOf(run).join(', ') === 'survey, build 001, review 001' && workersRunOn(run, 'opus', 'medium'),
+    holds:  (run) => RecordedDispatchRunUtil.kindsAndTicketsOf(run).join(', ') === 'survey, build 001, review 001' && RecordedDispatchRunUtil.workersRunOn(run, 'opus', 'medium'),
     // A ready ticket without an entry is not read at the input edge at all: the run falls back to the defaults when it takes the ticket.
     mutant: {
       modulePath: DISPATCH_RUN,
@@ -938,13 +927,13 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     mutant: {
       modulePath: DISPATCH_RUN,
       find:       '    const lowPriorityWaiting = this.lowPriorityWaitingIds();\n'
-        + '    if (lowPriorityWaiting.length > 0) this.ports.logger.lowPriorityLeftForTriage(lowPriorityWaiting);\n'
+        + '    if (lowPriorityWaiting.length > 0) this.collaborators.logger.lowPriorityLeftForTriage(lowPriorityWaiting);\n'
         + '    const heldAtEnd = this.heldEntries();\n'
-        + '    if (heldAtEnd.length > 0) this.ports.logger.heldAtEnd(heldAtEnd);\n',
+        + '    if (heldAtEnd.length > 0) this.collaborators.logger.heldAtEnd(heldAtEnd);\n',
       replace: '    const heldAtEnd = this.heldEntries();\n'
-        + '    if (heldAtEnd.length > 0) this.ports.logger.heldAtEnd(heldAtEnd);\n'
+        + '    if (heldAtEnd.length > 0) this.collaborators.logger.heldAtEnd(heldAtEnd);\n'
         + '    const lowPriorityWaiting = this.lowPriorityWaitingIds();\n'
-        + '    if (lowPriorityWaiting.length > 0) this.ports.logger.lowPriorityLeftForTriage(lowPriorityWaiting);\n',
+        + '    if (lowPriorityWaiting.length > 0) this.collaborators.logger.lowPriorityLeftForTriage(lowPriorityWaiting);\n',
     },
   },
   {
@@ -1080,7 +1069,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     name:        'a whole-board run that claims the high ticket first builds it alone: the single-ticket run\'s claim is refused and it returns, within the limit',
     scenarioFor: () => raceForTheHighTicket(2),
     holds:       (run) => buildersOnBoardOf(run, '009') === 'main build 009'
-      && kindsAndTicketsOf(run, 'racing') === 'build 009'
+      && RecordedDispatchRunUtil.kindsAndTicketsOf(run, 'racing').join(', ') === 'build 009'
       && racingSummaryOf(run)?.delivered.length === 0
       && run.racingLogs.some((message) => message.includes('#009 skipped for this run'))
       && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.join() === '009,001,002'
@@ -1256,7 +1245,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     }),
     holds: (run) => RecordedDispatchRunUtil.kindsAndTicketsOf(run).join(', ') === 'settings 001, build 001, review 001'
       && run.calls[0]?.model === 'haiku'
-      && workersRunOn(run, 'sonnet', 'high')
+      && RecordedDispatchRunUtil.workersRunOn(run, 'sonnet', 'high')
       && run.calls.filter((call) => call.kind === 'build').every((call) => call.prompt.includes('--owner sonnet')),
     mutant: { modulePath: WORKFLOW_INPUT_UTIL, find: '!Array.isArray(lookup[\'tickets\'])', replace: 'true' },
   },
@@ -1270,7 +1259,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       agentSettingsByTicketId: { '001': { model: 'sonnet', effort: 'high' } },
     }),
     holds: (run) => RecordedDispatchRunUtil.kindsAndTicketsOf(run).join(', ') === 'build 001, review 001'
-      && workersRunOn(run, 'sonnet', 'high')
+      && RecordedDispatchRunUtil.workersRunOn(run, 'sonnet', 'high')
       && run.calls.every((call) => call.prompt.includes('--owner sonnet')),
     mutant: {
       modulePath: DISPATCH_RUN,
@@ -1284,8 +1273,8 @@ const EVERY_KIND_OF_AGENT: DispatchScenario = { limit: 2, readyTicketIds: ['001'
 
 export function modelsAndEffortsAreExplicit(run: RecordedDispatchRun): boolean {
   return run.calls.every((call) => {
-    const helper = call.kind === 'survey' || call.kind === 'settings' || call.kind === 'park';
-    return call.model === (helper ? 'haiku' : DEFAULT_AGENT_MODEL) && call.effort === (helper ? 'low' : DEFAULT_AGENT_EFFORT);
+    const callIsAHelper = call.kind === 'survey' || call.kind === 'settings' || call.kind === 'park';
+    return call.model === (callIsAHelper ? 'haiku' : DEFAULT_AGENT_MODEL) && call.effort === (callIsAHelper ? 'low' : DEFAULT_AGENT_EFFORT);
   });
 }
 

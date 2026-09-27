@@ -38,15 +38,19 @@ export interface ReviewFinding {
   summary: string;
 }
 
+export type BuilderOutcome = 'in-review' | 'claim-refused' | 'failed';
+
+export type ReviewerVerdict = 'released' | 'round-requested' | 'does-not-hold' | 'not-released';
+
 /** Only `main-moved` is decided on; any other reason is the reviewer's text, echoed into the park reason. */
 export type ReleaseRefusal = 'main-moved' | { statedReason: string };
 
 export type AgentReading =
-  | { kind: 'build'; outcome: 'in-review' | 'claim-refused' | 'failed'; detail: string; claimNote: string; status: StatusReading | 'unreadable' }
+  | { kind: 'build'; outcome: BuilderOutcome; detail: string; claimNote: string; status: StatusReading | 'unreadable' }
   | {
     kind:           'review';
     round:          number | 'unstated';
-    verdict:        'released' | 'round-requested' | 'does-not-hold' | 'not-released';
+    verdict:        ReviewerVerdict;
     releaseRefusal: ReleaseRefusal;
     reworkedLines:  number;
     findings:       ReviewFinding[];

@@ -23,10 +23,6 @@ function runWithRoundOneReworkOf(reworkedLines: number): Promise<RecordedDispatc
   }, builtScriptTextOf(BUNDLE));
 }
 
-function reviewerCountOf(run: RecordedDispatchRun): number {
-  return run.calls.filter((call) => call.kind === 'review').length;
-}
-
 describe('the dispatcher and the agent brief', () => {
   test('the builder is sent the protocol\'s call budget and told to read the installed brief', async () => {
     const run = await runDispatchScript(DECISION_SCENARIOS['one ticket is ready at a limit of 1'](), builtScriptTextOf(BUNDLE));
@@ -47,10 +43,10 @@ describe('the dispatcher and the agent brief', () => {
   // The prompt tells the reviewer the threshold, and the round decision must refuse and grant on that same number.
   test('the round decision refuses round 2 at the protocol\'s rework threshold and grants it one line above', async () => {
     const atTheThreshold = await runWithRoundOneReworkOf(DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES);
-    expect(reviewerCountOf(atTheThreshold)).toBe(1);
+    expect(RecordedDispatchRunUtil.reviewCountOf(atTheThreshold)).toBe(1);
     expect(RecordedDispatchRunUtil.mainSummaryOf(atTheThreshold).parked.map((parkedTicket) => parkedTicket.id)).toEqual(['001']);
     const aboveTheThreshold = await runWithRoundOneReworkOf(DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES + 1);
-    expect(reviewerCountOf(aboveTheThreshold)).toBe(2);
+    expect(RecordedDispatchRunUtil.reviewCountOf(aboveTheThreshold)).toBe(2);
     expect(RecordedDispatchRunUtil.mainSummaryOf(aboveTheThreshold).delivered).toEqual(['001']);
   });
 });

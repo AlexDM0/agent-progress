@@ -2,8 +2,9 @@
  * The reply schema of each agent the dispatcher starts. Key and array orders are part of the wire contract the frozen table hashes, and the
  * field names mirror the `status --json` fields the prompts ask the agents to copy, with `worktreeExists` the survey's own `test -d`.
  */
-import type { DispatcherState } from '../../src/lib/tracker-model/@types/ProgressFile.ts';
-import type { JsonSchema }      from '../@types/WorkflowRuntime.ts';
+import type { DispatcherState }                 from '../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { BuilderOutcome, ReviewerVerdict } from '../@types/AgentReadings.ts';
+import type { JsonSchema }                      from '../@types/WorkflowRuntime.ts';
 
 const READY_TICKET_SCHEMA: JsonSchema = {
   type:       'object',
@@ -78,7 +79,7 @@ const TICKET_SETTINGS_LOOKUP: JsonSchema = {
 const BUILDER: JsonSchema = {
   type:       'object',
   properties: {
-    outcome:   { type: 'string', enum: ['in-review', 'claim-refused', 'failed'] },
+    outcome:   { type: 'string', enum: ['in-review', 'claim-refused', 'failed'] satisfies readonly BuilderOutcome[] },
     detail:    { type: 'string' },
     claimNote: { type: 'string' },
     status:    STATUS_BLOCK_SCHEMA,
@@ -90,7 +91,7 @@ const REVIEWER: JsonSchema = {
   type:       'object',
   properties: {
     round:          { type: 'integer', minimum: 1 },
-    verdict:        { type: 'string', enum: ['released', 'round-requested', 'does-not-hold', 'not-released'] },
+    verdict:        { type: 'string', enum: ['released', 'round-requested', 'does-not-hold', 'not-released'] satisfies readonly ReviewerVerdict[] },
     releaseReason:  { type: 'string' },
     reworkedLines:  { type: 'integer', minimum: 0 },
     findings:       { type: 'array', items: FINDING_SCHEMA },

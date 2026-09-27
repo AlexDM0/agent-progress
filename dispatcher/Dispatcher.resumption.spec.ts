@@ -10,18 +10,19 @@ import type { RecordedDispatchRun }                from './testing/@types/Record
 import { builtScriptTextOf, bundleDispatchScript } from './testing/DispatchScriptBundle.ts';
 import { runDispatchScript }                       from './testing/DispatchScriptHarness.ts';
 import { RESUMPTION_CLAIMS }                       from './testing/claims/ResumptionClaims.ts';
+import { RecordedDispatchRunUtil }                 from './testing/utils/RecordedDispatchRunUtil.ts';
 
 const BUNDLE = await bundleDispatchScript();
 
 function runKindAndTicketOfEachCall(run: RecordedDispatchRun): string[] {
-  return run.calls.map((call) => `${call.run} ${call.kind}${call.ticketId === null ? '' : ` ${call.ticketId}`}`);
+  return run.calls.map((call) => `${call.run} ${RecordedDispatchRunUtil.kindAndTicketOf(call)}`);
 }
 
 describe('the dispatcher script and a build an earlier run left paused', () => {
   for (const claim of RESUMPTION_CLAIMS) {
     test(claim.name, async () => {
       const run = await runDispatchScript(claim.scenarioFor(), builtScriptTextOf(BUNDLE));
-      expect(run.ranAway).toBe(false);
+      expect(run.runRanAway).toBe(false);
       expect(run.threw).toBeNull();
       expect(claim.holds(run), JSON.stringify({ calls: runKindAndTicketOfEachCall(run), summary: run.summary, relaunch: run.relaunchSummary })).toBe(true);
     });

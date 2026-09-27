@@ -12,7 +12,7 @@ import { WorkflowInputUtil }            from './utils/WorkflowInputUtil.ts';
 
 // Its own async function, awaited from both loops: inlining it would drop a microtask hop that the frozen trace table pins.
 async function settleNextFinished(run: DispatchRun): Promise<void> {
-  const finished = await Promise.race(run.agentsInFlight());
+  const finished = await Promise.race(run.finishingOfAgentsInFlight());
   run.settleFinished(finished);
 }
 
@@ -44,7 +44,7 @@ export async function runDispatcher(runtime: WorkflowRuntime): Promise<DispatchS
   runtime.phase('Build');
   for (;;) {
     run.startWorkWithinSlots();
-    if (run.agentsInFlight().length === 0) break;
+    if (run.finishingOfAgentsInFlight().length === 0) break;
     await settleNextFinished(run);
   }
 
@@ -54,7 +54,7 @@ export async function runDispatcher(runtime: WorkflowRuntime): Promise<DispatchS
     runtime.phase('Park');
     for (;;) {
       run.releaseRowsWithinSlots();
-      if (run.agentsInFlight().length === 0) break;
+      if (run.finishingOfAgentsInFlight().length === 0) break;
       await settleNextFinished(run);
     }
     run.noteRowsLeftRunning();

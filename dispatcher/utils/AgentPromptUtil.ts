@@ -25,12 +25,16 @@ const READY_TICKETS_ADDITION_TEXT = 'adding `readyTickets` (the same document\'s
 const STATUS_RETURN_TEXT = `As your very last act run \`agent-progress status --json\` and return its \`concurrency\` block as \`status\`, ${READY_TICKETS_ADDITION_TEXT}, `
   + 'so the dispatcher acts on the newest board.';
 
+function branchOf(ticketId: string): string {
+  return `ticket-${ticketId}`;
+}
+
 function worktreeOf(settings: DispatchSettings, ticketId: string): string {
-  return `${settings.mainCheckout}/.claude/worktrees/ticket-${ticketId}`;
+  return `${settings.mainCheckout}/.claude/worktrees/${branchOf(ticketId)}`;
 }
 
 function briefPlaceholdersText(settings: DispatchSettings, ticketId: string): string {
-  return `with <worktree> = ${worktreeOf(settings, ticketId)}, <branch> = ticket-${ticketId}, <main line> = ${settings.mainLine}, `
+  return `with <worktree> = ${worktreeOf(settings, ticketId)}, <branch> = ${branchOf(ticketId)}, <main line> = ${settings.mainLine}, `
     + `<main checkout> = ${settings.mainCheckout} and <full check command> = \`${settings.checkCommand}\``;
 }
 
@@ -50,7 +54,7 @@ function surveyPrompt(settings: DispatchSettings): string {
       + `inProgressReviewOfIds), ${READY_TICKETS_ADDITION_TEXT};`,
     '- `reviewWaitingTickets`: the document\'s top-level `reviewWaitingTickets` list, verbatim;',
     '- `pausedBuilds`: each entry of the document\'s top-level `pausedBuilds` list, verbatim, with `worktreeExists` added: whether '
-      + `\`test -d ${settings.mainCheckout}/.claude/worktrees/ticket-<id>\` succeeds.`,
+      + `\`test -d ${worktreeOf(settings, '<id>')}\` succeeds.`,
   ].join('\n');
 }
 
@@ -103,12 +107,12 @@ function builderPrompt(settings: DispatchSettings, request: BuilderPromptRequest
     + '`claim-refused` with its message verbatim as `detail` and, when it was refused as in-progress, that row\'s note as `claimNote`.';
   const lines = [
     `agent-progress ticket: ${ticketId}`,
-    `Worktree: ${worktree}   Branch: ticket-${ticketId}   Main checkout: ${settings.mainCheckout}   Main line: ${settings.mainLine}`,
+    `Worktree: ${worktree}   Branch: ${branchOf(ticketId)}   Main checkout: ${settings.mainCheckout}   Main line: ${settings.mainLine}`,
     `You build ticket #${ticketId} for the agent-progress dispatcher, alone: one ticket, one agent.`,
     `FIRST command, before anything else: \`agent-progress ticket claim ${ticketId} --owner ${owner} --note "${claimNote}"\`. `
       + claimRefusalText,
     `Then the worktree: when ${worktree} exists, reuse it as it stands, since it holds an earlier pass's commits and edits; start from \`git -C ${worktree} status\`. `
-      + `Otherwise \`git -C ${settings.mainCheckout} worktree add ${worktree} -b ticket-${ticketId} ${settings.mainLine}\`, dropping \`-b\` when the branch already exists.`,
+      + `Otherwise \`git -C ${settings.mainCheckout} worktree add ${worktree} -b ${branchOf(ticketId)} ${settings.mainLine}\`, dropping \`-b\` when the branch already exists.`,
   ];
   if (settings.installCommand !== '') lines.push(`In a worktree you just created, run \`${settings.installCommand}\` in it once before anything else there.`);
   lines.push(
@@ -129,7 +133,7 @@ function builderPrompt(settings: DispatchSettings, request: BuilderPromptRequest
     `Stop when the Acceptance block is satisfied, or at about ${DISPATCH_PROTOCOL.BUILDER_API_CALL_BUDGET} API calls, whichever is first.`,
     // One lock hold moves the ticket to review and starts its reviewer's bar, so no status block between builder and reviewer shows the slot free.
     `Close as Ready to merge says, append the \`## Handoff\`, then run \`${startReviewCommandOf(settings, 'finish', ticketId, owner)}\`. `
-      + `Never merge ticket-${ticketId} into ${settings.mainLine} and never run \`agent-progress release\`: the release is the reviewer's.`,
+      + `Never merge ${branchOf(ticketId)} into ${settings.mainLine} and never run \`agent-progress release\`: the release is the reviewer's.`,
     'Return outcome `in-review` when `ticket finish` succeeded and `failed` otherwise, with your report as `detail` and `claimNote` empty unless your claim '
       + `was refused as in-progress. ${STATUS_RETURN_TEXT}`,
   );
@@ -146,7 +150,7 @@ function reviewerPrompt(settings: DispatchSettings, request: ReviewerPromptReque
   } = request;
   const lines = [
     `agent-progress review: ${ticketId}`,
-    `Worktree: ${worktreeOf(settings, ticketId)}   Branch: ticket-${ticketId}   Main checkout: ${settings.mainCheckout}   Main line: ${settings.mainLine}`,
+    `Worktree: ${worktreeOf(settings, ticketId)}   Branch: ${branchOf(ticketId)}   Main checkout: ${settings.mainCheckout}   Main line: ${settings.mainLine}`,
     `You are a clean reviewer of ticket #${ticketId} for the agent-progress dispatcher, round ${expectedRound} as the dispatcher counts it. `
       + 'Your round is the number of `## Review` sections already in the ticket plus one; return it as `round`.',
   ];

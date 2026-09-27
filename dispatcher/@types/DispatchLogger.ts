@@ -1,12 +1,17 @@
 /** The run's log as semantic calls: the domain names what happened, and `DispatchWordingUtil` words each entry on the way out. */
-import type { HeldEntry, ParkReason, PassFailure } from './DispatchOutcome.ts';
-import type { AgentSubject }                       from './DispatchWork.ts';
+import type {
+  HeldEntry,
+  HeldStep,
+  ParkReason,
+  PassFailure
+} from './DispatchOutcome.ts';
+import type { AgentSubject } from './DispatchWork.ts';
 
 export interface DispatchLogger {
   agentFailed(subject: AgentSubject, errorMessage: string): void;
   statusShowsTheRunStopped(agentsInFlight: number): void;
-  ticketHeld(ticketId: string, waitingFor: 'build' | 'review'): void;
-  ticketUnheld(ticketId: string, waitingFor: 'build' | 'review'): void;
+  ticketHeld(ticketId: string, waitingFor: HeldStep): void;
+  ticketUnheld(ticketId: string, waitingFor: HeldStep): void;
   ticketParked(ticketId: string, reason: ParkReason): void;
   freshAgentTakesOver(ticketId: string, failure: PassFailure): void;
   ticketSkipped(ticketId: string, claimRefusalDetail: string): void;
@@ -27,8 +32,8 @@ export interface DispatchLogger {
 export type DispatchLogEntry =
   | { kind: 'agent-failed'; subject: AgentSubject; errorMessage: string }
   | { kind: 'status-shows-the-run-stopped'; agentsInFlight: number }
-  | { kind: 'ticket-held'; ticketId: string; waitingFor: 'build' | 'review' }
-  | { kind: 'ticket-unheld'; ticketId: string; waitingFor: 'build' | 'review' }
+  | { kind: 'ticket-held'; ticketId: string; waitingFor: HeldStep }
+  | { kind: 'ticket-unheld'; ticketId: string; waitingFor: HeldStep }
   | { kind: 'ticket-parked'; ticketId: string; reason: ParkReason }
   | { kind: 'fresh-agent-takes-over'; ticketId: string; failure: PassFailure }
   | { kind: 'ticket-skipped'; ticketId: string; claimRefusalDetail: string }

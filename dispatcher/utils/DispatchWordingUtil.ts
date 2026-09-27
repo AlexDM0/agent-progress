@@ -60,18 +60,18 @@ function roundBefore(round: number): number {
 }
 
 function roundRefusalText(refusal: RoundRefusal): string {
-  const refused = `round ${refusal.requestedRound} refused`;
+  const refusalOpeningText = `round ${refusal.requestedRound} refused`;
   switch (refusal.reason) {
     case 'rework-not-over-threshold':
-      return `${refused}: ${refusal.reworkedLines} reworked lines, not over ${DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES}`;
+      return `${refusalOpeningText}: ${refusal.reworkedLines} reworked lines, not over ${DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES}`;
     case 'previous-round-not-reviewed-in-this-run':
-      return `${refused}: round ${roundBefore(roundBefore(refusal.requestedRound))} was not reviewed in this run, so convergence cannot be judged`;
+      return `${refusalOpeningText}: round ${roundBefore(roundBefore(refusal.requestedRound))} was not reviewed in this run, so convergence cannot be judged`;
     case 'findings-not-halved':
-      return `${refused}: ${refusal.findingCount} findings against ${refusal.previousFindingCount} the round before, more than half`;
+      return `${refusalOpeningText}: ${refusal.findingCount} findings against ${refusal.previousFindingCount} the round before, more than half`;
     case 'finding-class-returned':
-      return `${refused}: the class "${refusal.findingClass}" came back`;
+      return `${refusalOpeningText}: the class "${refusal.findingClass}" came back`;
     case 'new-file-named':
-      return `${refused}: ${refusal.file} was named by no earlier round`;
+      return `${refusalOpeningText}: ${refusal.file} was named by no earlier round`;
   }
 }
 

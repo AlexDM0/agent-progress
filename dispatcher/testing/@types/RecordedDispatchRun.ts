@@ -58,9 +58,9 @@ export interface RecordedDispatchRun {
   heldTicketIdsReturned:    string[][];
   summary:                  unknown;
   /** Whether the script passed `MOST_AGENT_CALLS_PER_RUN`, after which every agent answered `null` so the run could end. */
-  ranAway:                  boolean;
+  runRanAway:               boolean;
   /** Whether `killedAtFirstCommandOf` was reached, so that `summary` is the resumed run's. */
-  resumed:                  boolean;
+  runWasResumed:            boolean;
   phasesEntered:            { run: DispatchRunName; title: unknown }[];
   /** What the main run threw, `null` when it returned: `TypeError` for a type error, otherwise the error's message. */
   threw:                    string | null;

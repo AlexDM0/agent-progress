@@ -38,7 +38,7 @@ describe('the dispatcher script', () => {
   for (const claim of DECISION_CLAIMS) {
     test(claim.name, async () => {
       const run = await runDispatchScript(claim.scenarioFor(), builtScriptTextOf(BUNDLE));
-      expect(run.ranAway).toBe(false);
+      expect(run.runRanAway).toBe(false);
       expect(run.threw).toBeNull();
       expect(claim.holds(run), JSON.stringify({ calls: RecordedDispatchRunUtil.kindsAndTicketsOf(run), summary: run.summary, most: run.mostAgentsAtOnce })).toBe(true);
     });

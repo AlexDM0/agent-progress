@@ -10,6 +10,7 @@ import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL }       from '../../src/lib/t
 import { OperationRefusal }                                from '../../src/shared/OperationRefusal.ts';
 import { resourceFilePathOf }                              from '../../src/shared/ResourceFilePath.ts';
 import { DISPATCH_PROTOCOL }                               from '../../src/shared/constants/DispatchProtocol.ts';
+import { DISPATCHER_SCRIPT_BUILD }                         from '../../src/shared/constants/DispatcherScriptBuild.ts';
 import { TemplatePlaceholderUtil }                         from '../utils/TemplatePlaceholderUtil.ts';
 
 function dispatcherDirectory(): string {
@@ -42,9 +43,9 @@ function templateTextOf(templateFileName: string): string {
 export async function installedFileTextsFor(request: { generatesTheDispatcherScript: boolean }): Promise<InstalledFileTexts> {
   const dispatcherScript = request.generatesTheDispatcherScript
     ? dispatcherScriptTextOf(await bundleWorkflowScript({
-      entryPath:      join(dispatcherDirectory(), 'DispatchScript.ts'),
-      metaModulePath: join(dispatcherDirectory(), 'DispatchMeta.ts'),
-      metaExportName: 'DISPATCH_META',
+      entryPath:      join(dispatcherDirectory(), DISPATCHER_SCRIPT_BUILD.ENTRY_FILE_NAME),
+      metaModulePath: join(dispatcherDirectory(), DISPATCHER_SCRIPT_BUILD.META_MODULE_FILE_NAME),
+      metaExportName: DISPATCHER_SCRIPT_BUILD.META_EXPORT_NAME,
     }))
     : null;
   // The dispatcher's prompts state the same numbers from the same constant, so the brief, the block and the prompts cannot disagree.
