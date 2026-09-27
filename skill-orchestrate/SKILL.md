@@ -233,7 +233,7 @@ after an unhold. Then:
    file a new ticket stating the invariant behind what the reviews kept finding, with the search for
    its other instances as an acceptance item, and tell the user the parked branch waits on it.
 4. Each ticket in `findingsFiled`, judged for severity as Intake says.
-5. `agent-progress status --json`: a row the run left `in-progress` or `awaiting review` with no agent
+5. `agent-progress status --json`: a row the run left `in-progress` or `in-review` with no agent
    behind it is yours to close. A ticket's own row moves only through the `ticket` verbs, which
    refuse `task finish` and `task deliver` on it: `task pause` a build row left running, so the next
    run resumes it, and `ticket status <id> <status>` to settle it otherwise. A review bar (a row
