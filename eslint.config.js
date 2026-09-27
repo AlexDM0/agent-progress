@@ -7,6 +7,7 @@ export default [
     // Test-only helpers may import devDependencies; nothing that ships may import these folders.
     files: [
       'src/testing/**/*.ts',
+      'src/lib/tracker-model/testing/**/*.ts',
       'cli/testing/**/*.ts',
       'src/adapters/progress/testing/**/*.ts',
       'src/adapters/legacy/testing/**/*.ts',

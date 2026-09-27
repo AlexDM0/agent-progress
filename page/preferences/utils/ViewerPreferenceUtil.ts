@@ -7,7 +7,6 @@ import type {
   WorkVisibility,
 } from '../../@types/ViewerPreferences.ts';
 import { CAPPED_LANE_FIRST_PAGE_CARDS } from '../../constants/CappedLanePaging.ts';
-import { EMPTY_VIEW_OVERRIDE }          from '../../constants/ViewOverride.ts';
 import { JsonValueUtil }                from '../../utils/JsonValueUtil.ts';
 import {
   DEFAULT_ABANDONED_LANE_CHOICE,
@@ -15,6 +14,7 @@ import {
   DEFAULT_NAME_COLUMN_WIDTH,
   DEFAULT_WORK_VISIBILITY,
 } from '../constants/PreferenceDefaults.ts';
+import { EMPTY_VIEW_OVERRIDE } from '../constants/ViewOverride.ts';
 
 const ABANDONED_LANE_OPEN_CHOICE = 'open';
 

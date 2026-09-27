@@ -6,10 +6,10 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { DispatcherClaimNoteUtil } from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
-import type { DispatchSettings }   from '../@types/DispatchSettings.ts';
-import type { PreviousPass }       from '../@types/DispatchWork.ts';
-import { DISPATCH_POLICY }         from '../constants/DispatchPolicy.ts';
+import { DispatcherClaimNoteUtil } from '../../../src/shared/utils/DispatcherClaimNoteUtil.ts';
+import type { DispatchSettings }   from '../../@types/DispatchSettings.ts';
+import type { PreviousPass }       from '../../@types/DispatchWork.ts';
+import { DISPATCH_POLICY }         from '../../constants/DispatchPolicy.ts';
 import { AgentPromptUtil }         from './AgentPromptUtil.ts';
 
 const {

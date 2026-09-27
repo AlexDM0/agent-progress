@@ -28,7 +28,7 @@ import type {
   RowRelease
 } from '../@types/DispatchWork.ts';
 import { DISPATCH_POLICY }  from '../constants/DispatchPolicy.ts';
-import { RoundVerdictUtil } from '../utils/RoundVerdictUtil.ts';
+import { RoundVerdictUtil } from './utils/RoundVerdictUtil.ts';
 
 export interface DispatchRunCollaborators {
   logger:     DispatchLogger;

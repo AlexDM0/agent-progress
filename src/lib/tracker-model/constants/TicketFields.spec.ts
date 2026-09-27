@@ -4,8 +4,8 @@
  */
 import { expect, test } from 'bun:test';
 
-import type { TupleCoversTheUnion }        from '../../../testing/TupleCoversTheUnion.ts';
 import type { TicketPriority, TicketType } from '../@types/Ticket.ts';
+import type { TupleCoversTheUnion }        from '../testing/TupleCoversTheUnion.ts';
 import {
   DEFAULT_TICKET_PRIORITY,
   TICKET_ID_DIGITS,

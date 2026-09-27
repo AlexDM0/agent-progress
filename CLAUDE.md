@@ -43,16 +43,16 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - Imports run up only, with no cycles. A feature (`cli/`, `page/`, `dispatcher/`) imports itself and `src/*`, never
   another feature. Inside `cli/` a command folder never imports a sibling command's folder: what two need is hoisted to
   the level above both (a set's own files, or `cli/`'s root and `cli/utils/`), or passed as a structurally typed
-  parameter. Nothing that ships imports `src/testing/`, `cli/testing/`, `src/adapters/progress/testing/`,
-  `src/adapters/legacy/testing/`, `src/services/tracker/testing/`, `dispatcher/testing/` or `page/testing/`, and
-  `agent-progress.ts` imports only `cli/`.
+  parameter. Nothing that ships imports `src/testing/`, `src/lib/tracker-model/testing/`, `cli/testing/`,
+  `src/adapters/progress/testing/`, `src/adapters/legacy/testing/`, `src/services/tracker/testing/`,
+  `dispatcher/testing/` or `page/testing/`, and `agent-progress.ts` imports only `cli/`.
 - A `src/lib/` package imports only the other `src/lib/` packages its main module's header names, node builtins and
   external dependencies, and knows nothing about its callers: no agent-progress names, tracker file names, user-facing
   wording or exit codes. App values arrive as parameters; a refusal leaves as a verdict the caller turns into
   `OperationRefusal`, except that the tracker model's `Board`, a domain class, throws its typed `BoardRefusal` instead.
   A `src/lib/` spec may import `src/testing/`.
 - `src/lib/tracker-model/` imports nothing outside its own folder and no builtin: the page's DOM-only project compiles
-  it, so it stays DOM-safe.
+  it, so it stays DOM-safe. Its `testing/` is imported only by its specs.
 - `cli/testing/` is imported only by `cli/` specs.
 - `page/testing/` is imported only by `page/` specs.
 - `src/services/tracker/testing/` is imported only by `src/services/tracker/` specs.
@@ -184,10 +184,11 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   alphabetised; builtins through the `node:` protocol (`import/enforce-node-protocol-usage`, turned on in
   `eslint.config.js`); local specifiers name the file with its `.ts` extension (`import/extensions`, turned on there
   as well); more than 3 named imports or 4+ properties one per line; arrow parameters parenthesised; no
-  `any`; a blank line before a function declaration. `src/testing/`, `cli/testing/`, `src/adapters/progress/testing/`,
-  `src/adapters/legacy/testing/`, `src/services/tracker/testing/`, `dispatcher/testing/` and `page/testing/` may import
-  devDependencies. Deliberately off: `no-plusplus`, `no-continue`, `no-await-in-loop`, `no-param-reassign`,
-  `consistent-return`, `no-restricted-syntax`, `guard-for-in`, `class-methods-use-this`, `no-use-before-define`.
+  `any`; a blank line before a function declaration. `src/testing/`, `src/lib/tracker-model/testing/`, `cli/testing/`,
+  `src/adapters/progress/testing/`, `src/adapters/legacy/testing/`, `src/services/tracker/testing/`, `dispatcher/testing/`
+  and `page/testing/` may import devDependencies. Deliberately off: `no-plusplus`, `no-continue`, `no-await-in-loop`,
+  `no-param-reassign`, `consistent-return`, `no-restricted-syntax`, `guard-for-in`, `class-methods-use-this`,
+  `no-use-before-define`.
 
 ### Tests
 

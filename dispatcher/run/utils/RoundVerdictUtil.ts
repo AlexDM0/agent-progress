@@ -1,12 +1,12 @@
-import { DISPATCH_PROTOCOL }  from '../../src/shared/constants/DispatchProtocol.ts';
-import type { ReviewFinding } from '../@types/AgentReadings.ts';
+import { DISPATCH_PROTOCOL }  from '../../../src/shared/constants/DispatchProtocol.ts';
+import type { ReviewFinding } from '../../@types/AgentReadings.ts';
 import type {
   ReviewedRound,
   ReviewedRoundWithRework,
   RoundRefusal,
   RoundVerdict
-} from '../@types/DispatchOutcome.ts';
-import { DISPATCH_POLICY } from '../constants/DispatchPolicy.ts';
+} from '../../@types/DispatchOutcome.ts';
+import { DISPATCH_POLICY } from '../../constants/DispatchPolicy.ts';
 
 function findingsOfRoundsBefore(earlierRounds: readonly ReviewedRound[], round: number): ReviewFinding[] {
   return earlierRounds.filter((earlier) => earlier.round < round).flatMap((earlier) => earlier.findings);

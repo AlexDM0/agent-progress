@@ -4,8 +4,8 @@
  */
 import { expect, test } from 'bun:test';
 
-import type { TupleCoversTheUnion }                    from '../../../testing/TupleCoversTheUnion.ts';
 import type { DispatcherState }                        from '../@types/TrackerProgress.ts';
+import type { TupleCoversTheUnion }                    from '../testing/TupleCoversTheUnion.ts';
 import { DEFAULT_DISPATCHER_STATE, DISPATCHER_STATES } from './DispatcherStates.ts';
 
 /** A tuple member the union has never heard of fails `bun run typecheck` rather than a test. */

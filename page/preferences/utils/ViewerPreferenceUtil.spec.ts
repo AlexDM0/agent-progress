@@ -5,7 +5,7 @@
 
 import { describe, expect, test }  from 'bun:test';
 import type { StoredViewOverride } from '../../@types/ViewerPreferences.ts';
-import { EMPTY_VIEW_OVERRIDE }     from '../../constants/ViewOverride.ts';
+import { EMPTY_VIEW_OVERRIDE }     from '../constants/ViewOverride.ts';
 import { ViewerPreferenceUtil }    from './ViewerPreferenceUtil.ts';
 
 const {

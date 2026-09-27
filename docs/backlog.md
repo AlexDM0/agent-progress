@@ -83,8 +83,8 @@ the features regrouped; they wait for the next change to ticket filing, `ticket 
 A reviewer adds the `rework --since` count and each `rework --rebased-from` count itself, the
 repeats after `main-moved` included, to report `reworkedLines`: the review brief's steps 4, 5, 7b
 and 8 in `resources/templates/AgentBrief.md` and the reviewer prompt in
-`dispatcher/utils/AgentPromptUtil.ts` tell it to. Agreed: one count from the tool, so the reviewer
-has nothing to add.
+`dispatcher/run/utils/AgentPromptUtil.ts` tell it to. Agreed: one count from the tool, so the
+reviewer has nothing to add.
 
 Not started because it changes what the reviewer is told, so it waits for a commit meant to change
 the brief and the prompts, which retakes `dispatcher/testing/FrozenDispatchTraces.json`; the

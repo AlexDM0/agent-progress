@@ -125,6 +125,8 @@ and each file's header says what it is for:
 
 - `src/testing/`: the scratch workspace, the tracker isolation guard, and the Board, tracker-file and
   progress fixtures several parts share.
+- `src/lib/tracker-model/testing/`: `TupleCoversTheUnion`, the type check that a constant tuple lists
+  every member of its union, for the model's constants specs.
 - `cli/testing/`: the captured command context, the one sanctioned way to spawn the binary
   (`CliProcess.ts`), and readers of what a command left on disk.
 - `src/adapters/progress/testing/` and `src/adapters/legacy/testing/`: the stored-format fixtures for

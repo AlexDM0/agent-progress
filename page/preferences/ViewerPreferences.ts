@@ -6,13 +6,13 @@
 import type { ClosedKanbanLane }                                         from '../@types/ClosedKanbanLane.ts';
 import type { PreferenceStorage, StoredViewOverride, ViewerPreferences } from '../@types/ViewerPreferences.ts';
 import { CAPPED_LANE_FIRST_PAGE_CARDS }                                  from '../constants/CappedLanePaging.ts';
-import { EMPTY_VIEW_OVERRIDE }                                           from '../constants/ViewOverride.ts';
 import {
   DEFAULT_ABANDONED_LANE_CHOICE,
   DEFAULT_LOG_VISIBILITY,
   DEFAULT_NAME_COLUMN_WIDTH,
   DEFAULT_WORK_VISIBILITY,
 } from './constants/PreferenceDefaults.ts';
+import { EMPTY_VIEW_OVERRIDE }  from './constants/ViewOverride.ts';
 import { ViewerPreferenceUtil } from './utils/ViewerPreferenceUtil.ts';
 
 // A literal map rather than the lane value, so renaming a lane cannot move a viewer's stored key.

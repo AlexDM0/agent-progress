@@ -1,9 +1,9 @@
 /** Every prompt the dispatcher hands an agent, worded from the run's settings and what the run knows of the ticket. */
-import { DISPATCH_PROTOCOL }       from '../../src/shared/constants/DispatchProtocol.ts';
-import { DispatcherClaimNoteUtil } from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
-import type { DispatchSettings }   from '../@types/DispatchSettings.ts';
-import type { PreviousPass }       from '../@types/DispatchWork.ts';
-import { DISPATCH_POLICY }         from '../constants/DispatchPolicy.ts';
+import { DISPATCH_PROTOCOL }       from '../../../src/shared/constants/DispatchProtocol.ts';
+import { DispatcherClaimNoteUtil } from '../../../src/shared/utils/DispatcherClaimNoteUtil.ts';
+import type { DispatchSettings }   from '../../@types/DispatchSettings.ts';
+import type { PreviousPass }       from '../../@types/DispatchWork.ts';
+import { DISPATCH_POLICY }         from '../../constants/DispatchPolicy.ts';
 
 export interface BuilderPromptRequest {
   ticketId:                    string;
