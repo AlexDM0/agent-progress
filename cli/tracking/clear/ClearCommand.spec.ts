@@ -11,11 +11,11 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import type { TrackerProgress }                                               from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
 import { runCommandLine }                                                     from '../../Main.ts';
 import { createCapturedCommandContext }                                       from '../../testing/CapturedCommandContext.ts';
 import { storedLogEntriesOf }                                                 from '../../testing/StoredLogEntries.ts';
+import { storedProgressOf }                                                   from '../../testing/StoredProgress.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -35,10 +35,6 @@ async function run(commandLineArguments: readonly string[]): Promise<ReturnType<
   const exitCode = await runCommandLine(commandLineArguments, context);
   expect(exitCode, `\`agent-progress ${commandLineArguments.join(' ')}\` failed: ${context.errorText()}`).toBe(0);
   return context;
-}
-
-function storedProgress(): TrackerProgress {
-  return JSON.parse(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')) as TrackerProgress;
 }
 
 function ticketFileNames(): string[] {
@@ -61,11 +57,11 @@ afterEach(() => {
 
 describe.skipIf(!gitIsAvailable())('clearing while keeping the tickets', () => {
   test('re-seeds a bar per surviving ticket from the frontmatter it recorded', async () => {
-    const trackerIdBefore = storedProgress().trackerId;
+    const trackerIdBefore = storedProgressOf(repositoryDirectory).trackerId;
 
     const context = await run(['clear', '--yes']);
 
-    const progress = storedProgress();
+    const progress = storedProgressOf(repositoryDirectory);
     expect(progress.tasks).toHaveLength(1);
     const [seeded] = progress.tasks;
     expect(seeded).toMatchObject({ id: 3, status: 'reviewed', ticket: '001' });
@@ -85,11 +81,11 @@ describe.skipIf(!gitIsAvailable())('clearing while keeping the tickets', () => {
    * would be indistinguishable from one the tool watched — so the row comes back knowing only the state it came back in.
    */
   test('a re-seeded row carries the one phase it was re-seeded into, not a history read off the ticket', async () => {
-    expect(storedProgress().tasks[0]?.history?.map((phase) => phase.status), 'the row before the clear').toEqual(['pending', 'in-progress', 'reviewed']);
+    expect(storedProgressOf(repositoryDirectory).tasks[0]?.history?.map((phase) => phase.status), 'the row before the clear').toEqual(['pending', 'in-progress', 'reviewed']);
 
     await run(['clear', '--yes']);
 
-    const [seeded] = storedProgress().tasks;
+    const [seeded] = storedProgressOf(repositoryDirectory).tasks;
     expect(seeded?.history).toEqual([{ status: 'reviewed', at: seeded?.end ?? '' }]);
   });
 
@@ -105,7 +101,7 @@ describe.skipIf(!gitIsAvailable())('clearing everything', () => {
     await run(['clear', '--all', '--yes']);
 
     expect(ticketFileNames()).toEqual([]);
-    expect(storedProgress().tasks).toEqual([]);
+    expect(storedProgressOf(repositoryDirectory).tasks).toEqual([]);
 
     await run(['ticket', 'add', 'Fix the axis', '--type', 'bug']);
     expect(ticketFileNames()).toEqual(['001-fix-the-axis.md']);
@@ -140,7 +136,7 @@ describe.skipIf(!gitIsAvailable())('the confirmation', () => {
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('--yes');
-    expect(storedProgress().tasks).toHaveLength(2);
+    expect(storedProgressOf(repositoryDirectory).tasks).toHaveLength(2);
   });
 
   test('on a terminal it asks, and a no leaves the tracker exactly as it was, at exit 0', async () => {
@@ -155,7 +151,7 @@ describe.skipIf(!gitIsAvailable())('the confirmation', () => {
 
     expect(context.questionsAsked()).toHaveLength(1);
     expect(context.outputText()).toContain('Nothing was cleared.');
-    expect(storedProgress().tasks).toHaveLength(2);
+    expect(storedProgressOf(repositoryDirectory).tasks).toHaveLength(2);
   });
 
   test('on a terminal a yes clears, and the question names what --all would additionally delete', async () => {

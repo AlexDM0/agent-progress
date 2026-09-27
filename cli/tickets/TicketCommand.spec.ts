@@ -20,7 +20,6 @@ import {
   test
 }                                                                             from 'bun:test';
 import * as AtomicFile                                                        from '../../src/lib/atomic-file/AtomicFile.ts';
-import type { TrackerProgress }                                               from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import { withLock }                                                           from '../../src/services/tracker/TrackerLock.ts';
 import { workspacePathsFor }                                                  from '../../src/services/tracker/Workspace.ts';
 import { LIMITS }                                                             from '../../src/shared/constants/Limits.ts';
@@ -28,6 +27,7 @@ import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } fr
 import { runCommandLine }                                                     from '../Main.ts';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext.ts';
 import { storedLogEntriesOf }                                                 from '../testing/StoredLogEntries.ts';
+import { storedProgressOf }                                                   from '../testing/StoredProgress.ts';
 import { TICKET_CLAIM_SUBCOMMANDS }                                           from './TicketClaimSubcommands.ts';
 import { TICKET_FILING_SUBCOMMANDS }                                          from './TicketFilingSubcommands.ts';
 import { TICKET_MOVE_SUBCOMMANDS }                                            from './TicketMoveSubcommands.ts';
@@ -51,10 +51,6 @@ async function run(commandLineArguments: readonly string[]): Promise<ReturnType<
   const exitCode = await runCommandLine(commandLineArguments, context);
   expect(exitCode, `\`agent-progress ${commandLineArguments.join(' ')}\` failed: ${context.errorText()}`).toBe(0);
   return context;
-}
-
-function storedProgress(): TrackerProgress {
-  return JSON.parse(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')) as TrackerProgress;
 }
 
 function storedTicketText(fileName = FIRST_TICKET_FILE_NAME): string {
@@ -82,7 +78,7 @@ describe.skipIf(!gitIsAvailable())('filing a ticket', () => {
     expect(ticketText).toContain('## Acceptance');
     expect(ticketText).not.toContain('{{');
 
-    const progress = storedProgress();
+    const progress = storedProgressOf(repositoryDirectory);
     expect(progress.tasks[0]).toMatchObject({ id: 1, status: 'pending', ticket: '001' });
     expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe('Ticket #001 filed: Double-click a role to edit it');
 
@@ -159,36 +155,36 @@ describe.skipIf(!gitIsAvailable())('moving a ticket', () => {
 
   test('every transition moves the row and stamps the frontmatter it belongs to', async () => {
     await run(['ticket', 'start', '1', '--branch', 'ticket/role-editor']);
-    expect(storedProgress().tasks[0]?.status).toBe('in-progress');
+    expect(storedProgressOf(repositoryDirectory).tasks[0]?.status).toBe('in-progress');
     expect(storedTicketText()).toContain('status: "in-progress"');
     expect(storedTicketText()).toContain('branch: "ticket/role-editor"');
     expect(storedTicketText()).not.toContain('started: null');
 
     await run(['ticket', 'finish', '1']);
-    expect(storedProgress().tasks[0]?.status).toBe('in-review');
+    expect(storedProgressOf(repositoryDirectory).tasks[0]?.status).toBe('in-review');
     expect(storedTicketText()).toContain('status: "in-review"');
     expect(storedTicketText()).not.toContain('finished: null');
 
     await run(['ticket', 'approve', '1', '--commit', 'abc1234']);
-    expect(storedProgress().tasks[0]?.status).toBe('reviewed');
+    expect(storedProgressOf(repositoryDirectory).tasks[0]?.status).toBe('reviewed');
     expect(storedTicketText()).toContain('commit: "abc1234"');
 
     await run(['ticket', 'deliver', '1']);
-    expect(storedProgress().tasks[0]?.status).toBe('delivered');
+    expect(storedProgressOf(repositoryDirectory).tasks[0]?.status).toBe('delivered');
     expect(storedTicketText()).toContain('status: "delivered"');
     expect(storedTicketText()).not.toContain('delivered: null');
   });
 
   // The row a ticket files starts in the queue, and how long it waited there is only measurable if the filing is a phase.
   test('the row a ticket files records its filing, and every later move adds one', async () => {
-    expect(storedProgress().tasks[0]?.history?.map((phase) => phase.status)).toEqual(['pending']);
+    expect(storedProgressOf(repositoryDirectory).tasks[0]?.history?.map((phase) => phase.status)).toEqual(['pending']);
 
     await run(['ticket', 'start', '1']);
     await run(['ticket', 'finish', '1']);
     await run(['ticket', 'rereview', '1']);
     await run(['ticket', 'approve', '1']);
 
-    expect(storedProgress().tasks[0]?.history?.map((phase) => phase.status)).toEqual(['pending', 'in-progress', 'in-review', 're-review', 'reviewed']);
+    expect(storedProgressOf(repositoryDirectory).tasks[0]?.history?.map((phase) => phase.status)).toEqual(['pending', 'in-progress', 'in-review', 're-review', 'reviewed']);
   });
 
   // Reopening is something that happened to the row, and it is what restarts the review rounds the panel counts.
@@ -198,7 +194,7 @@ describe.skipIf(!gitIsAvailable())('moving a ticket', () => {
 
     await run(['ticket', 'reopen', '1']);
 
-    expect(storedProgress().tasks[0]?.history?.map((phase) => phase.status)).toEqual(['pending', 'in-progress', 'reviewed', 'pending']);
+    expect(storedProgressOf(repositoryDirectory).tasks[0]?.history?.map((phase) => phase.status)).toEqual(['pending', 'in-progress', 'reviewed', 'pending']);
   });
 
   test('reopen clears the stamps and returns the row to pending', async () => {
@@ -207,7 +203,7 @@ describe.skipIf(!gitIsAvailable())('moving a ticket', () => {
 
     await run(['ticket', 'reopen', '1']);
 
-    expect(storedProgress().tasks[0]?.status).toBe('pending');
+    expect(storedProgressOf(repositoryDirectory).tasks[0]?.status).toBe('pending');
     const ticketText = storedTicketText();
     expect(ticketText).toContain('status: "pending"');
     expect(ticketText).toContain('started: null');
@@ -224,7 +220,7 @@ describe.skipIf(!gitIsAvailable())('moving a ticket', () => {
 
     await run(['ticket', 'abandon', '1', '--reason', 'superseded by ticket #007']);
 
-    expect(storedProgress().tasks[0]?.status).toBe('abandoned');
+    expect(storedProgressOf(repositoryDirectory).tasks[0]?.status).toBe('abandoned');
     expect(storedTicketText()).toContain('reason: "superseded by ticket #007"');
     expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe('Ticket #001 abandoned: superseded by ticket #007');
   });
@@ -233,7 +229,7 @@ describe.skipIf(!gitIsAvailable())('moving a ticket', () => {
     await run(['ticket', 'status', '1', 'in-review']);
 
     expect(storedTicketText()).toContain('status: "in-review"');
-    expect(storedProgress().tasks[0]?.status).toBe('in-review');
+    expect(storedProgressOf(repositoryDirectory).tasks[0]?.status).toBe('in-review');
   });
 
   test('a status that is not one is refused, listing the ones that are', async () => {
@@ -265,13 +261,13 @@ describe.skipIf(!gitIsAvailable())('a second review pass', () => {
     const context = await run(['ticket', 'rereview', '1']);
 
     expect(storedTicketText()).toContain('status: "in-review"');
-    expect(storedProgress().tasks[0]?.status).toBe('re-review');
-    expect(storedProgress().tasks[0]?.reviewRound).toBe(2);
+    expect(storedProgressOf(repositoryDirectory).tasks[0]?.status).toBe('re-review');
+    expect(storedProgressOf(repositoryDirectory).tasks[0]?.reviewRound).toBe(2);
     expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe('Ticket #001 in review, round 2');
     expect(context.outputText()).toContain('Ticket #001 in review, round 2');
 
     await run(['ticket', 'rereview', '1']);
-    expect(storedProgress().tasks[0]?.reviewRound).toBe(3);
+    expect(storedProgressOf(repositoryDirectory).tasks[0]?.reviewRound).toBe(3);
     expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe('Ticket #001 in review, round 3');
   });
 
@@ -281,8 +277,8 @@ describe.skipIf(!gitIsAvailable())('a second review pass', () => {
     await run(['ticket', 'approve', '1']);
 
     expect(storedTicketText()).toContain('status: "reviewed"');
-    expect(storedProgress().tasks[0]?.status).toBe('reviewed');
-    expect(storedProgress().tasks[0]?.reviewRound, 'the round stays on the row as history').toBe(2);
+    expect(storedProgressOf(repositoryDirectory).tasks[0]?.status).toBe('reviewed');
+    expect(storedProgressOf(repositoryDirectory).tasks[0]?.reviewRound, 'the round stays on the row as history').toBe(2);
   });
 
   test('start and abandon still move a ticket whose row is in a repeat review', async () => {
@@ -304,7 +300,7 @@ describe.skipIf(!gitIsAvailable())('a second review pass', () => {
     expect(context.errorText()).toContain('Ticket #002 is pending');
     expect(context.errorText()).toContain('needs a ticket that is in-review');
     expect(context.errorText()).not.toContain('ticket finish 002');
-    expect(storedProgress().tasks[1]?.status).toBe('pending');
+    expect(storedProgressOf(repositoryDirectory).tasks[1]?.status).toBe('pending');
   });
 
   test('a refused rereview names ticket finish only where that verb would be accepted', async () => {
@@ -322,7 +318,7 @@ describe.skipIf(!gitIsAvailable())('a second review pass', () => {
     const exitCode = await runCommandLine(['ticket', 'rereview', '1', '--tokens', '48k'], context);
 
     expect(exitCode).not.toBe(0);
-    expect(storedProgress().tasks[0]?.status).not.toBe('re-review');
+    expect(storedProgressOf(repositoryDirectory).tasks[0]?.status).not.toBe('re-review');
   });
 });
 
@@ -380,7 +376,7 @@ describe.skipIf(!gitIsAvailable())('linking a ticket to a row', () => {
 
     await run(['ticket', 'link', '1', '2']);
 
-    const progress = storedProgress();
+    const progress = storedProgressOf(repositoryDirectory);
     expect(progress.tasks[0]?.ticket).toBeNull();
     expect(progress.tasks[1]?.ticket).toBe('001');
     expect(storedTicketText()).toContain('task: 2');
@@ -396,7 +392,7 @@ describe.skipIf(!gitIsAvailable())('linking a ticket to a row', () => {
 
     await run(['ticket', 'link', '1', '2', '--force']);
 
-    expect(storedProgress().tasks[1]?.ticket).toBe('001');
+    expect(storedProgressOf(repositoryDirectory).tasks[1]?.ticket).toBe('001');
     expect(storedTicketText('002-fix-the-axis.md')).toContain('task: null');
   });
 });
@@ -444,7 +440,7 @@ describe.skipIf(!gitIsAvailable())('the transition matrix', () => {
     await run(['ticket', 'status', '1', 'reviewed']);
 
     expect(storedTicketText()).toContain('status: "reviewed"');
-    const row = storedProgress().tasks[0];
+    const row = storedProgressOf(repositoryDirectory).tasks[0];
     expect(row?.status).toBe('reviewed');
     expect(row?.start).not.toBeNull();
     expect(row?.end).toBe(row?.start ?? '');
@@ -486,7 +482,7 @@ describe.skipIf(!gitIsAvailable())('token counts on a ticket move', () => {
 
     await run(['ticket', 'finish', '1', '--tokens', '48k']);
 
-    expect(storedProgress().tasks[0]?.tokens).toBe(48_000);
+    expect(storedProgressOf(repositoryDirectory).tasks[0]?.tokens).toBe(48_000);
   });
 
   // A low ticket that was never started has no row, so the figure would otherwise vanish at exit 0.

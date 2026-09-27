@@ -5,8 +5,8 @@
  * it. It covers the older
  * habit `cli/legacy/`'s filing mapper answers and the older input `src/adapters/legacy/` links, and is deleted with them.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
-import { join }                        from 'node:path';
+import { writeFileSync } from 'node:fs';
+import { join }          from 'node:path';
 
 import {
   afterEach,
@@ -16,7 +16,6 @@ import {
   test
 }                                       from 'bun:test';
 import type { Task }                  from '../../src/lib/tracker-model/@types/Task.ts';
-import type { TrackerProgress }       from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import { TimeUtil }                   from '../../src/lib/utils/TimeUtil.ts';
 import { LIMITS }                     from '../../src/shared/constants/Limits.ts';
 import {
@@ -30,6 +29,8 @@ import {
 }                                       from '../../src/testing/ScratchWorkspace.ts';
 import { runCommandLine }               from '../Main.ts';
 import { createCapturedCommandContext } from '../testing/CapturedCommandContext.ts';
+import { storedProgressOf }             from '../testing/StoredProgress.ts';
+import { storedRowOf }                  from '../testing/StoredRow.ts';
 
 interface CommandOutcome {
   exitCode: number;
@@ -57,18 +58,10 @@ async function agentProgressOrFail(commandLineArguments: readonly string[]): Pro
   return output;
 }
 
-function storedProgress(): TrackerProgress {
-  return JSON.parse(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')) as TrackerProgress;
-}
-
-function storedRow(rowIdentifier: number): Task | undefined {
-  return storedProgress().tasks.find((task) => task.id === rowIdentifier);
-}
-
 /** Stores the row as an agent-progress older than filing-time linking left it: known only by its name. */
 function storeWithoutItsLink(rowIdentifier: number): void {
   const progressFilePath = join(repositoryDirectory, '.agent-progress', 'progress.json');
-  const progress         = storedProgress();
+  const progress         = storedProgressOf(repositoryDirectory);
   const tasks            = progress.tasks.map((task) => {
     if (task.id !== rowIdentifier) return task;
     const { reviewOf: droppedReviewOf, reviewBarRound: droppedReviewBarRound, ...unlinkedTask } = task;
@@ -123,7 +116,7 @@ describe.skipIf(!gitIsAvailable())('a release', () => {
     const earlierRoundId = await inProgressReviewRow(identifier);
     await agentProgressOrFail(['task', 'finish', String(earlierRoundId), '--at', '-30m']);
     await agentProgressOrFail(['task', 'deliver', String(earlierRoundId), '--at', '-30m']);
-    const earlierRoundBefore = storedRow(earlierRoundId);
+    const earlierRoundBefore = storedRowOf(repositoryDirectory, earlierRoundId);
     const firstReviewId      = await inProgressReviewRow(identifier);
     const bundledReviewId    = await inProgressReviewRow(bundled.id);
     const nameOnlyReviewId   = await inProgressReviewRow(identifier, []);
@@ -132,14 +125,14 @@ describe.skipIf(!gitIsAvailable())('a release', () => {
 
     expect(outcome.exitCode, outcome.error).toBe(0);
     expect(JSON.parse(outcome.output)).toMatchObject({ closedReviewRows: [firstReviewId, bundledReviewId, nameOnlyReviewId] });
-    for (const closedId of [firstReviewId, bundledReviewId]) expect(storedRow(closedId)).toMatchObject({ status: 'delivered', end: releaseStamp });
-    expect(storedRow(nameOnlyReviewId)).toMatchObject({
+    for (const closedId of [firstReviewId, bundledReviewId]) expect(storedRowOf(repositoryDirectory, closedId)).toMatchObject({ status: 'delivered', end: releaseStamp });
+    expect(storedRowOf(repositoryDirectory, nameOnlyReviewId)).toMatchObject({
       status:         'delivered',
       end:            releaseStamp,
       reviewOf:       identifier,
       reviewBarRound: 1,
     });
-    expect(storedRow(earlierRoundId)).toEqual(earlierRoundBefore);
+    expect(storedRowOf(repositoryDirectory, earlierRoundId)).toEqual(earlierRoundBefore);
   });
 
   // A tracker `update` has not yet rewritten may hold a row stored with no link; the read links it by its name, so the release closes it.
@@ -151,13 +144,13 @@ describe.skipIf(!gitIsAvailable())('a release', () => {
     } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
     const nameOnlyReviewId = await inProgressReviewRow(identifier);
     storeWithoutItsLink(nameOnlyReviewId);
-    expect(storedRow(nameOnlyReviewId)).not.toHaveProperty('reviewOf');
+    expect(storedRowOf(repositoryDirectory, nameOnlyReviewId)).not.toHaveProperty('reviewOf');
 
     const outcome = await agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree, '--json']);
 
     expect(outcome.exitCode, outcome.error).toBe(0);
     expect(JSON.parse(outcome.output)).toMatchObject({ closedReviewRows: [nameOnlyReviewId] });
-    expect(storedRow(nameOnlyReviewId)).toMatchObject({
+    expect(storedRowOf(repositoryDirectory, nameOnlyReviewId)).toMatchObject({
       status:         'delivered',
       end:            releaseStamp,
       reviewOf:       identifier,
@@ -225,8 +218,8 @@ describe.skipIf(!gitIsAvailable())('the SubagentStop hook for a reviewer', () =>
 
     expect((await agentProgress(['hook', 'subagent-stop'], hookInput(transcriptPath))).exitCode).toBe(0);
 
-    expect(storedRow(secondRound)?.tokens).toBe(FIXTURE_INPUT_TOKENS);
-    expect(storedRow(firstRound)?.tokens).toBeNull();
+    expect(storedRowOf(repositoryDirectory, secondRound)?.tokens).toBe(FIXTURE_INPUT_TOKENS);
+    expect(storedRowOf(repositoryDirectory, firstRound)?.tokens).toBeNull();
   });
 
   // A tracker `update` has not yet rewritten may hold the later round with no link; the read links it by its name, so the hook credits it.
@@ -240,12 +233,12 @@ describe.skipIf(!gitIsAvailable())('the SubagentStop hook for a reviewer', () =>
     ]);
     const secondRound = await reviewRowFiled(['Review 2 #7 — Example work 7']);
     storeWithoutItsLink(secondRound);
-    expect(storedRow(secondRound)).not.toHaveProperty('reviewOf');
+    expect(storedRowOf(repositoryDirectory, secondRound)).not.toHaveProperty('reviewOf');
 
     expect((await agentProgress(['hook', 'subagent-stop'], hookInput(transcriptPath))).exitCode).toBe(0);
 
-    expect(storedRow(secondRound)?.tokens).toBe(FIXTURE_INPUT_TOKENS);
-    expect(storedRow(firstRound)?.tokens).toBeNull();
+    expect(storedRowOf(repositoryDirectory, secondRound)?.tokens).toBe(FIXTURE_INPUT_TOKENS);
+    expect(storedRowOf(repositoryDirectory, firstRound)?.tokens).toBeNull();
   });
 });
 
@@ -256,7 +249,7 @@ describe.skipIf(!gitIsAvailable())('task add of a review-shaped name without --r
     const printed = JSON.parse(await agentProgressOrFail(['task', 'add', 'Review 2 #7 — Example work 7', '--json'])) as Task;
 
     expect(printed).toMatchObject({ reviewOf: '007', reviewBarRound: 2 });
-    expect(storedRow(printed.id)).toMatchObject({ reviewOf: '007', reviewBarRound: 2 });
+    expect(storedRowOf(repositoryDirectory, printed.id)).toMatchObject({ reviewOf: '007', reviewBarRound: 2 });
   });
 });
 
@@ -267,6 +260,6 @@ describe.skipIf(!gitIsAvailable())('task update renaming a free-standing row to 
     const printed = JSON.parse(await agentProgressOrFail(['task', 'update', String(plain.id), '--name', 'Review 3 #001 — Renamed', '--json'])) as Task;
 
     expect(printed).toMatchObject({ reviewOf: '001', reviewBarRound: 3 });
-    expect(storedRow(plain.id)).toMatchObject({ name: 'Review 3 #001 — Renamed', reviewOf: '001', reviewBarRound: 3 });
+    expect(storedRowOf(repositoryDirectory, plain.id)).toMatchObject({ name: 'Review 3 #001 — Renamed', reviewOf: '001', reviewBarRound: 3 });
   });
 });

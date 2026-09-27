@@ -13,13 +13,13 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import type { TrackerProgress }                                               from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import { DispatcherClaimNoteUtil }                                            from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
 import { runCommandLine }                                                     from '../Main.ts';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext.ts';
 import { storedLogEntriesOf }                                                 from '../testing/StoredLogEntries.ts';
 import { storedLogTextOf }                                                    from '../testing/StoredLogText.ts';
+import { storedProgressOf }                                                   from '../testing/StoredProgress.ts';
 
 const FROZEN_NOW = new Date('2026-09-24T09:25:00Z');
 
@@ -54,10 +54,6 @@ async function statusDocument(): Promise<StatusDocument> {
 
 function progressFilePath(): string {
   return join(repositoryDirectory, '.agent-progress', 'progress.json');
-}
-
-function storedProgress(): TrackerProgress {
-  return JSON.parse(readFileSync(progressFilePath(), 'utf8')) as TrackerProgress;
 }
 
 function ticketsDirectory(): string {
@@ -193,7 +189,7 @@ describe.skipIf(!gitIsAvailable())('unholding a ticket whose build a dispatcher 
     await run(['ticket', 'claim', '1', '--note', 'Paused by Alex Example']);
     await run(['task', 'pause', '1']);
     await run(['ticket', 'hold', '1']);
-    const buildRowId = storedProgress().tasks[0]?.id;
+    const buildRowId = storedProgressOf(repositoryDirectory).tasks[0]?.id;
 
     const lastLine = (await unholdOutput()).trimEnd().split('\n').at(-1);
 

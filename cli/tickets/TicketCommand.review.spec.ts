@@ -4,7 +4,6 @@
  * the case the option exists for; the plain `ticket finish` beside it shows the gap it closes.
  */
 import { readFileSync } from 'node:fs';
-import { join }         from 'node:path';
 
 import {
   afterEach,
@@ -14,7 +13,6 @@ import {
   test
 }                                                                             from 'bun:test';
 import type { Task }                                                          from '../../src/lib/tracker-model/@types/Task.ts';
-import type { TrackerProgress }                                               from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import { withLock }                                                           from '../../src/services/tracker/TrackerLock.ts';
 import { workspacePathsFor }                                                  from '../../src/services/tracker/Workspace.ts';
 import { LIMITS }                                                             from '../../src/shared/constants/Limits.ts';
@@ -22,6 +20,7 @@ import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } fr
 import { runCommandLine }                                                     from '../Main.ts';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext.ts';
 import { storedLogEntriesOf }                                                 from '../testing/StoredLogEntries.ts';
+import { storedProgressOf }                                                   from '../testing/StoredProgress.ts';
 
 const FROZEN_NOW = new Date('2026-09-24T12:00:00Z');
 
@@ -47,12 +46,8 @@ async function run(commandLineArguments: readonly string[]): Promise<ReturnType<
   return context;
 }
 
-function storedProgress(): TrackerProgress {
-  return JSON.parse(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')) as TrackerProgress;
-}
-
 function inProgressBarsReviewing(ticketId: string): Task[] {
-  return storedProgress().tasks.filter((task) => task.status === 'in-progress' && task.reviewOf === ticketId);
+  return storedProgressOf(repositoryDirectory).tasks.filter((task) => task.status === 'in-progress' && task.reviewOf === ticketId);
 }
 
 async function agentsInFlightNow(): Promise<number> {
@@ -130,7 +125,7 @@ describe.skipIf(!gitIsAvailable())('starting the review bar with the move to rev
     const bars = inProgressBarsReviewing('001');
     expect(bars).toHaveLength(1);
     expect(bars[0]?.name).toBe(`Review 2 #001 — ${REVIEWED_TICKET_TITLE}`);
-    expect(storedProgress().tasks.find((task) => task.id === firstBar?.id)?.status).toBe('delivered');
+    expect(storedProgressOf(repositoryDirectory).tasks.find((task) => task.id === firstBar?.id)?.status).toBe('delivered');
     expect(await agentsInFlightNow()).toBe(agentsBefore);
   });
 
@@ -180,7 +175,7 @@ describe.skipIf(!gitIsAvailable())('starting the review bar with the move to rev
       const output = (await run(moveOutOfReview)).outputText();
 
       expect(inProgressBarsReviewing('001'), moveOutOfReview.join(' ')).toHaveLength(0);
-      expect(storedProgress().tasks.find((task) => task.id === bar?.id)?.status).toBe('delivered');
+      expect(storedProgressOf(repositoryDirectory).tasks.find((task) => task.id === bar?.id)?.status).toBe('delivered');
       expect(output).toContain(`Closed the review row #${bar?.id}, delivered`);
       expect(storedLogEntriesOf(repositoryDirectory).filter((entry) => entry.text.startsWith(`Closed the review row #${bar?.id}`))).toHaveLength(1);
     }

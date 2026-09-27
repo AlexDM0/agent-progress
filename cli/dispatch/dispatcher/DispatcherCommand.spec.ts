@@ -13,12 +13,13 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import type { DispatcherState, TrackerProgress }                              from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
+import type { DispatcherState }                                               from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
 import { runCommandLine }                                                     from '../../Main.ts';
 import { createCapturedCommandContext }                                       from '../../testing/CapturedCommandContext.ts';
 import { storedLogEntriesOf }                                                 from '../../testing/StoredLogEntries.ts';
 import { storedLogTextOf }                                                    from '../../testing/StoredLogText.ts';
+import { storedProgressOf }                                                   from '../../testing/StoredProgress.ts';
 
 const FROZEN_NOW = new Date('2026-09-23T20:11:03Z');
 
@@ -26,10 +27,6 @@ let repositoryDirectory = '';
 
 function progressFilePath(): string {
   return join(repositoryDirectory, '.agent-progress', 'progress.json');
-}
-
-function storedProgress(): TrackerProgress {
-  return JSON.parse(readFileSync(progressFilePath(), 'utf8')) as TrackerProgress;
 }
 
 async function runWithExitCode(commandLineArguments: readonly string[]): Promise<{ exitCode: number; context: ReturnType<typeof createCapturedCommandContext> }> {
@@ -60,13 +57,13 @@ afterEach(() => {
 describe.skipIf(!gitIsAvailable())('the dispatcher state', () => {
   // The first start waits for the user's go: a board nobody started must not read as one to relaunch.
   test('a fresh tracker holds no state and reads stopped', async () => {
-    expect(storedProgress().dispatcherState).toBeUndefined();
+    expect(storedProgressOf(repositoryDirectory).dispatcherState).toBeUndefined();
     expect((await run(['dispatcher'])).outputText()).toBe('stopped');
   });
 
   // Every tracker written before the field existed lacks it; reading it must neither fail nor add the field.
   test('a tracker without the field reads stopped, and the read leaves the file byte-identical', async () => {
-    const progress = storedProgress();
+    const progress = storedProgressOf(repositoryDirectory);
     delete progress.dispatcherState;
     const writtenWithoutState = JSON.stringify(progress);
     writeFileSync(progressFilePath(), writtenWithoutState);
@@ -80,7 +77,7 @@ describe.skipIf(!gitIsAvailable())('the dispatcher state', () => {
   test.each<[DispatcherState]>([['running'], ['stopped'], ['finished']])('"%s" is stored in the progress file with one log line and read back', async (state) => {
     await run(['dispatcher', state]);
 
-    expect(storedProgress().dispatcherState).toBe(state);
+    expect(storedProgressOf(repositoryDirectory).dispatcherState).toBe(state);
     expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe(`Dispatcher set to ${state}`);
     expect((await run(['dispatcher'])).outputText()).toBe(state);
   });
@@ -103,7 +100,7 @@ describe.skipIf(!gitIsAvailable())('the dispatcher state', () => {
   });
 
   test('a stored state that is not one of the three makes the progress file unreadable rather than guessed at', async () => {
-    writeFileSync(progressFilePath(), JSON.stringify({ ...storedProgress(), dispatcherState: 'paused' }));
+    writeFileSync(progressFilePath(), JSON.stringify({ ...storedProgressOf(repositoryDirectory), dispatcherState: 'paused' }));
 
     const { exitCode, context } = await runWithExitCode(['dispatcher']);
 
@@ -134,7 +131,7 @@ describe.skipIf(!gitIsAvailable())('the stored run id', () => {
   test('running with --run stores the id beside the state, and the read, the log line and status --json carry it', async () => {
     expect((await run(['dispatcher', 'running', '--run', EXAMPLE_RUN_ID])).outputText()).toBe(`Dispatcher set to running (run ${EXAMPLE_RUN_ID}) (was stopped).`);
 
-    expect(storedProgress().dispatcherRunId).toBe(EXAMPLE_RUN_ID);
+    expect(storedProgressOf(repositoryDirectory).dispatcherRunId).toBe(EXAMPLE_RUN_ID);
     expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe(`Dispatcher set to running (run ${EXAMPLE_RUN_ID})`);
     expect((await run(['dispatcher'])).outputText()).toBe(`running (run ${EXAMPLE_RUN_ID})`);
     expect(JSON.parse((await run(['dispatcher', '--json'])).outputText())).toEqual({ dispatcherState: 'running', dispatcherRunId: EXAMPLE_RUN_ID });
@@ -148,7 +145,7 @@ describe.skipIf(!gitIsAvailable())('the stored run id', () => {
 
     await run(['dispatcher', state]);
 
-    expect(storedProgress().dispatcherRunId).toBeUndefined();
+    expect(storedProgressOf(repositoryDirectory).dispatcherRunId).toBeUndefined();
     expect((await run(['dispatcher'])).outputText()).toBe(state);
     expect((await statusConcurrency()).dispatcherRunId).toBeUndefined();
   });
@@ -171,7 +168,7 @@ describe.skipIf(!gitIsAvailable())('the stored run id', () => {
   });
 
   test('a stored run id that is not text makes the progress file unreadable rather than guessed at', async () => {
-    writeFileSync(progressFilePath(), JSON.stringify({ ...storedProgress(), dispatcherState: 'running', dispatcherRunId: 42 }));
+    writeFileSync(progressFilePath(), JSON.stringify({ ...storedProgressOf(repositoryDirectory), dispatcherState: 'running', dispatcherRunId: 42 }));
 
     const { exitCode, context } = await runWithExitCode(['dispatcher']);
 

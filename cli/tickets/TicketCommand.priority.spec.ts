@@ -13,11 +13,11 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import type { TrackerProgress }                                               from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
 import { runCommandLine }                                                     from '../Main.ts';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext.ts';
 import { storedLogEntriesOf }                                                 from '../testing/StoredLogEntries.ts';
+import { storedProgressOf }                                                   from '../testing/StoredProgress.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -43,10 +43,6 @@ async function runExpectingRefusal(commandLineArguments: readonly string[]): Pro
 
 function progressFilePath(): string {
   return join(repositoryDirectory, '.agent-progress', 'progress.json');
-}
-
-function storedProgress(): TrackerProgress {
-  return JSON.parse(readFileSync(progressFilePath(), 'utf8')) as TrackerProgress;
 }
 
 function ticketFilePath(identifier: string): string {
@@ -83,14 +79,14 @@ afterEach(() => {
 describe.skipIf(!gitIsAvailable())('filing and moving a low ticket', () => {
   // The chart is for work the user asked for; a reviewer's side finding must not take a row, or even the id the next row would get.
   test('ticket add --priority low writes low and adds no row, leaving nextTaskId unconsumed', async () => {
-    const before = storedProgress();
+    const before = storedProgressOf(repositoryDirectory);
 
     const context = await run(['ticket', 'add', 'Reword the empty-log note', '--priority', 'low']);
 
     expect(storedTicketText('001')).toContain('priority: "low"');
     expect(storedTicketText('001')).toContain('task: null');
-    expect(storedProgress().tasks).toHaveLength(before.tasks.length);
-    expect(storedProgress().nextTaskId).toBe(before.nextTaskId);
+    expect(storedProgressOf(repositoryDirectory).tasks).toHaveLength(before.tasks.length);
+    expect(storedProgressOf(repositoryDirectory).nextTaskId).toBe(before.nextTaskId);
     expect(context.outputText()).toContain('low priority: no row until it is started');
   });
 
@@ -106,7 +102,7 @@ describe.skipIf(!gitIsAvailable())('filing and moving a low ticket', () => {
 
     await run(['ticket', 'start', '1']);
 
-    const { tasks } = storedProgress();
+    const { tasks } = storedProgressOf(repositoryDirectory);
     expect(tasks).toHaveLength(1);
     expect(tasks[0]).toMatchObject({ status: 'in-progress', ticket: '001' });
     expect(storedTicketText('001')).toContain('priority: "low"');
@@ -120,17 +116,17 @@ describe.skipIf(!gitIsAvailable())('filing and moving a low ticket', () => {
 
     await run(['ticket', 'reopen', '1']);
 
-    expect(storedProgress().tasks[0]).toMatchObject({ status: 'pending', ticket: '001' });
+    expect(storedProgressOf(repositoryDirectory).tasks[0]).toMatchObject({ status: 'pending', ticket: '001' });
   });
 
   test('ticket abandon on a low ticket without a row exits 0 and adds no row', async () => {
     await run(['ticket', 'add', 'Reword the empty-log note', '--priority', 'low']);
-    const nextTaskIdBefore = storedProgress().nextTaskId;
+    const nextTaskIdBefore = storedProgressOf(repositoryDirectory).nextTaskId;
 
     await run(['ticket', 'abandon', '1', '--reason', 'x']);
 
-    expect(storedProgress().tasks).toHaveLength(0);
-    expect(storedProgress().nextTaskId).toBe(nextTaskIdBefore);
+    expect(storedProgressOf(repositoryDirectory).tasks).toHaveLength(0);
+    expect(storedProgressOf(repositoryDirectory).nextTaskId).toBe(nextTaskIdBefore);
     expect(storedTicketText('001')).toContain('status: "abandoned"');
     expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe('Ticket #001 abandoned: x');
   });
@@ -141,7 +137,7 @@ describe.skipIf(!gitIsAvailable())('filing and moving a low ticket', () => {
 
     await run(['clear', '--yes']);
 
-    expect(storedProgress().tasks.map((task) => task.ticket)).toEqual(['002']);
+    expect(storedProgressOf(repositoryDirectory).tasks.map((task) => task.ticket)).toEqual(['002']);
     expect(storedTicketText('001')).toContain('task: null');
   });
 
@@ -153,24 +149,24 @@ describe.skipIf(!gitIsAvailable())('filing and moving a low ticket', () => {
 
     await run(['clear', '--yes']);
 
-    expect(storedProgress().tasks).toHaveLength(1);
-    expect(storedProgress().tasks[0]).toMatchObject({ status: 'pending', ticket: '001' });
+    expect(storedProgressOf(repositoryDirectory).tasks).toHaveLength(1);
+    expect(storedProgressOf(repositoryDirectory).tasks[0]).toMatchObject({ status: 'pending', ticket: '001' });
   });
 });
 
 describe.skipIf(!gitIsAvailable())('ticket priority', () => {
   test('lowering a pending normal ticket removes its row, and raising it again files a new one, each with one log line', async () => {
     await run(['ticket', 'add', 'Fix the axis']);
-    expect(storedProgress().tasks).toHaveLength(1);
+    expect(storedProgressOf(repositoryDirectory).tasks).toHaveLength(1);
 
     await run(['ticket', 'priority', '1', 'low']);
-    expect(storedProgress().tasks).toHaveLength(0);
+    expect(storedProgressOf(repositoryDirectory).tasks).toHaveLength(0);
     expect(storedTicketText('001')).toContain('priority: "low"');
     expect(storedTicketText('001')).toContain('task: null');
     expect(logLinesAbout('001')).toEqual(['Ticket #001 priority normal → low']);
 
     await run(['ticket', 'priority', '1', 'normal']);
-    const { tasks } = storedProgress();
+    const { tasks } = storedProgressOf(repositoryDirectory);
     expect(tasks).toHaveLength(1);
     expect(tasks[0]).toMatchObject({ status: 'pending', ticket: '001' });
     expect(storedTicketText('001')).toContain(`task: ${tasks[0]?.id}`);
@@ -183,16 +179,16 @@ describe.skipIf(!gitIsAvailable())('ticket priority', () => {
 
     await run(['ticket', 'priority', '1', 'high']);
 
-    expect(storedProgress().tasks[0]).toMatchObject({ status: 'abandoned', ticket: '001' });
+    expect(storedProgressOf(repositoryDirectory).tasks[0]).toMatchObject({ status: 'abandoned', ticket: '001' });
   });
 
   test('normal to high changes only the priority and logs it', async () => {
     await run(['ticket', 'add', 'Fix the axis']);
-    const rowsBefore = storedProgress().tasks;
+    const rowsBefore = storedProgressOf(repositoryDirectory).tasks;
 
     await run(['ticket', 'priority', '1', 'high']);
 
-    expect(storedProgress().tasks).toEqual(rowsBefore);
+    expect(storedProgressOf(repositoryDirectory).tasks).toEqual(rowsBefore);
     expect(storedTicketText('001')).toContain('priority: "high"');
     expect(logLinesAbout('001')).toEqual(['Ticket #001 priority normal → high']);
   });
@@ -236,7 +232,7 @@ describe.skipIf(!gitIsAvailable())('readiness and claiming', () => {
 
     expect(await readyTicketIds()).toEqual(['002']);
     await run(['ticket', 'claim', '2', '--owner', 'opus']);
-    expect(storedProgress().tasks.find((task) => task.ticket === '002')).toMatchObject({ status: 'in-progress', owner: 'opus' });
+    expect(storedProgressOf(repositoryDirectory).tasks.find((task) => task.ticket === '002')).toMatchObject({ status: 'in-progress', owner: 'opus' });
   });
 
   test('a high ticket filed after a normal one is listed first', async () => {

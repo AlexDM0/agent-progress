@@ -23,7 +23,6 @@ import {
 }                                       from 'bun:test';
 import { InstallVersionWordingUtil }  from '../../../src/adapters/utils/InstallVersionWordingUtil.ts';
 import type { Task }                  from '../../../src/lib/tracker-model/@types/Task.ts';
-import type { TrackerProgress }       from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import { TimeUtil }                   from '../../../src/lib/utils/TimeUtil.ts';
 import {
   addWorktree,
@@ -40,6 +39,7 @@ import { runCommandLine }               from '../../Main.ts';
 import { INSTALL_VERSION }              from '../../constants/InstallVersion.ts';
 import { createCapturedCommandContext } from '../../testing/CapturedCommandContext.ts';
 import { storedLogEntriesOf }           from '../../testing/StoredLogEntries.ts';
+import { storedRowOf }                  from '../../testing/StoredRow.ts';
 
 type CleanupStepDocument =
   | { target: 'worktree'; path: string; outcome: 'removed' }
@@ -110,14 +110,6 @@ function ticketFileText(identifier: string): string {
   const ticketsDirectory = join(repositoryDirectory, '.agent-progress', 'tickets');
   const fileName         = [...new Bun.Glob(`${identifier}-*.md`).scanSync(ticketsDirectory)][0] ?? '';
   return readFileSync(join(ticketsDirectory, fileName), 'utf8');
-}
-
-function storedProgress(): TrackerProgress {
-  return JSON.parse(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')) as TrackerProgress;
-}
-
-function storedRow(rowIdentifier: number): Task | undefined {
-  return storedProgress().tasks.find((task) => task.id === rowIdentifier);
 }
 
 /** A review bar as the orchestrate skill adds one, started an hour before the release and linked by `--review-of`, with any other options given. */
@@ -353,12 +345,12 @@ describe.skipIf(!gitIsAvailable())('a release closes the running review bars of 
   test('the one running review row ends delivered, finished and delivered at the release time, and the slot it held is free', async () => {
     const { identifier, worktree, branch } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
     const reviewRowId = await inProgressReviewRow(identifier);
-    const startedAt   = storedRow(reviewRowId)?.start;
+    const startedAt   = storedRowOf(repositoryDirectory, reviewRowId)?.start;
 
     const humanOutcome = await agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree]);
 
     expect(humanOutcome.exitCode, humanOutcome.error).toBe(0);
-    const reviewRow = storedRow(reviewRowId);
+    const reviewRow = storedRowOf(repositoryDirectory, reviewRowId);
     expect(reviewRow).toMatchObject({ status: 'delivered', start: startedAt, end: releaseStamp });
     expect(reviewRow?.history?.slice(-2)).toEqual([{ status: 'in-review', at: releaseStamp }, { status: 'delivered', at: releaseStamp }]);
     expect(humanOutcome.output).toContain(`Closed the review row #${reviewRowId}, delivered: Review 1 #${identifier}`);
@@ -400,7 +392,7 @@ describe.skipIf(!gitIsAvailable())('a release closes the running review bars of 
     const earlierRoundId = await inProgressReviewRow(identifier);
     await agentProgressOrFail(['task', 'finish', String(earlierRoundId), '--at', '-30m']);
     await agentProgressOrFail(['task', 'deliver', String(earlierRoundId), '--at', '-30m']);
-    const earlierRoundBefore = storedRow(earlierRoundId);
+    const earlierRoundBefore = storedRowOf(repositoryDirectory, earlierRoundId);
     const firstReviewId      = await inProgressReviewRow(identifier);
     const bundledReviewId    = await inProgressReviewRow(bundled.id);
 
@@ -408,8 +400,8 @@ describe.skipIf(!gitIsAvailable())('a release closes the running review bars of 
 
     expect(outcome.exitCode, outcome.error).toBe(0);
     expect(releaseDocumentOf(outcome)).toMatchObject({ closedReviewRows: [firstReviewId, bundledReviewId] });
-    for (const closedId of [firstReviewId, bundledReviewId]) expect(storedRow(closedId)).toMatchObject({ status: 'delivered', end: releaseStamp });
-    expect(storedRow(earlierRoundId)).toEqual(earlierRoundBefore);
+    for (const closedId of [firstReviewId, bundledReviewId]) expect(storedRowOf(repositoryDirectory, closedId)).toMatchObject({ status: 'delivered', end: releaseStamp });
+    expect(storedRowOf(repositoryDirectory, earlierRoundId)).toEqual(earlierRoundBefore);
   });
 
   test('a release refused as main-moved leaves the review row running', async () => {
@@ -420,7 +412,7 @@ describe.skipIf(!gitIsAvailable())('a release closes the running review bars of 
     const outcome = await agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree, '--json']);
 
     expect(releaseRefusalDocumentOf(outcome).reason).toBe('main-moved');
-    expect(storedRow(reviewRowId)).toMatchObject({ status: 'in-progress', end: null });
+    expect(storedRowOf(repositoryDirectory, reviewRowId)).toMatchObject({ status: 'in-progress', end: null });
   });
 
   // The reviewer stops after it released, so its SubagentStop hook runs on a row the release already delivered.
@@ -444,7 +436,7 @@ describe.skipIf(!gitIsAvailable())('a release closes the running review bars of 
 
     expect(await runCommandLine(['hook', 'subagent-stop'], hookContext)).toBe(0);
 
-    expect(storedRow(reviewRowId)).toMatchObject({ status: 'delivered', tokens: 3001 });
+    expect(storedRowOf(repositoryDirectory, reviewRowId)).toMatchObject({ status: 'delivered', tokens: 3001 });
   });
 });
 

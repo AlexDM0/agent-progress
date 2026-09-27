@@ -24,7 +24,6 @@ import {
 }                                                                             from 'bun:test';
 import { LogFileIngestion }          from '../../../src/adapters/log/LogFileIngestion.ts';
 import { InstallVersionWordingUtil } from '../../../src/adapters/utils/InstallVersionWordingUtil.ts';
-import type { TrackerProgress }      from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import { LIMITS }                    from '../../../src/shared/constants/Limits.ts';
 import {
   createScratchDirectory,
@@ -37,6 +36,7 @@ import { runCommandLine }               from '../../Main.ts';
 import { INSTALL_VERSION }              from '../../constants/InstallVersion.ts';
 import { createCapturedCommandContext } from '../../testing/CapturedCommandContext.ts';
 import { storedLogEntriesOf }           from '../../testing/StoredLogEntries.ts';
+import { storedProgressOf }             from '../../testing/StoredProgress.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -83,18 +83,13 @@ function contextWith(standardInputText: string, currentDirectory = repositoryDir
   return createCapturedCommandContext({ currentDirectory, now: () => FROZEN_NOW, standardInputText });
 }
 
-function storedProgress(): TrackerProgress {
-  const progressFilePath = join(repositoryDirectory, '.agent-progress', 'progress.json');
-  return JSON.parse(readFileSync(progressFilePath, 'utf8')) as TrackerProgress;
-}
-
 function storedTokensOf(rowIdentifier: number): number | null | undefined {
-  return storedProgress().tasks.find((task) => task.id === rowIdentifier)?.tokens;
+  return storedProgressOf(repositoryDirectory).tasks.find((task) => task.id === rowIdentifier)?.tokens;
 }
 
 async function addedRow(name: string): Promise<number> {
   expect(await runCommandLine(['task', 'add', name], contextWith(''))).toBe(0);
-  const rowIdentifier = storedProgress().tasks.at(-1)?.id;
+  const rowIdentifier = storedProgressOf(repositoryDirectory).tasks.at(-1)?.id;
   if (rowIdentifier === undefined) throw new Error(`task add "${name}" filed no row`);
   return rowIdentifier;
 }
@@ -307,7 +302,7 @@ describe.skipIf(!gitIsAvailable())('the tickets the brief names', () => {
   }
 
   function storedTokensOfTicketRow(ticketIdentifier: string): number | null | undefined {
-    return storedProgress().tasks.find((task) => task.ticket === ticketIdentifier)?.tokens;
+    return storedProgressOf(repositoryDirectory).tasks.find((task) => task.ticket === ticketIdentifier)?.tokens;
   }
 
   test('a ticket given no row until after the brief was written takes the input total on the row it has when the hook runs', async () => {
@@ -398,7 +393,7 @@ describe.skipIf(!gitIsAvailable())('a workflow agent\'s brief after the harness\
   }
 
   function storedTokensOfBuiltTicketRow(): number | null | undefined {
-    return storedProgress().tasks.find((task) => task.ticket === '007')?.tokens;
+    return storedProgressOf(repositoryDirectory).tasks.find((task) => task.ticket === '007')?.tokens;
   }
 
   beforeEach(async () => {
@@ -427,7 +422,7 @@ describe.skipIf(!gitIsAvailable())('a workflow agent\'s brief after the harness\
 
     expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput()))).toBe(0);
 
-    expect(storedProgress().tasks.every((task) => task.tokens === null)).toBe(true);
+    expect(storedProgressOf(repositoryDirectory).tasks.every((task) => task.tokens === null)).toBe(true);
     expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toContain('input 230k');
   });
 
@@ -441,7 +436,7 @@ describe.skipIf(!gitIsAvailable())('a workflow agent\'s brief after the harness\
 
     expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput()))).toBe(0);
 
-    expect(storedProgress().tasks.every((task) => task.tokens === null)).toBe(true);
+    expect(storedProgressOf(repositoryDirectory).tasks.every((task) => task.tokens === null)).toBe(true);
     expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toContain('Agent agent_42');
   });
 });
@@ -462,7 +457,7 @@ describe.skipIf(!gitIsAvailable())('the ticket a reviewer\'s brief names', () =>
 
   async function reviewRowFiled(commandArguments: readonly string[]): Promise<number> {
     expect(await runCommandLine(['task', 'add', ...commandArguments], contextWith(''))).toBe(0);
-    const rowIdentifier = storedProgress().tasks.at(-1)?.id;
+    const rowIdentifier = storedProgressOf(repositoryDirectory).tasks.at(-1)?.id;
     if (rowIdentifier === undefined) throw new Error('task add filed no row');
     return rowIdentifier;
   }
@@ -511,7 +506,7 @@ describe.skipIf(!gitIsAvailable())('the ticket a reviewer\'s brief names', () =>
 
     expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput()))).toBe(0);
 
-    expect(storedProgress().tasks.find((task) => task.ticket === '007')?.tokens).toBe(FIXTURE_INPUT_TOKENS);
+    expect(storedProgressOf(repositoryDirectory).tasks.find((task) => task.ticket === '007')?.tokens).toBe(FIXTURE_INPUT_TOKENS);
     expect(storedTokensOf(reviewRow)).toBeNull();
   });
 

@@ -12,12 +12,12 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import type { TrackerProgress }                                               from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
 import { runCommandLine }                                                     from '../Main.ts';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext.ts';
 import { storedLogEntriesOf }                                                 from '../testing/StoredLogEntries.ts';
 import { storedLogTextOf }                                                    from '../testing/StoredLogText.ts';
+import { storedProgressOf }                                                   from '../testing/StoredProgress.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -39,10 +39,6 @@ async function run(commandLineArguments: readonly string[]): Promise<ReturnType<
 
 function progressText(): string {
   return readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8');
-}
-
-function storedProgress(): TrackerProgress {
-  return JSON.parse(progressText()) as TrackerProgress;
 }
 
 function ticketText(fileName = FIRST_TICKET_FILE_NAME): string {
@@ -80,7 +76,7 @@ describe.skipIf(!gitIsAvailable())('claiming a ticket', () => {
 
     await run(['ticket', 'claim', '1', '--owner', 'Alex Example', '--note', 'role editor']);
 
-    const progress = storedProgress();
+    const progress = storedProgressOf(repositoryDirectory);
     const row      = progress.tasks.find((task) => task.ticket === '001');
     expect(ticketText()).toContain('status: "in-progress"');
     expect(row?.status).toBe('in-progress');
@@ -138,7 +134,7 @@ describe.skipIf(!gitIsAvailable())('claiming a ticket', () => {
     ]);
 
     expect(outcomes.map((outcome) => outcome.exitCode).sort()).toEqual([0, 1]);
-    expect(storedProgress().tasks.filter((task) => task.status === 'in-progress')).toHaveLength(2);
+    expect(storedProgressOf(repositoryDirectory).tasks.filter((task) => task.status === 'in-progress')).toHaveLength(2);
   });
 });
 
@@ -177,7 +173,7 @@ describe.skipIf(!gitIsAvailable())('claiming several tickets as one agent', () =
 
     const context = await run(['ticket', 'claim', '3', '4', '5', '--owner', 'Alex Example', '--note', 'role import and export']);
 
-    const bundleRows = storedProgress().tasks.filter((task) => task.ticket !== null && ['003', '004', '005'].includes(task.ticket));
+    const bundleRows = storedProgressOf(repositoryDirectory).tasks.filter((task) => task.ticket !== null && ['003', '004', '005'].includes(task.ticket));
     const expectedRow = ['in-progress', '003,004,005', 'Alex Example', 'role import and export'];
     expect(bundleRows.map((row) => [row.status, row.agent, row.owner, row.note])).toEqual([expectedRow, expectedRow, expectedRow]);
     expect(everyTicketText().filter((text) => text.includes('status: "in-progress"'))).toHaveLength(3);
@@ -254,7 +250,7 @@ describe.skipIf(!gitIsAvailable())('claiming several tickets as one agent', () =
   test('naming one ticket twice claims it once', async () => {
     await run(['ticket', 'claim', '3', '003', '#3']);
 
-    const progress = storedProgress();
+    const progress = storedProgressOf(repositoryDirectory);
     expect(progress.tasks.find((task) => task.ticket === '003')?.agent).toBe('003');
     expect(storedLogEntriesOf(repositoryDirectory).filter((entry) => entry.text === 'Ticket #003 started')).toHaveLength(1);
   });
