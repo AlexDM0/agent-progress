@@ -6,7 +6,8 @@
 import { join }         from 'node:path';
 import { expect, test } from 'bun:test';
 
-import { agentProgressRootOverride } from './Environment.ts';
+import { jsonPrintedByAChildProcess } from '../testing/ChildProcessEvaluation.ts';
+import { agentProgressRootOverride }  from './Environment.ts';
 
 const ENVIRONMENT_MODULE_PATH = join(import.meta.dir, 'Environment.ts');
 
@@ -18,15 +19,7 @@ function overrideSeenByAChildProcess(childEnvironment: Record<string, string>): 
     `const loaded = await import(${JSON.stringify(ENVIRONMENT_MODULE_PATH)});`,
     'console.log(JSON.stringify(loaded.agentProgressRootOverride() ?? null));',
   ].join('\n');
-  const finished = Bun.spawnSync([process.execPath, '-e', source], {
-    env:    childEnvironment,
-    stdout: 'pipe',
-    stderr: 'pipe',
-  });
-  if (finished.exitCode !== 0) {
-    throw new Error(`the child process failed: ${finished.stderr.toString().trim()}`);
-  }
-  return JSON.parse(finished.stdout.toString().trim()) as string | null;
+  return jsonPrintedByAChildProcess(childEnvironment, source) as string | null;
 }
 
 test('the child-process harness can tell the two answers apart, so a case that finds nothing means something', () => {

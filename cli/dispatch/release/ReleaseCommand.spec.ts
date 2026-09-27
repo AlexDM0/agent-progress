@@ -21,15 +21,18 @@ import {
   expect,
   test
 }                                       from 'bun:test';
-import { InstallVersionWordingUtil } from '../../../src/adapters/utils/InstallVersionWordingUtil.ts';
-import type { Task }                 from '../../../src/lib/tracker-model/@types/Task.ts';
-import type { TrackerProgress }      from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
-import { TimeUtil }                  from '../../../src/lib/utils/TimeUtil.ts';
+import { InstallVersionWordingUtil }  from '../../../src/adapters/utils/InstallVersionWordingUtil.ts';
+import type { Task }                  from '../../../src/lib/tracker-model/@types/Task.ts';
+import type { TrackerProgress }       from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
+import { TimeUtil }                   from '../../../src/lib/utils/TimeUtil.ts';
 import {
   addWorktree,
+  commitFile,
   createScratchGitRepository,
   gitIsAvailable,
-  removeScratchDirectory
+  gitOutputIn,
+  removeScratchDirectory,
+  SCRATCH_COMMIT_IDENTITY_ARGUMENTS
 }                                       from '../../../src/testing/ScratchWorkspace.ts';
 import { helpText }                     from '../../HelpText.ts';
 import { installedFilePathsIn }         from '../../InstalledFiles.ts';
@@ -69,8 +72,6 @@ interface CommandOutcome {
   error:    string;
 }
 
-const COMMIT_IDENTITY = ['-c', 'user.name=Alex Example', '-c', 'user.email=alex.example@example.com', '-c', 'commit.gpgsign=false'];
-
 const FROZEN_NOW = new Date('2026-09-23T10:00:00Z');
 
 const RELEASE_HELP_ENTRY = /\n {2}release <id>[\s\S]*?\n\n/.exec(helpText())?.[0] ?? '';
@@ -81,21 +82,8 @@ const RELEASE_DOCUMENTATION = [['cli/HelpText.ts', RELEASE_HELP_ENTRY], ['docs/c
 
 let repositoryDirectory = '';
 
-function gitIn(directory: string, gitArguments: readonly string[]): string {
-  const finished = Bun.spawnSync(['git', ...COMMIT_IDENTITY, ...gitArguments], { cwd: directory, stdout: 'pipe', stderr: 'pipe' });
-  if (finished.exitCode !== 0) throw new Error(`git ${gitArguments.join(' ')} failed in ${directory}: ${finished.stderr.toString()}`);
-  return finished.stdout.toString().trim();
-}
-
-function commitFile(directory: string, fileName: string, content: string): string {
-  writeFileSync(join(directory, fileName), content);
-  gitIn(directory, ['add', fileName]);
-  gitIn(directory, ['commit', '-q', '-m', `Add ${fileName}`]);
-  return gitIn(directory, ['rev-parse', 'HEAD']);
-}
-
 function mainTip(): string {
-  return gitIn(repositoryDirectory, ['rev-parse', 'refs/heads/main']);
+  return gitOutputIn(repositoryDirectory, ['rev-parse', 'refs/heads/main']);
 }
 
 function branchExists(branch: string): boolean {
@@ -191,10 +179,10 @@ function releaseRefusalDocumentOf(outcome: CommandOutcome): ReleaseRefusalDocume
 beforeEach(async () => {
   if (!gitIsAvailable()) return;
   repositoryDirectory = createScratchGitRepository('release');
-  gitIn(repositoryDirectory, ['checkout', '-q', '-B', 'main']);
+  gitOutputIn(repositoryDirectory, ['checkout', '-q', '-B', 'main']);
   await agentProgressOrFail(['init', '--project', 'Example Agency', '--no-claude-md', '--no-hooks']);
-  gitIn(repositoryDirectory, ['add', '--all']);
-  gitIn(repositoryDirectory, ['commit', '-q', '-m', 'Ignore the tracker']);
+  gitOutputIn(repositoryDirectory, ['add', '--all']);
+  gitOutputIn(repositoryDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'commit', '-q', '-m', 'Ignore the tracker']);
 });
 
 afterEach(() => {
@@ -490,25 +478,25 @@ describe.skipIf(!gitIsAvailable())('a release that is refused changes nothing', 
 
   test('a main checkout on another branch exits 1', async () => {
     const { identifier, worktree, branch } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
-    gitIn(repositoryDirectory, ['checkout', '-q', '-b', 'side-line']);
+    gitOutputIn(repositoryDirectory, ['checkout', '-q', '-b', 'side-line']);
 
     const outcome = await expectNothingChanged(identifier, worktree, () => agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree, '--json']));
 
     expect(releaseRefusalDocumentOf(outcome).reason).toBe('not-on-main-line');
-    expect(gitIn(repositoryDirectory, ['symbolic-ref', '--short', 'HEAD'])).toBe('side-line');
+    expect(gitOutputIn(repositoryDirectory, ['symbolic-ref', '--short', 'HEAD'])).toBe('side-line');
   });
 
   // The branch descends from main, so only git itself stands between the check and a ticket delivered without its merge.
   test('a fast-forward git refuses over a local change in the main checkout exits 1 with reason merge-refused', async () => {
     const { identifier, worktree, branch } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
     writeFileSync(join(repositoryDirectory, 'role-history.ts'), 'uncommitted in the main checkout\n');
-    gitIn(repositoryDirectory, ['add', 'role-history.ts']);
-    const worktreeHeadBefore = gitIn(worktree, ['rev-parse', 'HEAD']);
+    gitOutputIn(repositoryDirectory, ['add', 'role-history.ts']);
+    const worktreeHeadBefore = gitOutputIn(worktree, ['rev-parse', 'HEAD']);
 
     const outcome = await expectNothingChanged(identifier, worktree, () => agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree, '--json']));
 
     expect(releaseRefusalDocumentOf(outcome).reason).toBe('merge-refused');
-    expect(gitIn(worktree, ['rev-parse', 'HEAD'])).toBe(worktreeHeadBefore);
+    expect(gitOutputIn(worktree, ['rev-parse', 'HEAD'])).toBe(worktreeHeadBefore);
     expect(branchExists(branch)).toBe(true);
     expect(readFileSync(join(repositoryDirectory, 'role-history.ts'), 'utf8')).toBe('uncommitted in the main checkout\n');
   });
@@ -612,7 +600,7 @@ describe.skipIf(!gitIsAvailable())('two releases at once', () => {
     const refused = outcomes.find(({ exitCode }) => exitCode === 1);
     expect(refused === undefined ? undefined : releaseRefusalDocumentOf(refused).reason).toBe('main-moved');
     expect([first.tip, second.tip]).toContain(mainTip());
-    expect(gitIn(repositoryDirectory, ['rev-list', '--count', `${mainBefore}..main`])).toBe('1');
+    expect(gitOutputIn(repositoryDirectory, ['rev-list', '--count', `${mainBefore}..main`])).toBe('1');
   });
 
   // The race tests pass with the merge outside the lock too, since a waiter rarely wakes inside the gap; git's own hook sees the lock file.
@@ -628,7 +616,7 @@ describe.skipIf(!gitIsAvailable())('two releases at once', () => {
         + `if grep -q '"state":"held"' ".agent-progress/.lock/$newest"; then echo held > '${lockObservation}'; else echo free > '${lockObservation}'; fi\n`,
       { mode: 0o755 },
     );
-    gitIn(repositoryDirectory, ['config', 'core.hooksPath', hooksDirectory]);
+    gitOutputIn(repositoryDirectory, ['config', 'core.hooksPath', hooksDirectory]);
 
     const outcome = await agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree]);
 
@@ -640,9 +628,9 @@ describe.skipIf(!gitIsAvailable())('two releases at once', () => {
     const first = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
     const added = JSON.parse(await agentProgressOrFail(['ticket', 'add', 'Build on it', '--json'])) as { id: string };
     await agentProgressOrFail(['ticket', 'start', added.id]);
-    gitIn(first.worktree, ['branch', 'stacked', first.branch]);
+    gitOutputIn(first.worktree, ['branch', 'stacked', first.branch]);
     const stackedWorktree = join(`${repositoryDirectory}-worktrees`, 'stacked');
-    gitIn(repositoryDirectory, ['worktree', 'add', '-q', stackedWorktree, 'stacked']);
+    gitOutputIn(repositoryDirectory, ['worktree', 'add', '-q', stackedWorktree, 'stacked']);
     const stackedTip = commitFile(stackedWorktree, 'stacked.ts', 'export const stacked = true;\n');
 
     const [firstOutcome, stackedOutcome] = await Promise.all([

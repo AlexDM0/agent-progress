@@ -5,10 +5,10 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import type { MalformedTicketFile }                         from '../../../src/services/tracker/TicketStore.ts';
-import { refusalIsOperationRefusal, type OperationRefusal } from '../../../src/shared/OperationRefusal.ts';
-import { boardFixture, ticketFixture }                      from '../../../src/testing/BoardFixtures.ts';
-import { TicketLookupUtil }                                 from './TicketLookupUtil.ts';
+import type { MalformedTicketFile }    from '../../../src/services/tracker/TicketStore.ts';
+import { boardFixture, ticketFixture } from '../../../src/testing/BoardFixtures.ts';
+import { refusalFrom }                 from '../../testing/RefusalFrom.ts';
+import { TicketLookupUtil }            from './TicketLookupUtil.ts';
 
 const { requireTicket, refuseAMissingTicket } = TicketLookupUtil;
 
@@ -17,16 +17,6 @@ const MALFORMED_THIRD_TICKET: MalformedTicketFile = {
   reason:   'the frontmatter has no closing fence',
   line:     1,
 };
-
-function refusalFrom(action: () => unknown): OperationRefusal {
-  try {
-    action();
-  } catch (error) {
-    if (refusalIsOperationRefusal(error)) return error;
-    throw error;
-  }
-  throw new Error('the call was expected to refuse and it returned instead');
-}
 
 describe('TicketLookupUtil.requireTicket', () => {
   test('3, 003 and #3 resolve to the one ticket 003', () => {

@@ -15,15 +15,18 @@ import {
   expect,
   test
 }                                       from 'bun:test';
-import type { Task }            from '../../src/lib/tracker-model/@types/Task.ts';
-import type { TrackerProgress } from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
-import { TimeUtil }             from '../../src/lib/utils/TimeUtil.ts';
-import { LIMITS }               from '../../src/shared/constants/Limits.ts';
+import type { Task }                  from '../../src/lib/tracker-model/@types/Task.ts';
+import type { TrackerProgress }       from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
+import { TimeUtil }                   from '../../src/lib/utils/TimeUtil.ts';
+import { LIMITS }                     from '../../src/shared/constants/Limits.ts';
 import {
   addWorktree,
+  commitFile,
   createScratchGitRepository,
   gitIsAvailable,
-  removeScratchDirectory
+  gitOutputIn,
+  removeScratchDirectory,
+  SCRATCH_COMMIT_IDENTITY_ARGUMENTS
 }                                       from '../../src/testing/ScratchWorkspace.ts';
 import { runCommandLine }               from '../Main.ts';
 import { createCapturedCommandContext } from '../testing/CapturedCommandContext.ts';
@@ -34,8 +37,6 @@ interface CommandOutcome {
   error:    string;
 }
 
-const COMMIT_IDENTITY = ['-c', 'user.name=Alex Example', '-c', 'user.email=alex.example@example.com', '-c', 'commit.gpgsign=false'];
-
 const FROZEN_NOW = new Date('2026-09-23T10:00:00Z');
 
 const REVIEWED_TICKET_NUMBER = 7;
@@ -43,19 +44,6 @@ const REVIEWED_TICKET_NUMBER = 7;
 const TRANSCRIPT_FILE_NAME = 'agent-example.jsonl';
 
 let repositoryDirectory = '';
-
-function gitIn(directory: string, gitArguments: readonly string[]): string {
-  const finished = Bun.spawnSync(['git', ...COMMIT_IDENTITY, ...gitArguments], { cwd: directory, stdout: 'pipe', stderr: 'pipe' });
-  if (finished.exitCode !== 0) throw new Error(`git ${gitArguments.join(' ')} failed in ${directory}: ${finished.stderr.toString()}`);
-  return finished.stdout.toString().trim();
-}
-
-function commitFile(directory: string, fileName: string, content: string): string {
-  writeFileSync(join(directory, fileName), content);
-  gitIn(directory, ['add', fileName]);
-  gitIn(directory, ['commit', '-q', '-m', `Add ${fileName}`]);
-  return gitIn(directory, ['rev-parse', 'HEAD']);
-}
 
 async function agentProgress(commandLineArguments: readonly string[], standardInputText = ''): Promise<CommandOutcome> {
   const context  = createCapturedCommandContext({ currentDirectory: repositoryDirectory, now: () => FROZEN_NOW, standardInputText });
@@ -92,10 +80,10 @@ function storeWithoutItsLink(rowIdentifier: number): void {
 beforeEach(async () => {
   if (!gitIsAvailable()) return;
   repositoryDirectory = createScratchGitRepository('name-only-review-bars');
-  gitIn(repositoryDirectory, ['checkout', '-q', '-B', 'main']);
+  gitOutputIn(repositoryDirectory, ['checkout', '-q', '-B', 'main']);
   await agentProgressOrFail(['init', '--project', 'Example Agency', '--no-claude-md', '--no-hooks']);
-  gitIn(repositoryDirectory, ['add', '--all']);
-  gitIn(repositoryDirectory, ['commit', '-q', '-m', 'Ignore the tracker']);
+  gitOutputIn(repositoryDirectory, ['add', '--all']);
+  gitOutputIn(repositoryDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'commit', '-q', '-m', 'Ignore the tracker']);
 });
 
 afterEach(() => {

@@ -21,7 +21,6 @@ import {
 } from 'bun:test';
 import { OperationRefusal, refusalIsOperationRefusal }    from '../../shared/OperationRefusal.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
-import { failureOf }                                      from '../../testing/ThrownFailure.ts';
 import {
   BROKEN_LOG_TEXT,
   EXAMPLE_TICKET_FILE_NAME,
@@ -32,6 +31,7 @@ import { createRenderState }                 from '../render/RenderState.ts';
 import { LockGenerationSteps }               from './TrackerLock.ts';
 import { writeTracker, type TrackerChange }  from './TrackerPipeline.ts';
 import { workspacePathsFor, type Workspace } from './Workspace.ts';
+import { failureOf }                         from './testing/ThrownFailure.ts';
 
 const CHANGED_AT = '2026-09-18T20:05:00+02:00';
 

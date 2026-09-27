@@ -5,9 +5,9 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { refusalIsOperationRefusal, type OperationRefusal } from '../../src/shared/OperationRefusal.ts';
-import { createArgumentParser }                             from '../arguments/ArgumentParser.ts';
-import { OptionValueUtil }                                  from './OptionValueUtil.ts';
+import { createArgumentParser } from '../arguments/ArgumentParser.ts';
+import { refusalFrom }          from '../testing/RefusalFrom.ts';
+import { OptionValueUtil }      from './OptionValueUtil.ts';
 
 const { atStampFrom, tokenCountFrom, taskIdOf } = OptionValueUtil;
 
@@ -15,16 +15,6 @@ const { atStampFrom, tokenCountFrom, taskIdOf } = OptionValueUtil;
 const EXAMPLE_NOW = new Date(2026, 0, 1, 10, 0, 0);
 
 const LOCAL_OFFSET_PATTERN = '[+-][0-9]{2}:[0-9]{2}';
-
-function refusalFrom(action: () => unknown): OperationRefusal {
-  try {
-    action();
-  } catch (error) {
-    if (refusalIsOperationRefusal(error)) return error;
-    throw error;
-  }
-  throw new Error('the call was expected to refuse and it returned instead');
-}
 
 describe('OptionValueUtil.atStampFrom', () => {
   test('an absent --at is the now handed in, as a local ISO stamp', () => {

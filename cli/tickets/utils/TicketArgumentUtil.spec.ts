@@ -6,8 +6,8 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { refusalIsOperationRefusal, type OperationRefusal } from '../../../src/shared/OperationRefusal.ts';
-import { TicketArgumentUtil }                               from './TicketArgumentUtil.ts';
+import { refusalFrom }        from '../../testing/RefusalFrom.ts';
+import { TicketArgumentUtil } from './TicketArgumentUtil.ts';
 
 const {
   requirePriority,
@@ -18,16 +18,6 @@ const {
   dependencyListFrom,
   refuseAnUnknownTicketStatus,
 } = TicketArgumentUtil;
-
-function refusalFrom(action: () => unknown): OperationRefusal {
-  try {
-    action();
-  } catch (error) {
-    if (refusalIsOperationRefusal(error)) return error;
-    throw error;
-  }
-  throw new Error('the call was expected to refuse and it returned instead');
-}
 
 describe('TicketArgumentUtil vocabulary readers', () => {
   test('an absent option reads as undefined and a known word passes through', () => {

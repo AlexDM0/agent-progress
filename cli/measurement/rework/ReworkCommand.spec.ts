@@ -19,7 +19,8 @@ import {
   createScratchDirectory,
   createScratchGitRepository,
   gitIsAvailable,
-  removeScratchDirectory
+  removeScratchDirectory,
+  SCRATCH_COMMIT_IDENTITY_ARGUMENTS
 }                                                                             from '../../../src/testing/ScratchWorkspace.ts';
 import { runCommandLine }               from '../../Main.ts';
 import { createCapturedCommandContext } from '../../testing/CapturedCommandContext.ts';
@@ -39,7 +40,7 @@ interface ReworkDocument extends ReworkPartDocument {
   files:        Array<{ path: string; addedCodeLines: number; removedCodeLines: number; commentLines: number; documentationLines: number }>;
 }
 
-const COMMIT_IDENTITY = ['-c', 'user.name=Alex Example', '-c', 'user.email=alex.example@example.com', '-c', 'commit.gpgsign=false', '-c', 'core.editor=true'];
+const COMMIT_IDENTITY_WITHOUT_EDITOR = [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, '-c', 'core.editor=true'];
 
 const SHARED_BEFORE = 'export function greet(): string {\n  return \'hello\';\n}\n';
 
@@ -49,7 +50,7 @@ let repositoryDirectory = '';
 let outsideDirectory    = '';
 
 function git(gitArguments: readonly string[]): { exitCode: number; output: string } {
-  const finished = Bun.spawnSync(['git', ...COMMIT_IDENTITY, ...gitArguments], { cwd: repositoryDirectory, stdout: 'pipe', stderr: 'pipe' });
+  const finished = Bun.spawnSync(['git', ...COMMIT_IDENTITY_WITHOUT_EDITOR, ...gitArguments], { cwd: repositoryDirectory, stdout: 'pipe', stderr: 'pipe' });
   return { exitCode: finished.exitCode, output: `${finished.stdout.toString()}${finished.stderr.toString()}`.trim() };
 }
 

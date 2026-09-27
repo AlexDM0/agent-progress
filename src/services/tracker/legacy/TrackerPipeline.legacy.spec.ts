@@ -12,11 +12,11 @@ import {
 } from 'bun:test';
 import { writeVersionOneProgressFile }                    from '../../../adapters/legacy/testing/LegacyProgressFileFixtures.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../../testing/ScratchWorkspace.ts';
-import { failureOf }                                      from '../../../testing/ThrownFailure.ts';
 import { EXAMPLE_SESSION_NOTE }                           from '../../../testing/TrackerFileFixtures.ts';
 import { createRenderState }                              from '../../render/RenderState.ts';
 import { writeTracker }                                   from '../TrackerPipeline.ts';
 import { workspacePathsFor, type Workspace }              from '../Workspace.ts';
+import { failureOf }                                      from '../testing/ThrownFailure.ts';
 
 const CHANGED_AT = '2026-09-18T20:05:00+02:00';
 

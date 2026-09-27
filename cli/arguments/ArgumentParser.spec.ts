@@ -2,19 +2,9 @@
  * The argument parser, against the shapes that fail quietly: `--option=value`, an option with no value,
  * a flag swallowing the positional behind it, and a bare `--`. Every refusal is an `OperationRefusal`, never a `process.exit`.
  */
-import { describe, expect, test }                           from 'bun:test';
-import { refusalIsOperationRefusal, type OperationRefusal } from '../../src/shared/OperationRefusal.ts';
-import { createArgumentParser }                             from './ArgumentParser.ts';
-
-function refusalFrom(action: () => unknown): OperationRefusal {
-  try {
-    action();
-  } catch (error) {
-    if (refusalIsOperationRefusal(error)) return error;
-    throw error;
-  }
-  throw new Error('the call was expected to refuse and it returned instead');
-}
+import { describe, expect, test } from 'bun:test';
+import { refusalFrom }            from '../testing/RefusalFrom.ts';
+import { createArgumentParser }   from './ArgumentParser.ts';
 
 describe('an option and its value', () => {
   test('reads an option written as two arguments', () => {
