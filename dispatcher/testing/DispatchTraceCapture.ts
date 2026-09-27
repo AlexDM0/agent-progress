@@ -6,9 +6,10 @@
 import { readFileSync } from 'node:fs';
 import { join }         from 'node:path';
 
-import { builtScriptTextOf, bundleDispatchScript }  from './DispatchScriptBundle.ts';
-import { runDispatchScript, type DispatchScenario } from './DispatchScriptHarness.ts';
-import { digestOf, traceOf, type DispatchTrace }    from './DispatchTrace.ts';
+import type { DispatchScenario }                   from './@types/DispatchScenario.ts';
+import type { DispatchTrace }                      from './@types/DispatchTrace.ts';
+import { builtScriptTextOf, bundleDispatchScript } from './DispatchScriptBundle.ts';
+import { runDispatchScript }                       from './DispatchScriptHarness.ts';
 import {
   KEPT_CRASH_KEYS,
   LEVERS_READ_AS_THEIR_BASE,
@@ -16,7 +17,8 @@ import {
   dispatchTraceCatalogue,
   type CatalogueEntry,
 } from './DispatchTraceCatalogue.ts';
-import { metaLiteralValueOf, metaLiteralVerdictOf } from './WorkflowScriptSource.ts';
+import { DispatchTraceUtil }        from './utils/DispatchTraceUtil.ts';
+import { WorkflowScriptSourceUtil } from './utils/WorkflowScriptSourceUtil.ts';
 
 export interface FrozenDispatchTraces {
   /** A bundle is named by its digest, since a table retaken in the commit that changes the port cannot name that commit. */
@@ -38,8 +40,8 @@ const LEVER_KEY_OPENING = 'lever: ';
 const TRACE_TABLE_INDENT_SPACES = 2;
 
 function metaValueOf(scriptSource: string): unknown {
-  const metaRead = metaLiteralValueOf(scriptSource);
-  if (metaRead.verdict !== 'value') throw new Error(`The script's meta is not a pure literal: ${JSON.stringify(metaLiteralVerdictOf(scriptSource))}.`);
+  const metaRead = WorkflowScriptSourceUtil.metaLiteralValueOf(scriptSource);
+  if (metaRead.verdict !== 'value') throw new Error(`The script's meta is not a pure literal: ${JSON.stringify(WorkflowScriptSourceUtil.metaLiteralVerdictOf(scriptSource))}.`);
   return metaRead.value;
 }
 
@@ -61,7 +63,7 @@ async function leverProblemsOf(entry: CatalogueEntry, trace: DispatchTrace, scri
       return misbehaviour;
     },
   }, scriptSource);
-  const baseTrace = traceOf(await runDispatchScript(scenarioWithoutMisbehaviour(entry.scenarioFor()), scriptSource));
+  const baseTrace = DispatchTraceUtil.traceOf(await runDispatchScript(scenarioWithoutMisbehaviour(entry.scenarioFor()), scriptSource));
   const traceEqualsItsBase = JSON.stringify(baseTrace) === JSON.stringify(trace);
   const leverIsReadAsItsBase = (LEVERS_READ_AS_THEIR_BASE as readonly string[]).includes(entry.key);
   const problems: string[] = [];
@@ -98,9 +100,9 @@ export async function captureDispatchTraces(scriptSource: string, takenFrom: Fro
   const promptTexts: Record<string, string> = {};
   for (const entry of entries) {
     const run = await runDispatchScript(entry.scenarioFor(), scriptSource);
-    traces[entry.key] = traceOf(run);
+    traces[entry.key] = DispatchTraceUtil.traceOf(run);
     for (const call of run.calls) {
-      const promptDigest = digestOf(call.prompt);
+      const promptDigest = DispatchTraceUtil.digestOf(call.prompt);
       if (!Object.hasOwn(promptTexts, promptDigest)) promptTexts[promptDigest] = call.prompt;
     }
   }
@@ -121,6 +123,6 @@ export function readFrozenDispatchTraces(): FrozenDispatchTraces {
 
 if (import.meta.main) {
   const scriptText = builtScriptTextOf(await bundleDispatchScript());
-  const table = await captureDispatchTraces(scriptText, { scriptPath: BUNDLE_ENTRY_PATH, scriptDigest: digestOf(scriptText) });
+  const table = await captureDispatchTraces(scriptText, { scriptPath: BUNDLE_ENTRY_PATH, scriptDigest: DispatchTraceUtil.digestOf(scriptText) });
   process.stdout.write(`${JSON.stringify(table, null, TRACE_TABLE_INDENT_SPACES)}\n`);
 }

@@ -1,5 +1,5 @@
 import type { DispatchSummary }     from '../../@types/DispatchOutcome.ts';
-import type { RecordedDispatchRun } from '../DispatchScriptHarness.ts';
+import type { RecordedDispatchRun } from '../@types/RecordedDispatchRun.ts';
 
 /** A run's returned summary, read as the shipped shape; `null` when that run returned none. */
 function summaryFrom(returnedSummary: unknown): DispatchSummary | null {

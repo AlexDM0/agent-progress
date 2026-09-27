@@ -5,7 +5,7 @@
 import { describe, expect, test } from 'bun:test';
 
 import type { DispatchSummary }                        from '../../@types/DispatchOutcome.ts';
-import type { RecordedAgentCall, RecordedDispatchRun } from '../DispatchScriptHarness.ts';
+import type { RecordedAgentCall, RecordedDispatchRun } from '../@types/RecordedDispatchRun.ts';
 import { RecordedDispatchRunUtil }                     from './RecordedDispatchRunUtil.ts';
 
 const { summaryFrom, mainSummaryOf, kindsAndTicketsOf } = RecordedDispatchRunUtil;

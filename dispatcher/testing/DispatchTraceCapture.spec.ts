@@ -5,8 +5,7 @@
 import { describe, expect, test } from 'bun:test';
 
 import { BUNDLE_ENTRY_PATH, RETAKE_COMMAND, readFrozenDispatchTraces } from './DispatchTraceCapture.ts';
-
-const DIGEST_LENGTH_CHARACTERS = 16;
+import { DIGEST_LENGTH_CHARACTERS }                                    from './constants/DispatchTraceFormat.ts';
 
 describe('the frozen dispatch trace table', () => {
   test('records the bundle it was taken from and the command that retakes it', () => {

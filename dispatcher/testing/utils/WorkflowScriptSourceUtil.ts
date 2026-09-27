@@ -4,12 +4,9 @@
  */
 import ts from 'typescript';
 
-export type MetaLiteralVerdict =
-  | { verdict: 'pure'; literalNodeCount: number }
-  | { verdict: 'impure'; offenders: string[] }
-  | { verdict: 'absent' };
+import type { MetaLiteralValue, MetaLiteralVerdict } from '../@types/MetaLiteral.ts';
 
-export type MetaLiteralValue = { verdict: 'value'; value: unknown } | { verdict: 'impure' | 'absent' };
+const OFFENDER_TEXT_MAXIMUM_CHARACTERS = 60;
 
 const NONDETERMINISTIC_MEMBERS: Record<string, string> = { Date: 'now', Math: 'random' };
 
@@ -35,7 +32,7 @@ function nondeterministicMemberAccessed(node: ts.Node): string | null {
 }
 
 /** Every `Date.now`, `Math.random`, argless `new Date()` and bare `Date()` call in the script, each with its line. */
-export function nondeterministicCallsIn(source: string): string[] {
+function nondeterministicCallsIn(source: string): string[] {
   const sourceFile = parsedScript(source);
   const found: string[] = [];
   const visit = (node: ts.Node): void => {
@@ -61,22 +58,25 @@ function isPureLiteralKind(node: ts.Node): boolean {
     || (ts.isPrefixUnaryExpression(node) && node.operator === ts.SyntaxKind.MinusToken && ts.isNumericLiteral(node.operand));
 }
 
-function impureNodesIn(node: ts.Node, sourceFile: ts.SourceFile, offenders: string[]): number {
-  const describe = (offender: ts.Node): string => `${ts.SyntaxKind[offender.kind]} at line ${lineOf(offender, sourceFile)}: ${offender.getText(sourceFile).slice(0, 60)}`;
+/** Counts the literal nodes under `node`, pushing a description of every node that is not one onto `offenders`. */
+function literalNodeCountOf(node: ts.Node, sourceFile: ts.SourceFile, offenders: string[]): number {
+  const offenderDescriptionOf = (offender: ts.Node): string => (
+    `${ts.SyntaxKind[offender.kind]} at line ${lineOf(offender, sourceFile)}: ${offender.getText(sourceFile).slice(0, OFFENDER_TEXT_MAXIMUM_CHARACTERS)}`
+  );
   if (isPureLiteralKind(node)) return 1;
   if (ts.isArrayLiteralExpression(node)) {
-    return node.elements.reduce((count, element) => count + impureNodesIn(element, sourceFile, offenders), 1);
+    return node.elements.reduce((count, element) => count + literalNodeCountOf(element, sourceFile, offenders), 1);
   }
   if (ts.isObjectLiteralExpression(node)) {
     let count = 1;
     for (const property of node.properties) {
       const nameIsLiteral = ts.isPropertyAssignment(property) && (ts.isIdentifier(property.name) || ts.isStringLiteral(property.name) || ts.isNumericLiteral(property.name));
-      if (ts.isPropertyAssignment(property) && nameIsLiteral) count += impureNodesIn(property.initializer, sourceFile, offenders);
-      else offenders.push(describe(property));
+      if (ts.isPropertyAssignment(property) && nameIsLiteral) count += literalNodeCountOf(property.initializer, sourceFile, offenders);
+      else offenders.push(offenderDescriptionOf(property));
     }
     return count;
   }
-  offenders.push(describe(node));
+  offenders.push(offenderDescriptionOf(node));
   return 0;
 }
 
@@ -90,7 +90,7 @@ function metaStatementOf(sourceFile: ts.SourceFile): { statement: ts.VariableSta
 }
 
 /** `meta` must be the first statement, an exported `const`, and built of literals alone: no identifier, call, spread, computed key or template hole. */
-export function metaLiteralVerdictOf(source: string): MetaLiteralVerdict {
+function metaLiteralVerdictOf(source: string): MetaLiteralVerdict {
   const sourceFile = parsedScript(source);
   const metaStatement = metaStatementOf(sourceFile);
   if (metaStatement === null) return { verdict: 'absent' };
@@ -99,7 +99,7 @@ export function metaLiteralVerdictOf(source: string): MetaLiteralVerdict {
   if ((statement.declarationList.flags & ts.NodeFlags.Const) === 0) offenders.push('meta is not declared with const');
   if (statement.declarationList.declarations.length !== 1) offenders.push('meta shares its statement with another declaration');
   if (declaration.initializer === undefined) return { verdict: 'impure', offenders: [...offenders, 'meta has no value'] };
-  const literalNodeCount = impureNodesIn(declaration.initializer, sourceFile, offenders);
+  const literalNodeCount = literalNodeCountOf(declaration.initializer, sourceFile, offenders);
   return offenders.length === 0 ? { verdict: 'pure', literalNodeCount } : { verdict: 'impure', offenders };
 }
 
@@ -123,7 +123,7 @@ function literalValueOf(node: ts.Expression): unknown {
 }
 
 /** The value of a pure `meta`, built from its literals without running any of the script. */
-export function metaLiteralValueOf(source: string): MetaLiteralValue {
+function metaLiteralValueOf(source: string): MetaLiteralValue {
   const verdict = metaLiteralVerdictOf(source);
   if (verdict.verdict !== 'pure') return { verdict: verdict.verdict };
   const initializer = metaStatementOf(parsedScript(source))?.declaration.initializer;
@@ -142,7 +142,7 @@ function topLevelIdentifiersDeclaredBy(statement: ts.Statement): ts.Identifier[]
 }
 
 /** Every top-level `var`, `let`, `const` (destructured too), `function` and `class` after the meta statement whose name is one of `names`. */
-export function topLevelBindingsNamed(source: string, names: readonly string[]): string[] {
+function topLevelBindingsNamed(source: string, names: readonly string[]): string[] {
   const sourceFile = parsedScript(source);
   const statementsAfterMeta = sourceFile.statements.slice(metaStatementOf(sourceFile) === null ? 0 : 1);
   return statementsAfterMeta
@@ -150,3 +150,10 @@ export function topLevelBindingsNamed(source: string, names: readonly string[]):
     .filter((identifier) => names.includes(identifier.text))
     .map((identifier) => `${identifier.text} at line ${lineOf(identifier, sourceFile)}`);
 }
+
+export const WorkflowScriptSourceUtil = {
+  nondeterministicCallsIn,
+  metaLiteralVerdictOf,
+  metaLiteralValueOf,
+  topLevelBindingsNamed,
+} as const;

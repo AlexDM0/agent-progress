@@ -216,14 +216,14 @@ import a devDependency.
 | `page/testing/PageBoardFixture.ts` | The page's rows and tickets with the Board facts built the way the render service builds them, so a page spec never restates a board rule. |
 | `dispatcher/testing/DispatchScriptHarness.ts` | Runs a dispatcher Workflow script's text against a fake `agent()` and a fake board. |
 | `dispatcher/testing/DispatchScriptBundle.ts` | Hands `src/lib/claude-code/WorkflowScriptBundle.ts` the port's entry and meta module, or a `SourceMutant` of one of its modules, and memoises the unmutated build per process. |
-| `dispatcher/testing/WorkflowScriptSource.ts` | Reads a dispatcher script's syntax tree for a clock, randomness, an impure `meta` or a shadowed Workflow global. |
 | `dispatcher/testing/SourceMutant.ts` | A one-occurrence rewrite of one dispatcher module, applied as the bundle is built, so a claim can be watched failing without the decision it pins. |
-| `dispatcher/testing/DispatchTrace.ts` | A dispatch run reduced to what two implementations of the dispatcher must agree on, in a form a frozen table can hold and compare. |
 | `dispatcher/testing/DispatchTraceCapture.ts` | Runs every catalogue entry through the harness, reduced to its trace; run as a script, it prints the frozen table. |
 | `dispatcher/testing/DispatchTraceCatalogue.ts` | Every scenario the frozen table holds: the claim suites' scenarios, a builder × reviewer grid, the argument refusals and fallbacks, and one lever per reply shape the dispatcher guards against. |
 | `dispatcher/testing/FrozenDispatchTraces.json` | The frozen trace table, naming the bundle it was taken from and the command that retakes it. |
 | `dispatcher/testing/claims/` | The dispatcher's decisions, holds and resumptions as claims: each a scenario, what must hold after it, and the mutant that breaks exactly that decision. |
-| `dispatcher/testing/utils/` | Readings of a recorded dispatch run that the claims share, such as its returned summary. |
+| `dispatcher/testing/@types/` | The harness's scenario and recorded run, the trace a frozen table holds, and a `meta`'s verdict. |
+| `dispatcher/testing/constants/` | The prompt sentences the fake agents follow, the Workflow globals, the modules a mutant may rewrite and the trace's digest length. |
+| `dispatcher/testing/utils/` | Readings of a recorded dispatch run that the claims share, such as its returned summary; its reduction to a trace a frozen table can hold and compare; and a script's syntax tree read for a clock, randomness, an impure `meta` or a shadowed Workflow global. |
 
 `TrackerIsolation` refuses any directory outside the scratch root, and refuses when discovery from a
 directory inside it (the walk up, the git common directory, or `AGENT_PROGRESS_ROOT`) would resolve
@@ -245,7 +245,7 @@ held by review, not by a spec.
 | `cli/HelpText.spec.ts` | `cli/HelpText.ts` and the command table agree in both directions; no bundled skill carries its own command table; the skill every agent loads stays under its size ceiling. |
 | `cli/BinarySmoke.spec.ts` | The real `agent-progress.ts` spawned end to end: the shebang, the argument slice and the exit status reaching the process. |
 | `cli/InitRootOverride.spec.ts` | `init` beside `AGENT_PROGRESS_ROOT`, spawned because no spec may set the environment in-process: an override naming another directory refused with both progress files byte-identical, an agreeing one refreshing like `update`. |
-| `dispatcher/testing/WorkflowScriptSource.spec.ts` | Every form the guard catches, each watched failing. |
+| `dispatcher/testing/utils/WorkflowScriptSourceUtil.spec.ts` | Every form the guard catches, each watched failing. |
 | `dispatcher/DispatchScript.spec.ts` | The built script's meta is pure and equals the frozen table's, an impurity planted in it is caught, it has no clock or randomness, builds to the same text every time and has one `agent()` call. |
 | `dispatcher/Dispatcher.decisions.spec.ts` and its `.holds`, `.resumption`, `.brief` and `.equivalence` suites | The dispatcher's decisions; see below. |
 
@@ -302,7 +302,7 @@ clock and randomness refused as the Workflow tool refuses them. The specs:
 | `dispatcher/Dispatcher.brief.spec.ts` | The call budgets, the rework threshold and the brief path the bundle sends, and the threshold its round decision applies, are `DISPATCH_PROTOCOL`'s; `cli/adoption/InstalledFileGeneration.spec.ts` pins that the installed brief states the same numbers. |
 | `dispatcher/Dispatcher.equivalence.spec.ts` | The bundle reproduces the frozen table on every catalogued scenario. |
 | `dispatcher/testing/DispatchTraceCapture.spec.ts` | The table names the bundle it was taken from and the command that retakes it. |
-| `dispatcher/DispatchScript.spec.ts` and `dispatcher/testing/WorkflowScriptSource.spec.ts` | No nondeterministic call, and a literal `meta`. |
+| `dispatcher/DispatchScript.spec.ts` and `dispatcher/testing/utils/WorkflowScriptSourceUtil.spec.ts` | No nondeterministic call, and a literal `meta`. |
 
 A change to the dispatcher's behaviour therefore comes with a claim and its mutant.
 

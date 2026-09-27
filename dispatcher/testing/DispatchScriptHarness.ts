@@ -1,211 +1,32 @@
 /**
- * Runs a dispatcher Workflow script's text as the Workflow tool would, against a fake `agent()` and a fake board, so a spec can pin
- * the script's decisions without spawning a model. An agent's kind is read from its prompt's token marker, the way the hook reads it. A builder
- * or reviewer is on the board from its first command, as a real one is from its claim or its `task add --start`, until it finishes — except that
- * a builder that stops short of review and a reviewer that returns nothing leave their row running, until a fresh agent's first command takes it over,
- * or a parking agent pauses the ticket's row (`task pause`: a paused row is not running) and closes its review bar. The fake agents follow their
- * prompt where a real one's first command depends on it: a builder whose ticket an earlier attempt claimed is refused as in-progress unless its
- * prompt says that claim is its run's own, and a reviewer finding an earlier attempt's bar adds a second unless its prompt says to take that one.
- * A paused build row refuses the claim too, unless the prompt resumes it and the note is the run's own or, in a run named for the ticket, any run's.
- * A reviewer whose prompt runs `ticket rereview` counts a round each time, unless the prompt skips it and the bar of the ticket's round already runs.
+ * Runs a dispatcher Workflow script's text as the Workflow tool would, against fake agents and a fake board, so a spec can pin its decisions
+ * without spawning a model.
  */
 import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../src/lib/tracker-model/constants/AgentSettings.ts';
 import { DispatcherClaimNoteUtil }                   from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
+import type {
+  DispatchScenario,
+  FakeBoard,
+  ReviewerReply,
+  TicketAgentSettings
+} from './@types/DispatchScenario.ts';
+import type {
+  AgentKind,
+  DispatchRunName,
+  RecordedAgentCall,
+  RecordedDispatchRun
+} from './@types/RecordedDispatchRun.ts';
+import { AGENT_PROMPT_SENTENCES } from './constants/AgentPromptSentences.ts';
+import { WORKFLOW_GLOBAL_NAMES }  from './constants/WorkflowGlobalNames.ts';
 
-/** `settings` is a single-ticket run's lookup of the model and effort its arguments did not state; its `ticketId` is the ids it names, comma-joined. */
-export type AgentKind = 'survey' | 'settings' | 'build' | 'review' | 'park';
-
-export interface ReviewFinding {
-  class:   string;
-  file:    string;
-  summary: string;
-}
-
-export interface BuilderReply {
-  outcome:    'in-review' | 'claim-refused' | 'failed';
-  detail?:    string;
-  claimNote?: string;
-}
-
-export interface ReviewerReply {
-  verdict:         'released' | 'round-requested' | 'does-not-hold' | 'not-released';
-  releaseReason?:  string;
-  reworkedLines?:  number;
-  findings?:       ReviewFinding[];
-  filedTicketIds?: string[];
-}
-
-export type DispatcherStateOnBoard = 'running' | 'stopped' | 'finished';
-
-export interface TicketAgentSettings {
-  model:  string;
-  effort: string;
-}
-
-export interface FakeBoard {
-  limit:                 number;
-  otherAgentsInFlight:   number;
-  readyTicketIds:        string[];
-  /** Which tickets are low priority, ready or not; the status block names those among the ready ones. */
-  lowPriorityTicketIds:  string[];
-  highPriorityTicketIds: string[];
-  dispatcherState:       DispatcherStateOnBoard;
-  /** The tickets `ticket hold` holds; `afterAgent` may hold or unhold one mid-run. */
-  heldTicketIds:         string[];
-}
-
-/** `main` is the scenario's run of the script; `racing` the single-ticket run started beside it on the same board; `relaunch` the run after it. */
-export type DispatchRunName = 'main' | 'racing' | 'relaunch';
-
-export interface RecordedAgentCall {
-  run:                        DispatchRunName;
-  kind:                       AgentKind;
-  ticketId:                   string | null;
-  /** The builder's pass, the reviewer's round or the parking agent's call for this ticket, counted by the harness from 1; `null` for the survey. */
-  ordinal:                    number | null;
-  model:                      unknown;
-  effort:                     unknown;
-  label:                      unknown;
-  phase:                      unknown;
-  schema:                     unknown;
-  prompt:                     string;
-  /** How many status blocks this run had been handed when the call was made: an index into `heldTicketIdsReturned`. */
-  statusBlocksReturnedBefore: number;
-  /** How many lines this call's own run had logged when the call was made, which pins how its logs interleave with its agent calls. */
-  logsBefore:                 number;
-}
-
-/**
- * How one agent departs from the fake board's answer. `nothing` and `throws` leave the board as a dead agent does; `replacesFields` is merged
- * over the document the agent returns, its status block included.
- */
-export type AgentMisbehaviour = { returns: 'nothing' } | { throws: string } | { replacesFields: Record<string, unknown> };
-
-export interface DispatchScenario {
-  limit:                          number;
-  readyTicketIds:                 string[];
-  lowPriorityTicketIds?:          string[];
-  highPriorityTicketIds?:         string[];
-  /** Passed to the script as `args.ticketIds`, with `args.readyTickets` copied from the board's entries for them, as the orchestrator launches one. */
-  ticketIds?:                     string[];
-  /** A single-ticket run of the script for these tickets, started `racingRunStartsAfterTurns` turns after the main run, against the same board. */
-  racingTicketIds?:               string[];
-  racingRunStartsAfterTurns?:     number;
-  /** A claim from elsewhere takes a free slot the moment a builder of the script's returns, after its status block was taken. */
-  elsewhereClaimsAFreedSlot?:     boolean;
-  /** The tickets that name their own model and effort; every other ticket runs on the tool's default pair. */
-  agentSettingsByTicketId?:       Record<string, TicketAgentSettings>;
-  /** Passed to the script as `args.includeLowPriority`; left out of the arguments when absent. */
-  includeLowPriority?:            boolean;
-  otherAgentsInFlight?:           number;
-  reviewWaitingTicketIds?:        string[];
-  /** Held from the start, as `status --json` lists them in `heldTicketIds`. */
-  heldTicketIds?:                 string[];
-  /** Defaults to `running`; `afterAgent` may change it mid-run. */
-  dispatcherState?:               DispatcherStateOnBoard;
-  /** Defaults to `in-review`; `null` is an agent that died. */
-  builderReply?:                  (ticketId: string, pass: number) => BuilderReply | null;
-  /** Defaults to `released`; `null` is an agent that died. */
-  reviewerReply?:                 (ticketId: string, round: number) => ReviewerReply | null;
-  /** Runs as an agent finishes and before its status block is taken, so a scenario can file a ticket mid-run. */
-  afterAgent?:                    (call: RecordedAgentCall, board: FakeBoard) => void;
-  /** How many turns a builder or reviewer runs before its first command puts it on the board; defaults to `DEFAULT_TURNS_BEFORE_FIRST_COMMAND`. */
-  turnsBeforeFirstCommand?:       number;
-  /** Every status block leaves out `inProgressTicketIds` and `inProgressReviewOfIds`, as an agent that did not copy them would. */
-  statusOmitsInProgressRows?:     boolean;
-  /** Every status block leaves out `readyTickets`, as an agent that did not copy it would. */
-  statusOmitsReadyTickets?:       boolean;
-  /**
-   * The runtime restarts the first builder of each of these tickets with the same prompt, inside the same `agent()` call: its first attempt
-   * claimed the ticket and made its worktree, and its claimed row stays running for the restarted attempt to carry on in.
-   */
-  restartedBuilderTicketIds?:     string[];
-  /**
-   * The same for the reviewer of each of these tickets on `restartedReviewerRound` (the first by default): its first attempt ran its prompt's
-   * `ticket rereview`, if any, and added or took its bar, which stays running.
-   */
-  restartedReviewerTicketIds?:    string[];
-  restartedReviewerRound?:        number;
-  /**
-   * The run is killed the moment this agent (`build 001`, `review 001`) has put its row on the board: every own agent dies with its row left
-   * running, and the script is resumed from the journal, the longest prefix of completed calls with unchanged prompts answered from it.
-   */
-  killedAtFirstCommandOf?:        string;
-  /**
-   * Tickets in progress whose build row is paused from the start, each with its claim's note, as an earlier dispatcher run's parking agent leaves
-   * one a hold or a stop kept from its next builder; their worktree exists unless `pausedBuildIdsWithoutWorktree` names them. They are not
-   * ready: a whole-board survey returns them as `pausedBuilds`.
-   */
-  pausedBuildNotesByTicketId?:    Record<string, string>;
-  /** Paused builds among those whose worktree is gone, as the survey's `test -d` finds it. */
-  pausedBuildIdsWithoutWorktree?: string[];
-  /** Once the run returns, the user's go sets the board running and a fresh whole-board run starts on the board it left; its calls are `relaunch`. */
-  relaunchedAfterTheRun?:         boolean;
-  /** Spread last over the main run's arguments only; a value of `undefined` leaves that argument missing. */
-  argumentOverrides?:             Record<string, unknown>;
-  agentMisbehaviour?:             (call: RecordedAgentCall) => AgentMisbehaviour | undefined;
-}
-
-export interface RecordedDispatchRun {
-  calls:                    RecordedAgentCall[];
-  /** The most of the script's own builders and reviewers that were running at one moment. */
-  mostAgentsAtOnce:         number;
-  /** The most agents in flight at one moment: the board's others, every builder and reviewer of the script's own on the board yet or not, and every
-   * row left running that no own agent of the same kind and ticket is running to take over. A parking agent adds none. */
-  mostAgentsInFlightAtOnce: number;
-  /** The most agents alive at one moment, which is what the limit bounds: the board's others and every own agent of any kind, the survey and each
-   * parking agent included; a row left running is no agent. */
-  mostLiveAgentsAtOnce:     number;
-  /** The most agents `status --json` counted at one moment: the board's others and every running row, whichever run's. */
-  mostAgentsOnBoardAtOnce:  number;
-  /** Every builder that reached the board, by its claim or by carrying on past its own, as `<run> build <ticket>`. */
-  buildersOnBoard:          string[];
-  /** Every builder that returned `in-review`, or reviewer that asked for another round, without leaving the next reviewer's bar running, as
-   * `build <ticket>` or `review <ticket>`: a moment its ticket held no slot. */
-  slotGaps:                 string[];
-  /** The summary the racing run returned, `null` without one, and what it logged. */
-  racingSummary:            unknown;
-  racingLogs:               string[];
-  /** The summary the whole-board relaunch returned, `null` without one, and what it logged. */
-  relaunchSummary:          unknown;
-  relaunchLogs:             string[];
-  /** The rows left running when the script returned, as `build <ticket>` or `review <ticket>`; a paused row is not among them. */
-  rowsRunningAtEnd:         string[];
-  /** The rows a parking agent paused, as `build <ticket>`. */
-  rowsPaused:               string[];
-  /** Every review bar added, as `review <ticket>`, a restarted or killed attempt's included; a bar taken over is not added again. */
-  reviewBarsAdded:          string[];
-  /** Every `ticket rereview` run, a restarted attempt's included, as `rereview <ticket> round <the ticket's round>`: each counts a round on the row. */
-  rereviewsRun:             string[];
-  logs:                     string[];
-  /** The `heldTicketIds` of every status block the main run was handed, in order. */
-  heldTicketIdsReturned:    string[][];
-  summary:                  unknown;
-  /** Whether the script passed `MOST_AGENT_CALLS_PER_RUN`, after which every agent answered `null` so the run could end. */
-  ranAway:                  boolean;
-  /** Whether `killedAtFirstCommandOf` was reached, so that `summary` is the resumed run's. */
-  resumed:                  boolean;
-  phasesEntered:            { run: DispatchRunName; title: unknown }[];
-  /** What the main run threw, `null` when it returned: `TypeError` for a type error, otherwise the error's message. */
-  threw:                    string | null;
-}
-
-/** The sentence a builder's prompt carries on past a claim refused as in-progress by, and the one a reviewer's takes a bar left running by. */
-export const BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM = 'the claim is this run\'s own';
-
-/**
- * The sentence a builder resumes a paused row it carries on past by, and the one a whole-board or single-ticket run takes over another run's paused
- * build by. Followed by `--note "<the prompt's claim note>"`, the resumption sets the row's note; without it the row keeps the one it had.
- */
-export const BUILDER_RESUMES_A_PAUSED_ROW                 = 'resume it first with `agent-progress task start <that row>';
-export const BUILDER_TAKES_OVER_A_PAUSED_DISPATCHER_BUILD = 'a hold or a stop left that build paused';
-export const REVIEWER_TAKES_OVER_A_RUNNING_BAR     = 'take it as your bar and add none';
-
-/** The sentence a reviewer's prompt leaves its bar running for the next round by, when it asks for one. */
-const REVIEWER_LEAVES_ITS_BAR_FOR_THE_NEXT_ROUND = 'leave your bar running';
-
-/** The sentence a round-2+ reviewer's prompt skips its `ticket rereview` by when the bar of its round is already running. */
-export const REVIEWER_SKIPS_A_REREVIEW_ALREADY_RUN = 'skip the rereview and take that row as your bar';
+const {
+  BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM,
+  BUILDER_RESUMES_A_PAUSED_ROW,
+  BUILDER_TAKES_OVER_A_PAUSED_DISPATCHER_BUILD,
+  REVIEWER_TAKES_OVER_A_RUNNING_BAR,
+  REVIEWER_LEAVES_ITS_BAR_FOR_THE_NEXT_ROUND,
+  REVIEWER_SKIPS_A_REREVIEW_ALREADY_RUN,
+} = AGENT_PROMPT_SENTENCES;
 
 interface RunningRow {
   kind:        AgentKind;
@@ -242,8 +63,6 @@ const KILLED = Symbol('killed');
 
 const AsyncFunction = Object.getPrototypeOf(async () => {}).constructor as new (...parameterNames: string[]) => ScriptBody;
 
-export const WORKFLOW_GLOBAL_NAMES = ['agent', 'parallel', 'pipeline', 'phase', 'log', 'args', 'budget', 'workflow'] as const;
-
 const SCRIPT_GLOBAL_NAMES = [...WORKFLOW_GLOBAL_NAMES, 'Date', 'Math'];
 
 /** The clock and randomness a Workflow script is refused at runtime, refused here too so a run cannot lean on them. */
@@ -274,6 +93,7 @@ function compileScript(source: string): ScriptBody {
   return new AsyncFunction(...SCRIPT_GLOBAL_NAMES, source.replace(/^export const meta\b/m, 'const meta'));
 }
 
+// An agent's kind is read from its prompt's token marker, the way the hook reads it.
 function markerIdentifierIn(prompt: string, marker: string): string | null {
   const match = new RegExp(`^agent-progress ${marker}: (\\S+)$`, 'm').exec(prompt);
   return match?.[1] ?? null;
@@ -469,6 +289,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     reply: Record<string, unknown>,
   ): Record<string, unknown> => {
     if (reply['outcome'] === 'claim-refused') return { ...reply, claimNote: earlierRow?.note ?? pausedRow?.note ?? '' };
+    // A paused build row refuses the claim too, unless the prompt resumes it and the note is the run's own or, in a run named for the ticket, any run's.
     if (earlierRow === undefined && pausedRow !== undefined) {
       const noteIsOwn = prompt.includes(BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM) && pausedRow.note === claimNoteIn(prompt);
       const noteIsAnotherDispatcherRuns = prompt.includes(BUILDER_TAKES_OVER_A_PAUSED_DISPATCHER_BUILD)
@@ -494,7 +315,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     return reply;
   };
 
-  const slotIsFreedFor = (agentName: string): void => {
+  const recordFreedSlotOf = (agentName: string): void => {
     slotGaps.push(agentName);
     if (scenario.elsewhereClaimsAFreedSlot === true && agentsOnBoard() < board.limit) board.otherAgentsInFlight++;
   };
@@ -511,7 +332,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       reviewBarsAdded.push(`review ${ticketId}`);
       return;
     }
-    slotIsFreedFor(`build ${ticketId}`);
+    recordFreedSlotOf(`build ${ticketId}`);
   };
 
   // As `status --json` lists them, the defaults resolved.
@@ -615,6 +436,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     if (ticketId !== null && ordinal === restartedOrdinalOf(kind) && restartedTicketIdsOf(kind).includes(ticketId)) restartedAttemptActs(kind, ticketId, passKey, prompt);
     liveOwnAgents++;
     mostLiveAgentsAtOnce = Math.max(mostLiveAgentsAtOnce, board.otherAgentsInFlight + liveOwnAgents);
+    // A parking agent pauses the ticket's build row, so it is no longer running, and closes its review bar.
     if (kind === 'park' && ticketId !== null) {
       await turnsPass(turnsBeforeFirstCommand);
       if (generation !== callGeneration) return NEVER_SETTLES;
@@ -648,6 +470,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       if (kind === 'build' && reply !== null) reply = claimOutcomeFor(ticketId, prompt, earlierRow, pausedRow, reply);
       const reachesTheBoard = reply?.['outcome'] !== 'claim-refused';
       const rereviewRan = kind === 'review' && reviewerRunsItsRereview(ticketId, prompt, earlierRow);
+      // A reviewer finding an earlier attempt's bar adds a second unless its prompt says to take that one.
       const takesTheEarlierRowOver = kind === 'build' || (earlierRowIsRunning && prompt.includes(REVIEWER_TAKES_OVER_A_RUNNING_BAR));
       const barKeepsItsRound = !rereviewRan && takesTheEarlierRowOver && earlierRow !== undefined;
       const ownRow: RunningRow = {
@@ -681,7 +504,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       const rowStaysRunning = reachesTheBoard && rowIsLeftRunning(kind, reply, prompt);
       if (rowStaysRunning) rowsLeftRunning.set(passKey, ownRow);
       if (kind === 'build' && reply?.['outcome'] === 'in-review') builderHandsItsSlotOn(ticketId, prompt);
-      if (kind === 'review' && reviewAsksForAnotherRound(reply) && !rowStaysRunning) slotIsFreedFor(`review ${ticketId}`);
+      if (kind === 'review' && reviewAsksForAnotherRound(reply) && !rowStaysRunning) recordFreedSlotOf(`review ${ticketId}`);
       // A release delivers every running bar that reviews the ticket, a second one included.
       if (kind === 'review' && reply?.['verdict'] === 'released') {
         rowsLeftRunning.delete(passKey);

@@ -2,14 +2,11 @@
  * The dispatcher's reading of `ticket hold` as claims, shared by the hold suite: each a scenario, what must hold after it, and the mutant that
  * breaks exactly that decision.
  */
-import type {
-  DispatchScenario,
-  FakeBoard,
-  RecordedAgentCall,
-  RecordedDispatchRun
-} from '../DispatchScriptHarness.ts';
+import type { DispatchScenario, FakeBoard }            from '../@types/DispatchScenario.ts';
+import type { RecordedAgentCall, RecordedDispatchRun } from '../@types/RecordedDispatchRun.ts';
+import { DISPATCHER_MODULE_PATHS }                     from '../constants/DispatcherModulePaths.ts';
 import { RecordedDispatchRunUtil }                     from '../utils/RecordedDispatchRunUtil.ts';
-import { DISPATCHER_MODULE_PATHS, type DispatchClaim } from './DispatchClaim.ts';
+import type { DispatchClaim }                          from './DispatchClaim.ts';
 
 const { DISPATCH_RUN, AGENT_PROMPT_UTIL } = DISPATCHER_MODULE_PATHS;
 

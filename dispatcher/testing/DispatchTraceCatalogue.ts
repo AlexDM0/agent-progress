@@ -1,17 +1,11 @@
-/**
- * Every scenario the frozen trace table holds, keyed: the claim suites' and plain tests' scenarios, a builder × reviewer grid, the argument
- * refusals and fallbacks, and one lever per reply shape the dispatcher guards against. The round a dead reviewer of a failure-stopped run sets is
- * left untraced: that stop is final, and nothing in the run reads the round again. The survey's taking of a review-waiting ticket against its
- * paused build is left untraced too: `status --json` never lists one ticket as both.
- */
+/** Every scenario the frozen trace table holds, keyed: the claim suites' and plain tests' scenarios, a grid, the argument entries and the levers. */
 import type {
-  AgentKind,
   AgentMisbehaviour,
   BuilderReply,
   DispatchScenario,
-  RecordedAgentCall,
-  ReviewerReply,
-} from './DispatchScriptHarness.ts';
+  ReviewerReply
+} from './@types/DispatchScenario.ts';
+import type { AgentKind, RecordedAgentCall }   from './@types/RecordedDispatchRun.ts';
 import { DECISION_CLAIMS, DECISION_SCENARIOS } from './claims/DecisionClaims.ts';
 import { HOLD_CLAIMS }                         from './claims/HoldClaims.ts';
 import { RESUMPTION_CLAIMS }                   from './claims/ResumptionClaims.ts';
@@ -79,6 +73,7 @@ const REVIEWER_BEHAVIOURS: readonly ReviewerBehaviour[] = [
   { name: 'does-not-hold', reviewerReply: () => ({ verdict: 'does-not-hold' }) },
   { name: 'not-released merge-refused', reviewerReply: () => ({ verdict: 'not-released', releaseReason: 'merge-refused' }) },
   { name: 'not-released main-moved', reviewerReply: () => ({ verdict: 'not-released', releaseReason: 'main-moved' }) },
+  // The round a dead reviewer of a failure-stopped run sets is left untraced: that stop is final, and nothing in the run reads the round again.
   { name: 'returns nothing', reviewerReply: () => null },
   { name: 'throws', agentMisbehaviour: (call) => (call.kind === 'review' ? { throws: EXAMPLE_OUTAGE } : undefined) },
 ];
@@ -126,6 +121,7 @@ export const LEVERS_READ_AS_THEIR_BASE = [
   'lever: builder status null',
 ] as const;
 
+// A review-waiting ticket beside its own paused build is left untraced: `status --json` never lists one ticket as both.
 const PAUSED_BUILD_ON_THE_BOARD: DispatchScenario = { limit: 2, readyTicketIds: [], pausedBuildNotesByTicketId: { '004': EXAMPLE_PAUSED_BUILD_NOTE } };
 
 const TWO_PAUSED_BUILDS_ONE_WITHOUT_ITS_WORKTREE: DispatchScenario = {

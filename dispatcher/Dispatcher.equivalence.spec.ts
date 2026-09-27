@@ -7,11 +7,12 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { builtScriptTextOf, bundleDispatchScript }     from './testing/DispatchScriptBundle.ts';
-import { runDispatchScript, type RecordedDispatchRun } from './testing/DispatchScriptHarness.ts';
-import { digestOf, promptDigestOfCallText, traceOf }   from './testing/DispatchTrace.ts';
-import { readFrozenDispatchTraces }                    from './testing/DispatchTraceCapture.ts';
-import { dispatchTraceCatalogue }                      from './testing/DispatchTraceCatalogue.ts';
+import type { RecordedDispatchRun }                from './testing/@types/RecordedDispatchRun.ts';
+import { builtScriptTextOf, bundleDispatchScript } from './testing/DispatchScriptBundle.ts';
+import { runDispatchScript }                       from './testing/DispatchScriptHarness.ts';
+import { readFrozenDispatchTraces }                from './testing/DispatchTraceCapture.ts';
+import { dispatchTraceCatalogue }                  from './testing/DispatchTraceCatalogue.ts';
+import { DispatchTraceUtil }                       from './testing/utils/DispatchTraceUtil.ts';
 
 // A little under the frozen table's size, so a retake may grow it but a catalogue that shrank fails.
 const CATALOGUE_ENTRIES_FLOOR = 197;
@@ -47,8 +48,8 @@ function promptDiffsOf(run: RecordedDispatchRun, frozenCalls: readonly string[])
   const promptDiffs: string[] = [];
   run.calls.forEach((call, callIndex) => {
     const frozenCallText = frozenCalls[callIndex];
-    const frozenPromptDigest = frozenCallText === undefined ? undefined : promptDigestOfCallText(frozenCallText);
-    if (frozenPromptDigest === undefined || frozenPromptDigest === digestOf(call.prompt)) return;
+    const frozenPromptDigest = frozenCallText === undefined ? undefined : DispatchTraceUtil.promptDigestOfCallText(frozenCallText);
+    if (frozenPromptDigest === undefined || frozenPromptDigest === DispatchTraceUtil.digestOf(call.prompt)) return;
     promptDiffs.push(`call ${callIndex} (${call.run} ${call.kind} ${call.ticketId ?? ''}):\n${lineDiffOf(frozenPromptOf(frozenPromptDigest), call.prompt)}`);
   });
   return promptDiffs.join('\n\n');
@@ -72,7 +73,7 @@ describe('the bundled TypeScript dispatcher against the frozen trace table', () 
       const frozenTrace = frozenTraceOf(entry.key);
       if (frozenTrace === undefined) throw new Error(`${entry.key} is not in the table`);
       const run = await runDispatchScript(entry.scenarioFor(), builtScriptTextOf(await bundleDispatchScript()));
-      expect(traceOf(run), promptDiffsOf(run, frozenTrace.calls)).toEqual(frozenTrace);
+      expect(DispatchTraceUtil.traceOf(run), promptDiffsOf(run, frozenTrace.calls)).toEqual(frozenTrace);
     });
   }
 });

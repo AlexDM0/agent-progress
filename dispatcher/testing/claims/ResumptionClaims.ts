@@ -2,11 +2,13 @@
  * The dispatcher's resumption of a build an earlier run left paused, as claims shared by the resumption suite: each a scenario, what must hold
  * after it, and the mutant that breaks exactly that decision.
  */
-import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL }                     from '../../../src/lib/tracker-model/constants/AgentSettings.ts';
-import type { DispatchSummary }                                          from '../../@types/DispatchOutcome.ts';
-import type { DispatchScenario, RecordedAgentCall, RecordedDispatchRun } from '../DispatchScriptHarness.ts';
-import { RecordedDispatchRunUtil }                                       from '../utils/RecordedDispatchRunUtil.ts';
-import { DISPATCHER_MODULE_PATHS, type DispatchClaim }                   from './DispatchClaim.ts';
+import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL }   from '../../../src/lib/tracker-model/constants/AgentSettings.ts';
+import type { DispatchSummary }                        from '../../@types/DispatchOutcome.ts';
+import type { DispatchScenario }                       from '../@types/DispatchScenario.ts';
+import type { RecordedAgentCall, RecordedDispatchRun } from '../@types/RecordedDispatchRun.ts';
+import { DISPATCHER_MODULE_PATHS }                     from '../constants/DispatcherModulePaths.ts';
+import { RecordedDispatchRunUtil }                     from '../utils/RecordedDispatchRunUtil.ts';
+import type { DispatchClaim }                          from './DispatchClaim.ts';
 
 const {
   DISPATCH_RUN,

@@ -5,16 +5,12 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { builtScriptTextOf, bundleDispatchScript } from './testing/DispatchScriptBundle.ts';
-import {
-  BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM,
-  REVIEWER_SKIPS_A_REREVIEW_ALREADY_RUN,
-  REVIEWER_TAKES_OVER_A_RUNNING_BAR,
-  runDispatchScript
-} from './testing/DispatchScriptHarness.ts';
+import { builtScriptTextOf, bundleDispatchScript }                          from './testing/DispatchScriptBundle.ts';
+import { runDispatchScript }                                                from './testing/DispatchScriptHarness.ts';
 import type { SourceMutant }                                                from './testing/SourceMutant.ts';
 import { DECISION_CLAIMS, DECISION_SCENARIOS, modelsAndEffortsAreExplicit } from './testing/claims/DecisionClaims.ts';
-import { DISPATCHER_MODULE_PATHS }                                          from './testing/claims/DispatchClaim.ts';
+import { AGENT_PROMPT_SENTENCES }                                           from './testing/constants/AgentPromptSentences.ts';
+import { DISPATCHER_MODULE_PATHS }                                          from './testing/constants/DispatcherModulePaths.ts';
 import { RecordedDispatchRunUtil }                                          from './testing/utils/RecordedDispatchRunUtil.ts';
 
 const BUNDLE = await bundleDispatchScript();
@@ -112,7 +108,7 @@ describe('the dispatcher script', () => {
     expect(builders).toHaveLength(2);
     for (const builder of builders) {
       const ownClaimClause = '"Built by the whole-board dispatcher run on ticket-001" and /scratch/example-repository/.claude/worktrees/ticket-001 exists';
-      expect(builder.prompt).toContain(`${ownClaimClause}, ${BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM}`);
+      expect(builder.prompt).toContain(`${ownClaimClause}, ${AGENT_PROMPT_SENTENCES.BUILDER_CARRIES_ON_PAST_ITS_OWN_CLAIM}`);
       expect(builder.prompt).toContain('keeping every uncommitted edit it holds');
     }
     expect(builders[1]?.prompt).toContain('An earlier builder of this run stopped before review');
@@ -126,7 +122,7 @@ describe('the dispatcher script', () => {
     expect(reviewers).toHaveLength(2);
     const runningBarIsOwnText = 'entry for 001 in `agent-progress status --json` lists an `in-progress` review bar, it is this review\'s own';
     for (const reviewer of reviewers) expect(reviewer.prompt).toContain(runningBarIsOwnText);
-    for (const reviewer of reviewers) expect(reviewer.prompt).toContain(REVIEWER_TAKES_OVER_A_RUNNING_BAR);
+    for (const reviewer of reviewers) expect(reviewer.prompt).toContain(AGENT_PROMPT_SENTENCES.REVIEWER_TAKES_OVER_A_RUNNING_BAR);
     expect(run.reviewBarsAdded).toEqual(['review 001']);
   });
 
@@ -136,7 +132,7 @@ describe('the dispatcher script', () => {
     expect(reviewers).toHaveLength(2);
     expect(reviewers[0]?.prompt).not.toContain('ticket rereview 001');
     expect(reviewers[1]?.prompt).toContain('an `in-progress` bar whose `round` is your round');
-    expect(reviewers[1]?.prompt).toContain(REVIEWER_SKIPS_A_REREVIEW_ALREADY_RUN);
+    expect(reviewers[1]?.prompt).toContain(AGENT_PROMPT_SENTENCES.REVIEWER_SKIPS_A_REREVIEW_ALREADY_RUN);
     expect(run.rereviewsRun).toEqual(['rereview 001 round 2']);
   });
 

@@ -3,16 +3,14 @@
  * that decision.
  */
 import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../../src/lib/tracker-model/constants/AgentSettings.ts';
+import { TicketIdUtil }                              from '../../../src/lib/tracker-model/utils/TicketIdUtil.ts';
 import type { DispatchSummary }                      from '../../@types/DispatchOutcome.ts';
-import type {
-  DispatchRunName,
-  DispatchScenario,
-  RecordedDispatchRun,
-  ReviewFinding
-} from '../DispatchScriptHarness.ts';
-import type { SourceMutant }                           from '../SourceMutant.ts';
-import { RecordedDispatchRunUtil }                     from '../utils/RecordedDispatchRunUtil.ts';
-import { DISPATCHER_MODULE_PATHS, type DispatchClaim } from './DispatchClaim.ts';
+import type { DispatchScenario, ReviewFinding }      from '../@types/DispatchScenario.ts';
+import type { DispatchRunName, RecordedDispatchRun } from '../@types/RecordedDispatchRun.ts';
+import type { SourceMutant }                         from '../SourceMutant.ts';
+import { DISPATCHER_MODULE_PATHS }                   from '../constants/DispatcherModulePaths.ts';
+import { RecordedDispatchRunUtil }                   from '../utils/RecordedDispatchRunUtil.ts';
+import type { DispatchClaim }                        from './DispatchClaim.ts';
 
 const {
   DISPATCH_RUN,
@@ -26,14 +24,14 @@ const {
 } = DISPATCHER_MODULE_PATHS;
 
 function ticketIdsFrom(first: number, count: number): string[] {
-  return Array.from({ length: count }, (_unused, i) => String(first + i).padStart(3, '0'));
+  return Array.from({ length: count }, (_unused, i) => TicketIdUtil.padTicketId(first + i));
 }
 
 function parkedIds(run: RecordedDispatchRun): string[] {
   return RecordedDispatchRunUtil.mainSummaryOf(run).parked.map((parkedTicket) => parkedTicket.id);
 }
 
-function reviewsOf(run: RecordedDispatchRun, ticketId: string): number {
+function reviewCountOf(run: RecordedDispatchRun, ticketId: string): number {
   return run.calls.filter((call) => call.kind === 'review' && call.ticketId === ticketId).length;
 }
 
@@ -297,7 +295,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       readyTicketIds: ['001'],
       reviewerReply:  (_ticketId, round) => (round === 1 ? { verdict: 'round-requested', reworkedLines: 751 } : { verdict: 'released' }),
     }),
-    holds:  (run) => reviewsOf(run, '001') === 2 && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.includes('001'),
+    holds:  (run) => reviewCountOf(run, '001') === 2 && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.includes('001'),
     mutant: {
       modulePath: ROUND_VERDICT_UTIL,
       find:       'current.reworkedLines <= DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES',
@@ -311,7 +309,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       readyTicketIds: ['001'],
       reviewerReply:  (_ticketId, round) => (round === 1 ? { verdict: 'round-requested', reworkedLines: 750 } : { verdict: 'released' }),
     }),
-    holds:  (run) => reviewsOf(run, '001') === 1 && parkedIds(run).includes('001'),
+    holds:  (run) => reviewCountOf(run, '001') === 1 && parkedIds(run).includes('001'),
     mutant: {
       modulePath: ROUND_VERDICT_UTIL,
       find:       'current.reworkedLines <= DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES',
@@ -321,25 +319,25 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
   {
     name:        'round 3 is refused when round 2 found more than half of round 1\'s findings',
     scenarioFor: () => roundThreeScenario([finding('spacing', 'a.ts'), finding('spacing', 'b.ts'), finding('typing', 'a.ts')]),
-    holds:       (run) => reviewsOf(run, '001') === 2 && parkedIds(run).includes('001'),
+    holds:       (run) => reviewCountOf(run, '001') === 2 && parkedIds(run).includes('001'),
     mutant:      GRANT_ROUND_THREE_WITHOUT_CONVERGENCE,
   },
   {
     name:        'round 3 is refused when round 2 repeats a class an earlier round found',
     scenarioFor: () => roundThreeScenario([finding('naming', 'a.ts')]),
-    holds:       (run) => reviewsOf(run, '001') === 2 && parkedIds(run).includes('001'),
+    holds:       (run) => reviewCountOf(run, '001') === 2 && parkedIds(run).includes('001'),
     mutant:      GRANT_ROUND_THREE_WITHOUT_CONVERGENCE,
   },
   {
     name:        'round 3 is refused when round 2 names a file no earlier round named',
     scenarioFor: () => roundThreeScenario([finding('spacing', 'c.ts')]),
-    holds:       (run) => reviewsOf(run, '001') === 2 && parkedIds(run).includes('001'),
+    holds:       (run) => reviewCountOf(run, '001') === 2 && parkedIds(run).includes('001'),
     mutant:      GRANT_ROUND_THREE_WITHOUT_CONVERGENCE,
   },
   {
     name:        'round 3 is granted when round 2 converges: at most half the findings, a new class, known files',
     scenarioFor: () => roundThreeScenario([finding('spacing', 'a.ts'), finding('typing', 'b.ts')]),
-    holds:       (run) => reviewsOf(run, '001') === 3 && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.includes('001'),
+    holds:       (run) => reviewCountOf(run, '001') === 3 && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.includes('001'),
     mutant:      {
       modulePath: ROUND_VERDICT_UTIL,
       find:       '  return { granted: true };\n}\n\nexport const',
@@ -365,7 +363,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
         return { verdict: 'released' };
       },
     }),
-    holds:  (run) => reviewsOf(run, '001') === 4 && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.includes('001'),
+    holds:  (run) => reviewCountOf(run, '001') === 4 && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.includes('001'),
     mutant: {
       modulePath: ROUND_VERDICT_UTIL,
       find:       'const earlierFiles = new Set(earlierFindings.map((finding) => finding.file));',
@@ -380,7 +378,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       reviewerReply:     (_ticketId, round) => (round === 1 ? { verdict: 'round-requested', reworkedLines: 900, findings: [finding('naming', 'a.ts')] } : { verdict: 'released' }),
       agentMisbehaviour: (call) => (call.kind === 'review' && call.ordinal === 1 ? { replacesFields: { round: 3 } } : undefined),
     }),
-    holds:  (run) => reviewsOf(run, '001') === 1 && parkedIds(run).includes('001'),
+    holds:  (run) => reviewCountOf(run, '001') === 1 && parkedIds(run).includes('001'),
     mutant: {
       modulePath: DISPATCH_RUN,
       find:       'const round = reading.round === \'unstated\' ? work.round : reading.round;',
@@ -544,7 +542,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       reviewerReply:          (ticketId, round) => (ticketId === '001' && round === 1 ? null : { verdict: 'released' }),
       afterAgent:             (call, board) => { if (call.kind === 'review' && call.ticketId === '002') board.otherAgentsInFlight = 1; },
     }),
-    holds: (run) => reviewsOf(run, '001') === 2
+    holds: (run) => reviewCountOf(run, '001') === 2
       && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.length === 3
       && run.mostAgentsInFlightAtOnce === 2,
     mutant: {
@@ -590,7 +588,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       readyTicketIds: ['001', '002'],
       builderReply:   (ticketId, pass) => (ticketId === '001' && pass === 1 ? { outcome: 'claim-refused', detail: 'waits on #009' } : { outcome: 'in-review' }),
     }),
-    holds: (run) => reviewsOf(run, '001') === 0
+    holds: (run) => reviewCountOf(run, '001') === 0
       && run.calls.filter((call) => call.ticketId === '001').length === 1
       && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.join() === '002'
       && run.logs.some((message) => message.includes('#001 skipped for this run')),
@@ -662,7 +660,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       killedAtFirstCommandOf: 'review 001',
     }),
     holds: (run) => run.resumed
-      && reviewsOf(run, '001') === 2
+      && reviewCountOf(run, '001') === 2
       && run.reviewBarsAdded.join() === 'review 001'
       && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.join() === '001'
       && run.rowsRunningAtEnd.length === 0,
@@ -694,7 +692,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       restartedReviewerRound:     2,
       reviewerReply:              (_ticketId, round) => (round === 1 ? { verdict: 'round-requested', reworkedLines: 900 } : { verdict: 'released' }),
     }),
-    holds: (run) => reviewsOf(run, '001') === 2
+    holds: (run) => reviewCountOf(run, '001') === 2
       && run.rereviewsRun.join(', ') === 'rereview 001 round 2'
       && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.join() === '001'
       && run.rowsRunningAtEnd.length === 0,
@@ -703,7 +701,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
   {
     name:        'a release refused for a reason other than main-moved parks the ticket',
     scenarioFor: () => ({ limit: 2, readyTicketIds: ['001'], reviewerReply: () => ({ verdict: 'not-released', releaseReason: 'main-checkout-dirty' }) }),
-    holds:       (run) => reviewsOf(run, '001') === 1
+    holds:       (run) => reviewCountOf(run, '001') === 1
       && RecordedDispatchRunUtil.mainSummaryOf(run).parked.some((parkedTicket) => parkedTicket.reason.includes('main-checkout-dirty')),
     mutant: { modulePath: DISPATCH_RUN, find: 'reading.releaseRefusal !== \'main-moved\'', replace: 'false' },
   },

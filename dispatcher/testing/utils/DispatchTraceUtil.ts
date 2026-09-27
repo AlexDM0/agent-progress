@@ -1,42 +1,8 @@
-/** A dispatch run reduced to what two implementations of the dispatcher must agree on, in a form a frozen table can hold and compare. */
-import type { RecordedAgentCall, RecordedDispatchRun } from './DispatchScriptHarness.ts';
+import type { DispatchTrace }                          from '../@types/DispatchTrace.ts';
+import type { RecordedAgentCall, RecordedDispatchRun } from '../@types/RecordedDispatchRun.ts';
+import { DIGEST_LENGTH_CHARACTERS }                    from '../constants/DispatchTraceFormat.ts';
 
-const DIGEST_LENGTH_CHARACTERS = 16;
-
-export interface DispatchTrace {
-  /** One per agent call, across the main, racing and relaunch runs in the order the board saw them: run|kind|ticket|ordinal|model|effort|label|phase|
-   * schema digest|prompt digest|status blocks before|logs before. */
-  calls:               string[];
-  /** run|title */
-  phasesEntered:       string[];
-  logs:                string[];
-  racingLogs:          string[];
-  relaunchLogs:        string[];
-  /** `null` when the main run threw. */
-  summaryJson:         string | null;
-  racingSummaryJson:   string | null;
-  relaunchSummaryJson: string | null;
-  threw:               string | null;
-  counts:              {
-    mostAgentsAtOnce:         number;
-    mostAgentsInFlightAtOnce: number;
-    mostLiveAgentsAtOnce:     number;
-    mostAgentsOnBoardAtOnce:  number;
-  };
-  statusSide:          {
-    buildersOnBoard:       string[];
-    slotGaps:              string[];
-    rowsRunningAtEnd:      string[];
-    rowsPaused:            string[];
-    reviewBarsAdded:       string[];
-    rereviewsRun:          string[];
-    heldTicketIdsReturned: string[][];
-  };
-  ranAway: boolean;
-  resumed: boolean;
-}
-
-export function digestOf(text: string): string {
+function digestOf(text: string): string {
   return new Bun.CryptoHasher('sha256').update(text).digest('hex').slice(0, DIGEST_LENGTH_CHARACTERS);
 }
 
@@ -70,11 +36,11 @@ function callTextOf(call: RecordedAgentCall): string {
   ].join(CALL_TEXT_FIELD_SEPARATOR);
 }
 
-export function promptDigestOfCallText(callText: string): string | undefined {
+function promptDigestOfCallText(callText: string): string | undefined {
   return callText.split(CALL_TEXT_FIELD_SEPARATOR)[PROMPT_DIGEST_FIELD_INDEX];
 }
 
-export function traceOf(run: RecordedDispatchRun): DispatchTrace {
+function traceOf(run: RecordedDispatchRun): DispatchTrace {
   return {
     calls:               run.calls.map(callTextOf),
     phasesEntered:       run.phasesEntered.map((phaseEntered) => `${phaseEntered.run}|${fieldTextOf(phaseEntered.title)}`),
@@ -104,3 +70,5 @@ export function traceOf(run: RecordedDispatchRun): DispatchTrace {
     resumed: run.resumed,
   };
 }
+
+export const DispatchTraceUtil = { digestOf, promptDigestOfCallText, traceOf } as const;

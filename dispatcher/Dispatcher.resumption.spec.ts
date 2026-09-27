@@ -6,9 +6,10 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { builtScriptTextOf, bundleDispatchScript }     from './testing/DispatchScriptBundle.ts';
-import { runDispatchScript, type RecordedDispatchRun } from './testing/DispatchScriptHarness.ts';
-import { RESUMPTION_CLAIMS }                           from './testing/claims/ResumptionClaims.ts';
+import type { RecordedDispatchRun }                from './testing/@types/RecordedDispatchRun.ts';
+import { builtScriptTextOf, bundleDispatchScript } from './testing/DispatchScriptBundle.ts';
+import { runDispatchScript }                       from './testing/DispatchScriptHarness.ts';
+import { RESUMPTION_CLAIMS }                       from './testing/claims/ResumptionClaims.ts';
 
 const BUNDLE = await bundleDispatchScript();
 

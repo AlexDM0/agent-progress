@@ -1,5 +1,5 @@
 /**
- * The built Workflow script's shape, read through `dispatcher/testing/WorkflowScriptSource.ts`: a pure meta equal as a value to the frozen
+ * The built Workflow script's shape, read through `dispatcher/testing/utils/WorkflowScriptSourceUtil.ts`: a pure meta equal as a value to the frozen
  * table's, no clock or randomness, no top-level binding that shadows a Workflow global, the same text on every build with no path of the
  * checkout in it, and one agent() call. Each guard is watched failing on a form planted in the bundle, since a clean verdict on its own proves nothing.
  */
@@ -9,14 +9,9 @@ import { describe, expect, test } from 'bun:test';
 
 import { DISPATCH_META }                                                            from './DispatchMeta.ts';
 import { DispatchScriptBundleBookkeeping, builtScriptTextOf, bundleDispatchScript } from './testing/DispatchScriptBundle.ts';
-import { WORKFLOW_GLOBAL_NAMES }                                                    from './testing/DispatchScriptHarness.ts';
 import { readFrozenDispatchTraces }                                                 from './testing/DispatchTraceCapture.ts';
-import {
-  metaLiteralValueOf,
-  metaLiteralVerdictOf,
-  nondeterministicCallsIn,
-  topLevelBindingsNamed,
-} from './testing/WorkflowScriptSource.ts';
+import { WORKFLOW_GLOBAL_NAMES }                                                    from './testing/constants/WorkflowGlobalNames.ts';
+import { WorkflowScriptSourceUtil }                                                 from './testing/utils/WorkflowScriptSourceUtil.ts';
 
 const BUNDLE_TEXT = builtScriptTextOf(await bundleDispatchScript());
 
@@ -42,26 +37,26 @@ describe('the built dispatcher script', () => {
 
   test('carries a pure meta whose value is DISPATCH_META and the frozen table\'s meta, key order included', () => {
     const frozenMeta = readFrozenDispatchTraces().meta;
-    const metaRead = metaLiteralValueOf(BUNDLE_TEXT);
-    expect(metaLiteralVerdictOf(BUNDLE_TEXT).verdict).toBe('pure');
+    const metaRead = WorkflowScriptSourceUtil.metaLiteralValueOf(BUNDLE_TEXT);
+    expect(WorkflowScriptSourceUtil.metaLiteralVerdictOf(BUNDLE_TEXT).verdict).toBe('pure');
     expect(metaRead).toEqual({ verdict: 'value', value: DISPATCH_META });
     expect(metaRead).toEqual({ verdict: 'value', value: frozenMeta });
     expect(metaRead.verdict === 'value' ? JSON.stringify(metaRead.value) : null).toBe(JSON.stringify(frozenMeta));
   });
 
   test('its meta walk reaches more than 15 literal nodes', () => {
-    const verdict = metaLiteralVerdictOf(BUNDLE_TEXT);
+    const verdict = WorkflowScriptSourceUtil.metaLiteralVerdictOf(BUNDLE_TEXT);
     expect(verdict.verdict === 'pure' ? verdict.literalNodeCount : 0).toBeGreaterThan(LITERAL_NODE_FLOOR);
   });
 
   test('an impurity planted in its meta is caught', () => {
     expect(BUNDLE_TEXT.split(META_NAME_LINE)).toHaveLength(2);
     const source = BUNDLE_TEXT.replace(META_NAME_LINE, '"name": `agent-progress-${1}`,');
-    expect(metaLiteralVerdictOf(source).verdict).toBe('impure');
+    expect(WorkflowScriptSourceUtil.metaLiteralVerdictOf(source).verdict).toBe('impure');
   });
 
   test('calls no clock and no randomness', () => {
-    expect(nondeterministicCallsIn(BUNDLE_TEXT)).toEqual([]);
+    expect(WorkflowScriptSourceUtil.nondeterministicCallsIn(BUNDLE_TEXT)).toEqual([]);
   });
 
   test.each([
@@ -71,18 +66,18 @@ describe('the built dispatcher script', () => {
     ['const plantedStamp = Date();', 'Date()'],
   ])('a clock or randomness planted in its body (%s) is caught', (statement, expectedForm) => {
     const { source, plantedLine } = plantedBeforeTheRunnerCall(statement);
-    expect(nondeterministicCallsIn(source)).toEqual([`${expectedForm} at line ${plantedLine}`]);
+    expect(WorkflowScriptSourceUtil.nondeterministicCallsIn(source)).toEqual([`${expectedForm} at line ${plantedLine}`]);
   });
 
   // The floor proves the walk reaches the body's own declarations, so an empty answer below means none shadows a global.
   test('binds no Workflow global at its top level, though its own declarations are found there', () => {
-    expect(topLevelBindingsNamed(BUNDLE_TEXT, NAMES_DECLARED_AT_THE_BUNDLE_TOP_LEVEL)).toHaveLength(NAMES_DECLARED_AT_THE_BUNDLE_TOP_LEVEL.length);
-    expect(topLevelBindingsNamed(BUNDLE_TEXT, WORKFLOW_GLOBAL_NAMES)).toEqual([]);
+    expect(WorkflowScriptSourceUtil.topLevelBindingsNamed(BUNDLE_TEXT, NAMES_DECLARED_AT_THE_BUNDLE_TOP_LEVEL)).toHaveLength(NAMES_DECLARED_AT_THE_BUNDLE_TOP_LEVEL.length);
+    expect(WorkflowScriptSourceUtil.topLevelBindingsNamed(BUNDLE_TEXT, WORKFLOW_GLOBAL_NAMES)).toEqual([]);
   });
 
   test.each([...WORKFLOW_GLOBAL_NAMES])('the Workflow global %s planted as a top-level binding in its body is caught', (globalName) => {
     const { source, plantedLine } = plantedBeforeTheRunnerCall(`let ${globalName};`);
-    expect(topLevelBindingsNamed(source, WORKFLOW_GLOBAL_NAMES)).toEqual([`${globalName} at line ${plantedLine}`]);
+    expect(WorkflowScriptSourceUtil.topLevelBindingsNamed(source, WORKFLOW_GLOBAL_NAMES)).toEqual([`${globalName} at line ${plantedLine}`]);
   });
 
   test('is the same text on a second build, and names no path of the checkout', async () => {
