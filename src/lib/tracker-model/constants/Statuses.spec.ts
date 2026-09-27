@@ -4,9 +4,9 @@
  */
 import { expect, test } from 'bun:test';
 
+import type { TupleCoversTheUnion }       from '../../../testing/TupleCoversTheUnion.ts';
 import type { TaskStatus }                from '../@types/Task.ts';
 import type { TicketStatus }              from '../@types/Ticket.ts';
-import type { TupleCoversTheUnion }       from '../@types/TupleCoversTheUnion.ts';
 import { VocabularyUtil }                 from '../utils/VocabularyUtil.ts';
 import { TASK_STATUSES, TICKET_STATUSES } from './Statuses.ts';
 
