@@ -313,8 +313,6 @@ bun.lock                    the lockfile, committed
 .readme-graphics/           git-ignored, owner's checkout only: the demo board that redraws docs/images/
 CLAUDE.md                   this file
 README.md                   the GitHub landing page
-README-keynote.md           the same page in a keynote layout, kept for comparison
-README-day-on-the-board.md  the same page told as one day on a board, kept for comparison
 setup.sh                    machine setup: Bun, bun install and bun link, and the skill symlinks
 cli/                        the command surface: dispatch, arguments, help, the install version check, and the commands
                             grouped into sets: tracking/, tickets/, dispatch/, adoption/ and measurement/; cli/utils/

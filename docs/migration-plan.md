@@ -334,8 +334,7 @@ parts are dropped.
 - **The dispatch protocol constants** (call budgets, rework threshold, claim-note format, release
   refusal reasons) have two consumers, cli/ and dispatcher/, so they go to src/shared by the
   hoisting rule.
-- **The README** kept is `README.md`. `README-keynote.md` and `README-day-on-the-board.md` are
-  deleted in step 9.
+- **The README** kept is `README.md`; the two alternative layouts beside it were deleted in step 9.
 - **The page payload carries the board facts** (§2 "The page"). The alternative, running the Board
   in the browser, was not chosen.
 
