@@ -35,6 +35,7 @@ import { runCommandLine }               from '../../Main.ts';
 import { INSTALL_VERSION }              from '../../constants/InstallVersion.ts';
 import { createCapturedCommandContext } from '../../testing/CapturedCommandContext.ts';
 import { repositoryFileContentsOf }     from '../../testing/RepositoryFileContents.ts';
+import { storedProgressOf }             from '../../testing/StoredProgress.ts';
 import { installedFileTextsFor }        from '../InstalledFileGeneration.ts';
 import { CLAUDE_MANAGED_BLOCK_MARKERS } from '../constants/ClaudeManagedBlockMarkers.ts';
 
@@ -112,7 +113,7 @@ describe.skipIf(!gitIsAvailable())('initialising a repository', () => {
 
     await runCommandLine(['init'], context);
 
-    const stored = JSON.parse(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')) as { project: string };
+    const stored = storedProgressOf(repositoryDirectory);
     expect(repositoryDirectory.endsWith(stored.project)).toBe(true);
   });
 
@@ -251,8 +252,7 @@ describe.skipIf(!gitIsAvailable())('a second init', () => {
     const repositoryDirectory = scratchRepository();
     const first = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
     await runCommandLine(['init'], first);
-    const progressFilePath = join(repositoryDirectory, '.agent-progress', 'progress.json');
-    const trackerIdBefore  = (JSON.parse(readFileSync(progressFilePath, 'utf8')) as { trackerId: string }).trackerId;
+    const trackerIdBefore = storedProgressOf(repositoryDirectory).trackerId;
 
     const claudeFilePath = join(repositoryDirectory, 'CLAUDE.md');
     writeFileSync(claudeFilePath, `${CLAUDE_MANAGED_BLOCK_MARKERS.start}\n<!-- agent-progress:managed:end -->\n`);
@@ -268,7 +268,7 @@ describe.skipIf(!gitIsAvailable())('a second init', () => {
     expect(readFileSync(claudeFilePath, 'utf8')).toContain('agent-progress');
     expect(readFileSync(briefFilePath, 'utf8'), 'the brief is shipped guidance, so a re-run restores the current wording').toStartWith('# Agent brief');
     // The tracker id is the page's localStorage key, so a re-run that reset it would reset every reader's stored range.
-    expect((JSON.parse(readFileSync(progressFilePath, 'utf8')) as { trackerId: string }).trackerId).toBe(trackerIdBefore);
+    expect(storedProgressOf(repositoryDirectory).trackerId).toBe(trackerIdBefore);
   });
 
   test('one directory below an existing tracker is refused with exit 1 and names where the tracker is', async () => {

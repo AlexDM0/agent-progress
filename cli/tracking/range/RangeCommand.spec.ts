@@ -1,8 +1,8 @@
 /**
  * The stored default axis: a relative bound is kept verbatim, so `--from -2h` still means the last two hours on the next refresh.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
-import { join }                        from 'node:path';
+import { writeFileSync } from 'node:fs';
+import { join }          from 'node:path';
 
 import {
   afterEach,
@@ -11,11 +11,11 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import type { TrackerProgress }                                               from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
 import { runCommandLine }                                                     from '../../Main.ts';
 import { createCapturedCommandContext }                                       from '../../testing/CapturedCommandContext.ts';
 import { storedLogEntriesOf }                                                 from '../../testing/StoredLogEntries.ts';
+import { storedProgressOf }                                                   from '../../testing/StoredProgress.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -32,10 +32,6 @@ async function run(commandLineArguments: readonly string[]): Promise<ReturnType<
   return context;
 }
 
-function storedView(): TrackerProgress['view'] {
-  return (JSON.parse(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')) as TrackerProgress).view;
-}
-
 beforeEach(async () => {
   repositoryDirectory = createScratchGitRepository('range-command');
   await run(['init', '--project', 'Example Agency']);
@@ -49,7 +45,7 @@ describe.skipIf(!gitIsAvailable())('storing a range', () => {
   test('two relative bounds are stored as written, under the relative kind', async () => {
     const context = await run(['range', '--from', '-2h', '--to', 'now', '--tick', '15m']);
 
-    expect(storedView()).toEqual({
+    expect(storedProgressOf(repositoryDirectory).view).toEqual({
       kind:        'relative',
       from:        '-2h',
       to:          'now',
@@ -61,7 +57,7 @@ describe.skipIf(!gitIsAvailable())('storing a range', () => {
   test('two timestamps are stored as absolute and normalised to one spelling', async () => {
     await run(['range', '--from', '2026-09-18T09:00', '--to', '2026-09-18T18:00']);
 
-    const view = storedView();
+    const { view } = storedProgressOf(repositoryDirectory);
     expect(view.kind).toBe('absolute');
     expect(view.kind === 'absolute' ? view.from : '').toMatch(/^2026-09-18T09:00:00[+-]\d{2}:\d{2}$/);
     expect(view.kind === 'absolute' ? view.tickMinutes : 0).toBeNull();
@@ -71,7 +67,7 @@ describe.skipIf(!gitIsAvailable())('storing a range', () => {
   test('one timestamp and one relative bound are stored together, under the relative kind', async () => {
     await run(['range', '--from', '2026-09-18T09:00', '--to', 'now']);
 
-    const view = storedView();
+    const { view } = storedProgressOf(repositoryDirectory);
     expect(view.kind).toBe('relative');
     expect(view.kind === 'relative' ? view.to : '').toBe('now');
     expect(view.kind === 'relative' ? view.from : '').toContain('2026-09-18T09:00:00');
@@ -82,7 +78,7 @@ describe.skipIf(!gitIsAvailable())('storing a range', () => {
 
     const context = await run(['range', '--auto']);
 
-    expect(storedView()).toEqual({ kind: 'auto' });
+    expect(storedProgressOf(repositoryDirectory).view).toEqual({ kind: 'auto' });
     expect(context.outputText()).toContain('automatic');
   });
 });
@@ -94,7 +90,7 @@ describe.skipIf(!gitIsAvailable())('refusals', () => {
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('is not a range bound');
-    expect(storedView()).toEqual({ kind: 'auto' });
+    expect(storedProgressOf(repositoryDirectory).view).toEqual({ kind: 'auto' });
   });
 
   test('a tick that is not a duration is refused rather than laid out as zero', async () => {
@@ -128,7 +124,7 @@ describe.skipIf(!gitIsAvailable())('refusals', () => {
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('drop --from, --to and --tick');
-    expect(storedView().kind).toBe('relative');
+    expect(storedProgressOf(repositoryDirectory).view.kind).toBe('relative');
   });
 });
 
@@ -150,7 +146,7 @@ describe.skipIf(!gitIsAvailable())('the two bounds a range cannot have', () => {
       expect(exitCode, `${from} → ${to}`).toBe(1);
       expect(context.errorText(), `${from} → ${to}`).toContain('is not before --to');
     }
-    expect(storedView()).toEqual({ kind: 'auto' });
+    expect(storedProgressOf(repositoryDirectory).view).toEqual({ kind: 'auto' });
   });
 
   // Both ends move with the clock together, so their order is the same at every refresh and a backwards pair is backwards for good.
@@ -162,19 +158,19 @@ describe.skipIf(!gitIsAvailable())('the two bounds a range cannot have', () => {
       expect(exitCode, `${from} → ${to}`).toBe(1);
       expect(context.errorText(), `${from} → ${to}`).toContain('is not before --to');
     }
-    expect(storedView()).toEqual({ kind: 'auto' });
+    expect(storedProgressOf(repositoryDirectory).view).toEqual({ kind: 'auto' });
   });
 
   test('a relative pair in order is stored as written', async () => {
     await run(['range', '--from', '-2h', '--to', 'now']);
-    expect(storedView()).toMatchObject({ kind: 'relative', from: '-2h', to: 'now' });
+    expect(storedProgressOf(repositoryDirectory).view).toMatchObject({ kind: 'relative', from: '-2h', to: 'now' });
   });
 
   /** `start` is the earliest visible row, which only the page knows, and a mixed pair's order would be decided by the clock. */
   test('a pair naming start, or mixing a timestamp with a relative bound, is not judged', async () => {
     await run(['range', '--from', 'now', '--to', 'start']);
     await run(['range', '--from', '2026-09-19T09:00', '--to', 'now']);
-    expect(storedView()).toMatchObject({ kind: 'relative', to: 'now' });
+    expect(storedProgressOf(repositoryDirectory).view).toMatchObject({ kind: 'relative', to: 'now' });
   });
 });
 
