@@ -9,6 +9,7 @@ import { join }                        from 'node:path';
 import { afterAll, expect, test }      from 'bun:test';
 
 import { TASK_STATUSES }                                  from '../../lib/tracker-model/constants/Statuses.ts';
+import { JsonRecordUtil }                                 from '../../lib/utils/JsonRecordUtil.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
 import type { StoredProgressFile }                        from './@types/StoredProgressFile.ts';
 import { ProgressFileIngestion }                          from './ProgressFileIngestion.ts';
@@ -76,6 +77,12 @@ function scratchProgressFilePath(prefix: string): string {
   return join(directory, 'progress.json');
 }
 
+function validatedDocumentOf(storedText: string): StoredProgressFile {
+  const reading = ProgressFileValidationUtil.readingOf(JSON.parse(storedText));
+  if (reading.verdict === 'unreadable') throw new Error(reading.reason);
+  return reading.document;
+}
+
 test('a current document reads to exactly what the mapper makes of it, carries no log over, is not in an older format, and keeps its bytes', () => {
   const progressFilePath = scratchProgressFilePath('legacy-seam-current');
   const storedText       = currentDocumentText();
@@ -84,7 +91,7 @@ test('a current document reads to exactly what the mapper makes of it, carries n
   const reading = new ProgressFileIngestion(progressFilePath).read();
   expect(reading).toEqual({
     verdict:               'readable',
-    progress:              ProgressFileMappingUtil.progressOf(JSON.parse(storedText) as StoredProgressFile),
+    progress:              ProgressFileMappingUtil.progressOf(validatedDocumentOf(storedText)),
     carriedOverLog:        null,
     fileIsInAnOlderFormat: false,
   });
@@ -96,10 +103,10 @@ test('a current document reads to exactly what the mapper makes of it, carries n
 
 test('a malformed current document is refused with the current validator\'s reason', () => {
   const malformedDocuments: unknown[] = [
-    { ...(JSON.parse(currentDocumentText()) as Record<string, unknown>), nextTaskId: 0 },
-    { ...(JSON.parse(currentDocumentText()) as Record<string, unknown>), log: [] },
-    { ...(JSON.parse(currentDocumentText()) as Record<string, unknown>), tasks: [storedRow(1, { status: 'blocked' })] },
-    { ...(JSON.parse(currentDocumentText()) as Record<string, unknown>), tasks: [storedRow(1, { reviewOf: 3 })] },
+    { ...JsonRecordUtil.recordOf(JSON.parse(currentDocumentText())), nextTaskId: 0 },
+    { ...JsonRecordUtil.recordOf(JSON.parse(currentDocumentText())), log: [] },
+    { ...JsonRecordUtil.recordOf(JSON.parse(currentDocumentText())), tasks: [storedRow(1, { status: 'blocked' })] },
+    { ...JsonRecordUtil.recordOf(JSON.parse(currentDocumentText())), tasks: [storedRow(1, { reviewOf: 3 })] },
     [1, 2, 3],
   ];
   for (const document of malformedDocuments) {

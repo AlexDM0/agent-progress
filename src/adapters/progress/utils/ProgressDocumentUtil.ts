@@ -8,13 +8,9 @@ import { EMBEDDED_LOG_PROGRESS_FILE_VERSION } from '../constants/ProgressFileVer
  * worded log directly after `tasks`.
  */
 function documentOf<Entry extends WordedLogEntry>(progress: TrackerProgress, log: readonly Entry[]): ProgressDocument<Entry> {
-  const entries: [string, unknown][] = [['version', EMBEDDED_LOG_PROGRESS_FILE_VERSION]];
-  for (const [key, value] of Object.entries(progress)) {
-    entries.push([key, value]);
-    if (key === 'tasks') entries.push(['log', [...log]]);
-  }
-  // A walk that keeps key order loses the types; it carries every key of the progress plus `version` and `log`, which is what the type states.
-  return Object.fromEntries(entries) as unknown as ProgressDocument<Entry>;
+  const keyOrder                             = ['version', ...Object.keys(progress).flatMap((key) => (key === 'tasks' ? [key, 'log'] : [key]))];
+  const keyedInOrder: Record<string, unknown> = Object.fromEntries(keyOrder.map((key) => [key, undefined]));
+  return Object.assign(keyedInOrder, progress, { version: EMBEDDED_LOG_PROGRESS_FILE_VERSION, log: [...log] });
 }
 
 export const ProgressDocumentUtil = { documentOf } as const;

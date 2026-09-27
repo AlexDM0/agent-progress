@@ -5,7 +5,6 @@ import { storedFileTextOf }           from '../StoredFileText.ts';
 import { ProgressFileUpgradeUtil }    from '../legacy/utils/ProgressFileUpgradeUtil.ts';
 import { StoredValueUtil }            from '../utils/StoredValueUtil.ts';
 import type { ProgressFileMigration } from './@types/ProgressFileMigration.ts';
-import type { StoredProgressFile }    from './@types/StoredProgressFile.ts';
 import { ProgressFileMappingUtil }    from './utils/ProgressFileMappingUtil.ts';
 import { ProgressFileValidationUtil } from './utils/ProgressFileValidationUtil.ts';
 
@@ -41,9 +40,9 @@ export class ProgressFileIngestion {
     if (migration.verdict === 'unreadable') return migration;
     const document = migration.verdict === 'migrated' ? migration.document : parsed;
 
-    const problem = ProgressFileValidationUtil.documentProblemOf(document);
-    if (problem !== null) return { verdict: 'unreadable', reason: problem };
-    const progress       = ProgressFileMappingUtil.progressOf(document as StoredProgressFile);
+    const validated = ProgressFileValidationUtil.readingOf(document);
+    if (validated.verdict === 'unreadable') return validated;
+    const progress       = ProgressFileMappingUtil.progressOf(validated.document);
     const carriedOverLog = migration.verdict === 'migrated' ? migration.carriedOverLog : null;
     return {
       verdict:               'readable',

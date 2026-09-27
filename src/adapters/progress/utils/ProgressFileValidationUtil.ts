@@ -8,7 +8,7 @@ import { BoardSettingsUtil }                                 from '../../../lib/
 import { VocabularyUtil }                                    from '../../../lib/tracker-model/utils/VocabularyUtil.ts';
 import { JsonRecordUtil }                                    from '../../../lib/utils/JsonRecordUtil.ts';
 import { StoredValueUtil }                                   from '../../utils/StoredValueUtil.ts';
-import type { StoredTaskPhase }                              from '../@types/StoredProgressFile.ts';
+import type { StoredProgressFile, StoredTaskPhase }          from '../@types/StoredProgressFile.ts';
 import { CURRENT_PROGRESS_FILE_VERSION }                     from '../constants/ProgressFileVersions.ts';
 
 function textFieldIsPresent(candidate: Record<string, unknown>, field: string): boolean {
@@ -49,7 +49,7 @@ function taskHistoryIsWellFormed(value: unknown): value is StoredTaskPhase[] {
 function taskProblem(value: unknown, index: number): string | null {
   // An array row is let through to the field checks, so its reason names the first field it lacks.
   if (typeof value !== 'object' || value === null) return `tasks[${index}] is not an object`;
-  const task = value as Record<string, unknown>;
+  const task: Record<string, unknown> = { ...value };
   if (!StoredValueUtil.valueIsAWholeNumber(task['id'])) return `tasks[${index}].id is not a whole number`;
   if (!textFieldIsPresent(task, 'name')) return `tasks[${index}].name is not a string`;
   if (!taskStatusIsKnown(task['status'])) {
@@ -117,7 +117,21 @@ function taskRowsProblemOf(tasks: readonly unknown[]): string | null {
 function documentProblemOf(parsed: unknown): string | null {
   const headerProblem = documentHeaderProblemOf(parsed);
   if (headerProblem !== null) return headerProblem;
-  return taskRowsProblemOf((parsed as { tasks: unknown[] }).tasks);
+  const tasks = JsonRecordUtil.recordOf(parsed)?.['tasks'];
+  return Array.isArray(tasks) ? taskRowsProblemOf(tasks) : 'tasks is not an array';
 }
 
-export const ProgressFileValidationUtil = { documentProblemOf, documentHeaderProblemOf, taskRowsProblemOf } as const;
+/** The checks above are the stored format's type written as checks, so a document they find nothing wrong with is one of that type. */
+function documentIsStored(parsed: unknown, problemFound: string | null): parsed is StoredProgressFile {
+  return problemFound === null && JsonRecordUtil.valueIsAPlainObject(parsed);
+}
+
+function readingOf(parsed: unknown): { verdict: 'readable'; document: StoredProgressFile } | { verdict: 'unreadable'; reason: string } {
+  const problem = documentProblemOf(parsed);
+  if (problem !== null) return { verdict: 'unreadable', reason: problem };
+  return documentIsStored(parsed, problem) ? { verdict: 'readable', document: parsed } : { verdict: 'unreadable', reason: 'the document is not in the current format' };
+}
+
+export const ProgressFileValidationUtil = {
+  documentProblemOf, documentHeaderProblemOf, taskRowsProblemOf, readingOf
+} as const;

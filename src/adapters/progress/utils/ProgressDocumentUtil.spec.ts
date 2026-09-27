@@ -30,16 +30,9 @@ function progressWithSettingsAfterTheLog(): TrackerProgress {
   return progress;
 }
 
-/** Parsed from text, since a typed literal cannot hold a key the type does not know. */
+/** Assembled rather than written as a literal, since a typed literal cannot hold a key the type does not know. */
 function progressWithUnknownKeys(): TrackerProgress {
-  const progress = emptyProgress();
-  const text = JSON.stringify({
-    unknownLeadingKey: 'kept',
-    ...progress,
-    unknownMiddleKey:  { nested: true },
-    trailingKey:       'kept',
-  });
-  return JSON.parse(text) as TrackerProgress;
+  return Object.assign({ unknownLeadingKey: 'kept' }, emptyProgress(), { unknownMiddleKey: { nested: true }, trailingKey: 'kept' });
 }
 
 test('version 1 comes first, whatever the progress holds', () => {
