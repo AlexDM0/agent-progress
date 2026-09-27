@@ -60,7 +60,52 @@ function idNumberOf(card: KanbanCard): number {
   return Number(card.ticket.id);
 }
 
-/** Open lanes run high → normal → low, then by id as a number; the closed lanes newest first by their closing stamp, a tie to the higher id. */
+function priorityRankOf(card: KanbanCard): number {
+  return PRIORITY_ORDER[TicketDefaultsUtil.ticketPriorityOf(card.ticket)];
+}
+
+/** Every card of the band a card waits on, directly or through a chain, itself included when it sits on a cycle. */
+function reachableDependenciesOf(card: KanbanCard, bandById: ReadonlyMap<number, KanbanCard>): Set<KanbanCard> {
+  const reached = new Set<KanbanCard>();
+  const toVisit = [card];
+  for (let current = toVisit.pop(); current !== undefined; current = toVisit.pop()) {
+    for (const dependencyId of current.waitingOn) {
+      const dependency = bandById.get(Number(dependencyId));
+      if (dependency !== undefined && !reached.has(dependency)) {
+        reached.add(dependency);
+        toVisit.push(dependency);
+      }
+    }
+  }
+  return reached;
+}
+
+/**
+ * One priority band of To Do: the cards waiting on nothing by id, then the waiting cards, each after every card of the band it reaches, ties by
+ * id. A card is next once every unplaced card it reaches reaches it back, which on a cycle lets its members out in id order.
+ */
+function dependencyOrderOf(band: readonly KanbanCard[]): KanbanCard[] {
+  const byId = (a: KanbanCard, b: KanbanCard): number => idNumberOf(a) - idNumberOf(b);
+  const bandById = new Map(band.map((card) => [idNumberOf(card), card]));
+  const reachableByCard = new Map(band.map((card) => [card, reachableDependenciesOf(card, bandById)]));
+  const reaches = (from: KanbanCard, to: KanbanCard): boolean => reachableByCard.get(from)?.has(to) ?? false;
+  const ordered = band.filter((card) => card.waitingOn.length === 0).toSorted(byId);
+  let unplaced = band.filter((card) => card.waitingOn.length > 0).toSorted(byId);
+  while (unplaced.length > 0) {
+    const next = unplaced.find((card) => unplaced.every((other) => other === card || !reaches(card, other) || reaches(other, card))) ?? unplaced[0];
+    if (next === undefined) {
+      break;
+    }
+    ordered.push(next);
+    unplaced = unplaced.filter((card) => card !== next);
+  }
+  return ordered;
+}
+
+/**
+ * Open lanes run high → normal → low, then by id as a number, except that To Do orders each band by what its cards wait on; the closed lanes
+ * newest first by their closing stamp, a tie to the higher id.
+ */
 function cardsInLane(cards: readonly KanbanCard[], lane: KanbanLane): KanbanCard[] {
   const members = cards.filter((card) => laneOfState(card.state) === lane);
   if (laneIsClosed(lane)) {
@@ -70,10 +115,12 @@ function cardsInLane(cards: readonly KanbanCard[], lane: KanbanLane): KanbanCard
       return (Number.isNaN(newerFirst) ? 0 : newerFirst) || idNumberOf(b) - idNumberOf(a);
     });
   }
-  return members.toSorted((a, b) => {
-    const priorityDifference = PRIORITY_ORDER[TicketDefaultsUtil.ticketPriorityOf(a.ticket)] - PRIORITY_ORDER[TicketDefaultsUtil.ticketPriorityOf(b.ticket)];
-    return priorityDifference || idNumberOf(a) - idNumberOf(b);
-  });
+  const byPriorityThenId = members.toSorted((a, b) => priorityRankOf(a) - priorityRankOf(b) || idNumberOf(a) - idNumberOf(b));
+  if (lane !== 'todo') {
+    return byPriorityThenId;
+  }
+  const bandRanks = [...new Set(byPriorityThenId.map((card) => priorityRankOf(card)))];
+  return bandRanks.flatMap((rank) => dependencyOrderOf(byPriorityThenId.filter((card) => priorityRankOf(card) === rank)));
 }
 
 function laneIsDividedByPriority(lane: KanbanLane, members: readonly KanbanCard[]): boolean {

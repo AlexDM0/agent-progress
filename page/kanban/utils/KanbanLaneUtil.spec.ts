@@ -163,3 +163,52 @@ describe('the order within a lane', () => {
     expect(idsInLane(tickets, 'abandoned')).toEqual(['002', '008', '004']);
   });
 });
+
+describe('the To do order by waiting-on dependencies', () => {
+  function idsInLaneWaiting(tickets: readonly PageTicket[], waitingOn: ReadonlyArray<[string, string[]]>, lane: KanbanLane = 'todo'): string[] {
+    const cards = KanbanLaneUtil.kanbanCardsFor(pageBoardFixture({ tasks: [], tickets }).tickets, new Map(waitingOn));
+    return KanbanLaneUtil.cardsInLane(cards, lane).map((card) => card.ticket.id);
+  }
+
+  test('puts every card waiting on nothing before every waiting card of its band', () => {
+    const tickets = [exampleTicket('1'), exampleTicket('2'), exampleTicket('3')];
+
+    expect(idsInLaneWaiting(tickets, [['1', ['99']]])).toEqual(['2', '3', '1']);
+  });
+
+  test('puts a chain whose ids run against it in dependency order: #5 waits on #9 waits on #7 reads 7, 9, 5', () => {
+    const tickets = [exampleTicket('5'), exampleTicket('9'), exampleTicket('7')];
+
+    expect(idsInLaneWaiting(tickets, [['5', ['9']], ['9', ['7']]])).toEqual(['7', '9', '5']);
+  });
+
+  test('places a waiting card after a waiting card it depends on, and breaks the ties the dependencies leave open by the lower id', () => {
+    const tickets = [exampleTicket('1'), exampleTicket('2'), exampleTicket('3'), exampleTicket('4')];
+
+    expect(idsInLaneWaiting(tickets, [['2', ['4']], ['3', ['80']], ['4', ['81']]])).toEqual(['1', '3', '4', '2']);
+  });
+
+  test('keeps the bands contiguous: a dependency in another band places nothing', () => {
+    const tickets = [exampleTicket('1', { priority: 'high' }), exampleTicket('2', { priority: 'high' }), exampleTicket('3')];
+
+    expect(idsInLaneWaiting(tickets, [['1', ['3']], ['3', ['2']]])).toEqual(['2', '1', '3']);
+  });
+
+  test('shows each card of a two-card cycle once, in id order', () => {
+    const tickets = [exampleTicket('8'), exampleTicket('6')];
+
+    expect(idsInLaneWaiting(tickets, [['6', ['8']], ['8', ['6']]])).toEqual(['6', '8']);
+  });
+
+  test('still puts a card that waits on a cycle after the cycle', () => {
+    const tickets = [exampleTicket('1'), exampleTicket('5'), exampleTicket('6')];
+
+    expect(idsInLaneWaiting(tickets, [['1', ['5']], ['5', ['6']], ['6', ['5']]])).toEqual(['5', '6', '1']);
+  });
+
+  test('leaves the other open lanes in plain priority-then-id order', () => {
+    const tickets = [exampleTicket('5', { status: 'in-progress' }), exampleTicket('9', { status: 'in-progress' }), exampleTicket('7', { status: 'in-progress' })];
+
+    expect(idsInLaneWaiting(tickets, [['5', ['9']], ['9', ['7']]], 'progress')).toEqual(['5', '7', '9']);
+  });
+});
