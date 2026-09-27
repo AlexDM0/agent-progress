@@ -163,7 +163,7 @@ describe.skipIf(!gitIsAvailable())('starting the review bar with the move to rev
     expect(JSON.parse((await run(['ticket', 'show', '1', '--json'])).outputText())).toMatchObject({ status: 'in-progress' });
   });
 
-  // Only `release` used to close the bar, so a ticket abandoned, reopened or finished by hand kept its reviewer's slot taken and refused its own claim.
+  // A bar left running would keep the reviewer's slot taken and refuse the ticket's own claim.
   test('every move out of review closes the ticket\'s running bar with one log line, freeing its slot', async () => {
     const movesOutOfReview: string[][] = [
       ['ticket', 'abandon', '1', '--reason', 'superseded by #2'],

@@ -1,7 +1,7 @@
 import { TicketPhraseUtil }                      from '../../src/adapters/utils/TicketPhraseUtil.ts';
 import { OperationRefusal }                      from '../../src/shared/OperationRefusal.ts';
 import type { CommandContext }                   from '../CommandContext.ts';
-import { openTrackerForWritingThenReadNextLine } from '../TrackerWriting.ts';
+import { openTrackerForWritingThenReadNextLine } from '../OpenTrackerForWriting.ts';
 import type { ArgumentParser }                   from '../arguments/ArgumentParser.ts';
 import { OutputUtil }                            from '../utils/OutputUtil.ts';
 import type { TicketSubcommandHandler }          from './@types/TicketSubcommandHandler.ts';

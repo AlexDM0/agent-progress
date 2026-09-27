@@ -12,7 +12,9 @@ import { resourceFilePathOf }                              from '../../src/share
 import { DISPATCH_PROTOCOL }                               from '../../src/shared/constants/DispatchProtocol.ts';
 import { TemplatePlaceholderUtil }                         from '../utils/TemplatePlaceholderUtil.ts';
 
-const DISPATCHER_DIRECTORY = join(import.meta.dir, '..', '..', 'dispatcher');
+function dispatcherDirectory(): string {
+  return join(import.meta.dir, '..', '..', 'dispatcher');
+}
 
 export interface InstalledFileTexts {
   agentBrief:                  string;
@@ -27,7 +29,7 @@ export function dispatcherScriptTextOf(bundle: WorkflowScriptBundle): string {
   if (bundle.verdict === 'failed') {
     throw new OperationRefusal(
       'unrepaired',
-      `The dispatcher script could not be generated from ${DISPATCHER_DIRECTORY} (${bundle.reason}: ${bundle.detail}), so nothing was written.`,
+      `The dispatcher script could not be generated from ${dispatcherDirectory()} (${bundle.reason}: ${bundle.detail}), so nothing was written.`,
     );
   }
   return bundle.scriptText;
@@ -40,8 +42,8 @@ function templateTextOf(templateFileName: string): string {
 export async function installedFileTextsFor(request: { generatesTheDispatcherScript: boolean }): Promise<InstalledFileTexts> {
   const dispatcherScript = request.generatesTheDispatcherScript
     ? dispatcherScriptTextOf(await bundleWorkflowScript({
-      entryPath:      join(DISPATCHER_DIRECTORY, 'DispatchScript.ts'),
-      metaModulePath: join(DISPATCHER_DIRECTORY, 'DispatchMeta.ts'),
+      entryPath:      join(dispatcherDirectory(), 'DispatchScript.ts'),
+      metaModulePath: join(dispatcherDirectory(), 'DispatchMeta.ts'),
       metaExportName: 'DISPATCH_META',
     }))
     : null;

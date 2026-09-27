@@ -29,7 +29,7 @@ const SHOW_OPTION_NAMES = ['json'];
 
 const TICKET_STATUSES_THAT_CLOSE_A_TICKET: readonly TicketStatus[] = ['reviewed', 'delivered', 'abandoned'];
 
-const LIST_COLUMN_WIDTHS = {
+const LIST_COLUMN_WIDTHS_CHARACTERS = {
   identifier: 6,
   status:     12,
   priority:   8,
@@ -42,9 +42,12 @@ function requireTicketToShow(workspace: Workspace, reference: string): Ticket {
   return readTicket(workspace, reference) ?? TicketLookupUtil.refuseAMissingTicket(reference, listTickets(workspace).malformed);
 }
 
+function statusByIdOf(tickets: readonly Ticket[]): Map<string, TicketStatus> {
+  return new Map(tickets.map((candidate) => [candidate.frontmatter.id, candidate.frontmatter.status]));
+}
+
 function unsettledDependenciesFor(ticket: Ticket, tickets: readonly Ticket[]): string[] {
-  const statusById = new Map(tickets.map((candidate) => [candidate.frontmatter.id, candidate.frontmatter.status]));
-  return TicketDependencyUtil.unsettledDependenciesOf(ticket.frontmatter.dependsOn ?? [], statusById);
+  return TicketDependencyUtil.unsettledDependenciesOf(ticket.frontmatter.dependsOn ?? [], statusByIdOf(tickets));
 }
 
 function ticketIsStillOpen(ticket: Ticket): boolean {
@@ -95,21 +98,21 @@ async function listAllTickets(commandArguments: ArgumentParser, context: Command
   }
 
   const header = [
-    OutputUtil.padColumn('id', LIST_COLUMN_WIDTHS.identifier),
-    OutputUtil.padColumn('status', LIST_COLUMN_WIDTHS.status),
-    OutputUtil.padColumn('priority', LIST_COLUMN_WIDTHS.priority),
-    OutputUtil.padColumn('type', LIST_COLUMN_WIDTHS.type),
-    OutputUtil.padColumn('task', LIST_COLUMN_WIDTHS.task),
+    OutputUtil.padColumn('id', LIST_COLUMN_WIDTHS_CHARACTERS.identifier),
+    OutputUtil.padColumn('status', LIST_COLUMN_WIDTHS_CHARACTERS.status),
+    OutputUtil.padColumn('priority', LIST_COLUMN_WIDTHS_CHARACTERS.priority),
+    OutputUtil.padColumn('type', LIST_COLUMN_WIDTHS_CHARACTERS.type),
+    OutputUtil.padColumn('task', LIST_COLUMN_WIDTHS_CHARACTERS.task),
     'title',
   ].join('');
   const rows = shown.map((ticket) => {
     const unsettled = unsettledDependenciesFor(ticket, listing.tickets);
     return [
-      OutputUtil.padColumn(`#${ticket.frontmatter.id}`, LIST_COLUMN_WIDTHS.identifier),
-      OutputUtil.padColumn(StatusWordingUtil.statusWordFor(ticket.frontmatter.status), LIST_COLUMN_WIDTHS.status),
-      OutputUtil.padColumn(StatusWordingUtil.priorityWordFor(TicketDefaultsUtil.ticketPriorityOf(ticket.frontmatter)), LIST_COLUMN_WIDTHS.priority),
-      OutputUtil.padColumn(StatusWordingUtil.ticketTypeWordFor(ticket.frontmatter.type), LIST_COLUMN_WIDTHS.type),
-      OutputUtil.padColumn(ticket.frontmatter.task === null ? '-' : `#${ticket.frontmatter.task}`, LIST_COLUMN_WIDTHS.task),
+      OutputUtil.padColumn(`#${ticket.frontmatter.id}`, LIST_COLUMN_WIDTHS_CHARACTERS.identifier),
+      OutputUtil.padColumn(StatusWordingUtil.statusWordFor(ticket.frontmatter.status), LIST_COLUMN_WIDTHS_CHARACTERS.status),
+      OutputUtil.padColumn(StatusWordingUtil.priorityWordFor(TicketDefaultsUtil.ticketPriorityOf(ticket.frontmatter)), LIST_COLUMN_WIDTHS_CHARACTERS.priority),
+      OutputUtil.padColumn(StatusWordingUtil.ticketTypeWordFor(ticket.frontmatter.type), LIST_COLUMN_WIDTHS_CHARACTERS.type),
+      OutputUtil.padColumn(ticket.frontmatter.task === null ? '-' : `#${ticket.frontmatter.task}`, LIST_COLUMN_WIDTHS_CHARACTERS.task),
       ticket.frontmatter.title,
       namedAgentText(ticket.frontmatter),
       ticketIsStillOpen(ticket) && unsettled.length > 0 ? `  (${TicketPhraseUtil.waitingOnText(unsettled)})` : '',
@@ -134,7 +137,7 @@ async function showOneTicket(commandArguments: ArgumentParser, context: CommandC
   const workspace = requireWorkspace(context.currentDirectory);
   const ticket    = requireTicketToShow(workspace, reference);
   const { frontmatter } = ticket;
-  const statusById      = new Map(listTickets(workspace).tickets.map((candidate) => [candidate.frontmatter.id, candidate.frontmatter.status]));
+  const statusById      = statusByIdOf(listTickets(workspace).tickets);
   const dependencies    = (frontmatter.dependsOn ?? []).map((identifier) => `#${identifier} (${dependencyStatusText(statusById.get(identifier))})`);
   const summary = [
     `Ticket #${frontmatter.id}: ${frontmatter.title}`,

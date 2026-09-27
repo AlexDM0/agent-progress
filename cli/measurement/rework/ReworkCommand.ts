@@ -1,16 +1,14 @@
 /**
- * `agent-progress rework`: how many lines of code a reviewing agent reworked on a branch, counted the same way
- * for every reviewer so that a threshold on it gives one verdict. It only counts; no threshold is built in.
- *
- * It reads the worktree it runs in, or `--worktree`, and never the tracker: the tracker is shared by every
- * worktree and resolves to the main checkout, whose HEAD is not the branch under review. It takes no lock,
- * writes nothing and needs no tracker at all.
+ * `agent-progress rework` counts the lines of code a reviewer reworked on a branch, the same way for every reviewer, with no threshold
+ * built in. It reads the worktree it runs in, or `--worktree`, and never the tracker, whose main checkout's HEAD is not the branch under review.
  */
 import { resolve } from 'node:path';
 
 import { readCommitsDiff, readRebaseDiffs, readWorktreeHead } from '../../../src/lib/git/BranchDiffs.ts';
 import { OperationRefusal }                                   from '../../../src/shared/OperationRefusal.ts';
 import type { CommandHandler }                                from '../../CommandTable.ts';
+import { DEFAULT_MAIN_LINE }                                  from '../../constants/GitDefaults.ts';
+import { CommitTextUtil }                                     from '../../utils/CommitTextUtil.ts';
 import { OutputUtil }                                         from '../../utils/OutputUtil.ts';
 import { ReworkCountUtil }                                    from '../utils/ReworkCountUtil.ts';
 import type { FileRework, ReworkTotals }                      from '../utils/ReworkCountUtil.ts';
@@ -18,10 +16,6 @@ import type { FileRework, ReworkTotals }                      from '../utils/Rew
 const USAGE = 'agent-progress rework [--since <commit>] [--rebased-from <old tip>] [--main <branch>] [--worktree <path>] [--files] [--json]';
 
 const KNOWN_OPTION_NAMES = ['since', 'rebased-from', 'main', 'worktree', 'files', 'json'];
-
-const DEFAULT_MAIN_LINE = 'main';
-
-const SHORT_COMMIT_LENGTH = 8;
 
 interface CommitsPart {
   sinceCommit: string;
@@ -38,10 +32,6 @@ interface RebasePart {
   files:            FileRework[];
 }
 
-function shortCommit(commit: string): string {
-  return commit.slice(0, SHORT_COMMIT_LENGTH);
-}
-
 function countCommits(worktreeDirectory: string, since: string): CommitsPart {
   const reading = readCommitsDiff(worktreeDirectory, since);
   switch (reading.verdict) {
@@ -50,26 +40,28 @@ function countCommits(worktreeDirectory: string, since: string): CommitsPart {
     case 'not-an-ancestor':
       throw new OperationRefusal(
         'refused',
-        `--since ${shortCommit(reading.sinceCommit)} is not an ancestor of HEAD in ${worktreeDirectory}, so there is no line of commits since it to count. `
+        `--since ${CommitTextUtil.shortCommitOf(reading.sinceCommit)} is not an ancestor of HEAD in ${worktreeDirectory}, so there is no line of commits since it to count. `
           + 'A rebase rewrites the commits after it: count --since before rebasing, and the rebase itself with --rebased-from ORIG_HEAD after.',
       );
-    case 'merge-found':
+    case 'merge-found': {
+      const mergeWord         = reading.mergeCommits.length === 1 ? 'merge' : 'merges';
+      const shortMergeCommits = reading.mergeCommits.map((commit) => CommitTextUtil.shortCommitOf(commit)).join(', ');
       throw new OperationRefusal(
         'refused',
-        `The commits since ${shortCommit(since)} include the ${reading.mergeCommits.length === 1 ? 'merge' : 'merges'} ${reading.mergeCommits.map(shortCommit).join(', ')}. `
+        `The commits since ${CommitTextUtil.shortCommitOf(since)} include the ${mergeWord} ${shortMergeCommits}. `
           + 'Work is rebased onto the main line rather than merged with it, and a merge would bring the main line\'s own commits into the count: '
           + 'rebase the branch, or name a --since after the merge.',
       );
+    }
     case 'git-failed':
       throw new OperationRefusal('unrepaired', reading.reason);
     case 'read':
       break;
   }
-  const { combineFileReworks, readDiff, reworkOfFile } = ReworkCountUtil;
   return {
     sinceCommit: reading.sinceCommit,
     commitCount: reading.commits.length,
-    files:       combineFileReworks([readDiff(reading.diffText).map(reworkOfFile)]),
+    files:       ReworkCountUtil.combineFileReworks([ReworkCountUtil.readDiff(reading.diffText).map((file) => ReworkCountUtil.reworkOfFile(file))]),
   };
 }
 
@@ -87,7 +79,7 @@ function countRebase(worktreeDirectory: string, oldTip: string, mainLine: string
     case 'no-common-base':
       throw new OperationRefusal(
         'refused',
-        `${reading.role === 'old-tip' ? `--rebased-from "${oldTip}"` : shortCommit(rebasedTipCommit)} shares no history with --main "${mainLine}", `
+        `${reading.role === 'old-tip' ? `--rebased-from "${oldTip}"` : CommitTextUtil.shortCommitOf(rebasedTipCommit)} shares no history with --main "${mainLine}", `
           + 'so there is no patch of the branch\'s own to compare.',
       );
     case 'git-failed':
@@ -95,20 +87,14 @@ function countRebase(worktreeDirectory: string, oldTip: string, mainLine: string
     case 'read':
       break;
   }
-  const {
-    addedLinesInOnlyOne,
-    combineFileReworks,
-    readDiff,
-    reworkOfFile,
-  } = ReworkCountUtil;
-  const changedByTheRebase = addedLinesInOnlyOne(readDiff(reading.beforeDiffText), readDiff(reading.afterDiffText));
+  const changedByTheRebase = ReworkCountUtil.addedLinesInOnlyOne(ReworkCountUtil.readDiff(reading.beforeDiffText), ReworkCountUtil.readDiff(reading.afterDiffText));
   return {
     oldTipCommit:  reading.oldTipCommit,
     rebasedTipCommit,
     mainLine,
     oldBaseCommit: reading.oldBaseCommit,
     newBaseCommit: reading.newBaseCommit,
-    files:         combineFileReworks([changedByTheRebase.map(reworkOfFile)]),
+    files:         ReworkCountUtil.combineFileReworks([changedByTheRebase.map((file) => ReworkCountUtil.reworkOfFile(file))]),
   };
 }
 
@@ -133,11 +119,11 @@ interface CountedScope {
 
 function commitsScope(part: CommitsPart): CountedScope {
   const commitWord = part.commitCount === 1 ? 'commit' : 'commits';
-  return { scope: `in ${part.commitCount} ${commitWord} since ${shortCommit(part.sinceCommit)}`, totals: ReworkCountUtil.totalReworkOf(part.files) };
+  return { scope: `in ${part.commitCount} ${commitWord} since ${CommitTextUtil.shortCommitOf(part.sinceCommit)}`, totals: ReworkCountUtil.totalReworkOf(part.files) };
 }
 
 function rebaseScope(part: RebasePart): CountedScope {
-  return { scope: `in the rebase from ${shortCommit(part.oldTipCommit)} onto ${part.mainLine}`, totals: ReworkCountUtil.totalReworkOf(part.files) };
+  return { scope: `in the rebase from ${CommitTextUtil.shortCommitOf(part.oldTipCommit)} onto ${part.mainLine}`, totals: ReworkCountUtil.totalReworkOf(part.files) };
 }
 
 function addedAndRemovedOf(totals: ReworkTotals): string {

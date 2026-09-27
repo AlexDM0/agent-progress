@@ -2,20 +2,12 @@ import { existsSync } from 'node:fs';
 
 import { requireWorkspace }        from '../../../src/services/tracker/Workspace.ts';
 import type { CommandHandler }     from '../../CommandTable.ts';
-import { renderDashboardOrRefuse } from '../DashboardRenderOrRefusal.ts';
+import { renderDashboardOrRefuse } from '../RenderDashboardOrRefuse.ts';
+import { OpenerUtil }              from './utils/OpenerUtil.ts';
 
 const USAGE = 'agent-progress open';
 
 const KNOWN_OPTION_NAMES: readonly string[] = [];
-
-const MACOS_OPENER = 'open';
-const OTHER_OPENER = 'xdg-open';
-
-const MACOS_PLATFORM = 'darwin';
-
-export function openerForPlatform(platform: string): string {
-  return platform === MACOS_PLATFORM ? MACOS_OPENER : OTHER_OPENER;
-}
 
 export const openCommand: CommandHandler = async (commandArguments, context) => {
   commandArguments.rejectUnknownOptions(KNOWN_OPTION_NAMES, USAGE);
@@ -26,7 +18,7 @@ export const openCommand: CommandHandler = async (commandArguments, context) => 
     await renderDashboardOrRefuse(context, workspace);
   }
 
-  const opener = openerForPlatform(context.platform);
+  const opener = OpenerUtil.openerFor(context.platform);
   try {
     // Detached with its streams dropped: a browser launched cold would otherwise inherit the pipes and keep this process alive.
     const spawned = Bun.spawn([opener, workspace.htmlFilePath], {

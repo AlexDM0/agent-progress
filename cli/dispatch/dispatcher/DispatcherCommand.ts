@@ -9,7 +9,7 @@ import { requireWorkspace }      from '../../../src/services/tracker/Workspace.t
 import { OperationRefusal }      from '../../../src/shared/OperationRefusal.ts';
 import type { CommandContext }   from '../../CommandContext.ts';
 import type { CommandHandler }   from '../../CommandTable.ts';
-import { openTrackerForWriting } from '../../TrackerWriting.ts';
+import { openTrackerForWriting } from '../../OpenTrackerForWriting.ts';
 import type { ArgumentParser }   from '../../arguments/ArgumentParser.ts';
 import { OutputUtil }            from '../../utils/OutputUtil.ts';
 
@@ -62,7 +62,7 @@ export const dispatcherCommand: CommandHandler = async (commandArguments, contex
     (change) => change.board.setDispatcherState(written, runId ?? null, change.at),
   );
 
-  const loggedSentence = logged.map((record) => LogUtil.sentenceOf(record)).join('\n');
+  const loggedSentence = OutputUtil.loggedSentencesOf(logged);
   const entity         = runId === undefined ? { dispatcherState: written, previousState } : { dispatcherState: written, dispatcherRunId: runId, previousState };
   OutputUtil.printEntity(commandArguments, context, entity, `${loggedSentence} (was ${StatusWordingUtil.dispatcherStateWordFor(previousState)}).`);
 };

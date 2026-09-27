@@ -3,7 +3,7 @@
  * `agent-progress rework`. Every changed line is classified in the context of its own side of its hunk: the
  * old side is the context and removed lines, the new side the context and added lines.
  */
-import type { CommentSyntax, DelimiterPair, EmbeddedLanguage } from '../constants/CommentSyntaxes.ts';
+import type { CommentSyntax, DelimiterPair, EmbeddedLanguage } from '../@types/CommentSyntax.ts';
 import {
   COMMENT_SYNTAX_BY_EXTENSION,
   COMMENT_SYNTAX_BY_FILE_NAME,
@@ -79,7 +79,7 @@ interface HunkInProgress {
 
 const HUNK_HEADER = /^@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@/;
 
-const OMITTED_HUNK_LENGTH = 1;
+const OMITTED_HUNK_LENGTH_LINES = 1;
 
 const OCTAL_RADIX = 8;
 
@@ -406,8 +406,8 @@ function readDiff(diffText: string): FileChangedLines[] {
     const isDocumentation = pathIsDocumentation(path);
     const syntax          = isDocumentation ? null : commentSyntaxFor(path);
     hunk = {
-      remainingOldLines: header[1] === undefined ? OMITTED_HUNK_LENGTH : Number(header[1]),
-      remainingNewLines: header[2] === undefined ? OMITTED_HUNK_LENGTH : Number(header[2]),
+      remainingOldLines: header[1] === undefined ? OMITTED_HUNK_LENGTH_LINES : Number(header[1]),
+      remainingNewLines: header[2] === undefined ? OMITTED_HUNK_LENGTH_LINES : Number(header[2]),
       oldSide:           syntax === null ? null : createSideState(syntax, false),
       newSide:           syntax === null ? null : createSideState(syntax, false),
       file,
@@ -518,8 +518,6 @@ function totalReworkOf(files: readonly FileRework[]): ReworkTotals {
 }
 
 export const ReworkCountUtil = {
-  pathIsDocumentation,
-  commentSyntaxFor,
   classifyFileLines,
   readDiff,
   addedLinesInOnlyOne,

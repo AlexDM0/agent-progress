@@ -28,11 +28,11 @@ import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } fr
 import { runCommandLine }                                                     from '../Main.ts';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext.ts';
 import { storedLogEntriesOf }                                                 from '../testing/StoredLogEntries.ts';
-import { TICKET_CLAIM_SUBCOMMANDS }                                           from './TicketClaims.ts';
-import { TICKET_FILING_SUBCOMMANDS }                                          from './TicketFiling.ts';
-import { TICKET_MOVE_SUBCOMMANDS }                                            from './TicketMoves.ts';
-import { TICKET_READING_SUBCOMMANDS }                                         from './TicketReading.ts';
-import { TICKET_SETTING_SUBCOMMANDS }                                         from './TicketSettings.ts';
+import { TICKET_CLAIM_SUBCOMMANDS }                                           from './TicketClaimSubcommands.ts';
+import { TICKET_FILING_SUBCOMMANDS }                                          from './TicketFilingSubcommands.ts';
+import { TICKET_MOVE_SUBCOMMANDS }                                            from './TicketMoveSubcommands.ts';
+import { TICKET_READING_SUBCOMMANDS }                                         from './TicketReadingSubcommands.ts';
+import { TICKET_SETTING_SUBCOMMANDS }                                         from './TicketSettingSubcommands.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 

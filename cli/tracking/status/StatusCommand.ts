@@ -1,23 +1,23 @@
-import { ProgressDocumentUtil }           from '../../../src/adapters/progress/utils/ProgressDocumentUtil.ts';
-import { LogUtil }                        from '../../../src/adapters/utils/LogUtil.ts';
-import { StatusDocumentUtil }             from '../../../src/adapters/utils/StatusDocumentUtil.ts';
-import { StatusWordingUtil }              from '../../../src/adapters/utils/StatusWordingUtil.ts';
-import { TicketJsonUtil }                 from '../../../src/adapters/utils/TicketJsonUtil.ts';
-import type { ProgressFile }              from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
-import type { Task, TaskStatus }          from '../../../src/lib/tracker-model/@types/Task.ts';
-import type { ReadyTicket }               from '../../../src/lib/tracker-model/@types/Ticket.ts';
-import type { Board }                     from '../../../src/lib/tracker-model/Board.ts';
-import { readingBoardOf }                 from '../../../src/lib/tracker-model/ReadingBoard.ts';
-import { TASK_STATUSES, TICKET_STATUSES } from '../../../src/lib/tracker-model/constants/Statuses.ts';
-import { TimeUtil }                       from '../../../src/lib/utils/TimeUtil.ts';
-import { TokenCountUtil }                 from '../../../src/lib/utils/TokenCountUtil.ts';
-import { requireTracker }                 from '../../../src/services/tracker/TrackerReader.ts';
-import { requireWorkspace }               from '../../../src/services/tracker/Workspace.ts';
-import type { WordedLogEntry }            from '../../../src/shared/@types/WordedLogEntry.ts';
-import { LIMITS }                         from '../../../src/shared/constants/Limits.ts';
-import type { CommandHandler }            from '../../CommandTable.ts';
-import { NextLineUtil }                   from '../../utils/NextLineUtil.ts';
-import { OutputUtil }                     from '../../utils/OutputUtil.ts';
+import { ProgressDocumentUtil }                                  from '../../../src/adapters/progress/utils/ProgressDocumentUtil.ts';
+import { LogUtil }                                               from '../../../src/adapters/utils/LogUtil.ts';
+import { StatusDocumentUtil }                                    from '../../../src/adapters/utils/StatusDocumentUtil.ts';
+import { StatusWordingUtil }                                     from '../../../src/adapters/utils/StatusWordingUtil.ts';
+import { TicketJsonUtil }                                        from '../../../src/adapters/utils/TicketJsonUtil.ts';
+import type { ProgressFile }                                     from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Task, TaskStatus }                                 from '../../../src/lib/tracker-model/@types/Task.ts';
+import type { ReadyTicket }                                      from '../../../src/lib/tracker-model/@types/Ticket.ts';
+import type { Board }                                            from '../../../src/lib/tracker-model/Board.ts';
+import { readingBoardOf }                                        from '../../../src/lib/tracker-model/ReadingBoard.ts';
+import { SETTLED_TASK_STATUSES, TASK_STATUSES, TICKET_STATUSES } from '../../../src/lib/tracker-model/constants/Statuses.ts';
+import { TimeUtil }                                              from '../../../src/lib/utils/TimeUtil.ts';
+import { TokenCountUtil }                                        from '../../../src/lib/utils/TokenCountUtil.ts';
+import { requireTracker }                                        from '../../../src/services/tracker/TrackerReader.ts';
+import { requireWorkspace }                                      from '../../../src/services/tracker/Workspace.ts';
+import type { WordedLogEntry }                                   from '../../../src/shared/@types/WordedLogEntry.ts';
+import { LIMITS }                                                from '../../../src/shared/constants/Limits.ts';
+import type { CommandHandler }                                   from '../../CommandTable.ts';
+import { NextLineUtil }                                          from '../../utils/NextLineUtil.ts';
+import { OutputUtil }                                            from '../../utils/OutputUtil.ts';
 
 const USAGE = 'agent-progress status [--json] [--full]';
 
@@ -27,7 +27,7 @@ const HUMAN_LOG_ENTRY_COUNT = 5;
 
 const WORKING_VIEW_LOG_ENTRY_COUNT = 10;
 
-const TASK_COLUMN_WIDTHS = {
+const TASK_COLUMN_WIDTHS_CHARACTERS = {
   identifier: 5,
   status:     12,
   owner:      14,
@@ -115,7 +115,7 @@ function workingDocumentOf(progress: ProgressFile, wordedLog: readonly WordedLog
   };
 }
 
-function renderHumanStatus(progress: ProgressFile, wordedLog: readonly WordedLogEntry[], board: Board, showsEverything: boolean): string {
+function humanStatusTextOf(progress: ProgressFile, wordedLog: readonly WordedLogEntry[], board: Board, showsEverything: boolean): string {
   const tickets = board.tickets();
   const lines = [
     `${progress.project} — started ${progress.startedAt.slice(0, LIMITS.DATE_AND_CLOCK_LENGTH_CHARACTERS).replace('T', ' ')}`,
@@ -133,20 +133,20 @@ function renderHumanStatus(progress: ProgressFile, wordedLog: readonly WordedLog
   if (listedTasks.length > 0) {
     lines.push('');
     lines.push([
-      OutputUtil.padColumn('id', TASK_COLUMN_WIDTHS.identifier),
-      OutputUtil.padColumn('status', TASK_COLUMN_WIDTHS.status),
-      OutputUtil.padColumn('owner', TASK_COLUMN_WIDTHS.owner),
-      OutputUtil.padColumn('ticket', TASK_COLUMN_WIDTHS.ticket),
-      OutputUtil.padColumn('tokens', TASK_COLUMN_WIDTHS.tokens),
+      OutputUtil.padColumn('id', TASK_COLUMN_WIDTHS_CHARACTERS.identifier),
+      OutputUtil.padColumn('status', TASK_COLUMN_WIDTHS_CHARACTERS.status),
+      OutputUtil.padColumn('owner', TASK_COLUMN_WIDTHS_CHARACTERS.owner),
+      OutputUtil.padColumn('ticket', TASK_COLUMN_WIDTHS_CHARACTERS.ticket),
+      OutputUtil.padColumn('tokens', TASK_COLUMN_WIDTHS_CHARACTERS.tokens),
       'name',
     ].join(''));
     for (const task of listedTasks) {
       lines.push([
-        OutputUtil.padColumn(`#${task.id}`, TASK_COLUMN_WIDTHS.identifier),
-        OutputUtil.padColumn(StatusWordingUtil.statusWordFor(task.status), TASK_COLUMN_WIDTHS.status),
-        OutputUtil.padColumn(task.owner === '' ? '-' : task.owner, TASK_COLUMN_WIDTHS.owner),
-        OutputUtil.padColumn(task.ticket === null ? '-' : `#${task.ticket}`, TASK_COLUMN_WIDTHS.ticket),
-        OutputUtil.padColumn(task.tokens === null ? '-' : TokenCountUtil.formatTokenCount(task.tokens), TASK_COLUMN_WIDTHS.tokens),
+        OutputUtil.padColumn(`#${task.id}`, TASK_COLUMN_WIDTHS_CHARACTERS.identifier),
+        OutputUtil.padColumn(StatusWordingUtil.statusWordFor(task.status), TASK_COLUMN_WIDTHS_CHARACTERS.status),
+        OutputUtil.padColumn(task.owner === '' ? '-' : task.owner, TASK_COLUMN_WIDTHS_CHARACTERS.owner),
+        OutputUtil.padColumn(task.ticket === null ? '-' : `#${task.ticket}`, TASK_COLUMN_WIDTHS_CHARACTERS.ticket),
+        OutputUtil.padColumn(task.tokens === null ? '-' : TokenCountUtil.formatTokenCount(task.tokens), TASK_COLUMN_WIDTHS_CHARACTERS.tokens),
         task.name,
       ].join(''));
     }
@@ -154,7 +154,7 @@ function renderHumanStatus(progress: ProgressFile, wordedLog: readonly WordedLog
 
   const settledTaskCount = progress.tasks.length - listedTasks.length;
   if (settledTaskCount > 0) {
-    const settledStatusesText = `${StatusWordingUtil.statusWordFor('delivered')} or ${StatusWordingUtil.statusWordFor('abandoned')}`;
+    const settledStatusesText = SETTLED_TASK_STATUSES.map((status) => StatusWordingUtil.statusWordFor(status)).join(' or ');
     lines.push(`(${settledTaskCount} ${settledStatusesText} rows not shown; --full lists them)`);
   }
 
@@ -183,6 +183,6 @@ export const statusCommand: CommandHandler = async (commandArguments, context) =
 
   const showsEverything = commandArguments.flag('full');
   const asJson          = showsEverything ? fullDocumentOf(progress, wordedLog, board) : workingDocumentOf(progress, wordedLog, board);
-  OutputUtil.printEntityThenNextLine(commandArguments, context, asJson, renderHumanStatus(progress, wordedLog, board, showsEverything), NextLineUtil.nextLineOf(board));
+  OutputUtil.printEntityThenNextLine(commandArguments, context, asJson, humanStatusTextOf(progress, wordedLog, board, showsEverything), NextLineUtil.nextLineOf(board));
   return Promise.resolve();
 };

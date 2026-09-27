@@ -9,7 +9,7 @@ import { refusalIsOperationRefusal, type OperationRefusal } from '../../src/shar
 import { createArgumentParser }                             from '../arguments/ArgumentParser.ts';
 import { OptionValueUtil }                                  from './OptionValueUtil.ts';
 
-const { resolveAtOption, tokenCountFrom } = OptionValueUtil;
+const { atStampFrom, tokenCountFrom, taskIdOf } = OptionValueUtil;
 
 // Built from local components, so its local clock reads 10:00 in any time zone the suite runs in.
 const EXAMPLE_NOW = new Date(2026, 0, 1, 10, 0, 0);
@@ -26,17 +26,17 @@ function refusalFrom(action: () => unknown): OperationRefusal {
   throw new Error('the call was expected to refuse and it returned instead');
 }
 
-describe('OptionValueUtil.resolveAtOption', () => {
+describe('OptionValueUtil.atStampFrom', () => {
   test('an absent --at is the now handed in, as a local ISO stamp', () => {
-    expect(resolveAtOption(createArgumentParser([]), EXAMPLE_NOW)).toMatch(new RegExp(`^2026-01-01T10:00:00${LOCAL_OFFSET_PATTERN}$`));
+    expect(atStampFrom(createArgumentParser([]), EXAMPLE_NOW)).toMatch(new RegExp(`^2026-01-01T10:00:00${LOCAL_OFFSET_PATTERN}$`));
   });
 
   test('a signed offset resolves against the now handed in', () => {
-    expect(resolveAtOption(createArgumentParser(['--at', '-5m']), EXAMPLE_NOW)).toMatch(new RegExp(`^2026-01-01T09:55:00${LOCAL_OFFSET_PATTERN}$`));
+    expect(atStampFrom(createArgumentParser(['--at', '-5m']), EXAMPLE_NOW)).toMatch(new RegExp(`^2026-01-01T09:55:00${LOCAL_OFFSET_PATTERN}$`));
   });
 
   test('an unreadable --at is refused with the forms it accepts', () => {
-    const refusal = refusalFrom(() => resolveAtOption(createArgumentParser(['--at', 'nonsense']), EXAMPLE_NOW));
+    const refusal = refusalFrom(() => atStampFrom(createArgumentParser(['--at', 'nonsense']), EXAMPLE_NOW));
 
     expect(refusal.status).toBe('refused');
     expect(refusal.message).toBe(
@@ -61,5 +61,31 @@ describe('OptionValueUtil.tokenCountFrom', () => {
     expect(refusal.message).toBe(
       '--tokens "nonsense" is not a token count. Write a whole number, or a decimal with a `k` or `m` suffix: `12000`, `12k`, `12.3k`, `1.2m`.',
     );
+  });
+});
+
+describe('OptionValueUtil.taskIdOf', () => {
+  test('a positive whole number is the task id', () => {
+    expect(taskIdOf('18')).toBe(18);
+  });
+
+  test('zero is no task id, since ids start at one', () => {
+    expect(taskIdOf('0')).toBeNull();
+  });
+
+  test('a negative number is no task id', () => {
+    expect(taskIdOf('-3')).toBeNull();
+  });
+
+  test('a fraction is no task id', () => {
+    expect(taskIdOf('1.5')).toBeNull();
+  });
+
+  test('a number past the safe integers is no task id, since it could not be told from its neighbours', () => {
+    expect(taskIdOf('9007199254740993')).toBeNull();
+  });
+
+  test('text that is not a number is no task id', () => {
+    expect(taskIdOf('first')).toBeNull();
   });
 });

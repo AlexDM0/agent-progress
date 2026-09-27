@@ -3,10 +3,10 @@
  * main module it also stands for its siblings, which merge the `SubagentStop` hook into the settings, write a marker-delimited block in a `CLAUDE.md`
  * and build Workflow scripts with Bun's bundler. The package depends on `src/lib/atomic-file` and `src/lib/utils`.
  */
-import type { Dirent }   from 'node:fs';
-import { readdirSync }   from 'node:fs';
-import { homedir }       from 'node:os';
-import { join, resolve } from 'node:path';
+import type { Dirent }               from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
+import { homedir }                   from 'node:os';
+import { join, resolve }             from 'node:path';
 
 import { CLAUDE_DIRECTORY_NAME } from './constants/ClaudeCodePaths.ts';
 
@@ -78,4 +78,13 @@ export function listSubagentTranscripts(transcriptFolder: string): SubagentTrans
 
   transcripts.sort((a, b) => a.path.localeCompare(b.path));
   return transcripts;
+}
+
+export function transcriptTextAt(transcriptPath: string): string | undefined {
+  try {
+    return readFileSync(transcriptPath, 'utf8');
+  } catch {
+    // A transcript that vanished or will not open reads as none: the folder is the harness's and may be pruned while it is read.
+    return undefined;
+  }
 }

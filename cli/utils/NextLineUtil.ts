@@ -1,4 +1,5 @@
 import { StatusWordingUtil }    from '../../src/adapters/utils/StatusWordingUtil.ts';
+import { TicketPhraseUtil }     from '../../src/adapters/utils/TicketPhraseUtil.ts';
 import type { DispatcherState } from '../../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { Board }           from '../../src/lib/tracker-model/Board.ts';
 
@@ -32,7 +33,7 @@ function slotsTextOf(capacity: BoardCapacity): string {
 
 /** The ids are printed as given, in the dispatch order `readyTicketIdsOf` already sorts them into; only the first five are named. */
 function ticketListTextOf(ticketIds: readonly string[]): string {
-  const named    = ticketIds.slice(0, READY_TICKETS_LISTED_AT_MOST).map((identifier) => `#${identifier}`).join(', ');
+  const named    = TicketPhraseUtil.ticketReferencesText(ticketIds.slice(0, READY_TICKETS_LISTED_AT_MOST));
   const leftOver = ticketIds.length - READY_TICKETS_LISTED_AT_MOST;
   return leftOver > 0 ? `${named} and ${leftOver} more` : named;
 }

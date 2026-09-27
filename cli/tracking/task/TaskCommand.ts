@@ -8,7 +8,7 @@ import { VocabularyUtil }                                               from '..
 import { OperationRefusal }                                             from '../../../src/shared/OperationRefusal.ts';
 import type { CommandContext }                                          from '../../CommandContext.ts';
 import type { CommandHandler }                                          from '../../CommandTable.ts';
-import { openTrackerForWriting, openTrackerForWritingThenReadNextLine } from '../../TrackerWriting.ts';
+import { openTrackerForWriting, openTrackerForWritingThenReadNextLine } from '../../OpenTrackerForWriting.ts';
 import type { ArgumentParser }                                          from '../../arguments/ArgumentParser.ts';
 import { RetiredWordRefusalUtil }                                       from '../../legacy/utils/RetiredWordRefusalUtil.ts';
 import { ReviewBarNameFilingUtil }                                      from '../../legacy/utils/ReviewBarNameFilingUtil.ts';
@@ -41,8 +41,8 @@ function taskIdFrom(written: string | undefined, subcommand: string): number {
   if (written === undefined) {
     throw new OperationRefusal('refused', `agent-progress task ${subcommand} needs a task id.\n  Usage: ${USAGE}`);
   }
-  const identifier = Number(written);
-  if (!Number.isSafeInteger(identifier) || identifier <= 0) {
+  const identifier = OptionValueUtil.taskIdOf(written);
+  if (identifier === null) {
     throw new OperationRefusal(
       'refused',
       `"${written}" is not a task id. A task id is the whole number shown beside the row, for example \`agent-progress task ${subcommand} 18\`.`,

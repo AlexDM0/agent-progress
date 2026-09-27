@@ -4,13 +4,13 @@
  * no tracker, so it takes neither `--project` nor `--root`, and touches the tracker only to rewrite
  * files still in an older format.
  */
-import { requireWorkspace }                               from '../../../src/services/tracker/Workspace.ts';
-import type { CommandHandler }                            from '../../CommandTable.ts';
-import { requireNoNewerInstall }                          from '../../InstallVersionCheck.ts';
-import { OlderTrackerFilesRewriteReport }                 from '../../legacy/OlderTrackerFilesRewriteReport.ts';
-import { IGNORED_RETIRED_OPTION_NAMES }                   from '../../legacy/constants/IgnoredRetiredOptions.ts';
-import { installedFileTextsFor }                          from '../InstalledFileGeneration.ts';
-import { recordInstallVersion, refreshTrackedRepository } from '../TrackerRefresh.ts';
+import { requireWorkspace }                                                     from '../../../src/services/tracker/Workspace.ts';
+import type { CommandHandler }                                                  from '../../CommandTable.ts';
+import { requireNoNewerInstall }                                                from '../../InstallVersionCheck.ts';
+import { OlderTrackerFilesRewriteReport }                                       from '../../legacy/OlderTrackerFilesRewriteReport.ts';
+import { IGNORED_RETIRED_OPTION_NAMES }                                         from '../../legacy/constants/IgnoredRetiredOptions.ts';
+import { installedFileTextsFor }                                                from '../InstalledFileGeneration.ts';
+import { recordInstallVersion, refreshReportLinesOf, refreshTrackedRepository } from '../TrackerRefresh.ts';
 
 const USAGE = 'agent-progress update [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';
 
@@ -36,12 +36,7 @@ export const updateCommand: CommandHandler = async (commandArguments, context) =
 
   const printRefreshReport = (headingLine: string) => {
     context.standardOutput(headingLine);
-    context.standardOutput(`  CLAUDE.md:   ${report.claudeInstructionsLine}`);
-    context.standardOutput(`  brief:       ${report.briefLine}`);
-    context.standardOutput(`  hooks:       ${report.hookLine}`);
-    context.standardOutput(`  workflow:    ${report.workflowLine}`);
-    context.standardOutput(`  agent:       ${report.agentDefinitionLine}`);
-    context.standardOutput(`  dashboard:   ${workspace.htmlFilePath}`);
+    for (const line of refreshReportLinesOf(report, workspace.htmlFilePath)) context.standardOutput(line);
   };
 
   // Dropping cli/legacy/ makes this one call: printRefreshReport(`Refreshed what agent-progress manages in ${workspace.rootDirectory}; the tracker

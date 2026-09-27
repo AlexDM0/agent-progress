@@ -121,7 +121,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - `process.env` is read only in `src/shared/Environment.ts`, through getters, each with a docblock saying what it
   overrides and why. The one in-process assignment is in `src/shared/Environment.spec.ts`; other specs set the
   environment in a child process.
-- No work at module load. The one exception is the last statement of `page/PageStart.ts`, which starts the page.
+- No work at module load. The two exceptions are the entry points: `agent-progress.ts`, whose import is the invocation, and the last
+  statement of `page/PageStart.ts`, which starts the page.
 - The render service keeps no module state: the page bundle and the configured Marked live in the `RenderState`
   (`src/services/render/RenderState.ts`) that `createProcessContext` creates once per invocation and the command context
   carries.
@@ -232,7 +233,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - Adding a command is an entry in `cli/CommandTable.ts`, a block in `cli/HelpText.ts` and a folder in its set;
   `cli/CommandTable.spec.ts` and `cli/HelpText.spec.ts` fail until all three exist.
 - Every mutating command writes through `writeTracker` in `src/services/tracker/TrackerPipeline.ts`, reached through
-  `openTrackerForWriting` in `cli/TrackerWriting.ts`, and none repeats it:
+  `openTrackerForWriting` in `cli/OpenTrackerForWriting.ts`, and none repeats it:
   lock; read the progress file, its log and the tickets into a Board; change them through it; write the progress file,
   then the tickets the Board changed, then log.jsonl; then render from disk, all under the lock. Ticket files follow
   the progress file so it is never behind them, and the log comes last so a line never describes an unstored change;

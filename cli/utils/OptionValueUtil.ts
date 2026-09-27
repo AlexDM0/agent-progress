@@ -4,7 +4,7 @@ import { OperationRefusal }    from '../../src/shared/OperationRefusal.ts';
 import type { ArgumentParser } from '../arguments/ArgumentParser.ts';
 
 /** An unreadable `--at` is refused rather than defaulted to now, which would stamp a bar nobody can explain. */
-function resolveAtOption(commandArguments: ArgumentParser, now: Date): string {
+function atStampFrom(commandArguments: ArgumentParser, now: Date): string {
   const written = commandArguments.option('at');
   if (written === undefined) return TimeUtil.formatLocalIso(now);
 
@@ -32,4 +32,10 @@ function tokenCountFrom(commandArguments: ArgumentParser): number | undefined {
   return count;
 }
 
-export const OptionValueUtil = { resolveAtOption, tokenCountFrom } as const;
+/** A task id as written, or null when it is not a positive whole number; the caller words the refusal. */
+function taskIdOf(written: string): number | null {
+  const identifier = Number(written);
+  return Number.isSafeInteger(identifier) && identifier > 0 ? identifier : null;
+}
+
+export const OptionValueUtil = { atStampFrom, tokenCountFrom, taskIdOf } as const;

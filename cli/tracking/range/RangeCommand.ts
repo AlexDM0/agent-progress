@@ -2,12 +2,11 @@
  * A relative bound is stored as written and resolved at layout time, so `--from -2h` keeps meaning "the
  * last two hours"; `page/utils/GeometryUtil.ts` resolves each end, which is what makes a mixed pair legal.
  */
-import { LogUtil }               from '../../../src/adapters/utils/LogUtil.ts';
 import type { ViewRange }        from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
 import { TimeUtil }              from '../../../src/lib/utils/TimeUtil.ts';
 import { OperationRefusal }      from '../../../src/shared/OperationRefusal.ts';
 import type { CommandHandler }   from '../../CommandTable.ts';
-import { openTrackerForWriting } from '../../TrackerWriting.ts';
+import { openTrackerForWriting } from '../../OpenTrackerForWriting.ts';
 import { OutputUtil }            from '../../utils/OutputUtil.ts';
 
 const USAGE = [
@@ -107,6 +106,5 @@ export const rangeCommand: CommandHandler = async (commandArguments, context) =>
 
   const { logged } = await openTrackerForWriting(commandArguments, context, (change) => change.board.setChartRange(view, change.at));
 
-  const humanLine = logged.map((record) => LogUtil.sentenceOf(record)).join('\n');
-  OutputUtil.printEntity(commandArguments, context, view, humanLine);
+  OutputUtil.printEntity(commandArguments, context, view, OutputUtil.loggedSentencesOf(logged));
 };

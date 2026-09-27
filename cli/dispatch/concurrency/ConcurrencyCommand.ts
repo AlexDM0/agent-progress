@@ -1,4 +1,3 @@
-import { LogUtil }                          from '../../../src/adapters/utils/LogUtil.ts';
 import { readingBoardOf }                   from '../../../src/lib/tracker-model/ReadingBoard.ts';
 import { CONCURRENCY_LIMIT_CEILING_AGENTS } from '../../../src/lib/tracker-model/constants/ConcurrencyLimits.ts';
 import { BoardSettingsUtil }                from '../../../src/lib/tracker-model/utils/BoardSettingsUtil.ts';
@@ -7,7 +6,7 @@ import { requireWorkspace }                 from '../../../src/services/tracker/
 import { OperationRefusal }                 from '../../../src/shared/OperationRefusal.ts';
 import type { CommandContext }              from '../../CommandContext.ts';
 import type { CommandHandler }              from '../../CommandTable.ts';
-import { openTrackerForWriting }            from '../../TrackerWriting.ts';
+import { openTrackerForWriting }            from '../../OpenTrackerForWriting.ts';
 import type { ArgumentParser }              from '../../arguments/ArgumentParser.ts';
 import { OutputUtil }                       from '../../utils/OutputUtil.ts';
 
@@ -47,7 +46,7 @@ export const concurrencyCommand: CommandHandler = async (commandArguments, conte
 
   const { logged, previousLimit, concurrency } = await openTrackerForWriting(commandArguments, context, (change) => change.board.setConcurrencyLimit(limit, change.at));
 
-  const loggedSentence = logged.map((record) => LogUtil.sentenceOf(record)).join('\n');
+  const loggedSentence = OutputUtil.loggedSentencesOf(logged);
   OutputUtil.printEntity(
     commandArguments,
     context,

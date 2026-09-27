@@ -8,7 +8,7 @@ import { requireWorkspace }                      from '../../src/services/tracke
 import { OperationRefusal }                      from '../../src/shared/OperationRefusal.ts';
 import { resourceFilePathOf }                    from '../../src/shared/ResourceFilePath.ts';
 import type { CommandContext }                   from '../CommandContext.ts';
-import { openTrackerForWritingThenReadNextLine } from '../TrackerWriting.ts';
+import { openTrackerForWritingThenReadNextLine } from '../OpenTrackerForWriting.ts';
 import type { ArgumentParser }                   from '../arguments/ArgumentParser.ts';
 import { NextLineUtil }                          from '../utils/NextLineUtil.ts';
 import { OutputUtil }                            from '../utils/OutputUtil.ts';
@@ -88,7 +88,7 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
     commandArguments,
     context,
     TicketOutputUtil.ticketAsJson(filed.ticket),
-    `${TicketOutputUtil.loggedSentencesOf(filed.logged)}${priority === 'low' ? lowPriorityFilingNote() : ''}\n  ${filed.ticket.filePath}`,
+    `${OutputUtil.loggedSentencesOf(filed.logged)}${priority === 'low' ? lowPriorityFilingNote() : ''}\n  ${filed.ticket.filePath}`,
     NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState),
   );
 }

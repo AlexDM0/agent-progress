@@ -1,6 +1,6 @@
 import { OperationRefusal }      from '../../../src/shared/OperationRefusal.ts';
 import type { CommandHandler }   from '../../CommandTable.ts';
-import { openTrackerForWriting } from '../../TrackerWriting.ts';
+import { openTrackerForWriting } from '../../OpenTrackerForWriting.ts';
 import { OutputUtil }            from '../../utils/OutputUtil.ts';
 
 const USAGE = 'agent-progress clear [--all] [--yes]';

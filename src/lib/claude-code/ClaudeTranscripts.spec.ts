@@ -1,6 +1,6 @@
 /**
  * The slug rule and the workflow layout decide which paths are found, and the listing refuses what is not a subagent transcript. Every
- * transcript is a constructed empty file, as the claim is about paths only.
+ * listed transcript is a constructed empty file, as the claim is about paths only. Reading one gives its text, or nothing when it is gone.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join }                     from 'node:path';
@@ -13,8 +13,8 @@ import {
   test
 } from 'bun:test';
 
-import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
-import { listSubagentTranscripts, transcriptFolderFor }   from './ClaudeTranscripts.ts';
+import { createScratchDirectory, removeScratchDirectory }                 from '../../testing/ScratchWorkspace.ts';
+import { listSubagentTranscripts, transcriptFolderFor, transcriptTextAt } from './ClaudeTranscripts.ts';
 
 let scratchDirectory = '';
 
@@ -116,5 +116,17 @@ describe('the subagent transcripts under a folder', () => {
     createTranscript(join('session-one', 'other', 'agent-alpha.jsonl'));
 
     expect(listSubagentTranscripts(scratchDirectory)).toEqual([]);
+  });
+});
+
+describe('the text of one transcript', () => {
+  test('is the file as written', () => {
+    const transcriptPath = join(scratchDirectory, 'agent-example.jsonl');
+    writeFileSync(transcriptPath, '{"type":"user"}\n');
+    expect(transcriptTextAt(transcriptPath)).toBe('{"type":"user"}\n');
+  });
+
+  test('is undefined for a transcript that is not there, rather than an error', () => {
+    expect(transcriptTextAt(join(scratchDirectory, 'agent-gone.jsonl'))).toBeUndefined();
   });
 });

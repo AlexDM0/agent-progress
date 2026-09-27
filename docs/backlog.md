@@ -85,7 +85,7 @@ moving them.
 
 - `createTicket`'s initial frontmatter moves to a model util or a Board method.
 - `deleteAllTickets` moves to the ticket writer, `src/adapters/tickets/TicketFileWriter.ts`.
-- `readTicket` becomes `board.ticketByReference`; `ticket show` in `cli/tickets/TicketReading.ts`
+- `readTicket` becomes `board.ticketByReference`; `ticket show` in `cli/tickets/TicketReadingSubcommands.ts`
   still reads without a Board.
 - `nextTicketId` takes the row ids from the Board instead of reading `progress.json` a second time.
 - `TrackerChange.deleteAllTicketFilesAfterwards` in `src/services/tracker/TrackerPipeline.ts` is

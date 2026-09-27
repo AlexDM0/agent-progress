@@ -2,10 +2,10 @@
  * The `SubagentStop` hook: logs what a finished subagent cost and adds it to the rows its brief names. Every failure is one sentence on
  * standard error at exit 0, since the agent has already stopped and a non-zero exit would prevent nothing.
  */
-import { readFileSync } from 'node:fs';
-import { homedir }      from 'node:os';
+import { homedir } from 'node:os';
 
 import { OperationRefusalWordingUtil }                 from '../../../src/adapters/utils/OperationRefusalWordingUtil.ts';
+import { transcriptTextAt }                            from '../../../src/lib/claude-code/ClaudeTranscripts.ts';
 import type { TranscriptUsageTotals }                  from '../../../src/lib/claude-code/utils/TranscriptUsageUtil.ts';
 import { TranscriptUsageUtil }                         from '../../../src/lib/claude-code/utils/TranscriptUsageUtil.ts';
 import type { TokenCredit, TokenCreditOutcome }        from '../../../src/lib/tracker-model/@types/BoardChanges.ts';
@@ -15,7 +15,7 @@ import { LIMITS }                                      from '../../../src/shared
 import type { CommandContext }                         from '../../CommandContext.ts';
 import type { CommandHandler }                         from '../../CommandTable.ts';
 import { requireCurrentInstall }                       from '../../InstallVersionCheck.ts';
-import { openTrackerForWriting }                       from '../../TrackerWriting.ts';
+import { openTrackerForWriting }                       from '../../OpenTrackerForWriting.ts';
 import type { ArgumentParser }                         from '../../arguments/ArgumentParser.ts';
 import { SubagentStopUtil }                            from './utils/SubagentStopUtil.ts';
 
@@ -45,15 +45,6 @@ function readStringField(source: Record<string, unknown>, key: string): string |
 /** The harness writes the transcript path with a `~`, and `readFileSync` has no shell to expand it for it. */
 function expandLeadingTilde(path: string): string {
   return path.startsWith('~') ? `${homedir()}${path.slice(1)}` : path;
-}
-
-function transcriptTextAt(transcriptPath: string): string | undefined {
-  try {
-    return readFileSync(transcriptPath, 'utf8');
-  } catch {
-    // The reason is never worth more than the sentence the caller writes: the transcript is either there or it is not.
-    return undefined;
-  }
 }
 
 async function readHookInput(context: CommandContext): Promise<Record<string, unknown> | undefined> {
@@ -141,28 +132,21 @@ function unrecordedSentenceOf(outcome: TokenCreditOutcome): string | undefined {
  * several is read by one alone, `row:` over `ticket:` over `review:`, the most direct first: adding more would count the agent twice.
  */
 function briefCreditsFor(transcriptText: string, totals: TranscriptUsageTotals): TokenCredit[] {
-  const {
-    evenSharesOf,
-    reviewedTicketIdentifierNamedInBrief,
-    rowIdentifiersNamedInBrief,
-    ticketIdentifiersNamedInBrief,
-  } = SubagentStopUtil;
-  const { totalInputTokensOf } = TranscriptUsageUtil;
-  const totalInputTokens = totalInputTokensOf(totals);
+  const totalInputTokens = TranscriptUsageUtil.totalInputTokensOf(totals);
 
-  const rowIdentifiers = rowIdentifiersNamedInBrief(transcriptText);
+  const rowIdentifiers = SubagentStopUtil.rowIdentifiersNamedInBrief(transcriptText);
   if (rowIdentifiers.length > 0) {
-    const shares = evenSharesOf(totalInputTokens, rowIdentifiers.length);
+    const shares = SubagentStopUtil.evenSharesOf(totalInputTokens, rowIdentifiers.length);
     return rowIdentifiers.map((taskId, i) => ({ target: 'row', taskId, tokens: shares[i] ?? 0 }));
   }
 
-  const ticketIdentifiers = ticketIdentifiersNamedInBrief(transcriptText);
+  const ticketIdentifiers = SubagentStopUtil.ticketIdentifiersNamedInBrief(transcriptText);
   if (ticketIdentifiers.length > 0) {
-    const shares = evenSharesOf(totalInputTokens, ticketIdentifiers.length);
+    const shares = SubagentStopUtil.evenSharesOf(totalInputTokens, ticketIdentifiers.length);
     return ticketIdentifiers.map((ticketId, i) => ({ target: 'ticket', ticketId, tokens: shares[i] ?? 0 }));
   }
 
-  const reviewedTicketIdentifier = reviewedTicketIdentifierNamedInBrief(transcriptText);
+  const reviewedTicketIdentifier = SubagentStopUtil.reviewedTicketIdentifierNamedInBrief(transcriptText);
   if (reviewedTicketIdentifier === null) return [];
   return [{ target: 'review', ticketId: reviewedTicketIdentifier, tokens: totalInputTokens }];
 }

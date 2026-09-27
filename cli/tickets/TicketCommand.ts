@@ -2,11 +2,11 @@ import { OperationRefusal }             from '../../src/shared/OperationRefusal.
 import type { CommandHandler }          from '../CommandTable.ts';
 import { RetiredWordRefusalUtil }       from '../legacy/utils/RetiredWordRefusalUtil.ts';
 import type { TicketSubcommandHandler } from './@types/TicketSubcommandHandler.ts';
-import { TICKET_CLAIM_SUBCOMMANDS }     from './TicketClaims.ts';
-import { TICKET_FILING_SUBCOMMANDS }    from './TicketFiling.ts';
-import { TICKET_MOVE_SUBCOMMANDS }      from './TicketMoves.ts';
-import { TICKET_READING_SUBCOMMANDS }   from './TicketReading.ts';
-import { TICKET_SETTING_SUBCOMMANDS }   from './TicketSettings.ts';
+import { TICKET_CLAIM_SUBCOMMANDS }     from './TicketClaimSubcommands.ts';
+import { TICKET_FILING_SUBCOMMANDS }    from './TicketFilingSubcommands.ts';
+import { TICKET_MOVE_SUBCOMMANDS }      from './TicketMoveSubcommands.ts';
+import { TICKET_READING_SUBCOMMANDS }   from './TicketReadingSubcommands.ts';
+import { TICKET_SETTING_SUBCOMMANDS }   from './TicketSettingSubcommands.ts';
 import { TICKET_USAGE }                 from './constants/TicketUsage.ts';
 
 const TICKET_SUBCOMMANDS: Readonly<Record<string, TicketSubcommandHandler>> = Object.freeze({

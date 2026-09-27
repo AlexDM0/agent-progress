@@ -1,9 +1,6 @@
 /**
- * What the tool wrote into a repository and refreshes there: the managed CLAUDE.md block, the agent brief, the `SubagentStop` entry unless
- * `--no-hooks`, the dispatcher script generated from `dispatcher/` unless `--no-workflow`, and the worker agent definition unless
- * `--no-agent-definition`; then, last, the install version. `init` and `update` are its two callers, and hand it every text already
- * computed. Each line says whether the file on disk actually changed, because an orchestrator that read the brief at the start of its session
- * has no other way to learn that the copy in its context is stale.
+ * Writes what the tool installs into a tracked repository for `init` and `update`, and reports per file whether its bytes changed: that
+ * is how an orchestrator that read the brief earlier learns its copy is stale.
  */
 import { existsSync, readFileSync, rmSync } from 'node:fs';
 
@@ -21,27 +18,17 @@ import { CLAUDE_MANAGED_BLOCK_MARKERS, installedFilePathsIn } from '../Installed
 import { INSTALL_VERSION }                                    from '../constants/InstallVersion.ts';
 import type { InstalledFileTexts }                            from './InstalledFileGeneration.ts';
 
-/**
- * The hook the tool installs. **The matcher is empty, so every subagent type is recorded**, and not
- * `general-purpose` alone: `agent-progress usage` reads every transcript the harness wrote, so a
- * matcher narrower than that would leave the log describing a smaller cohort than the report it is
- * read beside. The timeout is generous for what the command does — read a file and append a line —
- * because 20 seconds covers a tracker whose lock another command is holding.
- */
-export const SUBAGENT_STOP_HOOK = {
+/** The matcher is empty so every subagent is recorded, matching the cohort `usage` reads; the timeout covers waiting on a held lock. */
+const SUBAGENT_STOP_HOOK = {
   matcher:        '',
   command:        'agent-progress hook subagent-stop',
   timeoutSeconds: 20,
 };
 
-/**
- * Everything a refresh needs. `commandName` is the word the reader typed, so every line telling them to
- * run something again names it; `writesTheSubagentStopHook` is off only under `--no-hooks`,
- * and `writesTheAgentDefinition` only under `--no-agent-definition`. Under `--no-workflow` the texts carry no dispatcher script.
- */
 export interface TrackerRefreshRequest {
   workspace:                 Workspace;
   installedFileTexts:        InstalledFileTexts;
+  /** The word the reader typed, so a line telling them to run something again names it. */
   commandName:               string;
   writesClaudeInstructions:  boolean;
   writesTheSubagentStopHook: boolean;
@@ -58,6 +45,17 @@ export interface TrackerRefreshReport {
   agentDefinitionLine:    string;
 }
 
+export function refreshReportLinesOf(report: TrackerRefreshReport, htmlFilePath: string): string[] {
+  return [
+    `  CLAUDE.md:   ${report.claudeInstructionsLine}`,
+    `  brief:       ${report.briefLine}`,
+    `  hooks:       ${report.hookLine}`,
+    `  workflow:    ${report.workflowLine}`,
+    `  agent:       ${report.agentDefinitionLine}`,
+    `  dashboard:   ${htmlFilePath}`,
+  ];
+}
+
 function fileBytesOrNothing(filePath: string): Buffer | null {
   try {
     return readFileSync(filePath);
@@ -72,13 +70,7 @@ function bytesDiffer(before: Buffer | null, after: Buffer | null): boolean {
   return !before.equals(after);
 }
 
-/**
- * Rewritten on every refresh: the brief is guidance shipped with the tool, so a repository that adopted
- * it a month ago gets the current wording from `agent-progress update` rather than by copying a file
- * across. Anything a project wants to keep belongs in its own `CLAUDE.md`, not here. The path is the
- * installed-file catalogue's rather than carried on `Workspace`, because nothing but a refresh touches this file and
- * `Workspace` is the set of paths every command shares.
- */
+/** Rewritten on every refresh: the brief ships with the tool. */
 function refreshAgentBrief(briefFilePath: string, briefText: string): { briefFilePath: string; briefLine: string } {
   const bytesBefore = fileBytesOrNothing(briefFilePath);
   writeFileAtomically(briefFilePath, briefText);
@@ -88,14 +80,7 @@ function refreshAgentBrief(briefFilePath: string, briefText: string): { briefFil
   return { briefFilePath, briefLine };
 }
 
-/**
- * The hook goes into `.claude/settings.local.json`, which is per-user and stays out of git, so an
- * accurate token figure costs nobody a commit into a file their colleagues share. An entry a repository
- * already keeps in the shared `.claude/settings.json` is left where its author put it and kept current
- * there instead — never moved, and never a second copy that would log every agent twice. A settings file
- * the writer will not touch is reported on standard error and the rest of the command continues: the
- * tracker is the point of it, and a document that will not parse is a problem only a person can settle.
- */
+/** Written to the per-user settings file unless the shared one already holds the entry, which is then kept current there. */
 function refreshSubagentStopHookIn(
   rootDirectory: string,
   commandName: string,
@@ -180,8 +165,7 @@ function refreshClaudeInstructions(
       standardError(`${claudeFilePath} holds ${pairCount} agent-progress blocks; only the first was refreshed and the others are now stale.`);
     }
   }
-  // The outcome names the write that was attempted, which only says something once the bytes moved:
-  // `unchanged (replaced)` contradicted itself.
+  // Reported by the bytes on disk, not by the write that was attempted.
   if (!bytesDiffer(bytesBefore, fileBytesOrNothing(claudeFilePath))) return 'unchanged';
   return `updated (${outcome})`;
 }

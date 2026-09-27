@@ -2,28 +2,29 @@
  * The named verbs enforce the legality matrix of `src/lib/tracker-model/constants/TicketMoveLegality.ts`; `ticket status` is the
  * documented override that skips it.
  */
-import { StatusWordingUtil }                      from '../../src/adapters/utils/StatusWordingUtil.ts';
-import { TicketBodyUtil }                         from '../../src/adapters/utils/TicketBodyUtil.ts';
-import { TicketPhraseUtil }                       from '../../src/adapters/utils/TicketPhraseUtil.ts';
-import type { AgentAssignment, ReviewBarStarted } from '../../src/lib/tracker-model/@types/BoardChanges.ts';
-import type { LogRecord }                         from '../../src/lib/tracker-model/@types/LogRecord.ts';
-import type { Task }                              from '../../src/lib/tracker-model/@types/Task.ts';
-import type { Ticket, TicketStatus }              from '../../src/lib/tracker-model/@types/Ticket.ts';
-import { VocabularyUtil }                         from '../../src/lib/tracker-model/utils/VocabularyUtil.ts';
-import type { TrackerChange }                     from '../../src/services/tracker/TrackerPipeline.ts';
-import { OperationRefusal }                       from '../../src/shared/OperationRefusal.ts';
-import type { CommandContext }                    from '../CommandContext.ts';
-import { openTrackerForWritingThenReadNextLine }  from '../TrackerWriting.ts';
-import type { ArgumentParser }                    from '../arguments/ArgumentParser.ts';
-import { RetiredWordRefusalUtil }                 from '../legacy/utils/RetiredWordRefusalUtil.ts';
-import { NextLineUtil }                           from '../utils/NextLineUtil.ts';
-import { OptionValueUtil }                        from '../utils/OptionValueUtil.ts';
-import { OutputUtil }                             from '../utils/OutputUtil.ts';
-import type { TicketSubcommandHandler }           from './@types/TicketSubcommandHandler.ts';
-import { TICKET_USAGE }                           from './constants/TicketUsage.ts';
-import { TicketArgumentUtil }                     from './utils/TicketArgumentUtil.ts';
-import { TicketLookupUtil }                       from './utils/TicketLookupUtil.ts';
-import { TicketOutputUtil }                       from './utils/TicketOutputUtil.ts';
+import { StatusWordingUtil }                        from '../../src/adapters/utils/StatusWordingUtil.ts';
+import { TicketBodyUtil }                           from '../../src/adapters/utils/TicketBodyUtil.ts';
+import { TicketPhraseUtil }                         from '../../src/adapters/utils/TicketPhraseUtil.ts';
+import type { AgentAssignment, ReviewBarStarted }   from '../../src/lib/tracker-model/@types/BoardChanges.ts';
+import type { LogRecord }                           from '../../src/lib/tracker-model/@types/LogRecord.ts';
+import type { Task }                                from '../../src/lib/tracker-model/@types/Task.ts';
+import type { Ticket, TicketStatus }                from '../../src/lib/tracker-model/@types/Ticket.ts';
+import { TICKET_STATUSES_THAT_SETTLE_A_DEPENDENCY } from '../../src/lib/tracker-model/constants/Statuses.ts';
+import { VocabularyUtil }                           from '../../src/lib/tracker-model/utils/VocabularyUtil.ts';
+import type { TrackerChange }                       from '../../src/services/tracker/TrackerPipeline.ts';
+import { OperationRefusal }                         from '../../src/shared/OperationRefusal.ts';
+import type { CommandContext }                      from '../CommandContext.ts';
+import { openTrackerForWritingThenReadNextLine }    from '../OpenTrackerForWriting.ts';
+import type { ArgumentParser }                      from '../arguments/ArgumentParser.ts';
+import { RetiredWordRefusalUtil }                   from '../legacy/utils/RetiredWordRefusalUtil.ts';
+import { NextLineUtil }                             from '../utils/NextLineUtil.ts';
+import { OptionValueUtil }                          from '../utils/OptionValueUtil.ts';
+import { OutputUtil }                               from '../utils/OutputUtil.ts';
+import type { TicketSubcommandHandler }             from './@types/TicketSubcommandHandler.ts';
+import { TICKET_USAGE }                             from './constants/TicketUsage.ts';
+import { TicketArgumentUtil }                       from './utils/TicketArgumentUtil.ts';
+import { TicketLookupUtil }                         from './utils/TicketLookupUtil.ts';
+import { TicketOutputUtil }                         from './utils/TicketOutputUtil.ts';
 
 const TRANSITION_TARGET_STATUSES: Record<string, TicketStatus> = {
   [StatusWordingUtil.verbFor('in-progress')]: 'in-progress',
@@ -82,7 +83,7 @@ function closedReviewBarsText(closedBars: readonly Readonly<Task>[]): string {
 
 function reviewBarText(started: ReviewBarStarted | null): string {
   if (started === null) return '';
-  return `${closedReviewBarsText(started.closedBars)}\n${TicketOutputUtil.loggedSentencesOf(started.logged.filter(recordClosesNoBar))}`;
+  return `${closedReviewBarsText(started.closedBars)}\n${OutputUtil.loggedSentencesOf(started.logged.filter(recordClosesNoBar))}`;
 }
 
 function ticketWithReviewBarAsJson(ticket: Ticket, started: ReviewBarStarted | null, closedBars: readonly Readonly<Task>[] = []): Record<string, unknown> {
@@ -126,14 +127,14 @@ async function transitionOneTicket(
   const { id }                     = move.ticket.frontmatter;
   // A reopened ticket goes back into the queue a running dispatcher takes from, so it is intake like `ticket add`.
   const closingLines = targetStatus === 'pending' ? NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState) : nextLine;
-  const humanText    = `${TicketOutputUtil.loggedSentencesOf(move.logged.filter(recordClosesNoBar))}${closedReviewBarsText(move.closedReviewBars)}`
+  const humanText    = `${OutputUtil.loggedSentencesOf(move.logged.filter(recordClosesNoBar))}${closedReviewBarsText(move.closedReviewBars)}`
     + reviewBarText(startedReviewBar);
   const document     = ticketWithReviewBarAsJson(move.ticket, startedReviewBar, move.closedReviewBars);
   OutputUtil.printEntityThenNextLine(commandArguments, context, document, humanText, closingLines);
 
   // A warning, not a refusal: the order is advice to whoever picks work up, and the user may know better.
   if (targetStatus === 'in-progress' && moved.unsettled.length > 0) {
-    const settledStatusesText = `${StatusWordingUtil.statusWordFor('reviewed')} or ${StatusWordingUtil.statusWordFor('delivered')}`;
+    const settledStatusesText = TICKET_STATUSES_THAT_SETTLE_A_DEPENDENCY.map((status) => StatusWordingUtil.statusWordFor(status)).join(' or ');
     const notSettledYetText   = `${moved.unsettled.length === 1 ? 'which is' : 'which are'} not ${settledStatusesText} yet`;
     context.standardError(`Ticket #${id} is ${TicketPhraseUtil.waitingOnText(moved.unsettled)}, ${notSettledYetText}.`);
   }
@@ -154,7 +155,7 @@ function transitionHandlerFor(targetStatus: TicketStatus): TicketSubcommandHandl
     if (reference === undefined) {
       throw new OperationRefusal('refused', `agent-progress ticket ${subcommand} needs a ticket id.\n  Usage: ${TICKET_USAGE}`);
     }
-    const reviewBarRequest = sendsToReview ? reviewBarRequestFrom(commandArguments, 'finish') : null;
+    const reviewBarRequest = sendsToReview ? reviewBarRequestFrom(commandArguments, subcommand) : null;
     return transitionOneTicket(targetStatus, reference, commandArguments, context, true, reviewBarRequest);
   };
 }
@@ -191,7 +192,7 @@ async function rereviewOneTicket(commandArguments: ArgumentParser, context: Comm
   });
 
   const { rereview, startedReviewBar } = rereviewed;
-  const humanText                      = `${TicketOutputUtil.loggedSentencesOf(rereview.logged)}${reviewBarText(startedReviewBar)}`;
+  const humanText                      = `${OutputUtil.loggedSentencesOf(rereview.logged)}${reviewBarText(startedReviewBar)}`;
   OutputUtil.printEntityThenNextLine(commandArguments, context, ticketWithReviewBarAsJson(rereview.ticket, startedReviewBar), humanText, nextLine);
 }
 

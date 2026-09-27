@@ -134,7 +134,7 @@ do not exist yet.
 | Today | After |
 |---|---|
 | `agent-progress.ts` | stays; composition root |
-| `cli/Main.ts`, `cli/CommandTable.ts`, `cli/HelpText.ts`, `cli/arguments/ArgumentParser.ts`, `cli/arguments/OptionsWithValues.ts`, `cli/CommandContext.ts` | stay in cli/ |
+| `cli/Main.ts`, `cli/CommandTable.ts`, `cli/HelpText.ts`, `cli/arguments/ArgumentParser.ts`, `cli/arguments/constants/OptionNamesWithValues.ts`, `cli/CommandContext.ts` | stay in cli/ |
 | `cli/CommandSupport.ts` | dissolves. Step 6 moved the reading, the lock → write → render pipeline, `rewriteOlderTrackerFiles` and tracker creation to src/services/tracker (TrackerReader, TrackerPipeline, DashboardRendering, TrackerCreation); thin adapters over them stay (`openTrackerForWriting`, `openTrackerForWritingThenReadNextLine`, `renderDashboardOrRefuse`, `rewriteOlderTrackerFilesAndReport`). Step 7 takes the rest: printing, `reportRenderProblems`, the render refusal and the rewrite text → cli/utils/OutputUtil or src/adapters; `resolveAtOption` and `tokenCountFrom` → cli/utils/OptionValueUtil; board reads (`concurrencyDocumentOf`, `readyTicketsOf`, `nextLineFor`, `boardForReading`) → Board queries; the adapters are regrouped when the file dissolves |
 | `lib/utils/NextLineUtil.ts` | cli/utils/NextLineUtil (only cli uses it) |
 | `cli/TrackerRefresh.ts` | cli/adoption (only init and update use it); installs the generated files and writes `.agent-progress/version.json` last |

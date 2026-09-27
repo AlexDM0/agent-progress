@@ -14,7 +14,7 @@ async function writeTrackerForCommand<MutationResult>(
   mutate: (change: TrackerChange) => MutationResult | Promise<MutationResult>,
 ): Promise<TrackerWritten<MutationResult>> {
   const workspace = requireWorkspace(context.currentDirectory);
-  const at        = OptionValueUtil.resolveAtOption(commandArguments, context.now());
+  const at        = OptionValueUtil.atStampFrom(commandArguments, context.now());
   const written   = await writeTracker({
     workspace, at, now: context.now, renderState: context.renderState, mutate
   });

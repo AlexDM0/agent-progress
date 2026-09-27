@@ -1,31 +1,30 @@
-/** The ignore entry goes in before the tracker directory exists, so the tracker is never briefly visible to `git status`. */
 import { randomUUID }             from 'node:crypto';
 import { realpathSync, statSync } from 'node:fs';
 import { basename, resolve }      from 'node:path';
 
-import { ensureIgnored }                                  from '../../../src/lib/git/GitIgnore.ts';
-import { discoverRepositoryRoot }                         from '../../../src/lib/git/RepositoryRoot.ts';
-import { TimeUtil }                                       from '../../../src/lib/utils/TimeUtil.ts';
-import { createTracker }                                  from '../../../src/services/tracker/TrackerCreation.ts';
-import { findWorkspace, workspacePathsFor }               from '../../../src/services/tracker/Workspace.ts';
-import { TRACKER_FILES }                                  from '../../../src/services/tracker/constants/TrackerFiles.ts';
-import { agentProgressRootOverride }                      from '../../../src/shared/Environment.ts';
-import { OperationRefusal }                               from '../../../src/shared/OperationRefusal.ts';
-import type { CommandHandler }                            from '../../CommandTable.ts';
-import { requireNoNewerInstall }                          from '../../InstallVersionCheck.ts';
-import { OlderTrackerFilesRewriteReport }                 from '../../legacy/OlderTrackerFilesRewriteReport.ts';
-import { IGNORED_RETIRED_OPTION_NAMES }                   from '../../legacy/constants/IgnoredRetiredOptions.ts';
-import { OutputUtil }                                     from '../../utils/OutputUtil.ts';
-import { installedFileTextsFor }                          from '../InstalledFileGeneration.ts';
-import type { InstalledFileTexts }                        from '../InstalledFileGeneration.ts';
-import { recordInstallVersion, refreshTrackedRepository } from '../TrackerRefresh.ts';
+import { ensureIgnored, type EnsureIgnoredOutcome }                             from '../../../src/lib/git/GitIgnore.ts';
+import { discoverRepositoryRoot }                                               from '../../../src/lib/git/RepositoryRoot.ts';
+import { TimeUtil }                                                             from '../../../src/lib/utils/TimeUtil.ts';
+import { createTracker }                                                        from '../../../src/services/tracker/TrackerCreation.ts';
+import { findWorkspace, workspacePathsFor }                                     from '../../../src/services/tracker/Workspace.ts';
+import { TRACKER_FILES }                                                        from '../../../src/services/tracker/constants/TrackerFiles.ts';
+import { agentProgressRootOverride }                                            from '../../../src/shared/Environment.ts';
+import { OperationRefusal }                                                     from '../../../src/shared/OperationRefusal.ts';
+import type { CommandHandler }                                                  from '../../CommandTable.ts';
+import { requireNoNewerInstall }                                                from '../../InstallVersionCheck.ts';
+import { OlderTrackerFilesRewriteReport }                                       from '../../legacy/OlderTrackerFilesRewriteReport.ts';
+import { IGNORED_RETIRED_OPTION_NAMES }                                         from '../../legacy/constants/IgnoredRetiredOptions.ts';
+import { OutputUtil }                                                           from '../../utils/OutputUtil.ts';
+import { installedFileTextsFor }                                                from '../InstalledFileGeneration.ts';
+import type { InstalledFileTexts }                                              from '../InstalledFileGeneration.ts';
+import { recordInstallVersion, refreshReportLinesOf, refreshTrackedRepository } from '../TrackerRefresh.ts';
 
 const USAGE = 'agent-progress init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';
 
 // The seam to the retired `--hooks`; dropping `cli/legacy/` drops the spread.
 const KNOWN_OPTION_NAMES = ['project', 'root', 'no-claude-md', 'no-hooks', 'no-workflow', 'no-agent-definition', ...IGNORED_RETIRED_OPTION_NAMES];
 
-const IGNORE_OUTCOME_WORDS: Record<string, string> = {
+const IGNORE_OUTCOME_WORDS: Record<EnsureIgnoredOutcome, string> = {
   'already-ignored':      'already ignored, so nothing was added',
   'appended':             'entry added',
   'no-gitignore-written': 'not written — this directory is not a git repository',
@@ -114,12 +113,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
     const printRefreshReport = (trackerLine: string | null) => {
       context.standardOutput(`agent-progress is already initialised in ${rootDirectory}.`);
       if (trackerLine !== null) context.standardOutput(`  tracker:     ${trackerLine}`);
-      context.standardOutput(`  CLAUDE.md:   ${refresh.claudeInstructionsLine}`);
-      context.standardOutput(`  brief:       ${refresh.briefLine}`);
-      context.standardOutput(`  hooks:       ${refresh.hookLine}`);
-      context.standardOutput(`  workflow:    ${refresh.workflowLine}`);
-      context.standardOutput(`  agent:       ${refresh.agentDefinitionLine}`);
-      context.standardOutput(`  dashboard:   ${workspace.htmlFilePath}`);
+      for (const line of refreshReportLinesOf(refresh, workspace.htmlFilePath)) context.standardOutput(line);
       context.standardOutput('  `agent-progress update` is the command for this refresh; `init` only creates a tracker.');
     };
 
@@ -145,6 +139,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
     return;
   }
 
+  // The ignore entry goes in before the tracker directory exists, so the tracker is never briefly visible to git status.
   const ignoreOutcome = ensureIgnored(rootDirectory, TRACKER_FILES.TRACKER_DIRECTORY_NAME);
   const project  = commandArguments.option('project') ?? basename(rootDirectory);
   const creation = await createTracker(workspace, {
@@ -165,7 +160,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
   context.standardOutput(`  tracker:     ${workspace.trackerDirectory}`);
   context.standardOutput(`  brief:       ${refresh.briefFilePath}`);
   context.standardOutput(`  dashboard:   ${workspace.htmlFilePath}`);
-  context.standardOutput(`  .gitignore:  ${IGNORE_OUTCOME_WORDS[ignoreOutcome] ?? ignoreOutcome}`);
+  context.standardOutput(`  .gitignore:  ${IGNORE_OUTCOME_WORDS[ignoreOutcome]}`);
   context.standardOutput(`  CLAUDE.md:   ${refresh.claudeInstructionsLine}`);
   context.standardOutput(`  hooks:       ${refresh.hookLine}`);
   context.standardOutput(`  workflow:    ${refresh.workflowLine}`);

@@ -8,6 +8,7 @@ import { resolve } from 'node:path';
 import { LogUtil }                                                                 from '../../../src/adapters/utils/LogUtil.ts';
 import { OperationRefusalWordingUtil }                                             from '../../../src/adapters/utils/OperationRefusalWordingUtil.ts';
 import { StatusWordingUtil }                                                       from '../../../src/adapters/utils/StatusWordingUtil.ts';
+import { TicketPhraseUtil }                                                        from '../../../src/adapters/utils/TicketPhraseUtil.ts';
 import type { BranchDeletionOutcome, FilesLeftInWorktree, WorktreeRemovalOutcome } from '../../../src/lib/git/BranchIntegration.ts';
 import {
   deleteMergedBranch,
@@ -26,17 +27,15 @@ import { OperationRefusal, refusalIsOperationRefusal, type OperationRefusalStatu
 import type { CommandContext }                                                      from '../../CommandContext.ts';
 import type { CommandHandler }                                                      from '../../CommandTable.ts';
 import { requireCurrentInstall }                                                    from '../../InstallVersionCheck.ts';
-import { openTrackerForWritingThenReadNextLine }                                    from '../../TrackerWriting.ts';
+import { openTrackerForWritingThenReadNextLine }                                    from '../../OpenTrackerForWriting.ts';
 import type { ArgumentParser }                                                      from '../../arguments/ArgumentParser.ts';
+import { DEFAULT_MAIN_LINE }                                                        from '../../constants/GitDefaults.ts';
+import { CommitTextUtil }                                                           from '../../utils/CommitTextUtil.ts';
 import { OutputUtil }                                                               from '../../utils/OutputUtil.ts';
 
 const USAGE = 'agent-progress release <id> [<id>...] --branch <branch> [--worktree <path>] [--main <line>] [--json]';
 
 const KNOWN_OPTION_NAMES = ['branch', 'worktree', 'main', 'json'];
-
-const DEFAULT_MAIN_LINE = 'main';
-
-const SHORT_COMMIT_LENGTH = 8;
 
 const OPTION_PREFIX = '-';
 
@@ -68,10 +67,6 @@ interface Release {
   mainCheckout:     string;
   closedReviewRows: readonly Readonly<Task>[];
   logged:           readonly LogRecord[];
-}
-
-function shortCommit(commit: string): string {
-  return commit.slice(0, SHORT_COMMIT_LENGTH);
 }
 
 function refuse(reason: ReleaseRefusalReason, message: string): never {
@@ -138,7 +133,8 @@ function branchCommitToRelease(mainCheckout: string, branch: string, mainLine: s
     case 'not-a-descendant':
       return refuse(
         'main-moved',
-        `Main moved: ${branch} (${shortCommit(reading.branchCommit)}) does not descend from ${mainLine} (${shortCommit(reading.mainLineCommit)}), `
+        `Main moved: ${branch} (${CommitTextUtil.shortCommitOf(reading.branchCommit)}) `
+        + `does not descend from ${mainLine} (${CommitTextUtil.shortCommitOf(reading.mainLineCommit)}), `
         + `so it cannot be fast-forwarded. Rebase ${branch} onto ${mainLine}, run the checks again, and run \`agent-progress release\` again.`,
       );
     case 'descendant':
@@ -251,8 +247,8 @@ export const releaseCommand: CommandHandler = async (commandArguments, context) 
   cleanup.push(branchStep(request.branch, deleteMergedBranch(mainCheckout, request.branch)));
 
   const ticketIds    = tickets.map(({ frontmatter }) => frontmatter.id);
-  const ticketsNamed = ticketIds.length === 1 ? `ticket #${ticketIds.join('')}` : `tickets ${ticketIds.map((identifier) => `#${identifier}`).join(', ')}`;
-  const headline     = `Released ${ticketsNamed}: ${request.mainLine} fast-forwarded to ${shortCommit(commit)} from ${request.branch}, `
+  const ticketsNamed = ticketIds.length === 1 ? `ticket #${ticketIds.join('')}` : `tickets ${TicketPhraseUtil.ticketReferencesText(ticketIds)}`;
+  const headline     = `Released ${ticketsNamed}: ${request.mainLine} fast-forwarded to ${CommitTextUtil.shortCommitOf(commit)} from ${request.branch}, `
     + `and ${StatusWordingUtil.movedPhraseFor('delivered')}.`;
   const reviewLines  = logged.filter((record) => record.kind === 'review-bar-closed').map(LogUtil.sentenceOf);
   const document     = {

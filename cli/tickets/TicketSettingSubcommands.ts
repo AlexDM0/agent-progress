@@ -3,9 +3,10 @@ import type { Task }                                                    from '..
 import { OperationRefusal }                                             from '../../src/shared/OperationRefusal.ts';
 import { DispatcherClaimNoteUtil }                                      from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
 import type { CommandContext }                                          from '../CommandContext.ts';
-import { openTrackerForWriting, openTrackerForWritingThenReadNextLine } from '../TrackerWriting.ts';
+import { openTrackerForWriting, openTrackerForWritingThenReadNextLine } from '../OpenTrackerForWriting.ts';
 import type { ArgumentParser }                                          from '../arguments/ArgumentParser.ts';
 import { NextLineUtil }                                                 from '../utils/NextLineUtil.ts';
+import { OptionValueUtil }                                              from '../utils/OptionValueUtil.ts';
 import { OutputUtil }                                                   from '../utils/OutputUtil.ts';
 import type { TicketSubcommandHandler }                                 from './@types/TicketSubcommandHandler.ts';
 import { TICKET_USAGE }                                                 from './constants/TicketUsage.ts';
@@ -28,8 +29,8 @@ async function linkOneTicket(commandArguments: ArgumentParser, context: CommandC
   if (ticketReference === undefined || taskReference === undefined) {
     throw new OperationRefusal('refused', `agent-progress ticket link needs a ticket id and a task id.\n  Usage: ${TICKET_USAGE}`);
   }
-  const taskId = Number(taskReference);
-  if (!Number.isSafeInteger(taskId) || taskId <= 0) {
+  const taskId = OptionValueUtil.taskIdOf(taskReference);
+  if (taskId === null) {
     throw new OperationRefusal('refused', `"${taskReference}" is not a task id. A task id is the whole number shown beside the row.`);
   }
   const movesTheLink = commandArguments.flag('force');
@@ -59,7 +60,7 @@ async function setTicketDependencies(commandArguments: ArgumentParser, context: 
   );
 
   const closingLines = NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState);
-  OutputUtil.printEntityThenNextLine(commandArguments, context, TicketOutputUtil.ticketAsJson(changed.ticket), TicketOutputUtil.loggedSentencesOf(changed.logged), closingLines);
+  OutputUtil.printEntityThenNextLine(commandArguments, context, TicketOutputUtil.ticketAsJson(changed.ticket), OutputUtil.loggedSentencesOf(changed.logged), closingLines);
 }
 
 async function setTicketPriority(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
@@ -79,7 +80,7 @@ async function setTicketPriority(commandArguments: ArgumentParser, context: Comm
   );
 
   const closingLines = NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState);
-  OutputUtil.printEntityThenNextLine(commandArguments, context, TicketOutputUtil.ticketAsJson(changed.ticket), TicketOutputUtil.loggedSentencesOf(changed.logged), closingLines);
+  OutputUtil.printEntityThenNextLine(commandArguments, context, TicketOutputUtil.ticketAsJson(changed.ticket), OutputUtil.loggedSentencesOf(changed.logged), closingLines);
 }
 
 async function setTicketAgent(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
@@ -105,7 +106,7 @@ async function setTicketAgent(commandArguments: ArgumentParser, context: Command
   });
 
   const closingLines = NextLineUtil.endWithRunningDispatcherNotice(nextLine, dispatcherState);
-  OutputUtil.printEntityThenNextLine(commandArguments, context, TicketOutputUtil.ticketAsJson(changed.ticket), TicketOutputUtil.loggedSentencesOf(changed.logged), closingLines);
+  OutputUtil.printEntityThenNextLine(commandArguments, context, TicketOutputUtil.ticketAsJson(changed.ticket), OutputUtil.loggedSentencesOf(changed.logged), closingLines);
 }
 
 // Every dispatcher run's builder takes over only a row paused under a dispatcher claim note; any other pause is a person's, resumed by hand.
@@ -147,7 +148,7 @@ async function holdOrUnholdTicket(holds: boolean, commandArguments: ArgumentPars
     commandArguments,
     context,
     TicketOutputUtil.ticketAsJson(holdChange.ticket),
-    TicketOutputUtil.loggedSentencesOf(holdChange.logged),
+    OutputUtil.loggedSentencesOf(holdChange.logged),
     closingLines,
   );
 }

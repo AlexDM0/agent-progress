@@ -2,23 +2,21 @@
  * What every subagent of this repository cost, read from the harness's transcripts; `cli/measurement/hook/HookCommand.ts` records one agent as it
  * stops, this compares them all. Read-only, and finding no transcripts is one sentence at exit 0, not a refusal.
  */
-import { readFileSync } from 'node:fs';
-
-import type { SubagentTranscript }                      from '../../../src/lib/claude-code/ClaudeTranscripts.ts';
-import { listSubagentTranscripts, transcriptFolderFor } from '../../../src/lib/claude-code/ClaudeTranscripts.ts';
-import type { CohortSummary }                           from '../../../src/lib/claude-code/utils/TranscriptCohortUtil.ts';
-import { TranscriptCohortUtil }                         from '../../../src/lib/claude-code/utils/TranscriptCohortUtil.ts';
-import type { TranscriptProfile }                       from '../../../src/lib/claude-code/utils/TranscriptUsageUtil.ts';
-import { TranscriptUsageUtil }                          from '../../../src/lib/claude-code/utils/TranscriptUsageUtil.ts';
-import { TimeUtil }                                     from '../../../src/lib/utils/TimeUtil.ts';
-import { TokenCountUtil }                               from '../../../src/lib/utils/TokenCountUtil.ts';
-import { requireWorkspace }                             from '../../../src/services/tracker/Workspace.ts';
-import { OperationRefusal }                             from '../../../src/shared/OperationRefusal.ts';
-import { LIMITS }                                       from '../../../src/shared/constants/Limits.ts';
-import type { CommandContext }                          from '../../CommandContext.ts';
-import type { CommandHandler }                          from '../../CommandTable.ts';
-import type { ArgumentParser }                          from '../../arguments/ArgumentParser.ts';
-import { OutputUtil }                                   from '../../utils/OutputUtil.ts';
+import type { SubagentTranscript }                                        from '../../../src/lib/claude-code/ClaudeTranscripts.ts';
+import { listSubagentTranscripts, transcriptFolderFor, transcriptTextAt } from '../../../src/lib/claude-code/ClaudeTranscripts.ts';
+import type { CohortSummary }                                             from '../../../src/lib/claude-code/utils/TranscriptCohortUtil.ts';
+import { TranscriptCohortUtil }                                           from '../../../src/lib/claude-code/utils/TranscriptCohortUtil.ts';
+import type { TranscriptProfile }                                         from '../../../src/lib/claude-code/utils/TranscriptUsageUtil.ts';
+import { TranscriptUsageUtil }                                            from '../../../src/lib/claude-code/utils/TranscriptUsageUtil.ts';
+import { TimeUtil }                                                       from '../../../src/lib/utils/TimeUtil.ts';
+import { TokenCountUtil }                                                 from '../../../src/lib/utils/TokenCountUtil.ts';
+import { requireWorkspace }                                               from '../../../src/services/tracker/Workspace.ts';
+import { OperationRefusal }                                               from '../../../src/shared/OperationRefusal.ts';
+import { LIMITS }                                                         from '../../../src/shared/constants/Limits.ts';
+import type { CommandContext }                                            from '../../CommandContext.ts';
+import type { CommandHandler }                                            from '../../CommandTable.ts';
+import type { ArgumentParser }                                            from '../../arguments/ArgumentParser.ts';
+import { OutputUtil }                                                     from '../../utils/OutputUtil.ts';
 
 const USAGE = 'agent-progress usage [--since <when>] [--transcripts <folder>] [--json]';
 
@@ -32,7 +30,7 @@ const BRIEF_EXCERPT_CHARACTERS = 80;
 const PERCENT_OF_A_WHOLE = 100;
 
 /** Each width holds the wider of its header and its figures; the end-context column is the broad one because its header is, not its numbers. */
-const AGENT_COLUMN_WIDTHS = {
+const AGENT_COLUMN_WIDTHS_CHARACTERS = {
   startedAt:        14,
   calls:            7,
   endContext:       12,
@@ -64,15 +62,6 @@ interface UsageCohorts {
 function oversizedContextPercentOf(agent: AgentUsage): string {
   if (agent.totalInputTokens === 0) return '0%';
   return `${Math.round((agent.oversizedContextTokens / agent.totalInputTokens) * PERCENT_OF_A_WHOLE)}%`;
-}
-
-/** A transcript that vanished or will not open costs its row, never the report: the folder is the harness's and may be pruned while this runs. */
-function transcriptTextAt(transcriptPath: string): string | undefined {
-  try {
-    return readFileSync(transcriptPath, 'utf8');
-  } catch {
-    return undefined;
-  }
 }
 
 function agentUsageFor(transcript: SubagentTranscript, transcriptText: string): AgentUsage {
@@ -110,34 +99,34 @@ function localStampOf(startedAt: string | null): string {
   return TimeUtil.formatLocalIso(instant).slice(LIMITS.MONTH_AND_DAY_SLICE_START_CHARACTER_OFFSET, LIMITS.CLOCK_SLICE_END_CHARACTER_OFFSET).replace('T', ' ');
 }
 
-function renderAgentRows(agents: readonly AgentUsage[]): string[] {
-  const { formatTokenCount } = TokenCountUtil;
+function agentRowLinesOf(agents: readonly AgentUsage[]): string[] {
+  const oversizedThresholdText = TokenCountUtil.formatTokenCount(LIMITS.OVERSIZED_CONTEXT_THRESHOLD_TOKENS);
   const lines = [[
-    OutputUtil.padColumn('started', AGENT_COLUMN_WIDTHS.startedAt),
-    OutputUtil.padColumn('calls', AGENT_COLUMN_WIDTHS.calls),
-    OutputUtil.padColumn('end context', AGENT_COLUMN_WIDTHS.endContext),
-    OutputUtil.padColumn('input', AGENT_COLUMN_WIDTHS.input),
-    OutputUtil.padColumn('output', AGENT_COLUMN_WIDTHS.output),
-    OutputUtil.padColumn('browser', AGENT_COLUMN_WIDTHS.browser),
-    OutputUtil.padColumn('over 200k', AGENT_COLUMN_WIDTHS.oversizedContext),
-    OutputUtil.padColumn('bash edits', AGENT_COLUMN_WIDTHS.bashEdits),
-    OutputUtil.padColumn('checks', AGENT_COLUMN_WIDTHS.checks),
-    OutputUtil.padColumn('nested', AGENT_COLUMN_WIDTHS.nested),
+    OutputUtil.padColumn('started', AGENT_COLUMN_WIDTHS_CHARACTERS.startedAt),
+    OutputUtil.padColumn('calls', AGENT_COLUMN_WIDTHS_CHARACTERS.calls),
+    OutputUtil.padColumn('end context', AGENT_COLUMN_WIDTHS_CHARACTERS.endContext),
+    OutputUtil.padColumn('input', AGENT_COLUMN_WIDTHS_CHARACTERS.input),
+    OutputUtil.padColumn('output', AGENT_COLUMN_WIDTHS_CHARACTERS.output),
+    OutputUtil.padColumn('browser', AGENT_COLUMN_WIDTHS_CHARACTERS.browser),
+    OutputUtil.padColumn(`over ${oversizedThresholdText}`, AGENT_COLUMN_WIDTHS_CHARACTERS.oversizedContext),
+    OutputUtil.padColumn('bash edits', AGENT_COLUMN_WIDTHS_CHARACTERS.bashEdits),
+    OutputUtil.padColumn('checks', AGENT_COLUMN_WIDTHS_CHARACTERS.checks),
+    OutputUtil.padColumn('nested', AGENT_COLUMN_WIDTHS_CHARACTERS.nested),
     'brief',
   ].join('')];
 
   for (const agent of agents) {
     lines.push([
-      OutputUtil.padColumn(localStampOf(agent.startedAt), AGENT_COLUMN_WIDTHS.startedAt),
-      OutputUtil.padColumn(String(agent.apiCallCount), AGENT_COLUMN_WIDTHS.calls),
-      OutputUtil.padColumn(formatTokenCount(agent.endContextTokens), AGENT_COLUMN_WIDTHS.endContext),
-      OutputUtil.padColumn(formatTokenCount(agent.totalInputTokens), AGENT_COLUMN_WIDTHS.input),
-      OutputUtil.padColumn(formatTokenCount(agent.outputTokens), AGENT_COLUMN_WIDTHS.output),
-      OutputUtil.padColumn(String(agent.browserCallCount), AGENT_COLUMN_WIDTHS.browser),
-      OutputUtil.padColumn(oversizedContextPercentOf(agent), AGENT_COLUMN_WIDTHS.oversizedContext),
-      OutputUtil.padColumn(String(agent.bashEditScriptCount), AGENT_COLUMN_WIDTHS.bashEdits),
-      OutputUtil.padColumn(String(agent.verificationRunCount), AGENT_COLUMN_WIDTHS.checks),
-      OutputUtil.padColumn(formatTokenCount(agent.nestedInstructionCharacters), AGENT_COLUMN_WIDTHS.nested),
+      OutputUtil.padColumn(localStampOf(agent.startedAt), AGENT_COLUMN_WIDTHS_CHARACTERS.startedAt),
+      OutputUtil.padColumn(String(agent.apiCallCount), AGENT_COLUMN_WIDTHS_CHARACTERS.calls),
+      OutputUtil.padColumn(TokenCountUtil.formatTokenCount(agent.endContextTokens), AGENT_COLUMN_WIDTHS_CHARACTERS.endContext),
+      OutputUtil.padColumn(TokenCountUtil.formatTokenCount(agent.totalInputTokens), AGENT_COLUMN_WIDTHS_CHARACTERS.input),
+      OutputUtil.padColumn(TokenCountUtil.formatTokenCount(agent.outputTokens), AGENT_COLUMN_WIDTHS_CHARACTERS.output),
+      OutputUtil.padColumn(String(agent.browserCallCount), AGENT_COLUMN_WIDTHS_CHARACTERS.browser),
+      OutputUtil.padColumn(oversizedContextPercentOf(agent), AGENT_COLUMN_WIDTHS_CHARACTERS.oversizedContext),
+      OutputUtil.padColumn(String(agent.bashEditScriptCount), AGENT_COLUMN_WIDTHS_CHARACTERS.bashEdits),
+      OutputUtil.padColumn(String(agent.verificationRunCount), AGENT_COLUMN_WIDTHS_CHARACTERS.checks),
+      OutputUtil.padColumn(TokenCountUtil.formatTokenCount(agent.nestedInstructionCharacters), AGENT_COLUMN_WIDTHS_CHARACTERS.nested),
       agent.briefExcerpt,
     ].join(''));
   }
@@ -145,23 +134,23 @@ function renderAgentRows(agents: readonly AgentUsage[]): string[] {
 }
 
 /** The character counts are formatted through the token formatter on purpose: the report is read as one column of magnitudes, not as two units. */
-function renderCohortLine(label: string, summary: CohortSummary): string {
+function cohortLineOf(label: string, summary: CohortSummary): string {
   if (summary.transcriptCount === 0) return `${label}: no agents.`;
 
-  const { formatTokenCount } = TokenCountUtil;
-  const agentWord            = summary.transcriptCount === 1 ? 'agent' : 'agents';
+  const oversizedThresholdText = TokenCountUtil.formatTokenCount(LIMITS.OVERSIZED_CONTEXT_THRESHOLD_TOKENS);
+  const agentWord              = summary.transcriptCount === 1 ? 'agent' : 'agents';
   return `${label}: ${summary.transcriptCount} ${agentWord}, median ${summary.medianApiCallCount} calls, `
-    + `median end context ${formatTokenCount(summary.medianEndContextTokens)}, `
-    + `mean input ${formatTokenCount(summary.meanTotalInputTokens)}, `
-    + `mean output ${formatTokenCount(summary.meanOutputTokens)}, `
+    + `median end context ${TokenCountUtil.formatTokenCount(summary.medianEndContextTokens)}, `
+    + `mean input ${TokenCountUtil.formatTokenCount(summary.meanTotalInputTokens)}, `
+    + `mean output ${TokenCountUtil.formatTokenCount(summary.meanOutputTokens)}, `
     + `mean ${summary.meanBrowserCallCount.toFixed(MEAN_CALL_COUNT_DECIMALS)} browser calls, `
-    + `mean ${Math.round(summary.meanOversizedContextShare * PERCENT_OF_A_WHOLE)}% over 200k context, `
+    + `mean ${Math.round(summary.meanOversizedContextShare * PERCENT_OF_A_WHOLE)}% over ${oversizedThresholdText} context, `
     + `mean ${summary.meanBashEditScriptCount.toFixed(MEAN_CALL_COUNT_DECIMALS)} bash edit scripts, `
     + `mean ${summary.meanVerificationRunCount.toFixed(MEAN_CALL_COUNT_DECIMALS)} verification runs, `
-    + `mean ${formatTokenCount(summary.meanNestedInstructionCharacters)} nested characters`;
+    + `mean ${TokenCountUtil.formatTokenCount(summary.meanNestedInstructionCharacters)} nested characters`;
 }
 
-function resolveSinceOption(commandArguments: ArgumentParser, context: CommandContext): Date | undefined {
+function sinceDateFrom(commandArguments: ArgumentParser, context: CommandContext): Date | undefined {
   const written = commandArguments.option('since');
   if (written === undefined) return undefined;
 
@@ -193,18 +182,17 @@ export const usageCommand: CommandHandler = (commandArguments, context) => {
   commandArguments.rejectExtraPositionals(0, USAGE);
 
   const workspace        = requireWorkspace(context.currentDirectory);
-  const since            = resolveSinceOption(commandArguments, context);
+  const since            = sinceDateFrom(commandArguments, context);
   const transcriptFolder = commandArguments.option('transcripts') ?? transcriptFolderFor(workspace.rootDirectory);
   const agents           = readAgents(listSubagentTranscripts(transcriptFolder), context);
 
-  const { cohortSummaryOf } = TranscriptCohortUtil;
-  const split               = since === undefined ? undefined : TranscriptCohortUtil.cohortSplitAt(agents, since);
+  const split = since === undefined ? undefined : TranscriptCohortUtil.cohortSplitAt(agents, since);
   const cohorts: UsageCohorts = split === undefined
-    ? { all: cohortSummaryOf(agents) }
+    ? { all: TranscriptCohortUtil.cohortSummaryOf(agents) }
     : {
-      all:    cohortSummaryOf(agents),
-      before: cohortSummaryOf(split.before),
-      after:  cohortSummaryOf(split.after),
+      all:    TranscriptCohortUtil.cohortSummaryOf(agents),
+      before: TranscriptCohortUtil.cohortSummaryOf(split.before),
+      after:  TranscriptCohortUtil.cohortSummaryOf(split.after),
     };
   const document = { transcriptFolder, agents, cohorts };
 
@@ -213,13 +201,13 @@ export const usageCommand: CommandHandler = (commandArguments, context) => {
     return Promise.resolve();
   }
 
-  const lines = renderAgentRows(agents);
+  const lines = agentRowLinesOf(agents);
   lines.push('');
-  lines.push(renderCohortLine('All', cohorts.all));
+  lines.push(cohortLineOf('All', cohorts.all));
   if (since !== undefined && cohorts.before !== undefined && cohorts.after !== undefined) {
     const boundary = TimeUtil.formatLocalIso(since);
-    lines.push(renderCohortLine(`Before ${boundary}`, cohorts.before));
-    lines.push(renderCohortLine(`Since ${boundary}`, cohorts.after));
+    lines.push(cohortLineOf(`Before ${boundary}`, cohorts.before));
+    lines.push(cohortLineOf(`Since ${boundary}`, cohorts.after));
   }
 
   OutputUtil.printEntity(commandArguments, context, document, lines.join('\n'));

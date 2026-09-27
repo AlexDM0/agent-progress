@@ -10,11 +10,11 @@ import { describe, expect, test } from 'bun:test';
 import { TASK_STATUSES, TICKET_STATUSES }                   from '../../../src/lib/tracker-model/constants/Statuses.ts';
 import { refusalIsOperationRefusal, type OperationRefusal } from '../../../src/shared/OperationRefusal.ts';
 import { createArgumentParser }                             from '../../arguments/ArgumentParser.ts';
-import { TICKET_CLAIM_SUBCOMMANDS }                         from '../../tickets/TicketClaims.ts';
-import { TICKET_FILING_SUBCOMMANDS }                        from '../../tickets/TicketFiling.ts';
-import { TICKET_MOVE_SUBCOMMANDS }                          from '../../tickets/TicketMoves.ts';
-import { TICKET_READING_SUBCOMMANDS }                       from '../../tickets/TicketReading.ts';
-import { TICKET_SETTING_SUBCOMMANDS }                       from '../../tickets/TicketSettings.ts';
+import { TICKET_CLAIM_SUBCOMMANDS }                         from '../../tickets/TicketClaimSubcommands.ts';
+import { TICKET_FILING_SUBCOMMANDS }                        from '../../tickets/TicketFilingSubcommands.ts';
+import { TICKET_MOVE_SUBCOMMANDS }                          from '../../tickets/TicketMoveSubcommands.ts';
+import { TICKET_READING_SUBCOMMANDS }                       from '../../tickets/TicketReadingSubcommands.ts';
+import { TICKET_SETTING_SUBCOMMANDS }                       from '../../tickets/TicketSettingSubcommands.ts';
 import { RetiredWordRefusalUtil }                           from './RetiredWordRefusalUtil.ts';
 
 const {
