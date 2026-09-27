@@ -242,7 +242,7 @@ Each step is one or more commits on the branch; each commit is green.
    joined by `ticketId`. `BoardRulesUtil`'s and `taskRowsInDisplayOrder`'s own derivations go, and
    the page stops using `TicketNumberUtil`. The Progress chart changes as intended: a ticket's own
    row is the first row naming it, not the last; bars are matched by `reviewOf`, not by name; nested
-   bars are ordered newest filed first. The spec tsconfig lets the page specs sit beside their
+   bars keep main's order, latest named round first. The spec tsconfig lets the page specs sit beside their
    modules. The detail panel filters the log by id. The Kanban and
    ticket-dialog specs are the regression net for (b) and (c): they change only in their imports.
    Port the dispatcher to dispatcher/ in

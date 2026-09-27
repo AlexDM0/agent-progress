@@ -125,8 +125,8 @@ accepted. A row that never gets there is a row the chart shows as still owed.
 
 A row filed with `task add … --review-of <id>`, or by `ticket finish --start-review`, stores the
 ticket it reviews in its `reviewOf` field. On the Progress tab each review row sits directly above
-that ticket's own row, indented one level, newest filed first, so the first one filed is right above
-the ticket, with its own bar, pill and times. A bundle's review, `Review 1 #13, #5 — …`, sits once,
+that ticket's own row, indented one level, latest round first, so round 1 is right above the
+ticket, with its own bar, pill and times. A bundle's review, `Review 1 #13, #5 — …`, sits once,
 above the first ticket it names. A review whose ticket has no row on the chart — a low ticket not
 started, or one hidden as long done — is drawn where its filing puts it. `--review-of` is not
 `--ticket`: the ticket keeps its own row, and the review row moves through the `task` verbs.

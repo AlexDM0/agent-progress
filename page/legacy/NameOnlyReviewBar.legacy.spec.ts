@@ -80,7 +80,7 @@ function drawnOrderOf(markup: string): Array<[taskId: string, reviewOf: string |
 }
 
 describe('review rows known only by their name', () => {
-  test('draws a name-only review row among the flagged rounds directly above the ticket, newest filed first', () => {
+  test('draws a name-only review row among the flagged rounds directly above the ticket, latest round first', () => {
     const markup = taskRowsMarkup(rowsFiled([
       exampleTask({ id: 1, name: 'Split the exporter', ticket: '003' }),
       exampleTask({ id: 2, name: 'Regenerate the fixtures' }),

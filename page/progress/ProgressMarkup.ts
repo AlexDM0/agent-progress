@@ -35,9 +35,19 @@ interface PlacedTaskRow {
   nestedWithTicket: string | null;
 }
 
+/** Only the prefix is read, as when the bar was filed: `Review 2 #13, #5 — …` is round 2. */
+const REVIEW_BAR_NAME_PATTERN = /^Review (\d+) #\d+/;
+
+/** A name that gives no round sorts above every numbered round. */
+function reviewRoundNamedBy(task: BoardRow): number {
+  const round = Number(REVIEW_BAR_NAME_PATTERN.exec(task.name)?.[1]);
+  return Number.isSafeInteger(round) ? round : Number.MAX_SAFE_INTEGER;
+}
+
 /**
- * Newest filed first, except that a review bar is drawn directly above its ticket's own row, as the Board answers it, newest filed first. A
- * bar whose own row is not among these rows — none, or hidden as long done — stays where its filing puts it.
+ * Newest filed first, except that a review bar is drawn directly above its ticket's own row, as the Board answers it, latest round its
+ * name gives first, a name without a round above the rest, then newest filed first. A bar whose own row is not among these rows — none, or
+ * hidden as long done — stays where its filing puts it.
  */
 function taskRowsInDisplayOrder(rows: readonly TaskRow[]): PlacedTaskRow[] {
   const rowByTask = new Map(rows.map((row) => [row.task, row]));
@@ -51,7 +61,7 @@ function taskRowsInDisplayOrder(rows: readonly TaskRow[]): PlacedTaskRow[] {
 
   return rows.toReversed().flatMap((row) => {
     if (nestedRows.has(row)) return [];
-    const reviews = (reviewsByParent.get(row) ?? []).toSorted((a, b) => b.task.id - a.task.id);
+    const reviews = (reviewsByParent.get(row) ?? []).toSorted((a, b) => reviewRoundNamedBy(b.task) - reviewRoundNamedBy(a.task) || b.task.id - a.task.id);
     return [
       ...reviews.map((review) => ({ row: review, nestedWithTicket: row.task.ticket })),
       { row, nestedWithTicket: null },

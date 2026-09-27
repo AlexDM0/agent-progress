@@ -216,7 +216,7 @@ function drawnOrderOf(markup: string): Array<[taskId: string, reviewOf: string |
 
 // A review pass belongs to its ticket: it is drawn above the ticket's own row rather than wherever its start time put it.
 describe('review rows nested above their ticket', () => {
-  test('draws the review rows directly above the ticket, indented, newest filed first', () => {
+  test('draws the review rows directly above the ticket, indented, latest round first', () => {
     const markup = taskRowsMarkup(rowsFiled([
       exampleTask({ id: 1, name: 'Split the exporter', ticket: '003' }),
       exampleTask({ id: 2, name: 'Regenerate the fixtures' }),
@@ -242,15 +242,26 @@ describe('review rows nested above their ticket', () => {
     ]);
   });
 
-  // Only a later round filed earlier tells a round sort from a filing sort, and the name's round is not read.
-  test('orders review rows newest filed first, whatever round their name gives', () => {
+  // Only a later round filed earlier tells a round sort from a filing sort.
+  test('orders review rows by the round their name gives, not by when they were filed', () => {
     const markup = taskRowsMarkup(rowsFiled([
       exampleTask({ id: 1, ticket: '003' }),
       exampleTask({ id: 2, name: 'Review 2 #3 — Split the exporter', reviewOf: '003' }),
       exampleTask({ id: 3, name: 'Review 1 #3 — Split the exporter', reviewOf: '003' }),
     ]), EXAMPLE_TIMESTAMP_SLICES);
 
-    expect(drawnOrderOf(markup)).toEqual([['3', '003'], ['2', '003'], ['1', null]]);
+    expect(drawnOrderOf(markup)).toEqual([['2', '003'], ['3', '003'], ['1', null]]);
+  });
+
+  test('draws a review row whose name gives no round above the numbered rounds', () => {
+    const markup = taskRowsMarkup(rowsFiled([
+      exampleTask({ id: 1, ticket: '003' }),
+      exampleTask({ id: 3, name: 'Review 2 #3 — Split the exporter', reviewOf: '003' }),
+      exampleTask({ id: 4, name: 'Review 1 #3 — Split the exporter', reviewOf: '003' }),
+      exampleTask({ id: 5, name: 'A second look', reviewOf: '003' }),
+    ]), EXAMPLE_TIMESTAMP_SLICES);
+
+    expect(drawnOrderOf(markup)).toEqual([['5', '003'], ['3', '003'], ['4', '003'], ['1', null]]);
   });
 
   // Two rows naming one ticket: the Board's own row is the first, so the bar goes above that one.

@@ -243,7 +243,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   ticket by `reviewOf`; a free-standing row known only by its `Review <N> #<id>` name is given `reviewOf` and
   `reviewBarRound` by `cli/legacy/` when `task add` files it without `--review-of` or `--ticket` or when
   `task update --name` renames it, by `update`'s rewrite, and by `src/adapters/legacy/` when a row still unlinked
-  is read. Nothing else matches a name: the page reads which rows are bars from the Board facts.
+  is read. Nothing else links by a name: the page reads which rows are bars from the Board facts, and reads a bar's
+  name only to draw a ticket's bars latest named round first.
 
 ### The page
 
