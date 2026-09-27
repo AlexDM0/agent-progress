@@ -1,10 +1,10 @@
 # Migration plan: the conventions refactor
 
-**Status (2026-09-27): steps 0 to 9 are done on `migration/conventions`; the polish sweep and the end-of-refactor
-review (step 10) are next, then the owner's merge.** Step 9 brought `README.md`, `docs/cli.md`, `docs/development.md`,
-the skills and the root CLAUDE.md in line with the code, and moved what the migration leaves open to `docs/backlog.md`:
-the `ProgressFile` rename, step 7's TicketStore moves, a combined rework count, dropping the legacy folders and
-retaking the README images. Every sub-branch is merged: the page split (`migration/page`, 7058c2a), the dispatcher
+**Status (2026-09-27): steps 0 to 9 and step 10's polish sweep are done on `migration/conventions`; the
+end-of-refactor review is under way, then the owner's merge.** Step 9 brought `README.md`, `docs/cli.md`,
+`docs/development.md`, the skills and the root CLAUDE.md in line with the code, and moved what the migration leaves open
+to `docs/backlog.md`: step 7's TicketStore moves, a combined rework count, dropping the legacy folders and retaking the
+README images. Every sub-branch is merged: the page split (`migration/page`, 7058c2a), the dispatcher
 port (`migration/dispatcher`, 4221a13), the page reading the payload facts (`migration/page-facts`, 8d67026) and the
 dispatcher's JSON fields (`migration/dispatcher-json`, 99606f1).
 The kanban-board feature has landed on main (9654720 through 5c6b0ad) and is mapped into this plan.
@@ -270,7 +270,7 @@ Each step is one or more commits on the branch; each commit is green.
 10. **Polish, end-of-refactor review, verify and merge.**
     - **Polish.** Fix every minor finding the lean step reviews deferred, and sweep the whole tree
       for the conventions. Rename the model's `ProgressFile` (for example to `TrackerProgress`),
-      deferred from step 6.
+      deferred from step 6 (done: `TrackerProgress`).
     - **End-of-refactor review** of the whole branch against main, repeated until two rounds find
       nothing. The contract is external behaviour: the CLI's commands, output and exit codes, and
       the page's HTML and behaviour, must match main. The only allowed differences are the decided

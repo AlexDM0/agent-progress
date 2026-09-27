@@ -62,16 +62,6 @@ and no such variable exists. When it is built, it is read through a getter in
 Not started because it was not taken into the conventions migration, which changes no behaviour
 outside its plan; it waits for the first change after the merge that touches the test helpers.
 
-## Renaming the model's `ProgressFile`
-
-`ProgressFile` in `src/lib/tracker-model/@types/ProgressFile.ts` is the model's type for the
-tracker's rows, view and settings, named after the file that stores them. Agreed: rename it for what
-it is, for example to `TrackerProgress`.
-
-Not started because the owner deferred it in step 6 to the migration's polish sweep (step 10), so the
-rename crosses the model, the adapters and the services once, rather than inside a step that was
-moving them.
-
 ## The TicketStore moves step 7 left
 
 `src/services/tracker/TicketStore.ts` still holds work that belongs elsewhere. Agreed:
@@ -85,8 +75,7 @@ moving them.
   replaced by a Board query.
 
 Not started because they are internal moves with no behaviour change, left when step 7 closed with
-the features regrouped; they wait for the polish sweep or the next change to ticket filing,
-`ticket show` or `clear --all`.
+the features regrouped; they wait for the next change to ticket filing, `ticket show` or `clear --all`.
 
 ## A combined rework count
 
