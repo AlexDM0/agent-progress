@@ -4,11 +4,11 @@
  */
 import { OperationRefusalWordingUtil }                 from '../../../src/adapters/utils/OperationRefusalWordingUtil.ts';
 import { transcriptTextAt }                            from '../../../src/lib/claude-code/ClaudeTranscripts.ts';
-import { JsonRecordUtil }                              from '../../../src/lib/claude-code/utils/JsonRecordUtil.ts';
 import type { TranscriptUsageTotals }                  from '../../../src/lib/claude-code/utils/TranscriptUsageUtil.ts';
 import { TranscriptUsageUtil }                         from '../../../src/lib/claude-code/utils/TranscriptUsageUtil.ts';
 import type { TokenCredit, TokenCreditOutcome }        from '../../../src/lib/tracker-model/@types/BoardChanges.ts';
 import type { AgentUsage }                             from '../../../src/lib/tracker-model/@types/LogRecord.ts';
+import { JsonRecordUtil }                              from '../../../src/lib/utils/JsonRecordUtil.ts';
 import { OperationRefusal, refusalIsOperationRefusal } from '../../../src/shared/OperationRefusal.ts';
 import { LIMITS }                                      from '../../../src/shared/constants/Limits.ts';
 import type { CommandContext }                         from '../../CommandContext.ts';

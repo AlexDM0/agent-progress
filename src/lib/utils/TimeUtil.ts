@@ -1,6 +1,6 @@
 /**
- * The utils building block: pure, dependency-free value helpers (time stamps, token counts, HTML escaping); it imports nothing.
- * Timestamps are local-offset ISO 8601, never UTC: formatted, parsed, and resolved from `now` or a signed offset.
+ * The utils building block: pure, dependency-free value helpers (time stamps, token counts, HTML escaping, plain-object checks of parsed
+ * JSON); it imports nothing. Timestamps are local-offset ISO 8601, never UTC: formatted, parsed, and resolved from `now` or a signed offset.
  */
 
 const MILLISECONDS_PER_MINUTE = 60_000;

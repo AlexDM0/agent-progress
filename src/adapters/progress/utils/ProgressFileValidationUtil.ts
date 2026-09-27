@@ -6,6 +6,7 @@ import { TASK_STATUSES }                                     from '../../../lib/
 import { FIRST_TASK_ID }                                     from '../../../lib/tracker-model/constants/TaskIds.ts';
 import { BoardSettingsUtil }                                 from '../../../lib/tracker-model/utils/BoardSettingsUtil.ts';
 import { VocabularyUtil }                                    from '../../../lib/tracker-model/utils/VocabularyUtil.ts';
+import { JsonRecordUtil }                                    from '../../../lib/utils/JsonRecordUtil.ts';
 import { StoredValueUtil }                                   from '../../utils/StoredValueUtil.ts';
 import type { StoredTaskPhase }                              from '../@types/StoredProgressFile.ts';
 import { CURRENT_PROGRESS_FILE_VERSION }                     from '../constants/ProgressFileVersions.ts';
@@ -37,7 +38,7 @@ function taskStatusIsKnown(value: unknown): boolean {
 }
 
 function taskPhaseIsWellFormed(value: unknown): value is StoredTaskPhase {
-  if (!StoredValueUtil.valueIsAPlainObject(value)) return false;
+  if (!JsonRecordUtil.valueIsAPlainObject(value)) return false;
   return taskStatusIsKnown(value['status']) && typeof value['at'] === 'string';
 }
 
@@ -80,7 +81,7 @@ function taskProblem(value: unknown, index: number): string | null {
  * `log` in one is refused rather than silently ignored.
  */
 function documentHeaderProblemOf(candidate: unknown): string | null {
-  if (!StoredValueUtil.valueIsAPlainObject(candidate)) return 'the document is not a JSON object';
+  if (!JsonRecordUtil.valueIsAPlainObject(candidate)) return 'the document is not a JSON object';
   const { version } = candidate;
   if (version !== CURRENT_PROGRESS_FILE_VERSION) return `version is ${JSON.stringify(version)}, and this build of agent-progress reads version ${CURRENT_PROGRESS_FILE_VERSION}`;
   if (!textFieldIsPresent(candidate, 'trackerId')) return 'trackerId is not a string';

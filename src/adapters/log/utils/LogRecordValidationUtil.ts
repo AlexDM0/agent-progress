@@ -5,6 +5,7 @@ import { FIRST_REPEAT_REVIEW_ROUND } from '../../../lib/tracker-model/constants/
 import { TICKET_PRIORITIES }         from '../../../lib/tracker-model/constants/TicketFields.ts';
 import { BoardSettingsUtil }         from '../../../lib/tracker-model/utils/BoardSettingsUtil.ts';
 import { VocabularyUtil }            from '../../../lib/tracker-model/utils/VocabularyUtil.ts';
+import { JsonRecordUtil }            from '../../../lib/utils/JsonRecordUtil.ts';
 import { StoredValueUtil }           from '../../utils/StoredValueUtil.ts';
 
 type UnknownObject = Record<string, unknown>;
@@ -34,7 +35,7 @@ function priorityProblem(fields: UnknownObject, field: 'from' | 'to'): string | 
 
 function agentPairProblem(fields: UnknownObject, field: 'from' | 'to'): string | null {
   const agentPair = fields[field];
-  if (!StoredValueUtil.valueIsAPlainObject(agentPair)) return `fields.${field} is not an object`;
+  if (!JsonRecordUtil.valueIsAPlainObject(agentPair)) return `fields.${field} is not an object`;
   const { model, effort } = agentPair;
   if (typeof model !== 'string' || !VocabularyUtil.agentModelIsKnown(model)) return `fields.${field}.model is ${JSON.stringify(model)}, which is not a known model`;
   if (typeof effort !== 'string' || !VocabularyUtil.agentEffortIsKnown(effort)) return `fields.${field}.effort is ${JSON.stringify(effort)}, which is not a known effort`;
@@ -140,12 +141,12 @@ function kindIsKnown(kind: unknown): kind is LogRecord['kind'] {
 }
 
 function recordProblemOf(value: unknown): string | null {
-  if (!StoredValueUtil.valueIsAPlainObject(value)) return 'it is not an object';
+  if (!JsonRecordUtil.valueIsAPlainObject(value)) return 'it is not an object';
   if (typeof value['at'] !== 'string') return 'at is not a string';
   const { kind } = value;
   if (!kindIsKnown(kind)) return `kind is ${JSON.stringify(kind)}, which is not a kind of log record`;
   const { fields } = value;
-  if (!StoredValueUtil.valueIsAPlainObject(fields)) return 'fields is not an object';
+  if (!JsonRecordUtil.valueIsAPlainObject(fields)) return 'fields is not an object';
   return CHECK_FOR_KIND[kind](fields, value);
 }
 

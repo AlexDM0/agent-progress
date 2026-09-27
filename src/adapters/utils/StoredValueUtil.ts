@@ -1,4 +1,4 @@
-/** The checks every stored format's validation shares: a stored text parsed as JSON, and whether a parsed value is an object or a whole number. */
+/** The checks every stored format's validation shares: a stored text parsed as JSON, and whether a parsed value is a whole number. */
 
 export type ParsedJson =
   | { verdict: 'parsed'; value: unknown }
@@ -13,10 +13,6 @@ function parsedJsonOf(text: string): ParsedJson {
   }
 }
 
-function valueIsAPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
 function valueIsAWholeNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value);
 }
@@ -27,7 +23,6 @@ function wholeNumberIsAtLeast(value: unknown, lowest: number): value is number {
 
 export const StoredValueUtil = {
   parsedJsonOf,
-  valueIsAPlainObject,
   valueIsAWholeNumber,
   wholeNumberIsAtLeast,
 } as const;

@@ -2,7 +2,7 @@
  * What one finished subagent cost and did, read out of the transcript the harness wrote for it. The figures are a pure function of the
  * transcript text, so they are tested against constructed transcripts rather than through a live `SubagentStop`.
  */
-import { JsonRecordUtil } from './JsonRecordUtil.ts';
+import { JsonRecordUtil } from '../../utils/JsonRecordUtil.ts';
 
 /**
  * `endContextTokens` is the window of the *last* call rather than a sum: it is how full the agent's

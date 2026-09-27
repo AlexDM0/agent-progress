@@ -1,6 +1,6 @@
 /**
  * The checks every stored format's validation shares. The cases that matter: an unparseable text's problem is worded as an ingestion reports
- * it, an array or null is never a plain object, and a whole number means a safe integer, so a fraction or a number past the safe range fails.
+ * it, and a whole number means a safe integer, so a fraction or a number past the safe range fails.
  */
 import { expect, test } from 'bun:test';
 
@@ -14,13 +14,6 @@ test('a text that is not JSON is unparseable, the problem naming the parser mess
   const parsedJson = StoredValueUtil.parsedJsonOf('{ not json');
   expect(parsedJson.verdict).toBe('unparseable');
   expect(parsedJson.verdict === 'unparseable' ? parsedJson.problem : '').toStartWith('it is not valid JSON (');
-});
-
-test('only an object that is neither null nor an array is a plain object', () => {
-  expect(StoredValueUtil.valueIsAPlainObject({ project: 'Example Agency' })).toBe(true);
-  expect(StoredValueUtil.valueIsAPlainObject([])).toBe(false);
-  expect(StoredValueUtil.valueIsAPlainObject(null)).toBe(false);
-  expect(StoredValueUtil.valueIsAPlainObject('Example Agency')).toBe(false);
 });
 
 test('a whole number is a safe integer, negative ones included', () => {

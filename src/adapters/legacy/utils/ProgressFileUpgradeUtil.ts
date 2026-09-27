@@ -5,18 +5,18 @@
  * `carriedOverLog` (and `TrackerReader`'s `progressFileIsInAnOlderFormat` with them), and the split exports `documentHeaderProblemOf` and
  * `taskRowsProblemOf` of `src/adapters/progress/utils/ProgressFileValidationUtil.ts`, which then exports only `documentProblemOf`.
  */
+import { JsonRecordUtil }                                                    from '../../../lib/utils/JsonRecordUtil.ts';
 import { RetiredStatusWordUtil }                                             from '../../../shared/legacy/utils/RetiredStatusWordUtil.ts';
 import { ReviewBarNameUtil }                                                 from '../../../shared/legacy/utils/ReviewBarNameUtil.ts';
 import type { ProgressFileMigration }                                        from '../../progress/@types/ProgressFileMigration.ts';
 import type { StoredProgressFile }                                           from '../../progress/@types/StoredProgressFile.ts';
 import { CURRENT_PROGRESS_FILE_VERSION, EMBEDDED_LOG_PROGRESS_FILE_VERSION } from '../../progress/constants/ProgressFileVersions.ts';
 import { ProgressFileValidationUtil }                                        from '../../progress/utils/ProgressFileValidationUtil.ts';
-import { StoredValueUtil }                                                   from '../../utils/StoredValueUtil.ts';
 import type { StoredLogEntry }                                               from '../@types/StoredProgressFileVersionOne.ts';
 import { EmbeddedLogUtil }                                                   from './EmbeddedLogUtil.ts';
 
 function plainObjectOrNull(value: unknown): Record<string, unknown> | null {
-  return StoredValueUtil.valueIsAPlainObject(value) ? value : null;
+  return JsonRecordUtil.valueIsAPlainObject(value) ? value : null;
 }
 
 function statusIsRetired(record: Record<string, unknown>): boolean {

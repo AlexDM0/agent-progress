@@ -1,6 +1,7 @@
 /** `.agent-progress/version.json` read into the install version it records: read, parse, validate. */
 import { lstatSync } from 'node:fs';
 
+import { JsonRecordUtil }   from '../../lib/utils/JsonRecordUtil.ts';
 import { storedFileTextOf } from '../StoredFileText.ts';
 import { StoredValueUtil }  from '../utils/StoredValueUtil.ts';
 
@@ -42,7 +43,7 @@ export class InstallManifestIngestion {
     const parsedJson = StoredValueUtil.parsedJsonOf(storedText.text);
     if (parsedJson.verdict === 'unparseable') return { verdict: 'unreadable', reason: parsedJson.problem };
     const parsed = parsedJson.value;
-    if (!StoredValueUtil.valueIsAPlainObject(parsed)) return { verdict: 'unreadable', reason: 'it is not a JSON object' };
+    if (!JsonRecordUtil.valueIsAPlainObject(parsed)) return { verdict: 'unreadable', reason: 'it is not a JSON object' };
 
     const installVersion = Object.hasOwn(parsed, 'installVersion') ? parsed['installVersion'] : undefined;
     if (!StoredValueUtil.wholeNumberIsAtLeast(installVersion, LOWEST_INSTALL_VERSION)) return { verdict: 'unreadable', reason: installVersionProblemOf(installVersion) };

@@ -7,8 +7,8 @@ import { readFileSync, statSync } from 'node:fs';
 import { join }                   from 'node:path';
 
 import { writeFileAtomically }   from '../atomic-file/AtomicFile.ts';
+import { JsonRecordUtil }        from '../utils/JsonRecordUtil.ts';
 import { CLAUDE_DIRECTORY_NAME } from './constants/ClaudeCodePaths.ts';
-import { JsonRecordUtil }        from './utils/JsonRecordUtil.ts';
 
 const SETTINGS_FILE_NAME = 'settings.json';
 
