@@ -99,7 +99,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
   refuseAnOverrideNamingAnotherDirectory(context.currentDirectory, rootDirectory);
 
   // The brief, the block and the hook are written by the same refresh a second `init` and `update` run, so a fresh tracker and an adopted one never drift.
-  const refreshTheRepository = (installedFileTexts: InstalledFileTexts, writesTheBriefFirst: boolean) => refreshTrackedRepository({
+  const refreshTheRepository = (installedFileTexts: InstalledFileTexts, { writesTheBriefFirst }: { writesTheBriefFirst: boolean }) => refreshTrackedRepository({
     workspace,
     installedFileTexts,
     commandName:   'init',
@@ -110,7 +110,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
     standardError: context.standardError,
   });
   const reportTheRefreshOfAnExistingTracker = async (installedFileTexts: InstalledFileTexts) => {
-    const refresh = refreshTheRepository(installedFileTexts, false);
+    const refresh = refreshTheRepository(installedFileTexts, { writesTheBriefFirst: false });
     const printRefreshReport = (trackerLine: string | null) => {
       context.standardOutput(`agent-progress is already initialised in ${rootDirectory}.`);
       if (trackerLine !== null) context.standardOutput(`  tracker:     ${trackerLine}`);
@@ -155,7 +155,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
   }
   OutputUtil.reportRenderProblems(context, creation.renderOutcome);
 
-  const refresh = refreshTheRepository(installedFileTexts, true);
+  const refresh = refreshTheRepository(installedFileTexts, { writesTheBriefFirst: true });
 
   context.standardOutput(`Initialised agent-progress for "${project}" in ${rootDirectory}`);
   context.standardOutput(`  tracker:     ${workspace.trackerDirectory}`);
