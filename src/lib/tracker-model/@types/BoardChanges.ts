@@ -78,6 +78,13 @@ export interface TicketChanged extends Logged {
   ticket: Readonly<Ticket>;
 }
 
+/** `droppedUnsettledTicketIds` are the dropped ones not yet reviewed or delivered: work the ticket may now start ahead of. */
+export interface TicketDependenciesChanged extends TicketChanged {
+  addedTicketIds:            readonly string[];
+  droppedTicketIds:          readonly string[];
+  droppedUnsettledTicketIds: readonly string[];
+}
+
 export interface TicketMoved extends TicketChanged {
   closedReviewBars: readonly Readonly<Task>[];
 }

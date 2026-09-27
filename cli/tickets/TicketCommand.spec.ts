@@ -620,6 +620,55 @@ describe.skipIf(!gitIsAvailable())('ticket dependencies', () => {
   test('something that is not a ticket id is refused before the tracker is touched', async () => {
     expect(await refusalOf(['ticket', 'depends', '2', 'importer'])).toContain('"importer" is not a ticket id');
   });
+
+  test('--add appends to the list and --remove takes an id out', async () => {
+    await run(['ticket', 'add', 'Report the import', '--depends-on', '1']);
+
+    expect((await run(['ticket', 'depends', '3', '--add', '2'])).outputText()).toContain('Ticket #003 waits on #001, #002\n');
+    expect(storedTicketText('003-report-the-import.md')).toContain('dependsOn: "001, 002"');
+
+    await run(['ticket', 'depends', '3', '--add', '#2']);
+    expect(storedTicketText('003-report-the-import.md')).toContain('dependsOn: "001, 002"');
+
+    expect((await run(['ticket', 'depends', '3', '--remove', '1'])).outputText()).toContain('Ticket #003 waits on #002 (dropped #001)');
+    expect(storedTicketText('003-report-the-import.md')).toContain('dependsOn: "002"');
+  });
+
+  test('an --add that closes a circle is refused, and the file is unchanged', async () => {
+    await run(['ticket', 'depends', '2', '1']);
+
+    expect(await refusalOf(['ticket', 'depends', '1', '--add', '2'])).toContain('#001 → #002 → #001');
+    expect(storedTicketText('001-split-the-importer.md')).not.toContain('dependsOn');
+  });
+
+  // The replace that dropped a dependency without a word is how a ticket got built ahead of the work it waited on.
+  test('a replace names what it dropped, warns about a dropped ticket still open, and --json carries added and dropped', async () => {
+    await run(['ticket', 'add', 'Report the import', '--depends-on', '1']);
+
+    const replaced = (await run(['ticket', 'depends', '3', '2'])).outputText();
+    expect(replaced).toContain('Ticket #003 waits on #002 (dropped #001)\n#001 is still open: #003 may now start before it');
+
+    const json = JSON.parse((await run(['ticket', 'depends', '3', '1', '--json'])).outputText()) as { added: string[]; dropped: string[]; dependsOn: unknown };
+    expect(json.added).toEqual(['001']);
+    expect(json.dropped).toEqual(['002']);
+  });
+
+  test('a replace dropping a reviewed ticket names it without the warning', async () => {
+    await run(['ticket', 'depends', '2', '1']);
+    await run(['ticket', 'start', '1']);
+    await run(['ticket', 'approve', '1']);
+
+    const output = (await run(['ticket', 'depends', '2'])).outputText();
+    expect(output).toContain('(dropped #001)');
+    expect(output).not.toContain('still open');
+  });
+
+  test('--add or --remove beside bare ids, or the two together, is refused as ambiguous', async () => {
+    expect(await refusalOf(['ticket', 'depends', '2', '--add', '1', '3'])).toContain('ambiguous');
+    expect(await refusalOf(['ticket', 'depends', '2', '3', '--remove', '1'])).toContain('ambiguous');
+    expect(await refusalOf(['ticket', 'depends', '2', '--add', '1', '--remove', '1'])).toContain('not both');
+    expect(storedTicketText('002-validate-the-rows.md')).not.toContain('dependsOn');
+  });
 });
 
 describe.skipIf(!gitIsAvailable())('a ticket file that will not parse', () => {

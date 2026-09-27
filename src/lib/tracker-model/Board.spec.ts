@@ -118,6 +118,8 @@ const CALLS_THAT_CHANGE_A_TICKET: readonly (readonly [string, (board: Board) => 
     return board.rereviewTicket('001', CHANGED_AT);
   }, ['001']],
   ['setTicketDependencies', (board) => board.setTicketDependencies('002', ['001'], CHANGED_AT), ['002']],
+  ['addTicketDependencies', (board) => board.addTicketDependencies('002', ['001'], CHANGED_AT), ['002']],
+  ['removeTicketDependencies', (board) => board.removeTicketDependencies('002', ['001'], CHANGED_AT), ['002']],
   ['claimTickets', (board) => {
     // Unheld by hand rather than by a change, so the only change that can mark the ticket is the claim itself.
     const ticket = board.ticketByReference('002');

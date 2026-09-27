@@ -9,7 +9,7 @@ export const TICKET_USAGE = [
   'agent-progress ticket rereview <id> [--at <when>]',
   'agent-progress ticket status <id> <status> [...same options]',
   'agent-progress ticket link <ticketId> <taskId> [--force]',
-  'agent-progress ticket depends <id> [<id>...]',
+  'agent-progress ticket depends <id> [<id>...] | --add <ids> | --remove <ids> [--json]',
   'agent-progress ticket priority <id> low|normal|high [--at <when>]',
   'agent-progress ticket agent <id> [--model <m>] [--effort <e>] [--at <when>]',
   'agent-progress ticket hold <id> [--reason <text>] [--at <when>]',

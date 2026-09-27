@@ -52,7 +52,7 @@ owner: Alex Example
 | `hold` | only while held | the hold's reason, empty without one; any value but `null`, a bare `hold:` included, is held. Set and remove it with `ticket hold` and `unhold`. |
 | `started`, `finished`, `delivered`, `abandonedAt` | always | a timestamp or `null`; an absent one reads as `null` |
 | `group`, `branch`, `commit`, `reason` | when given | text; `reason` is dropped by `reopen` |
-| `dependsOn` | when non-empty | ticket ids, written `"001, 002"`, read from any mix of commas and spaces with or without `#` or padding. Set it with `ticket depends`, which refuses a missing id or a circle. |
+| `dependsOn` | when non-empty | ticket ids, written `"001, 002"`, read from any mix of commas and spaces with or without `#` or padding. Set it with `ticket depends`, which refuses a missing id or a circle; bare ids replace the list, `--add` and `--remove` change it. |
 | `task` | always | the row's id as an unquoted integer, or `null` for a low ticket never started; a quoted `task` makes the file malformed |
 
 **The frontmatter is a deliberately small YAML subset.** One `key: value` per line, split at the

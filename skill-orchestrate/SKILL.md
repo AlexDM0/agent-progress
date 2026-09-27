@@ -86,7 +86,7 @@ cost less to raise now than one agent that guessed wrong.
 
 **Split a large request at filing, not later.** A request that touches more than one mechanism — say
 a drop rule, a layout change and a migration — is filed as halves, one mechanism each, joined with
-`ticket depends`. Splitting is what keeps an agent inside its call budget. Shaving the budget instead
+`ticket depends <later> --add <earlier>`. Splitting is what keeps an agent inside its call budget. Shaving the budget instead
 does the opposite: it produces six to eight agents on one ticket, each paying for its own start and
 its own rediscovery again. Splitting is for what is too big for one budget, never a reflex: a small
 request stays one ticket, and small requests that edit the same files are filed as one ticket, since
@@ -130,7 +130,8 @@ not as a direction of travel. **Every ticket you file carries a `## Brief`**: th
 reads it as its brief — where the work belongs, the three to eight facts it would otherwise go and
 find, what to open first — and its reviewer reads the claims to test from it. A ticket without one is
 built from Report, Wanted and Acceptance alone, and pays for the rediscovery. Record a dependency with
-`--depends-on` or `ticket depends` rather than remembering it, and tell the user the id and whether it
+`--depends-on` when filing, or `ticket depends <id> --add <ids>` on a filed ticket (bare ids replace
+its whole list), rather than remembering it, and tell the user the id and whether it
 starts now or is queued behind what.
 
 **Model and effort are the default unless the user asks.** Add `--model` or `--effort` to

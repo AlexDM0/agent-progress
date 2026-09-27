@@ -20,6 +20,8 @@ export const OPTION_NAMES_WITH_VALUES = new Set<string>([
   'effort',
   'group',
   'depends-on',
+  'add',
+  'remove',
   'body',
   'body-file',
   'branch',

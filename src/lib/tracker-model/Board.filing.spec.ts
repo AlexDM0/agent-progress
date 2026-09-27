@@ -114,6 +114,47 @@ describe('setTicketDependencies', () => {
     expect(board.changedTickets()).toEqual([]);
   });
 
+  // A replace that silently dropped an open dependency let a ticket be built ahead of the work it waited on.
+  test('a replace reports what it added and dropped, and which dropped ticket is still unsettled', () => {
+    const { board, tickets } = dependencyChainFixture();
+    const settledTicket      = tickets.find((ticket) => ticket.frontmatter.id === '001');
+    if (settledTicket !== undefined) settledTicket.frontmatter.status = 'reviewed';
+    board.setTicketDependencies('004', ['001', '002'], CHANGED_AT);
+
+    const replaced = board.setTicketDependencies('004', ['003'], CHANGED_AT);
+
+    expect(replaced.addedTicketIds).toEqual(['003']);
+    expect(replaced.droppedTicketIds).toEqual(['001', '002']);
+    expect(replaced.droppedUnsettledTicketIds).toEqual(['002']);
+  });
+
+  test('adding appends, keeps an id already listed where it stands, and removing takes ids out', () => {
+    const { board, records } = dependencyChainFixture();
+    board.setTicketDependencies('004', ['002'], CHANGED_AT);
+
+    const added = board.addTicketDependencies('004', ['001', '002'], CHANGED_AT);
+    expect(added.ticket.frontmatter.dependsOn).toEqual(['002', '001']);
+    expect(added.addedTicketIds).toEqual(['001']);
+    expect(added.droppedTicketIds).toEqual([]);
+
+    const removed = board.removeTicketDependencies('004', ['002', '003'], CHANGED_AT);
+    expect(removed.ticket.frontmatter.dependsOn).toEqual(['001']);
+    expect(removed.droppedTicketIds).toEqual(['002']);
+
+    expect(records.map((record) => record.fields)).toEqual([{ dependsOn: ['002'] }, { dependsOn: ['002', '001'] }, { dependsOn: ['001'] }]);
+  });
+
+  test('an addition that closes a circle is refused like a replace, and nothing changes', () => {
+    const { board, tickets, records } = dependencyChainFixture();
+    const ticketsAsRead               = structuredClone(tickets);
+
+    expect(refusalDetailOf(() => board.addTicketDependencies('001', ['003'], CHANGED_AT)))
+      .toEqual({ reason: 'dependency-loop', loopTicketIds: ['001', '003', '002', '001'] });
+    expect(tickets).toEqual(ticketsAsRead);
+    expect(records).toEqual([]);
+    expect(board.changedTickets()).toEqual([]);
+  });
+
   // A circle would leave every ticket in it waiting on another forever, so no dispatcher could ever start one of them.
   test('a dependency that closes a circle, on the ticket itself or through others, is refused, and nothing changes', () => {
     const cases: readonly (readonly [string, readonly string[], readonly string[]])[] = [

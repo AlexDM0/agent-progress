@@ -15,6 +15,7 @@ import type {
   TaskAnnotation,
   TaskCorrection,
   TicketChanged,
+  TicketDependenciesChanged,
   TicketMoved,
   TicketMoveRequest,
   TicketRelease,
@@ -269,13 +270,34 @@ export class Board {
     return { logged: [...closed.logged, started], bar, closedBars: closed.bars };
   }
 
-  setTicketDependencies(ticketId: string, dependsOn: readonly string[], at: string): TicketChanged {
+  setTicketDependencies(ticketId: string, dependsOn: readonly string[], at: string): TicketDependenciesChanged {
     const ticket = this.requireTicket(ticketId);
     this.refuseAnUnworkableDependencyList(ticketId, dependsOn);
+    const previousDependsOn = ticket.frontmatter.dependsOn ?? [];
     if (dependsOn.length === 0) delete ticket.frontmatter.dependsOn;
     else ticket.frontmatter.dependsOn = [...dependsOn];
     this.markChanged(ticket);
-    return { logged: [this.logger.ticketDependenciesSet(ticketId, dependsOn, at)], ticket };
+    const droppedTicketIds = previousDependsOn.filter((dependencyId) => !dependsOn.includes(dependencyId));
+    const statusById       = new Map(this.ticketRecords.map((candidate) => [candidate.frontmatter.id, candidate.frontmatter.status]));
+    return {
+      logged:                    [this.logger.ticketDependenciesSet(ticketId, dependsOn, at)],
+      ticket,
+      addedTicketIds:            dependsOn.filter((dependencyId) => !previousDependsOn.includes(dependencyId)),
+      droppedTicketIds,
+      droppedUnsettledTicketIds: TicketDependencyUtil.unsettledDependenciesOf(droppedTicketIds, statusById),
+    };
+  }
+
+  /** An id already listed is kept where it stands rather than refused, so adding twice is the same as adding once. */
+  addTicketDependencies(ticketId: string, addedTicketIds: readonly string[], at: string): TicketDependenciesChanged {
+    const currentDependsOn = this.requireTicket(ticketId).frontmatter.dependsOn ?? [];
+    const newTicketIds     = addedTicketIds.filter((dependencyId) => !currentDependsOn.includes(dependencyId));
+    return this.setTicketDependencies(ticketId, [...currentDependsOn, ...newTicketIds], at);
+  }
+
+  removeTicketDependencies(ticketId: string, removedTicketIds: readonly string[], at: string): TicketDependenciesChanged {
+    const currentDependsOn = this.requireTicket(ticketId).frontmatter.dependsOn ?? [];
+    return this.setTicketDependencies(ticketId, currentDependsOn.filter((dependencyId) => !removedTicketIds.includes(dependencyId)), at);
   }
 
   /**

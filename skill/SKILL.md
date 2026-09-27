@@ -71,7 +71,8 @@ order to file a ticket, move one, and stay out of the tool's way.
    `ticket abandon --reason "<why>"`. Each verb is named for the status it moves to (in-progress,
    in-review, reviewed, delivered, abandoned), only moves a ticket that is in a status it makes
    sense from, and a move to the status it already has is refused with exit 1. When one ticket can
-   only be done after another, record it: `ticket depends 5 3`.
+   only be done after another, record it: `ticket depends 5 --add 3`. Bare ids (`ticket depends 5 3`)
+   replace the whole list.
 4. **`agent-progress log "<text>"` at each milestone** — a decision taken, a direction abandoned.
    The log is what makes the chart readable a day later.
 5. **`agent-progress open` once per session**, so the user has the dashboard in front of them.

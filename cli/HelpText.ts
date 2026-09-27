@@ -336,13 +336,18 @@ output never carries either.
                               Refused when that row already belongs to another ticket, unless
                               --force, which unlinks it there first.
 
-  ticket depends <id> [<id>...]
-                              Set the tickets this one waits on, replacing its list; no ids clears
-                              it. Refused for a ticket that does not exist and for a list that
-                              would make tickets wait on each other in a circle. Until every one
-                              of them is reviewed or delivered, the ticket's row, table entry and
-                              card read "waiting on #003", \`ticket list\` says so too, and \`ticket start\`
-                              warns on standard error but still moves it.
+  ticket depends <id> [<id>...] | --add <ids> | --remove <ids> [--json]
+                              Set the tickets this one waits on. Bare ids replace its list, and no
+                              ids clears it; the output names every id that dropped, and says
+                              which of those are still open, since the ticket may now start before
+                              them. --add 3,4 appends to the list (an id already there is kept),
+                              --remove 3,4 takes ids out; either beside bare ids is refused as
+                              ambiguous, and so are the two together. --json carries the ticket
+                              with \`added\` and \`dropped\`. Refused for a ticket that does not exist
+                              and for a list that would make tickets wait on each other in a
+                              circle. Until every one of them is reviewed or delivered, the
+                              ticket's row, table entry and card read "waiting on #003", \`ticket list\`
+                              says so too, and \`ticket start\` warns on standard error but still moves it.
 
   concurrency [<n>] [--json]  Print the concurrency limit: how many agents may be in flight at once.
                               A slot is an agent: the in-progress rows one \`ticket claim\` started
