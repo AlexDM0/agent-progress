@@ -1,5 +1,5 @@
 /**
- * Bundles `page/PageStart.ts` into the single minified script `src/services/render/ProgressHtml.ts` inlines, resolved from `import.meta.dir`
+ * Bundles `page/PageStart.ts` into the single minified script `src/services/render/PageTemplateFill.ts` inlines, resolved from `import.meta.dir`
  * because the binary is installed with `bun link` and run from whatever repository the orchestrator is in.
  */
 

@@ -1,6 +1,7 @@
 /**
- * Fills `resources/template.html` — two islands, the page script and the title — from one progress file, its log and its tickets. Both islands go
- * through `escapeJsonForScriptTag` of `src/lib/html-escape/HtmlEscapeUtil.ts`, so none can close its script tag; `generatedAt` is a parameter, not a clock.
+ * Fills `resources/template.html` — two islands, the page script and the title — from one progress file, its log and its tickets. Both
+ * islands go through `escapeJsonForScriptTag` of `src/lib/html-escape/HtmlEscapeUtil.ts`, so none can close its script tag; `generatedAt`
+ * is a parameter, not a clock.
  */
 
 import { readFileSync }                                  from 'node:fs';
@@ -16,7 +17,7 @@ import { LIMITS }                                        from '../../shared/cons
 import { TEMPLATE_FILE_NAME, TEMPLATE_TOKENS }           from './constants/TemplateFile.ts';
 import { TemplateTokenUtil }                             from './utils/TemplateTokenUtil.ts';
 
-interface RenderProgressHtmlInput {
+interface PageTemplateFillInput {
   progress:          TrackerProgress;
   logRecords:        readonly LogRecord[];
   tickets:           Ticket[];
@@ -69,7 +70,7 @@ function bannerOnlyScript(reason: string): string {
   ].join('');
 }
 
-export function renderProgressHtml(input: RenderProgressHtmlInput): string {
+export function fillPageTemplate(input: PageTemplateFillInput): string {
   const {
     progress,
     logRecords,

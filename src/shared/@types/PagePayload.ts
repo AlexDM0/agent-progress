@@ -1,9 +1,9 @@
 /** The shape of the progress island, which the render side writes and the page reads. */
 
-import type { DisplayState }       from '../../lib/tracker-model/@types/Task.ts';
-import type { TicketFrontmatter }  from '../../lib/tracker-model/@types/Ticket.ts';
-import type { ProgressDocument }   from './ProgressDocument.ts';
-import type { IdentifiedLogEntry } from './WordedLogEntry.ts';
+import type { DisplayState }           from '../../lib/tracker-model/@types/Task.ts';
+import type { TicketFrontmatter }      from '../../lib/tracker-model/@types/Ticket.ts';
+import type { IdentifiedLogEntry }     from './WordedLogEntry.ts';
+import type { WordedProgressDocument } from './WordedProgressDocument.ts';
 
 export interface PageLimits {
   tickStepLadderMinutes:       readonly number[];
@@ -56,7 +56,7 @@ export interface PageBoardFacts {
 }
 
 export interface PagePayload {
-  progress:                     ProgressDocument<IdentifiedLogEntry>;
+  progress:                     WordedProgressDocument<IdentifiedLogEntry>;
   generatedAtEpochMilliseconds: number;
   limits:                       PageLimits;
   concurrency:                  PageConcurrency;

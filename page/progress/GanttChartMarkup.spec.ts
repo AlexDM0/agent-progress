@@ -20,7 +20,7 @@ import {
   summaryStatisticsMarkup,
   taskRowsMarkup,
   tickLayerMarkup,
-} from './ProgressMarkup.ts';
+} from './GanttChartMarkup.ts';
 
 const { computeTimeline }                 = GeometryUtil;
 const { calendarDateOf, fullInstantText } = TimeUtil;

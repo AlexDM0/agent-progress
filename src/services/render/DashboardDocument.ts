@@ -3,11 +3,11 @@ import type { LogRecord }       from '../../lib/tracker-model/@types/LogRecord.t
 import type { Ticket }          from '../../lib/tracker-model/@types/Ticket.ts';
 import type { TrackerProgress } from '../../lib/tracker-model/@types/TrackerProgress.ts';
 import { readingBoardOf }       from '../../lib/tracker-model/ReadingBoard.ts';
-import { renderProgressHtml }   from './ProgressHtml.ts';
+import { fillPageTemplate }     from './PageTemplateFill.ts';
 import type { RenderState }     from './RenderState.ts';
 import { BoardFactsUtil }       from './utils/BoardFactsUtil.ts';
 
-export interface ProgressPageInput {
+export interface DashboardDocumentInput {
   progress:    TrackerProgress;
   tickets:     Ticket[];
   logRecords:  readonly LogRecord[];
@@ -15,7 +15,7 @@ export interface ProgressPageInput {
   generatedAt: Date;
 }
 
-export interface ProgressPageRendering {
+export interface DashboardDocumentRendering {
   document:          string;
   /** Non-null when the page was written with the banner-only script. */
   pageScriptFailure: string | null;
@@ -25,7 +25,7 @@ export interface ProgressPageRendering {
  * The concurrency figures come from the function `status --json` builds its block with, so the page and the command cannot disagree on a count.
  * The Board is built over the very `progress` the island carries, so every row position in its facts indexes the island's own tasks.
  */
-export async function renderProgressPage(input: ProgressPageInput, renderState: RenderState): Promise<ProgressPageRendering> {
+export async function renderDashboardDocument(input: DashboardDocumentInput, renderState: RenderState): Promise<DashboardDocumentRendering> {
   const {
     progress,
     tickets,
@@ -37,7 +37,7 @@ export async function renderProgressPage(input: ProgressPageInput, renderState: 
   const pageScriptFailure = pageBundle.verdict === 'failed' ? pageBundle.reason : null;
   const board             = readingBoardOf(progress, tickets);
 
-  const document = renderProgressHtml({
+  const document = fillPageTemplate({
     progress,
     logRecords,
     tickets,

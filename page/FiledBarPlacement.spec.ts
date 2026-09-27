@@ -12,7 +12,7 @@ import type { TicketDetailInput } from './detail-dialog/TicketDetail.ts';
 import { ticketDetailMarkup }     from './detail-dialog/TicketDetail.ts';
 import { kanbanBoardMarkup }      from './kanban/KanbanMarkup.ts';
 import { KanbanLaneUtil }         from './kanban/utils/KanbanLaneUtil.ts';
-import { taskRowsMarkup }         from './progress/ProgressMarkup.ts';
+import { taskRowsMarkup }         from './progress/GanttChartMarkup.ts';
 import { pageBoardFixture }       from './testing/PageBoardFixture.ts';
 import { EXAMPLE_PAGE_LIMITS }    from './testing/PageLimitsFixture.ts';
 

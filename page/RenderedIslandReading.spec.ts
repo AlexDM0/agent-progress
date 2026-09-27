@@ -6,7 +6,7 @@
 
 import { describe, expect, test }     from 'bun:test';
 import type { TrackerProgress }       from '../src/lib/tracker-model/@types/TrackerProgress.ts';
-import { renderProgressPage }         from '../src/services/render/ProgressPage.ts';
+import { renderDashboardDocument }    from '../src/services/render/DashboardDocument.ts';
 import { createRenderState }          from '../src/services/render/RenderState.ts';
 import { taskFixture, ticketFixture } from '../src/testing/BoardFixtures.ts';
 import { islandContentsOf }           from '../src/testing/RenderedIslandText.ts';
@@ -65,7 +65,7 @@ const EXAMPLE_TICKETS = [
 ];
 
 async function renderedIslands(): Promise<{ progressIsland: unknown; ticketsIsland: unknown }> {
-  const { document } = await renderProgressPage({
+  const { document } = await renderDashboardDocument({
     progress:    EXAMPLE_PROGRESS,
     tickets:     EXAMPLE_TICKETS,
     logRecords:  [],

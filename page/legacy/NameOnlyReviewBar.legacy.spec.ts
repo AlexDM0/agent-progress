@@ -12,7 +12,7 @@ import { ReviewBarNameUtil }                             from '../../src/shared/
 import type { TimelineBar }                              from '../@types/Timeline.ts';
 import { subStateNoteOf }                                from '../kanban/KanbanLaneText.ts';
 import { KanbanLaneUtil }                                from '../kanban/utils/KanbanLaneUtil.ts';
-import { taskRowsMarkup }                                from '../progress/ProgressMarkup.ts';
+import { taskRowsMarkup }                                from '../progress/GanttChartMarkup.ts';
 import { pageBoardFixture }                              from '../testing/PageBoardFixture.ts';
 import { EXAMPLE_PAGE_LIMITS, EXAMPLE_TIMESTAMP_SLICES } from '../testing/PageLimitsFixture.ts';
 

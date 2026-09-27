@@ -161,7 +161,7 @@ held by review, not by a spec.
 ## The page
 
 `progress.html` is built from `resources/template.html`, whose contract with the page modules is a
-rule in the root `CLAUDE.md` (The page). `src/services/render/ProgressHtml.ts` replaces four tokens in
+rule in the root `CLAUDE.md` (The page). `src/services/render/PageTemplateFill.ts` replaces four tokens in
 it, and `src/services/render/PageBundler.ts` bundles the TypeScript under `page/` into it from
 `page/PageStart.ts`.
 
@@ -254,7 +254,7 @@ written, and exactly one waiter wins.
 progress file in a JSON island and `page/utils/GeometryUtil.ts` computes every bar, tick and
 marker from it, which is what lets the in-page range presets re-lay-out without a regeneration, and
 means there is exactly one implementation of the geometry rather than a server copy and a client
-copy that disagree. The geometry's bounds are put into the island by `src/services/render/ProgressHtml.ts` and taken
+copy that disagree. The geometry's bounds are put into the island by `src/services/render/PageTemplateFill.ts` and taken
 as a parameter; `page/utils/GeometryUtil.ts` says why. The island's last key, `boardFacts`, carries the Board's answers
 the render service computes through `src/services/render/utils/BoardFactsUtil.ts`: one fact per row at its
 index, and one per ticket by id. The page reads every board fact from them and derives none itself.

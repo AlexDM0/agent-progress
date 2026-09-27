@@ -12,7 +12,7 @@ import {
   test
 }                                                                             from 'bun:test';
 import type { TicketFrontmatter }                             from '../../../src/lib/tracker-model/@types/Ticket.ts';
-import type { ProgressDocument }                              from '../../../src/shared/@types/ProgressDocument.ts';
+import type { WordedProgressDocument }                        from '../../../src/shared/@types/WordedProgressDocument.ts';
 import { createScratchGitRepository, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }                           from '../../../src/testing/ToolGuard.ts';
 import { runCommandLine }                                     from '../../Main.ts';
@@ -20,7 +20,7 @@ import { createCapturedCommandContext }                       from '../../testin
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
-type StatusDocument = ProgressDocument & {
+type StatusDocument = WordedProgressDocument & {
   tickets:     Array<TicketFrontmatter & { filePath: string }>;
   omitted?:    { settledTasks: number; settledTickets: number; olderLogEntries: number };
   concurrency: {

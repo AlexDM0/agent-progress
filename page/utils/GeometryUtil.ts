@@ -1,7 +1,7 @@
 /**
  * The Gantt axis and bar geometry as pure arithmetic over epoch milliseconds: no DOM, no clock. Its bounds arrive as a parameter instead of
  * from `src/shared/constants/Limits.ts`, so the ticket timeline can ask for fewer ticks; the page passes what
- * `src/services/render/ProgressHtml.ts` put in the progress island.
+ * `src/services/render/PageTemplateFill.ts` put in the progress island.
  */
 
 import type { Task }                       from '../../src/lib/tracker-model/@types/Task.ts';

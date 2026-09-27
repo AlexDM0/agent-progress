@@ -1,5 +1,5 @@
 /**
- * What `renderProgressHtml` must guarantee: each token replaced exactly once, both islands parsing
+ * What `fillPageTemplate` must guarantee: each token replaced exactly once, both islands parsing
  * back to what went in, and nothing from the tracker able to close the script element it travels in.
  */
 
@@ -12,7 +12,7 @@ import type { TrackerProgress }           from '../../lib/tracker-model/@types/T
 import { LIMITS }                         from '../../shared/constants/Limits.ts';
 import { islandContentsOf, islandTextOf } from '../../testing/RenderedIslandText.ts';
 import { createMarkdownRenderer }         from './MarkdownRenderer.ts';
-import { renderProgressHtml }             from './ProgressHtml.ts';
+import { fillPageTemplate }               from './PageTemplateFill.ts';
 
 const GENERATED_AT = new Date('2026-09-18T20:11:03Z');
 
@@ -67,8 +67,8 @@ function exampleTicket(changes: { title?: string; body?: string } = {}): Ticket 
   };
 }
 
-function render(overrides: Partial<Parameters<typeof renderProgressHtml>[0]> = {}): string {
-  return renderProgressHtml({
+function render(overrides: Partial<Parameters<typeof fillPageTemplate>[0]> = {}): string {
+  return fillPageTemplate({
     progress:          exampleProgress(),
     logRecords:        [REVIEW_STARTED_NOTE],
     tickets:           [exampleTicket()],
@@ -87,7 +87,7 @@ function lastScriptBodyOf(document: string): string {
   return body.slice(0, body.indexOf('</script>'));
 }
 
-describe('renderProgressHtml', () => {
+describe('fillPageTemplate', () => {
   test('leaves none of the template’s three tokens standing', () => {
     const document = render();
 

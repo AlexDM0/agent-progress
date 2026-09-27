@@ -28,7 +28,7 @@ import { KanbanLaneUtil }               from './kanban/utils/KanbanLaneUtil.ts';
 import { createLogController }          from './log/LogController.ts';
 import { createViewerPreferences }      from './preferences/ViewerPreferences.ts';
 import { ViewerPreferenceUtil }         from './preferences/utils/ViewerPreferenceUtil.ts';
-import { createProgressController }     from './progress/ProgressController.ts';
+import { createGanttChartController }   from './progress/GanttChartController.ts';
 import { createTicketsController }      from './tickets/TicketsController.ts';
 import { DomUtil }                      from './utils/DomUtil.ts';
 import { IslandUtil }                   from './utils/IslandUtil.ts';
@@ -128,7 +128,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   const board                = IslandUtil.pageBoardFrom(progress.tasks, payload.boardFacts, tickets);
   const waitingOnById        = waitingOnByTicketIdOf(board.tickets);
   const preferences          = createViewerPreferences(progress.trackerId, () => window.localStorage);
-  const progressController   = createProgressController({
+  const progressController   = createGanttChartController({
     payload,
     rows: board.rows,
     waitingOnById,

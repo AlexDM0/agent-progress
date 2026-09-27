@@ -1,7 +1,7 @@
 /** Regenerates `progress.html` from what is on disk; every mutating command ends here inside its lock, and `render` and `open` take the lock for it. */
 import { writeFileAtomically }      from '../../lib/atomic-file/AtomicFile.ts';
 import type { UnreadableTracker }   from '../../shared/@types/UnreadableTracker.ts';
-import { renderProgressPage }       from '../render/ProgressPage.ts';
+import { renderDashboardDocument }  from '../render/DashboardDocument.ts';
 import type { RenderState }         from '../render/RenderState.ts';
 import type { MalformedTicketFile } from './TicketStore.ts';
 import { withLock }                 from './TrackerLock.ts';
@@ -19,7 +19,7 @@ export async function renderDashboard(workspace: Workspace, generatedAt: Date, r
   if (reading.verdict !== 'readable') return { verdict: 'unreadable', reading };
 
   const { progress, storedLog, listing } = reading.contents;
-  const rendering = await renderProgressPage({
+  const rendering = await renderDashboardDocument({
     progress,
     tickets:    listing.tickets,
     logRecords: storedLog.records,

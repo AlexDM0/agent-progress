@@ -8,7 +8,7 @@
 import { describe, expect, test }          from 'bun:test';
 import type { Task }                       from '../../src/lib/tracker-model/@types/Task.ts';
 import type { PageBoardFacts, PageTicket } from '../../src/shared/@types/PagePayload.ts';
-import type { ProgressDocument }           from '../../src/shared/@types/ProgressDocument.ts';
+import type { WordedProgressDocument }     from '../../src/shared/@types/WordedProgressDocument.ts';
 import { EXAMPLE_PAGE_LIMITS }             from '../testing/PageLimitsFixture.ts';
 import { IslandUtil }                      from './IslandUtil.ts';
 
@@ -30,7 +30,7 @@ function exampleTask(): Task {
   };
 }
 
-function exampleProgress(): ProgressDocument {
+function exampleProgress(): WordedProgressDocument {
   return {
     version:    1,
     trackerId:  'example-tracker-8f21',

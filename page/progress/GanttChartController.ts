@@ -19,7 +19,7 @@ import { ViewerPreferenceUtil }     from '../preferences/utils/ViewerPreferenceU
 import { DomUtil }                  from '../utils/DomUtil.ts';
 import { GeometryUtil }             from '../utils/GeometryUtil.ts';
 import { TimeUtil }                 from '../utils/TimeUtil.ts';
-import type { PlacedTick, TaskRow } from './ProgressMarkup.ts';
+import type { PlacedTick, TaskRow } from './GanttChartMarkup.ts';
 import {
   generatedStampText,
   hiddenWorkNoteText,
@@ -28,7 +28,7 @@ import {
   summaryStatisticsMarkup,
   taskRowsMarkup,
   tickLayerMarkup,
-} from './ProgressMarkup.ts';
+} from './GanttChartMarkup.ts';
 import {
   AUTOMATIC_RANGE_PRESET,
   AUTOMATIC_TICK_CHOICE,
@@ -38,14 +38,14 @@ import {
 import { AxisFitUtil }   from './utils/AxisFitUtil.ts';
 import { ViewRangeUtil } from './utils/ViewRangeUtil.ts';
 
-export interface ProgressControllerSources {
+export interface GanttChartControllerSources {
   payload:       PagePayload;
   rows:          readonly BoardRow[];
   waitingOnById: ReadonlyMap<string, readonly string[]>;
   preferences:   ViewerPreferences;
 }
 
-export interface ProgressController {
+export interface GanttChartController {
   showSummary(): void;
   applyNameColumnWidth(): void;
   setVisibleRows(visibleRows: readonly BoardRow[]): void;
@@ -160,7 +160,7 @@ function wireRangeControls(readOverride: () => StoredViewOverride, applyOverride
   });
 }
 
-export function createProgressController(sources: ProgressControllerSources): ProgressController {
+export function createGanttChartController(sources: GanttChartControllerSources): GanttChartController {
   const {
     payload,
     rows,

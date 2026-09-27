@@ -1,20 +1,20 @@
 /**
- * What `renderProgressPage` adds to the template: the concurrency figures `status --json` prints, so the page and the command cannot
+ * What `renderDashboardDocument` adds to the template: the concurrency figures `status --json` prints, so the page and the command cannot
  * disagree on a count, the tickets in the order it was handed them, and the Board facts, one row fact per stored row at the same index even
  * where a hand edit duplicated an id, since the page will zip them onto its tasks. The islands are read back the way the page reads them.
  */
 import { describe, expect, test } from 'bun:test';
 
-import type { Task }            from '../../lib/tracker-model/@types/Task.ts';
-import type { TrackerProgress } from '../../lib/tracker-model/@types/TrackerProgress.ts';
-import { readingBoardOf }       from '../../lib/tracker-model/ReadingBoard.ts';
-import { ConcurrencyUtil }      from '../../lib/tracker-model/utils/ConcurrencyUtil.ts';
-import type { PageBoardFacts }  from '../../shared/@types/PagePayload.ts';
-import { ticketFixture }        from '../../testing/BoardFixtures.ts';
-import { islandContentsOf }     from '../../testing/RenderedIslandText.ts';
-import { renderProgressPage }   from './ProgressPage.ts';
-import { createRenderState }    from './RenderState.ts';
-import { BoardFactsUtil }       from './utils/BoardFactsUtil.ts';
+import type { Task }               from '../../lib/tracker-model/@types/Task.ts';
+import type { TrackerProgress }    from '../../lib/tracker-model/@types/TrackerProgress.ts';
+import { readingBoardOf }          from '../../lib/tracker-model/ReadingBoard.ts';
+import { ConcurrencyUtil }         from '../../lib/tracker-model/utils/ConcurrencyUtil.ts';
+import type { PageBoardFacts }     from '../../shared/@types/PagePayload.ts';
+import { ticketFixture }           from '../../testing/BoardFixtures.ts';
+import { islandContentsOf }        from '../../testing/RenderedIslandText.ts';
+import { renderDashboardDocument } from './DashboardDocument.ts';
+import { createRenderState }       from './RenderState.ts';
+import { BoardFactsUtil }          from './utils/BoardFactsUtil.ts';
 
 const GENERATED_AT = new Date('2026-09-18T20:11:03Z');
 
@@ -50,9 +50,9 @@ const EXAMPLE_PROGRESS: TrackerProgress = {
   ],
 };
 
-describe('renderProgressPage', () => {
+describe('renderDashboardDocument', () => {
   test('writes the limit and the agents in flight that concurrencyOf gives for the rows', async () => {
-    const { document } = await renderProgressPage({
+    const { document } = await renderDashboardDocument({
       progress:    EXAMPLE_PROGRESS,
       tickets:     [],
       logRecords:  [],
@@ -68,7 +68,7 @@ describe('renderProgressPage', () => {
   test('writes the tickets island in the order the tickets were handed in', async () => {
     const tickets = ['005', '002', '003'].map((id) => ticketFixture({ id, title: `Example ticket ${id}` }));
 
-    const { document } = await renderProgressPage({
+    const { document } = await renderDashboardDocument({
       progress:    EXAMPLE_PROGRESS,
       tickets,
       logRecords:  [],
@@ -80,7 +80,7 @@ describe('renderProgressPage', () => {
   });
 
   test('a page script that builds leaves no failure and goes into the document', async () => {
-    const rendering = await renderProgressPage({
+    const rendering = await renderDashboardDocument({
       progress:    EXAMPLE_PROGRESS,
       tickets:     [],
       logRecords:  [],
@@ -103,7 +103,7 @@ describe('renderProgressPage', () => {
       ],
     };
 
-    const { document } = await renderProgressPage({
+    const { document } = await renderDashboardDocument({
       progress,
       tickets:     [ticketFixture({ id: '003', status: 'in-review', task: 1 })],
       logRecords:  [],
@@ -127,7 +127,7 @@ describe('renderProgressPage', () => {
       ],
     };
 
-    const { document } = await renderProgressPage({
+    const { document } = await renderDashboardDocument({
       progress,
       tickets,
       logRecords:  [],
