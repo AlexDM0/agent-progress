@@ -7,8 +7,7 @@ import { describe, expect, test } from 'bun:test';
 
 import type { Task }            from '../../lib/tracker-model/@types/Task.ts';
 import type { TrackerProgress } from '../../lib/tracker-model/@types/TrackerProgress.ts';
-import { Board }                from '../../lib/tracker-model/Board.ts';
-import { createLogger }         from '../../lib/tracker-model/Logger.ts';
+import { readingBoardOf }       from '../../lib/tracker-model/ReadingBoard.ts';
 import { ConcurrencyUtil }      from '../../lib/tracker-model/utils/ConcurrencyUtil.ts';
 import type { PageBoardFacts }  from '../../shared/@types/PagePayload.ts';
 import { ticketFixture }        from '../../testing/BoardFixtures.ts';
@@ -135,7 +134,7 @@ describe('renderProgressPage', () => {
       generatedAt: GENERATED_AT,
     }, renderState);
 
-    const expected       = BoardFactsUtil.boardFactsOf(new Board({ progress, tickets, logger: createLogger(() => undefined) }));
+    const expected       = BoardFactsUtil.boardFactsOf(readingBoardOf(progress, tickets));
     const { boardFacts } = islandContentsOf(document, 'ap-progress-data') as { boardFacts: PageBoardFacts };
     expect(boardFacts).toEqual(expected);
     expect(boardFacts.tickets.map((ticket) => ticket.ticketId)).toEqual(['003', '004']);

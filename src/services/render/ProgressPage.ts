@@ -2,8 +2,7 @@
 import type { LogRecord }       from '../../lib/tracker-model/@types/LogRecord.ts';
 import type { Ticket }          from '../../lib/tracker-model/@types/Ticket.ts';
 import type { TrackerProgress } from '../../lib/tracker-model/@types/TrackerProgress.ts';
-import { Board }                from '../../lib/tracker-model/Board.ts';
-import { createLogger }         from '../../lib/tracker-model/Logger.ts';
+import { readingBoardOf }       from '../../lib/tracker-model/ReadingBoard.ts';
 import { renderProgressHtml }   from './ProgressHtml.ts';
 import type { RenderState }     from './RenderState.ts';
 import { BoardFactsUtil }       from './utils/BoardFactsUtil.ts';
@@ -36,7 +35,7 @@ export async function renderProgressPage(input: ProgressPageInput, renderState: 
 
   const pageBundle        = await renderState.pageBundler.bundlePageScript();
   const pageScriptFailure = pageBundle.verdict === 'failed' ? pageBundle.reason : null;
-  const board             = new Board({ progress, tickets, logger: createLogger(() => undefined) });
+  const board             = readingBoardOf(progress, tickets);
 
   const document = renderProgressHtml({
     progress,
