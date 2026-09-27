@@ -1,7 +1,7 @@
 # agent-progress — command and file-format reference
 
 The complete reference for someone using the tool: what `init` and `update` write into a repository,
-every command and flag, the exit codes, what the dashboard shows, the three files on disk and what each
+every command and flag, the exit codes, what the dashboard shows, the files on disk and what each
 ticket move does to its Gantt row. The code wins every disagreement: `agent-progress help` prints the
 command reference from `cli/HelpText.ts` and is never out of step with the tool, and
 `skill/Reference.md` is the fuller source on tokens, the concurrency limit, the dispatcher state and
@@ -25,6 +25,7 @@ releasing. The overview is in the [README](../README.md); working on this reposi
 | `<when>` | An ISO 8601 timestamp, `now`, or an offset from now: `-5m`, `-2h`, `-1d`, `+30m`. `--at <when>` backfills: a stamp already recorded is kept, so a row nobody registered at the time can be dated afterwards. |
 | `<n>` | The figure on `--tokens`: a whole number or a decimal with a `k`/`m` suffix — `12000`, `12k`, `12.3k`, `1.2m`. A bare decimal and a negative are refused. It is a figure the orchestrator reports, never one this tool measures, and it replaces the row's figure rather than adding to it. |
 | `<id>` | A task id is a number (`17`); a ticket id is its padded number (`003`), and `3` or `#3` name the same ticket. |
+| `--json` | Accepted by every command but `init`, `update`, `render`, `open`, `hook` and `help`, and prints one JSON document on standard output in place of the human output. A reading command prints the document its row describes. A command that writes prints what it wrote: the row for a `task` verb, the ticket for a `ticket` verb or setting (a list for a claim of several), the log entry for `log`, the stored axis for `range`, the new state for `concurrency <n>` and `dispatcher <state>`, and the counts for `clear`; `release` prints its own document. Nothing follows the document on standard output — no Next line, running-dispatcher notice or resume line — while a warning still goes to standard error. |
 | `AGENT_PROGRESS_ROOT` | Names the repository to use instead of walking up from the current directory, for a command run from somewhere else entirely. It does not create a tracker: a value naming a directory that has none is refused with a message saying the variable is set. `init` does not choose its directory by it, and refuses at exit 1 when it names a directory other than the one `init` targets. |
 
 **One tracker per repository.** The tracker lives in `.agent-progress/` at the repository root, found
@@ -48,7 +49,8 @@ tracker still in an older format, through the same read and write; otherwise the
 **Help and options.** `agent-progress help` prints the whole reference. `--help` works after a
 command word as well as on its own, and `-h` on its own or straight after the command word; a `-h`
 further on is refused at exit 1, since it may be text (put text behind a bare `--`). An option taking
-a value, given twice, is refused at exit 1.
+a value, given twice, is refused at exit 1. An unknown command is refused at exit 1 with the help on
+standard error, so a typo never exits 0 or prints the help into a parsed pipe.
 
 **The Next line.** `status`, `ticket add`, every ticket or task move (`task add --start` included),
 `ticket depends`, `priority`, `agent`, `hold` and `unhold`, and `release` end their human output with
@@ -130,8 +132,8 @@ version all of them are.
    orchestrator working by hand gets the default pair. A ticket that names another pair
    (`ticket add --model/--effort`, `ticket agent`) is run through the dispatcher, which passes each
    agent the pair from `readyTickets`. A hand edit is undone.
-8. **The install version**, `{ "installVersion": N }`: the one version of everything above that the
-   tool installs, which changes only when what the CLI and those files expect of each other changes.
+8. **The install version** ([its file](#agent-progressversionjson)): the one version of everything
+   above that the tool installs, which changes only when what the CLI and those files expect of each other changes.
    `init` and `update` compute every installed file first and write this one last, after every other
    write, so a run that fails part way leaves the version it found and a second run completes it. A
    refused `CLAUDE.md` block or settings file is reported and does not hold it back.
@@ -225,7 +227,7 @@ Options in `[brackets]` are optional; `a|b` is a choice of one.
 
 | command | what it does |
 |---|---|
-| `status [--json] [--full]` | The project, the counts, the rows that are not delivered or abandoned, and the last five log entries newest first, then the Next line. `--json` prints the same working view for an agent — the unsettled rows and tickets, the last 10 log entries, and an `omitted` object counting what was left out. `--full` lists everything; with `--json` it prints the whole progress file plus every ticket's frontmatter. The `version` both `--json` documents carry is the document's own shape version, `1`, with the worded log directly after `tasks`, whatever version the stored file is at. Both `--json` documents carry `concurrency` — `limit`, `agentsInFlight`, `freeSlots`, `readyTicketIds`, `heldTicketIds`, `dispatcherState`, while one is stored `dispatcherRunId`, then `inProgressTicketIds` and `inProgressReviewOfIds` — and beside it `readyTickets`, and end with `reviewWaitingTickets`, `pausedBuilds` and `ticketRows`. |
+| `status [--json] [--full]` | The project, the counts, the rows that are not delivered or abandoned, and the last five log entries newest first, then the Next line. `--json` prints the same working view for an agent — the unsettled rows and tickets, the last 10 log entries, and an `omitted` object counting what was left out. `--full` lists everything; with `--json` it prints the whole progress file plus every ticket's frontmatter. The `version` both `--json` documents carry is the document's own shape version, `1`, with the worded log directly after `tasks`, whatever version the stored file is at. Both `--json` documents carry `concurrency` — `limit`, `agentsInFlight`, `freeSlots`, `readyTicketIds`, `dispatcherState`, `heldTicketIds`, while one is stored `dispatcherRunId`, then `inProgressTicketIds` and `inProgressReviewOfIds` — and beside it `readyTickets`, and end with `reviewWaitingTickets`, `pausedBuilds` and `ticketRows`. |
 | `ticket list [--status <s>] [--priority <p>] [--json]` | The tickets with their status, priority, type and row id, the model and effort after the title where the ticket names them, and "waiting on #003" where a dependency is unsettled. `--status` and `--priority` narrow the listing. `--json` carries no bodies. |
 | `ticket show <id> [--json]` | One ticket: its frontmatter, its priority, its model and effort where it names them, its body, and always its file path — which is what an agent needs in order to edit that body. |
 
@@ -305,8 +307,8 @@ stored in the tracker. `skill/Reference.md` is the fuller source on both.
 
 | command | what it does |
 |---|---|
-| `concurrency [<n>] [--json]` | Print how many agents may be in flight at once, or store a new limit for every worktree: a whole number from 1 to 10. A higher one is refused at exit 1 with nothing written, and one an older tracker stored above 10 reads as 10. A tracker that never set one reads 2. A limit below the agents already in flight is accepted and simply leaves no free slot. A slot is an agent: the in-progress rows one `ticket claim` started count once, and every other in-progress row, such as a review bar, counts on its own. |
-| `dispatcher [running\|finished\|stopped] [--run <runId>] [--json]` | Print where the dispatcher was left, or store a new state with one log line. `running`: a dispatcher is at work. `finished`: it ended by itself, and is relaunched when a normal or high ticket is ready. `stopped`: never started, or ended by the user, and it waits for the user's go however many tickets are filed meanwhile. A tracker that never set one reads `stopped`, and the read writes nothing; any other word is refused at exit 1. `running --run <runId>` stores the Workflow run beside the state — the one a killed run is resumed by, with the same args — and every write without `--run` clears it; `--run` beside another state or none, or an empty id, is refused at exit 1. `status --json` carries both as `concurrency.dispatcherState` and `concurrency.dispatcherRunId`. |
+| `concurrency [<n>] [--json]` | Print how many agents may be in flight at once, or store a new limit for every worktree: a whole number from 1 to 10. A higher one is refused at exit 1 with nothing written, and one an older tracker stored above 10 reads as 10. A tracker that never set one reads 2. A limit below the agents already in flight is accepted and simply leaves no free slot. A slot is an agent: the in-progress rows one `ticket claim` started count once, and every other in-progress row, such as a review bar, counts on its own. `--json` prints `{ limit, agentsInFlight, freeSlots }`, after a change as well. |
+| `dispatcher [running\|finished\|stopped] [--run <runId>] [--json]` | Print where the dispatcher was left, or store a new state with one log line. `running`: a dispatcher is at work. `finished`: it ended by itself, and is relaunched when a normal or high ticket is ready. `stopped`: never started, or ended by the user, and it waits for the user's go however many tickets are filed meanwhile. A tracker that never set one reads `stopped`, and the read writes nothing; any other word is refused at exit 1. `running --run <runId>` stores the Workflow run beside the state — the one a killed run is resumed by, with the same args — and every write without `--run` clears it; `--run` beside another state or none, or an empty id, is refused at exit 1. `status --json` carries both as `concurrency.dispatcherState` and `concurrency.dispatcherRunId`. `--json` prints `{ dispatcherState, dispatcherRunId }`, the run id only while one is stored, and a change adds `previousState`. |
 
 ### Release and rework
 
@@ -369,7 +371,7 @@ comment is code, and a file type it does not know counts every non-blank line.
 |---|---|---|
 | **0** | done, or there was nothing to do | also a store write whose page could not be rebuilt (reported on standard error, with an error banner on the page when only its script failed; `render` rebuilds it), a release whose cleanup git declined, and every `hook subagent-stop` |
 | **1** | a refusal the caller can act on | no tracker here, no such task or ticket, a missing `--reason`, a move the matrix refuses, a claim with no free slot or on a held-back low ticket, a release refused (`main-moved` among them), installed files of another install version (every command but `init`, `update`, `help` and `status`), and `init` or `update` over files a newer agent-progress installed, an unknown command |
-| **2** | a state the tool will not repair on its own | an unreadable or malformed progress file, an unreadable or malformed log.jsonl, a malformed ticket file a command names, a lock it could not take, a release reason `git-failed` or `tracker-failed` |
+| **2** | a state the tool will not repair on its own | an unreadable or malformed progress file, an unreadable or malformed log.jsonl, a malformed ticket file a command names, a lock it could not take, a release reason `git-failed` or `tracker-failed`, and any error the tool did not expect |
 
 ## The Handoff and the token column
 
@@ -557,7 +559,24 @@ The file is always written whole, atomically; an absent file is an empty log, an
 skipped. A line that is not a well-formed record of a known kind makes the log unreadable (exit 2),
 naming the line and the field. A `log.jsonl` beside a version 1 `progress.json` is taken as a
 migration cut short only when it holds that file's log as notes, or its start, and rewritten; one
-holding anything more is unreadable, naming both files, and nothing is discarded silently.
+holding anything more is unreadable, naming both files, and nothing is discarded silently. A record
+is kept with only the keys its kind names, so a key added by hand is dropped the next time the file is
+written.
+
+### `.agent-progress/version.json`
+
+```
+{
+  "installVersion": 1
+}
+```
+
+The install version of the files `init` and `update` installed, indented two spaces and ending in a
+newline, written atomically by both after every other file they write. It is read as a JSON object
+whose `installVersion` is a whole number of at least 1; any other key is ignored and not written back.
+A file recording another version, holding anything else or unreadable is a mismatch, and so is an
+absent file while `agent-brief.md` is installed; an absent file with no brief is none.
+[Install version](#install-version) says what a mismatch does.
 
 ### `.agent-progress/tickets/003-double-click-a-role-to-edit-it.md`
 
@@ -602,7 +621,7 @@ owner: Alex Example
 | `started`, `finished`, `delivered`, `abandonedAt` | always | a timestamp or `null`; an absent one reads as `null` |
 | `group`, `branch`, `commit`, `reason` | when given | text; `reason` is dropped by `reopen` |
 | `dependsOn` | when non-empty | ticket ids, written `"001, 002"`, read from any mix of commas and spaces with or without `#` or padding. Set it with `ticket depends`, which refuses a missing id or a circle. |
-| `task` | always | the row's id as an unquoted integer, or `null` for a low ticket never started |
+| `task` | always | the row's id as an unquoted integer, or `null` for a low ticket never started; a quoted `task` makes the file malformed |
 
 **The frontmatter is a deliberately small YAML subset.** One `key: value` per line, split at the
 first `': '`, so `title: Fix: the thing` keeps its second colon; `key:` alone is an empty value.
