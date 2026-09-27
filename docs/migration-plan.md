@@ -1,18 +1,12 @@
 # Migration plan: the conventions refactor
 
-**Status (2026-09-26): in flight on `migration/conventions`; steps 0 to 3, 4a to 4c, 5, 6, 7 and 8 are done, 7c included:
-legacy code isolated per boundary, the log id filter widened, and every status, type and priority worded through its
-edge mapper. Step 8 put the templates under resources/templates, generates the dispatcher into `.agent-progress/`,
-records the install version in `.agent-progress/version.json` with the mismatch refusal, and stores name-only review
-rows' links at `update` and at filing. Step 9 is next.** cli/ is grouped into tracking, tickets, dispatch, adoption and measurement; the ticket
-command is split by subcommand group; `cli/CommandSupport.ts` is dissolved into cli/utils and the tracker-writing
-adapters; lib/ is deleted; the service refusals carry reason codes the CLI words; and the command context carries the
-render state. The page split (`migration/page`, merged in 7058c2a) and the dispatcher port (`migration/dispatcher`,
-merged in 4221a13) have landed, and so have step 7's two other parts: the page reading the payload facts
-(`migration/page-facts`, merged in 8d67026) and the dispatcher's JSON fields (`migration/dispatcher-json`, merged in
-99606f1). Step 7's TicketStore items are still open: `createTicket`'s initial frontmatter, `deleteAllTickets` moving
-to the ticket writer, `readTicket` becoming `board.ticketByReference`, `nextTicketId`'s second read of
-`progress.json`, and `TrackerChange.deleteAllTicketFilesAfterwards`.
+**Status (2026-09-27): steps 0 to 9 are done on `migration/conventions`; the polish sweep and the end-of-refactor
+review (step 10) are next, then the owner's merge.** Step 9 brought `README.md`, `docs/cli.md`, `docs/development.md`,
+the skills and the root CLAUDE.md in line with the code, and moved what the migration leaves open to `docs/backlog.md`:
+the `ProgressFile` rename, step 7's TicketStore moves, a combined rework count, dropping the legacy folders and
+retaking the README images. Every sub-branch is merged: the page split (`migration/page`, 7058c2a), the dispatcher
+port (`migration/dispatcher`, 4221a13), the page reading the payload facts (`migration/page-facts`, 8d67026) and the
+dispatcher's JSON fields (`migration/dispatcher-json`, 99606f1).
 The kanban-board feature has landed on main (9654720 through 5c6b0ad) and is mapped into this plan.
 This file is the single source for the plan; `agent-progress-architecture.html` (untracked, repo
 root) is the evidence it was built from: the file map, the diagnosis and the measurements, taken at

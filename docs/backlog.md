@@ -1,7 +1,9 @@
 # Backlog: agreed, not started
 
 **In flight since 2026-09-25: the conventions migration**, on branch `migration/conventions`, in a
-worktree; `docs/migration-plan.md` is its plan and records its progress. Nothing else is in flight.
+worktree. On 2026-09-27 its steps 0 to 9 are complete on the branch; it awaits the polish sweep and the
+end-of-refactor review (step 10 of `docs/migration-plan.md`, which records its progress) and the
+owner's merge. Nothing else is in flight.
 
 This file is where a TODO would otherwise go — there are no TODOs in the code. An item here is
 **agreed in principle and deliberately not done**, with the reason it is not done yet. Something
@@ -64,4 +66,62 @@ has the tool. `gitIsAvailable` in `src/testing/ScratchWorkspace.ts` only checks 
 and no such variable exists. When it is built, it is read through a getter in
 `src/shared/Environment.ts`, like every environment read.
 
-Not done yet because the conventions migration changes no behaviour outside its plan.
+Not started because it was not taken into the conventions migration, which changes no behaviour
+outside its plan; it waits for the first change after the merge that touches the test helpers.
+
+## Renaming the model's `ProgressFile`
+
+`ProgressFile` in `src/lib/tracker-model/@types/ProgressFile.ts` is the model's type for the
+tracker's rows, view and settings, named after the file that stores them. Agreed: rename it for what
+it is, for example to `TrackerProgress`.
+
+Not started because the owner deferred it in step 6 to the migration's polish sweep (step 10), so the
+rename crosses the model, the adapters and the services once, rather than inside a step that was
+moving them.
+
+## The TicketStore moves step 7 left
+
+`src/services/tracker/TicketStore.ts` still holds work that belongs elsewhere. Agreed:
+
+- `createTicket`'s initial frontmatter moves to a model util or a Board method.
+- `deleteAllTickets` moves to the ticket writer, `src/adapters/tickets/TicketFileWriter.ts`.
+- `readTicket` becomes `board.ticketByReference`; `ticket show` in `cli/tickets/TicketReading.ts`
+  still reads without a Board.
+- `nextTicketId` takes the row ids from the Board instead of reading `progress.json` a second time.
+- `TrackerChange.deleteAllTicketFilesAfterwards` in `src/services/tracker/TrackerPipeline.ts` is
+  replaced by a Board query.
+
+Not started because they are internal moves with no behaviour change, left when step 7 closed with
+the features regrouped; they wait for the polish sweep or the next change to ticket filing,
+`ticket show` or `clear --all`.
+
+## A combined rework count
+
+A reviewer adds the `rework --since` count and each `rework --rebased-from` count itself, the
+repeats after `main-moved` included, to report `reworkedLines`: the review brief's steps 4, 5, 7b
+and 8 in `resources/templates/AgentBrief.md` and the reviewer prompt in
+`dispatcher/utils/AgentPromptUtil.ts` tell it to. Agreed: one count from the tool, so the reviewer
+has nothing to add.
+
+Not started because it changes what the reviewer is told, so it waits for a commit meant to change
+the brief and the prompts, which retakes `dispatcher/testing/FrozenDispatchTraces.json`; the
+dispatcher port kept the old script's instructions.
+
+## Dropping the legacy folders
+
+`src/shared/legacy/`, `src/adapters/legacy/`, `src/services/tracker/legacy/`, `cli/legacy/` and
+`page/legacy/` answer the retired formats, words and flags. Agreed: drop each one as its users go,
+the way the Legacy folders section of `docs/development.md` describes.
+
+Not started because each waits for its users, as its module header says: every tracked repository
+having run `agent-progress update`, and agents no longer typing retired verbs and words, `--hooks`,
+or review-shaped names without `--review-of`.
+
+## Retaking the README images
+
+`docs/images/panel-tickets.png` and `docs/images/panel-watch.gif` show the ticket words `open` and
+`done` that step 4a retired, and `panel-tickets.png` shows no Kanban tab. Agreed: retake them with
+`.readme-graphics/regenerate.sh`.
+
+Not started because the script and its demo board are git-ignored and live only in the owner's main
+checkout, which must run the merged code first.
