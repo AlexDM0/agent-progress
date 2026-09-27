@@ -3,6 +3,7 @@
  * tickets and log byte for byte; and that it refuses, writing nothing, files a newer agent-progress installed.
  */
 import {
+  chmodSync,
   existsSync,
   mkdirSync,
   readdirSync,
@@ -14,13 +15,17 @@ import {
 import { join } from 'node:path';
 
 import {
+  afterAll,
   afterEach,
+  beforeAll,
   describe,
   expect,
+  mock,
   test
 }                                        from 'bun:test';
-import { InstallVersionWordingUtil } from '../../../src/adapters/utils/InstallVersionWordingUtil';
-import { resourceFilePathOf }        from '../../../src/shared/ResourceFilePath';
+import { InstallVersionWordingUtil }       from '../../../src/adapters/utils/InstallVersionWordingUtil';
+import * as realWorkflowScriptBundleModule from '../../../src/lib/claude-code/WorkflowScriptBundle';
+import { resourceFilePathOf }              from '../../../src/shared/ResourceFilePath';
 import {
   addWorktree,
   createScratchDirectory,
@@ -36,6 +41,12 @@ import { repositoryFileContentsOf }                           from '../../testin
 import { installedFileTextsFor }                              from '../InstalledFileGeneration';
 
 const scratchDirectories: string[] = [];
+
+const RUNNING_AS_ROOT = typeof process.getuid === 'function' && process.getuid() === 0;
+
+const READ_AND_ENTER_ONLY_MODE = 0o555;
+
+const OWNER_FULL_ACCESS_MODE = 0o755;
 
 const GENERATED_AGENT_BRIEF = (await installedFileTextsFor({ generatesTheDispatcherScript: false })).agentBrief;
 
@@ -326,15 +337,42 @@ describe.skipIf(!gitIsAvailable())('updating a tracked repository', () => {
   });
 
   /** A hand-edited copy is the one a refusal to write can be told apart from having nothing to write by. */
-  test('--no-workflow leaves a hand-edited dispatcher at the retired path byte for byte', async () => {
+  test('--no-workflow leaves a hand-edited dispatcher byte for byte, at the installed path and at the retired one', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
+    const installedFilePath   = workflowFilePathIn(repositoryDirectory);
     const retiredFilePath     = retiredWorkflowFilePathIn(repositoryDirectory);
     mkdirSync(join(repositoryDirectory, '.claude', 'workflows'), { recursive: true });
+    writeFileSync(installedFilePath, '// Example Agency\'s own tweak of the installed dispatcher.\n');
     writeFileSync(retiredFilePath, '// Example Agency\'s own dispatcher.\n');
 
     expect(await runCommandLine(['update', '--no-workflow'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }))).toBe(0);
 
+    expect(readFileSync(installedFilePath, 'utf8')).toBe('// Example Agency\'s own tweak of the installed dispatcher.\n');
     expect(readFileSync(retiredFilePath, 'utf8')).toBe('// Example Agency\'s own dispatcher.\n');
+  });
+
+  // The brief and the removal come last, so a rerun after a failed write still tells the orchestrator its brief changed and names the removal.
+  test.skipIf(RUNNING_AS_ROOT)('a refresh cut short by an unwritable agents folder leaves the stale brief and the old dispatcher for the rerun to report', async () => {
+    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
+    const briefFilePath       = join(repositoryDirectory, '.agent-progress', 'agent-brief.md');
+    const agentsDirectory     = join(repositoryDirectory, '.claude', 'agents');
+    mkdirSync(join(repositoryDirectory, '.claude', 'workflows'), { recursive: true });
+    writeFileSync(retiredWorkflowFilePathIn(repositoryDirectory), '// The dispatcher an older agent-progress installed.\n');
+    mkdirSync(agentsDirectory, { recursive: true });
+
+    chmodSync(agentsDirectory, READ_AND_ENTER_ONLY_MODE);
+    try {
+      expect(await runCommandLine(['update'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }))).toBe(2);
+    } finally {
+      chmodSync(agentsDirectory, OWNER_FULL_ACCESS_MODE);
+    }
+    expect(readFileSync(briefFilePath, 'utf8')).not.toBe(GENERATED_AGENT_BRIEF);
+    expect(existsSync(retiredWorkflowFilePathIn(repositoryDirectory))).toBe(true);
+
+    const rerun = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['update'], rerun)).toBe(0);
+    expect(rerun.outputText()).toContain('brief:       updated — re-read it before your next brief');
+    expect(rerun.outputText()).toMatch(workflowLineRemovingTheRetiredCopy('unchanged'));
   });
 
   test('the worker agent definition is installed with the default pair, and a second run reports it unchanged', async () => {
@@ -511,5 +549,34 @@ describe.skipIf(!gitIsAvailable())('what update refuses', () => {
     expect(context.outputText()).toBe('');
     expect(repositoryFileContentsOf(repositoryDirectory)).toEqual(filesBefore);
     expect(filesBefore.size, 'the fixture holds the tracker and its installed files, so the comparison above is about something').toBeGreaterThan(3);
+  });
+});
+
+describe.skipIf(!gitIsAvailable())('a dispatcher that will not bundle', () => {
+  let realWorkflowScriptBundleExports: Record<string, unknown> = {};
+
+  // Bun keeps a module mock for the rest of the process, so the real exports are copied before the stub goes in and mocked back afterwards.
+  beforeAll(() => {
+    realWorkflowScriptBundleExports = { ...realWorkflowScriptBundleModule };
+    mock.module('../../../src/lib/claude-code/WorkflowScriptBundle', () => ({
+      ...realWorkflowScriptBundleExports,
+      bundleWorkflowScript: () => Promise.resolve({ verdict: 'failed', reason: 'build-failed', detail: 'Example build failure' }),
+    }));
+  });
+
+  afterAll(() => {
+    mock.module('../../../src/lib/claude-code/WorkflowScriptBundle', () => realWorkflowScriptBundleExports);
+  });
+
+  // Every installed text is computed before the first write, so the repository is left exactly as it was, its install version included.
+  test('stops update at exit 2 with every file of the repository byte for byte as it was', async () => {
+    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
+    const contentsBefore      = repositoryFileContentsOf(repositoryDirectory);
+
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['update'], context)).toBe(2);
+
+    expect(context.errorText()).toContain('could not be generated');
+    expect(repositoryFileContentsOf(repositoryDirectory)).toEqual(contentsBefore);
   });
 });

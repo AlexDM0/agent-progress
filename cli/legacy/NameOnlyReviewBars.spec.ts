@@ -1,7 +1,8 @@
 /**
  * Review rows filed without `--review-of`, by their `Review <N> #<id>` name alone: `task add` and `task update --name` store the link the
  * name gives, a release closes such a row among a bundle's bars, and the SubagentStop hook credits the later round. A row stored name-only
- * by a tracker `update` has not yet rewritten is still linked when read, so a release closes it and stores its link. It covers the older
+ * by a tracker `update` has not yet rewritten is still linked when read, so a release closes it and stores its link and the hook credits
+ * it. It covers the older
  * habit `cli/legacy/`'s filing mapper answers and the older input `src/adapters/legacy/` links, and is deleted with them.
  */
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -233,6 +234,25 @@ describe.skipIf(!gitIsAvailable())('the SubagentStop hook for a reviewer', () =>
       assistantLine('msg_two', 20, 140_000, 800),
     ]);
     const secondRound = await reviewRowFiled(['Review 2 #7 — Example work 7']);
+
+    expect((await agentProgress(['hook', 'subagent-stop'], hookInput(transcriptPath))).exitCode).toBe(0);
+
+    expect(storedRow(secondRound)?.tokens).toBe(FIXTURE_INPUT_TOKENS);
+    expect(storedRow(firstRound)?.tokens).toBeNull();
+  });
+
+  // A tracker `update` has not yet rewritten may hold the later round with no link; the read links it by its name, so the hook credits it.
+  test('with the later round stored by its name alone, that row gets it and the earlier is left as it was', async () => {
+    const firstRound     = await reviewRowFiled(['Review 1 #007 — Example work 7', '--review-of', '7']);
+    const transcriptPath = writeTranscript([
+      userLine('agent-progress review: #007'),
+      assistantLine('msg_one', 10, 90_000, 400),
+      assistantLine('msg_one', 10, 90_000, 1200),
+      assistantLine('msg_two', 20, 140_000, 800),
+    ]);
+    const secondRound = await reviewRowFiled(['Review 2 #7 — Example work 7']);
+    storeWithoutItsLink(secondRound);
+    expect(storedRow(secondRound)).not.toHaveProperty('reviewOf');
 
     expect((await agentProgress(['hook', 'subagent-stop'], hookInput(transcriptPath))).exitCode).toBe(0);
 

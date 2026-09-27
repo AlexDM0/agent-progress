@@ -13,12 +13,16 @@ import {
 import { join } from 'node:path';
 
 import {
+  afterAll,
   afterEach,
+  beforeAll,
   describe,
   expect,
+  mock,
   test
 }                                                              from 'bun:test';
-import { InstallVersionWordingUtil } from '../../../src/adapters/utils/InstallVersionWordingUtil';
+import { InstallVersionWordingUtil }       from '../../../src/adapters/utils/InstallVersionWordingUtil';
+import * as realWorkflowScriptBundleModule from '../../../src/lib/claude-code/WorkflowScriptBundle';
 import {
   addWorktree,
   createScratchDirectory,
@@ -383,5 +387,35 @@ describe.skipIf(!gitIsAvailable())('the two places init refuses before it writes
 
     expect(context.outputText()).toContain('.gitignore:  entry added');
     expect(context.outputText()).not.toContain('no-gitignore-written');
+  });
+});
+
+describe.skipIf(!gitIsAvailable())('a dispatcher that will not bundle', () => {
+  let realWorkflowScriptBundleExports: Record<string, unknown> = {};
+
+  // Bun keeps a module mock for the rest of the process, so the real exports are copied before the stub goes in and mocked back afterwards.
+  beforeAll(() => {
+    realWorkflowScriptBundleExports = { ...realWorkflowScriptBundleModule };
+    mock.module('../../../src/lib/claude-code/WorkflowScriptBundle', () => ({
+      ...realWorkflowScriptBundleExports,
+      bundleWorkflowScript: () => Promise.resolve({ verdict: 'failed', reason: 'build-failed', detail: 'Example build failure' }),
+    }));
+  });
+
+  afterAll(() => {
+    mock.module('../../../src/lib/claude-code/WorkflowScriptBundle', () => realWorkflowScriptBundleExports);
+  });
+
+  // Every installed text is computed before the first write, so a fresh init that cannot generate the dispatcher leaves no tracker behind.
+  test('stops a fresh init at exit 2 before it writes a tracker, a .gitignore entry, a CLAUDE.md block or a manifest', async () => {
+    const repositoryDirectory = scratchRepository();
+    const contentsBefore      = repositoryFileContentsOf(repositoryDirectory);
+
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['init'], context)).toBe(2);
+
+    expect(context.errorText()).toContain('could not be generated');
+    expect(existsSync(join(repositoryDirectory, '.agent-progress'))).toBe(false);
+    expect(repositoryFileContentsOf(repositoryDirectory)).toEqual(contentsBefore);
   });
 });
