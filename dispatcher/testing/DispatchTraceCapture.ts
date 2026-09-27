@@ -6,7 +6,7 @@
 import { readFileSync } from 'node:fs';
 import { join }         from 'node:path';
 
-import { DISPATCHER_SCRIPT_BUILD }                 from '../../src/shared/constants/DispatcherScriptBuild.ts';
+import { DISPATCHER_SCRIPT_BUILD }                 from '../../src/shared/DispatcherScriptBuildRequest.ts';
 import type { DispatchScenario }                   from './@types/DispatchScenario.ts';
 import type { DispatchTrace }                      from './@types/DispatchTrace.ts';
 import { builtScriptTextOf, bundleDispatchScript } from './DispatchScriptBundle.ts';

@@ -1,8 +1,6 @@
 /** The specs' bundle of the dispatcher's entry: the package's Workflow script build, memoised per process, or built from a `SourceMutant`. */
-import { join } from 'node:path';
-
 import { bundleWorkflowScript, type WorkflowScriptBundle } from '../../src/lib/claude-code/WorkflowScriptBundle.ts';
-import { DISPATCHER_SCRIPT_BUILD }                         from '../../src/shared/constants/DispatcherScriptBuild.ts';
+import { dispatcherScriptBuildRequestWith }                from '../../src/shared/DispatcherScriptBuildRequest.ts';
 import { mutantPluginFor, type SourceMutant }              from './SourceMutant.ts';
 
 export type DispatchScriptBundle = WorkflowScriptBundle;
@@ -19,13 +17,7 @@ export const DispatchScriptBundleBookkeeping = {
 
 function buildDispatchScript(mutant: SourceMutant | undefined): Promise<DispatchScriptBundle> {
   DispatchScriptBundleBookkeeping.buildCount += 1;
-  const dispatcherDirectory = join(import.meta.dir, '..');
-  return bundleWorkflowScript({
-    entryPath:      join(dispatcherDirectory, DISPATCHER_SCRIPT_BUILD.ENTRY_FILE_NAME),
-    metaModulePath: join(dispatcherDirectory, DISPATCHER_SCRIPT_BUILD.META_MODULE_FILE_NAME),
-    metaExportName: DISPATCHER_SCRIPT_BUILD.META_EXPORT_NAME,
-    plugins:        mutant === undefined ? [] : [mutantPluginFor(mutant)],
-  });
+  return bundleWorkflowScript(dispatcherScriptBuildRequestWith(mutant === undefined ? [] : [mutantPluginFor(mutant)]));
 }
 
 /** For a spec: the text of a bundle that built, while a failed one throws its reason so the test fails on it. */

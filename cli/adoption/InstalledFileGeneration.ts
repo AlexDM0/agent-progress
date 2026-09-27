@@ -3,19 +3,23 @@
  * as it was. The dispatcher is bundled from `dispatcher/` by path, and the markdown is read from `resources/templates/` and filled.
  */
 import { readFileSync } from 'node:fs';
-import { join }         from 'node:path';
 
-import { bundleWorkflowScript, type WorkflowScriptBundle } from '../../src/lib/claude-code/WorkflowScriptBundle.ts';
-import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL }       from '../../src/lib/tracker-model/constants/AgentSettings.ts';
-import { OperationRefusal }                                from '../../src/shared/OperationRefusal.ts';
-import { resourceFilePathOf }                              from '../../src/shared/ResourceFilePath.ts';
-import { DISPATCH_PROTOCOL }                               from '../../src/shared/constants/DispatchProtocol.ts';
-import { DISPATCHER_SCRIPT_BUILD }                         from '../../src/shared/constants/DispatcherScriptBuild.ts';
-import { TemplatePlaceholderUtil }                         from '../utils/TemplatePlaceholderUtil.ts';
+import { bundleWorkflowScript, type WorkflowScriptBundle }           from '../../src/lib/claude-code/WorkflowScriptBundle.ts';
+import type { AgentModel }                                           from '../../src/lib/tracker-model/@types/Ticket.ts';
+import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL }                 from '../../src/lib/tracker-model/constants/AgentSettings.ts';
+import { dispatcherDirectoryPath, dispatcherScriptBuildRequestWith } from '../../src/shared/DispatcherScriptBuildRequest.ts';
+import { OperationRefusal }                                          from '../../src/shared/OperationRefusal.ts';
+import { resourceFilePathOf }                                        from '../../src/shared/ResourceFilePath.ts';
+import { DISPATCH_PROTOCOL }                                         from '../../src/shared/constants/DispatchProtocol.ts';
+import { TemplatePlaceholderUtil }                                   from '../utils/TemplatePlaceholderUtil.ts';
 
-function dispatcherDirectory(): string {
-  return join(import.meta.dir, '..', '..', 'dispatcher');
-}
+// The brief is prose, so it names the model the way a person writes it; the agent definition keeps the id Claude Code reads.
+const AGENT_MODEL_DISPLAY_NAMES: Readonly<Record<AgentModel, string>> = Object.freeze({
+  haiku:  'Haiku',
+  sonnet: 'Sonnet',
+  opus:   'Opus',
+  fable:  'Fable',
+});
 
 export interface InstalledFileTexts {
   agentBrief:                  string;
@@ -30,7 +34,7 @@ export function dispatcherScriptTextOf(bundle: WorkflowScriptBundle): string {
   if (bundle.verdict === 'failed') {
     throw new OperationRefusal(
       'unrepaired',
-      `The dispatcher script could not be generated from ${dispatcherDirectory()} (${bundle.reason}: ${bundle.detail}), so nothing was written.`,
+      `The dispatcher script could not be generated from ${dispatcherDirectoryPath()} (${bundle.reason}: ${bundle.detail}), so nothing was written.`,
     );
   }
   return bundle.scriptText;
@@ -42,21 +46,18 @@ function templateTextOf(templateFileName: string): string {
 
 export async function installedFileTextsFor(request: { generatesTheDispatcherScript: boolean }): Promise<InstalledFileTexts> {
   const dispatcherScript = request.generatesTheDispatcherScript
-    ? dispatcherScriptTextOf(await bundleWorkflowScript({
-      entryPath:      join(dispatcherDirectory(), DISPATCHER_SCRIPT_BUILD.ENTRY_FILE_NAME),
-      metaModulePath: join(dispatcherDirectory(), DISPATCHER_SCRIPT_BUILD.META_MODULE_FILE_NAME),
-      metaExportName: DISPATCHER_SCRIPT_BUILD.META_EXPORT_NAME,
-    }))
+    ? dispatcherScriptTextOf(await bundleWorkflowScript(dispatcherScriptBuildRequestWith([])))
     : null;
   // The dispatcher's prompts state the same numbers from the same constant, so the brief, the block and the prompts cannot disagree.
   const reworkThresholdLines = String(DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES);
-  // The brief and the definition name the default pair as placeholders, so neither can drift from the tool's defaults.
+  // The definition takes the default pair and the brief its display word, so neither can drift from the tool's defaults.
   const defaultAgentPair = { model: DEFAULT_AGENT_MODEL, effort: DEFAULT_AGENT_EFFORT };
   const agentBrief = TemplatePlaceholderUtil.filledTemplateOf(templateTextOf('AgentBrief.md'), {
     builderApiCallBudget:  String(DISPATCH_PROTOCOL.BUILDER_API_CALL_BUDGET),
     reviewerApiCallBudget: String(DISPATCH_PROTOCOL.REVIEWER_API_CALL_BUDGET),
     reworkThresholdLines,
-    ...defaultAgentPair,
+    modelDisplayName:      AGENT_MODEL_DISPLAY_NAMES[DEFAULT_AGENT_MODEL],
+    effort:                DEFAULT_AGENT_EFFORT,
   });
   const claudeInstructionsBlock = TemplatePlaceholderUtil.filledTemplateOf(templateTextOf('ClaudeInstructionsBlock.md'), { reworkThresholdLines });
   return {

@@ -173,8 +173,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   dispatcher reaches, and a dispatcher module that imports a new `src/` file adds it there in the same change. Only
   `dispatcher/DispatchFromWorkflowGlobals.ts` names the Workflow globals.
 - `cli/` reaches `dispatcher/`, and the render service `page/`, only by path, to bundle them: dispatcher code runs in
-  the CLI's process only when `init` or `update` bundle it. Specs build the dispatcher by path and never import
-  `dispatcher/`.
+  the CLI's process only when `init` or `update` bundle it. `init`, `update` and the specs build the dispatcher from the
+  one request in `src/shared/DispatcherScriptBuildRequest.ts` and never import `dispatcher/`.
 - ESLint 9 flat config through `@reliquary/eslint-config`: 2-space indent, single quotes, semicolons; line length
   180 for code, 155 for comments; aligned object values; aligned `from`; imports builtin → external → internal,
   alphabetised; builtins through the `node:` protocol (`import/enforce-node-protocol-usage`, turned on in
