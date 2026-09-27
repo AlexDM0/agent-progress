@@ -7,7 +7,7 @@ import { NextLineUtil }                                                 from '..
 import { OptionValueUtil }                                              from '../utils/OptionValueUtil.ts';
 import { OutputUtil }                                                   from '../utils/OutputUtil.ts';
 import type { TicketSubcommandHandler }                                 from './@types/TicketSubcommandHandler.ts';
-import { setTicketDependencies }                                        from './TicketDependencies.ts';
+import { setTicketDependencies }                                        from './TicketDepends.ts';
 import { holdOrUnholdTicket }                                           from './TicketHold.ts';
 import { TICKET_USAGE }                                                 from './constants/TicketUsage.ts';
 import { TicketArgumentUtil }                                           from './utils/TicketArgumentUtil.ts';
