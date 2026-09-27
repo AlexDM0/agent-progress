@@ -6,9 +6,9 @@
 import { describe, expect, test }         from 'bun:test';
 import { ProgressDocumentUtil }           from '../../adapters/progress/utils/ProgressDocumentUtil.ts';
 import type { LogRecord }                 from '../../lib/tracker-model/@types/LogRecord.ts';
-import type { ProgressFile }              from '../../lib/tracker-model/@types/ProgressFile.ts';
 import type { Task }                      from '../../lib/tracker-model/@types/Task.ts';
 import type { Ticket }                    from '../../lib/tracker-model/@types/Ticket.ts';
+import type { TrackerProgress }           from '../../lib/tracker-model/@types/TrackerProgress.ts';
 import { LIMITS }                         from '../../shared/constants/Limits.ts';
 import { islandContentsOf, islandTextOf } from '../../testing/RenderedIslandText.ts';
 import { createMarkdownRenderer }         from './MarkdownRenderer.ts';
@@ -33,7 +33,7 @@ function exampleTask(changes: Partial<Task> = {}): Task {
   };
 }
 
-function exampleProgress(changes: Partial<ProgressFile> = {}): ProgressFile {
+function exampleProgress(changes: Partial<TrackerProgress> = {}): TrackerProgress {
   return {
     trackerId:  'tracker-for-the-template-spec',
     project:    'Example Agency',
@@ -141,7 +141,7 @@ describe('renderProgressHtml', () => {
   });
 
   test('carries the tracker through the progress island unchanged, with its log worded', () => {
-    const payload = islandContentsOf(render(), 'ap-progress-data') as { progress: ProgressFile; pageScriptFailure: string | null };
+    const payload = islandContentsOf(render(), 'ap-progress-data') as { progress: TrackerProgress; pageScriptFailure: string | null };
 
     expect(payload.progress).toEqual(ProgressDocumentUtil.documentOf(exampleProgress(), [{ at: '2026-09-18T20:05:00+02:00', text: 'Review pass started' }]));
     expect(payload.pageScriptFailure).toBeNull();
@@ -242,7 +242,7 @@ describe('renderProgressHtml', () => {
     for (const elementId of ['ap-progress-data', 'ap-tickets-data']) {
       expect(islandTextOf(document, elementId)).not.toContain('<');
     }
-    expect((islandContentsOf(document, 'ap-progress-data') as { progress: ProgressFile }).progress.tasks[0]?.name).toBe(hostile);
+    expect((islandContentsOf(document, 'ap-progress-data') as { progress: TrackerProgress }).progress.tasks[0]?.name).toBe(hostile);
     expect((islandContentsOf(document, 'ap-tickets-data') as Array<{ title: string }>)[0]?.title).toBe(hostile);
   });
 

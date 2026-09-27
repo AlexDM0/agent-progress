@@ -2,8 +2,8 @@
  * The shape progress.json is stored in, declared field by field rather than derived from the model, so a model change breaks the mappers'
  * compile instead of silently changing the format.
  */
-import type { DispatcherState, ViewRange }    from '../../../lib/tracker-model/@types/ProgressFile.ts';
 import type { TaskStatus }                    from '../../../lib/tracker-model/@types/Task.ts';
+import type { DispatcherState, ViewRange }    from '../../../lib/tracker-model/@types/TrackerProgress.ts';
 import type { CURRENT_PROGRESS_FILE_VERSION } from '../constants/ProgressFileVersions.ts';
 
 export interface StoredTaskPhase {

@@ -2,7 +2,7 @@
  * A relative bound is stored as written and resolved at layout time, so `--from -2h` keeps meaning "the
  * last two hours"; `page/utils/GeometryUtil.ts` resolves each end, which is what makes a mixed pair legal.
  */
-import type { ViewRange }        from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { ViewRange }        from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import { TimeUtil }              from '../../../src/lib/utils/TimeUtil.ts';
 import { OperationRefusal }      from '../../../src/shared/OperationRefusal.ts';
 import type { CommandHandler }   from '../../CommandHandler.ts';

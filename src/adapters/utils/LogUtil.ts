@@ -4,7 +4,7 @@
  * out of the sentence.
  */
 import type { AgentUsage, LogRecord, LogRecordContent } from '../../lib/tracker-model/@types/LogRecord.ts';
-import type { DispatcherState, ViewRange }              from '../../lib/tracker-model/@types/ProgressFile.ts';
+import type { DispatcherState, ViewRange }              from '../../lib/tracker-model/@types/TrackerProgress.ts';
 import { TokenCountUtil }                               from '../../lib/utils/TokenCountUtil.ts';
 import type { IdentifiedLogEntry, WordedLogEntry }      from '../../shared/@types/WordedLogEntry.ts';
 import type { MovedToStatus }                           from './StatusWordingUtil.ts';

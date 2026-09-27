@@ -1,4 +1,4 @@
-import type { DispatcherState } from './ProgressFile.ts';
+import type { DispatcherState } from './TrackerProgress.ts';
 
 export interface Concurrency {
   limit:          number;

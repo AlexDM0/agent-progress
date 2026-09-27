@@ -1,6 +1,6 @@
 import { StatusWordingUtil }    from '../../src/adapters/utils/StatusWordingUtil.ts';
 import { TicketPhraseUtil }     from '../../src/adapters/utils/TicketPhraseUtil.ts';
-import type { DispatcherState } from '../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { DispatcherState } from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import type { Board }           from '../../src/lib/tracker-model/Board.ts';
 
 const READY_TICKETS_LISTED_AT_MOST = 5;

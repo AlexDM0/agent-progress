@@ -1,6 +1,6 @@
 /** progress.json read into the model: read, migrate an older shape to the current one, validate, map. */
 import type { LogRecord }             from '../../lib/tracker-model/@types/LogRecord.ts';
-import type { ProgressFile }          from '../../lib/tracker-model/@types/ProgressFile.ts';
+import type { TrackerProgress }       from '../../lib/tracker-model/@types/TrackerProgress.ts';
 import { storedFileTextOf }           from '../StoredFileText.ts';
 import { ProgressFileUpgradeUtil }    from '../legacy/utils/ProgressFileUpgradeUtil.ts';
 import { StoredValueUtil }            from '../utils/StoredValueUtil.ts';
@@ -12,7 +12,7 @@ import { ProgressFileValidationUtil } from './utils/ProgressFileValidationUtil.t
 export type ProgressFileReading =
   | {
     verdict:               'readable';
-    progress:              ProgressFile;
+    progress:              TrackerProgress;
     /** The log records an older progress file carried, which the next write moves to log.jsonl; null when it carried none. */
     carriedOverLog:        LogRecord[] | null;
     /** `update` rewrites such a file in the current format. */

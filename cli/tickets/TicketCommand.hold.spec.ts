@@ -13,7 +13,7 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import type { ProgressFile }                                                  from '../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { TrackerProgress }                                               from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import { DispatcherClaimNoteUtil }                                            from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
 import { runCommandLine }                                                     from '../Main.ts';
@@ -56,8 +56,8 @@ function progressFilePath(): string {
   return join(repositoryDirectory, '.agent-progress', 'progress.json');
 }
 
-function storedProgress(): ProgressFile {
-  return JSON.parse(readFileSync(progressFilePath(), 'utf8')) as ProgressFile;
+function storedProgress(): TrackerProgress {
+  return JSON.parse(readFileSync(progressFilePath(), 'utf8')) as TrackerProgress;
 }
 
 function ticketsDirectory(): string {

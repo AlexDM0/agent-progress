@@ -21,8 +21,8 @@ import { createLogFileWriter }                            from '../../adapters/l
 import { createProgressFileWriter }                       from '../../adapters/progress/ProgressFileWriter.ts';
 import { createTicketFileWriter }                         from '../../adapters/tickets/TicketFileWriter.ts';
 import type { LogRecord }                                 from '../../lib/tracker-model/@types/LogRecord.ts';
-import type { ProgressFile }                              from '../../lib/tracker-model/@types/ProgressFile.ts';
 import type { Task }                                      from '../../lib/tracker-model/@types/Task.ts';
+import type { TrackerProgress }                           from '../../lib/tracker-model/@types/TrackerProgress.ts';
 import { ticketFixture }                                  from '../../testing/BoardFixtures.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
 import { BROKEN_LOG_TEXT }                                from '../../testing/TrackerFileFixtures.ts';
@@ -48,7 +48,7 @@ const REVIEW_PASS_TASK: Task = {
   tokens: 12_300,
 };
 
-const EXAMPLE_PROGRESS: ProgressFile = {
+const EXAMPLE_PROGRESS: TrackerProgress = {
   trackerId:  'tracker-for-the-dashboard-rendering-spec',
   project:    'Example Agency',
   startedAt:  '2026-09-18T20:00:00+02:00',
@@ -63,7 +63,7 @@ const MALFORMED_TICKET_TEXT = 'no frontmatter here\n';
 
 let workspace: Workspace;
 
-function writeTracker(progress: ProgressFile = EXAMPLE_PROGRESS): void {
+function writeTracker(progress: TrackerProgress = EXAMPLE_PROGRESS): void {
   createProgressFileWriter(workspace.progressFilePath).write(progress);
   createLogFileWriter(workspace.logFilePath).write([REVIEW_STARTED_NOTE]);
 }

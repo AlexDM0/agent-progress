@@ -17,7 +17,7 @@
     "../src/lib/tracker-model/constants/ConcurrencyLimits.ts",
     "../src/lib/tracker-model/@types/Ticket.ts",
     "../src/lib/tracker-model/@types/Task.ts",
-    "../src/lib/tracker-model/@types/ProgressFile.ts"
+    "../src/lib/tracker-model/@types/TrackerProgress.ts"
   ],
   // The specs and the test-only helpers use Bun; `dispatcher/tsconfig.spec.json` checks them.
   "exclude": ["./**/*.spec.ts", "./testing/**"]

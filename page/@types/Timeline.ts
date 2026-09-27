@@ -1,5 +1,5 @@
-import type { ProgressFile, ViewRange } from '../../src/lib/tracker-model/@types/ProgressFile.ts';
-import type { PageLimits }              from '../../src/shared/@types/PagePayload.ts';
+import type { TrackerProgress, ViewRange } from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
+import type { PageLimits }                 from '../../src/shared/@types/PagePayload.ts';
 
 export type TimelineLimits = Pick<PageLimits, 'tickStepLadderMinutes' | 'maximumTicksPerAxis' | 'axisMinimumSpanMinutes' | 'axisPaddingMinutes'
   | 'minimumBarWidthPercent' | 'hoursAxisLabelLimitMinutes' | 'weekAxisLabelLimitMinutes' | 'hourMinutes' | 'dayMinutes' | 'tickCountSafetyBound'>;
@@ -33,7 +33,7 @@ export interface ResolvedSpan {
 }
 
 export interface TimelineInput {
-  progress:             ProgressFile;
+  progress:             TrackerProgress;
   range:                ViewRange;
   nowEpochMilliseconds: number;
   limits:               TimelineLimits;

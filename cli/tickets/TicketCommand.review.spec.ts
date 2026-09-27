@@ -13,8 +13,8 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import type { ProgressFile }                                                  from '../../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { Task }                                                          from '../../src/lib/tracker-model/@types/Task.ts';
+import type { TrackerProgress }                                               from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import { withLock }                                                           from '../../src/services/tracker/TrackerLock.ts';
 import { workspacePathsFor }                                                  from '../../src/services/tracker/Workspace.ts';
 import { LIMITS }                                                             from '../../src/shared/constants/Limits.ts';
@@ -47,8 +47,8 @@ async function run(commandLineArguments: readonly string[]): Promise<ReturnType<
   return context;
 }
 
-function storedProgress(): ProgressFile {
-  return JSON.parse(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')) as ProgressFile;
+function storedProgress(): TrackerProgress {
+  return JSON.parse(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')) as TrackerProgress;
 }
 
 function inProgressBarsReviewing(ticketId: string): Task[] {

@@ -1,6 +1,6 @@
 /** The Progress tab: the summary, the generated stamp, the hidden-work note, the chart's layout, the range bar and the name column. */
 
-import type { ViewRange }                                              from '../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { ViewRange }                                              from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import type { PagePayload }                                            from '../../src/shared/@types/PagePayload.ts';
 import type { BoardRow }                                               from '../@types/PageBoard.ts';
 import type { Timeline }                                               from '../@types/Timeline.ts';

@@ -5,7 +5,7 @@
 import { expect, test } from 'bun:test';
 
 import { boardFixture, taskFixture } from '../../testing/BoardFixtures.ts';
-import type { ViewRange }            from './@types/ProgressFile.ts';
+import type { ViewRange }            from './@types/TrackerProgress.ts';
 import { DEFAULT_DISPATCHER_STATE }  from './constants/DispatcherStates.ts';
 
 const CHANGED_AT = '2026-09-18T20:40:00+02:00';

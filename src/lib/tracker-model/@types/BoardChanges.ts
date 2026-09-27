@@ -1,9 +1,9 @@
 /** What the Board's changes take and give back. Every change that logs returns the records it logged, in order. */
 import type { Concurrency }                     from './Concurrency.ts';
 import type { LogRecord }                       from './LogRecord.ts';
-import type { DispatcherState }                 from './ProgressFile.ts';
 import type { Task, TaskStatus }                from './Task.ts';
 import type { AgentEffort, AgentModel, Ticket } from './Ticket.ts';
+import type { DispatcherState }                 from './TrackerProgress.ts';
 
 export interface AgentChoice {
   model?:  AgentModel;

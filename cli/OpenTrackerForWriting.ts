@@ -1,5 +1,5 @@
 /** Runs the tracker service's write pipeline for a command: the workspace, the `--at` stamp and the render report are the command line's. */
-import type { DispatcherState }                                  from '../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { DispatcherState }                                  from '../src/lib/tracker-model/@types/TrackerProgress.ts';
 import { writeTracker, type TrackerChange, type TrackerWritten } from '../src/services/tracker/TrackerPipeline.ts';
 import { requireWorkspace }                                      from '../src/services/tracker/Workspace.ts';
 import type { CommandContext }                                   from './CommandContext.ts';

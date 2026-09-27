@@ -1,10 +1,10 @@
 /** A new tracker's state, built from the model's constants. */
-import type { ProgressFile }                from '../@types/ProgressFile.ts';
+import type { TrackerProgress }             from '../@types/TrackerProgress.ts';
 import { DEFAULT_CONCURRENCY_LIMIT_AGENTS } from '../constants/ConcurrencyLimits.ts';
 import { FIRST_TASK_ID }                    from '../constants/TaskIds.ts';
 
 /** `trackerId` comes from the caller, because the model has no randomness. */
-function emptyProgressFor(input: { project: string; startedAt: string; trackerId: string }): ProgressFile {
+function emptyProgressFor(input: { project: string; startedAt: string; trackerId: string }): TrackerProgress {
   return {
     trackerId:        input.trackerId,
     project:          input.project,

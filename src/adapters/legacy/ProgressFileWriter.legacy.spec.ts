@@ -7,7 +7,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join }                        from 'node:path';
 import { afterAll, expect, test }      from 'bun:test';
 
-import type { ProgressFile }                              from '../../lib/tracker-model/@types/ProgressFile.ts';
+import type { TrackerProgress }                           from '../../lib/tracker-model/@types/TrackerProgress.ts';
 import { LIMITS }                                         from '../../shared/constants/Limits.ts';
 import { emptyProgress, fileRow }                         from '../../testing/ProgressFixtures.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
@@ -39,7 +39,7 @@ test('a write after the read stores the reviewOf and round a legacy name gave', 
   if (result.verdict !== 'readable') throw new Error(`expected a readable file, got ${JSON.stringify(result)}`);
   createProgressFileWriter(progressFilePath).write(result.progress);
 
-  const onDisk = JSON.parse(readFileSync(progressFilePath, 'utf8')) as ProgressFile;
+  const onDisk = JSON.parse(readFileSync(progressFilePath, 'utf8')) as TrackerProgress;
   expect(onDisk.tasks[0]).toMatchObject({ reviewOf: '003', reviewBarRound: 1 });
 });
 

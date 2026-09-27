@@ -5,17 +5,17 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import type { ProgressFile }   from '../../lib/tracker-model/@types/ProgressFile.ts';
-import type { Task }           from '../../lib/tracker-model/@types/Task.ts';
-import { Board }               from '../../lib/tracker-model/Board.ts';
-import { createLogger }        from '../../lib/tracker-model/Logger.ts';
-import { ConcurrencyUtil }     from '../../lib/tracker-model/utils/ConcurrencyUtil.ts';
-import type { PageBoardFacts } from '../../shared/@types/PagePayload.ts';
-import { ticketFixture }       from '../../testing/BoardFixtures.ts';
-import { islandContentsOf }    from '../../testing/RenderedIslandText.ts';
-import { renderProgressPage }  from './ProgressPage.ts';
-import { createRenderState }   from './RenderState.ts';
-import { BoardFactsUtil }      from './utils/BoardFactsUtil.ts';
+import type { Task }            from '../../lib/tracker-model/@types/Task.ts';
+import type { TrackerProgress } from '../../lib/tracker-model/@types/TrackerProgress.ts';
+import { Board }                from '../../lib/tracker-model/Board.ts';
+import { createLogger }         from '../../lib/tracker-model/Logger.ts';
+import { ConcurrencyUtil }      from '../../lib/tracker-model/utils/ConcurrencyUtil.ts';
+import type { PageBoardFacts }  from '../../shared/@types/PagePayload.ts';
+import { ticketFixture }        from '../../testing/BoardFixtures.ts';
+import { islandContentsOf }     from '../../testing/RenderedIslandText.ts';
+import { renderProgressPage }   from './ProgressPage.ts';
+import { createRenderState }    from './RenderState.ts';
+import { BoardFactsUtil }       from './utils/BoardFactsUtil.ts';
 
 const GENERATED_AT = new Date('2026-09-18T20:11:03Z');
 
@@ -36,7 +36,7 @@ function exampleTask(id: number, changes: Partial<Task> = {}): Task {
   };
 }
 
-const EXAMPLE_PROGRESS: ProgressFile = {
+const EXAMPLE_PROGRESS: TrackerProgress = {
   trackerId:        'tracker-for-the-progress-page-spec',
   project:          'Example Agency',
   startedAt:        '2026-09-18T20:00:00+02:00',
@@ -85,7 +85,7 @@ describe('renderProgressPage', () => {
   });
 
   test('writes one row fact per stored row, in order, keeping two rows that share a hand-duplicated id apart', async () => {
-    const progress: ProgressFile = {
+    const progress: TrackerProgress = {
       ...EXAMPLE_PROGRESS,
       tasks: [
         exampleTask(1, { ticket: '003', status: 'in-review' }),
@@ -110,7 +110,7 @@ describe('renderProgressPage', () => {
 
   test('writes the facts boardFactsOf gives for a Board over the same progress and tickets', async () => {
     const tickets = [ticketFixture({ id: '003', status: 'in-progress', task: 1 }), ticketFixture({ id: '004' })];
-    const progress: ProgressFile = {
+    const progress: TrackerProgress = {
       ...EXAMPLE_PROGRESS,
       tasks: [
         exampleTask(1, { ticket: '003' }),

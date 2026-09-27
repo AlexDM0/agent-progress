@@ -4,14 +4,14 @@ import type { StoredLog }                                  from '../../adapters/
 import { LogFileIngestion }                                from '../../adapters/log/LogFileIngestion.ts';
 import { TrackerLogUtil }                                  from '../../adapters/log/utils/TrackerLogUtil.ts';
 import { ProgressFileIngestion, type ProgressFileReading } from '../../adapters/progress/ProgressFileIngestion.ts';
-import type { ProgressFile }                               from '../../lib/tracker-model/@types/ProgressFile.ts';
+import type { TrackerProgress }                            from '../../lib/tracker-model/@types/TrackerProgress.ts';
 import type { UnreadableTracker }                          from '../../shared/@types/UnreadableTracker.ts';
 import { OperationRefusal }                                from '../../shared/OperationRefusal.ts';
 import { listTickets, type TicketListing }                 from './TicketStore.ts';
 import type { Workspace }                                  from './Workspace.ts';
 
 export interface TrackerContents {
-  progress:                      ProgressFile;
+  progress:                      TrackerProgress;
   /** The records, and whether log.jsonl must be rewritten on the next write. */
   storedLog:                     StoredLog;
   listing:                       TicketListing;
@@ -82,7 +82,7 @@ export function requireTracker(workspace: Workspace): TrackerContents {
 }
 
 /** For the progress-only reads (`concurrency`, `dispatcher`): log.jsonl is not read, so a broken log does not stop them. */
-export function requireProgressFile(workspace: Workspace): ProgressFile {
+export function requireProgressFile(workspace: Workspace): TrackerProgress {
   const reading = progressFileReadingOf(workspace);
   if (reading.verdict !== 'readable') throw new OperationRefusal('unrepaired', { kind: 'unreadable-tracker', reading });
   return reading.progress;

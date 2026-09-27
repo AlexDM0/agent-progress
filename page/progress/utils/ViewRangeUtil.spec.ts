@@ -4,8 +4,8 @@
  */
 
 import { describe, expect, test }  from 'bun:test';
-import type { ProgressFile }       from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { Task }               from '../../../src/lib/tracker-model/@types/Task.ts';
+import type { TrackerProgress }    from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import type { StoredViewOverride } from '../../@types/ViewerPreferences.ts';
 import { EMPTY_VIEW_OVERRIDE }     from '../../constants/ViewOverride.ts';
 import { EXAMPLE_PAGE_LIMITS }     from '../../testing/PageLimitsFixture.ts';
@@ -29,7 +29,7 @@ function exampleTask(): Task {
   };
 }
 
-function exampleProgress(): ProgressFile {
+function exampleProgress(): TrackerProgress {
   return {
     trackerId:  'example-tracker-8f21',
     project:    'Example Agency',

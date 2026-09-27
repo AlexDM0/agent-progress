@@ -1,7 +1,7 @@
 /** A validated log.jsonl line rebuilt as the model's record: only its kind's known keys, in the order the logger writes them. */
 import type { LogRecord } from '../../../lib/tracker-model/@types/LogRecord.ts';
-import type { ViewRange } from '../../../lib/tracker-model/@types/ProgressFile.ts';
 import type { AgentPair } from '../../../lib/tracker-model/@types/Ticket.ts';
+import type { ViewRange } from '../../../lib/tracker-model/@types/TrackerProgress.ts';
 
 function viewRangeOf(view: ViewRange): ViewRange {
   if (view.kind === 'auto') return { kind: view.kind };

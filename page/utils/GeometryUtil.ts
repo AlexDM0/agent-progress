@@ -4,8 +4,8 @@
  * `src/services/render/ProgressHtml.ts` put in the progress island.
  */
 
-import type { ProgressFile, ViewRange } from '../../src/lib/tracker-model/@types/ProgressFile.ts';
-import type { Task }                    from '../../src/lib/tracker-model/@types/Task.ts';
+import type { Task }                       from '../../src/lib/tracker-model/@types/Task.ts';
+import type { TrackerProgress, ViewRange } from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import type {
   HorizontalExtent,
   ResolvedSpan,
@@ -38,7 +38,7 @@ function parseOffsetMinutes(text: string, limits: TimelineLimits): number | null
 }
 
 /** The page hands in only the visible rows, so `startedAt` is the answer only when none of them has started. */
-function earliestRecordedMoment(progress: ProgressFile, startedAtEpochMilliseconds: number): number {
+function earliestRecordedMoment(progress: TrackerProgress, startedAtEpochMilliseconds: number): number {
   let earliestEpochMilliseconds: number | null = null;
   for (const task of progress.tasks) {
     const startEpochMilliseconds = TimeUtil.epochMillisecondsOf(task.start);
@@ -69,7 +69,7 @@ function resolveEndpoint(text: string, earliestEpochMilliseconds: number, nowEpo
   return TimeUtil.epochMillisecondsOf(trimmed);
 }
 
-function resolveAutomaticSpan(progress: ProgressFile, earliestEpochMilliseconds: number, nowEpochMilliseconds: number, limits: TimelineLimits): ResolvedSpan {
+function resolveAutomaticSpan(progress: TrackerProgress, earliestEpochMilliseconds: number, nowEpochMilliseconds: number, limits: TimelineLimits): ResolvedSpan {
   let horizonEpochMilliseconds = nowEpochMilliseconds;
   for (const task of progress.tasks) {
     const startEpochMilliseconds = TimeUtil.epochMillisecondsOf(task.start);
@@ -89,7 +89,7 @@ function resolveAutomaticSpan(progress: ProgressFile, earliestEpochMilliseconds:
   };
 }
 
-function resolveSpan(progress: ProgressFile, range: ViewRange, nowEpochMilliseconds: number, limits: TimelineLimits): ResolvedSpan {
+function resolveSpan(progress: TrackerProgress, range: ViewRange, nowEpochMilliseconds: number, limits: TimelineLimits): ResolvedSpan {
   const startedAtEpochMilliseconds = TimeUtil.epochMillisecondsOf(progress.startedAt) ?? nowEpochMilliseconds;
   const earliestEpochMilliseconds  = earliestRecordedMoment(progress, startedAtEpochMilliseconds);
   if (range.kind === 'auto') {

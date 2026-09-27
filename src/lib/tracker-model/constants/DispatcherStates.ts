@@ -1,4 +1,4 @@
-import type { DispatcherState } from '../@types/ProgressFile.ts';
+import type { DispatcherState } from '../@types/TrackerProgress.ts';
 
 export const DISPATCHER_STATES = ['running', 'finished', 'stopped'] as const satisfies readonly DispatcherState[];
 

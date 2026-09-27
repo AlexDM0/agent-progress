@@ -9,7 +9,7 @@ export type ViewRange =
 /** `finished` ended by itself and is relaunched when a ticket is ready; `stopped`, never started or ended by the user, waits for the user's go. */
 export type DispatcherState = 'running' | 'finished' | 'stopped';
 
-export interface ProgressFile {
+export interface TrackerProgress {
   trackerId:         string;
   project:           string;
   startedAt:         string;

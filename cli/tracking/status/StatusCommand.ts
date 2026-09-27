@@ -3,9 +3,9 @@ import { LogUtil }                                               from '../../../
 import { StatusDocumentUtil }                                    from '../../../src/adapters/utils/StatusDocumentUtil.ts';
 import { StatusWordingUtil }                                     from '../../../src/adapters/utils/StatusWordingUtil.ts';
 import { TicketJsonUtil }                                        from '../../../src/adapters/utils/TicketJsonUtil.ts';
-import type { ProgressFile }                                     from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { Task, TaskStatus }                                 from '../../../src/lib/tracker-model/@types/Task.ts';
 import type { ReadyTicket }                                      from '../../../src/lib/tracker-model/@types/Ticket.ts';
+import type { TrackerProgress }                                  from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import type { Board }                                            from '../../../src/lib/tracker-model/Board.ts';
 import { readingBoardOf }                                        from '../../../src/lib/tracker-model/ReadingBoard.ts';
 import { SETTLED_TASK_STATUSES, TASK_STATUSES, TICKET_STATUSES } from '../../../src/lib/tracker-model/constants/Statuses.ts';
@@ -86,7 +86,7 @@ function derivedDocumentOf(board: Board): { concurrency: object; readyTickets: R
  * The whole progress file plus every ticket in the version 1 document shape, with the derived `concurrency` and `readyTickets` beside it,
  * then the dispatch fields `reviewWaitingTickets`, `pausedBuilds` and `ticketRows`.
  */
-function fullDocumentOf(progress: ProgressFile, wordedLog: readonly WordedLogEntry[], board: Board): object {
+function fullDocumentOf(progress: TrackerProgress, wordedLog: readonly WordedLogEntry[], board: Board): object {
   return {
     ...ProgressDocumentUtil.documentOf(progress, wordedLog),
     tickets: board.tickets().map(TicketJsonUtil.ticketDocumentOf),
@@ -96,7 +96,7 @@ function fullDocumentOf(progress: ProgressFile, wordedLog: readonly WordedLogEnt
 }
 
 /** What an agent opening a session needs: unsettled rows and tickets, the recent log newest first, and counts of what was left out. */
-function workingDocumentOf(progress: ProgressFile, wordedLog: readonly WordedLogEntry[], board: Board): object {
+function workingDocumentOf(progress: TrackerProgress, wordedLog: readonly WordedLogEntry[], board: Board): object {
   const tickets          = board.tickets();
   const unsettledTasks   = board.tasks().filter((task) => !board.taskIsSettled(task));
   const unsettledTickets = tickets.filter((ticket) => !board.ticketIsSettled(ticket));
@@ -115,7 +115,7 @@ function workingDocumentOf(progress: ProgressFile, wordedLog: readonly WordedLog
   };
 }
 
-function humanStatusTextOf(progress: ProgressFile, wordedLog: readonly WordedLogEntry[], board: Board, showsEverything: boolean): string {
+function humanStatusTextOf(progress: TrackerProgress, wordedLog: readonly WordedLogEntry[], board: Board, showsEverything: boolean): string {
   const tickets = board.tickets();
   const lines = [
     `${progress.project} — started ${progress.startedAt.slice(0, LIMITS.DATE_AND_CLOCK_LENGTH_CHARACTERS).replace('T', ' ')}`,

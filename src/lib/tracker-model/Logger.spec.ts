@@ -10,8 +10,8 @@ import type {
   LogRecordContent,
   ReviewBarReference
 } from './@types/LogRecord.ts';
-import type { ViewRange }            from './@types/ProgressFile.ts';
 import type { AgentPair }            from './@types/Ticket.ts';
+import type { ViewRange }            from './@types/TrackerProgress.ts';
 import { createLogger, type Logger } from './Logger.ts';
 
 const LOGGED_AT = '2026-09-26T10:15:00+02:00';

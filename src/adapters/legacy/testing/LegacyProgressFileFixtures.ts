@@ -4,7 +4,7 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 
-import type { ProgressFile }                                 from '../../../lib/tracker-model/@types/ProgressFile.ts';
+import type { TrackerProgress }                              from '../../../lib/tracker-model/@types/TrackerProgress.ts';
 import { LIMITS }                                            from '../../../shared/constants/Limits.ts';
 import { emptyProgress, fileRow }                            from '../../../testing/ProgressFixtures.ts';
 import { createProgressFileWriter }                          from '../../progress/ProgressFileWriter.ts';
@@ -15,7 +15,7 @@ const STARTED_AT  = '2026-09-18T20:40:00+02:00';
 const FINISHED_AT = '2026-09-18T21:05:00+02:00';
 
 /** The progress as a build before log.jsonl stored it, with its log after `tasks`, where a file `init` created keeps it. */
-export function versionOneDocumentOf(progress: ProgressFile, log: StoredLogEntry[] = []): StoredProgressFileVersionOne {
+export function versionOneDocumentOf(progress: TrackerProgress, log: StoredLogEntry[] = []): StoredProgressFileVersionOne {
   return { version: 1, ...progress, log };
 }
 

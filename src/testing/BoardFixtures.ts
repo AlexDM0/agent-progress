@@ -3,9 +3,9 @@
  * and changed tickets against. Test-only: nothing that ships may import `src/testing/`.
  */
 import type { LogRecord }                 from '../lib/tracker-model/@types/LogRecord.ts';
-import type { ProgressFile }              from '../lib/tracker-model/@types/ProgressFile.ts';
 import type { Task }                      from '../lib/tracker-model/@types/Task.ts';
 import type { Ticket, TicketFrontmatter } from '../lib/tracker-model/@types/Ticket.ts';
+import type { TrackerProgress }           from '../lib/tracker-model/@types/TrackerProgress.ts';
 import { Board }                          from '../lib/tracker-model/Board.ts';
 import type { BoardRefusalDetail }        from '../lib/tracker-model/BoardRefusal.ts';
 import { refusalIsBoardRefusal }          from '../lib/tracker-model/BoardRefusal.ts';
@@ -17,7 +17,7 @@ const FIXTURE_TICKETS_DIRECTORY = '/example-agency/storefront/.agent-progress/ti
 
 export interface BoardFixture {
   board:    Board;
-  progress: ProgressFile;
+  progress: TrackerProgress;
   tickets:  Ticket[];
   records:  LogRecord[];
 }
@@ -61,7 +61,7 @@ export function boardFixture(contents: { tasks?: Task[]; tickets?: Ticket[]; con
   const tasks      = contents.tasks ?? [];
   const tickets    = contents.tickets ?? [];
   const records: LogRecord[] = [];
-  const progress: ProgressFile = {
+  const progress: TrackerProgress = {
     trackerId:  'example-tracker-id',
     project:    'Example Agency',
     startedAt:  FIXTURE_STARTED_AT,

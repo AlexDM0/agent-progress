@@ -1,5 +1,5 @@
 /** Whether a value read from outside is a well-formed board setting: the view, the concurrency limit, the dispatcher state and its run id. */
-import type { DispatcherState, ViewRange } from '../@types/ProgressFile.ts';
+import type { DispatcherState, ViewRange } from '../@types/TrackerProgress.ts';
 import { LOWEST_CONCURRENCY_LIMIT_AGENTS } from '../constants/ConcurrencyLimits.ts';
 import { DISPATCHER_STATES }               from '../constants/DispatcherStates.ts';
 

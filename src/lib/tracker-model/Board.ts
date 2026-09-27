@@ -24,10 +24,9 @@ import type {
   TokenCreditOutcome,
   TrackerCleared
 }                                                        from './@types/BoardChanges.ts';
-import type { Concurrency, DispatchCapacity }            from './@types/Concurrency.ts';
-import type { AgentUsage, LogRecord }                    from './@types/LogRecord.ts';
-import type { DispatcherState, ProgressFile, ViewRange } from './@types/ProgressFile.ts';
-import type { DisplayState, Task, TaskStatus }           from './@types/Task.ts';
+import type { Concurrency, DispatchCapacity }  from './@types/Concurrency.ts';
+import type { AgentUsage, LogRecord }          from './@types/LogRecord.ts';
+import type { DisplayState, Task, TaskStatus } from './@types/Task.ts';
 import type {
   AgentPair,
   ReadyTicket,
@@ -36,21 +35,22 @@ import type {
   TicketPriority,
   TicketStatus
 }                                                        from './@types/Ticket.ts';
-import { BoardRefusal }                                   from './BoardRefusal.ts';
-import type { Logger }                                    from './Logger.ts';
-import { DEFAULT_DISPATCHER_STATE }                       from './constants/DispatcherStates.ts';
-import { FIRST_REPEAT_REVIEW_ROUND }                      from './constants/ReviewRounds.ts';
-import { SETTLED_TASK_STATUSES, SETTLED_TICKET_STATUSES } from './constants/Statuses.ts';
-import { ConcurrencyUtil }                                from './utils/ConcurrencyUtil.ts';
-import type { TaskFiling }                                from './utils/TaskFilingUtil.ts';
-import { TaskFilingUtil }                                 from './utils/TaskFilingUtil.ts';
-import { TaskTransitionUtil }                             from './utils/TaskTransitionUtil.ts';
-import { TicketChartUtil }                                from './utils/TicketChartUtil.ts';
-import { TicketDefaultsUtil }                             from './utils/TicketDefaultsUtil.ts';
-import { TicketDependencyUtil }                           from './utils/TicketDependencyUtil.ts';
-import { TicketIdUtil }                                   from './utils/TicketIdUtil.ts';
-import { TicketMoveUtil }                                 from './utils/TicketMoveUtil.ts';
-import { TicketStampUtil }                                from './utils/TicketStampUtil.ts';
+import type { DispatcherState, TrackerProgress, ViewRange } from './@types/TrackerProgress.ts';
+import { BoardRefusal }                                     from './BoardRefusal.ts';
+import type { Logger }                                      from './Logger.ts';
+import { DEFAULT_DISPATCHER_STATE }                         from './constants/DispatcherStates.ts';
+import { FIRST_REPEAT_REVIEW_ROUND }                        from './constants/ReviewRounds.ts';
+import { SETTLED_TASK_STATUSES, SETTLED_TICKET_STATUSES }   from './constants/Statuses.ts';
+import { ConcurrencyUtil }                                  from './utils/ConcurrencyUtil.ts';
+import type { TaskFiling }                                  from './utils/TaskFilingUtil.ts';
+import { TaskFilingUtil }                                   from './utils/TaskFilingUtil.ts';
+import { TaskTransitionUtil }                               from './utils/TaskTransitionUtil.ts';
+import { TicketChartUtil }                                  from './utils/TicketChartUtil.ts';
+import { TicketDefaultsUtil }                               from './utils/TicketDefaultsUtil.ts';
+import { TicketDependencyUtil }                             from './utils/TicketDependencyUtil.ts';
+import { TicketIdUtil }                                     from './utils/TicketIdUtil.ts';
+import { TicketMoveUtil }                                   from './utils/TicketMoveUtil.ts';
+import { TicketStampUtil }                                  from './utils/TicketStampUtil.ts';
 
 type TicketMoveFields = Pick<TicketMoveRequest, 'branch' | 'commit' | 'reason'>;
 
@@ -64,13 +64,13 @@ interface ReviewBarsClosed {
 }
 
 export interface BoardInput {
-  progress: ProgressFile;
+  progress: TrackerProgress;
   tickets:  Ticket[];
   logger:   Logger;
 }
 
 export class Board {
-  private readonly progress: ProgressFile;
+  private readonly progress: TrackerProgress;
 
   private readonly ticketRecords: Ticket[];
 

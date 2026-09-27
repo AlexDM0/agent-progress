@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, test }     from 'bun:test';
-import type { ProgressFile }          from '../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { TrackerProgress }       from '../src/lib/tracker-model/@types/TrackerProgress.ts';
 import { renderProgressPage }         from '../src/services/render/ProgressPage.ts';
 import { createRenderState }          from '../src/services/render/RenderState.ts';
 import { taskFixture, ticketFixture } from '../src/testing/BoardFixtures.ts';
@@ -16,7 +16,7 @@ const GENERATED_AT = new Date('2026-09-18T20:11:03Z');
 
 const renderState = createRenderState();
 
-const EXAMPLE_PROGRESS: ProgressFile = {
+const EXAMPLE_PROGRESS: TrackerProgress = {
   trackerId:  'tracker-for-the-island-reading-spec',
   project:    'Example Agency',
   startedAt:  '2026-09-18T20:00:00+02:00',

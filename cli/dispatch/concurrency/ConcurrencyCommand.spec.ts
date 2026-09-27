@@ -12,7 +12,7 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import type { ProgressFile }                                                  from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { TrackerProgress }                                               from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
 import { runCommandLine }                                                     from '../../Main.ts';
 import { createCapturedCommandContext }                                       from '../../testing/CapturedCommandContext.ts';
@@ -55,7 +55,7 @@ describe.skipIf(!gitIsAvailable())('the concurrency limit', () => {
 
   // Every tracker written before the field existed lacks it, and an unreadable progress file would stop every command in that repository.
   test('a tracker whose progress file has no limit at all still reads, as 2, and the read leaves the file byte-identical', async () => {
-    const progress = JSON.parse(readFileSync(progressFilePath(), 'utf8')) as ProgressFile;
+    const progress = JSON.parse(readFileSync(progressFilePath(), 'utf8')) as TrackerProgress;
     delete progress.concurrencyLimit;
     const writtenWithoutLimit = JSON.stringify(progress);
     writeFileSync(progressFilePath(), writtenWithoutLimit);
@@ -68,7 +68,7 @@ describe.skipIf(!gitIsAvailable())('the concurrency limit', () => {
     await run(['concurrency', '3']);
 
     expect((await run(['concurrency'])).outputText()).toBe('3');
-    const progress = JSON.parse(readFileSync(progressFilePath(), 'utf8')) as ProgressFile;
+    const progress = JSON.parse(readFileSync(progressFilePath(), 'utf8')) as TrackerProgress;
     expect(progress.concurrencyLimit).toBe(3);
     expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toBe('Concurrency limit set to 3');
   });
@@ -93,7 +93,7 @@ describe.skipIf(!gitIsAvailable())('the concurrency limit', () => {
 
   // A tracker written before the ceiling existed may hold more; it must still read, and must never let more than 10 agents start.
   test('a hand-built tracker holding 12 reports 10, in the command and in status, and the read leaves the file byte-identical', async () => {
-    const progress = JSON.parse(readFileSync(progressFilePath(), 'utf8')) as ProgressFile;
+    const progress = JSON.parse(readFileSync(progressFilePath(), 'utf8')) as TrackerProgress;
     progress.concurrencyLimit = 12;
     const writtenAboveTheCeiling = JSON.stringify(progress);
     writeFileSync(progressFilePath(), writtenAboveTheCeiling);

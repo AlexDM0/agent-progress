@@ -6,7 +6,7 @@
 import { describe, expect, test } from 'bun:test';
 
 import type { AgentUsage, LogRecord } from '../../../lib/tracker-model/@types/LogRecord.ts';
-import type { ViewRange }             from '../../../lib/tracker-model/@types/ProgressFile.ts';
+import type { ViewRange }             from '../../../lib/tracker-model/@types/TrackerProgress.ts';
 import { createLogger }               from '../../../lib/tracker-model/Logger.ts';
 import { LogRecordValidationUtil }    from './LogRecordValidationUtil.ts';
 

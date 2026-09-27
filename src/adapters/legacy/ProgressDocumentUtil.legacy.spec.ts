@@ -6,7 +6,7 @@ import { join }                   from 'node:path';
 import { afterAll, expect, test } from 'bun:test';
 
 import { writeFileAtomically }                            from '../../lib/atomic-file/AtomicFile.ts';
-import type { ProgressFile }                              from '../../lib/tracker-model/@types/ProgressFile.ts';
+import type { TrackerProgress }                           from '../../lib/tracker-model/@types/TrackerProgress.ts';
 import type { WordedLogEntry }                            from '../../shared/@types/WordedLogEntry.ts';
 import { emptyProgress, fileRow }                         from '../../testing/ProgressFixtures.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
@@ -25,7 +25,7 @@ afterAll(() => {
 });
 
 /** A progress whose settings were set after the log, as a tracker that ran `dispatcher` after `init` stores them. */
-function progressWithSettingsAfterTheLog(): ProgressFile {
+function progressWithSettingsAfterTheLog(): TrackerProgress {
   const progress = emptyProgress();
   fileRow(progress, { name: 'Example build' });
   progress.dispatcherState = 'running';

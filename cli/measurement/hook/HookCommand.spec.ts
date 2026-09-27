@@ -24,7 +24,7 @@ import {
 }                                                                             from 'bun:test';
 import { LogFileIngestion }          from '../../../src/adapters/log/LogFileIngestion.ts';
 import { InstallVersionWordingUtil } from '../../../src/adapters/utils/InstallVersionWordingUtil.ts';
-import type { ProgressFile }         from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { TrackerProgress }      from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import { LIMITS }                    from '../../../src/shared/constants/Limits.ts';
 import {
   createScratchDirectory,
@@ -83,9 +83,9 @@ function contextWith(standardInputText: string, currentDirectory = repositoryDir
   return createCapturedCommandContext({ currentDirectory, now: () => FROZEN_NOW, standardInputText });
 }
 
-function storedProgress(): ProgressFile {
+function storedProgress(): TrackerProgress {
   const progressFilePath = join(repositoryDirectory, '.agent-progress', 'progress.json');
-  return JSON.parse(readFileSync(progressFilePath, 'utf8')) as ProgressFile;
+  return JSON.parse(readFileSync(progressFilePath, 'utf8')) as TrackerProgress;
 }
 
 function storedTokensOf(rowIdentifier: number): number | null | undefined {

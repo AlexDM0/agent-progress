@@ -22,7 +22,7 @@ import { createLogFileWriter }                            from '../../adapters/l
 import { createProgressFileWriter }                       from '../../adapters/progress/ProgressFileWriter.ts';
 import { createTicketFileWriter }                         from '../../adapters/tickets/TicketFileWriter.ts';
 import type { LogRecord }                                 from '../../lib/tracker-model/@types/LogRecord.ts';
-import type { ProgressFile }                              from '../../lib/tracker-model/@types/ProgressFile.ts';
+import type { TrackerProgress }                           from '../../lib/tracker-model/@types/TrackerProgress.ts';
 import type { UnreadableTracker }                         from '../../shared/@types/UnreadableTracker.ts';
 import { refusalIsOperationRefusal }                      from '../../shared/OperationRefusal.ts';
 import { ticketFixture }                                  from '../../testing/BoardFixtures.ts';
@@ -48,7 +48,7 @@ const NOTE_RECORD: LogRecord = { at: NOTE_AT, kind: 'note', fields: { text: 'Exa
 
 let workspace: Workspace;
 
-function progressWithOneRow(): ProgressFile {
+function progressWithOneRow(): TrackerProgress {
   const progress = emptyProgress();
   fileRow(progress, { name: 'Example task' });
   return progress;

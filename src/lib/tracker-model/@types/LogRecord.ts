@@ -1,6 +1,6 @@
 /** What the Board tells the log, as ids and values with no wording; the caller words it. */
-import type { DispatcherState, ViewRange } from './ProgressFile.ts';
 import type { AgentPair, TicketPriority }  from './Ticket.ts';
+import type { DispatcherState, ViewRange } from './TrackerProgress.ts';
 
 /** A review bar's `name` is carried because the sentence prints the row's stored name, which an edit may have made anything. */
 export interface ReviewBarReference {

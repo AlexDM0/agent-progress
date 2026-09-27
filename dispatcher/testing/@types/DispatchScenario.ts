@@ -1,4 +1,4 @@
-import type { DispatcherState }                                from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { DispatcherState }                                from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import type { BuilderOutcome, ReviewFinding, ReviewerVerdict } from '../../@types/AgentReadings.ts';
 import type { AgentModelAndEffort }                            from '../../@types/DispatchSettings.ts';
 import type { RecordedAgentCall }                              from './RecordedDispatchRun.ts';

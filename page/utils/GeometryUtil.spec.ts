@@ -2,12 +2,12 @@
  * The contract of `page/utils/GeometryUtil.ts`, tested against the numbers rather than through the page.
  */
 
-import { describe, expect, test }       from 'bun:test';
-import type { ProgressFile, ViewRange } from '../../src/lib/tracker-model/@types/ProgressFile.ts';
-import type { Task, TaskStatus }        from '../../src/lib/tracker-model/@types/Task.ts';
-import { PERCENT_OF_A_WHOLE }           from '../constants/Units.ts';
-import { EXAMPLE_PAGE_LIMITS }          from '../testing/PageLimitsFixture.ts';
-import { GeometryUtil }                 from './GeometryUtil.ts';
+import { describe, expect, test }          from 'bun:test';
+import type { Task, TaskStatus }           from '../../src/lib/tracker-model/@types/Task.ts';
+import type { TrackerProgress, ViewRange } from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
+import { PERCENT_OF_A_WHOLE }              from '../constants/Units.ts';
+import { EXAMPLE_PAGE_LIMITS }             from '../testing/PageLimitsFixture.ts';
+import { GeometryUtil }                    from './GeometryUtil.ts';
 
 const { computeTimeline, tickLabelIsCovered } = GeometryUtil;
 
@@ -37,7 +37,7 @@ function exampleTask(id: number, startOffsetMinutes: number | null, endOffsetMin
   };
 }
 
-function exampleProgress(tasks: Task[], view: ViewRange = { kind: 'auto' }): ProgressFile {
+function exampleProgress(tasks: Task[], view: ViewRange = { kind: 'auto' }): TrackerProgress {
   return {
     trackerId:  'example-tracker',
     project:    'Example Agency',

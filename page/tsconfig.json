@@ -12,7 +12,7 @@
     "../src/lib/tracker-model/@types/BoardChanges.ts",
     "../src/lib/tracker-model/@types/Concurrency.ts",
     "../src/lib/tracker-model/@types/LogRecord.ts",
-    "../src/lib/tracker-model/@types/ProgressFile.ts",
+    "../src/lib/tracker-model/@types/TrackerProgress.ts",
     "../src/lib/tracker-model/@types/Task.ts",
     "../src/lib/tracker-model/@types/Ticket.ts",
     "../src/lib/tracker-model/@types/TupleCoversTheUnion.ts",

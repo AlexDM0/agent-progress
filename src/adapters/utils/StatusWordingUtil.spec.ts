@@ -10,9 +10,9 @@
  */
 import { expect, test } from 'bun:test';
 
-import type { DispatcherState }            from '../../lib/tracker-model/@types/ProgressFile.ts';
 import type { TaskStatus }                 from '../../lib/tracker-model/@types/Task.ts';
 import type { TicketPriority, TicketType } from '../../lib/tracker-model/@types/Ticket.ts';
+import type { DispatcherState }            from '../../lib/tracker-model/@types/TrackerProgress.ts';
 import { DISPATCHER_STATES }               from '../../lib/tracker-model/constants/DispatcherStates.ts';
 import { TASK_STATUSES, TICKET_STATUSES }  from '../../lib/tracker-model/constants/Statuses.ts';
 import { TICKET_PRIORITIES, TICKET_TYPES } from '../../lib/tracker-model/constants/TicketFields.ts';

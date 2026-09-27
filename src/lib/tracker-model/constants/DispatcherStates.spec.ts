@@ -1,10 +1,10 @@
 /**
- * That the dispatcher state tuple and its union in `src/lib/tracker-model/@types/ProgressFile.ts` name the same three states, once each,
+ * That the dispatcher state tuple and its union in `src/lib/tracker-model/@types/TrackerProgress.ts` name the same three states, once each,
  * and that the default is one of them.
  */
 import { expect, test } from 'bun:test';
 
-import type { DispatcherState }                        from '../@types/ProgressFile.ts';
+import type { DispatcherState }                        from '../@types/TrackerProgress.ts';
 import type { TupleCoversTheUnion }                    from '../@types/TupleCoversTheUnion.ts';
 import { DEFAULT_DISPATCHER_STATE, DISPATCHER_STATES } from './DispatcherStates.ts';
 

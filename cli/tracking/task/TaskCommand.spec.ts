@@ -17,7 +17,7 @@ import {
   expect,
   test
 }                                       from 'bun:test';
-import type { ProgressFile }                                                  from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { TrackerProgress }                                               from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
 import { runCommandLine }                                                     from '../../Main.ts';
 import { createCapturedCommandContext }                                       from '../../testing/CapturedCommandContext.ts';
@@ -38,8 +38,8 @@ async function run(commandLineArguments: readonly string[]): Promise<ReturnType<
   return context;
 }
 
-function storedProgress(): ProgressFile {
-  return JSON.parse(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')) as ProgressFile;
+function storedProgress(): TrackerProgress {
+  return JSON.parse(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')) as TrackerProgress;
 }
 
 function storedTicketText(fileName: string): string {
@@ -241,7 +241,7 @@ describe.skipIf(!gitIsAvailable())('linking a row to a ticket', () => {
     expect(storedTicketText('003-split-the-exporter.md')).toBe(ticketTextBefore);
 
     const status   = await run(['status', '--json', '--full']);
-    const document = JSON.parse(status.outputText()) as ProgressFile;
+    const document = JSON.parse(status.outputText()) as TrackerProgress;
     expect(document.tasks.find((task) => task.id === review?.id)?.reviewOf).toBe('003');
   });
 

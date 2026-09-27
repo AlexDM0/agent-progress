@@ -10,7 +10,7 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import type { DispatcherState }                                               from '../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { DispatcherState }                                               from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
 import { runCommandLine }                                                     from '../Main.ts';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext.ts';

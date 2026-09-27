@@ -8,8 +8,8 @@ import type {
   LogRecordContent,
   ReviewBarReference
 } from './@types/LogRecord.ts';
-import type { DispatcherState, ViewRange } from './@types/ProgressFile.ts';
 import type { AgentPair, TicketPriority }  from './@types/Ticket.ts';
+import type { DispatcherState, ViewRange } from './@types/TrackerProgress.ts';
 
 export interface Logger {
   note(text: string, at: string): LogRecord;

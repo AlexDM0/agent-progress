@@ -15,10 +15,10 @@ import {
   expect,
   test
 }                                       from 'bun:test';
-import type { ProgressFile } from '../../src/lib/tracker-model/@types/ProgressFile.ts';
-import type { Task }         from '../../src/lib/tracker-model/@types/Task.ts';
-import { TimeUtil }          from '../../src/lib/utils/TimeUtil.ts';
-import { LIMITS }            from '../../src/shared/constants/Limits.ts';
+import type { Task }            from '../../src/lib/tracker-model/@types/Task.ts';
+import type { TrackerProgress } from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
+import { TimeUtil }             from '../../src/lib/utils/TimeUtil.ts';
+import { LIMITS }               from '../../src/shared/constants/Limits.ts';
 import {
   addWorktree,
   createScratchGitRepository,
@@ -69,8 +69,8 @@ async function agentProgressOrFail(commandLineArguments: readonly string[]): Pro
   return output;
 }
 
-function storedProgress(): ProgressFile {
-  return JSON.parse(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')) as ProgressFile;
+function storedProgress(): TrackerProgress {
+  return JSON.parse(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')) as TrackerProgress;
 }
 
 function storedRow(rowIdentifier: number): Task | undefined {

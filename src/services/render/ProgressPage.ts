@@ -1,15 +1,15 @@
 /** The whole `progress.html` document for one tracker state: the page script bundled, then the template filled; it writes no file. */
-import type { LogRecord }     from '../../lib/tracker-model/@types/LogRecord.ts';
-import type { ProgressFile }  from '../../lib/tracker-model/@types/ProgressFile.ts';
-import type { Ticket }        from '../../lib/tracker-model/@types/Ticket.ts';
-import { Board }              from '../../lib/tracker-model/Board.ts';
-import { createLogger }       from '../../lib/tracker-model/Logger.ts';
-import { renderProgressHtml } from './ProgressHtml.ts';
-import type { RenderState }   from './RenderState.ts';
-import { BoardFactsUtil }     from './utils/BoardFactsUtil.ts';
+import type { LogRecord }       from '../../lib/tracker-model/@types/LogRecord.ts';
+import type { Ticket }          from '../../lib/tracker-model/@types/Ticket.ts';
+import type { TrackerProgress } from '../../lib/tracker-model/@types/TrackerProgress.ts';
+import { Board }                from '../../lib/tracker-model/Board.ts';
+import { createLogger }         from '../../lib/tracker-model/Logger.ts';
+import { renderProgressHtml }   from './ProgressHtml.ts';
+import type { RenderState }     from './RenderState.ts';
+import { BoardFactsUtil }       from './utils/BoardFactsUtil.ts';
 
 export interface ProgressPageInput {
-  progress:    ProgressFile;
+  progress:    TrackerProgress;
   tickets:     Ticket[];
   logRecords:  readonly LogRecord[];
   /** The caller's clock, never one read here. */

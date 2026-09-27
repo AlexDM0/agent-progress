@@ -1,6 +1,6 @@
 import { LogUtil }               from '../../../src/adapters/utils/LogUtil.ts';
 import { StatusWordingUtil }     from '../../../src/adapters/utils/StatusWordingUtil.ts';
-import type { DispatcherState }  from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { DispatcherState }  from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import { readingBoardOf }        from '../../../src/lib/tracker-model/ReadingBoard.ts';
 import { DISPATCHER_STATES }     from '../../../src/lib/tracker-model/constants/DispatcherStates.ts';
 import { BoardSettingsUtil }     from '../../../src/lib/tracker-model/utils/BoardSettingsUtil.ts';

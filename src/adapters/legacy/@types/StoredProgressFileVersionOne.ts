@@ -2,8 +2,8 @@
  * The progress.json shape written before log.jsonl, holding its own log and possibly the retired task words. It can be deleted once every
  * tracker has been rewritten by `agent-progress update`.
  */
-import type { ViewRange, DispatcherState }         from '../../../lib/tracker-model/@types/ProgressFile.ts';
 import type { TaskStatus }                         from '../../../lib/tracker-model/@types/Task.ts';
+import type { ViewRange, DispatcherState }         from '../../../lib/tracker-model/@types/TrackerProgress.ts';
 import type { RetiredTaskStatusWord }              from '../../../shared/legacy/utils/RetiredStatusWordUtil.ts';
 import type { StoredTask, StoredTaskPhase }        from '../../progress/@types/StoredProgressFile.ts';
 import type { EMBEDDED_LOG_PROGRESS_FILE_VERSION } from '../../progress/constants/ProgressFileVersions.ts';

@@ -12,7 +12,7 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import type { ProgressFile }                                                  from '../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { TrackerProgress }                                               from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
 import { runCommandLine }                                                     from '../Main.ts';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext.ts';
@@ -41,8 +41,8 @@ function progressText(): string {
   return readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8');
 }
 
-function storedProgress(): ProgressFile {
-  return JSON.parse(progressText()) as ProgressFile;
+function storedProgress(): TrackerProgress {
+  return JSON.parse(progressText()) as TrackerProgress;
 }
 
 function ticketText(fileName = FIRST_TICKET_FILE_NAME): string {

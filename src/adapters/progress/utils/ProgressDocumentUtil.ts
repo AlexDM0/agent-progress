@@ -1,4 +1,4 @@
-import type { ProgressFile }                  from '../../../lib/tracker-model/@types/ProgressFile.ts';
+import type { TrackerProgress }               from '../../../lib/tracker-model/@types/TrackerProgress.ts';
 import type { ProgressDocument }              from '../../../shared/@types/ProgressDocument.ts';
 import type { WordedLogEntry }                from '../../../shared/@types/WordedLogEntry.ts';
 import { EMBEDDED_LOG_PROGRESS_FILE_VERSION } from '../constants/ProgressFileVersions.ts';
@@ -7,7 +7,7 @@ import { EMBEDDED_LOG_PROGRESS_FILE_VERSION } from '../constants/ProgressFileVer
  * The progress in the version 1 shape, which the ingestion reads back: `version` first, every other key in the progress's order, and the
  * worded log directly after `tasks`.
  */
-function documentOf<Entry extends WordedLogEntry>(progress: ProgressFile, log: readonly Entry[]): ProgressDocument<Entry> {
+function documentOf<Entry extends WordedLogEntry>(progress: TrackerProgress, log: readonly Entry[]): ProgressDocument<Entry> {
   const entries: [string, unknown][] = [['version', EMBEDDED_LOG_PROGRESS_FILE_VERSION]];
   for (const [key, value] of Object.entries(progress)) {
     entries.push([key, value]);

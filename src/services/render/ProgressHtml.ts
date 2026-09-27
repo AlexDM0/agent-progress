@@ -7,8 +7,8 @@ import { readFileSync }                                  from 'node:fs';
 import { ProgressDocumentUtil }                          from '../../adapters/progress/utils/ProgressDocumentUtil.ts';
 import { LogUtil }                                       from '../../adapters/utils/LogUtil.ts';
 import type { LogRecord }                                from '../../lib/tracker-model/@types/LogRecord.ts';
-import type { ProgressFile }                             from '../../lib/tracker-model/@types/ProgressFile.ts';
 import type { Ticket }                                   from '../../lib/tracker-model/@types/Ticket.ts';
+import type { TrackerProgress }                          from '../../lib/tracker-model/@types/TrackerProgress.ts';
 import { HtmlEscapeUtil }                                from '../../lib/utils/HtmlEscapeUtil.ts';
 import type { PageConcurrency, PagePayload, PageTicket } from '../../shared/@types/PagePayload.ts';
 import { resourceFilePathOf }                            from '../../shared/ResourceFilePath.ts';
@@ -19,7 +19,7 @@ import { TemplateTokenUtil }                             from './utils/TemplateT
 const { escapeHtml, escapeJsonForScriptTag } = HtmlEscapeUtil;
 
 interface RenderProgressHtmlInput {
-  progress:          ProgressFile;
+  progress:          TrackerProgress;
   logRecords:        readonly LogRecord[];
   tickets:           Ticket[];
   pageScript:        string | null;

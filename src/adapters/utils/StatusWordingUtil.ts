@@ -1,7 +1,7 @@
 /** The one wording of each status, ticket type, priority and dispatcher state the command line prints, as a word, a verb and the state a move reached. */
-import type { DispatcherState }            from '../../lib/tracker-model/@types/ProgressFile.ts';
 import type { TaskStatus }                 from '../../lib/tracker-model/@types/Task.ts';
 import type { TicketPriority, TicketType } from '../../lib/tracker-model/@types/Ticket.ts';
+import type { DispatcherState }            from '../../lib/tracker-model/@types/TrackerProgress.ts';
 
 /** Abandoning is worded with its reason, never as a bare phrase, so it has no moved phrase. */
 export type MovedToStatus = Exclude<TaskStatus, 'abandoned'>;
