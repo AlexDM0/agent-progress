@@ -5,8 +5,8 @@
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "types": []
   },
-  // The shared files the page reaches plus every non-spec module of `src/lib/tracker-model/`, named one by one (the specs import `bun:test`),
-  // so the whole model package compiles under DOM-only options, which proves it stays environment-neutral.
+  // The shared files the page reaches plus every shipping module of `src/lib/tracker-model/`, named one by one (its specs import `bun:test`,
+  // its `testing/` is for them), so the whole model package compiles under DOM-only options, which proves it stays environment-neutral.
   "include": [
     "./**/*.ts",
     "../src/lib/tracker-model/@types/BoardChanges.ts",
@@ -19,7 +19,6 @@
     "../src/lib/tracker-model/BoardRefusal.ts",
     "../src/lib/tracker-model/Logger.ts",
     "../src/lib/tracker-model/ReadingBoard.ts",
-    "../src/lib/tracker-model/testing/TupleCoversTheUnion.ts",
     "../src/lib/tracker-model/constants/AgentSettings.ts",
     "../src/lib/tracker-model/constants/ConcurrencyLimits.ts",
     "../src/lib/tracker-model/constants/DispatcherStates.ts",
