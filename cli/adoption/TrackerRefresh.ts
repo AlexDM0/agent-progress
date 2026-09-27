@@ -13,11 +13,12 @@ import {
   refreshSubagentStopHook,
   writeSubagentStopHook
 }                                                             from '../../src/lib/claude-code/ClaudeSettings.ts';
-import type { Workspace }                                     from '../../src/services/tracker/Workspace.ts';
-import { CLAUDE_MANAGED_BLOCK_MARKERS, installedFilePathsIn } from '../InstalledFiles.ts';
-import { INSTALL_VERSION }                                    from '../constants/InstallVersion.ts';
-import { removeTheRetiredDispatcherScript }                   from '../legacy/RetiredDispatcherScriptRemoval.ts';
-import type { InstalledFileTexts }                            from './InstalledFileGeneration.ts';
+import type { Workspace }                   from '../../src/services/tracker/Workspace.ts';
+import { installedFilePathsIn }             from '../InstalledFiles.ts';
+import { INSTALL_VERSION }                  from '../constants/InstallVersion.ts';
+import { removeTheRetiredDispatcherScript } from '../legacy/RetiredDispatcherScriptRemoval.ts';
+import type { InstalledFileTexts }          from './InstalledFileGeneration.ts';
+import { CLAUDE_MANAGED_BLOCK_MARKERS }     from './constants/ClaudeManagedBlockMarkers.ts';
 
 /** The matcher is empty so every subagent is recorded, matching the cohort `usage` reads; the timeout covers waiting on a held lock. */
 const SUBAGENT_STOP_HOOK = {

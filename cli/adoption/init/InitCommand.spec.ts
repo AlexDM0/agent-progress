@@ -30,12 +30,13 @@ import {
   gitIsAvailable,
   removeScratchDirectory
 }                                                              from '../../../src/testing/ScratchWorkspace.ts';
-import { CLAUDE_MANAGED_BLOCK_MARKERS, installedFilePathsIn } from '../../InstalledFiles.ts';
-import { runCommandLine }                                     from '../../Main.ts';
-import { INSTALL_VERSION }                                    from '../../constants/InstallVersion.ts';
-import { createCapturedCommandContext }                       from '../../testing/CapturedCommandContext.ts';
-import { repositoryFileContentsOf }                           from '../../testing/RepositoryFileContents.ts';
-import { installedFileTextsFor }                              from '../InstalledFileGeneration.ts';
+import { installedFilePathsIn }         from '../../InstalledFiles.ts';
+import { runCommandLine }               from '../../Main.ts';
+import { INSTALL_VERSION }              from '../../constants/InstallVersion.ts';
+import { createCapturedCommandContext } from '../../testing/CapturedCommandContext.ts';
+import { repositoryFileContentsOf }     from '../../testing/RepositoryFileContents.ts';
+import { installedFileTextsFor }        from '../InstalledFileGeneration.ts';
+import { CLAUDE_MANAGED_BLOCK_MARKERS } from '../constants/ClaudeManagedBlockMarkers.ts';
 
 const scratchDirectories: string[] = [];
 

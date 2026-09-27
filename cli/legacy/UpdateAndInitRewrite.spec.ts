@@ -23,8 +23,8 @@ import { workspacePathsFor }                                                  fr
 import { LIMITS }                                                             from '../../src/shared/constants/Limits.ts';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
 import { storedFileContentsOf }                                               from '../../src/testing/TrackerFileFixtures.ts';
-import { CLAUDE_MANAGED_BLOCK_MARKERS }                                       from '../InstalledFiles.ts';
 import { runCommandLine }                                                     from '../Main.ts';
+import { CLAUDE_MANAGED_BLOCK_MARKERS }                                       from '../adoption/constants/ClaudeManagedBlockMarkers.ts';
 import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext.ts';
 
 const scratchDirectories: string[] = [];
