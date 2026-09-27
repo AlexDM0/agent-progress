@@ -3,7 +3,7 @@ import { TEMPLATE_FILE_NAME, TEMPLATE_TOKENS } from '../constants/TemplateFile.t
 
 const REGULAR_EXPRESSION_SPECIAL_CHARACTERS = /[.*+?^${}()|[\]\\]/g;
 
-/** Splitting on all four at once keeps injected content out of the search: a task named `__TICKETS__` would be found by a later replacement. */
+/** Splitting on every token at once keeps injected content out of the search: a task named `__TICKETS__` would be found by a later replacement. */
 function templateTokenPattern(): RegExp {
   const alternatives = Object.values(TEMPLATE_TOKENS).map((token) => token.replace(REGULAR_EXPRESSION_SPECIAL_CHARACTERS, '\\$&'));
   return new RegExp(`(${alternatives.join('|')})`);

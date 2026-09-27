@@ -156,14 +156,20 @@ describe('refusals', () => {
   // `ticket status` skips the table, never this: a move that changes nothing would still log a line and stamp `updated`.
   test('a move to the status the ticket already has is refused whether or not legality is checked, and nothing changes', () => {
     for (const checksLegality of [true, false]) {
-      const { board, progress, tickets } = pendingTicketFixture();
-      const ticketsAsRead                = structuredClone(tickets);
+      const {
+        board,
+        progress,
+        tickets,
+        records,
+      } = pendingTicketFixture();
+      const ticketsAsRead = structuredClone(tickets);
 
       expect(refusalDetailOf(() => board.moveTicket('003', 'pending', { checksLegality }, STARTED_AT)), String(checksLegality))
         .toEqual({ reason: 'ticket-already-in-status', ticketId: '003', status: 'pending' });
       expect(tickets).toEqual(ticketsAsRead);
       expect(progress.tasks).toEqual([]);
       expect(board.changedTickets()).toEqual([]);
+      expect(records).toEqual([]);
     }
   });
 
@@ -202,14 +208,20 @@ describe('refusals', () => {
 
   test('abandoning without a reason is refused, and nothing about the ticket moves', () => {
     for (const reason of [undefined, '', '  ']) {
-      const { board, progress, tickets } = pendingTicketFixture();
-      const request                      = { checksLegality: true, ...(reason === undefined ? {} : { reason }) };
+      const {
+        board,
+        progress,
+        tickets,
+        records,
+      } = pendingTicketFixture();
+      const request = { checksLegality: true, ...(reason === undefined ? {} : { reason }) };
 
       expect(refusalDetailOf(() => board.moveTicket('003', 'abandoned', request, FINISHED_AT)), String(reason))
         .toEqual({ reason: 'abandon-without-reason', ticketId: '003' });
       expect(tickets[0]?.frontmatter).toMatchObject({ status: 'pending', abandonedAt: null, updated: FILED_AT });
       expect(progress.tasks).toEqual([]);
       expect(board.changedTickets()).toEqual([]);
+      expect(records).toEqual([]);
     }
   });
 });

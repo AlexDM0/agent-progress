@@ -9,11 +9,11 @@ import type {
   ParkWork
 } from '../@types/DispatchWork.ts';
 import type { AgentOptions, WorkflowRuntime } from '../@types/WorkflowRuntime.ts';
-import { AGENT_REPLY_SCHEMAS }                from '../constants/AgentReplySchemas.ts';
 import { DISPATCH_POLICY }                    from '../constants/DispatchPolicy.ts';
 import { AgentPromptUtil }                    from '../utils/AgentPromptUtil.ts';
 import { DispatchWordingUtil }                from '../utils/DispatchWordingUtil.ts';
 import { WorkflowInputUtil }                  from '../utils/WorkflowInputUtil.ts';
+import { AGENT_REPLY_SCHEMAS }                from './constants/AgentReplySchemas.ts';
 
 export type SurveyAgentRequest = { kind: 'survey' } | { kind: 'ticket-settings'; ticketIds: readonly string[] };
 
