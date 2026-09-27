@@ -8,7 +8,7 @@ import type { BoardTicket }                            from './@types/PageBoard.
 import { KANBAN_BOARD_ELEMENT_ID, KANBAN_TAB_NAME }    from './constants/TemplateIds.ts';
 import { createDetailDialogController }                from './detail-dialog/DetailDialogController.ts';
 import { createKanbanController }                      from './kanban/KanbanController.ts';
-import { kanbanCardsFor }                              from './kanban/KanbanLanes.ts';
+import { KanbanLaneUtil }                              from './kanban/utils/KanbanLaneUtil.ts';
 import { createLogController }                         from './log/LogController.ts';
 import { createViewerPreferences, workVisibilityFrom } from './preferences/ViewerPreferences.ts';
 import { createProgressController }                    from './progress/ProgressController.ts';
@@ -148,7 +148,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     progressController.showGeneratedStamp(todayCalendarDate);
     logController.show();
     ticketsController.show(visibleTickets, todayCalendarDate);
-    kanbanController.showCards(kanbanCardsFor(visibleTickets, waitingOnById));
+    kanbanController.showCards(KanbanLaneUtil.kanbanCardsFor(visibleTickets, waitingOnById));
 
     progressController.showHiddenNote(board.rows.length - visibleRows.length, board.tickets.length - visibleTickets.length);
     DomUtil.reflectSegment('ap-visibility', 'visibility', visibility);

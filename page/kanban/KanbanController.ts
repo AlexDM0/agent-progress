@@ -1,14 +1,15 @@
 /** The Kanban tab: the board of the visible cards, its overflow marks, the capped lanes' paging, the Abandoned toggle and the waiting-on links. */
 
 import type { KanbanCard }                          from '../@types/KanbanCard.ts';
-import type { ClosedKanbanLane }                    from '../constants/KanbanLane.ts';
-import { CAPPED_LANE_FIRST_PAGE }                   from '../constants/KanbanLane.ts';
+import type { ClosedKanbanLane }                    from '../@types/KanbanLane.ts';
+import { CAPPED_LANE_FIRST_PAGE_CARDS }             from '../constants/CappedLanePaging.ts';
 import { KANBAN_BOARD_ELEMENT_ID, KANBAN_TAB_NAME } from '../constants/TemplateIds.ts';
 import type { ViewerPreferences }                   from '../preferences/ViewerPreferences.ts';
 import { DomUtil }                                  from '../utils/DomUtil.ts';
 import type { TimestampSlices }                     from '../utils/TimeUtil.ts';
-import { cardsInLane }                              from './KanbanLanes.ts';
 import { kanbanBoardMarkup }                        from './KanbanMarkup.ts';
+import { CLOSED_KANBAN_LANES }                      from './constants/KanbanBoardLayout.ts';
+import { KanbanLaneUtil }                           from './utils/KanbanLaneUtil.ts';
 import { KanbanOverflowUtil }                       from './utils/KanbanOverflowUtil.ts';
 import { LanePagingUtil }                           from './utils/LanePagingUtil.ts';
 
@@ -43,7 +44,7 @@ function updateOverflow(): void {
 }
 
 function closedLaneNamedBy(value: string | undefined): ClosedKanbanLane | null {
-  return value === 'done' || value === 'abandoned' ? value : null;
+  return CLOSED_KANBAN_LANES.find((lane) => lane === value) ?? null;
 }
 
 export function createKanbanController(sources: KanbanControllerSources): KanbanController {
@@ -115,9 +116,9 @@ export function createKanbanController(sources: KanbanControllerSources): Kanban
       if (lane === null) {
         return;
       }
-      const laneCount    = cardsInLane(visibleCards, lane).length;
+      const laneCount    = KanbanLaneUtil.cardsInLane(visibleCards, lane).length;
       const currentCount = LanePagingUtil.cappedLaneShownCount(preferences.readCappedLaneShownCount(lane), laneCount);
-      preferences.writeCappedLaneShownCount(lane, moreLane === null ? CAPPED_LANE_FIRST_PAGE : LanePagingUtil.shownCountAfterMore(currentCount, laneCount));
+      preferences.writeCappedLaneShownCount(lane, moreLane === null ? CAPPED_LANE_FIRST_PAGE_CARDS : LanePagingUtil.shownCountAfterMore(currentCount, laneCount));
       showKanban();
     });
   };

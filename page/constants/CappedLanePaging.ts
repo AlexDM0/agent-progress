@@ -1,0 +1,1 @@
+export const CAPPED_LANE_FIRST_PAGE_CARDS = 15;

@@ -10,7 +10,7 @@ import type { Task }            from '../../src/lib/tracker-model/@types/Task.ts
 import type { PageTicket }      from '../../src/shared/@types/PagePayload.ts';
 import { ReviewBarNameUtil }    from '../../src/shared/legacy/utils/ReviewBarNameUtil.ts';
 import { subStateNoteOf }       from '../kanban/KanbanLaneText.ts';
-import { kanbanCardsFor }       from '../kanban/KanbanLanes.ts';
+import { KanbanLaneUtil }       from '../kanban/utils/KanbanLaneUtil.ts';
 import { taskRowsMarkup }       from '../progress/ProgressMarkup.ts';
 import { pageBoardFixture }     from '../testing/PageBoardFixture.ts';
 import type { TimelineBar }     from '../utils/GeometryUtil.ts';
@@ -139,7 +139,7 @@ describe('review rows known only by their name', () => {
       }),
     ]);
     const ticket = exampleTicket('059', { status: 'in-review' });
-    const [card] = kanbanCardsFor(pageBoardFixture({ tasks, tickets: [ticket] }).tickets, new Map([[ticket.id, []]]));
+    const [card] = KanbanLaneUtil.kanbanCardsFor(pageBoardFixture({ tasks, tickets: [ticket] }).tickets, new Map([[ticket.id, []]]));
     if (card === undefined) throw new Error('no card was built');
 
     expect(subStateNoteOf(card, { nowEpochMilliseconds: EXAMPLE_NOW, todayCalendarDate: EXAMPLE_TODAY, slices: EXAMPLE_SLICES }))

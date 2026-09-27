@@ -10,8 +10,8 @@ import type { KanbanCard }        from './@types/KanbanCard.ts';
 import { taskDetailMarkup }       from './detail-dialog/TaskDetail.ts';
 import type { TicketDetailInput } from './detail-dialog/TicketDetail.ts';
 import { ticketDetailMarkup }     from './detail-dialog/TicketDetail.ts';
-import { kanbanCardsFor }         from './kanban/KanbanLanes.ts';
 import { kanbanBoardMarkup }      from './kanban/KanbanMarkup.ts';
+import { KanbanLaneUtil }         from './kanban/utils/KanbanLaneUtil.ts';
 import { taskRowsMarkup }         from './progress/ProgressMarkup.ts';
 import { pageBoardFixture }       from './testing/PageBoardFixture.ts';
 
@@ -101,7 +101,7 @@ const WAITING_ROW = exampleRow(20, { ticket: '065' });
 const TASKS = [DELIVERED_ROW, WAITING_ROW];
 
 function cardFor(ticket: PageTicket, waitingOn: readonly string[] = []): KanbanCard {
-  const card = kanbanCardsFor(pageBoardFixture({ tasks: TASKS, tickets: [ticket] }).tickets, new Map([[ticket.id, waitingOn]]))[0];
+  const card = KanbanLaneUtil.kanbanCardsFor(pageBoardFixture({ tasks: TASKS, tickets: [ticket] }).tickets, new Map([[ticket.id, waitingOn]]))[0];
   if (card === undefined) {
     throw new Error('the example card was not built');
   }

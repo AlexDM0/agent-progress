@@ -3,9 +3,9 @@
 import type { DisplayState, Task }   from '../../src/lib/tracker-model/@types/Task.ts';
 import { FIRST_REPEAT_REVIEW_ROUND } from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
 import type { KanbanCard }           from '../@types/KanbanCard.ts';
-import type { KanbanLane }           from '../constants/KanbanLane.ts';
 import type { TimestampSlices }      from '../utils/TimeUtil.ts';
 import { TimeUtil }                  from '../utils/TimeUtil.ts';
+import type { KanbanLane }           from './@types/KanbanLane.ts';
 
 export interface NoteFormat {
   nowEpochMilliseconds: number;

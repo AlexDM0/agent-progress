@@ -3,9 +3,9 @@
  * module where the page script touches browser storage; the template's bootstrap keeps its own theme, tab and open-ticket keys.
  */
 
-import type { ClosedKanbanLane }  from '../constants/KanbanLane.ts';
-import { CAPPED_LANE_FIRST_PAGE } from '../constants/KanbanLane.ts';
-import { JsonValueUtil }          from '../utils/JsonValueUtil.ts';
+import type { ClosedKanbanLane }        from '../@types/KanbanLane.ts';
+import { CAPPED_LANE_FIRST_PAGE_CARDS } from '../constants/CappedLanePaging.ts';
+import { JsonValueUtil }                from '../utils/JsonValueUtil.ts';
 
 export type LogVisibility = 'newest' | 'all';
 
@@ -121,7 +121,7 @@ export function abandonedLaneChoiceFor(laneIsOpen: boolean): string {
 }
 
 export function shownCountFrom(stored: string | null): number {
-  return stored === null ? CAPPED_LANE_FIRST_PAGE : Number(stored);
+  return stored === null ? CAPPED_LANE_FIRST_PAGE_CARDS : Number(stored);
 }
 
 export interface ViewerPreferences {
@@ -191,6 +191,6 @@ export function createViewerPreferences(trackerId: string, storageOf: () => Pref
     readAbandonedLaneIsOpen:   () => abandonedLaneIsOpenFrom(readStoredChoice(abandonedLaneStorageKeyFor(trackerId))),
     writeAbandonedLaneIsOpen:  (laneIsOpen) => writeStoredChoice(abandonedLaneStorageKeyFor(trackerId), abandonedLaneChoiceFor(laneIsOpen), DEFAULT_ABANDONED_LANE_CHOICE),
     readCappedLaneShownCount:  (lane) => shownCountFrom(readStoredChoice(cappedLaneStorageKeyFor(trackerId, lane))),
-    writeCappedLaneShownCount: (lane, shownCount) => writeStoredChoice(cappedLaneStorageKeyFor(trackerId, lane), String(shownCount), String(CAPPED_LANE_FIRST_PAGE)),
+    writeCappedLaneShownCount: (lane, shownCount) => writeStoredChoice(cappedLaneStorageKeyFor(trackerId, lane), String(shownCount), String(CAPPED_LANE_FIRST_PAGE_CARDS)),
   };
 }

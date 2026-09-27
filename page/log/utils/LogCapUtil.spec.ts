@@ -1,30 +1,29 @@
 /**
- * How much of the log the card shows. The cases that matter: a log of at most the cap needs no control and is never cut, and the control
- * and the note say how many entries the cap hides.
+ * How much of the log the card shows. The cases that matter: a log of at most the cap of ten entries needs no control and is never cut, and
+ * the control and the note say how many entries the cap hides.
  */
 
 import { describe, expect, test } from 'bun:test';
-import {
-  LOG_ENTRIES_SHOWN_BY_DEFAULT,
+import { LogCapUtil }             from './LogCapUtil.ts';
+
+const {
   logControlIsNeeded,
   logControlText,
   logEntryLimitFor,
   logNoteText,
-} from './LogCap.ts';
+} = LogCapUtil;
+
+const EXPECTED_CAP_ENTRIES = 10;
 
 describe('the cap', () => {
-  test('is ten entries', () => {
-    expect(LOG_ENTRIES_SHOWN_BY_DEFAULT).toBe(10);
+  test('limits the newest choice to ten entries and the whole-log choice to nothing', () => {
+    expect(logEntryLimitFor('newest')).toBe(EXPECTED_CAP_ENTRIES);
+    expect(logEntryLimitFor('all')).toBeNull();
   });
 
   test('needs a control only once the log holds more entries than the cap', () => {
-    expect(logControlIsNeeded(LOG_ENTRIES_SHOWN_BY_DEFAULT)).toBe(false);
-    expect(logControlIsNeeded(LOG_ENTRIES_SHOWN_BY_DEFAULT + 1)).toBe(true);
-  });
-
-  test('limits the newest choice to the cap and the whole-log choice to nothing', () => {
-    expect(logEntryLimitFor('newest')).toBe(LOG_ENTRIES_SHOWN_BY_DEFAULT);
-    expect(logEntryLimitFor('all')).toBeNull();
+    expect(logControlIsNeeded(EXPECTED_CAP_ENTRIES)).toBe(false);
+    expect(logControlIsNeeded(EXPECTED_CAP_ENTRIES + 1)).toBe(true);
   });
 });
 

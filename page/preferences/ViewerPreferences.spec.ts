@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, test }                                        from 'bun:test';
-import { CAPPED_LANE_FIRST_PAGE }                                        from '../constants/KanbanLane.ts';
+import { CAPPED_LANE_FIRST_PAGE_CARDS }                                  from '../constants/CappedLanePaging.ts';
 import type { PreferenceStorage, StoredViewOverride, ViewerPreferences } from './ViewerPreferences.ts';
 import {
   abandonedLaneChoiceFor,
@@ -295,7 +295,7 @@ describe('createViewerPreferences', () => {
     expect(preferences.readLogVisibility()).toBe(DEFAULT_LOG_VISIBILITY);
     expect(preferences.readNameColumnWidth()).toBe(DEFAULT_NAME_COLUMN_WIDTH);
     expect(preferences.readAbandonedLaneIsOpen()).toBe(false);
-    expect(preferences.readCappedLaneShownCount('done')).toBe(CAPPED_LANE_FIRST_PAGE);
+    expect(preferences.readCappedLaneShownCount('done')).toBe(CAPPED_LANE_FIRST_PAGE_CARDS);
     expect(() => {
       preferences.writeRangeOverride(overrideWith({ tickMinutes: 15 }));
       preferences.writeWorkVisibility('all');
@@ -304,6 +304,18 @@ describe('createViewerPreferences', () => {
       preferences.writeAbandonedLaneIsOpen(true);
       preferences.writeCappedLaneShownCount('done', 40);
     }).not.toThrow();
+  });
+
+  // The lane clamps what it is handed, so the read passes on text that is no count rather than guessing one.
+  test.each([
+    ['nothing stored', null, CAPPED_LANE_FIRST_PAGE_CARDS],
+    ['a stored count', '40', 40],
+    ['text that is no number', 'many', Number.NaN],
+  ])('reads %s as the Done lane count %p', (_description, stored, expected) => {
+    const storage = inMemoryStorage();
+    if (stored !== null) storage.setItem('agent-progress:tracker-a:kanban-done-shown', stored);
+
+    expect(createViewerPreferences(EXAMPLE_TRACKER_ID, () => storage).readCappedLaneShownCount('done')).toBe(expected);
   });
 
   test('reads a stored range override that is not JSON as the empty override', () => {

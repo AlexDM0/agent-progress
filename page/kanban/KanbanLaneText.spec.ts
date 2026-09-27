@@ -10,7 +10,7 @@ import type { KanbanCard }                 from '../@types/KanbanCard.ts';
 import { pageBoardFixture }                from '../testing/PageBoardFixture.ts';
 import type { NoteFormat }                 from './KanbanLaneText.ts';
 import { laneSubCountsOf, subStateNoteOf } from './KanbanLaneText.ts';
-import { kanbanCardsFor }                  from './KanbanLanes.ts';
+import { KanbanLaneUtil }                  from './utils/KanbanLaneUtil.ts';
 
 const EXAMPLE_TODAY = '2026-09-25';
 const EXAMPLE_NOW   = Date.parse('2026-09-25T13:36:00+02:00');
@@ -63,7 +63,7 @@ function exampleRow(id: number, changes: Partial<Task> = {}): Task {
 }
 
 function cardOf(ticket: PageTicket, tasks: readonly Task[], waitingOn: readonly string[] = []): KanbanCard {
-  const [card] = kanbanCardsFor(pageBoardFixture({ tasks, tickets: [ticket] }).tickets, new Map([[ticket.id, waitingOn]]));
+  const [card] = KanbanLaneUtil.kanbanCardsFor(pageBoardFixture({ tasks, tickets: [ticket] }).tickets, new Map([[ticket.id, waitingOn]]));
   if (card === undefined) {
     throw new Error('no card was built');
   }
@@ -180,7 +180,7 @@ describe('the lane heads', () => {
 
   test('leaves a zero count out and counts a repeat review as reviewing', () => {
     const tasks = [exampleRow(1, { status: 're-review', ticket: '059' }), exampleRow(2, { status: 'in-review', ticket: '058' })];
-    const cards = kanbanCardsFor(
+    const cards = KanbanLaneUtil.kanbanCardsFor(
       pageBoardFixture({ tasks, tickets: [exampleTicket('059', { status: 'in-review' }), exampleTicket('058', { status: 'in-review' })] }).tickets,
       new Map(),
     );
@@ -192,7 +192,7 @@ describe('the lane heads', () => {
     const tickets = Array.from({ length: 20 }, (_unused, index) => exampleTicket(String(index + 1), { status: 'delivered', delivered: at('10:00') }));
     const tasks   = tickets.map((ticket, index) => exampleRow(index + 1, { status: 'delivered', ticket: ticket.id }));
 
-    expect(laneSubCountsOf('done', kanbanCardsFor(pageBoardFixture({ tasks, tickets }).tickets, new Map()))).toEqual([{
+    expect(laneSubCountsOf('done', KanbanLaneUtil.kanbanCardsFor(pageBoardFixture({ tasks, tickets }).tickets, new Map()))).toEqual([{
       count:        20,
       label:        'reviewed first',
       dotState:     null,

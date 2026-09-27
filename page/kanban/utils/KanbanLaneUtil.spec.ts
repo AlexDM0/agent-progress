@@ -4,18 +4,13 @@
  */
 
 import { describe, expect, test }              from 'bun:test';
-import type { DisplayState, Task, TaskStatus } from '../../src/lib/tracker-model/@types/Task.ts';
-import type { TicketPriority, TicketStatus }   from '../../src/lib/tracker-model/@types/Ticket.ts';
-import type { PageTicket }                     from '../../src/shared/@types/PagePayload.ts';
-import type { KanbanCard }                     from '../@types/KanbanCard.ts';
-import type { KanbanLane }                     from '../constants/KanbanLane.ts';
-import { pageBoardFixture }                    from '../testing/PageBoardFixture.ts';
-import {
-  cardsInLane,
-  kanbanCardsFor,
-  laneIsDividedByPriority,
-  laneOfState,
-} from './KanbanLanes.ts';
+import type { DisplayState, Task, TaskStatus } from '../../../src/lib/tracker-model/@types/Task.ts';
+import type { TicketPriority, TicketStatus }   from '../../../src/lib/tracker-model/@types/Ticket.ts';
+import type { PageTicket }                     from '../../../src/shared/@types/PagePayload.ts';
+import type { KanbanCard }                     from '../../@types/KanbanCard.ts';
+import { pageBoardFixture }                    from '../../testing/PageBoardFixture.ts';
+import type { KanbanLane }                     from '../@types/KanbanLane.ts';
+import { KanbanLaneUtil }                      from './KanbanLaneUtil.ts';
 
 const EXAMPLE_TODAY = '2026-09-25';
 
@@ -59,7 +54,7 @@ function exampleRow(id: number, changes: Partial<Task> = {}): Task {
 }
 
 function cardOf(ticket: PageTicket, tasks: readonly Task[], waitingOn: readonly string[] = []): KanbanCard {
-  const [card] = kanbanCardsFor(pageBoardFixture({ tasks, tickets: [ticket] }).tickets, new Map([[ticket.id, waitingOn]]));
+  const [card] = KanbanLaneUtil.kanbanCardsFor(pageBoardFixture({ tasks, tickets: [ticket] }).tickets, new Map([[ticket.id, waitingOn]]));
   if (card === undefined) {
     throw new Error('no card was built');
   }
@@ -81,7 +76,7 @@ describe('which lane a card sits in', () => {
   ] as Array<[TaskStatus, TicketStatus, KanbanLane]>)('puts a %s row of a %s ticket in %s', (rowStatus, ticketStatus, lane) => {
     const card = cardOf(exampleTicket('007', { status: ticketStatus }), [exampleRow(1, { status: rowStatus, ticket: '007' })]);
 
-    expect(laneOfState(card.state)).toBe(lane);
+    expect(KanbanLaneUtil.laneOfState(card.state)).toBe(lane);
   });
 
   test('reads an in-review row of an in-review ticket as reviewing, the pill the Progress tab shows', () => {
@@ -101,7 +96,7 @@ describe('which lane a card sits in', () => {
 
     expect(card.ownRow).toBeNull();
     expect(card.state).toBe(state);
-    expect(laneOfState(card.state)).toBe(lane);
+    expect(KanbanLaneUtil.laneOfState(card.state)).toBe(lane);
   });
 
   test('never takes a review row as the ticket’s own row', () => {
@@ -111,9 +106,18 @@ describe('which lane a card sits in', () => {
   });
 });
 
+describe('the kinds of lane', () => {
+  test('counts only Done and Abandoned as closed, and only In progress and Review as mixing states', () => {
+    const lanes: KanbanLane[] = ['todo', 'progress', 'review', 'merge', 'done', 'abandoned'];
+
+    expect(lanes.filter((lane) => KanbanLaneUtil.laneIsClosed(lane))).toEqual(['done', 'abandoned']);
+    expect(lanes.filter((lane) => KanbanLaneUtil.laneMixesStates(lane))).toEqual(['progress', 'review']);
+  });
+});
+
 describe('the order within a lane', () => {
-  function idsInLane(tickets: readonly PageTicket[], lane: Parameters<typeof cardsInLane>[1]): string[] {
-    return cardsInLane(kanbanCardsFor(pageBoardFixture({ tasks: [], tickets }).tickets, new Map()), lane).map((card) => card.ticket.id);
+  function idsInLane(tickets: readonly PageTicket[], lane: KanbanLane): string[] {
+    return KanbanLaneUtil.cardsInLane(KanbanLaneUtil.kanbanCardsFor(pageBoardFixture({ tasks: [], tickets }).tickets, new Map()), lane).map((card) => card.ticket.id);
   }
 
   test('runs high, normal, low, then the id as a number, so #9 comes before #10', () => {
@@ -128,14 +132,14 @@ describe('the order within a lane', () => {
   });
 
   test('divides an open lane only when it holds more than one priority', () => {
-    const cardsOfPriorities = (priorities: TicketPriority[]): KanbanCard[] => kanbanCardsFor(
+    const cardsOfPriorities = (priorities: TicketPriority[]): KanbanCard[] => KanbanLaneUtil.kanbanCardsFor(
       pageBoardFixture({ tasks: [], tickets: priorities.map((priority, index) => exampleTicket(String(index + 1), { priority })) }).tickets,
       new Map(),
     );
 
-    expect(laneIsDividedByPriority('todo', cardsOfPriorities(['normal', 'normal']))).toBe(false);
-    expect(laneIsDividedByPriority('todo', cardsOfPriorities(['normal', 'low']))).toBe(true);
-    expect(laneIsDividedByPriority('done', cardsOfPriorities(['normal', 'low']))).toBe(false);
+    expect(KanbanLaneUtil.laneIsDividedByPriority('todo', cardsOfPriorities(['normal', 'normal']))).toBe(false);
+    expect(KanbanLaneUtil.laneIsDividedByPriority('todo', cardsOfPriorities(['normal', 'low']))).toBe(true);
+    expect(KanbanLaneUtil.laneIsDividedByPriority('done', cardsOfPriorities(['normal', 'low']))).toBe(false);
   });
 
   test('puts Done newest first by its delivered stamp, a tie to the higher id', () => {
