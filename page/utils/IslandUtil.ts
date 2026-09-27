@@ -145,10 +145,10 @@ function pageBoardFrom(tasks: readonly Task[], boardFacts: PageBoardFacts, ticke
   }
   const ticketsSeenById = new Map<string, number>();
   const boardTickets = tickets.flatMap((ticket): BoardTicket[] => {
-    const factsEntries = ticketFactsById.get(ticket.id) ?? [];
-    const seenBefore   = ticketsSeenById.get(ticket.id) ?? 0;
-    ticketsSeenById.set(ticket.id, seenBefore + 1);
-    const ticketFacts = factsEntries[seenBefore] ?? factsEntries[0];
+    const factsEntries    = ticketFactsById.get(ticket.id) ?? [];
+    const timesSeenBefore = ticketsSeenById.get(ticket.id) ?? 0;
+    ticketsSeenById.set(ticket.id, timesSeenBefore + 1);
+    const ticketFacts = factsEntries[timesSeenBefore] ?? factsEntries[0];
     if (ticketFacts === undefined) return [];
     return [{
       ...ticket,

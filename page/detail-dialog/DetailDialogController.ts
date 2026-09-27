@@ -28,7 +28,7 @@ export interface DetailDialogSources {
 }
 
 /** A double-click inside a link belongs to the link: a row already carries its ticket badge and its "waiting on" links. */
-function rowDoubleClicked(event: Event, selector: string): HTMLElement | null {
+function doubleClickedRowOf(event: Event, selector: string): HTMLElement | null {
   if (!(event.target instanceof Element) || event.target.closest('a') !== null) {
     return null;
   }
@@ -37,7 +37,7 @@ function rowDoubleClicked(event: Event, selector: string): HTMLElement | null {
 }
 
 /** Enter counts only on the focused row itself, so Enter on a link inside it still follows the link. */
-function rowActivatedByKey(event: KeyboardEvent, selector: string): HTMLElement | null {
+function keyActivatedRowOf(event: KeyboardEvent, selector: string): HTMLElement | null {
   if (event.key !== 'Enter' || !(event.target instanceof HTMLElement) || !event.target.matches(selector)) {
     return null;
   }
@@ -47,13 +47,13 @@ function rowActivatedByKey(event: KeyboardEvent, selector: string): HTMLElement 
 function wireRowOverview(containerId: string, rowSelector: string, showRowDetail: (row: HTMLElement) => void): void {
   const container = document.getElementById(containerId);
   container?.addEventListener('dblclick', (event) => {
-    const row = rowDoubleClicked(event, rowSelector);
+    const row = doubleClickedRowOf(event, rowSelector);
     if (row !== null) {
       showRowDetail(row);
     }
   });
   container?.addEventListener('keydown', (event) => {
-    const row = rowActivatedByKey(event, rowSelector);
+    const row = keyActivatedRowOf(event, rowSelector);
     if (row !== null) {
       event.preventDefault();
       showRowDetail(row);

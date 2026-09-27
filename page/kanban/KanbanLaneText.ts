@@ -86,8 +86,8 @@ function runningReviewerNote(card: KanbanCard, format: NoteFormat): string | nul
   if (reviewRow === null || reviewRow.end !== null) {
     return null;
   }
-  const round = card.state === 're-review' ? `round ${card.ownRow?.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND} reviewer since` : 'reviewer since';
-  return stampNote(round, reviewRow.start, format);
+  const notePrefix = card.state === 're-review' ? `round ${card.ownRow?.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND} reviewer since` : 'reviewer since';
+  return stampNote(notePrefix, reviewRow.start, format);
 }
 
 /** What the lane and the pill cannot say on their own, or `null` where a source it reads is missing. */

@@ -275,7 +275,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   and keeps no copy of the rules.
 - The detail panel claims a log line when its `taskIds` or `ticketIds` hold the panel's row or ticket: every id its
   record concerns, never a number inside free text. A note carries none and is matched by its sentence through
-  `page/utils/NoteSentenceMatchUtil.ts`.
+  `page/detail-dialog/utils/NoteSentenceMatchUtil.ts`.
 - Every value passes `escapeHtml` once; a ticket's `bodyHtml`, already escaped by `src/services/render/MarkdownRenderer.ts`,
   is the one unescaped string. Stored stamps are sliced, never re-parsed, and shortened only through
   `page/utils/TimeUtil.ts`.

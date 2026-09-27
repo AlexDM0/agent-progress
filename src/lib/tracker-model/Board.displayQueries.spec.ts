@@ -1,6 +1,6 @@
 /**
  * The facts the page will read from the payload: a ticket's review bars and own row, what a row and a ticket show, and whether a
- * delivered row counts as reviewed. Each case is taken from the page's own specs (`page/kanban/KanbanLanes.spec.ts`,
+ * delivered row counts as reviewed. Each case is taken from the page's own specs (`page/kanban/utils/KanbanLaneUtil.spec.ts`,
  * `page/progress/ProgressMarkup.spec.ts`), so the Kanban and the Progress chart agree once they read these instead of their own rules.
  */
 import { describe, expect, test } from 'bun:test';

@@ -18,11 +18,11 @@ import type { IdentifiedLogEntry }   from '../../src/shared/@types/WordedLogEntr
 import type { BoardRow }             from '../@types/PageBoard.ts';
 import { LogMarkupUtil }             from '../utils/LogMarkupUtil.ts';
 import { MarkupUtil }                from '../utils/MarkupUtil.ts';
-import { NoteSentenceMatchUtil }     from '../utils/NoteSentenceMatchUtil.ts';
 import type { TimestampSlices }      from '../utils/TimeUtil.ts';
 import { TimeUtil }                  from '../utils/TimeUtil.ts';
 import { WorkItemMarkupUtil }        from '../utils/WorkItemMarkupUtil.ts';
 import { DetailMarkupUtil }          from './utils/DetailMarkupUtil.ts';
+import { NoteSentenceMatchUtil }     from './utils/NoteSentenceMatchUtil.ts';
 
 
 const PHASES_WERE_NOT_RECORDED_NOTE = 'The phases of this row were not recorded, so what follows is derived from its own stamps and its ticket’s.';
@@ -118,7 +118,7 @@ function recordedPhaseLines(task: Task): PhaseLine[] {
 }
 
 /** The newest phase is the row as it stands, so it takes the row's display state from the Board facts, as the chart does; an older phase keeps its own. */
-function readNewestPhaseAsTheChartDoes(lines: readonly PhaseLine[], task: BoardRow): PhaseLine[] {
+function phaseLinesWithNewestAsTheChartShows(lines: readonly PhaseLine[], task: BoardRow): PhaseLine[] {
   const newest = lines.at(-1);
   if (newest === undefined || newest.state !== task.status) {
     return [...lines];
@@ -175,13 +175,13 @@ function noteMarkup(text: string): string {
 }
 
 function phasesMarkup(task: BoardRow, ticket: PageTicket | null, format: StampFormat): string {
-  const wasRecorded = (task.history ?? []).length > 0;
-  const filed       = wasRecorded ? recordedPhaseLines(task) : derivedPhaseLines(task, ticket);
-  const lines       = readNewestPhaseAsTheChartDoes(filed, task);
+  const phasesWereRecorded = (task.history ?? []).length > 0;
+  const phaseLines         = phasesWereRecorded ? recordedPhaseLines(task) : derivedPhaseLines(task, ticket);
+  const lines              = phaseLinesWithNewestAsTheChartShows(phaseLines, task);
   if (lines.length === 0) {
     return noteMarkup(NO_PHASES_TO_SHOW_NOTE);
   }
-  return `${wasRecorded ? '' : noteMarkup(PHASES_WERE_NOT_RECORDED_NOTE)}${phaseListMarkup(lines, format)}`;
+  return `${phasesWereRecorded ? '' : noteMarkup(PHASES_WERE_NOT_RECORDED_NOTE)}${phaseListMarkup(lines, format)}`;
 }
 
 function ticketFactsMarkup(ticket: PageTicket, format: StampFormat): string {
@@ -234,11 +234,11 @@ function entryIsAboutTaskOrTicket(entry: IdentifiedLogEntry, task: Task | null, 
 
 function logMarkup(input: TaskDetailInput): string {
   const { task, ticket } = input;
-  const named = input.log.filter((entry) => entryIsAboutTaskOrTicket(entry, task, ticket));
-  if (named.length === 0) {
+  const entriesAboutTheRowOrTicket = input.log.filter((entry) => entryIsAboutTaskOrTicket(entry, task, ticket));
+  if (entriesAboutTheRowOrTicket.length === 0) {
     return noteMarkup(NO_LOG_LINES_NOTE);
   }
-  return `<ul class="ap-detail-log">${LogMarkupUtil.logItemsMarkup(named, input.slices, input.todayCalendarDate)}</ul>`;
+  return `<ul class="ap-detail-log">${LogMarkupUtil.logItemsMarkup(entriesAboutTheRowOrTicket, input.slices, input.todayCalendarDate)}</ul>`;
 }
 
 function headMarkup(task: BoardRow | null, ticket: PageTicket | null): string {
