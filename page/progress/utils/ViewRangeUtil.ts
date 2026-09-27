@@ -1,8 +1,8 @@
 /** The range the geometry is finally given, once the viewer's stored override is laid over the tracker's own. */
 
 import type { ProgressFile, ViewRange } from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { TimelineLimits }          from '../../@types/Timeline.ts';
 import type { StoredViewOverride }      from '../../@types/ViewerPreferences.ts';
-import type { TimelineLimits }          from '../../utils/GeometryUtil.ts';
 import { GeometryUtil }                 from '../../utils/GeometryUtil.ts';
 
 function effectiveRangeFor(progress: ProgressFile, override: StoredViewOverride, nowEpochMilliseconds: number, limits: TimelineLimits): ViewRange {

@@ -8,20 +8,13 @@ import type { Task }                       from '../../src/lib/tracker-model/@ty
 import type { PageTicket }                 from '../../src/shared/@types/PagePayload.ts';
 import type { KanbanCard }                 from '../@types/KanbanCard.ts';
 import { pageBoardFixture }                from '../testing/PageBoardFixture.ts';
+import { EXAMPLE_TIMESTAMP_SLICES }        from '../testing/PageLimitsFixture.ts';
 import type { NoteFormat }                 from './KanbanLaneText.ts';
 import { laneSubCountsOf, subStateNoteOf } from './KanbanLaneText.ts';
 import { KanbanLaneUtil }                  from './utils/KanbanLaneUtil.ts';
 
 const EXAMPLE_TODAY = '2026-09-25';
 const EXAMPLE_NOW   = Date.parse('2026-09-25T13:36:00+02:00');
-
-const EXAMPLE_SLICES = {
-  dateAndClockLength:    16,
-  calendarDateLength:    10,
-  monthAndDaySliceStart: 5,
-  clockSliceStart:       11,
-  clockSliceEnd:         16,
-};
 
 function at(clock: string, day = EXAMPLE_TODAY): string {
   return `${day}T${clock}:00+02:00`;
@@ -74,7 +67,7 @@ function noteFormat(): NoteFormat {
   return {
     nowEpochMilliseconds: EXAMPLE_NOW,
     todayCalendarDate:    EXAMPLE_TODAY,
-    slices:               EXAMPLE_SLICES,
+    slices:               EXAMPLE_TIMESTAMP_SLICES,
   };
 }
 

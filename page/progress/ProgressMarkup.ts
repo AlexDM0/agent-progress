@@ -3,25 +3,20 @@
  * `resources/template.html`. Every tracker value passes `escapeHtml` exactly once here.
  */
 
-import type { Task }                      from '../../src/lib/tracker-model/@types/Task.ts';
-import { FIRST_REPEAT_REVIEW_ROUND }      from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
-import { SETTLED_TASK_STATUSES }          from '../../src/lib/tracker-model/constants/Statuses.ts';
-import { HtmlEscapeUtil }                 from '../../src/lib/utils/HtmlEscapeUtil.ts';
-import { TokenCountUtil }                 from '../../src/lib/utils/TokenCountUtil.ts';
-import type { BoardRow }                  from '../@types/PageBoard.ts';
-import { PERCENT_OF_A_WHOLE }             from '../constants/Units.ts';
-import type { TimelineBar, TimelineTick } from '../utils/GeometryUtil.ts';
-import type { ShortenedText }             from '../utils/MarkupUtil.ts';
-import { MarkupUtil }                     from '../utils/MarkupUtil.ts';
-import type { TimestampSlices }           from '../utils/TimeUtil.ts';
-import { TimeUtil }                       from '../utils/TimeUtil.ts';
-import { WorkItemMarkupUtil }             from '../utils/WorkItemMarkupUtil.ts';
-
-
-const TICK_MINIMUM_PIXELS             = 60;
-const TICK_PIXELS_PER_LABEL_CHARACTER = 9;
-
-const TICK_LABEL_GUTTER_PIXELS = 5;
+import type { Task }                        from '../../src/lib/tracker-model/@types/Task.ts';
+import { FIRST_REPEAT_REVIEW_ROUND }        from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
+import { SETTLED_TASK_STATUSES }            from '../../src/lib/tracker-model/constants/Statuses.ts';
+import { HtmlEscapeUtil }                   from '../../src/lib/utils/HtmlEscapeUtil.ts';
+import { TokenCountUtil }                   from '../../src/lib/utils/TokenCountUtil.ts';
+import type { PageConcurrency, PageLimits } from '../../src/shared/@types/PagePayload.ts';
+import type { BoardRow }                    from '../@types/PageBoard.ts';
+import type { TimelineBar, TimelineTick }   from '../@types/Timeline.ts';
+import type { ShortenedText }               from '../utils/MarkupUtil.ts';
+import { MarkupUtil }                       from '../utils/MarkupUtil.ts';
+import type { TimestampSlices }             from '../utils/TimeUtil.ts';
+import { TimeUtil }                         from '../utils/TimeUtil.ts';
+import { WorkItemMarkupUtil }               from '../utils/WorkItemMarkupUtil.ts';
+import { TICK_LABEL_GUTTER_PIXELS }         from './constants/ProgressChart.ts';
 
 export interface TaskRow {
   task:      BoardRow;
@@ -31,17 +26,6 @@ export interface TaskRow {
 
 export interface PlacedTick extends TimelineTick {
   labelSitsLeftOfItsLine: boolean;
-}
-
-export function axisPixelsNeededFor(ticks: readonly TimelineTick[]): number {
-  const longestLabel  = ticks.reduce((longest, tick) => Math.max(longest, tick.label.length), 0);
-  const perTickPixels = Math.max(TICK_MINIMUM_PIXELS, longestLabel * TICK_PIXELS_PER_LABEL_CHARACTER);
-  return ticks.length * perTickPixels;
-}
-
-export function labelSitsLeftOfItsLine(tick: TimelineTick, axisWidthPixels: number): boolean {
-  const remainingPixels = axisWidthPixels * (PERCENT_OF_A_WHOLE - tick.leftPercent) / PERCENT_OF_A_WHOLE;
-  return remainingPixels < tick.label.length * TICK_PIXELS_PER_LABEL_CHARACTER + TICK_LABEL_GUTTER_PIXELS;
 }
 
 interface PlacedTaskRow {
@@ -122,7 +106,7 @@ export function overlayMarkup(ticks: readonly TimelineTick[], nowPercent: number
 }
 
 /** The token figure is left out entirely when no task reports one, because `null` means "nobody said" and `0 tokens` would be a claim. */
-export function summaryStatisticsMarkup(tasks: readonly Task[], concurrency: { limit: number; agentsInFlight: number }): string {
+export function summaryStatisticsMarkup(tasks: readonly Task[], concurrency: PageConcurrency): string {
   const completedCount     = tasks.filter((task) => SETTLED_TASK_STATUSES.includes(task.status)).length;
   const awaitingMergeCount = tasks.filter((task) => task.status === 'reviewed').length;
   const inReviewCount      = tasks.filter((task) => task.status === 'in-review' || task.status === 're-review').length;
@@ -159,18 +143,13 @@ function tickStepLabel(stepMinutes: number, hourMinutes: number, dayMinutes: num
   return `${stepMinutes}m`;
 }
 
-export interface RangeNoteLimits {
-  hourMinutes: number;
-  dayMinutes:  number;
-}
-
 /** Each end is shortened against the viewer's day on its own, unlike the tick labels, which the axis dates by the span it covers. */
 export function rangeNoteText(
   fromEpochMilliseconds: number,
   toEpochMilliseconds: number,
   stepMinutes: number,
   todayCalendarDate: string,
-  limits: RangeNoteLimits,
+  limits: Pick<PageLimits, 'hourMinutes' | 'dayMinutes'>,
 ): ShortenedText {
   const step      = `${tickStepLabel(stepMinutes, limits.hourMinutes, limits.dayMinutes)} ticks`;
   const shortEnds = `${TimeUtil.shortInstantText(fromEpochMilliseconds, todayCalendarDate)} \u2192 ${TimeUtil.shortInstantText(toEpochMilliseconds, todayCalendarDate)}`;

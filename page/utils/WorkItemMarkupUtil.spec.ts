@@ -7,10 +7,10 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import type { Task }            from '../../src/lib/tracker-model/@types/Task.ts';
-import type { PageTicket }      from '../../src/shared/@types/PagePayload.ts';
-import type { TimestampSlices } from './TimeUtil.ts';
-import { WorkItemMarkupUtil }   from './WorkItemMarkupUtil.ts';
+import type { Task }                from '../../src/lib/tracker-model/@types/Task.ts';
+import type { PageTicket }          from '../../src/shared/@types/PagePayload.ts';
+import { EXAMPLE_TIMESTAMP_SLICES } from '../testing/PageLimitsFixture.ts';
+import { WorkItemMarkupUtil }       from './WorkItemMarkupUtil.ts';
 
 const {
   latestMilestoneMarkup,
@@ -25,14 +25,6 @@ const {
 } = WorkItemMarkupUtil;
 
 const EXAMPLE_TODAY = '2026-09-18';
-
-const EXAMPLE_SLICES: TimestampSlices = {
-  dateAndClockLength:    16,
-  calendarDateLength:    10,
-  monthAndDaySliceStart: 5,
-  clockSliceStart:       11,
-  clockSliceEnd:         16,
-};
 
 function exampleTask(changes: Partial<Task> = {}): Task {
   return {
@@ -131,12 +123,12 @@ describe('priorityMarkMarkup', () => {
 
 describe('reviewedMarkMarkup', () => {
   test('titles the mark with the review time when the row carries one', () => {
-    expect(reviewedMarkMarkup(exampleTask({ reviewed: '2026-09-18T21:30:00+02:00' }), EXAMPLE_SLICES))
+    expect(reviewedMarkMarkup(exampleTask({ reviewed: '2026-09-18T21:30:00+02:00' }), EXAMPLE_TIMESTAMP_SLICES))
       .toBe('<span class="ap-reviewed-mark" data-state="reviewed" title="Reviewed 2026-09-18 21:30 before delivery" role="img" aria-label="reviewed">✓</span>');
   });
 
   test('titles the mark without a time when the row carries no review stamp', () => {
-    expect(reviewedMarkMarkup(exampleTask(), EXAMPLE_SLICES))
+    expect(reviewedMarkMarkup(exampleTask(), EXAMPLE_TIMESTAMP_SLICES))
       .toBe('<span class="ap-reviewed-mark" data-state="reviewed" title="Reviewed before delivery" role="img" aria-label="reviewed">✓</span>');
   });
 });
@@ -150,16 +142,16 @@ describe('pillLabelForDisplayState', () => {
 
 describe('latestMilestoneMarkup', () => {
   test('shows the newest milestone the ticket reached under the Tickets tab class', () => {
-    expect(latestMilestoneMarkup(exampleTicket(), EXAMPLE_SLICES, EXAMPLE_TODAY))
+    expect(latestMilestoneMarkup(exampleTicket(), EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY))
       .toBe('<span class="ap-ticket-dates" title="started 2026-09-18 21:02">started 21:02</span>');
   });
 
   test('takes the class it is given', () => {
-    expect(latestMilestoneMarkup(exampleTicket({ delivered: '2026-09-18T22:10:00+02:00' }), EXAMPLE_SLICES, EXAMPLE_TODAY, 'ap-kanban-date'))
+    expect(latestMilestoneMarkup(exampleTicket({ delivered: '2026-09-18T22:10:00+02:00' }), EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY, 'ap-kanban-date'))
       .toBe('<span class="ap-kanban-date" title="delivered 2026-09-18 22:10">delivered 22:10</span>');
   });
 
   test('writes nothing for a ticket with no stamps', () => {
-    expect(latestMilestoneMarkup(exampleTicket({ filed: '', started: null }), EXAMPLE_SLICES, EXAMPLE_TODAY)).toBe('');
+    expect(latestMilestoneMarkup(exampleTicket({ filed: '', started: null }), EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY)).toBe('');
   });
 });

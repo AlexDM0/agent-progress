@@ -3,10 +3,9 @@
  * else, and a shortened text carrying its full form as a title only when something was actually shortened.
  */
 
-import { describe, expect, test } from 'bun:test';
-
-import { MarkupUtil }           from './MarkupUtil.ts';
-import type { TimestampSlices } from './TimeUtil.ts';
+import { describe, expect, test }   from 'bun:test';
+import { EXAMPLE_TIMESTAMP_SLICES } from '../testing/PageLimitsFixture.ts';
+import { MarkupUtil }               from './MarkupUtil.ts';
 
 const {
   attribute,
@@ -17,14 +16,6 @@ const {
 } = MarkupUtil;
 
 const EXAMPLE_TODAY = '2026-09-18';
-
-const EXAMPLE_SLICES: TimestampSlices = {
-  dateAndClockLength:    16,
-  calendarDateLength:    10,
-  monthAndDaySliceStart: 5,
-  clockSliceStart:       11,
-  clockSliceEnd:         16,
-};
 
 describe('attribute', () => {
   test('escapes the quotes, angle brackets and ampersands of its value', () => {
@@ -66,10 +57,10 @@ describe('shortenedTextMarkup', () => {
 
 describe('stampMarkup', () => {
   test('shows only the clock of a stamp from today, with the full stamp as the title', () => {
-    expect(stampMarkup('time', '2026-09-18T21:56:00+02:00', EXAMPLE_TODAY, EXAMPLE_SLICES)).toBe('<time title="2026-09-18 21:56">21:56</time>');
+    expect(stampMarkup('time', '2026-09-18T21:56:00+02:00', EXAMPLE_TODAY, EXAMPLE_TIMESTAMP_SLICES)).toBe('<time title="2026-09-18 21:56">21:56</time>');
   });
 
   test('shows a stamp from another year in full, with no title', () => {
-    expect(stampMarkup('span', '2025-12-31T23:48:00+01:00', EXAMPLE_TODAY, EXAMPLE_SLICES)).toBe('<span>2025-12-31 23:48</span>');
+    expect(stampMarkup('span', '2025-12-31T23:48:00+01:00', EXAMPLE_TODAY, EXAMPLE_TIMESTAMP_SLICES)).toBe('<span>2025-12-31 23:48</span>');
   });
 });

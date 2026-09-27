@@ -6,19 +6,11 @@
 import { describe, expect, test }                                    from 'bun:test';
 import type { TicketStatus }                                         from '../../src/lib/tracker-model/@types/Ticket.ts';
 import type { PageTicket }                                           from '../../src/shared/@types/PagePayload.ts';
-import type { TimestampSlices }                                      from '../utils/TimeUtil.ts';
+import { EXAMPLE_TIMESTAMP_SLICES }                                  from '../testing/PageLimitsFixture.ts';
 import { ticketCardsMarkup, ticketCountText, ticketTableRowsMarkup } from './TicketsMarkup.ts';
 
 /** The example board's own day: its stamps from the 18th print as a clock, the rest dated. */
 const EXAMPLE_TODAY = '2026-09-18';
-
-const EXAMPLE_SLICES: TimestampSlices = {
-  dateAndClockLength:    16,
-  calendarDateLength:    10,
-  monthAndDaySliceStart: 5,
-  clockSliceStart:       11,
-  clockSliceEnd:         16,
-};
 
 const NO_WAITING = new Map<string, string[]>();
 
@@ -86,34 +78,35 @@ describe('ticketCountText', () => {
 
 describe('ticketCardsMarkup', () => {
   test('lists every dependency in the card, and heads a waiting card with what it still waits on', () => {
-    const markup = ticketCardsMarkup([exampleTicket({ dependsOn: ['001', '002'] })], new Map([['003', ['002']]]), EXAMPLE_SLICES, EXAMPLE_TODAY);
+    const markup = ticketCardsMarkup([exampleTicket({ dependsOn: ['001', '002'] })], new Map([['003', ['002']]]), EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY);
 
     expect(markup).toContain('<b>waits on</b><span><a href="#ap-ticket-001">#001</a>, <a href="#ap-ticket-002">#002</a></span>');
     expect(markup).toContain('<span class="ap-waiting">waiting on <a href="#ap-ticket-002">#002</a></span>');
   });
 
   test.each<[TicketStatus]>([['pending'], ['in-progress'], ['in-review']])('leaves a %s card open, with no disclosure', (status) => {
-    const markup = ticketCardsMarkup([exampleTicket({ status })], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY);
+    const markup = ticketCardsMarkup([exampleTicket({ status })], NO_WAITING, EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY);
 
     expect(markup).toContain('<div class="ap-ticket-head">');
     expect(markup).not.toContain('<details>');
   });
 
   test.each<[TicketStatus]>([['reviewed'], ['delivered'], ['abandoned']])('collapses a %s card into a disclosure', (status) => {
-    const markup = ticketCardsMarkup([exampleTicket({ status })], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY);
+    const markup = ticketCardsMarkup([exampleTicket({ status })], NO_WAITING, EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY);
 
     expect(markup).toContain('<details><summary>');
     expect(markup).not.toContain('ap-ticket-head');
   });
 
   test('keeps the id on the outer section either way', () => {
-    expect(ticketCardsMarkup([exampleTicket({ status: 'pending' })], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY)).toContain('<section class="ap-ticket" id="ap-ticket-003">');
-    expect(ticketCardsMarkup([exampleTicket({ status: 'reviewed' })], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY)).toContain('<section class="ap-ticket" id="ap-ticket-003">');
+    for (const status of ['pending', 'reviewed'] as const) {
+      expect(ticketCardsMarkup([exampleTicket({ status })], NO_WAITING, EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY)).toContain('<section class="ap-ticket" id="ap-ticket-003">');
+    }
   });
 
   test('shows the latest milestone the ticket reached, not the first', () => {
-    const delivered = ticketCardsMarkup([exampleTicket({ status: 'delivered', delivered: '2026-09-18T21:51:00+02:00' })], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY);
-    const filedOnly = ticketCardsMarkup([exampleTicket({ started: null, finished: null })], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY);
+    const delivered = ticketCardsMarkup([exampleTicket({ status: 'delivered', delivered: '2026-09-18T21:51:00+02:00' })], NO_WAITING, EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY);
+    const filedOnly = ticketCardsMarkup([exampleTicket({ started: null, finished: null })], NO_WAITING, EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY);
 
     expect(delivered).toContain('<span class="ap-ticket-dates" title="delivered 2026-09-18 21:51">delivered 21:51</span>');
     expect(filedOnly).toContain('<span class="ap-ticket-dates" title="filed 2026-09-18 20:44">filed 20:44</span>');
@@ -121,8 +114,13 @@ describe('ticketCardsMarkup', () => {
 
   // The head once printed a bare clock whatever the day; a milestone from yesterday read as today's.
   test('dates a head milestone from another day, and shows one from another year in full with no title', () => {
-    const yesterday = ticketCardsMarkup([exampleTicket({ status: 'delivered', delivered: '2026-09-17T23:48:00+02:00' })], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY);
-    const lastYear  = ticketCardsMarkup([exampleTicket({ started: null, finished: null, filed: '2025-12-31T23:48:00+01:00' })], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY);
+    const yesterday = ticketCardsMarkup([exampleTicket({ status: 'delivered', delivered: '2026-09-17T23:48:00+02:00' })], NO_WAITING, EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY);
+    const lastYear  = ticketCardsMarkup(
+      [exampleTicket({ started: null, finished: null, filed: '2025-12-31T23:48:00+01:00' })],
+      NO_WAITING,
+      EXAMPLE_TIMESTAMP_SLICES,
+      EXAMPLE_TODAY,
+    );
 
     expect(yesterday).toContain('<span class="ap-ticket-dates" title="delivered 2026-09-17 23:48">delivered 09-17 23:48</span>');
     expect(lastYear).toContain('<span class="ap-ticket-dates">filed 2025-12-31 23:48</span>');
@@ -130,7 +128,7 @@ describe('ticketCardsMarkup', () => {
   });
 
   test('shortens the timestamps in the meta list, titled with the full stamp, and leaves the branch whole', () => {
-    const markup = ticketCardsMarkup([exampleTicket({ commit: '4f1e9c0abcdef' })], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY);
+    const markup = ticketCardsMarkup([exampleTicket({ commit: '4f1e9c0abcdef' })], NO_WAITING, EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY);
 
     expect(markup).toContain('<div><b>filed</b><span title="2026-09-18 20:44">20:44</span></div>');
     expect(markup).toContain('<div><b>branch</b><span>ticket/exporter-passes</span></div>');
@@ -138,14 +136,14 @@ describe('ticketCardsMarkup', () => {
   });
 
   test('leaves out the meta entries the ticket never recorded', () => {
-    const markup = ticketCardsMarkup([exampleTicket({ started: null, finished: null })], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY);
+    const markup = ticketCardsMarkup([exampleTicket({ started: null, finished: null })], NO_WAITING, EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY);
 
     expect(markup).not.toContain('<b>started</b>');
     expect(markup).not.toContain('<b>finished</b>');
   });
 
   test('places the pre-rendered body verbatim inside the markdown container', () => {
-    const markup = ticketCardsMarkup([exampleTicket({ bodyHtml: '<h2>Report</h2><p>one</p>' })], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY);
+    const markup = ticketCardsMarkup([exampleTicket({ bodyHtml: '<h2>Report</h2><p>one</p>' })], NO_WAITING, EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY);
 
     expect(markup).toContain('<div class="ap-ticket-body md"><h2>Report</h2><p>one</p></div>');
   });
@@ -159,7 +157,7 @@ describe('the priority marks on the Tickets tab', () => {
   test('marks a low ticket low, beside its title in the table and after its status in the card, with an empty task cell while it has no row', () => {
     const lowTicket = exampleTicket({ priority: 'low', status: 'pending', task: null });
     const tableRow  = ticketTableRowsMarkup([lowTicket], NO_WAITING);
-    const card      = ticketCardsMarkup([lowTicket], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY);
+    const card      = ticketCardsMarkup([lowTicket], NO_WAITING, EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY);
 
     expect(tableRow).toMatch(/two passes <span class="ap-ticket-badge" data-priority="low" title="[^"]+">low<\/span><\/td>/);
     expect(tableRow).toContain('<td class="mono"></td></tr>');
@@ -171,12 +169,12 @@ describe('the priority marks on the Tickets tab', () => {
     const highTicket = exampleTicket({ priority: 'high' });
 
     expect(ticketTableRowsMarkup([highTicket], NO_WAITING)).toMatch(/two passes<span class="ap-waiting" data-priority="high" title="[^"]+">high<\/span><\/td>/);
-    expect(ticketCardsMarkup([highTicket], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY)).toContain(HIGH_MARK_OPENING);
+    expect(ticketCardsMarkup([highTicket], NO_WAITING, EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY)).toContain(HIGH_MARK_OPENING);
   });
 
   test('leaves a normal ticket, and one whose file carries no priority, unmarked', () => {
     for (const ticket of [exampleTicket({ priority: 'normal' }), exampleTicket()]) {
-      const markup = ticketTableRowsMarkup([ticket], NO_WAITING) + ticketCardsMarkup([ticket], NO_WAITING, EXAMPLE_SLICES, EXAMPLE_TODAY);
+      const markup = ticketTableRowsMarkup([ticket], NO_WAITING) + ticketCardsMarkup([ticket], NO_WAITING, EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY);
       expect(markup).not.toContain('data-priority');
     }
     expect(ticketTableRowsMarkup([exampleTicket({ priority: 'low' })], NO_WAITING)).toContain(LOW_MARK_OPENING);

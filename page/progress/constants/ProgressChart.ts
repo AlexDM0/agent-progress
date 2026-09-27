@@ -1,4 +1,4 @@
-/** The Progress chart's fixed choices: the range presets the range bar offers, its automatic choices, and the name-column attribute. */
+/** The Progress chart's fixed choices: the range presets the range bar offers, its automatic choices, the name-column attribute and the tick gutter. */
 
 export const RANGE_PRESET_BOUNDS: Readonly<Record<string, { fromText: string | null; toText: string | null }>> = {
   'auto': { fromText: null, toText: null },
@@ -15,3 +15,6 @@ export const AUTOMATIC_TICK_CHOICE  = 'auto';
 
 /** The attribute on the document element the template's `--col-name` override is keyed on. */
 export const NAME_COLUMN_WIDTH_ATTRIBUTE = 'data-name-column';
+
+/** The gap between a tick label moved left of its line and that line. */
+export const TICK_LABEL_GUTTER_PIXELS = 5;

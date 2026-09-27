@@ -5,32 +5,14 @@
  * row object, so it survives the visibility filter.
  */
 
-import { describe, expect, test }                      from 'bun:test';
-import type { Task }                                   from '../../src/lib/tracker-model/@types/Task.ts';
-import type { PageBoardFacts, PageLimits, PageTicket } from '../../src/shared/@types/PagePayload.ts';
-import type { ProgressDocument }                       from '../../src/shared/@types/ProgressDocument.ts';
-import { IslandUtil }                                  from './IslandUtil.ts';
+import { describe, expect, test }          from 'bun:test';
+import type { Task }                       from '../../src/lib/tracker-model/@types/Task.ts';
+import type { PageBoardFacts, PageTicket } from '../../src/shared/@types/PagePayload.ts';
+import type { ProgressDocument }           from '../../src/shared/@types/ProgressDocument.ts';
+import { EXAMPLE_PAGE_LIMITS }             from '../testing/PageLimitsFixture.ts';
+import { IslandUtil }                      from './IslandUtil.ts';
 
 const { pagePayloadFrom, pageTicketsFrom, pageBoardFrom } = IslandUtil;
-
-const EXAMPLE_LIMITS: PageLimits = {
-  tickStepLadderMinutes:       [5, 10, 15, 30, 60, 120, 180, 360, 720, 1440],
-  maximumTicksPerAxis:         12,
-  axisMinimumSpanMinutes:      60,
-  axisPaddingMinutes:          15,
-  minimumBarWidthPercent:      0.6,
-  hoursAxisLabelLimitMinutes:  1440,
-  weekAxisLabelLimitMinutes:   10_080,
-  hourMinutes:                 60,
-  dayMinutes:                  1440,
-  tickCountSafetyBound:        500,
-  dateAndClockLength:          16,
-  calendarDateLength:          10,
-  monthAndDaySliceStart:       5,
-  clockSliceStart:             11,
-  clockSliceEnd:               16,
-  doneWorkVisibleMilliseconds: 86_400_000,
-};
 
 const EXAMPLE_START_EPOCH_MILLISECONDS = Date.UTC(2026, 8, 18, 18, 0, 0);
 
@@ -65,7 +47,7 @@ function examplePayload(): Record<string, unknown> {
   return {
     progress:                     exampleProgress(),
     generatedAtEpochMilliseconds: EXAMPLE_START_EPOCH_MILLISECONDS,
-    limits:                       EXAMPLE_LIMITS,
+    limits:                       EXAMPLE_PAGE_LIMITS,
     concurrency:                  { limit: 2, agentsInFlight: 0 },
     pageScriptFailure:            null,
     boardFacts:                   exampleBoardFacts(),
@@ -119,20 +101,20 @@ describe('pagePayloadFrom', () => {
   });
 
   test('refuses a payload whose limits are not all finite numbers, since every percentage divides by one', () => {
-    const limits = { ...EXAMPLE_LIMITS, axisMinimumSpanMinutes: Number.NaN };
+    const limits = { ...EXAMPLE_PAGE_LIMITS, axisMinimumSpanMinutes: Number.NaN };
 
     expect(pagePayloadFrom({ ...examplePayload(), limits })).toBeNull();
   });
 
   test('refuses a payload whose timestamp slice positions are missing', () => {
-    const limits: Record<string, unknown> = { ...EXAMPLE_LIMITS };
+    const limits: Record<string, unknown> = { ...EXAMPLE_PAGE_LIMITS };
     delete limits['clockSliceEnd'];
 
     expect(pagePayloadFrom({ ...examplePayload(), limits })).toBeNull();
   });
 
   test('refuses a payload whose tick ladder is not a list of numbers', () => {
-    const limits = { ...EXAMPLE_LIMITS, tickStepLadderMinutes: ['five'] };
+    const limits = { ...EXAMPLE_PAGE_LIMITS, tickStepLadderMinutes: ['five'] };
 
     expect(pagePayloadFrom({ ...examplePayload(), limits })).toBeNull();
   });

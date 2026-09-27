@@ -3,19 +3,17 @@
 import type { ViewRange }                                              from '../../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { PagePayload }                                            from '../../src/shared/@types/PagePayload.ts';
 import type { BoardRow }                                               from '../@types/PageBoard.ts';
+import type { Timeline }                                               from '../@types/Timeline.ts';
 import type { NameColumnWidth, StoredViewOverride, ViewerPreferences } from '../@types/ViewerPreferences.ts';
 import { PERCENT_OF_A_WHOLE }                                          from '../constants/Units.ts';
 import { ViewerPreferenceUtil }                                        from '../preferences/utils/ViewerPreferenceUtil.ts';
 import { DomUtil }                                                     from '../utils/DomUtil.ts';
-import type { Timeline }                                               from '../utils/GeometryUtil.ts';
 import { GeometryUtil }                                                from '../utils/GeometryUtil.ts';
 import { TimeUtil }                                                    from '../utils/TimeUtil.ts';
 import type { PlacedTick, TaskRow }                                    from './ProgressMarkup.ts';
 import {
-  axisPixelsNeededFor,
   generatedStampText,
   hiddenWorkNoteText,
-  labelSitsLeftOfItsLine,
   overlayMarkup,
   rangeNoteText,
   summaryStatisticsMarkup,
@@ -28,6 +26,7 @@ import {
   NAME_COLUMN_WIDTH_ATTRIBUTE,
   RANGE_PRESET_BOUNDS,
 } from './constants/ProgressChart.ts';
+import { AxisFitUtil }   from './utils/AxisFitUtil.ts';
 import { ViewRangeUtil } from './utils/ViewRangeUtil.ts';
 
 export interface ProgressControllerSources {
@@ -178,7 +177,7 @@ export function createProgressController(sources: ProgressControllerSources): Pr
 
     const pinnedWidth     = pinnedColumnsWidth();
     const availablePixels = chart === null ? 0 : Math.max(0, chart.clientWidth - pinnedWidth);
-    const neededPixels    = axisPixelsNeededFor(timeline.ticks);
+    const neededPixels    = AxisFitUtil.axisPixelsNeededFor(timeline.ticks);
     const axisScrolls     = neededPixels > availablePixels;
     const axisWidthPixels = axisScrolls ? neededPixels : availablePixels;
     // Written first: every bar, tick, grid line and the marker is a percentage of this column.
@@ -186,7 +185,7 @@ export function createProgressController(sources: ProgressControllerSources): Pr
 
     const placedTicks: PlacedTick[] = timeline.ticks.map((tick) => ({
       ...tick,
-      labelSitsLeftOfItsLine: labelSitsLeftOfItsLine(tick, axisWidthPixels),
+      labelSitsLeftOfItsLine: AxisFitUtil.labelSitsLeftOfItsLine(tick, axisWidthPixels),
     }));
     DomUtil.setMarkup('ap-ticks', tickLayerMarkup(placedTicks));
     DomUtil.setMarkup('ap-overlay', overlayMarkup(timeline.ticks, timeline.nowPercent));

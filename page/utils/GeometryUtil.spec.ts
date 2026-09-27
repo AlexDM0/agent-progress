@@ -6,25 +6,12 @@ import { describe, expect, test }       from 'bun:test';
 import type { ProgressFile, ViewRange } from '../../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { Task, TaskStatus }        from '../../src/lib/tracker-model/@types/Task.ts';
 import { PERCENT_OF_A_WHOLE }           from '../constants/Units.ts';
-import type { TimelineLimits }          from './GeometryUtil.ts';
+import { EXAMPLE_PAGE_LIMITS }          from '../testing/PageLimitsFixture.ts';
 import { GeometryUtil }                 from './GeometryUtil.ts';
 
 const { computeTimeline, tickLabelIsCovered } = GeometryUtil;
 
 const MILLISECONDS_PER_MINUTE = 60_000;
-
-const EXAMPLE_LIMITS: TimelineLimits = {
-  tickStepLadderMinutes:      [5, 10, 15, 30, 60, 120, 180, 360, 720, 1440],
-  maximumTicksPerAxis:        12,
-  axisMinimumSpanMinutes:     60,
-  axisPaddingMinutes:         15,
-  minimumBarWidthPercent:     0.6,
-  hoursAxisLabelLimitMinutes: 1440,
-  weekAxisLabelLimitMinutes:  10_080,
-  hourMinutes:                60,
-  dayMinutes:                 1440,
-  tickCountSafetyBound:       500,
-};
 
 const EXAMPLE_START_EPOCH_MILLISECONDS = Date.UTC(2026, 8, 18, 18, 0, 0);
 
@@ -76,7 +63,7 @@ function timelineFor(input: { tasks: Task[]; range?: ViewRange; nowOffsetMinutes
     progress:             exampleProgress(input.tasks, range),
     range,
     nowEpochMilliseconds: EXAMPLE_START_EPOCH_MILLISECONDS + minutesAsMilliseconds(input.nowOffsetMinutes),
-    limits:               EXAMPLE_LIMITS,
+    limits:               EXAMPLE_PAGE_LIMITS,
   });
 }
 
@@ -118,7 +105,7 @@ describe('computeTimeline', () => {
     expect(timeline.fromEpochMilliseconds).toBe(EXAMPLE_START_EPOCH_MILLISECONDS + minutesAsMilliseconds(-180));
     expect(bar?.leftPercent).toBe(0);
     expect(bar?.clippedLeft).toBe(false);
-    expect(bar?.widthPercent).toBeGreaterThan(EXAMPLE_LIMITS.minimumBarWidthPercent);
+    expect(bar?.widthPercent).toBeGreaterThan(EXAMPLE_PAGE_LIMITS.minimumBarWidthPercent);
   });
 
   test('starts the automatic axis at the earliest task even when every task starts after startedAt', () => {
@@ -190,15 +177,15 @@ describe('computeTimeline', () => {
 
     expect(bar?.visible).toBe(true);
     expect(bar?.clippedRight).toBe(true);
-    expect(bar?.widthPercent).toBe(EXAMPLE_LIMITS.minimumBarWidthPercent);
-    expect(bar?.leftPercent).toBeCloseTo(100 - EXAMPLE_LIMITS.minimumBarWidthPercent, 10);
+    expect(bar?.widthPercent).toBe(EXAMPLE_PAGE_LIMITS.minimumBarWidthPercent);
+    expect(bar?.leftPercent).toBeCloseTo(100 - EXAMPLE_PAGE_LIMITS.minimumBarWidthPercent, 10);
   });
 
   test('floors a zero-length bar at the minimum width so an instant task is still findable', () => {
     const timeline = timelineFor({ tasks: [exampleTask(1, 30, 30)], range: absoluteRange(0, 60), nowOffsetMinutes: 30 });
     const [bar]    = timeline.bars;
 
-    expect(bar?.widthPercent).toBe(EXAMPLE_LIMITS.minimumBarWidthPercent);
+    expect(bar?.widthPercent).toBe(EXAMPLE_PAGE_LIMITS.minimumBarWidthPercent);
     expect(bar?.leftPercent).toBe(50);
   });
 
@@ -214,7 +201,7 @@ describe('computeTimeline', () => {
     const [bar]    = timeline.bars;
 
     expect(bar?.leftPercent).toBeCloseTo(100 * 40 / 60, 10);
-    expect(bar?.widthPercent).toBe(EXAMPLE_LIMITS.minimumBarWidthPercent);
+    expect(bar?.widthPercent).toBe(EXAMPLE_PAGE_LIMITS.minimumBarWidthPercent);
   });
 
   test('hides a task that has never started instead of placing it at the origin', () => {
@@ -246,7 +233,7 @@ describe('computeTimeline', () => {
     const timeline = timelineFor({ tasks: [], range: absoluteRange(0, spanMinutes), nowOffsetMinutes: 0 });
 
     expect(timeline.stepMinutes).toBe(expectedStepMinutes);
-    expect(timeline.ticks.length).toBeLessThanOrEqual(EXAMPLE_LIMITS.maximumTicksPerAxis + 1);
+    expect(timeline.ticks.length).toBeLessThanOrEqual(EXAMPLE_PAGE_LIMITS.maximumTicksPerAxis + 1);
   });
 
   test('falls back to a whole number of days once the ladder runs out', () => {
@@ -267,7 +254,7 @@ describe('computeTimeline', () => {
   test('truncates an explicit tick step that would flood the axis', () => {
     const timeline = timelineFor({ tasks: [], range: absoluteRange(0, 7 * 1440, 1), nowOffsetMinutes: 0 });
 
-    expect(timeline.ticks.length).toBe(EXAMPLE_LIMITS.tickCountSafetyBound);
+    expect(timeline.ticks.length).toBe(EXAMPLE_PAGE_LIMITS.tickCountSafetyBound);
   });
 
   test('starts the ticks at a round time on the local wall clock, not on UTC', () => {
@@ -351,7 +338,7 @@ describe('computeTimeline', () => {
         kind: 'absolute', from: '2026-09-18T08:00', to: '2026-09-18T09:00', tickMinutes: null 
       },
       nowEpochMilliseconds: EXAMPLE_START_EPOCH_MILLISECONDS,
-      limits:               EXAMPLE_LIMITS,
+      limits:               EXAMPLE_PAGE_LIMITS,
     });
 
     expect(timeline.fromEpochMilliseconds).toBe(new Date(2026, 8, 18, 8, 0, 0).getTime());
@@ -375,7 +362,7 @@ describe('computeTimeline', () => {
     const timeline = timelineFor({ tasks: [exampleTask(1, 0, 30)], range: absoluteRange(90, 30), nowOffsetMinutes: 30 });
 
     expect(timeline.toEpochMilliseconds - timeline.fromEpochMilliseconds).toBe(minutesAsMilliseconds(60));
-    expect(timeline.bars[0]?.widthPercent).toBe(EXAMPLE_LIMITS.minimumBarWidthPercent);
+    expect(timeline.bars[0]?.widthPercent).toBe(EXAMPLE_PAGE_LIMITS.minimumBarWidthPercent);
   });
 
   test('reports no now-marker when the present moment falls outside the range', () => {

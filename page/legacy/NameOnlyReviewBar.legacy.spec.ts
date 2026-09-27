@@ -6,26 +6,18 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import type { Task }            from '../../src/lib/tracker-model/@types/Task.ts';
-import type { PageTicket }      from '../../src/shared/@types/PagePayload.ts';
-import { ReviewBarNameUtil }    from '../../src/shared/legacy/utils/ReviewBarNameUtil.ts';
-import { subStateNoteOf }       from '../kanban/KanbanLaneText.ts';
-import { KanbanLaneUtil }       from '../kanban/utils/KanbanLaneUtil.ts';
-import { taskRowsMarkup }       from '../progress/ProgressMarkup.ts';
-import { pageBoardFixture }     from '../testing/PageBoardFixture.ts';
-import type { TimelineBar }     from '../utils/GeometryUtil.ts';
-import type { TimestampSlices } from '../utils/TimeUtil.ts';
+import type { Task }                from '../../src/lib/tracker-model/@types/Task.ts';
+import type { PageTicket }          from '../../src/shared/@types/PagePayload.ts';
+import { ReviewBarNameUtil }        from '../../src/shared/legacy/utils/ReviewBarNameUtil.ts';
+import type { TimelineBar }         from '../@types/Timeline.ts';
+import { subStateNoteOf }           from '../kanban/KanbanLaneText.ts';
+import { KanbanLaneUtil }           from '../kanban/utils/KanbanLaneUtil.ts';
+import { taskRowsMarkup }           from '../progress/ProgressMarkup.ts';
+import { pageBoardFixture }         from '../testing/PageBoardFixture.ts';
+import { EXAMPLE_TIMESTAMP_SLICES } from '../testing/PageLimitsFixture.ts';
 
 const EXAMPLE_TODAY = '2026-09-25';
 const EXAMPLE_NOW   = Date.parse('2026-09-25T13:36:00+02:00');
-
-const EXAMPLE_SLICES: TimestampSlices = {
-  dateAndClockLength:    16,
-  calendarDateLength:    10,
-  monthAndDaySliceStart: 5,
-  clockSliceStart:       11,
-  clockSliceEnd:         16,
-};
 
 const PLACED_BAR: TimelineBar = {
   taskId:       1,
@@ -96,7 +88,7 @@ describe('review rows known only by their name', () => {
       exampleTask({ id: 4, name: 'Brighter colours', ticket: '004' }),
       exampleTask({ id: 5, name: 'Review 2 #3 — Split the exporter', reviewOf: '003' }),
       exampleTask({ id: 6, name: 'Review 3 #3 — Split the exporter', reviewOf: '003' }),
-    ]), EXAMPLE_SLICES);
+    ]), EXAMPLE_TIMESTAMP_SLICES);
 
     expect(drawnOrderOf(markup)).toEqual([
       ['4', null],
@@ -113,7 +105,7 @@ describe('review rows known only by their name', () => {
       exampleTask({ id: 1, ticket: '013' }),
       exampleTask({ id: 2, ticket: '005' }),
       exampleTask({ id: 3, name: 'Review 1 #13, #5 — the bundle' }),
-    ]), EXAMPLE_SLICES);
+    ]), EXAMPLE_TIMESTAMP_SLICES);
 
     expect(drawnOrderOf(markup)).toEqual([['2', null], ['3', '013'], ['1', null]]);
     expect(markup.match(/data-task-id="3"/g)?.length).toBe(1);
@@ -142,7 +134,7 @@ describe('review rows known only by their name', () => {
     const [card] = KanbanLaneUtil.kanbanCardsFor(pageBoardFixture({ tasks, tickets: [ticket] }).tickets, new Map([[ticket.id, []]]));
     if (card === undefined) throw new Error('no card was built');
 
-    expect(subStateNoteOf(card, { nowEpochMilliseconds: EXAMPLE_NOW, todayCalendarDate: EXAMPLE_TODAY, slices: EXAMPLE_SLICES }))
+    expect(subStateNoteOf(card, { nowEpochMilliseconds: EXAMPLE_NOW, todayCalendarDate: EXAMPLE_TODAY, slices: EXAMPLE_TIMESTAMP_SLICES }))
       .toBe('round 3 reviewer since 09-24 11:34');
   });
 });

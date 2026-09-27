@@ -5,15 +5,12 @@
  * durations and parses stamps.
  */
 
-import type { PageLimits }         from '../../src/shared/@types/PagePayload.ts';
-import { MILLISECONDS_PER_MINUTE } from '../constants/Units.ts';
+import type { PageLimits }                                          from '../../src/shared/@types/PagePayload.ts';
+import { HOURS_PER_DAY, MILLISECONDS_PER_MINUTE, MINUTES_PER_HOUR } from '../constants/Units.ts';
 
 const SMALLEST_TWO_DIGIT_NUMBER = 10;
 
 const FIRST_MONTH_NUMBER = 1;
-
-const MINUTES_PER_HOUR = 60;
-const HOURS_PER_DAY    = 24;
 
 const SHORTEST_NAMED_DURATION = 'under a minute';
 
@@ -45,8 +42,12 @@ function fullStampText(stamp: string, slices: TimestampSlices): string {
 }
 
 /** Sliced, never parsed: the stamp keeps the wall clock and the offset of the machine that recorded it, so its date is compared as written. */
+function stampIsFromDay(stamp: string, calendarDate: string, slices: TimestampSlices): boolean {
+  return stamp.slice(0, slices.calendarDateLength) === calendarDate;
+}
+
 function shortStampText(stamp: string, todayCalendarDate: string, slices: TimestampSlices): string {
-  if (stamp.slice(0, slices.calendarDateLength) === todayCalendarDate) {
+  if (stampIsFromDay(stamp, todayCalendarDate, slices)) {
     return stamp.slice(slices.clockSliceStart, slices.clockSliceEnd);
   }
   if (stamp.slice(0, slices.monthAndDaySliceStart) === todayCalendarDate.slice(0, slices.monthAndDaySliceStart)) {
@@ -106,6 +107,7 @@ export const TimeUtil = {
   clockOf,
   monthAndDayOf,
   fullStampText,
+  stampIsFromDay,
   shortStampText,
   fullInstantText,
   shortInstantText,

@@ -3,20 +3,18 @@
  * escaped exactly once.
  */
 
-import { describe, expect, test }           from 'bun:test';
-import type { Task, TaskStatus }            from '../../src/lib/tracker-model/@types/Task.ts';
-import type { TicketStatus }                from '../../src/lib/tracker-model/@types/Ticket.ts';
-import type { PageTicket }                  from '../../src/shared/@types/PagePayload.ts';
-import { pageBoardFixture }                 from '../testing/PageBoardFixture.ts';
-import type { TimelineBar, TimelineLimits } from '../utils/GeometryUtil.ts';
-import { GeometryUtil }                     from '../utils/GeometryUtil.ts';
-import type { TimestampSlices }             from '../utils/TimeUtil.ts';
-import { TimeUtil }                         from '../utils/TimeUtil.ts';
+import { describe, expect, test }                        from 'bun:test';
+import type { Task, TaskStatus }                         from '../../src/lib/tracker-model/@types/Task.ts';
+import type { TicketStatus }                             from '../../src/lib/tracker-model/@types/Ticket.ts';
+import type { PageTicket }                               from '../../src/shared/@types/PagePayload.ts';
+import type { TimelineBar }                              from '../@types/Timeline.ts';
+import { pageBoardFixture }                              from '../testing/PageBoardFixture.ts';
+import { EXAMPLE_PAGE_LIMITS, EXAMPLE_TIMESTAMP_SLICES } from '../testing/PageLimitsFixture.ts';
+import { GeometryUtil }                                  from '../utils/GeometryUtil.ts';
+import { TimeUtil }                                      from '../utils/TimeUtil.ts';
 import {
-  axisPixelsNeededFor,
   generatedStampText,
   hiddenWorkNoteText,
-  labelSitsLeftOfItsLine,
   overlayMarkup,
   rangeNoteText,
   summaryStatisticsMarkup,
@@ -29,32 +27,7 @@ const { calendarDateOf, fullInstantText } = TimeUtil;
 
 const MILLISECONDS_PER_MINUTE = 60_000;
 
-const EXAMPLE_SLICES: TimestampSlices = {
-  dateAndClockLength:    16,
-  calendarDateLength:    10,
-  monthAndDaySliceStart: 5,
-  clockSliceStart:       11,
-  clockSliceEnd:         16,
-};
-
 const NO_AGENTS_OF_TWO = { limit: 2, agentsInFlight: 0 };
-
-const EXAMPLE_RANGE_LIMITS = {
-  hourMinutes: 60,
-  dayMinutes:  1440,
-};
-
-const EXAMPLE_TIMELINE_LIMITS: TimelineLimits = {
-  ...EXAMPLE_RANGE_LIMITS,
-  hoursAxisLabelLimitMinutes: 1440,
-  tickStepLadderMinutes:      [5, 10, 15, 30, 60, 120, 180, 360, 720, 1440],
-  maximumTicksPerAxis:        12,
-  axisMinimumSpanMinutes:     60,
-  axisPaddingMinutes:         15,
-  minimumBarWidthPercent:     0.6,
-  weekAxisLabelLimitMinutes:  10_080,
-  tickCountSafetyBound:       500,
-};
 
 const PLACED_BAR: TimelineBar = {
   taskId:       1,
@@ -108,12 +81,12 @@ function rowFor(task: Task, ticketStatus: TicketStatus | null = null, bar: Timel
   if (row === undefined) {
     throw new Error('the example row was not built');
   }
-  return taskRowsMarkup([{ task: row, bar, waitingOn }], EXAMPLE_SLICES);
+  return taskRowsMarkup([{ task: row, bar, waitingOn }], EXAMPLE_TIMESTAMP_SLICES);
 }
 
 describe('taskRowsMarkup', () => {
   test('draws the most recently filed task on top', () => {
-    const markup = taskRowsMarkup(rowsFiled([1, 2, 3].map((id) => exampleTask({ id }))), EXAMPLE_SLICES);
+    const markup = taskRowsMarkup(rowsFiled([1, 2, 3].map((id) => exampleTask({ id }))), EXAMPLE_TIMESTAMP_SLICES);
 
     expect([...markup.matchAll(/data-task-id="(\d+)"/g)].map((match) => match[1])).toEqual(['3', '2', '1']);
   });
@@ -257,7 +230,7 @@ describe('review rows nested above their ticket', () => {
       exampleTask({
         id: 6, name: 'Review 3 #3 — Split the exporter', reviewOf: '003', reviewBarRound: 3 
       }),
-    ]), EXAMPLE_SLICES);
+    ]), EXAMPLE_TIMESTAMP_SLICES);
 
     expect(drawnOrderOf(markup)).toEqual([
       ['4', null],
@@ -275,7 +248,7 @@ describe('review rows nested above their ticket', () => {
       exampleTask({ id: 1, ticket: '003' }),
       exampleTask({ id: 2, name: 'Review 2 #3 — Split the exporter', reviewOf: '003' }),
       exampleTask({ id: 3, name: 'Review 1 #3 — Split the exporter', reviewOf: '003' }),
-    ]), EXAMPLE_SLICES);
+    ]), EXAMPLE_TIMESTAMP_SLICES);
 
     expect(drawnOrderOf(markup)).toEqual([['3', '003'], ['2', '003'], ['1', null]]);
   });
@@ -286,7 +259,7 @@ describe('review rows nested above their ticket', () => {
       exampleTask({ id: 1, ticket: '003' }),
       exampleTask({ id: 2, ticket: '003' }),
       exampleTask({ id: 3, name: 'Review 1 #3 — Split the exporter', reviewOf: '003' }),
-    ]), EXAMPLE_SLICES);
+    ]), EXAMPLE_TIMESTAMP_SLICES);
 
     expect(drawnOrderOf(markup)).toEqual([['2', null], ['3', '003'], ['1', null]]);
   });
@@ -299,7 +272,7 @@ describe('review rows nested above their ticket', () => {
     if (ownRow === undefined || bar === undefined) {
       throw new Error('the example rows were not built');
     }
-    const markup = taskRowsMarkup([bar], EXAMPLE_SLICES);
+    const markup = taskRowsMarkup([bar], EXAMPLE_TIMESTAMP_SLICES);
 
     expect(bar.task.ownRowOfReviewedTicket).toBe(ownRow.task);
     expect(drawnOrderOf(markup)).toEqual([['2', null]]);
@@ -311,7 +284,7 @@ describe('review rows nested above their ticket', () => {
       exampleTask({ id: 1, ticket: '003' }),
       exampleTask({ id: 2, name: 'Review 1 #3 — Split the exporter', reviewOf: '003' }),
       exampleTask({ id: 3, name: 'Review 1 #3 — Split the exporter', reviewOf: '003' }),
-    ]), EXAMPLE_SLICES);
+    ]), EXAMPLE_TIMESTAMP_SLICES);
 
     expect(drawnOrderOf(markup)).toEqual([['3', '003'], ['2', '003'], ['1', null]]);
   });
@@ -321,7 +294,7 @@ describe('review rows nested above their ticket', () => {
       exampleTask({ id: 1, ticket: '003' }),
       exampleTask({ id: 2, ticket: '004' }),
       exampleTask({ id: 3, name: 'Review 1 #3 — x', reviewOf: '004' }),
-    ]), EXAMPLE_SLICES);
+    ]), EXAMPLE_TIMESTAMP_SLICES);
 
     expect(drawnOrderOf(markup)).toEqual([['3', '004'], ['2', null], ['1', null]]);
   });
@@ -333,7 +306,7 @@ describe('review rows nested above their ticket', () => {
       exampleTask({
         id: 3, name: 'Review 1 #13, #5 — the bundle', reviewOf: '013', reviewBarRound: 1 
       }),
-    ]), EXAMPLE_SLICES);
+    ]), EXAMPLE_TIMESTAMP_SLICES);
 
     expect(drawnOrderOf(markup)).toEqual([['2', null], ['3', '013'], ['1', null]]);
     expect(markup.match(/data-task-id="3"/g)?.length).toBe(1);
@@ -348,7 +321,7 @@ describe('review rows nested above their ticket', () => {
       }),
       exampleTask({ id: 3, name: 'Review pass of the whole surface' }),
       exampleTask({ id: 4, name: 'Review 1 #8 — linked by flag', reviewOf: '008' }),
-    ]), EXAMPLE_SLICES);
+    ]), EXAMPLE_TIMESTAMP_SLICES);
 
     expect(drawnOrderOf(markup)).toEqual([['4', null], ['3', null], ['2', null], ['1', null]]);
     expect(markup).not.toContain('data-review-of');
@@ -358,7 +331,7 @@ describe('review rows nested above their ticket', () => {
     const markup = taskRowsMarkup(rowsFiled([
       exampleTask({ id: 1, ticket: '003' }),
       exampleTask({ id: 2, name: 'Review 1 #3 — misnamed', ticket: '009' }),
-    ]), EXAMPLE_SLICES);
+    ]), EXAMPLE_TIMESTAMP_SLICES);
 
     expect(drawnOrderOf(markup)).toEqual([['2', null], ['1', null]]);
   });
@@ -459,32 +432,21 @@ describe('the axis layer', () => {
     expect(overlayMarkup(ticks, null)).toContain('<div id="ap-now" hidden></div>');
   });
 
-  test('asks for the label width per tick, with a floor for the short formats', () => {
-    expect(axisPixelsNeededFor([{ leftPercent: 0, label: '20:30' }])).toBe(60);
-    expect(axisPixelsNeededFor([{ leftPercent: 0, label: 'Thu 21:45' }])).toBe(81);
-    expect(axisPixelsNeededFor([])).toBe(0);
-  });
-
-  test('moves a label to the left of its line only when the pixels run out', () => {
-    expect(labelSitsLeftOfItsLine({ leftPercent: 98.97, label: '22:15' }, 900)).toBe(true);
-    expect(labelSitsLeftOfItsLine({ leftPercent: 50, label: '22:15' }, 900)).toBe(false);
-  });
-
   test('writes the tick step in the largest unit that divides it', () => {
     const from  = Date.UTC(2026, 8, 18, 18, 30, 0);
     const today = calendarDateOf(from);
 
-    expect(rangeNoteText(from, from + 105 * MILLISECONDS_PER_MINUTE, 15, today, EXAMPLE_RANGE_LIMITS).text).toContain('· 15m ticks');
-    expect(rangeNoteText(from, from + 105 * MILLISECONDS_PER_MINUTE, 360, today, EXAMPLE_RANGE_LIMITS).text).toContain('· 6h ticks');
-    expect(rangeNoteText(from, from + 105 * MILLISECONDS_PER_MINUTE, 1440, today, EXAMPLE_RANGE_LIMITS).text).toContain('· 1d ticks');
+    expect(rangeNoteText(from, from + 105 * MILLISECONDS_PER_MINUTE, 15, today, EXAMPLE_PAGE_LIMITS).text).toContain('· 15m ticks');
+    expect(rangeNoteText(from, from + 105 * MILLISECONDS_PER_MINUTE, 360, today, EXAMPLE_PAGE_LIMITS).text).toContain('· 6h ticks');
+    expect(rangeNoteText(from, from + 105 * MILLISECONDS_PER_MINUTE, 1440, today, EXAMPLE_PAGE_LIMITS).text).toContain('· 1d ticks');
   });
 
   // Each end is judged against the viewer's day on its own, and the title is always the whole note in full.
   test('dates an end only when it falls on another day than today, and titles the note with both ends in full', () => {
     const to        = Date.UTC(2026, 8, 18, 12, 0, 0);
     const today     = calendarDateOf(to);
-    const sameDay   = rangeNoteText(to - 60 * MILLISECONDS_PER_MINUTE, to, 15, today, EXAMPLE_RANGE_LIMITS);
-    const threeDays = rangeNoteText(to - 3 * 1440 * MILLISECONDS_PER_MINUTE, to, 1440, today, EXAMPLE_RANGE_LIMITS);
+    const sameDay   = rangeNoteText(to - 60 * MILLISECONDS_PER_MINUTE, to, 15, today, EXAMPLE_PAGE_LIMITS);
+    const threeDays = rangeNoteText(to - 3 * 1440 * MILLISECONDS_PER_MINUTE, to, 1440, today, EXAMPLE_PAGE_LIMITS);
 
     expect(sameDay.text).toMatch(/^\d\d:\d\d → \d\d:\d\d · 15m ticks$/);
     expect(threeDays.text).toMatch(/^\d\d-\d\d \d\d:\d\d → \d\d:\d\d · 1d ticks$/);
@@ -493,7 +455,7 @@ describe('the axis layer', () => {
 
   test('carries no title on a note whose ends are both from another year, since nothing was shortened', () => {
     const to   = Date.UTC(2025, 5, 1, 12, 0, 0);
-    const note = rangeNoteText(to - 60 * MILLISECONDS_PER_MINUTE, to, 15, '2026-09-18', EXAMPLE_RANGE_LIMITS);
+    const note = rangeNoteText(to - 60 * MILLISECONDS_PER_MINUTE, to, 15, '2026-09-18', EXAMPLE_PAGE_LIMITS);
 
     expect(note.text).toMatch(/^2025-\d\d-\d\d \d\d:\d\d → 2025-\d\d-\d\d \d\d:\d\d · 15m ticks$/);
     expect(note.title).toBeNull();
@@ -522,10 +484,10 @@ describe('the axis layer', () => {
         tickMinutes: null,
       },
       nowEpochMilliseconds: to,
-      limits:               EXAMPLE_TIMELINE_LIMITS,
+      limits:               EXAMPLE_PAGE_LIMITS,
     });
     const clockOnly = /^\d\d:\d\d$/;
-    const note      = rangeNoteText(from, to, timeline.stepMinutes, calendarDateOf(to), EXAMPLE_RANGE_LIMITS);
+    const note      = rangeNoteText(from, to, timeline.stepMinutes, calendarDateOf(to), EXAMPLE_PAGE_LIMITS);
 
     expect(timeline.ticks.length).toBeGreaterThan(0);
     expect(timeline.ticks.every((tick) => !clockOnly.test(tick.label))).toBe(true);

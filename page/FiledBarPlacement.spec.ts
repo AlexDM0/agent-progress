@@ -14,27 +14,10 @@ import { kanbanBoardMarkup }      from './kanban/KanbanMarkup.ts';
 import { KanbanLaneUtil }         from './kanban/utils/KanbanLaneUtil.ts';
 import { taskRowsMarkup }         from './progress/ProgressMarkup.ts';
 import { pageBoardFixture }       from './testing/PageBoardFixture.ts';
+import { EXAMPLE_PAGE_LIMITS }    from './testing/PageLimitsFixture.ts';
 
 const EXAMPLE_TODAY = '2026-09-25';
 const EXAMPLE_NOW   = Date.parse('2026-09-25T13:36:00+02:00');
-
-const EXAMPLE_LIMITS = {
-  tickStepLadderMinutes:      [5, 10, 15, 30, 60, 120, 180, 360, 720, 1440],
-  maximumTicksPerAxis:        12,
-  axisMinimumSpanMinutes:     60,
-  axisPaddingMinutes:         15,
-  minimumBarWidthPercent:     0.6,
-  hoursAxisLabelLimitMinutes: 1440,
-  weekAxisLabelLimitMinutes:  10_080,
-  hourMinutes:                60,
-  dayMinutes:                 1440,
-  tickCountSafetyBound:       500,
-  dateAndClockLength:         16,
-  calendarDateLength:         10,
-  monthAndDaySliceStart:      5,
-  clockSliceStart:            11,
-  clockSliceEnd:              16,
-};
 
 function at(clock: string, day = EXAMPLE_TODAY): string {
   return `${day}T${clock}:00+02:00`;
@@ -113,7 +96,7 @@ function inputFor(card: KanbanCard): TicketDetailInput {
     card,
     nowEpochMilliseconds: EXAMPLE_NOW,
     todayCalendarDate:    EXAMPLE_TODAY,
-    limits:               EXAMPLE_LIMITS,
+    limits:               EXAMPLE_PAGE_LIMITS,
   };
 }
 
@@ -132,12 +115,12 @@ describe('the filed bar outside the dialog', () => {
       task,
       bar:       { ...bar, taskId: task.id },
       waitingOn: [],
-    })), EXAMPLE_LIMITS);
+    })), EXAMPLE_PAGE_LIMITS);
     const board   = kanbanBoardMarkup({
       cards:                  [cardFor(DELIVERED_TICKET), cardFor(WAITING_TICKET)],
       nowEpochMilliseconds:   EXAMPLE_NOW,
       todayCalendarDate:      EXAMPLE_TODAY,
-      slices:                 EXAMPLE_LIMITS,
+      slices:                 EXAMPLE_PAGE_LIMITS,
       showsAllWork:           true,
       shownCountByClosedLane: { done: 15, abandoned: 15 },
       abandonedLaneIsOpen:    true,
@@ -146,7 +129,7 @@ describe('the filed bar outside the dialog', () => {
       task:              boardRows.find((row) => row.id === DELIVERED_ROW.id) ?? null,
       ticket:            DELIVERED_TICKET,
       log:               [],
-      slices:            EXAMPLE_LIMITS,
+      slices:            EXAMPLE_PAGE_LIMITS,
       todayCalendarDate: EXAMPLE_TODAY,
     });
     expect(rows).toContain('ap-row');

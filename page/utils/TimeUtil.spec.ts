@@ -4,10 +4,9 @@
  * are checked against the instant's own local date rather than a literal clock. A duration matters at its unit boundaries and when it runs backwards.
  */
 
-import { describe, expect, test } from 'bun:test';
-
-import type { TimestampSlices } from './TimeUtil.ts';
-import { TimeUtil }             from './TimeUtil.ts';
+import { describe, expect, test }   from 'bun:test';
+import { EXAMPLE_TIMESTAMP_SLICES } from '../testing/PageLimitsFixture.ts';
+import { TimeUtil }                 from './TimeUtil.ts';
 
 const {
   calendarDateOf,
@@ -18,15 +17,8 @@ const {
   monthAndDayOf,
   shortInstantText,
   shortStampText,
+  stampIsFromDay,
 } = TimeUtil;
-
-const EXAMPLE_SLICES: TimestampSlices = {
-  dateAndClockLength:    16,
-  calendarDateLength:    10,
-  monthAndDaySliceStart: 5,
-  clockSliceStart:       11,
-  clockSliceEnd:         16,
-};
 
 const EXAMPLE_TODAY = '2026-09-18';
 
@@ -34,28 +26,35 @@ const MILLISECONDS_PER_DAY = 86_400_000;
 
 const LOCAL_CLOCK = /^\d\d:\d\d$/;
 
+describe('stampIsFromDay', () => {
+  test('compares the date the stamp was written on, whatever offset it carries', () => {
+    expect(stampIsFromDay('2026-09-18T23:30:00-05:00', EXAMPLE_TODAY, EXAMPLE_TIMESTAMP_SLICES)).toBe(true);
+    expect(stampIsFromDay('2026-09-17T23:48:00+02:00', EXAMPLE_TODAY, EXAMPLE_TIMESTAMP_SLICES)).toBe(false);
+  });
+});
+
 describe('shortStampText', () => {
   test('shows only the clock of a stamp from today', () => {
-    expect(shortStampText('2026-09-18T20:44:00+02:00', EXAMPLE_TODAY, EXAMPLE_SLICES)).toBe('20:44');
+    expect(shortStampText('2026-09-18T20:44:00+02:00', EXAMPLE_TODAY, EXAMPLE_TIMESTAMP_SLICES)).toBe('20:44');
   });
 
   test('puts the month and day in front of a stamp from another day of the same year', () => {
-    expect(shortStampText('2026-09-17T23:48:00+02:00', EXAMPLE_TODAY, EXAMPLE_SLICES)).toBe('09-17 23:48');
+    expect(shortStampText('2026-09-17T23:48:00+02:00', EXAMPLE_TODAY, EXAMPLE_TIMESTAMP_SLICES)).toBe('09-17 23:48');
   });
 
   // In the viewer's zone this instant may fall on the 19th; the stamp keeps the wall clock of the machine that wrote it, so it is today's.
   test('reads the date as written, whatever offset the stamp carries', () => {
-    expect(shortStampText('2026-09-18T23:30:00-05:00', EXAMPLE_TODAY, EXAMPLE_SLICES)).toBe('23:30');
+    expect(shortStampText('2026-09-18T23:30:00-05:00', EXAMPLE_TODAY, EXAMPLE_TIMESTAMP_SLICES)).toBe('23:30');
   });
 
   test('shows a stamp from another year in full', () => {
-    expect(shortStampText('2025-12-31T23:48:00+01:00', '2026-01-01', EXAMPLE_SLICES)).toBe('2025-12-31 23:48');
+    expect(shortStampText('2025-12-31T23:48:00+01:00', '2026-01-01', EXAMPLE_TIMESTAMP_SLICES)).toBe('2025-12-31 23:48');
   });
 });
 
 describe('fullStampText', () => {
   test('is the date and the clock, the form every hover shows', () => {
-    expect(fullStampText('2026-09-18T20:44:00+02:00', EXAMPLE_SLICES)).toBe('2026-09-18 20:44');
+    expect(fullStampText('2026-09-18T20:44:00+02:00', EXAMPLE_TIMESTAMP_SLICES)).toBe('2026-09-18 20:44');
   });
 });
 

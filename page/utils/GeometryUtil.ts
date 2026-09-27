@@ -1,63 +1,27 @@
 /**
  * The Gantt axis and bar geometry as pure arithmetic over epoch milliseconds: no DOM, no clock. Its bounds arrive as a parameter instead of
- * from `src/shared/constants/Limits.ts`, so `page/utils/GeometryUtil.spec.ts` drives it with a constructed tick ladder; the page passes what
+ * from `src/shared/constants/Limits.ts`, so the ticket timeline can ask for fewer ticks; the page passes what
  * `src/services/render/ProgressHtml.ts` put in the progress island.
  */
 
-import type { ProgressFile, ViewRange }                from '../../src/lib/tracker-model/@types/ProgressFile.ts';
-import type { Task }                                   from '../../src/lib/tracker-model/@types/Task.ts';
-import type { PageLimits }                             from '../../src/shared/@types/PagePayload.ts';
+import type { ProgressFile, ViewRange } from '../../src/lib/tracker-model/@types/ProgressFile.ts';
+import type { Task }                    from '../../src/lib/tracker-model/@types/Task.ts';
+import type {
+  HorizontalExtent,
+  ResolvedSpan,
+  Timeline,
+  TimelineBar,
+  TimelineInput,
+  TimelineLimits,
+  TimelineTick,
+} from '../@types/Timeline.ts';
+import { MINIMUM_TICK_STEP_MINUTES }                   from '../constants/TickSteps.ts';
 import { MILLISECONDS_PER_MINUTE, PERCENT_OF_A_WHOLE } from '../constants/Units.ts';
 import { TimeUtil }                                    from './TimeUtil.ts';
-
-const MINIMUM_STEP_MINUTES = 1;
 
 const TICK_LABEL_CLEARANCE_PIXELS = 6;
 
 const WEEKDAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
-
-export type TimelineLimits = Pick<PageLimits, 'tickStepLadderMinutes' | 'maximumTicksPerAxis' | 'axisMinimumSpanMinutes' | 'axisPaddingMinutes'
-  | 'minimumBarWidthPercent' | 'hoursAxisLabelLimitMinutes' | 'weekAxisLabelLimitMinutes' | 'hourMinutes' | 'dayMinutes' | 'tickCountSafetyBound'>;
-
-export interface TimelineTick {
-  leftPercent: number;
-  label:       string;
-}
-
-export interface TimelineBar {
-  taskId:       number;
-  leftPercent:  number;
-  widthPercent: number;
-  clippedLeft:  boolean;
-  clippedRight: boolean;
-  visible:      boolean;
-}
-
-export interface Timeline {
-  fromEpochMilliseconds: number;
-  toEpochMilliseconds:   number;
-  stepMinutes:           number;
-  ticks:                 TimelineTick[];
-  bars:                  TimelineBar[];
-  nowPercent:            number | null;
-}
-
-export interface ResolvedSpan {
-  fromEpochMilliseconds: number;
-  toEpochMilliseconds:   number;
-}
-
-export interface TimelineInput {
-  progress:             ProgressFile;
-  range:                ViewRange;
-  nowEpochMilliseconds: number;
-  limits:               TimelineLimits;
-}
-
-export interface HorizontalExtent {
-  left:  number;
-  right: number;
-}
 
 function parseOffsetMinutes(text: string, limits: TimelineLimits): number | null {
   const match = /^([+-])(\d+)([mhd])$/.exec(text.trim());
@@ -147,15 +111,15 @@ function resolveSpan(progress: ProgressFile, range: ViewRange, nowEpochMilliseco
 
 function chooseStepMinutes(spanMinutes: number, tickMinutes: number | null, limits: TimelineLimits): number {
   if (tickMinutes !== null && tickMinutes > 0) {
-    return Math.max(MINIMUM_STEP_MINUTES, tickMinutes);
+    return Math.max(MINIMUM_TICK_STEP_MINUTES, tickMinutes);
   }
   for (const candidateMinutes of limits.tickStepLadderMinutes) {
     if (candidateMinutes > 0 && spanMinutes / candidateMinutes <= limits.maximumTicksPerAxis) {
       return candidateMinutes;
     }
   }
-  const dayCount = Math.ceil(spanMinutes / Math.max(1, limits.maximumTicksPerAxis * limits.dayMinutes));
-  return Math.max(MINIMUM_STEP_MINUTES, dayCount * limits.dayMinutes);
+  const dayCount = Math.ceil(spanMinutes / Math.max(MINIMUM_TICK_STEP_MINUTES, limits.maximumTicksPerAxis * limits.dayMinutes));
+  return Math.max(MINIMUM_TICK_STEP_MINUTES, dayCount * limits.dayMinutes);
 }
 
 /** Local rather than UTC, or a 30-minute step lands on `:15`/`:45` in a half-hour zone. */

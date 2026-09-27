@@ -1,6 +1,6 @@
 import type { DisplayState, Task }           from '../../../src/lib/tracker-model/@types/Task.ts';
 import type { PageTicket }                   from '../../../src/shared/@types/PagePayload.ts';
-import type { TimelineLimits, TimelineTick } from '../../utils/GeometryUtil.ts';
+import type { TimelineLimits, TimelineTick } from '../../@types/Timeline.ts';
 import type { TimestampSlices }              from '../../utils/TimeUtil.ts';
 
 export type TicketTimelineLimits = TimelineLimits & TimestampSlices;

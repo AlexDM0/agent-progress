@@ -6,8 +6,8 @@
 import { HtmlEscapeUtil }      from '../../src/lib/utils/HtmlEscapeUtil.ts';
 import { TokenCountUtil }      from '../../src/lib/utils/TokenCountUtil.ts';
 import type { PageTicket }     from '../../src/shared/@types/PagePayload.ts';
+import type { TimelineLimits } from '../@types/Timeline.ts';
 import { PERCENT_OF_A_WHOLE }  from '../constants/Units.ts';
-import type { TimelineLimits } from '../utils/GeometryUtil.ts';
 import { MarkupUtil }          from '../utils/MarkupUtil.ts';
 import { TimeUtil }            from '../utils/TimeUtil.ts';
 import type {
@@ -55,7 +55,7 @@ function ganttRowMarkup(nameMarkup: string, timeText: string, trackMarkup: strin
 
 function filedNameMarkup(ticket: PageTicket, input: TicketTimelineInput): string {
   const { limits, todayCalendarDate } = input;
-  if (ticket.filed.slice(0, limits.calendarDateLength) === todayCalendarDate) {
+  if (TimeUtil.stampIsFromDay(ticket.filed, todayCalendarDate, limits)) {
     return `<span class="ap-name">Filed <span class="mono">${HtmlEscapeUtil.escapeHtml(TimeUtil.shortStampText(ticket.filed, todayCalendarDate, limits))}</span></span>`;
   }
   return `<span class="ap-name" ${MarkupUtil.attribute('title', `filed ${TimeUtil.fullStampText(ticket.filed, limits)}`)}>Filed</span>`;

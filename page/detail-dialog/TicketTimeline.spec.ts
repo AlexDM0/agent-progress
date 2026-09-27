@@ -5,40 +5,22 @@
  * Instants are formatted in local time, so a clock the page computed is asserted through the same formatter, never as a literal.
  */
 
-import { describe, expect, test } from 'bun:test';
-import type { Task, TaskPhase }   from '../../src/lib/tracker-model/@types/Task.ts';
-import type { PageTicket }        from '../../src/shared/@types/PagePayload.ts';
-import { LIMITS }                 from '../../src/shared/constants/Limits.ts';
-import { pageBoardFixture }       from '../testing/PageBoardFixture.ts';
-import type {
-  TicketTimeline,
-  TicketTimelineInput,
-  TicketTimelineLimits,
-  TimelineSpan,
-} from './@types/TicketTimeline.ts';
-import { clockLabelFor, TICKET_TIMELINE_MAXIMUM_TICKS, ticketTimelineOf } from './TicketTimeline.ts';
-import { ticketTimelineMarkup }                                           from './TicketTimelineMarkup.ts';
+import { describe, expect, test }                                 from 'bun:test';
+import type { Task, TaskPhase }                                   from '../../src/lib/tracker-model/@types/Task.ts';
+import type { PageTicket }                                        from '../../src/shared/@types/PagePayload.ts';
+import { LIMITS }                                                 from '../../src/shared/constants/Limits.ts';
+import { pageBoardFixture }                                       from '../testing/PageBoardFixture.ts';
+import { EXAMPLE_PAGE_LIMITS }                                    from '../testing/PageLimitsFixture.ts';
+import { TimeUtil }                                               from '../utils/TimeUtil.ts';
+import type { TicketTimeline, TicketTimelineInput, TimelineSpan } from './@types/TicketTimeline.ts';
+import { ticketTimelineOf }                                       from './TicketTimeline.ts';
+import { ticketTimelineMarkup }                                   from './TicketTimelineMarkup.ts';
 
 const EXAMPLE_TODAY = '2026-09-25';
 const EXAMPLE_NOW   = Date.parse('2026-09-25T13:36:00+02:00');
 
-const EXAMPLE_LIMITS: TicketTimelineLimits = {
-  tickStepLadderMinutes:      LIMITS.TICK_STEP_LADDER_MINUTES,
-  maximumTicksPerAxis:        LIMITS.MAXIMUM_TICKS_PER_AXIS,
-  axisMinimumSpanMinutes:     LIMITS.AXIS_MINIMUM_SPAN_MINUTES,
-  axisPaddingMinutes:         LIMITS.AXIS_PADDING_MINUTES,
-  minimumBarWidthPercent:     LIMITS.MINIMUM_BAR_WIDTH_PERCENT,
-  hoursAxisLabelLimitMinutes: LIMITS.HOURS_AXIS_LABEL_LIMIT_MINUTES,
-  weekAxisLabelLimitMinutes:  LIMITS.WEEK_AXIS_LABEL_LIMIT_MINUTES,
-  hourMinutes:                LIMITS.HOUR_MINUTES,
-  dayMinutes:                 LIMITS.DAY_MINUTES,
-  tickCountSafetyBound:       LIMITS.TICK_COUNT_SAFETY_BOUND,
-  dateAndClockLength:         LIMITS.DATE_AND_CLOCK_LENGTH_CHARACTERS,
-  calendarDateLength:         LIMITS.CALENDAR_DATE_LENGTH_CHARACTERS,
-  monthAndDaySliceStart:      LIMITS.MONTH_AND_DAY_SLICE_START_CHARACTER_OFFSET,
-  clockSliceStart:            LIMITS.CLOCK_SLICE_START_CHARACTER_OFFSET,
-  clockSliceEnd:              LIMITS.CLOCK_SLICE_END_CHARACTER_OFFSET,
-};
+/** The design draws at most nine ticks under a ticket's Timeline, fewer than the Progress chart's axis. */
+const TICKET_TIMELINE_TICK_BOUND = 9;
 
 function at(clock: string, day = EXAMPLE_TODAY): string {
   return `${day}T${clock}:00+02:00`;
@@ -103,7 +85,7 @@ function inputFor(ticket: PageTicket, tasks: Task[], waitingOn: string[] = []): 
     waitingOn,
     nowEpochMilliseconds: EXAMPLE_NOW,
     todayCalendarDate:    EXAMPLE_TODAY,
-    limits:               EXAMPLE_LIMITS,
+    limits:               EXAMPLE_PAGE_LIMITS,
   };
 }
 
@@ -192,7 +174,7 @@ describe('the design’s #059, in its second review at the design’s now', () =
   });
 
   test('its end marker is now, labelled with the now clock and no closed state', () => {
-    expect(timeline.end.label).toBe(`now ${clockLabelFor(EXAMPLE_NOW)}`);
+    expect(timeline.end.label).toBe(`now ${TimeUtil.clockOf(new Date(EXAMPLE_NOW))}`);
     expect(timeline.end.closedState).toBeNull();
     expect(timeline.note).toBeNull();
   });
@@ -202,7 +184,7 @@ describe('the design’s #059, in its second review at the design’s now', () =
     expect(timeline.axis.fromEpochMilliseconds).toBe(Date.parse(at('08:40')) - span * 0.025);
     expect(timeline.axis.toEpochMilliseconds).toBe(EXAMPLE_NOW + span * 0.025);
     expect(timeline.ticks.length).toBeGreaterThan(0);
-    expect(timeline.ticks.length).toBeLessThanOrEqual(TICKET_TIMELINE_MAXIMUM_TICKS);
+    expect(timeline.ticks.length).toBeLessThanOrEqual(TICKET_TIMELINE_TICK_BOUND);
     expect(timeline.ticks.every((tick) => /^\d\d:\d\d$/.test(tick.label))).toBe(true);
   });
 

@@ -4,11 +4,12 @@
  * buttons, the empty lanes under Show all, the Abandoned toggle and the escaping.
  */
 
-import { describe, expect, test } from 'bun:test';
-import type { Task }              from '../../src/lib/tracker-model/@types/Task.ts';
-import type { PageTicket }        from '../../src/shared/@types/PagePayload.ts';
-import { pageBoardFixture }       from '../testing/PageBoardFixture.ts';
-import type { KanbanBoardInput }  from './KanbanMarkup.ts';
+import { describe, expect, test }   from 'bun:test';
+import type { Task }                from '../../src/lib/tracker-model/@types/Task.ts';
+import type { PageTicket }          from '../../src/shared/@types/PagePayload.ts';
+import { pageBoardFixture }         from '../testing/PageBoardFixture.ts';
+import { EXAMPLE_TIMESTAMP_SLICES } from '../testing/PageLimitsFixture.ts';
+import type { KanbanBoardInput }    from './KanbanMarkup.ts';
 import {
   cappedLaneFooterMarkup,
   kanbanBoardMarkup,
@@ -22,14 +23,6 @@ const { cappedLaneShownCount, shownCountAfterMore } = LanePagingUtil;
 
 const EXAMPLE_TODAY = '2026-09-25';
 const EXAMPLE_NOW   = Date.parse('2026-09-25T13:36:00+02:00');
-
-const EXAMPLE_SLICES = {
-  dateAndClockLength:    16,
-  calendarDateLength:    10,
-  monthAndDaySliceStart: 5,
-  clockSliceStart:       11,
-  clockSliceEnd:         16,
-};
 
 const PLACEHOLDER_DONE_LANE_COUNT = 18;
 const MINUTES_BETWEEN_DELIVERIES  = 20;
@@ -80,7 +73,7 @@ function boardInput(tickets: readonly PageTicket[], tasks: readonly Task[], chan
     cards:                  KanbanLaneUtil.kanbanCardsFor(pageBoardFixture({ tasks, tickets }).tickets, waitingOnById),
     nowEpochMilliseconds:   EXAMPLE_NOW,
     todayCalendarDate:      EXAMPLE_TODAY,
-    slices:                 EXAMPLE_SLICES,
+    slices:                 EXAMPLE_TIMESTAMP_SLICES,
     showsAllWork:           false,
     shownCountByClosedLane: { done: 15, abandoned: 15 },
     abandonedLaneIsOpen:    false,
