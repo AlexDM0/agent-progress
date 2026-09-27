@@ -54,19 +54,20 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   it, so it stays DOM-safe.
 - `cli/testing/` is imported only by `cli/` specs.
 - `page/testing/` is imported only by `page/` specs.
-- `src/adapters/` imports only `src/lib/` and `src/shared/`; a `src/adapters/` spec may also import `src/testing/`.
-  `cli/` imports `src/adapters/` as a feature does.
+- `src/adapters/` imports only `src/lib/` and `src/shared/`; a `src/adapters/` spec, `src/adapters/progress/testing/`
+  and `src/adapters/legacy/testing/` may also import `src/testing/`. `cli/` imports `src/adapters/` as a feature does.
 - `src/services/tracker/` imports `src/lib/`, `src/shared/`, `src/adapters/` and `src/services/render/`;
   `src/services/render/` imports only `src/lib/`, `src/shared/` and `src/adapters/`; a `src/services/` spec may import
   `src/testing/`. `cli/` imports `src/services/` as a feature does.
-- `src/shared/` holds app-specific code several parts use and imports only `src/lib/` and itself; `src/` never imports
-  a feature.
+- `src/shared/` holds app-specific code several parts use and imports only `src/lib/` and itself; a `src/shared/` spec
+  may import `src/testing/`. `src/` never imports a feature.
 
 ### Model and boundaries
 
 - Internal values are string-literal unions, never display text; wording is mapped in and out at the edge. Every
-  status, ticket type and priority the page shows goes through `src/adapters/utils/HtmlLabelUtil.ts`, and every one
-  the command line prints as text goes through `src/adapters/utils/StatusWordingUtil.ts`, so each display word has one
+  ticket status, ticket type and priority the page shows goes through `src/adapters/utils/HtmlLabelUtil.ts`, every
+  display state's pill (on rows, cards and detail panels) through `page/constants/PillLabels.ts`, and every status
+  the command line prints as text through `src/adapters/utils/StatusWordingUtil.ts`, so each display word has one
   home even where it equals the value today; JSON output, stored files, the reasons that name a stored file's values
   and a command the output suggests running, whose arguments the parser reads as values, carry the values themselves,
   and the help screen is prose `cli/HelpText.spec.ts` holds.
@@ -181,9 +182,9 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   `eslint.config.js`); local specifiers name the file with its `.ts` extension (`import/extensions`, turned on there
   as well); more than 3 named imports or 4+ properties one per line; arrow parameters parenthesised; no
   `any`; a blank line before a function declaration. `src/testing/`, `cli/testing/`, `src/adapters/progress/testing/`,
-  `dispatcher/testing/` and `page/testing/` may import devDependencies. Deliberately off: `no-plusplus`, `no-continue`,
-  `no-await-in-loop`, `no-param-reassign`, `consistent-return`, `no-restricted-syntax`, `guard-for-in`,
-  `class-methods-use-this`, `no-use-before-define`.
+  `src/adapters/legacy/testing/`, `dispatcher/testing/` and `page/testing/` may import devDependencies. Deliberately
+  off: `no-plusplus`, `no-continue`, `no-await-in-loop`, `no-param-reassign`, `consistent-return`,
+  `no-restricted-syntax`, `guard-for-in`, `class-methods-use-this`, `no-use-before-define`.
 
 ### Tests
 
