@@ -1,6 +1,7 @@
 /**
  * Gives a review row filed or renamed to a `Review <N> #<id>` name alone, without `--review-of`, the link its name names, so the row is
- * stored linked by `task add` and `task update --name`. It can go once agents always pass `--review-of`, which the brief asks for.
+ * stored linked by `task add` and `task update --name`. It can go once agents always pass `--review-of`, which the brief asks for, and takes
+ * with it the `reviewOf` of the Board's `TaskCorrection` and the branch of `Board.correctTask` that applies it, which only it fills.
  */
 import type { TaskAddition } from '../../../src/lib/tracker-model/@types/BoardChanges.ts';
 import type { Task }         from '../../../src/lib/tracker-model/@types/Task.ts';
