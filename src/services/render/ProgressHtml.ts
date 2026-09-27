@@ -16,8 +16,6 @@ import { LIMITS }                                        from '../../shared/cons
 import { TEMPLATE_FILE_NAME, TEMPLATE_TOKENS }           from './constants/TemplateFile.ts';
 import { TemplateTokenUtil }                             from './utils/TemplateTokenUtil.ts';
 
-const { escapeHtml, escapeJsonForScriptTag } = HtmlEscapeUtil;
-
 interface RenderProgressHtmlInput {
   progress:          TrackerProgress;
   logRecords:        readonly LogRecord[];
@@ -60,7 +58,7 @@ function pageTicketsFor(tickets: readonly Ticket[], renderMarkdown: (markdown: s
 }
 
 function bannerOnlyScript(reason: string): string {
-  const message = escapeJsonForScriptTag(JSON.stringify(reason));
+  const message = HtmlEscapeUtil.escapeJsonForScriptTag(JSON.stringify(reason));
   return [
     '(function(){',
     'var banner=document.getElementById("ap-error");',
@@ -97,9 +95,9 @@ export function renderProgressHtml(input: RenderProgressHtmlInput): string {
   };
 
   return TemplateTokenUtil.substituteTemplateTokens(template, {
-    [TEMPLATE_TOKENS.TITLE]:       `<title>${escapeHtml(progress.project)} progress</title>`,
-    [TEMPLATE_TOKENS.PROGRESS]:    escapeJsonForScriptTag(JSON.stringify(payload)),
-    [TEMPLATE_TOKENS.TICKETS]:     escapeJsonForScriptTag(JSON.stringify(pageTicketsFor(tickets, renderMarkdown))),
+    [TEMPLATE_TOKENS.TITLE]:       `<title>${HtmlEscapeUtil.escapeHtml(progress.project)} progress</title>`,
+    [TEMPLATE_TOKENS.PROGRESS]:    HtmlEscapeUtil.escapeJsonForScriptTag(JSON.stringify(payload)),
+    [TEMPLATE_TOKENS.TICKETS]:     HtmlEscapeUtil.escapeJsonForScriptTag(JSON.stringify(pageTicketsFor(tickets, renderMarkdown))),
     [TEMPLATE_TOKENS.PAGE_SCRIPT]: pageScript ?? bannerOnlyScript(pageScriptFailure ?? 'the page script could not be built'),
   });
 }

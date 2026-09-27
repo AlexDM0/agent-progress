@@ -15,7 +15,7 @@ import { dirname, join } from 'node:path';
 const RETIRED_DISPATCHER_SCRIPT_PATH_IN_REPOSITORY = ['.claude', 'workflows', 'agent-progress-dispatch.js'] as const;
 
 /** The report line's clause, or `null` when there was no copy to remove. */
-export function removalOfTheRetiredDispatcherScript(rootDirectory: string): string | null {
+export function removeTheRetiredDispatcherScript(rootDirectory: string): string | null {
   const retiredDispatcherScriptFilePath = join(rootDirectory, ...RETIRED_DISPATCHER_SCRIPT_PATH_IN_REPOSITORY);
   if (!existsSync(retiredDispatcherScriptFilePath)) return null;
   rmSync(retiredDispatcherScriptFilePath, { force: true });

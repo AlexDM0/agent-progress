@@ -16,7 +16,7 @@ import {
 import type { Workspace }                                     from '../../src/services/tracker/Workspace.ts';
 import { CLAUDE_MANAGED_BLOCK_MARKERS, installedFilePathsIn } from '../InstalledFiles.ts';
 import { INSTALL_VERSION }                                    from '../constants/InstallVersion.ts';
-import { removalOfTheRetiredDispatcherScript }                from '../legacy/RetiredDispatcherScriptRemoval.ts';
+import { removeTheRetiredDispatcherScript }                   from '../legacy/RetiredDispatcherScriptRemoval.ts';
 import type { InstalledFileTexts }                            from './InstalledFileGeneration.ts';
 
 /** The matcher is empty so every subagent is recorded, matching the cohort `usage` reads; the timeout covers waiting on a held lock. */
@@ -190,8 +190,8 @@ export function refreshTrackedRepository(request: TrackerRefreshRequest): Tracke
   // Last, so a write that fails before them leaves the brief's `updated` and the removal for the rerun to do and report.
   const { briefFilePath, briefLine } = refreshAgentBrief(installedFilePaths.agentBrief, installedFileTexts.agentBrief);
   // The seam to the retired .claude/workflows/ copy; dropping cli/legacy/ makes the workflow line dispatcherScriptLine.
-  const retiredCopyRemoval = dispatcherScript === null ? null : removalOfTheRetiredDispatcherScript(workspace.rootDirectory);
-  const workflowLine = retiredCopyRemoval === null ? dispatcherScriptLine : `${dispatcherScriptLine}; ${retiredCopyRemoval}`;
+  const retiredCopyRemovalReport = dispatcherScript === null ? null : removeTheRetiredDispatcherScript(workspace.rootDirectory);
+  const workflowLine = retiredCopyRemovalReport === null ? dispatcherScriptLine : `${dispatcherScriptLine}; ${retiredCopyRemovalReport}`;
 
   return {
     claudeInstructionsLine,

@@ -11,10 +11,9 @@ function waitingOnText(ticketIds: readonly string[]): string {
 }
 
 function lowPriorityHeldBackText(ticketId: string, holdingBackTicketIds: readonly string[]): string {
-  const { priorityWordFor, statusWordFor } = StatusWordingUtil;
-  return `Ticket #${ticketId} is ${priorityWordFor('low')} priority, and ${ticketReferencesText(holdingBackTicketIds)} `
-    + `${holdingBackTicketIds.length === 1 ? 'is' : 'are'} ${priorityWordFor('normal')} or ${priorityWordFor('high')} `
-    + `and not ${statusWordFor('delivered')} or ${statusWordFor('abandoned')} yet`;
+  return `Ticket #${ticketId} is ${StatusWordingUtil.priorityWordFor('low')} priority, and ${ticketReferencesText(holdingBackTicketIds)} `
+    + `${holdingBackTicketIds.length === 1 ? 'is' : 'are'} ${StatusWordingUtil.priorityWordFor('normal')} or ${StatusWordingUtil.priorityWordFor('high')} `
+    + `and not ${StatusWordingUtil.statusWordFor('delivered')} or ${StatusWordingUtil.statusWordFor('abandoned')} yet`;
 }
 
 /** `Ticket #003`, or `Tickets #003, #004` for more than one. */

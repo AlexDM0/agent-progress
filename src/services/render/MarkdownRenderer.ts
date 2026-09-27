@@ -7,8 +7,6 @@ import { Marked }                      from 'marked';
 import type { RendererObject, Tokens } from 'marked';
 import { HtmlEscapeUtil }              from '../../lib/utils/HtmlEscapeUtil.ts';
 
-const { escapeHtml } = HtmlEscapeUtil;
-
 const ALLOWED_HREF_SCHEMES = ['http:', 'https:', 'mailto:'] as const;
 
 const NAMED_ENTITY_REPLACEMENTS: ReadonlyArray<readonly [entity: string, character: string]> = [
@@ -80,7 +78,7 @@ function hrefIsAllowed(href: string): boolean {
 
 const PAGE_RENDERER: RendererObject = {
   html({ text }: Tokens.HTML | Tokens.Tag): string {
-    return escapeHtml(text);
+    return HtmlEscapeUtil.escapeHtml(text);
   },
   link(token: Tokens.Link): string | false {
     if (hrefIsAllowed(token.href)) {
@@ -92,7 +90,7 @@ const PAGE_RENDERER: RendererObject = {
     if (hrefIsAllowed(token.href)) {
       return false;
     }
-    return escapeHtml(token.text);
+    return HtmlEscapeUtil.escapeHtml(token.text);
   },
 };
 

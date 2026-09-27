@@ -37,11 +37,10 @@ function chartRangeTextOf(view: ViewRange): string {
  * share is named beside the whole input because it is the figure that explains a long session and is invisible in a plain total.
  */
 function agentStoppedTextOf(usage: AgentUsage): string {
-  const { formatTokenCount } = TokenCountUtil;
   return `Agent ${usage.agentId} (${usage.agentType}) stopped: ${usage.apiCallCount} calls, `
-    + `end context ${formatTokenCount(usage.endContextTokens)}, `
-    + `input ${formatTokenCount(usage.totalInputTokens)} (cache read ${formatTokenCount(usage.cacheReadInputTokens)}), `
-    + `output ${formatTokenCount(usage.outputTokens)}`;
+    + `end context ${TokenCountUtil.formatTokenCount(usage.endContextTokens)}, `
+    + `input ${TokenCountUtil.formatTokenCount(usage.totalInputTokens)} (cache read ${TokenCountUtil.formatTokenCount(usage.cacheReadInputTokens)}), `
+    + `output ${TokenCountUtil.formatTokenCount(usage.outputTokens)}`;
 }
 
 function sentenceOf(record: LogRecordContent): string {

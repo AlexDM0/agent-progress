@@ -71,7 +71,7 @@ function agentUsageFor(transcript: SubagentTranscript, transcriptText: string): 
     sessionIdentifier: transcript.sessionIdentifier,
     agentIdentifier:   transcript.agentIdentifier,
     transcriptPath:    transcript.path,
-    totalInputTokens:  profile.inputTokens + profile.cacheReadInputTokens + profile.cacheCreationInputTokens,
+    totalInputTokens:  TranscriptUsageUtil.totalInputTokensOf(profile),
   };
 }
 
