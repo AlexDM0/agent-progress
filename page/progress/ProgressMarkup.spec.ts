@@ -221,14 +221,23 @@ describe('review rows nested above their ticket', () => {
       exampleTask({ id: 1, name: 'Split the exporter', ticket: '003' }),
       exampleTask({ id: 2, name: 'Regenerate the fixtures' }),
       exampleTask({
-        id: 3, name: 'Review 1 #3 — Split the exporter', reviewOf: '003', reviewBarRound: 1 
+        id:             3,
+        name:           'Review 1 #3 — Split the exporter',
+        reviewOf:       '003',
+        reviewBarRound: 1,
       }),
       exampleTask({ id: 4, name: 'Brighter colours', ticket: '004' }),
       exampleTask({
-        id: 5, name: 'Review 2 #3 — Split the exporter', reviewOf: '003', reviewBarRound: 2 
+        id:             5,
+        name:           'Review 2 #3 — Split the exporter',
+        reviewOf:       '003',
+        reviewBarRound: 2,
       }),
       exampleTask({
-        id: 6, name: 'Review 3 #3 — Split the exporter', reviewOf: '003', reviewBarRound: 3 
+        id:             6,
+        name:           'Review 3 #3 — Split the exporter',
+        reviewOf:       '003',
+        reviewBarRound: 3,
       }),
     ]), EXAMPLE_TIMESTAMP_SLICES);
 
@@ -315,7 +324,10 @@ describe('review rows nested above their ticket', () => {
       exampleTask({ id: 1, ticket: '013' }),
       exampleTask({ id: 2, ticket: '005' }),
       exampleTask({
-        id: 3, name: 'Review 1 #13, #5 — the bundle', reviewOf: '013', reviewBarRound: 1 
+        id:             3,
+        name:           'Review 1 #13, #5 — the bundle',
+        reviewOf:       '013',
+        reviewBarRound: 1,
       }),
     ]), EXAMPLE_TIMESTAMP_SLICES);
 
@@ -328,7 +340,10 @@ describe('review rows nested above their ticket', () => {
     const markup = taskRowsMarkup(rowsFiled([
       exampleTask({ id: 1, name: 'Regenerate the fixtures' }),
       exampleTask({
-        id: 2, name: 'Review 1 #7 — a ticket with no row', reviewOf: '007', reviewBarRound: 1 
+        id:             2,
+        name:           'Review 1 #7 — a ticket with no row',
+        reviewOf:       '007',
+        reviewBarRound: 1,
       }),
       exampleTask({ id: 3, name: 'Review pass of the whole surface' }),
       exampleTask({ id: 4, name: 'Review 1 #8 — linked by flag', reviewOf: '008' }),

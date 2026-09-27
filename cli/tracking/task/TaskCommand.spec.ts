@@ -57,7 +57,10 @@ describe.skipIf(!gitIsAvailable())('the lifecycle of a row', () => {
     const added = await run(['task', 'add', 'Review pass', '--owner', 'Alex Example', '--note', 'the whole surface']);
     expect(added.outputText()).toContain('Task #1 added: Review pass');
     expect(storedProgressOf(repositoryDirectory).tasks[0]).toMatchObject({
-      id: 1, name: 'Review pass', owner: 'Alex Example', status: 'pending' 
+      id:     1,
+      name:   'Review pass',
+      owner:  'Alex Example',
+      status: 'pending',
     });
 
     await run(['task', 'start', '1']);

@@ -57,7 +57,10 @@ function currentDocumentText(): string {
       ...statusRows,
       storedRow(nextId, { name: 'Review 1 #003 — Example', reviewOf: '003', reviewBarRound: 1 }),
       storedRow(nextId + 1, {
-        name: 'Example bar', reviewOf: '003', reviewBarRound: 2, unknownRowKey: 'kept' 
+        name:           'Example bar',
+        reviewOf:       '003',
+        reviewBarRound: 2,
+        unknownRowKey:  'kept',
       }),
       storedRow(nextId + 2, { name: 'Review 1 #3 — misnamed own row', ticket: '009' }),
       storedRow(nextId + 3, { name: 'Example follow-up', ticket: '003', reviewOf: '3' }),

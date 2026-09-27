@@ -30,7 +30,10 @@ test('the ids in flight are the Board\'s own answers', () => {
     tasks: [
       taskFixture({ id: 1, status: 'in-progress', ticket: '001' }),
       taskFixture({
-        id: 2, status: 'in-progress', reviewOf: '002', reviewBarRound: 1 
+        id:             2,
+        status:         'in-progress',
+        reviewOf:       '002',
+        reviewBarRound: 1,
       }),
     ],
   });
@@ -42,7 +45,10 @@ describe('the reviews waiting and the paused builds', () => {
   test('resolve every model, effort and priority a ticket leaves out to its default', () => {
     const { board, tickets } = boardFixture({
       tasks: [taskFixture({
-        id: 1, status: 'paused', ticket: '002', note: 'Paused by Alex Example' 
+        id:     1,
+        status: 'paused',
+        ticket: '002',
+        note:   'Paused by Alex Example',
       })],
       tickets: [ticketFixture({ id: '001', status: 'in-review' }), ticketFixture({ id: '002', status: 'in-progress', task: 1 })],
     });
@@ -64,7 +70,10 @@ describe('the reviews waiting and the paused builds', () => {
       tasks:   [taskFixture({ id: 1, status: 'paused', ticket: '002' })],
       tickets: [
         ticketFixture({
-          id: '001', status: 'in-review', model: 'sonnet', effort: 'high' 
+          id:     '001',
+          status: 'in-review',
+          model:  'sonnet',
+          effort: 'high',
         }),
         ticketFixture({
           id:       '002',
@@ -94,10 +103,16 @@ describe('the reviews waiting and the paused builds', () => {
     const { board, tickets } = boardFixture({
       tasks: [
         taskFixture({
-          id: 1, status: 'paused', ticket: '001', note: 'Claimed by the example dispatcher run' 
+          id:     1,
+          status: 'paused',
+          ticket: '001',
+          note:   'Claimed by the example dispatcher run',
         }),
         taskFixture({
-          id: 2, status: 'paused', ticket: '002', note: 'Waiting on Example Agency' 
+          id:     2,
+          status: 'paused',
+          ticket: '002',
+          note:   'Waiting on Example Agency',
         }),
       ],
       tickets: [ticketFixture({ id: '001', status: 'in-progress', task: 1 }), ticketFixture({ id: '002', status: 'in-progress', task: 2 })],
@@ -123,7 +138,10 @@ describe('the ticket rows', () => {
   test('follow the listed tickets\' order and give a ticket without a row null', () => {
     const { board, tickets } = boardFixture({
       tasks: [taskFixture({
-        id: 1, status: 'in-progress', ticket: '001', note: 'Building' 
+        id:     1,
+        status: 'in-progress',
+        ticket: '001',
+        note:   'Building',
       })],
       tickets: [ticketFixture({ id: '001', status: 'in-progress', task: 1 }), ticketFixture({ id: '002' })],
     });
@@ -152,7 +170,10 @@ describe('the ticket rows', () => {
           note:   'Built',
         }),
         taskFixture({
-          id: 5, status: 'in-progress', reviewOf: '001', reviewBarRound: 2 
+          id:             5,
+          status:         'in-progress',
+          reviewOf:       '001',
+          reviewBarRound: 2,
         }),
         taskFixture({ id: 3, status: 'delivered', reviewOf: '001' }),
       ],

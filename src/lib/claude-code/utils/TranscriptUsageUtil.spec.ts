@@ -33,13 +33,22 @@ describe('one API call spread over several lines', () => {
   test('lines sharing a message id count once, at the input they all repeat and the largest output any of them carries', () => {
     const transcript = [
       assistantLine('msg_one', {
-        input_tokens: 12, cache_read_input_tokens: 400, cache_creation_input_tokens: 80, output_tokens: 5 
+        input_tokens:                12,
+        cache_read_input_tokens:     400,
+        cache_creation_input_tokens: 80,
+        output_tokens:               5,
       }),
       assistantLine('msg_one', {
-        input_tokens: 12, cache_read_input_tokens: 400, cache_creation_input_tokens: 80, output_tokens: 90 
+        input_tokens:                12,
+        cache_read_input_tokens:     400,
+        cache_creation_input_tokens: 80,
+        output_tokens:               90,
       }),
       assistantLine('msg_one', {
-        input_tokens: 12, cache_read_input_tokens: 400, cache_creation_input_tokens: 80, output_tokens: 140 
+        input_tokens:                12,
+        cache_read_input_tokens:     400,
+        cache_creation_input_tokens: 80,
+        output_tokens:               140,
       }),
     ].join('\n');
 

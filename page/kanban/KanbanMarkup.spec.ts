@@ -111,20 +111,37 @@ function placeholderCard(ticketId: string): string {
 
 const TODO_TICKETS: PageTicket[] = [
   exampleTicket('064', {
-    title: 'Checkout button double-submits on a slow network', type: 'bug', priority: 'high', filed: at('13:02'), task: 22 
+    title:    'Checkout button double-submits on a slow network',
+    type:     'bug',
+    priority: 'high',
+    filed:    at('13:02'),
+    task:     22,
   }),
   exampleTicket('065', {
-    title: 'Wishlist share link', filed: at('11:20'), task: 20, dependsOn: ['060'] 
+    title:     'Wishlist share link',
+    filed:     at('11:20'),
+    task:      20,
+    dependsOn: ['060'],
   }),
   exampleTicket('066', {
-    title: 'Rename basket to cart in order e-mails', type: 'change', filed: at('09:50'), task: 16, hold: 'Waiting for copy from marketing' 
+    title: 'Rename basket to cart in order e-mails',
+    type:  'change',
+    filed: at('09:50'),
+    task:  16,
+    hold:  'Waiting for copy from marketing',
   }),
   exampleTicket('067', { title: 'Sort orders by delivery date', filed: at('10:12'), task: 17 }),
   exampleTicket('068', {
-    title: 'Footer links wrap on tablets', type: 'bug', priority: 'low', filed: at('17:40', '2026-09-24') 
+    title:    'Footer links wrap on tablets',
+    type:     'bug',
+    priority: 'low',
+    filed:    at('17:40', '2026-09-24'),
   }),
   exampleTicket('069', {
-    title: 'Admin table column widths jump on sort', type: 'bug', priority: 'low', filed: at('12:05') 
+    title:    'Admin table column widths jump on sort',
+    type:     'bug',
+    priority: 'low',
+    filed:    at('12:05'),
   }),
 ];
 const TODO_ROWS: Task[] = [
@@ -148,7 +165,11 @@ describe('the placeholder board, rebuilt', () => {
 
   test('matches the paused card #061', () => {
     const ticket = exampleTicket('061', {
-      title: 'Delivery ETA on product page', status: 'in-progress', filed: at('08:55'), started: at('10:20'), task: 12 
+      title:   'Delivery ETA on product page',
+      status:  'in-progress',
+      filed:   at('08:55'),
+      started: at('10:20'),
+      task:    12,
     });
     const row    = exampleRow(12, {
       status:  'paused',
@@ -175,10 +196,16 @@ describe('the placeholder board, rebuilt', () => {
     });
     const tasks = [
       exampleRow(9, {
-        status: 're-review', ticket: '059', tokens: 4_200_000, reviewRound: 2 
+        status:      're-review',
+        ticket:      '059',
+        tokens:      4_200_000,
+        reviewRound: 2,
       }),
       exampleRow(30, {
-        reviewOf: '059', status: 'delivered', start: at('10:50'), end: at('11:30') 
+        reviewOf: '059',
+        status:   'delivered',
+        start:    at('10:50'),
+        end:      at('11:30'),
       }),
       exampleRow(31, { reviewOf: '059', status: 'in-progress', start: at('11:34') }),
     ];
@@ -201,7 +228,10 @@ describe('the placeholder board, rebuilt', () => {
       task:      7,
     });
     const row    = exampleRow(7, {
-      status: 'delivered', ticket: '055', tokens: 2_400_000, reviewed: at('12:10') 
+      status:   'delivered',
+      ticket:   '055',
+      tokens:   2_400_000,
+      reviewed: at('12:10'),
     });
     const input  = boardInput([ticket], [row]);
     const [card] = input.cards;

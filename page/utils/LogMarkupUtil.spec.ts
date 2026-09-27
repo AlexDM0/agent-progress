@@ -40,7 +40,7 @@ describe('logItemsMarkup', () => {
     expect(texts).toEqual(['Third append', 'Second append']);
   });
 
-  // Each line is judged on its own day against the viewer's: a log that crosses midnight no longer dates today's lines.
+  // Each line is judged on its own day against the viewer's, so a log that crosses midnight dates only the earlier day's lines, never today's.
   test('dates only the lines from another day, and gives every shortened line its full stamp as the title', () => {
     const withEarlierDays = [
       ...entries,

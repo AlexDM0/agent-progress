@@ -144,7 +144,10 @@ describe('createTicket and listTickets', () => {
     rmSync(workspace.ticketsDirectory, { recursive: true, force: true });
 
     expect(listTickets(workspace)).toEqual({
-      verdict: 'listed', tickets: [], malformed: [], ticketsInAnOlderFormat: [] 
+      verdict:                'listed',
+      tickets:                [],
+      malformed:              [],
+      ticketsInAnOlderFormat: [],
     });
     expect(nextTicketId(workspace)).toBe('001');
   });

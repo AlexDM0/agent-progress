@@ -18,6 +18,8 @@ export default [
     rules: { 'import/no-extraneous-dependencies': ['error', { devDependencies: true }] },
   },
   { files: ['**/*.ts'], rules: { 'import/enforce-node-protocol-usage': ['error', 'always'] } },
+  // The shared config's object-curly-newline fix leaves a trailing space where it breaks a line of properties, which then want one per line.
+  { files: ['**/*.ts'], rules: { '@stylistic/no-trailing-spaces': 'error' } },
   {
     // One style for local specifiers, the `.ts` file name; the resolver knows `.ts`, so an extensionless specifier is found and reported.
     files:    ['**/*.ts'],

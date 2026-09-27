@@ -254,7 +254,10 @@ describe('the shapes the design did not show', () => {
   // A row filed before `history` existed, or re-seeded, has only its stamps: it still gets a build segment rather than an empty track.
   test('an in-progress row with no history gets one live in-progress segment from its start, counted as wip', () => {
     const ticket   = exampleTicket('070', {
-      status: 'in-progress', filed: at('09:00'), started: at('10:00'), task: 40 
+      status:  'in-progress',
+      filed:   at('09:00'),
+      started: at('10:00'),
+      task:    40,
     });
     const timeline = ticketTimelineOf(inputFor(ticket, [exampleRow(40, { ticket: '070', status: 'in-progress', start: at('10:00') })]));
     expect(timeline.buildSegments.map((segment) => [segment.state, segment.isLive])).toEqual([['in-progress', true]]);
@@ -263,7 +266,10 @@ describe('the shapes the design did not show', () => {
 
   test('a paused row with no history gets one paused segment instead', () => {
     const ticket   = exampleTicket('071', {
-      status: 'in-progress', filed: at('09:00'), started: at('10:00'), task: 41 
+      status:  'in-progress',
+      filed:   at('09:00'),
+      started: at('10:00'),
+      task:    41,
     });
     const timeline = ticketTimelineOf(inputFor(ticket, [exampleRow(41, { ticket: '071', status: 'paused', start: at('10:00') })]));
     expect(timeline.buildSegments.map((segment) => segment.state)).toEqual(['paused']);
@@ -273,10 +279,17 @@ describe('the shapes the design did not show', () => {
   // Tickets delivered before the stamp was written exist; ending their axis at now would draw a closed ticket as still open.
   test('a delivered ticket without its delivered stamp ends its axis at updated, with the closed marker and no now', () => {
     const ticket   = exampleTicket('072', {
-      status: 'delivered', filed: at('09:00'), finished: at('10:00'), updated: at('12:00'), task: 42 
+      status:   'delivered',
+      filed:    at('09:00'),
+      finished: at('10:00'),
+      updated:  at('12:00'),
+      task:     42,
     });
     const rows     = [exampleRow(42, {
-      ticket: '072', status: 'delivered', start: at('09:30'), end: at('10:00') 
+      ticket: '072',
+      status: 'delivered',
+      start:  at('09:30'),
+      end:    at('10:00'),
     })];
     const timeline = ticketTimelineOf(inputFor(ticket, rows));
     expect(timeline.axis.lastMomentEpochMilliseconds).toBe(Date.parse(at('12:00')));

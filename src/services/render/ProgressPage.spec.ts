@@ -54,7 +54,10 @@ const EXAMPLE_PROGRESS: TrackerProgress = {
 describe('renderProgressPage', () => {
   test('writes the limit and the agents in flight that concurrencyOf gives for the rows', async () => {
     const { document } = await renderProgressPage({
-      progress: EXAMPLE_PROGRESS, tickets: [], logRecords: [], generatedAt: GENERATED_AT 
+      progress:    EXAMPLE_PROGRESS,
+      tickets:     [],
+      logRecords:  [],
+      generatedAt: GENERATED_AT,
     }, renderState);
     const expected     = ConcurrencyUtil.concurrencyOf(EXAMPLE_PROGRESS.tasks, EXAMPLE_PROGRESS.concurrencyLimit);
 
@@ -67,7 +70,10 @@ describe('renderProgressPage', () => {
     const tickets = ['005', '002', '003'].map((id) => ticketFixture({ id, title: `Example ticket ${id}` }));
 
     const { document } = await renderProgressPage({
-      progress: EXAMPLE_PROGRESS, tickets, logRecords: [], generatedAt: GENERATED_AT 
+      progress:    EXAMPLE_PROGRESS,
+      tickets,
+      logRecords:  [],
+      generatedAt: GENERATED_AT,
     }, renderState);
 
     const ticketIsland = islandContentsOf(document, 'ap-tickets-data') as Array<{ id: string }>;
@@ -76,7 +82,10 @@ describe('renderProgressPage', () => {
 
   test('a page script that builds leaves no failure and goes into the document', async () => {
     const rendering = await renderProgressPage({
-      progress: EXAMPLE_PROGRESS, tickets: [], logRecords: [], generatedAt: GENERATED_AT 
+      progress:    EXAMPLE_PROGRESS,
+      tickets:     [],
+      logRecords:  [],
+      generatedAt: GENERATED_AT,
     }, renderState);
 
     expect(rendering.pageScriptFailure).toBeNull();

@@ -285,9 +285,12 @@ describe('computeTimeline', () => {
     const timeline = timelineFor({
       tasks: [],
       range: {
-        kind: 'relative', from: '-2h', to: 'now', tickMinutes: null 
+        kind:        'relative',
+        from:        '-2h',
+        to:          'now',
+        tickMinutes: null,
       },
-      nowOffsetMinutes: 300 
+      nowOffsetMinutes: 300
     });
 
     expect(timeline.fromEpochMilliseconds).toBe(EXAMPLE_START_EPOCH_MILLISECONDS + minutesAsMilliseconds(180));
@@ -298,9 +301,12 @@ describe('computeTimeline', () => {
     const timeline = timelineFor({
       tasks: [],
       range: {
-        kind: 'relative', from: 'start', to: '+30m', tickMinutes: null 
+        kind:        'relative',
+        from:        'start',
+        to:          '+30m',
+        tickMinutes: null,
       },
-      nowOffsetMinutes: 90 
+      nowOffsetMinutes: 90
     });
 
     expect(timeline.fromEpochMilliseconds).toBe(EXAMPLE_START_EPOCH_MILLISECONDS);
@@ -335,7 +341,10 @@ describe('computeTimeline', () => {
     const timeline = computeTimeline({
       progress: exampleProgress([]),
       range:    {
-        kind: 'absolute', from: '2026-09-18T08:00', to: '2026-09-18T09:00', tickMinutes: null 
+        kind:        'absolute',
+        from:        '2026-09-18T08:00',
+        to:          '2026-09-18T09:00',
+        tickMinutes: null,
       },
       nowEpochMilliseconds: EXAMPLE_START_EPOCH_MILLISECONDS,
       limits:               EXAMPLE_PAGE_LIMITS,
@@ -349,9 +358,12 @@ describe('computeTimeline', () => {
     const timeline = timelineFor({
       tasks: [exampleTask(1, 0, 90)],
       range: {
-        kind: 'absolute', from: 'not a time', to: 'also not', tickMinutes: null 
+        kind:        'absolute',
+        from:        'not a time',
+        to:          'also not',
+        tickMinutes: null,
       },
-      nowOffsetMinutes: 90 
+      nowOffsetMinutes: 90
     });
 
     expect(timeline.fromEpochMilliseconds).toBe(EXAMPLE_START_EPOCH_MILLISECONDS);

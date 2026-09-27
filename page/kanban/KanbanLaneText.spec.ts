@@ -139,7 +139,10 @@ describe('the sub-state note', () => {
       exampleRow(1, { status: 're-review', ticket: '059' }),
       exampleRow(2, { reviewOf: '059', status: 'in-progress', start: at('10:50') }),
       exampleRow(3, {
-        reviewOf: '059', status: 'delivered', start: at('11:00'), end: at('11:30') 
+        reviewOf: '059',
+        status:   'delivered',
+        start:    at('11:00'),
+        end:      at('11:30'),
       }),
     ];
 

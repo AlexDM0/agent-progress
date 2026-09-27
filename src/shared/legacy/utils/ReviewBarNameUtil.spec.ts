@@ -125,9 +125,12 @@ describe('whether a stored row is a review bar still to be linked', () => {
     {
       claim: 'a bar storing both fields, padded',
       row:   {
-        name: 'Review 1 #3 — x', ticket: null, reviewOf: '003', reviewBarRound: 1 
+        name:           'Review 1 #3 — x',
+        ticket:         null,
+        reviewOf:       '003',
+        reviewBarRound: 1,
       },
-      unlinked: false 
+      unlinked: false
     },
     { claim: 'a bar whose name gives no round and which stores its padded ticket', row: { name: 'Review 0 #3', ticket: null, reviewOf: '003' }, unlinked: false },
     { claim: 'a name naming ticket zero', row: { name: 'Review 1 #0', ticket: null }, unlinked: false },
@@ -145,8 +148,11 @@ describe('whether a stored row is a review bar still to be linked', () => {
     {
       claim: 'a row whose round is not a number',
       row:   {
-        name: 'Review 1 #3 — x', ticket: null, reviewOf: '003', reviewBarRound: '1' 
-      } 
+        name:           'Review 1 #3 — x',
+        ticket:         null,
+        reviewOf:       '003',
+        reviewBarRound: '1',
+      }
     },
   ];
 

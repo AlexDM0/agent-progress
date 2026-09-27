@@ -154,15 +154,21 @@ test('an absolute view range with its fields intact is accepted, because that is
   const stored = {
     ...emptyDocument(),
     view: {
-      kind: 'absolute', from: FILED_AT, to: FINISHED_AT, tickMinutes: 15 
-    } 
+      kind:        'absolute',
+      from:        FILED_AT,
+      to:          FINISHED_AT,
+      tickMinutes: 15,
+    }
   };
   expect(readBack('store-absolute-view', stored).verdict).toBe('readable');
   const relative = {
     ...emptyDocument(),
     view: {
-      kind: 'relative', from: '-2h', to: 'now', tickMinutes: null 
-    } 
+      kind:        'relative',
+      from:        '-2h',
+      to:          'now',
+      tickMinutes: null,
+    }
   };
   expect(readBack('store-relative-view', relative).verdict).toBe('readable');
 });

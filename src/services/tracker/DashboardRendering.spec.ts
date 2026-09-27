@@ -130,7 +130,11 @@ describe('rendering the dashboard', () => {
     expect(writtenPage()).not.toContain('Stored after the first render');
 
     const laterRow: Task = {
-      ...REVIEW_PASS_TASK, id: 2, name: 'Stored after the first render', status: 'pending', start: null 
+      ...REVIEW_PASS_TASK,
+      id:     2,
+      name:   'Stored after the first render',
+      status: 'pending',
+      start:  null,
     };
     createProgressFileWriter(workspace.progressFilePath).write({ ...EXAMPLE_PROGRESS, nextTaskId: 3, tasks: [REVIEW_PASS_TASK, laterRow] });
     await renderDashboard(workspace, GENERATED_AT, renderState);

@@ -29,13 +29,22 @@ describe('the review-of ids in flight', () => {
     const { board } = boardFixture({
       tasks: [
         taskFixture({
-          id: 1, status: 'in-progress', ticket: '005', reviewOf: '002' 
+          id:       1,
+          status:   'in-progress',
+          ticket:   '005',
+          reviewOf: '002',
         }),
         taskFixture({
-          id: 2, status: 'in-progress', reviewOf: '001', reviewBarRound: 1 
+          id:             2,
+          status:         'in-progress',
+          reviewOf:       '001',
+          reviewBarRound: 1,
         }),
         taskFixture({
-          id: 3, status: 'in-progress', reviewOf: '002', reviewBarRound: 1 
+          id:             3,
+          status:         'in-progress',
+          reviewOf:       '002',
+          reviewBarRound: 1,
         }),
       ],
     });
@@ -47,10 +56,16 @@ describe('the review-of ids in flight', () => {
     const { board } = boardFixture({
       tasks: [
         taskFixture({
-          id: 1, status: 'delivered', reviewOf: '001', reviewBarRound: 1 
+          id:             1,
+          status:         'delivered',
+          reviewOf:       '001',
+          reviewBarRound: 1,
         }),
         taskFixture({
-          id: 2, status: 'paused', reviewOf: '002', reviewBarRound: 1 
+          id:             2,
+          status:         'paused',
+          reviewOf:       '002',
+          reviewBarRound: 1,
         }),
       ],
     });
@@ -86,10 +101,16 @@ describe('the tickets waiting on a review', () => {
     const { board } = boardFixture({
       tasks: [
         taskFixture({
-          id: 1, status: 'in-progress', reviewOf: '002', reviewBarRound: 1 
+          id:             1,
+          status:         'in-progress',
+          reviewOf:       '002',
+          reviewBarRound: 1,
         }),
         taskFixture({
-          id: 2, status: 'delivered', reviewOf: '003', reviewBarRound: 1 
+          id:             2,
+          status:         'delivered',
+          reviewOf:       '003',
+          reviewBarRound: 1,
         }),
       ],
       tickets: [
@@ -118,7 +139,10 @@ describe('the tickets waiting on a review', () => {
   test('leave out a ticket its own in-progress row stores reviewOf for', () => {
     const { board } = boardFixture({
       tasks: [taskFixture({
-        id: 1, status: 'in-progress', ticket: '001', reviewOf: '001' 
+        id:       1,
+        status:   'in-progress',
+        ticket:   '001',
+        reviewOf: '001',
       })],
       tickets: [ticketFixture({ id: '001', status: 'in-review', task: 1 })],
     });

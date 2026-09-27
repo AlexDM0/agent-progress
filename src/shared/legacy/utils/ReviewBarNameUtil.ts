@@ -3,6 +3,7 @@
  * It serves `cli/legacy/`'s filing mapper and `src/adapters/legacy/`'s read linking, and can go once both have gone.
  */
 import { FIRST_REVIEW_BAR_ROUND } from '../../../lib/tracker-model/constants/ReviewRounds.ts';
+import { FIRST_TICKET_NUMBER }    from '../../../lib/tracker-model/constants/TicketFields.ts';
 import { TicketIdUtil }           from '../../../lib/tracker-model/utils/TicketIdUtil.ts';
 
 /** The fields a stored row and a model row share, which are all the linking reads and writes. */
@@ -24,7 +25,7 @@ function roundNamedBy(roundText: string): number | null {
 /** `3`, `0003` and `+3` name ticket 003 and are stored padded, so the Board's exact `reviewOf` match finds them; any other text stays as written. */
 function paddedReviewOf(reviewOf: string): string {
   const ticketNumber = Number(reviewOf);
-  if (reviewOf.trim() === '' || !Number.isSafeInteger(ticketNumber) || ticketNumber < 1) return reviewOf;
+  if (reviewOf.trim() === '' || !Number.isSafeInteger(ticketNumber) || ticketNumber < FIRST_TICKET_NUMBER) return reviewOf;
   return TicketIdUtil.padTicketId(ticketNumber);
 }
 
@@ -51,7 +52,10 @@ function linkedReviewBarOf<Row extends ReviewBarFields>(task: Readonly<Row>): Ro
 /** Defensive on a row not yet validated: one whose linking fields have the wrong type is left to validation to name. */
 function reviewBarIsUnlinked(taskRecord: Record<string, unknown>): boolean {
   const {
-    name, ticket, reviewOf, reviewBarRound 
+    name,
+    ticket,
+    reviewOf,
+    reviewBarRound,
   } = taskRecord;
   if (ticket !== null || typeof name !== 'string') return false;
   if (reviewOf !== undefined && typeof reviewOf !== 'string') return false;

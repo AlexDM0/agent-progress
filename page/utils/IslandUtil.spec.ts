@@ -147,7 +147,11 @@ describe('pagePayloadFrom', () => {
   ])('refuses a row or ticket position that is %s', (_description, position) => {
     const rowFacts = { displayState: 'in-review', deliveredRowCountsAsReviewed: false, ownRowPositionOfReviewedTicket: position };
     const ticketFacts = {
-      ticketId: '003', ownRowPosition: null, reviewBarPositions: [position], displayState: 'in-review', waitingOnTicketIds: [] 
+      ticketId:           '003',
+      ownRowPosition:     null,
+      reviewBarPositions: [position],
+      displayState:       'in-review',
+      waitingOnTicketIds: [],
     };
     const ownRowFacts = { ...ticketFacts, ownRowPosition: position, reviewBarPositions: [] };
 
@@ -159,7 +163,11 @@ describe('pagePayloadFrom', () => {
   test('refuses a display state the page has no label for', () => {
     const rowFacts = { displayState: 'finished', deliveredRowCountsAsReviewed: false, ownRowPositionOfReviewedTicket: null };
     const ticketFacts = {
-      ticketId: '003', ownRowPosition: null, reviewBarPositions: [], displayState: 'toString', waitingOnTicketIds: [] 
+      ticketId:           '003',
+      ownRowPosition:     null,
+      reviewBarPositions: [],
+      displayState:       'toString',
+      waitingOnTicketIds: [],
     };
 
     expect(pagePayloadFrom(payloadWithBoardFacts({ rows: [rowFacts], tickets: [] }))).toBeNull();
@@ -168,7 +176,11 @@ describe('pagePayloadFrom', () => {
 
   test('refuses a ticket fact without a text ticket id, a list of review bar positions or a list of text ids it waits on', () => {
     const ticketFacts = {
-      ticketId: '003', ownRowPosition: 0, reviewBarPositions: [], displayState: 'in-progress', waitingOnTicketIds: [] 
+      ticketId:           '003',
+      ownRowPosition:     0,
+      reviewBarPositions: [],
+      displayState:       'in-progress',
+      waitingOnTicketIds: [],
     };
 
     expect(pagePayloadFrom(payloadWithBoardFacts({ ...exampleBoardFacts(), tickets: [ticketFacts] }))).not.toBeNull();
@@ -182,8 +194,11 @@ describe('pagePayloadFrom', () => {
     const progress = {
       ...exampleProgress(),
       tasks: [exampleTask(), {
-        ...exampleTask(), id: 2, name: 'Review 1 #003', reviewOf: '003' 
-      }] 
+        ...exampleTask(),
+        id:       2,
+        name:     'Review 1 #003',
+        reviewOf: '003',
+      }]
     };
     const boardFacts: PageBoardFacts = {
       rows: [
@@ -191,7 +206,11 @@ describe('pagePayloadFrom', () => {
         { displayState: 'in-progress', deliveredRowCountsAsReviewed: false, ownRowPositionOfReviewedTicket: 0 },
       ],
       tickets: [{
-        ticketId: '003', ownRowPosition: 0, reviewBarPositions: [1], displayState: 'reviewing', waitingOnTicketIds: [] 
+        ticketId:           '003',
+        ownRowPosition:     0,
+        reviewBarPositions: [1],
+        displayState:       'reviewing',
+        waitingOnTicketIds: [],
       }],
     };
 
