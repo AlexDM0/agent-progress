@@ -1,11 +1,12 @@
-import { LogUtil }                     from '../../src/adapters/utils/LogUtil.ts';
-import { TrackerReadingWordingUtil }   from '../../src/adapters/utils/TrackerReadingWordingUtil.ts';
-import type { LogRecord }              from '../../src/lib/tracker-model/@types/LogRecord.ts';
-import type { DashboardRenderOutcome } from '../../src/services/tracker/DashboardRendering.ts';
-import type { MalformedTicketFile }    from '../../src/services/tracker/TicketStore.ts';
-import { LIMITS }                      from '../../src/shared/constants/Limits.ts';
-import type { CommandContext }         from '../CommandContext.ts';
-import type { ArgumentParser }         from '../arguments/ArgumentParser.ts';
+import { LogUtil }                        from '../../src/adapters/utils/LogUtil.ts';
+import { TrackerReadingWordingUtil }      from '../../src/adapters/utils/TrackerReadingWordingUtil.ts';
+import type { LogRecord }                 from '../../src/lib/tracker-model/@types/LogRecord.ts';
+import type { DashboardRenderOutcome }    from '../../src/services/tracker/DashboardRendering.ts';
+import type { MalformedTicketFile }       from '../../src/services/tracker/TicketStore.ts';
+import { LIMITS }                         from '../../src/shared/constants/Limits.ts';
+import type { CommandContext }            from '../CommandContext.ts';
+import type { ArgumentParser }            from '../arguments/ArgumentParser.ts';
+import { SHORT_COMMIT_LENGTH_CHARACTERS } from '../constants/GitDefaults.ts';
 
 function padColumn(text: string, width: number): string {
   return text.length >= width ? `${text} ` : text.padEnd(width);
@@ -49,8 +50,14 @@ function reportRenderProblems(context: CommandContext, outcome: DashboardRenderO
   reportIgnoredTicketFiles(context, outcome.malformedTickets);
 }
 
+/** A commit printed in a sentence, cut to its first characters as git abbreviates; a text already that short is kept whole. */
+function shortCommitOf(commit: string): string {
+  return commit.slice(0, SHORT_COMMIT_LENGTH_CHARACTERS);
+}
+
 export const OutputUtil = {
   padColumn,
+  shortCommitOf,
   loggedSentencesOf,
   printEntity,
   printEntityThenNextLine,

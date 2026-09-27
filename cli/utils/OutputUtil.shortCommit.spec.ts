@@ -5,18 +5,18 @@
 import { describe, expect, test } from 'bun:test';
 
 import { SHORT_COMMIT_LENGTH_CHARACTERS } from '../constants/GitDefaults.ts';
-import { CommitTextUtil }                 from './CommitTextUtil.ts';
+import { OutputUtil }                     from './OutputUtil.ts';
 
-describe('CommitTextUtil.shortCommitOf', () => {
+describe('OutputUtil.shortCommitOf', () => {
   test('keeps the first characters of a full commit hash', () => {
-    expect(CommitTextUtil.shortCommitOf('0123456789abcdef0123456789abcdef01234567')).toBe('01234567');
+    expect(OutputUtil.shortCommitOf('0123456789abcdef0123456789abcdef01234567')).toBe('01234567');
   });
 
   test('keeps exactly the short length', () => {
-    expect(CommitTextUtil.shortCommitOf('fedcba9876543210')).toHaveLength(SHORT_COMMIT_LENGTH_CHARACTERS);
+    expect(OutputUtil.shortCommitOf('fedcba9876543210')).toHaveLength(SHORT_COMMIT_LENGTH_CHARACTERS);
   });
 
   test('keeps a text no longer than the short length whole', () => {
-    expect(CommitTextUtil.shortCommitOf('main')).toBe('main');
+    expect(OutputUtil.shortCommitOf('main')).toBe('main');
   });
 });

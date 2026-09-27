@@ -2,10 +2,12 @@
  * A validated progress.json in the current format mapped to the model and back, field by field. Keys the file held that the tool does not
  * know ride along on the model's objects in the file's order and are written back; nothing else reaches the file unless a mapper names it.
  */
-import type { Task, TaskPhase }                                 from '../../../lib/tracker-model/@types/Task.ts';
-import type { TrackerProgress }                                 from '../../../lib/tracker-model/@types/TrackerProgress.ts';
-import type { StoredProgressFile, StoredTask, StoredTaskPhase } from '../@types/StoredProgressFile.ts';
-import { CURRENT_PROGRESS_FILE_VERSION }                        from '../constants/ProgressFileVersions.ts';
+import type { Task, TaskPhase }                                              from '../../../lib/tracker-model/@types/Task.ts';
+import type { TrackerProgress }                                              from '../../../lib/tracker-model/@types/TrackerProgress.ts';
+import type { WordedLogEntry }                                               from '../../../shared/@types/WordedLogEntry.ts';
+import type { WordedProgressDocument }                                       from '../../../shared/@types/WordedProgressDocument.ts';
+import type { StoredProgressFile, StoredTask, StoredTaskPhase }              from '../@types/StoredProgressFile.ts';
+import { CURRENT_PROGRESS_FILE_VERSION, EMBEDDED_LOG_PROGRESS_FILE_VERSION } from '../constants/ProgressFileVersions.ts';
 
 type KnownKeys = Readonly<Record<string, true>>;
 
@@ -156,4 +158,14 @@ function storedDocumentOf(progress: TrackerProgress): StoredProgressFile {
   });
 }
 
-export const ProgressFileMappingUtil = { progressOf, storedDocumentOf } as const;
+/**
+ * The progress in the version 1 shape, which the ingestion reads back: `version` first, every other key in the progress's order, and the
+ * worded log directly after `tasks`.
+ */
+function wordedDocumentOf<Entry extends WordedLogEntry>(progress: TrackerProgress, log: readonly Entry[]): WordedProgressDocument<Entry> {
+  const keyOrder                             = ['version', ...Object.keys(progress).flatMap((key) => (key === 'tasks' ? [key, 'log'] : [key]))];
+  const keyedInOrder: Record<string, unknown> = Object.fromEntries(keyOrder.map((key) => [key, undefined]));
+  return Object.assign(keyedInOrder, progress, { version: EMBEDDED_LOG_PROGRESS_FILE_VERSION, log: [...log] });
+}
+
+export const ProgressFileMappingUtil = { progressOf, storedDocumentOf, wordedDocumentOf } as const;

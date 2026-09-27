@@ -12,7 +12,7 @@ import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS }             from '../../../sr
 import type { CommandContext }                                 from '../../CommandContext.ts';
 import { openTrackerForWritingThenReadNextLine }               from '../../OpenTrackerForWriting.ts';
 import type { ArgumentParser }                                 from '../../arguments/ArgumentParser.ts';
-import { CommitTextUtil }                                      from '../../utils/CommitTextUtil.ts';
+import { OutputUtil }                                          from '../../utils/OutputUtil.ts';
 import { ReleaseRefusal, refuseTheRelease }                    from './ReleaseRefusal.ts';
 import type { ReleaseRequest }                                 from './ReleaseRequest.ts';
 
@@ -61,8 +61,8 @@ function branchCommitToRelease(mainCheckout: string, branch: string, mainLine: s
     case 'not-a-descendant':
       return refuseTheRelease(
         'main-moved',
-        `Main moved: ${branch} (${CommitTextUtil.shortCommitOf(reading.branchCommit)}) `
-        + `does not descend from ${mainLine} (${CommitTextUtil.shortCommitOf(reading.mainLineCommit)}), `
+        `Main moved: ${branch} (${OutputUtil.shortCommitOf(reading.branchCommit)}) `
+        + `does not descend from ${mainLine} (${OutputUtil.shortCommitOf(reading.mainLineCommit)}), `
         + `so it cannot be fast-forwarded. Rebase ${branch} onto ${mainLine}, run the checks again, and run \`agent-progress release\` again.`,
       );
     case 'descendant':

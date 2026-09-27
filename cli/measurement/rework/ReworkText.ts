@@ -1,5 +1,5 @@
 /** What `rework` prints for a person: one summary sentence, and with `--files` the files with code in them. */
-import { CommitTextUtil }                from '../../utils/CommitTextUtil.ts';
+import { OutputUtil }                    from '../../utils/OutputUtil.ts';
 import { ReworkCountUtil }               from '../utils/ReworkCountUtil.ts';
 import type { FileRework, ReworkTotals } from '../utils/ReworkCountUtil.ts';
 import type { CommitsPart, RebasePart }  from './ReworkReading.ts';
@@ -11,11 +11,11 @@ interface CountedScope {
 
 function commitsScope(part: CommitsPart): CountedScope {
   const commitWord = part.commitCount === 1 ? 'commit' : 'commits';
-  return { scope: `in ${part.commitCount} ${commitWord} since ${CommitTextUtil.shortCommitOf(part.sinceCommit)}`, totals: ReworkCountUtil.totalReworkOf(part.files) };
+  return { scope: `in ${part.commitCount} ${commitWord} since ${OutputUtil.shortCommitOf(part.sinceCommit)}`, totals: ReworkCountUtil.totalReworkOf(part.files) };
 }
 
 function rebaseScope(part: RebasePart): CountedScope {
-  return { scope: `in the rebase from ${CommitTextUtil.shortCommitOf(part.oldTipCommit)} onto ${part.mainLine}`, totals: ReworkCountUtil.totalReworkOf(part.files) };
+  return { scope: `in the rebase from ${OutputUtil.shortCommitOf(part.oldTipCommit)} onto ${part.mainLine}`, totals: ReworkCountUtil.totalReworkOf(part.files) };
 }
 
 function addedAndRemovedOf(totals: ReworkTotals): string {

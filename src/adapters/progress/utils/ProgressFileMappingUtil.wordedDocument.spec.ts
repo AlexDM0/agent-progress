@@ -4,11 +4,11 @@
  */
 import { afterAll, expect, test } from 'bun:test';
 
-import type { TrackerProgress }   from '../../../lib/tracker-model/@types/TrackerProgress.ts';
-import type { WordedLogEntry }    from '../../../shared/@types/WordedLogEntry.ts';
-import { emptyProgress, fileRow } from '../../../testing/ProgressFixtures.ts';
-import { removeScratchDirectory } from '../../../testing/ScratchWorkspace.ts';
-import { ProgressDocumentUtil }   from './ProgressDocumentUtil.ts';
+import type { TrackerProgress }    from '../../../lib/tracker-model/@types/TrackerProgress.ts';
+import type { WordedLogEntry }     from '../../../shared/@types/WordedLogEntry.ts';
+import { emptyProgress, fileRow }  from '../../../testing/ProgressFixtures.ts';
+import { removeScratchDirectory }  from '../../../testing/ScratchWorkspace.ts';
+import { ProgressFileMappingUtil } from './ProgressFileMappingUtil.ts';
 
 const WORDED_LOG: readonly WordedLogEntry[] = [
   { at: '2026-09-18T20:11:03+02:00', text: 'Ticket #001 filed: Example checkout flow' },
@@ -36,20 +36,20 @@ function progressWithUnknownKeys(): TrackerProgress {
 }
 
 test('version 1 comes first, whatever the progress holds', () => {
-  const document = ProgressDocumentUtil.documentOf(progressWithUnknownKeys(), WORDED_LOG);
+  const document = ProgressFileMappingUtil.wordedDocumentOf(progressWithUnknownKeys(), WORDED_LOG);
   expect(Object.keys(document)[0]).toBe('version');
   expect(document.version).toBe(1);
 });
 
 test('the worded log sits directly after tasks, also when a setting stored later follows it', () => {
-  const document = ProgressDocumentUtil.documentOf(progressWithSettingsAfterTheLog(), WORDED_LOG);
+  const document = ProgressFileMappingUtil.wordedDocumentOf(progressWithSettingsAfterTheLog(), WORDED_LOG);
   const keys     = Object.keys(document);
   expect(keys.slice(keys.indexOf('tasks'))).toEqual(['tasks', 'log', 'dispatcherState', 'dispatcherRunId']);
   expect(document.log).toEqual([...WORDED_LOG]);
 });
 
 test('keys the tool does not know keep their place among the others', () => {
-  const document = ProgressDocumentUtil.documentOf(progressWithUnknownKeys(), WORDED_LOG);
+  const document = ProgressFileMappingUtil.wordedDocumentOf(progressWithUnknownKeys(), WORDED_LOG);
   expect(Object.keys(document)).toEqual([
     'version',
     'unknownLeadingKey',

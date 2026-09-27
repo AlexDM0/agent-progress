@@ -11,7 +11,7 @@ import type { WordedLogEntry }                            from '../../shared/@ty
 import { emptyProgress, fileRow }                         from '../../testing/ProgressFixtures.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
 import { ProgressFileIngestion }                          from '../progress/ProgressFileIngestion.ts';
-import { ProgressDocumentUtil }                           from '../progress/utils/ProgressDocumentUtil.ts';
+import { ProgressFileMappingUtil }                        from '../progress/utils/ProgressFileMappingUtil.ts';
 
 const WORDED_LOG: readonly WordedLogEntry[] = [
   { at: '2026-09-18T20:11:03+02:00', text: 'Ticket #001 filed: Example checkout flow' },
@@ -37,7 +37,7 @@ test('the document written to a file reads back through the ingestion', () => {
   const directory = createScratchDirectory('progress-document');
   scratchDirectories.push(directory);
   const progressFilePath = join(directory, 'progress.json');
-  writeFileAtomically(progressFilePath, JSON.stringify(ProgressDocumentUtil.documentOf(progressWithSettingsAfterTheLog(), WORDED_LOG)));
+  writeFileAtomically(progressFilePath, JSON.stringify(ProgressFileMappingUtil.wordedDocumentOf(progressWithSettingsAfterTheLog(), WORDED_LOG)));
   const reading = new ProgressFileIngestion(progressFilePath).read();
   expect(reading.verdict).toBe('readable');
   expect(reading.verdict === 'readable' ? reading.carriedOverLog?.map((record) => record.at) : null, 'read as version 1, owning its log')

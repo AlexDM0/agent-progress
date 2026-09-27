@@ -2,7 +2,7 @@
 import { EmbeddedLogUtil }                                 from '../../adapters/legacy/utils/EmbeddedLogUtil.ts';
 import type { StoredLog }                                  from '../../adapters/log/@types/StoredLog.ts';
 import { LogFileIngestion }                                from '../../adapters/log/LogFileIngestion.ts';
-import { TrackerLogUtil }                                  from '../../adapters/log/utils/TrackerLogUtil.ts';
+import { LogRecordMappingUtil }                            from '../../adapters/log/utils/LogRecordMappingUtil.ts';
 import { ProgressFileIngestion, type ProgressFileReading } from '../../adapters/progress/ProgressFileIngestion.ts';
 import type { TrackerProgress }                            from '../../lib/tracker-model/@types/TrackerProgress.ts';
 import type { UnreadableTracker }                          from '../../shared/@types/UnreadableTracker.ts';
@@ -48,12 +48,12 @@ export function readTracker(workspace: Workspace): TrackerReading {
   const logFileReading = progressReading.carriedOverLog === null && logFileReadingBeforeProgress.verdict === 'absent'
     ? new LogFileIngestion(workspace.logFilePath).read()
     : logFileReadingBeforeProgress;
-  // The seam: dropping src/adapters/legacy/ makes this `TrackerLogUtil.storedLogOf(logFileReading)`.
+  // The seam: dropping src/adapters/legacy/ makes this `LogRecordMappingUtil.storedLogOf(logFileReading)`.
   const storedLog = EmbeddedLogUtil.storedLogBesideAnEmbeddedLog(
     progressReading.carriedOverLog,
     logFileReading,
     { logFilePath: workspace.logFilePath, progressFilePath: workspace.progressFilePath },
-  ) ?? TrackerLogUtil.storedLogOf(logFileReading);
+  ) ?? LogRecordMappingUtil.storedLogOf(logFileReading);
   if (storedLog.verdict === 'unreadable') {
     return {
       verdict:        'unreadable',

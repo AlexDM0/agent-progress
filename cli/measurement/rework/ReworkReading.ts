@@ -1,7 +1,7 @@
 /** The git reads `rework` counts from: the worktree's head, the commits since a review started, and what a rebase changed. */
 import { readCommitsDiff, readRebaseDiffs, readWorktreeHead } from '../../../src/lib/git/BranchDiffs.ts';
 import { OperationRefusal }                                   from '../../../src/shared/OperationRefusal.ts';
-import { CommitTextUtil }                                     from '../../utils/CommitTextUtil.ts';
+import { OutputUtil }                                         from '../../utils/OutputUtil.ts';
 import { ReworkCountUtil }                                    from '../utils/ReworkCountUtil.ts';
 import type { FileRework }                                    from '../utils/ReworkCountUtil.ts';
 
@@ -28,15 +28,15 @@ export function countCommits(worktreeDirectory: string, since: string): CommitsP
     case 'not-an-ancestor':
       throw new OperationRefusal(
         'refused',
-        `--since ${CommitTextUtil.shortCommitOf(reading.sinceCommit)} is not an ancestor of HEAD in ${worktreeDirectory}, so there is no line of commits since it to count. `
+        `--since ${OutputUtil.shortCommitOf(reading.sinceCommit)} is not an ancestor of HEAD in ${worktreeDirectory}, so there is no line of commits since it to count. `
           + 'A rebase rewrites the commits after it: count --since before rebasing, and the rebase itself with --rebased-from ORIG_HEAD after.',
       );
     case 'merge-found': {
       const mergeWord         = reading.mergeCommits.length === 1 ? 'merge' : 'merges';
-      const shortMergeCommits = reading.mergeCommits.map((commit) => CommitTextUtil.shortCommitOf(commit)).join(', ');
+      const shortMergeCommits = reading.mergeCommits.map((commit) => OutputUtil.shortCommitOf(commit)).join(', ');
       throw new OperationRefusal(
         'refused',
-        `The commits since ${CommitTextUtil.shortCommitOf(since)} include the ${mergeWord} ${shortMergeCommits}. `
+        `The commits since ${OutputUtil.shortCommitOf(since)} include the ${mergeWord} ${shortMergeCommits}. `
           + 'Work is rebased onto the main line rather than merged with it, and a merge would bring the main line\'s own commits into the count: '
           + 'rebase the branch, or name a --since after the merge.',
       );
@@ -67,7 +67,7 @@ export function countRebase(worktreeDirectory: string, oldTip: string, mainLine:
     case 'no-common-base':
       throw new OperationRefusal(
         'refused',
-        `${reading.role === 'old-tip' ? `--rebased-from "${oldTip}"` : CommitTextUtil.shortCommitOf(rebasedTipCommit)} shares no history with --main "${mainLine}", `
+        `${reading.role === 'old-tip' ? `--rebased-from "${oldTip}"` : OutputUtil.shortCommitOf(rebasedTipCommit)} shares no history with --main "${mainLine}", `
           + 'so there is no patch of the branch\'s own to compare.',
       );
     case 'git-failed':

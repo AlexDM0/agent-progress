@@ -5,7 +5,7 @@
  */
 
 import { readFileSync }                                  from 'node:fs';
-import { ProgressDocumentUtil }                          from '../../adapters/progress/utils/ProgressDocumentUtil.ts';
+import { ProgressFileMappingUtil }                       from '../../adapters/progress/utils/ProgressFileMappingUtil.ts';
 import { LogUtil }                                       from '../../adapters/utils/LogUtil.ts';
 import { HtmlEscapeUtil }                                from '../../lib/html-escape/HtmlEscapeUtil.ts';
 import type { LogRecord }                                from '../../lib/tracker-model/@types/LogRecord.ts';
@@ -86,7 +86,7 @@ export function fillPageTemplate(input: PageTemplateFillInput): string {
   const template = readFileSync(resourceFilePathOf(TEMPLATE_FILE_NAME), 'utf8');
 
   const payload: PagePayload = {
-    progress:                     ProgressDocumentUtil.documentOf(progress, logRecords.map(LogUtil.identifiedEntryOf)),
+    progress:                     ProgressFileMappingUtil.wordedDocumentOf(progress, logRecords.map(LogUtil.identifiedEntryOf)),
     generatedAtEpochMilliseconds: generatedAt.getTime(),
     limits:                       pageLimits(),
     concurrency:                  { limit: concurrency.limit, agentsInFlight: concurrency.agentsInFlight },

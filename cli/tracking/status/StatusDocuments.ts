@@ -1,11 +1,11 @@
 /** The two `status --json` documents: the working view an agent opens a session with, and the full one `--full` prints. */
-import { ProgressDocumentUtil } from '../../../src/adapters/progress/utils/ProgressDocumentUtil.ts';
-import { StatusDocumentUtil }   from '../../../src/adapters/utils/StatusDocumentUtil.ts';
-import { TicketJsonUtil }       from '../../../src/adapters/utils/TicketJsonUtil.ts';
-import type { ReadyTicket }     from '../../../src/lib/tracker-model/@types/Ticket.ts';
-import type { TrackerProgress } from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
-import type { Board }           from '../../../src/lib/tracker-model/Board.ts';
-import type { WordedLogEntry }  from '../../../src/shared/@types/WordedLogEntry.ts';
+import { ProgressFileMappingUtil } from '../../../src/adapters/progress/utils/ProgressFileMappingUtil.ts';
+import { StatusDocumentUtil }      from '../../../src/adapters/utils/StatusDocumentUtil.ts';
+import { TicketJsonUtil }          from '../../../src/adapters/utils/TicketJsonUtil.ts';
+import type { ReadyTicket }        from '../../../src/lib/tracker-model/@types/Ticket.ts';
+import type { TrackerProgress }    from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
+import type { Board }              from '../../../src/lib/tracker-model/Board.ts';
+import type { WordedLogEntry }     from '../../../src/shared/@types/WordedLogEntry.ts';
 
 const WORKING_VIEW_LOG_ENTRY_COUNT = 10;
 
@@ -28,7 +28,7 @@ function derivedDocumentOf(board: Board): { concurrency: object; readyTickets: R
  */
 export function fullDocumentOf(progress: TrackerProgress, wordedLog: readonly WordedLogEntry[], board: Board): object {
   return {
-    ...ProgressDocumentUtil.documentOf(progress, wordedLog),
+    ...ProgressFileMappingUtil.wordedDocumentOf(progress, wordedLog),
     tickets: board.tickets().map(TicketJsonUtil.ticketDocumentOf),
     ...derivedDocumentOf(board),
     ...StatusDocumentUtil.boardWorkOf(board, board.tickets()),
@@ -42,7 +42,7 @@ export function workingDocumentOf(progress: TrackerProgress, logNewestFirst: rea
   const unsettledTickets = tickets.filter((ticket) => !board.ticketIsSettled(ticket));
   const recentLog        = logNewestFirst.slice(0, WORKING_VIEW_LOG_ENTRY_COUNT);
   return {
-    ...ProgressDocumentUtil.documentOf(progress, recentLog),
+    ...ProgressFileMappingUtil.wordedDocumentOf(progress, recentLog),
     tasks:   unsettledTasks,
     tickets: unsettledTickets.map(TicketJsonUtil.ticketDocumentOf),
     ...derivedDocumentOf(board),

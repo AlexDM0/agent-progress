@@ -9,7 +9,6 @@ import type { ReleaseRefusalReason }                        from '../../../src/s
 import { refusalIsOperationRefusal, type OperationRefusal } from '../../../src/shared/OperationRefusal.ts';
 import type { CommandHandler }                              from '../../CommandHandler.ts';
 import { requireCurrentInstall }                            from '../../InstallVersionCheck.ts';
-import { CommitTextUtil }                                   from '../../utils/CommitTextUtil.ts';
 import { OutputUtil }                                       from '../../utils/OutputUtil.ts';
 import { cleanUpAfterRelease, cleanupLine }                 from './ReleaseCleanup.ts';
 import { ReleaseRefusal }                                   from './ReleaseRefusal.ts';
@@ -53,7 +52,7 @@ export const releaseCommand: CommandHandler = async (commandArguments, context) 
 
   const ticketIds    = tickets.map(({ frontmatter }) => frontmatter.id);
   const ticketsNamed = ticketIds.length === 1 ? `ticket #${ticketIds.join('')}` : `tickets ${TicketPhraseUtil.ticketReferencesText(ticketIds)}`;
-  const headline     = `Released ${ticketsNamed}: ${request.mainLine} fast-forwarded to ${CommitTextUtil.shortCommitOf(commit)} from ${request.branch}, and delivered.`;
+  const headline     = `Released ${ticketsNamed}: ${request.mainLine} fast-forwarded to ${OutputUtil.shortCommitOf(commit)} from ${request.branch}, and delivered.`;
   const reviewLines  = logged.filter((record) => record.kind === 'review-bar-closed').map(LogUtil.sentenceOf);
   const document     = {
     released:         true,

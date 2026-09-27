@@ -4,7 +4,7 @@
  */
 
 import { describe, expect, test }         from 'bun:test';
-import { ProgressDocumentUtil }           from '../../adapters/progress/utils/ProgressDocumentUtil.ts';
+import { ProgressFileMappingUtil }        from '../../adapters/progress/utils/ProgressFileMappingUtil.ts';
 import type { LogRecord }                 from '../../lib/tracker-model/@types/LogRecord.ts';
 import type { Task }                      from '../../lib/tracker-model/@types/Task.ts';
 import type { Ticket }                    from '../../lib/tracker-model/@types/Ticket.ts';
@@ -143,7 +143,7 @@ describe('fillPageTemplate', () => {
   test('carries the tracker through the progress island unchanged, with its log worded', () => {
     const payload = islandContentsOf(render(), 'ap-progress-data') as { progress: TrackerProgress; pageScriptFailure: string | null };
 
-    expect(payload.progress).toEqual(ProgressDocumentUtil.documentOf(exampleProgress(), [{ at: '2026-09-18T20:05:00+02:00', text: 'Review pass started' }]));
+    expect(payload.progress).toEqual(ProgressFileMappingUtil.wordedDocumentOf(exampleProgress(), [{ at: '2026-09-18T20:05:00+02:00', text: 'Review pass started' }]));
     expect(payload.pageScriptFailure).toBeNull();
   });
 

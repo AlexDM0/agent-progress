@@ -1,7 +1,8 @@
 /** A validated log.jsonl line rebuilt as the model's record: only its kind's known keys, in the order the logger writes them. */
-import type { LogRecord } from '../../../lib/tracker-model/@types/LogRecord.ts';
-import type { AgentPair } from '../../../lib/tracker-model/@types/Ticket.ts';
-import type { ViewRange } from '../../../lib/tracker-model/@types/TrackerProgress.ts';
+import type { LogRecord }                        from '../../../lib/tracker-model/@types/LogRecord.ts';
+import type { AgentPair }                        from '../../../lib/tracker-model/@types/Ticket.ts';
+import type { ViewRange }                        from '../../../lib/tracker-model/@types/TrackerProgress.ts';
+import type { LogFileReading, StoredLogReading } from '../@types/StoredLog.ts';
 
 function viewRangeOf(view: ViewRange): ViewRange {
   if (view.kind === 'auto') return { kind: view.kind };
@@ -113,4 +114,11 @@ function recordOf(validated: unknown): LogRecord {
   }
 }
 
-export const LogRecordMappingUtil = { recordOf } as const;
+/** Which log a tracker has, from its log.jsonl reading: the file's records, an empty log when it is absent, or its own unreadable verdict. */
+function storedLogOf(logFileReading: LogFileReading): StoredLogReading {
+  if (logFileReading.verdict === 'unreadable') return logFileReading;
+  const records = logFileReading.verdict === 'readable' ? logFileReading.records : [];
+  return { verdict: 'readable', records, logFileMustBeRewritten: false };
+}
+
+export const LogRecordMappingUtil = { recordOf, storedLogOf } as const;

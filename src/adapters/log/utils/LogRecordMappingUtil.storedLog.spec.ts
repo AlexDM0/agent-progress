@@ -4,11 +4,11 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import type { LogRecord }      from '../../../lib/tracker-model/@types/LogRecord.ts';
-import type { LogFileReading } from '../@types/StoredLog.ts';
-import { TrackerLogUtil }      from './TrackerLogUtil.ts';
+import type { LogRecord }       from '../../../lib/tracker-model/@types/LogRecord.ts';
+import type { LogFileReading }  from '../@types/StoredLog.ts';
+import { LogRecordMappingUtil } from './LogRecordMappingUtil.ts';
 
-const { storedLogOf } = TrackerLogUtil;
+const { storedLogOf } = LogRecordMappingUtil;
 
 const FIRST_NOTE: LogRecord = { at: '2026-09-18T20:30:00+02:00', kind: 'note', fields: { text: 'Ticket #001 filed: Example checkout flow' } };
 
