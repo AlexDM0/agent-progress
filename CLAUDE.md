@@ -44,7 +44,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   another feature. Inside `cli/` a command folder never imports a sibling command's folder: what two need is hoisted to
   the level above both (a set's own files, or `cli/`'s root and `cli/utils/`), or passed as a structurally typed
   parameter. Nothing that ships imports `src/testing/`, `cli/testing/`, `src/adapters/progress/testing/`,
-  `src/adapters/legacy/testing/`, `dispatcher/testing/` or `page/testing/`, and `agent-progress.ts` imports only `cli/`.
+  `src/adapters/legacy/testing/`, `src/services/tracker/testing/`, `dispatcher/testing/` or `page/testing/`, and
+  `agent-progress.ts` imports only `cli/`.
 - A `src/lib/` package imports only the other `src/lib/` packages its main module's header names, node builtins and
   external dependencies, and knows nothing about its callers: no agent-progress names, tracker file names, user-facing
   wording or exit codes. App values arrive as parameters; a refusal leaves as a verdict the caller turns into
@@ -54,6 +55,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   it, so it stays DOM-safe.
 - `cli/testing/` is imported only by `cli/` specs.
 - `page/testing/` is imported only by `page/` specs.
+- `src/services/tracker/testing/` is imported only by `src/services/tracker/` specs.
 - `src/adapters/` imports only `src/lib/` and `src/shared/`; a `src/adapters/` spec, `src/adapters/progress/testing/`
   and `src/adapters/legacy/testing/` may also import `src/testing/`. `cli/` imports `src/adapters/` as a feature does.
 - `src/services/tracker/` imports `src/lib/`, `src/shared/`, `src/adapters/` and `src/services/render/`;
@@ -183,9 +185,9 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   `eslint.config.js`); local specifiers name the file with its `.ts` extension (`import/extensions`, turned on there
   as well); more than 3 named imports or 4+ properties one per line; arrow parameters parenthesised; no
   `any`; a blank line before a function declaration. `src/testing/`, `cli/testing/`, `src/adapters/progress/testing/`,
-  `src/adapters/legacy/testing/`, `dispatcher/testing/` and `page/testing/` may import devDependencies. Deliberately
-  off: `no-plusplus`, `no-continue`, `no-await-in-loop`, `no-param-reassign`, `consistent-return`,
-  `no-restricted-syntax`, `guard-for-in`, `class-methods-use-this`, `no-use-before-define`.
+  `src/adapters/legacy/testing/`, `src/services/tracker/testing/`, `dispatcher/testing/` and `page/testing/` may import
+  devDependencies. Deliberately off: `no-plusplus`, `no-continue`, `no-await-in-loop`, `no-param-reassign`,
+  `consistent-return`, `no-restricted-syntax`, `guard-for-in`, `class-methods-use-this`, `no-use-before-define`.
 
 ### Tests
 

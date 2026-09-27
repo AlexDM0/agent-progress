@@ -129,6 +129,7 @@ and each file's header says what it is for:
   (`CliProcess.ts`), and readers of what a command left on disk.
 - `src/adapters/progress/testing/` and `src/adapters/legacy/testing/`: the stored-format fixtures for
   their adapter specs.
+- `src/services/tracker/testing/`: `failureOf`, what an action threw, for the tracker pipeline specs.
 - `page/testing/`: the page specs' board and limits fixtures.
 - `dispatcher/testing/`: the Workflow-script harness, its bundle and source mutants, the claims, and
   the frozen trace table with the catalogue and capture that retake it.
