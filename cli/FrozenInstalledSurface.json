@@ -27,6 +27,7 @@
       "update"
     ],
     "flags": [
+      "--add",
       "--at",
       "--body",
       "--body-file",
@@ -46,6 +47,7 @@
       "--priority",
       "--reason",
       "--rebased-from",
+      "--remove",
       "--review-of",
       "--root",
       "--run",
