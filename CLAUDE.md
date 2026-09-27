@@ -284,6 +284,9 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (tracker → 
 - No skill file lists commands: `agent-progress help` is the reference, and `cli/HelpText.spec.ts` holds it.
   `skill/SKILL.md` names both the help and `skill/Reference.md`; the reference holds only what the help does not
   print.
+- `skill/Reference.md` is the one allowed second copy of the ticket file format, the ticket-move table and the exit
+  codes, because agents in other repositories cannot read `docs/cli.md`; `docs/cli.md` is the source, and a change to
+  either copy changes both in the same commit.
 - A `SKILL.md` `description` is its trigger, so it names the words a user says. Skill files cite only commands, paths
   inside a tracked repository, or files beside them; never a file of this repository.
 - `skill-orchestrate/` repeats nothing from `skill/`, writes rules as instructions, and never restates what the

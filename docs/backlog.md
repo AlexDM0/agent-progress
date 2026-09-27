@@ -107,6 +107,15 @@ Not started because it changes what the reviewer is told, so it waits for a comm
 the brief and the prompts, which retakes `dispatcher/testing/FrozenDispatchTraces.json`; the
 dispatcher port kept the old script's instructions.
 
+## Keeping the skill's copy of the formats in step
+
+`skill/Reference.md` carries a second copy of the ticket file format, the ticket-move table and the
+exit codes from `docs/cli.md`, kept in step by hand. Agreed: generate those sections of
+`skill/Reference.md` from `docs/cli.md`, or pin them with a spec that fails when the two differ.
+
+Not started because it is a code change (a generator or a guard spec, watched failing on each drifted
+form), and the migration's step 9 changed documentation only.
+
 ## Dropping the legacy folders
 
 `src/shared/legacy/`, `src/adapters/legacy/`, `src/services/tracker/legacy/`, `cli/legacy/` and

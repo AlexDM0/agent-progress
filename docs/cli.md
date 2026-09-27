@@ -5,8 +5,9 @@ every command and flag, the exit codes, what the dashboard shows, the files on d
 ticket move does to its Gantt row. The code wins every disagreement: `agent-progress help` prints the
 command reference from `cli/HelpText.ts` and is never out of step with the tool, and
 `skill/Reference.md` is the fuller source on tokens, the concurrency limit, the dispatcher state and
-releasing. The overview is in the [README](../README.md); working on this repository yourself is in
-[development.md](development.md).
+releasing. It also carries a copy of the ticket file format, the ticket moves and the exit codes, which
+follows this file. The overview is in the [README](../README.md); working on this repository yourself
+is in [development.md](development.md).
 
 - [Conventions](#conventions)
 - [Adopting a repository](#adopting-a-repository)
@@ -370,7 +371,7 @@ comment is code, and a file type it does not know counts every non-blank line.
 | code | meaning | examples |
 |---|---|---|
 | **0** | done, or there was nothing to do | also a store write whose page could not be rebuilt (reported on standard error, with an error banner on the page when only its script failed; `render` rebuilds it), a release whose cleanup git declined, and every `hook subagent-stop` |
-| **1** | a refusal the caller can act on | no tracker here, no such task or ticket, a missing `--reason`, a move the matrix refuses, a claim with no free slot or on a held-back low ticket, a release refused (`main-moved` among them), installed files of another install version (every command but `init`, `update`, `help` and `status`), and `init` or `update` over files a newer agent-progress installed, an unknown command |
+| **1** | a refusal the caller can act on | no tracker here, no such task or ticket, a missing `--reason`, a move the matrix refuses, a claim with no free slot or on a held-back low ticket, lowering a ticket that is not pending, a release refused (`main-moved` among them), installed files of another install version (every command but `init`, `update`, `help` and `status`), and `init` or `update` over files a newer agent-progress installed, an unknown command |
 | **2** | a state the tool will not repair on its own | an unreadable or malformed progress file, an unreadable or malformed log.jsonl, a malformed ticket file a command names, a lock it could not take, a release reason `git-failed` or `tracker-failed`, and any error the tool did not expect |
 
 ## The Handoff and the token column
@@ -656,7 +657,7 @@ The **from** column is the matrix the named verbs enforce; `ticket status <id> <
 |---|---|---|---|---|---|---|
 | `ticket add` | — | pending | created `pending`; none when low | `unstarted` | `filed` | `Ticket #003 filed: <title>` |
 | `ticket start` | pending, in-review | in-progress | `in-progress`; created for a low ticket | `wip` | `started` if null; the row's end cleared | `Ticket #003 started` |
-| `ticket claim` | pending, in-review | in-progress | `in-progress`, with owner, note and agent key | `wip` | as `start` | `Ticket #003 started` |
+| `ticket claim` | pending, in-review, and for every id named: not held, no review bar in progress, dependencies settled (one on a ticket in the same claim is), a free slot, and for a low ticket no normal or high one owed | in-progress | `in-progress`, created for a low ticket; with `--owner`, `--note` and the claim's `agent` key | `wip` | as `start` | `Ticket #003 started`, one per ticket |
 | `ticket finish` | in-progress | in-review | `in-review` | `reviewing` | `finished` if null | `Ticket #003 in review` |
 | `ticket finish --start-review` | in-progress | in-review | `in-review`, plus an in-progress review row | `reviewing` | as `finish` | as `finish`, and `Review row #18 started: <name>` |
 | `ticket rereview` | in-review | in-review, unchanged | `re-review`, one round up from 2 | `reviewing 2` | `updated` only | `Ticket #003 in review, round 2` |

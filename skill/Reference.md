@@ -9,7 +9,9 @@ the Gantt row, how a row's tokens are recorded, the time axis and the exit codes
 
 ## The ticket file
 
-`.agent-progress/tickets/003-double-click-a-role-to-edit-it.md`:
+`.agent-progress/tickets/003-double-click-a-role-to-edit-it.md`. The file name is the padded id and
+a slug of the title; the ticket is known by its frontmatter `id`. The CLI writes its keys in this
+order, omitting an optional key it does not have:
 
 ```
 ---
@@ -17,6 +19,9 @@ id: "003"
 title: "Double-click a role to edit it"
 type: "change"
 priority: "high"
+model: "sonnet"
+effort: "high"
+hold: "waiting for the design review"
 status: "in-progress"
 filed: "2026-09-18T20:11:03+02:00"
 updated: "2026-09-18T20:40:00+02:00"
@@ -26,8 +31,11 @@ delivered: null
 abandonedAt: null
 group: "role-editor"
 branch: "ticket/role-editor"
+commit: "0a1b2c3"
+reason: "…"
 dependsOn: "001, 002"
 task: 17
+owner: Alex Example
 ---
 # 003 — Double-click a role to edit it
 
@@ -35,23 +43,38 @@ task: 17
 …
 ```
 
-The keys the CLI owns are `id`, `title`, `type`, `priority`, `model`, `effort`, `hold`, `status`,
-`filed`, `updated`, `started`, `finished`, `delivered`, `abandonedAt`, `group`, `branch`, `commit`,
-`reason`, `dependsOn` and `task`. `hold` holds the ticket whatever its value: set it with `ticket hold`
-and remove it with `ticket unhold`, never by hand. `dependsOn` is the ticket ids this one waits on, comma-separated; set it with
-`ticket depends` rather than by hand, so a missing id or a circle is refused. `type` is
-one of **bug · change · feature**; `priority` is one of **low · normal · high**, and a ticket
-without the key is normal — the CLI writes it only when one is given, so an older ticket is never
-rewritten to gain it; `model` (**haiku · sonnet · opus · fable**) and `effort` (**low · medium ·
-high · xhigh · max**) are what the agents building and reviewing the ticket run on, written the same
-way — only once named, a ticket without them running on the default pair, **opus at medium effort**;
-`status` is one of **pending · in-progress · in-review · reviewed ·
-delivered · abandoned**; a ticket stored with the retired `open` or `done` reads as `pending` or
-`reviewed`, and the next write stores the new word. Any other line — an unknown key, a comment, a blank line — is kept and
-written back, so a field you add by hand survives every transition. **The CLI's own keys are
-rewritten at the top in the order above and your lines follow them, keeping their order among
-themselves**, so the first transition after you add a line moves it below the CLI's block once and
-never again. The body starts after the closing `---` and is never touched by the CLI.
+| key | written | value |
+|---|---|---|
+| `id`, `title`, `type`, `status`, `filed`, `updated` | always; required | `type`: bug, change, feature. `status`: pending, in-progress, in-review, reviewed, delivered, abandoned. `updated` is stamped on every move. |
+| `priority`, `model`, `effort` | only once named | `priority`: low, normal, high. `model`: haiku, sonnet, opus, fable. `effort`: low, medium, high, xhigh, max. Absent reads as normal, and as opus and medium, so an older ticket is never rewritten to gain them |
+| `hold` | only while held | the hold's reason, empty without one; any value but `null`, a bare `hold:` included, is held. Set and remove it with `ticket hold` and `unhold`. |
+| `started`, `finished`, `delivered`, `abandonedAt` | always | a timestamp or `null`; an absent one reads as `null` |
+| `group`, `branch`, `commit`, `reason` | when given | text; `reason` is dropped by `reopen` |
+| `dependsOn` | when non-empty | ticket ids, written `"001, 002"`, read from any mix of commas and spaces with or without `#` or padding. Set it with `ticket depends`, which refuses a missing id or a circle. |
+| `task` | always | the row's id as an unquoted integer, or `null` for a low ticket never started; a quoted `task` makes the file malformed |
+
+**The frontmatter is a deliberately small YAML subset.** One `key: value` per line, split at the
+first `': '`, so `title: Fix: the thing` keeps its second colon; `key:` alone is an empty value.
+A value is `null`, a double-quoted JSON string, or an unquoted scalar kept as text; only `task` reads
+an unquoted integer as a number, so any other value keeps its leading zeros. A `#` comment starts in
+column 0 with one hash; a line opening on two to six `#` followed by whitespace or nothing, indented
+or not, is a markdown heading and makes the file malformed, as does any other indented line, a list
+item or a bare word. There are no nested maps, lists or block scalars. The closing fence is the
+*first later* line equal to `---`, so a body may contain horizontal rules. A leading byte order mark
+is dropped and CRLF is kept.
+
+A ticket stored with the retired status `open` or `done` reads as `pending` or `reviewed`; reading
+never rewrites the file, and the next write stores the new word.
+
+**Unknown keys, comments and blank lines are kept and written back**, so a field you add by hand —
+`owner: Alex Example` above — survives every transition. The CLI's own keys are rewritten at the top
+in the order above and everything else follows, keeping its order among itself, so a hand-written
+line moves below the CLI's block once and never again.
+
+The body is preserved byte for byte from the ticket template, `--body` or `--body-file`; an empty
+body falls back to the template. A malformed ticket file is listed as ignored rather than failing
+`status` or `render`. A new ticket id is one past the highest of every file name, every parsed id and
+every ticket a row names; gaps are tolerated, never filled.
 
 The body filed from the template carries **Report**, **Wanted**, **Acceptance** and **Handoff**. The
 first three are written when the ticket is filed; the **Handoff** is the last thing the agent that
@@ -69,16 +92,24 @@ The **from** column is the matrix the named verbs enforce; `ticket status <id> <
 
 | command | from | ticket status | its row | pill | stamps written | log line |
 |---|---|---|---|---|---|---|
-| `ticket add` | — | pending | created, `pending`; none for a low ticket | `unstarted` | `filed` | `Ticket #003 filed: <title>` |
-| `ticket start` | pending, in-review | in-progress | `in-progress` | `wip` | `started` if null; the row's end cleared | `Ticket #003 started` |
-| `ticket claim` | pending, in-review with no review bar in progress, dependencies settled (one on a ticket in the same claim is), a free slot, and for a low ticket no normal or high one owed — for every id named | in-progress | `in-progress`, with `--owner`, `--note` and the claim's `agent` key | `wip` | as `ticket start` | `Ticket #003 started`, one per ticket |
+| `ticket add` | — | pending | created `pending`; none when low | `unstarted` | `filed` | `Ticket #003 filed: <title>` |
+| `ticket start` | pending, in-review | in-progress | `in-progress`; created for a low ticket | `wip` | `started` if null; the row's end cleared | `Ticket #003 started` |
+| `ticket claim` | pending, in-review, and for every id named: not held, no review bar in progress, dependencies settled (one on a ticket in the same claim is), a free slot, and for a low ticket no normal or high one owed | in-progress | `in-progress`, created for a low ticket; with `--owner`, `--note` and the claim's `agent` key | `wip` | as `start` | `Ticket #003 started`, one per ticket |
 | `ticket finish` | in-progress | in-review | `in-review` | `reviewing` | `finished` if null | `Ticket #003 in review` |
+| `ticket finish --start-review` | in-progress | in-review | `in-review`, plus an in-progress review row | `reviewing` | as `finish` | as `finish`, and `Review row #18 started: <name>` |
 | `ticket rereview` | in-review | in-review, unchanged | `re-review`, one round up from 2 | `reviewing 2` | `updated` only | `Ticket #003 in review, round 2` |
 | `ticket approve` | in-progress, in-review | reviewed | `reviewed` | `awaiting merge` | `finished` if null | `Ticket #003 reviewed` |
 | `ticket deliver` | reviewed | delivered | `delivered` | `done` | `delivered` if null | `Ticket #003 delivered` |
-| `ticket abandon` | anything but delivered, abandoned | abandoned | `abandoned` | `abandoned` | `abandonedAt`; the row's end if it had started | `Ticket #003 abandoned: <reason>` |
-| `ticket reopen` | anything but pending | pending | `pending` | `unstarted` | all of them cleared | `Ticket #003 reopened` |
-| `release` | in-progress, in-review | delivered, through reviewed | `delivered` | `done` | as `ticket approve`, then `ticket deliver` with `branch` and `commit` | both of theirs |
+| `release` | in-progress, in-review | reviewed, then delivered | `delivered`; in-progress review rows delivered | `done` | `finished` and `delivered` if null; `branch`, `commit` | the reviewed and delivered lines, and one per review row closed |
+| `ticket abandon` | anything but delivered, abandoned | abandoned | `abandoned`; none created for a low ticket without one | `abandoned` | `abandonedAt`, always; the row's end if it had started | `Ticket #003 abandoned: <reason>` |
+| `ticket reopen` | anything but pending | pending | `pending` | `unstarted` | all four cleared; `reason` dropped | `Ticket #003 reopened` |
+| `ticket priority … low` | pending | pending | removed | — | — | one line |
+| `ticket priority` from low | any | unchanged | created when it has none: `pending` while the ticket is pending, else seeded from its stamps | per status | — | one line |
+
+A closing stamp is written only while it is still null, while `abandonedAt` is written every time:
+re-entering a status is a correction, abandoning twice is deciding twice. Every move to a status other
+than in-review — `start`, `approve`, `deliver`, `abandon`, `reopen`, `status` — finishes and delivers the
+ticket's in-progress review bar, with one log line each; a plain `ticket rereview` leaves it in progress.
 
 **`done` on the chart means merged**, which is why the two vocabularies differ: a row stored as
 `in-review` is waiting for a reviewer, and one stored as `reviewed` is waiting for its branch to go
@@ -108,9 +139,8 @@ name the bar and are refused without the flag. Between a plain `ticket finish` a
 over, since a bar checks no limit; with the flag `status --json` counts the same agents before and
 after — a bundle's bar carries its claim's `agent` key while the bundle's other rows still run, so it
 shares their slot. An in-progress bar also refuses `ticket claim` on its ticket: a reviewer is at work
-on it. Every move out of in-review finishes and delivers the ticket's in-progress bars: `release`, and
-each of `ticket start`, `approve`, `abandon`, `reopen` and `status` with one log line per bar,
-`Closed the review row #<n>, delivered: <name>`.
+on it. Every move to a status other than in-review, `release` included, finishes and delivers the
+ticket's in-progress bars with one log line per bar, `Closed the review row #<n>, delivered: <name>`.
 
 Every one of those moves is appended to the row's own phase history, which the dashboard shows when
 a row is double-clicked, with how long the row sat in each phase. `task update --status` is
@@ -119,10 +149,10 @@ deliberately not: it corrects a row rather than moving it.
 Moving a ticket to the status it already has is refused with exit 1 and logs nothing, and
 `ticket rereview` is the one exception: a further reviewer is still review, so the round is
 counted on the row, whose pill reads `reviewing 2`, and the ticket stays in-review. A ticket taken
-straight to a closing status with `ticket status`, having never started, gets a row whose start is
-stamped along with its end — an end without a start would draw from the origin of the chart. There
-is no `paused` ticket status: `task pause <id>` records a waiting row, and the ticket stays where it
-was.
+straight to in-review, reviewed or delivered with `ticket status`, having never started, gets a row
+whose start is stamped along with its end — an end without a start would draw from the origin of the
+chart. There is no `paused` ticket status: `task pause <id>` records a waiting row, and the ticket
+stays where it was.
 
 `abandoned` is a state, not a deletion: the row stays as a grey hatched bar with a struck-through
 label, so ids and history are stable and a chart never silently loses a row.
@@ -340,10 +370,10 @@ default. Bars outside the window are clipped and marked, never dropped.
 
 | code | meaning |
 |---|---|
-| **0** | done, or there was nothing to do |
-| **1** | a refusal you can act on: no tracker here (run `agent-progress init`), no such task or ticket, a missing `--reason`, a claim with no free slot or on a low ticket still held back, lowering a ticket that is not pending, a release refused (`main-moved` among them), files installed here of another install version (run `agent-progress update`), an unknown command |
-| **2** | a state the tool will not repair on its own: an unreadable or malformed progress file, an unreadable or malformed log.jsonl, a malformed ticket file a command names, a lock it could not take |
+| **0** | done, or there was nothing to do; also a store write whose page could not be rebuilt (below), a release whose cleanup git declined, and every `hook subagent-stop` |
+| **1** | a refusal you can act on: no tracker here (run `agent-progress init`), no such task or ticket, a missing `--reason`, a move the matrix refuses, a claim with no free slot or on a low ticket still held back, lowering a ticket that is not pending, a release refused (`main-moved` among them), files installed here of another install version, on every command but `init`, `update`, `help` and `status` (run `agent-progress update`), `init` or `update` over files a newer agent-progress installed, an unknown command |
+| **2** | a state the tool will not repair on its own: an unreadable or malformed progress file, an unreadable or malformed log.jsonl, a malformed ticket file a command names, a lock it could not take, a release reason `git-failed` or `tracker-failed`, and any error the tool did not expect |
 
 Check the code rather than the wording. A command that wrote the store but could not rebuild the
-page still exits 0, reports the failure on standard error, and leaves the page carrying a visible
-error banner — the data is safe and `agent-progress render` rebuilds the page.
+page still exits 0 and reports the failure on standard error, and when only the page's script failed
+the page carries a visible error banner — the data is safe and `agent-progress render` rebuilds the page.
