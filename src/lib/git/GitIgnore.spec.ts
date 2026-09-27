@@ -1,8 +1,6 @@
 /**
- * When `ensureIgnored` changes a repository's `.gitignore` and, mostly, when it changes nothing: any pattern that
- * already covers the ignored directory must produce no diff, and a plain directory gains no file nobody asked for.
- * A symlinked (even dangling) or permission-restricted `.gitignore` survives the append as it was, replaced whole rather than rewritten in place;
- * a link chain resolves as the kernel resolves it, and a link cycle or a dangling link into a missing folder is refused as a plain write was.
+ * A pattern that already covers the directory changes nothing, and an append replaces the `.gitignore` whole, keeping its links and
+ * permissions, and refuses a link cycle or a dangling link into a missing folder.
  */
 import {
   chmodSync,

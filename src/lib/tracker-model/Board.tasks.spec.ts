@@ -1,8 +1,6 @@
 /**
- * The Board's row changes, which the `task` commands make. What they rely on: an id is never handed out twice, whatever was removed or
- * renumbered by hand; a ticket keeps one row, and moving it to another is a deliberate choice; a row a ticket owns moves only through
- * the ticket, except for a pause and its resume or a deliberate `movesAnyway`; a correction moves no clock; a count of zero stays apart
- * from none; and removing a row unlinks only a ticket that still named it. Refusals are asserted by reason code, never by wording.
+ * A task id is never handed out twice, a row a ticket owns moves only through the ticket unless the caller insists, and a correction
+ * moves no clock. Refusals are asserted by reason code, never by wording.
  */
 import { describe, expect, test } from 'bun:test';
 

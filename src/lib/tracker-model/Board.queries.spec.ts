@@ -1,10 +1,6 @@
 /**
- * The Board's readings. What callers rely on: a ticket reference typed on the command line resolves however it was padded or prefixed,
- * and text that is no reference resolves to nothing rather than to a ticket; a task is found by its id alone; the concurrency is the
- * one `ConcurrencyUtil` reads over the Board's rows; the stored run id is read as stored; a dependency the board does not hold still
- * counts as unsettled; only a low ticket is held back, by normal or high work still owed; the ready tickets come in the order to take
- * them; the held ids leave out settled tickets; the dispatch capacity keeps the key order its callers print; the ready entries spell
- * out every default and mark only a held ticket; and a settled check judges the record handed in, never another found by its id.
+ * A ticket reference resolves however it is padded or prefixed, and the ready and held lists keep the order callers rely on. A settled
+ * check judges the record handed in, never another found by its id.
  */
 import { expect, test } from 'bun:test';
 
@@ -22,12 +18,6 @@ test('a reference to no ticket on the board, or text that is no reference, resol
   for (const reference of ['2', '0', 'first', '']) {
     expect(board.ticketByReference(reference), reference).toBeUndefined();
   }
-});
-
-test('a task is found by its id, and an id no row holds finds nothing', () => {
-  const { board } = boardFixture({ tasks: [taskFixture({ id: 1 }), taskFixture({ id: 4, name: 'Example review pass' })] });
-  expect(board.taskById(4)?.name).toBe('Example review pass');
-  expect(board.taskById(2)).toBeUndefined();
 });
 
 test('the concurrency counts the in-progress rows by agent against the stored limit', () => {

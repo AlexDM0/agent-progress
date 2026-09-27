@@ -1,9 +1,6 @@
 /**
- * What the Workflow tool needs from a built script: the meta literal first with its key order kept, a body with no import or export, the runner's
- * call last, and the same bytes wherever the build ran from, since the bundler's path comments are relative to the working directory. Every
- * fixture sits outside the working directory in a folder whose name holds a space, the path a character-class strip would miss, and an
- * unstripped build shows the comment is there to remove. Each failure
- * reason has its own fixture except `no-output`, which a successful `Bun.build` of one entry never answers, so no fixture could provoke it.
+ * The built script is the meta literal first, a body with no import or export and the runner's call last, the same bytes wherever the
+ * build ran from. Each failure reason has its own fixture except `no-output`, which no successful build can provoke.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join }                     from 'node:path';

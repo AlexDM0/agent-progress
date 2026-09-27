@@ -1,9 +1,6 @@
 /**
- * A ticket's priority, which decides whether it has a row at all: a low ticket waits off the chart until it is started. What callers
- * rely on: lowering a pending ticket takes its row away, and lowering any other is refused, since its row already holds work; raising a
- * rowless ticket gives it a row at once, pending for a pending ticket and seeded from its stamps otherwise, so an abandoned or reviewed
- * ticket does not come back as a pending bar; a row the ticket has is never replaced; an unchanged priority is refused before anything
- * changes; and a priority change is no work on the ticket, so `updated` stays where it was. Refusals are asserted by reason code.
+ * A priority decides whether a ticket has a row: lowering takes a pending ticket's row away and is refused otherwise, and raising seeds a
+ * row from the stamps, so an abandoned ticket never returns as a pending bar. Refusals are asserted by reason code.
  */
 import { describe, expect, test } from 'bun:test';
 

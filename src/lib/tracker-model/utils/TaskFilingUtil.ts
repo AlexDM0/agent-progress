@@ -33,7 +33,7 @@ function seededHistoryFor(filing: TaskFiling): TaskPhase[] | null {
   return reachedAt === undefined || reachedAt === null ? null : [{ status, at: reachedAt }];
 }
 
-/** The optional fields are written only when given, in this order, which is the key order `progress.json` stores. */
+/** The optional fields are written only when given, in this order, which is the key order the stored file keeps. */
 function filedTaskOf(taskId: number, filing: TaskFiling): Task {
   const seededHistory = seededHistoryFor(filing);
   return {

@@ -1,9 +1,6 @@
 /**
- * `writeFileAtomically` against its own contract: a reader holding the file across the write sees the
- * whole old or the whole new content and never a prefix, a symlink and its mode survive, and a failed
- * write leaves the previous file untouched. `createFileAtomically` refuses an existing file with its bytes intact.
- * `writeFileAtomicallyThroughLinks` writes where a link chain ends, resolving each hop as the kernel does, so even a dangling link
- * survives; like a plain write it refuses a cycle and never creates the folder a dangling link points into.
+ * A reader holding the file sees the whole old or the whole new content, never a prefix, and a failed write leaves the old file; links
+ * and modes survive, a chain resolving as the kernel resolves it.
  */
 import {
   chmodSync,
@@ -16,17 +13,11 @@ import {
   symlinkSync,
   writeFileSync
 } from 'node:fs';
-import {
-  chmod,
-  mkdtemp,
-  readFile,
-  readdir,
-  rm
-} from 'node:fs/promises';
-import { tmpdir }                 from 'node:os';
-import { join }                   from 'node:path';
-import { afterAll, expect, test } from 'bun:test';
+import { chmod, readFile, readdir } from 'node:fs/promises';
+import { join }                     from 'node:path';
+import { afterAll, expect, test }   from 'bun:test';
 
+import { createScratchDirectory, removeScratchDirectory }                             from '../../testing/ScratchWorkspace';
 import { createFileAtomically, writeFileAtomically, writeFileAtomicallyThroughLinks } from './AtomicFile';
 
 /** Root can write into a directory it has no permission on, so the failure case cannot be staged there. */
@@ -37,16 +28,17 @@ const TARGET_FILE_NAME      = 'document.json';
 
 const scratchDirectories: string[] = [];
 
-async function createScratchDirectory(): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), 'atomic-file-'));
+function trackedScratchDirectory(): string {
+  const directory = createScratchDirectory('atomic-file');
   scratchDirectories.push(directory);
   return directory;
 }
 
+// The permission test may have left a directory unwritable, which would stop its removal.
 afterAll(async () => {
   for (const directory of scratchDirectories) {
     await chmod(directory, 0o700).catch(() => {});
-    await rm(directory, { recursive: true, force: true });
+    removeScratchDirectory(directory);
   }
 });
 
@@ -55,7 +47,7 @@ async function unexpectedLeftovers(directory: string, expectedNames: string[]): 
 }
 
 test('a reader holding the file across the write sees the whole old content or the whole new one, never a prefix', async () => {
-  const directory = await createScratchDirectory();
+  const directory = trackedScratchDirectory();
   const filePath = join(directory, TARGET_FILE_NAME);
   const oldContent = 'old'.repeat(LARGE_CONTENT_REPEATS);
   const newContent = 'new'.repeat(LARGE_CONTENT_REPEATS);
@@ -73,7 +65,7 @@ test('a reader holding the file across the write sees the whole old content or t
 });
 
 test('a successful write leaves no temporary file beside the target', async () => {
-  const directory = await createScratchDirectory();
+  const directory = trackedScratchDirectory();
   const filePath = join(directory, TARGET_FILE_NAME);
   writeFileAtomically(filePath, '{"version":1}');
   writeFileAtomically(filePath, '{"version":1,"project":"Example Agency"}');
@@ -82,14 +74,14 @@ test('a successful write leaves no temporary file beside the target', async () =
 });
 
 test('the parent directory is created when it is not there yet', async () => {
-  const directory = await createScratchDirectory();
+  const directory = trackedScratchDirectory();
   const filePath = join(directory, 'example-folder', 'nested', '001-example.md');
   writeFileAtomically(filePath, '# 001 — Example\n');
   expect(readFileSync(filePath, 'utf8')).toBe('# 001 — Example\n');
 });
 
 test('a symlinked target stays a symlink and its content lands on the file it points at', async () => {
-  const directory = await createScratchDirectory();
+  const directory = trackedScratchDirectory();
   const realDirectory = join(directory, 'real');
   mkdirSync(realDirectory);
   const realPath = join(realDirectory, TARGET_FILE_NAME);
@@ -105,7 +97,7 @@ test('a symlinked target stays a symlink and its content lands on the file it po
 });
 
 test.skipIf(RUNNING_AS_ROOT)('a restricted file comes back with the same permission bits', async () => {
-  const directory = await createScratchDirectory();
+  const directory = trackedScratchDirectory();
   const filePath = join(directory, TARGET_FILE_NAME);
   writeFileSync(filePath, '{"version":1}', { mode: 0o600 });
   writeFileAtomically(filePath, '{"version":1,"project":"Example Agency"}');
@@ -114,7 +106,7 @@ test.skipIf(RUNNING_AS_ROOT)('a restricted file comes back with the same permiss
 
 // The mode handed to `open` is masked by the umask, so a group- or world-writable file would lose those bits without an explicit `fchmod`.
 test('a file with bits the umask would mask comes back with the same permission bits', async () => {
-  const directory = await createScratchDirectory();
+  const directory = trackedScratchDirectory();
   const filePath = join(directory, TARGET_FILE_NAME);
   writeFileSync(filePath, '{"version":1}');
   chmodSync(filePath, 0o666);
@@ -128,7 +120,7 @@ test('a file with bits the umask would mask comes back with the same permission 
 });
 
 test.skipIf(RUNNING_AS_ROOT)('a write that cannot be performed leaves the previous file exactly as it was', async () => {
-  const directory = await createScratchDirectory();
+  const directory = trackedScratchDirectory();
   const filePath = join(directory, TARGET_FILE_NAME);
   writeFileSync(filePath, '{"version":1}');
   await chmod(directory, 0o500);
@@ -141,7 +133,7 @@ test.skipIf(RUNNING_AS_ROOT)('a write that cannot be performed leaves the previo
 });
 
 test('an empty string is a legitimate content, not a no-op', async () => {
-  const directory = await createScratchDirectory();
+  const directory = trackedScratchDirectory();
   const filePath = join(directory, 'empty.txt');
   writeFileSync(filePath, 'previous');
   writeFileAtomically(filePath, '');
@@ -150,7 +142,7 @@ test('an empty string is a legitimate content, not a no-op', async () => {
 });
 
 test('the create-exclusive write creates a missing file whole and leaves no temporary file beside it', async () => {
-  const directory = await createScratchDirectory();
+  const directory = trackedScratchDirectory();
   const filePath = join(directory, TARGET_FILE_NAME);
 
   expect(createFileAtomically(filePath, 'created')).toBe('created');
@@ -161,7 +153,7 @@ test('the create-exclusive write creates a missing file whole and leaves no temp
 
 // The guarantee a first write rests on: no path through it can truncate a file that already exists.
 test('the create-exclusive write refuses an existing file, leaving its bytes and no temporary file behind', async () => {
-  const directory = await createScratchDirectory();
+  const directory = trackedScratchDirectory();
   const filePath = join(directory, TARGET_FILE_NAME);
   writeFileSync(filePath, 'existing content');
 
@@ -184,7 +176,7 @@ function linkChainThroughASymlinkedFolder(directory: string): { linkPath: string
 }
 
 test('writing through a relative dangling link keeps the link and creates its target beside the folder the link sits in', async () => {
-  const directory = await createScratchDirectory();
+  const directory = trackedScratchDirectory();
   mkdirSync(join(directory, 'case'));
   mkdirSync(join(directory, 'shared'));
   const linkPath = join(directory, 'case', 'CLAUDE.md');
@@ -198,7 +190,7 @@ test('writing through a relative dangling link keeps the link and creates its ta
 });
 
 test('writing through a two-hop dangling chain keeps both links and creates the last, missing path', async () => {
-  const directory = await createScratchDirectory();
+  const directory = trackedScratchDirectory();
   const firstLinkPath = join(directory, 'CLAUDE.md');
   const secondLinkPath = join(directory, 'AGENTS.md');
   symlinkSync('AGENTS.md', firstLinkPath);
@@ -212,7 +204,7 @@ test('writing through a two-hop dangling chain keeps both links and creates the 
 });
 
 test('a path that is no link, present or absent, is written in place', async () => {
-  const directory = await createScratchDirectory();
+  const directory = trackedScratchDirectory();
   const presentPath = join(directory, 'CLAUDE.md');
   const absentPath = join(directory, 'absent.md');
   writeFileSync(presentPath, '# Example Agency\n');
@@ -227,7 +219,7 @@ test('a path that is no link, present or absent, is written in place', async () 
 
 // Following a relative hop by its spelling would write a stray file under `temporary/shared` and leave the real file unchanged.
 test('a live chain whose relative hop climbs out of a symlinked folder writes the file the kernel resolves', async () => {
-  const directory = await createScratchDirectory();
+  const directory = trackedScratchDirectory();
   const { linkPath, realPath, spelledStrayFolder } = linkChainThroughASymlinkedFolder(directory);
   writeFileSync(realPath, '# Real\n');
 
@@ -239,7 +231,7 @@ test('a live chain whose relative hop climbs out of a symlinked folder writes th
 });
 
 test('a dangling chain whose relative hop climbs out of a symlinked folder creates its target under the physical folder', async () => {
-  const directory = await createScratchDirectory();
+  const directory = trackedScratchDirectory();
   const { linkPath, realPath, spelledStrayFolder } = linkChainThroughASymlinkedFolder(directory);
 
   writeFileAtomicallyThroughLinks(linkPath, '# Created\n');
@@ -251,7 +243,7 @@ test('a dangling chain whose relative hop climbs out of a symlinked folder creat
 
 // Answering the link itself would let the rename replace the link with a regular file.
 test('a link cycle is refused with ELOOP and stays a link', async () => {
-  const directory = await createScratchDirectory();
+  const directory = trackedScratchDirectory();
   const firstLinkPath = join(directory, 'first.md');
   symlinkSync('second.md', firstLinkPath);
   symlinkSync('first.md', join(directory, 'second.md'));
@@ -264,7 +256,7 @@ test('a link cycle is refused with ELOOP and stays a link', async () => {
 });
 
 test('a dangling link into a folder that does not exist is refused with ENOENT and creates no folder', async () => {
-  const directory = await createScratchDirectory();
+  const directory = trackedScratchDirectory();
   const linkPath = join(directory, 'CLAUDE.md');
   symlinkSync('missing-folder/CLAUDE.md', linkPath);
 

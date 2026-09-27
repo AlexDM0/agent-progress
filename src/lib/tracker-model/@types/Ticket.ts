@@ -19,12 +19,12 @@ export interface TicketFrontmatter {
   id:          string;
   title:       string;
   type:        TicketType;
-  /** Absent on every ticket filed before priorities existed, and on one filed without `--priority`; absent reads as `normal`. */
+  /** Absent on every ticket filed before priorities existed, and on one filed without a priority; absent reads as `normal`. */
   priority?:   TicketPriority;
-  /** Absent unless somebody named one; absent reads as the tool's default for builders and reviewers. */
+  /** Absent unless somebody named one; absent reads as the default for builders and reviewers. */
   model?:      AgentModel;
   effort?:     AgentEffort;
-  /** Present while `ticket hold` holds the ticket, holding its reason, empty when none was given; absent means not held. */
+  /** Present while a hold holds the ticket, holding its reason, empty when none was given; absent means not held. */
   hold?:       string;
   status:      TicketStatus;
   filed:       string;
@@ -40,7 +40,7 @@ export interface TicketFrontmatter {
   /** Padded ids of the tickets this one waits on, in the order written; absent when it waits on none. */
   dependsOn?:  string[];
   task:        number | null;
-  /** Every frontmatter line the CLI does not own, in original order, so a status change does not eat it. */
+  /** Every frontmatter line the model does not own, in original order, so a status change does not eat it. */
   extra:       Array<[key: string, rawValue: string]>;
 }
 

@@ -196,7 +196,7 @@ async function recordSubagentStop(commandArguments: ArgumentParser, context: Com
     return;
   }
 
-  const totals: TranscriptUsageTotals = TranscriptUsageUtil.summariseTranscriptUsage(transcriptText, LIMITS.OVERSIZED_CONTEXT_THRESHOLD_TOKENS);
+  const totals: TranscriptUsageTotals = TranscriptUsageUtil.usageTotalsOf(transcriptText, LIMITS.OVERSIZED_CONTEXT_THRESHOLD_TOKENS);
   if (totals.apiCallCount === 0) {
     context.standardError(`${REPORT_PREFIX} the transcript at ${expandedTranscriptPath} holds no API calls, so nothing was recorded.`);
     return;

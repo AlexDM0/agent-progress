@@ -1,12 +1,4 @@
-/**
- * Review passes and the bars reviewers work on. What callers rely on: a further review pass keeps the ticket in review and counts the
- * round on its row, from any status but review refused; a ticket whose row was cleared gets one back; a bar is named for the round the
- * caller counted, reviews its ticket and runs at once; a bar shares its claim's agent key only while the claim is still being worked, so
- * a bundle's reviewer takes no second slot and a lone reviewer takes its own; the earlier bar is closed before the next one starts; and
- * the Board reads no name: a record without `reviewOf` is never closed, as ingestion links a legacy bar before the Board sees it. Closing
- * and the claim refusal follow file order, not id order.
- * Refusals are asserted by reason code, never by wording.
- */
+/** Review bars are linked by `reviewOf`, never by name, and close in file order; refusals are asserted by reason code, never by wording. */
 import { describe, expect, test } from 'bun:test';
 
 import type { BoardFixture } from '../../testing/BoardFixtures';

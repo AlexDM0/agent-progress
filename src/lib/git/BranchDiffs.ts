@@ -2,7 +2,8 @@
  * Which commits were made on a worktree since a given commit, and what a rebase changed in a branch's own work, as diff text for a caller
  * to count. Every diff is asked for with its options spelled out, so the user's git configuration cannot change the diff text.
  */
-import { GitProcess } from './GitProcess';
+import { GitProcess }                from './GitProcess';
+import { NOT_AN_ANCESTOR_EXIT_CODE } from './constants/GitExitCodes';
 
 const MERGE_BASE_NOT_FOUND_EXIT_CODE = 1;
 
@@ -65,10 +66,10 @@ export function readCommitsDiff(directory: string, since: string): CommitsDiffRe
 
   const ancestryArguments = ['merge-base', '--is-ancestor', sinceCommit, 'HEAD'];
   const ancestry          = GitProcess.run(directory, ancestryArguments);
-  if (ancestry === null || (!GitProcess.succeeded(ancestry) && ancestry.exitCode !== MERGE_BASE_NOT_FOUND_EXIT_CODE)) {
+  if (ancestry === null || (!GitProcess.succeeded(ancestry) && ancestry.exitCode !== NOT_AN_ANCESTOR_EXIT_CODE)) {
     return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(ancestry, ancestryArguments) };
   }
-  if (ancestry.exitCode === MERGE_BASE_NOT_FOUND_EXIT_CODE) return { verdict: 'not-an-ancestor', sinceCommit };
+  if (ancestry.exitCode === NOT_AN_ANCESTOR_EXIT_CODE) return { verdict: 'not-an-ancestor', sinceCommit };
 
   const range           = `${sinceCommit}..HEAD`;
   const mergesArguments = ['rev-list', '--merges', range];

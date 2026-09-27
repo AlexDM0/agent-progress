@@ -1,8 +1,6 @@
 /**
- * What writing a managed block may do to a `CLAUDE.md`: everything outside the managed region survives byte
- * for byte, a start marker with no end is refused, and a symlinked file stays a symlink, dangling or not, with a chain
- * resolved as the kernel resolves it. A link cycle or a dangling link into a missing folder is refused as a plain write was.
- * The file is replaced whole, never rewritten in place, and its permission bits survive the replacement.
+ * Everything outside the managed block survives byte for byte and a start marker with no end is refused; the file is replaced whole,
+ * keeping its links and permission bits.
  */
 import {
   chmodSync,

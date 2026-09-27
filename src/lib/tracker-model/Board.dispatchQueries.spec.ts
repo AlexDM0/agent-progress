@@ -1,9 +1,6 @@
 /**
- * The Board's answers a dispatcher reads from `status --json` instead of working them out from the rows. What it relies on: the ids in
- * flight come once each in row order and only from in-progress rows; a review counts as in flight on any row storing `reviewOf`, as a
- * claim and the moves out of review count it, and a ticket's review rows are those same rows; a review waits exactly while its ticket is
- * in review with no reviewer at work, so a delivered bar leaves it waiting again; and a ticket's linked row is the one its frontmatter
- * `task` names, never the first row naming it.
+ * A review counts as in flight on any row storing `reviewOf`, as a claim counts it, and a ticket waits for review exactly while no
+ * reviewer is at work; a ticket's linked row is the one its frontmatter `task` names.
  */
 import { describe, expect, test } from 'bun:test';
 

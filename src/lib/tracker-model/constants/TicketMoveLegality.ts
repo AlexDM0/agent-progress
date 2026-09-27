@@ -12,7 +12,3 @@ export const LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS: Record<TicketStatus, reado
   'delivered':   ['reviewed'],
   'abandoned':   ['pending', 'in-progress', 'in-review', 'reviewed'],
 };
-
-export function ticketMoveIsLegal(currentStatus: TicketStatus, targetStatus: TicketStatus): boolean {
-  return LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS[targetStatus].includes(currentStatus);
-}

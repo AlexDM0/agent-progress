@@ -1,8 +1,6 @@
 /**
- * The verdicts of bringing a branch into the main checkout, against real git in scratch repositories: which branch the main checkout is on,
- * whether a branch descends from the main line, the fast-forward, and the two cleanups. What matters is that every refusal git gives comes
- * back as a verdict with git's own reason, that a worktree holding work is left standing with that work named, and that an option-shaped
- * branch name is read as a ref under refs/heads/.
+ * Every refusal git gives comes back as a verdict with git's own reason, a worktree holding work is left standing with that work named,
+ * and an option-shaped branch name reads as a ref under refs/heads/.
  */
 import { existsSync, writeFileSync } from 'node:fs';
 import { join }                      from 'node:path';

@@ -89,7 +89,6 @@ const CALLS_THAT_CHANGE_NO_TICKET: readonly (readonly [string, (board: Board) =>
   ['deliveredRowCountsAsReviewed', (board) => board.tasks().map((task) => board.deliveredRowCountsAsReviewed(task))],
   ['tasks', (board) => board.tasks()],
   ['tickets', (board) => board.tickets()],
-  ['taskById', (board) => board.taskById(1)],
   ['ticketByReference', (board) => board.ticketByReference('1')],
   ['concurrency', (board) => board.concurrency()],
   ['dispatcherState', (board) => board.dispatcherState()],

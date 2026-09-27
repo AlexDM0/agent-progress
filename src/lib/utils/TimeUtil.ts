@@ -1,4 +1,7 @@
-/** Timestamps are local-offset ISO 8601, never UTC: formatted, parsed, resolved from `now` or a signed offset, and measured in minutes. */
+/**
+ * The utils building block: pure, dependency-free value helpers (time stamps, token counts, HTML escaping); it imports nothing.
+ * Timestamps are local-offset ISO 8601, never UTC: formatted, parsed, and resolved from `now` or a signed offset.
+ */
 
 const MILLISECONDS_PER_MINUTE = 60_000;
 const MINUTES_PER_HOUR        = 60;
@@ -115,14 +118,8 @@ function parseDurationMinutes(text: string): number | null {
   return minutes > 0 ? minutes : null;
 }
 
-/** Epoch-millisecond arithmetic, never calendar fields, so it stays right across a daylight-saving boundary; the result is not rounded. */
-function minutesBetween(from: Date, to: Date): number {
-  return (to.getTime() - from.getTime()) / MILLISECONDS_PER_MINUTE;
-}
-
 export const TimeUtil = {
   formatLocalIso,
-  minutesBetween,
   parseDurationMinutes,
   parseIso,
   resolveWhen,

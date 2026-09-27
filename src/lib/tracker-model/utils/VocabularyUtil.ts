@@ -11,7 +11,7 @@ import { AGENT_EFFORTS, AGENT_MODELS }     from '../constants/AgentSettings.ts';
 import { TASK_STATUSES, TICKET_STATUSES }  from '../constants/Statuses.ts';
 import { TICKET_PRIORITIES, TICKET_TYPES } from '../constants/TicketFields.ts';
 
-/** A membership test, not a record lookup: `constructor` is a truthy, callable property of every object and argv can spell it. */
+/** A membership test, not a record lookup: `constructor` is a truthy, callable property of every object and outside text can spell it. */
 function taskStatusIsKnown(text: string): text is TaskStatus {
   return (TASK_STATUSES as readonly string[]).includes(text);
 }

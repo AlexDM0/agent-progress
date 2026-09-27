@@ -329,7 +329,7 @@ src/                        the code the features share, in the conventions' lay
   src/lib/                  package-grade building blocks, one folder each, the package's description in its main module's header:
                             atomic-file (AtomicFile.ts), git (GitProcess.ts), claude-code (ClaudeTranscripts.ts; also
                             builds Workflow scripts),
-                            tracker-model (@types/Task.ts; Board.ts is its aggregate), utils
+                            tracker-model (@types/Task.ts; Board.ts is its aggregate), utils (TimeUtil.ts)
   src/adapters/             the boundary, one folder per stored format (progress, tickets, log, and install for the install
                             manifest) plus the shared utils: reading, writing and mapping what the tracker stores, the ticket
                             JSON document, and the wording of log records and refusals; legacy/ reads the older progress.json

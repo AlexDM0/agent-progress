@@ -1,8 +1,6 @@
 /**
- * The board settings the `range`, `concurrency`, `dispatcher` and `log` commands change. What they rely on: a tracker that never set a
- * dispatcher state reads the default; a write without a run id deletes the stored one, which would otherwise be resumed wrongly; the
- * value each setting held before is handed back for the command's "(was …)"; and each change logs exactly one record, which is the
- * sentence the command prints.
+ * Each setting hands back the value it replaced and logs exactly one record, and a dispatcher write without a run id deletes the stored
+ * one, which would otherwise be resumed wrongly.
  */
 import { expect, test } from 'bun:test';
 

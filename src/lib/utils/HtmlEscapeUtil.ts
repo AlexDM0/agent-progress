@@ -13,12 +13,7 @@ function escapeHtml(text: string): string {
     .replaceAll('\'', '&#39;');
 }
 
-/**
- * Every `<` is escaped, not only the ones in `</`, so no value can reach the HTML tokenizer as markup
- * and close the island: a `<!--` alone puts the tokenizer into its double-escaped state, where the
- * next `</script>` stops closing the element. U+2028 and U+2029 go too — legal in JSON, illegal
- * inside a JavaScript string literal.
- */
+/** Every `<` and U+2028/U+2029 are escaped, so no value can close the script island or break a JavaScript string. */
 function escapeJsonForScriptTag(json: string): string {
   return json
     .replaceAll('<', '\\u003C')

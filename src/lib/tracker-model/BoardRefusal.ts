@@ -1,4 +1,4 @@
-/** Why the Board refused a change: a reason code and the facts, never a sentence. The command surface words it. */
+/** Why the Board refused a change: a reason code and the facts, never a sentence. The caller words it. */
 import type { TaskStatus }                              from './@types/Task.ts';
 import type { AgentPair, TicketPriority, TicketStatus } from './@types/Ticket.ts';
 

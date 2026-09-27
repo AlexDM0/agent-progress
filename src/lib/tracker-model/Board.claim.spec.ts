@@ -1,8 +1,6 @@
 /**
- * A claim: `ticket start` for every ticket named, as one agent. What the dispatcher relies on: a claim is all or nothing, so every
- * refusal leaves the board as it was; the refusals come in a fixed order (each ticket's own checks in id order, then a reviewer at work,
- * then the limit), so the one reported is predictable; a dependency inside the claim is settled by it; the limit counts agents, not
- * rows; and the claimed rows share one key made of every id, carry the owner and note, and are counted in the concurrency returned.
+ * A claim starts every ticket named as one agent, all or nothing, with its refusals in a fixed order so the one reported is predictable.
+ * The limit counts agents, not rows.
  */
 import { describe, expect, test } from 'bun:test';
 

@@ -22,11 +22,15 @@ import {
 } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 
-const TEMPORARY_NAME_RANDOM_LENGTH = 8;
+const TEMPORARY_NAME_RANDOM_CHARACTERS = 8;
 
 const PERMISSION_BITS = 0o777;
 
-const SYMLINK_FOLLOW_LIMIT = 40;
+const SYMBOLIC_LINK_FOLLOW_LIMIT_HOPS = 40;
+
+function temporaryPathBeside(targetPath: string): string {
+  return `${targetPath}.${process.pid}.${randomUUID().slice(0, TEMPORARY_NAME_RANDOM_CHARACTERS)}.tmp`;
+}
 
 /** The last path of a symlink chain, which may not exist yet; a chain that never ends throws ELOOP, as a plain write through it would. */
 function linkChainEndOf(targetPath: string): string {
@@ -36,7 +40,7 @@ function linkChainEndOf(targetPath: string): string {
     // Dangling, absent or cyclic: the chain is followed by hand below.
   }
   let currentPath = targetPath;
-  for (let i = 0; i < SYMLINK_FOLLOW_LIMIT; i++) {
+  for (let i = 0; i < SYMBOLIC_LINK_FOLLOW_LIMIT_HOPS; i++) {
     let entryIsASymbolicLink = false;
     try {
       entryIsASymbolicLink = lstatSync(currentPath).isSymbolicLink();
@@ -70,8 +74,7 @@ export function writeFileAtomically(targetPath: string, contents: string): void 
   }
 
   mkdirSync(dirname(finalPath), { recursive: true });
-  const writingProcessId = process.pid;
-  const temporaryPath    = `${finalPath}.${writingProcessId}.${randomUUID().slice(0, TEMPORARY_NAME_RANDOM_LENGTH)}.tmp`;
+  const temporaryPath = temporaryPathBeside(finalPath);
   try {
     const temporaryFileDescriptor = openSync(temporaryPath, 'w', existingMode ?? undefined);
     try {
@@ -108,7 +111,7 @@ export function writeFileAtomicallyThroughLinks(linkPath: string, contents: stri
 /** The create-exclusive twin: the complete temporary file is hard-linked into place, which fails rather than replaces when the target exists. */
 export function createFileAtomically(targetPath: string, contents: string): 'created' | 'already-exists' {
   mkdirSync(dirname(targetPath), { recursive: true });
-  const temporaryPath = `${targetPath}.${process.pid}.${randomUUID().slice(0, TEMPORARY_NAME_RANDOM_LENGTH)}.tmp`;
+  const temporaryPath = temporaryPathBeside(targetPath);
   try {
     const temporaryFileDescriptor = openSync(temporaryPath, 'wx');
     try {

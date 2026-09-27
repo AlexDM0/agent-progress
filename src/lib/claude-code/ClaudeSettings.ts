@@ -6,9 +6,9 @@
 import { readFileSync, statSync } from 'node:fs';
 import { join }                   from 'node:path';
 
-import { writeFileAtomically } from '../atomic-file/AtomicFile';
-
-const CLAUDE_DIRECTORY_NAME = '.claude';
+import { writeFileAtomically }   from '../atomic-file/AtomicFile';
+import { CLAUDE_DIRECTORY_NAME } from './constants/ClaudeCodePaths';
+import { JsonRecordUtil }        from './utils/JsonRecordUtil';
 
 const SETTINGS_FILE_NAME = 'settings.json';
 
@@ -45,11 +45,6 @@ export function claudeLocalSettingsFilePathFor(rootDirectory: string): string {
   return join(rootDirectory, CLAUDE_DIRECTORY_NAME, LOCAL_SETTINGS_FILE_NAME);
 }
 
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
-  return value as Record<string, unknown>;
-}
-
 function fileExists(path: string): boolean {
   try {
     return statSync(path).isFile();
@@ -76,18 +71,18 @@ function parsedSettings(settingsFilePath: string): Record<string, unknown> | 'un
   } catch {
     return 'unreadable';
   }
-  return asRecord(parsed) ?? 'unreadable';
+  return JsonRecordUtil.recordOf(parsed) ?? 'unreadable';
 }
 
 /** Compared on the command alone: the same command under a second matcher would run twice for one agent. */
 function groupAlreadyRunsTheCommand(group: unknown, command: string): boolean {
-  const groupRecord = asRecord(group);
+  const groupRecord = JsonRecordUtil.recordOf(group);
   if (groupRecord === undefined) return false;
 
   const groupHooks = groupRecord[HOOKS_KEY];
   if (!Array.isArray(groupHooks)) return false;
 
-  return groupHooks.some((entry) => asRecord(entry)?.['command'] === command);
+  return groupHooks.some((entry) => JsonRecordUtil.recordOf(entry)?.['command'] === command);
 }
 
 function commandEntryFor(hook: SubagentStopHook): Record<string, unknown> {
@@ -107,7 +102,7 @@ function groupFor(hook: SubagentStopHook): Record<string, unknown> {
 
 /** The group with this command's entry brought up to date, its matcher and any hook beside it left as whoever wrote them meant them. */
 function groupWithRefreshedEntry(group: unknown, hook: SubagentStopHook): unknown {
-  const groupRecord = asRecord(group);
+  const groupRecord = JsonRecordUtil.recordOf(group);
   if (groupRecord === undefined) return group;
 
   const groupHooks = groupRecord[HOOKS_KEY];
@@ -115,18 +110,11 @@ function groupWithRefreshedEntry(group: unknown, hook: SubagentStopHook): unknow
 
   return {
     ...groupRecord,
-    [HOOKS_KEY]: groupHooks.map((entry) => (asRecord(entry)?.['command'] === hook.command ? commandEntryFor(hook) : entry)),
+    [HOOKS_KEY]: groupHooks.map((entry) => (JsonRecordUtil.recordOf(entry)?.['command'] === hook.command ? commandEntryFor(hook) : entry)),
   };
 }
 
-/**
- * Adds the hook and says what it did. `'already-present'` is returned for a file that already runs
- * this command under any matcher and nothing is written at all, so running it again leaves no diff.
- * `'refused-unreadable'` covers a document that will not parse, one that is not a JSON object, and one
- * whose `hooks` section or `SubagentStop` list is of a shape this cannot merge into — **in every one of
- * those cases the existing file is left exactly as it was**, and the caller says so rather than this
- * module deciding it knows better.
- */
+/** Writes nothing when this command already runs under any matcher; a file it cannot merge into is refused and left untouched. */
 export function writeSubagentStopHook(settingsFilePath: string, hook: SubagentStopHook): WriteSubagentStopHookOutcome {
   const settingsFileExisted = fileExists(settingsFilePath);
 
@@ -134,7 +122,7 @@ export function writeSubagentStopHook(settingsFilePath: string, hook: SubagentSt
   if (settings === 'unreadable') return 'refused-unreadable';
 
   const hooksSectionValue = settings[HOOKS_KEY];
-  const hooksSection      = hooksSectionValue === undefined ? {} : asRecord(hooksSectionValue);
+  const hooksSection      = hooksSectionValue === undefined ? {} : JsonRecordUtil.recordOf(hooksSectionValue);
   if (hooksSection === undefined) return 'refused-unreadable';
 
   const eventGroupsValue = hooksSection[SUBAGENT_STOP_EVENT_NAME];
@@ -151,21 +139,14 @@ export function writeSubagentStopHook(settingsFilePath: string, hook: SubagentSt
   return settingsFileExisted ? 'added' : 'created';
 }
 
-/**
- * Brings an entry that is **already there** up to the given hook, and says whether that
- * changed anything. An entry nobody installed stays `'absent'` and nothing is written: a first install
- * into a file the user owns is the caller's decision, not this module's. Nothing is written when the
- * entry already says what it should either, so refreshing a settings file somebody formatted by hand
- * leaves no diff. The matcher and every hook beside this command's are left alone — the same tolerance
- * `writeSubagentStopHook` shows, which recognises this command under any matcher.
- */
+/** Only updates an entry that is already there, under any matcher; an absent entry or one already current writes nothing. */
 export function refreshSubagentStopHook(settingsFilePath: string, hook: SubagentStopHook): RefreshSubagentStopHookOutcome {
   if (!fileExists(settingsFilePath)) return 'absent';
 
   const settings = parsedSettings(settingsFilePath);
   if (settings === 'unreadable') return 'refused-unreadable';
 
-  const hooksSection = asRecord(settings[HOOKS_KEY]);
+  const hooksSection = JsonRecordUtil.recordOf(settings[HOOKS_KEY]);
   if (hooksSection === undefined) return settings[HOOKS_KEY] === undefined ? 'absent' : 'refused-unreadable';
 
   const eventGroupsValue = hooksSection[SUBAGENT_STOP_EVENT_NAME];

@@ -5,6 +5,7 @@
  */
 import { TimeUtil }               from '../../utils/TimeUtil';
 import type { TranscriptProfile } from './TranscriptUsageUtil';
+import { TranscriptUsageUtil }    from './TranscriptUsageUtil';
 
 /** `transcriptCount` is on the summary rather than left to the caller, so a printed line can say how many agents it is speaking for. */
 export interface CohortSummary {
@@ -25,13 +26,9 @@ export interface CohortSplit {
   after:  TranscriptProfile[];
 }
 
-function totalInputTokensOf(profile: TranscriptProfile): number {
-  return profile.inputTokens + profile.cacheReadInputTokens + profile.cacheCreationInputTokens;
-}
-
 /** A fraction of the agent's own input, so one enormous agent does not decide the cohort's share on its own; an agent that sent nothing reads as 0. */
 function oversizedContextShareOf(profile: TranscriptProfile): number {
-  const totalInputTokens = totalInputTokensOf(profile);
+  const totalInputTokens = TranscriptUsageUtil.totalInputTokensOf(profile);
   return totalInputTokens === 0 ? 0 : profile.oversizedContextTokens / totalInputTokens;
 }
 
@@ -50,19 +47,13 @@ function meanOf(values: readonly number[]): number {
   return values.reduce((running, value) => running + value, 0) / values.length;
 }
 
-/**
- * Token figures are rounded to whole counts because a fraction of a token is not a thing anyone can
- * spend; the mean counts and the mean oversized share are **not** rounded, because a cohort where one
- * agent in ten used the browser has to read as 0.1 rather than as 0. An empty cohort answers zero of everything rather
- * than `null`, so a caller printing a summary for a side of a split that nothing fell into still has
- * a line to print.
- */
-function summariseCohort(profiles: readonly TranscriptProfile[]): CohortSummary {
+/** Token figures are whole counts; means and shares are not rounded, so 1 in 10 reads as 0.1; an empty cohort is all zeros, not null. */
+function cohortSummaryOf(profiles: readonly TranscriptProfile[]): CohortSummary {
   return {
     transcriptCount:                 profiles.length,
     medianApiCallCount:              medianOf(profiles.map((profile) => profile.apiCallCount)),
     medianEndContextTokens:          Math.round(medianOf(profiles.map((profile) => profile.endContextTokens))),
-    meanTotalInputTokens:            Math.round(meanOf(profiles.map(totalInputTokensOf))),
+    meanTotalInputTokens:            Math.round(meanOf(profiles.map(TranscriptUsageUtil.totalInputTokensOf))),
     meanOutputTokens:                Math.round(meanOf(profiles.map((profile) => profile.outputTokens))),
     meanBrowserCallCount:            meanOf(profiles.map((profile) => profile.browserCallCount)),
     meanOversizedContextShare:       meanOf(profiles.map(oversizedContextShareOf)),
@@ -77,7 +68,7 @@ function summariseCohort(profiles: readonly TranscriptProfile[]): CohortSummary 
  * started strictly earlier, `after` at the instant or later. **A profile whose transcript carries no readable stamp goes into `before`**,
  * which is the closed answer: an agent that cannot be shown to have run after the change must not be counted as evidence that the change helped.
  */
-function splitAt(profiles: readonly TranscriptProfile[], instant: Date): CohortSplit {
+function cohortSplitAt(profiles: readonly TranscriptProfile[], instant: Date): CohortSplit {
   const split: CohortSplit = { before: [], after: [] };
   for (const profile of profiles) {
     const startedAt = profile.startedAt === null ? null : TimeUtil.parseIso(profile.startedAt);
@@ -88,6 +79,6 @@ function splitAt(profiles: readonly TranscriptProfile[], instant: Date): CohortS
 }
 
 export const TranscriptCohortUtil = {
-  splitAt,
-  summariseCohort,
+  cohortSplitAt,
+  cohortSummaryOf,
 } as const;

@@ -16,11 +16,10 @@ import {
   resolve
 } from 'node:path';
 
-import { GitProcess } from './GitProcess';
+import { GitProcess }     from './GitProcess';
+import { GIT_ENTRY_NAME } from './constants/GitPaths';
 
 const WORKTREE_GIT_DIRECTORY_SEGMENT = '/.git/worktrees/';
-
-const GIT_ENTRY_NAME = '.git';
 
 const BARE_REPOSITORY_ANSWER = 'true';
 

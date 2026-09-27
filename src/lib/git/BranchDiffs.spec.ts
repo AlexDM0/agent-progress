@@ -1,8 +1,7 @@
 /**
- * What a worktree's commits and a rebase changed, as diff text read from real git in scratch repositories. What matters is that every diff
- * carries its own options (a/ and b/ prefixes and 25 lines of context whatever the user's configuration says), that a range holding a merge
- * or a commit off the branch is a verdict rather than a diff, and that each unknown revision names its role. 'git-unavailable' is not tested:
- * it needs a PATH without git, which one process cannot set for its own spawns without changing it for every spec.
+ * Every diff carries its own options whatever the user's configuration says, and a range holding a merge or an unknown revision is a
+ * verdict naming its role. 'git-unavailable' is untested: one process cannot take git off its own spawns' PATH without changing it for
+ * every spec.
  */
 import { join } from 'node:path';
 import {

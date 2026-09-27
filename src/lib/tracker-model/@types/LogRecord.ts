@@ -1,4 +1,4 @@
-/** What the Board tells the log, as ids and values with no wording; `src/adapters/utils/LogUtil.ts` words it. */
+/** What the Board tells the log, as ids and values with no wording; the caller words it. */
 import type { DispatcherState, ViewRange } from './ProgressFile.ts';
 import type { AgentPair, TicketPriority }  from './Ticket.ts';
 
@@ -14,7 +14,7 @@ export interface AgentUsage {
   agentType:            string;
   apiCallCount:         number;
   endContextTokens:     number;
-  /** Fresh input plus cache read plus cache creation, as `TranscriptUsageUtil.totalInputTokensOf` counts it. */
+  /** Fresh input plus cache read plus cache creation. */
   totalInputTokens:     number;
   cacheReadInputTokens: number;
   outputTokens:         number;

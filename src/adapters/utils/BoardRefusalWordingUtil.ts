@@ -1,9 +1,10 @@
 /** Words a Board refusal for the person who ran the command; the Board carries only the reason code and the facts. */
-import type { TicketStatus }                                          from '../../lib/tracker-model/@types/Ticket.ts';
-import type { BoardRefusalDetail }                                    from '../../lib/tracker-model/BoardRefusal.ts';
-import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS, ticketMoveIsLegal } from '../../lib/tracker-model/constants/TicketMoveLegality.ts';
-import { StatusWordingUtil }                                          from './StatusWordingUtil.ts';
-import { TicketPhraseUtil }                                           from './TicketPhraseUtil.ts';
+import type { TicketStatus }                       from '../../lib/tracker-model/@types/Ticket.ts';
+import type { BoardRefusalDetail }                 from '../../lib/tracker-model/BoardRefusal.ts';
+import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS } from '../../lib/tracker-model/constants/TicketMoveLegality.ts';
+import { TicketMoveUtil }                          from '../../lib/tracker-model/utils/TicketMoveUtil.ts';
+import { StatusWordingUtil }                       from './StatusWordingUtil.ts';
+import { TicketPhraseUtil }                        from './TicketPhraseUtil.ts';
 
 const NOTHING_WAS_WRITTEN = 'Nothing was written.';
 
@@ -49,7 +50,7 @@ function messageOf(detail: BoardRefusalDetail): string {
       return `Ticket #${detail.ticketId} has no row, so --tokens has nowhere to be recorded: `
         + `a ${priorityWordFor('low')}-priority ticket gets its row when it is started. Drop --tokens.`;
     case 'rereview-outside-review': {
-      const firstReviewAdvice = ticketMoveIsLegal(detail.status, 'in-review')
+      const firstReviewAdvice = TicketMoveUtil.ticketMoveIsLegal(detail.status, 'in-review')
         ? ` Run \`agent-progress ticket finish ${detail.ticketId}\` to send it to its first reviewer.`
         : '';
       return `Ticket #${detail.ticketId} is ${statusWordFor(detail.status)}, `

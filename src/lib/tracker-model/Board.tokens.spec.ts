@@ -1,8 +1,6 @@
 /**
- * The Board's token crediting, which the `SubagentStop` hook makes. What it relies on: a share adds to what a row already holds, an
- * unset count counting as 0; a ticket's share lands on the row the ticket has when the hook runs; a review share lands on the ticket's
- * newest free-standing review bar, whatever its status; a share that cannot land is a verdict that costs only that share, never a throw,
- * because the agent has already stopped; and the usage is logged once, after the credits.
+ * A share adds to what a row holds and lands on the row or the newest review bar the ticket has now; a share that cannot land is a
+ * verdict, never a throw, since the agent has already stopped.
  */
 import { expect, test } from 'bun:test';
 

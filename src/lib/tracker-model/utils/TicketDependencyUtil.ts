@@ -1,7 +1,7 @@
 /** Which tickets another ticket still waits on, which are ready to claim, and whether a new dependency list would close a loop. */
-import type { TicketPriority, TicketStatus }        from '../@types/Ticket.ts';
-import { TICKET_STATUSES_THAT_SETTLE_A_DEPENDENCY } from '../constants/Statuses.ts';
-import { TicketDefaultsUtil }                       from './TicketDefaultsUtil.ts';
+import type { TicketPriority, TicketStatus }                                 from '../@types/Ticket.ts';
+import { SETTLED_TICKET_STATUSES, TICKET_STATUSES_THAT_SETTLE_A_DEPENDENCY } from '../constants/Statuses.ts';
+import { TicketDefaultsUtil }                                                from './TicketDefaultsUtil.ts';
 
 /** A dependency that is missing from `statusById` still counts as unsettled: a ticket nobody can see is not finished work. */
 function unsettledDependenciesOf(dependsOn: readonly string[], statusById: ReadonlyMap<string, TicketStatus>): string[] {
@@ -40,15 +40,12 @@ interface ReadinessTicket {
   dependsOn?: readonly string[];
 }
 
-/** Low work waits for these, and only these: a ticket that is reviewed is still owed a merge, so it holds the low queue back too. */
-const TICKET_STATUSES_THAT_RELEASE_LOW_PRIORITY_WORK: readonly TicketStatus[] = ['delivered', 'abandoned'];
-
 const PRIORITY_RANK: Record<TicketPriority, number> = { high: 0, normal: 1, low: 2 };
 
-/** The normal and high tickets that are neither delivered nor abandoned, lowest id first; while any is left, no low ticket is ready. */
+/** The normal and high tickets not yet settled, lowest id first: a reviewed ticket is still owed a merge, so while any is left no low ticket is ready. */
 function ticketsHoldingBackLowPriorityWork(tickets: readonly ReadinessTicket[]): string[] {
   return tickets
-    .filter((ticket) => TicketDefaultsUtil.ticketPriorityOf(ticket) !== 'low' && !TICKET_STATUSES_THAT_RELEASE_LOW_PRIORITY_WORK.includes(ticket.status))
+    .filter((ticket) => TicketDefaultsUtil.ticketPriorityOf(ticket) !== 'low' && !SETTLED_TICKET_STATUSES.includes(ticket.status))
     .map((ticket) => ticket.id)
     .sort((a, b) => Number(a) - Number(b));
 }

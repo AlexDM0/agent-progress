@@ -14,7 +14,7 @@ export interface ProgressFile {
   project:           string;
   startedAt:         string;
   view:              ViewRange;
-  /** Never wound back, not by `task remove` and not by `clear`, so an id is never handed out twice. */
+  /** Never wound back, not by a row removal and not by a clearing, so an id is never handed out twice. */
   nextTaskId:        number;
   /** How many agents may be in flight at once; absent on a tracker that never set one, which reads as the default. */
   concurrencyLimit?: number;

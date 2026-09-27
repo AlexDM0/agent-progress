@@ -1,9 +1,6 @@
 /**
- * A ticket's moves, which the ticket verbs and `ticket status` make. What callers rely on: the ticket and its row move together and the
- * move is logged as its own event; a row that was cleared away comes back rather than refusing the move; the legality table is enforced
- * unless the caller skips it, while a move to the status the ticket has is refused either way; an abandon says why; tokens need a row; a
- * low ticket lives off the chart until it is started; and every move except one to review ends the reviewer's bar, while a bar that names
- * its ticket only in its name is never taken for one. Refusals are asserted by reason code, never by wording.
+ * The ticket and its row move together, the legality table holds unless the caller skips it, and every move except one to review ends the
+ * reviewer's bar. Refusals are asserted by reason code, never by wording.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -16,7 +13,7 @@ import {
 } from '../../testing/BoardFixtures';
 import type { TicketStatus } from './@types/Ticket';
 import { TICKET_STATUSES }   from './constants/Statuses';
-import { ticketMoveIsLegal } from './constants/TicketMoveLegality';
+import { TicketMoveUtil }    from './utils/TicketMoveUtil';
 
 const FILED_AT     = '2026-09-18T09:00:00+02:00';
 const STARTED_AT   = '2026-09-18T10:00:00+02:00';
@@ -189,7 +186,7 @@ describe('refusals', () => {
         const move      = (): unknown => board.moveTicket('003', targetStatus, { checksLegality: true, reason: 'Example reason' }, STARTED_AT);
         const pair      = `${status} → ${targetStatus}`;
 
-        if (ticketMoveIsLegal(status, targetStatus)) {
+        if (TicketMoveUtil.ticketMoveIsLegal(status, targetStatus)) {
           expect(move, pair).not.toThrow();
         } else {
           expect(refusalDetailOf(move), pair).toEqual({

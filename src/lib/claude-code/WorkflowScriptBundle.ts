@@ -47,8 +47,8 @@ type MetaModuleLoading = { verdict: 'loaded'; exports: Readonly<Record<string, u
 
 async function metaModuleOf(metaModulePath: string): Promise<MetaModuleLoading> {
   try {
-    const exports: Readonly<Record<string, unknown>> = await import(metaModulePath);
-    return { verdict: 'loaded', exports };
+    const metaModuleExports: Readonly<Record<string, unknown>> = await import(metaModulePath);
+    return { verdict: 'loaded', exports: metaModuleExports };
   } catch (error) {
     return { verdict: 'unloadable', detail: messageOf(error) };
   }
@@ -84,9 +84,9 @@ export async function bundleWorkflowScript(request: WorkflowScriptBundleRequest)
     return failed('no-single-runner-export', JSON.stringify(new Bun.Transpiler({ loader: 'js' }).scan(moduleText).exports));
   }
   const body = `${moduleText.slice(0, finalExport.index)}\n`;
-  const { imports, exports } = new Bun.Transpiler({ loader: 'js' }).scan(body);
-  if (imports.length > 0 || exports.length > 0) {
-    return failed('imports-or-exports-remain', JSON.stringify({ imports: imports.map((entry) => entry.path), exports }));
+  const { imports: remainingImports, exports: remainingExports } = new Bun.Transpiler({ loader: 'js' }).scan(body);
+  if (remainingImports.length > 0 || remainingExports.length > 0) {
+    return failed('imports-or-exports-remain', JSON.stringify({ imports: remainingImports.map((entry) => entry.path), exports: remainingExports }));
   }
   const topLevelMeta = TOP_LEVEL_META_DECLARATION.exec(body);
   if (topLevelMeta !== null) return failed('declares-top-level-meta', topLevelMeta[0]);

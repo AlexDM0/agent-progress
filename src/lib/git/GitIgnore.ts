@@ -8,9 +8,12 @@ import { join }                     from 'node:path';
 
 import { writeFileAtomicallyThroughLinks } from '../atomic-file/AtomicFile';
 import { GitProcess }                      from './GitProcess';
+import { GIT_ENTRY_NAME }                  from './constants/GitPaths';
 
-const CHECK_IGNORE_PATH_IS_IGNORED = 0;
-const CHECK_IGNORE_PATH_IS_NOT_IGNORED = 1;
+const CHECK_IGNORE_IGNORED_EXIT_CODE     = 0;
+const CHECK_IGNORE_NOT_IGNORED_EXIT_CODE = 1;
+
+const GIT_IGNORE_FILE_NAME = '.gitignore';
 
 export type EnsureIgnoredOutcome = 'already-ignored' | 'appended' | 'no-gitignore-written';
 
@@ -22,8 +25,8 @@ export type EnsureIgnoredOutcome = 'already-ignored' | 'appended' | 'no-gitignor
 function gitAlreadyIgnores(rootDirectory: string, ignoreLine: string): boolean | null {
   const run = GitProcess.run(rootDirectory, ['check-ignore', '-q', ignoreLine]);
   if (run === null) return null;
-  if (run.exitCode === CHECK_IGNORE_PATH_IS_IGNORED) return true;
-  if (run.exitCode === CHECK_IGNORE_PATH_IS_NOT_IGNORED) return false;
+  if (run.exitCode === CHECK_IGNORE_IGNORED_EXIT_CODE) return true;
+  if (run.exitCode === CHECK_IGNORE_NOT_IGNORED_EXIT_CODE) return false;
   return null;
 }
 
@@ -38,10 +41,10 @@ export function ensureIgnored(rootDirectory: string, ignoredDirectoryName: strin
   const gitVerdict = gitAlreadyIgnores(rootDirectory, ignoreLine);
   if (gitVerdict === true) return 'already-ignored';
 
-  const gitIgnorePath = join(rootDirectory, '.gitignore');
+  const gitIgnorePath = join(rootDirectory, GIT_IGNORE_FILE_NAME);
   if (!existsSync(gitIgnorePath)) {
     // Fail closed: a directory holding a `.git` entry is a repository even when git itself refused to answer.
-    const rootIsARepository = gitVerdict === false || existsSync(join(rootDirectory, '.git'));
+    const rootIsARepository = gitVerdict === false || existsSync(join(rootDirectory, GIT_ENTRY_NAME));
     if (!rootIsARepository) return 'no-gitignore-written';
     writeFileAtomicallyThroughLinks(gitIgnorePath, `${ignoreLine}\n`);
     return 'appended';

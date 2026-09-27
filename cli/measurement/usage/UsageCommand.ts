@@ -76,7 +76,7 @@ function transcriptTextAt(transcriptPath: string): string | undefined {
 }
 
 function agentUsageFor(transcript: SubagentTranscript, transcriptText: string): AgentUsage {
-  const profile = TranscriptUsageUtil.profileTranscript(transcriptText, LIMITS.OVERSIZED_CONTEXT_THRESHOLD_TOKENS, BRIEF_EXCERPT_CHARACTERS);
+  const profile = TranscriptUsageUtil.transcriptProfileOf(transcriptText, LIMITS.OVERSIZED_CONTEXT_THRESHOLD_TOKENS, BRIEF_EXCERPT_CHARACTERS);
   return {
     ...profile,
     sessionIdentifier: transcript.sessionIdentifier,
@@ -197,14 +197,14 @@ export const usageCommand: CommandHandler = (commandArguments, context) => {
   const transcriptFolder = commandArguments.option('transcripts') ?? transcriptFolderFor(workspace.rootDirectory);
   const agents           = readAgents(listSubagentTranscripts(transcriptFolder), context);
 
-  const { summariseCohort } = TranscriptCohortUtil;
-  const split               = since === undefined ? undefined : TranscriptCohortUtil.splitAt(agents, since);
+  const { cohortSummaryOf } = TranscriptCohortUtil;
+  const split               = since === undefined ? undefined : TranscriptCohortUtil.cohortSplitAt(agents, since);
   const cohorts: UsageCohorts = split === undefined
-    ? { all: summariseCohort(agents) }
+    ? { all: cohortSummaryOf(agents) }
     : {
-      all:    summariseCohort(agents),
-      before: summariseCohort(split.before),
-      after:  summariseCohort(split.after),
+      all:    cohortSummaryOf(agents),
+      before: cohortSummaryOf(split.before),
+      after:  cohortSummaryOf(split.after),
     };
   const document = { transcriptFolder, agents, cohorts };
 

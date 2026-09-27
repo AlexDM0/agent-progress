@@ -3,9 +3,13 @@
  * repository with no settings at all, one whose settings hold other people's keys, a second
  * write of the same hook that must leave no diff, and a malformed document that must survive untouched.
  */
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { mkdirSync }                               from 'node:fs';
-import { join }                                    from 'node:path';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync
+} from 'node:fs';
+import { join } from 'node:path';
 import {
   afterAll,
   describe,

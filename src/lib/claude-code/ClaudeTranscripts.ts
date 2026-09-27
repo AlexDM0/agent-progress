@@ -8,7 +8,7 @@ import { readdirSync }   from 'node:fs';
 import { homedir }       from 'node:os';
 import { join, resolve } from 'node:path';
 
-const CLAUDE_DIRECTORY_NAME = '.claude';
+import { CLAUDE_DIRECTORY_NAME } from './constants/ClaudeCodePaths';
 
 const PROJECTS_DIRECTORY_NAME = 'projects';
 
@@ -59,15 +59,7 @@ function agentTranscriptsIn(directory: string, sessionIdentifier: string): Subag
     }));
 }
 
-/**
- * Every `agent-….jsonl` inside a session's `subagents/` folder, and inside each run folder of its
- * `subagents/workflows/`, where a workflow's agents are written; sorted by path so two runs of the
- * same command report the same order. The main session's own transcript, which sits beside its
- * session folder rather than under `subagents/`, is left out: only subagent transcripts are listed.
- *
- * An absent folder answers an empty list rather than throwing, because "no transcripts here" is a
- * normal answer the caller prints a sentence for.
- */
+/** Subagent transcripts only, including workflow runs, sorted by path; an absent folder is an empty list. */
 export function listSubagentTranscripts(transcriptFolder: string): SubagentTranscript[] {
   const transcripts: SubagentTranscript[] = [];
 

@@ -1,8 +1,6 @@
 /**
- * Filing a ticket and changing what it waits on. What callers rely on: a filed ticket joins the board with a pending row filed at the
- * same moment, except a low one, which waits off the chart and spends no task id; a dependency on a ticket the board does not hold, the
- * new ticket's own id among them, or one that closes a circle is refused before anything changes; and a dependency list is set,
- * replaced or cleared as given. Refusals are asserted by reason code, never by wording.
+ * A filed ticket joins with a pending row, except a low one, and a dependency that is missing or closes a circle is refused before
+ * anything changes. Refusals are asserted by reason code, never by wording.
  */
 import { describe, expect, test } from 'bun:test';
 

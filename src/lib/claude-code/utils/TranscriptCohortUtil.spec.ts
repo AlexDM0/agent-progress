@@ -1,17 +1,13 @@
 /**
- * The two decisions this module makes and nothing else does: that calls are a median while tokens are
- * a mean — each pinned by a cohort holding one outlier, so a summary that swapped them would fail —
- * and which side of a split an agent falls on, including the one with no stamp at all.
- *
- * Every profile here is constructed from the fields the summary reads, because the claim is about the
- * arithmetic and not about any recorded session.
+ * Calls are a median while tokens are a mean, each pinned by a cohort with one outlier, and a split places every agent, one with no stamp
+ * included. Profiles are constructed, as the claim is about the arithmetic.
  */
 import { describe, expect, test } from 'bun:test';
 
 import { TranscriptCohortUtil }   from './TranscriptCohortUtil';
 import type { TranscriptProfile } from './TranscriptUsageUtil';
 
-const { splitAt, summariseCohort } = TranscriptCohortUtil;
+const { cohortSplitAt, cohortSummaryOf } = TranscriptCohortUtil;
 
 interface ConstructedProfile {
   apiCallCount?:                number;
@@ -57,7 +53,7 @@ describe('what a cohort of transcripts is summarised as', () => {
       profile({ apiCallCount: 400, inputTokens: 990_000, endContextTokens: 720_000 }),
     ];
 
-    const summary = summariseCohort(cohort);
+    const summary = cohortSummaryOf(cohort);
 
     expect(summary.transcriptCount).toBe(5);
     expect(summary.medianApiCallCount).toBe(34);
@@ -71,13 +67,13 @@ describe('what a cohort of transcripts is summarised as', () => {
       profile({ inputTokens: 3_000, cacheReadInputTokens: 7_000 }),
     ];
 
-    expect(summariseCohort(cohort).meanTotalInputTokens).toBe(10_000);
+    expect(cohortSummaryOf(cohort).meanTotalInputTokens).toBe(10_000);
   });
 
   test('an even count takes the two middle values, so neither of a pair is reported as the cohort', () => {
     const cohort = [profile({ apiCallCount: 10 }), profile({ apiCallCount: 21 })];
 
-    expect(summariseCohort(cohort).medianApiCallCount).toBe(15.5);
+    expect(cohortSummaryOf(cohort).medianApiCallCount).toBe(15.5);
   });
 
   /** A cohort where one agent in five reached for the browser has to read as 0.2, not as 0, which is why this mean alone is not rounded. */
@@ -90,7 +86,7 @@ describe('what a cohort of transcripts is summarised as', () => {
       profile({ browserCallCount: 0, outputTokens: 1_001 }),
     ];
 
-    const summary = summariseCohort(cohort);
+    const summary = cohortSummaryOf(cohort);
 
     expect(summary.meanBrowserCallCount).toBeCloseTo(0.2);
     expect(Number.isInteger(summary.meanOutputTokens)).toBe(true);
@@ -103,11 +99,11 @@ describe('what a cohort of transcripts is summarised as', () => {
       profile({ inputTokens: 100_000, oversizedContextTokens: 0 }),
     ];
 
-    expect(summariseCohort(cohort).meanOversizedContextShare).toBeCloseTo(0.5);
+    expect(cohortSummaryOf(cohort).meanOversizedContextShare).toBeCloseTo(0.5);
   });
 
   test('an agent that sent nothing counts as a zero share rather than dividing by zero', () => {
-    expect(summariseCohort([profile({})]).meanOversizedContextShare).toBe(0);
+    expect(cohortSummaryOf([profile({})]).meanOversizedContextShare).toBe(0);
   });
 
   /** The two figures a breached brief shows up in: editing through Bash, and checking after every edit. */
@@ -117,7 +113,7 @@ describe('what a cohort of transcripts is summarised as', () => {
       profile({ bashEditScriptCount: 1, verificationRunCount: 0 }),
     ];
 
-    const summary = summariseCohort(cohort);
+    const summary = cohortSummaryOf(cohort);
 
     expect(summary.meanBashEditScriptCount).toBeCloseTo(2.5);
     expect(summary.meanVerificationRunCount).toBeCloseTo(4.5);
@@ -126,12 +122,12 @@ describe('what a cohort of transcripts is summarised as', () => {
   test('the injected characters are averaged too, because that is the part of the length nobody wrote', () => {
     const cohort = [profile({ nestedInstructionCharacters: 1_000 }), profile({ nestedInstructionCharacters: 3_000 })];
 
-    expect(summariseCohort(cohort).meanNestedInstructionCharacters).toBe(2_000);
+    expect(cohortSummaryOf(cohort).meanNestedInstructionCharacters).toBe(2_000);
   });
 
   /** A side of a split that nothing fell into still gets a line printed for it, so it must answer zeroes rather than `null` or a throw. */
   test('an empty cohort is zero of everything and not an error', () => {
-    expect(summariseCohort([])).toEqual({
+    expect(cohortSummaryOf([])).toEqual({
       transcriptCount:                 0,
       medianApiCallCount:              0,
       medianEndContextTokens:          0,
@@ -154,7 +150,7 @@ describe('splitting a cohort on an instant', () => {
     const onTheMark  = profile({ apiCallCount: 2, startedAt: '2026-09-19T08:55:00.000Z' });
     const later      = profile({ apiCallCount: 3, startedAt: '2026-09-19T09:30:00.000Z' });
 
-    const split = splitAt([later, earlier, onTheMark], BOUNDARY);
+    const split = cohortSplitAt([later, earlier, onTheMark], BOUNDARY);
 
     expect(split.before.map((entry) => entry.apiCallCount)).toEqual([1]);
     expect(split.after.map((entry) => entry.apiCallCount)).toEqual([3, 2]);
@@ -165,7 +161,7 @@ describe('splitting a cohort on an instant', () => {
     const undated    = profile({ apiCallCount: 1, startedAt: null });
     const unreadable = profile({ apiCallCount: 2, startedAt: 'the day before yesterday' });
 
-    const split = splitAt([undated, unreadable], BOUNDARY);
+    const split = cohortSplitAt([undated, unreadable], BOUNDARY);
 
     expect(split.before).toHaveLength(2);
     expect(split.after).toEqual([]);
@@ -173,12 +169,12 @@ describe('splitting a cohort on an instant', () => {
 
   test('a stamp with an offset is compared as the instant it names, not as the digits it is written with', () => {
     // 10:55 in +02:00 is 08:55 UTC, so this is the boundary itself and belongs on the after side.
-    const split = splitAt([profile({ startedAt: '2026-09-19T10:55:00+02:00' })], BOUNDARY);
+    const split = cohortSplitAt([profile({ startedAt: '2026-09-19T10:55:00+02:00' })], BOUNDARY);
 
     expect(split.after).toHaveLength(1);
   });
 
   test('an empty cohort splits into two empty sides', () => {
-    expect(splitAt([], BOUNDARY)).toEqual({ before: [], after: [] });
+    expect(cohortSplitAt([], BOUNDARY)).toEqual({ before: [], after: [] });
   });
 });

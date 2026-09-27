@@ -2,6 +2,7 @@
  * What one finished subagent cost and did, read out of the transcript the harness wrote for it. The figures are a pure function of the
  * transcript text, so they are tested against constructed transcripts rather than through a live `SubagentStop`.
  */
+import { JsonRecordUtil } from './JsonRecordUtil';
 
 /**
  * `endContextTokens` is the window of the *last* call rather than a sum: it is how full the agent's
@@ -65,13 +66,8 @@ const WORKFLOW_USER_REQUEST_RELAY_PREFIX = '[Workflow harness — user request]'
 
 const WORKFLOW_COMPUTED_TASK_PREFIX = '[Workflow harness — computed task]';
 
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
-  return value as Record<string, unknown>;
-}
-
 /** Anything that is not a whole count of at least 0 reads as 0, so a transcript written by a newer harness costs a field rather than the whole summary. */
-function readTokenCount(usage: Record<string, unknown>, key: string): number {
+function tokenCountAt(usage: Record<string, unknown>, key: string): number {
   const value = usage[key];
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 ? value : 0;
 }
@@ -86,13 +82,13 @@ function parsedJsonLine(line: string): unknown {
 }
 
 function assistantUsageIn(line: string): { messageIdentifier: string | undefined; usage: Record<string, unknown> } | undefined {
-  const entry = asRecord(parsedJsonLine(line));
+  const entry = JsonRecordUtil.recordOf(parsedJsonLine(line));
   if (entry === undefined || entry['type'] !== 'assistant') return undefined;
 
-  const message = asRecord(entry['message']);
+  const message = JsonRecordUtil.recordOf(entry['message']);
   if (message === undefined) return undefined;
 
-  const usage = asRecord(message['usage']);
+  const usage = JsonRecordUtil.recordOf(message['usage']);
   if (usage === undefined) return undefined;
 
   const identifier = message['id'];
@@ -103,7 +99,7 @@ function assistantUsageIn(line: string): { messageIdentifier: string | undefined
  * Sums per API call (`message.id`), never per line: one call spans several lines that repeat its input, so input counts once per id and
  * output is the largest seen. Lines that are not assistant usage are skipped, and a message with no id counts as a call of its own.
  */
-function summariseTranscriptUsage(transcriptText: string, oversizedContextThresholdTokens: number): TranscriptUsageTotals {
+function usageTotalsOf(transcriptText: string, oversizedContextThresholdTokens: number): TranscriptUsageTotals {
   const totals: TranscriptUsageTotals = {
     apiCallCount:             0,
     inputTokens:              0,
@@ -124,7 +120,7 @@ function summariseTranscriptUsage(transcriptText: string, oversizedContextThresh
 
     const { usage } = assistantUsage;
     const messageIdentifier = assistantUsage.messageIdentifier ?? `line-${totals.apiCallCount}`;
-    const outputTokens      = readTokenCount(usage, 'output_tokens');
+    const outputTokens      = tokenCountAt(usage, 'output_tokens');
     const previousOutput    = outputTokensByMessageIdentifier.get(messageIdentifier);
     if (previousOutput !== undefined) {
       outputTokensByMessageIdentifier.set(messageIdentifier, Math.max(previousOutput, outputTokens));
@@ -132,9 +128,9 @@ function summariseTranscriptUsage(transcriptText: string, oversizedContextThresh
     }
     outputTokensByMessageIdentifier.set(messageIdentifier, outputTokens);
 
-    const inputTokens              = readTokenCount(usage, 'input_tokens');
-    const cacheReadInputTokens     = readTokenCount(usage, 'cache_read_input_tokens');
-    const cacheCreationInputTokens = readTokenCount(usage, 'cache_creation_input_tokens');
+    const inputTokens              = tokenCountAt(usage, 'input_tokens');
+    const cacheReadInputTokens     = tokenCountAt(usage, 'cache_read_input_tokens');
+    const cacheCreationInputTokens = tokenCountAt(usage, 'cache_creation_input_tokens');
 
     const callContextTokens = inputTokens + cacheReadInputTokens + cacheCreationInputTokens;
 
@@ -159,7 +155,7 @@ function contentBlocksOf(message: Record<string, unknown>): unknown[] {
 function browserToolUseCountIn(message: Record<string, unknown>): number {
   let browserCallCount = 0;
   for (const block of contentBlocksOf(message)) {
-    const blockRecord = asRecord(block);
+    const blockRecord = JsonRecordUtil.recordOf(block);
     if (blockRecord === undefined || blockRecord['type'] !== TOOL_USE_BLOCK_TYPE) continue;
     const toolName = blockRecord['name'];
     if (typeof toolName === 'string' && toolName.includes(BROWSER_TOOL_NAME_FRAGMENT)) browserCallCount += 1;
@@ -171,9 +167,9 @@ function browserToolUseCountIn(message: Record<string, unknown>): number {
 function bashCommandsIn(message: Record<string, unknown>): string[] {
   const commands: string[] = [];
   for (const block of contentBlocksOf(message)) {
-    const blockRecord = asRecord(block);
+    const blockRecord = JsonRecordUtil.recordOf(block);
     if (blockRecord === undefined || blockRecord['type'] !== TOOL_USE_BLOCK_TYPE || blockRecord['name'] !== BASH_TOOL_NAME) continue;
-    const command = asRecord(blockRecord['input'])?.['command'];
+    const command = JsonRecordUtil.recordOf(blockRecord['input'])?.['command'];
     if (typeof command === 'string') commands.push(command);
   }
   return commands;
@@ -189,11 +185,11 @@ function nestedInstructionCharactersIn(value: unknown): number {
     return (value as unknown[]).reduce((running: number, item: unknown) => running + nestedInstructionCharactersIn(item), 0);
   }
 
-  const record = asRecord(value);
+  const record = JsonRecordUtil.recordOf(value);
   if (record === undefined) return 0;
 
   if (record['type'] === NESTED_ATTACHMENT_TYPE) {
-    const attachment  = asRecord(record['content']);
+    const attachment  = JsonRecordUtil.recordOf(record['content']);
     const injectedText = attachment?.['content'];
     return typeof injectedText === 'string' ? injectedText.length : 0;
   }
@@ -207,7 +203,7 @@ function spokenTextOf(message: Record<string, unknown>): string {
   return typeof content === 'string'
     ? content
     : contentBlocksOf(message)
-      .map((block) => asRecord(block))
+      .map((block) => JsonRecordUtil.recordOf(block))
       .filter((block) => block?.['type'] === TEXT_BLOCK_TYPE)
       .map((block) => (typeof block?.['text'] === 'string' ? block['text'] : ''))
       .join('\n');
@@ -232,10 +228,10 @@ function* spokenUserTurnsOf(transcriptText: string): Generator<string> {
     const trimmedLine = line.trim();
     if (trimmedLine.length === 0) continue;
 
-    const entry = asRecord(parsedJsonLine(trimmedLine));
+    const entry = JsonRecordUtil.recordOf(parsedJsonLine(trimmedLine));
     if (entry === undefined || entry['type'] !== 'user') continue;
 
-    const message = asRecord(entry['message']);
+    const message = JsonRecordUtil.recordOf(entry['message']);
     if (message === undefined) continue;
 
     const spokenText = spokenTextOf(message);
@@ -244,7 +240,7 @@ function* spokenUserTurnsOf(transcriptText: string): Generator<string> {
 }
 
 /**
- * The first user turn with spoken text, which `profileTranscript` excerpts too; an empty string when there is none.
+ * The first user turn with spoken text, which `transcriptProfileOf` excerpts too; an empty string when there is none.
  * A workflow agent's first turn is the harness relaying the session user's request, and its brief is the computed task that must follow it
  * at once; a relay followed by anything else has no brief, so a marker the relay quotes or a later message carries never counts.
  */
@@ -268,9 +264,9 @@ function totalInputTokensOf(totals: TranscriptUsageTotals): number {
  * `startedAt` is the first `timestamp` on any line, or `null` rather than the epoch. The excerpt comes from the first user turn with spoken
  * text, because a subagent's opening line is often only injected attachments, and is one line cut to the caller's length.
  */
-function profileTranscript(transcriptText: string, oversizedContextThresholdTokens: number, briefExcerptCharacters: number): TranscriptProfile {
+function transcriptProfileOf(transcriptText: string, oversizedContextThresholdTokens: number, briefExcerptCharacters: number): TranscriptProfile {
   const profile: TranscriptProfile = {
-    ...summariseTranscriptUsage(transcriptText, oversizedContextThresholdTokens),
+    ...usageTotalsOf(transcriptText, oversizedContextThresholdTokens),
     startedAt:                   null,
     model:                       null,
     browserCallCount:            0,
@@ -284,7 +280,7 @@ function profileTranscript(transcriptText: string, oversizedContextThresholdToke
     const trimmedLine = line.trim();
     if (trimmedLine.length === 0) continue;
 
-    const entry = asRecord(parsedJsonLine(trimmedLine));
+    const entry = JsonRecordUtil.recordOf(parsedJsonLine(trimmedLine));
     if (entry === undefined) continue;
 
     const { timestamp } = entry;
@@ -292,7 +288,7 @@ function profileTranscript(transcriptText: string, oversizedContextThresholdToke
 
     profile.nestedInstructionCharacters += nestedInstructionCharactersIn(entry);
 
-    const message = asRecord(entry['message']);
+    const message = JsonRecordUtil.recordOf(entry['message']);
     if (message === undefined) continue;
 
     if (entry['type'] === 'assistant') {
@@ -311,7 +307,7 @@ function profileTranscript(transcriptText: string, oversizedContextThresholdToke
 
 export const TranscriptUsageUtil = {
   briefTextOf,
-  profileTranscript,
-  summariseTranscriptUsage,
   totalInputTokensOf,
+  transcriptProfileOf,
+  usageTotalsOf,
 } as const;

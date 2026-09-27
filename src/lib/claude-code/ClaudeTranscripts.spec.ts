@@ -1,10 +1,6 @@
 /**
- * The slug rule, which is the whole reason this module exists and the one thing no caller can check
- * for itself; the workflow layout one level deeper; and the listing's refusals: a folder that is not
- * there, a file beside the subagents that is not one, and the main session's own transcript.
- *
- * Every transcript here is a constructed empty file in a scratch directory: the claim is about which
- * paths are found, never about what any recorded session contains.
+ * The slug rule and the workflow layout decide which paths are found, and the listing refuses what is not a subagent transcript. Every
+ * transcript is a constructed empty file, as the claim is about paths only.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join }                     from 'node:path';

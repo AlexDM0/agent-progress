@@ -1,8 +1,6 @@
 /**
- * Clearing the tracker. What `clear` relies on: the rows go but the tracker stays the same tracker, so its id and its task id counter
- * survive; every surviving ticket is re-seeded as one row from its own stamps and marked for writing, except a low ticket with no row to
- * lose, which is still counted as surviving; without the tickets, none survive and none is marked; and the clearing is one record,
- * with the Board never touching the stored log, which is the logger's to restart.
+ * Clearing keeps the tracker's id and task id counter and re-seeds each surviving ticket from its stamps, except a low ticket with no
+ * row; the stored log is never the Board's to touch.
  */
 import { describe, expect, test } from 'bun:test';
 

@@ -8,7 +8,6 @@ import { TimeUtil } from './TimeUtil';
 
 const {
   formatLocalIso,
-  minutesBetween,
   parseDurationMinutes,
   parseIso,
   resolveWhen,
@@ -108,10 +107,10 @@ test('resolveWhen understands the word now, and hands back a date the caller can
 
 test('resolveWhen reads the signed offsets every state-changing command accepts', () => {
   const now = new Date(Date.UTC(2026, 8, 18, 18, 0, 0));
-  expect(minutesBetween(resolveWhen('-5m', now) ?? now, now)).toBe(5);
-  expect(minutesBetween(resolveWhen('-2h', now) ?? now, now)).toBe(120);
-  expect(minutesBetween(resolveWhen('-1d', now) ?? now, now)).toBe(1440);
-  expect(minutesBetween(now, resolveWhen('+30m', now) ?? now)).toBe(30);
+  expect(resolveWhen('-5m', now)?.getTime()).toBe(now.getTime() - 5 * MILLISECONDS_PER_MINUTE);
+  expect(resolveWhen('-2h', now)?.getTime()).toBe(now.getTime() - 120 * MILLISECONDS_PER_MINUTE);
+  expect(resolveWhen('-1d', now)?.getTime()).toBe(now.getTime() - 1440 * MILLISECONDS_PER_MINUTE);
+  expect(resolveWhen('+30m', now)?.getTime()).toBe(now.getTime() + 30 * MILLISECONDS_PER_MINUTE);
 });
 
 test('resolveWhen falls through to an ISO timestamp, and refuses an unsigned duration', () => {
@@ -135,32 +134,4 @@ test('parseDurationMinutes refuses zero, so every duration it returns is a posit
   expect(parseDurationMinutes('0m')).toBeNull();
   expect(parseDurationMinutes('-15m')).toBeNull();
   expect(parseDurationMinutes('quarter of an hour')).toBeNull();
-});
-
-test('minutesBetween is signed and counts backwards as readily as forwards', () => {
-  const earlier = new Date(Date.UTC(2026, 8, 18, 18, 0, 0));
-  const later = new Date(Date.UTC(2026, 8, 18, 19, 30, 0));
-  expect(minutesBetween(earlier, later)).toBe(90);
-  expect(minutesBetween(later, earlier)).toBe(-90);
-});
-
-test('minutesBetween across the European spring-forward counts the hour that does not exist as not existing', () => {
-  // Europe/Amsterdam moves to +02:00 at 02:00 local on 2026-03-29, so these two are sixty minutes apart.
-  const beforeTheJump = parseIso('2026-03-29T01:30:00+01:00');
-  const afterTheJump = parseIso('2026-03-29T03:30:00+02:00');
-  expect(beforeTheJump).not.toBeNull();
-  expect(afterTheJump).not.toBeNull();
-  expect(minutesBetween(beforeTheJump ?? new Date(0), afterTheJump ?? new Date(0))).toBe(60);
-});
-
-test('a whole day across the spring-forward is twenty-three hours, not twenty-four', () => {
-  const dayBefore = parseIso('2026-03-28T12:00:00+01:00') ?? new Date(0);
-  const dayAfter = parseIso('2026-03-29T12:00:00+02:00') ?? new Date(0);
-  expect(minutesBetween(dayBefore, dayAfter)).toBe(23 * 60);
-});
-
-test('minutesBetween keeps sub-minute differences instead of rounding them away', () => {
-  const start = new Date(Date.UTC(2026, 8, 18, 18, 0, 0));
-  const thirtySecondsLater = new Date(start.getTime() + MILLISECONDS_PER_MINUTE / 2);
-  expect(minutesBetween(start, thirtySecondsLater)).toBe(0.5);
 });

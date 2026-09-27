@@ -1,9 +1,6 @@
 /**
- * A ticket's link to its row, its agents and its hold. What callers rely on: a link moves the ticket to another row and frees the row it
- * left, and takes a row another ticket owns only when asked, freeing that ticket too, so the two files never name different rows; an
- * agent change is judged on the resolved pair and refused for a ticket no agent works again; a hold and an unhold undo each other, an
- * empty reason holds, and each is refused where it would change nothing; and the paused build row is found only for an in-progress
- * ticket, the one whose build a dispatcher may resume. Refusals are asserted by reason code, before anything changed.
+ * A link never leaves two tickets naming one row, an agent change is judged on the resolved pair, and a hold or unhold that would change
+ * nothing is refused. Refusals are asserted by reason code, before anything changed.
  */
 import { describe, expect, test } from 'bun:test';
 

@@ -2,10 +2,8 @@ import type { Task, TaskStatus }     from '../@types/Task.ts';
 import { FIRST_REPEAT_REVIEW_ROUND } from '../constants/ReviewRounds.ts';
 
 /**
- * An existing timestamp is never overwritten, which is what makes re-running a command safe — and a phase is filed only when the
- * status really moved, `re-review` excepted, because every review round is an event of its own on a row that does not change status.
- * The record comes back new: existing keys keep their place and new ones follow in the stored file's key order, so a rewrite leaves
- * the bytes of untouched rows unchanged.
+ * An existing timestamp is never overwritten, so repeating a move is safe, and a phase is filed only when the status really moved,
+ * `re-review` excepted. The record comes back new, its existing keys in place and new ones in the stored key order.
  */
 function transitionedTaskOf(task: Readonly<Task>, status: TaskStatus, at: string): Task {
   const transitioned: Task = { ...task };

@@ -1,9 +1,6 @@
 /**
- * A release, which delivers the tickets of a branch that was just fast-forwarded. What `release` relies on: only a ticket a move to
- * reviewed is legal from can be released, and asking for any other is a programming error the command refuses first; each ticket is
- * reviewed and then delivered with the branch and the commit, logged as two moves in the order the tickets were given; and every
- * review bar of the bundle still in progress is closed after the moves, while an earlier bar and a record without `reviewOf` are left
- * alone: the Board reads no name, as ingestion links a legacy bar before the Board sees it.
+ * A release reviews then delivers each ticket in the order given and closes the bundle's in-progress review bars after the moves. The
+ * Board reads no name, as ingestion links a legacy bar before the Board sees it.
  */
 import { describe, expect, test } from 'bun:test';
 

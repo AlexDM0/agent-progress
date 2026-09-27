@@ -2,13 +2,12 @@
  * The git steps of bringing a branch into the main checkout, as verdicts: which branch the main checkout is on, whether a branch descends
  * from the main line, the fast-forward itself, and the two cleanups. Nothing here forces anything: a refusal git gives is handed back with its reason.
  */
-import { GitProcess } from './GitProcess';
-
-const NOT_AN_ANCESTOR_EXIT_CODE = 1;
+import { GitProcess }                from './GitProcess';
+import { NOT_AN_ANCESTOR_EXIT_CODE } from './constants/GitExitCodes';
 
 const DETACHED_HEAD_EXIT_CODE = 1;
 
-const PORCELAIN_STATUS_WIDTH = 3;
+const PORCELAIN_STATUS_PREFIX_CHARACTERS = 3;
 
 const UNTRACKED_STATUS_CODE = '??';
 
@@ -79,8 +78,8 @@ function filesLeftIn(worktreePath: string): FilesLeftInWorktree {
   const run = GitProcess.run(worktreePath, ['status', '--porcelain=v1', '--untracked-files=all']);
   if (!GitProcess.succeeded(run)) return filesLeft;
   for (const line of run.standardOutput.split('\n')) {
-    if (line.length <= PORCELAIN_STATUS_WIDTH) continue;
-    const path = line.slice(PORCELAIN_STATUS_WIDTH);
+    if (line.length <= PORCELAIN_STATUS_PREFIX_CHARACTERS) continue;
+    const path = line.slice(PORCELAIN_STATUS_PREFIX_CHARACTERS);
     if (line.startsWith(UNTRACKED_STATUS_CODE)) filesLeft.untrackedFiles.push(path);
     else filesLeft.changedFiles.push(path);
   }
