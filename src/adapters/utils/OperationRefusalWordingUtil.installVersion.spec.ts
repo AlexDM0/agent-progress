@@ -6,13 +6,13 @@
 import { describe, expect, test } from 'bun:test';
 
 import type { InstallVersionMismatch } from '../../shared/@types/InstallVersionMismatch.ts';
-import { InstallVersionWordingUtil }   from './InstallVersionWordingUtil.ts';
+import { OperationRefusalWordingUtil } from './OperationRefusalWordingUtil.ts';
 
 const ROOT_DIRECTORY     = '/example/repository';
 const MANIFEST_FILE_PATH = '/example/repository/.agent-progress/version.json';
 
 function messageFor(mismatch: InstallVersionMismatch): string {
-  return InstallVersionWordingUtil.messageOf({
+  return OperationRefusalWordingUtil.installVersionMismatchMessageOf({
     kind:             'install-version-mismatch',
     rootDirectory:    ROOT_DIRECTORY,
     manifestFilePath: MANIFEST_FILE_PATH,
@@ -21,7 +21,7 @@ function messageFor(mismatch: InstallVersionMismatch): string {
   });
 }
 
-describe('InstallVersionWordingUtil.messageOf', () => {
+describe('OperationRefusalWordingUtil.installVersionMismatchMessageOf', () => {
   test('an older install names both versions and asks for update', () => {
     expect(messageFor({ reason: 'older', installedVersion: 2 })).toBe(
       'The files agent-progress installed in /example/repository are install version 2, from an older agent-progress, '

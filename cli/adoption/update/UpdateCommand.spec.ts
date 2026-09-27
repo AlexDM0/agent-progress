@@ -23,7 +23,7 @@ import {
   mock,
   test
 }                                        from 'bun:test';
-import { InstallVersionWordingUtil }       from '../../../src/adapters/utils/InstallVersionWordingUtil.ts';
+import { OperationRefusalWordingUtil }     from '../../../src/adapters/utils/OperationRefusalWordingUtil.ts';
 import * as realWorkflowScriptBundleModule from '../../../src/lib/claude-code/WorkflowScriptBundle.ts';
 import { resourceFilePathOf }              from '../../../src/shared/ResourceFilePath.ts';
 import {
@@ -511,7 +511,7 @@ describeWhenGitIsPresent('what update refuses', () => {
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
     expect(await runCommandLine(['update'], context)).toBe(1);
 
-    expect(context.errorText()).toBe(InstallVersionWordingUtil.messageOf({
+    expect(context.errorText()).toBe(OperationRefusalWordingUtil.installVersionMismatchMessageOf({
       kind:           'install-version-mismatch',
       rootDirectory,
       manifestFilePath,
@@ -534,7 +534,7 @@ describeWhenGitIsPresent('what update refuses', () => {
 
     const refusedContext = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
     expect(await runCommandLine(['update'], refusedContext)).toBe(1);
-    expect(refusedContext.errorText()).toBe(InstallVersionWordingUtil.messageOf({
+    expect(refusedContext.errorText()).toBe(OperationRefusalWordingUtil.installVersionMismatchMessageOf({
       kind:           'install-version-mismatch',
       rootDirectory,
       manifestFilePath,

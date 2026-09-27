@@ -5,10 +5,10 @@
  */
 import { expect, test } from 'bun:test';
 
-import type { BoardRefusalDetail } from '../../lib/tracker-model/BoardRefusal.ts';
-import { BoardRefusalWordingUtil } from './BoardRefusalWordingUtil.ts';
+import type { BoardRefusalDetail }     from '../../lib/tracker-model/BoardRefusal.ts';
+import { OperationRefusalWordingUtil } from './OperationRefusalWordingUtil.ts';
 
-const { messageOf } = BoardRefusalWordingUtil;
+const { boardRefusalMessageOf: messageOf } = OperationRefusalWordingUtil;
 
 /**
  * Taken from the binary before the Board existed, at bc42604 (the last commit before step 4b). To retake a row, check that commit out in

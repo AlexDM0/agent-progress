@@ -20,9 +20,9 @@ import {
   expect,
   test
 }                                       from 'bun:test';
-import { InstallVersionWordingUtil }  from '../../../src/adapters/utils/InstallVersionWordingUtil.ts';
-import { LocalTimeUtil }              from '../../../src/lib/local-time/LocalTimeUtil.ts';
-import type { Task }                  from '../../../src/lib/tracker-model/@types/Task.ts';
+import { OperationRefusalWordingUtil } from '../../../src/adapters/utils/OperationRefusalWordingUtil.ts';
+import { LocalTimeUtil }               from '../../../src/lib/local-time/LocalTimeUtil.ts';
+import type { Task }                   from '../../../src/lib/tracker-model/@types/Task.ts';
 import {
   addWorktree,
   commitFile,
@@ -519,7 +519,7 @@ describeWhenGitIsPresent('a release that is refused changes nothing', () => {
 
     const outcome = await expectNothingChanged(identifier, worktree, () => agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree, '--json']));
 
-    const mismatchParagraph = InstallVersionWordingUtil.messageOf({
+    const mismatchParagraph = OperationRefusalWordingUtil.installVersionMismatchMessageOf({
       kind:             'install-version-mismatch',
       rootDirectory,
       manifestFilePath: installedFilePathsIn(rootDirectory).installManifest,

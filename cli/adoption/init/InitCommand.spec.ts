@@ -20,7 +20,7 @@ import {
   mock,
   test
 }                                                              from 'bun:test';
-import { InstallVersionWordingUtil }       from '../../../src/adapters/utils/InstallVersionWordingUtil.ts';
+import { OperationRefusalWordingUtil }     from '../../../src/adapters/utils/OperationRefusalWordingUtil.ts';
 import * as realWorkflowScriptBundleModule from '../../../src/lib/claude-code/WorkflowScriptBundle.ts';
 import {
   addWorktree,
@@ -224,7 +224,7 @@ describeWhenGitIsPresent('initialising a repository', () => {
 
     const nextCommand = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
     expect(await runCommandLine(['task', 'add', 'Example row'], nextCommand)).toBe(1);
-    expect(nextCommand.errorText()).toBe(InstallVersionWordingUtil.messageOf({
+    expect(nextCommand.errorText()).toBe(OperationRefusalWordingUtil.installVersionMismatchMessageOf({
       kind:             'install-version-mismatch',
       rootDirectory,
       manifestFilePath: installedFilePathsIn(rootDirectory).installManifest,
@@ -325,7 +325,7 @@ describeWhenGitIsPresent('a second init', () => {
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
     expect(await runCommandLine(['init'], context)).toBe(1);
 
-    expect(context.errorText()).toBe(InstallVersionWordingUtil.messageOf({
+    expect(context.errorText()).toBe(OperationRefusalWordingUtil.installVersionMismatchMessageOf({
       kind:           'install-version-mismatch',
       rootDirectory,
       manifestFilePath,

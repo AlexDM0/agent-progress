@@ -22,7 +22,7 @@ import {
   test
 }                                                                             from 'bun:test';
 import { LogFileIngestion }                                                           from '../../../src/adapters/log/LogFileIngestion.ts';
-import { InstallVersionWordingUtil }                                                  from '../../../src/adapters/utils/InstallVersionWordingUtil.ts';
+import { OperationRefusalWordingUtil }                                                from '../../../src/adapters/utils/OperationRefusalWordingUtil.ts';
 import { HELD_LOCK_CASE_TIMEOUT_MILLISECONDS }                                        from '../../../src/testing/HeldLockCaseTimeout.ts';
 import { createScratchDirectory, createScratchGitRepository, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }                                                   from '../../../src/testing/ToolGuard.ts';
@@ -604,7 +604,7 @@ describeWhenGitIsPresent('every way it can fail', () => {
 
       expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
 
-      const mismatchParagraph = InstallVersionWordingUtil.messageOf({
+      const mismatchParagraph = OperationRefusalWordingUtil.installVersionMismatchMessageOf({
         kind:             'install-version-mismatch',
         rootDirectory,
         manifestFilePath: installedFilePathsIn(rootDirectory).installManifest,

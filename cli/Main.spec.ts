@@ -20,7 +20,7 @@ import {
   test
 }                                                         from 'bun:test';
 import { createInstallManifestWriter }                    from '../src/adapters/install/InstallManifestWriter.ts';
-import { InstallVersionWordingUtil }                      from '../src/adapters/utils/InstallVersionWordingUtil.ts';
+import { OperationRefusalWordingUtil }                    from '../src/adapters/utils/OperationRefusalWordingUtil.ts';
 import { OperationRefusal }                               from '../src/shared/OperationRefusal.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
 import { COMMAND_NAMES }                                  from './CommandTable.ts';
@@ -172,7 +172,7 @@ describe('a tracker whose installed files are of another install version', () =>
   }
 
   function unversionedParagraph(): string {
-    return InstallVersionWordingUtil.messageOf({
+    return OperationRefusalWordingUtil.installVersionMismatchMessageOf({
       kind:             'install-version-mismatch',
       rootDirectory:    trackedDirectory,
       manifestFilePath: installedFilePathsIn(trackedDirectory).installManifest,

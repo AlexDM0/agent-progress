@@ -9,8 +9,6 @@ import { expect, test } from 'bun:test';
 import type { BoardRefusalDetail }     from '../../lib/tracker-model/BoardRefusal.ts';
 import type { UnreadableTracker }      from '../../shared/@types/UnreadableTracker.ts';
 import { OperationRefusal }            from '../../shared/OperationRefusal.ts';
-import { BoardRefusalWordingUtil }     from './BoardRefusalWordingUtil.ts';
-import { InstallVersionWordingUtil }   from './InstallVersionWordingUtil.ts';
 import { OperationRefusalWordingUtil } from './OperationRefusalWordingUtil.ts';
 import { TrackerReadingWordingUtil }   from './TrackerReadingWordingUtil.ts';
 
@@ -22,7 +20,7 @@ test('a refusal built from words is printed with those words, unchanged', () => 
 test('a Board refusal is printed as the Board refusal wording words its detail', () => {
   const boardRefusal: BoardRefusalDetail = { reason: 'ticket-already-held', ticketId: '001' };
   const refusal = new OperationRefusal('refused', { kind: 'board-refusal', boardRefusal });
-  expect(OperationRefusalWordingUtil.messageOf(refusal)).toBe(BoardRefusalWordingUtil.messageOf(boardRefusal));
+  expect(OperationRefusalWordingUtil.messageOf(refusal)).toBe(OperationRefusalWordingUtil.boardRefusalMessageOf(boardRefusal));
 });
 
 test('an unreadable tracker is printed as the tracker reading wording words the reading', () => {
@@ -76,5 +74,5 @@ test('an install version mismatch is printed as the install version wording word
     mismatch:         { reason: 'unversioned' },
   } as const;
   const refusal = new OperationRefusal('refused', detail);
-  expect(OperationRefusalWordingUtil.messageOf(refusal)).toBe(InstallVersionWordingUtil.messageOf(detail));
+  expect(OperationRefusalWordingUtil.messageOf(refusal)).toBe(OperationRefusalWordingUtil.installVersionMismatchMessageOf(detail));
 });
