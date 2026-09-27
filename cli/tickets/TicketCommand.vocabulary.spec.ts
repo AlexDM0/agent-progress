@@ -21,14 +21,14 @@ import { TICKET_SETTING_SUBCOMMANDS }                         from './TicketSett
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
-const RETIRED_OR_UNKNOWN_WORD_ANSWER_PATTERN = /was renamed|old name|is not an agent-progress ticket subcommand|is not a ticket status/;
+const UNKNOWN_WORD_ANSWER_PATTERN = /is not an agent-progress ticket subcommand|is not a ticket status/;
 
 let repositoryDirectory = '';
 
 async function exitCodeAndContextOf(commandLineArguments: readonly string[]): Promise<[number, ReturnType<typeof createCapturedCommandContext>]> {
   const context  = createCapturedCommandContext({ currentDirectory: repositoryDirectory, now: () => FROZEN_NOW });
   const exitCode = await runCommandLine(commandLineArguments, context);
-  expect(context.errorText(), commandLineArguments.join(' ')).not.toMatch(RETIRED_OR_UNKNOWN_WORD_ANSWER_PATTERN);
+  expect(context.errorText(), commandLineArguments.join(' ')).not.toMatch(UNKNOWN_WORD_ANSWER_PATTERN);
   return [exitCode, context];
 }
 

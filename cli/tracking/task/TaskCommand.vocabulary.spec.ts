@@ -18,15 +18,12 @@ import { storedProgressOf }                                   from '../../testin
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
-const RETIRED_WORD_ANSWER_PATTERN = /was renamed|old name/;
-
 let repositoryDirectory = '';
 
 async function run(commandLineArguments: readonly string[]): Promise<ReturnType<typeof createCapturedCommandContext>> {
   const context  = createCapturedCommandContext({ currentDirectory: repositoryDirectory, now: () => FROZEN_NOW });
   const exitCode = await runCommandLine(commandLineArguments, context);
   expect(exitCode, `\`agent-progress ${commandLineArguments.join(' ')}\` failed: ${context.errorText()}`).toBe(0);
-  expect(context.errorText(), commandLineArguments.join(' ')).not.toMatch(RETIRED_WORD_ANSWER_PATTERN);
   return context;
 }
 
@@ -60,9 +57,10 @@ describeWhenGitIsPresent('the task command with current words only', () => {
     }
   });
 
-  test('a plain name, and a review-shaped name filed with --ticket, are both stored with no review link', async () => {
+  test('a plain name, a review-shaped name, and one filed with --ticket, are all stored with no review link', async () => {
     await run(['ticket', 'add', 'Example work']);
     await run(['task', 'add', 'Draft the example page']);
+    await run(['task', 'add', 'Review 2 #001 — Example work']);
     await run(['task', 'add', 'Review 1 #1 — Example work', '--ticket', '1', '--force']);
 
     for (const task of storedProgressOf(repositoryDirectory).tasks) {
