@@ -14,9 +14,9 @@ import {
   addWorktree,
   createCanonicalScratchDirectory,
   createScratchGitRepository,
-  gitIsAvailable,
   removeScratchDirectory
 } from '../../testing/ScratchWorkspace.ts';
+import { testWhenGitIsPresent }                               from '../../testing/ToolGuard.ts';
 import { writeMinimalTracker }                                from '../../testing/TrackerFileFixtures.ts';
 import { findWorkspace, requireWorkspace, workspacePathsFor } from './Workspace.ts';
 
@@ -88,7 +88,7 @@ test('a command run deep inside the repository walks up to the tracker', () => {
 });
 
 // `git worktree add ../name` puts the checkout beside the repository, so the walk up never reaches the tracker.
-test.skipIf(!gitIsAvailable())('a command run in a sibling worktree finds the main checkout\'s tracker through git', () => {
+testWhenGitIsPresent('a command run in a sibling worktree finds the main checkout\'s tracker through git', () => {
   const repositoryDirectory = realpathSync(createScratchGitRepository('workspace-worktree'));
   scratchDirectories.push(repositoryDirectory);
   const rootDirectory = writeMinimalTracker(repositoryDirectory);
@@ -97,7 +97,7 @@ test.skipIf(!gitIsAvailable())('a command run in a sibling worktree finds the ma
   expect(findWorkspace(worktreeDirectory)?.rootDirectory).toBe(rootDirectory);
 });
 
-test.skipIf(!gitIsAvailable())('a repository with no tracker anywhere still finds nothing, worktree or not', () => {
+testWhenGitIsPresent('a repository with no tracker anywhere still finds nothing, worktree or not', () => {
   const repositoryDirectory = realpathSync(createScratchGitRepository('workspace-untracked'));
   scratchDirectories.push(repositoryDirectory);
   expect(findWorkspace(repositoryDirectory)).toBeNull();

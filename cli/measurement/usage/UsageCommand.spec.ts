@@ -15,14 +15,14 @@ import { join }                                   from 'node:path';
 import {
   afterEach,
   beforeEach,
-  describe,
   expect,
   test
 }                                                                             from 'bun:test';
-import type { CohortSummary }                                                 from '../../../src/lib/claude-code/utils/TranscriptCohortUtil.ts';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
-import { runCommandLine }                                                     from '../../Main.ts';
-import { createCapturedCommandContext }                                       from '../../testing/CapturedCommandContext.ts';
+import type { CohortSummary }                                 from '../../../src/lib/claude-code/utils/TranscriptCohortUtil.ts';
+import { createScratchGitRepository, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                           from '../../../src/testing/ToolGuard.ts';
+import { runCommandLine }                                     from '../../Main.ts';
+import { createCapturedCommandContext }                       from '../../testing/CapturedCommandContext.ts';
 
 const FROZEN_NOW = new Date('2026-09-19T20:11:03Z');
 
@@ -164,7 +164,7 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
-describe.skipIf(!gitIsAvailable())('the report a reader sees', () => {
+describeWhenGitIsPresent('the report a reader sees', () => {
   // Asserted as the order the briefs appear in rather than as fixed line numbers: the sort is by stamp, where the file order is alphabetical by path.
   test('lists every agent oldest first with its calls and its brief', async () => {
     const printed = (await run(usageArguments())).outputText();
@@ -207,7 +207,7 @@ describe.skipIf(!gitIsAvailable())('the report a reader sees', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('the --json document', () => {
+describeWhenGitIsPresent('the --json document', () => {
   test('carries the folder it read, one entry per agent and the cohort', async () => {
     const document = JSON.parse((await run(usageArguments('--json'))).outputText()) as UsageDocument;
 
@@ -251,7 +251,7 @@ describe.skipIf(!gitIsAvailable())('the --json document', () => {
  * a context the brief capped, files edited by shelling out, and the full checks run per edit. The
  * transcript is written into a folder of its own so the cohort it is the whole of reads 100%.
  */
-describe.skipIf(!gitIsAvailable())('the figures a breach of the brief shows up in', () => {
+describeWhenGitIsPresent('the figures a breach of the brief shows up in', () => {
   const OVERSIZED_CACHE_READ_TOKENS = 400_000;
 
   let breachFolder = '';
@@ -319,7 +319,7 @@ describe.skipIf(!gitIsAvailable())('the figures a breach of the brief shows up i
 });
 
 /** A workflow writes its agents under `subagents/workflows/<runId>/`, beside a journal and each agent's metadata; only the agents are costs. */
-describe.skipIf(!gitIsAvailable())('a folder holding a workflow run beside a plain subagent', () => {
+describeWhenGitIsPresent('a folder holding a workflow run beside a plain subagent', () => {
   test('reports the plain agent and both workflow agents, and nothing from the journal or the metadata', async () => {
     const mixedFolder = join(repositoryDirectory, 'mixed-transcripts');
     const runFolder   = join(mixedFolder, 'session-workflow', 'subagents', 'workflows', 'run-example');
@@ -392,7 +392,7 @@ describe.skipIf(!gitIsAvailable())('a folder holding a workflow run beside a pla
   });
 });
 
-describe.skipIf(!gitIsAvailable())('a folder with no subagent transcripts in it', () => {
+describeWhenGitIsPresent('a folder with no subagent transcripts in it', () => {
   /** A repository that has never delegated anything is not a state the tool should complain about, so this is exit 0 and one sentence. */
   test('is one sentence at exit 0, naming the folder that was read', async () => {
     const emptyFolder = join(repositoryDirectory, 'no-transcripts-here');
@@ -415,7 +415,7 @@ describe.skipIf(!gitIsAvailable())('a folder with no subagent transcripts in it'
   });
 });
 
-describe.skipIf(!gitIsAvailable())('what the command does not do', () => {
+describeWhenGitIsPresent('what the command does not do', () => {
   test('it is refused outside a tracker, like every other command', async () => {
     const outsideDirectory = createScratchGitRepository('usage-untracked');
     const context = createCapturedCommandContext({ currentDirectory: outsideDirectory, now: () => FROZEN_NOW });
@@ -436,7 +436,7 @@ describe.skipIf(!gitIsAvailable())('what the command does not do', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('without --transcripts', () => {
+describeWhenGitIsPresent('without --transcripts', () => {
   test('reads the repository\'s folder under the home directory the context carries', async () => {
     const homeDirectory  = join(repositoryDirectory, 'example-home');
     transcriptsDirectory = join(homeDirectory, '.claude', 'projects', realpathSync(repositoryDirectory).replace(CHARACTER_THE_PROJECT_SLUG_REPLACES, '-'));

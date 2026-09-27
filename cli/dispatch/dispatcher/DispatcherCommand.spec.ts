@@ -9,17 +9,17 @@ import { join }                        from 'node:path';
 import {
   afterEach,
   beforeEach,
-  describe,
   expect,
   test
 }                                                                             from 'bun:test';
-import type { DispatcherState }                                               from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
-import { runCommandLine }                                                     from '../../Main.ts';
-import { createCapturedCommandContext }                                       from '../../testing/CapturedCommandContext.ts';
-import { storedLogEntriesOf }                                                 from '../../testing/StoredLogEntries.ts';
-import { storedLogTextOf }                                                    from '../../testing/StoredLogText.ts';
-import { storedProgressOf }                                                   from '../../testing/StoredProgress.ts';
+import type { DispatcherState }                               from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
+import { createScratchGitRepository, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                           from '../../../src/testing/ToolGuard.ts';
+import { runCommandLine }                                     from '../../Main.ts';
+import { createCapturedCommandContext }                       from '../../testing/CapturedCommandContext.ts';
+import { storedLogEntriesOf }                                 from '../../testing/StoredLogEntries.ts';
+import { storedLogTextOf }                                    from '../../testing/StoredLogText.ts';
+import { storedProgressOf }                                   from '../../testing/StoredProgress.ts';
 
 const FROZEN_NOW = new Date('2026-09-23T20:11:03Z');
 
@@ -54,7 +54,7 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
-describe.skipIf(!gitIsAvailable())('the dispatcher state', () => {
+describeWhenGitIsPresent('the dispatcher state', () => {
   // The first start waits for the user's go: a board nobody started must not read as one to relaunch.
   test('a fresh tracker holds no state and reads stopped', async () => {
     expect(storedProgressOf(repositoryDirectory).dispatcherState).toBeUndefined();
@@ -116,7 +116,7 @@ describe.skipIf(!gitIsAvailable())('the dispatcher state', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('the stored run id', () => {
+describeWhenGitIsPresent('the stored run id', () => {
   const EXAMPLE_RUN_ID = 'wf_example-run-1';
 
   interface StatusDocumentWithRun {
@@ -177,7 +177,7 @@ describe.skipIf(!gitIsAvailable())('the stored run id', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('the advice the Next line gives', () => {
+describeWhenGitIsPresent('the advice the Next line gives', () => {
   beforeEach(async () => {
     await run(['ticket', 'add', 'Double-click a role to edit it']);
   });

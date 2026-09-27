@@ -14,25 +14,25 @@ import { join } from 'node:path';
 import {
   afterEach,
   beforeEach,
-  describe,
   expect,
   spyOn,
   test
 }                                                                             from 'bun:test';
-import * as AtomicFile                                                        from '../../src/lib/atomic-file/AtomicFile.ts';
-import { withLock }                                                           from '../../src/services/tracker/TrackerLock.ts';
-import { workspacePathsFor }                                                  from '../../src/services/tracker/Workspace.ts';
-import { LIMITS }                                                             from '../../src/shared/constants/Limits.ts';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
-import { runCommandLine }                                                     from '../Main.ts';
-import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext.ts';
-import { storedLogEntriesOf }                                                 from '../testing/StoredLogEntries.ts';
-import { storedProgressOf }                                                   from '../testing/StoredProgress.ts';
-import { TICKET_CLAIM_SUBCOMMANDS }                                           from './TicketClaimSubcommands.ts';
-import { TICKET_FILING_SUBCOMMANDS }                                          from './TicketFilingSubcommands.ts';
-import { TICKET_MOVE_SUBCOMMANDS }                                            from './TicketMoveSubcommands.ts';
-import { TICKET_READING_SUBCOMMANDS }                                         from './TicketReadingSubcommands.ts';
-import { TICKET_SETTING_SUBCOMMANDS }                                         from './TicketSettingSubcommands.ts';
+import * as AtomicFile                                        from '../../src/lib/atomic-file/AtomicFile.ts';
+import { withLock }                                           from '../../src/services/tracker/TrackerLock.ts';
+import { workspacePathsFor }                                  from '../../src/services/tracker/Workspace.ts';
+import { LIMITS }                                             from '../../src/shared/constants/Limits.ts';
+import { createScratchGitRepository, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                           from '../../src/testing/ToolGuard.ts';
+import { runCommandLine }                                     from '../Main.ts';
+import { createCapturedCommandContext }                       from '../testing/CapturedCommandContext.ts';
+import { storedLogEntriesOf }                                 from '../testing/StoredLogEntries.ts';
+import { storedProgressOf }                                   from '../testing/StoredProgress.ts';
+import { TICKET_CLAIM_SUBCOMMANDS }                           from './TicketClaimSubcommands.ts';
+import { TICKET_FILING_SUBCOMMANDS }                          from './TicketFilingSubcommands.ts';
+import { TICKET_MOVE_SUBCOMMANDS }                            from './TicketMoveSubcommands.ts';
+import { TICKET_READING_SUBCOMMANDS }                         from './TicketReadingSubcommands.ts';
+import { TICKET_SETTING_SUBCOMMANDS }                         from './TicketSettingSubcommands.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -66,7 +66,7 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
-describe.skipIf(!gitIsAvailable())('filing a ticket', () => {
+describeWhenGitIsPresent('filing a ticket', () => {
   test('writes the file, files a pending row and logs the line, and prints the path', async () => {
     const context = await run(['ticket', 'add', 'Double-click a role to edit it', '--type', 'change', '--group', 'role-editor']);
 
@@ -148,7 +148,7 @@ describe.skipIf(!gitIsAvailable())('filing a ticket', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('moving a ticket', () => {
+describeWhenGitIsPresent('moving a ticket', () => {
   beforeEach(async () => {
     await run(['ticket', 'add', 'Double-click a role to edit it']);
   });
@@ -250,7 +250,7 @@ describe.skipIf(!gitIsAvailable())('moving a ticket', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('a second review pass', () => {
+describeWhenGitIsPresent('a second review pass', () => {
   beforeEach(async () => {
     await run(['ticket', 'add', 'Double-click a role to edit it']);
     await run(['ticket', 'start', '1']);
@@ -322,7 +322,7 @@ describe.skipIf(!gitIsAvailable())('a second review pass', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('reading tickets back', () => {
+describeWhenGitIsPresent('reading tickets back', () => {
   beforeEach(async () => {
     await run(['ticket', 'add', 'Double-click a role to edit it']);
     await run(['ticket', 'add', 'Fix the axis', '--type', 'bug']);
@@ -369,7 +369,7 @@ describe.skipIf(!gitIsAvailable())('reading tickets back', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('linking a ticket to a row', () => {
+describeWhenGitIsPresent('linking a ticket to a row', () => {
   test('link points the ticket at another row and clears the row it left', async () => {
     await run(['ticket', 'add', 'Double-click a role to edit it']);
     await run(['task', 'add', 'Role editor rewrite']);
@@ -397,7 +397,7 @@ describe.skipIf(!gitIsAvailable())('linking a ticket to a row', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('the transition matrix', () => {
+describeWhenGitIsPresent('the transition matrix', () => {
   beforeEach(async () => {
     await run(['ticket', 'add', 'Double-click a role to edit it']);
   });
@@ -475,7 +475,7 @@ describe.skipIf(!gitIsAvailable())('the transition matrix', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('token counts on a ticket move', () => {
+describeWhenGitIsPresent('token counts on a ticket move', () => {
   test('--tokens lands on the row the ticket owns', async () => {
     await run(['ticket', 'add', 'Double-click a role to edit it']);
     await run(['ticket', 'start', '1']);
@@ -501,7 +501,7 @@ describe.skipIf(!gitIsAvailable())('token counts on a ticket move', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('where --body-file reads from', () => {
+describeWhenGitIsPresent('where --body-file reads from', () => {
   test('`-` reads what the context pipes in, not the process\'s own standard input', async () => {
     const context = createCapturedCommandContext({
       currentDirectory:  repositoryDirectory,
@@ -523,7 +523,7 @@ describe.skipIf(!gitIsAvailable())('where --body-file reads from', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('what ticket add refuses and what it falls back to', () => {
+describeWhenGitIsPresent('what ticket add refuses and what it falls back to', () => {
   test('a title that is nothing but whitespace is refused', async () => {
     const context  = contextHere();
     const exitCode = await runCommandLine(['ticket', 'add', '  '], context);
@@ -550,7 +550,7 @@ describe.skipIf(!gitIsAvailable())('what ticket add refuses and what it falls ba
   });
 });
 
-describe.skipIf(!gitIsAvailable())('ticket dependencies', () => {
+describeWhenGitIsPresent('ticket dependencies', () => {
   beforeEach(async () => {
     await run(['ticket', 'add', 'Split the importer']);
     await run(['ticket', 'add', 'Validate the rows']);
@@ -671,7 +671,7 @@ describe.skipIf(!gitIsAvailable())('ticket dependencies', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('a ticket file that will not parse', () => {
+describeWhenGitIsPresent('a ticket file that will not parse', () => {
   /** A broken hand edit is a state the tool will not repair, so it is exit 2; exit 1 would tell a script the id was its own mistake. */
   test('show and claim exit 2 naming the file and why, while an id with no file at all stays exit 1', async () => {
     await run(['ticket', 'add', 'Double-click a role to edit it']);
@@ -688,7 +688,7 @@ describe.skipIf(!gitIsAvailable())('a ticket file that will not parse', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('the subcommand groups', () => {
+describeWhenGitIsPresent('the subcommand groups', () => {
   test('no two groups name the same subcommand, and together they hold every verb the usage lists', () => {
     const groups = [
       TICKET_FILING_SUBCOMMANDS,

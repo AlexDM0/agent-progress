@@ -11,14 +11,10 @@ import {
   expect,
   test
 }                                                              from 'bun:test';
-import { CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS } from '../src/testing/ChildProcessCaseTimeout.ts';
-import {
-  createScratchDirectory,
-  createScratchGitRepository,
-  gitIsAvailable,
-  removeScratchDirectory
-} from '../src/testing/ScratchWorkspace.ts';
-import { runAgentProgress } from './testing/CliProcess.ts';
+import { CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS }                                    from '../src/testing/ChildProcessCaseTimeout.ts';
+import { createScratchDirectory, createScratchGitRepository, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                                                   from '../src/testing/ToolGuard.ts';
+import { runAgentProgress }                                                           from './testing/CliProcess.ts';
 
 let scratchDirectory = '';
 
@@ -58,7 +54,7 @@ describe('the binary', () => {
  * One real session through the installed entry point: separate processes against one tracker on disk,
  * the only place the lock, the atomic writes and the `bun link`ed template lookups run together.
  */
-describe.skipIf(!gitIsAvailable())('a whole session through the binary', () => {
+describeWhenGitIsPresent('a whole session through the binary', () => {
   test('init, a ticket through its whole life, a task, a log line, and the JSON an agent reads', async () => {
     const repositoryDirectory = createScratchGitRepository('binary-smoke-session');
 
@@ -144,7 +140,7 @@ describe.skipIf(!gitIsAvailable())('a whole session through the binary', () => {
 });
 
 // The orchestrator reads this hint from the command's printed output, so it is pinned where a process prints it, and so is its absence from the JSON.
-describe.skipIf(!gitIsAvailable())('unholding a ticket whose build was left paused, through the binary', () => {
+describeWhenGitIsPresent('unholding a ticket whose build was left paused, through the binary', () => {
   test('names the single-ticket dispatcher run in the human output only in that state, and never under --json', async () => {
     const repositoryDirectory = createScratchGitRepository('binary-smoke-unhold');
     const resumeBuildHint = 'launch a single-ticket dispatcher run for #001';
@@ -176,7 +172,7 @@ describe.skipIf(!gitIsAvailable())('unholding a ticket whose build was left paus
   }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 });
 
-describe.skipIf(!gitIsAvailable())('a bare repository, through the binary', () => {
+describeWhenGitIsPresent('a bare repository, through the binary', () => {
   test('init refuses it and writes nothing into the directory that holds it', async () => {
     const parentDirectory = createScratchDirectory('binary-smoke-bare');
     try {

@@ -7,15 +7,15 @@ import { join }                                 from 'node:path';
 import {
   afterEach,
   beforeEach,
-  describe,
   expect,
   test
 }                                                                             from 'bun:test';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
-import { runCommandLine }                                                     from '../../Main.ts';
-import { createCapturedCommandContext }                                       from '../../testing/CapturedCommandContext.ts';
-import { storedLogEntriesOf }                                                 from '../../testing/StoredLogEntries.ts';
-import { storedProgressOf }                                                   from '../../testing/StoredProgress.ts';
+import { createScratchGitRepository, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                           from '../../../src/testing/ToolGuard.ts';
+import { runCommandLine }                                     from '../../Main.ts';
+import { createCapturedCommandContext }                       from '../../testing/CapturedCommandContext.ts';
+import { storedLogEntriesOf }                                 from '../../testing/StoredLogEntries.ts';
+import { storedProgressOf }                                   from '../../testing/StoredProgress.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -55,7 +55,7 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
-describe.skipIf(!gitIsAvailable())('clearing while keeping the tickets', () => {
+describeWhenGitIsPresent('clearing while keeping the tickets', () => {
   test('re-seeds a bar per surviving ticket from the frontmatter it recorded', async () => {
     const trackerIdBefore = storedProgressOf(repositoryDirectory).trackerId;
 
@@ -96,7 +96,7 @@ describe.skipIf(!gitIsAvailable())('clearing while keeping the tickets', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('clearing everything', () => {
+describeWhenGitIsPresent('clearing everything', () => {
   test('--all deletes the tickets and lets their ids restart at 001', async () => {
     await run(['clear', '--all', '--yes']);
 
@@ -128,7 +128,7 @@ describe.skipIf(!gitIsAvailable())('clearing everything', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('the confirmation', () => {
+describeWhenGitIsPresent('the confirmation', () => {
   /** A prompt written to a stream nobody is reading is a hang in a subprocess an agent is waiting on. */
   test('a non-terminal standard input without --yes refuses and changes nothing', async () => {
     const context  = contextHere();

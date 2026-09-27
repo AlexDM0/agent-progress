@@ -13,16 +13,16 @@ import { join } from 'node:path';
 import {
   afterEach,
   beforeEach,
-  describe,
   expect,
   test
 }                                       from 'bun:test';
-import type { TrackerProgress }                                               from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
-import { runCommandLine }                                                     from '../../Main.ts';
-import { createCapturedCommandContext }                                       from '../../testing/CapturedCommandContext.ts';
-import { storedLogTextOf }                                                    from '../../testing/StoredLogText.ts';
-import { storedProgressOf }                                                   from '../../testing/StoredProgress.ts';
+import type { TrackerProgress }                               from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
+import { createScratchGitRepository, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                           from '../../../src/testing/ToolGuard.ts';
+import { runCommandLine }                                     from '../../Main.ts';
+import { createCapturedCommandContext }                       from '../../testing/CapturedCommandContext.ts';
+import { storedLogTextOf }                                    from '../../testing/StoredLogText.ts';
+import { storedProgressOf }                                   from '../../testing/StoredProgress.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -52,7 +52,7 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
-describe.skipIf(!gitIsAvailable())('the lifecycle of a row', () => {
+describeWhenGitIsPresent('the lifecycle of a row', () => {
   test('add, start, finish, approve and deliver each move the row and say so', async () => {
     const added = await run(['task', 'add', 'Review pass', '--owner', 'Alex Example', '--note', 'the whole surface']);
     expect(added.outputText()).toContain('Task #1 added: Review pass');
@@ -157,7 +157,7 @@ describe.skipIf(!gitIsAvailable())('the lifecycle of a row', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('refusals a caller can act on', () => {
+describeWhenGitIsPresent('refusals a caller can act on', () => {
   test('a task id that does not exist is refused with exit 1 rather than silently doing nothing', async () => {
     const context  = contextHere();
     const exitCode = await runCommandLine(['task', 'start', '42'], context);
@@ -185,7 +185,7 @@ describe.skipIf(!gitIsAvailable())('refusals a caller can act on', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('the verb that replaced review', () => {
+describeWhenGitIsPresent('the verb that replaced review', () => {
   // The verb that replaced `review` must reach the same status the old one did.
   test('task approve moves a row to reviewed', async () => {
     await run(['task', 'add', 'Review pass', '--start']);
@@ -198,7 +198,7 @@ describe.skipIf(!gitIsAvailable())('the verb that replaced review', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('linking a row to a ticket', () => {
+describeWhenGitIsPresent('linking a row to a ticket', () => {
   test('--ticket links both sides when the ticket has no row of its own', async () => {
     await run(['ticket', 'add', 'Double-click a role to edit it']);
     await run(['task', 'remove', '1']);
@@ -282,7 +282,7 @@ describe.skipIf(!gitIsAvailable())('linking a row to a ticket', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('pausing and resuming', () => {
+describeWhenGitIsPresent('pausing and resuming', () => {
   test('pause keeps the start and clears nothing else; start resumes the same bar', async () => {
     await run(['task', 'add', 'Waiting on the user', '--start']);
     const startedAt = storedProgressOf(repositoryDirectory).tasks[0]?.start;
@@ -302,7 +302,7 @@ describe.skipIf(!gitIsAvailable())('pausing and resuming', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('token counts', () => {
+describeWhenGitIsPresent('token counts', () => {
   test('every spelling the parser accepts reaches the row as a whole number', async () => {
     await run(['task', 'add', 'Rewrite the importer']);
 
@@ -334,7 +334,7 @@ describe.skipIf(!gitIsAvailable())('token counts', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('a row a ticket owns', () => {
+describeWhenGitIsPresent('a row a ticket owns', () => {
   beforeEach(async () => {
     await run(['ticket', 'add', 'Double-click a role to edit it']);
   });
@@ -376,7 +376,7 @@ describe.skipIf(!gitIsAvailable())('a row a ticket owns', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('the refusals that stop a row being filed wrong', () => {
+describeWhenGitIsPresent('the refusals that stop a row being filed wrong', () => {
   test('a name that is nothing but whitespace is refused, like an absent one', async () => {
     const context  = contextHere();
     const exitCode = await runCommandLine(['task', 'add', '   '], context);
@@ -396,7 +396,7 @@ describe.skipIf(!gitIsAvailable())('the refusals that stop a row being filed wro
   });
 });
 
-describe.skipIf(!gitIsAvailable())('the render report after a write', () => {
+describeWhenGitIsPresent('the render report after a write', () => {
   test('a ticket file that will not parse is reported once on standard error, and the row is still filed with exit 0', async () => {
     const ticketFilePath = join(realpathSync(repositoryDirectory), '.agent-progress', 'tickets', '001-broken-by-hand.md');
     writeFileSync(ticketFilePath, 'no frontmatter here\n');

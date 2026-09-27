@@ -7,15 +7,15 @@ import { join }          from 'node:path';
 import {
   afterEach,
   beforeEach,
-  describe,
   expect,
   test
 }                                                                             from 'bun:test';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
-import { runCommandLine }                                                     from '../../Main.ts';
-import { createCapturedCommandContext }                                       from '../../testing/CapturedCommandContext.ts';
-import { storedLogEntriesOf }                                                 from '../../testing/StoredLogEntries.ts';
-import { storedProgressOf }                                                   from '../../testing/StoredProgress.ts';
+import { createScratchGitRepository, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                           from '../../../src/testing/ToolGuard.ts';
+import { runCommandLine }                                     from '../../Main.ts';
+import { createCapturedCommandContext }                       from '../../testing/CapturedCommandContext.ts';
+import { storedLogEntriesOf }                                 from '../../testing/StoredLogEntries.ts';
+import { storedProgressOf }                                   from '../../testing/StoredProgress.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -41,7 +41,7 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
-describe.skipIf(!gitIsAvailable())('storing a range', () => {
+describeWhenGitIsPresent('storing a range', () => {
   test('two relative bounds are stored as written, under the relative kind', async () => {
     const context = await run(['range', '--from', '-2h', '--to', 'now', '--tick', '15m']);
 
@@ -83,7 +83,7 @@ describe.skipIf(!gitIsAvailable())('storing a range', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('refusals', () => {
+describeWhenGitIsPresent('refusals', () => {
   test('a bound nobody can read is refused, and the stored axis is left alone', async () => {
     const context  = contextHere();
     const exitCode = await runCommandLine(['range', '--from', 'yesterday', '--to', 'now'], context);
@@ -128,7 +128,7 @@ describe.skipIf(!gitIsAvailable())('refusals', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('the two bounds a range cannot have', () => {
+describeWhenGitIsPresent('the two bounds a range cannot have', () => {
   test('a bound that is not a time says so, rather than only listing the spellings', async () => {
     const context  = contextHere();
     const exitCode = await runCommandLine(['range', '--from', 'garbage', '--to', 'now'], context);
@@ -174,7 +174,7 @@ describe.skipIf(!gitIsAvailable())('the two bounds a range cannot have', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('an unreadable progress file', () => {
+describeWhenGitIsPresent('an unreadable progress file', () => {
   /** A script matching the reason should not need to know whether the command it ran takes the lock. */
   test('a settings write reports it in the same words as status, at exit 2', async () => {
     writeFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), '{ not json');
@@ -189,7 +189,7 @@ describe.skipIf(!gitIsAvailable())('an unreadable progress file', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('the log', () => {
+describeWhenGitIsPresent('the log', () => {
   /** Every other settings write, `concurrency` and `dispatcher`, leaves a line, so a changed axis should not be the one that is invisible. */
   test('each stored range writes one log line naming it, --auto included', async () => {
     await run(['range', '--from', '-2h', '--to', 'now', '--tick', '15m']);

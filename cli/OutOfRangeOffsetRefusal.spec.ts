@@ -7,13 +7,13 @@ import { join }         from 'node:path';
 import {
   afterEach,
   beforeEach,
-  describe,
   expect,
   test
 }                                                                             from 'bun:test';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
-import { runCommandLine }                                                     from './Main.ts';
-import { createCapturedCommandContext }                                       from './testing/CapturedCommandContext.ts';
+import { createScratchGitRepository, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                           from '../src/testing/ToolGuard.ts';
+import { runCommandLine }                                     from './Main.ts';
+import { createCapturedCommandContext }                       from './testing/CapturedCommandContext.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -54,7 +54,7 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
-describe.skipIf(!gitIsAvailable())('an offset past every writable date', () => {
+describeWhenGitIsPresent('an offset past every writable date', () => {
   test('log --at refuses it and writes nothing', async () => {
     await expectRefusedWithoutAWrite(['log', 'Example note', '--at', OUT_OF_RANGE_OFFSET], '--at');
   });

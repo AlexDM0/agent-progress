@@ -14,21 +14,12 @@ import {
   symlinkSync,
   writeFileSync
 } from 'node:fs';
-import { join } from 'node:path';
-import {
-  afterAll,
-  describe,
-  expect,
-  test
-} from 'bun:test';
+import { join }                   from 'node:path';
+import { afterAll, expect, test } from 'bun:test';
 
-import {
-  createScratchDirectory,
-  createScratchGitRepository,
-  gitIsAvailable,
-  removeScratchDirectory
-} from '../../testing/ScratchWorkspace.ts';
-import { ensureIgnored } from './GitIgnore.ts';
+import { createScratchDirectory, createScratchGitRepository, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                                                   from '../../testing/ToolGuard.ts';
+import { ensureIgnored }                                                              from './GitIgnore.ts';
 
 const IGNORED_DIRECTORY_NAME = '.example-cache';
 
@@ -56,7 +47,7 @@ function scratchDirectory(prefix: string): string {
 
 const gitIgnoreIn = (directory: string): string => readFileSync(join(directory, '.gitignore'), 'utf8');
 
-describe.skipIf(!gitIsAvailable())('in a git repository', () => {
+describeWhenGitIsPresent('in a git repository', () => {
   test('a repository with no .gitignore gets one holding exactly the ignored directory', () => {
     const repositoryDirectory = scratchRepository('gitignore-created');
     expect(ensureIgnored(repositoryDirectory, IGNORED_DIRECTORY_NAME)).toBe('appended');

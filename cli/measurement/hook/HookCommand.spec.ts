@@ -18,25 +18,20 @@ import { join } from 'node:path';
 import {
   afterEach,
   beforeEach,
-  describe,
   expect,
   test
 }                                                                             from 'bun:test';
-import { LogFileIngestion }                    from '../../../src/adapters/log/LogFileIngestion.ts';
-import { InstallVersionWordingUtil }           from '../../../src/adapters/utils/InstallVersionWordingUtil.ts';
-import { HELD_LOCK_CASE_TIMEOUT_MILLISECONDS } from '../../../src/testing/HeldLockCaseTimeout.ts';
-import {
-  createScratchDirectory,
-  createScratchGitRepository,
-  gitIsAvailable,
-  removeScratchDirectory
-}                                                                             from '../../../src/testing/ScratchWorkspace.ts';
-import { installedFilePathsIn }         from '../../InstalledFiles.ts';
-import { runCommandLine }               from '../../Main.ts';
-import { INSTALL_VERSION }              from '../../constants/InstallVersion.ts';
-import { createCapturedCommandContext } from '../../testing/CapturedCommandContext.ts';
-import { storedLogEntriesOf }           from '../../testing/StoredLogEntries.ts';
-import { storedProgressOf }             from '../../testing/StoredProgress.ts';
+import { LogFileIngestion }                                                           from '../../../src/adapters/log/LogFileIngestion.ts';
+import { InstallVersionWordingUtil }                                                  from '../../../src/adapters/utils/InstallVersionWordingUtil.ts';
+import { HELD_LOCK_CASE_TIMEOUT_MILLISECONDS }                                        from '../../../src/testing/HeldLockCaseTimeout.ts';
+import { createScratchDirectory, createScratchGitRepository, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                                                   from '../../../src/testing/ToolGuard.ts';
+import { installedFilePathsIn }                                                       from '../../InstalledFiles.ts';
+import { runCommandLine }                                                             from '../../Main.ts';
+import { INSTALL_VERSION }                                                            from '../../constants/InstallVersion.ts';
+import { createCapturedCommandContext }                                               from '../../testing/CapturedCommandContext.ts';
+import { storedLogEntriesOf }                                                         from '../../testing/StoredLogEntries.ts';
+import { storedProgressOf }                                                           from '../../testing/StoredProgress.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -119,7 +114,7 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
-describe.skipIf(!gitIsAvailable())('a subagent that stopped', () => {
+describeWhenGitIsPresent('a subagent that stopped', () => {
   test('gets one log line naming it, its calls and what it cost, summed per call and not per line', async () => {
     const context = contextWith(hookInput());
 
@@ -181,7 +176,7 @@ describe.skipIf(!gitIsAvailable())('a subagent that stopped', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('the row the brief names', () => {
+describeWhenGitIsPresent('the row the brief names', () => {
   /** Adding rather than setting is the claim: a row an implementer and a second pass both worked on carries what both cost. */
   test('a brief naming a row takes its tokens from unset to the input total, and the same input again doubles it', async () => {
     const rowIdentifier = await addedRow('Example work');
@@ -289,7 +284,7 @@ describe.skipIf(!gitIsAvailable())('the row the brief names', () => {
  * is written. So every case files the ticket, writes the brief, and only then creates the row — the
  * claim is resolved when the hook runs, never when the brief was written.
  */
-describe.skipIf(!gitIsAvailable())('the tickets the brief names', () => {
+describeWhenGitIsPresent('the tickets the brief names', () => {
   async function filedLowTicket(title: string): Promise<void> {
     expect(await runCommandLine(['ticket', 'add', title, '--priority', 'low'], contextWith(''))).toBe(0);
   }
@@ -376,7 +371,7 @@ describe.skipIf(!gitIsAvailable())('the tickets the brief names', () => {
  * Shaped like a dispatcher agent's transcript: plain-string user turns, the harness's relay of the session user's request first and the
  * script's computed task, whose lines the harness indents, second. The brief is the computed task, and nothing after a relay stands in for it.
  */
-describe.skipIf(!gitIsAvailable())('a workflow agent\'s brief after the harness\'s relay', () => {
+describeWhenGitIsPresent('a workflow agent\'s brief after the harness\'s relay', () => {
   const BUILT_TICKET_NUMBER = 7;
 
   const RELAY_TURN = '[Workflow harness — user request] The harness relays, verbatim and indented below, the user request.\n  Run the board.';
@@ -443,7 +438,7 @@ describe.skipIf(!gitIsAvailable())('a workflow agent\'s brief after the harness\
  * name only the ticket. Every case writes the brief first and files the row after; the row is found when the hook runs, whatever its
  * status, because `release` has already delivered it by the time the reviewer stops.
  */
-describe.skipIf(!gitIsAvailable())('the ticket a reviewer\'s brief names', () => {
+describeWhenGitIsPresent('the ticket a reviewer\'s brief names', () => {
   const REVIEWED_TICKET_NUMBER = 7;
 
   beforeEach(async () => {
@@ -519,7 +514,7 @@ describe.skipIf(!gitIsAvailable())('the ticket a reviewer\'s brief names', () =>
   });
 });
 
-describe.skipIf(!gitIsAvailable())('every way it can fail', () => {
+describeWhenGitIsPresent('every way it can fail', () => {
   /** The table is the whole claim: each of these leaves the tracker as it was and still answers 0. */
   test('nothing piped in, input that is not JSON, input that is not an object, and no transcript path all exit 0 and record nothing', async () => {
     const cases: Record<string, string> = {
@@ -626,7 +621,7 @@ describe.skipIf(!gitIsAvailable())('every way it can fail', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('the one thing it does refuse', () => {
+describeWhenGitIsPresent('the one thing it does refuse', () => {
   test('a missing or misspelled event is refused with exit 1, since only a person typing it can get that wrong', async () => {
     for (const commandLineArguments of [['hook'], ['hook', 'subagent-stopped']]) {
       const context = contextWith(hookInput());

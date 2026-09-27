@@ -8,19 +8,19 @@ import { readFileSync } from 'node:fs';
 import {
   afterEach,
   beforeEach,
-  describe,
   expect,
   test
 }                                                                             from 'bun:test';
-import type { Task }                                                          from '../../src/lib/tracker-model/@types/Task.ts';
-import { withLock }                                                           from '../../src/services/tracker/TrackerLock.ts';
-import { workspacePathsFor }                                                  from '../../src/services/tracker/Workspace.ts';
-import { LIMITS }                                                             from '../../src/shared/constants/Limits.ts';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
-import { runCommandLine }                                                     from '../Main.ts';
-import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext.ts';
-import { storedLogEntriesOf }                                                 from '../testing/StoredLogEntries.ts';
-import { storedProgressOf }                                                   from '../testing/StoredProgress.ts';
+import type { Task }                                          from '../../src/lib/tracker-model/@types/Task.ts';
+import { withLock }                                           from '../../src/services/tracker/TrackerLock.ts';
+import { workspacePathsFor }                                  from '../../src/services/tracker/Workspace.ts';
+import { LIMITS }                                             from '../../src/shared/constants/Limits.ts';
+import { createScratchGitRepository, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                           from '../../src/testing/ToolGuard.ts';
+import { runCommandLine }                                     from '../Main.ts';
+import { createCapturedCommandContext }                       from '../testing/CapturedCommandContext.ts';
+import { storedLogEntriesOf }                                 from '../testing/StoredLogEntries.ts';
+import { storedProgressOf }                                   from '../testing/StoredProgress.ts';
 
 const FROZEN_NOW = new Date('2026-09-24T12:00:00Z');
 
@@ -68,7 +68,7 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
-describe.skipIf(!gitIsAvailable())('starting the review bar with the move to review', () => {
+describeWhenGitIsPresent('starting the review bar with the move to review', () => {
   test('ticket finish --start-review puts the ticket in review beside a running bar that reviews it, and the agents in flight stay as many', async () => {
     const agentsBefore = await agentsInFlightNow();
 

@@ -9,17 +9,17 @@ import { join }                      from 'node:path';
 import {
   afterEach,
   beforeEach,
-  describe,
   expect,
   test
 }                                                                             from 'bun:test';
-import { DispatcherClaimNoteUtil }                                            from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
-import { runCommandLine }                                                     from '../Main.ts';
-import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext.ts';
-import { storedLogEntriesOf }                                                 from '../testing/StoredLogEntries.ts';
-import { storedLogTextOf }                                                    from '../testing/StoredLogText.ts';
-import { storedProgressOf }                                                   from '../testing/StoredProgress.ts';
+import { DispatcherClaimNoteUtil }                            from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
+import { createScratchGitRepository, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                           from '../../src/testing/ToolGuard.ts';
+import { runCommandLine }                                     from '../Main.ts';
+import { createCapturedCommandContext }                       from '../testing/CapturedCommandContext.ts';
+import { storedLogEntriesOf }                                 from '../testing/StoredLogEntries.ts';
+import { storedLogTextOf }                                    from '../testing/StoredLogText.ts';
+import { storedProgressOf }                                   from '../testing/StoredProgress.ts';
 
 const FROZEN_NOW = new Date('2026-09-24T09:25:00Z');
 
@@ -84,7 +84,7 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
-describe.skipIf(!gitIsAvailable())('holding a ticket', () => {
+describeWhenGitIsPresent('holding a ticket', () => {
   test('hold with a reason then unhold round-trip the ticket file, with one log line each way', async () => {
     for (let i = 0; i < 7; i++) await run(['ticket', 'add', `Example ticket ${i + 1}`]);
     const before = storedTicketText('007');
@@ -167,7 +167,7 @@ async function unholdOutput(extraArguments: readonly string[] = []): Promise<str
 }
 
 // A whole-board run's survey resumes a paused build, so the hint names the single-ticket run only as the lane for when no such run is coming.
-describe.skipIf(!gitIsAvailable())('unholding a ticket whose build a dispatcher run left paused', () => {
+describeWhenGitIsPresent('unholding a ticket whose build a dispatcher run left paused', () => {
   beforeEach(async () => {
     await run(['ticket', 'add', 'Show the role history']);
   });
@@ -244,7 +244,7 @@ describe.skipIf(!gitIsAvailable())('unholding a ticket whose build a dispatcher 
   });
 });
 
-describe.skipIf(!gitIsAvailable())('refusals leave the whole tracker byte-identical', () => {
+describeWhenGitIsPresent('refusals leave the whole tracker byte-identical', () => {
   // Each refusal is checked against the whole tracker's bytes, so a half-applied write cannot pass as a refusal.
   test('a delivered or abandoned ticket, a second hold, an unhold of a ticket not held and a missing id are all refused at exit 1', async () => {
     await run(['ticket', 'add', 'Show the role history']);

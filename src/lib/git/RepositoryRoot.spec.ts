@@ -4,22 +4,17 @@
  */
 import { mkdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { join, sep }                              from 'node:path';
-import {
-  afterAll,
-  describe,
-  expect,
-  test
-} from 'bun:test';
+import { afterAll, expect, test }                 from 'bun:test';
 
 import {
   addWorktree,
   createScratchDirectory,
   createScratchGitRepository,
-  gitIsAvailable,
   gitOutputIn,
   removeScratchDirectory
 } from '../../testing/ScratchWorkspace.ts';
-import { discoverRepositoryRoot } from './RepositoryRoot.ts';
+import { describeWhenGitIsPresent } from '../../testing/ToolGuard.ts';
+import { discoverRepositoryRoot }   from './RepositoryRoot.ts';
 
 const scratchDirectories: string[] = [];
 
@@ -44,7 +39,7 @@ afterAll(() => {
   for (const directory of scratchDirectories) removeScratchDirectory(directory);
 });
 
-describe.skipIf(!gitIsAvailable())('with git on the machine', () => {
+describeWhenGitIsPresent('with git on the machine', () => {
   test('a plain repository is its own root', () => {
     const repositoryDirectory = scratchGitRepository('repository-root-plain');
     const discovered = discoverRepositoryRoot(repositoryDirectory);

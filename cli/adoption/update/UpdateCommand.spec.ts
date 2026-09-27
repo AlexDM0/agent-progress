@@ -19,7 +19,6 @@ import {
   afterAll,
   afterEach,
   beforeAll,
-  describe,
   expect,
   mock,
   test
@@ -31,9 +30,9 @@ import {
   addWorktree,
   createScratchDirectory,
   createScratchGitRepository,
-  gitIsAvailable,
   removeScratchDirectory
 }                                        from '../../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }     from '../../../src/testing/ToolGuard.ts';
 import { installedFilePathsIn }         from '../../InstalledFiles.ts';
 import { runCommandLine }               from '../../Main.ts';
 import { INSTALL_VERSION }              from '../../constants/InstallVersion.ts';
@@ -118,7 +117,7 @@ afterEach(() => {
   for (const directory of scratchDirectories.splice(0)) removeScratchDirectory(directory);
 });
 
-describe.skipIf(!gitIsAvailable())('updating a tracked repository', () => {
+describeWhenGitIsPresent('updating a tracked repository', () => {
   test('rewrites a brief left behind by an older version and says to re-read it', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
     const briefFilePath       = join(repositoryDirectory, '.agent-progress', 'agent-brief.md');
@@ -418,7 +417,7 @@ describe.skipIf(!gitIsAvailable())('updating a tracked repository', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('what update never touches', () => {
+describeWhenGitIsPresent('what update never touches', () => {
   test('the progress file, the tickets and the log are byte-identical afterwards', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
     const seeding = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
@@ -460,7 +459,7 @@ describe.skipIf(!gitIsAvailable())('what update never touches', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('from inside a linked worktree', () => {
+describeWhenGitIsPresent('from inside a linked worktree', () => {
   test('the main checkout\'s managed files are the ones refreshed', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
     const worktreeDirectory   = addWorktree(repositoryDirectory, 'subagent');
@@ -474,7 +473,7 @@ describe.skipIf(!gitIsAvailable())('from inside a linked worktree', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('what update refuses', () => {
+describeWhenGitIsPresent('what update refuses', () => {
   test('a directory with no tracker anywhere above it is refused with exit 1, naming init, and nothing is written', async () => {
     const plainDirectory = createScratchDirectory('update-without-a-tracker');
     scratchDirectories.push(plainDirectory);
@@ -552,7 +551,7 @@ describe.skipIf(!gitIsAvailable())('what update refuses', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('a dispatcher that will not bundle', () => {
+describeWhenGitIsPresent('a dispatcher that will not bundle', () => {
   let realWorkflowScriptBundleExports: Record<string, unknown> = {};
 
   // Bun keeps a module mock for the rest of the process, so the real exports are copied before the stub goes in and mocked back afterwards.

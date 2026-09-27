@@ -13,20 +13,16 @@ import {
 }               from 'node:fs';
 import { join } from 'node:path';
 
-import {
-  afterEach,
-  describe,
-  expect,
-  test
-}                                       from 'bun:test';
-import { workspacePathsFor }                                                  from '../../src/services/tracker/Workspace.ts';
-import { LIMITS }                                                             from '../../src/shared/constants/Limits.ts';
-import { HELD_LOCK_CASE_TIMEOUT_MILLISECONDS }                                from '../../src/testing/HeldLockCaseTimeout.ts';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
-import { storedFileContentsOf }                                               from '../../src/testing/TrackerFileFixtures.ts';
-import { runCommandLine }                                                     from '../Main.ts';
-import { CLAUDE_MANAGED_BLOCK_MARKERS }                                       from '../adoption/constants/ClaudeManagedBlockMarkers.ts';
-import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext.ts';
+import { afterEach, expect, test }                            from 'bun:test';
+import { workspacePathsFor }                                  from '../../src/services/tracker/Workspace.ts';
+import { LIMITS }                                             from '../../src/shared/constants/Limits.ts';
+import { HELD_LOCK_CASE_TIMEOUT_MILLISECONDS }                from '../../src/testing/HeldLockCaseTimeout.ts';
+import { createScratchGitRepository, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                           from '../../src/testing/ToolGuard.ts';
+import { storedFileContentsOf }                               from '../../src/testing/TrackerFileFixtures.ts';
+import { runCommandLine }                                     from '../Main.ts';
+import { CLAUDE_MANAGED_BLOCK_MARKERS }                       from '../adoption/constants/ClaudeManagedBlockMarkers.ts';
+import { createCapturedCommandContext }                       from '../testing/CapturedCommandContext.ts';
 
 const scratchDirectories: string[] = [];
 
@@ -57,7 +53,7 @@ afterEach(() => {
   for (const directory of scratchDirectories.splice(0)) removeScratchDirectory(directory);
 });
 
-describe.skipIf(!gitIsAvailable())('the --hooks habit', () => {
+describeWhenGitIsPresent('the --hooks habit', () => {
   /** The flag that used to ask for the hook is now the default; a habit that still types it is answered, not refused. */
   test('update --hooks is still accepted and does what the default already does', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
@@ -152,7 +148,7 @@ async function trackedRepositoryWithVersionTwoRowsInOlderWords(): Promise<{ repo
   return { repositoryDirectory, progressFilePath };
 }
 
-describe.skipIf(!gitIsAvailable())('what update rewrites', () => {
+describeWhenGitIsPresent('what update rewrites', () => {
   test('a version 2 progress file holding a retired word and a review row known only by its name is stored current, and a second run touches nothing', async () => {
     const { repositoryDirectory, progressFilePath } = await trackedRepositoryWithVersionTwoRowsInOlderWords();
     expect(readFileSync(progressFilePath, 'utf8'), 'the fixture holds the retired word, so the rewrite below is about something').toContain('"running"');
@@ -236,7 +232,7 @@ describe.skipIf(!gitIsAvailable())('what update rewrites', () => {
   }, HELD_LOCK_CASE_TIMEOUT_MILLISECONDS);
 });
 
-describe.skipIf(!gitIsAvailable())('what a second init rewrites', () => {
+describeWhenGitIsPresent('what a second init rewrites', () => {
   test('a version 2 progress file holding a retired word and a review row known only by its name is named on the tracker line', async () => {
     const { repositoryDirectory, progressFilePath } = await trackedRepositoryWithVersionTwoRowsInOlderWords();
 

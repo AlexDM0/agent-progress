@@ -53,16 +53,6 @@ Agreed in principle: surface the linked row's `paused` state on the Tickets tab'
 of the row rather than as a ticket status. Not started because it is a render change and the page's template
 is designer-owned, so it wants a design answer before a code one.
 
-## A variable that turns the git skip into a failure
-
-The conventions say an environment variable can turn a skipped spec into a failure on a machine that
-has the tool. `gitIsAvailable` in `src/testing/ScratchWorkspace.ts` only checks `Bun.which('git')`,
-and no such variable exists. When it is built, it is read through a getter in
-`src/shared/Environment.ts`, like every environment read.
-
-Not started because it was not taken into the conventions migration, which changes no behaviour
-outside its plan; it waits for the first change after the merge that touches the test helpers.
-
 ## The TicketStore moves step 7 left
 
 `src/services/tracker/TicketStore.ts` still holds work that belongs elsewhere. Agreed:

@@ -8,13 +8,13 @@
 import {
   afterEach,
   beforeEach,
-  describe,
   expect,
   test
 }                                                                             from 'bun:test';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
-import { runCommandLine }                                                     from './Main.ts';
-import { createCapturedCommandContext }                                       from './testing/CapturedCommandContext.ts';
+import { createScratchGitRepository, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                           from '../src/testing/ToolGuard.ts';
+import { runCommandLine }                                     from './Main.ts';
+import { createCapturedCommandContext }                       from './testing/CapturedCommandContext.ts';
 
 const FROZEN_NOW = new Date('2026-09-23T10:00:00Z');
 
@@ -112,7 +112,7 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
-describe.skipIf(!gitIsAvailable())('the line the human output ends with', () => {
+describeWhenGitIsPresent('the line the human output ends with', () => {
   test('every case names a different command, so the table covers all ten', () => {
     expect(new Set(NEXT_LINE_CASES.map((nextLineCase) => nextLineCase.command.slice(0, 2).join(' '))).size).toBe(10);
   });
@@ -131,7 +131,7 @@ describe.skipIf(!gitIsAvailable())('the line the human output ends with', () => 
 });
 
 // `ticket hold` and `unhold` print the line too; an orchestrator reading `ready:` starts what it names, so a held ticket must leave it at once.
-describe.skipIf(!gitIsAvailable())('a held ticket on the line', () => {
+describeWhenGitIsPresent('a held ticket on the line', () => {
   async function nextLineAfter(commandLineArguments: readonly string[]): Promise<string | undefined> {
     return (await run(commandLineArguments)).outputText().split('\n').filter((line) => line.startsWith('Next:')).at(-1);
   }
@@ -153,7 +153,7 @@ describe.skipIf(!gitIsAvailable())('a held ticket on the line', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('the --json output', () => {
+describeWhenGitIsPresent('the --json output', () => {
   for (const nextLineCase of NEXT_LINE_CASES) {
     test(`\`${nextLineCase.command.join(' ')} --json\` is one parseable document with no Next line in it`, async () => {
       await runSetup(nextLineCase.setup);

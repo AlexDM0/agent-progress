@@ -8,13 +8,13 @@ import { join }                              from 'node:path';
 import {
   afterEach,
   beforeEach,
-  describe,
   expect,
   test
 }                                                                             from 'bun:test';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
-import { runCommandLine }                                                     from '../../Main.ts';
-import { createCapturedCommandContext }                                       from '../../testing/CapturedCommandContext.ts';
+import { createScratchGitRepository, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                           from '../../../src/testing/ToolGuard.ts';
+import { runCommandLine }                                     from '../../Main.ts';
+import { createCapturedCommandContext }                       from '../../testing/CapturedCommandContext.ts';
 
 const UNREADABLE_PROGRESS_TEXT = '{ not json';
 
@@ -29,7 +29,7 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
-describe.skipIf(!gitIsAvailable())('no page and an unreadable progress file', () => {
+describeWhenGitIsPresent('no page and an unreadable progress file', () => {
   test('is refused at exit 2, reported once, and no path is printed', async () => {
     const pagePath = join(repositoryDirectory, '.agent-progress', 'progress.html');
     rmSync(pagePath);

@@ -18,17 +18,13 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 
-import {
-  afterEach,
-  describe,
-  expect,
-  test
-}                                                                             from 'bun:test';
-import { TimeUtil }                                                           from '../../src/lib/utils/TimeUtil.ts';
-import type { WordedLogEntry }                                                from '../../src/shared/@types/WordedLogEntry.ts';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
-import { runCommandLine }                                                     from '../Main.ts';
-import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext.ts';
+import { afterEach, expect, test }                            from 'bun:test';
+import { TimeUtil }                                           from '../../src/lib/utils/TimeUtil.ts';
+import type { WordedLogEntry }                                from '../../src/shared/@types/WordedLogEntry.ts';
+import { createScratchGitRepository, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                           from '../../src/testing/ToolGuard.ts';
+import { runCommandLine }                                     from '../Main.ts';
+import { createCapturedCommandContext }                       from '../testing/CapturedCommandContext.ts';
 
 /**
  * Written by main at 5c6b0ad. To retake them, unpack that commit with `git archive 5c6b0ad | tar -x -C <folder>`, then in a scratch git
@@ -238,7 +234,7 @@ async function run(repositoryDirectory: string, commandLineArguments: readonly s
   return context;
 }
 
-describe.skipIf(!gitIsAvailable())('a tracker written before log.jsonl', () => {
+describeWhenGitIsPresent('a tracker written before log.jsonl', () => {
   test('status --json prints its log, the current words and version 1, and leaves every file as it was without creating log.jsonl', async () => {
     const files = trackerWrittenBeforeLogJsonl();
 

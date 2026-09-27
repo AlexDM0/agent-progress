@@ -8,15 +8,15 @@
 import {
   afterEach,
   beforeEach,
-  describe,
   expect,
   test
 }                                                                             from 'bun:test';
-import { TASK_STATUSES }                                                      from '../../../src/lib/tracker-model/constants/Statuses.ts';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
-import { runCommandLine }                                                     from '../../Main.ts';
-import { createCapturedCommandContext }                                       from '../../testing/CapturedCommandContext.ts';
-import { storedProgressOf }                                                   from '../../testing/StoredProgress.ts';
+import { TASK_STATUSES }                                      from '../../../src/lib/tracker-model/constants/Statuses.ts';
+import { createScratchGitRepository, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                           from '../../../src/testing/ToolGuard.ts';
+import { runCommandLine }                                     from '../../Main.ts';
+import { createCapturedCommandContext }                       from '../../testing/CapturedCommandContext.ts';
+import { storedProgressOf }                                   from '../../testing/StoredProgress.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -41,7 +41,7 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
-describe.skipIf(!gitIsAvailable())('the task command with current words only', () => {
+describeWhenGitIsPresent('the task command with current words only', () => {
   test('every current verb reaches its own handler, which says what it did', async () => {
     const verbsWithTheirAnswers: Array<[commandLineArguments: string[], answer: string]> = [
       [['task', 'add', 'Review pass'], 'Task #1 added: Review pass'],

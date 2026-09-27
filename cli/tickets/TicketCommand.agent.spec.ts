@@ -9,15 +9,15 @@ import { join }                      from 'node:path';
 import {
   afterEach,
   beforeEach,
-  describe,
   expect,
   test
 }                                                                             from 'bun:test';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
-import { runCommandLine }                                                     from '../Main.ts';
-import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext.ts';
-import { storedLogEntriesOf }                                                 from '../testing/StoredLogEntries.ts';
-import { storedLogTextOf }                                                    from '../testing/StoredLogText.ts';
+import { createScratchGitRepository, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                           from '../../src/testing/ToolGuard.ts';
+import { runCommandLine }                                     from '../Main.ts';
+import { createCapturedCommandContext }                       from '../testing/CapturedCommandContext.ts';
+import { storedLogEntriesOf }                                 from '../testing/StoredLogEntries.ts';
+import { storedLogTextOf }                                    from '../testing/StoredLogText.ts';
 
 const FROZEN_NOW = new Date('2026-09-24T09:25:00Z');
 
@@ -73,7 +73,7 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
-describe.skipIf(!gitIsAvailable())('naming a ticket\'s agents', () => {
+describeWhenGitIsPresent('naming a ticket\'s agents', () => {
   test('ticket add --model and --effort store both keys, and show and list print them', async () => {
     await run(['ticket', 'add', 'Show the role history', '--model', 'sonnet', '--effort', 'high']);
 
@@ -104,7 +104,7 @@ describe.skipIf(!gitIsAvailable())('naming a ticket\'s agents', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('refusals leave both files byte-identical', () => {
+describeWhenGitIsPresent('refusals leave both files byte-identical', () => {
   // Each refusal is checked against the whole tracker's bytes, so a half-applied write cannot pass as a refusal.
   test('an unknown model or effort, no option, no change, and a delivered or abandoned ticket are all refused at exit 1', async () => {
     await run(['ticket', 'add', 'Show the role history']);
@@ -132,7 +132,7 @@ describe.skipIf(!gitIsAvailable())('refusals leave both files byte-identical', (
   });
 });
 
-describe.skipIf(!gitIsAvailable())('a ticket filed without the keys', () => {
+describeWhenGitIsPresent('a ticket filed without the keys', () => {
   // A tracker from before this feature holds only such files; reading them must never add the default pair to them.
   test('reads as opus and medium everywhere, and is left byte-identical by every reader', async () => {
     await run(['ticket', 'add', 'Show the role history']);

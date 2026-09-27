@@ -11,7 +11,6 @@ import { join }          from 'node:path';
 import {
   afterEach,
   beforeEach,
-  describe,
   expect,
   test
 }                                       from 'bun:test';
@@ -27,6 +26,7 @@ import {
   removeScratchDirectory,
   SCRATCH_COMMIT_IDENTITY_ARGUMENTS
 }                                       from '../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }     from '../../src/testing/ToolGuard.ts';
 import { runCommandLine }               from '../Main.ts';
 import { createCapturedCommandContext } from '../testing/CapturedCommandContext.ts';
 import { storedProgressOf }             from '../testing/StoredProgress.ts';
@@ -84,7 +84,7 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
-describe.skipIf(!gitIsAvailable())('a release', () => {
+describeWhenGitIsPresent('a release', () => {
   const releaseStamp = TimeUtil.formatLocalIso(FROZEN_NOW);
 
   /** A review bar as the orchestrate skill adds one, started an hour before the release; linked by `--review-of` unless the name alone is to link it. */
@@ -159,7 +159,7 @@ describe.skipIf(!gitIsAvailable())('a release', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('the SubagentStop hook for a reviewer', () => {
+describeWhenGitIsPresent('the SubagentStop hook for a reviewer', () => {
   /** The fixture's two calls: 10 + 90,000 and 20 + 140,000. */
   const FIXTURE_INPUT_TOKENS = 230_030;
 
@@ -242,7 +242,7 @@ describe.skipIf(!gitIsAvailable())('the SubagentStop hook for a reviewer', () =>
   });
 });
 
-describe.skipIf(!gitIsAvailable())('task add of a review-shaped name without --review-of', () => {
+describeWhenGitIsPresent('task add of a review-shaped name without --review-of', () => {
   test('stores the ticket and round the name gives at filing, and prints them in its JSON', async () => {
     for (let i = 1; i <= REVIEWED_TICKET_NUMBER; i++) await agentProgressOrFail(['ticket', 'add', `Example work ${i}`]);
 
@@ -253,7 +253,7 @@ describe.skipIf(!gitIsAvailable())('task add of a review-shaped name without --r
   });
 });
 
-describe.skipIf(!gitIsAvailable())('task update renaming a free-standing row to a review-shaped name', () => {
+describeWhenGitIsPresent('task update renaming a free-standing row to a review-shaped name', () => {
   test('stores the ticket and round the name gives in the same write, and prints them in its JSON', async () => {
     const plain = JSON.parse(await agentProgressOrFail(['task', 'add', 'Plain', '--json'])) as Task;
 

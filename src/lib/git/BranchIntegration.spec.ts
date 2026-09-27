@@ -4,12 +4,7 @@
  */
 import { existsSync, writeFileSync } from 'node:fs';
 import { join }                      from 'node:path';
-import {
-  afterAll,
-  describe,
-  expect,
-  test
-} from 'bun:test';
+import { afterAll, expect, test }    from 'bun:test';
 
 import {
   addWorktree,
@@ -17,10 +12,10 @@ import {
   createScratchDirectory,
   createScratchGitRepository,
   currentBranchOf,
-  gitIsAvailable,
   gitOutputIn,
   removeScratchDirectory
 } from '../../testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent } from '../../testing/ToolGuard.ts';
 import {
   deleteMergedBranch,
   fastForwardTo,
@@ -47,7 +42,7 @@ afterAll(() => {
   for (const directory of scratchDirectories) removeScratchDirectory(directory);
 });
 
-describe.skipIf(!gitIsAvailable())('the branch the main checkout is on', () => {
+describeWhenGitIsPresent('the branch the main checkout is on', () => {
   test('a checkout on a branch reads on-branch with that branch\'s name', () => {
     const repositoryDirectory = scratchGitRepository('branch-integration-on-branch');
     expect(readCurrentBranch(repositoryDirectory)).toEqual({ verdict: 'on-branch', branch: currentBranchOf(repositoryDirectory) });
@@ -68,7 +63,7 @@ describe.skipIf(!gitIsAvailable())('the branch the main checkout is on', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('whether a branch descends from the main line', () => {
+describeWhenGitIsPresent('whether a branch descends from the main line', () => {
   test('a branch built on the main line\'s tip is a descendant, with both commits named', () => {
     const repositoryDirectory = scratchGitRepository('branch-integration-descendant');
     const mainLine            = currentBranchOf(repositoryDirectory);
@@ -119,7 +114,7 @@ describe.skipIf(!gitIsAvailable())('whether a branch descends from the main line
   });
 });
 
-describe.skipIf(!gitIsAvailable())('the fast-forward', () => {
+describeWhenGitIsPresent('the fast-forward', () => {
   test('a commit ahead of the main line is fast-forwarded to and left at HEAD', () => {
     const repositoryDirectory = scratchGitRepository('branch-integration-fast-forward');
     const mainLine            = currentBranchOf(repositoryDirectory);
@@ -147,7 +142,7 @@ describe.skipIf(!gitIsAvailable())('the fast-forward', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('removing the worktree', () => {
+describeWhenGitIsPresent('removing the worktree', () => {
   test('a clean worktree is removed', () => {
     const repositoryDirectory = scratchGitRepository('branch-integration-clean-worktree');
     const worktreeDirectory   = addWorktree(repositoryDirectory, 'subagent');
@@ -174,7 +169,7 @@ describe.skipIf(!gitIsAvailable())('removing the worktree', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('deleting the merged branch', () => {
+describeWhenGitIsPresent('deleting the merged branch', () => {
   test('a branch the main checkout\'s HEAD holds is deleted', () => {
     const repositoryDirectory = scratchGitRepository('branch-integration-merged-branch');
     gitOutputIn(repositoryDirectory, ['branch', 'merged-work']);

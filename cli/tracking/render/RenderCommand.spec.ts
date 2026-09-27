@@ -7,13 +7,13 @@ import { join }          from 'node:path';
 import {
   afterEach,
   beforeEach,
-  describe,
   expect,
   test
 }                                                                             from 'bun:test';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
-import { runCommandLine }                                                     from '../../Main.ts';
-import { createCapturedCommandContext }                                       from '../../testing/CapturedCommandContext.ts';
+import { createScratchGitRepository, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                           from '../../../src/testing/ToolGuard.ts';
+import { runCommandLine }                                     from '../../Main.ts';
+import { createCapturedCommandContext }                       from '../../testing/CapturedCommandContext.ts';
 
 const UNREADABLE_PROGRESS_TEXT = '{ not json';
 
@@ -28,7 +28,7 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
-describe.skipIf(!gitIsAvailable())('an unreadable progress file', () => {
+describeWhenGitIsPresent('an unreadable progress file', () => {
   test('is reported once, at exit 2', async () => {
     writeFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), UNREADABLE_PROGRESS_TEXT);
 

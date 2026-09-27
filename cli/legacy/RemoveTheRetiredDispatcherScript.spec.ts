@@ -14,16 +14,12 @@ import {
 }               from 'node:fs';
 import { join } from 'node:path';
 
-import {
-  afterEach,
-  describe,
-  expect,
-  test
-}                                                                             from 'bun:test';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
-import { runCommandLine }                                                     from '../Main.ts';
-import { installedFileTextsFor }                                              from '../adoption/InstalledFileGeneration.ts';
-import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext.ts';
+import { afterEach, expect, test }                            from 'bun:test';
+import { createScratchGitRepository, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                           from '../../src/testing/ToolGuard.ts';
+import { runCommandLine }                                     from '../Main.ts';
+import { installedFileTextsFor }                              from '../adoption/InstalledFileGeneration.ts';
+import { createCapturedCommandContext }                       from '../testing/CapturedCommandContext.ts';
 
 const scratchDirectories: string[] = [];
 
@@ -71,7 +67,7 @@ afterEach(() => {
   for (const directory of scratchDirectories.splice(0)) removeScratchDirectory(directory);
 });
 
-describe.skipIf(!gitIsAvailable())('the dispatcher copy an older version installed', () => {
+describeWhenGitIsPresent('the dispatcher copy an older version installed', () => {
   test('init on an existing tracker writes the generated dispatcher, removes the older copy, and reports both', async () => {
     const repositoryDirectory = await initialisedRepository();
     writeTheRetiredCopy(repositoryDirectory);

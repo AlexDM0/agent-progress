@@ -6,19 +6,19 @@
 import {
   afterEach,
   beforeEach,
-  describe,
   expect,
   test
 }                                                                             from 'bun:test';
-import { TICKET_STATUSES }                                                    from '../../src/lib/tracker-model/constants/Statuses.ts';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
-import { runCommandLine }                                                     from '../Main.ts';
-import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext.ts';
-import { TICKET_CLAIM_SUBCOMMANDS }                                           from './TicketClaimSubcommands.ts';
-import { TICKET_FILING_SUBCOMMANDS }                                          from './TicketFilingSubcommands.ts';
-import { TICKET_MOVE_SUBCOMMANDS }                                            from './TicketMoveSubcommands.ts';
-import { TICKET_READING_SUBCOMMANDS }                                         from './TicketReadingSubcommands.ts';
-import { TICKET_SETTING_SUBCOMMANDS }                                         from './TicketSettingSubcommands.ts';
+import { TICKET_STATUSES }                                    from '../../src/lib/tracker-model/constants/Statuses.ts';
+import { createScratchGitRepository, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                           from '../../src/testing/ToolGuard.ts';
+import { runCommandLine }                                     from '../Main.ts';
+import { createCapturedCommandContext }                       from '../testing/CapturedCommandContext.ts';
+import { TICKET_CLAIM_SUBCOMMANDS }                           from './TicketClaimSubcommands.ts';
+import { TICKET_FILING_SUBCOMMANDS }                          from './TicketFilingSubcommands.ts';
+import { TICKET_MOVE_SUBCOMMANDS }                            from './TicketMoveSubcommands.ts';
+import { TICKET_READING_SUBCOMMANDS }                         from './TicketReadingSubcommands.ts';
+import { TICKET_SETTING_SUBCOMMANDS }                         from './TicketSettingSubcommands.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -49,7 +49,7 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
-describe.skipIf(!gitIsAvailable())('the ticket command with current words only', () => {
+describeWhenGitIsPresent('the ticket command with current words only', () => {
   test('every verb of the subcommand groups reaches its own handler, never the retired or unknown refusal', async () => {
     const currentVerbs = Object.keys({
       ...TICKET_FILING_SUBCOMMANDS,

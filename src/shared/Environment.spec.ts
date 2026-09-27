@@ -61,6 +61,27 @@ test('a value set after this module was imported is still seen, and so is cleari
   }
 });
 
+function everyToolRequirementSeenByAChildProcess(childEnvironment: Record<string, string>): boolean {
+  const source = [
+    `const loaded = await import(${JSON.stringify(ENVIRONMENT_MODULE_PATH)});`,
+    'console.log(JSON.stringify(loaded.everyToolIsRequired()));',
+  ].join('\n');
+  return jsonPrintedByAChildProcess(childEnvironment, source) as boolean;
+}
+
+test('an unset, empty, whitespace or 0 AGENT_PROGRESS_REQUIRE_EVERY_TOOL lets a missing tool skip', () => {
+  expect(everyToolRequirementSeenByAChildProcess({})).toBe(false);
+  for (const relaxedValue of ['', '  ', '0', ' 0 ']) {
+    expect(everyToolRequirementSeenByAChildProcess({ AGENT_PROGRESS_REQUIRE_EVERY_TOOL: relaxedValue }), JSON.stringify(relaxedValue)).toBe(false);
+  }
+}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
+
+test('any other AGENT_PROGRESS_REQUIRE_EVERY_TOOL value requires every tool, so a true or yes is never a silent skip', () => {
+  for (const requiringValue of ['1', 'true', 'yes']) {
+    expect(everyToolRequirementSeenByAChildProcess({ AGENT_PROGRESS_REQUIRE_EVERY_TOOL: requiringValue }), requiringValue).toBe(true);
+  }
+}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
+
 test('the override is exposed as a function, which is what lets it be redirected at all', () => {
   expect(typeof agentProgressRootOverride).toBe('function');
 });

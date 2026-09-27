@@ -17,7 +17,6 @@ import { join } from 'node:path';
 import {
   afterEach,
   beforeEach,
-  describe,
   expect,
   test
 }                                       from 'bun:test';
@@ -33,6 +32,7 @@ import {
   removeScratchDirectory,
   SCRATCH_COMMIT_IDENTITY_ARGUMENTS
 }                                       from '../../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }     from '../../../src/testing/ToolGuard.ts';
 import { helpText }                     from '../../HelpText.ts';
 import { installedFilePathsIn }         from '../../InstalledFiles.ts';
 import { runCommandLine }               from '../../Main.ts';
@@ -182,7 +182,7 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
-describe.skipIf(!gitIsAvailable())('a release that holds', () => {
+describeWhenGitIsPresent('a release that holds', () => {
   test('a descendant branch is fast-forwarded, the ticket ends delivered with branch and commit, and the worktree and branch are gone', async () => {
     const {
       identifier,
@@ -339,7 +339,7 @@ describe.skipIf(!gitIsAvailable())('a release that holds', () => {
 });
 
 // The reviewer releases as its last step, so a review bar still running after a release reads as a reviewer owed and holds a slot.
-describe.skipIf(!gitIsAvailable())('a release closes the running review bars of the tickets it delivers', () => {
+describeWhenGitIsPresent('a release closes the running review bars of the tickets it delivers', () => {
   const releaseStamp = TimeUtil.formatLocalIso(FROZEN_NOW);
 
   test('the one running review row ends delivered, finished and delivered at the release time, and the slot it held is free', async () => {
@@ -440,7 +440,7 @@ describe.skipIf(!gitIsAvailable())('a release closes the running review bars of 
   });
 });
 
-describe.skipIf(!gitIsAvailable())('a release that is refused changes nothing', () => {
+describeWhenGitIsPresent('a release that is refused changes nothing', () => {
   async function expectNothingChanged(identifier: string, worktree: string, action: () => Promise<CommandOutcome>): Promise<CommandOutcome> {
     const mainBefore     = mainTip();
     const ticketBefore   = ticketFileText(identifier);
@@ -538,7 +538,7 @@ describe.skipIf(!gitIsAvailable())('a release that is refused changes nothing', 
 });
 
 // An undocumented key the command prints is how #024 was found; reading the set from the documents fails a new one until they name it.
-describe.skipIf(!gitIsAvailable())('the --json document prints exactly the keys the help and the CLI reference name', () => {
+describeWhenGitIsPresent('the --json document prints exactly the keys the help and the CLI reference name', () => {
   test('a release that succeeds prints exactly the keys both documents give its success shape', async () => {
     const { identifier, worktree, branch } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
 
@@ -576,7 +576,7 @@ describe.skipIf(!gitIsAvailable())('the --json document prints exactly the keys 
   });
 });
 
-describe.skipIf(!gitIsAvailable())('two releases at once', () => {
+describeWhenGitIsPresent('two releases at once', () => {
   // The lock is what serialises them: the second must see the main line the first one moved, never merge over it.
   test('two branches off the same main never both merge: one fast-forwards and the other is refused with main-moved', async () => {
     const first  = await reviewedTicketOnAWorktree('Show the role history', 'role-history');

@@ -4,14 +4,14 @@
 import {
   afterEach,
   beforeEach,
-  describe,
   expect,
   test
 }                                                                             from 'bun:test';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
-import { runCommandLine }                                                     from '../../Main.ts';
-import { createCapturedCommandContext }                                       from '../../testing/CapturedCommandContext.ts';
-import { storedLogEntriesOf }                                                 from '../../testing/StoredLogEntries.ts';
+import { createScratchGitRepository, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                           from '../../../src/testing/ToolGuard.ts';
+import { runCommandLine }                                     from '../../Main.ts';
+import { createCapturedCommandContext }                       from '../../testing/CapturedCommandContext.ts';
+import { storedLogEntriesOf }                                 from '../../testing/StoredLogEntries.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -39,7 +39,7 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
-describe.skipIf(!gitIsAvailable())('appending to the log', () => {
+describeWhenGitIsPresent('appending to the log', () => {
   test('records a quoted line and confirms it', async () => {
     const context = await run(['log', 'Halfway through the role editor']);
 
@@ -77,7 +77,7 @@ describe.skipIf(!gitIsAvailable())('appending to the log', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('an empty line', () => {
+describeWhenGitIsPresent('an empty line', () => {
   test('a line that is nothing but whitespace is refused, like an absent one', async () => {
     const context  = contextHere();
     const exitCode = await runCommandLine(['log', '   '], context);

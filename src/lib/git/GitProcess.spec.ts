@@ -15,11 +15,11 @@ import {
 import {
   createScratchDirectory,
   createScratchGitRepository,
-  gitIsAvailable,
   gitOutputIn,
   removeScratchDirectory
 } from '../../testing/ScratchWorkspace.ts';
-import { GitProcess } from './GitProcess.ts';
+import { describeWhenGitIsPresent } from '../../testing/ToolGuard.ts';
+import { GitProcess }               from './GitProcess.ts';
 
 const {
   directoryExists,
@@ -43,7 +43,7 @@ afterAll(() => {
   for (const directory of scratchDirectories) removeScratchDirectory(directory);
 });
 
-describe.skipIf(!gitIsAvailable())('a git run', () => {
+describeWhenGitIsPresent('a git run', () => {
   test('a successful command answers exit 0 with its standard output untrimmed', () => {
     const repositoryDirectory = scratchGitRepository('git-process-success');
     expect(run(repositoryDirectory, ['rev-parse', '--is-inside-work-tree'])).toEqual({
@@ -126,7 +126,7 @@ describe('whether a directory exists to run git in', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('resolving a revision to a commit', () => {
+describeWhenGitIsPresent('resolving a revision to a commit', () => {
   test('HEAD resolves to its full commit', () => {
     const repositoryDirectory = scratchGitRepository('git-process-head');
     expect(resolvedCommitOf(repositoryDirectory, 'HEAD')).toMatch(FULL_COMMIT_PATTERN);

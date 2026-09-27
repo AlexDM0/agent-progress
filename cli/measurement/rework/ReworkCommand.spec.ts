@@ -11,7 +11,6 @@ import { dirname, join }            from 'node:path';
 import {
   afterEach,
   beforeEach,
-  describe,
   expect,
   test
 }                                                                             from 'bun:test';
@@ -22,6 +21,7 @@ import {
   removeScratchDirectory,
   SCRATCH_COMMIT_IDENTITY_ARGUMENTS
 }                                                                             from '../../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }     from '../../../src/testing/ToolGuard.ts';
 import { runCommandLine }               from '../../Main.ts';
 import { createCapturedCommandContext } from '../../testing/CapturedCommandContext.ts';
 
@@ -141,7 +141,7 @@ afterEach(() => {
   removeScratchDirectory(outsideDirectory);
 });
 
-describe.skipIf(!gitIsAvailable())('counting the commits a review made', () => {
+describeWhenGitIsPresent('counting the commits a review made', () => {
   test('only the review\'s code lines count: its comments, blank lines and documentation do not', async () => {
     const reviewStart = buildTheFeatureBranch();
     commitTheReview();
@@ -198,7 +198,7 @@ describe.skipIf(!gitIsAvailable())('counting the commits a review made', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('counting what a rebase changed', () => {
+describeWhenGitIsPresent('counting what a rebase changed', () => {
   test('the hand resolution of a conflict is counted, and the comment written into it is not', async () => {
     buildTheFeatureBranch();
     commitTheReview();
@@ -245,7 +245,7 @@ describe.skipIf(!gitIsAvailable())('counting what a rebase changed', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('what rework refuses', () => {
+describeWhenGitIsPresent('what rework refuses', () => {
   test('a directory outside any repository is refused at exit 1', async () => {
     const { exitCode, error } = await rework(['--since', 'HEAD'], outsideDirectory);
     expect(exitCode).toBe(1);

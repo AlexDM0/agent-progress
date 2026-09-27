@@ -5,7 +5,7 @@
     "": {
       "name": "agent-progress",
       "dependencies": {
-        "marked": "^17",
+        "marked": "17.0.6",
       },
       "devDependencies": {
         "@reliquary/eslint-config": "^1.0.1",

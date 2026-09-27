@@ -16,7 +16,6 @@ import {
   afterAll,
   afterEach,
   beforeAll,
-  describe,
   expect,
   mock,
   test
@@ -27,9 +26,9 @@ import {
   addWorktree,
   createScratchDirectory,
   createScratchGitRepository,
-  gitIsAvailable,
   removeScratchDirectory
 }                                                              from '../../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }     from '../../../src/testing/ToolGuard.ts';
 import { installedFilePathsIn }         from '../../InstalledFiles.ts';
 import { runCommandLine }               from '../../Main.ts';
 import { INSTALL_VERSION }              from '../../constants/InstallVersion.ts';
@@ -57,7 +56,7 @@ afterEach(() => {
   for (const directory of scratchDirectories.splice(0)) removeScratchDirectory(directory);
 });
 
-describe.skipIf(!gitIsAvailable())('initialising a repository', () => {
+describeWhenGitIsPresent('initialising a repository', () => {
   test('creates the tracker tree, ignores it, writes the CLAUDE.md block and the agent brief, and renders a page', async () => {
     const repositoryDirectory = scratchRepository();
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
@@ -247,7 +246,7 @@ describe.skipIf(!gitIsAvailable())('initialising a repository', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('a second init', () => {
+describeWhenGitIsPresent('a second init', () => {
   test('at the same root refreshes the CLAUDE.md block, keeps the tracker and exits 0', async () => {
     const repositoryDirectory = scratchRepository();
     const first = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
@@ -339,7 +338,7 @@ describe.skipIf(!gitIsAvailable())('a second init', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('from inside a linked worktree', () => {
+describeWhenGitIsPresent('from inside a linked worktree', () => {
   test('the tracker is created in the main checkout, not in the worktree', async () => {
     const repositoryDirectory = scratchRepository();
     const worktreeDirectory   = addWorktree(repositoryDirectory, 'subagent');
@@ -352,7 +351,7 @@ describe.skipIf(!gitIsAvailable())('from inside a linked worktree', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('the two places init refuses before it writes anything', () => {
+describeWhenGitIsPresent('the two places init refuses before it writes anything', () => {
   test('a bare repository is refused, rather than tracked from its parent directory', async () => {
     const parentDirectory = createScratchDirectory('init-bare-parent');
     scratchDirectories.push(parentDirectory);
@@ -393,7 +392,7 @@ describe.skipIf(!gitIsAvailable())('the two places init refuses before it writes
   });
 });
 
-describe.skipIf(!gitIsAvailable())('a dispatcher that will not bundle', () => {
+describeWhenGitIsPresent('a dispatcher that will not bundle', () => {
   let realWorkflowScriptBundleExports: Record<string, unknown> = {};
 
   // Bun keeps a module mock for the rest of the process, so the real exports are copied before the stub goes in and mocked back afterwards.

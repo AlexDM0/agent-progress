@@ -7,17 +7,17 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import {
   afterEach,
   beforeEach,
-  describe,
   expect,
   test
 }                                                                             from 'bun:test';
-import { workspacePathsFor }                                                  from '../../../src/services/tracker/Workspace.ts';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
-import { runCommandLine }                                                     from '../../Main.ts';
-import { createCapturedCommandContext }                                       from '../../testing/CapturedCommandContext.ts';
-import { storedLogEntriesOf }                                                 from '../../testing/StoredLogEntries.ts';
-import { storedLogTextOf }                                                    from '../../testing/StoredLogText.ts';
-import { storedProgressOf }                                                   from '../../testing/StoredProgress.ts';
+import { workspacePathsFor }                                  from '../../../src/services/tracker/Workspace.ts';
+import { createScratchGitRepository, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                           from '../../../src/testing/ToolGuard.ts';
+import { runCommandLine }                                     from '../../Main.ts';
+import { createCapturedCommandContext }                       from '../../testing/CapturedCommandContext.ts';
+import { storedLogEntriesOf }                                 from '../../testing/StoredLogEntries.ts';
+import { storedLogTextOf }                                    from '../../testing/StoredLogText.ts';
+import { storedProgressOf }                                   from '../../testing/StoredProgress.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -48,7 +48,7 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
-describe.skipIf(!gitIsAvailable())('the concurrency limit', () => {
+describeWhenGitIsPresent('the concurrency limit', () => {
   test('a fresh tracker reads 2', async () => {
     expect((await run(['concurrency'])).outputText()).toBe('2');
   });

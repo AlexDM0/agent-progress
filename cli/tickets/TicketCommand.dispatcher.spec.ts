@@ -6,14 +6,14 @@
 import {
   afterEach,
   beforeEach,
-  describe,
   expect,
   test
 }                                                                             from 'bun:test';
-import type { DispatcherState }                                               from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
-import { runCommandLine }                                                     from '../Main.ts';
-import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext.ts';
+import type { DispatcherState }                               from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
+import { createScratchGitRepository, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                           from '../../src/testing/ToolGuard.ts';
+import { runCommandLine }                                     from '../Main.ts';
+import { createCapturedCommandContext }                       from '../testing/CapturedCommandContext.ts';
 
 const FROZEN_NOW = new Date('2026-09-24T12:00:00Z');
 
@@ -62,7 +62,7 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
-describe.skipIf(!gitIsAvailable())('the running dispatcher notice', () => {
+describeWhenGitIsPresent('the running dispatcher notice', () => {
   test('every case names a different subcommand, so the table covers all five', () => {
     expect(new Set(INTAKE_CASES.map((intakeCase) => intakeCase.command[1])).size).toBe(5);
   });

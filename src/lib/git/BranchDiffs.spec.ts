@@ -3,24 +3,19 @@
  * verdict naming its role. 'git-unavailable' is untested: one process cannot take git off its own spawns' PATH without changing it for
  * every spec.
  */
-import { join } from 'node:path';
-import {
-  afterAll,
-  describe,
-  expect,
-  test
-} from 'bun:test';
+import { join }                   from 'node:path';
+import { afterAll, expect, test } from 'bun:test';
 
 import {
   commitFile,
   createScratchDirectory,
   createScratchGitRepository,
   currentBranchOf,
-  gitIsAvailable,
   gitOutputIn,
   removeScratchDirectory,
   SCRATCH_COMMIT_IDENTITY_ARGUMENTS
 } from '../../testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                           from '../../testing/ToolGuard.ts';
 import { readCommitsDiff, readRebaseDiffs, readWorktreeHead } from './BranchDiffs.ts';
 
 const CONTEXT_FILE_LINE_COUNT = 60;
@@ -55,7 +50,7 @@ afterAll(() => {
   for (const directory of scratchDirectories) removeScratchDirectory(directory);
 });
 
-describe.skipIf(!gitIsAvailable())('the commit a worktree is at', () => {
+describeWhenGitIsPresent('the commit a worktree is at', () => {
   test('a worktree with commits reads its HEAD commit', () => {
     const repositoryDirectory = scratchGitRepository('branch-diffs-head');
     expect(readWorktreeHead(repositoryDirectory)).toEqual({ verdict: 'read', headCommit: headCommitOf(repositoryDirectory) });
@@ -77,7 +72,7 @@ describe.skipIf(!gitIsAvailable())('the commit a worktree is at', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('the commits made since a commit', () => {
+describeWhenGitIsPresent('the commits made since a commit', () => {
   // `diff.noprefix` is the user's configuration a count must not follow: without the prefixes spelled out, every header would change shape.
   test('reads the commits in order and their diff under a/ and b/ prefixes, whatever diff.noprefix says', () => {
     const repositoryDirectory = scratchGitRepository('branch-diffs-read');
@@ -141,7 +136,7 @@ describe.skipIf(!gitIsAvailable())('the commits made since a commit', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('what a rebase changed in a branch\'s own work', () => {
+describeWhenGitIsPresent('what a rebase changed in a branch\'s own work', () => {
   // A commit after the rebase belongs to the review that --since counts, so reading up to HEAD would count that work twice.
   test('takes each net patch against its own merge base and stops at the rebased tip the caller gave, not HEAD', () => {
     const repositoryDirectory = scratchGitRepository('branch-diffs-rebase');

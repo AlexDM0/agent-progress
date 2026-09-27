@@ -9,15 +9,15 @@ import { join }                      from 'node:path';
 import {
   afterEach,
   beforeEach,
-  describe,
   expect,
   test
 }                                                                             from 'bun:test';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
-import { runCommandLine }                                                     from '../Main.ts';
-import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext.ts';
-import { storedLogEntriesOf }                                                 from '../testing/StoredLogEntries.ts';
-import { storedProgressOf }                                                   from '../testing/StoredProgress.ts';
+import { createScratchGitRepository, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                           from '../../src/testing/ToolGuard.ts';
+import { runCommandLine }                                     from '../Main.ts';
+import { createCapturedCommandContext }                       from '../testing/CapturedCommandContext.ts';
+import { storedLogEntriesOf }                                 from '../testing/StoredLogEntries.ts';
+import { storedProgressOf }                                   from '../testing/StoredProgress.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -76,7 +76,7 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
-describe.skipIf(!gitIsAvailable())('filing and moving a low ticket', () => {
+describeWhenGitIsPresent('filing and moving a low ticket', () => {
   // The chart is for work the user asked for; a reviewer's side finding must not take a row, or even the id the next row would get.
   test('ticket add --priority low writes low and adds no row, leaving nextTaskId unconsumed', async () => {
     const before = storedProgressOf(repositoryDirectory);
@@ -154,7 +154,7 @@ describe.skipIf(!gitIsAvailable())('filing and moving a low ticket', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('ticket priority', () => {
+describeWhenGitIsPresent('ticket priority', () => {
   test('lowering a pending normal ticket removes its row, and raising it again files a new one, each with one log line', async () => {
     await run(['ticket', 'add', 'Fix the axis']);
     expect(storedProgressOf(repositoryDirectory).tasks).toHaveLength(1);
@@ -214,7 +214,7 @@ describe.skipIf(!gitIsAvailable())('ticket priority', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('readiness and claiming', () => {
+describeWhenGitIsPresent('readiness and claiming', () => {
   // The acceptance pair: low work waits for the normal ticket to be delivered, both in what the dispatcher is told and in what claim allows.
   test('a low ticket is neither listed nor claimable while a normal ticket is owed, and is both once it is delivered', async () => {
     await run(['ticket', 'add', 'Fix the axis']);
@@ -254,7 +254,7 @@ describe.skipIf(!gitIsAvailable())('readiness and claiming', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('reading priorities', () => {
+describeWhenGitIsPresent('reading priorities', () => {
   // Every tracker in use today was written before the key existed: reading it must neither fail nor touch the file.
   test('a ticket file with no priority key reads as normal everywhere and is not rewritten by being read', async () => {
     await run(['ticket', 'add', 'Fix the axis']);

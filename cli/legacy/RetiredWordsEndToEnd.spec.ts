@@ -9,14 +9,14 @@ import { join }         from 'node:path';
 import {
   afterEach,
   beforeEach,
-  describe,
   expect,
   test
 }                                                                             from 'bun:test';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
-import { runCommandLine }                                                     from '../Main.ts';
-import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext.ts';
-import { storedLogTextOf }                                                    from '../testing/StoredLogText.ts';
+import { createScratchGitRepository, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                           from '../../src/testing/ToolGuard.ts';
+import { runCommandLine }                                     from '../Main.ts';
+import { createCapturedCommandContext }                       from '../testing/CapturedCommandContext.ts';
+import { storedLogTextOf }                                    from '../testing/StoredLogText.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -52,7 +52,7 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
-describe.skipIf(!gitIsAvailable())('the retired ticket verbs and status words', () => {
+describeWhenGitIsPresent('the retired ticket verbs and status words', () => {
   function trackerFilesText(): string {
     return `${progressFileText()}\n${storedTicketText()}`;
   }
@@ -99,7 +99,7 @@ describe.skipIf(!gitIsAvailable())('the retired ticket verbs and status words', 
   });
 });
 
-describe.skipIf(!gitIsAvailable())('the retired task verb and status words', () => {
+describeWhenGitIsPresent('the retired task verb and status words', () => {
   // A caller still on the old verb must learn the new one, not be told `review` is unknown, and must move nothing.
   test('task review is refused at exit 1 naming task approve, and the progress file stays byte-identical', async () => {
     await run(['task', 'add', 'Review pass', '--start']);

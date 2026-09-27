@@ -6,15 +6,15 @@
 import {
   afterEach,
   beforeEach,
-  describe,
   expect,
   test
 }                                                                             from 'bun:test';
-import { workspacePathsFor }                                                  from '../../../src/services/tracker/Workspace.ts';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
-import { storedFileContentsOf }                                               from '../../../src/testing/TrackerFileFixtures.ts';
-import { runCommandLine }                                                     from '../../Main.ts';
-import { createCapturedCommandContext }                                       from '../../testing/CapturedCommandContext.ts';
+import { workspacePathsFor }                                  from '../../../src/services/tracker/Workspace.ts';
+import { createScratchGitRepository, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                           from '../../../src/testing/ToolGuard.ts';
+import { storedFileContentsOf }                               from '../../../src/testing/TrackerFileFixtures.ts';
+import { runCommandLine }                                     from '../../Main.ts';
+import { createCapturedCommandContext }                       from '../../testing/CapturedCommandContext.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -50,7 +50,7 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
-describe.skipIf(!gitIsAvailable())('init on an existing tracker in the current format', () => {
+describeWhenGitIsPresent('init on an existing tracker in the current format', () => {
   test('leaves every tracker file byte for byte and prints each refresh line, with no tracker line', async () => {
     const filesBefore = storedFileContentsOf(workspacePathsFor(repositoryDirectory));
 

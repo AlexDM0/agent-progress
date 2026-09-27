@@ -111,7 +111,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   overrides and why. The one in-process assignment is in `src/shared/Environment.spec.ts`; other specs set the
   environment in a child process.
 - No work at module load. The two exceptions are the entry points: `agent-progress.ts`, whose import is the invocation, and the last
-  statement of `page/PageStart.ts`, which starts the page.
+  statement of `page/PageStart.ts`, which starts the page. The test preload `src/testing/TestRunReport.ts` registers its report at load.
 - The render service keeps no module state: what one invocation builds, the page bundle and the configured Marked,
   lives in the render state the command context carries.
 - Factories of closures over classes, except for state carried across calls, domain classes and ingestion classes.
@@ -189,10 +189,11 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - A spec sits beside its module as `<Module>.spec.ts`, a second suite as `<Module>.<aspect>.spec.ts`, never
   `.test.ts`. It opens with a docblock of which cases matter and why; test names are claims written as sentences. A
   frozen table of expected outputs comes from the previous implementation and says how to retake it.
-- A test that needs a tool the machine may lack skips through one shared guard (`gitIsAvailable` in
-  `src/testing/ScratchWorkspace.ts`) and says what is missing; skips are counted, never silent. An environment
-  variable is meant to turn that skip into a failure on a machine that has the tool; it is not built yet
-  (`docs/backlog.md`). End-to-end suites that spawn the real binary sit at the layer root, named for what they pin.
+- A test that needs a tool the machine may lack skips through one shared guard (`describeWhenGitIsPresent` or
+  `testWhenGitIsPresent` in `src/testing/ToolGuard.ts`), never a bare `skipIf`, and its title says what is missing.
+  Skips are counted, never silent: the preload `src/testing/TestRunReport.ts` (`bunfig.toml`) prints every one by
+  name with the count after the run. `AGENT_PROGRESS_REQUIRE_EVERY_TOOL=1` turns each skip into a failure, for a run
+  that must prove every claim. End-to-end suites that spawn the real binary sit at the layer root, named for what they pin.
 - A guard proves its scan found something, and is watched failing on each form it claims to catch. An allowlist is
   exact in both directions.
 - Tests never touch live data. Every spec works under the scratch root, and `src/testing/TrackerIsolation.ts` is

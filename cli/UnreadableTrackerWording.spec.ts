@@ -10,13 +10,13 @@ import { join }                                      from 'node:path';
 import {
   afterEach,
   beforeEach,
-  describe,
   expect,
   test
 }                                                                             from 'bun:test';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
-import { runCommandLine }                                                     from './Main.ts';
-import { createCapturedCommandContext }                                       from './testing/CapturedCommandContext.ts';
+import { createScratchGitRepository, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                           from '../src/testing/ToolGuard.ts';
+import { runCommandLine }                                     from './Main.ts';
+import { createCapturedCommandContext }                       from './testing/CapturedCommandContext.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -92,7 +92,7 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
-describe.skipIf(!gitIsAvailable())('a progress file that cannot be read', () => {
+describeWhenGitIsPresent('a progress file that cannot be read', () => {
   test('status, concurrency, dispatcher and log exit 2 naming the file and its reason, and print nothing on standard output', async () => {
     breakTheProgressFile();
 
@@ -142,7 +142,7 @@ describe.skipIf(!gitIsAvailable())('a progress file that cannot be read', () => 
   });
 });
 
-describe.skipIf(!gitIsAvailable())('a log.jsonl that cannot be read', () => {
+describeWhenGitIsPresent('a log.jsonl that cannot be read', () => {
   test('status and log exit 2 naming the log and its reason, and neither file is touched', async () => {
     breakTheLogFile();
     const progressTextBefore = readFileSync(progressFilePath, 'utf8');
@@ -176,7 +176,7 @@ describe.skipIf(!gitIsAvailable())('a log.jsonl that cannot be read', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('a Board refusal', () => {
+describeWhenGitIsPresent('a Board refusal', () => {
   test('holding a ticket that is already held exits 1 with the refusal in words and nothing else', async () => {
     await runSucceeding(['ticket', 'add', 'Example ticket']);
     await runSucceeding(['ticket', 'hold', '1', '--reason', 'Example reason']);

@@ -4,18 +4,14 @@
  * and log untouched, not write an empty store over them. Every case compares the bytes of the tracker's progress.json and log.jsonl
  * together, since an exit code alone cannot show nothing was lost.
  */
-import { createHash }                             from 'node:crypto';
-import { existsSync, readFileSync, realpathSync } from 'node:fs';
-import { join }                                   from 'node:path';
-import {
-  afterEach,
-  describe,
-  expect,
-  test
-}                                                              from 'bun:test';
-import { CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS }                            from '../src/testing/ChildProcessCaseTimeout.ts';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
-import { runAgentProgress }                                                   from './testing/CliProcess.ts';
+import { createHash }                                         from 'node:crypto';
+import { existsSync, readFileSync, realpathSync }             from 'node:fs';
+import { join }                                               from 'node:path';
+import { afterEach, expect, test }                            from 'bun:test';
+import { CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS }            from '../src/testing/ChildProcessCaseTimeout.ts';
+import { createScratchGitRepository, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                           from '../src/testing/ToolGuard.ts';
+import { runAgentProgress }                                   from './testing/CliProcess.ts';
 
 const scratchDirectories: string[] = [];
 
@@ -49,7 +45,7 @@ async function trackedRepositoryWithARowAndALogLine(): Promise<string> {
   return repositoryDirectory;
 }
 
-describe.skipIf(!gitIsAvailable())('init with AGENT_PROGRESS_ROOT set', () => {
+describeWhenGitIsPresent('init with AGENT_PROGRESS_ROOT set', () => {
   // The reported loss: the override said "no tracker here", and `init` created one where it stood.
   test('an override naming an untracked repository is refused at exit 1, naming both, and neither progress file changes', async () => {
     const trackedDirectory   = await trackedRepositoryWithARowAndALogLine();

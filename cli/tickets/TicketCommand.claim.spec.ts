@@ -8,16 +8,16 @@ import { join }                      from 'node:path';
 import {
   afterEach,
   beforeEach,
-  describe,
   expect,
   test
 }                                                                             from 'bun:test';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
-import { runCommandLine }                                                     from '../Main.ts';
-import { createCapturedCommandContext }                                       from '../testing/CapturedCommandContext.ts';
-import { storedLogEntriesOf }                                                 from '../testing/StoredLogEntries.ts';
-import { storedLogTextOf }                                                    from '../testing/StoredLogText.ts';
-import { storedProgressOf }                                                   from '../testing/StoredProgress.ts';
+import { createScratchGitRepository, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                           from '../../src/testing/ToolGuard.ts';
+import { runCommandLine }                                     from '../Main.ts';
+import { createCapturedCommandContext }                       from '../testing/CapturedCommandContext.ts';
+import { storedLogEntriesOf }                                 from '../testing/StoredLogEntries.ts';
+import { storedLogTextOf }                                    from '../testing/StoredLogText.ts';
+import { storedProgressOf }                                   from '../testing/StoredProgress.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -69,7 +69,7 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
-describe.skipIf(!gitIsAvailable())('claiming a ticket', () => {
+describeWhenGitIsPresent('claiming a ticket', () => {
   test('a ready pending ticket with a slot free is started, its row running with the owner and note, and one line logged', async () => {
     await run(['task', 'add', 'Review pass', '--start']);
     const logLengthBefore = storedLogEntriesOf(repositoryDirectory).length;
@@ -162,7 +162,7 @@ async function expectBundleRefusedWithNothingWritten(commandLineArguments: reado
   return context.errorText();
 }
 
-describe.skipIf(!gitIsAvailable())('claiming several tickets as one agent', () => {
+describeWhenGitIsPresent('claiming several tickets as one agent', () => {
   beforeEach(async () => {
     for (const title of ['Show the role history', 'Export the roles', 'Import the roles', 'Rename a role']) await run(['ticket', 'add', title]);
   });

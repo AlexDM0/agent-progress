@@ -8,15 +8,15 @@ import { join }          from 'node:path';
 import {
   afterEach,
   beforeEach,
-  describe,
   expect,
   test
 }                                                                             from 'bun:test';
-import type { TicketFrontmatter }                                             from '../../../src/lib/tracker-model/@types/Ticket.ts';
-import type { ProgressDocument }                                              from '../../../src/shared/@types/ProgressDocument.ts';
-import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
-import { runCommandLine }                                                     from '../../Main.ts';
-import { createCapturedCommandContext }                                       from '../../testing/CapturedCommandContext.ts';
+import type { TicketFrontmatter }                             from '../../../src/lib/tracker-model/@types/Ticket.ts';
+import type { ProgressDocument }                              from '../../../src/shared/@types/ProgressDocument.ts';
+import { createScratchGitRepository, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                           from '../../../src/testing/ToolGuard.ts';
+import { runCommandLine }                                     from '../../Main.ts';
+import { createCapturedCommandContext }                       from '../../testing/CapturedCommandContext.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -69,7 +69,7 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
-describe.skipIf(!gitIsAvailable())('the human listing', () => {
+describeWhenGitIsPresent('the human listing', () => {
   test('hides delivered rows behind a count, and --full lists them', async () => {
     await run(['task', 'deliver', '2']);
 
@@ -96,7 +96,7 @@ describe.skipIf(!gitIsAvailable())('the human listing', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('the --json --full document', () => {
+describeWhenGitIsPresent('the --json --full document', () => {
   test('is the progress file itself, so an agent could write the document it read back', async () => {
     const context  = await run(['status', '--json', '--full']);
     const document = JSON.parse(context.outputText()) as StatusDocument;
@@ -136,7 +136,7 @@ describe.skipIf(!gitIsAvailable())('the --json --full document', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('the --json working view', () => {
+describeWhenGitIsPresent('the --json working view', () => {
   // The document an agent reads at every session start; it has to stay small however long the project runs.
   test('leaves delivered and abandoned rows and tickets out, and counts them', async () => {
     await run(['ticket', 'add', 'Rename the export button']);
@@ -181,7 +181,7 @@ describe.skipIf(!gitIsAvailable())('the --json working view', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('when a ticket file will not parse', () => {
+describeWhenGitIsPresent('when a ticket file will not parse', () => {
   test('it is reported on standard error and both forms still answer', async () => {
     writeFileSync(join(repositoryDirectory, '.agent-progress', 'tickets', '004-broken.md'), 'no frontmatter at all\n');
 
@@ -193,7 +193,7 @@ describe.skipIf(!gitIsAvailable())('when a ticket file will not parse', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('token counts', () => {
+describeWhenGitIsPresent('token counts', () => {
   test('a reported row shows its count, an unreported one shows a dash, and the total names both numbers', async () => {
     await run(['task', 'finish', '2', '--tokens', '12.3k']);
 
@@ -218,7 +218,7 @@ describe.skipIf(!gitIsAvailable())('token counts', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('the log listing', () => {
+describeWhenGitIsPresent('the log listing', () => {
   test('is newest first by the stamp, not by the order entries were appended', async () => {
     await run(['log', 'Backfilled from an hour ago', '--at', '-1h']);
 
@@ -245,7 +245,7 @@ describe.skipIf(!gitIsAvailable())('the log listing', () => {
   });
 });
 
-describe.skipIf(!gitIsAvailable())('the concurrency block both --json documents carry', () => {
+describeWhenGitIsPresent('the concurrency block both --json documents carry', () => {
   // A dispatcher reads this to decide whether to start an agent and on what: the review bar counts, and a ticket waiting on unfinished work is not ready.
   test('counts every running row against the limit and lists the ready tickets lowest first', async () => {
     await run(['ticket', 'add', 'Show the role history']);
@@ -322,7 +322,7 @@ describe.skipIf(!gitIsAvailable())('the concurrency block both --json documents 
   });
 });
 
-describe.skipIf(!gitIsAvailable())('the dispatch fields both --json documents carry', () => {
+describeWhenGitIsPresent('the dispatch fields both --json documents carry', () => {
   async function bothDocuments(): Promise<{ working: StatusDocument; full: StatusDocument }> {
     const working = JSON.parse((await run(['status', '--json'])).outputText()) as StatusDocument;
     const full    = JSON.parse((await run(['status', '--json', '--full'])).outputText()) as StatusDocument;
