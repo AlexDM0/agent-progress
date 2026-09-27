@@ -323,11 +323,14 @@ describe.skipIf(!gitIsAvailable())('updating a tracked repository', () => {
     expect(readFileSync(installedFilePath, 'utf8')).toBe('// Example Agency\'s own tweak of the installed dispatcher.\n');
   });
 
-  // The brief comes last, so a rerun after a failed write still tells the orchestrator its brief changed.
-  test.skipIf(RUNNING_AS_ROOT)('a refresh cut short by an unwritable agents folder leaves the stale brief for the rerun to report', async () => {
+  // The brief comes after the other files and the manifest after all of them, so a rerun after a failed write still reports the stale brief
+  // and every checked command keeps asking for update until one finishes.
+  test.skipIf(RUNNING_AS_ROOT)('a refresh cut short by an unwritable agents folder leaves the stale brief and no install version for the rerun to report and record', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
     const briefFilePath       = join(repositoryDirectory, '.agent-progress', 'agent-brief.md');
+    const manifestFilePath    = installedFilePathsIn(repositoryDirectory).installManifest;
     const agentsDirectory     = join(repositoryDirectory, '.claude', 'agents');
+    rmSync(manifestFilePath);
     mkdirSync(agentsDirectory, { recursive: true });
 
     chmodSync(agentsDirectory, READ_AND_ENTER_ONLY_MODE);
@@ -337,10 +340,12 @@ describe.skipIf(!gitIsAvailable())('updating a tracked repository', () => {
       chmodSync(agentsDirectory, OWNER_FULL_ACCESS_MODE);
     }
     expect(readFileSync(briefFilePath, 'utf8')).not.toBe(GENERATED_AGENT_BRIEF);
+    expect(existsSync(manifestFilePath), 'a refresh cut short leaves the old version, so every command keeps asking for update').toBe(false);
 
     const rerun = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
     expect(await runCommandLine(['update'], rerun)).toBe(0);
     expect(rerun.outputText()).toContain('brief:       updated — re-read it before your next brief');
+    expect(JSON.parse(readFileSync(manifestFilePath, 'utf8'))).toEqual({ installVersion: INSTALL_VERSION });
   });
 
   test('the worker agent definition is installed with the default pair, and a second run reports it unchanged', async () => {
