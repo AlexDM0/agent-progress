@@ -1,14 +1,11 @@
-import { randomUUID }             from 'node:crypto';
-import { realpathSync, statSync } from 'node:fs';
-import { basename, resolve }      from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { basename }   from 'node:path';
 
 import { ensureIgnored, type EnsureIgnoredOutcome }                             from '../../../src/lib/git/GitIgnore.ts';
-import { discoverRepositoryRoot }                                               from '../../../src/lib/git/RepositoryRoot.ts';
 import { TimeUtil }                                                             from '../../../src/lib/utils/TimeUtil.ts';
 import { createTracker }                                                        from '../../../src/services/tracker/TrackerCreation.ts';
 import { findWorkspace, workspacePathsFor }                                     from '../../../src/services/tracker/Workspace.ts';
 import { TRACKER_FILES }                                                        from '../../../src/services/tracker/constants/TrackerFiles.ts';
-import { agentProgressRootOverride }                                            from '../../../src/shared/Environment.ts';
 import { OperationRefusal }                                                     from '../../../src/shared/OperationRefusal.ts';
 import type { CommandHandler }                                                  from '../../CommandHandler.ts';
 import { requireInstallManifestThisVersionCanReplace }                          from '../../InstallVersionCheck.ts';
@@ -18,6 +15,7 @@ import { OutputUtil }                                                           
 import { installedFileTextsFor }                                                from '../InstalledFileGeneration.ts';
 import type { InstalledFileTexts }                                              from '../InstalledFileGeneration.ts';
 import { recordInstallVersion, refreshReportLinesOf, refreshTrackedRepository } from '../TrackerRefresh.ts';
+import { initRootDirectoryOf, refuseAnOverrideNamingAnotherDirectory }          from './InitRoot.ts';
 
 const USAGE = 'agent-progress init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';
 
@@ -30,66 +28,11 @@ const IGNORE_OUTCOME_WORDS: Record<EnsureIgnoredOutcome, string> = {
   'no-gitignore-written': 'not written — this directory is not a git repository',
 };
 
-function resolvedRealPath(path: string): string {
-  try {
-    return realpathSync(path);
-  } catch {
-    return path;
-  }
-}
-
-/** A bare repository is refused: it has no working tree, and guessing a directory near it would write into somebody else's. */
-function discoveredRootForInit(currentDirectory: string): string {
-  const discovery = discoverRepositoryRoot(currentDirectory);
-  if (discovery.source === 'bare-repository') {
-    throw new OperationRefusal(
-      'refused',
-      `${discovery.rootDirectory} is inside a bare git repository, which has no working tree to track. `
-      + 'Run `agent-progress init` in a checkout of it, or pass --root <path> to track a directory explicitly.',
-    );
-  }
-  return discovery.rootDirectory;
-}
-
-/** `--root` must name an existing directory: `init` does not create one, or a mistyped path would make a tracker nobody looks at. */
-function requiredExistingDirectory(candidatePath: string, asWritten: string): string {
-  let isADirectory = false;
-  try {
-    isADirectory = statSync(candidatePath).isDirectory();
-  } catch {
-    // Fail closed: anything a `stat` cannot answer is not a directory to write a tracker into.
-  }
-  if (!isADirectory) {
-    throw new OperationRefusal(
-      'refused',
-      `--root "${asWritten}" is not an existing directory (${candidatePath}). `
-      + 'Create it first, or leave --root off to track the repository `agent-progress` discovers from here.',
-    );
-  }
-  return candidatePath;
-}
-
-/** `AGENT_PROGRESS_ROOT` does not choose where `init` writes, so one naming another directory is refused rather than half-obeyed. */
-function refuseAnOverrideNamingAnotherDirectory(currentDirectory: string, rootDirectory: string): void {
-  const overrideRoot = agentProgressRootOverride();
-  if (overrideRoot === undefined) return;
-  const overriddenDirectory = resolvedRealPath(resolve(currentDirectory, overrideRoot));
-  if (overriddenDirectory === resolvedRealPath(rootDirectory)) return;
-  throw new OperationRefusal(
-    'refused',
-    `AGENT_PROGRESS_ROOT names ${overriddenDirectory}, but \`init\` would create the tracker in ${rootDirectory}; nothing was written. `
-    + 'Unset AGENT_PROGRESS_ROOT, or set it to the directory you are initialising, or pass that directory as --root.',
-  );
-}
-
 export const initCommand: CommandHandler = async (commandArguments, context) => {
   commandArguments.rejectUnknownOptions(KNOWN_OPTION_NAMES, USAGE);
   commandArguments.rejectExtraPositionals(0, USAGE);
 
-  const rootOption    = commandArguments.option('root');
-  const rootDirectory = rootOption === undefined
-    ? discoveredRootForInit(context.currentDirectory)
-    : requiredExistingDirectory(resolvedRealPath(resolve(context.currentDirectory, rootOption)), rootOption);
+  const rootDirectory = initRootDirectoryOf(commandArguments.option('root'), context.currentDirectory);
   const workspace     = workspacePathsFor(rootDirectory);
   const writesClaudeInstructions = !commandArguments.flag('no-claude-md');
   const writesTheSubagentStopHook = !commandArguments.flag('no-hooks');
