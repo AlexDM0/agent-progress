@@ -28,6 +28,10 @@
   <img src="docs/images/panel-watch.gif" width="100%" alt="Watch your agents work: the Progress tab of the Example Storefront board in light mode, animated from 09:10 to 13:36 as the now-line sweeps across, Gantt bars grow, pills move from unstarted to wip to reviewing to done, and review rows appear above their tickets">
 </p>
 
+<p align="center">
+  <img src="docs/images/panel-kanban.png" width="100%" alt="Every ticket on one board: the Kanban tab with lanes To do, In progress, Review, Awaiting merge, Done and a collapsed Abandoned lane; cards show priority, type, tokens, what a ticket waits on and when it moved">
+</p>
+
 <table>
   <tr>
     <td width="50%" valign="top">
