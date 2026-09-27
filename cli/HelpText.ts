@@ -134,14 +134,14 @@ output never carries either.
                               owns is never a review row. A brief with
                               several is read by one alone: row over ticket over review.
                               This is the command \`init\` and \`update\` wire into
-                              \`.claude/settings.local.json\`; nobody types it. It exits 0 whatever
-                              goes wrong — no input, an unreadable transcript, no tracker at the
-                              hook's own working directory, installed files of another install
-                              version, a row or a ticket's row that does not exist — and writes the
-                              reason to standard error. Its exit code prevents nothing, since the
-                              agent has already finished; exiting 0 is what keeps a failure here
-                              from becoming an error the orchestrator must read, or a delay before
-                              it is told.
+                              \`.claude/settings.local.json\`; nobody types it. Given exactly the
+                              event word, it exits 0 whatever goes wrong — no input, an unreadable
+                              transcript, no tracker at the hook's own working directory, installed
+                              files of another install version, a row or a ticket's row that does
+                              not exist — and writes the reason to standard error. Its exit code
+                              prevents nothing, since the agent has already finished; exiting 0 is
+                              what keeps a failure here from becoming an error the orchestrator must
+                              read, or a delay before it is told.
 
   usage [--since <when>]      What this repository's subagents cost, read out of the transcripts the
       [--transcripts <folder>] harness wrote for them, a workflow's agents under

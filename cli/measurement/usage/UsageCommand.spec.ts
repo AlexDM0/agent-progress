@@ -6,10 +6,11 @@
  * repository with no transcripts is an answer rather than a refusal.
  *
  * `--transcripts` is what makes all of this testable: without it the command would read whatever the
- * developer's own `~/.claude/projects/` happens to hold, and no assertion could be made about it.
+ * developer's own `~/.claude/projects/` happens to hold, and no assertion could be made about it. The
+ * one case without it points the context's home directory at a scratch tree instead.
  */
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { join }                     from 'node:path';
+import { mkdirSync, realpathSync, writeFileSync } from 'node:fs';
+import { join }                                   from 'node:path';
 
 import {
   afterEach,
@@ -24,6 +25,9 @@ import { runCommandLine }                                                     fr
 import { createCapturedCommandContext }                                       from '../../testing/CapturedCommandContext.ts';
 
 const FROZEN_NOW = new Date('2026-09-19T20:11:03Z');
+
+/** Claude Code's folder name for a project: its root's absolute path with every character outside `[a-zA-Z0-9]` replaced by `-`. */
+const CHARACTER_THE_PROJECT_SLUG_REPLACES = /[^a-zA-Z0-9]/g;
 
 /** The instant the constructed cohort is split on: two agents ran before it and one after. */
 const BOUNDARY = '2026-09-19T10:00:00Z';
@@ -429,5 +433,29 @@ describe.skipIf(!gitIsAvailable())('what the command does not do', () => {
 
     expect(exitCode).toBe(1);
     expect(context.errorText()).toContain('--sine');
+  });
+});
+
+describe.skipIf(!gitIsAvailable())('without --transcripts', () => {
+  test('reads the repository\'s folder under the home directory the context carries', async () => {
+    const homeDirectory  = join(repositoryDirectory, 'example-home');
+    transcriptsDirectory = join(homeDirectory, '.claude', 'projects', realpathSync(repositoryDirectory).replace(CHARACTER_THE_PROJECT_SLUG_REPLACES, '-'));
+    writeTranscript({
+      session:          'session-home',
+      agent:            'delta',
+      startedAt:        '2026-09-19T12:00:00.000Z',
+      brief:            'Read the home folder',
+      apiCallCount:     5,
+      inputTokens:      500,
+      outputTokens:     50,
+      browserCallCount: 0,
+    });
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory, now: () => FROZEN_NOW, homeDirectory });
+
+    expect(await runCommandLine(['usage', '--json'], context)).toBe(0);
+
+    const document = JSON.parse(context.outputText()) as UsageDocument;
+    expect(document.transcriptFolder).toBe(transcriptsDirectory);
+    expect(document.agents.map((agent) => agent.agentIdentifier)).toEqual(['delta']);
   });
 });

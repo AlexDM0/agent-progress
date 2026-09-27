@@ -6,9 +6,10 @@ Each item is agreed in principle and deliberately not done, with the reason it w
 
 ## A `--tickets-only` view
 
-`agent-progress status` prints the whole tracker, and the page's Tickets tab shows every ticket. A
-session that is working through a ticket queue and does not care about task rows has to read past
-both. Agreed: a `--tickets-only` flag on `status`, and the same narrowing as a stored view so the
+`agent-progress status` already leaves out delivered and abandoned rows, but it still lists every
+unsettled task row beside the tickets, and the page opens on the chart with every unsettled task in
+view. A session that is working through a ticket queue and does not care about task rows has to read
+past them. Agreed: a `--tickets-only` flag on `status`, and the same narrowing as a stored view so the
 page can open on the Tickets tab.
 
 Not started because the shape of the flag is not obvious — whether it should also suppress the log,
@@ -45,11 +46,11 @@ has felt the need.
 `task pause <id>` records that a row is waiting, and there is deliberately no ticket status for it:
 the ticket statuses in `src/lib/tracker-model/constants/Statuses.ts` are the task statuses without `paused`
 and `re-review`, so no ticket status reaches the state, because a paused ticket is still in progress. The gap that leaves is a reader of the Tickets tab
-alone: a ticket sitting in `in-progress` for two days looks like work in flight, and only the chart
-says it has been paused since Tuesday.
+alone: a ticket sitting in `in-progress` for two days looks like work in flight, and only the chart and the
+Kanban card (`paused since …`) say it has been paused since Tuesday.
 
-Agreed in principle: surface the linked row's `paused` state on the ticket card, as a property of the
-row rather than as a ticket status. Not started because it is a render change and the page's template
+Agreed in principle: surface the linked row's `paused` state on the Tickets tab's card too, as a property
+of the row rather than as a ticket status. Not started because it is a render change and the page's template
 is designer-owned, so it wants a design answer before a code one.
 
 ## A variable that turns the git skip into a failure

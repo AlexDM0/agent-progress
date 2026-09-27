@@ -1,8 +1,9 @@
 /**
  * The dispatcher copy an older agent-progress installed under `.claude/workflows/`, end to end through `init` and `update`. The cases that
  * matter: both commands remove it and name it on the workflow line, so only one dispatcher is left to launch; a second run has nothing to
- * remove and says nothing of it; `--no-workflow` leaves `.claude/workflows/` alone, since a copy there may be the project's own; and a
- * refresh cut short leaves the copy for the rerun to remove and report. It is deleted with `cli/legacy/RetiredDispatcherScriptRemoval.ts`.
+ * remove and says nothing of it; the folder goes with the copy only when nothing else is in it; `--no-workflow` leaves `.claude/workflows/`
+ * alone, since a copy there may be the project's own; and a refresh cut short leaves the copy for the rerun to remove and report. It is
+ * deleted with `cli/legacy/RetiredDispatcherScriptRemoval.ts`.
  */
 import {
   chmodSync,
@@ -79,6 +80,8 @@ describe.skipIf(!gitIsAvailable())('the dispatcher copy an older version install
     expect(await runCommandLine(['init'], context)).toBe(0);
 
     expect(existsSync(retiredDispatcherScriptPathIn(repositoryDirectory))).toBe(false);
+    expect(existsSync(join(repositoryDirectory, '.claude', 'workflows'))).toBe(false);
+    expect(existsSync(join(repositoryDirectory, '.claude'))).toBe(true);
     expect(readFileSync(installedDispatcherScriptPathIn(repositoryDirectory), 'utf8')).toBe(GENERATED_DISPATCHER_SCRIPT);
     expect(context.outputText()).toMatch(workflowLineRemovingTheRetiredCopy('unchanged'));
   });
@@ -90,6 +93,8 @@ describe.skipIf(!gitIsAvailable())('the dispatcher copy an older version install
     const first = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
     expect(await runCommandLine(['update'], first)).toBe(0);
     expect(existsSync(retiredDispatcherScriptPathIn(repositoryDirectory))).toBe(false);
+    expect(existsSync(join(repositoryDirectory, '.claude', 'workflows'))).toBe(false);
+    expect(existsSync(join(repositoryDirectory, '.claude'))).toBe(true);
     expect(readFileSync(installedDispatcherScriptPathIn(repositoryDirectory), 'utf8')).toBe(GENERATED_DISPATCHER_SCRIPT);
     expect(first.outputText()).toMatch(workflowLineRemovingTheRetiredCopy('updated'));
 
@@ -127,7 +132,7 @@ describe.skipIf(!gitIsAvailable())('the dispatcher copy an older version install
     expect(rerun.outputText()).toMatch(workflowLineRemovingTheRetiredCopy('unchanged'));
   });
 
-  test('the older copy is looked for under .claude/workflows, where older versions installed it', async () => {
+  test('the older copy is looked for under .claude/workflows, where older versions installed it, and the folder stays while it holds more', async () => {
     const repositoryDirectory = await initialisedRepository('--no-hooks', '--no-workflow', '--no-agent-definition');
     writeTheRetiredCopy(repositoryDirectory);
     writeFileSync(join(repositoryDirectory, '.claude', 'workflows', 'example-agency-workflow.js'), '// Example Agency\'s own workflow.\n');

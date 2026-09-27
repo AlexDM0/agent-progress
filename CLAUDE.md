@@ -111,9 +111,10 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - Exit codes are decided only in `cli/Main.ts`: 0 done or nothing to do; 1 a refusal the caller can act on
   (`refused`, or an unknown command); 2 a state the tool will not repair (`unrepaired`, or any other throw).
   `agent-progress.ts` is the only `process.exit`.
-- Three deliberate exit-0 cases: `hook subagent-stop` on every failure, because the agent has already finished; a
-  store write that succeeded while the render failed, reported on standard error; and a `release` whose worktree
-  removal or `branch -d` git declined after the merge, reported and never failed, because the release happened.
+- Three deliberate exit-0 cases: `hook subagent-stop` on every failure after its arguments are read, because the agent
+  has already finished; a store write that succeeded while the render failed, reported on standard error; and a
+  `release` whose worktree removal or `branch -d` git declined after the merge, reported and never failed, because the
+  release happened.
 
 ### Runtime
 
@@ -127,8 +128,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - Factories of closures over classes, except for state carried across calls, domain classes and ingestion classes.
   A constructor does no work.
 - A record keyed by outside text is indexed through `Object.hasOwn`, never a bare lookup.
-- A command takes everything from its `CommandContext` (directory, now, streams, standard input, prompt, platform),
-  never from the process.
+- A command takes everything from its `CommandContext` (directory, now, streams, standard input, prompt, platform,
+  home directory), never from the process.
 - Every write of a file a reader may hold open goes through `src/lib/atomic-file/AtomicFile.ts`.
 - A clock decides nothing: identity is a content hash, staleness a set difference or a version number, and
   timestamps are recorded and displayed. Each exception is stated in a comment at its site.

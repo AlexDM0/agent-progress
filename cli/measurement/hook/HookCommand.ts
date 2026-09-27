@@ -2,10 +2,9 @@
  * The `SubagentStop` hook: logs what a finished subagent cost and adds it to the rows its brief names. Every failure is one sentence on
  * standard error at exit 0, since the agent has already stopped and a non-zero exit would prevent nothing.
  */
-import { homedir } from 'node:os';
-
 import { OperationRefusalWordingUtil }                 from '../../../src/adapters/utils/OperationRefusalWordingUtil.ts';
 import { transcriptTextAt }                            from '../../../src/lib/claude-code/ClaudeTranscripts.ts';
+import { JsonRecordUtil }                              from '../../../src/lib/claude-code/utils/JsonRecordUtil.ts';
 import type { TranscriptUsageTotals }                  from '../../../src/lib/claude-code/utils/TranscriptUsageUtil.ts';
 import { TranscriptUsageUtil }                         from '../../../src/lib/claude-code/utils/TranscriptUsageUtil.ts';
 import type { TokenCredit, TokenCreditOutcome }        from '../../../src/lib/tracker-model/@types/BoardChanges.ts';
@@ -32,19 +31,14 @@ const REPORT_PREFIX = 'agent-progress hook subagent-stop:';
 
 const SHARE_NOT_RECORDED = 'so its share of the tokens was not recorded.';
 
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-  if (typeof value !== 'object' || value === null || Array.isArray(value)) return undefined;
-  return value as Record<string, unknown>;
-}
-
 function readStringField(source: Record<string, unknown>, key: string): string | undefined {
   const value = source[key];
   return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
 
 /** The harness writes the transcript path with a `~`, and `readFileSync` has no shell to expand it for it. */
-function expandLeadingTilde(path: string): string {
-  return path.startsWith('~') ? `${homedir()}${path.slice(1)}` : path;
+function expandLeadingTilde(path: string, homeDirectory: string): string {
+  return path.startsWith('~') ? `${homeDirectory}${path.slice(1)}` : path;
 }
 
 async function readHookInput(context: CommandContext): Promise<Record<string, unknown> | undefined> {
@@ -69,7 +63,7 @@ async function readHookInput(context: CommandContext): Promise<Record<string, un
     return undefined;
   }
 
-  const hookInput = asRecord(parsedHookInput);
+  const hookInput = JsonRecordUtil.recordOf(parsedHookInput);
   if (hookInput === undefined) {
     context.standardError(`${REPORT_PREFIX} the hook input is not a JSON object, so nothing was recorded.`);
     return undefined;
@@ -173,7 +167,7 @@ async function recordSubagentStop(commandArguments: ArgumentParser, context: Com
     return;
   }
 
-  const expandedTranscriptPath = expandLeadingTilde(transcriptPath);
+  const expandedTranscriptPath = expandLeadingTilde(transcriptPath, context.homeDirectory);
   const transcriptText         = transcriptTextAt(expandedTranscriptPath);
   if (transcriptText === undefined) {
     context.standardError(`${REPORT_PREFIX} the transcript at ${expandedTranscriptPath} could not be read, so nothing was recorded.`);
@@ -191,9 +185,10 @@ async function recordSubagentStop(commandArguments: ArgumentParser, context: Com
 }
 
 /**
- * The event name is the one thing this does refuse, with exit 1: a hook the harness runs always
- * spells it, so a missing or misspelled word is a person typing the command by hand and is worth
- * saying out loud. Everything after the arguments are read is reported and forgiven.
+ * Its arguments are the one thing this does refuse, with exit 1: the harness always passes exactly
+ * the event word, so a missing or misspelled word, an extra argument or an option is a person typing
+ * the command by hand and is worth saying out loud. Everything after the arguments are read is
+ * reported and forgiven.
  */
 export const hookCommand: CommandHandler = async (commandArguments, context) => {
   commandArguments.rejectUnknownOptions(KNOWN_OPTION_NAMES, USAGE);

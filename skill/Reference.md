@@ -66,7 +66,7 @@ item or a bare word. There are no nested maps, lists or block scalars. The closi
 is dropped and CRLF is kept.
 
 A ticket stored with the retired status `open` or `done` reads as `pending` or `reviewed`; reading
-never rewrites the file, and the next write stores the new word.
+never rewrites the file, and the next command that changes that ticket, or `update` or `init`, stores the new word.
 
 **Unknown keys, comments and blank lines are kept and written back**, so a field you add by hand —
 `owner: Alex Example` above — survives every transition. The CLI's own keys are rewritten at the top
@@ -164,8 +164,8 @@ default. Bars outside the window are clipped and marked, never dropped.
 
 | code | meaning | examples |
 |---|---|---|
-| **0** | done, or there was nothing to do | also a store write whose page could not be rebuilt (reported on standard error, with an error banner on the page when only its script failed; `render` rebuilds it), a release whose cleanup git declined, and every `hook subagent-stop` |
-| **1** | a refusal the caller can act on | no tracker here (run `agent-progress init`), no such task or ticket, a missing `--reason`, a move the matrix refuses, a claim with no free slot or on a held-back low ticket, lowering a ticket that is not pending, a release refused (`main-moved` among them), installed files of another install version (every command but `init`, `update`, `help`, `status` and `hook subagent-stop`, which reports it at exit 0; run `agent-progress update`), `init` or `update` over files a newer agent-progress installed, and an unknown command |
+| **0** | done, or there was nothing to do | also a store write whose page could not be rebuilt (reported on standard error, with an error banner on the page when only its script failed; `render` rebuilds it), a release whose cleanup git declined, and every `hook subagent-stop` run as `init` and `update` wire it (a wrong event word, an extra argument or any option is refused at exit 1) |
+| **1** | a refusal the caller can act on | no tracker here (run `agent-progress init`), no such task or ticket, a missing `--reason`, a move the matrix refuses, a claim with no free slot or on a held-back low ticket, lowering a ticket that is not pending, a release refused (`main-moved` among them), installed files of another install version (every command but `init`, `update`, `help`, `status` and `hook subagent-stop`, which reports it at exit 0; run `agent-progress update`), `init` or `update` over files a newer agent-progress installed, `hook` given a wrong event word, an extra argument or any option, and an unknown command |
 | **2** | a state the tool will not repair on its own | an unreadable or malformed progress file, an unreadable or malformed log.jsonl, a malformed ticket file a command names, a lock it could not take, a release reason `git-failed` or `tracker-failed`, and any error the tool did not expect |
 
 Check the code rather than the wording.

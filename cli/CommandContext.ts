@@ -3,6 +3,7 @@
  * against a scratch directory and a frozen clock. It carries no environment access on purpose:
  * `src/shared/Environment.ts` is the one module that reads the environment.
  */
+import { homedir }         from 'node:os';
 import { createInterface } from 'node:readline';
 
 import { createRenderState, type RenderState } from '../src/services/render/RenderState.ts';
@@ -18,6 +19,8 @@ export interface CommandContext {
   confirm:                 (question: string) => Promise<boolean>;
   /** `process.platform`, carried here so a spec can choose the operating system a command believes it runs on. */
   platform:                string;
+  /** `node:os`'s `homedir()`, carried here so a spec can point the Claude Code transcripts at a scratch tree. */
+  homeDirectory:           string;
   /** Created once per invocation; holds the render service's memos, the page bundle and the configured Marked. */
   renderState:             RenderState;
 }
@@ -33,6 +36,7 @@ export function createProcessContext(): CommandContext {
     readStandardInput:       readEverythingOnStandardInput,
     confirm:                 confirmOnStandardInput,
     platform:                process.platform,
+    homeDirectory:           homedir(),
     renderState:             createRenderState(),
   };
 }

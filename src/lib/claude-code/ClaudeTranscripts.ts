@@ -5,7 +5,6 @@
  */
 import type { Dirent }               from 'node:fs';
 import { readdirSync, readFileSync } from 'node:fs';
-import { homedir }                   from 'node:os';
 import { join, resolve }             from 'node:path';
 
 import { CLAUDE_DIRECTORY_NAME } from './constants/ClaudeCodePaths.ts';
@@ -32,9 +31,9 @@ export interface SubagentTranscript {
 
 /**
  * `<home>/.claude/projects/` plus the repository root's absolute path with every character outside `[a-zA-Z0-9]` replaced by `-`, so every
- * worktree resolves to one folder. The home defaults to `homedir()`, never `HOME`, because the package reads no environment; a spec passes a scratch tree.
+ * worktree resolves to one folder. The caller supplies the home, since the package reads nothing from the process.
  */
-export function transcriptFolderFor(repositoryRoot: string, homeDirectory: string = homedir()): string {
+export function transcriptFolderFor(repositoryRoot: string, homeDirectory: string): string {
   const slug = resolve(repositoryRoot).replace(CHARACTER_THE_SLUG_REPLACES, '-');
   return join(homeDirectory, CLAUDE_DIRECTORY_NAME, PROJECTS_DIRECTORY_NAME, slug);
 }

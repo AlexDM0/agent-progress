@@ -2,6 +2,8 @@
  * A `CommandContext` whose two output streams are arrays, so a command spec can drive `runCommandLine` in-process and read back what a user would
  * have seen.
  */
+import { join } from 'node:path';
+
 import { createRenderState }       from '../../src/services/render/RenderState.ts';
 import { requireTrackerIsolation } from '../../src/testing/TrackerIsolation.ts';
 import type { CommandContext }     from '../CommandContext.ts';
@@ -21,12 +23,16 @@ export interface CapturedCommandContextOptions {
   standardInputText?:       string;
   confirmAnswer?:           boolean;
   platform?:                string;
+  /** Checked to be a scratch directory like `currentDirectory`; by default a `spec-home` folder inside it, so no spec reads the real home. */
+  homeDirectory?:           string;
 }
 
 const DEFAULT_SPEC_CLOCK_READING = '2026-09-18T20:11:03Z';
 
 /** Fixed rather than the test runner's own, so a spec behaves the same on every machine unless it names a platform. */
 const DEFAULT_SPEC_PLATFORM = 'linux';
+
+const SPEC_HOME_FOLDER_NAME = 'spec-home';
 
 /** The `cwd` a piped hook input names, since `agent-progress hook subagent-stop` resolves its tracker from that rather than from the context. */
 function directoryNamedByPipedHookInput(standardInputText: string | undefined): string | null {
@@ -46,6 +52,7 @@ export function createCapturedCommandContext(options: CapturedCommandContextOpti
   requireTrackerIsolation(options.currentDirectory);
   const hookInputDirectory = directoryNamedByPipedHookInput(options.standardInputText);
   if (hookInputDirectory !== null) requireTrackerIsolation(hookInputDirectory);
+  if (options.homeDirectory !== undefined) requireTrackerIsolation(options.homeDirectory);
 
   const outputLines: string[] = [];
   const errorLines:  string[] = [];
@@ -63,6 +70,7 @@ export function createCapturedCommandContext(options: CapturedCommandContextOpti
       return Promise.resolve(options.confirmAnswer ?? false);
     },
     platform:       options.platform ?? DEFAULT_SPEC_PLATFORM,
+    homeDirectory:  options.homeDirectory ?? join(options.currentDirectory, SPEC_HOME_FOLDER_NAME),
     renderState:    createRenderState(),
     outputText:     () => outputLines.join('\n'),
     errorText:      () => errorLines.join('\n'),

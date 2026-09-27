@@ -271,6 +271,25 @@ describe.skipIf(!gitIsAvailable())('the row the brief names', () => {
     expect(storedTokensOf(rowIdentifier)).toBe(FIXTURE_INPUT_TOKENS);
     expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toContain('(workflow-subagent)');
   });
+
+  test('a transcript path starting with ~ is read under the home directory the context carries', async () => {
+    const rowIdentifier     = await addedRow('Example home transcript');
+    const homeDirectory     = join(repositoryDirectory, 'example-home');
+    const transcriptsFolder = join(homeDirectory, 'transcripts');
+    mkdirSync(transcriptsFolder, { recursive: true });
+    writeFileSync(join(transcriptsFolder, TRANSCRIPT_FILE_NAME), `${[userLine(`agent-progress row: ${rowIdentifier}`), ...FIXTURE_CALLS].join('\n')}\n`);
+    const context = createCapturedCommandContext({
+      currentDirectory:  repositoryDirectory,
+      now:               () => FROZEN_NOW,
+      standardInputText: hookInput({ agent_transcript_path: `~/transcripts/${TRANSCRIPT_FILE_NAME}` }),
+      homeDirectory,
+    });
+
+    expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
+
+    expect(context.errorText()).toBe('');
+    expect(storedTokensOf(rowIdentifier)).toBe(FIXTURE_INPUT_TOKENS);
+  });
 });
 
 /**
