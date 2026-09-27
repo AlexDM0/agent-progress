@@ -57,7 +57,7 @@ describe('boardFactsOf', () => {
       ticketId:           '003',
       ownRowPosition:     2,
       reviewBarPositions: [1],
-      displayState:       board.ticketDisplayStateOf('003'),
+      displayState:       'reviewing',
     }]);
     expect(board.ownRowOf('003')).toBe(board.tasks()[2] ?? null);
     expect(rows[1]?.ownRowPositionOfReviewedTicket).toBe(2);
@@ -129,7 +129,7 @@ describe('boardFactsOf', () => {
       ticketId:           '003',
       ownRowPosition:     null,
       reviewBarPositions: [],
-      displayState:       board.ticketDisplayStateOf('003'),
+      displayState:       'pending',
     }]);
   });
 

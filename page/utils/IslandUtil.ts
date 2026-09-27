@@ -120,8 +120,8 @@ function rowAt(rows: readonly BoardRow[], position: number | null): BoardRow | n
 }
 
 /**
- * The facts must have passed `pagePayloadFrom`. A ticket the facts do not name is dropped, like an unusable entry, and a ticket id listed
- * twice takes its first facts entry.
+ * The facts must have passed `pagePayloadFrom`. A ticket the facts do not name is dropped, like an unusable entry. Ticket files a hand edit gave
+ * one id take that id's facts entries in turn, as the render wrote both lists, and any beyond them the first.
  */
 function pageBoardFrom(tasks: readonly Task[], boardFacts: PageBoardFacts, tickets: readonly PageTicket[]): PageBoard {
   const rows = tasks.map((task, position): BoardRow => {
@@ -137,12 +137,16 @@ function pageBoardFrom(tasks: readonly Task[], boardFacts: PageBoardFacts, ticke
     row.ownRowOfReviewedTicket = rowAt(rows, boardFacts.rows[position]?.ownRowPositionOfReviewedTicket ?? null);
   });
 
-  const ticketFactsById = new Map<string, PageTicketFacts>();
+  const ticketFactsById = new Map<string, PageTicketFacts[]>();
   for (const ticketFacts of boardFacts.tickets) {
-    if (!ticketFactsById.has(ticketFacts.ticketId)) ticketFactsById.set(ticketFacts.ticketId, ticketFacts);
+    ticketFactsById.set(ticketFacts.ticketId, [...(ticketFactsById.get(ticketFacts.ticketId) ?? []), ticketFacts]);
   }
+  const ticketsSeenById = new Map<string, number>();
   const boardTickets = tickets.flatMap((ticket): BoardTicket[] => {
-    const ticketFacts = ticketFactsById.get(ticket.id);
+    const factsEntries = ticketFactsById.get(ticket.id) ?? [];
+    const seenBefore   = ticketsSeenById.get(ticket.id) ?? 0;
+    ticketsSeenById.set(ticket.id, seenBefore + 1);
+    const ticketFacts = factsEntries[seenBefore] ?? factsEntries[0];
     if (ticketFacts === undefined) return [];
     return [{
       ...ticket,

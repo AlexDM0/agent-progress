@@ -7,7 +7,7 @@ import { describe, expect, test } from 'bun:test';
 
 import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures';
 import type { DisplayState, Task, TaskStatus }      from './@types/Task';
-import type { TicketStatus }                        from './@types/Ticket';
+import type { Ticket, TicketStatus }                from './@types/Ticket';
 import type { Board }                               from './Board';
 
 const REVIEWED_AT = '2026-09-18T21:10:00+02:00';
@@ -16,6 +16,12 @@ function firstRowOf(board: Board): Readonly<Task> {
   const [row] = board.tasks();
   if (row === undefined) throw new Error('The board holds no row.');
   return row;
+}
+
+function firstTicketOf(board: Board): Readonly<Ticket> {
+  const [ticket] = board.tickets();
+  if (ticket === undefined) throw new Error('The board holds no ticket.');
+  return ticket;
 }
 
 const ROW_AND_TICKET_DISPLAY_STATES: readonly (readonly [TaskStatus, TicketStatus, DisplayState])[] = [
@@ -156,7 +162,7 @@ describe('ticketDisplayStateOf', () => {
       tickets: [ticketFixture({ id: '007', status: ticketStatus, task: 1 })],
     });
 
-    expect(board.ticketDisplayStateOf('007')).toBe(displayState);
+    expect(board.ticketDisplayStateOf(firstTicketOf(board))).toBe(displayState);
   });
 
   // A low ticket never started has no row; its status alone decides what it shows.
@@ -170,7 +176,14 @@ describe('ticketDisplayStateOf', () => {
   ] as readonly (readonly [TicketStatus, DisplayState])[])('a ticket in %s with no row shows %s', (ticketStatus, displayState) => {
     const { board } = boardFixture({ tickets: [ticketFixture({ id: '007', status: ticketStatus })] });
 
-    expect(board.ticketDisplayStateOf('007')).toBe(displayState);
+    expect(board.ticketDisplayStateOf(firstTicketOf(board))).toBe(displayState);
+  });
+
+  // Two ticket files a hand edit gave one id each keep their own card state, as they did before the page read the facts.
+  test('reads a ticket whose id another ticket file shares by its own status', () => {
+    const { board } = boardFixture({ tickets: [ticketFixture({ id: '005', status: 'pending' }), ticketFixture({ id: '005', status: 'delivered' })] });
+
+    expect(board.tickets().map((ticket) => board.ticketDisplayStateOf(ticket))).toEqual(['pending', 'delivered']);
   });
 });
 

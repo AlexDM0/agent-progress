@@ -250,9 +250,9 @@ effort and priority resolved to their defaults.
   `paused`, `note` being that row's note, whoever paused it.
 - `ticketRows`: `{ id, row, reviewBars }` for each ticket the document lists, in its order, so the
   working view covers only the unsettled tickets. `row` is `{ id, status, note }` of the row the
-  ticket's `task` names, or `null`. `reviewBars` are `{ id, status, round }` of the rows no ticket
-  owns whose `reviewOf` is the ticket, oldest filed first, `round` being the stored `reviewBarRound`
-  and absent where the bar stores none.
+  ticket's `task` names, or `null`. `reviewBars` are `{ id, status, round }` of the rows whose
+  `reviewOf` is the ticket, one another ticket owns included, as `inProgressReviewOfIds` reads them,
+  oldest filed first, `round` being the stored `reviewBarRound` and absent where the bar stores none.
 
 ### Tasks
 

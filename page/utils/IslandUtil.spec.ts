@@ -324,21 +324,23 @@ describe('pageBoardFrom', () => {
     expect(withoutRow?.reviewBars).toEqual([]);
   });
 
-  test('gives a ticket id listed twice in the facts its first entry', () => {
+  // The render writes one facts entry per ticket file, in the files' order, so two files a hand edit gave one id keep their own states.
+  test('gives each ticket sharing an id the facts entry in its turn, and one beyond them the first', () => {
     const boardFacts: PageBoardFacts = {
       ...FACTS_OF_OWN_ROW_AND_TWO_BARS,
       tickets: [
         {
           ticketId: '003', ownRowPosition: null, reviewBarPositions: [], displayState: 'pending'
         },
-        ...FACTS_OF_OWN_ROW_AND_TWO_BARS.tickets,
+        {
+          ticketId: '003', ownRowPosition: null, reviewBarPositions: [], displayState: 'delivered'
+        },
       ],
     };
 
-    const { tickets: [ticket] } = pageBoardFrom(OWN_ROW_AND_TWO_BARS, boardFacts, [exampleTicket('003')]);
+    const { tickets } = pageBoardFrom(OWN_ROW_AND_TWO_BARS, boardFacts, [exampleTicket('003'), exampleTicket('003'), exampleTicket('003')]);
 
-    expect(ticket?.displayState).toBe('pending');
-    expect(ticket?.ownRow).toBeNull();
+    expect(tickets.map((ticket) => ticket.displayState)).toEqual(['pending', 'delivered', 'pending']);
   });
 
   test('drops a ticket the facts do not name, like an unusable entry', () => {

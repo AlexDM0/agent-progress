@@ -31,11 +31,11 @@ function boardFactsOf(board: Board): PageBoardFacts {
     ownRowPositionOfReviewedTicket: ownRowPositionByBar.get(task) ?? null,
   }));
 
-  const tickets = board.tickets().map(({ frontmatter: { id: ticketId } }): PageTicketFacts => ({
-    ticketId,
-    ownRowPosition:     positionOf(board.ownRowOf(ticketId), rowPositions),
-    reviewBarPositions: board.reviewBarsOf(ticketId).flatMap((bar) => positionOf(bar, rowPositions) ?? []),
-    displayState:       board.ticketDisplayStateOf(ticketId),
+  const tickets = board.tickets().map((ticket): PageTicketFacts => ({
+    ticketId:           ticket.frontmatter.id,
+    ownRowPosition:     positionOf(board.ownRowOf(ticket.frontmatter.id), rowPositions),
+    reviewBarPositions: board.reviewBarsOf(ticket.frontmatter.id).flatMap((bar) => positionOf(bar, rowPositions) ?? []),
+    displayState:       board.ticketDisplayStateOf(ticket),
   }));
 
   return { rows, tickets };

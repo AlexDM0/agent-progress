@@ -40,7 +40,7 @@ function reviewBarEntryOf(bar: Readonly<Task>): ReviewBarEntry {
 }
 
 function ticketRowsEntryOf(board: Board, ticketId: string): TicketRowsEntry {
-  return { id: ticketId, row: ticketRowEntryOf(board.linkedRowOf(ticketId)), reviewBars: board.reviewBarsOf(ticketId).map(reviewBarEntryOf) };
+  return { id: ticketId, row: ticketRowEntryOf(board.linkedRowOf(ticketId)), reviewBars: board.reviewRowsOf(ticketId).map(reviewBarEntryOf) };
 }
 
 /** `ticketRows` covers the tickets listed, in their order, so the working view describes only the tickets it prints. */

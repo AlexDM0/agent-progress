@@ -165,18 +165,24 @@ describe('the ticket rows', () => {
     expect(entry?.reviewBars).toStrictEqual([{ id: 3, status: 'delivered' }, { id: 5, status: 'in-progress', round: 2 }]);
   });
 
-  // The ticket's own row is no review bar, yet it is a reviewer at work, as a claim and a move out of review read it.
-  test('leave a ticket-owned row storing reviewOf out of the bars, while it still keeps its ticket from waiting on a review', () => {
+  // A reviewer taking over a bar and a parking agent closing one read these, so they must count the rows a claim and a move out of review do.
+  test('list a row another ticket owns that stores reviewOf among the bars, as it keeps its ticket from waiting on a review', () => {
     const { board, tickets } = boardFixture({
-      tasks: [taskFixture({
-        id: 1, status: 'in-progress', ticket: '001', reviewOf: '001' 
-      })],
-      tickets: [ticketFixture({ id: '001', status: 'in-review', task: 1 })],
+      tasks: [
+        taskFixture({ id: 1, status: 'in-review', ticket: '001' }),
+        taskFixture({
+          id: 2, status: 'in-progress', ticket: '002', reviewOf: '001', reviewBarRound: 1
+        }),
+      ],
+      tickets: [ticketFixture({ id: '001', status: 'in-review', task: 1 }), ticketFixture({ id: '002', status: 'in-progress', task: 2 })],
     });
 
     const work = boardWorkOf(board, tickets);
 
-    expect(work.ticketRows).toEqual([{ id: '001', row: { id: 1, status: 'in-progress', note: '' }, reviewBars: [] }]);
+    expect(work.ticketRows).toEqual([
+      { id: '001', row: { id: 1, status: 'in-review', note: '' }, reviewBars: [{ id: 2, status: 'in-progress', round: 1 }] },
+      { id: '002', row: { id: 2, status: 'in-progress', note: '' }, reviewBars: [] },
+    ]);
     expect(work.reviewWaitingTickets).toEqual([]);
   });
 });

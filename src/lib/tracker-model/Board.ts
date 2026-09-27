@@ -564,6 +564,11 @@ export class Board {
     return [...new Set(this.progress.tasks.flatMap((task) => (task.status === 'in-progress' && task.reviewOf !== undefined ? [task.reviewOf] : [])))];
   }
 
+  /** Every row whose `reviewOf` is the ticket, a ticket-owned one included, as `inProgressReviewOfIds` reads them; oldest filed first. */
+  reviewRowsOf(ticketId: string): readonly Readonly<Task>[] {
+    return this.progress.tasks.filter((task) => task.reviewOf === ticketId).toSorted((a, b) => a.id - b.id);
+  }
+
   /** The in-review tickets no reviewer is at work on, held ones included: a caller reads the holds from `heldTicketIds`. */
   reviewWaitingTickets(): readonly Readonly<Ticket>[] {
     const ticketIdsUnderReview = this.inProgressReviewOfIds();
@@ -606,10 +611,10 @@ export class Board {
     return displayStateFor(task.status, this.ticketStatusOfRow(task));
   }
 
-  /** A ticket without a row shows what a row in its own status would. */
-  ticketDisplayStateOf(ticketId: string): DisplayState {
-    const { status } = this.requireTicket(ticketId).frontmatter;
-    return displayStateFor(this.ownRowOf(ticketId)?.status ?? status, status);
+  /** Read on the record handed in, like `rowDisplayStateOf`; a ticket without a row shows what a row in its own status would. */
+  ticketDisplayStateOf(ticket: Readonly<Ticket>): DisplayState {
+    const { id, status } = ticket.frontmatter;
+    return displayStateFor(this.ownRowOf(id)?.status ?? status, status);
   }
 
   deliveredRowCountsAsReviewed(task: Readonly<Task>): boolean {

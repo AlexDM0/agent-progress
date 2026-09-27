@@ -1,8 +1,9 @@
 /**
  * The Board's answers a dispatcher reads from `status --json` instead of working them out from the rows. What it relies on: the ids in
  * flight come once each in row order and only from in-progress rows; a review counts as in flight on any row storing `reviewOf`, as a
- * claim and the moves out of review count it; a review waits exactly while its ticket is in review with no reviewer at work, so a
- * delivered bar leaves it waiting again; and a ticket's linked row is the one its frontmatter `task` names, never the first row naming it.
+ * claim and the moves out of review count it, and a ticket's review rows are those same rows; a review waits exactly while its ticket is
+ * in review with no reviewer at work, so a delivered bar leaves it waiting again; and a ticket's linked row is the one its frontmatter
+ * `task` names, never the first row naming it.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -58,6 +59,28 @@ describe('the review-of ids in flight', () => {
     });
 
     expect(board.inProgressReviewOfIds()).toEqual([]);
+  });
+});
+
+describe('the rows reviewing a ticket', () => {
+  // A dispatcher's reviewer and parking agent read these, so they must match what counts as a review in flight.
+  test('are every row storing its reviewOf, a ticket-owned one and a delivered one included, oldest filed first', () => {
+    const { board } = boardFixture({
+      tasks: [
+        taskFixture({
+          id: 4, status: 'in-progress', reviewOf: '001', reviewBarRound: 2
+        }),
+        taskFixture({
+          id: 3, status: 'in-progress', ticket: '005', reviewOf: '001'
+        }),
+        taskFixture({
+          id: 1, status: 'delivered', reviewOf: '001', reviewBarRound: 1
+        }),
+        taskFixture({ id: 2, status: 'in-progress', reviewOf: '002' }),
+      ],
+    });
+
+    expect(board.reviewRowsOf('001').map((task) => task.id)).toEqual([1, 3, 4]);
   });
 });
 
@@ -145,6 +168,7 @@ test('none of these queries changes a record or marks a ticket changed', () => {
   board.inProgressTicketIds();
   board.inProgressReviewOfIds();
   board.reviewWaitingTickets();
+  board.reviewRowsOf('002');
   board.linkedRowOf('001');
 
   expect(fixture.progress).toEqual(progressAsRead);
