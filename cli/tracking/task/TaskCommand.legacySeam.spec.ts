@@ -1,8 +1,9 @@
 /**
  * The task command's seams to the retired verbs and status words, and to the review link a review-shaped name gives, seen from the current
  * side: every current verb reaches its own handler and every current status is taken by `task update --status`, so none is ever answered as
- * a retired word, and a row whose name is not review-shaped, or that is filed with `--ticket`, is stored with no review link. It imports
- * nothing from `cli/legacy/`, so it still holds once that folder and its seam lines are dropped.
+ * a retired word, a row whose name is not review-shaped, or that is filed with `--ticket`, is stored with no review link, and a link given
+ * by `--review-of` stays through a rename. It imports nothing from `cli/legacy/`, so it still holds once that folder and its seam lines are
+ * dropped.
  */
 import { readFileSync } from 'node:fs';
 import { join }         from 'node:path';
@@ -77,6 +78,16 @@ describe.skipIf(!gitIsAvailable())('the task command with current words only', (
       expect(task, task.name).not.toHaveProperty('reviewOf');
       expect(task, task.name).not.toHaveProperty('reviewBarRound');
     }
+  });
+
+  test('a link given by --review-of under a plain name stays through a rename to another ticket\'s review name', async () => {
+    await run(['ticket', 'add', 'Example work']);
+    await run(['task', 'add', 'Example review', '--review-of', '1']);
+    const reviewRowId = storedProgress().tasks.find((task) => task.name === 'Example review')?.id;
+
+    await run(['task', 'update', String(reviewRowId), '--name', 'Review 2 #2 — Other work']);
+
+    expect(storedProgress().tasks.find((task) => task.id === reviewRowId)).toMatchObject({ reviewOf: '001', reviewBarRound: 1 });
   });
 
   test('every current status is taken by task update --status and stored as written', async () => {

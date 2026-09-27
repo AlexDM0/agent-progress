@@ -17,6 +17,16 @@ const FILED_AT = '2026-09-18T09:30:00+02:00';
 
 const MOVED_AT = '2026-09-18T11:15:00+02:00';
 
+/** A free-standing row whose link is the one its name gives. */
+function rowLinkedByItsName(): ReturnType<typeof taskFixture> {
+  return taskFixture({
+    id:             1,
+    name:           'Review 1 #001 — Example review',
+    reviewOf:       '001',
+    reviewBarRound: 1,
+  });
+}
+
 function ticketOwnedRowFixture(status: 'pending' | 'in-progress' | 'paused' = 'in-progress'): BoardFixture {
   return boardFixture({
     tasks: [taskFixture({
@@ -274,6 +284,29 @@ describe('moveTask and correctTask', () => {
     const corrected = board.correctTask(1, { reviewOf: { ticketId: '001', round: 3 } }, { movesAnyway: false });
 
     expect(corrected).toMatchObject({ reviewOf: '002', reviewBarRound: 1 });
+  });
+
+  test('a correction\'s relink replaces the link a free-standing row already has', () => {
+    const { board } = boardFixture({ tasks: [rowLinkedByItsName()] });
+    const corrected = board.correctTask(1, { name: 'Review 2 #002 — Example review', relinkedReviewOf: { ticketId: '002', round: 2 } }, { movesAnyway: false });
+
+    expect(corrected).toMatchObject({ reviewOf: '002', reviewBarRound: 2 });
+  });
+
+  test('a correction\'s null relink drops both keys of a free-standing row\'s link', () => {
+    const { board } = boardFixture({ tasks: [rowLinkedByItsName()] });
+    const corrected = board.correctTask(1, { name: 'Example scratch notes', relinkedReviewOf: null }, { movesAnyway: false });
+
+    expect('reviewOf' in corrected).toBe(false);
+    expect('reviewBarRound' in corrected).toBe(false);
+  });
+
+  test('a correction\'s relink leaves a ticket\'s own row as it was, whether it relinks or drops', () => {
+    const { board } = ticketOwnedRowFixture();
+    expect(board.correctTask(4, { relinkedReviewOf: { ticketId: '002', round: 1 } }, { movesAnyway: false }).reviewOf).toBeUndefined();
+
+    const linkedOwnRow = boardFixture({ tasks: [{ ...rowLinkedByItsName(), id: 4, ticket: '001' }] });
+    expect(linkedOwnRow.board.correctTask(4, { relinkedReviewOf: null }, { movesAnyway: false })).toMatchObject({ reviewOf: '001', reviewBarRound: 1 });
   });
 
   test('a correction\'s review link leaves a ticket\'s own row unlinked', () => {

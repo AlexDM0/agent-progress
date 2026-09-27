@@ -1,6 +1,7 @@
 /**
  * Review rows filed without `--review-of`, by their `Review <N> #<id>` name alone: `task add` and `task update --name` store the link the
- * name gives, a release closes such a row among a bundle's bars, and the SubagentStop hook credits the later round. A row stored name-only
+ * name gives, a rename moves or drops a link the old name gave so the old ticket's approval leaves the row running, a release closes such a
+ * row among a bundle's bars, and the SubagentStop hook credits the later round. A row stored name-only
  * by a tracker `update` has not yet rewritten is still linked when read, so a release closes it and stores its link and the hook credits
  * it. It covers the older
  * habit `cli/legacy/`'s filing mapper answers and the older input `src/adapters/legacy/` links, and is deleted with them.
@@ -268,5 +269,47 @@ describe.skipIf(!gitIsAvailable())('task update renaming a free-standing row to 
 
     expect(printed).toMatchObject({ reviewOf: '001', reviewBarRound: 3 });
     expect(storedRow(plain.id)).toMatchObject({ name: 'Review 3 #001 — Renamed', reviewOf: '001', reviewBarRound: 3 });
+  });
+});
+
+describe.skipIf(!gitIsAvailable())('task update renaming a row its name linked', () => {
+  async function rowFiledByItsName(name: string): Promise<number> {
+    return (JSON.parse(await agentProgressOrFail(['task', 'add', name, '--start', '--json'])) as Task).id;
+  }
+
+  test('to another ticket\'s review name relinks it to that ticket and round', async () => {
+    const rowId = await rowFiledByItsName('Review 1 #001 — a');
+
+    await agentProgressOrFail(['task', 'update', String(rowId), '--name', 'Review 1 #002 — b']);
+
+    expect(storedRow(rowId)).toMatchObject({ name: 'Review 1 #002 — b', reviewOf: '002', reviewBarRound: 1 });
+  });
+
+  test('to a plain name drops both keys of its link', async () => {
+    const rowId = await rowFiledByItsName('Review 1 #001 — a');
+
+    await agentProgressOrFail(['task', 'update', String(rowId), '--name', 'Reviewer scratch notes']);
+
+    expect(storedRow(rowId)).not.toHaveProperty('reviewOf');
+    expect(storedRow(rowId)).not.toHaveProperty('reviewBarRound');
+  });
+
+  // The rename is what moves the rows off the approved ticket; without it the approval would close and deliver both.
+  test('leaves it running when the ticket its old name named is approved, and Next still counts it in flight', async () => {
+    for (const title of ['First example', 'Second example']) {
+      const added = JSON.parse(await agentProgressOrFail(['ticket', 'add', title, '--json'])) as { id: string };
+      await agentProgressOrFail(['ticket', 'start', added.id]);
+      await agentProgressOrFail(['ticket', 'finish', added.id]);
+    }
+    const relinkedRowId = await rowFiledByItsName('Review 1 #001 — a');
+    const unlinkedRowId = await rowFiledByItsName('Review 1 #001 — b');
+    await agentProgressOrFail(['task', 'update', String(relinkedRowId), '--name', 'Review 1 #002 — c']);
+    await agentProgressOrFail(['task', 'update', String(unlinkedRowId), '--name', 'Reviewer scratch notes']);
+
+    const approval = await agentProgressOrFail(['ticket', 'approve', '1']);
+
+    expect(storedRow(relinkedRowId)).toMatchObject({ status: 'in-progress', end: null, reviewOf: '002' });
+    expect(storedRow(unlinkedRowId)).toMatchObject({ status: 'in-progress', end: null });
+    expect(approval).toContain('Next: no slot free (2 agents in flight)');
   });
 });

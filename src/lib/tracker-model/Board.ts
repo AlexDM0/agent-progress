@@ -153,11 +153,23 @@ export class Board {
     return task;
   }
 
-  /** A correction moves no timestamp and files no phase, unlike `moveTask`; its `reviewOf` links only a free-standing row with no link yet. */
+  /**
+   * A correction moves no timestamp and files no phase, unlike `moveTask`. Its `reviewOf` links only a free-standing row with no link yet;
+   * its `relinkedReviewOf` replaces or drops the link a free-standing row's previous name gave, since a rename can change what it reviews.
+   */
   correctTask(taskId: number, correction: TaskCorrection, request: { movesAnyway: boolean }): Readonly<Task> {
     const task = this.requireTask(taskId);
     if (correction.status !== undefined) refuseATicketOwnedMove(task, correction.status, request.movesAnyway);
     if (correction.name !== undefined) task.name = correction.name;
+    if (correction.relinkedReviewOf !== undefined && task.ticket === null) {
+      if (correction.relinkedReviewOf === null) {
+        delete task.reviewOf;
+        delete task.reviewBarRound;
+      } else {
+        task.reviewOf       = correction.relinkedReviewOf.ticketId;
+        task.reviewBarRound = correction.relinkedReviewOf.round;
+      }
+    }
     if (correction.reviewOf !== undefined && task.ticket === null && task.reviewOf === undefined) {
       task.reviewOf       = correction.reviewOf.ticketId;
       task.reviewBarRound = correction.reviewOf.round;
