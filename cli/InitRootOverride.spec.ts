@@ -14,7 +14,7 @@ import {
   test
 }                                                              from 'bun:test';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
-import { runAgentProgress }                                                   from './testing/CliProcess.ts';
+import { MULTI_PROCESS_CASE_TIMEOUT_MILLISECONDS, runAgentProgress }          from './testing/CliProcess.ts';
 
 const scratchDirectories: string[] = [];
 
@@ -66,7 +66,7 @@ describe.skipIf(!gitIsAvailable())('init with AGENT_PROGRESS_ROOT set', () => {
     expect(result.standardError).toContain(untrackedDirectory);
     expect(trackerFilesHashOf(trackedDirectory)).toBe(hashBefore);
     expect(existsSync(progressFilePathOf(untrackedDirectory))).toBe(false);
-  });
+  }, MULTI_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
   test('an override naming the tracked repository itself refreshes it like update, at exit 0, with its progress file unchanged', async () => {
     const trackedDirectory = await trackedRepositoryWithARowAndALogLine();
@@ -80,7 +80,7 @@ describe.skipIf(!gitIsAvailable())('init with AGENT_PROGRESS_ROOT set', () => {
     expect(result.exitCode).toBe(0);
     expect(result.standardOutput).toContain('agent-progress is already initialised');
     expect(trackerFilesHashOf(trackedDirectory)).toBe(hashBefore);
-  });
+  }, MULTI_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
   test('with the override unset, init in a tracked repository still refreshes it at exit 0, its progress file unchanged', async () => {
     const trackedDirectory = await trackedRepositoryWithARowAndALogLine();
@@ -91,7 +91,7 @@ describe.skipIf(!gitIsAvailable())('init with AGENT_PROGRESS_ROOT set', () => {
     expect(result.exitCode).toBe(0);
     expect(result.standardOutput).toContain('agent-progress is already initialised');
     expect(trackerFilesHashOf(trackedDirectory)).toBe(hashBefore);
-  });
+  }, MULTI_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
   test('--root naming a different directory from the override is refused at exit 1, naming both, and writes nothing there', async () => {
     const trackedDirectory   = await trackedRepositoryWithARowAndALogLine();
@@ -109,7 +109,7 @@ describe.skipIf(!gitIsAvailable())('init with AGENT_PROGRESS_ROOT set', () => {
     expect(result.standardError).toContain(untrackedDirectory);
     expect(existsSync(join(untrackedDirectory, '.agent-progress'))).toBe(false);
     expect(trackerFilesHashOf(trackedDirectory)).toBe(hashBefore);
-  });
+  }, MULTI_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
   test('--root naming the directory the override names creates the tracker there at exit 0', async () => {
     const untrackedDirectory = scratchRepository('init-override-agreeing-root');
@@ -121,5 +121,5 @@ describe.skipIf(!gitIsAvailable())('init with AGENT_PROGRESS_ROOT set', () => {
 
     expect(result.exitCode).toBe(0);
     expect(existsSync(progressFilePathOf(untrackedDirectory))).toBe(true);
-  });
+  }, MULTI_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 });
