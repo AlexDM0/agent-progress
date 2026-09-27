@@ -80,8 +80,8 @@ dispatcher script. Another review round happens only when a pass reworked more t
 nothing stop the run as an outage instead of blaming the tickets.
 
 **Releases cannot collide.** `release` checks the ticket, fast-forwards main and closes the review bar in
-one lock hold. A branch that fell behind is told `main-moved`, rebases and tries again. On this board
-*done* means merged.
+one lock hold. A branch that fell behind is told `main-moved`, rebases and tries again. On this board a row's
+*done* pill means merged.
 
 **You see what every agent cost.** The `SubagentStop` hook that `init` installs adds everything an agent processed,
 cache reads included, to its row. `agent-progress usage` audits the same figures from the transcripts.
@@ -140,6 +140,12 @@ It is safe to re-run: a correct link is left alone, a stale one is replaced, and
 the way is reported and never deleted. `./setup.sh --instruct-only` declines every offer and reports the
 links it would make; it still runs `bun install` and `bun link`.
 
+**Updating.** A `git pull` in this checkout updates the CLI and both skills at once. Then run
+`agent-progress update` in every repository it tracks: it regenerates the dispatcher, the brief and the
+other files it installed, and records their install version in `.agent-progress/version.json`. Until it
+has run there, most commands in that repository refuse at exit 1 and say to run it; see
+[Install version](docs/cli.md#install-version).
+
 ### 2. Adopt a repository
 
 ```sh
@@ -153,7 +159,7 @@ agent-progress init --project "Example Storefront"
 
 `init` writes eight things:
 
-- **`.agent-progress/`**, the tracker: the state file, a `tickets/` folder, the dashboard and its lock.
+- **`.agent-progress/`**, the tracker: the state file, the log (`log.jsonl`), a `tickets/` folder, the dashboard and its lock.
 - **`.agent-progress/agent-brief.md`**, the brief every builder and reviewer works from.
 - **`.agent-progress/version.json`**, the install version of everything the tool installs.
 - **A `.gitignore` entry** for `.agent-progress/`, unless git already ignores it.
@@ -230,4 +236,5 @@ offers its official installer.
 - **[CLI reference](docs/cli.md)**: every command and flag, the exit codes, what `init` and `update` write,
   the dashboard in detail and the files on disk.
 - **[Developing agent-progress](docs/development.md)**: getting a checkout running, the checks every change
-  must pass, the repository layout, the guard specs and the decisions behind the design.
+  must pass, the repository layout, the test helpers and guard specs, the legacy folders and the decisions
+  behind the design.
