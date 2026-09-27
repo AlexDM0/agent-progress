@@ -14,6 +14,7 @@ export interface BoardTicket extends PageTicket {
   /** Oldest filed first. */
   reviewBars:   readonly BoardRow[];
   displayState: DisplayState;
+  waitingOn:    readonly string[];
 }
 
 export interface PageBoard {

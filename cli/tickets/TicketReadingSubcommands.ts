@@ -27,8 +27,6 @@ import { TicketOutputUtil }                 from './utils/TicketOutputUtil.ts';
 const LIST_OPTION_NAMES = ['status', 'priority', 'json'];
 const SHOW_OPTION_NAMES = ['json'];
 
-const TICKET_STATUSES_THAT_CLOSE_A_TICKET: readonly TicketStatus[] = ['reviewed', 'delivered', 'abandoned'];
-
 const LIST_COLUMN_WIDTHS_CHARACTERS = {
   identifier: 6,
   status:     12,
@@ -46,12 +44,8 @@ function statusByIdOf(tickets: readonly Ticket[]): Map<string, TicketStatus> {
   return new Map(tickets.map((candidate) => [candidate.frontmatter.id, candidate.frontmatter.status]));
 }
 
-function unsettledDependenciesFor(ticket: Ticket, tickets: readonly Ticket[]): string[] {
-  return TicketDependencyUtil.unsettledDependenciesOf(ticket.frontmatter.dependsOn ?? [], statusByIdOf(tickets));
-}
-
-function ticketIsStillOpen(ticket: Ticket): boolean {
-  return !TICKET_STATUSES_THAT_CLOSE_A_TICKET.includes(ticket.frontmatter.status);
+function waitingOnFor(ticket: Ticket, tickets: readonly Ticket[]): string[] {
+  return TicketDependencyUtil.waitingOnOf(ticket.frontmatter, statusByIdOf(tickets));
 }
 
 /** Only what the file names: a ticket left to the defaults prints nothing extra, so a listing of old tickets looks as it did. */
@@ -106,7 +100,7 @@ async function listAllTickets(commandArguments: ArgumentParser, context: Command
     'title',
   ].join('');
   const rows = shown.map((ticket) => {
-    const unsettled = unsettledDependenciesFor(ticket, listing.tickets);
+    const waitingOn = waitingOnFor(ticket, listing.tickets);
     return [
       OutputUtil.padColumn(`#${ticket.frontmatter.id}`, LIST_COLUMN_WIDTHS_CHARACTERS.identifier),
       OutputUtil.padColumn(StatusWordingUtil.statusWordFor(ticket.frontmatter.status), LIST_COLUMN_WIDTHS_CHARACTERS.status),
@@ -115,7 +109,7 @@ async function listAllTickets(commandArguments: ArgumentParser, context: Command
       OutputUtil.padColumn(ticket.frontmatter.task === null ? '-' : `#${ticket.frontmatter.task}`, LIST_COLUMN_WIDTHS_CHARACTERS.task),
       ticket.frontmatter.title,
       namedAgentText(ticket.frontmatter),
-      ticketIsStillOpen(ticket) && unsettled.length > 0 ? `  (${TicketPhraseUtil.waitingOnText(unsettled)})` : '',
+      waitingOn.length > 0 ? `  (${TicketPhraseUtil.waitingOnText(waitingOn)})` : '',
     ].join('');
   });
   OutputUtil.printEntity(commandArguments, context, shown.map(TicketJsonUtil.ticketDocumentOf), [header, ...rows].join('\n'));

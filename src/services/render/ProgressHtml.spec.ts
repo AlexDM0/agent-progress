@@ -193,6 +193,7 @@ describe('renderProgressHtml', () => {
         ownRowPosition:     0,
         reviewBarPositions: [],
         displayState:       'reviewing' as const,
+        waitingOnTicketIds: [],
       }],
     };
 

@@ -165,7 +165,7 @@ describe('pagePayloadFrom', () => {
   ])('refuses a row or ticket position that is %s', (_description, position) => {
     const rowFacts = { displayState: 'in-review', deliveredRowCountsAsReviewed: false, ownRowPositionOfReviewedTicket: position };
     const ticketFacts = {
-      ticketId: '003', ownRowPosition: null, reviewBarPositions: [position], displayState: 'in-review' 
+      ticketId: '003', ownRowPosition: null, reviewBarPositions: [position], displayState: 'in-review', waitingOnTicketIds: [] 
     };
     const ownRowFacts = { ...ticketFacts, ownRowPosition: position, reviewBarPositions: [] };
 
@@ -177,21 +177,23 @@ describe('pagePayloadFrom', () => {
   test('refuses a display state the page has no label for', () => {
     const rowFacts = { displayState: 'finished', deliveredRowCountsAsReviewed: false, ownRowPositionOfReviewedTicket: null };
     const ticketFacts = {
-      ticketId: '003', ownRowPosition: null, reviewBarPositions: [], displayState: 'toString' 
+      ticketId: '003', ownRowPosition: null, reviewBarPositions: [], displayState: 'toString', waitingOnTicketIds: [] 
     };
 
     expect(pagePayloadFrom(payloadWithBoardFacts({ rows: [rowFacts], tickets: [] }))).toBeNull();
     expect(pagePayloadFrom(payloadWithBoardFacts({ ...exampleBoardFacts(), tickets: [ticketFacts] }))).toBeNull();
   });
 
-  test('refuses a ticket fact without a text ticket id or without a list of review bar positions', () => {
+  test('refuses a ticket fact without a text ticket id, a list of review bar positions or a list of text ids it waits on', () => {
     const ticketFacts = {
-      ticketId: '003', ownRowPosition: 0, reviewBarPositions: [], displayState: 'in-progress' 
+      ticketId: '003', ownRowPosition: 0, reviewBarPositions: [], displayState: 'in-progress', waitingOnTicketIds: [] 
     };
 
     expect(pagePayloadFrom(payloadWithBoardFacts({ ...exampleBoardFacts(), tickets: [ticketFacts] }))).not.toBeNull();
     expect(pagePayloadFrom(payloadWithBoardFacts({ ...exampleBoardFacts(), tickets: [{ ...ticketFacts, ticketId: 3 }] }))).toBeNull();
     expect(pagePayloadFrom(payloadWithBoardFacts({ ...exampleBoardFacts(), tickets: [{ ...ticketFacts, reviewBarPositions: 0 }] }))).toBeNull();
+    expect(pagePayloadFrom(payloadWithBoardFacts({ ...exampleBoardFacts(), tickets: [{ ...ticketFacts, waitingOnTicketIds: '001' }] }))).toBeNull();
+    expect(pagePayloadFrom(payloadWithBoardFacts({ ...exampleBoardFacts(), tickets: [{ ...ticketFacts, waitingOnTicketIds: [1] }] }))).toBeNull();
   });
 
   test('accepts facts with a ticket, its own row and a review bar', () => {
@@ -207,7 +209,7 @@ describe('pagePayloadFrom', () => {
         { displayState: 'in-progress', deliveredRowCountsAsReviewed: false, ownRowPositionOfReviewedTicket: 0 },
       ],
       tickets: [{
-        ticketId: '003', ownRowPosition: 0, reviewBarPositions: [1], displayState: 'reviewing' 
+        ticketId: '003', ownRowPosition: 0, reviewBarPositions: [1], displayState: 'reviewing', waitingOnTicketIds: [] 
       }],
     };
 
@@ -281,10 +283,10 @@ const FACTS_OF_OWN_ROW_AND_TWO_BARS: PageBoardFacts = {
   ],
   tickets: [
     {
-      ticketId: '004', ownRowPosition: null, reviewBarPositions: [], displayState: 'pending'
+      ticketId: '004', ownRowPosition: null, reviewBarPositions: [], displayState: 'pending', waitingOnTicketIds: []
     },
     {
-      ticketId: '003', ownRowPosition: 0, reviewBarPositions: [1, 2], displayState: 'reviewing'
+      ticketId: '003', ownRowPosition: 0, reviewBarPositions: [1, 2], displayState: 'reviewing', waitingOnTicketIds: []
     },
   ],
 };
@@ -330,10 +332,10 @@ describe('pageBoardFrom', () => {
       ...FACTS_OF_OWN_ROW_AND_TWO_BARS,
       tickets: [
         {
-          ticketId: '003', ownRowPosition: null, reviewBarPositions: [], displayState: 'pending'
+          ticketId: '003', ownRowPosition: null, reviewBarPositions: [], displayState: 'pending', waitingOnTicketIds: []
         },
         {
-          ticketId: '003', ownRowPosition: null, reviewBarPositions: [], displayState: 'delivered'
+          ticketId: '003', ownRowPosition: null, reviewBarPositions: [], displayState: 'delivered', waitingOnTicketIds: []
         },
       ],
     };

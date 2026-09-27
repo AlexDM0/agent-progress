@@ -45,6 +45,8 @@ export interface PageTicketFacts {
   /** Oldest filed first. */
   reviewBarPositions: number[];
   displayState:       DisplayState;
+  /** Empty for a closed ticket and for one whose dependencies are all settled. */
+  waitingOnTicketIds: string[];
 }
 
 /** The Board's answers the progress island carries as its last key. */

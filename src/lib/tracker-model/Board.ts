@@ -534,6 +534,12 @@ export class Board {
     return TicketDependencyUtil.unsettledDependenciesOf(ticket.frontmatter.dependsOn ?? [], statusById);
   }
 
+  /** Judges the record handed in, so a ticket file a hand edit gave another's id answers for itself. */
+  waitingOnOf(ticket: Readonly<Ticket>): string[] {
+    const statusById = new Map(this.ticketRecords.map((candidate) => [candidate.frontmatter.id, candidate.frontmatter.status]));
+    return TicketDependencyUtil.waitingOnOf(ticket.frontmatter, statusById);
+  }
+
   /** The normal and high tickets a low ticket waits behind; empty for a ticket that is not low, and once none is owed. */
   ticketIdsHoldingBack(ticketId: string): string[] {
     const ticket = this.requireTicket(ticketId);

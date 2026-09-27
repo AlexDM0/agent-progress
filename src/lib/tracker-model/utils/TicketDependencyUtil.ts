@@ -1,7 +1,7 @@
 /** Which tickets another ticket still waits on, which are ready to claim, and whether a new dependency list would close a loop. */
-import type { TicketPriority, TicketStatus }                                 from '../@types/Ticket.ts';
-import { SETTLED_TICKET_STATUSES, TICKET_STATUSES_THAT_SETTLE_A_DEPENDENCY } from '../constants/Statuses.ts';
-import { TicketDefaultsUtil }                                                from './TicketDefaultsUtil.ts';
+import type { TicketPriority, TicketStatus }                                                                      from '../@types/Ticket.ts';
+import { SETTLED_TICKET_STATUSES, TICKET_STATUSES_THAT_CLOSE_A_TICKET, TICKET_STATUSES_THAT_SETTLE_A_DEPENDENCY } from '../constants/Statuses.ts';
+import { TicketDefaultsUtil }                                                                                     from './TicketDefaultsUtil.ts';
 
 /** A dependency that is missing from `statusById` still counts as unsettled: a ticket nobody can see is not finished work. */
 function unsettledDependenciesOf(dependsOn: readonly string[], statusById: ReadonlyMap<string, TicketStatus>): string[] {
@@ -9,6 +9,12 @@ function unsettledDependenciesOf(dependsOn: readonly string[], statusById: Reado
     const status = statusById.get(dependencyId);
     return status === undefined || !TICKET_STATUSES_THAT_SETTLE_A_DEPENDENCY.includes(status);
   });
+}
+
+/** Empty for a closed ticket, whose list is history: showing it as waiting would suggest work that is not coming. */
+function waitingOnOf(ticket: { status: TicketStatus; dependsOn?: readonly string[] }, statusById: ReadonlyMap<string, TicketStatus>): string[] {
+  if (TICKET_STATUSES_THAT_CLOSE_A_TICKET.includes(ticket.status)) return [];
+  return unsettledDependenciesOf(ticket.dependsOn ?? [], statusById);
 }
 
 /** The loop as a list of ids from `ticketId` back to itself, or `null` when giving `ticketId` this list closes none. */
@@ -66,6 +72,7 @@ function readyTicketIdsOf(tickets: readonly ReadinessTicket[]): string[] {
 
 export const TicketDependencyUtil = {
   unsettledDependenciesOf,
+  waitingOnOf,
   dependencyLoopFrom,
   ticketsHoldingBackLowPriorityWork,
   readyTicketIdsOf,

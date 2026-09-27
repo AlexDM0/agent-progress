@@ -4,6 +4,7 @@
  */
 
 import type { PagePayload, PageTicket }                from '../src/shared/@types/PagePayload.ts';
+import type { BoardTicket }                            from './@types/PageBoard.ts';
 import { KANBAN_BOARD_ELEMENT_ID, KANBAN_TAB_NAME }    from './constants/TemplateIds.ts';
 import { createDetailDialogController }                from './detail-dialog/DetailDialogController.ts';
 import { createKanbanController }                      from './kanban/KanbanController.ts';
@@ -16,7 +17,6 @@ import { DomUtil }                                     from './utils/DomUtil.ts'
 import { IslandUtil }                                  from './utils/IslandUtil.ts';
 import { TimeUtil }                                    from './utils/TimeUtil.ts';
 import { VisibilityUtil }                              from './utils/VisibilityUtil.ts';
-import { WaitingOnUtil }                               from './utils/WaitingOnUtil.ts';
 
 const PROGRESS_ISLAND_ELEMENT_ID = 'ap-progress-data';
 const TICKETS_ISLAND_ELEMENT_ID  = 'ap-tickets-data';
@@ -84,10 +84,14 @@ function clearPlaceholderContent(): void {
   }
 }
 
+function waitingOnByTicketIdOf(tickets: readonly BoardTicket[]): Map<string, readonly string[]> {
+  return new Map(tickets.flatMap((ticket) => (ticket.waitingOn.length === 0 ? [] : [[ticket.id, ticket.waitingOn] as const])));
+}
+
 function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   const { progress, limits } = payload;
   const board                = IslandUtil.pageBoardFrom(progress.tasks, payload.boardFacts, tickets);
-  const waitingOnById        = WaitingOnUtil.waitingOnByTicketId(board.tickets);
+  const waitingOnById        = waitingOnByTicketIdOf(board.tickets);
   const preferences          = createViewerPreferences(progress.trackerId, () => window.localStorage);
   const progressController   = createProgressController({
     payload,

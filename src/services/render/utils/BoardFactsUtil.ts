@@ -36,6 +36,7 @@ function boardFactsOf(board: Board): PageBoardFacts {
     ownRowPosition:     positionOf(board.ownRowOf(ticket.frontmatter.id), rowPositions),
     reviewBarPositions: board.reviewBarsOf(ticket.frontmatter.id).flatMap((bar) => positionOf(bar, rowPositions) ?? []),
     displayState:       board.ticketDisplayStateOf(ticket),
+    waitingOnTicketIds: board.waitingOnOf(ticket),
   }));
 
   return { rows, tickets };

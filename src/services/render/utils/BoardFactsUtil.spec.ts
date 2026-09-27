@@ -58,6 +58,7 @@ describe('boardFactsOf', () => {
       ownRowPosition:     2,
       reviewBarPositions: [1],
       displayState:       'reviewing',
+      waitingOnTicketIds: [],
     }]);
     expect(board.ownRowOf('003')).toBe(board.tasks()[2] ?? null);
     expect(rows[1]?.ownRowPositionOfReviewedTicket).toBe(2);
@@ -130,6 +131,7 @@ describe('boardFactsOf', () => {
       ownRowPosition:     null,
       reviewBarPositions: [],
       displayState:       'pending',
+      waitingOnTicketIds: [],
     }]);
   });
 
@@ -142,6 +144,21 @@ describe('boardFactsOf', () => {
     expect(rows.map((row) => row.displayState)).toEqual(board.tasks().map((task) => board.rowDisplayStateOf(task)));
     expect(rows.map((row) => row.ownRowPositionOfReviewedTicket)).toEqual([null]);
     expect(tickets).toEqual([]);
+  });
+
+  test('gives each ticket the Board’s answer for what it waits on, judged on its own record', () => {
+    const { board } = boardFixture({
+      tickets: [
+        ticketFixture({ id: '001', status: 'in-progress' }),
+        ticketFixture({ id: '002', dependsOn: ['001'] }),
+        ticketFixture({ id: '003', status: 'reviewed', dependsOn: ['001'] }),
+      ],
+    });
+
+    const { tickets } = BoardFactsUtil.boardFactsOf(board);
+
+    expect(tickets.map((ticket) => ticket.waitingOnTicketIds)).toEqual(board.tickets().map((ticket) => board.waitingOnOf(ticket)));
+    expect(tickets.map((ticket) => ticket.waitingOnTicketIds)).toEqual([[], ['001'], []]);
   });
 
   test('gives empty lists for an empty Board', () => {

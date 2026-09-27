@@ -55,6 +55,17 @@ test('a ticket waits on every dependency not yet reviewed or delivered, and on o
   expect(board.unsettledDependenciesOf('005')).toEqual([]);
 });
 
+test('a ticket waits on its unsettled dependencies only while it is still to be worked on', () => {
+  const { board } = boardFixture({
+    tickets: [
+      ticketFixture({ id: '001', status: 'in-review' }),
+      ticketFixture({ id: '002', dependsOn: ['001', '009'] }),
+      ticketFixture({ id: '003', status: 'abandoned', dependsOn: ['001'] }),
+    ],
+  });
+  expect(board.tickets().map((ticket) => board.waitingOnOf(ticket))).toEqual([[], ['001', '009'], []]);
+});
+
 test('a low ticket is held back by every normal or high ticket not yet delivered or abandoned, and any other ticket by none', () => {
   const { board } = boardFixture({
     tickets: [

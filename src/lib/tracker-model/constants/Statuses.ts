@@ -14,3 +14,6 @@ export const SETTLED_TICKET_STATUSES: readonly TicketStatus[] = ['delivered', 'a
 
 /** Abandoned is left out on purpose: the work a dependent ticket waited for never happened. */
 export const TICKET_STATUSES_THAT_SETTLE_A_DEPENDENCY: readonly TicketStatus[] = ['reviewed', 'delivered'];
+
+/** Nothing is built toward a ticket in one of these, so the dependencies it lists are history and it waits on none of them. */
+export const TICKET_STATUSES_THAT_CLOSE_A_TICKET: readonly TicketStatus[] = ['reviewed', 'delivered', 'abandoned'];

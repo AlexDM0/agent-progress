@@ -13,6 +13,7 @@ const {
   readyTicketIdsOf,
   ticketsHoldingBackLowPriorityWork,
   unsettledDependenciesOf,
+  waitingOnOf,
 } = TicketDependencyUtil;
 
 const STATUS_BY_ID = new Map<string, TicketStatus>([
@@ -33,6 +34,19 @@ test('an abandoned dependency still holds the ticket back', () => {
 
 test('a dependency on a ticket that cannot be found counts as unsettled', () => {
   expect(unsettledDependenciesOf(['009'], STATUS_BY_ID)).toEqual(['009']);
+});
+
+test('a ticket still to be worked on waits on the dependencies not yet reviewed or delivered', () => {
+  expect(waitingOnOf({ status: 'pending', dependsOn: ['001', '003'] }, STATUS_BY_ID)).toEqual(['003']);
+  expect(waitingOnOf({ status: 'in-progress', dependsOn: ['004'] }, STATUS_BY_ID)).toEqual(['004']);
+  expect(waitingOnOf({ status: 'pending' }, STATUS_BY_ID)).toEqual([]);
+});
+
+// A closed ticket's list is history; showing it as waiting would suggest work that is not coming.
+test('a reviewed, delivered or abandoned ticket waits on nothing, whatever its list holds', () => {
+  for (const status of ['reviewed', 'delivered', 'abandoned'] as const) {
+    expect(waitingOnOf({ status, dependsOn: ['003', '009'] }, STATUS_BY_ID), status).toEqual([]);
+  }
 });
 
 test('a list that closes no loop comes back null', () => {

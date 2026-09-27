@@ -3,14 +3,14 @@
  * ticket value passes `escapeHtml` exactly once here, except a ticket's `bodyHtml`, already escaped by `src/services/render/MarkdownRenderer.ts`.
  */
 
-import { HtmlLabelUtil }          from '../../src/adapters/utils/HtmlLabelUtil.ts';
-import { TicketDefaultsUtil }     from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
-import { HtmlEscapeUtil }         from '../../src/lib/utils/HtmlEscapeUtil.ts';
-import type { PageTicket }        from '../../src/shared/@types/PagePayload.ts';
-import { CLOSED_TICKET_STATUSES } from '../constants/TicketStatusGroups.ts';
-import { MarkupUtil }             from '../utils/MarkupUtil.ts';
-import type { TimestampSlices }   from '../utils/TimeUtil.ts';
-import { WorkItemMarkupUtil }     from '../utils/WorkItemMarkupUtil.ts';
+import { HtmlLabelUtil }                       from '../../src/adapters/utils/HtmlLabelUtil.ts';
+import { TICKET_STATUSES_THAT_CLOSE_A_TICKET } from '../../src/lib/tracker-model/constants/Statuses.ts';
+import { TicketDefaultsUtil }                  from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
+import { HtmlEscapeUtil }                      from '../../src/lib/utils/HtmlEscapeUtil.ts';
+import type { PageTicket }                     from '../../src/shared/@types/PagePayload.ts';
+import { MarkupUtil }                          from '../utils/MarkupUtil.ts';
+import type { TimestampSlices }                from '../utils/TimeUtil.ts';
+import { WorkItemMarkupUtil }                  from '../utils/WorkItemMarkupUtil.ts';
 
 
 /** The Tickets tab sets the quiet low badge one space off the title or status badge before it; the amber high mark carries its own margin. */
@@ -78,7 +78,7 @@ function ticketCardMarkup(ticket: PageTicket, waitingOn: readonly string[], slic
     WorkItemMarkupUtil.latestMilestoneMarkup(ticket, slices, todayCalendarDate),
   ].join('');
   const body  = `${ticketMetadataMarkup(ticket, slices, todayCalendarDate)}<div class="ap-ticket-body md">${ticket.bodyHtml}</div>`;
-  const inner = CLOSED_TICKET_STATUSES.includes(ticket.status)
+  const inner = TICKET_STATUSES_THAT_CLOSE_A_TICKET.includes(ticket.status)
     ? `<details><summary>${head}</summary>${body}</details>`
     : `<div class="ap-ticket-head">${head}</div>${body}`;
   return `<section class="ap-ticket" ${MarkupUtil.attribute('id', `ap-ticket-${ticket.id}`)}>${inner}</section>`;

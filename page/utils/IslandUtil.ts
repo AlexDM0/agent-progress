@@ -46,12 +46,14 @@ function ticketFactsAreValid(value: unknown, rowCount: number): boolean {
   if (!JsonValueUtil.valueIsRecord(value)) {
     return false;
   }
-  const { reviewBarPositions } = value;
+  const { reviewBarPositions, waitingOnTicketIds } = value;
   return typeof value['ticketId'] === 'string'
     && (value['ownRowPosition'] === null || rowPositionIsValid(value['ownRowPosition'], rowCount))
     && Array.isArray(reviewBarPositions)
     && reviewBarPositions.every((position) => rowPositionIsValid(position, rowCount))
-    && displayStateIsKnown(value['displayState']);
+    && displayStateIsKnown(value['displayState'])
+    && Array.isArray(waitingOnTicketIds)
+    && waitingOnTicketIds.every((ticketId) => typeof ticketId === 'string');
 }
 
 function boardFactsAreValid(value: unknown, rowCount: number): boolean {
@@ -153,6 +155,7 @@ function pageBoardFrom(tasks: readonly Task[], boardFacts: PageBoardFacts, ticke
       ownRow:       rowAt(rows, ticketFacts.ownRowPosition),
       reviewBars:   ticketFacts.reviewBarPositions.flatMap((position) => rows[position] ?? []),
       displayState: ticketFacts.displayState,
+      waitingOn:    ticketFacts.waitingOnTicketIds,
     }];
   });
 
