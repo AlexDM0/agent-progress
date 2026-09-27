@@ -22,9 +22,6 @@ export interface RunAgentProgressOptions {
 
 const ROOT_OVERRIDE_VARIABLE = 'AGENT_PROGRESS_ROOT';
 
-/** A case that spawns the binary several times one after another passes the five-second default on a busy machine. */
-export const MULTI_PROCESS_CASE_TIMEOUT_MILLISECONDS = 30_000;
-
 /** Built rather than inherited, because only `src/shared/Environment.ts` reads this process's environment. */
 function childEnvironmentOf(environment: Record<string, string>): Record<string, string> {
   const gitExecutable = Bun.which('git');

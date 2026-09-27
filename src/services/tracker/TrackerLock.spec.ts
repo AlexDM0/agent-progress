@@ -16,6 +16,7 @@ import { afterAll, expect, test } from 'bun:test';
 
 import { refusalIsOperationRefusal }                      from '../../shared/OperationRefusal.ts';
 import { LIMITS }                                         from '../../shared/constants/Limits.ts';
+import { CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS }        from '../../testing/ChildProcessCaseTimeout.ts';
 import { HELD_LOCK_CASE_TIMEOUT_MILLISECONDS }            from '../../testing/HeldLockCaseTimeout.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
 import { LockGenerationSteps, withLock }                  from './TrackerLock.ts';
@@ -141,7 +142,7 @@ test('a lock left behind by a process that no longer exists is taken over at onc
   expect(await withLock(workspace, () => 'taken over', realClock)).toBe('taken over');
   expect(Date.now() - startedAt, 'the takeover did not wait out the retry budget').toBeLessThan(LIMITS.LOCK_RETRY_COUNT * LIMITS.LOCK_RETRY_INTERVAL_MILLISECONDS);
   expect(newestRecordIn(workspace.lockDirectoryPath)).toMatchObject({ processId: process.pid, state: 'released' });
-});
+}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
 test('a lock older than the stale threshold is taken over even when its writer is alive', async () => {
   const workspace = scratchWorkspace('lock-old-holder');
@@ -238,7 +239,7 @@ test('while a waiter takes over a dead holder\'s lock, another acquiring at any 
     expect([intruderVerdict, takerAttempt.verdict].filter((verdict) => verdict === 'acquired').length, `holders with the intruder acquiring at ${intrusionStep}`).toBe(1);
   }
   expect([...stepsReached].sort(), 'every step boundary ran its intrusion').toEqual([...acquireSteps].sort());
-});
+}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
 // A slow acquirer can judge a generation that the holders after it have since removed, recreate it, and must then see the newer one.
 test('an acquirer that recreates a generation removed while it was judging finds the newer one and does not hold', () => {
@@ -282,7 +283,7 @@ test('a free record at the largest safe generation is never moved past, so at mo
   expect(verdicts.filter((verdict) => verdict === 'acquired').length, 'holders after two acquirers').toBeLessThanOrEqual(1);
   expect(verdicts).toEqual(['held', 'held']);
   expect(generationsIn(lockDirectoryPath)).toEqual([Number.MAX_SAFE_INTEGER]);
-});
+}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
 test('a holder at the largest safe generation releases nothing it could not list, and its record stays the newest', () => {
   const { lockDirectoryPath } = scratchWorkspace('lock-largest-generation-release');

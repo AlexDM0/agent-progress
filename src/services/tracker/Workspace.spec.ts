@@ -7,8 +7,9 @@ import { mkdirSync, realpathSync, rmSync } from 'node:fs';
 import { dirname, join }                   from 'node:path';
 import { afterAll, expect, test }          from 'bun:test';
 
-import { refusalIsOperationRefusal }  from '../../shared/OperationRefusal.ts';
-import { jsonPrintedByAChildProcess } from '../../testing/JsonPrintedByAChildProcess.ts';
+import { refusalIsOperationRefusal }               from '../../shared/OperationRefusal.ts';
+import { CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS } from '../../testing/ChildProcessCaseTimeout.ts';
+import { jsonPrintedByAChildProcess }              from '../../testing/JsonPrintedByAChildProcess.ts';
 import {
   addWorktree,
   createCanonicalScratchDirectory,
@@ -151,25 +152,25 @@ test('the child-process harness can tell a found tracker from none, so its silen
   const rootDirectory = writeMinimalTracker(scratchDirectory('workspace-harness'));
   expect(rootFoundByAChildProcess({}, rootDirectory)).toBe(rootDirectory);
   expect(rootFoundByAChildProcess({}, dirname(rootDirectory))).not.toBe(rootDirectory);
-});
+}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
 test('AGENT_PROGRESS_ROOT names the tracker outright, from a directory nowhere near it', () => {
   const rootDirectory = writeMinimalTracker(scratchDirectory('workspace-override'));
   const unrelatedDirectory = scratchDirectory('workspace-override-elsewhere');
   expect(rootFoundByAChildProcess({ AGENT_PROGRESS_ROOT: rootDirectory }, unrelatedDirectory)).toBe(rootDirectory);
-});
+}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
 test('the override wins over a tracker the walk would otherwise have found', () => {
   const overriddenRoot = writeMinimalTracker(scratchDirectory('workspace-override-wins'));
   const walkableRoot = writeMinimalTracker(scratchDirectory('workspace-override-loses'));
   expect(rootFoundByAChildProcess({ AGENT_PROGRESS_ROOT: overriddenRoot }, walkableRoot)).toBe(overriddenRoot);
-});
+}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
 test('an override naming a directory with no tracker finds nothing, instead of falling back to the walk', () => {
   const walkableRoot = writeMinimalTracker(scratchDirectory('workspace-override-missing'));
   const emptyDirectory = scratchDirectory('workspace-override-empty');
   expect(rootFoundByAChildProcess({ AGENT_PROGRESS_ROOT: emptyDirectory }, walkableRoot)).toBeNull();
-});
+}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
 test('the refusal under an override carries the override path as its only fact, and not the directory the command ran in', () => {
   const walkableRoot   = writeMinimalTracker(scratchDirectory('workspace-override-message-walkable'));
@@ -179,7 +180,7 @@ test('the refusal under an override carries the override path as its only fact, 
     status: 'refused',
     detail: { kind: 'no-tracker-at-override', overrideDirectory: emptyDirectory },
   });
-});
+}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
 test('the refusal without an override still carries the directory that was searched from', () => {
   const plainDirectory = scratchDirectory('workspace-no-override-message');
@@ -187,4 +188,4 @@ test('the refusal without an override still carries the directory that was searc
     status: 'refused',
     detail: { kind: 'no-tracker-found', searchedFrom: plainDirectory },
   });
-});
+}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);

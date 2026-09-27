@@ -11,13 +11,14 @@ import {
   expect,
   test
 }                                                              from 'bun:test';
+import { CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS } from '../src/testing/ChildProcessCaseTimeout.ts';
 import {
   createScratchDirectory,
   createScratchGitRepository,
   gitIsAvailable,
   removeScratchDirectory
 } from '../src/testing/ScratchWorkspace.ts';
-import { MULTI_PROCESS_CASE_TIMEOUT_MILLISECONDS, runAgentProgress } from './testing/CliProcess.ts';
+import { runAgentProgress } from './testing/CliProcess.ts';
 
 let scratchDirectory = '';
 
@@ -36,13 +37,13 @@ describe('the binary', () => {
     expect(result.standardOutput).toContain('Usage: agent-progress <command> [options]');
     expect(result.standardOutput).toContain('  ticket add "<title>"');
     expect(result.standardError).toBe('');
-  });
+  }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
   test('refuses a word that is not a command with exit 1', async () => {
     const result = await runAgentProgress(['nosuchcommand'], { currentDirectory: scratchDirectory });
     expect(result.exitCode).toBe(1);
     expect(result.standardError).toContain('Unknown command: "nosuchcommand".');
-  });
+  }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
   // The hazard that exits 0 when it is unguarded, which is the only thing a calling script reads.
   test('refuses an inherited property of the command table with exit 1', async () => {
@@ -50,7 +51,7 @@ describe('the binary', () => {
     expect(result.exitCode).toBe(1);
     expect(result.standardError).toContain('Unknown command: "constructor".');
     expect(result.standardError).not.toContain('TypeError');
-  });
+  }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 });
 
 /**
@@ -139,7 +140,7 @@ describe.skipIf(!gitIsAvailable())('a whole session through the binary', () => {
     } finally {
       removeScratchDirectory(repositoryDirectory);
     }
-  }, MULTI_PROCESS_CASE_TIMEOUT_MILLISECONDS);
+  }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 });
 
 // The orchestrator reads this hint from the command's printed output, so it is pinned where a process prints it, and so is its absence from the JSON.
@@ -172,7 +173,7 @@ describe.skipIf(!gitIsAvailable())('unholding a ticket whose build was left paus
     } finally {
       removeScratchDirectory(repositoryDirectory);
     }
-  }, MULTI_PROCESS_CASE_TIMEOUT_MILLISECONDS);
+  }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 });
 
 describe.skipIf(!gitIsAvailable())('a bare repository, through the binary', () => {
@@ -191,5 +192,5 @@ describe.skipIf(!gitIsAvailable())('a bare repository, through the binary', () =
     } finally {
       removeScratchDirectory(parentDirectory);
     }
-  });
+  }, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 });

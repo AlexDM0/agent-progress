@@ -6,8 +6,9 @@
 import { join }         from 'node:path';
 import { expect, test } from 'bun:test';
 
-import { jsonPrintedByAChildProcess } from '../testing/JsonPrintedByAChildProcess.ts';
-import { agentProgressRootOverride }  from './Environment.ts';
+import { CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS } from '../testing/ChildProcessCaseTimeout.ts';
+import { jsonPrintedByAChildProcess }              from '../testing/JsonPrintedByAChildProcess.ts';
+import { agentProgressRootOverride }               from './Environment.ts';
 
 const ENVIRONMENT_MODULE_PATH = join(import.meta.dir, 'Environment.ts');
 
@@ -25,26 +26,26 @@ function overrideSeenByAChildProcess(childEnvironment: Record<string, string>): 
 test('the child-process harness can tell the two answers apart, so a case that finds nothing means something', () => {
   expect(overrideSeenByAChildProcess({ AGENT_PROGRESS_ROOT: '/example/repository' })).toBe('/example/repository');
   expect(overrideSeenByAChildProcess({})).toBeNull();
-});
+}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
 test('a set variable is the override, verbatim', () => {
   expect(overrideSeenByAChildProcess({ AGENT_PROGRESS_ROOT: '/example/repository' })).toBe('/example/repository');
-});
+}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
 test('an unset variable is no override', () => {
   expect(overrideSeenByAChildProcess({})).toBeNull();
-});
+}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
 test('an empty or whitespace-only value reads as unset rather than as the empty root', () => {
   for (const clearedValue of ['', '   ', '\t']) {
     expect(overrideSeenByAChildProcess({ AGENT_PROGRESS_ROOT: clearedValue }), JSON.stringify(clearedValue)).toBeNull();
   }
-});
+}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
 test('a real path is handed back untouched, spaces and all', () => {
   const pathWithSpaces = '/Users/alex.example/development/example agency';
   expect(overrideSeenByAChildProcess({ AGENT_PROGRESS_ROOT: pathWithSpaces })).toBe(pathWithSpaces);
-});
+}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
 test('a value set after this module was imported is still seen, and so is clearing it again', () => {
   const previousValue = process.env[ROOT_OVERRIDE_VARIABLE];
