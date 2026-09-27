@@ -9,7 +9,6 @@ import {
   readdirSync,
   readFileSync,
   rmSync,
-  statSync,
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
@@ -20,29 +19,21 @@ import {
   expect,
   test,
 } from 'bun:test';
-import { createLogFileWriter }                            from '../../adapters/log/LogFileWriter.ts';
-import { createProgressFileWriter }                       from '../../adapters/progress/ProgressFileWriter.ts';
-import { createTicketFileWriter }                         from '../../adapters/tickets/TicketFileWriter.ts';
-import type { LogRecord }                                 from '../../lib/tracker-model/@types/LogRecord.ts';
-import type { ProgressFile }                              from '../../lib/tracker-model/@types/ProgressFile.ts';
-import { EmptyProgressUtil }                              from '../../lib/tracker-model/utils/EmptyProgressUtil.ts';
 import { OperationRefusal, refusalIsOperationRefusal }    from '../../shared/OperationRefusal.ts';
-import { ticketFixture }                                  from '../../testing/BoardFixtures.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
-import { createRenderState }                              from '../render/RenderState.ts';
-import { LockGenerationSteps }                            from './TrackerLock.ts';
-import { writeTracker, type TrackerChange }               from './TrackerPipeline.ts';
-import { workspacePathsFor, type Workspace }              from './Workspace.ts';
-
-const STARTED_AT = '2026-09-18T09:00:00+02:00';
+import {
+  BROKEN_LOG_TEXT,
+  EXAMPLE_TICKET_FILE_NAME,
+  failureOf,
+  storedFileContentsOf,
+  writeReadableTracker
+} from '../../testing/TrackerFileFixtures.ts';
+import { createRenderState }                 from '../render/RenderState.ts';
+import { LockGenerationSteps }               from './TrackerLock.ts';
+import { writeTracker, type TrackerChange }  from './TrackerPipeline.ts';
+import { workspacePathsFor, type Workspace } from './Workspace.ts';
 
 const CHANGED_AT = '2026-09-18T20:05:00+02:00';
-
-const NOTE_RECORD: LogRecord = { at: '2026-09-18T10:15:00+02:00', kind: 'note', fields: { text: 'Example session started' } };
-
-const BROKEN_LOG_TEXT = '{"at":"2026-09-18T20:05:00+02:00","kind":"note","fields":{"text":5}}\n';
-
-const TICKET_FILE_NAME = '001-example-checkout-page.md';
 
 const now = (): Date => new Date('2026-09-18T18:05:00Z');
 
@@ -50,29 +41,8 @@ const renderState = createRenderState();
 
 let workspace: Workspace;
 
-function emptyProgress(): ProgressFile {
-  return EmptyProgressUtil.emptyProgressFor({ project: 'Example Agency', startedAt: STARTED_AT, trackerId: 'example-tracker-id' });
-}
-
 function ticketFilePath(): string {
-  return join(workspace.ticketsDirectory, TICKET_FILE_NAME);
-}
-
-function writeReadableTracker(): void {
-  createProgressFileWriter(workspace.progressFilePath).write(emptyProgress());
-  createLogFileWriter(workspace.logFilePath).write([NOTE_RECORD]);
-  createTicketFileWriter().write({ ...ticketFixture({ title: 'Example checkout page' }), filePath: ticketFilePath() });
-}
-
-/** Every stored file but the lock's records, which every lock hold writes. */
-function storedFileContents(): Record<string, string> {
-  const contents: Record<string, string> = {};
-  for (const fileName of readdirSync(workspace.trackerDirectory, { recursive: true, encoding: 'utf8' })) {
-    const filePath = join(workspace.trackerDirectory, fileName);
-    if (filePath.startsWith(workspace.lockDirectoryPath) || statSync(filePath).isDirectory()) continue;
-    contents[fileName] = readFileSync(filePath, 'utf8');
-  }
-  return contents;
+  return join(workspace.ticketsDirectory, EXAMPLE_TICKET_FILE_NAME);
 }
 
 function newestLockRecord(): unknown {
@@ -83,15 +53,6 @@ function newestLockRecord(): unknown {
 
 function addExampleRow(change: TrackerChange, name = 'Example rendered row'): void {
   change.board.addTask({ name, startsNow: false, movesTheLink: false }, change.at);
-}
-
-async function failureOf(action: () => Promise<unknown>): Promise<unknown> {
-  try {
-    await action();
-  } catch (error) {
-    return error;
-  }
-  throw new Error('the action did not fail');
 }
 
 beforeEach(() => {
@@ -105,7 +66,7 @@ afterEach(() => {
 
 describe('writeTracker', () => {
   test('the mutation runs with the lock held', async () => {
-    writeReadableTracker();
+    writeReadableTracker(workspace);
 
     const written = await writeTracker({
       workspace,
@@ -119,7 +80,7 @@ describe('writeTracker', () => {
   });
 
   test('the returned Board carries the mutation, and the rendered page shows the row it added', async () => {
-    writeReadableTracker();
+    writeReadableTracker(workspace);
 
     const written = await writeTracker({
       workspace,
@@ -135,8 +96,8 @@ describe('writeTracker', () => {
   });
 
   test('a Board refusal arrives as a refused OperationRefusal carrying its detail, and every file stays byte for byte', async () => {
-    writeReadableTracker();
-    const filesBefore = storedFileContents();
+    writeReadableTracker(workspace);
+    const filesBefore = storedFileContentsOf(workspace);
 
     const failure = await failureOf(() => writeTracker({
       workspace,
@@ -155,12 +116,12 @@ describe('writeTracker', () => {
       kind:         'board-refusal',
       boardRefusal: { reason: 'ticket-already-held', ticketId: '001' },
     });
-    expect(storedFileContents()).toEqual(filesBefore);
+    expect(storedFileContentsOf(workspace)).toEqual(filesBefore);
   });
 
   test('any other throw arrives as it was thrown, and nothing is written', async () => {
-    writeReadableTracker();
-    const filesBefore   = storedFileContents();
+    writeReadableTracker(workspace);
+    const filesBefore   = storedFileContentsOf(workspace);
     const thrownFailure = new Error('the mutation failed');
 
     const failure = await failureOf(() => writeTracker({
@@ -175,12 +136,12 @@ describe('writeTracker', () => {
     }));
 
     expect(failure).toBe(thrownFailure);
-    expect(storedFileContents()).toEqual(filesBefore);
+    expect(storedFileContentsOf(workspace)).toEqual(filesBefore);
     expect(existsSync(workspace.htmlFilePath)).toBe(false);
   });
 
   test('an OperationRefusal thrown by the mutation arrives as it was thrown, with its own status', async () => {
-    writeReadableTracker();
+    writeReadableTracker(workspace);
     const thrownRefusal = new OperationRefusal('refused', 'Example refusal from the mutation.');
 
     const failure = await failureOf(() => writeTracker({
@@ -195,7 +156,7 @@ describe('writeTracker', () => {
   });
 
   test('an unreadable tracker is refused as unrepaired, and the mutation is never called', async () => {
-    writeReadableTracker();
+    writeReadableTracker(workspace);
     writeFileSync(workspace.logFilePath, BROKEN_LOG_TEXT);
     let mutationWasCalled = false;
 
@@ -213,7 +174,7 @@ describe('writeTracker', () => {
   });
 
   test('a ticket write that fails does so after progress.json is written and before log.jsonl', async () => {
-    writeReadableTracker();
+    writeReadableTracker(workspace);
     const logBefore = readFileSync(workspace.logFilePath, 'utf8');
 
     const failure = await failureOf(() => writeTracker({
@@ -229,13 +190,13 @@ describe('writeTracker', () => {
       },
     }));
 
-    expect(String(failure), 'the ticket write is what failed').toContain(`/${TICKET_FILE_NAME}'`);
+    expect(String(failure), 'the ticket write is what failed').toContain(`/${EXAMPLE_TICKET_FILE_NAME}'`);
     expect(readFileSync(workspace.progressFilePath, 'utf8')).toContain('Example rendered row');
     expect(readFileSync(workspace.logFilePath, 'utf8')).toBe(logBefore);
   });
 
   test('the ticket files are deleted after progress.json is written, and the callback is handed their count', async () => {
-    writeReadableTracker();
+    writeReadableTracker(workspace);
     writeFileSync(join(workspace.ticketsDirectory, '002-broken-by-hand.md'), 'no frontmatter here\n');
     const observedDeletions: { deletedTicketCount: number; progressAtDeletion: string }[] = [];
 
@@ -258,7 +219,7 @@ describe('writeTracker', () => {
   });
 
   test('the stored log entry count is the count read before the mutation logged anything', async () => {
-    writeReadableTracker();
+    writeReadableTracker(workspace);
 
     const written = await writeTracker({
       workspace,

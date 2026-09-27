@@ -202,7 +202,7 @@ import a devDependency.
 
 | helper | use |
 |---|---|
-| `src/testing/ScratchWorkspace.ts` | Scratch directories, git repositories and worktrees under the OS temp directory. |
+| `src/testing/ScratchWorkspace.ts` | Scratch directories, git repositories and worktrees under the OS temp directory, and the least a tracker needs for discovery to find it. |
 | `cli/testing/CapturedCommandContext.ts` | A command context whose two output streams are arrays, so a spec drives `runCommandLine` in-process and reads back what a user would have seen. |
 | `cli/testing/CliProcess.ts` | The one sanctioned way to spawn the real binary. |
 | `cli/testing/RepositoryFileContents.ts` | Every file of a scratch repository outside `.git/`, so a spec shows a refused command wrote nothing. |
@@ -210,6 +210,8 @@ import a devDependency.
 | `cli/testing/StoredLogText.ts` | The tracker's `log.jsonl` exactly as stored, so a command spec checks that a refused command left the log byte-identical. |
 | `src/testing/TrackerIsolation.ts` | The guard that keeps a spec away from any tracker it did not create. |
 | `src/testing/BoardFixtures.ts` | A `Board` over synthetic records (`boardFixture`, `taskFixture`, `ticketFixture`) whose logger keeps every record in a list, so the Board specs assert reason codes, records and changed tickets. |
+| `src/testing/TrackerFileFixtures.ts` | A readable tracker written through the store's own writers, a broken log line, every stored file's contents and a failed action's throw, for the tracker service specs. |
+| `src/testing/ChildProcessEvaluation.ts` | Runs a few lines in a child Bun process with its own environment and reads back the JSON they print, for the specs that must set an environment variable. |
 | `src/testing/ProgressFixtures.ts` | A new tracker's progress and a row filed the way the Board files one, for the adapter and service specs that read or write `progress.json`. |
 | `src/adapters/progress/testing/ProgressFileFixtures.ts` | The tracker as the current `progress.json` format stores it, for the `progress.json` adapter specs. |
 | `src/adapters/legacy/testing/LegacyProgressFileFixtures.ts` | The older progress documents the legacy specs read: a version 1 file with its own log, and one in the retired task words. It goes with `src/adapters/legacy/`. |

@@ -121,17 +121,17 @@ export function readTicket(workspace: Workspace, reference: string): Ticket | nu
  */
 export function nextTicketId(workspace: Workspace): string {
   let highest = 0;
-  const spend = (identifier: string | null): void => {
+  const markIdentifierSpent = (identifier: string | null): void => {
     if (identifier !== null) highest = Math.max(highest, Number(identifier));
   };
 
   for (const fileName of ticketFileNamesIn(workspace)) {
-    spend(identifierInFileName(fileName));
+    markIdentifierSpent(identifierInFileName(fileName));
     const reading = new TicketFileIngestion(join(workspace.ticketsDirectory, fileName)).read();
-    if (reading.verdict === 'parsed') spend(reading.ticket.frontmatter.id);
+    if (reading.verdict === 'parsed') markIdentifierSpent(reading.ticket.frontmatter.id);
   }
   for (const identifier of ticketIdsNamedByTaskRows(workspace)) {
-    spend(identifier);
+    markIdentifierSpent(identifier);
   }
   return TicketIdUtil.padTicketId(highest + 1);
 }
@@ -160,13 +160,13 @@ export function createTicket(workspace: Workspace, input: CreateTicketInput): Ti
 }
 
 export function deleteAllTickets(workspace: Workspace): number {
-  let removed = 0;
+  let removedTicketCount = 0;
 
   for (const fileName of ticketFileNamesIn(workspace)) {
     unlinkSync(join(workspace.ticketsDirectory, fileName));
-    removed++;
+    removedTicketCount++;
   }
-  return removed;
+  return removedTicketCount;
 }
 
 interface ParsedTicketFile {

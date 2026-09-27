@@ -14,7 +14,7 @@ import {
 import { createLogFileWriter }                            from '../../adapters/log/LogFileWriter.ts';
 import { createProgressFileWriter }                       from '../../adapters/progress/ProgressFileWriter.ts';
 import type { LogRecord }                                 from '../../lib/tracker-model/@types/LogRecord.ts';
-import { EmptyProgressUtil }                              from '../../lib/tracker-model/utils/EmptyProgressUtil.ts';
+import { emptyProgress }                                  from '../../testing/ProgressFixtures.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
 import { readTracker, type TrackerReading }               from './TrackerReader.ts';
 import { workspacePathsFor, type Workspace }              from './Workspace.ts';
@@ -31,8 +31,7 @@ const FINISHED_RECORD: LogRecord = {
 let workspace: Workspace;
 
 function writeVersionTwoProgressFile(): void {
-  createProgressFileWriter(workspace.progressFilePath)
-    .write(EmptyProgressUtil.emptyProgressFor({ project: 'Example Agency', startedAt: '2026-09-18T09:00:00+02:00', trackerId: 'example-tracker-id' }));
+  createProgressFileWriter(workspace.progressFilePath).write(emptyProgress());
 }
 
 function storedLogOrVerdictOf(reading: TrackerReading): unknown {

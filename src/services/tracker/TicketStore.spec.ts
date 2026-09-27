@@ -6,13 +6,11 @@
 import {
   copyFileSync,
   mkdirSync,
-  mkdtempSync,
   renameSync,
   rmSync,
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { tmpdir }         from 'node:os';
 import { basename, join } from 'node:path';
 import {
   afterEach,
@@ -20,11 +18,12 @@ import {
   expect,
   test,
 } from 'bun:test';
-import { createProgressFileWriter } from '../../adapters/progress/ProgressFileWriter.ts';
-import { createTicketFileWriter }   from '../../adapters/tickets/TicketFileWriter.ts';
-import type { Ticket, TicketType }  from '../../lib/tracker-model/@types/Ticket.ts';
-import { EmptyProgressUtil }        from '../../lib/tracker-model/utils/EmptyProgressUtil.ts';
-import { TaskFilingUtil }           from '../../lib/tracker-model/utils/TaskFilingUtil.ts';
+import { createProgressFileWriter }                       from '../../adapters/progress/ProgressFileWriter.ts';
+import { createTicketFileWriter }                         from '../../adapters/tickets/TicketFileWriter.ts';
+import type { Ticket, TicketType }                        from '../../lib/tracker-model/@types/Ticket.ts';
+import { TaskFilingUtil }                                 from '../../lib/tracker-model/utils/TaskFilingUtil.ts';
+import { emptyProgress }                                  from '../../testing/ProgressFixtures.ts';
+import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
 import {
   createTicket,
   deleteAllTickets,
@@ -32,8 +31,7 @@ import {
   nextTicketId,
   readTicket,
 } from './TicketStore.ts';
-import type { Workspace } from './Workspace.ts';
-import { TRACKER_FILES }  from './constants/TrackerFiles.ts';
+import { workspacePathsFor, type Workspace } from './Workspace.ts';
 
 const FILED_AT    = '2026-09-18T09:00:00+02:00';
 const TICKET_BODY = '# Example\n\n## Report\n\nReported by Alex Example.\n';
@@ -41,22 +39,10 @@ const TICKET_BODY = '# Example\n\n## Report\n\nReported by Alex Example.\n';
 const scratchRootDirectories: string[] = [];
 
 function scratchWorkspace(): Workspace {
-  const rootDirectory    = mkdtempSync(join(tmpdir(), 'agent-progress-tickets-'));
-  const trackerDirectory = join(rootDirectory, TRACKER_FILES.TRACKER_DIRECTORY_NAME);
-  const ticketsDirectory = join(trackerDirectory, TRACKER_FILES.TICKETS_DIRECTORY_NAME);
-
-  mkdirSync(ticketsDirectory, { recursive: true });
-  scratchRootDirectories.push(rootDirectory);
-
-  return {
-    rootDirectory,
-    trackerDirectory,
-    ticketsDirectory,
-    progressFilePath:  join(trackerDirectory, TRACKER_FILES.PROGRESS_FILE_NAME),
-    logFilePath:       join(trackerDirectory, TRACKER_FILES.LOG_FILE_NAME),
-    htmlFilePath:      join(trackerDirectory, TRACKER_FILES.HTML_FILE_NAME),
-    lockDirectoryPath: join(trackerDirectory, TRACKER_FILES.LOCK_DIRECTORY_NAME),
-  };
+  const workspace = workspacePathsFor(createScratchDirectory('tickets'));
+  mkdirSync(workspace.ticketsDirectory, { recursive: true });
+  scratchRootDirectories.push(workspace.rootDirectory);
+  return workspace;
 }
 
 function fileTicket(workspace: Workspace, title: string, type: TicketType): Ticket {
@@ -71,9 +57,7 @@ function fileTicket(workspace: Workspace, title: string, type: TicketType): Tick
 }
 
 afterEach(() => {
-  for (const rootDirectory of scratchRootDirectories) {
-    rmSync(rootDirectory, { recursive: true, force: true });
-  }
+  for (const rootDirectory of scratchRootDirectories) removeScratchDirectory(rootDirectory);
   scratchRootDirectories.length = 0;
 });
 
@@ -274,7 +258,7 @@ describe('a ticket file renamed by hand', () => {
   test('an id a task row names spends its number although no ticket file holds it', () => {
     const workspace = scratchWorkspace();
     fileTicket(workspace, 'Fix the export dialog', 'bug');
-    const progress = EmptyProgressUtil.emptyProgressFor({ project: 'Example Agency', startedAt: FILED_AT, trackerId: 'example-tracker-id' });
+    const progress = emptyProgress();
     createProgressFileWriter(workspace.progressFilePath).write({
       ...progress,
       nextTaskId: 4,

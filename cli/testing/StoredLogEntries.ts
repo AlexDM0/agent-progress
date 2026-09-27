@@ -1,14 +1,11 @@
 /** The tracker's log.jsonl as people read it, each record worded through LogUtil, for a command spec to check what a command logged. */
-import { join } from 'node:path';
-
 import { LogFileIngestion }    from '../../src/adapters/log/LogFileIngestion.ts';
 import { LogUtil }             from '../../src/adapters/utils/LogUtil.ts';
-import { TRACKER_FILES }       from '../../src/services/tracker/constants/TrackerFiles.ts';
+import { workspacePathsFor }   from '../../src/services/tracker/Workspace.ts';
 import type { WordedLogEntry } from '../../src/shared/@types/WordedLogEntry.ts';
 
 export function storedLogEntriesOf(repositoryDirectory: string): WordedLogEntry[] {
-  const logFilePath = join(repositoryDirectory, TRACKER_FILES.TRACKER_DIRECTORY_NAME, TRACKER_FILES.LOG_FILE_NAME);
-  const reading     = new LogFileIngestion(logFilePath).read();
+  const reading = new LogFileIngestion(workspacePathsFor(repositoryDirectory).logFilePath).read();
   if (reading.verdict === 'absent') return [];
   if (reading.verdict === 'unreadable') throw new Error(`the stored log cannot be read: ${reading.reason}`);
   return reading.records.map(LogUtil.wordedEntryOf);

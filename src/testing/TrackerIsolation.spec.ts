@@ -4,17 +4,22 @@
  * `AGENT_PROGRESS_ROOT` naming one — the last in a child process, since only `src/shared/Environment.spec.ts` assigns the environment in-process.
  * The two helpers every spec drives a command through are pinned in their own specs under `cli/testing/`.
  */
-import { mkdirSync, realpathSync, writeFileSync } from 'node:fs';
-import { join }                                   from 'node:path';
+import { mkdirSync } from 'node:fs';
+import { join }      from 'node:path';
 import {
   afterAll,
   describe,
   expect,
   test
-}                                                 from 'bun:test';
+}                    from 'bun:test';
 
-import { workspacePathsFor }                                   from '../services/tracker/Workspace.ts';
-import { createScratchDirectory, removeScratchDirectory }      from './ScratchWorkspace.ts';
+import { jsonPrintedByAChildProcess } from './ChildProcessEvaluation.ts';
+import {
+  createCanonicalScratchDirectory,
+  createScratchDirectory,
+  removeScratchDirectory,
+  writeMinimalTracker
+} from './ScratchWorkspace.ts';
 import { requireTrackerIsolation, trackerIsolationVerdictFor } from './TrackerIsolation.ts';
 
 const TRACKER_ISOLATION_MODULE_PATH = join(import.meta.dir, 'TrackerIsolation.ts');
@@ -26,21 +31,14 @@ afterAll(() => {
 });
 
 function scratchDirectory(prefix: string): string {
-  const directory = realpathSync(createScratchDirectory(prefix));
+  const directory = createCanonicalScratchDirectory(prefix);
   scratchDirectories.push(directory);
   return directory;
 }
 
-function trackerAt(rootDirectory: string): string {
-  const { progressFilePath, trackerDirectory } = workspacePathsFor(rootDirectory);
-  mkdirSync(trackerDirectory, { recursive: true });
-  writeFileSync(progressFilePath, '{"version":1}');
-  return rootDirectory;
-}
-
 /** A tracker at the top of a scratch directory, and a narrower scratch root below it, so the tracker is outside the root the guard is given. */
 function trackerAboveANarrowerScratchRoot(): { narrowerScratchRoot: string; startDirectory: string } {
-  const outerDirectory = trackerAt(scratchDirectory('isolation-outer'));
+  const outerDirectory = writeMinimalTracker(scratchDirectory('isolation-outer'));
   const narrowerScratchRoot = join(outerDirectory, 'narrower-scratch-root');
   const startDirectory = join(narrowerScratchRoot, 'spec-working-directory');
   mkdirSync(startDirectory, { recursive: true });
@@ -52,18 +50,12 @@ function verdictFromAChildProcess(childEnvironment: Record<string, string>, star
     `const loaded = await import(${JSON.stringify(TRACKER_ISOLATION_MODULE_PATH)});`,
     `console.log(JSON.stringify(loaded.trackerIsolationVerdictFor(${JSON.stringify(startDirectory)})));`,
   ].join('\n');
-  const finished = Bun.spawnSync([process.execPath, '-e', source], {
-    env:    childEnvironment,
-    stdout: 'pipe',
-    stderr: 'pipe',
-  });
-  if (finished.exitCode !== 0) throw new Error(`the child process failed: ${finished.stderr.toString().trim()}`);
-  return JSON.parse(finished.stdout.toString().trim()) as string;
+  return jsonPrintedByAChildProcess(childEnvironment, source) as string;
 }
 
 describe('the verdict on one directory', () => {
   test('a scratch directory holding its own tracker is isolated', () => {
-    const trackedScratchDirectory = trackerAt(scratchDirectory('isolation-own'));
+    const trackedScratchDirectory = writeMinimalTracker(scratchDirectory('isolation-own'));
     expect(trackerIsolationVerdictFor(trackedScratchDirectory)).toBe('isolated');
     expect(trackerIsolationVerdictFor(join(trackedScratchDirectory, 'not-created-yet'))).toBe('isolated');
   });
@@ -75,7 +67,7 @@ describe('the verdict on one directory', () => {
     expect(trackerIsolationVerdictFor(join(uncanonicalScratchDirectory, 'not-created-yet', 'nested'))).toBe('isolated');
   });
 
-  // The shape that leaked: a context defaulting to the test runner's directory, which is the repository itself.
+  // A context defaulting to the test runner's directory would be the repository itself, holding a live tracker.
   test('the repository under test is outside the scratch root, whether or not it holds a tracker', () => {
     expect(trackerIsolationVerdictFor(REPOSITORY_DIRECTORY)).toBe('directory-outside-the-scratch-root');
   });
@@ -96,7 +88,7 @@ describe('the verdict on one directory', () => {
     const childScratchRoot = scratchDirectory('isolation-child-root');
     const startDirectory = join(childScratchRoot, 'spec-working-directory');
     mkdirSync(startDirectory);
-    const namedTrackerRoot = trackerAt(scratchDirectory('isolation-override'));
+    const namedTrackerRoot = writeMinimalTracker(scratchDirectory('isolation-override'));
     expect(verdictFromAChildProcess({ TMPDIR: childScratchRoot }, startDirectory)).toBe('isolated');
     expect(verdictFromAChildProcess({ TMPDIR: childScratchRoot, AGENT_PROGRESS_ROOT: namedTrackerRoot }, startDirectory))
       .toBe('resolves-a-tracker-outside-the-scratch-root');

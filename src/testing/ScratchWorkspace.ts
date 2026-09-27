@@ -3,9 +3,17 @@
  * changed working directory would be a cross-test dependency invisible from either file. Test-only: nothing that ships may import
  * `src/testing/`.
  */
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir }                             from 'node:os';
-import { join }                               from 'node:path';
+import {
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join }   from 'node:path';
+
+import { workspacePathsFor } from '../services/tracker/Workspace.ts';
 
 const SCRATCH_COMMIT_AUTHOR_NAME  = 'Alex Example';
 const SCRATCH_COMMIT_AUTHOR_EMAIL = 'alex.example@example.com';
@@ -26,6 +34,19 @@ export function gitIsAvailable(): boolean {
 
 export function createScratchDirectory(prefix: string): string {
   return mkdtempSync(join(tmpdir(), `agent-progress-${prefix}-`));
+}
+
+/** Resolved through symlinks (`/private/var` rather than `/var` on macOS), so it compares equal to a path discovery found. */
+export function createCanonicalScratchDirectory(prefix: string): string {
+  return realpathSync(createScratchDirectory(prefix));
+}
+
+/** Just enough of a tracker for discovery to find one at this root: its directory and a progress file. */
+export function writeMinimalTracker(rootDirectory: string): string {
+  const { progressFilePath, trackerDirectory } = workspacePathsFor(rootDirectory);
+  mkdirSync(trackerDirectory, { recursive: true });
+  writeFileSync(progressFilePath, '{"version":1}');
+  return rootDirectory;
 }
 
 /** The empty commit is not decoration: `git worktree add` refuses a repository with no commits. */

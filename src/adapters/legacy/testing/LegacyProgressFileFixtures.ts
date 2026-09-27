@@ -1,9 +1,13 @@
 /**
- * Builds the older progress documents the legacy specs read: a version 1 file with its own log, and one in the retired task words.
+ * Builds, or writes to disk, the older progress documents the legacy specs read: a version 1 file with its own log, and one in the retired task words.
  * Test-only, and it goes when `src/adapters/legacy/` goes.
  */
+import { readFileSync, writeFileSync } from 'node:fs';
+
 import type { ProgressFile }                                 from '../../../lib/tracker-model/@types/ProgressFile.ts';
+import { LIMITS }                                            from '../../../shared/constants/Limits.ts';
 import { emptyProgress, fileRow }                            from '../../../testing/ProgressFixtures.ts';
+import { createProgressFileWriter }                          from '../../progress/ProgressFileWriter.ts';
 import type { StoredLogEntry, StoredProgressFileVersionOne } from '../@types/StoredProgressFileVersionOne.ts';
 
 const FILED_AT    = '2026-09-18T20:11:03+02:00';
@@ -35,4 +39,11 @@ export function documentInRetiredWords(): StoredProgressFileVersionOne {
       },
     ],
   };
+}
+
+/** An empty tracker's progress file stored as version 1 with this log; the writer only writes version 2, so the version is set by hand. */
+export function writeVersionOneProgressFile(progressFilePath: string, log: StoredLogEntry[]): void {
+  createProgressFileWriter(progressFilePath).write(emptyProgress());
+  const stored = JSON.parse(readFileSync(progressFilePath, 'utf8')) as Record<string, unknown>;
+  writeFileSync(progressFilePath, `${JSON.stringify({ ...stored, version: 1, log }, null, LIMITS.JSON_INDENT_SPACES)}\n`);
 }

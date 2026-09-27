@@ -2,17 +2,16 @@
  * The captured context must refuse before a command runs, both on the directory it is given and on the `cwd` of a piped hook input, or a
  * refusal would be swallowed into an exit code.
  */
-import { realpathSync } from 'node:fs';
-import { join }         from 'node:path';
+import { join } from 'node:path';
 import {
   afterAll,
   describe,
   expect,
   test
-}                       from 'bun:test';
+}                 from 'bun:test';
 
-import { createScratchDirectory, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
-import { createCapturedCommandContext }                   from './CapturedCommandContext.ts';
+import { createCanonicalScratchDirectory, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
+import { createCapturedCommandContext }                            from './CapturedCommandContext.ts';
 
 const REPOSITORY_DIRECTORY = join(import.meta.dir, '..', '..');
 const scratchDirectories: string[] = [];
@@ -22,7 +21,7 @@ afterAll(() => {
 });
 
 function scratchDirectory(prefix: string): string {
-  const directory = realpathSync(createScratchDirectory(prefix));
+  const directory = createCanonicalScratchDirectory(prefix);
   scratchDirectories.push(directory);
   return directory;
 }

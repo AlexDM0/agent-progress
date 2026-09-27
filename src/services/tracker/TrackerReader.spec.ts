@@ -23,11 +23,12 @@ import { createProgressFileWriter }                       from '../../adapters/p
 import { createTicketFileWriter }                         from '../../adapters/tickets/TicketFileWriter.ts';
 import type { LogRecord }                                 from '../../lib/tracker-model/@types/LogRecord.ts';
 import type { ProgressFile }                              from '../../lib/tracker-model/@types/ProgressFile.ts';
-import { EmptyProgressUtil }                              from '../../lib/tracker-model/utils/EmptyProgressUtil.ts';
 import type { UnreadableTracker }                         from '../../shared/@types/UnreadableTracker.ts';
 import { refusalIsOperationRefusal }                      from '../../shared/OperationRefusal.ts';
 import { ticketFixture }                                  from '../../testing/BoardFixtures.ts';
+import { emptyProgress, fileRow }                         from '../../testing/ProgressFixtures.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
+import { BROKEN_LOG_TEXT }                                from '../../testing/TrackerFileFixtures.ts';
 import {
   readTracker,
   requireProgressFile,
@@ -37,13 +38,9 @@ import {
 } from './TrackerReader.ts';
 import { workspacePathsFor, type Workspace } from './Workspace.ts';
 
-const STARTED_AT = '2026-09-18T09:00:00+02:00';
-
 const NOTE_AT = '2026-09-18T20:05:00+02:00';
 
 const UNPARSEABLE_PROGRESS_TEXT = 'not a progress file\n';
-
-const BROKEN_LOG_TEXT = '{"at":"2026-09-18T20:05:00+02:00","kind":"note","fields":{"text":5}}\n';
 
 const MALFORMED_TICKET_TEXT = 'no frontmatter here\n';
 
@@ -52,22 +49,9 @@ const NOTE_RECORD: LogRecord = { at: NOTE_AT, kind: 'note', fields: { text: 'Exa
 let workspace: Workspace;
 
 function progressWithOneRow(): ProgressFile {
-  const progress = EmptyProgressUtil.emptyProgressFor({ project: 'Example Agency', startedAt: STARTED_AT, trackerId: 'example-tracker-id' });
-  return {
-    ...progress,
-    nextTaskId: 2,
-    tasks:      [{
-      id:     1,
-      name:   'Example task',
-      status: 'pending',
-      start:  null,
-      end:    null,
-      owner:  '',
-      note:   '',
-      ticket: null,
-      tokens: null,
-    }],
-  };
+  const progress = emptyProgress();
+  fileRow(progress, { name: 'Example task' });
+  return progress;
 }
 
 function writeReadableTracker(): void {

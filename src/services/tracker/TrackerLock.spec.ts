@@ -26,7 +26,7 @@ const {
   attemptedAcquire,
   generationPathFor,
   generationsIn,
-  released
+  release
 } = LockGenerationSteps;
 
 const REFUSAL_TEST_TIMEOUT_MILLISECONDS = LIMITS.LOCK_RETRY_COUNT * LIMITS.LOCK_RETRY_INTERVAL_MILLISECONDS * 3;
@@ -38,6 +38,8 @@ const OVERRUN_HOLDER_ACQUIRED_AT = '2026-09-18T20:11:03+02:00';
 const LONG_AFTER_THE_OVERRUN_MILLISECONDS = Date.parse('2026-09-18T21:11:03+02:00');
 
 const RACE_MOMENT_MILLISECONDS = Date.parse('2026-09-24T15:00:30+02:00');
+
+const CLOCK_FIELD_DIGITS = 2;
 
 const scratchDirectories: string[] = [];
 
@@ -57,9 +59,9 @@ const realClock = (): Date => new Date();
 
 async function processIdOfAnExitedProcess(): Promise<number> {
   const child = Bun.spawn([process.execPath, '-e', 'process.exit(0)'], { stdout: 'ignore', stderr: 'ignore' });
-  const { pid } = child;
+  const { pid: processId } = child;
   await child.exited;
-  return pid;
+  return processId;
 }
 
 function writeGeneration(lockDirectoryPath: string, generation: number, content: string): void {
@@ -74,7 +76,7 @@ function newestRecordIn(lockDirectoryPath: string): unknown {
 
 // Every waiter in a replayed race is this live process, told apart by its stamp, so none of them can be judged gone.
 function payloadOf(secondsPastTheHour: number): { processId: number; acquiredAt: string } {
-  return { acquiredAt: `2026-09-24T15:00:${String(secondsPastTheHour).padStart(2, '0')}+02:00`, processId: process.pid };
+  return { acquiredAt: `2026-09-24T15:00:${String(secondsPastTheHour).padStart(CLOCK_FIELD_DIGITS, '0')}+02:00`, processId: process.pid };
 }
 
 function deadHolderRecord(deadProcessId: number): string {
@@ -174,7 +176,7 @@ test('a freshly written unparseable record is waited for and then refused, rathe
   expect(readFileSync(generationPathFor(workspace.lockDirectoryPath, 1), 'utf8'), 'the record it refused to take is left exactly as it was').toBe('');
 }, REFUSAL_TEST_TIMEOUT_MILLISECONDS);
 
-// An older version wrote the lock as a plain file at this path; one still held must never be treated as free.
+// A plain file at the lock path, left by an older install, is never treated as free.
 // The wording, which calls it a path to remove and never a file, is pinned in `src/adapters/utils/OperationRefusalWordingUtil.spec.ts`.
 test('a lock path that is a plain file refuses the same way, as a held lock at that path', async () => {
   const workspace = scratchWorkspace('lock-plain-file');
@@ -201,8 +203,7 @@ test('a record whose payload carries an impossible process id is never signalled
   expect(await withLock(workspace, () => 'taken over', longAfterwards)).toBe('taken over');
 });
 
-// The window #076 names: a taker judges an overrunning live holder stale, the holder releases, and a plain acquirer takes the lock
-// before the taker acts. Under the old rename-aside takeover a fourth acquirer could then take the path the rename emptied.
+// A taker that judged a live holder stale can act only after that holder released and a plain acquirer took the lock; exactly one must hold it.
 test('a holder that releases after a taker judged it stale, followed by a plain acquirer, still leaves exactly one holder', () => {
   const { lockDirectoryPath } = scratchWorkspace('lock-release-during-takeover');
   writeGeneration(lockDirectoryPath, 1, overrunHolderRecord(process.pid));
@@ -211,7 +212,7 @@ test('a holder that releases after a taker judged it stale, followed by a plain 
 
   const takerAttempt = attemptedAcquire(lockDirectoryPath, payloadOf(2), RACE_MOMENT_MILLISECONDS, (step) => {
     if (step !== 'newest-judged-free') return;
-    released(lockDirectoryPath, 1, payloadOf(3));
+    release(lockDirectoryPath, 1, payloadOf(3));
     plainAcquirerVerdict = attemptedAcquire(lockDirectoryPath, plainAcquirer, RACE_MOMENT_MILLISECONDS).verdict;
   });
   const fourthAcquirerVerdict = attemptedAcquire(lockDirectoryPath, payloadOf(4), RACE_MOMENT_MILLISECONDS).verdict;
@@ -250,7 +251,7 @@ test('an acquirer that recreates a generation removed while it was judging finds
   const slowAttempt = attemptedAcquire(lockDirectoryPath, payloadOf(3), RACE_MOMENT_MILLISECONDS, (step) => {
     if (step !== 'newest-judged-free') return;
     const firstAttempt = attemptedAcquire(lockDirectoryPath, firstHolder, RACE_MOMENT_MILLISECONDS);
-    if (firstAttempt.verdict === 'acquired') released(lockDirectoryPath, firstAttempt.generation, firstHolder);
+    if (firstAttempt.verdict === 'acquired') release(lockDirectoryPath, firstAttempt.generation, firstHolder);
     const secondAttempt = attemptedAcquire(lockDirectoryPath, secondHolder, RACE_MOMENT_MILLISECONDS);
     if (secondAttempt.verdict === 'acquired') secondHolderGeneration = secondAttempt.generation;
   });
@@ -266,7 +267,7 @@ test('a holder taken over as stale releases nothing, and its successor keeps the
   const successor = payloadOf(1);
 
   expect(attemptedAcquire(lockDirectoryPath, successor, RACE_MOMENT_MILLISECONDS).verdict).toBe('acquired');
-  released(lockDirectoryPath, 1, payloadOf(2));
+  release(lockDirectoryPath, 1, payloadOf(2));
 
   expect(newestRecordIn(lockDirectoryPath)).toEqual({ ...successor, state: 'held' });
   expect(attemptedAcquire(lockDirectoryPath, payloadOf(3), RACE_MOMENT_MILLISECONDS).verdict).toBe('held');
@@ -289,7 +290,7 @@ test('a holder at the largest safe generation releases nothing it could not list
   const holder = payloadOf(1);
   writeGeneration(lockDirectoryPath, Number.MAX_SAFE_INTEGER, JSON.stringify({ ...holder, state: 'held' }));
 
-  released(lockDirectoryPath, Number.MAX_SAFE_INTEGER, payloadOf(2));
+  release(lockDirectoryPath, Number.MAX_SAFE_INTEGER, payloadOf(2));
 
   expect(readdirSync(lockDirectoryPath)).toEqual([`generation-${Number.MAX_SAFE_INTEGER}`]);
   expect(attemptedAcquire(lockDirectoryPath, payloadOf(3), RACE_MOMENT_MILLISECONDS).verdict).toBe('held');

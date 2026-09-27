@@ -135,7 +135,7 @@ function fileIsOlderThanTheStaleThreshold(filePath: string, nowMilliseconds: num
 }
 
 /** Written beside the target and linked into place, so a record is complete the instant it exists and `link` refuses an existing one. */
-function createdGeneration(lockDirectoryPath: string, generation: number, record: GenerationRecord): boolean {
+function generationWasCreated(lockDirectoryPath: string, generation: number, record: GenerationRecord): boolean {
   const pendingPath = join(lockDirectoryPath, `${PENDING_FILE_PREFIX}${randomUUID().slice(0, PENDING_NAME_RANDOM_LENGTH)}`);
   writeFileSync(pendingPath, JSON.stringify(record), { flag: 'wx' });
   try {
@@ -197,7 +197,7 @@ function attemptedAcquire(
   afterStep('newest-judged-free');
   const claimed = generationAfter(newest ?? 0);
   if (claimed === null) return { verdict: 'held' };
-  if (!createdGeneration(lockDirectoryPath, claimed, { ...payload, state: 'held' })) return { verdict: 'contended' };
+  if (!generationWasCreated(lockDirectoryPath, claimed, { ...payload, state: 'held' })) return { verdict: 'contended' };
   afterStep('generation-created');
   if (newerGenerationExists(lockDirectoryPath, claimed)) return { verdict: 'contended' };
   removeGenerationsBelow(lockDirectoryPath, claimed);
@@ -205,11 +205,11 @@ function attemptedAcquire(
 }
 
 /** A holder that was taken over as stale finds its successor generation taken, and so changes nothing. */
-function released(lockDirectoryPath: string, heldGeneration: number, payload: LockPayload): void {
+function release(lockDirectoryPath: string, heldGeneration: number, payload: LockPayload): void {
   const releaseGeneration = generationAfter(heldGeneration);
   if (releaseGeneration === null) return;
   try {
-    if (createdGeneration(lockDirectoryPath, releaseGeneration, { ...payload, state: 'released' })) removeGenerationsBelow(lockDirectoryPath, releaseGeneration);
+    if (generationWasCreated(lockDirectoryPath, releaseGeneration, { ...payload, state: 'released' })) removeGenerationsBelow(lockDirectoryPath, releaseGeneration);
   } catch {
     // The lock directory went away under us; there is nothing left to release.
   }
@@ -221,7 +221,7 @@ export const LockGenerationSteps = {
   attemptedAcquire,
   generationPathFor,
   generationsIn,
-  released,
+  release,
 } as const;
 
 /**
@@ -256,6 +256,6 @@ export async function withLock<ActionResult>(
   try {
     return await action();
   } finally {
-    released(lockDirectoryPath, heldGeneration, { acquiredAt: TimeUtil.formatLocalIso(now()), processId: process.pid });
+    release(lockDirectoryPath, heldGeneration, { acquiredAt: TimeUtil.formatLocalIso(now()), processId: process.pid });
   }
 }

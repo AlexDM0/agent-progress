@@ -25,6 +25,7 @@ import type { ProgressFile }                              from '../../lib/tracke
 import type { Task }                                      from '../../lib/tracker-model/@types/Task.ts';
 import { ticketFixture }                                  from '../../testing/BoardFixtures.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
+import { BROKEN_LOG_TEXT }                                from '../../testing/TrackerFileFixtures.ts';
 import { createRenderState }                              from '../render/RenderState.ts';
 import { renderDashboard, renderDashboardUnderLock }      from './DashboardRendering.ts';
 import { listTickets }                                    from './TicketStore.ts';
@@ -59,8 +60,6 @@ const EXAMPLE_PROGRESS: ProgressFile = {
 const REVIEW_STARTED_NOTE: LogRecord = { at: '2026-09-18T20:05:00+02:00', kind: 'note', fields: { text: 'Review pass started' } };
 
 const MALFORMED_TICKET_TEXT = 'no frontmatter here\n';
-
-const BROKEN_LOG_TEXT = '{"at":"2026-09-18T20:05:00+02:00","kind":"note","fields":{"text":5}}\n';
 
 let workspace: Workspace;
 
