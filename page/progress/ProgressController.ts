@@ -5,12 +5,21 @@ import type { PagePayload }                                            from '../
 import type { BoardRow }                                               from '../@types/PageBoard.ts';
 import type { Timeline }                                               from '../@types/Timeline.ts';
 import type { NameColumnWidth, StoredViewOverride, ViewerPreferences } from '../@types/ViewerPreferences.ts';
-import { PERCENT_OF_A_WHOLE }                                          from '../constants/Units.ts';
-import { ViewerPreferenceUtil }                                        from '../preferences/utils/ViewerPreferenceUtil.ts';
-import { DomUtil }                                                     from '../utils/DomUtil.ts';
-import { GeometryUtil }                                                from '../utils/GeometryUtil.ts';
-import { TimeUtil }                                                    from '../utils/TimeUtil.ts';
-import type { PlacedTick, TaskRow }                                    from './ProgressMarkup.ts';
+import {
+  AXIS_TICKS_ELEMENT_ID,
+  CHART_OVERLAY_ELEMENT_ID,
+  GENERATED_STAMP_ELEMENT_ID,
+  HIDDEN_WORK_NOTE_ELEMENT_ID,
+  RANGE_NOTE_ELEMENT_ID,
+  SUMMARY_ELEMENT_ID,
+  TASK_ROWS_ELEMENT_ID,
+} from '../constants/TemplateIds.ts';
+import { PERCENT_OF_A_WHOLE }       from '../constants/Units.ts';
+import { ViewerPreferenceUtil }     from '../preferences/utils/ViewerPreferenceUtil.ts';
+import { DomUtil }                  from '../utils/DomUtil.ts';
+import { GeometryUtil }             from '../utils/GeometryUtil.ts';
+import { TimeUtil }                 from '../utils/TimeUtil.ts';
+import type { PlacedTick, TaskRow } from './ProgressMarkup.ts';
 import {
   generatedStampText,
   hiddenWorkNoteText,
@@ -187,13 +196,13 @@ export function createProgressController(sources: ProgressControllerSources): Pr
       ...tick,
       labelSitsLeftOfItsLine: AxisFitUtil.labelSitsLeftOfItsLine(tick, axisWidthPixels),
     }));
-    DomUtil.setMarkup('ap-ticks', tickLayerMarkup(placedTicks));
-    DomUtil.setMarkup('ap-overlay', overlayMarkup(timeline.ticks, timeline.nowPercent));
-    DomUtil.setMarkup('ap-rows', taskRowsMarkup(taskRowsFor(visibleRows, timeline, waitingOnById), limits));
+    DomUtil.setMarkup(AXIS_TICKS_ELEMENT_ID, tickLayerMarkup(placedTicks));
+    DomUtil.setMarkup(CHART_OVERLAY_ELEMENT_ID, overlayMarkup(timeline.ticks, timeline.nowPercent));
+    DomUtil.setMarkup(TASK_ROWS_ELEMENT_ID, taskRowsMarkup(taskRowsFor(visibleRows, timeline, waitingOnById), limits));
     DomUtil.setHidden('ap-chart-empty', visibleProgress.tasks.length > 0);
 
     const rangeNote = rangeNoteText(timeline.fromEpochMilliseconds, timeline.toEpochMilliseconds, timeline.stepMinutes, TimeUtil.calendarDateOf(nowEpochMilliseconds), limits);
-    DomUtil.setShortenedText('ap-range-note', rangeNote);
+    DomUtil.setShortenedText(RANGE_NOTE_ELEMENT_ID, rangeNote);
     reflectRangeBar(override);
 
     if (bringNowIntoView && chart !== null && timeline.nowPercent !== null) {
@@ -203,7 +212,7 @@ export function createProgressController(sources: ProgressControllerSources): Pr
 
   return {
     showSummary: () => {
-      DomUtil.setMarkup('ap-summary', summaryStatisticsMarkup(progress.tasks, payload.concurrency));
+      DomUtil.setMarkup(SUMMARY_ELEMENT_ID, summaryStatisticsMarkup(progress.tasks, payload.concurrency));
     },
     applyNameColumnWidth: () => {
       reflectNameColumnWidth(nameColumnWidth);
@@ -213,10 +222,10 @@ export function createProgressController(sources: ProgressControllerSources): Pr
       visibleProgress = { ...progress, tasks: [...visibleRows] };
     },
     showGeneratedStamp: (todayCalendarDate) => {
-      DomUtil.setShortenedText('ap-generated', generatedStampText(payload.generatedAtEpochMilliseconds, todayCalendarDate));
+      DomUtil.setShortenedText(GENERATED_STAMP_ELEMENT_ID, generatedStampText(payload.generatedAtEpochMilliseconds, todayCalendarDate));
     },
     showHiddenNote: (hiddenTaskCount, hiddenTicketCount) => {
-      DomUtil.setText('ap-hidden-note', hiddenWorkNoteText(hiddenTaskCount, hiddenTicketCount));
+      DomUtil.setText(HIDDEN_WORK_NOTE_ELEMENT_ID, hiddenWorkNoteText(hiddenTaskCount, hiddenTicketCount));
     },
     layOut,
     wireRangeBar: () => {

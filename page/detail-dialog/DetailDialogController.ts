@@ -4,14 +4,18 @@ import type { PageLimits }            from '../../src/shared/@types/PagePayload.
 import type { IdentifiedLogEntry }    from '../../src/shared/@types/WordedLogEntry.ts';
 import type { KanbanCard }            from '../@types/KanbanCard.ts';
 import type { BoardRow, BoardTicket } from '../@types/PageBoard.ts';
-import { KANBAN_BOARD_ELEMENT_ID }    from '../constants/TemplateIds.ts';
-import { DomUtil }                    from '../utils/DomUtil.ts';
-import { GeometryUtil }               from '../utils/GeometryUtil.ts';
-import { taskDetailMarkup }           from './TaskDetail.ts';
-import { ticketDetailMarkup }         from './TicketDetail.ts';
+import {
+  DETAIL_BODY_ELEMENT_ID,
+  KANBAN_BOARD_ELEMENT_ID,
+  TASK_ROWS_ELEMENT_ID,
+  TICKET_ROWS_ELEMENT_ID,
+} from '../constants/TemplateIds.ts';
+import { DomUtil }            from '../utils/DomUtil.ts';
+import { GeometryUtil }       from '../utils/GeometryUtil.ts';
+import { taskDetailMarkup }   from './TaskDetail.ts';
+import { ticketDetailMarkup } from './TicketDetail.ts';
 
 const DETAIL_DIALOG_ELEMENT_ID = 'ap-detail';
-const DETAIL_BODY_ELEMENT_ID   = 'ap-detail-body';
 const DETAIL_CLOSE_ELEMENT_ID  = 'ap-detail-close';
 
 export interface DetailDialogSources {
@@ -126,8 +130,8 @@ export function createDetailDialogController(sources: DetailDialogSources): { wi
       markCoveredTickLabels();
     };
 
-    wireRowOverview('ap-rows', '.ap-row', showTaskRowDetail);
-    wireRowOverview('ap-ticket-rows', '[data-ticket-id]', showTicketRowDetail);
+    wireRowOverview(TASK_ROWS_ELEMENT_ID, '.ap-row', showTaskRowDetail);
+    wireRowOverview(TICKET_ROWS_ELEMENT_ID, '[data-ticket-id]', showTicketRowDetail);
     wireRowOverview(KANBAN_BOARD_ELEMENT_ID, '.ap-kanban-card', showKanbanCardDetail);
     window.addEventListener('resize', () => {
       if (dialog.open) {

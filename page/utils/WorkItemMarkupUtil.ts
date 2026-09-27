@@ -8,6 +8,7 @@ import { HtmlEscapeUtil }               from '../../src/lib/utils/HtmlEscapeUtil
 import type { PageTicket }              from '../../src/shared/@types/PagePayload.ts';
 import { PILL_LABEL_FOR_DISPLAY_STATE } from '../constants/PillLabels.ts';
 import { MarkupUtil }                   from './MarkupUtil.ts';
+import { TemplateIdUtil }               from './TemplateIdUtil.ts';
 import type { TimestampSlices }         from './TimeUtil.ts';
 import { TimeUtil }                     from './TimeUtil.ts';
 
@@ -17,8 +18,8 @@ export type TicketLinkTarget = 'ticket-card' | 'kanban-card';
 
 function ticketLinkMarkup(identifier: string, target: TicketLinkTarget): string {
   const destination = target === 'kanban-card'
-    ? `${MarkupUtil.attribute('href', `#ap-kanban-${identifier}`)} ${MarkupUtil.attribute('data-ticket-link', identifier)}`
-    : MarkupUtil.attribute('href', `#ap-ticket-${identifier}`);
+    ? `${MarkupUtil.attribute('href', `#${TemplateIdUtil.kanbanCardElementIdOf(identifier)}`)} ${MarkupUtil.attribute('data-ticket-link', identifier)}`
+    : MarkupUtil.attribute('href', `#${TemplateIdUtil.ticketCardElementIdOf(identifier)}`);
   return `<a ${destination}>#${HtmlEscapeUtil.escapeHtml(identifier)}</a>`;
 }
 
@@ -31,11 +32,11 @@ function waitingOnMarkup(identifiers: readonly string[], target: TicketLinkTarge
 }
 
 function taskLinkMarkup(taskId: number | null): string {
-  return taskId === null ? '' : `<a ${MarkupUtil.attribute('href', `#ap-task-${taskId}`)}>#${HtmlEscapeUtil.escapeHtml(String(taskId))}</a>`;
+  return taskId === null ? '' : `<a ${MarkupUtil.attribute('href', `#${TemplateIdUtil.taskRowElementIdOf(taskId)}`)}>#${HtmlEscapeUtil.escapeHtml(String(taskId))}</a>`;
 }
 
 function ticketBadgeMarkup(ticketId: string): string {
-  return `<a class="ap-ticket-badge" ${MarkupUtil.attribute('href', `#ap-ticket-${ticketId}`)}>#${HtmlEscapeUtil.escapeHtml(ticketId)}</a>`;
+  return `<a class="ap-ticket-badge" ${MarkupUtil.attribute('href', `#${TemplateIdUtil.ticketCardElementIdOf(ticketId)}`)}>#${HtmlEscapeUtil.escapeHtml(ticketId)}</a>`;
 }
 
 function ticketStatusBadgeMarkup(status: TicketStatus): string {

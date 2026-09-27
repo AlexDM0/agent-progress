@@ -10,6 +10,7 @@ import type { KanbanCard }                 from '../@types/KanbanCard.ts';
 import type { ClosedKanbanLane }           from '../@types/KanbanLane.ts';
 import { CAPPED_LANE_FIRST_PAGE_CARDS }    from '../constants/CappedLanePaging.ts';
 import { MarkupUtil }                      from '../utils/MarkupUtil.ts';
+import { TemplateIdUtil }                  from '../utils/TemplateIdUtil.ts';
 import { WorkItemMarkupUtil }              from '../utils/WorkItemMarkupUtil.ts';
 import type { KanbanLane }                 from './@types/KanbanLane.ts';
 import type { NoteFormat }                 from './KanbanLaneText.ts';
@@ -86,7 +87,7 @@ export function kanbanCardMarkup(card: KanbanCard, lane: KanbanLane, format: Not
   const { ticket, ownRow } = card;
   const label              = `#${ticket.id} ${ticket.title}, ${pillLabelOf(card)}, ${HtmlLabelUtil.priorityLabelOf(TicketDefaultsUtil.ticketPriorityOf(ticket))} priority`;
   const identities         = [
-    MarkupUtil.attribute('id', `ap-kanban-${ticket.id}`),
+    MarkupUtil.attribute('id', TemplateIdUtil.kanbanCardElementIdOf(ticket.id)),
     MarkupUtil.attribute('data-ticket-id', ticket.id),
     MarkupUtil.attribute('data-state', card.state),
   ].join(' ');

@@ -6,6 +6,7 @@ import type { ViewerPreferences }                   from '../@types/ViewerPrefer
 import { CAPPED_LANE_FIRST_PAGE_CARDS }             from '../constants/CappedLanePaging.ts';
 import { KANBAN_BOARD_ELEMENT_ID, KANBAN_TAB_NAME } from '../constants/TemplateIds.ts';
 import { DomUtil }                                  from '../utils/DomUtil.ts';
+import { TemplateIdUtil }                           from '../utils/TemplateIdUtil.ts';
 import type { TimestampSlices }                     from '../utils/TimeUtil.ts';
 import { kanbanBoardMarkup }                        from './KanbanMarkup.ts';
 import { CLOSED_KANBAN_LANES }                      from './constants/KanbanBoardLayout.ts';
@@ -78,7 +79,7 @@ export function createKanbanController(sources: KanbanControllerSources): Kanban
   /** Shows the Kanban tab and brings the dependency's card into view with focus; a card the board does not hold is left alone. */
   const followKanbanLink = (ticketId: string): void => {
     DomUtil.templateBehaviour()?.selectTab(KANBAN_TAB_NAME);
-    const cardId = `ap-kanban-${ticketId}`;
+    const cardId = TemplateIdUtil.kanbanCardElementIdOf(ticketId);
     if ((document.getElementById(cardId)?.closest('[data-collapsed]') ?? null) !== null) {
       toggleAbandonedLane(true);
     }

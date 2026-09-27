@@ -9,6 +9,7 @@ import { TicketDefaultsUtil }                  from '../../src/lib/tracker-model
 import { HtmlEscapeUtil }                      from '../../src/lib/utils/HtmlEscapeUtil.ts';
 import type { PageTicket }                     from '../../src/shared/@types/PagePayload.ts';
 import { MarkupUtil }                          from '../utils/MarkupUtil.ts';
+import { TemplateIdUtil }                      from '../utils/TemplateIdUtil.ts';
 import type { TimestampSlices }                from '../utils/TimeUtil.ts';
 import { WorkItemMarkupUtil }                  from '../utils/WorkItemMarkupUtil.ts';
 
@@ -81,7 +82,7 @@ function ticketCardMarkup(ticket: PageTicket, waitingOn: readonly string[], slic
   const inner = TICKET_STATUSES_THAT_CLOSE_A_TICKET.includes(ticket.status)
     ? `<details><summary>${head}</summary>${body}</details>`
     : `<div class="ap-ticket-head">${head}</div>${body}`;
-  return `<section class="ap-ticket" ${MarkupUtil.attribute('id', `ap-ticket-${ticket.id}`)}>${inner}</section>`;
+  return `<section class="ap-ticket" ${MarkupUtil.attribute('id', TemplateIdUtil.ticketCardElementIdOf(ticket.id))}>${inner}</section>`;
 }
 
 export function ticketCardsMarkup(

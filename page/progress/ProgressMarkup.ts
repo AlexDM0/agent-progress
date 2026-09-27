@@ -13,6 +13,7 @@ import type { BoardRow }                    from '../@types/PageBoard.ts';
 import type { TimelineBar, TimelineTick }   from '../@types/Timeline.ts';
 import type { ShortenedText }               from '../utils/MarkupUtil.ts';
 import { MarkupUtil }                       from '../utils/MarkupUtil.ts';
+import { TemplateIdUtil }                   from '../utils/TemplateIdUtil.ts';
 import type { TimestampSlices }             from '../utils/TimeUtil.ts';
 import { TimeUtil }                         from '../utils/TimeUtil.ts';
 import { WorkItemMarkupUtil }               from '../utils/WorkItemMarkupUtil.ts';
@@ -69,7 +70,7 @@ function taskRowMarkup(placed: PlacedTaskRow, slices: TimestampSlices): string {
     ? ''
     : `<span class="ap-tokens">${HtmlEscapeUtil.escapeHtml(TokenCountUtil.formatTokenCount(task.tokens))} tokens</span>`;
   const nesting    = nestedWithTicket === null ? '' : ` ${MarkupUtil.attribute('data-review-of', nestedWithTicket)}`;
-  const identities = `${MarkupUtil.attribute('id', `ap-task-${task.id}`)} ${MarkupUtil.attribute('data-task-id', String(task.id))}`;
+  const identities = `${MarkupUtil.attribute('id', TemplateIdUtil.taskRowElementIdOf(task.id))} ${MarkupUtil.attribute('data-task-id', String(task.id))}`;
   return [
     `<div class="ap-grid-row ap-row" tabindex="0" ${identities} ${MarkupUtil.attribute('data-state', state)}${nesting}>`,
     `<div class="ap-cell-name"><span class="ap-num">${HtmlEscapeUtil.escapeHtml(String(task.id))}</span>`,

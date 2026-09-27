@@ -1,12 +1,13 @@
 /** The log card: its entries, cut to the newest unless the viewer asked for all, and the toggle between the two. */
 
-import type { WordedLogEntry }    from '../../src/shared/@types/WordedLogEntry.ts';
-import type { ViewerPreferences } from '../@types/ViewerPreferences.ts';
-import { ViewerPreferenceUtil }   from '../preferences/utils/ViewerPreferenceUtil.ts';
-import { DomUtil }                from '../utils/DomUtil.ts';
-import { LogMarkupUtil }          from '../utils/LogMarkupUtil.ts';
-import type { TimestampSlices }   from '../utils/TimeUtil.ts';
-import { LogCapUtil }             from './utils/LogCapUtil.ts';
+import type { WordedLogEntry }                         from '../../src/shared/@types/WordedLogEntry.ts';
+import type { ViewerPreferences }                      from '../@types/ViewerPreferences.ts';
+import { LOG_ENTRIES_ELEMENT_ID, LOG_NOTE_ELEMENT_ID } from '../constants/TemplateIds.ts';
+import { ViewerPreferenceUtil }                        from '../preferences/utils/ViewerPreferenceUtil.ts';
+import { DomUtil }                                     from '../utils/DomUtil.ts';
+import { LogMarkupUtil }                               from '../utils/LogMarkupUtil.ts';
+import type { TimestampSlices }                        from '../utils/TimeUtil.ts';
+import { LogCapUtil }                                  from './utils/LogCapUtil.ts';
 
 interface LogControllerSources {
   entries:               readonly WordedLogEntry[];
@@ -26,9 +27,10 @@ export function createLogController(sources: LogControllerSources): { show(): vo
 
   const show = (): void => {
     const controlIsNeeded = LogCapUtil.logControlIsNeeded(entries.length);
-    DomUtil.setMarkup('ap-log', LogMarkupUtil.logItemsMarkup(entries, slices, readTodayCalendarDate(), controlIsNeeded ? LogCapUtil.logEntryLimitFor(logVisibility) : null));
+    const entryLimit      = controlIsNeeded ? LogCapUtil.logEntryLimitFor(logVisibility) : null;
+    DomUtil.setMarkup(LOG_ENTRIES_ELEMENT_ID, LogMarkupUtil.logItemsMarkup(entries, slices, readTodayCalendarDate(), entryLimit));
     DomUtil.setHidden('ap-log-empty', entries.length > 0);
-    DomUtil.setText('ap-log-note', LogCapUtil.logNoteText(entries.length, logVisibility));
+    DomUtil.setText(LOG_NOTE_ELEMENT_ID, LogCapUtil.logNoteText(entries.length, logVisibility));
     DomUtil.setHidden('ap-log-control', !controlIsNeeded);
     const control = document.getElementById('ap-log-toggle');
     if (control !== null) {

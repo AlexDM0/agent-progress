@@ -3,29 +3,63 @@
  * selection and ticket open state stay with the template's own bootstrap, reached through `window.agentProgressTemplate`.
  */
 
-import type { PagePayload, PageTicket }             from '../src/shared/@types/PagePayload.ts';
-import type { BoardTicket }                         from './@types/PageBoard.ts';
-import { KANBAN_BOARD_ELEMENT_ID, KANBAN_TAB_NAME } from './constants/TemplateIds.ts';
-import { createDetailDialogController }             from './detail-dialog/DetailDialogController.ts';
-import { createKanbanController }                   from './kanban/KanbanController.ts';
-import { KanbanLaneUtil }                           from './kanban/utils/KanbanLaneUtil.ts';
-import { createLogController }                      from './log/LogController.ts';
-import { createViewerPreferences }                  from './preferences/ViewerPreferences.ts';
-import { ViewerPreferenceUtil }                     from './preferences/utils/ViewerPreferenceUtil.ts';
-import { createProgressController }                 from './progress/ProgressController.ts';
-import { createTicketsController }                  from './tickets/TicketsController.ts';
-import { DomUtil }                                  from './utils/DomUtil.ts';
-import { IslandUtil }                               from './utils/IslandUtil.ts';
-import { TimeUtil }                                 from './utils/TimeUtil.ts';
-import { VisibilityUtil }                           from './utils/VisibilityUtil.ts';
+import type { PagePayload, PageTicket } from '../src/shared/@types/PagePayload.ts';
+import type { BoardTicket }             from './@types/PageBoard.ts';
+import {
+  AXIS_TICKS_ELEMENT_ID,
+  CHART_OVERLAY_ELEMENT_ID,
+  DETAIL_BODY_ELEMENT_ID,
+  GENERATED_STAMP_ELEMENT_ID,
+  HIDDEN_WORK_NOTE_ELEMENT_ID,
+  KANBAN_BOARD_ELEMENT_ID,
+  KANBAN_TAB_NAME,
+  LOG_ENTRIES_ELEMENT_ID,
+  LOG_NOTE_ELEMENT_ID,
+  RANGE_NOTE_ELEMENT_ID,
+  SUMMARY_ELEMENT_ID,
+  TASK_ROWS_ELEMENT_ID,
+  TICKET_CARDS_ELEMENT_ID,
+  TICKET_COUNT_ELEMENT_ID,
+  TICKET_ROWS_ELEMENT_ID,
+} from './constants/TemplateIds.ts';
+import { createDetailDialogController } from './detail-dialog/DetailDialogController.ts';
+import { createKanbanController }       from './kanban/KanbanController.ts';
+import { KanbanLaneUtil }               from './kanban/utils/KanbanLaneUtil.ts';
+import { createLogController }          from './log/LogController.ts';
+import { createViewerPreferences }      from './preferences/ViewerPreferences.ts';
+import { ViewerPreferenceUtil }         from './preferences/utils/ViewerPreferenceUtil.ts';
+import { createProgressController }     from './progress/ProgressController.ts';
+import { createTicketsController }      from './tickets/TicketsController.ts';
+import { DomUtil }                      from './utils/DomUtil.ts';
+import { IslandUtil }                   from './utils/IslandUtil.ts';
+import { TimeUtil }                     from './utils/TimeUtil.ts';
+import { VisibilityUtil }               from './utils/VisibilityUtil.ts';
 
 const PROGRESS_ISLAND_ELEMENT_ID = 'ap-progress-data';
 const TICKETS_ISLAND_ELEMENT_ID  = 'ap-tickets-data';
+const PROJECT_NAME_ELEMENT_ID    = 'ap-project';
 
 const TAB_NAMES = ['progress', KANBAN_TAB_NAME, 'tickets'];
 
-const OWNED_MARKUP_CONTAINER_IDS = ['ap-summary', 'ap-ticks', 'ap-overlay', 'ap-rows', 'ap-log', 'ap-ticket-rows', 'ap-ticket-cards', 'ap-detail-body', KANBAN_BOARD_ELEMENT_ID];
-const OWNED_TEXT_CONTAINER_IDS   = ['ap-project', 'ap-generated', 'ap-range-note', 'ap-ticket-count', 'ap-hidden-note', 'ap-log-note'];
+const OWNED_MARKUP_CONTAINER_IDS = [
+  SUMMARY_ELEMENT_ID,
+  AXIS_TICKS_ELEMENT_ID,
+  CHART_OVERLAY_ELEMENT_ID,
+  TASK_ROWS_ELEMENT_ID,
+  LOG_ENTRIES_ELEMENT_ID,
+  TICKET_ROWS_ELEMENT_ID,
+  TICKET_CARDS_ELEMENT_ID,
+  DETAIL_BODY_ELEMENT_ID,
+  KANBAN_BOARD_ELEMENT_ID,
+];
+const OWNED_TEXT_CONTAINER_IDS = [
+  PROJECT_NAME_ELEMENT_ID,
+  GENERATED_STAMP_ELEMENT_ID,
+  RANGE_NOTE_ELEMENT_ID,
+  TICKET_COUNT_ELEMENT_ID,
+  HIDDEN_WORK_NOTE_ELEMENT_ID,
+  LOG_NOTE_ELEMENT_ID,
+];
 
 function showLayoutFailure(message: string): void {
   const banner = document.getElementById('ap-error');
@@ -105,7 +139,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     showLayoutFailure(payload.pageScriptFailure);
   }
 
-  DomUtil.setText('ap-project', progress.project);
+  DomUtil.setText(PROJECT_NAME_ELEMENT_ID, progress.project);
   progressController.showSummary();
 
   const logController = createLogController({
