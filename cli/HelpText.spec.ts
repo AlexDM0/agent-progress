@@ -27,7 +27,7 @@ function commandWordsDocumented(): string[] {
   const words = HELP_TEXT.split('\n')
     .map((line) => /^ {2}(\S+)/.exec(line))
     .filter((match): match is RegExpExecArray => match !== null)
-    .map((match) => match[1]!);
+    .map((match) => match[1] ?? '');
   return [...new Set(words)].sort();
 }
 
@@ -98,7 +98,7 @@ describe('the command reference', () => {
 /** Read off the help's own `ticket …` lines rather than listed here, so a subcommand added to that entry reaches this check unaided. */
 function ticketSubcommandsDocumented(): string[] {
   const subcommands = [...HELP_TEXT.matchAll(/^ {2}ticket (\S+)/gm)]
-    .flatMap((match) => match[1]!.split('|'))
+    .flatMap((match) => (match[1] ?? '').split('|'))
     .filter((word) => /^[a-z-]+$/.test(word));
   return [...new Set(subcommands)].sort();
 }

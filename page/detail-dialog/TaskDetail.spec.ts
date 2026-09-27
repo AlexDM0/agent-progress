@@ -70,7 +70,7 @@ function panelFor(task: Task | null, ticket: PageTicket | null = null, log: read
 
 function phaseLabelsIn(markup: string): string[] {
   const phases = /<ol class="ap-detail-phases">([\s\S]*?)<\/ol>/.exec(markup)?.[1] ?? '';
-  return [...phases.matchAll(/<span class="ap-pill">([^<]*)<\/span>/g)].map((match) => match[1]!);
+  return [...phases.matchAll(/<span class="ap-pill">([^<]*)<\/span>/g)].map((match) => match[1] ?? '');
 }
 
 describe('the header', () => {
