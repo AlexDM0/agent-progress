@@ -3,7 +3,6 @@
  * Every value passes `escapeHtml` exactly once here, except a ticket's `bodyHtml`, already escaped by `src/services/render/MarkdownRenderer.ts`.
  */
 
-import { HtmlLabelUtil } from '../../src/adapters/utils/HtmlLabelUtil.ts';
 import type {
   DisplayState,
   Task,
@@ -218,7 +217,7 @@ function ticketMarkup(ticket: PageTicket, format: StampFormat): string {
     '<div class="ap-detail-ticket-head">',
     `<span class="ap-ticket-id">#${HtmlEscapeUtil.escapeHtml(ticket.id)}</span>`,
     `<h4 class="ap-ticket-title">${HtmlEscapeUtil.escapeHtml(ticket.title)}</h4>`,
-    `<span class="ap-detail-type">${HtmlEscapeUtil.escapeHtml(HtmlLabelUtil.ticketTypeLabelOf(ticket.type))}</span>`,
+    `<span class="ap-detail-type">${HtmlEscapeUtil.escapeHtml(ticket.type)}</span>`,
     WorkItemMarkupUtil.ticketStatusBadgeMarkup(ticket.status),
     '</div>',
   ].join('');

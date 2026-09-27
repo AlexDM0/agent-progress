@@ -1,4 +1,5 @@
-import type { Task } from '../../src/lib/tracker-model/@types/Task.ts';
+import type { Task }      from '../../src/lib/tracker-model/@types/Task.ts';
+import { VocabularyUtil } from '../../src/lib/tracker-model/utils/VocabularyUtil.ts';
 import type {
   PageBoardFacts,
   PagePayload,
@@ -6,7 +7,6 @@ import type {
   PageTicketFacts,
 } from '../../src/shared/@types/PagePayload.ts';
 import type { BoardRow, BoardTicket, PageBoard } from '../@types/PageBoard.ts';
-import { PILL_LABEL_FOR_DISPLAY_STATE }          from '../constants/PillLabels.ts';
 import { JsonValueUtil }                         from './JsonValueUtil.ts';
 
 const REQUIRED_LIMIT_NAMES = [
@@ -32,7 +32,7 @@ function rowPositionIsValid(value: unknown, rowCount: number): boolean {
 }
 
 function displayStateIsKnown(value: unknown): boolean {
-  return typeof value === 'string' && Object.hasOwn(PILL_LABEL_FOR_DISPLAY_STATE, value);
+  return typeof value === 'string' && (value === 'reviewing' || VocabularyUtil.taskStatusIsKnown(value));
 }
 
 function rowFactsAreValid(value: unknown, rowCount: number): boolean {

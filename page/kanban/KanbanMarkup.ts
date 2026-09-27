@@ -85,7 +85,7 @@ function stateMarkup(card: KanbanCard, lane: KanbanLane, format: NoteFormat): st
 
 export function kanbanCardMarkup(card: KanbanCard, lane: KanbanLane, format: NoteFormat): string {
   const { ticket, ownRow } = card;
-  const label              = `#${ticket.id} ${ticket.title}, ${pillLabelOf(card)}, ${HtmlLabelUtil.priorityLabelOf(TicketDefaultsUtil.ticketPriorityOf(ticket))} priority`;
+  const label              = `#${ticket.id} ${ticket.title}, ${pillLabelOf(card)}, ${TicketDefaultsUtil.ticketPriorityOf(ticket)} priority`;
   const identities         = [
     MarkupUtil.attribute('id', TemplateIdUtil.kanbanCardElementIdOf(ticket.id)),
     MarkupUtil.attribute('data-ticket-id', ticket.id),
@@ -98,7 +98,7 @@ export function kanbanCardMarkup(card: KanbanCard, lane: KanbanLane, format: Not
   return [
     `<article class="ap-kanban-card" ${identities}${ownRow === null ? ' data-row="none"' : ''} tabindex="0" ${MarkupUtil.attribute('aria-label', label)}>`,
     `<div class="ap-kanban-card-head"><span class="ap-ticket-id">#${HtmlEscapeUtil.escapeHtml(ticket.id)}</span>${WorkItemMarkupUtil.priorityMarkMarkup(ticket)}`,
-    `<span class="ap-detail-type">${HtmlEscapeUtil.escapeHtml(HtmlLabelUtil.ticketTypeLabelOf(ticket.type))}</span></div>`,
+    `<span class="ap-detail-type">${HtmlEscapeUtil.escapeHtml(ticket.type)}</span></div>`,
     tokens,
     `<p class="ap-kanban-title" ${MarkupUtil.attribute('title', ticket.title)}>${HtmlEscapeUtil.escapeHtml(ticket.title)}</p>`,
     marksMarkup(card, lane),

@@ -40,12 +40,12 @@ function ticketBadgeMarkup(ticketId: string): string {
 }
 
 function ticketStatusBadgeMarkup(status: TicketStatus): string {
-  return `<span class="ap-badge ${HtmlEscapeUtil.escapeHtml(status)}">${HtmlEscapeUtil.escapeHtml(HtmlLabelUtil.ticketStatusBadgeTextOf(status))}</span>`;
+  return `<span class="ap-badge ${HtmlEscapeUtil.escapeHtml(status)}">${HtmlEscapeUtil.escapeHtml(status)}</span>`;
 }
 
 function markedPriorityMarkup(className: string, priority: 'low' | 'high'): string {
   const title = MarkupUtil.attribute('title', HtmlLabelUtil.priorityMarkTitleOf(priority));
-  return `<span class="${className}" data-priority="${priority}" ${title}>${HtmlEscapeUtil.escapeHtml(HtmlLabelUtil.priorityLabelOf(priority))}</span>`;
+  return `<span class="${className}" data-priority="${priority}" ${title}>${HtmlEscapeUtil.escapeHtml(priority)}</span>`;
 }
 
 /** Normal is unmarked. Low borrows the row's quiet ticket badge and high the amber "waiting on" note: the template has no priority style of its own. */
@@ -65,7 +65,7 @@ function reviewedMarkMarkup(task: Task, slices: TimestampSlices): string {
 }
 
 function pillLabelForDisplayState(state: DisplayState, reviewRound: number): string {
-  const label = PILL_LABEL_FOR_DISPLAY_STATE[state];
+  const label = PILL_LABEL_FOR_DISPLAY_STATE[state] ?? state;
   return state === 're-review' ? `${label} ${reviewRound}` : label;
 }
 

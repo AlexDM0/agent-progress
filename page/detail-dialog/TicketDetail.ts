@@ -3,7 +3,6 @@
  * except the ticket's `bodyHtml`, already escaped by `src/services/render/MarkdownRenderer.ts`.
  */
 
-import { HtmlLabelUtil }             from '../../src/adapters/utils/HtmlLabelUtil.ts';
 import { FIRST_REPEAT_REVIEW_ROUND } from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
 import { HtmlEscapeUtil }            from '../../src/lib/utils/HtmlEscapeUtil.ts';
 import type { KanbanCard }           from '../@types/KanbanCard.ts';
@@ -34,7 +33,7 @@ function headMarkup(input: TicketDetailInput): string {
     `<span class="ap-pill">${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.pillLabelForDisplayState(card.state, ownRow?.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND))}</span>`,
     reviewedMark,
     WorkItemMarkupUtil.priorityMarkMarkup(ticket),
-    `<span class="ap-detail-type">${HtmlEscapeUtil.escapeHtml(HtmlLabelUtil.ticketTypeLabelOf(ticket.type))}</span>`,
+    `<span class="ap-detail-type">${HtmlEscapeUtil.escapeHtml(ticket.type)}</span>`,
     '</div>',
   ].join('');
 }
