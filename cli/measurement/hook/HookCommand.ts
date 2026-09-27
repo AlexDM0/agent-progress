@@ -13,7 +13,7 @@ import type { AgentUsage }                             from '../../../src/lib/tr
 import { OperationRefusal, refusalIsOperationRefusal } from '../../../src/shared/OperationRefusal.ts';
 import { LIMITS }                                      from '../../../src/shared/constants/Limits.ts';
 import type { CommandContext }                         from '../../CommandContext.ts';
-import type { CommandHandler }                         from '../../CommandTable.ts';
+import type { CommandHandler }                         from '../../CommandHandler.ts';
 import { requireCurrentInstall }                       from '../../InstallVersionCheck.ts';
 import { openTrackerForWriting }                       from '../../OpenTrackerForWriting.ts';
 import type { ArgumentParser }                         from '../../arguments/ArgumentParser.ts';

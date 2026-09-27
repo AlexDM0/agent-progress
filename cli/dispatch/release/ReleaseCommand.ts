@@ -25,7 +25,7 @@ import { LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS }                              
 import type { ReleaseRefusalReason }                                                from '../../../src/shared/@types/ReleaseRefusalReason.ts';
 import { OperationRefusal, refusalIsOperationRefusal, type OperationRefusalStatus } from '../../../src/shared/OperationRefusal.ts';
 import type { CommandContext }                                                      from '../../CommandContext.ts';
-import type { CommandHandler }                                                      from '../../CommandTable.ts';
+import type { CommandHandler }                                                      from '../../CommandHandler.ts';
 import { requireCurrentInstall }                                                    from '../../InstallVersionCheck.ts';
 import { openTrackerForWritingThenReadNextLine }                                    from '../../OpenTrackerForWriting.ts';
 import type { ArgumentParser }                                                      from '../../arguments/ArgumentParser.ts';

@@ -6,7 +6,7 @@ import { resolve } from 'node:path';
 
 import { readCommitsDiff, readRebaseDiffs, readWorktreeHead } from '../../../src/lib/git/BranchDiffs.ts';
 import { OperationRefusal }                                   from '../../../src/shared/OperationRefusal.ts';
-import type { CommandHandler }                                from '../../CommandTable.ts';
+import type { CommandHandler }                                from '../../CommandHandler.ts';
 import { DEFAULT_MAIN_LINE }                                  from '../../constants/GitDefaults.ts';
 import { CommitTextUtil }                                     from '../../utils/CommitTextUtil.ts';
 import { OutputUtil }                                         from '../../utils/OutputUtil.ts';

@@ -15,7 +15,7 @@ import { requireTracker }                                        from '../../../
 import { requireWorkspace }                                      from '../../../src/services/tracker/Workspace.ts';
 import type { WordedLogEntry }                                   from '../../../src/shared/@types/WordedLogEntry.ts';
 import { LIMITS }                                                from '../../../src/shared/constants/Limits.ts';
-import type { CommandHandler }                                   from '../../CommandTable.ts';
+import type { CommandHandler }                                   from '../../CommandHandler.ts';
 import { NextLineUtil }                                          from '../../utils/NextLineUtil.ts';
 import { OutputUtil }                                            from '../../utils/OutputUtil.ts';
 

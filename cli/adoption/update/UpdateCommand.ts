@@ -5,7 +5,7 @@
  * files still in an older format.
  */
 import { requireWorkspace }                                                     from '../../../src/services/tracker/Workspace.ts';
-import type { CommandHandler }                                                  from '../../CommandTable.ts';
+import type { CommandHandler }                                                  from '../../CommandHandler.ts';
 import { requireNoNewerInstall }                                                from '../../InstallVersionCheck.ts';
 import { OlderTrackerFilesRewriteReport }                                       from '../../legacy/OlderTrackerFilesRewriteReport.ts';
 import { IGNORED_RETIRED_OPTION_NAMES }                                         from '../../legacy/constants/IgnoredRetiredOptions.ts';

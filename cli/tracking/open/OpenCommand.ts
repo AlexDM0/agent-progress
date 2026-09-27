@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs';
 
 import { requireWorkspace }        from '../../../src/services/tracker/Workspace.ts';
-import type { CommandHandler }     from '../../CommandTable.ts';
+import type { CommandHandler }     from '../../CommandHandler.ts';
 import { renderDashboardOrRefuse } from '../RenderDashboardOrRefuse.ts';
 import { OpenerUtil }              from './utils/OpenerUtil.ts';
 

@@ -5,7 +5,7 @@
 import { describe, expect, test } from 'bun:test';
 
 import type { LogRecord }      from '../../../lib/tracker-model/@types/LogRecord.ts';
-import type { LogFileReading } from '../LogFileIngestion.ts';
+import type { LogFileReading } from '../@types/StoredLog.ts';
 import { TrackerLogUtil }      from './TrackerLogUtil.ts';
 
 const { storedLogOf } = TrackerLogUtil;

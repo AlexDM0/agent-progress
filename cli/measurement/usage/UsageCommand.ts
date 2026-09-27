@@ -14,7 +14,7 @@ import { requireWorkspace }                                               from '
 import { OperationRefusal }                                               from '../../../src/shared/OperationRefusal.ts';
 import { LIMITS }                                                         from '../../../src/shared/constants/Limits.ts';
 import type { CommandContext }                                            from '../../CommandContext.ts';
-import type { CommandHandler }                                            from '../../CommandTable.ts';
+import type { CommandHandler }                                            from '../../CommandHandler.ts';
 import type { ArgumentParser }                                            from '../../arguments/ArgumentParser.ts';
 import { OutputUtil }                                                     from '../../utils/OutputUtil.ts';
 

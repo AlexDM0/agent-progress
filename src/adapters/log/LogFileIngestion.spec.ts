@@ -9,7 +9,8 @@ import { afterAll, expect, test }                 from 'bun:test';
 
 import type { LogRecord }                                 from '../../lib/tracker-model/@types/LogRecord.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
-import { LogFileIngestion, type LogFileReading }          from './LogFileIngestion.ts';
+import type { LogFileReading }                            from './@types/StoredLog.ts';
+import { LogFileIngestion }                               from './LogFileIngestion.ts';
 
 const FILED_AT   = '2026-09-18T20:30:00+02:00';
 const STARTED_AT = '2026-09-18T20:40:00+02:00';

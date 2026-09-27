@@ -2,13 +2,9 @@
 import type { LogRecord }          from '../../lib/tracker-model/@types/LogRecord.ts';
 import { storedFileTextOf }        from '../StoredFileText.ts';
 import { StoredValueUtil }         from '../utils/StoredValueUtil.ts';
+import type { LogFileReading }     from './@types/StoredLog.ts';
 import { LogRecordMappingUtil }    from './utils/LogRecordMappingUtil.ts';
 import { LogRecordValidationUtil } from './utils/LogRecordValidationUtil.ts';
-
-export type LogFileReading =
-  | { verdict: 'readable'; records: LogRecord[] }
-  | { verdict: 'absent' }
-  | { verdict: 'unreadable'; reason: string };
 
 export class LogFileIngestion {
   constructor(private readonly logFilePath: string) {}

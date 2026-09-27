@@ -7,7 +7,7 @@ import { TASK_STATUSES }                                                from '..
 import { VocabularyUtil }                                               from '../../../src/lib/tracker-model/utils/VocabularyUtil.ts';
 import { OperationRefusal }                                             from '../../../src/shared/OperationRefusal.ts';
 import type { CommandContext }                                          from '../../CommandContext.ts';
-import type { CommandHandler }                                          from '../../CommandTable.ts';
+import type { CommandHandler }                                          from '../../CommandHandler.ts';
 import { openTrackerForWriting, openTrackerForWritingThenReadNextLine } from '../../OpenTrackerForWriting.ts';
 import type { ArgumentParser }                                          from '../../arguments/ArgumentParser.ts';
 import { RetiredWordRefusalUtil }                                       from '../../legacy/utils/RetiredWordRefusalUtil.ts';

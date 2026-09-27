@@ -8,7 +8,7 @@
 import { describe, expect, test } from 'bun:test';
 
 import type { LogRecord }      from '../../../lib/tracker-model/@types/LogRecord.ts';
-import type { LogFileReading } from '../../log/LogFileIngestion.ts';
+import type { LogFileReading } from '../../log/@types/StoredLog.ts';
 import { EmbeddedLogUtil }     from './EmbeddedLogUtil.ts';
 
 const { storedLogBesideAnEmbeddedLog } = EmbeddedLogUtil;

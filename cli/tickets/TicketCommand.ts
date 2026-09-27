@@ -1,5 +1,5 @@
 import { OperationRefusal }             from '../../src/shared/OperationRefusal.ts';
-import type { CommandHandler }          from '../CommandTable.ts';
+import type { CommandHandler }          from '../CommandHandler.ts';
 import { RetiredWordRefusalUtil }       from '../legacy/utils/RetiredWordRefusalUtil.ts';
 import type { TicketSubcommandHandler } from './@types/TicketSubcommandHandler.ts';
 import { TICKET_CLAIM_SUBCOMMANDS }     from './TicketClaimSubcommands.ts';

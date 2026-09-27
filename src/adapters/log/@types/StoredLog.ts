@@ -5,4 +5,9 @@ export interface StoredLog {
   logFileMustBeRewritten: boolean;
 }
 
+export type LogFileReading =
+  | { verdict: 'readable'; records: LogRecord[] }
+  | { verdict: 'absent' }
+  | { verdict: 'unreadable'; reason: string };
+
 export type StoredLogReading = ({ verdict: 'readable' } & StoredLog) | { verdict: 'unreadable'; reason: string };

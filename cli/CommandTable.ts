@@ -4,12 +4,8 @@
  * command is one entry here and one block in `cli/HelpText.ts`.
  */
 import type { CommandContext } from './CommandContext.ts';
+import type { CommandLoader }  from './CommandHandler.ts';
 import type { ArgumentParser } from './arguments/ArgumentParser.ts';
-
-export type CommandHandler = (commandArguments: ArgumentParser, context: CommandContext) => Promise<void>;
-
-/** Import the command's module and return its handler, running nothing: `help` or a mistyped word never loads the renderer. */
-export type CommandLoader = () => Promise<CommandHandler>;
 
 export const COMMAND_TABLE = {
   init:        async () => (await import('./adoption/init/InitCommand.ts')).initCommand,

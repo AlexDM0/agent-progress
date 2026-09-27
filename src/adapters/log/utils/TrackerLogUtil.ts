@@ -1,6 +1,5 @@
 /** Which log a tracker has, from its log.jsonl reading: the file's records, an empty log when it is absent, or its own unreadable verdict. */
-import type { StoredLogReading } from '../@types/StoredLog.ts';
-import type { LogFileReading }   from '../LogFileIngestion.ts';
+import type { LogFileReading, StoredLogReading } from '../@types/StoredLog.ts';
 
 function storedLogOf(logFileReading: LogFileReading): StoredLogReading {
   if (logFileReading.verdict === 'unreadable') return logFileReading;

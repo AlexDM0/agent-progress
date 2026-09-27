@@ -3,10 +3,9 @@
  * migration cut short. It can be deleted once every tracker has been rewritten by `agent-progress update`, with the progress ingestion's
  * `carriedOverLog` and `StoredLog.logFileMustBeRewritten`, which only a carried-over log sets.
  */
-import type { LogRecord }        from '../../../lib/tracker-model/@types/LogRecord.ts';
-import type { StoredLogReading } from '../../log/@types/StoredLog.ts';
-import type { LogFileReading }   from '../../log/LogFileIngestion.ts';
-import type { StoredLogEntry }   from '../@types/StoredProgressFileVersionOne.ts';
+import type { LogRecord }                        from '../../../lib/tracker-model/@types/LogRecord.ts';
+import type { LogFileReading, StoredLogReading } from '../../log/@types/StoredLog.ts';
+import type { StoredLogEntry }                   from '../@types/StoredProgressFileVersionOne.ts';
 
 function logArrayProblemOf(log: unknown): string | null {
   return Array.isArray(log) ? null : 'log is not an array';
