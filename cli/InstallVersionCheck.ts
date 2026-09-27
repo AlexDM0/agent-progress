@@ -20,17 +20,7 @@ function installedFilesArePresentIn(rootDirectory: string): boolean {
   }
 }
 
-/** Rename replaces any file or link at the manifest's path but fails on a directory, which `update` therefore cannot repair. */
-function manifestPathIsADirectoryIn(rootDirectory: string): boolean {
-  try {
-    return lstatSync(installedFilePathsIn(rootDirectory).installManifest).isDirectory();
-  } catch {
-    return false;
-  }
-}
-
 function installVersionVerdictIn(rootDirectory: string): InstallVersionVerdict {
-  if (manifestPathIsADirectoryIn(rootDirectory)) return { verdict: 'mismatch', mismatch: { reason: 'manifest-is-a-directory' } };
   const reading = new InstallManifestIngestion(installedFilePathsIn(rootDirectory).installManifest).read();
   return InstallVersionVerdictUtil.verdictOf(reading, installedFilesArePresentIn(rootDirectory), INSTALL_VERSION);
 }

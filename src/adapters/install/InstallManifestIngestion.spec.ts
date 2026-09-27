@@ -1,7 +1,7 @@
 /**
  * What the manifest reader answers. The cases that matter: an absent file, which a tracker from before the manifest gives and which must
  * never be confused with a file that exists but cannot be read; every way the stored version can be wrong, each named in the reason; and
- * a path that is a directory, which exists and so is unreadable, never absent.
+ * a path that is a directory, which exists and so reads as a directory, never as absent.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join }                     from 'node:path';
@@ -61,10 +61,8 @@ test('a missing, fractional, zero or textual install version is unreadable, and 
   }
 });
 
-test('a directory at the manifest\'s path exists, so it reads as unreadable and never as absent', () => {
+test('a directory at the manifest\'s path reads as a directory, never as absent', () => {
   const manifestFilePath = scratchManifestFilePath('manifest-directory');
   mkdirSync(manifestFilePath);
-  const reading = new InstallManifestIngestion(manifestFilePath).read();
-  expect(reading.verdict).toBe('unreadable');
-  expect(reading.verdict === 'unreadable' ? reading.reason : '').toStartWith('it could not be read (');
+  expect(new InstallManifestIngestion(manifestFilePath).read()).toEqual({ verdict: 'directory' });
 });

@@ -15,6 +15,8 @@ function verdictOf(reading: InstallManifestReading, installedFilesArePresent: bo
       return installedFilesArePresent ? { verdict: 'mismatch', mismatch: { reason: 'unversioned' } } : { verdict: 'current' };
     case 'unreadable':
       return { verdict: 'mismatch', mismatch: { reason: 'unreadable', manifestProblem: reading.reason } };
+    case 'directory':
+      return { verdict: 'mismatch', mismatch: { reason: 'manifest-is-a-directory' } };
     case 'readable':
       if (reading.installVersion === installVersion) return { verdict: 'current' };
       return {

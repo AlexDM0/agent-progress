@@ -1,7 +1,8 @@
 /**
  * The install version decision against its own contract, with arbitrary numbers: with one install version so far, a valid older manifest cannot
  * exist on disk, so only this spec reaches `older`. What matters: equal is current, lower is older and higher is newer with the recorded number,
- * an unreadable manifest fails closed, and a missing one is a mismatch only while installed files are present.
+ * an unreadable manifest fails closed, a directory at its path is a mismatch of its own, and a missing one is a mismatch only while
+ * installed files are present.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -28,6 +29,12 @@ describe('InstallVersionVerdictUtil.verdictOf', () => {
         verdict:  'mismatch',
         mismatch: { reason: 'unreadable', manifestProblem: 'it is not a JSON object' },
       });
+    }
+  });
+
+  test('a directory at the manifest\'s path is a manifest-is-a-directory mismatch, whether or not files are present', () => {
+    for (const installedFilesArePresent of [true, false]) {
+      expect(verdictOf({ verdict: 'directory' }, installedFilesArePresent, 7)).toEqual({ verdict: 'mismatch', mismatch: { reason: 'manifest-is-a-directory' } });
     }
   });
 
