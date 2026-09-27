@@ -18,7 +18,8 @@ import type {
   TicketTimelineInput,
   TimelineSpan,
 } from './@types/TicketTimeline.ts';
-import { durationTextOf, percentAlong, ticketTimelineOf } from './TicketTimeline.ts';
+import { ticketTimelineOf }   from './TicketTimeline.ts';
+import { TicketTimelineUtil } from './utils/TicketTimelineUtil.ts';
 
 
 const SEGMENT_LABEL_MINIMUM_PERCENT = 9;
@@ -28,8 +29,8 @@ function clampToAxis(value: number): number {
 }
 
 function barStyle(axis: TicketTimelineAxis, span: TimelineSpan, limits: TimelineLimits): string {
-  const leftPercent  = clampToAxis(percentAlong(axis, span.startEpochMilliseconds));
-  const rightPercent = clampToAxis(percentAlong(axis, span.endEpochMilliseconds));
+  const leftPercent  = clampToAxis(TicketTimelineUtil.percentAlong(axis, span.startEpochMilliseconds));
+  const rightPercent = clampToAxis(TicketTimelineUtil.percentAlong(axis, span.endEpochMilliseconds));
   const widthPercent = Math.min(PERCENT_OF_A_WHOLE - leftPercent, Math.max(rightPercent - leftPercent, limits.minimumBarWidthPercent));
   return `left:${MarkupUtil.percentText(leftPercent)};width:${MarkupUtil.percentText(widthPercent)}`;
 }
@@ -64,7 +65,7 @@ function filedNameMarkup(ticket: PageTicket, input: TicketTimelineInput): string
 
 function filedRowMarkup(timeline: TicketTimeline, input: TicketTimelineInput): string {
   const { queue, axis } = timeline;
-  const queued          = durationTextOf(queue.endEpochMilliseconds - queue.startEpochMilliseconds, input.limits);
+  const queued          = TicketTimelineUtil.durationTextOf(queue.endEpochMilliseconds - queue.startEpochMilliseconds, input.limits);
   const title           = `filed ${TimeUtil.fullStampText(input.ticket.filed, input.limits)} · in the queue ${queued}${queue.isLive ? ' so far' : ''}`;
   const bar             = `<div class="ap-bar ap-ticket-gantt-filed" style="${barStyle(axis, queue, input.limits)}" ${MarkupUtil.attribute('title', title)}></div>`;
   return ganttRowMarkup(filedNameMarkup(input.ticket, input), timeline.queueTimeText, bar);
@@ -87,7 +88,7 @@ function reviewRowMarkup(review: ReviewSpan, timeline: TicketTimeline, input: Ti
   ].join('');
   return ganttRowMarkup(
     `<span class="ap-name">${HtmlEscapeUtil.escapeHtml(review.label)}</span>`,
-    durationTextOf(review.endEpochMilliseconds - review.startEpochMilliseconds, input.limits),
+    TicketTimelineUtil.durationTextOf(review.endEpochMilliseconds - review.startEpochMilliseconds, input.limits),
     bar,
   );
 }
@@ -100,14 +101,15 @@ function afterBuildRowMarkup(timeline: TicketTimeline, input: TicketTimelineInpu
     return '';
   }
   const segments = afterBuild.map((segment) => {
-    const widthPercent = percentAlong(axis, segment.endEpochMilliseconds) - percentAlong(axis, segment.startEpochMilliseconds);
+    const widthPercent = TicketTimelineUtil.percentAlong(axis, segment.endEpochMilliseconds) - TicketTimelineUtil.percentAlong(axis, segment.startEpochMilliseconds);
     const label        = widthPercent >= SEGMENT_LABEL_MINIMUM_PERCENT ? HtmlEscapeUtil.escapeHtml(segment.label) : '';
     return [
       `<div class="ap-bar ap-lifecycle-segment" ${MarkupUtil.attribute('data-state', segment.state)} style="${barStyle(axis, segment, input.limits)}"`,
       ` ${MarkupUtil.attribute('title', spanTitle(segment, segment.label, input))}>${label}</div>`,
     ].join('');
   }).join('');
-  return ganttRowMarkup('<span class="ap-name">After build</span>', durationTextOf(last.endEpochMilliseconds - first.startEpochMilliseconds, input.limits), segments);
+  const afterBuildTimeText = TicketTimelineUtil.durationTextOf(last.endEpochMilliseconds - first.startEpochMilliseconds, input.limits);
+  return ganttRowMarkup('<span class="ap-name">After build</span>', afterBuildTimeText, segments);
 }
 
 function legendMarkup(legend: readonly LegendEntry[]): string {

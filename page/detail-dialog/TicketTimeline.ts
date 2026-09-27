@@ -4,16 +4,16 @@
  * `page/detail-dialog/TicketTimelineMarkup.ts` draws it.
  */
 
-import type { DisplayState, Task, TaskPhase }          from '../../src/lib/tracker-model/@types/Task.ts';
-import { FIRST_REPEAT_REVIEW_ROUND }                   from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
-import { TicketDefaultsUtil }                          from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
-import type { PageTicket }                             from '../../src/shared/@types/PagePayload.ts';
-import type { TimelineLimits, TimelineTick }           from '../@types/Timeline.ts';
-import { MINIMUM_TICK_STEP_MINUTES }                   from '../constants/TickSteps.ts';
-import { MILLISECONDS_PER_MINUTE, PERCENT_OF_A_WHOLE } from '../constants/Units.ts';
-import { GeometryUtil }                                from '../utils/GeometryUtil.ts';
-import { TimeUtil, type DurationUnits }                from '../utils/TimeUtil.ts';
-import { WorkItemMarkupUtil }                          from '../utils/WorkItemMarkupUtil.ts';
+import type { DisplayState, Task, TaskPhase } from '../../src/lib/tracker-model/@types/Task.ts';
+import { FIRST_REPEAT_REVIEW_ROUND }          from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
+import { TicketDefaultsUtil }                 from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
+import type { PageTicket }                    from '../../src/shared/@types/PagePayload.ts';
+import type { TimelineLimits, TimelineTick }  from '../@types/Timeline.ts';
+import { MINIMUM_TICK_STEP_MINUTES }          from '../constants/TickSteps.ts';
+import { MILLISECONDS_PER_MINUTE }            from '../constants/Units.ts';
+import { GeometryUtil }                       from '../utils/GeometryUtil.ts';
+import { TimeUtil, type DurationUnits }       from '../utils/TimeUtil.ts';
+import { WorkItemMarkupUtil }                 from '../utils/WorkItemMarkupUtil.ts';
 import type {
   ClosedTicketState,
   LegendEntry,
@@ -24,6 +24,7 @@ import type {
   TimelineEnd,
   TimelineSpan,
 } from './@types/TicketTimeline.ts';
+import { TicketTimelineUtil } from './utils/TicketTimelineUtil.ts';
 
 const AXIS_PADDING_FRACTION_PER_SIDE = 0.025;
 
@@ -76,10 +77,6 @@ function ticksFor(axis: TicketTimelineAxis, limits: TimelineLimits): TimelineTic
   const spanMinutes = (axis.toEpochMilliseconds - axis.fromEpochMilliseconds) / MILLISECONDS_PER_MINUTE;
   const stepMinutes = GeometryUtil.chooseStepMinutes(spanMinutes, null, { ...limits, maximumTicksPerAxis: TICKET_TIMELINE_MAXIMUM_TICKS });
   return GeometryUtil.buildTicks(axis, stepMinutes, spanMinutes, limits);
-}
-
-export function percentAlong(axis: TicketTimelineAxis, epochMilliseconds: number): number {
-  return (epochMilliseconds - axis.fromEpochMilliseconds) / (axis.toEpochMilliseconds - axis.fromEpochMilliseconds) * PERCENT_OF_A_WHOLE;
 }
 
 function timelineSpan(state: DisplayState, label: string, startEpochMilliseconds: number, endEpochMilliseconds: number, isLive: boolean): TimelineSpan {
@@ -263,11 +260,7 @@ function endOf(axis: TicketTimelineAxis, closedState: ClosedTicketState | null, 
   const label = closedState === null || closingStamp === null
     ? `now ${TimeUtil.clockOf(new Date(input.nowEpochMilliseconds))}`
     : `${closedState} ${TimeUtil.shortStampText(closingStamp, input.todayCalendarDate, input.limits)}`;
-  return { closedState, label, leftPercent: percentAlong(axis, axis.lastMomentEpochMilliseconds) };
-}
-
-export function durationTextOf(milliseconds: number, units: DurationUnits): string {
-  return TimeUtil.formatDuration(milliseconds, units) ?? '';
+  return { closedState, label, leftPercent: TicketTimelineUtil.percentAlong(axis, axis.lastMomentEpochMilliseconds) };
 }
 
 export function ticketTimelineOf(input: TicketTimelineInput): TicketTimeline {
@@ -296,12 +289,12 @@ export function ticketTimelineOf(input: TicketTimelineInput): TicketTimeline {
     axis,
     ticks:         ticksFor(axis, limits),
     queue,
-    queueTimeText: `${queueIsOpen ? 'waiting' : 'queued'} ${durationTextOf(queuedMilliseconds, limits)}`,
+    queueTimeText: `${queueIsOpen ? 'waiting' : 'queued'} ${TicketTimelineUtil.durationTextOf(queuedMilliseconds, limits)}`,
     ownRowId:      ownRow?.id ?? null,
     buildSegments,
     buildTimeText: firstSegment === undefined || lastSegment === undefined
       ? noBuildText
-      : durationTextOf(lastSegment.endEpochMilliseconds - firstSegment.startEpochMilliseconds, limits),
+      : TicketTimelineUtil.durationTextOf(lastSegment.endEpochMilliseconds - firstSegment.startEpochMilliseconds, limits),
     reviews,
     afterBuild,
     legend: legendOf([queue, ...buildSegments, ...afterBuild], limits),
