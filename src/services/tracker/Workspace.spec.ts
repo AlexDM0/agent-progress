@@ -14,9 +14,9 @@ import {
   createCanonicalScratchDirectory,
   createScratchGitRepository,
   gitIsAvailable,
-  removeScratchDirectory,
-  writeMinimalTracker
+  removeScratchDirectory
 } from '../../testing/ScratchWorkspace.ts';
+import { writeMinimalTracker }                                from '../../testing/TrackerFileFixtures.ts';
 import { findWorkspace, requireWorkspace, workspacePathsFor } from './Workspace.ts';
 
 const WORKSPACE_MODULE_PATH = join(import.meta.dir, 'Workspace.ts');

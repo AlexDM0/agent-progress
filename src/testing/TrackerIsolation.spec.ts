@@ -13,14 +13,10 @@ import {
   test
 }                    from 'bun:test';
 
-import { jsonPrintedByAChildProcess } from './ChildProcessEvaluation.ts';
-import {
-  createCanonicalScratchDirectory,
-  createScratchDirectory,
-  removeScratchDirectory,
-  writeMinimalTracker
-} from './ScratchWorkspace.ts';
-import { requireTrackerIsolation, trackerIsolationVerdictFor } from './TrackerIsolation.ts';
+import { jsonPrintedByAChildProcess }                                                      from './ChildProcessEvaluation.ts';
+import { createCanonicalScratchDirectory, createScratchDirectory, removeScratchDirectory } from './ScratchWorkspace.ts';
+import { writeMinimalTracker }                                                             from './TrackerFileFixtures.ts';
+import { requireTrackerIsolation, trackerIsolationVerdictFor }                             from './TrackerIsolation.ts';
 
 const TRACKER_ISOLATION_MODULE_PATH = join(import.meta.dir, 'TrackerIsolation.ts');
 const REPOSITORY_DIRECTORY          = join(import.meta.dir, '..', '..');

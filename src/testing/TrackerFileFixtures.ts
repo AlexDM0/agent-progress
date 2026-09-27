@@ -1,14 +1,21 @@
 /**
- * A tracker on disk as the store's own writers leave it, and the readings the tracker service specs take of one. Test-only: nothing that ships
- * may import `src/testing/`.
+ * Trackers on disk for the specs that need one, from the bare minimum discovery finds to one as the store's own writers leave it, and the
+ * readings the tracker service specs take of one. Test-only: nothing that ships may import `src/testing/`.
  */
-import { readdirSync, readFileSync, statSync } from 'node:fs';
-import { join }                                from 'node:path';
+import {
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync
+}               from 'node:fs';
+import { join } from 'node:path';
 
 import { createLogFileWriter }      from '../adapters/log/LogFileWriter.ts';
 import { createProgressFileWriter } from '../adapters/progress/ProgressFileWriter.ts';
 import { createTicketFileWriter }   from '../adapters/tickets/TicketFileWriter.ts';
 import type { LogRecord }           from '../lib/tracker-model/@types/LogRecord.ts';
+import { workspacePathsFor }        from '../services/tracker/Workspace.ts';
 import type { Workspace }           from '../services/tracker/Workspace.ts';
 import { ticketFixture }            from './BoardFixtures.ts';
 import { emptyProgress }            from './ProgressFixtures.ts';
@@ -19,6 +26,14 @@ export const BROKEN_LOG_TEXT = '{"at":"2026-09-18T20:05:00+02:00","kind":"note",
 export const EXAMPLE_TICKET_FILE_NAME = '001-example-checkout-page.md';
 
 export const EXAMPLE_SESSION_NOTE: LogRecord = { at: '2026-09-18T10:15:00+02:00', kind: 'note', fields: { text: 'Example session started' } };
+
+/** Just enough of a tracker for discovery to find one at this root: its directory and a progress file. */
+export function writeMinimalTracker(rootDirectory: string): string {
+  const { progressFilePath, trackerDirectory } = workspacePathsFor(rootDirectory);
+  mkdirSync(trackerDirectory, { recursive: true });
+  writeFileSync(progressFilePath, '{"version":1}');
+  return rootDirectory;
+}
 
 /** An empty progress file, one note in log.jsonl and one ticket. */
 export function writeReadableTracker(workspace: Workspace): void {
