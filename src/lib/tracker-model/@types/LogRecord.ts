@@ -1,13 +1,9 @@
-/** What the Board tells the log, as ids and values with no wording; the caller words it. */
+/**
+ * What the Board tells the log, as ids and values with no wording; the caller words it. The union is the log's vocabulary: a new kind is
+ * a member here plus its wording in `src/adapters/utils/LogUtil.ts` and its stored check, each an exhaustive switch or record the compiler holds.
+ */
 import type { AgentPair, TicketPriority }  from './Ticket.ts';
 import type { DispatcherState, ViewRange } from './TrackerProgress.ts';
-
-/** A review bar's `name` is carried because the sentence prints the row's stored name, which an edit may have made anything. */
-export interface ReviewBarReference {
-  taskId:   number;
-  ticketId: string;
-  name:     string;
-}
 
 export interface AgentUsage {
   agentId:              string;
@@ -31,11 +27,11 @@ export type LogRecordContent =
   | { kind: 'ticket-agents-changed'; ticketId: string; fields: { from: AgentPair; to: AgentPair } }
   | { kind: 'ticket-held'; ticketId: string; fields: { reason: string } }
   | { kind: 'ticket-unheld'; ticketId: string; fields: Record<string, never> }
+  /** A review bar's `name` is carried because the sentence prints the row's stored name, which an edit may have made anything. */
   | { kind: 'review-bar-started' | 'review-bar-closed'; taskId: number; ticketId: string; fields: { name: string } }
   | { kind: 'chart-range-set'; fields: { view: ViewRange } }
   | { kind: 'concurrency-limit-set'; fields: { limit: number } }
   | { kind: 'dispatcher-set'; fields: { state: DispatcherState; runId: string | null } }
-  | { kind: 'tracker-cleared'; fields: Record<string, never> }
-  | { kind: 'agent-stopped'; fields: AgentUsage };
+  | { kind: 'tracker-cleared'; fields: Record<string, never> }  | { kind: 'agent-stopped'; fields: AgentUsage };
 
 export type LogRecord = LogRecordContent & { at: string };

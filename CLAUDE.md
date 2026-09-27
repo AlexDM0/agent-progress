@@ -74,9 +74,9 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - `progress.json` keeps the keys the tool does not know, at the top level and on rows, in the file's order.
 - An optional stored key is written only once somebody sets it, and a read never adds or rewrites one, so an older
   file stays byte-identical. The one exception is the legacy review bar, below.
-- The Board logs through the logger with ids and values only; an adapter util words the records, and the log file
-  sink writes them to `.agent-progress/log.jsonl`. The logger takes one `log(record)` call over a typed record union,
-  and that union is the vocabulary; it has no method per record.
+- The Board logs through the logger with ids and values only; an adapter util words the records, the log record
+  collector gathers them and the log file writer stores them in `.agent-progress/log.jsonl`. The logger takes one
+  `log(record)` call over a typed record union, and that union is the vocabulary; it has no method per record.
 
 ### Legacy
 

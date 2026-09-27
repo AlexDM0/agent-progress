@@ -88,13 +88,13 @@ export class Board {
 
   setChartRange(view: ViewRange, at: string): Logged {
     this.progress.view = view;
-    return { logged: [this.logger.chartRangeSet(view, at)] };
+    return { logged: [this.logger.log({ kind: 'chart-range-set', fields: { view } }, at)] };
   }
 
   setConcurrencyLimit(limit: number, at: string): ConcurrencyLimitSet {
     const previousLimit           = this.concurrency().limit;
     this.progress.concurrencyLimit = limit;
-    const logged                  = [this.logger.concurrencyLimitSet(limit, at)];
+    const logged                  = [this.logger.log({ kind: 'concurrency-limit-set', fields: { limit } }, at)];
     return { logged, previousLimit, concurrency: this.concurrency() };
   }
 
@@ -104,11 +104,11 @@ export class Board {
     this.progress.dispatcherState = state;
     if (runId === null) delete this.progress.dispatcherRunId;
     else this.progress.dispatcherRunId = runId;
-    return { logged: [this.logger.dispatcherSet(state, runId, at)], previousState };
+    return { logged: [this.logger.log({ kind: 'dispatcher-set', fields: { state, runId } }, at)], previousState };
   }
 
   recordNote(text: string, at: string): Logged {
-    return { logged: [this.logger.note(text, at)] };
+    return { logged: [this.logger.log({ kind: 'note', fields: { text } }, at)] };
   }
 
   /** Moving the link off the ticket's existing row leaves that row free-standing rather than deleting it. */
@@ -191,7 +191,7 @@ export class Board {
   /** A credit that cannot land is a verdict beside the others, never a refusal, as the agent has already finished; the usage is logged after them. */
   recordAgentStop(usage: AgentUsage, credits: readonly TokenCredit[], at: string): AgentStopRecorded {
     const outcomes = credits.map((credit) => this.creditTokens(credit));
-    return { logged: [this.logger.agentStopped(usage, at)], outcomes };
+    return { logged: [this.logger.log({ kind: 'agent-stopped', fields: usage }, at)], outcomes };
   }
 
   /** Judged against the tickets already on the board, before the new one joins, so a ticket naming its own id names no ticket. */
@@ -201,7 +201,7 @@ export class Board {
     this.ticketRecords.push(ticket);
     this.ensureTaskForTicketOnTheChart(ticket, at);
     this.markChanged(ticket);
-    return { logged: [this.logger.ticketFiled(frontmatter.id, frontmatter.title, at)], ticket };
+    return { logged: [this.logger.log({ kind: 'ticket-filed', ticketId: frontmatter.id, fields: { title: frontmatter.title } }, at)], ticket };
   }
 
   /**
@@ -245,7 +245,8 @@ export class Board {
     const task          = this.ensureTaskForTicket(ticket, at);
     this.transitionTaskInPlace(task, 're-review', at);
     this.markChanged(ticket);
-    return { logged: [this.logger.ticketRereviewed(ticketId, task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND, at)], ticket };
+    const round         = task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND;
+    return { logged: [this.logger.log({ kind: 'ticket-rereviewed', ticketId, fields: { round } }, at)], ticket };
   }
 
   /**
@@ -266,7 +267,12 @@ export class Board {
     this.transitionTaskInPlace(bar, 'in-progress', at);
     const bundleAgentKey = this.agentKeyOfABundleStillInProgress(ticket);
     if (bundleAgentKey !== null) bar.agent = bundleAgentKey;
-    const started = this.logger.reviewBarStarted({ taskId: bar.id, ticketId, name: bar.name }, at);
+    const started = this.logger.log({
+      kind:   'review-bar-started',
+      taskId: bar.id,
+      ticketId,
+      fields: { name: bar.name },
+    }, at);
     return { logged: [...closed.logged, started], bar, closedBars: closed.bars };
   }
 
@@ -280,7 +286,7 @@ export class Board {
     const droppedTicketIds = previousDependsOn.filter((dependencyId) => !dependsOn.includes(dependencyId));
     const statusById       = new Map(this.ticketRecords.map((candidate) => [candidate.frontmatter.id, candidate.frontmatter.status]));
     return {
-      logged:                    [this.logger.ticketDependenciesSet(ticketId, dependsOn, at)],
+      logged:                    [this.logger.log({ kind: 'ticket-dependencies-set', ticketId, fields: { dependsOn } }, at)],
       ticket,
       addedTicketIds:            dependsOn.filter((dependencyId) => !previousDependsOn.includes(dependencyId)),
       droppedTicketIds,
@@ -418,7 +424,7 @@ export class Board {
       this.seedTaskFromTicket(ticket);
     }
     this.markChanged(ticket);
-    return { logged: [this.logger.ticketPriorityChanged(ticketId, { from: currentPriority, to: priority }, at)], ticket };
+    return { logged: [this.logger.log({ kind: 'ticket-priority-changed', ticketId, fields: { from: currentPriority, to: priority } }, at)], ticket };
   }
 
   /** Judged on the resolved pair, so naming the default a ticket already runs on is refused as no change. */
@@ -441,7 +447,7 @@ export class Board {
     if (agents.model !== undefined) frontmatter.model = agents.model;
     if (agents.effort !== undefined) frontmatter.effort = agents.effort;
     this.markChanged(ticket);
-    return { logged: [this.logger.ticketAgentsChanged(ticketId, { from: currentAgents, to: requestedAgents }, at)], ticket };
+    return { logged: [this.logger.log({ kind: 'ticket-agents-changed', ticketId, fields: { from: currentAgents, to: requestedAgents } }, at)], ticket };
   }
 
   /** An empty reason still holds: the hold is the key's presence, not its text. */
@@ -451,7 +457,7 @@ export class Board {
     if (ticket.frontmatter.hold !== undefined) throw new BoardRefusal({ reason: 'ticket-already-held', ticketId });
     ticket.frontmatter.hold = reason;
     this.markChanged(ticket);
-    return { logged: [this.logger.ticketHeld(ticketId, reason, at)], ticket };
+    return { logged: [this.logger.log({ kind: 'ticket-held', ticketId, fields: { reason } }, at)], ticket };
   }
 
   unholdTicket(ticketId: string, at: string): TicketChanged {
@@ -460,7 +466,7 @@ export class Board {
     if (ticket.frontmatter.hold === undefined) throw new BoardRefusal({ reason: 'ticket-not-held', ticketId });
     delete ticket.frontmatter.hold;
     this.markChanged(ticket);
-    return { logged: [this.logger.ticketUnheld(ticketId, at)], ticket };
+    return { logged: [this.logger.log({ kind: 'ticket-unheld', ticketId, fields: {} }, at)], ticket };
   }
 
   /**
@@ -472,7 +478,7 @@ export class Board {
     this.progress.startedAt    = at;
     this.progress.view         = { kind: 'auto' };
     this.progress.tasks.length = 0;
-    const logged               = [this.logger.trackerCleared(at)];
+    const logged               = [this.logger.log({ kind: 'tracker-cleared', fields: {} }, at)];
 
     if (!request.ticketsSurvive) {
       this.ticketRecords.length = 0;
@@ -766,20 +772,20 @@ export class Board {
 
   /** `pending` is logged as a reopen: a ticket's first `pending` is its filing, which `fileTicket` logs. */
   private logTicketMove(frontmatter: Readonly<TicketFrontmatter>, targetStatus: TicketStatus, at: string): LogRecord {
-    const { id } = frontmatter;
+    const ticketId = frontmatter.id;
     switch (targetStatus) {
       case 'pending':
-        return this.logger.ticketReopened(id, at);
+        return this.logger.log({ kind: 'ticket-reopened', ticketId, fields: {} }, at);
       case 'in-progress':
-        return this.logger.ticketStarted(id, at);
+        return this.logger.log({ kind: 'ticket-started', ticketId, fields: {} }, at);
       case 'in-review':
-        return this.logger.ticketFinished(id, at);
+        return this.logger.log({ kind: 'ticket-finished', ticketId, fields: {} }, at);
       case 'reviewed':
-        return this.logger.ticketApproved(id, at);
+        return this.logger.log({ kind: 'ticket-approved', ticketId, fields: {} }, at);
       case 'delivered':
-        return this.logger.ticketDelivered(id, at);
+        return this.logger.log({ kind: 'ticket-delivered', ticketId, fields: {} }, at);
       case 'abandoned':
-        return this.logger.ticketAbandoned(id, frontmatter.reason ?? '', at);
+        return this.logger.log({ kind: 'ticket-abandoned', ticketId, fields: { reason: frontmatter.reason ?? '' } }, at);
     }
   }
 
@@ -795,7 +801,12 @@ export class Board {
     for (const bar of bars) {
       this.transitionTaskInPlace(bar, 'in-review', at);
       this.transitionTaskInPlace(bar, 'delivered', at);
-      logged.push(this.logger.reviewBarClosed({ taskId: bar.id, ticketId: bar.reviewOf, name: bar.name }, at));
+      logged.push(this.logger.log({
+        kind:     'review-bar-closed',
+        taskId:   bar.id,
+        ticketId: bar.reviewOf,
+        fields:   { name: bar.name },
+      }, at));
     }
     return { bars, logged };
   }

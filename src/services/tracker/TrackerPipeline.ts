@@ -3,8 +3,8 @@
  * file, then the tickets the Board changed, then log.jsonl, then render from disk, so no older render lands last and the progress file is never
  * behind the tickets. A log carried over from an older progress file is copied first, so its notes are on disk before that file stops holding them.
  */
-import { createLogFileSink }                            from '../../adapters/log/LogFileSink.ts';
 import { createLogFileWriter }                          from '../../adapters/log/LogFileWriter.ts';
+import { createLogRecordCollector }                     from '../../adapters/log/LogRecordCollector.ts';
 import { createProgressFileWriter }                     from '../../adapters/progress/ProgressFileWriter.ts';
 import { createTicketFileWriter }                       from '../../adapters/tickets/TicketFileWriter.ts';
 import type { Ticket }                                  from '../../lib/tracker-model/@types/Ticket.ts';
@@ -48,15 +48,15 @@ export interface TrackerWritten<MutationResult> {
 }
 
 interface OpenBoard {
-  contents:    TrackerContents;
-  logFileSink: ReturnType<typeof createLogFileSink>;
-  board:       Board;
+  contents:           TrackerContents;
+  logRecordCollector: ReturnType<typeof createLogRecordCollector>;
+  board:              Board;
 }
 
 function openBoard(contents: TrackerContents): OpenBoard {
-  const logFileSink = createLogFileSink(contents.storedLog);
-  const board       = new Board({ progress: contents.progress, tickets: contents.listing.tickets, logger: createLogger(logFileSink.record) });
-  return { contents, logFileSink, board };
+  const logRecordCollector = createLogRecordCollector(contents.storedLog);
+  const board              = new Board({ progress: contents.progress, tickets: contents.listing.tickets, logger: createLogger(logRecordCollector.collect) });
+  return { contents, logRecordCollector, board };
 }
 
 /** `extraTickets` are written as well as the ones the Board changed, once each; a mutation hands in none. */
@@ -65,8 +65,8 @@ function writeBoard(
   openedBoard: OpenBoard,
   writes: { extraTickets: readonly Ticket[]; deletionCallbacks: readonly ((deletedTicketCount: number) => void)[] },
 ): void {
-  const { contents, logFileSink, board } = openedBoard;
-  const logRecordsToWrite = logFileSink.recordsToWrite();
+  const { contents, logRecordCollector, board } = openedBoard;
+  const logRecordsToWrite = logRecordCollector.recordsToWrite();
   const logFileWriter     = createLogFileWriter(workspace.logFilePath);
   // A log line never describes an unstored change, so the log goes last; a log carried over from an older file is copied first, before it is lost.
   if (contents.storedLog.logFileMustBeRewritten) logFileWriter.write(contents.storedLog.records);

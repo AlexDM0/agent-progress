@@ -6,6 +6,7 @@
 import { describe, expect, test } from 'bun:test';
 
 import type { AgentUsage, LogRecord } from '../../../lib/tracker-model/@types/LogRecord.ts';
+import type { AgentPair }             from '../../../lib/tracker-model/@types/Ticket.ts';
 import type { ViewRange }             from '../../../lib/tracker-model/@types/TrackerProgress.ts';
 import { createLogger }               from '../../../lib/tracker-model/Logger.ts';
 import { LogRecordValidationUtil }    from './LogRecordValidationUtil.ts';
@@ -16,7 +17,7 @@ const RECORDED_AT = '2026-09-18T21:30:54+02:00';
 
 const RECORD_KIND_COUNT = 21;
 
-const REVIEW_BAR = { taskId: 7, ticketId: '001', name: 'Review 1 #001 — Example checkout flow' };
+const REVIEW_BAR = { taskId: 7, ticketId: '001', fields: { name: 'Review 1 #001 — Example checkout flow' } };
 
 const RELATIVE_VIEW: ViewRange = {
   kind:        'relative',
@@ -35,31 +36,35 @@ const AGENT_USAGE: AgentUsage = {
   outputTokens:         1000,
 };
 
-// Taken from the logger itself, so every record the Board can write is one the ingestion must accept.
-const logger = createLogger(() => {});
+const DEFAULT_AGENTS: AgentPair = { model: 'opus', effort: 'medium' };
+
+const CHOSEN_AGENTS: AgentPair = { model: 'sonnet', effort: 'low' };
+
+// Stamped by the logger itself, so every record is shaped as the Board's records reach log.jsonl.
+const { log } = createLogger(() => {});
 
 const WELL_FORMED_RECORD_FOR_KIND: Readonly<Record<LogRecord['kind'], LogRecord>> = {
-  'note':                    logger.note('Example note from the orchestrator', RECORDED_AT),
-  'ticket-filed':            logger.ticketFiled('001', 'Example checkout flow', RECORDED_AT),
-  'ticket-reopened':         logger.ticketReopened('001', RECORDED_AT),
-  'ticket-started':          logger.ticketStarted('001', RECORDED_AT),
-  'ticket-finished':         logger.ticketFinished('001', RECORDED_AT),
-  'ticket-approved':         logger.ticketApproved('001', RECORDED_AT),
-  'ticket-delivered':        logger.ticketDelivered('001', RECORDED_AT),
-  'ticket-abandoned':        logger.ticketAbandoned('001', 'superseded by #002', RECORDED_AT),
-  'ticket-rereviewed':       logger.ticketRereviewed('001', 2, RECORDED_AT),
-  'ticket-priority-changed': logger.ticketPriorityChanged('001', { from: 'low', to: 'high' }, RECORDED_AT),
-  'ticket-dependencies-set': logger.ticketDependenciesSet('002', ['001'], RECORDED_AT),
-  'ticket-agents-changed':   logger.ticketAgentsChanged('001', { from: { model: 'opus', effort: 'medium' }, to: { model: 'sonnet', effort: 'low' } }, RECORDED_AT),
-  'ticket-held':             logger.ticketHeld('001', '', RECORDED_AT),
-  'ticket-unheld':           logger.ticketUnheld('001', RECORDED_AT),
-  'review-bar-started':      logger.reviewBarStarted(REVIEW_BAR, RECORDED_AT),
-  'review-bar-closed':       logger.reviewBarClosed(REVIEW_BAR, RECORDED_AT),
-  'chart-range-set':         logger.chartRangeSet(RELATIVE_VIEW, RECORDED_AT),
-  'concurrency-limit-set':   logger.concurrencyLimitSet(3, RECORDED_AT),
-  'dispatcher-set':          logger.dispatcherSet('running', 'wf_example', RECORDED_AT),
-  'tracker-cleared':         logger.trackerCleared(RECORDED_AT),
-  'agent-stopped':           logger.agentStopped(AGENT_USAGE, RECORDED_AT),
+  'note':                    log({ kind: 'note', fields: { text: 'Example note from the orchestrator' } }, RECORDED_AT),
+  'ticket-filed':            log({ kind: 'ticket-filed', ticketId: '001', fields: { title: 'Example checkout flow' } }, RECORDED_AT),
+  'ticket-reopened':         log({ kind: 'ticket-reopened', ticketId: '001', fields: {} }, RECORDED_AT),
+  'ticket-started':          log({ kind: 'ticket-started', ticketId: '001', fields: {} }, RECORDED_AT),
+  'ticket-finished':         log({ kind: 'ticket-finished', ticketId: '001', fields: {} }, RECORDED_AT),
+  'ticket-approved':         log({ kind: 'ticket-approved', ticketId: '001', fields: {} }, RECORDED_AT),
+  'ticket-delivered':        log({ kind: 'ticket-delivered', ticketId: '001', fields: {} }, RECORDED_AT),
+  'ticket-abandoned':        log({ kind: 'ticket-abandoned', ticketId: '001', fields: { reason: 'superseded by #002' } }, RECORDED_AT),
+  'ticket-rereviewed':       log({ kind: 'ticket-rereviewed', ticketId: '001', fields: { round: 2 } }, RECORDED_AT),
+  'ticket-priority-changed': log({ kind: 'ticket-priority-changed', ticketId: '001', fields: { from: 'low', to: 'high' } }, RECORDED_AT),
+  'ticket-dependencies-set': log({ kind: 'ticket-dependencies-set', ticketId: '002', fields: { dependsOn: ['001'] } }, RECORDED_AT),
+  'ticket-agents-changed':   log({ kind: 'ticket-agents-changed', ticketId: '001', fields: { from: DEFAULT_AGENTS, to: CHOSEN_AGENTS } }, RECORDED_AT),
+  'ticket-held':             log({ kind: 'ticket-held', ticketId: '001', fields: { reason: '' } }, RECORDED_AT),
+  'ticket-unheld':           log({ kind: 'ticket-unheld', ticketId: '001', fields: {} }, RECORDED_AT),
+  'review-bar-started':      log({ kind: 'review-bar-started', ...REVIEW_BAR }, RECORDED_AT),
+  'review-bar-closed':       log({ kind: 'review-bar-closed', ...REVIEW_BAR }, RECORDED_AT),
+  'chart-range-set':         log({ kind: 'chart-range-set', fields: { view: RELATIVE_VIEW } }, RECORDED_AT),
+  'concurrency-limit-set':   log({ kind: 'concurrency-limit-set', fields: { limit: 3 } }, RECORDED_AT),
+  'dispatcher-set':          log({ kind: 'dispatcher-set', fields: { state: 'running', runId: 'wf_example' } }, RECORDED_AT),
+  'tracker-cleared':         log({ kind: 'tracker-cleared', fields: {} }, RECORDED_AT),
+  'agent-stopped':           log({ kind: 'agent-stopped', fields: AGENT_USAGE }, RECORDED_AT),
 };
 
 function withFields(kind: LogRecord['kind'], fields: Record<string, unknown>): Record<string, unknown> {

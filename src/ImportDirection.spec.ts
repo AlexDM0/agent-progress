@@ -494,7 +494,7 @@ describe('the guard still names each violation, planted in memory', () => {
       'legacy-reached-outside-a-seam — src/adapters/log/PlantedReader.ts:1 imports src/adapters/legacy/utils/EmbeddedLogUtil.ts: '
         + 'current code reaches a legacy folder only through a seam `LEGACY_SEAMS` lists',
     ]);
-    expect(plantedSentencesOf({ 'src/adapters/legacy/utils/PlantedUpgrade.ts': importing('../../log/LogFileSink.ts') })).toEqual([]);
+    expect(plantedSentencesOf({ 'src/adapters/legacy/utils/PlantedUpgrade.ts': importing('../../log/LogRecordCollector.ts') })).toEqual([]);
   });
 
   test('an import cycle between two files, and between two lib packages through different files', () => {
