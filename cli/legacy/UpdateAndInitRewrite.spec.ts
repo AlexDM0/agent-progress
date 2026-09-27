@@ -21,6 +21,7 @@ import {
 }                                       from 'bun:test';
 import { workspacePathsFor }                                                  from '../../src/services/tracker/Workspace.ts';
 import { LIMITS }                                                             from '../../src/shared/constants/Limits.ts';
+import { HELD_LOCK_CASE_TIMEOUT_MILLISECONDS }                                from '../../src/testing/HeldLockCaseTimeout.ts';
 import { createScratchGitRepository, gitIsAvailable, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
 import { storedFileContentsOf }                                               from '../../src/testing/TrackerFileFixtures.ts';
 import { runCommandLine }                                                     from '../Main.ts';
@@ -31,9 +32,6 @@ const scratchDirectories: string[] = [];
 
 /** Every run below renders at the same moment, so a run that changes nothing leaves the page byte for byte too. */
 const FROZEN_NOW = new Date('2026-09-18T10:00:00+02:00');
-
-/** A lock that is never given up is waited out through the whole retry budget before the refusal. */
-const HELD_LOCK_TIMEOUT_MILLISECONDS = LIMITS.LOCK_RETRY_COUNT * LIMITS.LOCK_RETRY_INTERVAL_MILLISECONDS * 3;
 
 function scratchRepository(): string {
   const repositoryDirectory = createScratchGitRepository('older-tracker-rewrite');
@@ -235,7 +233,7 @@ describe.skipIf(!gitIsAvailable())('what update rewrites', () => {
     ]);
     expect(readFileSync(progressFilePath, 'utf8')).toBe(progressBefore);
     expect(existsSync(manifestFilePath), 'a refresh cut short leaves the old version, so every command keeps asking for update').toBe(false);
-  }, HELD_LOCK_TIMEOUT_MILLISECONDS);
+  }, HELD_LOCK_CASE_TIMEOUT_MILLISECONDS);
 });
 
 describe.skipIf(!gitIsAvailable())('what a second init rewrites', () => {
@@ -290,5 +288,5 @@ describe.skipIf(!gitIsAvailable())('what a second init rewrites', () => {
     expect(outputLines[3]).toStartWith('  brief:       updated — re-read it before your next brief');
     expect(readFileSync(progressFilePath, 'utf8')).toBe(progressBefore);
     expect(existsSync(manifestFilePath), 'a refresh cut short leaves the old version, so every command keeps asking for update').toBe(false);
-  }, HELD_LOCK_TIMEOUT_MILLISECONDS);
+  }, HELD_LOCK_CASE_TIMEOUT_MILLISECONDS);
 });

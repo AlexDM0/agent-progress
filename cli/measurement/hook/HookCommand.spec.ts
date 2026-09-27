@@ -22,9 +22,9 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import { LogFileIngestion }          from '../../../src/adapters/log/LogFileIngestion.ts';
-import { InstallVersionWordingUtil } from '../../../src/adapters/utils/InstallVersionWordingUtil.ts';
-import { LIMITS }                    from '../../../src/shared/constants/Limits.ts';
+import { LogFileIngestion }                    from '../../../src/adapters/log/LogFileIngestion.ts';
+import { InstallVersionWordingUtil }           from '../../../src/adapters/utils/InstallVersionWordingUtil.ts';
+import { HELD_LOCK_CASE_TIMEOUT_MILLISECONDS } from '../../../src/testing/HeldLockCaseTimeout.ts';
 import {
   createScratchDirectory,
   createScratchGitRepository,
@@ -41,9 +41,6 @@ import { storedProgressOf }             from '../../testing/StoredProgress.ts';
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
 const TRANSCRIPT_FILE_NAME = 'agent-example.jsonl';
-
-/** The held-lock case waits out the whole retry budget before it is refused, exactly as `src/services/tracker/TrackerLock.spec.ts` does. */
-const HELD_LOCK_TIMEOUT_MILLISECONDS = LIMITS.LOCK_RETRY_COUNT * LIMITS.LOCK_RETRY_INTERVAL_MILLISECONDS * 3;
 
 let repositoryDirectory = '';
 let transcriptPath      = '';
@@ -584,7 +581,7 @@ describe.skipIf(!gitIsAvailable())('every way it can fail', () => {
     expect(context.errorText()).toContain('could not be recorded');
     expect(context.outputText()).toBe('');
     expect(readFileSync(lockFilePath, 'utf8'), 'the lock it refused to take is left exactly as it was').toBe('');
-  }, HELD_LOCK_TIMEOUT_MILLISECONDS);
+  }, HELD_LOCK_CASE_TIMEOUT_MILLISECONDS);
 
   test('a cwd with no tracker above it is reported and still exits 0, because a hook failure must never reach the orchestrator', async () => {
     const untrackedDirectory = createScratchDirectory('hook-command-untracked');
