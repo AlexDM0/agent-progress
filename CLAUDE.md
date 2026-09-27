@@ -95,14 +95,14 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - A legacy review bar is a row known only by its name, `Review <N> #<id>`. It is linked to its ticket, given
   `reviewOf` and `reviewBarRound`, in four places: by `cli/legacy/` when `task add` files it without `--review-of` or
   `--ticket` and when `task update --name` renames it, both stored at once; by `update`'s rewrite; and by the legacy
-  read, in memory only, which also pads a stored `reviewOf` that reads as a whole number, stored on the next write.
+  read, in memory, which also pads a stored `reviewOf` that reads as a whole number; the next write stores both.
   After `update`, the read still links only a row renamed by hand or named `Review 0 #<id>`; dropping the read drops
   that linking. All of them share one legacy name util. Nothing else links a row by its name.
 
 ### Errors and exit codes
 
 - A decider returns a verdict, and fails closed: an answer the machine cannot give reads as the safe verdict.
-- Code outside `cli/` throws `OperationRefusal` (`refused` or `unrepaired`), never writes to the terminal and never
+- Library code throws `OperationRefusal` (`refused` or `unrepaired`), never writes to the terminal and never
   exits. A Board rule throws `BoardRefusal`, a reason code with its facts and no wording, and the tracker pipeline
   wraps it as a `refused` `OperationRefusal` carrying that detail.
 - A refusal thrown from `src/` carries a `detail`, a reason code with its facts and no words: a Board refusal, an
