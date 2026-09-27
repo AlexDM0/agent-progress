@@ -347,7 +347,7 @@ For a ticket dispatched by hand only: the dispatcher's prompts carry their own m
 agents move their own rows. Claim the ticket before the agent starts, which starts the ticket's own
 row rather than a second one beside it, and name that row in the brief's `agent-progress row: <rowId>`
 line; the `SubagentStop` hook reads that line from the brief alone and adds the agent's `input` —
-every token it processed, the `input` figure its log line names, `input 3.8M (cache read 3.6M)` — to the
+every token it processed, the figure its log line ends on, `input 3.8M (cache read 3.6M)` — to the
 row when the agent stops. It adds rather than sets, so a row
 several agents worked on carries all of them, and a workflow script's agents reach their row the same
 way. A bundle, and a ticket without a row yet — a low one, whose row the builder's own claim creates —
