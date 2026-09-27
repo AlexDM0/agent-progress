@@ -389,6 +389,12 @@ Settled on 2026-09-26, in step 8:
   `update` once the marker is fixed. This departs on purpose from "a failure leaves the old version",
   which covers writes that throw.
 
+Settled on 2026-09-27, in the end-of-refactor review:
+
+- **The installed brief differs from main's in two sentences.** It drops the clause ", half the
+  builder's budget,", and it names the hook's `input` figure as the one its log line gives just
+  before `output`, where main's said the line ends on it, which it does not.
+
 ## 7. Risks
 
 - **The branch lives long while main moves.** Merge main into it regularly. The page is where
