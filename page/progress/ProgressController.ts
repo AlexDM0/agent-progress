@@ -3,9 +3,9 @@
 import type { ViewRange }                                              from '../../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { PagePayload }                                            from '../../src/shared/@types/PagePayload.ts';
 import type { BoardRow }                                               from '../@types/PageBoard.ts';
+import type { NameColumnWidth, StoredViewOverride, ViewerPreferences } from '../@types/ViewerPreferences.ts';
 import { PERCENT_OF_A_WHOLE }                                          from '../constants/Units.ts';
-import type { NameColumnWidth, StoredViewOverride, ViewerPreferences } from '../preferences/ViewerPreferences.ts';
-import { toggledNameColumnWidth }                                      from '../preferences/ViewerPreferences.ts';
+import { ViewerPreferenceUtil }                                        from '../preferences/utils/ViewerPreferenceUtil.ts';
 import { DomUtil }                                                     from '../utils/DomUtil.ts';
 import type { Timeline }                                               from '../utils/GeometryUtil.ts';
 import { GeometryUtil }                                                from '../utils/GeometryUtil.ts';
@@ -229,7 +229,7 @@ export function createProgressController(sources: ProgressControllerSources): Pr
     },
     wireNameColumn: () => {
       document.getElementById('ap-name-column')?.addEventListener('click', () => {
-        nameColumnWidth = toggledNameColumnWidth(nameColumnWidth);
+        nameColumnWidth = ViewerPreferenceUtil.toggledNameColumnWidth(nameColumnWidth);
         preferences.writeNameColumnWidth(nameColumnWidth);
         reflectNameColumnWidth(nameColumnWidth);
         layOut(false);

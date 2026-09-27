@@ -3,20 +3,21 @@
  * selection and ticket open state stay with the template's own bootstrap, reached through `window.agentProgressTemplate`.
  */
 
-import type { PagePayload, PageTicket }                from '../src/shared/@types/PagePayload.ts';
-import type { BoardTicket }                            from './@types/PageBoard.ts';
-import { KANBAN_BOARD_ELEMENT_ID, KANBAN_TAB_NAME }    from './constants/TemplateIds.ts';
-import { createDetailDialogController }                from './detail-dialog/DetailDialogController.ts';
-import { createKanbanController }                      from './kanban/KanbanController.ts';
-import { KanbanLaneUtil }                              from './kanban/utils/KanbanLaneUtil.ts';
-import { createLogController }                         from './log/LogController.ts';
-import { createViewerPreferences, workVisibilityFrom } from './preferences/ViewerPreferences.ts';
-import { createProgressController }                    from './progress/ProgressController.ts';
-import { createTicketsController }                     from './tickets/TicketsController.ts';
-import { DomUtil }                                     from './utils/DomUtil.ts';
-import { IslandUtil }                                  from './utils/IslandUtil.ts';
-import { TimeUtil }                                    from './utils/TimeUtil.ts';
-import { VisibilityUtil }                              from './utils/VisibilityUtil.ts';
+import type { PagePayload, PageTicket }             from '../src/shared/@types/PagePayload.ts';
+import type { BoardTicket }                         from './@types/PageBoard.ts';
+import { KANBAN_BOARD_ELEMENT_ID, KANBAN_TAB_NAME } from './constants/TemplateIds.ts';
+import { createDetailDialogController }             from './detail-dialog/DetailDialogController.ts';
+import { createKanbanController }                   from './kanban/KanbanController.ts';
+import { KanbanLaneUtil }                           from './kanban/utils/KanbanLaneUtil.ts';
+import { createLogController }                      from './log/LogController.ts';
+import { createViewerPreferences }                  from './preferences/ViewerPreferences.ts';
+import { ViewerPreferenceUtil }                     from './preferences/utils/ViewerPreferenceUtil.ts';
+import { createProgressController }                 from './progress/ProgressController.ts';
+import { createTicketsController }                  from './tickets/TicketsController.ts';
+import { DomUtil }                                  from './utils/DomUtil.ts';
+import { IslandUtil }                               from './utils/IslandUtil.ts';
+import { TimeUtil }                                 from './utils/TimeUtil.ts';
+import { VisibilityUtil }                           from './utils/VisibilityUtil.ts';
 
 const PROGRESS_ISLAND_ELEMENT_ID = 'ap-progress-data';
 const TICKETS_ISLAND_ELEMENT_ID  = 'ap-tickets-data';
@@ -162,7 +163,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     if (!(button instanceof HTMLElement)) {
       return;
     }
-    visibility = workVisibilityFrom(button.dataset['visibility']);
+    visibility = ViewerPreferenceUtil.workVisibilityFrom(button.dataset['visibility']);
     preferences.writeWorkVisibility(visibility);
     showVisibleWork();
     progressController.layOut(true);

@@ -1,8 +1,8 @@
 /** The log card: its entries, cut to the newest unless the viewer asked for all, and the toggle between the two. */
 
 import type { WordedLogEntry }    from '../../src/shared/@types/WordedLogEntry.ts';
-import type { ViewerPreferences } from '../preferences/ViewerPreferences.ts';
-import { toggledLogVisibility }   from '../preferences/ViewerPreferences.ts';
+import type { ViewerPreferences } from '../@types/ViewerPreferences.ts';
+import { ViewerPreferenceUtil }   from '../preferences/utils/ViewerPreferenceUtil.ts';
 import { DomUtil }                from '../utils/DomUtil.ts';
 import { LogMarkupUtil }          from '../utils/LogMarkupUtil.ts';
 import type { TimestampSlices }   from '../utils/TimeUtil.ts';
@@ -39,7 +39,7 @@ export function createLogController(sources: LogControllerSources): { show(): vo
 
   const wire = (): void => {
     document.getElementById('ap-log-toggle')?.addEventListener('click', () => {
-      logVisibility = toggledLogVisibility(logVisibility);
+      logVisibility = ViewerPreferenceUtil.toggledLogVisibility(logVisibility);
       preferences.writeLogVisibility(logVisibility);
       show();
     });

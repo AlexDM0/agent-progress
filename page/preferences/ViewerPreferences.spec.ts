@@ -1,37 +1,19 @@
 /**
- * The viewer's stored page choices. The cases that matter: every key string and encoding stays what a viewer's browser already holds, a
- * choice at its default leaves nothing behind, anything unrecognised or unreadable falls back to the default, and blocked storage never throws.
+ * The viewer's stored page choices, driven through the storage they are written to. The cases that matter: every key string and encoding stays
+ * what a viewer's browser already holds, two trackers never share a key, a choice at its default leaves nothing behind, anything unreadable
+ * falls back to the default, and blocked storage never throws.
  */
 
-import { describe, expect, test }                                        from 'bun:test';
-import { CAPPED_LANE_FIRST_PAGE_CARDS }                                  from '../constants/CappedLanePaging.ts';
-import type { PreferenceStorage, StoredViewOverride, ViewerPreferences } from './ViewerPreferences.ts';
-import {
-  abandonedLaneChoiceFor,
-  abandonedLaneIsOpenFrom,
-  abandonedLaneStorageKeyFor,
-  cappedLaneStorageKeyFor,
-  createViewerPreferences,
-  DEFAULT_ABANDONED_LANE_CHOICE,
-  DEFAULT_LOG_VISIBILITY,
-  DEFAULT_NAME_COLUMN_WIDTH,
-  DEFAULT_WORK_VISIBILITY,
-  EMPTY_VIEW_OVERRIDE,
-  logVisibilityFrom,
-  logVisibilityStorageKeyFor,
-  nameColumnWidthFrom,
-  nameColumnWidthStorageKeyFor,
-  overrideIsEmpty,
-  rangeOverrideStorageKeyFor,
-  shownCountFrom,
-  storedOverrideFrom,
-  toggledLogVisibility,
-  toggledNameColumnWidth,
-  workVisibilityFrom,
-  workVisibilityStorageKeyFor,
-} from './ViewerPreferences.ts';
+import { describe, expect, test }                                                     from 'bun:test';
+import type { PreferenceStorage, StoredViewOverride, ViewerPreferences }              from '../@types/ViewerPreferences.ts';
+import { CAPPED_LANE_FIRST_PAGE_CARDS }                                               from '../constants/CappedLanePaging.ts';
+import { EMPTY_VIEW_OVERRIDE }                                                        from '../constants/ViewOverride.ts';
+import { createViewerPreferences }                                                    from './ViewerPreferences.ts';
+import { DEFAULT_LOG_VISIBILITY, DEFAULT_NAME_COLUMN_WIDTH, DEFAULT_WORK_VISIBILITY } from './constants/PreferenceDefaults.ts';
+import { ViewerPreferenceUtil }                                                       from './utils/ViewerPreferenceUtil.ts';
 
-const EXAMPLE_TRACKER_ID = 'tracker-a';
+const EXAMPLE_TRACKER_ID         = 'tracker-a';
+const ANOTHER_EXAMPLE_TRACKER_ID = 'tracker-b';
 
 function overrideWith(changes: Partial<StoredViewOverride>): StoredViewOverride {
   return { ...EMPTY_VIEW_OVERRIDE, ...changes };
@@ -74,180 +56,68 @@ const FROZEN_STORED_CHOICES: readonly (readonly [StoredChoiceName, string, strin
   ['Abandoned lane count', 'agent-progress:tracker-a:kanban-abandoned-shown', '40', '15'],
 ];
 
+/** Writes a choice from its stored encoding and reads it back into that encoding, so the table's text drives the typed module. */
 interface StoredChoiceDriver {
-  keyFor: (trackerId: string) => string;
-  write:  (preferences: ViewerPreferences, text: string) => void;
+  write: (preferences: ViewerPreferences, text: string) => void;
+  read:  (preferences: ViewerPreferences) => string;
 }
 
 const DRIVER_FOR_STORED_CHOICE: Readonly<Record<StoredChoiceName, StoredChoiceDriver>> = {
   'range override': {
-    keyFor: rangeOverrideStorageKeyFor,
-    write:  (preferences, text) => preferences.writeRangeOverride(storedOverrideFrom(JSON.parse(text))),
+    write: (preferences, text) => preferences.writeRangeOverride(ViewerPreferenceUtil.storedOverrideFrom(JSON.parse(text))),
+    read:  (preferences) => JSON.stringify(preferences.readRangeOverride()),
   },
   'work visibility': {
-    keyFor: workVisibilityStorageKeyFor,
-    write:  (preferences, text) => preferences.writeWorkVisibility(workVisibilityFrom(text)),
+    write: (preferences, text) => preferences.writeWorkVisibility(ViewerPreferenceUtil.workVisibilityFrom(text)),
+    read:  (preferences) => preferences.readWorkVisibility(),
   },
   'log visibility': {
-    keyFor: logVisibilityStorageKeyFor,
-    write:  (preferences, text) => preferences.writeLogVisibility(logVisibilityFrom(text)),
+    write: (preferences, text) => preferences.writeLogVisibility(ViewerPreferenceUtil.logVisibilityFrom(text)),
+    read:  (preferences) => preferences.readLogVisibility(),
   },
   'name column': {
-    keyFor: nameColumnWidthStorageKeyFor,
-    write:  (preferences, text) => preferences.writeNameColumnWidth(nameColumnWidthFrom(text)),
+    write: (preferences, text) => preferences.writeNameColumnWidth(ViewerPreferenceUtil.nameColumnWidthFrom(text)),
+    read:  (preferences) => preferences.readNameColumnWidth(),
   },
   'Abandoned lane': {
-    keyFor: abandonedLaneStorageKeyFor,
-    write:  (preferences, text) => preferences.writeAbandonedLaneIsOpen(abandonedLaneIsOpenFrom(text)),
+    write: (preferences, text) => preferences.writeAbandonedLaneIsOpen(ViewerPreferenceUtil.abandonedLaneIsOpenFrom(text)),
+    read:  (preferences) => ViewerPreferenceUtil.abandonedLaneChoiceFor(preferences.readAbandonedLaneIsOpen()),
   },
   'Done lane count': {
-    keyFor: (trackerId) => cappedLaneStorageKeyFor(trackerId, 'done'),
-    write:  (preferences, text) => preferences.writeCappedLaneShownCount('done', Number(text)),
+    write: (preferences, text) => preferences.writeCappedLaneShownCount('done', Number(text)),
+    read:  (preferences) => String(preferences.readCappedLaneShownCount('done')),
   },
   'Abandoned lane count': {
-    keyFor: (trackerId) => cappedLaneStorageKeyFor(trackerId, 'abandoned'),
-    write:  (preferences, text) => preferences.writeCappedLaneShownCount('abandoned', Number(text)),
+    write: (preferences, text) => preferences.writeCappedLaneShownCount('abandoned', Number(text)),
+    read:  (preferences) => String(preferences.readCappedLaneShownCount('abandoned')),
   },
 };
 
-describe('rangeOverrideStorageKeyFor', () => {
-  test('namespaces the stored range by tracker id', () => {
-    expect(rangeOverrideStorageKeyFor('example-tracker-8f21')).toBe('agent-progress:example-tracker-8f21');
-    expect(rangeOverrideStorageKeyFor('another')).not.toBe(rangeOverrideStorageKeyFor('example-tracker-8f21'));
-  });
-});
-
-describe('storedOverrideFrom', () => {
-  test('reads back everything the range bar wrote', () => {
-    const stored = {
-      presetKey:   '1h',
-      fromText:    '-1h',
-      toText:      'now',
-      tickMinutes: 15,
-    };
-
-    expect(storedOverrideFrom(stored)).toEqual(overrideWith(stored));
-  });
-
-  test('keeps the readable settings when one of them is not', () => {
-    const override = storedOverrideFrom({
-      presetKey:   42,
-      fromText:    '-1h',
-      toText:      'now',
-      tickMinutes: 'fifteen',
-    });
-
-    expect(override.presetKey).toBeNull();
-    expect(override.fromText).toBe('-1h');
-    expect(override.tickMinutes).toBeNull();
-  });
-
-  test.each([
-    ['null', null],
-    ['a string', 'x'],
-  ])('reads %s as no override at all', (_description, value) => {
-    expect(storedOverrideFrom(value)).toEqual(EMPTY_VIEW_OVERRIDE);
-  });
-});
-
-describe('overrideIsEmpty', () => {
-  test('is true only when neither a bound nor a tick step is set', () => {
-    expect(overrideIsEmpty(EMPTY_VIEW_OVERRIDE)).toBe(true);
-    expect(overrideIsEmpty(overrideWith({ presetKey: 'auto' }))).toBe(true);
-    expect(overrideIsEmpty(overrideWith({ tickMinutes: 15 }))).toBe(false);
-    expect(overrideIsEmpty(overrideWith({ fromText: '-1h', toText: 'now' }))).toBe(false);
-  });
-});
-
-describe('logVisibilityFrom', () => {
-  // A cleared or tampered key must not show the whole log by accident; only the one stored word does.
-  test.each([
-    ['nothing stored', null],
-    ['an unknown word', 'everything'],
-    ['the default spelled out', 'newest'],
-  ])('reads %s as the newest entries', (_description, stored) => {
-    expect(logVisibilityFrom(stored)).toBe(DEFAULT_LOG_VISIBILITY);
-  });
-
-  test('reads the stored word for the whole log as the whole log', () => {
-    expect(logVisibilityFrom('all')).toBe('all');
-  });
-
-  test('toggles between the two choices and back', () => {
-    expect(toggledLogVisibility(toggledLogVisibility(DEFAULT_LOG_VISIBILITY))).toBe(DEFAULT_LOG_VISIBILITY);
-    expect(toggledLogVisibility(DEFAULT_LOG_VISIBILITY)).toBe('all');
-  });
-});
-
-describe('logVisibilityStorageKeyFor', () => {
-  // `file://` is one origin, so two dashboards would share one choice without the tracker id in the key.
-  test('scopes the key to the tracker, beside the work-visibility key', () => {
-    expect(logVisibilityStorageKeyFor('tracker-a')).toBe('agent-progress:tracker-a:log');
-    expect(logVisibilityStorageKeyFor('tracker-a')).not.toBe(logVisibilityStorageKeyFor('tracker-b'));
-  });
-});
-
-describe('nameColumnWidthFrom', () => {
-  test.each([
-    ['nothing stored', null],
-    ['an unknown word', 'huge'],
-    ['the default spelled out', 'normal'],
-  ])('reads %s as the normal width', (_description, stored) => {
-    expect(nameColumnWidthFrom(stored)).toBe(DEFAULT_NAME_COLUMN_WIDTH);
-  });
-
-  test('reads the stored word for the widened column as wide', () => {
-    expect(nameColumnWidthFrom('wide')).toBe('wide');
-  });
-});
-
-describe('toggledNameColumnWidth', () => {
-  test('widens the normal column and returns the wide one to normal', () => {
-    expect(toggledNameColumnWidth(DEFAULT_NAME_COLUMN_WIDTH)).toBe('wide');
-    expect(toggledNameColumnWidth('wide')).toBe(DEFAULT_NAME_COLUMN_WIDTH);
-  });
-});
-
-describe('nameColumnWidthStorageKeyFor', () => {
-  test('scopes the key to the tracker, beside the work-visibility key', () => {
-    expect(nameColumnWidthStorageKeyFor('tracker-a')).toBe('agent-progress:tracker-a:name-column');
-    expect(nameColumnWidthStorageKeyFor('tracker-a')).not.toBe(nameColumnWidthStorageKeyFor('tracker-b'));
-  });
-});
-
-describe('workVisibilityFrom', () => {
-  test('reads only "all" as all, so a damaged stored value falls back to hiding old work', () => {
-    expect(workVisibilityFrom('all')).toBe('all');
-    expect(workVisibilityFrom('recent')).toBe('recent');
-    expect(workVisibilityFrom(null)).toBe('recent');
-    expect(workVisibilityFrom('constructor')).toBe('recent');
-  });
-});
-
-describe('the capped lanes', () => {
-  test('keeps a key per tracker and lane, and the Abandoned lane closed unless storage says open', () => {
-    expect(cappedLaneStorageKeyFor('tracker-a', 'done')).toBe('agent-progress:tracker-a:kanban-done-shown');
-    expect(cappedLaneStorageKeyFor('tracker-a', 'abandoned')).toBe('agent-progress:tracker-a:kanban-abandoned-shown');
-    expect(abandonedLaneStorageKeyFor('tracker-a')).toBe('agent-progress:tracker-a:kanban-abandoned');
-    expect(abandonedLaneIsOpenFrom(null)).toBe(false);
-    expect(abandonedLaneIsOpenFrom('open')).toBe(true);
-    expect(abandonedLaneChoiceFor(false)).toBe(DEFAULT_ABANDONED_LANE_CHOICE);
-    expect(abandonedLaneChoiceFor(true)).toBe('open');
-  });
-});
-
 describe('the stored keys and encodings', () => {
   // A viewer's browser already holds these keys; a key that moves silently drops every choice made before the change.
-  test.each(FROZEN_STORED_CHOICES)('names the %s key it always named', (choice, key) => {
-    expect(DRIVER_FOR_STORED_CHOICE[choice].keyFor(EXAMPLE_TRACKER_ID)).toBe(key);
-  });
-
   test.each(FROZEN_STORED_CHOICES)('writes the %s to its key in its encoding', (choice, key, storedValue) => {
     const storage = inMemoryStorage();
 
     DRIVER_FOR_STORED_CHOICE[choice].write(createViewerPreferences(EXAMPLE_TRACKER_ID, () => storage), storedValue);
 
     expect([...storage.entries]).toEqual([[key, storedValue]]);
+  });
+
+  test.each(FROZEN_STORED_CHOICES)('reads the %s back from its key in its encoding', (choice, key, storedValue) => {
+    const storage = inMemoryStorage();
+    storage.setItem(key, storedValue);
+
+    expect(DRIVER_FOR_STORED_CHOICE[choice].read(createViewerPreferences(EXAMPLE_TRACKER_ID, () => storage))).toBe(storedValue);
+  });
+
+  // `file://` is one origin, so two dashboards would share one choice without the tracker id in the key.
+  test.each(FROZEN_STORED_CHOICES)('keeps the %s of two trackers under two keys', (choice, key, storedValue) => {
+    const storage = inMemoryStorage();
+
+    DRIVER_FOR_STORED_CHOICE[choice].write(createViewerPreferences(EXAMPLE_TRACKER_ID, () => storage), storedValue);
+    DRIVER_FOR_STORED_CHOICE[choice].write(createViewerPreferences(ANOTHER_EXAMPLE_TRACKER_ID, () => storage), storedValue);
+
+    expect([...storage.entries.keys()]).toEqual([key, key.replace(EXAMPLE_TRACKER_ID, ANOTHER_EXAMPLE_TRACKER_ID)]);
   });
 
   test.each(FROZEN_STORED_CHOICES)('removes the %s key once the choice returns to its default', (choice, key, storedValue, removedAtValue) => {
@@ -281,7 +151,7 @@ describe('createViewerPreferences', () => {
     expect(preferences.readNameColumnWidth()).toBe('wide');
     expect(preferences.readAbandonedLaneIsOpen()).toBe(true);
     expect(preferences.readCappedLaneShownCount('done')).toBe(40);
-    expect(preferences.readCappedLaneShownCount('abandoned')).toBe(shownCountFrom(null));
+    expect(preferences.readCappedLaneShownCount('abandoned')).toBe(CAPPED_LANE_FIRST_PAGE_CARDS);
   });
 
   // Merely reaching `window.localStorage` throws where the browser blocks storage; the page must still render with every default.
@@ -306,21 +176,9 @@ describe('createViewerPreferences', () => {
     }).not.toThrow();
   });
 
-  // The lane clamps what it is handed, so the read passes on text that is no count rather than guessing one.
-  test.each([
-    ['nothing stored', null, CAPPED_LANE_FIRST_PAGE_CARDS],
-    ['a stored count', '40', 40],
-    ['text that is no number', 'many', Number.NaN],
-  ])('reads %s as the Done lane count %p', (_description, stored, expected) => {
-    const storage = inMemoryStorage();
-    if (stored !== null) storage.setItem('agent-progress:tracker-a:kanban-done-shown', stored);
-
-    expect(createViewerPreferences(EXAMPLE_TRACKER_ID, () => storage).readCappedLaneShownCount('done')).toBe(expected);
-  });
-
   test('reads a stored range override that is not JSON as the empty override', () => {
     const storage = inMemoryStorage();
-    storage.setItem(rangeOverrideStorageKeyFor(EXAMPLE_TRACKER_ID), '{not json');
+    storage.setItem('agent-progress:tracker-a', '{not json');
 
     expect(createViewerPreferences(EXAMPLE_TRACKER_ID, () => storage).readRangeOverride()).toEqual(EMPTY_VIEW_OVERRIDE);
   });

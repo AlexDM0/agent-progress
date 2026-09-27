@@ -7,8 +7,8 @@ import { describe, expect, test }  from 'bun:test';
 import type { ProgressFile }       from '../../../src/lib/tracker-model/@types/ProgressFile.ts';
 import type { Task }               from '../../../src/lib/tracker-model/@types/Task.ts';
 import type { PageLimits }         from '../../../src/shared/@types/PagePayload.ts';
-import type { StoredViewOverride } from '../../preferences/ViewerPreferences.ts';
-import { EMPTY_VIEW_OVERRIDE }     from '../../preferences/ViewerPreferences.ts';
+import type { StoredViewOverride } from '../../@types/ViewerPreferences.ts';
+import { EMPTY_VIEW_OVERRIDE }     from '../../constants/ViewOverride.ts';
 import { ViewRangeUtil }           from './ViewRangeUtil.ts';
 
 const { effectiveRangeFor } = ViewRangeUtil;

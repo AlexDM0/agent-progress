@@ -2,9 +2,9 @@
 
 import type { KanbanCard }                          from '../@types/KanbanCard.ts';
 import type { ClosedKanbanLane }                    from '../@types/KanbanLane.ts';
+import type { ViewerPreferences }                   from '../@types/ViewerPreferences.ts';
 import { CAPPED_LANE_FIRST_PAGE_CARDS }             from '../constants/CappedLanePaging.ts';
 import { KANBAN_BOARD_ELEMENT_ID, KANBAN_TAB_NAME } from '../constants/TemplateIds.ts';
-import type { ViewerPreferences }                   from '../preferences/ViewerPreferences.ts';
 import { DomUtil }                                  from '../utils/DomUtil.ts';
 import type { TimestampSlices }                     from '../utils/TimeUtil.ts';
 import { kanbanBoardMarkup }                        from './KanbanMarkup.ts';
