@@ -1,7 +1,8 @@
 # Migration plan: the conventions refactor
 
-**Status (2026-09-27): steps 0 to 9 and step 10's polish sweep are done on `migration/conventions`; the
-end-of-refactor review is under way, then the owner's merge.** Step 9 brought `README.md`, `docs/cli.md`,
+**Status (2026-09-27): done. `migration/conventions` was merged into main (3f5ecf2) after six rounds of the
+end-of-refactor review, and `update` ran in both tracked repositories. This plan is kept as the record of what was
+decided; the root CLAUDE.md holds the rules.** Step 9 brought `README.md`, `docs/cli.md`,
 `docs/development.md`, the skills and the root CLAUDE.md in line with the code, and moved what the migration leaves open
 to `docs/backlog.md`: step 7's TicketStore moves, a combined rework count, dropping the legacy folders and retaking the
 README images. Every sub-branch is merged: the page split (`migration/page`, 7058c2a), the dispatcher

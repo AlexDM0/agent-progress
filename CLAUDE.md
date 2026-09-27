@@ -4,11 +4,6 @@ A Bun + TypeScript CLI that tracks an AI orchestrator's work per repository (Gan
 a log, and a self-contained `progress.html` regenerated on every command), and installs the skills, brief and
 dispatcher its sessions run on.
 
-## In flight
-
-The conventions migration is on branch `migration/conventions`; until the merge, where `docs/migration-plan.md` is
-specific it wins.
-
 ## Verify
 
 `bun run typecheck && bun test && bun run lint`: all three after any TypeScript change, before calling it done.
