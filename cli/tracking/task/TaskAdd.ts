@@ -4,7 +4,6 @@ import { OperationRefusal }                      from '../../../src/shared/Opera
 import type { CommandContext }                   from '../../CommandContext.ts';
 import { openTrackerForWritingThenReadNextLine } from '../../OpenTrackerForWriting.ts';
 import type { ArgumentParser }                   from '../../arguments/ArgumentParser.ts';
-import { ReviewBarNameFilingUtil }               from '../../legacy/utils/ReviewBarNameFilingUtil.ts';
 import { OptionValueUtil }                       from '../../utils/OptionValueUtil.ts';
 import { OutputUtil }                            from '../../utils/OutputUtil.ts';
 import { TASK_USAGE }                            from './TaskArguments.ts';
@@ -26,8 +25,6 @@ export async function addOneTask(commandArguments: ArgumentParser, context: Comm
   const tokens            = OptionValueUtil.tokenCountFrom(commandArguments);
   const startsNow         = commandArguments.flag('start');
   const movesTheLink      = commandArguments.flag('force');
-  // The seam: dropping cli/legacy/ files such a row without a link.
-  const reviewLinkOfTheName = ticketReference === undefined && reviewedReference === undefined ? ReviewBarNameFilingUtil.reviewLinkNamedBy(name) : undefined;
 
   const { result: task, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, ({ board, at }) => {
     const ticket = ticketReference === undefined ? undefined : board.ticketByReference(ticketReference);
@@ -55,7 +52,6 @@ export async function addOneTask(commandArguments: ArgumentParser, context: Comm
       ...(tokens === undefined ? {} : { tokens }),
       ...(ticket === undefined ? {} : { ticketId: ticket.frontmatter.id }),
       ...(reviewedTicket === undefined ? {} : { reviewOf: { ticketId: reviewedTicket.frontmatter.id, round: TicketBodyUtil.nextReviewRoundOf(reviewedTicket.body) } }),
-      ...(reviewLinkOfTheName === undefined ? {} : { reviewOf: reviewLinkOfTheName }),
     }, at);
   });
 

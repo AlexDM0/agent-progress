@@ -1,8 +1,7 @@
 import type { LogRecord } from '../../../lib/tracker-model/@types/LogRecord.ts';
 
 export interface StoredLog {
-  records:                LogRecord[];
-  logFileMustBeRewritten: boolean;
+  records: LogRecord[];
 }
 
 export type LogFileReading =

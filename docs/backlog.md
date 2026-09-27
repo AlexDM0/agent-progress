@@ -89,16 +89,6 @@ format, the ticket moves and the exit codes, kept in step by hand. Agreed: gener
 Not started because it is a code change (a generator or a guard spec, watched failing on each drifted
 form), and the migration's step 9 changed documentation only.
 
-## Dropping the legacy folders
-
-`src/shared/legacy/`, `src/adapters/legacy/`, `src/services/tracker/legacy/`, `cli/legacy/` and
-`page/legacy/` answer the retired formats, words and flags. Agreed: drop each one as its users go,
-the way the Legacy folders section of `docs/development.md` describes.
-
-Not started because each waits for its users, as its module header says: every tracked repository
-having run `agent-progress update`, and agents no longer typing retired verbs and words, `--hooks`,
-or review-shaped names without `--review-of`.
-
 ## Retaking the README images
 
 `docs/images/panel-tickets.png` and `docs/images/panel-watch.gif` show the ticket words `open` and

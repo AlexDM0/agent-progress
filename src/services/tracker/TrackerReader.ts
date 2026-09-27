@@ -1,5 +1,4 @@
 /** Reads one tracker's stored files without the lock, the progress file, its stored log and the ticket listing, as a verdict or a refusal. */
-import { EmbeddedLogUtil }                                 from '../../adapters/legacy/utils/EmbeddedLogUtil.ts';
 import type { StoredLog }                                  from '../../adapters/log/@types/StoredLog.ts';
 import { LogFileIngestion }                                from '../../adapters/log/LogFileIngestion.ts';
 import { LogRecordMappingUtil }                            from '../../adapters/log/utils/LogRecordMappingUtil.ts';
@@ -11,12 +10,9 @@ import { listTickets, type TicketListing }                 from './TicketStore.t
 import type { Workspace }                                  from './Workspace.ts';
 
 export interface TrackerContents {
-  progress:                      TrackerProgress;
-  /** The records, and whether log.jsonl must be rewritten on the next write. */
-  storedLog:                     StoredLog;
-  listing:                       TicketListing;
-  /** A progress file `update` rewrites in the current format; the other older files show in the log and the listing. */
-  progressFileIsInAnOlderFormat: boolean;
+  progress:  TrackerProgress;
+  storedLog: StoredLog;
+  listing:   TicketListing;
 }
 
 export type TrackerReading = { verdict: 'readable'; contents: TrackerContents } | UnreadableTracker;
@@ -35,25 +31,12 @@ function progressFileReadingOf(workspace: Workspace): Extract<ProgressFileReadin
   return progressReading;
 }
 
-/**
- * The log is read first, so a progress file carrying a log over sits only beside an absent log or its own copied records; an absent log
- * beside one carrying none may have been written between the two reads, so it is read again. A broken progress file is the verdict even
- * beside a broken log.
- */
+/** A broken progress file is the verdict even beside a broken log. */
 export function readTracker(workspace: Workspace): TrackerReading {
-  const logFileReadingBeforeProgress = new LogFileIngestion(workspace.logFilePath).read();
-  const progressReading              = progressFileReadingOf(workspace);
+  const progressReading = progressFileReadingOf(workspace);
   if (progressReading.verdict !== 'readable') return progressReading;
 
-  const logFileReading = progressReading.carriedOverLog === null && logFileReadingBeforeProgress.verdict === 'absent'
-    ? new LogFileIngestion(workspace.logFilePath).read()
-    : logFileReadingBeforeProgress;
-  // The seam: dropping src/adapters/legacy/ makes this `LogRecordMappingUtil.storedLogOf(logFileReading)`.
-  const storedLog = EmbeddedLogUtil.storedLogBesideAnEmbeddedLog(
-    progressReading.carriedOverLog,
-    logFileReading,
-    { logFilePath: workspace.logFilePath, progressFilePath: workspace.progressFilePath },
-  ) ?? LogRecordMappingUtil.storedLogOf(logFileReading);
+  const storedLog = LogRecordMappingUtil.storedLogOf(new LogFileIngestion(workspace.logFilePath).read());
   if (storedLog.verdict === 'unreadable') {
     return {
       verdict:        'unreadable',
@@ -66,10 +49,9 @@ export function readTracker(workspace: Workspace): TrackerReading {
   return {
     verdict:  'readable',
     contents: {
-      progress:                      progressReading.progress,
-      storedLog:                     { records: storedLog.records, logFileMustBeRewritten: storedLog.logFileMustBeRewritten },
-      listing:                       listTickets(workspace),
-      progressFileIsInAnOlderFormat: progressReading.fileIsInAnOlderFormat,
+      progress:  progressReading.progress,
+      storedLog: { records: storedLog.records },
+      listing:   listTickets(workspace),
     },
   };
 }

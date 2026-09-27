@@ -20,7 +20,7 @@ export function createLogRecordCollector(storedLog: StoredLog): {
     // A cleared tracker's log starts again with the clearing itself; the Board only reports the event, so the collector decides.
     const lastClearingIndex = collectedRecords.findLastIndex((collectedRecord) => collectedRecord.kind === 'tracker-cleared');
     if (lastClearingIndex !== -1) return collectedRecords.slice(lastClearingIndex);
-    if (storedLog.logFileMustBeRewritten || collectedRecords.length > 0) return [...storedLog.records, ...collectedRecords];
+    if (collectedRecords.length > 0) return [...storedLog.records, ...collectedRecords];
     return null;
   }
 

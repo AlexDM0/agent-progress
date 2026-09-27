@@ -209,7 +209,7 @@ describe('startReviewBar', () => {
     expect(second.logged).toEqual(records.slice(1));
   });
 
-  // The Board reads no name; ingestion gives a legacy bar its `reviewOf` from its name before the Board sees it.
+  // The Board reads no name: a row is a review bar only by its `reviewOf`.
   test('a record without reviewOf is never closed, whatever its name says', () => {
     const { board, progress } = ticketInReviewFixture();
     progress.tasks.push(taskFixture({ id: 2, name: 'Review 1 #003 — Example export dialog', status: 'in-progress' }));

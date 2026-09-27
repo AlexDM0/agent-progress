@@ -65,8 +65,9 @@ item or a bare word. There are no nested maps, lists or block scalars. The closi
 *first later* line equal to `---`, so a body may contain horizontal rules. A leading byte order mark
 is dropped and CRLF is kept.
 
-A ticket stored with the retired status `open` or `done` reads as `pending` or `reviewed`; reading
-never rewrites the file, and the next command that changes that ticket, or `update` or `init`, stores the new word.
+A ticket stored with a status that is not a ticket status, the retired `open` or `done` included, is
+malformed at its status line, the reason ending in the advice to run `agent-progress update` with a
+release that still reads it.
 
 **Unknown keys, comments and blank lines are kept and written back**, so a field you add by hand —
 `owner: Alex Example` above — survives every transition. The CLI's own keys are rewritten at the top

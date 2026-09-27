@@ -1,7 +1,6 @@
 /**
- * The ticket command's seams to the retired verbs and status words, seen from the current side: every verb of the subcommand groups reaches
- * its own handler, and every current status is taken by `ticket status` and `ticket list --status`, so none is ever answered as a retired word
- * or an unknown one. It imports nothing from `cli/legacy/`, so it still holds once that folder and its seam lines are dropped.
+ * The ticket command's vocabulary: every verb of the subcommand groups reaches its own handler, and every current status is taken by
+ * `ticket status` and `ticket list --status`, so none is ever answered as an unknown one.
  */
 import {
   afterEach,
@@ -40,7 +39,7 @@ async function run(commandLineArguments: readonly string[]): Promise<ReturnType<
 }
 
 beforeEach(async () => {
-  repositoryDirectory = createScratchGitRepository('ticket-command-legacy-seam');
+  repositoryDirectory = createScratchGitRepository('ticket-command-vocabulary');
   await run(['init', '--project', 'Example Agency']);
   await run(['ticket', 'add', 'Double-click a role to edit it']);
 });
@@ -50,7 +49,7 @@ afterEach(() => {
 });
 
 describeWhenGitIsPresent('the ticket command with current words only', () => {
-  test('every verb of the subcommand groups reaches its own handler, never the retired or unknown refusal', async () => {
+  test('every verb of the subcommand groups reaches its own handler, never the unknown refusal', async () => {
     const currentVerbs = Object.keys({
       ...TICKET_FILING_SUBCOMMANDS,
       ...TICKET_READING_SUBCOMMANDS,

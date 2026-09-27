@@ -54,15 +54,11 @@ export class TaskRows {
     return task;
   }
 
-  /** A correction moves no timestamp and files no phase, unlike `moveTask`; its `reviewOf` links only a free-standing row with no link yet. */
+  /** A correction moves no timestamp and files no phase, unlike `moveTask`. */
   correctTask(taskId: number, correction: TaskCorrection, request: { movesAnyway: boolean }): Readonly<Task> {
     const task = this.records.requireTask(taskId);
     if (correction.status !== undefined) refuseATicketOwnedMove(task, correction.status, request.movesAnyway);
     if (correction.name !== undefined) task.name = correction.name;
-    if (correction.reviewOf !== undefined && task.ticket === null && task.reviewOf === undefined) {
-      task.reviewOf       = correction.reviewOf.ticketId;
-      task.reviewBarRound = correction.reviewOf.round;
-    }
     if (correction.status !== undefined) task.status = correction.status;
     return task;
   }

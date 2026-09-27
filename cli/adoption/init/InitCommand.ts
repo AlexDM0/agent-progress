@@ -9,8 +9,6 @@ import { TRACKER_FILES }                                                        
 import { OperationRefusal }                                                     from '../../../src/shared/OperationRefusal.ts';
 import type { CommandHandler }                                                  from '../../CommandHandler.ts';
 import { requireInstallManifestThisVersionCanReplace }                          from '../../InstallVersionCheck.ts';
-import { OlderTrackerFilesRewriteReport }                                       from '../../legacy/OlderTrackerFilesRewriteReport.ts';
-import { IGNORED_RETIRED_OPTION_NAMES }                                         from '../../legacy/constants/IgnoredRetiredOptions.ts';
 import { OutputUtil }                                                           from '../../utils/OutputUtil.ts';
 import { installedFileTextsFor }                                                from '../InstalledFileGeneration.ts';
 import type { InstalledFileTexts }                                              from '../InstalledFileGeneration.ts';
@@ -19,8 +17,7 @@ import { initRootDirectoryOf, refuseAnOverrideNamingAnotherDirectory }          
 
 const USAGE = 'agent-progress init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';
 
-// The seam to the retired `--hooks`; dropping `cli/legacy/` drops the spread.
-const KNOWN_OPTION_NAMES = ['project', 'root', 'no-claude-md', 'no-hooks', 'no-workflow', 'no-agent-definition', ...IGNORED_RETIRED_OPTION_NAMES];
+const KNOWN_OPTION_NAMES = ['project', 'root', 'no-claude-md', 'no-hooks', 'no-workflow', 'no-agent-definition'];
 
 const IGNORE_OUTCOME_WORDS: Record<EnsureIgnoredOutcome, string> = {
   'already-ignored':      'already ignored, so nothing was added',
@@ -52,17 +49,11 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
     writesTheBriefFirst,
     standardError: context.standardError,
   });
-  const reportTheRefreshOfAnExistingTracker = async (installedFileTexts: InstalledFileTexts) => {
+  const reportTheRefreshOfAnExistingTracker = (installedFileTexts: InstalledFileTexts) => {
     const refresh = refreshTheRepository(installedFileTexts, { writesTheBriefFirst: false });
-    const printRefreshReport = (trackerLine: string | null) => {
-      context.standardOutput(`agent-progress is already initialised in ${rootDirectory}.`);
-      if (trackerLine !== null) context.standardOutput(`  tracker:     ${trackerLine}`);
-      for (const line of refreshReportLinesOf(refresh, workspace.htmlFilePath)) context.standardOutput(line);
-      context.standardOutput('  `agent-progress update` is the command for this refresh; `init` only creates a tracker.');
-    };
-
-    // Dropping cli/legacy/ makes this printRefreshReport(null).
-    await OlderTrackerFilesRewriteReport.rewriteThenPrintInitTrackerLine(context, workspace, printRefreshReport);
+    context.standardOutput(`agent-progress is already initialised in ${rootDirectory}.`);
+    for (const line of refreshReportLinesOf(refresh, workspace.htmlFilePath)) context.standardOutput(line);
+    context.standardOutput('  `agent-progress update` is the command for this refresh; `init` only creates a tracker.');
     recordInstallVersion(workspace.rootDirectory);
   };
 
@@ -79,7 +70,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
   // Every installed text is computed before the first write, so a dispatcher that will not bundle leaves no tracker and no file behind.
   const installedFileTexts = await installedFileTextsFor({ generatesTheDispatcherScript: writesTheDispatcherWorkflow });
   if (existingWorkspace !== null) {
-    await reportTheRefreshOfAnExistingTracker(installedFileTexts);
+    reportTheRefreshOfAnExistingTracker(installedFileTexts);
     return;
   }
 
@@ -93,7 +84,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
     trackerId: randomUUID(),
   }, context.now, context.renderState);
   if (creation.verdict === 'already-exists') {
-    await reportTheRefreshOfAnExistingTracker(installedFileTexts);
+    reportTheRefreshOfAnExistingTracker(installedFileTexts);
     return;
   }
   OutputUtil.reportRenderProblems(context, creation.renderOutcome);

@@ -10,7 +10,6 @@ export default [
       'src/lib/tracker-model/testing/**/*.ts',
       'cli/testing/**/*.ts',
       'src/adapters/progress/testing/**/*.ts',
-      'src/adapters/legacy/testing/**/*.ts',
       'src/services/tracker/testing/**/*.ts',
       'dispatcher/testing/**/*.ts',
       'page/testing/**/*.ts',

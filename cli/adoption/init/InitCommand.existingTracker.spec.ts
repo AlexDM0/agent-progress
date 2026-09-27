@@ -1,7 +1,6 @@
 /**
- * The update command's seam to the older-files rewrite, seen from the current side: on a tracker already in the current format, `update` with
- * each current option leaves every tracker file byte for byte and prints the refresh lines. The heading is worded in `cli/legacy/`, so it is not
- * asserted. It imports nothing from `cli/legacy/`, so it still holds once that folder and its seam lines are dropped.
+ * `init` on an existing tracker only refreshes what it installs: with each option it leaves every tracker file byte for byte and prints the
+ * refresh lines with no tracker line.
  */
 import {
   afterEach,
@@ -19,12 +18,14 @@ import { createCapturedCommandContext }                       from '../../testin
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
 const REFRESH_LINE_PATTERNS = [
+  /^agent-progress is already initialised in \S+\.$/m,
   /^ {2}CLAUDE\.md: {3}unchanged$/m,
   /^ {2}brief: {7}unchanged \(\S+\/\.agent-progress\/agent-brief\.md\)$/m,
   /^ {2}hooks: {7}\S+\/\.claude\/settings\.local\.json \(unchanged\)$/m,
   /^ {2}workflow: {4}unchanged \(\S+\/\.agent-progress\/agent-progress-dispatch\.js\)$/m,
   /^ {2}agent: {7}unchanged \(\S+\/\.claude\/agents\/agent-progress-worker\.md\)$/m,
   /^ {2}dashboard: {3}\S+\/\.agent-progress\/progress\.html$/m,
+  /^ {2}`agent-progress update` is the command for this refresh; `init` only creates a tracker\.$/m,
 ];
 
 let repositoryDirectory = '';
@@ -37,7 +38,7 @@ async function run(commandLineArguments: readonly string[]): Promise<ReturnType<
 }
 
 beforeEach(async () => {
-  repositoryDirectory = createScratchGitRepository('update-command-legacy-seam');
+  repositoryDirectory = createScratchGitRepository('init-command-existing-tracker');
   await run(['init', '--project', 'Example Agency']);
   await run(['ticket', 'add', 'Example importer', '--type', 'change', '--at', '2026-09-18T09:00:00+02:00']);
   await run(['task', 'add', 'Example page', '--at', '2026-09-18T09:05:00+02:00']);
@@ -48,32 +49,34 @@ afterEach(() => {
   removeScratchDirectory(repositoryDirectory);
 });
 
-describeWhenGitIsPresent('update on a tracker in the current format', () => {
-  test('leaves every tracker file byte for byte and prints each refresh line', async () => {
+describeWhenGitIsPresent('init on an existing tracker in the current format', () => {
+  test('leaves every tracker file byte for byte and prints each refresh line, with no tracker line', async () => {
     const filesBefore = storedFileContentsOf(workspacePathsFor(repositoryDirectory));
 
-    const context = await run(['update']);
+    const context = await run(['init']);
 
     expect(storedFileContentsOf(workspacePathsFor(repositoryDirectory))).toEqual(filesBefore);
     for (const refreshLinePattern of REFRESH_LINE_PATTERNS) expect(context.outputText()).toMatch(refreshLinePattern);
+    expect(context.outputText()).not.toContain('  tracker:     ');
     expect(context.errorText()).toBe('');
   });
 
   test('takes every current option, each leaving its own file alone and the tracker byte for byte', async () => {
     const filesBefore = storedFileContentsOf(workspacePathsFor(repositoryDirectory));
-    const optionsWithTheirLines: Array<[optionName: string, line: string]> = [
-      ['--no-claude-md', '  CLAUDE.md:   left alone (--no-claude-md)'],
-      ['--no-hooks', '  hooks:       left alone (--no-hooks)'],
-      ['--no-workflow', '  workflow:    left alone (--no-workflow)'],
-      ['--no-agent-definition', '  agent:       left alone (--no-agent-definition)'],
+    const optionsWithTheirLines: Array<[optionArguments: string[], line: string]> = [
+      [['--project', 'Example Other'], 'agent-progress is already initialised in '],
+      [['--root', repositoryDirectory], 'agent-progress is already initialised in '],
+      [['--no-claude-md'], '  CLAUDE.md:   left alone (--no-claude-md)'],
+      [['--no-hooks'], '  hooks:       left alone (--no-hooks)'],
+      [['--no-workflow'], '  workflow:    left alone (--no-workflow)'],
+      [['--no-agent-definition'], '  agent:       left alone (--no-agent-definition)'],
     ];
 
-    for (const [optionName, line] of optionsWithTheirLines) {
-      const context = await run(['update', optionName]);
-      expect(context.outputText(), optionName).toContain(line);
+    for (const [optionArguments, line] of optionsWithTheirLines) {
+      const context = await run(['init', ...optionArguments]);
+      expect(context.outputText(), optionArguments.join(' ')).toContain(line);
+      expect(context.outputText(), optionArguments.join(' ')).not.toContain('  tracker:     ');
     }
-    const everyOption = await run(['update', ...optionsWithTheirLines.map(([optionName]) => optionName)]);
-    for (const [, line] of optionsWithTheirLines) expect(everyOption.outputText()).toContain(line);
     expect(storedFileContentsOf(workspacePathsFor(repositoryDirectory))).toEqual(filesBefore);
   });
 });

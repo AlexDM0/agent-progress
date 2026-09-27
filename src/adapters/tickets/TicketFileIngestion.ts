@@ -4,7 +4,7 @@ import type { Ticket }        from '../../lib/tracker-model/@types/Ticket.ts';
 import { TicketDocumentUtil } from './utils/TicketDocumentUtil.ts';
 
 export type TicketFileReading =
-  | { verdict: 'parsed'; ticket: Ticket; identifierLine: number; fileIsInAnOlderFormat: boolean }
+  | { verdict: 'parsed'; ticket: Ticket; identifierLine: number }
   | { verdict: 'malformed'; reason: string; line: number };
 
 const IDENTIFIER_LINE_MATCH = /^id:/;
@@ -31,10 +31,9 @@ export class TicketFileIngestion {
       lineEnding:  parsed.lineEnding,
     };
     return {
-      verdict:               'parsed',
+      verdict:        'parsed',
       ticket,
-      identifierLine:        text.split('\n').findIndex((line) => IDENTIFIER_LINE_MATCH.test(line)) + 1,
-      fileIsInAnOlderFormat: parsed.olderFormatWasRead,
+      identifierLine: text.split('\n').findIndex((line) => IDENTIFIER_LINE_MATCH.test(line)) + 1,
     };
   }
 }

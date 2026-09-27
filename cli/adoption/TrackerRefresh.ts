@@ -13,12 +13,11 @@ import {
   refreshSubagentStopHook,
   writeSubagentStopHook
 }                                                             from '../../src/lib/claude-code/ClaudeSettings.ts';
-import type { Workspace }                   from '../../src/services/tracker/Workspace.ts';
-import { installedFilePathsIn }             from '../InstalledFiles.ts';
-import { INSTALL_VERSION }                  from '../constants/InstallVersion.ts';
-import { removeTheRetiredDispatcherScript } from '../legacy/RemoveTheRetiredDispatcherScript.ts';
-import type { InstalledFileTexts }          from './InstalledFileGeneration.ts';
-import { CLAUDE_MANAGED_BLOCK_MARKERS }     from './constants/ClaudeManagedBlockMarkers.ts';
+import type { Workspace }               from '../../src/services/tracker/Workspace.ts';
+import { installedFilePathsIn }         from '../InstalledFiles.ts';
+import { INSTALL_VERSION }              from '../constants/InstallVersion.ts';
+import type { InstalledFileTexts }      from './InstalledFileGeneration.ts';
+import { CLAUDE_MANAGED_BLOCK_MARKERS } from './constants/ClaudeManagedBlockMarkers.ts';
 
 /** The matcher is empty so every subagent is recorded, matching the cohort `usage` reads; the timeout covers waiting on a held lock. */
 const SUBAGENT_STOP_HOOK = {
@@ -192,18 +191,14 @@ export function refreshTrackedRepository(request: TrackerRefreshRequest): Tracke
     ? 'left alone (--no-workflow)'
     : refreshDispatcherScript(installedFilePaths.dispatcherScript, dispatcherScript);
   const agentDefinitionLine = refreshAgentDefinition(installedFilePaths.agentDefinition, installedFileTexts.agentDefinition, writesTheAgentDefinition);
-  // Otherwise last, so a write that fails before them leaves the brief's `updated` and the removal for the rerun to do and report.
+  // Otherwise last, so a write that fails before it leaves the brief's `updated` for the rerun to report.
   const { briefFilePath, briefLine } = briefWrittenFirst ?? refreshAgentBrief(installedFilePaths.agentBrief, installedFileTexts.agentBrief);
-  // The seam to the retired .claude/workflows/ copy; dropping cli/legacy/ makes the workflow line dispatcherScriptLine.
-  const retiredCopyRemovalReport = dispatcherScript === null ? null : removeTheRetiredDispatcherScript(workspace.rootDirectory);
-  const workflowLine = retiredCopyRemovalReport === null ? dispatcherScriptLine : `${dispatcherScriptLine}; ${retiredCopyRemovalReport}`;
-
   return {
     claudeInstructionsLine,
     briefFilePath,
     briefLine,
     hookLine,
-    workflowLine,
+    workflowLine: dispatcherScriptLine,
     agentDefinitionLine,
   };
 }

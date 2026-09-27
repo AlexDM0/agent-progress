@@ -7,17 +7,16 @@ import type {
   Ticket,
   TicketStatus
 } from '../../src/lib/tracker-model/@types/Ticket.ts';
-import { TicketDefaultsUtil }     from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
-import { TicketDependencyUtil }   from '../../src/lib/tracker-model/utils/TicketDependencyUtil.ts';
-import { VocabularyUtil }         from '../../src/lib/tracker-model/utils/VocabularyUtil.ts';
-import { listTickets }            from '../../src/services/tracker/TicketStore.ts';
-import { requireWorkspace }       from '../../src/services/tracker/Workspace.ts';
-import type { CommandContext }    from '../CommandContext.ts';
-import type { ArgumentParser }    from '../arguments/ArgumentParser.ts';
-import { RetiredWordRefusalUtil } from '../legacy/utils/RetiredWordRefusalUtil.ts';
-import { OutputUtil }             from '../utils/OutputUtil.ts';
-import { TICKET_USAGE }           from './constants/TicketUsage.ts';
-import { TicketArgumentUtil }     from './utils/TicketArgumentUtil.ts';
+import { TicketDefaultsUtil }   from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
+import { TicketDependencyUtil } from '../../src/lib/tracker-model/utils/TicketDependencyUtil.ts';
+import { VocabularyUtil }       from '../../src/lib/tracker-model/utils/VocabularyUtil.ts';
+import { listTickets }          from '../../src/services/tracker/TicketStore.ts';
+import { requireWorkspace }     from '../../src/services/tracker/Workspace.ts';
+import type { CommandContext }  from '../CommandContext.ts';
+import type { ArgumentParser }  from '../arguments/ArgumentParser.ts';
+import { OutputUtil }           from '../utils/OutputUtil.ts';
+import { TICKET_USAGE }         from './constants/TicketUsage.ts';
+import { TicketArgumentUtil }   from './utils/TicketArgumentUtil.ts';
 
 const LIST_OPTION_NAMES = ['status', 'priority', 'json'];
 
@@ -42,8 +41,6 @@ function namedAgentText(ticket: { model?: AgentModel; effort?: AgentEffort }): s
 
 function listedStatusFrom(writtenStatus: string | undefined): TicketStatus | undefined {
   if (writtenStatus === undefined || VocabularyUtil.ticketStatusIsKnown(writtenStatus)) return writtenStatus;
-  // The seam to the retired words; dropping `cli/legacy/` leaves only the unknown-status refusal below.
-  RetiredWordRefusalUtil.refuseARetiredTicketStatus(writtenStatus, (renamedStatus) => `pass --status ${renamedStatus}`);
   return TicketArgumentUtil.refuseAnUnknownTicketStatus(writtenStatus);
 }
 

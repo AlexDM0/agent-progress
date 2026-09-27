@@ -6,8 +6,6 @@ import { OperationRefusal }                       from '../../../src/shared/Oper
 import type { CommandContext }                    from '../../CommandContext.ts';
 import { openTrackerForWriting }                  from '../../OpenTrackerForWriting.ts';
 import type { ArgumentParser }                    from '../../arguments/ArgumentParser.ts';
-import { RetiredWordRefusalUtil }                 from '../../legacy/utils/RetiredWordRefusalUtil.ts';
-import { ReviewBarNameFilingUtil }                from '../../legacy/utils/ReviewBarNameFilingUtil.ts';
 import { OutputUtil }                             from '../../utils/OutputUtil.ts';
 import { TASK_USAGE, annotationFrom, taskIdFrom } from './TaskArguments.ts';
 
@@ -17,8 +15,6 @@ const UPDATABLE_OPTION_NAMES = ['name', 'owner', 'note', 'status', 'tokens'];
 
 function statusFrom(writtenStatus: string | undefined): TaskStatus | undefined {
   if (writtenStatus === undefined || VocabularyUtil.taskStatusIsKnown(writtenStatus)) return writtenStatus;
-  // The seam to the retired words; dropping `cli/legacy/` leaves only the unknown-status refusal below.
-  RetiredWordRefusalUtil.refuseARetiredTaskStatus(writtenStatus);
   throw new OperationRefusal('refused', `"${writtenStatus}" is not a task status. The statuses are ${TASK_STATUSES.join(', ')}.`);
 }
 
@@ -40,13 +36,10 @@ export async function updateOneTask(commandArguments: ArgumentParser, context: C
   }
 
   const name = commandArguments.option('name');
-  // The seam: dropping cli/legacy/ stores a free-standing row renamed to a review-shaped name without a link.
-  const reviewLinkOfTheName = name === undefined ? undefined : ReviewBarNameFilingUtil.reviewLinkNamedBy(name);
   const task = await openTrackerForWriting(commandArguments, context, ({ board }) => {
     board.correctTask(taskId, {
       ...(name === undefined ? {} : { name }),
       ...(status === undefined ? {} : { status }),
-      ...(reviewLinkOfTheName === undefined ? {} : { reviewOf: reviewLinkOfTheName }),
     }, { movesAnyway });
     return board.annotateTask(taskId, annotationFrom(commandArguments));
   });

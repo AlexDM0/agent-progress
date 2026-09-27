@@ -2,7 +2,7 @@
 
 This page is for changing the tool itself: getting a checkout running, the three checks every
 TypeScript change must pass, the test helpers, the guard specs that fail the build on a structural
-mistake, the page and the dispatcher script, the legacy folders, and the decisions that shape all of
+mistake, the page and the dispatcher script, and the decisions that shape all of
 it. Using the tool is covered in the [README](../README.md); every command and file format is in the
 [CLI reference](cli.md). The rules themselves live in the root `CLAUDE.md`; this page points into it
 rather than restating it.
@@ -14,7 +14,6 @@ rather than restating it.
 - [The guard specs](#the-guard-specs)
 - [The page](#the-page)
 - [The dispatcher script and its harness](#the-dispatcher-script-and-its-harness)
-- [Legacy folders](#legacy-folders)
 - [Architecture decisions](#architecture-decisions)
 - [Backlog](#backlog)
 
@@ -129,8 +128,7 @@ and each file's header says what it is for:
   every member of its union, for the model's constants specs.
 - `cli/testing/`: the captured command context, the one sanctioned way to spawn the binary
   (`CliProcess.ts`), and readers of what a command left on disk.
-- `src/adapters/progress/testing/` and `src/adapters/legacy/testing/`: the stored-format fixtures for
-  their adapter specs.
+- `src/adapters/progress/testing/`: the stored-format fixtures for the adapter specs.
 - `src/services/tracker/testing/`: `thrownFailureOf`, what an action threw, for the tracker pipeline specs.
 - `page/testing/`: the page specs' board and limits fixtures.
 - `dispatcher/testing/`: the Workflow-script harness, its bundle and source mutants, the claims, and
@@ -206,29 +204,6 @@ clock and randomness refused as the Workflow tool refuses them. The specs:
 | `dispatcher/DispatchFromWorkflowGlobals.spec.ts` and `dispatcher/testing/utils/WorkflowScriptSourceUtil.spec.ts` | No nondeterministic call, and a literal `meta`. |
 
 A change to the dispatcher's behaviour therefore comes with a claim and its mutant.
-
-## Legacy folders
-
-The rule for a `legacy/` folder, and what dropping one deletes, are in the root `CLAUDE.md` (Model and
-boundaries). There are five:
-
-| folder | what it answers |
-|---|---|
-| `src/shared/legacy/` | The retired status words, and the review-bar name util both folders below share. |
-| `src/adapters/legacy/` | A version 1 `progress.json` with its own log, rows and tickets in the retired words, and review bars known only by name. |
-| `src/services/tracker/legacy/` | The rewrite of older tracker files that `update` and `init` run, reached from `cli/legacy/`. |
-| `cli/legacy/` | The retired verbs and words, refused with their replacement; the ignored `--hooks`; review-shaped names given their link at filing; the rewrite report; the dispatcher copy older versions installed under `.claude/workflows/`, removed by `init` and `update`. |
-| `page/legacy/` | A spec only: how the page draws a review bar linked by its name. |
-
-Current code reaches each through one seam call per consumer, marked at the call site by a `// The seam…` or
-`// Dropping … makes this …` comment, as in `src/adapters/progress/ProgressFileIngestion.ts`,
-`src/services/tracker/TrackerReader.ts`, `cli/tracking/task/TaskCommand.ts`,
-`cli/adoption/update/UpdateCommand.ts` and `cli/adoption/TrackerRefresh.ts`. The `*.legacy.spec.ts` suites and every spec inside a legacy folder go
-with it; the `*.legacySeam.spec.ts` suites beside current modules pin the current side of a seam and stay.
-
-Each module header says when its folder can go: once every tracked repository has run
-`agent-progress update` and agents no longer type the retired forms. `src/shared/legacy/` goes last,
-once `src/adapters/legacy/` and `cli/legacy/` have gone.
 
 ## Architecture decisions
 

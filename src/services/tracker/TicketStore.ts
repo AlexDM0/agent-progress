@@ -25,11 +25,9 @@ export interface MalformedTicketFile {
 }
 
 export interface TicketListing {
-  verdict:                'listed';
-  tickets:                Ticket[];
-  malformed:              MalformedTicketFile[];
-  /** The listed tickets whose file still holds a retired word, in id order; the next write of each stores it in the current format. */
-  ticketsInAnOlderFormat: Ticket[];
+  verdict:   'listed';
+  tickets:   Ticket[];
+  malformed: MalformedTicketFile[];
 }
 
 export interface CreateTicketInput {
@@ -61,12 +59,7 @@ export function listTickets(workspace: Workspace): TicketListing {
     const reading  = new TicketFileIngestion(filePath).read();
 
     if (reading.verdict === 'parsed') {
-      parsedFiles.push({
-        fileName,
-        ticket:                reading.ticket,
-        identifierLine:        reading.identifierLine,
-        fileIsInAnOlderFormat: reading.fileIsInAnOlderFormat,
-      });
+      parsedFiles.push({ fileName, ticket: reading.ticket, identifierLine: reading.identifierLine });
     } else {
       malformed.push({ filePath, reason: reading.reason, line: reading.line });
     }
@@ -99,10 +92,9 @@ export function listTickets(workspace: Workspace): TicketListing {
   listedFiles.sort((a, b) => Number(a.ticket.frontmatter.id) - Number(b.ticket.frontmatter.id));
   malformed.sort((a, b) => (a.filePath < b.filePath ? -1 : Number(a.filePath > b.filePath)));
   return {
-    verdict:                'listed',
-    tickets:                listedFiles.map((listedFile) => listedFile.ticket),
+    verdict: 'listed',
+    tickets: listedFiles.map((listedFile) => listedFile.ticket),
     malformed,
-    ticketsInAnOlderFormat: listedFiles.filter((listedFile) => listedFile.fileIsInAnOlderFormat).map((listedFile) => listedFile.ticket),
   };
 }
 
@@ -171,10 +163,9 @@ export function deleteAllTickets(workspace: Workspace): number {
 }
 
 interface ParsedTicketFile {
-  fileName:              string;
-  ticket:                Ticket;
-  identifierLine:        number;
-  fileIsInAnOlderFormat: boolean;
+  fileName:       string;
+  ticket:         Ticket;
+  identifierLine: number;
 }
 
 function malformedEntryOf(parsedFile: ParsedTicketFile, reason: string): MalformedTicketFile {

@@ -5,6 +5,7 @@
 
 import { describe, expect, test }             from 'bun:test';
 import type { LineEnding, TicketFrontmatter } from '../../../lib/tracker-model/@types/Ticket.ts';
+import { OLDER_FORMAT_ADVICE }                from '../../constants/OlderFormatAdvice.ts';
 import { TicketDocumentUtil }                 from './TicketDocumentUtil.ts';
 
 const FULL_TICKET = [
@@ -231,7 +232,7 @@ describe('parsedTicketDocumentOf', () => {
     const parsed = TicketDocumentUtil.parsedTicketDocumentOf(FULL_TICKET.replace('status: "in-progress"', 'status: "in progress"'));
 
     expect(parsed.verdict).toBe('malformed');
-    expect(parsed.verdict === 'malformed' ? parsed.reason : '').toBe('`status` is not a known ticket status: in progress');
+    expect(parsed.verdict === 'malformed' ? parsed.reason : '').toBe(`\`status\` is not a known ticket status: in progress; ${OLDER_FORMAT_ADVICE}`);
     expect(parsed.verdict === 'malformed' ? parsed.line : 0).toBe(5);
   });
 
@@ -357,18 +358,18 @@ describe('model and effort', () => {
 });
 
 describe('status words', () => {
-  test('reading a current word, quoted or bare, reports no retired word', () => {
+  test('reading a current word, quoted or bare, parses', () => {
     for (const storedStatus of ['"in-progress"', 'pending', '"reviewed"']) {
       const parsed = TicketDocumentUtil.parsedTicketDocumentOf(FULL_TICKET.replace('status: "in-progress"', `status: ${storedStatus}`));
 
-      expect(parsed.verdict === 'parsed' && !parsed.olderFormatWasRead).toBe(true);
+      expect(parsed.verdict).toBe('parsed');
     }
   });
 
-  test('a word that was never a ticket status is still malformed at its line', () => {
+  test('a word that is not a ticket status is malformed at its line', () => {
     const parsed = TicketDocumentUtil.parsedTicketDocumentOf(FULL_TICKET.replace('status: "in-progress"', 'status: "closed"'));
 
-    expect(parsed.verdict === 'malformed' ? parsed.reason : '').toBe('`status` is not a known ticket status: closed');
+    expect(parsed.verdict === 'malformed' ? parsed.reason : '').toBe(`\`status\` is not a known ticket status: closed; ${OLDER_FORMAT_ADVICE}`);
     expect(parsed.verdict === 'malformed' ? parsed.line : 0).toBe(5);
   });
 });

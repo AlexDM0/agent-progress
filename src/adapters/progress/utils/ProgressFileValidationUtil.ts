@@ -7,6 +7,7 @@ import { TASK_STATUSES }                                     from '../../../lib/
 import { FIRST_TASK_ID }                                     from '../../../lib/tracker-model/constants/TaskIds.ts';
 import { BoardSettingsUtil }                                 from '../../../lib/tracker-model/utils/BoardSettingsUtil.ts';
 import { VocabularyUtil }                                    from '../../../lib/tracker-model/utils/VocabularyUtil.ts';
+import { OLDER_FORMAT_ADVICE }                               from '../../constants/OlderFormatAdvice.ts';
 import { StoredValueUtil }                                   from '../../utils/StoredValueUtil.ts';
 import type { StoredProgressFile, StoredTaskPhase }          from '../@types/StoredProgressFile.ts';
 import { CURRENT_PROGRESS_FILE_VERSION }                     from '../constants/ProgressFileVersions.ts';
@@ -53,7 +54,7 @@ function taskProblem(value: unknown, index: number): string | null {
   if (!StoredValueUtil.valueIsAWholeNumber(task['id'])) return `tasks[${index}].id is not a whole number`;
   if (!textFieldIsPresent(task, 'name')) return `tasks[${index}].name is not a string`;
   if (!taskStatusIsKnown(task['status'])) {
-    return `tasks[${index}].status is ${JSON.stringify(task['status'])}, which is not one of ${TASK_STATUSES.join(', ')}`;
+    return `tasks[${index}].status is ${JSON.stringify(task['status'])}, which is not one of ${TASK_STATUSES.join(', ')}; ${OLDER_FORMAT_ADVICE}`;
   }
   if (!nullableTextIsWellFormed(task['start'])) return `tasks[${index}].start is neither a timestamp nor null`;
   if (!nullableTextIsWellFormed(task['end'])) return `tasks[${index}].end is neither a timestamp nor null`;
@@ -66,7 +67,7 @@ function taskProblem(value: unknown, index: number): string | null {
     return `tasks[${index}].reviewRound is present and is not a whole round of at least ${FIRST_REPEAT_REVIEW_ROUND}`;
   }
   if (task['history'] !== undefined && !taskHistoryIsWellFormed(task['history'])) {
-    return `tasks[${index}].history is present and is not a list of phases, each a known status with the timestamp it was reached at`;
+    return `tasks[${index}].history is present and is not a list of phases, each a known status with the timestamp it was reached at; ${OLDER_FORMAT_ADVICE}`;
   }
   if (task['agent'] !== undefined && typeof task['agent'] !== 'string') return `tasks[${index}].agent is present but not the key of the claim that started it`;
   if (task['reviewOf'] !== undefined && typeof task['reviewOf'] !== 'string') return `tasks[${index}].reviewOf is present but not the id of the ticket it reviews`;
@@ -83,7 +84,9 @@ function taskProblem(value: unknown, index: number): string | null {
 function documentHeaderProblemOf(candidate: unknown): string | null {
   if (!JsonRecordUtil.valueIsAPlainObject(candidate)) return 'the document is not a JSON object';
   const { version } = candidate;
-  if (version !== CURRENT_PROGRESS_FILE_VERSION) return `version is ${JSON.stringify(version)}, and this build of agent-progress reads version ${CURRENT_PROGRESS_FILE_VERSION}`;
+  if (version !== CURRENT_PROGRESS_FILE_VERSION) {
+    return `version is ${JSON.stringify(version)}, and this build of agent-progress reads version ${CURRENT_PROGRESS_FILE_VERSION}; ${OLDER_FORMAT_ADVICE}`;
+  }
   if (!textFieldIsPresent(candidate, 'trackerId')) return 'trackerId is not a string';
   if (!textFieldIsPresent(candidate, 'project')) return 'project is not a string';
   if (!textFieldIsPresent(candidate, 'startedAt')) return 'startedAt is not a timestamp';
@@ -132,6 +135,4 @@ function readingOf(parsed: unknown): { verdict: 'readable'; document: StoredProg
   return documentIsStored(parsed, problem) ? { verdict: 'readable', document: parsed } : { verdict: 'unreadable', reason: 'the document is not in the current format' };
 }
 
-export const ProgressFileValidationUtil = {
-  documentProblemOf, documentHeaderProblemOf, taskRowsProblemOf, readingOf
-} as const;
+export const ProgressFileValidationUtil = { documentProblemOf, readingOf } as const;

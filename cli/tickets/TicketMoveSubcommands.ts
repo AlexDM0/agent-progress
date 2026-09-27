@@ -8,7 +8,6 @@ import { OperationRefusal }                                                   fr
 import type { CommandContext }                                                from '../CommandContext.ts';
 import { openTrackerForWritingThenReadNextLine }                              from '../OpenTrackerForWriting.ts';
 import type { ArgumentParser }                                                from '../arguments/ArgumentParser.ts';
-import { RetiredWordRefusalUtil }                                             from '../legacy/utils/RetiredWordRefusalUtil.ts';
 import { OutputUtil }                                                         from '../utils/OutputUtil.ts';
 import type { TicketSubcommandHandler }                                       from './@types/TicketSubcommandHandler.ts';
 import { REVIEW_BAR_OPTION_NAMES, reviewBarRequestFrom, reviewBarStartedFor } from './ReviewBarRequest.ts';
@@ -56,8 +55,6 @@ async function setTicketStatus(commandArguments: ArgumentParser, context: Comman
     throw new OperationRefusal('refused', `agent-progress ticket status needs a ticket id and a status.\n  Usage: ${TICKET_USAGE}`);
   }
   if (!VocabularyUtil.ticketStatusIsKnown(writtenStatus)) {
-    // The seam to the retired words; dropping `cli/legacy/` leaves only the unknown-status refusal below.
-    RetiredWordRefusalUtil.refuseARetiredTicketStatus(writtenStatus, (renamedStatus) => `run \`agent-progress ticket status ${reference} ${renamedStatus}\``);
     return TicketArgumentUtil.refuseAnUnknownTicketStatus(writtenStatus);
   }
   return transitionOneTicket(writtenStatus, reference, commandArguments, context, false);

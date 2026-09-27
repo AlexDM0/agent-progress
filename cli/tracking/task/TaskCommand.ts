@@ -5,7 +5,6 @@ import type { CommandContext }                    from '../../CommandContext.ts'
 import type { CommandHandler }                    from '../../CommandHandler.ts';
 import { openTrackerForWritingThenReadNextLine }  from '../../OpenTrackerForWriting.ts';
 import type { ArgumentParser }                    from '../../arguments/ArgumentParser.ts';
-import { RetiredWordRefusalUtil }                 from '../../legacy/utils/RetiredWordRefusalUtil.ts';
 import { OutputUtil }                             from '../../utils/OutputUtil.ts';
 import { addOneTask }                             from './TaskAdd.ts';
 import { TASK_USAGE, annotationFrom, taskIdFrom } from './TaskArguments.ts';
@@ -50,8 +49,6 @@ export const taskCommand: CommandHandler = async (commandArguments, context) => 
   if (subcommand !== undefined && targetStatus !== undefined) return transitionOneTask(subcommand, targetStatus, commandArguments, context);
   if (subcommand === 'update') return updateOneTask(commandArguments, context);
   if (subcommand === 'remove') return removeOneTask(commandArguments, context);
-  // The seam to the retired verbs; dropping `cli/legacy/` leaves only the unknown-subcommand refusal below.
-  if (subcommand !== undefined) RetiredWordRefusalUtil.refuseARetiredTaskVerb(subcommand, commandArguments);
 
   throw new OperationRefusal(
     'refused',

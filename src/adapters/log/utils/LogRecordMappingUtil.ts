@@ -118,7 +118,7 @@ function recordOf(validated: unknown): LogRecord {
 function storedLogOf(logFileReading: LogFileReading): StoredLogReading {
   if (logFileReading.verdict === 'unreadable') return logFileReading;
   const records = logFileReading.verdict === 'readable' ? logFileReading.records : [];
-  return { verdict: 'readable', records, logFileMustBeRewritten: false };
+  return { verdict: 'readable', records };
 }
 
 export const LogRecordMappingUtil = { recordOf, storedLogOf } as const;

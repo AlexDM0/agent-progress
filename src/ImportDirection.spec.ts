@@ -16,7 +16,6 @@ type ImportViolation =
   | 'test-helper-imported-outside-its-allowlist'
   | 'lib-imports-an-undeclared-package'
   | 'tracker-model-reaches-outside-itself'
-  | 'legacy-reached-outside-a-seam'
   | 'import-cycle'
   | 'barrel';
 
@@ -68,38 +67,17 @@ const TESTING_FOLDER_IMPORTERS: Readonly<Record<string, readonly string[]>> = {
   'src/testing/':                   ['src/', 'cli/', 'page/'],
   'src/lib/tracker-model/testing/': ['src/lib/tracker-model/'],
   'src/adapters/progress/testing/': ['src/adapters/'],
-  'src/adapters/legacy/testing/':   ['src/adapters/legacy/', 'src/services/tracker/legacy/'],
   'src/services/tracker/testing/':  ['src/services/tracker/'],
   'cli/testing/':                   ['cli/'],
   'page/testing/':                  ['page/'],
   'dispatcher/testing/':            ['dispatcher/'],
 };
 
-/** Every import of a legacy module from current code, as `consumer → legacy module`: a new one is a new seam, and says so in its diff. */
-const LEGACY_SEAMS: readonly string[] = [
-  'cli/adoption/TrackerRefresh.ts → cli/legacy/RemoveTheRetiredDispatcherScript.ts',
-  'cli/adoption/init/InitCommand.ts → cli/legacy/OlderTrackerFilesRewriteReport.ts',
-  'cli/adoption/init/InitCommand.ts → cli/legacy/constants/IgnoredRetiredOptions.ts',
-  'cli/adoption/update/UpdateCommand.ts → cli/legacy/OlderTrackerFilesRewriteReport.ts',
-  'cli/adoption/update/UpdateCommand.ts → cli/legacy/constants/IgnoredRetiredOptions.ts',
-  'cli/tickets/TicketCommand.ts → cli/legacy/utils/RetiredWordRefusalUtil.ts',
-  'cli/tickets/TicketMoveSubcommands.ts → cli/legacy/utils/RetiredWordRefusalUtil.ts',
-  'cli/tickets/TicketList.ts → cli/legacy/utils/RetiredWordRefusalUtil.ts',
-  'cli/tracking/task/TaskAdd.ts → cli/legacy/utils/ReviewBarNameFilingUtil.ts',
-  'cli/tracking/task/TaskCommand.ts → cli/legacy/utils/RetiredWordRefusalUtil.ts',
-  'cli/tracking/task/TaskCorrection.ts → cli/legacy/utils/RetiredWordRefusalUtil.ts',
-  'cli/tracking/task/TaskCorrection.ts → cli/legacy/utils/ReviewBarNameFilingUtil.ts',
-  'src/adapters/progress/ProgressFileIngestion.ts → src/adapters/legacy/utils/ProgressFileUpgradeUtil.ts',
-  'src/adapters/tickets/utils/TicketDocumentUtil.ts → src/adapters/legacy/utils/TicketStatusUpgradeUtil.ts',
-  'src/services/tracker/TrackerReader.ts → src/adapters/legacy/utils/EmbeddedLogUtil.ts',
-];
-
 interface Allowlists {
   readonly testingFolderImporters: Readonly<Record<string, readonly string[]>>;
-  readonly legacySeams:            readonly string[];
 }
 
-const ALLOWLISTS: Allowlists = { testingFolderImporters: TESTING_FOLDER_IMPORTERS, legacySeams: LEGACY_SEAMS };
+const ALLOWLISTS: Allowlists = { testingFolderImporters: TESTING_FOLDER_IMPORTERS };
 
 /** Folders inside a `cli/` set that hold what the set's commands share rather than one command. */
 const CLI_SET_SHARED_FOLDERS = ['@types', 'constants', 'utils'];
@@ -150,10 +128,6 @@ function enclosingFolderNamed(path: string, name: string): string | null {
 
 function testingFolderOf(path: string): string | null {
   return enclosingFolderNamed(path, 'testing');
-}
-
-function legacyFolderOf(path: string): string | null {
-  return enclosingFolderNamed(path, 'legacy');
 }
 
 function libPackageOf(path: string): string | null {
@@ -238,12 +212,6 @@ function libFinding(edge: ImportEdge, declarations: ReadonlyMap<string, readonly
   return edgeFinding(edge, 'lib-imports-an-undeclared-package', `the header of src/lib/${fromPackage}/'s main module does not name src/lib/${targetPackage}`);
 }
 
-function legacyFinding(edge: ImportEdge, targetPath: string, allowlists: Allowlists): Finding | null {
-  if (legacyFolderOf(targetPath) === null || legacyFolderOf(edge.fromPath) !== null) return null;
-  if (allowlists.legacySeams.includes(`${edge.fromPath} → ${targetPath}`)) return null;
-  return edgeFinding(edge, 'legacy-reached-outside-a-seam', 'current code reaches a legacy folder only through a seam `LEGACY_SEAMS` lists');
-}
-
 function edgeFindingsOf(edge: ImportEdge, declarations: ReadonlyMap<string, readonly string[]>, allowlists: Allowlists): readonly (Finding | null)[] {
   if (edge.form === 're-export') {
     return [edgeFinding(edge, 'barrel', 'a re-export makes one module stand for others')];
@@ -256,7 +224,6 @@ function edgeFindingsOf(edge: ImportEdge, declarations: ReadonlyMap<string, read
     commandFinding(edge, targetPath),
     testingFolderFinding(edge, targetPath, allowlists),
     libVerdict,
-    legacyFinding(edge, targetPath, allowlists),
   ];
 }
 
@@ -338,7 +305,6 @@ function unusedAllowancesOf(graph: ImportGraph, allowlists: Allowlists): readonl
       && testingFolderOf(fromPath) !== testingFolder
       && isInside(fromPath, importerFolder)))
     .map((importerFolder) => `TESTING_FOLDER_IMPORTERS lets ${importerFolder} import ${testingFolder}, and nothing there does`));
-  const presentSeams = new Set(fileEdges.map(({ fromPath, targetPath }) => `${fromPath} → ${targetPath}`));
   const importedLibPackages = new Set(fileEdges.flatMap(({ fromPath, targetPath }) => {
     const fromPackage = libPackageOf(fromPath);
     const targetPackage = libPackageOf(targetPath);
@@ -351,7 +317,6 @@ function unusedAllowancesOf(graph: ImportGraph, allowlists: Allowlists): readonl
     ...[...testingFoldersInTree].filter((folder) => !listedTestingFolders.includes(folder)).map((folder) => `${folder} has no TESTING_FOLDER_IMPORTERS entry`),
     ...listedTestingFolders.filter((folder) => !testingFoldersInTree.has(folder)).map((folder) => `TESTING_FOLDER_IMPORTERS lists ${folder}, which holds no file`),
     ...unusedImporters,
-    ...allowlists.legacySeams.filter((seam) => !presentSeams.has(seam)).map((seam) => `LEGACY_SEAMS lists ${seam}, which no longer imports it`),
     ...unusedDeclarations,
   ].sort();
 }
@@ -491,14 +456,6 @@ describe('the guard still names each violation, planted in memory', () => {
     expect(plantedSentencesOf({ 'src/lib/tracker-model/utils/PlantedUtil.spec.ts': importing('bun:test') })).toEqual([]);
   });
 
-  test('current code reaching a legacy module that is not a listed seam, and not a legacy module reaching current code', () => {
-    expect(plantedSentencesOf({ 'src/adapters/log/PlantedReader.ts': importing('../legacy/utils/EmbeddedLogUtil.ts') })).toEqual([
-      'legacy-reached-outside-a-seam — src/adapters/log/PlantedReader.ts:1 imports src/adapters/legacy/utils/EmbeddedLogUtil.ts: '
-        + 'current code reaches a legacy folder only through a seam `LEGACY_SEAMS` lists',
-    ]);
-    expect(plantedSentencesOf({ 'src/adapters/legacy/utils/PlantedUpgrade.ts': importing('../../log/LogRecordCollector.ts') })).toEqual([]);
-  });
-
   test('an import cycle between two files, and between two lib packages through different files', () => {
     expect(plantedSentencesOf({
       'src/shared/utils/PlantedFirst.ts':  importing('./PlantedSecond.ts'),
@@ -526,15 +483,11 @@ describe('the guard still names each violation, planted in memory', () => {
   });
 
   test('an allowlist entry or a declared lib dependency nothing uses any more, and a testing folder without an entry', () => {
-    const plantedAllowlists: Allowlists = {
-      testingFolderImporters: { ...TESTING_FOLDER_IMPORTERS, 'cli/testing/': ['cli/', 'dispatcher/'], 'src/retired/testing/': ['src/'] },
-      legacySeams:            [...LEGACY_SEAMS, 'src/shared/Environment.ts → src/shared/legacy/utils/ReviewBarNameUtil.ts'],
-    };
+    const plantedAllowlists: Allowlists = { testingFolderImporters: { ...TESTING_FOLDER_IMPORTERS, 'cli/testing/': ['cli/', 'dispatcher/'], 'src/retired/testing/': ['src/'] }, };
     const mainModulePath = 'src/lib/claude-code/ClaudeTranscripts.ts';
     const plantedHeader = GRAPH.sourceTextOf(mainModulePath).replace('depends on `src/lib/atomic-file`', 'depends on `src/lib/git`, `src/lib/atomic-file`');
     const plantedGraph = SCANNER.graphWithPlantedFiles({ [mainModulePath]: plantedHeader, 'src/shared/testing/PlantedFixture.ts': 'export const planted = 1;\n' });
     expect(unusedAllowancesOf(plantedGraph, plantedAllowlists)).toEqual([
-      'LEGACY_SEAMS lists src/shared/Environment.ts → src/shared/legacy/utils/ReviewBarNameUtil.ts, which no longer imports it',
       'TESTING_FOLDER_IMPORTERS lets dispatcher/ import cli/testing/, and nothing there does',
       'TESTING_FOLDER_IMPORTERS lets src/ import src/retired/testing/, and nothing there does',
       'TESTING_FOLDER_IMPORTERS lists src/retired/testing/, which holds no file',
@@ -571,10 +524,6 @@ describe('the imports of the tree', () => {
 
   test('the tracker model imports nothing outside its own folder and no builtin', () => {
     expect(sentencesAbout(FINDINGS, 'tracker-model-reaches-outside-itself')).toEqual([]);
-  });
-
-  test('current code reaches a legacy folder only through a listed seam', () => {
-    expect(sentencesAbout(FINDINGS, 'legacy-reached-outside-a-seam')).toEqual([]);
   });
 
   test('no import cycle exists, between files or between lib packages', () => {

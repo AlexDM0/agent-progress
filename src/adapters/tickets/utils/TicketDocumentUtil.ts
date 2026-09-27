@@ -7,10 +7,10 @@
 import type { LineEnding, TicketFrontmatter } from '../../../lib/tracker-model/@types/Ticket.ts';
 import { TicketIdUtil }                       from '../../../lib/tracker-model/utils/TicketIdUtil.ts';
 import { VocabularyUtil }                     from '../../../lib/tracker-model/utils/VocabularyUtil.ts';
-import { TicketStatusUpgradeUtil }            from '../../legacy/utils/TicketStatusUpgradeUtil.ts';
+import { OLDER_FORMAT_ADVICE }                from '../../constants/OlderFormatAdvice.ts';
 
 export type ParsedTicketDocument =
-  | { verdict: 'parsed'; frontmatter: TicketFrontmatter; body: string; lineEnding: LineEnding; olderFormatWasRead: boolean }
+  | { verdict: 'parsed'; frontmatter: TicketFrontmatter; body: string; lineEnding: LineEnding }
   | { verdict: 'malformed'; reason: string; line: number };
 
 type FrontmatterValue = string | number | null;
@@ -130,13 +130,11 @@ function parsedTicketDocumentOf(text: string): ParsedTicketDocument {
       knownValues.set(key, { value: scalarOf(rawValue, key, lineNumber), line: lineNumber });
     }
 
-    const { frontmatter, olderFormatWasRead } = frontmatterFrom(knownValues, extra, closingFenceIndex + 1);
     return {
-      verdict:    'parsed',
-      frontmatter,
-      body:       bodyAfter(withoutByteOrderMark, lines, closingFenceIndex),
-      lineEnding: (lines[0] ?? '').endsWith(CARRIAGE_RETURN) ? '\r\n' : '\n',
-      olderFormatWasRead,
+      verdict:     'parsed',
+      frontmatter: frontmatterFrom(knownValues, extra, closingFenceIndex + 1),
+      body:        bodyAfter(withoutByteOrderMark, lines, closingFenceIndex),
+      lineEnding:  (lines[0] ?? '').endsWith(CARRIAGE_RETURN) ? '\r\n' : '\n',
     };
   } catch (problem) {
     if (problem instanceof FrontmatterProblem) {
@@ -290,17 +288,18 @@ function frontmatterFrom(
   knownValues: Map<string, KnownValue>,
   extra: Array<[key: string, rawValue: string]>,
   closingFenceLine: number,
-): { frontmatter: TicketFrontmatter; olderFormatWasRead: boolean } {
-  const typeText         = requiredText(knownValues, 'type', closingFenceLine);
-  const storedStatusText = requiredText(knownValues, 'status', closingFenceLine);
-  // The seam to the retired words; dropping `src/adapters/legacy/` leaves `storedStatusText`.
-  const statusText       = TicketStatusUpgradeUtil.currentTicketStatusTextOf(storedStatusText);
+): TicketFrontmatter {
+  const typeText   = requiredText(knownValues, 'type', closingFenceLine);
+  const statusText = requiredText(knownValues, 'status', closingFenceLine);
 
   if (!VocabularyUtil.ticketTypeIsKnown(typeText)) {
     throw new FrontmatterProblem(`\`type\` is not a known ticket type: ${typeText}`, lineOf(knownValues, 'type', closingFenceLine));
   }
   if (!VocabularyUtil.ticketStatusIsKnown(statusText)) {
-    throw new FrontmatterProblem(`\`status\` is not a known ticket status: ${statusText}`, lineOf(knownValues, 'status', closingFenceLine));
+    throw new FrontmatterProblem(
+      `\`status\` is not a known ticket status: ${statusText}; ${OLDER_FORMAT_ADVICE}`,
+      lineOf(knownValues, 'status', closingFenceLine),
+    );
   }
 
   const frontmatter: TicketFrontmatter = {
@@ -322,7 +321,7 @@ function frontmatterFrom(
     task:        nullableInteger(knownValues, 'task'),
     extra,
   };
-  return { frontmatter, olderFormatWasRead: statusText !== storedStatusText };
+  return frontmatter;
 }
 
 /** The id is stored padded however it was written, so `id: 003`, `id: "003"` and `id: 3` name the same ticket. */

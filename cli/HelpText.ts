@@ -48,25 +48,21 @@ output never carries either.
                               discovered repository root, --no-claude-md leaves CLAUDE.md alone,
                               --no-hooks writes no hook, --no-workflow no workflow and
                               --no-agent-definition no agent definition.
-                              --hooks is still accepted and does nothing: the hook it used to ask
-                              for is now written by default.
 
   update                      Refresh what the tool wrote into a repository it already tracks: the
       [--no-claude-md]        managed CLAUDE.md block, \`agent-brief.md\` — guidance shipped with the
       [--no-hooks]            tool rather than a file a project edits — the SubagentStop hook and the
       [--no-workflow]         dispatcher workflow, generated anew, and the agent definition, a hand
-      [--no-agent-definition] edit to either of which is undone; a dispatcher an older version
-                              installed under \`.claude/workflows/\` is removed. A tracker still in
-                              an older format — a progress file holding its own log, retired status
-                              words or review rows known only by their name, or tickets holding
-                              retired status words — is rewritten in the current one,
-                              under the lock; otherwise the tracker is left alone. It creates no tracker, so it takes no
+      [--no-agent-definition] edit to either of which is undone. The tracker itself is left alone:
+                              a tracker an earlier agent-progress wrote in a format this one no
+                              longer reads is refused at exit 2 by every command that reads it,
+                              saying to run \`update\` with a release that still reads it. It creates no tracker, so it takes no
                               --project and no --root, and it is refused with exit 1 where there
                               is none — \`agent-progress init\` makes one.
                               Each line says whether that file changed, so a session that read the
                               brief at its start learns that its copy is now stale. It takes the same
-                              --no-claude-md, --no-hooks, --no-workflow, --no-agent-definition and
-                              no-op --hooks as \`init\`. Every command but init, update, help and
+                              --no-claude-md, --no-hooks, --no-workflow and --no-agent-definition
+                              as \`init\`. Every command but init, update, help and
                               status refuses, with exit 1, while the files installed here are of
                               another install version than this agent-progress (the SubagentStop
                               hook reports it and exits 0); update rewrites them, and it and \`init\`
@@ -92,9 +88,8 @@ output never carries either.
       [--ticket <id>]         cost. --force moves --ticket's link off the row that holds it.
       [--review-of <id>]      --review-of marks the row as a review pass of that ticket: the page
       [--start]               draws it directly above the ticket's own row, latest round first. A
-      [--tokens <n>]          ticket that does not exist is refused at exit 1. A row filed without
-      [--at <when>] [--force] it or --ticket whose name starts "Review <N> #<id>" is stored linked
-                              the same way; for a bundle, the first id named is the parent.
+      [--tokens <n>]          ticket that does not exist is refused at exit 1.
+      [--at <when>] [--force]
 
   task start|pause|finish|approve|rereview|deliver <id> [--owner <who>] [--note <text>]
       [--tokens <n>] [--at <when>] [--force]
@@ -129,8 +124,8 @@ output never carries either.
                               <id>\` names tickets instead, each resolved to the row it holds when
                               the hook runs. A line \`agent-progress review: <id>\` names one
                               ticket whose review row the reviewer creates itself: the input goes
-                              to the most recently added row reviewing that ticket (--review-of,
-                              or a "Review <N> #<id>" name), whatever its status; a row a ticket
+                              to the most recently added row reviewing that ticket (its
+                              --review-of), whatever its status; a row a ticket
                               owns is never a review row. A brief with
                               several is read by one alone: row over ticket over review.
                               This is the command \`init\` and \`update\` wire into
@@ -190,7 +185,7 @@ output never carries either.
       [--json]                to the merged tip. More ids after <id> release every ticket of a
                               bundle, which share <b>. Every in-progress review row whose
                               --review-of names a released ticket is finished and delivered at the release
-                              time, and named; a row known only by a "Review <N> #<id>" name counts as linked.
+                              time, and named.
                               All of it happens in one lock hold, so two releases never race.
                               Refused at exit 1, with nothing changed (no review row either), when a ticket
                               is not in-progress or in-review, when the main checkout is not on
@@ -287,13 +282,7 @@ output never carries either.
                               \`abandon\` requires --reason; \`reopen\` clears the stamps and returns
                               the row to pending. --branch and --commit record where the work
                               landed, and --tokens what it cost; --tokens on a ticket with no
-                              row (a low one never started) is refused at exit 1. The retired
-                              verbs are refused at exit 1 with nothing written, naming the one
-                              that replaced them: \`ticket review\` names \`finish\`, \`ticket done\`
-                              and \`task review\` name \`approve\`. So is an old status word given
-                              as a value, naming its new word: \`open\` or \`done\` to \`ticket
-                              status\` or \`ticket list --status\`, \`running\` or \`finished\` to
-                              \`task update --status\`.
+                              row (a low one never started) is refused at exit 1.
 
   ticket finish|rereview <id> --start-review [--owner <who>] [--note <text>] [--at <when>]
                               The move to review, or the next round, and the reviewer's in-progress bar

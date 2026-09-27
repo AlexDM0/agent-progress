@@ -1,8 +1,6 @@
 /**
- * The log's seam to a log carried over from a version 1 progress file, seen from the current side: beside a version 2 progress.json, which
- * carries no log, any log.jsonl, even one a carried-over log would refuse, comes back as its own records, an absent one as empty and an
- * unreadable one with its own reason, and nothing is ever marked for rewriting. It imports nothing from `src/adapters/legacy/`, so it
- * still holds once that folder and its seam line are dropped.
+ * The tracker's log is log.jsonl alone: beside a progress.json, any log.jsonl comes back as its own records, an absent one as empty and an
+ * unreadable one with its own reason.
  */
 import { mkdirSync, writeFileSync } from 'node:fs';
 import {
@@ -39,7 +37,7 @@ function storedLogOrVerdictOf(reading: TrackerReading): unknown {
 }
 
 beforeEach(() => {
-  workspace = workspacePathsFor(createScratchDirectory('tracker-reader-log-seam'));
+  workspace = workspacePathsFor(createScratchDirectory('tracker-reader-log-file'));
   mkdirSync(workspace.ticketsDirectory, { recursive: true });
   writeVersionTwoProgressFile();
 });
@@ -48,15 +46,15 @@ afterEach(() => {
   removeScratchDirectory(workspace.rootDirectory);
 });
 
-test('a readable log.jsonl comes back as its records, whatever they hold, and is never marked for rewriting', () => {
+test('a readable log.jsonl comes back as its records, whatever they hold', () => {
   for (const records of [[], [NOTE], [FINISHED_RECORD], [FINISHED_RECORD, NOTE], [NOTE, NOTE, FINISHED_RECORD]]) {
     createLogFileWriter(workspace.logFilePath).write(records);
-    expect(storedLogOrVerdictOf(readTracker(workspace)), JSON.stringify(records)).toEqual({ records, logFileMustBeRewritten: false });
+    expect(storedLogOrVerdictOf(readTracker(workspace)), JSON.stringify(records)).toEqual({ records });
   }
 });
 
-test('an absent log.jsonl is an empty log, never marked for rewriting', () => {
-  expect(storedLogOrVerdictOf(readTracker(workspace))).toEqual({ records: [], logFileMustBeRewritten: false });
+test('an absent log.jsonl is an empty log', () => {
+  expect(storedLogOrVerdictOf(readTracker(workspace))).toEqual({ records: [] });
 });
 
 test('an unreadable log.jsonl keeps its own reason, which names no progress file', () => {

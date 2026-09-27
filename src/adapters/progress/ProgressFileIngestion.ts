@@ -1,22 +1,12 @@
-/** progress.json read into the model: read, migrate an older shape to the current one, validate, map. */
-import type { LogRecord }             from '../../lib/tracker-model/@types/LogRecord.ts';
+/** progress.json read into the model: read, validate, map. */
 import type { TrackerProgress }       from '../../lib/tracker-model/@types/TrackerProgress.ts';
 import { storedFileTextOf }           from '../StoredFileText.ts';
-import { ProgressFileUpgradeUtil }    from '../legacy/utils/ProgressFileUpgradeUtil.ts';
 import { StoredValueUtil }            from '../utils/StoredValueUtil.ts';
-import type { ProgressFileMigration } from './@types/ProgressFileMigration.ts';
 import { ProgressFileMappingUtil }    from './utils/ProgressFileMappingUtil.ts';
 import { ProgressFileValidationUtil } from './utils/ProgressFileValidationUtil.ts';
 
 export type ProgressFileReading =
-  | {
-    verdict:               'readable';
-    progress:              TrackerProgress;
-    /** The log records an older progress file carried, which the next write moves to log.jsonl; null when it carried none. */
-    carriedOverLog:        LogRecord[] | null;
-    /** `update` rewrites such a file in the current format. */
-    fileIsInAnOlderFormat: boolean;
-  }
+  | { verdict: 'readable'; progress: TrackerProgress }
   | { verdict: 'absent' }
   | { verdict: 'unreadable'; reason: string };
 
@@ -33,22 +23,9 @@ export class ProgressFileIngestion {
 
     const parsedJson = StoredValueUtil.parsedJsonOf(storedText.text);
     if (parsedJson.verdict === 'unparseable') return { verdict: 'unreadable', reason: parsedJson.problem };
-    const parsed = parsedJson.value;
 
-    // The seam: dropping src/adapters/legacy/ makes the right-hand side `{ verdict: 'current' } as ProgressFileMigration`.
-    const migration: ProgressFileMigration = ProgressFileUpgradeUtil.migrationOf(parsed);
-    if (migration.verdict === 'unreadable') return migration;
-    const document = migration.verdict === 'migrated' ? migration.document : parsed;
-
-    const validated = ProgressFileValidationUtil.readingOf(document);
+    const validated = ProgressFileValidationUtil.readingOf(parsedJson.value);
     if (validated.verdict === 'unreadable') return validated;
-    const progress       = ProgressFileMappingUtil.progressOf(validated.document);
-    const carriedOverLog = migration.verdict === 'migrated' ? migration.carriedOverLog : null;
-    return {
-      verdict:               'readable',
-      progress,
-      carriedOverLog,
-      fileIsInAnOlderFormat: migration.verdict === 'migrated',
-    };
+    return { verdict: 'readable', progress: ProgressFileMappingUtil.progressOf(validated.document) };
   }
 }

@@ -1,6 +1,6 @@
 /**
  * A release reviews then delivers each ticket in the order given and closes the bundle's in-progress review bars after the moves. The
- * Board reads no name, as ingestion links a legacy bar before the Board sees it.
+ * Board reads no name: a bar is a row with `reviewOf`.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -106,7 +106,7 @@ describe('releaseTickets', () => {
     expect(released.logged).toEqual(records);
   });
 
-  // The reviewer releases as the last step of its pass, so its bar ends here; the Board reads no name, since ingestion links a legacy bar.
+  // The reviewer releases as the last step of its pass, so its bar ends here; the Board reads no name.
   test('every review bar of the bundle in progress is closed, and an earlier bar and a record without reviewOf are left alone', () => {
     const { board, progress } = bundleInReviewFixture();
     const earlierBar          = structuredClone(progress.tasks[2]);

@@ -45,8 +45,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   sibling command's folder: what two need is hoisted to the level above both (a set's own files, or `cli/`'s root and
   `cli/utils/`), or passed as a structurally typed parameter. `agent-progress.ts` imports only `cli/`.
 - Nothing that ships imports a `testing/` folder: the guard's `TESTING_FOLDER_IMPORTERS` names whose specs may import
-  each. Current code reaches a `legacy/` folder only through a seam its `LEGACY_SEAMS` lists. A new testing folder or
-  seam is a new entry there, and an entry nothing uses any more fails.
+  each. A new testing folder is a new entry there, and an entry nothing uses any more fails.
 - A `src/lib/` package imports only the other `src/lib/` packages its main module's header names in a
   "depends on" sentence, node builtins and external dependencies, and knows nothing about its callers: no agent-progress
   names, tracker file names, user-facing wording or exit codes. App values arrive as parameters; a refusal leaves as a
@@ -70,34 +69,17 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 
 ### Stored files
 
+- The tool reads only the current stored format and answers only the current command surface. A stored file in a
+  version or a word an earlier release wrote is refused, its reason ending in `OLDER_FORMAT_ADVICE`
+  (`src/adapters/constants/OlderFormatAdvice.ts`): run `update` with a release that still reads it. Nothing migrates,
+  and no retired verb, word or flag is answered other than as unknown.
 - A malformed stored file is a verdict and a report, never a throw that takes down `status` or `render`.
 - `progress.json` keeps the keys the tool does not know, at the top level and on rows, in the file's order.
-- An optional stored key is written only once somebody sets it, and a read never adds or rewrites one, so an older
-  file stays byte-identical. The one exception is the legacy review bar, below.
+- An optional stored key is written only once somebody sets it, and a read never adds or rewrites one, so a file
+  stays byte-identical.
 - The Board logs through the logger with ids and values only; an adapter util words the records, the log record
   collector gathers them and the log file writer stores them in `.agent-progress/log.jsonl`. The logger takes one
   `log(record)` call over a typed record union, and that union is the vocabulary; it has no method per record.
-
-### Legacy
-
-- Code that exists only to read what an older version stored, or to honour an older habit, lives in a `legacy/`
-  folder of its boundary (`src/adapters/`, `src/services/tracker/`, `cli/`, and `src/shared/` for what two of those
-  share). Current code reaches it only through one seam call per consumer; a legacy module may import current code.
-- Its header says what older input it reads, when it can go, and what current code carries only for it (an
-  older-format flag, a write only a legacy rewrite calls), which goes with it.
-- Every case that reads an older input or habit sits in a spec inside a legacy folder: end-to-end ones in
-  `cli/legacy/`, the page's drawing of a legacy bar in `page/legacy/`. Dropping a legacy module then deletes it, its
-  specs and its seam calls (each seam becoming the current-format answer), and its sentences in the help,
-  `docs/cli.md` and `skill/Reference.md`.
-- A version 1 `progress.json` holds its own log as sentences. The legacy read turns them into notes; the next write
-  moves them to `log.jsonl` and stores the file as version 2. A `log.jsonl` found beside a version 1 file is believed
-  only as a migration cut short, and that takeover rule is legacy too.
-- A legacy review bar is a row known only by its name, `Review <N> #<id>`. It is linked to its ticket, given
-  `reviewOf` and `reviewBarRound`, in four places: by `cli/legacy/` when `task add` files it without `--review-of` or
-  `--ticket` and when `task update --name` renames it, both stored at once; by `update`'s rewrite; and by the legacy
-  read, in memory, which also pads a stored `reviewOf` that reads as a whole number; the next write stores both.
-  After `update`, the read still links only a row renamed by hand or named `Review 0 #<id>`; dropping the read drops
-  that linking. All of them share one legacy name util. Nothing else links a row by its name.
 
 ### Errors and exit codes
 
@@ -134,7 +116,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 ### Generated and installed files
 
 - Generated files do not live in the repository. `init` and `update` generate the dispatcher from `dispatcher/` into
-  `.agent-progress/agent-progress-dispatch.js`, and delete a `.claude/workflows/` copy an older version installed.
+  `.agent-progress/agent-progress-dispatch.js`.
 - Everything installed is versioned by one manifest, `.agent-progress/version.json`, holding `INSTALL_VERSION`; no
   installed file carries a stamp. `init` and `update` write the manifest last, after every other file is computed and
   written, so a run cut short leaves the old version and a rerun completes it. A fresh `init` writes the brief first,
@@ -188,8 +170,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   `eslint.config.js`); local specifiers name the file with its `.ts` extension (`import/extensions`, turned on there
   as well); more than 3 named imports or 4+ properties one per line; arrow parameters parenthesised; no
   `any`; a blank line before a function declaration. `src/testing/`, `src/lib/tracker-model/testing/`, `cli/testing/`,
-  `src/adapters/progress/testing/`, `src/adapters/legacy/testing/`, `src/services/tracker/testing/`, `dispatcher/testing/`
-  and `page/testing/` may import devDependencies. Deliberately off: `no-plusplus`, `no-continue`, `no-await-in-loop`,
+  `src/adapters/progress/testing/`, `src/services/tracker/testing/`, `dispatcher/testing/` and `page/testing/` may import
+  devDependencies. Deliberately off: `no-plusplus`, `no-continue`, `no-await-in-loop`,
   `no-param-reassign`, `consistent-return`, `no-restricted-syntax`, `guard-for-in`, `class-methods-use-this`,
   `no-use-before-define`.
 
@@ -238,8 +220,6 @@ What this repository deliberately does instead of a convention or of a rule abov
 | A feature never reaches another feature. | `cli/` reaches `dispatcher/`, and the render service `page/`, by path, to bundle them. | They are bundled, never imported; dispatcher code runs in the CLI's process only while `init` or `update` bundle it. |
 | One reference per fact. | `skill/Reference.md` copies three `docs/cli.md` sections word for word: the ticket file format, the ticket moves and the exit codes. `docs/cli.md` is the source, and a change to either changes both in the same commit. | Agents in other repositories cannot read `docs/cli.md`. |
 | A failure exits non-zero. | `hook subagent-stop` exits 0 on every failure after its arguments are read; a store write that succeeded while the render failed exits 0, reported on standard error; `release` exits 0 when git declined the worktree removal or `branch -d` after the merge, reported. | The agent has already finished; the store holds the change; the release happened. |
-| An optional stored key is never added by a read. | The legacy review-bar read gives an unlinked row its link in memory (see Legacy). | Rows from before `reviewOf` existed are otherwise unreadable as bars. |
-
 ## Local rules
 
 ### Command surface
@@ -256,9 +236,8 @@ What this repository deliberately does instead of a convention or of a rule abov
   `cli/CommandTable.spec.ts` and `cli/HelpText.spec.ts` fail until all three exist.
 - Every mutating command writes through one pipeline, `writeTracker` in `src/services/tracker/TrackerPipeline.ts`, and
   none repeats it: the lock, the read into a Board, the change through it, the writes in the order `docs/cli.md`
-  (Locking) states and the render from disk, all under one lock hold. `init` creates a tracker and `update` and `init`
-  rewrite older tracker files over the same read and write halves, the rewrite reached from `cli/legacy/`. `status`
-  takes no lock and renders nothing.
+  (Locking) states and the render from disk, all under one lock hold. `init` creates a tracker; `update`, and `init`
+  on an existing one, never touch the tracker's own files. `status` takes no lock and renders nothing.
 
 ### Tickets
 
@@ -266,12 +245,11 @@ What this repository deliberately does instead of a convention or of a rule abov
   line the CLI does not own is kept and written back.
 - A ticket is its frontmatter `id`, never its file name. Ticket and task ids are never reused; gaps are never filled.
 - Only a transition stamps `updated`. The named verbs enforce the legality matrix; `ticket status` skips it on purpose.
-- The ticket parse stays one line-oriented pass, an agreed exception to read → validate → migrate → map: a second walk
+- The ticket parse stays one line-oriented pass, an agreed exception to read → validate → map: a second walk
   over the lines would put at risk keeping every unowned line byte for byte.
 - A row's `history` holds only what the tool watched; nothing reconstructs phases.
-- A review row belongs to its ticket by `reviewOf`; only the legacy linking (see Legacy) reads a name for it. The page
-  reads which rows are bars from the Board facts, and reads a bar's name only to draw a ticket's bars latest named
-  round first.
+- A review row belongs to its ticket by `reviewOf` alone, and nothing links a row by its name. The page reads which
+  rows are bars from the Board facts, and reads a bar's name only to draw a ticket's bars latest named round first.
 
 ### The page
 

@@ -86,7 +86,8 @@ describe('the command reference', () => {
     expect(HELP_TEXT).toContain('  update ');
     expect(HELP_TEXT).toContain('`update` is the command to reach for there');
     expect(HELP_TEXT, 'the one line that says what is refreshed').toContain('managed CLAUDE.md block, `agent-brief.md`');
-    expect(HELP_TEXT, 'the flag that used to ask for the hook still works and the help says why').toContain('--hooks is still accepted and does nothing');
+    expect(HELP_TEXT.replaceAll(/\s+/g, ' '), 'a tracker in an older format is sent to an earlier release\'s update')
+      .toContain('saying to run `update` with a release that still reads it');
   });
 
   test('the two ways to reach the tracker from elsewhere are documented', () => {

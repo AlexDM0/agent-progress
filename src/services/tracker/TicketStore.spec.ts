@@ -143,12 +143,7 @@ describe('createTicket and listTickets', () => {
     const workspace = scratchWorkspace();
     rmSync(workspace.ticketsDirectory, { recursive: true, force: true });
 
-    expect(listTickets(workspace)).toEqual({
-      verdict:                'listed',
-      tickets:                [],
-      malformed:              [],
-      ticketsInAnOlderFormat: [],
-    });
+    expect(listTickets(workspace)).toEqual({ verdict: 'listed', tickets: [], malformed: [] });
     expect(nextTicketId(workspace)).toBe('001');
   });
 });
@@ -180,7 +175,7 @@ describe('readTicket', () => {
     expect(readTicket(workspace, '1')).toBeNull();
   });
 
-  test('ticketsInAnOlderFormat is empty when every ticket is stored in the current format', () => {
+  test('every ticket stored in the current format is listed in id order', () => {
     const workspace = scratchWorkspace();
     fileTicket(workspace, 'Fix the export dialog', 'bug');
     fileTicket(workspace, 'Add a keyboard shortcut', 'feature');
@@ -188,7 +183,7 @@ describe('readTicket', () => {
     const listing = listTickets(workspace);
 
     expect(listing.tickets.map((listed) => listed.frontmatter.id)).toEqual(['001', '002']);
-    expect(listing.ticketsInAnOlderFormat).toEqual([]);
+    expect(listing.malformed).toEqual([]);
   });
 });
 
@@ -231,10 +226,9 @@ describe('a ticket file renamed by hand', () => {
     expect(readTicket(workspace, '12')).toBeNull();
     expect(readTicket(workspace, '1')).toBeNull();
     expect(listTickets(workspace)).toEqual({
-      verdict:                'listed',
-      tickets:                [],
-      malformed:              [{ filePath: renamedPath, reason: 'the file name says #012 but its `id` is 001', line: 2 }],
-      ticketsInAnOlderFormat: [],
+      verdict:   'listed',
+      tickets:   [],
+      malformed: [{ filePath: renamedPath, reason: 'the file name says #012 but its `id` is 001', line: 2 }],
     });
     expect(nextTicketId(workspace)).toBe('013');
   });
@@ -253,7 +247,6 @@ describe('a ticket file renamed by hand', () => {
         { filePath: first.filePath, reason: 'ticket #001 is also held by copy-of-the-first.md', line: 2 },
         { filePath: copyPath, reason: 'ticket #001 is also held by 001-fix-the-export-dialog.md', line: 2 },
       ],
-      ticketsInAnOlderFormat: [],
     });
   });
 

@@ -165,7 +165,7 @@ agent-progress init --project "Example Storefront"
 - **The worker agent definition**, `.claude/agents/agent-progress-worker.md`, set to Opus at medium effort.
 
 Each of the last four has an opt-out flag, and `agent-progress update` refreshes the tool's files later,
-touching your tickets and log only to bring an older format up to date. `agent-progress open` shows the board.
+never touching your tickets and log. `agent-progress open` shows the board.
 
 ### 3. Run the board
 
@@ -232,5 +232,5 @@ offers its official installer.
 - **[CLI reference](docs/cli.md)**: every command and flag, the exit codes, what `init` and `update` write,
   the dashboard in detail and the files on disk.
 - **[Developing agent-progress](docs/development.md)**: getting a checkout running, the checks every change
-  must pass, the repository layout, the test helpers and guard specs, the legacy folders and the decisions
+  must pass, the repository layout, the test helpers and guard specs, and the decisions
   behind the design.

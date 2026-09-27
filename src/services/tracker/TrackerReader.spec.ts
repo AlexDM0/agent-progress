@@ -106,7 +106,7 @@ describe('readTracker', () => {
     const contents = contentsOf(readTracker(workspace));
 
     expect(contents.progress).toEqual(progressWithOneRow());
-    expect(contents.storedLog).toEqual({ records: [NOTE_RECORD], logFileMustBeRewritten: false });
+    expect(contents.storedLog).toEqual({ records: [NOTE_RECORD] });
     expect(contents.listing.tickets.map((ticket) => ticket.frontmatter.id)).toEqual(['001']);
     expect(contents.listing.malformed.map((malformed) => malformed.filePath)).toEqual([join(workspace.ticketsDirectory, '002-broken-by-hand.md')]);
     expect(trackerFileContents()).toEqual(filesBefore);
@@ -147,10 +147,10 @@ describe('readTracker', () => {
     expect(reading.verdict === 'unreadable' ? reading.unreadableFile : null).toBe('progress-file');
   });
 
-  test('an absent log.jsonl beside a version 2 file reads as an empty log that does not need rewriting', () => {
+  test('an absent log.jsonl beside a version 2 file reads as an empty log', () => {
     createProgressFileWriter(workspace.progressFilePath).write(progressWithOneRow());
 
-    expect(contentsOf(readTracker(workspace)).storedLog).toEqual({ records: [], logFileMustBeRewritten: false });
+    expect(contentsOf(readTracker(workspace)).storedLog).toEqual({ records: [] });
   });
 });
 

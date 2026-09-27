@@ -1,8 +1,6 @@
 /**
- * The task command's seams to the retired verbs and status words, and to the review link a review-shaped name gives, seen from the current
- * side: every current verb reaches its own handler and every current status is taken by `task update --status`, so none is ever answered as
- * a retired word, a row whose name is not review-shaped, or that is filed with `--ticket`, is stored with no review link, and a rename never
- * moves or drops a stored link. It imports nothing from `cli/legacy/`, so it still holds once that folder and its seam lines are dropped.
+ * The task command's vocabulary: every current verb reaches its own handler and every current status is taken by `task update --status`;
+ * a row filed without `--review-of` is stored with no review link whatever its name, and a rename never moves or drops a stored link.
  */
 
 import {
@@ -33,7 +31,7 @@ async function run(commandLineArguments: readonly string[]): Promise<ReturnType<
 }
 
 beforeEach(async () => {
-  repositoryDirectory = createScratchGitRepository('task-command-legacy-seam');
+  repositoryDirectory = createScratchGitRepository('task-command-vocabulary');
   await run(['init', '--project', 'Example Agency']);
 });
 

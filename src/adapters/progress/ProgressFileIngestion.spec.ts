@@ -50,11 +50,6 @@ test('a document from a future format version is refused rather than half-read',
   expect(result.verdict === 'unreadable' ? result.reason : '').toStartWith('version is 3, ');
 });
 
-test('a version 2 file carries no log over, its log being log.jsonl', () => {
-  const versionTwo = readBack('store-no-embedded-log', emptyDocument());
-  expect(versionTwo.verdict === 'readable' ? versionTwo.carriedOverLog : 'unreadable').toBeNull();
-});
-
 test('the model read from a version 2 file holds neither the format\'s version nor a log', () => {
   const result = readBack('store-model-keys', emptyDocument());
   if (result.verdict !== 'readable') throw new Error(`expected a readable file, got ${JSON.stringify(result)}`);

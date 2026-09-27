@@ -1,7 +1,6 @@
 /**
- * The ticket parse's seam to the retired status words, seen from the current side: a ticket stored in any current status, quoted or bare, reads
- * as exactly that status and is never counted as an older format, so it is not rewritten. It imports nothing from `src/adapters/legacy/`, so it
- * still holds once that folder and its seam line are dropped.
+ * A ticket stored in any current status, quoted or bare, reads as exactly that status; a status word an earlier release wrote is refused
+ * with the advice to rewrite the file with that release's `update`.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -29,15 +28,26 @@ function ticketDocumentIn(storedStatus: string): string {
 }
 
 describe('a ticket document in a current status', () => {
-  test('parses to that status, quoted or bare, with no older format read', () => {
+  test('parses to that status, quoted or bare', () => {
     for (const status of TICKET_STATUSES) {
       for (const storedStatus of [`"${status}"`, status]) {
         const parsed = TicketDocumentUtil.parsedTicketDocumentOf(ticketDocumentIn(storedStatus));
 
         expect(parsed.verdict, storedStatus).toBe('parsed');
         expect(parsed.verdict === 'parsed' && parsed.frontmatter.status, storedStatus).toBe(status);
-        expect(parsed.verdict === 'parsed' && parsed.olderFormatWasRead, storedStatus).toBe(false);
       }
+    }
+  });
+});
+
+describe('a ticket document in a status word an earlier release wrote', () => {
+  test('is malformed on its status line, and the reason says to run update with a release that still reads it', () => {
+    for (const retiredStatus of ['"open"', 'done']) {
+      const parsed = TicketDocumentUtil.parsedTicketDocumentOf(ticketDocumentIn(retiredStatus));
+
+      expect(parsed.verdict, retiredStatus).toBe('malformed');
+      expect(parsed.verdict === 'malformed' ? parsed.line : 0, retiredStatus).toBe(5);
+      expect(parsed.verdict === 'malformed' ? parsed.reason : '', retiredStatus).toContain('run `agent-progress update` with a release that still reads it');
     }
   });
 });

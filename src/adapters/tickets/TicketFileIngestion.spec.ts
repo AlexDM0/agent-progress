@@ -75,14 +75,6 @@ describe('TicketFileIngestion', () => {
     expect(reading.verdict === 'malformed' ? reading.reason : '').toStartWith('the file could not be read: ');
   });
 
-  test('a file holding a current word is not in an older format', () => {
-    const currentPath = ticketFileHolding(TICKET_WITH_A_COMMENT_ABOVE_ITS_ID);
-
-    const currentReading = new TicketFileIngestion(currentPath).read();
-
-    expect(currentReading.verdict === 'parsed' ? currentReading.fileIsInAnOlderFormat : null).toBe(false);
-  });
-
   test('reading a file leaves it byte for byte', () => {
     const storedText = TICKET_WITH_A_COMMENT_ABOVE_ITS_ID;
     const ticketPath = ticketFileHolding(storedText);
