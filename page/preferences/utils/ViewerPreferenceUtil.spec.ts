@@ -3,10 +3,11 @@
  * back to the default, only the one stored word selects the other choice, and each toggle returns to where it started.
  */
 
-import { describe, expect, test }  from 'bun:test';
-import type { StoredViewOverride } from '../../@types/ViewerChoices.ts';
-import { EMPTY_VIEW_OVERRIDE }     from '../constants/ViewOverride.ts';
-import { ViewerPreferenceUtil }    from './ViewerPreferenceUtil.ts';
+import { describe, expect, test }              from 'bun:test';
+import type { StoredViewOverride, TicketView } from '../../@types/ViewerChoices.ts';
+import { DEFAULT_TICKET_VIEW }                 from '../../tickets/utils/TicketViewUtil.ts';
+import { EMPTY_VIEW_OVERRIDE }                 from '../constants/ViewOverride.ts';
+import { ViewerPreferenceUtil }                from './ViewerPreferenceUtil.ts';
 
 const {
   abandonedLaneChoiceFor,
@@ -115,6 +116,14 @@ describe('the capped lanes', () => {
   });
 });
 
+const STORED_TICKET_VIEW: TicketView = {
+  searchText:    'dark',
+  statusChips:   ['paused', 'reviewing'],
+  typeChips:     ['bug'],
+  sortKey:       'status',
+  sortDirection: 'ascending',
+};
+
 describe('reloadSnapshotFrom', () => {
   const storedSnapshot = {
     trackerId:        'tracker-a',
@@ -126,6 +135,7 @@ describe('reloadSnapshotFrom', () => {
     fromText:         '-2h',
     toText:           'now',
     logFilterText:    '#455',
+    ticketView:       STORED_TICKET_VIEW,
     detailTarget:     { kind: 'task', id: '7' },
     detailScrollTop:  45,
   };
@@ -154,6 +164,16 @@ describe('reloadSnapshotFrom', () => {
     expect(snapshot?.chartScrollLeft).toBe(0);
     expect(snapshot?.fromText).toBe('');
     expect(snapshot?.detailTarget).toBeNull();
+  });
+
+  test('reads an unreadable ticket view as the default one, and drops the chips and sort it does not know', () => {
+    expect(reloadSnapshotFrom({ ...storedSnapshot, ticketView: 'dark' }, 'tracker-a')?.ticketView).toEqual(DEFAULT_TICKET_VIEW);
+    expect(reloadSnapshotFrom({
+      ...storedSnapshot,
+      ticketView: {
+        searchText: 3, statusChips: ['re-review', 'paused'], typeChips: 'bug', sortKey: 'priority', sortDirection: 'up'
+      },
+    }, 'tracker-a')?.ticketView).toEqual({ ...DEFAULT_TICKET_VIEW, statusChips: ['paused'] });
   });
 
   test.each(['task', 'ticket', 'kanban-card'])('reads the %s detail target', (kind) => {

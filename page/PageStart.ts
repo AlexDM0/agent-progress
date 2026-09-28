@@ -1,6 +1,6 @@
 /**
  * The browser entry: it fills the containers of `resources/template.html` from the two JSON islands and does nothing else. Theme, tab
- * selection, ticket open state and the idle reload stay with the template's own bootstrap, reached through `window.agentProgressTemplate`.
+ * selection and the idle reload stay with the template's own bootstrap, reached through `window.agentProgressTemplate`.
  */
 
 import type { PagePayload, PageTicket } from '../src/shared/@types/PagePayload.ts';
@@ -18,7 +18,6 @@ import {
   RANGE_NOTE_ELEMENT_ID,
   SUMMARY_ELEMENT_ID,
   TASK_ROWS_ELEMENT_ID,
-  TICKET_CARDS_ELEMENT_ID,
   TICKET_COUNT_ELEMENT_ID,
   TICKET_ROWS_ELEMENT_ID,
 } from './constants/TemplateIds.ts';
@@ -33,6 +32,7 @@ import { createReloadSnapshotController }                     from './reload/Rel
 import { createTicketsController }                            from './tickets/TicketsController.ts';
 import { DomUtil }                                            from './utils/DomUtil.ts';
 import { IslandUtil }                                         from './utils/IslandUtil.ts';
+import { TemplateIdUtil }                                     from './utils/TemplateIdUtil.ts';
 import { TimeUtil }                                           from './utils/TimeUtil.ts';
 import { VisibilityUtil }                                     from './utils/VisibilityUtil.ts';
 
@@ -40,7 +40,8 @@ const PROGRESS_ISLAND_ELEMENT_ID = 'ap-progress-data';
 const TICKETS_ISLAND_ELEMENT_ID  = 'ap-tickets-data';
 const PROJECT_NAME_ELEMENT_ID    = 'ap-project';
 
-const TAB_NAMES = ['progress', KANBAN_TAB_NAME, 'tickets'];
+const TICKETS_TAB_NAME = 'tickets';
+const TAB_NAMES        = ['progress', KANBAN_TAB_NAME, TICKETS_TAB_NAME];
 
 const OWNED_MARKUP_CONTAINER_IDS = [
   SUMMARY_ELEMENT_ID,
@@ -49,7 +50,6 @@ const OWNED_MARKUP_CONTAINER_IDS = [
   TASK_ROWS_ELEMENT_ID,
   LOG_ENTRIES_ELEMENT_ID,
   TICKET_ROWS_ELEMENT_ID,
-  TICKET_CARDS_ELEMENT_ID,
   DETAIL_BODY_ELEMENT_ID,
   KANBAN_BOARD_ELEMENT_ID,
 ];
@@ -85,7 +85,8 @@ function islandContentsOf(elementId: string): unknown {
   }
 }
 
-function applyFragment(fragment: string): void {
+/** A ticket's fragment names no element: it selects the Tickets tab and opens that ticket's detail. */
+function applyFragment(fragment: string, openTicketDetail: (ticketId: string) => boolean): void {
   const target = fragment.replace(/^#/, '');
   if (target === '') {
     return;
@@ -93,6 +94,12 @@ function applyFragment(fragment: string): void {
   const behaviour = DomUtil.templateBehaviour();
   if (TAB_NAMES.includes(target)) {
     behaviour?.selectTab(target);
+    return;
+  }
+  const ticketId = TemplateIdUtil.ticketIdOfFragment(target);
+  if (ticketId !== null) {
+    behaviour?.selectTab(TICKETS_TAB_NAME);
+    openTicketDetail(ticketId);
     return;
   }
   const element = document.getElementById(target);
@@ -163,7 +170,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     readTodayCalendarDate: () => todayCalendarDate,
     readShowsAllWork:      () => visibility === 'all',
   });
-  const ticketsController      = createTicketsController({ allTickets: board.tickets, waitingOnById, slices: limits });
+  const ticketsController      = createTicketsController({ allTickets: board.tickets });
   const detailDialogController = createDetailDialogController({
     rows:                  board.rows,
     tickets:               board.tickets,
@@ -185,7 +192,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
 
     progressController.showGeneratedStamp(todayCalendarDate);
     logController.show();
-    ticketsController.show(visibleTickets, todayCalendarDate);
+    ticketsController.show(visibleTickets);
     kanbanController.showCards(KanbanLaneUtil.kanbanCardsFor(visibleTickets, waitingOnById));
 
     progressController.showHiddenNote(board.rows.length - visibleRows.length, board.tickets.length - visibleTickets.length);
@@ -210,13 +217,15 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   progressController.wireNameColumn();
   progressController.wireReviewRows();
   kanbanController.wire();
+  ticketsController.wire();
 
+  const openTicketDetail = (ticketId: string): boolean => detailDialogController.openTicketDetail(ticketId);
   window.addEventListener('resize', () => {
     progressController.layOut(false);
     kanbanController.updateOverflow();
   });
   window.addEventListener('hashchange', () => {
-    applyFragment(window.location.hash);
+    applyFragment(window.location.hash, openTicketDetail);
     kanbanController.updateOverflow();
   });
 
@@ -227,12 +236,14 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     readDetailTarget: () => detailDialogController.readOpenTarget(),
     reopenDetail:     (target) => detailDialogController.reopen(target),
     applyLogFilter:   (filterText) => logController.applyFilter(filterText),
+    readTicketView:   () => ticketsController.readView(),
+    applyTicketView:  (ticketView) => ticketsController.applyView(ticketView),
   });
   reloadSnapshotController.keepPlaceOnReload();
 
   showVisibleWork();
   progressController.layOut(true);
-  applyFragment(window.location.hash);
+  applyFragment(window.location.hash, openTicketDetail);
   reloadSnapshotController.restorePlace();
   kanbanController.updateOverflow();
 }

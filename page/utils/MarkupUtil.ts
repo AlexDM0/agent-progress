@@ -57,7 +57,7 @@ function logTextMarkup(entry: IdentifiedLogEntry, linkedTicketIds: ReadonlySet<s
     if (!linkedTicketIds.has(reference.ticketId) || (entry.ticketIds !== undefined && !entry.ticketIds.includes(reference.ticketId))) {
       continue;
     }
-    const destination = attribute('href', `#${TemplateIdUtil.ticketCardElementIdOf(reference.ticketId)}`);
+    const destination = attribute('href', `#${TemplateIdUtil.ticketFragmentIdOf(reference.ticketId)}`);
     const linkText    = HtmlEscapeUtil.escapeHtml(entry.text.slice(reference.start, reference.end));
     const link        = `<a ${destination} ${attribute('data-log-ticket-id', reference.ticketId)}>${linkText}</a>`;
     markup           += `${HtmlEscapeUtil.escapeHtml(entry.text.slice(consumedIndex, reference.start))}${link}`;

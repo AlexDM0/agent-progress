@@ -1,6 +1,11 @@
 /** Keeps the viewer's place across the template's idle reload: stores it just before the reload and puts it back after the first layout. */
 
-import type { DetailTarget, ReloadSnapshot, ReloadSnapshotStore } from '../@types/ViewerChoices.ts';
+import type {
+  DetailTarget,
+  ReloadSnapshot,
+  ReloadSnapshotStore,
+  TicketView,
+} from '../@types/ViewerChoices.ts';
 import {
   CHART_ELEMENT_ID,
   DETAIL_BODY_ELEMENT_ID,
@@ -19,6 +24,8 @@ export interface ReloadSnapshotSources {
   readDetailTarget: () => DetailTarget | null;
   reopenDetail:     (target: DetailTarget) => boolean;
   applyLogFilter:   (filterText: string) => void;
+  readTicketView:   () => TicketView;
+  applyTicketView:  (ticketView: TicketView) => void;
 }
 
 export interface ReloadSnapshotController {
@@ -52,6 +59,8 @@ export function createReloadSnapshotController(sources: ReloadSnapshotSources): 
     readDetailTarget,
     reopenDetail,
     applyLogFilter,
+    readTicketView,
+    applyTicketView,
   } = sources;
 
   const snapshotOfPlace = (): ReloadSnapshot => {
@@ -69,6 +78,7 @@ export function createReloadSnapshotController(sources: ReloadSnapshotSources): 
       fromText:         inputValueOf(RANGE_FROM_ELEMENT_ID),
       toText:           inputValueOf(RANGE_TO_ELEMENT_ID),
       logFilterText:    inputValueOf(LOG_FILTER_ELEMENT_ID),
+      ticketView:       readTicketView(),
       detailTarget,
       detailScrollTop:  detailTarget === null ? 0 : detailBody?.scrollTop ?? 0,
     };
@@ -90,10 +100,11 @@ export function createReloadSnapshotController(sources: ReloadSnapshotSources): 
       // Only the text goes back, never a change event: a bound typed and not yet applied stays unapplied.
       setInputValue(RANGE_FROM_ELEMENT_ID, snapshot.fromText);
       setInputValue(RANGE_TO_ELEMENT_ID, snapshot.toText);
-      // Applied before the scroll goes back, since the filter changes how tall the log card is.
+      // Applied before the scroll goes back, since the filters change how tall the log card and the ticket table are.
       if (snapshot.logFilterText !== '') {
         applyLogFilter(snapshot.logFilterText);
       }
+      applyTicketView(snapshot.ticketView);
       const chart = document.getElementById(CHART_ELEMENT_ID);
       if (chart !== null) {
         chart.scrollLeft = snapshot.chartScrollLeft;

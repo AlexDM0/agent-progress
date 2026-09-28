@@ -1,6 +1,6 @@
 /**
  * The viewer's stored page choices and the reload snapshot: the key strings and the reads and writes. The one module where the page script
- * touches browser storage; the template's bootstrap keeps its own theme, tab and open-ticket keys.
+ * touches browser storage; the template's bootstrap keeps its own theme and tab keys.
  */
 
 import type {

@@ -199,8 +199,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   modules: a one-sided change is a bug, a new mark reuses a styled class, and its header comment (tokens, containers,
   axis box) stays in step.
 - The page script clears every container it owns before filling it; a failed bundle renders an error banner.
-- The template's bootstrap owns theme, tab selection and ticket open state, reached only through
-  `window.agentProgressTemplate`.
+- The template's bootstrap owns theme and tab selection, reached only through `window.agentProgressTemplate`. No ticket
+  open state is kept: `agent-progress:open-tickets` is retired, and a ticket body shows only in the detail panel.
 - Browser storage is touched only in `page/preferences/ViewerPreferences.ts`, and a key string never changes.
 - The render service writes `boardFacts` from the same Board queries `status --json` prints; the page keeps no copy
   of the rules.

@@ -1,3 +1,5 @@
+import type { DisplayState }     from '../../src/lib/tracker-model/@types/Task.ts';
+import type { TicketType }       from '../../src/lib/tracker-model/@types/Ticket.ts';
 import type { ClosedKanbanLane } from '../kanban/constants/KanbanBoardLayout.ts';
 
 export type NameColumnWidth = 'normal' | 'wide';
@@ -19,6 +21,22 @@ export interface DetailTarget {
   id:   string;
 }
 
+export type TicketSortKey = 'id' | 'title' | 'type' | 'status' | 'group' | 'branch';
+
+export type TicketSortDirection = 'ascending' | 'descending';
+
+/** A status chip names one display state, except `reviewing`, which also holds a repeat review's `re-review`. */
+export type TicketStatusChip = Exclude<DisplayState, 're-review'>;
+
+/** How the Tickets tab narrows and orders its table: no chip pressed in a group means every value of it. */
+export interface TicketView {
+  searchText:    string;
+  statusChips:   readonly TicketStatusChip[];
+  typeChips:     readonly TicketType[];
+  sortKey:       TicketSortKey;
+  sortDirection: TicketSortDirection;
+}
+
 /** The viewer's place, stored just before the idle reload and restored once after it. */
 export interface ReloadSnapshot {
   trackerId:        string;
@@ -30,6 +48,7 @@ export interface ReloadSnapshot {
   fromText:         string;
   toText:           string;
   logFilterText:    string;
+  ticketView:       TicketView;
   detailTarget:     DetailTarget | null;
   detailScrollTop:  number;
 }

@@ -200,8 +200,15 @@ const EXAMPLE_RELOAD_SNAPSHOT: ReloadSnapshot = {
   fromText:         '-2h',
   toText:           '',
   logFilterText:    'review',
-  detailTarget:     { kind: 'kanban-card', id: '12' },
-  detailScrollTop:  45,
+  ticketView:       {
+    searchText:    'exporter',
+    statusChips:   ['in-review'],
+    typeChips:     [],
+    sortKey:       'title',
+    sortDirection: 'ascending',
+  },
+  detailTarget:    { kind: 'kanban-card', id: '12' },
+  detailScrollTop: 45,
 };
 
 describe('createReloadSnapshotStore', () => {

@@ -89,9 +89,28 @@
  #ap-log-control          el     [hidden] unless more matching entries are hidden
  #ap-log-more             button "Show 50 more", or fewer when fewer are hidden
  #ap-log-empty            el     shown instead of log entries when there are none
- #ap-ticket-rows          tbody  ticket table body; each <tr> carries data-ticket-id
- #ap-ticket-count         text   "6 tickets · 1 in progress" above the ticket table
- #ap-ticket-cards         el     one .ap-ticket per ticket
+ #ap-ticket-rows          tbody  ticket table body; each <tr> carries data-ticket-id, its status
+                                 an .ap-badge[data-state] with the state's label; the matches of
+                                 the search in title, group and branch wrapped in mark.ap-match;
+                                 when nothing matches, one tr.ap-table-empty saying what was asked
+                                 with a button[data-clear-filters]. A ticket body shows only in
+                                 #ap-detail: there is no card list under the table
+ #ap-ticket-count         text   "42 of 573 tickets · 1 in progress" above the ticket table
+ #ap-ticket-search        input  in .ap-ticket-toolbar: id, title, branch, group and the body's
+                                 plain text, case-insensitive, 150 ms after the last keystroke;
+                                 "#455" or "455" looks only at ids
+ #ap-ticket-type          el     button.ap-chip[data-type][aria-pressed] per ticket type, each
+ #ap-ticket-status        el     with .ap-chip-count; status chips carry data-status and data-state
+                                 (Reviewing holds a repeat review too). None pressed = all; OR inside
+                                 a group, AND across groups and with the search. Unnarrowed, the
+                                 table obeys #ap-visibility; a search or a pressed chip looks through
+                                 every ticket, and a chip counts what pressing it would add
+ #ap-ticket-clear         button [hidden] unless a search or a chip narrows the table
+ #ap-ticket-table         table  th.ap-sortable[data-sort] > button.ap-sort; the sorted th carries
+                                 aria-sort (default id, descending); a second press reverses it.
+                                 Search, chips and sort ride the reload snapshot
+ #ap-ticket-NNN           link   a fragment naming no element: it selects Tickets and opens that
+                                 ticket's #ap-detail
  #ap-detail               dialog the overview panel: a non-modal right-hand panel (--detail-w,
                                  480px) opened with show() by ONE click on a #ap-rows > .ap-row, a
                                  ticket table row or a .ap-kanban-card, or by Enter or Space on one
@@ -193,16 +212,17 @@
  --now-x        on #ap-now: left offset as a percentage of the axis box.
  window.agentProgressTemplate
                 the behaviour this template owns, exposed for the page script:
-                selectTab(name); restoreTicketOpenState(), to be called again after
-                the ticket cards have been replaced; and onBeforeReload(callback),
-                run just before the idle reload.
+                selectTab(name) and onBeforeReload(callback), run just before the
+                idle reload. No ticket open state is kept: agent-progress:open-tickets
+                is retired, and nothing reads or writes it.
  idle reload    no meta refresh: the bootstrap reloads every 300 s, postponed and
                 retried every 30 s while #ap-detail is open, an input, textarea or
                 select has focus, or pointer, key, wheel or scroll activity came
                 within 45 s; a hidden tab reloads once it is shown again. Before it
                 reloads, the page script stores its place in sessionStorage under
                 "agent-progress:snapshot" (the shown tab, scroll of the window, #ap-chart and
-                #ap-kanban, the From/To text, the open detail and its scroll) and
+                #ap-kanban, the From/To text, the log filter, the Tickets tab's search,
+                chips and sort, the open detail and its scroll) and
                 restores and deletes it after its first layout.
  THE AXIS BOX   one box for everything on the time axis: the third grid column,
                 edge to edge, no padding or margin. .ap-cell-track, #ap-ticks and
@@ -652,25 +672,60 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
 :root[data-theme="dark"] .ap-badge.delivered   { --s-tint: oklch(0.32 0.060 300); --s-ink: oklch(0.89 0.060 300); --s-edge: oklch(0.51 0.095 300); }
 :root[data-theme="dark"] .ap-badge.abandoned   { --s-tint: oklch(0.28 0.006 265); --s-ink: oklch(0.72 0.010 265); --s-edge: oklch(0.38 0.008 265); }
 
-.ap-ticket { border-top: 1px solid var(--line); }
-.ap-ticket:first-child { border-top: 0; }
-.ap-ticket > details > summary,
-.ap-ticket > .ap-ticket-head {
-  display: flex; align-items: center; gap: var(--sp-3);
-  padding: var(--sp-3) var(--sp-4);
+.ap-ticket-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-4); padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--line); }
+.ap-toolbar-group { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.ap-toolbar-group-status { flex-basis: 100%; }
+.ap-search { position: relative; display: flex; align-items: center; }
+.ap-search svg { position: absolute; left: 8px; width: 13px; height: 13px; color: var(--ink-muted); pointer-events: none; }
+.ap-search input {
+  width: 260px;
+  max-width: 100%;
+  padding: 5px 8px 5px 27px;
+  font: var(--fs-small)/1.4 var(--font-ui);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-2);
+}
+.ap-search input::placeholder { color: var(--ink-muted); opacity: 0.8; }
+.ap-search input:focus-visible { outline: 2px solid var(--link); outline-offset: 1px; }
+.ap-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.ap-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  height: 24px; padding: 0 9px;
+  font: 500 var(--fs-micro)/1 var(--font-ui);
+  color: var(--ink-muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: var(--r-pill);
   cursor: pointer;
-  list-style: none;
 }
-.ap-ticket > details > summary::-webkit-details-marker { display: none; }
-.ap-ticket > details > summary::before {
-  content: "";
-  flex: none;
-  width: 0; height: 0;
-  border-block: 4px solid transparent;
-  border-left: 6px solid var(--ink-muted);
-}
-.ap-ticket > details[open] > summary::before { transform: rotate(90deg); }
-.ap-ticket > .ap-ticket-head { cursor: default; padding-left: calc(var(--sp-4) + 6px + var(--sp-3)); }
+.ap-chip:hover { color: var(--ink); border-color: var(--line-strong); }
+.ap-chip:focus-visible { outline: 2px solid var(--link); outline-offset: 1px; }
+.ap-chip[aria-pressed="true"] { color: var(--s-ink, var(--ink)); background: var(--s-tint, var(--surface-2)); border-color: var(--s-edge, var(--ink-muted)); font-weight: 600; }
+.ap-chip .ap-lane-dot { width: 7px; height: 7px; }
+.ap-chip-count { font-family: var(--font-mono); font-variant-numeric: tabular-nums; opacity: 0.75; }
+.ap-chip[data-empty] .ap-chip-count { opacity: 0.45; }
+.ap-link-button { padding: 0; font: var(--fs-small)/1.5 var(--font-ui); color: var(--link); background: none; border: 0; cursor: pointer; }
+.ap-link-button:hover { color: var(--ink); text-decoration: underline; }
+.ap-link-button:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.ap-link-button[hidden] { display: none; }
+.ap-table-scroll { overflow-x: auto; }
+.ap-table th.ap-sortable { padding-block: 5px; }
+.ap-sort { display: inline-flex; align-items: center; gap: 4px; padding: 2px 0; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+.ap-sort:hover { color: var(--ink); }
+.ap-sort:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.ap-sort::after { content: "↕"; min-width: 8px; font-family: var(--font-ui); letter-spacing: 0; opacity: 0; }
+.ap-sort:hover::after, .ap-sort:focus-visible::after { opacity: 0.55; }
+.ap-sortable[aria-sort] .ap-sort { color: var(--ink); }
+.ap-sortable[aria-sort="ascending"] .ap-sort::after { content: "↑"; opacity: 1; }
+.ap-sortable[aria-sort="descending"] .ap-sort::after { content: "↓"; opacity: 1; }
+.ap-table .ap-badge { min-width: 104px; }
+.ap-match { background: var(--warn-tint); color: inherit; border-radius: 2px; box-shadow: 0 0 0 1px var(--warn-edge); }
+.ap-table-empty td { padding: var(--sp-6) var(--sp-4); text-align: center; color: var(--ink-muted); }
+.ap-table-empty p { margin: 0 0 var(--sp-2); }
+.ap-table-empty strong { color: var(--ink); font-weight: 600; }
+
 .ap-ticket-id { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--fs-small); color: var(--ink-muted); flex: none; }
 .ap-ticket-title { font-size: var(--fs-title); font-weight: 600; margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ap-ticket-dates { margin-left: auto; flex: none; font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-size: var(--fs-micro); color: var(--ink-muted); }
@@ -1145,124 +1200,54 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
 
 <section data-panel="tickets" role="tabpanel" id="ap-panel-tickets" aria-labelledby="ap-tab-tickets" hidden>
   <div class="ap-card">
-    <div class="ap-card-head"><span class="ap-card-title">Tickets</span><span class="ap-card-note" id="ap-ticket-count">9 tickets · 1 in progress</span></div>
-    <table class="ap-table">
-      <thead><tr><th class="mono">id</th><th class="ap-col-title">title</th><th>type</th><th>status</th><th>group</th><th class="mono">branch</th><th class="mono">task</th></tr></thead>
-      <tbody id="ap-ticket-rows">
-        <tr data-ticket-id="001" tabindex="0"><td class="mono"><a href="#ap-ticket-001">#001</a></td><td>Double-click a role to edit it</td><td>change</td><td><span class="ap-badge delivered">Done</span></td><td>role-editor</td><td class="mono">ticket/role-editor</td><td class="mono"><a href="#ap-task-1">#1</a></td></tr>
-        <tr data-ticket-id="002" tabindex="0"><td class="mono"><a href="#ap-ticket-002">#002</a></td><td>Cache ticket bodies between runs</td><td>change</td><td><span class="ap-badge reviewed">reviewed</span></td><td>exporter</td><td class="mono">ticket/body-cache</td><td class="mono"><a href="#ap-task-2">#2</a></td></tr>
-        <tr data-ticket-id="003" tabindex="0"><td class="mono"><a href="#ap-ticket-003">#003</a></td><td>Split the exporter into two passes</td><td>change</td><td><span class="ap-badge in-review">Awaiting review</span></td><td>exporter</td><td class="mono">ticket/exporter-passes</td><td class="mono"><a href="#ap-task-3">#3</a></td></tr>
-        <tr data-ticket-id="004" tabindex="0"><td class="mono"><a href="#ap-ticket-004">#004</a></td><td>Brighter colours<span class="ap-waiting" data-priority="high" title="High priority: dispatched before every normal ticket">high</span></td><td>feature</td><td><span class="ap-badge in-progress">In progress</span></td><td></td><td class="mono">ticket/brighter-colours</td><td class="mono"><a href="#ap-task-5">#5</a></td></tr>
-        <tr data-ticket-id="005" tabindex="0"><td class="mono"><a href="#ap-ticket-005">#005</a></td><td>Audit the range presets<span class="ap-waiting">waiting on <a href="#ap-ticket-004">#004</a></span></td><td>chore</td><td><span class="ap-badge pending">To do</span></td><td></td><td class="mono"></td><td class="mono"><a href="#ap-task-7">#7</a></td></tr>
-        <tr data-ticket-id="006" tabindex="0"><td class="mono"><a href="#ap-ticket-006">#006</a></td><td>Old idea</td><td>bug</td><td><span class="ap-badge abandoned">Abandoned</span></td><td></td><td class="mono"></td><td class="mono"><a href="#ap-task-8">#8</a></td></tr>
-        <tr data-ticket-id="007" tabindex="0"><td class="mono"><a href="#ap-ticket-007">#007</a></td><td>Reword the empty-log note <span class="ap-ticket-badge" data-priority="low" title="Low priority: no row on the chart until it is started, and worked once no normal or high ticket is left undelivered">low</span></td><td>change</td><td><span class="ap-badge pending">To do</span></td><td></td><td class="mono"></td><td class="mono"></td></tr>
-      </tbody>
-    </table>
-  </div>
-
-  <div class="ap-card" id="ap-ticket-cards">
-    <section class="ap-ticket" id="ap-ticket-004">
-      <div class="ap-ticket-head">
-        <span class="ap-ticket-id">#004</span>
-        <h3 class="ap-ticket-title">Brighter colours</h3>
-        <span class="ap-badge in-progress">In progress</span>
-        <span class="ap-waiting" data-priority="high" title="High priority: dispatched before every normal ticket">high</span>
-        <span class="ap-ticket-dates" title="started 2026-09-18 21:06">started 21:06</span>
+    <div class="ap-card-head"><span class="ap-card-title">Tickets</span><span class="ap-card-note" id="ap-ticket-count" aria-live="polite">7 of 7 tickets · 1 in progress</span></div>
+    <div class="ap-ticket-toolbar" role="search">
+      <div class="ap-search">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10.6 10.6 14 14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <input id="ap-ticket-search" type="search" placeholder="Search id, title, branch, group, text" aria-label="Search tickets" spellcheck="false" autocomplete="off">
       </div>
-      <div class="ap-ticket-meta">
-        <div><b>filed</b><span title="2026-09-18 20:56">20:56</span></div>
-        <div><b>started</b><span title="2026-09-18 21:06">21:06</span></div>
-        <div><b>branch</b><span>ticket/brighter-colours</span></div>
-        <div><b>task</b><span><a href="#ap-task-5">#5</a></span></div>
+      <div class="ap-toolbar-group">
+        <span class="ap-range-label" id="ap-ticket-type-label">Type</span>
+        <div class="ap-chips" id="ap-ticket-type" role="group" aria-labelledby="ap-ticket-type-label">
+          <button type="button" class="ap-chip" data-type="bug" aria-pressed="false">bug <span class="ap-chip-count">1</span></button>
+          <button type="button" class="ap-chip" data-type="change" aria-pressed="false">change <span class="ap-chip-count">4</span></button>
+          <button type="button" class="ap-chip" data-type="feature" aria-pressed="false">feature <span class="ap-chip-count">1</span></button>
+        </div>
       </div>
-      <div class="ap-ticket-body md">
-        <h2>Report</h2>
-        <p>The state colours read as one grey mass on the second monitor at 60% brightness. Running and pending are hard to tell apart from two metres away.</p>
-        <h2>Wanted</h2>
-        <ul>
-          <li>Each state distinguishable at a glance, without reading the pill.</li>
-          <li>The same hue for a state in the pill, the bar and the ticket badge.</li>
-        </ul>
-        <pre><code>const brightness = 2;</code></pre>
+      <button type="button" class="ap-link-button" id="ap-ticket-clear" hidden>Clear search and filters</button>
+      <div class="ap-toolbar-group ap-toolbar-group-status">
+        <span class="ap-range-label" id="ap-ticket-status-label">Status</span>
+        <div class="ap-chips" id="ap-ticket-status" role="group" aria-labelledby="ap-ticket-status-label">
+          <button type="button" class="ap-chip" data-status="pending" data-state="pending" aria-pressed="false"><span class="ap-lane-dot" data-state="pending"></span>To do <span class="ap-chip-count">2</span></button>
+          <button type="button" class="ap-chip" data-status="in-progress" data-state="in-progress" aria-pressed="true"><span class="ap-lane-dot" data-state="in-progress"></span>In progress <span class="ap-chip-count">1</span></button>
+          <button type="button" class="ap-chip" data-status="paused" data-state="paused" aria-pressed="false" data-empty=""><span class="ap-lane-dot" data-state="paused"></span>Paused <span class="ap-chip-count">0</span></button>
+          <button type="button" class="ap-chip" data-status="in-review" data-state="in-review" aria-pressed="false"><span class="ap-lane-dot" data-state="in-review"></span>Awaiting review <span class="ap-chip-count">1</span></button>
+        </div>
       </div>
-    </section>
-
-    <section class="ap-ticket" id="ap-ticket-003">
-      <details>
-        <summary>
-          <span class="ap-ticket-id">#003</span>
-          <h3 class="ap-ticket-title">Split the exporter into two passes</h3>
-          <span class="ap-badge in-review">Awaiting review</span>
-          <span class="ap-ticket-dates" title="finished 2026-09-18 21:49">finished 21:49</span>
-        </summary>
-        <div class="ap-ticket-meta">
-          <div><b>filed</b><span title="2026-09-18 20:44">20:44</span></div>
-          <div><b>started</b><span title="2026-09-18 21:02">21:02</span></div>
-          <div><b>finished</b><span title="2026-09-18 21:49">21:49</span></div>
-          <div><b>branch</b><span>ticket/exporter-passes</span></div>
-          <div><b>commit</b><span>4f1e9c0</span></div>
-        </div>
-        <div class="ap-ticket-body md">
-          <h2>Report</h2>
-          <p>The exporter computes the tick ladder while it writes rows, so the ladder cannot be reused by the range bar.</p>
-          <h2>Acceptance</h2>
-          <table>
-            <thead><tr><th>case</th><th>ticks</th><th>scrolls</th></tr></thead>
-            <tbody>
-              <tr><td>45m session</td><td>5m</td><td>no</td></tr>
-              <tr><td>9h session</td><td>1h</td><td>yes</td></tr>
-              <tr><td>6d session</td><td>1d</td><td>yes</td></tr>
-            </tbody>
-          </table>
-          <blockquote>Two passes are fine as long as the second one stays pure.</blockquote>
-        </div>
-      </details>
-    </section>
-
-    <section class="ap-ticket" id="ap-ticket-001">
-      <details>
-        <summary>
-          <span class="ap-ticket-id">#001</span>
-          <h3 class="ap-ticket-title">Double-click a role to edit it</h3>
-          <span class="ap-badge delivered">Done</span>
-          <span class="ap-ticket-dates" title="delivered 2026-09-18 21:51">delivered 21:51</span>
-        </summary>
-        <div class="ap-ticket-meta">
-          <div><b>filed</b><span title="2026-09-18 20:26">20:26</span></div>
-          <div><b>started</b><span title="2026-09-18 20:36">20:36</span></div>
-          <div><b>finished</b><span title="2026-09-18 21:26">21:26</span></div>
-          <div><b>delivered</b><span title="2026-09-18 21:51">21:51</span></div>
-          <div><b>branch</b><span>ticket/role-editor</span></div>
-          <div><b>commit</b><span>abc1234</span></div>
-        </div>
-        <div class="ap-ticket-body md">
-          <h2>Report</h2>
-          <p>Editing a role takes three clicks through a menu that is only reachable from the sidebar.</p>
-          <h2>Wanted</h2>
-          <p>A double-click on the role name opens the editor in place, with <code>Esc</code> to cancel.</p>
-        </div>
-      </details>
-    </section>
-
-    <section class="ap-ticket" id="ap-ticket-006">
-      <details>
-        <summary>
-          <span class="ap-ticket-id">#006</span>
-          <h3 class="ap-ticket-title">Old idea</h3>
-          <span class="ap-badge abandoned">Abandoned</span>
-          <span class="ap-ticket-dates" title="abandoned 2026-09-18 21:21">abandoned 21:21</span>
-        </summary>
-        <div class="ap-ticket-meta">
-          <div><b>filed</b><span title="2026-09-18 21:16">21:16</span></div>
-          <div><b>abandoned</b><span title="2026-09-18 21:21">21:21</span></div>
-          <div><b>reason</b><span>superseded by #003</span></div>
-        </div>
-        <div class="ap-ticket-body md">
-          <h2>Report</h2>
-          <p>Kept for the record; the exporter split covers it.</p>
-        </div>
-      </details>
-    </section>
+    </div>
+    <div class="ap-table-scroll">
+      <table class="ap-table" id="ap-ticket-table">
+        <thead><tr>
+          <th class="mono ap-sortable" data-sort="id" aria-sort="descending"><button type="button" class="ap-sort">id</button></th>
+          <th class="ap-col-title ap-sortable" data-sort="title"><button type="button" class="ap-sort">title</button></th>
+          <th class="ap-sortable" data-sort="type"><button type="button" class="ap-sort">type</button></th>
+          <th class="ap-sortable" data-sort="status"><button type="button" class="ap-sort">status</button></th>
+          <th class="ap-sortable" data-sort="group"><button type="button" class="ap-sort">group</button></th>
+          <th class="mono ap-sortable" data-sort="branch"><button type="button" class="ap-sort">branch</button></th>
+          <th class="mono">task</th>
+        </tr></thead>
+        <tbody id="ap-ticket-rows">
+          <tr data-ticket-id="007" tabindex="0"><td class="mono"><a href="#ap-ticket-007">#007</a></td><td>Reword the empty-log note <span class="ap-ticket-badge" data-priority="low" title="Low priority: no row on the chart until it is started, and worked once no normal or high ticket is left undelivered">low</span></td><td>change</td><td><span class="ap-badge" data-state="pending">To do</span></td><td></td><td class="mono"></td><td class="mono"></td></tr>
+          <tr data-ticket-id="006" tabindex="0"><td class="mono"><a href="#ap-ticket-006">#006</a></td><td>Old idea</td><td>bug</td><td><span class="ap-badge" data-state="abandoned">Abandoned</span></td><td></td><td class="mono"></td><td class="mono"><a href="#ap-task-8">#8</a></td></tr>
+          <tr data-ticket-id="005" tabindex="0"><td class="mono"><a href="#ap-ticket-005">#005</a></td><td>Audit the range presets<span class="ap-waiting">waiting on <a href="#ap-ticket-004">#004</a></span></td><td>change</td><td><span class="ap-badge" data-state="pending">To do</span></td><td></td><td class="mono"></td><td class="mono"><a href="#ap-task-7">#7</a></td></tr>
+          <tr data-ticket-id="004" tabindex="0"><td class="mono"><a href="#ap-ticket-004">#004</a></td><td>Brighter colours<span class="ap-waiting" data-priority="high" title="High priority: dispatched before every normal ticket">high</span></td><td>feature</td><td><span class="ap-badge" data-state="in-progress">In progress</span></td><td></td><td class="mono">ticket/brighter-colours</td><td class="mono"><a href="#ap-task-5">#5</a></td></tr>
+          <tr data-ticket-id="003" tabindex="0"><td class="mono"><a href="#ap-ticket-003">#003</a></td><td>Split the <mark class="ap-match">exporter</mark> into two passes</td><td>change</td><td><span class="ap-badge" data-state="in-review">Awaiting review</span></td><td><mark class="ap-match">exporter</mark></td><td class="mono">ticket/<mark class="ap-match">exporter</mark>-passes</td><td class="mono"><a href="#ap-task-3">#3</a></td></tr>
+          <tr data-ticket-id="002" tabindex="0"><td class="mono"><a href="#ap-ticket-002">#002</a></td><td>Cache ticket bodies between runs</td><td>change</td><td><span class="ap-badge" data-state="reviewed">Awaiting merge</span></td><td>exporter</td><td class="mono">ticket/body-cache</td><td class="mono"><a href="#ap-task-2">#2</a></td></tr>
+          <tr data-ticket-id="001" tabindex="0"><td class="mono"><a href="#ap-ticket-001">#001</a></td><td>Double-click a role to edit it</td><td>change</td><td><span class="ap-badge" data-state="delivered">Done</span></td><td>role-editor</td><td class="mono">ticket/role-editor</td><td class="mono"><a href="#ap-task-1">#1</a></td></tr>
+          <tr class="ap-table-empty"><td colspan="7"><p><strong>No ticket matches “refund”, type bug.</strong></p><p><button type="button" class="ap-link-button" data-clear-filters>Clear search and filters</button></p></td></tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </section>
 
@@ -1336,9 +1321,9 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
 <script type="application/json" id="ap-progress-data">__PROGRESS__</script>
 <script type="application/json" id="ap-tickets-data">__TICKETS__</script>
 
-<!-- Template-owned behaviour: tab selection and ticket open state, both restored
-     from localStorage before paint so a reload looks identical, and the idle
-     reload. Everything data-driven belongs to the page script below. -->
+<!-- Template-owned behaviour: the theme and tab selection, both restored from
+     localStorage before paint so a reload looks identical, and the idle reload.
+     Everything data-driven belongs to the page script below. -->
 <script>
 (function () {
   /* The token below is injected as the last script; define it so a template
@@ -1347,7 +1332,6 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
   window["__PAGE" + "_SCRIPT__"] = 0;
 
   var TAB_KEY = "agent-progress:tab";
-  var OPEN_KEY = "agent-progress:open-tickets";
   var THEME_KEY = "agent-progress:theme";
   var root = document.documentElement;
   var themeBar = document.getElementById("ap-theme");
@@ -1397,24 +1381,6 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
     try { localStorage.setItem(TAB_KEY, button.dataset.tab); } catch (e) {}
   });
 
-  var open = {};
-  try { open = JSON.parse(localStorage.getItem(OPEN_KEY) || "{}") || {}; } catch (e) { open = {}; }
-
-  function restoreTicketOpenState() {
-    var cards = document.querySelectorAll(".ap-ticket > details");
-    for (var k = 0; k < cards.length; k++) {
-      var id = cards[k].parentNode.id;
-      if (open[id]) { cards[k].open = true; }
-    }
-  }
-  restoreTicketOpenState();
-  document.addEventListener("toggle", function (event) {
-    var details = event.target;
-    if (!details.parentNode || !details.parentNode.classList.contains("ap-ticket")) { return; }
-    if (details.open) { open[details.parentNode.id] = 1; } else { delete open[details.parentNode.id]; }
-    try { localStorage.setItem(OPEN_KEY, JSON.stringify(open)); } catch (e) {}
-  }, true);
-
   /* The idle reload. Every RELOAD_INTERVAL_MS the page tries to reload; while the viewer is using
      it (the detail panel open, a field focused, activity within ACTIVITY_QUIET_MS) it tries again
      every RELOAD_RETRY_MS, and a hidden tab waits until it is shown. The page script's callbacks
@@ -1453,12 +1419,11 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
 
   function onBeforeReload(callback) { beforeReloadCallbacks.push(callback); }
 
-  /* The template-owned behaviour the page script has to reach, and the only ones.
-     The cards above are placeholders: the page script replaces them wholesale, after this runs,
-     so the restore has to be callable a second time — and a "#ap-ticket-003" fragment has to be
-     able to select the Tickets tab without the page script owning a second copy of the tab logic.
-     onBeforeReload is how the page stores its place before the idle reload. */
-  window.agentProgressTemplate = { selectTab: select, restoreTicketOpenState: restoreTicketOpenState, onBeforeReload: onBeforeReload };
+  /* The template-owned behaviour the page script has to reach, and the only ones: a
+     "#ap-ticket-003" fragment has to be able to select the Tickets tab without the page script
+     owning a second copy of the tab logic, and onBeforeReload is how the page stores its place
+     before the idle reload. */
+  window.agentProgressTemplate = { selectTab: select, onBeforeReload: onBeforeReload };
 })();
 </script>
 

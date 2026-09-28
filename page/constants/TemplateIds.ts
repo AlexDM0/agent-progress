@@ -25,7 +25,6 @@ export const LOG_NOTE_ELEMENT_ID    = 'ap-log-note';
 export const LOG_FILTER_ELEMENT_ID  = 'ap-log-filter';
 
 export const TICKET_ROWS_ELEMENT_ID  = 'ap-ticket-rows';
-export const TICKET_CARDS_ELEMENT_ID = 'ap-ticket-cards';
 export const TICKET_COUNT_ELEMENT_ID = 'ap-ticket-count';
 
 export const DETAIL_BODY_ELEMENT_ID = 'ap-detail-body';

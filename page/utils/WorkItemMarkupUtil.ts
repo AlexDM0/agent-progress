@@ -13,21 +13,21 @@ import type { TimestampSlices }          from './TimeUtil.ts';
 import { TimeUtil }                      from './TimeUtil.ts';
 
 
-/** Where a ticket link leads: the ticket's card on the Tickets tab, or its card on the Kanban board, which the page script follows itself. */
-export type TicketLinkTarget = 'ticket-card' | 'kanban-card';
+/** Where a ticket link leads: the ticket's detail on the Tickets tab, or its card on the Kanban board, which the page script follows itself. */
+export type TicketLinkTarget = 'ticket-detail' | 'kanban-card';
 
 function ticketLinkMarkup(identifier: string, target: TicketLinkTarget): string {
   const destination = target === 'kanban-card'
     ? `${MarkupUtil.attribute('href', `#${TemplateIdUtil.kanbanCardElementIdOf(identifier)}`)} ${MarkupUtil.attribute('data-ticket-link', identifier)}`
-    : MarkupUtil.attribute('href', `#${TemplateIdUtil.ticketCardElementIdOf(identifier)}`);
+    : MarkupUtil.attribute('href', `#${TemplateIdUtil.ticketFragmentIdOf(identifier)}`);
   return `<a ${destination}>#${HtmlEscapeUtil.escapeHtml(identifier)}</a>`;
 }
 
-function ticketLinksMarkup(identifiers: readonly string[], target: TicketLinkTarget = 'ticket-card'): string {
+function ticketLinksMarkup(identifiers: readonly string[], target: TicketLinkTarget = 'ticket-detail'): string {
   return identifiers.map((identifier) => ticketLinkMarkup(identifier, target)).join(', ');
 }
 
-function waitingOnMarkup(identifiers: readonly string[], target: TicketLinkTarget = 'ticket-card'): string {
+function waitingOnMarkup(identifiers: readonly string[], target: TicketLinkTarget = 'ticket-detail'): string {
   return identifiers.length === 0 ? '' : `<span class="ap-waiting">waiting on ${ticketLinksMarkup(identifiers, target)}</span>`;
 }
 
@@ -36,7 +36,7 @@ function taskLinkMarkup(taskId: number | null): string {
 }
 
 function ticketBadgeMarkup(ticketId: string): string {
-  return `<a class="ap-ticket-badge" ${MarkupUtil.attribute('href', `#${TemplateIdUtil.ticketCardElementIdOf(ticketId)}`)}>#${HtmlEscapeUtil.escapeHtml(ticketId)}</a>`;
+  return `<a class="ap-ticket-badge" ${MarkupUtil.attribute('href', `#${TemplateIdUtil.ticketFragmentIdOf(ticketId)}`)}>#${HtmlEscapeUtil.escapeHtml(ticketId)}</a>`;
 }
 
 function ticketStatusBadgeMarkup(status: TicketStatus): string {
