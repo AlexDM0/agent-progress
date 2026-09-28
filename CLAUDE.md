@@ -280,5 +280,5 @@ in separate checkouts all write to the same chart.
 - Never edit `.agent-progress/progress.json` by hand, and edit a ticket only below its frontmatter —
   `agent-progress ticket show <id>` prints the file path to edit.
 - Run `agent-progress open` once per session so the user has the dashboard; it reloads itself every
-  5 minutes as the work moves.
+  5 minutes when idle as the work moves.
 <!-- agent-progress:managed:end -->
