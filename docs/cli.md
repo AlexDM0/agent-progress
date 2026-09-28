@@ -418,7 +418,9 @@ fills itself in: a brief names its row on a line of its own, `agent-progress row
 bundle), or its tickets or its review as `hook subagent-stop` says, and when the agent stops the hook
 adds its `input` figure — every token it processed — to that row, divided over several rows floored,
 the remainder to the first. An unset count plus an amount is the amount, so a row two agents worked on
-carries both. The hook reads the line only from the agent's brief, its first message. A workflow
+carries both. A resumed agent stops again with the same agent id and a transcript that still holds its
+earlier calls, so a stop whose agent id the log already records adds only what its `input` grew by
+since the largest total logged for that id; a stop whose input names no agent id is added whole. The hook reads the line only from the agent's brief, its first message. A workflow
 agent's first message is the harness relaying the session user's request, beginning
 `[Workflow harness — user request]`; its brief is then the message right after it, the one beginning
 `[Workflow harness — computed task]`, and a relay followed by anything else has no brief at all. The
@@ -595,6 +597,16 @@ skipped. A line that is not a well-formed record of a known kind makes the log u
 naming the line and the field. A record
 is kept with only the keys its kind names, so a key added by hand is dropped the next time the file is
 written.
+
+An `agent-stopped` record's `fields` are `agentId`, `agentType`, `apiCallCount`, `endContextTokens`,
+`totalInputTokens` (fresh input plus both cache figures), `cacheReadInputTokens` and `outputTokens`. An agent a
+workflow run spawned, whose transcript sits at `…/subagents/workflows/<runId>/agent-<id>.jsonl`, also carries
+`workflowRunId`, that `<runId>`, and `agentLabel`, the `description` of the `agent-<id>.meta.json` beside the
+transcript when it has one; each is written only when known, so a plain subagent's record holds neither.
+
+```
+{"at":"2026-09-18T22:10:00+02:00","kind":"agent-stopped","fields":{"agentId":"a1","agentType":"workflow-subagent","apiCallCount":2,"endContextTokens":140020,"totalInputTokens":230030,"cacheReadInputTokens":230000,"outputTokens":2000,"workflowRunId":"wf_example","agentLabel":"build #7"}}
+```
 
 ### `.agent-progress/version.json`
 

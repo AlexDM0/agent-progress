@@ -7,6 +7,7 @@ import { createLogFileWriter }                          from '../../adapters/log
 import { createLogRecordCollector }                     from '../../adapters/log/LogRecordCollector.ts';
 import { createProgressFileWriter }                     from '../../adapters/progress/ProgressFileWriter.ts';
 import { createTicketFileWriter }                       from '../../adapters/tickets/TicketFileWriter.ts';
+import type { LogRecord }                               from '../../lib/tracker-model/@types/LogRecord.ts';
 import { Board }                                        from '../../lib/tracker-model/Board.ts';
 import { refusalIsBoardRefusal }                        from '../../lib/tracker-model/BoardRefusal.ts';
 import { createLogger }                                 from '../../lib/tracker-model/Logger.ts';
@@ -25,6 +26,8 @@ export interface TrackerChange {
   malformedTickets:               readonly MalformedTicketFile[];
   /** How many entries the log held when it was read, before anything this invocation logged. */
   storedLogEntryCount:            number;
+  /** The log as it was read, before anything this invocation logged. */
+  storedLogRecords:               readonly LogRecord[];
   /** `clear --all`: after the progress file and the changed tickets, before the render; the callback gets the deleted file count. */
   deleteAllTicketFilesAfterwards: (onDeleted: (deletedTicketCount: number) => void) => void;
 }
@@ -99,6 +102,7 @@ export function writeTracker<MutationResult>(request: TrackerWriteRequest<Mutati
       workspace,
       malformedTickets:               openedBoard.contents.listing.malformed,
       storedLogEntryCount:            openedBoard.contents.storedLog.records.length,
+      storedLogRecords:               openedBoard.contents.storedLog.records,
       deleteAllTicketFilesAfterwards: (onDeleted) => { deletionCallbacks.push(onDeleted); },
     });
 

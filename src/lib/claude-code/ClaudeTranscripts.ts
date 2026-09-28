@@ -5,8 +5,14 @@
  */
 import type { Dirent }               from 'node:fs';
 import { readdirSync, readFileSync } from 'node:fs';
-import { join, resolve }             from 'node:path';
+import {
+  basename,
+  dirname,
+  join,
+  resolve
+} from 'node:path';
 
+import { JsonRecordUtil }        from '../json-record/JsonRecordUtil.ts';
 import { CLAUDE_DIRECTORY_NAME } from './constants/ClaudeCodePaths.ts';
 
 const PROJECTS_DIRECTORY_NAME = 'projects';
@@ -18,6 +24,8 @@ const WORKFLOWS_DIRECTORY_NAME = 'workflows';
 const SUBAGENT_FILE_PREFIX = 'agent-';
 
 const TRANSCRIPT_FILE_SUFFIX = '.jsonl';
+
+const AGENT_METADATA_FILE_SUFFIX = '.meta.json';
 
 /** Everything outside `[a-zA-Z0-9]`, because that is the whole of what the harness keeps in a folder name. */
 const CHARACTER_THE_SLUG_REPLACES = /[^a-zA-Z0-9]/g;
@@ -77,6 +85,29 @@ export function listSubagentTranscripts(transcriptFolder: string): SubagentTrans
 
   transcripts.sort((a, b) => a.path.localeCompare(b.path));
   return transcripts;
+}
+
+/** The run folder of a transcript at `…/workflows/<runId>/agent-<id>.jsonl`; `undefined` for any other path, a plain subagent's among them. */
+export function workflowRunIdentifierOf(transcriptPath: string): string | undefined {
+  const runDirectory = dirname(transcriptPath);
+  if (basename(dirname(runDirectory)) !== WORKFLOWS_DIRECTORY_NAME) return undefined;
+  const runIdentifier = basename(runDirectory);
+  return runIdentifier.length > 0 ? runIdentifier : undefined;
+}
+
+/** The `description` in the `.meta.json` the harness writes beside a transcript; `undefined` when the file, its JSON or the field is missing. */
+export function agentDescriptionBeside(transcriptPath: string): string | undefined {
+  if (!transcriptPath.endsWith(TRANSCRIPT_FILE_SUFFIX)) return undefined;
+  const metadataText = transcriptTextAt(`${transcriptPath.slice(0, -TRANSCRIPT_FILE_SUFFIX.length)}${AGENT_METADATA_FILE_SUFFIX}`);
+  if (metadataText === undefined) return undefined;
+  let parsedMetadata: unknown;
+  try {
+    parsedMetadata = JSON.parse(metadataText);
+  } catch {
+    return undefined;
+  }
+  const description = JsonRecordUtil.recordOf(parsedMetadata)?.['description'];
+  return typeof description === 'string' && description.length > 0 ? description : undefined;
 }
 
 export function transcriptTextAt(transcriptPath: string): string | undefined {

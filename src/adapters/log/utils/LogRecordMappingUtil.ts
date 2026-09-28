@@ -109,6 +109,8 @@ function recordOf(validated: unknown): LogRecord {
           totalInputTokens:     record.fields.totalInputTokens,
           cacheReadInputTokens: record.fields.cacheReadInputTokens,
           outputTokens:         record.fields.outputTokens,
+          ...(record.fields.workflowRunId === undefined ? {} : { workflowRunId: record.fields.workflowRunId }),
+          ...(record.fields.agentLabel === undefined ? {} : { agentLabel: record.fields.agentLabel }),
         },
       };
   }

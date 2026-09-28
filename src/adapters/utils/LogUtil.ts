@@ -36,7 +36,9 @@ function chartRangeTextOf(view: ViewRange): string {
  * share is named beside the whole input because it is the figure that explains a long session and is invisible in a plain total.
  */
 function agentStoppedTextOf(usage: AgentUsage): string {
-  return `Agent ${usage.agentId} (${usage.agentType}) stopped: ${usage.apiCallCount} calls, `
+  const label       = usage.agentLabel === undefined ? '' : ` "${usage.agentLabel}"`;
+  const workflowRun = usage.workflowRunId === undefined ? '' : ` of workflow run ${usage.workflowRunId}`;
+  return `Agent ${usage.agentId}${label} (${usage.agentType})${workflowRun} stopped: ${usage.apiCallCount} calls, `
     + `end context ${TokenCountUtil.formatTokenCount(usage.endContextTokens)}, `
     + `input ${TokenCountUtil.formatTokenCount(usage.totalInputTokens)} (cache read ${TokenCountUtil.formatTokenCount(usage.cacheReadInputTokens)}), `
     + `output ${TokenCountUtil.formatTokenCount(usage.outputTokens)}`;

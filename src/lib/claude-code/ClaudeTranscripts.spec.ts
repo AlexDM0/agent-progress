@@ -13,8 +13,14 @@ import {
   test
 } from 'bun:test';
 
-import { createScratchDirectory, removeScratchDirectory }                 from '../../testing/ScratchWorkspace.ts';
-import { listSubagentTranscripts, transcriptFolderFor, transcriptTextAt } from './ClaudeTranscripts.ts';
+import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
+import {
+  agentDescriptionBeside,
+  listSubagentTranscripts,
+  transcriptFolderFor,
+  transcriptTextAt,
+  workflowRunIdentifierOf
+}                                                         from './ClaudeTranscripts.ts';
 
 let scratchDirectory = '';
 
@@ -128,5 +134,31 @@ describe('the text of one transcript', () => {
 
   test('is undefined for a transcript that is not there, rather than an error', () => {
     expect(transcriptTextAt(join(scratchDirectory, 'agent-gone.jsonl'))).toBeUndefined();
+  });
+});
+
+describe('the workflow run a transcript belongs to', () => {
+  test('is the folder under workflows/ that holds it', () => {
+    expect(workflowRunIdentifierOf('/home/.claude/projects/example/session/subagents/workflows/wf_example-run/agent-a1.jsonl')).toBe('wf_example-run');
+  });
+
+  test('is undefined for a plain subagent\'s transcript', () => {
+    expect(workflowRunIdentifierOf('/home/.claude/projects/example/session/subagents/agent-a1.jsonl')).toBeUndefined();
+  });
+});
+
+describe('the description beside a transcript', () => {
+  test('is the description field of its .meta.json', () => {
+    writeFileSync(join(scratchDirectory, 'agent-example.meta.json'), JSON.stringify({ agentType: 'workflow-subagent', description: 'build #7' }));
+    expect(agentDescriptionBeside(join(scratchDirectory, 'agent-example.jsonl'))).toBe('build #7');
+  });
+
+  test('is undefined when the file is missing, is not JSON or holds no text description', () => {
+    const transcriptPath = join(scratchDirectory, 'agent-example.jsonl');
+    expect(agentDescriptionBeside(transcriptPath)).toBeUndefined();
+    writeFileSync(join(scratchDirectory, 'agent-example.meta.json'), '{not json');
+    expect(agentDescriptionBeside(transcriptPath)).toBeUndefined();
+    writeFileSync(join(scratchDirectory, 'agent-example.meta.json'), JSON.stringify({ description: 7 }));
+    expect(agentDescriptionBeside(transcriptPath)).toBeUndefined();
   });
 });

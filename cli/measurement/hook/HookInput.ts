@@ -5,6 +5,9 @@ import type { CommandContext } from '../../CommandContext.ts';
 /** The prefix on every sentence the hook writes, so a line in a harness log says which command produced it. */
 export const REPORT_PREFIX = 'agent-progress hook subagent-stop:';
 
+/** Logged for an agent id or type the hook input does not carry. */
+export const UNKNOWN_AGENT = 'unknown';
+
 export function readStringField(source: Record<string, unknown>, key: string): string | undefined {
   const value = source[key];
   return typeof value === 'string' && value.length > 0 ? value : undefined;

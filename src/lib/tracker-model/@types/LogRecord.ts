@@ -14,6 +14,9 @@ export interface AgentUsage {
   totalInputTokens:     number;
   cacheReadInputTokens: number;
   outputTokens:         number;
+  /** Only for an agent a workflow run spawned: the run's id and the label the run gave it, each stored only when known. */
+  workflowRunId?:       string;
+  agentLabel?:          string;
 }
 
 export type LogRecordContent =

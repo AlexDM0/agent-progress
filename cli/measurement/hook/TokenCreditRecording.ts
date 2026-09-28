@@ -1,15 +1,13 @@
 /** Which rows a stopped agent's brief credits with its tokens, and the write that records the stop, reporting every share it could not place. */
 import { OperationRefusalWordingUtil }          from '../../../src/adapters/utils/OperationRefusalWordingUtil.ts';
-import type { TranscriptUsageTotals }           from '../../../src/lib/claude-code/utils/TranscriptUsageUtil.ts';
-import { TranscriptUsageUtil }                  from '../../../src/lib/claude-code/utils/TranscriptUsageUtil.ts';
 import type { TokenCredit, TokenCreditOutcome } from '../../../src/lib/tracker-model/@types/BoardChanges.ts';
-import type { AgentUsage }                      from '../../../src/lib/tracker-model/@types/LogRecord.ts';
+import type { AgentUsage, LogRecord }           from '../../../src/lib/tracker-model/@types/LogRecord.ts';
 import { refusalIsOperationRefusal }            from '../../../src/shared/OperationRefusal.ts';
 import type { CommandContext }                  from '../../CommandContext.ts';
 import { requireCurrentInstall }                from '../../InstallVersionCheck.ts';
 import { openTrackerForWriting }                from '../../OpenTrackerForWriting.ts';
 import type { ArgumentParser }                  from '../../arguments/ArgumentParser.ts';
-import { REPORT_PREFIX }                        from './HookInput.ts';
+import { REPORT_PREFIX, UNKNOWN_AGENT }         from './HookInput.ts';
 import { SubagentStopUtil }                     from './utils/SubagentStopUtil.ts';
 
 const SHARE_NOT_RECORDED = 'so its share of the tokens was not recorded.';
@@ -41,9 +39,7 @@ function unrecordedSentenceOf(outcome: TokenCreditOutcome): string | undefined {
  * The brief's marker decides which rows the agent's `input` total is added to, split evenly over what it names. A brief carrying
  * several is read by one alone, `row:` over `ticket:` over `review:`, the most direct first: adding more would count the agent twice.
  */
-export function briefCreditsFor(transcriptText: string, totals: TranscriptUsageTotals): TokenCredit[] {
-  const totalInputTokens = TranscriptUsageUtil.totalInputTokensOf(totals);
-
+function briefCreditsFor(transcriptText: string, totalInputTokens: number): TokenCredit[] {
   const rowIdentifiers = SubagentStopUtil.rowIdentifiersNamedInBrief(transcriptText);
   if (rowIdentifiers.length > 0) {
     const shares = SubagentStopUtil.evenSharesOf(totalInputTokens, rowIdentifiers.length);
@@ -62,6 +58,20 @@ export function briefCreditsFor(transcriptText: string, totals: TranscriptUsageT
 }
 
 /**
+ * A resumed agent appends to the transcript it stopped with, so each stop's total holds every earlier one: an agent id already logged is
+ * credited only what its transcript grew by since its largest logged total. An agent the input did not name cannot be told apart, so it is
+ * credited whole.
+ */
+function tokensStillToCreditOf(usage: AgentUsage, storedLogRecords: readonly LogRecord[]): number {
+  if (usage.agentId === UNKNOWN_AGENT) return usage.totalInputTokens;
+  const alreadyCreditedTokens = storedLogRecords.reduce(
+    (largest, record) => (record.kind === 'agent-stopped' && record.fields.agentId === usage.agentId ? Math.max(largest, record.fields.totalInputTokens) : largest),
+    0,
+  );
+  return Math.max(0, usage.totalInputTokens - alreadyCreditedTokens);
+}
+
+/**
  * The tracker is resolved from the hook input's `cwd`, not from this process's: the hook runs wherever
  * the harness happens to be, and the agent that stopped may have been working in a worktree. A
  * worktree still finds the main checkout's tracker, because `src/services/tracker/Workspace.ts` asks git for
@@ -72,14 +82,16 @@ export async function recordInTheTracker(
   context: CommandContext,
   workingDirectory: string,
   usage: AgentUsage,
-  briefCredits: readonly TokenCredit[],
+  transcriptText: string,
 ): Promise<void> {
   const trackerContext: CommandContext = { ...context, currentDirectory: workingDirectory };
   let unrecordedShareSentences: string[] = [];
   try {
     requireCurrentInstall(workingDirectory);
     unrecordedShareSentences = await openTrackerForWriting(commandArguments, trackerContext, (change) => {
-      const { outcomes } = change.board.recordAgentStop(usage, briefCredits, change.at);
+      const tokensStillToCredit = tokensStillToCreditOf(usage, change.storedLogRecords);
+      const briefCredits        = tokensStillToCredit > 0 ? briefCreditsFor(transcriptText, tokensStillToCredit) : [];
+      const { outcomes }        = change.board.recordAgentStop(usage, briefCredits, change.at);
       return outcomes.flatMap((outcome) => unrecordedSentenceOf(outcome) ?? []);
     });
   } catch (failure) {

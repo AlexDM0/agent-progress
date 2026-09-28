@@ -113,6 +113,12 @@ describe('a well-formed record', () => {
     expect(logRecordProblemOf(withFields('dispatcher-set', { state: 'stopped', runId: null }))).toBeNull();
   });
 
+  test('an agent stop naming its workflow run and label passes, and one naming them as anything but text is refused', () => {
+    expect(logRecordProblemOf(withFields('agent-stopped', { workflowRunId: 'wf_example', agentLabel: 'build #7' }))).toBeNull();
+    expect(logRecordProblemOf(withFields('agent-stopped', { workflowRunId: 7 }))).toBe('fields.workflowRunId is not a string');
+    expect(logRecordProblemOf(withFields('agent-stopped', { agentLabel: null }))).toBe('fields.agentLabel is not a string');
+  });
+
   test('a review bar on task 0 passes, as a row with id 0 reads', () => {
     expect(logRecordProblemOf(withKeys('review-bar-started', { taskId: 0 }))).toBeNull();
   });

@@ -88,6 +88,11 @@ async function addedRow(name: string): Promise<number> {
   return rowIdentifier;
 }
 
+function lastStoredLogLine(): Record<string, unknown> {
+  const logLines = readFileSync(join(repositoryDirectory, '.agent-progress', 'log.jsonl'), 'utf8').trim().split('\n');
+  return JSON.parse(logLines.at(-1) ?? '{}') as Record<string, unknown>;
+}
+
 function userLine(text: string): string {
   return JSON.stringify({ type: 'user', message: { role: 'user', content: [{ type: 'text', text }] } });
 }
@@ -178,7 +183,7 @@ describeWhenGitIsPresent('a subagent that stopped', () => {
 
 describeWhenGitIsPresent('the row the brief names', () => {
   /** Adding rather than setting is the claim: a row an implementer and a second pass both worked on carries what both cost. */
-  test('a brief naming a row takes its tokens from unset to the input total, and the same input again doubles it', async () => {
+  test('a brief naming a row takes its tokens from unset to the input total, and another agent on the same brief doubles it', async () => {
     const rowIdentifier = await addedRow('Example work');
     transcriptPath      = writeTranscript([userLine(`Do the work.\nagent-progress row: ${rowIdentifier}\nStop at 150 calls.`), ...FIXTURE_CALLS]);
     expect(storedTokensOf(rowIdentifier)).toBeNull();
@@ -187,7 +192,33 @@ describeWhenGitIsPresent('the row the brief names', () => {
     expect(storedTokensOf(rowIdentifier)).toBe(FIXTURE_INPUT_TOKENS);
     expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toContain('input 230k');
 
+    expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput({ agent_id: 'agent_43' })))).toBe(0);
+    expect(storedTokensOf(rowIdentifier)).toBe(FIXTURE_INPUT_TOKENS * 2);
+  });
+
+  /** A resumed agent appends to the transcript it stopped with, so its second stop's total already holds the first's. */
+  test('a resumed agent that stops twice leaves its row holding its transcript total once, and each stop is still logged whole', async () => {
+    const rowIdentifier = await addedRow('Example resumed work');
+    const briefLine     = userLine(`agent-progress row: ${rowIdentifier}`);
+    transcriptPath      = writeTranscript([briefLine, ...FIXTURE_CALLS]);
     expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput()))).toBe(0);
+
+    transcriptPath = writeTranscript([briefLine, ...FIXTURE_CALLS, userLine('Carry on.'), assistantLine('msg_three', 30, 150_000, 100)]);
+    expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput()))).toBe(0);
+    expect(storedTokensOf(rowIdentifier)).toBe(FIXTURE_INPUT_TOKENS + 150_030);
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toContain('3 calls, end context 150k, input 380.1k');
+
+    expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput()))).toBe(0);
+    expect(storedTokensOf(rowIdentifier), 'a stop that added nothing credits nothing').toBe(FIXTURE_INPUT_TOKENS + 150_030);
+  });
+
+  test('two stops the input names no agent for are both credited whole, since nothing tells them apart', async () => {
+    const rowIdentifier = await addedRow('Example anonymous work');
+    transcriptPath      = writeTranscript([userLine(`agent-progress row: ${rowIdentifier}`), ...FIXTURE_CALLS]);
+
+    expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput({ agent_id: undefined })))).toBe(0);
+    expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput({ agent_id: undefined })))).toBe(0);
+
     expect(storedTokensOf(rowIdentifier)).toBe(FIXTURE_INPUT_TOKENS * 2);
   });
 
@@ -256,7 +287,39 @@ describeWhenGitIsPresent('the row the brief names', () => {
     expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
 
     expect(storedTokensOf(rowIdentifier)).toBe(FIXTURE_INPUT_TOKENS);
-    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toContain('(workflow-subagent)');
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toStartWith('Agent agent_42 (workflow-subagent) of workflow run run_example stopped:');
+  });
+
+  test('a workflow agent\'s record names its run and the label from the .meta.json beside its transcript', async () => {
+    const workflowFolder = join(repositoryDirectory, 'session', 'subagents', 'workflows', 'wf_example-run');
+    const workflowPath   = join(workflowFolder, 'agent-example.jsonl');
+    mkdirSync(workflowFolder, { recursive: true });
+    writeFileSync(workflowPath, `${FIXTURE_CALLS.join('\n')}\n`);
+    writeFileSync(join(workflowFolder, 'agent-example.meta.json'), JSON.stringify({ agentType: 'workflow-subagent', description: 'build #7' }));
+
+    expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput({ agent_type: 'workflow-subagent', agent_transcript_path: workflowPath })))).toBe(0);
+
+    const agentStopped = lastStoredLogLine();
+    expect(agentStopped['fields']).toMatchObject({ workflowRunId: 'wf_example-run', agentLabel: 'build #7' });
+    expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text)
+      .toStartWith('Agent agent_42 "build #7" (workflow-subagent) of workflow run wf_example-run stopped:');
+    expect(await runCommandLine(['status'], contextWith(''))).toBe(0);
+  });
+
+  test('a plain subagent\'s record holds exactly the keys it always held, even with a .meta.json beside its transcript', async () => {
+    writeFileSync(join(repositoryDirectory, 'agent-example.meta.json'), JSON.stringify({ description: 'Example plain agent' }));
+
+    expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput()))).toBe(0);
+
+    expect(JSON.stringify(lastStoredLogLine()['fields'])).toBe(JSON.stringify({
+      agentId:              'agent_42',
+      agentType:            'general-purpose',
+      apiCallCount:         2,
+      endContextTokens:     140_020,
+      totalInputTokens:     FIXTURE_INPUT_TOKENS,
+      cacheReadInputTokens: 230_000,
+      outputTokens:         2000,
+    }));
   });
 
   test('a transcript path starting with ~ is read under the home directory the context carries', async () => {

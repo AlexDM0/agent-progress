@@ -108,6 +108,8 @@ function agentStoppedProblem(fields: UnknownObject): string | null {
   return firstProblemOf(
     textFieldProblem(fields, 'agentId'),
     textFieldProblem(fields, 'agentType'),
+    Object.hasOwn(fields, 'workflowRunId') ? textFieldProblem(fields, 'workflowRunId') : null,
+    Object.hasOwn(fields, 'agentLabel') ? textFieldProblem(fields, 'agentLabel') : null,
     ...AGENT_STOPPED_COUNT_FIELDS.map((field) => (StoredValueUtil.wholeNumberIsAtLeast(fields[field], 0) ? null : `fields.${field} is not a whole number of at least 0`)),
   );
 }
