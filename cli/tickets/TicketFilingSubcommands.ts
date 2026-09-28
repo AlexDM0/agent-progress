@@ -1,5 +1,4 @@
 import { readFileSync } from 'node:fs';
-import { resolve }      from 'node:path';
 
 import { TicketJsonUtil }                        from '../../src/adapters/utils/TicketJsonUtil.ts';
 import type { TicketType }                       from '../../src/lib/tracker-model/@types/Ticket.ts';
@@ -14,6 +13,7 @@ import type { ArgumentParser }                   from '../arguments/ArgumentPars
 import { NextLineUtil }                          from '../utils/NextLineUtil.ts';
 import { OutputUtil }                            from '../utils/OutputUtil.ts';
 import type { TicketSubcommandHandler }          from './@types/TicketSubcommandHandler.ts';
+import { suppliedTicketBodyOf }                  from './SuppliedTicketBody.ts';
 import { TICKET_USAGE }                          from './constants/TicketUsage.ts';
 import { TicketArgumentUtil }                    from './utils/TicketArgumentUtil.ts';
 
@@ -21,28 +21,12 @@ const ADD_OPTION_NAMES = ['type', 'priority', 'model', 'effort', 'group', 'depen
 
 const DEFAULT_TICKET_TYPE: TicketType = 'change';
 
-const STANDARD_INPUT_MARKER = '-';
-
 const TICKET_BODY_TEMPLATE_PATH = ['templates', 'TicketBody.md'];
 
 function bodyForNewTicket(suppliedBody: string | undefined, ticketId: string, title: string): string {
   if (suppliedBody !== undefined && suppliedBody.trim() !== '') return suppliedBody;
 
   return filledTemplateOf(readFileSync(resourceFilePathOf(...TICKET_BODY_TEMPLATE_PATH), 'utf8'), { id: ticketId, title });
-}
-
-async function suppliedBodyFor(commandArguments: ArgumentParser, context: CommandContext): Promise<string | undefined> {
-  const written = commandArguments.option('body');
-  if (written !== undefined) return written;
-
-  const bodyFile = commandArguments.option('body-file');
-  if (bodyFile === STANDARD_INPUT_MARKER) return context.readStandardInput();
-  if (bodyFile === undefined) return undefined;
-  try {
-    return readFileSync(resolve(context.currentDirectory, bodyFile), 'utf8');
-  } catch (problem) {
-    throw new OperationRefusal('refused', `--body-file ${bodyFile} could not be read: ${problem instanceof Error ? problem.message : String(problem)}`);
-  }
 }
 
 const LOW_PRIORITY_FILING_NOTE = ' (low priority: no row until it is started)';
@@ -64,7 +48,7 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
 
   // Read before the lock: `--body-file -` waits on a pipe the caller may hold open indefinitely. The id is not: only the lock hold makes it this ticket's.
   requireWorkspace(context.currentDirectory);
-  const suppliedBody = await suppliedBodyFor(commandArguments, context);
+  const suppliedBody = await suppliedTicketBodyOf(commandArguments, context);
 
   const { result: filed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
     const ticket = createTicket(change.workspace, {

@@ -2,6 +2,7 @@ import { OperationRefusal }             from '../../src/shared/OperationRefusal.
 import type { CommandHandler }          from '../CommandHandler.ts';
 import type { TicketSubcommandHandler } from './@types/TicketSubcommandHandler.ts';
 import { TICKET_CLAIM_SUBCOMMANDS }     from './TicketClaimSubcommands.ts';
+import { editTicketBody }               from './TicketEdit.ts';
 import { TICKET_FILING_SUBCOMMANDS }    from './TicketFilingSubcommands.ts';
 import { TICKET_MOVE_SUBCOMMANDS }      from './TicketMoveSubcommands.ts';
 import { TICKET_READING_SUBCOMMANDS }   from './TicketReadingSubcommands.ts';
@@ -14,6 +15,7 @@ const TICKET_SUBCOMMANDS: Readonly<Record<string, TicketSubcommandHandler>> = Ob
   ...TICKET_MOVE_SUBCOMMANDS,
   ...TICKET_CLAIM_SUBCOMMANDS,
   ...TICKET_SETTING_SUBCOMMANDS,
+  edit: editTicketBody,
 });
 
 export const ticketCommand: CommandHandler = async (commandArguments, context) => {

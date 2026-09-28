@@ -241,6 +241,14 @@ output never carries either.
                               where it names them, its body, and always its file path — which is
                               what an agent needs in order to edit that body.
 
+  ticket edit <id> [--append] Replace a ticket's body with --body or --body-file (\`-\` reads
+      [--body <markdown>]     standard input), or with --append add to its end, putting one line
+      [--body-file <path|->]  ending before the text when the body does not end in one. The text
+      [--json]                is written in the line ending the body already uses. The frontmatter
+                              is kept byte for byte and \`updated\` is not stamped; nothing is
+                              logged. An empty append changes nothing and exits 0; an empty
+                              replacement, or neither option, is refused at exit 1.
+
   ticket agent <id> [--model <m>] [--effort <e>] [--at <when>]
                               Change the model or the effort a ticket's agents run on, or both,
                               with one log line. Refused at exit 1 on a delivered or abandoned

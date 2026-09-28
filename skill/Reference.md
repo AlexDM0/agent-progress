@@ -75,7 +75,8 @@ in the order above and everything else follows, keeping its order among itself, 
 line moves below the CLI's block once and never again.
 
 The body is preserved byte for byte from the ticket template (Report, Wanted, Acceptance, Handoff),
-`--body` or `--body-file`; an empty body falls back to the template. A malformed ticket file is listed
+`--body` or `--body-file`; an empty body falls back to the template. `ticket edit` replaces the body or
+appends to it and leaves the frontmatter's bytes as they are, a hand-written layout included. A malformed ticket file is listed
 as ignored rather than failing `status` or `render`. A new ticket id is one past the highest of every
 file name, every parsed id and every ticket a row names; gaps are tolerated, never filled.
 

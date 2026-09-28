@@ -1,6 +1,7 @@
 /**
  * The writer puts back exactly the ticket it is handed: the line ending it was read with, the fields a caller changed and never a
- * fresh `updated`, into a tickets directory it recreates when `clear --all` removed it.
+ * fresh `updated`, into a tickets directory it recreates when `clear --all` removed it. A frontmatter it would write back as it already
+ * reads keeps its stored bytes, so a body edit leaves a hand-written layout alone.
  */
 
 import {
@@ -109,6 +110,41 @@ describe('createTicketFileWriter', () => {
     expect(reread.frontmatter.branch).toBe('ticket/export-dialog');
     expect(reread.frontmatter.updated).toBe(FILED_AT);
     expect(reread.body).toBe(filed.body);
+  });
+
+  test('a frontmatter the ticket leaves as it reads keeps its stored bytes, and a changed one is written in the CLI\'s own layout', () => {
+    const ticketPath        = join(scratchTicketsDirectory(), '001-hand-written.md');
+    const handWrittenLayout = [
+      '---',
+      'id: "001"',
+      'status: pending',
+      'title: "Hand written"',
+      'type: bug',
+      '# kept by hand',
+      'owner: Alex Example',
+      'filed: "2026-09-18T09:00:00+02:00"',
+      'updated: "2026-09-18T09:00:00+02:00"',
+      'started: null',
+      'finished: null',
+      'delivered: null',
+      'abandonedAt: null',
+      'task: null',
+      '---',
+      '',
+    ].join('\n');
+    writeFileSync(ticketPath, `${handWrittenLayout}Old body.\n`);
+
+    const ticket = ticketReadFrom(ticketPath);
+    ticket.body  = 'New body.\n';
+    createTicketFileWriter().write(ticket);
+    expect(readFileSync(ticketPath, 'utf8')).toBe(`${handWrittenLayout}New body.\n`);
+
+    ticket.frontmatter.branch = 'ticket/hand-written';
+    createTicketFileWriter().write(ticket);
+    const rewritten = readFileSync(ticketPath, 'utf8');
+    expect(rewritten).toContain('\nstatus: "pending"\n');
+    expect(rewritten).toContain('\nbranch: "ticket/hand-written"\n');
+    expect(rewritten.endsWith('---\nNew body.\n')).toBe(true);
   });
 
   test('recreates a tickets directory that `clear --all` removed', () => {

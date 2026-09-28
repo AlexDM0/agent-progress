@@ -4,19 +4,6 @@ Each item is agreed in principle and deliberately not done, with the reason it w
 
 ---
 
-## A ticket `edit` command
-
-A ticket body is edited with a file tool at the path `agent-progress ticket show <id>` prints, and
-the CLI preserves it byte for byte. That works, and it is what the skill tells an agent to do. What
-it does not give is a way to *append* to a body — a finding, a second reproduction — without reading
-the whole file first and rewriting it.
-
-Agreed: `agent-progress ticket edit <id> [--append] [--body-file <path|->]`, writing through the
-same atomic path as everything else and leaving the frontmatter alone. Not started because the
-byte-for-byte guarantee is the load-bearing property of ticket bodies, and a command that rewrites
-one needs its own specs for the cases that guarantee is about (CRLF, a body containing `---`, a
-final newline the author did or did not write) before it is safe to offer.
-
 ## Pausing a ticket, not only its row
 
 `task pause <id>` records that a row is waiting, and there is deliberately no ticket status for it:

@@ -24,6 +24,7 @@
     "../src/lib/tracker-model/ReadingBoard.ts",
     "../src/lib/tracker-model/ReviewBars.ts",
     "../src/lib/tracker-model/TaskRows.ts",
+    "../src/lib/tracker-model/TicketBodyEdits.ts",
     "../src/lib/tracker-model/TicketClaims.ts",
     "../src/lib/tracker-model/TicketDependencies.ts",
     "../src/lib/tracker-model/TicketMoves.ts",

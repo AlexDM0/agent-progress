@@ -41,6 +41,8 @@ import { DisplayQueries }                                   from './DisplayQueri
 import type { Logger }                                      from './Logger.ts';
 import { ReviewBars }                                       from './ReviewBars.ts';
 import { TaskRows }                                         from './TaskRows.ts';
+import type { TicketBodyEdit, TicketBodyEdited }            from './TicketBodyEdits.ts';
+import { TicketBodyEdits }                                  from './TicketBodyEdits.ts';
 import { TicketClaims }                                     from './TicketClaims.ts';
 import { TicketDependencies }                               from './TicketDependencies.ts';
 import { TicketMoves }                                      from './TicketMoves.ts';
@@ -71,6 +73,8 @@ export class Board {
 
   private readonly ticketClaims: TicketClaims;
 
+  private readonly ticketBodyEdits: TicketBodyEdits;
+
   private readonly reviewBars: ReviewBars;
 
   private readonly dispatchQueries: DispatchQueries;
@@ -86,6 +90,7 @@ export class Board {
     this.ticketMoves        = new TicketMoves(this.records, this.reviewBars, this.ticketDependencies);
     this.ticketClaims       = new TicketClaims(this.records, this.ticketMoves, this.reviewBars, this.dispatchQueries);
     this.ticketSettings     = new TicketSettings(this.records);
+    this.ticketBodyEdits    = new TicketBodyEdits(this.records);
     this.taskRows           = new TaskRows(this.records);
     this.tokenCredits       = new TokenCredits(this.records, this.reviewBars);
     this.trackerChanges     = new TrackerChanges(this.records, this.dispatchQueries);
@@ -185,6 +190,10 @@ export class Board {
 
   unholdTicket(ticketId: string, at: string): TicketChanged {
     return this.ticketSettings.unholdTicket(ticketId, at);
+  }
+
+  editTicketBody(ticketId: string, edit: TicketBodyEdit): TicketBodyEdited {
+    return this.ticketBodyEdits.editTicketBody(ticketId, edit);
   }
 
   clearTracker(request: { ticketsSurvive: boolean }, at: string): TrackerCleared {

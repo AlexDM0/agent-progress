@@ -3,6 +3,7 @@ export const TICKET_USAGE = [
   + '[--depends-on <ids>] [--body <markdown> | --body-file <path|->] [--at <when>]',
   'agent-progress ticket list [--status <s>] [--priority <p>] [--json]',
   'agent-progress ticket show <id> [--json]',
+  'agent-progress ticket edit <id> [--append] (--body <markdown> | --body-file <path|->) [--json]',
   'agent-progress ticket start|finish|approve|deliver|abandon|reopen <id> [--branch <b>] [--commit <sha>] [--reason <text>] [--tokens <n>] [--at <when>]',
   'agent-progress ticket finish|rereview <id> --start-review [--owner <who>] [--note <text>] [--at <when>]',
   'agent-progress ticket claim <id> [<id>...] [--owner <who>] [--note <text>] [--at <when>]',
