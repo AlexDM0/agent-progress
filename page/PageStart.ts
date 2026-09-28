@@ -171,6 +171,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     limits,
     readTodayCalendarDate: () => todayCalendarDate,
     readKanbanCards:       () => kanbanController.readVisibleCards(),
+    updateKanbanOverflow:  () => kanbanController.updateOverflow(),
   });
 
   const showVisibleWork = (): void => {

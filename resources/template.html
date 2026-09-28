@@ -89,10 +89,18 @@
  #ap-ticket-rows          tbody  ticket table body; each <tr> carries data-ticket-id
  #ap-ticket-count         text   "6 tickets · 1 in progress" above the ticket table
  #ap-ticket-cards         el     one .ap-ticket per ticket
- #ap-detail               dialog the overview panel, opened with showModal() by a double-click
-                                 on a .ap-row, a ticket table row or a .ap-kanban-card, or by Enter
-                                 on one that has focus (all carry tabindex="0"); Esc, the backdrop,
-                                 a link inside it and #ap-detail-close all close it
+ #ap-detail               dialog the overview panel: a non-modal right-hand panel (--detail-w,
+                                 480px) opened with show() by ONE click on a #ap-rows > .ap-row, a
+                                 ticket table row or a .ap-kanban-card, or by Enter or Space on one
+                                 that has focus (all carry tabindex="0"); a click on a link inside
+                                 the row, or one that ends a text selection, opens nothing. It lies
+                                 over the page from under .ap-tab-bar (--detail-top), slides in and
+                                 out (data-motion="out", 220ms) and cross-fades its body on a switch
+                                 (data-swapped); reduced motion drops both. The item it shows
+                                 carries data-selected; while it is open #ap-chart and #ap-kanban
+                                 carry data-panel-room with --panel-room, and #ap-kanban-frame
+                                 --panel-cover. Esc, #ap-detail-close, a link inside it and a
+                                 second click on the open item close it
  #ap-detail-body          html   the panel's contents: .ap-detail-head then one
                                  .ap-detail-section per part (Task, Phases, Ticket, Log), or for a
                                  card the ticket body (see "ticket body markup")
@@ -101,7 +109,7 @@
                                  the board can scroll that way, which shows an edge fade
  #ap-kanban               el     the board, a horizontal scroller; direct children are six
                                  section.ap-lane, To do → Abandoned (see "kanban markup")
- .ap-kanban-card          el     double-click or Enter opens #ap-detail with the ticket body:
+ .ap-kanban-card          el     one click, Enter or Space opens #ap-detail with the ticket body:
                                  .ap-detail-head, .ap-ticket-meta, then the Timeline section
                                  (.ap-ticket-gantt) and the Description section
  ---------------------------------------------------------------- row markup ---
@@ -685,19 +693,29 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
 .md img { max-width: 100%; }
 
 /* ----------------------------------------------------------------- detail -- */
+/* A non-modal panel over the page's right edge: nothing underneath moves or narrows. It starts under the tab bar
+   (--detail-top, set by the page script as the header scrolls away) and slides in from the right. */
+:root { --detail-w: 480px; --detail-motion: 220ms; }
 .ap-detail {
-  width: min(880px, calc(100vw - var(--sp-5)));
-  max-height: min(86vh, 900px);
+  position: fixed; inset: var(--detail-top, 0px) 0 auto auto;
+  width: min(var(--detail-w), 100vw); height: calc(100vh - var(--detail-top, 0px)); max-height: none;
+  margin: 0;
   padding: 0;
-  border: 1px solid var(--line);
-  border-radius: var(--r-3);
+  border: 0; border-left: 1px solid var(--line-strong); border-top: 1px solid var(--line-strong);
+  border-radius: var(--r-3) 0 0 0;
   background: var(--surface);
   color: var(--ink);
   font: var(--fs-body)/1.5 var(--font-ui);
   overflow: hidden;
+  box-shadow: -10px 0 28px oklch(0 0 0 / 0.08);
+  z-index: 20;
+  transform: translateX(0);
+  opacity: 1;
+  transition: transform var(--detail-motion) cubic-bezier(0.22, 1, 0.36, 1), opacity var(--detail-motion) ease-out;
 }
-.ap-detail::backdrop { background: oklch(0 0 0 / 0.42); }
-:root[data-theme="dark"] .ap-detail::backdrop { background: oklch(0 0 0 / 0.62); }
+/* Set for one frame before opening and while closing; the page script closes the dialog once the slide ends. */
+.ap-detail[data-motion="out"] { transform: translateX(100%); opacity: 0; }
+:root[data-theme="dark"] .ap-detail { box-shadow: -10px 0 28px oklch(0 0 0 / 0.4); }
 .ap-detail-close {
   position: absolute; top: var(--sp-3); right: var(--sp-3); z-index: 1;
   width: 24px; height: 24px;
@@ -707,8 +725,47 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
   cursor: pointer;
 }
 .ap-detail-close:hover { color: var(--ink); border-color: var(--line-strong); }
-/* Inherited from the dialog, which is the box the panel may not outgrow. */
-.ap-detail-scroll { max-height: inherit; overflow: auto; padding: var(--sp-4); }
+.ap-detail-scroll { height: 100%; overflow: auto; padding: var(--sp-4) var(--sp-4) var(--sp-6); }
+.ap-detail-scroll[data-swapped] { animation: ap-detail-swap 140ms ease-out; }
+@keyframes ap-detail-swap { from { opacity: 0; } to { opacity: 1; } }
+.ap-detail .ap-ticket-gantt { --col-name: 90px; --col-pill: 64px; }
+.ap-detail .ap-ticket-body { max-width: none; }
+
+/* One click, Enter or Space on a chart row, a ticket table row or a Kanban card opens the panel; the one it shows
+   carries data-selected. */
+#ap-rows > .ap-row,
+#ap-ticket-rows > tr[data-ticket-id],
+.ap-kanban-card { cursor: pointer; }
+#ap-rows > .ap-row { position: relative; }
+#ap-rows > .ap-row:hover,
+#ap-rows > .ap-row:hover > .ap-cell-name,
+#ap-rows > .ap-row:hover > .ap-cell-pill,
+#ap-rows > .ap-row[data-selected],
+#ap-rows > .ap-row[data-selected] > .ap-cell-name,
+#ap-rows > .ap-row[data-selected] > .ap-cell-pill { background: var(--surface-2); }
+#ap-rows > .ap-row[data-selected] > .ap-cell-name { box-shadow: inset 3px 0 0 var(--link); }
+#ap-rows > .ap-row:focus { outline: none; }
+/* Drawn above the sticky name and state cells, which would cover an outline on the row itself. */
+#ap-rows > .ap-row:focus-visible::after { content: ""; position: absolute; inset: 0; z-index: 2; border: 2px solid var(--link); border-radius: var(--r-1); pointer-events: none; }
+#ap-ticket-rows > tr[data-ticket-id]:hover > td,
+#ap-ticket-rows > tr[data-selected] > td { background: var(--surface-2); }
+#ap-ticket-rows > tr[data-selected] > td:first-child { box-shadow: inset 3px 0 0 var(--link); }
+#ap-ticket-rows > tr:focus { outline: none; }
+#ap-ticket-rows > tr:focus-visible { outline: 2px solid var(--link); outline-offset: -2px; }
+
+/* While the panel is open the board and the chart end at its left edge: the width it covers plus a gutter becomes
+   trailing scroll room, with lane and timeline widths frozen so nothing underneath reflows. The extra 24px keeps an
+   opened card clear of the end fade as well as of the panel. */
+#ap-kanban[data-panel-room] { scroll-padding-inline-end: calc(var(--panel-room) + 24px); }
+#ap-kanban[data-panel-room] > .ap-lane:not([data-collapsed]) { flex: 0 0 var(--frozen-lane-w); }
+#ap-kanban[data-panel-room]::after { content: ""; flex: 0 0 max(0px, calc(var(--panel-room) - 10px)); }
+#ap-chart[data-panel-room] { padding-inline-end: var(--panel-room); }
+#ap-chart[data-panel-room] .ap-grid-row { grid-template-columns: var(--col-name) var(--col-pill) var(--frozen-timeline-w, var(--timeline-w)); }
+@media (prefers-reduced-motion: reduce) {
+  .ap-detail { transition: none; }
+  .ap-detail-scroll[data-swapped] { animation: none; }
+  .ap-kanban-frame::after { transition: none; }
+}
 .ap-detail-head {
   display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3);
   padding-right: var(--sp-6);
@@ -741,7 +798,8 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
 .ap-kanban-frame::before,
 .ap-kanban-frame::after { content: ""; position: absolute; top: 0; bottom: var(--sp-1); z-index: 3; width: 40px; pointer-events: none; opacity: 0; transition: opacity 0.15s; }
 .ap-kanban-frame::before { left: 0; background: linear-gradient(90deg, var(--bg), transparent); }
-.ap-kanban-frame::after { right: 0; background: linear-gradient(270deg, var(--bg), transparent); }
+/* --panel-cover: how much of the board the open detail panel covers, so the end fade sits at the panel's edge. */
+.ap-kanban-frame::after { right: var(--panel-cover, 0px); background: linear-gradient(270deg, var(--bg), transparent); transition: opacity 0.15s, right var(--detail-motion) cubic-bezier(0.22, 1, 0.36, 1); }
 .ap-kanban-frame[data-overflow~="start"]::before,
 .ap-kanban-frame[data-overflow~="end"]::after { opacity: 1; }
 .ap-kanban { display: flex; align-items: stretch; gap: 10px; overflow-x: auto; overscroll-behavior-x: contain; padding-bottom: var(--sp-1); }
@@ -798,6 +856,8 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
 .ap-kanban-card[data-state="in-review"] { background: var(--bg); border-style: dashed; border-color: var(--line-strong); }
 .ap-kanban-card[data-state="paused"]:hover,
 .ap-kanban-card[data-state="in-review"]:hover { border-color: var(--ink-muted); }
+.ap-kanban-card[data-state]:hover { background: var(--surface-2); }
+.ap-kanban-card[data-state][data-selected] { background: var(--surface-2); border-style: solid; border-color: var(--link); }
 .ap-kanban-card[data-state="paused"]::before,
 .ap-kanban-card[data-state="in-review"]::before { background: repeating-linear-gradient(180deg, var(--s-fill) 0 4px, transparent 4px 7px); }
 .ap-kanban-card[data-state="abandoned"] .ap-kanban-title { text-decoration: line-through; color: var(--ink-muted); }

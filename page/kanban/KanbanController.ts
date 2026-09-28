@@ -3,21 +3,26 @@
  * and the summary's jumps to a lane.
  */
 
-import type { KanbanCard }                                              from '../@types/KanbanCard.ts';
-import type { ViewerPreferences }                                       from '../@types/ViewerChoices.ts';
-import { KANBAN_BOARD_ELEMENT_ID, KANBAN_TAB_NAME, SUMMARY_ELEMENT_ID } from '../constants/TemplateIds.ts';
-import { DomUtil }                                                      from '../utils/DomUtil.ts';
-import { TemplateIdUtil }                                               from '../utils/TemplateIdUtil.ts';
-import type { DurationUnits, TimestampSlices }                          from '../utils/TimeUtil.ts';
-import type { KanbanLane }                                              from './@types/KanbanLane.ts';
-import { kanbanBoardMarkup }                                            from './KanbanMarkup.ts';
-import type { ClosedKanbanLane }                                        from './constants/KanbanBoardLayout.ts';
-import { CAPPED_LANE_FIRST_PAGE_CARDS }                                 from './constants/KanbanBoardLayout.ts';
-import { CLOSED_KANBAN_LANES, KANBAN_LANES }                            from './constants/KanbanBoardLayout.ts';
-import { KanbanLaneUtil }                                               from './utils/KanbanLaneUtil.ts';
-import { LanePagingUtil }                                               from './utils/LanePagingUtil.ts';
-
-const KANBAN_FRAME_ELEMENT_ID = 'ap-kanban-frame';
+import type { KanbanCard }        from '../@types/KanbanCard.ts';
+import type { ViewerPreferences } from '../@types/ViewerChoices.ts';
+import {
+  KANBAN_BOARD_ELEMENT_ID,
+  KANBAN_FRAME_ELEMENT_ID,
+  KANBAN_TAB_NAME,
+  PANEL_COVER_PROPERTY,
+  PANEL_ROOM_PROPERTY,
+  SUMMARY_ELEMENT_ID,
+} from '../constants/TemplateIds.ts';
+import { DomUtil }                             from '../utils/DomUtil.ts';
+import { TemplateIdUtil }                      from '../utils/TemplateIdUtil.ts';
+import type { DurationUnits, TimestampSlices } from '../utils/TimeUtil.ts';
+import type { KanbanLane }                     from './@types/KanbanLane.ts';
+import { kanbanBoardMarkup }                   from './KanbanMarkup.ts';
+import type { ClosedKanbanLane }               from './constants/KanbanBoardLayout.ts';
+import { CAPPED_LANE_FIRST_PAGE_CARDS }        from './constants/KanbanBoardLayout.ts';
+import { CLOSED_KANBAN_LANES, KANBAN_LANES }   from './constants/KanbanBoardLayout.ts';
+import { KanbanLaneUtil }                      from './utils/KanbanLaneUtil.ts';
+import { LanePagingUtil }                      from './utils/LanePagingUtil.ts';
 
 const LANE_HIGHLIGHT_MILLISECONDS = 1200;
 
@@ -41,7 +46,10 @@ function updateOverflow(): void {
   if (board === null || frame === null) {
     return;
   }
-  const directions = KanbanLaneUtil.overflowDirectionsOf(board.scrollLeft, board.scrollWidth, board.clientWidth);
+  // While the detail panel is open the board ends at the panel's edge: its added room is not content, and what the panel covers is not in view.
+  const panelRoom   = Number.parseFloat(board.style.getPropertyValue(PANEL_ROOM_PROPERTY)) || 0;
+  const panelCover  = Number.parseFloat(frame.style.getPropertyValue(PANEL_COVER_PROPERTY)) || 0;
+  const directions  = KanbanLaneUtil.overflowDirectionsOf(board.scrollLeft, board.scrollWidth - panelRoom + panelCover, board.clientWidth);
   if (directions === null) {
     frame.removeAttribute('data-overflow');
   } else {
