@@ -4,9 +4,15 @@ const CLAIM_NOTE_TEXT_BEFORE_TICKET_ID  = ' dispatcher run on ticket-';
 const WHOLE_BOARD_RUN_LABEL             = 'whole-board';
 const TICKET_RUN_LABEL_PREFIX           = 'ticket-';
 const TICKET_RUN_LABEL_TICKET_SEPARATOR = '+';
+const GROUP_RUN_LABEL_PREFIX            = 'group-';
 
 function runLabelFor(ticketIds: readonly string[] | null): string {
   return ticketIds === null ? WHOLE_BOARD_RUN_LABEL : `${TICKET_RUN_LABEL_PREFIX}${ticketIds.join(TICKET_RUN_LABEL_TICKET_SEPARATOR)}`;
+}
+
+/** The same for every run of one group, so a relaunch recognises the claims an earlier run of the group left. */
+function groupRunLabelFor(groupName: string): string {
+  return `${GROUP_RUN_LABEL_PREFIX}${groupName}`;
 }
 
 function claimNoteBoundsFor(ticketId: string): { opening: string; ending: string } {
@@ -26,6 +32,7 @@ function noteIsADispatcherClaimOn(note: string, ticketId: string): boolean {
 
 export const DispatcherClaimNoteUtil = {
   runLabelFor,
+  groupRunLabelFor,
   claimNoteFor,
   claimNoteBoundsFor,
   noteIsADispatcherClaimOn,

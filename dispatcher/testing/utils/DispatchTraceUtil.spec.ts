@@ -50,6 +50,9 @@ function recordedRunWith(changes: Partial<RecordedDispatchRun>): RecordedDispatc
     runRanAway:               false,
     runWasResumed:            false,
     phasesEntered:            [{ run: 'main', title: 'Build' }],
+    agentEvents:              [],
+    mainLineMoves:            [],
+    groupBranchMoves:         [],
     threw:                    null,
     ...changes,
   };

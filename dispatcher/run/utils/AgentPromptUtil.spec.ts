@@ -29,6 +29,7 @@ const WHOLE_BOARD_SETTINGS: DispatchSettings = {
   ticketIds:             null,
   readyTickets:          [],
   runLabel:              'whole-board',
+  groupName:             null,
 };
 
 const SINGLE_TICKET_SETTINGS: DispatchSettings = { ...WHOLE_BOARD_SETTINGS, ticketIds: ['001'], runLabel: 'ticket-001' };

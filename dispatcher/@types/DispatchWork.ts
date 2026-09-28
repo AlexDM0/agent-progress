@@ -34,11 +34,19 @@ export type AgentWork = BuildWork | ReviewWork;
 
 export type DispatchWork = AgentWork | ParkWork;
 
-export type AgentSubject = DispatchWork | { kind: 'survey' } | { kind: 'ticket-settings' };
+export type AgentSubject = DispatchWork | { kind: 'survey' } | { kind: 'ticket-settings' } | { kind: 'group-survey' };
+
+/** Where a group run's ticket sits in the group's pipeline, which its agent's prompt states. */
+export interface GroupPlacement {
+  groupName:        string;
+  orderedTicketIds: readonly string[];
+  releaseTicketId:  string;
+  predecessorId:    string | null;
+}
 
 export type AgentLaunch =
   | { key: number; work: ParkWork }
-  | { key: number; work: AgentWork; agentModelAndEffort: AgentModelAndEffort; pausedBuildWasFoundBySurvey: boolean };
+  | { key: number; work: AgentWork; agentModelAndEffort: AgentModelAndEffort; pausedBuildWasFoundBySurvey: boolean; groupPlacement?: GroupPlacement };
 
 export interface FinishedAgent {
   key:     number;

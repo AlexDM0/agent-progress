@@ -63,6 +63,12 @@ export interface RecordedDispatchRun {
   /** Whether `killedAtFirstCommandOf` was reached, so that `summary` is the resumed run's. */
   runWasResumed:            boolean;
   phasesEntered:            { run: DispatchRunName; title: unknown }[];
+  /** Every builder's and reviewer's start and return in order, as `<run> start build <ticket>` and `<run> end review <ticket> <verdict>`. */
+  agentEvents:              string[];
+  /** Every move of the main line: a reviewer that released, or whose prompt names `agent-progress release`, as `review <ticket>`. */
+  mainLineMoves:            string[];
+  /** Every fast-forward of the group branch, a group reviewer's `integrated`, as the ticket id. */
+  groupBranchMoves:         string[];
   /** What the main run threw, `null` when it returned: `TypeError` for a type error, otherwise the error's message. */
   threw:                    string | null;
 }

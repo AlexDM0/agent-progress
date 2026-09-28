@@ -71,10 +71,44 @@ const SURVEY: JsonSchema = {
   required: ['status', 'reviewWaitingTickets', 'pausedBuilds', 'dirtyMainCheckoutFiles'],
 };
 
+const LOOKED_UP_TICKET_SCHEMA: JsonSchema = {
+  type:       'object',
+  properties: {
+    id:     { type: 'string' },
+    model:  { type: 'string' },
+    effort: { type: 'string' },
+    group:  { type: 'string' },
+  },
+  required: ['id'],
+};
+
 const TICKET_SETTINGS_LOOKUP: JsonSchema = {
   type:       'object',
-  properties: { tickets: { type: 'array', items: TICKET_AGENT_SETTINGS_SCHEMA } },
+  properties: { tickets: { type: 'array', items: LOOKED_UP_TICKET_SCHEMA } },
   required:   ['tickets'],
+};
+
+const GROUP_TICKET_SCHEMA: JsonSchema = {
+  type:       'object',
+  properties: {
+    id:                             { type: 'string' },
+    status:                         { type: 'string' },
+    dependsOn:                      { type: 'array', items: { type: 'string' } },
+    releasesGroup:                  { type: 'boolean' },
+    model:                          { type: 'string' },
+    effort:                         { type: 'string' },
+    rowNote:                        { type: 'string' },
+    worktreeExists:                 { type: 'boolean' },
+    openReviewBar:                  { type: 'boolean' },
+    integratedLineAfterLastHandoff: { type: 'boolean' },
+  },
+  required: ['id', 'status', 'dependsOn', 'releasesGroup', 'rowNote', 'worktreeExists', 'openReviewBar', 'integratedLineAfterLastHandoff'],
+};
+
+const GROUP_SURVEY: JsonSchema = {
+  type:       'object',
+  properties: { status: STATUS_BLOCK_SCHEMA, tickets: { type: 'array', items: GROUP_TICKET_SCHEMA } },
+  required:   ['status', 'tickets'],
 };
 
 const BUILDER: JsonSchema = {
@@ -103,6 +137,21 @@ const REVIEWER: JsonSchema = {
   required: ['round', 'verdict', 'releaseReason', 'blockingFiles', 'reworkedLines', 'findings', 'filedTicketIds', 'status'],
 };
 
+const GROUP_REVIEWER: JsonSchema = {
+  type:       'object',
+  properties: {
+    round:            { type: 'integer', minimum: 1 },
+    verdict:          { type: 'string', enum: ['integrated', 'round-requested', 'does-not-hold', 'not-released'] satisfies readonly ReviewerVerdict[] },
+    releaseReason:    { type: 'string' },
+    integratedCommit: { type: 'string' },
+    reworkedLines:    { type: 'integer', minimum: 0 },
+    findings:         { type: 'array', items: FINDING_SCHEMA },
+    filedTicketIds:   { type: 'array', items: { type: 'string' } },
+    status:           STATUS_BLOCK_SCHEMA,
+  },
+  required: ['round', 'verdict', 'releaseReason', 'integratedCommit', 'reworkedLines', 'findings', 'filedTicketIds', 'status'],
+};
+
 const PARKING: JsonSchema = {
   type:       'object',
   properties: { status: STATUS_BLOCK_SCHEMA },
@@ -112,7 +161,9 @@ const PARKING: JsonSchema = {
 export const AGENT_REPLY_SCHEMAS = {
   SURVEY,
   TICKET_SETTINGS_LOOKUP,
+  GROUP_SURVEY,
   BUILDER,
   REVIEWER,
+  GROUP_REVIEWER,
   PARKING,
 } as const;

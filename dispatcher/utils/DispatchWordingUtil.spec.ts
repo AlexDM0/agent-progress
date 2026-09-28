@@ -18,7 +18,7 @@ const {
   summaryOf,
 } = DispatchWordingUtil;
 
-const ARGUMENTS_SUMMARY = '{ mainCheckout, mainLine, checkCommand, installCommand?, includeLowPriority?, ticketIds?, readyTickets? }';
+const ARGUMENTS_SUMMARY = '{ mainCheckout, mainLine, checkCommand, installCommand?, includeLowPriority?, ticketIds?, readyTickets?, group? }';
 
 const QUIET_OUTCOME: DispatchOutcome = {
   delivered:               [],
@@ -43,6 +43,11 @@ describe('the settings refusal', () => {
   test('invalid ticket ids say what a valid list is', () => {
     expect(settingsRefusalText({ reason: 'invalid-ticket-ids' }))
       .toBe(`The dispatcher's args.ticketIds is a non-empty list of ticket ids when given: args are ${ARGUMENTS_SUMMARY}.`);
+  });
+
+  test('an invalid group says what a group run takes', () => {
+    expect(settingsRefusalText({ reason: 'invalid-group' })).toBe('The dispatcher\'s args.group is one group name, letters, digits, dots, dashes and underscores, '
+      + `given without args.ticketIds: args are ${ARGUMENTS_SUMMARY}.`);
   });
 });
 
@@ -210,5 +215,41 @@ describe('the summary', () => {
     ]);
     expect(summary.parked).toEqual([{ id: '002', reason: 'the release was refused: merge-refused' }]);
     expect(summary.held).toEqual([{ id: '004', waitingFor: 'build' }]);
+  });
+
+  // A group run's keys follow every whole-board key, so a whole-board summary's order is untouched.
+  test('a group run adds its group and integrated tickets last, and each other group key only when it says something', () => {
+    const groupOutcome = {
+      groupName:            'example-group',
+      integrated:           ['101'],
+      waitingOnPredecessor: [],
+      releaseReviewNext:    null,
+      bundleIsUnread:       false,
+    };
+    expect(summaryOf({ ...QUIET_OUTCOME, groupOutcome })).toEqual({ ...summaryOf(QUIET_OUTCOME), group: 'example-group', integrated: ['101'] });
+    const fullSummary = summaryOf({
+      ...QUIET_OUTCOME,
+      groupOutcome: {
+        ...groupOutcome,
+        waitingOnPredecessor: ['103'],
+        releaseReviewNext:    '104',
+        bundleIsUnread:       true,
+      },
+    });
+    expect(Object.keys(fullSummary).slice(-5)).toEqual(['group', 'integrated', 'waitingOnPredecessor', 'releaseReviewNext', 'bundleUnread']);
+  });
+});
+
+describe('the group run\'s log sentences', () => {
+  test('name the refused grouped ticket, the unread bundle, each integration and the release review left', () => {
+    expect(logEntryText({ kind: 'group-ticket-refused', ticketId: '101', groupName: 'example-group' }))
+      .toBe('#101 belongs to the group example-group, whose bundle only a group run builds: relaunch with args.group.');
+    expect(logEntryText({ kind: 'group-bundle-unread', groupName: 'example-group' })).toContain('`agent-progress ticket release-of`');
+    expect(logEntryText({ kind: 'ticket-integrated', ticketId: '101', groupName: 'example-group' })).toBe('#101 integrated into group-example-group.');
+    expect(logEntryText({ kind: 'release-review-left', ticketId: '103' })).toContain('its release review is left for the group\'s release');
+  });
+
+  test('a claim refused on a group ticket parks it with the refusal', () => {
+    expect(DispatchWordingUtil.parkReasonText({ cause: 'claim-refused', detail: '#101 is in-progress' })).toBe('the claim was refused (#101 is in-progress)');
   });
 });

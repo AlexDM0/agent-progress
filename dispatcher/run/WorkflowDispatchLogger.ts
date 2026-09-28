@@ -24,6 +24,10 @@ export function createWorkflowDispatchLogger(log: (message: string) => void): Di
     ticketsLeftWaiting:              (ticketIds, runIsStopped) => { write({ kind: 'tickets-left-waiting', ticketIds, runIsStopped }); },
     lowPriorityLeftForTriage:        (ticketIds) => { write({ kind: 'low-priority-left-for-triage', ticketIds }); },
     heldAtEnd:                       (entries) => { write({ kind: 'held-at-end', entries }); },
+    groupTicketRefused:              (ticketId, groupName) => { write({ kind: 'group-ticket-refused', ticketId, groupName }); },
+    groupBundleUnread:               (groupName) => { write({ kind: 'group-bundle-unread', groupName }); },
+    ticketIntegrated:                (ticketId, groupName) => { write({ kind: 'ticket-integrated', ticketId, groupName }); },
+    releaseReviewLeft:               (ticketId) => { write({ kind: 'release-review-left', ticketId }); },
     roundGranted:                    (ticketId, nextRound, reworkedLines) => {
       write({
         kind: 'round-granted',

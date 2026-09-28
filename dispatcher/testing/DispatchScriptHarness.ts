@@ -22,6 +22,8 @@ const {
   REVIEWER_TAKES_OVER_A_RUNNING_BAR,
   REVIEWER_LEAVES_ITS_BAR_FOR_THE_NEXT_ROUND,
   REVIEWER_SKIPS_A_REREVIEW_ALREADY_RUN,
+  SURVEY_LISTS_THE_GROUP_TICKETS,
+  RELEASE_COMMAND,
 } = AGENT_PROMPT_SENTENCES;
 
 interface RunningRow {
@@ -42,6 +44,7 @@ interface JournalEntry {
 const MOST_AGENT_CALLS_PER_RUN           = 200;
 const DEFAULT_TURNS_BEFORE_FIRST_COMMAND = 1;
 const TURNS_FROM_FIRST_COMMAND_TO_RETURN = 1;
+const SLOW_AGENT_EXTRA_TURNS             = 4;
 const ARGUMENTS_FOR_SCRIPT               = {
   mainCheckout: '/scratch/example-repository',
   mainLine:     'main',
@@ -186,6 +189,11 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   const buildersOnBoard: string[] = [];
   const slotGaps: string[] = [];
   const deliveredTicketIds = new Set<string>();
+  const agentEvents: string[] = [];
+  const mainLineMoves: string[] = [];
+  const groupBranchMoves: string[] = [];
+  const groupTicketIds = scenario.group?.ticketIds ?? [];
+  const groupTicketStatuses = new Map<string, string>(groupTicketIds.map((groupTicketId) => [groupTicketId, 'pending']));
   const journal: JournalEntry[] = [];
   let generation = 1;
   let announceKill: () => void = () => {};
@@ -306,6 +314,11 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       };
     }
     if (runningRowOf(`review:${ticketId}`) !== undefined) return { ...reply, outcome: 'claim-refused', detail: `#${ticketId} is under review` };
+    // As `ticket claim` answers a bundle ticket: its predecessor must be reviewed, or in review with `--after` naming it.
+    const predecessorId = groupTicketIds[groupTicketIds.indexOf(ticketId) - 1];
+    const predecessorStatus = predecessorId === undefined ? 'reviewed' : groupTicketStatuses.get(predecessorId);
+    const predecessorIsPipelined = predecessorStatus === 'in-review' && prompt.includes(`--after ${predecessorId ?? ''}`);
+    if (predecessorStatus !== 'reviewed' && !predecessorIsPipelined) return { ...reply, outcome: 'claim-refused', detail: `#${ticketId} waits on #${predecessorId ?? ''}` };
     if (deliveredTicketIds.has(ticketId)) return { ...reply, outcome: 'claim-refused', detail: `#${ticketId} is delivered` };
     if (board.heldTicketIds.includes(ticketId)) return { ...reply, outcome: 'claim-refused', detail: `#${ticketId} is held` };
     if (agentsOnBoard() >= board.limit) return { ...reply, outcome: 'claim-refused', detail: `no slot free: ${agentsOnBoard()} of ${board.limit} agents in flight` };
@@ -370,7 +383,23 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     return statusBlock();
   };
 
+  // As the group survey copies the status document's `tickets` and `ticketRows`, and finds a worktree for each ticket a builder claimed.
+  const groupTicketsOnBoard = (): Record<string, unknown>[] => groupTicketIds.map((groupTicketId, position) => {
+    const status = groupTicketStatuses.get(groupTicketId) ?? 'pending';
+    return {
+      id:                             groupTicketId,
+      status,
+      dependsOn:                      position === 0 ? [] : [groupTicketIds[position - 1]],
+      releasesGroup:                  position === groupTicketIds.length - 1,
+      rowNote:                        runningRowOf(`build:${groupTicketId}`)?.note ?? pausedRows.get(`build:${groupTicketId}`)?.note ?? '',
+      worktreeExists:                 status === 'in-progress' || status === 'in-review',
+      openReviewBar:                  runningRowOf(`review:${groupTicketId}`) !== undefined,
+      integratedLineAfterLastHandoff: false,
+    };
+  });
+
   const replyFor = (call: RecordedAgentCall): Record<string, unknown> | null => {
+    if (call.kind === 'survey' && call.prompt.includes(SURVEY_LISTS_THE_GROUP_TICKETS)) return { status: statusBlock(), tickets: groupTicketsOnBoard() };
     if (call.kind === 'survey') {
       return {
         status:                 statusBlock(),
@@ -381,7 +410,13 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     }
     // As `ticket show --json` states a ticket: its model and effort only where it names them.
     if (call.kind === 'settings') {
-      return { tickets: (call.ticketId ?? '').split(',').map((lookedUpTicketId) => ({ id: lookedUpTicketId, ...statedAgentSettingsOf(lookedUpTicketId) })) };
+      return {
+        tickets: (call.ticketId ?? '').split(',').map((lookedUpTicketId) => ({
+          id: lookedUpTicketId,
+          ...statedAgentSettingsOf(lookedUpTicketId),
+          ...(groupTicketIds.includes(lookedUpTicketId) ? { group: scenario.group?.name } : {}),
+        })),
+      };
     }
     if (call.kind === 'park') return { status: statusBlock() };
     const ticketId = call.ticketId ?? '';
@@ -395,7 +430,8 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
         status:    statusBlock(),
       };
     }
-    const reply = scenario.reviewerReply === undefined ? { verdict: 'released' as const } : scenario.reviewerReply(ticketId, ordinal);
+    const defaultVerdict = groupTicketIds.includes(ticketId) ? 'integrated' as const : 'released' as const;
+    const reply = scenario.reviewerReply === undefined ? { verdict: defaultVerdict } : scenario.reviewerReply(ticketId, ordinal);
     return reply === null ? null : { ...reviewerDocumentOf(reply, ordinal), status: statusBlock() };
   };
 
@@ -460,6 +496,8 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       return documentReturned(reply === null ? null : { ...reply, status: returnedStatusBlock(run) });
     }
     const callIndex = calls.length - 1;
+    const isWorker = (kind === 'build' || kind === 'review') && ticketId !== null;
+    if (isWorker) agentEvents.push(`${run} start ${kind} ${ticketId}`);
     rowKeysOfOwnAgentsRunning.set(callIndex, passKey);
     mostAgentsAtOnce = Math.max(mostAgentsAtOnce, rowKeysOfOwnAgentsRunning.size);
     mostAgentsInFlightAtOnce = Math.max(mostAgentsInFlightAtOnce, board.otherAgentsInFlight + rowKeysOfOwnAgentsRunning.size + rowsLeftRunningWithoutTakeover());
@@ -494,6 +532,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
         if (kind === 'build') {
           board.readyTicketIds = board.readyTicketIds.filter((readyTicketId) => readyTicketId !== ticketId);
           buildersOnBoard.push(`${run} build ${ticketId}`);
+          if (groupTicketStatuses.has(ticketId)) groupTicketStatuses.set(ticketId, 'in-progress');
         }
         ownAgentsOnBoard.set(callIndex, ownRow);
         noteTheBoard();
@@ -502,7 +541,8 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
           return NEVER_SETTLES;
         }
       }
-      await turnsPass(TURNS_FROM_FIRST_COMMAND_TO_RETURN);
+      const agentIsSlow = (scenario.slowAgentNames ?? []).includes(rowNameOf(passKey));
+      await turnsPass(TURNS_FROM_FIRST_COMMAND_TO_RETURN + (agentIsSlow ? SLOW_AGENT_EXTRA_TURNS : 0));
       if (generation !== callGeneration) return NEVER_SETTLES;
       ownAgentsOnBoard.delete(callIndex);
       if (kind === 'review' && reply !== null) reviewsWrittenByTicket.set(ticketId, ticketRoundOf(ticketId));
@@ -515,7 +555,14 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
         rowsLeftRunning.delete(passKey);
         deliveredTicketIds.add(ticketId);
       }
+      if (kind === 'review' && (reply?.['verdict'] === 'released' || prompt.includes(RELEASE_COMMAND))) mainLineMoves.push(`review ${ticketId}`);
+      if (kind === 'build' && reply?.['outcome'] === 'in-review' && groupTicketStatuses.has(ticketId)) groupTicketStatuses.set(ticketId, 'in-review');
+      if (kind === 'review' && reply?.['verdict'] === 'integrated') {
+        groupBranchMoves.push(ticketId);
+        groupTicketStatuses.set(ticketId, 'reviewed');
+      }
       noteTheBoard();
+      if (isWorker) agentEvents.push(`${run} end ${kind} ${ticketId} ${String(reply?.['outcome'] ?? reply?.['verdict'] ?? 'nothing')}`);
     }
     rowKeysOfOwnAgentsRunning.delete(callIndex);
     liveOwnAgents--;
@@ -551,7 +598,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   // As the orchestrator launches a single-ticket run: the ids, and their `readyTickets` entries copied from the status document of that moment.
   const argumentsFor = (ticketIds: string[] | undefined): Record<string, unknown> => {
     const withPriority = scenario.includeLowPriority === undefined ? ARGUMENTS_FOR_SCRIPT : { ...ARGUMENTS_FOR_SCRIPT, includeLowPriority: scenario.includeLowPriority };
-    if (ticketIds === undefined) return withPriority;
+    if (ticketIds === undefined) return scenario.group === undefined ? withPriority : { ...withPriority, group: scenario.group.name };
     return { ...withPriority, ticketIds, readyTickets: readyTicketsOnBoard().filter((entry) => ticketIds.includes(String(entry['id']))) };
   };
 
@@ -618,6 +665,9 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     runRanAway,
     runWasResumed,
     phasesEntered,
+    agentEvents,
+    mainLineMoves,
+    groupBranchMoves,
     threw,
   };
 }

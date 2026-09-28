@@ -13,6 +13,7 @@ const {
   settingsVerdictOf,
   statusReadingOf,
   surveyReadingOf,
+  groupSurveyReadingOf,
   ticketSettingsLookupOf,
   finishedReadingOf,
 } = WorkflowInputUtil;
@@ -69,8 +70,18 @@ describe('the Workflow arguments', () => {
         ticketIds:             null,
         readyTickets:          [],
         runLabel:              'whole-board',
+        groupName:             null,
       },
     });
+  });
+
+  // The name becomes a branch and a worktree path, and a group run names no tickets: its bundle is the board's.
+  test('a group is one branch-safe name given without ticket ids, and names the run for the group', () => {
+    expect(settingsVerdictOf({ ...REQUIRED_ARGUMENTS, group: 'example-group' })).toMatchObject({ settings: { groupName: 'example-group', runLabel: 'group-example-group' } });
+    for (const group of ['', 'two words', '-leading', 7, null]) {
+      expect(settingsVerdictOf({ ...REQUIRED_ARGUMENTS, group })).toEqual({ verdict: 'invalid', reason: 'invalid-group' });
+    }
+    expect(settingsVerdictOf({ ...REQUIRED_ARGUMENTS, group: 'example-group', ticketIds: ['001'] })).toEqual({ verdict: 'invalid', reason: 'invalid-group' });
   });
 
   // The refusal sentence names one argument, so the first missing one in the stated order is the one it names.
@@ -171,6 +182,7 @@ describe('a status block', () => {
         priority:            'high',
         agentModelAndEffort: { model: 'sonnet', effort: 'high' },
         ticketIsHeld:        false,
+        groupName:           null,
       }],
       dispatcherIsStopped:   false,
       inProgressTicketIds:   ['002'],
@@ -286,14 +298,44 @@ describe('the survey', () => {
   });
 });
 
+describe('the group survey', () => {
+  test('a group survey that returned nothing reads as nothing, and tickets that are not a list as unlisted', () => {
+    expect(groupSurveyReadingOf(null)).toBeNull();
+    expect(groupSurveyReadingOf({ status: STATUS_BLOCK, tickets: 'none' })).toMatchObject({ tickets: 'unlisted' });
+  });
+
+  // A field the survey left out reads as its safe side: no release mark, no claim of this run's, no worktree, no bar, not integrated.
+  test('ticket entries without a string id are dropped, and every missing field reads as its safe side', () => {
+    expect(groupSurveyReadingOf({ status: STATUS_BLOCK, tickets: [null, { id: 5 }, { id: '001', dependsOn: ['000', 3] }] })?.tickets).toEqual([{
+      id:                             '001',
+      status:                         '',
+      dependsOn:                      ['000'],
+      releasesGroup:                  false,
+      agentModelAndEffort:            DEFAULT_AGENT_MODEL_AND_EFFORT,
+      rowNote:                        '',
+      worktreeExists:                 false,
+      openReviewBar:                  false,
+      integratedLineAfterLastHandoff: false,
+    }]);
+  });
+});
+
 describe('the ticket settings lookup', () => {
-  test('a lookup with a list of tickets maps them like ready ticket entries', () => {
-    expect(ticketSettingsLookupOf({ tickets: [{ id: '001', model: 'sonnet' }] })).toEqual([
+  test('a lookup with a list of tickets maps them like ready ticket entries, their group included', () => {
+    expect(ticketSettingsLookupOf({ tickets: [{ id: '001', model: 'sonnet' }, { id: '002', group: 'example-group' }] })).toEqual([
       {
         id:                  '001',
         priority:            'low',
         agentModelAndEffort: { model: 'sonnet', effort: DEFAULT_AGENT_EFFORT },
         ticketIsHeld:        false,
+        groupName:           null,
+      },
+      {
+        id:                  '002',
+        priority:            'low',
+        agentModelAndEffort: DEFAULT_AGENT_MODEL_AND_EFFORT,
+        ticketIsHeld:        false,
+        groupName:           'example-group',
       },
     ]);
   });

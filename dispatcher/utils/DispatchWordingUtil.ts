@@ -14,6 +14,10 @@ import { DISPATCH_ARGUMENTS }            from '../constants/DispatchArguments.ts
 
 function settingsRefusalText(refusal: DispatchSettingsRefusal): string {
   if (refusal.reason === 'missing-argument') return `The dispatcher needs args.${refusal.argumentName}: args are ${DISPATCH_ARGUMENTS.SUMMARY_TEXT}.`;
+  if (refusal.reason === 'invalid-group') {
+    return 'The dispatcher\'s args.group is one group name, letters, digits, dots, dashes and underscores, given without args.ticketIds: '
+      + `args are ${DISPATCH_ARGUMENTS.SUMMARY_TEXT}.`;
+  }
   return `The dispatcher's args.ticketIds is a non-empty list of ticket ids when given: args are ${DISPATCH_ARGUMENTS.SUMMARY_TEXT}.`;
 }
 
@@ -23,6 +27,8 @@ function agentLabelOf(subject: AgentSubject): string {
       return 'survey';
     case 'ticket-settings':
       return 'ticket settings';
+    case 'group-survey':
+      return 'group survey';
     case 'build':
       return `build #${subject.ticketId}`;
     case 'review':
@@ -86,6 +92,8 @@ function parkReasonText(reason: ParkReason): string {
       return `the main line moved under ${reason.releases} releases`;
     case 'round-refused':
       return roundRefusalText(reason.refusal);
+    case 'claim-refused':
+      return `the claim was refused${parentheticalOf(reason.detail)}`;
   }
 }
 
@@ -150,6 +158,15 @@ function logEntryText(entry: DispatchLogEntry): string {
       return `Done: ${entry.deliveredCount} delivered, ${entry.parkedTicketIds.length} parked${parkedText}, `
         + `${entry.findingsFiledCount} findings filed, ${entry.agentsRun} agents run.`;
     }
+    case 'group-ticket-refused':
+      return `#${entry.ticketId} belongs to the group ${entry.groupName}, whose bundle only a group run builds: relaunch with args.group.`;
+    case 'group-bundle-unread':
+      return `No release bundle of the group ${entry.groupName} could be read from the board, so nothing was dispatched: `
+        + 'mark its release ticket with `agent-progress ticket release-of`, then relaunch.';
+    case 'ticket-integrated':
+      return `#${entry.ticketId} integrated into group-${entry.groupName}.`;
+    case 'release-review-left':
+      return `#${entry.ticketId}, the group's release ticket, is built and every ticket before it integrated: its release review is left for the group's release.`;
   }
 }
 
@@ -168,6 +185,13 @@ function summaryOf(outcome: DispatchOutcome): DispatchSummary {
   if (outcome.pausedBuilds.length > 0) summary.pausedBuilds = outcome.pausedBuilds;
   if (outcome.reviewsLeft.length > 0) summary.reviewsLeft = outcome.reviewsLeft;
   if (outcome.dirtyMainCheckoutFiles.length > 0) summary.dirtyMainCheckoutFiles = outcome.dirtyMainCheckoutFiles;
+  const { groupOutcome } = outcome;
+  if (groupOutcome === undefined) return summary;
+  summary.group = groupOutcome.groupName;
+  summary.integrated = groupOutcome.integrated;
+  if (groupOutcome.waitingOnPredecessor.length > 0) summary.waitingOnPredecessor = groupOutcome.waitingOnPredecessor;
+  if (groupOutcome.releaseReviewNext !== null) summary.releaseReviewNext = groupOutcome.releaseReviewNext;
+  if (groupOutcome.bundleIsUnread) summary.bundleUnread = true;
   return summary;
 }
 

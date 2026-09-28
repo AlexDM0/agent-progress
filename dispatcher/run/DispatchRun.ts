@@ -134,8 +134,17 @@ export class DispatchRun {
   }
 
   adoptLookedUpTicketSettings(lookup: ReadyTicketEntry[] | 'unread', ticketIds: readonly string[]): void {
-    if (lookup !== 'unread') this.lookedUpTicketSettings = lookup;
-    else this.collaborators.logger.ticketSettingsUnread(ticketIds);
+    if (lookup === 'unread') {
+      this.collaborators.logger.ticketSettingsUnread(ticketIds);
+      return;
+    }
+    this.lookedUpTicketSettings = lookup;
+    // The board lists every ready ticket but a bundle's awaiting its group's release, so a grouped ticket missing from the list is the group run's.
+    for (const entry of lookup) {
+      if (entry.groupName === null || !ticketIds.includes(entry.id)) continue;
+      this.ticketIdsTakenThisRun.add(entry.id);
+      this.collaborators.logger.groupTicketRefused(entry.id, entry.groupName);
+    }
   }
 
   adoptSurvey(survey: SurveyReading | null): 'ready-to-dispatch' | 'nothing-dispatched' {

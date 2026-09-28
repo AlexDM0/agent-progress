@@ -101,4 +101,16 @@ export interface DispatchScenario {
   /** Spread last over the main run's arguments only; a value of `undefined` leaves that argument missing. */
   argumentOverrides?:             Record<string, unknown>;
   agentMisbehaviour?:             (call: RecordedAgentCall) => AgentMisbehaviour | undefined;
+  /**
+   * A group run of the script: `args.group` names it, and the board's group holds these tickets, each depending on the one before, the last its
+   * release ticket. A reviewer answers `integrated` by default, which moves the group branch and the ticket to `reviewed`.
+   */
+  group?:                         GroupScenario;
+  /** These agents (`build 102`, `review 101`) run `SLOW_AGENT_EXTRA_TURNS` turns longer from their first command to their return. */
+  slowAgentNames?:                string[];
+}
+
+export interface GroupScenario {
+  name:      string;
+  ticketIds: string[];
 }

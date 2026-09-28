@@ -42,7 +42,26 @@ export interface ReviewFinding {
 
 export type BuilderOutcome = 'in-review' | 'claim-refused' | 'failed';
 
-export type ReviewerVerdict = 'released' | 'round-requested' | 'does-not-hold' | 'not-released';
+/** A group reviewer answers `integrated` where a whole-board one answers `released`, and never the latter. */
+export type ReviewerVerdict = 'released' | 'integrated' | 'round-requested' | 'does-not-hold' | 'not-released';
+
+/** One ticket of the group as the group survey copied it from the board. */
+export interface GroupTicketReading {
+  id:                             string;
+  status:                         string;
+  dependsOn:                      string[];
+  releasesGroup:                  boolean;
+  agentModelAndEffort:            AgentModelAndEffort;
+  rowNote:                        string;
+  worktreeExists:                 boolean;
+  openReviewBar:                  boolean;
+  integratedLineAfterLastHandoff: boolean;
+}
+
+export interface GroupSurveyReading {
+  status:  StatusReading | 'unreadable';
+  tickets: GroupTicketReading[] | 'unlisted';
+}
 
 /** Only `main-moved` is decided on; any other reason is the reviewer's text, echoed into the park reason with the files that blocked the merge. */
 export type ReleaseRefusal = 'main-moved' | { statedReason: string; blockingFiles: string[] };

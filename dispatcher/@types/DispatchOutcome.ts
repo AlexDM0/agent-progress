@@ -30,7 +30,8 @@ export type ParkReason =
   | { cause: 'second-failed-pass'; failure: PassFailure }
   | { cause: 'release-refused'; statedReason: string; blockingFiles: readonly string[] }
   | { cause: 'main-line-moved'; releases: number }
-  | { cause: 'round-refused'; refusal: RoundRefusal };
+  | { cause: 'round-refused'; refusal: RoundRefusal }
+  | { cause: 'claim-refused'; detail: string };
 
 export interface ParkedTicket {
   ticketId: string;
@@ -57,6 +58,16 @@ export interface DispatchOutcome {
   pausedBuilds:            string[];
   reviewsLeft:             string[];
   dirtyMainCheckoutFiles:  string[];
+  groupOutcome?:           GroupOutcome;
+}
+
+/** What only a group run ends with. */
+export interface GroupOutcome {
+  groupName:            string;
+  integrated:           string[];
+  waitingOnPredecessor: string[];
+  releaseReviewNext:    string | null;
+  bundleIsUnread:       boolean;
 }
 
 /** What the Workflow run returns, keys in the order the frozen trace table pins, each conditional key present only when it says something. */
@@ -72,4 +83,9 @@ export interface DispatchSummary {
   pausedBuilds?:           string[];
   reviewsLeft?:            string[];
   dirtyMainCheckoutFiles?: string[];
+  group?:                  string;
+  integrated?:             string[];
+  waitingOnPredecessor?:   string[];
+  releaseReviewNext?:      string;
+  bundleUnread?:           true;
 }

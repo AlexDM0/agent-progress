@@ -63,7 +63,8 @@ function ticketSettingsLookupPrompt(settings: DispatchSettings, ticketIds: reado
   return [
     `agent-progress settings: ${ticketIds.join(',')}`,
     `For each of the tickets ${ticketIds.join(', ')}, run \`agent-progress ticket show <id> --json\` once, in ${settings.mainCheckout}, and make no other call. `
-      + 'Judge nothing; return `tickets`: one `{ id, model, effort }` per ticket, with `model` and `effort` copied from its document and left out where it has none.',
+      + 'Judge nothing; return `tickets`: one `{ id, model, effort, group }` per ticket, with `model`, `effort` and `group` copied from its document '
+      + 'and left out where it has none.',
   ].join('\n');
 }
 
@@ -213,7 +214,21 @@ function parkingPrompt(settings: DispatchSettings, ticketId: string, boardLogLin
   ].join('\n');
 }
 
+function statusReturnText(): string {
+  return STATUS_RETURN_TEXT;
+}
+
+function readyTicketsAdditionText(): string {
+  return READY_TICKETS_ADDITION_TEXT;
+}
+
 export const AgentPromptUtil = {
+  statusReturnText,
+  readyTicketsAdditionText,
+  branchOf,
+  worktreeOf,
+  reviewNoteOf,
+  startReviewCommandOf,
   builderPrompt,
   reviewerPrompt,
   surveyPrompt,

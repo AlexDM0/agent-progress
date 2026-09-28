@@ -29,6 +29,10 @@ export interface DispatchLogger {
   lowPriorityLeftForTriage(ticketIds: readonly string[]): void;
   heldAtEnd(entries: readonly HeldEntry[]): void;
   runDone(deliveredCount: number, parkedTicketIds: readonly string[], findingsFiledCount: number, agentsRun: number): void;
+  groupTicketRefused(ticketId: string, groupName: string): void;
+  groupBundleUnread(groupName: string): void;
+  ticketIntegrated(ticketId: string, groupName: string): void;
+  releaseReviewLeft(ticketId: string): void;
 }
 
 export type DispatchLogEntry =
@@ -52,4 +56,8 @@ export type DispatchLogEntry =
   | { kind: 'tickets-left-waiting'; ticketIds: readonly string[]; runIsStopped: boolean }
   | { kind: 'low-priority-left-for-triage'; ticketIds: readonly string[] }
   | { kind: 'held-at-end'; entries: readonly HeldEntry[] }
-  | { kind: 'run-done'; deliveredCount: number; parkedTicketIds: readonly string[]; findingsFiledCount: number; agentsRun: number };
+  | { kind: 'run-done'; deliveredCount: number; parkedTicketIds: readonly string[]; findingsFiledCount: number; agentsRun: number }
+  | { kind: 'group-ticket-refused'; ticketId: string; groupName: string }
+  | { kind: 'group-bundle-unread'; groupName: string }
+  | { kind: 'ticket-integrated'; ticketId: string; groupName: string }
+  | { kind: 'release-review-left'; ticketId: string };

@@ -9,6 +9,8 @@ import { DispatcherClaimNoteUtil }                   from '../../src/shared/util
 import type {
   AgentReading,
   BuilderOutcome,
+  GroupSurveyReading,
+  GroupTicketReading,
   PausedBuild,
   ReviewFinding,
   ReviewerVerdict,
@@ -23,7 +25,10 @@ import { DISPATCH_POLICY }                                                     f
 
 const BUILDER_OUTCOMES_OTHER_THAN_IN_REVIEW = ['claim-refused', 'failed'] as const satisfies readonly Exclude<BuilderOutcome, 'in-review'>[];
 
-const REVIEWER_VERDICTS_OTHER_THAN_ROUND_REQUESTED = ['released', 'does-not-hold', 'not-released'] as const satisfies readonly Exclude<ReviewerVerdict, 'round-requested'>[];
+const REVIEWER_VERDICTS_OTHER_THAN_ROUND_REQUESTED = ['released', 'integrated', 'does-not-hold', 'not-released'] as const satisfies readonly Exclude<
+  ReviewerVerdict,
+  'round-requested'
+>[];
 
 function valueIsAnObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -70,6 +75,7 @@ function readyTicketEntriesOf(value: unknown): ReadyTicketEntry[] {
       priority:            priorityOf(entry['priority']),
       agentModelAndEffort: agentModelAndEffortOf(entry),
       ticketIsHeld:        entry['held'] === true,
+      groupName:           textIsStated(entry['group']) ? entry['group'] : null,
     });
   }
   return entries;
@@ -81,12 +87,21 @@ function ticketIdsOf(given: unknown): string[] | null | 'invalid' {
   return [...new Set(given)];
 }
 
+// A group run is the group's alone: it names no tickets, as the board states its bundle.
+function groupNameOf(given: unknown, ticketIds: string[] | null): string | null | 'invalid' {
+  if (given === undefined) return null;
+  if (typeof given !== 'string' || !DISPATCH_ARGUMENTS.GROUP_NAME_PATTERN.test(given) || ticketIds !== null) return 'invalid';
+  return given;
+}
+
 function settingsVerdictOf(workflowArguments: unknown): DispatchSettingsVerdict {
   const given: Record<string, unknown> = valueIsAnObject(workflowArguments) ? workflowArguments : {};
   const missingArgumentName = DISPATCH_ARGUMENTS.REQUIRED_NAMES.find((argumentName) => !textIsStated(given[argumentName]));
   if (missingArgumentName !== undefined) return { verdict: 'invalid', reason: 'missing-argument', argumentName: missingArgumentName };
   const ticketIds = ticketIdsOf(given['ticketIds']);
   if (ticketIds === 'invalid') return { verdict: 'invalid', reason: 'invalid-ticket-ids' };
+  const groupName = groupNameOf(given['group'], ticketIds);
+  if (groupName === 'invalid') return { verdict: 'invalid', reason: 'invalid-group' };
   return {
     verdict:  'valid',
     settings: {
@@ -98,7 +113,8 @@ function settingsVerdictOf(workflowArguments: unknown): DispatchSettingsVerdict 
       lowPriorityIsIncluded: given['includeLowPriority'] === true,
       ticketIds,
       readyTickets:          readyTicketEntriesOf(given['readyTickets']),
-      runLabel:              DispatcherClaimNoteUtil.runLabelFor(ticketIds),
+      runLabel:              groupName === null ? DispatcherClaimNoteUtil.runLabelFor(ticketIds) : DispatcherClaimNoteUtil.groupRunLabelFor(groupName),
+      groupName,
     },
   };
 }
@@ -152,6 +168,33 @@ function surveyReadingOf(value: unknown): SurveyReading | null {
   };
 }
 
+// An entry without a string id could never be placed in the bundle, so it is dropped; any other field the survey left out reads as its safe side.
+function groupTicketReadingsOf(value: unknown): GroupTicketReading[] | 'unlisted' {
+  if (!Array.isArray(value)) return 'unlisted';
+  const tickets: GroupTicketReading[] = [];
+  for (const entry of value) {
+    if (!valueIsAnObject(entry) || typeof entry['id'] !== 'string') continue;
+    tickets.push({
+      id:                             entry['id'],
+      status:                         textOrEmpty(entry['status']),
+      dependsOn:                      Array.isArray(entry['dependsOn']) ? stringsIn(entry['dependsOn']) : [],
+      releasesGroup:                  entry['releasesGroup'] === true,
+      agentModelAndEffort:            agentModelAndEffortOf(entry),
+      rowNote:                        textOrEmpty(entry['rowNote']),
+      worktreeExists:                 entry['worktreeExists'] === true,
+      openReviewBar:                  entry['openReviewBar'] === true,
+      integratedLineAfterLastHandoff: entry['integratedLineAfterLastHandoff'] === true,
+    });
+  }
+  return tickets;
+}
+
+function groupSurveyReadingOf(value: unknown): GroupSurveyReading | null {
+  if (value === null) return null;
+  const survey: Record<string, unknown> = valueIsAnObject(value) ? value : {};
+  return { status: statusReadingOf(survey['status']), tickets: groupTicketReadingsOf(survey['tickets']) };
+}
+
 function ticketSettingsLookupOf(lookup: unknown): ReadyTicketEntry[] | 'unread' {
   if (!valueIsAnObject(lookup) || !Array.isArray(lookup['tickets'])) return 'unread';
   return readyTicketEntriesOf(lookup['tickets']);
@@ -200,6 +243,7 @@ export const WorkflowInputUtil = {
   settingsVerdictOf,
   statusReadingOf,
   surveyReadingOf,
+  groupSurveyReadingOf,
   ticketSettingsLookupOf,
   finishedReadingOf,
 } as const;

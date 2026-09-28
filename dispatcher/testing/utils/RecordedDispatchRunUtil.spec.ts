@@ -70,6 +70,9 @@ function recordedRunWith(calls: RecordedAgentCall[], summary: unknown): Recorded
     runRanAway:               false,
     runWasResumed:            false,
     phasesEntered:            [],
+    agentEvents:              [],
+    mainLineMoves:            [],
+    groupBranchMoves:         [],
     threw:                    null,
   };
 }
