@@ -4,6 +4,7 @@
  * `src/testing/`.
  */
 import {
+  cpSync,
   mkdtempSync,
   realpathSync,
   rmSync,
@@ -38,12 +39,31 @@ export function createCanonicalScratchDirectory(prefix: string): string {
   return realpathSync(createScratchDirectory(prefix));
 }
 
+let emptyRepositoryTemplateDirectory: string | null = null;
+
 /** The empty commit is not decoration: `git worktree add` refuses a repository with no commits. */
+function emptyRepositoryTemplate(): string {
+  if (emptyRepositoryTemplateDirectory === null) {
+    const templateDirectory = createScratchDirectory('repository-template');
+    gitOutputIn(templateDirectory, ['init', '-q']);
+    gitOutputIn(templateDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'commit', '-q', '--allow-empty', '-m', 'Initial commit']);
+    emptyRepositoryTemplateDirectory = templateDirectory;
+  }
+  return emptyRepositoryTemplateDirectory;
+}
+
+/** A copy of one repository built once per run, since spawning git to build each one is most of what a git spec's setup costs. */
 export function createScratchGitRepository(prefix: string): string {
   const repositoryDirectory = createScratchDirectory(prefix);
-  gitOutputIn(repositoryDirectory, ['init', '-q']);
-  gitOutputIn(repositoryDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'commit', '-q', '--allow-empty', '-m', 'Initial commit']);
+  cpSync(emptyRepositoryTemplate(), repositoryDirectory, { recursive: true });
   return repositoryDirectory;
+}
+
+/** Called once, after the whole run, by the preload `src/testing/TestRunReport.ts`. */
+export function removeScratchRepositoryTemplate(): void {
+  if (emptyRepositoryTemplateDirectory === null) return;
+  removeScratchDirectory(emptyRepositoryTemplateDirectory);
+  emptyRepositoryTemplateDirectory = null;
 }
 
 /** Created beside the repository, never inside it, so a walk up from the worktree cannot find the main checkout's tracker by accident. */
