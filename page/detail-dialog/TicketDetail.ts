@@ -30,7 +30,7 @@ function headMarkup(input: TicketDetailInput): string {
     `<div class="ap-detail-head" ${MarkupUtil.attribute('data-state', card.state)}>`,
     `<span class="ap-detail-id">#${HtmlEscapeUtil.escapeHtml(ticket.id)}</span>`,
     `<h2 class="ap-detail-title">${HtmlEscapeUtil.escapeHtml(ticket.title)}</h2>`,
-    `<span class="ap-pill">${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.pillLabelForDisplayState(card.state, ownRow?.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND))}</span>`,
+    `<span class="ap-pill">${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.stateLabelOf(card.state, ownRow?.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND))}</span>`,
     reviewedMark,
     WorkItemMarkupUtil.priorityMarkMarkup(ticket),
     `<span class="ap-detail-type">${HtmlEscapeUtil.escapeHtml(ticket.type)}</span>`,

@@ -184,6 +184,14 @@ describe('the lane heads', () => {
     expect(laneSubCountsOf('review', cards).map((entry) => `${entry.dotState} ${entry.count} ${entry.label}`)).toEqual(['reviewing 2 reviewing']);
   });
 
+  test('words each count of one state by that state’s label, lower-cased mid-sentence', () => {
+    const tasks   = [exampleRow(1, { status: 'in-progress', ticket: '060' }), exampleRow(2, { status: 'paused', ticket: '061' })];
+    const tickets = [exampleTicket('060', { status: 'in-progress' }), exampleTicket('061', { status: 'in-progress' })];
+    const cards   = KanbanLaneUtil.kanbanCardsFor(pageBoardFixture({ tasks, tickets }).tickets, new Map());
+
+    expect(laneSubCountsOf('progress', cards).map((entry) => `${entry.count} ${entry.label}`)).toEqual(['1 in progress', '1 paused']);
+  });
+
   test('counts every reviewed Done card, before the cap', () => {
     const tickets = Array.from({ length: 20 }, (_unused, index) => exampleTicket(String(index + 1), { status: 'delivered', delivered: at('10:00') }));
     const tasks   = tickets.map((ticket, index) => exampleRow(index + 1, { status: 'delivered', ticket: ticket.id }));

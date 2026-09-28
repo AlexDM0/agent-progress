@@ -41,7 +41,7 @@ describe('ticketTableRowsMarkup', () => {
 
     expect(markup).toContain('<a href="#ap-ticket-003">#003</a>');
     expect(markup).toContain('<a href="#ap-task-3">#3</a>');
-    expect(markup).toContain('<span class="ap-badge in-review">in-review</span>');
+    expect(markup).toContain('<span class="ap-badge in-review">Awaiting review</span>');
     expect(markup).toContain('ticket/exporter-passes');
   });
 
@@ -161,7 +161,7 @@ describe('the priority marks on the Tickets tab', () => {
 
     expect(tableRow).toMatch(/two passes <span class="ap-ticket-badge" data-priority="low" title="[^"]+">low<\/span><\/td>/);
     expect(tableRow).toContain('<td class="mono"></td></tr>');
-    expect(card).toMatch(/<span class="ap-badge pending">pending<\/span> <span class="ap-ticket-badge" data-priority="low" title="[^"]+">low<\/span>/);
+    expect(card).toMatch(/<span class="ap-badge pending">To do<\/span> <span class="ap-ticket-badge" data-priority="low" title="[^"]+">low<\/span>/);
     expect(card).not.toContain('<b>task</b>');
   });
 

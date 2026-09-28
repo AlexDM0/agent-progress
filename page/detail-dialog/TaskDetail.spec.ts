@@ -79,7 +79,7 @@ describe('the header', () => {
 
     expect(markup).toContain('<div class="ap-detail-head" data-state="delivered">');
     expect(markup).toContain('<span class="ap-detail-id">#7</span>');
-    expect(markup).toContain('<span class="ap-pill">done</span>');
+    expect(markup).toContain('<span class="ap-pill">Done</span>');
     expect(markup).toContain('<a class="ap-ticket-badge" href="#ap-ticket-001">#001</a>');
   });
 
@@ -88,7 +88,7 @@ describe('the header', () => {
     const markup = panelFor(exampleTask({ status: 'in-review', ticket: '001' }), exampleTicket({ status: 'in-review' }));
 
     expect(markup).toContain('<div class="ap-detail-head" data-state="reviewing">');
-    expect(markup).toContain('<span class="ap-pill">reviewing</span>');
+    expect(markup).toContain('<span class="ap-pill">Reviewing</span>');
   });
 
   test('opens on the ticket alone when its row has been removed, and on nothing at all when neither is there', () => {
@@ -154,8 +154,8 @@ describe('the phases', () => {
       ],
     }));
 
-    expect(phaseLabelsIn(markup)).toEqual(['wip', 'awaiting review', 'awaiting merge']);
-    expect(markup).toContain('<li data-state="in-progress"><span class="ap-pill">wip</span><time title="2026-09-18 20:36">20:36</time></li>');
+    expect(phaseLabelsIn(markup)).toEqual(['In progress', 'Awaiting review', 'Awaiting merge']);
+    expect(markup).toContain('<li data-state="in-progress"><span class="ap-pill">In progress</span><time title="2026-09-18 20:36">20:36</time></li>');
     expect(markup, 'the first phase follows nothing, so it carries no gap').not.toContain('20:36</time><span class="ap-detail-gap">');
     expect(markup).toContain('<span class="ap-detail-gap">after 50m</span>');
     expect(markup).toContain('<span class="ap-detail-gap">after 14m</span>');
@@ -173,7 +173,7 @@ describe('the phases', () => {
       ],
     }));
 
-    expect(phaseLabelsIn(markup)).toEqual(['awaiting review', 'reviewing 2', 'reviewing 3']);
+    expect(phaseLabelsIn(markup)).toEqual(['Awaiting review', 'Reviewing (round 2)', 'Reviewing (round 3)']);
   });
 
   // The newest phase takes the display state the Board facts give the row, which the ticket's own status decides here.
@@ -184,8 +184,8 @@ describe('the phases', () => {
     );
     const derived = panelFor(exampleTask({ status: 'in-review', end: FINISHED_AT, ticket: '001' }), exampleTicket({ status: 'in-review' }));
 
-    expect(phaseLabelsIn(recorded)).toEqual(['wip', 'reviewing']);
-    expect(phaseLabelsIn(derived)).toEqual(['unstarted', 'wip', 'reviewing']);
+    expect(phaseLabelsIn(recorded)).toEqual(['In progress', 'Reviewing']);
+    expect(phaseLabelsIn(derived)).toEqual(['To do', 'In progress', 'Reviewing']);
   });
 
   // An older phase keeps what it was filed under: only the newest one is still the row's own state.
@@ -198,7 +198,7 @@ describe('the phases', () => {
       exampleTicket({ status: 'in-review' }),
     );
 
-    expect(phaseLabelsIn(markup)).toEqual(['awaiting review', 'reviewing 2']);
+    expect(phaseLabelsIn(markup)).toEqual(['Awaiting review', 'Reviewing (round 2)']);
   });
 
   test('says plainly that a row filed before the field existed had no phases recorded, and derives them from the stamps', () => {
@@ -214,14 +214,14 @@ describe('the phases', () => {
     );
 
     expect(markup).toContain('<p class="ap-detail-note">The phases of this row were not recorded');
-    expect(phaseLabelsIn(markup)).toEqual(['unstarted', 'wip', 'awaiting review', 'awaiting merge', 'done']);
+    expect(phaseLabelsIn(markup)).toEqual(['To do', 'In progress', 'Awaiting review', 'Awaiting merge', 'Done']);
   });
 
   // A derivation may not invent a phase the row never reached: an in-progress row has not been reviewed, whatever its ticket carries.
   test('derives no phase past the one the row is in', () => {
     const markup = panelFor(exampleTask({ status: 'in-progress', ticket: '001' }), exampleTicket({ finished: FINISHED_AT, delivered: DELIVERED_AT }));
 
-    expect(phaseLabelsIn(markup)).toEqual(['unstarted', 'wip']);
+    expect(phaseLabelsIn(markup)).toEqual(['To do', 'In progress']);
   });
 
   /**
@@ -235,8 +235,8 @@ describe('the phases', () => {
       exampleTicket({ status: 'abandoned', abandonedAt: DELIVERED_AT }),
     );
 
-    expect(phaseLabelsIn(withoutTicket)).toEqual(['wip', 'abandoned']);
-    expect(phaseLabelsIn(withTicket)).toEqual(['unstarted', 'wip', 'abandoned']);
+    expect(phaseLabelsIn(withoutTicket)).toEqual(['In progress', 'Abandoned']);
+    expect(phaseLabelsIn(withTicket)).toEqual(['To do', 'In progress', 'Abandoned']);
   });
 
   // The ticket's own `finished` stamp is evidence the row really was in review before it was called off; the row's `end` is not.
@@ -246,7 +246,7 @@ describe('the phases', () => {
       exampleTicket({ status: 'abandoned', finished: FINISHED_AT, abandonedAt: DELIVERED_AT }),
     );
 
-    expect(phaseLabelsIn(markup)).toEqual(['unstarted', 'wip', 'awaiting review', 'abandoned']);
+    expect(phaseLabelsIn(markup)).toEqual(['To do', 'In progress', 'Awaiting review', 'Abandoned']);
   });
 
   // `TaskTransitionUtil` drops `reviewRound` when a row goes back to pending, so a panel counting every round in the list would outrun the pill.
@@ -263,7 +263,7 @@ describe('the phases', () => {
       ],
     }));
 
-    expect(phaseLabelsIn(markup)).toEqual(['awaiting review', 'reviewing 2', 'unstarted', 'wip', 'awaiting review', 'reviewing 2']);
+    expect(phaseLabelsIn(markup)).toEqual(['Awaiting review', 'Reviewing (round 2)', 'To do', 'In progress', 'Awaiting review', 'Reviewing (round 2)']);
   });
 
   test('gives no gap to a phase stamped before the one it follows', () => {
@@ -272,7 +272,7 @@ describe('the phases', () => {
       history: [{ status: 'in-progress', at: FINISHED_AT }, { status: 'in-review', at: STARTED_AT }],
     }));
 
-    expect(phaseLabelsIn(markup)).toEqual(['wip', 'awaiting review']);
+    expect(phaseLabelsIn(markup)).toEqual(['In progress', 'Awaiting review']);
     expect(markup).not.toContain('ap-detail-gap');
   });
 
@@ -301,7 +301,7 @@ describe('the stamps against the viewer\'s day', () => {
     );
 
     expect(markup).toContain('<div><b>start</b><span title="2026-09-17 23:48">09-17 23:48</span></div>');
-    expect(markup).toContain('<span class="ap-pill">wip</span><time title="2026-09-17 23:48">09-17 23:48</time>');
+    expect(markup).toContain('<span class="ap-pill">In progress</span><time title="2026-09-17 23:48">09-17 23:48</time>');
     expect(markup).toContain('<div><b>filed</b><span>2025-12-31 23:48</span></div>');
     expect(markup).toContain('<li><time title="2026-09-17 23:48">09-17 23:48</time><span>Ticket #001 started</span></li>');
   });
@@ -315,7 +315,7 @@ describe('the ticket', () => {
       dependsOn: ['002', '003'],
     }));
 
-    expect(markup).toContain('<span class="ap-badge in-progress">in-progress</span>');
+    expect(markup).toContain('<span class="ap-badge in-progress">In progress</span>');
     expect(markup).toContain('<span class="ap-detail-type">change</span>');
     expect(markup).toContain('<div><b>group</b><span>role-editor</span></div>');
     expect(markup).toContain('<div><b>commit</b><span>abc1234</span></div>');

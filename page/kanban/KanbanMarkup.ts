@@ -7,6 +7,7 @@ import type { DisplayState }               from '../../src/lib/tracker-model/@ty
 import { FIRST_REPEAT_REVIEW_ROUND }       from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
 import { TicketDefaultsUtil }              from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
 import type { KanbanCard }                 from '../@types/KanbanCard.ts';
+import { STATE_LABEL_FOR_DISPLAY_STATE }   from '../constants/StateLabels.ts';
 import { MarkupUtil }                      from '../utils/MarkupUtil.ts';
 import { TemplateIdUtil }                  from '../utils/TemplateIdUtil.ts';
 import { WorkItemMarkupUtil }              from '../utils/WorkItemMarkupUtil.ts';
@@ -29,13 +30,14 @@ interface LaneDesign {
   leading:  string | null;
 }
 
+/** A lane holding one state is named by that state's label; the two lanes that mix states keep a group name. */
 const LANE_DESIGN: Record<KanbanLane, LaneDesign> = {
-  todo:      { title: 'To do', dotState: 'pending', leading: null },
+  todo:      { title: STATE_LABEL_FOR_DISPLAY_STATE.pending, dotState: 'pending', leading: null },
   progress:  { title: 'In progress', dotState: 'in-progress', leading: null },
   review:    { title: 'Review', dotState: 'reviewing', leading: null },
-  merge:     { title: 'Awaiting merge', dotState: 'reviewed', leading: 'by priority' },
-  done:      { title: 'Done', dotState: 'delivered', leading: 'newest first' },
-  abandoned: { title: 'Abandoned', dotState: 'abandoned', leading: 'newest first' },
+  merge:     { title: STATE_LABEL_FOR_DISPLAY_STATE.reviewed, dotState: 'reviewed', leading: 'by priority' },
+  done:      { title: STATE_LABEL_FOR_DISPLAY_STATE.delivered, dotState: 'delivered', leading: 'newest first' },
+  abandoned: { title: STATE_LABEL_FOR_DISPLAY_STATE.abandoned, dotState: 'abandoned', leading: 'newest first' },
 };
 
 /** Under Hide the closed lanes hold only the last day, and their empty text says so. */
@@ -62,7 +64,7 @@ export interface KanbanBoardInput extends NoteFormat {
 }
 
 function pillLabelOf(card: KanbanCard): string {
-  return WorkItemMarkupUtil.pillLabelForDisplayState(card.state, card.ownRow?.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND);
+  return WorkItemMarkupUtil.stateLabelOf(card.state, card.ownRow?.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND);
 }
 
 function marksMarkup(card: KanbanCard, lane: KanbanLane): string {

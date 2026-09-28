@@ -3,6 +3,7 @@
 import type { DisplayState, Task }             from '../../src/lib/tracker-model/@types/Task.ts';
 import { FIRST_REPEAT_REVIEW_ROUND }           from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
 import type { KanbanCard }                     from '../@types/KanbanCard.ts';
+import { STATE_LABEL_FOR_DISPLAY_STATE }       from '../constants/StateLabels.ts';
 import type { DurationUnits, TimestampSlices } from '../utils/TimeUtil.ts';
 import { TimeUtil }                            from '../utils/TimeUtil.ts';
 import type { KanbanLane }                     from './@types/KanbanLane.ts';
@@ -30,6 +31,10 @@ function subCount(count: number, label: string, dotState: DisplayState | null = 
   };
 }
 
+function countWordOf(state: DisplayState): string {
+  return STATE_LABEL_FOR_DISPLAY_STATE[state].toLowerCase();
+}
+
 /** The counts are independent, so a held ticket without a row counts as both; a zero count is left out. */
 export function laneSubCountsOf(lane: KanbanLane, members: readonly KanbanCard[]): LaneSubCount[] {
   const countOf = (predicate: (card: KanbanCard) => boolean): number => members.filter(predicate).length;
@@ -40,12 +45,12 @@ export function laneSubCountsOf(lane: KanbanLane, members: readonly KanbanCard[]
       subCount(countOf((card) => card.ownRow === null), 'no row'),
     ],
     progress: [
-      subCount(countOf((card) => card.state === 'in-progress'), 'wip', 'in-progress'),
-      subCount(countOf((card) => card.state === 'paused'), 'paused', 'paused'),
+      subCount(countOf((card) => card.state === 'in-progress'), countWordOf('in-progress'), 'in-progress'),
+      subCount(countOf((card) => card.state === 'paused'), countWordOf('paused'), 'paused'),
     ],
     review: [
-      subCount(countOf((card) => card.state === 'in-review'), 'awaiting', 'in-review'),
-      subCount(countOf((card) => card.state === 'reviewing' || card.state === 're-review'), 'reviewing', 'reviewing'),
+      subCount(countOf((card) => card.state === 'in-review'), countWordOf('in-review'), 'in-review'),
+      subCount(countOf((card) => card.state === 'reviewing' || card.state === 're-review'), countWordOf('reviewing'), 'reviewing'),
     ],
     merge:     [],
     done:      [subCount(countOf((card) => card.ownRow?.deliveredRowCountsAsReviewed === true), 'reviewed first', null, true)],

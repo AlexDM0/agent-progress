@@ -11,6 +11,7 @@ import { SETTLED_TASK_STATUSES }            from '../../src/lib/tracker-model/co
 import type { PageConcurrency, PageLimits } from '../../src/shared/@types/PagePayload.ts';
 import type { BoardRow }                    from '../@types/PageBoard.ts';
 import type { TimelineBar, TimelineTick }   from '../@types/Timeline.ts';
+import { STATE_LABEL_FOR_DISPLAY_STATE }    from '../constants/StateLabels.ts';
 import type { ShortenedText }               from '../utils/MarkupUtil.ts';
 import { MarkupUtil }                       from '../utils/MarkupUtil.ts';
 import { TemplateIdUtil }                   from '../utils/TemplateIdUtil.ts';
@@ -73,7 +74,7 @@ function taskRowMarkup(placed: PlacedTaskRow, slices: TimestampSlices): string {
   const { row, nestedWithTicket } = placed;
   const { task, bar }              = row;
   const state         = task.displayState;
-  const pillLabel     = WorkItemMarkupUtil.pillLabelForDisplayState(state, task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND);
+  const pillLabel     = WorkItemMarkupUtil.stateLabelOf(state, task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND);
   const ticketBadge   = task.ticket === null ? '' : WorkItemMarkupUtil.ticketBadgeMarkup(task.ticket);
   const reviewedMark = task.deliveredRowCountsAsReviewed ? WorkItemMarkupUtil.reviewedMarkMarkup(task, slices) : '';
   const tokens = task.tokens === null
@@ -125,7 +126,7 @@ export function summaryStatisticsMarkup(tasks: readonly Task[], concurrency: Pag
   const figureMarkup = (figure: string): string => `<span class="ap-stat-n">${HtmlEscapeUtil.escapeHtml(figure)}</span>`;
   const statistics = [
     `Work completed: ${figureMarkup(`${completedCount} / ${tasks.length}`)}`,
-    `${figureMarkup(String(awaitingMergeCount))} awaiting merge`,
+    `${figureMarkup(String(awaitingMergeCount))} ${STATE_LABEL_FOR_DISPLAY_STATE.reviewed.toLowerCase()}`,
     `${figureMarkup(String(inReviewCount))} in review`,
     `${figureMarkup(`${concurrency.agentsInFlight} of ${concurrency.limit}`)} ${concurrency.limit === 1 ? 'agent' : 'agents'} running`,
   ];

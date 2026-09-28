@@ -115,7 +115,7 @@ describe('the ticket body', () => {
   test('its head carries the card’s state, the pill, the ✓ of a ticket reviewed before delivery, the priority mark and the type', () => {
     const head = delivered.slice(0, delivered.indexOf('<div class="ap-ticket-meta">'));
     expect(head.startsWith('<div class="ap-detail-head" data-state="delivered"><span class="ap-detail-id">#055</span>')).toBe(true);
-    expect(head).toMatch(/<h2 class="ap-detail-title">Example ticket 055<\/h2><span class="ap-pill">done<\/span><span class="ap-reviewed-mark"[^>]*>✓<\/span>/);
+    expect(head).toMatch(/<h2 class="ap-detail-title">Example ticket 055<\/h2><span class="ap-pill">Done<\/span><span class="ap-reviewed-mark"[^>]*>✓<\/span>/);
     expect(head).toMatch(/<span class="ap-waiting" data-priority="high"[^>]*>high<\/span><span class="ap-detail-type">bug<\/span><\/div>$/);
   });
 

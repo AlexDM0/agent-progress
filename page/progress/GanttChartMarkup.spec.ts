@@ -91,16 +91,16 @@ describe('taskRowsMarkup', () => {
     expect([...markup.matchAll(/data-task-id="(\d+)"/g)].map((match) => match[1])).toEqual(['3', '2', '1']);
   });
 
-  // The ladder the chart is read by: every label names the state the row is in, and `done` means merged.
+  // The ladder the chart is read by, in the words every tab uses: every label names the state the row is in, and `Done` means merged.
   test.each<[TaskStatus, string]>([
-    ['pending', 'unstarted'],
-    ['in-progress', 'wip'],
-    ['paused', 'paused'],
-    ['in-review', 'awaiting review'],
-    ['re-review', 'reviewing 2'],
-    ['reviewed', 'awaiting merge'],
-    ['delivered', 'done'],
-    ['abandoned', 'abandoned'],
+    ['pending', 'To do'],
+    ['in-progress', 'In progress'],
+    ['paused', 'Paused'],
+    ['in-review', 'Awaiting review'],
+    ['re-review', 'Reviewing (round 2)'],
+    ['reviewed', 'Awaiting merge'],
+    ['delivered', 'Done'],
+    ['abandoned', 'Abandoned'],
   ])('gives a %s row exactly one pill reading %s', (status, label) => {
     const markup = rowFor(exampleTask({ status }));
 
@@ -140,19 +140,19 @@ describe('taskRowsMarkup', () => {
     const markup = rowFor(exampleTask({ status: 'in-review' }), 'in-review');
 
     expect(markup).toContain('data-state="reviewing"');
-    expect(markup).toContain('<span class="ap-pill">reviewing</span>');
+    expect(markup).toContain('<span class="ap-pill">Reviewing</span>');
   });
 
   test('numbers the pill of a row that is on its third review pass', () => {
     const markup = rowFor(exampleTask({ status: 're-review', reviewRound: 3 }), 'in-review');
 
     expect(markup).toContain('data-state="re-review"');
-    expect(markup).toContain('<span class="ap-pill">reviewing 3</span>');
+    expect(markup).toContain('<span class="ap-pill">Reviewing (round 3)</span>');
   });
 
   // A row moved by hand to the repeat state has no round on it; the state itself says it is at least the second pass.
   test('reads a repeat review with no round recorded as the second pass', () => {
-    expect(rowFor(exampleTask({ status: 're-review' }))).toContain('<span class="ap-pill">reviewing 2</span>');
+    expect(rowFor(exampleTask({ status: 're-review' }))).toContain('<span class="ap-pill">Reviewing (round 2)</span>');
   });
 
   test('leaves every other status alone whatever its ticket says', () => {

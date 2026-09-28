@@ -159,7 +159,7 @@ function phaseListMarkup(lines: readonly PhaseLine[], format: StampFormat): stri
     const gap         = gapDuration === null ? '' : `<span class="ap-detail-gap">after ${HtmlEscapeUtil.escapeHtml(gapDuration)}</span>`;
     return [
       `<li ${MarkupUtil.attribute('data-state', line.state)}>`,
-      `<span class="ap-pill">${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.pillLabelForDisplayState(line.state, line.reviewRound))}</span>`,
+      `<span class="ap-pill">${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.stateLabelOf(line.state, line.reviewRound))}</span>`,
       MarkupUtil.stampMarkup('time', line.at, format.todayCalendarDate, format.slices),
       gap,
       '</li>',
@@ -256,7 +256,7 @@ function headMarkup(task: BoardRow | null, ticket: PageTicket | null): string {
     `<div class="ap-detail-head" ${MarkupUtil.attribute('data-state', state)}>`,
     `<span class="ap-detail-id">#${HtmlEscapeUtil.escapeHtml(String(task.id))}</span>`,
     `<h2 class="ap-detail-title">${HtmlEscapeUtil.escapeHtml(task.name)}</h2>`,
-    `<span class="ap-pill">${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.pillLabelForDisplayState(state, task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND))}</span>`,
+    `<span class="ap-pill">${HtmlEscapeUtil.escapeHtml(WorkItemMarkupUtil.stateLabelOf(state, task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND))}</span>`,
     ticketBadge,
     '</div>',
   ].join('');

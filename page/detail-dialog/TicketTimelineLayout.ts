@@ -91,7 +91,7 @@ function timelineSpan(state: DisplayState, label: string, startEpochMilliseconds
 
 /** A state's pill label; only `re-review` carries a round, and every caller of this passes another state. */
 function stateLabelOf(state: DisplayState): string {
-  return WorkItemMarkupUtil.pillLabelForDisplayState(state, FIRST_REPEAT_REVIEW_ROUND);
+  return WorkItemMarkupUtil.stateLabelOf(state, FIRST_REPEAT_REVIEW_ROUND);
 }
 
 function buildSpan(state: 'in-progress' | 'paused', startEpochMilliseconds: number, endEpochMilliseconds: number, isLive: boolean): TimelineSpan {
@@ -191,7 +191,7 @@ function afterBuildSpansOf(input: AfterBuildInput): TimelineSpan[] {
     reviews.forEach((review, index) => {
       const following = reviews[index + 1];
       const end       = following?.startEpochMilliseconds ?? reviewedEpochMilliseconds ?? lastMomentEpochMilliseconds;
-      spans.push(span(review.state, WorkItemMarkupUtil.pillLabelForDisplayState(review.state, review.round), review.startEpochMilliseconds, end));
+      spans.push(span(review.state, WorkItemMarkupUtil.stateLabelOf(review.state, review.round), review.startEpochMilliseconds, end));
     });
     if (reviewedEpochMilliseconds !== null) spans.push(awaitingMerge(reviewedEpochMilliseconds));
   } else if (reviewedEpochMilliseconds !== null) {

@@ -155,12 +155,12 @@ describe('the design’s #059, in its second review at the design’s now', () =
   // The figure a reviewer re-derives by hand from the stamps: 08:40→09:15, 09:15→09:52 + 10:06→10:48, 09:52→10:06, 10:48→10:50,
   // 10:50→11:34 and 11:34→13:36.
   test('its legend sums the time in each state, in first-seen order', () => {
-    expect(legendText(timeline)).toBe('unstarted 35m · wip 1h 19m · paused 14m · awaiting review 2m · reviewing 44m · reviewing 2 2h 2m');
+    expect(legendText(timeline)).toBe('To do 35m · In progress 1h 19m · Paused 14m · Awaiting review 2m · Reviewing 44m · Reviewing (round 2) 2h 2m');
   });
 
-  test('its Build row splits into wip, paused and wip, each to the next recorded phase', () => {
+  test('its Build row splits into in progress, paused and in progress, each to the next recorded phase', () => {
     expect(timeline.buildSegments.map((segment) => segment.state)).toEqual(['in-progress', 'paused', 'in-progress']);
-    expect(spansText(timeline.buildSegments)).toBe(`wip ${minutes(37)} · paused ${minutes(14)} · wip ${minutes(42)}`);
+    expect(spansText(timeline.buildSegments)).toBe(`In progress ${minutes(37)} · Paused ${minutes(14)} · In progress ${minutes(42)}`);
     expect(timeline.buildSegments.some((segment) => segment.isLive)).toBe(false);
     expect(timeline.buildTimeText).toBe('1h 33m');
   });
@@ -208,9 +208,9 @@ describe('the design’s #055, delivered', () => {
   });
 
   test('after the build it waited for review, was reviewed until the reviewed stamp, then awaited its merge until delivery', () => {
-    expect(timeline.afterBuild.map((span) => span.label)).toEqual(['awaiting review', 'reviewing', 'awaiting merge']);
-    expect(spansText(timeline.afterBuild)).toBe(`awaiting review ${minutes(4)} · reviewing ${minutes(78)} · awaiting merge ${minutes(78)}`);
-    expect(legendText(timeline)).toBe('unstarted 11m · wip 1h 33m · awaiting review 4m · reviewing 1h 18m · awaiting merge 1h 18m');
+    expect(timeline.afterBuild.map((span) => span.label)).toEqual(['Awaiting review', 'Reviewing', 'Awaiting merge']);
+    expect(spansText(timeline.afterBuild)).toBe(`Awaiting review ${minutes(4)} · Reviewing ${minutes(78)} · Awaiting merge ${minutes(78)}`);
+    expect(legendText(timeline)).toBe('To do 11m · In progress 1h 33m · Awaiting review 4m · Reviewing 1h 18m · Awaiting merge 1h 18m');
     expect(timeline.afterBuild.some((span) => span.isLive)).toBe(false);
   });
 
@@ -221,7 +221,7 @@ describe('the design’s #055, delivered', () => {
 
   test('a lifecycle segment 9% of the axis or wider carries its label, a narrower one none', () => {
     const markup = ticketTimelineMarkup(inputFor(TICKET_055, ROWS_055));
-    expect(markup).toMatch(/data-state="reviewed"[^>]*>awaiting merge<\/div>/);
+    expect(markup).toMatch(/data-state="reviewed"[^>]*>Awaiting merge<\/div>/);
     expect(markup).toMatch(/data-state="in-review"[^>]*><\/div>/);
   });
 });
@@ -236,7 +236,7 @@ describe('the design’s #067, filed and never started', () => {
     expect(timeline.buildSegments).toEqual([]);
     expect(timeline.afterBuild).toEqual([]);
     expect(timeline.note).toBe('Not started: in the queue for 3h 24m.');
-    expect(legendText(timeline)).toBe('unstarted 3h 24m');
+    expect(legendText(timeline)).toBe('To do 3h 24m');
   });
 
   test('the Filed bar’s title says so far while it waits', () => {
@@ -252,7 +252,7 @@ describe('the design’s #067, filed and never started', () => {
 
 describe('the shapes the design did not show', () => {
   // A row filed before `history` existed, or re-seeded, has only its stamps: it still gets a build segment rather than an empty track.
-  test('an in-progress row with no history gets one live in-progress segment from its start, counted as wip', () => {
+  test('an in-progress row with no history gets one live in-progress segment from its start, counted as in progress', () => {
     const ticket   = exampleTicket('070', {
       status:  'in-progress',
       filed:   at('09:00'),
@@ -261,7 +261,7 @@ describe('the shapes the design did not show', () => {
     });
     const timeline = ticketTimelineOf(inputFor(ticket, [exampleRow(40, { ticket: '070', status: 'in-progress', start: at('10:00') })]));
     expect(timeline.buildSegments.map((segment) => [segment.state, segment.isLive])).toEqual([['in-progress', true]]);
-    expect(legendText(timeline)).toBe('unstarted 1h · wip 3h 36m');
+    expect(legendText(timeline)).toBe('To do 1h · In progress 3h 36m');
   });
 
   test('a paused row with no history gets one paused segment instead', () => {
@@ -273,7 +273,7 @@ describe('the shapes the design did not show', () => {
     });
     const timeline = ticketTimelineOf(inputFor(ticket, [exampleRow(41, { ticket: '071', status: 'paused', start: at('10:00') })]));
     expect(timeline.buildSegments.map((segment) => segment.state)).toEqual(['paused']);
-    expect(legendText(timeline)).toBe('unstarted 1h · paused 3h 36m');
+    expect(legendText(timeline)).toBe('To do 1h · Paused 3h 36m');
   });
 
   // Tickets delivered before the stamp was written exist; ending their axis at now would draw a closed ticket as still open.
@@ -294,7 +294,7 @@ describe('the shapes the design did not show', () => {
     const timeline = ticketTimelineOf(inputFor(ticket, rows));
     expect(timeline.axis.lastMomentEpochMilliseconds).toBe(Date.parse(at('12:00')));
     expect(timeline.end).toMatchObject({ closedState: 'delivered', label: 'delivered 12:00' });
-    expect(timeline.afterBuild.map((span) => span.label)).toEqual(['awaiting merge']);
+    expect(timeline.afterBuild.map((span) => span.label)).toEqual(['Awaiting merge']);
     expect(ticketTimelineMarkup(inputFor(ticket, rows))).not.toContain('now ');
   });
 

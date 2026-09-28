@@ -1,16 +1,16 @@
 /** How a task or ticket is marked wherever it appears: its links, badges, marks and pill label. */
 
-import { HtmlLabelUtil }                from '../../src/adapters/utils/HtmlLabelUtil.ts';
-import { HtmlEscapeUtil }               from '../../src/lib/html-escape/HtmlEscapeUtil.ts';
-import type { DisplayState, Task }      from '../../src/lib/tracker-model/@types/Task.ts';
-import type { TicketStatus }            from '../../src/lib/tracker-model/@types/Ticket.ts';
-import { TicketDefaultsUtil }           from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
-import type { PageTicket }              from '../../src/shared/@types/PagePayload.ts';
-import { PILL_LABEL_FOR_DISPLAY_STATE } from '../constants/PillLabels.ts';
-import { MarkupUtil }                   from './MarkupUtil.ts';
-import { TemplateIdUtil }               from './TemplateIdUtil.ts';
-import type { TimestampSlices }         from './TimeUtil.ts';
-import { TimeUtil }                     from './TimeUtil.ts';
+import { HtmlLabelUtil }                 from '../../src/adapters/utils/HtmlLabelUtil.ts';
+import { HtmlEscapeUtil }                from '../../src/lib/html-escape/HtmlEscapeUtil.ts';
+import type { DisplayState, Task }       from '../../src/lib/tracker-model/@types/Task.ts';
+import type { TicketStatus }             from '../../src/lib/tracker-model/@types/Ticket.ts';
+import { TicketDefaultsUtil }            from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
+import type { PageTicket }               from '../../src/shared/@types/PagePayload.ts';
+import { STATE_LABEL_FOR_DISPLAY_STATE } from '../constants/StateLabels.ts';
+import { MarkupUtil }                    from './MarkupUtil.ts';
+import { TemplateIdUtil }                from './TemplateIdUtil.ts';
+import type { TimestampSlices }          from './TimeUtil.ts';
+import { TimeUtil }                      from './TimeUtil.ts';
 
 
 /** Where a ticket link leads: the ticket's card on the Tickets tab, or its card on the Kanban board, which the page script follows itself. */
@@ -40,7 +40,7 @@ function ticketBadgeMarkup(ticketId: string): string {
 }
 
 function ticketStatusBadgeMarkup(status: TicketStatus): string {
-  return `<span class="ap-badge ${HtmlEscapeUtil.escapeHtml(status)}">${HtmlEscapeUtil.escapeHtml(status)}</span>`;
+  return `<span class="ap-badge ${HtmlEscapeUtil.escapeHtml(status)}">${HtmlEscapeUtil.escapeHtml(STATE_LABEL_FOR_DISPLAY_STATE[status])}</span>`;
 }
 
 function markedPriorityMarkup(className: string, priority: 'low' | 'high'): string {
@@ -64,9 +64,9 @@ function reviewedMarkMarkup(task: Task, slices: TimestampSlices): string {
   return `<span class="ap-reviewed-mark" data-state="reviewed" ${MarkupUtil.attribute('title', reviewedTitleFor(task, slices))} role="img" aria-label="reviewed">✓</span>`;
 }
 
-function pillLabelForDisplayState(state: DisplayState, reviewRound: number): string {
-  const label = PILL_LABEL_FOR_DISPLAY_STATE[state] ?? state;
-  return state === 're-review' ? `${label} ${reviewRound}` : label;
+function stateLabelOf(state: DisplayState, reviewRound: number): string {
+  const label = STATE_LABEL_FOR_DISPLAY_STATE[state];
+  return state === 're-review' ? `${label} (round ${reviewRound})` : label;
 }
 
 /** The newest of the ticket's closing, finishing, starting and filing stamps, labelled; the Kanban card sets it under its own class. */
@@ -99,6 +99,6 @@ export const WorkItemMarkupUtil = {
   ticketStatusBadgeMarkup,
   priorityMarkMarkup,
   reviewedMarkMarkup,
-  pillLabelForDisplayState,
+  stateLabelOf,
   latestMilestoneMarkup,
 } as const;

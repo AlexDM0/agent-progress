@@ -1,6 +1,7 @@
 /**
  * How a task or ticket is marked wherever the page shows it. Every expected string is the markup the page printed before these marks were
- * gathered here, so a merged copy that drifts by one character fails; the status badge prints the raw stored status. Retake by checking out
+ * gathered here, so a merged copy that drifts by one character fails; the status badge and the state labels are pinned to the one
+ * label map every tab reads instead, so a tab that speaks another vocabulary fails. Retake by checking out
  * bc42604 and calling the mark functions in `lib/render/page/PageMarkup.ts`, or reading the inline badge and task-link markup there and in
  * `lib/render/page/TaskDetail.ts`, with this spec's example task, ticket and slices.
  */
@@ -14,9 +15,9 @@ import { WorkItemMarkupUtil }       from './WorkItemMarkupUtil.ts';
 
 const {
   latestMilestoneMarkup,
-  pillLabelForDisplayState,
   priorityMarkMarkup,
   reviewedMarkMarkup,
+  stateLabelOf,
   taskLinkMarkup,
   ticketBadgeMarkup,
   ticketLinksMarkup,
@@ -100,8 +101,10 @@ describe('ticketBadgeMarkup', () => {
 });
 
 describe('ticketStatusBadgeMarkup', () => {
-  test('prints the raw stored status as both the class and the text', () => {
-    expect(ticketStatusBadgeMarkup('in-review')).toBe('<span class="ap-badge in-review">in-review</span>');
+  test('keys the class by the raw stored status and prints the state label every tab uses', () => {
+    expect(ticketStatusBadgeMarkup('in-review')).toBe('<span class="ap-badge in-review">Awaiting review</span>');
+    expect(ticketStatusBadgeMarkup('pending')).toBe('<span class="ap-badge pending">To do</span>');
+    expect(ticketStatusBadgeMarkup('delivered')).toBe('<span class="ap-badge delivered">Done</span>');
   });
 });
 
@@ -133,10 +136,17 @@ describe('reviewedMarkMarkup', () => {
   });
 });
 
-describe('pillLabelForDisplayState', () => {
+describe('stateLabelOf', () => {
   test('appends the round to a repeat review and to nothing else', () => {
-    expect(pillLabelForDisplayState('re-review', 3)).toBe('reviewing 3');
-    expect(pillLabelForDisplayState('reviewing', 3)).toBe('reviewing');
+    expect(stateLabelOf('re-review', 3)).toBe('Reviewing (round 3)');
+    expect(stateLabelOf('reviewing', 3)).toBe('Reviewing');
+  });
+
+  test('gives every state its one label, none of them the raw key', () => {
+    const states = ['pending', 'in-progress', 'paused', 'in-review', 'reviewing', 'reviewed', 'delivered', 'abandoned'] as const;
+    expect(states.map((state) => stateLabelOf(state, 2))).toEqual([
+      'To do', 'In progress', 'Paused', 'Awaiting review', 'Reviewing', 'Awaiting merge', 'Done', 'Abandoned',
+    ]);
   });
 });
 
