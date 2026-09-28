@@ -266,7 +266,7 @@ in separate checkouts all write to the same chart.
   branch, rebasing it onto the main line and filling in its ticket's `## Handoff`: every agent leaves
   its branch ready to fast-forward into main. Nobody continues a finished agent with a follow-up
   message — a fresh agent for the remainder costs less than the one holding the whole transcript.
-- A review is a clean agent following the review brief in `.agent-progress/agent-brief.md`. It starts
+- A review is a clean agent following the review brief in `.agent-progress/review-brief.md`. It starts
   from the Handoff rather than redoing the work, fixes what it finds in the branch's change and the
   ticket's Acceptance, settles its own doubts, rebases onto the main line again, and releases the
   branch itself with `agent-progress release`, which lets one branch into main at a time. Anything
