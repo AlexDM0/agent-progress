@@ -374,18 +374,36 @@ describeWhenGitIsPresent('updating a tracked repository', () => {
     expect(readFileSync(definitionFilePath, 'utf8')).toBe(INSTALLED_AGENT_DEFINITION);
   });
 
-  test('--no-agent-definition writes nothing under .claude/agents and leaves a hand-edited one byte for byte', async () => {
+  test('--no-agent-definition with --no-workflow writes neither, and leaves a hand-edited definition byte for byte', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
 
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
-    expect(await runCommandLine(['update', '--no-agent-definition'], context)).toBe(0);
+    expect(await runCommandLine(['update', '--no-agent-definition', '--no-workflow'], context)).toBe(0);
     expect(existsSync(join(repositoryDirectory, '.claude', 'agents'))).toBe(false);
+    expect(existsSync(join(repositoryDirectory, '.agent-progress', 'agent-progress-dispatch.js'))).toBe(false);
     expect(context.outputText()).toContain('agent:       left alone (--no-agent-definition)');
+    expect(context.outputText()).toContain('workflow:    left alone (--no-workflow)');
 
     mkdirSync(join(repositoryDirectory, '.claude', 'agents'), { recursive: true });
     writeFileSync(agentDefinitionFilePathIn(repositoryDirectory), '---\nname: agent-progress-worker\n---\nExample Agency\'s own.\n');
-    expect(await runCommandLine(['update', '--no-agent-definition'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }))).toBe(0);
+    const secondRun = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['update', '--no-agent-definition', '--no-workflow'], secondRun)).toBe(0);
     expect(readFileSync(agentDefinitionFilePathIn(repositoryDirectory), 'utf8')).toBe('---\nname: agent-progress-worker\n---\nExample Agency\'s own.\n');
+  });
+
+  // The dispatcher starts every worker as the agent the definition declares, so a dispatcher without it could start none.
+  test('--no-agent-definition without --no-workflow is refused with exit 1, and nothing is written', async () => {
+    const repositoryDirectory = await trackedRepositoryWithStaleFiles();
+    const filesBefore = repositoryFileContentsOf(repositoryDirectory);
+
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+    expect(await runCommandLine(['update', '--no-agent-definition'], context)).toBe(1);
+
+    expect(context.errorText()).toContain('agent-progress update --no-agent-definition needs --no-workflow as well');
+    expect(context.errorText()).toContain('Nothing was written.');
+    expect(context.outputText()).toBe('');
+    expect(repositoryFileContentsOf(repositoryDirectory)).toEqual(filesBefore);
+    expect(filesBefore.size, 'the fixture holds the tracker and its installed files, so the comparison above is about something').toBeGreaterThan(3);
   });
 
   // A tracker adopted before the manifest existed has none, and `update` is what gives it one.

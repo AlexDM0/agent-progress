@@ -1,19 +1,24 @@
 import { randomUUID } from 'node:crypto';
 import { basename }   from 'node:path';
 
-import { ensureIgnored, type EnsureIgnoredOutcome }                             from '../../../src/lib/git/GitIgnore.ts';
-import { LocalTimeUtil }                                                        from '../../../src/lib/local-time/LocalTimeUtil.ts';
-import { createTracker }                                                        from '../../../src/services/tracker/TrackerCreation.ts';
-import { findWorkspace, workspacePathsFor }                                     from '../../../src/services/tracker/Workspace.ts';
-import { TRACKER_FILES }                                                        from '../../../src/services/tracker/constants/TrackerFiles.ts';
-import { OperationRefusal }                                                     from '../../../src/shared/OperationRefusal.ts';
-import type { CommandHandler }                                                  from '../../CommandHandler.ts';
-import { requireInstallManifestThisVersionCanReplace }                          from '../../InstallVersionCheck.ts';
-import { OutputUtil }                                                           from '../../utils/OutputUtil.ts';
-import { installedFileTextsFor }                                                from '../InstalledFileGeneration.ts';
-import type { InstalledFileTexts }                                              from '../InstalledFileGeneration.ts';
-import { recordInstallVersion, refreshReportLinesOf, refreshTrackedRepository } from '../TrackerRefresh.ts';
-import { initRootDirectoryOf, refuseAnOverrideNamingAnotherDirectory }          from './InitRoot.ts';
+import { ensureIgnored, type EnsureIgnoredOutcome }    from '../../../src/lib/git/GitIgnore.ts';
+import { LocalTimeUtil }                               from '../../../src/lib/local-time/LocalTimeUtil.ts';
+import { createTracker }                               from '../../../src/services/tracker/TrackerCreation.ts';
+import { findWorkspace, workspacePathsFor }            from '../../../src/services/tracker/Workspace.ts';
+import { TRACKER_FILES }                               from '../../../src/services/tracker/constants/TrackerFiles.ts';
+import { OperationRefusal }                            from '../../../src/shared/OperationRefusal.ts';
+import type { CommandHandler }                         from '../../CommandHandler.ts';
+import { requireInstallManifestThisVersionCanReplace } from '../../InstallVersionCheck.ts';
+import { OutputUtil }                                  from '../../utils/OutputUtil.ts';
+import { installedFileTextsFor }                       from '../InstalledFileGeneration.ts';
+import type { InstalledFileTexts }                     from '../InstalledFileGeneration.ts';
+import {
+  recordInstallVersion,
+  refreshReportLinesOf,
+  refreshTrackedRepository,
+  refuseAnAgentDefinitionOptOutKeepingTheWorkflow
+}                                                                               from '../TrackerRefresh.ts';
+import { initRootDirectoryOf, refuseAnOverrideNamingAnotherDirectory } from './InitRoot.ts';
 
 const USAGE = 'agent-progress init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';
 
@@ -35,6 +40,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
   const writesTheSubagentStopHook = !commandArguments.flag('no-hooks');
   const writesTheDispatcherWorkflow = !commandArguments.flag('no-workflow');
   const writesTheAgentDefinition = !commandArguments.flag('no-agent-definition');
+  refuseAnAgentDefinitionOptOutKeepingTheWorkflow('init', { writesTheAgentDefinition, writesTheDispatcherWorkflow });
 
   refuseAnOverrideNamingAnotherDirectory(context.currentDirectory, rootDirectory);
 

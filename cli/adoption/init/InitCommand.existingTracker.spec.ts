@@ -69,7 +69,7 @@ describeWhenGitIsPresent('init on an existing tracker in the current format', ()
       [['--no-claude-md'], '  CLAUDE.md:   left alone (--no-claude-md)'],
       [['--no-hooks'], '  hooks:       left alone (--no-hooks)'],
       [['--no-workflow'], '  workflow:    left alone (--no-workflow)'],
-      [['--no-agent-definition'], '  agent:       left alone (--no-agent-definition)'],
+      [['--no-agent-definition', '--no-workflow'], '  agent:       left alone (--no-agent-definition)'],
     ];
 
     for (const [optionArguments, line] of optionsWithTheirLines) {

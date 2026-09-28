@@ -61,18 +61,18 @@ describeWhenGitIsPresent('update on a tracker', () => {
 
   test('takes every current option, each leaving its own file alone and the tracker byte for byte', async () => {
     const filesBefore = storedFileContentsOf(workspacePathsFor(repositoryDirectory));
-    const optionsWithTheirLines: Array<[optionName: string, line: string]> = [
-      ['--no-claude-md', '  CLAUDE.md:   left alone (--no-claude-md)'],
-      ['--no-hooks', '  hooks:       left alone (--no-hooks)'],
-      ['--no-workflow', '  workflow:    left alone (--no-workflow)'],
-      ['--no-agent-definition', '  agent:       left alone (--no-agent-definition)'],
+    const optionsWithTheirLines: Array<[optionArguments: string[], line: string]> = [
+      [['--no-claude-md'], '  CLAUDE.md:   left alone (--no-claude-md)'],
+      [['--no-hooks'], '  hooks:       left alone (--no-hooks)'],
+      [['--no-workflow'], '  workflow:    left alone (--no-workflow)'],
+      [['--no-agent-definition', '--no-workflow'], '  agent:       left alone (--no-agent-definition)'],
     ];
 
-    for (const [optionName, line] of optionsWithTheirLines) {
-      const context = await run(['update', optionName]);
-      expect(context.outputText(), optionName).toContain(line);
+    for (const [optionArguments, line] of optionsWithTheirLines) {
+      const context = await run(['update', ...optionArguments]);
+      expect(context.outputText(), optionArguments.join(' ')).toContain(line);
     }
-    const everyOption = await run(['update', ...optionsWithTheirLines.map(([optionName]) => optionName)]);
+    const everyOption = await run(['update', ...new Set(optionsWithTheirLines.flatMap(([optionArguments]) => optionArguments))]);
     for (const [, line] of optionsWithTheirLines) expect(everyOption.outputText()).toContain(line);
     expect(storedFileContentsOf(workspacePathsFor(repositoryDirectory))).toEqual(filesBefore);
   });

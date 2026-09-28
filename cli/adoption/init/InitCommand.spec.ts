@@ -194,14 +194,31 @@ describeWhenGitIsPresent('initialising a repository', () => {
     expect(context.outputText()).toMatch(/agent: {7}updated \(\S+\/\.claude\/agents\/agent-progress-worker\.md\)/);
   });
 
-  test('--no-agent-definition writes nothing under .claude/agents, and says so', async () => {
+  test('--no-agent-definition with --no-workflow writes neither the definition nor the dispatcher, and says so', async () => {
     const repositoryDirectory = scratchRepository();
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
 
-    expect(await runCommandLine(['init', '--no-agent-definition'], context)).toBe(0);
+    expect(await runCommandLine(['init', '--no-agent-definition', '--no-workflow'], context)).toBe(0);
 
     expect(existsSync(join(repositoryDirectory, '.claude', 'agents'))).toBe(false);
+    expect(existsSync(dispatcherScriptPathIn(repositoryDirectory))).toBe(false);
     expect(context.outputText()).toContain('agent:       left alone (--no-agent-definition)');
+    expect(context.outputText()).toContain('workflow:    left alone (--no-workflow)');
+  });
+
+  // The dispatcher starts every worker as the agent the definition declares, so a dispatcher without it could start none.
+  test('--no-agent-definition without --no-workflow is refused with exit 1, and nothing is written', async () => {
+    const repositoryDirectory = scratchRepository();
+    const filesBefore = repositoryFileContentsOf(repositoryDirectory);
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+
+    expect(await runCommandLine(['init', '--no-agent-definition'], context)).toBe(1);
+
+    expect(context.errorText()).toContain('agent-progress init --no-agent-definition needs --no-workflow as well');
+    expect(context.errorText()).toContain('Nothing was written.');
+    expect(context.outputText()).toBe('');
+    expect(repositoryFileContentsOf(repositoryDirectory)).toEqual(filesBefore);
+    expect(existsSync(join(repositoryDirectory, '.agent-progress'))).toBe(false);
   });
 
   test('records the install version in the tracker directory as exactly the CLI\'s own', async () => {

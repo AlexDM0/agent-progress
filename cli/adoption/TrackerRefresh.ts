@@ -14,6 +14,7 @@ import {
   writeSubagentStopHook
 }                                                             from '../../src/lib/claude-code/ClaudeSettings.ts';
 import type { Workspace }                                from '../../src/services/tracker/Workspace.ts';
+import { OperationRefusal }                              from '../../src/shared/OperationRefusal.ts';
 import { installedFilePathsIn, type InstalledFilePaths } from '../InstalledFiles.ts';
 import { INSTALL_VERSION }                               from '../constants/InstallVersion.ts';
 import type { InstalledFileTexts }                       from './InstalledFileGeneration.ts';
@@ -127,6 +128,20 @@ function refreshSubagentStopHookIn(
   const installOutcome = writeSubagentStopHook(localSettingsFilePath, SUBAGENT_STOP_HOOK);
   if (installOutcome === 'refused-unreadable') return refusedUnreadableSettings(localSettingsFilePath);
   return `${localSettingsFilePath} (installed)`;
+}
+
+/** Checked before the first write: the dispatcher starts every builder and reviewer as the agent this definition declares. */
+export function refuseAnAgentDefinitionOptOutKeepingTheWorkflow(
+  commandName: string,
+  { writesTheAgentDefinition, writesTheDispatcherWorkflow }: { writesTheAgentDefinition: boolean; writesTheDispatcherWorkflow: boolean },
+): void {
+  if (writesTheAgentDefinition || !writesTheDispatcherWorkflow) return;
+  throw new OperationRefusal(
+    'refused',
+    `agent-progress ${commandName} --no-agent-definition needs --no-workflow as well: the dispatcher workflow starts every builder and reviewer `
+    + 'as the `agent-progress-worker` agent that definition declares, so without it no worker could start. Nothing was written. '
+    + 'Add --no-workflow, or drop --no-agent-definition.',
+  );
 }
 
 /** Rewritten on every refresh like the dispatcher: a hand edit is undone, and a project that wants its own keeps it under another name. */
