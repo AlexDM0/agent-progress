@@ -131,7 +131,8 @@ describe('the sort', () => {
     ['type', 'descending', ['001', '003', '010', '004', '002']],
     ['status', 'ascending', ['002', '001', '010', '003', '004']],
     ['group', 'ascending', ['001', '010', '004', '003', '002']],
-    ['branch', 'descending', ['010', '004', '003', '001', '002']],
+    ['group', 'descending', ['001', '010', '004', '003', '002']],
+    ['branch', 'descending', ['002', '010', '004', '003', '001']],
   ] as const)('orders by %s %s, the newest first on a tie and an empty value last', (sortKey, sortDirection, expected) => {
     expect(shownIds({ sortKey, sortDirection })).toEqual([...expected]);
   });

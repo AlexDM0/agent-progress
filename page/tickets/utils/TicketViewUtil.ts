@@ -135,6 +135,9 @@ function ticketComparatorFor(view: TicketView): (a: BoardTicket, b: BoardTicket)
     if (first === second) {
       return Number(b.id) - Number(a.id);
     }
+    if (first === LAST_IN_ORDER || second === LAST_IN_ORDER) {
+      return first === LAST_IN_ORDER ? 1 : -1;
+    }
     const order = first < second ? -1 : 1;
     return view.sortDirection === 'ascending' ? order : -order;
   };
