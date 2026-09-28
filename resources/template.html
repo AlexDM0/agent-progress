@@ -243,7 +243,13 @@
                 Percentages are 0 at range.from and 100 at range.to.
 ===============================================================================
  Tokens
-   colour     bg, surface, surface-2, ink, ink-muted, line, line-strong,
+   colour     every colour is a token, defined only in :root, :root[data-theme="dark"]
+              and the [data-state] blocks with their dark twins; every other rule, the
+              markup and the page script reach it through var(--…), and
+              src/services/render/TemplateColourTokens.spec.ts fails on any literal elsewhere.
+              bg, surface, surface-2, ink, ink-muted, line, line-strong, link,
+              warn-* and err-* (tint, edge, ink), shadow-control / -popover / -panel,
+              hatch-live / hatch-idle (bar stripes), badge-<status>-tint / -ink / -edge;
               per state: --s-fill (bars) / --s-tint (pill bg) / --s-ink (pill text)
               / --s-edge (pill border), set by [data-state]; --now for the marker
    spacing    4 8 12 16 24 32 (--sp-1 … --sp-6)
@@ -294,6 +300,18 @@
   --err-tint:    oklch(0.962 0.035 25);
   --err-edge:    oklch(0.80 0.10 25);
   --err-ink:     oklch(0.46 0.14 25);
+
+  --shadow-control: oklch(0 0 0 / 0.08);
+  --shadow-popover: oklch(0 0 0 / 0.14);
+  --shadow-panel:   oklch(0 0 0 / 0.08);
+  --hatch-live:     oklch(1 0 0 / 0.38);
+  --hatch-idle:     oklch(1 0 0 / 0.45);
+
+  --badge-in-progress-tint: oklch(0.963 0.048 85);  --badge-in-progress-ink: oklch(0.44 0.105 70);  --badge-in-progress-edge: oklch(0.83 0.11 80);
+  --badge-in-review-tint:   oklch(0.957 0.028 205); --badge-in-review-ink:   oklch(0.43 0.09 205);  --badge-in-review-edge:   oklch(0.80 0.07 205);
+  --badge-reviewed-tint:    oklch(0.957 0.033 155); --badge-reviewed-ink:    oklch(0.42 0.095 155); --badge-reviewed-edge:    oklch(0.79 0.08 155);
+  --badge-delivered-tint:   oklch(0.957 0.030 300); --badge-delivered-ink:   oklch(0.44 0.125 300); --badge-delivered-edge:   oklch(0.80 0.075 300);
+  --badge-abandoned-tint:   oklch(0.955 0.004 265); --badge-abandoned-ink:   oklch(0.50 0.008 265); --badge-abandoned-edge:   oklch(0.885 0.006 265);
 }
 
 /* One row per state: pills, bars and badges all read these four properties. */
@@ -331,6 +349,15 @@
     --err-tint:    oklch(0.30 0.06 25);
     --err-edge:    oklch(0.50 0.11 25);
     --err-ink:     oklch(0.92 0.05 25);
+
+    --shadow-popover: oklch(0 0 0 / 0.45);
+    --shadow-panel:   oklch(0 0 0 / 0.4);
+
+    --badge-in-progress-tint: oklch(0.33 0.065 80);  --badge-in-progress-ink: oklch(0.91 0.075 85);  --badge-in-progress-edge: oklch(0.52 0.10 80);
+    --badge-in-review-tint:   oklch(0.32 0.050 205); --badge-in-review-ink:   oklch(0.89 0.055 205); --badge-in-review-edge:   oklch(0.50 0.075 205);
+    --badge-reviewed-tint:    oklch(0.32 0.055 155); --badge-reviewed-ink:    oklch(0.89 0.060 155); --badge-reviewed-edge:    oklch(0.50 0.080 155);
+    --badge-delivered-tint:   oklch(0.32 0.060 300); --badge-delivered-ink:   oklch(0.89 0.060 300); --badge-delivered-edge:   oklch(0.51 0.095 300);
+    --badge-abandoned-tint:   oklch(0.28 0.006 265); --badge-abandoned-ink:   oklch(0.72 0.010 265); --badge-abandoned-edge:   oklch(0.38 0.008 265);
 }
 :root[data-theme="dark"] [data-state="pending"]     { --s-fill: oklch(0.42 0.012 265); --s-tint: oklch(0.29 0.010 265); --s-ink: oklch(0.80 0.012 265); --s-edge: oklch(0.40 0.012 265); }
 :root[data-theme="dark"] [data-state="in-progress"] { --s-fill: oklch(0.76 0.145 80);  --s-tint: oklch(0.33 0.065 80);  --s-ink: oklch(0.91 0.075 85);  --s-edge: oklch(0.52 0.10 80); }
@@ -417,7 +444,7 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
   cursor: pointer;
 }
 .ap-tabs button:hover { color: var(--ink); }
-.ap-tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px oklch(0 0 0 / 0.08); }
+.ap-tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px var(--shadow-control); }
 [data-panel][hidden] { display: none; }
 .ap-tab-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-bottom: var(--sp-4); }
 .ap-tab-bar .ap-tabs { margin-bottom: 0; }
@@ -453,7 +480,7 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
   cursor: pointer;
 }
 .ap-seg button:hover { color: var(--ink); }
-.ap-seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px oklch(0 0 0 / 0.08); }
+.ap-seg button[aria-pressed="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px var(--shadow-control); }
 .ap-field { display: flex; align-items: baseline; gap: 6px; }
 .ap-field input {
   font: var(--fs-small)/1.4 var(--font-mono);
@@ -478,9 +505,8 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
   background: var(--surface);
   border: 1px solid var(--line-strong);
   border-radius: var(--r-3);
-  box-shadow: 0 10px 28px oklch(0 0 0 / 0.14);
+  box-shadow: 0 10px 28px var(--shadow-popover);
 }
-:root[data-theme="dark"] .ap-popover { box-shadow: 0 10px 28px oklch(0 0 0 / 0.45); }
 .ap-popover[hidden] { display: none; }
 .ap-popover-title { margin: 0 0 var(--sp-3); font-size: var(--fs-small); font-weight: 600; }
 .ap-popover-field { display: grid; grid-template-columns: 40px 1fr; align-items: baseline; column-gap: var(--sp-2); row-gap: 2px; margin-bottom: var(--sp-3); }
@@ -633,18 +659,18 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
   background: var(--s-fill);
 }
 .ap-row[data-state="in-progress"] .ap-bar {
-  background-image: repeating-linear-gradient(45deg, oklch(1 0 0 / 0.38) 0 5px, transparent 5px 10px);
+  background-image: repeating-linear-gradient(45deg, var(--hatch-live) 0 5px, transparent 5px 10px);
 }
 .ap-row[data-state="paused"] .ap-bar {
-  background-image: repeating-linear-gradient(90deg, oklch(1 0 0 / 0.45) 0 2px, transparent 2px 6px);
+  background-image: repeating-linear-gradient(90deg, var(--hatch-idle) 0 2px, transparent 2px 6px);
 }
 .ap-row[data-state="pending"] .ap-bar { background: transparent; border: 1px dashed var(--s-edge); }
 .ap-row[data-state="abandoned"] .ap-bar {
-  background-image: repeating-linear-gradient(45deg, oklch(1 0 0 / 0.45) 0 5px, transparent 5px 10px);
+  background-image: repeating-linear-gradient(45deg, var(--hatch-idle) 0 5px, transparent 5px 10px);
 }
 /* A review pass on its ticket's row takes its own round's fill, whatever the row's state, with a gap where it meets the build bar. */
 #ap-rows .ap-bar-review { background-color: var(--s-fill); background-image: none; border: 0; box-shadow: 0 0 0 1.5px var(--surface); }
-#ap-rows .ap-bar-review[data-live] { background-image: repeating-linear-gradient(45deg, oklch(1 0 0 / 0.38) 0 5px, transparent 5px 10px); }
+#ap-rows .ap-bar-review[data-live] { background-image: repeating-linear-gradient(45deg, var(--hatch-live) 0 5px, transparent 5px 10px); }
 .ap-clip-l, .ap-clip-r {
   position: absolute; top: 50%; transform: translateY(-50%);
   width: 0; height: 0;
@@ -711,16 +737,11 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
   white-space: nowrap;
 }
 .ap-badge.pending      { --s-tint: var(--surface-2); --s-ink: var(--ink-muted); --s-edge: var(--line-strong); }
-.ap-badge.in-progress  { --s-tint: oklch(0.963 0.048 85);  --s-ink: oklch(0.44 0.105 70);  --s-edge: oklch(0.83 0.11 80); }
-.ap-badge.in-review    { --s-tint: oklch(0.957 0.028 205); --s-ink: oklch(0.43 0.09 205);  --s-edge: oklch(0.80 0.07 205); }
-.ap-badge.reviewed     { --s-tint: oklch(0.957 0.033 155); --s-ink: oklch(0.42 0.095 155); --s-edge: oklch(0.79 0.08 155); }
-.ap-badge.delivered    { --s-tint: oklch(0.957 0.030 300); --s-ink: oklch(0.44 0.125 300); --s-edge: oklch(0.80 0.075 300); }
-.ap-badge.abandoned    { --s-tint: oklch(0.955 0.004 265); --s-ink: oklch(0.50 0.008 265); --s-edge: oklch(0.885 0.006 265); }
-:root[data-theme="dark"] .ap-badge.in-progress { --s-tint: oklch(0.33 0.065 80);  --s-ink: oklch(0.91 0.075 85);  --s-edge: oklch(0.52 0.10 80); }
-:root[data-theme="dark"] .ap-badge.in-review   { --s-tint: oklch(0.32 0.050 205); --s-ink: oklch(0.89 0.055 205); --s-edge: oklch(0.50 0.075 205); }
-:root[data-theme="dark"] .ap-badge.reviewed    { --s-tint: oklch(0.32 0.055 155); --s-ink: oklch(0.89 0.060 155); --s-edge: oklch(0.50 0.080 155); }
-:root[data-theme="dark"] .ap-badge.delivered   { --s-tint: oklch(0.32 0.060 300); --s-ink: oklch(0.89 0.060 300); --s-edge: oklch(0.51 0.095 300); }
-:root[data-theme="dark"] .ap-badge.abandoned   { --s-tint: oklch(0.28 0.006 265); --s-ink: oklch(0.72 0.010 265); --s-edge: oklch(0.38 0.008 265); }
+.ap-badge.in-progress  { --s-tint: var(--badge-in-progress-tint); --s-ink: var(--badge-in-progress-ink); --s-edge: var(--badge-in-progress-edge); }
+.ap-badge.in-review    { --s-tint: var(--badge-in-review-tint);   --s-ink: var(--badge-in-review-ink);   --s-edge: var(--badge-in-review-edge); }
+.ap-badge.reviewed     { --s-tint: var(--badge-reviewed-tint);    --s-ink: var(--badge-reviewed-ink);    --s-edge: var(--badge-reviewed-edge); }
+.ap-badge.delivered    { --s-tint: var(--badge-delivered-tint);   --s-ink: var(--badge-delivered-ink);   --s-edge: var(--badge-delivered-edge); }
+.ap-badge.abandoned    { --s-tint: var(--badge-abandoned-tint);   --s-ink: var(--badge-abandoned-ink);   --s-edge: var(--badge-abandoned-edge); }
 
 .ap-ticket-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-4); padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--line); }
 .ap-toolbar-group { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
@@ -831,7 +852,7 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
   color: var(--ink);
   font: var(--fs-body)/1.5 var(--font-ui);
   overflow: hidden;
-  box-shadow: -10px 0 28px oklch(0 0 0 / 0.08);
+  box-shadow: -10px 0 28px var(--shadow-panel);
   z-index: 20;
   transform: translateX(0);
   opacity: 1;
@@ -839,7 +860,6 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
 }
 /* Set for one frame before opening and while closing; the page script closes the dialog once the slide ends. */
 .ap-detail[data-motion="out"] { transform: translateX(100%); opacity: 0; }
-:root[data-theme="dark"] .ap-detail { box-shadow: -10px 0 28px oklch(0 0 0 / 0.4); }
 .ap-detail-close {
   position: absolute; top: var(--sp-3); right: var(--sp-3); z-index: 1;
   width: 24px; height: 24px;
@@ -1019,8 +1039,8 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
 .ap-ticket-gantt-end-label { position: absolute; top: 0; bottom: 0; display: flex; align-items: center; margin-left: 2px; padding-right: 5px; transform: translateX(-100%); border-right: 2px solid var(--now); background: var(--surface); font: 600 var(--fs-micro)/1 var(--font-mono); letter-spacing: 0; text-transform: none; color: var(--now); white-space: nowrap; }
 .ap-ticket-gantt-end-label[data-state] { border-right-color: var(--s-fill); color: var(--s-ink); }
 .ap-ticket-gantt .ap-tick[data-covered] > span { visibility: hidden; }
-.ap-ticket-gantt .ap-bar[data-live] { background-image: repeating-linear-gradient(45deg, oklch(1 0 0 / 0.38) 0 5px, transparent 5px 10px); }
-.ap-ticket-gantt .ap-bar[data-state="paused"] { background-image: repeating-linear-gradient(90deg, oklch(1 0 0 / 0.45) 0 2px, transparent 2px 6px); }
+.ap-ticket-gantt .ap-bar[data-live] { background-image: repeating-linear-gradient(45deg, var(--hatch-live) 0 5px, transparent 5px 10px); }
+.ap-ticket-gantt .ap-bar[data-state="paused"] { background-image: repeating-linear-gradient(90deg, var(--hatch-idle) 0 2px, transparent 2px 6px); }
 .ap-bar-segment { border-radius: 0; box-shadow: inset 1px 0 0 var(--surface); }
 .ap-bar-segment:first-of-type { border-radius: var(--r-1) 0 0 var(--r-1); box-shadow: none; }
 .ap-bar-segment:last-of-type { border-top-right-radius: var(--r-1); border-bottom-right-radius: var(--r-1); }
@@ -1043,7 +1063,7 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
 .ap-ticket-gantt-legend time { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .ap-ticket-gantt-swatch { flex: none; width: 12px; height: 8px; border-radius: 2px; background: var(--s-fill); }
 .ap-ticket-gantt-swatch[data-state="pending"] { background: repeating-linear-gradient(135deg, var(--line-strong) 0 1px, transparent 1px 4px); border: 1px dashed var(--line-strong); }
-.ap-ticket-gantt-swatch[data-state="paused"] { background-image: repeating-linear-gradient(90deg, oklch(1 0 0 / 0.45) 0 2px, transparent 2px 4px); }
+.ap-ticket-gantt-swatch[data-state="paused"] { background-image: repeating-linear-gradient(90deg, var(--hatch-idle) 0 2px, transparent 2px 4px); }
 .ap-ticket-gantt-note { margin: var(--sp-2) 0 0; font-size: var(--fs-small); color: var(--ink-muted); }
 .ap-detail-section > .ap-ticket-body { border-top: 0; padding-top: 0; }
 
