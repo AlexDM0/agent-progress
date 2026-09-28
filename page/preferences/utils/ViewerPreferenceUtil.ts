@@ -55,6 +55,7 @@ function reloadSnapshotFrom(value: unknown, trackerId: string): ReloadSnapshot |
   const offsetOf = (key: string): number => Math.max(0, JsonValueUtil.finiteNumberOrNull(value[key]) ?? 0);
   return {
     trackerId,
+    tabName:          JsonValueUtil.textOrNull(value['tabName']) ?? '',
     windowScrollTop:  offsetOf('windowScrollTop'),
     chartScrollLeft:  offsetOf('chartScrollLeft'),
     chartScrollTop:   offsetOf('chartScrollTop'),

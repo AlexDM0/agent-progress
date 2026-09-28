@@ -140,6 +140,7 @@ describe('the capped lanes', () => {
 describe('reloadSnapshotFrom', () => {
   const storedSnapshot = {
     trackerId:        'tracker-a',
+    tabName:          'progress',
     windowScrollTop:  640,
     chartScrollLeft:  1200,
     chartScrollTop:   80,

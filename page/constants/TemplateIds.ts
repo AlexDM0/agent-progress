@@ -2,6 +2,7 @@
 
 export const KANBAN_BOARD_ELEMENT_ID = 'ap-kanban';
 export const KANBAN_TAB_NAME         = 'kanban';
+export const TABS_ELEMENT_ID         = 'ap-tabs';
 
 export const SUMMARY_ELEMENT_ID         = 'ap-summary';
 export const AXIS_TICKS_ELEMENT_ID      = 'ap-ticks';

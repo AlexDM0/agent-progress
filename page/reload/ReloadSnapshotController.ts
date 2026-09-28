@@ -7,11 +7,13 @@ import {
   KANBAN_BOARD_ELEMENT_ID,
   RANGE_FROM_ELEMENT_ID,
   RANGE_TO_ELEMENT_ID,
+  TABS_ELEMENT_ID,
 } from '../constants/TemplateIds.ts';
 import { DomUtil } from '../utils/DomUtil.ts';
 
 export interface ReloadSnapshotSources {
   trackerId:        string;
+  tabNames:         readonly string[];
   store:            ReloadSnapshotStore;
   readDetailTarget: () => DetailTarget | null;
   reopenDetail:     (target: DetailTarget) => boolean;
@@ -28,6 +30,11 @@ function inputValueOf(elementId: string): string {
   return input instanceof HTMLInputElement ? input.value : '';
 }
 
+function shownTabName(): string {
+  const selectedTab = document.querySelector(`#${TABS_ELEMENT_ID} [data-tab][aria-selected="true"]`);
+  return selectedTab instanceof HTMLElement ? selectedTab.dataset['tab'] ?? '' : '';
+}
+
 function setInputValue(elementId: string, value: string): void {
   const input = document.getElementById(elementId);
   if (input instanceof HTMLInputElement) {
@@ -38,6 +45,7 @@ function setInputValue(elementId: string, value: string): void {
 export function createReloadSnapshotController(sources: ReloadSnapshotSources): ReloadSnapshotController {
   const {
     trackerId,
+    tabNames,
     store,
     readDetailTarget,
     reopenDetail,
@@ -50,6 +58,7 @@ export function createReloadSnapshotController(sources: ReloadSnapshotSources): 
     const detailTarget = readDetailTarget();
     return {
       trackerId,
+      tabName:          shownTabName(),
       windowScrollTop:  window.scrollY,
       chartScrollLeft:  chart?.scrollLeft ?? 0,
       chartScrollTop:   chart?.scrollTop ?? 0,
@@ -69,6 +78,10 @@ export function createReloadSnapshotController(sources: ReloadSnapshotSources): 
       const snapshot = store.take();
       if (snapshot === null) {
         return;
+      }
+      // A fragment in the address reselects its own tab on every load, so the tab shown before the reload is put back over it.
+      if (tabNames.includes(snapshot.tabName)) {
+        DomUtil.templateBehaviour()?.selectTab(snapshot.tabName);
       }
       // Only the text goes back, never a change event: a bound typed and not yet applied stays unapplied.
       setInputValue(RANGE_FROM_ELEMENT_ID, snapshot.fromText);

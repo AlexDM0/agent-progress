@@ -191,6 +191,7 @@ describe('createViewerPreferences', () => {
 
 const EXAMPLE_RELOAD_SNAPSHOT: ReloadSnapshot = {
   trackerId:        EXAMPLE_TRACKER_ID,
+  tabName:          'kanban',
   windowScrollTop:  640,
   chartScrollLeft:  1200,
   chartScrollTop:   80,

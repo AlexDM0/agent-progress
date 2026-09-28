@@ -219,6 +219,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
 
   const reloadSnapshotController = createReloadSnapshotController({
     trackerId:        progress.trackerId,
+    tabNames:         TAB_NAMES,
     store:            createReloadSnapshotStore(progress.trackerId, () => window.sessionStorage),
     readDetailTarget: () => detailDialogController.readOpenTarget(),
     reopenDetail:     (target) => detailDialogController.reopen(target),

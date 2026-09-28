@@ -24,6 +24,7 @@ export interface DetailTarget {
 /** The viewer's place, stored just before the idle reload and restored once after it. */
 export interface ReloadSnapshot {
   trackerId:        string;
+  tabName:          string;
   windowScrollTop:  number;
   chartScrollLeft:  number;
   chartScrollTop:   number;
