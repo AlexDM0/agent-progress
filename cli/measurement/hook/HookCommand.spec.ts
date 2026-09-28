@@ -23,7 +23,8 @@ import {
 }                                                                             from 'bun:test';
 import { LogFileIngestion }                                                           from '../../../src/adapters/log/LogFileIngestion.ts';
 import { OperationRefusalWordingUtil }                                                from '../../../src/adapters/utils/OperationRefusalWordingUtil.ts';
-import { HELD_LOCK_CASE_TIMEOUT_MILLISECONDS }                                        from '../../../src/testing/HeldLockCaseTimeout.ts';
+import { LIMITS }                                                                     from '../../../src/shared/constants/Limits.ts';
+import { lockRetryWaitsDuring }                                                       from '../../../src/testing/LockRetryWaits.ts';
 import { createScratchDirectory, createScratchGitRepository, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }                                                   from '../../../src/testing/ToolGuard.ts';
 import { installedFilePathsIn }                                                       from '../../InstalledFiles.ts';
@@ -569,14 +570,18 @@ describeWhenGitIsPresent('every way it can fail', () => {
     writeFileSync(lockFilePath, '');
     const context = contextWith(hookInput());
 
-    expect(await runCommandLine(['hook', 'subagent-stop'], context)).toBe(0);
+    const { outcome, sleepMilliseconds } = await lockRetryWaitsDuring(() => runCommandLine(['hook', 'subagent-stop'], context));
 
+    expect(outcome).toEqual({ settled: 'fulfilled', value: 0 });
+    expect(sleepMilliseconds, 'it waited out the whole retry budget before giving up').toEqual(
+      Array.from({ length: LIMITS.LOCK_RETRY_COUNT }, () => LIMITS.LOCK_RETRY_INTERVAL_MILLISECONDS),
+    );
     expect(storedLogEntriesOf(repositoryDirectory)).toEqual([]);
     expect(context.errorText().split('\n'), 'one sentence, not a stack the orchestrator has to read').toHaveLength(1);
     expect(context.errorText()).toContain('could not be recorded');
     expect(context.outputText()).toBe('');
     expect(readFileSync(lockFilePath, 'utf8'), 'the lock it refused to take is left exactly as it was').toBe('');
-  }, HELD_LOCK_CASE_TIMEOUT_MILLISECONDS);
+  });
 
   test('a cwd with no tracker above it is reported and still exits 0, because a hook failure must never reach the orchestrator', async () => {
     const untrackedDirectory = createScratchDirectory('hook-command-untracked');

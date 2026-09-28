@@ -17,7 +17,7 @@ import { afterAll, expect, test } from 'bun:test';
 import { refusalIsOperationRefusal }                      from '../../shared/OperationRefusal.ts';
 import { LIMITS }                                         from '../../shared/constants/Limits.ts';
 import { CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS }        from '../../testing/ChildProcessCaseTimeout.ts';
-import { HELD_LOCK_CASE_TIMEOUT_MILLISECONDS }            from '../../testing/HeldLockCaseTimeout.ts';
+import { lockRetryWaitsDuring }                           from '../../testing/LockRetryWaits.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
 import { LockGenerationSteps, withLock }                  from './TrackerLock.ts';
 import { workspacePathsFor }                              from './Workspace.ts';
@@ -85,6 +85,14 @@ function deadHolderRecord(deadProcessId: number): string {
 
 function overrunHolderRecord(processId: number): string {
   return JSON.stringify({ acquiredAt: OVERRUN_HOLDER_ACQUIRED_AT, processId, state: 'held' });
+}
+
+async function refusalAfterTheWholeRetryBudget(workspace: Workspace): Promise<unknown> {
+  const { outcome, sleepMilliseconds } = await lockRetryWaitsDuring(() => withLock(workspace, () => 'must not run', realClock));
+  expect(sleepMilliseconds, 'it waited out the whole retry budget before refusing').toEqual(
+    Array.from({ length: LIMITS.LOCK_RETRY_COUNT }, () => LIMITS.LOCK_RETRY_INTERVAL_MILLISECONDS),
+  );
+  return outcome.settled === 'rejected' ? outcome.reason : null;
 }
 
 test('two overlapping calls run one after the other, never inside one another', async () => {
@@ -163,18 +171,13 @@ test('a freshly written unparseable record is waited for and then refused, rathe
   const workspace = scratchWorkspace('lock-unparseable-fresh');
   writeGeneration(workspace.lockDirectoryPath, 1, '');
 
-  let caught: unknown = null;
-  try {
-    await withLock(workspace, () => 'must not run', realClock);
-  } catch (error) {
-    caught = error;
-  }
+  const caught = await refusalAfterTheWholeRetryBudget(workspace);
 
   expect(refusalIsOperationRefusal(caught)).toBe(true);
   expect(refusalIsOperationRefusal(caught) ? caught.status : null).toBe('unrepaired');
   expect(refusalIsOperationRefusal(caught) ? caught.detail : null).toEqual({ kind: 'tracker-lock-held', lockDirectoryPath: workspace.lockDirectoryPath });
   expect(readFileSync(generationPathFor(workspace.lockDirectoryPath, 1), 'utf8'), 'the record it refused to take is left exactly as it was').toBe('');
-}, HELD_LOCK_CASE_TIMEOUT_MILLISECONDS);
+});
 
 // A plain file at the lock path, left by an older install, is never treated as free.
 // The wording, which calls it a path to remove and never a file, is pinned in `src/adapters/utils/OperationRefusalWordingUtil.spec.ts`.
@@ -182,18 +185,13 @@ test('a lock path that is a plain file refuses the same way, as a held lock at t
   const workspace = scratchWorkspace('lock-plain-file');
   writeFileSync(workspace.lockDirectoryPath, '');
 
-  let caught: unknown = null;
-  try {
-    await withLock(workspace, () => 'must not run', realClock);
-  } catch (error) {
-    caught = error;
-  }
+  const caught = await refusalAfterTheWholeRetryBudget(workspace);
 
   expect(refusalIsOperationRefusal(caught)).toBe(true);
   expect(refusalIsOperationRefusal(caught) ? caught.status : null).toBe('unrepaired');
   expect(refusalIsOperationRefusal(caught) ? caught.detail : null).toEqual({ kind: 'tracker-lock-held', lockDirectoryPath: workspace.lockDirectoryPath });
   expect(readFileSync(workspace.lockDirectoryPath, 'utf8')).toBe('');
-}, HELD_LOCK_CASE_TIMEOUT_MILLISECONDS);
+});
 
 test('a record whose payload carries an impossible process id is never signalled with it', async () => {
   // `process.kill(0, …)` would signal the caller's whole process group, so a non-positive id never reaches it.
