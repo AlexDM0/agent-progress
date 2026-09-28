@@ -1,6 +1,7 @@
 /**
  * A group's release ticket and its release bundle. The mark is refused, before anything changed, on an ungrouped ticket, a settled one and
- * in a group that already has one; the bundle follows dependencies only inside the group, so neither an out-of-group dependency nor an
+ * in a group that already has an open one, while a delivered or abandoned release ticket leaves the group free for a new mark and closes
+ * over no bundle; the bundle follows dependencies only inside the group, so neither an out-of-group dependency nor an
  * in-group ticket that depends on the release ticket, nor one only reached through another group, is in it.
  */
 import { describe, expect, test } from 'bun:test';
@@ -60,6 +61,29 @@ describe('marking a release ticket', () => {
       group:           GROUP,
       releaseTicketId: '001',
     });
+  });
+
+  test('succeeds once the group\'s release ticket is delivered or abandoned, since only an open one is its current release ticket', () => {
+    for (const status of ['delivered', 'abandoned'] as const) {
+      const fixture = boardFixture({
+        tickets: [ticketFixture({
+          id: '001', group: GROUP, status, releasesGroup: true
+        }), ticketFixture({ id: '002', group: GROUP })]
+      });
+      expect(fixture.board.markReleaseTicket('002', CHANGED_AT).ticket.frontmatter.releasesGroup).toBe(true);
+      expect(fixture.board.releaseBundleOf(GROUP)).toEqual(['002']);
+    }
+  });
+
+  test('is refused when the group\'s release ticket is open in any status, in review as much as pending', () => {
+    for (const status of ['pending', 'in-progress', 'in-review', 'reviewed'] as const) {
+      const fixture = boardFixture({
+        tickets: [ticketFixture({
+          id: '001', group: GROUP, status, releasesGroup: true
+        }), ticketFixture({ id: '002', group: GROUP })]
+      });
+      expectRefusedWithNothingChanged(fixture, () => fixture.board.markReleaseTicket('002', CHANGED_AT), 'group-already-has-a-release-ticket');
+    }
   });
 
   test('a release ticket of another group does not count', () => {
@@ -123,5 +147,15 @@ describe('the release bundle', () => {
   test('is empty for a group with no release ticket', () => {
     const { board } = boardFixture({ tickets: structuredClone(BRANCHING_GRAPH) });
     expect(board.releaseBundleOf('example-cart')).toEqual([]);
+  });
+
+  test('is empty for a group whose release ticket is delivered or abandoned', () => {
+    for (const status of ['delivered', 'abandoned'] as const) {
+      const tickets = structuredClone(BRANCHING_GRAPH);
+      const releaseTicket = tickets.find((ticket) => ticket.frontmatter.id === '005');
+      if (releaseTicket !== undefined) releaseTicket.frontmatter.status = status;
+      const { board } = boardFixture({ tickets });
+      expect(board.releaseBundleOf(GROUP)).toEqual([]);
+    }
   });
 });

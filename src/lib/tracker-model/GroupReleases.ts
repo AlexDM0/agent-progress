@@ -1,9 +1,9 @@
 /** A ticket group's release ticket, marked and cleared, and the release bundle it closes over: what reaches the main line as one release. */
-import type { TicketChanged }      from './@types/BoardChanges.ts';
-import type { Ticket }             from './@types/Ticket.ts';
-import type { BoardRecords }       from './BoardRecords.ts';
-import { BoardRefusal }            from './BoardRefusal.ts';
-import { SETTLED_TICKET_STATUSES } from './constants/Statuses.ts';
+import type { TicketChanged }             from './@types/BoardChanges.ts';
+import type { Ticket, TicketFrontmatter } from './@types/Ticket.ts';
+import type { BoardRecords }              from './BoardRecords.ts';
+import { BoardRefusal }                   from './BoardRefusal.ts';
+import { SETTLED_TICKET_STATUSES }        from './constants/Statuses.ts';
 
 export class GroupReleases {
   constructor(private readonly records: BoardRecords) {}
@@ -13,7 +13,7 @@ export class GroupReleases {
     refuseAReleaseMarkOfASettledTicket(ticket, 'mark');
     const { group } = ticket.frontmatter;
     if (group === undefined) throw new BoardRefusal({ reason: 'release-mark-of-an-ungrouped-ticket', ticketId });
-    const currentReleaseTicket = this.releaseTicketsOf(group)[0];
+    const currentReleaseTicket = this.openReleaseTicketsOf(group)[0];
     if (currentReleaseTicket !== undefined) {
       throw new BoardRefusal({
         reason:          'group-already-has-a-release-ticket',
@@ -37,12 +37,12 @@ export class GroupReleases {
   }
 
   /**
-   * The group's release ticket and every ticket of the same group it depends on, transitively, in id order; empty when the group has no
-   * release ticket. A dependency outside the group is not followed, so an in-group ticket reached only through it is not in the bundle.
+   * The group's open release ticket and every ticket of the same group it depends on, transitively, in id order; empty when the group has
+   * no open release ticket. A dependency outside the group is not followed, so an in-group ticket reached only through it is not in the bundle.
    */
   releaseBundleOf(group: string): string[] {
     const bundleTicketIds = new Set<string>();
-    const pendingTicketIds = this.releaseTicketsOf(group).map((ticket) => ticket.frontmatter.id);
+    const pendingTicketIds = this.openReleaseTicketsOf(group).map((ticket) => ticket.frontmatter.id);
 
     while (pendingTicketIds.length > 0) {
       const ticketId = pendingTicketIds.pop() ?? '';
@@ -54,16 +54,21 @@ export class GroupReleases {
     return [...bundleTicketIds].sort((a, b) => Number(a) - Number(b));
   }
 
-  /** The groups whose release ticket is neither delivered nor abandoned: their tickets are the group run's, not a whole-board run's. */
+  /** The groups with an open release ticket: their tickets are the group run's, not a whole-board run's. */
   groupsAwaitingTheirRelease(): ReadonlySet<string> {
     return new Set(this.records.ticketRecords.flatMap(({ frontmatter }) => (
-      frontmatter.releasesGroup === true && frontmatter.group !== undefined && !SETTLED_TICKET_STATUSES.includes(frontmatter.status) ? [frontmatter.group] : []
+      ticketIsAnOpenReleaseTicket(frontmatter) && frontmatter.group !== undefined ? [frontmatter.group] : []
     )));
   }
 
-  private releaseTicketsOf(group: string): Ticket[] {
-    return this.records.ticketRecords.filter((ticket) => ticket.frontmatter.group === group && ticket.frontmatter.releasesGroup === true);
+  /** A settled release ticket's mark is history: the group has no release ticket until a new one is marked. */
+  private openReleaseTicketsOf(group: string): Ticket[] {
+    return this.records.ticketRecords.filter((ticket) => ticket.frontmatter.group === group && ticketIsAnOpenReleaseTicket(ticket.frontmatter));
   }
+}
+
+function ticketIsAnOpenReleaseTicket(frontmatter: Readonly<TicketFrontmatter>): boolean {
+  return frontmatter.releasesGroup === true && !SETTLED_TICKET_STATUSES.includes(frontmatter.status);
 }
 
 function refuseAReleaseMarkOfASettledTicket(ticket: Readonly<Ticket>, action: 'mark' | 'clear'): void {

@@ -211,10 +211,12 @@ describe('a release group awaiting its release', () => {
     expect(Object.values(lists).flat().filter((ticketId) => ['001', '002', '003', '005'].includes(ticketId))).toHaveLength(0);
   });
 
-  test('lists the group\'s remaining open tickets again once its release ticket is delivered or abandoned', () => {
+  test('lists the group\'s remaining open tickets again once its release ticket is delivered or abandoned, as a group with none', () => {
     for (const settledStatus of ['delivered', 'abandoned'] as const) {
       const { board } = groupBoardFixture(settledStatus);
 
+      expect(board.releaseBundleOf('example-group')).toEqual([]);
+      expect(wholeBoardListsOf(board)).toEqual(wholeBoardListsOf(groupBoardFixture(null).board));
       expect(wholeBoardListsOf(board)).toEqual({
         readyTicketIds:       ['001', '004', '008'],
         readyTickets:         ['001', '004', '008'],
