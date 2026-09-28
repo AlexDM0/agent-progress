@@ -84,7 +84,7 @@ function uncommittedPathsIn(directory: string): Set<string> {
 }
 
 function pathsChangedBetween(directory: string, commit: string): string[] {
-  const run = GitProcess.run(directory, ['diff', '--name-only', '-z', 'HEAD', commit, '--']);
+  const run = GitProcess.run(directory, ['diff', '--name-only', '--no-renames', '-z', 'HEAD', commit, '--']);
   return GitProcess.succeeded(run) ? nulSeparatedFieldsOf(run.standardOutput) : [];
 }
 

@@ -162,6 +162,24 @@ describeWhenGitIsPresent('the fast-forward', () => {
     expect(outcome.blockingFiles.toSorted()).toEqual(['new file.md', 'shared.md']);
     expect(gitOutputIn(repositoryDirectory, ['rev-parse', 'HEAD'])).toBe(mainLineCommit);
   });
+
+  // Rename detection would report only the new path, while git refuses over the old one the merge removes.
+  test('a refusal over a file the branch renames names the path it was renamed from', () => {
+    const repositoryDirectory = scratchGitRepository('branch-integration-renamed-blocking-file');
+    const mainLine            = currentBranchOf(repositoryDirectory);
+    commitFile(repositoryDirectory, 'before.md', 'one\ntwo\nthree\nfour\n');
+    gitOutputIn(repositoryDirectory, ['checkout', '-q', '-b', 'feature']);
+    gitOutputIn(repositoryDirectory, ['mv', 'before.md', 'after.md']);
+    gitOutputIn(repositoryDirectory, ['commit', '-q', '-m', 'Rename the file']);
+    const branchCommit = gitOutputIn(repositoryDirectory, ['rev-parse', 'HEAD']);
+    gitOutputIn(repositoryDirectory, ['checkout', '-q', mainLine]);
+    writeFileSync(join(repositoryDirectory, 'before.md'), 'edited by hand\n');
+
+    const outcome = fastForwardTo(repositoryDirectory, branchCommit);
+    expect(outcome.verdict).toBe('refused');
+    if (outcome.verdict !== 'refused') return;
+    expect(outcome.blockingFiles).toEqual(['before.md']);
+  });
 });
 
 describeWhenGitIsPresent('removing the worktree', () => {
