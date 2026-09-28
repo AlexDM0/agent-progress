@@ -36,7 +36,11 @@
 
  ---------------------------------------------------------------- containers ---
  #ap-project              text   project name
- #ap-summary              html   status line; children are .ap-stat (> .ap-stat-n and its label, on either side)
+ #ap-summary              html   status line; children are .ap-stat (> .ap-stat-n and its label, on either side);
+                                 a state stat is button.ap-stat[data-kanban-lane] (done | merge | review |
+                                 progress) with aria-label "Show <figure> <label> on Kanban", which selects
+                                 the Kanban tab and marks that .ap-lane[data-highlighted] for 1.2 s; the
+                                 token stat stays a span
  #ap-generated            text   "generated 21:56" (monospace), title "generated 2026-09-18 21:56".
                                  Every stamp on the page follows one rule against the viewer's
                                  day: today's shows only its clock ("21:56"), another day of the
@@ -115,6 +119,8 @@
                           .ap-lane-dot[data-state], .ap-card-title, .ap-lane-count, .ap-lane-sub;
                           then .ap-lane-cards#ap-lane-<lane>-cards, then .ap-lane-more when capped
  .ap-lane[data-collapsed] Abandoned only: a strip; its head is one button.ap-lane-toggle[aria-expanded]
+ .ap-lane[data-highlighted] set by the script for 1.2 s after a summary stat jumps to it, with
+                          --lane-highlight-edge (inline) copied from its dot's --s-edge
  .ap-lane-group           a priority divider inside an open lane, [data-priority], only when the
                           lane holds more than one priority
  .ap-kanban-card          article[data-ticket-id][data-state][tabindex="0"], data-row="none" when
@@ -333,6 +339,9 @@ a:hover { color: var(--ink); text-decoration: underline; }
 }
 .ap-stat { display: inline-flex; align-items: baseline; gap: 5px; }
 .ap-stat + .ap-stat::before { content: ""; }
+button.ap-stat { padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; border-radius: var(--r-1); }
+button.ap-stat:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3px; }
 .ap-stat-n {
   font-family: var(--font-mono);
   font-variant-numeric: tabular-nums;
@@ -730,6 +739,10 @@ a:hover { color: var(--ink); text-decoration: underline; }
 .ap-kanban-frame[data-overflow~="end"]::after { opacity: 1; }
 .ap-kanban { display: flex; align-items: stretch; gap: 10px; overflow-x: auto; overscroll-behavior-x: contain; padding-bottom: var(--sp-1); }
 .ap-lane { flex: 1 1 0; min-width: 220px; margin-bottom: 0; display: flex; flex-direction: column; overflow: hidden; container-type: inline-size; }
+/* Drawn inside the lane, so the board's scroll box never clips it. */
+.ap-lane[data-highlighted] { outline: 2px solid var(--lane-highlight-edge, var(--line-strong)); outline-offset: -2px; animation: ap-lane-highlight 0.3s ease-out; }
+@keyframes ap-lane-highlight { from { outline-color: transparent; } }
+@media (prefers-reduced-motion: reduce) { .ap-lane[data-highlighted] { animation: none; } }
 .ap-lane > .ap-card-head { flex-wrap: wrap; align-content: center; gap: 2px var(--sp-2); min-height: 56px; padding: var(--sp-2) var(--sp-3); }
 .ap-lane-dot { flex: none; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--s-fill); }
 .ap-lane-count { font: 600 var(--fs-small)/1 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink); }
@@ -874,13 +887,13 @@ a:hover { color: var(--ink); text-decoration: underline; }
     <button type="button" data-theme="dark" aria-pressed="false">Dark</button>
   </div>
   <div class="ap-summary" id="ap-summary">
-    <span class="ap-stat">Work completed: <span class="ap-stat-n">2 / 9</span></span>
+    <button type="button" class="ap-stat" data-kanban-lane="done" aria-label="Show 2 / 9 work completed on Kanban">Work completed: <span class="ap-stat-n">2 / 9</span></button>
     <span class="ap-sep">·</span>
-    <span class="ap-stat"><span class="ap-stat-n">1</span> awaiting merge</span>
+    <button type="button" class="ap-stat" data-kanban-lane="merge" aria-label="Show 1 awaiting merge on Kanban"><span class="ap-stat-n">1</span> awaiting merge</button>
     <span class="ap-sep">·</span>
-    <span class="ap-stat"><span class="ap-stat-n">2</span> in review</span>
+    <button type="button" class="ap-stat" data-kanban-lane="review" aria-label="Show 2 in review on Kanban"><span class="ap-stat-n">2</span> in review</button>
     <span class="ap-sep">·</span>
-    <span class="ap-stat"><span class="ap-stat-n">1 of 2</span> agents running</span>
+    <button type="button" class="ap-stat" data-kanban-lane="progress" aria-label="Show 1 of 2 agents running on Kanban"><span class="ap-stat-n">1 of 2</span> agents running</button>
     <span class="ap-sep">·</span>
     <span class="ap-stat"><span class="ap-stat-n">55.8k</span> tokens</span>
   </div>

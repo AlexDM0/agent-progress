@@ -392,7 +392,7 @@ describe('summaryStatisticsMarkup', () => {
       exampleTask({ id: 3, status: 'abandoned' }),
     ], NO_AGENTS_OF_TWO);
 
-    expect(inFlight).toContain('<span class="ap-stat">Work completed: <span class="ap-stat-n">3 / 4</span></span>');
+    expect(inFlight).toContain('Work completed: <span class="ap-stat-n">3 / 4</span></button>');
     expect(settled).toContain('Work completed: <span class="ap-stat-n">3 / 3</span>');
   });
 
@@ -424,7 +424,24 @@ describe('summaryStatisticsMarkup', () => {
   test('prints the agents in flight against the limit as handed in, not a count of the running rows', () => {
     const markup = summaryStatisticsMarkup([exampleTask({ status: 'in-progress' })], { limit: 3, agentsInFlight: 2 });
 
-    expect(markup).toContain('<span class="ap-stat"><span class="ap-stat-n">2 of 3</span> agents running</span>');
+    expect(markup).toContain('<span class="ap-stat-n">2 of 3</span> agents running</button>');
+  });
+
+  // The summary is navigation: each state figure names the lane it opens and says so to a screen reader, while the token total has no lane.
+  test('makes each state figure a button for its Kanban lane, named for what it shows, and leaves the token figure plain text', () => {
+    const markup = summaryStatisticsMarkup([
+      exampleTask({ id: 1, status: 'in-review', tokens: 1_000 }),
+      exampleTask({ id: 2, status: 're-review', reviewRound: 2 }),
+      exampleTask({ id: 3, status: 'reviewed' }),
+      exampleTask({ id: 4, status: 'delivered' }),
+    ], { limit: 2, agentsInFlight: 1 });
+
+    expect(markup).toContain('<button type="button" class="ap-stat" data-kanban-lane="done" aria-label="Show 1 / 4 work completed on Kanban">');
+    expect(markup).toContain('<button type="button" class="ap-stat" data-kanban-lane="merge" aria-label="Show 1 awaiting merge on Kanban">');
+    expect(markup).toContain('<button type="button" class="ap-stat" data-kanban-lane="review" aria-label="Show 2 in review on Kanban">');
+    expect(markup).toContain('<button type="button" class="ap-stat" data-kanban-lane="progress" aria-label="Show 1 of 2 agents running on Kanban">');
+    expect(markup).toContain('<span class="ap-stat"><span class="ap-stat-n">1k</span> tokens</span>');
+    expect(markup.match(/<button /g)).toHaveLength(4);
   });
 
   test('reads a fresh board as none of the default two agents running', () => {
