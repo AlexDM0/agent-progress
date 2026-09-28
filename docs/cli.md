@@ -233,8 +233,8 @@ defaults resolved, plus `group` on a ticket that has one (absent otherwise, as i
 is neither delivered nor abandoned, every ticket of that group is the group run's and is left out of
 the lists a whole-board run takes work from: `readyTicketIds`, `readyTickets`,
 `reviewWaitingTickets` and `pausedBuilds`. Once the release ticket is delivered or abandoned, the
-group has no release ticket, so its remaining open tickets list as any other. A group with no release ticket lists as ungrouped
-tickets do. The left-out tickets still count as open normal work, so they hold low tickets back.
+group has no release ticket, so its remaining open tickets list as any other. A group with no
+release ticket lists as ungrouped tickets do. The left-out tickets still count as open normal work, so they hold low tickets back.
 
 **What a dispatcher reads.** Every list below is in file order, each id once, with a ticket's model,
 effort and priority resolved to their defaults.
