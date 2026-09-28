@@ -13,6 +13,7 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
+import { JsonTextUtil }                                       from '../src/shared/utils/JsonTextUtil.ts';
 import { createScratchGitRepository, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }                           from '../src/testing/ToolGuard.ts';
 import { runCommandLine }                                     from './Main.ts';
@@ -53,7 +54,7 @@ async function runSucceeding(commandLineArguments: readonly string[]): Promise<C
 
 function breakTheProgressFile(): void {
   const stored = JSON.parse(readFileSync(progressFilePath, 'utf8')) as Record<string, unknown>;
-  writeFileSync(progressFilePath, `${JSON.stringify({ ...stored, project: 5 }, null, 2)}\n`);
+  writeFileSync(progressFilePath, JsonTextUtil.storedFileTextOf({ ...stored, project: 5 }));
 }
 
 function breakTheLogFile(): void {
