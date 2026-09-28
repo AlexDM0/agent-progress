@@ -26,20 +26,20 @@ import type { Task }                   from '../../../src/lib/tracker-model/@typ
 import {
   addWorktree,
   commitFile,
-  createScratchGitRepository,
   gitIsAvailable,
   gitOutputIn,
   removeScratchDirectory,
   SCRATCH_COMMIT_IDENTITY_ARGUMENTS
 }                                       from '../../../src/testing/ScratchWorkspace.ts';
-import { describeWhenGitIsPresent }     from '../../../src/testing/ToolGuard.ts';
-import { helpText }                     from '../../HelpText.ts';
-import { installedFilePathsIn }         from '../../InstalledFiles.ts';
-import { runCommandLine }               from '../../Main.ts';
-import { INSTALL_VERSION }              from '../../constants/InstallVersion.ts';
-import { createCapturedCommandContext } from '../../testing/CapturedCommandContext.ts';
-import { storedLogEntriesOf }           from '../../testing/StoredLogEntries.ts';
-import { storedRowOf }                  from '../../testing/StoredRow.ts';
+import { describeWhenGitIsPresent }           from '../../../src/testing/ToolGuard.ts';
+import { helpText }                           from '../../HelpText.ts';
+import { installedFilePathsIn }               from '../../InstalledFiles.ts';
+import { runCommandLine }                     from '../../Main.ts';
+import { INSTALL_VERSION }                    from '../../constants/InstallVersion.ts';
+import { createCapturedCommandContext }       from '../../testing/CapturedCommandContext.ts';
+import { createInitializedScratchRepository } from '../../testing/InitializedScratchRepository.ts';
+import { storedLogEntriesOf }                 from '../../testing/StoredLogEntries.ts';
+import { storedRowOf }                        from '../../testing/StoredRow.ts';
 
 type CleanupStepDocument =
   | { target: 'worktree'; path: string; outcome: 'removed' }
@@ -170,9 +170,8 @@ function releaseRefusalDocumentOf(outcome: CommandOutcome): ReleaseRefusalDocume
 
 beforeEach(async () => {
   if (!gitIsAvailable()) return;
-  repositoryDirectory = createScratchGitRepository('release');
+  repositoryDirectory = await createInitializedScratchRepository('release', ['--project', 'Example Agency', '--no-claude-md', '--no-hooks'], () => FROZEN_NOW);
   gitOutputIn(repositoryDirectory, ['checkout', '-q', '-B', 'main']);
-  await agentProgressOrFail(['init', '--project', 'Example Agency', '--no-claude-md', '--no-hooks']);
   gitOutputIn(repositoryDirectory, ['add', '--all']);
   gitOutputIn(repositoryDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'commit', '-q', '-m', 'Ignore the tracker']);
 });

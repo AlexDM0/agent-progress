@@ -12,14 +12,15 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import type { DispatcherState }                               from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
-import { createScratchGitRepository, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
-import { describeWhenGitIsPresent }                           from '../../../src/testing/ToolGuard.ts';
-import { runCommandLine }                                     from '../../Main.ts';
-import { createCapturedCommandContext }                       from '../../testing/CapturedCommandContext.ts';
-import { storedLogEntriesOf }                                 from '../../testing/StoredLogEntries.ts';
-import { storedLogTextOf }                                    from '../../testing/StoredLogText.ts';
-import { storedProgressOf }                                   from '../../testing/StoredProgress.ts';
+import type { DispatcherState }               from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
+import { removeScratchDirectory }             from '../../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }           from '../../../src/testing/ToolGuard.ts';
+import { runCommandLine }                     from '../../Main.ts';
+import { createCapturedCommandContext }       from '../../testing/CapturedCommandContext.ts';
+import { createInitializedScratchRepository } from '../../testing/InitializedScratchRepository.ts';
+import { storedLogEntriesOf }                 from '../../testing/StoredLogEntries.ts';
+import { storedLogTextOf }                    from '../../testing/StoredLogText.ts';
+import { storedProgressOf }                   from '../../testing/StoredProgress.ts';
 
 const FROZEN_NOW = new Date('2026-09-23T20:11:03Z');
 
@@ -46,8 +47,7 @@ async function statusNextLine(): Promise<string | undefined> {
 }
 
 beforeEach(async () => {
-  repositoryDirectory = createScratchGitRepository('dispatcher-command');
-  await run(['init', '--project', 'Example Agency']);
+  repositoryDirectory = await createInitializedScratchRepository('dispatcher-command', ['--project', 'Example Agency'], () => FROZEN_NOW);
 });
 
 afterEach(() => {

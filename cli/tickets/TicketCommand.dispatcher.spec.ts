@@ -9,11 +9,12 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import type { DispatcherState }                               from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
-import { createScratchGitRepository, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
-import { describeWhenGitIsPresent }                           from '../../src/testing/ToolGuard.ts';
-import { runCommandLine }                                     from '../Main.ts';
-import { createCapturedCommandContext }                       from '../testing/CapturedCommandContext.ts';
+import type { DispatcherState }               from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
+import { removeScratchDirectory }             from '../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.ts';
+import { runCommandLine }                     from '../Main.ts';
+import { createCapturedCommandContext }       from '../testing/CapturedCommandContext.ts';
+import { createInitializedScratchRepository } from '../testing/InitializedScratchRepository.ts';
 
 const FROZEN_NOW = new Date('2026-09-24T12:00:00Z');
 
@@ -52,8 +53,7 @@ async function runCaseWithTheDispatcher(intakeCase: IntakeCase, dispatcherState:
 }
 
 beforeEach(async () => {
-  repositoryDirectory = createScratchGitRepository('running-dispatcher-notice');
-  await run(['init', '--project', 'Example Agency']);
+  repositoryDirectory = await createInitializedScratchRepository('running-dispatcher-notice', ['--project', 'Example Agency'], () => FROZEN_NOW);
   await run(['ticket', 'add', 'Double-click a role to edit it']);
   await run(['ticket', 'add', 'Show the role history']);
 });

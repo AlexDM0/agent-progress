@@ -8,16 +8,17 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import { TICKET_STATUSES }                                    from '../../src/lib/tracker-model/constants/Statuses.ts';
-import { createScratchGitRepository, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
-import { describeWhenGitIsPresent }                           from '../../src/testing/ToolGuard.ts';
-import { runCommandLine }                                     from '../Main.ts';
-import { createCapturedCommandContext }                       from '../testing/CapturedCommandContext.ts';
-import { TICKET_CLAIM_SUBCOMMANDS }                           from './TicketClaimSubcommands.ts';
-import { TICKET_FILING_SUBCOMMANDS }                          from './TicketFilingSubcommands.ts';
-import { TICKET_MOVE_SUBCOMMANDS }                            from './TicketMoveSubcommands.ts';
-import { TICKET_READING_SUBCOMMANDS }                         from './TicketReadingSubcommands.ts';
-import { TICKET_SETTING_SUBCOMMANDS }                         from './TicketSettingSubcommands.ts';
+import { TICKET_STATUSES }                    from '../../src/lib/tracker-model/constants/Statuses.ts';
+import { removeScratchDirectory }             from '../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.ts';
+import { runCommandLine }                     from '../Main.ts';
+import { createCapturedCommandContext }       from '../testing/CapturedCommandContext.ts';
+import { createInitializedScratchRepository } from '../testing/InitializedScratchRepository.ts';
+import { TICKET_CLAIM_SUBCOMMANDS }           from './TicketClaimSubcommands.ts';
+import { TICKET_FILING_SUBCOMMANDS }          from './TicketFilingSubcommands.ts';
+import { TICKET_MOVE_SUBCOMMANDS }            from './TicketMoveSubcommands.ts';
+import { TICKET_READING_SUBCOMMANDS }         from './TicketReadingSubcommands.ts';
+import { TICKET_SETTING_SUBCOMMANDS }         from './TicketSettingSubcommands.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -39,8 +40,7 @@ async function run(commandLineArguments: readonly string[]): Promise<ReturnType<
 }
 
 beforeEach(async () => {
-  repositoryDirectory = createScratchGitRepository('ticket-command-vocabulary');
-  await run(['init', '--project', 'Example Agency']);
+  repositoryDirectory = await createInitializedScratchRepository('ticket-command-vocabulary', ['--project', 'Example Agency'], () => FROZEN_NOW);
   await run(['ticket', 'add', 'Double-click a role to edit it']);
 });
 

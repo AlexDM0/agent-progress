@@ -11,12 +11,13 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import type { TicketFrontmatter }                             from '../../../src/lib/tracker-model/@types/Ticket.ts';
-import type { WordedProgressDocument }                        from '../../../src/shared/@types/WordedProgressDocument.ts';
-import { createScratchGitRepository, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
-import { describeWhenGitIsPresent }                           from '../../../src/testing/ToolGuard.ts';
-import { runCommandLine }                                     from '../../Main.ts';
-import { createCapturedCommandContext }                       from '../../testing/CapturedCommandContext.ts';
+import type { TicketFrontmatter }             from '../../../src/lib/tracker-model/@types/Ticket.ts';
+import type { WordedProgressDocument }        from '../../../src/shared/@types/WordedProgressDocument.ts';
+import { removeScratchDirectory }             from '../../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }           from '../../../src/testing/ToolGuard.ts';
+import { runCommandLine }                     from '../../Main.ts';
+import { createCapturedCommandContext }       from '../../testing/CapturedCommandContext.ts';
+import { createInitializedScratchRepository } from '../../testing/InitializedScratchRepository.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -57,8 +58,7 @@ async function run(commandLineArguments: readonly string[]): Promise<ReturnType<
 }
 
 beforeEach(async () => {
-  repositoryDirectory = createScratchGitRepository('status-command');
-  await run(['init', '--project', 'Example Agency']);
+  repositoryDirectory = await createInitializedScratchRepository('status-command', ['--project', 'Example Agency'], () => FROZEN_NOW);
   await run(['ticket', 'add', 'Double-click a role to edit it']);
   await run(['ticket', 'start', '1']);
   await run(['task', 'add', 'Review pass', '--start', '--owner', 'Alex Example']);

@@ -11,10 +11,11 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import { createScratchGitRepository, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
-import { describeWhenGitIsPresent }                           from '../src/testing/ToolGuard.ts';
-import { runCommandLine }                                     from './Main.ts';
-import { createCapturedCommandContext }                       from './testing/CapturedCommandContext.ts';
+import { removeScratchDirectory }             from '../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }           from '../src/testing/ToolGuard.ts';
+import { runCommandLine }                     from './Main.ts';
+import { createCapturedCommandContext }       from './testing/CapturedCommandContext.ts';
+import { createInitializedScratchRepository } from './testing/InitializedScratchRepository.ts';
 
 const FROZEN_NOW = new Date('2026-09-23T10:00:00Z');
 
@@ -98,8 +99,7 @@ async function runSetup(setup: readonly string[][]): Promise<void> {
 }
 
 beforeEach(async () => {
-  repositoryDirectory = createScratchGitRepository('next-line');
-  await run(['init', '--project', 'Example Agency']);
+  repositoryDirectory = await createInitializedScratchRepository('next-line', ['--project', 'Example Agency'], () => FROZEN_NOW);
   await run(['ticket', 'add', 'Double-click a role to edit it']);
   await run(['ticket', 'add', 'Show the role history']);
   await run(['ticket', 'add', 'Export the roles']);

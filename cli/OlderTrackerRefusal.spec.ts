@@ -10,12 +10,13 @@ import {
   expect,
   test
 }                                                             from 'bun:test';
-import { workspacePathsFor }                                  from '../src/services/tracker/Workspace.ts';
-import { JsonTextUtil }                                       from '../src/shared/utils/JsonTextUtil.ts';
-import { createScratchGitRepository, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
-import { describeWhenGitIsPresent }                           from '../src/testing/ToolGuard.ts';
-import { runCommandLine }                                     from './Main.ts';
-import { createCapturedCommandContext }                       from './testing/CapturedCommandContext.ts';
+import { workspacePathsFor }                  from '../src/services/tracker/Workspace.ts';
+import { JsonTextUtil }                       from '../src/shared/utils/JsonTextUtil.ts';
+import { removeScratchDirectory }             from '../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }           from '../src/testing/ToolGuard.ts';
+import { runCommandLine }                     from './Main.ts';
+import { createCapturedCommandContext }       from './testing/CapturedCommandContext.ts';
+import { createInitializedScratchRepository } from './testing/InitializedScratchRepository.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -38,8 +39,7 @@ function rewriteProgressFile(change: (stored: Record<string, unknown>) => Record
 }
 
 beforeEach(async () => {
-  repositoryDirectory = createScratchGitRepository('older-tracker-refusal');
-  expect((await run(['init', '--project', 'Example Agency'])).exitCode).toBe(0);
+  repositoryDirectory = await createInitializedScratchRepository('older-tracker-refusal', ['--project', 'Example Agency'], () => FROZEN_NOW);
   expect((await run(['task', 'add', 'Example page', '--at', '2026-09-18T09:05:00+02:00'])).exitCode).toBe(0);
 });
 

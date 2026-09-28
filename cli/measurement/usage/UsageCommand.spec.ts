@@ -23,6 +23,7 @@ import { createScratchGitRepository, removeScratchDirectory } from '../../../src
 import { describeWhenGitIsPresent }                           from '../../../src/testing/ToolGuard.ts';
 import { runCommandLine }                                     from '../../Main.ts';
 import { createCapturedCommandContext }                       from '../../testing/CapturedCommandContext.ts';
+import { createInitializedScratchRepository }                 from '../../testing/InitializedScratchRepository.ts';
 
 const FROZEN_NOW = new Date('2026-09-19T20:11:03Z');
 
@@ -124,9 +125,8 @@ function usageArguments(...extra: readonly string[]): string[] {
 }
 
 beforeEach(async () => {
-  repositoryDirectory  = createScratchGitRepository('usage-command');
+  repositoryDirectory  = await createInitializedScratchRepository('usage-command', ['--project', 'Example Agency'], () => FROZEN_NOW);
   transcriptsDirectory = join(repositoryDirectory, 'scratch-transcripts');
-  await run(['init', '--project', 'Example Agency']);
 
   writeTranscript({
     session:          'session-one',

@@ -18,21 +18,22 @@ import {
   spyOn,
   test
 }                                                                             from 'bun:test';
-import * as AtomicFile                                        from '../../src/lib/atomic-file/AtomicFile.ts';
-import { withLock }                                           from '../../src/services/tracker/TrackerLock.ts';
-import { workspacePathsFor }                                  from '../../src/services/tracker/Workspace.ts';
-import { LIMITS }                                             from '../../src/shared/constants/Limits.ts';
-import { createScratchGitRepository, removeScratchDirectory } from '../../src/testing/ScratchWorkspace.ts';
-import { describeWhenGitIsPresent }                           from '../../src/testing/ToolGuard.ts';
-import { runCommandLine }                                     from '../Main.ts';
-import { createCapturedCommandContext }                       from '../testing/CapturedCommandContext.ts';
-import { storedLogEntriesOf }                                 from '../testing/StoredLogEntries.ts';
-import { storedProgressOf }                                   from '../testing/StoredProgress.ts';
-import { TICKET_CLAIM_SUBCOMMANDS }                           from './TicketClaimSubcommands.ts';
-import { TICKET_FILING_SUBCOMMANDS }                          from './TicketFilingSubcommands.ts';
-import { TICKET_MOVE_SUBCOMMANDS }                            from './TicketMoveSubcommands.ts';
-import { TICKET_READING_SUBCOMMANDS }                         from './TicketReadingSubcommands.ts';
-import { TICKET_SETTING_SUBCOMMANDS }                         from './TicketSettingSubcommands.ts';
+import * as AtomicFile                        from '../../src/lib/atomic-file/AtomicFile.ts';
+import { withLock }                           from '../../src/services/tracker/TrackerLock.ts';
+import { workspacePathsFor }                  from '../../src/services/tracker/Workspace.ts';
+import { LIMITS }                             from '../../src/shared/constants/Limits.ts';
+import { removeScratchDirectory }             from '../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.ts';
+import { runCommandLine }                     from '../Main.ts';
+import { createCapturedCommandContext }       from '../testing/CapturedCommandContext.ts';
+import { createInitializedScratchRepository } from '../testing/InitializedScratchRepository.ts';
+import { storedLogEntriesOf }                 from '../testing/StoredLogEntries.ts';
+import { storedProgressOf }                   from '../testing/StoredProgress.ts';
+import { TICKET_CLAIM_SUBCOMMANDS }           from './TicketClaimSubcommands.ts';
+import { TICKET_FILING_SUBCOMMANDS }          from './TicketFilingSubcommands.ts';
+import { TICKET_MOVE_SUBCOMMANDS }            from './TicketMoveSubcommands.ts';
+import { TICKET_READING_SUBCOMMANDS }         from './TicketReadingSubcommands.ts';
+import { TICKET_SETTING_SUBCOMMANDS }         from './TicketSettingSubcommands.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -58,8 +59,7 @@ function storedTicketText(fileName = FIRST_TICKET_FILE_NAME): string {
 }
 
 beforeEach(async () => {
-  repositoryDirectory = createScratchGitRepository('ticket-command');
-  await run(['init', '--project', 'Example Agency']);
+  repositoryDirectory = await createInitializedScratchRepository('ticket-command', ['--project', 'Example Agency'], () => FROZEN_NOW);
 });
 
 afterEach(() => {

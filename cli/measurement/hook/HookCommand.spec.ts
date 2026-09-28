@@ -21,18 +21,19 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
-import { LogFileIngestion }                                                           from '../../../src/adapters/log/LogFileIngestion.ts';
-import { OperationRefusalWordingUtil }                                                from '../../../src/adapters/utils/OperationRefusalWordingUtil.ts';
-import { LIMITS }                                                                     from '../../../src/shared/constants/Limits.ts';
-import { lockRetryWaitsDuring }                                                       from '../../../src/testing/LockRetryWaits.ts';
-import { createScratchDirectory, createScratchGitRepository, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
-import { describeWhenGitIsPresent }                                                   from '../../../src/testing/ToolGuard.ts';
-import { installedFilePathsIn }                                                       from '../../InstalledFiles.ts';
-import { runCommandLine }                                                             from '../../Main.ts';
-import { INSTALL_VERSION }                                                            from '../../constants/InstallVersion.ts';
-import { createCapturedCommandContext }                                               from '../../testing/CapturedCommandContext.ts';
-import { storedLogEntriesOf }                                                         from '../../testing/StoredLogEntries.ts';
-import { storedProgressOf }                                                           from '../../testing/StoredProgress.ts';
+import { LogFileIngestion }                               from '../../../src/adapters/log/LogFileIngestion.ts';
+import { OperationRefusalWordingUtil }                    from '../../../src/adapters/utils/OperationRefusalWordingUtil.ts';
+import { LIMITS }                                         from '../../../src/shared/constants/Limits.ts';
+import { lockRetryWaitsDuring }                           from '../../../src/testing/LockRetryWaits.ts';
+import { createScratchDirectory, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }                       from '../../../src/testing/ToolGuard.ts';
+import { installedFilePathsIn }                           from '../../InstalledFiles.ts';
+import { runCommandLine }                                 from '../../Main.ts';
+import { INSTALL_VERSION }                                from '../../constants/InstallVersion.ts';
+import { createCapturedCommandContext }                   from '../../testing/CapturedCommandContext.ts';
+import { createInitializedScratchRepository }             from '../../testing/InitializedScratchRepository.ts';
+import { storedLogEntriesOf }                             from '../../testing/StoredLogEntries.ts';
+import { storedProgressOf }                               from '../../testing/StoredProgress.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -101,9 +102,7 @@ const FIXTURE_CALLS = [
 ];
 
 beforeEach(async () => {
-  repositoryDirectory = createScratchGitRepository('hook-command');
-  const initContext   = createCapturedCommandContext({ currentDirectory: repositoryDirectory, now: () => FROZEN_NOW });
-  expect(await runCommandLine(['init', '--project', 'Example Agency'], initContext)).toBe(0);
+  repositoryDirectory = await createInitializedScratchRepository('hook-command', ['--project', 'Example Agency'], () => FROZEN_NOW);
   transcriptPath = writeTranscript([
     assistantLine('msg_one', 10, 90_000, 400),
     assistantLine('msg_one', 10, 90_000, 1200),

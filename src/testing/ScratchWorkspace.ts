@@ -39,12 +39,27 @@ export function createCanonicalScratchDirectory(prefix: string): string {
   return realpathSync(createScratchDirectory(prefix));
 }
 
+const templateDirectories: string[] = [];
+
 let emptyRepositoryTemplateDirectory: string | null = null;
+
+/** Marks a scratch directory built once and copied by many cases, so it is removed only after the whole run. */
+export function keptAsTemplateUntilTheRunEnds(templateDirectory: string): string {
+  templateDirectories.push(templateDirectory);
+  return templateDirectory;
+}
+
+/** Copies the template's contents into a fresh scratch directory. */
+export function createScratchCopyOf(templateDirectory: string, prefix: string): string {
+  const copyDirectory = createScratchDirectory(prefix);
+  cpSync(templateDirectory, copyDirectory, { recursive: true });
+  return copyDirectory;
+}
 
 /** The empty commit is not decoration: `git worktree add` refuses a repository with no commits. */
 function emptyRepositoryTemplate(): string {
   if (emptyRepositoryTemplateDirectory === null) {
-    const templateDirectory = createScratchDirectory('repository-template');
+    const templateDirectory = keptAsTemplateUntilTheRunEnds(createScratchDirectory('repository-template'));
     gitOutputIn(templateDirectory, ['init', '-q']);
     gitOutputIn(templateDirectory, [...SCRATCH_COMMIT_IDENTITY_ARGUMENTS, 'commit', '-q', '--allow-empty', '-m', 'Initial commit']);
     emptyRepositoryTemplateDirectory = templateDirectory;
@@ -54,15 +69,12 @@ function emptyRepositoryTemplate(): string {
 
 /** A copy of one repository built once per run, since spawning git to build each one is most of what a git spec's setup costs. */
 export function createScratchGitRepository(prefix: string): string {
-  const repositoryDirectory = createScratchDirectory(prefix);
-  cpSync(emptyRepositoryTemplate(), repositoryDirectory, { recursive: true });
-  return repositoryDirectory;
+  return createScratchCopyOf(emptyRepositoryTemplate(), prefix);
 }
 
 /** Called once, after the whole run, by the preload `src/testing/TestRunReport.ts`. */
-export function removeScratchRepositoryTemplate(): void {
-  if (emptyRepositoryTemplateDirectory === null) return;
-  removeScratchDirectory(emptyRepositoryTemplateDirectory);
+export function removeScratchTemplates(): void {
+  for (const templateDirectory of templateDirectories.splice(0)) removeScratchDirectory(templateDirectory);
   emptyRepositoryTemplateDirectory = null;
 }
 

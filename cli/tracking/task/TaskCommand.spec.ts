@@ -16,13 +16,14 @@ import {
   expect,
   test
 }                                       from 'bun:test';
-import type { TrackerProgress }                               from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
-import { createScratchGitRepository, removeScratchDirectory } from '../../../src/testing/ScratchWorkspace.ts';
-import { describeWhenGitIsPresent }                           from '../../../src/testing/ToolGuard.ts';
-import { runCommandLine }                                     from '../../Main.ts';
-import { createCapturedCommandContext }                       from '../../testing/CapturedCommandContext.ts';
-import { storedLogTextOf }                                    from '../../testing/StoredLogText.ts';
-import { storedProgressOf }                                   from '../../testing/StoredProgress.ts';
+import type { TrackerProgress }               from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
+import { removeScratchDirectory }             from '../../../src/testing/ScratchWorkspace.ts';
+import { describeWhenGitIsPresent }           from '../../../src/testing/ToolGuard.ts';
+import { runCommandLine }                     from '../../Main.ts';
+import { createCapturedCommandContext }       from '../../testing/CapturedCommandContext.ts';
+import { createInitializedScratchRepository } from '../../testing/InitializedScratchRepository.ts';
+import { storedLogTextOf }                    from '../../testing/StoredLogText.ts';
+import { storedProgressOf }                   from '../../testing/StoredProgress.ts';
 
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
@@ -44,8 +45,7 @@ function storedTicketText(fileName: string): string {
 }
 
 beforeEach(async () => {
-  repositoryDirectory = createScratchGitRepository('task-command');
-  await run(['init', '--project', 'Example Agency']);
+  repositoryDirectory = await createInitializedScratchRepository('task-command', ['--project', 'Example Agency'], () => FROZEN_NOW);
 });
 
 afterEach(() => {
