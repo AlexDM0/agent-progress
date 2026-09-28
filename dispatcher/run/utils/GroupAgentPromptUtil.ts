@@ -167,7 +167,7 @@ function groupReviewerPrompt(settings: DispatchSettings, placement: GroupPlaceme
   const groupBranch = groupBranchOf(placement.groupName);
   const groupWorktree = groupWorktreeOf(settings, placement.groupName);
   const { predecessorId } = placement;
-  const predecessorGate = predecessorId === null ? '' : `\`agent-progress ticket show ${predecessorId}\` must say \`reviewed\`; otherwise change nothing more, `
+  const predecessorGate = predecessorId === null ? '' : `\`agent-progress ticket show ${predecessorId}\` must say \`reviewed\`, \`delivered\` or \`abandoned\`; otherwise change nothing more, `
     + 'close your bar, and return `not-released` with releaseReason `predecessor-not-integrated`. Then ';
   return [
     `agent-progress review: ${ticketId}`,

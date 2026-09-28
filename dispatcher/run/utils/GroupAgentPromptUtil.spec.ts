@@ -84,8 +84,8 @@ describe('the group reviewer prompt', () => {
     expect(prompt).not.toContain('agent-progress release');
   });
 
-  test('refuses to integrate before the ticket before it is reviewed', () => {
-    expect(prompt).toContain('`agent-progress ticket show 101` must say `reviewed`');
+  test('refuses to integrate before the ticket before it is settled, a delivered or abandoned one passing as a reviewed one does', () => {
+    expect(prompt).toContain('`agent-progress ticket show 101` must say `reviewed`, `delivered` or `abandoned`');
   });
 });
 
