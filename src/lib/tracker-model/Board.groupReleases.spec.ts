@@ -2,8 +2,9 @@
  * A group's release ticket and its release bundle. The mark is refused, before anything changed, on an ungrouped ticket, a settled one and
  * in a group that already has an open one, while a delivered or abandoned release ticket leaves the group free for a new mark and closes
  * over no bundle. A marked settled ticket moved back open, through `ticket reopen` or the unchecked `ticket status`, is refused while
- * another open ticket of its group carries the mark, and counts again when none does. The bundle follows dependencies only inside the group, so neither an out-of-group dependency nor an
- * in-group ticket that depends on the release ticket, nor one only reached through another group, is in it.
+ * another open ticket of its group carries the mark, and counts again when none does. The bundle follows dependencies only inside the
+ * group, so neither an out-of-group dependency nor an in-group ticket that depends on the release ticket, nor one only reached through
+ * another group, is in it.
  */
 import { describe, expect, test } from 'bun:test';
 
