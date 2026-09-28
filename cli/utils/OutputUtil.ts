@@ -3,7 +3,7 @@ import { TrackerReadingWordingUtil }      from '../../src/adapters/utils/Tracker
 import type { LogRecord }                 from '../../src/lib/tracker-model/@types/LogRecord.ts';
 import type { DashboardRenderOutcome }    from '../../src/services/tracker/DashboardRendering.ts';
 import type { MalformedTicketFile }       from '../../src/services/tracker/TicketStore.ts';
-import { JSON_INDENT_SPACES }             from '../../src/shared/constants/JsonIndent.ts';
+import { JsonTextUtil }                   from '../../src/shared/utils/JsonTextUtil.ts';
 import type { CommandContext }            from '../CommandContext.ts';
 import type { ArgumentParser }            from '../arguments/ArgumentParser.ts';
 import { SHORT_COMMIT_LENGTH_CHARACTERS } from '../constants/GitDefaults.ts';
@@ -27,7 +27,7 @@ function loggedSentencesOf(logged: readonly LogRecord[]): string {
 
 function printEntity(commandArguments: ArgumentParser, context: CommandContext, entity: unknown, humanLine: string): void {
   if (commandArguments.flag('json')) {
-    context.standardOutput(JSON.stringify(entity, null, JSON_INDENT_SPACES));
+    context.standardOutput(JsonTextUtil.indentedTextOf(entity));
     return;
   }
   context.standardOutput(humanLine);
