@@ -215,7 +215,7 @@ offers its official installer.
   </tr>
   <tr>
     <td width="190"><b>Dashboard</b></td>
-    <td>one self-contained <code>progress.html</code>: Progress · Kanban · Tickets tabs, the Kanban board beside the Tickets tab rather than in place of it; light, dark or auto</td>
+    <td>one self-contained <code>progress.html</code>: Kanban · Progress · Tickets tabs, the Kanban board beside the Tickets tab rather than in place of it; light, dark or auto</td>
   </tr>
   <tr>
     <td width="190"><b>Agents</b></td>
