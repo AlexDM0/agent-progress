@@ -122,10 +122,11 @@ describeWhenGitIsPresent('a progress file that cannot be read', () => {
 
     expect(finished.exitCode).toBe(2);
     expect(JSON.parse(finished.outputText)).toEqual({
-      released: false,
-      reason:   'tracker-failed',
-      detail:   `${progressFilePath} cannot be read: ${BROKEN_PROGRESS_REASON}`,
-      cleanup:  [],
+      released:      false,
+      reason:        'tracker-failed',
+      detail:        `${progressFilePath} cannot be read: ${BROKEN_PROGRESS_REASON}`,
+      blockingFiles: [],
+      cleanup:       [],
     });
     expect(finished.errorText).toBe(`${progressFilePath} cannot be read: ${BROKEN_PROGRESS_REASON}`);
   });

@@ -12,6 +12,7 @@ export interface BuilderReply {
 export interface ReviewerReply {
   verdict:         ReviewerVerdict;
   releaseReason?:  string;
+  blockingFiles?:  string[];
   reworkedLines?:  number;
   findings?:       ReviewFinding[];
   filedTicketIds?: string[];
@@ -91,6 +92,8 @@ export interface DispatchScenario {
    * ready: a whole-board survey returns them as `pausedBuilds`.
    */
   pausedBuildNotesByTicketId?:    Record<string, string>;
+  /** The main checkout's uncommitted tracked files, as the survey's `git status` lists them; none by default. */
+  dirtyMainCheckoutFiles?:        string[];
   /** Paused builds among those whose worktree is gone, as the survey's `test -d` finds it. */
   pausedBuildIdsWithoutWorktree?: string[];
   /** Once the run returns, the user's go sets the board running and a fresh whole-board run starts on the board it left; its calls are `relaunch`. */

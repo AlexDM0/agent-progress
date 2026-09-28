@@ -333,6 +333,12 @@ states, and the dispatcher decides that in code. It starts no low ticket unless 
   summary; it never starts another ticket. A ticket given no `readyTickets` entry — one in progress,
   whose paused build it resumes — has its model and effort read with `ticket show <id> --json` before
   any builder or reviewer starts.
+- **A dirty main checkout.** A whole-board run's survey also lists the main checkout's uncommitted
+  tracked files (`git status -s -uno`). When there are any, the run starts no
+  agent and returns them as `dirtyMainCheckoutFiles`: a release git refuses over one of them
+  (`merge-refused`) would come only after that ticket's build and review were paid for. Commit or
+  stash them, then relaunch. A survey that does not say starts nothing either. A ticket parked on a
+  refused release names, in its reason, the files the release's `blockingFiles` named.
 - **Two agents in a row that return nothing**, across tickets, stop a run the way a board stop does,
   and it returns `stoppedByFailures: true`: those deaths count as no failed pass and park nothing.
 - **What a run leaves.** A run that ends while a ticket it claimed is held, or is stopped before a
@@ -363,8 +369,9 @@ states, and the dispatcher decides that in code. It starts no low ticket unless 
 | `release <id> [<id>...] --branch <b> [--worktree <path>] [--main <line>] [--json]` | Release a reviewed branch, and the only way one reaches the main line: allowing this command in the harness is the release permission, and a reviewer never runs `git merge` itself. In one lock hold, so two releases never race, it checks that each ticket is in-progress or in-review — or reviewed, when it is in a group's release bundle and that group's in-progress or in-review release ticket is released with it —, that the main checkout — the tracker's root, wherever this runs from — is on `--main` (default `main`), and that `<b>` is a local branch descending from it; fast-forwards; and moves each ticket to reviewed (unless it already is, so it is approved once) and delivered with `--branch <b>` and `--commit` set to the merged tip. In the same hold every `in-progress` review row whose `reviewOf` names a released ticket is finished and delivered at the release time and named. Several ids are the tickets of one bundle on one branch. Every refusal changes nothing, the review rows included. Afterwards it runs `git worktree remove` on `--worktree`, never forced, and `git branch -d <b>`; what git declines — a worktree holding untracked files, say — is named with its files at exit 0, since the release happened. |
 | `rework [--since <commit>] [--rebased-from <old tip>] [--main <branch>] [--worktree <path>] [--files] [--json]` | How many lines of code a review reworked on a branch — added plus removed lines, never blank lines, comments or documentation (`*.md`, `*.mdx`, `*.rst`, `*.txt` and anything under the repository's `docs/`) — so that a threshold on it gives every reviewer the same verdict; no threshold is built in. `--since` counts every commit in `<commit>..HEAD`, and is refused at exit 1 when `<commit>` is not an ancestor of HEAD or a merge lies in between: work is rebased, not merged. `--rebased-from` counts what a rebase changed in the branch's own work — the hand resolution of its conflicts — as the added lines in which the branch's patch against `--main` (default `main`) differs before and after, so a line resolved by hand counts 2, main's own change none, and a rebase without conflicts 0; it is measured up to HEAD, so run it right after the rebase. See below for combining the two. `--worktree` reads that working tree instead of the current directory; `--files` adds a per-file breakdown. It needs no tracker, takes no lock and writes nothing. |
 
-**Release refusals.** `--json` prints, on a refusal, `{released: false, reason, detail, cleanup: []}`,
-`cleanup` always empty because nothing ran, and `reason` is one of:
+**Release refusals.** `--json` prints, on a refusal, `{released: false, reason, detail, blockingFiles, cleanup: []}`,
+`cleanup` always empty because nothing ran, `blockingFiles` the main checkout's uncommitted files, tracked or
+untracked, that the merge would overwrite (on `merge-refused`; empty otherwise), and `reason` is one of:
 
 | reason | exit | when |
 |---|---|---|
@@ -374,7 +381,7 @@ states, and the dispatcher decides that in code. It starts no low ticket unless 
 | `unknown-branch` | 1 | `<b>` is not a local branch |
 | `not-on-main-line` | 1 | the main checkout is not on `--main`, or `--main` is not a local branch |
 | `main-moved` | 1 | `<b>` does not descend from the main line: rebase `<b>` onto it, re-run the checks, count the rebase with `rework --rebased-from`, and release again |
-| `merge-refused` | 1 | git will not fast-forward |
+| `merge-refused` | 1 | git will not fast-forward, typically over uncommitted changes in the main checkout, which `blockingFiles` names: commit or stash them, and release again |
 | `git-failed` | 2 | git could not be read |
 | `tracker-failed` | 2 | the tracker could not be read, or its lock could not be taken |
 

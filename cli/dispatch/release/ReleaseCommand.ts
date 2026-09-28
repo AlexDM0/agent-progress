@@ -31,10 +31,11 @@ export const releaseCommand: CommandHandler = async (commandArguments, context) 
   } catch (error) {
     if (refusalIsOperationRefusal(error) && commandArguments.flag('json')) {
       const refusalDocument = {
-        released: false,
-        reason:   reasonOfRefusal(error),
-        detail:   OperationRefusalWordingUtil.messageOf(error),
-        cleanup:  [],
+        released:      false,
+        reason:        reasonOfRefusal(error),
+        detail:        OperationRefusalWordingUtil.messageOf(error),
+        blockingFiles: error instanceof ReleaseRefusal ? error.blockingFiles : [],
+        cleanup:       [],
       };
       OutputUtil.printEntity(commandArguments, context, refusalDocument, '');
     }

@@ -139,6 +139,7 @@ function reviewerDocumentOf(reply: ReviewerReply, round: number): Record<string,
     round,
     verdict:        reply.verdict,
     releaseReason:  reply.releaseReason ?? '',
+    blockingFiles:  reply.blockingFiles ?? [],
     reworkedLines:  reply.reworkedLines ?? 0,
     findings:       reply.findings ?? [],
     filedTicketIds: reply.filedTicketIds ?? [],
@@ -370,7 +371,14 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   };
 
   const replyFor = (call: RecordedAgentCall): Record<string, unknown> | null => {
-    if (call.kind === 'survey') return { status: statusBlock(), reviewWaitingTickets: reviewWaitingTicketsOnBoard(), pausedBuilds: pausedBuildsOnBoard() };
+    if (call.kind === 'survey') {
+      return {
+        status:                 statusBlock(),
+        reviewWaitingTickets:   reviewWaitingTicketsOnBoard(),
+        pausedBuilds:           pausedBuildsOnBoard(),
+        dirtyMainCheckoutFiles: [...scenario.dirtyMainCheckoutFiles ?? []],
+      };
+    }
     // As `ticket show --json` states a ticket: its model and effort only where it names them.
     if (call.kind === 'settings') {
       return { tickets: (call.ticketId ?? '').split(',').map((lookedUpTicketId) => ({ id: lookedUpTicketId, ...statedAgentSettingsOf(lookedUpTicketId) })) };

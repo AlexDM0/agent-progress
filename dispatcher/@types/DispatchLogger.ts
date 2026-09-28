@@ -22,6 +22,8 @@ export interface DispatchLogger {
   ticketSettingsUnread(ticketIds: readonly string[]): void;
   surveyReturnedNothing(): void;
   surveyStatusUnreadable(): void;
+  surveyLeftTheMainCheckoutUnread(): void;
+  mainCheckoutIsDirty(dirtyFiles: readonly string[]): void;
   rowsLeftRunning(ticketIds: readonly string[]): void;
   ticketsLeftWaiting(ticketIds: readonly string[], runIsStopped: boolean): void;
   lowPriorityLeftForTriage(ticketIds: readonly string[]): void;
@@ -44,6 +46,8 @@ export type DispatchLogEntry =
   | { kind: 'ticket-settings-unread'; ticketIds: readonly string[] }
   | { kind: 'survey-returned-nothing' }
   | { kind: 'survey-status-unreadable' }
+  | { kind: 'survey-left-the-main-checkout-unread' }
+  | { kind: 'main-checkout-is-dirty'; dirtyFiles: readonly string[] }
   | { kind: 'rows-left-running'; ticketIds: readonly string[] }
   | { kind: 'tickets-left-waiting'; ticketIds: readonly string[]; runIsStopped: boolean }
   | { kind: 'low-priority-left-for-triage'; ticketIds: readonly string[] }

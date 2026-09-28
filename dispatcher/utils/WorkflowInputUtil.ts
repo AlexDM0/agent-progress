@@ -145,9 +145,10 @@ function surveyReadingOf(value: unknown): SurveyReading | null {
   if (value === null) return null;
   const survey: Record<string, unknown> = valueIsAnObject(value) ? value : {};
   return {
-    status:               statusReadingOf(survey['status']),
-    reviewWaitingTickets: reviewWaitingTicketsOf(survey['reviewWaitingTickets']),
-    pausedBuilds:         pausedBuildsOf(survey['pausedBuilds']),
+    status:                 statusReadingOf(survey['status']),
+    reviewWaitingTickets:   reviewWaitingTicketsOf(survey['reviewWaitingTickets']),
+    pausedBuilds:           pausedBuildsOf(survey['pausedBuilds']),
+    dirtyMainCheckoutFiles: listOrUnlisted(survey['dirtyMainCheckoutFiles']),
   };
 }
 
@@ -185,7 +186,9 @@ function finishedReadingOf(work: DispatchWork, value: unknown): AgentReading | n
     kind:           'review',
     round:          typeof round === 'number' && Number.isInteger(round) ? round : 'unstated',
     verdict:        REVIEWER_VERDICTS_OTHER_THAN_ROUND_REQUESTED.find((verdict) => verdict === reply['verdict']) ?? 'round-requested',
-    releaseRefusal: releaseReason === ('main-moved' satisfies ReleaseRefusalReason) ? 'main-moved' : { statedReason: String(releaseReason) },
+    releaseRefusal: releaseReason === ('main-moved' satisfies ReleaseRefusalReason)
+      ? 'main-moved'
+      : { statedReason: String(releaseReason), blockingFiles: Array.isArray(reply['blockingFiles']) ? stringsIn(reply['blockingFiles']) : [] },
     reworkedLines:  Number(reply['reworkedLines']),
     findings:       findingsOf(reply['findings']),
     filedTicketIds: Array.isArray(reply['filedTicketIds']) ? stringsIn(reply['filedTicketIds']) : [],

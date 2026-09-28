@@ -63,11 +63,12 @@ const FINDING_SCHEMA: JsonSchema = {
 const SURVEY: JsonSchema = {
   type:       'object',
   properties: {
-    status:               STATUS_BLOCK_SCHEMA,
-    reviewWaitingTickets: { type: 'array', items: TICKET_AGENT_SETTINGS_SCHEMA },
-    pausedBuilds:         { type: 'array', items: PAUSED_BUILD_SCHEMA },
+    status:                 STATUS_BLOCK_SCHEMA,
+    reviewWaitingTickets:   { type: 'array', items: TICKET_AGENT_SETTINGS_SCHEMA },
+    pausedBuilds:           { type: 'array', items: PAUSED_BUILD_SCHEMA },
+    dirtyMainCheckoutFiles: { type: 'array', items: { type: 'string' } },
   },
-  required: ['status', 'reviewWaitingTickets', 'pausedBuilds'],
+  required: ['status', 'reviewWaitingTickets', 'pausedBuilds', 'dirtyMainCheckoutFiles'],
 };
 
 const TICKET_SETTINGS_LOOKUP: JsonSchema = {
@@ -93,12 +94,13 @@ const REVIEWER: JsonSchema = {
     round:          { type: 'integer', minimum: 1 },
     verdict:        { type: 'string', enum: ['released', 'round-requested', 'does-not-hold', 'not-released'] satisfies readonly ReviewerVerdict[] },
     releaseReason:  { type: 'string' },
+    blockingFiles:  { type: 'array', items: { type: 'string' } },
     reworkedLines:  { type: 'integer', minimum: 0 },
     findings:       { type: 'array', items: FINDING_SCHEMA },
     filedTicketIds: { type: 'array', items: { type: 'string' } },
     status:         STATUS_BLOCK_SCHEMA,
   },
-  required: ['round', 'verdict', 'releaseReason', 'reworkedLines', 'findings', 'filedTicketIds', 'status'],
+  required: ['round', 'verdict', 'releaseReason', 'blockingFiles', 'reworkedLines', 'findings', 'filedTicketIds', 'status'],
 };
 
 const PARKING: JsonSchema = {

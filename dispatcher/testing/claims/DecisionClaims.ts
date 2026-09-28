@@ -407,7 +407,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     mutant: {
       modulePath: DISPATCH_RUN,
       find:       'this.countFailedPass(ticketId, { cause: \'builder-returned-nothing\' }, rebuild, work);',
-      replace:    'this.park(ticketId, { cause: \'release-refused\', statedReason: \'mutant\' });',
+      replace:    'this.park(ticketId, { cause: \'release-refused\', statedReason: \'mutant\', blockingFiles: [] });',
     },
   },
   {
@@ -693,6 +693,48 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     holds:       (run) => RecordedDispatchRunUtil.reviewCountOf(run, '001') === 1
       && RecordedDispatchRunUtil.mainSummaryOf(run).parked.some((parkedTicket) => parkedTicket.reason.includes('main-checkout-dirty')),
     mutant: { modulePath: DISPATCH_RUN, find: 'reading.releaseRefusal !== \'main-moved\'', replace: 'false' },
+  },
+  {
+    // Every one of the park reasons this was filed over came from a hand edit in the main checkout: the reason names the files so the user can act.
+    name:        'a release git refused over uncommitted files parks the ticket on a reason naming those files, on the board\'s log as well',
+    scenarioFor: () => ({
+      limit:          2,
+      readyTicketIds: ['001'],
+      reviewerReply:  () => ({ verdict: 'not-released', releaseReason: 'merge-refused', blockingFiles: ['CLAUDE.md', 'docs/cli.md'] }),
+    }),
+    holds: (run) => RecordedDispatchRunUtil.mainSummaryOf(run).parked[0]?.reason
+        === 'the release was refused: merge-refused, blocked by uncommitted changes in the main checkout to CLAUDE.md, docs/cli.md'
+      && run.calls.some((call) => call.kind === 'park' && call.prompt.includes('merge-refused, blocked by uncommitted changes in the main checkout to CLAUDE.md, docs/cli.md')),
+    mutant: { modulePath: DISPATCH_RUN, find: 'blockingFiles: reading.releaseRefusal.blockingFiles });', replace: 'blockingFiles: [] });' },
+  },
+  {
+    // Which branch a hand edit blocks is known only at its release, after its build and review were paid for.
+    name:        'a survey that finds uncommitted files in the main checkout starts no agent, and the log and the summary name the files',
+    scenarioFor: () => ({
+      limit:                  2,
+      readyTicketIds:         ['001'],
+      reviewWaitingTicketIds: ['002'],
+      dirtyMainCheckoutFiles: ['CLAUDE.md', 'docs/cli.md'],
+    }),
+    holds: (run) => RecordedDispatchRunUtil.kindsAndTicketsOf(run).join(', ') === 'survey'
+      && RecordedDispatchRunUtil.mainSummaryOf(run).dirtyMainCheckoutFiles?.join() === 'CLAUDE.md,docs/cli.md'
+      && run.logs.some((message) => message.startsWith('The main checkout has uncommitted changes to CLAUDE.md, docs/cli.md:')),
+    mutant: { modulePath: DISPATCH_RUN, find: 'if (survey.dirtyMainCheckoutFiles.length > 0) {', replace: 'if (false) {' },
+  },
+  {
+    name:        'a survey that does not list the main checkout\'s uncommitted files starts no agent, as a dirty checkout would not',
+    scenarioFor: () => ({
+      limit:             2,
+      readyTicketIds:    ['001'],
+      agentMisbehaviour: (call) => (call.kind === 'survey' ? { replacesFields: { dirtyMainCheckoutFiles: null } } : undefined),
+    }),
+    holds: (run) => RecordedDispatchRunUtil.kindsAndTicketsOf(run).join(', ') === 'survey'
+      && run.logs.includes('The survey did not say whether the main checkout has uncommitted changes, so nothing was dispatched.'),
+    mutant: {
+      modulePath: DISPATCH_RUN,
+      find:       'this.collaborators.logger.surveyLeftTheMainCheckoutUnread();\n      return \'nothing-dispatched\';',
+      replace:    'survey.dirtyMainCheckoutFiles = [];',
+    },
   },
   {
     name:        'the run ends when nothing is ready or running, and returns the summary of what it did',

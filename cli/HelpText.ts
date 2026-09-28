@@ -208,10 +208,12 @@ output never carries either.
                               0. --json prints, on success, {released: true, tickets, branch,
                               mainLine, commit, closedReviewRows, cleanup} — closedReviewRows the
                               ids of the review rows it delivered — and on a refusal {released: false,
-                              reason, detail, cleanup: []}; reason is one of invalid-request,
-                              unknown-ticket, ticket-not-releasable, unknown-branch,
-                              not-on-main-line, main-moved, merge-refused, git-failed and
-                              tracker-failed. A cleanup step is one of {target: worktree, path,
+                              reason, detail, blockingFiles, cleanup: []}; reason is one of
+                              invalid-request, unknown-ticket, ticket-not-releasable,
+                              unknown-branch, not-on-main-line, main-moved, merge-refused,
+                              git-failed and tracker-failed, and blockingFiles, on merge-refused,
+                              the main checkout's uncommitted files the merge would overwrite,
+                              empty otherwise. A cleanup step is one of {target: worktree, path,
                               outcome: removed}, {target: worktree, path, outcome: left, reason,
                               untrackedFiles, changedFiles}, {target: branch, name, outcome:
                               deleted} and {target: branch, name, outcome: left, reason}.

@@ -28,7 +28,7 @@ export interface ReviewedRoundWithRework extends ReviewedRound {
 
 export type ParkReason =
   | { cause: 'second-failed-pass'; failure: PassFailure }
-  | { cause: 'release-refused'; statedReason: string }
+  | { cause: 'release-refused'; statedReason: string; blockingFiles: readonly string[] }
   | { cause: 'main-line-moved'; releases: number }
   | { cause: 'round-refused'; refusal: RoundRefusal };
 
@@ -56,18 +56,20 @@ export interface DispatchOutcome {
   held:                    HeldEntry[];
   pausedBuilds:            string[];
   reviewsLeft:             string[];
+  dirtyMainCheckoutFiles:  string[];
 }
 
 /** What the Workflow run returns, keys in the order the frozen trace table pins, each conditional key present only when it says something. */
 export interface DispatchSummary {
-  delivered:           string[];
-  parked:              { id: string; reason: string }[];
-  findingsFiled:       string[];
-  agentsRun:           number;
-  stoppedByBoard?:     true;
-  stoppedByFailures?:  true;
-  lowPriorityWaiting?: string[];
-  held?:               { id: string; waitingFor: HeldStep }[];
-  pausedBuilds?:       string[];
-  reviewsLeft?:        string[];
+  delivered:               string[];
+  parked:                  { id: string; reason: string }[];
+  findingsFiled:           string[];
+  agentsRun:               number;
+  stoppedByBoard?:         true;
+  stoppedByFailures?:      true;
+  lowPriorityWaiting?:     string[];
+  held?:                   { id: string; waitingFor: HeldStep }[];
+  pausedBuilds?:           string[];
+  reviewsLeft?:            string[];
+  dirtyMainCheckoutFiles?: string[];
 }

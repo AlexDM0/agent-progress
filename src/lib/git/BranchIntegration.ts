@@ -11,6 +11,8 @@ const PORCELAIN_STATUS_PREFIX_CHARACTERS = 3;
 
 const UNTRACKED_STATUS_CODE = '??';
 
+const RENAME_OR_COPY_STATUS_CODES = ['R', 'C'] as const;
+
 export type CurrentBranchReading =
   | { verdict: 'on-branch'; branch: string }
   | { verdict: 'detached' }
@@ -25,7 +27,7 @@ export type BranchDescentReading =
 
 export type FastForwardOutcome =
   | { verdict: 'fast-forwarded'; commit: string }
-  | { verdict: 'refused'; reason: string };
+  | { verdict: 'refused'; reason: string; blockingFiles: string[] };
 
 export interface FilesLeftInWorktree {
   untrackedFiles: string[];
@@ -63,12 +65,41 @@ export function readBranchDescent(directory: string, branch: string, mainLine: s
 }
 
 /** Merges the commit that was checked, not the branch name, so a commit made to the branch after the check is not merged unseen. */
+function nulSeparatedFieldsOf(output: string): string[] {
+  return output.split('\0').filter((field) => field !== '');
+}
+
+// `-z` leaves paths unquoted; a rename or copy entry is followed by a field of its own holding the path it came from.
+function uncommittedPathsIn(directory: string): Set<string> {
+  const run = GitProcess.run(directory, ['status', '--porcelain=v1', '-z', '--untracked-files=all']);
+  const uncommittedPaths = new Set<string>();
+  if (!GitProcess.succeeded(run)) return uncommittedPaths;
+  const fields = nulSeparatedFieldsOf(run.standardOutput);
+  for (let i = 0; i < fields.length; i++) {
+    const entry = fields[i] ?? '';
+    uncommittedPaths.add(entry.slice(PORCELAIN_STATUS_PREFIX_CHARACTERS));
+    if (RENAME_OR_COPY_STATUS_CODES.some((statusCode) => entry.startsWith(statusCode))) uncommittedPaths.add(fields[++i] ?? '');
+  }
+  return uncommittedPaths;
+}
+
+function pathsChangedBetween(directory: string, commit: string): string[] {
+  const run = GitProcess.run(directory, ['diff', '--name-only', '-z', 'HEAD', commit, '--']);
+  return GitProcess.succeeded(run) ? nulSeparatedFieldsOf(run.standardOutput) : [];
+}
+
+/** The uncommitted paths, tracked or not, that the fast-forward would write over: what stops git, named so a person can commit or stash them. */
+function blockingFilesOf(directory: string, commit: string): string[] {
+  const uncommittedPaths = uncommittedPathsIn(directory);
+  return pathsChangedBetween(directory, commit).filter((path) => uncommittedPaths.has(path));
+}
+
 export function fastForwardTo(directory: string, commit: string): FastForwardOutcome {
   const mergeArguments = ['merge', '--ff-only', '--quiet', commit];
   const run            = GitProcess.run(directory, mergeArguments);
-  if (!GitProcess.succeeded(run)) return { verdict: 'refused', reason: GitProcess.failureReasonOf(run, mergeArguments) };
+  if (!GitProcess.succeeded(run)) return { verdict: 'refused', reason: GitProcess.failureReasonOf(run, mergeArguments), blockingFiles: blockingFilesOf(directory, commit) };
   const headCommit = GitProcess.resolvedCommitOf(directory, 'HEAD');
-  if (headCommit !== commit) return { verdict: 'refused', reason: `git merge --ff-only ${commit} exited 0, yet HEAD is ${headCommit ?? 'unreadable'}.` };
+  if (headCommit !== commit) return { verdict: 'refused', reason: `git merge --ff-only ${commit} exited 0, yet HEAD is ${headCommit ?? 'unreadable'}.`, blockingFiles: [] };
   return { verdict: 'fast-forwarded', commit };
 }
 

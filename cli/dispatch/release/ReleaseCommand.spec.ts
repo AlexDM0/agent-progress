@@ -58,10 +58,11 @@ interface ReleaseSuccessDocument {
 }
 
 interface ReleaseRefusalDocument {
-  released: false;
-  reason:   string;
-  detail:   string;
-  cleanup:  never[];
+  released:      false;
+  reason:        string;
+  detail:        string;
+  blockingFiles: string[];
+  cleanup:       never[];
 }
 
 type ReleaseDocument = ReleaseSuccessDocument | ReleaseRefusalDocument;
@@ -521,7 +522,7 @@ describeWhenGitIsPresent('a release that is refused changes nothing', () => {
   });
 
   // The branch descends from main, so only git itself stands between the check and a ticket delivered without its merge.
-  test('a fast-forward git refuses over a local change in the main checkout exits 1 with reason merge-refused', async () => {
+  test('a fast-forward git refuses over a local change in the main checkout exits 1 with reason merge-refused, naming the blocking file', async () => {
     const { identifier, worktree, branch } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
     writeFileSync(join(repositoryDirectory, 'role-history.ts'), 'uncommitted in the main checkout\n');
     gitOutputIn(repositoryDirectory, ['add', 'role-history.ts']);
@@ -529,7 +530,10 @@ describeWhenGitIsPresent('a release that is refused changes nothing', () => {
 
     const outcome = await expectNothingChanged(identifier, worktree, () => agentProgress(['release', identifier, '--branch', branch, '--worktree', worktree, '--json']));
 
-    expect(releaseRefusalDocumentOf(outcome).reason).toBe('merge-refused');
+    const refusalDocument = releaseRefusalDocumentOf(outcome);
+    expect(refusalDocument.reason).toBe('merge-refused');
+    expect(refusalDocument.blockingFiles).toEqual(['role-history.ts']);
+    expect(refusalDocument.detail).toContain('uncommitted changes to role-history.ts, which the merge would overwrite');
     expect(gitOutputIn(worktree, ['rev-parse', 'HEAD'])).toBe(worktreeHeadBefore);
     expect(branchExists(branch)).toBe(true);
     expect(readFileSync(join(repositoryDirectory, 'role-history.ts'), 'utf8')).toBe('uncommitted in the main checkout\n');
@@ -580,10 +584,11 @@ describeWhenGitIsPresent('a release that is refused changes nothing', () => {
       mismatch:         { reason: 'unversioned' },
     });
     expect(releaseDocumentOf(outcome)).toEqual({
-      released: false,
-      reason:   'invalid-request',
-      detail:   mismatchParagraph,
-      cleanup:  [],
+      released:      false,
+      reason:        'invalid-request',
+      detail:        mismatchParagraph,
+      blockingFiles: [],
+      cleanup:       [],
     });
     expect(outcome.error).toBe(mismatchParagraph);
     expect(branchExists(branch)).toBe(true);

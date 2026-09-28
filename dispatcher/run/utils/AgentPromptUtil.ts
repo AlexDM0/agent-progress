@@ -48,13 +48,14 @@ function startReviewCommandOf(settings: DispatchSettings, verb: 'finish' | 'rere
 
 function surveyPrompt(settings: DispatchSettings): string {
   return [
-    `Run \`agent-progress status --json\` once, in ${settings.mainCheckout}, then \`test -d\` once per entry of its \`pausedBuilds\`, and make no other call. `
-      + 'Judge nothing; return:',
+    `Run \`agent-progress status --json\` once, in ${settings.mainCheckout}, then \`test -d\` once per entry of its \`pausedBuilds\`, `
+      + `then \`git -C ${settings.mainCheckout} status -s -uno\` once, and make no other call. Judge nothing; return:`,
     '- `status`: its `concurrency` block as printed (limit, agentsInFlight, freeSlots, readyTicketIds, dispatcherState, heldTicketIds, inProgressTicketIds, '
       + `inProgressReviewOfIds), ${READY_TICKETS_ADDITION_TEXT};`,
     '- `reviewWaitingTickets`: the document\'s top-level `reviewWaitingTickets` list, verbatim;',
     '- `pausedBuilds`: each entry of the document\'s top-level `pausedBuilds` list, verbatim, with `worktreeExists` added: whether '
-      + `\`test -d ${worktreeOf(settings, '<id>')}\` succeeds.`,
+      + `\`test -d ${worktreeOf(settings, '<id>')}\` succeeds;`,
+    '- `dirtyMainCheckoutFiles`: the path of each line `git status` printed, its first three characters dropped; empty when it printed nothing.',
   ].join('\n');
 }
 
@@ -186,6 +187,7 @@ function reviewerPrompt(settings: DispatchSettings, request: ReviewerPromptReque
       + 'the next round\'s `ticket rereview --start-review` closes it, so the ticket\'s slot stays held. On every other verdict than released, close your own bar: '
       + '`agent-progress task finish <bar>`, then `agent-progress task deliver <bar>`.',
     'Return `verdict` (released, round-requested, does-not-hold or not-released), `releaseReason` (the release\'s reason when not-released, empty otherwise), '
+      + '`blockingFiles` (the refused release\'s `blockingFiles`, empty otherwise), '
       + '`reworkedLines` (both rework counts together), `findings` (every finding of this round, each with a one-word `class`, its `file` and a one-line `summary`), '
       + `and \`filedTicketIds\`. ${STATUS_RETURN_TEXT}`,
   );

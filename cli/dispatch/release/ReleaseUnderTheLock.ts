@@ -95,7 +95,12 @@ export async function releaseUnderTheLock(
     const branchCommit = branchCommitToRelease(mainCheckout, request.branch, request.mainLine);
 
     const merge = fastForwardTo(mainCheckout, branchCommit);
-    if (merge.verdict === 'refused') refuseTheRelease('merge-refused', `git would not fast-forward ${request.mainLine} to ${request.branch}: ${merge.reason}`);
+    if (merge.verdict === 'refused') {
+      const blockingFilesText = merge.blockingFiles.length > 0
+        ? ` Commit or stash the main checkout's uncommitted changes to ${merge.blockingFiles.join(', ')}, which the merge would overwrite.`
+        : '';
+      refuseTheRelease('merge-refused', `git would not fast-forward ${request.mainLine} to ${request.branch}: ${merge.reason.trim()}${blockingFilesText}`, merge.blockingFiles);
+    }
 
     const released = change.board.releaseTickets(tickets.map(({ frontmatter }) => frontmatter.id), { branch: request.branch, commit: merge.commit }, change.at);
     return {

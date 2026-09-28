@@ -31,6 +31,7 @@ const QUIET_OUTCOME: DispatchOutcome = {
   held:                    [],
   pausedBuilds:            [],
   reviewsLeft:             [],
+  dirtyMainCheckoutFiles:  [],
 };
 
 describe('the settings refusal', () => {
@@ -89,7 +90,11 @@ describe('a failed pass', () => {
 describe('the park reasons', () => {
   test.each([
     [{ cause: 'second-failed-pass', failure: { cause: 'review-does-not-hold' } } as const, 'the review found it does not hold, the second failed pass'],
-    [{ cause: 'release-refused', statedReason: 'merge-refused' } as const, 'the release was refused: merge-refused'],
+    [{ cause: 'release-refused', statedReason: 'merge-refused', blockingFiles: [] } as const, 'the release was refused: merge-refused'],
+    [
+      { cause: 'release-refused', statedReason: 'merge-refused', blockingFiles: ['CLAUDE.md', 'docs/cli.md'] } as const,
+      'the release was refused: merge-refused, blocked by uncommitted changes in the main checkout to CLAUDE.md, docs/cli.md',
+    ],
     [{ cause: 'main-line-moved', releases: 2 } as const, 'the main line moved under 2 releases'],
     [
       { cause: 'round-refused', refusal: { reason: 'rework-not-over-threshold', requestedRound: 2, reworkedLines: 750 } } as const,
@@ -181,13 +186,14 @@ describe('the summary', () => {
   test('every key that says something is present, in the order the frozen trace table pins', () => {
     const summary = summaryOf({
       ...QUIET_OUTCOME,
-      parked:                  [{ ticketId: '002', reason: { cause: 'release-refused', statedReason: 'merge-refused' } }],
+      parked:                  [{ ticketId: '002', reason: { cause: 'release-refused', statedReason: 'merge-refused', blockingFiles: [] } }],
       runWasStoppedByBoard:    true,
       runWasStoppedByFailures: true,
       lowPriorityWaiting:      ['003'],
       held:                    [{ ticketId: '004', waitingFor: 'build' }],
       pausedBuilds:            ['005'],
       reviewsLeft:             ['006'],
+      dirtyMainCheckoutFiles:  ['CLAUDE.md'],
     });
     expect(Object.keys(summary)).toEqual([
       'delivered',
@@ -200,6 +206,7 @@ describe('the summary', () => {
       'held',
       'pausedBuilds',
       'reviewsLeft',
+      'dirtyMainCheckoutFiles',
     ]);
     expect(summary.parked).toEqual([{ id: '002', reason: 'the release was refused: merge-refused' }]);
     expect(summary.held).toEqual([{ id: '004', waitingFor: 'build' }]);

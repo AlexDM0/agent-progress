@@ -209,13 +209,20 @@ describe('a status block', () => {
 
 describe('the survey', () => {
   const survey = {
-    status:               STATUS_BLOCK,
-    reviewWaitingTickets: [{ id: '007', model: 'sonnet' }],
-    pausedBuilds:         [],
+    status:                 STATUS_BLOCK,
+    reviewWaitingTickets:   [{ id: '007', model: 'sonnet' }],
+    pausedBuilds:           [],
+    dirtyMainCheckoutFiles: ['CLAUDE.md'],
   };
 
   test('a survey that returned nothing reads as nothing', () => {
     expect(surveyReadingOf(null)).toBeNull();
+  });
+
+  // Unlisted stops the run as a dirty checkout does: the answer the survey could not give reads as the safe one.
+  test('the main checkout\'s uncommitted files read as listed, and a list that is not an array as unlisted', () => {
+    expect(surveyReadingOf(survey)).toMatchObject({ dirtyMainCheckoutFiles: ['CLAUDE.md'] });
+    expect(surveyReadingOf({ ...survey, dirtyMainCheckoutFiles: undefined })).toMatchObject({ dirtyMainCheckoutFiles: 'unlisted' });
   });
 
   test('reviews waiting take their model and effort, defaulted where unstated', () => {
@@ -320,12 +327,19 @@ describe('a finished agent\'s reply', () => {
     });
   });
 
+  test('a refused release keeps the files the reviewer names as blocking it, and a reply without them names none', () => {
+    const refusedReply = { ...REVIEWER_REPLY, verdict: 'not-released', releaseReason: 'merge-refused' };
+    expect(finishedReadingOf(REVIEW_WORK, { ...refusedReply, blockingFiles: ['CLAUDE.md'] }))
+      .toMatchObject({ releaseRefusal: { statedReason: 'merge-refused', blockingFiles: ['CLAUDE.md'] } });
+    expect(finishedReadingOf(REVIEW_WORK, refusedReply)).toMatchObject({ releaseRefusal: { statedReason: 'merge-refused', blockingFiles: [] } });
+  });
+
   test('a reviewer\'s reply maps every field the run decides on', () => {
     expect(finishedReadingOf(REVIEW_WORK, REVIEWER_REPLY)).toEqual({
       kind:           'review',
       round:          1,
       verdict:        'released',
-      releaseRefusal: { statedReason: '' },
+      releaseRefusal: { statedReason: '', blockingFiles: [] },
       reworkedLines:  0,
       findings:       [{ class: 'naming', file: 'a.ts', summary: 'naming in a.ts' }],
       filedTicketIds: ['010'],

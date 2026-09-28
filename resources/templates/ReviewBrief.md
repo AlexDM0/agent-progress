@@ -82,7 +82,8 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
      checks, `agent-progress rework --rebased-from` — add that count to your total and to your
      `## Review`, and apply step 7 again: over {{reworkThresholdLines}} now requests the next round; otherwise run
      this step again.
-   - Any other reason: change nothing and report `holds, not released: <reason>` with its `detail`.
+   - Any other reason: change nothing and report `holds, not released: <reason>` with its `detail`,
+     and on `merge-refused` the `blockingFiles` it names: the person commits or stashes them.
    - Denied by the permission system: do not retry or reword it, and never merge around it; report
      `holds, not released: permission denied` with the command line as you would have run it.
 

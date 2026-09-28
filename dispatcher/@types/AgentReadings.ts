@@ -27,9 +27,11 @@ export interface PausedBuild {
 }
 
 export interface SurveyReading {
-  status:               StatusReading | 'unreadable';
-  reviewWaitingTickets: ReviewWaitingTicket[] | 'unlisted';
-  pausedBuilds:         PausedBuild[];
+  status:                 StatusReading | 'unreadable';
+  reviewWaitingTickets:   ReviewWaitingTicket[] | 'unlisted';
+  pausedBuilds:           PausedBuild[];
+  /** The main checkout's uncommitted tracked files, where a release a builder's branch reaches would be refused over one it also changes. */
+  dirtyMainCheckoutFiles: string[] | 'unlisted';
 }
 
 export interface ReviewFinding {
@@ -42,8 +44,8 @@ export type BuilderOutcome = 'in-review' | 'claim-refused' | 'failed';
 
 export type ReviewerVerdict = 'released' | 'round-requested' | 'does-not-hold' | 'not-released';
 
-/** Only `main-moved` is decided on; any other reason is the reviewer's text, echoed into the park reason. */
-export type ReleaseRefusal = 'main-moved' | { statedReason: string };
+/** Only `main-moved` is decided on; any other reason is the reviewer's text, echoed into the park reason with the files that blocked the merge. */
+export type ReleaseRefusal = 'main-moved' | { statedReason: string; blockingFiles: string[] };
 
 export type AgentReading =
   | { kind: 'build'; outcome: BuilderOutcome; detail: string; claimNote: string; status: StatusReading | 'unreadable' }

@@ -114,6 +114,7 @@ export class DispatchRun {
   private readonly pausedBuildPriorities:   Map<string, TicketPriority> = new Map();
   private readonly pausedBuildsLeft:        string[] = [];
   private rowsToRelease:                    AgentWork[] = [];
+  private dirtyMainCheckoutFiles:           string[] = [];
 
   constructor(settings: DispatchSettings, collaborators: DispatchRunCollaborators) {
     this.settings      = settings;
@@ -145,6 +146,17 @@ export class DispatchRun {
     this.adoptStatusReading(survey.status);
     if (this.latestStatusReading === null) {
       this.collaborators.logger.surveyStatusUnreadable();
+      return 'nothing-dispatched';
+    }
+    // Which branch a hand edit will block cannot be known before it is built, and its build and review would be paid for before its release
+    // is refused, so any uncommitted file stops the run for the user to commit or stash; an unread answer stops it as well.
+    if (survey.dirtyMainCheckoutFiles === 'unlisted') {
+      this.collaborators.logger.surveyLeftTheMainCheckoutUnread();
+      return 'nothing-dispatched';
+    }
+    if (survey.dirtyMainCheckoutFiles.length > 0) {
+      this.dirtyMainCheckoutFiles = survey.dirtyMainCheckoutFiles;
+      this.collaborators.logger.mainCheckoutIsDirty(this.dirtyMainCheckoutFiles);
       return 'nothing-dispatched';
     }
     // The frozen trace table pins a crash here, after the same log lines, when the survey lists no reviews waiting.
@@ -251,6 +263,7 @@ export class DispatchRun {
       held:                    this.heldEntries(),
       pausedBuilds:            this.pausedBuildsLeft,
       reviewsLeft:             this.reviewsLeftIds(),
+      dirtyMainCheckoutFiles:  this.dirtyMainCheckoutFiles,
     };
   }
 
@@ -562,7 +575,7 @@ export class DispatchRun {
     }
     if (reading.verdict === 'not-released') {
       if (reading.releaseRefusal !== 'main-moved') {
-        this.park(ticketId, { cause: 'release-refused', statedReason: reading.releaseRefusal.statedReason });
+        this.park(ticketId, { cause: 'release-refused', statedReason: reading.releaseRefusal.statedReason, blockingFiles: reading.releaseRefusal.blockingFiles });
         return;
       }
       record.mainMovedReleases++;

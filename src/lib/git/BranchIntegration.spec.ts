@@ -138,6 +138,28 @@ describeWhenGitIsPresent('the fast-forward', () => {
     expect(outcome.verdict).toBe('refused');
     if (outcome.verdict !== 'refused') return;
     expect(outcome.reason.startsWith(`git merge --ff-only --quiet ${branchCommit} exited with`)).toBe(true);
+    expect(outcome.blockingFiles).toEqual([]);
+    expect(gitOutputIn(repositoryDirectory, ['rev-parse', 'HEAD'])).toBe(mainLineCommit);
+  });
+
+  test('a refusal over uncommitted work names the changed and untracked files the merge would overwrite, and no other uncommitted file', () => {
+    const repositoryDirectory = scratchGitRepository('branch-integration-blocking-files');
+    const mainLine            = currentBranchOf(repositoryDirectory);
+    commitFile(repositoryDirectory, 'shared.md', 'shared\n');
+    commitFile(repositoryDirectory, 'untouched.md', 'untouched\n');
+    gitOutputIn(repositoryDirectory, ['checkout', '-q', '-b', 'feature']);
+    commitFile(repositoryDirectory, 'shared.md', 'feature\n');
+    const branchCommit = commitFile(repositoryDirectory, 'new file.md', 'feature\n');
+    gitOutputIn(repositoryDirectory, ['checkout', '-q', mainLine]);
+    const mainLineCommit = gitOutputIn(repositoryDirectory, ['rev-parse', 'HEAD']);
+    writeFileSync(join(repositoryDirectory, 'shared.md'), 'edited by hand\n');
+    writeFileSync(join(repositoryDirectory, 'new file.md'), 'left untracked\n');
+    writeFileSync(join(repositoryDirectory, 'untouched.md'), 'edited by hand\n');
+
+    const outcome = fastForwardTo(repositoryDirectory, branchCommit);
+    expect(outcome.verdict).toBe('refused');
+    if (outcome.verdict !== 'refused') return;
+    expect(outcome.blockingFiles.toSorted()).toEqual(['new file.md', 'shared.md']);
     expect(gitOutputIn(repositoryDirectory, ['rev-parse', 'HEAD'])).toBe(mainLineCommit);
   });
 });

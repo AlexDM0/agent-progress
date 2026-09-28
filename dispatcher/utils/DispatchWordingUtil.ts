@@ -80,7 +80,8 @@ function parkReasonText(reason: ParkReason): string {
     case 'second-failed-pass':
       return `${passFailureText(reason.failure)}, the second failed pass`;
     case 'release-refused':
-      return `the release was refused: ${reason.statedReason}`;
+      if (reason.blockingFiles.length === 0) return `the release was refused: ${reason.statedReason}`;
+      return `the release was refused: ${reason.statedReason}, blocked by uncommitted changes in the main checkout to ${reason.blockingFiles.join(', ')}`;
     case 'main-line-moved':
       return `the main line moved under ${reason.releases} releases`;
     case 'round-refused':
@@ -130,6 +131,11 @@ function logEntryText(entry: DispatchLogEntry): string {
       return 'The survey returned no board, so nothing was dispatched.';
     case 'survey-status-unreadable':
       return 'The survey returned no readable concurrency block, so nothing was dispatched.';
+    case 'survey-left-the-main-checkout-unread':
+      return 'The survey did not say whether the main checkout has uncommitted changes, so nothing was dispatched.';
+    case 'main-checkout-is-dirty':
+      return `The main checkout has uncommitted changes to ${entry.dirtyFiles.join(', ')}: a release over any of them would be refused after its build and review, `
+        + 'so nothing was dispatched. Commit or stash them, then relaunch.';
     case 'rows-left-running':
       return `No slot free for an agent to pause the row of ${ticketListText(entry.ticketIds)}: pause it with \`agent-progress task pause\`.`;
     case 'tickets-left-waiting':
@@ -161,6 +167,7 @@ function summaryOf(outcome: DispatchOutcome): DispatchSummary {
   if (outcome.held.length > 0) summary.held = outcome.held.map((heldEntry) => ({ id: heldEntry.ticketId, waitingFor: heldEntry.waitingFor }));
   if (outcome.pausedBuilds.length > 0) summary.pausedBuilds = outcome.pausedBuilds;
   if (outcome.reviewsLeft.length > 0) summary.reviewsLeft = outcome.reviewsLeft;
+  if (outcome.dirtyMainCheckoutFiles.length > 0) summary.dirtyMainCheckoutFiles = outcome.dirtyMainCheckoutFiles;
   return summary;
 }
 
