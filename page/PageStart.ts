@@ -208,6 +208,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
 
   logController.wire();
   progressController.wireNameColumn();
+  progressController.wireReviewRows();
   kanbanController.wire();
 
   window.addEventListener('resize', () => {

@@ -56,7 +56,10 @@ export interface GanttChartController {
   layOut(bringNowIntoView: boolean): void;
   wireRangeBar(): void;
   wireNameColumn(): void;
+  wireReviewRows(): void;
 }
+
+const REVIEW_ROWS_CONTROL_ELEMENT_ID = 'ap-review-rows';
 
 function reflectNameColumnWidth(width: NameColumnWidth): void {
   document.documentElement.setAttribute(NAME_COLUMN_WIDTH_ATTRIBUTE, width);
@@ -173,6 +176,7 @@ export function createGanttChartController(sources: GanttChartControllerSources)
   const chart                = document.getElementById(CHART_ELEMENT_ID);
   let override               = preferences.readRangeOverride();
   let nameColumnWidth        = preferences.readNameColumnWidth();
+  let reviewRowsAreShown     = preferences.readReviewRowsAreShown();
   let visibleRows            = rows;
   let visibleProgress        = { ...progress, tasks: [...visibleRows] };
 
@@ -200,7 +204,11 @@ export function createGanttChartController(sources: GanttChartControllerSources)
     }));
     DomUtil.setMarkup(AXIS_TICKS_ELEMENT_ID, tickLayerMarkup(placedTicks));
     DomUtil.setMarkup(CHART_OVERLAY_ELEMENT_ID, overlayMarkup(timeline.ticks, timeline.nowPercent));
-    DomUtil.setMarkup(TASK_ROWS_ELEMENT_ID, taskRowsMarkup(taskRowsFor(visibleRows, timeline, waitingOnById), limits));
+    DomUtil.setMarkup(TASK_ROWS_ELEMENT_ID, taskRowsMarkup(taskRowsFor(visibleRows, timeline, waitingOnById), {
+      slices:            limits,
+      todayCalendarDate: TimeUtil.calendarDateOf(nowEpochMilliseconds),
+      reviewRowsAreShown,
+    }));
     DomUtil.setHidden('ap-chart-empty', visibleProgress.tasks.length > 0);
 
     const rangeNote = rangeNoteText(timeline.fromEpochMilliseconds, timeline.toEpochMilliseconds, timeline.stepMinutes, TimeUtil.calendarDateOf(nowEpochMilliseconds), limits);
@@ -242,6 +250,16 @@ export function createGanttChartController(sources: GanttChartControllerSources)
         nameColumnWidth = ViewerPreferenceUtil.toggledNameColumnWidth(nameColumnWidth);
         preferences.writeNameColumnWidth(nameColumnWidth);
         reflectNameColumnWidth(nameColumnWidth);
+        layOut(false);
+      });
+    },
+    wireReviewRows: () => {
+      const control = document.getElementById(REVIEW_ROWS_CONTROL_ELEMENT_ID);
+      control?.setAttribute('aria-pressed', String(reviewRowsAreShown));
+      control?.addEventListener('click', () => {
+        reviewRowsAreShown = !reviewRowsAreShown;
+        preferences.writeReviewRowsAreShown(reviewRowsAreShown);
+        control.setAttribute('aria-pressed', String(reviewRowsAreShown));
         layOut(false);
       });
     },

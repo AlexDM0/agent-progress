@@ -48,6 +48,8 @@ export interface ViewerPreferences {
   writeWorkVisibility:       (visibility: WorkVisibility) => void;
   readNameColumnWidth:       () => NameColumnWidth;
   writeNameColumnWidth:      (width: NameColumnWidth) => void;
+  readReviewRowsAreShown:    () => boolean;
+  writeReviewRowsAreShown:   (reviewRowsAreShown: boolean) => void;
   readAbandonedLaneIsOpen:   () => boolean;
   writeAbandonedLaneIsOpen:  (laneIsOpen: boolean) => void;
   readCappedLaneShownCount:  (lane: ClosedKanbanLane) => number;

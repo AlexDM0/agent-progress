@@ -31,11 +31,22 @@ export interface PlacedTick extends TimelineTick {
   labelSitsLeftOfItsLine: boolean;
 }
 
+export interface TaskRowsDrawing {
+  slices:             TimestampSlices;
+  todayCalendarDate:  string;
+  /** Off by default: each review pass with its ticket's row among these is drawn as a segment on that row instead of a row of its own. */
+  reviewRowsAreShown: boolean;
+}
+
 interface PlacedTaskRow {
   row:              TaskRow;
   /** The ticket id of the row this one is nested with, drawn directly above it, or `null` for a row drawn at the top level. */
   nestedWithTicket: string | null;
+  /** The review passes drawn on this row's track, oldest filed first. */
+  reviewSegments:   readonly TaskRow[];
 }
+
+const LEADING_TICKET_NUMBER_PATTERN = /^#(\d+)\s+/;
 
 /** Only the prefix is read, as when the bar was filed: `Review 2 #13, #5 — …` is round 2. */
 const REVIEW_BAR_NAME_PATTERN = /^Review (\d+) #\d+/;
@@ -47,11 +58,12 @@ function reviewRoundNamedBy(task: BoardRow): number {
 }
 
 /**
- * Newest filed first, except that a review bar is drawn directly above its ticket's own row, as the Board answers it, latest round its
- * name gives first, a name without a round above the rest, then newest filed first. A bar whose own row is not among these rows — none, or
- * hidden as long done — stays where its filing puts it.
+ * Newest filed first, except that a review bar whose ticket's own row, as the Board answers it, is among these rows is a segment on that
+ * row; with review rows shown it is drawn directly above that row instead, latest round its name gives first, a name without a round above
+ * the rest, then newest filed first. A bar whose own row is not among these rows — none, or hidden as long done — stays where its filing
+ * puts it.
  */
-function taskRowsInDisplayOrder(rows: readonly TaskRow[]): PlacedTaskRow[] {
+function taskRowsInDisplayOrder(rows: readonly TaskRow[], reviewRowsAreShown: boolean): PlacedTaskRow[] {
   const rowByTask = new Map(rows.map((row) => [row.task, row]));
 
   const reviewsByParent = new Map<TaskRow, TaskRow[]>();
@@ -61,19 +73,49 @@ function taskRowsInDisplayOrder(rows: readonly TaskRow[]): PlacedTaskRow[] {
   }
   const nestedRows = new Set([...reviewsByParent.values()].flat());
 
-  return rows.toReversed().flatMap((row) => {
+  return rows.toReversed().flatMap((row): PlacedTaskRow[] => {
     if (nestedRows.has(row)) return [];
-    const reviews = (reviewsByParent.get(row) ?? []).toSorted((a, b) => reviewRoundNamedBy(b.task) - reviewRoundNamedBy(a.task) || b.task.id - a.task.id);
+    const reviews = reviewsByParent.get(row) ?? [];
+    if (!reviewRowsAreShown) return [{ row, nestedWithTicket: null, reviewSegments: reviews }];
+    const reviewsLatestRoundFirst = reviews.toSorted((a, b) => reviewRoundNamedBy(b.task) - reviewRoundNamedBy(a.task) || b.task.id - a.task.id);
     return [
-      ...reviews.map((review) => ({ row: review, nestedWithTicket: row.task.ticket })),
-      { row, nestedWithTicket: null },
+      ...reviewsLatestRoundFirst.map((review) => ({ row: review, nestedWithTicket: row.task.ticket, reviewSegments: [] })),
+      { row, nestedWithTicket: null, reviewSegments: [] },
     ];
   });
 }
 
-function taskRowMarkup(placed: PlacedTaskRow, slices: TimestampSlices): string {
-  const { row, nestedWithTicket } = placed;
-  const { task, bar }              = row;
+/** The badge already shows the ticket, so a name opening with the same `#NNN` drops it; the title keeps the full name. */
+function displayedNameOf(task: BoardRow): string {
+  const leadingNumber = LEADING_TICKET_NUMBER_PATTERN.exec(task.name);
+  if (task.ticket === null || leadingNumber === null || Number(leadingNumber[1]) !== Number(task.ticket)) {
+    return task.name;
+  }
+  return task.name.slice(leadingNumber[0].length);
+}
+
+/** Rounds count the started passes oldest filed first, as the detail Timeline counts them. */
+function reviewSegmentsMarkup(reviews: readonly TaskRow[], drawing: TaskRowsDrawing): string {
+  const startedReviews = reviews.flatMap((review) => (review.task.start === null ? [] : [{ review, start: review.task.start }]));
+  return startedReviews.map(({ review, start }, index) => {
+    const round         = index + 1;
+    const { task, bar } = review;
+    if (!bar.visible) {
+      return '';
+    }
+    const endText = task.end === null ? 'now' : TimeUtil.shortStampText(task.end, drawing.todayCalendarDate, drawing.slices);
+    const title   = `Review ${round} · ${TimeUtil.shortStampText(start, drawing.todayCalendarDate, drawing.slices)} → ${endText}`;
+    return [
+      `<div class="ap-bar ap-bar-review" ${MarkupUtil.attribute('data-state', round === 1 ? 'reviewing' : 're-review')}${task.end === null ? ' data-live' : ''}`,
+      ` style="left:${MarkupUtil.percentText(bar.leftPercent)};width:${MarkupUtil.percentText(bar.widthPercent)}" ${MarkupUtil.attribute('title', title)}></div>`,
+    ].join('');
+  }).join('');
+}
+
+function taskRowMarkup(placed: PlacedTaskRow, drawing: TaskRowsDrawing): string {
+  const { row, nestedWithTicket, reviewSegments } = placed;
+  const { task, bar }                              = row;
+  const { slices }                                 = drawing;
   const state         = task.displayState;
   const pillLabel     = WorkItemMarkupUtil.stateLabelOf(state, task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND);
   const ticketBadge   = task.ticket === null ? '' : WorkItemMarkupUtil.ticketBadgeMarkup(task.ticket);
@@ -83,22 +125,25 @@ function taskRowMarkup(placed: PlacedTaskRow, slices: TimestampSlices): string {
     : `<span class="ap-tokens">${HtmlEscapeUtil.escapeHtml(TokenCountUtil.formatTokenCount(task.tokens))} tokens</span>`;
   const nesting    = nestedWithTicket === null ? '' : ` ${MarkupUtil.attribute('data-review-of', nestedWithTicket)}`;
   const identities = `${MarkupUtil.attribute('id', TemplateIdUtil.taskRowElementIdOf(task.id))} ${MarkupUtil.attribute('data-task-id', String(task.id))}`;
+  const drawnBars    = [bar, ...reviewSegments.map((review) => review.bar)].filter((drawnBar) => drawnBar.visible);
+  const clippedLeft  = drawnBars.some((drawnBar) => drawnBar.clippedLeft);
+  const clippedRight = drawnBars.some((drawnBar) => drawnBar.clippedRight);
   return [
     `<div class="ap-grid-row ap-row" tabindex="0" ${identities} ${MarkupUtil.attribute('data-state', state)}${nesting}>`,
     `<div class="ap-cell-name"><span class="ap-num">${HtmlEscapeUtil.escapeHtml(String(task.id))}</span>`,
-    `<span class="ap-name" ${MarkupUtil.attribute('title', task.name)}>${HtmlEscapeUtil.escapeHtml(task.name)}</span>`,
+    `<span class="ap-name" ${MarkupUtil.attribute('title', task.name)}>${HtmlEscapeUtil.escapeHtml(displayedNameOf(task))}</span>`,
     `${ticketBadge}${WorkItemMarkupUtil.waitingOnMarkup(row.waitingOn)}${tokens}</div>`,
     `<div class="ap-cell-pill"><span class="ap-pill">${HtmlEscapeUtil.escapeHtml(pillLabel)}</span>${reviewedMark}</div>`,
-    `<div class="ap-cell-track"><span class="ap-clip-l"${bar.visible && bar.clippedLeft ? '' : ' hidden'}></span>`,
+    `<div class="ap-cell-track"><span class="ap-clip-l"${clippedLeft ? '' : ' hidden'}></span>`,
     `<div class="ap-bar"${bar.visible ? '' : ' hidden'} style="left:${MarkupUtil.percentText(bar.leftPercent)};width:${MarkupUtil.percentText(bar.widthPercent)}"></div>`,
-    `<span class="ap-clip-r"${bar.visible && bar.clippedRight ? '' : ' hidden'}></span></div>`,
+    `${reviewSegmentsMarkup(reviewSegments, drawing)}<span class="ap-clip-r"${clippedRight ? '' : ' hidden'}></span></div>`,
     '</div>',
   ].join('');
 }
 
 /** Rows arrive in filing order and are drawn in `taskRowsInDisplayOrder`. */
-export function taskRowsMarkup(rows: readonly TaskRow[], slices: TimestampSlices): string {
-  return taskRowsInDisplayOrder(rows).map((placed) => taskRowMarkup(placed, slices)).join('');
+export function taskRowsMarkup(rows: readonly TaskRow[], drawing: TaskRowsDrawing): string {
+  return taskRowsInDisplayOrder(rows, drawing.reviewRowsAreShown).map((placed) => taskRowMarkup(placed, drawing)).join('');
 }
 
 export function tickLayerMarkup(ticks: readonly PlacedTick[]): string {

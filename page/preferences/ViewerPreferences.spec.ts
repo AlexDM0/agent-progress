@@ -42,9 +42,10 @@ function inMemoryStorage(): InMemoryStorage {
   };
 }
 
-type StoredChoiceName = 'range override' | 'work visibility' | 'name column' | 'Abandoned lane' | 'Done lane count' | 'Abandoned lane count';
+type StoredChoiceName = 'range override' | 'work visibility' | 'name column' | 'review rows' | 'Abandoned lane' | 'Done lane count' | 'Abandoned lane count';
 
 // Frozen from the key functions before they moved here: retake by checking out bc42604 and calling the key functions in lib/render/page/.
+// The review rows entry is newer than that commit and frozen from its first release.
 // Columns: the choice, its key for tracker `tracker-a`, a stored value in its encoding, and the value at which the key is removed.
 const FROZEN_STORED_CHOICES: readonly (readonly [StoredChoiceName, string, string, string])[] = [
   [
@@ -55,6 +56,7 @@ const FROZEN_STORED_CHOICES: readonly (readonly [StoredChoiceName, string, strin
   ],
   ['work visibility', 'agent-progress:tracker-a:visibility', 'all', 'recent'],
   ['name column', 'agent-progress:tracker-a:name-column', 'wide', 'normal'],
+  ['review rows', 'agent-progress:tracker-a:review-rows', 'rows', 'segments'],
   ['Abandoned lane', 'agent-progress:tracker-a:kanban-abandoned', 'open', 'closed'],
   ['Done lane count', 'agent-progress:tracker-a:kanban-done-shown', '40', '15'],
   ['Abandoned lane count', 'agent-progress:tracker-a:kanban-abandoned-shown', '40', '15'],
@@ -78,6 +80,10 @@ const DRIVER_FOR_STORED_CHOICE: Readonly<Record<StoredChoiceName, StoredChoiceDr
   'name column': {
     write: (preferences, text) => preferences.writeNameColumnWidth(ViewerPreferenceUtil.nameColumnWidthFrom(text)),
     read:  (preferences) => preferences.readNameColumnWidth(),
+  },
+  'review rows': {
+    write: (preferences, text) => preferences.writeReviewRowsAreShown(text === 'rows'),
+    read:  (preferences) => (preferences.readReviewRowsAreShown() ? 'rows' : 'segments'),
   },
   'Abandoned lane': {
     write: (preferences, text) => preferences.writeAbandonedLaneIsOpen(ViewerPreferenceUtil.abandonedLaneIsOpenFrom(text)),
@@ -143,7 +149,9 @@ describe('createViewerPreferences', () => {
     preferences.writeNameColumnWidth('wide');
     preferences.writeAbandonedLaneIsOpen(true);
     preferences.writeCappedLaneShownCount('done', 40);
+    preferences.writeReviewRowsAreShown(true);
 
+    expect(preferences.readReviewRowsAreShown()).toBe(true);
     expect(preferences.readRangeOverride()).toEqual(override);
     expect(preferences.readWorkVisibility()).toBe('all');
     expect(preferences.readNameColumnWidth()).toBe('wide');
@@ -162,8 +170,10 @@ describe('createViewerPreferences', () => {
     expect(preferences.readWorkVisibility()).toBe(DEFAULT_WORK_VISIBILITY);
     expect(preferences.readNameColumnWidth()).toBe(DEFAULT_NAME_COLUMN_WIDTH);
     expect(preferences.readAbandonedLaneIsOpen()).toBe(false);
+    expect(preferences.readReviewRowsAreShown()).toBe(false);
     expect(preferences.readCappedLaneShownCount('done')).toBe(CAPPED_LANE_FIRST_PAGE_CARDS);
     expect(() => {
+      preferences.writeReviewRowsAreShown(true);
       preferences.writeRangeOverride(overrideWith({ tickMinutes: 15 }));
       preferences.writeWorkVisibility('all');
       preferences.writeNameColumnWidth('wide');

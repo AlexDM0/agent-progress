@@ -12,6 +12,7 @@ import { pageBoardFixture }                              from '../testing/PageBo
 import { EXAMPLE_PAGE_LIMITS, EXAMPLE_TIMESTAMP_SLICES } from '../testing/PageLimitsFixture.ts';
 import { GeometryUtil }                                  from '../utils/GeometryUtil.ts';
 import { TimeUtil }                                      from '../utils/TimeUtil.ts';
+import type { TaskRowsDrawing }                          from './GanttChartMarkup.ts';
 import {
   generatedStampText,
   hiddenWorkNoteText,
@@ -28,6 +29,14 @@ const { calendarDateOf, fullInstantText } = TimeUtil;
 const MILLISECONDS_PER_MINUTE = 60_000;
 
 const NO_AGENTS_OF_TWO = { limit: 2, agentsInFlight: 0 };
+
+const REVIEW_SEGMENTS: TaskRowsDrawing = {
+  slices:             EXAMPLE_TIMESTAMP_SLICES,
+  todayCalendarDate:  '2026-09-18',
+  reviewRowsAreShown: false,
+};
+
+const REVIEW_ROWS_SHOWN: TaskRowsDrawing = { ...REVIEW_SEGMENTS, reviewRowsAreShown: true };
 
 const PLACED_BAR: TimelineBar = {
   taskId:       1,
@@ -81,12 +90,12 @@ function rowFor(task: Task, ticketStatus: TicketStatus | null = null, bar: Timel
   if (row === undefined) {
     throw new Error('the example row was not built');
   }
-  return taskRowsMarkup([{ task: row, bar, waitingOn }], EXAMPLE_TIMESTAMP_SLICES);
+  return taskRowsMarkup([{ task: row, bar, waitingOn }], REVIEW_SEGMENTS);
 }
 
 describe('taskRowsMarkup', () => {
   test('draws the most recently filed task on top', () => {
-    const markup = taskRowsMarkup(rowsFiled([1, 2, 3].map((id) => exampleTask({ id }))), EXAMPLE_TIMESTAMP_SLICES);
+    const markup = taskRowsMarkup(rowsFiled([1, 2, 3].map((id) => exampleTask({ id }))), REVIEW_SEGMENTS);
 
     expect([...markup.matchAll(/data-task-id="(\d+)"/g)].map((match) => match[1])).toEqual(['3', '2', '1']);
   });
@@ -239,7 +248,7 @@ describe('review rows nested above their ticket', () => {
         reviewOf:       '003',
         reviewBarRound: 3,
       }),
-    ]), EXAMPLE_TIMESTAMP_SLICES);
+    ]), REVIEW_ROWS_SHOWN);
 
     expect(drawnOrderOf(markup)).toEqual([
       ['4', null],
@@ -257,7 +266,7 @@ describe('review rows nested above their ticket', () => {
       exampleTask({ id: 1, ticket: '003' }),
       exampleTask({ id: 2, name: 'Review 2 #3 — Split the exporter', reviewOf: '003' }),
       exampleTask({ id: 3, name: 'Review 1 #3 — Split the exporter', reviewOf: '003' }),
-    ]), EXAMPLE_TIMESTAMP_SLICES);
+    ]), REVIEW_ROWS_SHOWN);
 
     expect(drawnOrderOf(markup)).toEqual([['2', '003'], ['3', '003'], ['1', null]]);
   });
@@ -268,7 +277,7 @@ describe('review rows nested above their ticket', () => {
       exampleTask({ id: 3, name: 'Review 2 #3 — Split the exporter', reviewOf: '003' }),
       exampleTask({ id: 4, name: 'Review 1 #3 — Split the exporter', reviewOf: '003' }),
       exampleTask({ id: 5, name: 'A second look', reviewOf: '003' }),
-    ]), EXAMPLE_TIMESTAMP_SLICES);
+    ]), REVIEW_ROWS_SHOWN);
 
     expect(drawnOrderOf(markup)).toEqual([['5', '003'], ['3', '003'], ['4', '003'], ['1', null]]);
   });
@@ -279,7 +288,7 @@ describe('review rows nested above their ticket', () => {
       exampleTask({ id: 1, ticket: '003' }),
       exampleTask({ id: 2, ticket: '003' }),
       exampleTask({ id: 3, name: 'Review 1 #3 — Split the exporter', reviewOf: '003' }),
-    ]), EXAMPLE_TIMESTAMP_SLICES);
+    ]), REVIEW_ROWS_SHOWN);
 
     expect(drawnOrderOf(markup)).toEqual([['2', null], ['3', '003'], ['1', null]]);
   });
@@ -292,7 +301,7 @@ describe('review rows nested above their ticket', () => {
     if (ownRow === undefined || bar === undefined) {
       throw new Error('the example rows were not built');
     }
-    const markup = taskRowsMarkup([bar], EXAMPLE_TIMESTAMP_SLICES);
+    const markup = taskRowsMarkup([bar], REVIEW_ROWS_SHOWN);
 
     expect(bar.task.ownRowOfReviewedTicket).toBe(ownRow.task);
     expect(drawnOrderOf(markup)).toEqual([['2', null]]);
@@ -304,7 +313,7 @@ describe('review rows nested above their ticket', () => {
       exampleTask({ id: 1, ticket: '003' }),
       exampleTask({ id: 2, name: 'Review 1 #3 — Split the exporter', reviewOf: '003' }),
       exampleTask({ id: 3, name: 'Review 1 #3 — Split the exporter', reviewOf: '003' }),
-    ]), EXAMPLE_TIMESTAMP_SLICES);
+    ]), REVIEW_ROWS_SHOWN);
 
     expect(drawnOrderOf(markup)).toEqual([['3', '003'], ['2', '003'], ['1', null]]);
   });
@@ -314,7 +323,7 @@ describe('review rows nested above their ticket', () => {
       exampleTask({ id: 1, ticket: '003' }),
       exampleTask({ id: 2, ticket: '004' }),
       exampleTask({ id: 3, name: 'Review 1 #3 — x', reviewOf: '004' }),
-    ]), EXAMPLE_TIMESTAMP_SLICES);
+    ]), REVIEW_ROWS_SHOWN);
 
     expect(drawnOrderOf(markup)).toEqual([['3', '004'], ['2', null], ['1', null]]);
   });
@@ -329,7 +338,7 @@ describe('review rows nested above their ticket', () => {
         reviewOf:       '013',
         reviewBarRound: 1,
       }),
-    ]), EXAMPLE_TIMESTAMP_SLICES);
+    ]), REVIEW_ROWS_SHOWN);
 
     expect(drawnOrderOf(markup)).toEqual([['2', null], ['3', '013'], ['1', null]]);
     expect(markup.match(/data-task-id="3"/g)?.length).toBe(1);
@@ -347,7 +356,7 @@ describe('review rows nested above their ticket', () => {
       }),
       exampleTask({ id: 3, name: 'Review pass of the whole surface' }),
       exampleTask({ id: 4, name: 'Review 1 #8 — linked by flag', reviewOf: '008' }),
-    ]), EXAMPLE_TIMESTAMP_SLICES);
+    ]), REVIEW_ROWS_SHOWN);
 
     expect(drawnOrderOf(markup)).toEqual([['4', null], ['3', null], ['2', null], ['1', null]]);
     expect(markup).not.toContain('data-review-of');
@@ -357,9 +366,120 @@ describe('review rows nested above their ticket', () => {
     const markup = taskRowsMarkup(rowsFiled([
       exampleTask({ id: 1, ticket: '003' }),
       exampleTask({ id: 2, name: 'Review 1 #3 — misnamed', ticket: '009' }),
-    ]), EXAMPLE_TIMESTAMP_SLICES);
+    ]), REVIEW_ROWS_SHOWN);
 
     expect(drawnOrderOf(markup)).toEqual([['2', null], ['1', null]]);
+  });
+});
+
+function reviewedTicketBoard(): Parameters<typeof taskRowsMarkup>[0] {
+  return rowsFiled([
+    exampleTask({ id: 1, name: 'Split the exporter', ticket: '003' }),
+    exampleTask({
+      id:       2,
+      name:     'Review 1 #3 — Split the exporter',
+      reviewOf: '003',
+      start:    '2026-09-18T20:30:00+02:00',
+      end:      '2026-09-18T20:45:00+02:00',
+    }),
+    exampleTask({ id: 3, name: 'Regenerate the fixtures' }),
+    exampleTask({
+      id:       4,
+      name:     'Review 2 #3 — Split the exporter',
+      reviewOf: '003',
+      start:    '2026-09-18T21:00:00+02:00',
+      end:      null,
+    }),
+    exampleTask({
+      id:       5,
+      name:     'Review 1 #7 — a ticket with no row',
+      reviewOf: '007',
+    }),
+  ]);
+}
+
+function rowIdsOf(markup: string): string[] {
+  return [...markup.matchAll(/<div class="ap-grid-row ap-row"[^>]* data-task-id="(\d+)"/g)].map((match) => match[1] ?? '');
+}
+
+// By default a review pass is part of its ticket's row, so the chart counts work rather than doubling it; the toggle brings the rows back.
+describe('review passes drawn as segments on their ticket\'s row', () => {
+  test('draws one row fewer per review whose ticket has a row, and keeps a review without one on a row of its own', () => {
+    const rows = reviewedTicketBoard();
+
+    expect(rowIdsOf(taskRowsMarkup(rows, REVIEW_SEGMENTS))).toEqual(['5', '3', '1']);
+    expect(rowIdsOf(taskRowsMarkup(rows, REVIEW_SEGMENTS))).toHaveLength(rows.length - 2);
+    expect(rowIdsOf(taskRowsMarkup(rows, REVIEW_ROWS_SHOWN))).toEqual(['5', '3', '4', '2', '1']);
+  });
+
+  test('puts each pass on the ticket\'s track in the review fill of its round, titled with its round and its span, a running one live', () => {
+    const markup = taskRowsMarkup(reviewedTicketBoard(), REVIEW_SEGMENTS);
+
+    expect(markup).toContain('<div class="ap-bar ap-bar-review" data-state="reviewing" style="left:10.00%;width:25.00%" title="Review 1 · 20:30 → 20:45"></div>');
+    expect(markup).toContain('<div class="ap-bar ap-bar-review" data-state="re-review" data-live style="left:10.00%;width:25.00%" title="Review 2 · 21:00 → now"></div>');
+    expect(markup.match(/ap-bar-review/g)).toHaveLength(2);
+  });
+
+  test('keeps the ticket row\'s own state in its pill and on its row while its passes are segments', () => {
+    const markup = taskRowsMarkup(reviewedTicketBoard(), REVIEW_SEGMENTS);
+
+    expect(markup).toContain('id="ap-task-1" data-task-id="1" data-state="in-progress"');
+  });
+
+  test('draws no segment while the review rows are shown', () => {
+    expect(taskRowsMarkup(reviewedTicketBoard(), REVIEW_ROWS_SHOWN)).not.toContain('ap-bar-review');
+  });
+
+  test('counts the rounds over the started passes only, and draws none for a pass the range leaves out', () => {
+    const [ownRow, notStarted, outOfRange, started] = rowsFiled([
+      exampleTask({ id: 1, ticket: '003' }),
+      exampleTask({
+        id: 2, name: 'Review 1 #3 — x', reviewOf: '003', start: null
+      }),
+      exampleTask({
+        id: 3, name: 'Review 1 #3 — x', reviewOf: '003', end: '2026-09-18T20:10:00+02:00'
+      }),
+      exampleTask({ id: 4, name: 'Review 2 #3 — x', reviewOf: '003' }),
+    ]);
+    if (ownRow === undefined || notStarted === undefined || outOfRange === undefined || started === undefined) {
+      throw new Error('the example rows were not built');
+    }
+    const markup = taskRowsMarkup([ownRow, notStarted, { ...outOfRange, bar: { ...PLACED_BAR, visible: false } }, started], REVIEW_SEGMENTS);
+
+    expect(rowIdsOf(markup)).toEqual(['1']);
+    expect([...markup.matchAll(/title="(Review \d+)/g)].map((match) => match[1])).toEqual(['Review 2']);
+  });
+
+  test('shows the clip marker for a pass that runs off the range even when the build bar does not', () => {
+    const [ownRow, review] = rowsFiled([
+      exampleTask({ id: 1, ticket: '003' }),
+      exampleTask({ id: 2, name: 'Review 1 #3 — x', reviewOf: '003' }),
+    ]);
+    if (ownRow === undefined || review === undefined) {
+      throw new Error('the example rows were not built');
+    }
+    const markup = taskRowsMarkup([ownRow, { ...review, bar: { ...PLACED_BAR, clippedRight: true } }], REVIEW_SEGMENTS);
+
+    expect(markup).toContain('<span class="ap-clip-l" hidden></span>');
+    expect(markup).toContain('<span class="ap-clip-r"></span>');
+  });
+});
+
+describe('the task name beside its ticket badge', () => {
+  test('drops a leading #NNN the ticket badge already shows, keeping the full name in the title', () => {
+    const markup = rowFor(exampleTask({ name: '#052 Order confirmation e-mail shows VAT per line', ticket: '052' }), 'in-progress');
+
+    expect(markup).toContain('<span class="ap-name" title="#052 Order confirmation e-mail shows VAT per line">Order confirmation e-mail shows VAT per line</span>');
+    expect(markup.match(/#052/g)).toHaveLength(2);
+  });
+
+  test('drops an unpadded #NN naming the same ticket', () => {
+    expect(rowFor(exampleTask({ name: '#52  Tidy the basket', ticket: '052' }), 'in-progress')).toContain('>Tidy the basket</span>');
+  });
+
+  test('keeps a leading number that names another ticket, and every name on a row without a badge', () => {
+    expect(rowFor(exampleTask({ name: '#12 Follow up on the basket', ticket: '052' }), 'in-progress')).toContain('>#12 Follow up on the basket</span>');
+    expect(rowFor(exampleTask({ name: '#052 Free-standing' }))).toContain('>#052 Free-standing</span>');
   });
 });
 

@@ -73,6 +73,9 @@
  #ap-chart-empty          el     shown instead of rows when there are none
  #ap-name-column          button in the chart's Task header, aria-pressed; pressed widens the
                                  name column (data-name-column="wide" on the root element)
+ #ap-review-rows          button beside #ap-name-column, aria-pressed, remembered per viewer;
+                                 pressed draws each review pass as a row of its own
+                                 (.ap-row[data-review-of]) instead of a segment on its ticket's row
  #ap-log                  ul     log entries matching #ap-log-filter, newest first; children
                                  li > time + span; the newest 10, then 50 more per
                                  #ap-log-more click. Each time follows the stamp rule at
@@ -114,10 +117,13 @@
                                  (.ap-ticket-gantt) and the Description section
  ---------------------------------------------------------------- row markup ---
  .ap-row[data-state]      state goes on the ROW; pill and bar inherit its colours
- .ap-row[data-review-of]  a review pass, drawn directly above the row of the ticket it names
-                          (value = that ticket's id), latest round first, its name cell indented
-                          one level; a review whose ticket has no row carries no attribute
- .ap-row > .ap-cell-name  > .ap-num, .ap-name[title], a.ap-ticket-badge, .ap-waiting, .ap-tokens
+ .ap-row[data-review-of]  only while #ap-review-rows is pressed: a review pass, drawn directly
+                          above the row of the ticket it names (value = that ticket's id), latest
+                          round first, its name cell indented one level; a review whose ticket has
+                          no row is always a row of its own and carries no attribute
+ .ap-row > .ap-cell-name  > .ap-num, .ap-name[title], a.ap-ticket-badge, .ap-waiting, .ap-tokens;
+                            .ap-name drops a leading "#NNN " the badge shows (title keeps it) and
+                            clamps at two lines; the row grows from --row-h, bars stay centred
  .ap-waiting              "waiting on #003, #004", each id a link to its ticket card; also
                           after the title in the ticket table and in a waiting card's head
  ticket priority          after the title in the ticket table and after the status badge in
@@ -127,7 +133,10 @@
  .ap-row > .ap-cell-pill  > .ap-pill (exactly one; label text carries the state),
                             then .ap-reviewed-mark[data-state="reviewed"] on a delivered row
                             that was reviewed first
- .ap-row > .ap-cell-track > .ap-bar (inline left/width %), .ap-clip-l, .ap-clip-r
+ .ap-row > .ap-cell-track > .ap-bar (inline left/width %), then one
+                            .ap-bar.ap-bar-review[data-state=reviewing|re-review][data-live?]
+                            per review pass on the row's ticket, title "Review N · start → end";
+                            .ap-clip-l, .ap-clip-r when any of them runs off the range
  ------------------------------------------------------------- kanban markup ---
  .ap-lane[data-lane]      todo | progress | review | merge | done | abandoned; .ap-card-head holds
                           .ap-lane-dot[data-state], .ap-card-title, .ap-lane-count, .ap-lane-sub;
@@ -209,7 +218,8 @@
    radius     4 pill-inner / 6 controls / 10 cards / 999 pills
    type       11 micro · 12 small · 13 body · 15 card title · 20 page title
               system UI stack for prose, system mono stack for times and numbers
-   density    --row-h 30px, --col-name 336px, --col-pill 126px;
+   density    --row-h 30px (a chart row's minimum), --col-name 336px, --col-pill 144px
+              (a 118px pill holds "Reviewing (round 2)");
               --col-name-wide 780px while :root[data-name-column="wide"]
 ===============================================================================
 -->
@@ -232,9 +242,9 @@
   --row-h: 30px;
   --col-name: 336px;
   --col-name-wide: 780px;
-  --col-pill: 126px;
+  --col-pill: 144px;
 
-  --bg:          oklch(0.975 0.004 265);
+  --bg:         oklch(0.975 0.004 265);
   --surface:     oklch(1 0 0);
   --surface-2:   oklch(0.961 0.006 265);
   --ink:         oklch(0.24 0.02 265);
@@ -459,6 +469,7 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
 .ap-chart-head .ap-seg { margin-left: auto; }
 .ap-chart-head .ap-seg button,
 .ap-card-head .ap-seg button { padding: 3px 7px; font-family: var(--font-ui); text-transform: none; letter-spacing: 0; }
+.ap-chart-head .ap-seg button[aria-pressed="true"] { color: var(--ink); }
 
 .ap-body { position: relative; width: fit-content; min-width: 100%; }
 .ap-row { border-bottom: 1px solid var(--line); }
@@ -482,6 +493,10 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
   height: 100%;
 }
 .ap-cell-track { position: relative; height: var(--row-h); }
+/* A chart row grows with a two-line name; its cells stretch with it, so the bars stay centred. */
+#ap-rows > .ap-row > .ap-cell-name { align-self: stretch; padding-block: 5px; }
+#ap-rows > .ap-row > .ap-cell-pill { align-self: stretch; height: auto; }
+#ap-rows > .ap-row > .ap-cell-track { align-self: stretch; height: auto; min-height: var(--row-h); }
 
 .ap-num {
   flex: 0 0 22px;
@@ -492,6 +507,7 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
   text-align: right;
 }
 .ap-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#ap-rows .ap-name { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.3; overflow-wrap: anywhere; }
 .ap-row[data-state="abandoned"] .ap-name { text-decoration: line-through; color: var(--ink-muted); }
 .ap-row[data-state="abandoned"] { opacity: 0.72; }
 .ap-ticket-badge {
@@ -527,7 +543,7 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
    state change never shifts the row by a pixel. */
 .ap-pill {
   display: inline-flex; align-items: center; justify-content: center;
-  min-width: 98px; height: 19px; padding: 0 6px;
+  width: 118px; height: 19px; padding: 0 6px;
   font: 500 var(--fs-micro)/1 var(--font-ui);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.01em;
@@ -556,6 +572,9 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
 .ap-row[data-state="abandoned"] .ap-bar {
   background-image: repeating-linear-gradient(45deg, oklch(1 0 0 / 0.45) 0 5px, transparent 5px 10px);
 }
+/* A review pass on its ticket's row takes its own round's fill, whatever the row's state, with a gap where it meets the build bar. */
+#ap-rows .ap-bar-review { background-color: var(--s-fill); background-image: none; border: 0; box-shadow: 0 0 0 1.5px var(--surface); }
+#ap-rows .ap-bar-review[data-live] { background-image: repeating-linear-gradient(45deg, oklch(1 0 0 / 0.38) 0 5px, transparent 5px 10px); }
 .ap-clip-l, .ap-clip-r {
   position: absolute; top: 50%; transform: translateY(-50%);
   width: 0; height: 0;
@@ -924,7 +943,7 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
 .ap-detail-section > .ap-ticket-body { border-top: 0; padding-top: 0; }
 
 @media (max-width: 1180px) {
-  :root { --col-name: 268px; --col-pill: 126px; }
+  :root { --col-name: 268px; --col-pill: 144px; }
   body { padding: var(--sp-4) var(--sp-4) var(--sp-5); }
   .ap-ticket-dates { display: none; }
 }
@@ -1032,7 +1051,7 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
 
     <div id="ap-chart">
       <div class="ap-grid-row ap-chart-head">
-        <div class="ap-cell-name">Task<div class="ap-seg"><button type="button" id="ap-name-column" aria-pressed="false" title="Widen the task column so full names fit">Expand</button></div></div>
+        <div class="ap-cell-name">Task<div class="ap-seg"><button type="button" id="ap-review-rows" aria-pressed="false" title="Draw each review pass as a row of its own, above its ticket's row">Review rows</button><button type="button" id="ap-name-column" aria-pressed="false" title="Widen the task column so full names fit">Expand</button></div></div>
         <div class="ap-cell-pill">State</div>
         <div class="ap-cell-track" style="height:100%"><div id="ap-ticks">
           <div class="ap-tick" style="left:0%"><span>20:30</span></div>
@@ -1082,15 +1101,10 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
             <div class="ap-cell-pill"><span class="ap-pill">Awaiting review</span></div>
             <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:49.0%;width:14.5%"></div><span class="ap-clip-r" hidden></span></div>
           </div>
-          <div class="ap-grid-row ap-row" tabindex="0" id="ap-task-9" data-task-id="9" data-state="in-progress" data-review-of="003">
-            <div class="ap-cell-name"><span class="ap-num">9</span><span class="ap-name" title="Review 1 #003 — Split the exporter into two passes">Review 1 #003 — Split the exporter into two passes</span><span class="ap-tokens">3.1k tokens</span></div>
-            <div class="ap-cell-pill"><span class="ap-pill">In progress</span></div>
-            <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:66.0%;width:12.0%"></div><span class="ap-clip-r" hidden></span></div>
-          </div>
           <div class="ap-grid-row ap-row" tabindex="0" id="ap-task-3" data-task-id="3" data-state="reviewing">
             <div class="ap-cell-name"><span class="ap-num">3</span><span class="ap-name" title="Split the exporter into two passes so the tick ladder can be reused">Split the exporter into two passes so the tick ladder can be reused</span><a class="ap-ticket-badge" href="#ap-ticket-003">#003</a><span class="ap-tokens">12.3k tokens</span></div>
             <div class="ap-cell-pill"><span class="ap-pill">Reviewing</span></div>
-            <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:31.0%;width:34.0%"></div><span class="ap-clip-r" hidden></span></div>
+            <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:31.0%;width:34.0%"></div><div class="ap-bar ap-bar-review" data-state="reviewing" data-live style="left:66.0%;width:12.0%" title="Review 1 · 21:45 → now"></div><span class="ap-clip-r" hidden></span></div>
           </div>
           <div class="ap-grid-row ap-row" tabindex="0" id="ap-task-2" data-task-id="2" data-state="reviewed">
             <div class="ap-cell-name"><span class="ap-num">2</span><span class="ap-name" title="Cache ticket bodies between runs">Cache ticket bodies between runs</span><a class="ap-ticket-badge" href="#ap-ticket-002">#002</a><span class="ap-tokens">9.8k tokens</span></div>

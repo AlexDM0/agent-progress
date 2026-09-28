@@ -9,11 +9,18 @@ import type {
   StoredViewOverride,
   ViewerPreferences,
 } from '../@types/ViewerChoices.ts';
-import type { ClosedKanbanLane }                                                             from '../kanban/constants/KanbanBoardLayout.ts';
-import { CAPPED_LANE_FIRST_PAGE_CARDS }                                                      from '../kanban/constants/KanbanBoardLayout.ts';
-import { DEFAULT_ABANDONED_LANE_CHOICE, DEFAULT_NAME_COLUMN_WIDTH, DEFAULT_WORK_VISIBILITY } from './constants/PreferenceDefaults.ts';
-import { EMPTY_VIEW_OVERRIDE }                                                               from './constants/ViewOverride.ts';
-import { ViewerPreferenceUtil }                                                              from './utils/ViewerPreferenceUtil.ts';
+import type { ClosedKanbanLane }        from '../kanban/constants/KanbanBoardLayout.ts';
+import { CAPPED_LANE_FIRST_PAGE_CARDS } from '../kanban/constants/KanbanBoardLayout.ts';
+import {
+  DEFAULT_ABANDONED_LANE_CHOICE,
+  DEFAULT_NAME_COLUMN_WIDTH,
+  DEFAULT_REVIEW_ROWS_CHOICE,
+  DEFAULT_WORK_VISIBILITY,
+} from './constants/PreferenceDefaults.ts';
+import { EMPTY_VIEW_OVERRIDE }  from './constants/ViewOverride.ts';
+import { ViewerPreferenceUtil } from './utils/ViewerPreferenceUtil.ts';
+
+const REVIEW_ROWS_SHOWN_CHOICE = 'rows';
 
 // A literal map rather than the lane value, so renaming a lane cannot move a viewer's stored key.
 const CAPPED_LANE_KEY_SUFFIX: Readonly<Record<ClosedKanbanLane, string>> = {
@@ -40,6 +47,10 @@ function workVisibilityStorageKeyFor(trackerId: string): string {
 
 function nameColumnWidthStorageKeyFor(trackerId: string): string {
   return choiceStorageKeyFor(trackerId, 'name-column');
+}
+
+function reviewRowsStorageKeyFor(trackerId: string): string {
+  return choiceStorageKeyFor(trackerId, 'review-rows');
 }
 
 function abandonedLaneStorageKeyFor(trackerId: string): string {
@@ -91,12 +102,18 @@ export function createViewerPreferences(trackerId: string, storageOf: () => Pref
   };
 
   return {
-    readRangeOverride:        readStoredOverride,
-    writeRangeOverride:       writeStoredOverride,
-    readWorkVisibility:       () => ViewerPreferenceUtil.workVisibilityFrom(readStoredChoice(workVisibilityStorageKeyFor(trackerId))),
-    writeWorkVisibility:      (visibility) => writeStoredChoice(workVisibilityStorageKeyFor(trackerId), visibility, DEFAULT_WORK_VISIBILITY),
-    readNameColumnWidth:      () => ViewerPreferenceUtil.nameColumnWidthFrom(readStoredChoice(nameColumnWidthStorageKeyFor(trackerId))),
-    writeNameColumnWidth:     (width) => writeStoredChoice(nameColumnWidthStorageKeyFor(trackerId), width, DEFAULT_NAME_COLUMN_WIDTH),
+    readRangeOverride:       readStoredOverride,
+    writeRangeOverride:      writeStoredOverride,
+    readWorkVisibility:      () => ViewerPreferenceUtil.workVisibilityFrom(readStoredChoice(workVisibilityStorageKeyFor(trackerId))),
+    writeWorkVisibility:     (visibility) => writeStoredChoice(workVisibilityStorageKeyFor(trackerId), visibility, DEFAULT_WORK_VISIBILITY),
+    readNameColumnWidth:     () => ViewerPreferenceUtil.nameColumnWidthFrom(readStoredChoice(nameColumnWidthStorageKeyFor(trackerId))),
+    writeNameColumnWidth:    (width) => writeStoredChoice(nameColumnWidthStorageKeyFor(trackerId), width, DEFAULT_NAME_COLUMN_WIDTH),
+    readReviewRowsAreShown:  () => readStoredChoice(reviewRowsStorageKeyFor(trackerId)) === REVIEW_ROWS_SHOWN_CHOICE,
+    writeReviewRowsAreShown: (reviewRowsAreShown) => writeStoredChoice(
+      reviewRowsStorageKeyFor(trackerId),
+      reviewRowsAreShown ? REVIEW_ROWS_SHOWN_CHOICE : DEFAULT_REVIEW_ROWS_CHOICE,
+      DEFAULT_REVIEW_ROWS_CHOICE,
+    ),
     readAbandonedLaneIsOpen:  () => ViewerPreferenceUtil.abandonedLaneIsOpenFrom(readStoredChoice(abandonedLaneStorageKeyFor(trackerId))),
     writeAbandonedLaneIsOpen: (laneIsOpen) => writeStoredChoice(
       abandonedLaneStorageKeyFor(trackerId),
