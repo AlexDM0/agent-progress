@@ -24,20 +24,21 @@ function runWithRoundOneReworkOf(reworkedLines: number): Promise<RecordedDispatc
 }
 
 describe('the dispatcher and the agent brief', () => {
-  test('the builder is sent the protocol\'s call budget and told to read the installed brief', async () => {
+  test('the builder is sent the protocol\'s call budget and told to read the installed builder brief, not the reviewer\'s', async () => {
     const run = await runDispatchScript(DECISION_SCENARIOS['one ticket is ready at a limit of 1'](), builtScriptTextOf(BUNDLE));
     const builder = run.calls.find((call) => call.kind === 'build');
     expect(builder?.prompt).toContain(`or at about ${DISPATCH_PROTOCOL.BUILDER_API_CALL_BUDGET} API calls`);
-    expect(builder?.prompt).toContain(`/scratch/example-repository/${DISPATCH_PROTOCOL.AGENT_BRIEF_PATH_IN_REPOSITORY}`);
+    expect(builder?.prompt).toContain(`/scratch/example-repository/${DISPATCH_PROTOCOL.BUILDER_BRIEF_PATH_IN_REPOSITORY}`);
+    expect(builder?.prompt).not.toContain(DISPATCH_PROTOCOL.REVIEW_BRIEF_PATH_IN_REPOSITORY);
   });
 
-  test('the reviewer is sent the protocol\'s call budget and rework threshold, the installed brief and the Review brief to follow', async () => {
+  test('the reviewer is sent the protocol\'s call budget and rework threshold and told to read the installed review brief, not the builder\'s', async () => {
     const run = await runDispatchScript(DECISION_SCENARIOS['one ticket is ready at a limit of 1'](), builtScriptTextOf(BUNDLE));
     const reviewer = run.calls.find((call) => call.kind === 'review');
     expect(reviewer?.prompt).toContain(`up to about ${DISPATCH_PROTOCOL.REVIEWER_API_CALL_BUDGET} API calls`);
     expect(reviewer?.prompt).toContain(`over ${DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES} lines of code`);
-    expect(reviewer?.prompt).toContain(`/scratch/example-repository/${DISPATCH_PROTOCOL.AGENT_BRIEF_PATH_IN_REPOSITORY}`);
-    expect(reviewer?.prompt).toContain('`## Review brief`');
+    expect(reviewer?.prompt).toContain(`/scratch/example-repository/${DISPATCH_PROTOCOL.REVIEW_BRIEF_PATH_IN_REPOSITORY}`);
+    expect(reviewer?.prompt).not.toContain(DISPATCH_PROTOCOL.BUILDER_BRIEF_PATH_IN_REPOSITORY);
   });
 
   // The prompt tells the reviewer the threshold, and the round decision must refuse and grant on that same number.

@@ -4,6 +4,7 @@
  */
 import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../../src/lib/tracker-model/constants/AgentSettings.ts';
 import { TicketIdUtil }                              from '../../../src/lib/tracker-model/utils/TicketIdUtil.ts';
+import { DISPATCH_PROTOCOL }                         from '../../../src/shared/constants/DispatchProtocol.ts';
 import type { ReviewFinding }                        from '../../@types/AgentReadings.ts';
 import type { DispatchSummary }                      from '../../@types/DispatchOutcome.ts';
 import type { DispatchScenario }                     from '../@types/DispatchScenario.ts';
@@ -845,8 +846,8 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
       && RecordedDispatchRunUtil.workersRunOn(run, 'opus', 'medium'),
     mutant: {
       modulePath: AGENT_STARTER,
-      find:       'schema: AGENT_REPLY_SCHEMAS.BUILDER,\n        model,\n        effort,',
-      replace:    'schema: AGENT_REPLY_SCHEMAS.BUILDER,\n        model,',
+      find:       'AGENT_REPLY_SCHEMAS.BUILDER,\n        model,\n        effort,',
+      replace:    'AGENT_REPLY_SCHEMAS.BUILDER,\n        model,',
     },
   },
   {
@@ -1275,6 +1276,13 @@ export function modelsAndEffortsAreExplicit(run: RecordedDispatchRun): boolean {
   return run.calls.every((call) => {
     const callIsAHelper = call.kind === 'survey' || call.kind === 'settings' || call.kind === 'park';
     return call.model === (callIsAHelper ? 'haiku' : DEFAULT_AGENT_MODEL) && call.effort === (callIsAHelper ? 'low' : DEFAULT_AGENT_EFFORT);
+  });
+}
+
+export function onlyWorkersStartAsTheWorkerType(run: RecordedDispatchRun): boolean {
+  return run.calls.every((call) => {
+    const callIsAWorker = call.kind === 'build' || call.kind === 'review';
+    return call.agentType === (callIsAWorker ? DISPATCH_PROTOCOL.WORKER_AGENT_TYPE : undefined);
   });
 }
 

@@ -12,6 +12,7 @@ export interface RecordedAgentCall {
   ordinal:                    number | null;
   model:                      unknown;
   effort:                     unknown;
+  agentType:                  unknown;
   label:                      unknown;
   phase:                      unknown;
   schema:                     unknown;

@@ -21,8 +21,15 @@ test('the dispatcher script sits in the tracker directory, under the name its me
   expect(installedFilePathsIn(EXAMPLE_ROOT).dispatcherScript).toBe(join(EXAMPLE_ROOT, TRACKER_FILES.TRACKER_DIRECTORY_NAME, 'agent-progress-dispatch.js'));
 });
 
-test('the brief sits in the tracker directory, where the dispatcher\'s prompts send every agent to read it', () => {
-  expect(relative(EXAMPLE_ROOT, installedFilePathsIn(EXAMPLE_ROOT).agentBrief)).toStartWith(`${TRACKER_FILES.TRACKER_DIRECTORY_NAME}${sep}`);
+test('the briefs sit in the tracker directory, where the dispatcher\'s prompts send every agent to read its own', () => {
+  const { agentBrief, builderBrief, reviewBrief } = installedFilePathsIn(EXAMPLE_ROOT);
+  for (const briefFilePath of [agentBrief, builderBrief, reviewBrief]) {
+    expect(relative(EXAMPLE_ROOT, briefFilePath)).toStartWith(`${TRACKER_FILES.TRACKER_DIRECTORY_NAME}${sep}`);
+  }
+});
+
+test('the agent definition is named for the type the dispatcher starts its workers as', () => {
+  expect(installedFilePathsIn(EXAMPLE_ROOT).agentDefinition).toBe(join(EXAMPLE_ROOT, '.claude', 'agents', 'agent-progress-worker.md'));
 });
 
 test('the install manifest sits in the tracker directory, beside what it versions', () => {
@@ -31,7 +38,7 @@ test('the install manifest sits in the tracker directory, beside what it version
 
 test('every path is absolute and under the root it was given', () => {
   const installedFilePaths = Object.values(installedFilePathsIn(EXAMPLE_ROOT));
-  expect(installedFilePaths).toHaveLength(5);
+  expect(installedFilePaths).toHaveLength(7);
   for (const installedFilePath of installedFilePaths) {
     expect(isAbsolute(installedFilePath), installedFilePath).toBe(true);
     expect(installedFilePath).toStartWith(`${EXAMPLE_ROOT}${sep}`);

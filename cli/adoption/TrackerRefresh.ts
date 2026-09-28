@@ -13,11 +13,11 @@ import {
   refreshSubagentStopHook,
   writeSubagentStopHook
 }                                                             from '../../src/lib/claude-code/ClaudeSettings.ts';
-import type { Workspace }               from '../../src/services/tracker/Workspace.ts';
-import { installedFilePathsIn }         from '../InstalledFiles.ts';
-import { INSTALL_VERSION }              from '../constants/InstallVersion.ts';
-import type { InstalledFileTexts }      from './InstalledFileGeneration.ts';
-import { CLAUDE_MANAGED_BLOCK_MARKERS } from './constants/ClaudeManagedBlockMarkers.ts';
+import type { Workspace }                                from '../../src/services/tracker/Workspace.ts';
+import { installedFilePathsIn, type InstalledFilePaths } from '../InstalledFiles.ts';
+import { INSTALL_VERSION }                               from '../constants/InstallVersion.ts';
+import type { InstalledFileTexts }                       from './InstalledFileGeneration.ts';
+import { CLAUDE_MANAGED_BLOCK_MARKERS }                  from './constants/ClaudeManagedBlockMarkers.ts';
 
 /** The matcher is empty so every subagent is recorded, matching the cohort `usage` reads; the timeout covers waiting on a held lock. */
 const SUBAGENT_STOP_HOOK = {
@@ -73,11 +73,22 @@ function bytesDiffer(before: Buffer | null, after: Buffer | null): boolean {
   return !before.equals(after);
 }
 
-/** Rewritten on every refresh: the brief ships with the tool. */
-function refreshAgentBrief(briefFilePath: string, briefText: string): { briefFilePath: string; briefLine: string } {
+function briefFileChanged(briefFilePath: string, briefText: string): boolean {
   const bytesBefore = fileBytesOrNothing(briefFilePath);
   writeFileAtomically(briefFilePath, briefText);
-  const briefLine = bytesDiffer(bytesBefore, fileBytesOrNothing(briefFilePath))
+  return bytesDiffer(bytesBefore, fileBytesOrNothing(briefFilePath));
+}
+
+/**
+ * Rewritten on every refresh: the briefs ship with the tool. The line names the orchestrator's brief, the one a reader holds, and reports a
+ * change to any of the three; the agent brief is written last, since its presence is what marks the files installed.
+ */
+function refreshBriefs(installedFilePaths: InstalledFilePaths, installedFileTexts: InstalledFileTexts): { briefFilePath: string; briefLine: string } {
+  const builderBriefChanged = briefFileChanged(installedFilePaths.builderBrief, installedFileTexts.builderBrief);
+  const reviewBriefChanged  = briefFileChanged(installedFilePaths.reviewBrief, installedFileTexts.reviewBrief);
+  const agentBriefChanged   = briefFileChanged(installedFilePaths.agentBrief, installedFileTexts.agentBrief);
+  const briefFilePath       = installedFilePaths.agentBrief;
+  const briefLine           = builderBriefChanged || reviewBriefChanged || agentBriefChanged
     ? `updated — re-read it before your next brief (${briefFilePath})`
     : `unchanged (${briefFilePath})`;
   return { briefFilePath, briefLine };
@@ -179,7 +190,7 @@ export function refreshTrackedRepository(request: TrackerRefreshRequest): Tracke
     standardError,
   } = request;
   const installedFilePaths = installedFilePathsIn(workspace.rootDirectory);
-  const briefWrittenFirst  = writesTheBriefFirst ? refreshAgentBrief(installedFilePaths.agentBrief, installedFileTexts.agentBrief) : null;
+  const briefWrittenFirst  = writesTheBriefFirst ? refreshBriefs(installedFilePaths, installedFileTexts) : null;
 
   const { dispatcherScript } = installedFileTexts;
 
@@ -192,7 +203,7 @@ export function refreshTrackedRepository(request: TrackerRefreshRequest): Tracke
     : refreshDispatcherScript(installedFilePaths.dispatcherScript, dispatcherScript);
   const agentDefinitionLine = refreshAgentDefinition(installedFilePaths.agentDefinition, installedFileTexts.agentDefinition, writesTheAgentDefinition);
   // Otherwise last, so a write that fails before it leaves the brief's `updated` for the rerun to report.
-  const { briefFilePath, briefLine } = briefWrittenFirst ?? refreshAgentBrief(installedFilePaths.agentBrief, installedFileTexts.agentBrief);
+  const { briefFilePath, briefLine } = briefWrittenFirst ?? refreshBriefs(installedFilePaths, installedFileTexts);
   return {
     claudeInstructionsLine,
     briefFilePath,

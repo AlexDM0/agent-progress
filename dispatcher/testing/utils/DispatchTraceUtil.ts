@@ -33,6 +33,7 @@ function callTextOf(call: RecordedAgentCall): string {
     digestOf(call.prompt),
     String(call.statusBlocksReturnedBefore),
     String(call.logsBefore),
+    fieldTextOf(call.agentType),
   ].join(CALL_TEXT_FIELD_SEPARATOR);
 }
 

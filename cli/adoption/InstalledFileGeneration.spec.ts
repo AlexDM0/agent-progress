@@ -35,22 +35,41 @@ describe('the installed texts', () => {
     expect(TEXTS.agentBrief).toContain('Both run on Opus at medium effort unless their ticket names another');
   });
 
-  test('the brief states the dispatch protocol\'s call budgets and rework threshold', () => {
-    expect(TEXTS.agentBrief).toContain(`One budget of about ${DISPATCH_PROTOCOL.BUILDER_API_CALL_BUDGET} calls`);
-    expect(TEXTS.agentBrief).toContain(`or at about ${DISPATCH_PROTOCOL.BUILDER_API_CALL_BUDGET} API calls`);
-    expect(TEXTS.agentBrief).toContain(`up to about ${DISPATCH_PROTOCOL.REVIEWER_API_CALL_BUDGET} API calls`);
-    expect(TEXTS.agentBrief).toContain(`Over ${DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES} lines of code reworked`);
+  test('the builder brief states the builder\'s call budget, and the review brief the reviewer\'s budget and the rework threshold', () => {
+    expect(TEXTS.builderBrief).toContain(`One budget of\nabout ${DISPATCH_PROTOCOL.BUILDER_API_CALL_BUDGET} calls`);
+    expect(TEXTS.builderBrief).toContain(`or at about ${DISPATCH_PROTOCOL.BUILDER_API_CALL_BUDGET} API calls`);
+    expect(TEXTS.reviewBrief).toContain(`up to about ${DISPATCH_PROTOCOL.REVIEWER_API_CALL_BUDGET} API calls`);
+    expect(TEXTS.reviewBrief).toContain(`Over ${DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES} lines of code reworked`);
+  });
+
+  // Each dispatched agent reads only its own brief, so a block in the wrong one is either missing for its reader or paid for by the other.
+  test('the builder\'s blocks and the reviewer\'s block each sit in their own brief only', () => {
+    expect(TEXTS.builderBrief).toContain('## Ready to merge');
+    expect(TEXTS.builderBrief).not.toContain('agent-progress release <id>');
+    expect(TEXTS.reviewBrief).toContain('agent-progress release <id>');
+    expect(TEXTS.reviewBrief).not.toContain('## Ready to merge');
+    expect(TEXTS.agentBrief).not.toContain('## Ready to merge');
+    expect(TEXTS.agentBrief).not.toContain('agent-progress release <id>');
+  });
+
+  test('the agent definition is named for the type the dispatcher starts its workers as, and preloads the tracker skill without the Skill tool', () => {
+    expect(TEXTS.agentDefinition).toContain(`\nname: ${DISPATCH_PROTOCOL.WORKER_AGENT_TYPE}\n`);
+    expect(TEXTS.agentDefinition).toContain('\nskills: agent-progress\n');
+    const toolsLine = TEXTS.agentDefinition.split('\n').find((line) => line.startsWith('tools: ')) ?? '';
+    expect(toolsLine.split(/[:,]\s*/)).not.toContain('Skill');
+    expect(toolsLine).toContain('Bash, Read, Edit, Write');
   });
 
   test('the block states the rework threshold and names the installed brief and dispatcher by their paths in the repository', () => {
     const dispatcherPathInRepository = relative(EXAMPLE_ROOT, installedFilePathsIn(EXAMPLE_ROOT).dispatcherScript).split(sep).join('/');
     expect(TEXTS.claudeInstructionsBlockBody).toContain(`over ${DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES} lines of code`);
-    expect(TEXTS.claudeInstructionsBlockBody).toContain(`\`${DISPATCH_PROTOCOL.AGENT_BRIEF_PATH_IN_REPOSITORY}\``);
+    expect(TEXTS.claudeInstructionsBlockBody).toContain(`\`${DISPATCH_PROTOCOL.REVIEW_BRIEF_PATH_IN_REPOSITORY}\``);
     expect(TEXTS.claudeInstructionsBlockBody).toContain(`\`${dispatcherPathInRepository}\``);
   });
 
-  test('the agent definition names the installed brief by its path in the repository', () => {
-    expect(TEXTS.agentDefinition).toContain(`\`${DISPATCH_PROTOCOL.AGENT_BRIEF_PATH_IN_REPOSITORY}\``);
+  test('the agent definition names the builder and review briefs by their paths in the repository', () => {
+    expect(TEXTS.agentDefinition).toContain(`\`${DISPATCH_PROTOCOL.BUILDER_BRIEF_PATH_IN_REPOSITORY}\``);
+    expect(TEXTS.agentDefinition).toContain(`\`${DISPATCH_PROTOCOL.REVIEW_BRIEF_PATH_IN_REPOSITORY}\``);
   });
 
   test('the dispatcher is a Workflow script: its meta first, no import or export, and the runner\'s call last', () => {

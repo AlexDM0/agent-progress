@@ -5,13 +5,18 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { builtScriptTextOf, bundleDispatchScript }                          from './testing/DispatchScriptBundle.ts';
-import { runDispatchScript }                                                from './testing/DispatchScriptHarness.ts';
-import type { SourceMutant }                                                from './testing/SourceMutant.ts';
-import { DECISION_CLAIMS, DECISION_SCENARIOS, modelsAndEffortsAreExplicit } from './testing/claims/DecisionClaims.ts';
-import { AGENT_PROMPT_SENTENCES }                                           from './testing/constants/AgentPromptSentences.ts';
-import { DISPATCHER_MODULE_PATHS }                                          from './testing/constants/DispatcherModulePaths.ts';
-import { RecordedDispatchRunUtil }                                          from './testing/utils/RecordedDispatchRunUtil.ts';
+import { builtScriptTextOf, bundleDispatchScript } from './testing/DispatchScriptBundle.ts';
+import { runDispatchScript }                       from './testing/DispatchScriptHarness.ts';
+import type { SourceMutant }                       from './testing/SourceMutant.ts';
+import {
+  DECISION_CLAIMS,
+  DECISION_SCENARIOS,
+  modelsAndEffortsAreExplicit,
+  onlyWorkersStartAsTheWorkerType
+} from './testing/claims/DecisionClaims.ts';
+import { AGENT_PROMPT_SENTENCES }  from './testing/constants/AgentPromptSentences.ts';
+import { DISPATCHER_MODULE_PATHS } from './testing/constants/DispatcherModulePaths.ts';
+import { RecordedDispatchRunUtil } from './testing/utils/RecordedDispatchRunUtil.ts';
 
 const BUNDLE = await bundleDispatchScript();
 
@@ -25,13 +30,15 @@ const AGENT_OPTIONS_LEFT_OUT: [string, SourceMutant][] = [
   ['the survey agents\' effort', agentOptionLeftOut('      effort: DISPATCH_POLICY.SURVEY_AGENT.effort,\n', '')],
   ['the parking agent\'s model', agentOptionLeftOut('      model:  DISPATCH_POLICY.PARKING_AGENT.model,\n', '')],
   ['the parking agent\'s effort', agentOptionLeftOut('      effort: DISPATCH_POLICY.PARKING_AGENT.effort,\n', '')],
-  ['the builder\'s model', agentOptionLeftOut('schema: AGENT_REPLY_SCHEMAS.BUILDER,\n        model,\n', 'schema: AGENT_REPLY_SCHEMAS.BUILDER,\n')],
-  [
-    'the builder\'s effort',
-    agentOptionLeftOut('schema: AGENT_REPLY_SCHEMAS.BUILDER,\n        model,\n        effort,\n', 'schema: AGENT_REPLY_SCHEMAS.BUILDER,\n        model,\n'),
-  ],
-  ['the reviewer\'s model', agentOptionLeftOut('schema: AGENT_REPLY_SCHEMAS.REVIEWER,\n      model,\n', 'schema: AGENT_REPLY_SCHEMAS.REVIEWER,\n')],
-  ['the reviewer\'s effort', agentOptionLeftOut('schema: AGENT_REPLY_SCHEMAS.REVIEWER,\n      model,\n      effort,\n', 'schema: AGENT_REPLY_SCHEMAS.REVIEWER,\n      model,\n')],
+  ['the builder\'s model', agentOptionLeftOut('AGENT_REPLY_SCHEMAS.BUILDER,\n        model,\n', 'AGENT_REPLY_SCHEMAS.BUILDER,\n')],
+  ['the builder\'s effort', agentOptionLeftOut('AGENT_REPLY_SCHEMAS.BUILDER,\n        model,\n        effort,\n', 'AGENT_REPLY_SCHEMAS.BUILDER,\n        model,\n')],
+  ['the reviewer\'s model', agentOptionLeftOut('AGENT_REPLY_SCHEMAS.REVIEWER,\n      model,\n', 'AGENT_REPLY_SCHEMAS.REVIEWER,\n')],
+  ['the reviewer\'s effort', agentOptionLeftOut('AGENT_REPLY_SCHEMAS.REVIEWER,\n      model,\n      effort,\n', 'AGENT_REPLY_SCHEMAS.REVIEWER,\n      model,\n')],
+];
+
+const WORKER_AGENT_TYPES_LEFT_OUT: [string, SourceMutant][] = [
+  ['the builder', agentOptionLeftOut('        effort,\n        agentType: DISPATCH_PROTOCOL.WORKER_AGENT_TYPE,\n', '        effort,\n')],
+  ['the reviewer', agentOptionLeftOut('      effort,\n      agentType: DISPATCH_PROTOCOL.WORKER_AGENT_TYPE,\n', '      effort,\n')],
 ];
 
 describe('the dispatcher script', () => {
@@ -77,6 +84,19 @@ describe('the dispatcher script', () => {
     expect(mutated).toMatchObject({ verdict: 'built' });
     const run = await runDispatchScript(DECISION_SCENARIOS['every kind of agent runs'](), builtScriptTextOf(mutated));
     expect(modelsAndEffortsAreExplicit(run)).toBe(false);
+  });
+
+  test('every builder and reviewer starts as the installed worker type, and the survey and parking agents as the default subagent', async () => {
+    const run = await runDispatchScript(DECISION_SCENARIOS['every kind of agent runs'](), builtScriptTextOf(BUNDLE));
+    expect(new Set(run.calls.map((call) => call.kind))).toEqual(new Set(['survey', 'build', 'review', 'park']));
+    expect(onlyWorkersStartAsTheWorkerType(run)).toBe(true);
+  });
+
+  test.each(WORKER_AGENT_TYPES_LEFT_OUT)('a worker started without its agent type (%s) fails the check', async (_workerLeftOut, mutant) => {
+    const mutated = await bundleDispatchScript(mutant);
+    expect(mutated).toMatchObject({ verdict: 'built' });
+    const run = await runDispatchScript(DECISION_SCENARIOS['every kind of agent runs'](), builtScriptTextOf(mutated));
+    expect(onlyWorkersStartAsTheWorkerType(run)).toBe(false);
   });
 
   // The script reads a ticket's priority, model and effort only from what the agents copy, so every prompt names the one list to copy.

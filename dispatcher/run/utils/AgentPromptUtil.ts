@@ -127,8 +127,8 @@ function builderPrompt(settings: DispatchSettings, request: BuilderPromptRequest
     lines.push('An earlier dispatcher run left this build paused: the worktree holds whatever its builder committed or left uncommitted, and your work continues from there.');
   }
   lines.push(
-    `Read \`${settings.mainCheckout}/${DISPATCH_PROTOCOL.AGENT_BRIEF_PATH_IN_REPOSITORY}\` once and follow its fenced blocks under Call discipline, Stop conditions, `
-      + `Find and fix, Ready to merge and Report, ${briefPlaceholdersText(settings, ticketId)}. The Scope, Contract, Browser loop and Review brief blocks are not yours.`,
+    `Read \`${settings.mainCheckout}/${DISPATCH_PROTOCOL.BUILDER_BRIEF_PATH_IN_REPOSITORY}\` once and follow its fenced blocks under Call discipline, Stop conditions, `
+      + `Find and fix, Ready to merge and Report, ${briefPlaceholdersText(settings, ticketId)}.`,
     'Do not `cat` any CLAUDE.md.',
     `Stop when the Acceptance block is satisfied, or at about ${DISPATCH_PROTOCOL.BUILDER_API_CALL_BUDGET} API calls, whichever is first.`,
     // One lock hold moves the ticket to review and starts its reviewer's bar, so no status block between builder and reviewer shows the slot free.
@@ -174,7 +174,7 @@ function reviewerPrompt(settings: DispatchSettings, request: ReviewerPromptReque
       + `--note "${reviewNoteOf(settings, ticketId)}" --start\`, `
       + `the title from \`agent-progress ticket show ${ticketId}\`. Your bar takes the place of the brief's \`agent-progress row:\` line; `
       + 'the review line above carries your tokens to it.',
-    `Read \`${settings.mainCheckout}/${DISPATCH_PROTOCOL.AGENT_BRIEF_PATH_IN_REPOSITORY}\` once and follow the fenced block under \`## Review brief\` as your whole procedure, `
+    `Read \`${settings.mainCheckout}/${DISPATCH_PROTOCOL.REVIEW_BRIEF_PATH_IN_REPOSITORY}\` once and follow its fenced block as your whole procedure, `
       + `steps 0 to 8, ${briefPlaceholdersText(settings, ticketId)}. Step 0 reads the diff first; you fix only what you review.`,
     `You may use up to about ${DISPATCH_PROTOCOL.REVIEWER_API_CALL_BUDGET} API calls.`,
     'Every finding you would hand on instead of fixing, you file yourself: '

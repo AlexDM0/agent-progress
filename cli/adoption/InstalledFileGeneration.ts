@@ -23,6 +23,8 @@ const AGENT_MODEL_DISPLAY_NAMES: Readonly<Record<AgentModel, string>> = Object.f
 
 export interface InstalledFileTexts {
   agentBrief:                  string;
+  builderBrief:                string;
+  reviewBrief:                 string;
   claudeInstructionsBlockBody: string;
   agentDefinition:             string;
   /** Null when `--no-workflow` asked for no dispatcher, so nothing is bundled. */
@@ -53,15 +55,19 @@ export async function installedFileTextsFor(request: { generatesTheDispatcherScr
   // The definition takes the default pair and the brief its display word, so neither can drift from the tool's defaults.
   const defaultAgentPair = { model: DEFAULT_AGENT_MODEL, effort: DEFAULT_AGENT_EFFORT };
   const agentBrief = filledTemplateOf(templateTextOf('AgentBrief.md'), {
-    builderApiCallBudget:  String(DISPATCH_PROTOCOL.BUILDER_API_CALL_BUDGET),
+    modelDisplayName: AGENT_MODEL_DISPLAY_NAMES[DEFAULT_AGENT_MODEL],
+    effort:           DEFAULT_AGENT_EFFORT,
+  });
+  const builderBrief = filledTemplateOf(templateTextOf('BuilderBrief.md'), { builderApiCallBudget: String(DISPATCH_PROTOCOL.BUILDER_API_CALL_BUDGET) });
+  const reviewBrief  = filledTemplateOf(templateTextOf('ReviewBrief.md'), {
     reviewerApiCallBudget: String(DISPATCH_PROTOCOL.REVIEWER_API_CALL_BUDGET),
     reworkThresholdLines,
-    modelDisplayName:      AGENT_MODEL_DISPLAY_NAMES[DEFAULT_AGENT_MODEL],
-    effort:                DEFAULT_AGENT_EFFORT,
   });
   const claudeInstructionsBlock = filledTemplateOf(templateTextOf('ClaudeInstructionsBlock.md'), { reworkThresholdLines });
   return {
     agentBrief,
+    builderBrief,
+    reviewBrief,
     claudeInstructionsBlockBody: claudeInstructionsBlock.replace(/\n+$/, ''),
     agentDefinition:             filledTemplateOf(templateTextOf('AgentProgressWorker.md'), defaultAgentPair),
     dispatcherScript,

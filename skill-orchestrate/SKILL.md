@@ -288,8 +288,8 @@ worktree off the main line (`git -C <main checkout> worktree add <path> -b <bran
 one builder with `subagent_type: 'agent-progress-worker'`, the installed definition that carries the
 default model and effort, briefed from `.agent-progress/agent-brief.md` — the Scope block with its
 `ticket claim` first command and `agent-progress ticket: <id>` line, the ticket's `## Brief`, and every
-block down to Report — and when it lands one clean reviewer, again `agent-progress-worker`, from the
-Review brief, its bar added first with
+block of `.agent-progress/builder-brief.md` — and when it lands one clean reviewer, again
+`agent-progress-worker`, from `.agent-progress/review-brief.md`, its bar added first with
 `task add "Review <N> #<id> — <title>" --review-of <id> --owner opus --start` and named on the brief's
 `agent-progress row:` line. `released` delivered that bar; after any other verdict `task finish` and
 `task deliver` it, and act on the verdict as the dispatcher would. One agent at a time.

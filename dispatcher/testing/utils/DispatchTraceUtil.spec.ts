@@ -18,6 +18,7 @@ const BUILDER_CALL: RecordedAgentCall = {
   ordinal:                    1,
   model:                      'opus',
   effort:                     undefined,
+  agentType:                  'agent-progress-worker',
   label:                      'build 001',
   phase:                      'Build',
   schema:                     undefined,
@@ -66,7 +67,7 @@ describe('digestOf', () => {
 describe('traceOf', () => {
   test('writes each call as one separated line, an absent value as undefined and the prompt as its digest', () => {
     const [callText] = DispatchTraceUtil.traceOf(recordedRunWith({})).calls;
-    expect(callText).toBe(`main|build|001|1|opus|undefined|build 001|Build|undefined|${DispatchTraceUtil.digestOf(EXAMPLE_PROMPT)}|1|2`);
+    expect(callText).toBe(`main|build|001|1|opus|undefined|build 001|Build|undefined|${DispatchTraceUtil.digestOf(EXAMPLE_PROMPT)}|1|2|agent-progress-worker`);
   });
 
   test('writes each phase entered as its run and title', () => {

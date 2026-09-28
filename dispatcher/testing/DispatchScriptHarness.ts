@@ -409,6 +409,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
       ordinal,
       model:                      options['model'],
       effort:                     options['effort'],
+      agentType:                  options['agentType'],
       label:                      options['label'],
       phase:                      options['phase'],
       schema:                     options['schema'],

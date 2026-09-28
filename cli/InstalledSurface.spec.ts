@@ -43,7 +43,13 @@ const REPOSITORY_ROOT = join(import.meta.dir, '..');
 
 const FROZEN_TABLE_PATH = 'cli/FrozenInstalledSurface.json';
 
-const INSTALLED_TEMPLATE_PATHS = ['resources/templates/AgentBrief.md', 'resources/templates/ClaudeInstructionsBlock.md', 'resources/templates/AgentProgressWorker.md'];
+const INSTALLED_TEMPLATE_PATHS = [
+  'resources/templates/AgentBrief.md',
+  'resources/templates/BuilderBrief.md',
+  'resources/templates/ReviewBrief.md',
+  'resources/templates/ClaudeInstructionsBlock.md',
+  'resources/templates/AgentProgressWorker.md',
+];
 
 const INSTALLED_SKILL_FOLDERS = ['skill', 'skill-orchestrate'];
 
@@ -237,7 +243,7 @@ describeWhenGitIsPresent('the guard, planted in memory', () => {
   test('a reworded template or prompt sentence and a changed number trip nothing', () => {
     const rewordedBrief = withTextReplaced(INSTALLED_TEXTS, 'resources/templates/AgentBrief.md', 'Every section below', 'Each section that follows');
     const rewordedPrompt = withTextReplaced(rewordedBrief, 'dispatcher/run/utils/AgentPromptUtil.ts', 'As your very last act', 'As the last thing you do');
-    const renumbered = withTextReplaced(rewordedPrompt, 'resources/templates/AgentBrief.md', 'Report under 150 words', 'Report under 180 words');
+    const renumbered = withTextReplaced(rewordedPrompt, 'resources/templates/ReviewBrief.md', 'Report under 150 words', 'Report under 180 words');
     expect(sentencesWith(renumbered, cliSurface)).toEqual([]);
   });
 

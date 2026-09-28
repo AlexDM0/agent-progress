@@ -11,11 +11,13 @@ export interface JsonSchema {
 }
 
 export interface AgentOptions {
-  label:  string;
-  phase:  DispatchPhaseTitle;
-  schema: JsonSchema;
-  model:  string;
-  effort: string;
+  label:      string;
+  phase:      DispatchPhaseTitle;
+  schema:     JsonSchema;
+  model:      string;
+  effort:     string;
+  /** A subagent type from the registry the Agent tool reads, in place of the default workflow subagent. */
+  agentType?: string;
 }
 
 export interface WorkflowRuntime {

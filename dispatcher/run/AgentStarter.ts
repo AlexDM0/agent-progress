@@ -1,4 +1,5 @@
 /** The one place an agent is started: its prompt, its options and the mapping of its reply, for each kind of work and helper. */
+import { DISPATCH_PROTOCOL }                          from '../../src/shared/constants/DispatchProtocol.ts';
 import type { DispatchLogger }                        from '../@types/DispatchLogger.ts';
 import type { AgentModelAndEffort, DispatchSettings } from '../@types/DispatchSettings.ts';
 import type {
@@ -54,7 +55,8 @@ export function createAgentStarter(runtime: WorkflowRuntime, settings: DispatchS
     }, work);
   }
 
-  // A builder and a reviewer run on the model and effort the ticket states, and are named its owner by that model.
+  // A builder and a reviewer run on the model and effort the ticket states, and are named its owner by that model. They start as the installed
+  // worker type, whose narrow tool list leaves out the skill listing and the unrelated tools a default workflow subagent carries on every call.
   function workerRunFor(work: AgentWork, agentModelAndEffort: AgentModelAndEffort, pausedBuildWasFoundBySurvey: boolean): Promise<unknown> {
     const { model, effort } = agentModelAndEffort;
     if (work.kind === 'build') {
@@ -65,11 +67,12 @@ export function createAgentStarter(runtime: WorkflowRuntime, settings: DispatchS
         pausedBuildWasFoundBySurvey,
       });
       return runAgent(prompt, {
-        label:  DispatchWordingUtil.agentLabelOf(work),
-        phase:  'Build',
-        schema: AGENT_REPLY_SCHEMAS.BUILDER,
+        label:     DispatchWordingUtil.agentLabelOf(work),
+        phase:     'Build',
+        schema:    AGENT_REPLY_SCHEMAS.BUILDER,
         model,
         effort,
+        agentType: DISPATCH_PROTOCOL.WORKER_AGENT_TYPE,
       }, work);
     }
     const prompt = AgentPromptUtil.reviewerPrompt(settings, {
@@ -80,11 +83,12 @@ export function createAgentStarter(runtime: WorkflowRuntime, settings: DispatchS
       owner:               model,
     });
     return runAgent(prompt, {
-      label:  DispatchWordingUtil.agentLabelOf(work),
-      phase:  'Review',
-      schema: AGENT_REPLY_SCHEMAS.REVIEWER,
+      label:     DispatchWordingUtil.agentLabelOf(work),
+      phase:     'Review',
+      schema:    AGENT_REPLY_SCHEMAS.REVIEWER,
       model,
       effort,
+      agentType: DISPATCH_PROTOCOL.WORKER_AGENT_TYPE,
     }, work);
   }
 
