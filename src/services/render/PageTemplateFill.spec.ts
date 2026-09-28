@@ -10,6 +10,7 @@ import type { Task }                      from '../../lib/tracker-model/@types/T
 import type { Ticket }                    from '../../lib/tracker-model/@types/Ticket.ts';
 import type { TrackerProgress }           from '../../lib/tracker-model/@types/TrackerProgress.ts';
 import { LIMITS }                         from '../../shared/constants/Limits.ts';
+import { TIMESTAMP_SLICES }               from '../../shared/constants/TimestampSlices.ts';
 import { islandContentsOf, islandTextOf } from '../../testing/RenderedIslandText.ts';
 import { createMarkdownRenderer }         from './MarkdownRenderer.ts';
 import { fillPageTemplate }               from './PageTemplateFill.ts';
@@ -211,7 +212,7 @@ describe('fillPageTemplate', () => {
     expect(payload.limits['tickStepLadderMinutes']).toEqual([...LIMITS.TICK_STEP_LADDER_MINUTES]);
     expect(payload.limits['maximumTicksPerAxis']).toBe(LIMITS.MAXIMUM_TICKS_PER_AXIS);
     expect(payload.limits['tickCountSafetyBound']).toBe(LIMITS.TICK_COUNT_SAFETY_BOUND);
-    expect(payload.limits['clockSliceEnd']).toBe(LIMITS.CLOCK_SLICE_END_CHARACTER_OFFSET);
+    expect(payload.limits['clockSliceEnd']).toBe(TIMESTAMP_SLICES.CLOCK_SLICE_END_CHARACTER_OFFSET);
     expect(payload.limits['doneWorkVisibleMilliseconds']).toBe(LIMITS.DONE_WORK_VISIBLE_MILLISECONDS);
   });
 

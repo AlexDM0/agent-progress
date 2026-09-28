@@ -1,12 +1,12 @@
 /** Whether one parsed log.jsonl line is a well-formed record of a known kind, and if not, the reason naming the offending field. */
-import { JsonRecordUtil }            from '../../../lib/json-record/JsonRecordUtil.ts';
-import type { LogRecord }            from '../../../lib/tracker-model/@types/LogRecord.ts';
-import { DISPATCHER_STATES }         from '../../../lib/tracker-model/constants/DispatcherStates.ts';
-import { FIRST_REPEAT_REVIEW_ROUND } from '../../../lib/tracker-model/constants/ReviewRounds.ts';
-import { TICKET_PRIORITIES }         from '../../../lib/tracker-model/constants/TicketFields.ts';
-import { BoardSettingsUtil }         from '../../../lib/tracker-model/utils/BoardSettingsUtil.ts';
-import { VocabularyUtil }            from '../../../lib/tracker-model/utils/VocabularyUtil.ts';
-import { StoredValueUtil }           from '../../utils/StoredValueUtil.ts';
+import { JsonRecordUtil }            from '../../lib/json-record/JsonRecordUtil.ts';
+import type { LogRecord }            from '../../lib/tracker-model/@types/LogRecord.ts';
+import { DISPATCHER_STATES }         from '../../lib/tracker-model/constants/DispatcherStates.ts';
+import { FIRST_REPEAT_REVIEW_ROUND } from '../../lib/tracker-model/constants/ReviewRounds.ts';
+import { TICKET_PRIORITIES }         from '../../lib/tracker-model/constants/TicketFields.ts';
+import { BoardSettingsUtil }         from '../../lib/tracker-model/utils/BoardSettingsUtil.ts';
+import { VocabularyUtil }            from '../../lib/tracker-model/utils/VocabularyUtil.ts';
+import { StoredValueUtil }           from '../utils/StoredValueUtil.ts';
 
 type UnknownObject = Record<string, unknown>;
 
@@ -140,7 +140,7 @@ function kindIsKnown(kind: unknown): kind is LogRecord['kind'] {
   return typeof kind === 'string' && Object.hasOwn(CHECK_FOR_KIND, kind);
 }
 
-function recordProblemOf(value: unknown): string | null {
+export function logRecordProblemOf(value: unknown): string | null {
   if (!JsonRecordUtil.valueIsAPlainObject(value)) return 'it is not an object';
   if (typeof value['at'] !== 'string') return 'at is not a string';
   const { kind } = value;
@@ -149,5 +149,3 @@ function recordProblemOf(value: unknown): string | null {
   if (!JsonRecordUtil.valueIsAPlainObject(fields)) return 'fields is not an object';
   return CHECK_FOR_KIND[kind](fields, value);
 }
-
-export const LogRecordValidationUtil = { recordProblemOf } as const;

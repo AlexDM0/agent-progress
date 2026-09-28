@@ -18,6 +18,7 @@ import { ViewerPreferenceUtil }     from '../preferences/utils/ViewerPreferenceU
 import { DomUtil }                  from '../utils/DomUtil.ts';
 import { GeometryUtil }             from '../utils/GeometryUtil.ts';
 import { TimeUtil }                 from '../utils/TimeUtil.ts';
+import { effectiveViewRangeFor }    from './EffectiveViewRange.ts';
 import type { PlacedTick, TaskRow } from './GanttChartMarkup.ts';
 import {
   generatedStampText,
@@ -34,8 +35,7 @@ import {
   NAME_COLUMN_WIDTH_ATTRIBUTE,
   RANGE_PRESET_BOUNDS,
 } from './constants/ProgressChart.ts';
-import { AxisFitUtil }   from './utils/AxisFitUtil.ts';
-import { ViewRangeUtil } from './utils/ViewRangeUtil.ts';
+import { AxisFitUtil } from './utils/AxisFitUtil.ts';
 
 export interface GanttChartControllerSources {
   payload:       PagePayload;
@@ -175,7 +175,7 @@ export function createGanttChartController(sources: GanttChartControllerSources)
 
   const layOut = (bringNowIntoView: boolean): void => {
     const nowEpochMilliseconds = Date.now();
-    const range: ViewRange     = ViewRangeUtil.effectiveRangeFor(visibleProgress, override, nowEpochMilliseconds, limits);
+    const range: ViewRange     = effectiveViewRangeFor(visibleProgress, override, nowEpochMilliseconds, limits);
     const timeline             = GeometryUtil.computeTimeline({
       progress: visibleProgress,
       range,

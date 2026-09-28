@@ -231,7 +231,7 @@ marker from it, which is what lets the in-page range presets re-lay-out without 
 means there is exactly one implementation of the geometry rather than a server copy and a client
 copy that disagree. The geometry's bounds are put into the island by `src/services/render/PageTemplateFill.ts` and taken
 as a parameter; `page/utils/GeometryUtil.ts` says why. The island's last key, `boardFacts`, carries the Board's answers
-the render service computes through `src/services/render/utils/BoardFactsUtil.ts`: one fact per row at its
+the render service computes through `src/services/render/BoardFacts.ts`: one fact per row at its
 index, and one per ticket by id. The page reads every board fact from them and derives none itself.
 
 ## Backlog

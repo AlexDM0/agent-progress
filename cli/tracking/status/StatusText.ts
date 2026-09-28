@@ -5,7 +5,7 @@ import type { TrackerProgress }                                  from '../../../
 import type { Board }                                            from '../../../src/lib/tracker-model/Board.ts';
 import { SETTLED_TASK_STATUSES, TASK_STATUSES, TICKET_STATUSES } from '../../../src/lib/tracker-model/constants/Statuses.ts';
 import type { WordedLogEntry }                                   from '../../../src/shared/@types/WordedLogEntry.ts';
-import { LIMITS }                                                from '../../../src/shared/constants/Limits.ts';
+import { TIMESTAMP_SLICES }                                      from '../../../src/shared/constants/TimestampSlices.ts';
 import { OutputUtil }                                            from '../../utils/OutputUtil.ts';
 
 const HUMAN_LOG_ENTRY_COUNT = 5;
@@ -27,8 +27,8 @@ function countsByStatus(statuses: readonly TaskStatus[], statusOfEach: readonly 
 }
 
 function logStampOf(entry: WordedLogEntry, showsTheDate: boolean): string {
-  const start = showsTheDate ? LIMITS.MONTH_AND_DAY_SLICE_START_CHARACTER_OFFSET : LIMITS.CLOCK_SLICE_START_CHARACTER_OFFSET;
-  return entry.at.slice(start, LIMITS.CLOCK_SLICE_END_CHARACTER_OFFSET).replace('T', ' ');
+  const start = showsTheDate ? TIMESTAMP_SLICES.MONTH_AND_DAY_SLICE_START_CHARACTER_OFFSET : TIMESTAMP_SLICES.CLOCK_SLICE_START_CHARACTER_OFFSET;
+  return entry.at.slice(start, TIMESTAMP_SLICES.CLOCK_SLICE_END_CHARACTER_OFFSET).replace('T', ' ');
 }
 
 /** `null` when no row reported a usage, which is a different answer from `0`. */
@@ -62,7 +62,7 @@ function taskTableLinesOf(listedTasks: readonly Readonly<Task>[]): string[] {
 export function humanStatusTextOf(progress: TrackerProgress, logNewestFirst: readonly WordedLogEntry[], board: Board, showsEverything: boolean): string {
   const tickets = board.tickets();
   const lines = [
-    `${progress.project} — started ${progress.startedAt.slice(0, LIMITS.DATE_AND_CLOCK_LENGTH_CHARACTERS).replace('T', ' ')}`,
+    `${progress.project} — started ${progress.startedAt.slice(0, TIMESTAMP_SLICES.DATE_AND_CLOCK_LENGTH_CHARACTERS).replace('T', ' ')}`,
     `Tasks:   ${countsByStatus(TASK_STATUSES, progress.tasks.map((task) => task.status))}`,
     `Tickets: ${countsByStatus(TICKET_STATUSES, tickets.map((ticket) => ticket.frontmatter.status))}`,
   ];
@@ -80,7 +80,7 @@ export function humanStatusTextOf(progress: TrackerProgress, logNewestFirst: rea
   if (settledTaskCount > 0) lines.push(`(${settledTaskCount} ${SETTLED_TASK_STATUSES.join(' or ')} rows not shown; --full lists them)`);
 
   const recentLog    = showsEverything ? logNewestFirst : logNewestFirst.slice(0, HUMAN_LOG_ENTRY_COUNT);
-  const distinctDays = new Set(logNewestFirst.map((entry) => entry.at.slice(0, LIMITS.CALENDAR_DATE_LENGTH_CHARACTERS)));
+  const distinctDays = new Set(logNewestFirst.map((entry) => entry.at.slice(0, TIMESTAMP_SLICES.CALENDAR_DATE_LENGTH_CHARACTERS)));
   if (recentLog.length > 0) {
     lines.push('');
     lines.push(showsEverything ? `Log (all ${recentLog.length}):` : `Log (last ${recentLog.length}):`);

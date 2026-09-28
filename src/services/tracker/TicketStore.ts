@@ -15,8 +15,8 @@ import type {
 } from '../../lib/tracker-model/@types/Ticket.ts';
 import { FIRST_TICKET_NUMBER } from '../../lib/tracker-model/constants/TicketFields.ts';
 import { TicketIdUtil }        from '../../lib/tracker-model/utils/TicketIdUtil.ts';
+import { slugFromTitle }       from './SlugFromTitle.ts';
 import type { Workspace }      from './Workspace.ts';
-import { SlugUtil }            from './utils/SlugUtil.ts';
 
 export interface MalformedTicketFile {
   filePath: string;
@@ -132,7 +132,7 @@ export function nextTicketId(workspace: Workspace): string {
 /** Writes nothing: the caller holds the lock and writes the ticket after the progress file, so the id it assigns is only safe to use inside that hold. */
 export function createTicket(workspace: Workspace, input: CreateTicketInput): Ticket {
   const identifier  = nextTicketId(workspace);
-  const fileName    = `${identifier}-${unusedSlugFor(workspace, SlugUtil.slugFromTitle(input.title))}${TICKET_FILE_EXTENSION}`;
+  const fileName    = `${identifier}-${unusedSlugFor(workspace, slugFromTitle(input.title))}${TICKET_FILE_EXTENSION}`;
   const frontmatter: TicketFrontmatter = {
     id:          identifier,
     title:       input.title,

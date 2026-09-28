@@ -4,10 +4,8 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { refusalIsOperationRefusal } from '../../../shared/OperationRefusal.ts';
-import { TemplateTokenUtil }         from './TemplateTokenUtil.ts';
-
-const { substituteTemplateTokens } = TemplateTokenUtil;
+import { refusalIsOperationRefusal } from '../../shared/OperationRefusal.ts';
+import { substituteTemplateTokens }  from './TemplateTokenSubstitution.ts';
 
 describe('substituteTemplateTokens', () => {
   const values = { '__PROGRESS__': '{}', '__TICKETS__': '[]' };

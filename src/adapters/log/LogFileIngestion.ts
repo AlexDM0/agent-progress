@@ -1,10 +1,10 @@
 /** log.jsonl read into the model's records: read, split into lines, parse, validate and map. The format's first version has nothing to migrate. */
-import type { LogRecord }          from '../../lib/tracker-model/@types/LogRecord.ts';
-import { storedFileTextOf }        from '../StoredFileText.ts';
-import { StoredValueUtil }         from '../utils/StoredValueUtil.ts';
-import type { LogFileReading }     from './@types/StoredLog.ts';
-import { LogRecordMappingUtil }    from './utils/LogRecordMappingUtil.ts';
-import { LogRecordValidationUtil } from './utils/LogRecordValidationUtil.ts';
+import type { LogRecord }       from '../../lib/tracker-model/@types/LogRecord.ts';
+import { storedFileTextOf }     from '../StoredFileText.ts';
+import { StoredValueUtil }      from '../utils/StoredValueUtil.ts';
+import type { LogFileReading }  from './@types/StoredLog.ts';
+import { logRecordProblemOf }   from './LogRecordProblem.ts';
+import { LogRecordMappingUtil } from './utils/LogRecordMappingUtil.ts';
 
 export class LogFileIngestion {
   constructor(private readonly logFilePath: string) {}
@@ -28,7 +28,7 @@ export class LogFileIngestion {
       const parsedJson = StoredValueUtil.parsedJsonOf(line);
       if (parsedJson.verdict === 'unparseable') return { verdict: 'unreadable', reason: `${this.logFilePath}, line ${lineNumber}: ${parsedJson.problem}` };
 
-      const problem = LogRecordValidationUtil.recordProblemOf(parsedJson.value);
+      const problem = logRecordProblemOf(parsedJson.value);
       if (problem !== null) return { verdict: 'unreadable', reason: `${this.logFilePath}, line ${lineNumber}: ${problem}` };
       records.push(LogRecordMappingUtil.recordOf(parsedJson.value));
     }

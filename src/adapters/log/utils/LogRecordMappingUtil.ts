@@ -18,7 +18,7 @@ function agentPairOf(agentPair: AgentPair): AgentPair {
   return { model: agentPair.model, effort: agentPair.effort };
 }
 
-/** `validated` is a value `LogRecordValidationUtil.recordProblemOf` found no problem in; anything else is a broken invariant, not a bad file. */
+/** `validated` is a value `logRecordProblemOf` found no problem in; anything else is a broken invariant, not a bad file. */
 function recordOf(validated: unknown): LogRecord {
   const record = validated as LogRecord;
   const { at } = record;

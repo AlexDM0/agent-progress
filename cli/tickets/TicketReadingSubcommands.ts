@@ -4,7 +4,7 @@ import { TicketDefaultsUtil }               from '../../src/lib/tracker-model/ut
 import { listTickets, readTicket }          from '../../src/services/tracker/TicketStore.ts';
 import { requireWorkspace, type Workspace } from '../../src/services/tracker/Workspace.ts';
 import { OperationRefusal }                 from '../../src/shared/OperationRefusal.ts';
-import { LIMITS }                           from '../../src/shared/constants/Limits.ts';
+import { TIMESTAMP_SLICES }                 from '../../src/shared/constants/TimestampSlices.ts';
 import type { CommandContext }              from '../CommandContext.ts';
 import type { ArgumentParser }              from '../arguments/ArgumentParser.ts';
 import { OutputUtil }                       from '../utils/OutputUtil.ts';
@@ -21,7 +21,7 @@ function requireTicketToShow(workspace: Workspace, reference: string): Ticket {
 }
 
 function stampText(stamp: string): string {
-  return stamp.slice(0, LIMITS.DATE_AND_CLOCK_LENGTH_CHARACTERS).replace('T', ' ');
+  return stamp.slice(0, TIMESTAMP_SLICES.DATE_AND_CLOCK_LENGTH_CHARACTERS).replace('T', ' ');
 }
 
 function summaryOf(ticket: Ticket, statusById: ReadonlyMap<string, TicketStatus>): string {

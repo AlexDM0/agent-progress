@@ -19,8 +19,8 @@ import { MarkupUtil }                          from '../utils/MarkupUtil.ts';
 import type { DurationUnits, TimestampSlices } from '../utils/TimeUtil.ts';
 import { TimeUtil }                            from '../utils/TimeUtil.ts';
 import { WorkItemMarkupUtil }                  from '../utils/WorkItemMarkupUtil.ts';
+import { noteNamesTaskOrTicket }               from './NoteNamesTaskOrTicket.ts';
 import { DetailMarkupUtil }                    from './utils/DetailMarkupUtil.ts';
-import { NoteSentenceMatchUtil }               from './utils/NoteSentenceMatchUtil.ts';
 
 
 const PHASES_WERE_NOT_RECORDED_NOTE = 'The phases of this row were not recorded, so what follows is derived from its own stamps and its ticket’s.';
@@ -225,7 +225,7 @@ function ticketMarkup(ticket: PageTicket, format: StampFormat): string {
 
 function entryIsAboutTaskOrTicket(entry: IdentifiedLogEntry, task: Task | null, ticket: PageTicket | null): boolean {
   if (entry.taskIds === undefined || entry.ticketIds === undefined) {
-    return NoteSentenceMatchUtil.noteNamesTaskOrTicket(entry.text, task?.id ?? null, ticket?.id ?? null);
+    return noteNamesTaskOrTicket(entry.text, task?.id ?? null, ticket?.id ?? null);
   }
   return (task !== null && entry.taskIds.includes(task.id)) || (ticket !== null && entry.ticketIds.includes(ticket.id));
 }

@@ -4,15 +4,15 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { OpenerUtil } from './OpenerUtil.ts';
+import { openerFor } from './OpenerFor.ts';
 
-describe('OpenerUtil.openerFor', () => {
+describe('openerFor', () => {
   test('macOS opens the page with `open`', () => {
-    expect(OpenerUtil.openerFor('darwin')).toBe('open');
+    expect(openerFor('darwin')).toBe('open');
   });
 
   test('every other platform opens the page with `xdg-open`', () => {
-    expect(OpenerUtil.openerFor('linux')).toBe('xdg-open');
-    expect(OpenerUtil.openerFor('freebsd')).toBe('xdg-open');
+    expect(openerFor('linux')).toBe('xdg-open');
+    expect(openerFor('freebsd')).toBe('xdg-open');
   });
 });

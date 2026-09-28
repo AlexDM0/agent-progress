@@ -8,11 +8,11 @@ import { requireWorkspace }                      from '../../src/services/tracke
 import { OperationRefusal }                      from '../../src/shared/OperationRefusal.ts';
 import { resourceFilePathOf }                    from '../../src/shared/ResourceFilePath.ts';
 import type { CommandContext }                   from '../CommandContext.ts';
+import { filledTemplateOf }                      from '../FilledTemplate.ts';
 import { openTrackerForWritingThenReadNextLine } from '../OpenTrackerForWriting.ts';
 import type { ArgumentParser }                   from '../arguments/ArgumentParser.ts';
 import { NextLineUtil }                          from '../utils/NextLineUtil.ts';
 import { OutputUtil }                            from '../utils/OutputUtil.ts';
-import { TemplatePlaceholderUtil }               from '../utils/TemplatePlaceholderUtil.ts';
 import type { TicketSubcommandHandler }          from './@types/TicketSubcommandHandler.ts';
 import { TICKET_USAGE }                          from './constants/TicketUsage.ts';
 import { TicketArgumentUtil }                    from './utils/TicketArgumentUtil.ts';
@@ -28,7 +28,7 @@ const TICKET_BODY_TEMPLATE_PATH = ['templates', 'TicketBody.md'];
 function bodyForNewTicket(suppliedBody: string | undefined, ticketId: string, title: string): string {
   if (suppliedBody !== undefined && suppliedBody.trim() !== '') return suppliedBody;
 
-  return TemplatePlaceholderUtil.filledTemplateOf(readFileSync(resourceFilePathOf(...TICKET_BODY_TEMPLATE_PATH), 'utf8'), { id: ticketId, title });
+  return filledTemplateOf(readFileSync(resourceFilePathOf(...TICKET_BODY_TEMPLATE_PATH), 'utf8'), { id: ticketId, title });
 }
 
 async function suppliedBodyFor(commandArguments: ArgumentParser, context: CommandContext): Promise<string | undefined> {

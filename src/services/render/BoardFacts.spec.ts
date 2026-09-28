@@ -5,9 +5,9 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import type { Task }                                from '../../../lib/tracker-model/@types/Task.ts';
-import { boardFixture, taskFixture, ticketFixture } from '../../../testing/BoardFixtures.ts';
-import { BoardFactsUtil }                           from './BoardFactsUtil.ts';
+import type { Task }                                from '../../lib/tracker-model/@types/Task.ts';
+import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures.ts';
+import { boardFactsOf }                             from './BoardFacts.ts';
 
 const REVIEWED_AT = '2026-09-18T21:10:00+02:00';
 
@@ -33,7 +33,7 @@ describe('boardFactsOf', () => {
       tickets: [ticketFixture({ id: '003', status: 'in-review', task: 4 })],
     });
 
-    const { rows } = BoardFactsUtil.boardFactsOf(board);
+    const { rows } = boardFactsOf(board);
 
     expect(rows).toHaveLength(4);
     expect(rows.map((row) => row.displayState)).toEqual(board.tasks().map((task) => board.rowDisplayStateOf(task)));
@@ -51,7 +51,7 @@ describe('boardFactsOf', () => {
       tickets: [ticketFixture({ id: '003', status: 'in-review', task: 11 })],
     });
 
-    const { rows, tickets } = BoardFactsUtil.boardFactsOf(board);
+    const { rows, tickets } = boardFactsOf(board);
 
     expect(tickets).toEqual([{
       ticketId:           '003',
@@ -75,7 +75,7 @@ describe('boardFactsOf', () => {
       tickets: [ticketFixture({ id: '003', status: 'in-review', task: 1 })],
     });
 
-    const [ticketFacts] = BoardFactsUtil.boardFactsOf(board).tickets;
+    const [ticketFacts] = boardFactsOf(board).tickets;
 
     expect(ticketFacts?.reviewBarPositions).toEqual([2, 3, 0]);
   });
@@ -88,7 +88,7 @@ describe('boardFactsOf', () => {
       ],
     });
 
-    const { rows } = BoardFactsUtil.boardFactsOf(board);
+    const { rows } = boardFactsOf(board);
 
     expect(rows.map((row) => row.deliveredRowCountsAsReviewed)).toEqual([true, false]);
   });
@@ -111,7 +111,7 @@ describe('boardFactsOf', () => {
       tickets: [ticketFixture({ id: '003', status: 'in-review', task: 3 }), ticketFixture({ id: '009' })],
     });
 
-    const { rows, tickets } = BoardFactsUtil.boardFactsOf(board);
+    const { rows, tickets } = boardFactsOf(board);
 
     expect(rows.map((row) => row.ownRowPositionOfReviewedTicket)).toEqual([null, 0, null, 2, null, null]);
     expect(tickets.map((ticket) => ticket.ticketId)).toEqual(['003', '009']);
@@ -123,7 +123,7 @@ describe('boardFactsOf', () => {
       tickets: [ticketFixture({ id: '003' })],
     });
 
-    const { rows, tickets } = BoardFactsUtil.boardFactsOf(board);
+    const { rows, tickets } = boardFactsOf(board);
 
     expect(rows.map((row) => row.ownRowPositionOfReviewedTicket)).toEqual([null]);
     expect(tickets).toEqual([{
@@ -138,8 +138,8 @@ describe('boardFactsOf', () => {
   test('maps a row naming a ticket the Board does not hold without throwing', () => {
     const { board } = boardFixture({ tasks: [taskFixture({ id: 1, status: 'in-review', ticket: '008' })] });
 
-    expect(() => BoardFactsUtil.boardFactsOf(board)).not.toThrow();
-    const { rows, tickets } = BoardFactsUtil.boardFactsOf(board);
+    expect(() => boardFactsOf(board)).not.toThrow();
+    const { rows, tickets } = boardFactsOf(board);
 
     expect(rows.map((row) => row.displayState)).toEqual(board.tasks().map((task) => board.rowDisplayStateOf(task)));
     expect(rows.map((row) => row.ownRowPositionOfReviewedTicket)).toEqual([null]);
@@ -155,13 +155,13 @@ describe('boardFactsOf', () => {
       ],
     });
 
-    const { tickets } = BoardFactsUtil.boardFactsOf(board);
+    const { tickets } = boardFactsOf(board);
 
     expect(tickets.map((ticket) => ticket.waitingOnTicketIds)).toEqual(board.tickets().map((ticket) => board.waitingOnOf(ticket)));
     expect(tickets.map((ticket) => ticket.waitingOnTicketIds)).toEqual([[], ['001'], []]);
   });
 
   test('gives empty lists for an empty Board', () => {
-    expect(BoardFactsUtil.boardFactsOf(boardFixture().board)).toEqual({ rows: [], tickets: [] });
+    expect(boardFactsOf(boardFixture().board)).toEqual({ rows: [], tickets: [] });
   });
 });

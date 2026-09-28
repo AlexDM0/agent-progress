@@ -6,9 +6,7 @@
 
 import { expect, test } from 'bun:test';
 
-import { NoteSentenceMatchUtil } from './NoteSentenceMatchUtil.ts';
-
-const { noteNamesTaskOrTicket } = NoteSentenceMatchUtil;
+import { noteNamesTaskOrTicket } from './NoteNamesTaskOrTicket.ts';
 
 test('a row does not claim a note about a row whose number merely starts with its own', () => {
   expect(noteNamesTaskOrTicket('Task #13 finished', 1, null)).toBe(false);

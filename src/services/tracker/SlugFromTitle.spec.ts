@@ -4,9 +4,7 @@
  */
 import { expect, test } from 'bun:test';
 
-import { SlugUtil } from './SlugUtil.ts';
-
-const { slugFromTitle } = SlugUtil;
+import { slugFromTitle } from './SlugFromTitle.ts';
 
 test('a plain title becomes its own words, lower case and hyphen separated', () => {
   expect(slugFromTitle('Double-click a role to edit it')).toBe('double-click-a-role-to-edit-it');

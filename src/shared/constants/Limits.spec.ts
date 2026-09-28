@@ -4,7 +4,8 @@
  */
 import { expect, test } from 'bun:test';
 
-import { LIMITS } from './Limits.ts';
+import { LIMITS }     from './Limits.ts';
+import { TIME_UNITS } from './TimeUnits.ts';
 
 const MILLISECONDS_PER_SECOND = 1000;
 const DAYS_PER_WEEK = 7;
@@ -16,7 +17,7 @@ test('the tick ladder is strictly ascending, so the first rung that fits is also
 });
 
 test('the ladder ends at exactly one day, so the multiples-of-a-day fallback continues it without a gap', () => {
-  expect(LIMITS.TICK_STEP_LADDER_MINUTES.at(-1)).toBe(LIMITS.DAY_MINUTES);
+  expect(LIMITS.TICK_STEP_LADDER_MINUTES.at(-1)).toBe(TIME_UNITS.DAY_MINUTES);
 });
 
 test('every rung is a whole number of minutes and at least one minute, because a tick label has minute precision', () => {
@@ -32,8 +33,8 @@ test('the patience budget is still long enough for several normal commands to pa
 });
 
 test('the axis label limits line up with the day and the week they are named for', () => {
-  expect(LIMITS.HOURS_AXIS_LABEL_LIMIT_MINUTES).toBe(LIMITS.DAY_MINUTES);
-  expect<number>(LIMITS.WEEK_AXIS_LABEL_LIMIT_MINUTES).toBe(DAYS_PER_WEEK * LIMITS.DAY_MINUTES);
+  expect(LIMITS.HOURS_AXIS_LABEL_LIMIT_MINUTES).toBe(TIME_UNITS.DAY_MINUTES);
+  expect<number>(LIMITS.WEEK_AXIS_LABEL_LIMIT_MINUTES).toBe(DAYS_PER_WEEK * TIME_UNITS.DAY_MINUTES);
 });
 
 test('the axis padding is a fraction of the minimum span, so padding alone can never be the whole chart', () => {

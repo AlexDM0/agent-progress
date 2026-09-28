@@ -3,9 +3,9 @@ import type { LogRecord }       from '../../lib/tracker-model/@types/LogRecord.t
 import type { Ticket }          from '../../lib/tracker-model/@types/Ticket.ts';
 import type { TrackerProgress } from '../../lib/tracker-model/@types/TrackerProgress.ts';
 import { readingBoardOf }       from '../../lib/tracker-model/ReadingBoard.ts';
+import { boardFactsOf }         from './BoardFacts.ts';
 import { fillPageTemplate }     from './PageTemplateFill.ts';
 import type { RenderState }     from './RenderState.ts';
-import { BoardFactsUtil }       from './utils/BoardFactsUtil.ts';
 
 export interface DashboardDocumentInput {
   progress:    TrackerProgress;
@@ -45,7 +45,7 @@ export async function renderDashboardDocument(input: DashboardDocumentInput, ren
     pageScriptFailure,
     generatedAt,
     concurrency:    board.concurrency(),
-    boardFacts:     BoardFactsUtil.boardFactsOf(board),
+    boardFacts:     boardFactsOf(board),
     renderMarkdown: renderState.markdownRenderer.renderMarkdown,
   });
   return { document, pageScriptFailure };

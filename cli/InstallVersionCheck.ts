@@ -5,10 +5,10 @@ import { InstallManifestIngestion }    from '../src/adapters/install/InstallMani
 import { findWorkspace }               from '../src/services/tracker/Workspace.ts';
 import type { InstallVersionMismatch } from '../src/shared/@types/InstallVersionMismatch.ts';
 import { OperationRefusal }            from '../src/shared/OperationRefusal.ts';
+import type { InstallVersionVerdict }  from './InstallVersionVerdict.ts';
+import { installVersionVerdictOf }     from './InstallVersionVerdict.ts';
 import { installedFilePathsIn }        from './InstalledFiles.ts';
 import { INSTALL_VERSION }             from './constants/InstallVersion.ts';
-import type { InstallVersionVerdict }  from './utils/InstallVersionVerdictUtil.ts';
-import { InstallVersionVerdictUtil }   from './utils/InstallVersionVerdictUtil.ts';
 
 /**
  * The brief has no opt-out, every `init` and `update` writes it and a fresh `init` writes it first, so it stands for the installed set.
@@ -25,7 +25,7 @@ function installedFilesArePresentIn(rootDirectory: string): boolean {
 
 function installVersionVerdictIn(rootDirectory: string): InstallVersionVerdict {
   const reading = new InstallManifestIngestion(installedFilePathsIn(rootDirectory).installManifest).read();
-  return InstallVersionVerdictUtil.verdictOf(reading, installedFilesArePresentIn(rootDirectory), INSTALL_VERSION);
+  return installVersionVerdictOf(reading, installedFilesArePresentIn(rootDirectory), INSTALL_VERSION);
 }
 
 function installVersionMismatchRefusal(rootDirectory: string, mismatch: InstallVersionMismatch): OperationRefusal {

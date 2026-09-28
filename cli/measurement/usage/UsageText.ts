@@ -3,6 +3,7 @@ import type { CohortSummary } from '../../../src/lib/claude-code/utils/Transcrip
 import { LocalTimeUtil }      from '../../../src/lib/local-time/LocalTimeUtil.ts';
 import { TokenCountUtil }     from '../../../src/lib/token-count/TokenCountUtil.ts';
 import { LIMITS }             from '../../../src/shared/constants/Limits.ts';
+import { TIMESTAMP_SLICES }   from '../../../src/shared/constants/TimestampSlices.ts';
 import { OutputUtil }         from '../../utils/OutputUtil.ts';
 import type { AgentUsage }    from './UsageAgents.ts';
 
@@ -38,7 +39,8 @@ function localStampOf(startedAt: string | null): string {
   if (startedAt === null) return '-';
   const instant = LocalTimeUtil.parseIso(startedAt);
   if (instant === null) return '-';
-  return LocalTimeUtil.formatLocalIso(instant).slice(LIMITS.MONTH_AND_DAY_SLICE_START_CHARACTER_OFFSET, LIMITS.CLOCK_SLICE_END_CHARACTER_OFFSET).replace('T', ' ');
+  const localStamp = LocalTimeUtil.formatLocalIso(instant);
+  return localStamp.slice(TIMESTAMP_SLICES.MONTH_AND_DAY_SLICE_START_CHARACTER_OFFSET, TIMESTAMP_SLICES.CLOCK_SLICE_END_CHARACTER_OFFSET).replace('T', ' ');
 }
 
 export function agentRowLinesOf(agents: readonly AgentUsage[]): string[] {

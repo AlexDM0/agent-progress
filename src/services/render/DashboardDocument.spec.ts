@@ -12,9 +12,9 @@ import { ConcurrencyUtil }         from '../../lib/tracker-model/utils/Concurren
 import type { PageBoardFacts }     from '../../shared/@types/PagePayload.ts';
 import { ticketFixture }           from '../../testing/BoardFixtures.ts';
 import { islandContentsOf }        from '../../testing/RenderedIslandText.ts';
+import { boardFactsOf }            from './BoardFacts.ts';
 import { renderDashboardDocument } from './DashboardDocument.ts';
 import { createRenderState }       from './RenderState.ts';
-import { BoardFactsUtil }          from './utils/BoardFactsUtil.ts';
 
 const GENERATED_AT = new Date('2026-09-18T20:11:03Z');
 
@@ -134,7 +134,7 @@ describe('renderDashboardDocument', () => {
       generatedAt: GENERATED_AT,
     }, renderState);
 
-    const expected       = BoardFactsUtil.boardFactsOf(readingBoardOf(progress, tickets));
+    const expected       = boardFactsOf(readingBoardOf(progress, tickets));
     const { boardFacts } = islandContentsOf(document, 'ap-progress-data') as { boardFacts: PageBoardFacts };
     expect(boardFacts).toEqual(expected);
     expect(boardFacts.tickets.map((ticket) => ticket.ticketId)).toEqual(['003', '004']);

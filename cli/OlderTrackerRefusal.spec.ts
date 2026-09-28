@@ -11,7 +11,7 @@ import {
   test
 }                                                             from 'bun:test';
 import { workspacePathsFor }                                  from '../src/services/tracker/Workspace.ts';
-import { LIMITS }                                             from '../src/shared/constants/Limits.ts';
+import { JSON_INDENT_SPACES }                                 from '../src/shared/constants/JsonIndent.ts';
 import { createScratchGitRepository, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }                           from '../src/testing/ToolGuard.ts';
 import { runCommandLine }                                     from './Main.ts';
@@ -32,7 +32,7 @@ async function run(commandLineArguments: readonly string[]): Promise<{ exitCode:
 function rewriteProgressFile(change: (stored: Record<string, unknown>) => Record<string, unknown>): string {
   const { progressFilePath } = workspacePathsFor(repositoryDirectory);
   const stored               = JSON.parse(readFileSync(progressFilePath, 'utf8')) as Record<string, unknown>;
-  const olderText            = `${JSON.stringify(change(stored), null, LIMITS.JSON_INDENT_SPACES)}\n`;
+  const olderText            = `${JSON.stringify(change(stored), null, JSON_INDENT_SPACES)}\n`;
   writeFileSync(progressFilePath, olderText);
   return olderText;
 }

@@ -11,7 +11,7 @@ import { dispatcherDirectoryPath, dispatcherScriptBuildRequestWith } from '../..
 import { OperationRefusal }                                          from '../../src/shared/OperationRefusal.ts';
 import { resourceFilePathOf }                                        from '../../src/shared/ResourceFilePath.ts';
 import { DISPATCH_PROTOCOL }                                         from '../../src/shared/constants/DispatchProtocol.ts';
-import { TemplatePlaceholderUtil }                                   from '../utils/TemplatePlaceholderUtil.ts';
+import { filledTemplateOf }                                          from '../FilledTemplate.ts';
 
 // The brief is prose, so it names the model the way a person writes it; the agent definition keeps the id Claude Code reads.
 const AGENT_MODEL_DISPLAY_NAMES: Readonly<Record<AgentModel, string>> = Object.freeze({
@@ -52,18 +52,18 @@ export async function installedFileTextsFor(request: { generatesTheDispatcherScr
   const reworkThresholdLines = String(DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES);
   // The definition takes the default pair and the brief its display word, so neither can drift from the tool's defaults.
   const defaultAgentPair = { model: DEFAULT_AGENT_MODEL, effort: DEFAULT_AGENT_EFFORT };
-  const agentBrief = TemplatePlaceholderUtil.filledTemplateOf(templateTextOf('AgentBrief.md'), {
+  const agentBrief = filledTemplateOf(templateTextOf('AgentBrief.md'), {
     builderApiCallBudget:  String(DISPATCH_PROTOCOL.BUILDER_API_CALL_BUDGET),
     reviewerApiCallBudget: String(DISPATCH_PROTOCOL.REVIEWER_API_CALL_BUDGET),
     reworkThresholdLines,
     modelDisplayName:      AGENT_MODEL_DISPLAY_NAMES[DEFAULT_AGENT_MODEL],
     effort:                DEFAULT_AGENT_EFFORT,
   });
-  const claudeInstructionsBlock = TemplatePlaceholderUtil.filledTemplateOf(templateTextOf('ClaudeInstructionsBlock.md'), { reworkThresholdLines });
+  const claudeInstructionsBlock = filledTemplateOf(templateTextOf('ClaudeInstructionsBlock.md'), { reworkThresholdLines });
   return {
     agentBrief,
     claudeInstructionsBlockBody: claudeInstructionsBlock.replace(/\n+$/, ''),
-    agentDefinition:             TemplatePlaceholderUtil.filledTemplateOf(templateTextOf('AgentProgressWorker.md'), defaultAgentPair),
+    agentDefinition:             filledTemplateOf(templateTextOf('AgentProgressWorker.md'), defaultAgentPair),
     dispatcherScript,
   };
 }

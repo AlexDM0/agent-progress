@@ -5,13 +5,11 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import type { AgentUsage, LogRecord } from '../../../lib/tracker-model/@types/LogRecord.ts';
-import type { AgentPair }             from '../../../lib/tracker-model/@types/Ticket.ts';
-import type { ViewRange }             from '../../../lib/tracker-model/@types/TrackerProgress.ts';
-import { createLogger }               from '../../../lib/tracker-model/Logger.ts';
-import { LogRecordValidationUtil }    from './LogRecordValidationUtil.ts';
-
-const { recordProblemOf } = LogRecordValidationUtil;
+import type { AgentUsage, LogRecord } from '../../lib/tracker-model/@types/LogRecord.ts';
+import type { AgentPair }             from '../../lib/tracker-model/@types/Ticket.ts';
+import type { ViewRange }             from '../../lib/tracker-model/@types/TrackerProgress.ts';
+import { createLogger }               from '../../lib/tracker-model/Logger.ts';
+import { logRecordProblemOf }         from './LogRecordProblem.ts';
 
 const RECORDED_AT = '2026-09-18T21:30:54+02:00';
 
@@ -108,45 +106,45 @@ describe('a well-formed record', () => {
   });
 
   test('every kind the logger writes passes', () => {
-    for (const record of Object.values(WELL_FORMED_RECORD_FOR_KIND)) expect(recordProblemOf(record), record.kind).toBeNull();
+    for (const record of Object.values(WELL_FORMED_RECORD_FOR_KIND)) expect(logRecordProblemOf(record), record.kind).toBeNull();
   });
 
   test('a dispatcher record with no run passes, because a stopped dispatcher has none', () => {
-    expect(recordProblemOf(withFields('dispatcher-set', { state: 'stopped', runId: null }))).toBeNull();
+    expect(logRecordProblemOf(withFields('dispatcher-set', { state: 'stopped', runId: null }))).toBeNull();
   });
 
   test('a review bar on task 0 passes, as a row with id 0 reads', () => {
-    expect(recordProblemOf(withKeys('review-bar-started', { taskId: 0 }))).toBeNull();
+    expect(logRecordProblemOf(withKeys('review-bar-started', { taskId: 0 }))).toBeNull();
   });
 
   test('keys no kind knows are no reason to refuse a record', () => {
-    expect(recordProblemOf({ ...WELL_FORMED_RECORD_FOR_KIND.note, source: 'a newer build' })).toBeNull();
+    expect(logRecordProblemOf({ ...WELL_FORMED_RECORD_FOR_KIND.note, source: 'a newer build' })).toBeNull();
   });
 });
 
 describe('a malformed record', () => {
   test('every kind refuses a malformed field and names it', () => {
     expect(Object.keys(MALFORMED_RECORD_FOR_KIND)).toHaveLength(RECORD_KIND_COUNT);
-    for (const [kind, [record, reason]] of Object.entries(MALFORMED_RECORD_FOR_KIND)) expect(recordProblemOf(record), kind).toBe(reason);
+    for (const [kind, [record, reason]] of Object.entries(MALFORMED_RECORD_FOR_KIND)) expect(logRecordProblemOf(record), kind).toBe(reason);
   });
 
   test('a value that is not an object is refused', () => {
-    expect(recordProblemOf(['note'])).toBe('it is not an object');
-    expect(recordProblemOf(null)).toBe('it is not an object');
-    expect(recordProblemOf('Example note')).toBe('it is not an object');
+    expect(logRecordProblemOf(['note'])).toBe('it is not an object');
+    expect(logRecordProblemOf(null)).toBe('it is not an object');
+    expect(logRecordProblemOf('Example note')).toBe('it is not an object');
   });
 
   test('a record without a timestamp is refused naming at', () => {
-    expect(recordProblemOf(withKeys('note', { at: 1_700_000_000 }))).toBe('at is not a string');
+    expect(logRecordProblemOf(withKeys('note', { at: 1_700_000_000 }))).toBe('at is not a string');
   });
 
   test('an unknown kind is refused, and so is constructor, which every object carries', () => {
-    expect(recordProblemOf(withKeys('note', { kind: 'ticket-done' }))).toBe('kind is "ticket-done", which is not a kind of log record');
-    expect(recordProblemOf(withKeys('note', { kind: 'constructor' }))).toBe('kind is "constructor", which is not a kind of log record');
-    expect(recordProblemOf(withKeys('note', { kind: undefined }))).toBe('kind is undefined, which is not a kind of log record');
+    expect(logRecordProblemOf(withKeys('note', { kind: 'ticket-done' }))).toBe('kind is "ticket-done", which is not a kind of log record');
+    expect(logRecordProblemOf(withKeys('note', { kind: 'constructor' }))).toBe('kind is "constructor", which is not a kind of log record');
+    expect(logRecordProblemOf(withKeys('note', { kind: undefined }))).toBe('kind is undefined, which is not a kind of log record');
   });
 
   test('a record whose fields are missing is refused naming fields', () => {
-    expect(recordProblemOf(withKeys('note', { fields: undefined }))).toBe('fields is not an object');
+    expect(logRecordProblemOf(withKeys('note', { fields: undefined }))).toBe('fields is not an object');
   });
 });

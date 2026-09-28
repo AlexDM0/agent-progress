@@ -4,7 +4,7 @@
  */
 import type { Task }       from '../../src/lib/tracker-model/@types/Task.ts';
 import type { Ticket }     from '../../src/lib/tracker-model/@types/Ticket.ts';
-import { BoardFactsUtil }  from '../../src/services/render/utils/BoardFactsUtil.ts';
+import { boardFactsOf }    from '../../src/services/render/BoardFacts.ts';
 import type { PageTicket } from '../../src/shared/@types/PagePayload.ts';
 import { boardFixture }    from '../../src/testing/BoardFixtures.ts';
 import type { PageBoard }  from '../@types/PageBoard.ts';
@@ -20,5 +20,5 @@ export function pageBoardFixture(contents: { tasks: readonly Task[]; tickets?: r
   const tickets   = contents.tickets ?? [];
   const tasks     = [...contents.tasks];
   const { board } = boardFixture({ tasks, tickets: tickets.map(modelTicketOf) });
-  return IslandUtil.pageBoardFrom(tasks, BoardFactsUtil.boardFactsOf(board), tickets);
+  return IslandUtil.pageBoardFrom(tasks, boardFactsOf(board), tickets);
 }

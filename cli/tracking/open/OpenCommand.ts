@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { requireWorkspace }        from '../../../src/services/tracker/Workspace.ts';
 import type { CommandHandler }     from '../../CommandHandler.ts';
 import { renderDashboardOrRefuse } from '../RenderDashboardOrRefuse.ts';
-import { OpenerUtil }              from './utils/OpenerUtil.ts';
+import { openerFor }               from './OpenerFor.ts';
 
 const USAGE = 'agent-progress open';
 
@@ -18,7 +18,7 @@ export const openCommand: CommandHandler = async (commandArguments, context) => 
     await renderDashboardOrRefuse(context, workspace);
   }
 
-  const opener = OpenerUtil.openerFor(context.platform);
+  const opener = openerFor(context.platform);
   try {
     // Detached with its streams dropped: a browser launched cold would otherwise inherit the pipes and keep this process alive.
     const spawned = Bun.spawn([opener, workspace.htmlFilePath], {

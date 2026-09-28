@@ -1,11 +1,11 @@
 /** The range the geometry is finally given, once the viewer's stored override is laid over the tracker's own. */
 
-import type { TrackerProgress, ViewRange } from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
-import type { TimelineLimits }             from '../../@types/Timeline.ts';
-import type { StoredViewOverride }         from '../../@types/ViewerChoices.ts';
-import { GeometryUtil }                    from '../../utils/GeometryUtil.ts';
+import type { TrackerProgress, ViewRange } from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
+import type { TimelineLimits }             from '../@types/Timeline.ts';
+import type { StoredViewOverride }         from '../@types/ViewerChoices.ts';
+import { GeometryUtil }                    from '../utils/GeometryUtil.ts';
 
-function effectiveRangeFor(progress: TrackerProgress, override: StoredViewOverride, nowEpochMilliseconds: number, limits: TimelineLimits): ViewRange {
+export function effectiveViewRangeFor(progress: TrackerProgress, override: StoredViewOverride, nowEpochMilliseconds: number, limits: TimelineLimits): ViewRange {
   if (override.fromText !== null && override.toText !== null) {
     return {
       kind:        'relative',
@@ -39,5 +39,3 @@ function effectiveRangeFor(progress: TrackerProgress, override: StoredViewOverri
     tickMinutes: override.tickMinutes,
   };
 }
-
-export const ViewRangeUtil = { effectiveRangeFor } as const;

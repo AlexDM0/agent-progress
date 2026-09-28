@@ -1,7 +1,7 @@
 /** Maps a Board to the progress island's `boardFacts`, one Board query per fact, with every row named by its position in `board.tasks()`. */
-import type { Task }                                          from '../../../lib/tracker-model/@types/Task.ts';
-import type { Board }                                         from '../../../lib/tracker-model/Board.ts';
-import type { PageBoardFacts, PageRowFacts, PageTicketFacts } from '../../../shared/@types/PagePayload.ts';
+import type { Task }                                          from '../../lib/tracker-model/@types/Task.ts';
+import type { Board }                                         from '../../lib/tracker-model/Board.ts';
+import type { PageBoardFacts, PageRowFacts, PageTicketFacts } from '../../shared/@types/PagePayload.ts';
 
 type RowPositions = ReadonlyMap<Readonly<Task>, number>;
 
@@ -21,7 +21,7 @@ function ownRowPositionByReviewBar(board: Board, rowPositions: RowPositions): Ma
   return ownRowPositionByBar;
 }
 
-function boardFactsOf(board: Board): PageBoardFacts {
+export function boardFactsOf(board: Board): PageBoardFacts {
   const rowPositions        = new Map(board.tasks().map((task, position) => [task, position] as const));
   const ownRowPositionByBar = ownRowPositionByReviewBar(board, rowPositions);
 
@@ -41,5 +41,3 @@ function boardFactsOf(board: Board): PageBoardFacts {
 
   return { rows, tickets };
 }
-
-export const BoardFactsUtil = { boardFactsOf } as const;

@@ -14,8 +14,10 @@ import type { TrackerProgress }                          from '../../lib/tracker
 import type { PageConcurrency, PagePayload, PageTicket } from '../../shared/@types/PagePayload.ts';
 import { resourceFilePathOf }                            from '../../shared/ResourceFilePath.ts';
 import { LIMITS }                                        from '../../shared/constants/Limits.ts';
+import { TIME_UNITS }                                    from '../../shared/constants/TimeUnits.ts';
+import { TIMESTAMP_SLICES }                              from '../../shared/constants/TimestampSlices.ts';
+import { substituteTemplateTokens }                      from './TemplateTokenSubstitution.ts';
 import { TEMPLATE_FILE_NAME, TEMPLATE_TOKENS }           from './constants/TemplateFile.ts';
-import { TemplateTokenUtil }                             from './utils/TemplateTokenUtil.ts';
 
 interface PageTemplateFillInput {
   progress:          TrackerProgress;
@@ -38,14 +40,14 @@ function pageLimits(): PagePayload['limits'] {
     minimumBarWidthPercent:      LIMITS.MINIMUM_BAR_WIDTH_PERCENT,
     hoursAxisLabelLimitMinutes:  LIMITS.HOURS_AXIS_LABEL_LIMIT_MINUTES,
     weekAxisLabelLimitMinutes:   LIMITS.WEEK_AXIS_LABEL_LIMIT_MINUTES,
-    hourMinutes:                 LIMITS.HOUR_MINUTES,
-    dayMinutes:                  LIMITS.DAY_MINUTES,
+    hourMinutes:                 TIME_UNITS.HOUR_MINUTES,
+    dayMinutes:                  TIME_UNITS.DAY_MINUTES,
     tickCountSafetyBound:        LIMITS.TICK_COUNT_SAFETY_BOUND,
-    dateAndClockLength:          LIMITS.DATE_AND_CLOCK_LENGTH_CHARACTERS,
-    calendarDateLength:          LIMITS.CALENDAR_DATE_LENGTH_CHARACTERS,
-    monthAndDaySliceStart:       LIMITS.MONTH_AND_DAY_SLICE_START_CHARACTER_OFFSET,
-    clockSliceStart:             LIMITS.CLOCK_SLICE_START_CHARACTER_OFFSET,
-    clockSliceEnd:               LIMITS.CLOCK_SLICE_END_CHARACTER_OFFSET,
+    dateAndClockLength:          TIMESTAMP_SLICES.DATE_AND_CLOCK_LENGTH_CHARACTERS,
+    calendarDateLength:          TIMESTAMP_SLICES.CALENDAR_DATE_LENGTH_CHARACTERS,
+    monthAndDaySliceStart:       TIMESTAMP_SLICES.MONTH_AND_DAY_SLICE_START_CHARACTER_OFFSET,
+    clockSliceStart:             TIMESTAMP_SLICES.CLOCK_SLICE_START_CHARACTER_OFFSET,
+    clockSliceEnd:               TIMESTAMP_SLICES.CLOCK_SLICE_END_CHARACTER_OFFSET,
     doneWorkVisibleMilliseconds: LIMITS.DONE_WORK_VISIBLE_MILLISECONDS,
   };
 }
@@ -95,7 +97,7 @@ export function fillPageTemplate(input: PageTemplateFillInput): string {
     boardFacts,
   };
 
-  return TemplateTokenUtil.substituteTemplateTokens(template, {
+  return substituteTemplateTokens(template, {
     [TEMPLATE_TOKENS.TITLE]:       `<title>${HtmlEscapeUtil.escapeHtml(progress.project)} progress</title>`,
     [TEMPLATE_TOKENS.PROGRESS]:    HtmlEscapeUtil.escapeJsonForScriptTag(JSON.stringify(payload)),
     [TEMPLATE_TOKENS.TICKETS]:     HtmlEscapeUtil.escapeJsonForScriptTag(JSON.stringify(pageTicketsFor(tickets, renderMarkdown))),

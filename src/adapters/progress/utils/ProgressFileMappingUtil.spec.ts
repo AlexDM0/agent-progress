@@ -6,7 +6,7 @@
  */
 import { expect, test } from 'bun:test';
 
-import { LIMITS }                     from '../../../shared/constants/Limits.ts';
+import { JSON_INDENT_SPACES }         from '../../../shared/constants/JsonIndent.ts';
 import { emptyProgress, fileRow }     from '../../../testing/ProgressFixtures.ts';
 import type { StoredProgressFile }    from '../@types/StoredProgressFile.ts';
 import { ProgressFileMappingUtil }    from './ProgressFileMappingUtil.ts';
@@ -30,7 +30,7 @@ function storedTextWithUnknownKeys(): string {
     }],
     trailingKey: { nested: true },
   };
-  return `${JSON.stringify(document, null, LIMITS.JSON_INDENT_SPACES)}\n`;
+  return `${JSON.stringify(document, null, JSON_INDENT_SPACES)}\n`;
 }
 
 /** Parsed from text and validated, as the ingestion does, since a typed literal cannot hold a key the type does not know. */
@@ -41,7 +41,7 @@ function storedDocumentOf(text: string): StoredProgressFile {
 }
 
 function writtenTextOf(document: StoredProgressFile): string {
-  return `${JSON.stringify(document, null, LIMITS.JSON_INDENT_SPACES)}\n`;
+  return `${JSON.stringify(document, null, JSON_INDENT_SPACES)}\n`;
 }
 
 test('every top-level key but version, unknown ones included, comes through in the file\'s order', () => {

@@ -5,11 +5,9 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { TemplatePlaceholderUtil } from './TemplatePlaceholderUtil.ts';
+import { filledTemplateOf } from './FilledTemplate.ts';
 
-const { filledTemplateOf } = TemplatePlaceholderUtil;
-
-describe('TemplatePlaceholderUtil.filledTemplateOf', () => {
+describe('filledTemplateOf', () => {
   test('a placeholder repeated three times is filled everywhere', () => {
     expect(filledTemplateOf('{{id}} and {{id}}, then {{id}}', { id: '007' })).toBe('007 and 007, then 007');
   });

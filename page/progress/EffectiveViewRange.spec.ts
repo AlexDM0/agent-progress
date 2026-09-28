@@ -4,14 +4,12 @@
  */
 
 import { describe, expect, test }  from 'bun:test';
-import type { Task }               from '../../../src/lib/tracker-model/@types/Task.ts';
-import type { TrackerProgress }    from '../../../src/lib/tracker-model/@types/TrackerProgress.ts';
-import type { StoredViewOverride } from '../../@types/ViewerChoices.ts';
-import { EMPTY_VIEW_OVERRIDE }     from '../../preferences/constants/ViewOverride.ts';
-import { EXAMPLE_PAGE_LIMITS }     from '../../testing/PageLimitsFixture.ts';
-import { ViewRangeUtil }           from './ViewRangeUtil.ts';
-
-const { effectiveRangeFor } = ViewRangeUtil;
+import type { Task }               from '../../src/lib/tracker-model/@types/Task.ts';
+import type { TrackerProgress }    from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
+import type { StoredViewOverride } from '../@types/ViewerChoices.ts';
+import { EMPTY_VIEW_OVERRIDE }     from '../preferences/constants/ViewOverride.ts';
+import { EXAMPLE_PAGE_LIMITS }     from '../testing/PageLimitsFixture.ts';
+import { effectiveViewRangeFor }   from './EffectiveViewRange.ts';
 
 const EXAMPLE_START_EPOCH_MILLISECONDS = Date.UTC(2026, 8, 18, 18, 0, 0);
 
@@ -44,14 +42,14 @@ function overrideWith(changes: Partial<StoredViewOverride>): StoredViewOverride 
   return { ...EMPTY_VIEW_OVERRIDE, ...changes };
 }
 
-describe('effectiveRangeFor', () => {
+describe('effectiveViewRangeFor', () => {
   test('falls back to the range stored in the progress file when nothing is overridden', () => {
-    expect(effectiveRangeFor(exampleProgress(), EMPTY_VIEW_OVERRIDE, EXAMPLE_START_EPOCH_MILLISECONDS, EXAMPLE_PAGE_LIMITS))
+    expect(effectiveViewRangeFor(exampleProgress(), EMPTY_VIEW_OVERRIDE, EXAMPLE_START_EPOCH_MILLISECONDS, EXAMPLE_PAGE_LIMITS))
       .toEqual({ kind: 'auto' });
   });
 
   test('uses the typed bounds verbatim, so a relative one keeps resolving against each new now', () => {
-    const range = effectiveRangeFor(
+    const range = effectiveViewRangeFor(
       exampleProgress(),
       overrideWith({ fromText: '-4h', toText: 'now', tickMinutes: 30 }),
       EXAMPLE_START_EPOCH_MILLISECONDS,
@@ -64,13 +62,13 @@ describe('effectiveRangeFor', () => {
   });
 
   test('ignores a single bound and keeps the tracker’s own range', () => {
-    const range = effectiveRangeFor(exampleProgress(), overrideWith({ fromText: '-4h' }), EXAMPLE_START_EPOCH_MILLISECONDS, EXAMPLE_PAGE_LIMITS);
+    const range = effectiveViewRangeFor(exampleProgress(), overrideWith({ fromText: '-4h' }), EXAMPLE_START_EPOCH_MILLISECONDS, EXAMPLE_PAGE_LIMITS);
 
     expect(range).toEqual({ kind: 'auto' });
   });
 
   test('materialises the automatic axis as an absolute range when a tick is chosen while on Auto', () => {
-    const range = effectiveRangeFor(exampleProgress(), overrideWith({ tickMinutes: 15 }), EXAMPLE_START_EPOCH_MILLISECONDS, EXAMPLE_PAGE_LIMITS);
+    const range = effectiveViewRangeFor(exampleProgress(), overrideWith({ tickMinutes: 15 }), EXAMPLE_START_EPOCH_MILLISECONDS, EXAMPLE_PAGE_LIMITS);
 
     expect(range.kind).toBe('absolute');
     expect(range.kind === 'absolute' && range.tickMinutes).toBe(15);
@@ -79,8 +77,8 @@ describe('effectiveRangeFor', () => {
 
   test('re-materialises that axis against the now it is given, rather than freezing it', () => {
     const override = overrideWith({ tickMinutes: 15 });
-    const early = effectiveRangeFor(exampleProgress(), override, EXAMPLE_START_EPOCH_MILLISECONDS, EXAMPLE_PAGE_LIMITS);
-    const later = effectiveRangeFor(exampleProgress(), override, EXAMPLE_START_EPOCH_MILLISECONDS + 3 * 60 * 60_000, EXAMPLE_PAGE_LIMITS);
+    const early = effectiveViewRangeFor(exampleProgress(), override, EXAMPLE_START_EPOCH_MILLISECONDS, EXAMPLE_PAGE_LIMITS);
+    const later = effectiveViewRangeFor(exampleProgress(), override, EXAMPLE_START_EPOCH_MILLISECONDS + 3 * 60 * 60_000, EXAMPLE_PAGE_LIMITS);
 
     expect(early.kind === 'absolute' && later.kind === 'absolute' && later.to).not.toBe(early.kind === 'absolute' ? early.to : '');
   });

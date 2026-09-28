@@ -1,5 +1,5 @@
-import type { InstallManifestReading } from '../../src/adapters/install/InstallManifestIngestion.ts';
-import type { InstallVersionMismatch } from '../../src/shared/@types/InstallVersionMismatch.ts';
+import type { InstallManifestReading } from '../src/adapters/install/InstallManifestIngestion.ts';
+import type { InstallVersionMismatch } from '../src/shared/@types/InstallVersionMismatch.ts';
 
 export type InstallVersionVerdict =
   | { verdict: 'current' }
@@ -9,7 +9,7 @@ export type InstallVersionVerdict =
  * A missing manifest is a mismatch only while the tool's files are installed: they are then from before versioning. With nothing installed
  * nothing can disagree with the running CLI. An unreadable manifest fails closed.
  */
-function verdictOf(reading: InstallManifestReading, installedFilesArePresent: boolean, installVersion: number): InstallVersionVerdict {
+export function installVersionVerdictOf(reading: InstallManifestReading, installedFilesArePresent: boolean, installVersion: number): InstallVersionVerdict {
   switch (reading.verdict) {
     case 'absent':
       return installedFilesArePresent ? { verdict: 'mismatch', mismatch: { reason: 'unversioned' } } : { verdict: 'current' };
@@ -25,5 +25,3 @@ function verdictOf(reading: InstallManifestReading, installedFilesArePresent: bo
       };
   }
 }
-
-export const InstallVersionVerdictUtil = { verdictOf } as const;

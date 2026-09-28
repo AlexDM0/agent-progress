@@ -6,26 +6,24 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { InstallVersionVerdictUtil } from './InstallVersionVerdictUtil.ts';
+import { installVersionVerdictOf } from './InstallVersionVerdict.ts';
 
-const { verdictOf } = InstallVersionVerdictUtil;
-
-describe('InstallVersionVerdictUtil.verdictOf', () => {
+describe('installVersionVerdictOf', () => {
   test('a manifest recording the running install version is current', () => {
-    expect(verdictOf({ verdict: 'readable', installVersion: 7 }, true, 7)).toEqual({ verdict: 'current' });
+    expect(installVersionVerdictOf({ verdict: 'readable', installVersion: 7 }, true, 7)).toEqual({ verdict: 'current' });
   });
 
   test('a lower recorded version is an older mismatch carrying that version', () => {
-    expect(verdictOf({ verdict: 'readable', installVersion: 5 }, true, 7)).toEqual({ verdict: 'mismatch', mismatch: { reason: 'older', installedVersion: 5 } });
+    expect(installVersionVerdictOf({ verdict: 'readable', installVersion: 5 }, true, 7)).toEqual({ verdict: 'mismatch', mismatch: { reason: 'older', installedVersion: 5 } });
   });
 
   test('a higher recorded version is a newer mismatch carrying that version', () => {
-    expect(verdictOf({ verdict: 'readable', installVersion: 9 }, true, 7)).toEqual({ verdict: 'mismatch', mismatch: { reason: 'newer', installedVersion: 9 } });
+    expect(installVersionVerdictOf({ verdict: 'readable', installVersion: 9 }, true, 7)).toEqual({ verdict: 'mismatch', mismatch: { reason: 'newer', installedVersion: 9 } });
   });
 
   test('an unreadable manifest is a mismatch carrying the problem, whether or not files are present', () => {
     for (const installedFilesArePresent of [true, false]) {
-      expect(verdictOf({ verdict: 'unreadable', reason: 'it is not a JSON object' }, installedFilesArePresent, 7)).toEqual({
+      expect(installVersionVerdictOf({ verdict: 'unreadable', reason: 'it is not a JSON object' }, installedFilesArePresent, 7)).toEqual({
         verdict:  'mismatch',
         mismatch: { reason: 'unreadable', manifestProblem: 'it is not a JSON object' },
       });
@@ -34,15 +32,15 @@ describe('InstallVersionVerdictUtil.verdictOf', () => {
 
   test('a directory at the manifest\'s path is a manifest-is-a-directory mismatch, whether or not files are present', () => {
     for (const installedFilesArePresent of [true, false]) {
-      expect(verdictOf({ verdict: 'directory' }, installedFilesArePresent, 7)).toEqual({ verdict: 'mismatch', mismatch: { reason: 'manifest-is-a-directory' } });
+      expect(installVersionVerdictOf({ verdict: 'directory' }, installedFilesArePresent, 7)).toEqual({ verdict: 'mismatch', mismatch: { reason: 'manifest-is-a-directory' } });
     }
   });
 
   test('a missing manifest while installed files are present is an unversioned mismatch', () => {
-    expect(verdictOf({ verdict: 'absent' }, true, 7)).toEqual({ verdict: 'mismatch', mismatch: { reason: 'unversioned' } });
+    expect(installVersionVerdictOf({ verdict: 'absent' }, true, 7)).toEqual({ verdict: 'mismatch', mismatch: { reason: 'unversioned' } });
   });
 
   test('a missing manifest with nothing installed is current', () => {
-    expect(verdictOf({ verdict: 'absent' }, false, 7)).toEqual({ verdict: 'current' });
+    expect(installVersionVerdictOf({ verdict: 'absent' }, false, 7)).toEqual({ verdict: 'current' });
   });
 });

@@ -18,8 +18,6 @@ function textNamesTicket(text: string, ticketId: string): boolean {
   return new RegExp(`(?<!\\b(?:task|row) )#${ticketId}(?![0-9])`, 'i').test(text);
 }
 
-function noteNamesTaskOrTicket(text: string, taskId: number | null, ticketId: string | null): boolean {
+export function noteNamesTaskOrTicket(text: string, taskId: number | null, ticketId: string | null): boolean {
   return (taskId !== null && textNamesTask(text, taskId)) || (ticketId !== null && textNamesTicket(text, ticketId));
 }
-
-export const NoteSentenceMatchUtil = { noteNamesTaskOrTicket } as const;
