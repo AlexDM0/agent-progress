@@ -15,4 +15,5 @@ export const TICKET_USAGE = [
   'agent-progress ticket agent <id> [--model <m>] [--effort <e>] [--at <when>]',
   'agent-progress ticket hold <id> [--reason <text>] [--at <when>]',
   'agent-progress ticket unhold <id> [--at <when>]',
+  'agent-progress ticket release-of <id> [--clear] [--at <when>]',
 ].join('\n         ');

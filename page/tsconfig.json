@@ -20,6 +20,7 @@
     "../src/lib/tracker-model/BoardRefusal.ts",
     "../src/lib/tracker-model/DispatchQueries.ts",
     "../src/lib/tracker-model/DisplayQueries.ts",
+    "../src/lib/tracker-model/GroupReleases.ts",
     "../src/lib/tracker-model/Logger.ts",
     "../src/lib/tracker-model/ReadingBoard.ts",
     "../src/lib/tracker-model/ReviewBars.ts",

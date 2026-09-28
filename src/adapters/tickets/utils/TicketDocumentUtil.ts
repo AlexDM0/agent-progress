@@ -44,6 +44,9 @@ const BLANK_LINE_KEY = '';
 
 const OPTIONAL_TEXT_KEYS = ['group', 'branch', 'commit', 'reason'] as const;
 
+const RELEASES_GROUP_KEY   = 'releasesGroup';
+const RELEASES_GROUP_VALUE = 'true';
+
 const KNOWN_KEYS = new Set<string>([
   'id',
   'title',
@@ -60,6 +63,7 @@ const KNOWN_KEYS = new Set<string>([
   'delivered',
   'abandonedAt',
   ...OPTIONAL_TEXT_KEYS,
+  RELEASES_GROUP_KEY,
   'dependsOn',
   'task',
 ]);
@@ -171,6 +175,10 @@ function ticketDocumentTextOf(frontmatter: TicketFrontmatter, body: string, line
     if (value !== undefined) {
       lines.push(`${key}: ${JSON.stringify(value)}`);
     }
+  }
+
+  if (frontmatter.releasesGroup === true) {
+    lines.push(`${RELEASES_GROUP_KEY}: ${RELEASES_GROUP_VALUE}`);
   }
 
   if (frontmatter.dependsOn !== undefined && frontmatter.dependsOn.length > 0) {
@@ -317,6 +325,7 @@ function frontmatterFrom(
     delivered:   nullableText(knownValues, 'delivered'),
     abandonedAt: nullableText(knownValues, 'abandonedAt'),
     ...optionalTextFields(knownValues),
+    ...releasesGroupField(knownValues),
     ...dependencyField(knownValues),
     task:        nullableInteger(knownValues, 'task'),
     extra,
@@ -378,6 +387,18 @@ function agentFields(knownValues: Map<string, KnownValue>): Pick<TicketFrontmatt
     fields.effort = effortText;
   }
   return fields;
+}
+
+/** Absent or `null` is not the release ticket; `true`, quoted or not, is; anything else is refused rather than guessed at. */
+function releasesGroupField(knownValues: Map<string, KnownValue>): Pick<TicketFrontmatter, 'releasesGroup'> {
+  const found = knownValues.get(RELEASES_GROUP_KEY);
+  if (found === undefined || found.value === null) {
+    return {};
+  }
+  if (found.value !== RELEASES_GROUP_VALUE) {
+    throw new FrontmatterProblem(`\`${RELEASES_GROUP_KEY}\` is neither true nor null: ${found.value}`, found.line);
+  }
+  return { releasesGroup: true };
 }
 
 /** Absent or `null` is not held; any other value is held, a bare `hold:` included, and is the hold's reason. */

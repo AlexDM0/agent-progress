@@ -272,6 +272,14 @@ output never carries either.
                               other. Refused at exit 1 on a delivered or abandoned ticket and on
                               one not held.
 
+  ticket release-of <id> [--clear] [--at <when>]
+                              Mark a ticket as its group's release ticket: the group's release is
+                              that ticket plus every ticket of the group it depends on, directly or
+                              not. Stored as \`releasesGroup: true\`; --clear removes it. One log
+                              line. Refused at exit 1 on a ticket with no group, when the group
+                              already has a release ticket, on a delivered or abandoned ticket,
+                              and with --clear on a ticket that is not marked.
+
   ticket priority <id> low|normal|high [--at <when>]
                               Change a ticket's priority, with one log line. Lowering to low is
                               refused unless the ticket is pending, and removes its row; raising a

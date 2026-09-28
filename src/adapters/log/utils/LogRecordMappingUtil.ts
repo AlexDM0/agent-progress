@@ -38,6 +38,7 @@ function recordOf(validated: unknown): LogRecord {
     case 'ticket-approved':
     case 'ticket-delivered':
     case 'ticket-unheld':
+    case 'ticket-release-cleared':
       return {
         at,
         kind:     record.kind,
@@ -51,6 +52,13 @@ function recordOf(validated: unknown): LogRecord {
         kind:     record.kind,
         ticketId: record.ticketId,
         fields:   { reason: record.fields.reason },
+      };
+    case 'ticket-release-marked':
+      return {
+        at,
+        kind:     record.kind,
+        ticketId: record.ticketId,
+        fields:   { group: record.fields.group },
       };
     case 'ticket-rereviewed':
       return {

@@ -276,6 +276,43 @@ describe('parsedTicketDocumentOf', () => {
   });
 });
 
+describe('releasesGroup', () => {
+  const MARKED_TICKET = FULL_TICKET.replace('branch: "ticket/export-dialog"\n', 'branch: "ticket/export-dialog"\nreleasesGroup: true\n');
+
+  test('a marked ticket reads as the release ticket and writes back byte for byte', () => {
+    const { frontmatter, body, lineEnding } = parsedDocument(MARKED_TICKET);
+
+    expect(frontmatter.releasesGroup).toBe(true);
+    expect(TicketDocumentUtil.ticketDocumentTextOf(frontmatter, body, lineEnding)).toBe(MARKED_TICKET);
+  });
+
+  test('a later transition rewrites the marked ticket with the mark on the line it stood', () => {
+    const { frontmatter, body, lineEnding } = parsedDocument(MARKED_TICKET);
+    frontmatter.status   = 'in-review';
+    frontmatter.updated  = '2026-09-18T21:00:00+02:00';
+    frontmatter.finished = '2026-09-18T21:00:00+02:00';
+
+    const expected = MARKED_TICKET
+      .replace('status: "in-progress"', 'status: "in-review"')
+      .replace('updated: "2026-09-18T20:40:00+02:00"', 'updated: "2026-09-18T21:00:00+02:00"')
+      .replace('finished: null', 'finished: "2026-09-18T21:00:00+02:00"');
+    expect(TicketDocumentUtil.ticketDocumentTextOf(frontmatter, body, lineEnding)).toBe(expected);
+  });
+
+  test('clearing the mark leaves the file byte-identical to one that never had it', () => {
+    const { frontmatter, body, lineEnding } = parsedDocument(MARKED_TICKET);
+    delete frontmatter.releasesGroup;
+
+    expect(TicketDocumentUtil.ticketDocumentTextOf(frontmatter, body, lineEnding)).toBe(FULL_TICKET);
+  });
+
+  test('null reads as not marked, and any value but true is malformed at its line', () => {
+    expect(parsedDocument(MARKED_TICKET.replace('releasesGroup: true', 'releasesGroup: null')).frontmatter.releasesGroup).toBeUndefined();
+    expect(TicketDocumentUtil.parsedTicketDocumentOf(MARKED_TICKET.replace('releasesGroup: true', 'releasesGroup: yes')))
+      .toEqual({ verdict: 'malformed', reason: '`releasesGroup` is neither true nor null: yes', line: 14 });
+  });
+});
+
 describe('dependsOn', () => {
   // An agent editing a ticket by hand writes whatever looks natural; every spelling of the same ids has to read the same.
   test('reads ids written with commas or spaces, with or without a hash or padding, once each', () => {

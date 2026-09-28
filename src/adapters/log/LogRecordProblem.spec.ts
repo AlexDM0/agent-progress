@@ -13,7 +13,7 @@ import { logRecordProblemOf }         from './LogRecordProblem.ts';
 
 const RECORDED_AT = '2026-09-18T21:30:54+02:00';
 
-const RECORD_KIND_COUNT = 21;
+const RECORD_KIND_COUNT = 23;
 
 const REVIEW_BAR = { taskId: 7, ticketId: '001', fields: { name: 'Review 1 #001 — Example checkout flow' } };
 
@@ -56,6 +56,8 @@ const WELL_FORMED_RECORD_FOR_KIND: Readonly<Record<LogRecord['kind'], LogRecord>
   'ticket-agents-changed':   log({ kind: 'ticket-agents-changed', ticketId: '001', fields: { from: DEFAULT_AGENTS, to: CHOSEN_AGENTS } }, RECORDED_AT),
   'ticket-held':             log({ kind: 'ticket-held', ticketId: '001', fields: { reason: '' } }, RECORDED_AT),
   'ticket-unheld':           log({ kind: 'ticket-unheld', ticketId: '001', fields: {} }, RECORDED_AT),
+  'ticket-release-marked':   log({ kind: 'ticket-release-marked', ticketId: '001', fields: { group: 'example-shop' } }, RECORDED_AT),
+  'ticket-release-cleared':  log({ kind: 'ticket-release-cleared', ticketId: '001', fields: {} }, RECORDED_AT),
   'review-bar-started':      log({ kind: 'review-bar-started', ...REVIEW_BAR }, RECORDED_AT),
   'review-bar-closed':       log({ kind: 'review-bar-closed', ...REVIEW_BAR }, RECORDED_AT),
   'chart-range-set':         log({ kind: 'chart-range-set', fields: { view: RELATIVE_VIEW } }, RECORDED_AT),
@@ -89,6 +91,8 @@ const MALFORMED_RECORD_FOR_KIND: Readonly<Record<LogRecord['kind'], readonly [Re
   'ticket-agents-changed':   [withFields('ticket-agents-changed', { from: { model: 'gpt', effort: 'low' } }), 'fields.from.model is "gpt", which is not a known model'],
   'ticket-held':             [withFields('ticket-held', { reason: undefined }), 'fields.reason is not a string'],
   'ticket-unheld':           [withKeys('ticket-unheld', { ticketId: {} }), 'ticketId is not a string'],
+  'ticket-release-marked':   [withFields('ticket-release-marked', { group: 3 }), 'fields.group is not a string'],
+  'ticket-release-cleared':  [withKeys('ticket-release-cleared', { ticketId: 7 }), 'ticketId is not a string'],
   'review-bar-started':      [withKeys('review-bar-started', { taskId: 7.5 }), 'taskId is not a whole number'],
   'review-bar-closed':       [withFields('review-bar-closed', { name: 42 }), 'fields.name is not a string'],
   'chart-range-set':         [withFields('chart-range-set', { view: { kind: 'absolute', from: '-2h' } }), 'fields.view is not a chart range'],
@@ -99,7 +103,7 @@ const MALFORMED_RECORD_FOR_KIND: Readonly<Record<LogRecord['kind'], readonly [Re
 };
 
 describe('a well-formed record', () => {
-  test('the table holds one record for each of the 21 kinds, each under its own kind', () => {
+  test('the table holds one record for each of the 23 kinds, each under its own kind', () => {
     const entries = Object.entries(WELL_FORMED_RECORD_FOR_KIND);
     expect(entries).toHaveLength(RECORD_KIND_COUNT);
     for (const [kind, record] of entries) expect(record.kind).toBe(kind as LogRecord['kind']);

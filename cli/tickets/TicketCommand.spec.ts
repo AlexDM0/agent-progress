@@ -714,6 +714,7 @@ describeWhenGitIsPresent('the subcommand groups', () => {
       'link',
       'list',
       'priority',
+      'release-of',
       'reopen',
       'rereview',
       'show',

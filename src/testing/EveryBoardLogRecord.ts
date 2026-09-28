@@ -9,7 +9,7 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
   const { board, records } = boardFixture({
     tickets: [
       ticketFixture({ id: '001', title: 'Example checkout page' }),
-      ticketFixture({ id: '002', title: 'Example cart' }),
+      ticketFixture({ id: '002', title: 'Example cart', group: 'example-shop' }),
     ],
   });
   board.recordNote('Example note from the orchestrator', at);
@@ -19,6 +19,8 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
   board.setTicketAgents('001', { model: 'sonnet', effort: 'high' }, at);
   board.holdTicket('001', 'waiting on Example Agency', at);
   board.unholdTicket('001', at);
+  board.markReleaseTicket('002', at);
+  board.clearReleaseTicket('002', at);
   board.moveTicket('001', 'in-progress', { checksLegality: true }, at);
   board.moveTicket('001', 'in-review', { checksLegality: true }, at);
   board.startReviewBar('001', { round: 1 }, at);

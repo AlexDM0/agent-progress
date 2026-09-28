@@ -74,6 +74,10 @@ function sentenceOf(record: LogRecordContent): string {
       return record.fields.reason === '' ? `Ticket #${record.ticketId} held` : `Ticket #${record.ticketId} held: ${record.fields.reason}`;
     case 'ticket-unheld':
       return `Ticket #${record.ticketId} unheld`;
+    case 'ticket-release-marked':
+      return `Ticket #${record.ticketId} marked as the release ticket of group ${record.fields.group}`;
+    case 'ticket-release-cleared':
+      return `Ticket #${record.ticketId} no longer marked as its group's release ticket`;
     case 'review-bar-started':
       return `Review row #${record.taskId} started: ${record.fields.name}`;
     case 'review-bar-closed':
@@ -114,6 +118,8 @@ function taskIdsConcernedBy(record: LogRecordContent): number[] {
     case 'ticket-agents-changed':
     case 'ticket-held':
     case 'ticket-unheld':
+    case 'ticket-release-marked':
+    case 'ticket-release-cleared':
     case 'chart-range-set':
     case 'concurrency-limit-set':
     case 'dispatcher-set':
@@ -141,6 +147,8 @@ function ticketIdsConcernedBy(record: LogRecordContent): string[] {
     case 'ticket-agents-changed':
     case 'ticket-held':
     case 'ticket-unheld':
+    case 'ticket-release-marked':
+    case 'ticket-release-cleared':
       return [record.ticketId];
     case 'note':
     case 'chart-range-set':

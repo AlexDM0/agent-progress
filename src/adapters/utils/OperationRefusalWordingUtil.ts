@@ -99,6 +99,18 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
       return `Ticket #${detail.ticketId} is already held. ${NOTHING_WAS_WRITTEN}`;
     case 'ticket-not-held':
       return `Ticket #${detail.ticketId} is not held. ${NOTHING_WAS_WRITTEN}`;
+    case 'release-mark-of-a-settled-ticket':
+      return `Ticket #${detail.ticketId} is ${detail.status}, and its release mark was not ${detail.action === 'mark' ? 'set' : 'cleared'}: `
+        + `no agent will work it again. ${NOTHING_WAS_WRITTEN}`;
+    case 'release-mark-of-an-ungrouped-ticket':
+      return `Ticket #${detail.ticketId} belongs to no group, so it cannot be a group's release ticket. ${NOTHING_WAS_WRITTEN}`;
+    case 'group-already-has-a-release-ticket':
+      return detail.releaseTicketId === detail.ticketId
+        ? `Ticket #${detail.ticketId} is already the release ticket of group ${detail.group}. ${NOTHING_WAS_WRITTEN}`
+        : `Group ${detail.group} already has its release ticket, #${detail.releaseTicketId}: `
+          + `clear it with \`agent-progress ticket release-of ${detail.releaseTicketId} --clear\` first. ${NOTHING_WAS_WRITTEN}`;
+    case 'ticket-is-not-a-release-ticket':
+      return `Ticket #${detail.ticketId} is not its group's release ticket. ${NOTHING_WAS_WRITTEN}`;
   }
 }
 

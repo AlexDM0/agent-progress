@@ -62,6 +62,10 @@ function ticketWithReasonProblem(fields: UnknownObject, record: UnknownObject): 
   return firstProblemOf(ticketIdProblem(record), textFieldProblem(fields, 'reason'));
 }
 
+function ticketWithGroupProblem(fields: UnknownObject, record: UnknownObject): string | null {
+  return firstProblemOf(ticketIdProblem(record), textFieldProblem(fields, 'group'));
+}
+
 function ticketRereviewedProblem(fields: UnknownObject, record: UnknownObject): string | null {
   const roundIsWellFormed = StoredValueUtil.wholeNumberIsAtLeast(fields['round'], FIRST_REPEAT_REVIEW_ROUND);
   const roundProblem      = roundIsWellFormed ? null : `fields.round is not a whole round of at least ${FIRST_REPEAT_REVIEW_ROUND}`;
@@ -129,6 +133,8 @@ const CHECK_FOR_KIND: Readonly<Record<LogRecord['kind'], KindCheck>> = {
   'ticket-agents-changed':   ticketAgentsChangedProblem,
   'ticket-held':             ticketWithReasonProblem,
   'ticket-unheld':           ticketOnlyProblem,
+  'ticket-release-marked':   ticketWithGroupProblem,
+  'ticket-release-cleared':  ticketOnlyProblem,
   'review-bar-started':      reviewBarProblem,
   'review-bar-closed':       reviewBarProblem,
   'chart-range-set':         chartRangeSetProblem,

@@ -38,6 +38,7 @@ import type { DispatcherState, TrackerProgress, ViewRange } from './@types/Track
 import { BoardRecords }                                     from './BoardRecords.ts';
 import { DispatchQueries }                                  from './DispatchQueries.ts';
 import { DisplayQueries }                                   from './DisplayQueries.ts';
+import { GroupReleases }                                    from './GroupReleases.ts';
 import type { Logger }                                      from './Logger.ts';
 import { ReviewBars }                                       from './ReviewBars.ts';
 import { TaskRows }                                         from './TaskRows.ts';
@@ -75,6 +76,8 @@ export class Board {
 
   private readonly ticketBodyEdits: TicketBodyEdits;
 
+  private readonly groupReleases: GroupReleases;
+
   private readonly reviewBars: ReviewBars;
 
   private readonly dispatchQueries: DispatchQueries;
@@ -91,6 +94,7 @@ export class Board {
     this.ticketClaims       = new TicketClaims(this.records, this.ticketMoves, this.reviewBars, this.dispatchQueries);
     this.ticketSettings     = new TicketSettings(this.records);
     this.ticketBodyEdits    = new TicketBodyEdits(this.records);
+    this.groupReleases      = new GroupReleases(this.records);
     this.taskRows           = new TaskRows(this.records);
     this.tokenCredits       = new TokenCredits(this.records, this.reviewBars);
     this.trackerChanges     = new TrackerChanges(this.records, this.dispatchQueries);
@@ -192,6 +196,14 @@ export class Board {
     return this.ticketSettings.unholdTicket(ticketId, at);
   }
 
+  markReleaseTicket(ticketId: string, at: string): TicketChanged {
+    return this.groupReleases.markReleaseTicket(ticketId, at);
+  }
+
+  clearReleaseTicket(ticketId: string, at: string): TicketChanged {
+    return this.groupReleases.clearReleaseTicket(ticketId, at);
+  }
+
   editTicketBody(ticketId: string, edit: TicketBodyEdit): TicketBodyEdited {
     return this.ticketBodyEdits.editTicketBody(ticketId, edit);
   }
@@ -251,6 +263,10 @@ export class Board {
 
   ticketIdsHoldingBack(ticketId: string): string[] {
     return this.dispatchQueries.ticketIdsHoldingBack(ticketId);
+  }
+
+  releaseBundleOf(group: string): string[] {
+    return this.groupReleases.releaseBundleOf(group);
   }
 
   pausedBuildRowOf(ticketId: string): Readonly<Task> | null {

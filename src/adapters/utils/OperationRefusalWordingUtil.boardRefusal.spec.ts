@@ -215,9 +215,50 @@ const MESSAGE_FOR_REFUSAL: readonly (readonly [BoardRefusalDetail, string])[] = 
   ],
   [{ reason: 'ticket-already-held', ticketId: '001' }, 'Ticket #001 is already held. Nothing was written.'],
   [{ reason: 'ticket-not-held', ticketId: '001' }, 'Ticket #001 is not held. Nothing was written.'],
+  [
+    {
+      reason:   'release-mark-of-a-settled-ticket',
+      ticketId: '004',
+      status:   'abandoned',
+      action:   'mark',
+    },
+    'Ticket #004 is abandoned, and its release mark was not set: no agent will work it again. Nothing was written.',
+  ],
+  [
+    {
+      reason:   'release-mark-of-a-settled-ticket',
+      ticketId: '004',
+      status:   'delivered',
+      action:   'clear',
+    },
+    'Ticket #004 is delivered, and its release mark was not cleared: no agent will work it again. Nothing was written.',
+  ],
+  [
+    { reason: 'release-mark-of-an-ungrouped-ticket', ticketId: '001' },
+    'Ticket #001 belongs to no group, so it cannot be a group\'s release ticket. Nothing was written.',
+  ],
+  [
+    {
+      reason:          'group-already-has-a-release-ticket',
+      ticketId:        '003',
+      group:           'example-shop',
+      releaseTicketId: '002',
+    },
+    'Group example-shop already has its release ticket, #002: clear it with `agent-progress ticket release-of 002 --clear` first. Nothing was written.',
+  ],
+  [
+    {
+      reason:          'group-already-has-a-release-ticket',
+      ticketId:        '002',
+      group:           'example-shop',
+      releaseTicketId: '002',
+    },
+    'Ticket #002 is already the release ticket of group example-shop. Nothing was written.',
+  ],
+  [{ reason: 'ticket-is-not-a-release-ticket', ticketId: '001' }, 'Ticket #001 is not its group\'s release ticket. Nothing was written.'],
 ];
 
-const REFUSAL_REASON_COUNT = 24;
+const REFUSAL_REASON_COUNT = 28;
 
 test('every reason words as the refusal the command printed before the Board refused for it', () => {
   expect(new Set(MESSAGE_FOR_REFUSAL.map(([detail]) => detail.reason)).size, 'the table covers every reason').toBe(REFUSAL_REASON_COUNT);
