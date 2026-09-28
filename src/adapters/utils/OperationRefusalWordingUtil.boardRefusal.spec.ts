@@ -256,9 +256,22 @@ const MESSAGE_FOR_REFUSAL: readonly (readonly [BoardRefusalDetail, string])[] = 
     'Ticket #002 is already the release ticket of group example-shop. Nothing was written.',
   ],
   [{ reason: 'ticket-is-not-a-release-ticket', ticketId: '001' }, 'Ticket #001 is not its group\'s release ticket. Nothing was written.'],
+  [
+    {
+      reason:          'reopen-beside-an-open-release-ticket',
+      ticketId:        '001',
+      status:          'abandoned',
+      targetStatus:    'pending',
+      group:           'example-shop',
+      releaseTicketId: '002',
+    },
+    'Ticket #001 is abandoned and carries the release mark of group example-shop, so it was not moved to pending: '
+      + 'the group already has its open release ticket, #002, and a group has one. '
+      + 'Clear that mark with `agent-progress ticket release-of 002 --clear` first. Nothing was written.',
+  ],
 ];
 
-const REFUSAL_REASON_COUNT = 28;
+const REFUSAL_REASON_COUNT = 29;
 
 test('every reason words as the refusal the command printed before the Board refused for it', () => {
   expect(new Set(MESSAGE_FOR_REFUSAL.map(([detail]) => detail.reason)).size, 'the table covers every reason').toBe(REFUSAL_REASON_COUNT);

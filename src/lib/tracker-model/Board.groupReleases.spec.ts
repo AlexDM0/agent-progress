@@ -1,7 +1,8 @@
 /**
  * A group's release ticket and its release bundle. The mark is refused, before anything changed, on an ungrouped ticket, a settled one and
  * in a group that already has an open one, while a delivered or abandoned release ticket leaves the group free for a new mark and closes
- * over no bundle; the bundle follows dependencies only inside the group, so neither an out-of-group dependency nor an
+ * over no bundle. A marked settled ticket moved back open, through `ticket reopen` or the unchecked `ticket status`, is refused while
+ * another open ticket of its group carries the mark, and counts again when none does. The bundle follows dependencies only inside the group, so neither an out-of-group dependency nor an
  * in-group ticket that depends on the release ticket, nor one only reached through another group, is in it.
  */
 import { describe, expect, test } from 'bun:test';
@@ -9,6 +10,7 @@ import { describe, expect, test } from 'bun:test';
 import type { BoardFixture }                            from '../../testing/BoardFixtures.ts';
 import { boardFixture, refusalDetailOf, ticketFixture } from '../../testing/BoardFixtures.ts';
 import type { BoardRefusalDetail }                      from './BoardRefusal.ts';
+import { SETTLED_TICKET_STATUSES, TICKET_STATUSES }     from './constants/Statuses.ts';
 
 const CHANGED_AT = '2026-09-28T15:00:00+02:00';
 const GROUP      = 'example-shop';
@@ -106,6 +108,96 @@ describe('marking a release ticket', () => {
   test('clearing a ticket that is not marked is refused', () => {
     const fixture = boardFixture({ tickets: [ticketFixture({ id: '001', group: GROUP })] });
     expectRefusedWithNothingChanged(fixture, () => fixture.board.clearReleaseTicket('001', CHANGED_AT), 'ticket-is-not-a-release-ticket');
+  });
+});
+
+describe('moving a settled release ticket back open', () => {
+  const REOPEN_PATHS = [
+    { path: 'ticket reopen', request: { checksLegality: true } },
+    { path: 'ticket status', request: { checksLegality: false } },
+  ] as const;
+  const OPEN_STATUSES = TICKET_STATUSES.filter((status) => !SETTLED_TICKET_STATUSES.includes(status));
+
+  function openReleaseTicketIdsOf(fixture: BoardFixture): string[] {
+    return fixture.tickets
+      .filter(({ frontmatter }) => frontmatter.group === GROUP && frontmatter.releasesGroup === true && !SETTLED_TICKET_STATUSES.includes(frontmatter.status))
+      .map(({ frontmatter }) => frontmatter.id);
+  }
+
+  for (const { path, request } of REOPEN_PATHS) {
+    test(`${path}: abandoning release ticket A, marking B and reopening A is refused, leaving B the one release ticket`, () => {
+      const fixture = boardFixture({ tickets: [ticketFixture({ id: '001', group: GROUP }), ticketFixture({ id: '002', group: GROUP })] });
+      fixture.board.markReleaseTicket('001', CHANGED_AT);
+      fixture.board.moveTicket('001', 'abandoned', { checksLegality: true, reason: 'superseded by #002' }, CHANGED_AT);
+      fixture.board.markReleaseTicket('002', CHANGED_AT);
+      fixture.records.length = 0;
+
+      const detail = refusalDetailOf(() => fixture.board.moveTicket('001', 'pending', request, CHANGED_AT));
+
+      expect(detail).toEqual({
+        reason:          'reopen-beside-an-open-release-ticket',
+        ticketId:        '001',
+        status:          'abandoned',
+        targetStatus:    'pending',
+        group:           GROUP,
+        releaseTicketId: '002',
+      });
+      expect(fixture.tickets[0]?.frontmatter.status).toBe('abandoned');
+      expect(fixture.records).toEqual([]);
+      expect(openReleaseTicketIdsOf(fixture)).toEqual(['002']);
+      expect(fixture.board.releaseBundleOf(GROUP)).toEqual(['002']);
+    });
+
+    test(`${path}: reopening an abandoned release ticket with no other one marked succeeds, and it is the group's release ticket again`, () => {
+      const fixture = boardFixture({ tickets: [ticketFixture({ id: '001', group: GROUP }), ticketFixture({ id: '002', group: GROUP })] });
+      fixture.board.markReleaseTicket('001', CHANGED_AT);
+      fixture.board.moveTicket('001', 'abandoned', { checksLegality: true, reason: 'paused for now' }, CHANGED_AT);
+
+      fixture.board.moveTicket('001', 'pending', request, CHANGED_AT);
+
+      expect(fixture.tickets[0]?.frontmatter.status).toBe('pending');
+      expect(openReleaseTicketIdsOf(fixture)).toEqual(['001']);
+      expect(fixture.board.releaseBundleOf(GROUP)).toEqual(['001']);
+    });
+  }
+
+  test('no move from delivered or abandoned to any open status, checked or not, leaves a group two open release tickets', () => {
+    let triedMoveCount = 0;
+    for (const { request } of REOPEN_PATHS) {
+      for (const settledStatus of SETTLED_TICKET_STATUSES) {
+        for (const targetStatus of OPEN_STATUSES) {
+          const fixture = boardFixture({
+            tickets: [
+              ticketFixture({
+                id: '001', group: GROUP, status: settledStatus, releasesGroup: true
+              }),
+              ticketFixture({ id: '002', group: GROUP, releasesGroup: true }),
+            ]
+          });
+          const detail = refusalDetailOf(() => fixture.board.moveTicket('001', targetStatus, request, CHANGED_AT));
+          const refusalReasons = request.checksLegality ? ['illegal-ticket-move', 'reopen-beside-an-open-release-ticket'] : ['reopen-beside-an-open-release-ticket'];
+          expect(refusalReasons, `${settledStatus} -> ${targetStatus}`).toContain(detail.reason);
+          expect(openReleaseTicketIdsOf(fixture), `${settledStatus} -> ${targetStatus}`).toEqual(['002']);
+          triedMoveCount++;
+        }
+      }
+    }
+    expect(triedMoveCount).toBe(2 * SETTLED_TICKET_STATUSES.length * OPEN_STATUSES.length);
+  });
+
+  test('a settled release ticket moved to another settled status, or an unmarked one reopened, is not held to the rule', () => {
+    const fixture = boardFixture({
+      tickets: [
+        ticketFixture({
+          id: '001', group: GROUP, status: 'delivered', releasesGroup: true
+        }),
+        ticketFixture({ id: '002', group: GROUP, releasesGroup: true }),
+        ticketFixture({ id: '003', group: GROUP, status: 'abandoned' }),
+      ]
+    });
+    fixture.board.moveTicket('001', 'abandoned', { checksLegality: false, reason: 'withdrawn' }, CHANGED_AT);
+    fixture.board.moveTicket('003', 'pending', { checksLegality: true }, CHANGED_AT);
+    expect(openReleaseTicketIdsOf(fixture)).toEqual(['002']);
   });
 });
 

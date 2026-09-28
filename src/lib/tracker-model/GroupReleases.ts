@@ -1,9 +1,9 @@
 /** A ticket group's release ticket, marked and cleared, and the release bundle it closes over: what reaches the main line as one release. */
-import type { TicketChanged }             from './@types/BoardChanges.ts';
-import type { Ticket, TicketFrontmatter } from './@types/Ticket.ts';
-import type { BoardRecords }              from './BoardRecords.ts';
-import { BoardRefusal }                   from './BoardRefusal.ts';
-import { SETTLED_TICKET_STATUSES }        from './constants/Statuses.ts';
+import type { TicketChanged }                           from './@types/BoardChanges.ts';
+import type { Ticket, TicketFrontmatter, TicketStatus } from './@types/Ticket.ts';
+import type { BoardRecords }                            from './BoardRecords.ts';
+import { BoardRefusal }                                 from './BoardRefusal.ts';
+import { SETTLED_TICKET_STATUSES }                      from './constants/Statuses.ts';
 
 export class GroupReleases {
   constructor(private readonly records: BoardRecords) {}
@@ -52,6 +52,28 @@ export class GroupReleases {
       pendingTicketIds.push(...(ticket.frontmatter.dependsOn ?? []));
     }
     return [...bundleTicketIds].sort((a, b) => Number(a) - Number(b));
+  }
+
+  /** A settled release ticket moved back open beside another open one would give its group two release tickets, whose bundles would union. */
+  refuseReopeningBesideAnOpenReleaseTicket(ticket: Readonly<Ticket>, targetStatus: TicketStatus): void {
+    const {
+      id: ticketId,
+      status,
+      group,
+      releasesGroup,
+    } = ticket.frontmatter;
+    if (releasesGroup !== true || group === undefined) return;
+    if (!SETTLED_TICKET_STATUSES.includes(status) || SETTLED_TICKET_STATUSES.includes(targetStatus)) return;
+    const currentReleaseTicket = this.openReleaseTicketsOf(group)[0];
+    if (currentReleaseTicket === undefined) return;
+    throw new BoardRefusal({
+      reason:          'reopen-beside-an-open-release-ticket',
+      ticketId,
+      status,
+      targetStatus,
+      group,
+      releaseTicketId: currentReleaseTicket.frontmatter.id,
+    });
   }
 
   /** The groups with an open release ticket: their tickets are the group run's, not a whole-board run's. */

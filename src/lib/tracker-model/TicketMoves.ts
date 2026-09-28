@@ -59,6 +59,8 @@ export class TicketMoves {
     if (targetStatus === 'abandoned' && (request.reason === undefined || request.reason.trim() === '')) {
       throw new BoardRefusal({ reason: 'abandon-without-reason', ticketId });
     }
+    // A Board invariant rather than a move's legality, so `ticket status` is held to it too.
+    this.groupReleases.refuseReopeningBesideAnOpenReleaseTicket(ticket, targetStatus);
 
     const moveRecord = this.applyTicketMove(ticket, targetStatus, request, at);
     if (request.tokens !== undefined) {

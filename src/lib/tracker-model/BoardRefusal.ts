@@ -33,7 +33,8 @@ export type BoardRefusalDetail =
   | { reason: 'release-mark-of-a-settled-ticket'; ticketId: string; status: TicketStatus; action: 'mark' | 'clear' }
   | { reason: 'release-mark-of-an-ungrouped-ticket'; ticketId: string }
   | { reason: 'group-already-has-a-release-ticket'; ticketId: string; group: string; releaseTicketId: string }
-  | { reason: 'ticket-is-not-a-release-ticket'; ticketId: string };
+  | { reason: 'ticket-is-not-a-release-ticket'; ticketId: string }
+  | { reason: 'reopen-beside-an-open-release-ticket'; ticketId: string; status: TicketStatus; targetStatus: TicketStatus; group: string; releaseTicketId: string };
 
 export class BoardRefusal extends Error {
   readonly detail: BoardRefusalDetail;

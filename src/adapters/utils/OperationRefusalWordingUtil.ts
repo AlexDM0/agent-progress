@@ -120,6 +120,10 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
           + `clear it with \`agent-progress ticket release-of ${detail.releaseTicketId} --clear\` first. ${NOTHING_WAS_WRITTEN}`;
     case 'ticket-is-not-a-release-ticket':
       return `Ticket #${detail.ticketId} is not its group's release ticket. ${NOTHING_WAS_WRITTEN}`;
+    case 'reopen-beside-an-open-release-ticket':
+      return `Ticket #${detail.ticketId} is ${detail.status} and carries the release mark of group ${detail.group}, so it was not moved to ${detail.targetStatus}: `
+        + `the group already has its open release ticket, #${detail.releaseTicketId}, and a group has one. `
+        + `Clear that mark with \`agent-progress ticket release-of ${detail.releaseTicketId} --clear\` first. ${NOTHING_WAS_WRITTEN}`;
   }
 }
 
