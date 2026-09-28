@@ -64,7 +64,6 @@ export function readBranchDescent(directory: string, branch: string, mainLine: s
   return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(ancestry, ancestryArguments) };
 }
 
-/** Merges the commit that was checked, not the branch name, so a commit made to the branch after the check is not merged unseen. */
 function nulSeparatedFieldsOf(output: string): string[] {
   return output.split('\0').filter((field) => field !== '');
 }
@@ -94,6 +93,7 @@ function blockingFilesOf(directory: string, commit: string): string[] {
   return pathsChangedBetween(directory, commit).filter((path) => uncommittedPaths.has(path));
 }
 
+/** Merges the commit that was checked, not the branch name, so a commit made to the branch after the check is not merged unseen. */
 export function fastForwardTo(directory: string, commit: string): FastForwardOutcome {
   const mergeArguments = ['merge', '--ff-only', '--quiet', commit];
   const run            = GitProcess.run(directory, mergeArguments);
