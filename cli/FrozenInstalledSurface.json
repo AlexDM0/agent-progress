@@ -137,6 +137,7 @@
     ],
     "flags": [
       "--add",
+      "--after",
       "--at",
       "--body",
       "--body-file",
@@ -181,6 +182,7 @@
       "filed",
       "finished",
       "freeSlots",
+      "group",
       "held",
       "heldTicketIds",
       "history",
