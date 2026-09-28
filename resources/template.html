@@ -441,7 +441,7 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
 .ap-card-body { padding: var(--sp-4); }
 
 /* -------------------------------------------------------------- range bar -- */
-.ap-range { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--line); }
+.ap-range { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--line); }
 .ap-range-label { font-size: var(--fs-micro); text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-muted); }
 .ap-seg { display: flex; gap: 2px; padding: 2px; background: var(--surface-2); border-radius: var(--r-2); }
 .ap-seg button {
@@ -467,9 +467,7 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
 }
 .ap-field input::placeholder { color: var(--ink-muted); opacity: 0.7; }
 .ap-field input:focus { outline: 0; border-bottom-color: var(--ink); }
-.ap-range-divider { width: 1px; align-self: stretch; background: var(--line); }
 #ap-range-note { margin-left: auto; font-size: var(--fs-small); color: var(--ink-muted); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-.ap-range { position: relative; }
 .ap-seg button:focus-visible { outline: 2px solid var(--link); outline-offset: 1px; }
 #ap-range-custom[aria-expanded="true"] { color: var(--ink); }
 /* Placed under Custom… by the page script, which sets its top and left. */
