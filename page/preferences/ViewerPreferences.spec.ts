@@ -191,16 +191,17 @@ describe('createViewerPreferences', () => {
 });
 
 const EXAMPLE_RELOAD_SNAPSHOT: ReloadSnapshot = {
-  trackerId:        EXAMPLE_TRACKER_ID,
-  tabName:          'kanban',
-  windowScrollTop:  640,
-  chartScrollLeft:  1200,
-  chartScrollTop:   80,
-  kanbanScrollLeft: 300,
-  fromText:         '-2h',
-  toText:           '',
-  logFilterText:    'review',
-  ticketView:       {
+  trackerId:          EXAMPLE_TRACKER_ID,
+  tabName:            'kanban',
+  windowScrollTop:    640,
+  chartScrollLeft:    1200,
+  chartScrollTop:     80,
+  kanbanScrollLeft:   300,
+  fromText:           '-2h',
+  toText:             '',
+  rangePopoverIsOpen: false,
+  logFilterText:      'review',
+  ticketView:         {
     searchText:    'exporter',
     statusChips:   ['in-review'],
     typeChips:     [],

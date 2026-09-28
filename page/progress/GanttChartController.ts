@@ -11,9 +11,7 @@ import {
   CHART_OVERLAY_ELEMENT_ID,
   GENERATED_STAMP_ELEMENT_ID,
   HIDDEN_WORK_NOTE_ELEMENT_ID,
-  RANGE_FROM_ELEMENT_ID,
   RANGE_NOTE_ELEMENT_ID,
-  RANGE_TO_ELEMENT_ID,
   SUMMARY_ELEMENT_ID,
   TASK_ROWS_ELEMENT_ID,
 } from '../constants/TemplateIds.ts';
@@ -21,6 +19,7 @@ import { ViewerPreferenceUtil }     from '../preferences/utils/ViewerPreferenceU
 import { DomUtil }                  from '../utils/DomUtil.ts';
 import { GeometryUtil }             from '../utils/GeometryUtil.ts';
 import { TimeUtil }                 from '../utils/TimeUtil.ts';
+import { createCustomRangePopover } from './CustomRangePopover.ts';
 import { effectiveViewRangeFor }    from './EffectiveViewRange.ts';
 import type { PlacedTick, TaskRow } from './GanttChartMarkup.ts';
 import {
@@ -34,7 +33,7 @@ import {
 } from './GanttChartMarkup.ts';
 import {
   AUTOMATIC_RANGE_PRESET,
-  AUTOMATIC_TICK_CHOICE,
+  CUSTOM_RANGE_PRESET,
   NAME_COLUMN_WIDTH_ATTRIBUTE,
   RANGE_PRESET_BOUNDS,
 } from './constants/ProgressChart.ts';
@@ -55,6 +54,8 @@ export interface GanttChartController {
   showHiddenNote(hiddenTaskCount: number, hiddenTicketCount: number): void;
   layOut(bringNowIntoView: boolean): void;
   wireRangeBar(): void;
+  rangePopoverIsOpen(): boolean;
+  reopenRangePopover(fromText: string, toText: string): void;
   wireNameColumn(): void;
   wireReviewRows(): void;
 }
@@ -98,21 +99,13 @@ function taskRowsFor(visibleRows: readonly BoardRow[], timeline: Timeline, waiti
   });
 }
 
+// The popover's fields and ticks are a draft, filled from the override when it opens, so a layout never touches them.
 function reflectRangeBar(override: StoredViewOverride): void {
   const boundsAreUnset = override.fromText === null && override.toText === null;
-  DomUtil.reflectSegment('ap-range-presets', 'preset', override.presetKey ?? (boundsAreUnset ? AUTOMATIC_RANGE_PRESET : ''));
-  DomUtil.reflectSegment('ap-range-ticks', 'tick', override.tickMinutes === null ? AUTOMATIC_TICK_CHOICE : String(override.tickMinutes));
-  const fromInput = document.getElementById(RANGE_FROM_ELEMENT_ID);
-  const toInput   = document.getElementById(RANGE_TO_ELEMENT_ID);
-  if (fromInput instanceof HTMLInputElement && document.activeElement !== fromInput) {
-    fromInput.value = override.fromText ?? '';
-  }
-  if (toInput instanceof HTMLInputElement && document.activeElement !== toInput) {
-    toInput.value = override.toText ?? '';
-  }
+  DomUtil.reflectSegment('ap-range-presets', 'preset', override.presetKey ?? (boundsAreUnset ? AUTOMATIC_RANGE_PRESET : CUSTOM_RANGE_PRESET));
 }
 
-function wireRangeControls(readOverride: () => StoredViewOverride, applyOverride: (next: StoredViewOverride) => void): void {
+function wireRangePresets(readOverride: () => StoredViewOverride, applyOverride: (next: StoredViewOverride) => void): void {
   document.getElementById('ap-range-presets')?.addEventListener('click', (event) => {
     const button = event.target instanceof Element ? event.target.closest('[data-preset]') : null;
     if (!(button instanceof HTMLElement)) {
@@ -128,39 +121,6 @@ function wireRangeControls(readOverride: () => StoredViewOverride, applyOverride
       fromText:    bounds.fromText,
       toText:      bounds.toText,
       tickMinutes: readOverride().tickMinutes,
-    });
-  });
-
-  const readBound = (elementId: string): string | null => {
-    const input = document.getElementById(elementId);
-    const text  = input instanceof HTMLInputElement ? input.value.trim() : '';
-    return text === '' ? null : text;
-  };
-  const applyTypedBounds = (): void => {
-    applyOverride({
-      presetKey:   null,
-      fromText:    readBound(RANGE_FROM_ELEMENT_ID),
-      toText:      readBound(RANGE_TO_ELEMENT_ID),
-      tickMinutes: readOverride().tickMinutes,
-    });
-  };
-  for (const elementId of [RANGE_FROM_ELEMENT_ID, RANGE_TO_ELEMENT_ID]) {
-    document.getElementById(elementId)?.addEventListener('change', applyTypedBounds);
-  }
-
-  document.getElementById('ap-range-ticks')?.addEventListener('click', (event) => {
-    const button = event.target instanceof Element ? event.target.closest('[data-tick]') : null;
-    if (!(button instanceof HTMLElement)) {
-      return;
-    }
-    const choice  = button.dataset['tick'] ?? AUTOMATIC_TICK_CHOICE;
-    const minutes = choice === AUTOMATIC_TICK_CHOICE ? Number.NaN : Number(choice);
-    const current = readOverride();
-    applyOverride({
-      presetKey:   current.presetKey,
-      fromText:    current.fromText,
-      toText:      current.toText,
-      tickMinutes: Number.isFinite(minutes) && minutes > 0 ? minutes : null,
     });
   });
 }
@@ -220,6 +180,18 @@ export function createGanttChartController(sources: GanttChartControllerSources)
     }
   };
 
+  const applyOverride = (next: StoredViewOverride): void => {
+    override = next;
+    preferences.writeRangeOverride(next);
+    layOut(true);
+  };
+  const rangePopover = createCustomRangePopover({
+    resolveBound:      (text) => GeometryUtil.resolveRangeBound(text, visibleProgress, Date.now(), limits),
+    todayCalendarDate: () => TimeUtil.calendarDateOf(Date.now()),
+    readOverride:      () => override,
+    applyOverride,
+  });
+
   return {
     showSummary: () => {
       DomUtil.setMarkup(SUMMARY_ELEMENT_ID, summaryStatisticsMarkup(progress.tasks, payload.concurrency));
@@ -239,11 +211,12 @@ export function createGanttChartController(sources: GanttChartControllerSources)
     },
     layOut,
     wireRangeBar: () => {
-      wireRangeControls(() => override, (next) => {
-        override = next;
-        preferences.writeRangeOverride(next);
-        layOut(true);
-      });
+      wireRangePresets(() => override, applyOverride);
+      rangePopover.wire();
+    },
+    rangePopoverIsOpen: () => rangePopover.isOpen(),
+    reopenRangePopover: (fromText, toText) => {
+      rangePopover.open(fromText, toText);
     },
     wireNameColumn: () => {
       document.getElementById('ap-name-column')?.addEventListener('click', () => {

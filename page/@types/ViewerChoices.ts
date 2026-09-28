@@ -39,18 +39,19 @@ export interface TicketView {
 
 /** The viewer's place, stored just before the idle reload and restored once after it. */
 export interface ReloadSnapshot {
-  trackerId:        string;
-  tabName:          string;
-  windowScrollTop:  number;
-  chartScrollLeft:  number;
-  chartScrollTop:   number;
-  kanbanScrollLeft: number;
-  fromText:         string;
-  toText:           string;
-  logFilterText:    string;
-  ticketView:       TicketView;
-  detailTarget:     DetailTarget | null;
-  detailScrollTop:  number;
+  trackerId:          string;
+  tabName:            string;
+  windowScrollTop:    number;
+  chartScrollLeft:    number;
+  chartScrollTop:     number;
+  kanbanScrollLeft:   number;
+  fromText:           string;
+  toText:             string;
+  rangePopoverIsOpen: boolean;
+  logFilterText:      string;
+  ticketView:         TicketView;
+  detailTarget:       DetailTarget | null;
+  detailScrollTop:    number;
 }
 
 export interface ReloadSnapshotStore {

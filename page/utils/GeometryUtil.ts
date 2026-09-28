@@ -70,6 +70,12 @@ function resolveEndpoint(text: string, earliestEpochMilliseconds: number, nowEpo
   return TimeUtil.epochMillisecondsOf(trimmed);
 }
 
+/** One typed range bound as the axis would resolve it, or null when the axis could not read it; the custom range popover previews with it. */
+function resolveRangeBound(text: string, progress: TrackerProgress, nowEpochMilliseconds: number, limits: TimelineLimits): number | null {
+  const startedAtEpochMilliseconds = TimeUtil.epochMillisecondsOf(progress.startedAt) ?? nowEpochMilliseconds;
+  return resolveEndpoint(text, earliestRecordedMoment(progress, startedAtEpochMilliseconds), nowEpochMilliseconds, limits);
+}
+
 function resolveAutomaticSpan(progress: TrackerProgress, earliestEpochMilliseconds: number, nowEpochMilliseconds: number, limits: TimelineLimits): ResolvedSpan {
   let horizonEpochMilliseconds = nowEpochMilliseconds;
   for (const task of progress.tasks) {
@@ -231,6 +237,7 @@ export const GeometryUtil = {
   spanFitsClockOnlyLabels,
   chooseStepMinutes,
   buildTicks,
+  resolveRangeBound,
   computeTimeline,
   tickLabelIsCovered,
 } as const;

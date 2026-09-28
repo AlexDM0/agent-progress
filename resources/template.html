@@ -59,10 +59,21 @@
                                  hides tasks and tickets done for more than a day, on the
                                  Kanban tab too (Done and Abandoned take only the last day)
  #ap-hidden-note          text   "3 tasks · 2 tickets hidden", empty when nothing is hidden
- #ap-range-presets        el     buttons data-preset="auto|1h|4h|12h|24h|7d|all", aria-pressed
- #ap-range-from           input  from field (free text: ISO, "start", "now", "-2h")
- #ap-range-to             input  to field
- #ap-range-ticks          el     buttons data-tick="auto|5|15|60|360|1440", aria-pressed
+ #ap-range-presets        el     buttons data-preset="auto|1h|4h|12h|24h|7d|all|custom", aria-pressed;
+                                 the last, #ap-range-custom "Custom…", is pressed while a typed
+                                 range is in use, aria-expanded while #ap-range-popover is open
+ #ap-range-popover        dialog [hidden] unless Custom… opened it; holds the fields and the ticks.
+                                 Enter or #ap-range-apply applies; Esc, #ap-range-cancel, a click
+                                 or focus outside discards; closing by key or button refocuses
+                                 Custom…
+ #ap-range-from           input  from field (free text: ISO, "start", "now", "-2h"), empty reads
+                                 as "start"; aria-invalid="true" while it cannot be read
+ #ap-range-from-resolved  text   under the field: "→ 15:40" (a stamp, full one as its title), or
+                                 [data-invalid] "Can't read '-2x'"; Apply is disabled meanwhile
+ #ap-range-to             input  to field, empty reads as "now"
+ #ap-range-to-resolved    text   as the from line, or "→ 15:40 is not after From"
+ #ap-range-ticks          el     inside the popover: buttons data-tick="auto|5|15|60|360|1440",
+                                 aria-pressed, applied with the fields
  #ap-range-note           text   resolved range, e.g. "20:30 → 22:15 · 15m ticks", each end a
                                  stamp; title the whole note with both ends in full
  #ap-chart                el     horizontal scroller; owns --timeline-w
@@ -221,8 +232,9 @@
                 within 45 s; a hidden tab reloads once it is shown again. Before it
                 reloads, the page script stores its place in sessionStorage under
                 "agent-progress:snapshot" (the shown tab, scroll of the window, #ap-chart and
-                #ap-kanban, the From/To text, the log filter, the Tickets tab's search,
-                chips and sort, the open detail and its scroll) and
+                #ap-kanban, the From/To text and whether #ap-range-popover is open,
+                the log filter, the Tickets tab's search, chips and sort, the open
+                detail and its scroll) and
                 restores and deletes it after its first layout.
  THE AXIS BOX   one box for everything on the time axis: the third grid column,
                 edge to edge, no padding or margin. .ap-cell-track, #ap-ticks and
@@ -457,6 +469,46 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
 .ap-field input:focus { outline: 0; border-bottom-color: var(--ink); }
 .ap-range-divider { width: 1px; align-self: stretch; background: var(--line); }
 #ap-range-note { margin-left: auto; font-size: var(--fs-small); color: var(--ink-muted); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.ap-range { position: relative; }
+.ap-seg button:focus-visible { outline: 2px solid var(--link); outline-offset: 1px; }
+#ap-range-custom[aria-expanded="true"] { color: var(--ink); }
+/* Placed under Custom… by the page script, which sets its top and left. */
+.ap-popover {
+  position: absolute; z-index: 10;
+  width: min(340px, calc(100% - var(--sp-4)));
+  padding: var(--sp-4);
+  background: var(--surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-3);
+  box-shadow: 0 10px 28px oklch(0 0 0 / 0.14);
+}
+:root[data-theme="dark"] .ap-popover { box-shadow: 0 10px 28px oklch(0 0 0 / 0.45); }
+.ap-popover[hidden] { display: none; }
+.ap-popover-title { margin: 0 0 var(--sp-3); font-size: var(--fs-small); font-weight: 600; }
+.ap-popover-field { display: grid; grid-template-columns: 40px 1fr; align-items: baseline; column-gap: var(--sp-2); row-gap: 2px; margin-bottom: var(--sp-3); }
+.ap-popover-field input {
+  width: 100%;
+  padding: 4px 2px;
+  font: var(--fs-small)/1.4 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  background: transparent;
+  border: 0; border-bottom: 1px solid var(--line-strong); border-radius: 0;
+}
+.ap-popover-field input::placeholder { color: var(--ink-muted); opacity: 0.7; }
+.ap-popover-field input:focus { outline: 0; border-bottom-color: var(--ink); box-shadow: 0 1px 0 var(--ink); }
+.ap-popover-field input[aria-invalid="true"] { border-bottom-color: var(--err-edge); box-shadow: 0 1px 0 var(--err-edge); }
+.ap-resolved { grid-column: 2; font: var(--fs-micro)/1.5 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink-muted); }
+.ap-resolved[data-invalid] { color: var(--err-ink); font-family: var(--font-ui); font-weight: 500; }
+.ap-popover-hint { margin: 0 0 var(--sp-3); font-size: var(--fs-micro); line-height: 1.5; color: var(--ink-muted); }
+.ap-popover-hint code { font-family: var(--font-mono); color: var(--ink); }
+.ap-popover-ticks { display: flex; align-items: center; gap: var(--sp-2); padding-top: var(--sp-3); border-top: 1px solid var(--line); }
+.ap-popover-actions { display: flex; justify-content: flex-end; gap: var(--sp-2); margin-top: var(--sp-4); }
+.ap-button { padding: 6px 12px; font: 500 var(--fs-small)/1 var(--font-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-2); cursor: pointer; }
+.ap-button:hover { border-color: var(--ink-muted); }
+.ap-button:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.ap-button[data-primary] { color: var(--surface); background: var(--ink); border-color: var(--ink); }
+.ap-button:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* ------------------------------------------------------------------ chart -- */
 #ap-chart {
@@ -1081,25 +1133,36 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
         <button type="button" data-preset="24h" aria-pressed="false">24h</button>
         <button type="button" data-preset="7d" aria-pressed="false">7d</button>
         <button type="button" data-preset="all" aria-pressed="false">All</button>
+        <button type="button" data-preset="custom" id="ap-range-custom" aria-pressed="false" aria-haspopup="dialog" aria-expanded="false" aria-controls="ap-range-popover">Custom…</button>
       </div>
-      <div class="ap-range-divider"></div>
-      <div class="ap-field">
-        <label class="ap-range-label" for="ap-range-from">From</label>
-        <input id="ap-range-from" type="text" value="start" placeholder="start" spellcheck="false" autocomplete="off">
-      </div>
-      <div class="ap-field">
-        <label class="ap-range-label" for="ap-range-to">To</label>
-        <input id="ap-range-to" type="text" value="now" placeholder="now" spellcheck="false" autocomplete="off">
-      </div>
-      <div class="ap-range-divider"></div>
-      <span class="ap-range-label">Ticks</span>
-      <div class="ap-seg" id="ap-range-ticks">
-        <button type="button" data-tick="auto" aria-pressed="true">Auto</button>
-        <button type="button" data-tick="5" aria-pressed="false">5m</button>
-        <button type="button" data-tick="15" aria-pressed="false">15m</button>
-        <button type="button" data-tick="60" aria-pressed="false">1h</button>
-        <button type="button" data-tick="360" aria-pressed="false">6h</button>
-        <button type="button" data-tick="1440" aria-pressed="false">1d</button>
+      <div class="ap-popover" id="ap-range-popover" role="dialog" aria-labelledby="ap-range-popover-title" hidden>
+        <p class="ap-popover-title" id="ap-range-popover-title">Custom range</p>
+        <div class="ap-popover-field">
+          <label class="ap-range-label" for="ap-range-from">From</label>
+          <input id="ap-range-from" type="text" value="start" placeholder="start" spellcheck="false" autocomplete="off" aria-describedby="ap-range-from-resolved">
+          <span class="ap-resolved" id="ap-range-from-resolved" aria-live="polite" title="2026-09-18 20:30">→ 20:30</span>
+        </div>
+        <div class="ap-popover-field">
+          <label class="ap-range-label" for="ap-range-to">To</label>
+          <input id="ap-range-to" type="text" value="now" placeholder="now" spellcheck="false" autocomplete="off" aria-describedby="ap-range-to-resolved">
+          <span class="ap-resolved" id="ap-range-to-resolved" aria-live="polite" title="2026-09-18 22:15">→ 22:15</span>
+        </div>
+        <p class="ap-popover-hint">A time (<code>2026-09-18 13:05</code>, ISO), <code>start</code>, <code>now</code>, or back from now: <code>-2h</code>, <code>-30m</code>, <code>-1d</code>.</p>
+        <div class="ap-popover-ticks">
+          <span class="ap-range-label">Ticks</span>
+          <div class="ap-seg" id="ap-range-ticks">
+            <button type="button" data-tick="auto" aria-pressed="true">Auto</button>
+            <button type="button" data-tick="5" aria-pressed="false">5m</button>
+            <button type="button" data-tick="15" aria-pressed="false">15m</button>
+            <button type="button" data-tick="60" aria-pressed="false">1h</button>
+            <button type="button" data-tick="360" aria-pressed="false">6h</button>
+            <button type="button" data-tick="1440" aria-pressed="false">1d</button>
+          </div>
+        </div>
+        <div class="ap-popover-actions">
+          <button type="button" class="ap-button" id="ap-range-cancel">Cancel</button>
+          <button type="button" class="ap-button" data-primary id="ap-range-apply">Apply</button>
+        </div>
       </div>
       <div id="ap-range-note" title="2026-09-18 20:30 → 2026-09-18 22:15 · 15m ticks">20:30 → 22:15 · 15m ticks</div>
     </div>

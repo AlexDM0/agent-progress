@@ -50,17 +50,18 @@ function reloadSnapshotFrom(value: unknown, trackerId: string): ReloadSnapshot |
   const offsetOf = (key: string): number => Math.max(0, JsonValueUtil.finiteNumberOrNull(value[key]) ?? 0);
   return {
     trackerId,
-    tabName:          JsonValueUtil.textOrNull(value['tabName']) ?? '',
-    windowScrollTop:  offsetOf('windowScrollTop'),
-    chartScrollLeft:  offsetOf('chartScrollLeft'),
-    chartScrollTop:   offsetOf('chartScrollTop'),
-    kanbanScrollLeft: offsetOf('kanbanScrollLeft'),
-    fromText:         JsonValueUtil.textOrNull(value['fromText']) ?? '',
-    toText:           JsonValueUtil.textOrNull(value['toText']) ?? '',
-    logFilterText:    JsonValueUtil.textOrNull(value['logFilterText']) ?? '',
-    ticketView:       TicketViewUtil.ticketViewFrom(value['ticketView']),
-    detailTarget:     detailTargetFrom(value['detailTarget']),
-    detailScrollTop:  offsetOf('detailScrollTop'),
+    tabName:            JsonValueUtil.textOrNull(value['tabName']) ?? '',
+    windowScrollTop:    offsetOf('windowScrollTop'),
+    chartScrollLeft:    offsetOf('chartScrollLeft'),
+    chartScrollTop:     offsetOf('chartScrollTop'),
+    kanbanScrollLeft:   offsetOf('kanbanScrollLeft'),
+    fromText:           JsonValueUtil.textOrNull(value['fromText']) ?? '',
+    toText:             JsonValueUtil.textOrNull(value['toText']) ?? '',
+    rangePopoverIsOpen: value['rangePopoverIsOpen'] === true,
+    logFilterText:      JsonValueUtil.textOrNull(value['logFilterText']) ?? '',
+    ticketView:         TicketViewUtil.ticketViewFrom(value['ticketView']),
+    detailTarget:       detailTargetFrom(value['detailTarget']),
+    detailScrollTop:    offsetOf('detailScrollTop'),
   };
 }
 

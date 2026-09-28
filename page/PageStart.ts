@@ -238,14 +238,16 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   });
 
   const reloadSnapshotController = createReloadSnapshotController({
-    trackerId:        progress.trackerId,
-    tabNames:         TAB_NAMES,
-    store:            createReloadSnapshotStore(progress.trackerId, () => window.sessionStorage),
-    readDetailTarget: () => detailDialogController.readOpenTarget(),
-    reopenDetail:     (target) => detailDialogController.reopen(target),
-    applyLogFilter:   (filterText) => logController.applyFilter(filterText),
-    readTicketView:   () => ticketsController.readView(),
-    applyTicketView:  (ticketView) => ticketsController.applyView(ticketView),
+    trackerId:          progress.trackerId,
+    tabNames:           TAB_NAMES,
+    store:              createReloadSnapshotStore(progress.trackerId, () => window.sessionStorage),
+    readDetailTarget:   () => detailDialogController.readOpenTarget(),
+    reopenDetail:       (target) => detailDialogController.reopen(target),
+    applyLogFilter:     (filterText) => logController.applyFilter(filterText),
+    readTicketView:     () => ticketsController.readView(),
+    applyTicketView:    (ticketView) => ticketsController.applyView(ticketView),
+    rangePopoverIsOpen: () => progressController.rangePopoverIsOpen(),
+    reopenRangePopover: (fromText, toText) => progressController.reopenRangePopover(fromText, toText),
   });
   reloadSnapshotController.keepPlaceOnReload();
 

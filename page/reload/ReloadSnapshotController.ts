@@ -18,14 +18,16 @@ import {
 import { DomUtil } from '../utils/DomUtil.ts';
 
 export interface ReloadSnapshotSources {
-  trackerId:        string;
-  tabNames:         readonly string[];
-  store:            ReloadSnapshotStore;
-  readDetailTarget: () => DetailTarget | null;
-  reopenDetail:     (target: DetailTarget) => boolean;
-  applyLogFilter:   (filterText: string) => void;
-  readTicketView:   () => TicketView;
-  applyTicketView:  (ticketView: TicketView) => void;
+  trackerId:          string;
+  tabNames:           readonly string[];
+  store:              ReloadSnapshotStore;
+  readDetailTarget:   () => DetailTarget | null;
+  reopenDetail:       (target: DetailTarget) => boolean;
+  applyLogFilter:     (filterText: string) => void;
+  readTicketView:     () => TicketView;
+  applyTicketView:    (ticketView: TicketView) => void;
+  rangePopoverIsOpen: () => boolean;
+  reopenRangePopover: (fromText: string, toText: string) => void;
 }
 
 export interface ReloadSnapshotController {
@@ -61,6 +63,8 @@ export function createReloadSnapshotController(sources: ReloadSnapshotSources): 
     applyLogFilter,
     readTicketView,
     applyTicketView,
+    rangePopoverIsOpen,
+    reopenRangePopover,
   } = sources;
 
   const snapshotOfPlace = (): ReloadSnapshot => {
@@ -70,17 +74,18 @@ export function createReloadSnapshotController(sources: ReloadSnapshotSources): 
     const detailTarget = readDetailTarget();
     return {
       trackerId,
-      tabName:          shownTabName(),
-      windowScrollTop:  window.scrollY,
-      chartScrollLeft:  chart?.scrollLeft ?? 0,
-      chartScrollTop:   chart?.scrollTop ?? 0,
-      kanbanScrollLeft: kanban?.scrollLeft ?? 0,
-      fromText:         inputValueOf(RANGE_FROM_ELEMENT_ID),
-      toText:           inputValueOf(RANGE_TO_ELEMENT_ID),
-      logFilterText:    inputValueOf(LOG_FILTER_ELEMENT_ID),
-      ticketView:       readTicketView(),
+      tabName:            shownTabName(),
+      windowScrollTop:    window.scrollY,
+      chartScrollLeft:    chart?.scrollLeft ?? 0,
+      chartScrollTop:     chart?.scrollTop ?? 0,
+      kanbanScrollLeft:   kanban?.scrollLeft ?? 0,
+      fromText:           inputValueOf(RANGE_FROM_ELEMENT_ID),
+      toText:             inputValueOf(RANGE_TO_ELEMENT_ID),
+      rangePopoverIsOpen: rangePopoverIsOpen(),
+      logFilterText:      inputValueOf(LOG_FILTER_ELEMENT_ID),
+      ticketView:         readTicketView(),
       detailTarget,
-      detailScrollTop:  detailTarget === null ? 0 : detailBody?.scrollTop ?? 0,
+      detailScrollTop:    detailTarget === null ? 0 : detailBody?.scrollTop ?? 0,
     };
   };
 
@@ -97,7 +102,7 @@ export function createReloadSnapshotController(sources: ReloadSnapshotSources): 
       if (tabNames.includes(snapshot.tabName)) {
         DomUtil.templateBehaviour()?.selectTab(snapshot.tabName);
       }
-      // Only the text goes back, never a change event: a bound typed and not yet applied stays unapplied.
+      // Only the text goes back, never an apply: a bound typed and not yet applied stays unapplied, in its reopened popover.
       setInputValue(RANGE_FROM_ELEMENT_ID, snapshot.fromText);
       setInputValue(RANGE_TO_ELEMENT_ID, snapshot.toText);
       // Applied before the scroll goes back, since the filters change how tall the log card and the ticket table are.
@@ -120,6 +125,10 @@ export function createReloadSnapshotController(sources: ReloadSnapshotSources): 
         if (detailBody !== null) {
           detailBody.scrollTop = snapshot.detailScrollTop;
         }
+      }
+      // Last, since opening focuses its first field and the focus must not undo the scroll put back above.
+      if (snapshot.rangePopoverIsOpen) {
+        reopenRangePopover(snapshot.fromText, snapshot.toText);
       }
     },
   };

@@ -11,6 +11,8 @@ export const RANGE_PRESET_BOUNDS: Readonly<Record<string, { fromText: string | n
 };
 
 export const AUTOMATIC_RANGE_PRESET = 'auto';
+/** Pressed while typed bounds are in use; it opens the custom range popover rather than naming bounds of its own. */
+export const CUSTOM_RANGE_PRESET    = 'custom';
 export const AUTOMATIC_TICK_CHOICE  = 'auto';
 
 /** The attribute on the document element the template's `--col-name` override is keyed on. */

@@ -126,18 +126,19 @@ const STORED_TICKET_VIEW: TicketView = {
 
 describe('reloadSnapshotFrom', () => {
   const storedSnapshot = {
-    trackerId:        'tracker-a',
-    tabName:          'progress',
-    windowScrollTop:  640,
-    chartScrollLeft:  1200,
-    chartScrollTop:   80,
-    kanbanScrollLeft: 300,
-    fromText:         '-2h',
-    toText:           'now',
-    logFilterText:    '#455',
-    ticketView:       STORED_TICKET_VIEW,
-    detailTarget:     { kind: 'task', id: '7' },
-    detailScrollTop:  45,
+    trackerId:          'tracker-a',
+    tabName:            'progress',
+    windowScrollTop:    640,
+    chartScrollLeft:    1200,
+    chartScrollTop:     80,
+    kanbanScrollLeft:   300,
+    fromText:           '-2h',
+    toText:             'now',
+    rangePopoverIsOpen: true,
+    logFilterText:      '#455',
+    ticketView:         STORED_TICKET_VIEW,
+    detailTarget:       { kind: 'task', id: '7' },
+    detailScrollTop:    45,
   };
 
   test('reads back everything the page stored before the reload', () => {
@@ -174,6 +175,15 @@ describe('reloadSnapshotFrom', () => {
         searchText: 3, statusChips: ['re-review', 'paused'], typeChips: 'bug', sortKey: 'priority', sortDirection: 'up'
       },
     }, 'tracker-a')?.ticketView).toEqual({ ...DEFAULT_TICKET_VIEW, statusChips: ['paused'] });
+  });
+
+  // A snapshot from before the popover, or one holding anything but true, reopens nothing over the chart.
+  test.each([
+    ['missing', undefined],
+    ['text', 'true'],
+    ['false', false],
+  ])('reads a %s popover flag as closed', (_description, stored) => {
+    expect(reloadSnapshotFrom({ ...storedSnapshot, rangePopoverIsOpen: stored }, 'tracker-a')?.rangePopoverIsOpen).toBe(false);
   });
 
   test.each(['task', 'ticket', 'kanban-card'])('reads the %s detail target', (kind) => {
