@@ -225,3 +225,20 @@ describe('deliveredRowCountsAsReviewed', () => {
     expect(board.deliveredRowCountsAsReviewed(firstRowOf(board))).toBe(false);
   });
 });
+
+describe('taskIsTicketWork', () => {
+  // `status --tickets-only` keeps exactly these rows, so a review bar of a ticket that is gone still counts as ticket work.
+  test('holds for a ticket\'s own row and for every review bar, and not for a free-standing task row', () => {
+    const { board } = boardFixture({
+      tasks: [
+        taskFixture({ id: 1, name: '#003 Example checkout page', ticket: '003' }),
+        taskFixture({ id: 2, name: 'Review 1 #003 — Example checkout page', reviewOf: '003' }),
+        taskFixture({ id: 3, name: 'Review 1 #009 — Example missing ticket', reviewOf: '009' }),
+        taskFixture({ id: 4, name: 'Tidy the Example Agency notes' }),
+      ],
+      tickets: [ticketFixture({ id: '003', status: 'in-progress', task: 1 })],
+    });
+
+    expect(board.tasks().filter((task) => board.taskIsTicketWork(task)).map((task) => task.id)).toEqual([1, 2, 3]);
+  });
+});

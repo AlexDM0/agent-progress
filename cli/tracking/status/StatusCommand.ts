@@ -10,9 +10,9 @@ import { OutputUtil }                        from '../../utils/OutputUtil.ts';
 import { fullDocumentOf, workingDocumentOf } from './StatusDocuments.ts';
 import { humanStatusTextOf }                 from './StatusText.ts';
 
-const USAGE = 'agent-progress status [--json] [--full]';
+const USAGE = 'agent-progress status [--json] [--full] [--tickets-only]';
 
-const KNOWN_OPTION_NAMES = ['json', 'full'];
+const KNOWN_OPTION_NAMES = ['json', 'full', 'tickets-only'];
 
 /**
  * Sorted for display because `--at` backfills, so array order is not chronological: a stated exception
@@ -40,9 +40,12 @@ export const statusCommand: CommandHandler = async (commandArguments, context) =
 
   OutputUtil.reportIgnoredTicketFiles(context, listing.malformed);
 
-  const showsEverything = commandArguments.flag('full');
-  const asJson          = showsEverything ? fullDocumentOf(progress, wordedLog, board) : workingDocumentOf(progress, logNewestFirst, board);
-  const humanText       = humanStatusTextOf(progress, logNewestFirst, board, showsEverything);
+  const showsEverything  = commandArguments.flag('full');
+  const showsTicketsOnly = commandArguments.flag('tickets-only');
+  const asJson           = showsEverything
+    ? fullDocumentOf(progress, wordedLog, board, showsTicketsOnly)
+    : workingDocumentOf(progress, logNewestFirst, board, showsTicketsOnly);
+  const humanText        = humanStatusTextOf(progress, logNewestFirst, board, { showsEverything, showsTicketsOnly });
   OutputUtil.printEntityThenNextLine(commandArguments, context, asJson, humanText, NextLineUtil.nextLineOf(board));
   return Promise.resolve();
 };

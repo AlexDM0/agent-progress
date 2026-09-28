@@ -31,6 +31,11 @@ export class DisplayQueries {
     return this.records.progress.tasks.find((task) => task.ticket === ticketId) ?? null;
   }
 
+  /** A ticket's own row or a review bar, even one naming a missing ticket; everything else is a free-standing task row. */
+  taskIsTicketWork(task: Readonly<Task>): boolean {
+    return task.ticket !== null || task.reviewOf !== undefined;
+  }
+
   /** Read on the record handed in rather than looked up by id, so a hand-duplicated id cannot borrow another row's verdict. */
   taskIsSettled(task: Readonly<Task>): boolean {
     return SETTLED_TASK_STATUSES.includes(task.status);

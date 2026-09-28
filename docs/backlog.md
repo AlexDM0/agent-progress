@@ -4,19 +4,6 @@ Each item is agreed in principle and deliberately not done, with the reason it w
 
 ---
 
-## A `--tickets-only` view
-
-`agent-progress status` already leaves out delivered and abandoned rows, but it still lists every
-unsettled task row beside the tickets, and the page opens on the chart with every unsettled task in
-view. A session that is working through a ticket queue and does not care about task rows has to read
-past them. Agreed: a `--tickets-only` flag on `status`, and the same narrowing as a stored view so the
-page can open on the Tickets tab.
-
-Not started because the shape of the flag is not obvious — whether it should also suppress the log,
-and whether the page's version belongs in `progress.json` (shared by everyone) or in the browser's
-own override (per viewer, like the range). Both answers are cheap to implement and expensive to
-change once trackers exist in the wild, so it waits for a session that has actually felt the need.
-
 ## A ticket `edit` command
 
 A ticket body is edited with a file tool at the path `agent-progress ticket show <id>` prints, and
@@ -29,17 +16,6 @@ same atomic path as everything else and leaving the frontmatter alone. Not start
 byte-for-byte guarantee is the load-bearing property of ticket bodies, and a command that rewrites
 one needs its own specs for the cases that guarantee is about (CRLF, a body containing `---`, a
 final newline the author did or did not write) before it is safe to offer.
-
-## A `--tokens` total per owner
-
-`agent-progress status` sums the token counts that were reported and says how many rows reported
-one. What a session actually wants to know is which agent spent it — the `owner` column is right
-there, and grouping by it is a few lines.
-
-Not started because the owner field is free text an orchestrator writes by hand, so the grouping is
-only as good as the spelling, and a total under `opus` and another under `Opus` is worse than no
-grouping at all. It waits either for the owner to become a vocabulary or for the first session that
-has felt the need.
 
 ## Pausing a ticket, not only its row
 

@@ -7,6 +7,14 @@ import { SETTLED_TASK_STATUSES, TASK_STATUSES, TICKET_STATUSES } from '../../../
 import type { WordedLogEntry }                                   from '../../../src/shared/@types/WordedLogEntry.ts';
 import { TIMESTAMP_SLICES }                                      from '../../../src/shared/constants/TimestampSlices.ts';
 import { OutputUtil }                                            from '../../utils/OutputUtil.ts';
+import type { OwnerTokenTotals }                                 from './OwnerTokenTotals.ts';
+import { ownerTokenTotalsOf }                                    from './OwnerTokenTotals.ts';
+
+/** `--full` lists settled work too; `--tickets-only` leaves the free-standing task rows out. */
+export interface StatusSelection {
+  showsEverything:  boolean;
+  showsTicketsOnly: boolean;
+}
 
 const HUMAN_LOG_ENTRY_COUNT = 5;
 
@@ -38,6 +46,29 @@ function totalTokensOf(tasks: readonly Readonly<Task>[]): number | null {
   return reported.reduce((running, task) => running + (task.tokens ?? 0), 0);
 }
 
+function rowCountText(rows: number): string {
+  return rows === 1 ? '1 row' : `${rows} rows`;
+}
+
+function ownerTokenLinesOf(totals: OwnerTokenTotals): string[] {
+  const ownerLines = totals.owners.map(({ owner, tokens, rows }) => [
+    '         ',
+    OutputUtil.padColumn(owner, TASK_COLUMN_WIDTHS_CHARACTERS.owner),
+    OutputUtil.padColumn(TokenCountUtil.formatTokenCount(tokens), TASK_COLUMN_WIDTHS_CHARACTERS.tokens),
+    rowCountText(rows),
+  ].join(''));
+  if (totals.withoutOwner.rows === 0) return ownerLines;
+  return [
+    ...ownerLines,
+    [
+      '         ',
+      OutputUtil.padColumn('no owner', TASK_COLUMN_WIDTHS_CHARACTERS.owner),
+      OutputUtil.padColumn(TokenCountUtil.formatTokenCount(totals.withoutOwner.tokens), TASK_COLUMN_WIDTHS_CHARACTERS.tokens),
+      rowCountText(totals.withoutOwner.rows),
+    ].join(''),
+  ];
+}
+
 function taskTableLinesOf(listedTasks: readonly Readonly<Task>[]): string[] {
   if (listedTasks.length === 0) return [];
   const header = [
@@ -59,7 +90,8 @@ function taskTableLinesOf(listedTasks: readonly Readonly<Task>[]): string[] {
   return ['', header, ...rows];
 }
 
-export function humanStatusTextOf(progress: TrackerProgress, logNewestFirst: readonly WordedLogEntry[], board: Board, showsEverything: boolean): string {
+export function humanStatusTextOf(progress: TrackerProgress, logNewestFirst: readonly WordedLogEntry[], board: Board, selection: StatusSelection): string {
+  const { showsEverything, showsTicketsOnly } = selection;
   const tickets = board.tickets();
   const lines = [
     `${progress.project} — started ${progress.startedAt.slice(0, TIMESTAMP_SLICES.DATE_AND_CLOCK_LENGTH_CHARACTERS).replace('T', ' ')}`,
@@ -71,13 +103,17 @@ export function humanStatusTextOf(progress: TrackerProgress, logNewestFirst: rea
   if (totalTokens !== null) {
     const reportedCount = progress.tasks.filter((task) => task.tokens !== null).length;
     lines.push(`Tokens:  ${TokenCountUtil.formatTokenCount(totalTokens)} reported across ${reportedCount} of ${progress.tasks.length} rows`);
+    lines.push(...ownerTokenLinesOf(ownerTokenTotalsOf(progress.tasks)));
   }
 
-  const listedTasks = showsEverything ? progress.tasks : progress.tasks.filter((task) => !board.taskIsSettled(task));
+  const selectedTasks = showsTicketsOnly ? progress.tasks.filter((task) => board.taskIsTicketWork(task)) : progress.tasks;
+  const listedTasks   = showsEverything ? selectedTasks : selectedTasks.filter((task) => !board.taskIsSettled(task));
   lines.push(...taskTableLinesOf(listedTasks));
 
-  const settledTaskCount = progress.tasks.length - listedTasks.length;
+  const settledTaskCount = selectedTasks.length - listedTasks.length;
   if (settledTaskCount > 0) lines.push(`(${settledTaskCount} ${SETTLED_TASK_STATUSES.join(' or ')} rows not shown; --full lists them)`);
+  const freeStandingTaskCount = progress.tasks.length - selectedTasks.length;
+  if (freeStandingTaskCount > 0) lines.push(`(${freeStandingTaskCount} free-standing task rows not shown under --tickets-only)`);
 
   const recentLog    = showsEverything ? logNewestFirst : logNewestFirst.slice(0, HUMAN_LOG_ENTRY_COUNT);
   const distinctDays = new Set(logNewestFirst.map((entry) => entry.at.slice(0, TIMESTAMP_SLICES.CALENDAR_DATE_LENGTH_CHARACTERS)));

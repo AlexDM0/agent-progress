@@ -272,6 +272,10 @@ export class Board {
     return this.ticketMoves.ticketIsReleasable(ticket);
   }
 
+  taskIsTicketWork(task: Readonly<Task>): boolean {
+    return this.displayQueries.taskIsTicketWork(task);
+  }
+
   taskIsSettled(task: Readonly<Task>): boolean {
     return this.displayQueries.taskIsSettled(task);
   }

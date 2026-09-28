@@ -81,6 +81,11 @@ output never carries either.
                               delivered or abandoned. Beside it, \`readyTickets\` lists the same
                               tickets in the same order as {id, priority, model, effort}, the
                               defaults resolved, so a dispatcher derives none of them itself.
+      [--tickets-only]        --tickets-only leaves out the free-standing task rows, those that are
+                              no ticket's own row and no review bar; tickets and the log stay.
+                              The token total is also given per owner, grouped case-insensitively
+                              on the trimmed owner under its most common spelling, rows without an
+                              owner apart; --json carries it as \`tokensByOwner\`.
 
   task add "<name>"           Add a Gantt row. --start marks it in-progress at --at (default
       [--owner <who>]         now), --ticket links it to a ticket that has no row of its own, --note

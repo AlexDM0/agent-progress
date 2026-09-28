@@ -22,8 +22,13 @@ import { createInitializedScratchRepository } from '../../testing/InitializedScr
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
 type StatusDocument = WordedProgressDocument & {
-  tickets:     Array<TicketFrontmatter & { filePath: string }>;
-  omitted?:    { settledTasks: number; settledTickets: number; olderLogEntries: number };
+  tickets:       Array<TicketFrontmatter & { filePath: string }>;
+  omitted?:      { settledTasks: number; settledTickets: number; olderLogEntries: number; freeStandingTasks?: number };
+  tokensByOwner: {
+    owners:        Array<{ owner: string; tokens: number; rows: number }>;
+    withoutOwner:  { tokens: number; rows: number };
+    withoutTokens: { rows: number };
+  };
   concurrency: {
     limit:                 number;
     agentsInFlight:        number;
@@ -218,6 +223,81 @@ describeWhenGitIsPresent('token counts', () => {
   });
 });
 
+describeWhenGitIsPresent('token counts per owner', () => {
+  // The owner is free text an orchestrator types, so spellings that differ only in case or spaces are one agent, not three.
+  async function fileOwnerRows(): Promise<void> {
+    await run(['task', 'add', 'Example build one', '--owner', 'Opus', '--tokens', '1000']);
+    await run(['task', 'add', 'Example build two', '--owner', 'opus', '--tokens', '2000']);
+    await run(['task', 'add', 'Example build three', '--owner', ' opus ', '--tokens', '4000']);
+    await run(['task', 'add', 'Example chore', '--tokens', '500']);
+  }
+
+  test('--json groups opus, Opus and " opus " into one owner under the most common spelling, and every total adds up', async () => {
+    await fileOwnerRows();
+
+    const document = JSON.parse((await run(['status', '--json'])).outputText()) as StatusDocument;
+    const grouped  = document.tokensByOwner;
+    const reported = document.tasks.reduce((running, task) => running + (task.tokens ?? 0), 0);
+
+    expect(grouped.owners).toEqual([{ owner: 'opus', tokens: 7000, rows: 3 }]);
+    expect(grouped.withoutOwner).toEqual({ tokens: 500, rows: 1 });
+    expect(grouped.withoutTokens).toEqual({ rows: 2 });
+    expect(grouped.owners.reduce((running, owner) => running + owner.tokens, 0) + grouped.withoutOwner.tokens).toBe(reported);
+  });
+
+  test('the human listing prints one line per owner group and one for the rows without an owner', async () => {
+    await fileOwnerRows();
+
+    const printed = (await run(['status'])).outputText();
+
+    expect(printed).toContain('Tokens:  7.5k reported across 4 of 6 rows');
+    expect(printed).toMatch(/\n {9}opus {10}7k {6}3 rows\n/);
+    expect(printed).toMatch(/\n {9}no owner {6}500 {5}1 row\n/);
+    expect(printed).not.toMatch(/\n {9}Opus /);
+  });
+});
+
+describeWhenGitIsPresent('--tickets-only', () => {
+  // A session working a ticket queue reads past chores: exactly the rows that are no ticket's own row and no review bar go.
+  async function fileReviewBar(): Promise<void> {
+    await run(['task', 'add', 'Review 1 #001 — Double-click a role to edit it', '--review-of', '1']);
+  }
+
+  test('the human listing keeps the ticket\'s row and its review bar, and counts the free-standing row it left out', async () => {
+    await fileReviewBar();
+
+    const printed = (await run(['status', '--tickets-only'])).outputText();
+
+    expect(printed).toContain('#001 Double-click a role to edit it');
+    expect(printed).toContain('Review 1 #001');
+    expect(printed).not.toContain('Review pass');
+    expect(printed).toContain('(1 free-standing task rows not shown under --tickets-only)');
+    expect(printed).toContain('Halfway through the role editor');
+  });
+
+  test('--json and --json --full list exactly the ticket\'s row and its review bar, and keep the tickets and the log', async () => {
+    await fileReviewBar();
+
+    const working = JSON.parse((await run(['status', '--json', '--tickets-only'])).outputText()) as StatusDocument;
+    const full    = JSON.parse((await run(['status', '--json', '--full', '--tickets-only'])).outputText()) as StatusDocument;
+
+    expect(working.tasks.map((task) => task.id)).toEqual([1, 3]);
+    expect(full.tasks.map((task) => task.id)).toEqual([1, 3]);
+    expect(working.omitted).toEqual({
+      settledTasks: 0, settledTickets: 0, olderLogEntries: 0, freeStandingTasks: 1
+    });
+    expect(working.tickets.map((ticket) => ticket.id)).toEqual(['001']);
+    expect(full.log.map((entry) => entry.text)).toContain('Halfway through the role editor');
+  });
+
+  test('without the flag the free-standing row is listed and nothing counts it as left out', async () => {
+    const document = JSON.parse((await run(['status', '--json'])).outputText()) as StatusDocument;
+
+    expect(document.tasks.map((task) => task.id)).toEqual([1, 2]);
+    expect(Object.keys(document.omitted ?? {})).not.toContain('freeStandingTasks');
+  });
+});
+
 describeWhenGitIsPresent('the log listing', () => {
   test('is newest first by the stamp, not by the order entries were appended', async () => {
     await run(['log', 'Backfilled from an hour ago', '--at', '-1h']);
@@ -333,7 +413,7 @@ describeWhenGitIsPresent('the dispatch fields both --json documents carry', () =
   test('come last in both documents, after every key in the order the documents had before', async () => {
     const { working, full } = await bothDocuments();
     const progressKeys      = ['version', 'trackerId', 'project', 'startedAt', 'view', 'nextTaskId', 'concurrencyLimit', 'tasks', 'log'];
-    const dispatchKeys      = ['reviewWaitingTickets', 'pausedBuilds', 'ticketRows'];
+    const dispatchKeys      = ['reviewWaitingTickets', 'pausedBuilds', 'ticketRows', 'tokensByOwner'];
 
     expect(Object.keys(working)).toEqual([...progressKeys, 'tickets', 'concurrency', 'readyTickets', 'omitted', ...dispatchKeys]);
     expect(Object.keys(full)).toEqual([...progressKeys, 'tickets', 'concurrency', 'readyTickets', ...dispatchKeys]);

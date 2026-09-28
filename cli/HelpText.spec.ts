@@ -47,6 +47,12 @@ describe('the command reference', () => {
     expect(invented, 'the help offers these and the tool would refuse them').toEqual([]);
   });
 
+  test('status documents --tickets-only and the per-owner token total', () => {
+    expect(HELP_TEXT).toContain('[--tickets-only]');
+    expect(HELP_TEXT).toContain('no ticket\'s own row and no review bar');
+    expect(HELP_TEXT).toContain('`tokensByOwner`');
+  });
+
   test('it says how to invoke the tool, since a reader arriving at the help has not managed to', () => {
     expect(HELP_TEXT).toContain('Usage: agent-progress <command> [options]');
   });
