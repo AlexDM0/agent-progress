@@ -73,6 +73,7 @@
       "filed",
       "finished",
       "freeSlots",
+      "group",
       "held",
       "heldTicketIds",
       "history",

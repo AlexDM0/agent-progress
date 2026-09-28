@@ -7,6 +7,7 @@ import type { Task }                          from './@types/Task.ts';
 import type { ReadyTicket, Ticket }           from './@types/Ticket.ts';
 import type { DispatcherState }               from './@types/TrackerProgress.ts';
 import type { BoardRecords }                  from './BoardRecords.ts';
+import type { GroupReleases }                 from './GroupReleases.ts';
 import { DEFAULT_DISPATCHER_STATE }           from './constants/DispatcherStates.ts';
 import { SETTLED_TICKET_STATUSES }            from './constants/Statuses.ts';
 import { ConcurrencyUtil }                    from './utils/ConcurrencyUtil.ts';
@@ -14,7 +15,10 @@ import { TicketDefaultsUtil }                 from './utils/TicketDefaultsUtil.t
 import { TicketDependencyUtil }               from './utils/TicketDependencyUtil.ts';
 
 export class DispatchQueries {
-  constructor(private readonly records: BoardRecords) {}
+  constructor(
+    private readonly records: BoardRecords,
+    private readonly groupReleases: GroupReleases,
+  ) {}
 
   concurrency(): Concurrency {
     return ConcurrencyUtil.concurrencyOf(this.records.progress.tasks, this.records.progress.concurrencyLimit);
@@ -28,10 +32,13 @@ export class DispatchQueries {
     return this.records.progress.dispatcherRunId;
   }
 
-  /** In the order to take them: high first, then by id, with low tickets held back while normal or high work is still owed. */
+  /**
+   * In the order to take them: high first, then by id, with low tickets held back while normal or high work is still owed — a group's
+   * tickets awaiting its release included, so they hold low work back while they are left out here.
+   */
   readyTickets(): readonly Readonly<Ticket>[] {
     const readyTicketIds = TicketDependencyUtil.readyTicketIdsOf(this.records.ticketRecords.map((ticket) => ticket.frontmatter));
-    return readyTicketIds.flatMap((ticketId) => this.records.ticketRecordById(ticketId) ?? []);
+    return this.withoutGroupRunTickets(readyTicketIds.flatMap((ticketId) => this.records.ticketRecordById(ticketId) ?? []));
   }
 
   /** Read from the ready tickets, as `readyTicketIds` is, so the two lists cannot disagree on a member or the order; defaults resolved here. */
@@ -41,6 +48,7 @@ export class DispatchQueries {
       priority: TicketDefaultsUtil.ticketPriorityOf(frontmatter),
       model:    TicketDefaultsUtil.agentModelOf(frontmatter),
       effort:   TicketDefaultsUtil.agentEffortOf(frontmatter),
+      ...(frontmatter.group === undefined ? {} : { group: frontmatter.group }),
       ...(frontmatter.hold === undefined ? {} : { held: true as const }),
     }));
   }
@@ -104,6 +112,19 @@ export class DispatchQueries {
   /** The in-review tickets no reviewer is at work on, held ones included: a caller reads the holds from `heldTicketIds`. */
   reviewWaitingTickets(): readonly Readonly<Ticket>[] {
     const ticketIdsUnderReview = this.inProgressReviewOfIds();
-    return this.records.ticketRecords.filter((ticket) => ticket.frontmatter.status === 'in-review' && !ticketIdsUnderReview.includes(ticket.frontmatter.id));
+    return this.withoutGroupRunTickets(this.records.ticketRecords.filter((ticket) => (
+      ticket.frontmatter.status === 'in-review' && !ticketIdsUnderReview.includes(ticket.frontmatter.id)
+    )));
+  }
+
+  /** The tickets with a build to resume, in file order. */
+  pausedBuildTickets(): readonly Readonly<Ticket>[] {
+    return this.withoutGroupRunTickets(this.records.ticketRecords.filter((ticket) => this.pausedBuildRowOf(ticket.frontmatter.id) !== null));
+  }
+
+  /** While a group awaits its release, its tickets are the group run's: a whole-board run must not build, review or resume one off the main line. */
+  private withoutGroupRunTickets(tickets: readonly Readonly<Ticket>[]): readonly Readonly<Ticket>[] {
+    const groupsAwaitingTheirRelease = this.groupReleases.groupsAwaitingTheirRelease();
+    return tickets.filter(({ frontmatter }) => frontmatter.group === undefined || !groupsAwaitingTheirRelease.has(frontmatter.group));
   }
 }

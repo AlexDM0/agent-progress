@@ -151,6 +151,132 @@ describe('the tickets waiting on a review', () => {
   });
 });
 
+describe('a release group awaiting its release', () => {
+  // A whole-board run building, reviewing or resuming a group's ticket would take it off the main line mid-group; the group run owns them.
+  function groupBoardFixture(releaseTicketStatus: 'in-progress' | 'delivered' | 'abandoned' | null): ReturnType<typeof boardFixture> {
+    return boardFixture({
+      tasks: [
+        taskFixture({ id: 1, status: 'paused', ticket: '003' }),
+        taskFixture({ id: 2, status: 'paused', ticket: '007' }),
+        taskFixture({ id: 3, status: 'in-progress', ticket: '005' }),
+      ],
+      tickets: [
+        ticketFixture({ id: '001', group: 'example-group' }),
+        ticketFixture({ id: '002', status: 'in-review', group: 'example-group' }),
+        ticketFixture({
+          id:     '003',
+          status: 'in-progress',
+          group:  'example-group',
+          task:   1,
+        }),
+        ticketFixture({ id: '004' }),
+        ticketFixture({
+          id:     '005',
+          status: releaseTicketStatus ?? 'in-progress',
+          group:  'example-group',
+          task:   3,
+          ...(releaseTicketStatus === null ? {} : { releasesGroup: true as const }),
+        }),
+        ticketFixture({ id: '006', status: 'in-review' }),
+        ticketFixture({
+          id:     '007',
+          status: 'in-progress',
+          task:   2,
+        }),
+        ticketFixture({ id: '008', group: 'other-group' }),
+      ],
+    });
+  }
+
+  function wholeBoardListsOf(board: ReturnType<typeof boardFixture>['board']): Record<string, string[]> {
+    return {
+      readyTicketIds:       board.dispatchCapacity().readyTicketIds,
+      readyTickets:         board.readyTicketEntries().map((entry) => entry.id),
+      reviewWaitingTickets: board.reviewWaitingTickets().map((ticket) => ticket.frontmatter.id),
+      pausedBuildTickets:   board.pausedBuildTickets().map((ticket) => ticket.frontmatter.id),
+    };
+  }
+
+  test('keeps every ticket of the group out of the ready, review-waiting and paused-build lists, and only those', () => {
+    const { board } = groupBoardFixture('in-progress');
+
+    const lists = wholeBoardListsOf(board);
+
+    expect(lists).toEqual({
+      readyTicketIds:       ['004', '008'],
+      readyTickets:         ['004', '008'],
+      reviewWaitingTickets: ['006'],
+      pausedBuildTickets:   ['007'],
+    });
+    expect(Object.values(lists).flat().filter((ticketId) => ['001', '002', '003', '005'].includes(ticketId))).toHaveLength(0);
+  });
+
+  test('lists the group\'s remaining open tickets again once its release ticket is delivered or abandoned', () => {
+    for (const settledStatus of ['delivered', 'abandoned'] as const) {
+      const { board } = groupBoardFixture(settledStatus);
+
+      expect(wholeBoardListsOf(board)).toEqual({
+        readyTicketIds:       ['001', '004', '008'],
+        readyTickets:         ['001', '004', '008'],
+        reviewWaitingTickets: ['002', '006'],
+        pausedBuildTickets:   ['003', '007'],
+      });
+    }
+  });
+
+  test('lists a group with no release ticket exactly as an ungrouped one', () => {
+    const { board } = groupBoardFixture(null);
+
+    expect(wholeBoardListsOf(board)).toEqual({
+      readyTicketIds:       ['001', '004', '008'],
+      readyTickets:         ['001', '004', '008'],
+      reviewWaitingTickets: ['002', '006'],
+      pausedBuildTickets:   ['003', '007'],
+    });
+  });
+
+  // The owner's decision: a group's unreleased work is still open normal work.
+  test('still holds low work back with the group\'s tickets it leaves out', () => {
+    const { board } = boardFixture({
+      tickets: [
+        ticketFixture({ id: '001', status: 'reviewed', group: 'example-group' }),
+        ticketFixture({
+          id:            '002',
+          status:        'in-progress',
+          group:         'example-group',
+          releasesGroup: true,
+        }),
+        ticketFixture({ id: '003', priority: 'low' }),
+      ],
+    });
+
+    expect(board.dispatchCapacity().readyTicketIds).toEqual([]);
+    expect(board.ticketIdsHoldingBack('003')).toEqual(['001', '002']);
+  });
+});
+
+describe('a ready ticket entry', () => {
+  test('carries its group, and none when the ticket has none, as its frontmatter does', () => {
+    const { board } = boardFixture({ tickets: [ticketFixture({ id: '001', group: 'example-group' }), ticketFixture({ id: '002' })] });
+
+    expect(board.readyTicketEntries()).toEqual([
+      {
+        id:       '001',
+        priority: 'normal',
+        model:    expect.any(String),
+        effort:   expect.any(String),
+        group:    'example-group',
+      },
+      {
+        id:       '002',
+        priority: 'normal',
+        model:    expect.any(String),
+        effort:   expect.any(String),
+      },
+    ]);
+  });
+});
+
 describe('the row a ticket links', () => {
   test('is the row its frontmatter task names, even when an earlier row names the ticket', () => {
     const { board } = boardFixture({

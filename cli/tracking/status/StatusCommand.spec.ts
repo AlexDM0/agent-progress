@@ -39,7 +39,7 @@ type StatusDocument = WordedProgressDocument & {
     inProgressTicketIds:   string[];
     inProgressReviewOfIds: string[];
   };
-  readyTickets:         Array<{ id: string; priority: string; model: string; effort: string }>;
+  readyTickets:         Array<{ id: string; priority: string; model: string; effort: string; group?: string }>;
   reviewWaitingTickets: Array<{ id: string; model: string; effort: string }>;
   pausedBuilds:         Array<{ id: string; note: string; priority: string; model: string; effort: string }>;
   ticketRows:           Array<{
@@ -392,6 +392,22 @@ describeWhenGitIsPresent('the concurrency block both --json documents carry', ()
     expect(working.readyTickets).toEqual(expected);
     expect(full.readyTickets).toEqual(expected);
     expect(working.readyTickets.map((ready) => ready.id)).toEqual(working.concurrency.readyTicketIds);
+  });
+
+  // The group run reads the group off the entry; a whole-board run must not take a ticket of a group awaiting its release.
+  test('readyTickets carries a grouped ticket\'s group, and leaves a group out while it has a release ticket', async () => {
+    await run(['ticket', 'add', 'Show the role history', '--group', 'example-group']);
+    await run(['ticket', 'add', 'Export the roles', '--group', 'example-group']);
+    await run(['ticket', 'add', 'Import the roles']);
+
+    const beforeTheMark = JSON.parse((await run(['status', '--json'])).outputText()) as StatusDocument;
+    await run(['ticket', 'release-of', '3']);
+    const afterTheMark = JSON.parse((await run(['status', '--json', '--full'])).outputText()) as StatusDocument;
+
+    expect(beforeTheMark.readyTickets.map((ready) => [ready.id, ready.group ?? null])).toEqual([['002', 'example-group'], ['003', 'example-group'], ['004', null]]);
+    expect(Object.keys(beforeTheMark.readyTickets[2] ?? {})).not.toContain('group');
+    expect(afterTheMark.readyTickets.map((ready) => ready.id)).toEqual(['004']);
+    expect(afterTheMark.concurrency.readyTicketIds).toEqual(['004']);
   });
 
   test('readyTickets is empty exactly when nothing is ready', async () => {

@@ -87,10 +87,10 @@ export class Board {
   constructor(input: BoardInput) {
     this.records            = new BoardRecords(input.progress, input.tickets, input.logger);
     this.reviewBars         = new ReviewBars(this.records);
-    this.dispatchQueries    = new DispatchQueries(this.records);
+    this.groupReleases      = new GroupReleases(this.records);
+    this.dispatchQueries    = new DispatchQueries(this.records, this.groupReleases);
     this.displayQueries     = new DisplayQueries(this.records, this.reviewBars);
     this.ticketDependencies = new TicketDependencies(this.records);
-    this.groupReleases      = new GroupReleases(this.records);
     this.ticketMoves        = new TicketMoves(this.records, this.reviewBars, this.ticketDependencies, this.groupReleases);
     this.ticketClaims       = new TicketClaims(this.records, this.ticketMoves, this.reviewBars, this.dispatchQueries, this.groupReleases);
     this.ticketSettings     = new TicketSettings(this.records);
@@ -271,6 +271,10 @@ export class Board {
 
   pausedBuildRowOf(ticketId: string): Readonly<Task> | null {
     return this.dispatchQueries.pausedBuildRowOf(ticketId);
+  }
+
+  pausedBuildTickets(): readonly Readonly<Ticket>[] {
+    return this.dispatchQueries.pausedBuildTickets();
   }
 
   inProgressTicketIds(): string[] {

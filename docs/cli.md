@@ -219,7 +219,15 @@ Options in `[brackets]` are optional; `a|b` is a choice of one.
 delivered. `readyTicketIds` orders them high priority first, then normal, each lowest id first. A low
 ticket is ready only once no normal or high ticket is left that is not delivered or abandoned.
 `readyTickets` lists the same tickets in the same order as `{ id, priority, model, effort }` with the
-defaults resolved, plus `held: true` on a held one, so a dispatcher derives none of them itself.
+defaults resolved, plus `group` on a ticket that has one (absent otherwise, as in `tickets`) and
+`held: true` on a held one, so a dispatcher derives none of them itself.
+
+**A group awaiting its release.** While a group has a release ticket (see `ticket release-of`) that
+is neither delivered nor abandoned, every ticket of that group is the group run's and is left out of
+the lists a whole-board run takes work from: `readyTicketIds`, `readyTickets`,
+`reviewWaitingTickets` and `pausedBuilds`. Once the release ticket is delivered or abandoned, the
+group's remaining open tickets list as any other. A group with no release ticket lists as ungrouped
+tickets do. The left-out tickets still count as open normal work, so they hold low tickets back.
 
 **What a dispatcher reads.** Every list below is in file order, each id once, with a ticket's model,
 effort and priority resolved to their defaults.
@@ -228,9 +236,10 @@ effort and priority resolved to their defaults.
 - `concurrency.inProgressReviewOfIds`: the `reviewOf` of every `in-progress` row that stores one, on
   any row, a ticket's own row included, as `ticket claim` and the moves out of review read it.
 - `reviewWaitingTickets`: `{ id, model, effort }` for every `in-review` ticket whose id is not in
-  `inProgressReviewOfIds`, a held one included; `heldTicketIds` says which are held.
+  `inProgressReviewOfIds`, a held one included; `heldTicketIds` says which are held. A group awaiting
+  its release is left out (above).
 - `pausedBuilds`: `{ id, note, priority, model, effort }` for every `in-progress` ticket whose row is
-  `paused`, `note` being that row's note, whoever paused it.
+  `paused`, `note` being that row's note, whoever paused it; a group awaiting its release is left out.
 - `ticketRows`: `{ id, row, reviewBars }` for each ticket the document lists, in its order, so the
   working view covers only the unsettled tickets. `row` is `{ id, status, note }` of the row the
   ticket's `task` names, or `null`. `reviewBars` are `{ id, status, round }` of the rows whose

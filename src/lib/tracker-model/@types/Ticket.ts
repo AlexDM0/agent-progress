@@ -61,6 +61,8 @@ export interface ReadyTicket {
   priority: TicketPriority;
   model:    AgentModel;
   effort:   AgentEffort;
+  /** Absent on an ungrouped ticket, as in its frontmatter. */
+  group?:   string;
   /** Present, and true, only on a held ticket. */
   held?:    true;
 }

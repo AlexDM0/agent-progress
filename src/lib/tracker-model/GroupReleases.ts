@@ -54,6 +54,13 @@ export class GroupReleases {
     return [...bundleTicketIds].sort((a, b) => Number(a) - Number(b));
   }
 
+  /** The groups whose release ticket is neither delivered nor abandoned: their tickets are the group run's, not a whole-board run's. */
+  groupsAwaitingTheirRelease(): ReadonlySet<string> {
+    return new Set(this.records.ticketRecords.flatMap(({ frontmatter }) => (
+      frontmatter.releasesGroup === true && frontmatter.group !== undefined && !SETTLED_TICKET_STATUSES.includes(frontmatter.status) ? [frontmatter.group] : []
+    )));
+  }
+
   private releaseTicketsOf(group: string): Ticket[] {
     return this.records.ticketRecords.filter((ticket) => ticket.frontmatter.group === group && ticket.frontmatter.releasesGroup === true);
   }

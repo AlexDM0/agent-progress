@@ -17,7 +17,7 @@ function inProgressIdsOf(board: Board): InProgressIds {
 }
 
 function pausedBuildsOf(board: Board): PausedBuildEntry[] {
-  return board.tickets().flatMap(({ frontmatter }) => {
+  return board.pausedBuildTickets().flatMap(({ frontmatter }) => {
     const pausedRow = board.pausedBuildRowOf(frontmatter.id);
     if (pausedRow === null) return [];
     return [{

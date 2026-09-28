@@ -126,7 +126,7 @@ function keysOf(value: unknown): readonly string[] {
   return Object.entries(value).flatMap(([key, child]) => [key, ...keysOf(child)]);
 }
 
-/** Every kind of entry both documents can hold: ready, held, in progress, paused, waiting on a review, under one, settled, and a running dispatcher. */
+/** Every kind of entry both documents can hold: ready, grouped, held, in progress, paused, waiting on review, under one, settled, a running dispatcher. */
 async function statusDocumentKeysOfAFullBoard(repositoryDirectory: string): Promise<ReadonlySet<string>> {
   const run = async (commandLineArguments: readonly string[]): Promise<string> => {
     const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
@@ -148,6 +148,7 @@ async function statusDocumentKeysOfAFullBoard(repositoryDirectory: string): Prom
   const pausedRowId = (JSON.parse(await run(['ticket', 'show', '4', '--json'])) as { task?: string | number }).task ?? '';
   await run(['task', 'pause', String(pausedRowId)]);
   await run(['ticket', 'hold', '5', '--reason', 'Example reason']);
+  await run(['ticket', 'add', 'Example grouped ready', '--group', 'example-group']);
   await run(['ticket', 'claim', '7']);
   await run(['ticket', 'finish', '7']);
   await run(['ticket', 'approve', '7']);
