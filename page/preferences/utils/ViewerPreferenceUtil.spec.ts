@@ -14,6 +14,7 @@ const {
   logVisibilityFrom,
   nameColumnWidthFrom,
   overrideIsEmpty,
+  reloadSnapshotFrom,
   shownCountFrom,
   storedOverrideFrom,
   toggledLogVisibility,
@@ -133,5 +134,49 @@ describe('the capped lanes', () => {
     ['text that is no number', 'many', Number.NaN],
   ])('reads %s as the shown count %p', (_description, stored, expected) => {
     expect(shownCountFrom(stored)).toBe(expected);
+  });
+});
+
+describe('reloadSnapshotFrom', () => {
+  const storedSnapshot = {
+    trackerId:        'tracker-a',
+    windowScrollTop:  640,
+    chartScrollLeft:  1200,
+    chartScrollTop:   80,
+    kanbanScrollLeft: 300,
+    fromText:         '-2h',
+    toText:           'now',
+    detailTarget:     { kind: 'task', id: '7' },
+    detailScrollTop:  45,
+  };
+
+  test('reads back everything the page stored before the reload', () => {
+    expect(reloadSnapshotFrom(storedSnapshot, 'tracker-a')).toEqual({ ...storedSnapshot, detailTarget: { kind: 'task', id: '7' } });
+  });
+
+  test('reads nothing from a snapshot of another tracker, or from one that is not a record', () => {
+    expect(reloadSnapshotFrom(storedSnapshot, 'tracker-b')).toBeNull();
+    expect(reloadSnapshotFrom('tracker-a', 'tracker-a')).toBeNull();
+    expect(reloadSnapshotFrom(null, 'tracker-a')).toBeNull();
+  });
+
+  // A half-readable snapshot still restores what it can; the unreadable parts leave the page where its layout put it.
+  test('reads an unreadable or negative offset as the top, unreadable text as empty and an unknown detail as none', () => {
+    const snapshot = reloadSnapshotFrom({
+      ...storedSnapshot,
+      windowScrollTop: 'far',
+      chartScrollLeft: -5,
+      fromText:        7,
+      detailTarget:    { kind: 'row', id: '7' },
+    }, 'tracker-a');
+
+    expect(snapshot?.windowScrollTop).toBe(0);
+    expect(snapshot?.chartScrollLeft).toBe(0);
+    expect(snapshot?.fromText).toBe('');
+    expect(snapshot?.detailTarget).toBeNull();
+  });
+
+  test.each(['task', 'ticket', 'kanban-card'])('reads the %s detail target', (kind) => {
+    expect(reloadSnapshotFrom({ ...storedSnapshot, detailTarget: { kind, id: '3' } }, 'tracker-a')?.detailTarget).toEqual({ kind, id: '3' });
   });
 });

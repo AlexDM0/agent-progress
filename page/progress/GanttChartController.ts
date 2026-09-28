@@ -7,10 +7,13 @@ import type { Timeline }                                               from '../
 import type { NameColumnWidth, StoredViewOverride, ViewerPreferences } from '../@types/ViewerChoices.ts';
 import {
   AXIS_TICKS_ELEMENT_ID,
+  CHART_ELEMENT_ID,
   CHART_OVERLAY_ELEMENT_ID,
   GENERATED_STAMP_ELEMENT_ID,
   HIDDEN_WORK_NOTE_ELEMENT_ID,
+  RANGE_FROM_ELEMENT_ID,
   RANGE_NOTE_ELEMENT_ID,
+  RANGE_TO_ELEMENT_ID,
   SUMMARY_ELEMENT_ID,
   TASK_ROWS_ELEMENT_ID,
 } from '../constants/TemplateIds.ts';
@@ -96,8 +99,8 @@ function reflectRangeBar(override: StoredViewOverride): void {
   const boundsAreUnset = override.fromText === null && override.toText === null;
   DomUtil.reflectSegment('ap-range-presets', 'preset', override.presetKey ?? (boundsAreUnset ? AUTOMATIC_RANGE_PRESET : ''));
   DomUtil.reflectSegment('ap-range-ticks', 'tick', override.tickMinutes === null ? AUTOMATIC_TICK_CHOICE : String(override.tickMinutes));
-  const fromInput = document.getElementById('ap-range-from');
-  const toInput   = document.getElementById('ap-range-to');
+  const fromInput = document.getElementById(RANGE_FROM_ELEMENT_ID);
+  const toInput   = document.getElementById(RANGE_TO_ELEMENT_ID);
   if (fromInput instanceof HTMLInputElement && document.activeElement !== fromInput) {
     fromInput.value = override.fromText ?? '';
   }
@@ -133,12 +136,12 @@ function wireRangeControls(readOverride: () => StoredViewOverride, applyOverride
   const applyTypedBounds = (): void => {
     applyOverride({
       presetKey:   null,
-      fromText:    readBound('ap-range-from'),
-      toText:      readBound('ap-range-to'),
+      fromText:    readBound(RANGE_FROM_ELEMENT_ID),
+      toText:      readBound(RANGE_TO_ELEMENT_ID),
       tickMinutes: readOverride().tickMinutes,
     });
   };
-  for (const elementId of ['ap-range-from', 'ap-range-to']) {
+  for (const elementId of [RANGE_FROM_ELEMENT_ID, RANGE_TO_ELEMENT_ID]) {
     document.getElementById(elementId)?.addEventListener('change', applyTypedBounds);
   }
 
@@ -167,7 +170,7 @@ export function createGanttChartController(sources: GanttChartControllerSources)
     preferences,
   } = sources;
   const { progress, limits } = payload;
-  const chart                = document.getElementById('ap-chart');
+  const chart                = document.getElementById(CHART_ELEMENT_ID);
   let override               = preferences.readRangeOverride();
   let nameColumnWidth        = preferences.readNameColumnWidth();
   let visibleRows            = rows;

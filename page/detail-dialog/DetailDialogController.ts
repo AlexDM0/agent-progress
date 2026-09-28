@@ -4,6 +4,7 @@ import type { PageLimits }            from '../../src/shared/@types/PagePayload.
 import type { IdentifiedLogEntry }    from '../../src/shared/@types/WordedLogEntry.ts';
 import type { KanbanCard }            from '../@types/KanbanCard.ts';
 import type { BoardRow, BoardTicket } from '../@types/PageBoard.ts';
+import type { DetailTarget }          from '../@types/ViewerChoices.ts';
 import {
   DETAIL_BODY_ELEMENT_ID,
   KANBAN_BOARD_ELEMENT_ID,
@@ -44,7 +45,7 @@ function keyActivatedRowOf(event: KeyboardEvent, selector: string): HTMLElement 
   return event.target;
 }
 
-function wireRowOverview(containerId: string, rowSelector: string, showRowDetail: (row: HTMLElement) => void): void {
+function wireRowOverview(containerId: string, rowSelector: string, showRowDetail: (row: HTMLElement) => unknown): void {
   const container = document.getElementById(containerId);
   container?.addEventListener('dblclick', (event) => {
     const row = doubleClickedRowOf(event, rowSelector);
@@ -74,65 +75,94 @@ function markCoveredTickLabels(): void {
   }
 }
 
-export function createDetailDialogController(sources: DetailDialogSources): { wire(): void } {
-  const wire = (): void => {
-    const {
-      rows,
-      tickets,
-      log,
-      limits,
-      readTodayCalendarDate,
-    } = sources;
+export interface DetailDialogController {
+  wire(): void;
+  readOpenTarget(): DetailTarget | null;
+  /** Opens the panel on the target again; a task or ticket the board no longer shows opens nothing and answers false. */
+  reopen(target: DetailTarget): boolean;
+}
+
+export function createDetailDialogController(sources: DetailDialogSources): DetailDialogController {
+  const {
+    rows,
+    tickets,
+    log,
+    limits,
+    readTodayCalendarDate,
+  } = sources;
+  const ticketById = new Map(tickets.map((ticket) => [ticket.id, ticket]));
+  let openTarget: DetailTarget | null = null;
+
+  const detailDialog = (): HTMLDialogElement | null => {
     const dialog = document.getElementById(DETAIL_DIALOG_ELEMENT_ID);
-    if (!(dialog instanceof HTMLDialogElement)) {
+    return dialog instanceof HTMLDialogElement ? dialog : null;
+  };
+
+  const showDetail = (target: DetailTarget, task: BoardRow | null, ticket: BoardTicket | null): boolean => {
+    const dialog = detailDialog();
+    const markup = taskDetailMarkup({
+      task,
+      ticket,
+      log,
+      slices:            limits,
+      todayCalendarDate: readTodayCalendarDate(),
+    });
+    if (dialog === null || markup === '') {
+      return false;
+    }
+    DomUtil.setMarkup(DETAIL_BODY_ELEMENT_ID, markup);
+    dialog.showModal();
+    openTarget = target;
+    return true;
+  };
+
+  const showTaskDetail = (taskId: string): boolean => {
+    const task = rows.find((candidate) => String(candidate.id) === taskId);
+    if (task === undefined) {
+      return false;
+    }
+    return showDetail({ kind: 'task', id: taskId }, task, task.ticket === null ? null : ticketById.get(task.ticket) ?? null);
+  };
+  const showTicketDetail = (ticketId: string): boolean => {
+    const ticket = ticketById.get(ticketId) ?? null;
+    return showDetail({ kind: 'ticket', id: ticketId }, ticket?.ownRow ?? null, ticket);
+  };
+
+  const showKanbanCardDetail = (ticketId: string): boolean => {
+    const dialog = detailDialog();
+    const card   = sources.readKanbanCards().find((candidate) => candidate.ticket.id === ticketId);
+    if (dialog === null || card === undefined) {
+      return false;
+    }
+    DomUtil.setMarkup(DETAIL_BODY_ELEMENT_ID, ticketDetailMarkup({
+      card,
+      nowEpochMilliseconds: Date.now(),
+      todayCalendarDate:    readTodayCalendarDate(),
+      limits,
+    }));
+    dialog.showModal();
+    openTarget = { kind: 'kanban-card', id: ticketId };
+    markCoveredTickLabels();
+    return true;
+  };
+
+  const showTargetDetail: Readonly<Record<DetailTarget['kind'], (id: string) => boolean>> = {
+    'task':        showTaskDetail,
+    'ticket':      showTicketDetail,
+    'kanban-card': showKanbanCardDetail,
+  };
+
+  const wire = (): void => {
+    const dialog = detailDialog();
+    if (dialog === null) {
       return;
     }
-    const ticketById = new Map(tickets.map((ticket) => [ticket.id, ticket]));
-
-    const showDetail = (task: BoardRow | null, ticket: BoardTicket | null): void => {
-      const markup = taskDetailMarkup({
-        task,
-        ticket,
-        log,
-        slices:            limits,
-        todayCalendarDate: readTodayCalendarDate(),
-      });
-      if (markup === '') {
-        return;
-      }
-      DomUtil.setMarkup(DETAIL_BODY_ELEMENT_ID, markup);
-      dialog.showModal();
-    };
-
-    const showTaskRowDetail = (row: HTMLElement): void => {
-      const task = rows.find((candidate) => String(candidate.id) === row.dataset['taskId']);
-      if (task !== undefined) {
-        showDetail(task, task.ticket === null ? null : ticketById.get(task.ticket) ?? null);
-      }
-    };
-    const showTicketRowDetail = (row: HTMLElement): void => {
-      const ticket = ticketById.get(row.dataset['ticketId'] ?? '') ?? null;
-      showDetail(ticket?.ownRow ?? null, ticket);
-    };
-
-    const showKanbanCardDetail = (cardElement: HTMLElement): void => {
-      const card = sources.readKanbanCards().find((candidate) => candidate.ticket.id === cardElement.dataset['ticketId']);
-      if (card === undefined) {
-        return;
-      }
-      DomUtil.setMarkup(DETAIL_BODY_ELEMENT_ID, ticketDetailMarkup({
-        card,
-        nowEpochMilliseconds: Date.now(),
-        todayCalendarDate:    readTodayCalendarDate(),
-        limits,
-      }));
-      dialog.showModal();
-      markCoveredTickLabels();
-    };
-
-    wireRowOverview(TASK_ROWS_ELEMENT_ID, '.ap-row', showTaskRowDetail);
-    wireRowOverview(TICKET_ROWS_ELEMENT_ID, '[data-ticket-id]', showTicketRowDetail);
-    wireRowOverview(KANBAN_BOARD_ELEMENT_ID, '.ap-kanban-card', showKanbanCardDetail);
+    wireRowOverview(TASK_ROWS_ELEMENT_ID, '.ap-row', (row) => showTaskDetail(row.dataset['taskId'] ?? ''));
+    wireRowOverview(TICKET_ROWS_ELEMENT_ID, '[data-ticket-id]', (row) => showTicketDetail(row.dataset['ticketId'] ?? ''));
+    wireRowOverview(KANBAN_BOARD_ELEMENT_ID, '.ap-kanban-card', (cardElement) => showKanbanCardDetail(cardElement.dataset['ticketId'] ?? ''));
+    dialog.addEventListener('close', () => {
+      openTarget = null;
+    });
     window.addEventListener('resize', () => {
       if (dialog.open) {
         markCoveredTickLabels();
@@ -151,5 +181,9 @@ export function createDetailDialogController(sources: DetailDialogSources): { wi
     });
   };
 
-  return { wire };
+  return {
+    wire,
+    readOpenTarget: () => openTarget,
+    reopen:         (target) => showTargetDetail[target.kind](target.id),
+  };
 }

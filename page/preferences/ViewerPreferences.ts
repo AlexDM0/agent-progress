@@ -1,11 +1,16 @@
 /**
- * The viewer's stored page choices: the key strings and the reads and writes. The one module where the page script touches browser storage;
- * the template's bootstrap keeps its own theme, tab and open-ticket keys.
+ * The viewer's stored page choices and the reload snapshot: the key strings and the reads and writes. The one module where the page script
+ * touches browser storage; the template's bootstrap keeps its own theme, tab and open-ticket keys.
  */
 
-import type { PreferenceStorage, StoredViewOverride, ViewerPreferences } from '../@types/ViewerChoices.ts';
-import type { ClosedKanbanLane }                                         from '../kanban/constants/KanbanBoardLayout.ts';
-import { CAPPED_LANE_FIRST_PAGE_CARDS }                                  from '../kanban/constants/KanbanBoardLayout.ts';
+import type {
+  PreferenceStorage,
+  ReloadSnapshotStore,
+  StoredViewOverride,
+  ViewerPreferences,
+} from '../@types/ViewerChoices.ts';
+import type { ClosedKanbanLane }        from '../kanban/constants/KanbanBoardLayout.ts';
+import { CAPPED_LANE_FIRST_PAGE_CARDS } from '../kanban/constants/KanbanBoardLayout.ts';
 import {
   DEFAULT_ABANDONED_LANE_CHOICE,
   DEFAULT_LOG_VISIBILITY,
@@ -20,6 +25,9 @@ const CAPPED_LANE_KEY_SUFFIX: Readonly<Record<ClosedKanbanLane, string>> = {
   done:      'kanban-done-shown',
   abandoned: 'kanban-abandoned-shown',
 };
+
+// Session storage is one tab's, so it needs no tracker id: the snapshot carries it instead, for a tab that opens another dashboard.
+const RELOAD_SNAPSHOT_STORAGE_KEY = 'agent-progress:snapshot';
 
 /** `file://` is one origin in Chrome, so the tracker id is what keeps two dashboards' ranges apart. */
 function rangeOverrideStorageKeyFor(trackerId: string): string {
@@ -112,5 +120,30 @@ export function createViewerPreferences(trackerId: string, storageOf: () => Pref
       String(shownCount),
       String(CAPPED_LANE_FIRST_PAGE_CARDS),
     ),
+  };
+}
+
+/** The place kept across one idle reload, in the tab's session storage; `take` deletes it, so it is restored once and never outlives the reload. */
+export function createReloadSnapshotStore(trackerId: string, storageOf: () => PreferenceStorage): ReloadSnapshotStore {
+  return {
+    write: (snapshot) => {
+      try {
+        storageOf().setItem(RELOAD_SNAPSHOT_STORAGE_KEY, JSON.stringify(snapshot));
+      } catch {
+        // The reload still happens, only without the place.
+      }
+    },
+    take: () => {
+      try {
+        const stored = storageOf().getItem(RELOAD_SNAPSHOT_STORAGE_KEY);
+        if (stored === null) {
+          return null;
+        }
+        storageOf().removeItem(RELOAD_SNAPSHOT_STORAGE_KEY);
+        return ViewerPreferenceUtil.reloadSnapshotFrom(JSON.parse(stored), trackerId);
+      } catch {
+        return null;
+      }
+    },
   };
 }

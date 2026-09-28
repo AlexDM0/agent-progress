@@ -3,7 +3,6 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta http-equiv="refresh" content="300">
 <title>agent-progress</title>
 <script>
 /* Resolve the theme before first paint so a reload looks identical: the saved
@@ -164,9 +163,18 @@
                 set to a px value (e.g. 2400px) to make the timeline scroll.
  --now-x        on #ap-now: left offset as a percentage of the axis box.
  window.agentProgressTemplate
-                the two pieces of behaviour this template owns, exposed for the page
-                script: selectTab(name) and restoreTicketOpenState(), the latter to
-                be called again after the ticket cards have been replaced.
+                the behaviour this template owns, exposed for the page script:
+                selectTab(name); restoreTicketOpenState(), to be called again after
+                the ticket cards have been replaced; and onBeforeReload(callback),
+                run just before the idle reload.
+ idle reload    no meta refresh: the bootstrap reloads every 300 s, postponed and
+                retried every 30 s while #ap-detail is open, an input, textarea or
+                select has focus, or pointer, key, wheel or scroll activity came
+                within 45 s; a hidden tab reloads once it is shown again. Before it
+                reloads, the page script stores its place in sessionStorage under
+                "agent-progress:snapshot" (scroll of the window, #ap-chart and
+                #ap-kanban, the From/To text, the open detail and its scroll) and
+                restores and deletes it after its first layout.
  THE AXIS BOX   one box for everything on the time axis: the third grid column,
                 edge to edge, no padding or margin. .ap-cell-track, #ap-ticks and
                 #ap-overlay all span exactly that box, so a percentage means the
@@ -1231,8 +1239,8 @@ a:hover { color: var(--ink); text-decoration: underline; }
 <script type="application/json" id="ap-tickets-data">__TICKETS__</script>
 
 <!-- Template-owned behaviour: tab selection and ticket open state, both restored
-     from localStorage before paint so a reload looks identical. Everything
-     data-driven belongs to the page script below. -->
+     from localStorage before paint so a reload looks identical, and the idle
+     reload. Everything data-driven belongs to the page script below. -->
 <script>
 (function () {
   /* The token below is injected as the last script; define it so a template
@@ -1309,11 +1317,50 @@ a:hover { color: var(--ink); text-decoration: underline; }
     try { localStorage.setItem(OPEN_KEY, JSON.stringify(open)); } catch (e) {}
   }, true);
 
-  /* The two pieces of template-owned behaviour the page script has to reach, and the only ones.
+  /* The idle reload. Every RELOAD_INTERVAL_MS the page tries to reload; while the viewer is using
+     it (the detail panel open, a field focused, activity within ACTIVITY_QUIET_MS) it tries again
+     every RELOAD_RETRY_MS, and a hidden tab waits until it is shown. The page script's callbacks
+     run first, so it can store what it needs to put the viewer back where they were. */
+  var RELOAD_INTERVAL_MS = 300000;
+  var RELOAD_RETRY_MS = 30000;
+  var ACTIVITY_QUIET_MS = 45000;
+  var beforeReloadCallbacks = [];
+  var lastActivityAt = 0;
+  var reloadIsDue = false;
+  var activityEvents = ["pointerdown", "pointermove", "keydown", "wheel", "scroll"];
+  for (var a = 0; a < activityEvents.length; a++) {
+    document.addEventListener(activityEvents[a], function () { lastActivityAt = Date.now(); }, { capture: true, passive: true });
+  }
+
+  function viewerIsBusy() {
+    var detail = document.getElementById("ap-detail");
+    var focused = document.activeElement;
+    return (detail !== null && detail.open)
+      || (focused !== null && focused.matches("input, textarea, select"))
+      || Date.now() - lastActivityAt < ACTIVITY_QUIET_MS;
+  }
+
+  function attemptReload() {
+    if (document.hidden) { reloadIsDue = true; return; }
+    if (viewerIsBusy()) { setTimeout(attemptReload, RELOAD_RETRY_MS); return; }
+    for (var c = 0; c < beforeReloadCallbacks.length; c++) {
+      try { beforeReloadCallbacks[c](); } catch (e) {}
+    }
+    window.location.reload();
+  }
+  setTimeout(attemptReload, RELOAD_INTERVAL_MS);
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden && reloadIsDue) { reloadIsDue = false; attemptReload(); }
+  });
+
+  function onBeforeReload(callback) { beforeReloadCallbacks.push(callback); }
+
+  /* The template-owned behaviour the page script has to reach, and the only ones.
      The cards above are placeholders: the page script replaces them wholesale, after this runs,
      so the restore has to be callable a second time — and a "#ap-ticket-003" fragment has to be
-     able to select the Tickets tab without the page script owning a second copy of the tab logic. */
-  window.agentProgressTemplate = { selectTab: select, restoreTicketOpenState: restoreTicketOpenState };
+     able to select the Tickets tab without the page script owning a second copy of the tab logic.
+     onBeforeReload is how the page stores its place before the idle reload. */
+  window.agentProgressTemplate = { selectTab: select, restoreTicketOpenState: restoreTicketOpenState, onBeforeReload: onBeforeReload };
 })();
 </script>
 

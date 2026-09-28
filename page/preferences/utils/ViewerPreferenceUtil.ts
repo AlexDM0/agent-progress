@@ -1,8 +1,14 @@
-/** The viewer's stored choices read back with their defaults and written in their encodings, and the two toggles; no storage is touched here. */
+/**
+ * The viewer's stored choices and reload snapshot read back with their defaults and written in their encodings, and the two toggles; no
+ * storage is touched here.
+ */
 
 import type {
+  DetailTarget,
+  DetailTargetKind,
   LogVisibility,
   NameColumnWidth,
+  ReloadSnapshot,
   StoredViewOverride,
   WorkVisibility,
 } from '../../@types/ViewerChoices.ts';
@@ -27,6 +33,36 @@ function storedOverrideFrom(value: unknown): StoredViewOverride {
     fromText:    JsonValueUtil.textOrNull(value['fromText']),
     toText:      JsonValueUtil.textOrNull(value['toText']),
     tickMinutes: JsonValueUtil.finiteNumberOrNull(value['tickMinutes']),
+  };
+}
+
+const DETAIL_TARGET_KINDS: readonly DetailTargetKind[] = ['task', 'ticket', 'kanban-card'];
+
+function detailTargetFrom(value: unknown): DetailTarget | null {
+  if (!JsonValueUtil.valueIsRecord(value)) {
+    return null;
+  }
+  const kind = DETAIL_TARGET_KINDS.find((candidate) => candidate === value['kind']);
+  const id   = JsonValueUtil.textOrNull(value['id']);
+  return kind === undefined || id === null ? null : { kind, id };
+}
+
+/** A snapshot of another tracker, or one that is not a record, is no snapshot; an unreadable scroll offset or text reads as the top or empty. */
+function reloadSnapshotFrom(value: unknown, trackerId: string): ReloadSnapshot | null {
+  if (!JsonValueUtil.valueIsRecord(value) || value['trackerId'] !== trackerId) {
+    return null;
+  }
+  const offsetOf = (key: string): number => Math.max(0, JsonValueUtil.finiteNumberOrNull(value[key]) ?? 0);
+  return {
+    trackerId,
+    windowScrollTop:  offsetOf('windowScrollTop'),
+    chartScrollLeft:  offsetOf('chartScrollLeft'),
+    chartScrollTop:   offsetOf('chartScrollTop'),
+    kanbanScrollLeft: offsetOf('kanbanScrollLeft'),
+    fromText:         JsonValueUtil.textOrNull(value['fromText']) ?? '',
+    toText:           JsonValueUtil.textOrNull(value['toText']) ?? '',
+    detailTarget:     detailTargetFrom(value['detailTarget']),
+    detailScrollTop:  offsetOf('detailScrollTop'),
   };
 }
 
@@ -69,6 +105,7 @@ function shownCountFrom(stored: string | null): number {
 
 export const ViewerPreferenceUtil = {
   storedOverrideFrom,
+  reloadSnapshotFrom,
   overrideIsEmpty,
   workVisibilityFrom,
   logVisibilityFrom,

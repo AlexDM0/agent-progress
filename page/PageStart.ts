@@ -1,6 +1,6 @@
 /**
  * The browser entry: it fills the containers of `resources/template.html` from the two JSON islands and does nothing else. Theme, tab
- * selection and ticket open state stay with the template's own bootstrap, reached through `window.agentProgressTemplate`.
+ * selection, ticket open state and the idle reload stay with the template's own bootstrap, reached through `window.agentProgressTemplate`.
  */
 
 import type { PagePayload, PageTicket } from '../src/shared/@types/PagePayload.ts';
@@ -22,18 +22,19 @@ import {
   TICKET_COUNT_ELEMENT_ID,
   TICKET_ROWS_ELEMENT_ID,
 } from './constants/TemplateIds.ts';
-import { createDetailDialogController } from './detail-dialog/DetailDialogController.ts';
-import { createKanbanController }       from './kanban/KanbanController.ts';
-import { KanbanLaneUtil }               from './kanban/utils/KanbanLaneUtil.ts';
-import { createLogController }          from './log/LogController.ts';
-import { createViewerPreferences }      from './preferences/ViewerPreferences.ts';
-import { ViewerPreferenceUtil }         from './preferences/utils/ViewerPreferenceUtil.ts';
-import { createGanttChartController }   from './progress/GanttChartController.ts';
-import { createTicketsController }      from './tickets/TicketsController.ts';
-import { DomUtil }                      from './utils/DomUtil.ts';
-import { IslandUtil }                   from './utils/IslandUtil.ts';
-import { TimeUtil }                     from './utils/TimeUtil.ts';
-import { VisibilityUtil }               from './utils/VisibilityUtil.ts';
+import { createDetailDialogController }                       from './detail-dialog/DetailDialogController.ts';
+import { createKanbanController }                             from './kanban/KanbanController.ts';
+import { KanbanLaneUtil }                                     from './kanban/utils/KanbanLaneUtil.ts';
+import { createLogController }                                from './log/LogController.ts';
+import { createReloadSnapshotStore, createViewerPreferences } from './preferences/ViewerPreferences.ts';
+import { ViewerPreferenceUtil }                               from './preferences/utils/ViewerPreferenceUtil.ts';
+import { createGanttChartController }                         from './progress/GanttChartController.ts';
+import { createReloadSnapshotController }                     from './reload/ReloadSnapshotController.ts';
+import { createTicketsController }                            from './tickets/TicketsController.ts';
+import { DomUtil }                                            from './utils/DomUtil.ts';
+import { IslandUtil }                                         from './utils/IslandUtil.ts';
+import { TimeUtil }                                           from './utils/TimeUtil.ts';
+import { VisibilityUtil }                                     from './utils/VisibilityUtil.ts';
 
 const PROGRESS_ISLAND_ELEMENT_ID = 'ap-progress-data';
 const TICKETS_ISLAND_ELEMENT_ID  = 'ap-tickets-data';
@@ -148,7 +149,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     preferences,
     readTodayCalendarDate: () => todayCalendarDate,
   });
-  // Set from the visibility filter's now before anything prints a stamp; the page reloads every few minutes, so the day is never stale for long.
+  // Set from the visibility filter's now before anything prints a stamp; the page reloads every few minutes when idle, so the day is rarely stale.
   let todayCalendarDate = '';
 
   // Applied before the first layout, which measures the pinned columns this width sets.
@@ -216,9 +217,18 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     kanbanController.updateOverflow();
   });
 
+  const reloadSnapshotController = createReloadSnapshotController({
+    trackerId:        progress.trackerId,
+    store:            createReloadSnapshotStore(progress.trackerId, () => window.sessionStorage),
+    readDetailTarget: () => detailDialogController.readOpenTarget(),
+    reopenDetail:     (target) => detailDialogController.reopen(target),
+  });
+  reloadSnapshotController.keepPlaceOnReload();
+
   showVisibleWork();
   progressController.layOut(true);
   applyFragment(window.location.hash);
+  reloadSnapshotController.restorePlace();
   kanbanController.updateOverflow();
 }
 

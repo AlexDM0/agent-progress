@@ -1,13 +1,18 @@
 /**
  * The viewer's stored page choices, driven through the storage they are written to. The cases that matter: every key string and encoding stays
  * what a viewer's browser already holds, two trackers never share a key, a choice at its default leaves nothing behind, anything unreadable
- * falls back to the default, and blocked storage never throws.
+ * falls back to the default, and blocked storage never throws. The reload snapshot is taken back exactly once and only by its own tracker.
  */
 
-import { describe, expect, test }                                                     from 'bun:test';
-import type { PreferenceStorage, StoredViewOverride, ViewerPreferences }              from '../@types/ViewerChoices.ts';
+import { describe, expect, test } from 'bun:test';
+import type {
+  PreferenceStorage,
+  ReloadSnapshot,
+  StoredViewOverride,
+  ViewerPreferences,
+} from '../@types/ViewerChoices.ts';
 import { CAPPED_LANE_FIRST_PAGE_CARDS }                                               from '../kanban/constants/KanbanBoardLayout.ts';
-import { createViewerPreferences }                                                    from './ViewerPreferences.ts';
+import { createReloadSnapshotStore, createViewerPreferences }                         from './ViewerPreferences.ts';
 import { DEFAULT_LOG_VISIBILITY, DEFAULT_NAME_COLUMN_WIDTH, DEFAULT_WORK_VISIBILITY } from './constants/PreferenceDefaults.ts';
 import { EMPTY_VIEW_OVERRIDE }                                                        from './constants/ViewOverride.ts';
 import { ViewerPreferenceUtil }                                                       from './utils/ViewerPreferenceUtil.ts';
@@ -181,5 +186,63 @@ describe('createViewerPreferences', () => {
     storage.setItem('agent-progress:tracker-a', '{not json');
 
     expect(createViewerPreferences(EXAMPLE_TRACKER_ID, () => storage).readRangeOverride()).toEqual(EMPTY_VIEW_OVERRIDE);
+  });
+});
+
+const EXAMPLE_RELOAD_SNAPSHOT: ReloadSnapshot = {
+  trackerId:        EXAMPLE_TRACKER_ID,
+  windowScrollTop:  640,
+  chartScrollLeft:  1200,
+  chartScrollTop:   80,
+  kanbanScrollLeft: 300,
+  fromText:         '-2h',
+  toText:           '',
+  detailTarget:     { kind: 'kanban-card', id: '12' },
+  detailScrollTop:  45,
+};
+
+describe('createReloadSnapshotStore', () => {
+  // The template header comment names this key; a reload that wrote it under another would restore nothing.
+  test('writes the snapshot under agent-progress:snapshot as JSON', () => {
+    const storage = inMemoryStorage();
+
+    createReloadSnapshotStore(EXAMPLE_TRACKER_ID, () => storage).write(EXAMPLE_RELOAD_SNAPSHOT);
+
+    expect([...storage.entries.keys()]).toEqual(['agent-progress:snapshot']);
+    expect(JSON.parse(storage.entries.get('agent-progress:snapshot') ?? 'null')).toEqual(EXAMPLE_RELOAD_SNAPSHOT);
+  });
+
+  test('takes the snapshot back once and deletes it, so a later manual reload restores nothing', () => {
+    const storage = inMemoryStorage();
+    const store   = createReloadSnapshotStore(EXAMPLE_TRACKER_ID, () => storage);
+    store.write(EXAMPLE_RELOAD_SNAPSHOT);
+
+    expect(store.take()).toEqual(EXAMPLE_RELOAD_SNAPSHOT);
+    expect(storage.entries.size).toBe(0);
+    expect(store.take()).toBeNull();
+  });
+
+  test('takes nothing from a snapshot another tracker wrote in the same tab, and deletes it', () => {
+    const storage = inMemoryStorage();
+    createReloadSnapshotStore(ANOTHER_EXAMPLE_TRACKER_ID, () => storage).write({ ...EXAMPLE_RELOAD_SNAPSHOT, trackerId: ANOTHER_EXAMPLE_TRACKER_ID });
+
+    expect(createReloadSnapshotStore(EXAMPLE_TRACKER_ID, () => storage).take()).toBeNull();
+    expect(storage.entries.size).toBe(0);
+  });
+
+  test('takes nothing from a stored snapshot that is not JSON', () => {
+    const storage = inMemoryStorage();
+    storage.setItem('agent-progress:snapshot', '{not json');
+
+    expect(createReloadSnapshotStore(EXAMPLE_TRACKER_ID, () => storage).take()).toBeNull();
+  });
+
+  test('neither writes nor takes, and never throws, when the storage cannot be reached', () => {
+    const store = createReloadSnapshotStore(EXAMPLE_TRACKER_ID, () => {
+      throw new Error('storage is blocked');
+    });
+
+    expect(() => store.write(EXAMPLE_RELOAD_SNAPSHOT)).not.toThrow();
+    expect(store.take()).toBeNull();
   });
 });

@@ -5,6 +5,7 @@ import type { ShortenedText } from './MarkupUtil.ts';
 export interface TemplateBehaviour {
   selectTab:              (name: string) => void;
   restoreTicketOpenState: () => void;
+  onBeforeReload:         (callback: () => void) => void;
 }
 
 function templateBehaviour(): TemplateBehaviour | null {
@@ -13,10 +14,10 @@ function templateBehaviour(): TemplateBehaviour | null {
     return null;
   }
   const behaviour = candidate as Partial<TemplateBehaviour>;
-  if (typeof behaviour.selectTab !== 'function' || typeof behaviour.restoreTicketOpenState !== 'function') {
+  if (typeof behaviour.selectTab !== 'function' || typeof behaviour.restoreTicketOpenState !== 'function' || typeof behaviour.onBeforeReload !== 'function') {
     return null;
   }
-  return { selectTab: behaviour.selectTab, restoreTicketOpenState: behaviour.restoreTicketOpenState };
+  return { selectTab: behaviour.selectTab, restoreTicketOpenState: behaviour.restoreTicketOpenState, onBeforeReload: behaviour.onBeforeReload };
 }
 
 function setText(elementId: string, text: string): void {
