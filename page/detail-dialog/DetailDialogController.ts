@@ -160,9 +160,6 @@ export function createDetailDialogController(sources: DetailDialogSources): Deta
     wireRowOverview(TASK_ROWS_ELEMENT_ID, '.ap-row', (row) => showTaskDetail(row.dataset['taskId'] ?? ''));
     wireRowOverview(TICKET_ROWS_ELEMENT_ID, '[data-ticket-id]', (row) => showTicketDetail(row.dataset['ticketId'] ?? ''));
     wireRowOverview(KANBAN_BOARD_ELEMENT_ID, '.ap-kanban-card', (cardElement) => showKanbanCardDetail(cardElement.dataset['ticketId'] ?? ''));
-    dialog.addEventListener('close', () => {
-      openTarget = null;
-    });
     window.addEventListener('resize', () => {
       if (dialog.open) {
         markCoveredTickLabels();
@@ -183,7 +180,8 @@ export function createDetailDialogController(sources: DetailDialogSources): Deta
 
   return {
     wire,
-    readOpenTarget: () => openTarget,
+    // Read from the dialog itself: its close event is queued, and a reload can come before it is dispatched.
+    readOpenTarget: () => (detailDialog()?.open === true ? openTarget : null),
     reopen:         (target) => showTargetDetail[target.kind](target.id),
   };
 }
