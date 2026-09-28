@@ -11,11 +11,11 @@ import type {
   StoredViewOverride,
   ViewerPreferences,
 } from '../@types/ViewerChoices.ts';
-import { CAPPED_LANE_FIRST_PAGE_CARDS }                                               from '../kanban/constants/KanbanBoardLayout.ts';
-import { createReloadSnapshotStore, createViewerPreferences }                         from './ViewerPreferences.ts';
-import { DEFAULT_LOG_VISIBILITY, DEFAULT_NAME_COLUMN_WIDTH, DEFAULT_WORK_VISIBILITY } from './constants/PreferenceDefaults.ts';
-import { EMPTY_VIEW_OVERRIDE }                                                        from './constants/ViewOverride.ts';
-import { ViewerPreferenceUtil }                                                       from './utils/ViewerPreferenceUtil.ts';
+import { CAPPED_LANE_FIRST_PAGE_CARDS }                       from '../kanban/constants/KanbanBoardLayout.ts';
+import { createReloadSnapshotStore, createViewerPreferences } from './ViewerPreferences.ts';
+import { DEFAULT_NAME_COLUMN_WIDTH, DEFAULT_WORK_VISIBILITY } from './constants/PreferenceDefaults.ts';
+import { EMPTY_VIEW_OVERRIDE }                                from './constants/ViewOverride.ts';
+import { ViewerPreferenceUtil }                               from './utils/ViewerPreferenceUtil.ts';
 
 const EXAMPLE_TRACKER_ID         = 'tracker-a';
 const ANOTHER_EXAMPLE_TRACKER_ID = 'tracker-b';
@@ -42,7 +42,7 @@ function inMemoryStorage(): InMemoryStorage {
   };
 }
 
-type StoredChoiceName = 'range override' | 'work visibility' | 'log visibility' | 'name column' | 'Abandoned lane' | 'Done lane count' | 'Abandoned lane count';
+type StoredChoiceName = 'range override' | 'work visibility' | 'name column' | 'Abandoned lane' | 'Done lane count' | 'Abandoned lane count';
 
 // Frozen from the key functions before they moved here: retake by checking out bc42604 and calling the key functions in lib/render/page/.
 // Columns: the choice, its key for tracker `tracker-a`, a stored value in its encoding, and the value at which the key is removed.
@@ -54,7 +54,6 @@ const FROZEN_STORED_CHOICES: readonly (readonly [StoredChoiceName, string, strin
     '{"presetKey":"auto","fromText":null,"toText":null,"tickMinutes":null}',
   ],
   ['work visibility', 'agent-progress:tracker-a:visibility', 'all', 'recent'],
-  ['log visibility', 'agent-progress:tracker-a:log', 'all', 'newest'],
   ['name column', 'agent-progress:tracker-a:name-column', 'wide', 'normal'],
   ['Abandoned lane', 'agent-progress:tracker-a:kanban-abandoned', 'open', 'closed'],
   ['Done lane count', 'agent-progress:tracker-a:kanban-done-shown', '40', '15'],
@@ -75,10 +74,6 @@ const DRIVER_FOR_STORED_CHOICE: Readonly<Record<StoredChoiceName, StoredChoiceDr
   'work visibility': {
     write: (preferences, text) => preferences.writeWorkVisibility(ViewerPreferenceUtil.workVisibilityFrom(text)),
     read:  (preferences) => preferences.readWorkVisibility(),
-  },
-  'log visibility': {
-    write: (preferences, text) => preferences.writeLogVisibility(ViewerPreferenceUtil.logVisibilityFrom(text)),
-    read:  (preferences) => preferences.readLogVisibility(),
   },
   'name column': {
     write: (preferences, text) => preferences.writeNameColumnWidth(ViewerPreferenceUtil.nameColumnWidthFrom(text)),
@@ -145,14 +140,12 @@ describe('createViewerPreferences', () => {
 
     preferences.writeRangeOverride(override);
     preferences.writeWorkVisibility('all');
-    preferences.writeLogVisibility('all');
     preferences.writeNameColumnWidth('wide');
     preferences.writeAbandonedLaneIsOpen(true);
     preferences.writeCappedLaneShownCount('done', 40);
 
     expect(preferences.readRangeOverride()).toEqual(override);
     expect(preferences.readWorkVisibility()).toBe('all');
-    expect(preferences.readLogVisibility()).toBe('all');
     expect(preferences.readNameColumnWidth()).toBe('wide');
     expect(preferences.readAbandonedLaneIsOpen()).toBe(true);
     expect(preferences.readCappedLaneShownCount('done')).toBe(40);
@@ -167,14 +160,12 @@ describe('createViewerPreferences', () => {
 
     expect(preferences.readRangeOverride()).toEqual(EMPTY_VIEW_OVERRIDE);
     expect(preferences.readWorkVisibility()).toBe(DEFAULT_WORK_VISIBILITY);
-    expect(preferences.readLogVisibility()).toBe(DEFAULT_LOG_VISIBILITY);
     expect(preferences.readNameColumnWidth()).toBe(DEFAULT_NAME_COLUMN_WIDTH);
     expect(preferences.readAbandonedLaneIsOpen()).toBe(false);
     expect(preferences.readCappedLaneShownCount('done')).toBe(CAPPED_LANE_FIRST_PAGE_CARDS);
     expect(() => {
       preferences.writeRangeOverride(overrideWith({ tickMinutes: 15 }));
       preferences.writeWorkVisibility('all');
-      preferences.writeLogVisibility('all');
       preferences.writeNameColumnWidth('wide');
       preferences.writeAbandonedLaneIsOpen(true);
       preferences.writeCappedLaneShownCount('done', 40);
@@ -198,6 +189,7 @@ const EXAMPLE_RELOAD_SNAPSHOT: ReloadSnapshot = {
   kanbanScrollLeft: 300,
   fromText:         '-2h',
   toText:           '',
+  logFilterText:    'review',
   detailTarget:     { kind: 'kanban-card', id: '12' },
   detailScrollTop:  45,
 };

@@ -5,6 +5,7 @@ import {
   CHART_ELEMENT_ID,
   DETAIL_BODY_ELEMENT_ID,
   KANBAN_BOARD_ELEMENT_ID,
+  LOG_FILTER_ELEMENT_ID,
   RANGE_FROM_ELEMENT_ID,
   RANGE_TO_ELEMENT_ID,
   TABS_ELEMENT_ID,
@@ -17,6 +18,7 @@ export interface ReloadSnapshotSources {
   store:            ReloadSnapshotStore;
   readDetailTarget: () => DetailTarget | null;
   reopenDetail:     (target: DetailTarget) => boolean;
+  applyLogFilter:   (filterText: string) => void;
 }
 
 export interface ReloadSnapshotController {
@@ -49,6 +51,7 @@ export function createReloadSnapshotController(sources: ReloadSnapshotSources): 
     store,
     readDetailTarget,
     reopenDetail,
+    applyLogFilter,
   } = sources;
 
   const snapshotOfPlace = (): ReloadSnapshot => {
@@ -65,6 +68,7 @@ export function createReloadSnapshotController(sources: ReloadSnapshotSources): 
       kanbanScrollLeft: kanban?.scrollLeft ?? 0,
       fromText:         inputValueOf(RANGE_FROM_ELEMENT_ID),
       toText:           inputValueOf(RANGE_TO_ELEMENT_ID),
+      logFilterText:    inputValueOf(LOG_FILTER_ELEMENT_ID),
       detailTarget,
       detailScrollTop:  detailTarget === null ? 0 : detailBody?.scrollTop ?? 0,
     };
@@ -86,6 +90,10 @@ export function createReloadSnapshotController(sources: ReloadSnapshotSources): 
       // Only the text goes back, never a change event: a bound typed and not yet applied stays unapplied.
       setInputValue(RANGE_FROM_ELEMENT_ID, snapshot.fromText);
       setInputValue(RANGE_TO_ELEMENT_ID, snapshot.toText);
+      // Applied before the scroll goes back, since the filter changes how tall the log card is.
+      if (snapshot.logFilterText !== '') {
+        applyLogFilter(snapshot.logFilterText);
+      }
       const chart = document.getElementById(CHART_ELEMENT_ID);
       if (chart !== null) {
         chart.scrollLeft = snapshot.chartScrollLeft;

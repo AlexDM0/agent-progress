@@ -48,6 +48,11 @@ function setMarkup(elementId: string, markup: string): void {
   }
 }
 
+/** Adds markup after the element's last child, leaving what it already holds in place. Safe for the reason `setMarkup` is. */
+function appendMarkup(elementId: string, markup: string): void {
+  document.getElementById(elementId)?.insertAdjacentHTML('beforeend', markup);
+}
+
 function setHidden(elementId: string, hidden: boolean): void {
   const element = document.getElementById(elementId);
   if (element !== null) {
@@ -72,6 +77,7 @@ export const DomUtil = {
   setText,
   setShortenedText,
   setMarkup,
+  appendMarkup,
   setHidden,
   reflectSegment,
 } as const;

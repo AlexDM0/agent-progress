@@ -11,13 +11,11 @@ import { ViewerPreferenceUtil }    from './ViewerPreferenceUtil.ts';
 const {
   abandonedLaneChoiceFor,
   abandonedLaneIsOpenFrom,
-  logVisibilityFrom,
   nameColumnWidthFrom,
   overrideIsEmpty,
   reloadSnapshotFrom,
   shownCountFrom,
   storedOverrideFrom,
-  toggledLogVisibility,
   toggledNameColumnWidth,
   workVisibilityFrom,
 } = ViewerPreferenceUtil;
@@ -65,26 +63,6 @@ describe('overrideIsEmpty', () => {
     expect(overrideIsEmpty(overrideWith({ presetKey: 'auto' }))).toBe(true);
     expect(overrideIsEmpty(overrideWith({ tickMinutes: 15 }))).toBe(false);
     expect(overrideIsEmpty(overrideWith({ fromText: '-1h', toText: 'now' }))).toBe(false);
-  });
-});
-
-describe('logVisibilityFrom', () => {
-  // A cleared or tampered key must not show the whole log by accident; only the one stored word does.
-  test.each([
-    ['nothing stored', null],
-    ['an unknown word', 'everything'],
-    ['the default spelled out', 'newest'],
-  ])('reads %s as the newest entries', (_description, stored) => {
-    expect(logVisibilityFrom(stored)).toBe('newest');
-  });
-
-  test('reads the stored word for the whole log as the whole log', () => {
-    expect(logVisibilityFrom('all')).toBe('all');
-  });
-
-  test('toggles between the two choices and back', () => {
-    expect(toggledLogVisibility(toggledLogVisibility('newest'))).toBe('newest');
-    expect(toggledLogVisibility('newest')).toBe('all');
   });
 });
 
@@ -147,6 +125,7 @@ describe('reloadSnapshotFrom', () => {
     kanbanScrollLeft: 300,
     fromText:         '-2h',
     toText:           'now',
+    logFilterText:    '#455',
     detailTarget:     { kind: 'task', id: '7' },
     detailScrollTop:  45,
   };

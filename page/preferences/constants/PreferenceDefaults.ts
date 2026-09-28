@@ -1,6 +1,4 @@
-import type { LogVisibility, NameColumnWidth, WorkVisibility } from '../../@types/ViewerChoices.ts';
-
-export const DEFAULT_LOG_VISIBILITY: LogVisibility = 'newest';
+import type { NameColumnWidth, WorkVisibility } from '../../@types/ViewerChoices.ts';
 
 export const DEFAULT_NAME_COLUMN_WIDTH: NameColumnWidth = 'normal';
 

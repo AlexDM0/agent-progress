@@ -6,7 +6,7 @@
 
 import { expect, test } from 'bun:test';
 
-import { noteNamesTaskOrTicket } from './NoteNamesTaskOrTicket.ts';
+import { noteNamesTaskOrTicket, ticketReferencesIn } from './NoteNamesTaskOrTicket.ts';
 
 test('a row does not claim a note about a row whose number merely starts with its own', () => {
   expect(noteNamesTaskOrTicket('Task #13 finished', 1, null)).toBe(false);
@@ -40,4 +40,15 @@ test('a note is claimed when it names either the row or the ticket, and by neith
   expect(noteNamesTaskOrTicket('Task #1 finished', 1, '002')).toBe(true);
   expect(noteNamesTaskOrTicket('Ticket #002 started', 1, '002')).toBe(true);
   expect(noteNamesTaskOrTicket('Task #1 finished and #002 started', null, null)).toBe(false);
+});
+
+// The log links exactly what the claim reads as a ticket, so the references follow the same rule, with the positions the link replaces.
+test('finds every whole ticket reference with its position, and no row form', () => {
+  const text = 'Task #120 finished; #007 and #0012 next';
+
+  expect(ticketReferencesIn(text)).toEqual([
+    { ticketId: '007', start: 20, end: 24 },
+    { ticketId: '0012', start: 29, end: 34 },
+  ]);
+  expect(ticketReferencesIn('Review row #9 started')).toEqual([]);
 });

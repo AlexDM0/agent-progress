@@ -16,10 +16,10 @@ import type { PageTicket }                     from '../../src/shared/@types/Pag
 import type { IdentifiedLogEntry }             from '../../src/shared/@types/WordedLogEntry.ts';
 import type { BoardRow }                       from '../@types/PageBoard.ts';
 import { MarkupUtil }                          from '../utils/MarkupUtil.ts';
+import { noteNamesTaskOrTicket }               from '../utils/NoteNamesTaskOrTicket.ts';
 import type { DurationUnits, TimestampSlices } from '../utils/TimeUtil.ts';
 import { TimeUtil }                            from '../utils/TimeUtil.ts';
 import { WorkItemMarkupUtil }                  from '../utils/WorkItemMarkupUtil.ts';
-import { noteNamesTaskOrTicket }               from './NoteNamesTaskOrTicket.ts';
 import { DetailMarkupUtil }                    from './utils/DetailMarkupUtil.ts';
 
 

@@ -73,12 +73,18 @@
  #ap-chart-empty          el     shown instead of rows when there are none
  #ap-name-column          button in the chart's Task header, aria-pressed; pressed widens the
                                  name column (data-name-column="wide" on the root element)
- #ap-log                  ul     log entries, newest first; children li > time + span; the
-                                 newest 10 unless #ap-log-toggle is pressed. Each time follows
-                                 the stamp rule at #ap-generated on its own, with its title
- #ap-log-note             text   "newest first", or "newest 10 of 25, 15 hidden" while capped
- #ap-log-control          el     [hidden] unless the log holds more than 10 entries
- #ap-log-toggle           button "Show all 25", aria-pressed while every entry is shown
+ #ap-log                  ul     log entries matching #ap-log-filter, newest first; children
+                                 li > time + span; the newest 10, then 50 more per
+                                 #ap-log-more click. Each time follows the stamp rule at
+                                 #ap-generated on its own, with its title. A ticket id in a
+                                 span is an a[data-log-ticket-id] that opens its #ap-detail
+ #ap-log-filter           input  filters by case-insensitive substring; exactly "#455" keeps
+                                 the entries whose ids hold ticket 455 and the notes naming
+                                 #455 as a whole token
+ #ap-log-note             text   "newest first", "newest 10 of 5,173", "12 matches for '#455'"
+                                 or "newest 10 of 120 matches for 'review'"
+ #ap-log-control          el     [hidden] unless more matching entries are hidden
+ #ap-log-more             button "Show 50 more", or fewer when fewer are hidden
  #ap-log-empty            el     shown instead of log entries when there are none
  #ap-ticket-rows          tbody  ticket table body; each <tr> carries data-ticket-id
  #ap-ticket-count         text   "6 tickets · 1 in progress" above the ticket table
@@ -581,6 +587,7 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
 .ap-empty[hidden] { display: none; }
 
 /* -------------------------------------------------------------------- log -- */
+.ap-card-head:has(#ap-log-filter) { flex-wrap: wrap; }
 #ap-log { margin: 0; padding: 0; list-style: none; }
 #ap-log li { display: flex; gap: var(--sp-3); padding: 5px var(--sp-4); border-bottom: 1px solid var(--line); font-size: var(--fs-small); }
 #ap-log li:last-child { border-bottom: 0; }
@@ -1044,10 +1051,14 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
   <div class="ap-card">
     <div class="ap-card-head">
       <span class="ap-card-title">Log</span><span class="ap-card-note" id="ap-log-note">newest first</span>
-      <div class="ap-seg" id="ap-log-control" hidden><button type="button" id="ap-log-toggle" aria-pressed="false">Show all 25</button></div>
+      <div class="ap-field">
+        <label class="ap-range-label" for="ap-log-filter">Filter</label>
+        <input id="ap-log-filter" type="text" placeholder="#455 or text" spellcheck="false" autocomplete="off">
+      </div>
+      <div class="ap-seg" id="ap-log-control" hidden><button type="button" id="ap-log-more">Show 50 more</button></div>
     </div>
     <ul id="ap-log">
-      <li><time title="2026-09-18 21:56">21:56</time><span>#004 Brighter colours — subagent started, branch ticket/brighter-colours</span></li>
+      <li><time title="2026-09-18 21:56">21:56</time><span><a href="#ap-ticket-004" data-log-ticket-id="004">#004</a> Brighter colours — subagent started, branch ticket/brighter-colours</span></li>
       <li><time title="2026-09-18 21:51">21:51</time><span>#001 Double-click a role to edit it — delivered at abc1234</span></li>
       <li><time title="2026-09-18 21:38">21:38</time><span>#002 Cache ticket bodies between runs — review passed</span></li>
       <li><time title="2026-09-18 21:26">21:26</time><span>#001 Double-click a role to edit it — finished, 18.4k tokens</span></li>

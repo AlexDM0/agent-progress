@@ -1,9 +1,11 @@
 /** The markup primitives several parts of the page emit. Every value passes `escapeHtml` exactly once here. */
 
-import { HtmlEscapeUtil }       from '../../src/lib/html-escape/HtmlEscapeUtil.ts';
-import type { WordedLogEntry }  from '../../src/shared/@types/WordedLogEntry.ts';
-import type { TimestampSlices } from './TimeUtil.ts';
-import { TimeUtil }             from './TimeUtil.ts';
+import { HtmlEscapeUtil }          from '../../src/lib/html-escape/HtmlEscapeUtil.ts';
+import type { IdentifiedLogEntry } from '../../src/shared/@types/WordedLogEntry.ts';
+import { ticketReferencesIn }      from './NoteNamesTaskOrTicket.ts';
+import { TemplateIdUtil }          from './TemplateIdUtil.ts';
+import type { TimestampSlices }    from './TimeUtil.ts';
+import { TimeUtil }                from './TimeUtil.ts';
 
 
 const PERCENT_DECIMAL_PLACES = 2;
@@ -37,15 +39,42 @@ function stampMarkup(tagName: string, stamp: string, todayCalendarDate: string, 
   return shortenedTextMarkup(tagName, TimeUtil.shortStampText(stamp, todayCalendarDate, slices), TimeUtil.fullStampText(stamp, slices));
 }
 
-/** `entryLimit` keeps the newest that many, `null` all; each stamp is shortened against the viewer's day on its own. */
-function logItemsMarkup(entries: readonly WordedLogEntry[], slices: TimestampSlices, todayCalendarDate: string, entryLimit: number | null = null): string {
+export interface LogItemsOptions {
+  /** The positions, newest first, of the lines to print; every line when absent. */
+  shownRange?:      { start: number; end: number };
+  /** The tickets a `#N` in a line may link to; no links when absent. */
+  linkedTicketIds?: ReadonlySet<string>;
+}
+
+/** A record links only the tickets its ids hold; a note, which carries none, links every ticket its sentence names. */
+function logTextMarkup(entry: IdentifiedLogEntry, linkedTicketIds: ReadonlySet<string> | undefined): string {
+  if (linkedTicketIds === undefined) {
+    return HtmlEscapeUtil.escapeHtml(entry.text);
+  }
+  let markup        = '';
+  let consumedIndex = 0;
+  for (const reference of ticketReferencesIn(entry.text)) {
+    if (!linkedTicketIds.has(reference.ticketId) || (entry.ticketIds !== undefined && !entry.ticketIds.includes(reference.ticketId))) {
+      continue;
+    }
+    const destination = attribute('href', `#${TemplateIdUtil.ticketCardElementIdOf(reference.ticketId)}`);
+    const linkText    = HtmlEscapeUtil.escapeHtml(entry.text.slice(reference.start, reference.end));
+    const link        = `<a ${destination} ${attribute('data-log-ticket-id', reference.ticketId)}>${linkText}</a>`;
+    markup           += `${HtmlEscapeUtil.escapeHtml(entry.text.slice(consumedIndex, reference.start))}${link}`;
+    consumedIndex     = reference.end;
+  }
+  return markup + HtmlEscapeUtil.escapeHtml(entry.text.slice(consumedIndex));
+}
+
+/** Each stamp is shortened against the viewer's day on its own. */
+function logItemsMarkup(entries: readonly IdentifiedLogEntry[], slices: TimestampSlices, todayCalendarDate: string, options: LogItemsOptions = {}): string {
   // Sorting by stamp is a stated clock exception that decides only the display order, because `--at` backfills.
-  // Within one second the later append is the newer line, so the cap never keeps an older one over it.
+  // Within one second the later append is the newer line, so a shown range never keeps an older one over it.
   return entries
     .map((entry, appendIndex) => ({ entry, appendIndex }))
     .sort((a, b) => b.entry.at.localeCompare(a.entry.at) || b.appendIndex - a.appendIndex)
-    .slice(0, entryLimit ?? entries.length)
-    .map(({ entry }) => `<li>${stampMarkup('time', entry.at, todayCalendarDate, slices)}<span>${HtmlEscapeUtil.escapeHtml(entry.text)}</span></li>`)
+    .slice(options.shownRange?.start ?? 0, options.shownRange?.end ?? entries.length)
+    .map(({ entry }) => `<li>${stampMarkup('time', entry.at, todayCalendarDate, slices)}<span>${logTextMarkup(entry, options.linkedTicketIds)}</span></li>`)
     .join('');
 }
 

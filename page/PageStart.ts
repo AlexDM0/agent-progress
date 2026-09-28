@@ -145,9 +145,10 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
 
   const logController = createLogController({
     entries:               progress.log,
+    linkedTicketIds:       new Set(board.tickets.map((ticket) => ticket.id)),
     slices:                limits,
-    preferences,
     readTodayCalendarDate: () => todayCalendarDate,
+    openTicketDetail:      (ticketId) => detailDialogController.openTicketDetail(ticketId),
   });
   // Set from the visibility filter's now before anything prints a stamp; the page reloads every few minutes when idle, so the day is rarely stale.
   let todayCalendarDate = '';
@@ -223,6 +224,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     store:            createReloadSnapshotStore(progress.trackerId, () => window.sessionStorage),
     readDetailTarget: () => detailDialogController.readOpenTarget(),
     reopenDetail:     (target) => detailDialogController.reopen(target),
+    applyLogFilter:   (filterText) => logController.applyFilter(filterText),
   });
   reloadSnapshotController.keepPlaceOnReload();
 

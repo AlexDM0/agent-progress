@@ -9,16 +9,11 @@ import type {
   StoredViewOverride,
   ViewerPreferences,
 } from '../@types/ViewerChoices.ts';
-import type { ClosedKanbanLane }        from '../kanban/constants/KanbanBoardLayout.ts';
-import { CAPPED_LANE_FIRST_PAGE_CARDS } from '../kanban/constants/KanbanBoardLayout.ts';
-import {
-  DEFAULT_ABANDONED_LANE_CHOICE,
-  DEFAULT_LOG_VISIBILITY,
-  DEFAULT_NAME_COLUMN_WIDTH,
-  DEFAULT_WORK_VISIBILITY,
-} from './constants/PreferenceDefaults.ts';
-import { EMPTY_VIEW_OVERRIDE }  from './constants/ViewOverride.ts';
-import { ViewerPreferenceUtil } from './utils/ViewerPreferenceUtil.ts';
+import type { ClosedKanbanLane }                                                             from '../kanban/constants/KanbanBoardLayout.ts';
+import { CAPPED_LANE_FIRST_PAGE_CARDS }                                                      from '../kanban/constants/KanbanBoardLayout.ts';
+import { DEFAULT_ABANDONED_LANE_CHOICE, DEFAULT_NAME_COLUMN_WIDTH, DEFAULT_WORK_VISIBILITY } from './constants/PreferenceDefaults.ts';
+import { EMPTY_VIEW_OVERRIDE }                                                               from './constants/ViewOverride.ts';
+import { ViewerPreferenceUtil }                                                              from './utils/ViewerPreferenceUtil.ts';
 
 // A literal map rather than the lane value, so renaming a lane cannot move a viewer's stored key.
 const CAPPED_LANE_KEY_SUFFIX: Readonly<Record<ClosedKanbanLane, string>> = {
@@ -41,10 +36,6 @@ function choiceStorageKeyFor(trackerId: string, choiceName: string): string {
 
 function workVisibilityStorageKeyFor(trackerId: string): string {
   return choiceStorageKeyFor(trackerId, 'visibility');
-}
-
-function logVisibilityStorageKeyFor(trackerId: string): string {
-  return choiceStorageKeyFor(trackerId, 'log');
 }
 
 function nameColumnWidthStorageKeyFor(trackerId: string): string {
@@ -104,8 +95,6 @@ export function createViewerPreferences(trackerId: string, storageOf: () => Pref
     writeRangeOverride:       writeStoredOverride,
     readWorkVisibility:       () => ViewerPreferenceUtil.workVisibilityFrom(readStoredChoice(workVisibilityStorageKeyFor(trackerId))),
     writeWorkVisibility:      (visibility) => writeStoredChoice(workVisibilityStorageKeyFor(trackerId), visibility, DEFAULT_WORK_VISIBILITY),
-    readLogVisibility:        () => ViewerPreferenceUtil.logVisibilityFrom(readStoredChoice(logVisibilityStorageKeyFor(trackerId))),
-    writeLogVisibility:       (visibility) => writeStoredChoice(logVisibilityStorageKeyFor(trackerId), visibility, DEFAULT_LOG_VISIBILITY),
     readNameColumnWidth:      () => ViewerPreferenceUtil.nameColumnWidthFrom(readStoredChoice(nameColumnWidthStorageKeyFor(trackerId))),
     writeNameColumnWidth:     (width) => writeStoredChoice(nameColumnWidthStorageKeyFor(trackerId), width, DEFAULT_NAME_COLUMN_WIDTH),
     readAbandonedLaneIsOpen:  () => ViewerPreferenceUtil.abandonedLaneIsOpenFrom(readStoredChoice(abandonedLaneStorageKeyFor(trackerId))),

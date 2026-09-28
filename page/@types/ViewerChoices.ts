@@ -1,7 +1,5 @@
 import type { ClosedKanbanLane } from '../kanban/constants/KanbanBoardLayout.ts';
 
-export type LogVisibility = 'newest' | 'all';
-
 export type NameColumnWidth = 'normal' | 'wide';
 
 export type WorkVisibility = 'recent' | 'all';
@@ -31,6 +29,7 @@ export interface ReloadSnapshot {
   kanbanScrollLeft: number;
   fromText:         string;
   toText:           string;
+  logFilterText:    string;
   detailTarget:     DetailTarget | null;
   detailScrollTop:  number;
 }
@@ -47,8 +46,6 @@ export interface ViewerPreferences {
   writeRangeOverride:        (override: StoredViewOverride) => void;
   readWorkVisibility:        () => WorkVisibility;
   writeWorkVisibility:       (visibility: WorkVisibility) => void;
-  readLogVisibility:         () => LogVisibility;
-  writeLogVisibility:        (visibility: LogVisibility) => void;
   readNameColumnWidth:       () => NameColumnWidth;
   writeNameColumnWidth:      (width: NameColumnWidth) => void;
   readAbandonedLaneIsOpen:   () => boolean;

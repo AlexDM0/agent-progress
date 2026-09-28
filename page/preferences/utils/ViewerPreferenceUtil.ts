@@ -6,21 +6,15 @@
 import type {
   DetailTarget,
   DetailTargetKind,
-  LogVisibility,
   NameColumnWidth,
   ReloadSnapshot,
   StoredViewOverride,
   WorkVisibility,
 } from '../../@types/ViewerChoices.ts';
-import { CAPPED_LANE_FIRST_PAGE_CARDS } from '../../kanban/constants/KanbanBoardLayout.ts';
-import { JsonValueUtil }                from '../../utils/JsonValueUtil.ts';
-import {
-  DEFAULT_ABANDONED_LANE_CHOICE,
-  DEFAULT_LOG_VISIBILITY,
-  DEFAULT_NAME_COLUMN_WIDTH,
-  DEFAULT_WORK_VISIBILITY,
-} from '../constants/PreferenceDefaults.ts';
-import { EMPTY_VIEW_OVERRIDE } from '../constants/ViewOverride.ts';
+import { CAPPED_LANE_FIRST_PAGE_CARDS }                                                      from '../../kanban/constants/KanbanBoardLayout.ts';
+import { JsonValueUtil }                                                                     from '../../utils/JsonValueUtil.ts';
+import { DEFAULT_ABANDONED_LANE_CHOICE, DEFAULT_NAME_COLUMN_WIDTH, DEFAULT_WORK_VISIBILITY } from '../constants/PreferenceDefaults.ts';
+import { EMPTY_VIEW_OVERRIDE }                                                               from '../constants/ViewOverride.ts';
 
 const ABANDONED_LANE_OPEN_CHOICE = 'open';
 
@@ -62,6 +56,7 @@ function reloadSnapshotFrom(value: unknown, trackerId: string): ReloadSnapshot |
     kanbanScrollLeft: offsetOf('kanbanScrollLeft'),
     fromText:         JsonValueUtil.textOrNull(value['fromText']) ?? '',
     toText:           JsonValueUtil.textOrNull(value['toText']) ?? '',
+    logFilterText:    JsonValueUtil.textOrNull(value['logFilterText']) ?? '',
     detailTarget:     detailTargetFrom(value['detailTarget']),
     detailScrollTop:  offsetOf('detailScrollTop'),
   };
@@ -73,14 +68,6 @@ function overrideIsEmpty(override: StoredViewOverride): boolean {
 
 function workVisibilityFrom(value: unknown): WorkVisibility {
   return value === 'all' ? 'all' : DEFAULT_WORK_VISIBILITY;
-}
-
-function logVisibilityFrom(value: unknown): LogVisibility {
-  return value === 'all' ? 'all' : DEFAULT_LOG_VISIBILITY;
-}
-
-function toggledLogVisibility(visibility: LogVisibility): LogVisibility {
-  return visibility === 'all' ? 'newest' : 'all';
 }
 
 function nameColumnWidthFrom(value: unknown): NameColumnWidth {
@@ -109,8 +96,6 @@ export const ViewerPreferenceUtil = {
   reloadSnapshotFrom,
   overrideIsEmpty,
   workVisibilityFrom,
-  logVisibilityFrom,
-  toggledLogVisibility,
   nameColumnWidthFrom,
   toggledNameColumnWidth,
   abandonedLaneIsOpenFrom,

@@ -1,10 +1,11 @@
 /**
- * The log's lines, newest first. The cases that matter are the order under `--at` backfills and same-second appends, the cap keeping the
- * newest lines rather than the first appended, and each line's stamp judged against the viewer's day on its own.
+ * The log's lines, newest first. The cases that matter are the order under `--at` backfills and same-second appends, a shown range keeping
+ * the newest lines rather than the first appended and joining the next range exactly, each line's stamp judged against the viewer's day on
+ * its own, and a line linking only the tickets the filter would keep it for.
  */
 
 import { describe, expect, test }   from 'bun:test';
-import type { WordedLogEntry }      from '../../src/shared/@types/WordedLogEntry.ts';
+import type { IdentifiedLogEntry }  from '../../src/shared/@types/WordedLogEntry.ts';
 import { EXAMPLE_TIMESTAMP_SLICES } from '../testing/PageLimitsFixture.ts';
 import { MarkupUtil }               from './MarkupUtil.ts';
 
@@ -14,7 +15,7 @@ const { logItemsMarkup } = MarkupUtil;
 const EXAMPLE_TODAY = '2026-09-18';
 
 describe('logItemsMarkup', () => {
-  const entries: WordedLogEntry[] = [
+  const entries: IdentifiedLogEntry[] = [
     { at: '2026-09-18T20:36:00+02:00', text: 'Tracker created' },
     { at: '2026-09-18T21:56:00+02:00', text: 'Subagent started' },
     { at: '2026-09-18T21:21:00+02:00', text: 'Old idea abandoned' },
@@ -35,7 +36,8 @@ describe('logItemsMarkup', () => {
       { at: '2026-09-18T21:56:00+02:00', text: 'Second append' },
       { at: '2026-09-18T21:56:00+02:00', text: 'Third append' },
     ];
-    const texts = [...logItemsMarkup(sameSecond, EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY, 2).matchAll(/<span>([^<]+)<\/span>/g)].map((match) => match[1]);
+    const markup = logItemsMarkup(sameSecond, EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY, { shownRange: { start: 0, end: 2 } });
+    const texts  = [...markup.matchAll(/<span>([^<]+)<\/span>/g)].map((match) => match[1]);
 
     expect(texts).toEqual(['Third append', 'Second append']);
   });
@@ -56,22 +58,19 @@ describe('logItemsMarkup', () => {
   });
 
   // The card shows the newest ten of a long log; cutting before sorting would keep the oldest ten the store happened to append first.
-  test('keeps the newest entries when a limit is given, newest first', () => {
-    expect(timesIn(logItemsMarkup(entries, EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY, 2))).toEqual(['21:56', '21:21']);
+  test('keeps the newest entries when a range is given, newest first', () => {
+    expect(timesIn(logItemsMarkup(entries, EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY, { shownRange: { start: 0, end: 2 } }))).toEqual(['21:56', '21:21']);
   });
 
-  // Toggling the cap must not change a kept line's form: it depends on the line's own day and the viewer's, never on the rest of the log.
-  test('prints a kept line the same under the cap as without it', () => {
+  // "Show 50 more" appends the next range to what is shown, so consecutive ranges must print exactly the whole list, nothing twice.
+  test('prints consecutive ranges that join into the whole list, each line printed the same', () => {
     const withTheDayBefore = [...entries, { at: '2026-09-17T23:59:00+02:00', text: 'The day before' }];
-    const capped           = logItemsMarkup(withTheDayBefore, EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY, 2);
+    const first            = logItemsMarkup(withTheDayBefore, EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY, { shownRange: { start: 0, end: 2 } });
+    const rest             = logItemsMarkup(withTheDayBefore, EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY, { shownRange: { start: 2, end: 4 } });
     const whole            = logItemsMarkup(withTheDayBefore, EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY);
 
-    expect(timesIn(capped)).toEqual(['21:56', '21:21']);
-    expect(whole.startsWith(capped)).toBe(true);
-  });
-
-  test('renders exactly the markup of no limit when the limit is null', () => {
-    expect(logItemsMarkup(entries, EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY, null)).toBe(logItemsMarkup(entries, EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY));
+    expect(timesIn(first)).toEqual(['21:56', '21:21']);
+    expect(first + rest).toBe(whole);
   });
 
   test('escapes a log line that carries markup', () => {
@@ -79,5 +78,46 @@ describe('logItemsMarkup', () => {
 
     expect(markup).not.toContain('<b>');
     expect(markup).toContain('&lt;/script&gt;');
+  });
+});
+
+describe('ticket links in log lines', () => {
+  const boardTickets = new Set(['007', '455']);
+
+  function linkedTicketsIn(entry: IdentifiedLogEntry): Array<string | undefined> {
+    const markup = logItemsMarkup([entry], EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY, { linkedTicketIds: boardTickets });
+    return [...markup.matchAll(/<a href="#ap-ticket-([0-9]+)" data-log-ticket-id="\1">#\1<\/a>/g)].map((match) => match[1]);
+  }
+
+  test('links the tickets a record\'s ids hold and leaves the rest of its sentence as text', () => {
+    const entry = {
+      at:        '2026-09-18T20:36:00+02:00',
+      text:      'Review row #120 started: Review 1 #007 — <Example>',
+      taskIds:   [120],
+      ticketIds: ['007'],
+    };
+    const markup = logItemsMarkup([entry], EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY, { linkedTicketIds: boardTickets });
+
+    expect(linkedTicketsIn(entry)).toEqual(['007']);
+    expect(markup).toContain('<span>Review row #120 started: Review 1 <a href="#ap-ticket-007" data-log-ticket-id="007">#007</a> — &lt;Example&gt;</span>');
+  });
+
+  // A record's ids are its claim: a number it quotes from another ticket is not linked, as the filter would not keep it for that ticket.
+  test('links no ticket a record merely quotes', () => {
+    expect(linkedTicketsIn({
+      at: '2026-09-18T20:36:00+02:00', text: 'Ticket #300 filed: follow-up to #455', taskIds: [], ticketIds: ['300'],
+    })).toEqual([]);
+  });
+
+  test('links each board ticket a note names as a whole token, and no row or longer number', () => {
+    expect(linkedTicketsIn({ at: '2026-09-18T20:36:00+02:00', text: 'Merged #455 and #007, not #4555 or task #455' })).toEqual(['455', '007']);
+  });
+
+  test('prints no link when no tickets are given to link', () => {
+    const markup = logItemsMarkup([{
+      at: '2026-09-18T20:36:00+02:00', text: 'Merged #455', ticketIds: ['455'], taskIds: []
+    }], EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY);
+
+    expect(markup).not.toContain('<a ');
   });
 });

@@ -80,6 +80,8 @@ export interface DetailDialogController {
   readOpenTarget(): DetailTarget | null;
   /** Opens the panel on the target again; a task or ticket the board no longer shows opens nothing and answers false. */
   reopen(target: DetailTarget): boolean;
+  /** Opens the panel on a ticket as its ticket line does; a ticket the board does not hold opens nothing and answers false. */
+  openTicketDetail(ticketId: string): boolean;
 }
 
 export function createDetailDialogController(sources: DetailDialogSources): DetailDialogController {
@@ -181,7 +183,8 @@ export function createDetailDialogController(sources: DetailDialogSources): Deta
   return {
     wire,
     // Read from the dialog itself: its close event is queued, and a reload can come before it is dispatched.
-    readOpenTarget: () => (detailDialog()?.open === true ? openTarget : null),
-    reopen:         (target) => showTargetDetail[target.kind](target.id),
+    readOpenTarget:   () => (detailDialog()?.open === true ? openTarget : null),
+    reopen:           (target) => showTargetDetail[target.kind](target.id),
+    openTicketDetail: showTicketDetail,
   };
 }
