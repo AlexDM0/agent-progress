@@ -228,6 +228,14 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     applyFragment(window.location.hash, openTicketDetail);
     kanbanController.updateOverflow();
   });
+  // A link to the ticket fragment already in the address bar fires no hashchange, so its detail, closed since, would not reopen.
+  document.addEventListener('click', (event) => {
+    const link = event.target instanceof Element ? event.target.closest('a[href^="#"]') : null;
+    const href = link?.getAttribute('href') ?? '';
+    if (href === window.location.hash && TemplateIdUtil.ticketIdOfFragment(href.slice(1)) !== null) {
+      applyFragment(href, openTicketDetail);
+    }
+  });
 
   const reloadSnapshotController = createReloadSnapshotController({
     trackerId:        progress.trackerId,
