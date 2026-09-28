@@ -188,12 +188,15 @@ output never carries either.
       [--worktree <path>]     tracker's root, wherever this runs from — to <b>, then approve the
       [--main <line>]         ticket and deliver it with --branch <b> and --commit set
       [--json]                to the merged tip. More ids after <id> release every ticket of a
-                              bundle, which share <b>. Every in-progress review row whose
+                              bundle, which share <b>. A ticket of a group's release bundle that
+                              is already reviewed is released beside that group's release ticket,
+                              delivered without a second approval. Every in-progress review row whose
                               --review-of names a released ticket is finished and delivered at the release
                               time, and named.
                               All of it happens in one lock hold, so two releases never race.
                               Refused at exit 1, with nothing changed (no review row either), when a ticket
-                              is not in-progress or in-review, when the main checkout is not on
+                              is not in-progress or in-review (or such a reviewed bundle ticket),
+                              when the main checkout is not on
                               --main (default \`main\`), when <b> is not a local branch, when <b>
                               does not descend from --main — reason \`main-moved\`: rebase <b> onto
                               it, re-run the checks and release again — and when git will not
@@ -318,8 +321,8 @@ output never carries either.
   ticket claim <id> [<id>...] \`ticket start\` and the row's --owner and --note in one write, for
       [--owner <who>]         every ticket named, as ONE agent: a bundle's builder claims all its
       [--note <text>]         tickets in the one call, and their rows share one agent key. Refused
-      [--at <when>]           at exit 1 with nothing written, all or nothing, when any ticket is not
-                              pending or in-review, when one waits on a ticket outside the claim
+      [--after <id>]          at exit 1 with nothing written, all or nothing, when any ticket is not
+      [--at <when>]           pending or in-review, when one waits on a ticket outside the claim
                               that is not reviewed or delivered (one inside it is settled: the
                               bundle is worked in dependency order), when one is low and a normal
                               or high ticket is not yet delivered or abandoned — \`ticket start\` only warns
@@ -329,6 +332,10 @@ output never carries either.
                               two claims racing for the last slot cannot both succeed. --json
                               prints the ticket, or with several ids the list of them. The first
                               command an implementing agent runs.
+                              --after <predecessor> claims one pipelined successor while its
+                              predecessor is still in review: accepted only when the predecessor
+                              is in-review, in the same release bundle, and the one unsettled
+                              ticket it waits on; the slot limit applies as for any claim.
 
   ticket rereview <id>        Send a ticket already in review round again, for a fresh reviewer: the
       [--at <when>]           ticket stays in-review and only its \`updated\` moves, while its row

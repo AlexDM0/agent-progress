@@ -90,13 +90,13 @@ The **from** column is the matrix the named verbs enforce; `ticket status <id> <
 |---|---|---|---|---|---|---|
 | `ticket add` | — | pending | created `pending`; none when low | `unstarted` | `filed` | `Ticket #003 filed: <title>` |
 | `ticket start` | pending, in-review | in-progress | `in-progress`; created for a low ticket | `wip` | `started` if null; the row's end cleared | `Ticket #003 started` |
-| `ticket claim` | pending, in-review, and for every id named: not held, no review bar in progress, dependencies settled (one on a ticket in the same claim is), a free slot, and for a low ticket no normal or high one owed | in-progress | `in-progress`, created for a low ticket; with `--owner`, `--note` and the claim's `agent` key | `wip` | as `start` | `Ticket #003 started`, one per ticket |
+| `ticket claim` | pending, in-review, and for every id named: not held, no review bar in progress, dependencies settled (one on a ticket in the same claim is, and with `--after` the in-review predecessor of its release bundle), a free slot, and for a low ticket no normal or high one owed | in-progress | `in-progress`, created for a low ticket; with `--owner`, `--note` and the claim's `agent` key | `wip` | as `start` | `Ticket #003 started`, one per ticket |
 | `ticket finish` | in-progress | in-review | `in-review` | `reviewing` | `finished` if null | `Ticket #003 in review` |
 | `ticket finish --start-review` | in-progress | in-review | `in-review`, plus an in-progress review row | `reviewing` | as `finish` | as `finish`, and `Review row #18 started: <name>` |
 | `ticket rereview` | in-review | in-review, unchanged | `re-review`, one round up from 2 | `reviewing 2` | `updated` only | `Ticket #003 in review, round 2` |
 | `ticket approve` | in-progress, in-review | reviewed | `reviewed` | `awaiting merge` | `finished` if null | `Ticket #003 reviewed` |
 | `ticket deliver` | reviewed | delivered | `delivered` | `done` | `delivered` if null | `Ticket #003 delivered` |
-| `release` | in-progress, in-review | reviewed, then delivered | `delivered`; in-progress review rows delivered | `done` | `finished` and `delivered` if null; `branch`, `commit` | the reviewed and delivered lines, and one per review row closed |
+| `release` | in-progress, in-review; reviewed for a release bundle's ticket released with its group's release ticket | reviewed (unless already), then delivered | `delivered`; in-progress review rows delivered | `done` | `finished` and `delivered` if null; `branch`, `commit` | the reviewed and delivered lines, and one per review row closed |
 | `ticket abandon` | anything but delivered, abandoned | abandoned | `abandoned`; none created for a low ticket without one | `abandoned` | `abandonedAt`, always; the row's end if it had started | `Ticket #003 abandoned: <reason>` |
 | `ticket reopen` | anything but pending | pending | `pending` | `unstarted` | all four cleared; `reason` dropped | `Ticket #003 reopened` |
 | `ticket priority … low` | pending | pending | removed | — | — | one line |

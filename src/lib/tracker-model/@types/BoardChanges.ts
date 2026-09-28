@@ -15,6 +15,11 @@ export interface AgentAssignment {
   note?:  string;
 }
 
+/** `afterTicketId` claims a pipelined successor while that predecessor of its release bundle is still in review. */
+export interface TicketClaim extends AgentAssignment {
+  afterTicketId?: string;
+}
+
 export interface ReviewBarRequest extends AgentAssignment {
   round: number;
 }

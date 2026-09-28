@@ -28,6 +28,7 @@
     ],
     "flags": [
       "--add",
+      "--after",
       "--at",
       "--body",
       "--body-file",

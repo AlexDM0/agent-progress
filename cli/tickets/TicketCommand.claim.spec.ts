@@ -255,3 +255,32 @@ describeWhenGitIsPresent('claiming several tickets as one agent', () => {
     expect(storedLogEntriesOf(repositoryDirectory).filter((entry) => entry.text === 'Ticket #003 started')).toHaveLength(1);
   });
 });
+
+describeWhenGitIsPresent('claiming a pipelined successor with --after', () => {
+  beforeEach(async () => {
+    await run(['ticket', 'add', 'Example checkout step', '--group', 'checkout']);
+    await run(['ticket', 'add', 'Example checkout follow-up', '--group', 'checkout', '--depends-on', '2']);
+    await run(['ticket', 'add', 'Example checkout release', '--group', 'checkout', '--depends-on', '3']);
+    await run(['ticket', 'release-of', '4']);
+    await run(['ticket', 'claim', '2']);
+    await run(['ticket', 'finish', '2', '--start-review']);
+  });
+
+  test('the successor of an in-review predecessor in its release bundle is claimed with --after, and refused without it', async () => {
+    expect(await expectRefusedWithNothingWritten(['ticket', 'claim', '3'])).toContain('#002');
+
+    const context = await run(['ticket', 'claim', '3', '--after', '2', '--owner', 'Alex Example']);
+
+    expect(context.outputText()).toContain('Ticket #003 started');
+    expect(storedProgressOf(repositoryDirectory).tasks.find((task) => task.ticket === '003')).toMatchObject({ status: 'in-progress', owner: 'Alex Example' });
+  });
+
+  test('a ticket that does not wait on the predecessor is refused with nothing written, naming both', async () => {
+    const errorText = await expectRefusedWithNothingWritten(['ticket', 'claim', '4', '--after', '2']);
+    expect(errorText).toContain('Ticket #004 was not claimed after #002: it does not wait on #002.');
+  });
+
+  test('--after with more than one ticket is refused with nothing written', async () => {
+    expect(await expectRefusedWithNothingWritten(['ticket', 'claim', '3', '4', '--after', '2'])).toContain('--after claims one ticket');
+  });
+});

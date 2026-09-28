@@ -9,18 +9,21 @@ import type { TicketSubcommandHandler }          from './@types/TicketSubcommand
 import { TICKET_USAGE }                          from './constants/TicketUsage.ts';
 import { TicketLookupUtil }                      from './utils/TicketLookupUtil.ts';
 
-const CLAIM_OPTION_NAMES = ['owner', 'note', 'at', 'json'];
+const CLAIM_OPTION_NAMES = ['owner', 'note', 'after', 'at', 'json'];
 
 /** Every reference is resolved before the claim is judged, so the first naming no ticket is refused; `3`, `003` and `#3` claim one ticket once. */
 async function claimTickets(references: readonly string[], commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
-  const owner = commandArguments.option('owner');
-  const note  = commandArguments.option('note');
+  const owner          = commandArguments.option('owner');
+  const note           = commandArguments.option('note');
+  const afterReference = commandArguments.option('after');
 
   const { result: claimed, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
-    const ticketIds = references.map((reference) => TicketLookupUtil.requireTicket(change, reference).frontmatter.id);
+    const ticketIds     = references.map((reference) => TicketLookupUtil.requireTicket(change, reference).frontmatter.id);
+    const afterTicketId = afterReference === undefined ? undefined : TicketLookupUtil.requireTicket(change, afterReference).frontmatter.id;
     return change.board.claimTickets(ticketIds, {
       ...(owner === undefined ? {} : { owner }),
       ...(note === undefined ? {} : { note }),
+      ...(afterTicketId === undefined ? {} : { afterTicketId }),
     }, change.at);
   });
 
@@ -52,6 +55,9 @@ async function claimTheNamedTickets(commandArguments: ArgumentParser, context: C
   const references = commandArguments.positionals().slice(1);
   if (references.length === 0) {
     throw new OperationRefusal('refused', `agent-progress ticket claim needs a ticket id, or every id of a bundle.\n  Usage: ${TICKET_USAGE}`);
+  }
+  if (commandArguments.option('after') !== undefined && references.length > 1) {
+    throw new OperationRefusal('refused', `agent-progress ticket claim --after claims one ticket, the successor of the one it names.\n  Usage: ${TICKET_USAGE}`);
   }
   return claimTickets(references, commandArguments, context);
 }

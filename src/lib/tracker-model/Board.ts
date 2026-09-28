@@ -4,7 +4,6 @@
  * records it was handed in place. Each rule lives in the module beside it that the method hands it to.
  */
 import type {
-  AgentAssignment,
   AgentChoice,
   AgentStopRecorded,
   ConcurrencyLimitSet,
@@ -16,6 +15,7 @@ import type {
   TaskAnnotation,
   TaskCorrection,
   TicketChanged,
+  TicketClaim,
   TicketDependenciesChanged,
   TicketMoved,
   TicketMoveRequest,
@@ -90,11 +90,11 @@ export class Board {
     this.dispatchQueries    = new DispatchQueries(this.records);
     this.displayQueries     = new DisplayQueries(this.records, this.reviewBars);
     this.ticketDependencies = new TicketDependencies(this.records);
-    this.ticketMoves        = new TicketMoves(this.records, this.reviewBars, this.ticketDependencies);
-    this.ticketClaims       = new TicketClaims(this.records, this.ticketMoves, this.reviewBars, this.dispatchQueries);
+    this.groupReleases      = new GroupReleases(this.records);
+    this.ticketMoves        = new TicketMoves(this.records, this.reviewBars, this.ticketDependencies, this.groupReleases);
+    this.ticketClaims       = new TicketClaims(this.records, this.ticketMoves, this.reviewBars, this.dispatchQueries, this.groupReleases);
     this.ticketSettings     = new TicketSettings(this.records);
     this.ticketBodyEdits    = new TicketBodyEdits(this.records);
-    this.groupReleases      = new GroupReleases(this.records);
     this.taskRows           = new TaskRows(this.records);
     this.tokenCredits       = new TokenCredits(this.records, this.reviewBars);
     this.trackerChanges     = new TrackerChanges(this.records, this.dispatchQueries);
@@ -168,8 +168,8 @@ export class Board {
     return this.ticketDependencies.removeTicketDependencies(ticketId, removedTicketIds, at);
   }
 
-  claimTickets(ticketIds: readonly string[], assignment: AgentAssignment, at: string): TicketsClaimed {
-    return this.ticketClaims.claimTickets(ticketIds, assignment, at);
+  claimTickets(ticketIds: readonly string[], claim: TicketClaim, at: string): TicketsClaimed {
+    return this.ticketClaims.claimTickets(ticketIds, claim, at);
   }
 
   releaseTickets(ticketIds: readonly string[], release: TicketRelease, at: string): TicketsReleased {
@@ -293,8 +293,8 @@ export class Board {
     return this.displayQueries.linkedRowOf(ticketId);
   }
 
-  ticketIsReleasable(ticket: Readonly<Ticket>): boolean {
-    return this.ticketMoves.ticketIsReleasable(ticket);
+  ticketIsReleasable(ticket: Readonly<Ticket>, releasedTicketIds: readonly string[]): boolean {
+    return this.ticketMoves.ticketIsReleasable(ticket, releasedTicketIds);
   }
 
   taskIsTicketWork(task: Readonly<Task>): boolean {

@@ -118,9 +118,26 @@ async function inProgressReviewRow(identifier: string, linkArguments: readonly s
   return (JSON.parse(await agentProgressOrFail(addArguments)) as Task).id;
 }
 
+/** Tickets of the group already reviewed, as a group run's reviewers leave them before its release ticket is released. */
+async function reviewedBundleTicketsOfGroup(group: string, count: number): Promise<string[]> {
+  const identifiers: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const added = JSON.parse(await agentProgressOrFail(['ticket', 'add', `Example ${group} step ${i + 1}`, '--group', group, '--json'])) as { id: string };
+    await agentProgressOrFail(['ticket', 'start', added.id]);
+    await agentProgressOrFail(['ticket', 'finish', added.id]);
+    await agentProgressOrFail(['ticket', 'approve', added.id]);
+    identifiers.push(added.id);
+  }
+  return identifiers;
+}
+
 /** A ticket in review whose work is one commit on a fresh linked worktree off the current main. */
-async function reviewedTicketOnAWorktree(title: string, worktreeName: string): Promise<{ identifier: string; worktree: string; branch: string; tip: string }> {
-  const added      = JSON.parse(await agentProgressOrFail(['ticket', 'add', title, '--json'])) as { id: string };
+async function reviewedTicketOnAWorktree(
+  title: string,
+  worktreeName: string,
+  addArguments: readonly string[] = [],
+): Promise<{ identifier: string; worktree: string; branch: string; tip: string }> {
+  const added      = JSON.parse(await agentProgressOrFail(['ticket', 'add', title, ...addArguments, '--json'])) as { id: string };
   const identifier = added.id;
   await agentProgressOrFail(['ticket', 'start', identifier]);
   await agentProgressOrFail(['ticket', 'finish', identifier]);
@@ -261,6 +278,32 @@ describeWhenGitIsPresent('a release that holds', () => {
     expect(outcome.exitCode).toBe(1);
     expect(mainTip()).toBe(mainBefore);
     expect(await readTicketDocument(identifier)).toMatchObject({ status: 'in-review' });
+  });
+
+  // A group run reviews its bundle tickets one at a time and ships them once, beside the release ticket, so each is approved exactly once.
+  test('reviewed tickets of a release bundle and the in-review release ticket are all delivered by one release, each approved once', async () => {
+    const reviewedIdentifiers = await reviewedBundleTicketsOfGroup('checkout', 2);
+    const {
+      identifier: releaseIdentifier,
+      worktree,
+      branch,
+      tip,
+    } = await reviewedTicketOnAWorktree('Release the checkout', 'checkout-release', ['--group', 'checkout', '--depends-on', reviewedIdentifiers.join(',')]);
+    await agentProgressOrFail(['ticket', 'release-of', releaseIdentifier]);
+    const logLengthBefore = storedLogEntriesOf(repositoryDirectory).length;
+
+    const outcome = await agentProgress(['release', ...reviewedIdentifiers, releaseIdentifier, '--branch', branch, '--worktree', worktree]);
+
+    expect(outcome.exitCode, outcome.error).toBe(0);
+    for (const identifier of [...reviewedIdentifiers, releaseIdentifier]) {
+      expect(await readTicketDocument(identifier)).toMatchObject({ status: 'delivered', commit: tip, branch });
+    }
+    expect(storedLogEntriesOf(repositoryDirectory).slice(logLengthBefore).map((entry) => entry.text)).toEqual([
+      `Ticket #${reviewedIdentifiers[0] ?? ''} delivered`,
+      `Ticket #${reviewedIdentifiers[1] ?? ''} delivered`,
+      `Ticket #${releaseIdentifier} reviewed`,
+      `Ticket #${releaseIdentifier} delivered`,
+    ]);
   });
 
   // A reviewer works from inside its own worktree, and the tracker and main checkout have to be found from there.
@@ -500,6 +543,17 @@ describeWhenGitIsPresent('a release that is refused changes nothing', () => {
     const outcome = await expectNothingChanged(added.id, worktree, () => agentProgress(['release', added.id, '--branch', 'worktree/not-started', '--json']));
 
     expect(releaseRefusalDocumentOf(outcome).reason).toBe('ticket-not-releasable');
+  });
+
+  test('a reviewed ticket outside the released bundle exits 1 with reason ticket-not-releasable', async () => {
+    const [outsideIdentifier = ''] = await reviewedBundleTicketsOfGroup('checkout', 1);
+    const { identifier, worktree, branch } = await reviewedTicketOnAWorktree('Release the checkout', 'checkout-release', ['--group', 'checkout']);
+    await agentProgressOrFail(['ticket', 'release-of', identifier]);
+
+    const outcome = await expectNothingChanged(outsideIdentifier, worktree, () => agentProgress(['release', outsideIdentifier, identifier, '--branch', branch, '--json']));
+
+    expect(releaseRefusalDocumentOf(outcome).reason).toBe('ticket-not-releasable');
+    expect(await readTicketDocument(identifier)).toMatchObject({ status: 'in-review' });
   });
 
   test('a branch that does not exist exits 1 with reason unknown-branch', async () => {

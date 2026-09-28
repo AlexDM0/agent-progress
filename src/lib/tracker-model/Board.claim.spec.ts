@@ -11,16 +11,17 @@ import {
   taskFixture,
   ticketFixture
 } from '../../testing/BoardFixtures.ts';
+import type { TicketClaim }        from './@types/BoardChanges.ts';
 import type { BoardRefusalDetail } from './BoardRefusal.ts';
 
 const STARTED_AT = '2026-09-18T10:00:00+02:00';
 const CLAIMED_AT = '2026-09-18T11:00:00+02:00';
 
 /** The refusal, and proof that it left the records, the log and the changed tickets as they were. */
-function refusalOfAClaimOn(fixture: BoardFixture, ticketIds: readonly string[]): BoardRefusalDetail {
+function refusalOfAClaimOn(fixture: BoardFixture, ticketIds: readonly string[], claim: TicketClaim = {}): BoardRefusalDetail {
   const progressBefore = structuredClone(fixture.progress);
   const ticketsBefore  = structuredClone(fixture.tickets);
-  const detail         = refusalDetailOf(() => fixture.board.claimTickets(ticketIds, { owner: 'Alex Example' }, CLAIMED_AT));
+  const detail         = refusalDetailOf(() => fixture.board.claimTickets(ticketIds, { owner: 'Alex Example', ...claim }, CLAIMED_AT));
   expect(fixture.progress).toEqual(progressBefore);
   expect(fixture.tickets).toEqual(ticketsBefore);
   expect(fixture.records).toEqual([]);
@@ -181,5 +182,103 @@ describe('a claim that goes through', () => {
   test('the concurrency comes back as it stands after the claim, the bundle counted as one agent', () => {
     const { board } = boardFixture({ tickets: [ticketFixture({ id: '001' }), ticketFixture({ id: '002' })], concurrencyLimit: 3 });
     expect(board.claimTickets(['001', '002'], {}, CLAIMED_AT).concurrency).toEqual({ limit: 3, agentsInFlight: 1, freeSlots: 2 });
+  });
+});
+
+/**
+ * Group `checkout`, release ticket 003: 001 in review under an in-progress review bar, 002 waiting on it alone, 004 on it and on the
+ * pending 007, 006 on 005 of group `payments`, 008 on nothing, and 009 on 001 outside the bundle.
+ */
+function pipelinedGroupFixture(concurrencyLimit: number): BoardFixture {
+  return boardFixture({
+    tasks: [
+      taskFixture({
+        id:     1,
+        name:   '#001 Example checkout step',
+        status: 'in-review',
+        start:  STARTED_AT,
+        ticket: '001',
+      }),
+      inProgressReviewBarFixture(2, '001'),
+    ],
+    tickets: [
+      ticketFixture({
+        id:     '001',
+        status: 'in-review',
+        task:   1,
+        group:  'checkout',
+      }),
+      ticketFixture({ id: '002', group: 'checkout', dependsOn: ['001'] }),
+      ticketFixture({
+        id:            '003',
+        group:         'checkout',
+        releasesGroup: true,
+        dependsOn:     ['002', '004', '006', '008'],
+      }),
+      ticketFixture({ id: '004', group: 'checkout', dependsOn: ['001', '007'] }),
+      ticketFixture({ id: '005', status: 'in-review', group: 'payments' }),
+      ticketFixture({ id: '006', group: 'checkout', dependsOn: ['005'] }),
+      ticketFixture({ id: '007' }),
+      ticketFixture({ id: '008', group: 'checkout' }),
+      ticketFixture({ id: '009', group: 'checkout', dependsOn: ['001'] }),
+    ],
+    concurrencyLimit,
+  });
+}
+
+describe('a claim --after a predecessor in review', () => {
+  test('a plain claim of a successor whose predecessor is in review is still refused', () => {
+    expect(refusalOfAClaimOn(pipelinedGroupFixture(2), ['002'])).toEqual({ reason: 'claim-waits-on-dependencies', ticketId: '002', unsettledTicketIds: ['001'] });
+  });
+
+  test('with a free slot, the in-review predecessor in the same bundle and no other unsettled dependency, the successor is claimed', () => {
+    const { board, records } = pipelinedGroupFixture(2);
+    const claimed            = board.claimTickets(['002'], { afterTicketId: '001' }, CLAIMED_AT);
+
+    expect(claimed.tickets.map((ticket) => [ticket.frontmatter.id, ticket.frontmatter.status])).toEqual([['002', 'in-progress']]);
+    expect(records.map((record) => record.kind)).toEqual(['ticket-started']);
+    expect(claimed.concurrency).toEqual({ limit: 2, agentsInFlight: 2, freeSlots: 0 });
+  });
+
+  test('with the limit full it is refused concurrency-limit-reached and writes nothing', () => {
+    expect(refusalOfAClaimOn(pipelinedGroupFixture(1), ['002'], { afterTicketId: '001' })).toEqual({
+      reason:             'concurrency-limit-reached',
+      ticketIds:          ['002'],
+      agentsInFlight:     1,
+      inProgressRowCount: 1,
+      limit:              1,
+    });
+  });
+
+  test('a predecessor in review in another group is refused as outside the bundle', () => {
+    expect(refusalOfAClaimOn(pipelinedGroupFixture(2), ['006'], { afterTicketId: '005' }))
+      .toEqual({ reason: 'claim-after-a-ticket-outside-the-bundle', ticketId: '006', afterTicketId: '005' });
+  });
+
+  test('a successor outside the release bundle is refused as outside the bundle', () => {
+    expect(refusalOfAClaimOn(pipelinedGroupFixture(2), ['009'], { afterTicketId: '001' }))
+      .toEqual({ reason: 'claim-after-a-ticket-outside-the-bundle', ticketId: '009', afterTicketId: '001' });
+  });
+
+  test('a predecessor that is not in review is refused, naming its status', () => {
+    expect(refusalOfAClaimOn(pipelinedGroupFixture(2), ['002'], { afterTicketId: '008' })).toEqual({
+      reason:        'claim-after-a-ticket-not-in-review',
+      ticketId:      '002',
+      afterTicketId: '008',
+      status:        'pending',
+    });
+  });
+
+  test('a successor that does not wait on the predecessor is refused', () => {
+    const fixture = pipelinedGroupFixture(2);
+    const [, , releaseTicket] = fixture.tickets;
+    if (releaseTicket !== undefined) releaseTicket.frontmatter.dependsOn = ['001', '002', '004', '006', '008'];
+    expect(refusalOfAClaimOn(fixture, ['008'], { afterTicketId: '001' }))
+      .toEqual({ reason: 'claim-after-a-ticket-it-does-not-wait-on', ticketId: '008', afterTicketId: '001' });
+  });
+
+  test('another unsettled dependency besides the predecessor is refused, naming only that one', () => {
+    expect(refusalOfAClaimOn(pipelinedGroupFixture(2), ['004'], { afterTicketId: '001' }))
+      .toEqual({ reason: 'claim-waits-on-dependencies', ticketId: '004', unsettledTicketIds: ['007'] });
   });
 });

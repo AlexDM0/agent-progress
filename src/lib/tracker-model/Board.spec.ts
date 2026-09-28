@@ -73,7 +73,7 @@ const CALLS_THAT_CHANGE_NO_TICKET: readonly (readonly [string, (board: Board) =>
   ], CHANGED_AT)],
   ['startReviewBar', (board) => board.startReviewBar('001', { round: 1, owner: 'Alex Example' }, CHANGED_AT)],
   ['clearTracker without the tickets', (board) => board.clearTracker({ ticketsSurvive: false }, CHANGED_AT)],
-  ['ticketIsReleasable', (board) => board.tickets().map((ticket) => board.ticketIsReleasable(ticket))],
+  ['ticketIsReleasable', (board) => board.tickets().map((ticket) => board.ticketIsReleasable(ticket, ['001']))],
   ['unsettledDependenciesOf', (board) => board.unsettledDependenciesOf('001')],
   ['waitingOnOf', (board) => board.tickets().map((ticket) => board.waitingOnOf(ticket))],
   ['ticketIdsHoldingBack', (board) => board.ticketIdsHoldingBack('002')],

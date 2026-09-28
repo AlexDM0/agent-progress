@@ -71,6 +71,15 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
         + `Nothing was written; \`agent-progress ticket start ${detail.ticketId}\` starts it regardless.`;
     case 'claim-under-review':
       return `Ticket #${detail.ticketId} is under review: its review row #${detail.reviewBarTaskId} is in progress. ${NOTHING_WAS_WRITTEN}`;
+    case 'claim-after-a-ticket-not-in-review':
+      return `Ticket #${detail.ticketId} was not claimed after #${detail.afterTicketId}: #${detail.afterTicketId} is ${detail.status}, `
+        + `and --after names a predecessor that is in-review. ${NOTHING_WAS_WRITTEN}`;
+    case 'claim-after-a-ticket-outside-the-bundle':
+      return `Ticket #${detail.ticketId} was not claimed after #${detail.afterTicketId}: `
+        + `the two are not in one release bundle of the same group. ${NOTHING_WAS_WRITTEN}`;
+    case 'claim-after-a-ticket-it-does-not-wait-on':
+      return `Ticket #${detail.ticketId} was not claimed after #${detail.afterTicketId}: `
+        + `it does not wait on #${detail.afterTicketId}. ${NOTHING_WAS_WRITTEN}`;
     case 'concurrency-limit-reached':
       return `${TicketPhraseUtil.namedTicketsText(detail.ticketIds)} ${detail.ticketIds.length === 1 ? 'was' : 'were'} not claimed: `
         + `${countedText(detail.agentsInFlight, 'agent')} in flight (${countedText(detail.inProgressRowCount, 'row')} in progress) `

@@ -17,6 +17,9 @@ export type BoardRefusalDetail =
   | { reason: 'claim-of-a-held-ticket'; ticketId: string }
   | { reason: 'claim-of-held-back-low-ticket'; ticketId: string; holdingBackTicketIds: readonly string[] }
   | { reason: 'claim-under-review'; ticketId: string; reviewBarTaskId: number }
+  | { reason: 'claim-after-a-ticket-not-in-review'; ticketId: string; afterTicketId: string; status: TicketStatus }
+  | { reason: 'claim-after-a-ticket-outside-the-bundle'; ticketId: string; afterTicketId: string }
+  | { reason: 'claim-after-a-ticket-it-does-not-wait-on'; ticketId: string; afterTicketId: string }
   | { reason: 'concurrency-limit-reached'; ticketIds: readonly string[]; agentsInFlight: number; inProgressRowCount: number; limit: number }
   | { reason: 'unknown-dependency'; missingTicketIds: readonly string[] }
   | { reason: 'dependency-loop'; loopTicketIds: readonly string[] }

@@ -24,17 +24,30 @@ export interface Release {
   logged:           readonly LogRecord[];
 }
 
-function releasableTicket(board: Board, reference: string): Readonly<Ticket> {
+function namedTicket(board: Board, reference: string): Readonly<Ticket> {
   const ticket = board.ticketByReference(reference);
   if (ticket === undefined) {
     refuseTheRelease('unknown-ticket', `There is no readable ticket ${reference}. Run \`agent-progress ticket list\` to see what this tracker holds.`);
   }
-  const { id, status } = ticket.frontmatter;
-  if (!board.ticketIsReleasable(ticket)) {
-    const releasableStatusesText = LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS.reviewed.join(' or ');
-    refuseTheRelease('ticket-not-releasable', `Ticket #${id} is ${status}, and a release takes a ticket that is ${releasableStatusesText}.`);
-  }
   return ticket;
+}
+
+/** Judged against every ticket named, since a reviewed bundle ticket is releasable only beside its group's release ticket. */
+function releasableTickets(board: Board, references: readonly string[]): Readonly<Ticket>[] {
+  const namedTickets      = references.map((reference) => namedTicket(board, reference));
+  const tickets           = namedTickets.filter((ticket, index) => namedTickets.findIndex(({ frontmatter }) => frontmatter.id === ticket.frontmatter.id) === index);
+  const releasedTicketIds = tickets.map(({ frontmatter }) => frontmatter.id);
+  for (const ticket of tickets) {
+    if (board.ticketIsReleasable(ticket, releasedTicketIds)) continue;
+    const { id, status }         = ticket.frontmatter;
+    const releasableStatusesText = LEGAL_SOURCE_STATUSES_FOR_TICKET_STATUS.reviewed.join(' or ');
+    refuseTheRelease(
+      'ticket-not-releasable',
+      `Ticket #${id} is ${status}, and a release takes a ticket that is ${releasableStatusesText}, `
+      + 'or a reviewed ticket of a release bundle released together with its group\'s release ticket.',
+    );
+  }
+  return tickets;
 }
 
 function requireMainCheckoutOnMainLine(mainCheckout: string, mainLine: string): void {
@@ -76,8 +89,7 @@ export async function releaseUnderTheLock(
   context: CommandContext,
 ): Promise<{ release: Release; nextLine: string }> {
   const { result, nextLine } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
-    const namedTickets = request.references.map((reference) => releasableTicket(change.board, reference));
-    const tickets      = namedTickets.filter((ticket, index) => namedTickets.findIndex(({ frontmatter }) => frontmatter.id === ticket.frontmatter.id) === index);
+    const tickets      = releasableTickets(change.board, request.references);
     const mainCheckout = change.workspace.rootDirectory;
     requireMainCheckoutOnMainLine(mainCheckout, request.mainLine);
     const branchCommit = branchCommitToRelease(mainCheckout, request.branch, request.mainLine);

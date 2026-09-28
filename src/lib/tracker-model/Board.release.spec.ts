@@ -65,11 +65,81 @@ function bundleInReviewFixture(): BoardFixture {
   });
 }
 
+/** Group `checkout`: 001 and 002 reviewed, 003 its in-review release ticket waiting on 002, 002 on 001; 004 reviewed in the group, outside the bundle. */
+function groupBundleFixture(): BoardFixture {
+  const reviewedTicket = (ticketId: string, taskId: number, dependsOn: string[]): ReturnType<typeof ticketFixture> => ticketFixture({
+    id:       ticketId,
+    status:   'reviewed',
+    started:  STARTED_AT,
+    finished: FINISHED_AT,
+    task:     taskId,
+    group:    'checkout',
+    dependsOn,
+  });
+  return boardFixture({
+    tasks: [1, 2, 3, 4].map((taskId) => taskFixture({
+      id:     taskId,
+      name:   `#00${taskId} Example checkout step`,
+      status: taskId === 3 ? 'in-review' : 'reviewed',
+      start:  STARTED_AT,
+      end:    FINISHED_AT,
+      ticket: `00${taskId}`,
+    })),
+    tickets: [
+      reviewedTicket('001', 1, []),
+      reviewedTicket('002', 2, ['001']),
+      ticketFixture({
+        id:            '003',
+        status:        'in-review',
+        started:       STARTED_AT,
+        finished:      FINISHED_AT,
+        task:          3,
+        group:         'checkout',
+        releasesGroup: true,
+        dependsOn:     ['002'],
+      }),
+      reviewedTicket('004', 4, []),
+    ],
+  });
+}
+
 describe('ticketIsReleasable', () => {
   test('only a ticket in progress or in review can be released', () => {
     const { board } = boardFixture();
-    const releasableStatuses = TICKET_STATUSES.filter((status) => board.ticketIsReleasable(ticketFixture({ status })));
+    const releasableStatuses = TICKET_STATUSES.filter((status) => board.ticketIsReleasable(ticketFixture({ status }), ['001']));
     expect(releasableStatuses).toEqual(['in-progress', 'in-review']);
+  });
+
+  test('a reviewed bundle ticket is releasable only beside its group\'s releasable release ticket', () => {
+    const { board }     = groupBundleFixture();
+    const reviewedFirst = board.ticketByReference('001');
+    const outsider      = board.ticketByReference('004');
+    if (reviewedFirst === undefined || outsider === undefined) throw new Error('the fixture holds tickets 001 and 004');
+
+    expect(board.ticketIsReleasable(reviewedFirst, ['001', '002', '003'])).toBe(true);
+    expect(board.ticketIsReleasable(reviewedFirst, ['001', '002'])).toBe(false);
+    expect(board.ticketIsReleasable(outsider, ['004', '003'])).toBe(false);
+  });
+});
+
+describe('releaseTickets of a group\'s release bundle', () => {
+  test('reviewed bundle tickets and the in-review release ticket are all delivered, each approved exactly once, with no move in between', () => {
+    const { board, records, tickets } = groupBundleFixture();
+    board.releaseTickets(['001', '002', '003'], RELEASE, RELEASED_AT);
+
+    expect(records.map((record) => [record.kind, 'ticketId' in record ? record.ticketId : null])).toEqual([
+      ['ticket-delivered', '001'],
+      ['ticket-delivered', '002'],
+      ['ticket-approved', '003'],
+      ['ticket-delivered', '003'],
+    ]);
+    expect(tickets.map((ticket) => ticket.frontmatter.status)).toEqual(['delivered', 'delivered', 'delivered', 'reviewed']);
+  });
+
+  test('a reviewed ticket outside the released bundle is refused before anything moves', () => {
+    const { board, records } = groupBundleFixture();
+    expect(() => board.releaseTickets(['004', '003'], RELEASE, RELEASED_AT)).toThrow('Ticket #004 is reviewed');
+    expect(records).toEqual([]);
   });
 });
 

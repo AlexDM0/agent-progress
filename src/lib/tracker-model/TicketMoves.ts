@@ -13,6 +13,7 @@ import type { LogRecord }                               from './@types/LogRecord
 import type { Ticket, TicketFrontmatter, TicketStatus } from './@types/Ticket.ts';
 import type { BoardRecords }                            from './BoardRecords.ts';
 import { BoardRefusal }                                 from './BoardRefusal.ts';
+import type { GroupReleases }                           from './GroupReleases.ts';
 import type { ReviewBars, ReviewBarsClosed }            from './ReviewBars.ts';
 import type { TicketDependencies }                      from './TicketDependencies.ts';
 import { FIRST_REPEAT_REVIEW_ROUND }                    from './constants/ReviewRounds.ts';
@@ -26,6 +27,7 @@ export class TicketMoves {
     private readonly records: BoardRecords,
     private readonly reviewBars: ReviewBars,
     private readonly dependencies: TicketDependencies,
+    private readonly groupReleases: GroupReleases,
   ) {}
 
   /** Judged against the tickets already on the board, before the new one joins, so a ticket naming its own id names no ticket. */
@@ -83,17 +85,21 @@ export class TicketMoves {
     return { logged: [this.records.logger.log({ kind: 'ticket-rereviewed', ticketId, fields: { round } }, at)], ticket };
   }
 
-  /** Each ticket is reviewed and then delivered, in the order given, and every in-progress review bar of them is closed after the moves. */
+  /**
+   * Each ticket is reviewed and then delivered, in the order given, and every in-progress review bar of them is closed after the moves.
+   * A bundle ticket already reviewed skips the first move, so it is approved once.
+   */
   releaseTickets(ticketIds: readonly string[], release: TicketRelease, at: string): TicketsReleased {
-    const releasedTickets = [...new Set(ticketIds)].map((ticketId) => this.records.requireTicket(ticketId));
-    const unreleasable    = releasedTickets.find((ticket) => !this.ticketIsReleasable(ticket));
+    const releasedTicketIds = [...new Set(ticketIds)];
+    const releasedTickets   = releasedTicketIds.map((ticketId) => this.records.requireTicket(ticketId));
+    const unreleasable      = releasedTickets.find((ticket) => !this.ticketIsReleasable(ticket, releasedTicketIds));
     if (unreleasable !== undefined) {
       throw new Error(`Ticket #${unreleasable.frontmatter.id} is ${unreleasable.frontmatter.status}; a caller refuses such a release before asking for it.`);
     }
 
     const logged: LogRecord[] = [];
     for (const ticket of releasedTickets) {
-      logged.push(this.applyTicketMove(ticket, 'reviewed', {}, at));
+      if (ticket.frontmatter.status !== 'reviewed') logged.push(this.applyTicketMove(ticket, 'reviewed', {}, at));
       logged.push(this.applyTicketMove(ticket, 'delivered', release, at));
     }
     // The reviewer releases as the last step of its pass, so its bar is closed here rather than left in progress until the verdict is read.
@@ -101,9 +107,22 @@ export class TicketMoves {
     return { logged: [...logged, ...closed.logged], tickets: releasedTickets, closedReviewBars: closed.bars };
   }
 
-  /** A release reviews the ticket on its way to delivering it, so it takes the tickets a move to `reviewed` is legal from. */
-  ticketIsReleasable(ticket: Readonly<Ticket>): boolean {
-    return TicketMoveUtil.ticketMoveIsLegal(ticket.frontmatter.status, 'reviewed');
+  /**
+   * A release reviews the ticket on its way to delivering it, so it takes the tickets a move to `reviewed` is legal from, and besides
+   * them a `reviewed` ticket of a release bundle whose release ticket, itself releasable that way, is released with it.
+   */
+  ticketIsReleasable(ticket: Readonly<Ticket>, releasedTicketIds: readonly string[]): boolean {
+    const { id: ticketId, status, group } = ticket.frontmatter;
+    if (TicketMoveUtil.ticketMoveIsLegal(status, 'reviewed')) return true;
+    if (status !== 'reviewed' || group === undefined) return false;
+    const releaseBundle = this.groupReleases.releaseBundleOf(group);
+    return releaseBundle.includes(ticketId) && releasedTicketIds.some((releasedTicketId) => {
+      const releasedTicket = this.records.ticketRecordById(releasedTicketId);
+      return releasedTicket !== undefined
+        && releasedTicket.frontmatter.releasesGroup === true
+        && releaseBundle.includes(releasedTicketId)
+        && TicketMoveUtil.ticketMoveIsLegal(releasedTicket.frontmatter.status, 'reviewed');
+    });
   }
 
   /** The move itself, unchecked: the status, its stamps and the fields given, and the row taking the same status. */
