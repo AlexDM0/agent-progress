@@ -26,8 +26,8 @@ guard spec holds is one line naming the guard: the spec is the full statement.
   for what it is or does, never its layer or history, never shadowing a global (`CorpusMap.ts`, not `Map.ts`): a
   question as the question (`sourceIsReachable`), a producer for its product (`fullTextOf`), a boolean as a
   predicate phrase.
-- Design constants are `SCREAMING_CASE`, named for what they bound, with the unit; arithmetic identities (a percent,
-  a radix, halving) stay inline.
+- Design constants are `SCREAMING_CASE`, named for what they bound, with the unit, no magic number inline;
+  arithmetic identities (a percent, a radix, halving) stay inline.
 - Everything is English. Example data is obviously synthetic: `Alex Example`, `Example Agency`.
 
 ### Imports
@@ -131,8 +131,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 
 ### Tests
 
-- A spec sits beside its module as `<Module>.spec.ts` (a second suite `<Module>.<aspect>.spec.ts`), opening with a
-  docblock of which cases matter and why; test names are claims. A frozen expected-output table comes from the
+- A spec sits beside its module as `<Module>.spec.ts` (a second suite `<Module>.<aspect>.spec.ts`, never `.test.ts`), opening
+  with a docblock of which cases matter and why; test names are claims. A frozen expected-output table comes from the
   previous implementation (two exceptions, Deviations) and says how to retake it.
 - A test needing a tool the machine may lack skips through `src/testing/ToolGuard.ts`, its title saying what is
   missing; the preload `src/testing/TestRunReport.ts` counts and names every skip, and
@@ -140,7 +140,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - A guard proves its scan found something and is watched failing on each form it claims; an allowlist is exact both
   ways.
 - Tests never touch live data: every spec works under the scratch root, checked by `src/testing/TrackerIsolation.ts`;
-  the binary is spawned only through `cli/testing/CliProcess.ts`; never `process.chdir`.
+  no spec creates the real process context; the binary is spawned only through `cli/testing/CliProcess.ts`; never
+  `process.chdir`.
 - Each dispatcher decision in the `dispatcher/Dispatcher.*.spec.ts` suites must hold on the built bundle and fail on
   a SourceMutant of its module; a mutant whose text is not in its module exactly once fails the build.
 
