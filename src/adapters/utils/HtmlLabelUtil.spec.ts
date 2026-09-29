@@ -2,7 +2,7 @@
  * The group titles divide a Kanban lane by priority, and the mark titles are the tooltips of a low or a high ticket's mark. What the page
  * relies on: every priority has a group title, and every wording stays byte for byte what the page printed before it moved here.
  * The frozen tables were retaken from `PRIORITY_TITLE` in `git show 4ebbb73:page/kanban/KanbanMarkup.ts` and from `LOW_PRIORITY_TITLE`
- * and `HIGH_PRIORITY_TITLE` in `git show 4ebbb73:page/utils/WorkItemMarkupUtil.ts`.
+ * and `HIGH_PRIORITY_TITLE` in `git show 4ebbb73:page/utils/WorkItemMarkupUtil.ts`, the low title since reworded to say done.
  */
 import { expect, test } from 'bun:test';
 
@@ -17,7 +17,7 @@ const EXPECTED_GROUP_TITLE_FOR_PRIORITY: Readonly<Record<TicketPriority, string>
 });
 
 const EXPECTED_MARK_TITLE_FOR_PRIORITY: Readonly<Record<'low' | 'high', string>> = Object.freeze({
-  low:  'Low priority: no row on the chart until it is started, and worked once no normal or high ticket is left undelivered',
+  low:  'Low priority: no row on the chart until it is started, and worked once every normal and high ticket is done',
   high: 'High priority: dispatched before every normal ticket',
 });
 

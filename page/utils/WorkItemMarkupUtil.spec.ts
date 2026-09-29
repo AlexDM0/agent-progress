@@ -111,7 +111,7 @@ describe('ticketStatusBadgeMarkup', () => {
 describe('priorityMarkMarkup', () => {
   test('marks a low ticket with the quiet badge', () => {
     expect(priorityMarkMarkup(exampleTicket({ priority: 'low' }))).toBe('<span class="ap-ticket-badge" data-priority="low" title="Low priority: no row on the chart'
-      + ' until it is started, and worked once no normal or high ticket is left undelivered">low</span>');
+      + ' until it is started, and worked once every normal and high ticket is done">low</span>');
   });
 
   test('leaves a normal ticket unmarked', () => {
@@ -127,12 +127,12 @@ describe('priorityMarkMarkup', () => {
 describe('reviewedMarkMarkup', () => {
   test('titles the mark with the review time when the row carries one', () => {
     expect(reviewedMarkMarkup(exampleTask({ reviewed: '2026-09-18T21:30:00+02:00' }), EXAMPLE_TIMESTAMP_SLICES))
-      .toBe('<span class="ap-reviewed-mark" data-state="reviewed" title="Reviewed 2026-09-18 21:30 before delivery" role="img" aria-label="reviewed">✓</span>');
+      .toBe('<span class="ap-reviewed-mark" data-state="reviewed" title="Reviewed 2026-09-18 21:30 before it was done" role="img" aria-label="reviewed">✓</span>');
   });
 
   test('titles the mark without a time when the row carries no review stamp', () => {
     expect(reviewedMarkMarkup(exampleTask(), EXAMPLE_TIMESTAMP_SLICES))
-      .toBe('<span class="ap-reviewed-mark" data-state="reviewed" title="Reviewed before delivery" role="img" aria-label="reviewed">✓</span>');
+      .toBe('<span class="ap-reviewed-mark" data-state="reviewed" title="Reviewed before it was done" role="img" aria-label="reviewed">✓</span>');
   });
 });
 

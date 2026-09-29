@@ -8,7 +8,7 @@ const GROUP_TITLE_FOR_PRIORITY: Readonly<Record<TicketPriority, string>> = { hig
 
 // Normal is unmarked, so only low and high carry a mark with a title.
 const MARK_TITLE_FOR_PRIORITY: Readonly<Record<'low' | 'high', string>> = {
-  low:  'Low priority: no row on the chart until it is started, and worked once no normal or high ticket is left undelivered',
+  low:  'Low priority: no row on the chart until it is started, and worked once every normal and high ticket is done',
   high: 'High priority: dispatched before every normal ticket',
 };
 

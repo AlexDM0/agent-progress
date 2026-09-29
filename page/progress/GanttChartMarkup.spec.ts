@@ -119,7 +119,7 @@ describe('taskRowsMarkup', () => {
     const markup = rowFor(exampleTask({ status: 'delivered', reviewed: '2026-09-18T21:10:00+02:00' }));
 
     expect(markup).toContain('class="ap-reviewed-mark"');
-    expect(markup).toContain('title="Reviewed 2026-09-18 21:10 before delivery"');
+    expect(markup).toContain('title="Reviewed 2026-09-18 21:10 before it was done"');
   });
 
   test('leaves the mark off a row delivered straight from in-review, and off a reviewed row that is not delivered yet', () => {

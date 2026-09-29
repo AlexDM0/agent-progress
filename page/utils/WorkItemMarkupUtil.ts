@@ -58,7 +58,7 @@ function priorityMarkMarkup(ticket: PageTicket): string {
 }
 
 function reviewedTitleFor(task: Task, slices: TimestampSlices): string {
-  return task.reviewed === undefined ? 'Reviewed before delivery' : `Reviewed ${TimeUtil.fullStampText(task.reviewed, slices)} before delivery`;
+  return task.reviewed === undefined ? 'Reviewed before it was done' : `Reviewed ${TimeUtil.fullStampText(task.reviewed, slices)} before it was done`;
 }
 
 function reviewedMarkMarkup(task: Task, slices: TimestampSlices): string {
