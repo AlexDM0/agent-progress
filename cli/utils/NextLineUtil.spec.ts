@@ -278,3 +278,9 @@ test('a Board whose only ready ticket is low, under a finished dispatcher, advis
   progress.dispatcherState  = 'finished';
   expect(nextLineOf(board)).toBe('Next: 2 of 2 slots free; ready: #002; only low priority ready: triage, then launch');
 });
+
+test('a Board whose only open normal work is held names its low tickets ready', () => {
+  const { board, progress } = boardFixture({ tickets: [ticketFixture({ id: '001', hold: 'waiting on the design' }), ticketFixture({ id: '002', priority: 'low' })] });
+  progress.dispatcherState  = 'running';
+  expect(nextLineOf(board)).toBe('Next: 2 of 2 slots free; ready: #002; held: #001');
+});

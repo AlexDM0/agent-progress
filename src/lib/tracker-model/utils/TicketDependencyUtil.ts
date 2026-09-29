@@ -44,14 +44,20 @@ interface ReadinessTicket {
   status:     TicketStatus;
   priority?:  TicketPriority;
   dependsOn?: readonly string[];
+  hold?:      string;
 }
 
 const PRIORITY_RANK: Record<TicketPriority, number> = { high: 0, normal: 1, low: 2 };
 
-/** The normal and high tickets not yet settled, lowest id first: a reviewed ticket is still owed a merge, so while any is left no low ticket is ready. */
+/**
+ * The unheld normal and high tickets not yet settled, lowest id first: a reviewed ticket is still owed a merge, so while any is left no low
+ * ticket is ready. A held ticket waits on something outside the board, so it owes nothing a low ticket could delay.
+ */
 function ticketsHoldingBackLowPriorityWork(tickets: readonly ReadinessTicket[]): string[] {
   return tickets
-    .filter((ticket) => TicketDefaultsUtil.ticketPriorityOf(ticket) !== 'low' && !SETTLED_TICKET_STATUSES.includes(ticket.status))
+    .filter((ticket) => (
+      TicketDefaultsUtil.ticketPriorityOf(ticket) !== 'low' && ticket.hold === undefined && !SETTLED_TICKET_STATUSES.includes(ticket.status)
+    ))
     .map((ticket) => ticket.id)
     .sort((a, b) => Number(a) - Number(b));
 }

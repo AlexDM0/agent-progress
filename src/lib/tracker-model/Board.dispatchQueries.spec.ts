@@ -4,7 +4,12 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { boardFixture, taskFixture, ticketFixture } from '../../testing/BoardFixtures.ts';
+import {
+  boardFixture,
+  refusalDetailOf,
+  taskFixture,
+  ticketFixture
+} from '../../testing/BoardFixtures.ts';
 
 describe('the ticket ids in flight', () => {
   test('come once each in row order, from in-progress rows that belong to a ticket only', () => {
@@ -254,6 +259,83 @@ describe('a release group awaiting its release', () => {
 
     expect(board.dispatchCapacity().readyTicketIds).toEqual([]);
     expect(board.ticketIdsHoldingBack('003')).toEqual(['001', '002']);
+  });
+});
+
+describe('held normal and high work', () => {
+  const HELD_AT = '2026-09-29T12:00:00+02:00';
+
+  function heldWorkBoard(): ReturnType<typeof boardFixture> {
+    return boardFixture({
+      tickets: [
+        ticketFixture({ id: '001', hold: 'waiting on the design' }),
+        ticketFixture({
+          id:       '002',
+          status:   'in-progress',
+          priority: 'high',
+          hold:     '',
+        }),
+        ticketFixture({ id: '003', priority: 'low' }),
+        ticketFixture({ id: '004', priority: 'low', dependsOn: ['005'] }),
+        ticketFixture({ id: '005', status: 'delivered' }),
+      ],
+      concurrencyLimit: 2,
+    });
+  }
+
+  // A held ticket waits on something outside the board; counting it would stall every low ticket until the hold lifts.
+  test('holds no low work back: the low tickets with settled dependencies are ready, listed and claimable', () => {
+    const { board } = heldWorkBoard();
+
+    expect(board.ticketIdsHoldingBack('003')).toEqual([]);
+    expect(board.dispatchCapacity().readyTicketIds).toEqual(['001', '003', '004']);
+    expect(board.readyTicketEntries().map((entry) => entry.id)).toEqual(['001', '003', '004']);
+    expect(board.claimTickets(['003'], { owner: 'Alex Example' }, HELD_AT).tickets.map((ticket) => ticket.frontmatter.status)).toEqual(['in-progress']);
+  });
+
+  test('holds low work back again the moment one is unheld, with nothing else changed', () => {
+    const { board } = heldWorkBoard();
+    board.unholdTicket('001', HELD_AT);
+
+    expect(board.ticketIdsHoldingBack('003')).toEqual(['001']);
+    expect(board.dispatchCapacity().readyTicketIds).toEqual(['001']);
+    expect(board.readyTicketEntries().map((entry) => entry.id)).toEqual(['001']);
+  });
+
+  test('leaves a held low ticket flagged held, and a claim of it refused', () => {
+    const { board } = boardFixture({ tickets: [ticketFixture({ id: '001', hold: '' }), ticketFixture({ id: '002', priority: 'low', hold: 'later' })] });
+
+    expect(board.readyTicketEntries().find((entry) => entry.id === '002')?.held).toBe(true);
+    expect(refusalDetailOf(() => board.claimTickets(['002'], { owner: 'Alex Example' }, HELD_AT))).toEqual({ reason: 'claim-of-a-held-ticket', ticketId: '002' });
+  });
+});
+
+describe('unheld normal and high work', () => {
+  test.each(['pending', 'in-progress', 'in-review'] as const)('still holds low work back while %s', (status) => {
+    const { board } = boardFixture({ tickets: [ticketFixture({ id: '001', status }), ticketFixture({ id: '002', priority: 'low' })] });
+
+    expect(board.ticketIdsHoldingBack('002')).toEqual(['001']);
+    expect(board.dispatchCapacity().readyTicketIds).not.toContain('002');
+  });
+
+  test('still holds low work back as a reviewed release-bundle ticket awaiting its release', () => {
+    const { board } = boardFixture({
+      tickets: [
+        ticketFixture({ id: '001', status: 'reviewed', group: 'example-group' }),
+        ticketFixture({
+          id:            '002',
+          status:        'in-review',
+          group:         'example-group',
+          dependsOn:     ['001'],
+          releasesGroup: true,
+          hold:          '',
+        }),
+        ticketFixture({ id: '003', priority: 'low' }),
+      ],
+    });
+
+    expect(board.ticketIdsHoldingBack('003')).toEqual(['001']);
+    expect(board.dispatchCapacity().readyTicketIds).toEqual([]);
   });
 });
 

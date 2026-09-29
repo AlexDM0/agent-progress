@@ -1,6 +1,6 @@
 /**
  * The questions about ticket dependencies: which ones still hold a ticket back, which tickets are ready to claim and in what priority order
- * (low work held back while any normal or high ticket is owed something), and whether a new list
+ * (low work held back while any unheld normal or high ticket is owed something), and whether a new list
  * would make tickets wait on each other in a circle. A loop has to be caught before it is written, because no order of work could ever settle it.
  */
 import { expect, test } from 'bun:test';
@@ -116,4 +116,20 @@ test('the tickets holding low work back are the normal and high ones still owed 
   ];
 
   expect(ticketsHoldingBackLowPriorityWork(tickets)).toEqual(['002', '005']);
+});
+
+test('a held normal or high ticket holds no low work back, whatever its status and however empty its reason', () => {
+  const tickets = [
+    { id: '001', status: 'pending' as const, hold: 'waiting on the design' },
+    {
+      id:       '002',
+      status:   'in-review' as const,
+      priority: 'high' as const,
+      hold:     '',
+    },
+    { id: '003', status: 'pending' as const, priority: 'low' as const },
+  ];
+
+  expect(ticketsHoldingBackLowPriorityWork(tickets)).toEqual([]);
+  expect(readyTicketIdsOf(tickets)).toEqual(['001', '003']);
 });
