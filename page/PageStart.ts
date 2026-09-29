@@ -13,8 +13,6 @@ import {
   HIDDEN_WORK_NOTE_ELEMENT_ID,
   KANBAN_BOARD_ELEMENT_ID,
   KANBAN_TAB_NAME,
-  LOG_ENTRIES_ELEMENT_ID,
-  LOG_NOTE_ELEMENT_ID,
   RANGE_NOTE_ELEMENT_ID,
   SUMMARY_ELEMENT_ID,
   TASK_ROWS_ELEMENT_ID,
@@ -24,7 +22,6 @@ import {
 import { createDetailDialogController }                       from './detail-dialog/DetailDialogController.ts';
 import { createKanbanController }                             from './kanban/KanbanController.ts';
 import { KanbanLaneUtil }                                     from './kanban/utils/KanbanLaneUtil.ts';
-import { createLogController }                                from './log/LogController.ts';
 import { createReloadSnapshotStore, createViewerPreferences } from './preferences/ViewerPreferences.ts';
 import { ViewerPreferenceUtil }                               from './preferences/utils/ViewerPreferenceUtil.ts';
 import { createGanttChartController }                         from './progress/GanttChartController.ts';
@@ -48,7 +45,6 @@ const OWNED_MARKUP_CONTAINER_IDS = [
   AXIS_TICKS_ELEMENT_ID,
   CHART_OVERLAY_ELEMENT_ID,
   TASK_ROWS_ELEMENT_ID,
-  LOG_ENTRIES_ELEMENT_ID,
   TICKET_ROWS_ELEMENT_ID,
   DETAIL_BODY_ELEMENT_ID,
   KANBAN_BOARD_ELEMENT_ID,
@@ -59,7 +55,6 @@ const OWNED_TEXT_CONTAINER_IDS = [
   RANGE_NOTE_ELEMENT_ID,
   TICKET_COUNT_ELEMENT_ID,
   HIDDEN_WORK_NOTE_ELEMENT_ID,
-  LOG_NOTE_ELEMENT_ID,
 ];
 
 function showLayoutFailure(message: string): void {
@@ -150,13 +145,6 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   DomUtil.setText(PROJECT_NAME_ELEMENT_ID, progress.project);
   progressController.showSummary();
 
-  const logController = createLogController({
-    entries:               progress.log,
-    linkedTicketIds:       new Set(board.tickets.map((ticket) => ticket.id)),
-    slices:                limits,
-    readTodayCalendarDate: () => todayCalendarDate,
-    openTicketDetail:      (ticketId) => detailDialogController.openTicketDetail(ticketId),
-  });
   // Set from the visibility filter's now before anything prints a stamp; the page reloads every few minutes when idle, so the day is rarely stale.
   let todayCalendarDate = '';
 
@@ -191,7 +179,6 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     todayCalendarDate = TimeUtil.calendarDateOf(nowEpochMilliseconds);
 
     progressController.showGeneratedStamp(todayCalendarDate);
-    logController.show();
     ticketsController.show(visibleTickets);
     kanbanController.showCards(KanbanLaneUtil.kanbanCardsFor(visibleTickets, waitingOnById));
 
@@ -213,7 +200,6 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     progressController.layOut(true);
   });
 
-  logController.wire();
   progressController.wireNameColumn();
   progressController.wireReviewRows();
   kanbanController.wire();
@@ -243,7 +229,6 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     store:              createReloadSnapshotStore(progress.trackerId, () => window.sessionStorage),
     readDetailTarget:   () => detailDialogController.readOpenTarget(),
     reopenDetail:       (target) => detailDialogController.reopen(target),
-    applyLogFilter:     (filterText) => logController.applyFilter(filterText),
     readTicketView:     () => ticketsController.readView(),
     applyTicketView:    (ticketView) => ticketsController.applyView(ticketView),
     rangePopoverIsOpen: () => progressController.rangePopoverIsOpen(),

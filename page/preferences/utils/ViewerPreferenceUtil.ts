@@ -58,7 +58,6 @@ function reloadSnapshotFrom(value: unknown, trackerId: string): ReloadSnapshot |
     fromText:           JsonValueUtil.textOrNull(value['fromText']) ?? '',
     toText:             JsonValueUtil.textOrNull(value['toText']) ?? '',
     rangePopoverIsOpen: value['rangePopoverIsOpen'] === true,
-    logFilterText:      JsonValueUtil.textOrNull(value['logFilterText']) ?? '',
     ticketView:         TicketViewUtil.ticketViewFrom(value['ticketView']),
     detailTarget:       detailTargetFrom(value['detailTarget']),
     detailScrollTop:    offsetOf('detailScrollTop'),

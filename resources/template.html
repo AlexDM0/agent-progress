@@ -76,7 +76,8 @@
                                  aria-pressed, applied with the fields
  #ap-range-note           text   resolved range, e.g. "20:30 → 22:15 · 15m ticks", each end a
                                  stamp; title the whole note with both ends in full
- #ap-chart                el     horizontal scroller; owns --timeline-w
+ #ap-chart                el     the scroller, both ways; fills the viewport below the range bar,
+                                 its rows scrolling inside it; owns --timeline-w
  #ap-ticks                el     tick layer in the header row; children .ap-tick > span
  #ap-rows                 el     row list; direct children are .ap-row
  #ap-overlay              el     absolute layer over the track area only
@@ -87,19 +88,6 @@
  #ap-review-rows          button beside #ap-name-column, aria-pressed, remembered per viewer;
                                  pressed draws each review pass as a row of its own
                                  (.ap-row[data-review-of]) instead of a segment on its ticket's row
- #ap-log                  ul     log entries matching #ap-log-filter, newest first; children
-                                 li > time + span; the newest 10, then 50 more per
-                                 #ap-log-more click. Each time follows the stamp rule at
-                                 #ap-generated on its own, with its title. A ticket id in a
-                                 span is an a[data-log-ticket-id] that opens its #ap-detail
- #ap-log-filter           input  filters by case-insensitive substring; exactly "#455" keeps
-                                 the entries whose ids hold ticket 455 and the notes naming
-                                 #455 as a whole token
- #ap-log-note             text   "newest first", "newest 10 of 5,173", "12 matches for '#455'"
-                                 or "newest 10 of 120 matches for 'review'"
- #ap-log-control          el     [hidden] unless more matching entries are hidden
- #ap-log-more             button "Show 50 more", or fewer when fewer are hidden
- #ap-log-empty            el     shown instead of log entries when there are none
  #ap-ticket-rows          tbody  ticket table body; each <tr> carries data-ticket-id, its status
                                  an .ap-badge[data-state] with the state's label; the matches of
                                  the search in title, group and branch wrapped in mark.ap-match;
@@ -233,7 +221,7 @@
                 reloads, the page script stores its place in sessionStorage under
                 "agent-progress:snapshot" (the shown tab, scroll of the window, #ap-chart and
                 #ap-kanban, the From/To text and whether #ap-range-popover is open,
-                the log filter, the Tickets tab's search, chips and sort, the open
+                the Tickets tab's search, chips and sort, the open
                 detail and its scroll) and
                 restores and deletes it after its first layout.
  THE AXIS BOX   one box for everything on the time axis: the third grid column,
@@ -540,9 +528,16 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
 #ap-chart {
   --timeline-w: 1fr;
   overflow: auto;
-  max-height: min(62vh, 780px);
   overscroll-behavior-x: contain;
 }
+/* The Progress tab is one viewport tall and its card takes every pixel below the tab bar, so the rows scroll
+   inside #ap-chart rather than the page; a viewport shorter than the floor scrolls the page instead. */
+body:has(#ap-panel-progress:not([hidden])) { height: 100dvh; padding-bottom: var(--sp-5); }
+body:has(#ap-panel-progress:not([hidden])) .ap-page { height: 100%; display: flex; flex-direction: column; }
+#ap-panel-progress { flex: 1; min-height: 320px; display: flex; flex-direction: column; }
+#ap-panel-progress[hidden] { display: none; }
+#ap-panel-progress > .ap-card { flex: 1; min-height: 0; margin-bottom: 0; display: flex; flex-direction: column; }
+#ap-chart { flex: 1; min-height: 0; }
 .ap-grid-row {
   display: grid;
   grid-template-columns: var(--col-name) var(--col-pill) var(--timeline-w);
@@ -710,14 +705,6 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
 
 .ap-empty { padding: var(--sp-5) var(--sp-4); color: var(--ink-muted); font-size: var(--fs-small); }
 .ap-empty[hidden] { display: none; }
-
-/* -------------------------------------------------------------------- log -- */
-.ap-card-head:has(#ap-log-filter) { flex-wrap: wrap; }
-#ap-log { margin: 0; padding: 0; list-style: none; }
-#ap-log li { display: flex; gap: var(--sp-3); padding: 5px var(--sp-4); border-bottom: 1px solid var(--line); font-size: var(--fs-small); }
-#ap-log li:last-child { border-bottom: 0; }
-#ap-log time { flex: none; min-width: 46px; white-space: nowrap; color: var(--ink-muted); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-#ap-log li span { min-width: 0; }
 
 /* ---------------------------------------------------------------- tickets -- */
 .ap-table { width: 100%; border-collapse: collapse; font-size: var(--fs-small); }
@@ -1574,26 +1561,6 @@ ul > li:hover {
       </div>
       <div class="ap-empty" id="ap-chart-empty" hidden>No tasks in this range.</div>
     </div>
-  </div>
-
-  <div class="ap-card">
-    <div class="ap-card-head">
-      <span class="ap-card-title">Log</span><span class="ap-card-note" id="ap-log-note">newest first</span>
-      <div class="ap-field">
-        <label class="ap-range-label" for="ap-log-filter">Filter</label>
-        <input id="ap-log-filter" type="text" placeholder="#455 or text" spellcheck="false" autocomplete="off">
-      </div>
-      <div class="ap-seg" id="ap-log-control" hidden><button type="button" id="ap-log-more">Show 50 more</button></div>
-    </div>
-    <ul id="ap-log">
-      <li><time title="2026-09-18 21:56">21:56</time><span><a href="#ap-ticket-004" data-log-ticket-id="004">#004</a> Brighter colours — subagent started, branch ticket/brighter-colours</span></li>
-      <li><time title="2026-09-18 21:51">21:51</time><span>#001 Double-click a role to edit it — delivered at abc1234</span></li>
-      <li><time title="2026-09-18 21:38">21:38</time><span>#002 Cache ticket bodies between runs — review passed</span></li>
-      <li><time title="2026-09-18 21:26">21:26</time><span>#001 Double-click a role to edit it — finished, 18.4k tokens</span></li>
-      <li><time title="2026-09-18 21:21">21:21</time><span>#006 Old idea — abandoned, superseded by #003</span></li>
-      <li><time title="2026-09-17 23:48">09-17 23:48</time><span>Tracker created, 8 tasks queued</span></li>
-    </ul>
-    <div class="ap-empty" id="ap-log-empty" hidden>Nothing logged yet.</div>
   </div>
 </section>
 

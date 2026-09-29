@@ -121,7 +121,7 @@ output never carries either.
   task remove <id>            Delete a row. A ticket pointing at it is unlinked rather than
                               deleted. The id is never given to another row.
 
-  log "<text>" [--at <when>]  Append one line to the log shown under the chart. --at backfills it.
+  log "<text>" [--at <when>]  Append one line to the log. --at backfills it.
 
   hook subagent-stop          Record what a finished subagent cost, as one log line: the hook JSON
                               arrives on standard input, and the agent's transcript is summed per

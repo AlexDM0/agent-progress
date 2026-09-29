@@ -48,7 +48,6 @@ export interface ReloadSnapshot {
   fromText:           string;
   toText:             string;
   rangePopoverIsOpen: boolean;
-  logFilterText:      string;
   ticketView:         TicketView;
   detailTarget:       DetailTarget | null;
   detailScrollTop:    number;

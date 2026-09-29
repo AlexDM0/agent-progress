@@ -135,7 +135,6 @@ describe('reloadSnapshotFrom', () => {
     fromText:           '-2h',
     toText:             'now',
     rangePopoverIsOpen: true,
-    logFilterText:      '#455',
     ticketView:         STORED_TICKET_VIEW,
     detailTarget:       { kind: 'task', id: '7' },
     detailScrollTop:    45,
@@ -143,6 +142,11 @@ describe('reloadSnapshotFrom', () => {
 
   test('reads back everything the page stored before the reload', () => {
     expect(reloadSnapshotFrom(storedSnapshot, 'tracker-a')).toEqual({ ...storedSnapshot, detailTarget: { kind: 'task', id: '7' } });
+  });
+
+  // A snapshot stored by a page that still had the log card carries its filter text, which nothing reads any more.
+  test('reads no log filter text from a snapshot that still holds one', () => {
+    expect(reloadSnapshotFrom({ ...storedSnapshot, logFilterText: '#455' }, 'tracker-a')).toEqual({ ...storedSnapshot, detailTarget: { kind: 'task', id: '7' } });
   });
 
   test('reads nothing from a snapshot of another tracker, or from one that is not a record', () => {

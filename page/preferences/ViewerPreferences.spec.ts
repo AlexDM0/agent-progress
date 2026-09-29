@@ -200,7 +200,6 @@ const EXAMPLE_RELOAD_SNAPSHOT: ReloadSnapshot = {
   fromText:           '-2h',
   toText:             '',
   rangePopoverIsOpen: false,
-  logFilterText:      'review',
   ticketView:         {
     searchText:    'exporter',
     statusChips:   ['in-review'],

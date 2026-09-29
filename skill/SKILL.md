@@ -40,7 +40,8 @@ order to file a ticket, move one, and stay out of the tool's way.
 - **Every ticket owns a row too.** Filing a ticket creates its row as `pending`, except a low one,
   which gets its row when it is started or claimed; moving the ticket moves the row and stamps both.
   You never keep the two in step yourself.
-- **The log** is the narrative under the chart: one line per milestone, newest first on the page.
+- **The log** is the narrative of the work: one line per milestone, newest first in `status` and in
+  the page's detail panel for the row or ticket it names.
 - **The dashboard** is `.agent-progress/progress.html`, written fresh by every command that changes
   anything, with tabs **Kanban** · **Progress** · **Tickets**: the Kanban board sits beside the
   Tickets tab, not in place of it. One file, no network dependency.
@@ -74,7 +75,7 @@ order to file a ticket, move one, and stay out of the tool's way.
    only be done after another, record it: `ticket depends 5 --add 3`. Bare ids (`ticket depends 5 3`)
    replace the whole list.
 4. **`agent-progress log "<text>"` at each milestone** — a decision taken, a direction abandoned.
-   The log is what makes the chart readable a day later.
+   The log is what makes the work readable a day later.
 5. **`agent-progress open` once per session**, so the user has the dashboard in front of them.
 6. **Backfill with `--at`.** The moves, the additions, the claims, `ticket agent`, `hold`, `unhold`
    and `priority`, and `log` take `--at <when>` (`agent-progress help` shows each one that does): an

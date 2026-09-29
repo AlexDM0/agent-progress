@@ -20,10 +20,6 @@ export const CHART_ELEMENT_ID            = 'ap-chart';
 export const RANGE_FROM_ELEMENT_ID       = 'ap-range-from';
 export const RANGE_TO_ELEMENT_ID         = 'ap-range-to';
 
-export const LOG_ENTRIES_ELEMENT_ID = 'ap-log';
-export const LOG_NOTE_ELEMENT_ID    = 'ap-log-note';
-export const LOG_FILTER_ELEMENT_ID  = 'ap-log-filter';
-
 export const TICKET_ROWS_ELEMENT_ID  = 'ap-ticket-rows';
 export const TICKET_COUNT_ELEMENT_ID = 'ap-ticket-count';
 
