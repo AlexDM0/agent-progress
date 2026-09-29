@@ -248,7 +248,7 @@
               markup and the page script reach it through var(--…), and
               src/services/render/TemplateColourTokens.spec.ts fails on any literal elsewhere.
               bg, surface, surface-2, ink, ink-muted, line, line-strong, link,
-              warn-* and err-* (tint, edge, ink), shadow-control / -popover / -panel,
+              warn-* and err-* (tint, edge, ink), shadow-control / -popover / -panel / -card-lift,
               hatch-live / hatch-idle (bar stripes), badge-<status>-tint / -ink / -edge;
               per state: --s-fill (bars) / --s-tint (pill bg) / --s-ink (pill text)
               / --s-edge (pill border), set by [data-state]; --now for the marker
@@ -304,6 +304,7 @@
   --shadow-control: oklch(0 0 0 / 0.08);
   --shadow-popover: oklch(0 0 0 / 0.14);
   --shadow-panel:   oklch(0 0 0 / 0.08);
+  --shadow-card-lift: oklch(0 0 0 / 0.12);
   --hatch-live:     oklch(1 0 0 / 0.38);
   --hatch-idle:     oklch(1 0 0 / 0.45);
 
@@ -352,6 +353,7 @@
 
     --shadow-popover: oklch(0 0 0 / 0.45);
     --shadow-panel:   oklch(0 0 0 / 0.4);
+    --shadow-card-lift: oklch(0 0 0 / 0.3);
 
     --badge-in-progress-tint: oklch(0.33 0.065 80);  --badge-in-progress-ink: oklch(0.91 0.075 85);  --badge-in-progress-edge: oklch(0.52 0.10 80);
     --badge-in-review-tint:   oklch(0.32 0.050 205); --badge-in-review-ink:   oklch(0.89 0.055 205); --badge-in-review-edge:   oklch(0.50 0.075 205);
@@ -1155,10 +1157,7 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
 }
 .ap-kanban-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px oklch(0 0 0 / 0.12);
-}
-:root[data-theme="dark"] .ap-kanban-card:hover {
-  box-shadow: 0 4px 12px oklch(0 0 0 / 0.3);
+  box-shadow: 0 4px 12px var(--shadow-card-lift);
 }
 
 /* Kanban cards with smooth scale on focus. */
