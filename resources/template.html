@@ -1161,18 +1161,15 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
 
 /* After an idle reload, what changed or is new washes in its state's tint once; it waits for data-motion="ready", so a
    panel behind another tab plays it when first shown. Reduced motion holds a still outline instead, which the script clears. */
-:root[data-motion="ready"] #ap-rows > .ap-row[data-changed],
-:root[data-motion="ready"] #ap-rows > .ap-row[data-changed] > .ap-cell-name,
-:root[data-motion="ready"] #ap-rows > .ap-row[data-changed] > .ap-cell-pill,
-:root[data-motion="ready"] #ap-ticket-rows > tr[data-changed],
-:root[data-motion="ready"] .ap-kanban-card[data-changed] { animation: ap-changed 1200ms var(--ease-out); }
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-motion="ready"] #ap-rows > .ap-row[data-changed],
+  :root[data-motion="ready"] #ap-rows > .ap-row[data-changed] > .ap-cell-name,
+  :root[data-motion="ready"] #ap-rows > .ap-row[data-changed] > .ap-cell-pill,
+  :root[data-motion="ready"] #ap-ticket-rows > tr[data-changed],
+  :root[data-motion="ready"] .ap-kanban-card[data-changed] { animation: ap-changed 1200ms var(--ease-out); }
+}
 @keyframes ap-changed { from { background-color: var(--s-tint); } }
 @media (prefers-reduced-motion: reduce) {
-  #ap-rows > .ap-row[data-changed],
-  #ap-rows > .ap-row[data-changed] > .ap-cell-name,
-  #ap-rows > .ap-row[data-changed] > .ap-cell-pill,
-  #ap-ticket-rows > tr[data-changed],
-  .ap-kanban-card[data-changed] { animation: none; }
   #ap-rows > .ap-row[data-changed],
   #ap-ticket-rows > tr[data-changed],
   .ap-kanban-card[data-changed] { outline:2px solid var(--s-edge); outline-offset: -2px; }
