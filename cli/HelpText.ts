@@ -67,11 +67,12 @@ output never carries either.
                               brief at its start learns that its copy is now stale. It takes the same
                               --no-claude-md, --no-hooks, --no-workflow and --no-agent-definition
                               as \`init\`, and refuses --no-agent-definition without --no-workflow,
-                              or with it over a dispatcher lacking its definition, the same way. Every command but init, update, help and
-                              status refuses, with exit 1, while the files installed here are of
-                              another install version than this agent-progress (the SubagentStop
-                              hook reports it and exits 0); update rewrites them, and it and \`init\`
-                              refuse files a newer agent-progress installed.
+                              or with it over a dispatcher lacking its definition, the same way.
+                              Every command but init, update, help and status refuses, with exit
+                              1, while the files installed here are of another install version
+                              than this agent-progress (the SubagentStop hook reports it and exits
+                              0); update rewrites them, and it and \`init\` refuse files a newer
+                              agent-progress installed.
 
   status [--json] [--full]    The project, the counts, the rows that are not delivered or
                               abandoned, and the last log entries newest first. --json prints the
