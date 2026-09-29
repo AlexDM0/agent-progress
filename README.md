@@ -38,7 +38,7 @@
       <img src="docs/images/panel-themes.png" width="100%" alt="Light or dark: the same Progress tab split diagonally, light theme on the left and dark on the right">
     </td>
     <td width="50%" valign="top">
-      <img src="docs/images/panel-story.png" width="100%" alt="Double-click for the whole story: the detail dialog of ticket #002 listing its six phases with how long each lasted">
+      <img src="docs/images/panel-story.png" width="100%" alt="Click for the whole story: the detail panel of ticket #002 listing its six phases with how long each lasted">
     </td>
   </tr>
   <tr>
@@ -46,7 +46,7 @@
       <img src="docs/images/panel-tickets.png" width="100%" alt="Tickets an agent can build unasked: the Tickets tab with priorities, a waiting-on note and branches">
     </td>
     <td width="50%" valign="top">
-      <img src="docs/images/panel-cost.png" width="100%" alt="Know what every agent cost: the token column of the chart and the per-agent log lines in dark mode">
+      <img src="docs/images/panel-cost.png" width="100%" alt="Know what every agent cost: the token column of the chart in dark mode">
     </td>
   </tr>
 </table>
