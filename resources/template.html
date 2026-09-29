@@ -75,7 +75,9 @@
                                  as its title. The placeholders are relative to the example
                                  board's day, 2026-09-18; a later placeholder may name its own.
  #ap-theme                el     at the end of .ap-tab-bar, role="radiogroup" labelled "Theme":
-                                 buttons role="radio" data-theme="auto|light|dark", aria-checked
+                                 buttons role="radio" data-theme="auto|light|dark", aria-checked;
+                                 one tab stop (tabindex 0 on the checked radio, -1 on the rest),
+                                 Left/Up and Right/Down move and check the choice, wrapping
  #ap-error                el     [hidden] unless the layout script threw
  #ap-error-text           text   message shown in the error banner
  .ap-tab-bar              el     the tab row inside the header, #ap-tabs, #ap-finished, then #ap-theme,
@@ -286,9 +288,9 @@
                 idle reload. No ticket open state is kept: agent-progress:open-tickets
                 is retired, and nothing reads or writes it.
  idle reload    no meta refresh: the bootstrap reloads every 300 s, postponed and
-                retried every 30 s while #ap-detail is open, an input, textarea or
-                select has focus, or pointer, key, wheel or scroll activity came
-                within 45 s; a hidden tab reloads once it is shown again. Before it
+                retried every 30 s while an input, textarea or select has focus,
+                or pointer, key, wheel or scroll activity came within 45 s; an
+                open #ap-detail does not postpone it; a hidden tab reloads once it is shown again. Before it
                 reloads, the page script stores its place in sessionStorage under
                 "agent-progress:snapshot" (the shown tab, scroll of the window, #ap-chart and
                 #ap-kanban, the From/To text and whether #ap-range-popover is open,
@@ -1518,9 +1520,9 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
       <span class="ap-visually-hidden" id="ap-finished-status" aria-live="polite"></span>
     </div>
     <div class="ap-theme" id="ap-theme" role="radiogroup" aria-label="Theme">
-      <button type="button" role="radio" data-theme="auto" aria-checked="true">Auto</button>
-      <button type="button" role="radio" data-theme="light" aria-checked="false">Light</button>
-      <button type="button" role="radio" data-theme="dark" aria-checked="false">Dark</button>
+      <button type="button" role="radio" data-theme="auto" aria-checked="true" tabindex="0">Auto</button>
+      <button type="button" role="radio" data-theme="light" aria-checked="false" tabindex="-1">Light</button>
+      <button type="button" role="radio" data-theme="dark" aria-checked="false" tabindex="-1">Dark</button>
     </div>
   </div>
 </header>
@@ -1802,7 +1804,9 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
     root.setAttribute("data-theme-choice", choice);
     var buttons = themeBar.querySelectorAll("[data-theme]");
     for (var i = 0; i < buttons.length; i++) {
-      buttons[i].setAttribute("aria-checked", String(buttons[i].dataset.theme === choice));
+      var isChecked = buttons[i].dataset.theme === choice;
+      buttons[i].setAttribute("aria-checked", String(isChecked));
+      buttons[i].tabIndex = isChecked ? 0 : -1;
     }
   }
   applyTheme(root.getAttribute("data-theme-choice") || "auto");
@@ -1811,6 +1815,19 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
     if (!button) { return; }
     applyTheme(button.dataset.theme);
     try { localStorage.setItem(THEME_KEY, button.dataset.theme); } catch (e) {}
+  });
+  /* The radio pattern: one tab stop on the checked radio, and every arrow key moves to the next or previous choice and checks it through its click. */
+  themeBar.addEventListener("keydown", function (event) {
+    var buttons = Array.prototype.slice.call(themeBar.querySelectorAll("[data-theme]"));
+    var current = buttons.indexOf(event.target);
+    if (current < 0) { return; }
+    var targetIndexByKey = { ArrowRight: current + 1, ArrowDown: current + 1, ArrowLeft: current - 1, ArrowUp: current - 1 };
+    if (!Object.hasOwn(targetIndexByKey, event.key)) { return; }
+    var next = targetIndexByKey[event.key];
+    event.preventDefault();
+    var target = buttons[(next + buttons.length) % buttons.length];
+    target.focus();
+    target.click();
   });
   if (systemDark && systemDark.addEventListener) {
     systemDark.addEventListener("change", function () {
@@ -1867,7 +1884,7 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
   });
 
   /* The idle reload. Every RELOAD_INTERVAL_MS the page tries to reload; while the viewer is using
-     it (the detail panel open, a field focused, activity within ACTIVITY_QUIET_MS) it tries again
+     it (a field focused, activity within ACTIVITY_QUIET_MS) it tries again
      every RELOAD_RETRY_MS, and a hidden tab waits until it is shown. The page script's callbacks
      run first, so it can store what it needs to put the viewer back where they were. */
   var RELOAD_INTERVAL_MS = 300000;
@@ -1881,11 +1898,10 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
     document.addEventListener(activityEvents[a], function () { lastActivityAt = Date.now(); }, { capture: true, passive: true });
   }
 
+  /* An open #ap-detail is not busy: the snapshot reopens it at its scroll after the reload. */
   function viewerIsBusy() {
-    var detail = document.getElementById("ap-detail");
     var focused = document.activeElement;
-    return (detail !== null && detail.open)
-      || (focused !== null && focused.matches("input, textarea, select"))
+    return (focused !== null && focused.matches("input, textarea, select"))
       || Date.now() - lastActivityAt < ACTIVITY_QUIET_MS;
   }
 
