@@ -228,9 +228,9 @@ function computeTimeline(input: TimelineInput): Timeline {
   };
 }
 
-/** A tick label within the clearance of the end label on either side is covered by it; the page hides those after measuring both. */
-function tickLabelIsCovered(tickLabel: HorizontalExtent, endLabel: HorizontalExtent): boolean {
-  return tickLabel.right + TICK_LABEL_CLEARANCE_PIXELS > endLabel.left && tickLabel.left - TICK_LABEL_CLEARANCE_PIXELS < endLabel.right;
+/** A tick label within the clearance of another label on either side is covered by it; the page hides those after measuring both. */
+function tickLabelIsCovered(tickLabel: HorizontalExtent, coveringLabel: HorizontalExtent): boolean {
+  return tickLabel.right + TICK_LABEL_CLEARANCE_PIXELS > coveringLabel.left && tickLabel.left - TICK_LABEL_CLEARANCE_PIXELS < coveringLabel.right;
 }
 
 /**
