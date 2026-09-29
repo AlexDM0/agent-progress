@@ -6,22 +6,21 @@ import type { IdentifiedLogEntry }     from './WordedLogEntry.ts';
 import type { WordedProgressDocument } from './WordedProgressDocument.ts';
 
 export interface PageLimits {
-  tickStepLadderMinutes:       readonly number[];
-  maximumTicksPerAxis:         number;
-  axisMinimumSpanMinutes:      number;
-  axisPaddingMinutes:          number;
-  minimumBarWidthPercent:      number;
-  hoursAxisLabelLimitMinutes:  number;
-  weekAxisLabelLimitMinutes:   number;
-  hourMinutes:                 number;
-  dayMinutes:                  number;
-  tickCountSafetyBound:        number;
-  dateAndClockLength:          number;
-  calendarDateLength:          number;
-  monthAndDaySliceStart:       number;
-  clockSliceStart:             number;
-  clockSliceEnd:               number;
-  doneWorkVisibleMilliseconds: number;
+  tickStepLadderMinutes:      readonly number[];
+  maximumTicksPerAxis:        number;
+  axisMinimumSpanMinutes:     number;
+  axisPaddingMinutes:         number;
+  minimumBarWidthPercent:     number;
+  hoursAxisLabelLimitMinutes: number;
+  weekAxisLabelLimitMinutes:  number;
+  hourMinutes:                number;
+  dayMinutes:                 number;
+  tickCountSafetyBound:       number;
+  dateAndClockLength:         number;
+  calendarDateLength:         number;
+  monthAndDaySliceStart:      number;
+  clockSliceStart:            number;
+  clockSliceEnd:              number;
 }
 
 /** The two figures of `status --json`'s `concurrency` block the page shows, computed Bun-side by the same function. */

@@ -213,7 +213,6 @@ describe('fillPageTemplate', () => {
     expect(payload.limits['maximumTicksPerAxis']).toBe(LIMITS.MAXIMUM_TICKS_PER_AXIS);
     expect(payload.limits['tickCountSafetyBound']).toBe(LIMITS.TICK_COUNT_SAFETY_BOUND);
     expect(payload.limits['clockSliceEnd']).toBe(TIMESTAMP_SLICES.CLOCK_SLICE_END_CHARACTER_OFFSET);
-    expect(payload.limits['doneWorkVisibleMilliseconds']).toBe(LIMITS.DONE_WORK_VISIBLE_MILLISECONDS);
   });
 
   test('carries every ticket’s frontmatter, its path and its rendered body through the tickets island', () => {

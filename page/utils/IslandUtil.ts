@@ -24,7 +24,6 @@ const REQUIRED_LIMIT_NAMES = [
   'monthAndDaySliceStart',
   'clockSliceStart',
   'clockSliceEnd',
-  'doneWorkVisibleMilliseconds',
 ] as const;
 
 function rowPositionIsValid(value: unknown, rowCount: number): boolean {

@@ -8,7 +8,6 @@ export const LIMITS = {
   AXIS_MINIMUM_SPAN_MINUTES:          60,
   AXIS_PADDING_MINUTES:               15,
   MINIMUM_BAR_WIDTH_PERCENT:          0.6,
-  DONE_WORK_VISIBLE_MILLISECONDS:     86_400_000,
   HOURS_AXIS_LABEL_LIMIT_MINUTES:     1440,
   WEEK_AXIS_LABEL_LIMIT_MINUTES:      10_080,
   // The axis truncates past this rather than refusing: a crowded axis is cosmetic, a page that stops responding is not.
