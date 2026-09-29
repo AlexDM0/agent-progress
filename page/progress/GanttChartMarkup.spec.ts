@@ -16,6 +16,7 @@ import type { TaskRowsDrawing }                          from './GanttChartMarku
 import {
   hiddenWorkNoteText,
   overlayMarkup,
+  rangeNoteMarkup,
   rangeNoteText,
   taskRowsMarkup,
   tickLayerMarkup,
@@ -569,5 +570,15 @@ describe('hiddenWorkNoteText', () => {
     expect(hiddenWorkNoteText(0, 0)).toBe('');
     expect(hiddenWorkNoteText(1, 0)).toBe('1 task hidden');
     expect(hiddenWorkNoteText(3, 2)).toBe('3 tasks · 2 tickets hidden');
+  });
+});
+
+describe('rangeNoteMarkup', () => {
+  test('leads with Fit, or marks a held preset, and escapes the range once', () => {
+    const note = { text: '20:30 → 22:15 · 15m ticks', title: null };
+
+    expect(rangeNoteMarkup('Fit', false, note)).toMatch(/^<span class="ap-range-mode" title="Fitted[^"]*">Fit<\/span> · 20:30 → 22:15 · 15m ticks$/);
+    expect(rangeNoteMarkup('4h', true, note)).toMatch(/^<span class="ap-range-mode" data-held title="Held[^"]*">4h<\/span> · /);
+    expect(rangeNoteMarkup('<b>', true, note)).toContain('>&lt;b&gt;</span>');
   });
 });

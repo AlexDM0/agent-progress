@@ -78,21 +78,54 @@
                                  buttons role="radio" data-theme="auto|light|dark", aria-checked
  #ap-error                el     [hidden] unless the layout script threw
  #ap-error-text           text   message shown in the error banner
- .ap-tab-bar              el     the tab row inside the header, #ap-tabs then #ap-theme, a 1px rule
-                                 under it; #ap-detail docks under its bottom edge
+ .ap-tab-bar              el     the tab row inside the header, #ap-tabs, #ap-finished, then #ap-theme,
+                                 a 1px rule under it; below 1320px tabs and theme share the first
+                                 line and #ap-finished starts the second; #ap-detail docks under its
+                                 bottom edge
  #ap-tabs                 el     buttons carry data-tab="kanban|progress|tickets", aria-selected, and
                                  id="ap-tab-…" with aria-controls naming the panel; the arrow keys,
                                  Home and End move to a tab and select it
- .ap-view-controls        el     below the header, above the panels: holds .ap-visibility
  [data-panel="…"]         el     matching panel, role="tabpanel", id="ap-panel-…" and
                                  aria-labelledby naming its tab; [hidden] when not selected
- #ap-visibility           el     buttons data-visibility="recent|all", aria-pressed; "recent"
-                                 hides tasks and tickets done for more than a day, on the
-                                 Kanban tab too (Done and Abandoned take only the last day)
- #ap-hidden-note          text   "3 tasks · 2 tickets hidden", empty when nothing is hidden
- #ap-range-presets        el     buttons data-preset="auto|1h|4h|12h|24h|7d|all|custom", aria-pressed;
-                                 the last, #ap-range-custom "Custom…", is pressed while a typed
-                                 range is in use, aria-expanded while #ap-range-popover is open
+ #ap-finished             el     the finished-work switch, one choice shared by Kanban, Progress and
+                                 Tickets and remembered per viewer: .ap-finished-label, then
+                                 .ap-finished-anchor holding the switch and its popover, then
+                                 #ap-hidden-note and #ap-finished-status. "Finished" is delivered or
+                                 abandoned; unfinished work always shows. It replaces the retired
+                                 #ap-visibility Hide / Show all buttons (data-visibility="recent|all"),
+                                 whose stored recent reads as last day and all as custom all
+ #ap-finished-switch      el     role="radiogroup" of three role="radio" pills (roving tabindex; the
+                                 arrow keys move and check), data-finished="1h|1d|custom", 1d the
+                                 default; each pill is .ap-finished-line (.ap-finished-name,
+                                 .ap-finished-count: the finished tasks it lets through on Progress,
+                                 the tickets elsewhere) over .ap-finished-reach > i, its width
+                                 --reach on one log scale, now at the right end. .ap-finished-thumb
+                                 sits under the checked pill, placed by --thumb-x / --thumb-w and
+                                 shown once [data-thumb-ready]; [data-thumb-empty] hides it. The
+                                 custom pill #ap-finished-custom reads "custom" until checked, then
+                                 its choice ("6 hours", "since 09-24"), with .ap-finished-caret;
+                                 aria-expanded while #ap-finished-popover is open
+ #ap-finished-popover     dialog [hidden] unless the custom pill opened it, hung from the switch's
+                                 right edge (its left once the bar wraps): #ap-finished-presets, a
+                                 second radiogroup in the same pills, data-custom-preset="6h|12h|3d|all",
+                                 then #ap-finished-since, input type="date" meaning finished on or
+                                 after that local day's start, [data-chosen] while it holds the
+                                 choice, and #ap-finished-since-resolved under it. A pill clears the
+                                 day and a day unchecks every pill; each applies at once. Esc, Enter
+                                 in the day field and a click outside close it
+ #ap-hidden-note          button link-styled, "3 tasks · 2 tickets hidden", [hidden] when nothing is;
+                                 a click checks custom on all. [data-changed] flashes it once
+ #ap-finished-status      text   visually hidden, aria-live: what the switch now shows
+ #ap-range-presets        el     buttons data-preset="fit|1h|4h|12h|24h|7d|custom", aria-pressed;
+                                 #ap-range-fit "Fit", the default, spans the rows shown from their
+                                 earliest start to now, a margin of 3% of the span (at least 5m) at
+                                 both ends, ticks chosen for the span, and re-fits whenever the
+                                 finished-work switch or the data changes; any other preset or a
+                                 custom range holds until Fit is pressed again, and Fit carries
+                                 [data-refit] (a dot) once the rows changed under a held range.
+                                 The last, #ap-range-custom "Custom…", is pressed while a typed
+                                 range is in use, aria-expanded while #ap-range-popover is open.
+                                 There is no All preset: Fit with custom on all covers it
  #ap-range-popover        dialog [hidden] unless Custom… opened it; holds the fields and the ticks.
                                  Enter or #ap-range-apply applies; Esc, #ap-range-cancel, a click
                                  or focus outside discards; closing by key or button refocuses
@@ -105,8 +138,9 @@
  #ap-range-to-resolved    text   as the from line, or "→ 15:40 is not after From"
  #ap-range-ticks          el     inside the popover: buttons data-tick="auto|5|15|60|360|1440",
                                  aria-pressed, applied with the fields
- #ap-range-note           text   resolved range, e.g. "20:30 → 22:15 · 15m ticks", each end a
-                                 stamp; title the whole note with both ends in full
+ #ap-range-note           html   .ap-range-mode ("Fit", or the held "4h" / "Custom" with
+                                 [data-held]), then the resolved range, e.g. "Fit · 20:30 → 22:15 ·
+                                 15m ticks", each end a stamp; title the whole note in full
  #ap-chart                el     the scroller, both ways; fills the viewport below the range bar,
                                  its rows scrolling inside it; owns --timeline-w
  #ap-ticks                el     tick layer in the header row; children .ap-tick > span
@@ -133,7 +167,7 @@
  #ap-ticket-status        el     with .ap-chip-count; status chips carry data-status and data-state
                                  (Reviewing holds a repeat review too). None pressed = all; OR inside
                                  a group, AND across groups and with the search. Unnarrowed, the
-                                 table obeys #ap-visibility; a search or a pressed chip looks through
+                                 table obeys #ap-finished; a search or a pressed chip looks through
                                  every ticket, and a chip counts what pressing it would add
  #ap-ticket-clear         button [hidden] unless a search or a chip narrows the table
  #ap-ticket-table         table  th.ap-sortable[data-sort] > button.ap-sort; the sorted th carries
@@ -189,7 +223,10 @@
  ------------------------------------------------------------- kanban markup ---
  .ap-lane[data-lane]      todo | progress | review | merge | done | abandoned; .ap-card-head holds
                           .ap-lane-dot[data-state], .ap-card-title, .ap-lane-count, .ap-lane-sub;
-                          then .ap-lane-cards#ap-lane-<lane>-cards, then .ap-lane-more when capped
+                          then .ap-lane-cards#ap-lane-<lane>-cards, then, in Done and Abandoned,
+                          .ap-lane-more: the paging when capped, then .ap-lane-hidden-line ("19
+                          earlier hidden" and button[data-show-all-finished] "show all", which
+                          checks custom on all) while #ap-finished leaves cards of the lane out
  .ap-lane[data-collapsed] Abandoned only: a strip; its head is one button.ap-lane-toggle[aria-expanded]
  .ap-lane[data-highlighted] set by the script for 1.2 s after a summary stat jumps to it, with
                           --lane-highlight-edge (inline) copied from its dot's --s-edge
@@ -278,6 +315,8 @@
               src/services/render/TemplateColourTokens.spec.ts fails on any literal elsewhere.
               bg, surface, surface-2, surface-selected (the chosen theme option),
               status-live (the Live dot), ink, ink-muted, line, line-strong, link,
+              link-tint / link-soft (a focused date part, a hovered reach mark),
+              reach-track (under the finished-work switch's reach marks),
               warn-* and err-* (tint, edge, ink), shadow-control / -popover / -panel / -card-lift,
               hatch-live / hatch-idle (bar stripes), badge-<status>-tint / -ink / -edge;
               per state: --s-fill (bars) / --s-tint (pill bg) / --s-ink (pill text)
@@ -297,7 +336,9 @@
               --motion-base 160ms: the tab underline, [data-panel][data-entering] (the
               incoming tab's fade and 4px rise), --col-name (registered, so Expand eases the
               name column), pill and badge colours, and the page script's Kanban lane width
-              and height changes and .ap-lane-count tween; --motion-slow 220ms for panels;
+              and height changes and .ap-lane-count tween, the finished-work switch's
+              thumb and reach marks; --motion-slow 220ms for panels and #ap-hidden-note's
+              flash when its count changes;
               --ease-out for all. Every one is 0ms until the bootstrap sets
               data-motion="ready" on <html> after the first frames, and under
               prefers-reduced-motion, so nothing plays on a first render or a reload.
@@ -343,6 +384,9 @@
   --line:        oklch(0.905 0.008 265);
   --line-strong: oklch(0.82 0.012 265);
   --link:        oklch(0.48 0.13 255);
+  --link-tint:   oklch(0.48 0.13 255 / 0.10);
+  --link-soft:   oklch(0.48 0.13 255 / 0.45);
+  --reach-track: oklch(0.905 0.008 265);
   --surface-selected: oklch(0.93 0.008 262);
   --status-live: oklch(0.5 0.17 265);
 
@@ -395,6 +439,9 @@
     --line:        oklch(0.33 0.014 265);
     --line-strong: oklch(0.42 0.016 265);
     --link:        oklch(0.78 0.10 255);
+    --link-tint:   oklch(0.78 0.10 255 / 0.14);
+    --link-soft:   oklch(0.78 0.10 255 / 0.50);
+    --reach-track: oklch(0.36 0.014 265);
     --surface-selected: oklch(0.25 0.022 262);
     --status-live: oklch(0.72 0.19 330);
 
@@ -504,7 +551,24 @@ button.ap-stat:focus-visible { outline: 2px solid var(--ink); outline-offset: 2p
 }
 
 /* ------------------------------------------------------------------- tabs -- */
-.ap-tab-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; border-bottom: 1px solid var(--line); }
+/* Tabs, then the one shared finished-work switch, then the theme at the far right, the same row in every view. When the row is too
+   narrow for all three, tabs and theme share the first line and the switch starts the second, under the tabs. */
+.ap-tab-bar {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "tabs finished theme";
+  align-items: center;
+  gap: var(--sp-2) var(--sp-4);
+  border-bottom: 1px solid var(--line);
+}
+.ap-tab-bar > .ap-tabs { grid-area: tabs; align-self: end; }
+.ap-tab-bar > .ap-finished { grid-area: finished; justify-self: end; }
+.ap-tab-bar > .ap-theme { grid-area: theme; }
+@media (max-width: 1320px) {
+  .ap-tab-bar { grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "tabs theme" "finished finished"; padding-bottom: var(--sp-3); }
+  .ap-tab-bar > .ap-theme { justify-self: end; }
+  .ap-tab-bar > .ap-finished { justify-self: start; justify-content: flex-start; }
+}
 .ap-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
 /* The selected tab's 2px underline overlaps the row's 1px rule. */
 .ap-tabs button {
@@ -532,9 +596,114 @@ button.ap-stat:focus-visible { outline: 2px solid var(--ink); outline-offset: 2p
 .ap-theme button[aria-checked="true"] { background: var(--surface-selected); color: var(--ink); }
 .ap-theme button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
-.ap-view-controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); margin: var(--sp-3) 0 var(--sp-4); }
-.ap-visibility { display: flex; align-items: center; gap: var(--sp-3); }
-#ap-hidden-note { font-size: var(--fs-small); color: var(--ink-muted); }
+/* ---------------------------------------------------- finished-work switch -- */
+.ap-finished { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: var(--sp-2) var(--sp-3); min-width: 0; }
+.ap-finished-anchor { position: relative; }
+.ap-finished-label { font-size: var(--fs-micro); font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-muted); }
+.ap-finished-switch {
+  position: relative; isolation: isolate;
+  display: flex; gap: 2px; padding: 3px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-2);
+}
+/* The thumb slides under the checked choice; the page script sets its x and width from the pill it sits under. */
+.ap-finished-thumb {
+  position: absolute; z-index: -1; top: 3px; bottom: 3px; left: 0;
+  width: var(--thumb-w, 0px);
+  transform: translateX(var(--thumb-x, 0px));
+  background: var(--surface);
+  border-radius: var(--r-1);
+  box-shadow: 0 1px 2px var(--shadow-control), 0 0 0 1px var(--line);
+  opacity: 0;
+  transition: transform var(--motion-base) var(--ease-out), width var(--motion-base) var(--ease-out);
+}
+.ap-finished-switch[data-thumb-ready] .ap-finished-thumb { opacity: 1; }
+.ap-finished-switch:not([data-thumb-ready]) .ap-finished-thumb { transition: none; }
+/* With a day chosen no pill in the popover is checked, so there is nothing for the thumb to sit under. */
+.ap-finished-switch[data-thumb-empty] .ap-finished-thumb { opacity: 0; }
+/* A pill is its box: the line centred with equal room either side and the reach mark spanning the same inner width, so the thumb,
+   which takes the pill's box, hugs both. */
+.ap-finished-switch button {
+  display: flex; flex-direction: column; align-items: stretch;
+  row-gap: 5px;
+  min-width: 84px;
+  padding: 6px 11px 5px;
+  font: 600 var(--fs-small)/1 var(--font-ui);
+  color: var(--ink-muted);
+  background: transparent;
+  border: 0; border-radius: var(--r-1);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.ap-finished-line { display: flex; align-items: baseline; justify-content: center; column-gap: 6px; }
+.ap-finished-switch button:hover,
+.ap-finished-switch button[aria-checked="true"],
+.ap-finished-switch button[aria-expanded="true"] { color: var(--ink); }
+.ap-finished-switch button:focus-visible { outline: 2px solid var(--link); outline-offset: 1px; }
+.ap-finished-count { font: 500 var(--fs-micro)/1 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink-muted); }
+.ap-finished-count:empty { display: none; }
+.ap-finished-switch button[aria-checked="true"] .ap-finished-count { color: var(--link); }
+.ap-finished-caret { align-self: center; width: 0; height: 0; border-inline: 3.5px solid transparent; border-top: 4px solid currentColor; opacity: 0.7; }
+/* How far back the choice reaches, on one log scale for every pill: now at the right end, the oldest finished work at the left. */
+.ap-finished-reach { position: relative; height: 3px; border-radius: var(--r-pill); background: var(--reach-track); overflow: hidden; }
+.ap-finished-reach i {
+  position: absolute; top: 0; right: 0; bottom: 0;
+  width: var(--reach, 0%);
+  border-radius: inherit;
+  background: var(--line-strong);
+  transition: width var(--motion-base) var(--ease-out), background-color var(--motion-base) var(--ease-out);
+}
+.ap-finished-switch button:hover .ap-finished-reach i { background: var(--link-soft); }
+.ap-finished-switch button[aria-checked="true"] .ap-finished-reach i { background: var(--link); }
+
+#ap-hidden-note { font-size: var(--fs-small); color: var(--ink-muted); border-radius: var(--r-1); padding: 1px 4px; margin-left: -4px; }
+#ap-hidden-note:hover { color: var(--link); }
+#ap-hidden-note[data-changed] { animation: ap-note-changed var(--motion-slow) var(--ease-out); }
+@keyframes ap-note-changed { from { background: var(--link-tint); color: var(--link); } to { background: transparent; } }
+.ap-visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Hangs from the switch's right edge, under the custom pill (from its left edge once the bar wraps); the pill row sets its width. */
+.ap-popover.ap-finished-popover { top: calc(100% + 6px); right: 0; width: max-content; min-width: 300px; }
+.ap-finished-popover .ap-finished-switch button { flex: 1 1 0; min-width: 76px; }
+.ap-finished-or {
+  display: flex; align-items: center; gap: var(--sp-2);
+  margin: var(--sp-3) 0 var(--sp-2);
+  font-size: var(--fs-micro); font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em;
+  color: var(--ink-muted);
+}
+.ap-finished-or::before, .ap-finished-or::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+.ap-finished-since-field { display: grid; grid-template-columns: auto 1fr; align-items: center; column-gap: var(--sp-2); row-gap: 4px; }
+.ap-finished-since-field label { font-size: var(--fs-small); color: var(--ink-muted); }
+/* The native field and its calendar follow the resolved theme through the root's color-scheme, not the OS. */
+.ap-finished-since-field input {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: 6px 8px;
+  font: var(--fs-small)/1.4 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-2);
+}
+.ap-finished-since-field input:hover { border-color: var(--ink-muted); }
+.ap-finished-since-field input:not([data-chosen]) { color: var(--ink-muted); }
+.ap-finished-since-field input[data-chosen] { border-color: var(--link); box-shadow: 0 0 0 1px var(--link); }
+.ap-finished-since-field input::-webkit-datetime-edit-fields-wrapper { padding: 0; }
+.ap-finished-since-field input::-webkit-datetime-edit-text { color: var(--ink-muted); }
+.ap-finished-since-field input::-webkit-datetime-edit-year-field:focus,
+.ap-finished-since-field input::-webkit-datetime-edit-month-field:focus,
+.ap-finished-since-field input::-webkit-datetime-edit-day-field:focus { color: var(--ink); background: var(--link-tint); border-radius: 2px; }
+.ap-finished-since-field input::-webkit-calendar-picker-indicator { margin-inline-end: -2px; cursor: pointer; opacity: 0.7; }
+.ap-finished-since-field input::-webkit-calendar-picker-indicator:hover { opacity: 1; }
+.ap-finished-since-field input:focus-visible { outline: 2px solid var(--link); outline-offset: 1px; }
+.ap-finished-since-field input[aria-invalid="true"] { border-color: var(--err-edge); box-shadow: none; }
+.ap-finished-since-field .ap-resolved { grid-column: 2; min-height: 1.5em; }
+@media (max-width: 1320px) {
+  .ap-popover.ap-finished-popover { right: auto; left: 0; }
+}
 
 /* ------------------------------------------------------------------ cards -- */
 .ap-card {
@@ -582,6 +751,11 @@ button.ap-stat:focus-visible { outline: 2px solid var(--ink); outline-offset: 2p
 #ap-range-note { margin-left: auto; font-size: var(--fs-small); color: var(--ink-muted); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 .ap-seg button:focus-visible { outline: 2px solid var(--link); outline-offset: 1px; }
 #ap-range-custom[aria-expanded="true"] { color: var(--ink); }
+/* Fit leads the presets; a dot on it says the rows changed under a held range. */
+#ap-range-fit { position: relative; }
+#ap-range-fit[data-refit]::after { content: ""; position: absolute; top: 2px; right: 2px; width: 5px; height: 5px; border-radius: 50%; background: var(--link); }
+.ap-range-mode { font-family: var(--font-ui); font-weight: 600; color: var(--ink); }
+.ap-range-mode[data-held] { color: var(--warn-ink); }
 /* Placed under Custom… by the page script, which sets its top and left. */
 .ap-popover {
   position: absolute; z-index: 10;
@@ -993,6 +1167,8 @@ body:has(#ap-panel-progress:not([hidden])) .ap-page { height: 100%; display: fle
   .ap-detail { transition: none; }
   .ap-detail-scroll[data-swapped] { animation: none; }
   .ap-kanban-frame::after { transition: none; }
+  .ap-finished-thumb, .ap-finished-reach i { transition: none; }
+  #ap-hidden-note[data-changed] { animation: none; }
 }
 .ap-detail-head {
   display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3);
@@ -1053,6 +1229,8 @@ body:has(#ap-panel-progress:not([hidden])) .ap-page { height: 100%; display: fle
 .ap-lane-more { display: flex; flex-direction: column; gap: 6px; padding: var(--sp-2); border-top: 1px solid var(--line); font: var(--fs-micro)/1.5 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink-muted); }
 .ap-lane-more > span { padding-left: var(--sp-1); }
 .ap-lane-more .ap-seg button { flex: 1; }
+.ap-lane-hidden-line { display: flex; align-items: baseline; gap: var(--sp-1); padding-left: var(--sp-1); }
+.ap-lane-hidden-line .ap-link-button { font-size: var(--fs-micro); font-family: var(--font-ui); }
 
 /* The collapsible lane's whole head is its toggle; collapsed, the lane is a strip with the head set vertically. */
 .ap-lane-toggle { display: flex; align-items: center; gap: var(--sp-2); width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: start; cursor: pointer; }
@@ -1310,6 +1488,35 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
       <button type="button" role="tab" id="ap-tab-progress" aria-controls="ap-panel-progress" data-tab="progress" aria-selected="false">Progress</button>
       <button type="button" role="tab" id="ap-tab-tickets" aria-controls="ap-panel-tickets" data-tab="tickets" aria-selected="false">Tickets</button>
     </div>
+    <div class="ap-finished" id="ap-finished">
+      <span class="ap-finished-label" id="ap-finished-label">Finished work</span>
+      <div class="ap-finished-anchor">
+        <div class="ap-finished-switch" id="ap-finished-switch" role="radiogroup" aria-labelledby="ap-finished-label">
+          <span class="ap-finished-thumb" aria-hidden="true"></span>
+          <button type="button" role="radio" data-finished="1h" aria-checked="false" tabindex="-1" title="Unfinished work, and work finished in the last hour"><span class="ap-finished-line"><span class="ap-finished-name">last hour</span><span class="ap-finished-count">3</span></span><span class="ap-finished-reach" aria-hidden="true"><i style="--reach: 32%"></i></span></button>
+          <button type="button" role="radio" data-finished="1d" aria-checked="true" tabindex="0" title="Unfinished work, and work finished in the last day"><span class="ap-finished-line"><span class="ap-finished-name">last day</span><span class="ap-finished-count">12</span></span><span class="ap-finished-reach" aria-hidden="true"><i style="--reach: 68%"></i></span></button>
+          <button type="button" role="radio" data-finished="custom" id="ap-finished-custom" aria-checked="false" tabindex="-1" aria-haspopup="dialog" aria-expanded="false" aria-controls="ap-finished-popover" title="Unfinished work, and work finished in a span or since a day you pick"><span class="ap-finished-line"><span class="ap-finished-name">custom</span><span class="ap-finished-count"></span><span class="ap-finished-caret" aria-hidden="true"></span></span><span class="ap-finished-reach" aria-hidden="true"><i></i></span></button>
+        </div>
+        <div class="ap-popover ap-finished-popover" id="ap-finished-popover" role="dialog" aria-labelledby="ap-finished-popover-title" hidden>
+          <p class="ap-popover-title" id="ap-finished-popover-title">Show work finished in the last</p>
+          <div class="ap-finished-switch" id="ap-finished-presets" role="radiogroup" aria-labelledby="ap-finished-popover-title">
+            <span class="ap-finished-thumb" aria-hidden="true"></span>
+            <button type="button" role="radio" data-custom-preset="6h" aria-checked="false" tabindex="0" title="Work finished in the last 6 hours"><span class="ap-finished-line"><span class="ap-finished-name">6 hours</span><span class="ap-finished-count"></span></span><span class="ap-finished-reach" aria-hidden="true"><i></i></span></button>
+            <button type="button" role="radio" data-custom-preset="12h" aria-checked="false" tabindex="-1" title="Work finished in the last 12 hours"><span class="ap-finished-line"><span class="ap-finished-name">12 hours</span><span class="ap-finished-count"></span></span><span class="ap-finished-reach" aria-hidden="true"><i></i></span></button>
+            <button type="button" role="radio" data-custom-preset="3d" aria-checked="false" tabindex="-1" title="Work finished in the last 3 days"><span class="ap-finished-line"><span class="ap-finished-name">3 days</span><span class="ap-finished-count"></span></span><span class="ap-finished-reach" aria-hidden="true"><i></i></span></button>
+            <button type="button" role="radio" data-custom-preset="all" aria-checked="false" tabindex="-1" title="All finished work"><span class="ap-finished-line"><span class="ap-finished-name">all</span><span class="ap-finished-count"></span></span><span class="ap-finished-reach" aria-hidden="true"><i></i></span></button>
+          </div>
+          <p class="ap-finished-or" aria-hidden="true">or</p>
+          <div class="ap-finished-since-field">
+            <label for="ap-finished-since">on or after</label>
+            <input id="ap-finished-since" type="date" aria-describedby="ap-finished-since-resolved">
+            <span class="ap-resolved" id="ap-finished-since-resolved" aria-live="polite"></span>
+          </div>
+        </div>
+      </div>
+      <button type="button" class="ap-link-button" id="ap-hidden-note" title="Show all finished work">2 tickets hidden</button>
+      <span class="ap-visually-hidden" id="ap-finished-status" aria-live="polite"></span>
+    </div>
     <div class="ap-theme" id="ap-theme" role="radiogroup" aria-label="Theme">
       <button type="button" role="radio" data-theme="auto" aria-checked="true">Auto</button>
       <button type="button" role="radio" data-theme="light" aria-checked="false">Light</button>
@@ -1317,17 +1524,6 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
     </div>
   </div>
 </header>
-
-<div class="ap-view-controls">
-  <div class="ap-visibility">
-    <span id="ap-hidden-note">2 tickets hidden</span>
-    <span class="ap-range-label">Done &gt; 1 day</span>
-    <div class="ap-seg" id="ap-visibility">
-      <button type="button" data-visibility="recent" aria-pressed="true">Hide</button>
-      <button type="button" data-visibility="all" aria-pressed="false">Show all</button>
-    </div>
-  </div>
-</div>
 
 <section data-panel="kanban" role="tabpanel" id="ap-panel-kanban" aria-labelledby="ap-tab-kanban">
   <div class="ap-kanban-frame" id="ap-kanban-frame">
@@ -1347,13 +1543,12 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
     <div class="ap-range">
       <span class="ap-range-label">Range</span>
       <div class="ap-seg" id="ap-range-presets">
-        <button type="button" data-preset="auto" aria-pressed="true">Auto</button>
+        <button type="button" data-preset="fit" id="ap-range-fit" aria-pressed="true" title="Fit the range to the rows shown: from the earliest start to now. Follows the finished-work switch.">Fit</button>
         <button type="button" data-preset="1h" aria-pressed="false">1h</button>
         <button type="button" data-preset="4h" aria-pressed="false">4h</button>
         <button type="button" data-preset="12h" aria-pressed="false">12h</button>
         <button type="button" data-preset="24h" aria-pressed="false">24h</button>
         <button type="button" data-preset="7d" aria-pressed="false">7d</button>
-        <button type="button" data-preset="all" aria-pressed="false">All</button>
         <button type="button" data-preset="custom" id="ap-range-custom" aria-pressed="false" aria-haspopup="dialog" aria-expanded="false" aria-controls="ap-range-popover">Custom…</button>
       </div>
       <div class="ap-popover" id="ap-range-popover" role="dialog" aria-labelledby="ap-range-popover-title" hidden>
@@ -1385,7 +1580,7 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
           <button type="button" class="ap-button" data-primary id="ap-range-apply">Apply</button>
         </div>
       </div>
-      <div id="ap-range-note" title="2026-09-18 20:30 → 2026-09-18 22:15 · 15m ticks">20:30 → 22:15 · 15m ticks</div>
+      <div id="ap-range-note" title="Fit · 2026-09-18 20:30 → 2026-09-18 22:15 · 15m ticks"><span class="ap-range-mode" title="Fitted to the rows shown; re-fits when the finished-work switch changes">Fit</span> · 20:30 → 22:15 · 15m ticks</div>
     </div>
 
     <div id="ap-chart">

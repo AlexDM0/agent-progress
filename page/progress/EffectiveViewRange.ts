@@ -1,11 +1,13 @@
-/** The range the geometry is finally given, once the viewer's stored override is laid over the tracker's own. */
+/**
+ * The range the geometry is finally given, once the viewer's stored override is laid over the tracker's own. Without typed bounds the
+ * tracker's own range holds when the `range` command set one, and otherwise Fit spans the rows the page hands in.
+ */
 
 import type { TrackerProgress, ViewRange } from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
-import type { TimelineLimits }             from '../@types/Timeline.ts';
 import type { StoredViewOverride }         from '../@types/ViewerChoices.ts';
-import { GeometryUtil }                    from '../utils/GeometryUtil.ts';
+import { FitRangeUtil }                    from './utils/FitRangeUtil.ts';
 
-export function effectiveViewRangeFor(progress: TrackerProgress, override: StoredViewOverride, nowEpochMilliseconds: number, limits: TimelineLimits): ViewRange {
+export function effectiveViewRangeFor(progress: TrackerProgress, override: StoredViewOverride, nowEpochMilliseconds: number): ViewRange {
   if (override.fromText !== null && override.toText !== null) {
     return {
       kind:        'relative',
@@ -15,27 +17,19 @@ export function effectiveViewRangeFor(progress: TrackerProgress, override: Store
     };
   }
   const base = progress.view;
-  if (override.tickMinutes === null) {
-    return base;
-  }
   if (base.kind !== 'auto') {
-    return {
+    return override.tickMinutes === null ? base : {
       kind:        base.kind,
       from:        base.from,
       to:          base.to,
       tickMinutes: override.tickMinutes,
     };
   }
-  const automatic = GeometryUtil.computeTimeline({
-    progress,
-    range: base,
-    nowEpochMilliseconds,
-    limits,
-  });
+  const fitted = FitRangeUtil.fittedSpanOf(progress.tasks, nowEpochMilliseconds);
   return {
     kind:        'absolute',
-    from:        new Date(automatic.fromEpochMilliseconds).toISOString(),
-    to:          new Date(automatic.toEpochMilliseconds).toISOString(),
+    from:        new Date(fitted.fromEpochMilliseconds).toISOString(),
+    to:          new Date(fitted.toEpochMilliseconds).toISOString(),
     tickMinutes: override.tickMinutes,
   };
 }

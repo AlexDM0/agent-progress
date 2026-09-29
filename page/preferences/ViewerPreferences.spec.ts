@@ -12,8 +12,9 @@ import type {
   ViewerPreferences,
 } from '../@types/ViewerChoices.ts';
 import { CAPPED_LANE_FIRST_PAGE_CARDS }                       from '../kanban/constants/KanbanBoardLayout.ts';
+import { DEFAULT_FINISHED_WORK_CHOICE }                       from '../utils/FinishedWorkUtil.ts';
 import { createReloadSnapshotStore, createViewerPreferences } from './ViewerPreferences.ts';
-import { DEFAULT_NAME_COLUMN_WIDTH, DEFAULT_WORK_VISIBILITY } from './constants/PreferenceDefaults.ts';
+import { DEFAULT_NAME_COLUMN_WIDTH }                          from './constants/PreferenceDefaults.ts';
 import { EMPTY_VIEW_OVERRIDE }                                from './constants/ViewOverride.ts';
 import { ViewerPreferenceUtil }                               from './utils/ViewerPreferenceUtil.ts';
 
@@ -42,7 +43,8 @@ function inMemoryStorage(): InMemoryStorage {
   };
 }
 
-type StoredChoiceName = 'range override' | 'work visibility' | 'name column' | 'review rows' | 'Abandoned lane' | 'Done lane count' | 'Abandoned lane count';
+type StoredChoiceName = 'range override' | 'work visibility' | 'finished since a day' | 'name column' | 'review rows' | 'Abandoned lane'
+  | 'Done lane count' | 'Abandoned lane count';
 
 // Frozen from the key functions before they moved here: retake by checking out bc42604 and calling the key functions in lib/render/page/.
 // The review rows entry is newer than that commit and frozen from its first release.
@@ -54,7 +56,8 @@ const FROZEN_STORED_CHOICES: readonly (readonly [StoredChoiceName, string, strin
     '{"presetKey":"4h","fromText":"-4h","toText":"now","tickMinutes":15}',
     '{"presetKey":"auto","fromText":null,"toText":null,"tickMinutes":null}',
   ],
-  ['work visibility', 'agent-progress:tracker-a:visibility', 'all', 'recent'],
+  ['work visibility', 'agent-progress:tracker-a:visibility', 'all', '1d'],
+  ['finished since a day', 'agent-progress:tracker-a:visibility', 'since-2026-09-24', '1d'],
   ['name column', 'agent-progress:tracker-a:name-column', 'wide', 'normal'],
   ['review rows', 'agent-progress:tracker-a:review-rows', 'rows', 'segments'],
   ['Abandoned lane', 'agent-progress:tracker-a:kanban-abandoned', 'open', 'closed'],
@@ -74,8 +77,12 @@ const DRIVER_FOR_STORED_CHOICE: Readonly<Record<StoredChoiceName, StoredChoiceDr
     read:  (preferences) => JSON.stringify(preferences.readRangeOverride()),
   },
   'work visibility': {
-    write: (preferences, text) => preferences.writeWorkVisibility(ViewerPreferenceUtil.workVisibilityFrom(text)),
-    read:  (preferences) => preferences.readWorkVisibility(),
+    write: (preferences, text) => preferences.writeFinishedWorkChoice(ViewerPreferenceUtil.finishedWorkChoiceFrom(text)),
+    read:  (preferences) => preferences.readFinishedWorkChoice(),
+  },
+  'finished since a day': {
+    write: (preferences, text) => preferences.writeFinishedWorkChoice(ViewerPreferenceUtil.finishedWorkChoiceFrom(text)),
+    read:  (preferences) => preferences.readFinishedWorkChoice(),
   },
   'name column': {
     write: (preferences, text) => preferences.writeNameColumnWidth(ViewerPreferenceUtil.nameColumnWidthFrom(text)),
@@ -145,7 +152,7 @@ describe('createViewerPreferences', () => {
     const override    = overrideWith({ presetKey: '4h', fromText: '-4h', toText: 'now' });
 
     preferences.writeRangeOverride(override);
-    preferences.writeWorkVisibility('all');
+    preferences.writeFinishedWorkChoice('all');
     preferences.writeNameColumnWidth('wide');
     preferences.writeAbandonedLaneIsOpen(true);
     preferences.writeCappedLaneShownCount('done', 40);
@@ -153,7 +160,7 @@ describe('createViewerPreferences', () => {
 
     expect(preferences.readReviewRowsAreShown()).toBe(true);
     expect(preferences.readRangeOverride()).toEqual(override);
-    expect(preferences.readWorkVisibility()).toBe('all');
+    expect(preferences.readFinishedWorkChoice()).toBe('all');
     expect(preferences.readNameColumnWidth()).toBe('wide');
     expect(preferences.readAbandonedLaneIsOpen()).toBe(true);
     expect(preferences.readCappedLaneShownCount('done')).toBe(40);
@@ -167,7 +174,7 @@ describe('createViewerPreferences', () => {
     });
 
     expect(preferences.readRangeOverride()).toEqual(EMPTY_VIEW_OVERRIDE);
-    expect(preferences.readWorkVisibility()).toBe(DEFAULT_WORK_VISIBILITY);
+    expect(preferences.readFinishedWorkChoice()).toBe(DEFAULT_FINISHED_WORK_CHOICE);
     expect(preferences.readNameColumnWidth()).toBe(DEFAULT_NAME_COLUMN_WIDTH);
     expect(preferences.readAbandonedLaneIsOpen()).toBe(false);
     expect(preferences.readReviewRowsAreShown()).toBe(false);
@@ -175,11 +182,21 @@ describe('createViewerPreferences', () => {
     expect(() => {
       preferences.writeReviewRowsAreShown(true);
       preferences.writeRangeOverride(overrideWith({ tickMinutes: 15 }));
-      preferences.writeWorkVisibility('all');
+      preferences.writeFinishedWorkChoice('all');
       preferences.writeNameColumnWidth('wide');
       preferences.writeAbandonedLaneIsOpen(true);
       preferences.writeCappedLaneShownCount('done', 40);
     }).not.toThrow();
+  });
+
+  test('reads the hide-finished checkbox\'s saved recent as last day and its all as all, from the same key', () => {
+    const storage     = inMemoryStorage();
+    const preferences = createViewerPreferences(EXAMPLE_TRACKER_ID, () => storage);
+
+    storage.setItem('agent-progress:tracker-a:visibility', 'recent');
+    expect(preferences.readFinishedWorkChoice()).toBe('1d');
+    storage.setItem('agent-progress:tracker-a:visibility', 'all');
+    expect(preferences.readFinishedWorkChoice()).toBe('all');
   });
 
   test('reads a stored range override that is not JSON as the empty override', () => {

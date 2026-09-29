@@ -158,10 +158,11 @@ pause loses its key, so a reopened bundle ticket is a new agent.
 
 `agent-progress range` sets the tracker's stored default and every browser sees it. A relative bound
 is stored as you wrote it and resolved on each refresh, so `--from -2h --to now` always means the
-last two hours. The page itself carries a range bar with the presets **Auto · 1h · 4h · 12h · 24h ·
-7d · All**, From and To text inputs for an exact window and a tick-step selector; a viewer's choice
-is kept in their browser and survives the refresh, and **Auto** hands control back to the stored
-default. Bars outside the window are clipped and marked, never dropped.
+last two hours. The page itself carries a range bar with the presets **Fit · 1h · 4h · 12h · 24h ·
+7d**, and Custom… with From and To text inputs for an exact window and a tick-step selector; a
+viewer's choice is kept in their browser and survives the refresh, and **Fit** hands control back to
+the stored default, or without one fits the rows shown. Bars outside the window are clipped and
+marked, never dropped.
 
 ## Exit codes
 

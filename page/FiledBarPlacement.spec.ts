@@ -117,13 +117,14 @@ describe('the filed bar outside the dialog', () => {
       waitingOn: [],
     })), { slices: EXAMPLE_PAGE_LIMITS, todayCalendarDate: EXAMPLE_TODAY, reviewRowsAreShown: false });
     const board   = kanbanBoardMarkup({
-      cards:                  [cardFor(DELIVERED_TICKET), cardFor(WAITING_TICKET)],
-      nowEpochMilliseconds:   EXAMPLE_NOW,
-      todayCalendarDate:      EXAMPLE_TODAY,
-      slices:                 EXAMPLE_PAGE_LIMITS,
-      showsAllWork:           true,
-      shownCountByClosedLane: { done: 15, abandoned: 15 },
-      abandonedLaneIsOpen:    true,
+      cards:                   [cardFor(DELIVERED_TICKET), cardFor(WAITING_TICKET)],
+      nowEpochMilliseconds:    EXAMPLE_NOW,
+      todayCalendarDate:       EXAMPLE_TODAY,
+      slices:                  EXAMPLE_PAGE_LIMITS,
+      finishedWork:            'all',
+      hiddenCountByClosedLane: { done: 0, abandoned: 0 },
+      shownCountByClosedLane:  { done: 15, abandoned: 15 },
+      abandonedLaneIsOpen:     true,
     });
     const overview = taskDetailMarkup({
       task:              boardRows.find((row) => row.id === DELIVERED_ROW.id) ?? null,

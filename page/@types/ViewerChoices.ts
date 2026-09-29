@@ -4,7 +4,11 @@ import type { ClosedKanbanLane } from '../kanban/constants/KanbanBoardLayout.ts'
 
 export type NameColumnWidth = 'normal' | 'wide';
 
-export type WorkVisibility = 'recent' | 'all';
+/** How far back finished work reaches: the switch's own two, then the custom popover's pills. */
+export type FinishedWorkSpan = '1h' | '1d' | '6h' | '12h' | '3d' | 'all';
+
+/** Which finished work shows beside the unfinished: a span back from now, or everything finished on or after a local calendar day. */
+export type FinishedWorkChoice = FinishedWorkSpan | `since-${string}`;
 
 export interface StoredViewOverride {
   presetKey:   string | null;
@@ -70,8 +74,8 @@ export type PreferenceStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeIte
 export interface ViewerPreferences {
   readRangeOverride:         () => StoredViewOverride;
   writeRangeOverride:        (override: StoredViewOverride) => void;
-  readWorkVisibility:        () => WorkVisibility;
-  writeWorkVisibility:       (visibility: WorkVisibility) => void;
+  readFinishedWorkChoice:    () => FinishedWorkChoice;
+  writeFinishedWorkChoice:   (choice: FinishedWorkChoice) => void;
   readNameColumnWidth:       () => NameColumnWidth;
   writeNameColumnWidth:      (width: NameColumnWidth) => void;
   readReviewRowsAreShown:    () => boolean;

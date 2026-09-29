@@ -8,10 +8,16 @@ import { NAME_COLUMN_WIDTH_ATTRIBUTE, RANGE_PRESET_BOUNDS } from './ProgressChar
 
 describe('RANGE_PRESET_BOUNDS', () => {
   test('answers each data-preset the template offers, and only with relative text', () => {
-    expect(Object.keys(RANGE_PRESET_BOUNDS).sort()).toEqual(['12h', '1h', '24h', '4h', '7d', 'all', 'auto']);
-    expect(RANGE_PRESET_BOUNDS['auto']).toEqual({ fromText: null, toText: null });
+    expect(Object.keys(RANGE_PRESET_BOUNDS).sort()).toEqual(['12h', '1h', '24h', '4h', '7d', 'fit']);
+    expect(RANGE_PRESET_BOUNDS['fit']).toEqual({ fromText: null, toText: null });
     expect(RANGE_PRESET_BOUNDS['4h']).toEqual({ fromText: '-4h', toText: 'now' });
-    expect(RANGE_PRESET_BOUNDS['all']).toEqual({ fromText: 'start', toText: 'now' });
+  });
+
+  test('matches the template’s preset buttons exactly, All gone and Fit first', async () => {
+    const templateText = await Bun.file(`${import.meta.dir}/../../../resources/template.html`).text();
+    const presets      = [...templateText.matchAll(/data-preset="([a-z0-9]+)"/g)].map((match) => match[1]);
+
+    expect(presets).toEqual(['fit', ...Object.keys(RANGE_PRESET_BOUNDS).filter((key) => key !== 'fit'), 'custom']);
   });
 });
 

@@ -494,7 +494,8 @@ mutating command and reloading itself every 5 minutes when idle, keeping the vie
   mark, tokens, waiting-on links, `held`, `no row yet` for a low ticket never started, and what it is
   waiting for (`paused since 11:45 · 1h 51m`, `no reviewer yet · 16m`, `reviewer since 13:05`). Done and
   Abandoned run newest first and show the latest 15, then 25 more at a time; Abandoned is collapsed
-  until clicked. "Show all" governs both closed lanes as it governs the Tickets tab.
+  until clicked. The finished-work switch decides what both closed lanes hold, and each ends with how
+  many earlier cards it leaves out and a "show all".
 - **Tickets tab**: a summary table, then one card per ticket with its body rendered as markdown
   (`reviewed`, `delivered` and `abandoned` collapsed). The chosen tab and the open cards are kept in the
   browser, so the refresh lands where you were.
@@ -505,8 +506,8 @@ mutating command and reloading itself every 5 minutes when idle, keeping the vie
   ended today or still run, and tickets waiting in the queue. Each figure but the tokens opens its
   Kanban lane. Below them, the activity banner lists every running row, longest-running first, as
   `BUILDING` or, for a row with `--review-of`, `REVIEWING`, with its ticket and a running timer; a
-  snapshot freezes the timers at the moment the page was generated. The tab row ends in the
-  Auto · Light · Dark theme switch.
+  snapshot freezes the timers at the moment the page was generated. The tab row holds the
+  finished-work switch and ends in the Auto · Light · Dark theme switch.
 - **Double-click any row**, in the chart or the ticket table, for the whole story of that task: its
   facts, every phase it went through with how long it sat in each, the ticket with its body, and the
   log lines about either (a line the tool wrote by its task and ticket ids, a note by the numbers it
@@ -517,13 +518,17 @@ mutating command and reloading itself every 5 minutes when idle, keeping the vie
   build, and a marker at now or at its delivery or abandonment — with the time spent in each state
   under it, then its description. The Filed bar is drawn only there, never on the Progress chart. Esc,
   the backdrop, × or a link inside it closes either.
-- **Range bar**: the presets Auto · 1h · 4h · 12h · 24h · 7d · All, free-text bounds that accept
-  `start`, `now` and `-2h` as well as timestamps, and a tick-step selector. A viewer's choice is kept
-  in their browser; Auto hands control back to the default stored by `agent-progress range`. Bars
-  outside the window are clipped and marked, never dropped.
-- **Done work older than a day is hidden**: delivered and abandoned tasks and tickets leave the chart
-  and the ticket list a day after they closed. Work awaiting merge — a reviewed task, a reviewed ticket —
-  stays. **Show all** brings them back; the choice is kept in the browser.
+- **Range bar**: the presets Fit · 1h · 4h · 12h · 24h · 7d, then Custom… with free-text bounds that
+  accept `start`, `now` and `-2h` as well as timestamps, and a tick-step selector. Fit, the default,
+  spans the rows shown from their earliest start to now with a small margin, and re-fits whenever the
+  finished-work switch or the data changes; the default stored by `agent-progress range` takes its
+  place when there is one. Any other choice holds until Fit is pressed again, and is kept in the
+  browser. Bars outside the window are clipped and marked, never dropped.
+- **Finished work** (delivered or abandoned) is shown by one switch in the tab row, shared by Kanban,
+  Progress and Tickets: the last hour, the last day (the default), or a custom 6 hours, 12 hours,
+  3 days, all, or since a day. Unfinished work, awaiting merge included, always shows; the ticket
+  search looks through every ticket. A note says how much is hidden and shows it all when clicked;
+  the choice is kept in the browser.
 - **Stamps are as short as the day allows**: one from today shows only its clock (`21:56`), one from
   another day of the year its month and day too (`09-17 23:48`), one from another year the full date;
   hover a shortened one for the full stamp.

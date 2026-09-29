@@ -6,17 +6,18 @@
 import type {
   DetailTarget,
   DetailTargetKind,
+  FinishedWorkChoice,
   NameColumnWidth,
   ReloadSnapshot,
   StoredViewOverride,
-  WorkVisibility,
 } from '../../@types/ViewerChoices.ts';
-import { CAPPED_LANE_FIRST_PAGE_CARDS }                                                      from '../../kanban/constants/KanbanBoardLayout.ts';
-import { ScreenSignatureUtil }                                                               from '../../reload/utils/ScreenSignatureUtil.ts';
-import { TicketViewUtil }                                                                    from '../../tickets/utils/TicketViewUtil.ts';
-import { JsonValueUtil }                                                                     from '../../utils/JsonValueUtil.ts';
-import { DEFAULT_ABANDONED_LANE_CHOICE, DEFAULT_NAME_COLUMN_WIDTH, DEFAULT_WORK_VISIBILITY } from '../constants/PreferenceDefaults.ts';
-import { EMPTY_VIEW_OVERRIDE }                                                               from '../constants/ViewOverride.ts';
+import { CAPPED_LANE_FIRST_PAGE_CARDS }                             from '../../kanban/constants/KanbanBoardLayout.ts';
+import { ScreenSignatureUtil }                                      from '../../reload/utils/ScreenSignatureUtil.ts';
+import { TicketViewUtil }                                           from '../../tickets/utils/TicketViewUtil.ts';
+import { DEFAULT_FINISHED_WORK_CHOICE, FinishedWorkUtil }           from '../../utils/FinishedWorkUtil.ts';
+import { JsonValueUtil }                                            from '../../utils/JsonValueUtil.ts';
+import { DEFAULT_ABANDONED_LANE_CHOICE, DEFAULT_NAME_COLUMN_WIDTH } from '../constants/PreferenceDefaults.ts';
+import { EMPTY_VIEW_OVERRIDE }                                      from '../constants/ViewOverride.ts';
 
 const ABANDONED_LANE_OPEN_CHOICE = 'open';
 
@@ -70,8 +71,14 @@ function overrideIsEmpty(override: StoredViewOverride): boolean {
   return override.fromText === null && override.toText === null && override.tickMinutes === null;
 }
 
-function workVisibilityFrom(value: unknown): WorkVisibility {
-  return value === 'all' ? 'all' : DEFAULT_WORK_VISIBILITY;
+// The hide-finished checkbox stored `recent` for its last-day window; its `all` is the custom all, stored in the same word.
+const RETIRED_RECENT_VISIBILITY = 'recent';
+
+function finishedWorkChoiceFrom(value: unknown): FinishedWorkChoice {
+  if (value === RETIRED_RECENT_VISIBILITY) {
+    return DEFAULT_FINISHED_WORK_CHOICE;
+  }
+  return FinishedWorkUtil.choiceFrom(value) ?? DEFAULT_FINISHED_WORK_CHOICE;
 }
 
 function nameColumnWidthFrom(value: unknown): NameColumnWidth {
@@ -99,7 +106,7 @@ export const ViewerPreferenceUtil = {
   storedOverrideFrom,
   reloadSnapshotFrom,
   overrideIsEmpty,
-  workVisibilityFrom,
+  finishedWorkChoiceFrom,
   nameColumnWidthFrom,
   toggledNameColumnWidth,
   abandonedLaneIsOpenFrom,

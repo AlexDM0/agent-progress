@@ -1,4 +1,4 @@
-/** The Progress tab: the hidden-work note, the chart's layout, the range bar and the name column. */
+/** The Progress tab: the chart's layout, the range bar with its Fit preset, and the name column. */
 
 import type { ViewRange }                                              from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import type { PagePayload }                                            from '../../src/shared/@types/PagePayload.ts';
@@ -9,7 +9,6 @@ import {
   AXIS_TICKS_ELEMENT_ID,
   CHART_ELEMENT_ID,
   CHART_OVERLAY_ELEMENT_ID,
-  HIDDEN_WORK_NOTE_ELEMENT_ID,
   RANGE_NOTE_ELEMENT_ID,
   TASK_ROWS_ELEMENT_ID,
 } from '../constants/TemplateIds.ts';
@@ -21,19 +20,15 @@ import { createCustomRangePopover } from './CustomRangePopover.ts';
 import { effectiveViewRangeFor }    from './EffectiveViewRange.ts';
 import type { PlacedTick, TaskRow } from './GanttChartMarkup.ts';
 import {
-  hiddenWorkNoteText,
   overlayMarkup,
+  rangeNoteMarkup,
   rangeNoteText,
   taskRowsMarkup,
   tickLayerMarkup,
 } from './GanttChartMarkup.ts';
-import {
-  AUTOMATIC_RANGE_PRESET,
-  CUSTOM_RANGE_PRESET,
-  NAME_COLUMN_WIDTH_ATTRIBUTE,
-  RANGE_PRESET_BOUNDS,
-} from './constants/ProgressChart.ts';
-import { AxisFitUtil } from './utils/AxisFitUtil.ts';
+import { FIT_RANGE_PRESET, NAME_COLUMN_WIDTH_ATTRIBUTE, RANGE_PRESET_BOUNDS } from './constants/ProgressChart.ts';
+import { AxisFitUtil }                                                        from './utils/AxisFitUtil.ts';
+import { RangePresetUtil }                                                    from './utils/RangePresetUtil.ts';
 
 export interface GanttChartControllerSources {
   payload:       PagePayload;
@@ -45,7 +40,6 @@ export interface GanttChartControllerSources {
 export interface GanttChartController {
   applyNameColumnWidth(): void;
   setVisibleRows(visibleRows: readonly BoardRow[]): void;
-  showHiddenNote(hiddenTaskCount: number, hiddenTicketCount: number): void;
   layOut(bringNowIntoView: boolean): void;
   wireRangeBar(): void;
   rangePopoverIsOpen(): boolean;
@@ -55,6 +49,7 @@ export interface GanttChartController {
 }
 
 const REVIEW_ROWS_CONTROL_ELEMENT_ID = 'ap-review-rows';
+const FIT_PRESET_ELEMENT_ID          = 'ap-range-fit';
 const NAME_COLUMN_WIDTH_PROPERTY     = '--col-name';
 
 function reflectNameColumnWidth(width: NameColumnWidth): void {
@@ -95,9 +90,9 @@ function taskRowsFor(visibleRows: readonly BoardRow[], timeline: Timeline, waiti
 }
 
 // The popover's fields and ticks are a draft, filled from the override when it opens, so a layout never touches them.
-function reflectRangeBar(override: StoredViewOverride): void {
-  const boundsAreUnset = override.fromText === null && override.toText === null;
-  DomUtil.reflectSegment('ap-range-presets', 'preset', override.presetKey ?? (boundsAreUnset ? AUTOMATIC_RANGE_PRESET : CUSTOM_RANGE_PRESET));
+function reflectRangeBar(pressedPreset: string, rowsChangedUnderHeldRange: boolean): void {
+  DomUtil.reflectSegment('ap-range-presets', 'preset', pressedPreset);
+  document.getElementById(FIT_PRESET_ELEMENT_ID)?.toggleAttribute('data-refit', rowsChangedUnderHeldRange && pressedPreset !== FIT_RANGE_PRESET);
 }
 
 function wireRangePresets(readOverride: () => StoredViewOverride, applyOverride: (next: StoredViewOverride) => void): void {
@@ -106,7 +101,7 @@ function wireRangePresets(readOverride: () => StoredViewOverride, applyOverride:
     if (!(button instanceof HTMLElement)) {
       return;
     }
-    const key = button.dataset['preset'] ?? AUTOMATIC_RANGE_PRESET;
+    const key = button.dataset['preset'] ?? FIT_RANGE_PRESET;
     if (!Object.hasOwn(RANGE_PRESET_BOUNDS, key)) {
       return;
     }
@@ -115,9 +110,14 @@ function wireRangePresets(readOverride: () => StoredViewOverride, applyOverride:
       presetKey:   key,
       fromText:    bounds.fromText,
       toText:      bounds.toText,
-      tickMinutes: readOverride().tickMinutes,
+      // Fit chooses its ticks for the span it fits.
+      tickMinutes: key === FIT_RANGE_PRESET ? null : readOverride().tickMinutes,
     });
   });
+}
+
+function rowIdsOf(rows: readonly BoardRow[]): string {
+  return rows.map((row) => row.id).join(',');
 }
 
 export function createGanttChartController(sources: GanttChartControllerSources): GanttChartController {
@@ -134,10 +134,11 @@ export function createGanttChartController(sources: GanttChartControllerSources)
   let reviewRowsAreShown     = preferences.readReviewRowsAreShown();
   let visibleRows            = rows;
   let visibleProgress        = { ...progress, tasks: [...visibleRows] };
+  let rowsChangedUnderHeldRange = false;
 
   const layOut = (bringNowIntoView: boolean): void => {
     const nowEpochMilliseconds = Date.now();
-    const range: ViewRange     = effectiveViewRangeFor(visibleProgress, override, nowEpochMilliseconds, limits);
+    const range: ViewRange     = effectiveViewRangeFor(visibleProgress, override, nowEpochMilliseconds);
     const timeline             = GeometryUtil.computeTimeline({
       progress: visibleProgress,
       range,
@@ -167,8 +168,11 @@ export function createGanttChartController(sources: GanttChartControllerSources)
     DomUtil.setHidden('ap-chart-empty', visibleProgress.tasks.length > 0);
 
     const rangeNote = rangeNoteText(timeline.fromEpochMilliseconds, timeline.toEpochMilliseconds, timeline.stepMinutes, TimeUtil.calendarDateOf(nowEpochMilliseconds), limits);
-    DomUtil.setShortenedText(RANGE_NOTE_ELEMENT_ID, rangeNote);
-    reflectRangeBar(override);
+    const pressedPreset = RangePresetUtil.pressedPresetOf(override);
+    const modeLabel     = RangePresetUtil.modeLabelOf(pressedPreset);
+    DomUtil.setMarkup(RANGE_NOTE_ELEMENT_ID, rangeNoteMarkup(modeLabel, RangePresetUtil.rangeIsHeld(override), rangeNote));
+    document.getElementById(RANGE_NOTE_ELEMENT_ID)?.setAttribute('title', `${modeLabel} · ${rangeNote.title ?? rangeNote.text}`);
+    reflectRangeBar(pressedPreset, rowsChangedUnderHeldRange);
 
     if (bringNowIntoView && chart !== null && timeline.nowPercent !== null) {
       scrollNowIntoView(chart, timeline.nowPercent, axisWidthPixels, pinnedWidth);
@@ -177,6 +181,7 @@ export function createGanttChartController(sources: GanttChartControllerSources)
 
   const applyOverride = (next: StoredViewOverride): void => {
     override = next;
+    rowsChangedUnderHeldRange = false;
     preferences.writeRangeOverride(next);
     layOut(true);
   };
@@ -192,11 +197,11 @@ export function createGanttChartController(sources: GanttChartControllerSources)
       reflectNameColumnWidth(nameColumnWidth);
     },
     setVisibleRows: (nextVisibleRows) => {
+      if (RangePresetUtil.rangeIsHeld(override) && rowIdsOf(nextVisibleRows) !== rowIdsOf(visibleRows)) {
+        rowsChangedUnderHeldRange = true;
+      }
       visibleRows     = nextVisibleRows;
       visibleProgress = { ...progress, tasks: [...visibleRows] };
-    },
-    showHiddenNote: (hiddenTaskCount, hiddenTicketCount) => {
-      DomUtil.setText(HIDDEN_WORK_NOTE_ELEMENT_ID, hiddenWorkNoteText(hiddenTaskCount, hiddenTicketCount));
     },
     layOut,
     wireRangeBar: () => {

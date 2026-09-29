@@ -7,7 +7,9 @@ import type { DisplayState }               from '../../src/lib/tracker-model/@ty
 import { FIRST_REPEAT_REVIEW_ROUND }       from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
 import { TicketDefaultsUtil }              from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
 import type { KanbanCard }                 from '../@types/KanbanCard.ts';
+import type { FinishedWorkChoice }         from '../@types/ViewerChoices.ts';
 import { STATE_LABEL_FOR_DISPLAY_STATE }   from '../constants/StateLabels.ts';
+import { FinishedWorkUtil }                from '../utils/FinishedWorkUtil.ts';
 import { MarkupUtil }                      from '../utils/MarkupUtil.ts';
 import { TemplateIdUtil }                  from '../utils/TemplateIdUtil.ts';
 import { WorkItemMarkupUtil }              from '../utils/WorkItemMarkupUtil.ts';
@@ -40,27 +42,36 @@ const LANE_DESIGN: Record<KanbanLane, LaneDesign> = {
   abandoned: { title: STATE_LABEL_FOR_DISPLAY_STATE.abandoned, dotState: 'abandoned', leading: 'newest first' },
 };
 
-/** Under Hide the closed lanes hold only the last day, and their empty text says so. */
-const EMPTY_LANE_TEXT: Record<KanbanLane, string> = {
-  todo:      'Nothing waiting to start.',
-  progress:  'Nothing being built.',
-  review:    'Nothing in review.',
-  merge:     'Nothing awaiting merge.',
-  done:      'Nothing delivered in the last day.',
-  abandoned: 'Nothing abandoned in the last day.',
+const EMPTY_LANE_TEXT: Record<Exclude<KanbanLane, ClosedKanbanLane>, string> = {
+  todo:     'Nothing waiting to start.',
+  progress: 'Nothing being built.',
+  review:   'Nothing in review.',
+  merge:    'Nothing awaiting merge.',
 };
 
-const EMPTY_CLOSED_LANE_TEXT_UNDER_SHOW_ALL: Record<ClosedKanbanLane, string> = {
+const CLOSED_LANE_VERB: Record<ClosedKanbanLane, string> = {
+  done:      'delivered',
+  abandoned: 'abandoned',
+};
+
+const EMPTY_CLOSED_LANE_TEXT_UNDER_ALL: Record<ClosedKanbanLane, string> = {
   done:      'Nothing delivered yet.',
   abandoned: 'Nothing abandoned.',
 };
 
+/** The closed lanes hold what the finished-work switch lets through, and their empty text says how far back that reaches. */
+function emptyClosedLaneText(lane: ClosedKanbanLane, finishedWork: FinishedWorkChoice): string {
+  return finishedWork === 'all' ? EMPTY_CLOSED_LANE_TEXT_UNDER_ALL[lane] : `Nothing ${CLOSED_LANE_VERB[lane]} ${FinishedWorkUtil.windowPhraseOf(finishedWork)}.`;
+}
+
 export interface KanbanBoardInput extends NoteFormat {
   /** The cards of the tickets the Tickets tab shows. */
-  cards:                  readonly KanbanCard[];
-  showsAllWork:           boolean;
-  shownCountByClosedLane: Readonly<Record<ClosedKanbanLane, number>>;
-  abandonedLaneIsOpen:    boolean;
+  cards:                   readonly KanbanCard[];
+  finishedWork:            FinishedWorkChoice;
+  /** The lane's tickets the finished-work switch leaves out. */
+  hiddenCountByClosedLane: Readonly<Record<ClosedKanbanLane, number>>;
+  shownCountByClosedLane:  Readonly<Record<ClosedKanbanLane, number>>;
+  abandonedLaneIsOpen:     boolean;
 }
 
 function pillLabelOf(card: KanbanCard): string {
@@ -124,7 +135,7 @@ function laneSubMarkup(lane: KanbanLane, members: readonly KanbanCard[]): string
 
 function laneCardsMarkup(lane: KanbanLane, members: readonly KanbanCard[], shown: readonly KanbanCard[], input: KanbanBoardInput): string {
   if (shown.length === 0) {
-    const emptyText = KanbanLaneUtil.laneIsClosed(lane) && input.showsAllWork ? EMPTY_CLOSED_LANE_TEXT_UNDER_SHOW_ALL[lane] : EMPTY_LANE_TEXT[lane];
+    const emptyText = KanbanLaneUtil.laneIsClosed(lane) ? emptyClosedLaneText(lane, input.finishedWork) : EMPTY_LANE_TEXT[lane];
     return `<div class="ap-empty">${HtmlEscapeUtil.escapeHtml(emptyText)}</div>`;
   }
   const dividesByPriority = KanbanLaneUtil.laneIsDividedByPriority(lane, members);
@@ -140,7 +151,7 @@ function laneCardsMarkup(lane: KanbanLane, members: readonly KanbanCard[], shown
   }).join('');
 }
 
-export function cappedLaneFooterMarkup(lane: ClosedKanbanLane, shownCount: number, laneCount: number): string {
+function cappedLanePagingMarkup(lane: ClosedKanbanLane, shownCount: number, laneCount: number): string {
   if (laneCount <= CAPPED_LANE_FIRST_PAGE_CARDS) {
     return '';
   }
@@ -149,7 +160,16 @@ export function cappedLaneFooterMarkup(lane: ClosedKanbanLane, shownCount: numbe
     pageSize > 0 ? `<button type="button" ${MarkupUtil.attribute('data-lane-more', lane)}>Show ${pageSize} more</button>` : '',
     shownCount > CAPPED_LANE_FIRST_PAGE_CARDS ? `<button type="button" ${MarkupUtil.attribute('data-lane-reset', lane)}>Latest ${CAPPED_LANE_FIRST_PAGE_CARDS}</button>` : '',
   ].join('');
-  return `<div class="ap-lane-more"><span>${shownCount} of ${laneCount} shown</span><div class="ap-seg">${buttons}</div></div>`;
+  return `<span>${shownCount} of ${laneCount} shown</span><div class="ap-seg">${buttons}</div>`;
+}
+
+/** The paging while the lane holds more than a page, then what the finished-work switch leaves out of it, with a way to show it all. */
+export function cappedLaneFooterMarkup(lane: ClosedKanbanLane, shownCount: number, laneCount: number, hiddenCount = 0): string {
+  const hiddenLine = hiddenCount > 0
+    ? `<div class="ap-lane-hidden-line"><span>${hiddenCount} earlier hidden</span><button type="button" class="ap-link-button" data-show-all-finished>show all</button></div>`
+    : '';
+  const contents = `${cappedLanePagingMarkup(lane, shownCount, laneCount)}${hiddenLine}`;
+  return contents === '' ? '' : `<div class="ap-lane-more">${contents}</div>`;
 }
 
 function laneHeadMarkup(lane: KanbanLane, members: readonly KanbanCard[], laneIsCollapsed: boolean): string {
@@ -174,7 +194,7 @@ export function kanbanLaneMarkup(lane: KanbanLane, input: KanbanBoardInput): str
   const members         = KanbanLaneUtil.cardsInLane(input.cards, lane);
   const shownCount      = KanbanLaneUtil.laneIsClosed(lane) ? LanePagingUtil.cappedLaneShownCount(input.shownCountByClosedLane[lane], members.length) : members.length;
   const shown           = members.slice(0, shownCount);
-  const footer          = KanbanLaneUtil.laneIsClosed(lane) ? cappedLaneFooterMarkup(lane, shownCount, members.length) : '';
+  const footer          = KanbanLaneUtil.laneIsClosed(lane) ? cappedLaneFooterMarkup(lane, shownCount, members.length, input.hiddenCountByClosedLane[lane]) : '';
   const laneIsCollapsed = lane === 'abandoned' && !input.abandonedLaneIsOpen;
   const design          = LANE_DESIGN[lane];
   return [

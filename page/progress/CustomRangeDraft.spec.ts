@@ -54,7 +54,7 @@ describe('customRangeDraftVerdict', () => {
     const verdict = customRangeDraftVerdict(fromText, toText, resolveExampleBound);
     const applied = GeometryUtil.computeTimeline({
       progress:             exampleProgress(),
-      range:                effectiveViewRangeFor(exampleProgress(), customRangeOverride(fromText, toText, null), EXAMPLE_NOW_EPOCH_MILLISECONDS, EXAMPLE_PAGE_LIMITS),
+      range:                effectiveViewRangeFor(exampleProgress(), customRangeOverride(fromText, toText, null), EXAMPLE_NOW_EPOCH_MILLISECONDS),
       nowEpochMilliseconds: EXAMPLE_NOW_EPOCH_MILLISECONDS,
       limits:               EXAMPLE_PAGE_LIMITS,
     });

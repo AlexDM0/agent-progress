@@ -9,16 +9,12 @@ import type {
   StoredViewOverride,
   ViewerPreferences,
 } from '../@types/ViewerChoices.ts';
-import type { ClosedKanbanLane }        from '../kanban/constants/KanbanBoardLayout.ts';
-import { CAPPED_LANE_FIRST_PAGE_CARDS } from '../kanban/constants/KanbanBoardLayout.ts';
-import {
-  DEFAULT_ABANDONED_LANE_CHOICE,
-  DEFAULT_NAME_COLUMN_WIDTH,
-  DEFAULT_REVIEW_ROWS_CHOICE,
-  DEFAULT_WORK_VISIBILITY,
-} from './constants/PreferenceDefaults.ts';
-import { EMPTY_VIEW_OVERRIDE }  from './constants/ViewOverride.ts';
-import { ViewerPreferenceUtil } from './utils/ViewerPreferenceUtil.ts';
+import type { ClosedKanbanLane }                                                                from '../kanban/constants/KanbanBoardLayout.ts';
+import { CAPPED_LANE_FIRST_PAGE_CARDS }                                                         from '../kanban/constants/KanbanBoardLayout.ts';
+import { DEFAULT_FINISHED_WORK_CHOICE }                                                         from '../utils/FinishedWorkUtil.ts';
+import { DEFAULT_ABANDONED_LANE_CHOICE, DEFAULT_NAME_COLUMN_WIDTH, DEFAULT_REVIEW_ROWS_CHOICE } from './constants/PreferenceDefaults.ts';
+import { EMPTY_VIEW_OVERRIDE }                                                                  from './constants/ViewOverride.ts';
+import { ViewerPreferenceUtil }                                                                 from './utils/ViewerPreferenceUtil.ts';
 
 const REVIEW_ROWS_SHOWN_CHOICE = 'rows';
 
@@ -41,7 +37,8 @@ function choiceStorageKeyFor(trackerId: string, choiceName: string): string {
   return `${rangeOverrideStorageKeyFor(trackerId)}:${choiceName}`;
 }
 
-function workVisibilityStorageKeyFor(trackerId: string): string {
+// The hide-finished checkbox's key, kept so a viewer's `recent` and `all` still read.
+function finishedWorkChoiceStorageKeyFor(trackerId: string): string {
   return choiceStorageKeyFor(trackerId, 'visibility');
 }
 
@@ -104,8 +101,8 @@ export function createViewerPreferences(trackerId: string, storageOf: () => Pref
   return {
     readRangeOverride:       readStoredOverride,
     writeRangeOverride:      writeStoredOverride,
-    readWorkVisibility:      () => ViewerPreferenceUtil.workVisibilityFrom(readStoredChoice(workVisibilityStorageKeyFor(trackerId))),
-    writeWorkVisibility:     (visibility) => writeStoredChoice(workVisibilityStorageKeyFor(trackerId), visibility, DEFAULT_WORK_VISIBILITY),
+    readFinishedWorkChoice:  () => ViewerPreferenceUtil.finishedWorkChoiceFrom(readStoredChoice(finishedWorkChoiceStorageKeyFor(trackerId))),
+    writeFinishedWorkChoice: (choice) => writeStoredChoice(finishedWorkChoiceStorageKeyFor(trackerId), choice, DEFAULT_FINISHED_WORK_CHOICE),
     readNameColumnWidth:     () => ViewerPreferenceUtil.nameColumnWidthFrom(readStoredChoice(nameColumnWidthStorageKeyFor(trackerId))),
     writeNameColumnWidth:    (width) => writeStoredChoice(nameColumnWidthStorageKeyFor(trackerId), width, DEFAULT_NAME_COLUMN_WIDTH),
     readReviewRowsAreShown:  () => readStoredChoice(reviewRowsStorageKeyFor(trackerId)) === REVIEW_ROWS_SHOWN_CHOICE,

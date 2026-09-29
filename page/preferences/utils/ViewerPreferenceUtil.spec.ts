@@ -18,7 +18,7 @@ const {
   shownCountFrom,
   storedOverrideFrom,
   toggledNameColumnWidth,
-  workVisibilityFrom,
+  finishedWorkChoiceFrom,
 } = ViewerPreferenceUtil;
 
 function overrideWith(changes: Partial<StoredViewOverride>): StoredViewOverride {
@@ -88,12 +88,19 @@ describe('toggledNameColumnWidth', () => {
   });
 });
 
-describe('workVisibilityFrom', () => {
-  test('reads only "all" as all, so a damaged stored value falls back to hiding old work', () => {
-    expect(workVisibilityFrom('all')).toBe('all');
-    expect(workVisibilityFrom('recent')).toBe('recent');
-    expect(workVisibilityFrom(null)).toBe('recent');
-    expect(workVisibilityFrom('constructor')).toBe('recent');
+describe('finishedWorkChoiceFrom', () => {
+  test('reads the hide-finished checkbox\'s saved recent as last day and its all as custom all', () => {
+    expect(finishedWorkChoiceFrom('recent')).toBe('1d');
+    expect(finishedWorkChoiceFrom('all')).toBe('all');
+  });
+
+  test('reads every choice the switch stores, and anything else as the last-day default', () => {
+    expect(finishedWorkChoiceFrom('1h')).toBe('1h');
+    expect(finishedWorkChoiceFrom('12h')).toBe('12h');
+    expect(finishedWorkChoiceFrom('since-2026-09-24')).toBe('since-2026-09-24');
+    expect(finishedWorkChoiceFrom(null)).toBe('1d');
+    expect(finishedWorkChoiceFrom('constructor')).toBe('1d');
+    expect(finishedWorkChoiceFrom('since-2026-13-01')).toBe('1d');
   });
 });
 

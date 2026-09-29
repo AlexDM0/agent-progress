@@ -3,8 +3,8 @@
  * and the summary's jumps to a lane.
  */
 
-import type { KanbanCard }        from '../@types/KanbanCard.ts';
-import type { ViewerPreferences } from '../@types/ViewerChoices.ts';
+import type { KanbanCard }                            from '../@types/KanbanCard.ts';
+import type { FinishedWorkChoice, ViewerPreferences } from '../@types/ViewerChoices.ts';
 import {
   KANBAN_BOARD_ELEMENT_ID,
   KANBAN_FRAME_ELEMENT_ID,
@@ -121,10 +121,12 @@ function easeLaneChanges(board: HTMLElement, previousLayouts: ReadonlyMap<string
 }
 
 export interface KanbanControllerSources {
-  slices:                TimestampSlices & DurationUnits;
-  preferences:           ViewerPreferences;
-  readTodayCalendarDate: () => string;
-  readShowsAllWork:      () => boolean;
+  slices:                      TimestampSlices & DurationUnits;
+  preferences:                 ViewerPreferences;
+  readTodayCalendarDate:       () => string;
+  readFinishedWork:            () => FinishedWorkChoice;
+  readHiddenCountByClosedLane: () => Readonly<Record<ClosedKanbanLane, number>>;
+  showAllFinishedWork:         () => void;
 }
 
 export interface KanbanController {
@@ -160,7 +162,9 @@ export function createKanbanController(sources: KanbanControllerSources): Kanban
     slices,
     preferences,
     readTodayCalendarDate,
-    readShowsAllWork,
+    readFinishedWork,
+    readHiddenCountByClosedLane,
+    showAllFinishedWork,
   } = sources;
   let visibleCards: readonly KanbanCard[] = [];
   let abandonedLaneIsOpen                 = preferences.readAbandonedLaneIsOpen();
@@ -171,12 +175,13 @@ export function createKanbanController(sources: KanbanControllerSources): Kanban
     const motion          = laneMotionOf();
     const previousLayouts = board !== null && motion !== null ? laneLayoutsOf(board) : null;
     DomUtil.setMarkup(KANBAN_BOARD_ELEMENT_ID, kanbanBoardMarkup({
-      cards:                  visibleCards,
-      nowEpochMilliseconds:   Date.now(),
-      todayCalendarDate:      readTodayCalendarDate(),
+      cards:                   visibleCards,
+      nowEpochMilliseconds:    Date.now(),
+      todayCalendarDate:       readTodayCalendarDate(),
       slices,
-      showsAllWork:           readShowsAllWork(),
-      shownCountByClosedLane: { done: preferences.readCappedLaneShownCount('done'), abandoned: preferences.readCappedLaneShownCount('abandoned') },
+      finishedWork:            readFinishedWork(),
+      hiddenCountByClosedLane: readHiddenCountByClosedLane(),
+      shownCountByClosedLane:  { done: preferences.readCappedLaneShownCount('done'), abandoned: preferences.readCappedLaneShownCount('abandoned') },
       abandonedLaneIsOpen,
     }));
     updateOverflow();
@@ -249,8 +254,13 @@ export function createKanbanController(sources: KanbanControllerSources): Kanban
     // The template's own tab listener was added first, so the panel is already shown when this measures it.
     document.getElementById('ap-tabs')?.addEventListener('click', updateOverflow);
     board?.addEventListener('click', (event) => {
-      const control = event.target instanceof Element ? event.target.closest('[data-lane-more], [data-lane-reset], .ap-lane-toggle, [data-ticket-link]') : null;
+      const controlSelector = '[data-lane-more], [data-lane-reset], [data-show-all-finished], .ap-lane-toggle, [data-ticket-link]';
+      const control         = event.target instanceof Element ? event.target.closest(controlSelector) : null;
       if (!(control instanceof HTMLElement)) {
+        return;
+      }
+      if (control.hasAttribute('data-show-all-finished')) {
+        showAllFinishedWork();
         return;
       }
       const linkedTicketId = control.dataset['ticketLink'];

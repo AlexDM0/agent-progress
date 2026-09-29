@@ -183,6 +183,16 @@ export function rangeNoteText(
   return MarkupUtil.shortenedText(`${shortEnds} \u00b7 ${step}`, `${fullEnds} \u00b7 ${step}`);
 }
 
+const FITTED_RANGE_TITLE = 'Fitted to the rows shown; re-fits when the finished-work switch changes';
+const HELD_RANGE_TITLE   = 'Held: this range stays when the finished-work switch changes; Fit follows the rows again';
+
+/** The range note led by its mode: "Fit", or the held preset ("4h") or "Custom" in the held colour. */
+export function rangeNoteMarkup(modeLabel: string, modeIsHeld: boolean, note: ShortenedText): string {
+  const mode = `<span class="ap-range-mode"${modeIsHeld ? ' data-held' : ''} ${MarkupUtil.attribute('title', modeIsHeld ? HELD_RANGE_TITLE : FITTED_RANGE_TITLE)}>`
+    + `${HtmlEscapeUtil.escapeHtml(modeLabel)}</span>`;
+  return `${mode} · ${HtmlEscapeUtil.escapeHtml(note.text)}`;
+}
+
 export function hiddenWorkNoteText(hiddenTaskCount: number, hiddenTicketCount: number): string {
   const parts: string[] = [];
   if (hiddenTaskCount > 0) {

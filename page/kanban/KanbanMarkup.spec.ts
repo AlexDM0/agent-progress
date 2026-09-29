@@ -70,13 +70,14 @@ function exampleRow(id: number, changes: Partial<Task> = {}): Task {
 function boardInput(tickets: readonly PageTicket[], tasks: readonly Task[], changes: Partial<KanbanBoardInput> = {}): KanbanBoardInput {
   const waitingOnById = new Map(tickets.flatMap((ticket) => (ticket.dependsOn === undefined ? [] : [[ticket.id, ticket.dependsOn]])));
   return {
-    cards:                  KanbanLaneUtil.kanbanCardsFor(pageBoardFixture({ tasks, tickets }).tickets, waitingOnById),
-    nowEpochMilliseconds:   EXAMPLE_NOW,
-    todayCalendarDate:      EXAMPLE_TODAY,
-    slices:                 EXAMPLE_PAGE_LIMITS,
-    showsAllWork:           false,
-    shownCountByClosedLane: { done: 15, abandoned: 15 },
-    abandonedLaneIsOpen:    false,
+    cards:                   KanbanLaneUtil.kanbanCardsFor(pageBoardFixture({ tasks, tickets }).tickets, waitingOnById),
+    nowEpochMilliseconds:    EXAMPLE_NOW,
+    todayCalendarDate:       EXAMPLE_TODAY,
+    slices:                  EXAMPLE_PAGE_LIMITS,
+    finishedWork:            '1d',
+    hiddenCountByClosedLane: { done: 0, abandoned: 0 },
+    shownCountByClosedLane:  { done: 15, abandoned: 15 },
+    abandonedLaneIsOpen:     false,
     ...changes,
   };
 }
@@ -266,6 +267,14 @@ describe('the capped lanes', () => {
     );
   });
 
+  test('ends with what the switch hides and a show-all link, after the paging', () => {
+    expect(cappedLaneFooterMarkup('abandoned', 15, 3, 19)).toBe([
+      '<div class="ap-lane-more"><div class="ap-lane-hidden-line"><span>19 earlier hidden</span>',
+      '<button type="button" class="ap-link-button" data-show-all-finished>show all</button></div></div>',
+    ].join(''));
+    expect(cappedLaneFooterMarkup('done', 15, LANE_COUNT, 2)).toContain('Show 25 more</button></div><div class="ap-lane-hidden-line"><span>2 earlier hidden</span>');
+  });
+
   test('shows no footer on a lane of 15 or fewer', () => {
     expect(cappedLaneFooterMarkup('abandoned', cappedLaneShownCount(40, 15), 15)).toBe('');
   });
@@ -280,12 +289,14 @@ describe('the capped lanes', () => {
 });
 
 describe('the empty lanes', () => {
-  test('say "in the last day" under Hide and not under Show all', () => {
-    const hidden = kanbanBoardMarkup(boardInput([], []));
-    const all    = kanbanBoardMarkup(boardInput([], [], { showsAllWork: true }));
+  test('say how far back the finished-work switch reaches, and nothing of it under all', () => {
+    const lastDay = kanbanBoardMarkup(boardInput([], []));
+    const since   = kanbanBoardMarkup(boardInput([], [], { finishedWork: 'since-2026-09-24' }));
+    const all     = kanbanBoardMarkup(boardInput([], [], { finishedWork: 'all' }));
 
-    expect(hidden).toContain('<div class="ap-empty">Nothing delivered in the last day.</div>');
-    expect(hidden).toContain('<div class="ap-empty">Nothing abandoned in the last day.</div>');
+    expect(lastDay).toContain('<div class="ap-empty">Nothing delivered in the last day.</div>');
+    expect(lastDay).toContain('<div class="ap-empty">Nothing abandoned in the last day.</div>');
+    expect(since).toContain('<div class="ap-empty">Nothing delivered since 09-24.</div>');
     expect(all).toContain('<div class="ap-empty">Nothing delivered yet.</div>');
     expect(all).toContain('<div class="ap-empty">Nothing abandoned.</div>');
     expect(all).toContain('<div class="ap-empty">Nothing waiting to start.</div>');
