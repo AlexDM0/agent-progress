@@ -1,7 +1,8 @@
 node_modules/
 .agent-progress/
 .DS_Store
-.readme-graphics/
+.readme-graphics/build/
+__pycache__/
 .idea/
 
 design_handoff*
