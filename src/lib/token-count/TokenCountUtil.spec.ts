@@ -72,6 +72,23 @@ test('a count that rounds up to a full thousand of its unit is promoted to the n
   expect(formatTokenCount(999_999)).toBe('1M');
 });
 
+test('the header handoff formats read 940k, 358.2M and 1.20B', () => {
+  expect(formatTokenCount(940_000)).toBe('940k');
+  expect(formatTokenCount(358_200_000)).toBe('358.2M');
+  expect(formatTokenCount(1_200_000_000)).toBe('1.20B');
+});
+
+test('billions keep two decimal places, trailing zeros included', () => {
+  expect(formatTokenCount(1_000_000_000)).toBe('1.00B');
+  expect(formatTokenCount(12_345_000_000)).toBe('12.35B');
+});
+
+test('millions stay millions up to 999.9M and promote to billions where they would round to 1000M', () => {
+  expect(formatTokenCount(999_940_000)).toBe('999.9M');
+  expect(formatTokenCount(999_950_000)).toBe('1.00B');
+  expect(formatTokenCount(999_999_999)).toBe('1.00B');
+});
+
 test('a parsed count writes back as the shorthand it was written in', () => {
   for (const written of ['12.3k', '1.2M', '950']) {
     expect(formatTokenCount(parseTokenCount(written) ?? -1), written).toBe(written);

@@ -5,7 +5,12 @@ const THOUSAND_TOKENS = 1000;
 
 const MILLION_TOKENS = THOUSAND_TOKENS * THOUSAND_TOKENS;
 
+const BILLION_TOKENS = MILLION_TOKENS * THOUSAND_TOKENS;
+
 const SHORTENED_DECIMAL_PLACES = 1;
+
+/** Billions keep their trailing zeros: `1.20B`, never `1.2B`. */
+const BILLIONS_DECIMAL_PLACES = 2;
 
 const TOKEN_COUNT_PATTERN = /^(\d+)(?:\.(\d+))?\s*([km])?$/i;
 
@@ -29,13 +34,16 @@ function parseTokenCount(text: string): number | null {
   return Number.isSafeInteger(scaled) ? scaled : null;
 }
 
-/** `950`, `12.3k`, `1.2M`; a value that rounds up to a full thousand of its unit is promoted, so 999,999 reads as `1M` and never as `1000k`. */
+/** `950`, `12.3k`, `1.2M`, `1.20B`; a value that rounds up to a full thousand of its unit is promoted, so 999,999 reads as `1M` and never as `1000k`. */
 function formatTokenCount(count: number): string {
   if (count < THOUSAND_TOKENS) return String(count);
 
   const inThousands = shortened(count / THOUSAND_TOKENS);
   if (count < MILLION_TOKENS && Number(inThousands) < THOUSAND_TOKENS) return `${inThousands}k`;
-  return `${shortened(count / MILLION_TOKENS)}M`;
+
+  const inMillions = shortened(count / MILLION_TOKENS);
+  if (count < BILLION_TOKENS && Number(inMillions) < THOUSAND_TOKENS) return `${inMillions}M`;
+  return `${(count / BILLION_TOKENS).toFixed(BILLIONS_DECIMAL_PLACES)}B`;
 }
 
 function shortened(value: number): string {
