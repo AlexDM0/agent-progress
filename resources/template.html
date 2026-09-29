@@ -1961,7 +1961,7 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
     }, RELOAD_INTERVAL_MS);
   }
 
-  function stampIsUnreadable() {
+  function fallBackToTimedReload() {
     stampIsReadable = false;
     scheduleTimedReload();
   }
@@ -1971,12 +1971,12 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
     window.apStamp = undefined;
     stampScript.onload = function () {
       stampScript.remove();
-      if (typeof window.apStamp !== "number" || typeof ownStamp !== "number") { stampIsUnreadable(); return; }
+      if (typeof window.apStamp !== "number" || typeof ownStamp !== "number") { fallBackToTimedReload(); return; }
       stampIsReadable = true;
       if (window.apStamp !== ownStamp) { attemptReload(); return; }
       setTimeout(pollStamp, STAMP_POLL_INTERVAL_MS);
     };
-    stampScript.onerror = function () { stampScript.remove(); stampIsUnreadable(); };
+    stampScript.onerror = function () { stampScript.remove(); fallBackToTimedReload(); };
     stampScript.src = STAMP_FILE_NAME + "?t=" + Date.now();
     document.head.appendChild(stampScript);
   }
