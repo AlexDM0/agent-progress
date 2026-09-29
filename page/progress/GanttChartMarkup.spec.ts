@@ -494,12 +494,17 @@ describe('the axis layer', () => {
   });
 
   test('draws one grid line per tick and hides the now marker when the present moment is out of range', () => {
-    expect(overlayMarkup(ticks, 78.5)).toBe(
+    expect(overlayMarkup(ticks, 78.5, false)).toBe(
       '<div class="ap-grid-line" style="left:0.00%"></div>'
       + '<div class="ap-grid-line" style="left:98.97%"></div>'
       + '<div id="ap-now" style="--now-x:78.50%"></div>',
     );
-    expect(overlayMarkup(ticks, null)).toContain('<div id="ap-now" hidden></div>');
+    expect(overlayMarkup(ticks, null, false)).toContain('<div id="ap-now" hidden></div>');
+  });
+
+  test('marks a now marker whose label sits on its left, and only that one', () => {
+    expect(overlayMarkup(ticks, 99.5, true)).toContain('<div id="ap-now" data-label-side="left" style="--now-x:99.50%"></div>');
+    expect(overlayMarkup(ticks, 99.5, false)).not.toContain('data-label-side');
   });
 
   test('writes the tick step in the largest unit that divides it', () => {

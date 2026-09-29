@@ -233,6 +233,27 @@ function tickLabelIsCovered(tickLabel: HorizontalExtent, endLabel: HorizontalExt
   return tickLabel.right + TICK_LABEL_CLEARANCE_PIXELS > endLabel.left && tickLabel.left - TICK_LABEL_CLEARANCE_PIXELS < endLabel.right;
 }
 
+/**
+ * One flag per tick label, true for a label to hide. Read from the axis end leftwards, a covering label and every label kept nearer the end
+ * win: a tick label that one of them covers is hidden, so no two labels drawn overlap.
+ */
+function coveredTickLabels(tickLabels: readonly HorizontalExtent[], coveringLabels: readonly HorizontalExtent[]): boolean[] {
+  const keptLabels = [...coveringLabels];
+  const covered    = tickLabels.map(() => false);
+  for (let i = tickLabels.length - 1; i >= 0; i--) {
+    const tickLabel = tickLabels[i];
+    if (tickLabel === undefined) {
+      continue;
+    }
+    if (keptLabels.some((keptLabel) => tickLabelIsCovered(tickLabel, keptLabel))) {
+      covered[i] = true;
+    } else {
+      keptLabels.push(tickLabel);
+    }
+  }
+  return covered;
+}
+
 export const GeometryUtil = {
   spanFitsClockOnlyLabels,
   chooseStepMinutes,
@@ -240,4 +261,5 @@ export const GeometryUtil = {
   resolveRangeBound,
   computeTimeline,
   tickLabelIsCovered,
+  coveredTickLabels,
 } as const;

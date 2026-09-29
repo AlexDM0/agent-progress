@@ -145,10 +145,12 @@
                                  15m ticks", each end a stamp; title the whole note in full
  #ap-chart                el     the scroller, both ways; fills the viewport below the range bar,
                                  its rows scrolling inside it; owns --timeline-w
- #ap-ticks                el     tick layer in the header row; children .ap-tick > span
+ #ap-ticks                el     tick layer in the header row; children .ap-tick > span; a
+                                 tick whose label another label covers gets data-covered
  #ap-rows                 el     row list; direct children are .ap-row
  #ap-overlay              el     absolute layer over the track area only
- #ap-now                  el     the now marker inside #ap-overlay; [hidden] if out of range
+ #ap-now                  el     the now marker inside #ap-overlay; [hidden] if out of range;
+                                 data-label-side="left" near the right edge
  #ap-chart-empty          el     shown instead of rows when there are none
  #ap-name-column          button in the chart's Task header, aria-pressed; pressed widens the
                                  name column (data-name-column="wide" on the root element)
@@ -973,6 +975,10 @@ body:has(#ap-panel-progress:not([hidden])) .ap-page { height: 100%; display: fle
   padding: 1px 3px;
   border-radius: 3px;
 }
+/* Near the right edge the marker keeps its line inside the axis and carries its label on its left, so neither widens the scroller. */
+#ap-now[data-label-side="left"] { transform: translateX(-100%); }
+#ap-now[data-label-side="left"]::after { left: auto; right: 4px; }
+#ap-ticks .ap-tick[data-covered] > span { visibility: hidden; }
 
 .ap-empty { padding: var(--sp-5) var(--sp-4); color: var(--ink-muted); font-size: var(--fs-small); }
 .ap-empty[hidden] { display: none; }

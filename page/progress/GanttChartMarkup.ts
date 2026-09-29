@@ -149,13 +149,14 @@ export function tickLayerMarkup(ticks: readonly PlacedTick[]): string {
   }).join('');
 }
 
-export function overlayMarkup(ticks: readonly TimelineTick[], nowPercent: number | null): string {
+export function overlayMarkup(ticks: readonly TimelineTick[], nowPercent: number | null, nowLabelSitsLeftOfMarker: boolean): string {
   const gridLines = ticks
     .map((tick) => `<div class="ap-grid-line" style="left:${MarkupUtil.percentText(tick.leftPercent)}"></div>`)
     .join('');
+  const labelSide = nowLabelSitsLeftOfMarker ? ' data-label-side="left"' : '';
   const nowMarker = nowPercent === null
     ? '<div id="ap-now" hidden></div>'
-    : `<div id="ap-now" style="--now-x:${MarkupUtil.percentText(nowPercent)}"></div>`;
+    : `<div id="ap-now"${labelSide} style="--now-x:${MarkupUtil.percentText(nowPercent)}"></div>`;
   return `${gridLines}${nowMarker}`;
 }
 

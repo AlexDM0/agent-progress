@@ -8,7 +8,7 @@ import type { TrackerProgress, ViewRange } from '../../src/lib/tracker-model/@ty
 import { EXAMPLE_PAGE_LIMITS }             from '../testing/PageLimitsFixture.ts';
 import { GeometryUtil }                    from './GeometryUtil.ts';
 
-const { computeTimeline, tickLabelIsCovered } = GeometryUtil;
+const { computeTimeline, coveredTickLabels, tickLabelIsCovered } = GeometryUtil;
 
 const MILLISECONDS_PER_MINUTE = 60_000;
 
@@ -397,5 +397,24 @@ describe('which tick labels the end label covers', () => {
   test('a label six pixels clear or further is not', () => {
     expect(tickLabelIsCovered({ left: 450, right: 494 }, endLabel)).toBe(false);
     expect(tickLabelIsCovered({ left: 566, right: 600 }, endLabel)).toBe(false);
+  });
+});
+
+describe('which tick labels are hidden so that no two labels overlap', () => {
+  test('a label the covering label overlaps is hidden, the rest stay', () => {
+    expect(coveredTickLabels([{ left: 0, right: 35 }, { left: 490, right: 525 }], [{ left: 500, right: 560 }])).toEqual([false, true]);
+  });
+
+  test('of two tick labels that overlap, the one nearer the axis end stays, as a label moved left of its line at the end does', () => {
+    expect(coveredTickLabels([{ left: 0, right: 35 }, { left: 60, right: 95 }, { left: 80, right: 115 }], [])).toEqual([false, true, false]);
+  });
+
+  test('a hidden label covers nothing, so the label before it stays', () => {
+    expect(coveredTickLabels([{ left: 30, right: 65 }, { left: 60, right: 95 }, { left: 80, right: 115 }], [])).toEqual([false, true, false]);
+  });
+
+  test('labels six pixels clear of each other all stay, and no labels give no flags', () => {
+    expect(coveredTickLabels([{ left: 0, right: 35 }, { left: 41, right: 76 }], [])).toEqual([false, false]);
+    expect(coveredTickLabels([], [{ left: 0, right: 10 }])).toEqual([]);
   });
 });

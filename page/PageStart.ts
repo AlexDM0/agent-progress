@@ -220,13 +220,13 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   finishedWorkSwitch.wire();
 
   progressController.wireNameColumn();
+  progressController.wireChartWidth();
   progressController.wireReviewRows();
   kanbanController.wire();
   ticketsController.wire();
 
   const openTicketDetail = (ticketId: string): boolean => detailDialogController.openTicketDetail(ticketId);
   window.addEventListener('resize', () => {
-    progressController.layOut(false);
     kanbanController.updateOverflow();
   });
   window.addEventListener('hashchange', () => {

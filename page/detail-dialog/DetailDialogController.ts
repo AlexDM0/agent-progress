@@ -89,11 +89,12 @@ function markCoveredTickLabels(): void {
   if (body === null || endLabel === null) {
     return;
   }
-  const endBox = endLabel.getBoundingClientRect();
-  for (const tick of body.querySelectorAll('.ap-ticket-gantt-ticks .ap-tick')) {
-    const label = tick.firstElementChild;
-    tick.toggleAttribute('data-covered', label !== null && GeometryUtil.tickLabelIsCovered(label.getBoundingClientRect(), endBox));
-  }
+  const ticks   = [...body.querySelectorAll('.ap-ticket-gantt-ticks .ap-tick')];
+  const labels  = ticks.map((tick) => tick.firstElementChild?.getBoundingClientRect() ?? { left: 0, right: 0 });
+  const covered = GeometryUtil.coveredTickLabels(labels, [endLabel.getBoundingClientRect()]);
+  ticks.forEach((tick, index) => {
+    tick.toggleAttribute('data-covered', covered[index] ?? false);
+  });
 }
 
 function slideDurationMillisecondsOf(dialog: HTMLElement): number {

@@ -45,6 +45,7 @@ export interface GanttChartController {
   rangePopoverIsOpen(): boolean;
   reopenRangePopover(fromText: string, toText: string): void;
   wireNameColumn(): void;
+  wireChartWidth(): void;
   wireReviewRows(): void;
 }
 
@@ -73,6 +74,16 @@ function scrollNowIntoView(chart: HTMLElement, nowPercent: number, axisWidthPixe
   const furthestScrollLeft = Math.max(0, chart.scrollWidth - chart.clientWidth);
   const desiredScrollLeft  = markerAxisOffset - visibleAxisWidth / 2;
   chart.scrollLeft = Math.max(0, Math.min(desiredScrollLeft, furthestScrollLeft));
+}
+
+/** A hidden chart measures every label at zero width, so its labels are only marked once it is laid out on screen. */
+function markCoveredAxisLabels(chartIsOnScreen: boolean): void {
+  const ticks  = [...document.querySelectorAll(`#${AXIS_TICKS_ELEMENT_ID} > .ap-tick`)];
+  const labels = ticks.map((tick) => tick.firstElementChild?.getBoundingClientRect() ?? { left: 0, right: 0 });
+  const covered = chartIsOnScreen ? GeometryUtil.coveredTickLabels(labels, []) : [];
+  ticks.forEach((tick, index) => {
+    tick.toggleAttribute('data-covered', covered[index] ?? false);
+  });
 }
 
 function taskRowsFor(visibleRows: readonly BoardRow[], timeline: Timeline, waitingOnById: ReadonlyMap<string, readonly string[]>): TaskRow[] {
@@ -160,7 +171,9 @@ export function createGanttChartController(sources: GanttChartControllerSources)
       labelSitsLeftOfItsLine: AxisFitUtil.labelSitsLeftOfItsLine(tick, axisWidthPixels),
     }));
     DomUtil.setMarkup(AXIS_TICKS_ELEMENT_ID, tickLayerMarkup(placedTicks));
-    DomUtil.setMarkup(CHART_OVERLAY_ELEMENT_ID, overlayMarkup(timeline.ticks, timeline.nowPercent));
+    markCoveredAxisLabels(availablePixels > 0);
+    const nowLabelSitsLeftOfMarker = timeline.nowPercent !== null && AxisFitUtil.nowLabelSitsLeftOfMarker(timeline.nowPercent, axisWidthPixels);
+    DomUtil.setMarkup(CHART_OVERLAY_ELEMENT_ID, overlayMarkup(timeline.ticks, timeline.nowPercent, nowLabelSitsLeftOfMarker));
     DomUtil.setMarkup(TASK_ROWS_ELEMENT_ID, taskRowsMarkup(taskRowsFor(visibleRows, timeline, waitingOnById), {
       slices:            limits,
       todayCalendarDate: TimeUtil.calendarDateOf(nowEpochMilliseconds),
@@ -228,6 +241,20 @@ export function createGanttChartController(sources: GanttChartControllerSources)
           layOut(false);
         }
       });
+    },
+    wireChartWidth: () => {
+      // A chart laid out while its tab was hidden measured nothing, so it is laid out again once it has a width, and on every change of it.
+      if (chart === null) {
+        return;
+      }
+      let laidOutWidth = chart.clientWidth;
+      const widthObserver = new ResizeObserver(() => {
+        if (chart.clientWidth !== laidOutWidth) {
+          laidOutWidth = chart.clientWidth;
+          layOut(false);
+        }
+      });
+      widthObserver.observe(chart);
     },
     wireReviewRows: () => {
       const control = document.getElementById(REVIEW_ROWS_CONTROL_ELEMENT_ID);

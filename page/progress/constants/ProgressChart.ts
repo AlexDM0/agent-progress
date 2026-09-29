@@ -1,4 +1,4 @@
-/** The Progress chart's fixed choices: the range presets, the automatic choices, the Fit margin, the name-column attribute and the tick gutter. */
+/** The Progress chart's fixed choices: the range presets, the automatic choices, the Fit margin, the name-column attribute and the label gutters. */
 
 export const RANGE_PRESET_BOUNDS: Readonly<Record<string, { fromText: string | null; toText: string | null }>> = {
   'fit': { fromText: null, toText: null },
@@ -26,3 +26,6 @@ export const NAME_COLUMN_WIDTH_ATTRIBUTE = 'data-name-column';
 
 /** The gap between a tick label moved left of its line and that line. */
 export const TICK_LABEL_GUTTER_PIXELS = 5;
+
+/** The now label with its offset from the marker; a marker nearer the right edge than this carries its label on its left. */
+export const NOW_LABEL_ROOM_PIXELS = 36;
