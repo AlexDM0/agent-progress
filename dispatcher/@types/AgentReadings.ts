@@ -45,17 +45,31 @@ export type BuilderOutcome = 'in-review' | 'claim-refused' | 'failed';
 /** A group reviewer answers `integrated` where a whole-board one answers `released`, and never the latter. */
 export type ReviewerVerdict = 'released' | 'integrated' | 'round-requested' | 'does-not-hold' | 'not-released';
 
+/** What placing a ticket of a group in its release bundle reads of it. */
+export interface ReleaseBundleTicket {
+  id:            string;
+  status:        string;
+  dependsOn:     string[];
+  releasesGroup: boolean;
+}
+
 /** One ticket of the group as the group survey copied it from the board. */
-export interface GroupTicketReading {
-  id:                             string;
-  status:                         string;
-  dependsOn:                      string[];
-  releasesGroup:                  boolean;
-  agentModelAndEffort:            AgentModelAndEffort;
-  rowNote:                        string;
-  worktreeExists:                 boolean;
-  openReviewBar:                  boolean;
-  integratedLineAfterLastHandoff: boolean;
+export interface GroupTicketReading extends ReleaseBundleTicket {
+  agentModelAndEffort: AgentModelAndEffort;
+  rowNote:             string;
+  worktreeExists:      boolean;
+  openReviewBar:       boolean;
+}
+
+/** A ticket of a looked-up ticket's group, as the settings lookup copied it from the board. */
+export interface LookedUpGroupTicket extends ReleaseBundleTicket {
+  groupName: string;
+}
+
+/** What `ticket show --json` said of each looked-up ticket, and the tickets of every group they name. */
+export interface TicketSettingsLookup {
+  tickets:      ReadyTicketEntry[];
+  groupTickets: LookedUpGroupTicket[] | 'unlisted';
 }
 
 export interface GroupSurveyReading {

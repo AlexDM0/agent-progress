@@ -207,6 +207,12 @@ describe('the helper prompts', () => {
     expect(request).toContain('For each of the tickets 001, 002,');
   });
 
+  test('the settings lookup asks for the tickets of every group its tickets name, from the status document', () => {
+    const prompt = ticketSettingsLookupPrompt(WHOLE_BOARD_SETTINGS, ['001']);
+    expect(prompt).toContain('run `agent-progress status --json` once');
+    expect(prompt).toContain('`groupTickets`: every entry of the status document\'s top-level `tickets` list whose `group` is one those tickets name');
+  });
+
   // The line sits inside a double-quoted shell argument, so a quote, a backtick, a dollar or a backslash would end it or expand.
   test('the parking agent\'s log line has its whitespace folded, its shell characters replaced and its length cut', () => {
     const unsafeLine = `Parked #001: a "quoted"\n\`tick\` $HOME \\ ${'x'.repeat(DISPATCH_POLICY.PARKING_LOG_REASON_LIMIT_CHARACTERS)}`;

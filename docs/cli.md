@@ -337,9 +337,10 @@ states, and the dispatcher decides that in code. It starts no low ticket unless 
   time, exactly those tickets through build, review rounds and release or parking, and the same
   summary; it never starts another ticket. A ticket given no `readyTickets` entry — one in progress,
   whose paused build it resumes — has its model and effort read with `ticket show <id> --json` before
-  any builder or reviewer starts. A ticket whose lookup names a `group` is refused, building nothing:
-  the board leaves out of `readyTickets` only a bundle awaiting its group's release, which is the
-  group run's.
+  any builder or reviewer starts. When one names a `group`, the lookup also copies that group's
+  tickets from `status --json`, and a ticket in the group's release bundle is refused, building
+  nothing: the bundle is the group run's. A grouped ticket outside the bundle is built like any
+  other; when the lookup lists no group tickets at all, every grouped ticket is refused.
 - **A group run**, launched with `group: '<name>'` and no `ticketIds`, builds the group's release
   bundle, read from the board, on the branch `group-<name>` in the worktree
   `<mainCheckout>/.claude/worktrees/group-<name>`, both made off the main line on first use. The

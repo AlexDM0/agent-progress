@@ -11,12 +11,15 @@ import type {
   BuilderOutcome,
   GroupSurveyReading,
   GroupTicketReading,
+  LookedUpGroupTicket,
   PausedBuild,
+  ReleaseBundleTicket,
   ReviewFinding,
   ReviewerVerdict,
   ReviewWaitingTicket,
   StatusReading,
-  SurveyReading
+  SurveyReading,
+  TicketSettingsLookup
 } from '../@types/AgentReadings.ts';
 import type { AgentModelAndEffort, DispatchSettingsVerdict, ReadyTicketEntry } from '../@types/DispatchSettings.ts';
 import type { DispatchWork }                                                   from '../@types/DispatchWork.ts';
@@ -175,16 +178,32 @@ function groupTicketReadingsOf(value: unknown): GroupTicketReading[] | 'unlisted
   for (const entry of value) {
     if (!valueIsAnObject(entry) || typeof entry['id'] !== 'string') continue;
     tickets.push({
-      id:                             entry['id'],
-      status:                         textOrEmpty(entry['status']),
-      dependsOn:                      Array.isArray(entry['dependsOn']) ? stringsIn(entry['dependsOn']) : [],
-      releasesGroup:                  entry['releasesGroup'] === true,
-      agentModelAndEffort:            agentModelAndEffortOf(entry),
-      rowNote:                        textOrEmpty(entry['rowNote']),
-      worktreeExists:                 entry['worktreeExists'] === true,
-      openReviewBar:                  entry['openReviewBar'] === true,
-      integratedLineAfterLastHandoff: entry['integratedLineAfterLastHandoff'] === true,
+      ...releaseBundleTicketOf(entry, entry['id']),
+      agentModelAndEffort: agentModelAndEffortOf(entry),
+      rowNote:             textOrEmpty(entry['rowNote']),
+      worktreeExists:      entry['worktreeExists'] === true,
+      openReviewBar:       entry['openReviewBar'] === true,
     });
+  }
+  return tickets;
+}
+
+function releaseBundleTicketOf(entry: Record<string, unknown>, id: string): ReleaseBundleTicket {
+  return {
+    id,
+    status:        textOrEmpty(entry['status']),
+    dependsOn:     Array.isArray(entry['dependsOn']) ? stringsIn(entry['dependsOn']) : [],
+    releasesGroup: entry['releasesGroup'] === true,
+  };
+}
+
+// An entry without an id or a group could be placed in no bundle, so it is dropped; a list left out reads as unlisted, which refuses.
+function lookedUpGroupTicketsOf(value: unknown): LookedUpGroupTicket[] | 'unlisted' {
+  if (!Array.isArray(value)) return 'unlisted';
+  const tickets: LookedUpGroupTicket[] = [];
+  for (const entry of value) {
+    if (!valueIsAnObject(entry) || typeof entry['id'] !== 'string' || !textIsStated(entry['group'])) continue;
+    tickets.push({ ...releaseBundleTicketOf(entry, entry['id']), groupName: entry['group'] });
   }
   return tickets;
 }
@@ -195,9 +214,9 @@ function groupSurveyReadingOf(value: unknown): GroupSurveyReading | null {
   return { status: statusReadingOf(survey['status']), tickets: groupTicketReadingsOf(survey['tickets']) };
 }
 
-function ticketSettingsLookupOf(lookup: unknown): ReadyTicketEntry[] | 'unread' {
+function ticketSettingsLookupOf(lookup: unknown): TicketSettingsLookup | 'unread' {
   if (!valueIsAnObject(lookup) || !Array.isArray(lookup['tickets'])) return 'unread';
-  return readyTicketEntriesOf(lookup['tickets']);
+  return { tickets: readyTicketEntriesOf(lookup['tickets']), groupTickets: lookedUpGroupTicketsOf(lookup['groupTickets']) };
 }
 
 function findingsOf(value: unknown): ReviewFinding[] {

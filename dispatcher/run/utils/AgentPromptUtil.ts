@@ -62,9 +62,11 @@ function surveyPrompt(settings: DispatchSettings): string {
 function ticketSettingsLookupPrompt(settings: DispatchSettings, ticketIds: readonly string[]): string {
   return [
     `agent-progress settings: ${ticketIds.join(',')}`,
-    `For each of the tickets ${ticketIds.join(', ')}, run \`agent-progress ticket show <id> --json\` once, in ${settings.mainCheckout}, and make no other call. `
-      + 'Judge nothing; return `tickets`: one `{ id, model, effort, group }` per ticket, with `model`, `effort` and `group` copied from its document '
-      + 'and left out where it has none.',
+    `For each of the tickets ${ticketIds.join(', ')}, run \`agent-progress ticket show <id> --json\` once, in ${settings.mainCheckout}; when any of them `
+      + 'names a `group`, run `agent-progress status --json` once there too. Make no other call. Judge nothing; return:',
+    '- `tickets`: one `{ id, model, effort, group }` per ticket, with `model`, `effort` and `group` copied from its document and left out where it has none;',
+    '- `groupTickets`: every entry of the status document\'s top-level `tickets` list whose `group` is one those tickets name, each with its `id`, '
+      + '`group`, `status`, `dependsOn` (the ids it names, an empty list without any) and `releasesGroup` (false when absent); empty when none names a group.',
   ].join('\n');
 }
 

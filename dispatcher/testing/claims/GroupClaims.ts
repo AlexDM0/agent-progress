@@ -7,6 +7,10 @@ import type { DispatchClaim }                                   from './Dispatch
 
 const EXAMPLE_GROUP: GroupScenario = { name: 'example-group', ticketIds: ['101', '102', '103'] };
 
+const TICKET_OUTSIDE_THE_BUNDLE_ID = '104';
+
+const GROUP_WITH_A_TICKET_OUTSIDE_THE_BUNDLE: GroupScenario = { ...EXAMPLE_GROUP, ticketIdsOutsideTheBundle: [TICKET_OUTSIDE_THE_BUNDLE_ID] };
+
 const GROUP_LIMIT = 4;
 
 const RELEASE_TICKET_ID = '103';
@@ -121,6 +125,11 @@ function releaseTicketMeetsAMovedMainLine(movedReleases: number): DispatchScenar
 
 function callsNaming(run: RecordedDispatchRun, runName: DispatchRunName, ticketIdPattern: RegExp): number {
   return run.calls.filter((call) => call.run === runName && ticketIdPattern.test(call.prompt)).length;
+}
+
+function ticketOutsideTheBundleIsBuiltAndReleased(run: RecordedDispatchRun): boolean {
+  return run.calls.some((call) => call.run === 'main' && call.kind === 'build' && call.ticketId === TICKET_OUTSIDE_THE_BUNDLE_ID)
+    && run.mainLineMoves.includes(`review ${TICKET_OUTSIDE_THE_BUNDLE_ID}`);
 }
 
 // Fails review if false: counted over every agent call, neither run names a ticket or row of the other, and each scan found its own run's tickets.
@@ -285,6 +294,31 @@ export const GROUP_CLAIMS: readonly DispatchClaim[] = [
       modulePath: DISPATCHER_MODULE_PATHS.DISPATCH_RUN,
       find:       'if (entry.groupName === null || !ticketIds.includes(entry.id)) continue;',
       replace:    'continue;',
+    },
+  },
+  {
+    name:        'a single-ticket run naming a grouped ticket outside the release bundle builds it and releases it like any other',
+    scenarioFor: () => groupScenarioWith({ ticketIds: [TICKET_OUTSIDE_THE_BUNDLE_ID], group: GROUP_WITH_A_TICKET_OUTSIDE_THE_BUNDLE }),
+    holds:       (run) => ticketOutsideTheBundleIsBuiltAndReleased(run) && !run.logs.some((line) => line.includes('belongs to the group')),
+    mutant:      {
+      modulePath: DISPATCHER_MODULE_PATHS.DISPATCH_RUN,
+      find:       'if (!ticketIsInItsGroupsReleaseBundle(entry.id, entry.groupName, lookup.groupTickets)) continue;',
+      replace:    '',
+    },
+  },
+  {
+    name:        'a whole-board run takes a grouped ticket outside the release bundle from the ready list, and no ticket of the bundle',
+    scenarioFor: () => groupScenarioWith({
+      readyTicketIds:    [TICKET_OUTSIDE_THE_BUNDLE_ID],
+      group:             GROUP_WITH_A_TICKET_OUTSIDE_THE_BUNDLE,
+      argumentOverrides: { group: undefined },
+    }),
+    holds:  (run) => ticketOutsideTheBundleIsBuiltAndReleased(run) && callsNaming(run, 'main', GROUP_TICKET_ID_PATTERN) === 0,
+    mutant: {
+      modulePath: DISPATCHER_MODULE_PATHS.DISPATCH_RUN,
+      find:       'return readyTicketIds.filter((ticketId) => !this.ticketIsHeld(ticketId)',
+      replace:    'return readyTicketIds.filter((ticketId) => readyTicketEntryOf(this.latestStatusReading?.readyTickets ?? [], ticketId)?.groupName === null '
+        + '&& !this.ticketIsHeld(ticketId)',
     },
   },
   {

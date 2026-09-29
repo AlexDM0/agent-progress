@@ -82,27 +82,41 @@ const LOOKED_UP_TICKET_SCHEMA: JsonSchema = {
   required: ['id'],
 };
 
+const LOOKED_UP_GROUP_TICKET_SCHEMA: JsonSchema = {
+  type:       'object',
+  properties: {
+    id:            { type: 'string' },
+    group:         { type: 'string' },
+    status:        { type: 'string' },
+    dependsOn:     { type: 'array', items: { type: 'string' } },
+    releasesGroup: { type: 'boolean' },
+  },
+  required: ['id', 'group', 'status', 'dependsOn', 'releasesGroup'],
+};
+
 const TICKET_SETTINGS_LOOKUP: JsonSchema = {
   type:       'object',
-  properties: { tickets: { type: 'array', items: LOOKED_UP_TICKET_SCHEMA } },
-  required:   ['tickets'],
+  properties: {
+    tickets:      { type: 'array', items: LOOKED_UP_TICKET_SCHEMA },
+    groupTickets: { type: 'array', items: LOOKED_UP_GROUP_TICKET_SCHEMA },
+  },
+  required: ['tickets', 'groupTickets'],
 };
 
 const GROUP_TICKET_SCHEMA: JsonSchema = {
   type:       'object',
   properties: {
-    id:                             { type: 'string' },
-    status:                         { type: 'string' },
-    dependsOn:                      { type: 'array', items: { type: 'string' } },
-    releasesGroup:                  { type: 'boolean' },
-    model:                          { type: 'string' },
-    effort:                         { type: 'string' },
-    rowNote:                        { type: 'string' },
-    worktreeExists:                 { type: 'boolean' },
-    openReviewBar:                  { type: 'boolean' },
-    integratedLineAfterLastHandoff: { type: 'boolean' },
+    id:             { type: 'string' },
+    status:         { type: 'string' },
+    dependsOn:      { type: 'array', items: { type: 'string' } },
+    releasesGroup:  { type: 'boolean' },
+    model:          { type: 'string' },
+    effort:         { type: 'string' },
+    rowNote:        { type: 'string' },
+    worktreeExists: { type: 'boolean' },
+    openReviewBar:  { type: 'boolean' },
   },
-  required: ['id', 'status', 'dependsOn', 'releasesGroup', 'rowNote', 'worktreeExists', 'openReviewBar', 'integratedLineAfterLastHandoff'],
+  required: ['id', 'status', 'dependsOn', 'releasesGroup', 'rowNote', 'worktreeExists', 'openReviewBar'],
 };
 
 const GROUP_SURVEY: JsonSchema = {

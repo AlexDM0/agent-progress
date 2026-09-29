@@ -28,6 +28,7 @@ import type {
 } from '../@types/DispatchWork.ts';
 import { DISPATCH_POLICY }               from '../constants/DispatchPolicy.ts';
 import type { DispatchRunCollaborators } from './DispatchRun.ts';
+import { ReleaseBundleUtil }             from './utils/ReleaseBundleUtil.ts';
 import { RoundVerdictUtil }              from './utils/RoundVerdictUtil.ts';
 
 type GroupTicketStage = 'to-build' | 'building' | 'built' | 'reviewing' | 'integrated' | 'released' | 'parked';
@@ -55,24 +56,6 @@ type BuildReading = Extract<AgentReading, { kind: 'build' }>;
 type ReviewReading = Extract<AgentReading, { kind: 'review' }>;
 
 const SETTLED_TICKET_STATUSES = ['reviewed', 'delivered', 'abandoned'];
-
-function releaseTicketOf(tickets: readonly GroupTicketReading[]): GroupTicketReading | undefined {
-  return tickets.find((ticket) => ticket.releasesGroup && ticket.status !== 'delivered' && ticket.status !== 'abandoned');
-}
-
-// The release ticket and every ticket of the group it depends on, directly or not; a dependency outside the group is not followed.
-function bundleOf(tickets: readonly GroupTicketReading[], releaseTicket: GroupTicketReading): GroupTicketReading[] {
-  const bundle = new Map<string, GroupTicketReading>();
-  const pending = [releaseTicket.id];
-  while (pending.length > 0) {
-    const ticketId = pending.pop() ?? '';
-    const ticket = tickets.find((groupTicket) => groupTicket.id === ticketId);
-    if (ticket === undefined || bundle.has(ticketId)) continue;
-    bundle.set(ticketId, ticket);
-    pending.push(...ticket.dependsOn);
-  }
-  return [...bundle.values()];
-}
 
 // Dependency order, the lowest id first among the tickets whose dependencies inside the bundle are placed; a circle falls back to id order.
 function pipelineOrderOf(bundle: readonly GroupTicketReading[]): string[] {
@@ -128,13 +111,13 @@ export class GroupDispatchRun {
       return 'nothing-dispatched';
     }
     this.adoptStatusReading(survey.status);
-    const releaseTicket = survey.tickets === 'unlisted' ? undefined : releaseTicketOf(survey.tickets);
+    const releaseTicket = survey.tickets === 'unlisted' ? undefined : ReleaseBundleUtil.releaseTicketOf(survey.tickets);
     if (survey.tickets === 'unlisted' || releaseTicket === undefined) {
       this.bundleIsUnread = true;
       this.collaborators.logger.groupBundleUnread(this.groupName);
       return 'nothing-dispatched';
     }
-    const bundle = bundleOf(survey.tickets, releaseTicket);
+    const bundle = ReleaseBundleUtil.bundleOf(survey.tickets, releaseTicket);
     this.releaseTicketId  = releaseTicket.id;
     this.orderedTicketIds = pipelineOrderOf(bundle);
     for (const ticket of bundle) this.records.set(ticket.id, this.recordAdoptedFrom(ticket));

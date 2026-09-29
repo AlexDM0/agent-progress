@@ -33,11 +33,6 @@ function integratedLineOf(groupName: string): string {
   return `${INTEGRATED_LINE_OPENING}${groupBranchOf(groupName)} fast-forwarded to <commit>`;
 }
 
-function integratedLineCheckCommandOf(groupName: string): string {
-  return 'agent-progress ticket show <id> --json | jq -r .body | '
-    + `awk '/^## Handoff/{found=0} /^${INTEGRATED_LINE_OPENING}${groupBranchOf(groupName)} fast-forwarded to /{found=1} END{exit !found}'`;
-}
-
 function headerLineOf(settings: DispatchSettings, ticketId: string, groupName: string): string {
   return `Worktree: ${worktreeOf(settings, ticketId)}   Branch: ${branchOf(ticketId)}   Group branch: ${groupBranchOf(groupName)}   `
     + `Group worktree: ${groupWorktreeOf(settings, groupName)}   Main checkout: ${settings.mainCheckout}   Main line: ${settings.mainLine}`;
@@ -305,15 +300,14 @@ function groupReviewerPrompt(settings: DispatchSettings, placement: GroupPlaceme
 function groupSurveyPrompt(settings: DispatchSettings, groupName: string): string {
   return [
     `Run \`agent-progress status --json\` once, in ${settings.mainCheckout}; then \`test -d ${worktreeOf(settings, '<id>')}\` once for each ticket of the group `
-      + `\`${groupName}\` whose status is \`in-progress\` or \`in-review\`, and \`${integratedLineCheckCommandOf(groupName)}\` once for each whose status is `
-      + '`in-review`. Make no other call. Judge nothing; return:',
+      + `\`${groupName}\` whose status is \`in-progress\` or \`in-review\`. `
+      + 'Make no other call. Judge nothing; return:',
     '- `status`: its `concurrency` block as printed (limit, agentsInFlight, freeSlots, readyTicketIds, dispatcherState, heldTicketIds, inProgressTicketIds, '
       + `inProgressReviewOfIds), ${AgentPromptUtil.readyTicketsAdditionText()};`,
     `- \`tickets\`: every entry of the status document's top-level \`tickets\` list whose \`group\` is \`${groupName}\`, each with its \`id\`, \`status\`, `
       + '`dependsOn` (the ids it names, an empty list without any), `releasesGroup` (false when absent), and `model` and `effort` where it names them; '
       + '`rowNote`, the `note` of the `row` in that ticket\'s `ticketRows` entry (empty when there is none); `openReviewBar`, whether any of that entry\'s '
-      + '`reviewBars` is `in-progress`; `worktreeExists`, whether its `test -d` succeeded (false when not run); and `integratedLineAfterLastHandoff`, '
-      + 'whether its check command exited 0 (false when not run).',
+      + '`reviewBars` is `in-progress`; and `worktreeExists`, whether its `test -d` succeeded (false when not run).',
   ].join('\n');
 }
 

@@ -2,12 +2,18 @@
  * One dispatcher run's state and its decisions: which work starts next within the board's slots, how each finished agent is settled, and what
  * the run ends with. It does no I/O; it names what happened to its logger and hands each agent's launch to `startAgent` at the point of decision.
  */
-import type { TicketPriority }                             from '../../src/lib/tracker-model/@types/Ticket.ts';
-import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL }       from '../../src/lib/tracker-model/constants/AgentSettings.ts';
-import { CONCURRENCY_LIMIT_CEILING_AGENTS }                from '../../src/lib/tracker-model/constants/ConcurrencyLimits.ts';
-import { DispatcherClaimNoteUtil }                         from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
-import type { AgentReading, StatusReading, SurveyReading } from '../@types/AgentReadings.ts';
-import type { DispatchLogger }                             from '../@types/DispatchLogger.ts';
+import type { TicketPriority }                       from '../../src/lib/tracker-model/@types/Ticket.ts';
+import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../src/lib/tracker-model/constants/AgentSettings.ts';
+import { CONCURRENCY_LIMIT_CEILING_AGENTS }          from '../../src/lib/tracker-model/constants/ConcurrencyLimits.ts';
+import { DispatcherClaimNoteUtil }                   from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
+import type {
+  AgentReading,
+  LookedUpGroupTicket,
+  StatusReading,
+  SurveyReading,
+  TicketSettingsLookup
+} from '../@types/AgentReadings.ts';
+import type { DispatchLogger } from '../@types/DispatchLogger.ts';
 import type {
   DispatchOutcome,
   HeldEntry,
@@ -27,8 +33,9 @@ import type {
   ReviewWork,
   RowRelease
 } from '../@types/DispatchWork.ts';
-import { DISPATCH_POLICY }  from '../constants/DispatchPolicy.ts';
-import { RoundVerdictUtil } from './utils/RoundVerdictUtil.ts';
+import { DISPATCH_POLICY }   from '../constants/DispatchPolicy.ts';
+import { ReleaseBundleUtil } from './utils/ReleaseBundleUtil.ts';
+import { RoundVerdictUtil }  from './utils/RoundVerdictUtil.ts';
 
 export interface DispatchRunCollaborators {
   logger:     DispatchLogger;
@@ -67,6 +74,12 @@ function readyTicketEntryOf(readyTickets: readonly ReadyTicketEntry[], ticketId:
 
 function priorityIsAdmittedWithoutTriage(priority: TicketPriority | undefined): boolean {
   return DISPATCH_POLICY.PRIORITIES_ADMITTED_WITHOUT_TRIAGE.some((admittedPriority) => admittedPriority === priority);
+}
+
+// Fails closed: an unlisted group's ticket counts as in its bundle.
+function ticketIsInItsGroupsReleaseBundle(ticketId: string, groupName: string, groupTickets: readonly LookedUpGroupTicket[] | 'unlisted'): boolean {
+  if (groupTickets === 'unlisted') return true;
+  return ReleaseBundleUtil.releaseBundleIdsOf(groupTickets.filter((groupTicket) => groupTicket.groupName === groupName)).includes(ticketId);
 }
 
 // A block without a ready ticket's entry reads it as `DISPATCH_POLICY.UNSTATED_PRIORITY`.
@@ -133,15 +146,16 @@ export class DispatchRun {
     return this.settings.ticketIds.filter((ticketId) => readyTicketEntryOf(this.settings.readyTickets, ticketId) === undefined);
   }
 
-  adoptLookedUpTicketSettings(lookup: ReadyTicketEntry[] | 'unread', ticketIds: readonly string[]): void {
+  adoptLookedUpTicketSettings(lookup: TicketSettingsLookup | 'unread', ticketIds: readonly string[]): void {
     if (lookup === 'unread') {
       this.collaborators.logger.ticketSettingsUnread(ticketIds);
       return;
     }
-    this.lookedUpTicketSettings = lookup;
-    // The board lists every ready ticket but a bundle's awaiting its group's release, so a grouped ticket missing from the list is the group run's.
-    for (const entry of lookup) {
+    this.lookedUpTicketSettings = lookup.tickets;
+    // A ticket of a release bundle is the group run's alone; any other grouped ticket is built like an ungrouped one.
+    for (const entry of lookup.tickets) {
       if (entry.groupName === null || !ticketIds.includes(entry.id)) continue;
+      if (!ticketIsInItsGroupsReleaseBundle(entry.id, entry.groupName, lookup.groupTickets)) continue;
       this.ticketIdsTakenThisRun.add(entry.id);
       this.collaborators.logger.groupTicketRefused(entry.id, entry.groupName);
     }

@@ -195,6 +195,8 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   const groupBranchMoves: string[] = [];
   const groupTicketIds = scenario.group?.ticketIds ?? [];
   const groupTicketStatuses = new Map<string, string>(groupTicketIds.map((groupTicketId) => [groupTicketId, 'pending']));
+  const ticketIdsOutsideTheBundle = scenario.group?.ticketIdsOutsideTheBundle ?? [];
+  const ticketIsOfTheGroup = (ticketId: string): boolean => groupTicketIds.includes(ticketId) || ticketIdsOutsideTheBundle.includes(ticketId);
   const journal: JournalEntry[] = [];
   let generation = 1;
   let announceKill: () => void = () => {};
@@ -277,6 +279,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     model:    statedAgentSettingsOf(readyTicketId)?.model ?? DEFAULT_AGENT_MODEL,
     effort:   statedAgentSettingsOf(readyTicketId)?.effort ?? DEFAULT_AGENT_EFFORT,
     ...(board.heldTicketIds.includes(readyTicketId) ? { held: true } : {}),
+    ...(ticketIsOfTheGroup(readyTicketId) ? { group: scenario.group?.name } : {}),
   }));
 
   const agentsOnBoard = (): number => board.otherAgentsInFlight + ownAgentsOnBoard.size + rowsLeftRunning.size;
@@ -385,32 +388,41 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   };
 
   // As the group survey copies the status document's `tickets` and `ticketRows`, and finds a worktree for each ticket a builder claimed.
-  const groupTicketsOnBoard = (): Record<string, unknown>[] => groupTicketIds.map((groupTicketId, position) => {
-    const status = groupTicketStatuses.get(groupTicketId) ?? 'pending';
-    return {
-      id:                             groupTicketId,
-      status,
-      dependsOn:                      position === 0 ? [...scenario.group?.firstTicketDependsOn ?? []] : [groupTicketIds[position - 1]],
-      releasesGroup:                  position === groupTicketIds.length - 1,
-      rowNote:                        runningRowOf(`build:${groupTicketId}`)?.note ?? pausedRows.get(`build:${groupTicketId}`)?.note ?? '',
-      worktreeExists:                 status === 'in-progress' || status === 'in-review',
-      openReviewBar:                  runningRowOf(`review:${groupTicketId}`) !== undefined,
-      integratedLineAfterLastHandoff: false,
-    };
-  });
+  const groupTicketsOnBoard = (): Record<string, unknown>[] => [
+    ...groupTicketIds.map((groupTicketId, position) => {
+      const status = groupTicketStatuses.get(groupTicketId) ?? 'pending';
+      return {
+        id:             groupTicketId,
+        status,
+        dependsOn:      position === 0 ? [...scenario.group?.firstTicketDependsOn ?? []] : [groupTicketIds[position - 1]],
+        releasesGroup:  position === groupTicketIds.length - 1,
+        rowNote:        runningRowOf(`build:${groupTicketId}`)?.note ?? pausedRows.get(`build:${groupTicketId}`)?.note ?? '',
+        worktreeExists: status === 'in-progress' || status === 'in-review',
+        openReviewBar:  runningRowOf(`review:${groupTicketId}`) !== undefined,
+      };
+    }),
+    ...ticketIdsOutsideTheBundle.map((looseTicketId) => ({
+      id:             looseTicketId,
+      status:         'pending',
+      dependsOn:      [],
+      releasesGroup:  false,
+      rowNote:        '',
+      worktreeExists: false,
+      openReviewBar:  false,
+    })),
+  ];
 
   // As an agent copies the list when its prompt names no group: the ungrouped tickets the scenario files for the whole-board run come too.
   const everyTicketOnBoard = (): Record<string, unknown>[] => [
     ...groupTicketsOnBoard(),
     ...scenario.readyTicketIds.map((readyTicketId) => ({
-      id:                             readyTicketId,
-      status:                         'pending',
-      dependsOn:                      [],
-      releasesGroup:                  false,
-      rowNote:                        '',
-      worktreeExists:                 false,
-      openReviewBar:                  false,
-      integratedLineAfterLastHandoff: false,
+      id:             readyTicketId,
+      status:         'pending',
+      dependsOn:      [],
+      releasesGroup:  false,
+      rowNote:        '',
+      worktreeExists: false,
+      openReviewBar:  false,
     })),
   ];
 
@@ -437,12 +449,15 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     }
     // As `ticket show --json` states a ticket: its model and effort only where it names them.
     if (call.kind === 'settings') {
+      const lookedUpTicketIds = (call.ticketId ?? '').split(',');
+      const anyNamesTheGroup = lookedUpTicketIds.some(ticketIsOfTheGroup);
       return {
-        tickets: (call.ticketId ?? '').split(',').map((lookedUpTicketId) => ({
+        tickets: lookedUpTicketIds.map((lookedUpTicketId) => ({
           id: lookedUpTicketId,
           ...statedAgentSettingsOf(lookedUpTicketId),
-          ...(groupTicketIds.includes(lookedUpTicketId) ? { group: scenario.group?.name } : {}),
+          ...(ticketIsOfTheGroup(lookedUpTicketId) ? { group: scenario.group?.name } : {}),
         })),
+        groupTickets: anyNamesTheGroup ? groupTicketsOnBoard().map((groupTicket) => ({ ...groupTicket, group: scenario.group?.name })) : [],
       };
     }
     if (call.kind === 'park') return { status: statusBlock() };

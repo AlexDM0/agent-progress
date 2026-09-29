@@ -11,7 +11,7 @@ export interface ReadyTicketEntry {
   priority:            TicketPriority;
   agentModelAndEffort: AgentModelAndEffort;
   ticketIsHeld:        boolean;
-  /** The ticket's group, `null` when it names none: a single-ticket run refuses a grouped ticket the board left out of its ready list. */
+  /** The ticket's group, `null` when it names none: a single-ticket run refuses one it looked up only when it is in its group's release bundle. */
   groupName:           string | null;
 }
 

@@ -119,9 +119,10 @@ describe('the release ticket\'s reviewer prompt', () => {
 });
 
 describe('the group survey prompt', () => {
-  test('lists the group\'s tickets from the status document and checks for the integrated line', () => {
+  // No decision reads an earlier integration off the survey: each group reviewer's first step finds it itself.
+  test('lists the group\'s tickets from the status document and runs no integrated-line check', () => {
     const prompt = GroupAgentPromptUtil.groupSurveyPrompt(GROUP_SETTINGS, 'example-group');
     expect(prompt).toContain('top-level `tickets` list whose `group` is `example-group`');
-    expect(prompt).toContain('/^Integrated: group-example-group fast-forwarded to /');
+    expect(prompt).not.toContain('Integrated:');
   });
 });

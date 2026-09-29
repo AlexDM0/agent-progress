@@ -307,37 +307,52 @@ describe('the group survey', () => {
   // A field the survey left out reads as its safe side: no release mark, no claim of this run's, no worktree, no bar, not integrated.
   test('ticket entries without a string id are dropped, and every missing field reads as its safe side', () => {
     expect(groupSurveyReadingOf({ status: STATUS_BLOCK, tickets: [null, { id: 5 }, { id: '001', dependsOn: ['000', 3] }] })?.tickets).toEqual([{
-      id:                             '001',
-      status:                         '',
-      dependsOn:                      ['000'],
-      releasesGroup:                  false,
-      agentModelAndEffort:            DEFAULT_AGENT_MODEL_AND_EFFORT,
-      rowNote:                        '',
-      worktreeExists:                 false,
-      openReviewBar:                  false,
-      integratedLineAfterLastHandoff: false,
+      id:                  '001',
+      status:              '',
+      dependsOn:           ['000'],
+      releasesGroup:       false,
+      agentModelAndEffort: DEFAULT_AGENT_MODEL_AND_EFFORT,
+      rowNote:             '',
+      worktreeExists:      false,
+      openReviewBar:       false,
     }]);
   });
 });
 
 describe('the ticket settings lookup', () => {
   test('a lookup with a list of tickets maps them like ready ticket entries, their group included', () => {
-    expect(ticketSettingsLookupOf({ tickets: [{ id: '001', model: 'sonnet' }, { id: '002', group: 'example-group' }] })).toEqual([
-      {
-        id:                  '001',
-        priority:            'low',
-        agentModelAndEffort: { model: 'sonnet', effort: DEFAULT_AGENT_EFFORT },
-        ticketIsHeld:        false,
-        groupName:           null,
-      },
-      {
-        id:                  '002',
-        priority:            'low',
-        agentModelAndEffort: DEFAULT_AGENT_MODEL_AND_EFFORT,
-        ticketIsHeld:        false,
-        groupName:           'example-group',
-      },
-    ]);
+    expect(ticketSettingsLookupOf({ tickets: [{ id: '001', model: 'sonnet' }, { id: '002', group: 'example-group' }] })).toMatchObject({
+      tickets: [
+        {
+          id:                  '001',
+          priority:            'low',
+          agentModelAndEffort: { model: 'sonnet', effort: DEFAULT_AGENT_EFFORT },
+          ticketIsHeld:        false,
+          groupName:           null,
+        },
+        {
+          id:                  '002',
+          priority:            'low',
+          agentModelAndEffort: DEFAULT_AGENT_MODEL_AND_EFFORT,
+          ticketIsHeld:        false,
+          groupName:           'example-group',
+        },
+      ]
+    });
+  });
+
+  // An unlisted group refuses every looked-up ticket of it, so a missing list must never read as an empty one.
+  test('group tickets map with their group, an entry without an id or group is dropped, and a missing list is unlisted', () => {
+    const groupTickets = [null, { id: '101' }, {
+      id: '102', group: 'example-group', dependsOn: ['101', 7], releasesGroup: true, status: 'pending'
+    }];
+    expect(ticketSettingsLookupOf({ tickets: [], groupTickets })).toEqual({
+      tickets:      [],
+      groupTickets: [{
+        id: '102', status: 'pending', dependsOn: ['101'], releasesGroup: true, groupName: 'example-group'
+      }],
+    });
+    expect(ticketSettingsLookupOf({ tickets: [] })).toEqual({ tickets: [], groupTickets: 'unlisted' });
   });
 
   test('nothing, or tickets that are not a list, is unread', () => {
