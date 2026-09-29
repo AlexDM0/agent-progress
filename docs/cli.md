@@ -488,7 +488,10 @@ mutating command and reloading itself when idle, keeping the viewer's place. Ope
 Every render also writes `.agent-progress/progress.stamp.js` after the page, one line,
 `window.apStamp = <generatedAtEpochMilliseconds>;`. The page loads it as a script every 60 s, which
 works from `file://` where `fetch` does not, and reloads only once the stamp differs from its own
-render; while the stamp is missing or unreadable it falls back to reloading every 5 minutes.
+render; while the stamp is missing or unreadable it falls back to reloading every 5 minutes. A
+missing stamp, only left by a render from an older CLI or a hand deletion, shows as one browser
+network line (`404` or `ERR_FILE_NOT_FOUND`) per page load, not a script error; no script can
+suppress that line, and the next render ends it.
 
 - **Progress tab**: the Gantt chart, filling the window below the range bar and scrolling its rows
   inside it, one row per task, newest on top, each with its number, name, ticket badge, token count,
