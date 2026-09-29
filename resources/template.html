@@ -290,8 +290,8 @@
  idle reload    no meta refresh: the bootstrap reloads every 300 s, postponed and
                 retried every 30 s while an input, textarea or select has focus,
                 or pointer, key, wheel or scroll activity came within 45 s; an
-                open #ap-detail does not postpone it; a hidden tab reloads once it is shown again. Before it
-                reloads, the page script stores its place in sessionStorage under
+                open #ap-detail does not postpone it; a hidden tab reloads once it
+                is shown again. Before it reloads, the page script stores its place in sessionStorage under
                 "agent-progress:snapshot" (the shown tab, scroll of the window, #ap-chart and
                 #ap-kanban, the From/To text and whether #ap-range-popover is open,
                 the Tickets tab's search, chips and sort, the open
@@ -1816,7 +1816,8 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
     applyTheme(button.dataset.theme);
     try { localStorage.setItem(THEME_KEY, button.dataset.theme); } catch (e) {}
   });
-  /* The radio pattern: one tab stop on the checked radio, and every arrow key moves to the next or previous choice and checks it through its click. */
+  /* The radio pattern: one tab stop on the checked radio, and every arrow key moves to the next
+     or previous choice and checks it through its click. */
   themeBar.addEventListener("keydown", function (event) {
     var buttons = Array.prototype.slice.call(themeBar.querySelectorAll("[data-theme]"));
     var current = buttons.indexOf(event.target);
@@ -1884,8 +1885,8 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
   });
 
   /* The idle reload. Every RELOAD_INTERVAL_MS the page tries to reload; while the viewer is using
-     it (a field focused, activity within ACTIVITY_QUIET_MS) it tries again
-     every RELOAD_RETRY_MS, and a hidden tab waits until it is shown. The page script's callbacks
+     it (a field focused, activity within ACTIVITY_QUIET_MS) it tries again every
+     RELOAD_RETRY_MS, and a hidden tab waits until it is shown. The page script's callbacks
      run first, so it can store what it needs to put the viewer back where they were. */
   var RELOAD_INTERVAL_MS = 300000;
   var RELOAD_RETRY_MS = 30000;
