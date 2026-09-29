@@ -114,10 +114,12 @@ export interface DispatchScenario {
 }
 
 export interface GroupScenario {
-  name:                       string;
-  ticketIds:                  string[];
+  name:                               string;
+  ticketIds:                          string[];
   /** Tickets outside the group the first one depends on, which a group survey naming its group never lists. */
-  firstTicketDependsOn?:      string[];
+  firstTicketDependsOn?:              string[];
   /** Pending tickets of the group, depending on nothing, that no bundle ticket depends on: outside the release bundle. */
-  ticketIdsOutsideTheBundle?: string[];
+  ticketIdsOutsideTheBundle?:         string[];
+  /** The settings lookup answers with an empty `groupTickets` list, as an agent that skipped `status --json` would. */
+  settingsLookupListsNoGroupTickets?: boolean;
 }

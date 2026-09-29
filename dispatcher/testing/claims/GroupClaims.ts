@@ -307,6 +307,20 @@ export const GROUP_CLAIMS: readonly DispatchClaim[] = [
     },
   },
   {
+    name:        'a single-ticket run whose lookup lists no ticket of the looked-up ticket\'s group refuses it, building nothing',
+    scenarioFor: () => groupScenarioWith({
+      ticketIds: [TICKET_OUTSIDE_THE_BUNDLE_ID],
+      group:     { ...GROUP_WITH_A_TICKET_OUTSIDE_THE_BUNDLE, settingsLookupListsNoGroupTickets: true },
+    }),
+    holds: (run) => run.calls.every((call) => call.kind !== 'build')
+      && run.logs.some((line) => line.includes(`#${TICKET_OUTSIDE_THE_BUNDLE_ID} belongs to the group example-group`)),
+    mutant: {
+      modulePath: DISPATCHER_MODULE_PATHS.DISPATCH_RUN,
+      find:       'if (!ticketsOfTheGroup.some((groupTicket) => groupTicket.id === ticketId)) return true;',
+      replace:    '',
+    },
+  },
+  {
     name:        'a whole-board run takes a grouped ticket outside the release bundle from the ready list, and no ticket of the bundle',
     scenarioFor: () => groupScenarioWith({
       readyTicketIds:    [TICKET_OUTSIDE_THE_BUNDLE_ID],

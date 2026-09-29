@@ -76,10 +76,12 @@ function priorityIsAdmittedWithoutTriage(priority: TicketPriority | undefined): 
   return DISPATCH_POLICY.PRIORITIES_ADMITTED_WITHOUT_TRIAGE.some((admittedPriority) => admittedPriority === priority);
 }
 
-// Fails closed: an unlisted group's ticket counts as in its bundle.
+// Fails closed: a ticket its group's listing leaves out, or a listing left out whole, counts as in its bundle.
 function ticketIsInItsGroupsReleaseBundle(ticketId: string, groupName: string, groupTickets: readonly LookedUpGroupTicket[] | 'unlisted'): boolean {
   if (groupTickets === 'unlisted') return true;
-  return ReleaseBundleUtil.releaseBundleIdsOf(groupTickets.filter((groupTicket) => groupTicket.groupName === groupName)).includes(ticketId);
+  const ticketsOfTheGroup = groupTickets.filter((groupTicket) => groupTicket.groupName === groupName);
+  if (!ticketsOfTheGroup.some((groupTicket) => groupTicket.id === ticketId)) return true;
+  return ReleaseBundleUtil.releaseBundleIdsOf(ticketsOfTheGroup).includes(ticketId);
 }
 
 // A block without a ready ticket's entry reads it as `DISPATCH_POLICY.UNSTATED_PRIORITY`.

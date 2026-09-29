@@ -450,7 +450,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     // As `ticket show --json` states a ticket: its model and effort only where it names them.
     if (call.kind === 'settings') {
       const lookedUpTicketIds = (call.ticketId ?? '').split(',');
-      const anyNamesTheGroup = lookedUpTicketIds.some(ticketIsOfTheGroup);
+      const anyNamesTheGroup = lookedUpTicketIds.some(ticketIsOfTheGroup) && scenario.group?.settingsLookupListsNoGroupTickets !== true;
       return {
         tickets: lookedUpTicketIds.map((lookedUpTicketId) => ({
           id: lookedUpTicketId,
