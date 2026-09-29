@@ -1,12 +1,14 @@
 /**
  * The three answers `renderDashboard` can give, read from real tracker files written through the store's own writers: a page and the
  * malformed tickets it left out, or an unreadable tracker with the reading that says which file failed, and then no page. The page follows
- * the files, so a row stored after one render is on the next. `renderDashboardUnderLock` is pinned to take the lock and hand it back.
+ * the files, so a row stored after one render is on the next. Every render replaces the stamp the open page polls, atomically and after
+ * the page, under the file name the template asks for. `renderDashboardUnderLock` is pinned to take the lock and hand it back.
  */
 import {
   existsSync,
   mkdirSync,
   readFileSync,
+  statSync,
   writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
@@ -18,19 +20,23 @@ import {
   test,
 } from 'bun:test';
 import { createLogFileWriter }                            from '../../adapters/log/LogFileWriter.ts';
+import { pageStampTextOf }                                from '../../adapters/page/PageStampWriter.ts';
 import { createProgressFileWriter }                       from '../../adapters/progress/ProgressFileWriter.ts';
 import { createTicketFileWriter }                         from '../../adapters/tickets/TicketFileWriter.ts';
 import type { LogRecord }                                 from '../../lib/tracker-model/@types/LogRecord.ts';
 import type { Task }                                      from '../../lib/tracker-model/@types/Task.ts';
 import type { TrackerProgress }                           from '../../lib/tracker-model/@types/TrackerProgress.ts';
+import { resourceFilePathOf }                             from '../../shared/ResourceFilePath.ts';
 import { ticketFixture }                                  from '../../testing/BoardFixtures.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
 import { BROKEN_LOG_TEXT }                                from '../../testing/TrackerFileFixtures.ts';
 import { createRenderState }                              from '../render/RenderState.ts';
+import { TEMPLATE_FILE_NAME }                             from '../render/constants/TemplateFile.ts';
 import { renderDashboard, renderDashboardUnderLock }      from './DashboardRendering.ts';
 import { listTickets }                                    from './TicketStore.ts';
 import { LockGenerationSteps }                            from './TrackerLock.ts';
 import { workspacePathsFor, type Workspace }              from './Workspace.ts';
+import { TRACKER_FILES }                                  from './constants/TrackerFiles.ts';
 
 const GENERATED_AT = new Date('2026-09-18T20:11:03Z');
 
@@ -142,6 +148,38 @@ describe('rendering the dashboard', () => {
     expect(writtenPage()).toContain('Stored after the first render');
   });
 
+  test('every render replaces progress.stamp.js whole, by rename, with its own generated stamp', async () => {
+    writeTracker();
+    const laterGeneratedAt = new Date(GENERATED_AT.getTime() + 60_000);
+
+    await renderDashboard(workspace, GENERATED_AT, renderState);
+    expect(readFileSync(workspace.stampFilePath, 'utf8')).toBe(pageStampTextOf(GENERATED_AT));
+    const firstStampInode = statSync(workspace.stampFilePath).ino;
+    await renderDashboard(workspace, laterGeneratedAt, renderState);
+
+    expect(readFileSync(workspace.stampFilePath, 'utf8')).toBe(pageStampTextOf(laterGeneratedAt));
+    expect(statSync(workspace.stampFilePath).ino).not.toBe(firstStampInode);
+  });
+
+  test('the stamp is written after the page, so a page write that fails leaves no stamp announcing it', async () => {
+    writeTracker();
+    mkdirSync(join(workspace.htmlFilePath, 'occupied-by-a-folder'), { recursive: true });
+
+    let pageWriteFailed = false;
+    try {
+      await renderDashboard(workspace, GENERATED_AT, renderState);
+    } catch {
+      pageWriteFailed = true;
+    }
+
+    expect(pageWriteFailed).toBe(true);
+    expect(existsSync(workspace.stampFilePath)).toBe(false);
+  });
+
+  test('the template polls the very file name the render writes', () => {
+    expect(readFileSync(resourceFilePathOf(TEMPLATE_FILE_NAME), 'utf8')).toContain(`"${TRACKER_FILES.STAMP_FILE_NAME}"`);
+  });
+
   test('under the lock it renders the same way, and leaves the lock released', async () => {
     writeTracker();
 
@@ -167,6 +205,7 @@ describe('when something cannot be read', () => {
     expect(reading?.verdict === 'unreadable' ? reading.unreadableFile : null).toBe('progress-file');
     expect(reading?.filePath).toBe(workspace.progressFilePath);
     expect(existsSync(workspace.htmlFilePath)).toBe(false);
+    expect(existsSync(workspace.stampFilePath)).toBe(false);
   });
 
   test('a progress file that is not there reads as absent rather than as an empty tracker, and no page is written', async () => {

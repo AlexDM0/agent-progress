@@ -1,4 +1,8 @@
-/** Regenerates `progress.html` from what is on disk; every mutating command ends here inside its lock, and `render` and `open` take the lock for it. */
+/**
+ * Regenerates `progress.html` and its `progress.stamp.js` from what is on disk; every mutating command ends here inside its lock, and
+ * `render` and `open` take the lock for it.
+ */
+import { createPageStampWriter }    from '../../adapters/page/PageStampWriter.ts';
 import { writeFileAtomically }      from '../../lib/atomic-file/AtomicFile.ts';
 import type { UnreadableTracker }   from '../../shared/@types/UnreadableTracker.ts';
 import { renderDashboardDocument }  from '../render/DashboardDocument.ts';
@@ -26,6 +30,8 @@ export async function renderDashboard(workspace: Workspace, generatedAt: Date, r
     generatedAt,
   }, renderState);
   writeFileAtomically(workspace.htmlFilePath, rendering.document);
+  // After the page, so a stamp never announces a render whose page is not on disk yet.
+  createPageStampWriter(workspace.stampFilePath).write(generatedAt);
 
   if (rendering.pageScriptFailure !== null) {
     return { verdict: 'rendered-without-page-script', reason: rendering.pageScriptFailure, malformedTickets: listing.malformed };
