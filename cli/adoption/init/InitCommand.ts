@@ -16,8 +16,9 @@ import {
   recordInstallVersion,
   refreshReportLinesOf,
   refreshTrackedRepository,
-  refuseAnAgentDefinitionOptOutKeepingTheWorkflow
-}                                                                               from '../TrackerRefresh.ts';
+  refuseAnAgentDefinitionOptOutKeepingTheWorkflow,
+  refuseKeepingADispatcherWithoutItsAgentDefinition
+}                                                                             from '../TrackerRefresh.ts';
 import { initRootDirectoryOf, refuseAnOverrideNamingAnotherDirectory } from './InitRoot.ts';
 
 const USAGE = 'agent-progress init [--project <name>] [--root <path>] [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';
@@ -72,6 +73,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
     );
   }
   requireInstallManifestThisVersionCanReplace(workspace.rootDirectory);
+  refuseKeepingADispatcherWithoutItsAgentDefinition('init', workspace.rootDirectory, { writesTheAgentDefinition, writesTheDispatcherWorkflow });
 
   // Every installed text is computed before the first write, so a dispatcher that will not bundle leaves no tracker and no file behind.
   const installedFileTexts = await installedFileTextsFor({ generatesTheDispatcherScript: writesTheDispatcherWorkflow });

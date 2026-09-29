@@ -49,7 +49,9 @@ output never carries either.
                               --no-hooks writes no hook, --no-workflow no workflow and
                               --no-agent-definition no agent definition; it is refused with exit
                               1, writing nothing, unless --no-workflow is given too, since the
-                              dispatcher starts every builder and reviewer as that agent.
+                              dispatcher starts every builder and reviewer as that agent; and
+                              both together are refused the same way while a dispatcher is
+                              installed without its definition, which --no-workflow would keep.
 
   update                      Refresh what the tool wrote into a repository it already tracks: the
       [--no-claude-md]        managed CLAUDE.md block, \`agent-brief.md\` — guidance shipped with the
@@ -64,8 +66,8 @@ output never carries either.
                               Each line says whether that file changed, so a session that read the
                               brief at its start learns that its copy is now stale. It takes the same
                               --no-claude-md, --no-hooks, --no-workflow and --no-agent-definition
-                              as \`init\`, and refuses --no-agent-definition without --no-workflow
-                              the same way. Every command but init, update, help and
+                              as \`init\`, and refuses --no-agent-definition without --no-workflow,
+                              or with it over a dispatcher lacking its definition, the same way. Every command but init, update, help and
                               status refuses, with exit 1, while the files installed here are of
                               another install version than this agent-progress (the SubagentStop
                               hook reports it and exits 0); update rewrites them, and it and \`init\`

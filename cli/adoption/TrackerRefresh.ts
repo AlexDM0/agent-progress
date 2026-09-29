@@ -2,7 +2,7 @@
  * Writes what the tool installs into a tracked repository for `init` and `update`, and reports per file whether its bytes changed: that
  * is how an orchestrator that read the brief earlier learns its copy is stale.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 import { createInstallManifestWriter } from '../../src/adapters/install/InstallManifestWriter.ts';
 import { writeFileAtomically }         from '../../src/lib/atomic-file/AtomicFile.ts';
@@ -141,6 +141,23 @@ export function refuseAnAgentDefinitionOptOutKeepingTheWorkflow(
     `agent-progress ${commandName} --no-agent-definition needs --no-workflow as well: the dispatcher workflow starts every builder and reviewer `
     + 'as the `agent-progress-worker` agent that definition declares, so without it no worker could start. Nothing was written. '
     + 'Add --no-workflow, or drop --no-agent-definition.',
+  );
+}
+
+/** Checked before the first write: `--no-workflow` leaves an installed dispatcher in place, and it could start no worker without the definition. */
+export function refuseKeepingADispatcherWithoutItsAgentDefinition(
+  commandName: string,
+  rootDirectory: string,
+  { writesTheAgentDefinition, writesTheDispatcherWorkflow }: { writesTheAgentDefinition: boolean; writesTheDispatcherWorkflow: boolean },
+): void {
+  if (writesTheAgentDefinition || writesTheDispatcherWorkflow) return;
+  const installedFilePaths = installedFilePathsIn(rootDirectory);
+  if (!existsSync(installedFilePaths.dispatcherScript) || existsSync(installedFilePaths.agentDefinition)) return;
+  throw new OperationRefusal(
+    'refused',
+    `agent-progress ${commandName} --no-agent-definition --no-workflow would leave ${installedFilePaths.dispatcherScript} in place without `
+    + `${installedFilePaths.agentDefinition}, the \`agent-progress-worker\` agent it starts every builder and reviewer as, so no worker could start. `
+    + 'Nothing was written. Drop --no-agent-definition, or remove that dispatcher script first.',
   );
 }
 

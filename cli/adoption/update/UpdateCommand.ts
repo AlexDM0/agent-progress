@@ -11,8 +11,9 @@ import {
   recordInstallVersion,
   refreshReportLinesOf,
   refreshTrackedRepository,
-  refuseAnAgentDefinitionOptOutKeepingTheWorkflow
-}                                                                               from '../TrackerRefresh.ts';
+  refuseAnAgentDefinitionOptOutKeepingTheWorkflow,
+  refuseKeepingADispatcherWithoutItsAgentDefinition
+}                                                                             from '../TrackerRefresh.ts';
 
 const USAGE = 'agent-progress update [--no-claude-md] [--no-hooks] [--no-workflow] [--no-agent-definition]';
 
@@ -27,6 +28,7 @@ export const updateCommand: CommandHandler = async (commandArguments, context) =
 
   const workspace          = requireWorkspace(context.currentDirectory);
   requireInstallManifestThisVersionCanReplace(workspace.rootDirectory);
+  refuseKeepingADispatcherWithoutItsAgentDefinition('update', workspace.rootDirectory, { writesTheAgentDefinition, writesTheDispatcherWorkflow });
   const installedFileTexts = await installedFileTextsFor({ generatesTheDispatcherScript: writesTheDispatcherWorkflow });
   const report             = refreshTrackedRepository({
     workspace,

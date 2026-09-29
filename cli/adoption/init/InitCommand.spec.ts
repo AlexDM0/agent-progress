@@ -7,6 +7,7 @@ import {
   readFileSync,
   readlinkSync,
   realpathSync,
+  rmSync,
   symlinkSync,
   writeFileSync
 } from 'node:fs';
@@ -219,6 +220,23 @@ describeWhenGitIsPresent('initialising a repository', () => {
     expect(context.outputText()).toBe('');
     expect(repositoryFileContentsOf(repositoryDirectory)).toEqual(filesBefore);
     expect(existsSync(join(repositoryDirectory, '.agent-progress'))).toBe(false);
+  });
+
+  // `--no-workflow` leaves an installed dispatcher in place, and that dispatcher starts every worker as the missing agent.
+  test('--no-agent-definition --no-workflow over a dispatcher without its definition is refused with exit 1, and nothing is written', async () => {
+    const repositoryDirectory = scratchRepository();
+    expect(await runCommandLine(['init'], createCapturedCommandContext({ currentDirectory: repositoryDirectory }))).toBe(0);
+    rmSync(installedFilePathsIn(repositoryDirectory).agentDefinition);
+    const filesBefore = repositoryFileContentsOf(repositoryDirectory);
+    const context = createCapturedCommandContext({ currentDirectory: repositoryDirectory });
+
+    expect(await runCommandLine(['init', '--no-agent-definition', '--no-workflow'], context)).toBe(1);
+
+    expect(context.errorText()).toContain('agent-progress init --no-agent-definition --no-workflow would leave');
+    expect(context.errorText()).toContain('Nothing was written.');
+    expect(context.outputText()).toBe('');
+    expect(repositoryFileContentsOf(repositoryDirectory)).toEqual(filesBefore);
+    expect(filesBefore.has('.agent-progress/agent-progress-dispatch.js'), 'the fixture holds the dispatcher the refusal protects').toBe(true);
   });
 
   test('records the install version in the tracker directory as exactly the CLI\'s own', async () => {
