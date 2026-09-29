@@ -159,10 +159,6 @@ export function overlayMarkup(ticks: readonly TimelineTick[], nowPercent: number
   return `${gridLines}${nowMarker}`;
 }
 
-/**
- * Each state figure is a button naming the Kanban lane it jumps to. The token figure is left out entirely when no task reports one, because
- * `null` means "nobody said" and `0 tokens` would be a claim.
- */
 function tickStepLabel(stepMinutes: number, hourMinutes: number, dayMinutes: number): string {
   if (dayMinutes > 0 && stepMinutes % dayMinutes === 0) {
     return `${stepMinutes / dayMinutes}d`;
