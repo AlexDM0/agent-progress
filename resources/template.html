@@ -1058,6 +1058,325 @@ button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3
 /* After the breakpoints and more specific than :root, so the widened column wins at every window width. */
 :root[data-name-column="wide"] { --col-name: var(--col-name-wide); }
 .ap-seg[hidden] { display: none; }
+
+/* ================================================================ microanimations == */
+/* Smooth transitions for interactive elements enhance user feedback without distraction.
+   All animations respect prefers-reduced-motion for accessibility. */
+
+/* Button and interactive element hover/active states with subtle scale and shadow. */
+button, [role="button"], a[href], input[type="button"], input[type="submit"] {
+  transition: all 0.15s cubic-bezier(0.22, 1, 0.36, 1);
+}
+button:active, [role="button"]:active {
+  transform: scale(0.98);
+}
+button:hover:not(:disabled), [role="button"]:hover, a[href]:hover {
+  transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Tab buttons - smooth underline and background transitions. */
+.ap-tabs button {
+  position: relative;
+  transition: all 0.2s ease-out;
+}
+.ap-tabs button::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--link);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ap-tabs button[aria-selected="true"]::after {
+  transform: scaleX(1);
+}
+
+/* Range preset buttons with smooth state transitions. */
+.ap-seg button {
+  transition: all 0.2s ease-out;
+  position: relative;
+}
+.ap-seg button:hover {
+  transform: translateY(-1px);
+}
+.ap-seg button:active {
+  transform: translateY(0px);
+}
+
+/* Input fields with glow on focus. */
+input[type="text"], input[type="search"], textarea, .ap-field input, .ap-popover-field input {
+  transition: all 0.2s ease-out;
+  border-bottom-color: var(--line-strong);
+}
+input[type="text"]:focus, input[type="search"]:focus, textarea:focus, .ap-field input:focus, .ap-popover-field input:focus {
+  border-bottom-color: var(--ink);
+  box-shadow: 0 1px 0 var(--link), inset 0 -2px 0 var(--link);
+}
+input[type="text"]::placeholder, input[type="search"]::placeholder {
+  transition: color 0.2s ease-out;
+}
+input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
+  color: var(--ink-muted);
+}
+
+/* Chart rows and kanban cards with smooth state changes. */
+#ap-rows > .ap-row,
+#ap-ticket-rows > tr[data-ticket-id],
+.ap-kanban-card {
+  transition: all 0.15s ease-out;
+}
+#ap-rows > .ap-row:hover,
+#ap-ticket-rows > tr[data-ticket-id]:hover {
+  transform: translateX(2px);
+}
+.ap-kanban-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px oklch(0 0 0 / 0.12);
+}
+:root[data-theme="dark"] .ap-kanban-card:hover {
+  box-shadow: 0 4px 12px oklch(0 0 0 / 0.3);
+}
+
+/* Kanban cards with smooth scale on focus. */
+.ap-kanban-card:focus-visible {
+  transform: scale(1.01) translateY(-2px);
+}
+
+/* Smooth highlight on row selection. */
+#ap-rows > .ap-row[data-selected] > .ap-cell-name {
+  animation: ap-selection-highlight 0.3s ease-out;
+}
+@keyframes ap-selection-highlight {
+  from { box-shadow: inset 3px 0 0 transparent; }
+  to { box-shadow: inset 3px 0 0 var(--link); }
+}
+
+/* Smooth state badge transitions. */
+.ap-pill, .ap-badge, [data-state] {
+  transition: all 0.2s ease-out;
+}
+.ap-pill[data-state], [data-state] {
+  transition: background-color 0.3s ease-out, color 0.3s ease-out, border-color 0.3s ease-out;
+}
+
+/* Smooth border and color transitions on kanban cards. */
+.ap-kanban-card {
+  transition: all 0.2s ease-out, border-style 0.1s ease-out;
+}
+.ap-kanban-card[data-selected] {
+  border-color: var(--link);
+}
+
+/* Bar animations - smooth color transitions for different states. */
+.ap-bar, .ap-bar-segment, .ap-bar-review {
+  transition: all 0.3s ease-out;
+}
+.ap-bar[data-state], .ap-bar-segment[data-state] {
+  animation: ap-bar-state-change 0.4s ease-out;
+}
+@keyframes ap-bar-state-change {
+  0% { opacity: 0.8; }
+  50% { opacity: 1; }
+  100% { opacity: 1; }
+}
+
+/* Smooth visibility transitions. */
+#ap-chart, #ap-kanban, .ap-table {
+  transition: opacity 0.2s ease-out;
+}
+
+/* Smooth popover animations. */
+.ap-popover {
+  animation: ap-popover-slide 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes ap-popover-slide {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.ap-popover[hidden] {
+  pointer-events: none;
+  opacity: 0;
+}
+
+/* Smooth link transitions with underline animation. */
+a {
+  transition: color 0.2s ease-out;
+  position: relative;
+}
+a::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: right;
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+a:hover::after {
+  transform-origin: left;
+  transform: scaleX(1);
+}
+
+/* Smooth theme toggle transitions. */
+#ap-theme button {
+  transition: all 0.25s ease-out;
+  position: relative;
+}
+#ap-theme button:hover {
+  transform: scale(1.08);
+}
+
+/* Smooth visibility button interactions. */
+#ap-visibility button {
+  transition: all 0.2s ease-out;
+}
+#ap-visibility button:hover {
+  transform: scale(1.05);
+}
+
+/* Sort button smooth transition. */
+.ap-sort {
+  transition: all 0.2s ease-out;
+}
+.ap-sort:hover {
+  color: var(--ink);
+  transform: translateY(-1px);
+}
+
+/* Lane toggle smooth rotation. */
+.ap-lane-toggle::after {
+  transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.ap-lane[data-collapsed] .ap-lane-toggle::after {
+  transform: rotate(-90deg);
+}
+
+/* Smooth detail dialog close button. */
+.ap-detail-close {
+  transition: all 0.15s ease-out;
+}
+.ap-detail-close:hover {
+  transform: scale(1.15);
+}
+
+/* Chip/filter buttons smooth transitions. */
+.ap-chip {
+  transition: all 0.2s ease-out;
+}
+.ap-chip:hover {
+  transform: translateY(-1px);
+}
+.ap-chip[aria-pressed="true"] {
+  animation: ap-chip-select 0.25s ease-out;
+}
+@keyframes ap-chip-select {
+  0% { transform: scale(0.95); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* Smooth checkbox and toggle animations. */
+input[type="checkbox"], input[type="radio"] {
+  transition: all 0.2s ease-out;
+}
+input[type="checkbox"]:checked, input[type="radio"]:checked {
+  animation: ap-checkbox-check 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes ap-checkbox-check {
+  0% { transform: scale(0.8); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+/* Smooth banner fade-in. */
+.ap-banner {
+  animation: ap-banner-slide 0.3s ease-out;
+}
+@keyframes ap-banner-slide {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Smooth list item transitions. */
+li {
+  transition: all 0.15s ease-out;
+}
+ul > li:hover {
+  transform: translateX(2px);
+}
+
+/* Smooth spinner/loading animation for live indicators. */
+[data-live] {
+  animation: ap-live-pulse 0.8s ease-in-out infinite;
+}
+@keyframes ap-live-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+/* Smooth "now" marker pulse. */
+#ap-now {
+  animation: ap-now-pulse 1.2s ease-in-out infinite;
+}
+@keyframes ap-now-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Smooth error state transitions. */
+.is-error {
+  animation: ap-error-flash 0.4s ease-out;
+}
+@keyframes ap-error-flash {
+  0% { transform: translateX(-4px); }
+  25% { transform: translateX(4px); }
+  50% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+  100% { transform: translateX(0); }
+}
+
+/* Smooth hidden state transitions. */
+[hidden] {
+  animation: ap-fade-out 0.15s ease-out forwards;
+}
+@keyframes ap-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* Respect prefers-reduced-motion for all animations. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  button:active { transform: none; }
+  button:hover { transform: none; }
+  #ap-rows > .ap-row:hover { transform: none; }
+  .ap-kanban-card:hover { transform: none; box-shadow: none; }
+  .ap-kanban-card:focus-visible { transform: none; }
+  a:hover::after { transform: none; }
+  #ap-theme button:hover { transform: none; }
+}
 </style>
 </head>
 
