@@ -68,7 +68,7 @@ Nothing on the board is edited by hand.
 
 **The board draws itself.** Each command takes the tracker's lock, writes its state atomically and
 re-renders the page before letting go. The page can never show a state the files did not hold, and it
-reloads itself every five minutes when idle, keeping your place.
+reloads itself within a minute of new data when idle, keeping your place.
 
 **Every ticket gets its own worktree.** Builders work on a `ticket-<id>` branch in `.claude/worktrees/`,
 never in your checkout. All worktrees write to one tracker, found through git's common directory, so
