@@ -339,8 +339,12 @@ export function createFinishedWorkSwitchController(sources: FinishedWorkSwitchSo
         closePopover(false);
       }
     });
-    // The counts are the selected tab's: tasks on Progress, tickets elsewhere. The template's own tab listener runs first.
-    document.getElementById('ap-tabs')?.addEventListener('click', () => render());
+    // The counts are the selected tab's: tasks on Progress, tickets elsewhere. Watched on the tabs themselves, since a summary stat or a
+    // link selects a tab without a click on it.
+    const tabs = document.getElementById('ap-tabs');
+    if (tabs !== null && typeof MutationObserver === 'function') {
+      new MutationObserver(() => render()).observe(tabs, { subtree: true, attributeFilter: ['aria-selected'] });
+    }
     if (typeof ResizeObserver === 'function') {
       const thumbObserver = new ResizeObserver(() => {
         placeThumb(finishedSwitch);
