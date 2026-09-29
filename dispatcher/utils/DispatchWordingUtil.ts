@@ -94,6 +94,8 @@ function parkReasonText(reason: ParkReason): string {
       return roundRefusalText(reason.refusal);
     case 'claim-refused':
       return `the claim was refused${parentheticalOf(reason.detail)}`;
+    case 'released-out-of-turn':
+      return `its reviewer reported releasing the group, which only the reviewer of #${reason.releaseTicketId} does, so the group run started nothing more`;
   }
 }
 
@@ -165,8 +167,9 @@ function logEntryText(entry: DispatchLogEntry): string {
         + 'mark its release ticket with `agent-progress ticket release-of`, then relaunch.';
     case 'ticket-integrated':
       return `#${entry.ticketId} integrated into group-${entry.groupName}.`;
-    case 'release-review-left':
-      return `#${entry.ticketId}, the group's release ticket, is built and every ticket before it integrated: its release review is left for the group's release.`;
+    case 'group-released':
+      return `#${entry.ticketId}'s reviewer released group-${entry.groupName} to the main line, `
+        + `delivering ${entry.deliveredTicketIds.map((ticketId) => `#${ticketId}`).join(', ')}.`;
   }
 }
 
@@ -190,7 +193,6 @@ function summaryOf(outcome: DispatchOutcome): DispatchSummary {
   summary.group = groupOutcome.groupName;
   summary.integrated = groupOutcome.integrated;
   if (groupOutcome.waitingOnPredecessor.length > 0) summary.waitingOnPredecessor = groupOutcome.waitingOnPredecessor;
-  if (groupOutcome.releaseReviewNext !== null) summary.releaseReviewNext = groupOutcome.releaseReviewNext;
   if (groupOutcome.bundleIsUnread) summary.bundleUnread = true;
   return summary;
 }

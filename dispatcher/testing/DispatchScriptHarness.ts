@@ -23,6 +23,7 @@ const {
   REVIEWER_LEAVES_ITS_BAR_FOR_THE_NEXT_ROUND,
   REVIEWER_SKIPS_A_REREVIEW_ALREADY_RUN,
   SURVEY_LISTS_THE_GROUP_TICKETS,
+  GROUP_SURVEY_NAMES_ITS_GROUP,
   RELEASE_COMMAND,
 } = AGENT_PROMPT_SENTENCES;
 
@@ -389,7 +390,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     return {
       id:                             groupTicketId,
       status,
-      dependsOn:                      position === 0 ? [] : [groupTicketIds[position - 1]],
+      dependsOn:                      position === 0 ? [...scenario.group?.firstTicketDependsOn ?? []] : [groupTicketIds[position - 1]],
       releasesGroup:                  position === groupTicketIds.length - 1,
       rowNote:                        runningRowOf(`build:${groupTicketId}`)?.note ?? pausedRows.get(`build:${groupTicketId}`)?.note ?? '',
       worktreeExists:                 status === 'in-progress' || status === 'in-review',
@@ -398,8 +399,34 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     };
   });
 
+  // As an agent copies the list when its prompt names no group: the ungrouped tickets the scenario files for the whole-board run come too.
+  const everyTicketOnBoard = (): Record<string, unknown>[] => [
+    ...groupTicketsOnBoard(),
+    ...scenario.readyTicketIds.map((readyTicketId) => ({
+      id:                             readyTicketId,
+      status:                         'pending',
+      dependsOn:                      [],
+      releasesGroup:                  false,
+      rowNote:                        '',
+      worktreeExists:                 false,
+      openReviewBar:                  false,
+      integratedLineAfterLastHandoff: false,
+    })),
+  ];
+
+  const ticketsListedBy = (prompt: string): Record<string, unknown>[] => {
+    const namesTheGroup = scenario.group !== undefined && prompt.includes(`${GROUP_SURVEY_NAMES_ITS_GROUP}${scenario.group.name}\``);
+    return namesTheGroup ? groupTicketsOnBoard() : everyTicketOnBoard();
+  };
+
+  // A group ticket's fake reviewer releases when its prompt tells it to, and integrates otherwise.
+  const defaultReviewVerdictOf = (ticketId: string, prompt: string): ReviewerReply['verdict'] => {
+    if (!groupTicketIds.includes(ticketId)) return 'released';
+    return prompt.includes(RELEASE_COMMAND) ? 'released' : 'integrated';
+  };
+
   const replyFor = (call: RecordedAgentCall): Record<string, unknown> | null => {
-    if (call.kind === 'survey' && call.prompt.includes(SURVEY_LISTS_THE_GROUP_TICKETS)) return { status: statusBlock(), tickets: groupTicketsOnBoard() };
+    if (call.kind === 'survey' && call.prompt.includes(SURVEY_LISTS_THE_GROUP_TICKETS)) return { status: statusBlock(), tickets: ticketsListedBy(call.prompt) };
     if (call.kind === 'survey') {
       return {
         status:                 statusBlock(),
@@ -430,8 +457,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
         status:    statusBlock(),
       };
     }
-    const defaultVerdict = groupTicketIds.includes(ticketId) ? 'integrated' as const : 'released' as const;
-    const reply = scenario.reviewerReply === undefined ? { verdict: defaultVerdict } : scenario.reviewerReply(ticketId, ordinal);
+    const reply = scenario.reviewerReply === undefined ? { verdict: defaultReviewVerdictOf(ticketId, call.prompt) } : scenario.reviewerReply(ticketId, ordinal);
     return reply === null ? null : { ...reviewerDocumentOf(reply, ordinal), status: statusBlock() };
   };
 
@@ -555,7 +581,13 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
         rowsLeftRunning.delete(passKey);
         deliveredTicketIds.add(ticketId);
       }
-      if (kind === 'review' && (reply?.['verdict'] === 'released' || prompt.includes(RELEASE_COMMAND))) mainLineMoves.push(`review ${ticketId}`);
+      const reviewerIsTheGroups = groupTicketIds.includes(ticketId);
+      const reviewerReleased = reply?.['verdict'] === 'released';
+      if (kind === 'review' && (reviewerReleased || (!reviewerIsTheGroups && prompt.includes(RELEASE_COMMAND)))) mainLineMoves.push(`review ${ticketId}`);
+      // A release of the group delivers every ticket of its bundle.
+      if (kind === 'review' && reviewerReleased && reviewerIsTheGroups) {
+        for (const groupTicketId of groupTicketIds) groupTicketStatuses.set(groupTicketId, 'delivered');
+      }
       if (kind === 'build' && reply?.['outcome'] === 'in-review' && groupTicketStatuses.has(ticketId)) groupTicketStatuses.set(ticketId, 'in-review');
       if (kind === 'review' && reply?.['verdict'] === 'integrated') {
         groupBranchMoves.push(ticketId);
@@ -598,7 +630,7 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
   // As the orchestrator launches a single-ticket run: the ids, and their `readyTickets` entries copied from the status document of that moment.
   const argumentsFor = (ticketIds: string[] | undefined): Record<string, unknown> => {
     const withPriority = scenario.includeLowPriority === undefined ? ARGUMENTS_FOR_SCRIPT : { ...ARGUMENTS_FOR_SCRIPT, includeLowPriority: scenario.includeLowPriority };
-    if (ticketIds === undefined) return scenario.group === undefined ? withPriority : { ...withPriority, group: scenario.group.name };
+    if (ticketIds === undefined) return scenario.group === undefined || scenario.groupRunRaces === true ? withPriority : { ...withPriority, group: scenario.group.name };
     return { ...withPriority, ticketIds, readyTickets: readyTicketsOnBoard().filter((entry) => ticketIds.includes(String(entry['id']))) };
   };
 
@@ -616,10 +648,13 @@ export async function runDispatchScript(scenario: DispatchScenario, source: stri
     guardedMath(),
   );
   const mainArguments   = { ...argumentsFor(scenario.ticketIds), ...scenario.argumentOverrides };
+  const racingArguments = scenario.groupRunRaces === true && scenario.group !== undefined
+    ? { ...ARGUMENTS_FOR_SCRIPT, group: scenario.group.name }
+    : scenario.racingTicketIds === undefined ? null : argumentsFor(scenario.racingTicketIds);
   const racingRun       = (async () => {
-    if (scenario.racingTicketIds === undefined) return null;
+    if (racingArguments === null) return null;
     await turnsPass(scenario.racingRunStartsAfterTurns ?? 0);
-    return runScript('racing', racingAgent, 1, argumentsFor(scenario.racingTicketIds));
+    return runScript('racing', racingAgent, 1, racingArguments);
   })();
   let threw: string | null = null;
   let firstRunOutcome: unknown = null;

@@ -100,10 +100,11 @@ export function createAgentStarter(runtime: WorkflowRuntime, settings: DispatchS
       owner:               model,
     };
     const prompt = groupPlacement === undefined ? AgentPromptUtil.reviewerPrompt(settings, request) : GroupAgentPromptUtil.groupReviewerPrompt(settings, groupPlacement, request);
+    const bundleReviewerIsIntegrating = groupPlacement !== undefined && !GroupAgentPromptUtil.reviewsTheRelease(groupPlacement, work.ticketId);
     return runAgent(prompt, {
       label:     DispatchWordingUtil.agentLabelOf(work),
       phase:     'Review',
-      schema:    groupPlacement !== undefined ? AGENT_REPLY_SCHEMAS.GROUP_REVIEWER : AGENT_REPLY_SCHEMAS.REVIEWER,
+      schema:    bundleReviewerIsIntegrating ? AGENT_REPLY_SCHEMAS.GROUP_REVIEWER : AGENT_REPLY_SCHEMAS.REVIEWER,
       model,
       effort,
       agentType: DISPATCH_PROTOCOL.WORKER_AGENT_TYPE,

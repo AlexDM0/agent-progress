@@ -195,6 +195,25 @@ ask for a single-ticket run by hand, on the same terms. A single-ticket run is n
 dispatcher: record no `dispatcher` state or run id for it, and when it returns skip step 1 below and
 handle the rest.
 
+**A group ships as one release.** When the user wants tickets to reach the main line together, file
+each with `--group <name>` and `--depends-on` naming the one it builds on, then mark the last with
+`agent-progress ticket release-of <id>`. From that mark the release ticket and every ticket of the
+group it depends on are the group run's alone: the whole-board run never takes them, and a
+single-ticket run naming one is refused, so launch none. On the user's go, beside a whole-board run
+or without one:
+
+```
+Workflow({ scriptPath: '<mainCheckout>/.agent-progress/agent-progress-dispatch.js', args: { mainCheckout, mainLine, checkCommand, installCommand, group: '<name>' } })
+```
+
+A group run is not the board's dispatcher either: record no `dispatcher` state or run id for it, and
+when it returns skip step 1 below and handle the rest. A board stop ends it with the rest. Its summary
+adds `group`, `integrated`, `waitingOnPredecessor` (tickets built behind a parked one: settle the
+parked ticket, then relaunch) and `bundleUnread` (mark the release ticket, then relaunch). **Recover
+a group run by launching it again** with the same args, never by resuming it: it keeps no state of its
+own and picks the pipeline up from the board, its builders and reviewers taking over the claims and
+bars the dead run left.
+
 **The user asking to pause one ticket** — "pause this ticket", "hold #7 before review" — is
 `agent-progress ticket hold <id> --reason "<why>"`, never a stop of the run, and `ticket unhold <id>`
 lifts it. Tell the user when the hold came too late for a step already under way.

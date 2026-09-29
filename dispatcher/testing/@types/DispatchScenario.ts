@@ -103,14 +103,19 @@ export interface DispatchScenario {
   agentMisbehaviour?:             (call: RecordedAgentCall) => AgentMisbehaviour | undefined;
   /**
    * A group run of the script: `args.group` names it, and the board's group holds these tickets, each depending on the one before, the last its
-   * release ticket. A reviewer answers `integrated` by default, which moves the group branch and the ticket to `reviewed`.
+   * release ticket. A reviewer answers `integrated` by default, which moves the group branch and the ticket to `reviewed`, and `released` when its
+   * prompt names the release command, which moves the main line and delivers the whole group.
    */
   group?:                         GroupScenario;
+  /** The group run is the racing run, beside a whole-board main run over `readyTicketIds`, both against the one board. */
+  groupRunRaces?:                 boolean;
   /** These agents (`build 102`, `review 101`) run `SLOW_AGENT_EXTRA_TURNS` turns longer from their first command to their return. */
   slowAgentNames?:                string[];
 }
 
 export interface GroupScenario {
-  name:      string;
-  ticketIds: string[];
+  name:                  string;
+  ticketIds:             string[];
+  /** Tickets outside the group the first one depends on, which a group survey naming its group never lists. */
+  firstTicketDependsOn?: string[];
 }

@@ -1,6 +1,6 @@
 /**
  * The prompts of a group run's agents: its survey, and the builder and reviewer of each bundle ticket, worked on a ticket branch forked off the one
- * before it and integrated onto the group branch, which only the group's release takes to the main line.
+ * before it and integrated onto the group branch, which only the release ticket's reviewer takes to the main line.
  */
 import { DISPATCH_PROTOCOL }                                from '../../../src/shared/constants/DispatchProtocol.ts';
 import { DispatcherClaimNoteUtil }                          from '../../../src/shared/utils/DispatcherClaimNoteUtil.ts';
@@ -161,14 +161,57 @@ function reviewBarLinesOf(settings: DispatchSettings, request: ReviewerPromptReq
   return lines;
 }
 
-function groupReviewerPrompt(settings: DispatchSettings, placement: GroupPlacement, request: ReviewerPromptRequest): string {
-  const { ticketId, expectedRound } = request;
+function reviewProcedureText(settings: DispatchSettings, placement: GroupPlacement, ticketId: string, integrationSteps: string): string {
+  return `Read \`${settings.mainCheckout}/${DISPATCH_PROTOCOL.REVIEW_BRIEF_PATH_IN_REPOSITORY}\` once and follow its fenced block as your procedure, steps 0 to 7, `
+    + `with <worktree> = ${worktreeOf(settings, ticketId)}, <branch> = ${branchOf(ticketId)}, <main line> = ${groupBranchOf(placement.groupName)}, `
+    + `<main checkout> = ${settings.mainCheckout} and <full check command> = \`${settings.checkCommand}\`. `
+    + `Step 8 is not yours: where the brief takes the branch to the main line, run ${integrationSteps} below instead. Before step 0, run P below.`;
+}
+
+function pipelineStepText(settings: DispatchSettings, placement: GroupPlacement, ticketId: string): string {
   const worktree = worktreeOf(settings, ticketId);
   const groupBranch = groupBranchOf(placement.groupName);
-  const groupWorktree = groupWorktreeOf(settings, placement.groupName);
   const { predecessorId } = placement;
   const predecessorGate = predecessorId === null ? '' : `\`agent-progress ticket show ${predecessorId}\` must say \`reviewed\`, \`delivered\` or \`abandoned\`; `
     + 'otherwise change nothing more, close your bar, and return `not-released` with releaseReason `predecessor-not-integrated`. Then ';
+  return `P. ${predecessorGate}bring the branch onto ${groupBranch}: record \`git -C ${worktree} rev-parse HEAD\` as <pipeline tip>, `
+    + `run \`git -C ${worktree} rebase ${groupBranch}\` `
+    + '(resolve a conflict with Edit, `git add`, `GIT_EDITOR=true git rebase --continue`, never `--abort`), then '
+    + `\`agent-progress rework --rebased-from <pipeline tip> --main ${groupBranch} --worktree ${worktree}\`, whose count joins your total and your \`## Review\`.`;
+}
+
+function reviewDisciplineLines(): string[] {
+  return [
+    `You may use up to about ${DISPATCH_PROTOCOL.REVIEWER_API_CALL_BUDGET} API calls for the review; the rebase and the integration steps are exempt.`,
+    'Every finding you would hand on instead of fixing, you file yourself: '
+      + '`agent-progress ticket add "<what and where>" --priority low --body "<what you saw and what you would do>"`; return the ids it printed as `filedTicketIds`.',
+    `Step 7b is a count: request the next round only when over ${DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES} lines of code were reworked. `
+      + 'Whether that round runs is the dispatcher\'s decision.',
+  ];
+}
+
+// I1 and I2 fast-forward the group branch to the ticket branch, which both a bundle ticket's reviewer and the release ticket's run.
+function fastForwardStepLines(settings: DispatchSettings, placement: GroupPlacement, ticketId: string): string[] {
+  const groupBranch = groupBranchOf(placement.groupName);
+  const groupWorktree = groupWorktreeOf(settings, placement.groupName);
+  return [
+    `I1. \`git -C ${groupWorktree} branch --show-current\` must print ${groupBranch} and \`git -C ${groupWorktree} status --porcelain\` nothing; `
+      + 'otherwise change nothing and return `not-released` with releaseReason `group-worktree-unclean`.',
+    `I2. \`git -C ${groupWorktree} merge --ff-only ${branchOf(ticketId)}\`; when git refuses because ${groupBranch} moved, rebase again as P says and retry once, `
+      + 'and a second refusal returns `not-released` with releaseReason `group-moved`. '
+      + `Once it succeeds, append the line \`${integratedLineOf(placement.groupName)}\` at the end of your \`## Review\`, with the full commit `
+      + `\`git -C ${groupWorktree} rev-parse HEAD\` prints.`,
+  ];
+}
+
+function ticketWorktreeRemovalText(settings: DispatchSettings, placement: GroupPlacement, ticketId: string): string {
+  return `I4. \`git -C ${settings.mainCheckout} worktree remove ${worktreeOf(settings, ticketId)}\`, never \`--force\`, `
+    + `then \`git -C ${groupWorktreeOf(settings, placement.groupName)} branch -d ${branchOf(ticketId)}\`. Name anything git declines, with its reason, and leave it.`;
+}
+
+function bundleReviewerPrompt(settings: DispatchSettings, placement: GroupPlacement, request: ReviewerPromptRequest): string {
+  const { ticketId, expectedRound } = request;
+  const groupBranch = groupBranchOf(placement.groupName);
   return [
     `agent-progress review: ${ticketId}`,
     headerLineOf(settings, ticketId, placement.groupName),
@@ -181,28 +224,13 @@ function groupReviewerPrompt(settings: DispatchSettings, placement: GroupPlaceme
       + '(`agent-progress task finish <bar>`, then `agent-progress task deliver <bar>`), and return verdict `integrated`. When it says `in-review` and that line is '
       + 'already there, an earlier reviewer fast-forwarded the group branch and stopped: take your bar as below, then go straight to I3.',
     ...reviewBarLinesOf(settings, request),
-    `Read \`${settings.mainCheckout}/${DISPATCH_PROTOCOL.REVIEW_BRIEF_PATH_IN_REPOSITORY}\` once and follow its fenced block as your procedure, steps 0 to 7, `
-      + `with <worktree> = ${worktree}, <branch> = ${branchOf(ticketId)}, <main line> = ${groupBranch}, <main checkout> = ${settings.mainCheckout} and `
-      + `<full check command> = \`${settings.checkCommand}\`. Step 8 is not yours: where the brief takes the branch to the main line, run I1 to I4 below instead. `
-      + 'Before step 0, run P below.',
-    `P. ${predecessorGate}bring the branch onto ${groupBranch}: record \`git -C ${worktree} rev-parse HEAD\` as <pipeline tip>, run \`git -C ${worktree} rebase ${groupBranch}\` `
-      + '(resolve a conflict with Edit, `git add`, `GIT_EDITOR=true git rebase --continue`, never `--abort`), then '
-      + `\`agent-progress rework --rebased-from <pipeline tip> --main ${groupBranch} --worktree ${worktree}\`, whose count joins your total and your \`## Review\`.`,
-    `You may use up to about ${DISPATCH_PROTOCOL.REVIEWER_API_CALL_BUDGET} API calls for the review; the rebase and the integration steps are exempt.`,
-    'Every finding you would hand on instead of fixing, you file yourself: '
-      + '`agent-progress ticket add "<what and where>" --priority low --body "<what you saw and what you would do>"`; return the ids it printed as `filedTicketIds`.',
-    `Step 7b is a count: request the next round only when over ${DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES} lines of code were reworked. `
-      + 'Whether that round runs is the dispatcher\'s decision.',
-    `I1. \`git -C ${groupWorktree} branch --show-current\` must print ${groupBranch} and \`git -C ${groupWorktree} status --porcelain\` nothing; `
-      + 'otherwise change nothing and return `not-released` with releaseReason `group-worktree-unclean`.',
-    `I2. \`git -C ${groupWorktree} merge --ff-only ${branchOf(ticketId)}\`; when git refuses because ${groupBranch} moved, rebase again as P says and retry once, `
-      + 'and a second refusal returns `not-released` with releaseReason `group-moved`. '
-      + `Once it succeeds, append the line \`${integratedLineOf(placement.groupName)}\` at the end of your \`## Review\`, with the full commit `
-      + `\`git -C ${groupWorktree} rev-parse HEAD\` prints.`,
+    reviewProcedureText(settings, placement, ticketId, 'I1 to I4'),
+    pipelineStepText(settings, placement, ticketId),
+    ...reviewDisciplineLines(),
+    ...fastForwardStepLines(settings, placement, ticketId),
     `I3. In ${settings.mainCheckout}: \`agent-progress ticket approve ${ticketId}\`, which moves the ticket to \`reviewed\` and closes its in-progress review bar; `
       + 'a review bar of it still `in-progress` in `agent-progress status --json` is yours, so `agent-progress task finish <bar>`, then `agent-progress task deliver <bar>`.',
-    `I4. \`git -C ${settings.mainCheckout} worktree remove ${worktree}\`, never \`--force\`, then \`git -C ${groupWorktree} branch -d ${branchOf(ticketId)}\`. `
-      + 'Name anything git declines, with its reason, and leave it.',
+    ticketWorktreeRemovalText(settings, placement, ticketId),
     'Return verdict `integrated` only once I3 succeeded. On `round-requested`, leave your bar running: the next round\'s `ticket rereview --start-review` closes it, '
       + 'so the ticket\'s slot stays held. On every other verdict than integrated, close your own bar: '
       + '`agent-progress task finish <bar>`, then `agent-progress task deliver <bar>`.',
@@ -211,6 +239,67 @@ function groupReviewerPrompt(settings: DispatchSettings, placement: GroupPlaceme
       + '`findings` (every finding of this round, each with a one-word `class`, its `file` and a one-line `summary`), '
       + `and \`filedTicketIds\`. ${statusReturnText()}`,
   ].join('\n');
+}
+
+// The one agent of a group run that writes the main line: it integrates the release ticket like any other, then takes the whole group branch there.
+function releaseReviewerPrompt(settings: DispatchSettings, placement: GroupPlacement, request: ReviewerPromptRequest): string {
+  const { ticketId, expectedRound } = request;
+  const groupBranch = groupBranchOf(placement.groupName);
+  const groupWorktree = groupWorktreeOf(settings, placement.groupName);
+  const { mainLine, mainCheckout, checkCommand } = settings;
+  const earlierTicketsText = placement.orderedTicketIds.filter((groupTicketId) => groupTicketId !== ticketId).map((groupTicketId) => `#${groupTicketId}`).join(', ');
+  const installText = settings.installCommand === '' ? '' : `Run \`${settings.installCommand}\` in ${groupWorktree} once. `;
+  return [
+    `agent-progress review: ${ticketId}`,
+    headerLineOf(settings, ticketId, placement.groupName),
+    `You are a clean reviewer of ticket #${ticketId}, the release ticket of the group, for the agent-progress group dispatcher, round ${expectedRound} as the dispatcher `
+      + 'counts it. Your round is the number of `## Review` sections already in the ticket plus one; return it as `round`.',
+    groupOverrideText(settings, placement),
+    `Like every reviewer of the group you integrate this ticket onto ${groupBranch}, and then you release the whole group to ${mainLine}: of the group's agents, `
+      + `only you write ${mainLine}, and only through \`agent-progress release\`.`,
+    `FIRST, \`agent-progress ticket show ${ticketId}\`. When it says \`delivered\`, an earlier reviewer released the group: change nothing and return verdict \`released\`. `
+      + `When it says \`in-review\` and a \`## Review\` after its last \`## Handoff\` holds the \`${INTEGRATED_LINE_OPENING}\` line, an earlier reviewer fast-forwarded `
+      + 'the group branch: take your bar as below, run I4, then go straight to R1.',
+    ...reviewBarLinesOf(settings, request),
+    reviewProcedureText(settings, placement, ticketId, 'I1, I2, I4 and R1 to R4'),
+    pipelineStepText(settings, placement, ticketId),
+    ...reviewDisciplineLines(),
+    ...fastForwardStepLines(settings, placement, ticketId),
+    ticketWorktreeRemovalText(settings, placement, ticketId),
+    `R1. \`agent-progress ticket list\`: each of ${earlierTicketsText} must be \`reviewed\`, \`delivered\` or \`abandoned\`. Otherwise change nothing more, close your bar, `
+      + 'and return `not-released` with releaseReason `group-incomplete`, naming the ids that are not in your report.',
+    `R2. From here on you work in ${groupWorktree}. ${installText}Record \`git -C ${groupWorktree} rev-parse HEAD\` as <pre-rebase tip>, then `
+      + `\`git -C ${groupWorktree} rebase ${mainLine}\`, never \`-i\`: resolve with Edit, \`git add\`, \`GIT_EDITOR=true git rebase --continue\`, never \`--abort\`. `
+      + `Run \`${checkCommand} 2>&1 | tail -20\` in ${groupWorktree} until green, committing what is uncommitted; review every hunk you resolved by hand as step 3 says. `
+      + `Count it: \`agent-progress rework --rebased-from <pre-rebase tip> --main ${mainLine} --worktree ${groupWorktree}\`, add it to your total and to your \`## Review\`, `
+      + 'and apply step 7 again: a gap you could not close is `does-not-hold`, over the threshold requests the next round, and otherwise R3.',
+    'R3. When the root `CLAUDE.md` names a step for just before `agent-progress release` (a version bump, say), run it now in '
+      + `${groupWorktree}, exactly as written there.`,
+    `R4. \`cd ${mainCheckout}\` first, since the group worktree is about to go, then `
+      + `\`agent-progress release ${placement.orderedTicketIds.join(' ')} --branch ${groupBranch} --worktree ${groupWorktree} --main ${mainLine} --json\`, `
+      + 'leaving out any id R1 found `delivered` or `abandoned`: every other ticket of the group in the one call. Act on what it prints:',
+    '- `"released": true`: done. Name any `cleanup` step that is `left`, and the files it lists.',
+    `- \`"reason": "main-moved"\`: another branch reached ${mainLine} first. When R3 made a commit, drop it the way the root \`CLAUDE.md\` says. `
+      + 'Then R2 again, and R3 and R4 again when R2 ends there.',
+    '- Any other reason, or a denial by the permission system (never retried, reworded or merged around): change nothing more and return `not-released` with that '
+      + 'reason (`permission-denied` for a denial), its `detail` in your report and, on `merge-refused`, the `blockingFiles` it names.',
+    'On `round-requested`, and on `not-released` for `main-moved`, leave your bar running: the next round\'s `ticket rereview --start-review` closes it, '
+      + 'so the ticket\'s slot stays held. The release delivers your bar; on every other verdict close it yourself: '
+      + '`agent-progress task finish <bar>`, then `agent-progress task deliver <bar>`.',
+    'Return `verdict` (released, round-requested, does-not-hold or not-released), `releaseReason` (the release\'s reason when not-released, empty otherwise), '
+      + '`blockingFiles` (the refused release\'s `blockingFiles`, empty otherwise), `reworkedLines` (every rework count together), '
+      + '`findings` (every finding of this round, each with a one-word `class`, its `file` and a one-line `summary`), '
+      + `and \`filedTicketIds\`. ${statusReturnText()}`,
+  ].join('\n');
+}
+
+function reviewsTheRelease(placement: GroupPlacement, ticketId: string): boolean {
+  return ticketId === placement.releaseTicketId;
+}
+
+function groupReviewerPrompt(settings: DispatchSettings, placement: GroupPlacement, request: ReviewerPromptRequest): string {
+  if (reviewsTheRelease(placement, request.ticketId)) return releaseReviewerPrompt(settings, placement, request);
+  return bundleReviewerPrompt(settings, placement, request);
 }
 
 function groupSurveyPrompt(settings: DispatchSettings, groupName: string): string {
@@ -233,4 +322,5 @@ export const GroupAgentPromptUtil = {
   groupSurveyPrompt,
   groupBuilderPrompt,
   groupReviewerPrompt,
+  reviewsTheRelease,
 } as const;

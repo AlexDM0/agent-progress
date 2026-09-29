@@ -342,9 +342,16 @@ states, and the dispatcher decides that in code. It starts no low ticket unless 
   bundle runs in dependency order, lowest id first among equals, as a pipeline of at most one builder
   and one reviewer: builder N+1 claims with `ticket claim <n+1> --after <n>` on a branch forked off
   N's built tip while reviewer N rebases N onto the group branch, fast-forwards the group branch to
-  it and approves it; reviewer N+1 starts only once N is integrated. Nothing reaches the main line: a
-  run whose next step is the release ticket's review stops there, naming it as `releaseReviewNext`,
-  with `integrated` and, behind a parked ticket, `waitingOnPredecessor` in its summary. It never
+  it and approves it; reviewer N+1 starts only once N is integrated. The release ticket, last in the
+  order, is reviewed once every other bundle ticket is integrated, and its reviewer alone reaches the
+  main line: it integrates its own ticket onto the group branch, rebases the group branch onto the
+  main line in the group worktree, runs the full checks and the root `CLAUDE.md`'s pre-release step
+  there, and runs one `release` over every open bundle ticket with `--branch group-<name> --worktree
+  <group worktree>`, which delivers them all and removes the group worktree and branch. A
+  `main-moved` it returns takes one more review round on the bar it left running, and the next parks
+  the release ticket, as in a whole-board run; a release reported by any other bundle ticket's
+  reviewer parks that ticket and starts nothing more. The summary names the released tickets under
+  `delivered`, with `integrated` and, behind a parked ticket, `waitingOnPredecessor`. It never
   reads or writes the board's dispatcher state or run id, shares the board's slot limit (a group
   builder waits for a free slot by its own background poll), ends on a board stop like a whole-board
   run, and a relaunch picks the pipeline up from the board alone.

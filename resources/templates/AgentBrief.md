@@ -86,7 +86,9 @@ there, at the end of the ticket body when it is filed: the Scope's file list and
 above, and the claims its reviewer is to test. A ticket without one is built from Report, Wanted and
 Acceptance alone, and its builder pays for the rediscovery. The dispatcher runs other tickets beside
 it, so `Out of bounds` names what this ticket must not touch, and two tickets that rewrite one file
-are ordered with `--depends-on` rather than fenced here.
+are ordered with `--depends-on` rather than fenced here. A group ticket's `## Brief` never states a
+worktree, a branch or a release step: the group run's prompts name them, and the release ticket's
+reviewer releases the whole group.
 
 ```
 ## Brief

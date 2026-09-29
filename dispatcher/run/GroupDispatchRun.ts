@@ -1,7 +1,7 @@
 /**
  * One group run's state and its decisions: the release bundle read from the board and put in dependency order, then a pipeline of at most one
- * builder and one reviewer, builder N+1 on N's built tip while reviewer N integrates N onto the group branch. It does no I/O, and never releases:
- * a run whose next step is the release ticket's review stops there.
+ * builder and one reviewer, builder N+1 on N's built tip while reviewer N integrates N onto the group branch. It does no I/O. The release ticket,
+ * last in the order, is reviewed once every ticket before it is integrated, and its reviewer alone takes the group branch to the main line.
  */
 import { DEFAULT_AGENT_EFFORT, DEFAULT_AGENT_MODEL } from '../../src/lib/tracker-model/constants/AgentSettings.ts';
 import { DispatcherClaimNoteUtil }                   from '../../src/shared/utils/DispatcherClaimNoteUtil.ts';
@@ -30,12 +30,13 @@ import { DISPATCH_POLICY }               from '../constants/DispatchPolicy.ts';
 import type { DispatchRunCollaborators } from './DispatchRun.ts';
 import { RoundVerdictUtil }              from './utils/RoundVerdictUtil.ts';
 
-type GroupTicketStage = 'to-build' | 'building' | 'built' | 'reviewing' | 'integrated' | 'parked';
+type GroupTicketStage = 'to-build' | 'building' | 'built' | 'reviewing' | 'integrated' | 'released' | 'parked';
 
 interface GroupTicketRecord {
   stage:               GroupTicketStage;
   previousPass:        PreviousPass;
   failedPasses:        number;
+  mainMovedReleases:   number;
   nextRound:           number;
   rounds:              ReviewedRound[];
   rereviewRunsFirst:   boolean;
@@ -93,13 +94,15 @@ export class GroupDispatchRun {
   private readonly records:       Map<string, GroupTicketRecord> = new Map();
   private readonly inFlight:      Map<number, OwnAgent> = new Map();
   private readonly integrated:    string[] = [];
+  private readonly delivered:     string[] = [];
   private readonly parked:        ParkedTicket[] = [];
   private readonly findingsFiled: string[] = [];
+  private readonly settledBefore: Set<string> = new Set();
   private orderedTicketIds:       string[] = [];
   private releaseTicketId:        string = '';
-  private releaseReviewNext:      string | null = null;
   private bundleIsUnread:         boolean = false;
   private runWasStoppedByBoard:   boolean = false;
+  private releasedOutOfTurn:      boolean = false;
   private agentsRun:              number = 0;
   private launchCount:            number = 0;
 
@@ -140,6 +143,7 @@ export class GroupDispatchRun {
 
   startWorkWithinThePipeline(): void {
     if (this.runWasStoppedByBoard) return;
+    if (this.releasedOutOfTurn) return;
     const review = this.nextReview();
     if (review !== null) this.launch(review);
     const build = this.nextBuild();
@@ -170,13 +174,12 @@ export class GroupDispatchRun {
   }
 
   closeTheRun(): void {
-    if (this.releaseReviewNext !== null) this.collaborators.logger.releaseReviewLeft(this.releaseReviewNext);
-    this.collaborators.logger.runDone(0, this.parked.map((parkedTicket) => parkedTicket.ticketId), this.findingsFiled.length, this.agentsRun);
+    this.collaborators.logger.runDone(this.delivered.length, this.parked.map((parkedTicket) => parkedTicket.ticketId), this.findingsFiled.length, this.agentsRun);
   }
 
   outcome(): DispatchOutcome {
     return {
-      delivered:               [],
+      delivered:               this.delivered,
       parked:                  this.parked,
       findingsFiled:           this.findingsFiled,
       agentsRun:               this.agentsRun,
@@ -191,7 +194,6 @@ export class GroupDispatchRun {
         groupName:            this.groupName,
         integrated:           this.integrated,
         waitingOnPredecessor: this.waitingOnPredecessorIds(),
-        releaseReviewNext:    this.releaseReviewNext,
         bundleIsUnread:       this.bundleIsUnread,
       },
     };
@@ -202,10 +204,12 @@ export class GroupDispatchRun {
     let stage: GroupTicketStage = 'to-build';
     if (SETTLED_TICKET_STATUSES.includes(ticket.status)) stage = 'integrated';
     else if (ticket.status === 'in-review') stage = 'built';
+    if (ticket.status === 'delivered' || ticket.status === 'abandoned') this.settledBefore.add(ticket.id);
     return {
       stage,
       previousPass:        ticket.status === 'in-progress' && ticket.rowNote === ownClaimNote && ticket.worktreeExists ? 'builder' : null,
       failedPasses:        0,
+      mainMovedReleases:   0,
       nextRound:           1,
       rounds:              [],
       rereviewRunsFirst:   false,
@@ -222,6 +226,7 @@ export class GroupDispatchRun {
       stage:               'parked',
       previousPass:        null,
       failedPasses:        0,
+      mainMovedReleases:   0,
       nextRound:           1,
       rounds:              [],
       rereviewRunsFirst:   false,
@@ -278,10 +283,6 @@ export class GroupDispatchRun {
     if (this.agentsInFlightOf('review') >= DISPATCH_POLICY.GROUP_REVIEWERS_AT_ONCE) return null;
     const ticketId = this.orderedTicketIds.find((groupTicketId) => this.recordOf(groupTicketId).stage === 'built');
     if (ticketId === undefined || !this.predecessorIsIntegrated(ticketId)) return null;
-    if (ticketId === this.releaseTicketId) {
-      this.releaseReviewNext = ticketId;
-      return null;
-    }
     const record = this.recordOf(ticketId);
     record.stage = 'reviewing';
     const review: AgentWork = {
@@ -381,6 +382,14 @@ export class GroupDispatchRun {
     const round = reading.round === 'unstated' ? expectedRound : reading.round;
     record.rounds.push({ round, findings: reading.findings });
     record.nextRound = round + 1;
+    if (reading.verdict === 'released') {
+      this.settleRelease(ticketId);
+      return;
+    }
+    if (reading.verdict === 'integrated' && ticketId === this.releaseTicketId) {
+      this.park(ticketId, { cause: 'release-refused', statedReason: 'integrated-without-release', blockingFiles: [] }, true);
+      return;
+    }
     if (reading.verdict === 'integrated') {
       record.stage = 'integrated';
       this.integrated.push(ticketId);
@@ -391,9 +400,13 @@ export class GroupDispatchRun {
       this.rebuild(ticketId, { cause: 'review-does-not-hold' }, 'review');
       return;
     }
+    if (reading.verdict === 'not-released' && reading.releaseRefusal === 'main-moved' && ticketId === this.releaseTicketId) {
+      this.settleMainMovedUnderTheRelease(ticketId);
+      return;
+    }
     if (reading.verdict !== 'round-requested') {
-      const statedReason = reading.releaseRefusal === 'main-moved' ? 'main-moved' : reading.releaseRefusal.statedReason;
-      this.park(ticketId, { cause: 'release-refused', statedReason, blockingFiles: [] }, true);
+      const refusal = reading.releaseRefusal === 'main-moved' ? { statedReason: 'main-moved', blockingFiles: [] } : reading.releaseRefusal;
+      this.park(ticketId, { cause: 'release-refused', statedReason: refusal.statedReason, blockingFiles: refusal.blockingFiles }, true);
       return;
     }
     const verdict = RoundVerdictUtil.nextRoundVerdictOf(record.rounds, { round, findings: reading.findings, reworkedLines: reading.reworkedLines });
@@ -402,9 +415,37 @@ export class GroupDispatchRun {
       return;
     }
     this.collaborators.logger.roundGranted(ticketId, record.nextRound, reading.reworkedLines);
+    this.reviewAgainWithTheBarLeftRunning(record);
+  }
+
+  private reviewAgainWithTheBarLeftRunning(record: GroupTicketRecord): void {
     record.stage             = 'built';
     record.rereviewRunsFirst = true;
     record.barIsHandedOn     = true;
+  }
+
+  // Only the release ticket's reviewer releases: a release reported by any other is a breach the run does not build on.
+  private settleRelease(ticketId: string): void {
+    if (ticketId !== this.releaseTicketId) {
+      this.releasedOutOfTurn = true;
+      this.park(ticketId, { cause: 'released-out-of-turn', releaseTicketId: this.releaseTicketId }, true);
+      return;
+    }
+    const deliveredTicketIds = this.orderedTicketIds.filter((groupTicketId) => !this.settledBefore.has(groupTicketId));
+    for (const groupTicketId of this.orderedTicketIds) this.recordOf(groupTicketId).stage = 'released';
+    this.delivered.push(...deliveredTicketIds);
+    this.collaborators.logger.groupReleased(ticketId, this.groupName, deliveredTicketIds);
+  }
+
+  private settleMainMovedUnderTheRelease(ticketId: string): void {
+    const record = this.recordOf(ticketId);
+    record.mainMovedReleases++;
+    if (record.mainMovedReleases >= DISPATCH_POLICY.MAIN_MOVED_RELEASES_BEFORE_PARKING) {
+      this.park(ticketId, { cause: 'main-line-moved', releases: record.mainMovedReleases }, true);
+      return;
+    }
+    this.collaborators.logger.mainLineMovedUnderRelease(ticketId, record.nextRound);
+    this.reviewAgainWithTheBarLeftRunning(record);
   }
 
   // Built after a ticket the run parked: its work waits, unreviewed, for that ticket to be settled by hand.

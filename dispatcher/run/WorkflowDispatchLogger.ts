@@ -27,7 +27,6 @@ export function createWorkflowDispatchLogger(log: (message: string) => void): Di
     groupTicketRefused:              (ticketId, groupName) => { write({ kind: 'group-ticket-refused', ticketId, groupName }); },
     groupBundleUnread:               (groupName) => { write({ kind: 'group-bundle-unread', groupName }); },
     ticketIntegrated:                (ticketId, groupName) => { write({ kind: 'ticket-integrated', ticketId, groupName }); },
-    releaseReviewLeft:               (ticketId) => { write({ kind: 'release-review-left', ticketId }); },
     roundGranted:                    (ticketId, nextRound, reworkedLines) => {
       write({
         kind: 'round-granted',
@@ -43,6 +42,14 @@ export function createWorkflowDispatchLogger(log: (message: string) => void): Di
         parkedTicketIds,
         findingsFiledCount,
         agentsRun,
+      });
+    },
+    groupReleased: (ticketId, groupName, deliveredTicketIds) => {
+      write({
+        kind: 'group-released',
+        ticketId,
+        groupName,
+        deliveredTicketIds,
       });
     },
   };

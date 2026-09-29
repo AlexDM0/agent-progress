@@ -31,7 +31,8 @@ export type ParkReason =
   | { cause: 'release-refused'; statedReason: string; blockingFiles: readonly string[] }
   | { cause: 'main-line-moved'; releases: number }
   | { cause: 'round-refused'; refusal: RoundRefusal }
-  | { cause: 'claim-refused'; detail: string };
+  | { cause: 'claim-refused'; detail: string }
+  | { cause: 'released-out-of-turn'; releaseTicketId: string };
 
 export interface ParkedTicket {
   ticketId: string;
@@ -66,7 +67,6 @@ export interface GroupOutcome {
   groupName:            string;
   integrated:           string[];
   waitingOnPredecessor: string[];
-  releaseReviewNext:    string | null;
   bundleIsUnread:       boolean;
 }
 
@@ -86,6 +86,5 @@ export interface DispatchSummary {
   group?:                  string;
   integrated?:             string[];
   waitingOnPredecessor?:   string[];
-  releaseReviewNext?:      string;
   bundleUnread?:           true;
 }

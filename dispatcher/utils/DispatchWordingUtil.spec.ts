@@ -223,7 +223,6 @@ describe('the summary', () => {
       groupName:            'example-group',
       integrated:           ['101'],
       waitingOnPredecessor: [],
-      releaseReviewNext:    null,
       bundleIsUnread:       false,
     };
     expect(summaryOf({ ...QUIET_OUTCOME, groupOutcome })).toEqual({ ...summaryOf(QUIET_OUTCOME), group: 'example-group', integrated: ['101'] });
@@ -232,24 +231,29 @@ describe('the summary', () => {
       groupOutcome: {
         ...groupOutcome,
         waitingOnPredecessor: ['103'],
-        releaseReviewNext:    '104',
         bundleIsUnread:       true,
       },
     });
-    expect(Object.keys(fullSummary).slice(-5)).toEqual(['group', 'integrated', 'waitingOnPredecessor', 'releaseReviewNext', 'bundleUnread']);
+    expect(Object.keys(fullSummary).slice(-4)).toEqual(['group', 'integrated', 'waitingOnPredecessor', 'bundleUnread']);
   });
 });
 
 describe('the group run\'s log sentences', () => {
-  test('name the refused grouped ticket, the unread bundle, each integration and the release review left', () => {
+  test('name the refused grouped ticket, the unread bundle, each integration and the release', () => {
     expect(logEntryText({ kind: 'group-ticket-refused', ticketId: '101', groupName: 'example-group' }))
       .toBe('#101 belongs to the group example-group, whose bundle only a group run builds: relaunch with args.group.');
     expect(logEntryText({ kind: 'group-bundle-unread', groupName: 'example-group' })).toContain('`agent-progress ticket release-of`');
     expect(logEntryText({ kind: 'ticket-integrated', ticketId: '101', groupName: 'example-group' })).toBe('#101 integrated into group-example-group.');
-    expect(logEntryText({ kind: 'release-review-left', ticketId: '103' })).toContain('its release review is left for the group\'s release');
+    expect(logEntryText({
+      kind: 'group-released', ticketId: '103', groupName: 'example-group', deliveredTicketIds: ['101', '102', '103'],
+    })).toBe('#103\'s reviewer released group-example-group to the main line, delivering #101, #102, #103.');
   });
 
   test('a claim refused on a group ticket parks it with the refusal', () => {
     expect(DispatchWordingUtil.parkReasonText({ cause: 'claim-refused', detail: '#101 is in-progress' })).toBe('the claim was refused (#101 is in-progress)');
+  });
+
+  test('a release reported by a bundle ticket\'s reviewer parks it, naming the release ticket', () => {
+    expect(DispatchWordingUtil.parkReasonText({ cause: 'released-out-of-turn', releaseTicketId: '103' })).toContain('only the reviewer of #103 does');
   });
 });

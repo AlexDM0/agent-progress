@@ -15,8 +15,9 @@ export const AGENT_PROMPT_SENTENCES = {
   REVIEWER_LEAVES_ITS_BAR_FOR_THE_NEXT_ROUND:   'leave your bar running',
   /** A round-2+ reviewer's prompt skips its `ticket rereview` by it when the bar of its round is already running. */
   REVIEWER_SKIPS_A_REREVIEW_ALREADY_RUN:        'skip the rereview and take that row as your bar',
-  /** A group run's survey lists the group's tickets by it, which the fake survey answers from the scenario's group. */
-  SURVEY_LISTS_THE_GROUP_TICKETS:               'top-level `tickets` list whose `group` is',
-  /** The main line moves whenever a reviewer runs it. */
+  /** A group run's survey lists the board's tickets by it, narrowed to the group it names after `GROUP_SURVEY_NAMES_ITS_GROUP`. */
+  SURVEY_LISTS_THE_GROUP_TICKETS:               'top-level `tickets` list',
+  GROUP_SURVEY_NAMES_ITS_GROUP:                 'whose `group` is `',
+  /** The main line moves whenever a reviewer runs it; a group ticket's reviewer moves it only by returning `released`. */
   RELEASE_COMMAND:                              'agent-progress release',
 } as const;

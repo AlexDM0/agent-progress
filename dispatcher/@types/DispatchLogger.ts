@@ -32,7 +32,7 @@ export interface DispatchLogger {
   groupTicketRefused(ticketId: string, groupName: string): void;
   groupBundleUnread(groupName: string): void;
   ticketIntegrated(ticketId: string, groupName: string): void;
-  releaseReviewLeft(ticketId: string): void;
+  groupReleased(ticketId: string, groupName: string, deliveredTicketIds: readonly string[]): void;
 }
 
 export type DispatchLogEntry =
@@ -60,4 +60,4 @@ export type DispatchLogEntry =
   | { kind: 'group-ticket-refused'; ticketId: string; groupName: string }
   | { kind: 'group-bundle-unread'; groupName: string }
   | { kind: 'ticket-integrated'; ticketId: string; groupName: string }
-  | { kind: 'release-review-left'; ticketId: string };
+  | { kind: 'group-released'; ticketId: string; groupName: string; deliveredTicketIds: readonly string[] };

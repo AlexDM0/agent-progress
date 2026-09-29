@@ -1,6 +1,7 @@
 /**
  * The group prompts' contract: each carries the marker the hook and the harness read its kind by, the group worktree, branch and role, so a
- * ticket's `## Brief` never has to state them; a successor claims with `--after` its predecessor; and no reviewer is ever told to release.
+ * ticket's `## Brief` never has to state them; a successor claims with `--after` its predecessor; and no reviewer but the release ticket's is ever
+ * told to release, which it does for the whole group in one call.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -86,6 +87,34 @@ describe('the group reviewer prompt', () => {
 
   test('refuses to integrate before the ticket before it is settled, a delivered or abandoned one passing as a reviewed one does', () => {
     expect(prompt).toContain('`agent-progress ticket show 101` must say `reviewed`, `delivered` or `abandoned`');
+  });
+});
+
+describe('the release ticket\'s reviewer prompt', () => {
+  const prompt = GroupAgentPromptUtil.groupReviewerPrompt(GROUP_SETTINGS, placementOf('102'), { ...REVIEW_REQUEST, ticketId: '103' });
+
+  test('integrates the ticket onto the group branch, then releases every ticket of the group in one call from the group worktree', () => {
+    expect(prompt).toStartWith('agent-progress review: 103\n');
+    expect(prompt).toContain(`\`git -C ${GROUP_WORKTREE} merge --ff-only ticket-103\``);
+    expect(prompt).toContain(`\`agent-progress release 101 102 103 --branch group-example-group --worktree ${GROUP_WORKTREE} --main main --json\``);
+  });
+
+  test('rebases the group branch onto the main line and runs the full checks and the pre-release step there first', () => {
+    expect(prompt).toContain(`\`git -C ${GROUP_WORKTREE} rebase main\``);
+    expect(prompt).toContain(`Run \`example-check 2>&1 | tail -20\` in ${GROUP_WORKTREE}`);
+    expect(prompt).toContain('names a step for just before `agent-progress release`');
+  });
+
+  test('handles main-moved inside its pass and leaves its bar for the next round, never moving a ticket\'s status by hand', () => {
+    expect(prompt).toContain('`"reason": "main-moved"`');
+    expect(prompt).toContain('on `not-released` for `main-moved`, leave your bar running');
+    expect(prompt).not.toContain('ticket status');
+    expect(prompt).not.toContain('ticket approve');
+  });
+
+  test('is the release prompt only for the release ticket', () => {
+    expect(GroupAgentPromptUtil.reviewsTheRelease(placementOf('102'), '103')).toBe(true);
+    expect(GroupAgentPromptUtil.reviewsTheRelease(placementOf('101'), '102')).toBe(false);
   });
 });
 
