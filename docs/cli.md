@@ -499,10 +499,14 @@ mutating command and reloading itself every 5 minutes when idle, keeping the vie
   (`reviewed`, `delivered` and `abandoned` collapsed). The chosen tab and the open cards are kept in the
   browser, so the refresh lands where you were.
 - **The header** above the tabs: a status line, `LIVE` while the page is under ten minutes old and
-  `SNAPSHOT` after, with how long ago it was generated; the project name; and four figures: agents
+  `SNAPSHOT` after, with how long ago it was generated, re-checked every minute so an open page turns
+  into a snapshot without a reload; the project name; and four figures: agents
   working (running rows over the concurrency limit), tickets delivered today, the tokens of rows that
   ended today or still run, and tickets waiting in the queue. Each figure but the tokens opens its
-  Kanban lane. The tab row ends in the Auto · Light · Dark theme switch.
+  Kanban lane. Below them, the activity banner lists every running row, longest-running first, as
+  `BUILDING` or, for a row with `--review-of`, `REVIEWING`, with its ticket and a running timer; a
+  snapshot freezes the timers at the moment the page was generated. The tab row ends in the
+  Auto · Light · Dark theme switch.
 - **Double-click any row**, in the chart or the ticket table, for the whole story of that task: its
   facts, every phase it went through with how long it sat in each, the ticket with its body, and the
   log lines about either (a line the tool wrote by its task and ticket ids, a note by the numbers it

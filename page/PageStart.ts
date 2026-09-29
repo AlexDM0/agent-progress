@@ -23,6 +23,7 @@ import {
 } from './constants/TemplateIds.ts';
 import { createDetailDialogController }                       from './detail-dialog/DetailDialogController.ts';
 import { createHeaderController }                             from './header/HeaderController.ts';
+import { createLiveHeaderController }                         from './header/LiveHeaderController.ts';
 import { createKanbanController }                             from './kanban/KanbanController.ts';
 import { KanbanLaneUtil }                                     from './kanban/utils/KanbanLaneUtil.ts';
 import { createReloadSnapshotStore, createViewerPreferences } from './preferences/ViewerPreferences.ts';
@@ -148,6 +149,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   }
 
   createHeaderController(payload, tickets).show(Date.now());
+  createLiveHeaderController(payload, tickets).start();
 
   // Set from the visibility filter's now before anything prints a stamp; the page reloads every few minutes when idle, so the day is rarely stale.
   let todayCalendarDate = '';

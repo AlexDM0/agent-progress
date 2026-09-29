@@ -40,7 +40,9 @@
                                  the title when the row is too narrow), #ap-activity, .ap-tab-bar
  #ap-status               el     the status line, data-freshness="live|snapshot": live while the page
                                  is under 10 minutes old (twice the CLI's write interval), judged
-                                 once at load; .ap-status-dot, #ap-status-label, #ap-generated
+                                 at load and every 60 s after, so a page turns Snapshot without a
+                                 reload; .ap-status-dot (pulses while live), #ap-status-label,
+                                 #ap-generated
  #ap-status-label         text   "Live" or "Snapshot", upper-cased by CSS
  #ap-project              text   project name, the h1
  #ap-summary              html   four .ap-stat, each .ap-stat-n then .ap-stat-label: agents working
@@ -50,10 +52,20 @@
                                  todo) with aria-label "Show <figure> <label> on Kanban", which selects
                                  the Kanban tab and marks that .ap-lane[data-highlighted] for 1.2 s; the
                                  token stat stays a span
- #ap-activity             el     the activity banner, role="status"; its placeholder rows are
-                                 .ap-activity-row[data-state] > .ap-activity-dot, -kind, -id, -title,
-                                 -elapsed, or one .ap-activity-idle. The page script empties it and
-                                 sets [hidden] until it has rows of its own to show
+ #ap-activity             html   the activity banner, always shown, role="status" aria-live="polite",
+                                 data-freshness as on #ap-status. One .ap-activity-row per running
+                                 row (in-progress, no end), longest-running first, at most two
+                                 columns and one under 628px of inner width, never scrolled:
+                                 [data-state] "in-progress" (Building) or "reviewing" (Reviewing,
+                                 a row with reviewOf, never judged by its name) > .ap-activity-dot,
+                                 -kind, -id ("#060", absent on a free-standing row), -title (the
+                                 ticket's title, else the row name without its "#123 "; one line,
+                                 ellipsis, full text as title), -elapsed ("42s", "4m 12s",
+                                 "1h 02m 17s", aria-hidden so a tick is never announced). With no
+                                 agent, one .ap-activity-idle "No agent is working right now."
+                                 While live the elapsed times tick every second and the dots pulse;
+                                 a snapshot greys the dots and freezes the times at generation.
+                                 The page script's intervals all stop while the tab is hidden
  #ap-generated            text   "generated 3 min ago · 13:33" while live, "generated 09-23 13:33 ·
                                  2 days ago" as a snapshot (monospace), title "generated 2026-09-25 13:33".
                                  Every stamp on the page follows one rule against the viewer's
@@ -290,6 +302,9 @@
               data-motion="ready" on <html> after the first frames, and under
               prefers-reduced-motion, so nothing plays on a first render or a reload.
               Focus rings are in no transition.
+              --pulse-status 1.6s (.ap-status-dot) and --pulse-activity 1.4s (.ap-activity-dot,
+              with its 12px glow): one ap-pulse cycle each, only while [data-freshness="live"]
+              and never under prefers-reduced-motion, which keeps the colours alone.
 ===============================================================================
 -->
 
@@ -317,6 +332,8 @@
   --motion-base: 160ms;
   --motion-slow: 220ms;
   --ease-out:    cubic-bezier(0.22, 1, 0.36, 1);
+  --pulse-status:   1.6s;
+  --pulse-activity: 1.4s;
 
   --bg:          oklch(0.975 0.004 265);
   --surface:     oklch(1 0 0);
@@ -476,7 +493,15 @@ button.ap-stat:focus-visible { outline: 2px solid var(--ink); outline-offset: 2p
 .ap-activity-id { font: 500 var(--fs-small)/16px var(--font-mono); color: var(--ink-muted); }
 .ap-activity-title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
 .ap-activity-elapsed { font: 700 var(--fs-small)/16px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink); }
-.ap-activity-idle { grid-column: 1 / -1; font-size: var(--fs-body); color: var(--ink-muted); }
+.ap-activity-idle { grid-column: 1 / -1; font-size: var(--fs-body); line-height: 16px; color: var(--ink-muted); }
+.ap-activity[data-freshness="snapshot"] .ap-activity-dot { background: var(--ink-muted); }
+
+/* Only a live page pulses; reduced motion keeps the colours and drops the pulse and the glow. */
+@keyframes ap-pulse { 50% { opacity: 0.45; transform: scale(0.8); } }
+@media (prefers-reduced-motion: no-preference) {
+  .ap-status-line[data-freshness="live"] .ap-status-dot { animation: ap-pulse var(--pulse-status) ease-in-out infinite; }
+  .ap-activity[data-freshness="live"] .ap-activity-dot { box-shadow: 0 0 12px var(--s-fill); animation: ap-pulse var(--pulse-activity) ease-in-out infinite; }
+}
 
 /* ------------------------------------------------------------------- tabs -- */
 .ap-tab-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; border-bottom: 1px solid var(--line); }
@@ -1272,11 +1297,11 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
     </div>
   </div>
 
-  <div class="ap-activity" id="ap-activity" role="status" aria-live="polite">
-    <div class="ap-activity-row" data-state="in-progress"><span class="ap-activity-dot" aria-hidden="true"></span><span class="ap-activity-kind">Building</span><span class="ap-activity-id">#060</span><span class="ap-activity-title">Account pages dark mode</span><span class="ap-activity-elapsed">2h 36m 12s</span></div>
-    <div class="ap-activity-row" data-state="reviewing"><span class="ap-activity-dot" aria-hidden="true"></span><span class="ap-activity-kind">Reviewing</span><span class="ap-activity-id">#059</span><span class="ap-activity-title">Accent-blind search</span><span class="ap-activity-elapsed">2h 02m 40s</span></div>
-    <div class="ap-activity-row" data-state="in-progress"><span class="ap-activity-dot" aria-hidden="true"></span><span class="ap-activity-kind">Building</span><span class="ap-activity-id">#063</span><span class="ap-activity-title">Stale basket badge after removing a coupon</span><span class="ap-activity-elapsed">51m 03s</span></div>
-    <div class="ap-activity-row" data-state="reviewing"><span class="ap-activity-dot" aria-hidden="true"></span><span class="ap-activity-kind">Reviewing</span><span class="ap-activity-id">#058</span><span class="ap-activity-title">Rate-limit resets</span><span class="ap-activity-elapsed">31m 17s</span></div>
+  <div class="ap-activity" id="ap-activity" role="status" aria-live="polite" data-freshness="live">
+    <div class="ap-activity-row" data-state="in-progress"><span class="ap-activity-dot" aria-hidden="true"></span><span class="ap-activity-kind">Building</span><span class="ap-activity-id">#060</span><span class="ap-activity-title">Account pages dark mode</span><span class="ap-activity-elapsed" aria-hidden="true">2h 36m 12s</span></div>
+    <div class="ap-activity-row" data-state="reviewing"><span class="ap-activity-dot" aria-hidden="true"></span><span class="ap-activity-kind">Reviewing</span><span class="ap-activity-id">#059</span><span class="ap-activity-title">Accent-blind search</span><span class="ap-activity-elapsed" aria-hidden="true">2h 02m 40s</span></div>
+    <div class="ap-activity-row" data-state="in-progress"><span class="ap-activity-dot" aria-hidden="true"></span><span class="ap-activity-kind">Building</span><span class="ap-activity-id">#063</span><span class="ap-activity-title">Stale basket badge after removing a coupon</span><span class="ap-activity-elapsed" aria-hidden="true">51m 03s</span></div>
+    <div class="ap-activity-row" data-state="reviewing"><span class="ap-activity-dot" aria-hidden="true"></span><span class="ap-activity-kind">Reviewing</span><span class="ap-activity-id">#058</span><span class="ap-activity-title">Rate-limit resets</span><span class="ap-activity-elapsed" aria-hidden="true">31m 17s</span></div>
   </div>
 
   <div class="ap-tab-bar">
