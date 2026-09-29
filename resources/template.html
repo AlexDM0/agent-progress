@@ -1637,8 +1637,9 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
     var buttons = Array.prototype.slice.call(tabs.querySelectorAll("[data-tab]"));
     var current = buttons.indexOf(event.target);
     if (current < 0) { return; }
-    var next = { ArrowRight: current + 1, ArrowLeft: current - 1, Home: 0, End: buttons.length - 1 }[event.key];
-    if (next === undefined) { return; }
+    var targetIndexByKey = { ArrowRight: current + 1, ArrowLeft: current - 1, Home: 0, End: buttons.length - 1 };
+    if (!Object.hasOwn(targetIndexByKey, event.key)) { return; }
+    var next = targetIndexByKey[event.key];
     event.preventDefault();
     var target = buttons[(next + buttons.length) % buttons.length];
     target.focus();
