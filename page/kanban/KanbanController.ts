@@ -21,10 +21,104 @@ import { kanbanBoardMarkup }                   from './KanbanMarkup.ts';
 import type { ClosedKanbanLane }               from './constants/KanbanBoardLayout.ts';
 import { CAPPED_LANE_FIRST_PAGE_CARDS }        from './constants/KanbanBoardLayout.ts';
 import { CLOSED_KANBAN_LANES, KANBAN_LANES }   from './constants/KanbanBoardLayout.ts';
+import { CountTweenUtil }                      from './utils/CountTweenUtil.ts';
 import { KanbanLaneUtil }                      from './utils/KanbanLaneUtil.ts';
 import { LanePagingUtil }                      from './utils/LanePagingUtil.ts';
 
 const LANE_HIGHLIGHT_MILLISECONDS = 1200;
+const MOTION_DURATION_PROPERTY    = '--motion-base';
+const MOTION_EASING_PROPERTY      = '--ease-out';
+/** A lane whose width or card area changed by less than this is left still: sub-pixel rounding is no change. */
+const LANE_SIZE_TOLERANCE_PIXELS  = 0.5;
+
+interface LaneLayout {
+  width:       number;
+  cardsHeight: number;
+  count:       number;
+}
+
+interface LaneMotion {
+  durationMilliseconds: number;
+  easing:               string;
+}
+
+/** The template's motion tokens, or null while they are 0ms: before the page is ready and under reduced motion, a change shows at once. */
+function laneMotionOf(): LaneMotion | null {
+  const rootStyle            = getComputedStyle(document.documentElement);
+  const durationMilliseconds = CountTweenUtil.durationMillisecondsOf(rootStyle.getPropertyValue(MOTION_DURATION_PROPERTY));
+  if (durationMilliseconds <= 0) {
+    return null;
+  }
+  return { durationMilliseconds, easing: rootStyle.getPropertyValue(MOTION_EASING_PROPERTY).trim() || 'ease-out' };
+}
+
+function lanesOf(board: HTMLElement): HTMLElement[] {
+  return [...board.querySelectorAll<HTMLElement>(':scope > .ap-lane[data-lane]')];
+}
+
+function laneLayoutsOf(board: HTMLElement): Map<string, LaneLayout> {
+  return new Map(lanesOf(board).map((lane) => [lane.dataset['lane'] ?? '', {
+    width:       lane.getBoundingClientRect().width,
+    cardsHeight: lane.querySelector('.ap-lane-cards')?.getBoundingClientRect().height ?? 0,
+    count:       Number.parseInt(lane.querySelector('.ap-lane-count')?.textContent ?? '', 10),
+  }]));
+}
+
+function sizeChanged(previousPixels: number, nextPixels: number): boolean {
+  return previousPixels > 0 && nextPixels > 0 && Math.abs(nextPixels - previousPixels) > LANE_SIZE_TOLERANCE_PIXELS;
+}
+
+function laneWidthKeyframeOf(widthPixels: number): Keyframe {
+  const pixels = `${widthPixels}px`;
+  return {
+    flexGrow: '0', flexShrink: '0', flexBasis: pixels, minWidth: pixels
+  };
+}
+
+function tweenCount(countElement: Element, fromCount: number, toCount: number, motion: LaneMotion): void {
+  const startedAt = performance.now();
+  const showFrame = (frameTime: number): void => {
+    const easedProgress = CountTweenUtil.easedProgressOf(frameTime - startedAt, motion.durationMilliseconds);
+    countElement.textContent = String(CountTweenUtil.countAt(fromCount, toCount, easedProgress));
+    if (easedProgress < 1) {
+      requestAnimationFrame(showFrame);
+    }
+  };
+  countElement.textContent = String(fromCount);
+  requestAnimationFrame(showFrame);
+}
+
+/**
+ * Eases each lane from the layout it had before the board was redrawn to the one it has now: its width (the Abandoned strip
+ * opening or closing), its card area's height (paging a closed lane) and its count. Every animation ends on the new layout,
+ * so nothing jumps when it is removed. Every lane is measured before any animation starts, since each one moves its siblings.
+ */
+function easeLaneChanges(board: HTMLElement, previousLayouts: ReadonlyMap<string, LaneLayout>, motion: LaneMotion): void {
+  const timing      = { duration: motion.durationMilliseconds, easing: motion.easing };
+  const nextLayouts = laneLayoutsOf(board);
+  for (const lane of lanesOf(board)) {
+    const laneName = lane.dataset['lane'] ?? '';
+    const previous = previousLayouts.get(laneName);
+    const next     = nextLayouts.get(laneName);
+    if (previous === undefined || next === undefined) {
+      continue;
+    }
+    if (sizeChanged(previous.width, next.width)) {
+      lane.animate([laneWidthKeyframeOf(previous.width), laneWidthKeyframeOf(next.width)], timing);
+    }
+    const cards = lane.querySelector<HTMLElement>('.ap-lane-cards');
+    if (cards !== null && sizeChanged(previous.cardsHeight, next.cardsHeight)) {
+      cards.animate([
+        { flexGrow: '0', height: `${previous.cardsHeight}px` },
+        { flexGrow: '0', height: `${next.cardsHeight}px` },
+      ], timing);
+    }
+    const countElement = lane.querySelector('.ap-lane-count');
+    if (countElement !== null && Number.isFinite(previous.count) && Number.isFinite(next.count) && previous.count !== next.count) {
+      tweenCount(countElement, previous.count, next.count, motion);
+    }
+  }
+}
 
 export interface KanbanControllerSources {
   slices:                TimestampSlices & DurationUnits;
@@ -73,6 +167,9 @@ export function createKanbanController(sources: KanbanControllerSources): Kanban
   let laneHighlightTimer                  = 0;
 
   const showKanban = (): void => {
+    const board           = document.getElementById(KANBAN_BOARD_ELEMENT_ID);
+    const motion          = laneMotionOf();
+    const previousLayouts = board !== null && motion !== null ? laneLayoutsOf(board) : null;
     DomUtil.setMarkup(KANBAN_BOARD_ELEMENT_ID, kanbanBoardMarkup({
       cards:                  visibleCards,
       nowEpochMilliseconds:   Date.now(),
@@ -83,6 +180,9 @@ export function createKanbanController(sources: KanbanControllerSources): Kanban
       abandonedLaneIsOpen,
     }));
     updateOverflow();
+    if (board !== null && motion !== null && previousLayouts !== null) {
+      easeLaneChanges(board, previousLayouts, motion);
+    }
   };
   const toggleAbandonedLane = (laneIsOpen = !abandonedLaneIsOpen): void => {
     abandonedLaneIsOpen = laneIsOpen;

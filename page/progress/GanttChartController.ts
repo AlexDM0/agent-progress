@@ -61,6 +61,7 @@ export interface GanttChartController {
 }
 
 const REVIEW_ROWS_CONTROL_ELEMENT_ID = 'ap-review-rows';
+const NAME_COLUMN_WIDTH_PROPERTY     = '--col-name';
 
 function reflectNameColumnWidth(width: NameColumnWidth): void {
   document.documentElement.setAttribute(NAME_COLUMN_WIDTH_ATTRIBUTE, width);
@@ -224,6 +225,12 @@ export function createGanttChartController(sources: GanttChartControllerSources)
         preferences.writeNameColumnWidth(nameColumnWidth);
         reflectNameColumnWidth(nameColumnWidth);
         layOut(false);
+      });
+      // The template eases --col-name, so the layout taken at the click measured the old width; it is taken again once the column settles.
+      document.documentElement.addEventListener('transitionend', (event) => {
+        if (event.target === document.documentElement && event.propertyName === NAME_COLUMN_WIDTH_PROPERTY) {
+          layOut(false);
+        }
       });
     },
     wireReviewRows: () => {
