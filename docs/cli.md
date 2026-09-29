@@ -498,9 +498,11 @@ mutating command and reloading itself every 5 minutes when idle, keeping the vie
 - **Tickets tab**: a summary table, then one card per ticket with its body rendered as markdown
   (`reviewed`, `delivered` and `abandoned` collapsed). The chosen tab and the open cards are kept in the
   browser, so the refresh lands where you were.
-- **Summary** above the chart: `Work completed: <settled> / <total>`, a row counting once it is
-  delivered or abandoned, then how many rows are awaiting merge and how many are in review, and, when
-  any row reports tokens, their sum.
+- **The header** above the tabs: a status line, `LIVE` while the page is under ten minutes old and
+  `SNAPSHOT` after, with how long ago it was generated; the project name; and four figures: agents
+  working (running rows over the concurrency limit), tickets delivered today, the tokens of rows that
+  ended today or still run, and tickets waiting in the queue. Each figure but the tokens opens its
+  Kanban lane. The tab row ends in the Auto · Light · Dark theme switch.
 - **Double-click any row**, in the chart or the ticket table, for the whole story of that task: its
   facts, every phase it went through with how long it sat in each, the ticket with its body, and the
   log lines about either (a line the tool wrote by its task and ticket ids, a note by the numbers it

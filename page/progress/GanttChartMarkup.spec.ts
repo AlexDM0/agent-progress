@@ -1,5 +1,5 @@
 /**
- * The Progress tab's markup: its task rows and their review nesting, the axis layer, the summary and the notes, with every tracker value
+ * The Progress tab's markup: its task rows and their review nesting, the axis layer and the notes, with every tracker value
  * escaped exactly once.
  */
 
@@ -14,11 +14,9 @@ import { GeometryUtil }                                  from '../utils/Geometry
 import { TimeUtil }                                      from '../utils/TimeUtil.ts';
 import type { TaskRowsDrawing }                          from './GanttChartMarkup.ts';
 import {
-  generatedStampText,
   hiddenWorkNoteText,
   overlayMarkup,
   rangeNoteText,
-  summaryStatisticsMarkup,
   taskRowsMarkup,
   tickLayerMarkup,
 } from './GanttChartMarkup.ts';
@@ -27,8 +25,6 @@ const { computeTimeline }                 = GeometryUtil;
 const { calendarDateOf, fullInstantText } = TimeUtil;
 
 const MILLISECONDS_PER_MINUTE = 60_000;
-
-const NO_AGENTS_OF_TWO = { limit: 2, agentsInFlight: 0 };
 
 const REVIEW_SEGMENTS: TaskRowsDrawing = {
   slices:             EXAMPLE_TIMESTAMP_SLICES,
@@ -483,96 +479,6 @@ describe('the task name beside its ticket badge', () => {
   });
 });
 
-describe('summaryStatisticsMarkup', () => {
-  // Work completed is the settled rows over the total, and the two figures beside it are what is still owed: a merge, and a review.
-  test('reads in the same ladder as the pills: work completed out of the total, then what is awaited', () => {
-    const markup = summaryStatisticsMarkup([
-      exampleTask({ id: 1, status: 'pending' }),
-      exampleTask({ id: 2, status: 'in-review' }),
-      exampleTask({ id: 3, status: 'reviewed' }),
-      exampleTask({ id: 4, status: 'delivered' }),
-    ], NO_AGENTS_OF_TWO);
-
-    expect(markup).toContain('Work completed: <span class="ap-stat-n">1 / 4</span>');
-    expect(markup).toContain('<span class="ap-stat-n">1</span> awaiting merge');
-    expect(markup).toContain('<span class="ap-stat-n">1</span> in review');
-  });
-
-  // An abandoned row has nothing left to do, so a board of only delivered and abandoned rows must not read as unfinished.
-  test('counts an abandoned row as completed, so a settled board reads its total over its total', () => {
-    const inFlight = summaryStatisticsMarkup([
-      exampleTask({ id: 1, status: 'delivered' }),
-      exampleTask({ id: 2, status: 'delivered' }),
-      exampleTask({ id: 3, status: 'abandoned' }),
-      exampleTask({ id: 4, status: 'in-progress' }),
-    ], NO_AGENTS_OF_TWO);
-    const settled = summaryStatisticsMarkup([
-      exampleTask({ id: 1, status: 'delivered' }),
-      exampleTask({ id: 2, status: 'abandoned' }),
-      exampleTask({ id: 3, status: 'abandoned' }),
-    ], NO_AGENTS_OF_TWO);
-
-    expect(inFlight).toContain('Work completed: <span class="ap-stat-n">3 / 4</span></button>');
-    expect(settled).toContain('Work completed: <span class="ap-stat-n">3 / 3</span>');
-  });
-
-  // A delivered row is completed and nothing else: it is not still awaiting the merge it already had.
-  test('counts a row sent round for another review as in review, and a delivered row only as completed', () => {
-    const markup = summaryStatisticsMarkup([
-      exampleTask({ id: 1, status: 're-review', reviewRound: 3 }),
-      exampleTask({ id: 2, status: 'reviewed' }),
-      exampleTask({ id: 3, status: 'delivered' }),
-    ], NO_AGENTS_OF_TWO);
-
-    expect(markup).toContain('Work completed: <span class="ap-stat-n">1 / 3</span>');
-    expect(markup).toContain('<span class="ap-stat-n">1</span> awaiting merge');
-    expect(markup).toContain('<span class="ap-stat-n">1</span> in review');
-  });
-
-  test('sums the reported token counts and omits the figure when none were reported', () => {
-    const reported = summaryStatisticsMarkup([exampleTask({ tokens: 12_300 }), exampleTask({ id: 2, tokens: 50_100 })], NO_AGENTS_OF_TWO);
-
-    expect(reported).toContain('<span class="ap-stat-n">62.4k</span> tokens');
-    expect(summaryStatisticsMarkup([exampleTask()], NO_AGENTS_OF_TWO)).not.toContain('tokens');
-  });
-
-  test('separates the statistics with the design’s middot', () => {
-    expect(summaryStatisticsMarkup([exampleTask()], NO_AGENTS_OF_TWO)).toContain('<span class="ap-sep">&middot;</span>');
-  });
-
-  // The figures are the ones `status --json` reports, handed in; the line must print them as given rather than count the rows itself.
-  test('prints the agents in flight against the limit as handed in, not a count of the running rows', () => {
-    const markup = summaryStatisticsMarkup([exampleTask({ status: 'in-progress' })], { limit: 3, agentsInFlight: 2 });
-
-    expect(markup).toContain('<span class="ap-stat-n">2 of 3</span> agents running</button>');
-  });
-
-  // The summary is navigation: each state figure names the lane it opens and says so to a screen reader, while the token total has no lane.
-  test('makes each state figure a button for its Kanban lane, named for what it shows, and leaves the token figure plain text', () => {
-    const markup = summaryStatisticsMarkup([
-      exampleTask({ id: 1, status: 'in-review', tokens: 1_000 }),
-      exampleTask({ id: 2, status: 're-review', reviewRound: 2 }),
-      exampleTask({ id: 3, status: 'reviewed' }),
-      exampleTask({ id: 4, status: 'delivered' }),
-    ], { limit: 2, agentsInFlight: 1 });
-
-    expect(markup).toContain('<button type="button" class="ap-stat" data-kanban-lane="done" aria-label="Show 1 / 4 work completed on Kanban">');
-    expect(markup).toContain('<button type="button" class="ap-stat" data-kanban-lane="merge" aria-label="Show 1 awaiting merge on Kanban">');
-    expect(markup).toContain('<button type="button" class="ap-stat" data-kanban-lane="review" aria-label="Show 2 in review on Kanban">');
-    expect(markup).toContain('<button type="button" class="ap-stat" data-kanban-lane="progress" aria-label="Show 1 of 2 agents running on Kanban">');
-    expect(markup).toContain('<span class="ap-stat"><span class="ap-stat-n">1k</span> tokens</span>');
-    expect(markup.match(/<button /g)).toHaveLength(4);
-  });
-
-  test('reads a fresh board as none of the default two agents running', () => {
-    expect(summaryStatisticsMarkup([], NO_AGENTS_OF_TWO)).toContain('<span class="ap-stat-n">0 of 2</span> agents running');
-  });
-
-  test('speaks of one agent in the singular when the limit is one', () => {
-    expect(summaryStatisticsMarkup([], { limit: 1, agentsInFlight: 1 })).toContain('<span class="ap-stat-n">1 of 1</span> agent running');
-  });
-});
-
 describe('the axis layer', () => {
   const ticks = [
     { leftPercent: 0, label: '20:30', labelSitsLeftOfItsLine: false },
@@ -655,24 +561,6 @@ describe('the axis layer', () => {
     expect(timeline.ticks.length).toBeGreaterThan(0);
     expect(timeline.ticks.every((tick) => !clockOnly.test(tick.label))).toBe(true);
     expect(note.text).toMatch(/→ \d\d:\d\d · /);
-  });
-});
-
-describe('generatedStampText', () => {
-  // The header's stamp follows the same rule as every other: the template's `generated 21:56` is today's page.
-  test('shows only the clock of a page generated today, with the full stamp as the title', () => {
-    const generatedAt = Date.UTC(2026, 8, 18, 19, 56, 0);
-    const stamp       = generatedStampText(generatedAt, calendarDateOf(generatedAt));
-
-    expect(stamp.text).toMatch(/^generated \d\d:\d\d$/);
-    expect(stamp.title).toBe(`generated ${fullInstantText(generatedAt)}`);
-  });
-
-  test('dates a page generated on another day', () => {
-    const generatedAt = Date.UTC(2026, 8, 17, 12, 0, 0);
-    const stamp       = generatedStampText(generatedAt, calendarDateOf(generatedAt + 1440 * MILLISECONDS_PER_MINUTE));
-
-    expect(stamp.text).toBe(`generated ${fullInstantText(generatedAt).slice(5)}`);
   });
 });
 

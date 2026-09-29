@@ -13,13 +13,16 @@ import {
   HIDDEN_WORK_NOTE_ELEMENT_ID,
   KANBAN_BOARD_ELEMENT_ID,
   KANBAN_TAB_NAME,
+  PROJECT_NAME_ELEMENT_ID,
   RANGE_NOTE_ELEMENT_ID,
+  STATUS_LABEL_ELEMENT_ID,
   SUMMARY_ELEMENT_ID,
   TASK_ROWS_ELEMENT_ID,
   TICKET_COUNT_ELEMENT_ID,
   TICKET_ROWS_ELEMENT_ID,
 } from './constants/TemplateIds.ts';
 import { createDetailDialogController }                       from './detail-dialog/DetailDialogController.ts';
+import { createHeaderController }                             from './header/HeaderController.ts';
 import { createKanbanController }                             from './kanban/KanbanController.ts';
 import { KanbanLaneUtil }                                     from './kanban/utils/KanbanLaneUtil.ts';
 import { createReloadSnapshotStore, createViewerPreferences } from './preferences/ViewerPreferences.ts';
@@ -37,7 +40,6 @@ import { VisibilityUtil }                                     from './utils/Visi
 
 const PROGRESS_ISLAND_ELEMENT_ID = 'ap-progress-data';
 const TICKETS_ISLAND_ELEMENT_ID  = 'ap-tickets-data';
-const PROJECT_NAME_ELEMENT_ID    = 'ap-project';
 
 const TICKETS_TAB_NAME = 'tickets';
 const TAB_NAMES        = ['progress', KANBAN_TAB_NAME, TICKETS_TAB_NAME];
@@ -53,6 +55,7 @@ const OWNED_MARKUP_CONTAINER_IDS = [
 ];
 const OWNED_TEXT_CONTAINER_IDS = [
   PROJECT_NAME_ELEMENT_ID,
+  STATUS_LABEL_ELEMENT_ID,
   GENERATED_STAMP_ELEMENT_ID,
   RANGE_NOTE_ELEMENT_ID,
   TICKET_COUNT_ELEMENT_ID,
@@ -144,8 +147,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     showLayoutFailure(payload.pageScriptFailure);
   }
 
-  DomUtil.setText(PROJECT_NAME_ELEMENT_ID, progress.project);
-  progressController.showSummary();
+  createHeaderController(payload, tickets).show(Date.now());
 
   // Set from the visibility filter's now before anything prints a stamp; the page reloads every few minutes when idle, so the day is rarely stale.
   let todayCalendarDate = '';
@@ -180,7 +182,6 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     progressController.setVisibleRows(visibleRows);
     todayCalendarDate = TimeUtil.calendarDateOf(nowEpochMilliseconds);
 
-    progressController.showGeneratedStamp(todayCalendarDate);
     ticketsController.show(visibleTickets);
     kanbanController.showCards(KanbanLaneUtil.kanbanCardsFor(visibleTickets, waitingOnById));
 

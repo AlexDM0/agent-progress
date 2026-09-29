@@ -1,25 +1,21 @@
 /**
- * The Progress tab's markup: the task rows, the axis layer, the summary and the notes, shaped by the placeholder content of
+ * The Progress tab's markup: the task rows, the axis layer and the notes, shaped by the placeholder content of
  * `resources/template.html`. Every tracker value passes `escapeHtml` exactly once here.
  */
 
-import { HtmlEscapeUtil }                   from '../../src/lib/html-escape/HtmlEscapeUtil.ts';
-import { TokenCountUtil }                   from '../../src/lib/token-count/TokenCountUtil.ts';
-import type { Task }                        from '../../src/lib/tracker-model/@types/Task.ts';
-import { FIRST_REPEAT_REVIEW_ROUND }        from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
-import { SETTLED_TASK_STATUSES }            from '../../src/lib/tracker-model/constants/Statuses.ts';
-import type { PageConcurrency, PageLimits } from '../../src/shared/@types/PagePayload.ts';
-import type { BoardRow }                    from '../@types/PageBoard.ts';
-import type { TimelineBar, TimelineTick }   from '../@types/Timeline.ts';
-import { STATE_LABEL_FOR_DISPLAY_STATE }    from '../constants/StateLabels.ts';
-import type { KanbanLane }                  from '../kanban/@types/KanbanLane.ts';
-import type { ShortenedText }               from '../utils/MarkupUtil.ts';
-import { MarkupUtil }                       from '../utils/MarkupUtil.ts';
-import { TemplateIdUtil }                   from '../utils/TemplateIdUtil.ts';
-import type { TimestampSlices }             from '../utils/TimeUtil.ts';
-import { TimeUtil }                         from '../utils/TimeUtil.ts';
-import { WorkItemMarkupUtil }               from '../utils/WorkItemMarkupUtil.ts';
-import { TICK_LABEL_GUTTER_PIXELS }         from './constants/ProgressChart.ts';
+import { HtmlEscapeUtil }                 from '../../src/lib/html-escape/HtmlEscapeUtil.ts';
+import { TokenCountUtil }                 from '../../src/lib/token-count/TokenCountUtil.ts';
+import { FIRST_REPEAT_REVIEW_ROUND }      from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
+import type { PageLimits }                from '../../src/shared/@types/PagePayload.ts';
+import type { BoardRow }                  from '../@types/PageBoard.ts';
+import type { TimelineBar, TimelineTick } from '../@types/Timeline.ts';
+import type { ShortenedText }             from '../utils/MarkupUtil.ts';
+import { MarkupUtil }                     from '../utils/MarkupUtil.ts';
+import { TemplateIdUtil }                 from '../utils/TemplateIdUtil.ts';
+import type { TimestampSlices }           from '../utils/TimeUtil.ts';
+import { TimeUtil }                       from '../utils/TimeUtil.ts';
+import { WorkItemMarkupUtil }             from '../utils/WorkItemMarkupUtil.ts';
+import { TICK_LABEL_GUTTER_PIXELS }       from './constants/ProgressChart.ts';
 
 export interface TaskRow {
   task:      BoardRow;
@@ -167,40 +163,6 @@ export function overlayMarkup(ticks: readonly TimelineTick[], nowPercent: number
  * Each state figure is a button naming the Kanban lane it jumps to. The token figure is left out entirely when no task reports one, because
  * `null` means "nobody said" and `0 tokens` would be a claim.
  */
-export function summaryStatisticsMarkup(tasks: readonly Task[], concurrency: PageConcurrency): string {
-  const completedCount     = tasks.filter((task) => SETTLED_TASK_STATUSES.includes(task.status)).length;
-  const awaitingMergeCount = tasks.filter((task) => task.status === 'reviewed').length;
-  const inReviewCount      = tasks.filter((task) => task.status === 'in-review' || task.status === 're-review').length;
-  const reportedTokens     = tasks.filter((task) => task.tokens !== null);
-  const figureMarkup = (figure: string): string => `<span class="ap-stat-n">${HtmlEscapeUtil.escapeHtml(figure)}</span>`;
-  const completedFigure = `${completedCount} / ${tasks.length}`;
-  const agentsFigure    = `${concurrency.agentsInFlight} of ${concurrency.limit}`;
-  const awaitingMerge   = STATE_LABEL_FOR_DISPLAY_STATE.reviewed.toLowerCase();
-  const agentsRunning   = `${concurrency.limit === 1 ? 'agent' : 'agents'} running`;
-  const statistics = [
-    laneStatisticMarkup('done', `Show ${completedFigure} work completed on Kanban`, `Work completed: ${figureMarkup(completedFigure)}`),
-    laneStatisticMarkup('merge', `Show ${awaitingMergeCount} ${awaitingMerge} on Kanban`, `${figureMarkup(String(awaitingMergeCount))} ${awaitingMerge}`),
-    laneStatisticMarkup('review', `Show ${inReviewCount} in review on Kanban`, `${figureMarkup(String(inReviewCount))} in review`),
-    laneStatisticMarkup('progress', `Show ${agentsFigure} ${agentsRunning} on Kanban`, `${figureMarkup(agentsFigure)} ${agentsRunning}`),
-  ];
-  if (reportedTokens.length > 0) {
-    statistics.push(`<span class="ap-stat">${figureMarkup(TokenCountUtil.formatTokenCount(reportedTokens.reduce((total, task) => total + (task.tokens ?? 0), 0)))} tokens</span>`);
-  }
-  return statistics.join('<span class="ap-sep">&middot;</span>');
-}
-
-function laneStatisticMarkup(lane: KanbanLane, accessibleName: string, statisticMarkup: string): string {
-  const attributes = `${MarkupUtil.attribute('data-kanban-lane', lane)} ${MarkupUtil.attribute('aria-label', accessibleName)}`;
-  return `<button type="button" class="ap-stat" ${attributes}>${statisticMarkup}</button>`;
-}
-
-export function generatedStampText(generatedAtEpochMilliseconds: number, todayCalendarDate: string): ShortenedText {
-  return MarkupUtil.shortenedText(
-    `generated ${TimeUtil.shortInstantText(generatedAtEpochMilliseconds, todayCalendarDate)}`,
-    `generated ${TimeUtil.fullInstantText(generatedAtEpochMilliseconds)}`,
-  );
-}
-
 function tickStepLabel(stepMinutes: number, hourMinutes: number, dayMinutes: number): string {
   if (dayMinutes > 0 && stepMinutes % dayMinutes === 0) {
     return `${stepMinutes / dayMinutes}d`;

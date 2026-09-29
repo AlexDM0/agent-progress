@@ -35,24 +35,43 @@
  container listed below.
 
  ---------------------------------------------------------------- containers ---
- #ap-project              text   project name
- #ap-summary              html   status line; children are .ap-stat (> .ap-stat-n and its label, on either side);
-                                 a state stat is button.ap-stat[data-kanban-lane] (done | merge | review |
-                                 progress) with aria-label "Show <figure> <label> on Kanban", which selects
+ header.ap-head          three rows 28px apart: .ap-head-title-row (.ap-head-identity holding
+                                 #ap-status over #ap-project, then #ap-summary, which wraps under
+                                 the title when the row is too narrow), #ap-activity, .ap-tab-bar
+ #ap-status               el     the status line, data-freshness="live|snapshot": live while the page
+                                 is under 10 minutes old (twice the CLI's write interval), judged
+                                 once at load; .ap-status-dot, #ap-status-label, #ap-generated
+ #ap-status-label         text   "Live" or "Snapshot", upper-cased by CSS
+ #ap-project              text   project name, the h1
+ #ap-summary              html   four .ap-stat, each .ap-stat-n then .ap-stat-label: agents working
+                                 ("1 / 6", running rows over the concurrency limit, or the running
+                                 count alone), delivered today, tokens today, waiting in queue. A
+                                 state stat is button.ap-stat[data-kanban-lane] (progress | done |
+                                 todo) with aria-label "Show <figure> <label> on Kanban", which selects
                                  the Kanban tab and marks that .ap-lane[data-highlighted] for 1.2 s; the
                                  token stat stays a span
- #ap-generated            text   "generated 21:56" (monospace), title "generated 2026-09-18 21:56".
+ #ap-activity             el     the activity banner, role="status"; its placeholder rows are
+                                 .ap-activity-row[data-state] > .ap-activity-dot, -kind, -id, -title,
+                                 -elapsed, or one .ap-activity-idle. The page script empties it and
+                                 sets [hidden] until it has rows of its own to show
+ #ap-generated            text   "generated 3 min ago · 13:33" while live, "generated 09-23 13:33 ·
+                                 2 days ago" as a snapshot (monospace), title "generated 2026-09-25 13:33".
                                  Every stamp on the page follows one rule against the viewer's
                                  day: today's shows only its clock ("21:56"), another day of the
                                  same year gains its month and day ("09-17 23:48"), another year
                                  the full date; a shortened stamp's element carries the full one
                                  as its title. The placeholders are relative to the example
                                  board's day, 2026-09-18; a later placeholder may name its own.
- #ap-theme                el     buttons data-theme="auto|light|dark", aria-pressed
+ #ap-theme                el     at the end of .ap-tab-bar, role="radiogroup" labelled "Theme":
+                                 buttons role="radio" data-theme="auto|light|dark", aria-checked
  #ap-error                el     [hidden] unless the layout script threw
  #ap-error-text           text   message shown in the error banner
+ .ap-tab-bar              el     the tab row inside the header, #ap-tabs then #ap-theme, a 1px rule
+                                 under it; #ap-detail docks under its bottom edge
  #ap-tabs                 el     buttons carry data-tab="kanban|progress|tickets", aria-selected, and
-                                 id="ap-tab-…" with aria-controls naming the panel
+                                 id="ap-tab-…" with aria-controls naming the panel; the arrow keys,
+                                 Home and End move to a tab and select it
+ .ap-view-controls        el     below the header, above the panels: holds .ap-visibility
  [data-panel="…"]         el     matching panel, role="tabpanel", id="ap-panel-…" and
                                  aria-labelledby naming its tab; [hidden] when not selected
  #ap-visibility           el     buttons data-visibility="recent|all", aria-pressed; "recent"
@@ -245,15 +264,18 @@
               and the [data-state] blocks with their dark twins; every other rule, the
               markup and the page script reach it through var(--…), and
               src/services/render/TemplateColourTokens.spec.ts fails on any literal elsewhere.
-              bg, surface, surface-2, ink, ink-muted, line, line-strong, link,
+              bg, surface, surface-2, surface-selected (the chosen theme option),
+              status-live (the Live dot), ink, ink-muted, line, line-strong, link,
               warn-* and err-* (tint, edge, ink), shadow-control / -popover / -panel / -card-lift,
               hatch-live / hatch-idle (bar stripes), badge-<status>-tint / -ink / -edge;
               per state: --s-fill (bars) / --s-tint (pill bg) / --s-ink (pill text)
               / --s-edge (pill border), set by [data-state]; --now for the marker
    spacing    4 8 12 16 24 32 (--sp-1 … --sp-6)
    radius     4 pill-inner / 6 controls / 10 cards / 999 pills
-   type       11 micro · 12 small · 13 body · 15 card title · 20 page title
-              system UI stack for prose, system mono stack for times and numbers
+   type       11 micro · 12 small · 13 body · 15 card title · 20 page title;
+              the header's own: 44 project title, 18 stat value, 17 tab, 10 banner kind
+              system UI stack for prose, system mono stack (--font-mono) for times, numbers
+              and the header's labels; no web font, so the page stays offline
    density    --row-h 30px (a chart row's minimum), --col-name 336px, --col-pill 144px
               (a 118px pill holds "Reviewing (round 2)");
               --col-name-wide 780px while :root[data-name-column="wide"]
@@ -304,6 +326,8 @@
   --line:        oklch(0.905 0.008 265);
   --line-strong: oklch(0.82 0.012 265);
   --link:        oklch(0.48 0.13 255);
+  --surface-selected: oklch(0.93 0.008 262);
+  --status-live: oklch(0.5 0.17 265);
 
   --now:         oklch(0.54 0.19 25);
   --now-soft:    oklch(0.54 0.19 25 / 0.55);
@@ -354,6 +378,8 @@
     --line:        oklch(0.33 0.014 265);
     --line-strong: oklch(0.42 0.016 265);
     --link:        oklch(0.78 0.10 255);
+    --surface-selected: oklch(0.25 0.022 262);
+    --status-live: oklch(0.72 0.19 330);
 
     --now:         oklch(0.70 0.17 25);
     --now-soft:    oklch(0.70 0.17 25 / 0.6);
@@ -389,7 +415,7 @@
 
 body {
   margin: 0;
-  padding: var(--sp-5) var(--sp-5) var(--sp-6);
+  padding: 36px 40px var(--sp-6);
   background: var(--bg);
   color: var(--ink);
   font: var(--fs-body)/1.5 var(--font-ui);
@@ -417,53 +443,71 @@ a:hover { color: var(--ink); text-decoration: underline; }
 .ap-banner.is-error { border-color: var(--err-edge); background: var(--err-tint); color: var(--err-ink); }
 
 /* ----------------------------------------------------------------- header -- */
-.ap-head {
-  display: flex; align-items: baseline; gap: var(--sp-4);
-  flex-wrap: wrap;
-  margin-bottom: var(--sp-4);
-}
-.ap-title { font-size: var(--fs-page); font-weight: 600; letter-spacing: -0.01em; margin: 0; }
-.ap-title .ap-kicker { color: var(--ink-muted); font-weight: 400; }
-#ap-generated { margin-left: auto; color: var(--ink-muted); font-size: var(--fs-small); }
-#ap-theme { align-self: center; }
-#ap-theme button { padding: 5px 8px; font-family: var(--font-ui); }
+/* Three rows 28px apart: the title row, the activity banner, the tab row. */
+.ap-head { display: flex; flex-direction: column; gap: 28px; }
+.ap-head-title-row { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: var(--sp-5); }
+.ap-head-identity { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+@media (max-width: 900px) { .ap-head-title-row { flex-direction: column; align-items: flex-start; } }
 
-.ap-summary {
-  display: flex; flex-wrap: wrap; align-items: baseline;
-  gap: 0 var(--sp-3);
-  width: 100%;
-  font-size: var(--fs-body);
-  color: var(--ink-muted);
-  margin-top: 2px;
-}
-.ap-stat { display: inline-flex; align-items: baseline; gap: 5px; }
-.ap-stat + .ap-stat::before { content: ""; }
+.ap-status-line { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); font: 400 var(--fs-small)/1.5 var(--font-mono); color: var(--ink-muted); }
+.ap-status-dot { flex: none; width: 10px; height: 10px; border-radius: var(--r-pill); background: var(--ink-muted); }
+.ap-status-line[data-freshness="live"] .ap-status-dot { background: var(--status-live); }
+.ap-status-label { font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+
+.ap-title { margin: 0; font: 700 44px/1 var(--font-ui); letter-spacing: -0.03em; color: var(--ink); overflow-wrap: anywhere; }
+
+.ap-summary { display: flex; flex-wrap: wrap; gap: 28px; }
+.ap-stat { display: flex; flex-direction: column; gap: 2px; text-align: left; }
 button.ap-stat { padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; border-radius: var(--r-1); }
-button.ap-stat:hover { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
-button.ap-stat:focus-visible { outline: 2px solid var(--link); outline-offset: 3px; }
-.ap-stat-n {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 15px;
-  color: var(--ink);
-  font-weight: 600;
+button.ap-stat:hover .ap-stat-label { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+button.ap-stat:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.ap-stat-n { font: 500 18px/1.25 var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--ink); }
+.ap-stat-label { font: 400 var(--fs-small)/1.3 var(--font-ui); color: var(--ink-muted); }
+
+/* At most two columns; one agent spans both, and under 628px of inner width it is one column. */
+.ap-activity {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(max(300px, calc(50% - 14px)), 1fr)); gap: 10px 28px;
+  padding: 14px 18px; border-radius: 14px; background: var(--surface);
 }
-.ap-summary .ap-sep { color: var(--line-strong); }
+.ap-activity[hidden] { display: none; }
+.ap-activity-row { display: flex; align-items: center; gap: 10px; min-width: 0; font-size: var(--fs-body); line-height: 16px; }
+.ap-activity-dot { flex: none; width: 10px; height: 10px; border-radius: var(--r-pill); background: var(--s-fill); }
+.ap-activity-kind { font: 700 10px/16px var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--s-ink); }
+.ap-activity-id { font: 500 var(--fs-small)/16px var(--font-mono); color: var(--ink-muted); }
+.ap-activity-title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
+.ap-activity-elapsed { font: 700 var(--fs-small)/16px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink); }
+.ap-activity-idle { grid-column: 1 / -1; font-size: var(--fs-body); color: var(--ink-muted); }
 
 /* ------------------------------------------------------------------- tabs -- */
-.ap-tabs { display: flex; gap: 2px; padding: 3px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-2); width: fit-content; margin-bottom: var(--sp-4); }
+.ap-tab-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; border-bottom: 1px solid var(--line); }
+.ap-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+/* The selected tab's 2px underline overlaps the row's 1px rule. */
 .ap-tabs button {
-  font: 600 var(--fs-small)/1 var(--font-ui);
-  padding: 7px 14px;
-  border: 0; border-radius: var(--r-1);
-  background: transparent; color: var(--ink-muted);
+  margin-bottom: -1px;
+  padding: 10px 16px 12px;
+  font: 600 17px/normal var(--font-ui);
+  border: 0; border-bottom: 2px solid transparent; border-radius: 0;
+  background: none; color: var(--ink-muted);
   cursor: pointer;
 }
 .ap-tabs button:hover { color: var(--ink); }
-.ap-tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px var(--shadow-control); }
+.ap-tabs button[aria-selected="true"] { color: var(--ink); }
+.ap-tabs button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 [data-panel][hidden] { display: none; }
-.ap-tab-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-3); margin-bottom: var(--sp-4); }
-.ap-tab-bar .ap-tabs { margin-bottom: 0; }
+
+.ap-theme { display: flex; gap: 2px; margin-left: auto; padding: 2px; border-radius: 7px; box-shadow: 0 0 0 1px var(--line); }
+.ap-theme button {
+  padding: 3px 8px;
+  font: 500 var(--fs-micro)/normal var(--font-mono);
+  border: 0; border-radius: 5px;
+  background: transparent; color: var(--ink-muted);
+  cursor: pointer;
+}
+.ap-theme button:hover { color: var(--ink); }
+.ap-theme button[aria-checked="true"] { background: var(--surface-selected); color: var(--ink); }
+.ap-theme button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+.ap-view-controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); margin: var(--sp-3) 0 var(--sp-4); }
 .ap-visibility { display: flex; align-items: center; gap: var(--sp-3); }
 #ap-hidden-note { font-size: var(--fs-small); color: var(--ink-muted); }
 
@@ -1119,14 +1163,15 @@ button:not(:disabled):active, [role="button"]:active { transform: scale(0.98); }
 @keyframes ap-panel-enter { from { opacity: 0; transform: translateY(4px); } }
 
 .ap-tabs button { position: relative; }
+/* Drawn over the button's transparent bottom border, so the underline and the border take the same 2px. */
 .ap-tabs button::after {
   content: "";
   position: absolute;
-  bottom: 0;
+  bottom: -2px;
   left: 0;
   right: 0;
   height: 2px;
-  background: var(--link);
+  background: var(--ink);
   transform: scaleX(0);
   transform-origin: left;
   transition: transform var(--motion-base) var(--ease-out);
@@ -1210,32 +1255,45 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
 </div>
 
 <header class="ap-head">
-  <h1 class="ap-title"><span id="ap-project">Example Agency</span> <span class="ap-kicker">progress</span></h1>
-  <div class="mono" id="ap-generated" title="generated 2026-09-18 21:56">generated 21:56</div>
-  <div class="ap-seg" id="ap-theme">
-    <button type="button" data-theme="auto" aria-pressed="true">Auto</button>
-    <button type="button" data-theme="light" aria-pressed="false">Light</button>
-    <button type="button" data-theme="dark" aria-pressed="false">Dark</button>
+  <div class="ap-head-title-row">
+    <div class="ap-head-identity">
+      <div class="ap-status-line" id="ap-status" data-freshness="live">
+        <span class="ap-status-dot" aria-hidden="true"></span>
+        <span class="ap-status-label" id="ap-status-label">Live</span>
+        <span id="ap-generated" title="generated 2026-09-25 13:33">generated 3 min ago · 13:33</span>
+      </div>
+      <h1 class="ap-title" id="ap-project">Example Agency</h1>
+    </div>
+    <div class="ap-summary" id="ap-summary">
+      <button type="button" class="ap-stat" data-kanban-lane="progress" aria-label="Show 4 / 5 agents working on Kanban"><span class="ap-stat-n">4 / 5</span><span class="ap-stat-label">agents working</span></button>
+      <button type="button" class="ap-stat" data-kanban-lane="done" aria-label="Show 12 delivered today on Kanban"><span class="ap-stat-n">12</span><span class="ap-stat-label">delivered today</span></button>
+      <span class="ap-stat"><span class="ap-stat-n">21.4M</span><span class="ap-stat-label">tokens today</span></span>
+      <button type="button" class="ap-stat" data-kanban-lane="todo" aria-label="Show 6 waiting in queue on Kanban"><span class="ap-stat-n">6</span><span class="ap-stat-label">waiting in queue</span></button>
+    </div>
   </div>
-  <div class="ap-summary" id="ap-summary">
-    <button type="button" class="ap-stat" data-kanban-lane="done" aria-label="Show 2 / 9 work completed on Kanban">Work completed: <span class="ap-stat-n">2 / 9</span></button>
-    <span class="ap-sep">·</span>
-    <button type="button" class="ap-stat" data-kanban-lane="merge" aria-label="Show 1 awaiting merge on Kanban"><span class="ap-stat-n">1</span> awaiting merge</button>
-    <span class="ap-sep">·</span>
-    <button type="button" class="ap-stat" data-kanban-lane="review" aria-label="Show 2 in review on Kanban"><span class="ap-stat-n">2</span> in review</button>
-    <span class="ap-sep">·</span>
-    <button type="button" class="ap-stat" data-kanban-lane="progress" aria-label="Show 1 of 2 agents running on Kanban"><span class="ap-stat-n">1 of 2</span> agents running</button>
-    <span class="ap-sep">·</span>
-    <span class="ap-stat"><span class="ap-stat-n">55.8k</span> tokens</span>
+
+  <div class="ap-activity" id="ap-activity" role="status" aria-live="polite">
+    <div class="ap-activity-row" data-state="in-progress"><span class="ap-activity-dot" aria-hidden="true"></span><span class="ap-activity-kind">Building</span><span class="ap-activity-id">#060</span><span class="ap-activity-title">Account pages dark mode</span><span class="ap-activity-elapsed">2h 36m 12s</span></div>
+    <div class="ap-activity-row" data-state="reviewing"><span class="ap-activity-dot" aria-hidden="true"></span><span class="ap-activity-kind">Reviewing</span><span class="ap-activity-id">#059</span><span class="ap-activity-title">Accent-blind search</span><span class="ap-activity-elapsed">2h 02m 40s</span></div>
+    <div class="ap-activity-row" data-state="in-progress"><span class="ap-activity-dot" aria-hidden="true"></span><span class="ap-activity-kind">Building</span><span class="ap-activity-id">#063</span><span class="ap-activity-title">Stale basket badge after removing a coupon</span><span class="ap-activity-elapsed">51m 03s</span></div>
+    <div class="ap-activity-row" data-state="reviewing"><span class="ap-activity-dot" aria-hidden="true"></span><span class="ap-activity-kind">Reviewing</span><span class="ap-activity-id">#058</span><span class="ap-activity-title">Rate-limit resets</span><span class="ap-activity-elapsed">31m 17s</span></div>
+  </div>
+
+  <div class="ap-tab-bar">
+    <div class="ap-tabs" id="ap-tabs" role="tablist" aria-label="Views">
+      <button type="button" role="tab" id="ap-tab-kanban" aria-controls="ap-panel-kanban" data-tab="kanban" aria-selected="true">Kanban</button>
+      <button type="button" role="tab" id="ap-tab-progress" aria-controls="ap-panel-progress" data-tab="progress" aria-selected="false">Progress</button>
+      <button type="button" role="tab" id="ap-tab-tickets" aria-controls="ap-panel-tickets" data-tab="tickets" aria-selected="false">Tickets</button>
+    </div>
+    <div class="ap-theme" id="ap-theme" role="radiogroup" aria-label="Theme">
+      <button type="button" role="radio" data-theme="auto" aria-checked="true">Auto</button>
+      <button type="button" role="radio" data-theme="light" aria-checked="false">Light</button>
+      <button type="button" role="radio" data-theme="dark" aria-checked="false">Dark</button>
+    </div>
   </div>
 </header>
 
-<div class="ap-tab-bar">
-  <div class="ap-tabs" id="ap-tabs" role="tablist">
-    <button type="button" role="tab" id="ap-tab-kanban" aria-controls="ap-panel-kanban" data-tab="kanban" aria-selected="true">Kanban</button>
-    <button type="button" role="tab" id="ap-tab-progress" aria-controls="ap-panel-progress" data-tab="progress" aria-selected="false">Progress</button>
-    <button type="button" role="tab" id="ap-tab-tickets" aria-controls="ap-panel-tickets" data-tab="tickets" aria-selected="false">Tickets</button>
-  </div>
+<div class="ap-view-controls">
   <div class="ap-visibility">
     <span id="ap-hidden-note">2 tickets hidden</span>
     <span class="ap-range-label">Done &gt; 1 day</span>
@@ -1524,7 +1582,7 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
     root.setAttribute("data-theme-choice", choice);
     var buttons = themeBar.querySelectorAll("[data-theme]");
     for (var i = 0; i < buttons.length; i++) {
-      buttons[i].setAttribute("aria-pressed", String(buttons[i].dataset.theme === choice));
+      buttons[i].setAttribute("aria-checked", String(buttons[i].dataset.theme === choice));
     }
   }
   applyTheme(root.getAttribute("data-theme-choice") || "auto");
@@ -1573,6 +1631,18 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
     if (!button) { return; }
     select(button.dataset.tab);
     try { localStorage.setItem(TAB_KEY, button.dataset.tab); } catch (e) {}
+  });
+  /* The arrow keys, Home and End move to a tab and select it through its click, so every click listener sees the change. */
+  tabs.addEventListener("keydown", function (event) {
+    var buttons = Array.prototype.slice.call(tabs.querySelectorAll("[data-tab]"));
+    var current = buttons.indexOf(event.target);
+    if (current < 0) { return; }
+    var next = { ArrowRight: current + 1, ArrowLeft: current - 1, Home: 0, End: buttons.length - 1 }[event.key];
+    if (next === undefined) { return; }
+    event.preventDefault();
+    var target = buttons[(next + buttons.length) % buttons.length];
+    target.focus();
+    target.click();
   });
 
   /* The idle reload. Every RELOAD_INTERVAL_MS the page tries to reload; while the viewer is using

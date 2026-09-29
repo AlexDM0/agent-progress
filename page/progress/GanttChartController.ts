@@ -1,4 +1,4 @@
-/** The Progress tab: the summary, the generated stamp, the hidden-work note, the chart's layout, the range bar and the name column. */
+/** The Progress tab: the hidden-work note, the chart's layout, the range bar and the name column. */
 
 import type { ViewRange }                                              from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import type { PagePayload }                                            from '../../src/shared/@types/PagePayload.ts';
@@ -9,10 +9,8 @@ import {
   AXIS_TICKS_ELEMENT_ID,
   CHART_ELEMENT_ID,
   CHART_OVERLAY_ELEMENT_ID,
-  GENERATED_STAMP_ELEMENT_ID,
   HIDDEN_WORK_NOTE_ELEMENT_ID,
   RANGE_NOTE_ELEMENT_ID,
-  SUMMARY_ELEMENT_ID,
   TASK_ROWS_ELEMENT_ID,
 } from '../constants/TemplateIds.ts';
 import { ViewerPreferenceUtil }     from '../preferences/utils/ViewerPreferenceUtil.ts';
@@ -23,11 +21,9 @@ import { createCustomRangePopover } from './CustomRangePopover.ts';
 import { effectiveViewRangeFor }    from './EffectiveViewRange.ts';
 import type { PlacedTick, TaskRow } from './GanttChartMarkup.ts';
 import {
-  generatedStampText,
   hiddenWorkNoteText,
   overlayMarkup,
   rangeNoteText,
-  summaryStatisticsMarkup,
   taskRowsMarkup,
   tickLayerMarkup,
 } from './GanttChartMarkup.ts';
@@ -47,10 +43,8 @@ export interface GanttChartControllerSources {
 }
 
 export interface GanttChartController {
-  showSummary(): void;
   applyNameColumnWidth(): void;
   setVisibleRows(visibleRows: readonly BoardRow[]): void;
-  showGeneratedStamp(todayCalendarDate: string): void;
   showHiddenNote(hiddenTaskCount: number, hiddenTicketCount: number): void;
   layOut(bringNowIntoView: boolean): void;
   wireRangeBar(): void;
@@ -194,18 +188,12 @@ export function createGanttChartController(sources: GanttChartControllerSources)
   });
 
   return {
-    showSummary: () => {
-      DomUtil.setMarkup(SUMMARY_ELEMENT_ID, summaryStatisticsMarkup(progress.tasks, payload.concurrency));
-    },
     applyNameColumnWidth: () => {
       reflectNameColumnWidth(nameColumnWidth);
     },
     setVisibleRows: (nextVisibleRows) => {
       visibleRows     = nextVisibleRows;
       visibleProgress = { ...progress, tasks: [...visibleRows] };
-    },
-    showGeneratedStamp: (todayCalendarDate) => {
-      DomUtil.setShortenedText(GENERATED_STAMP_ELEMENT_ID, generatedStampText(payload.generatedAtEpochMilliseconds, todayCalendarDate));
     },
     showHiddenNote: (hiddenTaskCount, hiddenTicketCount) => {
       DomUtil.setText(HIDDEN_WORK_NOTE_ELEMENT_ID, hiddenWorkNoteText(hiddenTaskCount, hiddenTicketCount));
