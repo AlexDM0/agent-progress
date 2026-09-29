@@ -54,8 +54,8 @@ describe('ticketTableRowsMarkup', () => {
   });
 
   // The only thing on a ticket table row that says which ticket it is without parsing a link: the detail panel resolves it from here.
-  test('names its ticket on the row itself, and lets the keyboard focus it', () => {
-    expect(ticketTableRowsMarkup(boardTicketsOf([exampleTicket()]), '')).toContain('<tr data-ticket-id="003" tabindex="0">');
+  test('names its ticket and its state on the row itself, and lets the keyboard focus it', () => {
+    expect(ticketTableRowsMarkup(boardTicketsOf([exampleTicket()]), '')).toContain('<tr data-ticket-id="003" data-state="reviewing" tabindex="0">');
   });
 
   test('never renders the ticket body', () => {

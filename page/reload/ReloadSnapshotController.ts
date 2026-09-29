@@ -4,6 +4,7 @@ import type {
   DetailTarget,
   ReloadSnapshot,
   ReloadSnapshotStore,
+  ScreenSignature,
   TicketView,
 } from '../@types/ViewerChoices.ts';
 import {
@@ -26,6 +27,8 @@ export interface ReloadSnapshotSources {
   applyTicketView:    (ticketView: TicketView) => void;
   rangePopoverIsOpen: () => boolean;
   reopenRangePopover: (fromText: string, toText: string) => void;
+  screenSignature:    ScreenSignature;
+  showChangesSince:   (previousSignature: ScreenSignature) => void;
 }
 
 export interface ReloadSnapshotController {
@@ -62,6 +65,8 @@ export function createReloadSnapshotController(sources: ReloadSnapshotSources): 
     applyTicketView,
     rangePopoverIsOpen,
     reopenRangePopover,
+    screenSignature,
+    showChangesSince,
   } = sources;
 
   const snapshotOfPlace = (): ReloadSnapshot => {
@@ -82,6 +87,7 @@ export function createReloadSnapshotController(sources: ReloadSnapshotSources): 
       ticketView:         readTicketView(),
       detailTarget,
       detailScrollTop:    detailTarget === null ? 0 : detailBody?.scrollTop ?? 0,
+      screenSignature,
     };
   };
 
@@ -122,6 +128,9 @@ export function createReloadSnapshotController(sources: ReloadSnapshotSources): 
       // Last, since opening focuses its first field and the focus must not undo the scroll put back above.
       if (snapshot.rangePopoverIsOpen) {
         reopenRangePopover(snapshot.fromText, snapshot.toText);
+      }
+      if (snapshot.screenSignature !== null) {
+        showChangesSince(snapshot.screenSignature);
       }
     },
   };

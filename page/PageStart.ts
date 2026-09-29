@@ -25,7 +25,9 @@ import { KanbanLaneUtil }                                     from './kanban/uti
 import { createReloadSnapshotStore, createViewerPreferences } from './preferences/ViewerPreferences.ts';
 import { ViewerPreferenceUtil }                               from './preferences/utils/ViewerPreferenceUtil.ts';
 import { createGanttChartController }                         from './progress/GanttChartController.ts';
+import { highlightChangesSince }                              from './reload/ChangeHighlight.ts';
 import { createReloadSnapshotController }                     from './reload/ReloadSnapshotController.ts';
+import { ScreenSignatureUtil }                                from './reload/utils/ScreenSignatureUtil.ts';
 import { createTicketsController }                            from './tickets/TicketsController.ts';
 import { DomUtil }                                            from './utils/DomUtil.ts';
 import { IslandUtil }                                         from './utils/IslandUtil.ts';
@@ -223,6 +225,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     }
   });
 
+  const screenSignature          = ScreenSignatureUtil.screenSignatureOf(board);
   const reloadSnapshotController = createReloadSnapshotController({
     trackerId:          progress.trackerId,
     tabNames:           TAB_NAMES,
@@ -233,6 +236,8 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     applyTicketView:    (ticketView) => ticketsController.applyView(ticketView),
     rangePopoverIsOpen: () => progressController.rangePopoverIsOpen(),
     reopenRangePopover: (fromText, toText) => progressController.reopenRangePopover(fromText, toText),
+    screenSignature,
+    showChangesSince:   (previousSignature) => highlightChangesSince(previousSignature, screenSignature),
   });
   reloadSnapshotController.keepPlaceOnReload();
 

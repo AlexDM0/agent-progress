@@ -12,6 +12,7 @@ import type {
   WorkVisibility,
 } from '../../@types/ViewerChoices.ts';
 import { CAPPED_LANE_FIRST_PAGE_CARDS }                                                      from '../../kanban/constants/KanbanBoardLayout.ts';
+import { ScreenSignatureUtil }                                                               from '../../reload/utils/ScreenSignatureUtil.ts';
 import { TicketViewUtil }                                                                    from '../../tickets/utils/TicketViewUtil.ts';
 import { JsonValueUtil }                                                                     from '../../utils/JsonValueUtil.ts';
 import { DEFAULT_ABANDONED_LANE_CHOICE, DEFAULT_NAME_COLUMN_WIDTH, DEFAULT_WORK_VISIBILITY } from '../constants/PreferenceDefaults.ts';
@@ -61,6 +62,7 @@ function reloadSnapshotFrom(value: unknown, trackerId: string): ReloadSnapshot |
     ticketView:         TicketViewUtil.ticketViewFrom(value['ticketView']),
     detailTarget:       detailTargetFrom(value['detailTarget']),
     detailScrollTop:    offsetOf('detailScrollTop'),
+    screenSignature:    ScreenSignatureUtil.screenSignatureFrom(value['screenSignature']),
   };
 }
 

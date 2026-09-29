@@ -55,7 +55,7 @@ export function ticketTableRowsMarkup(tickets: readonly BoardTicket[], searchTex
   const query       = TicketViewUtil.normalisedQueryOf(searchText);
   const markedQuery = TicketViewUtil.queryNamesATicketId(query) ? '' : query;
   return tickets.map((ticket) => [
-    `<tr ${MarkupUtil.attribute('data-ticket-id', ticket.id)} tabindex="0">`,
+    `<tr ${MarkupUtil.attribute('data-ticket-id', ticket.id)} ${MarkupUtil.attribute('data-state', ticket.displayState)} tabindex="0">`,
     `<td class="mono">${WorkItemMarkupUtil.ticketLinksMarkup([ticket.id])}</td>`,
     `<td>${matchMarkedMarkup(ticket.title, markedQuery)}${ticketsTabPriorityMarkMarkup(ticket)}${WorkItemMarkupUtil.waitingOnMarkup(ticket.waitingOn)}</td>`,
     `<td>${HtmlEscapeUtil.escapeHtml(ticket.type)}</td>`,

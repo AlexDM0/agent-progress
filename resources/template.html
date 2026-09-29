@@ -88,7 +88,7 @@
  #ap-review-rows          button beside #ap-name-column, aria-pressed, remembered per viewer;
                                  pressed draws each review pass as a row of its own
                                  (.ap-row[data-review-of]) instead of a segment on its ticket's row
- #ap-ticket-rows          tbody  ticket table body; each <tr> carries data-ticket-id, its status
+ #ap-ticket-rows          tbody  ticket table body; each <tr> carries data-ticket-id and data-state, its status
                                  an .ap-badge[data-state] with the state's label; the matches of
                                  the search in title, group and branch wrapped in mark.ap-match;
                                  when nothing matches, one tr.ap-table-empty saying what was asked
@@ -225,8 +225,15 @@
                 "agent-progress:snapshot" (the shown tab, scroll of the window, #ap-chart and
                 #ap-kanban, the From/To text and whether #ap-range-popover is open,
                 the Tickets tab's search, chips and sort, the open
-                detail and its scroll) and
+                detail and its scroll, and the screen signature: each task and
+                ticket id with its state and review round) and
                 restores and deletes it after its first layout.
+ data-changed   after that restore, on each .ap-row, .ap-kanban-card and
+                #ap-ticket-rows tr whose signature entry is new or differs; the
+                ap-changed animation (1200 ms, --ease-out, only once data-motion
+                is "ready") washes it in its --s-tint, and the script removes the
+                mark when it ends. Under reduced motion: a still --s-edge outline
+                instead, removed after the same 1200 ms. Nothing on a first load.
  THE AXIS BOX   one box for everything on the time axis: the third grid column,
                 edge to edge, no padding or margin. .ap-cell-track, #ap-ticks and
                 #ap-overlay all span exactly that box, so a percentage means the
@@ -1152,6 +1159,25 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
   transition: background-color var(--motion-fast) var(--ease-out);
 }
 
+/* After an idle reload, what changed or is new washes in its state's tint once; it waits for data-motion="ready", so a
+   panel behind another tab plays it when first shown. Reduced motion holds a still outline instead, which the script clears. */
+:root[data-motion="ready"] #ap-rows > .ap-row[data-changed],
+:root[data-motion="ready"] #ap-rows > .ap-row[data-changed] > .ap-cell-name,
+:root[data-motion="ready"] #ap-rows > .ap-row[data-changed] > .ap-cell-pill,
+:root[data-motion="ready"] #ap-ticket-rows > tr[data-changed],
+:root[data-motion="ready"] .ap-kanban-card[data-changed] { animation: ap-changed 1200ms var(--ease-out); }
+@keyframes ap-changed { from { background-color: var(--s-tint); } }
+@media (prefers-reduced-motion: reduce) {
+  #ap-rows > .ap-row[data-changed],
+  #ap-rows > .ap-row[data-changed] > .ap-cell-name,
+  #ap-rows > .ap-row[data-changed] > .ap-cell-pill,
+  #ap-ticket-rows > tr[data-changed],
+  .ap-kanban-card[data-changed] { animation: none; }
+  #ap-rows > .ap-row[data-changed],
+  #ap-ticket-rows > tr[data-changed],
+  .ap-kanban-card[data-changed] { outline:2px solid var(--s-edge); outline-offset: -2px; }
+}
+
 /* A Kanban card lifts 2px on hover and settles to 1px while pressed; its lane clips nothing it needs, so no geometry changes. */
 .ap-kanban-card { transition: var(--feedback-transition); }
 .ap-kanban-card:hover {
@@ -1395,13 +1421,13 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
           <th class="mono">task</th>
         </tr></thead>
         <tbody id="ap-ticket-rows">
-          <tr data-ticket-id="007" tabindex="0"><td class="mono"><a href="#ap-ticket-007">#007</a></td><td>Reword the empty-log note <span class="ap-ticket-badge" data-priority="low" title="Low priority: no row on the chart until it is started, and worked once no normal or high ticket is left undelivered">low</span></td><td>change</td><td><span class="ap-badge" data-state="pending">To do</span></td><td></td><td class="mono"></td><td class="mono"></td></tr>
-          <tr data-ticket-id="006" tabindex="0"><td class="mono"><a href="#ap-ticket-006">#006</a></td><td>Old idea</td><td>bug</td><td><span class="ap-badge" data-state="abandoned">Abandoned</span></td><td></td><td class="mono"></td><td class="mono"><a href="#ap-task-8">#8</a></td></tr>
-          <tr data-ticket-id="005" tabindex="0"><td class="mono"><a href="#ap-ticket-005">#005</a></td><td>Audit the range presets<span class="ap-waiting">waiting on <a href="#ap-ticket-004">#004</a></span></td><td>change</td><td><span class="ap-badge" data-state="pending">To do</span></td><td></td><td class="mono"></td><td class="mono"><a href="#ap-task-7">#7</a></td></tr>
-          <tr data-ticket-id="004" tabindex="0"><td class="mono"><a href="#ap-ticket-004">#004</a></td><td>Brighter colours<span class="ap-waiting" data-priority="high" title="High priority: dispatched before every normal ticket">high</span></td><td>feature</td><td><span class="ap-badge" data-state="in-progress">In progress</span></td><td></td><td class="mono">ticket/brighter-colours</td><td class="mono"><a href="#ap-task-5">#5</a></td></tr>
-          <tr data-ticket-id="003" tabindex="0"><td class="mono"><a href="#ap-ticket-003">#003</a></td><td>Split the <mark class="ap-match">exporter</mark> into two passes</td><td>change</td><td><span class="ap-badge" data-state="in-review">Awaiting review</span></td><td><mark class="ap-match">exporter</mark></td><td class="mono">ticket/<mark class="ap-match">exporter</mark>-passes</td><td class="mono"><a href="#ap-task-3">#3</a></td></tr>
-          <tr data-ticket-id="002" tabindex="0"><td class="mono"><a href="#ap-ticket-002">#002</a></td><td>Cache ticket bodies between runs</td><td>change</td><td><span class="ap-badge" data-state="reviewed">Awaiting merge</span></td><td>exporter</td><td class="mono">ticket/body-cache</td><td class="mono"><a href="#ap-task-2">#2</a></td></tr>
-          <tr data-ticket-id="001" tabindex="0"><td class="mono"><a href="#ap-ticket-001">#001</a></td><td>Double-click a role to edit it</td><td>change</td><td><span class="ap-badge" data-state="delivered">Done</span></td><td>role-editor</td><td class="mono">ticket/role-editor</td><td class="mono"><a href="#ap-task-1">#1</a></td></tr>
+          <tr data-ticket-id="007" data-state="pending" tabindex="0"><td class="mono"><a href="#ap-ticket-007">#007</a></td><td>Reword the empty-log note <span class="ap-ticket-badge" data-priority="low" title="Low priority: no row on the chart until it is started, and worked once no normal or high ticket is left undelivered">low</span></td><td>change</td><td><span class="ap-badge" data-state="pending">To do</span></td><td></td><td class="mono"></td><td class="mono"></td></tr>
+          <tr data-ticket-id="006" data-state="abandoned" tabindex="0"><td class="mono"><a href="#ap-ticket-006">#006</a></td><td>Old idea</td><td>bug</td><td><span class="ap-badge" data-state="abandoned">Abandoned</span></td><td></td><td class="mono"></td><td class="mono"><a href="#ap-task-8">#8</a></td></tr>
+          <tr data-ticket-id="005" data-state="pending" tabindex="0"><td class="mono"><a href="#ap-ticket-005">#005</a></td><td>Audit the range presets<span class="ap-waiting">waiting on <a href="#ap-ticket-004">#004</a></span></td><td>change</td><td><span class="ap-badge" data-state="pending">To do</span></td><td></td><td class="mono"></td><td class="mono"><a href="#ap-task-7">#7</a></td></tr>
+          <tr data-ticket-id="004" data-state="in-progress" tabindex="0"><td class="mono"><a href="#ap-ticket-004">#004</a></td><td>Brighter colours<span class="ap-waiting" data-priority="high" title="High priority: dispatched before every normal ticket">high</span></td><td>feature</td><td><span class="ap-badge" data-state="in-progress">In progress</span></td><td></td><td class="mono">ticket/brighter-colours</td><td class="mono"><a href="#ap-task-5">#5</a></td></tr>
+          <tr data-ticket-id="003" data-state="in-review" tabindex="0"><td class="mono"><a href="#ap-ticket-003">#003</a></td><td>Split the <mark class="ap-match">exporter</mark> into two passes</td><td>change</td><td><span class="ap-badge" data-state="in-review">Awaiting review</span></td><td><mark class="ap-match">exporter</mark></td><td class="mono">ticket/<mark class="ap-match">exporter</mark>-passes</td><td class="mono"><a href="#ap-task-3">#3</a></td></tr>
+          <tr data-ticket-id="002" data-state="reviewed" tabindex="0"><td class="mono"><a href="#ap-ticket-002">#002</a></td><td>Cache ticket bodies between runs</td><td>change</td><td><span class="ap-badge" data-state="reviewed">Awaiting merge</span></td><td>exporter</td><td class="mono">ticket/body-cache</td><td class="mono"><a href="#ap-task-2">#2</a></td></tr>
+          <tr data-ticket-id="001" data-state="delivered" tabindex="0"><td class="mono"><a href="#ap-ticket-001">#001</a></td><td>Double-click a role to edit it</td><td>change</td><td><span class="ap-badge" data-state="delivered">Done</span></td><td>role-editor</td><td class="mono">ticket/role-editor</td><td class="mono"><a href="#ap-task-1">#1</a></td></tr>
           <tr class="ap-table-empty"><td colspan="7"><p><strong>No ticket matches “refund”, type bug.</strong></p><p><button type="button" class="ap-link-button" data-clear-filters>Clear search and filters</button></p></td></tr>
         </tbody>
       </table>

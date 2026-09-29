@@ -37,7 +37,13 @@ export interface TicketView {
   sortDirection: TicketSortDirection;
 }
 
-/** The viewer's place, stored just before the idle reload and restored once after it. */
+/** What the page showed, keyed by task id and by ticket id: each value is the item's display state and, once it has one, its review round. */
+export interface ScreenSignature {
+  tasks:   Readonly<Record<string, string>>;
+  tickets: Readonly<Record<string, string>>;
+}
+
+/** The viewer's place, stored just before the idle reload and restored once after it; `screenSignature` is null in a snapshot without one. */
 export interface ReloadSnapshot {
   trackerId:          string;
   tabName:            string;
@@ -51,6 +57,7 @@ export interface ReloadSnapshot {
   ticketView:         TicketView;
   detailTarget:       DetailTarget | null;
   detailScrollTop:    number;
+  screenSignature:    ScreenSignature | null;
 }
 
 export interface ReloadSnapshotStore {

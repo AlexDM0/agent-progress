@@ -138,6 +138,7 @@ describe('reloadSnapshotFrom', () => {
     ticketView:         STORED_TICKET_VIEW,
     detailTarget:       { kind: 'task', id: '7' },
     detailScrollTop:    45,
+    screenSignature:    { tasks: { 7: 'in-review' }, tickets: { '003': 'reviewing round 2' } },
   };
 
   test('reads back everything the page stored before the reload', () => {
@@ -192,5 +193,11 @@ describe('reloadSnapshotFrom', () => {
 
   test.each(['task', 'ticket', 'kanban-card'])('reads the %s detail target', (kind) => {
     expect(reloadSnapshotFrom({ ...storedSnapshot, detailTarget: { kind, id: '3' } }, 'tracker-a')?.detailTarget).toEqual({ kind, id: '3' });
+  });
+
+  // Without a signature nothing is compared, so a reload after it highlights nothing.
+  test('reads a missing or unreadable screen signature as none', () => {
+    expect(reloadSnapshotFrom({ ...storedSnapshot, screenSignature: undefined }, 'tracker-a')?.screenSignature).toBeNull();
+    expect(reloadSnapshotFrom({ ...storedSnapshot, screenSignature: { tasks: [] } }, 'tracker-a')?.screenSignature).toBeNull();
   });
 });

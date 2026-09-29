@@ -209,6 +209,7 @@ const EXAMPLE_RELOAD_SNAPSHOT: ReloadSnapshot = {
   },
   detailTarget:    { kind: 'kanban-card', id: '12' },
   detailScrollTop: 45,
+  screenSignature: { tasks: { 12: 'in-review' }, tickets: { '012': 'in-review' } },
 };
 
 describe('createReloadSnapshotStore', () => {
