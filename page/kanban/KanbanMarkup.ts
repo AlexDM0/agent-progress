@@ -8,6 +8,7 @@ import { FIRST_REPEAT_REVIEW_ROUND }       from '../../src/lib/tracker-model/con
 import { TicketDefaultsUtil }              from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
 import type { KanbanCard }                 from '../@types/KanbanCard.ts';
 import type { FinishedWorkChoice }         from '../@types/ViewerChoices.ts';
+import { CLOSING_EVENT_WORD }              from '../constants/ClosingEventWords.ts';
 import { STATE_LABEL_FOR_DISPLAY_STATE }   from '../constants/StateLabels.ts';
 import { FinishedWorkUtil }                from '../utils/FinishedWorkUtil.ts';
 import { MarkupUtil }                      from '../utils/MarkupUtil.ts';
@@ -50,12 +51,12 @@ const EMPTY_LANE_TEXT: Record<Exclude<KanbanLane, ClosedKanbanLane>, string> = {
 };
 
 const CLOSED_LANE_VERB: Record<ClosedKanbanLane, string> = {
-  done:      'delivered',
-  abandoned: 'abandoned',
+  done:      CLOSING_EVENT_WORD.delivered,
+  abandoned: CLOSING_EVENT_WORD.abandoned,
 };
 
 const EMPTY_CLOSED_LANE_TEXT_UNDER_ALL: Record<ClosedKanbanLane, string> = {
-  done:      'Nothing delivered yet.',
+  done:      'Nothing done yet.',
   abandoned: 'Nothing abandoned.',
 };
 

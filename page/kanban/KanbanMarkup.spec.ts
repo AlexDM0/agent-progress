@@ -294,10 +294,10 @@ describe('the empty lanes', () => {
     const since   = kanbanBoardMarkup(boardInput([], [], { finishedWork: 'since-2026-09-24' }));
     const all     = kanbanBoardMarkup(boardInput([], [], { finishedWork: 'all' }));
 
-    expect(lastDay).toContain('<div class="ap-empty">Nothing delivered in the last day.</div>');
+    expect(lastDay).toContain('<div class="ap-empty">Nothing done in the last day.</div>');
     expect(lastDay).toContain('<div class="ap-empty">Nothing abandoned in the last day.</div>');
-    expect(since).toContain('<div class="ap-empty">Nothing delivered since 09-24.</div>');
-    expect(all).toContain('<div class="ap-empty">Nothing delivered yet.</div>');
+    expect(since).toContain('<div class="ap-empty">Nothing done since 09-24.</div>');
+    expect(all).toContain('<div class="ap-empty">Nothing done yet.</div>');
     expect(all).toContain('<div class="ap-empty">Nothing abandoned.</div>');
     expect(all).toContain('<div class="ap-empty">Nothing waiting to start.</div>');
   });

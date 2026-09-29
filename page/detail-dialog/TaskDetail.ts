@@ -15,6 +15,7 @@ import { FIRST_REPEAT_REVIEW_ROUND }           from '../../src/lib/tracker-model
 import type { PageTicket }                     from '../../src/shared/@types/PagePayload.ts';
 import type { IdentifiedLogEntry }             from '../../src/shared/@types/WordedLogEntry.ts';
 import type { BoardRow }                       from '../@types/PageBoard.ts';
+import { CLOSING_EVENT_WORD }                  from '../constants/ClosingEventWords.ts';
 import { MarkupUtil }                          from '../utils/MarkupUtil.ts';
 import { noteNamesTaskOrTicket }               from '../utils/NoteNamesTaskOrTicket.ts';
 import type { DurationUnits, TimestampSlices } from '../utils/TimeUtil.ts';
@@ -187,8 +188,8 @@ function ticketFactsMarkup(ticket: PageTicket, format: StampFormat): string {
     ['filed', ticket.filed],
     ['started', ticket.started],
     ['finished', ticket.finished],
-    ['delivered', ticket.delivered],
-    ['abandoned', ticket.abandonedAt],
+    [CLOSING_EVENT_WORD.delivered, ticket.delivered],
+    [CLOSING_EVENT_WORD.abandoned, ticket.abandonedAt],
   ];
   const plainValues: Array<[label: string, value: string | undefined]> = [
     ['group', ticket.group],

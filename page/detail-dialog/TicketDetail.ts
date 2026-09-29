@@ -6,6 +6,7 @@
 import { HtmlEscapeUtil }            from '../../src/lib/html-escape/HtmlEscapeUtil.ts';
 import { FIRST_REPEAT_REVIEW_ROUND } from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
 import type { KanbanCard }           from '../@types/KanbanCard.ts';
+import { CLOSING_EVENT_WORD }        from '../constants/ClosingEventWords.ts';
 import { MarkupUtil }                from '../utils/MarkupUtil.ts';
 import { WorkItemMarkupUtil }        from '../utils/WorkItemMarkupUtil.ts';
 import type { TicketTimelineLimits } from './@types/TicketTimeline.ts';
@@ -50,8 +51,8 @@ function factsMarkup(input: TicketDetailInput): string {
     ['started', ticket.started],
     ['finished', ticket.finished],
     ['reviewed', ownRow?.reviewed],
-    ['delivered', ticket.delivered],
-    ['abandoned', ticket.abandonedAt],
+    [CLOSING_EVENT_WORD.delivered, ticket.delivered],
+    [CLOSING_EVENT_WORD.abandoned, ticket.abandonedAt],
   ];
   const facts = stamps.flatMap(([label, stamp]) => (typeof stamp === 'string' && stamp !== ''
     ? [DetailMarkupUtil.factMarkup(label, MarkupUtil.stampMarkup('span', stamp, todayCalendarDate, limits))]

@@ -215,6 +215,8 @@ describe('the phases', () => {
 
     expect(markup).toContain('<p class="ap-detail-note">The phases of this row were not recorded');
     expect(phaseLabelsIn(markup)).toEqual(['To do', 'In progress', 'Awaiting review', 'Awaiting merge', 'Done']);
+    expect(markup).toContain('<div><b>done</b><span title="2026-09-18 21:51">21:51</span></div>');
+    expect(markup).not.toContain('<b>delivered</b>');
   });
 
   // A derivation may not invent a phase the row never reached: an in-progress row has not been reviewed, whatever its ticket carries.

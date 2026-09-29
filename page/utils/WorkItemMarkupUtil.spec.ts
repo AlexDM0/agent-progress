@@ -158,7 +158,7 @@ describe('latestMilestoneMarkup', () => {
 
   test('takes the class it is given', () => {
     expect(latestMilestoneMarkup(exampleTicket({ delivered: '2026-09-18T22:10:00+02:00' }), EXAMPLE_TIMESTAMP_SLICES, EXAMPLE_TODAY, 'ap-kanban-date'))
-      .toBe('<span class="ap-kanban-date" title="delivered 2026-09-18 22:10">delivered 22:10</span>');
+      .toBe('<span class="ap-kanban-date" title="done 2026-09-18 22:10">done 22:10</span>');
   });
 
   test('writes nothing for a ticket with no stamps', () => {

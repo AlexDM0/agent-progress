@@ -214,8 +214,8 @@ describe('the design’s #055, delivered', () => {
     expect(timeline.afterBuild.some((span) => span.isLive)).toBe(false);
   });
 
-  test('its end marker is the delivered stamp in the delivered state, and nothing says now', () => {
-    expect(timeline.end).toMatchObject({ closedState: 'delivered', label: 'delivered 13:28' });
+  test('its end marker is the delivered stamp in the delivered state, worded done, and nothing says now', () => {
+    expect(timeline.end).toMatchObject({ closedState: 'delivered', label: 'done 13:28' });
     expect(ticketTimelineMarkup(inputFor(TICKET_055, ROWS_055))).not.toContain('now ');
   });
 
@@ -293,7 +293,7 @@ describe('the shapes the design did not show', () => {
     })];
     const timeline = ticketTimelineOf(inputFor(ticket, rows));
     expect(timeline.axis.lastMomentEpochMilliseconds).toBe(Date.parse(at('12:00')));
-    expect(timeline.end).toMatchObject({ closedState: 'delivered', label: 'delivered 12:00' });
+    expect(timeline.end).toMatchObject({ closedState: 'delivered', label: 'done 12:00' });
     expect(timeline.afterBuild.map((span) => span.label)).toEqual(['Awaiting merge']);
     expect(ticketTimelineMarkup(inputFor(ticket, rows))).not.toContain('now ');
   });
@@ -324,7 +324,7 @@ describe('the shapes the design did not show', () => {
   test('a low ticket without a row has no build row and says why', () => {
     const timeline = ticketTimelineOf(inputFor(exampleTicket('073', { priority: 'low', filed: at('12:00') }), []));
     expect(timeline.buildTimeText).toBe('no row');
-    expect(timeline.note).toBe('Not started. Low priority: it gets a build row once it is started, after every normal and high ticket is delivered.');
+    expect(timeline.note).toBe('Not started. Low priority: it gets a build row once it is started, after every normal and high ticket is done.');
   });
 
   test('a ticket abandoned before it started ends at its abandonment and is not waiting', () => {

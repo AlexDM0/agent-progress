@@ -23,7 +23,7 @@ export function headerStatisticsMarkup(statistics: HeaderStatistics): string {
     : `${statistics.runningTaskCount} / ${statistics.agentLimit}`;
   return [
     laneStatisticMarkup('progress', agentsFigure, 'agents working'),
-    laneStatisticMarkup('done', String(statistics.deliveredTodayCount), 'delivered today'),
+    laneStatisticMarkup('done', String(statistics.deliveredTodayCount), 'done today'),
     `<span class="ap-stat">${statisticContentMarkup(TokenCountUtil.formatTokenCount(statistics.tokensToday), 'tokens today')}</span>`,
     laneStatisticMarkup('todo', String(statistics.waitingInQueueCount), 'waiting in queue'),
   ].join('');

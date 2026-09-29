@@ -10,6 +10,7 @@ import { FIRST_REPEAT_REVIEW_ROUND }          from '../../src/lib/tracker-model/
 import { TicketDefaultsUtil }                 from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
 import type { PageTicket }                    from '../../src/shared/@types/PagePayload.ts';
 import type { TimelineLimits, TimelineTick }  from '../@types/Timeline.ts';
+import { CLOSING_EVENT_WORD }                 from '../constants/ClosingEventWords.ts';
 import { MINIMUM_TICK_STEP_MINUTES }          from '../utils/GeometryUtil.ts';
 import { GeometryUtil }                       from '../utils/GeometryUtil.ts';
 import { TimeUtil, type DurationUnits }       from '../utils/TimeUtil.ts';
@@ -30,7 +31,7 @@ const AXIS_PADDING_FRACTION_PER_SIDE = 0.025;
 
 const TICKET_TIMELINE_MAXIMUM_TICKS = 9;
 
-const LOW_PRIORITY_WITHOUT_ROW_NOTE = 'Not started. Low priority: it gets a build row once it is started, after every normal and high ticket is delivered.';
+const LOW_PRIORITY_WITHOUT_ROW_NOTE = 'Not started. Low priority: it gets a build row once it is started, after every normal and high ticket is done.';
 const ABANDONED_WITHOUT_ROW_NOTE    = 'Abandoned before it was started; it never had a build row.';
 const ABANDONED_BEFORE_START_NOTE   = 'Abandoned before it was started.';
 
@@ -259,7 +260,7 @@ function noteOf(input: NoteInput): string | null {
 function endOf(axis: TicketTimelineAxis, closedState: ClosedTicketState | null, closingStamp: string | null, input: TicketTimelineInput): TimelineEnd {
   const label = closedState === null || closingStamp === null
     ? `now ${TimeUtil.clockOf(new Date(input.nowEpochMilliseconds))}`
-    : `${closedState} ${TimeUtil.shortStampText(closingStamp, input.todayCalendarDate, input.limits)}`;
+    : `${CLOSING_EVENT_WORD[closedState]} ${TimeUtil.shortStampText(closingStamp, input.todayCalendarDate, input.limits)}`;
   return { closedState, label, leftPercent: TicketTimelineUtil.percentAlong(axis, axis.lastMomentEpochMilliseconds) };
 }
 

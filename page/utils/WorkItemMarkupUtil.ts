@@ -6,6 +6,7 @@ import type { DisplayState, Task }       from '../../src/lib/tracker-model/@type
 import type { TicketStatus }             from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { TicketDefaultsUtil }            from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
 import type { PageTicket }               from '../../src/shared/@types/PagePayload.ts';
+import { CLOSING_EVENT_WORD }            from '../constants/ClosingEventWords.ts';
 import { STATE_LABEL_FOR_DISPLAY_STATE } from '../constants/StateLabels.ts';
 import { MarkupUtil }                    from './MarkupUtil.ts';
 import { TemplateIdUtil }                from './TemplateIdUtil.ts';
@@ -72,8 +73,8 @@ function stateLabelOf(state: DisplayState, reviewRound: number): string {
 /** The newest of the ticket's closing, finishing, starting and filing stamps, labelled; the Kanban card sets it under its own class. */
 function latestMilestoneMarkup(ticket: PageTicket, slices: TimestampSlices, todayCalendarDate: string, className = 'ap-ticket-dates'): string {
   const milestones: Array<[label: string, value: string | null | undefined]> = [
-    ['delivered', ticket.delivered],
-    ['abandoned', ticket.abandonedAt],
+    [CLOSING_EVENT_WORD.delivered, ticket.delivered],
+    [CLOSING_EVENT_WORD.abandoned, ticket.abandonedAt],
     ['finished', ticket.finished],
     ['started', ticket.started],
     ['filed', ticket.filed],

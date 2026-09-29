@@ -19,11 +19,11 @@ const EXAMPLE_STATISTICS: HeaderStatistics = {
 };
 
 describe('headerStatisticsMarkup', () => {
-  test('prints agents working, delivered today, tokens today and waiting in queue, in that order', () => {
+  test('prints agents working, done today, tokens today and waiting in queue, in that order', () => {
     const markup = headerStatisticsMarkup(EXAMPLE_STATISTICS);
     const labels = [...markup.matchAll(/<span class="ap-stat-label">([^<]*)<\/span>/g)].map((match) => match[1]);
 
-    expect(labels).toEqual(['agents working', 'delivered today', 'tokens today', 'waiting in queue']);
+    expect(labels).toEqual(['agents working', 'done today', 'tokens today', 'waiting in queue']);
     expect(markup).toContain('<span class="ap-stat-n">1 / 6</span>');
     expect(markup).toContain('<span class="ap-stat-n">34</span>');
     expect(markup).toContain('<span class="ap-stat-n">358.2M</span>');
@@ -34,7 +34,7 @@ describe('headerStatisticsMarkup', () => {
     const markup = headerStatisticsMarkup(EXAMPLE_STATISTICS);
 
     expect(markup).toContain('<button type="button" class="ap-stat" data-kanban-lane="progress" aria-label="Show 1 / 6 agents working on Kanban">');
-    expect(markup).toContain('<button type="button" class="ap-stat" data-kanban-lane="done" aria-label="Show 34 delivered today on Kanban">');
+    expect(markup).toContain('<button type="button" class="ap-stat" data-kanban-lane="done" aria-label="Show 34 done today on Kanban">');
     expect(markup).toContain('<button type="button" class="ap-stat" data-kanban-lane="todo" aria-label="Show 0 waiting in queue on Kanban">');
     expect(markup).toContain('<span class="ap-stat"><span class="ap-stat-n">358.2M</span><span class="ap-stat-label">tokens today</span></span>');
     expect(markup.match(/<button /g)).toHaveLength(3);
