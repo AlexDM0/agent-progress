@@ -135,6 +135,7 @@ export function createGanttChartController(sources: GanttChartControllerSources)
   let visibleRows            = rows;
   let visibleProgress        = { ...progress, tasks: [...visibleRows] };
   let rowsChangedUnderHeldRange = false;
+  let visibleRowsWereSet        = false;
 
   const layOut = (bringNowIntoView: boolean): void => {
     const nowEpochMilliseconds = Date.now();
@@ -197,9 +198,11 @@ export function createGanttChartController(sources: GanttChartControllerSources)
       reflectNameColumnWidth(nameColumnWidth);
     },
     setVisibleRows: (nextVisibleRows) => {
-      if (RangePresetUtil.rangeIsHeld(override) && rowIdsOf(nextVisibleRows) !== rowIdsOf(visibleRows)) {
+      // The first rows a load hands in are the starting point, not a change under the held range.
+      if (visibleRowsWereSet && RangePresetUtil.rangeIsHeld(override) && rowIdsOf(nextVisibleRows) !== rowIdsOf(visibleRows)) {
         rowsChangedUnderHeldRange = true;
       }
+      visibleRowsWereSet = true;
       visibleRows     = nextVisibleRows;
       visibleProgress = { ...progress, tasks: [...visibleRows] };
     },
