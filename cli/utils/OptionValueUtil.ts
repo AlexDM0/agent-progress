@@ -27,7 +27,7 @@ function tokenCountFrom(commandArguments: ArgumentParser): number | undefined {
   if (count === null) {
     throw new OperationRefusal(
       'refused',
-      `--tokens "${written}" is not a token count. Write a whole number, or a decimal with a \`k\` or \`m\` suffix: \`12000\`, \`12k\`, \`12.3k\`, \`1.2m\`.`,
+      `--tokens "${written}" is not a token count. Write a whole number, or a decimal with a \`k\`, \`m\` or \`b\` suffix: \`12000\`, \`12k\`, \`12.3k\`, \`1.2m\`, \`1.20b\`.`,
     );
   }
   return count;

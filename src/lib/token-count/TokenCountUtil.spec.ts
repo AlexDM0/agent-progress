@@ -20,9 +20,16 @@ test('a k suffix multiplies by a thousand and an m suffix by a million, in eithe
   expect(parseTokenCount('2M')).toBe(2_000_000);
 });
 
+test('a b suffix multiplies by a billion, in either casing, so a count formatTokenCount printed reads back', () => {
+  expect(parseTokenCount('2b')).toBe(2_000_000_000);
+  expect(parseTokenCount('1.20B')).toBe(1_200_000_000);
+  expect(parseTokenCount('12.35b')).toBe(12_350_000_000);
+});
+
 test('a decimal is read against the suffix it carries', () => {
   expect(parseTokenCount('12.3k')).toBe(12_300);
   expect(parseTokenCount('1.2m')).toBe(1_200_000);
+  expect(parseTokenCount('1.2b')).toBe(1_200_000_000);
 });
 
 /** A whole-number check on the scaled value would refuse this: `1.1 * 1000` is `1100.0000000000002`. */
@@ -90,7 +97,7 @@ test('millions stay millions up to 999.9M and promote to billions where they wou
 });
 
 test('a parsed count writes back as the shorthand it was written in', () => {
-  for (const written of ['12.3k', '1.2M', '950']) {
+  for (const written of ['12.3k', '1.2M', '1.20B', '950']) {
     expect(formatTokenCount(parseTokenCount(written) ?? -1), written).toBe(written);
   }
 });

@@ -12,7 +12,7 @@ The tracker lives in \`.agent-progress/\` at the repository root and is shared b
 it. Every mutating command takes the lock, writes the progress file atomically and regenerates
 \`progress.html\`, which reloads itself every 5 minutes when idle. \`<when>\` is an ISO 8601 timestamp, \`now\`,
 or an offset from now: \`-5m\`, \`-2h\`, \`-1d\`, \`+30m\`. \`<n>\` on --tokens is a whole number or a
-decimal with a \`k\`/\`m\` suffix: \`12000\`, \`12k\`, \`12.3k\`, \`1.2m\`.
+decimal with a \`k\`/\`m\`/\`b\` suffix: \`12000\`, \`12k\`, \`12.3k\`, \`1.2m\`, \`1.20b\`.
 
 \`--help\` works after a command word as well as on its own, and \`-h\` on its own or straight after
 the command word; a \`-h\` further on is refused at exit 1, since it may be text (put text behind a

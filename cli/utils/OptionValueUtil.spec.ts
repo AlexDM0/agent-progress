@@ -49,7 +49,7 @@ describe('OptionValueUtil.tokenCountFrom', () => {
 
     expect(refusal.status).toBe('refused');
     expect(refusal.message).toBe(
-      '--tokens "nonsense" is not a token count. Write a whole number, or a decimal with a `k` or `m` suffix: `12000`, `12k`, `12.3k`, `1.2m`.',
+      '--tokens "nonsense" is not a token count. Write a whole number, or a decimal with a `k`, `m` or `b` suffix: `12000`, `12k`, `12.3k`, `1.2m`, `1.20b`.',
     );
   });
 });

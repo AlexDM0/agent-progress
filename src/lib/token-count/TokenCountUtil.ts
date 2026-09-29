@@ -12,10 +12,10 @@ const SHORTENED_DECIMAL_PLACES = 1;
 /** Billions keep their trailing zeros: `1.20B`, never `1.2B`. */
 const BILLIONS_DECIMAL_PLACES = 2;
 
-const TOKEN_COUNT_PATTERN = /^(\d+)(?:\.(\d+))?\s*([km])?$/i;
+const TOKEN_COUNT_PATTERN = /^(\d+)(?:\.(\d+))?\s*([kmb])?$/i;
 
 /**
- * Reads `12000`, `12k`, `12.3k` or `1.2m`; `null` for anything else, which a caller turns into a
+ * Reads `12000`, `12k`, `12.3k`, `1.2m` or `1.20b`; `null` for anything else, which a caller turns into a
  * refusal. A fractional part is legal only with a suffix, because a bare `12.5` is a count that
  * cannot exist and is far likelier to be a typo for `12500`.
  */
@@ -29,7 +29,10 @@ function parseTokenCount(text: string): number | null {
 
   if (fractionalPart !== undefined && suffix === undefined) return null;
 
-  const scale  = suffix === 'm' ? MILLION_TOKENS : suffix === 'k' ? THOUSAND_TOKENS : 1;
+  const scale  = suffix === 'b' ? BILLION_TOKENS
+    : suffix === 'm' ? MILLION_TOKENS
+      : suffix === 'k' ? THOUSAND_TOKENS
+        : 1;
   const scaled = Math.round(Number(`${wholePart}.${fractionalPart ?? '0'}`) * scale);
   return Number.isSafeInteger(scaled) ? scaled : null;
 }
