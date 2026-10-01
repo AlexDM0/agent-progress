@@ -17,7 +17,7 @@ type PageSource = { path: string, text: string };
 
 type HidingSites = { elementIds: Set<string>, unresolvedSites: string[] };
 
-type StyleRule = { selector: string, display: string, important: boolean, order: number };
+type StyleRule = { selector: string, display: string, important: boolean, order: number, conditional: boolean };
 
 type ElementOpeningTag = { tagName: string, attributes: Map<string, string> };
 
@@ -111,10 +111,12 @@ function styleRulesOf(templateText: string): StyleRule[] {
     if (displayDeclaration?.[1] === undefined) {
       continue;
     }
-    const value = displayDeclaration[1].trim();
+    const value        = displayDeclaration[1].trim();
+    const textBefore   = sheet.slice(0, match.index);
+    const conditional  = textBefore.split('{').length > textBefore.split('}').length;
     for (const selector of splitOutsideParentheses(match[1] ?? '', /,/)) {
       rules.push({
-        selector: selector.trim(), display: value.replace(/\s*!important$/, ''), important: value.endsWith('!important'), order: rules.length
+        selector: selector.trim(), display: value.replace(/\s*!important$/, ''), important: value.endsWith('!important'), order: rules.length, conditional
       });
     }
   }
@@ -270,7 +272,7 @@ function selectorCanMatch(selector: string, chain: readonly ElementOpeningTag[],
     const combinator = /^[>+~]$/.test(parts[partIndex] ?? '') ? parts[partIndex] : ' ';
     const compound   = parts[combinator === ' ' ? partIndex : partIndex - 1] ?? '';
     const nextIndex  = combinator === ' ' ? partIndex - 1 : partIndex - 2;
-    const ancestorMode: MatchMode = 'reaching';
+    const ancestorMode = mode;
     if (combinator === '+' || combinator === '~') {
       return ancestorsMatch(nextIndex, ancestorCount);
     }
@@ -297,7 +299,7 @@ function uncoveredDisplayRulesOf(templateText: string, elementId: string): strin
   }
   const hiddenChain = [...chain.slice(0, -1), { tagName: element.tagName, attributes: new Map([...element.attributes, ['hidden', '']]) }];
   const rules       = styleRulesOf(templateText);
-  const covers      = rules.filter((rule) => rule.display === 'none' && selectorCanMatch(rule.selector, hiddenChain, 'cover'));
+  const covers      = rules.filter((rule) => rule.display === 'none' && !rule.conditional && selectorCanMatch(rule.selector, hiddenChain, 'cover'));
   const reaching    = rules.filter((rule) => rule.display !== 'none' && selectorCanMatch(rule.selector, hiddenChain, 'reaching'));
   return reaching
     .filter((rule) => !covers.some((cover) => (cover.important && !rule.important)
@@ -361,6 +363,14 @@ describe('every element the page hides is display: none while hidden', () => {
     expect(offencesOf(sheetOf('.x[hidden] { display: none } .x { display: flex }'), ['planted'])).toEqual([]);
     expect(offencesOf(sheetOf('.x { display: flex } [hidden] { display: none !important }'), ['planted'])).toEqual([]);
     expect(offencesOf(sheetOf('.x:not([hidden]) { display: flex }'), ['planted'])).toEqual([]);
+  });
+
+  test('a cover that holds only under a page state or a media query does not count', () => {
+    const markup = '<div class="outer"><div class="x" id="planted" hidden></div></div>';
+    expect(offencesOf(`<style>.x { display: flex } .outer:hover .x[hidden] { display: none }</style>${markup}`, ['planted']))
+      .toEqual(['#planted: .x { display: flex }']);
+    expect(offencesOf(`<style>.x { display: flex } @media (min-width: 1px) { .x[hidden] { display: none } }</style>${markup}`, ['planted']))
+      .toEqual(['#planted: .x { display: flex }']);
   });
 
   test('a rule reaches the element only through ancestors the markup gives it', () => {
