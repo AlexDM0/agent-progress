@@ -190,6 +190,13 @@ function phasesOnBar(
     const right = Math.min(bar.right, percentOf(phaseSpan.endEpochMilliseconds));
     return right > left ? [{ status: phaseSpan.status, left, right }] : [];
   });
+  const firstSpan = spans[0];
+  const lastSpan  = spans.at(-1);
+  if (shown.length === 0 && firstSpan !== undefined && lastSpan !== undefined) {
+    // A bar pinned against the edge it fell off shows the phase nearest that edge.
+    const nearestSpan = percentOf(firstSpan.startEpochMilliseconds) >= bar.right ? firstSpan : lastSpan;
+    shown.push({ status: nearestSpan.status, left: bar.left, right: bar.right });
+  }
   return shown.map((phase, index) => {
     const left  = index === 0 ? bar.left : phase.left;
     const right = index === shown.length - 1 ? bar.right : phase.right;

@@ -180,6 +180,28 @@ describe('computeTimeline', () => {
     expect(bar?.leftPercent).toBeCloseTo(100 - EXAMPLE_PAGE_LIMITS.minimumBarWidthPercent, 10);
   });
 
+  test('colours a bar pinned against an edge by the phase nearest that edge, not by the row\'s state', () => {
+    const history = (startOffsetMinutes: number): Task['history'] => [
+      { status: 'in-progress', at: timestampAt(startOffsetMinutes) },
+      { status: 'paused', at: timestampAt(startOffsetMinutes + 5) },
+      { status: 'in-review', at: timestampAt(startOffsetMinutes + 10) },
+    ];
+    const timeline = timelineFor({
+      tasks: [
+        { ...exampleTask(1, 120, 130), history: history(120) },
+        { ...exampleTask(2, -30, -20), history: history(-30) },
+      ],
+      range:            absoluteRange(0, 60),
+      nowOffsetMinutes: 30,
+    });
+    const [afterRange, beforeRange] = timeline.bars;
+
+    expect(afterRange?.phases.map((phase) => phase.status)).toEqual(['in-progress']);
+    expect(afterRange?.phases[0]?.widthPercent).toBeCloseTo(afterRange?.widthPercent ?? Number.NaN, 10);
+    expect(beforeRange?.phases.map((phase) => phase.status)).toEqual(['paused']);
+    expect(beforeRange?.phases[0]?.widthPercent).toBeCloseTo(beforeRange?.widthPercent ?? Number.NaN, 10);
+  });
+
   test('floors a zero-length bar at the minimum width so an instant task is still findable', () => {
     const timeline = timelineFor({ tasks: [exampleTask(1, 30, 30)], range: absoluteRange(0, 60), nowOffsetMinutes: 30 });
     const [bar]    = timeline.bars;
