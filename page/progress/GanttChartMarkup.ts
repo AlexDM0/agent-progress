@@ -9,6 +9,7 @@ import { FIRST_REPEAT_REVIEW_ROUND }      from '../../src/lib/tracker-model/cons
 import type { PageLimits }                from '../../src/shared/@types/PagePayload.ts';
 import type { BoardRow }                  from '../@types/PageBoard.ts';
 import type { TimelineBar, TimelineTick } from '../@types/Timeline.ts';
+import { BarPhaseUtil }                   from '../utils/BarPhaseUtil.ts';
 import type { ShortenedText }             from '../utils/MarkupUtil.ts';
 import { MarkupUtil }                     from '../utils/MarkupUtil.ts';
 import { TemplateIdUtil }                 from '../utils/TemplateIdUtil.ts';
@@ -38,8 +39,25 @@ interface PlacedTaskRow {
   row:              TaskRow;
   /** The ticket id of the row this one is nested with, drawn directly above it, or `null` for a row drawn at the top level. */
   nestedWithTicket: string | null;
-  /** The review passes drawn on this row's track, oldest filed first. */
-  reviewSegments:   readonly TaskRow[];
+  /** For a review pass drawn as a row of its own, its round from 1; `null` for every other row. */
+  reviewPassRound:  number | null;
+  /** The started review passes drawn on this row's track, oldest filed first. */
+  reviewSegments:   readonly NumberedReview[];
+}
+
+interface NumberedReview {
+  review: TaskRow;
+  round:  number;
+}
+
+/** Rounds count the started passes oldest filed first, as the detail Timeline counts them. */
+function startedReviewsNumbered(reviews: readonly TaskRow[]): NumberedReview[] {
+  return reviews.filter((review) => review.task.start !== null).map((review, index) => ({ review, round: index + 1 }));
+}
+
+/** A review whose ticket's row is not drawn takes the round it was filed as. */
+function roundOfUnnestedRow(task: BoardRow): number | null {
+  return task.reviewOf === undefined && task.ownRowOfReviewedTicket === null ? null : task.reviewBarRound ?? 1;
 }
 
 const LEADING_TICKET_NUMBER_PATTERN = /^#(\d+)\s+/;
@@ -71,12 +89,20 @@ function taskRowsInDisplayOrder(rows: readonly TaskRow[], reviewRowsAreShown: bo
 
   return rows.toReversed().flatMap((row): PlacedTaskRow[] => {
     if (nestedRows.has(row)) return [];
-    const reviews = reviewsByParent.get(row) ?? [];
-    if (!reviewRowsAreShown) return [{ row, nestedWithTicket: null, reviewSegments: reviews }];
+    const numberedReviews = startedReviewsNumbered(reviewsByParent.get(row) ?? []);
+    const ownRow          = { row, nestedWithTicket: null, reviewPassRound: roundOfUnnestedRow(row.task) };
+    if (!reviewRowsAreShown) return [{ ...ownRow, reviewSegments: numberedReviews }];
+    const roundByReview           = new Map(numberedReviews.map(({ review, round }) => [review, round]));
+    const reviews                 = reviewsByParent.get(row) ?? [];
     const reviewsLatestRoundFirst = reviews.toSorted((a, b) => reviewRoundNamedBy(b.task) - reviewRoundNamedBy(a.task) || b.task.id - a.task.id);
     return [
-      ...reviewsLatestRoundFirst.map((review) => ({ row: review, nestedWithTicket: row.task.ticket, reviewSegments: [] })),
-      { row, nestedWithTicket: null, reviewSegments: [] },
+      ...reviewsLatestRoundFirst.map((review) => ({
+        row:              review,
+        nestedWithTicket: row.task.ticket,
+        reviewPassRound:  roundByReview.get(review) ?? 1,
+        reviewSegments:   [],
+      })),
+      { ...ownRow, reviewSegments: [] },
     ];
   });
 }
@@ -90,27 +116,51 @@ function displayedNameOf(task: BoardRow): string {
   return task.name.slice(leadingNumber[0].length);
 }
 
-/** Rounds count the started passes oldest filed first, as the detail Timeline counts them. */
-function reviewSegmentsMarkup(reviews: readonly TaskRow[], drawing: TaskRowsDrawing): string {
-  const startedReviews = reviews.flatMap((review) => (review.task.start === null ? [] : [{ review, start: review.task.start }]));
-  return startedReviews.map(({ review, start }, index) => {
-    const round         = index + 1;
+function placementStyle(placed: { leftPercent: number; widthPercent: number }): string {
+  return `style="left:${MarkupUtil.percentText(placed.leftPercent)};width:${MarkupUtil.percentText(placed.widthPercent)}"`;
+}
+
+function reviewSegmentsMarkup(reviews: readonly NumberedReview[], drawing: TaskRowsDrawing): string {
+  return reviews.map(({ review, round }) => {
     const { task, bar } = review;
-    if (!bar.visible) {
+    if (!bar.visible || task.start === null) {
       return '';
     }
     const endText = task.end === null ? 'now' : TimeUtil.shortStampText(task.end, drawing.todayCalendarDate, drawing.slices);
-    const title   = `Review ${round} · ${TimeUtil.shortStampText(start, drawing.todayCalendarDate, drawing.slices)} → ${endText}`;
+    const title   = `Review ${round} · ${TimeUtil.shortStampText(task.start, drawing.todayCalendarDate, drawing.slices)} → ${endText}`;
     return [
-      `<div class="ap-bar ap-bar-review" ${MarkupUtil.attribute('data-state', round === 1 ? 'reviewing' : 're-review')}${task.end === null ? ' data-live' : ''}`,
-      ` style="left:${MarkupUtil.percentText(bar.leftPercent)};width:${MarkupUtil.percentText(bar.widthPercent)}" ${MarkupUtil.attribute('title', title)}></div>`,
+      `<div class="ap-bar ap-bar-review" ${MarkupUtil.attribute('data-state', BarPhaseUtil.segmentStateOf(task.status, round))}${task.end === null ? ' data-live' : ''}`,
+      ` ${placementStyle(bar)} ${MarkupUtil.attribute('title', title)}></div>`,
     ].join('');
   }).join('');
 }
 
+/**
+ * Each stretch of the row's own bar in the state of the phase it shows, never the row's current one: a review pass in its round's fill, a
+ * build in its recorded phases. A row with no recorded phase keeps the one bar in the row's state.
+ */
+function ownBarMarkup(task: BoardRow, bar: TimelineBar, reviewPassRound: number | null): string {
+  if (bar.visible && reviewPassRound !== null) {
+    const state = BarPhaseUtil.segmentStateOf(task.status, reviewPassRound);
+    return `<div class="ap-bar ap-bar-segment" ${MarkupUtil.attribute('data-state', state)}${task.end === null ? ' data-live' : ''} ${placementStyle(bar)}></div>`;
+  }
+  if (bar.phases.length === 0) {
+    return `<div class="ap-bar"${bar.visible ? '' : ' hidden'} ${placementStyle(bar)}></div>`;
+  }
+  return bar.phases.map((phase) => {
+    const state = BarPhaseUtil.segmentStateOf(phase.status, null);
+    return `<div class="ap-bar ap-bar-segment" ${MarkupUtil.attribute('data-state', state)}${phase.isLive ? ' data-live' : ''} ${placementStyle(phase)}></div>`;
+  }).join('');
+}
+
 function taskRowMarkup(placed: PlacedTaskRow, drawing: TaskRowsDrawing): string {
-  const { row, nestedWithTicket, reviewSegments } = placed;
-  const { task, bar }                              = row;
+  const {
+    row,
+    nestedWithTicket,
+    reviewPassRound,
+    reviewSegments,
+  } = placed;
+  const { task, bar } = row;
   const { slices }                                 = drawing;
   const state         = task.displayState;
   const pillLabel     = WorkItemMarkupUtil.stateLabelOf(state, task.reviewRound ?? FIRST_REPEAT_REVIEW_ROUND);
@@ -121,7 +171,7 @@ function taskRowMarkup(placed: PlacedTaskRow, drawing: TaskRowsDrawing): string 
     : `<span class="ap-tokens">${HtmlEscapeUtil.escapeHtml(TokenCountUtil.formatTokenCount(task.tokens))} tokens</span>`;
   const nesting    = nestedWithTicket === null ? '' : ` ${MarkupUtil.attribute('data-review-of', nestedWithTicket)}`;
   const identities = `${MarkupUtil.attribute('id', TemplateIdUtil.taskRowElementIdOf(task.id))} ${MarkupUtil.attribute('data-task-id', String(task.id))}`;
-  const drawnBars    = [bar, ...reviewSegments.map((review) => review.bar)].filter((drawnBar) => drawnBar.visible);
+  const drawnBars    = [bar, ...reviewSegments.map(({ review }) => review.bar)].filter((drawnBar) => drawnBar.visible);
   const clippedLeft  = drawnBars.some((drawnBar) => drawnBar.clippedLeft);
   const clippedRight = drawnBars.some((drawnBar) => drawnBar.clippedRight);
   return [
@@ -131,7 +181,7 @@ function taskRowMarkup(placed: PlacedTaskRow, drawing: TaskRowsDrawing): string 
     `${ticketBadge}${WorkItemMarkupUtil.waitingOnMarkup(row.waitingOn)}${tokens}</div>`,
     `<div class="ap-cell-pill"><span class="ap-pill">${HtmlEscapeUtil.escapeHtml(pillLabel)}</span>${reviewedMark}</div>`,
     `<div class="ap-cell-track"><span class="ap-clip-l"${clippedLeft ? '' : ' hidden'}></span>`,
-    `<div class="ap-bar"${bar.visible ? '' : ' hidden'} style="left:${MarkupUtil.percentText(bar.leftPercent)};width:${MarkupUtil.percentText(bar.widthPercent)}"></div>`,
+    ownBarMarkup(task, bar, reviewPassRound),
     `${reviewSegmentsMarkup(reviewSegments, drawing)}<span class="ap-clip-r"${clippedRight ? '' : ' hidden'}></span></div>`,
     '</div>',
   ].join('');

@@ -109,6 +109,7 @@ describe('the filed bar outside the dialog', () => {
       clippedLeft:  false,
       clippedRight: false,
       visible:      true,
+      phases:       [],
     };
     const boardRows = pageBoardFixture({ tasks: TASKS, tickets: [DELIVERED_TICKET, WAITING_TICKET] }).rows;
     const rows      = taskRowsMarkup(boardRows.map((task) => ({

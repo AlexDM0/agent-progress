@@ -42,6 +42,7 @@ const PLACED_BAR: TimelineBar = {
   clippedLeft:  false,
   clippedRight: false,
   visible:      true,
+  phases:       [],
 };
 
 function exampleTask(changes: Partial<Task> = {}): Task {
@@ -459,6 +460,111 @@ describe('review passes drawn as segments on their ticket\'s row', () => {
 
     expect(markup).toContain('<span class="ap-clip-l" hidden></span>');
     expect(markup).toContain('<span class="ap-clip-r"></span>');
+  });
+});
+
+const PHASED_FROM = Date.parse('2026-09-18T19:30:00+02:00');
+const PHASED_NOW  = Date.parse('2026-09-18T21:30:00+02:00');
+
+/** Built, paused, built again, reviewed once and now in its second review: the row reads reviewing, each stretch its own phase. */
+function phasedTicketRows(ticketStatus: TicketStatus, ownRowChanges: Partial<Task> = {}): Parameters<typeof taskRowsMarkup>[0] {
+  const tasks = [
+    exampleTask({
+      id:      1,
+      ticket:  '003',
+      status:  'in-review',
+      start:   '2026-09-18T20:00:00+02:00',
+      end:     '2026-09-18T20:40:00+02:00',
+      history: [
+        { status: 'in-progress', at: '2026-09-18T20:00:00+02:00' },
+        { status: 'paused', at: '2026-09-18T20:10:00+02:00' },
+        { status: 'in-progress', at: '2026-09-18T20:25:00+02:00' },
+        { status: 'in-review', at: '2026-09-18T20:40:00+02:00' },
+      ],
+      ...ownRowChanges,
+    }),
+    exampleTask({
+      id: 2, name: 'Review 1 #3 — x', reviewOf: '003', status: 'delivered', start: '2026-09-18T20:45:00+02:00', end: '2026-09-18T21:00:00+02:00',
+    }),
+    exampleTask({
+      id: 3, name: 'Review 2 #3 — x', reviewOf: '003', start: '2026-09-18T21:05:00+02:00', end: null,
+    }),
+  ];
+  const board    = pageBoardFixture({ tasks, tickets: [exampleTicket('003', ticketStatus)] });
+  const timeline = computeTimeline({
+    progress: {
+      trackerId:  'example-tracker',
+      project:    'Example Agency',
+      startedAt:  new Date(PHASED_FROM).toISOString(),
+      nextTaskId: 4,
+      view:       { kind: 'auto' },
+      tasks:      [...board.rows],
+    },
+    range: {
+      kind:        'absolute',
+      from:        new Date(PHASED_FROM).toISOString(),
+      to:          new Date(PHASED_NOW).toISOString(),
+      tickMinutes: null,
+    },
+    nowEpochMilliseconds: PHASED_NOW,
+    limits:               EXAMPLE_PAGE_LIMITS,
+  });
+  return board.rows.flatMap((task, index) => {
+    const bar = timeline.bars[index];
+    return bar === undefined ? [] : [{ task, bar, waitingOn: [] }];
+  });
+}
+
+function segmentStatesOf(markup: string): string[] {
+  return [...markup.matchAll(/class="ap-bar (?:ap-bar-segment|ap-bar-review)" data-state=("[^"]+"(?: data-live)?)/g)].map((match) => match[1] ?? '');
+}
+
+// The owner's rule: a segment shows the phase it stands for; only the pill and the row carry the state the row is in now.
+describe('each segment of a row in its own phase', () => {
+  test('colours a past build segment on a reviewing row as in-progress, not as the row\'s state', () => {
+    const markup = taskRowsMarkup(phasedTicketRows('in-review'), REVIEW_SEGMENTS);
+
+    expect(markup).toContain('id="ap-task-1" data-task-id="1" data-state="reviewing"');
+    expect(markup).toContain('<span class="ap-pill">Reviewing</span>');
+    expect(segmentStatesOf(markup)).toEqual(['"in-progress"', '"paused"', '"in-progress"', '"reviewing"', '"re-review" data-live']);
+  });
+
+  test('lays the build segments end to end over exactly the build bar', () => {
+    const [ownRow] = phasedTicketRows('in-review');
+    const phases   = ownRow?.bar.phases ?? [];
+    const last     = phases.at(-1);
+
+    expect(phases.map((phase) => phase.status)).toEqual(['in-progress', 'paused', 'in-progress']);
+    expect(phases[0]?.leftPercent).toBeCloseTo(ownRow?.bar.leftPercent ?? Number.NaN);
+    expect((last?.leftPercent ?? 0) + (last?.widthPercent ?? 0)).toBeCloseTo((ownRow?.bar.leftPercent ?? 0) + (ownRow?.bar.widthPercent ?? 0));
+    phases.slice(1).forEach((phase, index) => {
+      const previous = phases[index];
+      expect(phase.leftPercent).toBeCloseTo((previous?.leftPercent ?? 0) + (previous?.widthPercent ?? 0));
+    });
+  });
+
+  test('keeps every past segment in its phase once the ticket is delivered', () => {
+    const markup = taskRowsMarkup(phasedTicketRows('delivered', { status: 'delivered' }), REVIEW_SEGMENTS);
+
+    expect(markup).toContain('id="ap-task-1" data-task-id="1" data-state="delivered"');
+    expect(segmentStatesOf(markup)).toEqual(['"in-progress"', '"paused"', '"in-progress"', '"reviewing"', '"re-review" data-live']);
+  });
+
+  test('hatches only the running segment of an open row as live', () => {
+    const markup = taskRowsMarkup(phasedTicketRows('in-progress', { status: 'in-progress', end: null }), REVIEW_SEGMENTS);
+
+    expect(segmentStatesOf(markup).slice(0, 4)).toEqual(['"in-progress"', '"paused"', '"in-progress"', '"in-review" data-live']);
+  });
+
+  test('draws a review pass shown as its own row in its round\'s fill, not in its row\'s state', () => {
+    const markup = taskRowsMarkup(phasedTicketRows('in-review'), REVIEW_ROWS_SHOWN);
+
+    expect(markup).toContain('id="ap-task-3" data-task-id="3" data-state="in-progress"');
+    expect(segmentStatesOf(markup)).toEqual(['"re-review" data-live', '"reviewing"', '"in-progress"', '"paused"', '"in-progress"']);
+  });
+
+  test('keeps one bar in the row\'s state for a row with no recorded phase', () => {
+    expect(rowFor(exampleTask())).toContain('<div class="ap-bar" style="left:10.00%;width:25.00%"></div>');
   });
 });
 

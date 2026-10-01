@@ -212,7 +212,7 @@
                                  .ap-detail-head, .ap-ticket-meta, then the Timeline section
                                  (.ap-ticket-gantt) and the Description section
  ---------------------------------------------------------------- row markup ---
- .ap-row[data-state]      state goes on the ROW; pill and bar inherit its colours
+ .ap-row[data-state]      state goes on the ROW; the pill inherits its colours, a bar segment never
  .ap-row[data-review-of]  only while #ap-review-rows is pressed: a review pass, drawn directly
                           above the row of the ticket it names (value = that ticket's id), latest
                           round first, its name cell indented one level; a review whose ticket has
@@ -229,7 +229,11 @@
  .ap-row > .ap-cell-pill  > .ap-pill (exactly one; label text carries the state),
                             then .ap-reviewed-mark[data-state="reviewed"] on a delivered row
                             that was reviewed first
- .ap-row > .ap-cell-track > .ap-bar (inline left/width %), then one
+ .ap-row > .ap-cell-track > the row's own bar: one .ap-bar.ap-bar-segment[data-state][data-live?]
+                            per recorded phase (inline left/width %), its colour following the
+                            segment's own phase, never the row's state (a review pass drawn as a
+                            row of its own is one segment in its round's reviewing|re-review);
+                            a plain .ap-bar in the row's state when no phase is recorded; then one
                             .ap-bar.ap-bar-review[data-state=reviewing|re-review][data-live?]
                             per review pass on the row's ticket, title "Review N · start → end";
                             .ap-clip-l, .ap-clip-r when any of them runs off the range
@@ -269,7 +273,7 @@
                           .ap-ticket-gantt-overlay (.ap-grid-line…, .ap-ticket-gantt-end[data-state?])
                           and the rows: Filed (.ap-bar.ap-ticket-gantt-filed, drawn only here),
                           Build (.ap-bar.ap-bar-segment[data-state=in-progress|paused][data-live?] per
-                          phase), Review N (.ap-bar[data-state=reviewing|re-review][data-live?]),
+                          phase, its colour following the segment's own phase), Review N (.ap-bar[data-state=reviewing|re-review][data-live?]),
                           After build (.ap-bar.ap-lifecycle-segment[data-state], labelled when
                           wide enough); then ul.ap-ticket-gantt-legend > li > .ap-ticket-gantt-swatch,
                           b, time; then p.ap-ticket-gantt-note for a ticket never started. The end
@@ -961,6 +965,11 @@ body:has(#ap-panel-progress:not([hidden])) .ap-page { height: 100%; display: fle
 /* A review pass on its ticket's row takes its own round's fill, whatever the row's state, with a gap where it meets the build bar. */
 #ap-rows .ap-bar-review { background-color: var(--s-fill); background-image: none; border: 0; box-shadow: 0 0 0 1.5px var(--surface); }
 #ap-rows .ap-bar-review[data-live] { background-image: repeating-linear-gradient(45deg, var(--hatch-live) 0 5px, transparent 5px 10px); }
+/* A segment of the row's own bar takes its own phase's fill; only the running one is hatched live. */
+#ap-rows .ap-bar-segment { background-color: var(--s-fill); background-image: none; border: 0; }
+#ap-rows .ap-bar-segment[data-live] { background-image: repeating-linear-gradient(45deg, var(--hatch-live) 0 5px, transparent 5px 10px); }
+#ap-rows .ap-bar-segment[data-state="paused"] { background-image: repeating-linear-gradient(90deg, var(--hatch-idle) 0 2px, transparent 2px 6px); }
+#ap-rows .ap-bar-segment:not(:has(+ .ap-bar-segment)) { border-top-right-radius: var(--r-1); border-bottom-right-radius: var(--r-1); }
 .ap-clip-l, .ap-clip-r {
   position: absolute; top: 50%; transform: translateY(-50%);
   width: 0; height: 0;
@@ -1655,12 +1664,12 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
           <div class="ap-grid-row ap-row" tabindex="0" id="ap-task-6" data-task-id="6" data-state="paused">
             <div class="ap-cell-name"><span class="ap-num">6</span><span class="ap-name" title="Rewrite the range-bar copy">Rewrite the range-bar copy</span><span class="ap-tokens">1.9k tokens</span></div>
             <div class="ap-cell-pill"><span class="ap-pill">Paused</span></div>
-            <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:71.5%;width:7.0%"></div><span class="ap-clip-r" hidden></span></div>
+            <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar ap-bar-segment" data-state="in-progress" style="left:71.5%;width:3.0%"></div><div class="ap-bar ap-bar-segment" data-state="paused" data-live style="left:74.5%;width:4.0%"></div><span class="ap-clip-r" hidden></span></div>
           </div>
           <div class="ap-grid-row ap-row" tabindex="0" id="ap-task-5" data-task-id="5" data-state="in-progress">
             <div class="ap-cell-name"><span class="ap-num">5</span><span class="ap-name" title="Brighter colours">Brighter colours</span><a class="ap-ticket-badge" href="#ap-ticket-004">#004</a><span class="ap-tokens">6.1k tokens</span></div>
             <div class="ap-cell-pill"><span class="ap-pill">In progress</span></div>
-            <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:62.0%;width:16.5%"></div><span class="ap-clip-r" hidden></span></div>
+            <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar ap-bar-segment" data-state="in-progress" data-live style="left:62.0%;width:16.5%"></div><span class="ap-clip-r" hidden></span></div>
           </div>
           <div class="ap-grid-row ap-row" tabindex="0" id="ap-task-4" data-task-id="4" data-state="in-review">
             <div class="ap-cell-name"><span class="ap-num">4</span><span class="ap-name" title="Regenerate the timeline fixtures">Regenerate the timeline fixtures</span><span class="ap-tokens">4.2k tokens</span></div>
@@ -1670,7 +1679,7 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
           <div class="ap-grid-row ap-row" tabindex="0" id="ap-task-3" data-task-id="3" data-state="reviewing">
             <div class="ap-cell-name"><span class="ap-num">3</span><span class="ap-name" title="Split the exporter into two passes so the tick ladder can be reused">Split the exporter into two passes so the tick ladder can be reused</span><a class="ap-ticket-badge" href="#ap-ticket-003">#003</a><span class="ap-tokens">12.3k tokens</span></div>
             <div class="ap-cell-pill"><span class="ap-pill">Reviewing</span></div>
-            <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar" style="left:31.0%;width:34.0%"></div><div class="ap-bar ap-bar-review" data-state="reviewing" data-live style="left:66.0%;width:12.0%" title="Review 1 · 21:45 → now"></div><span class="ap-clip-r" hidden></span></div>
+            <div class="ap-cell-track"><span class="ap-clip-l" hidden></span><div class="ap-bar ap-bar-segment" data-state="in-progress" style="left:31.0%;width:14.0%"></div><div class="ap-bar ap-bar-segment" data-state="paused" style="left:45.0%;width:8.0%"></div><div class="ap-bar ap-bar-segment" data-state="in-progress" style="left:53.0%;width:12.0%"></div><div class="ap-bar ap-bar-review" data-state="reviewing" data-live style="left:66.0%;width:12.0%" title="Review 1 · 21:45 → now"></div><span class="ap-clip-r" hidden></span></div>
           </div>
           <div class="ap-grid-row ap-row" tabindex="0" id="ap-task-2" data-task-id="2" data-state="reviewed">
             <div class="ap-cell-name"><span class="ap-num">2</span><span class="ap-name" title="Cache ticket bodies between runs">Cache ticket bodies between runs</span><a class="ap-ticket-badge" href="#ap-ticket-002">#002</a><span class="ap-tokens">9.8k tokens</span></div>

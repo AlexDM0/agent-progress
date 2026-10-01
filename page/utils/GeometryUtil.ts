@@ -12,11 +12,14 @@ import type {
   ResolvedSpan,
   Timeline,
   TimelineBar,
+  TimelineBarPhase,
   TimelineInput,
   TimelineLimits,
   TimelineTick,
 } from '../@types/Timeline.ts';
-import { TimeUtil } from './TimeUtil.ts';
+import type { BarPhaseSpan } from './BarPhaseUtil.ts';
+import { BarPhaseUtil }      from './BarPhaseUtil.ts';
+import { TimeUtil }          from './TimeUtil.ts';
 
 export const MINIMUM_TICK_STEP_MINUTES = 1;
 
@@ -175,6 +178,30 @@ function clampPercent(value: number): number {
   return value > 100 ? 100 : value;
 }
 
+/** The outer phases stretch to the bar's edges, so a bar widened to its minimum or a phase stamped after the bar's start still fills it. */
+function phasesOnBar(
+  spans: readonly BarPhaseSpan[],
+  bar: HorizontalExtent,
+  percentOf: (epochMilliseconds: number) => number,
+  rowIsOpen: boolean,
+): TimelineBarPhase[] {
+  const shown = spans.flatMap((phaseSpan) => {
+    const left  = Math.max(bar.left, percentOf(phaseSpan.startEpochMilliseconds));
+    const right = Math.min(bar.right, percentOf(phaseSpan.endEpochMilliseconds));
+    return right > left ? [{ status: phaseSpan.status, left, right }] : [];
+  });
+  return shown.map((phase, index) => {
+    const left  = index === 0 ? bar.left : phase.left;
+    const right = index === shown.length - 1 ? bar.right : phase.right;
+    return {
+      status:       phase.status,
+      leftPercent:  left,
+      widthPercent: right - left,
+      isLive:       rowIsOpen && index === shown.length - 1,
+    };
+  });
+}
+
 /** Every bar is a percentage of the axis box and never narrower than `minimumBarWidthPercent`, so a zero-length task is still visible. */
 function barForTask(task: Task, span: ResolvedSpan, nowEpochMilliseconds: number, limits: TimelineLimits): TimelineBar {
   const startEpochMilliseconds = TimeUtil.epochMillisecondsOf(task.start);
@@ -186,6 +213,7 @@ function barForTask(task: Task, span: ResolvedSpan, nowEpochMilliseconds: number
       clippedLeft:  false,
       clippedRight: false,
       visible:      false,
+      phases:       [],
     };
   }
   const endEpochMilliseconds = Math.max(startEpochMilliseconds, TimeUtil.epochMillisecondsOf(task.end) ?? nowEpochMilliseconds);
@@ -193,14 +221,21 @@ function barForTask(task: Task, span: ResolvedSpan, nowEpochMilliseconds: number
   const rawLeftPercent       = (startEpochMilliseconds - span.fromEpochMilliseconds) / spanMilliseconds * 100;
   const rawRightPercent      = (endEpochMilliseconds - span.fromEpochMilliseconds) / spanMilliseconds * 100;
   const widthPercent         = Math.min(100, Math.max(clampPercent(rawRightPercent) - clampPercent(rawLeftPercent), limits.minimumBarWidthPercent));
-  const leftPercent          = Math.min(clampPercent(rawLeftPercent), 100 - widthPercent);
+  const leftPercent          = Math.max(0, Math.min(clampPercent(rawLeftPercent), 100 - widthPercent));
+  const percentOf            = (epochMilliseconds: number): number => clampPercent((epochMilliseconds - span.fromEpochMilliseconds) / spanMilliseconds * 100);
   return {
     taskId:       task.id,
-    leftPercent:  Math.max(0, leftPercent),
+    leftPercent,
     widthPercent,
     clippedLeft:  rawLeftPercent < 0,
     clippedRight: rawRightPercent > 100,
     visible:      true,
+    phases:       phasesOnBar(
+      BarPhaseUtil.phaseSpansOf(task.history, startEpochMilliseconds, endEpochMilliseconds),
+      { left: leftPercent, right: leftPercent + widthPercent },
+      percentOf,
+      task.end === null,
+    ),
   };
 }
 
