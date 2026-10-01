@@ -4,18 +4,6 @@ Each item is agreed in principle and deliberately not done, with the reason it w
 
 ---
 
-## Pausing a ticket, not only its row
-
-`task pause <id>` records that a row is waiting, and there is deliberately no ticket status for it:
-the ticket statuses in `src/lib/tracker-model/constants/Statuses.ts` are the task statuses without `paused`
-and `re-review`, so no ticket status reaches the state, because a paused ticket is still in progress. The gap that leaves is a reader of the Tickets tab
-alone: a ticket sitting in `in-progress` for two days looks like work in flight, and only the chart and the
-Kanban card (`paused since …`) say it has been paused since Tuesday.
-
-Agreed in principle: surface the linked row's `paused` state on the Tickets tab's card too, as a property
-of the row rather than as a ticket status. Not started because it is a render change and the page's template
-is designer-owned, so it wants a design answer before a code one.
-
 ## The TicketStore moves step 7 left
 
 `src/services/tracker/TicketStore.ts` still holds work that belongs elsewhere. Agreed:
@@ -35,7 +23,7 @@ the features regrouped; they wait for the next change to ticket filing, `ticket 
 
 A reviewer adds the `rework --since` count and each `rework --rebased-from` count itself, the
 repeats after `main-moved` included, to report `reworkedLines`: the review brief's steps 4, 5, 7b
-and 8 in `resources/templates/AgentBrief.md` and the reviewer prompt in
+and 8 in `resources/templates/ReviewBrief.md` and the reviewer prompt in
 `dispatcher/run/utils/AgentPromptUtil.ts` tell it to. Agreed: one count from the tool, so the
 reviewer has nothing to add.
 
@@ -52,18 +40,14 @@ format, the ticket moves and the exit codes, kept in step by hand. Agreed: gener
 Not started because it is a code change (a generator or a guard spec, watched failing on each drifted
 form), and the migration's step 9 changed documentation only.
 
-## Retaking the README images
+## Redrawing two README diagrams
 
-`docs/images/panel-tickets.png` and `docs/images/panel-watch.gif` show the ticket words `open` and
-`done` that step 4a retired, and `panel-tickets.png` shows no Kanban tab.
 `docs/images/terminal-init.svg` and the `terminal-init.png` built from it show init's report as it was
 before step 8: its workflow line names `.claude/workflows/agent-progress-dispatch.js` where it now
 names `.agent-progress/agent-progress-dispatch.js`.
 `docs/images/lifecycle.svg` and `lifecycle.png` state the rework threshold as a figure, which the
-README no longer repeats: redraw them without it. Agreed: retake them with
-`.readme-graphics/regenerate.sh`. Its `compose.py` still builds the `frame-*`, `story-*` and
-`board-day.gif` images only the deleted READMEs used, and the script copies every built image into
-`docs/images/`: drop those jobs from `compose.py` first, or delete those copies before committing.
+README no longer repeats. Agreed: edit both SVGs, then re-render the PNGs with
+`.readme-graphics/render-diagrams.py`.
 
-Not started because the script and its demo board are git-ignored and live only in the owner's main
-checkout, which must run the merged code first.
+Not started because the SVGs are hand-drawn, not generated: each wants a design pass rather than a
+rerun of the script.

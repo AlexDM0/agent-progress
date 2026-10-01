@@ -156,7 +156,8 @@ agent-progress init --project "Example Storefront"
 `init` writes eight things:
 
 - **`.agent-progress/`**, the tracker: the state file, the log (`log.jsonl`), a `tickets/` folder, the dashboard and its lock.
-- **`.agent-progress/agent-brief.md`**, the brief every builder and reviewer works from.
+- **The briefs**: `.agent-progress/agent-brief.md`, the orchestrator's, and `builder-brief.md` and
+  `review-brief.md` beside it, each agent's own.
 - **`.agent-progress/version.json`**, the install version of everything the tool installs.
 - **A `.gitignore` entry** for `.agent-progress/`, unless git already ignores it.
 - **A managed block in `CLAUDE.md`** telling every session in the repository to track its work here.
@@ -215,7 +216,7 @@ offers its official installer.
   </tr>
   <tr>
     <td width="190"><b>Dashboard</b></td>
-    <td>one self-contained <code>progress.html</code>: Kanban · Progress · Tickets tabs, the Kanban board beside the Tickets tab rather than in place of it; light, dark or auto</td>
+    <td>one self-contained <code>progress.html</code>: Kanban · Progress · Tickets tabs, the Kanban board beside the Tickets tab rather than in place of it, and an Epics tab once the board has epics; light, dark or auto</td>
   </tr>
   <tr>
     <td width="190"><b>Agents</b></td>

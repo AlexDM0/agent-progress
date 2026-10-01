@@ -142,19 +142,25 @@ command's own. Its own spec, `src/testing/TrackerIsolation.spec.ts`, tries every
 
 ## The guard specs
 
-Each fails the build on the violation it names. Import direction and the one environment reader are
-held by review, not by a spec.
+Each fails the build on the violation it names. The one environment reader is held by review, not
+by a spec.
 
 | spec | what it pins |
 |---|---|
+| `src/ImportDirection.spec.ts` | The import rules the root `CLAUDE.md` lists under Imports, each planted in memory and watched failing. |
+| `src/ProjectIncludeLists.spec.ts` | The page and dispatcher projects' `include` lists name exactly the files each project reaches. |
 | `src/testing/TrackerIsolation.spec.ts` | Every way a spec could reach a tracker outside the scratch root is refused. |
+| `src/services/render/TemplateColourTokens.spec.ts` | No colour literal in `resources/template.html` outside its token blocks, nor in the page modules' markup. |
+| `cli/OlderTrackerRefusal.spec.ts` | A tracker in an older stored format is refused with the update advice and left as it was. |
+| `cli/InstallVersionVerdict.spec.ts` | The install-version verdicts: current, older, newer, unversioned and unreadable. |
+| `cli/InstalledSurface.spec.ts` | Every command, flag and status field an installed file names is in `cli/FrozenInstalledSurface.json` under the current `INSTALL_VERSION`, and still in the CLI. |
 | `cli/CommandTable.spec.ts` | Every command in `cli/CommandTable.ts` reaches a handler, and a word that is not a command, an inherited property included, is refused. |
 | `cli/HelpText.spec.ts` | `cli/HelpText.ts` and the command table agree in both directions; no bundled skill carries its own command table; the skill every agent loads stays under its size ceiling. |
 | `cli/BinarySmoke.spec.ts` | The real `agent-progress.ts` spawned end to end: the shebang, the argument slice and the exit status reaching the process. |
 | `cli/InitRootOverride.spec.ts` | `init` beside `AGENT_PROGRESS_ROOT`, spawned because no spec may set the environment in-process: an override naming another directory refused with both progress files byte-identical, an agreeing one refreshing like `update`. |
 | `dispatcher/testing/utils/WorkflowScriptSourceUtil.spec.ts` | Every form the guard catches, each watched failing. |
 | `dispatcher/DispatchFromWorkflowGlobals.spec.ts` | The built script's meta is pure and equals the frozen table's, an impurity planted in it is caught, it has no clock or randomness, builds to the same text every time and has one `agent()` call. |
-| `dispatcher/Dispatcher.decisions.spec.ts` and its `.holds`, `.resumption`, `.brief` and `.equivalence` suites | The dispatcher's decisions; see below. |
+| `dispatcher/Dispatcher.decisions.spec.ts` and its `.holds`, `.resumption`, `.group`, `.brief` and `.equivalence` suites | The dispatcher's decisions; see below. |
 
 ## The page
 
@@ -198,6 +204,7 @@ clock and randomness refused as the Workflow tool refuses them. The specs:
 | `dispatcher/Dispatcher.decisions.spec.ts` | Rounds, parking, concurrency, claims and restarts, each claim with its `SourceMutant` (root `CLAUDE.md`, Tests). |
 | `dispatcher/Dispatcher.holds.spec.ts` | A held ticket gets no builder or reviewer until a status block shows the hold lifted, its running row gives up its slot, and the other tickets keep flowing. |
 | `dispatcher/Dispatcher.resumption.spec.ts` | A build an earlier run left paused is resumed by a whole-board relaunch with one builder, never a held ticket's or a person's pause. |
+| `dispatcher/Dispatcher.group.spec.ts` | A group run moves the main line once, at its release ticket's release, runs one builder and one reviewer at a time in pipeline order, and resumes from the board alone. |
 | `dispatcher/Dispatcher.brief.spec.ts` | The call budgets, the rework threshold and the brief path the bundle sends, and the threshold its round decision applies, are `DISPATCH_PROTOCOL`'s; `cli/adoption/InstalledFileGeneration.spec.ts` pins that the installed brief states the same numbers. |
 | `dispatcher/Dispatcher.equivalence.spec.ts` | The bundle reproduces the frozen table on every catalogued scenario. |
 | `dispatcher/testing/DispatchTraceCapture.spec.ts` | The table names the bundle it was taken from and the command that retakes it. |

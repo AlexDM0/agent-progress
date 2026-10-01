@@ -246,6 +246,7 @@ src/testing/         test-only helpers several parts use
 skill/               the skill every session in a tracked repository loads
 skill-orchestrate/   the skill for the one session running the board
 docs/                the CLI reference, development notes, the backlog, the migration plan, README images
+.readme-graphics/    the scripts and demo board that retake the README images; its build/ is git-ignored
 ```
 
 <!-- agent-progress:managed:start -->
