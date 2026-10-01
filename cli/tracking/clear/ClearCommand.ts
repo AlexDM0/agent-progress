@@ -23,7 +23,7 @@ export const clearCommand: CommandHandler = async (commandArguments, context) =>
       );
     }
     const question = deletesTickets
-      ? 'Delete every task row, the log and every ticket in this tracker? [y/N]'
+      ? 'Delete every task row, the log, every ticket and every epic in this tracker? [y/N]'
       : 'Delete every task row and the log, keeping the tickets? [y/N]';
     if (!await context.confirm(question)) {
       context.standardOutput('Nothing was cleared.');
@@ -40,11 +40,12 @@ export const clearCommand: CommandHandler = async (commandArguments, context) =>
       removedTaskCount:    cleared.removedTaskCount,
       removedLogCount:     change.storedLogEntryCount,
       reseededTicketCount: cleared.survivingTicketCount,
+      deletedEpicCount:    cleared.removedEpicCount,
     };
   });
 
   const ticketLine = deletesTickets
-    ? `${deletedTicketCount} ticket(s) deleted`
+    ? `${deletedTicketCount} ticket(s) and ${summary.deletedEpicCount} epic(s) deleted`
     : `${summary.reseededTicketCount} ticket(s) re-seeded`;
   OutputUtil.printEntity(
     commandArguments,
@@ -53,6 +54,7 @@ export const clearCommand: CommandHandler = async (commandArguments, context) =>
       removedTaskCount:    summary.removedTaskCount,
       removedLogCount:     summary.removedLogCount,
       deletedTicketCount,
+      deletedEpicCount:    summary.deletedEpicCount,
       reseededTicketCount: summary.reseededTicketCount,
     },
     `Tracker cleared: ${summary.removedTaskCount} task row(s) and ${summary.removedLogCount} log entr(ies) removed, ${ticketLine}.`,

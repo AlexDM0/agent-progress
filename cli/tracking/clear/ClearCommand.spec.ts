@@ -1,5 +1,6 @@
 /**
- * Starting a new session in an existing tracker: the rows are re-seeded from each surviving ticket's own frontmatter and ids are never wound back.
+ * Starting a new session in an existing tracker: the rows are re-seeded from each surviving ticket's own frontmatter and ids are never wound back;
+ * `--all` takes the tickets and every epic with it, while a plain clear leaves the epic files untouched.
  */
 import { chmodSync, readFileSync, readdirSync } from 'node:fs';
 import { join }                                 from 'node:path';
@@ -10,6 +11,7 @@ import {
   expect,
   test
 }                                                                             from 'bun:test';
+import { islandContentsOf }                   from '../../../src/testing/RenderedIslandText.ts';
 import { removeScratchDirectory }             from '../../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../../src/testing/ToolGuard.ts';
 import { runCommandLine }                     from '../../Main.ts';
@@ -21,6 +23,7 @@ import { storedProgressOf }                   from '../../testing/StoredProgress
 const FROZEN_NOW = new Date('2026-09-18T20:11:03Z');
 
 const TICKETS_DIRECTORY = ['.agent-progress', 'tickets'];
+const EPICS_DIRECTORY   = ['.agent-progress', 'epics'];
 
 const READ_AND_ENTER_ONLY_MODE = 0o555;
 const OWNER_FULL_ACCESS_MODE   = 0o755;
@@ -128,6 +131,52 @@ describeWhenGitIsPresent('clearing everything', () => {
   });
 });
 
+/** Epics only group tickets, so they go with the tickets and stay with them; a kept epic is never rewritten. */
+describeWhenGitIsPresent('clearing a tracker with epics', () => {
+  const EPIC_KEYS = ['checkout-redesign', 'search-revamp'];
+
+  function epicFilesByName(): Record<string, string> {
+    const epicsDirectory = join(repositoryDirectory, ...EPICS_DIRECTORY);
+    return Object.fromEntries(readdirSync(epicsDirectory).map((name) => [name, readFileSync(join(epicsDirectory, name), 'utf8')]));
+  }
+
+  beforeEach(async () => {
+    await run(['epic', 'add', EPIC_KEYS[0] ?? '', 'Checkout redesign', '--body', 'The checkout, rebuilt.']);
+    await run(['epic', 'add', EPIC_KEYS[1] ?? '', 'Search revamp']);
+    await run(['ticket', 'epic', '1', ...EPIC_KEYS]);
+  });
+
+  test('--all deletes every epic file, counts them, and leaves none in status or on the page', async () => {
+    const context = await run(['clear', '--all', '--yes', '--json']);
+
+    expect(JSON.parse(context.outputText())).toMatchObject({ deletedTicketCount: 1, deletedEpicCount: 2 });
+    expect(epicFilesByName()).toEqual({});
+    expect(JSON.parse((await run(['status', '--json'])).outputText()).epics).toEqual([]);
+    const page = readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.html'), 'utf8');
+    const pageData = JSON.stringify([islandContentsOf(page, 'ap-progress-data'), islandContentsOf(page, 'ap-tickets-data')]);
+    expect(pageData, 'the page data before any epic check').toContain('Tracker cleared');
+    for (const epicKey of EPIC_KEYS) expect(pageData).not.toContain(epicKey);
+  });
+
+  test('--all names the epics in its summary line', async () => {
+    const context = await run(['clear', '--all', '--yes']);
+
+    expect(context.outputText()).toContain('1 ticket(s) and 2 epic(s) deleted');
+  });
+
+  test('plain clear keeps every epic file byte for byte and the surviving ticket its epics', async () => {
+    const epicFilesBefore = epicFilesByName();
+
+    const context = await run(['clear', '--yes', '--json']);
+
+    expect(JSON.parse(context.outputText())).toMatchObject({ deletedEpicCount: 0 });
+    expect(epicFilesByName()).toEqual(epicFilesBefore);
+    expect(readFileSync(join(repositoryDirectory, ...TICKETS_DIRECTORY, ticketFileNames()[0] ?? ''), 'utf8')).toContain(EPIC_KEYS[1] ?? '');
+    const [ticket] = JSON.parse((await run(['status', '--json'])).outputText()).tickets;
+    expect(ticket.epics).toEqual(EPIC_KEYS);
+  });
+});
+
 describeWhenGitIsPresent('the confirmation', () => {
   /** A prompt written to a stream nobody is reading is a hang in a subprocess an agent is waiting on. */
   test('a non-terminal standard input without --yes refuses and changes nothing', async () => {
@@ -164,7 +213,7 @@ describeWhenGitIsPresent('the confirmation', () => {
 
     expect(await runCommandLine(['clear', '--all'], context)).toBe(0);
 
-    expect(context.questionsAsked()[0]).toContain('every ticket');
+    expect(context.questionsAsked()[0]).toContain('every ticket and every epic');
     expect(ticketFileNames()).toEqual([]);
   });
 });

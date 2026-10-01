@@ -139,4 +139,5 @@ export interface DispatcherStateSet extends Logged {
 export interface TrackerCleared extends Logged {
   removedTaskCount:     number;
   survivingTicketCount: number;
+  removedEpicCount:     number;
 }
