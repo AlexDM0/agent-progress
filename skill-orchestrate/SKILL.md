@@ -209,7 +209,12 @@ Workflow({ scriptPath: '<mainCheckout>/.agent-progress/agent-progress-dispatch.j
 A group run is not the board's dispatcher either: record no `dispatcher` state or run id for it, and
 when it returns skip step 1 below and handle the rest. A board stop ends it with the rest. Its summary
 adds `group`, `integrated`, `waitingOnPredecessor` (tickets built behind a parked one: settle the
-parked ticket, then relaunch) and `bundleUnread` (mark the release ticket, then relaunch). **Recover
+parked ticket, then relaunch) and `bundleUnread` (mark the release ticket, then relaunch). The
+release is the run's own, so never review or release a group's bundle by hand. `delivered` naming the
+bundle means it was released. When it is empty, the release ticket is in `parked` with its reason:
+a refused release is settled as step 3 says, a moved main line by a relaunch once it is quiet. A
+summary carrying `releaseReviewNext` comes from a dispatcher older than the CLI: ask the user to run
+`agent-progress update`, then relaunch. **Recover
 a group run by launching it again** with the same args, never by resuming it: it keeps no state of its
 own and picks the pipeline up from the board, its builders and reviewers taking over the claims and
 bars the dead run left.

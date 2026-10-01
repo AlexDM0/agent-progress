@@ -105,6 +105,19 @@ function eachReviewFollowsItsPredecessorsIntegration(run: RecordedDispatchRun, r
   });
 }
 
+const VERSION_BUMP_IS_DROPPED_BEFORE_THE_NEXT_RELEASE = 'When R3 made a commit, drop it the way the root `CLAUDE.md` says.';
+
+function releaseReviewPromptsOf(run: RecordedDispatchRun): string[] {
+  return run.calls.filter((call) => call.kind === 'review' && call.ticketId === RELEASE_TICKET_ID).map((call) => call.prompt);
+}
+
+// The release review is this run's own: its one reviewer is told to release every ticket of the bundle from the group branch in one call.
+function releaseReviewReleasesTheWholeBundle(run: RecordedDispatchRun): boolean {
+  const bundleReleaseCommand = `agent-progress release ${EXAMPLE_GROUP.ticketIds.join(' ')} --branch group-${EXAMPLE_GROUP.name}`;
+  const prompts = releaseReviewPromptsOf(run);
+  return prompts.length === 1 && prompts.every((prompt) => prompt.includes(bundleReleaseCommand));
+}
+
 function stoppedAfterTheFirstBuild(): DispatchScenario {
   return groupScenarioWith({
     relaunchedAfterTheRun: true,
@@ -162,6 +175,30 @@ export const GROUP_CLAIMS: readonly DispatchClaim[] = [
     mutant: {
       modulePath: DISPATCHER_MODULE_PATHS.GROUP_AGENT_PROMPT_UTIL,
       find:       '  if (reviewsTheRelease(placement, request.ticketId)) return releaseReviewerPrompt(settings, placement, request);\n',
+      replace:    '',
+    },
+  },
+  {
+    name:        'once every other ticket is integrated the run starts the release review itself, whose one release delivers every ticket of the bundle',
+    scenarioFor: () => groupScenarioWith({}),
+    holds:       (run) => bundleIsReleasedOnce(run, run.summary)
+      && releaseReviewReleasesTheWholeBundle(run)
+      && !run.rowsRunningAtEnd.includes(`review ${RELEASE_TICKET_ID}`),
+    mutant: {
+      modulePath: DISPATCHER_MODULE_PATHS.GROUP_DISPATCH_RUN,
+      find:       'if (ticketId === undefined || !this.predecessorIsIntegrated(ticketId)) return null;',
+      replace:    'if (ticketId === undefined || !this.predecessorIsIntegrated(ticketId) || ticketId === this.releaseTicketId) return null;',
+    },
+  },
+  {
+    name:        '`main-moved` at the release has its reviewer drop the version bump before rebasing again, so the one release carries one version',
+    scenarioFor: () => releaseTicketMeetsAMovedMainLine(1),
+    holds:       (run) => bundleIsReleasedOnce(run, run.summary)
+      && releaseReviewPromptsOf(run).length === 2
+      && releaseReviewPromptsOf(run).every((prompt) => prompt.includes(VERSION_BUMP_IS_DROPPED_BEFORE_THE_NEXT_RELEASE)),
+    mutant: {
+      modulePath: DISPATCHER_MODULE_PATHS.GROUP_AGENT_PROMPT_UTIL,
+      find:       'When R3 made a commit, drop it the way the root \\`CLAUDE.md\\` says. ',
       replace:    '',
     },
   },

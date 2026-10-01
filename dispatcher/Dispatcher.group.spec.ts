@@ -3,7 +3,8 @@
  * bundle reaches the main line only through its release, so these pin what a group run may never do: move the main line other than once, at the
  * release ticket's reviewer's `released` after every other ticket is integrated, run two builders or two reviewers at once, build a ticket before
  * the one it forks off is built, review one before the one before it is integrated, outlive a board stop, or reach a whole-board run's tickets
- * beside it; that `main-moved` at the release is retried and then parked; and that a relaunch picks the pipeline up from the board alone.
+ * beside it; that the run starts the release review itself and its one release delivers the bundle; that `main-moved` at the release is
+ * retried with the version bump dropped and then parked; and that a relaunch picks the pipeline up from the board alone.
  */
 import { describe, expect, test } from 'bun:test';
 
