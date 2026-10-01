@@ -225,8 +225,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   and `skills/agent-progress/Reference.md`, which holds only what help does not print and follows `docs/cli.md`.
 - A `SKILL.md` `description` is its trigger, naming the words a user says. Skill files cite only commands, paths in
   a tracked repository, or files beside them.
-- `skills/agent-progress-orchestrate/` repeats nothing from `skills/agent-progress/`, writes rules as instructions, and never restates what the
-  dispatcher decides. Call budgets and the rework threshold are `DISPATCH_PROTOCOL`
+- `skills/agent-progress-orchestrate/` repeats nothing from `skills/agent-progress/`, writes rules as instructions,
+  and never restates what the dispatcher decides. Call budgets and the rework threshold are `DISPATCH_PROTOCOL`
   (`src/shared/constants/DispatchProtocol.ts`), filled into the brief and block by `init` and `update`.
 - `setup.sh` symlinks both into `~/.claude/skills/`, and `~/development/claude/skills.json` must list them under
   `ignore`.
