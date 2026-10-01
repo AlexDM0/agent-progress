@@ -109,6 +109,14 @@ describe('a ticket\'s epics', () => {
     expect(removed.droppedEpicKeys).toEqual(['example-a']);
   });
 
+  test('a key the ticket already holds whose epic is gone is kept, and may be removed, rather than blocking every change', () => {
+    const { board } = boardFixture({ epics: epics(), tickets: [ticketFixture({ id: '001', epics: ['example-gone'] })] });
+
+    expect(board.addTicketEpics('001', ['example-a'], AT).ticket.frontmatter.epics).toEqual(['example-gone', 'example-a']);
+    expect(board.removeTicketEpics('001', ['example-gone'], AT).ticket.frontmatter.epics).toEqual(['example-a']);
+    expect(refusalDetailOf(() => board.removeTicketEpics('001', ['example-gone'], AT))).toEqual({ reason: 'unknown-epic', missingEpicKeys: ['example-gone'] });
+  });
+
   test('an unknown epic is refused, on a set and on a filing, changing nothing', () => {
     const { board, records } = boardFixture({ epics: epics(), tickets: [ticketFixture({ id: '001' })] });
 

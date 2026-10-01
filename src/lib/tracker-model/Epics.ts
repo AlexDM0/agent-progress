@@ -68,12 +68,15 @@ export class Epics {
     return { logged: [this.records.logger.log({ kind: 'epic-removed', epicKey, fields: {} }, at)], epic };
   }
 
-  /** A key listed twice is kept at its first place, so the first key stays the primary epic. */
+  /**
+   * A key listed twice is kept at its first place, so the first key stays the primary epic. Only a key the ticket does not already hold
+   * must name an epic: one whose epic is gone is kept, so it never blocks the ticket's other changes.
+   */
   setTicketEpics(ticketId: string, epicKeys: readonly string[], at: string): TicketEpicsChanged {
-    const ticket = this.records.requireTicket(ticketId);
-    this.refuseUnknownEpicKeys(epicKeys);
-    const epics          = [...new Set(epicKeys)];
+    const ticket         = this.records.requireTicket(ticketId);
     const previousEpics  = ticket.frontmatter.epics ?? [];
+    this.refuseUnknownEpicKeys(epicKeys.filter((epicKey) => !previousEpics.includes(epicKey)));
+    const epics          = [...new Set(epicKeys)];
     if (epics.length === 0) delete ticket.frontmatter.epics;
     else ticket.frontmatter.epics = epics;
     this.records.markChanged(ticket);
@@ -92,7 +95,7 @@ export class Epics {
 
   removeTicketEpics(ticketId: string, removedEpicKeys: readonly string[], at: string): TicketEpicsChanged {
     const currentEpics = this.records.requireTicket(ticketId).frontmatter.epics ?? [];
-    this.refuseUnknownEpicKeys(removedEpicKeys);
+    this.refuseUnknownEpicKeys(removedEpicKeys.filter((epicKey) => !currentEpics.includes(epicKey)));
     return this.setTicketEpics(ticketId, currentEpics.filter((epicKey) => !removedEpicKeys.includes(epicKey)), at);
   }
 
