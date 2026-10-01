@@ -22,8 +22,8 @@ command but init, update, render, open, hook and help, prints one JSON document 
 in place of the human output.
 
 \`status\`, \`ticket add\`, every ticket or task move (\`ticket claim\` and \`task add --start\` among
-them), \`ticket depends\`, \`priority\`, \`agent\`, \`hold\` and \`unhold\`, and \`release\` end their output with one line
-read from the board after the change: \`Next: 1 of 2 slots free; ready: #003, #005\`, \`Next: no slot
+them), \`ticket depends\`, \`priority\`, \`agent\`, \`hold\` and \`unhold\`, and \`release\` end their
+output with one line read from the board after the change: \`Next: 1 of 2 slots free; ready: #003, #005\`, \`Next: no slot
 free (2 agents in flight); ready: #003\` or \`Next: 2 of 2 slots free; nothing ready\` — at most five
 ready ids, then \`and N more\`; a held ready ticket is left out and named apart, \`; held: #002\` —
 followed by the dispatcher's advice where it has any: \`; launch the
@@ -340,10 +340,11 @@ output never carries either.
       [--note <text>]         every ticket named, as ONE agent: a bundle's builder claims all its
       [--after <id>]          tickets in the one call, and their rows share one agent key. Refused
       [--at <when>]           at exit 1 with nothing written, all or nothing, when any ticket is not
-                              pending or in-review, when one is held, when one waits on a ticket outside the claim
-                              that is not reviewed or delivered (one inside it is settled: the
-                              bundle is worked in dependency order), when one is low and an unheld normal
-                              or high ticket is not yet delivered or abandoned — \`ticket start\` only warns
+                              pending or in-review, when one is held, when one waits on a ticket
+                              outside the claim that is not reviewed or delivered (one inside it is
+                              settled: the bundle is worked in dependency order), when one is low
+                              and an unheld normal or high ticket is not yet delivered or
+                              abandoned — \`ticket start\` only warns
                               about that — when a review bar of one is in progress, or when the agents
                               in flight already number the concurrency limit. The count and the
                               moves share one lock hold, so
