@@ -44,7 +44,8 @@ export class TrackerChanges {
 
   /**
    * Empties the rows in place rather than replacing the progress, so the tracker id readers key their choices by and the id counter survive.
-   * A surviving ticket is re-seeded from its own stamps, except a low ticket with no row, and the epics go only with the tickets; what becomes of the log is the sink's to decide.
+   * A surviving ticket is re-seeded from its own stamps, except a low ticket with no row; the epics go only with the tickets.
+   * What becomes of the log is the sink's to decide.
    */
   clearTracker(request: { ticketsSurvive: boolean }, at: string): TrackerCleared {
     const { progress, ticketRecords } = this.records;
@@ -56,7 +57,9 @@ export class TrackerChanges {
 
     if (!request.ticketsSurvive) {
       ticketRecords.length = 0;
-      return { logged, removedTaskCount, survivingTicketCount: 0, removedEpicCount: this.removeEveryEpic() };
+      return {
+        logged, removedTaskCount, survivingTicketCount: 0, removedEpicCount: this.removeEveryEpic()
+      };
     }
     for (const ticket of ticketRecords) {
       // A reopen clears `started`, so the row the ticket held before the clear is what says it was worked.
@@ -64,7 +67,9 @@ export class TrackerChanges {
       if (!ticketHadNoRowToLose) this.records.seedTaskFromTicket(ticket);
       this.records.markChanged(ticket);
     }
-    return { logged, removedTaskCount, survivingTicketCount: ticketRecords.length, removedEpicCount: 0 };
+    return {
+      logged, removedTaskCount, survivingTicketCount: ticketRecords.length, removedEpicCount: 0
+    };
   }
 
   private removeEveryEpic(): number {
