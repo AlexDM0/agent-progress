@@ -91,4 +91,7 @@ export interface ViewerPreferences {
   /** The pressed chips of the Kanban's epic strip: epic keys, and `NO_EPIC_CHIP`. */
   readKanbanEpicFilter:      () => string[];
   writeKanbanEpicFilter:     (pressedChips: readonly string[]) => void;
+  /** The Progress chart's folded epic groups: epic keys, and `NO_EPIC_CHIP` for the group of rows in none. */
+  readFoldedEpicGroups:      () => string[];
+  writeFoldedEpicGroups:     (foldedGroupKeys: readonly string[]) => void;
 }

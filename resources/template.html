@@ -157,7 +157,15 @@
                                  its rows scrolling inside it; owns --timeline-w
  #ap-ticks                el     tick layer in the header row; children .ap-tick > span; a
                                  tick whose label another label covers gets data-covered
- #ap-rows                 el     row list; direct children are .ap-row
+ #ap-rows                 el     row list; direct children are .ap-row. On a board with epics the
+                                 rows are grouped: each epic's .ap-epic-head-row[data-epic-key]
+                                 [data-epic-slot] (.ap-epic-caret, the epic's chip, "+N shared";
+                                 "N / M done" in the pill cell; .ap-epic-span[data-open?] on the
+                                 track) is followed by its rows, a ticket under its primary epic
+                                 only, its other epics as a "+" .ap-epic-also; then "No epic"
+                                 (data-epic-key="no epic"). A click, Enter or Space on a head
+                                 folds its rows away ([data-collapsed], aria-expanded; remembered
+                                 per viewer). Only a row with data-task-id opens #ap-detail
  #ap-overlay              el     absolute layer over the track area only
  #ap-now                  el     the now marker inside #ap-overlay; [hidden] if out of range;
                                  data-label-side="left" near the right edge
@@ -1625,6 +1633,21 @@ button.ap-epic-title:hover { text-decoration: underline; text-underline-offset: 
 .ap-epic-strip-rollups { display: contents; }
 .ap-epic-strip-rollup { display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--sp-3); font-size: var(--fs-small); color: var(--ink-muted); }
 .ap-epic-strip-rollup .ap-epic-progress { width: 140px; }
+
+/* The Progress chart's rows under their epics' head rows. The caret hangs in the name cell's padding, so a member row's label keeps its width. */
+#ap-rows > .ap-epic-head-row { background: var(--surface-2); cursor: pointer; }
+#ap-rows > .ap-epic-head-row > .ap-cell-name,
+#ap-rows > .ap-epic-head-row > .ap-cell-pill { background: var(--surface-2); }
+#ap-rows > .ap-epic-head-row > .ap-cell-name { gap: 4px; padding-left: var(--sp-1); }
+.ap-epic-head-row .ap-cell-name { font-weight: 600; }
+.ap-epic-head-row .ap-cell-pill { font: 500 var(--fs-micro)/1 var(--font-mono); color: var(--ink-muted); }
+.ap-epic-head-row .ap-epic-chips { flex-wrap: nowrap; }
+.ap-epic-caret { flex: none; width: 12px; color: var(--ink-muted); font-size: var(--fs-micro); text-align: center; transition: transform var(--motion-fast) var(--ease-out); }
+.ap-epic-head-row[data-collapsed] .ap-epic-caret { transform: rotate(-90deg); }
+.ap-epic-head-count { flex: none; font: 400 var(--fs-micro)/1 var(--font-mono); color: var(--ink-muted); }
+.ap-epic-span { position: absolute; top: 50%; height: 8px; transform: translateY(-50%); border-radius: var(--r-pill); background: var(--epic-tint); box-shadow: inset 0 0 0 1.5px var(--epic-fill); }
+.ap-epic-span[data-open]::after { content: ""; position: absolute; right: -1px; top: -3px; bottom: -3px; width: 2px; background: var(--epic-fill); border-radius: 1px; }
+.ap-cell-name > .ap-epic-also { flex: none; margin-left: 0; }
 
 /* A ticket's group, worded as where it lands. */
 .ap-integration { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--ink-muted); }

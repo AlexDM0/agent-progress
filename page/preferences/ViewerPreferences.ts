@@ -74,6 +74,10 @@ function kanbanEpicFilterStorageKeyFor(trackerId: string): string {
   return choiceStorageKeyFor(trackerId, 'kanban-epics');
 }
 
+function foldedEpicGroupsStorageKeyFor(trackerId: string): string {
+  return choiceStorageKeyFor(trackerId, 'progress-folded-epics');
+}
+
 /** `storageOf` is called inside each read and write, because merely reaching `window.localStorage` throws where storage is blocked. */
 export function createViewerPreferences(trackerId: string, storageOf: () => PreferenceStorage): ViewerPreferences {
   const readStoredChoice = (storageKey: string): string | null => {
@@ -99,6 +103,19 @@ export function createViewerPreferences(trackerId: string, storageOf: () => Pref
 
   const writeStoredChoice = (storageKey: string, choice: string, defaultChoice: string): void => {
     writeStoredText(storageKey, choice === defaultChoice ? null : choice);
+  };
+
+  const readStoredTextList = (storageKey: string): string[] => {
+    try {
+      return JsonValueUtil.textListOf(JSON.parse(readStoredChoice(storageKey) ?? '[]'));
+    } catch {
+      return [];
+    }
+  };
+
+  /** An empty list removes the key. */
+  const writeStoredTextList = (storageKey: string, texts: readonly string[]): void => {
+    writeStoredText(storageKey, texts.length === 0 ? null : JSON.stringify(texts));
   };
 
   const readStoredOverride = (): StoredViewOverride => {
@@ -145,17 +162,10 @@ export function createViewerPreferences(trackerId: string, storageOf: () => Pref
       ticketsAreGrouped ? TICKETS_GROUPED_BY_EPIC_CHOICE : DEFAULT_TICKET_GROUPING_CHOICE,
       DEFAULT_TICKET_GROUPING_CHOICE,
     ),
-    readKanbanEpicFilter: () => {
-      try {
-        return JsonValueUtil.textListOf(JSON.parse(readStoredChoice(kanbanEpicFilterStorageKeyFor(trackerId)) ?? '[]'));
-      } catch {
-        return [];
-      }
-    },
-    writeKanbanEpicFilter: (pressedChips) => writeStoredText(
-      kanbanEpicFilterStorageKeyFor(trackerId),
-      pressedChips.length === 0 ? null : JSON.stringify(pressedChips),
-    ),
+    readKanbanEpicFilter:  () => readStoredTextList(kanbanEpicFilterStorageKeyFor(trackerId)),
+    writeKanbanEpicFilter: (pressedChips) => writeStoredTextList(kanbanEpicFilterStorageKeyFor(trackerId), pressedChips),
+    readFoldedEpicGroups:  () => readStoredTextList(foldedEpicGroupsStorageKeyFor(trackerId)),
+    writeFoldedEpicGroups: (foldedGroupKeys) => writeStoredTextList(foldedEpicGroupsStorageKeyFor(trackerId), foldedGroupKeys),
   };
 }
 

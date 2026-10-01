@@ -1,5 +1,5 @@
 /**
- * Every epic mark the page draws, shaped by the epic markup of `docs/design/epics/mockup.html`: the chips, the roll-up's bar, legend and
+ * Every epic mark the page draws, shaped by the epic markup of `resources/template.html`: the chips, the roll-up's bar, legend and
  * facts, an epic's ticket list, its detail, the Epics tab's cards, the Tickets table's group rows and the epic filter chips. Every value
  * passes `escapeHtml` once, except an epic's `descriptionHtml`, already escaped by `src/services/render/MarkdownRenderer.ts`.
  */
@@ -46,8 +46,12 @@ function openTicketCountOf(epic: BoardEpic): number {
   return epic.ticketIds.length - countOf(epic, 'delivered') - countOf(epic, 'abandoned');
 }
 
+function doneTicketCountOf(epic: BoardEpic): number {
+  return countOf(epic, 'delivered');
+}
+
 function doneTextOf(epic: BoardEpic): string {
-  return `${countOf(epic, 'delivered')} of ${epic.ticketIds.length} done`;
+  return `${doneTicketCountOf(epic)} of ${epic.ticketIds.length} done`;
 }
 
 function epicChipMarkup(epic: BoardEpic): string {
@@ -113,12 +117,17 @@ function epicRollupFactsMarkup(epic: BoardEpic, format: EpicMarkupFormat): strin
   ].join('');
 }
 
-function alsoInMarkup(epics: readonly BoardEpic[]): string {
+/** The ticket's other epics as squares, led by "also in", or by "+" where the squares stand alone. */
+function alsoInMarkup(epics: readonly BoardEpic[], leadText = 'also in '): string {
   if (epics.length === 0) {
     return '';
   }
   const swatches = epics.map((epic) => `<span class="ap-epic-swatch" ${slotAttribute(epic)}></span>`).join('');
-  return `<span class="ap-epic-also" ${MarkupUtil.attribute('title', `Also in ${epics.map((epic) => epic.title).join(', ')}`)}>also in ${swatches}</span>`;
+  return `<span class="ap-epic-also" ${MarkupUtil.attribute('title', `Also in ${epics.map((epic) => epic.title).join(', ')}`)}>${leadText}${swatches}</span>`;
+}
+
+function otherEpicSquaresMarkup(epics: readonly BoardEpic[]): string {
+  return alsoInMarkup(epics, '+');
 }
 
 /** Newest first; each line opens its ticket's own detail. */
@@ -222,4 +231,7 @@ export const EpicMarkup = {
   epicGroupRowMarkup,
   epicFilterChipsMarkup,
   epicStripRollupMarkup,
+  otherEpicSquaresMarkup,
+  doneTicketCountOf,
+  openTicketCountOf,
 } as const;

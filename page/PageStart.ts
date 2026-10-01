@@ -162,7 +162,9 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   const preferences          = createViewerPreferences(progress.trackerId, () => window.localStorage);
   const progressController   = createGanttChartController({
     payload,
-    rows: board.rows,
+    rows:    board.rows,
+    tickets: board.tickets,
+    epics:   board.epics,
     waitingOnById,
     preferences,
   });
@@ -273,6 +275,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   progressController.wireNameColumn();
   progressController.wireChartWidth();
   progressController.wireReviewRows();
+  progressController.wireEpicGroups();
   kanbanController.wire();
   kanbanEpicFilter.wire();
   ticketsController.wire();

@@ -26,7 +26,8 @@ const SWAPPED_ATTRIBUTE        = 'data-swapped';
 const SELECTED_ATTRIBUTE       = 'data-selected';
 const MILLISECONDS_PER_SECOND  = 1000;
 
-const TASK_ROW_SELECTOR    = `#${TASK_ROWS_ELEMENT_ID} > .ap-row`;
+// An epic's head row is a chart row too, but it folds its group instead of opening a detail.
+const TASK_ROW_SELECTOR    = `#${TASK_ROWS_ELEMENT_ID} > .ap-row[data-task-id]`;
 const TICKET_ROW_SELECTOR  = `#${TICKET_ROWS_ELEMENT_ID} > tr[data-ticket-id]`;
 const KANBAN_CARD_SELECTOR = `#${KANBAN_BOARD_ELEMENT_ID} .ap-kanban-card`;
 const OPENER_SELECTOR      = [TASK_ROW_SELECTOR, TICKET_ROW_SELECTOR, KANBAN_CARD_SELECTOR].join(', ');

@@ -44,10 +44,10 @@ function inMemoryStorage(): InMemoryStorage {
 }
 
 type StoredChoiceName = 'range override' | 'work visibility' | 'finished since a day' | 'name column' | 'review rows' | 'Abandoned lane'
-  | 'Done lane count' | 'Abandoned lane count';
+  | 'Done lane count' | 'Abandoned lane count' | 'folded epic groups';
 
 // Frozen from the key functions before they moved here: retake by checking out bc42604 and calling the key functions in lib/render/page/.
-// The review rows entry is newer than that commit and frozen from its first release.
+// The review rows and folded epic groups entries are newer than that commit and frozen from their first release.
 // Columns: the choice, its key for tracker `tracker-a`, a stored value in its encoding, and the value at which the key is removed.
 const FROZEN_STORED_CHOICES: readonly (readonly [StoredChoiceName, string, string, string])[] = [
   [
@@ -63,6 +63,7 @@ const FROZEN_STORED_CHOICES: readonly (readonly [StoredChoiceName, string, strin
   ['Abandoned lane', 'agent-progress:tracker-a:kanban-abandoned', 'open', 'closed'],
   ['Done lane count', 'agent-progress:tracker-a:kanban-done-shown', '40', '15'],
   ['Abandoned lane count', 'agent-progress:tracker-a:kanban-abandoned-shown', '40', '15'],
+  ['folded epic groups', 'agent-progress:tracker-a:progress-folded-epics', '["checkout-redesign","no epic"]', '[]'],
 ];
 
 /** Writes a choice from its stored encoding and reads it back into that encoding, so the table's text drives the typed module. */
@@ -103,6 +104,10 @@ const DRIVER_FOR_STORED_CHOICE: Readonly<Record<StoredChoiceName, StoredChoiceDr
   'Abandoned lane count': {
     write: (preferences, text) => preferences.writeCappedLaneShownCount('abandoned', Number(text)),
     read:  (preferences) => String(preferences.readCappedLaneShownCount('abandoned')),
+  },
+  'folded epic groups': {
+    write: (preferences, text) => preferences.writeFoldedEpicGroups(JSON.parse(text)),
+    read:  (preferences) => JSON.stringify(preferences.readFoldedEpicGroups()),
   },
 };
 

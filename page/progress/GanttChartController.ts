@@ -2,9 +2,10 @@
 
 import type { ViewRange }                                              from '../../src/lib/tracker-model/@types/TrackerProgress.ts';
 import type { PagePayload }                                            from '../../src/shared/@types/PagePayload.ts';
-import type { BoardRow }                                               from '../@types/PageBoard.ts';
+import type { BoardEpic, BoardRow, BoardTicket }                       from '../@types/PageBoard.ts';
 import type { Timeline }                                               from '../@types/Timeline.ts';
 import type { NameColumnWidth, StoredViewOverride, ViewerPreferences } from '../@types/ViewerChoices.ts';
+import { NO_EPIC_CHIP }                                                from '../constants/EpicChips.ts';
 import {
   AXIS_TICKS_ELEMENT_ID,
   CHART_ELEMENT_ID,
@@ -12,13 +13,14 @@ import {
   RANGE_NOTE_ELEMENT_ID,
   TASK_ROWS_ELEMENT_ID,
 } from '../constants/TemplateIds.ts';
-import { ViewerPreferenceUtil }     from '../preferences/utils/ViewerPreferenceUtil.ts';
-import { DomUtil }                  from '../utils/DomUtil.ts';
-import { GeometryUtil }             from '../utils/GeometryUtil.ts';
-import { TimeUtil }                 from '../utils/TimeUtil.ts';
-import { createCustomRangePopover } from './CustomRangePopover.ts';
-import { effectiveViewRangeFor }    from './EffectiveViewRange.ts';
-import type { PlacedTick, TaskRow } from './GanttChartMarkup.ts';
+import { EpicMarkup }                             from '../epics/EpicMarkup.ts';
+import { ViewerPreferenceUtil }                   from '../preferences/utils/ViewerPreferenceUtil.ts';
+import { DomUtil }                                from '../utils/DomUtil.ts';
+import { GeometryUtil }                           from '../utils/GeometryUtil.ts';
+import { TimeUtil }                               from '../utils/TimeUtil.ts';
+import { createCustomRangePopover }               from './CustomRangePopover.ts';
+import { effectiveViewRangeFor }                  from './EffectiveViewRange.ts';
+import type { EpicGrouping, PlacedTick, TaskRow } from './GanttChartMarkup.ts';
 import {
   overlayMarkup,
   rangeNoteMarkup,
@@ -33,6 +35,9 @@ import { RangePresetUtil }                                                    fr
 export interface GanttChartControllerSources {
   payload:       PagePayload;
   rows:          readonly BoardRow[];
+  tickets:       readonly BoardTicket[];
+  /** Ordered by key; a board without epics draws its rows ungrouped. */
+  epics:         readonly BoardEpic[];
   waitingOnById: ReadonlyMap<string, readonly string[]>;
   preferences:   ViewerPreferences;
 }
@@ -47,7 +52,12 @@ export interface GanttChartController {
   wireNameColumn(): void;
   wireChartWidth(): void;
   wireReviewRows(): void;
+  wireEpicGroups(): void;
 }
+
+const EPIC_HEAD_ROW_SELECTOR = '.ap-epic-head-row[data-epic-key]';
+/** A click on one of these inside a head row belongs to it: the epic chip opens the epic. */
+const OWN_CLICK_SELECTOR     = 'a, button';
 
 const REVIEW_ROWS_CONTROL_ELEMENT_ID = 'ap-review-rows';
 const FIT_PRESET_ELEMENT_ID          = 'ap-range-fit';
@@ -135,11 +145,17 @@ export function createGanttChartController(sources: GanttChartControllerSources)
   const {
     payload,
     rows,
+    tickets,
+    epics,
     waitingOnById,
     preferences,
   } = sources;
   const { progress, limits } = payload;
   const chart                = document.getElementById(CHART_ELEMENT_ID);
+  const epicsInShownOrder    = EpicMarkup.epicsInShownOrder(epics);
+  const epicsOfTicket        = new Map(tickets.map((ticket) => [ticket.id, ticket.memberOfEpics]));
+  const knownGroupKeys       = new Set([...epics.map((epic) => epic.key), NO_EPIC_CHIP]);
+  let foldedGroupKeys        = new Set(preferences.readFoldedEpicGroups().filter((groupKey) => knownGroupKeys.has(groupKey)));
   let override               = preferences.readRangeOverride();
   let nameColumnWidth        = preferences.readNameColumnWidth();
   let reviewRowsAreShown     = preferences.readReviewRowsAreShown();
@@ -174,10 +190,19 @@ export function createGanttChartController(sources: GanttChartControllerSources)
     markCoveredAxisLabels(availablePixels > 0);
     const nowLabelSitsLeftOfMarker = timeline.nowPercent !== null && AxisFitUtil.nowLabelSitsLeftOfMarker(timeline.nowPercent, axisWidthPixels);
     DomUtil.setMarkup(CHART_OVERLAY_ELEMENT_ID, overlayMarkup(timeline.ticks, timeline.nowPercent, nowLabelSitsLeftOfMarker));
+    const epicGrouping: EpicGrouping | null = epics.length === 0 ? null : {
+      epics:                   epicsInShownOrder,
+      epicsOfTicket,
+      foldedGroupKeys,
+      axis:                    timeline,
+      nowEpochMilliseconds,
+      minimumSpanWidthPercent: limits.minimumBarWidthPercent,
+    };
     DomUtil.setMarkup(TASK_ROWS_ELEMENT_ID, taskRowsMarkup(taskRowsFor(visibleRows, timeline, waitingOnById), {
       slices:            limits,
       todayCalendarDate: TimeUtil.calendarDateOf(nowEpochMilliseconds),
       reviewRowsAreShown,
+      epicGrouping,
     }));
     DomUtil.setHidden('ap-chart-empty', visibleProgress.tasks.length > 0);
 
@@ -264,6 +289,33 @@ export function createGanttChartController(sources: GanttChartControllerSources)
         preferences.writeReviewRowsAreShown(reviewRowsAreShown);
         control.setAttribute('aria-pressed', String(reviewRowsAreShown));
         layOut(false);
+      });
+    },
+    wireEpicGroups: () => {
+      const rowsElement = document.getElementById(TASK_ROWS_ELEMENT_ID);
+      const toggleFold = (headRow: HTMLElement): void => {
+        const groupKey = headRow.dataset['epicKey'] ?? '';
+        foldedGroupKeys = new Set(foldedGroupKeys);
+        if (!foldedGroupKeys.delete(groupKey)) {
+          foldedGroupKeys.add(groupKey);
+        }
+        preferences.writeFoldedEpicGroups([...foldedGroupKeys]);
+        layOut(false);
+        // The rows were drawn afresh, so the focus moves to the new head row of the same group.
+        document.querySelector<HTMLElement>(`#${TASK_ROWS_ELEMENT_ID} > ${EPIC_HEAD_ROW_SELECTOR}[data-epic-key="${CSS.escape(groupKey)}"]`)?.focus();
+      };
+      rowsElement?.addEventListener('click', (event) => {
+        const target  = event.target instanceof Element ? event.target : null;
+        const headRow = target?.closest(EPIC_HEAD_ROW_SELECTOR);
+        if (headRow instanceof HTMLElement && target?.closest(OWN_CLICK_SELECTOR) === null) {
+          toggleFold(headRow);
+        }
+      });
+      rowsElement?.addEventListener('keydown', (event) => {
+        if ((event.key === 'Enter' || event.key === ' ') && event.target instanceof HTMLElement && event.target.matches(EPIC_HEAD_ROW_SELECTOR)) {
+          event.preventDefault();
+          toggleFold(event.target);
+        }
       });
     },
   };
