@@ -58,9 +58,11 @@ function exampleTicket(changes: Partial<PageTicket> = {}): PageTicket {
   };
 }
 
-function panelFor(task: Task | null, ticket: PageTicket | null = null, log: readonly IdentifiedLogEntry[] = []): string {
+const RUNNING_REVIEW_BAR = exampleTask({ id: 2, name: 'Review 1 #001', start: FINISHED_AT, reviewOf: '001' });
+
+function panelFor(task: Task | null, ticket: PageTicket | null = null, log: readonly IdentifiedLogEntry[] = [], reviewBars: readonly Task[] = []): string {
   return taskDetailMarkup({
-    task:              pageBoardFixture({ tasks: task === null ? [] : [task], tickets: ticket === null ? [] : [ticket] }).rows[0] ?? null,
+    task:              pageBoardFixture({ tasks: task === null ? reviewBars : [task, ...reviewBars], tickets: ticket === null ? [] : [ticket] }).rows[0] ?? null,
     ticket,
     log,
     ticketEpics:       [],
@@ -86,8 +88,8 @@ describe('the header', () => {
   });
 
   // The one state a task status cannot name on its own, and the panel has to read it the same way the chart does.
-  test('reads an in-review row whose ticket is in review as reviewing, exactly as the chart does', () => {
-    const markup = panelFor(exampleTask({ status: 'in-review', ticket: '001' }), exampleTicket({ status: 'in-review' }));
+  test('reads an in-review row whose ticket is in review under a running review bar as reviewing, exactly as the chart does', () => {
+    const markup = panelFor(exampleTask({ status: 'in-review', ticket: '001' }), exampleTicket({ status: 'in-review' }), [], [RUNNING_REVIEW_BAR]);
 
     expect(markup).toContain('<div class="ap-detail-head" data-state="reviewing">');
     expect(markup).toContain('<span class="ap-pill">Reviewing</span>');
@@ -183,8 +185,10 @@ describe('the phases', () => {
     const recorded = panelFor(
       exampleTask({ status: 'in-review', ticket: '001', history: [{ status: 'in-progress', at: STARTED_AT }, { status: 'in-review', at: FINISHED_AT }] }),
       exampleTicket({ status: 'in-review' }),
+      [],
+      [RUNNING_REVIEW_BAR],
     );
-    const derived = panelFor(exampleTask({ status: 'in-review', end: FINISHED_AT, ticket: '001' }), exampleTicket({ status: 'in-review' }));
+    const derived = panelFor(exampleTask({ status: 'in-review', end: FINISHED_AT, ticket: '001' }), exampleTicket({ status: 'in-review' }), [], [RUNNING_REVIEW_BAR]);
 
     expect(phaseLabelsIn(recorded)).toEqual(['In progress', 'Reviewing']);
     expect(phaseLabelsIn(derived)).toEqual(['To do', 'In progress', 'Reviewing']);

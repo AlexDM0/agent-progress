@@ -175,7 +175,11 @@ describe('the lane heads', () => {
   });
 
   test('leaves a zero count out and counts a repeat review as reviewing', () => {
-    const tasks = [exampleRow(1, { status: 're-review', ticket: '059' }), exampleRow(2, { status: 'in-review', ticket: '058' })];
+    const tasks = [
+      exampleRow(1, { status: 're-review', ticket: '059' }),
+      exampleRow(2, { status: 'in-review', ticket: '058' }),
+      exampleRow(3, { status: 'in-progress', reviewOf: '058' }),
+    ];
     const cards = KanbanLaneUtil.kanbanCardsFor(
       pageBoardFixture({ tasks, tickets: [exampleTicket('059', { status: 'in-review' }), exampleTicket('058', { status: 'in-review' })] }).tickets,
       new Map(),

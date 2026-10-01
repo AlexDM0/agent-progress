@@ -79,15 +79,23 @@ describe('which lane a card sits in', () => {
     expect(KanbanLaneUtil.laneOfState(card.state)).toBe(lane);
   });
 
-  test('reads an in-review row of an in-review ticket as reviewing, the pill the Progress tab shows', () => {
-    expect(cardOf(exampleTicket('007', { status: 'in-review' }), [exampleRow(1, { status: 'in-review', ticket: '007' })]).state).toBe('reviewing');
+  test('reads an in-review row of an in-review ticket as reviewing while a review bar runs, the pill the Progress tab shows', () => {
+    const rows = [exampleRow(1, { status: 'in-review', ticket: '007' }), exampleRow(2, { status: 'in-progress', reviewOf: '007' })];
+
+    expect(cardOf(exampleTicket('007', { status: 'in-review' }), rows).state).toBe('reviewing');
+  });
+
+  test('keeps an in-review ticket with no reviewer started in the review lane as awaiting review', () => {
+    const card = cardOf(exampleTicket('007', { status: 'in-review' }), [exampleRow(1, { status: 'in-review', ticket: '007' })]);
+
+    expect([card.state, KanbanLaneUtil.laneOfState(card.state)]).toEqual(['in-review', 'review']);
   });
 
   // A low ticket never started has no row; its status alone decides the lane.
   test.each([
     ['pending', 'pending', 'todo'],
     ['in-progress', 'in-progress', 'progress'],
-    ['in-review', 'reviewing', 'review'],
+    ['in-review', 'in-review', 'review'],
     ['reviewed', 'reviewed', 'merge'],
     ['delivered', 'delivered', 'done'],
     ['abandoned', 'abandoned', 'abandoned'],

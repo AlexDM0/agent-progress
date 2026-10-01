@@ -596,8 +596,8 @@ the word on the pill are different vocabularies, and the same word labels the st
 | `pending` | `To do` | filed, nobody on it |
 | `in-progress` | `In progress` | an agent is working |
 | `paused` | `Paused` | the work is waiting on something |
-| `in-review`, no ticket in review | `Awaiting review` | handed in, no ticket review under way |
-| `in-review`, ticket `in-review` | `Reviewing` | the ticket is in review |
+| `in-review`, no review bar of its ticket in progress | `Awaiting review` | handed in, no reviewer started yet |
+| `in-review`, ticket `in-review` with a review bar in progress | `Reviewing` | a reviewer is on the ticket |
 | `re-review` | `Reviewing (round 2)`, `Reviewing (round 3)`, … | a further review pass, numbered from the second |
 | `reviewed` | `Awaiting merge` | the review passed, the branch is not in yet |
 | `delivered` | `Done` | merged; nothing more has to happen to this row |
@@ -875,7 +875,7 @@ The **from** column is the matrix the named verbs enforce; `ticket status <id> <
 | `ticket add` | — | pending | created `pending`; none when low | `To do` | `filed` | `Ticket #003 filed: <title>` |
 | `ticket start` | pending, in-review | in-progress | `in-progress`, its claim's `agent` key dropped; created for a low ticket | `In progress` | `started` if null; the row's end cleared | `Ticket #003 started` |
 | `ticket claim` | pending, in-review, and for every id named: not held, no review bar in progress, dependencies settled (one on a ticket in the same claim is, and with `--after` the in-review predecessor of its release bundle), a free slot, and for a low ticket no unheld normal or high one owed | in-progress | `in-progress`, created for a low ticket; with `--owner`, `--note` and the claim's `agent` key | `In progress` | as `start` | `Ticket #003 started`, one per ticket |
-| `ticket finish` | in-progress | in-review | `in-review` | `Reviewing` | `finished` if null | `Ticket #003 in review` |
+| `ticket finish` | in-progress | in-review | `in-review` | `Awaiting review`; `Reviewing` while a review bar of the ticket is in progress | `finished` if null | `Ticket #003 in review` |
 | `ticket finish --start-review` | in-progress | in-review | `in-review`, plus an in-progress review row | `Reviewing` | as `finish` | as `finish`, and `Review row #18 started: <name>` |
 | `ticket rereview` | in-review | in-review, unchanged | `re-review`, one round up from 2 | `Reviewing (round 2)` | `updated` only | `Ticket #003 in review, round 2` |
 | `ticket rereview --start-review` | in-review | in-review, unchanged | as `rereview`, plus an in-progress review row; the round before's row delivered | `Reviewing (round 2)` | as `rereview` | as `rereview`, then `Closed the review row #18, delivered: <name>` and `Review row #19 started: <name>` |

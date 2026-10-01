@@ -29,7 +29,7 @@ const ROW_AND_TICKET_DISPLAY_STATES: readonly (readonly [TaskStatus, TicketStatu
   ['in-progress', 'in-progress', 'in-progress'],
   ['paused', 'in-progress', 'paused'],
   ['in-review', 'pending', 'in-review'],
-  ['in-review', 'in-review', 'reviewing'],
+  ['in-review', 'in-review', 'in-review'],
   ['re-review', 'in-review', 're-review'],
   ['reviewed', 'reviewed', 'reviewed'],
   ['delivered', 'delivered', 'delivered'],
@@ -155,6 +155,43 @@ describe('rowDisplayStateOf', () => {
   });
 });
 
+describe('a ticket in review reads reviewing only while a review bar of it is in progress', () => {
+  // `ticket finish` without `--start-review` leaves no bar: the pill must say Awaiting review, as the Kanban note does.
+  test.each([
+    ['no review bar', [], 'in-review'],
+    ['a review bar in progress', ['in-progress'], 'reviewing'],
+    ['its review bar finished', ['in-review'], 'in-review'],
+    ['its review bar delivered', ['delivered'], 'in-review'],
+    ['an older bar delivered and a newer one in progress', ['delivered', 'in-progress'], 'reviewing'],
+  ] as readonly (readonly [string, readonly TaskStatus[], DisplayState])[])('with %s, its row and the ticket show %s', (_situation, reviewBarStatuses, displayState) => {
+    const reviewBars = reviewBarStatuses.map((status, i) => taskFixture({ id: i + 2, status, reviewOf: '007' }));
+    const { board } = boardFixture({
+      tasks:   [taskFixture({ id: 1, status: 'in-review', ticket: '007' }), ...reviewBars],
+      tickets: [ticketFixture({ id: '007', status: 'in-review', task: 1 })],
+    });
+
+    expect([board.rowDisplayStateOf(firstRowOf(board)), board.ticketDisplayStateOf(firstTicketOf(board))]).toEqual([displayState, displayState]);
+  });
+
+  test('a ticket in review with no row reads reviewing while a review bar of it is in progress', () => {
+    const { board } = boardFixture({
+      tasks:   [taskFixture({ id: 2, status: 'in-progress', reviewOf: '007' })],
+      tickets: [ticketFixture({ id: '007', status: 'in-review' })],
+    });
+
+    expect(board.ticketDisplayStateOf(firstTicketOf(board))).toBe('reviewing');
+  });
+
+  test('a re-review row keeps re-review whether or not a bar is in progress', () => {
+    const { board } = boardFixture({
+      tasks:   [taskFixture({ id: 1, status: 're-review', ticket: '007' }), taskFixture({ id: 2, status: 'in-progress', reviewOf: '007' })],
+      tickets: [ticketFixture({ id: '007', status: 'in-review', task: 1 })],
+    });
+
+    expect(board.rowDisplayStateOf(firstRowOf(board))).toBe('re-review');
+  });
+});
+
 describe('ticketDisplayStateOf', () => {
   test.each(ROW_AND_TICKET_DISPLAY_STATES)('a ticket whose own row is %s and whose status is %s shows %s', (rowStatus, ticketStatus, displayState) => {
     const { board } = boardFixture({
@@ -169,7 +206,7 @@ describe('ticketDisplayStateOf', () => {
   test.each([
     ['pending', 'pending'],
     ['in-progress', 'in-progress'],
-    ['in-review', 'reviewing'],
+    ['in-review', 'in-review'],
     ['reviewed', 'reviewed'],
     ['delivered', 'delivered'],
     ['abandoned', 'abandoned'],

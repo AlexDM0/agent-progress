@@ -47,13 +47,13 @@ export class DisplayQueries {
 
   /** Read on the record handed in, like `taskIsSettled`. */
   rowDisplayStateOf(task: Readonly<Task>): DisplayState {
-    return displayStateFor(task.status, this.ticketStatusOfRow(task));
+    return displayStateFor(task.status, this.ticketStatusOfRow(task), task.ticket !== null && this.reviewIsRunningOn(task.ticket));
   }
 
   /** Read on the record handed in, like `rowDisplayStateOf`; a ticket without a row shows what a row in its own status would. */
   ticketDisplayStateOf(ticket: Readonly<Ticket>): DisplayState {
     const { id, status } = ticket.frontmatter;
-    return displayStateFor(this.ownRowOf(id)?.status ?? status, status);
+    return displayStateFor(this.ownRowOf(id)?.status ?? status, status, this.reviewIsRunningOn(id));
   }
 
   deliveredRowCountsAsReviewed(task: Readonly<Task>): boolean {
@@ -62,12 +62,17 @@ export class DisplayQueries {
     return task.status === 'delivered' && (task.reviewed !== undefined || this.ticketStatusOfRow(task) === 'delivered');
   }
 
+  private reviewIsRunningOn(ticketId: string): boolean {
+    return this.reviewBarsOf(ticketId).some((reviewBar) => reviewBar.status === 'in-progress');
+  }
+
   private ticketStatusOfRow(task: Readonly<Task>): TicketStatus | null {
     if (task.ticket === null) return null;
     return this.records.ticketRecordById(task.ticket)?.frontmatter.status ?? null;
   }
 }
 
-function displayStateFor(status: TaskStatus, ticketStatus: TicketStatus | null): DisplayState {
-  return status === 'in-review' && ticketStatus === 'in-review' ? 'reviewing' : status;
+/** A ticket handed in reads `in-review`, awaiting review, until a review bar of it is in progress. */
+function displayStateFor(status: TaskStatus, ticketStatus: TicketStatus | null, reviewIsRunning: boolean): DisplayState {
+  return status === 'in-review' && ticketStatus === 'in-review' && reviewIsRunning ? 'reviewing' : status;
 }

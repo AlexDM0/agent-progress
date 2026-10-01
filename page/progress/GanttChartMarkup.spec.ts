@@ -144,10 +144,25 @@ describe('taskRowsMarkup', () => {
   });
 
   test('gives a reviewing row the reviewing state and label', () => {
-    const markup = rowFor(exampleTask({ status: 'in-review' }), 'in-review');
+    const board = pageBoardFixture({
+      tasks:   [exampleTask({ status: 'in-review', ticket: '001' }), exampleTask({ id: 2, status: 'in-progress', reviewOf: '001' })],
+      tickets: [exampleTicket('001', 'in-review')],
+    });
+    const [row] = board.rows;
+    if (row === undefined) {
+      throw new Error('the example row was not built');
+    }
+    const markup = taskRowsMarkup([{ task: row, bar: PLACED_BAR, waitingOn: [] }], REVIEW_SEGMENTS);
 
     expect(markup).toContain('data-state="reviewing"');
     expect(markup).toContain('<span class="ap-pill">Reviewing</span>');
+  });
+
+  test('gives a row whose ticket is in review with no reviewer started the awaiting-review state and label', () => {
+    const markup = rowFor(exampleTask({ status: 'in-review' }), 'in-review');
+
+    expect(markup).toContain('data-state="in-review"');
+    expect(markup).toContain('<span class="ap-pill">Awaiting review</span>');
   });
 
   test('numbers the pill of a row that is on its third review pass', () => {
