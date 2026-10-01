@@ -111,8 +111,8 @@ re-entering a status is a correction, abandoning twice is deciding twice. Every 
 than in-review — `start`, `approve`, `deliver`, `abandon`, `reopen`, `status` — finishes and delivers the
 ticket's in-progress review bar, with one log line each; a plain `ticket rereview` leaves it in progress.
 
-Filing the row is the first entry in its `history`, and each move appends another, so the panel a
-double-click opens can say when the row reached each state and how long it sat there — the wait
+Filing the row is the first entry in its `history`, and each move appends another, so the detail
+panel can say when the row reached each state and how long it sat there — the wait
 between `To do` and `In progress` being the queue time. `task update --status` is not appended: it
 corrects a row rather than moving it.
 
