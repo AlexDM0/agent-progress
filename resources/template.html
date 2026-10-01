@@ -338,6 +338,10 @@
  --timeline-w   on #ap-chart: track column width. "1fr" = fill (no scroll);
                 set to a px value (e.g. 2400px) to make the timeline scroll.
  --now-x        on #ap-now: left offset as a percentage of the axis box.
+ [hidden]       an element the page script hides through the attribute is display: none
+                while hidden: a class that sets display on it has its own .class[hidden]
+                rule after it (.ap-epic-strip, .ap-toolbar-group, .ap-banner, …); there
+                is no global [hidden] rule
  data-motion    "ready" on <html> once the bootstrap has let the first frames paint;
                 until then every motion token is 0ms. data-entering marks the panel a
                 tab click has just shown, removed when its fade ends.
@@ -1107,6 +1111,7 @@ body:has(#ap-panel-progress:not([hidden])) .ap-page { height: 100%; display: fle
 
 .ap-ticket-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-4); padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--line); }
 .ap-toolbar-group { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.ap-toolbar-group[hidden] { display: none; }
 .ap-toolbar-group-status { flex-basis: 100%; }
 .ap-search { position: relative; display: flex; align-items: center; }
 .ap-search svg { position: absolute; left: 8px; width: 13px; height: 13px; color: var(--ink-muted); pointer-events: none; }
@@ -1632,6 +1637,7 @@ button.ap-epic-title:hover { text-decoration: underline; text-underline-offset: 
 .ap-epic-group-line .ap-card-note { margin: 0; }
 .ap-card-head > .ap-seg { margin-left: auto; }
 .ap-epic-strip { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-4); margin: 0 0 var(--sp-3); }
+.ap-epic-strip[hidden] { display: none; }
 .ap-epic-strip-rollups { display: contents; }
 .ap-epic-strip-rollup { display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--sp-3); font-size: var(--fs-small); color: var(--ink-muted); }
 .ap-epic-strip-rollup .ap-epic-progress { width: 140px; }
