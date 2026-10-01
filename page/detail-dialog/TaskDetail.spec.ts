@@ -58,7 +58,12 @@ function exampleTicket(changes: Partial<PageTicket> = {}): PageTicket {
   };
 }
 
-const RUNNING_REVIEW_BAR = exampleTask({ id: 2, name: 'Review 1 #001', start: FINISHED_AT, reviewOf: '001' });
+const RUNNING_REVIEW_BAR = exampleTask({
+  id:       2,
+  name:     'Review 1 #001',
+  start:    FINISHED_AT,
+  reviewOf: '001',
+});
 
 function panelFor(task: Task | null, ticket: PageTicket | null = null, log: readonly IdentifiedLogEntry[] = [], reviewBars: readonly Task[] = []): string {
   return taskDetailMarkup({
