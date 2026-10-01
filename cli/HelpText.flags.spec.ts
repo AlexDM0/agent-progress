@@ -5,9 +5,15 @@
  * apart, against the one sentence in each text naming the commands that refuse it. The scans prove they found entries,
  * and the comparison is watched failing on a planted missing and a planted extra option in each text.
  */
-import { readFileSync }                      from 'node:fs';
-import { join }                              from 'node:path';
-import { afterAll, beforeAll, describe, expect, test } from 'bun:test';
+import { readFileSync } from 'node:fs';
+import { join }         from 'node:path';
+import {
+  afterAll,
+  beforeAll,
+  describe,
+  expect,
+  test
+}                       from 'bun:test';
 
 import { createScratchDirectory, removeScratchDirectory } from '../src/testing/ScratchWorkspace.ts';
 import { COMMAND_NAMES, commandLoaderFor }                from './CommandTable.ts';
