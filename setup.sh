@@ -56,13 +56,20 @@ fi
 step "2/3 Dependencies and the global agent-progress command (bun install, bun link)"
 # Run on every setup, not only the first: a checkout brought up to date may need a dependency the
 # previous one did not, and without `marked` every command that rewrites the page fails.
-if ( cd "$HERE" && bun install >/dev/null 2>&1 ); then
-  ok "dependencies installed (bun install in $HERE)"
+# Skipped under --instruct-only: `bun link` repoints the machine-wide command at this checkout, and a
+# dry run from a worktree would leave it pointing at a directory a release later removes.
+if [[ "$INSTRUCT_ONLY" == "1" ]]; then
+  warn "Would run bun install in $HERE"
+  warn "Would run bun link in $HERE"
 else
-  fail "bun install failed — run it yourself in $HERE; agent-progress cannot render its page without marked"
-fi
-if ! ( cd "$HERE" && bun link >/dev/null 2>&1 ); then
-  warn "bun link failed — you can still run: bun \"$HERE/agent-progress.ts\" <command>"
+  if ( cd "$HERE" && bun install >/dev/null 2>&1 ); then
+    ok "dependencies installed (bun install in $HERE)"
+  else
+    fail "bun install failed — run it yourself in $HERE; agent-progress cannot render its page without marked"
+  fi
+  if ! ( cd "$HERE" && bun link >/dev/null 2>&1 ); then
+    warn "bun link failed — you can still run: bun \"$HERE/agent-progress.ts\" <command>"
+  fi
 fi
 if command -v agent-progress >/dev/null 2>&1; then
   ok "agent-progress is on your PATH ($(command -v agent-progress))"

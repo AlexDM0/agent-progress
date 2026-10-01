@@ -8,14 +8,18 @@ import { describe, test } from 'bun:test';
 import { everyToolIsRequired } from '../shared/Environment.ts';
 import { gitIsAvailable }      from './ScratchWorkspace.ts';
 
-export type RequiredTool = 'git';
+export type RequiredTool = 'git' | 'bash';
 
 export interface SkippedSpec {
   readonly title:       string;
   readonly missingTool: RequiredTool;
 }
 
-const TOOL_IS_PRESENT: Readonly<Record<RequiredTool, () => boolean>> = { git: gitIsAvailable };
+function bashIsAvailable(): boolean {
+  return Bun.which('bash') !== null;
+}
+
+const TOOL_IS_PRESENT: Readonly<Record<RequiredTool, () => boolean>> = { git: gitIsAvailable, bash: bashIsAvailable };
 
 type SpecBody = () => void | Promise<unknown>;
 
@@ -63,6 +67,10 @@ export function describeWhenGitIsPresent(title: string, body: () => void): void 
 
 export function testWhenGitIsPresent(claim: string, body: SpecBody, timeoutMilliseconds?: number): void {
   testWhenToolIsPresent('git', claim, body, timeoutMilliseconds);
+}
+
+export function testWhenBashIsPresent(claim: string, body: SpecBody, timeoutMilliseconds?: number): void {
+  testWhenToolIsPresent('bash', claim, body, timeoutMilliseconds);
 }
 
 export function skippedSpecsSoFar(): readonly SkippedSpec[] {
