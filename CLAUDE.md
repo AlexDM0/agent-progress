@@ -211,9 +211,9 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   of the rules.
 - The detail panel claims a log line by its `taskIds` or `ticketIds`, never a number in free text; a note is matched
   by its sentence.
-- Every value passes `escapeHtml` once; a ticket's `bodyHtml` and an epic's `descriptionHtml`, both from the Markdown renderer,
-  are the two unescaped strings. Stamps are sliced, never
-  re-parsed, and shortened only through the page's `TimeUtil`.
+- Every value passes `escapeHtml` once; a ticket's `bodyHtml` and an epic's `descriptionHtml`, both from the Markdown
+  renderer, are the two unescaped strings. Stamps are sliced, never re-parsed, and shortened only through the page's
+  `TimeUtil`.
 - A visual change leaves the README screenshots stale: once it lands, run `.readme-graphics/regenerate.sh` in the
   main checkout.
 
