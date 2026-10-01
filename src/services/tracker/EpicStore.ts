@@ -2,7 +2,7 @@
  * The epics directory as a store: `<key>.md` per epic. Nothing here throws because an epic file is bad: a malformed file is a listing
  * entry, so one broken file cannot take down `status` or `render`.
  */
-import { readdirSync }              from 'node:fs';
+import { readdirSync, unlinkSync }  from 'node:fs';
 import { join }                     from 'node:path';
 import { EpicFileIngestion }        from '../../adapters/epics/EpicFileIngestion.ts';
 import type { Epic }                from '../../lib/tracker-model/@types/Epic.ts';
@@ -47,6 +47,11 @@ export function listEpics(workspace: Workspace): EpicListing {
     else epics.push(reading.epic);
   }
   return { epics, malformed };
+}
+
+/** `clear --all`: the Board already removed every epic it read, so this takes the files it could not read. */
+export function deleteEveryEpicFile(workspace: Workspace): void {
+  for (const fileName of epicFileNamesIn(workspace)) unlinkSync(join(workspace.epicsDirectory, fileName));
 }
 
 export function epicFilePathOf(workspace: Workspace, epicKey: string): string {

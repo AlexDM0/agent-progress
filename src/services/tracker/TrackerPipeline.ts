@@ -15,7 +15,7 @@ import { createLogger }                                 from '../../lib/tracker-
 import { OperationRefusal }                             from '../../shared/OperationRefusal.ts';
 import type { RenderState }                             from '../render/RenderState.ts';
 import { renderDashboard, type DashboardRenderOutcome } from './DashboardRendering.ts';
-import type { MalformedEpicFile }                       from './EpicStore.ts';
+import { deleteEveryEpicFile, type MalformedEpicFile }  from './EpicStore.ts';
 import { deleteAllTickets, type MalformedTicketFile }   from './TicketStore.ts';
 import { withLock }                                     from './TrackerLock.ts';
 import { requireTracker, type TrackerContents }         from './TrackerReader.ts';
@@ -31,7 +31,7 @@ export interface TrackerChange {
   storedLogEntryCount:            number;
   /** The log as it was read, before anything this invocation logged. */
   storedLogRecords:               readonly LogRecord[];
-  /** `clear --all`: after the progress file and the changed tickets, before the render; the callback gets the deleted file count. */
+  /** `clear --all`: after the progress file and the changed tickets, before the render, epic files too; the callback gets the ticket file count. */
   deleteAllTicketFilesAfterwards: (onDeleted: (deletedTicketCount: number) => void) => void;
 }
 
@@ -80,7 +80,10 @@ function writeBoard(workspace: Workspace, openedBoard: OpenBoard, deletionCallba
   const epicFileWriter = createEpicFileWriter();
   for (const epic of board.changedEpics()) epicFileWriter.write(epic);
   for (const epic of board.removedEpics()) epicFileWriter.remove(epic);
-  for (const onDeleted of deletionCallbacks) onDeleted(deleteAllTickets(workspace));
+  for (const onDeleted of deletionCallbacks) {
+    onDeleted(deleteAllTickets(workspace));
+    deleteEveryEpicFile(workspace);
+  }
 
   if (logRecordsToWrite !== null) createLogFileWriter(workspace.logFilePath).write(logRecordsToWrite);
 }

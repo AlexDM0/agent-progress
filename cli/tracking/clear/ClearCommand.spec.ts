@@ -2,8 +2,13 @@
  * Starting a new session in an existing tracker: the rows are re-seeded from each surviving ticket's own frontmatter and ids are never wound back;
  * `--all` takes the tickets and every epic with it, while a plain clear leaves the epic files untouched.
  */
-import { chmodSync, readFileSync, readdirSync } from 'node:fs';
-import { join }                                 from 'node:path';
+import {
+  chmodSync,
+  readFileSync,
+  readdirSync,
+  writeFileSync
+} from 'node:fs';
+import { join } from 'node:path';
 
 import {
   afterEach,
@@ -156,6 +161,14 @@ describeWhenGitIsPresent('clearing a tracker with epics', () => {
     const pageData = JSON.stringify([islandContentsOf(page, 'ap-progress-data'), islandContentsOf(page, 'ap-tickets-data')]);
     expect(pageData, 'the page data before any epic check').toContain('Tracker cleared');
     for (const epicKey of EPIC_KEYS) expect(pageData).not.toContain(epicKey);
+  });
+
+  test('--all deletes an epic file it could not read too, as it does a malformed ticket file', async () => {
+    writeFileSync(join(repositoryDirectory, ...EPICS_DIRECTORY, 'unreadable-epic.md'), 'not an epic\n');
+
+    await run(['clear', '--all', '--yes']);
+
+    expect(epicFilesByName()).toEqual({});
   });
 
   test('--all names the epics in its summary line', async () => {
