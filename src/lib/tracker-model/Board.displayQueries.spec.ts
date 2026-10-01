@@ -158,12 +158,12 @@ describe('rowDisplayStateOf', () => {
 describe('a ticket in review reads reviewing only while a review bar of it is in progress', () => {
   // `ticket finish` without `--start-review` leaves no bar: the pill must say Awaiting review, as the Kanban note does.
   test.each([
-    ['no review bar', [], 'in-review'],
-    ['a review bar in progress', ['in-progress'], 'reviewing'],
-    ['its review bar finished', ['in-review'], 'in-review'],
-    ['its review bar delivered', ['delivered'], 'in-review'],
-    ['an older bar delivered and a newer one in progress', ['delivered', 'in-progress'], 'reviewing'],
-  ] as readonly (readonly [string, readonly TaskStatus[], DisplayState])[])('with %s, its row and the ticket show %s', (_situation, reviewBarStatuses, displayState) => {
+    ['no review bar', 'in-review', []],
+    ['a review bar in progress', 'reviewing', ['in-progress']],
+    ['its review bar finished', 'in-review', ['in-review']],
+    ['its review bar delivered', 'in-review', ['delivered']],
+    ['an older bar delivered and a newer one in progress', 'reviewing', ['delivered', 'in-progress']],
+  ] as readonly (readonly [string, DisplayState, readonly TaskStatus[]])[])('with %s, its row and the ticket show %s', (_situation, displayState, reviewBarStatuses) => {
     const reviewBars = reviewBarStatuses.map((status, i) => taskFixture({ id: i + 2, status, reviewOf: '007' }));
     const { board } = boardFixture({
       tasks:   [taskFixture({ id: 1, status: 'in-review', ticket: '007' }), ...reviewBars],
