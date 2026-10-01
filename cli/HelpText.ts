@@ -89,7 +89,8 @@ output never carries either.
                               is ready only once no normal or high ticket is left that is not
                               delivered or abandoned. Beside it, \`readyTickets\` lists the same
                               tickets in the same order as {id, priority, model, effort}, the
-                              defaults resolved, so a dispatcher derives none of them itself.
+                              defaults resolved, plus an optional group and held: true on a held
+                              one, so a dispatcher derives none of them itself.
                               Both carry \`epics\`, every epic with its roll-up as \`epic list
                               --json\` prints it, and each ticket's \`epics\`, empty when it has none.
       [--tickets-only]        --tickets-only leaves out the free-standing task rows, those that are
@@ -250,7 +251,8 @@ output never carries either.
                               task id until it is started. --model (haiku, sonnet, opus, fable)
                               and --effort (low, medium, high, xhigh, max) name what the agents
                               building and reviewing it run on; left off, they are opus and
-                              medium. Anything else is refused at exit 1.
+                              medium. Anything else is refused at exit 1, and so are --body and
+                              --body-file together.
 
   ticket list [--status <s>]  The tickets with their status, priority, type and row id, and the
                               model and effort after the title where the ticket names them. --status

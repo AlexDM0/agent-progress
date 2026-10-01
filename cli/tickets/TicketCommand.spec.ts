@@ -94,6 +94,15 @@ describeWhenGitIsPresent('filing a ticket', () => {
     expect(ticketText.endsWith('## Report\n\nThe axis is an hour out.\n')).toBe(true);
   });
 
+  test('--body beside --body-file is refused at exit 1 and files nothing, rather than dropping the file', async () => {
+    const context  = contextHere();
+    const exitCode = await runCommandLine(['ticket', 'add', 'Fix the axis', '--body', 'a', '--body-file', 'b'], context);
+
+    expect(exitCode).toBe(1);
+    expect(context.errorText()).toContain('takes --body or --body-file, not both');
+    expect(JSON.parse((await run(['ticket', 'list', '--json'])).outputText())).toEqual([]);
+  });
+
   test('a type that is not one of the three is refused rather than filed as a change', async () => {
     const context  = contextHere();
     const exitCode = await runCommandLine(['ticket', 'add', 'Fix the axis', '--type', 'defect'], context);

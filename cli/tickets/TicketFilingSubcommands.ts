@@ -39,6 +39,9 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
   if (title === undefined || title.trim() === '') {
     throw new OperationRefusal('refused', `agent-progress ticket add needs a title.\n  Usage: ${TICKET_USAGE}`);
   }
+  if (commandArguments.option('body') !== undefined && commandArguments.option('body-file') !== undefined) {
+    throw new OperationRefusal('refused', `agent-progress ticket add takes --body or --body-file, not both.\n  Usage: ${TICKET_USAGE}`);
+  }
   const type      = TicketArgumentUtil.ticketTypeFrom(commandArguments.option('type')) ?? DEFAULT_TICKET_TYPE;
   const priority  = TicketArgumentUtil.priorityFrom(commandArguments.option('priority'));
   const model     = TicketArgumentUtil.agentModelFrom(commandArguments.option('model'));

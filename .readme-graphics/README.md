@@ -1,7 +1,7 @@
 # README graphics
 
 Everything that produced the screenshots, store panels, animation and diagrams in `docs/images/`, kept
-beside the repository and ignored by git. The dashboard images are **generated from this checkout's own
+in the repository, with only its `build/` ignored by git. The dashboard images are **generated from this checkout's own
 CLI and page**: a synthetic board ("Example Storefront") is replayed through the real `agent-progress`
 commands with a pinned clock, and headless Chrome photographs the page it renders. So after a change to
 how the page looks, one command redraws them all with the new UI.
