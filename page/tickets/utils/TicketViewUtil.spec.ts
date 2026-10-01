@@ -1,13 +1,15 @@
 /**
  * The Tickets tab's search, chips and sort. The cases that matter: the search and the chips combine with AND, a body is searched by the
  * words a reader sees and never by its markup, a narrowed table looks past "Hide work finished", a chip counts what pressing it would add,
- * and each column sorts both ways with the newest ticket first on a tie.
+ * a ticket in two epics answers to both epic chips and one in none to the no-epic chip, and each column sorts both ways with the newest
+ * ticket first on a tie, the Epic column by the primary epic's title.
  */
 
 import { describe, expect, test }              from 'bun:test';
 import type { PageTicket }                     from '../../../src/shared/@types/PagePayload.ts';
 import type { BoardTicket }                    from '../../@types/PageBoard.ts';
 import type { TicketView }                     from '../../@types/ViewerChoices.ts';
+import { NO_EPIC_CHIP }                        from '../../constants/EpicChips.ts';
 import { pageBoardFixture }                    from '../../testing/PageBoardFixture.ts';
 import { DEFAULT_TICKET_VIEW, TicketViewUtil } from './TicketViewUtil.ts';
 
@@ -37,10 +39,10 @@ const TICKETS: readonly BoardTicket[] = pageBoardFixture({
   tasks:   [],
   tickets: [
     exampleTicket({
-      id: '001', title: 'Dark mode for the account pages', type: 'feature', group: 'theme'
+      id: '001', title: 'Dark mode for the account pages', type: 'feature', group: 'theme', epics: ['theming']
     }),
     exampleTicket({
-      id: '002', title: 'Checkout double-submits', type: 'bug', branch: 'ticket/dark-checkout'
+      id: '002', title: 'Checkout double-submits', type: 'bug', branch: 'ticket/dark-checkout', epics: ['checkout-redesign', 'theming']
     }),
     exampleTicket({
       id: '003', title: 'Rename basket to cart', type: 'change', status: 'reviewed', bodyHtml: ACCEPTANCE_BODY_HTML
@@ -51,6 +53,14 @@ const TICKETS: readonly BoardTicket[] = pageBoardFixture({
     exampleTicket({
       id: '010', title: 'dark banner', type: 'bug', status: 'reviewed'
     }),
+  ],
+  epics: [
+    {
+      key: 'checkout-redesign', title: 'Checkout redesign', slot: 1, extra: []
+    },
+    {
+      key: 'theming', title: 'Theming', slot: 2, extra: []
+    },
   ],
 }).tickets;
 
@@ -74,6 +84,17 @@ describe('ticketsShownBy', () => {
     expect(shownIds({ searchText: 'dark', typeChips: ['bug'] })).toEqual(['010', '002']);
     expect(shownIds({ searchText: 'dark', typeChips: ['bug'], statusChips: ['reviewed'] })).toEqual(['010']);
     expect(shownIds({ statusChips: ['reviewed', 'abandoned'] })).toEqual(['010', '004', '003']);
+  });
+
+  test('finds a ticket by the key or the title of any of its epics', () => {
+    expect(shownIds({ searchText: 'checkout-redesign' })).toEqual(['002']);
+    expect(shownIds({ searchText: 'theming' })).toEqual(['002', '001']);
+  });
+
+  test('keeps a ticket in any pressed epic, and the tickets in none under the no-epic chip', () => {
+    expect(shownIds({ epicChips: ['theming'] })).toEqual(['002', '001']);
+    expect(shownIds({ epicChips: ['checkout-redesign', NO_EPIC_CHIP] })).toEqual(['010', '004', '003', '002']);
+    expect(shownIds({ epicChips: ['theming'], typeChips: ['feature'] })).toEqual(['001']);
   });
 
   test('finds a phrase that occurs only in a ticket body, with its escaped characters read back', () => {
@@ -118,6 +139,14 @@ describe('the chip counts', () => {
     expect(typeCounts.get('change')).toBe(0);
   });
 
+  test('count a ticket under each of its epics, and a ticket in none under the no-epic chip', () => {
+    const epicCounts = TicketViewUtil.epicChipCountsOf({ ...DEFAULT_TICKET_VIEW, epicChips: ['theming'] }, TICKETS, SEARCHABLE_TEXT_BY_ID);
+
+    expect(epicCounts.get('theming')).toBe(2);
+    expect(epicCounts.get('checkout-redesign')).toBe(1);
+    expect(epicCounts.get(NO_EPIC_CHIP)).toBe(3);
+  });
+
   test('put a repeat review under the one Reviewing chip', () => {
     expect(TicketViewUtil.statusChipOf('re-review')).toBe('reviewing');
     expect(TicketViewUtil.statusChipOf('paused')).toBe('paused');
@@ -130,8 +159,8 @@ describe('the sort', () => {
     ['title', 'ascending', ['002', '010', '001', '004', '003']],
     ['type', 'descending', ['001', '003', '010', '004', '002']],
     ['status', 'ascending', ['002', '001', '010', '003', '004']],
-    ['group', 'ascending', ['001', '010', '004', '003', '002']],
-    ['group', 'descending', ['001', '010', '004', '003', '002']],
+    ['epic', 'ascending', ['002', '001', '010', '004', '003']],
+    ['epic', 'descending', ['001', '002', '010', '004', '003']],
     ['branch', 'descending', ['002', '010', '004', '003', '001']],
   ] as const)('orders by %s %s, the newest first on a tie and an empty value last', (sortKey, sortDirection, expected) => {
     expect(shownIds({ sortKey, sortDirection })).toEqual([...expected]);

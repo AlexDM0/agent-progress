@@ -94,6 +94,7 @@ function inputFor(card: KanbanCard): TicketDetailInput {
     nowEpochMilliseconds: EXAMPLE_NOW,
     todayCalendarDate:    EXAMPLE_TODAY,
     limits:               EXAMPLE_PAGE_LIMITS,
+    allTickets:           [card.ticket],
   };
 }
 

@@ -73,6 +73,7 @@ function render(overrides: Partial<Parameters<typeof fillPageTemplate>[0]> = {})
     progress:          exampleProgress(),
     logRecords:        [REVIEW_STARTED_NOTE],
     tickets:           [exampleTicket()],
+    epics:             [],
     pageScript:        'window.examplePageScript = 1;',
     pageScriptFailure: null,
     generatedAt:       GENERATED_AT,
@@ -121,13 +122,14 @@ describe('fillPageTemplate', () => {
   });
 
   // A fresh viewer lands on Kanban: its tab is the one selected and every other panel ships hidden.
-  test('runs the tabs Kanban, Progress, Tickets, with only Kanban selected', () => {
+  test('runs the tabs Kanban, Progress, Tickets, Epics, with only Kanban selected', () => {
     const document = render();
     const tabs     = [...document.matchAll(/role="tab" id="ap-tab-(\w+)"[^>]*aria-selected="(\w+)"/g)].map((match) => `${match[1]}:${match[2]}`);
 
-    expect(tabs).toEqual(['kanban:true', 'progress:false', 'tickets:false']);
+    expect(tabs).toEqual(['kanban:true', 'progress:false', 'tickets:false', 'epics:false']);
     expect(document.indexOf('data-panel="kanban"')).toBeLessThan(document.indexOf('data-panel="progress"'));
     expect(document.indexOf('data-panel="progress"')).toBeLessThan(document.indexOf('data-panel="tickets"'));
+    expect(document.indexOf('data-panel="tickets"')).toBeLessThan(document.indexOf('data-panel="epics"'));
   });
 
   test('titles the document after the project', () => {
@@ -202,9 +204,22 @@ describe('fillPageTemplate', () => {
     const islandText = islandTextOf(render({ boardFacts }), 'ap-progress-data');
     const payload    = JSON.parse(islandText) as Record<string, unknown>;
 
-    expect(Object.keys(payload)).toEqual(['progress', 'generatedAtEpochMilliseconds', 'limits', 'concurrency', 'pageScriptFailure', 'boardFacts']);
+    expect(Object.keys(payload)).toEqual(['progress', 'generatedAtEpochMilliseconds', 'limits', 'concurrency', 'pageScriptFailure', 'epicDescriptions', 'boardFacts']);
     expect(payload['boardFacts']).toEqual(boardFacts);
     expect(islandText.endsWith(`,"boardFacts":${JSON.stringify(boardFacts)}}`)).toBe(true);
+  });
+
+  test('carries each epic\'s description rendered as a ticket body is, by key', () => {
+    const epic    = {
+      frontmatter: {
+        key: 'checkout-redesign', title: 'Checkout redesign', slot: 1, extra: []
+      },
+      body:     'One page, **fast**.\n',
+      filePath: '/example/.agent-progress/epics/checkout-redesign.md',
+    };
+    const payload = islandContentsOf(render({ epics: [epic], renderMarkdown: (markdown) => `<p>${markdown.trim()}</p>` }), 'ap-progress-data') as Record<string, unknown>;
+
+    expect(payload['epicDescriptions']).toEqual([{ key: 'checkout-redesign', descriptionHtml: '<p>One page, **fast**.</p>' }]);
   });
 
   test('sends the real constants as the limits, not page-local copies', () => {

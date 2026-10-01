@@ -37,6 +37,14 @@ describe('finiteNumberOrNull', () => {
   });
 });
 
+describe('textListOf', () => {
+  test('keeps every text of a list in order and drops the rest; a value that is no list reads as an empty one', () => {
+    expect(JsonValueUtil.textListOf(['checkout', 4, null, 'no epic'])).toEqual(['checkout', 'no epic']);
+    expect(JsonValueUtil.textListOf('checkout')).toEqual([]);
+    expect(JsonValueUtil.textListOf(null)).toEqual([]);
+  });
+});
+
 describe('textOrNull', () => {
   test('passes a string through unchanged, the empty string included', () => {
     expect(textOrNull('-4h')).toBe('-4h');

@@ -1,12 +1,16 @@
 /**
- * The panel a Kanban card opens: the ticket's head, its facts, its Timeline and its description. Every value passes `escapeHtml` once,
- * except the ticket's `bodyHtml`, already escaped by `src/services/render/MarkdownRenderer.ts`.
+ * The panel a Kanban card opens: the ticket's head, its facts (its epics and its group's integration first), its Timeline and its
+ * description. Every value passes `escapeHtml` once, except the ticket's `bodyHtml`, already escaped by
+ * `src/services/render/MarkdownRenderer.ts`.
  */
 
 import { HtmlEscapeUtil }            from '../../src/lib/html-escape/HtmlEscapeUtil.ts';
 import { FIRST_REPEAT_REVIEW_ROUND } from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
+import type { PageTicket }           from '../../src/shared/@types/PagePayload.ts';
 import type { KanbanCard }           from '../@types/KanbanCard.ts';
 import { CLOSING_EVENT_WORD }        from '../constants/ClosingEventWords.ts';
+import { EpicMarkup }                from '../epics/EpicMarkup.ts';
+import { IntegrationMarkupUtil }     from '../utils/IntegrationMarkupUtil.ts';
 import { MarkupUtil }                from '../utils/MarkupUtil.ts';
 import { PauseTextUtil }             from '../utils/PauseTextUtil.ts';
 import { TimeUtil }                  from '../utils/TimeUtil.ts';
@@ -23,6 +27,8 @@ export interface TicketDetailInput {
   nowEpochMilliseconds: number;
   todayCalendarDate:    string;
   limits:               TicketTimelineLimits;
+  /** Every ticket, which the integration fact reads the ticket's group from. */
+  allTickets:           readonly PageTicket[];
 }
 
 function headMarkup(input: TicketDetailInput): string {
@@ -71,7 +77,10 @@ function stampFactsMarkup(input: TicketDetailInput, stamps: Array<[label: string
 function factsMarkup(input: TicketDetailInput): string {
   const { card }           = input;
   const { ticket, ownRow } = card;
+  const integration        = IntegrationMarkupUtil.integrationFactValueMarkup(ticket, input.allTickets, 'kanban-card');
   const facts = [
+    card.epics.length === 0 ? '' : DetailMarkupUtil.factMarkup('epics', `<span class="ap-epic-chips">${EpicMarkup.epicChipsMarkup(card.epics)}</span>`),
+    integration === '' ? '' : DetailMarkupUtil.factMarkup('integration', integration),
     ...stampFactsMarkup(input, [['filed', ticket.filed], ['started', ticket.started]]),
     ...pauseFactsMarkup(input),
     ...stampFactsMarkup(input, [

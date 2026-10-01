@@ -296,6 +296,19 @@ const FACTS_OF_OWN_ROW_AND_TWO_BARS: PageBoardFacts = {
 };
 
 describe('pageBoardFrom', () => {
+  test('joins each epic\'s description by key, drops an unusable roll-up, and gives a ticket the epics of its list the board knows', () => {
+    const rollup = {
+      key: 'exporter', title: 'Exporter', slot: 2, ticketIds: ['003'], ticketCountByStatus: { 'in-review': 1 }, tokens: 0, span: null
+    };
+    const facts  = { ...FACTS_OF_OWN_ROW_AND_TWO_BARS, epics: [rollup, { key: 'broken' }] } as unknown as PageBoardFacts;
+    const { epics, tickets } = pageBoardFrom(OWN_ROW_AND_TWO_BARS, facts, [{ ...exampleTicket('003'), epics: ['gone', 'exporter'] }], [
+      { key: 'exporter', descriptionHtml: '<p>Two passes.</p>' },
+    ]);
+
+    expect(epics.map((epic) => [epic.key, epic.descriptionHtml])).toEqual([['exporter', '<p>Two passes.</p>']]);
+    expect(tickets[0]?.memberOfEpics).toEqual(epics);
+  });
+
   test('zips one row fact onto each task by position, keeping every stored field', () => {
     const { rows } = pageBoardFrom(OWN_ROW_AND_TWO_BARS, FACTS_OF_OWN_ROW_AND_TWO_BARS, []);
 

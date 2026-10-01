@@ -221,6 +221,7 @@ const EXAMPLE_RELOAD_SNAPSHOT: ReloadSnapshot = {
     searchText:    'exporter',
     statusChips:   ['in-review'],
     typeChips:     [],
+    epicChips:     [],
     sortKey:       'title',
     sortDirection: 'ascending',
   },

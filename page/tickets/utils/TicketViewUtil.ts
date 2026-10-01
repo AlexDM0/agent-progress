@@ -13,16 +13,18 @@ import type {
   TicketStatusChip,
   TicketView
 } from '../../@types/ViewerChoices.ts';
+import { EpicChipUtil }  from '../../utils/EpicChipUtil.ts';
 import { JsonValueUtil } from '../../utils/JsonValueUtil.ts';
 
 export const TICKET_STATUS_CHIPS: readonly TicketStatusChip[] = ['pending', 'in-progress', 'paused', 'in-review', 'reviewing', 'reviewed', 'delivered', 'abandoned'];
 
-export const TICKET_SORT_KEYS: readonly TicketSortKey[] = ['id', 'title', 'type', 'status', 'group', 'branch'];
+export const TICKET_SORT_KEYS: readonly TicketSortKey[] = ['id', 'title', 'epic', 'type', 'status', 'branch'];
 
 export const DEFAULT_TICKET_VIEW: TicketView = {
   searchText:    '',
   statusChips:   [],
   typeChips:     [],
+  epicChips:     [],
   sortKey:       'id',
   sortDirection: 'descending',
 };
@@ -44,7 +46,7 @@ const NAMED_CHARACTERS: Readonly<Record<string, string>> = {
 };
 const HEXADECIMAL_RADIX = 16;
 
-/** An empty group or branch sorts after every named one, whichever way the column runs. */
+/** A ticket in no epic, or an empty branch, sorts after every named one, whichever way the column runs. */
 const LAST_IN_ORDER = '￿';
 
 function characterOfReference(reference: string, name: string): string {
@@ -70,7 +72,8 @@ function bodyPlainTextOf(bodyHtml: string): string {
 
 /** Built once per ticket, since a search re-reads it on every keystroke. */
 function searchableTextOf(ticket: BoardTicket): string {
-  return [ticket.title, ticket.branch ?? '', ticket.group ?? '', bodyPlainTextOf(ticket.bodyHtml)].join('\n').toLowerCase();
+  const epicWords = ticket.memberOfEpics.flatMap((epic) => [epic.key, epic.title]);
+  return [ticket.title, ...epicWords, ticket.branch ?? '', ticket.group ?? '', bodyPlainTextOf(ticket.bodyHtml)].join('\n').toLowerCase();
 }
 
 function normalisedQueryOf(searchText: string): string {
@@ -96,12 +99,13 @@ function statusChipOf(state: DisplayState): TicketStatusChip {
 }
 
 function viewNarrows(view: TicketView): boolean {
-  return normalisedQueryOf(view.searchText) !== '' || view.statusChips.length > 0 || view.typeChips.length > 0;
+  return normalisedQueryOf(view.searchText) !== '' || view.statusChips.length > 0 || view.typeChips.length > 0 || view.epicChips.length > 0;
 }
 
 interface MatchOptions {
   ignoresStatus?: boolean;
   ignoresType?:   boolean;
+  ignoresEpic?:   boolean;
 }
 
 /** OR inside a chip group, AND across the search and the groups. */
@@ -110,6 +114,9 @@ function ticketMatches(ticket: BoardTicket, searchableText: string, view: Ticket
     return false;
   }
   if (options.ignoresStatus !== true && view.statusChips.length > 0 && !view.statusChips.includes(statusChipOf(ticket.displayState))) {
+    return false;
+  }
+  if (options.ignoresEpic !== true && !EpicChipUtil.pressedChipsKeep(ticket, view.epicChips)) {
     return false;
   }
   return options.ignoresType === true || view.typeChips.length === 0 || view.typeChips.includes(ticket.type);
@@ -121,7 +128,7 @@ function sortValueOf(ticket: BoardTicket, sortKey: TicketSortKey): number | stri
     case 'title':  return ticket.title.toLowerCase();
     case 'type':   return ticket.type;
     case 'status': return LIFECYCLE_ORDER.indexOf(ticket.displayState);
-    case 'group':  return ticket.group === undefined || ticket.group === '' ? LAST_IN_ORDER : ticket.group.toLowerCase();
+    case 'epic':   return ticket.memberOfEpics[0]?.title.toLowerCase() ?? LAST_IN_ORDER;
     case 'branch': return ticket.branch === undefined || ticket.branch === null || ticket.branch === '' ? LAST_IN_ORDER : ticket.branch.toLowerCase();
     default:       return 0;
   }
@@ -181,6 +188,16 @@ function typeChipCountsOf(view: TicketView, allTickets: readonly BoardTicket[], 
   return counts;
 }
 
+function epicChipCountsOf(view: TicketView, allTickets: readonly BoardTicket[], searchableTextById: ReadonlyMap<string, string>): Map<string, number> {
+  const counts = new Map<string, number>();
+  for (const ticket of allTickets) {
+    if (ticketMatches(ticket, searchableTextById.get(ticket.id) ?? '', view, { ignoresEpic: true })) {
+      for (const chip of EpicChipUtil.epicChipsOf(ticket)) counts.set(chip, (counts.get(chip) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
 /** A second press on the sorted column reverses it; a new column starts ascending, except the id, which starts newest first. */
 function viewSortedBy(view: TicketView, sortKey: TicketSortKey): TicketView {
   if (view.sortKey === sortKey) {
@@ -211,6 +228,7 @@ function ticketViewFrom(value: unknown): TicketView {
     searchText:    JsonValueUtil.textOrNull(value['searchText']) ?? '',
     statusChips:   knownValuesOf(value['statusChips'], TICKET_STATUS_CHIPS),
     typeChips:     knownValuesOf(value['typeChips'], TICKET_TYPES),
+    epicChips:     JsonValueUtil.textListOf(value['epicChips']),
     sortKey:       sortKey ?? DEFAULT_TICKET_VIEW.sortKey,
     sortDirection: sortDirection ?? DEFAULT_TICKET_VIEW.sortDirection,
   };
@@ -226,6 +244,7 @@ export const TicketViewUtil = {
   ticketsShownBy,
   statusChipCountsOf,
   typeChipCountsOf,
+  epicChipCountsOf,
   viewSortedBy,
   toggledValues,
   ticketViewFrom,

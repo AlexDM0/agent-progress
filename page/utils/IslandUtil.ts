@@ -1,13 +1,20 @@
-import type { Task }      from '../../src/lib/tracker-model/@types/Task.ts';
-import { VocabularyUtil } from '../../src/lib/tracker-model/utils/VocabularyUtil.ts';
+import type { EpicRollup } from '../../src/lib/tracker-model/@types/Epic.ts';
+import type { Task }       from '../../src/lib/tracker-model/@types/Task.ts';
+import { VocabularyUtil }  from '../../src/lib/tracker-model/utils/VocabularyUtil.ts';
 import type {
   PageBoardFacts,
+  PageEpicDescription,
   PagePayload,
   PageTicket,
   PageTicketFacts,
 } from '../../src/shared/@types/PagePayload.ts';
-import type { BoardRow, BoardTicket, PageBoard } from '../@types/PageBoard.ts';
-import { JsonValueUtil }                         from './JsonValueUtil.ts';
+import type {
+  BoardEpic,
+  BoardRow,
+  BoardTicket,
+  PageBoard
+} from '../@types/PageBoard.ts';
+import { JsonValueUtil } from './JsonValueUtil.ts';
 
 const REQUIRED_LIMIT_NAMES = [
   'maximumTicksPerAxis',
@@ -124,7 +131,36 @@ function rowAt(rows: readonly BoardRow[], position: number | null): BoardRow | n
  * The facts must have passed `pagePayloadFrom`. A ticket the facts do not name is dropped, like an unusable entry. Ticket files a hand edit gave
  * one id take that id's facts entries in turn, as the render wrote both lists, and any beyond them the first.
  */
-function pageBoardFrom(tasks: readonly Task[], boardFacts: PageBoardFacts, tickets: readonly PageTicket[]): PageBoard {
+function epicRollupIsUsable(value: unknown): value is EpicRollup {
+  return JsonValueUtil.valueIsRecord(value)
+    && typeof value['key'] === 'string'
+    && typeof value['title'] === 'string'
+    && typeof value['slot'] === 'number'
+    && Array.isArray(value['ticketIds'])
+    && JsonValueUtil.valueIsRecord(value['ticketCountByStatus'])
+    && typeof value['tokens'] === 'number';
+}
+
+/** An unusable roll-up is dropped like an unusable ticket entry, so a board whose epics cannot be read still shows its tickets. */
+function boardEpicsFrom(epicRollups: unknown, epicDescriptions: unknown): BoardEpic[] {
+  const descriptions = Array.isArray(epicDescriptions) ? epicDescriptions : [];
+  const descriptionHtmlByKey = new Map(descriptions.flatMap((entry): Array<[string, string]> => (
+    JsonValueUtil.valueIsRecord(entry) && typeof entry['key'] === 'string' && typeof entry['descriptionHtml'] === 'string'
+      ? [[entry['key'], entry['descriptionHtml']]]
+      : [])));
+  return (Array.isArray(epicRollups) ? epicRollups : [])
+    .filter(epicRollupIsUsable)
+    .map((rollup) => ({ ...rollup, descriptionHtml: descriptionHtmlByKey.get(rollup.key) ?? '' }));
+}
+
+function pageBoardFrom(
+  tasks: readonly Task[],
+  boardFacts: PageBoardFacts,
+  tickets: readonly PageTicket[],
+  epicDescriptions: readonly PageEpicDescription[] = [],
+): PageBoard {
+  const epics     = boardEpicsFrom(boardFacts.epics, epicDescriptions);
+  const epicByKey = new Map(epics.map((epic) => [epic.key, epic]));
   const rows = tasks.map((task, position): BoardRow => {
     const rowFacts = boardFacts.rows[position];
     return {
@@ -151,14 +187,15 @@ function pageBoardFrom(tasks: readonly Task[], boardFacts: PageBoardFacts, ticke
     if (ticketFacts === undefined) return [];
     return [{
       ...ticket,
-      ownRow:       rowAt(rows, ticketFacts.ownRowPosition),
-      reviewBars:   ticketFacts.reviewBarPositions.flatMap((position) => rows[position] ?? []),
-      displayState: ticketFacts.displayState,
-      waitingOn:    ticketFacts.waitingOnTicketIds,
+      ownRow:        rowAt(rows, ticketFacts.ownRowPosition),
+      reviewBars:    ticketFacts.reviewBarPositions.flatMap((position) => rows[position] ?? []),
+      displayState:  ticketFacts.displayState,
+      waitingOn:     ticketFacts.waitingOnTicketIds,
+      memberOfEpics: (Array.isArray(ticket.epics) ? ticket.epics : []).flatMap((key) => epicByKey.get(key) ?? []),
     }];
   });
 
-  return { rows, tickets: boardTickets };
+  return { rows, tickets: boardTickets, epics };
 }
 
 export const IslandUtil = {

@@ -1,27 +1,28 @@
 /** The Kanban tab's markup, shaped by the placeholder board in `resources/template.html`; it follows `page/kanban/utils/KanbanLaneUtil.ts`'s rules. */
 
-import { HtmlLabelUtil }                   from '../../src/adapters/utils/HtmlLabelUtil.ts';
-import { HtmlEscapeUtil }                  from '../../src/lib/html-escape/HtmlEscapeUtil.ts';
-import { TokenCountUtil }                  from '../../src/lib/token-count/TokenCountUtil.ts';
-import type { DisplayState }               from '../../src/lib/tracker-model/@types/Task.ts';
-import { FIRST_REPEAT_REVIEW_ROUND }       from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
-import { TicketDefaultsUtil }              from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
-import type { KanbanCard }                 from '../@types/KanbanCard.ts';
-import type { FinishedWorkChoice }         from '../@types/ViewerChoices.ts';
-import { CLOSING_EVENT_WORD }              from '../constants/ClosingEventWords.ts';
-import { STATE_LABEL_FOR_DISPLAY_STATE }   from '../constants/StateLabels.ts';
-import { FinishedWorkUtil }                from '../utils/FinishedWorkUtil.ts';
-import { MarkupUtil }                      from '../utils/MarkupUtil.ts';
-import { TemplateIdUtil }                  from '../utils/TemplateIdUtil.ts';
-import { WorkItemMarkupUtil }              from '../utils/WorkItemMarkupUtil.ts';
-import type { KanbanLane }                 from './@types/KanbanLane.ts';
-import type { NoteFormat }                 from './KanbanLaneText.ts';
-import { laneSubCountsOf, subStateNoteOf } from './KanbanLaneText.ts';
-import type { ClosedKanbanLane }           from './constants/KanbanBoardLayout.ts';
-import { CAPPED_LANE_FIRST_PAGE_CARDS }    from './constants/KanbanBoardLayout.ts';
-import { KANBAN_LANES }                    from './constants/KanbanBoardLayout.ts';
-import { KanbanLaneUtil }                  from './utils/KanbanLaneUtil.ts';
-import { LanePagingUtil }                  from './utils/LanePagingUtil.ts';
+import { HtmlLabelUtil }                    from '../../src/adapters/utils/HtmlLabelUtil.ts';
+import { HtmlEscapeUtil }                   from '../../src/lib/html-escape/HtmlEscapeUtil.ts';
+import { TokenCountUtil }                   from '../../src/lib/token-count/TokenCountUtil.ts';
+import type { DisplayState }                from '../../src/lib/tracker-model/@types/Task.ts';
+import { FIRST_REPEAT_REVIEW_ROUND }        from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
+import { TicketDefaultsUtil }               from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
+import type { KanbanCard }                  from '../@types/KanbanCard.ts';
+import type { FinishedWorkChoice }          from '../@types/ViewerChoices.ts';
+import { CLOSING_EVENT_WORD }               from '../constants/ClosingEventWords.ts';
+import { STATE_LABEL_FOR_DISPLAY_STATE }    from '../constants/StateLabels.ts';
+import { CARD_EPIC_CHIP_LIMIT, EpicMarkup } from '../epics/EpicMarkup.ts';
+import { FinishedWorkUtil }                 from '../utils/FinishedWorkUtil.ts';
+import { MarkupUtil }                       from '../utils/MarkupUtil.ts';
+import { TemplateIdUtil }                   from '../utils/TemplateIdUtil.ts';
+import { WorkItemMarkupUtil }               from '../utils/WorkItemMarkupUtil.ts';
+import type { KanbanLane }                  from './@types/KanbanLane.ts';
+import type { NoteFormat }                  from './KanbanLaneText.ts';
+import { laneSubCountsOf, subStateNoteOf }  from './KanbanLaneText.ts';
+import type { ClosedKanbanLane }            from './constants/KanbanBoardLayout.ts';
+import { CAPPED_LANE_FIRST_PAGE_CARDS }     from './constants/KanbanBoardLayout.ts';
+import { KANBAN_LANES }                     from './constants/KanbanBoardLayout.ts';
+import { KanbanLaneUtil }                   from './utils/KanbanLaneUtil.ts';
+import { LanePagingUtil }                   from './utils/LanePagingUtil.ts';
 
 
 const NO_ROW_TITLE = 'Low priority: it gets a row on the Progress chart once it is started';
@@ -115,6 +116,7 @@ export function kanbanCardMarkup(card: KanbanCard, lane: KanbanLane, format: Not
     `<span class="ap-detail-type">${HtmlEscapeUtil.escapeHtml(ticket.type)}</span></div>`,
     tokens,
     `<p class="ap-kanban-title" ${MarkupUtil.attribute('title', ticket.title)}>${HtmlEscapeUtil.escapeHtml(ticket.title)}</p>`,
+    card.epics.length === 0 ? '' : `<div class="ap-epic-chips">${EpicMarkup.epicChipsMarkup(card.epics, CARD_EPIC_CHIP_LIMIT)}</div>`,
     marksMarkup(card, lane),
     note === null ? '' : `<p class="ap-kanban-note">${HtmlEscapeUtil.escapeHtml(note)}</p>`,
     stateMarkup(card, lane, format),

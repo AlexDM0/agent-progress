@@ -17,15 +17,15 @@ export interface StoredViewOverride {
   tickMinutes: number | null;
 }
 
-export type DetailTargetKind = 'task' | 'ticket' | 'kanban-card';
+export type DetailTargetKind = 'task' | 'ticket' | 'kanban-card' | 'epic';
 
-/** What the detail panel shows: a Progress row by task id, or a ticket line or a Kanban card by ticket id. */
+/** What the detail panel shows: a Progress row by task id, a ticket line or a Kanban card by ticket id, or an epic by key. */
 export interface DetailTarget {
   kind: DetailTargetKind;
   id:   string;
 }
 
-export type TicketSortKey = 'id' | 'title' | 'type' | 'status' | 'group' | 'branch';
+export type TicketSortKey = 'id' | 'title' | 'epic' | 'type' | 'status' | 'branch';
 
 export type TicketSortDirection = 'ascending' | 'descending';
 
@@ -37,6 +37,8 @@ export interface TicketView {
   searchText:    string;
   statusChips:   readonly TicketStatusChip[];
   typeChips:     readonly TicketType[];
+  /** Epic keys, and `NO_EPIC_CHIP` for the tickets in none. */
+  epicChips:     readonly string[];
   sortKey:       TicketSortKey;
   sortDirection: TicketSortDirection;
 }
@@ -84,4 +86,9 @@ export interface ViewerPreferences {
   writeAbandonedLaneIsOpen:  (laneIsOpen: boolean) => void;
   readCappedLaneShownCount:  (lane: ClosedKanbanLane) => number;
   writeCappedLaneShownCount: (lane: ClosedKanbanLane, shownCount: number) => void;
+  readTicketsGroupedByEpic:  () => boolean;
+  writeTicketsGroupedByEpic: (ticketsAreGrouped: boolean) => void;
+  /** The pressed chips of the Kanban's epic strip: epic keys, and `NO_EPIC_CHIP`. */
+  readKanbanEpicFilter:      () => string[];
+  writeKanbanEpicFilter:     (pressedChips: readonly string[]) => void;
 }

@@ -8,6 +8,7 @@ import { readFileSync }                                  from 'node:fs';
 import { ProgressFileMappingUtil }                       from '../../adapters/progress/utils/ProgressFileMappingUtil.ts';
 import { LogUtil }                                       from '../../adapters/utils/LogUtil.ts';
 import { HtmlEscapeUtil }                                from '../../lib/html-escape/HtmlEscapeUtil.ts';
+import type { Epic }                                     from '../../lib/tracker-model/@types/Epic.ts';
 import type { LogRecord }                                from '../../lib/tracker-model/@types/LogRecord.ts';
 import type { Ticket }                                   from '../../lib/tracker-model/@types/Ticket.ts';
 import type { TrackerProgress }                          from '../../lib/tracker-model/@types/TrackerProgress.ts';
@@ -23,6 +24,7 @@ interface PageTemplateFillInput {
   progress:          TrackerProgress;
   logRecords:        readonly LogRecord[];
   tickets:           Ticket[];
+  epics:             readonly Epic[];
   pageScript:        string | null;
   pageScriptFailure: string | null;
   generatedAt:       Date;
@@ -76,6 +78,7 @@ export function fillPageTemplate(input: PageTemplateFillInput): string {
     progress,
     logRecords,
     tickets,
+    epics,
     pageScript,
     pageScriptFailure,
     generatedAt,
@@ -92,6 +95,7 @@ export function fillPageTemplate(input: PageTemplateFillInput): string {
     limits:                       pageLimits(),
     concurrency:                  { limit: concurrency.limit, agentsInFlight: concurrency.agentsInFlight },
     pageScriptFailure,
+    epicDescriptions:             epics.map((epic) => ({ key: epic.frontmatter.key, descriptionHtml: renderMarkdown(epic.body) })),
     // Last, so every byte of the island before it stays where it was.
     boardFacts,
   };

@@ -91,9 +91,10 @@
                                  tabs' baseline; below 1320px the tabs fill the first line and
                                  #ap-finished starts the second and the note is hidden; #ap-detail
                                  docks under its bottom edge
- #ap-tabs                 el     buttons carry data-tab="kanban|progress|tickets", aria-selected, and
+ #ap-tabs                 el     buttons carry data-tab="kanban|progress|tickets|epics", aria-selected, and
                                  id="ap-tab-…" with aria-controls naming the panel; the arrow keys,
-                                 Home and End move to a tab and select it
+                                 Home and End move to a tab and select it. #ap-tab-epics is
+                                 [hidden] on a board without epics
  [data-panel="…"]         el     matching panel, role="tabpanel", id="ap-panel-…" and
                                  aria-labelledby naming its tab; [hidden] when not selected; each
                                  starts --sp-5 (24px) below .ap-tab-bar's rule
@@ -169,25 +170,50 @@
  #ap-ticket-rows          tbody  ticket table body; each <tr> carries data-ticket-id and data-state, its status
                                  an .ap-badge[data-state] with the state's label, a paused build's
                                  badge followed by .ap-detail-gap "since 11:45 · 1h 51m" (the row's
-                                 note on hover); the matches of
-                                 the search in title, group and branch wrapped in mark.ap-match;
-                                 when nothing matches, one tr.ap-table-empty saying what was asked
-                                 with a button[data-clear-filters]. A ticket body shows only in
-                                 #ap-detail: there is no card list under the table
+                                 note on hover); a grouped ticket's title carries
+                                 .ap-integration-mark (branch icon and group, "Lands together on
+                                 group-x, released with #N" on hover); the Epic cell, on a board
+                                 with epics, holds .ap-epic-chips (two, then .ap-epic-more "+N");
+                                 the matches of the search in title, group and branch wrapped in
+                                 mark.ap-match; when nothing matches, one tr.ap-table-empty saying
+                                 what was asked with a button[data-clear-filters]. While
+                                 #ap-ticket-group-by-epic is pressed, each epic's rows follow a
+                                 tr.ap-epic-group-row[data-epic-slot] (title, roll-up), a ticket
+                                 under its primary epic only, then "No epic". A ticket body shows
+                                 only in #ap-detail: there is no card list under the table
  #ap-ticket-count         text   "42 of 573 tickets · 1 in progress" above the ticket table
- #ap-ticket-search        input  in .ap-ticket-toolbar: id, title, branch, group and the body's
-                                 plain text, case-insensitive, 150 ms after the last keystroke;
-                                 "#455" or "455" looks only at ids
+ #ap-ticket-group-by-epic button in the Tickets card head, aria-pressed, remembered per viewer;
+                                 [hidden] on a board without epics
+ #ap-ticket-search        input  in .ap-ticket-toolbar: id, title, epic keys and titles, branch,
+                                 group and the body's plain text, case-insensitive, 150 ms after the
+                                 last keystroke; "#455" or "455" looks only at ids
  #ap-ticket-type          el     button.ap-chip[data-type][aria-pressed] per ticket type, each
  #ap-ticket-status        el     with .ap-chip-count; status chips carry data-status and data-state
-                                 (Reviewing holds a repeat review too). None pressed = all; OR inside
-                                 a group, AND across groups and with the search. Unnarrowed, the
-                                 table obeys #ap-finished; a search or a pressed chip looks through
-                                 every ticket, and a chip counts what pressing it would add
+ #ap-ticket-epic          el     (Reviewing holds a repeat review too); epic chips carry
+                                 data-epic-chip (the key, or "no epic") and data-epic-slot, inside
+                                 #ap-ticket-epic-filter, [hidden] on a board without epics. None
+                                 pressed = all; OR inside a group, AND across groups and with the
+                                 search. Unnarrowed, the table obeys #ap-finished; a search or a
+                                 pressed chip looks through every ticket, and a chip counts what
+                                 pressing it would add
  #ap-ticket-clear         button [hidden] unless a search or a chip narrows the table
  #ap-ticket-table         table  th.ap-sortable[data-sort] > button.ap-sort; the sorted th carries
-                                 aria-sort (default id, descending); a second press reverses it.
-                                 Search, chips and sort ride the reload snapshot
+                                 aria-sort (default id, descending); a second press reverses it; the
+                                 epic th sorts by the primary epic's title and is [hidden] on a board
+                                 without epics. Search, chips and sort ride the reload snapshot
+ #ap-kanban-epics         el     .ap-epic-strip above the board, [hidden] on a board without epics:
+ #ap-kanban-epic                 epic chips as in #ap-ticket-epic narrow the board (remembered per
+ #ap-kanban-epic-rollups         viewer), and each pressed epic's .ap-epic-strip-rollup follows
+ #ap-epics                html   the Epics tab: one article.ap-card[data-epic-slot] per epic, open
+                                 ones first: .ap-epic-card-head (button.ap-epic-title[data-open-epic],
+                                 .ap-epic-key, .ap-epic-done-mark), .ap-epic-card-body (the
+                                 description's first paragraph, the roll-up, ul.ap-epic-tickets)
+ epic marks               .ap-epic-chip[data-epic][data-epic-slot] (neutral, a rounded square
+                          .ap-epic-swatch, never round) and [data-open-epic] open the epic in
+                          #ap-detail; button.ap-epic-ticket[data-open-ticket] opens its ticket.
+                          The roll-up: .ap-epic-progress (one span[data-state] per ticket status,
+                          flex-grow its count), ul.ap-epic-legend, .ap-ticket-meta (open, done,
+                          abandoned?, tokens, span)
  #ap-ticket-NNN           link   a fragment naming no element: it selects Tickets and opens that
                                  ticket's #ap-detail
  #ap-detail               dialog the overview panel: a non-modal right-hand panel (--detail-w,
@@ -204,7 +230,9 @@
                                  second click on the open item close it
  #ap-detail-body          html   the panel's contents: .ap-detail-head then one
                                  .ap-detail-section per part (Task, Phases, Ticket, Log), or for a
-                                 card the ticket body (see "ticket body markup")
+                                 card the ticket body (see "ticket body markup"), or for an epic
+                                 .ap-epic-detail[data-epic-slot]: the head, key and ticket count,
+                                 then Progress (the roll-up), Description and Tickets
  #ap-detail-close         el     the panel's close button
  #ap-kanban-frame         el     wraps the board; data-overflow="start|end" (space-separated) while
                                  the board can scroll that way, which shows an edge fade
@@ -254,7 +282,8 @@
  .ap-kanban-card          article[data-ticket-id][data-state][tabindex="0"], data-row="none" when
                           the ticket has no row; children in order: .ap-kanban-card-head (id, the
                           ticket priority mark, .ap-detail-type), .ap-tokens?, .ap-kanban-title,
-                          .ap-kanban-marks?, .ap-kanban-note?, .ap-kanban-state, .ap-kanban-stamp
+                          .ap-epic-chips? (two, then "+N"), .ap-kanban-marks?, .ap-kanban-note?,
+                          .ap-kanban-state, .ap-kanban-stamp
  .ap-kanban-state         .ap-pill only in the lanes that mix states (In progress, Review);
                           .ap-reviewed-mark + "reviewed" on a Done card reviewed first
  .ap-ticket-gantt         the detail panel's Timeline: the chart grid (.ap-grid-row, .ap-row,
@@ -265,7 +294,9 @@
  -------------------------------------------------------- ticket body markup ---
  .ap-detail-head[data-state]  the card's state; .ap-detail-id, h2.ap-detail-title, .ap-pill (always),
                           the ✓ where the card has it, the priority mark, .ap-detail-type
- .ap-ticket-meta          the facts present, in order: filed, started, paused ("since 11:45 · 1h 51m",
+ .ap-ticket-meta          the facts present, in order: epics (.ap-epic-chips), integration
+                          (span.ap-integration: "lands together on group-x, released with #N"
+                          or "releases group-x with #A, #B"), filed, started, paused ("since 11:45 · 1h 51m",
                           a paused build only) and row note (the paused row's), finished, reviewed (the own
                           row's), done, abandoned, reason, held, waiting on (links to Kanban
                           cards), branch, task (#ap-task-N); each stamp shortened, full on hover
@@ -341,9 +372,11 @@
               link-tint / link-soft (a focused date part, a hovered reach mark),
               reach-track (under the finished-work switch's reach marks),
               warn-* and err-* (tint, edge, ink), shadow-control / -popover / -panel / -card-lift,
-              hatch-live / hatch-idle (bar stripes), badge-<status>-tint / -ink / -edge;
+              hatch-live / hatch-idle (bar stripes), badge-<status>-tint / -ink / -edge,
+              epic-1 … epic-6 -fill / -tint / -ink (an epic's stored slot);
               per state: --s-fill (bars) / --s-tint (pill bg) / --s-ink (pill text)
-              / --s-edge (pill border), set by [data-state]; --now for the marker
+              / --s-edge (pill border), set by [data-state]; per epic: --epic-fill /
+              --epic-tint / --epic-ink, set by [data-epic-slot]; --now for the marker
    spacing    4 8 12 16 24 32 (--sp-1 … --sp-6)
    radius     4 pill-inner / 6 controls / 10 cards / 999 pills
    type       11 micro · 12 small · 13 body · 15 card title · 20 page title;
@@ -435,6 +468,15 @@
   --badge-reviewed-tint:    oklch(0.957 0.033 155); --badge-reviewed-ink:    oklch(0.42 0.095 155); --badge-reviewed-edge:    oklch(0.79 0.08 155);
   --badge-delivered-tint:   oklch(0.957 0.030 300); --badge-delivered-ink:   oklch(0.44 0.125 300); --badge-delivered-edge:   oklch(0.80 0.075 300);
   --badge-abandoned-tint:   oklch(0.955 0.004 265); --badge-abandoned-ink:   oklch(0.50 0.008 265); --badge-abandoned-edge:   oklch(0.885 0.006 265);
+
+  /* Six epic colours, given out in the order epics are added; the hues sit between the status hues, and slot 4's deep teal stays far darker
+     than the Reviewing cyan. */
+  --epic-1-fill: oklch(0.60 0.17 355); --epic-1-tint: oklch(0.955 0.030 355); --epic-1-ink: oklch(0.46 0.15 355);
+  --epic-2-fill: oklch(0.66 0.15 45);  --epic-2-tint: oklch(0.960 0.035 45);  --epic-2-ink: oklch(0.47 0.12 45);
+  --epic-3-fill: oklch(0.62 0.13 125); --epic-3-tint: oklch(0.960 0.040 125); --epic-3-ink: oklch(0.44 0.10 125);
+  --epic-4-fill: oklch(0.48 0.08 180); --epic-4-tint: oklch(0.955 0.025 180); --epic-4-ink: oklch(0.38 0.07 180);
+  --epic-5-fill: oklch(0.52 0.16 280); --epic-5-tint: oklch(0.955 0.030 280); --epic-5-ink: oklch(0.44 0.15 280);
+  --epic-6-fill: oklch(0.56 0.17 325); --epic-6-tint: oklch(0.955 0.030 325); --epic-6-ink: oklch(0.45 0.15 325);
 }
 
 /* One row per state: pills, bars and badges all read these four properties. */
@@ -487,6 +529,13 @@
     --badge-reviewed-tint:    oklch(0.32 0.055 155); --badge-reviewed-ink:    oklch(0.89 0.060 155); --badge-reviewed-edge:    oklch(0.50 0.080 155);
     --badge-delivered-tint:   oklch(0.32 0.060 300); --badge-delivered-ink:   oklch(0.89 0.060 300); --badge-delivered-edge:   oklch(0.51 0.095 300);
     --badge-abandoned-tint:   oklch(0.28 0.006 265); --badge-abandoned-ink:   oklch(0.72 0.010 265); --badge-abandoned-edge:   oklch(0.38 0.008 265);
+
+    --epic-1-fill: oklch(0.70 0.16 355); --epic-1-tint: oklch(0.31 0.060 355); --epic-1-ink: oklch(0.89 0.060 355);
+    --epic-2-fill: oklch(0.74 0.14 45);  --epic-2-tint: oklch(0.32 0.055 45);  --epic-2-ink: oklch(0.90 0.060 45);
+    --epic-3-fill: oklch(0.74 0.13 125); --epic-3-tint: oklch(0.31 0.050 125); --epic-3-ink: oklch(0.90 0.070 125);
+    --epic-4-fill: oklch(0.58 0.08 180); --epic-4-tint: oklch(0.29 0.035 180); --epic-4-ink: oklch(0.86 0.050 180);
+    --epic-5-fill: oklch(0.68 0.14 280); --epic-5-tint: oklch(0.31 0.060 280); --epic-5-ink: oklch(0.89 0.060 280);
+    --epic-6-fill: oklch(0.70 0.16 325); --epic-6-tint: oklch(0.31 0.060 325); --epic-6-ink: oklch(0.89 0.060 325);
 }
 :root[data-theme="dark"] [data-state="pending"]     { --s-fill: oklch(0.42 0.012 265); --s-tint: oklch(0.29 0.010 265); --s-ink: oklch(0.80 0.012 265); --s-edge: oklch(0.40 0.012 265); }
 :root[data-theme="dark"] [data-state="in-progress"] { --s-fill: oklch(0.76 0.145 80);  --s-tint: oklch(0.33 0.065 80);  --s-ink: oklch(0.91 0.075 85);  --s-edge: oklch(0.52 0.10 80); }
@@ -608,6 +657,11 @@ button.ap-stat:focus-visible { outline: 2px solid var(--ink); outline-offset: 2p
   border: 0; border-bottom: 2px solid transparent; border-radius: 0;
   background: none; color: var(--ink-muted);
   cursor: pointer;
+}
+/* Four tabs keep to one row on a phone. */
+@media (max-width: 480px) {
+  .ap-tabs { gap: 2px; }
+  .ap-tabs button { padding-inline: 10px; }
 }
 .ap-tabs button:hover { color: var(--ink); }
 .ap-tabs button[aria-selected="true"] { color: var(--ink); }
@@ -1487,6 +1541,100 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
   button:not(:disabled):active, [role="button"]:active { transform: none; }
   .ap-kanban-card:hover, .ap-kanban-card:active { transform: none; }
 }
+
+/* ---- Epics. [data-epic-slot] picks one of the six epic colours; an epic's mark is a rounded square, never a status's round dot. ---- */
+[data-epic-slot="1"] { --epic-fill: var(--epic-1-fill); --epic-tint: var(--epic-1-tint); --epic-ink: var(--epic-1-ink); }
+[data-epic-slot="2"] { --epic-fill: var(--epic-2-fill); --epic-tint: var(--epic-2-tint); --epic-ink: var(--epic-2-ink); }
+[data-epic-slot="3"] { --epic-fill: var(--epic-3-fill); --epic-tint: var(--epic-3-tint); --epic-ink: var(--epic-3-ink); }
+[data-epic-slot="4"] { --epic-fill: var(--epic-4-fill); --epic-tint: var(--epic-4-tint); --epic-ink: var(--epic-4-ink); }
+[data-epic-slot="5"] { --epic-fill: var(--epic-5-fill); --epic-tint: var(--epic-5-tint); --epic-ink: var(--epic-5-ink); }
+[data-epic-slot="6"] { --epic-fill: var(--epic-6-fill); --epic-tint: var(--epic-6-tint); --epic-ink: var(--epic-6-ink); }
+
+.ap-epic-chips { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; min-width: 0; }
+.ap-epic-swatch { flex: none; display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: var(--epic-fill, var(--ink-muted)); }
+.ap-epic-chip {
+  display: inline-flex; align-items: center; gap: 5px; max-width: 168px; height: 20px; padding: 0 7px;
+  font: 500 var(--fs-micro)/1 var(--font-ui); color: var(--ink); white-space: nowrap;
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-1); cursor: pointer;
+}
+.ap-epic-chip > .ap-epic-chip-text { overflow: hidden; text-overflow: ellipsis; }
+.ap-epic-chip:hover { border-color: var(--line-strong); }
+.ap-epic-chip:focus-visible { outline: 2px solid var(--link); outline-offset: 1px; }
+.ap-epic-more { display: inline-flex; align-items: center; height: 20px; padding: 0 6px; font: 500 var(--fs-micro)/1 var(--font-mono); color: var(--ink-muted); border: 1px dashed var(--line-strong); border-radius: var(--r-1); cursor: help; }
+.ap-epic-chips > .ap-epic-chip { max-width: min(168px, 100%); min-width: 0; }
+.ap-table td > .ap-epic-chips { flex-wrap: nowrap; }
+
+/* A Kanban card's chips get a row of their own under the title. */
+.ap-kanban-card { grid-template-areas: "head tokens" "title title" "epics epics" "marks marks" "note note" "state stamp"; }
+@container (max-width: 250px) {
+  .ap-kanban-card { grid-template-areas: "head head" "title title" "epics epics" "marks marks" "note note" "state state" "tokens stamp"; }
+}
+.ap-kanban-card > .ap-epic-chips { grid-area: epics; margin-top: 6px; }
+
+/* An epic filter chip is the template's .ap-chip, pressed in the epic's colour. */
+.ap-chip[data-epic-slot] { --s-ink: var(--epic-ink); --s-tint: var(--epic-tint); --s-edge: var(--epic-fill); }
+.ap-chip .ap-epic-swatch { width: 7px; height: 7px; }
+
+/* The roll-up: a stacked bar by ticket status in the status fills, its legend and its facts. */
+.ap-epic-progress { display: flex; gap: 2px; height: 8px; min-width: 80px; border-radius: var(--r-pill); overflow: hidden; background: var(--surface-2); }
+.ap-epic-progress > span { min-width: 4px; background: var(--s-fill); }
+.ap-epic-legend { display: flex; flex-wrap: wrap; gap: 2px var(--sp-3); margin: 6px 0 0; padding: 0; list-style: none; font-size: var(--fs-micro); color: var(--ink-muted); }
+.ap-epic-legend li { display: inline-flex; align-items: center; gap: 5px; }
+.ap-epic-legend b { font: 500 var(--fs-micro)/1 var(--font-mono); color: var(--ink); }
+.ap-epic-legend + .ap-ticket-meta { margin-top: var(--sp-2); }
+
+/* The Epics tab: one card per epic. */
+.ap-epics { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(380px, 100%), 1fr)); gap: var(--sp-4); align-items: start; }
+.ap-epics > .ap-card { margin-bottom: 0; }
+.ap-epic-card-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px var(--sp-3); padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--line); }
+.ap-epic-title { display: inline-flex; align-items: center; gap: var(--sp-2); padding: 0; font: 600 var(--fs-title)/1.3 var(--font-ui); color: var(--ink); background: none; border: 0; cursor: pointer; text-align: left; }
+span.ap-epic-title { cursor: default; }
+.ap-epic-title .ap-epic-swatch { width: 10px; height: 10px; }
+button.ap-epic-title:hover { text-decoration: underline; text-underline-offset: 3px; }
+.ap-epic-title:focus-visible { outline: 2px solid var(--link); outline-offset: 2px; }
+.ap-epic-key { font: 400 var(--fs-micro)/1.5 var(--font-mono); color: var(--ink-muted); }
+.ap-epic-done-mark { margin-left: auto; font-size: var(--fs-small); color: var(--ink-muted); }
+.ap-epic-card-body { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4) var(--sp-4); }
+.ap-epic-summary { margin: 0; color: var(--ink-muted); line-height: 1.5; }
+.ap-epic-card-body .ap-ticket-meta,
+.ap-epic-detail .ap-ticket-meta { padding: 0; margin: 0; }
+.ap-epic-tickets { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+.ap-epic-tickets li { border-bottom: 1px solid var(--line); }
+.ap-epic-tickets li:last-child { border-bottom: 0; }
+.ap-epic-ticket {
+  display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: var(--sp-2);
+  width: 100%; padding: 6px 0; font: var(--fs-small)/1.4 var(--font-ui); color: var(--ink); text-align: left;
+  background: none; border: 0; cursor: pointer;
+}
+.ap-epic-ticket:hover .ap-epic-ticket-title { text-decoration: underline; text-underline-offset: 3px; }
+.ap-epic-ticket:focus-visible { outline: 2px solid var(--link); outline-offset: 1px; }
+.ap-epic-ticket-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ap-epic-ticket .ap-badge { min-width: 0; }
+.ap-epic-also { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; font-size: var(--fs-micro); color: var(--ink-muted); white-space: nowrap; vertical-align: middle; }
+.ap-epic-also .ap-epic-swatch { width: 7px; height: 7px; }
+
+/* "Group by epic" on the Tickets table, and the Kanban's epic strip. */
+.ap-table tr.ap-epic-group-row td { padding: 10px var(--sp-3) 8px; background: var(--surface-2); border-bottom: 1px solid var(--line-strong); }
+.ap-epic-group-line { display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--sp-4); }
+.ap-epic-group-line .ap-epic-title { font-size: var(--fs-body); }
+.ap-epic-group-line .ap-epic-progress { width: 160px; }
+.ap-epic-group-line .ap-ticket-meta { padding: 0; }
+.ap-epic-group-line .ap-card-note { margin: 0; }
+.ap-card-head > .ap-seg { margin-left: auto; }
+.ap-epic-strip { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-4); margin: 0 0 var(--sp-3); }
+.ap-epic-strip-rollups { display: contents; }
+.ap-epic-strip-rollup { display: flex; flex-wrap: wrap; align-items: center; gap: 4px var(--sp-3); font-size: var(--fs-small); color: var(--ink-muted); }
+.ap-epic-strip-rollup .ap-epic-progress { width: 140px; }
+
+/* A ticket's group, worded as where it lands. */
+.ap-integration { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--ink-muted); }
+.ap-integration .ap-integration-branch { font-weight: 500; color: var(--ink); }
+.ap-integration-mark { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; padding: 0 5px; font: 400 var(--fs-micro)/18px var(--font-mono); color: var(--ink-muted); border: 1px solid var(--line); border-radius: var(--r-1); vertical-align: middle; white-space: nowrap; cursor: help; }
+.ap-integration-mark svg { width: 10px; height: 10px; }
+
+/* An epic in the detail panel. */
+.ap-epic-detail .ap-detail-head .ap-epic-swatch { width: 12px; height: 12px; }
+.ap-epic-detail .ap-epic-progress { height: 10px; }
 </style>
 </head>
 
@@ -1536,6 +1684,7 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
       <button type="button" role="tab" id="ap-tab-kanban" aria-controls="ap-panel-kanban" data-tab="kanban" aria-selected="true">Kanban</button>
       <button type="button" role="tab" id="ap-tab-progress" aria-controls="ap-panel-progress" data-tab="progress" aria-selected="false">Progress</button>
       <button type="button" role="tab" id="ap-tab-tickets" aria-controls="ap-panel-tickets" data-tab="tickets" aria-selected="false">Tickets</button>
+      <button type="button" role="tab" id="ap-tab-epics" aria-controls="ap-panel-epics" data-tab="epics" aria-selected="false">Epics</button>
     </div>
     <div class="ap-finished" id="ap-finished">
       <span class="ap-finished-label" id="ap-finished-label">Finished work</span>
@@ -1570,10 +1719,21 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
 </header>
 
 <section data-panel="kanban" role="tabpanel" id="ap-panel-kanban" aria-labelledby="ap-tab-kanban">
+  <div class="ap-epic-strip" id="ap-kanban-epics">
+    <div class="ap-toolbar-group">
+      <span class="ap-range-label" id="ap-kanban-epic-label">Epic</span>
+      <div class="ap-chips" id="ap-kanban-epic" role="group" aria-labelledby="ap-kanban-epic-label">
+        <button type="button" class="ap-chip" data-epic-chip="checkout-redesign" data-epic-slot="1" aria-pressed="true"><span class="ap-epic-swatch"></span>Checkout redesign <span class="ap-chip-count">4</span></button>
+        <button type="button" class="ap-chip" data-epic-chip="order-emails" data-epic-slot="2" aria-pressed="false"><span class="ap-epic-swatch"></span>Order emails <span class="ap-chip-count">2</span></button>
+        <button type="button" class="ap-chip" data-epic-chip="no epic" aria-pressed="false">no epic <span class="ap-chip-count">3</span></button>
+      </div>
+    </div>
+    <div class="ap-epic-strip-rollups" id="ap-kanban-epic-rollups"><div class="ap-epic-strip-rollup" data-epic-slot="1"><div class="ap-epic-progress" role="img" aria-label="2 of 4 done tickets"><span data-state="delivered" style="flex-grow:2" title="Done: 2"></span><span data-state="in-progress" style="flex-grow:1" title="In progress: 1"></span><span data-state="pending" style="flex-grow:1" title="To do: 1"></span></div><span>2 of 4 done · 4.1M tokens</span><button type="button" class="ap-link-button" data-open-epic="checkout-redesign">Checkout redesign details</button></div></div>
+  </div>
   <div class="ap-kanban-frame" id="ap-kanban-frame">
     <div class="ap-kanban" id="ap-kanban">
       <section class="ap-card ap-lane" data-lane="todo" aria-label="To do"><div class="ap-card-head"><span class="ap-lane-dot" data-state="pending"></span><span class="ap-card-title">To do</span><span class="ap-lane-count">6</span><span class="ap-lane-sub">1 waiting · 1 held · 2 no row</span></div><div class="ap-lane-cards" id="ap-lane-todo-cards"><div class="ap-lane-group" data-priority="high">High <span class="ap-lane-group-count">1</span></div><article class="ap-kanban-card" id="ap-kanban-064" data-ticket-id="064" data-state="pending" tabindex="0" aria-label="#064 Checkout button double-submits on a slow network, To do, high priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#064</span><span class="ap-waiting" data-priority="high" title="High priority: dispatched before every normal ticket">high</span><span class="ap-detail-type">bug</span></div><p class="ap-kanban-title" title="Checkout button double-submits on a slow network">Checkout button double-submits on a slow network</p><div class="ap-kanban-state"></div><span class="ap-kanban-stamp" title="filed 2026-09-25 13:02">filed 13:02</span></article><div class="ap-lane-group" data-priority="normal">Normal <span class="ap-lane-group-count">3</span></div><article class="ap-kanban-card" id="ap-kanban-066" data-ticket-id="066" data-state="pending" tabindex="0" aria-label="#066 Rename basket to cart in order e-mails, To do, normal priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#066</span><span class="ap-detail-type">change</span></div><p class="ap-kanban-title" title="Rename basket to cart in order e-mails">Rename basket to cart in order e-mails</p><div class="ap-kanban-marks"><span class="ap-kanban-held" title="Held: Waiting for copy from marketing">held</span></div><div class="ap-kanban-state"></div><span class="ap-kanban-stamp" title="filed 2026-09-25 09:50">filed 09:50</span></article><article class="ap-kanban-card" id="ap-kanban-067" data-ticket-id="067" data-state="pending" tabindex="0" aria-label="#067 Sort orders by delivery date, To do, normal priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#067</span><span class="ap-detail-type">feature</span></div><p class="ap-kanban-title" title="Sort orders by delivery date">Sort orders by delivery date</p><div class="ap-kanban-state"></div><span class="ap-kanban-stamp" title="filed 2026-09-25 10:12">filed 10:12</span></article><article class="ap-kanban-card" id="ap-kanban-065" data-ticket-id="065" data-state="pending" tabindex="0" aria-label="#065 Wishlist share link, To do, normal priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#065</span><span class="ap-detail-type">feature</span></div><p class="ap-kanban-title" title="Wishlist share link">Wishlist share link</p><div class="ap-kanban-marks"><span class="ap-waiting">waiting on <a href="#ap-kanban-060" data-ticket-link="060">#060</a></span></div><div class="ap-kanban-state"></div><span class="ap-kanban-stamp" title="filed 2026-09-25 11:20">filed 11:20</span></article><div class="ap-lane-group" data-priority="low">Low <span class="ap-lane-group-count">2</span></div><article class="ap-kanban-card" id="ap-kanban-068" data-ticket-id="068" data-state="pending" data-row="none" tabindex="0" aria-label="#068 Footer links wrap on tablets, To do, low priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#068</span><span class="ap-ticket-badge" data-priority="low" title="Low priority: no row on the chart until it is started, and worked once every normal and high ticket is done">low</span><span class="ap-detail-type">bug</span></div><p class="ap-kanban-title" title="Footer links wrap on tablets">Footer links wrap on tablets</p><div class="ap-kanban-marks"><span class="ap-kanban-no-row" title="Low priority: it gets a row on the Progress chart once it is started">no row yet</span></div><div class="ap-kanban-state"></div><span class="ap-kanban-stamp" title="filed 2026-09-24 17:40">filed 09-24 17:40</span></article><article class="ap-kanban-card" id="ap-kanban-069" data-ticket-id="069" data-state="pending" data-row="none" tabindex="0" aria-label="#069 Admin table column widths jump on sort, To do, low priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#069</span><span class="ap-ticket-badge" data-priority="low" title="Low priority: no row on the chart until it is started, and worked once every normal and high ticket is done">low</span><span class="ap-detail-type">bug</span></div><p class="ap-kanban-title" title="Admin table column widths jump on sort">Admin table column widths jump on sort</p><div class="ap-kanban-marks"><span class="ap-kanban-no-row" title="Low priority: it gets a row on the Progress chart once it is started">no row yet</span></div><div class="ap-kanban-state"></div><span class="ap-kanban-stamp" title="filed 2026-09-25 12:05">filed 12:05</span></article></div></section>
-      <section class="ap-card ap-lane" data-lane="progress" aria-label="In progress"><div class="ap-card-head"><span class="ap-lane-dot" data-state="in-progress"></span><span class="ap-card-title">In progress</span><span class="ap-lane-count">3</span><span class="ap-lane-sub"><span class="ap-lane-dot" data-state="in-progress"></span>2 in progress · <span class="ap-lane-dot" data-state="paused"></span>1 paused</span></div><div class="ap-lane-cards" id="ap-lane-progress-cards"><div class="ap-lane-group" data-priority="high">High <span class="ap-lane-group-count">1</span></div><article class="ap-kanban-card" id="ap-kanban-060" data-ticket-id="060" data-state="in-progress" tabindex="0" aria-label="#060 Account pages dark mode, In progress, high priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#060</span><span class="ap-waiting" data-priority="high" title="High priority: dispatched before every normal ticket">high</span><span class="ap-detail-type">feature</span></div><span class="ap-tokens">1.8M tokens</span><p class="ap-kanban-title" title="Account pages dark mode">Account pages dark mode</p><div class="ap-kanban-state"><span class="ap-pill">In progress</span></div><span class="ap-kanban-stamp" title="started 2026-09-25 11:00">started 11:00</span></article><div class="ap-lane-group" data-priority="normal">Normal <span class="ap-lane-group-count">2</span></div><article class="ap-kanban-card" id="ap-kanban-061" data-ticket-id="061" data-state="paused" tabindex="0" aria-label="#061 Delivery ETA on product page, Paused, normal priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#061</span><span class="ap-detail-type">feature</span></div><span class="ap-tokens">900k tokens</span><p class="ap-kanban-title" title="Delivery ETA on product page">Delivery ETA on product page</p><p class="ap-kanban-note">paused since 11:45 · 1h 51m</p><div class="ap-kanban-state"><span class="ap-pill">Paused</span></div><span class="ap-kanban-stamp" title="started 2026-09-25 10:20">started 10:20</span></article><article class="ap-kanban-card" id="ap-kanban-063" data-ticket-id="063" data-state="in-progress" tabindex="0" aria-label="#063 Stale basket badge after removing a coupon, In progress, normal priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#063</span><span class="ap-detail-type">bug</span></div><span class="ap-tokens">400k tokens</span><p class="ap-kanban-title" title="Stale basket badge after removing a coupon">Stale basket badge after removing a coupon</p><div class="ap-kanban-state"><span class="ap-pill">In progress</span></div><span class="ap-kanban-stamp" title="started 2026-09-25 12:45">started 12:45</span></article></div></section>
+      <section class="ap-card ap-lane" data-lane="progress" aria-label="In progress"><div class="ap-card-head"><span class="ap-lane-dot" data-state="in-progress"></span><span class="ap-card-title">In progress</span><span class="ap-lane-count">3</span><span class="ap-lane-sub"><span class="ap-lane-dot" data-state="in-progress"></span>2 in progress · <span class="ap-lane-dot" data-state="paused"></span>1 paused</span></div><div class="ap-lane-cards" id="ap-lane-progress-cards"><div class="ap-lane-group" data-priority="high">High <span class="ap-lane-group-count">1</span></div><article class="ap-kanban-card" id="ap-kanban-060" data-ticket-id="060" data-state="in-progress" tabindex="0" aria-label="#060 Account pages dark mode, In progress, high priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#060</span><span class="ap-waiting" data-priority="high" title="High priority: dispatched before every normal ticket">high</span><span class="ap-detail-type">feature</span></div><span class="ap-tokens">1.8M tokens</span><p class="ap-kanban-title" title="Account pages dark mode">Account pages dark mode</p><div class="ap-epic-chips"><button type="button" class="ap-epic-chip" data-epic="checkout-redesign" data-epic-slot="1" title="Epic: Checkout redesign"><span class="ap-epic-swatch"></span><span class="ap-epic-chip-text">Checkout redesign</span></button><button type="button" class="ap-epic-chip" data-epic="order-emails" data-epic-slot="2" title="Epic: Order emails"><span class="ap-epic-swatch"></span><span class="ap-epic-chip-text">Order emails</span></button><span class="ap-epic-more" title="Also in Theming">+1</span></div><div class="ap-kanban-state"><span class="ap-pill">In progress</span></div><span class="ap-kanban-stamp" title="started 2026-09-25 11:00">started 11:00</span></article><div class="ap-lane-group" data-priority="normal">Normal <span class="ap-lane-group-count">2</span></div><article class="ap-kanban-card" id="ap-kanban-061" data-ticket-id="061" data-state="paused" tabindex="0" aria-label="#061 Delivery ETA on product page, Paused, normal priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#061</span><span class="ap-detail-type">feature</span></div><span class="ap-tokens">900k tokens</span><p class="ap-kanban-title" title="Delivery ETA on product page">Delivery ETA on product page</p><p class="ap-kanban-note">paused since 11:45 · 1h 51m</p><div class="ap-kanban-state"><span class="ap-pill">Paused</span></div><span class="ap-kanban-stamp" title="started 2026-09-25 10:20">started 10:20</span></article><article class="ap-kanban-card" id="ap-kanban-063" data-ticket-id="063" data-state="in-progress" tabindex="0" aria-label="#063 Stale basket badge after removing a coupon, In progress, normal priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#063</span><span class="ap-detail-type">bug</span></div><span class="ap-tokens">400k tokens</span><p class="ap-kanban-title" title="Stale basket badge after removing a coupon">Stale basket badge after removing a coupon</p><div class="ap-kanban-state"><span class="ap-pill">In progress</span></div><span class="ap-kanban-stamp" title="started 2026-09-25 12:45">started 12:45</span></article></div></section>
       <section class="ap-card ap-lane" data-lane="review" aria-label="Review"><div class="ap-card-head"><span class="ap-lane-dot" data-state="reviewing"></span><span class="ap-card-title">Review</span><span class="ap-lane-count">3</span><span class="ap-lane-sub"><span class="ap-lane-dot" data-state="in-review"></span>1 awaiting review · <span class="ap-lane-dot" data-state="reviewing"></span>2 reviewing</span></div><div class="ap-lane-cards" id="ap-lane-review-cards"><div class="ap-lane-group" data-priority="high">High <span class="ap-lane-group-count">1</span></div><article class="ap-kanban-card" id="ap-kanban-058" data-ticket-id="058" data-state="reviewing" tabindex="0" aria-label="#058 Rate-limit resets, Reviewing, high priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#058</span><span class="ap-waiting" data-priority="high" title="High priority: dispatched before every normal ticket">high</span><span class="ap-detail-type">change</span></div><span class="ap-tokens">1.8M tokens</span><p class="ap-kanban-title" title="Rate-limit resets">Rate-limit resets</p><p class="ap-kanban-note">reviewer since 13:05</p><div class="ap-kanban-state"><span class="ap-pill">Reviewing</span></div><span class="ap-kanban-stamp" title="finished 2026-09-25 12:58">finished 12:58</span></article><div class="ap-lane-group" data-priority="normal">Normal <span class="ap-lane-group-count">2</span></div><article class="ap-kanban-card" id="ap-kanban-059" data-ticket-id="059" data-state="re-review" tabindex="0" aria-label="#059 Accent-blind search, Reviewing (round 2), normal priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#059</span><span class="ap-detail-type">bug</span></div><span class="ap-tokens">4.2M tokens</span><p class="ap-kanban-title" title="Accent-blind search">Accent-blind search</p><p class="ap-kanban-note">round 2 reviewer since 11:34</p><div class="ap-kanban-state"><span class="ap-pill">Reviewing (round 2)</span></div><span class="ap-kanban-stamp" title="finished 2026-09-25 10:48">finished 10:48</span></article><article class="ap-kanban-card" id="ap-kanban-062" data-ticket-id="062" data-state="in-review" tabindex="0" aria-label="#062 Gift-card field accepts spaces the API rejects, Awaiting review, normal priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#062</span><span class="ap-detail-type">bug</span></div><span class="ap-tokens">700k tokens</span><p class="ap-kanban-title" title="Gift-card field accepts spaces the API rejects">Gift-card field accepts spaces the API rejects</p><p class="ap-kanban-note">no reviewer yet · 16m</p><div class="ap-kanban-state"><span class="ap-pill">Awaiting review</span></div><span class="ap-kanban-stamp" title="finished 2026-09-25 13:20">finished 13:20</span></article></div></section>
       <section class="ap-card ap-lane" data-lane="merge" aria-label="Awaiting merge"><div class="ap-card-head"><span class="ap-lane-dot" data-state="reviewed"></span><span class="ap-card-title">Awaiting merge</span><span class="ap-lane-count">2</span><span class="ap-lane-sub">by priority</span></div><div class="ap-lane-cards" id="ap-lane-merge-cards"><div class="ap-lane-group" data-priority="normal">Normal <span class="ap-lane-group-count">1</span></div><article class="ap-kanban-card" id="ap-kanban-056" data-ticket-id="056" data-state="reviewed" tabindex="0" aria-label="#056 Orders CSV export, Awaiting merge, normal priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#056</span><span class="ap-detail-type">feature</span></div><span class="ap-tokens">3.1M tokens</span><p class="ap-kanban-title" title="Orders CSV export">Orders CSV export</p><p class="ap-kanban-note">reviewed 12:10</p><div class="ap-kanban-state"></div><span class="ap-kanban-stamp" title="finished 2026-09-25 10:40">finished 10:40</span></article><div class="ap-lane-group" data-priority="low">Low <span class="ap-lane-group-count">1</span></div><article class="ap-kanban-card" id="ap-kanban-057" data-ticket-id="057" data-state="reviewed" tabindex="0" aria-label="#057 Tidy the admin sidebar icons, Awaiting merge, low priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#057</span><span class="ap-ticket-badge" data-priority="low" title="Low priority: no row on the chart until it is started, and worked once every normal and high ticket is done">low</span><span class="ap-detail-type">change</span></div><span class="ap-tokens">350k tokens</span><p class="ap-kanban-title" title="Tidy the admin sidebar icons">Tidy the admin sidebar icons</p><p class="ap-kanban-note">reviewed 12:45</p><div class="ap-kanban-state"></div><span class="ap-kanban-stamp" title="finished 2026-09-25 11:50">finished 11:50</span></article></div></section>
       <section class="ap-card ap-lane" data-lane="done" aria-label="Done"><div class="ap-card-head"><span class="ap-lane-dot" data-state="delivered"></span><span class="ap-card-title">Done</span><span class="ap-lane-count">18</span><span class="ap-lane-sub">newest first · <span class="ap-reviewed-mark" data-state="reviewed" aria-hidden="true">✓</span>15 reviewed first</span></div><div class="ap-lane-cards" id="ap-lane-done-cards"><article class="ap-kanban-card" id="ap-kanban-055" data-ticket-id="055" data-state="delivered" tabindex="0" aria-label="#055 Gift card ignored at checkout, Done, high priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#055</span><span class="ap-waiting" data-priority="high" title="High priority: dispatched before every normal ticket">high</span><span class="ap-detail-type">bug</span></div><span class="ap-tokens">2.4M tokens</span><p class="ap-kanban-title" title="Gift card ignored at checkout">Gift card ignored at checkout</p><div class="ap-kanban-state"><span class="ap-reviewed-mark" data-state="reviewed" title="Reviewed 2026-09-25 12:10 before it was done" role="img" aria-label="reviewed">✓</span><span>reviewed</span></div><span class="ap-kanban-stamp" title="done 2026-09-25 13:28">done 13:28</span></article><article class="ap-kanban-card" id="ap-kanban-054" data-ticket-id="054" data-state="delivered" tabindex="0" aria-label="#054 Saved addresses on the checkout page, Done, normal priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#054</span><span class="ap-detail-type">feature</span></div><span class="ap-tokens">1.2M tokens</span><p class="ap-kanban-title" title="Saved addresses on the checkout page">Saved addresses on the checkout page</p><div class="ap-kanban-state"><span class="ap-reviewed-mark" data-state="reviewed" title="Reviewed 2026-09-25 12:48 before it was done" role="img" aria-label="reviewed">✓</span><span>reviewed</span></div><span class="ap-kanban-stamp" title="done 2026-09-25 12:52">done 12:52</span></article><article class="ap-kanban-card" id="ap-kanban-053" data-ticket-id="053" data-state="delivered" tabindex="0" aria-label="#053 Search suggestions flicker while typing, Done, normal priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#053</span><span class="ap-detail-type">bug</span></div><span class="ap-tokens">860k tokens</span><p class="ap-kanban-title" title="Search suggestions flicker while typing">Search suggestions flicker while typing</p><div class="ap-kanban-state"><span class="ap-reviewed-mark" data-state="reviewed" title="Reviewed 2026-09-25 11:58 before it was done" role="img" aria-label="reviewed">✓</span><span>reviewed</span></div><span class="ap-kanban-stamp" title="done 2026-09-25 12:15">done 12:15</span></article><article class="ap-kanban-card" id="ap-kanban-052" data-ticket-id="052" data-state="delivered" tabindex="0" aria-label="#052 Order confirmation e-mail shows VAT per line, Done, normal priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#052</span><span class="ap-detail-type">change</span></div><span class="ap-tokens">2.1M tokens</span><p class="ap-kanban-title" title="Order confirmation e-mail shows VAT per line">Order confirmation e-mail shows VAT per line</p><div class="ap-kanban-state"><span class="ap-reviewed-mark" data-state="reviewed" title="Reviewed 2026-09-25 11:10 before it was done" role="img" aria-label="reviewed">✓</span><span>reviewed</span></div><span class="ap-kanban-stamp" title="done 2026-09-25 11:40">done 11:40</span></article><article class="ap-kanban-card" id="ap-kanban-051" data-ticket-id="051" data-state="delivered" tabindex="0" aria-label="#051 Basket total rounds before the discount, Done, normal priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#051</span><span class="ap-detail-type">bug</span></div><span class="ap-tokens">640k tokens</span><p class="ap-kanban-title" title="Basket total rounds before the discount">Basket total rounds before the discount</p><div class="ap-kanban-state"><span class="ap-reviewed-mark" data-state="reviewed" title="Reviewed 2026-09-25 10:15 before it was done" role="img" aria-label="reviewed">✓</span><span>reviewed</span></div><span class="ap-kanban-stamp" title="done 2026-09-25 10:58">done 10:58</span></article><article class="ap-kanban-card" id="ap-kanban-050" data-ticket-id="050" data-state="delivered" tabindex="0" aria-label="#050 Admin: bulk edit product tags, Done, normal priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#050</span><span class="ap-detail-type">feature</span></div><span class="ap-tokens">1.5M tokens</span><p class="ap-kanban-title" title="Admin: bulk edit product tags">Admin: bulk edit product tags</p><div class="ap-kanban-state"></div><span class="ap-kanban-stamp" title="done 2026-09-25 10:20">done 10:20</span></article><article class="ap-kanban-card" id="ap-kanban-049" data-ticket-id="049" data-state="delivered" tabindex="0" aria-label="#049 Password reset link expires too early, Done, high priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#049</span><span class="ap-waiting" data-priority="high" title="High priority: dispatched before every normal ticket">high</span><span class="ap-detail-type">bug</span></div><span class="ap-tokens">3.3M tokens</span><p class="ap-kanban-title" title="Password reset link expires too early">Password reset link expires too early</p><div class="ap-kanban-state"><span class="ap-reviewed-mark" data-state="reviewed" title="Reviewed 2026-09-25 09:37 before it was done" role="img" aria-label="reviewed">✓</span><span>reviewed</span></div><span class="ap-kanban-stamp" title="done 2026-09-25 09:46">done 09:46</span></article><article class="ap-kanban-card" id="ap-kanban-048" data-ticket-id="048" data-state="delivered" tabindex="0" aria-label="#048 Move shipping options above payment, Done, normal priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#048</span><span class="ap-detail-type">change</span></div><span class="ap-tokens">980k tokens</span><p class="ap-kanban-title" title="Move shipping options above payment">Move shipping options above payment</p><div class="ap-kanban-state"><span class="ap-reviewed-mark" data-state="reviewed" title="Reviewed 2026-09-25 08:43 before it was done" role="img" aria-label="reviewed">✓</span><span>reviewed</span></div><span class="ap-kanban-stamp" title="done 2026-09-25 09:05">done 09:05</span></article><article class="ap-kanban-card" id="ap-kanban-047" data-ticket-id="047" data-state="delivered" tabindex="0" aria-label="#047 Recently viewed products on the account page, Done, normal priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#047</span><span class="ap-detail-type">feature</span></div><span class="ap-tokens">1.7M tokens</span><p class="ap-kanban-title" title="Recently viewed products on the account page">Recently viewed products on the account page</p><div class="ap-kanban-state"><span class="ap-reviewed-mark" data-state="reviewed" title="Reviewed 2026-09-25 07:56 before it was done" role="img" aria-label="reviewed">✓</span><span>reviewed</span></div><span class="ap-kanban-stamp" title="done 2026-09-25 08:31">done 08:31</span></article><article class="ap-kanban-card" id="ap-kanban-045" data-ticket-id="045" data-state="delivered" tabindex="0" aria-label="#045 Coupon code field is case-sensitive, Done, normal priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#045</span><span class="ap-detail-type">bug</span></div><span class="ap-tokens">720k tokens</span><p class="ap-kanban-title" title="Coupon code field is case-sensitive">Coupon code field is case-sensitive</p><div class="ap-kanban-state"><span class="ap-reviewed-mark" data-state="reviewed" title="Reviewed 2026-09-25 07:04 before it was done" role="img" aria-label="reviewed">✓</span><span>reviewed</span></div><span class="ap-kanban-stamp" title="done 2026-09-25 07:52">done 07:52</span></article><article class="ap-kanban-card" id="ap-kanban-044" data-ticket-id="044" data-state="delivered" tabindex="0" aria-label="#044 Search filter for in-stock items, Done, normal priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#044</span><span class="ap-detail-type">feature</span></div><span class="ap-tokens">2.6M tokens</span><p class="ap-kanban-title" title="Search filter for in-stock items">Search filter for in-stock items</p><div class="ap-kanban-state"><span class="ap-reviewed-mark" data-state="reviewed" title="Reviewed 2026-09-25 06:09 before it was done" role="img" aria-label="reviewed">✓</span><span>reviewed</span></div><span class="ap-kanban-stamp" title="done 2026-09-25 07:10">done 07:10</span></article><article class="ap-kanban-card" id="ap-kanban-043" data-ticket-id="043" data-state="delivered" tabindex="0" aria-label="#043 Shorter subject lines on shipping e-mails, Done, low priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#043</span><span class="ap-ticket-badge" data-priority="low" title="Low priority: no row on the chart until it is started, and worked once every normal and high ticket is done">low</span><span class="ap-detail-type">change</span></div><span class="ap-tokens">1.1M tokens</span><p class="ap-kanban-title" title="Shorter subject lines on shipping e-mails">Shorter subject lines on shipping e-mails</p><div class="ap-kanban-state"></div><span class="ap-kanban-stamp" title="done 2026-09-25 01:25">done 01:25</span></article><article class="ap-kanban-card" id="ap-kanban-042" data-ticket-id="042" data-state="delivered" tabindex="0" aria-label="#042 Admin order list loses its filter after paging, Done, normal priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#042</span><span class="ap-detail-type">bug</span></div><span class="ap-tokens">450k tokens</span><p class="ap-kanban-title" title="Admin order list loses its filter after paging">Admin order list loses its filter after paging</p><div class="ap-kanban-state"><span class="ap-reviewed-mark" data-state="reviewed" title="Reviewed 2026-09-24 23:21 before it was done" role="img" aria-label="reviewed">✓</span><span>reviewed</span></div><span class="ap-kanban-stamp" title="done 2026-09-24 23:48">done 09-24 23:48</span></article><article class="ap-kanban-card" id="ap-kanban-041" data-ticket-id="041" data-state="delivered" tabindex="0" aria-label="#041 Reorder from the order history, Done, normal priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#041</span><span class="ap-detail-type">feature</span></div><span class="ap-tokens">1.2M tokens</span><p class="ap-kanban-title" title="Reorder from the order history">Reorder from the order history</p><div class="ap-kanban-state"><span class="ap-reviewed-mark" data-state="reviewed" title="Reviewed 2026-09-24 21:50 before it was done" role="img" aria-label="reviewed">✓</span><span>reviewed</span></div><span class="ap-kanban-stamp" title="done 2026-09-24 22:30">done 09-24 22:30</span></article><article class="ap-kanban-card" id="ap-kanban-040" data-ticket-id="040" data-state="delivered" tabindex="0" aria-label="#040 Basket badge counts removed items, Done, normal priority"><div class="ap-kanban-card-head"><span class="ap-ticket-id">#040</span><span class="ap-detail-type">bug</span></div><span class="ap-tokens">860k tokens</span><p class="ap-kanban-title" title="Basket badge counts removed items">Basket badge counts removed items</p><div class="ap-kanban-state"><span class="ap-reviewed-mark" data-state="reviewed" title="Reviewed 2026-09-24 19:22 before it was done" role="img" aria-label="reviewed">✓</span><span>reviewed</span></div><span class="ap-kanban-stamp" title="done 2026-09-24 20:15">done 09-24 20:15</span></article></div><div class="ap-lane-more"><span>15 of 18 shown</span><div class="ap-seg"><button type="button" data-lane-more="done">Show 3 more</button></div></div></section>
@@ -1703,11 +1863,11 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
 
 <section data-panel="tickets" role="tabpanel" id="ap-panel-tickets" aria-labelledby="ap-tab-tickets" hidden>
   <div class="ap-card">
-    <div class="ap-card-head"><span class="ap-card-title">Tickets</span><span class="ap-card-note" id="ap-ticket-count" aria-live="polite">7 of 7 tickets · 1 in progress</span></div>
+    <div class="ap-card-head"><span class="ap-card-title">Tickets</span><span class="ap-card-note" id="ap-ticket-count" aria-live="polite">7 of 7 tickets · 1 in progress</span><div class="ap-seg"><button type="button" id="ap-ticket-group-by-epic" aria-pressed="false" title="Group the table by epic, each with its roll-up">Group by epic</button></div></div>
     <div class="ap-ticket-toolbar" role="search">
       <div class="ap-search">
         <svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.8" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10.6 10.6 14 14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
-        <input id="ap-ticket-search" type="search" placeholder="Search id, title, branch, group, text" aria-label="Search tickets" spellcheck="false" autocomplete="off">
+        <input id="ap-ticket-search" type="search" placeholder="Search id, title, epic, branch, group, text" aria-label="Search tickets" spellcheck="false" autocomplete="off">
       </div>
       <div class="ap-toolbar-group">
         <span class="ap-range-label" id="ap-ticket-type-label">Type</span>
@@ -1715,6 +1875,14 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
           <button type="button" class="ap-chip" data-type="bug" aria-pressed="false">bug <span class="ap-chip-count">1</span></button>
           <button type="button" class="ap-chip" data-type="change" aria-pressed="false">change <span class="ap-chip-count">4</span></button>
           <button type="button" class="ap-chip" data-type="feature" aria-pressed="false">feature <span class="ap-chip-count">1</span></button>
+        </div>
+      </div>
+      <div class="ap-toolbar-group" id="ap-ticket-epic-filter">
+        <span class="ap-range-label" id="ap-ticket-epic-label">Epic</span>
+        <div class="ap-chips" id="ap-ticket-epic" role="group" aria-labelledby="ap-ticket-epic-label">
+          <button type="button" class="ap-chip" data-epic-chip="role-editor" data-epic-slot="1" aria-pressed="false"><span class="ap-epic-swatch"></span>Role editor <span class="ap-chip-count">2</span></button>
+          <button type="button" class="ap-chip" data-epic-chip="exporter" data-epic-slot="2" aria-pressed="false"><span class="ap-epic-swatch"></span>Exporter <span class="ap-chip-count">2</span></button>
+          <button type="button" class="ap-chip" data-epic-chip="no epic" aria-pressed="false">no epic <span class="ap-chip-count">4</span></button>
         </div>
       </div>
       <button type="button" class="ap-link-button" id="ap-ticket-clear" hidden>Clear search and filters</button>
@@ -1733,24 +1901,30 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
         <thead><tr>
           <th class="mono ap-sortable" data-sort="id" aria-sort="descending"><button type="button" class="ap-sort">id</button></th>
           <th class="ap-col-title ap-sortable" data-sort="title"><button type="button" class="ap-sort">title</button></th>
+          <th class="ap-sortable" data-sort="epic"><button type="button" class="ap-sort">epic</button></th>
           <th class="ap-sortable" data-sort="type"><button type="button" class="ap-sort">type</button></th>
           <th class="ap-sortable" data-sort="status"><button type="button" class="ap-sort">status</button></th>
-          <th class="ap-sortable" data-sort="group"><button type="button" class="ap-sort">group</button></th>
           <th class="mono ap-sortable" data-sort="branch"><button type="button" class="ap-sort">branch</button></th>
           <th class="mono">task</th>
         </tr></thead>
         <tbody id="ap-ticket-rows">
-          <tr data-ticket-id="007" data-state="pending" tabindex="0"><td class="mono"><a href="#ap-ticket-007">#007</a></td><td>Reword the empty-log note <span class="ap-ticket-badge" data-priority="low" title="Low priority: no row on the chart until it is started, and worked once every normal and high ticket is done">low</span></td><td>change</td><td><span class="ap-badge" data-state="pending">To do</span></td><td></td><td class="mono"></td><td class="mono"></td></tr>
-          <tr data-ticket-id="006" data-state="abandoned" tabindex="0"><td class="mono"><a href="#ap-ticket-006">#006</a></td><td>Old idea</td><td>bug</td><td><span class="ap-badge" data-state="abandoned">Abandoned</span></td><td></td><td class="mono"></td><td class="mono"><a href="#ap-task-8">#8</a></td></tr>
-          <tr data-ticket-id="005" data-state="pending" tabindex="0"><td class="mono"><a href="#ap-ticket-005">#005</a></td><td>Audit the range presets<span class="ap-waiting">waiting on <a href="#ap-ticket-004">#004</a></span></td><td>change</td><td><span class="ap-badge" data-state="pending">To do</span></td><td></td><td class="mono"></td><td class="mono"><a href="#ap-task-7">#7</a></td></tr>
-          <tr data-ticket-id="004" data-state="in-progress" tabindex="0"><td class="mono"><a href="#ap-ticket-004">#004</a></td><td>Brighter colours<span class="ap-waiting" data-priority="high" title="High priority: dispatched before every normal ticket">high</span></td><td>feature</td><td><span class="ap-badge" data-state="in-progress">In progress</span></td><td></td><td class="mono">ticket/brighter-colours</td><td class="mono"><a href="#ap-task-5">#5</a></td></tr>
-          <tr data-ticket-id="003" data-state="in-review" tabindex="0"><td class="mono"><a href="#ap-ticket-003">#003</a></td><td>Split the <mark class="ap-match">exporter</mark> into two passes</td><td>change</td><td><span class="ap-badge" data-state="in-review">Awaiting review</span></td><td><mark class="ap-match">exporter</mark></td><td class="mono">ticket/<mark class="ap-match">exporter</mark>-passes</td><td class="mono"><a href="#ap-task-3">#3</a></td></tr>
-          <tr data-ticket-id="002" data-state="reviewed" tabindex="0"><td class="mono"><a href="#ap-ticket-002">#002</a></td><td>Cache ticket bodies between runs</td><td>change</td><td><span class="ap-badge" data-state="reviewed">Awaiting merge</span></td><td>exporter</td><td class="mono">ticket/body-cache</td><td class="mono"><a href="#ap-task-2">#2</a></td></tr>
-          <tr data-ticket-id="001" data-state="delivered" tabindex="0"><td class="mono"><a href="#ap-ticket-001">#001</a></td><td>Double-click a role to edit it</td><td>change</td><td><span class="ap-badge" data-state="delivered">Done</span></td><td>role-editor</td><td class="mono">ticket/role-editor</td><td class="mono"><a href="#ap-task-1">#1</a></td></tr>
+          <tr data-ticket-id="007" data-state="pending" tabindex="0"><td class="mono"><a href="#ap-ticket-007">#007</a></td><td>Reword the empty-log note <span class="ap-ticket-badge" data-priority="low" title="Low priority: no row on the chart until it is started, and worked once every normal and high ticket is done">low</span></td><td><span class="ap-epic-chips"></span></td><td>change</td><td><span class="ap-badge" data-state="pending">To do</span></td><td class="mono"></td><td class="mono"></td></tr>
+          <tr data-ticket-id="006" data-state="abandoned" tabindex="0"><td class="mono"><a href="#ap-ticket-006">#006</a></td><td>Old idea</td><td><span class="ap-epic-chips"></span></td><td>bug</td><td><span class="ap-badge" data-state="abandoned">Abandoned</span></td><td class="mono"></td><td class="mono"><a href="#ap-task-8">#8</a></td></tr>
+          <tr data-ticket-id="005" data-state="pending" tabindex="0"><td class="mono"><a href="#ap-ticket-005">#005</a></td><td>Audit the range presets<span class="ap-waiting">waiting on <a href="#ap-ticket-004">#004</a></span></td><td><span class="ap-epic-chips"></span></td><td>change</td><td><span class="ap-badge" data-state="pending">To do</span></td><td class="mono"></td><td class="mono"><a href="#ap-task-7">#7</a></td></tr>
+          <tr data-ticket-id="004" data-state="in-progress" tabindex="0"><td class="mono"><a href="#ap-ticket-004">#004</a></td><td>Brighter colours<span class="ap-waiting" data-priority="high" title="High priority: dispatched before every normal ticket">high</span></td><td><span class="ap-epic-chips"></span></td><td>feature</td><td><span class="ap-badge" data-state="in-progress">In progress</span></td><td class="mono">ticket/brighter-colours</td><td class="mono"><a href="#ap-task-5">#5</a></td></tr>
+          <tr data-ticket-id="003" data-state="in-review" tabindex="0"><td class="mono"><a href="#ap-ticket-003">#003</a></td><td>Split the <mark class="ap-match">exporter</mark> into two passes<span class="ap-integration-mark" title="Lands together on group-exporter, released with #002"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="4" cy="3.5" r="1.8" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="4" cy="12.5" r="1.8" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="12" cy="5.5" r="1.8" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M4 5.3v5.4M12 7.3c0 2.5-3 2.7-6.6 4.2" fill="none" stroke="currentColor" stroke-width="1.4"/></svg><mark class="ap-match">exporter</mark></span></td><td><span class="ap-epic-chips"><button type="button" class="ap-epic-chip" data-epic="exporter" data-epic-slot="2" title="Epic: Exporter"><span class="ap-epic-swatch"></span><span class="ap-epic-chip-text">Exporter</span></button></span></td><td>change</td><td><span class="ap-badge" data-state="in-review">Awaiting review</span></td><td class="mono">ticket/<mark class="ap-match">exporter</mark>-passes</td><td class="mono"><a href="#ap-task-3">#3</a></td></tr>
+          <tr data-ticket-id="002" data-state="reviewed" tabindex="0"><td class="mono"><a href="#ap-ticket-002">#002</a></td><td>Cache ticket bodies between runs<span class="ap-integration-mark" title="Releases group-exporter with #003"><svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="4" cy="3.5" r="1.8" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="4" cy="12.5" r="1.8" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="12" cy="5.5" r="1.8" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M4 5.3v5.4M12 7.3c0 2.5-3 2.7-6.6 4.2" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>exporter</span></td><td><span class="ap-epic-chips"><button type="button" class="ap-epic-chip" data-epic="exporter" data-epic-slot="2" title="Epic: Exporter"><span class="ap-epic-swatch"></span><span class="ap-epic-chip-text">Exporter</span></button></span></td><td>change</td><td><span class="ap-badge" data-state="reviewed">Awaiting merge</span></td><td class="mono">ticket/body-cache</td><td class="mono"><a href="#ap-task-2">#2</a></td></tr>
+          <tr data-ticket-id="001" data-state="delivered" tabindex="0"><td class="mono"><a href="#ap-ticket-001">#001</a></td><td>Double-click a role to edit it</td><td><span class="ap-epic-chips"><button type="button" class="ap-epic-chip" data-epic="role-editor" data-epic-slot="1" title="Epic: Role editor"><span class="ap-epic-swatch"></span><span class="ap-epic-chip-text">Role editor</span></button></span></td><td>change</td><td><span class="ap-badge" data-state="delivered">Done</span></td><td class="mono">ticket/role-editor</td><td class="mono"><a href="#ap-task-1">#1</a></td></tr>
           <tr class="ap-table-empty"><td colspan="7"><p><strong>No ticket matches “refund”, type bug.</strong></p><p><button type="button" class="ap-link-button" data-clear-filters>Clear search and filters</button></p></td></tr>
         </tbody>
       </table>
     </div>
+  </div>
+</section>
+
+<section data-panel="epics" role="tabpanel" id="ap-panel-epics" aria-labelledby="ap-tab-epics" hidden>
+  <div class="ap-epics" id="ap-epics">
+    <article class="ap-card" data-epic-slot="2" aria-label="Exporter"><div class="ap-epic-card-head"><button type="button" class="ap-epic-title" data-open-epic="exporter"><span class="ap-epic-swatch"></span>Exporter</button><span class="ap-epic-key">exporter</span><span class="ap-epic-done-mark">0 of 2 done</span></div><div class="ap-epic-card-body"><p class="ap-epic-summary">Split the exporter so the tick ladder can be reused.</p><div><div class="ap-epic-progress" role="img" aria-label="0 of 2 done tickets"><span data-state="reviewed" style="flex-grow:1" title="Awaiting merge: 1"></span><span data-state="in-review" style="flex-grow:1" title="Awaiting review: 1"></span></div><ul class="ap-epic-legend"><li><span class="ap-lane-dot" data-state="reviewed"></span>Awaiting merge <b>1</b></li><li><span class="ap-lane-dot" data-state="in-review"></span>Awaiting review <b>1</b></li></ul></div><div class="ap-ticket-meta"><div><b>open</b><span>2</span></div><div><b>done</b><span>0</span></div><div><b>tokens</b><span>22.1k</span></div><div><b>span</b><span title="2026-09-18 20:48 → still open">20:48 → now · 1h 27m</span></div></div><ul class="ap-epic-tickets"><li><button type="button" class="ap-epic-ticket" data-open-ticket="003"><span class="ap-ticket-id">#003</span><span class="ap-epic-ticket-title">Split the exporter into two passes</span><span class="ap-badge" data-state="in-review">Awaiting review</span></button></li><li><button type="button" class="ap-epic-ticket" data-open-ticket="002"><span class="ap-ticket-id">#002</span><span class="ap-epic-ticket-title">Cache ticket bodies between runs<span class="ap-epic-also" title="Also in Role editor">also in <span class="ap-epic-swatch" data-epic-slot="1"></span></span></span><span class="ap-badge" data-state="reviewed">Awaiting merge</span></button></li></ul></div></article>
   </div>
 </section>
 
@@ -1793,11 +1967,12 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
         <span class="ap-badge delivered">Done</span>
       </div>
       <div class="ap-ticket-meta">
+        <div><b>epics</b><span class="ap-epic-chips"><button type="button" class="ap-epic-chip" data-epic="role-editor" data-epic-slot="1" title="Epic: Role editor"><span class="ap-epic-swatch"></span><span class="ap-epic-chip-text">Role editor</span></button></span></div>
+        <div><b>integration</b><span class="ap-integration">lands together on <span class="ap-integration-branch">group-role-editor</span>, released with <a href="#ap-ticket-002">#002</a></span></div>
         <div><b>filed</b><span title="2026-09-18 20:26">20:26</span></div>
         <div><b>started</b><span title="2026-09-18 20:36">20:36</span></div>
         <div><b>finished</b><span title="2026-09-18 21:26">21:26</span></div>
         <div><b>done</b><span title="2026-09-18 21:51">21:51</span></div>
-        <div><b>group</b><span>role-editor</span></div>
         <div><b>branch</b><span>ticket/role-editor</span></div>
         <div><b>commit</b><span>abc1234</span></div>
         <div><b>task</b><span><a href="#ap-task-1">#1</a></span></div>

@@ -9,14 +9,22 @@ import type {
   StoredViewOverride,
   ViewerPreferences,
 } from '../@types/ViewerChoices.ts';
-import type { ClosedKanbanLane }                                                                from '../kanban/constants/KanbanBoardLayout.ts';
-import { CAPPED_LANE_FIRST_PAGE_CARDS }                                                         from '../kanban/constants/KanbanBoardLayout.ts';
-import { DEFAULT_FINISHED_WORK_CHOICE }                                                         from '../utils/FinishedWorkUtil.ts';
-import { DEFAULT_ABANDONED_LANE_CHOICE, DEFAULT_NAME_COLUMN_WIDTH, DEFAULT_REVIEW_ROWS_CHOICE } from './constants/PreferenceDefaults.ts';
-import { EMPTY_VIEW_OVERRIDE }                                                                  from './constants/ViewOverride.ts';
-import { ViewerPreferenceUtil }                                                                 from './utils/ViewerPreferenceUtil.ts';
+import type { ClosedKanbanLane }        from '../kanban/constants/KanbanBoardLayout.ts';
+import { CAPPED_LANE_FIRST_PAGE_CARDS } from '../kanban/constants/KanbanBoardLayout.ts';
+import { DEFAULT_FINISHED_WORK_CHOICE } from '../utils/FinishedWorkUtil.ts';
+import { JsonValueUtil }                from '../utils/JsonValueUtil.ts';
+import {
+  DEFAULT_ABANDONED_LANE_CHOICE,
+  DEFAULT_NAME_COLUMN_WIDTH,
+  DEFAULT_REVIEW_ROWS_CHOICE,
+  DEFAULT_TICKET_GROUPING_CHOICE,
+} from './constants/PreferenceDefaults.ts';
+import { EMPTY_VIEW_OVERRIDE }  from './constants/ViewOverride.ts';
+import { ViewerPreferenceUtil } from './utils/ViewerPreferenceUtil.ts';
 
 const REVIEW_ROWS_SHOWN_CHOICE = 'rows';
+
+const TICKETS_GROUPED_BY_EPIC_CHOICE = 'epic';
 
 // A literal map rather than the lane value, so renaming a lane cannot move a viewer's stored key.
 const CAPPED_LANE_KEY_SUFFIX: Readonly<Record<ClosedKanbanLane, string>> = {
@@ -56,6 +64,14 @@ function abandonedLaneStorageKeyFor(trackerId: string): string {
 
 function cappedLaneStorageKeyFor(trackerId: string, lane: ClosedKanbanLane): string {
   return choiceStorageKeyFor(trackerId, CAPPED_LANE_KEY_SUFFIX[lane]);
+}
+
+function ticketGroupingStorageKeyFor(trackerId: string): string {
+  return choiceStorageKeyFor(trackerId, 'ticket-grouping');
+}
+
+function kanbanEpicFilterStorageKeyFor(trackerId: string): string {
+  return choiceStorageKeyFor(trackerId, 'kanban-epics');
 }
 
 /** `storageOf` is called inside each read and write, because merely reaching `window.localStorage` throws where storage is blocked. */
@@ -122,6 +138,23 @@ export function createViewerPreferences(trackerId: string, storageOf: () => Pref
       cappedLaneStorageKeyFor(trackerId, lane),
       String(shownCount),
       String(CAPPED_LANE_FIRST_PAGE_CARDS),
+    ),
+    readTicketsGroupedByEpic:  () => readStoredChoice(ticketGroupingStorageKeyFor(trackerId)) === TICKETS_GROUPED_BY_EPIC_CHOICE,
+    writeTicketsGroupedByEpic: (ticketsAreGrouped) => writeStoredChoice(
+      ticketGroupingStorageKeyFor(trackerId),
+      ticketsAreGrouped ? TICKETS_GROUPED_BY_EPIC_CHOICE : DEFAULT_TICKET_GROUPING_CHOICE,
+      DEFAULT_TICKET_GROUPING_CHOICE,
+    ),
+    readKanbanEpicFilter: () => {
+      try {
+        return JsonValueUtil.textListOf(JSON.parse(readStoredChoice(kanbanEpicFilterStorageKeyFor(trackerId)) ?? '[]'));
+      } catch {
+        return [];
+      }
+    },
+    writeKanbanEpicFilter: (pressedChips) => writeStoredText(
+      kanbanEpicFilterStorageKeyFor(trackerId),
+      pressedChips.length === 0 ? null : JSON.stringify(pressedChips),
     ),
   };
 }

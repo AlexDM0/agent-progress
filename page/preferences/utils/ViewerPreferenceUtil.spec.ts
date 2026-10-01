@@ -127,6 +127,7 @@ const STORED_TICKET_VIEW: TicketView = {
   searchText:    'dark',
   statusChips:   ['paused', 'reviewing'],
   typeChips:     ['bug'],
+  epicChips:     ['checkout-redesign', 'no epic'],
   sortKey:       'status',
   sortDirection: 'ascending',
 };

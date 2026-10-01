@@ -22,10 +22,12 @@ import {
   TICKET_ROWS_ELEMENT_ID,
 } from './constants/TemplateIds.ts';
 import { createDetailDialogController }                       from './detail-dialog/DetailDialogController.ts';
+import { EpicMarkup }                                         from './epics/EpicMarkup.ts';
 import { createFinishedWorkSwitchController }                 from './finished-work/FinishedWorkSwitchController.ts';
 import { createHeaderController }                             from './header/HeaderController.ts';
 import { createLiveHeaderController }                         from './header/LiveHeaderController.ts';
 import { createKanbanController }                             from './kanban/KanbanController.ts';
+import { createKanbanEpicFilterController }                   from './kanban/KanbanEpicFilterController.ts';
 import { KanbanLaneUtil }                                     from './kanban/utils/KanbanLaneUtil.ts';
 import { createReloadSnapshotStore, createViewerPreferences } from './preferences/ViewerPreferences.ts';
 import { createGanttChartController }                         from './progress/GanttChartController.ts';
@@ -44,9 +46,17 @@ const PROGRESS_ISLAND_ELEMENT_ID = 'ap-progress-data';
 const TICKETS_ISLAND_ELEMENT_ID  = 'ap-tickets-data';
 
 const TICKETS_TAB_NAME = 'tickets';
-const TAB_NAMES        = ['progress', KANBAN_TAB_NAME, TICKETS_TAB_NAME];
+const EPICS_TAB_NAME   = 'epics';
+const TAB_NAMES        = ['progress', KANBAN_TAB_NAME, TICKETS_TAB_NAME, EPICS_TAB_NAME];
+
+const EPICS_TAB_ELEMENT_ID   = 'ap-tab-epics';
+const EPICS_BOARD_ELEMENT_ID = 'ap-epics';
 
 const OWNED_MARKUP_CONTAINER_IDS = [
+  EPICS_BOARD_ELEMENT_ID,
+  'ap-ticket-epic',
+  'ap-kanban-epic',
+  'ap-kanban-epic-rollups',
   SUMMARY_ELEMENT_ID,
   AXIS_TICKS_ELEMENT_ID,
   CHART_OVERLAY_ELEMENT_ID,
@@ -129,13 +139,25 @@ function clearPlaceholderContent(): void {
   }
 }
 
+/** A board without epics has no Epics tab; a viewer whose stored tab was it lands on the Kanban instead. */
+function showEpicsTabButton(boardHasEpics: boolean): void {
+  const tab = document.getElementById(EPICS_TAB_ELEMENT_ID);
+  if (tab === null) {
+    return;
+  }
+  tab.hidden = !boardHasEpics;
+  if (!boardHasEpics && tab.getAttribute('aria-selected') === 'true') {
+    DomUtil.templateBehaviour()?.selectTab(KANBAN_TAB_NAME);
+  }
+}
+
 function waitingOnByTicketIdOf(tickets: readonly BoardTicket[]): Map<string, readonly string[]> {
   return new Map(tickets.flatMap((ticket) => (ticket.waitingOn.length === 0 ? [] : [[ticket.id, ticket.waitingOn] as const])));
 }
 
 function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   const { progress, limits } = payload;
-  const board                = IslandUtil.pageBoardFrom(progress.tasks, payload.boardFacts, tickets);
+  const board                = IslandUtil.pageBoardFrom(progress.tasks, payload.boardFacts, tickets, payload.epicDescriptions);
   const waitingOnById        = waitingOnByTicketIdOf(board.tickets);
   const preferences          = createViewerPreferences(progress.trackerId, () => window.localStorage);
   const progressController   = createGanttChartController({
@@ -174,18 +196,42 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   });
   const ticketsController      = createTicketsController({
     allTickets:            board.tickets,
-    slices:                limits,
+    epics:                 board.epics,
+    limits,
+    preferences,
     readTodayCalendarDate: () => todayCalendarDate,
+  });
+  const kanbanEpicFilter = createKanbanEpicFilterController({
+    epics:       board.epics,
+    allTickets:  board.tickets,
+    preferences,
+    applyFilter: () => {
+      showVisibleWork();
+      kanbanController.updateOverflow();
+    },
   });
   const detailDialogController = createDetailDialogController({
     rows:                  board.rows,
     tickets:               board.tickets,
+    epics:                 board.epics,
     log:                   progress.log,
     limits,
     readTodayCalendarDate: () => todayCalendarDate,
     readKanbanCards:       () => kanbanController.readVisibleCards(),
     updateKanbanOverflow:  () => kanbanController.updateOverflow(),
   });
+
+  const ticketById = new Map(board.tickets.map((ticket) => [ticket.id, ticket]));
+  // Every epic's card counts all its tickets, finished ones included: an epic's progress is not narrowed by the finished-work switch.
+  const showEpicsTab = (): void => {
+    if (board.epics.length > 0) {
+      DomUtil.setMarkup(EPICS_BOARD_ELEMENT_ID, EpicMarkup.epicCardsMarkup(board.epics, ticketById, {
+        limits,
+        todayCalendarDate,
+        nowEpochMilliseconds: Date.now(),
+      }));
+    }
+  };
 
   const showVisibleWork = (): void => {
     const nowEpochMilliseconds = Date.now();
@@ -202,7 +248,8 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     todayCalendarDate = TimeUtil.calendarDateOf(nowEpochMilliseconds);
 
     ticketsController.show(visibleTickets);
-    kanbanController.showCards(KanbanLaneUtil.kanbanCardsFor(visibleTickets, waitingOnById));
+    kanbanController.showCards(KanbanLaneUtil.kanbanCardsFor(visibleTickets.filter(kanbanEpicFilter.keeps), waitingOnById));
+    showEpicsTab();
   };
 
   const finishedWorkSwitch = createFinishedWorkSwitchController({
@@ -227,7 +274,9 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   progressController.wireChartWidth();
   progressController.wireReviewRows();
   kanbanController.wire();
+  kanbanEpicFilter.wire();
   ticketsController.wire();
+  showEpicsTabButton(board.epics.length > 0);
 
   const openTicketDetail = (ticketId: string): boolean => detailDialogController.openTicketDetail(ticketId);
   window.addEventListener('resize', () => {

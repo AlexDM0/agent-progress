@@ -33,7 +33,7 @@ function storedOverrideFrom(value: unknown): StoredViewOverride {
   };
 }
 
-const DETAIL_TARGET_KINDS: readonly DetailTargetKind[] = ['task', 'ticket', 'kanban-card'];
+const DETAIL_TARGET_KINDS: readonly DetailTargetKind[] = ['task', 'ticket', 'kanban-card', 'epic'];
 
 function detailTargetFrom(value: unknown): DetailTarget | null {
   if (!JsonValueUtil.valueIsRecord(value)) {

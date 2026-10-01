@@ -61,6 +61,8 @@ function panelClaimsTheEntry(task: Task | null, ticket: PageTicket | null, entry
     task:              pageBoardFixture({ tasks: task === null ? [] : [task], tickets: ticket === null ? [] : [ticket] }).rows[0] ?? null,
     ticket,
     log:               [entry],
+    ticketEpics:       [],
+    allTickets:        ticket === null ? [] : [ticket],
     slices:            EXAMPLE_PAGE_LIMITS,
     todayCalendarDate: '2026-09-18',
   });

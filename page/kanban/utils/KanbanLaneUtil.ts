@@ -37,6 +37,7 @@ function kanbanCardsFor(tickets: readonly BoardTicket[], waitingOnById: Readonly
     state:      ticket.displayState,
     reviewBars: ticket.reviewBars,
     waitingOn:  waitingOnById.get(ticket.id) ?? [],
+    epics:      ticket.memberOfEpics,
   }));
 }
 

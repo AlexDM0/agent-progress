@@ -14,8 +14,10 @@ import type {
 import { FIRST_REPEAT_REVIEW_ROUND }           from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
 import type { PageTicket }                     from '../../src/shared/@types/PagePayload.ts';
 import type { IdentifiedLogEntry }             from '../../src/shared/@types/WordedLogEntry.ts';
-import type { BoardRow }                       from '../@types/PageBoard.ts';
+import type { BoardEpic, BoardRow }            from '../@types/PageBoard.ts';
 import { CLOSING_EVENT_WORD }                  from '../constants/ClosingEventWords.ts';
+import { EpicMarkup }                          from '../epics/EpicMarkup.ts';
+import { IntegrationMarkupUtil }               from '../utils/IntegrationMarkupUtil.ts';
 import { MarkupUtil }                          from '../utils/MarkupUtil.ts';
 import { noteNamesTaskOrTicket }               from '../utils/NoteNamesTaskOrTicket.ts';
 import type { DurationUnits, TimestampSlices } from '../utils/TimeUtil.ts';
@@ -54,6 +56,10 @@ export interface TaskDetailInput {
   log:               readonly IdentifiedLogEntry[];
   slices:            TimestampSlices & DurationUnits;
   todayCalendarDate: string;
+  /** The ticket's epics the board knows, its primary epic first. */
+  ticketEpics:       readonly BoardEpic[];
+  /** Every ticket, which the integration fact reads the ticket's group from. */
+  allTickets:        readonly PageTicket[];
 }
 
 interface StampFormat {
@@ -183,7 +189,16 @@ function phasesMarkup(task: BoardRow, ticket: PageTicket | null, format: StampFo
   return `${phasesWereRecorded ? '' : noteMarkup(PHASES_WERE_NOT_RECORDED_NOTE)}${phaseListMarkup(lines, format)}`;
 }
 
-function ticketFactsMarkup(ticket: PageTicket, format: StampFormat): string {
+/** The ticket's epics and its group's integration, which lead its facts. */
+function membershipFacts(ticket: PageTicket, input: TaskDetailInput): Fact[] {
+  const facts: Fact[] = [];
+  if (input.ticketEpics.length > 0) facts.push(['epics', `<span class="ap-epic-chips">${EpicMarkup.epicChipsMarkup(input.ticketEpics)}</span>`, true]);
+  const integration = IntegrationMarkupUtil.integrationFactValueMarkup(ticket, input.allTickets, 'ticket-detail');
+  if (integration !== '') facts.push(['integration', integration, true]);
+  return facts;
+}
+
+function ticketFactsMarkup(ticket: PageTicket, format: TaskDetailInput): string {
   const stamps: Array<[label: string, value: string | null]> = [
     ['filed', ticket.filed],
     ['started', ticket.started],
@@ -192,12 +207,11 @@ function ticketFactsMarkup(ticket: PageTicket, format: StampFormat): string {
     [CLOSING_EVENT_WORD.abandoned, ticket.abandonedAt],
   ];
   const plainValues: Array<[label: string, value: string | undefined]> = [
-    ['group', ticket.group],
     ['branch', ticket.branch],
     ['commit', ticket.commit],
     ['reason', ticket.reason],
   ];
-  const entries: Fact[] = [];
+  const entries: Fact[] = membershipFacts(ticket, format);
 
   for (const [label, value] of stamps) {
     if (value !== null && value !== '') entries.push(stampFact(label, value, format));
@@ -212,7 +226,7 @@ function ticketFactsMarkup(ticket: PageTicket, format: StampFormat): string {
   return factsMarkup(entries);
 }
 
-function ticketMarkup(ticket: PageTicket, format: StampFormat): string {
+function ticketMarkup(ticket: PageTicket, format: TaskDetailInput): string {
   const head = [
     '<div class="ap-detail-ticket-head">',
     `<span class="ap-ticket-id">#${HtmlEscapeUtil.escapeHtml(ticket.id)}</span>`,

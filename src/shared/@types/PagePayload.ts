@@ -57,12 +57,19 @@ export interface PageBoardFacts {
   epics:   EpicRollup[];
 }
 
+/** An epic's description rendered as a ticket body is, joined to its roll-up in `boardFacts.epics` by key. */
+export interface PageEpicDescription {
+  key:             string;
+  descriptionHtml: string;
+}
+
 export interface PagePayload {
   progress:                     WordedProgressDocument<IdentifiedLogEntry>;
   generatedAtEpochMilliseconds: number;
   limits:                       PageLimits;
   concurrency:                  PageConcurrency;
   pageScriptFailure:            string | null;
+  epicDescriptions:             PageEpicDescription[];
   boardFacts:                   PageBoardFacts;
 }
 

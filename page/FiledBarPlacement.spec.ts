@@ -97,6 +97,7 @@ function inputFor(card: KanbanCard): TicketDetailInput {
     nowEpochMilliseconds: EXAMPLE_NOW,
     todayCalendarDate:    EXAMPLE_TODAY,
     limits:               EXAMPLE_PAGE_LIMITS,
+    allTickets:           [card.ticket],
   };
 }
 
@@ -131,6 +132,8 @@ describe('the filed bar outside the dialog', () => {
       task:              boardRows.find((row) => row.id === DELIVERED_ROW.id) ?? null,
       ticket:            DELIVERED_TICKET,
       log:               [],
+      ticketEpics:       [],
+      allTickets:        [DELIVERED_TICKET],
       slices:            EXAMPLE_PAGE_LIMITS,
       todayCalendarDate: EXAMPLE_TODAY,
     });

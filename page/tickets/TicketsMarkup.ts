@@ -11,13 +11,13 @@ import type { PageTicket }                   from '../../src/shared/@types/PageP
 import type { BoardTicket }                  from '../@types/PageBoard.ts';
 import type { TicketStatusChip, TicketView } from '../@types/ViewerChoices.ts';
 import { STATE_LABEL_FOR_DISPLAY_STATE }     from '../constants/StateLabels.ts';
+import { CARD_EPIC_CHIP_LIMIT, EpicMarkup }  from '../epics/EpicMarkup.ts';
+import { IntegrationMarkupUtil }             from '../utils/IntegrationMarkupUtil.ts';
 import { MarkupUtil }                        from '../utils/MarkupUtil.ts';
 import type { PauseTextFormat }              from '../utils/PauseTextUtil.ts';
 import { PauseTextUtil }                     from '../utils/PauseTextUtil.ts';
 import { WorkItemMarkupUtil }                from '../utils/WorkItemMarkupUtil.ts';
 import { TicketViewUtil }                    from './utils/TicketViewUtil.ts';
-
-const TICKET_TABLE_COLUMN_COUNT = 7;
 
 /** The Tickets tab sets the quiet low badge one space off the title before it; the amber high mark carries its own margin. */
 function ticketsTabPriorityMarkMarkup(ticket: PageTicket): string {
@@ -62,24 +62,40 @@ function pauseGapMarkup(ticket: BoardTicket, format: PauseTextFormat): string {
   return `<span class="ap-detail-gap"${rowNote === '' ? '' : ` ${MarkupUtil.attribute('title', rowNote)}`}>${HtmlEscapeUtil.escapeHtml(pauseText)}</span>`;
 }
 
+/** The table's columns without the Epic column, which shows only on a board with epics. */
+const TICKET_TABLE_COLUMN_COUNT_WITHOUT_EPICS = 6;
+
+export function ticketTableColumnCountOf(showsEpicColumn: boolean): number {
+  return TICKET_TABLE_COLUMN_COUNT_WITHOUT_EPICS + (showsEpicColumn ? 1 : 0);
+}
+
+export interface TicketTableRowsOptions {
+  format:          PauseTextFormat;
+  showsEpicColumn: boolean;
+  /** Every ticket, which a grouped ticket's branch mark reads its group's release from. */
+  allTickets:      readonly PageTicket[];
+}
+
 /** An id query marks nothing: the digits it looks for are the whole id column's. */
-export function ticketTableRowsMarkup(tickets: readonly BoardTicket[], searchText: string, format: PauseTextFormat): string {
+export function ticketTableRowsMarkup(tickets: readonly BoardTicket[], searchText: string, options: TicketTableRowsOptions): string {
   const query       = TicketViewUtil.normalisedQueryOf(searchText);
   const markedQuery = TicketViewUtil.queryNamesATicketId(query) ? '' : query;
   return tickets.map((ticket) => [
     `<tr ${MarkupUtil.attribute('data-ticket-id', ticket.id)} ${MarkupUtil.attribute('data-state', ticket.displayState)} tabindex="0">`,
     `<td class="mono">${WorkItemMarkupUtil.ticketLinksMarkup([ticket.id])}</td>`,
-    `<td>${matchMarkedMarkup(ticket.title, markedQuery)}${ticketsTabPriorityMarkMarkup(ticket)}${WorkItemMarkupUtil.waitingOnMarkup(ticket.waitingOn)}</td>`,
+    `<td>${matchMarkedMarkup(ticket.title, markedQuery)}${ticketsTabPriorityMarkMarkup(ticket)}`,
+    `${IntegrationMarkupUtil.integrationMarkMarkup(ticket, options.allTickets, matchMarkedMarkup(ticket.group ?? '', markedQuery))}`,
+    `${WorkItemMarkupUtil.waitingOnMarkup(ticket.waitingOn)}</td>`,
+    options.showsEpicColumn ? `<td><span class="ap-epic-chips">${EpicMarkup.epicChipsMarkup(ticket.memberOfEpics, CARD_EPIC_CHIP_LIMIT)}</span></td>` : '',
     `<td>${HtmlEscapeUtil.escapeHtml(ticket.type)}</td>`,
-    `<td>${displayStateBadgeMarkup(ticket)}${pauseGapMarkup(ticket, format)}</td>`,
-    `<td>${matchMarkedMarkup(ticket.group ?? '', markedQuery)}</td>`,
+    `<td>${displayStateBadgeMarkup(ticket)}${pauseGapMarkup(ticket, options.format)}</td>`,
     `<td class="mono">${matchMarkedMarkup(ticket.branch ?? '', markedQuery)}</td>`,
     `<td class="mono">${WorkItemMarkupUtil.taskLinkMarkup(ticket.task)}</td>`,
     '</tr>',
   ].join('')).join('');
 }
 
-function activeFiltersPhrase(view: TicketView): string {
+function activeFiltersPhrase(view: TicketView, epicChipLabelOf: (chip: string) => string): string {
   const parts: string[] = [];
   const query           = view.searchText.trim();
   if (query !== '') {
@@ -91,13 +107,16 @@ function activeFiltersPhrase(view: TicketView): string {
   if (view.typeChips.length > 0) {
     parts.push(`type ${view.typeChips.map((type) => HtmlEscapeUtil.escapeHtml(type)).join(' or ')}`);
   }
+  if (view.epicChips.length > 0) {
+    parts.push(`epic ${view.epicChips.map((chip) => HtmlEscapeUtil.escapeHtml(epicChipLabelOf(chip))).join(' or ')}`);
+  }
   return parts.join(', ');
 }
 
 /** The one row a table shows when nothing matches: what was asked, and the way back. */
-export function emptyTicketTableMarkup(view: TicketView): string {
-  const asked = TicketViewUtil.viewNarrows(view) ? activeFiltersPhrase(view) : 'the view';
-  return `<tr class="ap-table-empty"><td colspan="${TICKET_TABLE_COLUMN_COUNT}"><p><strong>No ticket matches ${asked}.</strong></p>`
+export function emptyTicketTableMarkup(view: TicketView, columnCount: number, epicChipLabelOf: (chip: string) => string): string {
+  const asked = TicketViewUtil.viewNarrows(view) ? activeFiltersPhrase(view, epicChipLabelOf) : 'the view';
+  return `<tr class="ap-table-empty"><td colspan="${columnCount}"><p><strong>No ticket matches ${asked}.</strong></p>`
     + (TicketViewUtil.viewNarrows(view) ? '<p><button type="button" class="ap-link-button" data-clear-filters>Clear search and filters</button></p>' : '')
     + '</td></tr>';
 }

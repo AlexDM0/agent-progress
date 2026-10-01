@@ -8,6 +8,7 @@ import { describe, expect, test } from 'bun:test';
 import type { Task }              from '../../src/lib/tracker-model/@types/Task.ts';
 import type { PageTicket }        from '../../src/shared/@types/PagePayload.ts';
 import type { BoardTicket }       from '../@types/PageBoard.ts';
+import { NO_EPIC_CHIP }           from '../constants/EpicChips.ts';
 import { pageBoardFixture }       from '../testing/PageBoardFixture.ts';
 import { EXAMPLE_PAGE_LIMITS }    from '../testing/PageLimitsFixture.ts';
 import {
@@ -19,6 +20,10 @@ import {
   typeChipsMarkup,
 } from './TicketsMarkup.ts';
 import { DEFAULT_TICKET_VIEW } from './utils/TicketViewUtil.ts';
+
+function epicTitleOf(chip: string): string {
+  return chip === 'checkout-redesign' ? 'Checkout redesign' : chip;
+}
 
 function exampleTicket(changes: Partial<PageTicket> = {}): PageTicket {
   return {
@@ -52,7 +57,7 @@ const PAUSE_TEXT_FORMAT = {
 };
 
 function rowsMarkup(tickets: readonly BoardTicket[], searchText: string): string {
-  return ticketTableRowsMarkup(tickets, searchText, PAUSE_TEXT_FORMAT);
+  return ticketTableRowsMarkup(tickets, searchText, { format: PAUSE_TEXT_FORMAT, showsEpicColumn: false, allTickets: tickets });
 }
 
 describe('ticketTableRowsMarkup', () => {
@@ -102,11 +107,12 @@ describe('ticketTableRowsMarkup', () => {
     expect(rowsMarkup(tickets, '')).toContain('two passes<span class="ap-waiting">waiting on <a href="#ap-ticket-001">#001</a></span></td>');
   });
 
-  test('marks the search in the title, group and branch, but not an id query', () => {
+  test('marks the search in the title, the group\'s branch mark and the branch, but not an id query', () => {
     const tickets = boardTicketsOf([exampleTicket({ group: 'exporter' })]);
 
     expect(rowsMarkup(tickets, 'Exporter')).toContain('Split the <mark class="ap-match">exporter</mark> into two passes');
-    expect(rowsMarkup(tickets, 'exporter')).toContain('<td><mark class="ap-match">exporter</mark></td>');
+    expect(rowsMarkup(tickets, 'exporter')).toContain('</svg><mark class="ap-match">exporter</mark></span>');
+    expect(rowsMarkup(tickets, 'exporter')).toContain('ticket/<mark class="ap-match">exporter</mark>-passes');
     expect(rowsMarkup(tickets, '#003')).not.toContain('<mark');
   });
 
@@ -135,19 +141,26 @@ describe('emptyTicketTableMarkup', () => {
   test('says what was asked and offers the way back', () => {
     const markup = emptyTicketTableMarkup({
       ...DEFAULT_TICKET_VIEW, searchText: 'refund', statusChips: ['paused', 'reviewing'], typeChips: ['bug']
-    });
+    }, 6, epicTitleOf);
 
-    expect(markup).toContain('<td colspan="7">');
+    expect(markup).toContain('<td colspan="6">');
     expect(markup).toContain('No ticket matches “refund”, status Paused or Reviewing, type bug.');
     expect(markup).toContain('data-clear-filters');
   });
 
+  test('names a pressed epic chip by its epic title, and the no-epic chip as itself', () => {
+    const markup = emptyTicketTableMarkup({ ...DEFAULT_TICKET_VIEW, epicChips: ['checkout-redesign', NO_EPIC_CHIP] }, 7, epicTitleOf);
+
+    expect(markup).toContain('<td colspan="7">');
+    expect(markup).toContain('No ticket matches epic Checkout redesign or no epic.');
+  });
+
   test('escapes the search it repeats', () => {
-    expect(emptyTicketTableMarkup({ ...DEFAULT_TICKET_VIEW, searchText: '<script>' })).toContain('“&lt;script&gt;”');
+    expect(emptyTicketTableMarkup({ ...DEFAULT_TICKET_VIEW, searchText: '<script>' }, 6, epicTitleOf)).toContain('“&lt;script&gt;”');
   });
 
   test('offers no way back when nothing narrowed the table', () => {
-    expect(emptyTicketTableMarkup(DEFAULT_TICKET_VIEW)).not.toContain('data-clear-filters');
+    expect(emptyTicketTableMarkup(DEFAULT_TICKET_VIEW, 6, epicTitleOf)).not.toContain('data-clear-filters');
   });
 });
 

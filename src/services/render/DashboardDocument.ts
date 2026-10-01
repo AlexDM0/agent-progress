@@ -44,6 +44,7 @@ export async function renderDashboardDocument(input: DashboardDocumentInput, ren
     progress,
     logRecords,
     tickets,
+    epics,
     pageScript:     pageBundle.verdict === 'built' ? pageBundle.script : null,
     pageScriptFailure,
     generatedAt,

@@ -63,6 +63,8 @@ function panelFor(task: Task | null, ticket: PageTicket | null = null, log: read
     task:              pageBoardFixture({ tasks: task === null ? [] : [task], tickets: ticket === null ? [] : [ticket] }).rows[0] ?? null,
     ticket,
     log,
+    ticketEpics:       [],
+    allTickets:        ticket === null ? [] : [ticket],
     slices:            EXAMPLE_PAGE_LIMITS,
     todayCalendarDate: EXAMPLE_TODAY,
   });
@@ -319,7 +321,7 @@ describe('the ticket', () => {
 
     expect(markup).toContain('<span class="ap-badge in-progress">In progress</span>');
     expect(markup).toContain('<span class="ap-detail-type">change</span>');
-    expect(markup).toContain('<div><b>group</b><span>role-editor</span></div>');
+    expect(markup).toContain('<div><b>integration</b><span class="ap-integration">lands together on <span class="ap-integration-branch">group-role-editor</span>, no release');
     expect(markup).toContain('<div><b>commit</b><span>abc1234</span></div>');
     expect(markup).toContain('<div><b>filed</b><span title="2026-09-18 20:26">20:26</span></div>');
     expect(markup).toContain('<div><b>waits on</b><span><a href="#ap-ticket-002">#002</a>, <a href="#ap-ticket-003">#003</a></span></div>');

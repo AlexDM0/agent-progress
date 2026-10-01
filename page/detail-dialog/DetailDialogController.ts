@@ -1,16 +1,17 @@
 /** The detail panel: which row, ticket line or Kanban card opens it, what it is filled with, how it slides in and out, and how it closes. */
 
-import type { PageLimits }            from '../../src/shared/@types/PagePayload.ts';
-import type { IdentifiedLogEntry }    from '../../src/shared/@types/WordedLogEntry.ts';
-import type { KanbanCard }            from '../@types/KanbanCard.ts';
-import type { BoardRow, BoardTicket } from '../@types/PageBoard.ts';
-import type { DetailTarget }          from '../@types/ViewerChoices.ts';
+import type { PageLimits }                       from '../../src/shared/@types/PagePayload.ts';
+import type { IdentifiedLogEntry }               from '../../src/shared/@types/WordedLogEntry.ts';
+import type { KanbanCard }                       from '../@types/KanbanCard.ts';
+import type { BoardEpic, BoardRow, BoardTicket } from '../@types/PageBoard.ts';
+import type { DetailTarget }                     from '../@types/ViewerChoices.ts';
 import {
   DETAIL_BODY_ELEMENT_ID,
   KANBAN_BOARD_ELEMENT_ID,
   TASK_ROWS_ELEMENT_ID,
   TICKET_ROWS_ELEMENT_ID,
 } from '../constants/TemplateIds.ts';
+import { EpicMarkup }                from '../epics/EpicMarkup.ts';
 import { DomUtil }                   from '../utils/DomUtil.ts';
 import { GeometryUtil }              from '../utils/GeometryUtil.ts';
 import { createPanelRoomController } from './PanelRoomController.ts';
@@ -19,6 +20,7 @@ import { ticketDetailMarkup }        from './TicketDetail.ts';
 
 const DETAIL_DIALOG_ELEMENT_ID = 'ap-detail';
 const DETAIL_CLOSE_ELEMENT_ID  = 'ap-detail-close';
+const EPICS_BOARD_ELEMENT_ID   = 'ap-epics';
 const MOTION_ATTRIBUTE         = 'data-motion';
 const SWAPPED_ATTRIBUTE        = 'data-swapped';
 const SELECTED_ATTRIBUTE       = 'data-selected';
@@ -34,6 +36,7 @@ const OWN_CLICK_SELECTOR   = 'a, button, input, select, textarea, label, summary
 export interface DetailDialogSources {
   rows:                  readonly BoardRow[];
   tickets:               readonly BoardTicket[];
+  epics:                 readonly BoardEpic[];
   log:                   readonly IdentifiedLogEntry[];
   limits:                PageLimits;
   readTodayCalendarDate: () => string;
@@ -47,8 +50,22 @@ function openerSelectorOf(target: DetailTarget): string {
     'task':        `${TASK_ROW_SELECTOR}[data-task-id="${id}"]`,
     'ticket':      `${TICKET_ROW_SELECTOR}[data-ticket-id="${id}"]`,
     'kanban-card': `${KANBAN_CARD_SELECTOR}[data-ticket-id="${id}"]`,
+    'epic':        `#${EPICS_BOARD_ELEMENT_ID} [data-open-epic="${id}"]`,
   };
   return selectorByKind[target.kind];
+}
+
+/** An epic chip or title anywhere opens its epic; a ticket line inside an epic's list opens that ticket. */
+function clickedEpicOrTicketLinkOf(event: MouseEvent): DetailTarget | null {
+  if (!(event.target instanceof Element)) {
+    return null;
+  }
+  const epicOpener = event.target.closest('.ap-epic-chip[data-epic], [data-open-epic]');
+  if (epicOpener instanceof HTMLElement) {
+    return { kind: 'epic', id: epicOpener.dataset['epic'] ?? epicOpener.dataset['openEpic'] ?? '' };
+  }
+  const ticketOpener = event.target.closest('[data-open-ticket]');
+  return ticketOpener instanceof HTMLElement ? { kind: 'ticket', id: ticketOpener.dataset['openTicket'] ?? '' } : null;
 }
 
 function targetOfOpener(opener: HTMLElement): DetailTarget {
@@ -171,6 +188,8 @@ export function createDetailDialogController(sources: DetailDialogSources): Deta
       log,
       slices:            limits,
       todayCalendarDate: readTodayCalendarDate(),
+      ticketEpics:       ticket?.memberOfEpics ?? [],
+      allTickets:        tickets,
     });
     if (dialog === null || markup === '') {
       return false;
@@ -203,9 +222,25 @@ export function createDetailDialogController(sources: DetailDialogSources): Deta
       nowEpochMilliseconds: Date.now(),
       todayCalendarDate:    readTodayCalendarDate(),
       limits,
+      allTickets:           tickets,
     }));
     present(dialog, { kind: 'kanban-card', id: ticketId });
     markCoveredTickLabels();
+    return true;
+  };
+
+  const showEpicDetail = (epicKey: string): boolean => {
+    const dialog = detailDialog();
+    const epic   = sources.epics.find((candidate) => candidate.key === epicKey);
+    if (dialog === null || epic === undefined) {
+      return false;
+    }
+    DomUtil.setMarkup(DETAIL_BODY_ELEMENT_ID, EpicMarkup.epicDetailMarkup(epic, ticketById, {
+      limits,
+      todayCalendarDate:    readTodayCalendarDate(),
+      nowEpochMilliseconds: Date.now(),
+    }));
+    present(dialog, { kind: 'epic', id: epicKey });
     return true;
   };
 
@@ -213,6 +248,7 @@ export function createDetailDialogController(sources: DetailDialogSources): Deta
     'task':        showTaskDetail,
     'ticket':      showTicketDetail,
     'kanban-card': showKanbanCardDetail,
+    'epic':        showEpicDetail,
   };
 
   const openAndMakeRoom = (target: DetailTarget, opener: HTMLElement | null): boolean => {
@@ -274,6 +310,14 @@ export function createDetailDialogController(sources: DetailDialogSources): Deta
       return;
     }
     document.addEventListener('click', (event) => {
+      const linkedTarget = clickedEpicOrTicketLinkOf(event);
+      if (linkedTarget !== null) {
+        const opener = document.activeElement;
+        if (openAndMakeRoom(linkedTarget, null)) {
+          returnFocusTo = opener instanceof HTMLElement && !(detailDialog()?.contains(opener) ?? false) ? opener : returnFocusTo;
+        }
+        return;
+      }
       const opener = clickedOpenerOf(event);
       if (opener === null) {
         return;
