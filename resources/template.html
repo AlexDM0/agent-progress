@@ -67,7 +67,8 @@
                                  ellipsis, full text as title), -elapsed ("42s", "4m 12s",
                                  "1h 02m 17s", aria-hidden so a tick is never announced). With no
                                  agent, one .ap-activity-idle "No agent is working right now."
-                                 While live the elapsed times tick every second and the dots pulse;
+                                 While live the elapsed times tick every second and the dots pulse
+                                 in status-live, the Live dot's green;
                                  a snapshot greys the dots and freezes the times at generation.
                                  The page script's intervals all stop while the tab is hidden
  #ap-generated            text   "generated 3 min ago · 13:33" while live, "generated 09-23 13:33 ·
@@ -335,7 +336,7 @@
               markup and the page script reach it through var(--…), and
               src/services/render/TemplateColourTokens.spec.ts fails on any literal elsewhere.
               bg, surface, surface-2, surface-selected (the chosen theme option),
-              status-live (the Live dot), ink, ink-muted, line, line-strong, link,
+              status-live (the live status and activity dots), ink, ink-muted, line, line-strong, link,
               link-tint / link-soft (a focused date part, a hovered reach mark),
               reach-track (under the finished-work switch's reach marks),
               warn-* and err-* (tint, edge, ink), shadow-control / -popover / -panel / -card-lift,
@@ -409,7 +410,7 @@
   --link-soft:   oklch(0.48 0.13 255 / 0.45);
   --reach-track: oklch(0.905 0.008 265);
   --surface-selected: oklch(0.93 0.008 262);
-  --status-live: oklch(0.5 0.17 265);
+  --status-live: oklch(0.62 0.17 150);
 
   --now:         oklch(0.54 0.19 25);
   --now-soft:    oklch(0.54 0.19 25 / 0.55);
@@ -464,7 +465,7 @@
     --link-soft:   oklch(0.78 0.10 255 / 0.50);
     --reach-track: oklch(0.36 0.014 265);
     --surface-selected: oklch(0.25 0.022 262);
-    --status-live: oklch(0.72 0.19 330);
+    --status-live: oklch(0.76 0.18 150);
 
     --now:         oklch(0.70 0.17 25);
     --now-soft:    oklch(0.70 0.17 25 / 0.6);
@@ -566,13 +567,14 @@ button.ap-stat:focus-visible { outline: 2px solid var(--ink); outline-offset: 2p
 .ap-activity-title { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink); }
 .ap-activity-elapsed { font: 700 var(--fs-small)/16px var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink); }
 .ap-activity-idle { grid-column: 1 / -1; font-size: var(--fs-body); line-height: 16px; color: var(--ink-muted); }
+.ap-activity[data-freshness="live"] .ap-activity-dot { background: var(--status-live); }
 .ap-activity[data-freshness="snapshot"] .ap-activity-dot { background: var(--ink-muted); }
 
 /* Only a live page pulses; reduced motion keeps the colours and drops the pulse and the glow. */
 @keyframes ap-pulse { 50% { opacity: 0.45; transform: scale(0.8); } }
 @media (prefers-reduced-motion: no-preference) {
   .ap-status-line[data-freshness="live"] .ap-status-dot { animation: ap-pulse var(--pulse-status) ease-in-out infinite; }
-  .ap-activity[data-freshness="live"] .ap-activity-dot { box-shadow: 0 0 12px var(--s-fill); animation: ap-pulse var(--pulse-activity) ease-in-out infinite; }
+  .ap-activity[data-freshness="live"] .ap-activity-dot { box-shadow: 0 0 12px var(--status-live); animation: ap-pulse var(--pulse-activity) ease-in-out infinite; }
 }
 
 /* ------------------------------------------------------------------- tabs -- */
