@@ -89,7 +89,7 @@
                                  #ap-hidden-note, a 1px rule under it: 32px at least between the tabs
                                  and the switch at the right, the note centred between them on the
                                  tabs' baseline; below 1320px the tabs fill the first line and
-                                 #ap-finished starts the second, the note just after it; #ap-detail
+                                 #ap-finished starts the second and the note is hidden; #ap-detail
                                  docks under its bottom edge
  #ap-tabs                 el     buttons carry data-tab="kanban|progress|tickets", aria-selected, and
                                  id="ap-tab-…" with aria-controls naming the panel; the arrow keys,
@@ -123,8 +123,8 @@
                                  choice, and #ap-finished-since-resolved under it. A pill clears the
                                  day and a day unchecks every pill; each applies at once. Esc, Enter
                                  in the day field and a click outside close it
- #ap-hidden-note          button link-styled, "3 tasks · 2 tickets hidden", [hidden] when nothing is;
-                                 a click checks custom on all. [data-changed] flashes it once
+ #ap-hidden-note          button link-styled, "3 tasks · 2 tickets hidden", [hidden] when nothing is,
+                                 and not shown once the tab bar wraps (below 1320px); a click checks custom on all. [data-changed] flashes it once
  #ap-finished-status      text   visually hidden, aria-live: what the switch now shows
  #ap-range-presets        el     buttons data-preset="fit|1h|4h|12h|24h|7d|custom", aria-pressed;
                                  #ap-range-fit "Fit", the default, spans the rows shown from their
@@ -580,7 +580,7 @@ button.ap-stat:focus-visible { outline: 2px solid var(--ink); outline-offset: 2p
 /* ------------------------------------------------------------------- tabs -- */
 /* Tabs, then the hidden-count note centred in the room left, then the one shared finished-work switch at the right, the same row
    in every view; the note shares the tabs' last baseline. When the row is too narrow, the switch starts the second line under
-   the tabs and the note follows it there. */
+   the tabs and the note is hidden. */
 .ap-tab-bar {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;
@@ -595,7 +595,7 @@ button.ap-stat:focus-visible { outline: 2px solid var(--ink); outline-offset: 2p
 @media (max-width: 1320px) {
   .ap-tab-bar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); padding-bottom: var(--sp-3); }
   .ap-tab-bar > .ap-tabs { flex-basis: 100%; }
-  .ap-tab-bar > #ap-hidden-note { align-self: center; }
+  .ap-tab-bar > #ap-hidden-note { display: none; }
   .ap-tab-bar > .ap-finished { justify-content: flex-start; }
 }
 .ap-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
