@@ -4,6 +4,7 @@ import { TICKET_TYPES }                                      from '../../src/lib
 import type { PageLimits }                                   from '../../src/shared/@types/PagePayload.ts';
 import type { BoardEpic, BoardTicket }                       from '../@types/PageBoard.ts';
 import type { TicketSortKey, TicketView, ViewerPreferences } from '../@types/ViewerChoices.ts';
+import { NO_EPIC_CHIP }                                      from '../constants/EpicChips.ts';
 import { TICKET_COUNT_ELEMENT_ID, TICKET_ROWS_ELEMENT_ID }   from '../constants/TemplateIds.ts';
 import type { EpicMarkupFormat }                             from '../epics/EpicMarkup.ts';
 import { EpicMarkup }                                        from '../epics/EpicMarkup.ts';
@@ -104,6 +105,7 @@ export function createTicketsController(sources: TicketsControllerSources): Tick
   const columnCount          = ticketTableColumnCountOf(showsEpics);
   const epicTitleByChip      = new Map(epics.map((epic) => [epic.key, epic.title]));
   const epicChipLabelOf      = (chip: string): string => epicTitleByChip.get(chip) ?? chip;
+  const knownEpicChips       = new Set(showsEpics ? [...epicTitleByChip.keys(), NO_EPIC_CHIP] : []);
   let view                   = DEFAULT_TICKET_VIEW;
   let visibleTickets         = allTickets;
   let ticketsAreGrouped      = showsEpics && sources.preferences.readTicketsGroupedByEpic();
@@ -249,6 +251,7 @@ export function createTicketsController(sources: TicketsControllerSources): Tick
       render();
     },
     readView:  () => view,
-    applyView: changeView,
+    // A restored epic chip whose epic has since gone presses nothing, so it cannot narrow the table unseen.
+    applyView: (restoredView) => changeView({ ...restoredView, epicChips: restoredView.epicChips.filter((chip) => knownEpicChips.has(chip)) }),
   };
 }
