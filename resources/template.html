@@ -50,7 +50,7 @@
  #ap-summary              html   four .ap-stat, each .ap-stat-n then .ap-stat-label: agents working
                                  ("1 / 6", running rows over the concurrency limit, or the running
                                  count alone), then, only while builds are paused, "N paused"
-                                 (.ap-stat[data-state="paused"], dashed, opening the progress lane),
+                                 (.ap-stat[data-state="paused"], its figure in --s-ink, opening the progress lane),
                                  done today, tokens today, waiting in queue. A
                                  state stat is button.ap-stat[data-kanban-lane] (progress | done |
                                  todo) with aria-label "Show <figure> <label> on Kanban", which selects
@@ -613,7 +613,6 @@ a:hover { color: var(--ink); text-decoration: underline; }
 button.ap-stat { padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; border-radius: var(--r-1); }
 button.ap-stat:hover .ap-stat-label { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 button.ap-stat:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
-.ap-stat[data-state="paused"] { border: 1px dashed var(--s-edge); border-radius: var(--r-2); }
 .ap-stat[data-state="paused"] .ap-stat-n { color: var(--s-ink); }
 .ap-stat-n { font: 500 18px/1.25 var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--ink); }
 .ap-stat-label { font: 400 var(--fs-small)/1.3 var(--font-ui); color: var(--ink-muted); }
