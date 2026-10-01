@@ -13,7 +13,7 @@ import { logRecordProblemOf }         from './LogRecordProblem.ts';
 
 const RECORDED_AT = '2026-09-18T21:30:54+02:00';
 
-const RECORD_KIND_COUNT = 23;
+const RECORD_KIND_COUNT = 27;
 
 const REVIEW_BAR = { taskId: 7, ticketId: '001', fields: { name: 'Review 1 #001 — Example checkout flow' } };
 
@@ -58,6 +58,10 @@ const WELL_FORMED_RECORD_FOR_KIND: Readonly<Record<LogRecord['kind'], LogRecord>
   'ticket-unheld':           log({ kind: 'ticket-unheld', ticketId: '001', fields: {} }, RECORDED_AT),
   'ticket-release-marked':   log({ kind: 'ticket-release-marked', ticketId: '001', fields: { group: 'example-shop' } }, RECORDED_AT),
   'ticket-release-cleared':  log({ kind: 'ticket-release-cleared', ticketId: '001', fields: {} }, RECORDED_AT),
+  'ticket-epics-set':        log({ kind: 'ticket-epics-set', ticketId: '001', fields: { epics: ['example-checkout'] } }, RECORDED_AT),
+  'epic-added':              log({ kind: 'epic-added', epicKey: 'example-checkout', fields: { title: 'Example checkout redesign' } }, RECORDED_AT),
+  'epic-edited':             log({ kind: 'epic-edited', epicKey: 'example-checkout', fields: { title: 'Example checkout redesign' } }, RECORDED_AT),
+  'epic-removed':            log({ kind: 'epic-removed', epicKey: 'example-checkout', fields: {} }, RECORDED_AT),
   'review-bar-started':      log({ kind: 'review-bar-started', ...REVIEW_BAR }, RECORDED_AT),
   'review-bar-closed':       log({ kind: 'review-bar-closed', ...REVIEW_BAR }, RECORDED_AT),
   'chart-range-set':         log({ kind: 'chart-range-set', fields: { view: RELATIVE_VIEW } }, RECORDED_AT),
@@ -93,6 +97,10 @@ const MALFORMED_RECORD_FOR_KIND: Readonly<Record<LogRecord['kind'], readonly [Re
   'ticket-unheld':           [withKeys('ticket-unheld', { ticketId: {} }), 'ticketId is not a string'],
   'ticket-release-marked':   [withFields('ticket-release-marked', { group: 3 }), 'fields.group is not a string'],
   'ticket-release-cleared':  [withKeys('ticket-release-cleared', { ticketId: 7 }), 'ticketId is not a string'],
+  'ticket-epics-set':        [withFields('ticket-epics-set', { epics: 'example-checkout' }), 'fields.epics is not a list of epic keys'],
+  'epic-added':              [withFields('epic-added', { title: 3 }), 'fields.title is not a string'],
+  'epic-edited':             [withKeys('epic-edited', { epicKey: null }), 'epicKey is not a string'],
+  'epic-removed':            [withKeys('epic-removed', { epicKey: ['example-checkout'] }), 'epicKey is not a string'],
   'review-bar-started':      [withKeys('review-bar-started', { taskId: 7.5 }), 'taskId is not a whole number'],
   'review-bar-closed':       [withFields('review-bar-closed', { name: 42 }), 'fields.name is not a string'],
   'chart-range-set':         [withFields('chart-range-set', { view: { kind: 'absolute', from: '-2h' } }), 'fields.view is not a chart range'],
@@ -103,7 +111,7 @@ const MALFORMED_RECORD_FOR_KIND: Readonly<Record<LogRecord['kind'], readonly [Re
 };
 
 describe('a well-formed record', () => {
-  test('the table holds one record for each of the 23 kinds, each under its own kind', () => {
+  test('the table holds one record for each of the 27 kinds, each under its own kind', () => {
     const entries = Object.entries(WELL_FORMED_RECORD_FOR_KIND);
     expect(entries).toHaveLength(RECORD_KIND_COUNT);
     for (const [kind, record] of entries) expect(record.kind).toBe(kind as LogRecord['kind']);

@@ -82,6 +82,24 @@ function ticketDependenciesSetProblem(fields: UnknownObject, record: UnknownObje
   return firstProblemOf(ticketIdProblem(record), dependenciesAreTicketIds ? null : 'fields.dependsOn is not a list of ticket ids');
 }
 
+function ticketEpicsSetProblem(fields: UnknownObject, record: UnknownObject): string | null {
+  const { epics } = fields;
+  const epicsAreKeys = Array.isArray(epics) && epics.every((epicKey) => typeof epicKey === 'string');
+  return firstProblemOf(ticketIdProblem(record), epicsAreKeys ? null : 'fields.epics is not a list of epic keys');
+}
+
+function epicKeyProblem(record: UnknownObject): string | null {
+  return typeof record['epicKey'] === 'string' ? null : 'epicKey is not a string';
+}
+
+function epicWithTitleProblem(fields: UnknownObject, record: UnknownObject): string | null {
+  return firstProblemOf(epicKeyProblem(record), textFieldProblem(fields, 'title'));
+}
+
+function epicOnlyProblem(_fields: UnknownObject, record: UnknownObject): string | null {
+  return epicKeyProblem(record);
+}
+
 function ticketAgentsChangedProblem(fields: UnknownObject, record: UnknownObject): string | null {
   return firstProblemOf(ticketIdProblem(record), agentPairProblem(fields, 'from'), agentPairProblem(fields, 'to'));
 }
@@ -135,6 +153,10 @@ const CHECK_FOR_KIND: Readonly<Record<LogRecord['kind'], KindCheck>> = {
   'ticket-unheld':           ticketOnlyProblem,
   'ticket-release-marked':   ticketWithGroupProblem,
   'ticket-release-cleared':  ticketOnlyProblem,
+  'ticket-epics-set':        ticketEpicsSetProblem,
+  'epic-added':              epicWithTitleProblem,
+  'epic-edited':             epicWithTitleProblem,
+  'epic-removed':            epicOnlyProblem,
   'review-bar-started':      reviewBarProblem,
   'review-bar-closed':       reviewBarProblem,
   'chart-range-set':         chartRangeSetProblem,

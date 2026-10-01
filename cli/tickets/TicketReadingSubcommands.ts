@@ -36,6 +36,7 @@ function summaryOf(ticket: Ticket, statusById: ReadonlyMap<string, TicketStatus>
     ...(frontmatter.hold === undefined ? [] : [`  held:     ${frontmatter.hold === '' ? 'yes' : frontmatter.hold}`]),
     `  type:     ${frontmatter.type}`,
     `  group:    ${frontmatter.group ?? '-'}`,
+    ...(frontmatter.epics === undefined ? [] : [`  epics:    ${frontmatter.epics.join(', ')}`]),
     `  task:     ${frontmatter.task === null ? '-' : `#${frontmatter.task}`}`,
     `  waits on: ${dependencies.length === 0 ? '-' : dependencies.join(', ')}`,
     `  filed:    ${stampText(frontmatter.filed)}`,

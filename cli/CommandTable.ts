@@ -18,6 +18,7 @@ export const COMMAND_TABLE = {
   rework:      async () => (await import('./measurement/rework/ReworkCommand.ts')).reworkCommand,
   release:     async () => (await import('./dispatch/release/ReleaseCommand.ts')).releaseCommand,
   ticket:      async () => (await import('./tickets/TicketCommand.ts')).ticketCommand,
+  epic:        async () => (await import('./epics/EpicCommand.ts')).epicCommand,
   concurrency: async () => (await import('./dispatch/concurrency/ConcurrencyCommand.ts')).concurrencyCommand,
   dispatcher:  async () => (await import('./dispatch/dispatcher/DispatcherCommand.ts')).dispatcherCommand,
   range:       async () => (await import('./tracking/range/RangeCommand.ts')).rangeCommand,

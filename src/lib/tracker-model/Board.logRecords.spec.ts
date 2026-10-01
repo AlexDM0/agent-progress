@@ -11,7 +11,7 @@ import type { LogRecord }              from './@types/LogRecord.ts';
 
 const LOGGED_AT = '2026-09-26T10:15:00+02:00';
 
-const RECORD_KIND_COUNT = 23;
+const RECORD_KIND_COUNT = 27;
 
 const FROZEN_STORED_LINES = [
   '{"at":"2026-09-26T10:15:00+02:00","kind":"note","fields":{"text":"Example note from the orchestrator"}}',
@@ -23,6 +23,10 @@ const FROZEN_STORED_LINES = [
   '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-unheld","ticketId":"001","fields":{}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-release-marked","ticketId":"002","fields":{"group":"example-shop"}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-release-cleared","ticketId":"002","fields":{}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"epic-added","epicKey":"example-checkout","fields":{"title":"Example checkout redesign"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"epic-edited","epicKey":"example-checkout","fields":{"title":"Example checkout overhaul"}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"epic-removed","epicKey":"example-checkout","fields":{}}',
+  '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-epics-set","ticketId":"002","fields":{"epics":[]}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-started","ticketId":"001","fields":{}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"ticket-finished","ticketId":"001","fields":{}}',
   '{"at":"2026-09-26T10:15:00+02:00","kind":"review-bar-started","taskId":3,"ticketId":"001","fields":{"name":"Review 1 #001 — Example checkout page"}}',

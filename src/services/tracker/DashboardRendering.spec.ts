@@ -93,7 +93,7 @@ describe('rendering the dashboard', () => {
 
     const outcome = await renderDashboard(workspace, GENERATED_AT, renderState);
 
-    expect(outcome).toEqual({ verdict: 'rendered', malformedTickets: [] });
+    expect(outcome).toEqual({ verdict: 'rendered', malformedTickets: [], malformedEpics: [] });
     const document = writtenPage();
     expect(document.startsWith('<!doctype html>')).toBe(true);
     expect(document).toContain('Example Agency');
@@ -110,7 +110,7 @@ describe('rendering the dashboard', () => {
     const outcome = await renderDashboard(workspace, GENERATED_AT, renderState);
 
     expect(expectedMalformed.map((malformed) => malformed.filePath)).toEqual([malformedFilePath]);
-    expect(outcome).toEqual({ verdict: 'rendered', malformedTickets: expectedMalformed });
+    expect(outcome).toEqual({ verdict: 'rendered', malformedTickets: expectedMalformed, malformedEpics: [] });
     for (const malformed of expectedMalformed) expect(writtenPage()).not.toContain(malformed.reason);
     expect(writtenPage()).not.toContain('004-broken-by-hand');
   });
@@ -185,7 +185,7 @@ describe('rendering the dashboard', () => {
 
     const outcome = await renderDashboardUnderLock(workspace, () => GENERATED_AT, renderState);
 
-    expect(outcome).toEqual({ verdict: 'rendered', malformedTickets: [] });
+    expect(outcome).toEqual({ verdict: 'rendered', malformedTickets: [], malformedEpics: [] });
     expect(writtenPage()).toContain('Review pass');
     const newestGeneration = (LockGenerationSteps.generationsIn(workspace.lockDirectoryPath) ?? []).at(-1);
     expect(newestGeneration).toBeDefined();

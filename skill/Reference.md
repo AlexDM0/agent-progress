@@ -36,6 +36,7 @@ branch: "ticket/role-editor"
 commit: "0a1b2c3"
 reason: "…"
 dependsOn: "001, 002"
+epics: "loyalty-programme, checkout-redesign"
 task: 17
 owner: Alex Example
 ---
@@ -54,6 +55,7 @@ owner: Alex Example
 | `group`, `branch`, `commit`, `reason` | when given | text; `reason` is dropped by `reopen` |
 | `releasesGroup` | only on a group's release ticket | `true`; absent or `null` is not the release ticket, any other value makes the file malformed. Set and remove it with `ticket release-of`. |
 | `dependsOn` | when non-empty | ticket ids, written `"001, 002"`, read from any mix of commas and spaces with or without `#` or padding. Set it with `ticket depends`, which refuses a missing id or a circle; bare ids replace the list, `--add` and `--remove` change it. |
+| `epics` | when non-empty | epic keys, written `"loyalty-programme, checkout-redesign"` and read like `dependsOn`, in order: the first is the primary epic. A part that is not an epic key makes the file malformed; a key whose epic is gone is kept. Set it with `ticket epic`, which refuses an epic that does not exist. |
 | `task` | always | the row's id as an unquoted integer, or `null` for a low ticket never started; a quoted `task` makes the file malformed |
 
 **The frontmatter is a deliberately small YAML subset.** One `key: value` per line, split at the

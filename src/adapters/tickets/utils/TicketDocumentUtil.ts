@@ -5,6 +5,7 @@
  */
 
 import type { LineEnding, TicketFrontmatter } from '../../../lib/tracker-model/@types/Ticket.ts';
+import { EpicUtil }                           from '../../../lib/tracker-model/utils/EpicUtil.ts';
 import { TicketIdUtil }                       from '../../../lib/tracker-model/utils/TicketIdUtil.ts';
 import { VocabularyUtil }                     from '../../../lib/tracker-model/utils/VocabularyUtil.ts';
 import { OLDER_FORMAT_ADVICE }                from '../../constants/OlderFormatAdvice.ts';
@@ -65,11 +66,12 @@ const KNOWN_KEYS = new Set<string>([
   ...OPTIONAL_TEXT_KEYS,
   RELEASES_GROUP_KEY,
   'dependsOn',
+  'epics',
   'task',
 ]);
 
-const DEPENDENCY_SEPARATOR_PATTERN = /[\s,]+/;
-const DEPENDENCY_LIST_JOINER       = ', ';
+const FRONTMATTER_LIST_SEPARATOR_PATTERN = /[\s,]+/;
+const FRONTMATTER_LIST_JOINER       = ', ';
 
 class FrontmatterProblem extends Error {
   readonly line: number;
@@ -182,7 +184,11 @@ function ticketDocumentTextOf(frontmatter: TicketFrontmatter, body: string, line
   }
 
   if (frontmatter.dependsOn !== undefined && frontmatter.dependsOn.length > 0) {
-    lines.push(`dependsOn: ${JSON.stringify(frontmatter.dependsOn.join(DEPENDENCY_LIST_JOINER))}`);
+    lines.push(`dependsOn: ${JSON.stringify(frontmatter.dependsOn.join(FRONTMATTER_LIST_JOINER))}`);
+  }
+
+  if (frontmatter.epics !== undefined && frontmatter.epics.length > 0) {
+    lines.push(`epics: ${JSON.stringify(frontmatter.epics.join(FRONTMATTER_LIST_JOINER))}`);
   }
 
   lines.push(`task: ${frontmatter.task === null ? 'null' : String(frontmatter.task)}`);
@@ -327,6 +333,7 @@ function frontmatterFrom(
     ...optionalTextFields(knownValues),
     ...releasesGroupField(knownValues),
     ...dependencyField(knownValues),
+    ...epicsField(knownValues),
     task:        nullableInteger(knownValues, 'task'),
     extra,
   };
@@ -417,7 +424,7 @@ function dependencyField(knownValues: Map<string, KnownValue>): Pick<TicketFront
     return {};
   }
   const dependsOn: string[] = [];
-  for (const reference of String(found.value).split(DEPENDENCY_SEPARATOR_PATTERN).filter((part) => part !== '')) {
+  for (const reference of String(found.value).split(FRONTMATTER_LIST_SEPARATOR_PATTERN).filter((part) => part !== '')) {
     const identifier = TicketIdUtil.parseTicketReference(reference);
     if (identifier === null) {
       throw new FrontmatterProblem(`\`dependsOn\` names something that is not a ticket number: ${reference}`, found.line);
@@ -427,6 +434,24 @@ function dependencyField(knownValues: Map<string, KnownValue>): Pick<TicketFront
     }
   }
   return dependsOn.length === 0 ? {} : { dependsOn };
+}
+
+/** Written `"loyalty-programme, checkout-redesign"` and read like `dependsOn`; the order is kept, since the first key is the primary epic. */
+function epicsField(knownValues: Map<string, KnownValue>): Pick<TicketFrontmatter, 'epics'> {
+  const found = knownValues.get('epics');
+  if (found === undefined || found.value === null) {
+    return {};
+  }
+  const epics: string[] = [];
+  for (const epicKey of String(found.value).split(FRONTMATTER_LIST_SEPARATOR_PATTERN).filter((part) => part !== '')) {
+    if (!EpicUtil.epicKeyIsWellFormed(epicKey)) {
+      throw new FrontmatterProblem(`\`epics\` names something that is not an epic key: ${epicKey}`, found.line);
+    }
+    if (!epics.includes(epicKey)) {
+      epics.push(epicKey);
+    }
+  }
+  return epics.length === 0 ? {} : { epics };
 }
 
 function requiredText(knownValues: Map<string, KnownValue>, key: string, closingFenceLine: number): string {

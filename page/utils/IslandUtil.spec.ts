@@ -58,6 +58,7 @@ function exampleBoardFacts(): PageBoardFacts {
   return {
     rows:    [{ displayState: 'in-progress', deliveredRowCountsAsReviewed: false, ownRowPositionOfReviewedTicket: null }],
     tickets: [],
+    epics:   [],
   };
 }
 
@@ -212,6 +213,7 @@ describe('pagePayloadFrom', () => {
         displayState:       'reviewing',
         waitingOnTicketIds: [],
       }],
+      epics: [],
     };
 
     expect(pagePayloadFrom({ ...examplePayload(), progress, boardFacts })).not.toBeNull();
@@ -290,6 +292,7 @@ const FACTS_OF_OWN_ROW_AND_TWO_BARS: PageBoardFacts = {
       ticketId: '003', ownRowPosition: 0, reviewBarPositions: [1, 2], displayState: 'reviewing', waitingOnTicketIds: []
     },
   ],
+  epics: [],
 };
 
 describe('pageBoardFrom', () => {

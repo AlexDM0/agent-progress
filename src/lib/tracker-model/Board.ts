@@ -8,6 +8,8 @@ import type {
   AgentStopRecorded,
   ConcurrencyLimitSet,
   DispatcherStateSet,
+  EpicChanged,
+  EpicEdited,
   Logged,
   ReviewBarRequest,
   ReviewBarStarted,
@@ -17,6 +19,7 @@ import type {
   TicketChanged,
   TicketClaim,
   TicketDependenciesChanged,
+  TicketEpicsChanged,
   TicketMoved,
   TicketMoveRequest,
   TicketRelease,
@@ -25,7 +28,13 @@ import type {
   TokenCredit,
   TrackerCleared
 }                                                           from './@types/BoardChanges.ts';
-import type { Concurrency, DispatchCapacity }  from './@types/Concurrency.ts';
+import type { Concurrency, DispatchCapacity } from './@types/Concurrency.ts';
+import type {
+  Epic,
+  EpicAddition,
+  EpicEdit,
+  EpicRollup
+}                                                           from './@types/Epic.ts';
 import type { AgentUsage }                     from './@types/LogRecord.ts';
 import type { DisplayState, Task, TaskStatus } from './@types/Task.ts';
 import type {
@@ -38,6 +47,7 @@ import type { DispatcherState, TrackerProgress, ViewRange } from './@types/Track
 import { BoardRecords }                                     from './BoardRecords.ts';
 import { DispatchQueries }                                  from './DispatchQueries.ts';
 import { DisplayQueries }                                   from './DisplayQueries.ts';
+import { Epics }                                            from './Epics.ts';
 import { GroupReleases }                                    from './GroupReleases.ts';
 import type { Logger }                                      from './Logger.ts';
 import { ReviewBars }                                       from './ReviewBars.ts';
@@ -54,6 +64,7 @@ import { TrackerChanges }                                   from './TrackerChang
 export interface BoardInput {
   progress: TrackerProgress;
   tickets:  Ticket[];
+  epics:    Epic[];
   logger:   Logger;
 }
 
@@ -84,8 +95,10 @@ export class Board {
 
   private readonly displayQueries: DisplayQueries;
 
+  private readonly epicRules: Epics;
+
   constructor(input: BoardInput) {
-    this.records            = new BoardRecords(input.progress, input.tickets, input.logger);
+    this.records            = new BoardRecords(input.progress, input.tickets, input.epics, input.logger);
     this.reviewBars         = new ReviewBars(this.records);
     this.groupReleases      = new GroupReleases(this.records);
     this.dispatchQueries    = new DispatchQueries(this.records, this.groupReleases);
@@ -98,6 +111,7 @@ export class Board {
     this.taskRows           = new TaskRows(this.records);
     this.tokenCredits       = new TokenCredits(this.records, this.reviewBars);
     this.trackerChanges     = new TrackerChanges(this.records, this.dispatchQueries);
+    this.epicRules          = new Epics(this.records, this.displayQueries);
   }
 
   setChartRange(view: ViewRange, at: string): Logged {
@@ -141,7 +155,32 @@ export class Board {
   }
 
   fileTicket(ticket: Ticket, at: string): TicketChanged {
+    this.epicRules.refuseUnknownEpicKeys(ticket.frontmatter.epics ?? []);
     return this.ticketMoves.fileTicket(ticket, at);
+  }
+
+  addEpic(addition: EpicAddition, at: string): EpicChanged {
+    return this.epicRules.addEpic(addition, at);
+  }
+
+  editEpic(epicKey: string, edit: EpicEdit, at: string): EpicEdited {
+    return this.epicRules.editEpic(epicKey, edit, at);
+  }
+
+  removeEpic(epicKey: string, at: string): EpicChanged {
+    return this.epicRules.removeEpic(epicKey, at);
+  }
+
+  setTicketEpics(ticketId: string, epicKeys: readonly string[], at: string): TicketEpicsChanged {
+    return this.epicRules.setTicketEpics(ticketId, epicKeys, at);
+  }
+
+  addTicketEpics(ticketId: string, addedEpicKeys: readonly string[], at: string): TicketEpicsChanged {
+    return this.epicRules.addTicketEpics(ticketId, addedEpicKeys, at);
+  }
+
+  removeTicketEpics(ticketId: string, removedEpicKeys: readonly string[], at: string): TicketEpicsChanged {
+    return this.epicRules.removeTicketEpics(ticketId, removedEpicKeys, at);
   }
 
   moveTicket(ticketId: string, targetStatus: TicketStatus, request: TicketMoveRequest, at: string): TicketMoved {
@@ -218,6 +257,24 @@ export class Board {
 
   tickets(): readonly Readonly<Ticket>[] {
     return this.records.ticketRecords;
+  }
+
+  /** Ordered by key. */
+  epics(): readonly Readonly<Epic>[] {
+    return this.records.epicRecords;
+  }
+
+  epicByKey(epicKey: string): Readonly<Epic> | undefined {
+    return this.records.epicRecordByKey(epicKey);
+  }
+
+  /** One per epic, ordered by key. */
+  epicRollups(): EpicRollup[] {
+    return this.records.epicRecords.map((epic) => this.epicRules.epicRollupOf(epic));
+  }
+
+  epicRollupOf(epic: Readonly<Epic>): EpicRollup {
+    return this.epicRules.epicRollupOf(epic);
   }
 
   /** Reads `3`, `#3` and `003` alike, as a typed reference may be any of them. */
@@ -335,5 +392,13 @@ export class Board {
 
   changedTickets(): readonly Ticket[] {
     return this.records.changedTicketRecords;
+  }
+
+  changedEpics(): readonly Epic[] {
+    return this.records.changedEpicRecords;
+  }
+
+  removedEpics(): readonly Epic[] {
+    return this.records.removedEpicRecords;
   }
 }

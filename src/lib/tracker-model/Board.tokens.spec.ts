@@ -208,6 +208,7 @@ test('the usage is logged once, after every credit has landed', () => {
   const board = new Board({
     progress,
     tickets,
+    epics:  [],
     logger: createLogger(() => tokensWhenLogged.push(progress.tasks.map((task) => task.tokens))),
   });
 

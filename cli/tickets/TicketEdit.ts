@@ -1,13 +1,13 @@
-import { TicketJsonUtil }        from '../../src/adapters/utils/TicketJsonUtil.ts';
-import { requireWorkspace }      from '../../src/services/tracker/Workspace.ts';
-import { OperationRefusal }      from '../../src/shared/OperationRefusal.ts';
-import type { CommandContext }   from '../CommandContext.ts';
-import { openTrackerForWriting } from '../OpenTrackerForWriting.ts';
-import type { ArgumentParser }   from '../arguments/ArgumentParser.ts';
-import { OutputUtil }            from '../utils/OutputUtil.ts';
-import { suppliedTicketBodyOf }  from './SuppliedTicketBody.ts';
-import { TICKET_USAGE }          from './constants/TicketUsage.ts';
-import { TicketLookupUtil }      from './utils/TicketLookupUtil.ts';
+import { TicketJsonUtil }         from '../../src/adapters/utils/TicketJsonUtil.ts';
+import { requireWorkspace }       from '../../src/services/tracker/Workspace.ts';
+import { OperationRefusal }       from '../../src/shared/OperationRefusal.ts';
+import type { CommandContext }    from '../CommandContext.ts';
+import { openTrackerForWriting }  from '../OpenTrackerForWriting.ts';
+import { suppliedMarkdownBodyOf } from '../SuppliedMarkdownBody.ts';
+import type { ArgumentParser }    from '../arguments/ArgumentParser.ts';
+import { OutputUtil }             from '../utils/OutputUtil.ts';
+import { TICKET_USAGE }           from './constants/TicketUsage.ts';
+import { TicketLookupUtil }       from './utils/TicketLookupUtil.ts';
 
 const EDIT_OPTION_NAMES = ['append', 'body', 'body-file', 'json'];
 
@@ -26,7 +26,7 @@ export async function editTicketBody(commandArguments: ArgumentParser, context: 
 
   // Read before the lock: `--body-file -` waits on a pipe the caller may hold open indefinitely.
   requireWorkspace(context.currentDirectory);
-  const text = await suppliedTicketBodyOf(commandArguments, context);
+  const text = await suppliedMarkdownBodyOf(commandArguments, context);
   if (text === undefined) {
     throw new OperationRefusal('refused', `agent-progress ticket edit needs --body or --body-file.\n  Usage: ${TICKET_USAGE}`);
   }

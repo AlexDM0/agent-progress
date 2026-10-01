@@ -86,6 +86,17 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
         + `and the concurrency limit is ${detail.limit} ${detail.limit === 1 ? 'agent' : 'agents'}. Nothing was written; claim once an agent has finished.`;
     case 'unknown-dependency':
       return `There is no ticket ${TicketPhraseUtil.ticketReferencesText(detail.missingTicketIds)}. Run \`agent-progress ticket list\` to see what this tracker holds.`;
+    case 'malformed-epic-key':
+      return `"${detail.epicKey}" is not a usable epic key: a key is lower-case letters and digits, in words joined by single hyphens, `
+        + `such as \`checkout-redesign\`. ${NOTHING_WAS_WRITTEN}`;
+    case 'epic-already-exists':
+      return `There is already an epic ${detail.epicKey}. Nothing was written; \`agent-progress epic edit ${detail.epicKey}\` changes it.`;
+    case 'unknown-epic':
+      return `There is no epic ${detail.missingEpicKeys.join(', ')}. Nothing was written; run \`agent-progress epic list\` to see what this tracker holds.`;
+    case 'epic-still-named':
+      return `Epic ${detail.epicKey} was not removed: ${TicketPhraseUtil.ticketReferencesText(detail.ticketIds)} still `
+        + `${detail.ticketIds.length === 1 ? 'names' : 'name'} it. Nothing was written; `
+        + `\`agent-progress ticket epic <id> --remove ${detail.epicKey}\` takes it off a ticket.`;
     case 'dependency-loop':
       return `That would make tickets wait on each other in a circle: ${detail.loopTicketIds.map((ticketId) => `#${ticketId}`).join(' → ')}.`;
     case 'priority-unchanged':

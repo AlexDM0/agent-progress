@@ -269,9 +269,27 @@ const MESSAGE_FOR_REFUSAL: readonly (readonly [BoardRefusalDetail, string])[] = 
       + 'the group already has its open release ticket, #002, and a group has one. '
       + 'Clear that mark with `agent-progress ticket release-of 002 --clear` first. Nothing was written.',
   ],
+  [
+    { reason: 'malformed-epic-key', epicKey: 'Checkout_Redesign' },
+    '"Checkout_Redesign" is not a usable epic key: a key is lower-case letters and digits, in words joined by single hyphens, '
+    + 'such as `checkout-redesign`. Nothing was written.',
+  ],
+  [
+    { reason: 'epic-already-exists', epicKey: 'checkout-redesign' },
+    'There is already an epic checkout-redesign. Nothing was written; `agent-progress epic edit checkout-redesign` changes it.',
+  ],
+  [
+    { reason: 'unknown-epic', missingEpicKeys: ['checkout-redesign', 'search'] },
+    'There is no epic checkout-redesign, search. Nothing was written; run `agent-progress epic list` to see what this tracker holds.',
+  ],
+  [
+    { reason: 'epic-still-named', epicKey: 'checkout-redesign', ticketIds: ['003'] },
+    'Epic checkout-redesign was not removed: #003 still names it. Nothing was written; '
+    + '`agent-progress ticket epic <id> --remove checkout-redesign` takes it off a ticket.',
+  ],
 ];
 
-const REFUSAL_REASON_COUNT = 29;
+const REFUSAL_REASON_COUNT = 33;
 
 test('every reason words as the refusal the command printed before the Board refused for it', () => {
   expect(new Set(MESSAGE_FOR_REFUSAL.map(([detail]) => detail.reason)).size, 'the table covers every reason').toBe(REFUSAL_REASON_COUNT);

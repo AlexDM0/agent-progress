@@ -47,7 +47,7 @@ afterEach(() => {
 test('a fresh workspace gets its tickets directory, a version 2 progress file, an empty log and a first page, and answers created', async () => {
   const creation = await createTracker(workspace, NEW_TRACKER, now, renderState);
 
-  expect(creation).toEqual({ verdict: 'created', renderOutcome: { verdict: 'rendered', malformedTickets: [] } });
+  expect(creation).toEqual({ verdict: 'created', renderOutcome: { verdict: 'rendered', malformedTickets: [], malformedEpics: [] } });
   expect(statSync(workspace.ticketsDirectory).isDirectory()).toBe(true);
   expect(JSON.parse(readFileSync(workspace.progressFilePath, 'utf8'))).toMatchObject({ version: 2, ...NEW_TRACKER, tasks: [] });
   expect(readFileSync(workspace.logFilePath, 'utf8')).toBe('');

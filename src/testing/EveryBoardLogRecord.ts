@@ -21,6 +21,15 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
   board.unholdTicket('001', at);
   board.markReleaseTicket('002', at);
   board.clearReleaseTicket('002', at);
+  board.addEpic({
+    key:      'example-checkout',
+    title:    'Example checkout redesign',
+    body:     '',
+    filePath: '/example-agency/storefront/.agent-progress/epics/example-checkout.md',
+  }, at);
+  board.editEpic('example-checkout', { title: 'Example checkout overhaul' }, at);
+  board.removeEpic('example-checkout', at);
+  board.setTicketEpics('002', [], at);
   board.moveTicket('001', 'in-progress', { checksLegality: true }, at);
   board.moveTicket('001', 'in-review', { checksLegality: true }, at);
   board.startReviewBar('001', { round: 1 }, at);

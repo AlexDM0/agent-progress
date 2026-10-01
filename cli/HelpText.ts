@@ -87,6 +87,8 @@ output never carries either.
                               delivered or abandoned. Beside it, \`readyTickets\` lists the same
                               tickets in the same order as {id, priority, model, effort}, the
                               defaults resolved, so a dispatcher derives none of them itself.
+                              Both carry \`epics\`, every epic with its roll-up as \`epic list
+                              --json\` prints it, and each ticket's \`epics\`, empty when it has none.
       [--tickets-only]        --tickets-only leaves out the free-standing task rows, those that are
                               no ticket's own row and no review bar; tickets and the log stay.
                               The token total is also given per owner, grouped case-insensitively
@@ -233,10 +235,12 @@ output never carries either.
       [--effort <e>]
       [--group <name>]        its own frontmatter, plus a pending Gantt row. The body comes from
       [--depends-on <ids>]    the template, from --body, or from --body-file (\`-\` reads standard
-      [--body <markdown>]     input); an empty body falls back to the template, and afterwards the
-      [--body-file <path|->]  body is preserved byte for byte, so an agent may edit everything
-      [--at <when>]           below the frontmatter freely. --depends-on files it already waiting
-                              on other tickets (\`3,4\`), as \`ticket depends\` does. --priority
+      [--epic <keys>]         input); an empty body falls back to the template, and afterwards the
+      [--body <markdown>]     body is preserved byte for byte, so an agent may edit everything
+      [--body-file <path|->]  below the frontmatter freely. --depends-on files it already waiting
+      [--at <when>]           on other tickets (\`3,4\`), as \`ticket depends\` does; --epic files it
+                              in existing epics (\`checkout-redesign,loyalty-programme\`, the first
+                              its primary one), as \`ticket epic\` does. --priority
                               defaults to normal; a low ticket is filed with no row and takes no
                               task id until it is started. --model (haiku, sonnet, opus, fable)
                               and --effort (low, medium, high, xhigh, max) name what the agents
@@ -373,6 +377,38 @@ output never carries either.
                               circle. Until every one of them is reviewed or delivered, the
                               ticket's row, table entry and card read "waiting on #003", \`ticket list\`
                               says so too, and \`ticket start\` warns on standard error but still moves it.
+
+  ticket epic <id> [<key>...] | --add <keys> | --remove <keys> [--at <when>] [--json]
+                              Set the epics a ticket belongs to, the first its primary epic. Bare
+                              keys replace its list, and no keys clears it; --add appends (a key
+                              already there keeps its place), --remove takes keys out, and the two
+                              are refused beside bare keys or together, as for \`ticket depends\`.
+                              An epic that does not exist is refused at exit 1 with nothing
+                              written. One log line; \`updated\` is not stamped. --json carries the
+                              ticket with \`added\` and \`dropped\`. Epics never affect dispatch,
+                              claiming, concurrency or release: that is \`--group\`.
+
+  epic add <key> "<title>"    Add an epic, a larger feature tickets are grouped under:
+      [--body <markdown>]     \`.agent-progress/epics/<key>.md\` holding its key, title and colour
+      [--body-file <path|->]  slot, then the description from --body or --body-file (\`-\` reads
+      [--at <when>] [--json]  standard input), kept byte for byte. The key is lower-case letters
+                              and digits in words joined by single hyphens (\`checkout-redesign\`);
+                              a malformed key or one already taken is refused at exit 1 with
+                              nothing written. The slot, 1 to 6, is the one the fewest epics use,
+                              the lowest on a tie, and is never reassigned.
+  epic edit <key>             Change an epic's title, or replace its description, or with
+      [--title "<title>"]     --append add to its end. Nothing to change writes nothing and exits 0;
+      [--append]              an empty replacement is refused at exit 1.
+      [--body <markdown>]
+      [--body-file <path|->]
+      [--at <when>] [--json]
+  epic list [--json]          Every epic with its roll-up: its ticket ids, a count per ticket
+                              status, the tokens of each ticket's own row and review rows, and its
+                              span from the first start to the last end (open while a row runs,
+                              null before any starts). An epic has no status of its own.
+  epic show <key> [--json]    One epic: its roll-up, its file path and its description.
+  epic remove <key> [--at <when>] [--json]
+                              Delete an epic's file. Refused at exit 1 while any ticket names it.
 
   concurrency [<n>] [--json]  Print the concurrency limit: how many agents may be in flight at once.
                               A slot is an agent: the in-progress rows one \`ticket claim\` started

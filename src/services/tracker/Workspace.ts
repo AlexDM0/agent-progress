@@ -20,6 +20,7 @@ export interface Workspace {
   htmlFilePath:      string;
   stampFilePath:     string;
   ticketsDirectory:  string;
+  epicsDirectory:    string;
   lockDirectoryPath: string;
 }
 
@@ -35,6 +36,7 @@ export function workspacePathsFor(rootDirectory: string): Workspace {
     htmlFilePath:      join(trackerDirectory, TRACKER_FILES.HTML_FILE_NAME),
     stampFilePath:     join(trackerDirectory, TRACKER_FILES.STAMP_FILE_NAME),
     ticketsDirectory:  join(trackerDirectory, TRACKER_FILES.TICKETS_DIRECTORY_NAME),
+    epicsDirectory:    join(trackerDirectory, TRACKER_FILES.EPICS_DIRECTORY_NAME),
     lockDirectoryPath: join(trackerDirectory, TRACKER_FILES.LOCK_DIRECTORY_NAME),
   };
 }

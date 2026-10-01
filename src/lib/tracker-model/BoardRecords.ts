@@ -2,6 +2,7 @@
  * The rows and tickets one Board changes in place, the logger it logs through and which tickets it changed, with the lookups and row
  * filings every rule module of the Board shares.
  */
+import type { Epic }                 from './@types/Epic.ts';
 import type { Task, TaskStatus }     from './@types/Task.ts';
 import type { Ticket, TicketStatus } from './@types/Ticket.ts';
 import type { TrackerProgress }      from './@types/TrackerProgress.ts';
@@ -17,14 +18,28 @@ export class BoardRecords {
   /** In the order each ticket was first changed, once each: the order the writer writes them in. */
   readonly changedTicketRecords: Ticket[] = [];
 
+  /** Added or edited epics, in the order each was first changed, once each; a removed one leaves this list for `removedEpicRecords`. */
+  readonly changedEpicRecords: Epic[] = [];
+
+  readonly removedEpicRecords: Epic[] = [];
+
   constructor(
     readonly progress: TrackerProgress,
     readonly ticketRecords: Ticket[],
+    readonly epicRecords: Epic[],
     readonly logger: Logger,
   ) {}
 
   markChanged(ticket: Ticket): void {
     if (!this.changedTicketRecords.includes(ticket)) this.changedTicketRecords.push(ticket);
+  }
+
+  markEpicChanged(epic: Epic): void {
+    if (!this.changedEpicRecords.includes(epic)) this.changedEpicRecords.push(epic);
+  }
+
+  epicRecordByKey(epicKey: string): Epic | undefined {
+    return this.epicRecords.find((epic) => epic.frontmatter.key === epicKey);
   }
 
   taskRecordById(taskId: number): Task | undefined {

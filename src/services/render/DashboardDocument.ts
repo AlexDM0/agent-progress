@@ -1,4 +1,5 @@
 /** The whole `progress.html` document for one tracker state: the page script bundled, then the template filled; it writes no file. */
+import type { Epic }            from '../../lib/tracker-model/@types/Epic.ts';
 import type { LogRecord }       from '../../lib/tracker-model/@types/LogRecord.ts';
 import type { Ticket }          from '../../lib/tracker-model/@types/Ticket.ts';
 import type { TrackerProgress } from '../../lib/tracker-model/@types/TrackerProgress.ts';
@@ -10,6 +11,7 @@ import type { RenderState }     from './RenderState.ts';
 export interface DashboardDocumentInput {
   progress:    TrackerProgress;
   tickets:     Ticket[];
+  epics:       Epic[];
   logRecords:  readonly LogRecord[];
   /** The caller's clock, never one read here. */
   generatedAt: Date;
@@ -29,13 +31,14 @@ export async function renderDashboardDocument(input: DashboardDocumentInput, ren
   const {
     progress,
     tickets,
+    epics,
     logRecords,
     generatedAt,
   } = input;
 
   const pageBundle        = await renderState.pageBundler.bundlePageScript();
   const pageScriptFailure = pageBundle.verdict === 'failed' ? pageBundle.reason : null;
-  const board             = readingBoardOf(progress, tickets);
+  const board             = readingBoardOf(progress, tickets, epics);
 
   const document = fillPageTemplate({
     progress,

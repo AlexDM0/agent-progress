@@ -1,5 +1,6 @@
 /** The shape of the progress island, which the render side writes and the page reads. */
 
+import type { EpicRollup }             from '../../lib/tracker-model/@types/Epic.ts';
 import type { DisplayState }           from '../../lib/tracker-model/@types/Task.ts';
 import type { TicketFrontmatter }      from '../../lib/tracker-model/@types/Ticket.ts';
 import type { IdentifiedLogEntry }     from './WordedLogEntry.ts';
@@ -52,6 +53,8 @@ export interface PageTicketFacts {
 export interface PageBoardFacts {
   rows:    PageRowFacts[];
   tickets: PageTicketFacts[];
+  /** Every epic with its roll-up, ordered by key, as `status --json` prints them; a ticket's own list is its `epics`. */
+  epics:   EpicRollup[];
 }
 
 export interface PagePayload {

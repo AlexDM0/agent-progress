@@ -32,6 +32,9 @@ export type LogRecordContent =
   | { kind: 'ticket-unheld'; ticketId: string; fields: Record<string, never> }
   | { kind: 'ticket-release-marked'; ticketId: string; fields: { group: string } }
   | { kind: 'ticket-release-cleared'; ticketId: string; fields: Record<string, never> }
+  | { kind: 'ticket-epics-set'; ticketId: string; fields: { epics: readonly string[] } }
+  | { kind: 'epic-added' | 'epic-edited'; epicKey: string; fields: { title: string } }
+  | { kind: 'epic-removed'; epicKey: string; fields: Record<string, never> }
   /** A review bar's `name` is carried because the sentence prints the row's stored name, which an edit may have made anything. */
   | { kind: 'review-bar-started' | 'review-bar-closed'; taskId: number; ticketId: string; fields: { name: string } }
   | { kind: 'chart-range-set'; fields: { view: ViewRange } }

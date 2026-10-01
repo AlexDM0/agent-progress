@@ -22,7 +22,7 @@ const STATE_THAT_HOLDS_A_RUN: DispatcherState = 'running';
 /** The read takes no lock and writes nothing, so a tracker that never set a state reads `stopped` and keeps its file as it was. */
 function printCurrentState(commandArguments: ArgumentParser, context: CommandContext): void {
   // Built over progress.json alone, so a broken log or ticket file does not stop this read.
-  const board           = readingBoardOf(requireProgressFile(requireWorkspace(context.currentDirectory)), []);
+  const board           = readingBoardOf(requireProgressFile(requireWorkspace(context.currentDirectory)), [], []);
   const dispatcherState = board.dispatcherState();
   const dispatcherRunId = board.dispatcherRunId();
   const entity          = dispatcherRunId === undefined ? { dispatcherState } : { dispatcherState, dispatcherRunId };

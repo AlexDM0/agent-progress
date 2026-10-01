@@ -13,7 +13,7 @@ test('its queries answer over the progress file and the tickets handed in', () =
     tickets:          [ticketFixture({ id: '001' }), ticketFixture({ id: '002', hold: '' })],
     concurrencyLimit: 2,
   });
-  const board = readingBoardOf(progress, tickets);
+  const board = readingBoardOf(progress, tickets, []);
 
   expect(board.concurrency()).toEqual({ limit: 2, agentsInFlight: 1, freeSlots: 1 });
   expect(board.readyTickets().map((ticket) => ticket.frontmatter.id)).toEqual(['001', '002']);
@@ -23,7 +23,7 @@ test('its queries answer over the progress file and the tickets handed in', () =
 test('a note logged through it returns its record, and leaves the progress file as it was and no ticket changed', () => {
   const { progress, tickets } = boardFixture({ tickets: [ticketFixture({ id: '001' })] });
   const progressBefore        = structuredClone(progress);
-  const board                 = readingBoardOf(progress, tickets);
+  const board                 = readingBoardOf(progress, tickets, []);
 
   const { logged } = board.recordNote('Example note', '2026-09-26T10:00:00+02:00');
 

@@ -37,6 +37,12 @@ const SENTENCE_FOR_RECORD: readonly (readonly [LogRecordContent, string])[] = [
   [{ kind: 'ticket-dependencies-set', ticketId: '005', fields: { dependsOn: ['004'] } }, 'Ticket #005 waits on #004'],
   [{ kind: 'ticket-dependencies-set', ticketId: '005', fields: { dependsOn: ['003', '004'] } }, 'Ticket #005 waits on #003, #004'],
   [{ kind: 'ticket-dependencies-set', ticketId: '005', fields: { dependsOn: [] } }, 'Ticket #005 waits on no other ticket'],
+  [{ kind: 'ticket-epics-set', ticketId: '005', fields: { epics: ['checkout-redesign'] } }, 'Ticket #005 belongs to epic checkout-redesign'],
+  [{ kind: 'ticket-epics-set', ticketId: '005', fields: { epics: ['search', 'checkout-redesign'] } }, 'Ticket #005 belongs to epics search, checkout-redesign'],
+  [{ kind: 'ticket-epics-set', ticketId: '005', fields: { epics: [] } }, 'Ticket #005 belongs to no epic'],
+  [{ kind: 'epic-added', epicKey: 'search', fields: { title: 'Example search' } }, 'Epic search added: Example search'],
+  [{ kind: 'epic-edited', epicKey: 'search', fields: { title: 'Example search' } }, 'Epic search edited: Example search'],
+  [{ kind: 'epic-removed', epicKey: 'search', fields: {} }, 'Epic search removed'],
   [
     { kind: 'ticket-agents-changed', ticketId: '001', fields: { from: { model: 'opus', effort: 'medium' }, to: { model: 'sonnet', effort: 'low' } } },
     'Ticket #001 agents opus/medium → sonnet/low',
@@ -114,7 +120,7 @@ const SENTENCE_FOR_RECORD: readonly (readonly [LogRecordContent, string])[] = [
   ],
 ];
 
-const RECORD_KIND_COUNT = 23;
+const RECORD_KIND_COUNT = 27;
 
 test('every kind of record reads as the sentence the log held before there were records', () => {
   expect(new Set(SENTENCE_FOR_RECORD.map(([record]) => record.kind)).size, 'the table covers every kind').toBe(RECORD_KIND_COUNT);
@@ -182,6 +188,10 @@ describe('the entry the page reads', () => {
       [{ kind: 'ticket-dependencies-set', ticketId: '005', fields: { dependsOn: ['003', '004'] } }, { taskIds: [], ticketIds: ['005', '003', '004'] }],
       [{ kind: 'ticket-dependencies-set', ticketId: '005', fields: { dependsOn: ['004', '004'] } }, { taskIds: [], ticketIds: ['005', '004'] }],
       [{ kind: 'ticket-dependencies-set', ticketId: '005', fields: { dependsOn: [] } }, { taskIds: [], ticketIds: ['005'] }],
+      [{ kind: 'ticket-epics-set', ticketId: '005', fields: { epics: ['search'] } }, { taskIds: [], ticketIds: ['005'] }],
+      [{ kind: 'epic-added', epicKey: 'search', fields: { title: 'Example search' } }, { taskIds: [], ticketIds: [] }],
+      [{ kind: 'epic-edited', epicKey: 'search', fields: { title: 'Example search' } }, { taskIds: [], ticketIds: [] }],
+      [{ kind: 'epic-removed', epicKey: 'search', fields: {} }, { taskIds: [], ticketIds: [] }],
       [
         { kind: 'ticket-agents-changed', ticketId: '001', fields: { from: { model: 'opus', effort: 'medium' }, to: { model: 'sonnet', effort: 'low' } } },
         { taskIds: [], ticketIds: ['001'] },

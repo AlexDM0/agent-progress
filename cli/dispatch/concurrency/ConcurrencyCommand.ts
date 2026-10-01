@@ -29,7 +29,7 @@ function limitFrom(written: string): number {
 
 function printCurrentLimit(commandArguments: ArgumentParser, context: CommandContext): void {
   // Built over progress.json alone, so a broken log or ticket file does not stop this read.
-  const concurrency = readingBoardOf(requireProgressFile(requireWorkspace(context.currentDirectory)), []).concurrency();
+  const concurrency = readingBoardOf(requireProgressFile(requireWorkspace(context.currentDirectory)), [], []).concurrency();
   OutputUtil.printEntity(commandArguments, context, concurrency, String(concurrency.limit));
 }
 

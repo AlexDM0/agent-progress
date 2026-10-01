@@ -42,6 +42,8 @@ export interface TicketFrontmatter {
   reason?:        string;
   /** Padded ids of the tickets this one waits on, in the order written; absent when it waits on none. */
   dependsOn?:     string[];
+  /** The keys of the epics the ticket belongs to, its primary epic first; absent when it belongs to none. */
+  epics?:         string[];
   task:           number | null;
   /** Every frontmatter line the model does not own, in original order, so a status change does not eat it. */
   extra:          Array<[key: string, rawValue: string]>;

@@ -224,7 +224,7 @@
     "flags": ["--add", "--after", "--at", "--body", "--body-file", "--branch", "--depends-on", "--effort", "--force", "--from", "--full",
       "--group", "--json", "--main", "--model", "--no-hooks", "--no-workflow", "--note", "--owner", "--priority", "--reason", "--rebased-from", "--remove",
       "--review-of", "--root", "--run", "--since", "--start", "--start-review", "--status", "--ticket", "--to", "--tokens", "--type", "--worktree"],
-    "statusJsonFields": ["abandonedAt", "agent", "agentsInFlight", "concurrency", "delivered", "dispatcherState", "effort", "filed", "finished", "freeSlots", "group",
+    "statusJsonFields": ["abandonedAt", "agent", "agentsInFlight", "concurrency", "delivered", "dispatcherState", "effort", "epics", "filed", "finished", "freeSlots", "group",
       "held", "heldTicketIds", "history", "hold", "id", "inProgressReviewOfIds", "inProgressTicketIds", "limit", "log", "model", "note", "omitted", "pausedBuilds",
       "priority", "readyTicketIds", "readyTickets", "reviewBars", "reviewOf", "reviewWaitingTickets", "reviewed", "round", "row", "start", "started", "status",
       "task", "ticket", "ticketRows", "tickets", "title", "type", "updated"]

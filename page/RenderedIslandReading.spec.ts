@@ -68,6 +68,7 @@ async function renderedIslands(): Promise<{ progressIsland: unknown; ticketsIsla
   const { document } = await renderDashboardDocument({
     progress:    EXAMPLE_PROGRESS,
     tickets:     EXAMPLE_TICKETS,
+    epics:       [],
     logRecords:  [],
     generatedAt: GENERATED_AT,
   }, renderState);

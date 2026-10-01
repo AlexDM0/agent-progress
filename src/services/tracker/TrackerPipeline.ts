@@ -1,8 +1,9 @@
 /**
  * The sequence every mutating command follows, written once and all inside the lock: read the tracker into a Board, mutate, write the progress
- * file, then the tickets the Board changed, then log.jsonl, then render from disk, so no older render lands last and the progress file is never
- * behind the tickets.
+ * file, then the tickets the Board changed, then the epics it changed or removed, then log.jsonl, then render from disk, so no older render
+ * lands last and the progress file is never behind the tickets.
  */
+import { createEpicFileWriter }                         from '../../adapters/epics/EpicFileWriter.ts';
 import { createLogFileWriter }                          from '../../adapters/log/LogFileWriter.ts';
 import { createLogRecordCollector }                     from '../../adapters/log/LogRecordCollector.ts';
 import { createProgressFileWriter }                     from '../../adapters/progress/ProgressFileWriter.ts';
@@ -14,6 +15,7 @@ import { createLogger }                                 from '../../lib/tracker-
 import { OperationRefusal }                             from '../../shared/OperationRefusal.ts';
 import type { RenderState }                             from '../render/RenderState.ts';
 import { renderDashboard, type DashboardRenderOutcome } from './DashboardRendering.ts';
+import type { MalformedEpicFile }                       from './EpicStore.ts';
 import { deleteAllTickets, type MalformedTicketFile }   from './TicketStore.ts';
 import { withLock }                                     from './TrackerLock.ts';
 import { requireTracker, type TrackerContents }         from './TrackerReader.ts';
@@ -24,6 +26,7 @@ export interface TrackerChange {
   workspace:                      Workspace;
   at:                             string;
   malformedTickets:               readonly MalformedTicketFile[];
+  malformedEpics:                 readonly MalformedEpicFile[];
   /** How many entries the log held when it was read, before anything this invocation logged. */
   storedLogEntryCount:            number;
   /** The log as it was read, before anything this invocation logged. */
@@ -57,7 +60,12 @@ interface OpenBoard {
 
 function openBoard(contents: TrackerContents): OpenBoard {
   const logRecordCollector = createLogRecordCollector(contents.storedLog);
-  const board              = new Board({ progress: contents.progress, tickets: contents.listing.tickets, logger: createLogger(logRecordCollector.collect) });
+  const board              = new Board({
+    progress: contents.progress,
+    tickets:  contents.listing.tickets,
+    epics:    contents.epicListing.epics,
+    logger:   createLogger(logRecordCollector.collect),
+  });
   return { contents, logRecordCollector, board };
 }
 
@@ -69,6 +77,9 @@ function writeBoard(workspace: Workspace, openedBoard: OpenBoard, deletionCallba
   createProgressFileWriter(workspace.progressFilePath).write(contents.progress);
   const ticketFileWriter = createTicketFileWriter();
   for (const ticket of board.changedTickets()) ticketFileWriter.write(ticket);
+  const epicFileWriter = createEpicFileWriter();
+  for (const epic of board.changedEpics()) epicFileWriter.write(epic);
+  for (const epic of board.removedEpics()) epicFileWriter.remove(epic);
   for (const onDeleted of deletionCallbacks) onDeleted(deleteAllTickets(workspace));
 
   if (logRecordsToWrite !== null) createLogFileWriter(workspace.logFilePath).write(logRecordsToWrite);
@@ -101,6 +112,7 @@ export function writeTracker<MutationResult>(request: TrackerWriteRequest<Mutati
       board:                          openedBoard.board,
       workspace,
       malformedTickets:               openedBoard.contents.listing.malformed,
+      malformedEpics:                 openedBoard.contents.epicListing.malformed,
       storedLogEntryCount:            openedBoard.contents.storedLog.records.length,
       storedLogRecords:               openedBoard.contents.storedLog.records,
       deleteAllTicketFilesAfterwards: (onDeleted) => { deletionCallbacks.push(onDeleted); },

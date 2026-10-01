@@ -1,5 +1,6 @@
 /** What the Board's changes take and give back. Every change that logs returns the records it logged, in order. */
 import type { Concurrency }                     from './Concurrency.ts';
+import type { Epic }                            from './Epic.ts';
 import type { LogRecord }                       from './LogRecord.ts';
 import type { Task, TaskStatus }                from './Task.ts';
 import type { AgentEffort, AgentModel, Ticket } from './Ticket.ts';
@@ -87,6 +88,20 @@ export interface TicketDependenciesChanged extends TicketChanged {
   addedTicketIds:            readonly string[];
   droppedTicketIds:          readonly string[];
   droppedUnsettledTicketIds: readonly string[];
+}
+
+export interface EpicChanged extends Logged {
+  epic: Readonly<Epic>;
+}
+
+/** `changed` is false for an edit that would write back what the epic already holds, which logs and writes nothing. */
+export interface EpicEdited extends EpicChanged {
+  changed: boolean;
+}
+
+export interface TicketEpicsChanged extends TicketChanged {
+  addedEpicKeys:   readonly string[];
+  droppedEpicKeys: readonly string[];
 }
 
 export interface TicketMoved extends TicketChanged {

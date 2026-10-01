@@ -709,6 +709,7 @@ describeWhenGitIsPresent('the subcommand groups', () => {
       'claim',
       'deliver',
       'depends',
+      'epic',
       'finish',
       'hold',
       'link',

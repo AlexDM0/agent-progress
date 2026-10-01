@@ -63,6 +63,8 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 - A malformed stored file is a verdict and a report, never a throw that takes down `status` or `render`.
 - `progress.json` keeps unknown keys, top level and on rows, in order. An optional key is written only once set, and
   a read never adds or rewrites one, so a file stays byte-identical.
+- An epic is `.agent-progress/epics/<key>.md`, known by its file name, its description kept byte for byte like a
+  ticket body; the folder exists only once an epic was added. Its colour `slot` is stored at `epic add`, never derived.
 - The Board logs ids and values through one `log(record)` over a typed record union (the vocabulary, no method per
   record); an adapter util words the records, the collector gathers them, the writer stores
   `.agent-progress/log.jsonl`.
@@ -189,6 +191,9 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
   other line.
 - A ticket is its frontmatter `id`, never its file name. Ticket and task ids are never reused or gap-filled.
 - Only a transition stamps `updated`. The named verbs enforce the legality matrix; `ticket status` skips it on purpose.
+- A ticket's `epics` is an ordered list, the first its primary epic, written only when non-empty. An epic has no
+  lifecycle: its progress is a Board roll-up over its tickets, and it never touches dispatch, claiming, concurrency or
+  release, which stay `group`'s.
 - A row's `history` holds only what the tool watched.
 - A review row belongs to its ticket by `reviewOf` alone. The page reads which rows are bars from the Board facts,
   and a bar's name only to order a ticket's bars.

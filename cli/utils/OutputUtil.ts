@@ -2,6 +2,7 @@ import { LogUtil }                        from '../../src/adapters/utils/LogUtil
 import { TrackerReadingWordingUtil }      from '../../src/adapters/utils/TrackerReadingWordingUtil.ts';
 import type { LogRecord }                 from '../../src/lib/tracker-model/@types/LogRecord.ts';
 import type { DashboardRenderOutcome }    from '../../src/services/tracker/DashboardRendering.ts';
+import type { MalformedEpicFile }         from '../../src/services/tracker/EpicStore.ts';
 import type { MalformedTicketFile }       from '../../src/services/tracker/TicketStore.ts';
 import { JsonTextUtil }                   from '../../src/shared/utils/JsonTextUtil.ts';
 import type { CommandContext }            from '../CommandContext.ts';
@@ -19,6 +20,13 @@ function ignoredTicketFileText(malformed: MalformedTicketFile): string {
 
 function reportIgnoredTicketFiles(context: CommandContext, malformedTickets: readonly MalformedTicketFile[]): void {
   for (const malformed of malformedTickets) context.standardError(ignoredTicketFileText(malformed));
+}
+
+function reportIgnoredEpicFiles(context: CommandContext, malformedEpics: readonly MalformedEpicFile[]): void {
+  for (const malformed of malformedEpics) {
+    const place = malformed.line > 0 ? ` (line ${malformed.line})` : '';
+    context.standardError(`Epic file ignored: ${malformed.filePath}${place}: ${malformed.reason}`);
+  }
 }
 
 function loggedSentencesOf(logged: readonly LogRecord[]): string {
@@ -48,6 +56,7 @@ function reportRenderProblems(context: CommandContext, outcome: DashboardRenderO
     context.standardError(`The dashboard was written without its page script, so the chart is not interactive: ${outcome.reason}`);
   }
   reportIgnoredTicketFiles(context, outcome.malformedTickets);
+  reportIgnoredEpicFiles(context, outcome.malformedEpics);
 }
 
 /** A commit printed in a sentence, cut to its first characters as git abbreviates; a text already that short is kept whole. */
@@ -63,5 +72,6 @@ export const OutputUtil = {
   printEntityThenNextLine,
   ignoredTicketFileText,
   reportIgnoredTicketFiles,
+  reportIgnoredEpicFiles,
   reportRenderProblems,
 } as const;

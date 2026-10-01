@@ -39,5 +39,5 @@ export function boardFactsOf(board: Board): PageBoardFacts {
     waitingOnTicketIds: board.waitingOnOf(ticket),
   }));
 
-  return { rows, tickets };
+  return { rows, tickets, epics: board.epicRollups() };
 }

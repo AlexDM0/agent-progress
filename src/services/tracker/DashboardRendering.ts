@@ -7,14 +7,15 @@ import { writeFileAtomically }      from '../../lib/atomic-file/AtomicFile.ts';
 import type { UnreadableTracker }   from '../../shared/@types/UnreadableTracker.ts';
 import { renderDashboardDocument }  from '../render/DashboardDocument.ts';
 import type { RenderState }         from '../render/RenderState.ts';
+import type { MalformedEpicFile }   from './EpicStore.ts';
 import type { MalformedTicketFile } from './TicketStore.ts';
 import { withLock }                 from './TrackerLock.ts';
 import { readTracker }              from './TrackerReader.ts';
 import type { Workspace }           from './Workspace.ts';
 
 export type DashboardRenderOutcome =
-  | { verdict: 'rendered'; malformedTickets: MalformedTicketFile[] }
-  | { verdict: 'rendered-without-page-script'; reason: string; malformedTickets: MalformedTicketFile[] }
+  | { verdict: 'rendered'; malformedTickets: MalformedTicketFile[]; malformedEpics: MalformedEpicFile[] }
+  | { verdict: 'rendered-without-page-script'; reason: string; malformedTickets: MalformedTicketFile[]; malformedEpics: MalformedEpicFile[] }
   | { verdict: 'unreadable'; reading: UnreadableTracker };
 
 /** `generatedAt` is the caller's clock. An unreadable tracker writes no page. */
@@ -22,21 +23,27 @@ export async function renderDashboard(workspace: Workspace, generatedAt: Date, r
   const reading = readTracker(workspace);
   if (reading.verdict !== 'readable') return { verdict: 'unreadable', reading };
 
-  const { progress, storedLog, listing } = reading.contents;
+  const {
+    progress, storedLog, listing, epicListing
+  } = reading.contents;
   const rendering = await renderDashboardDocument({
     progress,
     tickets:    listing.tickets,
+    epics:      epicListing.epics,
     logRecords: storedLog.records,
     generatedAt,
   }, renderState);
+  const malformedEpics = epicListing.malformed;
   writeFileAtomically(workspace.htmlFilePath, rendering.document);
   // After the page, so a stamp never announces a render whose page is not on disk yet.
   createPageStampWriter(workspace.stampFilePath).write(generatedAt);
 
   if (rendering.pageScriptFailure !== null) {
-    return { verdict: 'rendered-without-page-script', reason: rendering.pageScriptFailure, malformedTickets: listing.malformed };
+    return {
+      verdict: 'rendered-without-page-script', reason: rendering.pageScriptFailure, malformedTickets: listing.malformed, malformedEpics
+    };
   }
-  return { verdict: 'rendered', malformedTickets: listing.malformed };
+  return { verdict: 'rendered', malformedTickets: listing.malformed, malformedEpics };
 }
 
 /** For `render` and `open`: under the lock, so a concurrent write cannot leave the older picture on disk. */

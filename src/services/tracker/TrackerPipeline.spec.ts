@@ -91,7 +91,7 @@ describe('writeTracker', () => {
     });
 
     expect(written.board.tasks().map((task) => task.name)).toEqual(['Example rendered row']);
-    expect(written.renderOutcome).toEqual({ verdict: 'rendered', malformedTickets: [] });
+    expect(written.renderOutcome).toEqual({ verdict: 'rendered', malformedTickets: [], malformedEpics: [] });
     expect(readFileSync(workspace.htmlFilePath, 'utf8')).toContain('Example rendered row');
   });
 

@@ -9,15 +9,15 @@ import { resourceFilePathOf }                    from '../../src/shared/Resource
 import type { CommandContext }                   from '../CommandContext.ts';
 import { filledTemplateOf }                      from '../FilledTemplate.ts';
 import { openTrackerForWritingThenReadNextLine } from '../OpenTrackerForWriting.ts';
+import { suppliedMarkdownBodyOf }                from '../SuppliedMarkdownBody.ts';
 import type { ArgumentParser }                   from '../arguments/ArgumentParser.ts';
 import { NextLineUtil }                          from '../utils/NextLineUtil.ts';
 import { OutputUtil }                            from '../utils/OutputUtil.ts';
 import type { TicketSubcommandHandler }          from './@types/TicketSubcommandHandler.ts';
-import { suppliedTicketBodyOf }                  from './SuppliedTicketBody.ts';
 import { TICKET_USAGE }                          from './constants/TicketUsage.ts';
 import { TicketArgumentUtil }                    from './utils/TicketArgumentUtil.ts';
 
-const ADD_OPTION_NAMES = ['type', 'priority', 'model', 'effort', 'group', 'depends-on', 'body', 'body-file', 'at', 'json'];
+const ADD_OPTION_NAMES = ['type', 'priority', 'model', 'effort', 'group', 'depends-on', 'epic', 'body', 'body-file', 'at', 'json'];
 
 const DEFAULT_TICKET_TYPE: TicketType = 'change';
 
@@ -45,10 +45,11 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
   const effort    = TicketArgumentUtil.agentEffortFrom(commandArguments.option('effort'));
   const group     = commandArguments.option('group');
   const dependsOn = TicketArgumentUtil.dependencyListFrom([commandArguments.option('depends-on') ?? '']);
+  const epics     = TicketArgumentUtil.epicKeyListFrom([commandArguments.option('epic') ?? '']);
 
   // Read before the lock: `--body-file -` waits on a pipe the caller may hold open indefinitely. The id is not: only the lock hold makes it this ticket's.
   requireWorkspace(context.currentDirectory);
-  const suppliedBody = await suppliedTicketBodyOf(commandArguments, context);
+  const suppliedBody = await suppliedMarkdownBodyOf(commandArguments, context);
 
   const { result: filed, nextLine, dispatcherState } = await openTrackerForWritingThenReadNextLine(commandArguments, context, (change) => {
     const ticket = createTicket(change.workspace, {
@@ -60,6 +61,7 @@ async function addOneTicket(commandArguments: ArgumentParser, context: CommandCo
       at:      change.at,
     });
     if (dependsOn.length > 0) ticket.frontmatter.dependsOn = dependsOn;
+    if (epics.length > 0) ticket.frontmatter.epics = epics;
     if (model !== undefined) ticket.frontmatter.model = model;
     if (effort !== undefined) ticket.frontmatter.effort = effort;
     return change.board.fileTicket(ticket, change.at);

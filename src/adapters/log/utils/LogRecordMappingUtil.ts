@@ -81,6 +81,28 @@ function recordOf(validated: unknown): LogRecord {
         ticketId: record.ticketId,
         fields:   { dependsOn: [...record.fields.dependsOn] },
       };
+    case 'ticket-epics-set':
+      return {
+        at,
+        kind:     record.kind,
+        ticketId: record.ticketId,
+        fields:   { epics: [...record.fields.epics] },
+      };
+    case 'epic-added':
+    case 'epic-edited':
+      return {
+        at,
+        kind:    record.kind,
+        epicKey: record.epicKey,
+        fields:  { title: record.fields.title },
+      };
+    case 'epic-removed':
+      return {
+        at,
+        kind:    record.kind,
+        epicKey: record.epicKey,
+        fields:  {},
+      };
     case 'ticket-agents-changed':
       return {
         at,

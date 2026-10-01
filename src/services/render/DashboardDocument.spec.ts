@@ -56,6 +56,7 @@ describe('renderDashboardDocument', () => {
       progress:    EXAMPLE_PROGRESS,
       tickets:     [],
       logRecords:  [],
+      epics:       [],
       generatedAt: GENERATED_AT,
     }, renderState);
     const expected     = ConcurrencyUtil.concurrencyOf(EXAMPLE_PROGRESS.tasks, EXAMPLE_PROGRESS.concurrencyLimit);
@@ -72,6 +73,7 @@ describe('renderDashboardDocument', () => {
       progress:    EXAMPLE_PROGRESS,
       tickets,
       logRecords:  [],
+      epics:       [],
       generatedAt: GENERATED_AT,
     }, renderState);
 
@@ -84,6 +86,7 @@ describe('renderDashboardDocument', () => {
       progress:    EXAMPLE_PROGRESS,
       tickets:     [],
       logRecords:  [],
+      epics:       [],
       generatedAt: GENERATED_AT,
     }, renderState);
 
@@ -107,6 +110,7 @@ describe('renderDashboardDocument', () => {
       progress,
       tickets:     [ticketFixture({ id: '003', status: 'in-review', task: 1 })],
       logRecords:  [],
+      epics:       [],
       generatedAt: GENERATED_AT,
     }, renderState);
 
@@ -131,10 +135,11 @@ describe('renderDashboardDocument', () => {
       progress,
       tickets,
       logRecords:  [],
+      epics:       [],
       generatedAt: GENERATED_AT,
     }, renderState);
 
-    const expected       = boardFactsOf(readingBoardOf(progress, tickets));
+    const expected       = boardFactsOf(readingBoardOf(progress, tickets, []));
     const { boardFacts } = islandContentsOf(document, 'ap-progress-data') as { boardFacts: PageBoardFacts };
     expect(boardFacts).toEqual(expected);
     expect(boardFacts.tickets.map((ticket) => ticket.ticketId)).toEqual(['003', '004']);

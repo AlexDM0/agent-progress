@@ -501,3 +501,35 @@ describe('ticketDocumentTextOf', () => {
     expect(TicketDocumentUtil.ticketDocumentTextOf(frontmatter, body)).not.toContain('dependsOn');
   });
 });
+
+describe('epics', () => {
+  test('are written comma-separated after the dependencies, read back in order, the primary epic first', () => {
+    const { frontmatter, body } = parsedDocument(FULL_TICKET);
+    frontmatter.dependsOn       = ['001'];
+    frontmatter.epics           = ['loyalty-programme', 'checkout-redesign'];
+
+    const written = TicketDocumentUtil.ticketDocumentTextOf(frontmatter, body);
+
+    expect(written).toContain('dependsOn: "001"\nepics: "loyalty-programme, checkout-redesign"\ntask: 17');
+    expect(parsedDocument(written).frontmatter.epics).toEqual(['loyalty-programme', 'checkout-redesign']);
+  });
+
+  test('a ticket without the key reads none and is written without it, and an empty list is omitted', () => {
+    const { frontmatter, body } = parsedDocument(FULL_TICKET);
+
+    expect(Object.hasOwn(frontmatter, 'epics')).toBe(false);
+    expect(TicketDocumentUtil.ticketDocumentTextOf(frontmatter, body)).not.toContain('epics');
+    frontmatter.epics = [];
+    expect(TicketDocumentUtil.ticketDocumentTextOf(frontmatter, body)).not.toContain('epics');
+  });
+
+  test('a hand-written list reads any mix of commas and spaces, a repeat once, and something that is no key is refused', () => {
+    const withEpics = (value: string): string => FULL_TICKET.replace('task: 17\n', `epics: ${value}\ntask: 17\n`);
+
+    expect(parsedDocument(withEpics('search,  checkout-redesign search')).frontmatter.epics).toEqual(['search', 'checkout-redesign']);
+    expect(TicketDocumentUtil.parsedTicketDocumentOf(withEpics('"Checkout"'))).toMatchObject({
+      verdict: 'malformed',
+      reason:  '`epics` names something that is not an epic key: Checkout',
+    });
+  });
+});

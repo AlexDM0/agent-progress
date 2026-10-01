@@ -6,5 +6,6 @@ export const TRACKER_FILES = {
   STAMP_FILE_NAME:        'progress.stamp.js',
   TRACKER_DIRECTORY_NAME: '.agent-progress',
   TICKETS_DIRECTORY_NAME: 'tickets',
+  EPICS_DIRECTORY_NAME:   'epics',
   LOCK_DIRECTORY_NAME:    '.lock',
 } as const;

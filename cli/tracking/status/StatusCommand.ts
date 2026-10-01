@@ -33,12 +33,15 @@ export const statusCommand: CommandHandler = async (commandArguments, context) =
   commandArguments.rejectExtraPositionals(0, USAGE);
 
   const workspace = requireWorkspace(context.currentDirectory);
-  const { progress, storedLog, listing } = requireTracker(workspace);
+  const {
+    progress, storedLog, listing, epicListing
+  } = requireTracker(workspace);
   const wordedLog       = storedLog.records.map(LogUtil.wordedEntryOf);
   const logNewestFirst  = logNewestFirstOf(wordedLog);
-  const board           = readingBoardOf(progress, listing.tickets);
+  const board           = readingBoardOf(progress, listing.tickets, epicListing.epics);
 
   OutputUtil.reportIgnoredTicketFiles(context, listing.malformed);
+  OutputUtil.reportIgnoredEpicFiles(context, epicListing.malformed);
 
   const showsEverything  = commandArguments.flag('full');
   const showsTicketsOnly = commandArguments.flag('tickets-only');

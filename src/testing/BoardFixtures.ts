@@ -2,6 +2,7 @@
  * A Board over synthetic records, with a logger that keeps every record in a list, for the Board's specs to assert reason codes, records
  * and changed tickets against. Test-only: nothing that ships may import `src/testing/`.
  */
+import type { Epic, EpicFrontmatter }     from '../lib/tracker-model/@types/Epic.ts';
 import type { LogRecord }                 from '../lib/tracker-model/@types/LogRecord.ts';
 import type { Task }                      from '../lib/tracker-model/@types/Task.ts';
 import type { Ticket, TicketFrontmatter } from '../lib/tracker-model/@types/Ticket.ts';
@@ -14,6 +15,8 @@ import { createLogger }                   from '../lib/tracker-model/Logger.ts';
 const FIXTURE_STARTED_AT = '2026-09-18T09:00:00+02:00';
 
 const FIXTURE_TICKETS_DIRECTORY = '/example-agency/storefront/.agent-progress/tickets';
+
+const FIXTURE_EPICS_DIRECTORY = '/example-agency/storefront/.agent-progress/epics';
 
 export interface BoardFixture {
   board:    Board;
@@ -56,10 +59,22 @@ export function ticketFixture(overrides: Partial<TicketFrontmatter> = {}): Ticke
   return { frontmatter, body: '', filePath: `${FIXTURE_TICKETS_DIRECTORY}/${frontmatter.id}-example.md` };
 }
 
+export function epicFixture(overrides: Partial<EpicFrontmatter> = {}): Epic {
+  const frontmatter: EpicFrontmatter = {
+    key:   'example-checkout',
+    title: 'Example checkout redesign',
+    slot:  1,
+    extra: [],
+    ...overrides,
+  };
+  return { frontmatter, body: '', filePath: `${FIXTURE_EPICS_DIRECTORY}/${frontmatter.key}.md` };
+}
+
 /** The next task id is one past the highest row handed in, as a tracker that filed those rows itself would hold. */
-export function boardFixture(contents: { tasks?: Task[]; tickets?: Ticket[]; concurrencyLimit?: number } = {}): BoardFixture {
+export function boardFixture(contents: { tasks?: Task[]; tickets?: Ticket[]; epics?: Epic[]; concurrencyLimit?: number } = {}): BoardFixture {
   const tasks      = contents.tasks ?? [];
   const tickets    = contents.tickets ?? [];
+  const epics      = contents.epics ?? [];
   const records: LogRecord[] = [];
   const progress: TrackerProgress = {
     trackerId:  'example-tracker-id',
@@ -70,7 +85,9 @@ export function boardFixture(contents: { tasks?: Task[]; tickets?: Ticket[]; con
     ...(contents.concurrencyLimit === undefined ? {} : { concurrencyLimit: contents.concurrencyLimit }),
     tasks,
   };
-  const board = new Board({ progress, tickets, logger: createLogger((record) => records.push(record)) });
+  const board = new Board({
+    progress, tickets, epics, logger: createLogger((record) => records.push(record))
+  });
   return {
     board,
     progress,

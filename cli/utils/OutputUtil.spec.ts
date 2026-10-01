@@ -66,7 +66,9 @@ describe('OutputUtil.reportRenderProblems', () => {
   test('a page written without its script says so first, then one ignored-ticket line per malformed file', () => {
     const context = createCapturedCommandContext({ currentDirectory: scratchDirectory });
 
-    reportRenderProblems(context, { verdict: 'rendered-without-page-script', reason: 'the page bundle produced no output file', malformedTickets: MALFORMED_TICKETS });
+    reportRenderProblems(context, {
+      verdict: 'rendered-without-page-script', reason: 'the page bundle produced no output file', malformedTickets: MALFORMED_TICKETS, malformedEpics: []
+    });
 
     expect(context.outputText()).toBe('');
     expect(context.errorText()).toBe([
@@ -78,7 +80,7 @@ describe('OutputUtil.reportRenderProblems', () => {
   test('a rendered page prints only the ignored-ticket lines', () => {
     const context = createCapturedCommandContext({ currentDirectory: scratchDirectory });
 
-    reportRenderProblems(context, { verdict: 'rendered', malformedTickets: MALFORMED_TICKETS });
+    reportRenderProblems(context, { verdict: 'rendered', malformedTickets: MALFORMED_TICKETS, malformedEpics: [] });
 
     expect(context.outputText()).toBe('');
     expect(context.errorText()).toBe(IGNORED_TICKET_LINES);
@@ -87,7 +89,7 @@ describe('OutputUtil.reportRenderProblems', () => {
   test('a rendered page with no malformed ticket prints nothing at all', () => {
     const context = createCapturedCommandContext({ currentDirectory: scratchDirectory });
 
-    reportRenderProblems(context, { verdict: 'rendered', malformedTickets: [] });
+    reportRenderProblems(context, { verdict: 'rendered', malformedTickets: [], malformedEpics: [] });
 
     expect(context.outputText()).toBe('');
     expect(context.errorText()).toBe('');

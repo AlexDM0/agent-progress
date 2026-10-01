@@ -6,13 +6,15 @@ import { ProgressFileIngestion, type ProgressFileReading } from '../../adapters/
 import type { TrackerProgress }                            from '../../lib/tracker-model/@types/TrackerProgress.ts';
 import type { UnreadableTracker }                          from '../../shared/@types/UnreadableTracker.ts';
 import { OperationRefusal }                                from '../../shared/OperationRefusal.ts';
+import { listEpics, type EpicListing }                     from './EpicStore.ts';
 import { listTickets, type TicketListing }                 from './TicketStore.ts';
 import type { Workspace }                                  from './Workspace.ts';
 
 export interface TrackerContents {
-  progress:  TrackerProgress;
-  storedLog: StoredLog;
-  listing:   TicketListing;
+  progress:    TrackerProgress;
+  storedLog:   StoredLog;
+  listing:     TicketListing;
+  epicListing: EpicListing;
 }
 
 export type TrackerReading = { verdict: 'readable'; contents: TrackerContents } | UnreadableTracker;
@@ -49,9 +51,10 @@ export function readTracker(workspace: Workspace): TrackerReading {
   return {
     verdict:  'readable',
     contents: {
-      progress:  progressReading.progress,
-      storedLog: { records: storedLog.records },
-      listing:   listTickets(workspace),
+      progress:    progressReading.progress,
+      storedLog:   { records: storedLog.records },
+      listing:     listTickets(workspace),
+      epicListing: listEpics(workspace),
     },
   };
 }

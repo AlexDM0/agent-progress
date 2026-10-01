@@ -44,6 +44,11 @@ function agentStoppedTextOf(usage: AgentUsage): string {
     + `output ${TokenCountUtil.formatTokenCount(usage.outputTokens)}`;
 }
 
+function epicsText(epicKeys: readonly string[]): string {
+  if (epicKeys.length === 0) return 'no epic';
+  return `${epicKeys.length === 1 ? 'epic' : 'epics'} ${epicKeys.join(', ')}`;
+}
+
 function sentenceOf(record: LogRecordContent): string {
   switch (record.kind) {
     case 'note':
@@ -78,6 +83,14 @@ function sentenceOf(record: LogRecordContent): string {
       return `Ticket #${record.ticketId} marked as the release ticket of group ${record.fields.group}`;
     case 'ticket-release-cleared':
       return `Ticket #${record.ticketId} no longer marked as its group's release ticket`;
+    case 'ticket-epics-set':
+      return `Ticket #${record.ticketId} belongs to ${epicsText(record.fields.epics)}`;
+    case 'epic-added':
+      return `Epic ${record.epicKey} added: ${record.fields.title}`;
+    case 'epic-edited':
+      return `Epic ${record.epicKey} edited: ${record.fields.title}`;
+    case 'epic-removed':
+      return `Epic ${record.epicKey} removed`;
     case 'review-bar-started':
       return `Review row #${record.taskId} started: ${record.fields.name}`;
     case 'review-bar-closed':
@@ -120,6 +133,10 @@ function taskIdsConcernedBy(record: LogRecordContent): number[] {
     case 'ticket-unheld':
     case 'ticket-release-marked':
     case 'ticket-release-cleared':
+    case 'ticket-epics-set':
+    case 'epic-added':
+    case 'epic-edited':
+    case 'epic-removed':
     case 'chart-range-set':
     case 'concurrency-limit-set':
     case 'dispatcher-set':
@@ -149,7 +166,11 @@ function ticketIdsConcernedBy(record: LogRecordContent): string[] {
     case 'ticket-unheld':
     case 'ticket-release-marked':
     case 'ticket-release-cleared':
+    case 'ticket-epics-set':
       return [record.ticketId];
+    case 'epic-added':
+    case 'epic-edited':
+    case 'epic-removed':
     case 'note':
     case 'chart-range-set':
     case 'concurrency-limit-set':

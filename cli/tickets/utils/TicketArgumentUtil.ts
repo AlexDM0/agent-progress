@@ -11,7 +11,7 @@ import { TicketIdUtil }                    from '../../../src/lib/tracker-model/
 import { VocabularyUtil }                  from '../../../src/lib/tracker-model/utils/VocabularyUtil.ts';
 import { OperationRefusal }                from '../../../src/shared/OperationRefusal.ts';
 
-const DEPENDENCY_SEPARATOR_PATTERN = /[\s,]+/;
+const LIST_SEPARATOR_PATTERN = /[\s,]+/;
 
 function requirePriority(writtenPriority: string): TicketPriority {
   if (!VocabularyUtil.ticketPriorityIsKnown(writtenPriority)) {
@@ -48,9 +48,14 @@ function agentEffortFrom(writtenEffort: string | undefined): AgentEffort | undef
   return writtenEffort;
 }
 
+/** The keys as written, a repeated one kept at its first place; whether each names an epic is the Board's to judge. */
+function epicKeyListFrom(texts: readonly string[]): string[] {
+  return [...new Set(texts.flatMap((text) => text.split(LIST_SEPARATOR_PATTERN)).filter((part) => part !== ''))];
+}
+
 function dependencyListFrom(texts: readonly string[]): string[] {
   const dependsOn: string[] = [];
-  for (const reference of texts.flatMap((text) => text.split(DEPENDENCY_SEPARATOR_PATTERN)).filter((part) => part !== '')) {
+  for (const reference of texts.flatMap((text) => text.split(LIST_SEPARATOR_PATTERN)).filter((part) => part !== '')) {
     const identifier = TicketIdUtil.parseTicketReference(reference);
     if (identifier === null) {
       throw new OperationRefusal('refused', `"${reference}" is not a ticket id. Write it as \`3\`, \`003\` or \`#3\`.`);
@@ -71,5 +76,6 @@ export const TicketArgumentUtil = {
   agentModelFrom,
   agentEffortFrom,
   dependencyListFrom,
+  epicKeyListFrom,
   refuseAnUnknownTicketStatus,
 } as const;
