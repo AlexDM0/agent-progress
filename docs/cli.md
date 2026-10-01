@@ -3,7 +3,7 @@
 The complete reference for someone using the tool: what `init` and `update` write into a repository,
 every command and flag, the exit codes, what the dashboard shows, the files on disk and what each
 ticket move does to its Gantt row. The code wins every disagreement: `agent-progress help` prints the
-command reference from `cli/HelpText.ts` and is never out of step with the tool. `skill/Reference.md`
+command reference from `cli/HelpText.ts` and is never out of step with the tool. `skills/agent-progress/Reference.md`
 carries a word-for-word copy of three sections of this file, the ticket file format, the ticket moves
 and the exit codes, and follows it everywhere else. The overview is in the [README](../README.md); working on this repository yourself
 is in [development.md](development.md).
@@ -202,8 +202,8 @@ included.
 
 | skill | folder | for | holds |
 |---|---|---|---|
-| `agent-progress` | `skill/` | any session in a tracked repository | the model, how to file and move a ticket, what an implementing agent owes its `## Handoff`, the rules. No command list: `agent-progress help` is the reference, and `skill/Reference.md` holds what the help does not print. |
-| `agent-progress-orchestrate` | `skill-orchestrate/` | the one session running the board, started with `/agent-progress-orchestrate` | intake (grilling each request until its acceptance is unambiguous, filing it with a `## Brief`), launching, relaunching and resuming the dispatcher, triaging low-priority tickets. |
+| `agent-progress` | `skills/agent-progress/` | any session in a tracked repository | the model, how to file and move a ticket, what an implementing agent owes its `## Handoff`, the rules. No command list: `agent-progress help` is the reference, and `skills/agent-progress/Reference.md` holds what the help does not print. |
+| `agent-progress-orchestrate` | `skills/agent-progress-orchestrate/` | the one session running the board, started with `/agent-progress-orchestrate` | intake (grilling each request until its acceptance is unambiguous, filing it with a `## Brief`), launching, relaunching and resuming the dispatcher, triaging low-priority tickets. |
 
 ## Commands
 

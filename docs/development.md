@@ -32,7 +32,7 @@ job. It runs three steps:
 |---|---|
 | 1/3 Bun | Puts `~/.bun/bin` on the `PATH` for its own run and checks for Bun. Below 1.2 it warns and suggests `bun upgrade`; when Bun is missing it offers the official installer and exits if you decline. |
 | 2/3 Dependencies and the global command | Runs `bun install` on every run, not only the first, because every command that rewrites the page needs `marked`. Then `bun link`, so `agent-progress` works from any directory. When `agent-progress` is still not found on the `PATH` and the rc file does not already mention `~/.bun/bin`, it offers to add one export line to `~/.zshrc` (or `~/.bashrc` under bash). |
-| 3/3 The skills | Symlinks `~/.claude/skills/agent-progress` to this checkout's `skill/` and `~/.claude/skills/agent-progress-orchestrate` to its `skill-orchestrate/`. |
+| 3/3 The skills | Symlinks `~/.claude/skills/agent-progress` to this checkout's `skills/agent-progress/` and `~/.claude/skills/agent-progress-orchestrate` to its `skills/agent-progress-orchestrate/`. |
 
 The skills are **symlinks, never copies**: an edit reaches every session at once, a `git pull` needs
 no install step, and a copy under `~/.claude` would be the one version nothing checks. The step is

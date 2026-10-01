@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # setup.sh — install the agent-progress tooling on this machine: Bun, `bun install` + `bun link`, and
-# symlinks from ~/.claude/skills/agent-progress to this repository's skill/ and from
-# ~/.claude/skills/agent-progress-orchestrate to its skill-orchestrate/.
+# symlinks from ~/.claude/skills/agent-progress to this repository's skills/agent-progress/ and from
+# ~/.claude/skills/agent-progress-orchestrate to its skills/agent-progress-orchestrate/.
 #
 # It edits nothing outside $HOME/.claude and, on the offer, one shell rc file, and it deletes nothing
 # that is not a symlink it wrote. Per-repository setup is `agent-progress init`'s job, not this one's.
@@ -90,12 +90,12 @@ step "3/3 The agent-progress Claude skills"
 SKILLS_DIRECTORY="$HOME/.claude/skills"
 
 # "<folder in this checkout>:<name it takes under ~/.claude/skills>". Two skills because they have two
-# audiences: `skill/` is loaded by every session in a tracked repository, `skill-orchestrate/` only by
-# the one running the board, and an orchestrator's material in the first would be injected into every
-# implementing agent that opens a file.
+# audiences: `skills/agent-progress/` is loaded by every session in a tracked repository,
+# `skills/agent-progress-orchestrate/` only by the one running the board, and an orchestrator's material
+# in the first would be injected into every implementing agent that opens a file.
 BUNDLED_SKILLS=(
-  "skill:agent-progress"
-  "skill-orchestrate:agent-progress-orchestrate"
+  "skills/agent-progress:agent-progress"
+  "skills/agent-progress-orchestrate:agent-progress-orchestrate"
 )
 
 # Both sides of "is it already linked?" resolve physically: a textual readlink comparison is wrong the

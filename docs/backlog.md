@@ -33,9 +33,9 @@ dispatcher port kept the old script's instructions.
 
 ## Keeping the skill's copy of the formats in step
 
-`skill/Reference.md` carries a word-for-word copy of three `docs/cli.md` sections, the ticket file
+`skills/agent-progress/Reference.md` carries a word-for-word copy of three `docs/cli.md` sections, the ticket file
 format, the ticket moves and the exit codes, kept in step by hand. Agreed: generate those sections of
-`skill/Reference.md` from `docs/cli.md`, or pin them with a spec that fails when the two differ.
+`skills/agent-progress/Reference.md` from `docs/cli.md`, or pin them with a spec that fails when the two differ.
 
 Not started because it is a code change (a generator or a guard spec, watched failing on each drifted
 form), and the migration's step 9 changed documentation only.

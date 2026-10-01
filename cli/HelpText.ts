@@ -1,5 +1,5 @@
 /**
- * The whole command reference, which `cli/HelpText.spec.ts` holds against `COMMAND_NAMES` and `skill/SKILL.md`.
+ * The whole command reference, which `cli/HelpText.spec.ts` holds against `COMMAND_NAMES` and `skills/agent-progress/SKILL.md`.
  * The layout is load-bearing: an entry begins at column 2 and every continuation line is indented past it.
  */
 

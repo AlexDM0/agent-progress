@@ -51,7 +51,7 @@ const INSTALLED_TEMPLATE_PATHS = [
   'resources/templates/AgentProgressWorker.md',
 ];
 
-const INSTALLED_SKILL_FOLDERS = ['skill', 'skill-orchestrate'];
+const INSTALLED_SKILL_FOLDERS = ['skills/agent-progress', 'skills/agent-progress-orchestrate'];
 
 const DISPATCHER_FOLDER = 'dispatcher';
 
@@ -197,7 +197,8 @@ function cliSurfaceWithHelpReplaced(searched: string, replacement: string): CliS
 describeWhenGitIsPresent('the scan itself', () => {
   /** Floors well under today's counts, to fail a scan that read the wrong files or a help screen it could not parse. */
   test('it reads the installed files and finds commands, flags and status fields in them and in the CLI', () => {
-    expect(Object.keys(INSTALLED_TEXTS)).toEqual(expect.arrayContaining([...INSTALLED_TEMPLATE_PATHS, 'skill/SKILL.md', 'skill-orchestrate/SKILL.md', REPLY_SCHEMA_PATH]));
+    const expectedPaths = [...INSTALLED_TEMPLATE_PATHS, 'skills/agent-progress/SKILL.md', 'skills/agent-progress-orchestrate/SKILL.md', REPLY_SCHEMA_PATH];
+    expect(Object.keys(INSTALLED_TEXTS)).toEqual(expect.arrayContaining(expectedPaths));
     const namedSurface = namedSurfaceOf(INSTALLED_TEXTS, cliSurface);
     expect(namedSurface.commands.length, 'commands named').toBeGreaterThanOrEqual(10);
     expect(namedSurface.flags.length, 'flags named').toBeGreaterThanOrEqual(15);
@@ -248,7 +249,7 @@ describeWhenGitIsPresent('the guard, planted in memory', () => {
   });
 
   test('a name newly installed is asked for under the current version', () => {
-    const naming = withTextReplaced(INSTALLED_TEXTS, 'skill/SKILL.md', 'agent-progress help', 'agent-progress help and `agent-progress usage`');
+    const naming = withTextReplaced(INSTALLED_TEXTS, 'skills/agent-progress/SKILL.md', 'agent-progress help', 'agent-progress help and `agent-progress usage`');
     expect(sentencesWith(naming, cliSurface)).toEqual([
       `the installed files now name the command usage, which INSTALL_VERSION ${INSTALL_VERSION}'s frozen surface lacks: add it under "${INSTALL_VERSION}" in ${FROZEN_TABLE_PATH}`,
     ]);

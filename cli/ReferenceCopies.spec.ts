@@ -1,5 +1,5 @@
 /**
- * `skill/Reference.md` carries three sections of `docs/cli.md` for agents that cannot read the docs: the ticket file, the ticket moves and
+ * `skills/agent-progress/Reference.md` carries three sections of `docs/cli.md` for agents that cannot read the docs: the ticket file, the ticket moves and
  * the exit codes. Each copy must hold its source's body byte for byte, so an edit to either side alone fails here. The Reference section may
  * add lines of its own around the copy (a path line above the ticket file, a paragraph after the moves), never inside it. The scan is
  * fence-aware, because the ticket file's example holds markdown headings that would otherwise end its section early.
@@ -9,7 +9,7 @@ import { join }                   from 'node:path';
 import { describe, expect, test } from 'bun:test';
 
 const DOCUMENTATION_TEXT = readFileSync(join(import.meta.dir, '..', 'docs', 'cli.md'), 'utf8');
-const REFERENCE_TEXT     = readFileSync(join(import.meta.dir, '..', 'skill', 'Reference.md'), 'utf8');
+const REFERENCE_TEXT     = readFileSync(join(import.meta.dir, '..', 'skills', 'agent-progress', 'Reference.md'), 'utf8');
 
 /** Shorter than any of the three sources, so a heading renamed into an empty match fails the floor rather than passing on nothing. */
 const SMALLEST_COPIED_SECTION_CHARACTERS = 1_000;
@@ -74,12 +74,12 @@ function withOneWordChanged(text: string, phrase: string, word: string): string 
   return `${text.slice(0, index)}${phrase.replace(word, 'changed')}${text.slice(index + phrase.length)}`;
 }
 
-describe('skill/Reference.md copies its three docs/cli.md sections verbatim', () => {
+describe('skills/agent-progress/Reference.md copies its three docs/cli.md sections verbatim', () => {
   test('every source and copy section is found, and each source is long enough to be the section rather than a stray match', () => {
     for (const { sourceHeading, copyHeading } of COPIED_SECTIONS) {
       const source = sectionBodyOf(DOCUMENTATION_TEXT, sourceHeading);
       expect(source, `\`${sourceHeading}\` in docs/cli.md`).not.toBeNull();
-      expect(sectionBodyOf(REFERENCE_TEXT, copyHeading), `\`${copyHeading}\` in skill/Reference.md`).not.toBeNull();
+      expect(sectionBodyOf(REFERENCE_TEXT, copyHeading), `\`${copyHeading}\` in skills/agent-progress/Reference.md`).not.toBeNull();
       expect(source?.length ?? 0, `characters under \`${sourceHeading}\``).toBeGreaterThan(SMALLEST_COPIED_SECTION_CHARACTERS);
     }
   });
@@ -89,7 +89,7 @@ describe('skill/Reference.md copies its three docs/cli.md sections verbatim', ()
   });
 
   test('each copy holds its source byte for byte', () => {
-    expect(driftedSectionsOf(DOCUMENTATION_TEXT, REFERENCE_TEXT), 'change docs/cli.md and skill/Reference.md together').toEqual([]);
+    expect(driftedSectionsOf(DOCUMENTATION_TEXT, REFERENCE_TEXT), 'change docs/cli.md and skills/agent-progress/Reference.md together').toEqual([]);
   });
 
   test('a one-word edit to a copy alone is caught, in each section', () => {

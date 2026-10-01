@@ -12,12 +12,12 @@ import { helpText }      from './HelpText.ts';
 
 const HELP_TEXT = helpText();
 
-const SKILL_TEXT       = readFileSync(join(import.meta.dir, '..', 'skill', 'SKILL.md'), 'utf8');
-const REFERENCE_TEXT   = readFileSync(join(import.meta.dir, '..', 'skill', 'Reference.md'), 'utf8');
-const ORCHESTRATE_TEXT = readFileSync(join(import.meta.dir, '..', 'skill-orchestrate', 'SKILL.md'), 'utf8');
+const SKILL_TEXT       = readFileSync(join(import.meta.dir, '..', 'skills', 'agent-progress', 'SKILL.md'), 'utf8');
+const REFERENCE_TEXT   = readFileSync(join(import.meta.dir, '..', 'skills', 'agent-progress', 'Reference.md'), 'utf8');
+const ORCHESTRATE_TEXT = readFileSync(join(import.meta.dir, '..', 'skills', 'agent-progress-orchestrate', 'SKILL.md'), 'utf8');
 
 /**
- * What `skill/SKILL.md` may grow to. Its trigger fires in every session in a tracked repository,
+ * What `skills/agent-progress/SKILL.md` may grow to. Its trigger fires in every session in a tracked repository,
  * including every implementing subagent, and each of their API calls re-reads it — so orchestrator
  * material creeping back into it is paid for by all of them. Raise this only with the same argument.
  */
@@ -115,9 +115,9 @@ function ticketSubcommandsDocumented(): string[] {
  * A copy of the command reference is as wrong in a file added next year as it is in these.
  */
 const BUNDLED_SKILL_FILES = [
-  { path: 'skill/SKILL.md',              text: SKILL_TEXT },
-  { path: 'skill/Reference.md',          text: REFERENCE_TEXT },
-  { path: 'skill-orchestrate/SKILL.md',  text: ORCHESTRATE_TEXT }
+  { path: 'skills/agent-progress/SKILL.md',              text: SKILL_TEXT },
+  { path: 'skills/agent-progress/Reference.md',          text: REFERENCE_TEXT },
+  { path: 'skills/agent-progress-orchestrate/SKILL.md',  text: ORCHESTRATE_TEXT }
 ] as const;
 
 describe('the bundled skills leave the command reference to the tool', () => {
@@ -150,7 +150,7 @@ describe('the bundled skills leave the command reference to the tool', () => {
   });
 
   test('what the help does not print is in the file that does', () => {
-    // The division of labour between the two: these four are the reason `skill/Reference.md` exists at all.
+    // The division of labour between the two: these four are the reason `skills/agent-progress/Reference.md` exists at all.
     expect(HELP_TEXT, 'the help stays a command reference; the formats live beside the skill').not.toContain('abandonedAt');
     expect(REFERENCE_TEXT).toContain('abandonedAt');
     expect(REFERENCE_TEXT).toContain('## Exit codes');
@@ -161,7 +161,8 @@ describe('the bundled skills leave the command reference to the tool', () => {
 
 describe('the two skills stay split by audience', () => {
   test('the session skill stays under what every agent in a tracked repository can afford', () => {
-    expect(SKILL_TEXT.length, `\`skill/SKILL.md\` is loaded by every session in a tracked repository and may not exceed ${SESSION_SKILL_LIMIT_CHARACTERS} characters`)
+    expect(SKILL_TEXT.length, '`skills/agent-progress/SKILL.md` is loaded by every session in a tracked repository and may not exceed '
+      + `${SESSION_SKILL_LIMIT_CHARACTERS} characters`)
       .toBeLessThanOrEqual(SESSION_SKILL_LIMIT_CHARACTERS);
   });
 

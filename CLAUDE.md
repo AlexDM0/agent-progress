@@ -166,7 +166,7 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 | A frozen table comes from the previous implementation. | `dispatcher/testing/FrozenDispatchTraces.json` is retaken from the bundle, only in a commit meant to change what agents are told, its diff showing prompt text or wire names and no decision; `cli/FrozenInstalledSurface.json` is taken from the installed files. | No previous implementation holds them. |
 | A `src/lib/` package leaves a refusal as a verdict. | The tracker model's `Board` throws `BoardRefusal`. | A domain class throws a typed domain error. |
 | A feature never reaches another. | `cli/` reaches `dispatcher/`, the render service `page/`, by path, to bundle them. | Bundled, never imported. |
-| One reference per fact. | `skill/Reference.md` copies three `docs/cli.md` sections verbatim (ticket format, ticket moves, exit codes); a change to either changes both. | Agents elsewhere cannot read `docs/cli.md`. |
+| One reference per fact. | `skills/agent-progress/Reference.md` copies three `docs/cli.md` sections verbatim (ticket format, ticket moves, exit codes); a change to either changes both. | Agents elsewhere cannot read `docs/cli.md`. |
 | A failure exits non-zero. | Exit 0 for: `hook subagent-stop` after its arguments are read; a store write whose render failed (reported on stderr); `release` when git declined the worktree removal or `branch -d` after the merge (reported). | The agent finished; the store holds the change; the release happened. |
 
 ## Local rules
@@ -219,12 +219,13 @@ src/lib/  →  src/shared/  →  src/adapters/  →  src/services/ (render → t
 
 ### Skills
 
-- `skill/` loads in every tracked session, so orchestrator-only material goes in `skill-orchestrate/`.
-- No skill file lists commands: `agent-progress help` is the reference. `skill/SKILL.md` names it and
-  `skill/Reference.md`, which holds only what help does not print and follows `docs/cli.md`.
+- `skills/agent-progress/` loads in every tracked session, so orchestrator-only material goes in
+  `skills/agent-progress-orchestrate/`.
+- No skill file lists commands: `agent-progress help` is the reference. `skills/agent-progress/SKILL.md` names it
+  and `skills/agent-progress/Reference.md`, which holds only what help does not print and follows `docs/cli.md`.
 - A `SKILL.md` `description` is its trigger, naming the words a user says. Skill files cite only commands, paths in
   a tracked repository, or files beside them.
-- `skill-orchestrate/` repeats nothing from `skill/`, writes rules as instructions, and never restates what the
+- `skills/agent-progress-orchestrate/` repeats nothing from `skills/agent-progress/`, writes rules as instructions, and never restates what the
   dispatcher decides. Call budgets and the rework threshold are `DISPATCH_PROTOCOL`
   (`src/shared/constants/DispatchProtocol.ts`), filled into the brief and block by `init` and `update`.
 - `setup.sh` symlinks both into `~/.claude/skills/`, and `~/development/claude/skills.json` must list them under
@@ -243,8 +244,9 @@ src/adapters/        the boundary: every stored format read, written and mapped,
 src/services/        the tracker and render services
 src/shared/          app-specific code several parts use
 src/testing/         test-only helpers several parts use
-skill/               the skill every session in a tracked repository loads
-skill-orchestrate/   the skill for the one session running the board
+skills/              the two skills, one folder each, named after the skill: agent-progress/, which every
+                     session in a tracked repository loads, and agent-progress-orchestrate/, for the one
+                     session running the board
 docs/                the CLI reference, development notes, the backlog, the migration plan, README images
 .readme-graphics/    the scripts and demo board that retake the README images; its build/ is git-ignored
 ```

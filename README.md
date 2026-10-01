@@ -128,7 +128,7 @@ git clone https://github.com/AlexDM0/agent-progress.git && cd agent-progress
 ```
 
 <p align="center">
-  <img src="docs/images/terminal-setup.png" width="680" alt="Terminal output of setup.sh: 1/3 Bun found, 2/3 dependencies installed and agent-progress on your PATH, 3/3 both skills linked into ~/.claude/skills, then Tooling ready">
+  <img src="docs/images/terminal-setup.png" width="790" alt="Terminal output of setup.sh: 1/3 Bun found, 2/3 dependencies installed and agent-progress on your PATH, 3/3 both skills linked into ~/.claude/skills, then Tooling ready">
 </p>
 
 It offers to install Bun if it is missing, links the CLI and symlinks both skills into `~/.claude/skills/`; it changes
