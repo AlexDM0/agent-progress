@@ -94,7 +94,8 @@
                                  id="ap-tab-…" with aria-controls naming the panel; the arrow keys,
                                  Home and End move to a tab and select it
  [data-panel="…"]         el     matching panel, role="tabpanel", id="ap-panel-…" and
-                                 aria-labelledby naming its tab; [hidden] when not selected
+                                 aria-labelledby naming its tab; [hidden] when not selected; each
+                                 starts --sp-5 (24px) below .ap-tab-bar's rule
  #ap-finished             el     the finished-work switch, one choice shared by Kanban, Progress and
                                  Tickets and remembered per viewer: .ap-finished-label, then
                                  .ap-finished-anchor holding the switch and its popover, then
@@ -604,6 +605,7 @@ button.ap-stat:focus-visible { outline: 2px solid var(--ink); outline-offset: 2p
 .ap-tabs button:hover { color: var(--ink); }
 .ap-tabs button[aria-selected="true"] { color: var(--ink); }
 .ap-tabs button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+[data-panel] { padding-top: var(--sp-5); }
 [data-panel][hidden] { display: none; }
 
 .ap-theme { flex: none; display: flex; gap: 2px; padding: 2px; border-radius: 7px; box-shadow: 0 0 0 1px var(--line); }
