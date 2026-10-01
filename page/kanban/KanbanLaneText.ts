@@ -1,18 +1,15 @@
 /** The words the Kanban lane heads and cards print beyond the pill: the heads' counts and a card's sub-state note. The page's now is handed in. */
 
-import type { DisplayState, Task }             from '../../src/lib/tracker-model/@types/Task.ts';
-import { FIRST_REPEAT_REVIEW_ROUND }           from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
-import type { KanbanCard }                     from '../@types/KanbanCard.ts';
-import { STATE_LABEL_FOR_DISPLAY_STATE }       from '../constants/StateLabels.ts';
-import type { DurationUnits, TimestampSlices } from '../utils/TimeUtil.ts';
-import { TimeUtil }                            from '../utils/TimeUtil.ts';
-import type { KanbanLane }                     from './@types/KanbanLane.ts';
+import type { DisplayState, Task }       from '../../src/lib/tracker-model/@types/Task.ts';
+import { FIRST_REPEAT_REVIEW_ROUND }     from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
+import type { KanbanCard }               from '../@types/KanbanCard.ts';
+import { STATE_LABEL_FOR_DISPLAY_STATE } from '../constants/StateLabels.ts';
+import type { PauseTextFormat }          from '../utils/PauseTextUtil.ts';
+import { PauseTextUtil }                 from '../utils/PauseTextUtil.ts';
+import { TimeUtil }                      from '../utils/TimeUtil.ts';
+import type { KanbanLane }               from './@types/KanbanLane.ts';
 
-export interface NoteFormat {
-  nowEpochMilliseconds: number;
-  todayCalendarDate:    string;
-  slices:               TimestampSlices & DurationUnits;
-}
+export type NoteFormat = PauseTextFormat;
 
 /** One figure of a lane head; `dotState` draws the state's dot before it, `reviewedMark` the ✓. */
 export interface LaneSubCount {
@@ -75,10 +72,8 @@ function durationSince(stamp: string | null | undefined, format: NoteFormat): st
 }
 
 function pausedNote(card: KanbanCard, format: NoteFormat): string | null {
-  const pausedAt = newestPhaseAt(card.ownRow, 'paused');
-  const since    = stampNote('paused since', pausedAt, format);
-  const duration = durationSince(pausedAt, format);
-  return since === null || duration === null ? since : `${since} · ${duration}`;
+  const pauseText = PauseTextUtil.pauseTextOf(card.ownRow, format);
+  return pauseText === null ? null : `paused ${pauseText}`;
 }
 
 function waitingForReviewerNote(card: KanbanCard, format: NoteFormat): string | null {

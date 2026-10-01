@@ -8,6 +8,8 @@ import { FIRST_REPEAT_REVIEW_ROUND } from '../../src/lib/tracker-model/constants
 import type { KanbanCard }           from '../@types/KanbanCard.ts';
 import { CLOSING_EVENT_WORD }        from '../constants/ClosingEventWords.ts';
 import { MarkupUtil }                from '../utils/MarkupUtil.ts';
+import { PauseTextUtil }             from '../utils/PauseTextUtil.ts';
+import { TimeUtil }                  from '../utils/TimeUtil.ts';
 import { WorkItemMarkupUtil }        from '../utils/WorkItemMarkupUtil.ts';
 import type { TicketTimelineLimits } from './@types/TicketTimeline.ts';
 import { ticketTimelineMarkup }      from './TicketTimelineMarkup.ts';
@@ -43,20 +45,42 @@ function plainFactMarkup(label: string, valueMarkup: string): string {
   return DetailMarkupUtil.factMarkup(label, `<span>${valueMarkup}</span>`);
 }
 
-function factsMarkup(input: TicketDetailInput): string {
-  const { card, limits, todayCalendarDate } = input;
-  const { ticket, ownRow }                  = card;
-  const stamps: Array<[label: string, stamp: string | null | undefined]> = [
-    ['filed', ticket.filed],
-    ['started', ticket.started],
-    ['finished', ticket.finished],
-    ['reviewed', ownRow?.reviewed],
-    [CLOSING_EVENT_WORD.delivered, ticket.delivered],
-    [CLOSING_EVENT_WORD.abandoned, ticket.abandonedAt],
-  ];
-  const facts = stamps.flatMap(([label, stamp]) => (typeof stamp === 'string' && stamp !== ''
-    ? [DetailMarkupUtil.factMarkup(label, MarkupUtil.stampMarkup('span', stamp, todayCalendarDate, limits))]
+/** A paused build's since and duration, the full stamp on hover, then the row's note, which says why it waits. */
+function pauseFactsMarkup(input: TicketDetailInput): string[] {
+  const {
+    card, limits, todayCalendarDate, nowEpochMilliseconds
+  } = input;
+  const pausedAt  = card.state === 'paused' ? PauseTextUtil.pausedStampOf(card.ownRow) : null;
+  const pauseText = PauseTextUtil.pauseTextOf(card.ownRow, { nowEpochMilliseconds, todayCalendarDate, slices: limits });
+  if (pausedAt === null || pauseText === null) {
+    return [];
+  }
+  const fullStampTitle = MarkupUtil.attribute('title', TimeUtil.fullStampText(pausedAt, limits));
+  const facts          = [DetailMarkupUtil.factMarkup('paused', `<span ${fullStampTitle}>${HtmlEscapeUtil.escapeHtml(pauseText)}</span>`)];
+  const rowNote   = card.ownRow?.note ?? '';
+  if (rowNote !== '') facts.push(plainFactMarkup('row note', HtmlEscapeUtil.escapeHtml(rowNote)));
+  return facts;
+}
+
+function stampFactsMarkup(input: TicketDetailInput, stamps: Array<[label: string, stamp: string | null | undefined]>): string[] {
+  return stamps.flatMap(([label, stamp]) => (typeof stamp === 'string' && stamp !== ''
+    ? [DetailMarkupUtil.factMarkup(label, MarkupUtil.stampMarkup('span', stamp, input.todayCalendarDate, input.limits))]
     : []));
+}
+
+function factsMarkup(input: TicketDetailInput): string {
+  const { card }           = input;
+  const { ticket, ownRow } = card;
+  const facts = [
+    ...stampFactsMarkup(input, [['filed', ticket.filed], ['started', ticket.started]]),
+    ...pauseFactsMarkup(input),
+    ...stampFactsMarkup(input, [
+      ['finished', ticket.finished],
+      ['reviewed', ownRow?.reviewed],
+      [CLOSING_EVENT_WORD.delivered, ticket.delivered],
+      [CLOSING_EVENT_WORD.abandoned, ticket.abandonedAt],
+    ]),
+  ];
   if (ticket.reason !== undefined && ticket.reason !== '') facts.push(plainFactMarkup('reason', HtmlEscapeUtil.escapeHtml(ticket.reason)));
   if (ticket.hold !== undefined) facts.push(plainFactMarkup('held', HtmlEscapeUtil.escapeHtml(ticket.hold === '' ? HELD_WITHOUT_REASON_TEXT : ticket.hold)));
   if (card.waitingOn.length > 0) facts.push(plainFactMarkup('waiting on', WorkItemMarkupUtil.ticketLinksMarkup(card.waitingOn, 'kanban-card')));

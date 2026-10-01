@@ -49,7 +49,9 @@
  #ap-project              text   project name, the h1
  #ap-summary              html   four .ap-stat, each .ap-stat-n then .ap-stat-label: agents working
                                  ("1 / 6", running rows over the concurrency limit, or the running
-                                 count alone), done today, tokens today, waiting in queue. A
+                                 count alone), then, only while builds are paused, "N paused"
+                                 (.ap-stat[data-state="paused"], dashed, opening the progress lane),
+                                 done today, tokens today, waiting in queue. A
                                  state stat is button.ap-stat[data-kanban-lane] (progress | done |
                                  todo) with aria-label "Show <figure> <label> on Kanban", which selects
                                  the Kanban tab and marks that .ap-lane[data-highlighted] for 1.2 s; the
@@ -162,7 +164,9 @@
                                  pressed draws each review pass as a row of its own
                                  (.ap-row[data-review-of]) instead of a segment on its ticket's row
  #ap-ticket-rows          tbody  ticket table body; each <tr> carries data-ticket-id and data-state, its status
-                                 an .ap-badge[data-state] with the state's label; the matches of
+                                 an .ap-badge[data-state] with the state's label, a paused build's
+                                 badge followed by .ap-detail-gap "since 11:45 · 1h 51m" (the row's
+                                 note on hover); the matches of
                                  the search in title, group and branch wrapped in mark.ap-match;
                                  when nothing matches, one tr.ap-table-empty saying what was asked
                                  with a button[data-clear-filters]. A ticket body shows only in
@@ -254,7 +258,8 @@
  -------------------------------------------------------- ticket body markup ---
  .ap-detail-head[data-state]  the card's state; .ap-detail-id, h2.ap-detail-title, .ap-pill (always),
                           the ✓ where the card has it, the priority mark, .ap-detail-type
- .ap-ticket-meta          the facts present, in order: filed, started, finished, reviewed (the own
+ .ap-ticket-meta          the facts present, in order: filed, started, paused ("since 11:45 · 1h 51m",
+                          a paused build only) and row note (the paused row's), finished, reviewed (the own
                           row's), done, abandoned, reason, held, waiting on (links to Kanban
                           cards), branch, task (#ap-task-N); each stamp shortened, full on hover
  Timeline section         .ap-ticket-gantt: .ap-chart-head (Row, Time, the track holding
@@ -279,8 +284,8 @@
  the label is the state's one visible word on every tab: .ap-pill, .ap-badge, the detail head, the Timeline
  legend, a single-state Kanban lane's name and the lane-head and summary counts (lower-cased mid-sentence);
  a lane or count over several states keeps its group name (Review, In progress, "in review")
- ticket status class on .ap-badge = pending | in-progress | in-review | reviewed | delivered | abandoned,
- its text the label
+ .ap-badge[data-state] = the ticket's display state, any of the above (Paused for a paused build, never
+ the raw ticket status), its text the label
  -------------------------------------------------------------- script hooks ---
  --timeline-w   on #ap-chart: track column width. "1fr" = fill (no scroll);
                 set to a px value (e.g. 2400px) to make the timeline scroll.
@@ -538,6 +543,8 @@ a:hover { color: var(--ink); text-decoration: underline; }
 button.ap-stat { padding: 0; border: 0; background: none; font: inherit; color: inherit; cursor: pointer; border-radius: var(--r-1); }
 button.ap-stat:hover .ap-stat-label { color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 button.ap-stat:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.ap-stat[data-state="paused"] { border: 1px dashed var(--s-edge); border-radius: var(--r-2); }
+.ap-stat[data-state="paused"] .ap-stat-n { color: var(--s-ink); }
 .ap-stat-n { font: 500 18px/1.25 var(--font-mono); font-variant-numeric: tabular-nums; letter-spacing: -0.02em; color: var(--ink); }
 .ap-stat-label { font: 400 var(--fs-small)/1.3 var(--font-ui); color: var(--ink-muted); }
 
@@ -1069,6 +1076,7 @@ body:has(#ap-panel-progress:not([hidden])) .ap-page { height: 100%; display: fle
 .ap-sortable[aria-sort="ascending"] .ap-sort::after { content: "↑"; opacity: 1; }
 .ap-sortable[aria-sort="descending"] .ap-sort::after { content: "↓"; opacity: 1; }
 .ap-table .ap-badge { min-width: 104px; }
+.ap-table td .ap-detail-gap { margin-left: 8px; font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--s-ink); }
 .ap-match { background: var(--warn-tint); color: inherit; border-radius: 2px; box-shadow: 0 0 0 1px var(--warn-edge); }
 .ap-table-empty td { padding: var(--sp-6) var(--sp-4); text-align: center; color: var(--ink-muted); }
 .ap-table-empty p { margin: 0 0 var(--sp-2); }
@@ -1494,6 +1502,7 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
       </div>
       <div class="ap-summary" id="ap-summary">
         <button type="button" class="ap-stat" data-kanban-lane="progress" aria-label="Show 4 / 5 agents working on Kanban"><span class="ap-stat-n">4 / 5</span><span class="ap-stat-label">agents working</span></button>
+        <button type="button" class="ap-stat" data-state="paused" data-kanban-lane="progress" aria-label="Show 1 paused on Kanban"><span class="ap-stat-n">1</span><span class="ap-stat-label">paused</span></button>
         <button type="button" class="ap-stat" data-kanban-lane="done" aria-label="Show 12 done today on Kanban"><span class="ap-stat-n">12</span><span class="ap-stat-label">done today</span></button>
         <span class="ap-stat"><span class="ap-stat-n">21.4M</span><span class="ap-stat-label">tokens today</span></span>
         <button type="button" class="ap-stat" data-kanban-lane="todo" aria-label="Show 6 waiting in queue on Kanban"><span class="ap-stat-n">6</span><span class="ap-stat-label">waiting in queue</span></button>

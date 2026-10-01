@@ -6,7 +6,7 @@
 
 import { describe, expect, test }                        from 'bun:test';
 import { MILLISECONDS_PER_MINUTE }                       from '../../../src/lib/local-time/LocalTimeUtil.ts';
-import type { Task }                                     from '../../../src/lib/tracker-model/@types/Task.ts';
+import type { DisplayState, Task }                       from '../../../src/lib/tracker-model/@types/Task.ts';
 import type { TicketFrontmatter }                        from '../../../src/lib/tracker-model/@types/Ticket.ts';
 import { EXAMPLE_PAGE_LIMITS, EXAMPLE_TIMESTAMP_SLICES } from '../../testing/PageLimitsFixture.ts';
 import { HeaderFigureUtil, LIVE_AGE_LIMIT_MILLISECONDS } from './HeaderFigureUtil.ts';
@@ -31,11 +31,16 @@ function exampleTask(changes: Partial<Task> = {}): Task {
   };
 }
 
-type TicketFacts = Pick<TicketFrontmatter, 'status' | 'delivered'>;
+type TicketFacts = Pick<TicketFrontmatter, 'status' | 'delivered'> & { displayState?: DisplayState };
 
+/** A ticket's display state is its status unless the case says otherwise, as the Board reads a ticket whose row is not paused. */
 function statisticsFor(tasks: readonly Task[], tickets: readonly TicketFacts[], agentLimit: number | null = 6) {
   return statisticsOf({
-    tasks, tickets, agentLimit, todayCalendarDate: TODAY, slices: EXAMPLE_TIMESTAMP_SLICES
+    tasks,
+    tickets:           tickets.map((ticket) => ({ displayState: ticket.status, ...ticket })),
+    agentLimit,
+    todayCalendarDate: TODAY,
+    slices:            EXAMPLE_TIMESTAMP_SLICES,
   });
 }
 
@@ -92,9 +97,20 @@ describe('statisticsOf', () => {
     expect(statistics.waitingInQueueCount).toBe(2);
   });
 
+  // A paused build's ticket stays in-progress; only the Board's display state tells it from a running one.
+  test('counts as paused builds the tickets the Board displays as paused, not their in-progress status', () => {
+    const statistics = statisticsFor([], [
+      { status: 'in-progress', delivered: null, displayState: 'paused' },
+      { status: 'in-progress', delivered: null },
+      { status: 'pending', delivered: null },
+    ]);
+
+    expect(statistics.pausedBuildCount).toBe(1);
+  });
+
   test('reads an empty board as zero everywhere', () => {
     expect(statisticsFor([], [])).toEqual({
-      runningTaskCount: 0, agentLimit: 6, deliveredTodayCount: 0, tokensToday: 0, waitingInQueueCount: 0
+      runningTaskCount: 0, agentLimit: 6, deliveredTodayCount: 0, tokensToday: 0, waitingInQueueCount: 0, pausedBuildCount: 0
     });
   });
 });

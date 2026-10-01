@@ -134,6 +134,23 @@ describe('the ticket body', () => {
     expect(waiting).toContain('<p class="ap-ticket-gantt-note">Not started: in the queue for 4h 56m. Waiting on #060.</p>');
   });
 
+  test('a paused build names its pause after started, the full stamp on hover, then the row’s note', () => {
+    const pausedTicket = exampleTicket('066', { status: 'in-progress', started: at('09:00'), task: 21 });
+    const pausedRow    = exampleRow(21, {
+      ticket: '066', status: 'paused', start: at('09:00'), note: 'waits on Example Agency', history: [{ status: 'paused', at: at('11:45') }],
+    });
+    const [card] = KanbanLaneUtil.kanbanCardsFor(pageBoardFixture({ tasks: [pausedRow], tickets: [pausedTicket] }).tickets, new Map());
+    if (card === undefined) {
+      throw new Error('no card was built');
+    }
+    const paused = ticketDetailMarkup(inputFor(card));
+
+    expect(factLabelsOf(paused)).toEqual(['filed', 'started', 'paused', 'row note', 'task']);
+    expect(paused).toContain('<div><b>paused</b><span title="2026-09-25 11:45">since 11:45 · 1h 51m</span></div>');
+    expect(paused).toContain('<div><b>row note</b><span>waits on Example Agency</span></div>');
+    expect(factLabelsOf(ticketDetailMarkup(inputFor(cardFor(WAITING_TICKET))))).not.toContain('paused');
+  });
+
   test('a held ticket names its reason among the facts, or says none was given', () => {
     expect(ticketDetailMarkup(inputFor(cardFor({ ...WAITING_TICKET, hold: 'Example Agency copy' })))).toContain('<div><b>held</b><span>Example Agency copy</span></div>');
     expect(ticketDetailMarkup(inputFor(cardFor({ ...WAITING_TICKET, hold: '' })))).toContain('<div><b>held</b><span>no reason given</span></div>');

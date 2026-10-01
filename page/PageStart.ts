@@ -149,7 +149,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     showLayoutFailure(payload.pageScriptFailure);
   }
 
-  createHeaderController(payload, tickets).show(Date.now());
+  createHeaderController(payload, board.tickets).show(Date.now());
   createLiveHeaderController(payload, tickets).start();
 
   // Set from the visibility filter's now before anything prints a stamp; the page reloads every few minutes when idle, so the day is rarely stale.
@@ -172,7 +172,11 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     readHiddenCountByClosedLane: () => hiddenCountByClosedLane,
     showAllFinishedWork:         () => showAllFinishedWork(),
   });
-  const ticketsController      = createTicketsController({ allTickets: board.tickets });
+  const ticketsController      = createTicketsController({
+    allTickets:            board.tickets,
+    slices:                limits,
+    readTodayCalendarDate: () => todayCalendarDate,
+  });
   const detailDialogController = createDetailDialogController({
     rows:                  board.rows,
     tickets:               board.tickets,

@@ -6,6 +6,7 @@
 import { MILLISECONDS_PER_MINUTE }             from '../../../src/lib/local-time/LocalTimeUtil.ts';
 import type { Task }                           from '../../../src/lib/tracker-model/@types/Task.ts';
 import type { TicketFrontmatter }              from '../../../src/lib/tracker-model/@types/Ticket.ts';
+import type { BoardTicket }                    from '../../@types/PageBoard.ts';
 import type { DurationUnits, TimestampSlices } from '../../utils/TimeUtil.ts';
 import { TimeUtil }                            from '../../utils/TimeUtil.ts';
 
@@ -19,11 +20,13 @@ export interface HeaderStatistics {
   deliveredTodayCount: number;
   tokensToday:         number;
   waitingInQueueCount: number;
+  /** Tickets whose build row the Board reads as paused; the header shows the figure only above zero. */
+  pausedBuildCount:    number;
 }
 
 export interface HeaderStatisticsSource {
   tasks:             readonly Task[];
-  tickets:           readonly Pick<TicketFrontmatter, 'status' | 'delivered'>[];
+  tickets:           readonly (Pick<TicketFrontmatter, 'status' | 'delivered'> & Pick<BoardTicket, 'displayState'>)[];
   agentLimit:        number | null;
   todayCalendarDate: string;
   slices:            TimestampSlices;
@@ -47,6 +50,7 @@ function statisticsOf(source: HeaderStatisticsSource): HeaderStatistics {
     deliveredTodayCount: source.tickets.filter((ticket) => isToday(ticket.delivered)).length,
     tokensToday:         tasksOfToday.reduce((total, task) => total + (task.tokens ?? 0), 0),
     waitingInQueueCount: source.tickets.filter((ticket) => ticket.status === 'pending').length,
+    pausedBuildCount:    source.tickets.filter((ticket) => ticket.displayState === 'paused').length,
   };
 }
 

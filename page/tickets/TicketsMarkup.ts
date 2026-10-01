@@ -12,6 +12,8 @@ import type { BoardTicket }                  from '../@types/PageBoard.ts';
 import type { TicketStatusChip, TicketView } from '../@types/ViewerChoices.ts';
 import { STATE_LABEL_FOR_DISPLAY_STATE }     from '../constants/StateLabels.ts';
 import { MarkupUtil }                        from '../utils/MarkupUtil.ts';
+import type { PauseTextFormat }              from '../utils/PauseTextUtil.ts';
+import { PauseTextUtil }                     from '../utils/PauseTextUtil.ts';
 import { WorkItemMarkupUtil }                from '../utils/WorkItemMarkupUtil.ts';
 import { TicketViewUtil }                    from './utils/TicketViewUtil.ts';
 
@@ -50,8 +52,18 @@ function displayStateBadgeMarkup(ticket: BoardTicket): string {
   return `<span class="ap-badge" ${MarkupUtil.attribute('data-state', ticket.displayState)}>${HtmlEscapeUtil.escapeHtml(label)}</span>`;
 }
 
+/** A paused build's since and duration beside its badge, the row's note on hover. */
+function pauseGapMarkup(ticket: BoardTicket, format: PauseTextFormat): string {
+  const pauseText = ticket.displayState === 'paused' ? PauseTextUtil.pauseTextOf(ticket.ownRow, format) : null;
+  if (pauseText === null) {
+    return '';
+  }
+  const rowNote = ticket.ownRow?.note ?? '';
+  return `<span class="ap-detail-gap"${rowNote === '' ? '' : ` ${MarkupUtil.attribute('title', rowNote)}`}>${HtmlEscapeUtil.escapeHtml(pauseText)}</span>`;
+}
+
 /** An id query marks nothing: the digits it looks for are the whole id column's. */
-export function ticketTableRowsMarkup(tickets: readonly BoardTicket[], searchText: string): string {
+export function ticketTableRowsMarkup(tickets: readonly BoardTicket[], searchText: string, format: PauseTextFormat): string {
   const query       = TicketViewUtil.normalisedQueryOf(searchText);
   const markedQuery = TicketViewUtil.queryNamesATicketId(query) ? '' : query;
   return tickets.map((ticket) => [
@@ -59,7 +71,7 @@ export function ticketTableRowsMarkup(tickets: readonly BoardTicket[], searchTex
     `<td class="mono">${WorkItemMarkupUtil.ticketLinksMarkup([ticket.id])}</td>`,
     `<td>${matchMarkedMarkup(ticket.title, markedQuery)}${ticketsTabPriorityMarkMarkup(ticket)}${WorkItemMarkupUtil.waitingOnMarkup(ticket.waitingOn)}</td>`,
     `<td>${HtmlEscapeUtil.escapeHtml(ticket.type)}</td>`,
-    `<td>${displayStateBadgeMarkup(ticket)}</td>`,
+    `<td>${displayStateBadgeMarkup(ticket)}${pauseGapMarkup(ticket, format)}</td>`,
     `<td>${matchMarkedMarkup(ticket.group ?? '', markedQuery)}</td>`,
     `<td class="mono">${matchMarkedMarkup(ticket.branch ?? '', markedQuery)}</td>`,
     `<td class="mono">${WorkItemMarkupUtil.taskLinkMarkup(ticket.task)}</td>`,

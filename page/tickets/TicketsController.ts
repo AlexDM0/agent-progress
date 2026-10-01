@@ -5,6 +5,7 @@ import type { BoardTicket }                                from '../@types/PageB
 import type { TicketSortKey, TicketView }                  from '../@types/ViewerChoices.ts';
 import { TICKET_COUNT_ELEMENT_ID, TICKET_ROWS_ELEMENT_ID } from '../constants/TemplateIds.ts';
 import { DomUtil }                                         from '../utils/DomUtil.ts';
+import type { PauseTextFormat }                            from '../utils/PauseTextUtil.ts';
 import {
   emptyTicketTableMarkup,
   statusChipsMarkup,
@@ -29,7 +30,9 @@ const TICKET_TABLE_ELEMENT_ID        = 'ap-ticket-table';
 const TICKET_SEARCH_DEBOUNCE_MILLISECONDS = 150;
 
 interface TicketsControllerSources {
-  allTickets: readonly BoardTicket[];
+  allTickets:            readonly BoardTicket[];
+  slices:                PauseTextFormat['slices'];
+  readTodayCalendarDate: () => string;
 }
 
 export interface TicketsController {
@@ -84,7 +87,8 @@ export function createTicketsController(sources: TicketsControllerSources): Tick
 
   const render = (): void => {
     const shown = TicketViewUtil.ticketsShownBy(view, allTickets, visibleTickets, searchableTextById);
-    const rows  = shown.length > 0 ? ticketTableRowsMarkup(shown, view.searchText) : emptyTicketTableMarkup(view);
+    const pauseTextFormat = { nowEpochMilliseconds: Date.now(), todayCalendarDate: sources.readTodayCalendarDate(), slices: sources.slices };
+    const rows            = shown.length > 0 ? ticketTableRowsMarkup(shown, view.searchText, pauseTextFormat) : emptyTicketTableMarkup(view);
     DomUtil.setMarkup(TICKET_ROWS_ELEMENT_ID, allTickets.length === 0 ? '' : rows);
     DomUtil.setText(TICKET_COUNT_ELEMENT_ID, ticketCountText(shown.length, allTickets));
     reflectChipGroup(TICKET_STATUS_CHIPS_ELEMENT_ID, 'status', view.statusChips, TicketViewUtil.statusChipCountsOf(view, allTickets, searchableTextById));

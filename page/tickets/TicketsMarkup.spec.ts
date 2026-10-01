@@ -9,6 +9,7 @@ import type { Task }              from '../../src/lib/tracker-model/@types/Task.
 import type { PageTicket }        from '../../src/shared/@types/PagePayload.ts';
 import type { BoardTicket }       from '../@types/PageBoard.ts';
 import { pageBoardFixture }       from '../testing/PageBoardFixture.ts';
+import { EXAMPLE_PAGE_LIMITS }    from '../testing/PageLimitsFixture.ts';
 import {
   emptyTicketTableMarkup,
   matchMarkedMarkup,
@@ -44,9 +45,42 @@ function boardTicketsOf(tickets: readonly PageTicket[], tasks: readonly Task[] =
   return pageBoardFixture({ tasks, tickets }).tickets;
 }
 
+const PAUSE_TEXT_FORMAT = {
+  nowEpochMilliseconds: Date.parse('2026-09-18T23:00:00+02:00'),
+  todayCalendarDate:    '2026-09-18',
+  slices:               EXAMPLE_PAGE_LIMITS,
+};
+
+function rowsMarkup(tickets: readonly BoardTicket[], searchText: string): string {
+  return ticketTableRowsMarkup(tickets, searchText, PAUSE_TEXT_FORMAT);
+}
+
 describe('ticketTableRowsMarkup', () => {
+  test('puts a paused build’s since and duration beside its Paused badge, the row’s note on hover', () => {
+    const pausedRow = {
+      id:      4,
+      name:    'Build #003',
+      status:  'paused',
+      start:   '2026-09-18T21:02:00+02:00',
+      end:     null,
+      owner:   'Alex Example',
+      note:    'waits on <Example Agency>',
+      ticket:  '003',
+      tokens:  null,
+      history: [{ status: 'paused', at: '2026-09-18T21:30:00+02:00' }],
+    } as const satisfies Task;
+    const markup = rowsMarkup(boardTicketsOf([exampleTicket({ status: 'in-progress', task: 4 })], [pausedRow]), '');
+
+    expect(markup).toContain('<span class="ap-badge" data-state="paused">Paused</span>'
+      + '<span class="ap-detail-gap" title="waits on &lt;Example Agency&gt;">since 21:30 · 1h 30m</span>');
+  });
+
+  test('adds no pause text to a build that is not paused', () => {
+    expect(rowsMarkup(boardTicketsOf([exampleTicket({ status: 'pending' })]), '')).not.toContain('ap-detail-gap');
+  });
+
   test('links the id, badges the display state and keeps the branch', () => {
-    const markup = ticketTableRowsMarkup(boardTicketsOf([exampleTicket({ status: 'pending' })]), '');
+    const markup = rowsMarkup(boardTicketsOf([exampleTicket({ status: 'pending' })]), '');
 
     expect(markup).toContain('<a href="#ap-ticket-003">#003</a>');
     expect(markup).toContain('<span class="ap-badge" data-state="pending">To do</span>');
@@ -55,29 +89,29 @@ describe('ticketTableRowsMarkup', () => {
 
   // The only thing on a ticket table row that says which ticket it is without parsing a link: the detail panel resolves it from here.
   test('names its ticket and its state on the row itself, and lets the keyboard focus it', () => {
-    expect(ticketTableRowsMarkup(boardTicketsOf([exampleTicket()]), '')).toContain('<tr data-ticket-id="003" data-state="reviewing" tabindex="0">');
+    expect(rowsMarkup(boardTicketsOf([exampleTicket()]), '')).toContain('<tr data-ticket-id="003" data-state="reviewing" tabindex="0">');
   });
 
   test('never renders the ticket body', () => {
-    expect(ticketTableRowsMarkup(boardTicketsOf([exampleTicket()]), 'secret')).not.toContain('secret');
+    expect(rowsMarkup(boardTicketsOf([exampleTicket()]), 'secret')).not.toContain('secret');
   });
 
   test('puts the waiting note beside the title of a ticket that waits', () => {
     const tickets = boardTicketsOf([exampleTicket({ id: '001', status: 'pending' }), exampleTicket({ status: 'pending', dependsOn: ['001'] })]);
 
-    expect(ticketTableRowsMarkup(tickets, '')).toContain('two passes<span class="ap-waiting">waiting on <a href="#ap-ticket-001">#001</a></span></td>');
+    expect(rowsMarkup(tickets, '')).toContain('two passes<span class="ap-waiting">waiting on <a href="#ap-ticket-001">#001</a></span></td>');
   });
 
   test('marks the search in the title, group and branch, but not an id query', () => {
     const tickets = boardTicketsOf([exampleTicket({ group: 'exporter' })]);
 
-    expect(ticketTableRowsMarkup(tickets, 'Exporter')).toContain('Split the <mark class="ap-match">exporter</mark> into two passes');
-    expect(ticketTableRowsMarkup(tickets, 'exporter')).toContain('<td><mark class="ap-match">exporter</mark></td>');
-    expect(ticketTableRowsMarkup(tickets, '#003')).not.toContain('<mark');
+    expect(rowsMarkup(tickets, 'Exporter')).toContain('Split the <mark class="ap-match">exporter</mark> into two passes');
+    expect(rowsMarkup(tickets, 'exporter')).toContain('<td><mark class="ap-match">exporter</mark></td>');
+    expect(rowsMarkup(tickets, '#003')).not.toContain('<mark');
   });
 
   test('escapes a hostile ticket title', () => {
-    expect(ticketTableRowsMarkup(boardTicketsOf([exampleTicket({ title: '<b>bold</b>' })]), '')).toContain('&lt;b&gt;bold&lt;/b&gt;');
+    expect(rowsMarkup(boardTicketsOf([exampleTicket({ title: '<b>bold</b>' })]), '')).toContain('&lt;b&gt;bold&lt;/b&gt;');
   });
 });
 
@@ -143,16 +177,16 @@ describe('ticketCountText', () => {
 // The template is designer-owned, so a priority borrows two marks it already styles; a new class here would render unstyled.
 describe('the priority marks on the Tickets tab', () => {
   test('marks a low ticket low, one space off its title, with an empty task cell while it has no row', () => {
-    const tableRow = ticketTableRowsMarkup(boardTicketsOf([exampleTicket({ priority: 'low', status: 'pending' })]), '');
+    const tableRow = rowsMarkup(boardTicketsOf([exampleTicket({ priority: 'low', status: 'pending' })]), '');
 
     expect(tableRow).toMatch(/two passes <span class="ap-ticket-badge" data-priority="low" title="[^"]+">low<\/span><\/td>/);
     expect(tableRow).toContain('<td class="mono"></td></tr>');
   });
 
   test('marks a high ticket high, and leaves a normal one unmarked', () => {
-    const highRow = ticketTableRowsMarkup(boardTicketsOf([exampleTicket({ priority: 'high' })]), '');
+    const highRow = rowsMarkup(boardTicketsOf([exampleTicket({ priority: 'high' })]), '');
 
     expect(highRow).toMatch(/two passes<span class="ap-waiting" data-priority="high" title="[^"]+">high<\/span><\/td>/);
-    expect(ticketTableRowsMarkup(boardTicketsOf([exampleTicket({ priority: 'normal' })]), '')).not.toContain('data-priority');
+    expect(rowsMarkup(boardTicketsOf([exampleTicket({ priority: 'normal' })]), '')).not.toContain('data-priority');
   });
 });

@@ -16,6 +16,7 @@ const EXAMPLE_STATISTICS: HeaderStatistics = {
   deliveredTodayCount: 34,
   tokensToday:         358_200_000,
   waitingInQueueCount: 0,
+  pausedBuildCount:    0,
 };
 
 describe('headerStatisticsMarkup', () => {
@@ -38,6 +39,15 @@ describe('headerStatisticsMarkup', () => {
     expect(markup).toContain('<button type="button" class="ap-stat" data-kanban-lane="todo" aria-label="Show 0 waiting in queue on Kanban">');
     expect(markup).toContain('<span class="ap-stat"><span class="ap-stat-n">358.2M</span><span class="ap-stat-label">tokens today</span></span>');
     expect(markup.match(/<button /g)).toHaveLength(3);
+  });
+
+  test('adds a paused figure after agents working, opening the In progress lane, only while a build is paused', () => {
+    const markup = headerStatisticsMarkup({ ...EXAMPLE_STATISTICS, pausedBuildCount: 1 });
+    const labels = [...markup.matchAll(/<span class="ap-stat-label">([^<]*)<\/span>/g)].map((match) => match[1]);
+
+    expect(labels).toEqual(['agents working', 'paused', 'done today', 'tokens today', 'waiting in queue']);
+    expect(markup).toContain('<button type="button" class="ap-stat" data-state="paused" data-kanban-lane="progress" aria-label="Show 1 paused on Kanban">');
+    expect(headerStatisticsMarkup(EXAMPLE_STATISTICS)).not.toContain('paused');
   });
 
   test('prints the running count alone when the limit is missing', () => {
