@@ -518,43 +518,58 @@ missing stamp, as a render from an older CLI, a hand deletion or a failed stamp 
 as one browser network line (`404` or `ERR_FILE_NOT_FOUND`) per page load, not a script error; no
 script can suppress that line, and the next render ends it.
 
+The tabs are **Kanban · Progress · Tickets · Epics**, in that order; the chosen one is kept in the
+browser, and Epics is hidden on a board without epics.
+
+- **Kanban tab**: one card per ticket in six lanes — To do, In progress, Review, Awaiting merge, Done
+  and Abandoned — each card in the lane its state names. The open lanes run high → normal → low, then
+  by id, with a divider per priority when a lane holds more than one; a card shows its priority mark,
+  tokens, epic chips, waiting-on links, `held`, `no row yet` for a low ticket never started, and what it
+  is waiting for (`paused since 11:45 · 1h 51m`, `no reviewer yet · 16m`, `reviewer since 13:05`). Done
+  and Abandoned run newest first and show the latest 15, then 25 more at a time; Abandoned is collapsed
+  until clicked. The finished-work switch decides what both closed lanes hold, and each ends with how
+  many earlier cards it leaves out and a "show all". On a board with epics, an epic strip above the
+  lanes narrows the board to the epics pressed, each with its roll-up; the choice is kept in the
+  browser.
 - **Progress tab**: the Gantt chart, filling the window below the range bar and scrolling its rows
   inside it, one row per task, newest on top, each with its number, name, ticket badge, token count,
-  status pill and bar; and a now-marker. The log shows only in the detail panel, per row and ticket.
-  Review rows are drawn indented directly above the ticket they review, latest round first; a
-  bundle's review, `Review 1 #13, #5 — …`, sits once, above the first ticket it names, and a review
-  whose ticket has no row on the chart — a low ticket not started, or one hidden as long done — is
-  drawn where its filing puts it.
-- **Kanban tab**, between the two: one card per ticket in six lanes — To do, In progress, Review,
-  Awaiting merge, Done and Abandoned — each card in the lane its row's Progress pill names. The open
-  lanes run high → normal → low, then by id, with a divider per priority; a card shows its priority
-  mark, tokens, waiting-on links, `held`, `no row yet` for a low ticket never started, and what it is
-  waiting for (`paused since 11:45 · 1h 51m`, `no reviewer yet · 16m`, `reviewer since 13:05`). Done and
-  Abandoned run newest first and show the latest 15, then 25 more at a time; Abandoned is collapsed
-  until clicked. The finished-work switch decides what both closed lanes hold, and each ends with how
-  many earlier cards it leaves out and a "show all".
-- **Tickets tab**: a summary table, then one card per ticket with its body rendered as markdown
-  (`reviewed`, `delivered` and `abandoned` collapsed). The chosen tab and the open cards are kept in the
-  browser, so the refresh lands where you were.
+  status pill and bar, one segment per phase it went through; and a now-marker. The log shows only in
+  the detail panel, per row and ticket. A ticket's review passes are drawn as segments on its own row;
+  the review-rows button in the chart's header draws each as a row of its own instead, indented
+  directly above the ticket it reviews, latest round first, a bundle's review, `Review 1 #13, #5 — …`,
+  once above the first ticket it names. A review whose ticket has no row on the chart — a low ticket
+  not started, or one hidden as long done — is always a row of its own, drawn where its filing puts
+  it. Beside that button, another widens the name column; both are kept in the browser. On a board
+  with epics the rows are grouped under a head per epic, a ticket under its primary epic only, then
+  "No epic"; a head folds its rows away, and the folds are kept in the browser.
+- **Tickets tab**: a table of the tickets with a count above it, searched by id, title, epic,
+  branch, group and body text, narrowed by type, status and (on a board with epics) epic chips, and
+  sorted by any column; on a board with epics it can be grouped by epic, a choice kept in the
+  browser. A ticket's body shows only in the detail panel.
+- **Epics tab**: one card per epic, open ones first, with its key, its description's first paragraph,
+  a roll-up of its tickets by status and their list; the title opens the epic in the detail panel and
+  a ticket opens that ticket.
 - **The header** above the tabs: a status line, `LIVE` while the page is under ten minutes old and
   `SNAPSHOT` after, with how long ago it was generated, re-checked every minute so an open page turns
-  into a snapshot without a reload; the project name; and four figures: agents
-  working (running rows over the concurrency limit), tickets delivered today, the tokens of rows that
-  ended today or still run, and tickets waiting in the queue. Each figure but the tokens opens its
-  Kanban lane. Below them, the activity banner lists every running row, longest-running first, as
-  `BUILDING` or, for a row with `--review-of`, `REVIEWING`, with its ticket and a running timer; a
-  snapshot freezes the timers at the moment the page was generated. The tab row holds the
-  finished-work switch and ends in the Auto · Light · Dark theme switch.
-- **Double-click any row**, in the chart or the ticket table, for the whole story of that task: its
-  facts, every phase it went through with how long it sat in each, the ticket with its body, and the
-  log lines about either (a line the tool wrote by its task and ticket ids, a note by the numbers it
-  names). A row filed before phases were recorded says so and shows what can be derived from its
-  stamps instead. **Double-click a Kanban card**, or press Enter on it, for the
-  ticket instead: its facts, a Timeline of that ticket alone — a quiet Filed bar from filing to the
-  build's start, the build's wip and paused segments, one row per review pass, the waits after the
-  build, and a marker at now or at its delivery or abandonment — with the time spent in each state
-  under it, then its description. The Filed bar is drawn only there, never on the Progress chart. Esc,
-  the backdrop, × or a link inside it closes either.
+  into a snapshot without a reload; the project name; the Auto · Light · Dark theme switch; and four
+  figures: agents working (running rows over the concurrency limit), tickets delivered today, the
+  tokens of rows that ended today or still run, and tickets waiting in the queue, with a fifth, the
+  paused builds, only while there are some. Each figure but the tokens opens its Kanban lane. Below
+  them, the activity banner lists every running row, longest-running first, as `BUILDING` or, for a
+  row with `--review-of`, `REVIEWING`, with its ticket and a running timer; a snapshot freezes the
+  timers at the moment the page was generated. The tab row holds the tabs and the finished-work
+  switch.
+- **Click any row**, in the chart or the ticket table, or press Enter or Space on it, for the whole
+  story of that task in the detail panel on the right: its facts, every phase it went through with
+  how long it sat in each, the ticket with its body, and the log lines about either (a line the tool
+  wrote by its task and ticket ids, a note by the numbers it names). A row filed before phases were
+  recorded says so and shows what can be derived from its stamps instead. **Click a Kanban card**, or
+  press Enter or Space on it, for the ticket instead: its facts, a Timeline of that ticket alone — a
+  quiet Filed bar from filing to the build's start, the build's in-progress and paused segments, one
+  row per review pass, the waits after the build, and a marker at now or at its delivery or
+  abandonment — with the time spent in each state under it, then its description. The Filed bar is
+  drawn only there, never on the Progress chart. **Click an epic** for its roll-up, description and
+  tickets. Esc, ×, a link inside the panel or a second click on the open item closes it.
 - **Range bar**: the presets Fit · 1h · 4h · 12h · 24h · 7d, then Custom… with free-text bounds that
   accept `start`, `now` and `-2h` as well as timestamps, and a tick-step selector. Fit, the default,
   spans the rows shown from their earliest start to now with a small margin, and re-fits whenever the
@@ -573,24 +588,24 @@ script can suppress that line, and the next render ends it.
   the review time. A delivered task without it went straight from in-review to delivered.
 - **An error banner** when a command wrote the store but could not rebuild the page script.
 
-**The pill names the state the row is actually in, and `done` means merged.** The stored status and
-the word on the pill are different vocabularies, because an `in-review` row is waiting for somebody:
+**The pill names the state the row is actually in, and `Done` means merged.** The stored status and
+the word on the pill are different vocabularies, and the same word labels the state on every tab:
 
 | stored status | pill | what it means |
 |---|---|---|
-| `pending` | `unstarted` | filed, nobody on it |
-| `in-progress` | `wip` | an agent is working |
-| `paused` | `paused` | the work is waiting on something |
-| `in-review` | `awaiting review` | handed in, no reviewer yet |
-| `in-review`, ticket `in-review` | `reviewing` | a reviewer has it |
-| `re-review` | `reviewing 2`, `reviewing 3`, … | a further review pass, numbered from the second |
-| `reviewed` | `awaiting merge` | the review passed, the branch is not in yet |
-| `delivered` | `done` | merged; nothing more has to happen to this row |
-| `abandoned` | `abandoned` | called off, kept for the record |
+| `pending` | `To do` | filed, nobody on it |
+| `in-progress` | `In progress` | an agent is working |
+| `paused` | `Paused` | the work is waiting on something |
+| `in-review`, no ticket in review | `Awaiting review` | handed in, no ticket review under way |
+| `in-review`, ticket `in-review` | `Reviewing` | the ticket is in review |
+| `re-review` | `Reviewing (round 2)`, `Reviewing (round 3)`, … | a further review pass, numbered from the second |
+| `reviewed` | `Awaiting merge` | the review passed, the branch is not in yet |
+| `delivered` | `Done` | merged; nothing more has to happen to this row |
+| `abandoned` | `Abandoned` | called off, kept for the record |
 
-A row with nothing to merge — a review pass, a chore — still reaches `done`, through
+A row with nothing to merge — a review pass, a chore — still reaches `Done`, through
 `agent-progress task deliver <id>`. A dispatched reviewer's bar is closed by `release`; the
-orchestrator closes every row left open, and a chart whose rows stop at `awaiting review` is a chart
+orchestrator closes every row left open, and a chart whose rows stop at `Awaiting review` is a chart
 nobody closed.
 
 ## Files on disk
@@ -625,7 +640,7 @@ never re-parsed into a viewer's zone.
   "trackerId": "…",                              // namespaces the page's browser storage per tracker
   "project": "Example Agency",
   "startedAt": "2026-09-18T20:55:10+02:00",
-  "view": { "kind": "auto" },                    // or absolute/relative bounds with an optional tick
+  "view": { "kind": "auto" },                    // or kind absolute|relative with from, to and tickMinutes (a number or null)
   "nextTaskId": 18,                              // never wound back, so an id is never reused
   "concurrencyLimit": 2,                         // optional: absent reads 2, above 10 reads 10
   "dispatcherState": "running",                  // optional: running|finished|stopped, absent reads stopped
@@ -675,7 +690,9 @@ does not know survive a read and a write, at the top level and on a row, in the 
 ticket's unknown frontmatter lines do.
 
 A present `concurrencyLimit` that is not a whole number of at least 1, a `dispatcherState` outside
-the three, or an empty `dispatcherRunId` makes the file unreadable (exit 2). A task is linked to at
+the three, or an empty or blank `dispatcherRunId` makes the file unreadable (exit 2), and so does a
+present optional row key of the wrong shape: `reviewRound` below 2, `reviewBarRound` below 1, or a
+`history` that is not a list of known statuses with their stamps. A task is linked to at
 most one ticket. Task ids are never reused, not even after `task remove` or `clear`.
 
 A row or history phase in a status the file format does not know, the retired `running` or
@@ -684,9 +701,30 @@ by its `reviewOf` alone, never by its name.
 
 ### `.agent-progress/log.jsonl`
 
-One record per line, each a JSON object ending in a newline: `at`, `kind`, then `taskId` and
-`ticketId` where the kind names them, then `fields`. `status` and the page word each record as a
-sentence; a note's sentence is its text.
+One record per line, each a JSON object ending in a newline: `at`, `kind`, then `taskId`,
+`ticketId` or `epicKey` where the kind names them, then `fields`. `status` and the page word each
+record as a sentence; a note's sentence is its text.
+
+| kind | ids | fields |
+|---|---|---|
+| `note` | — | `text` |
+| `ticket-filed` | `ticketId` | `title` |
+| `ticket-reopened`, `ticket-started`, `ticket-finished`, `ticket-approved`, `ticket-delivered`, `ticket-unheld`, `ticket-release-cleared` | `ticketId` | none |
+| `ticket-abandoned`, `ticket-held` | `ticketId` | `reason` |
+| `ticket-rereviewed` | `ticketId` | `round`, from 2 |
+| `ticket-priority-changed` | `ticketId` | `from`, `to`: priorities |
+| `ticket-agents-changed` | `ticketId` | `from`, `to`: each `{ model, effort }` |
+| `ticket-dependencies-set` | `ticketId` | `dependsOn`: ticket ids |
+| `ticket-epics-set` | `ticketId` | `epics`: epic keys |
+| `ticket-release-marked` | `ticketId` | `group` |
+| `epic-added`, `epic-edited` | `epicKey` | `title` |
+| `epic-removed` | `epicKey` | none |
+| `review-bar-started`, `review-bar-closed` | `taskId`, `ticketId` | `name` |
+| `chart-range-set` | — | `view`, shaped as `progress.json`'s |
+| `concurrency-limit-set` | — | `limit` |
+| `dispatcher-set` | — | `state`, `runId` (a run id or `null`) |
+| `tracker-cleared` | — | none |
+| `agent-stopped` | — | below |
 
 ```
 {"at":"2026-09-18T21:30:54+02:00","kind":"ticket-started","ticketId":"003","fields":{}}
@@ -750,6 +788,7 @@ group: "role-editor"
 branch: "ticket/role-editor"
 commit: "0a1b2c3"
 reason: "…"
+releasesGroup: true
 dependsOn: "001, 002"
 epics: "loyalty-programme, checkout-redesign"
 task: 17
@@ -801,7 +840,7 @@ file name, every parsed id and every ticket a row names; gaps are tolerated, nev
 ### `.agent-progress/epics/checkout-redesign.md`
 
 The file name is the key, and an epic is known by it: a file whose `key` says otherwise is listed as
-ignored. The CLI writes:
+ignored. The CLI writes, unknown lines after its three:
 
 ```
 ---
@@ -816,11 +855,13 @@ The description, kept byte for byte.
 |---|---|---|
 | `key` | always; required | lower-case letters and digits in words joined by single hyphens, the file name without `.md` |
 | `title` | always; required | text |
-| `slot` | always; required | the colour, a whole number from 1 to 6, assigned once by `epic add` |
+| `slot` | always; required | the colour, a whole number from 1 to 6 written without quotes, assigned once by `epic add` |
 
 The frontmatter follows the ticket file's subset: a quoted value is a JSON string, an unquoted one is
 kept as text, and unknown keys, comments and blank lines are kept and written back after the CLI's
-three. The closing fence is the first later `---` line. A malformed epic file is listed as ignored on
+three. Unlike a ticket's, every line starting with `#` is a comment, two or more hashes included. The
+closing fence is the first later `---` line, and a description edit leaves the frontmatter's bytes as
+they are. A malformed epic file is listed as ignored on
 standard error rather than failing `status` or `render`, and `epic add` refuses to overwrite it. A
 tracker that never added an epic has no `epics/` folder.
 
@@ -831,19 +872,20 @@ The **from** column is the matrix the named verbs enforce; `ticket status <id> <
 
 | command | from | ticket status | its row | pill | stamps written | log line |
 |---|---|---|---|---|---|---|
-| `ticket add` | — | pending | created `pending`; none when low | `unstarted` | `filed` | `Ticket #003 filed: <title>` |
-| `ticket start` | pending, in-review | in-progress | `in-progress`; created for a low ticket | `wip` | `started` if null; the row's end cleared | `Ticket #003 started` |
-| `ticket claim` | pending, in-review, and for every id named: not held, no review bar in progress, dependencies settled (one on a ticket in the same claim is, and with `--after` the in-review predecessor of its release bundle), a free slot, and for a low ticket no unheld normal or high one owed | in-progress | `in-progress`, created for a low ticket; with `--owner`, `--note` and the claim's `agent` key | `wip` | as `start` | `Ticket #003 started`, one per ticket |
-| `ticket finish` | in-progress | in-review | `in-review` | `reviewing` | `finished` if null | `Ticket #003 in review` |
-| `ticket finish --start-review` | in-progress | in-review | `in-review`, plus an in-progress review row | `reviewing` | as `finish` | as `finish`, and `Review row #18 started: <name>` |
-| `ticket rereview` | in-review | in-review, unchanged | `re-review`, one round up from 2 | `reviewing 2` | `updated` only | `Ticket #003 in review, round 2` |
-| `ticket approve` | in-progress, in-review | reviewed | `reviewed` | `awaiting merge` | `finished` if null | `Ticket #003 reviewed` |
-| `ticket deliver` | reviewed | delivered | `delivered` | `done` | `delivered` if null | `Ticket #003 delivered` |
-| `release` | in-progress, in-review; reviewed for a release bundle's ticket released with its group's release ticket | reviewed (unless already), then delivered | `delivered`; in-progress review rows delivered | `done` | `finished` and `delivered` if null; `branch`, `commit` | the reviewed and delivered lines, and one per review row closed |
-| `ticket abandon` | anything but delivered, abandoned | abandoned | `abandoned`; none created for a low ticket without one | `abandoned` | `abandonedAt`, always; the row's end if it had started | `Ticket #003 abandoned: <reason>` |
-| `ticket reopen` | anything but pending | pending | `pending` | `unstarted` | all four cleared; `reason` dropped | `Ticket #003 reopened` |
-| `ticket priority … low` | pending | pending | removed | — | — | one line |
-| `ticket priority` from low | any | unchanged | created when it has none: `pending` while the ticket is pending, else seeded from its stamps | per status | — | one line |
+| `ticket add` | — | pending | created `pending`; none when low | `To do` | `filed` | `Ticket #003 filed: <title>` |
+| `ticket start` | pending, in-review | in-progress | `in-progress`, its claim's `agent` key dropped; created for a low ticket | `In progress` | `started` if null; the row's end cleared | `Ticket #003 started` |
+| `ticket claim` | pending, in-review, and for every id named: not held, no review bar in progress, dependencies settled (one on a ticket in the same claim is, and with `--after` the in-review predecessor of its release bundle), a free slot, and for a low ticket no unheld normal or high one owed | in-progress | `in-progress`, created for a low ticket; with `--owner`, `--note` and the claim's `agent` key | `In progress` | as `start` | `Ticket #003 started`, one per ticket |
+| `ticket finish` | in-progress | in-review | `in-review` | `Reviewing` | `finished` if null | `Ticket #003 in review` |
+| `ticket finish --start-review` | in-progress | in-review | `in-review`, plus an in-progress review row | `Reviewing` | as `finish` | as `finish`, and `Review row #18 started: <name>` |
+| `ticket rereview` | in-review | in-review, unchanged | `re-review`, one round up from 2 | `Reviewing (round 2)` | `updated` only | `Ticket #003 in review, round 2` |
+| `ticket rereview --start-review` | in-review | in-review, unchanged | as `rereview`, plus an in-progress review row; the round before's row delivered | `Reviewing (round 2)` | as `rereview` | as `rereview`, then `Closed the review row #18, delivered: <name>` and `Review row #19 started: <name>` |
+| `ticket approve` | in-progress, in-review | reviewed | `reviewed`, its `reviewed` stamp set if unset | `Awaiting merge` | `finished` if null | `Ticket #003 reviewed` |
+| `ticket deliver` | reviewed | delivered | `delivered` | `Done` | `delivered` if null | `Ticket #003 delivered` |
+| `release` | in-progress, in-review; reviewed for a release bundle's ticket released with its group's release ticket | reviewed (unless already), then delivered | `delivered`; in-progress review rows delivered | `Done` | `finished` and `delivered` if null; `branch`, `commit` | the reviewed and delivered lines, and one per review row closed |
+| `ticket abandon` | anything but delivered, abandoned | abandoned | `abandoned`; none created for a low ticket without one | `Abandoned` | `abandonedAt`, always; the row's end if it had started | `Ticket #003 abandoned: <reason>` |
+| `ticket reopen` | anything but pending; a group's release ticket only while no other release ticket of its group is open | pending | `pending`, its start, end, `reviewed` and `reviewRound` cleared | `To do` | all four cleared; `reason` dropped | `Ticket #003 reopened` |
+| `ticket priority … low` | pending | pending | removed | — | — | `Ticket #003 priority normal → low` |
+| `ticket priority` from low | any | unchanged | created when it has none: `pending` while the ticket is pending, else seeded from its stamps | per status | — | `Ticket #003 priority low → normal` |
 
 A closing stamp is written only while it is still null, while `abandonedAt` is written every time:
 re-entering a status is a correction, abandoning twice is deciding twice. Every move to a status other
@@ -852,7 +894,7 @@ ticket's in-progress review bar, with one log line each; a plain `ticket rerevie
 
 Filing the row is the first entry in its `history`, and each move appends another, so the panel a
 double-click opens can say when the row reached each state and how long it sat there — the wait
-between `unstarted` and `wip` being the queue time. `task update --status` is not appended: it
+between `To do` and `In progress` being the queue time. `task update --status` is not appended: it
 corrects a row rather than moving it.
 
 Moving a ticket to the status it already has is refused and logs nothing; `ticket rereview` is the one

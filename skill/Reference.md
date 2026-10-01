@@ -35,6 +35,7 @@ group: "role-editor"
 branch: "ticket/role-editor"
 commit: "0a1b2c3"
 reason: "…"
+releasesGroup: true
 dependsOn: "001, 002"
 epics: "loyalty-programme, checkout-redesign"
 task: 17
@@ -90,19 +91,20 @@ The **from** column is the matrix the named verbs enforce; `ticket status <id> <
 
 | command | from | ticket status | its row | pill | stamps written | log line |
 |---|---|---|---|---|---|---|
-| `ticket add` | — | pending | created `pending`; none when low | `unstarted` | `filed` | `Ticket #003 filed: <title>` |
-| `ticket start` | pending, in-review | in-progress | `in-progress`; created for a low ticket | `wip` | `started` if null; the row's end cleared | `Ticket #003 started` |
-| `ticket claim` | pending, in-review, and for every id named: not held, no review bar in progress, dependencies settled (one on a ticket in the same claim is, and with `--after` the in-review predecessor of its release bundle), a free slot, and for a low ticket no unheld normal or high one owed | in-progress | `in-progress`, created for a low ticket; with `--owner`, `--note` and the claim's `agent` key | `wip` | as `start` | `Ticket #003 started`, one per ticket |
-| `ticket finish` | in-progress | in-review | `in-review` | `reviewing` | `finished` if null | `Ticket #003 in review` |
-| `ticket finish --start-review` | in-progress | in-review | `in-review`, plus an in-progress review row | `reviewing` | as `finish` | as `finish`, and `Review row #18 started: <name>` |
-| `ticket rereview` | in-review | in-review, unchanged | `re-review`, one round up from 2 | `reviewing 2` | `updated` only | `Ticket #003 in review, round 2` |
-| `ticket approve` | in-progress, in-review | reviewed | `reviewed` | `awaiting merge` | `finished` if null | `Ticket #003 reviewed` |
-| `ticket deliver` | reviewed | delivered | `delivered` | `done` | `delivered` if null | `Ticket #003 delivered` |
-| `release` | in-progress, in-review; reviewed for a release bundle's ticket released with its group's release ticket | reviewed (unless already), then delivered | `delivered`; in-progress review rows delivered | `done` | `finished` and `delivered` if null; `branch`, `commit` | the reviewed and delivered lines, and one per review row closed |
-| `ticket abandon` | anything but delivered, abandoned | abandoned | `abandoned`; none created for a low ticket without one | `abandoned` | `abandonedAt`, always; the row's end if it had started | `Ticket #003 abandoned: <reason>` |
-| `ticket reopen` | anything but pending | pending | `pending` | `unstarted` | all four cleared; `reason` dropped | `Ticket #003 reopened` |
-| `ticket priority … low` | pending | pending | removed | — | — | one line |
-| `ticket priority` from low | any | unchanged | created when it has none: `pending` while the ticket is pending, else seeded from its stamps | per status | — | one line |
+| `ticket add` | — | pending | created `pending`; none when low | `To do` | `filed` | `Ticket #003 filed: <title>` |
+| `ticket start` | pending, in-review | in-progress | `in-progress`, its claim's `agent` key dropped; created for a low ticket | `In progress` | `started` if null; the row's end cleared | `Ticket #003 started` |
+| `ticket claim` | pending, in-review, and for every id named: not held, no review bar in progress, dependencies settled (one on a ticket in the same claim is, and with `--after` the in-review predecessor of its release bundle), a free slot, and for a low ticket no unheld normal or high one owed | in-progress | `in-progress`, created for a low ticket; with `--owner`, `--note` and the claim's `agent` key | `In progress` | as `start` | `Ticket #003 started`, one per ticket |
+| `ticket finish` | in-progress | in-review | `in-review` | `Reviewing` | `finished` if null | `Ticket #003 in review` |
+| `ticket finish --start-review` | in-progress | in-review | `in-review`, plus an in-progress review row | `Reviewing` | as `finish` | as `finish`, and `Review row #18 started: <name>` |
+| `ticket rereview` | in-review | in-review, unchanged | `re-review`, one round up from 2 | `Reviewing (round 2)` | `updated` only | `Ticket #003 in review, round 2` |
+| `ticket rereview --start-review` | in-review | in-review, unchanged | as `rereview`, plus an in-progress review row; the round before's row delivered | `Reviewing (round 2)` | as `rereview` | as `rereview`, then `Closed the review row #18, delivered: <name>` and `Review row #19 started: <name>` |
+| `ticket approve` | in-progress, in-review | reviewed | `reviewed`, its `reviewed` stamp set if unset | `Awaiting merge` | `finished` if null | `Ticket #003 reviewed` |
+| `ticket deliver` | reviewed | delivered | `delivered` | `Done` | `delivered` if null | `Ticket #003 delivered` |
+| `release` | in-progress, in-review; reviewed for a release bundle's ticket released with its group's release ticket | reviewed (unless already), then delivered | `delivered`; in-progress review rows delivered | `Done` | `finished` and `delivered` if null; `branch`, `commit` | the reviewed and delivered lines, and one per review row closed |
+| `ticket abandon` | anything but delivered, abandoned | abandoned | `abandoned`; none created for a low ticket without one | `Abandoned` | `abandonedAt`, always; the row's end if it had started | `Ticket #003 abandoned: <reason>` |
+| `ticket reopen` | anything but pending; a group's release ticket only while no other release ticket of its group is open | pending | `pending`, its start, end, `reviewed` and `reviewRound` cleared | `To do` | all four cleared; `reason` dropped | `Ticket #003 reopened` |
+| `ticket priority … low` | pending | pending | removed | — | — | `Ticket #003 priority normal → low` |
+| `ticket priority` from low | any | unchanged | created when it has none: `pending` while the ticket is pending, else seeded from its stamps | per status | — | `Ticket #003 priority low → normal` |
 
 A closing stamp is written only while it is still null, while `abandonedAt` is written every time:
 re-entering a status is a correction, abandoning twice is deciding twice. Every move to a status other
@@ -111,7 +113,7 @@ ticket's in-progress review bar, with one log line each; a plain `ticket rerevie
 
 Filing the row is the first entry in its `history`, and each move appends another, so the panel a
 double-click opens can say when the row reached each state and how long it sat there — the wait
-between `unstarted` and `wip` being the queue time. `task update --status` is not appended: it
+between `To do` and `In progress` being the queue time. `task update --status` is not appended: it
 corrects a row rather than moving it.
 
 Moving a ticket to the status it already has is refused and logs nothing; `ticket rereview` is the one
@@ -121,9 +123,9 @@ whose start is stamped along with its end — an end without a start would draw 
 is no `paused` ticket status: `task pause <id>` records a waiting row and the ticket stays where it
 was.
 
-**`done` on the chart means merged**: a row stored as `in-review` is waiting for a reviewer, and one
+**`Done` on the chart means merged**: a row stored as `in-review` is waiting for a reviewer, and one
 stored as `reviewed` for its branch to go in. A free-standing row — a review pass, a chore, anything
-with no branch to merge — reaches `done` through `agent-progress task deliver <id>` once its work is
+with no branch to merge — reaches `Done` through `agent-progress task deliver <id>` once its work is
 accepted. A row that never gets there is a row the chart shows as still owed.
 
 ## Where a review bar is drawn
