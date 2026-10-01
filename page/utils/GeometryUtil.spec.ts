@@ -181,7 +181,7 @@ describe('computeTimeline', () => {
   });
 
   test('colours a bar pinned against an edge by the phase nearest that edge, not by the row\'s state', () => {
-    const history = (startOffsetMinutes: number): Task['history'] => [
+    const history = (startOffsetMinutes: number): NonNullable<Task['history']> => [
       { status: 'in-progress', at: timestampAt(startOffsetMinutes) },
       { status: 'paused', at: timestampAt(startOffsetMinutes + 5) },
       { status: 'in-review', at: timestampAt(startOffsetMinutes + 10) },
