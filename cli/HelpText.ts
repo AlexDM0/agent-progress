@@ -17,9 +17,12 @@ decimal with a \`k\`/\`m\`/\`b\` suffix: \`12000\`, \`12k\`, \`12.3k\`, \`1.2m\`
 \`--help\` works after a command word as well as on its own, and \`-h\` on its own or straight after
 the command word; a \`-h\` further on is refused at exit 1, since it may be text (put text behind a
 bare \`--\`). An option taking a value, given twice, is refused at exit 1. AGENT_PROGRESS_ROOT names
-the repository to use instead of walking up from the current directory.
+the repository to use instead of walking up from the current directory. --json, accepted by every
+command but init, update, render, open, hook and help, prints one JSON document on standard output
+in place of the human output.
 
-\`status\`, \`ticket add\`, every ticket or task move and \`release\` end their output with one line
+\`status\`, \`ticket add\`, every ticket or task move (\`ticket claim\` and \`task add --start\` among
+them), \`ticket depends\`, \`priority\`, \`agent\`, \`hold\` and \`unhold\`, and \`release\` end their output with one line
 read from the board after the change: \`Next: 1 of 2 slots free; ready: #003, #005\`, \`Next: no slot
 free (2 agents in flight); ready: #003\` or \`Next: 2 of 2 slots free; nothing ready\` — at most five
 ready ids, then \`and N more\`; a held ready ticket is left out and named apart, \`; held: #002\` —
@@ -75,7 +78,7 @@ output never carries either.
                               agent-progress installed.
 
   status [--json] [--full]    The project, the counts, the rows that are not delivered or
-                              abandoned, and the last log entries newest first. --json prints the
+                              abandoned, and the last five log entries newest first. --json prints the
                               same working view for an agent: the unsettled rows and tickets, the
                               last 10 log entries and counts of what was left out. --full lists
                               everything, and with --json prints the whole progress file plus
@@ -152,8 +155,9 @@ output never carries either.
                               read, or a delay before it is told.
 
   usage [--since <when>]      What this repository's subagents cost, read out of the transcripts the
-      [--transcripts <folder>] harness wrote for them, a workflow's agents under
-      [--json]                \`subagents/workflows/<run>/\` included: one row per agent, oldest
+      [--transcripts <folder>]
+      [--json]                harness wrote for them, a workflow's agents under
+                              \`subagents/workflows/<run>/\` included: one row per agent, oldest
                               first, with its start, its API calls, its end context, its input and
                               output, its browser calls, the characters the harness injected into
                               it and the first line of its brief; then the cohort summary — median
@@ -171,10 +175,11 @@ output never carries either.
                               transcripts is one sentence at exit 0.
 
   rework [--since <commit>]   How many lines of code a review reworked on a branch: added plus
-      [--rebased-from <old tip>] removed lines, never blank lines, comments or documentation (*.md,
-      [--main <branch>]       *.mdx, *.rst, *.txt and anything under the repository's docs/). It
-      [--worktree <path>]     counts; no threshold is built in. --since counts every commit in
-      [--files] [--json]      <commit>..HEAD, and is refused when <commit> is not an ancestor of HEAD
+      [--rebased-from <old tip>]
+      [--main <branch>]       removed lines, never blank lines, comments or documentation (*.md,
+      [--worktree <path>]     *.mdx, *.rst, *.txt and anything under the repository's docs/). It
+      [--files] [--json]      counts; no threshold is built in. --since counts every commit in
+                              <commit>..HEAD, and is refused when <commit> is not an ancestor of HEAD
                               or a merge lies in between: work is rebased, not merged. --rebased-from
                               counts what a rebase changed in the branch's own work — the hand
                               resolution — as the added lines in which the branch's patch against
@@ -256,13 +261,13 @@ output never carries either.
                               where it names them, its body, and always its file path — which is
                               what an agent needs in order to edit that body.
 
-  ticket edit <id> [--append] Replace a ticket's body with --body or --body-file (\`-\` reads
-      [--body <markdown>]     standard input), or with --append add to its end, putting one line
-      [--body-file <path|->]  ending before the text when the body does not end in one. The text
-      [--json]                is written in the line ending the body already uses. The frontmatter
-                              is kept byte for byte and \`updated\` is not stamped; nothing is
+  ticket edit <id>            Replace a ticket's body with --body or --body-file (\`-\` reads
+      [--append]              standard input), or with --append add to its end, putting one line
+      [--body <markdown>]     ending before the text when the body does not end in one. The text
+      [--body-file <path|->]  is written in the line ending the body already uses. The frontmatter
+      [--json]                is kept byte for byte and \`updated\` is not stamped; nothing is
                               logged. An empty append changes nothing and exits 0; an empty
-                              replacement, or neither option, is refused at exit 1.
+                              replacement, neither option or both are refused at exit 1.
 
   ticket agent <id> [--model <m>] [--effort <e>] [--at <when>]
                               Change the model or the effort a ticket's agents run on, or both,
@@ -330,13 +335,14 @@ output never carries either.
                               bundle still run, so it takes no second slot.
                               --owner and --note name the bar, and are refused without the flag.
 
-  ticket claim <id> [<id>...] \`ticket start\` and the row's --owner and --note in one write, for
-      [--owner <who>]         every ticket named, as ONE agent: a bundle's builder claims all its
-      [--note <text>]         tickets in the one call, and their rows share one agent key. Refused
-      [--after <id>]          at exit 1 with nothing written, all or nothing, when any ticket is not
-      [--at <when>]           pending or in-review, when one waits on a ticket outside the claim
+  ticket claim <id> [<id>...]
+      [--owner <who>]         \`ticket start\` and the row's --owner and --note in one write, for
+      [--note <text>]         every ticket named, as ONE agent: a bundle's builder claims all its
+      [--after <id>]          tickets in the one call, and their rows share one agent key. Refused
+      [--at <when>]           at exit 1 with nothing written, all or nothing, when any ticket is not
+                              pending or in-review, when one is held, when one waits on a ticket outside the claim
                               that is not reviewed or delivered (one inside it is settled: the
-                              bundle is worked in dependency order), when one is low and a normal
+                              bundle is worked in dependency order), when one is low and an unheld normal
                               or high ticket is not yet delivered or abandoned — \`ticket start\` only warns
                               about that — when a review bar of one is in progress, or when the agents
                               in flight already number the concurrency limit. The count and the
@@ -356,7 +362,8 @@ output never carries either.
                               has, and it is refused from every other status. It takes no --tokens:
                               the row's figure is the builder's, and a review pass has its own row.
 
-  ticket status <id> <status> The same move, naming the target status directly: pending,
+  ticket status <id> <status>
+                              The same move, naming the target status directly: pending,
                               in-progress, in-review, reviewed, delivered or abandoned. It takes
                               the same options and is the documented way to make a move the verbs above refuse.
 
@@ -394,11 +401,13 @@ output never carries either.
       [--at <when>] [--json]  standard input), kept byte for byte. The key is lower-case letters
                               and digits in words joined by single hyphens (\`checkout-redesign\`);
                               a malformed key or one already taken is refused at exit 1 with
-                              nothing written. The slot, 1 to 6, is the one the fewest epics use,
-                              the lowest on a tie, and is never reassigned.
+                              nothing written, and so are --body and --body-file together. The
+                              slot, 1 to 6, is the one the fewest epics use, the lowest on a tie,
+                              and is never reassigned.
   epic edit <key>             Change an epic's title, or replace its description, or with
       [--title "<title>"]     --append add to its end. Nothing to change writes nothing and exits 0;
-      [--append]              an empty replacement is refused at exit 1.
+      [--append]              an empty replacement or title, none of --title, --body and
+                              --body-file, or both body options, are refused at exit 1.
       [--body <markdown>]
       [--body-file <path|->]
       [--at <when>] [--json]
@@ -438,7 +447,8 @@ output never carries either.
                               other word is refused at exit 1 with nothing written.
                               \`status --json\` carries it as \`concurrency.dispatcherState\`.
 
-  range --from <when>         The stored default axis of the chart. A relative bound is stored as
+  range --from <when>         The stored default axis of the chart; a bound may also be \`start\`, the
+                              earliest visible row. A relative bound is stored as
         --to <when>           written, so \`--from -2h\` keeps meaning "the last two hours" on every
         [--tick <15m|1h|1d>]  refresh. A pair that is not in order is refused at exit 1 when both
                               are timestamps or both are relative to now; a pair naming \`start\`
@@ -458,7 +468,7 @@ output never carries either.
   clear [--all] [--yes]       Throw away every task row and the log and restart the clock, keeping
                               the tickets: each surviving ticket is given a fresh row seeded from
                               its own frontmatter, except a low one with no row. Row ids are not reused. --all deletes the
-                              tickets too and restarts their ids at 001. --yes skips the
+                              tickets and every epic too and restarts the ticket ids at 001. --yes skips the
                               confirmation, and is required when standard input is not a terminal.
 
   help                        This command reference.
