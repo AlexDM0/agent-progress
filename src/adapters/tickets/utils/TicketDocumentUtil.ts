@@ -211,15 +211,15 @@ function ticketDocumentTextOf(frontmatter: TicketFrontmatter, body: string, line
  * A parsed document's frontmatter text, its fences included, with only its `title` line rewritten and every other byte kept. The last
  * `title` line is the one replaced, since that is the one the parse reads.
  */
-function frontmatterTextWithTitleOf(frontmatterText: string, title: string): string {
+function frontmatterTextWithTextValueOf(frontmatterText: string, key: 'title' | typeof CLAIMED_BODY_HASH_KEY, value: string): string {
   const lines = frontmatterText.split('\n');
-  const titleLineIndex = lines.findLastIndex((line) => {
+  const keyLineIndex = lines.findLastIndex((line) => {
     const reading = keyValueReadingOf(withoutCarriageReturn(line));
-    return typeof reading !== 'string' && reading[0] === 'title';
+    return typeof reading !== 'string' && reading[0] === key;
   });
-  if (titleLineIndex === -1) return frontmatterText;
-  const carriageReturn = (lines[titleLineIndex] ?? '').endsWith(CARRIAGE_RETURN) ? CARRIAGE_RETURN : '';
-  lines[titleLineIndex] = `title: ${JSON.stringify(title)}${carriageReturn}`;
+  if (keyLineIndex === -1) return frontmatterText;
+  const carriageReturn = (lines[keyLineIndex] ?? '').endsWith(CARRIAGE_RETURN) ? CARRIAGE_RETURN : '';
+  lines[keyLineIndex] = `${key}: ${JSON.stringify(value)}${carriageReturn}`;
   return lines.join('\n');
 }
 
@@ -539,4 +539,4 @@ function extraLineOf(key: string, rawValue: string): string {
   return rawValue === '' ? `${key}:` : `${key}: ${rawValue}`;
 }
 
-export const TicketDocumentUtil = { frontmatterTextWithTitleOf, parsedTicketDocumentOf, ticketDocumentTextOf } as const;
+export const TicketDocumentUtil = { frontmatterTextWithTextValueOf, parsedTicketDocumentOf, ticketDocumentTextOf } as const;

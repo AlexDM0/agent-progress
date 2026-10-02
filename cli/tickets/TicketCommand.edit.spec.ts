@@ -15,6 +15,7 @@ import {
   expect,
   test
 }                                                  from 'bun:test';
+import { TicketBodyHashUtil }                 from '../../src/lib/tracker-model/utils/TicketBodyHashUtil.ts';
 import { removeScratchDirectory }             from '../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../src/testing/ToolGuard.ts';
 import { runCommandLine }                     from '../Main.ts';
@@ -286,6 +287,23 @@ describeWhenGitIsPresent('renaming a ticket', () => {
     await run(['ticket', 'edit', '1', '--title', 'Example payment page']);
 
     expect(storedTicketText()).toBe(`${frontmatterText.replace('title: "Example checkout page"', 'title: "Example payment page"')}${body}`);
+  });
+
+  test('a forced rename of a claimed hand-written frontmatter rewrites only its title and claimedBodyHash lines', async () => {
+    const body = '# 001 — Example checkout page\n\n## Report\n';
+    const frontmatterText = HAND_WRITTEN_FRONTMATTER_LINES
+      .map((line) => (line === 'status: pending' ? 'status: in-progress' : line))
+      .flatMap((line) => (line === 'task: 1' ? [`claimedBodyHash: "${TicketBodyHashUtil.bodyHashOf(body)}"`, line] : [line]))
+      .join('\n');
+    writeFileSync(ticketFilePath(), `${frontmatterText}\n${body}`);
+
+    await run(['ticket', 'edit', '1', '--title', 'Example payment page', '--force']);
+
+    const renamedBody = '# 001 — Example payment page\n\n## Report\n';
+    expect(storedTicketText()).toBe(`${frontmatterText
+      .replace('title: "Example checkout page"', 'title: "Example payment page"')
+      .replace(TicketBodyHashUtil.bodyHashOf(body), TicketBodyHashUtil.bodyHashOf(renamedBody))}\n${renamedBody}`);
+    expect((await shownTicket()).bodyChangedSinceClaim).toBe(false);
   });
 
   test('the generated heading follows the title and no other body byte changes', async () => {
