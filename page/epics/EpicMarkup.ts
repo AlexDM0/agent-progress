@@ -9,6 +9,7 @@ import { TokenCountUtil }                from '../../src/lib/token-count/TokenCo
 import type { TicketStatus }             from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { FIRST_REPEAT_REVIEW_ROUND }     from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
 import type { PageLimits }               from '../../src/shared/@types/PagePayload.ts';
+import type { DependencyGraph }          from '../@types/DependencyGraph.ts';
 import type { BoardEpic, BoardTicket }   from '../@types/PageBoard.ts';
 import { NO_EPIC_CHIP }                  from '../constants/EpicChips.ts';
 import { STATE_LABEL_FOR_DISPLAY_STATE } from '../constants/StateLabels.ts';
@@ -16,6 +17,7 @@ import { DetailMarkupUtil }              from '../detail-dialog/utils/DetailMark
 import { MarkupUtil }                    from '../utils/MarkupUtil.ts';
 import { TimeUtil }                      from '../utils/TimeUtil.ts';
 import { WorkItemMarkupUtil }            from '../utils/WorkItemMarkupUtil.ts';
+import { EpicDependencyMarkup }          from './EpicDependencyMarkup.ts';
 
 /** A Kanban card and a table line show this many epic chips, then "+N" for the rest. */
 export const CARD_EPIC_CHIP_LIMIT = 2;
@@ -175,7 +177,7 @@ function epicTitleButtonMarkup(epic: BoardEpic): string {
   return `<button type="button" class="ap-epic-title" ${MarkupUtil.attribute('data-open-epic', epic.key)}>${SWATCH_MARKUP}${HtmlEscapeUtil.escapeHtml(epic.title)}</button>`;
 }
 
-function epicCardMarkup(epic: BoardEpic, ticketById: ReadonlyMap<string, BoardTicket>, format: EpicMarkupFormat): string {
+function epicCardMarkup(epic: BoardEpic, ticketById: ReadonlyMap<string, BoardTicket>, graph: DependencyGraph, format: EpicMarkupFormat): string {
   const summary = FIRST_PARAGRAPH_PATTERN.exec(epic.descriptionHtml)?.[1] ?? '';
   const status  = openTicketCountOf(epic) === 0 ? settledTextOf(epic) : doneTextOf(epic);
   return [
@@ -186,13 +188,19 @@ function epicCardMarkup(epic: BoardEpic, ticketById: ReadonlyMap<string, BoardTi
     summary === '' ? '' : `<p class="ap-epic-summary">${summary}</p>`,
     `<div>${epicProgressMarkup(epic)}${epicLegendMarkup(epic)}</div>`,
     epicRollupFactsMarkup(epic, format),
+    EpicDependencyMarkup.epicDependencyRowsMarkup(epic, graph, ticketById),
     epicTicketListMarkup(epic, ticketById),
     '</div></article>',
   ].join('');
 }
 
-function epicCardsMarkup(epics: readonly BoardEpic[], ticketById: ReadonlyMap<string, BoardTicket>, format: EpicMarkupFormat): string {
-  return epicsInShownOrder(epics).map((epic) => epicCardMarkup(epic, ticketById, format)).join('');
+function epicCardsMarkup(
+  epics: readonly BoardEpic[],
+  ticketById: ReadonlyMap<string, BoardTicket>,
+  graph: DependencyGraph,
+  format: EpicMarkupFormat
+): string {
+  return epicsInShownOrder(epics).map((epic) => epicCardMarkup(epic, ticketById, graph, format)).join('');
 }
 
 /** The Tickets table's head row of one epic's tickets, or of the tickets in none when `epic` is null. */

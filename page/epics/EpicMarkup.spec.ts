@@ -2,6 +2,7 @@
  * The epic marks. The cases that matter: a chip carries its key and colour slot and escapes its title once, a card shows two chips then
  * "+N"; the roll-up bar and facts come from the Board's counts; an epic's ticket list opens each ticket and names its other epics; the
  * detail carries the rendered description unescaped; open epics come before settled ones; and the filter chips end with the no-epic chip.
+ * A card's dependency rows count each ticket under its primary epic alone, say so when there is nothing, and draw the global waves.
  */
 
 import { describe, expect, test }           from 'bun:test';
@@ -10,7 +11,10 @@ import type { PageTicket }                  from '../../src/shared/@types/PagePa
 import type { BoardEpic, BoardTicket }      from '../@types/PageBoard.ts';
 import { pageBoardFixture }                 from '../testing/PageBoardFixture.ts';
 import { EXAMPLE_PAGE_LIMITS }              from '../testing/PageLimitsFixture.ts';
+import { DependencyGraphUtil }              from '../utils/DependencyGraphUtil.ts';
 import { CARD_EPIC_CHIP_LIMIT, EpicMarkup } from './EpicMarkup.ts';
+
+const BOARD_SLOTS = 5;
 
 function exampleTicket(changes: Partial<PageTicket>): PageTicket {
   return {
@@ -115,11 +119,95 @@ describe('epicCardsMarkup', () => {
       }), exampleTicket({ id: '005', epics: ['order-emails'] })],
       epics: EPICS.slice(0, 2),
     });
-    const markup = EpicMarkup.epicCardsMarkup(settled.epics, new Map(settled.tickets.map((ticket) => [ticket.id, ticket])), FORMAT);
+    const graph  = DependencyGraphUtil.dependencyGraphOf(settled.tickets, BOARD_SLOTS);
+    const markup = EpicMarkup.epicCardsMarkup(settled.epics, new Map(settled.tickets.map((ticket) => [ticket.id, ticket])), graph, FORMAT);
 
     expect(markup.indexOf('data-open-epic="order-emails"')).toBeLessThan(markup.indexOf('data-open-epic="checkout-redesign"'));
     expect(markup).toContain('<span class="ap-epic-done-mark">all settled</span>');
     expect(markup).toContain('<p class="ap-epic-summary">The Order emails epic.</p>');
+  });
+});
+
+describe('epicCardsMarkup dependency rows', () => {
+  const linked = pageBoardFixture({
+    tasks:   [],
+    tickets: [
+      exampleTicket({
+        id: '010', title: 'Checkout schema', status: 'delivered', delivered: '2026-09-18T21:00:00+02:00', epics: ['checkout-redesign']
+      }),
+      exampleTicket({
+        id: '011', title: 'Checkout form', dependsOn: ['010'], epics: ['checkout-redesign']
+      }),
+      exampleTicket({
+        id: '020', title: 'Retry <failed> sends', dependsOn: ['011'], epics: ['order-emails', 'checkout-redesign']
+      }),
+      exampleTicket({
+        id: '021', title: 'Receipt layout', dependsOn: ['011', '020'], epics: ['order-emails']
+      }),
+      exampleTicket({
+        id: '030', title: 'Card provider', dependsOn: ['020'], epics: ['payment-providers', 'order-emails']
+      }),
+    ],
+    epics: EPICS,
+  });
+  const linkedTicketById = new Map(linked.tickets.map((ticket) => [ticket.id, ticket]));
+  const linkedGraph      = DependencyGraphUtil.dependencyGraphOf(linked.tickets, BOARD_SLOTS);
+
+  function cardOf(key: string): string {
+    const epic = linked.epics.find((candidate) => candidate.key === key);
+    if (epic === undefined) throw new Error(`no epic ${key}`);
+    return EpicMarkup.epicCardsMarkup([epic], linkedTicketById, linkedGraph, FORMAT);
+  }
+
+  test('lists the tickets of other primary epics it waits on, and the epics waiting on it with the ids they wait through', () => {
+    expect(cardOf('order-emails')).toContain(
+      '<span class="ap-epic-link-label">Waits on</span><button type="button" class="ap-epic-link-chip" data-open-ticket="011" data-epic-slot="1" '
+      + 'title="#011 Checkout form"><span class="ap-epic-swatch"></span><span class="ap-ticket-id">#011</span>'
+      + '<span class="ap-epic-link-epic">Checkout &lt;redesign&gt;</span></button></div>'
+    );
+    expect(cardOf('checkout-redesign')).toContain(
+      '<span class="ap-epic-link-label">Frees</span><button type="button" class="ap-epic-link-chip" data-frees data-open-epic="order-emails" '
+      + 'data-epic-slot="2" title="Order emails via #011"><span class="ap-epic-swatch"></span><span>Order emails</span>'
+      + '<span class="ap-epic-link-via">via #011</span></button></div>'
+    );
+  });
+
+  test('counts a ticket in several epics under its primary epic alone', () => {
+    const checkoutCard = cardOf('checkout-redesign');
+    const paymentsCard = cardOf('payment-providers');
+
+    expect(checkoutCard).not.toContain('data-open-ticket="020" data-state');
+    expect(checkoutCard).not.toContain('Payment providers');
+    expect(paymentsCard).toContain('data-open-ticket="020" data-epic-slot="2"');
+    expect(cardOf('order-emails')).toContain('data-open-epic="payment-providers"');
+    expect(cardOf('order-emails')).not.toContain('data-open-ticket="030" data-state');
+  });
+
+  test('says so when nothing outside waits or is waited on', () => {
+    expect(cardOf('checkout-redesign')).toContain('<span class="ap-epic-link-label">Waits on</span><span class="ap-epic-link-empty">Nothing outside this epic</span>');
+    expect(cardOf('payment-providers')).toContain('<span class="ap-epic-link-label">Frees</span><span class="ap-epic-link-empty">No other epic waits on this one</span>');
+  });
+
+  test('shows Done first, then each global wave holding its tickets, narrow where the whole wave is one ticket', () => {
+    const checkoutCard = cardOf('checkout-redesign');
+    const emailsCard   = cardOf('order-emails');
+
+    expect(checkoutCard).toContain('<div class="ap-epic-waves"><div class="ap-epic-wave" data-done><span class="ap-epic-wave-name">Done</span>'
+      + '<button type="button" class="ap-epic-wave-pill" data-open-ticket="010" data-state="delivered" data-done title="Checkout schema">');
+    expect(checkoutCard).toContain('<div class="ap-epic-wave" data-narrow><span class="ap-epic-wave-name">Now</span>');
+    expect(emailsCard).toContain('<div class="ap-epic-waves"><div class="ap-epic-wave" data-narrow><span class="ap-epic-wave-name">Wave 2</span>'
+      + '<button type="button" class="ap-epic-wave-pill" data-open-ticket="020" data-state="pending" data-narrow title="Retry &lt;failed&gt; sends">'
+      + '<span class="ap-ticket-id">#020</span><span class="ap-epic-wave-title">Retry &lt;failed&gt; sends</span></button></div>');
+    expect(emailsCard).toContain('<div class="ap-epic-wave"><span class="ap-epic-wave-name">Wave 3</span>'
+      + '<button type="button" class="ap-epic-wave-pill" data-open-ticket="021" data-state="pending" title="Receipt layout">');
+    expect(linkedGraph.waves.map((wave) => wave.isNarrow)).toEqual([true, true, false]);
+  });
+
+  test('keeps the strip on a card whose epic holds no ticket as its primary', () => {
+    const emptyBoard = pageBoardFixture({ tasks: [], tickets: [], epics: EPICS.slice(0, 1) });
+    const markup     = EpicMarkup.epicCardsMarkup(emptyBoard.epics, new Map(), DependencyGraphUtil.dependencyGraphOf([], BOARD_SLOTS), FORMAT);
+
+    expect(markup).toContain('<div class="ap-epic-waves"><span class="ap-epic-link-empty">No tickets under this epic</span></div>');
   });
 });
 

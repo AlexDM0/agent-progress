@@ -216,7 +216,14 @@
  #ap-epics                html   the Epics tab: one article.ap-card[data-epic-slot] per epic, open
                                  ones first: .ap-epic-card-head (button.ap-epic-title[data-open-epic],
                                  .ap-epic-key, .ap-epic-done-mark), .ap-epic-card-body (the
-                                 description's first paragraph, the roll-up, ul.ap-epic-tickets)
+                                 description's first paragraph, the roll-up, the dependency rows,
+                                 ul.ap-epic-tickets). The rows, by primary epic: .ap-epic-link-row
+                                 "Waits on" (.ap-epic-link-label, then button.ap-epic-link-chip
+                                 [data-open-ticket][data-epic-slot] or .ap-epic-link-empty);
+                                 .ap-epic-waves of .ap-epic-wave[data-narrow?][data-done?]
+                                 (-wave-name, button.ap-epic-wave-pill[data-open-ticket][data-state]
+                                 [data-done?][data-narrow?]); .ap-epic-link-row "Frees" (chips
+                                 [data-frees][data-open-epic], .ap-epic-link-via)
  epic marks               .ap-epic-chip[data-epic][data-epic-slot] (neutral, a rounded square
                           .ap-epic-swatch, never round) and [data-open-epic] open the epic in
                           #ap-detail; button.ap-epic-ticket[data-open-ticket] opens its ticket.
@@ -1693,6 +1700,37 @@ button.ap-epic-title:hover { text-decoration: underline; text-underline-offset: 
 .ap-epic-ticket .ap-badge { min-width: 0; }
 .ap-epic-also { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; font-size: var(--fs-micro); color: var(--ink-muted); white-space: nowrap; vertical-align: middle; }
 .ap-epic-also .ap-epic-swatch { width: 7px; height: 7px; }
+.ap-epic-link-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); font-size: var(--fs-small); }
+.ap-epic-link-label { flex: none; width: 70px; font-size: var(--fs-micro); font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-muted); }
+.ap-epic-link-empty { color: var(--ink-muted); }
+.ap-epic-link-chip {
+  display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 1px 7px;
+  font: var(--fs-small)/1.5 var(--font-ui); color: var(--ink); white-space: nowrap;
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-1); cursor: pointer;
+}
+.ap-epic-link-chip[data-frees] { background: none; }
+.ap-epic-link-chip:hover { border-color: var(--line-strong); }
+.ap-epic-link-chip:focus-visible { outline: 2px solid var(--link); outline-offset: 1px; }
+.ap-epic-link-chip .ap-epic-swatch { width: 7px; height: 7px; }
+.ap-epic-link-chip .ap-ticket-id { color: var(--ink); }
+.ap-epic-link-epic { color: var(--ink-muted); }
+.ap-epic-link-via { font-family: var(--font-mono); color: var(--ink-muted); }
+.ap-epic-waves { display: flex; gap: 10px; padding: 10px; overflow-x: auto; background: var(--bg); border-radius: 8px; }
+.ap-epic-wave { flex: 1 1 0; min-width: 120px; display: flex; flex-direction: column; gap: 6px; }
+.ap-epic-wave-name { font-size: var(--fs-micro); font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-muted); }
+.ap-epic-wave[data-narrow] .ap-epic-wave-name { color: var(--link); }
+.ap-epic-wave-pill {
+  position: relative; display: flex; flex-direction: column; min-width: 0; padding: 5px 8px 5px 11px; overflow: hidden;
+  font: inherit; color: var(--ink); text-align: left; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-2);
+}
+.ap-epic-wave-pill::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--s-fill); }
+.ap-epic-wave-pill:hover { border-color: var(--line-strong); }
+.ap-epic-wave-pill[data-narrow] { border: 1.5px solid color-mix(in oklch, var(--link) 60%, transparent); }
+.ap-epic-wave-pill[data-done] { opacity: 0.6; }
+.ap-epic-wave-pill:focus-visible { outline: 2px solid var(--link); outline-offset: 1px; }
+.ap-epic-wave-pill .ap-ticket-id { font-size: var(--fs-micro); }
+.ap-epic-wave-title { font-size: var(--fs-small); line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* "Group by epic" on the Tickets table, and the Kanban's epic strip. */
 .ap-table tr.ap-epic-group-row td { padding: 10px var(--sp-3) 8px; background: var(--surface-2); border-bottom: 1px solid var(--line-strong); }
@@ -2022,7 +2060,7 @@ button.ap-epic-title:hover { text-decoration: underline; text-underline-offset: 
 
 <section data-panel="epics" role="tabpanel" id="ap-panel-epics" aria-labelledby="ap-tab-epics" hidden>
   <div class="ap-epics" id="ap-epics">
-    <article class="ap-card" data-epic-slot="2" aria-label="Exporter"><div class="ap-epic-card-head"><button type="button" class="ap-epic-title" data-open-epic="exporter"><span class="ap-epic-swatch"></span>Exporter</button><span class="ap-epic-key">exporter</span><span class="ap-epic-done-mark">0 of 2 done</span></div><div class="ap-epic-card-body"><p class="ap-epic-summary">Split the exporter so the tick ladder can be reused.</p><div><div class="ap-epic-progress" role="img" aria-label="0 of 2 done tickets"><span data-state="reviewed" style="flex-grow:1" title="Awaiting merge: 1"></span><span data-state="in-review" style="flex-grow:1" title="Awaiting review: 1"></span></div><ul class="ap-epic-legend"><li><span class="ap-lane-dot" data-state="reviewed"></span>Awaiting merge <b>1</b></li><li><span class="ap-lane-dot" data-state="in-review"></span>Awaiting review <b>1</b></li></ul></div><div class="ap-ticket-meta"><div><b>open</b><span>2</span></div><div><b>done</b><span>0</span></div><div><b>tokens</b><span>22.1k</span></div><div><b>span</b><span title="2026-09-18 20:48 → still open">20:48 → now · 1h 27m</span></div></div><ul class="ap-epic-tickets"><li><button type="button" class="ap-epic-ticket" data-open-ticket="003"><span class="ap-ticket-id">#003</span><span class="ap-epic-ticket-title">Split the exporter into two passes</span><span class="ap-badge" data-state="in-review">Awaiting review</span></button></li><li><button type="button" class="ap-epic-ticket" data-open-ticket="002"><span class="ap-ticket-id">#002</span><span class="ap-epic-ticket-title">Cache ticket bodies between runs<span class="ap-epic-also" title="Also in Role editor">also in <span class="ap-epic-swatch" data-epic-slot="1"></span></span></span><span class="ap-badge" data-state="reviewed">Awaiting merge</span></button></li></ul></div></article>
+    <article class="ap-card" data-epic-slot="2" aria-label="Exporter"><div class="ap-epic-card-head"><button type="button" class="ap-epic-title" data-open-epic="exporter"><span class="ap-epic-swatch"></span>Exporter</button><span class="ap-epic-key">exporter</span><span class="ap-epic-done-mark">0 of 2 done</span></div><div class="ap-epic-card-body"><p class="ap-epic-summary">Split the exporter so the tick ladder can be reused.</p><div><div class="ap-epic-progress" role="img" aria-label="0 of 2 done tickets"><span data-state="reviewed" style="flex-grow:1" title="Awaiting merge: 1"></span><span data-state="in-review" style="flex-grow:1" title="Awaiting review: 1"></span></div><ul class="ap-epic-legend"><li><span class="ap-lane-dot" data-state="reviewed"></span>Awaiting merge <b>1</b></li><li><span class="ap-lane-dot" data-state="in-review"></span>Awaiting review <b>1</b></li></ul></div><div class="ap-ticket-meta"><div><b>open</b><span>2</span></div><div><b>done</b><span>0</span></div><div><b>tokens</b><span>22.1k</span></div><div><b>span</b><span title="2026-09-18 20:48 → still open">20:48 → now · 1h 27m</span></div></div><div class="ap-epic-link-row"><span class="ap-epic-link-label">Waits on</span><span class="ap-epic-link-empty">Nothing outside this epic</span></div><div class="ap-epic-waves"><div class="ap-epic-wave" data-done><span class="ap-epic-wave-name">Done</span><button type="button" class="ap-epic-wave-pill" data-open-ticket="002" data-state="reviewed" data-done title="Cache ticket bodies between runs"><span class="ap-ticket-id">#002</span><span class="ap-epic-wave-title">Cache ticket bodies between runs</span></button></div><div class="ap-epic-wave" data-narrow><span class="ap-epic-wave-name">Now</span><button type="button" class="ap-epic-wave-pill" data-open-ticket="003" data-state="in-review" data-narrow title="Split the exporter into two passes"><span class="ap-ticket-id">#003</span><span class="ap-epic-wave-title">Split the exporter into two passes</span></button></div></div><div class="ap-epic-link-row"><span class="ap-epic-link-label">Frees</span><span class="ap-epic-link-empty">No other epic waits on this one</span></div><ul class="ap-epic-tickets"><li><button type="button" class="ap-epic-ticket" data-open-ticket="003"><span class="ap-ticket-id">#003</span><span class="ap-epic-ticket-title">Split the exporter into two passes</span><span class="ap-badge" data-state="in-review">Awaiting review</span></button></li><li><button type="button" class="ap-epic-ticket" data-open-ticket="002"><span class="ap-ticket-id">#002</span><span class="ap-epic-ticket-title">Cache ticket bodies between runs<span class="ap-epic-also" title="Also in Role editor">also in <span class="ap-epic-swatch" data-epic-slot="1"></span></span></span><span class="ap-badge" data-state="reviewed">Awaiting merge</span></button></li></ul></div></article>
   </div>
 </section>
 

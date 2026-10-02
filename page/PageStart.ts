@@ -243,10 +243,12 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   });
 
   const ticketById = new Map(board.tickets.map((ticket) => [ticket.id, ticket]));
+  // The graph spans every ticket, finished ones included, so the finished-work switch never reshapes the waves.
+  const dependencyGraph = DependencyGraphUtil.dependencyGraphOf(board.tickets, payload.concurrency.limit);
   // Every epic's card counts all its tickets, finished ones included: an epic's progress is not narrowed by the finished-work switch.
   const showEpicsTab = (): void => {
     if (board.epics.length > 0) {
-      DomUtil.setMarkup(EPICS_BOARD_ELEMENT_ID, EpicMarkup.epicCardsMarkup(board.epics, ticketById, {
+      DomUtil.setMarkup(EPICS_BOARD_ELEMENT_ID, EpicMarkup.epicCardsMarkup(board.epics, ticketById, dependencyGraph, {
         limits,
         todayCalendarDate,
         nowEpochMilliseconds: Date.now(),
@@ -300,9 +302,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   ticketsController.wire();
   showEpicsTabButton(board.epics.length > 0);
 
-  // The graph spans every ticket, finished ones included, so the finished-work switch never reshapes the waves.
   const boardHasDependencies = DependencyMarkup.boardHasDependencies(board.tickets);
-  const dependencyGraph      = DependencyGraphUtil.dependencyGraphOf(board.tickets, payload.concurrency.limit);
   if (boardHasDependencies) {
     DomUtil.setMarkup(DEPENDENCIES_CARD_ELEMENT_ID, DependencyMarkup.dependencyGraphMarkup(dependencyGraph, ticketById));
   }
