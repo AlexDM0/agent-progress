@@ -21,6 +21,8 @@ import {
   TICKET_COUNT_ELEMENT_ID,
   TICKET_ROWS_ELEMENT_ID,
 } from './constants/TemplateIds.ts';
+import { createDependencyLineageController }                  from './dependencies/DependencyLineageController.ts';
+import { DependencyMarkup }                                   from './dependencies/DependencyMarkup.ts';
 import { createDetailDialogController }                       from './detail-dialog/DetailDialogController.ts';
 import { EpicMarkup }                                         from './epics/EpicMarkup.ts';
 import { createFinishedWorkSwitchController }                 from './finished-work/FinishedWorkSwitchController.ts';
@@ -36,6 +38,7 @@ import { highlightChangesSince }                              from './reload/Cha
 import { createReloadSnapshotController }                     from './reload/ReloadSnapshotController.ts';
 import { ScreenSignatureUtil }                                from './reload/utils/ScreenSignatureUtil.ts';
 import { createTicketsController }                            from './tickets/TicketsController.ts';
+import { DependencyGraphUtil }                                from './utils/DependencyGraphUtil.ts';
 import { DomUtil }                                            from './utils/DomUtil.ts';
 import { FinishedWorkUtil }                                   from './utils/FinishedWorkUtil.ts';
 import { IslandUtil }                                         from './utils/IslandUtil.ts';
@@ -45,15 +48,19 @@ import { TimeUtil }                                           from './utils/Time
 const PROGRESS_ISLAND_ELEMENT_ID = 'ap-progress-data';
 const TICKETS_ISLAND_ELEMENT_ID  = 'ap-tickets-data';
 
-const TICKETS_TAB_NAME = 'tickets';
-const EPICS_TAB_NAME   = 'epics';
-const TAB_NAMES        = ['progress', KANBAN_TAB_NAME, TICKETS_TAB_NAME, EPICS_TAB_NAME];
+const TICKETS_TAB_NAME      = 'tickets';
+const EPICS_TAB_NAME        = 'epics';
+const DEPENDENCIES_TAB_NAME = 'dependencies';
+const TAB_NAMES             = ['progress', KANBAN_TAB_NAME, TICKETS_TAB_NAME, EPICS_TAB_NAME, DEPENDENCIES_TAB_NAME];
 
-const EPICS_TAB_ELEMENT_ID   = 'ap-tab-epics';
-const EPICS_BOARD_ELEMENT_ID = 'ap-epics';
+const EPICS_TAB_ELEMENT_ID          = 'ap-tab-epics';
+const EPICS_BOARD_ELEMENT_ID        = 'ap-epics';
+const DEPENDENCIES_TAB_ELEMENT_ID   = 'ap-tab-dependencies';
+const DEPENDENCIES_CARD_ELEMENT_ID  = 'ap-dependencies';
 
 const OWNED_MARKUP_CONTAINER_IDS = [
   EPICS_BOARD_ELEMENT_ID,
+  DEPENDENCIES_CARD_ELEMENT_ID,
   'ap-ticket-epic',
   'ap-kanban-epic',
   'ap-kanban-epic-rollups',
@@ -141,12 +148,24 @@ function clearPlaceholderContent(): void {
 
 /** A board without epics has no Epics tab; a viewer whose stored tab was it lands on the Kanban instead. */
 function showEpicsTabButton(boardHasEpics: boolean): void {
-  const tab = document.getElementById(EPICS_TAB_ELEMENT_ID);
-  if (tab === null) {
+  const epicsTab = document.getElementById(EPICS_TAB_ELEMENT_ID);
+  if (epicsTab === null) {
     return;
   }
-  tab.hidden = !boardHasEpics;
-  if (!boardHasEpics && tab.getAttribute('aria-selected') === 'true') {
+  epicsTab.hidden = !boardHasEpics;
+  if (!boardHasEpics && epicsTab.getAttribute('aria-selected') === 'true') {
+    DomUtil.templateBehaviour()?.selectTab(KANBAN_TAB_NAME);
+  }
+}
+
+/** A board where no ticket depends on another has no Dependencies tab, and a viewer whose stored tab was it lands on the Kanban. */
+function showDependenciesTabButton(boardHasDependencies: boolean): void {
+  const dependenciesTab = document.getElementById(DEPENDENCIES_TAB_ELEMENT_ID);
+  if (dependenciesTab === null) {
+    return;
+  }
+  dependenciesTab.hidden = !boardHasDependencies;
+  if (!boardHasDependencies && dependenciesTab.getAttribute('aria-selected') === 'true') {
     DomUtil.templateBehaviour()?.selectTab(KANBAN_TAB_NAME);
   }
 }
@@ -280,6 +299,15 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   kanbanEpicFilter.wire();
   ticketsController.wire();
   showEpicsTabButton(board.epics.length > 0);
+
+  // The graph spans every ticket, finished ones included, so the finished-work switch never reshapes the waves.
+  const boardHasDependencies = DependencyMarkup.boardHasDependencies(board.tickets);
+  const dependencyGraph      = DependencyGraphUtil.dependencyGraphOf(board.tickets, payload.concurrency.limit);
+  if (boardHasDependencies) {
+    DomUtil.setMarkup(DEPENDENCIES_CARD_ELEMENT_ID, DependencyMarkup.dependencyGraphMarkup(dependencyGraph, ticketById));
+  }
+  createDependencyLineageController({ containerElementId: DEPENDENCIES_CARD_ELEMENT_ID, readGraph: () => dependencyGraph }).wire();
+  showDependenciesTabButton(boardHasDependencies);
 
   const openTicketDetail = (ticketId: string): boolean => detailDialogController.openTicketDetail(ticketId);
   window.addEventListener('resize', () => {

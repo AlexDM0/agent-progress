@@ -91,10 +91,11 @@
                                  tabs' baseline; below 1320px the tabs fill the first line and
                                  #ap-finished starts the second and the note is hidden; #ap-detail
                                  docks under its bottom edge
- #ap-tabs                 el     buttons carry data-tab="kanban|progress|tickets|epics", aria-selected, and
-                                 id="ap-tab-…" with aria-controls naming the panel; the arrow keys,
-                                 Home and End move to a tab and select it. #ap-tab-epics is
-                                 [hidden] on a board without epics
+ #ap-tabs                 el     buttons carry data-tab="kanban|progress|tickets|epics|dependencies",
+                                 aria-selected, and id="ap-tab-…" with aria-controls naming the
+                                 panel; the arrow keys, Home and End move to a shown tab and select
+                                 it. #ap-tab-epics is [hidden] on a board without epics,
+                                 #ap-tab-dependencies on one where no ticket has dependsOn
  [data-panel="…"]         el     matching panel, role="tabpanel", id="ap-panel-…" and
                                  aria-labelledby naming its tab; [hidden] when not selected; each
                                  starts --sp-5 (24px) below .ap-tab-bar's rule
@@ -222,7 +223,22 @@
                           The roll-up: .ap-epic-progress (one span[data-state] per ticket status,
                           flex-grow its count), ul.ap-epic-legend, .ap-ticket-meta (open, done,
                           abandoned?, tokens, span)
- #ap-ticket-NNN           link   a fragment naming no element: it selects Tickets and opens that
+ #ap-dependencies         html   the Dependencies tab's .ap-card: .ap-dependency-canvas (width and
+                                 height inline), its columns left to right: Done (the settled
+                                 tickets an open one depends on, [data-done]) then one per wave
+                                 ("Now", "Wave 2", …). Each column is a .ap-dependency-band and a
+                                 .ap-dependency-head (-head-name, -head-count, .ap-dependency-slots
+                                 of span.ap-dependency-slot[data-filled?], one per board slot);
+                                 [data-narrow] on both for a one-ticket wave. svg.ap-dependency-edges
+                                 holds path.ap-dependency-edge[data-from][data-to][data-pace?]
+                                 [data-settled?]; button.ap-dependency-node[data-open-ticket]
+                                 [data-state][data-done?][data-in-review?] holds
+                                 .ap-dependency-node-head (.ap-ticket-id, a .ap-badge for ready,
+                                 in-progress or in-review work, .ap-dependency-wait "N wait",
+                                 [data-heavy] from 5), -node-title, -weight (width inline). Hovering
+                                 a node sets [data-lineage-shown] on the canvas and [data-lit] on
+                                 its lineage. Then ul.ap-dependency-legend
+ #ap-ticket-NNN          link   a fragment naming no element: it selects Tickets and opens that
                                  ticket's #ap-detail
  #ap-detail               dialog the overview panel: a non-modal right-hand panel (--detail-w,
                                  480px) opened with show() by ONE click on a #ap-rows > .ap-row, a
@@ -1600,6 +1616,57 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
 /* The Epics tab: one card per epic. */
 .ap-epics { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(380px, 100%), 1fr)); gap: var(--sp-4); align-items: start; }
 .ap-epics > .ap-card { margin-bottom: 0; }
+
+/* The Dependencies tab: the page script places every column, band, node and edge on the canvas in pixels; only the look lives here. */
+.ap-dependencies { padding: 20px; overflow-x: auto; }
+.ap-dependency-canvas { position: relative; }
+.ap-dependency-band { position: absolute; border-radius: var(--r-3); background: var(--surface-2); }
+.ap-dependency-band[data-narrow] { background: color-mix(in oklch, var(--link) 6%, transparent); }
+.ap-dependency-band[data-done] { background: transparent; border: 1px dashed var(--line); }
+.ap-dependency-head { position: absolute; top: 0; display: flex; flex-direction: column; gap: 3px; }
+.ap-dependency-head-name { font-size: var(--fs-small); font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--ink-muted); }
+.ap-dependency-head-count { font-size: var(--fs-small); color: var(--ink-muted); }
+.ap-dependency-head[data-narrow] .ap-dependency-head-count { color: var(--link); }
+.ap-dependency-slots { display: flex; gap: 3px; }
+.ap-dependency-slot { width: 16px; height: 5px; border-radius: 2px; background: var(--line); }
+.ap-dependency-slot[data-filled] { background: var(--ink-muted); }
+.ap-dependency-head[data-narrow] .ap-dependency-slot[data-filled] { background: var(--link); }
+.ap-dependency-edges { position: absolute; inset: 0; overflow: visible; pointer-events: none; }
+.ap-dependency-edge {
+  fill: none; stroke: var(--line-strong); stroke-width: 1.25px;
+  transition: opacity var(--motion-fast) var(--ease-out), stroke var(--motion-fast) var(--ease-out), stroke-width var(--motion-fast) var(--ease-out);
+}
+.ap-dependency-edge[data-settled] { stroke-dasharray: 3 4; }
+.ap-dependency-edge[data-pace] { stroke: var(--link); stroke-width: 2px; opacity: 0.85; }
+.ap-dependency-node {
+  position: absolute; box-sizing: border-box; width: 192px; height: 80px; overflow: hidden;
+  display: flex; flex-direction: column; gap: 4px; padding: 8px 10px 8px 13px;
+  font: inherit; color: var(--ink); text-align: left; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 7px;
+  transition: opacity var(--motion-fast) var(--ease-out), border-color var(--motion-fast) var(--ease-out);
+}
+.ap-dependency-node::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--s-fill); }
+.ap-dependency-node:hover { border-color: var(--line-strong); }
+.ap-dependency-node:focus-visible { outline: 2px solid var(--link); outline-offset: 1px; }
+.ap-dependency-node[data-in-review] { background: var(--bg); }
+.ap-dependency-node[data-done] { opacity: 0.6; }
+.ap-dependency-node-head { display: flex; align-items: center; gap: 6px; height: 18px; flex: none; }
+.ap-dependency-node-head .ap-ticket-id { font-size: var(--fs-small); }
+.ap-dependency-node-head .ap-badge { display: block; flex: 0 1 auto; min-width: 0; height: 17px; padding: 0 6px; line-height: 15px; overflow: hidden; text-overflow: ellipsis; }
+.ap-dependency-node-head .ap-badge[data-ready] { --s-tint: var(--link-tint); --s-edge: var(--link); --s-ink: var(--link); }
+.ap-dependency-wait { flex: none; margin-left: auto;font: var(--fs-micro)/1 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink-muted); white-space: nowrap; }
+.ap-dependency-wait[data-heavy] { color: var(--ink); font-weight: 600; }
+.ap-dependency-node-title { font-size: var(--fs-body); font-weight: 500; line-height: 1.35; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.ap-dependency-weight { position: absolute; left: 13px; bottom: 0; height: 2px; background: color-mix(in oklch, var(--link) 35%, transparent); }
+.ap-dependency-canvas[data-lineage-shown] .ap-dependency-node:not([data-lit]) { opacity: 0.22; }
+.ap-dependency-canvas[data-lineage-shown] .ap-dependency-edge:not([data-lit]) { opacity: 0.12; }
+.ap-dependency-canvas[data-lineage-shown] .ap-dependency-edge[data-lit] { stroke: var(--link); stroke-width: 2px; opacity: 1; }
+.ap-dependency-empty { margin: 0; color: var(--ink-muted); }
+.ap-dependency-legend { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-5); margin: var(--sp-4) 0 0; padding: 0; list-style: none; font-size: var(--fs-small); color: var(--ink-muted); }
+.ap-dependency-legend li { display: inline-flex; align-items: center; gap: var(--sp-2); }
+.ap-dependency-legend-line { width: 24px; border-top: 1.25px solid var(--line-strong); }
+.ap-dependency-legend-line[data-pace] { border-top: 2px solid var(--link); }
+.ap-dependency-legend-line[data-settled] { border-top-style: dashed; }
 .ap-epic-card-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px var(--sp-3); padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--line); }
 .ap-epic-title { display: inline-flex; align-items: center; gap: var(--sp-2); padding: 0; font: 600 var(--fs-title)/1.3 var(--font-ui); color: var(--ink); background: none; border: 0; cursor: pointer; text-align: left; }
 span.ap-epic-title { cursor: default; }
@@ -1715,6 +1782,7 @@ button.ap-epic-title:hover { text-decoration: underline; text-underline-offset: 
       <button type="button" role="tab" id="ap-tab-progress" aria-controls="ap-panel-progress" data-tab="progress" aria-selected="false">Progress</button>
       <button type="button" role="tab" id="ap-tab-tickets" aria-controls="ap-panel-tickets" data-tab="tickets" aria-selected="false">Tickets</button>
       <button type="button" role="tab" id="ap-tab-epics" aria-controls="ap-panel-epics" data-tab="epics" aria-selected="false">Epics</button>
+      <button type="button" role="tab" id="ap-tab-dependencies" aria-controls="ap-panel-dependencies" data-tab="dependencies" aria-selected="false">Dependencies</button>
     </div>
     <div class="ap-finished" id="ap-finished">
       <span class="ap-finished-label" id="ap-finished-label">Finished work</span>
@@ -1958,6 +2026,12 @@ button.ap-epic-title:hover { text-decoration: underline; text-underline-offset: 
   </div>
 </section>
 
+<section data-panel="dependencies" role="tabpanel" id="ap-panel-dependencies" aria-labelledby="ap-tab-dependencies" hidden>
+  <div class="ap-card ap-dependencies" id="ap-dependencies">
+    <div class="ap-dependency-canvas" style="width:908px;height:238px"><div class="ap-dependency-band" data-done style="left:2px;top:48px;width:208px;height:96px"></div><div class="ap-dependency-band" style="left:234px;top:48px;width:208px;height:188px"></div><div class="ap-dependency-band" data-narrow style="left:466px;top:48px;width:208px;height:96px"></div><div class="ap-dependency-band" data-narrow style="left:698px;top:48px;width:208px;height:96px"></div><svg class="ap-dependency-edges" width="908" height="238" viewBox="0 0 908 238" aria-hidden="true"><path class="ap-dependency-edge" data-from="001" data-to="002" data-settled d="M202 96 C226 96 218 96 242 96"></path><path class="ap-dependency-edge" data-from="002" data-to="004" data-pace d="M434 96 C458 96 450 96 474 96"></path><path class="ap-dependency-edge" data-from="003" data-to="004" d="M434 188 C458 188 450 96 474 96"></path><path class="ap-dependency-edge" data-from="004" data-to="005" data-pace d="M666 96 C690 96 682 96 706 96"></path></svg><div class="ap-dependency-head" data-done style="left:10px;width:192px"><span class="ap-dependency-head-name">Done</span><span class="ap-dependency-head-count">1 delivered</span></div><div class="ap-dependency-head" style="left:242px;width:192px"><span class="ap-dependency-head-name">Now</span><span class="ap-dependency-head-count">2 side by side</span><span class="ap-dependency-slots" role="img" aria-label="2 of 6 slots in use"><span class="ap-dependency-slot" data-filled></span><span class="ap-dependency-slot" data-filled></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span></span></div><div class="ap-dependency-head" data-narrow style="left:474px;width:192px"><span class="ap-dependency-head-name">Wave 2</span><span class="ap-dependency-head-count">one at a time</span><span class="ap-dependency-slots" role="img" aria-label="1 of 6 slots in use"><span class="ap-dependency-slot" data-filled></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span></span></div><div class="ap-dependency-head" data-narrow style="left:706px;width:192px"><span class="ap-dependency-head-name">Wave 3</span><span class="ap-dependency-head-count">one at a time</span><span class="ap-dependency-slots" role="img" aria-label="1 of 6 slots in use"><span class="ap-dependency-slot" data-filled></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span><span class="ap-dependency-slot"></span></span></div><button type="button" class="ap-dependency-node" data-open-ticket="001" data-state="delivered" data-done aria-label="#001 Single-page checkout" style="left:10px;top:56px"><span class="ap-dependency-node-head"><span class="ap-ticket-id">#001</span></span><span class="ap-dependency-node-title">Single-page checkout</span></button><button type="button" class="ap-dependency-node" data-open-ticket="002" data-state="in-review" data-in-review aria-label="#002 Cache ticket bodies between runs" style="left:242px;top:56px"><span class="ap-dependency-node-head"><span class="ap-ticket-id">#002</span><span class="ap-badge" data-state="in-review">Awaiting review</span><span class="ap-dependency-wait">2 wait</span></span><span class="ap-dependency-node-title">Cache ticket bodies between runs</span><span class="ap-dependency-weight" style="width:166px"></span></button><button type="button" class="ap-dependency-node" data-open-ticket="003" data-state="in-progress" aria-label="#003 Split the exporter into two passes" style="left:242px;top:148px"><span class="ap-dependency-node-head"><span class="ap-ticket-id">#003</span><span class="ap-badge" data-state="in-progress">In progress</span><span class="ap-dependency-wait">2 wait</span></span><span class="ap-dependency-node-title">Split the exporter into two passes</span><span class="ap-dependency-weight" style="width:166px"></span></button><button type="button" class="ap-dependency-node" data-open-ticket="004" data-state="pending" aria-label="#004 Reuse the tick ladder in the exporter" style="left:474px;top:56px"><span class="ap-dependency-node-head"><span class="ap-ticket-id">#004</span><span class="ap-dependency-wait">1 wait</span></span><span class="ap-dependency-node-title">Reuse the tick ladder in the exporter</span><span class="ap-dependency-weight" style="width:83px"></span></button><button type="button" class="ap-dependency-node" data-open-ticket="005" data-state="pending" aria-label="#005 Export the chart as one image" style="left:706px;top:56px"><span class="ap-dependency-node-head"><span class="ap-ticket-id">#005</span></span><span class="ap-dependency-node-title">Export the chart as one image</span></button></div><ul class="ap-dependency-legend"><li><span class="ap-dependency-legend-line" data-pace></span>sets the pace</li><li><span class="ap-dependency-legend-line"></span>waits on</li><li><span class="ap-dependency-legend-line" data-settled></span>built on (done)</li><li><span class="ap-dependency-slot" data-filled></span>slot in use (of 6)</li></ul>
+  </div>
+</section>
+
 <dialog class="ap-detail" id="ap-detail">
   <button type="button" class="ap-detail-close" id="ap-detail-close" aria-label="Close">&times;</button>
   <div class="ap-detail-scroll" id="ap-detail-body">
@@ -2119,7 +2193,7 @@ button.ap-epic-title:hover { text-decoration: underline; text-underline-offset: 
   });
   /* The arrow keys, Home and End move to a tab and select it through its click, so every click listener sees the change. */
   tabs.addEventListener("keydown", function (event) {
-    var buttons = Array.prototype.slice.call(tabs.querySelectorAll("[data-tab]"));
+    var buttons = Array.prototype.slice.call(tabs.querySelectorAll("[data-tab]:not([hidden])"));
     var current = buttons.indexOf(event.target);
     if (current < 0) { return; }
     var targetIndexByKey = { ArrowRight: current + 1, ArrowLeft: current - 1, Home: 0, End: buttons.length - 1 };

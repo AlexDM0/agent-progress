@@ -113,6 +113,8 @@ describe('fillPageTemplate', () => {
     ['kanban', ''],
     ['progress', ' hidden'],
     ['tickets', ' hidden'],
+    ['epics', ' hidden'],
+    ['dependencies', ' hidden'],
   ])('ties the %s tab and its panel to each other by id', (panelName, hiddenAttribute) => {
     const document = render();
 
@@ -122,14 +124,15 @@ describe('fillPageTemplate', () => {
   });
 
   // A fresh viewer lands on Kanban: its tab is the one selected and every other panel ships hidden.
-  test('runs the tabs Kanban, Progress, Tickets, Epics, with only Kanban selected', () => {
+  test('runs the tabs Kanban, Progress, Tickets, Epics, Dependencies, with only Kanban selected', () => {
     const document = render();
     const tabs     = [...document.matchAll(/role="tab" id="ap-tab-(\w+)"[^>]*aria-selected="(\w+)"/g)].map((match) => `${match[1]}:${match[2]}`);
 
-    expect(tabs).toEqual(['kanban:true', 'progress:false', 'tickets:false', 'epics:false']);
+    expect(tabs).toEqual(['kanban:true', 'progress:false', 'tickets:false', 'epics:false', 'dependencies:false']);
     expect(document.indexOf('data-panel="kanban"')).toBeLessThan(document.indexOf('data-panel="progress"'));
     expect(document.indexOf('data-panel="progress"')).toBeLessThan(document.indexOf('data-panel="tickets"'));
     expect(document.indexOf('data-panel="tickets"')).toBeLessThan(document.indexOf('data-panel="epics"'));
+    expect(document.indexOf('data-panel="epics"')).toBeLessThan(document.indexOf('data-panel="dependencies"'));
   });
 
   test('titles the document after the project', () => {
