@@ -13,7 +13,7 @@ import { logRecordProblemOf }         from './LogRecordProblem.ts';
 
 const RECORDED_AT = '2026-09-18T21:30:54+02:00';
 
-const RECORD_KIND_COUNT = 27;
+const RECORD_KIND_COUNT = 28;
 
 const REVIEW_BAR = { taskId: 7, ticketId: '001', fields: { name: 'Review 1 #001 — Example checkout flow' } };
 
@@ -50,6 +50,7 @@ const WELL_FORMED_RECORD_FOR_KIND: Readonly<Record<LogRecord['kind'], LogRecord>
   'ticket-approved':         log({ kind: 'ticket-approved', ticketId: '001', fields: {} }, RECORDED_AT),
   'ticket-delivered':        log({ kind: 'ticket-delivered', ticketId: '001', fields: {} }, RECORDED_AT),
   'ticket-abandoned':        log({ kind: 'ticket-abandoned', ticketId: '001', fields: { reason: 'superseded by #002' } }, RECORDED_AT),
+  'ticket-retitled':         log({ kind: 'ticket-retitled', ticketId: '001', fields: { from: 'Example checkout flow', to: 'Example checkout page' } }, RECORDED_AT),
   'ticket-rereviewed':       log({ kind: 'ticket-rereviewed', ticketId: '001', fields: { round: 2 } }, RECORDED_AT),
   'ticket-priority-changed': log({ kind: 'ticket-priority-changed', ticketId: '001', fields: { from: 'low', to: 'high' } }, RECORDED_AT),
   'ticket-dependencies-set': log({ kind: 'ticket-dependencies-set', ticketId: '002', fields: { dependsOn: ['001'] } }, RECORDED_AT),
@@ -89,6 +90,7 @@ const MALFORMED_RECORD_FOR_KIND: Readonly<Record<LogRecord['kind'], readonly [Re
   'ticket-approved':         [withKeys('ticket-approved', { ticketId: ['001'] }), 'ticketId is not a string'],
   'ticket-delivered':        [withKeys('ticket-delivered', { ticketId: 5 }), 'ticketId is not a string'],
   'ticket-abandoned':        [withFields('ticket-abandoned', { reason: false }), 'fields.reason is not a string'],
+  'ticket-retitled':         [withFields('ticket-retitled', { to: null }), 'fields.to is not a string'],
   'ticket-rereviewed':       [withFields('ticket-rereviewed', { round: 1 }), 'fields.round is not a whole round of at least 2'],
   'ticket-priority-changed': [withFields('ticket-priority-changed', { to: 'urgent' }), 'fields.to is "urgent", which is not one of low, normal, high'],
   'ticket-dependencies-set': [withFields('ticket-dependencies-set', { dependsOn: ['001', 2] }), 'fields.dependsOn is not a list of ticket ids'],
@@ -111,7 +113,7 @@ const MALFORMED_RECORD_FOR_KIND: Readonly<Record<LogRecord['kind'], readonly [Re
 };
 
 describe('a well-formed record', () => {
-  test('the table holds one record for each of the 27 kinds, each under its own kind', () => {
+  test('the table holds one record for each of the 28 kinds, each under its own kind', () => {
     const entries = Object.entries(WELL_FORMED_RECORD_FOR_KIND);
     expect(entries).toHaveLength(RECORD_KIND_COUNT);
     for (const [kind, record] of entries) expect(record.kind).toBe(kind as LogRecord['kind']);

@@ -9,9 +9,9 @@ import { OutputUtil }             from '../utils/OutputUtil.ts';
 import { TICKET_USAGE }           from './constants/TicketUsage.ts';
 import { TicketLookupUtil }       from './utils/TicketLookupUtil.ts';
 
-const EDIT_OPTION_NAMES = ['append', 'body', 'body-file', 'json'];
+const EDIT_OPTION_NAMES = ['title', 'append', 'body', 'body-file', 'at', 'json'];
 
-export async function editTicketBody(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
+export async function editTicket(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   commandArguments.rejectUnknownOptions(EDIT_OPTION_NAMES, TICKET_USAGE);
   commandArguments.rejectExtraPositionals(2, TICKET_USAGE);
 
@@ -22,27 +22,35 @@ export async function editTicketBody(commandArguments: ArgumentParser, context: 
   if (commandArguments.option('body') !== undefined && commandArguments.option('body-file') !== undefined) {
     throw new OperationRefusal('refused', `agent-progress ticket edit takes --body or --body-file, not both.\n  Usage: ${TICKET_USAGE}`);
   }
+  const title   = commandArguments.option('title');
   const appends = commandArguments.flag('append');
+  if (title?.trim() === '') throw new OperationRefusal('refused', `agent-progress ticket edit was given an empty --title.\n  Usage: ${TICKET_USAGE}`);
 
   // Read before the lock: `--body-file -` waits on a pipe the caller may hold open indefinitely.
   requireWorkspace(context.currentDirectory);
   const text = await suppliedMarkdownBodyOf(commandArguments, context);
-  if (text === undefined) {
-    throw new OperationRefusal('refused', `agent-progress ticket edit needs --body or --body-file.\n  Usage: ${TICKET_USAGE}`);
+  if (title === undefined && text === undefined) {
+    throw new OperationRefusal('refused', `agent-progress ticket edit needs --title, --body or --body-file.\n  Usage: ${TICKET_USAGE}`);
   }
-  if (!appends && text.trim() === '') {
+  if (text !== undefined && !appends && text.trim() === '') {
     throw new OperationRefusal('refused', 'An empty body would erase the ticket\'s prose, so it is refused; to add to the body, pass --append.');
   }
 
   const edited = await openTrackerForWriting(
     commandArguments,
     context,
-    (change) => change.board.editTicketBody(TicketLookupUtil.requireTicket(change, reference).frontmatter.id, { text, appends }),
+    (change) => change.board.editTicket(TicketLookupUtil.requireTicket(change, reference).frontmatter.id, {
+      ...(title === undefined ? {} : { title }),
+      ...(text === undefined ? {} : { body: { text, appends } }),
+    }, change.at),
   );
 
   const ticketId = edited.ticket.frontmatter.id;
-  const sentence = edited.changed
-    ? `Ticket #${ticketId} body ${appends ? 'appended to' : 'replaced'}`
-    : `Ticket #${ticketId} body unchanged: nothing to write`;
-  OutputUtil.printEntity(commandArguments, context, TicketJsonUtil.ticketAsJson(edited.ticket), `${sentence}\n  ${edited.ticket.filePath}`);
+  const sentences = edited.changed
+    ? [
+      ...(edited.logged.length === 0 ? [] : [OutputUtil.loggedSentencesOf(edited.logged)]),
+      ...(text === undefined ? [] : [`Ticket #${ticketId} body ${appends ? 'appended to' : 'replaced'}`]),
+    ]
+    : [`Ticket #${ticketId} ${title === undefined ? 'body ' : ''}unchanged: nothing to write`];
+  OutputUtil.printEntity(commandArguments, context, TicketJsonUtil.ticketAsJson(edited.ticket), `${sentences.join('\n')}\n  ${edited.ticket.filePath}`);
 }

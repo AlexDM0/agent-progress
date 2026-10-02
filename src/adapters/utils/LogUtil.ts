@@ -63,6 +63,8 @@ function sentenceOf(record: LogRecordContent): string {
       return `Ticket #${record.ticketId} ${StatusWordingUtil.movedPhraseFor(STATUS_REACHED_BY_MOVE_KIND[record.kind])}`;
     case 'ticket-abandoned':
       return `Ticket #${record.ticketId} abandoned: ${record.fields.reason}`;
+    case 'ticket-retitled':
+      return `Ticket #${record.ticketId} renamed: ${record.fields.from} → ${record.fields.to}`;
     case 'ticket-rereviewed':
       return `Ticket #${record.ticketId} ${StatusWordingUtil.movedPhraseFor('in-review')}, round ${record.fields.round}`;
     case 'ticket-priority-changed':
@@ -125,6 +127,7 @@ function taskIdsConcernedBy(record: LogRecordContent): number[] {
     case 'ticket-approved':
     case 'ticket-delivered':
     case 'ticket-abandoned':
+    case 'ticket-retitled':
     case 'ticket-rereviewed':
     case 'ticket-priority-changed':
     case 'ticket-dependencies-set':
@@ -159,6 +162,7 @@ function ticketIdsConcernedBy(record: LogRecordContent): string[] {
     case 'ticket-approved':
     case 'ticket-delivered':
     case 'ticket-abandoned':
+    case 'ticket-retitled':
     case 'ticket-rereviewed':
     case 'ticket-priority-changed':
     case 'ticket-agents-changed':

@@ -32,6 +32,7 @@ const SENTENCE_FOR_RECORD: readonly (readonly [LogRecordContent, string])[] = [
   [{ kind: 'ticket-delivered', ticketId: '005', fields: {} }, 'Ticket #005 delivered'],
   [{ kind: 'ticket-abandoned', ticketId: '006', fields: { reason: 'superseded by #002' } }, 'Ticket #006 abandoned: superseded by #002'],
   [{ kind: 'ticket-abandoned', ticketId: '006', fields: { reason: '' } }, 'Ticket #006 abandoned: '],
+  [{ kind: 'ticket-retitled', ticketId: '006', fields: { from: 'Example cart', to: 'Example basket' } }, 'Ticket #006 renamed: Example cart → Example basket'],
   [{ kind: 'ticket-rereviewed', ticketId: '004', fields: { round: 2 } }, 'Ticket #004 in review, round 2'],
   [{ kind: 'ticket-priority-changed', ticketId: '006', fields: { from: 'low', to: 'normal' } }, 'Ticket #006 priority low → normal'],
   [{ kind: 'ticket-dependencies-set', ticketId: '005', fields: { dependsOn: ['004'] } }, 'Ticket #005 waits on #004'],
@@ -120,7 +121,7 @@ const SENTENCE_FOR_RECORD: readonly (readonly [LogRecordContent, string])[] = [
   ],
 ];
 
-const RECORD_KIND_COUNT = 27;
+const RECORD_KIND_COUNT = 28;
 
 test('every kind of record reads as the sentence the log held before there were records', () => {
   expect(new Set(SENTENCE_FOR_RECORD.map(([record]) => record.kind)).size, 'the table covers every kind').toBe(RECORD_KIND_COUNT);
@@ -183,6 +184,7 @@ describe('the entry the page reads', () => {
       [{ kind: 'ticket-approved', ticketId: '004', fields: {} }, { taskIds: [], ticketIds: ['004'] }],
       [{ kind: 'ticket-delivered', ticketId: '005', fields: {} }, { taskIds: [], ticketIds: ['005'] }],
       [{ kind: 'ticket-abandoned', ticketId: '006', fields: { reason: 'superseded by #005' } }, { taskIds: [], ticketIds: ['006'] }],
+      [{ kind: 'ticket-retitled', ticketId: '006', fields: { from: 'Example cart', to: 'Example basket' } }, { taskIds: [], ticketIds: ['006'] }],
       [{ kind: 'ticket-rereviewed', ticketId: '004', fields: { round: 2 } }, { taskIds: [], ticketIds: ['004'] }],
       [{ kind: 'ticket-priority-changed', ticketId: '006', fields: { from: 'low', to: 'normal' } }, { taskIds: [], ticketIds: ['006'] }],
       [{ kind: 'ticket-dependencies-set', ticketId: '005', fields: { dependsOn: ['003', '004'] } }, { taskIds: [], ticketIds: ['005', '003', '004'] }],

@@ -62,6 +62,10 @@ function ticketWithReasonProblem(fields: UnknownObject, record: UnknownObject): 
   return firstProblemOf(ticketIdProblem(record), textFieldProblem(fields, 'reason'));
 }
 
+function ticketRetitledProblem(fields: UnknownObject, record: UnknownObject): string | null {
+  return firstProblemOf(ticketIdProblem(record), textFieldProblem(fields, 'from'), textFieldProblem(fields, 'to'));
+}
+
 function ticketWithGroupProblem(fields: UnknownObject, record: UnknownObject): string | null {
   return firstProblemOf(ticketIdProblem(record), textFieldProblem(fields, 'group'));
 }
@@ -145,6 +149,7 @@ const CHECK_FOR_KIND: Readonly<Record<LogRecord['kind'], KindCheck>> = {
   'ticket-approved':         ticketOnlyProblem,
   'ticket-delivered':        ticketOnlyProblem,
   'ticket-abandoned':        ticketWithReasonProblem,
+  'ticket-retitled':         ticketRetitledProblem,
   'ticket-rereviewed':       ticketRereviewedProblem,
   'ticket-priority-changed': ticketPriorityChangedProblem,
   'ticket-dependencies-set': ticketDependenciesSetProblem,

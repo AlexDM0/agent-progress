@@ -22,8 +22,9 @@ export function createTicketFileWriter(): { write(ticket: Readonly<Ticket>): voi
 }
 
 /**
- * The stored file's text up to its body, byte for byte, when the ticket's frontmatter would be written back as it already reads, so a body
- * edit leaves a hand-written frontmatter alone; null when the frontmatter changed or the stored file is gone or unreadable.
+ * The stored file's text up to its body, byte for byte, when the ticket's frontmatter would be written back as it already reads or differs
+ * only in its title, whose line alone is then rewritten, so a body edit or a rename leaves a hand-written frontmatter alone; null when
+ * anything else changed or the stored file is gone or unreadable.
  */
 function unchangedStoredFrontmatterTextOf(ticket: Readonly<Ticket>): string | null {
   let storedText: string;
@@ -36,6 +37,8 @@ function unchangedStoredFrontmatterTextOf(ticket: Readonly<Ticket>): string | nu
   if (stored.verdict !== 'parsed') return null;
 
   const frontmatterTextOf = (frontmatter: Ticket['frontmatter']): string => TicketDocumentUtil.ticketDocumentTextOf(frontmatter, '', stored.lineEnding);
-  if (frontmatterTextOf(stored.frontmatter) !== frontmatterTextOf(ticket.frontmatter)) return null;
-  return storedText.slice(0, storedText.length - stored.body.length);
+  const storedFrontmatterText = storedText.slice(0, storedText.length - stored.body.length);
+  const { title } = ticket.frontmatter;
+  if (frontmatterTextOf({ ...stored.frontmatter, title }) !== frontmatterTextOf(ticket.frontmatter)) return null;
+  return title === stored.frontmatter.title ? storedFrontmatterText : TicketDocumentUtil.frontmatterTextWithTitleOf(storedFrontmatterText, title);
 }

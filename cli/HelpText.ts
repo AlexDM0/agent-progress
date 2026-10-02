@@ -263,13 +263,17 @@ output never carries either.
                               where it names them, its body, and always its file path — which is
                               what an agent needs in order to edit that body.
 
-  ticket edit <id>            Replace a ticket's body with --body or --body-file (\`-\` reads
-      [--append]              standard input), or with --append add to its end, putting one line
-      [--body <markdown>]     ending before the text when the body does not end in one. The text
-      [--body-file <path|->]  is written in the line ending the body already uses. The frontmatter
-      [--json]                is kept byte for byte and \`updated\` is not stamped; nothing is
-                              logged. An empty append changes nothing and exits 0; an empty
-                              replacement, neither option or both are refused at exit 1.
+  ticket edit <id>            Rename a ticket with --title, replace its body with --body or
+      [--title "<title>"]     --body-file (\`-\` reads standard input), or with --append add to its
+      [--append]              end, putting one line ending before the text when the body does not
+      [--body <markdown>]     end in one; a title and a body change go in one write. The text is
+      [--body-file <path|->]  written in the line ending the body already uses. A new title
+      [--at <when>] [--json]  rewrites the title line, the ticket's own row name and a body
+                              heading still reading as generated, never the file name or a review
+                              row, and is logged; a body change is not. Every other frontmatter
+                              byte is kept and \`updated\` is not stamped. Nothing to change writes
+                              nothing and exits 0; an empty replacement or title, none of --title,
+                              --body and --body-file, or both body options are refused at exit 1.
 
   ticket agent <id> [--model <m>] [--effort <e>] [--at <when>]
                               Change the model or the effort a ticket's agents run on, or both,

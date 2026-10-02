@@ -24,6 +24,7 @@ export type LogRecordContent =
   | { kind: 'ticket-filed'; ticketId: string; fields: { title: string } }
   | { kind: 'ticket-reopened' | 'ticket-started' | 'ticket-finished' | 'ticket-approved' | 'ticket-delivered'; ticketId: string; fields: Record<string, never> }
   | { kind: 'ticket-abandoned'; ticketId: string; fields: { reason: string } }
+  | { kind: 'ticket-retitled'; ticketId: string; fields: { from: string; to: string } }
   | { kind: 'ticket-rereviewed'; ticketId: string; fields: { round: number } }
   | { kind: 'ticket-priority-changed'; ticketId: string; fields: { from: TicketPriority; to: TicketPriority } }
   | { kind: 'ticket-dependencies-set'; ticketId: string; fields: { dependsOn: readonly string[] } }

@@ -200,6 +200,22 @@ function ticketDocumentTextOf(frontmatter: TicketFrontmatter, body: string, line
   return `${[FRONTMATTER_FENCE, ...lines, FRONTMATTER_FENCE].join(lineEnding)}${lineEnding}${body}`;
 }
 
+/**
+ * A parsed document's frontmatter text, its fences included, with only its `title` line rewritten and every other byte kept. The last
+ * `title` line is the one replaced, since that is the one the parse reads.
+ */
+function frontmatterTextWithTitleOf(frontmatterText: string, title: string): string {
+  const lines = frontmatterText.split('\n');
+  const titleLineIndex = lines.findLastIndex((line) => {
+    const reading = keyValueReadingOf(withoutCarriageReturn(line));
+    return typeof reading !== 'string' && reading[0] === 'title';
+  });
+  if (titleLineIndex === -1) return frontmatterText;
+  const carriageReturn = (lines[titleLineIndex] ?? '').endsWith(CARRIAGE_RETURN) ? CARRIAGE_RETURN : '';
+  lines[titleLineIndex] = `title: ${JSON.stringify(title)}${carriageReturn}`;
+  return lines.join('\n');
+}
+
 function closingFenceIndexOf(lines: readonly string[]): number {
   if (withoutCarriageReturn(lines[0] ?? '') !== FRONTMATTER_FENCE) {
     throw new FrontmatterProblem('the first line must be the frontmatter fence `---`', 1);
@@ -506,4 +522,4 @@ function extraLineOf(key: string, rawValue: string): string {
   return rawValue === '' ? `${key}:` : `${key}: ${rawValue}`;
 }
 
-export const TicketDocumentUtil = { parsedTicketDocumentOf, ticketDocumentTextOf } as const;
+export const TicketDocumentUtil = { frontmatterTextWithTitleOf, parsedTicketDocumentOf, ticketDocumentTextOf } as const;

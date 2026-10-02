@@ -1,7 +1,7 @@
 /**
  * The writer puts back exactly the ticket it is handed: the line ending it was read with, the fields a caller changed and never a
  * fresh `updated`, into a tickets directory it recreates when `clear --all` removed it. A frontmatter it would write back as it already
- * reads keeps its stored bytes, so a body edit leaves a hand-written layout alone.
+ * reads keeps its stored bytes, so a body edit leaves a hand-written layout alone, and one differing only in its title changes that line alone.
  */
 
 import {
@@ -145,6 +145,40 @@ describe('createTicketFileWriter', () => {
     expect(rewritten).toContain('\nstatus: "pending"\n');
     expect(rewritten).toContain('\nbranch: "ticket/hand-written"\n');
     expect(rewritten.endsWith('---\nNew body.\n')).toBe(true);
+  });
+
+  test('a title alone changed rewrites only the title line, in the CLI\'s quoting, and a title beside another change takes the CLI\'s layout', () => {
+    const ticketPath        = join(scratchTicketsDirectory(), '001-hand-written.md');
+    const handWrittenLines  = [
+      '---',
+      'id: "001"',
+      'status: pending',
+      'title: Hand written',
+      'type: bug',
+      '# title: kept by hand',
+      'filed: "2026-09-18T09:00:00+02:00"',
+      'updated: "2026-09-18T09:00:00+02:00"',
+      'started: null',
+      'finished: null',
+      'delivered: null',
+      'abandonedAt: null',
+      'task: null',
+      '---',
+      '',
+    ];
+    writeFileSync(ticketPath, `${handWrittenLines.join('\r\n')}Body.\r\n`);
+
+    const ticket = ticketReadFrom(ticketPath);
+    ticket.frontmatter.title = 'Renamed: "quoted" by hand';
+    createTicketFileWriter().write(ticket);
+    const renamedLines = handWrittenLines.map((line) => (line === 'title: Hand written' ? 'title: "Renamed: \\"quoted\\" by hand"' : line));
+    expect(readFileSync(ticketPath, 'utf8')).toBe(`${renamedLines.join('\r\n')}Body.\r\n`);
+    expect(ticketReadFrom(ticketPath).frontmatter.title).toBe('Renamed: "quoted" by hand');
+
+    ticket.frontmatter.title  = 'Renamed again';
+    ticket.frontmatter.branch = 'ticket/hand-written';
+    createTicketFileWriter().write(ticket);
+    expect(readFileSync(ticketPath, 'utf8')).toContain('\r\nstatus: "pending"\r\n');
   });
 
   test('recreates a tickets directory that `clear --all` removed', () => {

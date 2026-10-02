@@ -52,7 +52,7 @@ import { GroupReleases }                                    from './GroupRelease
 import type { Logger }                                      from './Logger.ts';
 import { ReviewBars }                                       from './ReviewBars.ts';
 import { TaskRows }                                         from './TaskRows.ts';
-import type { TicketBodyEdit, TicketBodyEdited }            from './TicketBodyEdits.ts';
+import type { TicketEdit, TicketEdited }                    from './TicketBodyEdits.ts';
 import { TicketBodyEdits }                                  from './TicketBodyEdits.ts';
 import { TicketClaims }                                     from './TicketClaims.ts';
 import { TicketDependencies }                               from './TicketDependencies.ts';
@@ -243,8 +243,8 @@ export class Board {
     return this.groupReleases.clearReleaseTicket(ticketId, at);
   }
 
-  editTicketBody(ticketId: string, edit: TicketBodyEdit): TicketBodyEdited {
-    return this.ticketBodyEdits.editTicketBody(ticketId, edit);
+  editTicket(ticketId: string, edit: TicketEdit, at: string): TicketEdited {
+    return this.ticketBodyEdits.editTicket(ticketId, edit, at);
   }
 
   clearTracker(request: { ticketsSurvive: boolean }, at: string): TrackerCleared {

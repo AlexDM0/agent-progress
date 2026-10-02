@@ -53,6 +53,13 @@ function recordOf(validated: unknown): LogRecord {
         ticketId: record.ticketId,
         fields:   { reason: record.fields.reason },
       };
+    case 'ticket-retitled':
+      return {
+        at,
+        kind:     record.kind,
+        ticketId: record.ticketId,
+        fields:   { from: record.fields.from, to: record.fields.to },
+      };
     case 'ticket-release-marked':
       return {
         at,
