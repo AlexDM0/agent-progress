@@ -2,7 +2,8 @@
  * The Dependencies tab's waves graph. The cases that matter: the tab exists only where a ticket depends on another; Done comes first and
  * holds only the settled tickets open work was built on; a one-ticket wave is narrow and says so in its head, band and slot meter, whose
  * bar count is the board's slots; the pace path's edges are marked, an edge from a settled ticket is dashed; rows put the pace path first
- * and then follow their parents; nodes carry the ready chip, "N wait" and a weight bar against the most held ticket; every value is escaped.
+ * and then follow their parents; nodes carry the ready chip only where the Board lists the ticket ready (a held one shows Held, a low
+ * one nothing), "N wait" and a weight bar against the most held ticket; every value is escaped.
  */
 
 import { describe, expect, test } from 'bun:test';
@@ -59,7 +60,26 @@ const BOARD = pageBoardFixture({
 
 const TICKET_BY_ID = new Map(BOARD.tickets.map((ticket) => [ticket.id, ticket]));
 const GRAPH        = DependencyGraphUtil.dependencyGraphOf(BOARD.tickets, BOARD_SLOTS);
-const MARKUP       = DependencyMarkup.dependencyGraphMarkup(GRAPH, TICKET_BY_ID);
+const MARKUP       = DependencyMarkup.dependencyGraphMarkup(GRAPH, TICKET_BY_ID, BOARD.readyTicketIds);
+
+/** A held ticket and a low one with nothing open in front of them, beside a normal ticket the Board takes first. */
+const HELD_AND_LOW_BOARD = pageBoardFixture({
+  tasks:   [],
+  tickets: [
+    exampleTicket({
+      id: '020', title: 'Delivered base', status: 'delivered', delivered: '2026-09-18T21:00:00+02:00'
+    }),
+    exampleTicket({ id: '021', title: 'Held step', dependsOn: ['020'], hold: 'not before 2026-10-05' }),
+    exampleTicket({ id: '022', title: 'Low step', priority: 'low' }),
+    exampleTicket({ id: '023', title: 'Normal step' }),
+  ],
+});
+const HELD_AND_LOW_GRAPH  = DependencyGraphUtil.dependencyGraphOf(HELD_AND_LOW_BOARD.tickets, BOARD_SLOTS);
+const HELD_AND_LOW_MARKUP = DependencyMarkup.dependencyGraphMarkup(
+  HELD_AND_LOW_GRAPH,
+  new Map(HELD_AND_LOW_BOARD.tickets.map((ticket) => [ticket.id, ticket])),
+  HELD_AND_LOW_BOARD.readyTicketIds,
+);
 
 function headsOf(markup: string): string[] {
   return [...markup.matchAll(/class="ap-dependency-head-name">([^<]*)</g)].map((match) => match[1] ?? '');
@@ -144,6 +164,16 @@ describe('nodes', () => {
     expect(nodeOf(MARKUP, '013')).not.toContain('ap-badge');
   });
 
+  test('a held and a low ticket stay in Now without the Ready chip, the held one marked Held, as the Board lists only the normal one', () => {
+    expect([...HELD_AND_LOW_BOARD.readyTicketIds]).toEqual(['023']);
+    expect(HELD_AND_LOW_GRAPH.waves[0]?.ticketIds.toSorted()).toEqual(['021', '022', '023']);
+    expect(nodeOf(HELD_AND_LOW_MARKUP, '021')).toContain('<span class="ap-kanban-held" title="Held: not before 2026-10-05">Held</span>');
+    expect(nodeOf(HELD_AND_LOW_MARKUP, '021')).not.toContain('data-ready');
+    expect(nodeOf(HELD_AND_LOW_MARKUP, '022')).not.toContain('data-ready');
+    expect(nodeOf(HELD_AND_LOW_MARKUP, '022')).not.toContain('ap-kanban-held');
+    expect(nodeOf(HELD_AND_LOW_MARKUP, '023')).toContain('<span class="ap-badge" data-ready>Ready</span>');
+  });
+
   test('"N wait" counts every open ticket further down, and the weight bar scales against the most held', () => {
     expect(nodeOf(MARKUP, '011')).toContain('<span class="ap-dependency-wait">3 wait</span>');
     expect(nodeOf(MARKUP, '011')).toContain('style="width:166px"');
@@ -175,7 +205,7 @@ describe('a board whose dependencies are all settled', () => {
       ],
     });
     const graph  = DependencyGraphUtil.dependencyGraphOf(board.tickets, BOARD_SLOTS);
-    const markup = DependencyMarkup.dependencyGraphMarkup(graph, new Map(board.tickets.map((ticket) => [ticket.id, ticket])));
+    const markup = DependencyMarkup.dependencyGraphMarkup(graph, new Map(board.tickets.map((ticket) => [ticket.id, ticket])), board.readyTicketIds);
     expect(markup).toBe('<p class="ap-dependency-empty">No open ticket waits on another.</p>');
   });
 });

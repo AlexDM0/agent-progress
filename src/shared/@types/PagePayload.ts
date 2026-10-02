@@ -2,7 +2,7 @@
 
 import type { EpicRollup }             from '../../lib/tracker-model/@types/Epic.ts';
 import type { DisplayState }           from '../../lib/tracker-model/@types/Task.ts';
-import type { TicketFrontmatter }      from '../../lib/tracker-model/@types/Ticket.ts';
+import type { ReadyTicket, TicketFrontmatter } from '../../lib/tracker-model/@types/Ticket.ts';
 import type { IdentifiedLogEntry }     from './WordedLogEntry.ts';
 import type { WordedProgressDocument } from './WordedProgressDocument.ts';
 
@@ -55,6 +55,8 @@ export interface PageBoardFacts {
   tickets: PageTicketFacts[];
   /** Every epic with its roll-up, ordered by key, as `status --json` prints them; a ticket's own list is its `epics`. */
   epics:   EpicRollup[];
+  /** The Board's ready tickets in the order to take them, as `status --json` prints its `readyTickets`, held ones marked `held`. */
+  readyTickets: ReadyTicket[];
 }
 
 /** An epic's description rendered as a ticket body is, joined to its roll-up in `boardFacts.epics` by key. */

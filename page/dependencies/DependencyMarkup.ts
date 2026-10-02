@@ -24,6 +24,7 @@ const HEAVY_WAIT_COUNT           = 5;
 
 const DONE_COLUMN_LABEL = 'Done';
 const READY_CHIP_LABEL  = 'Ready';
+const HELD_CHIP_LABEL   = 'Held';
 
 interface DependencyColumn {
   label:     string;
@@ -128,9 +129,14 @@ function columnBandMarkup(column: DependencyColumn, columnIndex: number): string
   return `<div class="ap-dependency-band"${narrowAttribute(column)}${column.isDone ? ' data-done' : ''} style="${style}"></div>`;
 }
 
-function statusChipMarkup(ticket: BoardTicket, graph: DependencyGraph): string {
-  if (graph.readyTicketIds.includes(ticket.id)) {
+/** Ready only as the Board lists it; a held pending ticket wears the Kanban's held mark instead, and a low one nothing. */
+function statusChipMarkup(ticket: BoardTicket, readyTicketIds: ReadonlySet<string>): string {
+  if (readyTicketIds.has(ticket.id)) {
     return `<span class="ap-badge" data-ready>${READY_CHIP_LABEL}</span>`;
+  }
+  if (ticket.status === 'pending' && ticket.hold !== undefined) {
+    const title = ticket.hold === '' ? HELD_CHIP_LABEL : `${HELD_CHIP_LABEL}: ${ticket.hold}`;
+    return `<span class="ap-kanban-held" ${MarkupUtil.attribute('title', title)}>${HELD_CHIP_LABEL}</span>`;
   }
   if (ticket.status !== 'in-progress' && ticket.status !== 'in-review') {
     return '';
@@ -146,14 +152,20 @@ function waitMarkup(heldCount: number): string {
   return `<span class="ap-dependency-wait"${heldCount >= HEAVY_WAIT_COUNT ? ' data-heavy' : ''}>${heldCount} wait</span>`;
 }
 
-function nodeMarkup(ticket: BoardTicket, place: NodePlace, isDone: boolean, graph: DependencyGraph, largestHeldCount: number): string {
+interface NodeContext {
+  graph:            DependencyGraph;
+  readyTicketIds:   ReadonlySet<string>;
+  largestHeldCount: number;
+}
+
+function nodeMarkup(ticket: BoardTicket, place: NodePlace, isDone: boolean, { graph, readyTicketIds, largestHeldCount }: NodeContext): string {
   const heldCount   = isDone ? 0 : graph.heldOfTicket.get(ticket.id)?.size ?? 0;
   const weightWidth = largestHeldCount === 0 ? 0 : (NODE_WIDTH_PIXELS - WEIGHT_BAR_INSET_PIXELS) * heldCount / largestHeldCount;
   return `<button type="button" class="ap-dependency-node" ${MarkupUtil.attribute('data-open-ticket', ticket.id)} `
     + `${MarkupUtil.attribute('data-state', ticket.displayState)}${isDone ? ' data-done' : ''}${ticket.status === 'in-review' ? ' data-in-review' : ''} `
     + `${MarkupUtil.attribute('aria-label', `#${ticket.id} ${ticket.title}`)} style="left:${pixels(place.left)};top:${pixels(place.top)}">`
     + `<span class="ap-dependency-node-head"><span class="ap-ticket-id">#${HtmlEscapeUtil.escapeHtml(ticket.id)}</span>`
-    + `${isDone ? '' : statusChipMarkup(ticket, graph)}${waitMarkup(heldCount)}</span>`
+    + `${isDone ? '' : statusChipMarkup(ticket, readyTicketIds)}${waitMarkup(heldCount)}</span>`
     + `<span class="ap-dependency-node-title">${HtmlEscapeUtil.escapeHtml(ticket.title)}</span>`
     + `${weightWidth > 0 ? `<span class="ap-dependency-weight" style="width:${pixels(weightWidth)}"></span>` : ''}</button>`;
 }
@@ -206,7 +218,7 @@ function legendMarkup(boardSlots: number): string {
 }
 
 /** The whole card's content: the canvas and its legend, or a line saying nothing open waits on anything. */
-function dependencyGraphMarkup(graph: DependencyGraph, ticketById: ReadonlyMap<string, BoardTicket>): string {
+function dependencyGraphMarkup(graph: DependencyGraph, ticketById: ReadonlyMap<string, BoardTicket>, readyTicketIds: ReadonlySet<string>): string {
   const columns = columnsInRowOrder(graph, ticketById);
   if (columns.length === 0) {
     return '<p class="ap-dependency-empty">No open ticket waits on another.</p>';
@@ -222,7 +234,7 @@ function dependencyGraphMarkup(graph: DependencyGraph, ticketById: ReadonlyMap<s
       }
       const place = { columnIndex, left: columnLeftOf(columnIndex), top: nodeTopOf(rowIndex) };
       placeOfTicket.set(ticketId, place);
-      nodes.push(nodeMarkup(ticket, place, column.isDone, graph, largestHeldCount));
+      nodes.push(nodeMarkup(ticket, place, column.isDone, { graph, readyTicketIds, largestHeldCount }));
     });
   });
   const tallestColumnLength = Math.max(...columns.map((column) => column.ticketIds.length));

@@ -131,6 +131,7 @@ export interface KanbanControllerSources {
   readHiddenCountByClosedLane: () => Readonly<Record<ClosedKanbanLane, number>>;
   showAllFinishedWork:         () => void;
   dependencyGraph:             DependencyGraph;
+  readyTicketIds:              ReadonlySet<string>;
   boardHasDependencies:        boolean;
 }
 
@@ -171,6 +172,7 @@ export function createKanbanController(sources: KanbanControllerSources): Kanban
     readHiddenCountByClosedLane,
     showAllFinishedWork,
     dependencyGraph,
+    readyTicketIds,
   } = sources;
   let visibleCards: readonly KanbanCard[] = [];
   let abandonedLaneIsOpen                 = preferences.readAbandonedLaneIsOpen();
@@ -199,6 +201,7 @@ export function createKanbanController(sources: KanbanControllerSources): Kanban
       abandonedLaneIsOpen,
       todoOrder:               todoOrder.readOrder(),
       dependencyGraph,
+      readyTicketIds,
     }));
     updateOverflow();
     if (board !== null && motion !== null && previousLayouts !== null) {

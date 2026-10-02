@@ -1,4 +1,7 @@
-/** The dependency model the Dependencies tab, the epic cards and the Kanban's wave order share: waves, Held, the pace path and Unlocks. */
+/**
+ * The dependency model the Dependencies tab, the epic cards and the Kanban's wave order share: waves, Held, the pace path and Unlocks.
+ * Which ticket is ready is the Board's, read from `PageBoard.readyTicketIds`; a wave says only what stands in front of a ticket.
+ */
 
 import { TICKET_STATUSES_THAT_SETTLE_A_DEPENDENCY } from '../../src/lib/tracker-model/constants/Statuses.ts';
 import type {
@@ -104,8 +107,6 @@ function dependencyGraphOf(tickets: readonly DependencyGraphTicket[], concurrenc
     };
   });
 
-  const readyTicketIds = openTicketIds.filter((ticketId) => ticketById.get(ticketId)?.status === 'pending' && waveOfTicket.get(ticketId) === 0);
-
   const unlocksOfTicket = new Map(ticketIds.map((ticketId) => {
     const upstream = upstreamOfTicket.get(ticketId) ?? new Set<string>();
     const unlocked = dependentsOf(ticketId).filter((dependentId) => dependentId !== ticketId && isOpen(dependentId) && openDependenciesOf(dependentId).every((dependencyId) => (
@@ -129,7 +130,6 @@ function dependencyGraphOf(tickets: readonly DependencyGraphTicket[], concurrenc
     openTicketIds,
     waveOfTicket,
     waves,
-    readyTicketIds,
     heldOfTicket,
     upstreamOfTicket,
     pacePathTicketIds,

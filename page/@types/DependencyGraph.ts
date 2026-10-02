@@ -35,8 +35,6 @@ export interface DependencyGraph {
   /** Only open tickets have a wave. */
   waveOfTicket:      ReadonlyMap<string, number>;
   waves:             readonly DependencyWave[];
-  /** Lowest id first. */
-  readyTicketIds:    readonly string[];
   /** The open tickets waiting on a ticket directly or further down the chain, for every ticket that is not abandoned. */
   heldOfTicket:      ReadonlyMap<string, ReadonlySet<string>>;
   /** Every ticket a ticket depends on directly or further up the chain, for every ticket that is not abandoned. */

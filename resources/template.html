@@ -246,7 +246,8 @@
                                  [data-settled?]; button.ap-dependency-node[data-open-ticket]
                                  [data-state][data-done?][data-in-review?] holds
                                  .ap-dependency-node-head (.ap-ticket-id, a .ap-badge for ready,
-                                 in-progress or in-review work, .ap-dependency-wait "N wait",
+                                 in-progress or in-review work or the Kanban's .ap-kanban-held
+                                 "Held" on a held pending ticket, .ap-dependency-wait "N wait",
                                  [data-heavy] from 5), -node-title, -weight (width inline). Hovering
                                  a node sets [data-lineage-shown] on the canvas and [data-lit] on
                                  its lineage. Then ul.ap-dependency-legend
@@ -318,9 +319,10 @@
  .ap-lane-group           a priority divider inside an open lane, [data-priority], only when the
                           lane holds more than one priority. To do by wave has none: it holds one
                           .ap-lane-wave[data-wave][data-narrow?] per wave with To do cards, each a
-                          .ap-lane-group ("Ready now", "Wave 2", …, then .ap-lane-group-note "N side
-                          by side" or "one at a time") then its cards; the head's .ap-lane-sub
-                          reads "N ready · M waiting"
+                          .ap-lane-group ("Now", "Wave 2", …, then .ap-lane-group-note "N side
+                          by side" or "one at a time", "N ready · " before it on Now) then its
+                          cards; the head's .ap-lane-sub reads "N ready · M waiting", ready
+                          being the Board's ready tickets less the held ones
  .ap-kanban-card          article[data-ticket-id][data-state][tabindex="0"], data-row="none" when
                           the ticket has no row; children in order: .ap-kanban-card-head (id, the
                           ticket priority mark, .ap-detail-type, .ap-kanban-needed-first on a card

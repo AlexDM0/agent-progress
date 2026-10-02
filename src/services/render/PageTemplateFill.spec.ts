@@ -78,7 +78,7 @@ function render(overrides: Partial<Parameters<typeof fillPageTemplate>[0]> = {})
     pageScriptFailure: null,
     generatedAt:       GENERATED_AT,
     concurrency:       { limit: 2, agentsInFlight: 1 },
-    boardFacts:        { rows: [], tickets: [], epics: [] },
+    boardFacts:        { rows: [], tickets: [], epics: [], readyTickets: [] },
     renderMarkdown:    createMarkdownRenderer().renderMarkdown,
     ...overrides,
   });
@@ -201,7 +201,8 @@ describe('fillPageTemplate', () => {
         displayState:       'reviewing' as const,
         waitingOnTicketIds: [],
       }],
-      epics: [],
+      epics:        [],
+      readyTickets: [],
     };
 
     const islandText = islandTextOf(render({ boardFacts }), 'ap-progress-data');

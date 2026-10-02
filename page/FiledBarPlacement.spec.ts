@@ -130,6 +130,7 @@ describe('the filed bar outside the dialog', () => {
       abandonedLaneIsOpen:     true,
       todoOrder:               'filed',
       dependencyGraph:         DependencyGraphUtil.dependencyGraphOf(pageBoardFixture({ tasks: TASKS, tickets: [DELIVERED_TICKET, WAITING_TICKET] }).tickets, 5),
+      readyTicketIds:          new Set(),
     });
     const overview = taskDetailMarkup({
       task:              boardRows.find((row) => row.id === DELIVERED_ROW.id) ?? null,

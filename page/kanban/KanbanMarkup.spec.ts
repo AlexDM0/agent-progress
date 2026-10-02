@@ -74,11 +74,13 @@ function exampleRow(id: number, changes: Partial<Task> = {}): Task {
 
 function boardInput(tickets: readonly PageTicket[], tasks: readonly Task[], changes: Partial<KanbanBoardInput> = {}): KanbanBoardInput {
   const waitingOnById = new Map(tickets.flatMap((ticket) => (ticket.dependsOn === undefined ? [] : [[ticket.id, ticket.dependsOn]])));
-  const boardTickets  = pageBoardFixture({ tasks, tickets }).tickets;
+  const board         = pageBoardFixture({ tasks, tickets });
+  const boardTickets  = board.tickets;
   return {
     cards:                   KanbanLaneUtil.kanbanCardsFor(boardTickets, waitingOnById),
     todoOrder:               'filed',
     dependencyGraph:         DependencyGraphUtil.dependencyGraphOf(boardTickets, EXAMPLE_BOARD_SLOTS),
+    readyTicketIds:          board.readyTicketIds,
     nowEpochMilliseconds:    EXAMPLE_NOW,
     todayCalendarDate:       EXAMPLE_TODAY,
     slices:                  EXAMPLE_PAGE_LIMITS,
@@ -393,12 +395,24 @@ describe('the To do order', () => {
     const lane = kanbanLaneMarkup('todo', boardInput(WAVE_TICKETS, [], { todoOrder: 'by-wave' }));
 
     expect(waveGroupsOf(lane)).toEqual([
-      '<div class="ap-lane-wave" data-wave="0"><div class="ap-lane-group">Ready now <span class="ap-lane-group-note">2 side by side</span>',
+      '<div class="ap-lane-wave" data-wave="0"><div class="ap-lane-group">Now <span class="ap-lane-group-note">2 ready · 2 side by side</span>',
       '<div class="ap-lane-wave" data-wave="1"><div class="ap-lane-group">Wave 2 <span class="ap-lane-group-note">4 side by side</span>',
       '<div class="ap-lane-wave" data-wave="2" data-narrow=""><div class="ap-lane-group">Wave 3 <span class="ap-lane-group-note">one at a time</span>',
     ]);
     expect(lane).toContain('<span class="ap-lane-sub">2 ready · 5 waiting</span>');
     expect(lane).not.toContain('data-priority');
+  });
+
+  test('by wave counts as ready only what the Board lists ready and not held: a held and a low ticket stay in Now, waiting', () => {
+    const tickets = [...WAVE_TICKETS, exampleTicket('008', { hold: 'not before 2026-10-05' }), exampleTicket('009', { priority: 'low' })];
+    const input   = boardInput(tickets, [], { todoOrder: 'by-wave' });
+    const lane    = kanbanLaneMarkup('todo', input);
+
+    expect([...input.readyTicketIds].sort()).toEqual(['001', '002']);
+    expect(waveGroupsOf(lane)[0]).toBe(
+      '<div class="ap-lane-wave" data-wave="0"><div class="ap-lane-group">Now <span class="ap-lane-group-note">2 ready · 4 side by side</span>'
+    );
+    expect(lane).toContain('<span class="ap-lane-sub">2 ready · 7 waiting</span>');
   });
 
   test('by wave puts the pace-path ticket first in its group, then the most held', () => {

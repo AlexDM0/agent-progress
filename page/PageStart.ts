@@ -213,6 +213,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   const boardHasDependencies = DependencyMarkup.boardHasDependencies(board.tickets);
   const kanbanController = createKanbanController({
     dependencyGraph,
+    readyTicketIds:              board.readyTicketIds,
     boardHasDependencies,
     slices:                      limits,
     preferences,
@@ -306,7 +307,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   showEpicsTabButton(board.epics.length > 0);
 
   if (boardHasDependencies) {
-    DomUtil.setMarkup(DEPENDENCIES_CARD_ELEMENT_ID, DependencyMarkup.dependencyGraphMarkup(dependencyGraph, ticketById));
+    DomUtil.setMarkup(DEPENDENCIES_CARD_ELEMENT_ID, DependencyMarkup.dependencyGraphMarkup(dependencyGraph, ticketById, board.readyTicketIds));
   }
   createDependencyLineageController({ containerElementId: DEPENDENCIES_CARD_ELEMENT_ID, readGraph: () => dependencyGraph }).wire();
   showDependenciesTabButton(boardHasDependencies);

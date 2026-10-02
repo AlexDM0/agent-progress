@@ -66,8 +66,10 @@ function boardFactsAreValid(value: unknown, rowCount: number): boolean {
   if (!JsonValueUtil.valueIsRecord(value)) {
     return false;
   }
-  const { rows, tickets } = value;
+  const { rows, tickets, readyTickets } = value;
   return Array.isArray(rows)
+    && Array.isArray(readyTickets)
+    && readyTickets.every((entry) => JsonValueUtil.valueIsRecord(entry) && typeof entry['id'] === 'string')
     && rows.length === rowCount
     && rows.every((rowFacts) => rowFactsAreValid(rowFacts, rowCount))
     && Array.isArray(tickets)
@@ -195,7 +197,8 @@ function pageBoardFrom(
     }];
   });
 
-  return { rows, tickets: boardTickets, epics };
+  const readyTicketIds = new Set(boardFacts.readyTickets.filter((entry) => entry.held !== true).map((entry) => entry.id));
+  return { rows, tickets: boardTickets, epics, readyTicketIds };
 }
 
 export const IslandUtil = {

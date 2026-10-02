@@ -59,7 +59,6 @@ describe('waves', () => {
     expect(graph.waves.every((wave) => wave.isNarrow)).toBe(true);
     expect(heldCounts(graph)).toEqual({ 1: 2, 2: 1, 3: 0 });
     expect(graph.pacePathTicketIds).toEqual(['1', '2', '3']);
-    expect(graph.readyTicketIds).toEqual(['1']);
   });
 
   test('a diamond read from the page board holds its bottom ticket once and paces through the lower id of the tied middle', () => {
@@ -91,7 +90,6 @@ describe('waves', () => {
       1: 2, 2: 1, 3: 0, 4: 1, 5: 0
     });
     expect(graph.pacePathTicketIds).toEqual(['1', '2', '3']);
-    expect(graph.readyTicketIds).toEqual(['1', '4']);
   });
 
   test('a last-wave tie goes to the lowest id, and the pace-path ticket leads its wave over one holding more', () => {
@@ -119,7 +117,7 @@ describe('waves', () => {
     expect(waveTicketIds(graph)[0]).toEqual(['1', '3', '2']);
   });
 
-  test('settled dependencies open no wave, abandoned tickets leave the graph, and only a pending wave-0 ticket is ready', () => {
+  test('settled dependencies open no wave and abandoned tickets leave the graph', () => {
     const graph = graphOf([
       exampleTicket('1', { status: 'delivered' }),
       exampleTicket('2', { status: 'reviewed' }),
@@ -132,7 +130,6 @@ describe('waves', () => {
     expect(graph.openTicketIds).toEqual(['4', '5', '6']);
     expect(graph.waveOfTicket.get('4')).toBe(0);
     expect(graph.waveOfTicket.has('1')).toBe(false);
-    expect(graph.readyTicketIds).toEqual(['4']);
     expect(graph.heldOfTicket.get('1')).toEqual(new Set(['4']));
     expect(graph.heldOfTicket.has('3')).toBe(false);
     expect([...graph.upstreamOfTicket.get('4') ?? []].sort()).toEqual(['1', '2']);
@@ -190,7 +187,6 @@ describe('inputs that must not throw', () => {
   test('an unknown dependency id opens no wave and is nobody upstream', () => {
     const graph = graphOf([exampleTicket('1', { dependsOn: ['999'] })]);
     expect(graph.waveOfTicket.get('1')).toBe(0);
-    expect(graph.readyTicketIds).toEqual(['1']);
     expect(graph.upstreamOfTicket.get('1')).toEqual(new Set());
   });
 

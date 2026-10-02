@@ -32,8 +32,6 @@ const NO_ROW_TITLE = 'Low priority: it gets a row on the Progress chart once it 
 /** From this many tickets waiting on a card, its `↦ N` reads in full ink. */
 const HEAVY_HELD_COUNT = 5;
 
-const READY_WAVE_TITLE = 'Ready now';
-
 interface LaneDesign {
   title:    string;
   dotState: DisplayState;
@@ -84,6 +82,8 @@ export interface KanbanBoardInput extends NoteFormat {
   todoOrder:               TodoOrderChoice;
   /** Spans every ticket, finished ones included, so neither filter reshapes the waves. */
   dependencyGraph:         DependencyGraph;
+  /** The Board's ready tickets less the held ones, as `PageBoard.readyTicketIds` holds them. */
+  readyTicketIds:          ReadonlySet<string>;
 }
 
 export interface KanbanCardFormat extends NoteFormat {
@@ -172,7 +172,7 @@ function todoIsByWave(lane: KanbanLane, input: KanbanBoardInput): boolean {
 
 function laneSubMarkup(lane: KanbanLane, members: readonly KanbanCard[], input: KanbanBoardInput): string {
   if (todoIsByWave(lane, input)) {
-    const readyCount = members.filter((card) => input.dependencyGraph.readyTicketIds.includes(card.ticket.id)).length;
+    const readyCount = members.filter((card) => input.readyTicketIds.has(card.ticket.id)).length;
     return `<span class="ap-lane-sub">${readyCount} ready · ${members.length - readyCount} waiting</span>`;
   }
   const { leading } = LANE_DESIGN[lane];
@@ -189,7 +189,7 @@ function laneSubMarkup(lane: KanbanLane, members: readonly KanbanCard[], input: 
  * To do by wave: one group per wave holding To do cards, its head naming the wave and how wide all of it is, a one-ticket wave tinted as
  * the bottleneck; within it the wave's own order, pace path first, then most held. A card the graph places in no wave closes the lane.
  */
-function todoWaveGroupsMarkup(members: readonly KanbanCard[], format: KanbanCardFormat): string {
+function todoWaveGroupsMarkup(members: readonly KanbanCard[], format: KanbanCardFormat, readyTicketIds: ReadonlySet<string>): string {
   const cardById = new Map(members.map((card) => [card.ticket.id, card]));
   const placed   = new Set<string>();
   const groups   = format.dependencyGraph.waves.map((wave) => {
@@ -198,11 +198,12 @@ function todoWaveGroupsMarkup(members: readonly KanbanCard[], format: KanbanCard
       return '';
     }
     cards.forEach((card) => placed.add(card.ticket.id));
-    const title = wave.index === 0 ? READY_WAVE_TITLE : wave.label;
-    const note  = wave.isNarrow ? 'one at a time' : `${wave.ticketIds.length} side by side`;
+    const width      = wave.isNarrow ? 'one at a time' : `${wave.ticketIds.length} side by side`;
+    const readyCount = cards.filter((card) => readyTicketIds.has(card.ticket.id)).length;
+    const note       = wave.index === 0 ? `${readyCount} ready · ${width}` : width;
     return [
       `<div class="ap-lane-wave" ${MarkupUtil.attribute('data-wave', String(wave.index))}${wave.isNarrow ? ' data-narrow=""' : ''}>`,
-      `<div class="ap-lane-group">${HtmlEscapeUtil.escapeHtml(title)} <span class="ap-lane-group-note">${note}</span></div>`,
+      `<div class="ap-lane-group">${HtmlEscapeUtil.escapeHtml(wave.label)} <span class="ap-lane-group-note">${note}</span></div>`,
       cards.map((card) => kanbanCardMarkup(card, 'todo', format)).join(''),
       '</div>',
     ].join('');
@@ -218,7 +219,7 @@ function laneCardsMarkup(lane: KanbanLane, members: readonly KanbanCard[], shown
   }
   const format = kanbanCardFormatOf(input);
   if (todoIsByWave(lane, input)) {
-    return todoWaveGroupsMarkup(shown, format);
+    return todoWaveGroupsMarkup(shown, format, input.readyTicketIds);
   }
   const dividesByPriority = KanbanLaneUtil.laneIsDividedByPriority(lane, members);
   return shown.map((card, index) => {
