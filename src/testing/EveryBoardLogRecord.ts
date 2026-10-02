@@ -32,6 +32,7 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
   board.removeEpic('example-checkout', at);
   board.setTicketEpics('002', [], at);
   board.moveTicket('001', 'in-progress', { checksLegality: true }, at);
+  board.editTicket('001', { body: { text: 'Example rewritten report.\n', appends: false }, allowsPastPending: true }, at);
   board.moveTicket('001', 'in-review', { checksLegality: true }, at);
   board.startReviewBar('001', { round: 1 }, at);
   board.rereviewTicket('001', at);

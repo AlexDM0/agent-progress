@@ -9,7 +9,7 @@ import { OutputUtil }             from '../utils/OutputUtil.ts';
 import { TICKET_USAGE }           from './constants/TicketUsage.ts';
 import { TicketLookupUtil }       from './utils/TicketLookupUtil.ts';
 
-const EDIT_OPTION_NAMES = ['title', 'append', 'body', 'body-file', 'at', 'json'];
+const EDIT_OPTION_NAMES = ['title', 'append', 'body', 'body-file', 'force', 'at', 'json'];
 
 export async function editTicket(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   commandArguments.rejectUnknownOptions(EDIT_OPTION_NAMES, TICKET_USAGE);
@@ -24,6 +24,7 @@ export async function editTicket(commandArguments: ArgumentParser, context: Comm
   }
   const title   = commandArguments.option('title');
   const appends = commandArguments.flag('append');
+  const forced  = commandArguments.flag('force');
   if (title?.trim() === '') throw new OperationRefusal('refused', `agent-progress ticket edit was given an empty --title.\n  Usage: ${TICKET_USAGE}`);
 
   // Read before the lock: `--body-file -` waits on a pipe the caller may hold open indefinitely.
@@ -42,6 +43,7 @@ export async function editTicket(commandArguments: ArgumentParser, context: Comm
     (change) => change.board.editTicket(TicketLookupUtil.requireTicket(change, reference).frontmatter.id, {
       ...(title === undefined ? {} : { title }),
       ...(text === undefined ? {} : { body: { text, appends } }),
+      allowsPastPending: forced,
     }, change.at),
   );
 

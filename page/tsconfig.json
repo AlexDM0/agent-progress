@@ -50,6 +50,7 @@
     "../src/lib/tracker-model/utils/MarkdownBodyUtil.ts",
     "../src/lib/tracker-model/utils/TaskFilingUtil.ts",
     "../src/lib/tracker-model/utils/TaskTransitionUtil.ts",
+    "../src/lib/tracker-model/utils/TicketBodyHashUtil.ts",
     "../src/lib/tracker-model/utils/TicketChartUtil.ts",
     "../src/lib/tracker-model/utils/TicketDefaultsUtil.ts",
     "../src/lib/tracker-model/utils/TicketDependencyUtil.ts",

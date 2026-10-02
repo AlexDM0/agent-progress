@@ -81,6 +81,8 @@ function sentenceOf(record: LogRecordContent): string {
       return record.fields.reason === '' ? `Ticket #${record.ticketId} held` : `Ticket #${record.ticketId} held: ${record.fields.reason}`;
     case 'ticket-unheld':
       return `Ticket #${record.ticketId} unheld`;
+    case 'ticket-body-changed-after-claim':
+      return `Ticket #${record.ticketId} body changed after its claim`;
     case 'ticket-release-marked':
       return `Ticket #${record.ticketId} marked as the release ticket of group ${record.fields.group}`;
     case 'ticket-release-cleared':
@@ -128,6 +130,7 @@ function taskIdsConcernedBy(record: LogRecordContent): number[] {
     case 'ticket-delivered':
     case 'ticket-abandoned':
     case 'ticket-retitled':
+    case 'ticket-body-changed-after-claim':
     case 'ticket-rereviewed':
     case 'ticket-priority-changed':
     case 'ticket-dependencies-set':
@@ -163,6 +166,7 @@ function ticketIdsConcernedBy(record: LogRecordContent): string[] {
     case 'ticket-delivered':
     case 'ticket-abandoned':
     case 'ticket-retitled':
+    case 'ticket-body-changed-after-claim':
     case 'ticket-rereviewed':
     case 'ticket-priority-changed':
     case 'ticket-agents-changed':

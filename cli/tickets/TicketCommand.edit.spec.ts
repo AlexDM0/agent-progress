@@ -3,7 +3,8 @@
  * stays CRLF throughout, a body holding a `---` line round-trips, an append puts exactly one line ending before its text where the body
  * ends without one, an empty append writes nothing, and the frontmatter's bytes (unknown keys, comments, a hand-written layout) survive
  * an edit while `updated` is not stamped and nothing is logged. A rename touches the title line, the ticket's own row and a generated
- * heading only, keeping the file path, a review bar's name and a hand-changed heading, and logs one line.
+ * heading only, keeping the file path, a review bar's name and a hand-changed heading, and logs one line. Past `pending` an edit needs
+ * `--force`, checked inside the same lock hold as the write, and a forced body edit reads as changed since the claim while a rename does not.
  */
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join }                                     from 'node:path';
@@ -82,6 +83,21 @@ function handWriteTicket(lineEnding: '\n' | '\r\n', body: string): string {
   const frontmatterText = `${HAND_WRITTEN_FRONTMATTER_LINES.join(lineEnding)}${lineEnding}`;
   writeFileSync(ticketFilePath(), `${frontmatterText}${body}`);
   return frontmatterText;
+}
+
+interface ShownTicket {
+  status:                 string;
+  body:                   string;
+  claimedBodyHash?:       string;
+  bodyChangedSinceClaim?: boolean;
+}
+
+async function shownTicket(reference = '1'): Promise<ShownTicket> {
+  return JSON.parse((await run(['ticket', 'show', reference, '--json'])).outputText()) as ShownTicket;
+}
+
+function withoutClaimedBodyHash(ticketText: string): string {
+  return ticketText.replace(/^claimedBodyHash: .*\n/m, '');
 }
 
 beforeEach(async () => {
@@ -167,6 +183,73 @@ describeWhenGitIsPresent('editing a ticket body', () => {
   });
 });
 
+describeWhenGitIsPresent('editing a ticket past pending', () => {
+  test('a ticket never claimed carries no claimed body hash, in its file or its JSON', async () => {
+    expect(storedTicketText()).not.toContain('claimedBodyHash');
+    const shown = await shownTicket();
+    expect(shown.claimedBodyHash).toBeUndefined();
+    expect(shown.bodyChangedSinceClaim).toBeUndefined();
+  });
+
+  test('a claimed ticket refuses an edit at exit 1 naming --force, the file byte-identical and nothing logged', async () => {
+    await run(['ticket', 'claim', '1']);
+    expect((await shownTicket()).bodyChangedSinceClaim).toBe(false);
+    const before    = storedTicketText();
+    const logBefore = storedLogTextOf(repositoryDirectory);
+
+    for (const editArguments of [['--body', 'Replaced.\n'], ['--append', '--body', 'Appended.\n'], ['--title', 'Example payment page']]) {
+      const refused = await runExpectingExit(1, ['ticket', 'edit', '1', ...editArguments]);
+      expect(refused.errorText()).toContain('Ticket #001 is in-progress, and it was not edited');
+      expect(refused.errorText()).toContain('--force');
+    }
+
+    expect(storedTicketText()).toBe(before);
+    expect(storedLogTextOf(repositoryDirectory)).toBe(logBefore);
+  });
+
+  test('a forced body edit writes, logs once and reads as changed since the claim, in show and status', async () => {
+    await run(['ticket', 'start', '1']);
+    const logBefore = storedLogTextOf(repositoryDirectory);
+
+    const output = (await run(['ticket', 'edit', '1', '--append', '--body', 'Added after the claim.\n', '--force'])).outputText();
+
+    expect(output).toContain('Ticket #001 body changed after its claim');
+    const addedLogLines = storedLogTextOf(repositoryDirectory).slice(logBefore.length).trim().split('\n');
+    expect(addedLogLines.map((line) => (JSON.parse(line) as { kind: string }).kind)).toEqual(['ticket-body-changed-after-claim']);
+    expect((await shownTicket()).bodyChangedSinceClaim).toBe(true);
+    expect((await run(['ticket', 'show', '1'])).outputText()).toContain('  body:     changed since the claim');
+    const status = JSON.parse((await run(['status', '--json'])).outputText()) as { tickets: ShownTicket[] };
+    expect(status.tickets[0]?.bodyChangedSinceClaim).toBe(true);
+  });
+
+  test('a claim and an edit racing for the lock never both succeed on a stale read', async () => {
+    const rounds = 4;
+    for (let i = 0; i < rounds; i++) {
+      const reference = String(i + 2);
+      await run(['ticket', 'add', `Example race ${reference}`]);
+      const editedText = `Edited in round ${reference}.\n`;
+
+      const [claimExit, editExit] = await Promise.all([
+        runCommandLine(['ticket', 'claim', reference], contextHere()),
+        runCommandLine(['ticket', 'edit', reference, '--body', editedText], contextHere()),
+      ]);
+
+      expect(claimExit).toBe(0);
+      const shown = await shownTicket(reference);
+      if (editExit === 0) {
+        // The edit held the lock first, so the claim recorded the edited body.
+        expect(shown.body).toBe(editedText);
+        expect(shown.bodyChangedSinceClaim).toBe(false);
+      } else {
+        expect(editExit).toBe(1);
+        expect(shown.body).not.toBe(editedText);
+        expect(shown.bodyChangedSinceClaim).toBe(false);
+      }
+      await run(['ticket', 'abandon', reference, '--reason', 'Example race finished']);
+    }
+  });
+});
+
 describeWhenGitIsPresent('renaming a ticket', () => {
   function storedRowNames(): string[] {
     const progress = JSON.parse(readFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), 'utf8')) as { tasks: Array<{ name: string }> };
@@ -181,17 +264,19 @@ describeWhenGitIsPresent('renaming a ticket', () => {
     const logBefore      = storedLogTextOf(repositoryDirectory);
     expect(storedRowNames()).toEqual(['#001 Example checkout page', 'Review 1 #001 — Example checkout page']);
 
-    const output = (await run(['ticket', 'edit', '1', '--title', 'Example payment page'])).outputText();
+    const output = (await run(['ticket', 'edit', '1', '--title', 'Example payment page', '--force'])).outputText();
 
     expect(output).toContain('Ticket #001 renamed: Example checkout page → Example payment page');
     expect(ticketFilePath()).toBe(filePathBefore);
-    expect(storedTicketText()).toBe(textBefore
+    // The claimed body hash follows the retitled heading, so the rename does not read as a body change.
+    expect(withoutClaimedBodyHash(storedTicketText())).toBe(withoutClaimedBodyHash(textBefore)
       .replace('title: "Example checkout page"', 'title: "Example payment page"')
       .replace('# 001 — Example checkout page', '# 001 — Example payment page'));
     expect(storedRowNames()).toEqual(['#001 Example payment page', 'Review 1 #001 — Example checkout page']);
     const addedLogLines = storedLogTextOf(repositoryDirectory).slice(logBefore.length).trim().split('\n');
     expect(addedLogLines).toHaveLength(1);
     expect(JSON.parse(addedLogLines[0] ?? '')).toMatchObject({ kind: 'ticket-retitled', ticketId: '001', fields: { from: 'Example checkout page', to: 'Example payment page' } });
+    expect((await shownTicket()).bodyChangedSinceClaim).toBe(false);
   });
 
   test('a hand-written CRLF frontmatter keeps every byte but its title line, and a hand-changed heading is kept', async () => {

@@ -48,6 +48,8 @@ const OPTIONAL_TEXT_KEYS = ['group', 'branch', 'commit', 'reason'] as const;
 const RELEASES_GROUP_KEY   = 'releasesGroup';
 const RELEASES_GROUP_VALUE = 'true';
 
+const CLAIMED_BODY_HASH_KEY = 'claimedBodyHash';
+
 const KNOWN_KEYS = new Set<string>([
   'id',
   'title',
@@ -67,6 +69,7 @@ const KNOWN_KEYS = new Set<string>([
   RELEASES_GROUP_KEY,
   'dependsOn',
   'epics',
+  CLAIMED_BODY_HASH_KEY,
   'task',
 ]);
 
@@ -189,6 +192,10 @@ function ticketDocumentTextOf(frontmatter: TicketFrontmatter, body: string, line
 
   if (frontmatter.epics !== undefined && frontmatter.epics.length > 0) {
     lines.push(`epics: ${JSON.stringify(frontmatter.epics.join(FRONTMATTER_LIST_JOINER))}`);
+  }
+
+  if (frontmatter.claimedBodyHash !== undefined) {
+    lines.push(`${CLAIMED_BODY_HASH_KEY}: ${JSON.stringify(frontmatter.claimedBodyHash)}`);
   }
 
   lines.push(`task: ${frontmatter.task === null ? 'null' : String(frontmatter.task)}`);
@@ -350,6 +357,7 @@ function frontmatterFrom(
     ...releasesGroupField(knownValues),
     ...dependencyField(knownValues),
     ...epicsField(knownValues),
+    ...claimedBodyHashField(knownValues),
     task:        nullableInteger(knownValues, 'task'),
     extra,
   };
@@ -468,6 +476,15 @@ function epicsField(knownValues: Map<string, KnownValue>): Pick<TicketFrontmatte
     }
   }
   return epics.length === 0 ? {} : { epics };
+}
+
+/** Absent or `null` was never claimed; any other value is kept as text, so a hand-changed hash reads as a changed body rather than a malformed file. */
+function claimedBodyHashField(knownValues: Map<string, KnownValue>): Pick<TicketFrontmatter, 'claimedBodyHash'> {
+  const found = knownValues.get(CLAIMED_BODY_HASH_KEY);
+  if (found === undefined || found.value === null) {
+    return {};
+  }
+  return { claimedBodyHash: textOf(found, CLAIMED_BODY_HASH_KEY) };
 }
 
 function requiredText(knownValues: Map<string, KnownValue>, key: string, closingFenceLine: number): string {

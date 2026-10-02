@@ -38,6 +38,7 @@ reason: "…"
 releasesGroup: true
 dependsOn: "001, 002"
 epics: "loyalty-programme, checkout-redesign"
+claimedBodyHash: "5f1d3c9a0b7e2468"
 task: 17
 owner: Alex Example
 ---
@@ -57,6 +58,7 @@ owner: Alex Example
 | `releasesGroup` | only on a group's release ticket | `true`; absent or `null` is not the release ticket, any other value makes the file malformed. Set and remove it with `ticket release-of`. |
 | `dependsOn` | when non-empty | ticket ids, written `"001, 002"`, read from any mix of commas and spaces with or without `#` or padding. Set it with `ticket depends`, which refuses a missing id or a circle; bare ids replace the list, `--add` and `--remove` change it. |
 | `epics` | when non-empty | epic keys, written `"loyalty-programme, checkout-redesign"` and read like `dependsOn`, in order: the first is the primary epic. A part that is not an epic key makes the file malformed; a key whose epic is gone is kept. Set it with `ticket epic`, which refuses an epic that does not exist. |
+| `claimedBodyHash` | once the ticket was claimed or started | the content hash (64-bit FNV-1a, 16 hex digits) of the body as it read at the last `ticket claim` or `ticket start`; absent on a ticket never claimed. `ticket show` compares it with a hash of the body now to say whether the body changed since the claim. |
 | `task` | always | the row's id as an unquoted integer, or `null` for a low ticket never started; a quoted `task` makes the file malformed |
 
 **The frontmatter is a deliberately small YAML subset.** One `key: value` per line, split at the
@@ -81,7 +83,8 @@ line moves below the CLI's block once and never again.
 The body is preserved byte for byte from the ticket template (Report, Wanted, Acceptance, Handoff),
 `--body` or `--body-file`; an empty body falls back to the template. `ticket edit` replaces the body or
 appends to it and leaves the frontmatter's bytes as they are, a hand-written layout included; `ticket edit --title` rewrites
-only the `title` line, and a first body line still reading `# <id> — <old title>`, never the file name. A malformed ticket file is listed
+only the `title` line, and a first body line still reading `# <id> — <old title>`, never the file name; on a claimed ticket whose body
+is unchanged since the claim it moves `claimedBodyHash` along. Past `pending`, `ticket edit` needs `--force`. A malformed ticket file is listed
 as ignored rather than failing `status` or `render`. A new ticket id is one past the highest of every
 file name, every parsed id and every ticket a row names; gaps are tolerated, never filled.
 

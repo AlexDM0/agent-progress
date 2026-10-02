@@ -25,6 +25,7 @@ export type BoardRefusalDetail =
   | { reason: 'dependency-loop'; loopTicketIds: readonly string[] }
   | { reason: 'priority-unchanged'; ticketId: string; status: TicketStatus; priority: TicketPriority }
   | { reason: 'lowering-a-ticket-that-is-not-pending'; ticketId: string; status: TicketStatus }
+  | { reason: 'edit-of-a-ticket-past-pending'; ticketId: string; status: TicketStatus }
   | { reason: 'agents-of-a-settled-ticket'; ticketId: string; status: TicketStatus }
   | { reason: 'agents-unchanged'; ticketId: string; status: TicketStatus; agents: AgentPair }
   | { reason: 'hold-of-a-settled-ticket'; ticketId: string; status: TicketStatus; action: 'hold' | 'unhold' }

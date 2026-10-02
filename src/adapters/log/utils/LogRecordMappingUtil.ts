@@ -39,6 +39,7 @@ function recordOf(validated: unknown): LogRecord {
     case 'ticket-delivered':
     case 'ticket-unheld':
     case 'ticket-release-cleared':
+    case 'ticket-body-changed-after-claim':
       return {
         at,
         kind:     record.kind,

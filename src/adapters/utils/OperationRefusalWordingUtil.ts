@@ -106,6 +106,9 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
       return `Ticket #${detail.ticketId} is ${detail.status}, and its priority was not changed: `
         + 'only a pending ticket can be lowered to low, '
         + `since a low ticket has no row until it is started. ${NOTHING_WAS_WRITTEN}`;
+    case 'edit-of-a-ticket-past-pending':
+      return `Ticket #${detail.ticketId} is ${detail.status}, and it was not edited: an agent may already be working from it. `
+        + `${NOTHING_WAS_WRITTEN} Pass --force to edit it anyway; the change shows as the body changed since the claim.`;
     case 'agents-of-a-settled-ticket':
       return `Ticket #${detail.ticketId} is ${detail.status}, `
         + `and its agents were not changed: no agent will work it again. ${NOTHING_WAS_WRITTEN}`;

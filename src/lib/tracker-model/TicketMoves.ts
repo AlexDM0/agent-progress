@@ -17,6 +17,7 @@ import type { GroupReleases }                           from './GroupReleases.ts
 import type { ReviewBars, ReviewBarsClosed }            from './ReviewBars.ts';
 import type { TicketDependencies }                      from './TicketDependencies.ts';
 import { FIRST_REPEAT_REVIEW_ROUND }                    from './constants/ReviewRounds.ts';
+import { TicketBodyHashUtil }                           from './utils/TicketBodyHashUtil.ts';
 import { TicketMoveUtil }                               from './utils/TicketMoveUtil.ts';
 import { TicketStampUtil }                              from './utils/TicketStampUtil.ts';
 
@@ -141,6 +142,7 @@ export class TicketMoves {
     if (fields.branch !== undefined) frontmatter.branch = fields.branch;
     if (fields.commit !== undefined) frontmatter.commit = fields.commit;
     if (fields.reason !== undefined) frontmatter.reason = fields.reason;
+    if (targetStatus === 'in-progress') frontmatter.claimedBodyHash = TicketBodyHashUtil.bodyHashOf(ticket.body);
 
     const task = this.records.ensureTaskForTicketOnTheChart(ticket, at);
     if (task !== null) this.records.transitionTaskInPlace(task, targetStatus, at);

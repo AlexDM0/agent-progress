@@ -268,12 +268,15 @@ output never carries either.
       [--append]              end, putting one line ending before the text when the body does not
       [--body <markdown>]     end in one; a title and a body change go in one write. The text is
       [--body-file <path|->]  written in the line ending the body already uses. A new title
-      [--at <when>] [--json]  rewrites the title line, the ticket's own row name and a body
-                              heading still reading as generated, never the file name or a review
+      [--force]               rewrites the title line, the ticket's own row name and a body
+      [--at <when>] [--json]  heading still reading as generated, never the file name or a review
                               row, and is logged; a body change is not. Every other frontmatter
                               byte is kept and \`updated\` is not stamped. Nothing to change writes
                               nothing and exits 0; an empty replacement or title, none of --title,
                               --body and --body-file, or both body options are refused at exit 1.
+                              Only a pending ticket is edited: past it, the edit is refused at
+                              exit 1 unless --force, and a forced body change is logged and shows
+                              in \`ticket show\` as the body changed since the claim.
 
   ticket agent <id> [--model <m>] [--effort <e>] [--at <when>]
                               Change the model or the effort a ticket's agents run on, or both,

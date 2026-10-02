@@ -1,5 +1,6 @@
 import { TicketJsonUtil }                   from '../../src/adapters/utils/TicketJsonUtil.ts';
 import type { Ticket, TicketStatus }        from '../../src/lib/tracker-model/@types/Ticket.ts';
+import { TicketBodyHashUtil }               from '../../src/lib/tracker-model/utils/TicketBodyHashUtil.ts';
 import { TicketDefaultsUtil }               from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
 import { listTickets, readTicket }          from '../../src/services/tracker/TicketStore.ts';
 import { requireWorkspace, type Workspace } from '../../src/services/tracker/Workspace.ts';
@@ -27,6 +28,7 @@ function stampText(stamp: string): string {
 function summaryOf(ticket: Ticket, statusById: ReadonlyMap<string, TicketStatus>): string {
   const { frontmatter } = ticket;
   const dependencies    = (frontmatter.dependsOn ?? []).map((identifier) => `#${identifier} (${statusById.get(identifier) ?? 'missing'})`);
+  const bodyChangedSinceClaim = TicketBodyHashUtil.bodyChangedSinceClaimOf(ticket);
   return [
     `Ticket #${frontmatter.id}: ${frontmatter.title}`,
     `  status:   ${frontmatter.status}`,
@@ -44,6 +46,7 @@ function summaryOf(ticket: Ticket, statusById: ReadonlyMap<string, TicketStatus>
     `  branch:   ${frontmatter.branch ?? '-'}`,
     `  commit:   ${frontmatter.commit ?? '-'}`,
     `  reason:   ${frontmatter.reason ?? '-'}`,
+    ...(bodyChangedSinceClaim === undefined ? [] : [`  body:     ${bodyChangedSinceClaim ? 'changed since the claim' : 'unchanged since the claim'}`]),
     `  file:     ${ticket.filePath}`,
   ].join('\n');
 }
