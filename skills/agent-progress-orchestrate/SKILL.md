@@ -93,6 +93,24 @@ request stays one ticket, and small requests that edit the same files are filed 
 the dispatcher gives every ticket an agent of its own and starting one costs more than a small
 ticket's work.
 
+**Give a long chain or a group an epic.** A task is one request from the user. Create an epic with
+`epic add <key> "<title>"`, its key a short slug of the subject, and file every ticket of the task into
+it with `ticket add --epic <key>`, when the task is a chain of more than three sequential tickets
+(four or more, each waiting on the one before through `--depends-on`), or when it uses a `--group`:
+every group gets an epic, and every ticket of the group joins it. Tickets that run in parallel are no
+chain: a task that fans out into three parallel tickets gets no epic, and a ticket's reviews (its
+review bar, a second review round) never count towards the four. When the user asks for an epic,
+create it whatever the size. When a chain grows past three tickets after its first ones were filed,
+create the epic then and add the earlier tickets with `ticket epic <id> --add <key>`. A ticket's first
+epic is its primary one, the epic the Progress chart groups it under.
+
+**File into an existing epic before filing alone.** Before filing a ticket, run `epic list` and judge
+whether the ticket is on an epic's subject. An epic that still has a ticket neither delivered nor
+abandoned takes every new ticket on its subject. For two hours after an epic's last ticket was
+delivered, it also takes a new ticket on its subject that could have been part of its initial scope, a
+refinement of the released work; after the two hours, or for new scope, the ticket is filed on its
+own. Where the subject match is a judgement call, ask the user through AskUserQuestion.
+
 **Tickets that share a blast radius are merged into one.** At filing and at every triage, look for
 pending tickets no agent has started that touch the same files or the same mechanism as each other or as
 the one you are filing, and merge them into one ticket: the survivor carries each merged ticket's
