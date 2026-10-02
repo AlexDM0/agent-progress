@@ -1,4 +1,6 @@
-import type { NameColumnWidth } from '../../@types/ViewerChoices.ts';
+import type { NameColumnWidth, TodoOrderChoice } from '../../@types/ViewerChoices.ts';
+
+export const DEFAULT_TODO_ORDER_CHOICE: TodoOrderChoice = 'filed';
 
 export const DEFAULT_NAME_COLUMN_WIDTH: NameColumnWidth = 'normal';
 

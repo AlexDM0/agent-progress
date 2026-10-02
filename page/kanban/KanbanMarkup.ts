@@ -6,8 +6,10 @@ import { TokenCountUtil }                   from '../../src/lib/token-count/Toke
 import type { DisplayState }                from '../../src/lib/tracker-model/@types/Task.ts';
 import { FIRST_REPEAT_REVIEW_ROUND }        from '../../src/lib/tracker-model/constants/ReviewRounds.ts';
 import { TicketDefaultsUtil }               from '../../src/lib/tracker-model/utils/TicketDefaultsUtil.ts';
+import type { DependencyGraph }             from '../@types/DependencyGraph.ts';
 import type { KanbanCard }                  from '../@types/KanbanCard.ts';
 import type { FinishedWorkChoice }          from '../@types/ViewerChoices.ts';
+import type { TodoOrderChoice }             from '../@types/ViewerChoices.ts';
 import { CLOSING_EVENT_WORD }               from '../constants/ClosingEventWords.ts';
 import { STATE_LABEL_FOR_DISPLAY_STATE }    from '../constants/StateLabels.ts';
 import { CARD_EPIC_CHIP_LIMIT, EpicMarkup } from '../epics/EpicMarkup.ts';
@@ -26,6 +28,11 @@ import { LanePagingUtil }                   from './utils/LanePagingUtil.ts';
 
 
 const NO_ROW_TITLE = 'Low priority: it gets a row on the Progress chart once it is started';
+
+/** From this many tickets waiting on a card, its `↦ N` reads in full ink. */
+const HEAVY_HELD_COUNT = 5;
+
+const READY_WAVE_TITLE = 'Ready now';
 
 interface LaneDesign {
   title:    string;
@@ -74,6 +81,25 @@ export interface KanbanBoardInput extends NoteFormat {
   hiddenCountByClosedLane: Readonly<Record<ClosedKanbanLane, number>>;
   shownCountByClosedLane:  Readonly<Record<ClosedKanbanLane, number>>;
   abandonedLaneIsOpen:     boolean;
+  todoOrder:               TodoOrderChoice;
+  /** Spans every ticket, finished ones included, so neither filter reshapes the waves. */
+  dependencyGraph:         DependencyGraph;
+}
+
+export interface KanbanCardFormat extends NoteFormat {
+  dependencyGraph:     DependencyGraph;
+  /** The tickets some card on the board depends on directly: only their cards can show "needed first". */
+  dependedOnTicketIds: ReadonlySet<string>;
+}
+
+export function kanbanCardFormatOf(input: KanbanBoardInput): KanbanCardFormat {
+  return {
+    nowEpochMilliseconds: input.nowEpochMilliseconds,
+    todayCalendarDate:    input.todayCalendarDate,
+    slices:               input.slices,
+    dependencyGraph:      input.dependencyGraph,
+    dependedOnTicketIds:  new Set(input.cards.flatMap((card) => card.ticket.dependsOn ?? [])),
+  };
 }
 
 function pillLabelOf(card: KanbanCard): string {
@@ -98,7 +124,22 @@ function stateMarkup(card: KanbanCard, lane: KanbanLane, format: NoteFormat): st
   return `<div class="ap-kanban-state">${pill}${reviewedMark}</div>`;
 }
 
-export function kanbanCardMarkup(card: KanbanCard, lane: KanbanLane, format: NoteFormat): string {
+/**
+ * The "needed first" slot, on every card another card depends on, so hovering the dependent only fades it in; then `↦ N` for an
+ * unfinished ticket others wait on. A board without dependencies gets neither, so its cards stay as they were.
+ */
+function dependencyHeadMarkup(card: KanbanCard, lane: KanbanLane, format: KanbanCardFormat): string {
+  const ticketId    = card.ticket.id;
+  const neededFirst = format.dependedOnTicketIds.has(ticketId) ? '<span class="ap-kanban-needed-first" aria-hidden="true">needed first</span>' : '';
+  const heldCount   = KanbanLaneUtil.laneIsClosed(lane) ? 0 : format.dependencyGraph.heldOfTicket.get(ticketId)?.size ?? 0;
+  const heldTitle   = `${heldCount} ${heldCount === 1 ? 'ticket waits' : 'tickets wait'} on this one, directly or further down the chain`;
+  const held        = heldCount === 0
+    ? ''
+    : `<span class="ap-kanban-held-count"${heldCount >= HEAVY_HELD_COUNT ? ' data-heavy=""' : ''} ${MarkupUtil.attribute('title', heldTitle)}>↦ ${heldCount}</span>`;
+  return `${neededFirst}${held}`;
+}
+
+export function kanbanCardMarkup(card: KanbanCard, lane: KanbanLane, format: KanbanCardFormat): string {
   const { ticket, ownRow } = card;
   const label              = `#${ticket.id} ${ticket.title}, ${pillLabelOf(card)}, ${TicketDefaultsUtil.ticketPriorityOf(ticket)} priority`;
   const identities         = [
@@ -113,7 +154,7 @@ export function kanbanCardMarkup(card: KanbanCard, lane: KanbanLane, format: Not
   return [
     `<article class="ap-kanban-card" ${identities}${ownRow === null ? ' data-row="none"' : ''} tabindex="0" ${MarkupUtil.attribute('aria-label', label)}>`,
     `<div class="ap-kanban-card-head"><span class="ap-ticket-id">#${HtmlEscapeUtil.escapeHtml(ticket.id)}</span>${WorkItemMarkupUtil.priorityMarkMarkup(ticket)}`,
-    `<span class="ap-detail-type">${HtmlEscapeUtil.escapeHtml(ticket.type)}</span></div>`,
+    `<span class="ap-detail-type">${HtmlEscapeUtil.escapeHtml(ticket.type)}</span>${dependencyHeadMarkup(card, lane, format)}</div>`,
     tokens,
     `<p class="ap-kanban-title" ${MarkupUtil.attribute('title', ticket.title)}>${HtmlEscapeUtil.escapeHtml(ticket.title)}</p>`,
     card.epics.length === 0 ? '' : `<div class="ap-epic-chips">${EpicMarkup.epicChipsMarkup(card.epics, CARD_EPIC_CHIP_LIMIT)}</div>`,
@@ -125,7 +166,15 @@ export function kanbanCardMarkup(card: KanbanCard, lane: KanbanLane, format: Not
   ].join('');
 }
 
-function laneSubMarkup(lane: KanbanLane, members: readonly KanbanCard[]): string {
+function todoIsByWave(lane: KanbanLane, input: KanbanBoardInput): boolean {
+  return lane === 'todo' && input.todoOrder === 'by-wave';
+}
+
+function laneSubMarkup(lane: KanbanLane, members: readonly KanbanCard[], input: KanbanBoardInput): string {
+  if (todoIsByWave(lane, input)) {
+    const readyCount = members.filter((card) => input.dependencyGraph.readyTicketIds.includes(card.ticket.id)).length;
+    return `<span class="ap-lane-sub">${readyCount} ready · ${members.length - readyCount} waiting</span>`;
+  }
   const { leading } = LANE_DESIGN[lane];
   const counts      = laneSubCountsOf(lane, members).map((entry) => {
     const dot  = entry.dotState === null ? '' : `<span class="ap-lane-dot" ${MarkupUtil.attribute('data-state', entry.dotState)}></span>`;
@@ -136,10 +185,40 @@ function laneSubMarkup(lane: KanbanLane, members: readonly KanbanCard[]): string
   return parts.length === 0 ? '' : `<span class="ap-lane-sub">${parts.join(' · ')}</span>`;
 }
 
+/**
+ * To do by wave: one group per wave holding To do cards, its head naming the wave and how wide all of it is, a one-ticket wave tinted as
+ * the bottleneck; within it the wave's own order, pace path first, then most held. A card the graph places in no wave closes the lane.
+ */
+function todoWaveGroupsMarkup(members: readonly KanbanCard[], format: KanbanCardFormat): string {
+  const cardById = new Map(members.map((card) => [card.ticket.id, card]));
+  const placed   = new Set<string>();
+  const groups   = format.dependencyGraph.waves.map((wave) => {
+    const cards = wave.ticketIds.flatMap((ticketId) => cardById.get(ticketId) ?? []);
+    if (cards.length === 0) {
+      return '';
+    }
+    cards.forEach((card) => placed.add(card.ticket.id));
+    const title = wave.index === 0 ? READY_WAVE_TITLE : wave.label;
+    const note  = wave.isNarrow ? 'one at a time' : `${wave.ticketIds.length} side by side`;
+    return [
+      `<div class="ap-lane-wave" ${MarkupUtil.attribute('data-wave', String(wave.index))}${wave.isNarrow ? ' data-narrow=""' : ''}>`,
+      `<div class="ap-lane-group">${HtmlEscapeUtil.escapeHtml(title)} <span class="ap-lane-group-note">${note}</span></div>`,
+      cards.map((card) => kanbanCardMarkup(card, 'todo', format)).join(''),
+      '</div>',
+    ].join('');
+  }).join('');
+  const unplaced = members.filter((card) => !placed.has(card.ticket.id)).map((card) => kanbanCardMarkup(card, 'todo', format)).join('');
+  return `${groups}${unplaced}`;
+}
+
 function laneCardsMarkup(lane: KanbanLane, members: readonly KanbanCard[], shown: readonly KanbanCard[], input: KanbanBoardInput): string {
   if (shown.length === 0) {
     const emptyText = KanbanLaneUtil.laneIsClosed(lane) ? emptyClosedLaneText(lane, input.finishedWork) : EMPTY_LANE_TEXT[lane];
     return `<div class="ap-empty">${HtmlEscapeUtil.escapeHtml(emptyText)}</div>`;
+  }
+  const format = kanbanCardFormatOf(input);
+  if (todoIsByWave(lane, input)) {
+    return todoWaveGroupsMarkup(shown, format);
   }
   const dividesByPriority = KanbanLaneUtil.laneIsDividedByPriority(lane, members);
   return shown.map((card, index) => {
@@ -150,7 +229,7 @@ function laneCardsMarkup(lane: KanbanLane, members: readonly KanbanCard[], shown
     const divider     = startsGroup
       ? `<div class="ap-lane-group" ${MarkupUtil.attribute('data-priority', priority)}>${groupTitle} <span class="ap-lane-group-count">${groupSize}</span></div>`
       : '';
-    return `${divider}${kanbanCardMarkup(card, lane, input)}`;
+    return `${divider}${kanbanCardMarkup(card, lane, format)}`;
   }).join('');
 }
 
@@ -175,14 +254,14 @@ export function cappedLaneFooterMarkup(lane: ClosedKanbanLane, shownCount: numbe
   return contents === '' ? '' : `<div class="ap-lane-more">${contents}</div>`;
 }
 
-function laneHeadMarkup(lane: KanbanLane, members: readonly KanbanCard[], laneIsCollapsed: boolean): string {
+function laneHeadMarkup(lane: KanbanLane, members: readonly KanbanCard[], laneIsCollapsed: boolean, input: KanbanBoardInput): string {
   const design    = LANE_DESIGN[lane];
   const headInner = [
     `<span class="ap-lane-dot" ${MarkupUtil.attribute('data-state', design.dotState)}></span>`,
     `<span class="ap-card-title">${HtmlEscapeUtil.escapeHtml(design.title)}</span>`,
     `<span class="ap-lane-count">${members.length}</span>`,
   ].join('');
-  const sub = laneSubMarkup(lane, members);
+  const sub = laneSubMarkup(lane, members, input);
   if (lane !== 'abandoned') {
     return `<div class="ap-card-head">${headInner}${sub}</div>`;
   }
@@ -203,7 +282,7 @@ export function kanbanLaneMarkup(lane: KanbanLane, input: KanbanBoardInput): str
   return [
     `<section class="ap-card ap-lane" ${MarkupUtil.attribute('data-lane', lane)}${laneIsCollapsed ? ' data-collapsed=""' : ''}`,
     ` ${MarkupUtil.attribute('aria-label', design.title)}>`,
-    laneHeadMarkup(lane, members, laneIsCollapsed),
+    laneHeadMarkup(lane, members, laneIsCollapsed, input),
     `<div class="ap-lane-cards" ${MarkupUtil.attribute('id', `ap-lane-${lane}-cards`)}>${laneCardsMarkup(lane, members, shown, input)}</div>`,
     footer,
     '</section>',

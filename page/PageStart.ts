@@ -207,7 +207,13 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   const ticketFinishedMoments     = board.tickets.map((ticket) => FinishedWorkUtil.ticketFinishedEpochMillisecondsOf(ticket));
   // Declared before its controller, since the Kanban's show-all link and the switch each change the other's view.
   let showAllFinishedWork = (): void => undefined;
+  const ticketById = new Map(board.tickets.map((ticket) => [ticket.id, ticket]));
+  // The graph spans every ticket, finished ones included, so the finished-work switch never reshapes the waves.
+  const dependencyGraph      = DependencyGraphUtil.dependencyGraphOf(board.tickets, payload.concurrency.limit);
+  const boardHasDependencies = DependencyMarkup.boardHasDependencies(board.tickets);
   const kanbanController = createKanbanController({
+    dependencyGraph,
+    boardHasDependencies,
     slices:                      limits,
     preferences,
     readTodayCalendarDate:       () => todayCalendarDate,
@@ -242,9 +248,6 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
     updateKanbanOverflow:  () => kanbanController.updateOverflow(),
   });
 
-  const ticketById = new Map(board.tickets.map((ticket) => [ticket.id, ticket]));
-  // The graph spans every ticket, finished ones included, so the finished-work switch never reshapes the waves.
-  const dependencyGraph = DependencyGraphUtil.dependencyGraphOf(board.tickets, payload.concurrency.limit);
   // Every epic's card counts all its tickets, finished ones included: an epic's progress is not narrowed by the finished-work switch.
   const showEpicsTab = (): void => {
     if (board.epics.length > 0) {
@@ -302,7 +305,6 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   ticketsController.wire();
   showEpicsTabButton(board.epics.length > 0);
 
-  const boardHasDependencies = DependencyMarkup.boardHasDependencies(board.tickets);
   if (boardHasDependencies) {
     DomUtil.setMarkup(DEPENDENCIES_CARD_ELEMENT_ID, DependencyMarkup.dependencyGraphMarkup(dependencyGraph, ticketById));
   }

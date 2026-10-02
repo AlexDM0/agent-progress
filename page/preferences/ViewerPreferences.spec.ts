@@ -44,10 +44,10 @@ function inMemoryStorage(): InMemoryStorage {
 }
 
 type StoredChoiceName = 'range override' | 'work visibility' | 'finished since a day' | 'name column' | 'review rows' | 'Abandoned lane'
-  | 'Done lane count' | 'Abandoned lane count' | 'folded epic groups';
+  | 'Done lane count' | 'Abandoned lane count' | 'folded epic groups' | 'To do order';
 
 // Frozen from the key functions before they moved here: retake by checking out bc42604 and calling the key functions in lib/render/page/.
-// The review rows and folded epic groups entries are newer than that commit and frozen from their first release.
+// The review rows, folded epic groups and To do order entries are newer than that commit and frozen from their first release.
 // Columns: the choice, its key for tracker `tracker-a`, a stored value in its encoding, and the value at which the key is removed.
 const FROZEN_STORED_CHOICES: readonly (readonly [StoredChoiceName, string, string, string])[] = [
   [
@@ -64,6 +64,7 @@ const FROZEN_STORED_CHOICES: readonly (readonly [StoredChoiceName, string, strin
   ['Done lane count', 'agent-progress:tracker-a:kanban-done-shown', '40', '15'],
   ['Abandoned lane count', 'agent-progress:tracker-a:kanban-abandoned-shown', '40', '15'],
   ['folded epic groups', 'agent-progress:tracker-a:progress-folded-epics', '["checkout-redesign","no epic"]', '[]'],
+  ['To do order', 'agent-progress:tracker-a:kanban-todo-order', 'by-wave', 'filed'],
 ];
 
 /** Writes a choice from its stored encoding and reads it back into that encoding, so the table's text drives the typed module. */
@@ -108,6 +109,10 @@ const DRIVER_FOR_STORED_CHOICE: Readonly<Record<StoredChoiceName, StoredChoiceDr
   'folded epic groups': {
     write: (preferences, text) => preferences.writeFoldedEpicGroups(JSON.parse(text)),
     read:  (preferences) => JSON.stringify(preferences.readFoldedEpicGroups()),
+  },
+  'To do order': {
+    write: (preferences, text) => preferences.writeTodoOrder(text === 'by-wave' ? 'by-wave' : 'filed'),
+    read:  (preferences) => preferences.readTodoOrder(),
   },
 };
 

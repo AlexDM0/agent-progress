@@ -1,7 +1,9 @@
 /**
  * The Kanban markup against the template's placeholder board, which is the contract: the To do lane, three cards and the Done footer are
  * rebuilt from constructed inputs and must match the template's text exactly. Then the parts the placeholder does not show: the cap's
- * buttons, the empty lanes under Show all, the Abandoned toggle and the escaping.
+ * buttons, the empty lanes under Show all, the Abandoned toggle and the escaping. Last the dependency views: To do by wave (groups, the
+ * narrow tint, the sub-line and the order within a group) and each card's "needed first" slot and `↦ N`, absent on a board without
+ * dependencies so the filed board stays byte for byte as it was.
  */
 
 import { describe, expect, test } from 'bun:test';
@@ -9,10 +11,12 @@ import type { Task }              from '../../src/lib/tracker-model/@types/Task.
 import type { PageTicket }        from '../../src/shared/@types/PagePayload.ts';
 import { pageBoardFixture }       from '../testing/PageBoardFixture.ts';
 import { EXAMPLE_PAGE_LIMITS }    from '../testing/PageLimitsFixture.ts';
+import { DependencyGraphUtil }    from '../utils/DependencyGraphUtil.ts';
 import type { KanbanBoardInput }  from './KanbanMarkup.ts';
 import {
   cappedLaneFooterMarkup,
   kanbanBoardMarkup,
+  kanbanCardFormatOf,
   kanbanCardMarkup,
   kanbanLaneMarkup,
 } from './KanbanMarkup.ts';
@@ -24,6 +28,7 @@ const { cappedLaneShownCount, shownCountAfterMore } = LanePagingUtil;
 const EXAMPLE_TODAY = '2026-09-25';
 const EXAMPLE_NOW   = Date.parse('2026-09-25T13:36:00+02:00');
 
+const EXAMPLE_BOARD_SLOTS         = 5;
 const PLACEHOLDER_DONE_LANE_COUNT = 18;
 const MINUTES_BETWEEN_DELIVERIES  = 20;
 const MILLISECONDS_PER_MINUTE     = 60_000;
@@ -69,8 +74,11 @@ function exampleRow(id: number, changes: Partial<Task> = {}): Task {
 
 function boardInput(tickets: readonly PageTicket[], tasks: readonly Task[], changes: Partial<KanbanBoardInput> = {}): KanbanBoardInput {
   const waitingOnById = new Map(tickets.flatMap((ticket) => (ticket.dependsOn === undefined ? [] : [[ticket.id, ticket.dependsOn]])));
+  const boardTickets  = pageBoardFixture({ tasks, tickets }).tickets;
   return {
-    cards:                   KanbanLaneUtil.kanbanCardsFor(pageBoardFixture({ tasks, tickets }).tickets, waitingOnById),
+    cards:                   KanbanLaneUtil.kanbanCardsFor(boardTickets, waitingOnById),
+    todoOrder:               'filed',
+    dependencyGraph:         DependencyGraphUtil.dependencyGraphOf(boardTickets, EXAMPLE_BOARD_SLOTS),
     nowEpochMilliseconds:    EXAMPLE_NOW,
     todayCalendarDate:       EXAMPLE_TODAY,
     slices:                  EXAMPLE_PAGE_LIMITS,
@@ -182,7 +190,7 @@ describe('the placeholder board, rebuilt', () => {
     const input  = boardInput([ticket], [row]);
     const [card] = input.cards;
 
-    expect(card === undefined ? '' : kanbanCardMarkup(card, 'progress', input)).toBe(placeholderCard('061'));
+    expect(card === undefined ? '' : kanbanCardMarkup(card, 'progress', kanbanCardFormatOf(input))).toBe(placeholderCard('061'));
   });
 
   test('matches the second-round review card #059', () => {
@@ -213,7 +221,7 @@ describe('the placeholder board, rebuilt', () => {
     const input  = boardInput([ticket], tasks);
     const [card] = input.cards;
 
-    expect(card === undefined ? '' : kanbanCardMarkup(card, 'review', input)).toBe(placeholderCard('059'));
+    expect(card === undefined ? '' : kanbanCardMarkup(card, 'review', kanbanCardFormatOf(input))).toBe(placeholderCard('059'));
   });
 
   test('matches the reviewed Done card #055', () => {
@@ -237,7 +245,7 @@ describe('the placeholder board, rebuilt', () => {
     const input  = boardInput([ticket], [row]);
     const [card] = input.cards;
 
-    expect(card === undefined ? '' : kanbanCardMarkup(card, 'done', input)).toBe(placeholderCard('055'));
+    expect(card === undefined ? '' : kanbanCardMarkup(card, 'done', kanbanCardFormatOf(input))).toBe(placeholderCard('055'));
   });
 
   test('matches the Done footer of 18 tickets capped at 15', () => {
@@ -334,7 +342,7 @@ describe('a card’s marks', () => {
     const input  = boardInput([exampleTicket('070', { hold: '' })], []);
     const [card] = input.cards;
 
-    expect(card === undefined ? '' : kanbanCardMarkup(card, 'todo', input)).toContain('<span class="ap-kanban-held" title="Held">held</span>');
+    expect(card === undefined ? '' : kanbanCardMarkup(card, 'todo', kanbanCardFormatOf(input))).toContain('<span class="ap-kanban-held" title="Held">held</span>');
   });
 
   test('escapes a title, a reason and a hold carrying markup', () => {
@@ -348,5 +356,98 @@ describe('a card’s marks', () => {
     expect(board).not.toContain('<i>');
     expect(board).not.toContain('<script>');
     expect(board).toContain('&lt;b&gt;bold&lt;/b&gt;');
+  });
+});
+
+/**
+ * #001 and #002 start now; #003 waits on #001, and #005 to #007 on #002, side by side in wave 2; #004 waits on #003 alone in wave 3, the
+ * narrow one. The pace path runs #001, #003, #004, so #001 leads its wave although #002 holds more.
+ */
+const WAVE_TICKETS: PageTicket[] = [
+  exampleTicket('001'),
+  exampleTicket('002'),
+  exampleTicket('003', { dependsOn: ['001'] }),
+  exampleTicket('004', { dependsOn: ['003'] }),
+  exampleTicket('005', { dependsOn: ['002'] }),
+  exampleTicket('006', { dependsOn: ['002'] }),
+  exampleTicket('007', { dependsOn: ['002'] }),
+];
+
+function ticketIdsInOrder(markup: string): string[] {
+  return [...markup.matchAll(/data-ticket-id="(\d+)"/g)].map((match) => match[1] ?? '');
+}
+
+function waveGroupsOf(markup: string): string[] {
+  return [...markup.matchAll(/<div class="ap-lane-wave"[^>]*><div class="ap-lane-group">[^<]*<span class="ap-lane-group-note">[^<]*<\/span>/g)].map((match) => match[0]);
+}
+
+describe('the To do order', () => {
+  test('filed keeps the filed lane: no wave groups, the usual sub-line', () => {
+    const lane = kanbanLaneMarkup('todo', boardInput(WAVE_TICKETS, []));
+
+    expect(lane).not.toContain('ap-lane-wave');
+    expect(lane).not.toContain('ready ·');
+  });
+
+  test('by wave groups To do by wave, names them, notes their width and tints only the narrow one', () => {
+    const lane = kanbanLaneMarkup('todo', boardInput(WAVE_TICKETS, [], { todoOrder: 'by-wave' }));
+
+    expect(waveGroupsOf(lane)).toEqual([
+      '<div class="ap-lane-wave" data-wave="0"><div class="ap-lane-group">Ready now <span class="ap-lane-group-note">2 side by side</span>',
+      '<div class="ap-lane-wave" data-wave="1"><div class="ap-lane-group">Wave 2 <span class="ap-lane-group-note">4 side by side</span>',
+      '<div class="ap-lane-wave" data-wave="2" data-narrow=""><div class="ap-lane-group">Wave 3 <span class="ap-lane-group-note">one at a time</span>',
+    ]);
+    expect(lane).toContain('<span class="ap-lane-sub">2 ready · 5 waiting</span>');
+    expect(lane).not.toContain('data-priority');
+  });
+
+  test('by wave puts the pace-path ticket first in its group, then the most held', () => {
+    const lane = kanbanLaneMarkup('todo', boardInput(WAVE_TICKETS, [], { todoOrder: 'by-wave' }));
+
+    expect(ticketIdsInOrder(lane)).toEqual(['001', '002', '003', '005', '006', '007', '004']);
+  });
+
+  test('by wave leaves the other lanes as they are', () => {
+    const tickets = [...WAVE_TICKETS, exampleTicket('008', { status: 'in-progress' })];
+
+    expect(kanbanLaneMarkup('progress', boardInput(tickets, [], { todoOrder: 'by-wave' }))).toBe(kanbanLaneMarkup('progress', boardInput(tickets, [])));
+  });
+});
+
+describe('a card’s dependency head', () => {
+  function cardMarkupOf(ticketId: string, lane: 'todo' | 'done', tickets: readonly PageTicket[], todoOrder: 'filed' | 'by-wave' = 'filed'): string {
+    const input = boardInput(tickets, [], { todoOrder });
+    const card  = input.cards.find((candidate) => candidate.ticket.id === ticketId);
+    return card === undefined ? '' : kanbanCardMarkup(card, lane, kanbanCardFormatOf(input));
+  }
+
+  test('holds the "needed first" slot, hidden until hovered, on a card another depends on, in both orders', () => {
+    for (const todoOrder of ['filed', 'by-wave'] as const) {
+      expect(cardMarkupOf('003', 'todo', WAVE_TICKETS, todoOrder)).toContain('<span class="ap-kanban-needed-first" aria-hidden="true">needed first</span>');
+      expect(cardMarkupOf('004', 'todo', WAVE_TICKETS, todoOrder)).not.toContain('needed first');
+    }
+  });
+
+  test('counts every ticket waiting on the card, down the whole chain, as ↦ N, and none on a card nothing waits on', () => {
+    expect(cardMarkupOf('001', 'todo', WAVE_TICKETS)).toContain('title="2 tickets wait on this one, directly or further down the chain">↦ 2</span>');
+    expect(cardMarkupOf('003', 'todo', WAVE_TICKETS)).toContain('title="1 ticket waits on this one, directly or further down the chain">↦ 1</span>');
+    expect(cardMarkupOf('004', 'todo', WAVE_TICKETS)).not.toContain('↦');
+  });
+
+  test('sets ↦ N in full ink from five', () => {
+    const tickets = [...WAVE_TICKETS, exampleTicket('008', { dependsOn: ['002'] }), exampleTicket('009', { dependsOn: ['002'] })];
+
+    expect(cardMarkupOf('002', 'todo', WAVE_TICKETS)).toContain('<span class="ap-kanban-held-count" title=');
+    expect(cardMarkupOf('002', 'todo', tickets)).toContain('<span class="ap-kanban-held-count" data-heavy="" title=');
+  });
+
+  test('shows no ↦ N on a finished card', () => {
+    const tickets = [exampleTicket('001', { status: 'delivered', delivered: at('12:00') }), exampleTicket('002', { dependsOn: ['001'] })];
+
+    expect(cardMarkupOf('001', 'done', tickets)).not.toContain('↦');
+  });
+
+  test('keeps the head of a card on a board without dependencies as it was', () => {
+    expect(cardMarkupOf('001', 'todo', [exampleTicket('001')])).toContain('<span class="ap-detail-type">feature</span></div>');
   });
 });

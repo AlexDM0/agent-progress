@@ -10,6 +10,9 @@ export type FinishedWorkSpan = '1h' | '1d' | '6h' | '12h' | '3d' | 'all';
 /** Which finished work shows beside the unfinished: a span back from now, or everything finished on or after a local calendar day. */
 export type FinishedWorkChoice = FinishedWorkSpan | `since-${string}`;
 
+/** How the Kanban's To do lane orders its cards: as filed, or grouped by dependency wave. */
+export type TodoOrderChoice = 'filed' | 'by-wave';
+
 export interface StoredViewOverride {
   presetKey:   string | null;
   fromText:    string | null;
@@ -91,6 +94,8 @@ export interface ViewerPreferences {
   /** The pressed chips of the Kanban's epic strip: epic keys, and `NO_EPIC_CHIP`. */
   readKanbanEpicFilter:      () => string[];
   writeKanbanEpicFilter:     (pressedChips: readonly string[]) => void;
+  readTodoOrder:             () => TodoOrderChoice;
+  writeTodoOrder:            (order: TodoOrderChoice) => void;
   /** The Progress chart's folded epic groups: epic keys, and `NO_EPIC_CHIP` for the group of rows in none. */
   readFoldedEpicGroups:      () => string[];
   writeFoldedEpicGroups:     (foldedGroupKeys: readonly string[]) => void;

@@ -15,6 +15,7 @@ import { KanbanLaneUtil }         from './kanban/utils/KanbanLaneUtil.ts';
 import { taskRowsMarkup }         from './progress/GanttChartMarkup.ts';
 import { pageBoardFixture }       from './testing/PageBoardFixture.ts';
 import { EXAMPLE_PAGE_LIMITS }    from './testing/PageLimitsFixture.ts';
+import { DependencyGraphUtil }    from './utils/DependencyGraphUtil.ts';
 
 const EXAMPLE_TODAY = '2026-09-25';
 const EXAMPLE_NOW   = Date.parse('2026-09-25T13:36:00+02:00');
@@ -127,6 +128,8 @@ describe('the filed bar outside the dialog', () => {
       hiddenCountByClosedLane: { done: 0, abandoned: 0 },
       shownCountByClosedLane:  { done: 15, abandoned: 15 },
       abandonedLaneIsOpen:     true,
+      todoOrder:               'filed',
+      dependencyGraph:         DependencyGraphUtil.dependencyGraphOf(pageBoardFixture({ tasks: TASKS, tickets: [DELIVERED_TICKET, WAITING_TICKET] }).tickets, 5),
     });
     const overview = taskDetailMarkup({
       task:              boardRows.find((row) => row.id === DELIVERED_ROW.id) ?? null,

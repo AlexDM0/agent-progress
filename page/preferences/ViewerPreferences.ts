@@ -18,6 +18,7 @@ import {
   DEFAULT_NAME_COLUMN_WIDTH,
   DEFAULT_REVIEW_ROWS_CHOICE,
   DEFAULT_TICKET_GROUPING_CHOICE,
+  DEFAULT_TODO_ORDER_CHOICE,
 } from './constants/PreferenceDefaults.ts';
 import { EMPTY_VIEW_OVERRIDE }  from './constants/ViewOverride.ts';
 import { ViewerPreferenceUtil } from './utils/ViewerPreferenceUtil.ts';
@@ -25,6 +26,8 @@ import { ViewerPreferenceUtil } from './utils/ViewerPreferenceUtil.ts';
 const REVIEW_ROWS_SHOWN_CHOICE = 'rows';
 
 const TICKETS_GROUPED_BY_EPIC_CHOICE = 'epic';
+
+const TODO_ORDER_BY_WAVE_CHOICE = 'by-wave';
 
 // A literal map rather than the lane value, so renaming a lane cannot move a viewer's stored key.
 const CAPPED_LANE_KEY_SUFFIX: Readonly<Record<ClosedKanbanLane, string>> = {
@@ -72,6 +75,10 @@ function ticketGroupingStorageKeyFor(trackerId: string): string {
 
 function kanbanEpicFilterStorageKeyFor(trackerId: string): string {
   return choiceStorageKeyFor(trackerId, 'kanban-epics');
+}
+
+function todoOrderStorageKeyFor(trackerId: string): string {
+  return choiceStorageKeyFor(trackerId, 'kanban-todo-order');
 }
 
 function foldedEpicGroupsStorageKeyFor(trackerId: string): string {
@@ -164,6 +171,8 @@ export function createViewerPreferences(trackerId: string, storageOf: () => Pref
     ),
     readKanbanEpicFilter:  () => readStoredTextList(kanbanEpicFilterStorageKeyFor(trackerId)),
     writeKanbanEpicFilter: (pressedChips) => writeStoredTextList(kanbanEpicFilterStorageKeyFor(trackerId), pressedChips),
+    readTodoOrder:         () => (readStoredChoice(todoOrderStorageKeyFor(trackerId)) === TODO_ORDER_BY_WAVE_CHOICE ? 'by-wave' : DEFAULT_TODO_ORDER_CHOICE),
+    writeTodoOrder:        (order) => writeStoredChoice(todoOrderStorageKeyFor(trackerId), order, DEFAULT_TODO_ORDER_CHOICE),
     readFoldedEpicGroups:  () => readStoredTextList(foldedEpicGroupsStorageKeyFor(trackerId)),
     writeFoldedEpicGroups: (foldedGroupKeys) => writeStoredTextList(foldedEpicGroupsStorageKeyFor(trackerId), foldedGroupKeys),
   };

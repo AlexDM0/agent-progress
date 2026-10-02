@@ -3,6 +3,7 @@
  * and the summary's jumps to a lane.
  */
 
+import type { DependencyGraph }                       from '../@types/DependencyGraph.ts';
 import type { KanbanCard }                            from '../@types/KanbanCard.ts';
 import type { FinishedWorkChoice, ViewerPreferences } from '../@types/ViewerChoices.ts';
 import {
@@ -13,17 +14,19 @@ import {
   PANEL_ROOM_PROPERTY,
   SUMMARY_ELEMENT_ID,
 } from '../constants/TemplateIds.ts';
-import { DomUtil }                             from '../utils/DomUtil.ts';
-import { TemplateIdUtil }                      from '../utils/TemplateIdUtil.ts';
-import type { DurationUnits, TimestampSlices } from '../utils/TimeUtil.ts';
-import type { KanbanLane }                     from './@types/KanbanLane.ts';
-import { kanbanBoardMarkup }                   from './KanbanMarkup.ts';
-import type { ClosedKanbanLane }               from './constants/KanbanBoardLayout.ts';
-import { CAPPED_LANE_FIRST_PAGE_CARDS }        from './constants/KanbanBoardLayout.ts';
-import { CLOSED_KANBAN_LANES, KANBAN_LANES }   from './constants/KanbanBoardLayout.ts';
-import { CountTweenUtil }                      from './utils/CountTweenUtil.ts';
-import { KanbanLaneUtil }                      from './utils/KanbanLaneUtil.ts';
-import { LanePagingUtil }                      from './utils/LanePagingUtil.ts';
+import { DomUtil }                               from '../utils/DomUtil.ts';
+import { TemplateIdUtil }                        from '../utils/TemplateIdUtil.ts';
+import type { DurationUnits, TimestampSlices }   from '../utils/TimeUtil.ts';
+import type { KanbanLane }                       from './@types/KanbanLane.ts';
+import { createKanbanDependencyArrowController } from './KanbanDependencyArrowController.ts';
+import { kanbanBoardMarkup }                     from './KanbanMarkup.ts';
+import { createKanbanTodoOrderController }       from './KanbanTodoOrderController.ts';
+import type { ClosedKanbanLane }                 from './constants/KanbanBoardLayout.ts';
+import { CAPPED_LANE_FIRST_PAGE_CARDS }          from './constants/KanbanBoardLayout.ts';
+import { CLOSED_KANBAN_LANES, KANBAN_LANES }     from './constants/KanbanBoardLayout.ts';
+import { CountTweenUtil }                        from './utils/CountTweenUtil.ts';
+import { KanbanLaneUtil }                        from './utils/KanbanLaneUtil.ts';
+import { LanePagingUtil }                        from './utils/LanePagingUtil.ts';
 
 const LANE_HIGHLIGHT_MILLISECONDS = 1200;
 const MOTION_DURATION_PROPERTY    = '--motion-base';
@@ -127,6 +130,8 @@ export interface KanbanControllerSources {
   readFinishedWork:            () => FinishedWorkChoice;
   readHiddenCountByClosedLane: () => Readonly<Record<ClosedKanbanLane, number>>;
   showAllFinishedWork:         () => void;
+  dependencyGraph:             DependencyGraph;
+  boardHasDependencies:        boolean;
 }
 
 export interface KanbanController {
@@ -165,12 +170,21 @@ export function createKanbanController(sources: KanbanControllerSources): Kanban
     readFinishedWork,
     readHiddenCountByClosedLane,
     showAllFinishedWork,
+    dependencyGraph,
   } = sources;
   let visibleCards: readonly KanbanCard[] = [];
   let abandonedLaneIsOpen                 = preferences.readAbandonedLaneIsOpen();
   let laneHighlightTimer                  = 0;
 
-  const showKanban = (): void => {
+  const dependenciesOf   = (ticketId: string): readonly string[] => visibleCards.find((card) => card.ticket.id === ticketId)?.ticket.dependsOn ?? [];
+  const dependencyArrows = createKanbanDependencyArrowController({ dependenciesOf });
+  const todoOrder = createKanbanTodoOrderController({
+    preferences,
+    boardHasDependencies: sources.boardHasDependencies,
+    applyOrder:           () => showKanban(),
+  });
+
+  function showKanban(): void {
     const board           = document.getElementById(KANBAN_BOARD_ELEMENT_ID);
     const motion          = laneMotionOf();
     const previousLayouts = board !== null && motion !== null ? laneLayoutsOf(board) : null;
@@ -183,12 +197,15 @@ export function createKanbanController(sources: KanbanControllerSources): Kanban
       hiddenCountByClosedLane: readHiddenCountByClosedLane(),
       shownCountByClosedLane:  { done: preferences.readCappedLaneShownCount('done'), abandoned: preferences.readCappedLaneShownCount('abandoned') },
       abandonedLaneIsOpen,
+      todoOrder:               todoOrder.readOrder(),
+      dependencyGraph,
     }));
     updateOverflow();
     if (board !== null && motion !== null && previousLayouts !== null) {
       easeLaneChanges(board, previousLayouts, motion);
     }
-  };
+    dependencyArrows.refresh();
+  }
   const toggleAbandonedLane = (laneIsOpen = !abandonedLaneIsOpen): void => {
     abandonedLaneIsOpen = laneIsOpen;
     preferences.writeAbandonedLaneIsOpen(laneIsOpen);
@@ -242,6 +259,8 @@ export function createKanbanController(sources: KanbanControllerSources): Kanban
   };
 
   const wire = (): void => {
+    todoOrder.wire();
+    dependencyArrows.wire();
     document.getElementById(SUMMARY_ELEMENT_ID)?.addEventListener('click', (event) => {
       const statistic = event.target instanceof Element ? event.target.closest<HTMLElement>('[data-kanban-lane]') : null;
       const lane      = KANBAN_LANES.find((candidate) => candidate === statistic?.dataset['kanbanLane']);
