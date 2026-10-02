@@ -531,11 +531,12 @@ waits on another.
   until clicked. The finished-work switch decides what both closed lanes hold, and each ends with how
   many earlier cards it leaves out and a "show all". On a board with epics, an epic strip above the
   lanes narrows the board to the epics pressed, each with its roll-up; the choice is kept in the
-  browser. On a board with dependencies, "Order To do" switches To do between filed and by wave: one
-  group per dependency wave, headed with how many of its tickets are ready and how wide it is, a
-  one-ticket wave marked "one at a time"; the choice is kept in the browser. Pointing at a card draws
-  arrows from the cards it waits on and marks them "needed first"; a card's `↤ N` counts the tickets
-  that wait on it, directly or further down the chain.
+  browser. On a board with dependencies, "Order To do" switches To do between filed and by wave: the
+  lane says how many of its cards are ready and how many wait, then one group per dependency wave,
+  headed with how wide the wave is (the first also with how many are ready), a one-ticket wave marked
+  "one at a time"; the choice is kept in the browser. Pointing at a card draws arrows from the cards
+  it waits on directly and marks them "needed first"; an open card's `↦ N` counts the tickets that
+  wait on it, directly or further down the chain.
 - **Progress tab**: the Gantt chart, filling the window below the range bar and scrolling its rows
   inside it, one row per task, newest on top, each with its number, name, ticket badge, token count,
   status pill and bar, one segment per phase it went through; and a now-marker. The log shows only in
