@@ -518,8 +518,9 @@ missing stamp, as a render from an older CLI, a hand deletion or a failed stamp 
 as one browser network line (`404` or `ERR_FILE_NOT_FOUND`) per page load, not a script error; no
 script can suppress that line, and the next render ends it.
 
-The tabs are **Kanban · Progress · Tickets · Epics**, in that order; the chosen one is kept in the
-browser, and Epics is hidden on a board without epics.
+The tabs are **Kanban · Progress · Tickets · Epics · Dependencies**, in that order; the chosen one is
+kept in the browser, Epics is hidden on a board without epics, and Dependencies on one where no ticket
+waits on another.
 
 - **Kanban tab**: one card per ticket in six lanes — To do, In progress, Review, Awaiting merge, Done
   and Abandoned — each card in the lane its state names. The open lanes run high → normal → low, then
@@ -530,7 +531,11 @@ browser, and Epics is hidden on a board without epics.
   until clicked. The finished-work switch decides what both closed lanes hold, and each ends with how
   many earlier cards it leaves out and a "show all". On a board with epics, an epic strip above the
   lanes narrows the board to the epics pressed, each with its roll-up; the choice is kept in the
-  browser.
+  browser. On a board with dependencies, "Order To do" switches To do between filed and by wave: one
+  group per dependency wave, headed with how many of its tickets are ready and how wide it is, a
+  one-ticket wave marked "one at a time"; the choice is kept in the browser. Pointing at a card draws
+  arrows from the cards it waits on and marks them "needed first"; a card's `↤ N` counts the tickets
+  that wait on it, directly or further down the chain.
 - **Progress tab**: the Gantt chart, filling the window below the range bar and scrolling its rows
   inside it, one row per task, newest on top, each with its number, name, ticket badge, token count,
   status pill and bar, one segment per phase it went through; and a now-marker. The log shows only in
@@ -547,8 +552,17 @@ browser, and Epics is hidden on a board without epics.
   sorted by any column; on a board with epics it can be grouped by epic, a choice kept in the
   browser. A ticket's body shows only in the detail panel.
 - **Epics tab**: one card per epic, open ones first, with its key, its description's first paragraph,
-  a roll-up of its tickets by status and their list; the title opens the epic in the detail panel and
-  a ticket opens that ticket.
+  a roll-up of its tickets by status, three dependency rows and the list of its tickets; the title
+  opens the epic in the detail panel and a ticket opens that ticket. The rows, by primary epic: "Waits
+  on", the other epics' tickets its own wait on; its tickets in the board's waves, Done first; and
+  "Frees", the epics waiting on it, with the tickets they wait through.
+- **Dependencies tab**: the open tickets' waves left to right, a Done column first holding the settled
+  tickets an open one waits on, then "Now" (nothing open in front of it), "Wave 2" and on; each
+  column says how many tickets in it can run side by side against the board's slots, and a one-ticket
+  wave is marked "one at a time". A ticket shows its state (ready, in progress, in review or held)
+  and how many wait on it; an arrow runs from each ticket to the ones waiting on it, dashed from a
+  settled one. Pointing at a ticket lights its whole chain, before and after; a click opens it in the
+  detail panel.
 - **The header** above the tabs: a status line, `LIVE` while the page is under ten minutes old and
   `SNAPSHOT` after, with how long ago it was generated, re-checked every minute so an open page turns
   into a snapshot without a reload; the project name; the Auto · Light · Dark theme switch; and four

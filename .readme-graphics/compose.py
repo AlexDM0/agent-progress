@@ -35,6 +35,20 @@ KANBAN_BOTTOM_PADDING = 24
 KANBAN_VIEWPORT_HEIGHT = 500
 # The shot runs on past the board in page background, so the panel's taller window has no blank band.
 KANBAN_SHOT_BOTTOM_PADDING = 400
+# Narrowed to one epic so #012 sits high in To do; hovering it draws arrows from To do and Done. The wait lets them finish drawing in.
+KANBAN_NARROWED_EPIC_SELECTOR = '#ap-kanban-epic [data-epic-chip="checkout-redesign"]'
+KANBAN_HOVERED_CARD_SELECTOR = '.ap-kanban-card[data-ticket-id="012"]'
+KANBAN_WAVES_HOVER_SCRIPT = (f"(async () => {{ document.querySelector('{KANBAN_NARROWED_EPIC_SELECTOR}').click();"
+                             " document.querySelector('[data-todo-order=\"by-wave\"]').click();"
+                             " await new Promise((resolve) => setTimeout(resolve, 400));"
+                             f" document.querySelector('{KANBAN_HOVERED_CARD_SELECTOR}').dispatchEvent(new MouseEvent('mouseover', {{ bubbles: true }}));"
+                             " await new Promise((resolve) => setTimeout(resolve, 1500)); return true; })()")
+DEPENDENCIES_HOVERED_NODE_SELECTOR = '.ap-dependency-node[data-open-ticket="012"]'
+DEPENDENCIES_HOVER_SCRIPT = (f"(async () => {{ document.querySelector('{DEPENDENCIES_HOVERED_NODE_SELECTOR}').dispatchEvent(new PointerEvent('pointerover', {{ bubbles: true }}));"
+                             " await new Promise((resolve) => setTimeout(resolve, 600)); return true; })()")
+EPICS_FIRST_CARD_SELECTOR = '#ap-epics > .ap-card:first-child'
+GRAPH_TOP_MARGIN = 13
+GRAPH_BOTTOM_PADDING = 24
 
 GIF_WIDTH = 1200
 # 29 frames: 750 + 27 × 250 + 2500 = 10 seconds a loop, the "sped up to ten seconds" the READMEs quote.
@@ -75,6 +89,15 @@ PANELS = [
     {'name': 'panel-kanban', 'theme': 'light', 'headline': 'Every ticket on one board.',
      'subhead': 'From filed to delivered: what each card waits on, who reviews it, and what it cost.',
      'layers': [{'image': 'kanban-light.png', 'crop': 'kanban'}]},
+    {'name': 'panel-dependencies', 'theme': 'light', 'headline': 'See what waits on what.',
+     'subhead': 'Open tickets in waves, a one-ticket wave flagged, and the chain behind any ticket you point at.',
+     'layers': [{'image': 'dependencies-light.png', 'crop': 'dependencies'}]},
+    {'name': 'panel-epic-waves', 'theme': 'light', 'headline': 'Every epic, wave by wave.',
+     'subhead': 'What an epic waits on, its tickets in the board’s waves, and the epics it frees.',
+     'layers': [{'image': 'epics-light.png', 'crop': 'epics'}]},
+    {'name': 'panel-kanban-waves', 'theme': 'light', 'headline': 'Point at a card, see its prerequisites.',
+     'subhead': 'To do in wave order, narrowed to one epic, with arrows from the cards the hovered one waits on.',
+     'layers': [{'image': 'kanban-waves-light.png', 'crop': 'kanban-waves'}]},
     {'name': 'panel-themes', 'theme': 'split', 'headline': 'Light or dark. Your call.',
      'subhead': 'It follows your system, or pick Light or Dark and the page remembers.',
      'layers': [{'image': 'hero-light.png', 'crop': 'hero'},
@@ -154,6 +177,15 @@ def base_jobs(build):
         jobs.append({**common, 'height': KANBAN_VIEWPORT_HEIGHT, 'name': f'kanban-{theme}', 'output': f'{build}/shots/kanban-{theme}.png', 'localStorageEntries': page_state(theme, 'kanban'),
                      'clipBottomSelector': '#ap-kanban-frame', 'clipBottomPadding': KANBAN_SHOT_BOTTOM_PADDING,
                      'measure': {'tabBar': '.ap-tab-bar', 'board': '#ap-kanban-frame'}})
+        jobs.append({**common, 'height': KANBAN_VIEWPORT_HEIGHT, 'name': f'kanban-waves-{theme}', 'output': f'{build}/shots/kanban-waves-{theme}.png',
+                     'localStorageEntries': page_state(theme, 'kanban'), 'actionScript': KANBAN_WAVES_HOVER_SCRIPT,
+                     'clipBottomSelector': '#ap-kanban-frame', 'clipBottomPadding': KANBAN_SHOT_BOTTOM_PADDING,
+                     'measure': {'tabBar': '.ap-tab-bar', 'board': '#ap-kanban-frame'}})
+        jobs.append({**common, 'name': f'dependencies-{theme}', 'output': f'{build}/shots/dependencies-{theme}.png', 'localStorageEntries': page_state(theme, 'dependencies'),
+                     'actionScript': DEPENDENCIES_HOVER_SCRIPT, 'fullPage': True,
+                     'measure': {'tabBar': '.ap-tab-bar', 'graph': '#ap-dependencies'}})
+        jobs.append({**common, 'name': f'epics-{theme}', 'output': f'{build}/shots/epics-{theme}.png', 'localStorageEntries': page_state(theme, 'epics'), 'fullPage': True,
+                     'measure': {'tabBar': '.ap-tab-bar', 'firstCard': EPICS_FIRST_CARD_SELECTOR}})
         jobs.append({**common, 'name': f'detail-{theme}', 'output': f'{build}/shots/detail-{theme}.png', 'localStorageEntries': page_state(theme, 'progress'),
                      'actionScript': f"document.querySelector('#ap-task-{DETAIL_TASK_IDENTIFIER}').click(); true",
                      'measure': {'dialog': '#ap-detail', 'tabBar': '.ap-tab-bar'}})
@@ -164,6 +196,9 @@ def crops(measurements):
     hero = measurements['hero-light']
     tickets = measurements['tickets-light']
     kanban = measurements['kanban-light']
+    kanban_waves = measurements['kanban-waves-light']
+    dependencies = measurements['dependencies-light']
+    epics = measurements['epics-light']
     dialog = measurements['detail-light']['dialog']
     hero_height = round(hero['lastRow']['bottom'] + HERO_BOTTOM_PADDING)
     tickets_top = round(tickets['tabBar']['top'] - TICKETS_TOP_MARGIN)
@@ -176,6 +211,9 @@ def crops(measurements):
         'range': [0, round(hero['range']['top'] - RANGE_TOP_MARGIN), VIEWPORT_WIDTH, hero_height],
         'tickets': [0, tickets_top, VIEWPORT_WIDTH, tickets_bottom],
         'kanban': [0, round(kanban['tabBar']['top'] - KANBAN_TOP_MARGIN), VIEWPORT_WIDTH, round(kanban['board']['bottom'] + KANBAN_BOTTOM_PADDING)],
+        'kanban-waves': [0, round(kanban_waves['tabBar']['top'] - KANBAN_TOP_MARGIN), VIEWPORT_WIDTH, round(kanban_waves['board']['bottom'] + KANBAN_BOTTOM_PADDING)],
+        'dependencies': [0, round(dependencies['tabBar']['top'] - GRAPH_TOP_MARGIN), VIEWPORT_WIDTH, round(dependencies['graph']['bottom'] + GRAPH_BOTTOM_PADDING)],
+        'epics': [0, round(epics['tabBar']['top'] - GRAPH_TOP_MARGIN), VIEWPORT_WIDTH, round(epics['firstCard']['bottom'] + GRAPH_BOTTOM_PADDING)],
         'dialog': [dialog_left, dialog_top, dialog_right, VIEWPORT_HEIGHT],
         'dialog-to-viewport': [dialog_left, dialog_top, dialog_right, VIEWPORT_HEIGHT],
         'heroHeight': hero_height,

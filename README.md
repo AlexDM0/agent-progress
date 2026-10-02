@@ -25,7 +25,7 @@
 <br>
 
 <p align="center">
-  <img src="docs/images/panel-watch.gif" width="100%" alt="Watch your agents work: the Progress tab of the Example Storefront board in light mode, animated from 09:10 to 13:36 as the now-line sweeps across, Gantt bars grow, pills move from unstarted to wip to reviewing to done, and review rows appear above their tickets">
+  <img src="docs/images/panel-watch.gif" width="100%" alt="Watch your agents work: the Progress tab of the Example Storefront board in light mode, animated from 09:10 to 13:36 as the now-line sweeps across, Gantt bars grow under their epic heads, pills move from unstarted to wip to reviewing to done, and review rows appear above their tickets">
 </p>
 
 <p align="center">
@@ -47,6 +47,26 @@
     </td>
     <td width="50%" valign="top">
       <img src="docs/images/panel-cost.png" width="100%" alt="Know what every agent cost: the token column of the chart in dark mode">
+    </td>
+  </tr>
+</table>
+
+### What waits on what
+
+Tickets that wait on others are laid out in waves: what can run now, what the next wave frees, and a
+wave only one ticket wide, where the work cannot spread over agents, marked as the bottleneck.
+
+<p align="center">
+  <img src="docs/images/panel-dependencies.png" width="100%" alt="See what waits on what: the Dependencies tab with a Done column and waves Now, Wave 2, Wave 3 and Wave 4; Wave 3 holds only #012 One-page checkout and is marked one at a time, and pointing at #012 lights the chains behind it, from #004 and from #008 through #011, and the two tickets it frees, #013 and #014">
+</p>
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/images/panel-epic-waves.png" width="100%" alt="Every epic, wave by wave: the Epics tab with the Checkout redesign and Customer account cards, each with its roll-up and three dependency rows: the tickets of the other epic it waits on, its own tickets in the board's waves, and the other epic it frees through #012 or through #004 and #008">
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/images/panel-kanban-waves.png" width="100%" alt="Point at a card, see its prerequisites: the Kanban tab narrowed to the Checkout redesign epic with To do ordered by wave, Now, Wave 2 and a one-at-a-time Wave 3; hovering #012 One-page checkout draws arrows from #011 in To do and #001 in Done">
     </td>
   </tr>
 </table>
@@ -216,7 +236,7 @@ offers its official installer.
   </tr>
   <tr>
     <td width="190"><b>Dashboard</b></td>
-    <td>one self-contained <code>progress.html</code>: Kanban · Progress · Tickets tabs, the Kanban board beside the Tickets tab rather than in place of it, and an Epics tab once the board has epics; light, dark or auto</td>
+    <td>one self-contained <code>progress.html</code>: Kanban · Progress · Tickets tabs, the Kanban board beside the Tickets tab rather than in place of it, an Epics tab once the board has epics and a Dependencies tab once a ticket waits on another; light, dark or auto</td>
   </tr>
   <tr>
     <td width="190"><b>Agents</b></td>

@@ -43,8 +43,8 @@ order to file a ticket, move one, and stay out of the tool's way.
 - **The log** is the narrative of the work: one line per milestone, newest first in `status` and in
   the page's detail panel for the row or ticket it names.
 - **The dashboard** is `.agent-progress/progress.html`, written fresh by every command that changes
-  anything, with tabs **Kanban** · **Progress** · **Tickets** · **Epics**: the Kanban board sits
-  beside the Tickets tab, not in place of it. One file, no network dependency.
+  anything, with tabs **Kanban** · **Progress** · **Tickets** · **Epics** · **Dependencies**: the
+  Kanban board sits beside the Tickets tab, not in place of it. One file, no network dependency.
 
 ## In a session
 
