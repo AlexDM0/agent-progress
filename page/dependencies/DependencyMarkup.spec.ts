@@ -5,11 +5,11 @@
  * and then follow their parents; nodes carry the ready chip, "N wait" and a weight bar against the most held ticket; every value is escaped.
  */
 
-import { describe, expect, test }   from 'bun:test';
-import type { PageTicket }          from '../../src/shared/@types/PagePayload.ts';
-import { pageBoardFixture }         from '../testing/PageBoardFixture.ts';
-import { DependencyGraphUtil }      from '../utils/DependencyGraphUtil.ts';
-import { DependencyMarkup }         from './DependencyMarkup.ts';
+import { describe, expect, test } from 'bun:test';
+import type { PageTicket }        from '../../src/shared/@types/PagePayload.ts';
+import { pageBoardFixture }       from '../testing/PageBoardFixture.ts';
+import { DependencyGraphUtil }    from '../utils/DependencyGraphUtil.ts';
+import { DependencyMarkup }       from './DependencyMarkup.ts';
 
 function exampleTicket(changes: Partial<PageTicket>): PageTicket {
   return {
@@ -44,12 +44,16 @@ const BOARD = pageBoardFixture({
       id: '010', title: 'Delivered base', status: 'delivered', delivered: '2026-09-18T21:00:00+02:00'
     }),
     exampleTicket({ id: '011', title: 'Schema <first>', dependsOn: ['010'] }),
-    exampleTicket({ id: '012', title: 'Side chain start', status: 'in-progress', started: '2026-09-18T20:30:00+02:00' }),
+    exampleTicket({
+      id: '012', title: 'Side chain start', status: 'in-progress', started: '2026-09-18T20:30:00+02:00'
+    }),
     exampleTicket({ id: '013', title: 'Second step', dependsOn: ['011'] }),
     exampleTicket({ id: '014', title: 'Narrow step', dependsOn: ['013', '012'] }),
     exampleTicket({ id: '015', title: 'Side chain end', dependsOn: ['012'] }),
     exampleTicket({ id: '016', title: 'Last step', dependsOn: ['014'] }),
-    exampleTicket({ id: '017', title: 'Settled, built on by nothing', status: 'delivered', delivered: '2026-09-18T21:00:00+02:00' }),
+    exampleTicket({
+      id: '017', title: 'Settled, built on by nothing', status: 'delivered', delivered: '2026-09-18T21:00:00+02:00'
+    }),
   ],
 });
 
@@ -164,15 +168,14 @@ describe('a board whose dependencies are all settled', () => {
     const board = pageBoardFixture({
       tasks:   [],
       tickets: [
-        exampleTicket({
-          id: '001', status: 'delivered', delivered: '2026-09-18T21:00:00+02:00'
-        }),
+        exampleTicket({ id: '001', status: 'delivered', delivered: '2026-09-18T21:00:00+02:00' }),
         exampleTicket({
           id: '002', status: 'delivered', delivered: '2026-09-18T21:00:00+02:00', dependsOn: ['001']
         }),
       ],
     });
-    const markup = DependencyMarkup.dependencyGraphMarkup(DependencyGraphUtil.dependencyGraphOf(board.tickets, BOARD_SLOTS), new Map(board.tickets.map((ticket) => [ticket.id, ticket])));
+    const graph  = DependencyGraphUtil.dependencyGraphOf(board.tickets, BOARD_SLOTS);
+    const markup = DependencyMarkup.dependencyGraphMarkup(graph, new Map(board.tickets.map((ticket) => [ticket.id, ticket])));
     expect(markup).toBe('<p class="ap-dependency-empty">No open ticket waits on another.</p>');
   });
 });

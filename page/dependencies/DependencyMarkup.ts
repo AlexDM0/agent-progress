@@ -114,7 +114,8 @@ function columnHeadMarkup(column: DependencyColumn, columnIndex: number, graph: 
   const countText = column.isDone
     ? doneCountTextOf(column, ticketById)
     : column.isNarrow ? 'one at a time' : `${column.ticketIds.length} side by side`;
-  return `<div class="ap-dependency-head"${narrowAttribute(column)}${column.isDone ? ' data-done' : ''} style="left:${pixels(columnLeftOf(columnIndex))};width:${pixels(NODE_WIDTH_PIXELS)}">`
+  const style = `left:${pixels(columnLeftOf(columnIndex))};width:${pixels(NODE_WIDTH_PIXELS)}`;
+  return `<div class="ap-dependency-head"${narrowAttribute(column)}${column.isDone ? ' data-done' : ''} style="${style}">`
     + `<span class="ap-dependency-head-name">${HtmlEscapeUtil.escapeHtml(column.label)}</span>`
     + `<span class="ap-dependency-head-count">${HtmlEscapeUtil.escapeHtml(countText)}</span>`
     + `${column.isDone ? '' : slotMeterMarkup(column.ticketIds.length, graph.boardSlots)}</div>`;
@@ -134,7 +135,8 @@ function statusChipMarkup(ticket: BoardTicket, graph: DependencyGraph): string {
   if (ticket.status !== 'in-progress' && ticket.status !== 'in-review') {
     return '';
   }
-  return `<span class="ap-badge" ${MarkupUtil.attribute('data-state', ticket.displayState)}>${HtmlEscapeUtil.escapeHtml(STATE_LABEL_FOR_DISPLAY_STATE[ticket.displayState])}</span>`;
+  const label = STATE_LABEL_FOR_DISPLAY_STATE[ticket.displayState];
+  return `<span class="ap-badge" ${MarkupUtil.attribute('data-state', ticket.displayState)}>${HtmlEscapeUtil.escapeHtml(label)}</span>`;
 }
 
 function waitMarkup(heldCount: number): string {
