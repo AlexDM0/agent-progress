@@ -108,7 +108,7 @@ function dependencyGraphOf(tickets: readonly DependencyGraphTicket[], concurrenc
 
   const unlocksOfTicket = new Map(ticketIds.map((ticketId) => {
     const upstream = upstreamOfTicket.get(ticketId) ?? new Set<string>();
-    const unlocked = dependentsOf(ticketId).filter((dependentId) => isOpen(dependentId) && openDependenciesOf(dependentId).every((dependencyId) => (
+    const unlocked = dependentsOf(ticketId).filter((dependentId) => dependentId !== ticketId && isOpen(dependentId) && openDependenciesOf(dependentId).every((dependencyId) => (
       dependencyId === ticketId || upstream.has(dependencyId)
     )));
     return [ticketId, unlocked] as const;

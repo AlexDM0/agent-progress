@@ -180,6 +180,13 @@ describe('inputs that must not throw', () => {
     expect(graph.pacePathTicketIds.length).toBeGreaterThan(0);
   });
 
+  test('a ticket depending on itself sits in wave 0, holds nothing and does not unlock itself', () => {
+    const graph = graphOf([exampleTicket('1', { dependsOn: ['1'] })]);
+    expect(graph.waveOfTicket.get('1')).toBe(0);
+    expect(graph.heldOfTicket.get('1')).toEqual(new Set());
+    expect(graph.unlocksOfTicket.get('1')).toEqual([]);
+  });
+
   test('an unknown dependency id opens no wave and is nobody upstream', () => {
     const graph = graphOf([exampleTicket('1', { dependsOn: ['999'] })]);
     expect(graph.waveOfTicket.get('1')).toBe(0);
