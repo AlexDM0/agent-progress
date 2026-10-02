@@ -1,10 +1,10 @@
 /** The shape of the progress island, which the render side writes and the page reads. */
 
-import type { EpicRollup }             from '../../lib/tracker-model/@types/Epic.ts';
-import type { DisplayState }           from '../../lib/tracker-model/@types/Task.ts';
+import type { EpicRollup }                     from '../../lib/tracker-model/@types/Epic.ts';
+import type { DisplayState }                   from '../../lib/tracker-model/@types/Task.ts';
 import type { ReadyTicket, TicketFrontmatter } from '../../lib/tracker-model/@types/Ticket.ts';
-import type { IdentifiedLogEntry }     from './WordedLogEntry.ts';
-import type { WordedProgressDocument } from './WordedProgressDocument.ts';
+import type { IdentifiedLogEntry }             from './WordedLogEntry.ts';
+import type { WordedProgressDocument }         from './WordedProgressDocument.ts';
 
 export interface PageLimits {
   tickStepLadderMinutes:      readonly number[];
@@ -51,10 +51,10 @@ export interface PageTicketFacts {
 
 /** The Board's answers the progress island carries as its last key. */
 export interface PageBoardFacts {
-  rows:    PageRowFacts[];
-  tickets: PageTicketFacts[];
+  rows:         PageRowFacts[];
+  tickets:      PageTicketFacts[];
   /** Every epic with its roll-up, ordered by key, as `status --json` prints them; a ticket's own list is its `epics`. */
-  epics:   EpicRollup[];
+  epics:        EpicRollup[];
   /** The Board's ready tickets in the order to take them, as `status --json` prints its `readyTickets`, held ones marked `held`. */
   readyTickets: ReadyTicket[];
 }

@@ -198,7 +198,9 @@ function pageBoardFrom(
   });
 
   const readyTicketIds = new Set(boardFacts.readyTickets.filter((entry) => entry.held !== true).map((entry) => entry.id));
-  return { rows, tickets: boardTickets, epics, readyTicketIds };
+  return {
+    rows, tickets: boardTickets, epics, readyTicketIds
+  };
 }
 
 export const IslandUtil = {

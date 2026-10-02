@@ -78,8 +78,10 @@ function render(overrides: Partial<Parameters<typeof fillPageTemplate>[0]> = {})
     pageScriptFailure: null,
     generatedAt:       GENERATED_AT,
     concurrency:       { limit: 2, agentsInFlight: 1 },
-    boardFacts:        { rows: [], tickets: [], epics: [], readyTickets: [] },
-    renderMarkdown:    createMarkdownRenderer().renderMarkdown,
+    boardFacts:        {
+      rows: [], tickets: [], epics: [], readyTickets: []
+    },
+    renderMarkdown: createMarkdownRenderer().renderMarkdown,
     ...overrides,
   });
 }

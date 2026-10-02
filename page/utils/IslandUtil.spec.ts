@@ -56,7 +56,7 @@ function examplePayload(): Record<string, unknown> {
 
 function exampleBoardFacts(): PageBoardFacts {
   return {
-    rows:    [{ displayState: 'in-progress', deliveredRowCountsAsReviewed: false, ownRowPositionOfReviewedTicket: null }],
+    rows:         [{ displayState: 'in-progress', deliveredRowCountsAsReviewed: false, ownRowPositionOfReviewedTicket: null }],
     tickets:      [],
     epics:        [],
     readyTickets: [],

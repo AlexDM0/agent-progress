@@ -161,7 +161,24 @@ describe('boardFactsOf', () => {
     expect(tickets.map((ticket) => ticket.waitingOnTicketIds)).toEqual([[], ['001'], []]);
   });
 
+  test('gives the ready tickets `status --json` prints, a held one marked held and a low one left out while normal work is owed', () => {
+    const { board } = boardFixture({
+      tickets: [
+        ticketFixture({ id: '001', hold: 'not before 2026-10-05' }),
+        ticketFixture({ id: '002', priority: 'low' }),
+        ticketFixture({ id: '003' }),
+      ],
+    });
+
+    const { readyTickets } = boardFactsOf(board);
+
+    expect(readyTickets).toEqual(board.readyTicketEntries());
+    expect(readyTickets.map((entry) => [entry.id, entry.held ?? false])).toEqual([['001', true], ['003', false]]);
+  });
+
   test('gives empty lists for an empty Board', () => {
-    expect(boardFactsOf(boardFixture().board)).toEqual({ rows: [], tickets: [], epics: [], readyTickets: [] });
+    expect(boardFactsOf(boardFixture().board)).toEqual({
+      rows: [], tickets: [], epics: [], readyTickets: []
+    });
   });
 });

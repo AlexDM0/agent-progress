@@ -26,10 +26,10 @@ export interface BoardTicket extends PageTicket {
 }
 
 export interface PageBoard {
-  rows:    readonly BoardRow[];
-  tickets: readonly BoardTicket[];
+  rows:           readonly BoardRow[];
+  tickets:        readonly BoardTicket[];
   /** Ordered by key, as the Board rolls them up. */
-  epics:   readonly BoardEpic[];
+  epics:          readonly BoardEpic[];
   /** The Board's ready tickets less the held ones: the only source of "ready" on the page. */
   readyTicketIds: ReadonlySet<string>;
 }

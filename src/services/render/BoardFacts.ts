@@ -39,5 +39,7 @@ export function boardFactsOf(board: Board): PageBoardFacts {
     waitingOnTicketIds: board.waitingOnOf(ticket),
   }));
 
-  return { rows, tickets, epics: board.epicRollups(), readyTickets: board.readyTicketEntries() };
+  return {
+    rows, tickets, epics: board.epicRollups(), readyTickets: board.readyTicketEntries()
+  };
 }

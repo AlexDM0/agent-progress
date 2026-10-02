@@ -69,7 +69,9 @@ const HELD_AND_LOW_BOARD = pageBoardFixture({
     exampleTicket({
       id: '020', title: 'Delivered base', status: 'delivered', delivered: '2026-09-18T21:00:00+02:00'
     }),
-    exampleTicket({ id: '021', title: 'Held step', dependsOn: ['020'], hold: 'not before 2026-10-05' }),
+    exampleTicket({
+      id: '021', title: 'Held step', dependsOn: ['020'], hold: 'not before 2026-10-05'
+    }),
     exampleTicket({ id: '022', title: 'Low step', priority: 'low' }),
     exampleTicket({ id: '023', title: 'Normal step' }),
   ],
