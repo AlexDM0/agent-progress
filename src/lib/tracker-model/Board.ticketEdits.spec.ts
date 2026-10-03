@@ -3,7 +3,8 @@
  * takes the body's own line ending, and a body holding none takes the frontmatter's, so a one-line CRLF body does not gain an LF. A new
  * title renames the ticket's own row and a heading reading exactly as `ticket add` generates it, logs one record, stamps nothing, and
  * never renames a review bar or a heading someone changed by hand. Past `pending` an edit is refused unless allowed, since a builder may
- * already work from the body; a claim records the body's hash, so an allowed body edit reads as changed while a rename alone does not.
+ * already work from the body; a claim records the body's hash, so an allowed body edit reads as changed while a rename alone does not, and
+ * only a ticket carrying that hash logs the change, since one claimed without it has no claim to compare against.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -102,6 +103,18 @@ describe('editTicket past pending, and the claimed body hash', () => {
     expect(TicketBodyHashUtil.bodyChangedSinceClaimOf(ticket)).toBe(true);
   });
 
+  test('an allowed body edit of an in-progress ticket claimed without a hash writes the body and logs no claim change', () => {
+    const ticket = { ...ticketFixture({ status: 'in-progress' }), body: 'Claimed before hashing.\n' };
+    const { board, records } = boardFixture({ tickets: [ticket] });
+
+    const edited = board.editTicket('001', { body: { text: 'Rewritten.\n', appends: false }, allowsPastPending: true }, EDITED_AT);
+
+    expect(edited.changed).toBe(true);
+    expect(ticket.body).toBe('Rewritten.\n');
+    expect(records).toEqual([]);
+    expect(board.changedTickets()).toEqual([ticket]);
+  });
+
   test('a rename after the claim retitles the heading but does not read as a body change', () => {
     const { board, records, ticket } = claimedFixture();
 
@@ -188,7 +201,7 @@ describe('editTicket, the title', () => {
     board.editTicket('001', { title: 'Example payment page', body: { text: 'Appended.\n', appends: true }, allowsPastPending: true }, EDITED_AT);
 
     expect(ticket.body).toBe('# 001 — Example payment page\nAppended.\n');
-    expect(records.map((record) => record.kind)).toEqual(['ticket-retitled', 'ticket-body-changed-after-claim']);
+    expect(records.map((record) => record.kind)).toEqual(['ticket-retitled']);
   });
 
   test('the title the ticket already has changes nothing, logs nothing and marks nothing', () => {

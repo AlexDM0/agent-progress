@@ -52,10 +52,10 @@ import { GroupReleases }                                    from './GroupRelease
 import type { Logger }                                      from './Logger.ts';
 import { ReviewBars }                                       from './ReviewBars.ts';
 import { TaskRows }                                         from './TaskRows.ts';
-import type { TicketEdit, TicketEdited }                    from './TicketBodyEdits.ts';
-import { TicketBodyEdits }                                  from './TicketBodyEdits.ts';
 import { TicketClaims }                                     from './TicketClaims.ts';
 import { TicketDependencies }                               from './TicketDependencies.ts';
+import type { TicketEdit, TicketEdited }                    from './TicketEdits.ts';
+import { TicketEdits }                                      from './TicketEdits.ts';
 import { TicketMoves }                                      from './TicketMoves.ts';
 import { TicketSettings }                                   from './TicketSettings.ts';
 import { TokenCredits }                                     from './TokenCredits.ts';
@@ -85,7 +85,7 @@ export class Board {
 
   private readonly ticketClaims: TicketClaims;
 
-  private readonly ticketBodyEdits: TicketBodyEdits;
+  private readonly ticketEdits: TicketEdits;
 
   private readonly groupReleases: GroupReleases;
 
@@ -107,7 +107,7 @@ export class Board {
     this.ticketMoves        = new TicketMoves(this.records, this.reviewBars, this.ticketDependencies, this.groupReleases);
     this.ticketClaims       = new TicketClaims(this.records, this.ticketMoves, this.reviewBars, this.dispatchQueries, this.groupReleases);
     this.ticketSettings     = new TicketSettings(this.records);
-    this.ticketBodyEdits    = new TicketBodyEdits(this.records);
+    this.ticketEdits        = new TicketEdits(this.records);
     this.taskRows           = new TaskRows(this.records);
     this.tokenCredits       = new TokenCredits(this.records, this.reviewBars);
     this.trackerChanges     = new TrackerChanges(this.records, this.dispatchQueries);
@@ -244,7 +244,7 @@ export class Board {
   }
 
   editTicket(ticketId: string, edit: TicketEdit, at: string): TicketEdited {
-    return this.ticketBodyEdits.editTicket(ticketId, edit, at);
+    return this.ticketEdits.editTicket(ticketId, edit, at);
   }
 
   clearTracker(request: { ticketsSurvive: boolean }, at: string): TrackerCleared {

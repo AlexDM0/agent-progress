@@ -40,7 +40,7 @@ function bodyWithHeadingRetitled(body: string, ticketId: string, previousTitle: 
   return `${generatedHeadingOf(ticketId, title)}${body.slice(headingEnd)}`;
 }
 
-export class TicketBodyEdits {
+export class TicketEdits {
   constructor(private readonly records: BoardRecords) {}
 
   /**
@@ -73,7 +73,7 @@ export class TicketBodyEdits {
       if (ownRow !== undefined) ownRow.name = TicketChartUtil.rowNameOf(frontmatter);
       logged.push(this.records.logger.log({ kind: 'ticket-retitled', ticketId, fields: { from: previousTitle, to: title } }, at));
     }
-    if (frontmatter.status !== 'pending' && body !== retitledBody) {
+    if (frontmatter.status !== 'pending' && body !== retitledBody && TicketBodyHashUtil.bodyChangedSinceClaimOf(ticket) !== undefined) {
       logged.push(this.records.logger.log({ kind: 'ticket-body-changed-after-claim', ticketId, fields: {} }, at));
     }
     return { logged, ticket, changed: true };
