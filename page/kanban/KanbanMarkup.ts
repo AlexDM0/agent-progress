@@ -125,18 +125,23 @@ function stateMarkup(card: KanbanCard, lane: KanbanLane, format: NoteFormat): st
 }
 
 /**
- * The "needed first" slot, on every card another card depends on, so hovering the dependent only fades it in; then `↦ N` for an
- * unfinished ticket others wait on. A board without dependencies gets neither, so its cards stay as they were.
+ * The "needed first" slot, on every card another card depends on, so hovering the dependent only fades it in; then the head's right end:
+ * `↦ N` for an unfinished ticket others wait on and the token count, kept together so a crowded head wraps them as one. A board without
+ * dependencies gets neither dependency part, so its cards stay as they were.
  */
-function dependencyHeadMarkup(card: KanbanCard, lane: KanbanLane, format: KanbanCardFormat): string {
-  const ticketId    = card.ticket.id;
-  const neededFirst = format.dependedOnTicketIds.has(ticketId) ? '<span class="ap-kanban-needed-first" aria-hidden="true">needed first</span>' : '';
-  const heldCount   = KanbanLaneUtil.laneIsClosed(lane) ? 0 : format.dependencyGraph.heldOfTicket.get(ticketId)?.size ?? 0;
-  const heldTitle   = `${heldCount} ${heldCount === 1 ? 'ticket waits' : 'tickets wait'} on this one, directly or further down the chain`;
-  const held        = heldCount === 0
+function headTailMarkup(card: KanbanCard, lane: KanbanLane, format: KanbanCardFormat): string {
+  const { ticket, ownRow } = card;
+  const neededFirst        = format.dependedOnTicketIds.has(ticket.id) ? '<span class="ap-kanban-needed-first" aria-hidden="true">needed first</span>' : '';
+  const heldCount          = KanbanLaneUtil.laneIsClosed(lane) ? 0 : format.dependencyGraph.heldOfTicket.get(ticket.id)?.size ?? 0;
+  const heldTitle          = `${heldCount} ${heldCount === 1 ? 'ticket waits' : 'tickets wait'} on this one, directly or further down the chain`;
+  const held               = heldCount === 0
     ? ''
     : `<span class="ap-kanban-held-count"${heldCount >= HEAVY_HELD_COUNT ? ' data-heavy=""' : ''} ${MarkupUtil.attribute('title', heldTitle)}>↦ ${heldCount}</span>`;
-  return `${neededFirst}${held}`;
+  const tokens             = ownRow === null || ownRow.tokens === null
+    ? ''
+    : `<span class="ap-tokens">${HtmlEscapeUtil.escapeHtml(TokenCountUtil.formatTokenCount(ownRow.tokens))} tokens</span>`;
+  const headEnd            = `${held}${tokens}`;
+  return `${neededFirst}${headEnd === '' ? '' : `<span class="ap-kanban-head-end">${headEnd}</span>`}`;
 }
 
 export function kanbanCardMarkup(card: KanbanCard, lane: KanbanLane, format: KanbanCardFormat): string {
@@ -147,15 +152,11 @@ export function kanbanCardMarkup(card: KanbanCard, lane: KanbanLane, format: Kan
     MarkupUtil.attribute('data-ticket-id', ticket.id),
     MarkupUtil.attribute('data-state', card.state),
   ].join(' ');
-  const tokens             = ownRow === null || ownRow.tokens === null
-    ? ''
-    : `<span class="ap-tokens">${HtmlEscapeUtil.escapeHtml(TokenCountUtil.formatTokenCount(ownRow.tokens))} tokens</span>`;
   const note               = subStateNoteOf(card, format);
   return [
     `<article class="ap-kanban-card" ${identities}${ownRow === null ? ' data-row="none"' : ''} tabindex="0" ${MarkupUtil.attribute('aria-label', label)}>`,
     `<div class="ap-kanban-card-head"><span class="ap-ticket-id">#${HtmlEscapeUtil.escapeHtml(ticket.id)}</span>${WorkItemMarkupUtil.priorityMarkMarkup(ticket)}`,
-    `<span class="ap-detail-type">${HtmlEscapeUtil.escapeHtml(ticket.type)}</span>${dependencyHeadMarkup(card, lane, format)}</div>`,
-    tokens,
+    `<span class="ap-detail-type">${HtmlEscapeUtil.escapeHtml(ticket.type)}</span>${headTailMarkup(card, lane, format)}</div>`,
     `<p class="ap-kanban-title" ${MarkupUtil.attribute('title', ticket.title)}>${HtmlEscapeUtil.escapeHtml(ticket.title)}</p>`,
     card.epics.length === 0 ? '' : `<div class="ap-epic-chips">${EpicMarkup.epicChipsMarkup(card.epics, CARD_EPIC_CHIP_LIMIT)}</div>`,
     marksMarkup(card, lane),

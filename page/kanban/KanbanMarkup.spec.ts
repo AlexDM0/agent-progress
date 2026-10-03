@@ -3,7 +3,7 @@
  * rebuilt from constructed inputs and must match the template's text exactly. Then the parts the placeholder does not show: the cap's
  * buttons, the empty lanes under Show all, the Abandoned toggle and the escaping. Last the dependency views: To do by wave (groups, the
  * narrow tint, the sub-line and the order within a group) and each card's "needed first" slot and `↦ N`, absent on a board without
- * dependencies so the filed board stays byte for byte as it was.
+ * dependencies so the filed board stays byte for byte as it was, `↦ N` sharing the head's end with the token count so the two never overlap.
  */
 
 import { describe, expect, test } from 'bun:test';
@@ -459,6 +459,16 @@ describe('a card’s dependency head', () => {
     const tickets = [exampleTicket('001', { status: 'delivered', delivered: at('12:00') }), exampleTicket('002', { dependsOn: ['001'] })];
 
     expect(cardMarkupOf('001', 'done', tickets)).not.toContain('↦');
+  });
+
+  test('ends the head with ↦ N and the token count together, so a crowded head wraps them as one and never runs them under the rest', () => {
+    const tickets = [exampleTicket('001', { task: 1 }), exampleTicket('002', { dependsOn: ['001'] })];
+    const input   = boardInput(tickets, [exampleRow(1, { ticket: '001', tokens: 1_800_000 })]);
+    const card    = input.cards.find((candidate) => candidate.ticket.id === '001');
+    const markup  = card === undefined ? '' : kanbanCardMarkup(card, 'todo', kanbanCardFormatOf(input));
+
+    expect(markup).toContain('<span class="ap-kanban-head-end"><span class="ap-kanban-held-count" '
+      + 'title="1 ticket waits on this one, directly or further down the chain">↦ 1</span><span class="ap-tokens">1.8M tokens</span></span></div>');
   });
 
   test('keeps the head of a card on a board without dependencies as it was', () => {
