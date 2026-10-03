@@ -57,7 +57,7 @@ Tickets that wait on others are laid out in waves: what can run now, what the ne
 wave only one ticket wide, where the work cannot spread over agents, marked as the bottleneck.
 
 <p align="center">
-  <img src="docs/images/panel-dependencies.png" width="100%" alt="See what waits on what: the Dependencies tab with a Done column and waves Now, Wave 2, Wave 3 and Wave 4; Wave 3 holds only #012 One-page checkout and is marked one at a time, and pointing at #012 lights the chains behind it, from #004 and from #008 through #011, and the two tickets it frees, #013 and #014">
+  <img src="docs/images/panel-dependencies.png" width="100%" alt="See what waits on what: the Dependencies tab with a Done column and waves Now, Wave 2, Wave 3 and Wave 4; Wave 3 holds only #012 One-page checkout and is marked one at a time, and pointing at #012 lights the chains behind it, from #001 in Done, from #004 and from #008 through #011, and the two tickets it frees, #013 and #014">
 </p>
 
 <table>
