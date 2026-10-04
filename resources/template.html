@@ -1667,8 +1667,10 @@ input[type="text"]:focus::placeholder, input[type="search"]:focus::placeholder {
 .ap-epic-legend b { font: 500 var(--fs-micro)/1 var(--font-mono); color: var(--ink); }
 .ap-epic-legend + .ap-ticket-meta { margin-top: var(--sp-2); }
 
-/* The Epics tab: one card per epic, the cards sharing the row's width, so a waves strip scrolls only once its columns outgrow it. */
+/* The Epics tab: one card per epic, the cards sharing the row's width, so a waves strip scrolls only once its columns outgrow it.
+   A lone card keeps one column's width (auto-fill) instead of stretching over the whole panel. */
 .ap-epics { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr)); gap: var(--sp-4); align-items: start; }
+.ap-epics:has(> .ap-card:only-child) { grid-template-columns: repeat(auto-fill, minmax(min(380px, 100%), 1fr)); }
 .ap-epics > .ap-card { margin-bottom: 0; }
 
 /* The Dependencies tab: the page script places every column, band, node and edge on the canvas in pixels; only the look lives here. */
