@@ -47,8 +47,6 @@ DEPENDENCIES_HOVERED_NODE_SELECTOR = '.ap-dependency-node[data-open-ticket="012"
 DEPENDENCIES_HOVER_SCRIPT = (f"(async () => {{ document.querySelector('{DEPENDENCIES_HOVERED_NODE_SELECTOR}').dispatchEvent(new PointerEvent('pointerover', {{ bubbles: true }}));"
                              " await new Promise((resolve) => setTimeout(resolve, 600)); return true; })()")
 EPICS_FIRST_CARD_SELECTOR = '#ap-epics > .ap-card:first-child'
-# Wide enough that the Checkout redesign card's waves strip holds all five 120px wave columns, so none sits behind its scroll edge.
-EPICS_VIEWPORT_WIDTH = 1520
 GRAPH_TOP_MARGIN = 13
 GRAPH_BOTTOM_PADDING = 24
 
@@ -186,7 +184,7 @@ def base_jobs(build):
         jobs.append({**common, 'name': f'dependencies-{theme}', 'output': f'{build}/shots/dependencies-{theme}.png', 'localStorageEntries': page_state(theme, 'dependencies'),
                      'actionScript': DEPENDENCIES_HOVER_SCRIPT, 'fullPage': True,
                      'measure': {'tabBar': '.ap-tab-bar', 'graph': '#ap-dependencies'}})
-        jobs.append({**common, 'width': EPICS_VIEWPORT_WIDTH, 'name': f'epics-{theme}', 'output': f'{build}/shots/epics-{theme}.png', 'localStorageEntries': page_state(theme, 'epics'), 'fullPage': True,
+        jobs.append({**common, 'name': f'epics-{theme}', 'output': f'{build}/shots/epics-{theme}.png', 'localStorageEntries': page_state(theme, 'epics'), 'fullPage': True,
                      'measure': {'tabBar': '.ap-tab-bar', 'firstCard': EPICS_FIRST_CARD_SELECTOR}})
         jobs.append({**common, 'name': f'detail-{theme}', 'output': f'{build}/shots/detail-{theme}.png', 'localStorageEntries': page_state(theme, 'progress'),
                      'actionScript': f"document.querySelector('#ap-task-{DETAIL_TASK_IDENTIFIER}').click(); true",
@@ -215,22 +213,18 @@ def crops(measurements):
         'kanban': [0, round(kanban['tabBar']['top'] - KANBAN_TOP_MARGIN), VIEWPORT_WIDTH, round(kanban['board']['bottom'] + KANBAN_BOTTOM_PADDING)],
         'kanban-waves': [0, round(kanban_waves['tabBar']['top'] - KANBAN_TOP_MARGIN), VIEWPORT_WIDTH, round(kanban_waves['board']['bottom'] + KANBAN_BOTTOM_PADDING)],
         'dependencies': [0, round(dependencies['tabBar']['top'] - GRAPH_TOP_MARGIN), VIEWPORT_WIDTH, round(dependencies['graph']['bottom'] + GRAPH_BOTTOM_PADDING)],
-        'epics': [0, round(epics['tabBar']['top'] - GRAPH_TOP_MARGIN), EPICS_VIEWPORT_WIDTH, round(epics['firstCard']['bottom'] + GRAPH_BOTTOM_PADDING)],
+        'epics': [0, round(epics['tabBar']['top'] - GRAPH_TOP_MARGIN), VIEWPORT_WIDTH, round(epics['firstCard']['bottom'] + GRAPH_BOTTOM_PADDING)],
         'dialog': [dialog_left, dialog_top, dialog_right, VIEWPORT_HEIGHT],
         'dialog-to-viewport': [dialog_left, dialog_top, dialog_right, VIEWPORT_HEIGHT],
         'heroHeight': hero_height,
     }
 
 
-def viewport_width_of(shot_image):
-    return EPICS_VIEWPORT_WIDTH if shot_image.startswith('epics-') else VIEWPORT_WIDTH
-
-
 def image_layer(layer_image, crop, window_width):
     left, top, right, _ = crop
     scale = window_width / (right - left)
     return (f'<img src="../shots/{layer_image}" style="position:absolute;left:{-left * scale}px;top:{-top * scale}px;'
-            f'width:{viewport_width_of(layer_image) * scale}px">')
+            f'width:{VIEWPORT_WIDTH * scale}px">')
 
 
 def window_markup(palette, content_height, layers_markup, bar_style='', title_style=''):
