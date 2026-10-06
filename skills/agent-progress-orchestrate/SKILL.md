@@ -297,14 +297,14 @@ compaction the `Next:` line of `agent-progress status` says which.
   or high ticket filed or ready relaunches it without asking, `agent-progress dispatcher running`
   and the launch. A run this session did not launch is relaunched only on the user's go, asked for
   as `stopped` says. Low tickets alone relaunch nothing.
-
-A launch or relaunch happens only in a turn whose user message is the go or a task notification of
-this session's run, never in a turn answering an unrelated request.
 - `stopped` — never started, or the user stopped it: wait for the user's permission, whatever is filed
   meanwhile, and on their go `agent-progress dispatcher running` and the launch. When work is ready,
   ask for that permission with AskUserQuestion (Intake) rather than mentioning it in a status line.
 - `running` — a run of this session is at work: wait for it to return. With no run of this session
   behind it, or a task notification saying the run was stopped or died, recover it as below.
+
+A launch or relaunch happens only in a turn whose user message is the go or a task notification of
+this session's run, never in a turn answering an unrelated request.
 
 **Recovering a run that died or was killed: resume it, never launch fresh.** Its agents in flight left
 their tickets claimed, their bars running and partial work in their worktrees. Resume it with the run
