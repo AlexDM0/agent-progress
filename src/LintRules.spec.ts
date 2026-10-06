@@ -48,7 +48,7 @@ const PLANTED_VIOLATIONS: readonly PlantedViolation[] = [
   { path: 'cli/Planted.ts', text: 'export const now = Date.now();\n', ruleId: 'no-restricted-syntax' },
   { path: 'src/Planted.ts', text: 'export const now = new Date();\n', ruleId: 'no-restricted-syntax' },
   { path: 'cli/Planted.ts', text: 'export const firstOf = (list: string[]): string => list[0]!;\n', ruleId: '@typescript-eslint/no-non-null-assertion' },
-  { path: 'cli/Planted.ts', text: '// TODO: name the value\nexport const value = 1;\n', ruleId: 'no-warning-comments' },
+  ...['TODO', 'FIXME', 'XXX', 'HACK'].map((term) => ({ path: 'cli/Planted.ts', text: `// ${term}: name the value\nexport const value = 1;\n`, ruleId: 'no-warning-comments' })),
   {
     path:   'cli/Planted.ts',
     text:   'import { CommandContext } from \'./CommandContext.ts\';\n\nexport type Alias = CommandContext;\n',
