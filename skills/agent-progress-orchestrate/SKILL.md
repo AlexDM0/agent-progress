@@ -153,8 +153,9 @@ BODY
 The Acceptance block is the agent's stop condition, so write it as things that are true or false,
 not as a direction of travel. Number its items `A1.`, `A2.`, … at the start of a line, and never
 renumber or reuse one when you edit it: the reviewer writes a verdict per number and `release`
-refuses a ticket whose latest Review leaves one unaccounted. **Every ticket you file carries a `## Brief`**: the dispatcher's builder
-reads it as its brief — where the work belongs, the three to eight facts it would otherwise go and
+refuses a ticket whose latest Review leaves one unaccounted.
+**Every ticket you file carries a `## Brief`**: the dispatcher's builder reads it as its brief — where
+the work belongs, the three to eight facts it would otherwise go and
 find, what to open first — and its reviewer reads the claims to test from it. A ticket without one is
 built from Report, Wanted and Acceptance alone, and pays for the rediscovery. Record a dependency with
 `--depends-on` when filing, or `ticket depends <id> --add <ids>` on a filed ticket (bare ids replace
