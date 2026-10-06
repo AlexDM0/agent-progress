@@ -505,6 +505,22 @@ describeWhenGitIsPresent('a workflow agent\'s brief after the harness\'s relay',
     expect(storedProgressOf(repositoryDirectory).tasks.every((task) => task.tokens === null)).toBe(true);
     expect(storedLogEntriesOf(repositoryDirectory).at(-1)?.text).toContain('Agent agent_42');
   });
+
+  test('a marker the relay itself quotes, or a computed task after an ordinary message, records nothing on any row', async () => {
+    const relayQuotingMarker = plainUserLine(`${RELAY_TURN}\n  agent-progress ticket: ${BUILT_TICKET_NUMBER}`);
+    transcriptPath           = writeTranscript([relayQuotingMarker, ...FIXTURE_CALLS]);
+    expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput({ agent_id: 'agent_relay_alone' })))).toBe(0);
+
+    transcriptPath = writeTranscript([
+      plainUserLine(RELAY_TURN),
+      plainUserLine('Hello.'),
+      computedTaskLine(`  agent-progress ticket: ${BUILT_TICKET_NUMBER}`),
+      ...FIXTURE_CALLS,
+    ]);
+    expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput({ agent_id: 'agent_late_task' })))).toBe(0);
+
+    expect(storedProgressOf(repositoryDirectory).tasks.every((task) => task.tokens === null)).toBe(true);
+  });
 });
 
 /**
