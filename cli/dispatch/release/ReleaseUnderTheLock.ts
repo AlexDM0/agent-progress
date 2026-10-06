@@ -16,6 +16,7 @@ import type { CheckedTip }                       from './ReleaseChecks.ts';
 import {
   branchCommitToRelease,
   releasableTickets,
+  requireEveryAcceptanceItemAccountedFor,
   requireMainCheckoutOnMainLine,
   requireStampsMatchingTheCheckCommand
 } from './ReleaseReadings.ts';
@@ -61,6 +62,7 @@ export async function releaseUnderTheLock(
     const branchCommit = branchCommitToRelease(mainCheckout, request.branch, request.mainLine);
     requireTheCheckedTip(change, checkedTip, request.branch, branchCommit);
     requireStampsMatchingTheCheckCommand(change.board, tickets);
+    requireEveryAcceptanceItemAccountedFor(tickets);
 
     const merge = fastForwardTo(mainCheckout, branchCommit);
     if (merge.verdict === 'refused') {

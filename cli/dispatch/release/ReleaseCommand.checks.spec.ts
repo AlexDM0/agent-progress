@@ -29,6 +29,7 @@ import {
 }                                             from '../../../src/testing/ScratchWorkspace.ts';
 import { describeWhenGitIsPresent }           from '../../../src/testing/ToolGuard.ts';
 import { runCommandLine }                     from '../../Main.ts';
+import { ACCOUNTED_TICKET_BODY_ARGUMENTS }    from '../../testing/AccountedTicketBody.ts';
 import { createCapturedCommandContext }       from '../../testing/CapturedCommandContext.ts';
 import { runAgentProgress }                   from '../../testing/CliProcess.ts';
 import { createInitializedScratchRepository } from '../../testing/InitializedScratchRepository.ts';
@@ -98,7 +99,7 @@ function storeCheckCommand(checkCommand: string): void {
 
 /** A ticket in review whose work is one commit on a fresh linked worktree, with its review bar running as a reviewer leaves it. */
 async function reviewedTicketOnAWorktree(worktreeName: string): Promise<ReviewedWork> {
-  const added = JSON.parse(await agentProgressOrFail(['ticket', 'add', 'Show the role history', '--json'])) as { id: string };
+  const added = JSON.parse(await agentProgressOrFail(['ticket', 'add', 'Show the role history', ...ACCOUNTED_TICKET_BODY_ARGUMENTS, '--json'])) as { id: string };
   await agentProgressOrFail(['ticket', 'start', added.id]);
   await agentProgressOrFail(['ticket', 'finish', added.id, '--start-review', '--owner', 'opus']);
   const worktree = addWorktree(repositoryDirectory, worktreeName);
@@ -398,7 +399,7 @@ describeWhenGitIsPresent('a ticket stamped with the check command it started und
     storeCheckCommand('true');
     const matching = await reviewedTicketOnAWorktree('role-history');
     storeCheckCommand('bun test');
-    const differing = JSON.parse(await agentProgressOrFail(['ticket', 'add', 'Show the role audit', '--json'])) as { id: string };
+    const differing = JSON.parse(await agentProgressOrFail(['ticket', 'add', 'Show the role audit', ...ACCOUNTED_TICKET_BODY_ARGUMENTS, '--json'])) as { id: string };
     await agentProgressOrFail(['ticket', 'start', differing.id]);
     await agentProgressOrFail(['ticket', 'finish', differing.id]);
     storeCheckCommand('true');

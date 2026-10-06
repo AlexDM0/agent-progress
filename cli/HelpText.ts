@@ -228,7 +228,12 @@ output never carries either.
                               ticket whose row was stamped at its start with another line than the
                               stored one, none counting as a line, is refused
                               (\`check-command-differs-from-start\`); the orchestrator settles it
-                              with \`checks "<line>" --restamp\`.
+                              with \`checks "<line>" --restamp\`. Each ticket's latest \`## Review\`
+                              must hold or waive every numbered \`A<n>.\` item of its Acceptance:
+                              refused \`acceptance-unnumbered\` with none numbered,
+                              \`acceptance-unaccounted\` naming an item without such a line, and
+                              \`acceptance-waived\` naming a waiver its Acceptance does not mark
+                              \`Waived:\`, before the checks and again in the lock.
                               Refused at exit 1, with nothing changed (no review row either), when a ticket
                               is not in-progress or in-review (or such a reviewed bundle ticket),
                               when the main checkout is not on
@@ -249,6 +254,7 @@ output never carries either.
                               ticket-not-releasable, unknown-branch, not-on-main-line,
                               worktree-not-at-tip, worktree-dirty, checks-failed,
                               check-command-changed, check-command-differs-from-start,
+                              acceptance-unnumbered, acceptance-unaccounted, acceptance-waived,
                               branch-moved, main-moved, merge-refused,
                               git-failed and tracker-failed, and blockingFiles, on merge-refused,
                               the main checkout's own uncommitted files the merge would overwrite,

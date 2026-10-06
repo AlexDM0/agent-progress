@@ -85,5 +85,8 @@ Then append `## Handoff` at the end of each ticket you worked, under 15 lines: f
 contracts you discovered that the ticket did not state, what is verified and how (naming the
 screenshot paths), what is not, what the rebase onto the main line touched and what you resolved by
 hand, and the next concrete step — named so the follow-up agent starts working instead of
-re-orienting.
+re-orienting. Name each numbered Acceptance item's evidence, one per item (`A2 — <spec file › test
+title, or the probe>`), the Handoff's limit growing by one line per item. An item your research shows
+is no longer required you do not build: list it as `A3 waiver proposed — <reason>`. Only the user
+waives it.
 ```

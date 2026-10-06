@@ -89,6 +89,14 @@ needs `--force`. A malformed ticket file is listed as ignored rather than failin
 id is one past the highest of every file name, every parsed id and every ticket a row names;
 gaps are tolerated, never filled.
 
+**The Acceptance is numbered.** Each item of `## Acceptance` starts a line with `A1.`, `A2.`, …, its
+continuation lines beneath it up to a blank line or the next item; an item is never renumbered and its
+number never reused. `A3. Waived: <reason>` marks an item the user waived. A review's `## Review` holds
+one line per item, bulleted or not: `A2 holds — <evidence>`, `A2 does not hold — <gap>` or
+`A3 waived — <reason>`. `release` reads only the latest `## Review`, a heading inside a code fence not
+counting as one: an item is accounted for when the Acceptance marks it waived, or when that Review has a
+`holds` or `waived` line for it and no `does not hold` one.
+
 ## What each move does to the Gantt row
 
 The **from** column is the matrix the named verbs enforce; `ticket status <id> <status>` skips it.

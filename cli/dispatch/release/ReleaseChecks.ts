@@ -19,6 +19,7 @@ import {
 import {
   branchCommitToRelease,
   releasableTickets,
+  requireEveryAcceptanceItemAccountedFor,
   requireMainCheckoutOnMainLine,
   requireStampsMatchingTheCheckCommand
 } from './ReleaseReadings.ts';
@@ -85,7 +86,9 @@ export async function checkTheBranchTip(request: ReleaseRequest, commandArgument
   if (checkCommand === undefined) return null;
   const { progress, listing, epicListing } = requireTracker(workspace);
   const board                              = readingBoardOf(progress, listing.tickets, epicListing.epics);
-  requireStampsMatchingTheCheckCommand(board, releasableTickets(board, request.references));
+  const tickets                            = releasableTickets(board, request.references);
+  requireStampsMatchingTheCheckCommand(board, tickets);
+  requireEveryAcceptanceItemAccountedFor(tickets);
   const { worktreePath } = request;
   if (worktreePath === undefined) {
     refuseTheRelease('invalid-request', 'This tracker stores a check command, which a release runs in the branch\'s worktree: name it with --worktree <path>.');

@@ -39,6 +39,9 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
    nothing: re-run the measurement behind each claim with your own probe or count and state your
    numbers; a guard it watched fail, you watch fail. It fails if any is false: <two or three claims;
    a dispatched review reads them from the ticket's `## Brief`, under `Fails review if false`>.
+   Those claims first, then every numbered Acceptance item (`A1.`, `A2.`, …) on its own. A waiver
+   the Handoff proposes (`A3 waiver proposed`) you agree with or not: disagreeing is `does not hold`.
+   You may propose a waiver of your own; only the user grants one.
    When the root `CLAUDE.md` names a coding-standards file for reviewers, judge the diff against it
    too, read once in step 0's message.
 2. Fix every finding in what you review — the branch's change and the ticket's Acceptance — yourself,
@@ -63,8 +66,12 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
    `agent-progress rework --rebased-from <pre-rebase tip> --main <main line> --worktree <worktree>`.
    The rebase is exempt from the budget: past it, finish the rebase anyway, never
    `git rebase --abort`; a big resolution is what step 7b is for.
-6. Append `## Review` at the end of the ticket, under 15 lines: each finding in one line with its
-   file, your commits, what the rebase touched and what you resolved by hand, and both counts.
+6. Append `## Review` at the end of the ticket, under 15 lines plus one per Acceptance item: each
+   finding in one line with its file, your commits, what the rebase touched and what you resolved by
+   hand, and both counts; then one line per item, at the start of the line:
+   `A2 holds — <evidence: spec file › test title, watched fail, or the probe>`,
+   `A2 does not hold — <gap>`, or `A3 waived — <reason>`. An item the Acceptance already marks
+   `Waived:` needs no line. `release` reads only this latest `## Review`.
 7. The first that applies:
    a. A gap you could not close: `does not hold`.
    b. Over {{reworkThresholdLines}} lines of code reworked — the two counts together; the tool counts code only, never
@@ -97,6 +104,10 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
      `holds, not released: checks-failed` with its `detail`.
    - `worktree-dirty`, `worktree-not-at-tip` or `branch-moved`: commit what is yours, delete your
      probes, and run this step again.
+   - `acceptance-unaccounted`: your `## Review` missed the items its `detail` names. Test each, add
+     its line, apply step 7 again, and run this step again.
+   - `acceptance-waived`: report `holds, not released: acceptance-waived` with the items and reasons
+     its `detail` names; the user decides each waiver.
    - Any other reason: change nothing and report `holds, not released: <reason>` with its `detail`,
      and on `merge-refused` the `blockingFiles` it names: the main checkout's own uncommitted edits,
      never your branch's, which the refusal left as they were. The person stashes them, or commits

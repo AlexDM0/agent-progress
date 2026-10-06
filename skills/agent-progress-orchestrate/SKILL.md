@@ -142,7 +142,8 @@ What the user reported, in their words.
 The behaviour agreed in the grilling, unambiguously.
 
 ## Acceptance
-The conditions that end the work — each one checkable by whoever reads this and nothing else.
+A1. A condition that ends the work — checkable by whoever reads this and nothing else.
+A2. The next one, each numbered at the start of its line.
 
 ## Brief
 The `Ticket brief` block of `.agent-progress/agent-brief.md`, filled in.
@@ -150,7 +151,9 @@ BODY
 ```
 
 The Acceptance block is the agent's stop condition, so write it as things that are true or false,
-not as a direction of travel. **Every ticket you file carries a `## Brief`**: the dispatcher's builder
+not as a direction of travel. Number its items `A1.`, `A2.`, … at the start of a line, and never
+renumber or reuse one when you edit it: the reviewer writes a verdict per number and `release`
+refuses a ticket whose latest Review leaves one unaccounted. **Every ticket you file carries a `## Brief`**: the dispatcher's builder
 reads it as its brief — where the work belongs, the three to eight facts it would otherwise go and
 find, what to open first — and its reviewer reads the claims to test from it. A ticket without one is
 built from Report, Wanted and Acceptance alone, and pays for the rediscovery. Record a dependency with
@@ -288,6 +291,10 @@ after an unhold. Then:
    its other instances as an acceptance item, and tell the user the parked branch waits on it.
    A reviewer's `holds, not released: check command broken` means the stored line itself cannot run:
    fix it with `agent-progress checks "<line>" --restamp` and relaunch the dispatcher.
+   A reviewer's `holds, not released: acceptance-waived` names the items an agent proposes to
+   waive; only the user waives one. Ask per item, its reason in the context block. Agreed: edit the
+   item to `A3. Waived: <reason>` in the Acceptance and run the release again, as the reviewer would
+   have, from the main checkout. Refused: note the decision under the item and dispatch a build.
 4. Each ticket in `findingsFiled`, judged for severity as Intake says.
 5. `agent-progress status --json`: a row the run left `in-progress` or `in-review` with no agent
    behind it is yours to close. A ticket's own row moves only through the `ticket` verbs, which
@@ -332,7 +339,8 @@ build row and `task finish` then `task deliver` a review bar (a row with `review
 **Low-priority work is triaged before it is run.** When the only work left is low priority, stop
 relaunching and triage the low tickets: abandon each that is no longer relevant, with the reason;
 merge overlapping ones into one survivor carrying the others' Report and Acceptance, abandoning each
-merged one with the reason `merged into #<survivor>`; and give every survivor its `## Brief`. Only
+merged one with the reason `merged into #<survivor>`; and give every survivor its `## Brief`, numbering
+its Acceptance items `A1.`, `A2.`, … where the reviewer who filed it did not. Only
 then launch a run for them — `agent-progress dispatcher running` and the launch with
 `includeLowPriority: true` added to its args — while the state is `finished`; a `stopped` board still
 waits for the user's go, asked for as Intake says. A triage call you cannot make from the tickets

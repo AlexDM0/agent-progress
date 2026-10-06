@@ -1,4 +1,5 @@
 /** What a release reads of the board, the main checkout and the branch, before its checks run and again inside the lock, refused in the same words. */
+import { TicketAcceptanceUtil }                    from '../../../src/adapters/tickets/utils/TicketAcceptanceUtil.ts';
 import { readBranchDescent, readCurrentBranch }    from '../../../src/lib/git/BranchIntegration.ts';
 import type { Ticket }                             from '../../../src/lib/tracker-model/@types/Ticket.ts';
 import type { Board }                              from '../../../src/lib/tracker-model/Board.ts';
@@ -49,6 +50,36 @@ export function requireStampsMatchingTheCheckCommand(board: Board, tickets: read
       + `${checkCommandText(storedCheckCommand)}. Only the orchestrator settles which one holds: \`${remedy}\` `
       + 'stamps every ticket in flight with the stored one.',
     );
+  }
+}
+
+/** Each ticket on its own, so a bundle's refusal names the ticket whose review fell short. */
+export function requireEveryAcceptanceItemAccountedFor(tickets: readonly Readonly<Ticket>[]): void {
+  for (const { frontmatter, body } of tickets) {
+    const reading = TicketAcceptanceUtil.acceptanceVerdictOf(body);
+    switch (reading.verdict) {
+      case 'accounted-for':
+        continue;
+      case 'unnumbered':
+        return refuseTheRelease(
+          'acceptance-unnumbered',
+          `Ticket #${frontmatter.id}'s Acceptance holds no numbered item (\`A1.\` at the start of a line), so no review can account for it: `
+          + 'number its items, review them, and release again.',
+        );
+      case 'unaccounted':
+        return refuseTheRelease(
+          'acceptance-unaccounted',
+          `Ticket #${frontmatter.id}'s latest Review has no \`holds\` or \`waived\` line for ${reading.labels.join(', ')}: `
+          + 'test each, write its line in the Review, and release again.',
+        );
+      case 'waived-in-review-only':
+        return refuseTheRelease(
+          'acceptance-waived',
+          `Ticket #${frontmatter.id}'s latest Review waives ${reading.waivers.map(({ label, reason }) => `${label} (${reason === '' ? 'no reason given' : reason})`).join(', ')}, `
+          + 'which its Acceptance does not mark `Waived:`. Only the user waives an item: once agreed, the orchestrator marks it '
+          + '`<item>. Waived: <reason>` in the Acceptance and the release runs again.',
+        );
+    }
   }
 }
 

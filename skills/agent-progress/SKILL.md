@@ -64,7 +64,8 @@ session needs in order to file a ticket, move one, and stay out of the tool's wa
    The behaviour they asked for.
 
    ## Acceptance
-   What has to be true before this is done.
+   A1. What has to be true before this is done, one checkable claim per numbered item.
+   A2. Another, never renumbered or reused: a release refuses a review that skips one.
    BODY
    ```
 

@@ -10,7 +10,8 @@ What should happen instead, concretely enough to tell whether it did.
 
 ## Acceptance
 
-How this ticket is checked before it is approved.
+A1. One checkable claim per item, numbered at the start of its line; never renumber or reuse a number.
+A2. How this ticket is checked before it is approved.
 
 ## Handoff
 

@@ -36,6 +36,7 @@ import { helpText }                           from '../../HelpText.ts';
 import { installedFilePathsIn }               from '../../InstalledFiles.ts';
 import { runCommandLine }                     from '../../Main.ts';
 import { INSTALL_VERSION }                    from '../../constants/InstallVersion.ts';
+import { ACCOUNTED_TICKET_BODY_ARGUMENTS }    from '../../testing/AccountedTicketBody.ts';
 import { createCapturedCommandContext }       from '../../testing/CapturedCommandContext.ts';
 import { createInitializedScratchRepository } from '../../testing/InitializedScratchRepository.ts';
 import { storedLogEntriesOf }                 from '../../testing/StoredLogEntries.ts';
@@ -123,7 +124,8 @@ async function inProgressReviewRow(identifier: string, linkArguments: readonly s
 async function reviewedBundleTicketsOfGroup(group: string, count: number): Promise<string[]> {
   const identifiers: string[] = [];
   for (let i = 0; i < count; i++) {
-    const added = JSON.parse(await agentProgressOrFail(['ticket', 'add', `Example ${group} step ${i + 1}`, '--group', group, '--json'])) as { id: string };
+    const addArguments = ['ticket', 'add', `Example ${group} step ${i + 1}`, '--group', group, ...ACCOUNTED_TICKET_BODY_ARGUMENTS, '--json'];
+    const added        = JSON.parse(await agentProgressOrFail(addArguments)) as { id: string };
     await agentProgressOrFail(['ticket', 'start', added.id]);
     await agentProgressOrFail(['ticket', 'finish', added.id]);
     await agentProgressOrFail(['ticket', 'approve', added.id]);
@@ -138,7 +140,7 @@ async function reviewedTicketOnAWorktree(
   worktreeName: string,
   addArguments: readonly string[] = [],
 ): Promise<{ identifier: string; worktree: string; branch: string; tip: string }> {
-  const added      = JSON.parse(await agentProgressOrFail(['ticket', 'add', title, ...addArguments, '--json'])) as { id: string };
+  const added      = JSON.parse(await agentProgressOrFail(['ticket', 'add', title, ...ACCOUNTED_TICKET_BODY_ARGUMENTS, ...addArguments, '--json'])) as { id: string };
   const identifier = added.id;
   await agentProgressOrFail(['ticket', 'start', identifier]);
   await agentProgressOrFail(['ticket', 'finish', identifier]);
@@ -223,7 +225,7 @@ describeWhenGitIsPresent('a release that holds', () => {
   });
 
   test('a ticket still in progress is released too, through reviewed to delivered', async () => {
-    const added = JSON.parse(await agentProgressOrFail(['ticket', 'add', 'Rename a role', '--json'])) as { id: string };
+    const added = JSON.parse(await agentProgressOrFail(['ticket', 'add', 'Rename a role', ...ACCOUNTED_TICKET_BODY_ARGUMENTS, '--json'])) as { id: string };
     await agentProgressOrFail(['ticket', 'start', added.id]);
     const worktree = addWorktree(repositoryDirectory, 'rename-role');
     const tip      = commitFile(worktree, 'rename.ts', 'export const renamed = true;\n');
@@ -243,7 +245,7 @@ describeWhenGitIsPresent('a release that holds', () => {
       branch,
       tip,
     } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
-    const bundled = JSON.parse(await agentProgressOrFail(['ticket', 'add', 'Sort the role history', '--json'])) as { id: string };
+    const bundled = JSON.parse(await agentProgressOrFail(['ticket', 'add', 'Sort the role history', ...ACCOUNTED_TICKET_BODY_ARGUMENTS, '--json'])) as { id: string };
     await agentProgressOrFail(['ticket', 'start', bundled.id]);
 
     const outcome = await agentProgress(['release', identifier, bundled.id, '--branch', branch, '--worktree', worktree]);
@@ -430,7 +432,7 @@ describeWhenGitIsPresent('a release closes the running review bars of the ticket
       worktree,
       branch,
     } = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
-    const bundled = JSON.parse(await agentProgressOrFail(['ticket', 'add', 'Sort the role history', '--json'])) as { id: string };
+    const bundled = JSON.parse(await agentProgressOrFail(['ticket', 'add', 'Sort the role history', ...ACCOUNTED_TICKET_BODY_ARGUMENTS, '--json'])) as { id: string };
     await agentProgressOrFail(['ticket', 'start', bundled.id]);
     const earlierRoundId = await inProgressReviewRow(identifier);
     await agentProgressOrFail(['task', 'finish', String(earlierRoundId), '--at', '-30m']);
@@ -676,7 +678,7 @@ describeWhenGitIsPresent('two releases at once', () => {
 
   test('a branch built on top of another\'s released tip fast-forwards on top of it', async () => {
     const first = await reviewedTicketOnAWorktree('Show the role history', 'role-history');
-    const added = JSON.parse(await agentProgressOrFail(['ticket', 'add', 'Build on it', '--json'])) as { id: string };
+    const added = JSON.parse(await agentProgressOrFail(['ticket', 'add', 'Build on it', ...ACCOUNTED_TICKET_BODY_ARGUMENTS, '--json'])) as { id: string };
     await agentProgressOrFail(['ticket', 'start', added.id]);
     gitOutputIn(first.worktree, ['branch', 'stacked', first.branch]);
     const stackedWorktree = join(`${repositoryDirectory}-worktrees`, 'stacked');
