@@ -99,11 +99,13 @@
  [data-panel="…"]         el     matching panel, role="tabpanel", id="ap-panel-…" and
                                  aria-labelledby naming its tab; [hidden] when not selected; each
                                  starts --sp-5 (24px) below .ap-tab-bar's rule
- #ap-finished             el     the finished-work switch, one choice shared by Kanban, Progress and
-                                 Tickets and remembered per viewer: .ap-finished-label, then
-                                 .ap-finished-anchor holding the switch and its popover, then
-                                 #ap-finished-status. "Finished" is delivered or
-                                 abandoned; unfinished work always shows. It replaces the retired
+ #ap-finished             el     the finished-work switch, one choice shared by Kanban, Progress,
+                                 Tickets and Epics and remembered per viewer: .ap-finished-label,
+                                 then .ap-finished-anchor holding the switch and its popover, then
+                                 #ap-finished-status. "Finished" is delivered or abandoned, an epic
+                                 once every one of its tickets is; unfinished work always shows.
+                                 Its note, #ap-hidden-note, counts the tickets and epics it hides,
+                                 never task rows. It replaces the retired
                                  #ap-visibility Hide / Show all buttons (data-visibility="recent|all"),
                                  whose stored recent reads as last day and all as custom all
  #ap-finished-switch      el     role="radiogroup" of three role="radio" pills (roving tabindex; the
@@ -125,7 +127,7 @@
                                  choice, and #ap-finished-since-resolved under it. A pill clears the
                                  day and a day unchecks every pill; each applies at once. Esc, Enter
                                  in the day field and a click outside close it
- #ap-hidden-note          button link-styled, "3 tasks · 2 tickets hidden", [hidden] when nothing is,
+ #ap-hidden-note          button link-styled, "218 tickets · 1 epic hidden", [hidden] when nothing is,
                                  and not shown once the tab bar wraps (below 1320px); a click checks
                                  custom on all. [data-changed] flashes it once
  #ap-finished-status      text   visually hidden, aria-live: what the switch now shows
@@ -219,7 +221,9 @@
                                  button[data-todo-order=filed|by-wave][aria-pressed] (remembered per
                                  viewer), then .ap-kanban-order-hint
  #ap-epics                html   the Epics tab: one article.ap-card[data-epic-slot] per epic, open
-                                 ones first: .ap-epic-card-head (button.ap-epic-title[data-open-epic],
+                                 ones first; a finished epic (at least one ticket, all delivered or
+                                 abandoned) whose span ended before #ap-finished's cutoff has no
+                                 card, and open epics keep theirs whole: .ap-epic-card-head (button.ap-epic-title[data-open-epic],
                                  .ap-epic-key, .ap-epic-done-mark), .ap-epic-card-body (the
                                  description's first paragraph, the roll-up, the dependency rows,
                                  ul.ap-epic-tickets). The rows, by primary epic: .ap-epic-link-row
