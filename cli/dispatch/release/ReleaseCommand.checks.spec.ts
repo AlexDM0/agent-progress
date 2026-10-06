@@ -263,6 +263,15 @@ describeWhenGitIsPresent('a release with a check command stored', () => {
     expect(document.detail).toContain('The checks changed tracked files');
   });
 
+  test('a command that moves the worktree off the tip is refused worktree-not-at-tip even though it exited 0', async () => {
+    await storeCheckCommand('git checkout -q --detach HEAD~1');
+    const work = await reviewedTicketOnAWorktree('role-history');
+
+    const document = await expectRefusedChangingNothing(work, 'worktree-not-at-tip');
+
+    expect(document.detail).toContain(`The checks moved the worktree ${work.worktree} from ${work.tip.slice(0, 8)}`);
+  });
+
   // The worktree stands detached at the tip, so only the branch moves: the lock is the last place that can see it.
   test('a branch that moves while the command runs is refused branch-moved inside the lock', async () => {
     const identity = SCRATCH_COMMIT_IDENTITY_ARGUMENTS.map((argument) => `'${argument}'`).join(' ');
