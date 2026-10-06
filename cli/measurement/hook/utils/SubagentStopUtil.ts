@@ -1,6 +1,6 @@
-/** What the `SubagentStop` hook reads out of a finished agent's transcript for the board: the rows and tickets its brief names, and their shares. */
-import { TranscriptUsageUtil } from '../../../../src/lib/claude-code/utils/TranscriptUsageUtil.ts';
-import { TicketIdUtil }        from '../../../../src/lib/tracker-model/utils/TicketIdUtil.ts';
+/** What a finished agent's brief tells the board: the rows and tickets it names, and the token credits they share. */
+import type { TokenCredit } from '../../../../src/lib/tracker-model/@types/BoardChanges.ts';
+import { TicketIdUtil }     from '../../../../src/lib/tracker-model/utils/TicketIdUtil.ts';
 
 /** A line of its own, ids as digits separated by commas: a placeholder such as `<rowId>` in a brief template never matches. */
 const ROW_MARKER_PATTERN = /^[ \t]*agent-progress row:[ \t]*(\d+(?:[ \t]*,[ \t]*\d+)*)[ \t]*$/m;
@@ -11,31 +11,28 @@ const TICKET_MARKER_PATTERN = /^[ \t]*agent-progress ticket:[ \t]*(#?\d+(?:[ \t]
 /** One ticket only: a reviewer's brief is written before its review row exists, and names the ticket whose newest review row it will be. */
 const REVIEW_MARKER_PATTERN = /^[ \t]*agent-progress review:[ \t]*(#?\d+)[ \t]*$/m;
 
-/**
- * The rows named by the `agent-progress row: 4, 7` line of the agent's brief, in the order written and each once; empty when the
- * brief has no such line. Only the brief is read, so a later message quoting another agent's marker never counts.
- */
-function rowIdentifiersNamedInBrief(transcriptText: string): number[] {
-  const identifiers = identifiersListedInBrief(transcriptText, ROW_MARKER_PATTERN).map((identifier) => Number.parseInt(identifier, 10));
+/** The rows named by the brief's `agent-progress row: 4, 7` line, in the order written and each once; empty when it has no such line. */
+function rowIdentifiersNamedInBrief(briefText: string): number[] {
+  const identifiers = identifiersListedInBrief(briefText, ROW_MARKER_PATTERN).map((identifier) => Number.parseInt(identifier, 10));
   return [...new Set(identifiers)];
 }
 
 /** The padded ids (`"022"`) named by the brief's `agent-progress ticket: 22, 20` line, read exactly as the row line is; an id of zero is dropped. */
-function ticketIdentifiersNamedInBrief(transcriptText: string): string[] {
-  const identifiers = identifiersListedInBrief(transcriptText, TICKET_MARKER_PATTERN)
+function ticketIdentifiersNamedInBrief(briefText: string): string[] {
+  const identifiers = identifiersListedInBrief(briefText, TICKET_MARKER_PATTERN)
     .map((identifier) => TicketIdUtil.parseTicketReference(identifier))
     .filter((identifier): identifier is string => identifier !== null);
   return [...new Set(identifiers)];
 }
 
 /** The padded id (`"007"`) named by the brief's `agent-progress review: 7` line, read exactly as the other two are; `null` when there is none. */
-function reviewedTicketIdentifierNamedInBrief(transcriptText: string): string | null {
-  const [identifier] = identifiersListedInBrief(transcriptText, REVIEW_MARKER_PATTERN);
+function reviewedTicketIdentifierNamedInBrief(briefText: string): string | null {
+  const [identifier] = identifiersListedInBrief(briefText, REVIEW_MARKER_PATTERN);
   return identifier === undefined ? null : TicketIdUtil.parseTicketReference(identifier);
 }
 
-function identifiersListedInBrief(transcriptText: string, markerPattern: RegExp): string[] {
-  const identifierList = markerPattern.exec(TranscriptUsageUtil.briefTextOf(transcriptText))?.[1];
+function identifiersListedInBrief(briefText: string, markerPattern: RegExp): string[] {
+  const identifierList = markerPattern.exec(briefText)?.[1];
   if (identifierList === undefined) return [];
   return identifierList.split(',').map((identifier) => identifier.trim());
 }
@@ -50,7 +47,30 @@ function evenSharesOf(totalTokens: number, shareCount: number): number[] {
   return shares;
 }
 
+/**
+ * The brief's marker decides which rows the tokens are added to, split evenly over what it names. A brief carrying several is read by
+ * one alone, `row:` over `ticket:` over `review:`, the most direct first: adding more would count the agent twice.
+ */
+function creditsFor(briefText: string, tokens: number): TokenCredit[] {
+  const rowIdentifiers = rowIdentifiersNamedInBrief(briefText);
+  if (rowIdentifiers.length > 0) {
+    const shares = evenSharesOf(tokens, rowIdentifiers.length);
+    return rowIdentifiers.map((taskId, i) => ({ target: 'row', taskId, tokens: shares[i] ?? 0 }));
+  }
+
+  const ticketIdentifiers = ticketIdentifiersNamedInBrief(briefText);
+  if (ticketIdentifiers.length > 0) {
+    const shares = evenSharesOf(tokens, ticketIdentifiers.length);
+    return ticketIdentifiers.map((ticketId, i) => ({ target: 'ticket', ticketId, tokens: shares[i] ?? 0 }));
+  }
+
+  const reviewedTicketIdentifier = reviewedTicketIdentifierNamedInBrief(briefText);
+  if (reviewedTicketIdentifier === null) return [];
+  return [{ target: 'review', ticketId: reviewedTicketIdentifier, tokens }];
+}
+
 export const SubagentStopUtil = {
+  creditsFor,
   evenSharesOf,
   reviewedTicketIdentifierNamedInBrief,
   rowIdentifiersNamedInBrief,

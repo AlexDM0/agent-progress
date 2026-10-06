@@ -75,7 +75,7 @@ async function recordSubagentStop(commandArguments: ArgumentParser, context: Com
   }
 
   const workingDirectory = readStringField(hookInput, 'cwd') ?? context.currentDirectory;
-  await recordInTheTracker(commandArguments, context, workingDirectory, agentUsageOf(hookInput, totals, expandedTranscriptPath), transcriptText);
+  await recordInTheTracker(commandArguments, context, workingDirectory, agentUsageOf(hookInput, totals, expandedTranscriptPath), TranscriptUsageUtil.briefTextOf(transcriptText));
 }
 
 /**

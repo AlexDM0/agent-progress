@@ -233,6 +233,17 @@ describeWhenGitIsPresent('the row the brief names', () => {
     expect(storedTokensOf(secondRow)).toBe(500);
   });
 
+  test('a brief split over several text blocks is read whole, so a marker in its second block names the row', async () => {
+    const rowIdentifier = await addedRow('Example split brief');
+    const briefBlocks   = [{ type: 'text', text: 'Do it.' }, { type: 'text', text: `agent-progress row: ${rowIdentifier}` }];
+    const splitBrief    = JSON.stringify({ type: 'user', message: { role: 'user', content: briefBlocks } });
+    transcriptPath      = writeTranscript([splitBrief, ...FIXTURE_CALLS]);
+
+    expect(await runCommandLine(['hook', 'subagent-stop'], contextWith(hookInput()))).toBe(0);
+
+    expect(storedTokensOf(rowIdentifier)).toBe(FIXTURE_INPUT_TOKENS);
+  });
+
   /** A reviewer's brief can quote the builder's marker further down the conversation; only the agent's own brief may name its row. */
   test('a marker that appears only in a later message changes no row, and the log line is still written', async () => {
     const rowIdentifier = await addedRow('Example work');
