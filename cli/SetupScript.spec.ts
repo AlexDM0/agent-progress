@@ -2,9 +2,12 @@
  * `setup.sh --instruct-only` promises to change nothing, and its `bun link` would repoint the machine-wide command at whichever checkout ran it.
  * The script runs with a scratch `HOME` and a fake `bun` first on a minimal `PATH` that records every call, so neither the real `bun` nor the
  * real home is ever reached; the cases hold that no install or link call happens, that each is announced instead, and that the home is unchanged.
+ * Setting `core.hooksPath` is what makes the tracked pre-commit hook gate every worktree, so it is held on a copy of the script in a scratch
+ * repository: set on the first run, recognised and left on the second, only announced under --instruct-only.
  */
 import {
   chmodSync,
+  copyFileSync,
   lstatSync,
   mkdirSync,
   readdirSync,
@@ -83,6 +86,59 @@ function snapshotOf(directory: string): readonly string[] {
 function recordedBunCalls(): readonly string[] {
   return readFileSync(bunCallLogPath, 'utf8').split('\n').filter((line) => line !== '');
 }
+
+/** A git repository holding a copy of `setup.sh`, so a run that writes `core.hooksPath` writes it there and never in this checkout. */
+function scratchRepositoryWithSetupScript(): string {
+  const repositoryDirectory = join(scratchDirectory, 'repository');
+  mkdirSync(repositoryDirectory);
+  copyFileSync(SETUP_SCRIPT_PATH, join(repositoryDirectory, 'setup.sh'));
+  Bun.spawnSync(['git', 'init', '--quiet', repositoryDirectory], { env: setupScriptEnvironment(), stdout: 'ignore', stderr: 'ignore' });
+  return repositoryDirectory;
+}
+
+function setupScriptEnvironment(): Record<string, string> {
+  return { HOME: scratchHomeDirectory, PATH: `${fakeBunDirectory}:${SYSTEM_TOOL_PATH}`, SHELL: '/bin/zsh' };
+}
+
+function runSetupScriptIn(repositoryDirectory: string, setupArguments: readonly string[]): FinishedSetupRun {
+  const finished = Bun.spawnSync(['bash', join(repositoryDirectory, 'setup.sh'), ...setupArguments], {
+    cwd:    scratchHomeDirectory,
+    env:    setupScriptEnvironment(),
+    stdin:  'ignore',
+    stdout: 'pipe',
+    stderr: 'pipe',
+  });
+  return { exitCode: finished.exitCode, output: `${finished.stdout.toString()}\n${finished.stderr.toString()}` };
+}
+
+function hooksPathOf(repositoryDirectory: string): string {
+  const finished = Bun.spawnSync(['git', '-C', repositoryDirectory, 'config', '--get', 'core.hooksPath'], {
+    env:    setupScriptEnvironment(),
+    stdout: 'pipe',
+    stderr: 'ignore',
+  });
+  return finished.stdout.toString().trim();
+}
+
+testWhenBashIsPresent('setup.sh points core.hooksPath at .githooks, and a second run finds it set and leaves it', () => {
+  const repositoryDirectory = scratchRepositoryWithSetupScript();
+  const firstRun = runSetupScriptIn(repositoryDirectory, []);
+  expect(firstRun.exitCode, firstRun.output).toBe(0);
+  expect(firstRun.output).toContain('core.hooksPath set to .githooks (it was unset)');
+  expect(hooksPathOf(repositoryDirectory)).toBe('.githooks');
+  const secondRun = runSetupScriptIn(repositoryDirectory, []);
+  expect(secondRun.exitCode, secondRun.output).toBe(0);
+  expect(secondRun.output).toContain('core.hooksPath already points at .githooks');
+  expect(hooksPathOf(repositoryDirectory)).toBe('.githooks');
+}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
+
+testWhenBashIsPresent('setup.sh --instruct-only announces the core.hooksPath change and leaves it unset', () => {
+  const repositoryDirectory = scratchRepositoryWithSetupScript();
+  const { exitCode, output } = runSetupScriptIn(repositoryDirectory, ['--instruct-only']);
+  expect(exitCode, output).toBe(0);
+  expect(output).toContain(`Would set core.hooksPath to .githooks in ${repositoryDirectory} (it is currently unset)`);
+  expect(hooksPathOf(repositoryDirectory)).toBe('');
+}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
 testWhenBashIsPresent('setup.sh --instruct-only runs neither bun install nor bun link', () => {
   const { exitCode, output } = runSetupScriptInstructOnly();

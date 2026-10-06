@@ -25,14 +25,18 @@ cd agent-progress
 ./setup.sh
 ```
 
-`setup.sh` changes nothing in any tracked repository; per-repository setup is `agent-progress init`'s
-job. It runs three steps:
+`setup.sh` changes nothing in any tracked repository but this one's git config; per-repository setup is
+`agent-progress init`'s job. It runs four steps:
 
 | step | what it does |
 |---|---|
-| 1/3 Bun | Puts `~/.bun/bin` on the `PATH` for its own run and checks for Bun. Below 1.2 it warns and suggests `bun upgrade`; when Bun is missing it offers the official installer and exits if you decline. |
-| 2/3 Dependencies and the global command | Runs `bun install` on every run, not only the first, because every command that rewrites the page needs `marked`. Then `bun link`, so `agent-progress` works from any directory. When `agent-progress` is still not found on the `PATH` and the rc file does not already mention `~/.bun/bin`, it offers to add one export line to `~/.zshrc` (or `~/.bashrc` under bash). |
-| 3/3 The skills | Symlinks `~/.claude/skills/agent-progress` to this checkout's `skills/agent-progress/` and `~/.claude/skills/agent-progress-orchestrate` to its `skills/agent-progress-orchestrate/`. |
+| 1/4 Bun | Puts `~/.bun/bin` on the `PATH` for its own run and checks for Bun. Below 1.2 it warns and suggests `bun upgrade`; when Bun is missing it offers the official installer and exits if you decline. |
+| 2/4 Dependencies and the global command | Runs `bun install` on every run, not only the first, because every command that rewrites the page needs `marked`. Then `bun link`, so `agent-progress` works from any directory. When `agent-progress` is still not found on the `PATH` and the rc file does not already mention `~/.bun/bin`, it offers to add one export line to `~/.zshrc` (or `~/.bashrc` under bash). |
+| 3/4 The skills | Symlinks `~/.claude/skills/agent-progress` to this checkout's `skills/agent-progress/` and `~/.claude/skills/agent-progress-orchestrate` to its `skills/agent-progress-orchestrate/`. |
+| 4/4 The pre-commit hook | Sets `core.hooksPath` to `.githooks` unless it already is, so `.githooks/pre-commit` refuses a commit that fails `bun run lint` or `bun run typecheck`, in this checkout and every worktree of it. |
+
+`.claude/settings.json` adds a `PostToolUse` hook, `.claude/hooks/fix-lint-on-edit.sh`, that runs
+`eslint --fix` on a `.ts` file after each Edit or Write, with the ESLint of the checkout holding it.
 
 The skills are **symlinks, never copies**: an edit reaches every session at once, a `git pull` needs
 no install step, and a copy under `~/.claude` would be the one version nothing checks. The step is
@@ -47,8 +51,8 @@ symlinks with stale copies. `setup.sh` checks for such a `skills.json` at its ex
 warns when either skill name is missing from it; it never edits that file, since it belongs to
 another repository.
 
-`./setup.sh --instruct-only` declines every offer and reports each skill link as what it would do.
-It still runs `bun install` and `bun link`, which have no instruct-only branch.
+`./setup.sh --instruct-only` declines every offer and reports `bun install`, `bun link`, each skill
+link and the `core.hooksPath` change as what it would do.
 
 ### Running from source
 

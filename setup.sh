@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # setup.sh — install the agent-progress tooling on this machine: Bun, `bun install` + `bun link`, and
 # symlinks from ~/.claude/skills/agent-progress to this repository's skills/agent-progress/ and from
-# ~/.claude/skills/agent-progress-orchestrate to its skills/agent-progress-orchestrate/.
+# ~/.claude/skills/agent-progress-orchestrate to its skills/agent-progress-orchestrate/, and points this
+# repository's `core.hooksPath` at its tracked `.githooks/`.
 #
-# It edits nothing outside $HOME/.claude and, on the offer, one shell rc file, and it deletes nothing
+# It edits nothing outside $HOME/.claude, this repository's git config and, on the offer, one shell rc
+# file, and it deletes nothing
 # that is not a symlink it wrote. Per-repository setup is `agent-progress init`'s job, not this one's.
 #
 # Usage: ./setup.sh [--instruct-only]
@@ -32,7 +34,7 @@ offer() {
   [[ "$answer" == "y" || "$answer" == "Y" ]]
 }
 
-step "1/3 Bun"
+step "1/4 Bun"
 export PATH="$HOME/.bun/bin:$PATH"
 if command -v bun >/dev/null 2>&1; then
   BUN_VERSION="$(bun --version)"
@@ -53,7 +55,7 @@ else
   fi
 fi
 
-step "2/3 Dependencies and the global agent-progress command (bun install, bun link)"
+step "2/4 Dependencies and the global agent-progress command (bun install, bun link)"
 # Run on every setup, not only the first: a checkout brought up to date may need a dependency the
 # previous one did not, and without `marked` every command that rewrites the page fails.
 # Skipped under --instruct-only: `bun link` repoints the machine-wide command at this checkout, and a
@@ -88,7 +90,7 @@ else
   fi
 fi
 
-step "3/3 The agent-progress Claude skills"
+step "3/4 The agent-progress Claude skills"
 # A symlink, never a copy: `cli/HelpText.spec.ts` holds the bundled skills against the command table in
 # this checkout, and a copy under ~/.claude would be the one version nothing checks.
 #
@@ -166,5 +168,19 @@ for BUNDLED_SKILL in "${BUNDLED_SKILLS[@]}"; do
     warn "  Add \"$SKILL_NAME\" to the \"ignore\" array there, then commit it."
   fi
 done
+
+step "4/4 The pre-commit hook (git config core.hooksPath)"
+# The relative path resolves in whichever worktree a commit is made, and the setting is shared by every
+# worktree of this repository, so dispatched agents' commits pass the same gate.
+GIT_HOOKS_PATH=".githooks"
+CURRENT_HOOKS_PATH="$(git -C "$HERE" config --get core.hooksPath || true)"
+if [[ "$CURRENT_HOOKS_PATH" == "$GIT_HOOKS_PATH" ]]; then
+  ok "core.hooksPath already points at $GIT_HOOKS_PATH"
+elif [[ "$INSTRUCT_ONLY" == "1" ]]; then
+  warn "Would set core.hooksPath to $GIT_HOOKS_PATH in $HERE (it is currently ${CURRENT_HOOKS_PATH:-unset})"
+else
+  git -C "$HERE" config core.hooksPath "$GIT_HOOKS_PATH"
+  ok "core.hooksPath set to $GIT_HOOKS_PATH (it was ${CURRENT_HOOKS_PATH:-unset})"
+fi
 
 printf "\n\033[1mTooling ready.\033[0m Next:  cd <a repository> && agent-progress init\n"

@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Refuses a commit while the checkout it is made in fails lint or the type-check. Tests stay out so a
+# commit stays quick when several agents commit at once. `setup.sh` points `core.hooksPath` here.
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+if ! bun run lint; then
+  printf '\npre-commit: bun run lint failed; `bun run lint:fix` fixes what it can.\n' >&2
+  exit 1
+fi
+if ! bun run typecheck; then
+  printf '\npre-commit: bun run typecheck failed.\n' >&2
+  exit 1
+fi

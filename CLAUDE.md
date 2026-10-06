@@ -8,6 +8,7 @@ dispatcher its sessions run on.
 
 `bun run typecheck && bun test && bun run lint`: all three after any TypeScript change, before calling it done.
 Never ad-hoc `tsc` flags; never edit `package.json` to make a check pass.
+`.githooks/pre-commit` (wired by `setup.sh`) refuses a commit failing lint or typecheck; never bypass it with `--no-verify`.
 
 ## Rules
 
