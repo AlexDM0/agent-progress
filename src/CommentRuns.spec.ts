@@ -148,14 +148,14 @@ describe('no inline comment runs past two lines', () => {
   const documentedLine = (code: string): string => `/**\n * A docblock of\n * four lines.\n */\n${code}\n`;
   test.each([
     ['a file header', documentedLine('import { run } from \'./Run.ts\';')],
-    ['a function', documentedLine('function work(): void {}')],
+    ['a function', 'run();\n' + documentedLine('function work(): void {}')],
     [
       'a class, its constructor, method, accessor and property',
       documentedLine('class Work {') + documentedLine('readonly size = 1;') + documentedLine('constructor() {}') + documentedLine('run(): void {}')
         + documentedLine('get total(): number { return 1; }') + '}\n',
     ],
     ['an interface and its members', documentedLine('interface Work {') + documentedLine('readonly size: number;') + documentedLine('run(): void;') + '}\n'],
-    ['a type alias', documentedLine('type Work = number;')],
+    ['a type alias', 'run();\n' + documentedLine('type Work = number;')],
     ['an enum and its member', documentedLine('enum Work {') + documentedLine('Done,') + '}\n'],
     ['a variable statement in a function', 'function work(): void {\n' + documentedLine('const size = 1;') + 'run(size);\n}\n'],
     ['an object literal property', 'run({\n' + documentedLine('size: 1,') + '});\n'],
