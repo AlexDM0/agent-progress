@@ -138,6 +138,7 @@ export interface DispatcherStateSet extends Logged {
 
 export interface CheckCommandSet extends Logged {
   previousCheckCommand: string | null;
+  restampedTicketIds:   readonly string[];
 }
 
 export interface TrackerCleared extends Logged {

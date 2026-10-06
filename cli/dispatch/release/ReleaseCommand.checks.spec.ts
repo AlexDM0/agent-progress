@@ -87,8 +87,13 @@ async function agentProgressOrFail(commandLineArguments: readonly string[]): Pro
   return output;
 }
 
-async function storeCheckCommand(checkCommand: string): Promise<void> {
-  await agentProgressOrFail(['checks', checkCommand]);
+/**
+ * Written straight into progress.json, since `checks` would first try the line in the main checkout, and most lines here fail or change
+ * something on purpose. Stored before a ticket starts, so its row is stamped with it.
+ */
+function storeCheckCommand(checkCommand: string): void {
+  const progressFilePath = join(repositoryDirectory, '.agent-progress', 'progress.json');
+  writeFileSync(progressFilePath, `${JSON.stringify({ ...(JSON.parse(progressText()) as Record<string, unknown>), checkCommand }, null, 2)}\n`);
 }
 
 /** A ticket in review whose work is one commit on a fresh linked worktree, with its review bar running as a reviewer leaves it. */
@@ -161,7 +166,7 @@ describeWhenGitIsPresent('a release with no check command stored', () => {
 
 describeWhenGitIsPresent('a release with a check command stored', () => {
   test('a passing command runs in the worktree on the tip, and the release then fast-forwards to that tip', async () => {
-    await storeCheckCommand(MARKER_COMMAND);
+    storeCheckCommand(MARKER_COMMAND);
     const work = await reviewedTicketOnAWorktree('role-history');
 
     const outcome = await agentProgress(releaseArgumentsFor(work));
@@ -173,7 +178,7 @@ describeWhenGitIsPresent('a release with a check command stored', () => {
   });
 
   test('the human output says the checks are running on standard error and that they passed', async () => {
-    await storeCheckCommand(MARKER_COMMAND);
+    storeCheckCommand(MARKER_COMMAND);
     const work = await reviewedTicketOnAWorktree('role-history');
 
     const outcome = await agentProgress(releaseArgumentsFor(work).filter((argument) => argument !== '--json'));
@@ -185,7 +190,7 @@ describeWhenGitIsPresent('a release with a check command stored', () => {
 
   // The reviewer acts on the detail alone, so it has to carry the end of the output, standard error included and in order.
   test('a failing command is refused checks-failed with its last 20 lines as the detail, and changes nothing', async () => {
-    await storeCheckCommand(`for i in $(seq 1 ${OUTPUT_LINE_COUNT}); do echo "check line $i"; done; echo "example failure" >&2; exit 3`);
+    storeCheckCommand(`for i in $(seq 1 ${OUTPUT_LINE_COUNT}); do echo "check line $i"; done; echo "example failure" >&2; exit 3`);
     const work = await reviewedTicketOnAWorktree('role-history');
 
     const document = await expectRefusedChangingNothing(work, 'checks-failed');
@@ -199,7 +204,7 @@ describeWhenGitIsPresent('a release with a check command stored', () => {
   });
 
   test('with no --worktree it is refused invalid-request before anything runs', async () => {
-    await storeCheckCommand(MARKER_COMMAND);
+    storeCheckCommand(MARKER_COMMAND);
     const work = await reviewedTicketOnAWorktree('role-history');
 
     const document = await expectRefusedChangingNothing(work, 'invalid-request', ['release', work.identifier, '--branch', work.branch, '--json']);
@@ -209,7 +214,7 @@ describeWhenGitIsPresent('a release with a check command stored', () => {
   });
 
   test('a ticket that is not releasable is refused before the command runs', async () => {
-    await storeCheckCommand(MARKER_COMMAND);
+    storeCheckCommand(MARKER_COMMAND);
     const work = await reviewedTicketOnAWorktree('role-history');
     const pending = JSON.parse(await agentProgressOrFail(['ticket', 'add', 'Not started', '--json'])) as { id: string };
 
@@ -219,7 +224,7 @@ describeWhenGitIsPresent('a release with a check command stored', () => {
   });
 
   test('a worktree whose HEAD is not the branch tip is refused worktree-not-at-tip before the command runs', async () => {
-    await storeCheckCommand(MARKER_COMMAND);
+    storeCheckCommand(MARKER_COMMAND);
     const work = await reviewedTicketOnAWorktree('role-history');
     gitOutputIn(work.worktree, ['checkout', '-q', '--detach', 'HEAD~1']);
 
@@ -232,7 +237,7 @@ describeWhenGitIsPresent('a release with a check command stored', () => {
     ['an untracked file', (worktree: string): void => writeFileSync(join(worktree, 'probe.ts'), 'export const probe = true;\n'), 'untracked: probe.ts'],
     ['a changed tracked file', (worktree: string): void => writeFileSync(join(worktree, 'role-history.ts'), 'export const changed = true;\n'), 'changed: role-history.ts'],
   ])('a worktree holding %s is refused worktree-dirty, naming it, before the command runs', async (_case, dirty, named) => {
-    await storeCheckCommand(MARKER_COMMAND);
+    storeCheckCommand(MARKER_COMMAND);
     const work = await reviewedTicketOnAWorktree('role-history');
     dirty(work.worktree);
 
@@ -243,7 +248,7 @@ describeWhenGitIsPresent('a release with a check command stored', () => {
   });
 
   test('a file the worktree ignores does not count against it', async () => {
-    await storeCheckCommand(MARKER_COMMAND);
+    storeCheckCommand(MARKER_COMMAND);
     const work = await reviewedTicketOnAWorktree('role-history');
     mkdirSync(join(work.worktree, '.agent-progress'));
     writeFileSync(join(work.worktree, '.agent-progress', 'scratch.txt'), 'ignored\n');
@@ -255,7 +260,7 @@ describeWhenGitIsPresent('a release with a check command stored', () => {
 
   // What passed would then be the changed files, not the commit main is fast-forwarded to.
   test('a command that changes a tracked file is refused worktree-dirty even though it exited 0', async () => {
-    await storeCheckCommand('echo "export const rewritten = true;" > role-history.ts');
+    storeCheckCommand('echo "export const rewritten = true;" > role-history.ts');
     const work = await reviewedTicketOnAWorktree('role-history');
 
     const document = await expectRefusedChangingNothing(work, 'worktree-dirty');
@@ -264,7 +269,7 @@ describeWhenGitIsPresent('a release with a check command stored', () => {
   });
 
   test('a command that moves the worktree off the tip is refused worktree-not-at-tip even though it exited 0', async () => {
-    await storeCheckCommand('git checkout -q --detach HEAD~1');
+    storeCheckCommand('git checkout -q --detach HEAD~1');
     const work = await reviewedTicketOnAWorktree('role-history');
 
     const document = await expectRefusedChangingNothing(work, 'worktree-not-at-tip');
@@ -275,8 +280,8 @@ describeWhenGitIsPresent('a release with a check command stored', () => {
   // The worktree stands detached at the tip, so only the branch moves: the lock is the last place that can see it.
   test('a branch that moves while the command runs is refused branch-moved inside the lock', async () => {
     const identity = SCRATCH_COMMIT_IDENTITY_ARGUMENTS.map((argument) => `'${argument}'`).join(' ');
+    storeCheckCommand(`git update-ref refs/heads/worktree/role-history "$(git ${identity} commit-tree 'HEAD^{tree}' -p HEAD -m moved)"`);
     const work     = await reviewedTicketOnAWorktree('role-history');
-    await storeCheckCommand(`git update-ref refs/heads/${work.branch} "$(git ${identity} commit-tree 'HEAD^{tree}' -p HEAD -m moved)"`);
     gitOutputIn(work.worktree, ['checkout', '-q', '--detach', work.tip]);
 
     const document = await expectRefusedChangingNothing(work, 'branch-moved');
@@ -288,7 +293,7 @@ describeWhenGitIsPresent('a release with a check command stored', () => {
     const progressFilePath = join(repositoryDirectory, '.agent-progress', 'progress.json');
     const rewriteScript    = `const path = ${JSON.stringify(progressFilePath)}; const document = JSON.parse(await Bun.file(path).text()); `
       + 'document.checkCommand = "true"; await Bun.write(path, JSON.stringify(document, null, 2));';
-    await storeCheckCommand(`bun -e '${rewriteScript}'`);
+    storeCheckCommand(`bun -e '${rewriteScript}'`);
     const work      = await reviewedTicketOnAWorktree('role-history');
     const mainBefore = mainTip();
 
@@ -302,7 +307,7 @@ describeWhenGitIsPresent('a release with a check command stored', () => {
 
   // The incident this guards against: a branch that brings its own copy of the gate judges itself.
   test('the command run is the tracker\'s, never one the branch carries, wherever the release runs from', async () => {
-    await storeCheckCommand('echo "the tracker command ran"; exit 4');
+    storeCheckCommand('echo "the tracker command ran"; exit 4');
     const work = await reviewedTicketOnAWorktree('role-history');
     const branchTracker = JSON.parse(progressText()) as Record<string, unknown>;
     mkdirSync(join(work.worktree, '.agent-progress'));
@@ -330,7 +335,7 @@ describeWhenGitIsPresent('the shell a check command runs in', () => {
   }
 
   test('is the user\'s SHELL, handed the stored line after -c', async () => {
-    await storeCheckCommand(MARKER_COMMAND);
+    storeCheckCommand(MARKER_COMMAND);
     const work = await reviewedTicketOnAWorktree('role-history');
 
     const result = await runAgentProgress(releaseArgumentsFor(work), {
@@ -344,12 +349,64 @@ describeWhenGitIsPresent('the shell a check command runs in', () => {
   });
 
   test('is /bin/sh when SHELL is unset', async () => {
-    await storeCheckCommand('echo "ran by $0"; exit 6');
+    storeCheckCommand('echo "ran by $0"; exit 6');
     const work = await reviewedTicketOnAWorktree('role-history');
 
     const result = await runAgentProgress(releaseArgumentsFor(work), { currentDirectory: repositoryDirectory, environment: {} });
 
     expect(result.exitCode, result.standardError).toBe(1);
     expect((JSON.parse(result.standardOutput) as ReleaseDocument).detail).toContain('ran by /bin/sh');
+  });
+});
+
+describeWhenGitIsPresent('a ticket stamped with the check command it started under', () => {
+  test('is refused check-command-differs-from-start once the stored line differs, and released after a restamp', async () => {
+    storeCheckCommand('false');
+    const work = await reviewedTicketOnAWorktree('role-history');
+    storeCheckCommand(MARKER_COMMAND);
+
+    const document = await expectRefusedChangingNothing(work, 'check-command-differs-from-start');
+
+    expect(document.detail).toContain('`false`');
+    expect(document.detail).toContain(`\`${MARKER_COMMAND}\``);
+    expect(document.detail).toContain(`agent-progress checks "${MARKER_COMMAND}" --restamp`);
+    expect(existsSync(markerPath()), 'refused before the command runs').toBe(false);
+
+    // Tried in the main checkout first, so the line must pass there and write nothing beside it.
+    await agentProgressOrFail(['checks', 'git rev-parse HEAD', '--restamp']);
+
+    const outcome = await agentProgress(releaseArgumentsFor(work));
+    expect(outcome.exitCode, outcome.output).toBe(0);
+    expect(mainTip()).toBe(work.tip);
+  });
+
+  test('a ticket started with none stored is refused once a line is stored, and one started under a line once it is cleared', async () => {
+    const unstamped = await reviewedTicketOnAWorktree('role-history');
+    storeCheckCommand(MARKER_COMMAND);
+    expect((await expectRefusedChangingNothing(unstamped, 'check-command-differs-from-start')).detail).toContain('under the check command none');
+
+    const stamped = await reviewedTicketOnAWorktree('role-audit');
+    const progressWithoutTheLine = JSON.parse(progressText()) as Record<string, unknown>;
+    delete progressWithoutTheLine['checkCommand'];
+    writeFileSync(join(repositoryDirectory, '.agent-progress', 'progress.json'), `${JSON.stringify(progressWithoutTheLine, null, 2)}\n`);
+    const cleared = await expectRefusedChangingNothing(stamped, 'check-command-differs-from-start');
+    expect(cleared.detail).toContain('agent-progress checks --clear --restamp');
+  });
+
+  test('one ticket of a release whose stamp differs refuses the whole release', async () => {
+    storeCheckCommand('true');
+    const matching = await reviewedTicketOnAWorktree('role-history');
+    storeCheckCommand('bun test');
+    const differing = JSON.parse(await agentProgressOrFail(['ticket', 'add', 'Show the role audit', '--json'])) as { id: string };
+    await agentProgressOrFail(['ticket', 'start', differing.id]);
+    await agentProgressOrFail(['ticket', 'finish', differing.id]);
+    storeCheckCommand('true');
+
+    const document = await expectRefusedChangingNothing(
+      matching,
+      'check-command-differs-from-start',
+      ['release', matching.identifier, differing.id, '--branch', matching.branch, '--worktree', matching.worktree, '--json'],
+    );
+    expect(document.detail).toContain(`Ticket #${differing.id}`);
   });
 });

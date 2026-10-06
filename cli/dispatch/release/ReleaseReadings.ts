@@ -32,6 +32,26 @@ export function releasableTickets(board: Board, references: readonly string[]): 
   return tickets;
 }
 
+function checkCommandText(checkCommand: string | null): string {
+  return checkCommand === null ? 'none' : `\`${checkCommand}\``;
+}
+
+/** A ticket built under one check command is never released by another; no command, on either side, is a value like any other. */
+export function requireStampsMatchingTheCheckCommand(board: Board, tickets: readonly Readonly<Ticket>[]): void {
+  const storedCheckCommand = board.checkCommand() ?? null;
+  for (const { frontmatter } of tickets) {
+    const stampedCheckCommand = board.linkedRowOf(frontmatter.id)?.checkCommand ?? null;
+    if (stampedCheckCommand === storedCheckCommand) continue;
+    const remedy = storedCheckCommand === null ? 'agent-progress checks --clear --restamp' : `agent-progress checks "${storedCheckCommand}" --restamp`;
+    refuseTheRelease(
+      'check-command-differs-from-start',
+      `Ticket #${frontmatter.id} was started under the check command ${checkCommandText(stampedCheckCommand)}, and the tracker's is now `
+      + `${checkCommandText(storedCheckCommand)}. Nothing was changed. Only the orchestrator settles which one holds: \`${remedy}\` `
+      + 'stamps every ticket in flight with the stored one.',
+    );
+  }
+}
+
 export function requireMainCheckoutOnMainLine(mainCheckout: string, mainLine: string): void {
   const reading = readCurrentBranch(mainCheckout);
   if (reading.verdict === 'git-failed') throw new ReleaseRefusal('unrepaired', 'git-failed', `The main checkout's branch could not be read: ${reading.reason}`);

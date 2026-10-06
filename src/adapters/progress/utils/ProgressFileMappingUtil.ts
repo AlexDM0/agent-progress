@@ -42,6 +42,7 @@ const KNOWN_TASK_KEYS = {
   agent:          true,
   reviewOf:       true,
   reviewBarRound: true,
+  checkCommand:   true,
 } as const satisfies Record<keyof Task | keyof StoredTask, true>;
 
 const KNOWN_TASK_PHASE_KEYS = { status: true, at: true } as const satisfies Record<keyof TaskPhase | keyof StoredTaskPhase, true>;
@@ -102,6 +103,7 @@ function taskOf(stored: StoredTask): Task {
     ...(stored.agent === undefined ? {} : { agent: stored.agent }),
     ...(stored.reviewOf === undefined ? {} : { reviewOf: stored.reviewOf }),
     ...(stored.reviewBarRound === undefined ? {} : { reviewBarRound: stored.reviewBarRound }),
+    ...(stored.checkCommand === undefined ? {} : { checkCommand: stored.checkCommand }),
   });
 }
 
@@ -141,6 +143,7 @@ function storedTaskOf(task: Task): StoredTask {
     ...(task.agent === undefined ? {} : { agent: task.agent }),
     ...(task.reviewOf === undefined ? {} : { reviewOf: task.reviewOf }),
     ...(task.reviewBarRound === undefined ? {} : { reviewBarRound: task.reviewBarRound }),
+    ...(task.checkCommand === undefined ? {} : { checkCommand: task.checkCommand }),
   });
 }
 

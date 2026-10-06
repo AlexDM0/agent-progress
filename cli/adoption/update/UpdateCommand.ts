@@ -33,12 +33,12 @@ export const updateCommand: CommandHandler = async (commandArguments, context) =
   const report             = refreshTrackedRepository({
     workspace,
     installedFileTexts,
-    commandName:               'update',
-    writesClaudeInstructions:  !commandArguments.flag('no-claude-md'),
-    writesTheSubagentStopHook: !commandArguments.flag('no-hooks'),
+    commandName:              'update',
+    writesClaudeInstructions: !commandArguments.flag('no-claude-md'),
+    writesTheHooks:           !commandArguments.flag('no-hooks'),
     writesTheAgentDefinition,
-    writesTheBriefFirst:       false,
-    standardError:             context.standardError,
+    writesTheBriefFirst:      false,
+    standardError:            context.standardError,
   });
 
   context.standardOutput(`Refreshed what agent-progress manages in ${workspace.rootDirectory}; the tracker itself was not touched.`);

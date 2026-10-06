@@ -127,8 +127,8 @@ export class Board {
     return this.trackerChanges.setDispatcherState(state, runId, at);
   }
 
-  setCheckCommand(command: string | null, at: string): CheckCommandSet {
-    return this.trackerChanges.setCheckCommand(command, at);
+  setCheckCommand(command: string | null, restamps: boolean, at: string): CheckCommandSet {
+    return this.trackerChanges.setCheckCommand(command, restamps, at);
   }
 
   recordNote(text: string, at: string): Logged {

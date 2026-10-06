@@ -41,6 +41,8 @@ const SENTENCE_FOR_RECORD: readonly (readonly [LogRecordContent, string])[] = [
   [{ kind: 'ticket-epics-set', ticketId: '005', fields: { epics: ['checkout-redesign'] } }, 'Ticket #005 belongs to epic checkout-redesign'],
   [{ kind: 'ticket-epics-set', ticketId: '005', fields: { epics: ['search', 'checkout-redesign'] } }, 'Ticket #005 belongs to epics search, checkout-redesign'],
   [{ kind: 'ticket-epics-set', ticketId: '005', fields: { epics: [] } }, 'Ticket #005 belongs to no epic'],
+  [{ kind: 'ticket-check-command-restamped', ticketId: '005', fields: { command: 'bun run checks' } }, 'Ticket #005 restamped with the check command bun run checks'],
+  [{ kind: 'ticket-check-command-restamped', ticketId: '005', fields: { command: null } }, 'Ticket #005 restamped with no check command'],
   [{ kind: 'epic-added', epicKey: 'search', fields: { title: 'Example search' } }, 'Epic search added: Example search'],
   [{ kind: 'epic-edited', epicKey: 'search', fields: { title: 'Example search' } }, 'Epic search edited: Example search'],
   [{ kind: 'epic-removed', epicKey: 'search', fields: {} }, 'Epic search removed'],
@@ -123,7 +125,7 @@ const SENTENCE_FOR_RECORD: readonly (readonly [LogRecordContent, string])[] = [
   ],
 ];
 
-const RECORD_KIND_COUNT = 29;
+const RECORD_KIND_COUNT = 30;
 
 test('every kind of record reads as the sentence the log held before there were records', () => {
   expect(new Set(SENTENCE_FOR_RECORD.map(([record]) => record.kind)).size, 'the table covers every kind').toBe(RECORD_KIND_COUNT);
@@ -204,6 +206,7 @@ describe('the entry the page reads', () => {
       [{ kind: 'ticket-unheld', ticketId: '001', fields: {} }, { taskIds: [], ticketIds: ['001'] }],
       [{ kind: 'ticket-release-marked', ticketId: '007', fields: { group: 'release #002' } }, { taskIds: [], ticketIds: ['007'] }],
       [{ kind: 'ticket-release-cleared', ticketId: '007', fields: {} }, { taskIds: [], ticketIds: ['007'] }],
+      [{ kind: 'ticket-check-command-restamped', ticketId: '007', fields: { command: 'bun run example-checks' } }, { taskIds: [], ticketIds: ['007'] }],
       [
         {
           kind:     'review-bar-started',

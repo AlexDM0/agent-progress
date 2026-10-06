@@ -27,6 +27,7 @@ export interface StoredTask {
   agent?:          string;
   reviewOf?:       string;
   reviewBarRound?: number;
+  checkCommand?:   string;
 }
 
 export interface StoredProgressFile {

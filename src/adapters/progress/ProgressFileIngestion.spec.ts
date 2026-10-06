@@ -146,6 +146,7 @@ test('every other missing or mistyped field is named too', () => {
     { prefix: 'store-zero-bar-round', document: { ...progress, tasks: [{ ...progress.tasks[0], reviewBarRound: 0 }] }, named: 'tasks[0].reviewBarRound' },
     { prefix: 'store-fractional-bar-round', document: { ...progress, tasks: [{ ...progress.tasks[0], reviewBarRound: 1.5 }] }, named: 'tasks[0].reviewBarRound' },
     { prefix: 'store-written-bar-round', document: { ...progress, tasks: [{ ...progress.tasks[0], reviewBarRound: '2' }] }, named: 'tasks[0].reviewBarRound' },
+    { prefix: 'store-blank-stamp', document: { ...progress, tasks: [{ ...progress.tasks[0], checkCommand: '  ' }] }, named: 'tasks[0].checkCommand' },
   ];
   for (const { prefix, document, named } of cases) {
     const result = readBack(prefix, document);

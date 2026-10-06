@@ -56,7 +56,9 @@ with it. Then act on the answers in this order.
    or its scripts and store it once with `agent-progress checks "<line>"`: the tracker is where it
    lives, and every `agent-progress release` runs it on the branch's tip before it changes anything,
    so never pass the dispatcher another. Ask the user, through AskUserQuestion, only for what the
-   repository does not say.
+   repository does not say. Changing it is yours alone: the PreToolUse hook blocks an agent's change.
+   With tickets in flight, change it only with `agent-progress checks "<line>" --restamp`, since a
+   release refuses a ticket stamped with another line (`check-command-differs-from-start`).
 6. `agent-progress open`, once. Refused naming the install version: see When agent-progress itself
    changes.
 7. Report the board in at most five lines — in flight, ready to start, blocked and on what, the
@@ -284,6 +286,8 @@ after an unhold. Then:
    from then on. Review rounds that did not converge are a sign about the ticket, not the reviewers:
    file a new ticket stating the invariant behind what the reviews kept finding, with the search for
    its other instances as an acceptance item, and tell the user the parked branch waits on it.
+   A reviewer's `holds, not released: check command broken` means the stored line itself cannot run:
+   fix it with `agent-progress checks "<line>" --restamp` and relaunch the dispatcher.
 4. Each ticket in `findingsFiled`, judged for severity as Intake says.
 5. `agent-progress status --json`: a row the run left `in-progress` or `in-review` with no agent
    behind it is yours to close. A ticket's own row moves only through the `ticket` verbs, which

@@ -57,6 +57,7 @@ export const LOG_RECORD_SCHEMA = {
   'ticket-release-marked':           { subject: 'ticket', fields: { group: 'text' } },
   'ticket-release-cleared':          { subject: 'ticket', fields: NO_FIELDS },
   'ticket-epics-set':                { subject: 'ticket', fields: { epics: 'epic-keys' } },
+  'ticket-check-command-restamped':  { subject: 'ticket', fields: { command: 'check-command' } },
   'epic-added':                      { subject: 'epic', fields: { title: 'text' } },
   'epic-edited':                     { subject: 'epic', fields: { title: 'text' } },
   'epic-removed':                    { subject: 'epic', fields: NO_FIELDS },

@@ -74,6 +74,9 @@ function taskProblem(value: unknown, index: number): string | null {
   if (task['reviewBarRound'] !== undefined && !reviewBarRoundIsWellFormed(task['reviewBarRound'])) {
     return `tasks[${index}].reviewBarRound is present and is not a whole round of at least ${FIRST_REVIEW_BAR_ROUND}`;
   }
+  if (task['checkCommand'] !== undefined && !BoardSettingsUtil.checkCommandIsWellFormed(task['checkCommand'])) {
+    return `tasks[${index}].checkCommand is present and is not a shell line that is not blank`;
+  }
   return null;
 }
 

@@ -17,10 +17,11 @@ import {
   test
 } from 'bun:test';
 
-import { createScratchDirectory, removeScratchDirectory }                            from '../../testing/ScratchWorkspace.ts';
-import { claudeSettingsFilePathFor, refreshSubagentStopHook, writeSubagentStopHook } from './ClaudeSettings.ts';
+import { createScratchDirectory, removeScratchDirectory }                  from '../../testing/ScratchWorkspace.ts';
+import { claudeSettingsFilePathFor, refreshCommandHook, writeCommandHook } from './ClaudeSettings.ts';
 
 const THE_HOOK = {
+  event:          'SubagentStop',
   matcher:        '',
   command:        'example-tool hook stop',
   timeoutSeconds: 20,
@@ -53,7 +54,7 @@ describe('a repository with no settings file', () => {
   test('gets one holding just the hook, in the folder the harness reads it from', () => {
     const rootDirectory = scratchRoot('claude-settings-created');
 
-    expect(writeSubagentStopHook(claudeSettingsFilePathFor(rootDirectory), THE_HOOK)).toBe('created');
+    expect(writeCommandHook(claudeSettingsFilePathFor(rootDirectory), THE_HOOK)).toBe('created');
 
     expect(existsSync(join(rootDirectory, '.claude', 'settings.json'))).toBe(true);
     expect(settingsIn(rootDirectory)).toEqual({
@@ -76,7 +77,7 @@ describe('a settings file that already says things', () => {
       model:       'opus',
     }, null, 2));
 
-    expect(writeSubagentStopHook(claudeSettingsFilePathFor(rootDirectory), THE_HOOK)).toBe('added');
+    expect(writeCommandHook(claudeSettingsFilePathFor(rootDirectory), THE_HOOK)).toBe('added');
 
     const settings = settingsIn(rootDirectory);
     expect(settings['permissions']).toEqual({ allow: ['Bash(bun test)'] });
@@ -90,7 +91,7 @@ describe('a settings file that already says things', () => {
     const rootDirectory = scratchRoot('claude-settings-other-subagent-stop');
     writeSettings(rootDirectory, JSON.stringify({ hooks: { SubagentStop: [{ matcher: 'Explore', hooks: [{ type: 'command', command: 'say done' }] }] }, }, null, 2));
 
-    expect(writeSubagentStopHook(claudeSettingsFilePathFor(rootDirectory), THE_HOOK)).toBe('added');
+    expect(writeCommandHook(claudeSettingsFilePathFor(rootDirectory), THE_HOOK)).toBe('added');
 
     const groups = (settingsIn(rootDirectory)['hooks'] as Record<string, unknown>)['SubagentStop'] as unknown[];
     expect(groups.length).toBe(2);
@@ -103,10 +104,10 @@ describe('a second write of the same hook', () => {
   test('finds the command already there, adds nothing and leaves the file unchanged', () => {
     const rootDirectory    = scratchRoot('claude-settings-idempotent');
     const settingsFilePath = claudeSettingsFilePathFor(rootDirectory);
-    expect(writeSubagentStopHook(settingsFilePath, THE_HOOK)).toBe('created');
+    expect(writeCommandHook(settingsFilePath, THE_HOOK)).toBe('created');
     const afterTheFirstRun = readFileSync(settingsFilePath, 'utf8');
 
-    expect(writeSubagentStopHook(settingsFilePath, THE_HOOK)).toBe('already-present');
+    expect(writeCommandHook(settingsFilePath, THE_HOOK)).toBe('already-present');
 
     expect(readFileSync(settingsFilePath, 'utf8')).toBe(afterTheFirstRun);
   });
@@ -116,7 +117,7 @@ describe('a second write of the same hook', () => {
     const sameCommandElsewhere = [{ matcher: '*', hooks: [{ type: 'command', command: 'example-tool hook stop', timeout: 20 }] }];
     writeSettings(rootDirectory, JSON.stringify({ hooks: { SubagentStop: sameCommandElsewhere } }, null, 2));
 
-    expect(writeSubagentStopHook(claudeSettingsFilePathFor(rootDirectory), THE_HOOK)).toBe('already-present');
+    expect(writeCommandHook(claudeSettingsFilePathFor(rootDirectory), THE_HOOK)).toBe('already-present');
   });
 });
 
@@ -126,7 +127,7 @@ describe('a settings file this cannot merge into', () => {
     const malformedText    = '{ "permissions": { "allow": ["Bash(bun test)"] ,,, }';
     const settingsFilePath = writeSettings(rootDirectory, malformedText);
 
-    expect(writeSubagentStopHook(settingsFilePath, THE_HOOK)).toBe('refused-unreadable');
+    expect(writeCommandHook(settingsFilePath, THE_HOOK)).toBe('refused-unreadable');
 
     expect(readFileSync(settingsFilePath, 'utf8')).toBe(malformedText);
   });
@@ -142,7 +143,7 @@ describe('a settings file this cannot merge into', () => {
       const rootDirectory    = scratchRoot('claude-settings-wrong-shape');
       const settingsFilePath = writeSettings(rootDirectory, contents);
 
-      expect(writeSubagentStopHook(settingsFilePath, THE_HOOK), description).toBe('refused-unreadable');
+      expect(writeCommandHook(settingsFilePath, THE_HOOK), description).toBe('refused-unreadable');
       expect(readFileSync(settingsFilePath, 'utf8'), description).toBe(contents);
     }
   });
@@ -152,7 +153,7 @@ describe('a settings file this cannot merge into', () => {
     const rootDirectory    = scratchRoot('claude-settings-empty');
     const settingsFilePath = writeSettings(rootDirectory, '');
 
-    expect(writeSubagentStopHook(settingsFilePath, THE_HOOK)).toBe('refused-unreadable');
+    expect(writeCommandHook(settingsFilePath, THE_HOOK)).toBe('refused-unreadable');
     expect(readFileSync(settingsFilePath, 'utf8')).toBe('');
   });
 });
@@ -164,14 +165,14 @@ describe('a settings file this cannot merge into', () => {
 describe('refreshing the hook rather than installing it', () => {
   test('a repository with no settings file, and one whose settings hold no SubagentStop entry, are both absent and get nothing', () => {
     const withoutAFile = scratchRoot('claude-settings-refresh-absent');
-    expect(refreshSubagentStopHook(claudeSettingsFilePathFor(withoutAFile), THE_HOOK)).toBe('absent');
+    expect(refreshCommandHook(claudeSettingsFilePathFor(withoutAFile), THE_HOOK)).toBe('absent');
     expect(existsSync(claudeSettingsFilePathFor(withoutAFile)), 'a refresh installs nothing').toBe(false);
 
     const withOtherHooks   = scratchRoot('claude-settings-refresh-other-hooks');
     const otherHooksOnly   = `${JSON.stringify({ hooks: { SessionStart: [{ matcher: '', hooks: [{ type: 'command', command: 'echo hello' }] }] } }, null, 2)}\n`;
     const settingsFilePath = writeSettings(withOtherHooks, otherHooksOnly);
 
-    expect(refreshSubagentStopHook(settingsFilePath, THE_HOOK)).toBe('absent');
+    expect(refreshCommandHook(settingsFilePath, THE_HOOK)).toBe('absent');
     expect(readFileSync(settingsFilePath, 'utf8')).toBe(otherHooksOnly);
   });
 
@@ -189,7 +190,7 @@ describe('refreshing the hook rather than installing it', () => {
       },
     }, null, 2)}\n`);
 
-    expect(refreshSubagentStopHook(settingsFilePath, THE_HOOK)).toBe('updated');
+    expect(refreshCommandHook(settingsFilePath, THE_HOOK)).toBe('updated');
 
     expect((settingsIn(rootDirectory)['hooks'] as Record<string, unknown>)['SubagentStop']).toEqual([{
       matcher: 'Explore',
@@ -206,7 +207,7 @@ describe('refreshing the hook rather than installing it', () => {
     const handFormatted    = `{\n    "hooks": {\n        "SubagentStop": ${theEntry}\n    }\n}\n`;
     const settingsFilePath = writeSettings(rootDirectory, handFormatted);
 
-    expect(refreshSubagentStopHook(settingsFilePath, THE_HOOK)).toBe('unchanged');
+    expect(refreshCommandHook(settingsFilePath, THE_HOOK)).toBe('unchanged');
     expect(readFileSync(settingsFilePath, 'utf8')).toBe(handFormatted);
   });
 
@@ -215,7 +216,7 @@ describe('refreshing the hook rather than installing it', () => {
     const malformed        = '{ "hooks": { "SubagentStop": [ ';
     const settingsFilePath = writeSettings(rootDirectory, malformed);
 
-    expect(refreshSubagentStopHook(settingsFilePath, THE_HOOK)).toBe('refused-unreadable');
+    expect(refreshCommandHook(settingsFilePath, THE_HOOK)).toBe('refused-unreadable');
     expect(readFileSync(settingsFilePath, 'utf8')).toBe(malformed);
   });
 });

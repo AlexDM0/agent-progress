@@ -192,6 +192,10 @@ describeWhenGitIsPresent('updating a tracked repository', () => {
     expect(subagentStopGroupsIn(repositoryDirectory, LOCAL_SETTINGS)).toEqual([
       { matcher: '', hooks: [{ type: 'command', command: 'agent-progress hook subagent-stop', timeout: 20 }] },
     ]);
+    const localSettings = JSON.parse(readFileSync(settingsFilePathIn(repositoryDirectory, LOCAL_SETTINGS), 'utf8')) as { hooks: Record<string, unknown> };
+    expect(localSettings.hooks['PreToolUse']).toEqual([
+      { matcher: 'Bash', hooks: [{ type: 'command', command: 'agent-progress hook pre-tool-use', timeout: 10 }] },
+    ]);
     expect(existsSync(settingsFilePathIn(repositoryDirectory, SHARED_SETTINGS)), 'nothing lands in the file colleagues share').toBe(false);
     expect(context.outputText()).toContain('settings.local.json (installed)');
   });
@@ -209,7 +213,7 @@ describeWhenGitIsPresent('updating a tracked repository', () => {
   });
 
   /** An entry a repository chose to share is its author's; it is kept current where it is rather than copied, which would log every agent twice. */
-  test('a hook already in the shared settings file is refreshed in place, and no local file appears beside it', async () => {
+  test('a hook already in the shared settings file is refreshed in place, and no local copy of it appears beside it', async () => {
     const repositoryDirectory = await trackedRepositoryWithStaleFiles();
     writeSettings(repositoryDirectory, SHARED_SETTINGS, {
       hooks: {
@@ -224,9 +228,10 @@ describeWhenGitIsPresent('updating a tracked repository', () => {
     expect(subagentStopGroupsIn(repositoryDirectory, SHARED_SETTINGS)).toEqual([
       { matcher: '', hooks: [{ type: 'command', command: 'agent-progress hook subagent-stop', timeout: 20 }] },
     ]);
-    expect(existsSync(settingsFilePathIn(repositoryDirectory, LOCAL_SETTINGS)), 'a second copy would record every agent twice').toBe(false);
+    expect(subagentStopGroupsIn(repositoryDirectory, LOCAL_SETTINGS), 'a second copy would record every agent twice').toBeUndefined();
+    expect(context.outputText()).toContain('SubagentStop');
     expect(context.outputText()).toContain('settings.json (updated)');
-    expect(context.outputText()).not.toContain('settings.local.json');
+    expect(context.outputText(), 'the check command\'s guard, which the shared file lacks, is installed locally').toContain('settings.local.json (installed)');
   });
 
   test('a local settings file that holds other keys keeps every one of them', async () => {

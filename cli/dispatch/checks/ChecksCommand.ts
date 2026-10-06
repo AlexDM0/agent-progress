@@ -8,10 +8,17 @@ import type { CommandHandler }   from '../../CommandHandler.ts';
 import { openTrackerForWriting } from '../../OpenTrackerForWriting.ts';
 import type { ArgumentParser }   from '../../arguments/ArgumentParser.ts';
 import { OutputUtil }            from '../../utils/OutputUtil.ts';
+import {
+  CHECK_OUTPUT_TAIL_LINES,
+  checkRunOutcomeText,
+  checkRunPassed,
+  lastLinesOf,
+  runCheckCommand
+} from '../CheckCommandRun.ts';
 
-const USAGE = 'agent-progress checks ["<command>" | --clear] [--json]';
+const USAGE = 'agent-progress checks ["<command>" | --clear] [--restamp] [--json]';
 
-const KNOWN_OPTION_NAMES = ['clear', 'json'];
+const KNOWN_OPTION_NAMES = ['clear', 'restamp', 'json'];
 
 const NO_CHECK_COMMAND_TEXT = 'No check command is set, so `agent-progress release` runs none. Set one with `agent-progress checks "<command>"`.';
 
@@ -33,23 +40,44 @@ function storedCommandFrom(commandArguments: ArgumentParser): string | null {
   return written;
 }
 
+/** Run once in the main checkout before anything is stored, so a line that cannot pass there, a typo above all, never stalls a release. */
+async function requireTheCommandPassesInTheMainCheckout(checkCommand: string, commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
+  const mainCheckout = requireWorkspace(context.currentDirectory).rootDirectory;
+  if (!commandArguments.flag('json')) context.standardError(`Trying the check command in ${mainCheckout}: ${checkCommand}`);
+  const checkRun = await runCheckCommand(checkCommand, mainCheckout);
+  if (checkRunPassed(checkRun)) return;
+  throw new OperationRefusal(
+    'refused',
+    `The check command \`${checkCommand}\` ${checkRunOutcomeText(checkRun)} in the main checkout ${mainCheckout}, so it was not stored and nothing `
+    + `was logged: fix the line, or what it reports, and set it again. Its last ${CHECK_OUTPUT_TAIL_LINES} lines:\n${lastLinesOf(checkRun.output)}`,
+  );
+}
+
 export const checksCommand: CommandHandler = async (commandArguments, context) => {
   commandArguments.rejectUnknownOptions(KNOWN_OPTION_NAMES, USAGE);
   commandArguments.rejectExtraPositionals(1, USAGE);
 
   if (commandArguments.positional() === undefined && !commandArguments.flag('clear')) {
+    if (commandArguments.flag('restamp')) throw new OperationRefusal('refused', `--restamp goes with a command or --clear.\n  Usage: ${USAGE}`);
     printCurrentCheckCommand(commandArguments, context);
     return;
   }
   const checkCommand = storedCommandFrom(commandArguments);
+  if (checkCommand !== null) await requireTheCommandPassesInTheMainCheckout(checkCommand, commandArguments, context);
 
-  const { logged, previousCheckCommand } = await openTrackerForWriting(commandArguments, context, (change) => {
-    if (checkCommand === null && change.board.checkCommand() === undefined) {
+  const restamps = commandArguments.flag('restamp');
+  const { logged, previousCheckCommand, restampedTicketIds } = await openTrackerForWriting(commandArguments, context, (change) => {
+    if (checkCommand === null && change.board.checkCommand() === undefined && !restamps) {
       throw new OperationRefusal('refused', `No check command is set, so there is none to clear.\n  Usage: ${USAGE}`);
     }
-    return change.board.setCheckCommand(checkCommand, change.at);
+    return change.board.setCheckCommand(checkCommand, restamps, change.at);
   });
 
   const loggedSentence = OutputUtil.loggedSentencesOf(logged);
-  OutputUtil.printEntity(commandArguments, context, { checkCommand, previousCheckCommand }, `${loggedSentence} (was ${previousCheckCommand ?? 'none'}).`);
+  OutputUtil.printEntity(
+    commandArguments,
+    context,
+    { checkCommand, previousCheckCommand, restampedTicketIds },
+    `${loggedSentence} (was ${previousCheckCommand ?? 'none'}).`,
+  );
 };

@@ -44,4 +44,9 @@ export interface Task {
   reviewOf?:       string;
   /** Which review of the `reviewOf` ticket this bar is, from 1, fixed when the bar is filed; unlike `reviewRound`, no transition moves it. */
   reviewBarRound?: number;
+  /**
+   * The tracker's check command when the row's ticket last moved into in-progress, or was restamped; a release refuses a ticket whose stamp
+   * differs from the command it would run. Absent when none was stored then.
+   */
+  checkCommand?:   string;
 }

@@ -38,7 +38,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
   const rootDirectory = initRootDirectoryOf(commandArguments.option('root'), context.currentDirectory);
   const workspace     = workspacePathsFor(rootDirectory);
   const writesClaudeInstructions = !commandArguments.flag('no-claude-md');
-  const writesTheSubagentStopHook = !commandArguments.flag('no-hooks');
+  const writesTheHooks = !commandArguments.flag('no-hooks');
   const writesTheDispatcherWorkflow = !commandArguments.flag('no-workflow');
   const writesTheAgentDefinition = !commandArguments.flag('no-agent-definition');
   refuseAnAgentDefinitionOptOutKeepingTheWorkflow('init', { writesTheAgentDefinition, writesTheDispatcherWorkflow });
@@ -51,7 +51,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
     installedFileTexts,
     commandName:   'init',
     writesClaudeInstructions,
-    writesTheSubagentStopHook,
+    writesTheHooks,
     writesTheAgentDefinition,
     writesTheBriefFirst,
     standardError: context.standardError,

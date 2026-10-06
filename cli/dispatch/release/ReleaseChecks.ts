@@ -2,36 +2,33 @@
  * Before the lock: when the tracker stores a check command, the branch's worktree must stand exactly at the branch's tip with nothing beside
  * it, and the command runs there, outside the lock so other releases do not wait on it. What it hands on is what the lock must find again.
  */
-import { readWorktreeCheckout, type FilesLeftInWorktree }                          from '../../../src/lib/git/BranchIntegration.ts';
-import { readingBoardOf }                                                          from '../../../src/lib/tracker-model/ReadingBoard.ts';
-import { requireProgressFile, requireTracker }                                     from '../../../src/services/tracker/TrackerReader.ts';
-import { requireWorkspace }                                                        from '../../../src/services/tracker/Workspace.ts';
-import { userShell }                                                               from '../../../src/shared/Environment.ts';
-import type { CommandContext }                                                     from '../../CommandContext.ts';
-import type { ArgumentParser }                                                     from '../../arguments/ArgumentParser.ts';
-import { OutputUtil }                                                              from '../../utils/OutputUtil.ts';
-import { branchCommitToRelease, releasableTickets, requireMainCheckoutOnMainLine } from './ReleaseReadings.ts';
-import { ReleaseRefusal, refuseTheRelease }                                        from './ReleaseRefusal.ts';
-import type { ReleaseRequest }                                                     from './ReleaseRequest.ts';
+import { readWorktreeCheckout, type FilesLeftInWorktree } from '../../../src/lib/git/BranchIntegration.ts';
+import { readingBoardOf }                                 from '../../../src/lib/tracker-model/ReadingBoard.ts';
+import { requireProgressFile, requireTracker }            from '../../../src/services/tracker/TrackerReader.ts';
+import { requireWorkspace }                               from '../../../src/services/tracker/Workspace.ts';
+import type { CommandContext }                            from '../../CommandContext.ts';
+import type { ArgumentParser }                            from '../../arguments/ArgumentParser.ts';
+import { OutputUtil }                                     from '../../utils/OutputUtil.ts';
+import {
+  CHECK_OUTPUT_TAIL_LINES,
+  checkRunOutcomeText,
+  checkRunPassed,
+  lastLinesOf,
+  runCheckCommand
+} from '../CheckCommandRun.ts';
+import {
+  branchCommitToRelease,
+  releasableTickets,
+  requireMainCheckoutOnMainLine,
+  requireStampsMatchingTheCheckCommand
+} from './ReleaseReadings.ts';
+import { ReleaseRefusal, refuseTheRelease } from './ReleaseRefusal.ts';
+import type { ReleaseRequest }              from './ReleaseRequest.ts';
 
 export interface CheckedTip {
   commit:       string;
   checkCommand: string;
 }
-
-interface CheckRun {
-  exitCode: number | null;
-  output:   string;
-}
-
-const CHECK_OUTPUT_TAIL_LINES = 20;
-
-const CHECK_SUCCESS_EXIT_CODE = 0;
-
-const FALLBACK_SHELL = '/bin/sh';
-
-// `sh` joins standard error onto standard output once, then hands the line to the user's shell, so the output keeps its order whatever shell that is.
-const OUTPUT_JOINING_SCRIPT = 'exec 2>&1; exec "$0" -c "$1"';
 
 function filesText({ untrackedFiles, changedFiles }: FilesLeftInWorktree): string {
   return [
@@ -80,38 +77,15 @@ function requireCheckoutUnchangedByTheChecks(worktreePath: string, tip: string):
   }
 }
 
-async function runCheckCommand(checkCommand: string, worktreePath: string): Promise<CheckRun> {
-  try {
-    const checkProcess = Bun.spawn({
-      cmd:    [FALLBACK_SHELL, '-c', OUTPUT_JOINING_SCRIPT, userShell() ?? FALLBACK_SHELL, checkCommand],
-      cwd:    worktreePath,
-      stdin:  'ignore',
-      stdout: 'pipe',
-      stderr: 'pipe',
-    });
-    const [output, errorOutput, exitCode] = await Promise.all([
-      new Response(checkProcess.stdout).text(),
-      new Response(checkProcess.stderr).text(),
-      checkProcess.exited,
-    ]);
-    return { exitCode, output: output + errorOutput };
-  } catch (error) {
-    return { exitCode: null, output: error instanceof Error ? error.message : String(error) };
-  }
-}
-
-function lastLinesOf(output: string): string {
-  return output.trimEnd().split('\n').slice(-CHECK_OUTPUT_TAIL_LINES).join('\n');
-}
-
 /** `null` when the tracker stores no check command: the release then runs as it always did. */
 export async function checkTheBranchTip(request: ReleaseRequest, commandArguments: ArgumentParser, context: CommandContext): Promise<CheckedTip | null> {
   const workspace = requireWorkspace(context.currentDirectory);
-  // Everything here is read again under the lock, which refuses a check command or a tip that changed meanwhile.
+  // Everything here is read again under the lock, which refuses a check command, a stamp or a tip that changed meanwhile.
   const checkCommand = readingBoardOf(requireProgressFile(workspace), [], []).checkCommand();
   if (checkCommand === undefined) return null;
   const { progress, listing, epicListing } = requireTracker(workspace);
-  releasableTickets(readingBoardOf(progress, listing.tickets, epicListing.epics), request.references);
+  const board                              = readingBoardOf(progress, listing.tickets, epicListing.epics);
+  requireStampsMatchingTheCheckCommand(board, releasableTickets(board, request.references));
   const { worktreePath } = request;
   if (worktreePath === undefined) {
     refuseTheRelease('invalid-request', 'This tracker stores a check command, which a release runs in the branch\'s worktree: name it with --worktree <path>.');
@@ -124,12 +98,11 @@ export async function checkTheBranchTip(request: ReleaseRequest, commandArgument
 
   if (!commandArguments.flag('json')) context.standardError(`Running the checks on ${request.branch} (${OutputUtil.shortCommitOf(tip)}) in ${worktreePath}: ${checkCommand}`);
   const checkRun = await runCheckCommand(checkCommand, worktreePath);
-  if (checkRun.exitCode !== CHECK_SUCCESS_EXIT_CODE) {
-    const outcomeText = checkRun.exitCode === null ? 'could not be started' : `exited ${checkRun.exitCode}`;
+  if (!checkRunPassed(checkRun)) {
     throw new ReleaseRefusal(
       'refused',
       'checks-failed',
-      `The check command \`${checkCommand}\` ${outcomeText} on ${request.branch} (${OutputUtil.shortCommitOf(tip)}) in ${worktreePath}: `
+      `The check command \`${checkCommand}\` ${checkRunOutcomeText(checkRun)} on ${request.branch} (${OutputUtil.shortCommitOf(tip)}) in ${worktreePath}: `
       + `fix what it reports, commit, and release again. Nothing was changed. Its last ${CHECK_OUTPUT_TAIL_LINES} lines:\n${lastLinesOf(checkRun.output)}`,
     );
   }

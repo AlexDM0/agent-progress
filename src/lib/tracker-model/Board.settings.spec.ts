@@ -53,7 +53,7 @@ test('a tracker that never set a check command reads none', () => {
 
 test('setting the check command hands back the one before, stores the new one and logs one record', () => {
   const { board, progress, records } = boardFixture();
-  const changed                      = board.setCheckCommand('bun run example-checks', CHANGED_AT);
+  const changed                      = board.setCheckCommand('bun run example-checks', false, CHANGED_AT);
 
   expect(changed.previousCheckCommand).toBeNull();
   expect(progress.checkCommand).toBe('bun run example-checks');
@@ -65,8 +65,8 @@ test('setting the check command hands back the one before, stores the new one an
 // A cleared setting must leave the file as though it had never been set, so a release runs no check rather than an empty one.
 test('clearing the check command deletes the stored key and hands back the one it held', () => {
   const { board, progress } = boardFixture();
-  board.setCheckCommand('bun run example-checks', CHANGED_AT);
-  const changed = board.setCheckCommand(null, CHANGED_AT);
+  board.setCheckCommand('bun run example-checks', false, CHANGED_AT);
+  const changed = board.setCheckCommand(null, false, CHANGED_AT);
 
   expect(changed.previousCheckCommand).toBe('bun run example-checks');
   expect('checkCommand' in progress).toBe(false);

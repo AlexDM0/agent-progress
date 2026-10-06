@@ -10,9 +10,10 @@ import { writeManagedBlock }           from '../../src/lib/claude-code/ClaudeIns
 import {
   claudeLocalSettingsFilePathFor,
   claudeSettingsFilePathFor,
-  refreshSubagentStopHook,
-  writeSubagentStopHook
-}                                                             from '../../src/lib/claude-code/ClaudeSettings.ts';
+  refreshCommandHook,
+  writeCommandHook,
+  type CommandHook
+}                                                                    from '../../src/lib/claude-code/ClaudeSettings.ts';
 import type { Workspace }                                from '../../src/services/tracker/Workspace.ts';
 import { OperationRefusal }                              from '../../src/shared/OperationRefusal.ts';
 import { installedFilePathsIn, type InstalledFilePaths } from '../InstalledFiles.ts';
@@ -21,23 +22,36 @@ import type { InstalledFileTexts }                       from './InstalledFileGe
 import { CLAUDE_MANAGED_BLOCK_MARKERS }                  from './constants/ClaudeManagedBlockMarkers.ts';
 
 /** The matcher is empty so every subagent is recorded, matching the cohort `usage` reads; the timeout covers waiting on a held lock. */
-const SUBAGENT_STOP_HOOK = {
+const SUBAGENT_STOP_HOOK: CommandHook = {
+  event:          'SubagentStop',
   matcher:        '',
   command:        'agent-progress hook subagent-stop',
   timeoutSeconds: 20,
 };
 
+/** Only a Bash call can change the check command, and the hook reads nothing but its input, so it needs no lock time. */
+const PRE_TOOL_USE_HOOK: CommandHook = {
+  event:          'PreToolUse',
+  matcher:        'Bash',
+  command:        'agent-progress hook pre-tool-use',
+  timeoutSeconds: 10,
+};
+
+const INSTALLED_HOOKS: readonly CommandHook[] = [SUBAGENT_STOP_HOOK, PRE_TOOL_USE_HOOK];
+
+const REFUSED_UNREADABLE_SETTINGS_LINE = 'refused (the settings file could not be read)';
+
 export interface TrackerRefreshRequest {
-  workspace:                 Workspace;
-  installedFileTexts:        InstalledFileTexts;
+  workspace:                Workspace;
+  installedFileTexts:       InstalledFileTexts;
   /** The word the reader typed, so a line telling them to run something again names it. */
-  commandName:               string;
-  writesClaudeInstructions:  boolean;
-  writesTheSubagentStopHook: boolean;
-  writesTheAgentDefinition:  boolean;
+  commandName:              string;
+  writesClaudeInstructions: boolean;
+  writesTheHooks:           boolean;
+  writesTheAgentDefinition: boolean;
   /** Only a fresh `init`: the brief marks the files installed, so a run cut short after it reads as unversioned and asks for a rerun. */
-  writesTheBriefFirst:       boolean;
-  standardError:             (text: string) => void;
+  writesTheBriefFirst:      boolean;
+  standardError:            (text: string) => void;
 }
 
 export interface TrackerRefreshReport {
@@ -96,38 +110,46 @@ function refreshBriefs(installedFilePaths: InstalledFilePaths, installedFileText
 }
 
 /** Written to the per-user settings file unless the shared one already holds the entry, which is then kept current there. */
-function refreshSubagentStopHookIn(
-  rootDirectory: string,
-  commandName: string,
-  writesTheSubagentStopHook: boolean,
-  standardError: (text: string) => void,
-): string {
+function refreshHookIn(rootDirectory: string, commandName: string, hook: CommandHook, standardError: (text: string) => void): string {
 
   function refusedUnreadableSettings(settingsFilePath: string): string {
     standardError(
       `${settingsFilePath} could not be read as a JSON object, so it was left exactly as it was and the hook was not written. `
-      + `Fix or remove that file and run \`agent-progress ${commandName}\` again, or add the \`${SUBAGENT_STOP_HOOK.command}\` hook to it by hand.`,
+      + `Fix or remove that file and run \`agent-progress ${commandName}\` again, or add the \`${hook.command}\` hook to it by hand.`,
     );
-    return 'refused (the settings file could not be read)';
+    return REFUSED_UNREADABLE_SETTINGS_LINE;
   }
 
-  // Opting out comes first, or refreshing an entry the shared file already holds would write into a file
-  // colleagues share on behalf of a reader who asked for no settings file to be touched at all.
-  if (!writesTheSubagentStopHook) return 'left alone (--no-hooks)';
-
   const sharedSettingsFilePath = claudeSettingsFilePathFor(rootDirectory);
-  const sharedOutcome          = refreshSubagentStopHook(sharedSettingsFilePath, SUBAGENT_STOP_HOOK);
+  const sharedOutcome          = refreshCommandHook(sharedSettingsFilePath, hook);
   if (sharedOutcome === 'refused-unreadable') return refusedUnreadableSettings(sharedSettingsFilePath);
   if (sharedOutcome !== 'absent') return `${sharedSettingsFilePath} (${sharedOutcome})`;
 
   const localSettingsFilePath = claudeLocalSettingsFilePathFor(rootDirectory);
-  const localOutcome          = refreshSubagentStopHook(localSettingsFilePath, SUBAGENT_STOP_HOOK);
+  const localOutcome          = refreshCommandHook(localSettingsFilePath, hook);
   if (localOutcome === 'refused-unreadable') return refusedUnreadableSettings(localSettingsFilePath);
   if (localOutcome !== 'absent') return `${localSettingsFilePath} (${localOutcome})`;
 
-  const installOutcome = writeSubagentStopHook(localSettingsFilePath, SUBAGENT_STOP_HOOK);
+  const installOutcome = writeCommandHook(localSettingsFilePath, hook);
   if (installOutcome === 'refused-unreadable') return refusedUnreadableSettings(localSettingsFilePath);
   return `${localSettingsFilePath} (installed)`;
+}
+
+/** One line for both hooks when they fared alike, one per hook otherwise; an unreadable settings file stops at the first refusal. */
+function refreshHooksIn(rootDirectory: string, commandName: string, writesTheHooks: boolean, standardError: (text: string) => void): string {
+  // Opting out comes first, or refreshing an entry the shared file already holds would write into a file
+  // colleagues share on behalf of a reader who asked for no settings file to be touched at all.
+  if (!writesTheHooks) return 'left alone (--no-hooks)';
+
+  const hookLines: { event: string; line: string }[] = [];
+  for (const hook of INSTALLED_HOOKS) {
+    const line = refreshHookIn(rootDirectory, commandName, hook, standardError);
+    if (line === REFUSED_UNREADABLE_SETTINGS_LINE) return line;
+    hookLines.push({ event: hook.event, line });
+  }
+  const distinctLines = new Set(hookLines.map(({ line }) => line));
+  if (distinctLines.size === 1) return hookLines[0]?.line ?? '';
+  return hookLines.map(({ event, line }) => `${event} ${line}`).join('; ');
 }
 
 /** Checked before the first write: the dispatcher starts every builder and reviewer as the agent this definition declares. */
@@ -216,7 +238,7 @@ export function refreshTrackedRepository(request: TrackerRefreshRequest): Tracke
     installedFileTexts,
     commandName,
     writesClaudeInstructions,
-    writesTheSubagentStopHook,
+    writesTheHooks,
     writesTheAgentDefinition,
     writesTheBriefFirst,
     standardError,
@@ -229,7 +251,7 @@ export function refreshTrackedRepository(request: TrackerRefreshRequest): Tracke
   const claudeInstructionsLine = writesClaudeInstructions
     ? refreshClaudeInstructions(installedFilePaths.claudeInstructions, installedFileTexts.claudeInstructionsBlockBody, commandName, standardError)
     : 'left alone (--no-claude-md)';
-  const hookLine = refreshSubagentStopHookIn(workspace.rootDirectory, commandName, writesTheSubagentStopHook, standardError);
+  const hookLine = refreshHooksIn(workspace.rootDirectory, commandName, writesTheHooks, standardError);
   const dispatcherScriptLine = dispatcherScript === null
     ? 'left alone (--no-workflow)'
     : refreshDispatcherScript(installedFilePaths.dispatcherScript, dispatcherScript);

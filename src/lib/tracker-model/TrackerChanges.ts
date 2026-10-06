@@ -6,8 +6,11 @@ import type {
   Logged,
   TrackerCleared
 } from './@types/BoardChanges.ts';
+import type { Task }                       from './@types/Task.ts';
+import type { Ticket }                     from './@types/Ticket.ts';
 import type { DispatcherState, ViewRange } from './@types/TrackerProgress.ts';
 import type { BoardRecords }               from './BoardRecords.ts';
+import { BoardRefusal }                    from './BoardRefusal.ts';
 import type { DispatchQueries }            from './DispatchQueries.ts';
 import { TicketChartUtil }                 from './utils/TicketChartUtil.ts';
 
@@ -39,13 +42,37 @@ export class TrackerChanges {
     return { logged: [this.records.logger.log({ kind: 'dispatcher-set', fields: { state, runId } }, at)], previousState };
   }
 
-  /** A `null` command deletes the stored one, so a release runs no check again. */
-  setCheckCommand(command: string | null, at: string): CheckCommandSet {
-    const { progress }         = this.records;
+  /**
+   * A `null` command deletes the stored one, so a release runs no check again. A ticket in flight was stamped with the command it started
+   * under, so a change that would leave its stamp behind is refused unless `restamps` stamps every such row with the new command.
+   */
+  setCheckCommand(command: string | null, restamps: boolean, at: string): CheckCommandSet {
+    const { progress, logger } = this.records;
+    const ticketsInFlight      = this.ticketsInFlightWithTheirRows();
+    if (!restamps) {
+      const staleTicketIds = ticketsInFlight.filter(({ row }) => (row.checkCommand ?? null) !== command).map(({ ticket }) => ticket.frontmatter.id);
+      if (staleTicketIds.length > 0) throw new BoardRefusal({ reason: 'check-command-change-with-tickets-in-flight', ticketIds: staleTicketIds });
+    }
+
     const previousCheckCommand = progress.checkCommand ?? null;
     if (command === null) delete progress.checkCommand;
     else progress.checkCommand = command;
-    return { logged: [this.records.logger.log({ kind: 'check-command-set', fields: { command } }, at)], previousCheckCommand };
+    const logged = [logger.log({ kind: 'check-command-set', fields: { command } }, at)];
+    if (!restamps) return { logged, previousCheckCommand, restampedTicketIds: [] };
+
+    for (const { ticket, row } of ticketsInFlight) {
+      this.records.stampCheckCommand(row);
+      logged.push(logger.log({ kind: 'ticket-check-command-restamped', ticketId: ticket.frontmatter.id, fields: { command } }, at));
+    }
+    return { logged, previousCheckCommand, restampedTicketIds: ticketsInFlight.map(({ ticket }) => ticket.frontmatter.id) };
+  }
+
+  private ticketsInFlightWithTheirRows(): { ticket: Readonly<Ticket>; row: Task }[] {
+    return this.records.ticketRecords.flatMap((ticket) => {
+      if (ticket.frontmatter.status !== 'in-progress' && ticket.frontmatter.status !== 'in-review') return [];
+      const row = this.records.linkedTaskRecordOf(ticket);
+      return row === undefined ? [] : [{ ticket, row }];
+    });
   }
 
   recordNote(text: string, at: string): Logged {

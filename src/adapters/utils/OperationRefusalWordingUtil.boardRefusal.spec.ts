@@ -287,9 +287,14 @@ const MESSAGE_FOR_REFUSAL: readonly (readonly [BoardRefusalDetail, string])[] = 
     'Epic checkout-redesign was not removed: #003 still names it. Nothing was written; '
     + '`agent-progress ticket epic <id> --remove checkout-redesign` takes it off a ticket.',
   ],
+  [
+    { reason: 'check-command-change-with-tickets-in-flight', ticketIds: ['003', '005'] },
+    'The check command was not changed: #003, #005 are in progress or in review under the one stored, and a release refuses a ticket '
+    + 'whose stamp differs from the command it runs. Nothing was written; add --restamp to stamp every ticket in flight with the new command.',
+  ],
 ];
 
-const REFUSAL_REASON_COUNT = 33;
+const REFUSAL_REASON_COUNT = 34;
 
 test('every reason words as the refusal the command printed before the Board refused for it', () => {
   expect(new Set(MESSAGE_FOR_REFUSAL.map(([detail]) => detail.reason)).size, 'the table covers every reason').toBe(REFUSAL_REASON_COUNT);

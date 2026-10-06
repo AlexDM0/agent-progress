@@ -37,7 +37,7 @@ output never carries either.
       [--project <name>]      file and log, a \`tickets/\` folder and \`agent-brief.md\` — the brief to fill in
       [--root <path>]         before spawning an implementing agent — a \`.gitignore\` entry for it,
       [--no-claude-md]        a managed block in the repository's CLAUDE.md telling an agent to track
-      [--no-hooks]            its work through this tool, the SubagentStop hook below, and the
+      [--no-hooks]            its work through this tool, the two hooks below, and the
       [--no-workflow]         dispatcher workflow at \`.agent-progress/agent-progress-dispatch.js\`,
       [--no-agent-definition] generated from this tool's dispatcher, and the Claude Code agent
                               definition \`.claude/agents/agent-progress-worker.md\`, whose
@@ -58,7 +58,7 @@ output never carries either.
 
   update                      Refresh what the tool wrote into a repository it already tracks: the
       [--no-claude-md]        managed CLAUDE.md block, \`agent-brief.md\` — guidance shipped with the
-      [--no-hooks]            tool rather than a file a project edits — the SubagentStop hook and the
+      [--no-hooks]            tool rather than a file a project edits — the two hooks and the
       [--no-workflow]         dispatcher workflow, generated anew, and the agent definition, a hand
       [--no-agent-definition] edit to either of which is undone. The tracker itself is left alone:
                               a tracker an earlier agent-progress wrote in a format this one no
@@ -155,6 +155,14 @@ output never carries either.
                               what keeps a failure here from becoming an error the orchestrator must
                               read, or a delay before it is told.
 
+  hook pre-tool-use           Keep the check command the orchestrator's: wired with
+                              \`hook subagent-stop\` for Bash calls, it blocks at exit 2, the reason
+                              on standard error, a subagent's call (its hook JSON carries
+                              \`agent_id\`, which Claude Code sets only on a subagent's call) that
+                              runs \`agent-progress checks\` with a line, --clear or --restamp.
+                              A read (\`checks\`, \`checks --json\`), every other call, and every
+                              call from the main session pass at exit 0, unreadable input too.
+
   usage [--since <when>]      What this repository's subagents cost, read out of the transcripts the
       [--transcripts <folder>]
       [--json]                harness wrote for them, a workflow's agents under
@@ -216,7 +224,11 @@ output never carries either.
                               (\`checks-failed\`, its last 20 lines in the detail: fix, commit and
                               release again) or changes a tracked file (\`worktree-dirty\`); and,
                               in the lock, when <b> moved since (\`branch-moved\`) or the stored
-                              command changed (\`check-command-changed\`).
+                              command changed (\`check-command-changed\`). With or without one, a
+                              ticket whose row was stamped at its start with another line than the
+                              stored one, none counting as a line, is refused
+                              (\`check-command-differs-from-start\`); the orchestrator settles it
+                              with \`checks "<line>" --restamp\`.
                               Refused at exit 1, with nothing changed (no review row either), when a ticket
                               is not in-progress or in-review (or such a reviewed bundle ticket),
                               when the main checkout is not on
@@ -236,7 +248,8 @@ output never carries either.
                               reason is one of invalid-request, unknown-ticket,
                               ticket-not-releasable, unknown-branch, not-on-main-line,
                               worktree-not-at-tip, worktree-dirty, checks-failed,
-                              check-command-changed, branch-moved, main-moved, merge-refused,
+                              check-command-changed, check-command-differs-from-start,
+                              branch-moved, main-moved, merge-refused,
                               git-failed and tracker-failed, and blockingFiles, on merge-refused,
                               the main checkout's own uncommitted files the merge would overwrite,
                               empty otherwise. A cleanup step is one of {target: worktree, path,
@@ -470,17 +483,25 @@ output never carries either.
                               other word is refused at exit 1 with nothing written.
                               \`status --json\` carries it as \`concurrency.dispatcherState\`.
 
-  checks ["<command>" | --clear] [--json]
+  checks ["<command>" | --clear] [--restamp] [--json]
                               Print the check command \`release\` runs on a branch's tip before it
                               changes anything, or store one for every worktree with one log line:
                               the repository's full check line, quoted as one argument. It lives in
                               the tracker, never in the branch being released, and runs through the
                               user's shell (\`$SHELL\`, else /bin/sh) in the branch's worktree.
-                              --clear removes it; a tracker that never set one runs none, and the
-                              read writes nothing. A blank command, a command beside --clear, or
-                              --clear with none stored is refused at exit 1 with nothing written.
+                              A new line is first run in the main checkout: when it exits non-zero
+                              nothing is stored or logged, and it is refused at exit 1 with its last
+                              20 lines. --clear removes it; a tracker that never set one runs none,
+                              and the read writes nothing. Every ticket start and claim stamps the
+                              stored line on the ticket's row, so a change while a ticket is in
+                              progress or in review is refused at exit 1 unless --restamp is given,
+                              which stamps every such row with the new line in the same write and
+                              logs each. A blank command, a command beside --clear, --restamp alone,
+                              or --clear with none stored and no --restamp is refused at exit 1 with
+                              nothing written. Only the orchestrator's session changes it: the
+                              PreToolUse hook blocks a subagent's change (see \`hook\`).
                               --json prints {checkCommand}, null when none is stored, and a change
-                              adds previousCheckCommand.
+                              adds previousCheckCommand and restampedTicketIds.
 
   range --from <when>         The stored default axis of the chart; a bound may also be \`start\`, the
                               earliest visible row. A relative bound is stored as

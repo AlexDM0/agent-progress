@@ -13,17 +13,18 @@ export function readStringField(source: Record<string, unknown>, key: string): s
   return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
 
-export async function readHookInput(context: CommandContext): Promise<Record<string, unknown> | undefined> {
+/** `consequence` ends each sentence with what the hook did instead, so each hook says it in its own words. */
+export async function readHookInput(context: CommandContext, reportPrefix: string, consequence: string): Promise<Record<string, unknown> | undefined> {
   let rawHookInput: string;
   try {
     rawHookInput = await context.readStandardInput();
   } catch {
-    context.standardError(`${REPORT_PREFIX} standard input could not be read, so nothing was recorded.`);
+    context.standardError(`${reportPrefix} standard input could not be read, so ${consequence}.`);
     return undefined;
   }
 
   if (rawHookInput.trim().length === 0) {
-    context.standardError(`${REPORT_PREFIX} no hook input arrived on standard input, so nothing was recorded.`);
+    context.standardError(`${reportPrefix} no hook input arrived on standard input, so ${consequence}.`);
     return undefined;
   }
 
@@ -31,13 +32,13 @@ export async function readHookInput(context: CommandContext): Promise<Record<str
   try {
     parsedHookInput = JSON.parse(rawHookInput);
   } catch {
-    context.standardError(`${REPORT_PREFIX} the hook input on standard input is not JSON, so nothing was recorded.`);
+    context.standardError(`${reportPrefix} the hook input on standard input is not JSON, so ${consequence}.`);
     return undefined;
   }
 
   const hookInput = JsonRecordUtil.recordOf(parsedHookInput);
   if (hookInput === undefined) {
-    context.standardError(`${REPORT_PREFIX} the hook input is not a JSON object, so nothing was recorded.`);
+    context.standardError(`${reportPrefix} the hook input is not a JSON object, so ${consequence}.`);
     return undefined;
   }
   return hookInput;

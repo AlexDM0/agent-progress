@@ -98,6 +98,13 @@ export class BoardRecords {
     Object.assign(task, transitioned);
   }
 
+  /** The row takes the tracker's check command as it stands, or loses its stamp when none is stored, so a release can hold the two equal. */
+  stampCheckCommand(task: Task): void {
+    const { checkCommand } = this.progress;
+    if (checkCommand === undefined) delete task.checkCommand;
+    else task.checkCommand = checkCommand;
+  }
+
   /** An existing row comes back untouched, so a row a forced link deliberately moved is never taken back. */
   ensureTaskForTicket(ticket: Ticket, at: string): Task {
     const linkedTask = this.linkedTaskRecordOf(ticket);

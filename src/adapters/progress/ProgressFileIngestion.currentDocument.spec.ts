@@ -63,7 +63,9 @@ function currentDocumentText(): string {
         unknownRowKey:  'kept',
       }),
       storedRow(nextId + 2, { name: 'Review 1 #3 — misnamed own row', ticket: '009' }),
-      storedRow(nextId + 3, { name: 'Example follow-up', ticket: '003', reviewOf: '3' }),
+      storedRow(nextId + 3, {
+        name: 'Example follow-up', ticket: '003', reviewOf: '3', checkCommand: 'bun run example-checks'
+      }),
       storedRow(nextId + 4, { name: 'Review 2 #003 — Example known only by its name' }),
     ],
     concurrencyLimit: 3,

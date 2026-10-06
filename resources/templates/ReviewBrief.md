@@ -87,7 +87,10 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
      checks, `agent-progress rework --rebased-from` — add that count to your total and to your
      `## Review`, and apply step 7 again: over {{reworkThresholdLines}} now requests the next round; otherwise run
      this step again.
-   - `"reason": "checks-failed"`: the check command failed on your tip; `detail` ends with its last
+   - `"reason": "checks-failed"` whose lines show the command itself cannot run (command not found,
+     a failed `cd`, a shell syntax error): change no code and report
+     `holds, not released: check command broken` with its `detail`; the line is the orchestrator's.
+   - `"reason": "checks-failed"` otherwise: the check command failed on your tip; `detail` ends with its last
      lines. Fix it as step 2 says and commit, count the fix with
      `agent-progress rework --since <checked tip>`, add that to your total and your `## Review`,
      apply step 7 again, and run this step again. When you cannot fix it, report

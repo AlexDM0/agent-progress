@@ -3,19 +3,24 @@
  * moved. Every check comes before the merge, and the merge before the ticket moves: a refusal at any step leaves main and the tracker as
  * they were. A checked tip is held to the branch's tip and the tracker's check command as they stand inside the lock.
  */
-import { fastForwardTo }                                                           from '../../../src/lib/git/BranchIntegration.ts';
-import type { LogRecord }                                                          from '../../../src/lib/tracker-model/@types/LogRecord.ts';
-import type { Task }                                                               from '../../../src/lib/tracker-model/@types/Task.ts';
-import type { Ticket }                                                             from '../../../src/lib/tracker-model/@types/Ticket.ts';
-import type { TrackerChange }                                                      from '../../../src/services/tracker/TrackerPipeline.ts';
-import type { CommandContext }                                                     from '../../CommandContext.ts';
-import { openTrackerForWritingThenReadNextLine }                                   from '../../OpenTrackerForWriting.ts';
-import type { ArgumentParser }                                                     from '../../arguments/ArgumentParser.ts';
-import { OutputUtil }                                                              from '../../utils/OutputUtil.ts';
-import type { CheckedTip }                                                         from './ReleaseChecks.ts';
-import { branchCommitToRelease, releasableTickets, requireMainCheckoutOnMainLine } from './ReleaseReadings.ts';
-import { refuseTheRelease }                                                        from './ReleaseRefusal.ts';
-import type { ReleaseRequest }                                                     from './ReleaseRequest.ts';
+import { fastForwardTo }                         from '../../../src/lib/git/BranchIntegration.ts';
+import type { LogRecord }                        from '../../../src/lib/tracker-model/@types/LogRecord.ts';
+import type { Task }                             from '../../../src/lib/tracker-model/@types/Task.ts';
+import type { Ticket }                           from '../../../src/lib/tracker-model/@types/Ticket.ts';
+import type { TrackerChange }                    from '../../../src/services/tracker/TrackerPipeline.ts';
+import type { CommandContext }                   from '../../CommandContext.ts';
+import { openTrackerForWritingThenReadNextLine } from '../../OpenTrackerForWriting.ts';
+import type { ArgumentParser }                   from '../../arguments/ArgumentParser.ts';
+import { OutputUtil }                            from '../../utils/OutputUtil.ts';
+import type { CheckedTip }                       from './ReleaseChecks.ts';
+import {
+  branchCommitToRelease,
+  releasableTickets,
+  requireMainCheckoutOnMainLine,
+  requireStampsMatchingTheCheckCommand
+} from './ReleaseReadings.ts';
+import { refuseTheRelease }    from './ReleaseRefusal.ts';
+import type { ReleaseRequest } from './ReleaseRequest.ts';
 
 export interface Release {
   tickets:          readonly Readonly<Ticket>[];
@@ -55,6 +60,7 @@ export async function releaseUnderTheLock(
     requireMainCheckoutOnMainLine(mainCheckout, request.mainLine);
     const branchCommit = branchCommitToRelease(mainCheckout, request.branch, request.mainLine);
     requireTheCheckedTip(change, checkedTip, request.branch, branchCommit);
+    requireStampsMatchingTheCheckCommand(change.board, tickets);
 
     const merge = fastForwardTo(mainCheckout, branchCommit);
     if (merge.verdict === 'refused') {

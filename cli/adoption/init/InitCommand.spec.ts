@@ -141,6 +141,9 @@ describeWhenGitIsPresent('initialising a repository', () => {
     expect((settings['hooks'] as Record<string, unknown>)['SubagentStop']).toEqual([
       { matcher: '', hooks: [{ type: 'command', command: 'agent-progress hook subagent-stop', timeout: 20 }] },
     ]);
+    expect((settings['hooks'] as Record<string, unknown>)['PreToolUse'], 'the hook that keeps the check command the orchestrator\'s').toEqual([
+      { matcher: 'Bash', hooks: [{ type: 'command', command: 'agent-progress hook pre-tool-use', timeout: 10 }] },
+    ]);
     expect(existsSync(join(repositoryDirectory, '.claude', 'settings.json'))).toBe(false);
     expect(context.outputText()).toContain('settings.local.json (installed)');
     expect(context.errorText()).toBe('');

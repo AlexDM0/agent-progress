@@ -89,6 +89,10 @@ function sentenceOf(record: LogRecordContent): string {
       return `Ticket #${record.ticketId} no longer marked as its group's release ticket`;
     case 'ticket-epics-set':
       return `Ticket #${record.ticketId} belongs to ${epicsText(record.fields.epics)}`;
+    case 'ticket-check-command-restamped':
+      return record.fields.command === null
+        ? `Ticket #${record.ticketId} restamped with no check command`
+        : `Ticket #${record.ticketId} restamped with the check command ${record.fields.command}`;
     case 'epic-added':
       return `Epic ${record.epicKey} added: ${record.fields.title}`;
     case 'epic-edited':

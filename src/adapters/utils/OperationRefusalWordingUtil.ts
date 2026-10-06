@@ -97,6 +97,10 @@ function boardRefusalMessageOf(detail: BoardRefusalDetail): string {
       return `Epic ${detail.epicKey} was not removed: ${TicketPhraseUtil.ticketReferencesText(detail.ticketIds)} still `
         + `${detail.ticketIds.length === 1 ? 'names' : 'name'} it. Nothing was written; `
         + `\`agent-progress ticket epic <id> --remove ${detail.epicKey}\` takes it off a ticket.`;
+    case 'check-command-change-with-tickets-in-flight':
+      return `The check command was not changed: ${TicketPhraseUtil.ticketReferencesText(detail.ticketIds)} `
+        + `${detail.ticketIds.length === 1 ? 'is' : 'are'} in progress or in review under the one stored, and a release refuses a ticket `
+        + 'whose stamp differs from the command it runs. Nothing was written; add --restamp to stamp every ticket in flight with the new command.';
     case 'dependency-loop':
       return `That would make tickets wait on each other in a circle: ${detail.loopTicketIds.map((ticketId) => `#${ticketId}`).join(' → ')}.`;
     case 'priority-unchanged':

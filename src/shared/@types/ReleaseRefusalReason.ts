@@ -8,6 +8,7 @@ export type ReleaseRefusalReason =
   | 'worktree-dirty'
   | 'checks-failed'
   | 'check-command-changed'
+  | 'check-command-differs-from-start'
   | 'branch-moved'
   | 'main-moved'
   | 'merge-refused'

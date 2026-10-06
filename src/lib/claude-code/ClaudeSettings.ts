@@ -1,5 +1,5 @@
 /**
- * Merges the `SubagentStop` hook entry into a repository's Claude settings file, adding it only when no
+ * Merges a command hook entry under its event into a repository's Claude settings file, adding it only when no
  * identical command is there and handing every other key back unchanged.
  * A file that will not parse is **refused, never overwritten**, since nothing here can tell a corrupted document from an unknown format.
  */
@@ -17,19 +17,20 @@ const SETTINGS_FILE_JSON_INDENT_SPACES = 2;
 /** Claude Code reads this one over the shared file and keeps it out of git, for a setting that belongs to one person rather than the repository. */
 const LOCAL_SETTINGS_FILE_NAME = 'settings.local.json';
 
-/** The harness's own spelling of the event, capitalised as it writes it; a lower-case one is simply never matched. */
-const SUBAGENT_STOP_EVENT_NAME = 'SubagentStop';
-
 const COMMAND_HOOK_TYPE = 'command';
 
 const HOOKS_KEY = 'hooks';
 
-export type WriteSubagentStopHookOutcome = 'created' | 'added' | 'already-present' | 'refused-unreadable';
+export type WriteCommandHookOutcome = 'created' | 'added' | 'already-present' | 'refused-unreadable';
 
-export type RefreshSubagentStopHookOutcome = 'absent' | 'unchanged' | 'updated' | 'refused-unreadable';
+export type RefreshCommandHookOutcome = 'absent' | 'unchanged' | 'updated' | 'refused-unreadable';
 
-/** The timeout is in seconds because that is the unit the settings file stores; the name carries it so no caller has to guess. */
-export interface SubagentStopHook {
+/**
+ * The event is the harness's own spelling (`SubagentStop`, `PreToolUse`), capitalised as it writes it; a lower-case one is simply never
+ * matched. The timeout is in seconds because that is the unit the settings file stores.
+ */
+export interface CommandHook {
+  event:          string;
   matcher:        string;
   command:        string;
   timeoutSeconds: number;
@@ -85,7 +86,7 @@ function groupAlreadyRunsTheCommand(group: unknown, command: string): boolean {
   return groupHooks.some((entry) => JsonRecordUtil.recordOf(entry)?.['command'] === command);
 }
 
-function commandEntryFor(hook: SubagentStopHook): Record<string, unknown> {
+function commandEntryFor(hook: CommandHook): Record<string, unknown> {
   return {
     type:    COMMAND_HOOK_TYPE,
     command: hook.command,
@@ -93,7 +94,7 @@ function commandEntryFor(hook: SubagentStopHook): Record<string, unknown> {
   };
 }
 
-function groupFor(hook: SubagentStopHook): Record<string, unknown> {
+function groupFor(hook: CommandHook): Record<string, unknown> {
   return {
     matcher: hook.matcher,
     hooks:   [commandEntryFor(hook)],
@@ -101,7 +102,7 @@ function groupFor(hook: SubagentStopHook): Record<string, unknown> {
 }
 
 /** The group with this command's entry brought up to date, its matcher and any hook beside it left as whoever wrote them meant them. */
-function groupWithRefreshedEntry(group: unknown, hook: SubagentStopHook): unknown {
+function groupWithRefreshedEntry(group: unknown, hook: CommandHook): unknown {
   const groupRecord = JsonRecordUtil.recordOf(group);
   if (groupRecord === undefined) return group;
 
@@ -115,7 +116,7 @@ function groupWithRefreshedEntry(group: unknown, hook: SubagentStopHook): unknow
 }
 
 /** Writes nothing when this command already runs under any matcher; a file it cannot merge into is refused and left untouched. */
-export function writeSubagentStopHook(settingsFilePath: string, hook: SubagentStopHook): WriteSubagentStopHookOutcome {
+export function writeCommandHook(settingsFilePath: string, hook: CommandHook): WriteCommandHookOutcome {
   const settingsFileExisted = fileExists(settingsFilePath);
 
   const settings = settingsFileExisted ? parsedSettings(settingsFilePath) : {};
@@ -125,14 +126,14 @@ export function writeSubagentStopHook(settingsFilePath: string, hook: SubagentSt
   const hooksSection      = hooksSectionValue === undefined ? {} : JsonRecordUtil.recordOf(hooksSectionValue);
   if (hooksSection === undefined) return 'refused-unreadable';
 
-  const eventGroupsValue = hooksSection[SUBAGENT_STOP_EVENT_NAME];
+  const eventGroupsValue = hooksSection[hook.event];
   if (eventGroupsValue !== undefined && !Array.isArray(eventGroupsValue)) return 'refused-unreadable';
   const eventGroups: unknown[] = eventGroupsValue === undefined ? [] : [...eventGroupsValue];
 
   if (eventGroups.some((group) => groupAlreadyRunsTheCommand(group, hook.command))) return 'already-present';
 
   eventGroups.push(groupFor(hook));
-  hooksSection[SUBAGENT_STOP_EVENT_NAME] = eventGroups;
+  hooksSection[hook.event] = eventGroups;
   settings[HOOKS_KEY] = hooksSection;
 
   writeFileAtomically(settingsFilePath, `${JSON.stringify(settings, null, SETTINGS_FILE_JSON_INDENT_SPACES)}\n`);
@@ -140,7 +141,7 @@ export function writeSubagentStopHook(settingsFilePath: string, hook: SubagentSt
 }
 
 /** Only updates an entry that is already there, under any matcher; an absent entry or one already current writes nothing. */
-export function refreshSubagentStopHook(settingsFilePath: string, hook: SubagentStopHook): RefreshSubagentStopHookOutcome {
+export function refreshCommandHook(settingsFilePath: string, hook: CommandHook): RefreshCommandHookOutcome {
   if (!fileExists(settingsFilePath)) return 'absent';
 
   const settings = parsedSettings(settingsFilePath);
@@ -149,7 +150,7 @@ export function refreshSubagentStopHook(settingsFilePath: string, hook: Subagent
   const hooksSection = JsonRecordUtil.recordOf(settings[HOOKS_KEY]);
   if (hooksSection === undefined) return settings[HOOKS_KEY] === undefined ? 'absent' : 'refused-unreadable';
 
-  const eventGroupsValue = hooksSection[SUBAGENT_STOP_EVENT_NAME];
+  const eventGroupsValue = hooksSection[hook.event];
   if (eventGroupsValue === undefined) return 'absent';
   if (!Array.isArray(eventGroupsValue)) return 'refused-unreadable';
 
@@ -158,7 +159,7 @@ export function refreshSubagentStopHook(settingsFilePath: string, hook: Subagent
   const refreshedGroups = eventGroupsValue.map((group) => (groupAlreadyRunsTheCommand(group, hook.command) ? groupWithRefreshedEntry(group, hook) : group));
   if (JSON.stringify(refreshedGroups) === JSON.stringify(eventGroupsValue)) return 'unchanged';
 
-  hooksSection[SUBAGENT_STOP_EVENT_NAME] = refreshedGroups;
+  hooksSection[hook.event] = refreshedGroups;
   settings[HOOKS_KEY] = hooksSection;
   writeFileAtomically(settingsFilePath, `${JSON.stringify(settings, null, SETTINGS_FILE_JSON_INDENT_SPACES)}\n`);
   return 'updated';
