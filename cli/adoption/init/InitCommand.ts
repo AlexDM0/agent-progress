@@ -13,8 +13,10 @@ import { OutputUtil }                                  from '../../utils/OutputU
 import { installedFileTextsFor }                       from '../InstalledFileGeneration.ts';
 import type { InstalledFileTexts }                     from '../InstalledFileGeneration.ts';
 import {
+  optOutFlagsGiven,
   recordInstallVersion,
   refreshReportLinesOf,
+  reportLineOf,
   refreshTrackedRepository,
   refuseAnAgentDefinitionOptOutKeepingTheWorkflow,
   refuseKeepingADispatcherWithoutItsAgentDefinition
@@ -37,10 +39,9 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
 
   const rootDirectory = initRootDirectoryOf(commandArguments.option('root'), context.currentDirectory);
   const workspace     = workspacePathsFor(rootDirectory);
-  const writesClaudeInstructions = !commandArguments.flag('no-claude-md');
-  const writesTheHooks = !commandArguments.flag('no-hooks');
-  const writesTheDispatcherWorkflow = !commandArguments.flag('no-workflow');
-  const writesTheAgentDefinition = !commandArguments.flag('no-agent-definition');
+  const optOutFlags = optOutFlagsGiven((flagName) => commandArguments.flag(flagName));
+  const writesTheDispatcherWorkflow = !optOutFlags.has('no-workflow');
+  const writesTheAgentDefinition = !optOutFlags.has('no-agent-definition');
   refuseAnAgentDefinitionOptOutKeepingTheWorkflow('init', { writesTheAgentDefinition, writesTheDispatcherWorkflow });
 
   refuseAnOverrideNamingAnotherDirectory(context.currentDirectory, rootDirectory);
@@ -48,11 +49,10 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
   // The brief, the block and the hook are written by the same refresh a second `init` and `update` run, so a fresh tracker and an adopted one never drift.
   const refreshTheRepository = (installedFileTexts: InstalledFileTexts, { writesTheBriefFirst }: { writesTheBriefFirst: boolean }) => refreshTrackedRepository({
     workspace,
+    agentHost:     'claude-code',
     installedFileTexts,
     commandName:   'init',
-    writesClaudeInstructions,
-    writesTheHooks,
-    writesTheAgentDefinition,
+    optOutFlags,
     writesTheBriefFirst,
     standardError: context.standardError,
   });
@@ -76,7 +76,7 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
   refuseKeepingADispatcherWithoutItsAgentDefinition('init', workspace.rootDirectory, { writesTheAgentDefinition, writesTheDispatcherWorkflow });
 
   // Every installed text is computed before the first write, so a dispatcher that will not bundle leaves no tracker and no file behind.
-  const installedFileTexts = await installedFileTextsFor({ generatesTheDispatcherScript: writesTheDispatcherWorkflow });
+  const installedFileTexts = await installedFileTextsFor({ agentHost: 'claude-code', generatesTheDispatcherScript: writesTheDispatcherWorkflow });
   if (existingWorkspace !== null) {
     reportTheRefreshOfAnExistingTracker(installedFileTexts);
     return;
@@ -104,9 +104,8 @@ export const initCommand: CommandHandler = async (commandArguments, context) => 
   context.standardOutput(`  brief:       ${refresh.briefFilePath}`);
   context.standardOutput(`  dashboard:   ${workspace.htmlFilePath}`);
   context.standardOutput(`  .gitignore:  ${IGNORE_OUTCOME_WORDS[ignoreOutcome]}`);
-  context.standardOutput(`  CLAUDE.md:   ${refresh.claudeInstructionsLine}`);
-  context.standardOutput(`  hooks:       ${refresh.hookLine}`);
-  context.standardOutput(`  workflow:    ${refresh.workflowLine}`);
-  context.standardOutput(`  agent:       ${refresh.agentDefinitionLine}`);
+  for (const { reportLabel, line, marksTheInstall } of refresh.partLines) {
+    if (!marksTheInstall) context.standardOutput(reportLineOf(reportLabel, line));
+  }
   recordInstallVersion(workspace.rootDirectory);
 };

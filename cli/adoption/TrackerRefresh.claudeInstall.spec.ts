@@ -53,7 +53,7 @@ const DISPATCHER_SCRIPT_STAND_IN = '<the dispatcher script bundled from dispatch
 
 const ROOT_STAND_IN = '<root>';
 
-const GENERATED_DISPATCHER_SCRIPT = (await installedFileTextsFor({ generatesTheDispatcherScript: true })).dispatcherScript ?? '';
+const GENERATED_DISPATCHER_SCRIPT = (await installedFileTextsFor({ agentHost: 'claude-code', generatesTheDispatcherScript: true })).dispatcherScript ?? '';
 
 const scratchDirectories: string[] = [];
 

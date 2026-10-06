@@ -13,9 +13,7 @@ in separate checkouts all write to the same chart.
   `.agent-progress/agent-progress-dispatch.js`, started only on the user's go. Any other session or
   agent files a ticket when it is asked to and stops there: it never dispatches an agent to handle
   one, its own or anybody else's.
-- Every agent's prompt names its row, its ticket or its review on a line of its own, and the
-  `SubagentStop` hook adds every token the agent processed to that row when it stops, so where the
-  hook is installed pass no `--tokens`: it would replace the sum.
+- Every agent's prompt names its row, its ticket or its review on a line of its own, {{tokenHookClause}}
 - A ticket is picked up on a worktree of its own, never in the main checkout, by a builder or by a
   reviewer. The ticket's `## Brief` section, when it has one, is its builder's brief. A builder fixes
   the defects it finds beside its work when it can prove the fix, and ends by committing on its

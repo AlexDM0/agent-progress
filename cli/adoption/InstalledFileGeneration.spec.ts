@@ -5,16 +5,19 @@
  * its meta first and no path of this checkout in it, `--no-workflow` bundles nothing, and a failed bundle is a refusal the tool will not
  * repair. The spec builds the dispatcher by path, as the command does, and never imports `dispatcher/`.
  */
+import { readFileSync }        from 'node:fs';
 import { join, relative, sep } from 'node:path';
 
 import { describe, expect, test } from 'bun:test';
 
 import { OperationRefusal }                              from '../../src/shared/OperationRefusal.ts';
+import { resourceFilePathOf }                            from '../../src/shared/ResourceFilePath.ts';
 import { DISPATCH_PROTOCOL }                             from '../../src/shared/constants/DispatchProtocol.ts';
 import { installedFilePathsIn }                          from '../InstalledFiles.ts';
 import { dispatcherScriptTextOf, installedFileTextsFor } from './InstalledFileGeneration.ts';
+import { AGENT_HOST_INSTALLS }                           from './constants/AgentHostInstalls.ts';
 
-const TEXTS = await installedFileTextsFor({ generatesTheDispatcherScript: true });
+const TEXTS = await installedFileTextsFor({ agentHost: 'claude-code', generatesTheDispatcherScript: true });
 
 const CHECKOUT_DIRECTORY = join(import.meta.dir, '..', '..');
 
@@ -55,16 +58,16 @@ describe('the installed texts', () => {
   test('the agent definition is named for the type the dispatcher starts its workers as, and preloads the tracker skill without the Skill tool', () => {
     expect(TEXTS.agentDefinition).toContain(`\nname: ${DISPATCH_PROTOCOL.WORKER_AGENT_TYPE}\n`);
     expect(TEXTS.agentDefinition).toContain('\nskills: agent-progress\n');
-    const toolsLine = TEXTS.agentDefinition.split('\n').find((line) => line.startsWith('tools: ')) ?? '';
+    const toolsLine = (TEXTS.agentDefinition ?? '').split('\n').find((line) => line.startsWith('tools: ')) ?? '';
     expect(toolsLine.split(/[:,]\s*/)).not.toContain('Skill');
     expect(toolsLine).toContain('Bash, Read, Edit, Write');
   });
 
   test('the block states the rework threshold and names the installed brief and dispatcher by their paths in the repository', () => {
     const dispatcherPathInRepository = relative(EXAMPLE_ROOT, installedFilePathsIn(EXAMPLE_ROOT).dispatcherScript).split(sep).join('/');
-    expect(TEXTS.claudeInstructionsBlockBody).toContain(`over ${DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES} lines of code`);
-    expect(TEXTS.claudeInstructionsBlockBody).toContain(`\`${DISPATCH_PROTOCOL.REVIEW_BRIEF_PATH_IN_REPOSITORY}\``);
-    expect(TEXTS.claudeInstructionsBlockBody).toContain(`\`${dispatcherPathInRepository}\``);
+    expect(TEXTS.claudeInstructions).toContain(`over ${DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES} lines of code`);
+    expect(TEXTS.claudeInstructions).toContain(`\`${DISPATCH_PROTOCOL.REVIEW_BRIEF_PATH_IN_REPOSITORY}\``);
+    expect(TEXTS.claudeInstructions).toContain(`\`${dispatcherPathInRepository}\``);
   });
 
   test('the agent definition names the builder and review briefs by their paths in the repository', () => {
@@ -88,8 +91,18 @@ describe('the installed texts', () => {
     expect(TEXTS.dispatcherScript).not.toContain(CHECKOUT_DIRECTORY);
   });
 
+  test('the block and agent-brief templates name no hook themselves: each host sentence is a placeholder one of them fills', () => {
+    const templateTexts = ['ClaudeInstructionsBlock.md', 'AgentBrief.md'].map((templateFileName) => readFileSync(resourceFilePathOf('templates', templateFileName), 'utf8'));
+    for (const templateText of templateTexts) expect(templateText).not.toContain('SubagentStop');
+    for (const sentenceName of Object.keys(AGENT_HOST_INSTALLS['claude-code'].hostSentences)) {
+      expect(templateTexts.some((templateText) => templateText.includes(`{{${sentenceName}}}`)), sentenceName).toBe(true);
+    }
+    expect(TEXTS.claudeInstructions).toContain('`SubagentStop` hook adds every token');
+    expect(TEXTS.agentBrief).toContain('the `SubagentStop` hook reads that line');
+  });
+
   test('with no dispatcher asked for, none is bundled', async () => {
-    expect((await installedFileTextsFor({ generatesTheDispatcherScript: false })).dispatcherScript).toBeNull();
+    expect((await installedFileTextsFor({ agentHost: 'claude-code', generatesTheDispatcherScript: false })).dispatcherScript).toBeUndefined();
   });
 });
 

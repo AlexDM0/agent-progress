@@ -8,6 +8,7 @@ import type { CommandHandler }                         from '../../CommandHandle
 import { requireInstallManifestThisVersionCanReplace } from '../../InstallVersionCheck.ts';
 import { installedFileTextsFor }                       from '../InstalledFileGeneration.ts';
 import {
+  optOutFlagsGiven,
   recordInstallVersion,
   refreshReportLinesOf,
   refreshTrackedRepository,
@@ -22,23 +23,23 @@ const KNOWN_OPTION_NAMES = ['no-claude-md', 'no-hooks', 'no-workflow', 'no-agent
 export const updateCommand: CommandHandler = async (commandArguments, context) => {
   commandArguments.rejectUnknownOptions(KNOWN_OPTION_NAMES, USAGE);
   commandArguments.rejectExtraPositionals(0, USAGE);
-  const writesTheDispatcherWorkflow = !commandArguments.flag('no-workflow');
-  const writesTheAgentDefinition    = !commandArguments.flag('no-agent-definition');
+  const optOutFlags                 = optOutFlagsGiven((flagName) => commandArguments.flag(flagName));
+  const writesTheDispatcherWorkflow = !optOutFlags.has('no-workflow');
+  const writesTheAgentDefinition    = !optOutFlags.has('no-agent-definition');
   refuseAnAgentDefinitionOptOutKeepingTheWorkflow('update', { writesTheAgentDefinition, writesTheDispatcherWorkflow });
 
   const workspace          = requireWorkspace(context.currentDirectory);
   requireInstallManifestThisVersionCanReplace(workspace.rootDirectory);
   refuseKeepingADispatcherWithoutItsAgentDefinition('update', workspace.rootDirectory, { writesTheAgentDefinition, writesTheDispatcherWorkflow });
-  const installedFileTexts = await installedFileTextsFor({ generatesTheDispatcherScript: writesTheDispatcherWorkflow });
+  const installedFileTexts = await installedFileTextsFor({ agentHost: 'claude-code', generatesTheDispatcherScript: writesTheDispatcherWorkflow });
   const report             = refreshTrackedRepository({
     workspace,
+    agentHost:           'claude-code',
     installedFileTexts,
-    commandName:              'update',
-    writesClaudeInstructions: !commandArguments.flag('no-claude-md'),
-    writesTheHooks:           !commandArguments.flag('no-hooks'),
-    writesTheAgentDefinition,
-    writesTheBriefFirst:      false,
-    standardError:            context.standardError,
+    commandName:         'update',
+    optOutFlags,
+    writesTheBriefFirst: false,
+    standardError:       context.standardError,
   });
 
   context.standardOutput(`Refreshed what agent-progress manages in ${workspace.rootDirectory}; the tracker itself was not touched.`);

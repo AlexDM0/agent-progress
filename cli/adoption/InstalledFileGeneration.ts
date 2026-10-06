@@ -12,6 +12,13 @@ import { OperationRefusal }                                          from '../..
 import { resourceFilePathOf }                                        from '../../src/shared/ResourceFilePath.ts';
 import { DISPATCH_PROTOCOL }                                         from '../../src/shared/constants/DispatchProtocol.ts';
 import { filledTemplateOf }                                          from '../FilledTemplate.ts';
+import {
+  AGENT_HOST_INSTALLS,
+  type AgentHost,
+  type InstalledFile,
+  type InstalledFileName,
+  type InstalledPart
+}                                                                    from './constants/AgentHostInstalls.ts';
 
 // The brief is prose, so it names the model the way a person writes it; the agent definition keeps the id Claude Code reads.
 const AGENT_MODEL_DISPLAY_NAMES: Readonly<Record<AgentModel, string>> = Object.freeze({
@@ -21,15 +28,8 @@ const AGENT_MODEL_DISPLAY_NAMES: Readonly<Record<AgentModel, string>> = Object.f
   fable:  'Fable',
 });
 
-export interface InstalledFileTexts {
-  agentBrief:                  string;
-  builderBrief:                string;
-  reviewBrief:                 string;
-  claudeInstructionsBlockBody: string;
-  agentDefinition:             string;
-  /** Null when `--no-workflow` asked for no dispatcher, so nothing is bundled. */
-  dispatcherScript:            string | null;
-}
+/** A managed block's file holds the block's body, without the template's closing newlines. The dispatcher is absent when none was asked for. */
+export type InstalledFileTexts = Readonly<Partial<Record<InstalledFileName, string>>>;
 
 /** A bundle that fails is a defect of this checkout, not of the repository being written to, so it is unrepaired. */
 export function dispatcherScriptTextOf(bundle: WorkflowScriptBundle): string {
@@ -46,30 +46,35 @@ function templateTextOf(templateFileName: string): string {
   return readFileSync(resourceFilePathOf('templates', templateFileName), 'utf8');
 }
 
-export async function installedFileTextsFor(request: { generatesTheDispatcherScript: boolean }): Promise<InstalledFileTexts> {
-  const dispatcherScript = request.generatesTheDispatcherScript
-    ? dispatcherScriptTextOf(await bundleWorkflowScript(dispatcherScriptBuildRequestWith([])))
-    : null;
-  // The dispatcher's prompts state the same numbers from the same constant, so the brief, the block and the prompts cannot disagree.
-  const reworkThresholdLines = String(DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES);
-  // The definition takes the default pair and the brief its display word, so neither can drift from the tool's defaults.
-  const defaultAgentPair = { model: DEFAULT_AGENT_MODEL, effort: DEFAULT_AGENT_EFFORT };
-  const agentBrief = filledTemplateOf(templateTextOf('AgentBrief.md'), {
-    modelDisplayName: AGENT_MODEL_DISPLAY_NAMES[DEFAULT_AGENT_MODEL],
-    effort:           DEFAULT_AGENT_EFFORT,
-  });
-  const builderBrief = filledTemplateOf(templateTextOf('BuilderBrief.md'), { builderApiCallBudget: String(DISPATCH_PROTOCOL.BUILDER_API_CALL_BUDGET) });
-  const reviewBrief  = filledTemplateOf(templateTextOf('ReviewBrief.md'), {
+function filesOf(part: InstalledPart): readonly InstalledFile[] {
+  if (part.writing === 'managed-block') return [part.file];
+  if (part.writing === 'claude-settings-hooks') return [];
+  return part.files;
+}
+
+export async function installedFileTextsFor(request: { agentHost: AgentHost; generatesTheDispatcherScript: boolean }): Promise<InstalledFileTexts> {
+  const hostInstall = AGENT_HOST_INSTALLS[request.agentHost];
+  // The dispatcher's prompts state the same numbers from the same constant, so the briefs, the block and the prompts cannot disagree; the
+  // definition takes the default pair and the brief its display word, so neither can drift from the tool's defaults.
+  const templateValues: Readonly<Record<string, string>> = {
+    modelDisplayName:      AGENT_MODEL_DISPLAY_NAMES[DEFAULT_AGENT_MODEL],
+    model:                 DEFAULT_AGENT_MODEL,
+    effort:                DEFAULT_AGENT_EFFORT,
+    builderApiCallBudget:  String(DISPATCH_PROTOCOL.BUILDER_API_CALL_BUDGET),
     reviewerApiCallBudget: String(DISPATCH_PROTOCOL.REVIEWER_API_CALL_BUDGET),
-    reworkThresholdLines,
-  });
-  const claudeInstructionsBlock = filledTemplateOf(templateTextOf('ClaudeInstructionsBlock.md'), { reworkThresholdLines });
-  return {
-    agentBrief,
-    builderBrief,
-    reviewBrief,
-    claudeInstructionsBlockBody: claudeInstructionsBlock.replace(/\n+$/, ''),
-    agentDefinition:             filledTemplateOf(templateTextOf('AgentProgressWorker.md'), defaultAgentPair),
-    dispatcherScript,
+    reworkThresholdLines:  String(DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES),
+    ...hostInstall.hostSentences,
   };
+  const texts: Partial<Record<InstalledFileName, string>> = {};
+  for (const part of hostInstall.parts) {
+    for (const file of filesOf(part)) {
+      if (file.text.kind === 'dispatcher-bundle') {
+        if (request.generatesTheDispatcherScript) texts[file.name] = dispatcherScriptTextOf(await bundleWorkflowScript(dispatcherScriptBuildRequestWith([])));
+        continue;
+      }
+      const filledText = filledTemplateOf(templateTextOf(file.text.templateFileName), templateValues);
+      texts[file.name] = part.writing === 'managed-block' ? filledText.replace(/\n+$/, '') : filledText;
+    }
+  }
+  return texts;
 }

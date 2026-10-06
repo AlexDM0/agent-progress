@@ -41,7 +41,7 @@ import { CLAUDE_MANAGED_BLOCK_MARKERS } from '../constants/ClaudeManagedBlockMar
 
 const scratchDirectories: string[] = [];
 
-const GENERATED_DISPATCHER_SCRIPT = (await installedFileTextsFor({ generatesTheDispatcherScript: true })).dispatcherScript ?? '';
+const GENERATED_DISPATCHER_SCRIPT = (await installedFileTextsFor({ agentHost: 'claude-code', generatesTheDispatcherScript: true })).dispatcherScript ?? '';
 
 function dispatcherScriptPathIn(repositoryDirectory: string): string {
   return join(repositoryDirectory, '.agent-progress', 'agent-progress-dispatch.js');

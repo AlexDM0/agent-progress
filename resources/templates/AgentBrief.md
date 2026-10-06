@@ -126,24 +126,13 @@ Never `pkill` or `killall` by a pattern: other agents run editors of their own.
 For a ticket dispatched by hand only: the dispatcher's prompts carry their own marker lines and its
 agents move their own rows. Claim the ticket before the agent starts, which starts the ticket's own
 row rather than a second one beside it, and name that row in the brief's `agent-progress row: <rowId>`
-line; the `SubagentStop` hook reads that line from the brief alone and adds the agent's `input` —
-every token it processed, the figure its log line names just before `output`,
-`input 3.8M (cache read 3.6M)` — to the row when the agent stops. It adds rather than sets, so a row
-several agents worked on carries all of them, and a workflow script's agents reach their row the same
-way. A bundle, and a ticket without a row yet — a low one, whose row the builder's own claim creates —
-is named by ticket instead, `agent-progress ticket: 22, 20`, the same ids as the builder's one
-`ticket claim 22 20`, and the hook divides evenly over their rows, looking each up when the agent
-stops; keep one of the two lines, since a brief with both is read by its row line alone. The review
-brief always names the review bar's own row. **Where the hook is installed, pass no `--tokens`**: it
-would replace the sum. The harness's own `subagent_tokens` is roughly the end context, far below what
-the agent processed and not by a constant factor, so it is the fallback for a repository without the
-hook only, recorded with `--tokens` as the understatement it is. The review is a clean agent briefed
+line; {{tokenHookPassage}} The review is a clean agent briefed
 from the review brief, never the orchestrator reading the diff.
 
 ```
 agent-progress ticket claim <id> --owner <model> --note "<what the agent will do>"   # starts the ticket's own row
 agent-progress ticket show <id>                # its `task:` is the rowId on the brief's `agent-progress row:` line
-agent-progress ticket finish <id>              # moves that row to in-review, `--tokens <subagent_tokens>` only without the hook; then a clean reviewer in its own row
+agent-progress ticket finish <id>              # moves that row to in-review, {{finishTokensNote}}then a clean reviewer in its own row
 agent-progress task add "Review <N> #<id> — <ticket title>" --review-of <id> --owner opus --start   # the review's row, drawn above the ticket's
 agent-progress task finish <reviewRowId>       # then `task deliver <reviewRowId>`: for every verdict but `released`, which delivered it
 ```

@@ -49,7 +49,7 @@ const READ_AND_ENTER_ONLY_MODE = 0o555;
 
 const OWNER_FULL_ACCESS_MODE = 0o755;
 
-const GENERATED_AGENT_BRIEF = (await installedFileTextsFor({ generatesTheDispatcherScript: false })).agentBrief;
+const GENERATED_AGENT_BRIEF = (await installedFileTextsFor({ agentHost: 'claude-code', generatesTheDispatcherScript: false })).agentBrief ?? '';
 
 function scratchRepository(): string {
   const repositoryDirectory = createScratchGitRepository('update-command');
@@ -75,7 +75,7 @@ function subagentStopGroupsIn(repositoryDirectory: string, settingsFileName: str
   return (settings['hooks'] as Record<string, unknown>)['SubagentStop'] as unknown[];
 }
 
-const GENERATED_DISPATCHER_SCRIPT = (await installedFileTextsFor({ generatesTheDispatcherScript: true })).dispatcherScript ?? '';
+const GENERATED_DISPATCHER_SCRIPT = (await installedFileTextsFor({ agentHost: 'claude-code', generatesTheDispatcherScript: true })).dispatcherScript ?? '';
 
 function workflowFilePathIn(repositoryDirectory: string): string {
   return join(repositoryDirectory, '.agent-progress', 'agent-progress-dispatch.js');

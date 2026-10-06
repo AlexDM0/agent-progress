@@ -1,6 +1,7 @@
 /**
- * Writes what the tool installs into a tracked repository for `init` and `update`, and reports per file whether its bytes changed: that
- * is how an orchestrator that read the brief earlier learns its copy is stale.
+ * Writes what the tool installs into a tracked repository for `init` and `update`, walking the host's table in
+ * `cli/adoption/constants/AgentHostInstalls.ts`, and reports per part whether its bytes changed: that is how an orchestrator that read the
+ * brief earlier learns its copy is stale.
  */
 import { existsSync, readFileSync } from 'node:fs';
 
@@ -19,58 +20,59 @@ import { OperationRefusal }                              from '../../src/shared/
 import { installedFilePathsIn, type InstalledFilePaths } from '../InstalledFiles.ts';
 import { INSTALL_VERSION }                               from '../constants/InstallVersion.ts';
 import type { InstalledFileTexts }                       from './InstalledFileGeneration.ts';
-import { CLAUDE_MANAGED_BLOCK_MARKERS }                  from './constants/ClaudeManagedBlockMarkers.ts';
-
-/** The matcher is empty so every subagent is recorded, matching the cohort `usage` reads; the timeout covers waiting on a held lock. */
-const SUBAGENT_STOP_HOOK: CommandHook = {
-  event:          'SubagentStop',
-  matcher:        '',
-  command:        'agent-progress hook subagent-stop',
-  timeoutSeconds: 20,
-};
-
-/** Only a Bash call can change the check command, and the hook reads nothing but its input, so it needs no lock time. */
-const PRE_TOOL_USE_HOOK: CommandHook = {
-  event:          'PreToolUse',
-  matcher:        'Bash',
-  command:        'agent-progress hook pre-tool-use',
-  timeoutSeconds: 10,
-};
-
-const INSTALLED_HOOKS: readonly CommandHook[] = [SUBAGENT_STOP_HOOK, PRE_TOOL_USE_HOOK];
+import {
+  AGENT_HOST_INSTALLS,
+  INSTALL_OPT_OUT_FLAGS,
+  type AgentHost,
+  type InstalledFile,
+  type InstalledFileName,
+  type InstalledPart,
+  type InstallOptOutFlag
+}                                                                    from './constants/AgentHostInstalls.ts';
+import { CLAUDE_MANAGED_BLOCK_MARKERS } from './constants/ClaudeManagedBlockMarkers.ts';
 
 const REFUSED_UNREADABLE_SETTINGS_LINE = 'refused (the settings file could not be read)';
 
+/** Wide enough for the longest label, `.gitignore:`, so every value starts in one column. */
+const REPORT_LABEL_COLUMN_WIDTH = 13;
+
 export interface TrackerRefreshRequest {
-  workspace:                Workspace;
-  installedFileTexts:       InstalledFileTexts;
+  workspace:           Workspace;
+  agentHost:           AgentHost;
+  installedFileTexts:  InstalledFileTexts;
   /** The word the reader typed, so a line telling them to run something again names it. */
-  commandName:              string;
-  writesClaudeInstructions: boolean;
-  writesTheHooks:           boolean;
-  writesTheAgentDefinition: boolean;
+  commandName:         string;
+  optOutFlags:         ReadonlySet<InstallOptOutFlag>;
   /** Only a fresh `init`: the brief marks the files installed, so a run cut short after it reads as unversioned and asks for a rerun. */
-  writesTheBriefFirst:      boolean;
-  standardError:            (text: string) => void;
+  writesTheBriefFirst: boolean;
+  standardError:       (text: string) => void;
+}
+
+export interface RefreshedPartLine {
+  reportLabel:     string;
+  line:            string;
+  marksTheInstall: boolean;
 }
 
 export interface TrackerRefreshReport {
-  claudeInstructionsLine: string;
-  briefFilePath:          string;
-  briefLine:              string;
-  hookLine:               string;
-  workflowLine:           string;
-  agentDefinitionLine:    string;
+  /** The brief whose presence marks the files installed, the one a reader holds. */
+  briefFilePath: string;
+  /** In the table's order. */
+  partLines:     readonly RefreshedPartLine[];
+}
+
+export function optOutFlagsGiven(flagIsGiven: (flagName: string) => boolean): ReadonlySet<InstallOptOutFlag> {
+  return new Set(INSTALL_OPT_OUT_FLAGS.filter((flagName) => flagIsGiven(flagName)));
+}
+
+export function reportLineOf(reportLabel: string, value: string): string {
+  return `  ${`${reportLabel}:`.padEnd(REPORT_LABEL_COLUMN_WIDTH)}${value}`;
 }
 
 export function refreshReportLinesOf(report: TrackerRefreshReport, htmlFilePath: string): string[] {
   return [
-    `  CLAUDE.md:   ${report.claudeInstructionsLine}`,
-    `  brief:       ${report.briefLine}`,
-    `  hooks:       ${report.hookLine}`,
-    `  workflow:    ${report.workflowLine}`,
-    `  agent:       ${report.agentDefinitionLine}`,
-    `  dashboard:   ${htmlFilePath}`,
+    ...report.partLines.map(({ reportLabel, line }) => reportLineOf(reportLabel, line)),
+    reportLineOf('dashboard', htmlFilePath),
   ];
 }
 
@@ -88,25 +90,45 @@ function bytesDiffer(before: Buffer | null, after: Buffer | null): boolean {
   return !before.equals(after);
 }
 
-function briefFileChanged(briefFilePath: string, briefText: string): boolean {
-  const bytesBefore = fileBytesOrNothing(briefFilePath);
-  writeFileAtomically(briefFilePath, briefText);
-  return bytesDiffer(bytesBefore, fileBytesOrNothing(briefFilePath));
+function fileChangedByWriting(filePath: string, text: string): boolean {
+  const bytesBefore = fileBytesOrNothing(filePath);
+  writeFileAtomically(filePath, text);
+  return bytesDiffer(bytesBefore, fileBytesOrNothing(filePath));
+}
+
+/** A text the generation left out of a part that was not opted out is a defect of this checkout, never of the repository written to. */
+function requiredTextOf(installedFileTexts: InstalledFileTexts, fileName: InstalledFileName): string {
+  const text = installedFileTexts[fileName];
+  if (text === undefined) throw new OperationRefusal('unrepaired', `No text was generated for the installed file ${fileName}, so it was not written.`);
+  return text;
+}
+
+function lastFileOf(files: readonly InstalledFile[]): InstalledFile {
+  const lastFile = files.at(-1);
+  if (lastFile === undefined) throw new OperationRefusal('unrepaired', 'An installed part lists no file.');
+  return lastFile;
 }
 
 /**
- * Rewritten on every refresh: the briefs ship with the tool. The line names the orchestrator's brief, the one a reader holds, and reports a
- * change to any of the three; the agent brief is written last, since its presence is what marks the files installed.
+ * Rewritten on every refresh: the briefs ship with the tool. The line names the last brief, the one a reader holds and whose presence marks
+ * the files installed, and reports a change to any of them.
  */
-function refreshBriefs(installedFilePaths: InstalledFilePaths, installedFileTexts: InstalledFileTexts): { briefFilePath: string; briefLine: string } {
-  const builderBriefChanged = briefFileChanged(installedFilePaths.builderBrief, installedFileTexts.builderBrief);
-  const reviewBriefChanged  = briefFileChanged(installedFilePaths.reviewBrief, installedFileTexts.reviewBrief);
-  const agentBriefChanged   = briefFileChanged(installedFilePaths.agentBrief, installedFileTexts.agentBrief);
-  const briefFilePath       = installedFilePaths.agentBrief;
-  const briefLine           = builderBriefChanged || reviewBriefChanged || agentBriefChanged
-    ? `updated — re-read it before your next brief (${briefFilePath})`
-    : `unchanged (${briefFilePath})`;
-  return { briefFilePath, briefLine };
+function refreshBriefs(files: readonly InstalledFile[], installedFilePaths: InstalledFilePaths, installedFileTexts: InstalledFileTexts): string {
+  let anyBriefChanged = false;
+  for (const file of files) {
+    if (fileChangedByWriting(installedFilePaths[file.name], requiredTextOf(installedFileTexts, file.name))) anyBriefChanged = true;
+  }
+  const briefFilePath = installedFilePaths[lastFileOf(files).name];
+  return anyBriefChanged ? `updated — re-read it before your next brief (${briefFilePath})` : `unchanged (${briefFilePath})`;
+}
+
+/** Rewritten on every refresh like the briefs: a hand edit is undone, and a project that wants its own keeps it under another name. */
+function refreshRewrittenFiles(files: readonly InstalledFile[], installedFilePaths: InstalledFilePaths, installedFileTexts: InstalledFileTexts): string {
+  const fileLines = files.map((file) => {
+    const filePath = installedFilePaths[file.name];
+    return fileChangedByWriting(filePath, requiredTextOf(installedFileTexts, file.name)) ? `updated (${filePath})` : `unchanged (${filePath})`;
+  });
+  return fileLines.join('; ');
 }
 
 /** Written to the per-user settings file unless the shared one already holds the entry, which is then kept current there. */
@@ -135,14 +157,10 @@ function refreshHookIn(rootDirectory: string, commandName: string, hook: Command
   return `${localSettingsFilePath} (installed)`;
 }
 
-/** One line for both hooks when they fared alike, one per hook otherwise; an unreadable settings file stops at the first refusal. */
-function refreshHooksIn(rootDirectory: string, commandName: string, writesTheHooks: boolean, standardError: (text: string) => void): string {
-  // Opting out comes first, or refreshing an entry the shared file already holds would write into a file
-  // colleagues share on behalf of a reader who asked for no settings file to be touched at all.
-  if (!writesTheHooks) return 'left alone (--no-hooks)';
-
+/** One line for every hook when they fared alike, one per hook otherwise; an unreadable settings file stops at the first refusal. */
+function refreshClaudeSettingsHooks(hooks: readonly CommandHook[], rootDirectory: string, commandName: string, standardError: (text: string) => void): string {
   const hookLines: { event: string; line: string }[] = [];
-  for (const hook of INSTALLED_HOOKS) {
+  for (const hook of hooks) {
     const line = refreshHookIn(rootDirectory, commandName, hook, standardError);
     if (line === REFUSED_UNREADABLE_SETTINGS_LINE) return line;
     hookLines.push({ event: hook.event, line });
@@ -150,6 +168,34 @@ function refreshHooksIn(rootDirectory: string, commandName: string, writesTheHoo
   const distinctLines = new Set(hookLines.map(({ line }) => line));
   if (distinctLines.size === 1) return hookLines[0]?.line ?? '';
   return hookLines.map(({ event, line }) => `${event} ${line}`).join('; ');
+}
+
+function refreshManagedBlock(
+  claudeFilePath: string,
+  blockBody: string,
+  commandName: string,
+  standardError: (text: string) => void,
+): string {
+  const bytesBefore = fileBytesOrNothing(claudeFilePath);
+  const outcome     = writeManagedBlock(claudeFilePath, blockBody, CLAUDE_MANAGED_BLOCK_MARKERS);
+
+  if (outcome === 'refused-start-without-end') {
+    standardError(
+      `${claudeFilePath} has an \`${CLAUDE_MANAGED_BLOCK_MARKERS.start}\` marker with no matching end marker, so the block was left alone. `
+      + `Close or remove that marker and run \`agent-progress ${commandName}\` again.`,
+    );
+    return 'refused (start marker without an end marker)';
+  }
+
+  if (outcome === 'replaced') {
+    const pairCount = readFileSync(claudeFilePath, 'utf8').split(CLAUDE_MANAGED_BLOCK_MARKERS.start).length - 1;
+    if (pairCount > 1) {
+      standardError(`${claudeFilePath} holds ${pairCount} agent-progress blocks; only the first was refreshed and the others are now stale.`);
+    }
+  }
+  // Reported by the bytes on disk, not by the write that was attempted.
+  if (!bytesDiffer(bytesBefore, fileBytesOrNothing(claudeFilePath))) return 'unchanged';
+  return `updated (${outcome})`;
 }
 
 /** Checked before the first write: the dispatcher starts every builder and reviewer as the agent this definition declares. */
@@ -183,88 +229,49 @@ export function refuseKeepingADispatcherWithoutItsAgentDefinition(
   );
 }
 
-/** Rewritten on every refresh like the dispatcher: a hand edit is undone, and a project that wants its own keeps it under another name. */
-function refreshAgentDefinition(agentDefinitionFilePath: string, agentDefinitionText: string, writesTheAgentDefinition: boolean): string {
-  if (!writesTheAgentDefinition) return 'left alone (--no-agent-definition)';
-
-  const bytesBefore = fileBytesOrNothing(agentDefinitionFilePath);
-  writeFileAtomically(agentDefinitionFilePath, agentDefinitionText);
-  return bytesDiffer(bytesBefore, fileBytesOrNothing(agentDefinitionFilePath))
-    ? `updated (${agentDefinitionFilePath})`
-    : `unchanged (${agentDefinitionFilePath})`;
-}
-
-/** Rewritten on every refresh like the brief: the script is the tool's, and a hand edit to the installed copy is undone. */
-function refreshDispatcherScript(dispatcherScriptFilePath: string, dispatcherScriptText: string): string {
-  const bytesBefore = fileBytesOrNothing(dispatcherScriptFilePath);
-  writeFileAtomically(dispatcherScriptFilePath, dispatcherScriptText);
-  return bytesDiffer(bytesBefore, fileBytesOrNothing(dispatcherScriptFilePath))
-    ? `updated (${dispatcherScriptFilePath})`
-    : `unchanged (${dispatcherScriptFilePath})`;
-}
-
-function refreshClaudeInstructions(
-  claudeFilePath: string,
-  claudeInstructionsBlockBody: string,
-  commandName: string,
-  standardError: (text: string) => void,
-): string {
-  const bytesBefore = fileBytesOrNothing(claudeFilePath);
-  const outcome     = writeManagedBlock(claudeFilePath, claudeInstructionsBlockBody, CLAUDE_MANAGED_BLOCK_MARKERS);
-
-  if (outcome === 'refused-start-without-end') {
-    standardError(
-      `${claudeFilePath} has an \`${CLAUDE_MANAGED_BLOCK_MARKERS.start}\` marker with no matching end marker, so the block was left alone. `
-      + `Close or remove that marker and run \`agent-progress ${commandName}\` again.`,
-    );
-    return 'refused (start marker without an end marker)';
-  }
-
-  if (outcome === 'replaced') {
-    const pairCount = readFileSync(claudeFilePath, 'utf8').split(CLAUDE_MANAGED_BLOCK_MARKERS.start).length - 1;
-    if (pairCount > 1) {
-      standardError(`${claudeFilePath} holds ${pairCount} agent-progress blocks; only the first was refreshed and the others are now stale.`);
-    }
-  }
-  // Reported by the bytes on disk, not by the write that was attempted.
-  if (!bytesDiffer(bytesBefore, fileBytesOrNothing(claudeFilePath))) return 'unchanged';
-  return `updated (${outcome})`;
-}
-
 /** Touches nothing the tracker holds: not `progress.json`, not a ticket, not the log. */
 export function refreshTrackedRepository(request: TrackerRefreshRequest): TrackerRefreshReport {
   const {
-    workspace,
-    installedFileTexts,
-    commandName,
-    writesClaudeInstructions,
-    writesTheHooks,
-    writesTheAgentDefinition,
-    writesTheBriefFirst,
-    standardError,
+    workspace, agentHost, installedFileTexts, commandName, optOutFlags, writesTheBriefFirst, standardError
   } = request;
   const installedFilePaths = installedFilePathsIn(workspace.rootDirectory);
-  const briefWrittenFirst  = writesTheBriefFirst ? refreshBriefs(installedFilePaths, installedFileTexts) : null;
+  const { parts }          = AGENT_HOST_INSTALLS[agentHost];
 
-  const { dispatcherScript } = installedFileTexts;
+  function refreshedLineOf(part: InstalledPart): string {
+    // Opting out comes first, or refreshing a hook the shared settings file already holds would write into a file colleagues share on
+    // behalf of a reader who asked for no settings file to be touched at all.
+    if (part.optOutFlag !== null && optOutFlags.has(part.optOutFlag)) return `left alone (--${part.optOutFlag})`;
+    switch (part.writing) {
+      case 'managed-block':
+        return refreshManagedBlock(installedFilePaths[part.file.name], requiredTextOf(installedFileTexts, part.file.name), commandName, standardError);
+      case 'briefs':
+        return refreshBriefs(part.files, installedFilePaths, installedFileTexts);
+      case 'rewritten-files':
+        return refreshRewrittenFiles(part.files, installedFilePaths, installedFileTexts);
+      case 'claude-settings-hooks':
+        return refreshClaudeSettingsHooks(part.hooks, workspace.rootDirectory, commandName, standardError);
+    }
+  }
 
-  const claudeInstructionsLine = writesClaudeInstructions
-    ? refreshClaudeInstructions(installedFilePaths.claudeInstructions, installedFileTexts.claudeInstructionsBlockBody, commandName, standardError)
-    : 'left alone (--no-claude-md)';
-  const hookLine = refreshHooksIn(workspace.rootDirectory, commandName, writesTheHooks, standardError);
-  const dispatcherScriptLine = dispatcherScript === null
-    ? 'left alone (--no-workflow)'
-    : refreshDispatcherScript(installedFilePaths.dispatcherScript, dispatcherScript);
-  const agentDefinitionLine = refreshAgentDefinition(installedFilePaths.agentDefinition, installedFileTexts.agentDefinition, writesTheAgentDefinition);
-  // Otherwise last, so a write that fails before it leaves the brief's `updated` for the rerun to report.
-  const { briefFilePath, briefLine } = briefWrittenFirst ?? refreshBriefs(installedFilePaths, installedFileTexts);
+  // The briefs go last, so a write that fails before them leaves the brief's `updated` for the rerun to report, unless a fresh init
+  // writes them first to mark the files installed.
+  const writeOrder = [
+    ...parts.filter((part) => writesTheBriefFirst && part.writing === 'briefs'),
+    ...parts.filter((part) => part.writing !== 'briefs'),
+    ...parts.filter((part) => !writesTheBriefFirst && part.writing === 'briefs'),
+  ];
+  const lineByPart = new Map<InstalledPart, string>();
+  for (const part of writeOrder) lineByPart.set(part, refreshedLineOf(part));
+
+  const briefsPart = parts.find((part) => part.writing === 'briefs');
+  if (briefsPart?.writing !== 'briefs') throw new OperationRefusal('unrepaired', `The ${agentHost} install lists no briefs.`);
   return {
-    claudeInstructionsLine,
-    briefFilePath,
-    briefLine,
-    hookLine,
-    workflowLine: dispatcherScriptLine,
-    agentDefinitionLine,
+    briefFilePath: installedFilePaths[lastFileOf(briefsPart.files).name],
+    partLines:     parts.map((part) => ({
+      reportLabel:     part.reportLabel,
+      line:            lineByPart.get(part) ?? '',
+      marksTheInstall: part === briefsPart,
+    })),
   };
 }
 
