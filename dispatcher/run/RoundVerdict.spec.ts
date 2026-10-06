@@ -6,11 +6,9 @@
  */
 import { describe, expect, test } from 'bun:test';
 
-import { DISPATCH_PROTOCOL }  from '../../../src/shared/constants/DispatchProtocol.ts';
-import type { ReviewFinding } from '../../@types/AgentReadings.ts';
-import { RoundVerdictUtil }   from './RoundVerdictUtil.ts';
-
-const { nextRoundVerdictOf } = RoundVerdictUtil;
+import { DISPATCH_PROTOCOL }  from '../../src/shared/constants/DispatchProtocol.ts';
+import type { ReviewFinding } from '../@types/AgentReadings.ts';
+import { nextRoundVerdictOf } from './RoundVerdict.ts';
 
 const OVER_THE_THRESHOLD_LINES = DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES + 1;
 

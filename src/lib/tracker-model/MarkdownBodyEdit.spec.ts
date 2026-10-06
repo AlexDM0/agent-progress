@@ -4,9 +4,7 @@
  */
 import { expect, test } from 'bun:test';
 
-import { MarkdownBodyUtil } from './MarkdownBodyUtil.ts';
-
-const { editedBodyOf } = MarkdownBodyUtil;
+import { editedBodyOf } from './MarkdownBodyEdit.ts';
 
 test('a replacement takes the line ending the body already uses', () => {
   expect(editedBodyOf({ body: 'old\r\n' }, { text: 'one\ntwo\n', appends: false })).toBe('one\r\ntwo\r\n');

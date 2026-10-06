@@ -33,9 +33,9 @@ import type {
   ReviewWork,
   RowRelease
 } from '../@types/DispatchWork.ts';
-import { DISPATCH_POLICY }   from '../constants/DispatchPolicy.ts';
-import { ReleaseBundleUtil } from './utils/ReleaseBundleUtil.ts';
-import { RoundVerdictUtil }  from './utils/RoundVerdictUtil.ts';
+import { DISPATCH_POLICY }    from '../constants/DispatchPolicy.ts';
+import { nextRoundVerdictOf } from './RoundVerdict.ts';
+import { ReleaseBundleUtil }  from './utils/ReleaseBundleUtil.ts';
 
 export interface DispatchRunCollaborators {
   logger:     DispatchLogger;
@@ -612,7 +612,7 @@ export class DispatchRun {
       this.takeOverTheBarLeftForTheNextRound(ticketId);
       return;
     }
-    const verdict = RoundVerdictUtil.nextRoundVerdictOf(record.rounds, { round, findings: reading.findings, reworkedLines: reading.reworkedLines });
+    const verdict = nextRoundVerdictOf(record.rounds, { round, findings: reading.findings, reworkedLines: reading.reworkedLines });
     if (!verdict.granted) {
       this.park(ticketId, { cause: 'round-refused', refusal: verdict.refusal });
       return;

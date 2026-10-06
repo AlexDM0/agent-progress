@@ -1,6 +1,6 @@
 /** Where a ticket stands on the chart: whether it has a row to be given at all, the names its rows are stored under, and the row it is seeded as. */
 import type { TicketFrontmatter, TicketStatus } from '../@types/Ticket.ts';
-import type { TaskFiling }                      from './TaskFilingUtil.ts';
+import type { TaskFiling }                      from './TaskRecordUtil.ts';
 import { TicketDefaultsUtil }                   from './TicketDefaultsUtil.ts';
 
 /** A low ticket that was never started lives off the chart; once started it keeps the row it was given. */

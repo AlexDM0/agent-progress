@@ -21,7 +21,7 @@ import {
 import { createProgressFileWriter }                       from '../../adapters/progress/ProgressFileWriter.ts';
 import { createTicketFileWriter }                         from '../../adapters/tickets/TicketFileWriter.ts';
 import type { Ticket, TicketType }                        from '../../lib/tracker-model/@types/Ticket.ts';
-import { TaskFilingUtil }                                 from '../../lib/tracker-model/utils/TaskFilingUtil.ts';
+import { TaskRecordUtil }                                 from '../../lib/tracker-model/utils/TaskRecordUtil.ts';
 import { emptyProgress }                                  from '../../testing/ProgressFixtures.ts';
 import { createScratchDirectory, removeScratchDirectory } from '../../testing/ScratchWorkspace.ts';
 import {
@@ -259,9 +259,9 @@ describe('a ticket file renamed by hand', () => {
       ...progress,
       nextTaskId: 4,
       tasks:      [
-        TaskFilingUtil.filedTaskOf(1, { name: 'Fix the export dialog', ticket: '001' }),
-        TaskFilingUtil.filedTaskOf(2, { name: 'Example row of a ticket never written', ticket: '005' }),
-        TaskFilingUtil.filedTaskOf(3, { name: 'Example free row' }),
+        TaskRecordUtil.filedTaskOf(1, { name: 'Fix the export dialog', ticket: '001' }),
+        TaskRecordUtil.filedTaskOf(2, { name: 'Example row of a ticket never written', ticket: '005' }),
+        TaskRecordUtil.filedTaskOf(3, { name: 'Example free row' }),
       ],
     });
 

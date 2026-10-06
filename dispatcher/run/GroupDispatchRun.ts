@@ -28,8 +28,8 @@ import type {
 } from '../@types/DispatchWork.ts';
 import { DISPATCH_POLICY }               from '../constants/DispatchPolicy.ts';
 import type { DispatchRunCollaborators } from './DispatchRun.ts';
+import { nextRoundVerdictOf }            from './RoundVerdict.ts';
 import { ReleaseBundleUtil }             from './utils/ReleaseBundleUtil.ts';
-import { RoundVerdictUtil }              from './utils/RoundVerdictUtil.ts';
 
 type GroupTicketStage = 'to-build' | 'building' | 'built' | 'reviewing' | 'integrated' | 'released' | 'parked';
 
@@ -392,7 +392,7 @@ export class GroupDispatchRun {
       this.park(ticketId, { cause: 'release-refused', statedReason: refusal.statedReason, blockingFiles: refusal.blockingFiles }, true);
       return;
     }
-    const verdict = RoundVerdictUtil.nextRoundVerdictOf(record.rounds, { round, findings: reading.findings, reworkedLines: reading.reworkedLines });
+    const verdict = nextRoundVerdictOf(record.rounds, { round, findings: reading.findings, reworkedLines: reading.reworkedLines });
     if (!verdict.granted) {
       this.park(ticketId, { cause: 'round-refused', refusal: verdict.refusal }, true);
       return;

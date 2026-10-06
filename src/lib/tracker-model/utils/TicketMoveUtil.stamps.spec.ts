@@ -4,10 +4,10 @@
  */
 import { expect, test } from 'bun:test';
 
-import type { TicketStatus }                  from '../@types/Ticket.ts';
-import { TicketStampUtil, type TicketStamps } from './TicketStampUtil.ts';
+import type { TicketStatus }                 from '../@types/Ticket.ts';
+import { TicketMoveUtil, type TicketStamps } from './TicketMoveUtil.ts';
 
-const { stampsAfterMoveOf } = TicketStampUtil;
+const { stampsAfterMoveOf } = TicketMoveUtil;
 
 const STARTED_AT   = '2026-09-18T10:00:00+02:00';
 const FINISHED_AT  = '2026-09-18T12:00:00+02:00';

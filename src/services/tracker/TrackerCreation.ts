@@ -3,7 +3,7 @@ import { mkdirSync } from 'node:fs';
 
 import { createLogFileWriter }                          from '../../adapters/log/LogFileWriter.ts';
 import { createProgressFileWriter }                     from '../../adapters/progress/ProgressFileWriter.ts';
-import { EmptyProgressUtil }                            from '../../lib/tracker-model/utils/EmptyProgressUtil.ts';
+import { emptyProgressFor }                             from '../../lib/tracker-model/EmptyProgress.ts';
 import type { RenderState }                             from '../render/RenderState.ts';
 import { renderDashboard, type DashboardRenderOutcome } from './DashboardRendering.ts';
 import { withLock }                                     from './TrackerLock.ts';
@@ -22,7 +22,7 @@ export type TrackerCreation =
 
 export async function createTracker(workspace: Workspace, newTracker: NewTracker, now: () => Date, renderState: RenderState): Promise<TrackerCreation> {
   mkdirSync(workspace.ticketsDirectory, { recursive: true });
-  const progress = EmptyProgressUtil.emptyProgressFor(newTracker);
+  const progress = emptyProgressFor(newTracker);
 
   return withLock(workspace, async (): Promise<TrackerCreation> => {
     if (createProgressFileWriter(workspace.progressFilePath).create(progress) === 'already-exists') return { verdict: 'already-exists' };

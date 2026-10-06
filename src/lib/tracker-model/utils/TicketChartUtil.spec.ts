@@ -7,7 +7,7 @@ import { describe, expect, test } from 'bun:test';
 import type { Task }              from '../@types/Task.ts';
 import type { TicketFrontmatter } from '../@types/Ticket.ts';
 import { TICKET_STATUSES }        from '../constants/Statuses.ts';
-import { TaskFilingUtil }         from './TaskFilingUtil.ts';
+import { TaskRecordUtil }         from './TaskRecordUtil.ts';
 import { TicketChartUtil }        from './TicketChartUtil.ts';
 
 const {
@@ -44,7 +44,7 @@ function frontmatterFixture(overrides: Partial<TicketFrontmatter> = {}): TicketF
 }
 
 function seededRowOf(frontmatter: TicketFrontmatter): Task {
-  return TaskFilingUtil.filedTaskOf(SEEDED_ROW_ID, seededFilingOf(frontmatter));
+  return TaskRecordUtil.filedTaskOf(SEEDED_ROW_ID, seededFilingOf(frontmatter));
 }
 
 describe('ticketStaysOffTheChart', () => {

@@ -8,9 +8,8 @@ import type { Ticket, TicketStatus } from './@types/Ticket.ts';
 import type { TrackerProgress }      from './@types/TrackerProgress.ts';
 import { BoardRefusal }              from './BoardRefusal.ts';
 import type { Logger }               from './Logger.ts';
-import type { TaskFiling }           from './utils/TaskFilingUtil.ts';
-import { TaskFilingUtil }            from './utils/TaskFilingUtil.ts';
-import { TaskTransitionUtil }        from './utils/TaskTransitionUtil.ts';
+import type { TaskFiling }           from './utils/TaskRecordUtil.ts';
+import { TaskRecordUtil }            from './utils/TaskRecordUtil.ts';
 import { TicketChartUtil }           from './utils/TicketChartUtil.ts';
 import { TicketIdUtil }              from './utils/TicketIdUtil.ts';
 
@@ -81,7 +80,7 @@ export class BoardRecords {
   }
 
   fileTask(filing: TaskFiling): Task {
-    const task = TaskFilingUtil.filedTaskOf(this.takeNextTaskId(), filing);
+    const task = TaskRecordUtil.filedTaskOf(this.takeNextTaskId(), filing);
     this.progress.tasks.push(task);
     return task;
   }
@@ -92,7 +91,7 @@ export class BoardRecords {
 
   /** Callers hold the record across a move, so the moved row is written into the same object; a key it keeps stays where the file stores it. */
   transitionTaskInPlace(task: Task, status: TaskStatus, at: string): void {
-    const transitioned = TaskTransitionUtil.transitionedTaskOf(task, status, at);
+    const transitioned = TaskRecordUtil.transitionedTaskOf(task, status, at);
     for (const key of Object.keys(task)) {
       if (!Object.hasOwn(transitioned, key)) Reflect.deleteProperty(task, key);
     }

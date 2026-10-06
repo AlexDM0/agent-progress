@@ -2,7 +2,7 @@
  * A ticket's or an epic's markdown body replaced or appended to. The new text is written in the line ending the body already uses, so an
  * edit never leaves a file with two.
  */
-import type { LineEnding } from '../@types/Ticket.ts';
+import type { LineEnding } from './@types/Ticket.ts';
 
 export interface MarkdownBodyEdit {
   text:    string;
@@ -27,10 +27,8 @@ function appendedBodyOf(body: string, appendedText: string, lineEnding: LineEndi
 }
 
 /** An append puts one line ending before the text when the body does not already end in one. */
-function editedBodyOf(document: { body: string; lineEnding?: LineEnding }, edit: MarkdownBodyEdit): string {
+export function editedBodyOf(document: { body: string; lineEnding?: LineEnding }, edit: MarkdownBodyEdit): string {
   const lineEnding = lineEndingOfBody(document);
   const text       = edit.text.replace(ANY_LINE_ENDING_PATTERN, lineEnding);
   return edit.appends ? appendedBodyOf(document.body, text, lineEnding) : text;
 }
-
-export const MarkdownBodyUtil = { editedBodyOf } as const;

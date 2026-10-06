@@ -8,8 +8,7 @@ import { expect, test } from 'bun:test';
 import type { Task }                                                          from '../@types/Task.ts';
 import { CONCURRENCY_LIMIT_CEILING_AGENTS, DEFAULT_CONCURRENCY_LIMIT_AGENTS } from '../constants/ConcurrencyLimits.ts';
 import { ConcurrencyUtil }                                                    from './ConcurrencyUtil.ts';
-import { TaskFilingUtil, type TaskFiling }                                    from './TaskFilingUtil.ts';
-import { TaskTransitionUtil }                                                 from './TaskTransitionUtil.ts';
+import { TaskRecordUtil, type TaskFiling }                                    from './TaskRecordUtil.ts';
 
 const { agentsInFlightOf, concurrencyOf } = ConcurrencyUtil;
 
@@ -20,7 +19,7 @@ const BUNDLE_AGENT_KEY  = '003,004,005';
 const BUNDLE_PART_NAMES = ['Bundle part one', 'Bundle part two', 'Bundle part three'];
 
 function rowsFiled(filings: readonly TaskFiling[]): Task[] {
-  return filings.map((filing, index) => TaskFilingUtil.filedTaskOf(index + 1, filing));
+  return filings.map((filing, index) => TaskRecordUtil.filedTaskOf(index + 1, filing));
 }
 
 function inProgressFilingOf(name: string): TaskFiling {
@@ -44,7 +43,7 @@ test('only in-progress rows are in flight, and the free slots never go below zer
 // A slot is an agent: three rows one claim started are one agent, and a row with no key beside them is another.
 test('in-progress rows sharing an agent key count once, and an in-progress row with no key counts on its own', () => {
   const bundleRows = rowsFiled(BUNDLE_PART_NAMES.map(inProgressFilingOf)).map((row) => claimedBy(BUNDLE_AGENT_KEY, row));
-  const reviewPass = TaskFilingUtil.filedTaskOf(bundleRows.length + 1, inProgressFilingOf('Review pass'));
+  const reviewPass = TaskRecordUtil.filedTaskOf(bundleRows.length + 1, inProgressFilingOf('Review pass'));
 
   expect(concurrencyOf([...bundleRows, reviewPass], 2)).toEqual({ limit: 2, agentsInFlight: 2, freeSlots: 0 });
 });
@@ -54,7 +53,7 @@ test('a bundle whose rows finish one at a time counts as one agent until its las
   const tasks = rowsFiled(BUNDLE_PART_NAMES.map(inProgressFilingOf)).map((row) => claimedBy(BUNDLE_AGENT_KEY, row));
 
   const agentsInFlightAfterEachFinish = tasks.map((row, index) => {
-    tasks[index] = TaskTransitionUtil.transitionedTaskOf(row, 'in-review', FINISHED_AT);
+    tasks[index] = TaskRecordUtil.transitionedTaskOf(row, 'in-review', FINISHED_AT);
     return agentsInFlightOf(tasks);
   });
 

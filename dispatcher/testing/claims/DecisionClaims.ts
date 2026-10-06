@@ -19,7 +19,7 @@ const {
   DISPATCHER,
   AGENT_STARTER,
   WORKFLOW_INPUT_UTIL,
-  ROUND_VERDICT_UTIL,
+  ROUND_VERDICT,
   AGENT_PROMPT_UTIL,
   DISPATCH_WORDING_UTIL,
   DISPATCHER_CLAIM_NOTE_UTIL,
@@ -52,7 +52,7 @@ function roundThreeScenario(roundTwoFindings: ReviewFinding[]): DispatchScenario
 }
 
 const GRANT_ROUND_THREE_WITHOUT_CONVERGENCE: SourceMutant = {
-  modulePath: ROUND_VERDICT_UTIL,
+  modulePath: ROUND_VERDICT,
   find:       'if (requestedRound === DISPATCH_POLICY.ROUND_GRANTED_ON_REWORK_ALONE) return { granted: true };',
   replace:    'return { granted: true };',
 };
@@ -286,7 +286,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     }),
     holds:  (run) => RecordedDispatchRunUtil.reviewCountOf(run, '001') === 2 && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.includes('001'),
     mutant: {
-      modulePath: ROUND_VERDICT_UTIL,
+      modulePath: ROUND_VERDICT,
       find:       'current.reworkedLines <= DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES',
       replace:    'current.reworkedLines <= DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES + 1',
     },
@@ -300,7 +300,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     }),
     holds:  (run) => RecordedDispatchRunUtil.reviewCountOf(run, '001') === 1 && parkedIds(run).includes('001'),
     mutant: {
-      modulePath: ROUND_VERDICT_UTIL,
+      modulePath: ROUND_VERDICT,
       find:       'current.reworkedLines <= DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES',
       replace:    'current.reworkedLines < DISPATCH_PROTOCOL.REWORK_ROUND_THRESHOLD_LINES',
     },
@@ -328,9 +328,9 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     scenarioFor: () => roundThreeScenario([finding('spacing', 'a.ts'), finding('typing', 'b.ts')]),
     holds:       (run) => RecordedDispatchRunUtil.reviewCountOf(run, '001') === 3 && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.includes('001'),
     mutant:      {
-      modulePath: ROUND_VERDICT_UTIL,
-      find:       '  return { granted: true };\n}\n\nexport const',
-      replace:    '  return refusedVerdictOf({ reason: \'previous-round-not-reviewed-in-this-run\', requestedRound });\n}\n\nexport const',
+      modulePath: ROUND_VERDICT,
+      find:       '  return { granted: true };\n}\n',
+      replace:    '  return refusedVerdictOf({ reason: \'previous-round-not-reviewed-in-this-run\', requestedRound });\n}\n',
     },
   },
   {
@@ -354,7 +354,7 @@ export const DECISION_CLAIMS: readonly DispatchClaim[] = [
     }),
     holds:  (run) => RecordedDispatchRunUtil.reviewCountOf(run, '001') === 4 && RecordedDispatchRunUtil.mainSummaryOf(run).delivered.includes('001'),
     mutant: {
-      modulePath: ROUND_VERDICT_UTIL,
+      modulePath: ROUND_VERDICT,
       find:       'const earlierFiles = new Set(earlierFindings.map((finding) => finding.file));',
       replace:    'const earlierFiles = new Set(previous.findings.map((finding) => finding.file));',
     },

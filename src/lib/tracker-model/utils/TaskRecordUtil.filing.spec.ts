@@ -4,9 +4,9 @@
  */
 import { expect, test } from 'bun:test';
 
-import { TaskFilingUtil } from './TaskFilingUtil.ts';
+import { TaskRecordUtil } from './TaskRecordUtil.ts';
 
-const { filedTaskOf } = TaskFilingUtil;
+const { filedTaskOf } = TaskRecordUtil;
 
 const FILED_AT    = '2026-09-18T20:11:03+02:00';
 const STARTED_AT  = '2026-09-18T20:40:00+02:00';

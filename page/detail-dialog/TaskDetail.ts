@@ -106,7 +106,7 @@ function taskFactsMarkup(task: Task, format: StampFormat): string {
 
 /**
  * A round is counted off the list rather than read from the row, because a row stays in `re-review` between rounds and carries only the
- * last. The count restarts at a `pending` phase, which is what `TaskTransitionUtil.transitionedTaskOf` does to `reviewRound` when a row
+ * last. The count restarts at a `pending` phase, which is what `TaskRecordUtil.transitionedTaskOf` does to `reviewRound` when a row
  * is sent back.
  */
 function recordedPhaseLines(task: Task): PhaseLine[] {

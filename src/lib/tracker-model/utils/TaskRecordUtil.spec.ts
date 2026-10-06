@@ -6,10 +6,9 @@
 import { expect, test } from 'bun:test';
 
 import type { Task, TaskStatus }           from '../@types/Task.ts';
-import { TaskFilingUtil, type TaskFiling } from './TaskFilingUtil.ts';
-import { TaskTransitionUtil }              from './TaskTransitionUtil.ts';
+import { TaskRecordUtil, type TaskFiling } from './TaskRecordUtil.ts';
 
-const { transitionedTaskOf } = TaskTransitionUtil;
+const { filedTaskOf, transitionedTaskOf } = TaskRecordUtil;
 
 const FILED_AT        = '2026-09-18T20:11:03+02:00';
 const STARTED_AT      = '2026-09-18T20:40:00+02:00';
@@ -21,7 +20,7 @@ const DELIVERED_AT    = '2026-09-19T10:00:00+02:00';
 const EXAMPLE_ROW_ID = 1;
 
 function filed(filing: TaskFiling): Task {
-  return TaskFilingUtil.filedTaskOf(EXAMPLE_ROW_ID, filing);
+  return filedTaskOf(EXAMPLE_ROW_ID, filing);
 }
 
 function movedThrough(task: Task, moves: ReadonlyArray<readonly [TaskStatus, string]>): Task {

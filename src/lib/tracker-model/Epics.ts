@@ -14,9 +14,9 @@ import type { TicketStatus }   from './@types/Ticket.ts';
 import type { BoardRecords }   from './BoardRecords.ts';
 import { BoardRefusal }        from './BoardRefusal.ts';
 import type { DisplayQueries } from './DisplayQueries.ts';
+import { editedBodyOf }        from './MarkdownBodyEdit.ts';
 import { TICKET_STATUSES }     from './constants/Statuses.ts';
 import { EpicUtil }            from './utils/EpicUtil.ts';
-import { MarkdownBodyUtil }    from './utils/MarkdownBodyUtil.ts';
 
 export class Epics {
   constructor(
@@ -46,7 +46,7 @@ export class Epics {
   editEpic(epicKey: string, edit: EpicEdit, at: string): EpicEdited {
     const epic  = this.requireEpic(epicKey);
     const title = edit.title ?? epic.frontmatter.title;
-    const body  = edit.body === undefined ? epic.body : MarkdownBodyUtil.editedBodyOf(epic, edit.body);
+    const body  = edit.body === undefined ? epic.body : editedBodyOf(epic, edit.body);
     if (title === epic.frontmatter.title && body === epic.body) return { logged: [], epic, changed: false };
 
     epic.frontmatter.title = title;

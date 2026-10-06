@@ -7,8 +7,8 @@ import type { LogRecord }        from './@types/LogRecord.ts';
 import type { Ticket }           from './@types/Ticket.ts';
 import type { BoardRecords }     from './BoardRecords.ts';
 import { BoardRefusal }          from './BoardRefusal.ts';
-import type { MarkdownBodyEdit } from './utils/MarkdownBodyUtil.ts';
-import { MarkdownBodyUtil }      from './utils/MarkdownBodyUtil.ts';
+import { type MarkdownBodyEdit } from './MarkdownBodyEdit.ts';
+import { editedBodyOf }          from './MarkdownBodyEdit.ts';
 import { TicketBodyHashUtil }    from './utils/TicketBodyHashUtil.ts';
 import { TicketChartUtil }       from './utils/TicketChartUtil.ts';
 
@@ -58,7 +58,7 @@ export class TicketEdits {
     const title             = edit.title ?? previousTitle;
     const retitled          = title !== previousTitle;
     const retitledBody      = retitled ? bodyWithHeadingRetitled(ticket.body, ticketId, previousTitle, title) : ticket.body;
-    const body              = edit.body === undefined ? retitledBody : MarkdownBodyUtil.editedBodyOf({ ...ticket, body: retitledBody }, edit.body);
+    const body              = edit.body === undefined ? retitledBody : editedBodyOf({ ...ticket, body: retitledBody }, edit.body);
     if (!retitled && body === ticket.body) return { logged: [], ticket, changed: false };
 
     if (retitled && TicketBodyHashUtil.bodyChangedSinceClaimOf(ticket) === false) {

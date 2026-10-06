@@ -19,7 +19,6 @@ import type { TicketDependencies }                      from './TicketDependenci
 import { FIRST_REPEAT_REVIEW_ROUND }                    from './constants/ReviewRounds.ts';
 import { TicketBodyHashUtil }                           from './utils/TicketBodyHashUtil.ts';
 import { TicketMoveUtil }                               from './utils/TicketMoveUtil.ts';
-import { TicketStampUtil }                              from './utils/TicketStampUtil.ts';
 
 type TicketMoveFields = Pick<TicketMoveRequest, 'branch' | 'commit' | 'reason'>;
 
@@ -133,7 +132,7 @@ export class TicketMoves {
     const { frontmatter } = ticket;
     frontmatter.status      = targetStatus;
     frontmatter.updated     = at;
-    const stamps            = TicketStampUtil.stampsAfterMoveOf(frontmatter, targetStatus, at);
+    const stamps            = TicketMoveUtil.stampsAfterMoveOf(frontmatter, targetStatus, at);
     frontmatter.started     = stamps.started;
     frontmatter.finished    = stamps.finished;
     frontmatter.delivered   = stamps.delivered;
