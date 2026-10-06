@@ -236,6 +236,8 @@ export function refreshTrackedRepository(request: TrackerRefreshRequest): Tracke
   } = request;
   const installedFilePaths = installedFilePathsIn(workspace.rootDirectory);
   const { parts }          = AGENT_HOST_INSTALLS[agentHost];
+  const briefsPart         = parts.find((part) => part.writing === 'briefs');
+  if (briefsPart?.writing !== 'briefs') throw new OperationRefusal('unrepaired', `The ${agentHost} install lists no briefs.`);
 
   function refreshedLineOf(part: InstalledPart): string {
     // Opting out comes first, or refreshing a hook the shared settings file already holds would write into a file colleagues share on
@@ -263,8 +265,6 @@ export function refreshTrackedRepository(request: TrackerRefreshRequest): Tracke
   const lineByPart = new Map<InstalledPart, string>();
   for (const part of writeOrder) lineByPart.set(part, refreshedLineOf(part));
 
-  const briefsPart = parts.find((part) => part.writing === 'briefs');
-  if (briefsPart?.writing !== 'briefs') throw new OperationRefusal('unrepaired', `The ${agentHost} install lists no briefs.`);
   return {
     briefFilePath: installedFilePaths[lastFileOf(briefsPart.files).name],
     partLines:     parts.map((part) => ({
