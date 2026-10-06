@@ -450,9 +450,10 @@ output never carries either.
                               \`running\`: a dispatcher is at work. \`finished\`: it ended by itself,
                               and the Next line says "work ready for the orchestrator" while a
                               normal or high ticket is ready, or "only low priority ready, for the
-                              orchestrator to triage" while only low ones are. \`stopped\`: never started, or ended by the
-                              user, and the Next line says "dispatcher stopped: wait for the
-                              user's go" however many tickets are filed meanwhile. A tracker that
+                              orchestrator to triage" while only low ones are. \`stopped\`: never
+                              started, or ended by the user, and the Next line says "dispatcher
+                              stopped: wait for the user's go" however many tickets are filed
+                              meanwhile. A tracker that
                               never set one reads \`stopped\`, and the read writes nothing; any
                               other word is refused at exit 1 with nothing written.
                               \`status --json\` carries it as \`concurrency.dispatcherState\`.
