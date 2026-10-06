@@ -1,48 +1,52 @@
 /**
- * What the Board tells the log, as ids and values with no wording; the caller words it. The union is the log's vocabulary: a new kind is
- * a member here plus its wording in `src/adapters/utils/LogUtil.ts` and its stored check, each an exhaustive switch or record the compiler holds.
+ * What the Board tells the log, as ids and values with no wording; the caller words it. Every record type is derived from
+ * `src/lib/tracker-model/constants/LogRecordSchema.ts`, so a new kind is an entry there plus its wording in `src/adapters/utils/LogUtil.ts`.
  */
-import type { AgentPair, TicketPriority }  from './Ticket.ts';
-import type { DispatcherState, ViewRange } from './TrackerProgress.ts';
+import type { LogFieldShape, LOG_RECORD_SCHEMA, LOG_RECORD_SUBJECT_IDS } from '../constants/LogRecordSchema.ts';
+import type { AgentPair, TicketPriority }                                from './Ticket.ts';
+import type { DispatcherState, ViewRange }                               from './TrackerProgress.ts';
 
-export interface AgentUsage {
-  agentId:              string;
-  agentType:            string;
-  apiCallCount:         number;
-  endContextTokens:     number;
-  /** Fresh input plus cache read plus cache creation. */
-  totalInputTokens:     number;
-  cacheReadInputTokens: number;
-  outputTokens:         number;
-  /** Only for an agent a workflow run spawned: the run's id and the label the run gave it, each stored only when known. */
-  workflowRunId?:       string;
-  agentLabel?:          string;
+interface ValueOfFieldShape {
+  'text':              string;
+  'task-id':           number;
+  'optional-text':     string;
+  'priority':          TicketPriority;
+  'agent-pair':        AgentPair;
+  'ticket-ids':        readonly string[];
+  'epic-keys':         readonly string[];
+  'review-round':      number;
+  'chart-range':       ViewRange;
+  'concurrency-limit': number;
+  'dispatcher-state':  DispatcherState;
+  'dispatcher-run-id': string | null;
+  'count':             number;
 }
 
-export type LogRecordContent =
-  | { kind: 'note'; fields: { text: string } }
-  | { kind: 'ticket-filed'; ticketId: string; fields: { title: string } }
-  | { kind: 'ticket-reopened' | 'ticket-started' | 'ticket-finished' | 'ticket-approved' | 'ticket-delivered'; ticketId: string; fields: Record<string, never> }
-  | { kind: 'ticket-abandoned'; ticketId: string; fields: { reason: string } }
-  | { kind: 'ticket-retitled'; ticketId: string; fields: { from: string; to: string } }
-  | { kind: 'ticket-body-changed-after-claim'; ticketId: string; fields: Record<string, never> }
-  | { kind: 'ticket-rereviewed'; ticketId: string; fields: { round: number } }
-  | { kind: 'ticket-priority-changed'; ticketId: string; fields: { from: TicketPriority; to: TicketPriority } }
-  | { kind: 'ticket-dependencies-set'; ticketId: string; fields: { dependsOn: readonly string[] } }
-  | { kind: 'ticket-agents-changed'; ticketId: string; fields: { from: AgentPair; to: AgentPair } }
-  | { kind: 'ticket-held'; ticketId: string; fields: { reason: string } }
-  | { kind: 'ticket-unheld'; ticketId: string; fields: Record<string, never> }
-  | { kind: 'ticket-release-marked'; ticketId: string; fields: { group: string } }
-  | { kind: 'ticket-release-cleared'; ticketId: string; fields: Record<string, never> }
-  | { kind: 'ticket-epics-set'; ticketId: string; fields: { epics: readonly string[] } }
-  | { kind: 'epic-added' | 'epic-edited'; epicKey: string; fields: { title: string } }
-  | { kind: 'epic-removed'; epicKey: string; fields: Record<string, never> }
-  /** A review bar's `name` is carried because the sentence prints the row's stored name, which an edit may have made anything. */
-  | { kind: 'review-bar-started' | 'review-bar-closed'; taskId: number; ticketId: string; fields: { name: string } }
-  | { kind: 'chart-range-set'; fields: { view: ViewRange } }
-  | { kind: 'concurrency-limit-set'; fields: { limit: number } }
-  | { kind: 'dispatcher-set'; fields: { state: DispatcherState; runId: string | null } }
-  | { kind: 'tracker-cleared'; fields: Record<string, never> }
-  | { kind: 'agent-stopped'; fields: AgentUsage };
+type Schema = typeof LOG_RECORD_SCHEMA;
+
+export type LogRecordKind = keyof Schema;
+
+type FieldShapes = Readonly<Record<string, LogFieldShape>>;
+
+type OptionalFieldNames<Shapes extends FieldShapes> = { [Name in keyof Shapes]: Shapes[Name] extends 'optional-text' ? Name : never }[keyof Shapes];
+
+type Flattened<Value> = { [Key in keyof Value]: Value[Key] };
+
+type ValuesOfShapes<Shapes extends FieldShapes> = Flattened<
+  & { [Name in Exclude<keyof Shapes, OptionalFieldNames<Shapes>>]: ValueOfFieldShape[Shapes[Name]] }
+  & { [Name in OptionalFieldNames<Shapes>]?: ValueOfFieldShape[Shapes[Name]] }
+>;
+
+type FieldsOfShapes<Shapes extends FieldShapes> = [keyof Shapes] extends [never] ? Record<string, never> : ValuesOfShapes<Shapes>;
+
+export type LogRecordFieldsOf<Kind extends LogRecordKind> = FieldsOfShapes<Schema[Kind]['fields']>;
+
+type IdsOf<Kind extends LogRecordKind> = ValuesOfShapes<(typeof LOG_RECORD_SUBJECT_IDS)[Schema[Kind]['subject']]>;
+
+export type LogRecordContent = {
+  [Kind in LogRecordKind]: Flattened<{ kind: Kind } & IdsOf<Kind> & { fields: LogRecordFieldsOf<Kind> }>
+}[LogRecordKind];
+
+export type AgentUsage = LogRecordFieldsOf<'agent-stopped'>;
 
 export type LogRecord = LogRecordContent & { at: string };

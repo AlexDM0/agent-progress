@@ -40,6 +40,7 @@
     "../src/lib/tracker-model/constants/ConcurrencyLimits.ts",
     "../src/lib/tracker-model/constants/DispatcherStates.ts",
     "../src/lib/tracker-model/constants/EpicFields.ts",
+    "../src/lib/tracker-model/constants/LogRecordSchema.ts",
     "../src/lib/tracker-model/constants/ReviewRounds.ts",
     "../src/lib/tracker-model/constants/Statuses.ts",
     "../src/lib/tracker-model/constants/TaskIds.ts",

@@ -117,76 +117,12 @@ function wordedEntryOf(record: LogRecord): WordedLogEntry {
 }
 
 function taskIdsConcernedBy(record: LogRecordContent): number[] {
-  switch (record.kind) {
-    case 'review-bar-started':
-    case 'review-bar-closed':
-      return [record.taskId];
-    case 'note':
-    case 'ticket-filed':
-    case 'ticket-reopened':
-    case 'ticket-started':
-    case 'ticket-finished':
-    case 'ticket-approved':
-    case 'ticket-delivered':
-    case 'ticket-abandoned':
-    case 'ticket-retitled':
-    case 'ticket-body-changed-after-claim':
-    case 'ticket-rereviewed':
-    case 'ticket-priority-changed':
-    case 'ticket-dependencies-set':
-    case 'ticket-agents-changed':
-    case 'ticket-held':
-    case 'ticket-unheld':
-    case 'ticket-release-marked':
-    case 'ticket-release-cleared':
-    case 'ticket-epics-set':
-    case 'epic-added':
-    case 'epic-edited':
-    case 'epic-removed':
-    case 'chart-range-set':
-    case 'concurrency-limit-set':
-    case 'dispatcher-set':
-    case 'tracker-cleared':
-    case 'agent-stopped':
-      return [];
-  }
+  return 'taskId' in record ? [record.taskId] : [];
 }
 
 function ticketIdsConcernedBy(record: LogRecordContent): string[] {
-  switch (record.kind) {
-    case 'ticket-dependencies-set':
-      return [...new Set([record.ticketId, ...record.fields.dependsOn])];
-    case 'review-bar-started':
-    case 'review-bar-closed':
-    case 'ticket-filed':
-    case 'ticket-reopened':
-    case 'ticket-started':
-    case 'ticket-finished':
-    case 'ticket-approved':
-    case 'ticket-delivered':
-    case 'ticket-abandoned':
-    case 'ticket-retitled':
-    case 'ticket-body-changed-after-claim':
-    case 'ticket-rereviewed':
-    case 'ticket-priority-changed':
-    case 'ticket-agents-changed':
-    case 'ticket-held':
-    case 'ticket-unheld':
-    case 'ticket-release-marked':
-    case 'ticket-release-cleared':
-    case 'ticket-epics-set':
-      return [record.ticketId];
-    case 'epic-added':
-    case 'epic-edited':
-    case 'epic-removed':
-    case 'note':
-    case 'chart-range-set':
-    case 'concurrency-limit-set':
-    case 'dispatcher-set':
-    case 'tracker-cleared':
-    case 'agent-stopped':
-      return [];
-  }
+  if (record.kind === 'ticket-dependencies-set') return [...new Set([record.ticketId, ...record.fields.dependsOn])];
+  return 'ticketId' in record ? [record.ticketId] : [];
 }
 
 function identifiedEntryOf(record: LogRecord): IdentifiedLogEntry {

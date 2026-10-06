@@ -1,8 +1,12 @@
 /** A validated log.jsonl line rebuilt as the model's record: only its kind's known keys, in the order the logger writes them. */
-import type { LogRecord }                        from '../../../lib/tracker-model/@types/LogRecord.ts';
-import type { AgentPair }                        from '../../../lib/tracker-model/@types/Ticket.ts';
-import type { ViewRange }                        from '../../../lib/tracker-model/@types/TrackerProgress.ts';
-import type { LogFileReading, StoredLogReading } from '../@types/StoredLog.ts';
+import type { LogRecord, LogRecordKind }             from '../../../lib/tracker-model/@types/LogRecord.ts';
+import type { AgentPair }                            from '../../../lib/tracker-model/@types/Ticket.ts';
+import type { ViewRange }                            from '../../../lib/tracker-model/@types/TrackerProgress.ts';
+import type { LogFieldShape }                        from '../../../lib/tracker-model/constants/LogRecordSchema.ts';
+import { LOG_RECORD_SCHEMA, LOG_RECORD_SUBJECT_IDS } from '../../../lib/tracker-model/constants/LogRecordSchema.ts';
+import type { LogFileReading, StoredLogReading }     from '../@types/StoredLog.ts';
+
+type UnknownObject = Record<string, unknown>;
 
 function viewRangeOf(view: ViewRange): ViewRange {
   if (view.kind === 'auto') return { kind: view.kind };
@@ -18,140 +22,49 @@ function agentPairOf(agentPair: AgentPair): AgentPair {
   return { model: agentPair.model, effort: agentPair.effort };
 }
 
+function listCopyOf(value: unknown): unknown {
+  return [...(value as readonly string[])];
+}
+
+function sameValue(value: unknown): unknown {
+  return value;
+}
+
+/** Every value is one `logRecordProblemOf` passed for its shape. */
+const COPY_FOR_FIELD_SHAPE: Readonly<Record<LogFieldShape, (value: unknown) => unknown>> = {
+  'text':              sameValue,
+  'task-id':           sameValue,
+  'optional-text':     sameValue,
+  'priority':          sameValue,
+  'agent-pair':        (value) => agentPairOf(value as AgentPair),
+  'ticket-ids':        listCopyOf,
+  'epic-keys':         listCopyOf,
+  'review-round':      sameValue,
+  'chart-range':       (value) => viewRangeOf(value as ViewRange),
+  'concurrency-limit': sameValue,
+  'dispatcher-state':  sameValue,
+  'dispatcher-run-id': sameValue,
+  'count':             sameValue,
+};
+
+/** Copies into `target` each value `shapes` names, in the schema's order, leaving out an optional one that is absent. */
+function copyShapedValues(stored: UnknownObject, shapes: Readonly<Record<string, LogFieldShape>>, target: UnknownObject): UnknownObject {
+  for (const [name, shape] of Object.entries(shapes)) {
+    const value = stored[name];
+    if (shape === 'optional-text' && value === undefined) continue;
+    target[name] = COPY_FOR_FIELD_SHAPE[shape](value);
+  }
+  return target;
+}
+
 /** `validated` is a value `logRecordProblemOf` found no problem in; anything else is a broken invariant, not a bad file. */
 function recordOf(validated: unknown): LogRecord {
-  const record = validated as LogRecord;
-  const { at } = record;
-  switch (record.kind) {
-    case 'note':
-      return { at, kind: record.kind, fields: { text: record.fields.text } };
-    case 'ticket-filed':
-      return {
-        at,
-        kind:     record.kind,
-        ticketId: record.ticketId,
-        fields:   { title: record.fields.title },
-      };
-    case 'ticket-reopened':
-    case 'ticket-started':
-    case 'ticket-finished':
-    case 'ticket-approved':
-    case 'ticket-delivered':
-    case 'ticket-unheld':
-    case 'ticket-release-cleared':
-    case 'ticket-body-changed-after-claim':
-      return {
-        at,
-        kind:     record.kind,
-        ticketId: record.ticketId,
-        fields:   {},
-      };
-    case 'ticket-abandoned':
-    case 'ticket-held':
-      return {
-        at,
-        kind:     record.kind,
-        ticketId: record.ticketId,
-        fields:   { reason: record.fields.reason },
-      };
-    case 'ticket-retitled':
-      return {
-        at,
-        kind:     record.kind,
-        ticketId: record.ticketId,
-        fields:   { from: record.fields.from, to: record.fields.to },
-      };
-    case 'ticket-release-marked':
-      return {
-        at,
-        kind:     record.kind,
-        ticketId: record.ticketId,
-        fields:   { group: record.fields.group },
-      };
-    case 'ticket-rereviewed':
-      return {
-        at,
-        kind:     record.kind,
-        ticketId: record.ticketId,
-        fields:   { round: record.fields.round },
-      };
-    case 'ticket-priority-changed':
-      return {
-        at,
-        kind:     record.kind,
-        ticketId: record.ticketId,
-        fields:   { from: record.fields.from, to: record.fields.to },
-      };
-    case 'ticket-dependencies-set':
-      return {
-        at,
-        kind:     record.kind,
-        ticketId: record.ticketId,
-        fields:   { dependsOn: [...record.fields.dependsOn] },
-      };
-    case 'ticket-epics-set':
-      return {
-        at,
-        kind:     record.kind,
-        ticketId: record.ticketId,
-        fields:   { epics: [...record.fields.epics] },
-      };
-    case 'epic-added':
-    case 'epic-edited':
-      return {
-        at,
-        kind:    record.kind,
-        epicKey: record.epicKey,
-        fields:  { title: record.fields.title },
-      };
-    case 'epic-removed':
-      return {
-        at,
-        kind:    record.kind,
-        epicKey: record.epicKey,
-        fields:  {},
-      };
-    case 'ticket-agents-changed':
-      return {
-        at,
-        kind:     record.kind,
-        ticketId: record.ticketId,
-        fields:   { from: agentPairOf(record.fields.from), to: agentPairOf(record.fields.to) },
-      };
-    case 'review-bar-started':
-    case 'review-bar-closed':
-      return {
-        at,
-        kind:     record.kind,
-        taskId:   record.taskId,
-        ticketId: record.ticketId,
-        fields:   { name: record.fields.name },
-      };
-    case 'chart-range-set':
-      return { at, kind: record.kind, fields: { view: viewRangeOf(record.fields.view) } };
-    case 'concurrency-limit-set':
-      return { at, kind: record.kind, fields: { limit: record.fields.limit } };
-    case 'dispatcher-set':
-      return { at, kind: record.kind, fields: { state: record.fields.state, runId: record.fields.runId } };
-    case 'tracker-cleared':
-      return { at, kind: record.kind, fields: {} };
-    case 'agent-stopped':
-      return {
-        at,
-        kind:   record.kind,
-        fields: {
-          agentId:              record.fields.agentId,
-          agentType:            record.fields.agentType,
-          apiCallCount:         record.fields.apiCallCount,
-          endContextTokens:     record.fields.endContextTokens,
-          totalInputTokens:     record.fields.totalInputTokens,
-          cacheReadInputTokens: record.fields.cacheReadInputTokens,
-          outputTokens:         record.fields.outputTokens,
-          ...(record.fields.workflowRunId === undefined ? {} : { workflowRunId: record.fields.workflowRunId }),
-          ...(record.fields.agentLabel === undefined ? {} : { agentLabel: record.fields.agentLabel }),
-        },
-      };
-  }
+  const stored                      = validated as UnknownObject & { at: string; kind: LogRecordKind; fields: UnknownObject };
+  const { at, kind }                = stored;
+  const { subject, fields: shapes } = LOG_RECORD_SCHEMA[kind];
+  const record                      = copyShapedValues(stored, LOG_RECORD_SUBJECT_IDS[subject], { at, kind });
+  record['fields']                  = copyShapedValues(stored.fields, shapes, {});
+  return record as LogRecord;
 }
 
 /** Which log a tracker has, from its log.jsonl reading: the file's records, an empty log when it is absent, or its own unreadable verdict. */
