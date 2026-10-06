@@ -5,9 +5,10 @@ This repository tracks its work with the `agent-progress` CLI. The tracker lives
 in separate checkouts all write to the same chart.
 
 - Load the `agent-progress` skill before working here, and run `agent-progress status --json` at the
-  start of a session to find out what was already in flight. If this session is running the board —
-  taking ticket requests and dispatching agents for them — load `agent-progress-orchestrate`
-  instead; it loads the other one itself.
+  start of a session to find out what was already in flight. Only when the user asks this session
+  to run the board — orchestrate, work through the tickets, take tickets from them — load
+  `agent-progress-orchestrate` instead; it loads the other one itself. Filing or editing a ticket
+  does not make a session the orchestrator and is never a reason to load that skill.
 - Only the orchestrator runs agents for tickets, and it runs them through the dispatcher workflow,
   `.agent-progress/agent-progress-dispatch.js`, started only on the user's go. Any other session or
   agent files a ticket when it is asked to and stops there: it never dispatches an agent to handle

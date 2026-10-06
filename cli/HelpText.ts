@@ -448,9 +448,9 @@ output never carries either.
                               every write without it clears the stored id. The read and
                               \`status --json\` (\`concurrency.dispatcherRunId\`) print it.
                               \`running\`: a dispatcher is at work. \`finished\`: it ended by itself,
-                              and the Next line says "launch the dispatcher" while a normal or high
-                              ticket is ready, or "only low priority ready: triage, then launch"
-                              while only low ones are. \`stopped\`: never started, or ended by the
+                              and the Next line says "work ready for the orchestrator" while a
+                              normal or high ticket is ready, or "only low priority ready, for the
+                              orchestrator to triage" while only low ones are. \`stopped\`: never started, or ended by the
                               user, and the Next line says "dispatcher stopped: wait for the
                               user's go" however many tickets are filed meanwhile. A tracker that
                               never set one reads \`stopped\`, and the read writes nothing; any

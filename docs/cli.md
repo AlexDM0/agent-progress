@@ -60,9 +60,11 @@ Next: 2 of 2 slots free; nothing ready
 ```
 
 At most five ready ids are named, then `and N more`; a held ready ticket is left out and named apart
-(`; held: #002`). The dispatcher's advice follows where it has any: `; launch the dispatcher` when it
-is `finished` and a normal or high ticket is ready, `; only low priority ready: triage, then launch`
-when it is `finished` and only low tickets are ready, `; dispatcher stopped: wait for the user's go`
+(`; held: #002`). The dispatcher's advice follows where it has any, addressed to the orchestrator
+rather than to whichever session ran the command: `; dispatcher finished: work ready for the
+orchestrator` when it is `finished` and a normal or high ticket is ready, `; dispatcher finished:
+only low priority ready, for the orchestrator to triage` when it is `finished` and only low tickets
+are ready, `; dispatcher stopped: wait for the user's go`
 when it is `stopped`. While the dispatcher is `running`, `ticket add`, `priority`, `agent`,
 `depends`, `hold`, `unhold`, `reopen` and `status <id> pending` add one more line: the run picks the
 change up at its next agent's return and is never stopped or relaunched for it. `--json` output

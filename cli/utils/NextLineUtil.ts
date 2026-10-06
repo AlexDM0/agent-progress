@@ -22,7 +22,9 @@ function dispatcherAdviceOf(capacity: BoardCapacity, startableTicketIds: readonl
   if (capacity.dispatcherState === 'stopped') return '; dispatcher stopped: wait for the user\'s go';
   if (capacity.dispatcherState !== 'finished' || startableTicketIds.length === 0) return '';
   const normalOrHighTicketIsReady = startableTicketIds.some((ticketId) => !capacity.lowPriorityReadyTicketIds.includes(ticketId));
-  return normalOrHighTicketIsReady ? '; launch the dispatcher' : '; only low priority ready: triage, then launch';
+  return normalOrHighTicketIsReady
+    ? '; dispatcher finished: work ready for the orchestrator'
+    : '; dispatcher finished: only low priority ready, for the orchestrator to triage';
 }
 
 function slotsTextOf(capacity: BoardCapacity): string {

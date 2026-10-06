@@ -99,7 +99,7 @@ test('ids are printed as the store holds them, so a padded id keeps its padding'
 });
 
 // The dispatcher ended by itself; a ticket is waiting, so the orchestrator relaunches it without asking.
-test('a finished dispatcher with a ready ticket reads as launch the dispatcher', () => {
+test('a finished dispatcher with a ready ticket reads as work ready for the orchestrator', () => {
   expect(composeNextLine({
     limit:           2,
     agentsInFlight:  0,
@@ -107,7 +107,7 @@ test('a finished dispatcher with a ready ticket reads as launch the dispatcher',
     readyTicketIds:  ['003'],
     dispatcherState: 'finished',
     ...NOTHING_LOW_PRIORITY_OR_HELD,
-  })).toBe('Next: 2 of 2 slots free; ready: #003; launch the dispatcher');
+  })).toBe('Next: 2 of 2 slots free; ready: #003; dispatcher finished: work ready for the orchestrator');
 });
 
 test('a finished dispatcher with nothing ready needs no launching', () => {
@@ -154,10 +154,10 @@ test('a finished dispatcher with only low tickets ready advises triage before a 
     lowPriorityReadyTicketIds: ['007', '009'],
     heldTicketIds:             [],
     dispatcherState:           'finished',
-  })).toBe('Next: 2 of 2 slots free; ready: #007, #009; only low priority ready: triage, then launch');
+  })).toBe('Next: 2 of 2 slots free; ready: #007, #009; dispatcher finished: only low priority ready, for the orchestrator to triage');
 });
 
-test('a finished dispatcher with a normal ticket ready beside a low one reads as launch the dispatcher', () => {
+test('a finished dispatcher with a normal ticket ready beside a low one reads as work ready for the orchestrator', () => {
   expect(composeNextLine({
     limit:                     2,
     agentsInFlight:            0,
@@ -166,7 +166,7 @@ test('a finished dispatcher with a normal ticket ready beside a low one reads as
     lowPriorityReadyTicketIds: ['009'],
     heldTicketIds:             [],
     dispatcherState:           'finished',
-  })).toBe('Next: 2 of 2 slots free; ready: #003, #009; launch the dispatcher');
+  })).toBe('Next: 2 of 2 slots free; ready: #003, #009; dispatcher finished: work ready for the orchestrator');
 });
 
 test('a stopped dispatcher with only low tickets ready still waits for the user\'s go', () => {
@@ -237,7 +237,7 @@ test('a finished dispatcher whose only unheld ready ticket is low advises triage
     lowPriorityReadyTicketIds: ['009'],
     heldTicketIds:             ['001'],
     dispatcherState:           'finished',
-  })).toBe('Next: 2 of 2 slots free; ready: #009; held: #001; only low priority ready: triage, then launch');
+  })).toBe('Next: 2 of 2 slots free; ready: #009; held: #001; dispatcher finished: only low priority ready, for the orchestrator to triage');
 });
 
 test('more than five held ready tickets name the first five and count the rest', () => {
@@ -276,7 +276,7 @@ test('a Board with a free slot and one ready ticket names the free slot and that
 test('a Board whose only ready ticket is low, under a finished dispatcher, advises triage before a launch', () => {
   const { board, progress } = boardFixture({ tickets: [ticketFixture({ id: '001', status: 'delivered' }), ticketFixture({ id: '002', priority: 'low' })] });
   progress.dispatcherState  = 'finished';
-  expect(nextLineOf(board)).toBe('Next: 2 of 2 slots free; ready: #002; only low priority ready: triage, then launch');
+  expect(nextLineOf(board)).toBe('Next: 2 of 2 slots free; ready: #002; dispatcher finished: only low priority ready, for the orchestrator to triage');
 });
 
 test('a Board whose only open normal work is held names its low tickets ready', () => {

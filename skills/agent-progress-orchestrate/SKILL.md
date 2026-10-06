@@ -5,12 +5,13 @@ description: >-
   requests from the user, grill each one until it is unambiguous, file it with
   the brief its builder reads, and on the user's go launch the
   agent-progress-dispatch workflow, which builds, reviews and releases every
-  ready ticket with clean agents within the board's limit; relaunch it when it
-  finished by itself and work is ready, and wait for the user when they stopped
-  it. Use this skill when the user says "/agent-progress-orchestrate", asks you
-  to orchestrate, run the board, work through the tickets, manage the queue or
-  "take tickets from me", and whenever you are about to spawn subagents whose
-  work belongs on a tracked chart.
+  ready ticket with clean agents within the board's limit; relaunch a run it
+  launched itself when that run finished and work is ready, and wait for the
+  user when they stopped it. Use this skill only when the user says
+  "/agent-progress-orchestrate", asks you to orchestrate, run the board, work
+  through the tickets, manage the queue or "take tickets from me". Filing or
+  editing a ticket is not one of them.
+disable-model-invocation: true
 ---
 
 # Orchestrating an agent-progress board
@@ -284,15 +285,21 @@ after an unhold. Then:
    run resumes it, and `ticket status <id> <status>` to settle it otherwise. A review bar (a row
    with `reviewOf`) is closed with `task finish` then `task deliver`.
 6. Relaunch at once when a normal or high ticket is ready and the state is `finished` — the Next line
-   says `launch the dispatcher`. When the summary carries `lowPriorityWaiting` and nothing else is
-   open, the Next line says `only low priority ready: triage, then launch`: relaunch nothing, and
-   triage them first (Low-priority work).
+   says `dispatcher finished: work ready for the orchestrator`. When the summary carries
+   `lowPriorityWaiting` and nothing else is open, the Next line says `dispatcher finished: only low
+   priority ready, for the orchestrator to triage`: relaunch nothing, and triage them first
+   (Low-priority work).
 
 **Relaunching and stopping.** The state on the board decides, never your memory of it; after a
 compaction the `Next:` line of `agent-progress status` says which.
 
-- `finished` — it ended by itself: a normal or high ticket filed or ready relaunches it without
-  asking, `agent-progress dispatcher running` and the launch. Low tickets alone relaunch nothing.
+- `finished` — it ended by itself: when the run that finished is one this session launched, a normal
+  or high ticket filed or ready relaunches it without asking, `agent-progress dispatcher running`
+  and the launch. A run this session did not launch is relaunched only on the user's go, asked for
+  as `stopped` says. Low tickets alone relaunch nothing.
+
+A launch or relaunch happens only in a turn whose user message is the go or a task notification of
+this session's run, never in a turn answering an unrelated request.
 - `stopped` — never started, or the user stopped it: wait for the user's permission, whatever is filed
   meanwhile, and on their go `agent-progress dispatcher running` and the launch. When work is ready,
   ask for that permission with AskUserQuestion (Intake) rather than mentioning it in a status line.

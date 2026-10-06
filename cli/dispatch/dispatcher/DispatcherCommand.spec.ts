@@ -185,7 +185,7 @@ describeWhenGitIsPresent('the advice the Next line gives', () => {
   test('a finished dispatcher with a ticket ready is to be launched', async () => {
     await run(['dispatcher', 'finished']);
 
-    expect(await statusNextLine()).toBe('Next: 2 of 2 slots free; ready: #001; launch the dispatcher');
+    expect(await statusNextLine()).toBe('Next: 2 of 2 slots free; ready: #001; dispatcher finished: work ready for the orchestrator');
   });
 
   // The priority is read from the ticket files by the command itself, which the util's own spec cannot reach.
@@ -193,7 +193,7 @@ describeWhenGitIsPresent('the advice the Next line gives', () => {
     await run(['ticket', 'priority', '1', 'low']);
     await run(['dispatcher', 'finished']);
 
-    expect(await statusNextLine()).toBe('Next: 2 of 2 slots free; ready: #001; only low priority ready: triage, then launch');
+    expect(await statusNextLine()).toBe('Next: 2 of 2 slots free; ready: #001; dispatcher finished: only low priority ready, for the orchestrator to triage');
   });
 
   test('a board never started waits for the user\'s go however many tickets are ready', async () => {
