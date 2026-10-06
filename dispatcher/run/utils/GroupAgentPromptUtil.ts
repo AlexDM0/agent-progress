@@ -57,8 +57,10 @@ function baseDefinitionText(placement: GroupPlacement): string {
     + `Never edit, commit on or rebase \`${branchOf(predecessorId)}\` or its worktree: that is #${predecessorId}'s reviewer's.`;
 }
 
+const SECONDS_PER_MINUTE = 60;
+
 function slotWaitText(): string {
-  const pollCommand = `for attempt in $(seq ${DISPATCH_POLICY.SLOT_WAIT_LIMIT_MINUTES * 60 / DISPATCH_POLICY.SLOT_POLL_INTERVAL_SECONDS}); do `
+  const pollCommand = `for attempt in $(seq ${DISPATCH_POLICY.SLOT_WAIT_LIMIT_MINUTES * SECONDS_PER_MINUTE / DISPATCH_POLICY.SLOT_POLL_INTERVAL_SECONDS}); do `
     + '[ "$(agent-progress status --json | jq \'.concurrency.freeSlots\')" -gt 0 ] && break; '
     + `sleep ${DISPATCH_POLICY.SLOT_POLL_INTERVAL_SECONDS}; done`;
   return 'A group builder waits for a slot rather than failing: when `agent-progress status --json` shows `concurrency.freeSlots` of 0 before your claim, '

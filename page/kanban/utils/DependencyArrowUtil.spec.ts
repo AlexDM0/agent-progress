@@ -19,7 +19,7 @@ function box(left: number, top: number, width = 200, height = 30): ArrowCardBox 
 /** The path's numbers as [x, y] pairs, in order. */
 function pointsOf(path: string): [number, number][] {
   const numbers = (path.match(/-?\d+(\.\d+)?/g) ?? []).map(Number);
-  return Array.from({ length: numbers.length / 2 }, (_, i) => [numbers[2 * i] ?? Number.NaN, numbers[2 * i + 1] ?? Number.NaN]);
+  return Array.from({ length: numbers.length / 2 }, (_pair, i) => [numbers[2 * i] ?? Number.NaN, numbers[2 * i + 1] ?? Number.NaN]);
 }
 
 describe('anchorYOf', () => {

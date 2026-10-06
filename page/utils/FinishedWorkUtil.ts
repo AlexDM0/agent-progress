@@ -38,14 +38,8 @@ const SPAN_LABEL: Readonly<Record<FinishedWorkSpan, string>> = {
 };
 
 function spanMinutesOf(span: Exclude<FinishedWorkSpan, 'all'>, units: DurationUnits): number {
-  const minutesBySpan: Record<Exclude<FinishedWorkSpan, 'all'>, number> = {
-    '1h':  units.hourMinutes,
-    '1d':  units.dayMinutes,
-    '6h':  6 * units.hourMinutes,
-    '12h': 12 * units.hourMinutes,
-    '3d':  3 * units.dayMinutes,
-  };
-  return minutesBySpan[span];
+  const unitCount = Number(span.slice(0, -1));
+  return unitCount * (span.endsWith('h') ? units.hourMinutes : units.dayMinutes);
 }
 
 /** The local midnight a `YYYY-MM-DD` day starts at, or null when the text names no real day. */

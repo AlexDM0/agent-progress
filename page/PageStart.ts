@@ -21,29 +21,29 @@ import {
   TICKET_COUNT_ELEMENT_ID,
   TICKET_ROWS_ELEMENT_ID,
 } from './constants/TemplateIds.ts';
-import { createDependencyLineageController }                  from './dependencies/DependencyLineageController.ts';
-import { DependencyMarkup }                                   from './dependencies/DependencyMarkup.ts';
-import { createDetailDialogController }                       from './detail-dialog/DetailDialogController.ts';
-import { EpicMarkup }                                         from './epics/EpicMarkup.ts';
-import { createFinishedWorkSwitchController }                 from './finished-work/FinishedWorkSwitchController.ts';
-import { createHeaderController }                             from './header/HeaderController.ts';
-import { createLiveHeaderController }                         from './header/LiveHeaderController.ts';
-import { createKanbanController }                             from './kanban/KanbanController.ts';
-import { createKanbanEpicFilterController }                   from './kanban/KanbanEpicFilterController.ts';
-import { KanbanLaneUtil }                                     from './kanban/utils/KanbanLaneUtil.ts';
-import { createReloadSnapshotStore, createViewerPreferences } from './preferences/ViewerPreferences.ts';
-import { createGanttChartController }                         from './progress/GanttChartController.ts';
-import { hiddenWorkNoteText }                                 from './progress/GanttChartMarkup.ts';
-import { highlightChangesSince }                              from './reload/ChangeHighlight.ts';
-import { createReloadSnapshotController }                     from './reload/ReloadSnapshotController.ts';
-import { ScreenSignatureUtil }                                from './reload/utils/ScreenSignatureUtil.ts';
-import { createTicketsController }                            from './tickets/TicketsController.ts';
-import { DependencyGraphUtil }                                from './utils/DependencyGraphUtil.ts';
-import { DomUtil }                                            from './utils/DomUtil.ts';
-import { FinishedWorkUtil }                                   from './utils/FinishedWorkUtil.ts';
-import { IslandUtil }                                         from './utils/IslandUtil.ts';
-import { TemplateIdUtil }                                     from './utils/TemplateIdUtil.ts';
-import { TimeUtil }                                           from './utils/TimeUtil.ts';
+import { createDependencyLineageController }                                         from './dependencies/DependencyLineageController.ts';
+import { DependencyMarkup }                                                          from './dependencies/DependencyMarkup.ts';
+import { createDetailDialogController }                                              from './detail-dialog/DetailDialogController.ts';
+import { EpicMarkup }                                                                from './epics/EpicMarkup.ts';
+import { createFinishedWorkSwitchController }                                        from './finished-work/FinishedWorkSwitchController.ts';
+import { createHeaderController }                                                    from './header/HeaderController.ts';
+import { createLiveHeaderController }                                                from './header/LiveHeaderController.ts';
+import { createKanbanController }                                                    from './kanban/KanbanController.ts';
+import { createKanbanEpicFilterController }                                          from './kanban/KanbanEpicFilterController.ts';
+import { KanbanLaneUtil }                                                            from './kanban/utils/KanbanLaneUtil.ts';
+import { BROWSER_STORAGE_AREAS, createReloadSnapshotStore, createViewerPreferences } from './preferences/ViewerPreferences.ts';
+import { createGanttChartController }                                                from './progress/GanttChartController.ts';
+import { hiddenWorkNoteText }                                                        from './progress/GanttChartMarkup.ts';
+import { highlightChangesSince }                                                     from './reload/ChangeHighlight.ts';
+import { createReloadSnapshotController }                                            from './reload/ReloadSnapshotController.ts';
+import { ScreenSignatureUtil }                                                       from './reload/utils/ScreenSignatureUtil.ts';
+import { createTicketsController }                                                   from './tickets/TicketsController.ts';
+import { DependencyGraphUtil }                                                       from './utils/DependencyGraphUtil.ts';
+import { DomUtil }                                                                   from './utils/DomUtil.ts';
+import { FinishedWorkUtil }                                                          from './utils/FinishedWorkUtil.ts';
+import { IslandUtil }                                                                from './utils/IslandUtil.ts';
+import { TemplateIdUtil }                                                            from './utils/TemplateIdUtil.ts';
+import { TimeUtil }                                                                  from './utils/TimeUtil.ts';
 
 const PROGRESS_ISLAND_ELEMENT_ID = 'ap-progress-data';
 const TICKETS_ISLAND_ELEMENT_ID  = 'ap-tickets-data';
@@ -178,7 +178,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   const { progress, limits } = payload;
   const board                = IslandUtil.pageBoardFrom(progress.tasks, payload.boardFacts, tickets, payload.epicDescriptions);
   const waitingOnById        = waitingOnByTicketIdOf(board.tickets);
-  const preferences          = createViewerPreferences(progress.trackerId, () => window.localStorage);
+  const preferences          = createViewerPreferences(progress.trackerId, BROWSER_STORAGE_AREAS.local);
   const progressController   = createGanttChartController({
     payload,
     rows:    board.rows,
@@ -334,7 +334,7 @@ function renderPage(payload: PagePayload, tickets: PageTicket[]): void {
   const reloadSnapshotController = createReloadSnapshotController({
     trackerId:          progress.trackerId,
     tabNames:           TAB_NAMES,
-    store:              createReloadSnapshotStore(progress.trackerId, () => window.sessionStorage),
+    store:              createReloadSnapshotStore(progress.trackerId, BROWSER_STORAGE_AREAS.session),
     readDetailTarget:   () => detailDialogController.readOpenTarget(),
     reopenDetail:       (target) => detailDialogController.reopen(target),
     readTicketView:     () => ticketsController.readView(),

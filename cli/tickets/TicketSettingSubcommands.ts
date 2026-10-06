@@ -3,6 +3,7 @@ import { OperationRefusal }                                             from '..
 import type { CommandContext }                                          from '../CommandContext.ts';
 import { openTrackerForWriting, openTrackerForWritingThenReadNextLine } from '../OpenTrackerForWriting.ts';
 import type { ArgumentParser }                                          from '../arguments/ArgumentParser.ts';
+import { SUBCOMMAND_WITH_TWO_ARGUMENTS_POSITIONAL_COUNT }               from '../arguments/constants/SubcommandPositionalCounts.ts';
 import { NextLineUtil }                                                 from '../utils/NextLineUtil.ts';
 import { OptionValueUtil }                                              from '../utils/OptionValueUtil.ts';
 import { OutputUtil }                                                   from '../utils/OutputUtil.ts';
@@ -21,7 +22,7 @@ const AGENT_OPTION_NAMES    = ['model', 'effort', 'at', 'json'];
 
 async function linkOneTicket(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   commandArguments.rejectUnknownOptions(LINK_OPTION_NAMES, TICKET_USAGE);
-  commandArguments.rejectExtraPositionals(3, TICKET_USAGE);
+  commandArguments.rejectExtraPositionals(SUBCOMMAND_WITH_TWO_ARGUMENTS_POSITIONAL_COUNT, TICKET_USAGE);
 
   const [, ticketReference, taskReference] = commandArguments.positionals();
   if (ticketReference === undefined || taskReference === undefined) {
@@ -44,7 +45,7 @@ async function linkOneTicket(commandArguments: ArgumentParser, context: CommandC
 
 async function setTicketPriority(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   commandArguments.rejectUnknownOptions(PRIORITY_OPTION_NAMES, TICKET_USAGE);
-  commandArguments.rejectExtraPositionals(3, TICKET_USAGE);
+  commandArguments.rejectExtraPositionals(SUBCOMMAND_WITH_TWO_ARGUMENTS_POSITIONAL_COUNT, TICKET_USAGE);
 
   const [, reference, writtenPriority] = commandArguments.positionals();
   if (reference === undefined || writtenPriority === undefined) {

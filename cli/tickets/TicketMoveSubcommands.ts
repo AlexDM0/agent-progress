@@ -8,6 +8,7 @@ import { OperationRefusal }                                                   fr
 import type { CommandContext }                                                from '../CommandContext.ts';
 import { openTrackerForWritingThenReadNextLine }                              from '../OpenTrackerForWriting.ts';
 import type { ArgumentParser }                                                from '../arguments/ArgumentParser.ts';
+import { SUBCOMMAND_WITH_TWO_ARGUMENTS_POSITIONAL_COUNT }                     from '../arguments/constants/SubcommandPositionalCounts.ts';
 import { OutputUtil }                                                         from '../utils/OutputUtil.ts';
 import type { TicketSubcommandHandler }                                       from './@types/TicketSubcommandHandler.ts';
 import { REVIEW_BAR_OPTION_NAMES, reviewBarRequestFrom, reviewBarStartedFor } from './ReviewBarRequest.ts';
@@ -48,7 +49,7 @@ function transitionHandlerFor(targetStatus: TicketStatus): TicketSubcommandHandl
 
 async function setTicketStatus(commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   commandArguments.rejectUnknownOptions(TRANSITION_OPTION_NAMES, TICKET_USAGE);
-  commandArguments.rejectExtraPositionals(3, TICKET_USAGE);
+  commandArguments.rejectExtraPositionals(SUBCOMMAND_WITH_TWO_ARGUMENTS_POSITIONAL_COUNT, TICKET_USAGE);
 
   const [, reference, writtenStatus] = commandArguments.positionals();
   if (reference === undefined || writtenStatus === undefined) {

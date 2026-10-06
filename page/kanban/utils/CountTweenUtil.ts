@@ -13,13 +13,15 @@ function durationMillisecondsOf(tokenValue: string): number {
   return match[2] === 's' ? amount * MILLISECONDS_PER_SECOND : amount;
 }
 
+const CUBIC_EXPONENT = 3;
+
 /** Ease-out cubic over the elapsed share of the duration; a duration of 0 is already finished. */
 function easedProgressOf(elapsedMilliseconds: number, durationMilliseconds: number): number {
   if (durationMilliseconds <= 0) {
     return 1;
   }
   const linearProgress = Math.min(1, Math.max(0, elapsedMilliseconds / durationMilliseconds));
-  return 1 - (1 - linearProgress) ** 3;
+  return 1 - (1 - linearProgress) ** CUBIC_EXPONENT;
 }
 
 function countAt(fromCount: number, toCount: number, easedProgress: number): number {

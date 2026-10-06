@@ -38,12 +38,14 @@ function routeOf(source: ArrowCardBox, target: ArrowCardBox, sameLane: boolean):
   return source.left < target.left ? 'rightward' : 'leftward';
 }
 
+const COORDINATE_STEPS_PER_PIXEL = 10;
+
 function coordinate(value: number): string {
-  return String(Math.round(value * 10) / 10);
+  return String(Math.round(value * COORDINATE_STEPS_PER_PIXEL) / COORDINATE_STEPS_PER_PIXEL);
 }
 
-function point(x: number, y: number): string {
-  return `${coordinate(x)} ${coordinate(y)}`;
+function point(horizontal: number, vertical: number): string {
+  return `${coordinate(horizontal)} ${coordinate(vertical)}`;
 }
 
 /**

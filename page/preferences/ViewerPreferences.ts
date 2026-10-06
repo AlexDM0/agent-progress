@@ -85,6 +85,12 @@ function foldedEpicGroupsStorageKeyFor(trackerId: string): string {
   return choiceStorageKeyFor(trackerId, 'progress-folded-epics');
 }
 
+/** The browser's storage areas, reached only here; each is a function, because merely reaching one throws where storage is blocked. */
+export const BROWSER_STORAGE_AREAS = Object.freeze({
+  local:   (): PreferenceStorage => window.localStorage,
+  session: (): PreferenceStorage => window.sessionStorage,
+});
+
 /** `storageOf` is called inside each read and write, because merely reaching `window.localStorage` throws where storage is blocked. */
 export function createViewerPreferences(trackerId: string, storageOf: () => PreferenceStorage): ViewerPreferences {
   const readStoredChoice = (storageKey: string): string | null => {

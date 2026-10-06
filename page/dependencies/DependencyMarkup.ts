@@ -106,7 +106,7 @@ function doneCountTextOf(column: DependencyColumn, ticketById: ReadonlyMap<strin
 }
 
 function slotMeterMarkup(ticketCount: number, boardSlots: number): string {
-  const slots = Array.from({ length: boardSlots }, (_, i) => `<span class="ap-dependency-slot"${i < ticketCount ? ' data-filled' : ''}></span>`);
+  const slots = Array.from({ length: boardSlots }, (_slot, i) => `<span class="ap-dependency-slot"${i < ticketCount ? ' data-filled' : ''}></span>`);
   const label = `${Math.min(ticketCount, boardSlots)} of ${boardSlots} slots in use`;
   return `<span class="ap-dependency-slots" role="img" ${MarkupUtil.attribute('aria-label', label)}>${slots.join('')}</span>`;
 }

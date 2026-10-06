@@ -98,7 +98,7 @@ function dependencyGraphOf(tickets: readonly DependencyGraphTicket[], concurrenc
       .sort(byMostHeld)[0];
   }
 
-  const waves = Array.from({ length: waveCount }, (_, waveIndex): DependencyWave => {
+  const waves = Array.from({ length: waveCount }, (_wave, waveIndex): DependencyWave => {
     const waveTicketIds = ticketIdsInWave(waveIndex).sort((a, b) => (
       Number(pacePathTicketIds.includes(b)) - Number(pacePathTicketIds.includes(a)) || byMostHeld(a, b)
     ));
