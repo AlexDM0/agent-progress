@@ -1,13 +1,14 @@
-import { readingBoardOf }        from '../../../src/lib/tracker-model/ReadingBoard.ts';
-import { BoardSettingsUtil }     from '../../../src/lib/tracker-model/utils/BoardSettingsUtil.ts';
-import { requireProgressFile }   from '../../../src/services/tracker/TrackerReader.ts';
-import { requireWorkspace }      from '../../../src/services/tracker/Workspace.ts';
-import { OperationRefusal }      from '../../../src/shared/OperationRefusal.ts';
-import type { CommandContext }   from '../../CommandContext.ts';
-import type { CommandHandler }   from '../../CommandHandler.ts';
-import { openTrackerForWriting } from '../../OpenTrackerForWriting.ts';
-import type { ArgumentParser }   from '../../arguments/ArgumentParser.ts';
-import { OutputUtil }            from '../../utils/OutputUtil.ts';
+import { refusalIsBoardRefusal }               from '../../../src/lib/tracker-model/BoardRefusal.ts';
+import { readingBoardOf }                      from '../../../src/lib/tracker-model/ReadingBoard.ts';
+import { BoardSettingsUtil }                   from '../../../src/lib/tracker-model/utils/BoardSettingsUtil.ts';
+import { requireProgressFile, requireTracker } from '../../../src/services/tracker/TrackerReader.ts';
+import { requireWorkspace }                    from '../../../src/services/tracker/Workspace.ts';
+import { OperationRefusal }                    from '../../../src/shared/OperationRefusal.ts';
+import type { CommandContext }                 from '../../CommandContext.ts';
+import type { CommandHandler }                 from '../../CommandHandler.ts';
+import { openTrackerForWriting }               from '../../OpenTrackerForWriting.ts';
+import type { ArgumentParser }                 from '../../arguments/ArgumentParser.ts';
+import { OutputUtil }                          from '../../utils/OutputUtil.ts';
 import {
   CHECK_OUTPUT_TAIL_LINES,
   checkRunOutcomeText,
@@ -40,6 +41,20 @@ function storedCommandFrom(commandArguments: ArgumentParser): string | null {
   return written;
 }
 
+/**
+ * The Board's own in-flight rule, asked on a reading board whose change is never written, so a line the lock would refuse is refused before a
+ * trial run that could take minutes. The lock asks again, since a ticket may start meanwhile.
+ */
+function refuseAChangeTheTicketsInFlightWouldBlock(checkCommand: string, context: CommandContext): void {
+  const { progress, listing, epicListing } = requireTracker(requireWorkspace(context.currentDirectory));
+  try {
+    readingBoardOf(progress, listing.tickets, epicListing.epics).setCheckCommand(checkCommand, false, context.now().toISOString());
+  } catch (error) {
+    if (refusalIsBoardRefusal(error)) throw new OperationRefusal('refused', { kind: 'board-refusal', boardRefusal: error.detail });
+    throw error;
+  }
+}
+
 /** Run once in the main checkout before anything is stored, so a line that cannot pass there, a typo above all, never stalls a release. */
 async function requireTheCommandPassesInTheMainCheckout(checkCommand: string, commandArguments: ArgumentParser, context: CommandContext): Promise<void> {
   const mainCheckout = requireWorkspace(context.currentDirectory).rootDirectory;
@@ -63,9 +78,12 @@ export const checksCommand: CommandHandler = async (commandArguments, context) =
     return;
   }
   const checkCommand = storedCommandFrom(commandArguments);
-  if (checkCommand !== null) await requireTheCommandPassesInTheMainCheckout(checkCommand, commandArguments, context);
+  const restamps     = commandArguments.flag('restamp');
+  if (checkCommand !== null) {
+    if (!restamps) refuseAChangeTheTicketsInFlightWouldBlock(checkCommand, context);
+    await requireTheCommandPassesInTheMainCheckout(checkCommand, commandArguments, context);
+  }
 
-  const restamps = commandArguments.flag('restamp');
   const { logged, previousCheckCommand, restampedTicketIds } = await openTrackerForWriting(commandArguments, context, (change) => {
     if (checkCommand === null && change.board.checkCommand() === undefined && !restamps) {
       throw new OperationRefusal('refused', `No check command is set, so there is none to clear.\n  Usage: ${USAGE}`);

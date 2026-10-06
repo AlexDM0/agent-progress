@@ -1,6 +1,7 @@
 /**
  * Whether a Bash command line runs `agent-progress checks` with anything but `--json`: a command line, `--clear` or `--restamp`. The line is
- * split into words the way a shell quotes them and cut at every operator, so `cd <dir> && agent-progress checks --clear` is found too.
+ * split into words the way a shell quotes them and cut at every operator, so `cd <dir> && agent-progress checks --clear` is found too. Only a
+ * shell wrapper's string (`bash -c`, `sh -c`, `zsh -c`, `eval`) is split again, recursively; any other quoted argument stays one word.
  */
 
 const AGENT_PROGRESS_PROGRAM_NAMES = new Set(['agent-progress', 'agent-progress.ts']);
@@ -8,6 +9,14 @@ const AGENT_PROGRESS_PROGRAM_NAMES = new Set(['agent-progress', 'agent-progress.
 const CHECKS_COMMAND_WORD = 'checks';
 
 const READING_ARGUMENTS = new Set(['--json']);
+
+const SHELL_PROGRAM_NAMES = new Set(['bash', 'sh', 'zsh']);
+
+const EVAL_PROGRAM_NAME = 'eval';
+
+const COMMAND_STRING_OPTION_LETTER = 'c';
+
+const SHORT_OPTION_CLUSTER_PATTERN = /^-[a-zA-Z]+$/;
 
 const COMMAND_SEPARATOR_CHARACTERS = new Set([';', '&', '|', '(', ')', '\n', '`', '{', '}']);
 
@@ -74,7 +83,30 @@ function argumentsWithoutRedirections(words: readonly string[]): string[] {
   return commandArguments;
 }
 
+function optionClusterHoldsCommandStringFlag(word: string): boolean {
+  return SHORT_OPTION_CLUSTER_PATTERN.test(word) && word.includes(COMMAND_STRING_OPTION_LETTER);
+}
+
+/** `bash -c "<line>"` (any leading path, `-c` alone or in a cluster such as `-lc`) runs its first argument after the options. */
+function shellCommandStringsOf(words: readonly string[]): string[] {
+  return words.flatMap((word, shellIndex) => {
+    if (!SHELL_PROGRAM_NAMES.has(programNameOf(word))) return [];
+    const options = [];
+    for (let i = shellIndex + 1; i < words.length && words[i]?.startsWith('-'); i++) options.push(words[i] ?? '');
+    const commandString = words[shellIndex + 1 + options.length];
+    return options.some(optionClusterHoldsCommandStringFlag) && commandString !== undefined ? [commandString] : [];
+  });
+}
+
+/** `eval` joins its arguments with spaces and runs the result. */
+function evaluatedCommandStringsOf(words: readonly string[]): string[] {
+  const evalIndex = words.indexOf(EVAL_PROGRAM_NAME);
+  return evalIndex === -1 ? [] : [words.slice(evalIndex + 1).join(' ')];
+}
+
 function simpleCommandChangesTheCheckCommand(words: readonly string[]): boolean {
+  const wrappedCommandStrings = [...shellCommandStringsOf(words), ...evaluatedCommandStringsOf(words)];
+  if (wrappedCommandStrings.some(commandLineChangesTheCheckCommand)) return true;
   const programIndex = words.findIndex((word, index) => AGENT_PROGRESS_PROGRAM_NAMES.has(programNameOf(word)) && words[index + 1] === CHECKS_COMMAND_WORD);
   if (programIndex === -1) return false;
   return argumentsWithoutRedirections(words.slice(programIndex + 2)).some((argument) => !READING_ARGUMENTS.has(argument));

@@ -2,7 +2,7 @@
  * The check command the tracker holds for `release`: a tracker that never set one reads none and keeps its file byte-identical, a stored
  * one is what a later command reads, clearing it removes the key, and every refusal leaves the progress file and the log as they were.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 import {
   afterEach,
@@ -166,6 +166,21 @@ describeWhenGitIsPresent('changing the line with tickets in flight', () => {
     expect(context.errorText()).toContain('--restamp');
     expect(readFileSync(progressFilePath(), 'utf8')).toBe(before);
     expect(storedLogTextOf(repositoryDirectory)).toBe(logBefore);
+  });
+
+  // A full suite tried first would cost minutes only to be refused under the lock.
+  test('a new line without --restamp is refused before it is tried, naming the tickets as the lock\'s refusal does', async () => {
+    await run(['checks', 'true']);
+    const ticketIds  = await ticketsInProgressAndInReview();
+    const markerPath = `${repositoryDirectory}/example-check-ran`;
+
+    const { exitCode, context } = await runWithExitCode(['checks', `touch ${markerPath}`]);
+
+    expect(exitCode).toBe(1);
+    expect(existsSync(markerPath)).toBe(false);
+    expect(context.errorText()).not.toContain('Trying the check command');
+    for (const ticketId of ticketIds) expect(context.errorText()).toContain(`#${ticketId}`);
+    expect(context.errorText()).toContain('--restamp');
   });
 
   test('with --restamp every in-progress and in-review row carries the new line, and the change and each restamp are logged', async () => {

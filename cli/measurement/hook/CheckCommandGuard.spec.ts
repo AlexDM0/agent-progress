@@ -1,6 +1,7 @@
 /**
- * The guard holds only if it blocks every way a subagent changes the check command (a line, `--clear`, `--restamp`, behind a `cd`) and
- * never blocks the orchestrator, a read, or an unrelated call: a false block stalls an agent, a missed one lets a weaker check through.
+ * The guard holds only if it blocks every way a subagent changes the check command (a line, `--clear`, `--restamp`, behind a `cd`, inside a
+ * `bash -c` or `eval` string) and never blocks the orchestrator, a read, an unrelated call, or another command's quoted argument:
+ * a false block stalls an agent, a missed one lets a weaker check through.
  */
 import {
   afterAll,
@@ -45,6 +46,14 @@ const CHANGING_COMMAND_LINES = [
   'agent-progress status --json; agent-progress checks --clear',
   '/usr/local/bin/agent-progress checks --clear',
   'echo $(agent-progress checks --clear)',
+  'bash -c "agent-progress checks --clear"',
+  'sh -c \'agent-progress checks "bun test"\'',
+  'zsh -lc "cd /tmp/example && agent-progress checks --clear"',
+  '/bin/bash -c "agent-progress checks --clear"',
+  'eval \'agent-progress checks "x"\'',
+  'eval agent-progress checks --clear',
+  'bash -c "eval \'agent-progress checks --clear\'"',
+  'sh -c "bash -c \\"agent-progress checks --restamp \'bun test\'\\""',
 ];
 
 const PASSING_COMMAND_LINES = [
@@ -55,6 +64,12 @@ const PASSING_COMMAND_LINES = [
   'agent-progress status --json',
   'echo "agent-progress checks --clear"',
   'git commit -m "Run agent-progress checks before release"',
+  'git commit -m "agent-progress checks --clear"',
+  'echo \'agent-progress checks --clear\'',
+  'git commit -m "bash -c \'agent-progress checks --clear\'"',
+  'bash -c "agent-progress checks --json"',
+  'eval \'agent-progress checks --json\'',
+  'bash script.sh "agent-progress checks --clear"',
 ];
 
 describe('a subagent\'s Bash call', () => {
