@@ -359,13 +359,14 @@ export function rangeNoteMarkup(modeLabel: string, modeIsHeld: boolean, note: Sh
   return `${mode} · ${HtmlEscapeUtil.escapeHtml(note.text)}`;
 }
 
-export function hiddenWorkNoteText(hiddenTaskCount: number, hiddenTicketCount: number): string {
+/** Names hidden tickets and epics, never task rows. */
+export function hiddenWorkNoteText(hiddenTicketCount: number, hiddenEpicCount: number): string {
   const parts: string[] = [];
-  if (hiddenTaskCount > 0) {
-    parts.push(`${hiddenTaskCount} task${hiddenTaskCount === 1 ? '' : 's'}`);
-  }
   if (hiddenTicketCount > 0) {
     parts.push(`${hiddenTicketCount} ticket${hiddenTicketCount === 1 ? '' : 's'}`);
+  }
+  if (hiddenEpicCount > 0) {
+    parts.push(`${hiddenEpicCount} epic${hiddenEpicCount === 1 ? '' : 's'}`);
   }
   return parts.length === 0 ? '' : `${parts.join(' · ')} hidden`;
 }

@@ -692,10 +692,12 @@ describe('the axis layer', () => {
 });
 
 describe('hiddenWorkNoteText', () => {
-  test('names only the kinds that have hidden items, and says nothing when none are hidden', () => {
+  test('names hidden tickets, adds hidden epics only when there are some, and says nothing when none are hidden', () => {
     expect(hiddenWorkNoteText(0, 0)).toBe('');
-    expect(hiddenWorkNoteText(1, 0)).toBe('1 task hidden');
-    expect(hiddenWorkNoteText(3, 2)).toBe('3 tasks · 2 tickets hidden');
+    expect(hiddenWorkNoteText(1, 0)).toBe('1 ticket hidden');
+    expect(hiddenWorkNoteText(218, 0)).toBe('218 tickets hidden');
+    expect(hiddenWorkNoteText(218, 1)).toBe('218 tickets · 1 epic hidden');
+    expect(hiddenWorkNoteText(0, 2)).toBe('2 epics hidden');
   });
 });
 

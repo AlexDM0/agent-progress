@@ -2,16 +2,20 @@
  * The epic marks. The cases that matter: a chip carries its key and colour slot and escapes its title once, a card shows two chips then
  * "+N"; the roll-up bar and facts come from the Board's counts; an epic's ticket list opens each ticket and names its other epics; the
  * detail carries the rendered description unescaped; open epics come before settled ones; and the filter chips end with the no-epic chip.
+ * The finished-work switch drops a finished epic's card past its cutoff, never an open or empty epic's, and leaves a kept card unchanged.
  * A card's dependency rows count each ticket under its primary epic alone, say so when there is nothing, and draw the global waves.
  */
 
 import { describe, expect, test }           from 'bun:test';
 import type { EpicFrontmatter }             from '../../src/lib/tracker-model/@types/Epic.ts';
+import type { Task }                        from '../../src/lib/tracker-model/@types/Task.ts';
 import type { PageTicket }                  from '../../src/shared/@types/PagePayload.ts';
 import type { BoardEpic, BoardTicket }      from '../@types/PageBoard.ts';
+import type { FinishedWorkChoice }          from '../@types/ViewerChoices.ts';
 import { pageBoardFixture }                 from '../testing/PageBoardFixture.ts';
 import { EXAMPLE_PAGE_LIMITS }              from '../testing/PageLimitsFixture.ts';
 import { DependencyGraphUtil }              from '../utils/DependencyGraphUtil.ts';
+import { FinishedWorkUtil }                 from '../utils/FinishedWorkUtil.ts';
 import { CARD_EPIC_CHIP_LIMIT, EpicMarkup } from './EpicMarkup.ts';
 
 const BOARD_SLOTS = 5;
@@ -125,6 +129,52 @@ describe('epicCardsMarkup', () => {
     expect(markup.indexOf('data-open-epic="order-emails"')).toBeLessThan(markup.indexOf('data-open-epic="checkout-redesign"'));
     expect(markup).toContain('<span class="ap-epic-done-mark">all settled</span>');
     expect(markup).toContain('<p class="ap-epic-summary">The Order emails epic.</p>');
+  });
+});
+
+describe('epicCardsMarkup under the finished-work switch', () => {
+  const NOW = Date.parse('2026-09-20T12:00:00+02:00');
+
+  function exampleRow(id: number, ticket: string, end: string): Task {
+    return {
+      id, name: `Example row ${id}`, status: 'delivered', start: '2026-09-17T09:00:00+02:00', end, owner: 'Alex Example', note: '', ticket, tokens: null,
+    };
+  }
+  const switched = pageBoardFixture({
+    tasks:   [exampleRow(1, '010', '2026-09-17T10:00:00+02:00'), exampleRow(2, '011', '2026-09-17T11:00:00+02:00'), exampleRow(3, '012', '2026-09-17T12:00:00+02:00')],
+    tickets: [
+      exampleTicket({
+        id: '010', status: 'delivered', delivered: '2026-09-17T10:00:00+02:00', task: 1, epics: ['checkout-redesign']
+      }),
+      exampleTicket({
+        id: '011', status: 'abandoned', abandonedAt: '2026-09-17T11:00:00+02:00', task: 2, epics: ['checkout-redesign']
+      }),
+      exampleTicket({
+        id: '012', status: 'delivered', delivered: '2026-09-17T12:00:00+02:00', task: 3, epics: ['order-emails']
+      }),
+      exampleTicket({ id: '013', epics: ['order-emails'] }),
+    ],
+    epics: EPICS,
+  });
+  const switchedTicketById = new Map(switched.tickets.map((ticket) => [ticket.id, ticket]));
+  const switchedGraph      = DependencyGraphUtil.dependencyGraphOf(switched.tickets, BOARD_SLOTS);
+  const switchedFormat     = { ...FORMAT, nowEpochMilliseconds: NOW };
+
+  function epicsTabMarkup(choice: FinishedWorkChoice): string {
+    const cutoff = FinishedWorkUtil.cutoffEpochMillisecondsOf(choice, NOW, EXAMPLE_PAGE_LIMITS);
+    return EpicMarkup.epicCardsMarkup(FinishedWorkUtil.shownEpicsOf(switched.epics, cutoff), switchedTicketById, switchedGraph, switchedFormat);
+  }
+
+  test('"last day" drops the card of an epic whose tickets all settled over a day ago, and "all" brings it back', () => {
+    expect(epicsTabMarkup('1d')).not.toContain('data-open-epic="checkout-redesign"');
+    expect(epicsTabMarkup('all')).toContain('data-open-epic="checkout-redesign"');
+  });
+
+  test('keeps an epic with an open ticket, card unchanged however old its delivered tickets are, and never hides an empty epic', () => {
+    const openCard = EpicMarkup.epicCardsMarkup(switched.epics.filter((epic) => epic.key === 'order-emails'), switchedTicketById, switchedGraph, switchedFormat);
+    const lastDay  = epicsTabMarkup('1d');
+    expect(lastDay.startsWith(openCard)).toBe(true);
+    expect(lastDay).toContain('data-open-epic="payment-providers"');
   });
 });
 

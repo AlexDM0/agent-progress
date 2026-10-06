@@ -567,7 +567,9 @@ waits on another.
   a roll-up of its tickets by status, three dependency rows and the list of its tickets; the title
   opens the epic in the detail panel and a ticket opens that ticket. The rows, by primary epic: "Waits
   on", the other epics' tickets its own wait on; its tickets in the board's waves, Done first; and
-  "Frees", the epics waiting on it, with the tickets they wait through.
+  "Frees", the epics waiting on it, with the tickets they wait through. The finished-work switch hides
+  a finished epic, one with tickets that are all delivered or abandoned, whose span ended before its
+  window; an open or empty epic always shows, its card whole.
 - **Dependencies tab**: the open tickets' waves left to right, a Done column first holding the settled
   tickets an open one waits on, then "Now" (nothing open in front of it), "Wave 2" and on; each
   column says how many tickets in it can run side by side against the board's slots, and a one-ticket
@@ -603,10 +605,11 @@ waits on another.
   place when there is one. Any other choice holds until Fit is pressed again, and is kept in the
   browser. Bars outside the window are clipped and marked, never dropped.
 - **Finished work** (delivered or abandoned) is shown by one switch in the tab row, shared by Kanban,
-  Progress and Tickets: the last hour, the last day (the default), or a custom 6 hours, 12 hours,
-  3 days, all, or since a day. Unfinished work, awaiting merge included, always shows; the ticket
-  search looks through every ticket. A note says how much is hidden and shows it all when clicked;
-  the choice is kept in the browser.
+  Progress, Tickets and Epics: the last hour, the last day (the default), or a custom 6 hours,
+  12 hours, 3 days, all, or since a day. Unfinished work, awaiting merge included, always shows; the
+  ticket search looks through every ticket. A note says how many tickets are hidden, and epics when
+  any are (`218 tickets · 1 epic hidden`), never task rows, and shows it all when clicked; the choice
+  is kept in the browser.
 - **Stamps are as short as the day allows**: one from today shows only its clock (`21:56`), one from
   another day of the year its month and day too (`09-17 23:48`), one from another year the full date;
   hover a shortened one for the full stamp.

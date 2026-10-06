@@ -1,12 +1,13 @@
 /**
  * The finished-work switch's rules. The cases that matter: on one constructed board with work finished 30 minutes, 5 hours, 10 hours,
  * 2 days and 5 days ago, every choice lets through exactly the finished items it reaches and never hides unfinished work; a picked day
- * starts at its local midnight; a ticket is dated by its closing stamp; stored and clicked values read back only as real choices; and
- * the reach marks keep their order on one scale.
+ * starts at its local midnight; a ticket is dated by its closing stamp, an epic by its span's end once every ticket is settled; stored
+ * and clicked values read back only as real choices; and the reach marks keep their order on one scale.
  */
 
 import { describe, expect, test }  from 'bun:test';
 import type { Task }               from '../../src/lib/tracker-model/@types/Task.ts';
+import type { TicketStatus }       from '../../src/lib/tracker-model/@types/Ticket.ts';
 import type { PageTicket }         from '../../src/shared/@types/PagePayload.ts';
 import type { FinishedWorkChoice } from '../@types/ViewerChoices.ts';
 import { EXAMPLE_PAGE_LIMITS }     from '../testing/PageLimitsFixture.ts';
@@ -16,6 +17,7 @@ const {
   choiceFrom,
   choiceIsCustom,
   cutoffEpochMillisecondsOf,
+  epicFinishedEpochMillisecondsOf,
   finishedMomentIsShown,
   hiddenCountOf,
   labelOf,
@@ -31,6 +33,10 @@ const MINUTE_MILLISECONDS    = 60_000;
 const HOUR_MILLISECONDS      = 60 * MINUTE_MILLISECONDS;
 const DAY_MILLISECONDS       = 24 * HOUR_MILLISECONDS;
 const NOW_EPOCH_MILLISECONDS = new Date(2026, 8, 25, 13, 36).getTime();
+
+const NO_TICKET_COUNTS: Record<TicketStatus, number> = {
+  'pending': 0, 'in-progress': 0, 'in-review': 0, 'reviewed': 0, 'delivered': 0, 'abandoned': 0,
+};
 
 function stampBefore(milliseconds: number): string {
   return new Date(NOW_EPOCH_MILLISECONDS - milliseconds).toISOString();
@@ -156,6 +162,15 @@ describe('finished moments', () => {
   test('a ticket is dated by its closing stamp, and by its last transition when it has none', () => {
     expect(ticketFinishedEpochMillisecondsOf(exampleTicket('001', { delivered: stampBefore(HOUR_MILLISECONDS) }))).toBe(NOW_EPOCH_MILLISECONDS - HOUR_MILLISECONDS);
     expect(ticketFinishedEpochMillisecondsOf(exampleTicket('001', { updated: stampBefore(DAY_MILLISECONDS) }))).toBe(NOW_EPOCH_MILLISECONDS - DAY_MILLISECONDS);
+  });
+
+  test('an epic finishes when its span ends with every ticket settled; an open, empty or undated one has no finished moment', () => {
+    const settledCounts = { ...NO_TICKET_COUNTS, delivered: 2, abandoned: 1 };
+    const span          = { start: stampBefore(3 * DAY_MILLISECONDS), end: stampBefore(2 * DAY_MILLISECONDS) };
+    expect(epicFinishedEpochMillisecondsOf({ ticketCountByStatus: settledCounts, span })).toBe(NOW_EPOCH_MILLISECONDS - 2 * DAY_MILLISECONDS);
+    expect(epicFinishedEpochMillisecondsOf({ ticketCountByStatus: { ...settledCounts, 'in-review': 1 }, span })).toBeNull();
+    expect(epicFinishedEpochMillisecondsOf({ ticketCountByStatus: NO_TICKET_COUNTS, span: null })).toBeNull();
+    expect(epicFinishedEpochMillisecondsOf({ ticketCountByStatus: settledCounts, span: { start: span.start, end: null } })).toBeNull();
   });
 
   test('finished work the page cannot date stays shown', () => {

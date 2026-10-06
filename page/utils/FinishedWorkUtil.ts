@@ -1,11 +1,12 @@
 /**
- * The finished-work switch as pure rules: which delivered or abandoned tasks and tickets a choice lets through beside the unfinished work,
+ * The finished-work switch as pure rules: which delivered or abandoned tasks, tickets and epics a choice lets through beside the unfinished work,
  * how a choice reads, and how far back it reaches. DOM-free; the clock arrives as a parameter.
  */
 
 import { MILLISECONDS_PER_MINUTE }                        from '../../src/lib/local-time/LocalTimeUtil.ts';
+import type { EpicRollup }                                from '../../src/lib/tracker-model/@types/Epic.ts';
 import type { Task }                                      from '../../src/lib/tracker-model/@types/Task.ts';
-import type { TicketFrontmatter }                         from '../../src/lib/tracker-model/@types/Ticket.ts';
+import type { TicketFrontmatter, TicketStatus }           from '../../src/lib/tracker-model/@types/Ticket.ts';
 import { SETTLED_TASK_STATUSES, SETTLED_TICKET_STATUSES } from '../../src/lib/tracker-model/constants/Statuses.ts';
 import type { FinishedWorkChoice, FinishedWorkSpan }      from '../@types/ViewerChoices.ts';
 import { TimeUtil }                                       from './TimeUtil.ts';
@@ -110,10 +111,29 @@ function ticketFinishedEpochMillisecondsOf(ticket: TicketFrontmatter): number | 
   return TimeUtil.epochMillisecondsOf(closingStamp ?? ticket.updated);
 }
 
+/**
+ * When a finished epic, one with tickets that are all delivered or abandoned, ended, or null for an open or empty epic; read from its
+ * ticket counts alone. A finished epic without a span end cannot be dated, so it reads as null and always shows.
+ */
+function epicFinishedEpochMillisecondsOf(epic: Pick<EpicRollup, 'ticketCountByStatus' | 'span'>): number | null {
+  const counts       = Object.entries(epic.ticketCountByStatus) as [TicketStatus, number][];
+  const ticketCount  = counts.reduce((total, [, count]) => total + count, 0);
+  const settledCount = counts.filter(([status]) => SETTLED_TICKET_STATUSES.includes(status)).reduce((total, [, count]) => total + count, 0);
+  if (ticketCount === 0 || settledCount < ticketCount) {
+    return null;
+  }
+  return TimeUtil.epochMillisecondsOf(epic.span?.end);
+}
+
 // Comparing with the cutoff is a stated clock exception that decides only what the page shows, never what is stored.
 /** Unfinished work always shows, and so does finished work the page cannot date. */
 function finishedMomentIsShown(finishedEpochMilliseconds: number | null, cutoffEpochMilliseconds: number): boolean {
   return finishedEpochMilliseconds === null || finishedEpochMilliseconds >= cutoffEpochMilliseconds;
+}
+
+/** The epics the Epics tab draws a card for: every open or empty one, and the finished ones that ended at or after the cutoff. */
+function shownEpicsOf<Epic extends Pick<EpicRollup, 'ticketCountByStatus' | 'span'>>(epics: readonly Epic[], cutoffEpochMilliseconds: number): Epic[] {
+  return epics.filter((epic) => finishedMomentIsShown(epicFinishedEpochMillisecondsOf(epic), cutoffEpochMilliseconds));
 }
 
 function shownFinishedCountOf(finishedMoments: readonly (number | null)[], cutoffEpochMilliseconds: number): number {
@@ -170,7 +190,9 @@ export const FinishedWorkUtil = {
   cutoffEpochMillisecondsOf,
   taskFinishedEpochMillisecondsOf,
   ticketFinishedEpochMillisecondsOf,
+  epicFinishedEpochMillisecondsOf,
   finishedMomentIsShown,
+  shownEpicsOf,
   shownFinishedCountOf,
   hiddenCountOf,
   labelOf,

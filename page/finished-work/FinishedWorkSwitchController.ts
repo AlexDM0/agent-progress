@@ -1,5 +1,5 @@
 /**
- * The finished-work switch in the tab row, shared by Kanban, Progress and Tickets: its pills with their counts and reach marks, the
+ * The finished-work switch in the tab row, shared by Kanban, Progress, Tickets and Epics: its pills with their counts and reach marks, the
  * custom popover with its pill row and day field, the hidden-work note and the spoken status. The rules are `FinishedWorkUtil`'s.
  */
 
@@ -24,17 +24,18 @@ const ARROW_KEY_STEP: Readonly<Record<string, number>> = {
   ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1,
 };
 
-/** When each task and each ticket on the board finished, null for the ones still open. */
+/** When each task, ticket and epic on the board finished, null for the ones still open. */
 export interface FinishedMoments {
   tasks:   readonly (number | null)[];
   tickets: readonly (number | null)[];
+  epics:   readonly (number | null)[];
 }
 
 export interface FinishedWorkSwitchSources {
   initialChoice:       FinishedWorkChoice;
   units:               DurationUnits;
   readFinishedMoments: () => FinishedMoments;
-  hiddenNoteTextOf:    (hiddenTaskCount: number, hiddenTicketCount: number) => string;
+  hiddenNoteTextOf:    (hiddenTicketCount: number, hiddenEpicCount: number) => string;
   /** Stores the choice and redraws every view by it. */
   applyChoice:         (choice: FinishedWorkChoice) => void;
 }
@@ -144,7 +145,7 @@ export function createFinishedWorkSwitchController(sources: FinishedWorkSwitchSo
   const renderHiddenNote = (now: number, announce: boolean): void => {
     const moments = readFinishedMoments();
     const cutoff  = FinishedWorkUtil.cutoffEpochMillisecondsOf(choice, now, units);
-    const text    = hiddenNoteTextOf(FinishedWorkUtil.hiddenCountOf(moments.tasks, cutoff), FinishedWorkUtil.hiddenCountOf(moments.tickets, cutoff));
+    const text    = hiddenNoteTextOf(FinishedWorkUtil.hiddenCountOf(moments.tickets, cutoff), FinishedWorkUtil.hiddenCountOf(moments.epics, cutoff));
     if (hiddenNoteButton !== null) {
       if (announce && hiddenNoteButton.textContent !== text) {
         hiddenNoteButton.removeAttribute('data-changed');
