@@ -66,7 +66,9 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
    `agent-progress rework --rebased-from <pre-rebase tip> --main <main line> --worktree <worktree>`.
    The rebase is exempt from the budget: past it, finish the rebase anyway, never
    `git rebase --abort`; a big resolution is what step 7b is for.
-6. Append `## Review` at the end of the ticket, under 15 lines plus one per Acceptance item: each
+6. When the ticket's `## Acceptance` holds no line starting `A<n>.`, number its existing conditions
+   first: `A1.`, `A2.`, … in written order, no word changed, below the frontmatter only.
+   Append `## Review` at the end of the ticket, under 15 lines plus one per Acceptance item: each
    finding in one line with its file, your commits, what the rebase touched and what you resolved by
    hand, and both counts; then one line per item, at the start of the line:
    `A2 holds — <evidence: spec file › test title, watched fail, or the probe>`,
@@ -106,6 +108,9 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
      probes, and run this step again.
    - `acceptance-unaccounted`: your `## Review` missed the items its `detail` names. Test each, add
      its line, apply step 7 again, and run this step again.
+   - `acceptance-unnumbered`: number the Acceptance as step 6 says, in written order, no word
+     changed; test each item, add its line to your `## Review`, apply step 7 again, and run this
+     step again.
    - `acceptance-waived`: report `holds, not released: acceptance-waived` with the items and reasons
      its `detail` names; the user decides each waiver.
    - Any other reason: change nothing and report `holds, not released: <reason>` with its `detail`,

@@ -296,6 +296,8 @@ after an unhold. Then:
    waive; only the user waives one. Ask per item, its reason in the context block. Agreed: edit the
    item to `A3. Waived: <reason>` in the Acceptance and run the release again, as the reviewer would
    have, from the main checkout. Refused: note the decision under the item and dispatch a build.
+   A ticket parked on `acceptance-unnumbered` is the reviewer's to number: dispatch a review, never
+   number it by hand.
 4. Each ticket in `findingsFiled`, judged for severity as Intake says.
 5. `agent-progress status --json`: a row the run left `in-progress` or `in-review` with no agent
    behind it is yours to close. A ticket's own row moves only through the `ticket` verbs, which
