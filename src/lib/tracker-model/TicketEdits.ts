@@ -7,7 +7,7 @@ import type { LogRecord }        from './@types/LogRecord.ts';
 import type { Ticket }           from './@types/Ticket.ts';
 import type { BoardRecords }     from './BoardRecords.ts';
 import { BoardRefusal }          from './BoardRefusal.ts';
-import { type MarkdownBodyEdit } from './MarkdownBodyEdit.ts';
+import type { MarkdownBodyEdit } from './MarkdownBodyEdit.ts';
 import { editedBodyOf }          from './MarkdownBodyEdit.ts';
 import { TicketBodyHashUtil }    from './utils/TicketBodyHashUtil.ts';
 import { TicketChartUtil }       from './utils/TicketChartUtil.ts';
