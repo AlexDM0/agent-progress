@@ -94,7 +94,8 @@ that body is the whole brief, its `## Brief` section first when it has one; you 
 frontmatter. When you finish, write the ticket's `## Handoff` at its end, under 15 lines, with what
 your brief or the section's placeholder text lists: the review pass reads it instead of re-deriving it
 from the codebase. Builder or reviewer, leave the branch ready to merge: your work committed on it,
-rebased onto the main line, the checks green on the result.
+rebased onto the main line, the checks green on the result: the line `agent-progress checks` prints,
+which `agent-progress release` runs again before it changes anything.
 
 ## The rules
 

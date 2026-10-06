@@ -59,6 +59,7 @@ const CHECK_FOR_FIELD_SHAPE: Readonly<Record<LogFieldShape, FieldShapeCheck>> = 
   'concurrency-limit': (value, path) => (BoardSettingsUtil.concurrencyLimitIsWellFormed(value) ? null : `${path} is not a whole number of agents`),
   'dispatcher-state':  dispatcherStateProblem,
   'dispatcher-run-id': (value, path) => (value === null || BoardSettingsUtil.dispatcherRunIdIsWellFormed(value) ? null : `${path} is neither null nor a run id`),
+  'check-command':     (value, path) => (value === null || BoardSettingsUtil.checkCommandIsWellFormed(value) ? null : `${path} is neither null nor a shell line that is not blank`),
   'count':             (value, path) => (StoredValueUtil.wholeNumberIsAtLeast(value, 0) ? null : `${path} is not a whole number of at least 0`),
 };
 

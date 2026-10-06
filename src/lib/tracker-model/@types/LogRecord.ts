@@ -19,6 +19,7 @@ interface ValueOfFieldShape {
   'concurrency-limit': number;
   'dispatcher-state':  DispatcherState;
   'dispatcher-run-id': string | null;
+  'check-command':     string | null;
   'count':             number;
 }
 

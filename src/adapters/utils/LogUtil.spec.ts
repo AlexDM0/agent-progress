@@ -103,6 +103,8 @@ const SENTENCE_FOR_RECORD: readonly (readonly [LogRecordContent, string])[] = [
   [{ kind: 'concurrency-limit-set', fields: { limit: 3 } }, 'Concurrency limit set to 3'],
   [{ kind: 'dispatcher-set', fields: { state: 'running', runId: 'example-run' } }, 'Dispatcher set to running (run example-run)'],
   [{ kind: 'dispatcher-set', fields: { state: 'finished', runId: null } }, 'Dispatcher set to finished'],
+  [{ kind: 'check-command-set', fields: { command: 'bun run example-checks' } }, 'Check command set to bun run example-checks'],
+  [{ kind: 'check-command-set', fields: { command: null } }, 'Check command cleared'],
   [{ kind: 'tracker-cleared', fields: {} }, 'Tracker cleared'],
   [
     {
@@ -121,7 +123,7 @@ const SENTENCE_FOR_RECORD: readonly (readonly [LogRecordContent, string])[] = [
   ],
 ];
 
-const RECORD_KIND_COUNT = 28;
+const RECORD_KIND_COUNT = 29;
 
 test('every kind of record reads as the sentence the log held before there were records', () => {
   expect(new Set(SENTENCE_FOR_RECORD.map(([record]) => record.kind)).size, 'the table covers every kind').toBe(RECORD_KIND_COUNT);
@@ -223,6 +225,7 @@ describe('the entry the page reads', () => {
       [{ kind: 'chart-range-set', fields: { view: { kind: 'auto' } } }, { taskIds: [], ticketIds: [] }],
       [{ kind: 'concurrency-limit-set', fields: { limit: 3 } }, { taskIds: [], ticketIds: [] }],
       [{ kind: 'dispatcher-set', fields: { state: 'running', runId: 'example-run' } }, { taskIds: [], ticketIds: [] }],
+      [{ kind: 'check-command-set', fields: { command: 'bun run example-checks' } }, { taskIds: [], ticketIds: [] }],
       [{ kind: 'tracker-cleared', fields: {} }, { taskIds: [], ticketIds: [] }],
       [
         {

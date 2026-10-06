@@ -67,6 +67,7 @@ function currentDocumentText(): string {
       storedRow(nextId + 4, { name: 'Review 2 #003 — Example known only by its name' }),
     ],
     concurrencyLimit: 3,
+    checkCommand:     'bun run example-checks',
     trailingKey:      { nested: true },
   }, null, 2);
 }

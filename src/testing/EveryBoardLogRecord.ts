@@ -48,6 +48,7 @@ export function everyRecordKindTheBoardLogs(at: string): LogRecord[] {
   }, at);
   board.setConcurrencyLimit(3, at);
   board.setDispatcherState('running', 'example-run', at);
+  board.setCheckCommand('bun run example-checks', at);
   board.recordAgentStop({
     agentId:              'example-agent',
     agentType:            'agent-progress-worker',

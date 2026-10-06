@@ -46,6 +46,7 @@ const EXACT_REASONS: readonly (readonly [string, Record<string, unknown>, string
   ['concurrency limit', withFields('concurrency-limit-set', { limit: 0 }), 'fields.limit is not a whole number of agents'],
   ['dispatcher state', withFields('dispatcher-set', { state: 'paused' }), 'fields.state is "paused", which is not one of running, finished, stopped'],
   ['dispatcher run id', withFields('dispatcher-set', { runId: '  ' }), 'fields.runId is neither null nor a run id'],
+  ['check command', withFields('check-command-set', { command: ' ' }), 'fields.command is neither null nor a shell line that is not blank'],
   ['count', withFields('agent-stopped', { cacheReadInputTokens: -1 }), 'fields.cacheReadInputTokens is not a whole number of at least 0'],
   ['ticket id', withKeys('ticket-started', { ticketId: null }), 'ticketId is not a string'],
   ['epic key', withKeys('epic-edited', { epicKey: null }), 'epicKey is not a string'],
@@ -63,6 +64,10 @@ describe('a well-formed record', () => {
 
   test('a dispatcher record with no run passes, because a stopped dispatcher has none', () => {
     expect(logRecordProblemOf(withFields('dispatcher-set', { state: 'stopped', runId: null }))).toBeNull();
+  });
+
+  test('a check command record with no command passes, because a cleared setting has none', () => {
+    expect(logRecordProblemOf(withFields('check-command-set', { command: null }))).toBeNull();
   });
 
   test('an agent stop naming its workflow run and label passes', () => {

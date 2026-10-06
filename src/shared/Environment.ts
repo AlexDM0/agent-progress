@@ -8,6 +8,8 @@ const ROOT_OVERRIDE_VARIABLE = 'AGENT_PROGRESS_ROOT';
 
 const EVERY_TOOL_REQUIRED_VARIABLE = 'AGENT_PROGRESS_REQUIRE_EVERY_TOOL';
 
+const USER_SHELL_VARIABLE = 'SHELL';
+
 /**
  * Turns every spec the tool guard (`src/testing/ToolGuard.ts`) would skip for a missing tool into a failure, for a run on a machine that
  * must prove every claim. Any value but empty, whitespace or `0` requires, so a `true` or `yes` is never a silent skip.
@@ -23,6 +25,13 @@ export function everyToolIsRequired(): boolean {
  */
 export function agentProgressRootOverride(): string | undefined {
   const value = process.env[ROOT_OVERRIDE_VARIABLE];
+  if (value === undefined || value.trim().length === 0) return undefined;
+  return value;
+}
+
+/** The user's shell, which runs the check command `release` runs; an empty or whitespace-only value reads as unset, and the caller picks a default. */
+export function userShell(): string | undefined {
+  const value = process.env[USER_SHELL_VARIABLE];
   if (value === undefined || value.trim().length === 0) return undefined;
   return value;
 }

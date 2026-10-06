@@ -1,6 +1,6 @@
 /**
- * `agent-progress release`: fast-forward the main checkout to a reviewed branch and deliver its ticket, then clean up; with `--json` a
- * refusal prints its reason too.
+ * `agent-progress release`: run the tracker's check command on a reviewed branch's tip, fast-forward the main checkout to it and deliver its
+ * ticket, then clean up; with `--json` a refusal prints its reason too.
  */
 import { LogUtil }                                          from '../../../src/adapters/utils/LogUtil.ts';
 import { OperationRefusalWordingUtil }                      from '../../../src/adapters/utils/OperationRefusalWordingUtil.ts';
@@ -10,6 +10,7 @@ import { refusalIsOperationRefusal, type OperationRefusal } from '../../../src/s
 import type { CommandHandler }                              from '../../CommandHandler.ts';
 import { requireCurrentInstall }                            from '../../InstallVersionCheck.ts';
 import { OutputUtil }                                       from '../../utils/OutputUtil.ts';
+import { checkTheBranchTip, type CheckedTip }               from './ReleaseChecks.ts';
 import { cleanUpAfterRelease, cleanupLine }                 from './ReleaseCleanup.ts';
 import { ReleaseRefusal }                                   from './ReleaseRefusal.ts';
 import { releaseRequestFrom, type ReleaseRequest }          from './ReleaseRequest.ts';
@@ -24,10 +25,12 @@ export const releaseCommand: CommandHandler = async (commandArguments, context) 
   let release: Release;
   let nextLine: string;
   let request: ReleaseRequest;
+  let checkedTip: CheckedTip | null;
   try {
     requireCurrentInstall(context.currentDirectory);
-    request = releaseRequestFrom(commandArguments, context);
-    ({ release, nextLine } = await releaseUnderTheLock(request, commandArguments, context));
+    request    = releaseRequestFrom(commandArguments, context);
+    checkedTip = await checkTheBranchTip(request, commandArguments, context);
+    ({ release, nextLine } = await releaseUnderTheLock(request, checkedTip, commandArguments, context));
   } catch (error) {
     if (refusalIsOperationRefusal(error) && commandArguments.flag('json')) {
       const refusalDocument = {
@@ -54,6 +57,7 @@ export const releaseCommand: CommandHandler = async (commandArguments, context) 
   const ticketIds    = tickets.map(({ frontmatter }) => frontmatter.id);
   const ticketsNamed = ticketIds.length === 1 ? `ticket #${ticketIds.join('')}` : `tickets ${TicketPhraseUtil.ticketReferencesText(ticketIds)}`;
   const headline     = `Released ${ticketsNamed}: ${request.mainLine} fast-forwarded to ${OutputUtil.shortCommitOf(commit)} from ${request.branch}, and delivered.`;
+  const checksLines  = checkedTip === null ? [] : [`The check command passed on it first: ${checkedTip.checkCommand}`];
   const reviewLines  = logged.filter((record) => record.kind === 'review-bar-closed').map(LogUtil.sentenceOf);
   const document     = {
     released:         true,
@@ -61,8 +65,9 @@ export const releaseCommand: CommandHandler = async (commandArguments, context) 
     branch:           request.branch,
     mainLine:         request.mainLine,
     commit,
+    checkCommand:     checkedTip?.checkCommand ?? null,
     closedReviewRows: closedReviewRows.map(({ id }) => id),
     cleanup,
   };
-  OutputUtil.printEntityThenNextLine(commandArguments, context, document, [headline, ...reviewLines, ...cleanup.map(cleanupLine)].join('\n'), nextLine);
+  OutputUtil.printEntityThenNextLine(commandArguments, context, document, [headline, ...checksLines, ...reviewLines, ...cleanup.map(cleanupLine)].join('\n'), nextLine);
 };

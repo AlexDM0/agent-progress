@@ -1,6 +1,6 @@
 /**
  * What a dispatcher reads off the Board to start its next agent: the concurrency, the ready and held tickets, what a ticket still waits
- * on, and which tickets have a builder or a reviewer at work.
+ * on, which tickets have a builder or a reviewer at work, and the check command a release runs.
  */
 import type { Concurrency, DispatchCapacity } from './@types/Concurrency.ts';
 import type { Task }                          from './@types/Task.ts';
@@ -30,6 +30,10 @@ export class DispatchQueries {
 
   dispatcherRunId(): string | undefined {
     return this.records.progress.dispatcherRunId;
+  }
+
+  checkCommand(): string | undefined {
+    return this.records.progress.checkCommand;
   }
 
   /**

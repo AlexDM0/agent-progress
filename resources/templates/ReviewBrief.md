@@ -39,6 +39,8 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
    nothing: re-run the measurement behind each claim with your own probe or count and state your
    numbers; a guard it watched fail, you watch fail. It fails if any is false: <two or three claims;
    a dispatched review reads them from the ticket's `## Brief`, under `Fails review if false`>.
+   When the root `CLAUDE.md` names a coding-standards file for reviewers, judge the diff against it
+   too, read once in step 0's message.
 2. Fix every finding in what you review — the branch's change and the ticket's Acceptance — yourself,
    with the Edit tool (no heredoc, edit script or `sed -i`), one commit per fix, one plain subject
    line. A defect outside that, however small, you report and do not fix, a few lines each with
@@ -73,6 +75,9 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
    version bump, say), run it now, exactly as written there.
    Then release through the command, never `git merge`: it fast-forwards <main line>, delivers the
    ticket and your review bar, and cleans up, under the tracker's lock, so it cannot race another release.
+   When the tracker stores a check command (`agent-progress checks` prints it), the release first
+   runs it itself on your tip in <worktree>, which must be committed and hold no untracked file. A
+   refused release changes nothing, in the main checkout least of all.
    `cd <main checkout>` first, since your worktree is about to go, then run
    `agent-progress release <id> --branch <branch> --worktree <worktree> --main <main line> --json`
    (a bundle: every id in the one call). Act on what it prints:
@@ -82,8 +87,17 @@ one. Run git as `git -C <worktree>` unless a step names <main checkout>. The wor
      checks, `agent-progress rework --rebased-from` — add that count to your total and to your
      `## Review`, and apply step 7 again: over {{reworkThresholdLines}} now requests the next round; otherwise run
      this step again.
+   - `"reason": "checks-failed"`: the check command failed on your tip; `detail` ends with its last
+     lines. Fix it as step 2 says and commit, count the fix with
+     `agent-progress rework --since <checked tip>`, add that to your total and your `## Review`,
+     apply step 7 again, and run this step again. When you cannot fix it, report
+     `holds, not released: checks-failed` with its `detail`.
+   - `worktree-dirty`, `worktree-not-at-tip` or `branch-moved`: commit what is yours, delete your
+     probes, and run this step again.
    - Any other reason: change nothing and report `holds, not released: <reason>` with its `detail`,
-     and on `merge-refused` the `blockingFiles` it names: the person commits or stashes them.
+     and on `merge-refused` the `blockingFiles` it names: the main checkout's own uncommitted edits,
+     never your branch's, which the refusal left as they were. The person stashes them, or commits
+     them when they belong on the main line; never commit or stash them yourself.
    - Denied by the permission system: do not retry or reword it, and never merge around it; report
      `holds, not released: permission denied` with the command line as you would have run it.
 

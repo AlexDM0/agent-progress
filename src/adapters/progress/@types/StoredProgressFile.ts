@@ -39,5 +39,6 @@ export interface StoredProgressFile {
   concurrencyLimit?: number;
   dispatcherState?:  DispatcherState;
   dispatcherRunId?:  string;
+  checkCommand?:     string;
   tasks:             StoredTask[];
 }

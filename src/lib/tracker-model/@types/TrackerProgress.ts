@@ -22,5 +22,7 @@ export interface TrackerProgress {
   dispatcherState?:  DispatcherState;
   /** The Workflow run a `running` dispatcher is, stored so a killed run can be resumed after a compaction; absent in every other state. */
   dispatcherRunId?:  string;
+  /** The shell line a release runs on the branch tip before it changes anything; absent on a tracker that never set one, which runs none. */
+  checkCommand?:     string;
   tasks:             Task[];
 }

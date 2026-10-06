@@ -1,4 +1,4 @@
-/** Whether a value read from outside is a well-formed board setting: the view, the concurrency limit, the dispatcher state and its run id. */
+/** Whether a value read from outside is a well-formed board setting: the view, the concurrency limit, the dispatcher state and run id, the checks. */
 import type { DispatcherState, ViewRange } from '../@types/TrackerProgress.ts';
 import { LOWEST_CONCURRENCY_LIMIT_AGENTS } from '../constants/ConcurrencyLimits.ts';
 import { DISPATCHER_STATES }               from '../constants/DispatcherStates.ts';
@@ -25,9 +25,14 @@ function dispatcherRunIdIsWellFormed(value: unknown): value is string {
   return typeof value === 'string' && value.trim() !== '';
 }
 
+function checkCommandIsWellFormed(value: unknown): value is string {
+  return typeof value === 'string' && value.trim() !== '';
+}
+
 export const BoardSettingsUtil = {
   viewRangeIsWellFormed,
   concurrencyLimitIsWellFormed,
   dispatcherStateIsKnown,
   dispatcherRunIdIsWellFormed,
+  checkCommandIsWellFormed,
 } as const;

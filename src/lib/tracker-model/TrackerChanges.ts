@@ -1,5 +1,6 @@
 /** The Board's changes to the tracker as a whole rather than to one row or ticket: its settings, a note in its log, and its clearing. */
 import type {
+  CheckCommandSet,
   ConcurrencyLimitSet,
   DispatcherStateSet,
   Logged,
@@ -36,6 +37,15 @@ export class TrackerChanges {
     if (runId === null) delete progress.dispatcherRunId;
     else progress.dispatcherRunId = runId;
     return { logged: [this.records.logger.log({ kind: 'dispatcher-set', fields: { state, runId } }, at)], previousState };
+  }
+
+  /** A `null` command deletes the stored one, so a release runs no check again. */
+  setCheckCommand(command: string | null, at: string): CheckCommandSet {
+    const { progress }         = this.records;
+    const previousCheckCommand = progress.checkCommand ?? null;
+    if (command === null) delete progress.checkCommand;
+    else progress.checkCommand = command;
+    return { logged: [this.records.logger.log({ kind: 'check-command-set', fields: { command } }, at)], previousCheckCommand };
   }
 
   recordNote(text: string, at: string): Logged {

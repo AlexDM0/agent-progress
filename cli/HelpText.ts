@@ -208,6 +208,15 @@ output never carries either.
                               --review-of names a released ticket is finished and delivered at the release
                               time, and named.
                               All of it happens in one lock hold, so two releases never race.
+                              With a check command stored (see \`checks\`) it first runs it, outside
+                              the lock, through the user's shell in --worktree, which it then needs:
+                              refused, before the command runs, when that worktree's HEAD is not
+                              <b>'s tip (\`worktree-not-at-tip\`) or it holds an uncommitted or
+                              untracked file (\`worktree-dirty\`); when the command exits non-zero
+                              (\`checks-failed\`, its last 20 lines in the detail: fix, commit and
+                              release again) or changes a tracked file (\`worktree-dirty\`); and,
+                              in the lock, when <b> moved since (\`branch-moved\`) or the stored
+                              command changed (\`check-command-changed\`).
                               Refused at exit 1, with nothing changed (no review row either), when a ticket
                               is not in-progress or in-review (or such a reviewed bundle ticket),
                               when the main checkout is not on
@@ -220,13 +229,16 @@ output never carries either.
                               never forced, and \`git branch -d <b>\`; what git declines is named
                               with its reason, the files a worktree still holds among it, at exit
                               0. --json prints, on success, {released: true, tickets, branch,
-                              mainLine, commit, closedReviewRows, cleanup} — closedReviewRows the
-                              ids of the review rows it delivered — and on a refusal {released: false,
-                              reason, detail, blockingFiles, cleanup: []}; reason is one of
-                              invalid-request, unknown-ticket, ticket-not-releasable,
-                              unknown-branch, not-on-main-line, main-moved, merge-refused,
+                              mainLine, commit, checkCommand, closedReviewRows, cleanup} —
+                              checkCommand the command that passed, null when none is stored,
+                              closedReviewRows the ids of the review rows it delivered — and on a
+                              refusal {released: false, reason, detail, blockingFiles, cleanup: []};
+                              reason is one of invalid-request, unknown-ticket,
+                              ticket-not-releasable, unknown-branch, not-on-main-line,
+                              worktree-not-at-tip, worktree-dirty, checks-failed,
+                              check-command-changed, branch-moved, main-moved, merge-refused,
                               git-failed and tracker-failed, and blockingFiles, on merge-refused,
-                              the main checkout's uncommitted files the merge would overwrite,
+                              the main checkout's own uncommitted files the merge would overwrite,
                               empty otherwise. A cleanup step is one of {target: worktree, path,
                               outcome: removed}, {target: worktree, path, outcome: left, reason,
                               untrackedFiles, changedFiles}, {target: branch, name, outcome:
@@ -457,6 +469,18 @@ output never carries either.
                               never set one reads \`stopped\`, and the read writes nothing; any
                               other word is refused at exit 1 with nothing written.
                               \`status --json\` carries it as \`concurrency.dispatcherState\`.
+
+  checks ["<command>" | --clear] [--json]
+                              Print the check command \`release\` runs on a branch's tip before it
+                              changes anything, or store one for every worktree with one log line:
+                              the repository's full check line, quoted as one argument. It lives in
+                              the tracker, never in the branch being released, and runs through the
+                              user's shell (\`$SHELL\`, else /bin/sh) in the branch's worktree.
+                              --clear removes it; a tracker that never set one runs none, and the
+                              read writes nothing. A blank command, a command beside --clear, or
+                              --clear with none stored is refused at exit 1 with nothing written.
+                              --json prints {checkCommand}, null when none is stored, and a change
+                              adds previousCheckCommand.
 
   range --from <when>         The stored default axis of the chart; a bound may also be \`start\`, the
                               earliest visible row. A relative bound is stored as

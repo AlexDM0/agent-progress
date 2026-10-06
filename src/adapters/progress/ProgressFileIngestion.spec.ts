@@ -73,6 +73,15 @@ test('a concurrency limit that is not a whole number of at least 1 makes the fil
   }
 });
 
+test('a check command reads back as stored, and one that is blank or not text makes the file unreadable, the reason naming the field', () => {
+  const stored = readBack('store-check-command', { ...emptyDocument(), checkCommand: 'bun run example-checks' });
+  expect(stored.verdict === 'readable' ? stored.progress.checkCommand : null).toBe('bun run example-checks');
+  for (const malformedCommand of ['', '  ', 3, null]) {
+    const result = readBack('store-malformed-check-command', { ...emptyDocument(), checkCommand: malformedCommand });
+    expect(result.verdict === 'unreadable' ? result.reason : '', JSON.stringify(malformedCommand)).toContain('checkCommand');
+  }
+});
+
 test('a bar that stores its round reads back unchanged', () => {
   const progress = emptyProgress();
   fileRow(progress, { name: 'Review 1 #3 — x', reviewOf: '003', reviewBarRound: 1 });

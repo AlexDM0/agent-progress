@@ -6,6 +6,7 @@
 import type {
   AgentChoice,
   AgentStopRecorded,
+  CheckCommandSet,
   ConcurrencyLimitSet,
   DispatcherStateSet,
   EpicChanged,
@@ -124,6 +125,10 @@ export class Board {
 
   setDispatcherState(state: DispatcherState, runId: string | null, at: string): DispatcherStateSet {
     return this.trackerChanges.setDispatcherState(state, runId, at);
+  }
+
+  setCheckCommand(command: string | null, at: string): CheckCommandSet {
+    return this.trackerChanges.setCheckCommand(command, at);
   }
 
   recordNote(text: string, at: string): Logged {
@@ -292,6 +297,10 @@ export class Board {
 
   dispatcherRunId(): string | undefined {
     return this.dispatchQueries.dispatcherRunId();
+  }
+
+  checkCommand(): string | undefined {
+    return this.dispatchQueries.checkCommand();
   }
 
   readyTickets(): readonly Readonly<Ticket>[] {

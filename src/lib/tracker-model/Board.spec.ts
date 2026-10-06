@@ -52,6 +52,7 @@ const CALLS_THAT_CHANGE_NO_TICKET: readonly (readonly [string, (board: Board) =>
   ['setChartRange', (board) => board.setChartRange({ kind: 'auto' }, CHANGED_AT)],
   ['setConcurrencyLimit', (board) => board.setConcurrencyLimit(4, CHANGED_AT)],
   ['setDispatcherState', (board) => board.setDispatcherState('running', 'example-run', CHANGED_AT)],
+  ['setCheckCommand', (board) => board.setCheckCommand('bun run example-checks', CHANGED_AT)],
   ['recordNote', (board) => board.recordNote('Example note from the orchestrator', CHANGED_AT)],
   ['moveTask', (board) => board.moveTask(1, 'paused', { movesAnyway: false }, CHANGED_AT)],
   ['correctTask', (board) => board.correctTask(1, { name: 'Example renamed row', status: 'in-review' }, { movesAnyway: true })],

@@ -1,7 +1,7 @@
 /**
  * The checks a stored or written board setting passes before the model takes it. What matters: every stored view shape passes and a
  * malformed one does not, a limit above the ceiling is still well-formed on disk, a name every object inherits is no dispatcher state,
- * and a blank run id is no run id.
+ * and a blank run id or check command is none.
  */
 import { describe, expect, test } from 'bun:test';
 
@@ -10,6 +10,7 @@ import { DISPATCHER_STATES }                                                 fro
 import { BoardSettingsUtil }                                                 from './BoardSettingsUtil.ts';
 
 const {
+  checkCommandIsWellFormed,
   concurrencyLimitIsWellFormed,
   dispatcherRunIdIsWellFormed,
   dispatcherStateIsKnown,
@@ -76,5 +77,18 @@ describe('dispatcherRunIdIsWellFormed', () => {
     expect(dispatcherRunIdIsWellFormed('')).toBe(false);
     expect(dispatcherRunIdIsWellFormed('   ')).toBe(false);
     expect(dispatcherRunIdIsWellFormed(42)).toBe(false);
+  });
+});
+
+describe('checkCommandIsWellFormed', () => {
+  test('accepts a shell line, compound or not', () => {
+    expect(checkCommandIsWellFormed('bun run example-checks')).toBe(true);
+    expect(checkCommandIsWellFormed('bun run typecheck && bun test')).toBe(true);
+  });
+
+  test('refuses a blank line, a whitespace one and a number', () => {
+    expect(checkCommandIsWellFormed('')).toBe(false);
+    expect(checkCommandIsWellFormed(' \n ')).toBe(false);
+    expect(checkCommandIsWellFormed(42)).toBe(false);
   });
 });

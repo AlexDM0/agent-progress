@@ -2,9 +2,9 @@
  * Every refusal git gives comes back as a verdict with git's own reason, a worktree holding work is left standing with that work named,
  * and an option-shaped branch name reads as a ref under refs/heads/.
  */
-import { existsSync, writeFileSync } from 'node:fs';
-import { join }                      from 'node:path';
-import { afterAll, expect, test }    from 'bun:test';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { join }                                 from 'node:path';
+import { afterAll, expect, test }               from 'bun:test';
 
 import {
   addWorktree,
@@ -21,6 +21,7 @@ import {
   fastForwardTo,
   readBranchDescent,
   readCurrentBranch,
+  readWorktreeCheckout,
   removeWorktree
 } from './BranchIntegration.ts';
 
@@ -206,6 +207,36 @@ describeWhenGitIsPresent('removing the worktree', () => {
     expect(outcome.reason.startsWith(`git worktree remove ${worktreeDirectory} exited with`)).toBe(true);
     expect(outcome.filesLeft).toEqual({ untrackedFiles: ['café.txt'], changedFiles: ['tracked.txt'] });
     expect(existsSync(worktreeDirectory)).toBe(true);
+  });
+});
+
+describeWhenGitIsPresent('reading the commit a worktree stands at', () => {
+  test('a clean worktree reads its HEAD commit and nothing beside it', () => {
+    const repositoryDirectory = scratchGitRepository('branch-integration-clean-checkout');
+    const worktreeDirectory   = addWorktree(repositoryDirectory, 'subagent');
+    const tip                 = commitFile(worktreeDirectory, 'built.ts', 'export const built = true;\n');
+
+    expect(readWorktreeCheckout(worktreeDirectory)).toEqual({ verdict: 'read', headCommit: tip, filesBeside: { untrackedFiles: [], changedFiles: [] } });
+  });
+
+  test('a changed file and an untracked one are named, and an ignored one is not', () => {
+    const repositoryDirectory = scratchGitRepository('branch-integration-dirty-checkout');
+    commitFile(repositoryDirectory, '.gitignore', 'build/\n');
+    commitFile(repositoryDirectory, 'tracked.txt', 'original\n');
+    const worktreeDirectory = addWorktree(repositoryDirectory, 'subagent');
+    writeFileSync(join(worktreeDirectory, 'tracked.txt'), 'changed\n');
+    writeFileSync(join(worktreeDirectory, 'probe.ts'), 'untracked\n');
+    mkdirSync(join(worktreeDirectory, 'build'));
+    writeFileSync(join(worktreeDirectory, 'build', 'output.js'), 'ignored\n');
+
+    const reading = readWorktreeCheckout(worktreeDirectory);
+    expect(reading.verdict === 'read' ? reading.filesBeside : null).toEqual({ untrackedFiles: ['probe.ts'], changedFiles: ['tracked.txt'] });
+  });
+
+  test('a path that is no directory reads not-a-directory, and a directory outside any repository git-failed', () => {
+    expect(readWorktreeCheckout(join(scratchDirectory('branch-integration-no-checkout'), 'missing'))).toEqual({ verdict: 'not-a-directory' });
+    const reading = readWorktreeCheckout(scratchDirectory('branch-integration-outside'));
+    expect(reading.verdict).toBe('git-failed');
   });
 });
 

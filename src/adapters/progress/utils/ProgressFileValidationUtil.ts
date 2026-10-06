@@ -103,6 +103,9 @@ function documentHeaderProblemOf(candidate: unknown): string | null {
   if (candidate['dispatcherRunId'] !== undefined && !BoardSettingsUtil.dispatcherRunIdIsWellFormed(candidate['dispatcherRunId'])) {
     return `dispatcherRunId is ${JSON.stringify(candidate['dispatcherRunId'])}, and when present it has to be a Workflow run id`;
   }
+  if (candidate['checkCommand'] !== undefined && !BoardSettingsUtil.checkCommandIsWellFormed(candidate['checkCommand'])) {
+    return `checkCommand is ${JSON.stringify(candidate['checkCommand'])}, and when present it has to be a shell line that is not blank`;
+  }
   if (!Array.isArray(candidate['tasks'])) return 'tasks is not an array';
   if (Object.hasOwn(candidate, 'log')) return `log is present, and a version ${CURRENT_PROGRESS_FILE_VERSION} file keeps its log in log.jsonl`;
   return null;

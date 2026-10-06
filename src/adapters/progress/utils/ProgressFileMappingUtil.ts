@@ -22,6 +22,7 @@ const KNOWN_PROGRESS_KEYS = {
   concurrencyLimit: true,
   dispatcherState:  true,
   dispatcherRunId:  true,
+  checkCommand:     true,
   tasks:            true,
 } as const satisfies Record<keyof TrackerProgress | keyof StoredProgressFile, true>;
 
@@ -114,6 +115,7 @@ function progressOf(document: StoredProgressFile): TrackerProgress {
     ...(document.concurrencyLimit === undefined ? {} : { concurrencyLimit: document.concurrencyLimit }),
     ...(document.dispatcherState === undefined ? {} : { dispatcherState: document.dispatcherState }),
     ...(document.dispatcherRunId === undefined ? {} : { dispatcherRunId: document.dispatcherRunId }),
+    ...(document.checkCommand === undefined ? {} : { checkCommand: document.checkCommand }),
     tasks:      document.tasks.map(taskOf),
   });
 }
@@ -154,6 +156,7 @@ function storedDocumentOf(progress: TrackerProgress): StoredProgressFile {
     ...(progress.concurrencyLimit === undefined ? {} : { concurrencyLimit: progress.concurrencyLimit }),
     ...(progress.dispatcherState === undefined ? {} : { dispatcherState: progress.dispatcherState }),
     ...(progress.dispatcherRunId === undefined ? {} : { dispatcherRunId: progress.dispatcherRunId }),
+    ...(progress.checkCommand === undefined ? {} : { checkCommand: progress.checkCommand }),
     tasks:      progress.tasks.map(storedTaskOf),
   });
 }

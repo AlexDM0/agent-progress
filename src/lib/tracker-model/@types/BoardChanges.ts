@@ -136,6 +136,10 @@ export interface DispatcherStateSet extends Logged {
   previousState: DispatcherState;
 }
 
+export interface CheckCommandSet extends Logged {
+  previousCheckCommand: string | null;
+}
+
 export interface TrackerCleared extends Logged {
   removedTaskCount:     number;
   survivingTicketCount: number;

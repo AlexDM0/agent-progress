@@ -50,10 +50,13 @@ with it. Then act on the answers in this order.
 4. Read `.agent-progress/agent-brief.md` once: its `Ticket brief` block is the `## Brief` every ticket
    you file carries. Keep it for the session and do not read it again.
 5. Settle the launch arguments once and keep them for the session: `mainCheckout`, the tracker's root;
-   `mainLine`, the branch it is on; `checkCommand`, the repository's full check line, from its
-   `CLAUDE.md` or its scripts; `installCommand`, what a fresh worktree needs before that runs (a
-   `bun install`), or none. Ask the user, through AskUserQuestion, only for what the repository
-   does not say.
+   `mainLine`, the branch it is on; `checkCommand`, exactly the line `agent-progress checks` prints;
+   `installCommand`, what a fresh worktree needs before that runs (a `bun install`), or none. When
+   `agent-progress checks` prints none, settle the repository's full check line from its `CLAUDE.md`
+   or its scripts and store it once with `agent-progress checks "<line>"`: the tracker is where it
+   lives, and every `agent-progress release` runs it on the branch's tip before it changes anything,
+   so never pass the dispatcher another. Ask the user, through AskUserQuestion, only for what the
+   repository does not say.
 6. `agent-progress open`, once. Refused naming the install version: see When agent-progress itself
    changes.
 7. Report the board in at most five lines — in flight, ready to start, blocked and on what, the
@@ -274,7 +277,8 @@ after an unhold. Then:
    **Two failed passes on one ticket is a question for the user, not a third agent**: its context
    block says what the last Handoff and Review say is missing, and the options are what to do next.
    A refused release — a main checkout off the main line, a fast-forward git refused over a
-   local change, a refused permission — is the user's to settle, and neither you nor an agent runs
+   local change, checks that failed where the reviewer could not fix them, a refused permission —
+   is the user's to settle, and neither you nor an agent runs
    anything around it: ask how to settle it, the context block naming the ticket, the reason and, for
    a permission, that allowing `agent-progress release` is the release permission for every reviewer
    from then on. Review rounds that did not converge are a sign about the ticket, not the reviewers:

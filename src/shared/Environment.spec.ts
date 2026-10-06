@@ -1,5 +1,5 @@
 /**
- * What `AGENT_PROGRESS_ROOT` means at each value it arrives with. The value cases run in a child
+ * What `AGENT_PROGRESS_ROOT` and `SHELL` mean at each value they arrive with. The value cases run in a child
  * process so that the one assignment below stays the repository's only in-process write to the
  * environment, and that assignment is what shows the getter reads afresh rather than capturing at import.
  */
@@ -22,6 +22,20 @@ function overrideSeenByAChildProcess(childEnvironment: Record<string, string>): 
   ].join('\n');
   return jsonPrintedByAChildProcess(childEnvironment, source) as string | null;
 }
+
+function shellSeenByAChildProcess(childEnvironment: Record<string, string>): string | null {
+  const source = [
+    `const loaded = await import(${JSON.stringify(ENVIRONMENT_MODULE_PATH)});`,
+    'console.log(JSON.stringify(loaded.userShell() ?? null));',
+  ].join('\n');
+  return jsonPrintedByAChildProcess(childEnvironment, source) as string | null;
+}
+
+test('the user\'s shell is SHELL verbatim, and an unset, empty or whitespace-only one is none', () => {
+  expect(shellSeenByAChildProcess({ SHELL: '/bin/example shell' })).toBe('/bin/example shell');
+  expect(shellSeenByAChildProcess({})).toBeNull();
+  for (const clearedValue of ['', '  ']) expect(shellSeenByAChildProcess({ SHELL: clearedValue }), JSON.stringify(clearedValue)).toBeNull();
+}, CHILD_PROCESS_CASE_TIMEOUT_MILLISECONDS);
 
 test('the child-process harness can tell the two answers apart, so a case that finds nothing means something', () => {
   expect(overrideSeenByAChildProcess({ AGENT_PROGRESS_ROOT: '/example/repository' })).toBe('/example/repository');

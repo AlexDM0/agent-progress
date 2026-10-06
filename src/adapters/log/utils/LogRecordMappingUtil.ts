@@ -44,6 +44,7 @@ const COPY_FOR_FIELD_SHAPE: Readonly<Record<LogFieldShape, (value: unknown) => u
   'concurrency-limit': sameValue,
   'dispatcher-state':  sameValue,
   'dispatcher-run-id': sameValue,
+  'check-command':     sameValue,
   'count':             sameValue,
 };
 

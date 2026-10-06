@@ -104,8 +104,10 @@ dispatcher's rework threshold (comments and docs do not count). Two failed passe
 nothing stop the run as an outage instead of blaming the tickets.
 
 **Releases cannot collide.** `release` checks the ticket, fast-forwards main and closes the review bar in
-one lock hold. A branch that fell behind is told `main-moved`, rebases and tries again. On this board a row's
-*done* pill means merged.
+one lock hold. A branch that fell behind is told `main-moved`, rebases and tries again. Store the repository's
+check line once with `agent-progress checks "<line>"`, and every release first runs it on the exact commit it
+would merge, in the branch's worktree; a failure is refused as `checks-failed` and changes nothing. On this board
+a row's *done* pill means merged.
 
 **You see what every agent cost.** The `SubagentStop` hook that `init` installs adds everything an agent processed,
 cache reads included, to its row. `agent-progress usage` audits the same figures from the transcripts.

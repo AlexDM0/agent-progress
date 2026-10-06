@@ -25,7 +25,7 @@ repository yourself is in [development.md](development.md).
 | `<when>` | An ISO 8601 timestamp, `now`, or an offset from now: `-5m`, `-2h`, `-1d`, `+30m`. `--at <when>` backfills: a stamp already recorded is kept, so a row nobody registered at the time can be dated afterwards. |
 | `<n>` | The figure on `--tokens`: a whole number or a decimal with a `k`/`m`/`b` suffix — `12000`, `12k`, `12.3k`, `1.2m`, `1.20b`, so a figure `status` or the page prints reads back. A bare decimal and a negative are refused. It is a figure the orchestrator reports, never one this tool measures, and it replaces the row's figure rather than adding to it. |
 | `<id>` | A task id is a number (`17`); a ticket id is its padded number (`003`), and `3` or `#3` name the same ticket. |
-| `--json` | Accepted by every command but `init`, `update`, `render`, `open`, `hook` and `help`, and prints one JSON document on standard output in place of the human output. A reading command prints the document its row describes. A command that writes prints what it wrote: the row for a `task` verb, the ticket for a `ticket` verb or setting (a list for a claim of several), the epic for `epic add` and `epic edit` (`{ key, removed: true, filePath }` for `epic remove`), the log entry for `log`, the stored axis for `range`, the new state for `concurrency <n>` and `dispatcher <state>`, and the counts for `clear`; `release` prints its own document. Nothing follows the document on standard output — no Next line, running-dispatcher notice or resume line — while a warning still goes to standard error. |
+| `--json` | Accepted by every command but `init`, `update`, `render`, `open`, `hook` and `help`, and prints one JSON document on standard output in place of the human output. A reading command prints the document its row describes. A command that writes prints what it wrote: the row for a `task` verb, the ticket for a `ticket` verb or setting (a list for a claim of several), the epic for `epic add` and `epic edit` (`{ key, removed: true, filePath }` for `epic remove`), the log entry for `log`, the stored axis for `range`, the new state for `concurrency <n>`, `dispatcher <state>` and `checks <command>`, and the counts for `clear`; `release` prints its own document. Nothing follows the document on standard output — no Next line, running-dispatcher notice or resume line — while a warning still goes to standard error. |
 | `AGENT_PROGRESS_ROOT` | Names the repository to use instead of walking up from the current directory, for a command run from somewhere else entirely. It does not create a tracker: a value naming a directory that has none is refused with a message saying the variable is set. `init` does not choose its directory by it, and refuses at exit 1 when it names a directory other than the one `init` targets. |
 
 **One tracker per repository.** The tracker lives in `.agent-progress/` at the repository root, found
@@ -33,14 +33,15 @@ with `git rev-parse --git-common-dir`, so every worktree of a repository shares 
 chart.
 
 **Locking.** Every mutating command (`init`, `task`, `ticket`, `epic`, `log`, `concurrency`, `dispatcher`,
-`range`, `release`, `clear`, `hook subagent-stop`) takes the tracker's lock, reads, changes, writes
+`checks`, `range`, `release`, `clear`, `hook subagent-stop`) takes the tracker's lock, reads, changes, writes
 `progress.json` atomically, writes any ticket file after it, then `log.jsonl` when it logged something,
 and regenerates `progress.html` from disk, then its `progress.stamp.js` — all before releasing the lock, so the page
 never describes a state the store did not hold, a ticket file is never ahead of the progress file, and a log line
 never describes a change that was not stored.
 `render` and `open` take the lock only to render. `status`, `ticket list`, `ticket show`, `epic list`, `epic show`,
-`concurrency` and `dispatcher` without an argument, `usage` and `rework` take none: every file they
-read is written atomically. `update`, and `init` on an existing tracker, never touch the tracker's
+`concurrency`, `dispatcher` and `checks` without an argument, `usage` and `rework` take none: every file
+they read is written atomically. `release` runs a stored check command before it takes the lock, so a
+release waits for no other release's checks. `update`, and `init` on an existing tracker, never touch the tracker's
 own files and take no lock.
 
 **Help and options.** `agent-progress help` prints the whole reference. `--help` works after a
@@ -122,7 +123,8 @@ version all of them are.
    git-ignored tracker, so no generated file lands in the project's tree. The orchestrator launches it
    by its path only —
    `Workflow({ scriptPath: '<mainCheckout>/.agent-progress/agent-progress-dispatch.js', args: { mainCheckout, mainLine, checkCommand, installCommand, includeLowPriority, group } })`
-   — since it is not under `.claude/workflows/` and has no name to launch it by. It is the tool's
+   — since it is not under `.claude/workflows/` and has no name to launch it by. Its `checkCommand` is
+   the line `agent-progress checks` prints, stored once in the tracker, which `release` runs itself. It is the tool's
    script, not the project's, so a hand edit is undone. A dispatcher that cannot be generated is
    exit 2, and nothing at all is written.
 7. **The worker agent definition**, a Claude Code subagent whose frontmatter sets `model: opus` and
@@ -339,6 +341,7 @@ stored in the tracker.
 | command | what it does |
 |---|---|
 | `concurrency [<n>] [--json]` | Print how many agents may be in flight at once, or store a new limit for every worktree: a whole number from 1 to 10. A higher one is refused at exit 1 with nothing written, and one an older tracker stored above 10 reads as 10. A tracker that never set one reads 2. A limit below the agents already in flight is accepted and simply leaves no free slot. A slot is an agent: the in-progress rows one `ticket claim` started count once, and every other in-progress row, such as a review bar, counts on its own. `--json` prints `{ limit, agentsInFlight, freeSlots }`, after a change as well. |
+| `checks ["<command>" \| --clear] [--json]` | Print the check command `release` runs on a branch's tip before it changes anything, or store one for every worktree with one log line (`Check command set to <command>`, `Check command cleared`): the repository's full check line, quoted as one argument. It lives in the tracker, never in the branch being released, and runs through the user's shell — `$SHELL`, else `/bin/sh` — in the branch's worktree. `--clear` removes the key; a tracker that never set one runs none, and the read writes nothing. A blank command, a command beside `--clear`, or `--clear` with none stored is refused at exit 1 with nothing written. `--json` prints `{ checkCommand }`, `null` when none is stored, and a change adds `previousCheckCommand`. |
 | `dispatcher [running\|finished\|stopped] [--run <runId>] [--json]` | Print where the dispatcher was left, or store a new state with one log line. `running`: a dispatcher is at work. `finished`: it ended by itself, and is relaunched when a normal or high ticket is ready. `stopped`: never started, or ended by the user, and it waits for the user's go however many tickets are filed meanwhile. A tracker that never set one reads `stopped`, and the read writes nothing; any other word is refused at exit 1. `running --run <runId>` stores the Workflow run beside the state — the one a killed run is resumed by, with the same args — and every write without `--run` clears it; `--run` beside another state or none, or an empty id, is refused at exit 1. `status --json` carries both as `concurrency.dispatcherState` and `concurrency.dispatcherRunId`. `--json` prints `{ dispatcherState, dispatcherRunId }`, the run id only while one is stored, and a change adds `previousState`. |
 
 **A slot is an agent.** `ticket claim 3 4 5` writes the same `agent` key on each of a bundle's rows,
@@ -420,7 +423,7 @@ states, and the dispatcher decides that in code. It starts no low ticket unless 
 
 | command | what it does |
 |---|---|
-| `release <id> [<id>...] --branch <b> [--worktree <path>] [--main <line>] [--json]` | Release a reviewed branch, and the only way one reaches the main line: allowing this command in the harness is the release permission, and a reviewer never runs `git merge` itself. In one lock hold, so two releases never race, it checks that each ticket is in-progress or in-review — or reviewed, when it is in a group's release bundle and that group's in-progress or in-review release ticket is released with it —, that the main checkout — the tracker's root, wherever this runs from — is on `--main` (default `main`), and that `<b>` is a local branch descending from it; fast-forwards; and moves each ticket to reviewed (unless it already is, so it is approved once) and delivered with `--branch <b>` and `--commit` set to the merged tip. In the same hold every `in-progress` review row whose `reviewOf` names a released ticket is finished and delivered at the release time and named. Several ids are the tickets of one bundle on one branch. Every refusal changes nothing, the review rows included. Afterwards it runs `git worktree remove` on `--worktree`, never forced, and `git branch -d <b>`; what git declines — a worktree holding untracked files, say — is named with its files at exit 0, since the release happened. |
+| `release <id> [<id>...] --branch <b> [--worktree <path>] [--main <line>] [--json]` | Release a reviewed branch, and the only way one reaches the main line: allowing this command in the harness is the release permission, and a reviewer never runs `git merge` itself. In one lock hold, so two releases never race, it checks that each ticket is in-progress or in-review — or reviewed, when it is in a group's release bundle and that group's in-progress or in-review release ticket is released with it —, that the main checkout — the tracker's root, wherever this runs from — is on `--main` (default `main`), and that `<b>` is a local branch descending from it; fast-forwards; and moves each ticket to reviewed (unless it already is, so it is approved once) and delivered with `--branch <b>` and `--commit` set to the merged tip. In the same hold every `in-progress` review row whose `reviewOf` names a released ticket is finished and delivered at the release time and named. Several ids are the tickets of one bundle on one branch. With a check command stored (`checks`), it first, outside the lock so no other release waits on it, needs `--worktree`, refuses unless that worktree's HEAD is `<b>`'s tip and it holds no uncommitted or untracked file, and runs the command there; it refuses when the command exits non-zero or changed a tracked file, and inside the lock when `<b>` moved or the stored command changed since. Every refusal changes nothing, the review rows and the main checkout included. Afterwards it runs `git worktree remove` on `--worktree`, never forced, and `git branch -d <b>`; what git declines — a worktree holding untracked files, say — is named with its files at exit 0, since the release happened. |
 | `rework [--since <commit>] [--rebased-from <old tip>] [--main <branch>] [--worktree <path>] [--files] [--json]` | How many lines of code a review reworked on a branch — added plus removed lines, never blank lines, comments or documentation (`*.md`, `*.mdx`, `*.rst`, `*.txt` and anything under the repository's `docs/`) — so that a threshold on it gives every reviewer the same verdict; no threshold is built in. `--since` counts every commit in `<commit>..HEAD`, and is refused at exit 1 when `<commit>` is not an ancestor of HEAD or a merge lies in between: work is rebased, not merged. `--rebased-from` counts what a rebase changed in the branch's own work — the hand resolution of its conflicts — as the added lines in which the branch's patch against `--main` (default `main`) differs before and after, so a line resolved by hand counts 2, main's own change none, and a rebase without conflicts 0; it is measured up to HEAD, so run it right after the rebase. See below for combining the two. `--worktree` reads that working tree instead of the current directory; `--files` adds a per-file breakdown. It needs no tracker, takes no lock and writes nothing. |
 
 **Release refusals.** `--json` prints, on a refusal, `{released: false, reason, detail, blockingFiles, cleanup: []}`,
@@ -434,15 +437,21 @@ untracked, that the merge would overwrite (on `merge-refused`; empty otherwise),
 | `ticket-not-releasable` | 1 | a ticket is not in-progress or in-review, nor a reviewed ticket of a group's release bundle released with that group's release ticket |
 | `unknown-branch` | 1 | `<b>` is not a local branch |
 | `not-on-main-line` | 1 | the main checkout is not on `--main`, or `--main` is not a local branch |
+| `worktree-not-at-tip` | 1 | a check command is stored and the `--worktree` HEAD is not `<b>`'s tip, before the command runs or after it moved it |
+| `worktree-dirty` | 1 | a check command is stored and the worktree holds an uncommitted or untracked file before it runs, or a tracked file it changed: commit or remove them, and release again |
+| `checks-failed` | 1 | the stored check command exited non-zero or could not be started; `detail` ends with its last 20 lines of output, standard error included: fix, commit, and release again |
+| `check-command-changed` | 1 | the stored check command changed, or was set or cleared, while the release ran it |
+| `branch-moved` | 1 | `<b>` moved off the commit the checks passed on while they ran: release again |
 | `main-moved` | 1 | `<b>` does not descend from the main line: rebase `<b>` onto it, re-run the checks, count the rebase with `rework --rebased-from`, and release again |
-| `merge-refused` | 1 | git will not fast-forward, typically over uncommitted changes in the main checkout, which `blockingFiles` names: commit or stash them, and release again |
+| `merge-refused` | 1 | git will not fast-forward, typically over the main checkout's own uncommitted changes, which `blockingFiles` names and a refusal leaves as they were — never the branch's files: whoever made them stashes them, or commits them when they belong on the main line, and the release runs again |
 | `git-failed` | 2 | git could not be read |
 | `tracker-failed` | 2 | the tracker could not be read, or its lock could not be taken |
 
-`--json` prints, on success, `{released: true, tickets, branch, mainLine, commit, closedReviewRows, cleanup}`:
-`tickets` the ids just delivered, `closedReviewRows` the ids of the review rows it delivered with them,
-and `cleanup` each step, the worktree's first when `--worktree` was given, as one of these, `reason`
-being git's:
+`--json` prints, on success,
+`{released: true, tickets, branch, mainLine, commit, checkCommand, closedReviewRows, cleanup}`: `tickets` the ids just
+delivered, `checkCommand` the stored check command that passed (`null` when none is stored), `closedReviewRows` the
+ids of the review rows it delivered with them, and `cleanup` each step, the worktree's first when `--worktree` was
+given, as one of these, `reason` being git's:
 
 ```
 {target: worktree, path, outcome: removed}
@@ -662,6 +671,7 @@ never re-parsed into a viewer's zone.
   "concurrencyLimit": 2,                         // optional: absent reads 2, above 10 reads 10
   "dispatcherState": "running",                  // optional: running|finished|stopped, absent reads stopped
   "dispatcherRunId": "wf_example-run-1",         // optional: the Workflow run to resume, only beside running
+  "checkCommand": "bun run typecheck && bun test", // optional: the shell line release runs; absent runs none
   "tasks": [
     {
       "id": 17,
@@ -707,7 +717,8 @@ does not know survive a read and a write, at the top level and on a row, in the 
 ticket's unknown frontmatter lines do.
 
 A present `concurrencyLimit` that is not a whole number of at least 1, a `dispatcherState` outside
-the three, or an empty or blank `dispatcherRunId` makes the file unreadable (exit 2), and so does a
+the three, an empty or blank `dispatcherRunId`, or a `checkCommand` that is not text or is blank makes the file
+unreadable (exit 2), and so does a
 present optional row key of the wrong shape: `reviewRound` below 2, `reviewBarRound` below 1, or a
 `history` that is not a list of known statuses with their stamps. A task is linked to at
 most one ticket. Task ids are never reused, not even after `task remove` or `clear`.
@@ -741,6 +752,7 @@ record as a sentence; a note's sentence is its text.
 | `review-bar-started`, `review-bar-closed` | `taskId`, `ticketId` | `name` |
 | `chart-range-set` | — | `view`, shaped as `progress.json`'s |
 | `concurrency-limit-set` | — | `limit` |
+| `check-command-set` | — | `command` (the shell line, or `null` when cleared) |
 | `dispatcher-set` | — | `state`, `runId` (a run id or `null`) |
 | `tracker-cleared` | — | none |
 | `agent-stopped` | — | below |

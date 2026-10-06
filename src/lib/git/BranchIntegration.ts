@@ -1,6 +1,7 @@
 /**
  * The git steps of bringing a branch into the main checkout, as verdicts: which branch the main checkout is on, whether a branch descends
- * from the main line, the fast-forward itself, and the two cleanups. Nothing here forces anything: a refusal git gives is handed back with its reason.
+ * from the main line, which commit a worktree stands at and what it holds beside it, the fast-forward itself, and the two cleanups.
+ * Nothing here forces anything: a refusal git gives is handed back with its reason.
  */
 import { GitProcess }                from './GitProcess.ts';
 import { NOT_AN_ANCESTOR_EXIT_CODE } from './constants/GitConventions.ts';
@@ -10,6 +11,8 @@ const DETACHED_HEAD_EXIT_CODE = 1;
 const PORCELAIN_STATUS_PREFIX_CHARACTERS = 3;
 
 const UNTRACKED_STATUS_CODE = '??';
+
+const STATUS_ARGUMENTS = ['status', '--porcelain=v1', '--untracked-files=all'];
 
 const RENAME_OR_COPY_STATUS_CODES = ['R', 'C'] as const;
 
@@ -33,6 +36,11 @@ export interface FilesLeftInWorktree {
   untrackedFiles: string[];
   changedFiles:   string[];
 }
+
+export type WorktreeCheckoutReading =
+  | { verdict: 'read'; headCommit: string; filesBeside: FilesLeftInWorktree }
+  | { verdict: 'not-a-directory' }
+  | { verdict: 'git-failed'; reason: string };
 
 export type WorktreeRemovalOutcome =
   | { verdict: 'removed' }
@@ -103,18 +111,33 @@ export function fastForwardTo(directory: string, commit: string): FastForwardOut
   return { verdict: 'fast-forwarded', commit };
 }
 
-function filesLeftIn(worktreePath: string): FilesLeftInWorktree {
-  const filesLeft: FilesLeftInWorktree = { untrackedFiles: [], changedFiles: [] };
-  if (!GitProcess.directoryExists(worktreePath)) return filesLeft;
-  const run = GitProcess.run(worktreePath, ['status', '--porcelain=v1', '--untracked-files=all']);
-  if (!GitProcess.succeeded(run)) return filesLeft;
-  for (const line of run.standardOutput.split('\n')) {
+/** Ignored files are not named: git would not lose them, and a check run may leave them anywhere. */
+function filesBesideTheCommitOf(statusOutput: string): FilesLeftInWorktree {
+  const filesBeside: FilesLeftInWorktree = { untrackedFiles: [], changedFiles: [] };
+  for (const line of statusOutput.split('\n')) {
     if (line.length <= PORCELAIN_STATUS_PREFIX_CHARACTERS) continue;
     const path = line.slice(PORCELAIN_STATUS_PREFIX_CHARACTERS);
-    if (line.startsWith(UNTRACKED_STATUS_CODE)) filesLeft.untrackedFiles.push(path);
-    else filesLeft.changedFiles.push(path);
+    if (line.startsWith(UNTRACKED_STATUS_CODE)) filesBeside.untrackedFiles.push(path);
+    else filesBeside.changedFiles.push(path);
   }
-  return filesLeft;
+  return filesBeside;
+}
+
+function filesLeftIn(worktreePath: string): FilesLeftInWorktree {
+  if (!GitProcess.directoryExists(worktreePath)) return { untrackedFiles: [], changedFiles: [] };
+  const run = GitProcess.run(worktreePath, STATUS_ARGUMENTS);
+  if (!GitProcess.succeeded(run)) return { untrackedFiles: [], changedFiles: [] };
+  return filesBesideTheCommitOf(run.standardOutput);
+}
+
+export function readWorktreeCheckout(worktreePath: string): WorktreeCheckoutReading {
+  if (!GitProcess.directoryExists(worktreePath)) return { verdict: 'not-a-directory' };
+  const headArguments = ['rev-parse', '--verify', 'HEAD^{commit}'];
+  const headRun       = GitProcess.run(worktreePath, headArguments);
+  if (!GitProcess.succeeded(headRun)) return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(headRun, headArguments) };
+  const statusRun = GitProcess.run(worktreePath, STATUS_ARGUMENTS);
+  if (!GitProcess.succeeded(statusRun)) return { verdict: 'git-failed', reason: GitProcess.failureReasonOf(statusRun, STATUS_ARGUMENTS) };
+  return { verdict: 'read', headCommit: headRun.standardOutput.trim(), filesBeside: filesBesideTheCommitOf(statusRun.standardOutput) };
 }
 
 /** Never `--force`: a worktree holding files git would lose is left standing, and what it holds is named so a person can decide. */

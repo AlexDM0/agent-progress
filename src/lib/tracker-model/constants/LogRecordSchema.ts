@@ -19,6 +19,7 @@ export type LogFieldShape =
   | 'concurrency-limit'
   | 'dispatcher-state'
   | 'dispatcher-run-id'
+  | 'check-command'
   | 'count';
 
 export interface LogRecordKindSchema {
@@ -65,6 +66,7 @@ export const LOG_RECORD_SCHEMA = {
   'chart-range-set':                 { subject: 'board', fields: { view: 'chart-range' } },
   'concurrency-limit-set':           { subject: 'board', fields: { limit: 'concurrency-limit' } },
   'dispatcher-set':                  { subject: 'board', fields: { state: 'dispatcher-state', runId: 'dispatcher-run-id' } },
+  'check-command-set':               { subject: 'board', fields: { command: 'check-command' } },
   'tracker-cleared':                 { subject: 'board', fields: NO_FIELDS },
   // `totalInputTokens` is fresh input plus cache read plus cache creation; the run id and label are stored only for an agent a workflow run spawned.
   'agent-stopped':                   {

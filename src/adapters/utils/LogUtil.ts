@@ -105,6 +105,8 @@ function sentenceOf(record: LogRecordContent): string {
       return `Concurrency limit set to ${record.fields.limit}`;
     case 'dispatcher-set':
       return `Dispatcher set to ${dispatcherStateTextOf(record.fields.state, record.fields.runId)}`;
+    case 'check-command-set':
+      return record.fields.command === null ? 'Check command cleared' : `Check command set to ${record.fields.command}`;
     case 'tracker-cleared':
       return 'Tracker cleared';
     case 'agent-stopped':
