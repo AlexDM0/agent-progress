@@ -370,6 +370,7 @@ describeWhenGitIsPresent('a ticket stamped with the check command it started und
     expect(document.detail).toContain('`false`');
     expect(document.detail).toContain(`\`${MARKER_COMMAND}\``);
     expect(document.detail).toContain(`agent-progress checks "${MARKER_COMMAND}" --restamp`);
+    expect((document.detail ?? '').split('Nothing was changed.').length - 1, 'said once').toBe(1);
     expect(existsSync(markerPath()), 'refused before the command runs').toBe(false);
 
     // Tried in the main checkout first, so the line must pass there and write nothing beside it.

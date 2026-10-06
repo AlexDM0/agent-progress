@@ -46,7 +46,7 @@ export function requireStampsMatchingTheCheckCommand(board: Board, tickets: read
     refuseTheRelease(
       'check-command-differs-from-start',
       `Ticket #${frontmatter.id} was started under the check command ${checkCommandText(stampedCheckCommand)}, and the tracker's is now `
-      + `${checkCommandText(storedCheckCommand)}. Nothing was changed. Only the orchestrator settles which one holds: \`${remedy}\` `
+      + `${checkCommandText(storedCheckCommand)}. Only the orchestrator settles which one holds: \`${remedy}\` `
       + 'stamps every ticket in flight with the stored one.',
     );
   }
