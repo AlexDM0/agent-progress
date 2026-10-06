@@ -18,6 +18,8 @@ const COMMAND_STRING_OPTION_LETTER = 'c';
 
 const SHORT_OPTION_CLUSTER_PATTERN = /^-[a-zA-Z]+$/;
 
+const SHELL_OPTIONS_TAKING_A_VALUE = new Set(['-o', '+o', '-O', '+O', '--rcfile', '--init-file']);
+
 const COMMAND_SEPARATOR_CHARACTERS = new Set([';', '&', '|', '(', ')', '\n', '`', '{', '}']);
 
 const REDIRECTION_PATTERN = /^\d*[<>]/;
@@ -87,14 +89,21 @@ function optionClusterHoldsCommandStringFlag(word: string): boolean {
   return SHORT_OPTION_CLUSTER_PATTERN.test(word) && word.includes(COMMAND_STRING_OPTION_LETTER);
 }
 
-/** `bash -c "<line>"` (any leading path, `-c` alone or in a cluster such as `-lc`) runs its first argument after the options. */
+/**
+ * `bash -c "<line>"` (any leading path, `-c` alone or in a cluster such as `-lc`) runs its first argument after the options, an option's
+ * value (`-o pipefail`) skipped.
+ */
 function shellCommandStringsOf(words: readonly string[]): string[] {
   return words.flatMap((word, shellIndex) => {
     if (!SHELL_PROGRAM_NAMES.has(programNameOf(word))) return [];
-    const options = [];
-    for (let i = shellIndex + 1; i < words.length && words[i]?.startsWith('-'); i++) options.push(words[i] ?? '');
-    const commandString = words[shellIndex + 1 + options.length];
-    return options.some(optionClusterHoldsCommandStringFlag) && commandString !== undefined ? [commandString] : [];
+    let runsACommandString = false;
+    for (let i = shellIndex + 1; i < words.length; i++) {
+      const option = words[i] ?? '';
+      if (SHELL_OPTIONS_TAKING_A_VALUE.has(option)) i++;
+      else if (option.startsWith('-') || option.startsWith('+')) runsACommandString ||= optionClusterHoldsCommandStringFlag(option);
+      else return runsACommandString ? [option] : [];
+    }
+    return [];
   });
 }
 

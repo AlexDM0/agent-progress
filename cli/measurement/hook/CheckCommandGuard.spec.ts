@@ -50,6 +50,8 @@ const CHANGING_COMMAND_LINES = [
   'sh -c \'agent-progress checks "bun test"\'',
   'zsh -lc "cd /tmp/example && agent-progress checks --clear"',
   '/bin/bash -c "agent-progress checks --clear"',
+  'bash -o pipefail -c "agent-progress checks --clear"',
+  'bash -O extglob -lc "agent-progress checks --clear"',
   'eval \'agent-progress checks "x"\'',
   'eval agent-progress checks --clear',
   'bash -c "eval \'agent-progress checks --clear\'"',
